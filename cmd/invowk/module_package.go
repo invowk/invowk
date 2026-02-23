@@ -204,7 +204,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 	}
 
 	// Parse invowkmod.cue to get requirements.
-	meta, err := invowkfile.ParseInvowkmod(invowkmodPath)
+	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodPath))
 	if err != nil {
 		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
 	}

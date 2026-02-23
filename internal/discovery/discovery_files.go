@@ -94,12 +94,12 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	// because the working directory was deleted). This prevents filepath.Abs("")
 	// from silently resolving to the process working directory, which may not exist.
 	if d.baseDir != "" {
-		if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
+		if cwdFile := d.discoverInDir(string(d.baseDir), SourceCurrentDir); cwdFile != nil {
 			files = append(files, cwdFile)
 		}
 
 		// 2. Modules in current directory (+ their vendored dependencies)
-		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
+		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(string(d.baseDir))
 		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags)
 	}
 
@@ -109,7 +109,7 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive) (+ their vendored dependencies)
 	if d.commandsDir != "" {
-		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
+		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(string(d.commandsDir))
 		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
 	}
 
@@ -214,7 +214,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*Discover
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:   types.FilesystemPath(m.InvowkfilePath()),
+			Path:   m.InvowkfilePath(),
 			Source: SourceModule,
 			Module: m,
 		})
@@ -266,7 +266,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 			continue // Skip invalid modules
 		}
 		files = append(files, &DiscoveredFile{
-			Path:   types.FilesystemPath(m.InvowkfilePath()),
+			Path:   m.InvowkfilePath(),
 			Source: SourceModule,
 			Module: m,
 		})
@@ -346,7 +346,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:         types.FilesystemPath(m.InvowkfilePath()),
+			Path:         m.InvowkfilePath(),
 			Source:       SourceModule,
 			Module:       m,
 			ParentModule: parentModule,

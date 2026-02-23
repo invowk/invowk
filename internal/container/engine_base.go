@@ -77,7 +77,7 @@ type (
 	// remain on the concrete types.
 	BaseCLIEngine struct {
 		name                 string // Engine name for error messages (e.g., "docker", "podman")
-		binaryPath           string
+		binaryPath           HostFilesystemPath
 		execCommand          ExecCommandFunc
 		volumeFormatter      VolumeFormatFunc
 		runArgsTransformer   RunArgsTransformer
@@ -352,7 +352,7 @@ func WithSysctlOverrideActive(active bool) BaseCLIEngineOption {
 // --- Constructor ---
 
 // NewBaseCLIEngine creates a new base engine with the given binary path.
-func NewBaseCLIEngine(binaryPath string, opts ...BaseCLIEngineOption) *BaseCLIEngine {
+func NewBaseCLIEngine(binaryPath HostFilesystemPath, opts ...BaseCLIEngineOption) *BaseCLIEngine {
 	e := &BaseCLIEngine{
 		binaryPath:  binaryPath,
 		execCommand: exec.CommandContext,
@@ -375,7 +375,7 @@ func (e *BaseCLIEngine) Name() string {
 
 // BinaryPath returns the path to the container engine binary.
 func (e *BaseCLIEngine) BinaryPath() string {
-	return e.binaryPath
+	return string(e.binaryPath)
 }
 
 // BaseCLI returns the BaseCLIEngine itself.
@@ -529,7 +529,7 @@ func (e *BaseCLIEngine) RunCommand(ctx context.Context, args ...string) ([]byte,
 	cmd := e.CreateCommand(ctx, args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
+		return nil, fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
 	}
 	return out, nil
 }
@@ -539,7 +539,7 @@ func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) 
 	cmd := e.CreateCommand(ctx, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return out, fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
+		return out, fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
 	}
 	return out, nil
 }
@@ -548,7 +548,7 @@ func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) 
 func (e *BaseCLIEngine) RunCommandStatus(ctx context.Context, args ...string) error {
 	cmd := e.CreateCommand(ctx, args...)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
+		return fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
 	}
 	return nil
 }
@@ -560,7 +560,7 @@ func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string
 	cmd.Stdout = &out
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("command %s %v failed: %w", e.binaryPath, args, err)
+		return "", fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
 	}
 
 	return out.String(), nil
@@ -570,7 +570,7 @@ func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string
 // This is useful when the caller needs to customize stdin/stdout/stderr.
 // Engine-level overrides (env vars, extra files) are applied automatically.
 func (e *BaseCLIEngine) CreateCommand(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := e.execCommand(ctx, e.binaryPath, args...)
+	cmd := e.execCommand(ctx, string(e.binaryPath), args...)
 	e.customizeCmd(cmd)
 	return cmd
 }

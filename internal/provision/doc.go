@@ -9,7 +9,7 @@
 // The main entry point is the Provisioner interface, implemented by LayerProvisioner:
 //
 //	provisioner := provision.NewLayerProvisioner(engine, cfg)
-//	result, err := provisioner.Provision(ctx, "debian:stable-slim")
+//	result, err := provisioner.Provision(ctx, container.ImageTag("debian:stable-slim"))
 //	// result.ImageTag contains the provisioned image to use
 //
 // Provisioned images enable nested invowk commands inside containers by bundling

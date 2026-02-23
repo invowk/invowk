@@ -41,3 +41,14 @@ func TestInitDiagnosticCode_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestInitDiagnosticCode_String(t *testing.T) {
+	t.Parallel()
+
+	if got := CodeContainerRuntimeInitFailed.String(); got != "container_runtime_init_failed" {
+		t.Errorf("CodeContainerRuntimeInitFailed.String() = %q, want %q", got, "container_runtime_init_failed")
+	}
+	if got := InitDiagnosticCode("").String(); got != "" {
+		t.Errorf("InitDiagnosticCode(\"\").String() = %q, want %q", got, "")
+	}
+}

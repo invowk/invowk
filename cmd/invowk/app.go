@@ -60,7 +60,7 @@ type (
 		// Verbose enables verbose diagnostic output.
 		Verbose bool
 		// FromSource is the --ivk-from flag value for source disambiguation.
-		FromSource string
+		FromSource discovery.SourceID
 		// ForceRebuild forces container image rebuilds, bypassing cache.
 		ForceRebuild bool
 		// Workdir overrides the working directory for the command.
@@ -70,7 +70,7 @@ type (
 		// EnvVars are KEY=VALUE pairs from --ivk-env-var flags (highest env priority).
 		EnvVars map[string]string
 		// ConfigPath is the explicit --ivk-config flag value.
-		ConfigPath string
+		ConfigPath types.FilesystemPath
 		// FlagValues are parsed flag values from Cobra state (key: flag name).
 		FlagValues map[invowkfile.FlagName]string
 		// FlagDefs are the command's flag definitions from the invowkfile.

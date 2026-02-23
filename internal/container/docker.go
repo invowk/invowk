@@ -21,7 +21,7 @@ func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
 	allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker))}
 	allOpts = append(allOpts, opts...)
 	return &DockerEngine{
-		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
+		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...),
 	}
 }
 

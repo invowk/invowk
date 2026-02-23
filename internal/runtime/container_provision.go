@@ -15,6 +15,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -56,7 +57,7 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 
 	// Update provisioner config with current invowkfile path and ForceRebuild
 	provCfg := r.provisioner.Config()
-	provCfg.InvowkfilePath = string(ctx.Invowkfile.FilePath)
+	provCfg.InvowkfilePath = ctx.Invowkfile.FilePath
 	provCfg.ForceRebuild = ctx.ForceRebuild
 
 	// Provision the image with invowk resources
@@ -64,7 +65,7 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 		_, _ = fmt.Fprintf(ctx.IO.Stdout, "Provisioning container with invowk resources...\n") // Verbose output; error non-critical
 	}
 
-	result, err := r.provisioner.Provision(ctx.Context, baseImage)
+	result, err := r.provisioner.Provision(ctx.Context, container.ImageTag(baseImage))
 	if err != nil {
 		if r.provisioner.Config().Strict {
 			return "", nil, fmt.Errorf("container provisioning failed (strict mode enabled): %w", err)
@@ -77,7 +78,7 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 		return baseImage, nil, nil
 	}
 
-	return result.ImageTag, result.Cleanup, nil
+	return string(result.ImageTag), result.Cleanup, nil
 }
 
 // ensureImage ensures the container image exists, building if necessary
@@ -182,23 +183,23 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	provisionCfg.Strict = autoProv.Strict
 
 	if autoProv.BinaryPath != "" {
-		provisionCfg.InvowkBinaryPath = string(autoProv.BinaryPath)
+		provisionCfg.InvowkBinaryPath = types.FilesystemPath(autoProv.BinaryPath)
 	}
 
 	// Add modules from auto_provision includes (explicit provisioning paths).
 	for _, inc := range autoProv.Includes {
-		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, string(inc.Path))
+		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, types.FilesystemPath(inc.Path))
 	}
 
 	// Conditionally inherit root-level includes into provisioning.
 	if autoProv.InheritIncludes {
 		for _, inc := range cfg.Includes {
-			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, string(inc.Path))
+			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, types.FilesystemPath(inc.Path))
 		}
 	}
 
 	if autoProv.CacheDir != "" {
-		provisionCfg.CacheDir = string(autoProv.CacheDir)
+		provisionCfg.CacheDir = types.FilesystemPath(autoProv.CacheDir)
 	}
 
 	return provisionCfg
@@ -290,12 +291,12 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 
 	if ctx.SelectedImpl.IsScriptFile() {
 		// File script: use the relative path within /workspace
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(string(ctx.Invowkfile.FilePath))
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
 		// Convert host path to container path (relative to /workspace)
-		relPath, err := filepath.Rel(invowkDir, scriptPath)
+		relPath, err := filepath.Rel(invowkDir, string(scriptPath))
 		if err != nil {
 			// Fall back to just the filename
-			relPath = filepath.Base(scriptPath)
+			relPath = filepath.Base(string(scriptPath))
 		}
 		// Use forward slashes for container path
 		containerPath := "/workspace/" + filepath.ToSlash(relPath)
@@ -345,22 +346,22 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 	effectiveWorkDir := ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 
 	// If no workdir was specified at any level, default to /workspace
-	if effectiveWorkDir == invowkDir {
+	if string(effectiveWorkDir) == invowkDir {
 		return "/workspace"
 	}
 
 	// If it's an absolute path, use it directly in the container
-	if filepath.IsAbs(effectiveWorkDir) {
+	if filepath.IsAbs(string(effectiveWorkDir)) {
 		// Check if the path is inside the invowkfile directory (mounted at /workspace)
-		relPath, err := filepath.Rel(invowkDir, effectiveWorkDir)
+		relPath, err := filepath.Rel(invowkDir, string(effectiveWorkDir))
 		if err == nil && !strings.HasPrefix(relPath, "..") {
 			// Path is within invowkfile dir - map to /workspace
 			return "/workspace/" + filepath.ToSlash(relPath)
 		}
 		// Path is outside invowkfile dir - use as-is (must exist in container or be a mounted path)
-		return effectiveWorkDir
+		return string(effectiveWorkDir)
 	}
 
 	// Relative path - join with /workspace
-	return "/workspace/" + filepath.ToSlash(effectiveWorkDir)
+	return "/workspace/" + filepath.ToSlash(string(effectiveWorkDir))
 }

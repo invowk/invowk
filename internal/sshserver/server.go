@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/core/serverbase"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/ssh"
@@ -75,7 +76,7 @@ type (
 		// ShutdownTimeout is the timeout for graceful shutdown (default: 10s)
 		ShutdownTimeout time.Duration
 		// DefaultShell is the shell to use (default: /bin/sh)
-		DefaultShell string
+		DefaultShell invowkfile.ShellPath
 		// StartupTimeout is the max time to wait for server to be ready (default: 5s)
 		StartupTimeout time.Duration
 	}
@@ -97,7 +98,7 @@ func DefaultConfig() Config {
 		Port:            0,
 		TokenTTL:        time.Hour,
 		ShutdownTimeout: 10 * time.Second,
-		DefaultShell:    "/bin/sh",
+		DefaultShell:    invowkfile.ShellPath("/bin/sh"),
 		StartupTimeout:  5 * time.Second,
 	}
 }
@@ -128,7 +129,7 @@ func NewWithClock(cfg Config, clock Clock) *Server {
 		cfg.ShutdownTimeout = 10 * time.Second
 	}
 	if cfg.DefaultShell == "" {
-		cfg.DefaultShell = "/bin/sh"
+		cfg.DefaultShell = invowkfile.ShellPath("/bin/sh")
 	}
 	if cfg.StartupTimeout == 0 {
 		cfg.StartupTimeout = 5 * time.Second
@@ -168,7 +169,7 @@ func (s *Server) commandMiddleware() wish.Middleware {
 
 // runInteractiveShell starts an interactive shell session.
 func (s *Server) runInteractiveShell(sess ssh.Session) {
-	shell := s.cfg.DefaultShell
+	shell := string(s.cfg.DefaultShell)
 
 	cmd := exec.CommandContext(sess.Context(), shell)
 	cmd.Env = append(os.Environ(), sess.Environ()...)
@@ -214,7 +215,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 func (s *Server) runCommand(sess ssh.Session, args []string) {
 	var cmd *exec.Cmd
 	if len(args) == 1 {
-		cmd = exec.CommandContext(sess.Context(), s.cfg.DefaultShell, "-c", args[0])
+		cmd = exec.CommandContext(sess.Context(), string(s.cfg.DefaultShell), "-c", args[0])
 	} else {
 		cmd = exec.CommandContext(sess.Context(), args[0], args[1:]...)
 	}

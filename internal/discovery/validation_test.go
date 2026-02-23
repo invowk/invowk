@@ -117,7 +117,7 @@ func TestValidateCommandTree_Conflict(t *testing.T) {
 		t.Errorf("Expected Args to contain 'env', got %v", conflictErr.Args)
 	}
 
-	if len(conflictErr.Subcommands) != 1 || conflictErr.Subcommands[0] != "deploy staging" {
+	if len(conflictErr.Subcommands) != 1 || conflictErr.Subcommands[0] != invowkfile.CommandName("deploy staging") {
 		t.Errorf("Expected Subcommands to contain 'deploy staging', got %v", conflictErr.Subcommands)
 	}
 }
@@ -256,7 +256,7 @@ func TestArgsSubcommandConflictError_Error(t *testing.T) {
 			{Name: "env"},
 			{Name: "version"},
 		},
-		Subcommands: []string{"deploy staging", "deploy production"},
+		Subcommands: []invowkfile.CommandName{"deploy staging", "deploy production"},
 		FilePath:    "/test/invowkfile.cue",
 	}
 
@@ -288,7 +288,7 @@ func TestArgsSubcommandConflictError_Error_NoFilePath(t *testing.T) {
 		Args: []invowkfile.Argument{
 			{Name: "env"},
 		},
-		Subcommands: []string{"deploy staging"},
+		Subcommands: []invowkfile.CommandName{"deploy staging"},
 		FilePath:    "", // No file path
 	}
 
@@ -308,7 +308,7 @@ func TestArgsSubcommandConflictError_Error_SingleArg(t *testing.T) {
 		Args: []invowkfile.Argument{
 			{Name: "env"},
 		},
-		Subcommands: []string{"deploy staging"},
+		Subcommands: []invowkfile.CommandName{"deploy staging"},
 	}
 
 	errStr := err.Error()

@@ -59,7 +59,7 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 	allOpts = append(allOpts, opts...)
 
 	return &PodmanEngine{
-		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
+		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...),
 	}
 }
 
@@ -81,7 +81,7 @@ func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...Base
 	allOpts = append(allOpts, opts...)
 
 	return &PodmanEngine{
-		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
+		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...),
 	}
 }
 

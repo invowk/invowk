@@ -138,7 +138,7 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 // Config is loaded separately because downstream callers need it for runtime
 // registry construction and env builder configuration.
 func (s *commandService) discoverCommand(ctx context.Context, req ExecuteRequest) (*config.Config, *discovery.CommandInfo, []discovery.Diagnostic, error) {
-	cfg, _ := s.loadConfig(ctx, req.ConfigPath)
+	cfg, _ := s.loadConfig(ctx, string(req.ConfigPath))
 
 	lookup, err := s.discovery.GetCommand(ctx, req.Name)
 	diags := slices.Clone(lookup.Diagnostics)

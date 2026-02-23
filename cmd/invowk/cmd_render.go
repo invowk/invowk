@@ -56,7 +56,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(renderHeaderStyle.Render("✗ Invalid argument value!"))
 		sb.WriteString("\n\n")
 		sb.WriteString(fmt.Sprintf("Command %s received an invalid value for argument %s.\n\n",
-			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), renderCommandStyle.Render("'"+err.InvalidArg+"'")))
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), renderCommandStyle.Render("'"+string(err.InvalidArg)+"'")))
 
 		sb.WriteString(renderLabelStyle.Render("Value:  "))
 		sb.WriteString(renderValueStyle.Render(fmt.Sprintf("%q", err.InvalidValue)))

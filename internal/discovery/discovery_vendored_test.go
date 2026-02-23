@@ -132,7 +132,7 @@ func TestDiscoverAll_FindsVendoredModulesInIncludes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := newTestDiscovery(t, cfg, tmpDir, WithBaseDir(workDir))
+	d := newTestDiscovery(t, cfg, tmpDir, WithBaseDir(types.FilesystemPath(workDir)))
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -171,8 +171,8 @@ func TestDiscoverAll_FindsVendoredModulesInUserDir(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
-		WithCommandsDir(userCmdsDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -474,21 +474,21 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 
 	// Build DiscoveredFiles with parsed Invowkfiles (module metadata attached).
 	// Parse the invowkfile.cue for each so CheckModuleCollisions can read module IDs.
-	dup1Inv, err := invowkfile.Parse(dup1Mod.InvowkfilePath())
+	dup1Inv, err := invowkfile.Parse(string(dup1Mod.InvowkfilePath()))
 	if err != nil {
 		t.Fatal(err)
 	}
 	dup1Inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(dup1Mod.Metadata)
 
-	dup2Inv, err := invowkfile.Parse(dup2Mod.InvowkfilePath())
+	dup2Inv, err := invowkfile.Parse(string(dup2Mod.InvowkfilePath()))
 	if err != nil {
 		t.Fatal(err)
 	}
 	dup2Inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(dup2Mod.Metadata)
 
 	files := []*DiscoveredFile{
-		{Path: types.FilesystemPath(dup1Mod.InvowkfilePath()), Source: SourceModule, Module: dup1Mod, Invowkfile: dup1Inv},
-		{Path: types.FilesystemPath(dup2Mod.InvowkfilePath()), Source: SourceModule, Module: dup2Mod, Invowkfile: dup2Inv, ParentModule: parentMod},
+		{Path: dup1Mod.InvowkfilePath(), Source: SourceModule, Module: dup1Mod, Invowkfile: dup1Inv},
+		{Path: dup2Mod.InvowkfilePath(), Source: SourceModule, Module: dup2Mod, Invowkfile: dup2Inv, ParentModule: parentMod},
 	}
 
 	collisionErr := d.CheckModuleCollisions(files)

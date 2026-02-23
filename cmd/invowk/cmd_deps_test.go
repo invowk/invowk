@@ -232,8 +232,8 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
-		discovery.WithBaseDir(tmpDir),
-		discovery.WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+		discovery.WithBaseDir(types.FilesystemPath(tmpDir)),
+		discovery.WithCommandsDir(types.FilesystemPath(filepath.Join(tmpDir, ".invowk", "cmds"))),
 	)}
 
 	if err := checkCommandDependenciesExist(disc, deps, "", ctx); err != nil {
@@ -289,8 +289,8 @@ version: "1.0.0"
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"shared generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
-		discovery.WithBaseDir(tmpDir),
-		discovery.WithCommandsDir(userCmdsDir),
+		discovery.WithBaseDir(types.FilesystemPath(tmpDir)),
+		discovery.WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)}
 
 	if err := checkCommandDependenciesExist(disc, deps, "", ctx); err != nil {
@@ -320,8 +320,8 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
-		discovery.WithBaseDir(tmpDir),
-		discovery.WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+		discovery.WithBaseDir(types.FilesystemPath(tmpDir)),
+		discovery.WithCommandsDir(types.FilesystemPath(filepath.Join(tmpDir, ".invowk", "cmds"))),
 	)}
 
 	err := checkCommandDependenciesExist(disc, deps, "", ctx)

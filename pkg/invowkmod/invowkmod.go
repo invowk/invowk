@@ -340,6 +340,28 @@ func (p SubdirectoryPath) IsValid() (bool, []error) {
 // String returns the string representation of the SubdirectoryPath.
 func (p SubdirectoryPath) String() string { return string(p) }
 
+// IsValid returns whether all typed fields of the ModuleRequirement are valid.
+// GitURL and Version are required; Alias and Path are optional (zero values are valid).
+func (r ModuleRequirement) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := r.GitURL.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := r.Version.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := r.Alias.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := r.Path.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, errs
+	}
+	return true, nil
+}
+
 // Error implements the error interface for InvalidValidationIssueTypeError.
 func (e *InvalidValidationIssueTypeError) Error() string {
 	return fmt.Sprintf(
@@ -352,6 +374,9 @@ func (e *InvalidValidationIssueTypeError) Error() string {
 func (e *InvalidValidationIssueTypeError) Unwrap() error {
 	return ErrInvalidValidationIssueType
 }
+
+// String returns the string representation of the ValidationIssueType.
+func (v ValidationIssueType) String() string { return string(v) }
 
 // IsValid returns whether the ValidationIssueType is one of the defined issue types,
 // and a list of validation errors if it is not.
@@ -393,44 +418,44 @@ func (m *Module) Name() ModuleID {
 }
 
 // InvowkmodPath returns the absolute path to invowkmod.cue for this module.
-func (m *Module) InvowkmodPath() string {
-	return filepath.Join(string(m.Path), "invowkmod.cue")
+func (m *Module) InvowkmodPath() types.FilesystemPath {
+	return types.FilesystemPath(filepath.Join(string(m.Path), "invowkmod.cue"))
 }
 
 // InvowkfilePath returns the absolute path to invowkfile.cue for this module.
-// Returns empty string for library-only modules.
-func (m *Module) InvowkfilePath() string {
+// Returns empty FilesystemPath for library-only modules.
+func (m *Module) InvowkfilePath() types.FilesystemPath {
 	if m.IsLibraryOnly {
 		return ""
 	}
-	return filepath.Join(string(m.Path), "invowkfile.cue")
+	return types.FilesystemPath(filepath.Join(string(m.Path), "invowkfile.cue"))
 }
 
 // ResolveScriptPath resolves a script path relative to the module root.
 // Script paths in modules should use forward slashes for cross-platform compatibility.
 // This function converts the cross-platform path to the native format.
-func (m *Module) ResolveScriptPath(scriptPath string) string {
+func (m *Module) ResolveScriptPath(scriptPath types.FilesystemPath) types.FilesystemPath {
 	// Convert forward slashes to native path separator
-	nativePath := filepath.FromSlash(scriptPath)
+	nativePath := filepath.FromSlash(string(scriptPath))
 
 	// If already absolute, return as-is
 	if filepath.IsAbs(nativePath) {
-		return nativePath
+		return types.FilesystemPath(nativePath)
 	}
 
 	// Resolve relative to module root
-	return filepath.Join(string(m.Path), nativePath)
+	return types.FilesystemPath(filepath.Join(string(m.Path), nativePath))
 }
 
 // ValidateScriptPath checks if a script path is valid for this module.
 // Returns an error if the path is invalid (e.g., escapes module directory, is a symlink).
-func (m *Module) ValidateScriptPath(scriptPath string) error {
+func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
 	if scriptPath == "" {
 		return fmt.Errorf("script path cannot be empty")
 	}
 
 	// Convert to native path
-	nativePath := filepath.FromSlash(scriptPath)
+	nativePath := filepath.FromSlash(string(scriptPath))
 
 	// Absolute paths are not allowed in modules
 	if filepath.IsAbs(nativePath) {
@@ -460,8 +485,8 @@ func (m *Module) ValidateScriptPath(scriptPath string) error {
 }
 
 // ContainsPath checks if the given path is inside this module.
-func (m *Module) ContainsPath(path string) bool {
-	absPath, err := filepath.Abs(path)
+func (m *Module) ContainsPath(path types.FilesystemPath) bool {
+	absPath, err := filepath.Abs(string(path))
 	if err != nil {
 		return false
 	}
@@ -476,8 +501,8 @@ func (m *Module) ContainsPath(path string) bool {
 
 // GetInvowkfileDir returns the directory containing the invowkfile.
 // For modules, this is always the module root.
-func (m *Module) GetInvowkfileDir() string {
-	return string(m.Path)
+func (m *Module) GetInvowkfileDir() types.FilesystemPath {
+	return m.Path
 }
 
 // checkSymlinkSafety verifies that a path doesn't contain symlinks that could escape the module.
@@ -590,8 +615,8 @@ func ExtractModuleFromCommand(cmd string) string {
 }
 
 // ParseInvowkmod reads and parses module metadata from invowkmod.cue at the given path.
-func ParseInvowkmod(path string) (*Invowkmod, error) {
-	data, err := os.ReadFile(path)
+func ParseInvowkmod(path types.FilesystemPath) (*Invowkmod, error) {
+	data, err := os.ReadFile(string(path))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read invowkmod at %s: %w", path, err)
 	}
@@ -602,19 +627,19 @@ func ParseInvowkmod(path string) (*Invowkmod, error) {
 // ParseInvowkmodBytes parses module metadata content from bytes.
 // Uses cueutil.ParseAndDecodeString for the 3-step CUE parsing flow:
 // compile schema → compile user data → validate and decode.
-func ParseInvowkmodBytes(data []byte, path string) (*Invowkmod, error) {
+func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, error) {
 	result, err := cueutil.ParseAndDecodeString[Invowkmod](
 		invowkmodSchema,
 		data,
 		"#Invowkmod",
-		cueutil.WithFilename(path),
+		cueutil.WithFilename(string(path)),
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	meta := result.Value
-	meta.FilePath = types.FilesystemPath(path)
+	meta.FilePath = path
 
 	// Validate module requirement paths for security
 	// [GO-ONLY] Path traversal prevention and cross-platform path handling require Go.
@@ -633,32 +658,32 @@ func ParseInvowkmodBytes(data []byte, path string) (*Invowkmod, error) {
 // ParseModuleMetadataOnly reads and parses only the module metadata (invowkmod.cue) from a module directory.
 // This is useful when you only need module identity and dependencies, not commands.
 // Returns ErrInvowkmodNotFound if invowkmod.cue doesn't exist.
-func ParseModuleMetadataOnly(modulePath string) (*Invowkmod, error) {
-	invowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
+func ParseModuleMetadataOnly(modulePath types.FilesystemPath) (*Invowkmod, error) {
+	invowkmodPath := filepath.Join(string(modulePath), "invowkmod.cue")
 	if _, err := os.Stat(invowkmodPath); err != nil {
 		if os.IsNotExist(err) {
 			return nil, ErrInvowkmodNotFound
 		}
 		return nil, fmt.Errorf("failed to check invowkmod at %s: %w", invowkmodPath, err)
 	}
-	return ParseInvowkmod(invowkmodPath)
+	return ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 }
 
 // HasInvowkfile checks if a module directory contains an invowkfile.cue.
-func HasInvowkfile(modulePath string) bool {
-	invowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
+func HasInvowkfile(modulePath types.FilesystemPath) bool {
+	invowkfilePath := filepath.Join(string(modulePath), "invowkfile.cue")
 	_, err := os.Stat(invowkfilePath)
 	return err == nil
 }
 
 // InvowkfilePath returns the path to invowkfile.cue in a module directory.
-func InvowkfilePath(modulePath string) string {
-	return filepath.Join(modulePath, "invowkfile.cue")
+func InvowkfilePath(modulePath types.FilesystemPath) types.FilesystemPath {
+	return types.FilesystemPath(filepath.Join(string(modulePath), "invowkfile.cue"))
 }
 
 // InvowkmodPath returns the path to invowkmod.cue in a module directory.
 //
 //nolint:revive // Name is intentional for consistency with Module.InvowkmodPath field/method
-func InvowkmodPath(modulePath string) string {
-	return filepath.Join(modulePath, "invowkmod.cue")
+func InvowkmodPath(modulePath types.FilesystemPath) types.FilesystemPath {
+	return types.FilesystemPath(filepath.Join(string(modulePath), "invowkmod.cue"))
 }

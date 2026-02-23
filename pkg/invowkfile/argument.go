@@ -83,6 +83,9 @@ func (e *InvalidArgumentTypeError) Unwrap() error {
 	return ErrInvalidArgumentType
 }
 
+// String returns the string representation of the ArgumentType.
+func (at ArgumentType) String() string { return string(at) }
+
 // IsValid returns whether the ArgumentType is one of the defined argument types,
 // and a list of validation errors if it is not.
 // Note: the zero value ("") is valid — it is treated as "string" by GetType().

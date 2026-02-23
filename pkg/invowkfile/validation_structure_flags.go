@@ -81,7 +81,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have a name in invowkfile at " + ctx.FilePath,
+			Message:   "must have a name in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 		return errors // Can't validate further without a name
@@ -94,7 +94,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -104,7 +104,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at " + ctx.FilePath,
+			Message:   "has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -114,7 +114,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have a non-empty description in invowkfile at " + ctx.FilePath,
+			Message:   "must have a non-empty description in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -124,7 +124,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -134,7 +134,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     NewFieldPath().Command(string(cmd.Name)).String(),
-			Message:   "has duplicate flag name '" + flag.Name.String() + "' in invowkfile at " + ctx.FilePath,
+			Message:   "has duplicate flag name '" + flag.Name.String() + "' in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -146,7 +146,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "the 'ivk-' prefix is reserved for system flags and cannot be used for user-defined flags in invowkfile at " + ctx.FilePath,
+			Message:   "the 'ivk-' prefix is reserved for system flags and cannot be used for user-defined flags in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -155,7 +155,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "the 'invowk-' prefix is reserved for system flags and cannot be used for user-defined flags in invowkfile at " + ctx.FilePath,
+			Message:   "the 'invowk-' prefix is reserved for system flags and cannot be used for user-defined flags in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -164,7 +164,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "the 'i-' prefix is reserved for system flags and cannot be used for user-defined flags in invowkfile at " + ctx.FilePath,
+			Message:   "the 'i-' prefix is reserved for system flags and cannot be used for user-defined flags in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -174,7 +174,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "'" + longFlag + "' is a reserved system flag and cannot be used in invowkfile at " + ctx.FilePath,
+			Message:   "'" + longFlag + "' is a reserved system flag and cannot be used in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -184,7 +184,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "has invalid type '" + string(flag.Type) + "' (must be 'string', 'bool', 'int', or 'float') in invowkfile at " + ctx.FilePath,
+			Message:   "has invalid type '" + string(flag.Type) + "' (must be 'string', 'bool', 'int', or 'float') in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -194,7 +194,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "cannot be both required and have a default_value in invowkfile at " + ctx.FilePath,
+			Message:   "cannot be both required and have a default_value in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -208,7 +208,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "has invalid short alias '" + shortStr + "' (must be a single letter a-z or A-Z) in invowkfile at " + ctx.FilePath,
+				Message:   "has invalid short alias '" + shortStr + "' (must be a single letter a-z or A-Z) in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -218,7 +218,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "short alias '" + shortStr + "' is reserved for the system --" + longFlag + " flag in invowkfile at " + ctx.FilePath,
+				Message:   "short alias '" + shortStr + "' is reserved for the system --" + longFlag + " flag in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -228,7 +228,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     NewFieldPath().Command(string(cmd.Name)).String(),
-				Message:   "has duplicate short alias '" + shortStr + "' in invowkfile at " + ctx.FilePath,
+				Message:   "has duplicate short alias '" + shortStr + "' in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -241,7 +241,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "default_value '" + flag.DefaultValue + "' is not compatible with type '" + string(flag.GetType()) + "': " + err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   "default_value '" + flag.DefaultValue + "' is not compatible with type '" + string(flag.GetType()) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -253,7 +253,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "has unsafe validation regex '" + string(flag.Validation) + "': " + err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   "has unsafe validation regex '" + string(flag.Validation) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		} else if flag.DefaultValue != "" {
@@ -262,7 +262,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   "default_value '" + flag.DefaultValue + "' does not match validation pattern '" + string(flag.Validation) + "' in invowkfile at " + ctx.FilePath,
+					Message:   "default_value '" + flag.DefaultValue + "' does not match validation pattern '" + string(flag.Validation) + "' in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}

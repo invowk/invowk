@@ -137,11 +137,11 @@ func (inv *Invowkfile) IsFromModule() bool {
 // GetScriptBasePath returns the base path for resolving script file references.
 // For module invowkfiles, this is the module path.
 // For regular invowkfiles, this is the directory containing the invowkfile.
-func (inv *Invowkfile) GetScriptBasePath() string {
+func (inv *Invowkfile) GetScriptBasePath() FilesystemPath {
 	if inv.ModulePath != "" {
-		return string(inv.ModulePath)
+		return inv.ModulePath
 	}
-	return filepath.Dir(string(inv.FilePath))
+	return FilesystemPath(filepath.Dir(string(inv.FilePath)))
 }
 
 // GetEffectiveWorkDir resolves the effective working directory for command execution.
@@ -154,21 +154,21 @@ func (inv *Invowkfile) GetScriptBasePath() string {
 //
 // All workdir paths in CUE should use forward slashes for cross-platform compatibility.
 // Relative paths are resolved against the invowkfile location.
-func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, cliOverride WorkDir) string {
+func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, cliOverride WorkDir) FilesystemPath {
 	invowkfileDir := inv.GetScriptBasePath()
 
 	// resolve converts a workdir path from CUE format (forward slashes) to native format
 	// and resolves relative paths against the invowkfile directory.
-	resolve := func(workdir string) string {
+	resolve := func(workdir string) FilesystemPath {
 		if workdir == "" {
 			return ""
 		}
 		// Convert forward slashes to native path separator
 		nativePath := filepath.FromSlash(workdir)
 		if filepath.IsAbs(nativePath) {
-			return nativePath
+			return FilesystemPath(nativePath)
 		}
-		return filepath.Join(invowkfileDir, nativePath)
+		return FilesystemPath(filepath.Join(string(invowkfileDir), nativePath))
 	}
 
 	// Priority 1: CLI override

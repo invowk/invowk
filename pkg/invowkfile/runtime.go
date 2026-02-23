@@ -220,6 +220,9 @@ func (e *InvalidPlatformError) Unwrap() error {
 	return ErrInvalidPlatform
 }
 
+// String returns the string representation of the RuntimeMode.
+func (m RuntimeMode) String() string { return string(m) }
+
 // IsValid returns whether the RuntimeMode is one of the defined runtime modes,
 // and a list of validation errors if it is not.
 // Note: the zero value ("") is NOT valid — it serves as a sentinel for "no override".
@@ -232,6 +235,9 @@ func (m RuntimeMode) IsValid() (bool, []error) {
 	}
 }
 
+// String returns the string representation of the EnvInheritMode.
+func (m EnvInheritMode) String() string { return string(m) }
+
 // IsValid returns whether the EnvInheritMode is one of the defined env inherit modes,
 // and a list of validation errors if it is not.
 func (m EnvInheritMode) IsValid() (bool, []error) {
@@ -242,6 +248,9 @@ func (m EnvInheritMode) IsValid() (bool, []error) {
 		return false, []error{&InvalidEnvInheritModeError{Value: m}}
 	}
 }
+
+// String returns the string representation of the PlatformType.
+func (p PlatformType) String() string { return string(p) }
 
 // IsValid returns whether the PlatformType is one of the defined platform types,
 // and a list of validation errors if it is not.

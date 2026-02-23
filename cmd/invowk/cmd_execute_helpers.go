@@ -17,6 +17,7 @@ import (
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -166,10 +167,10 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
-		FromSource:   cmdFlags.fromSource,
+		FromSource:   discovery.SourceID(cmdFlags.fromSource),
 		ForceRebuild: cmdFlags.forceRebuild,
 		DryRun:       cmdFlags.dryRun,
-		ConfigPath:   rootFlags.configPath,
+		ConfigPath:   types.FilesystemPath(rootFlags.configPath),
 	}
 
 	result, diags, err := app.Commands.Execute(ctx, req)

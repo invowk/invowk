@@ -75,7 +75,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 
 		// Parse invowkmod.cue and validate module field matches folder name
 		if result.ModuleName != "" {
-			meta, parseErr := ParseInvowkmod(invowkmodPath)
+			meta, parseErr := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 			if parseErr != nil {
 				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
 			} else if string(meta.Module) != string(result.ModuleName) {
@@ -187,7 +187,7 @@ func Load(modulePath string) (*Module, error) {
 	// Parse the metadata
 	var metadata *Invowkmod
 	if result.InvowkmodPath != "" {
-		metadata, err = ParseInvowkmod(string(result.InvowkmodPath))
+		metadata, err = ParseInvowkmod(result.InvowkmodPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse module metadata: %w", err)
 		}

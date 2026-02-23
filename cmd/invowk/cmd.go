@@ -11,6 +11,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -89,7 +90,7 @@ type (
 		ProvidedArgs []string
 		MinArgs      int
 		MaxArgs      int
-		InvalidArg   string
+		InvalidArg   invowkfile.ArgumentName
 		InvalidValue string
 		ValueError   error
 	}
@@ -135,10 +136,10 @@ func (t ArgErrType) IsValid() (bool, []error) {
 	}
 }
 
-// IsValid returns whether the DependencyMessage is non-empty,
+// IsValid returns whether the DependencyMessage is non-empty and non-whitespace,
 // and a list of validation errors if it is not.
 func (m DependencyMessage) IsValid() (bool, []error) {
-	if m == "" {
+	if strings.TrimSpace(string(m)) == "" {
 		return false, []error{&InvalidDependencyMessageError{Value: m}}
 	}
 	return true, nil
@@ -339,9 +340,9 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
-		FromSource:   cmdFlags.fromSource,
+		FromSource:   discovery.SourceID(cmdFlags.fromSource),
 		ForceRebuild: cmdFlags.forceRebuild,
-		ConfigPath:   rootFlags.configPath,
+		ConfigPath:   types.FilesystemPath(rootFlags.configPath),
 		DryRun:       cmdFlags.dryRun,
 	}
 
@@ -366,7 +367,7 @@ func silenceOnExitError(cmd *cobra.Command, err error) {
 // ExitError to signal Cobra to exit without printing usage.
 func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	// Ensure every execution path carries the explicit config path and request cache.
-	reqCtx := contextWithConfigPath(cmd.Context(), req.ConfigPath)
+	reqCtx := contextWithConfigPath(cmd.Context(), string(req.ConfigPath))
 	cmd.SetContext(reqCtx)
 
 	// Cobra adapters always render service diagnostics in the CLI layer.

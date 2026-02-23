@@ -235,6 +235,9 @@ func (e *InvalidRuntimeTypeError) Unwrap() error {
 	return ErrInvalidRuntimeType
 }
 
+// String returns the string representation of the RuntimeType.
+func (rt RuntimeType) String() string { return string(rt) }
+
 // IsValid returns whether the RuntimeType is one of the defined runtime types,
 // and a list of validation errors if it is not.
 func (rt RuntimeType) IsValid() (bool, []error) {
@@ -340,7 +343,7 @@ func NewExecutionContext(ctx context.Context, cmd *invowkfile.Command, inv *invo
 // Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default.
 // This centralizes workdir resolution that was previously duplicated across runtimes.
 func (ctx *ExecutionContext) EffectiveWorkDir() string {
-	return ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
+	return string(ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir))
 }
 
 // Success returns true if the command executed successfully

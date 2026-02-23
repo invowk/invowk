@@ -239,7 +239,7 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 
 	// Parse invowkmod.cue to get requirements
 	invowkmodulePath := filepath.Join(".", "invowkmod.cue")
-	meta, err := invowkfile.ParseInvowkmod(invowkmodulePath)
+	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodulePath))
 	if err != nil {
 		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
 	}

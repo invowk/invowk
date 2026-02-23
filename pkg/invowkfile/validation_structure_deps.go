@@ -19,7 +19,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Tools(i, j).String(),
-					Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}
@@ -33,7 +33,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Commands(i, j).String(),
-					Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}
@@ -46,7 +46,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().Filepaths(i).String(),
-				Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -60,7 +60,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().EnvVars(i, j).Field("name").String(),
-					Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}
@@ -69,7 +69,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     basePath.Copy().EnvVars(i, j).Field("validation").String(),
-						Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+						Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 						Severity:  SeverityError,
 					})
 				}
@@ -97,7 +97,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),
-						Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+						Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 						Severity:  SeverityError,
 					})
 				}
@@ -109,7 +109,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),
-						Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+						Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 						Severity:  SeverityError,
 					})
 				}
@@ -121,7 +121,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),
-						Message:   "expected_output: " + err.Error() + " in invowkfile at " + ctx.FilePath,
+						Message:   "expected_output: " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
 						Severity:  SeverityError,
 					})
 				}
@@ -146,7 +146,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().EnvFile(i).String(),
-				Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -158,7 +158,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().EnvVar(key).String(),
-				Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -167,7 +167,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().EnvVar(key).String(),
-				Message:   "value too long (" + itoa(len(value)) + " chars, max " + itoa(MaxEnvVarValueLength) + ") in invowkfile at " + ctx.FilePath,
+				Message:   "value too long (" + itoa(len(value)) + " chars, max " + itoa(MaxEnvVarValueLength) + ") in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}

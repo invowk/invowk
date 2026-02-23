@@ -12,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // moduleIDPtr is a test helper that creates a *invowkmod.ModuleID from a string.
@@ -705,7 +706,7 @@ version: "1.0.0"
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithCommandsDir(filepath.Join(homeDir, ".invowk", "cmds")),
+		WithCommandsDir(types.FilesystemPath(filepath.Join(homeDir, ".invowk", "cmds"))),
 	)
 
 	files, err := d.DiscoverAll()

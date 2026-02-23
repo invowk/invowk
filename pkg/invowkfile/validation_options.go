@@ -113,11 +113,11 @@ func (o *validateOptions) buildValidationContext(inv *Invowkfile) *ValidationCon
 	}
 
 	return &ValidationContext{
-		WorkDir:    o.workDir,
+		WorkDir:    WorkDir(o.workDir),
 		FS:         filesystem,
 		Platform:   o.platform,
 		StrictMode: o.strictMode,
-		FilePath:   filePath,
+		FilePath:   FilesystemPath(filePath),
 	}
 }
 

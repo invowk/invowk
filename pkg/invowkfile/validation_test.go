@@ -499,7 +499,7 @@ func TestValidateCustomChecks(t *testing.T) {
 	}
 
 	v := NewStructureValidator()
-	ctx := &ValidationContext{FilePath: "/test/invowkfile.cue"}
+	ctx := &ValidationContext{FilePath: FilesystemPath("/test/invowkfile.cue")}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

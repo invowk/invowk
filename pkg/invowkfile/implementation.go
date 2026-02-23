@@ -68,6 +68,22 @@ type (
 	}
 )
 
+// IsValid returns whether both Platform and Runtime in the key are valid,
+// and a combined list of validation errors from both fields.
+func (k PlatformRuntimeKey) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := k.Platform.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := k.Runtime.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, errs
+	}
+	return true, nil
+}
+
 // MatchesPlatform returns true if the implementation can run on the given platform.
 func (s *Implementation) MatchesPlatform(platform Platform) bool {
 	for _, p := range s.Platforms {
@@ -183,21 +199,21 @@ func (s *Implementation) IsScriptFile() bool {
 }
 
 // GetScriptFilePath returns the absolute path to the script file, if Implementation is a file reference.
-// Returns empty string if Implementation is inline content.
+// Returns empty FilesystemPath if Implementation is inline content.
 // The invowkfilePath parameter is used to resolve relative paths.
 // If modulePath is provided (non-empty), script paths are resolved relative to the module root
 // and are expected to use forward slashes for cross-platform compatibility.
-func (s *Implementation) GetScriptFilePath(invowkfilePath string) string {
+func (s *Implementation) GetScriptFilePath(invowkfilePath FilesystemPath) FilesystemPath {
 	return s.GetScriptFilePathWithModule(invowkfilePath, "")
 }
 
 // GetScriptFilePathWithModule returns the absolute path to the script file, if Implementation is a file reference.
-// Returns empty string if Implementation is inline content.
+// Returns empty FilesystemPath if Implementation is inline content.
 // The invowkfilePath parameter is used to resolve relative paths when not in a module.
 // The modulePath parameter specifies the module root directory for module-relative paths.
 // When modulePath is non-empty, script paths are expected to use forward slashes for
 // cross-platform compatibility and are resolved relative to the module root.
-func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath string) string {
+func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath FilesystemPath) FilesystemPath {
 	if !s.IsScriptFile() {
 		return ""
 	}
@@ -206,26 +222,26 @@ func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath 
 
 	// If absolute path, return as-is
 	if filepath.IsAbs(script) {
-		return script
+		return FilesystemPath(script)
 	}
 
 	// If in a module, resolve relative to module root with cross-platform path conversion
 	if modulePath != "" {
 		// Convert forward slashes to native path separator for cross-platform compatibility
 		nativePath := filepath.FromSlash(script)
-		return filepath.Join(modulePath, nativePath)
+		return FilesystemPath(filepath.Join(string(modulePath), nativePath))
 	}
 
 	// Resolve relative to invowkfile directory
-	invowkDir := filepath.Dir(invowkfilePath)
-	return filepath.Join(invowkDir, script)
+	invowkDir := filepath.Dir(string(invowkfilePath))
+	return FilesystemPath(filepath.Join(invowkDir, script))
 }
 
 // ResolveScript returns the actual script content to execute.
 // If Implementation is a file path, it reads the file content.
 // If Implementation is inline content (including multi-line), it returns it directly.
 // The invowkfilePath parameter is used to resolve relative paths.
-func (s *Implementation) ResolveScript(invowkfilePath string) (string, error) {
+func (s *Implementation) ResolveScript(invowkfilePath FilesystemPath) (string, error) {
 	return s.ResolveScriptWithModule(invowkfilePath, "")
 }
 
@@ -234,7 +250,7 @@ func (s *Implementation) ResolveScript(invowkfilePath string) (string, error) {
 // If Implementation is inline content (including multi-line), it returns it directly.
 // The invowkfilePath parameter is used to resolve relative paths when not in a module.
 // The modulePath parameter specifies the module root directory for module-relative paths.
-func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath string) (string, error) {
+func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath FilesystemPath) (string, error) {
 	if s.scriptResolved {
 		return s.resolvedScript, nil
 	}
@@ -246,7 +262,7 @@ func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath stri
 
 	if s.IsScriptFile() {
 		scriptPath := s.GetScriptFilePathWithModule(invowkfilePath, modulePath)
-		content, err := os.ReadFile(scriptPath)
+		content, err := os.ReadFile(string(scriptPath))
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}
@@ -262,14 +278,14 @@ func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath stri
 
 // ResolveScriptWithFS resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
-func (s *Implementation) ResolveScriptWithFS(invowkfilePath string, readFile func(path string) ([]byte, error)) (string, error) {
+func (s *Implementation) ResolveScriptWithFS(invowkfilePath FilesystemPath, readFile func(path string) ([]byte, error)) (string, error) {
 	return s.ResolveScriptWithFSAndModule(invowkfilePath, "", readFile)
 }
 
 // ResolveScriptWithFSAndModule resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
 // The modulePath parameter specifies the module root directory for module-relative paths.
-func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath string, readFile func(path string) ([]byte, error)) (string, error) {
+func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath FilesystemPath, readFile func(path string) ([]byte, error)) (string, error) {
 	script := string(s.Script)
 	if script == "" {
 		return "", fmt.Errorf("script has no content")
@@ -277,7 +293,7 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 
 	if s.IsScriptFile() {
 		scriptPath := s.GetScriptFilePathWithModule(invowkfilePath, modulePath)
-		content, err := readFile(scriptPath)
+		content, err := readFile(string(scriptPath))
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}

@@ -21,7 +21,10 @@ func TestGlobPattern_IsValid(t *testing.T) {
 		{"recursive pattern", GlobPattern("**/*.go"), true, false},
 		{"directory pattern", GlobPattern("src/**/*.ts"), true, false},
 		{"single file", GlobPattern("Makefile"), true, false},
+		{"question mark wildcard", GlobPattern("file?.txt"), true, false},
+		{"character class", GlobPattern("[abc].txt"), true, false},
 		{"empty is invalid", GlobPattern(""), false, true},
+		{"unclosed bracket", GlobPattern("[invalid"), false, true},
 	}
 
 	for _, tt := range tests {

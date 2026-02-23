@@ -189,3 +189,14 @@ func TestSource_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestDiagnosticCode_String(t *testing.T) {
+	t.Parallel()
+
+	if got := CodeCommandNotFound.String(); got != "command_not_found" {
+		t.Errorf("CodeCommandNotFound.String() = %q, want %q", got, "command_not_found")
+	}
+	if got := DiagnosticCode("").String(); got != "" {
+		t.Errorf("DiagnosticCode(\"\").String() = %q, want %q", got, "")
+	}
+}

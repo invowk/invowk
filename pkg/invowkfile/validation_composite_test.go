@@ -13,8 +13,8 @@ type mockValidator struct {
 	errors []ValidationError
 }
 
-func (v *mockValidator) Name() string {
-	return v.name
+func (v *mockValidator) Name() ValidatorName {
+	return ValidatorName(v.name)
 }
 
 func (v *mockValidator) Validate(_ *ValidationContext, _ *Invowkfile) []ValidationError {
@@ -97,7 +97,7 @@ func TestCompositeValidator_MultipleValidators(t *testing.T) {
 	}
 
 	// Verify all validators ran
-	validators := make(map[string]bool)
+	validators := make(map[ValidatorName]bool)
 	for _, e := range errors {
 		validators[e.Validator] = true
 	}

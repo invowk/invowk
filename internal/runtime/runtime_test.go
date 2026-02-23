@@ -781,3 +781,14 @@ func TestRuntimeType_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestRuntimeType_String(t *testing.T) {
+	t.Parallel()
+
+	if got := RuntimeTypeNative.String(); got != "native" {
+		t.Errorf("RuntimeTypeNative.String() = %q, want %q", got, "native")
+	}
+	if got := RuntimeType("").String(); got != "" {
+		t.Errorf("RuntimeType(\"\").String() = %q, want %q", got, "")
+	}
+}

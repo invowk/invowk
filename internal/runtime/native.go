@@ -97,7 +97,7 @@ func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 
 // Execute runs a command using the system shell or specified interpreter
 func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
-	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return NewErrorResult(1, err)
 	}
@@ -120,7 +120,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 
 // ExecuteCapture runs a command and captures its output
 func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
-	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return NewErrorResult(1, err)
 	}
@@ -156,7 +156,7 @@ func (r *NativeRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedComm
 // This is useful for interactive mode where the command needs to be run on a PTY.
 // The caller must call the returned cleanup function after execution.
 func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
-	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -228,8 +228,8 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	// Handle file vs inline script
 	var tempFile string
 	if ctx.SelectedImpl.IsScriptFile() {
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(string(ctx.Invowkfile.FilePath))
-		cmdArgs = append(cmdArgs, scriptPath)
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
+		cmdArgs = append(cmdArgs, string(scriptPath))
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)
 		if err != nil {
@@ -437,8 +437,8 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 	var tempFile string
 	var cleanup func()
 	if ctx.SelectedImpl.IsScriptFile() {
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(string(ctx.Invowkfile.FilePath))
-		cmdArgs = append(cmdArgs, scriptPath)
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
+		cmdArgs = append(cmdArgs, string(scriptPath))
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)
 		if err != nil {

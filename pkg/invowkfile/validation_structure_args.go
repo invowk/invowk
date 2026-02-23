@@ -50,7 +50,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have a name in invowkfile at " + ctx.FilePath,
+			Message:   "must have a name in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 		return errors, isOptional, isVariadic
@@ -63,7 +63,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -73,7 +73,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at " + ctx.FilePath,
+			Message:   "has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -83,7 +83,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have a non-empty description in invowkfile at " + ctx.FilePath,
+			Message:   "must have a non-empty description in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -93,7 +93,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -103,7 +103,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     NewFieldPath().Command(string(cmd.Name)).String(),
-			Message:   "has duplicate argument name '" + arg.Name.String() + "' in invowkfile at " + ctx.FilePath,
+			Message:   "has duplicate argument name '" + arg.Name.String() + "' in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -114,7 +114,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "has invalid type '" + string(arg.Type) + "' (must be 'string', 'int', or 'float') in invowkfile at " + ctx.FilePath,
+			Message:   "has invalid type '" + string(arg.Type) + "' (must be 'string', 'int', or 'float') in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -124,7 +124,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "cannot be both required and have a default_value in invowkfile at " + ctx.FilePath,
+			Message:   "cannot be both required and have a default_value in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -134,7 +134,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "required arguments must come before optional arguments in invowkfile at " + ctx.FilePath,
+			Message:   "required arguments must come before optional arguments in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -144,7 +144,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "only the last argument can be variadic (found after variadic argument) in invowkfile at " + ctx.FilePath,
+			Message:   "only the last argument can be variadic (found after variadic argument) in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -155,7 +155,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "default_value '" + arg.DefaultValue + "' is not compatible with type '" + string(arg.GetType()) + "': " + err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   "default_value '" + arg.DefaultValue + "' is not compatible with type '" + string(arg.GetType()) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -167,7 +167,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "has unsafe validation regex '" + string(arg.Validation) + "': " + err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   "has unsafe validation regex '" + string(arg.Validation) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		} else if arg.DefaultValue != "" {
@@ -176,7 +176,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + string(arg.Validation) + "' in invowkfile at " + ctx.FilePath,
+					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + string(arg.Validation) + "' in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}

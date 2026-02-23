@@ -67,6 +67,9 @@ func (e *InvalidInitDiagnosticCodeError) Error() string {
 // Unwrap returns ErrInvalidInitDiagnosticCode so callers can use errors.Is for programmatic detection.
 func (e *InvalidInitDiagnosticCodeError) Unwrap() error { return ErrInvalidInitDiagnosticCode }
 
+// String returns the string representation of the InitDiagnosticCode.
+func (c InitDiagnosticCode) String() string { return string(c) }
+
 // IsValid returns whether the InitDiagnosticCode is one of the defined diagnostic codes,
 // and a list of validation errors if it is not.
 func (c InitDiagnosticCode) IsValid() (bool, []error) {

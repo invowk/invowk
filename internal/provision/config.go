@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -24,27 +26,27 @@ type (
 
 		// InvowkBinaryPath is the path to the invowk binary on the host.
 		// If empty, os.Executable() will be used.
-		InvowkBinaryPath string
+		InvowkBinaryPath types.FilesystemPath
 
 		// ModulesPaths are paths to module directories on the host.
 		// These are discovered from config search paths and user commands dir.
-		ModulesPaths []string
+		ModulesPaths []types.FilesystemPath
 
 		// InvowkfilePath is the path to the current invowkfile being executed.
 		// This is used to determine what needs to be provisioned.
-		InvowkfilePath string
+		InvowkfilePath types.FilesystemPath
 
 		// BinaryMountPath is where to place the binary in the container.
 		// Default: /invowk/bin
-		BinaryMountPath string
+		BinaryMountPath container.MountTargetPath
 
 		// ModulesMountPath is where to place modules in the container.
 		// Default: /invowk/modules
-		ModulesMountPath string
+		ModulesMountPath container.MountTargetPath
 
 		// CacheDir is where to store cached provisioned images metadata.
 		// Default: ~/.cache/invowk/provision
-		CacheDir string
+		CacheDir types.FilesystemPath
 
 		// TagSuffix is an optional suffix appended to provisioned image tags.
 		// This enables test isolation by making each test's images unique.
@@ -62,16 +64,16 @@ func DefaultConfig() *Config {
 	binaryPath, _ := os.Executable()
 
 	// Discover module paths from user commands dir
-	var modulesPaths []string
+	var modulesPaths []types.FilesystemPath
 	if userDir, err := config.CommandsDir(); err == nil {
 		if info, err := os.Stat(userDir); err == nil && info.IsDir() {
-			modulesPaths = append(modulesPaths, userDir)
+			modulesPaths = append(modulesPaths, types.FilesystemPath(userDir))
 		}
 	}
 
-	cacheDir := ""
+	var cacheDir types.FilesystemPath
 	if home, err := os.UserHomeDir(); err == nil {
-		cacheDir = filepath.Join(home, ".cache", "invowk", "provision")
+		cacheDir = types.FilesystemPath(filepath.Join(home, ".cache", "invowk", "provision"))
 	}
 
 	// Read tag suffix from environment (for test isolation)
@@ -80,7 +82,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Enabled:          true,
 		ForceRebuild:     false,
-		InvowkBinaryPath: binaryPath,
+		InvowkBinaryPath: types.FilesystemPath(binaryPath),
 		ModulesPaths:     modulesPaths,
 		BinaryMountPath:  "/invowk/bin",
 		ModulesMountPath: "/invowk/modules",
@@ -104,28 +106,28 @@ func WithEnabled(enabled bool) Option {
 }
 
 // WithInvowkBinaryPath returns an Option that sets InvowkBinaryPath on the config.
-func WithInvowkBinaryPath(path string) Option {
+func WithInvowkBinaryPath(path types.FilesystemPath) Option {
 	return func(c *Config) {
 		c.InvowkBinaryPath = path
 	}
 }
 
 // WithModulesPaths returns an Option that sets ModulesPaths on the config.
-func WithModulesPaths(paths []string) Option {
+func WithModulesPaths(paths []types.FilesystemPath) Option {
 	return func(c *Config) {
 		c.ModulesPaths = paths
 	}
 }
 
 // WithInvowkfilePath returns an Option that sets InvowkfilePath on the config.
-func WithInvowkfilePath(path string) Option {
+func WithInvowkfilePath(path types.FilesystemPath) Option {
 	return func(c *Config) {
 		c.InvowkfilePath = path
 	}
 }
 
 // WithCacheDir returns an Option that sets CacheDir on the config.
-func WithCacheDir(dir string) Option {
+func WithCacheDir(dir types.FilesystemPath) Option {
 	return func(c *Config) {
 		c.CacheDir = dir
 	}

@@ -16,8 +16,12 @@ const (
 	SeverityWarning
 )
 
-// ErrInvalidValidationSeverity is returned when a ValidationSeverity value is not one of the defined severities.
-var ErrInvalidValidationSeverity = errors.New("invalid validation severity")
+var (
+	// ErrInvalidValidationSeverity is returned when a ValidationSeverity value is not one of the defined severities.
+	ErrInvalidValidationSeverity = errors.New("invalid validation severity")
+	// ErrInvalidValidatorName is returned when a ValidatorName is empty or whitespace-only.
+	ErrInvalidValidatorName = errors.New("invalid validator name")
+)
 
 type (
 	// ValidationSeverity indicates the severity level of a validation error.
@@ -29,10 +33,19 @@ type (
 		Value ValidationSeverity
 	}
 
+	// ValidatorName identifies a validation component (e.g., "structure", "shebang").
+	// Must be non-empty and not whitespace-only.
+	ValidatorName string
+
+	// InvalidValidatorNameError is returned when a ValidatorName is empty or whitespace-only.
+	InvalidValidatorNameError struct {
+		Value ValidatorName
+	}
+
 	// ValidationError represents a single validation issue found during invowkfile validation.
 	ValidationError struct {
 		// Validator is the name of the validator that produced this error.
-		Validator string
+		Validator ValidatorName
 		// Field is the field path where the error occurred (e.g., "command 'build' implementation #1").
 		Field string
 		// Message is the human-readable error message.
@@ -53,7 +66,7 @@ type (
 	// os.DirFS(WorkDir), empty Platform defaults to the current host platform.
 	ValidationContext struct {
 		// WorkDir is the working directory for resolving relative paths.
-		WorkDir string
+		WorkDir WorkDir
 		// FS is the filesystem to use for file existence checks.
 		// Defaults to os.DirFS(WorkDir) if nil.
 		FS fs.FS
@@ -63,7 +76,7 @@ type (
 		// StrictMode treats warnings as errors when true.
 		StrictMode bool
 		// FilePath is the path to the invowkfile being validated.
-		FilePath string
+		FilePath FilesystemPath
 	}
 
 	// Validator defines the interface for invowkfile validators.
@@ -73,7 +86,7 @@ type (
 	// No circuit breaker or max error count is enforced by the framework.
 	Validator interface {
 		// Name returns a unique identifier for this validator.
-		Name() string
+		Name() ValidatorName
 		// Validate checks the invowkfile and returns all validation errors found.
 		// Unlike traditional validation that stops on first error, this collects
 		// ALL errors to provide comprehensive feedback to users.
@@ -119,6 +132,30 @@ func (s ValidationSeverity) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// Error implements the error interface for InvalidValidatorNameError.
+func (e *InvalidValidatorNameError) Error() string {
+	return fmt.Sprintf("invalid validator name: %q", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidValidatorNameError) Unwrap() error {
+	return ErrInvalidValidatorName
+}
+
+// IsValid returns whether the ValidatorName is non-empty and not whitespace-only,
+// and a list of validation errors if it is not.
+func (n ValidatorName) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(n)) == "" {
+		return false, []error{&InvalidValidatorNameError{Value: n}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the ValidatorName.
+func (n ValidatorName) String() string {
+	return string(n)
 }
 
 // Error implements the error interface for ValidationError.

@@ -205,7 +205,7 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, 
 		return nil, "", fmt.Errorf("reading invowkmod %s: %w", invowkmodPath, err)
 	}
 
-	meta, err := ParseInvowkmodBytes(data, invowkmodPath)
+	meta, err := ParseInvowkmodBytes(data, types.FilesystemPath(invowkmodPath))
 	if err != nil {
 		return nil, "", fmt.Errorf("parsing invowkmod %s: %w", invowkmodPath, err)
 	}

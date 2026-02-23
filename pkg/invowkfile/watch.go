@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/bmatcuk/doublestar/v4"
 )
 
 // ErrInvalidGlobPattern is the sentinel error wrapped by InvalidGlobPatternError.
@@ -16,10 +18,11 @@ type (
 	// Must be non-empty.
 	GlobPattern string
 
-	// InvalidGlobPatternError is returned when a GlobPattern value is empty.
-	// It wraps ErrInvalidGlobPattern for errors.Is() compatibility.
+	// InvalidGlobPatternError is returned when a GlobPattern value is empty or
+	// syntactically invalid. It wraps ErrInvalidGlobPattern for errors.Is() compatibility.
 	InvalidGlobPatternError struct {
-		Value GlobPattern
+		Value  GlobPattern
+		Reason string
 	}
 
 	// WatchConfig defines file-watching behavior for automatic command re-execution.
@@ -43,17 +46,20 @@ type (
 
 // Error implements the error interface for InvalidGlobPatternError.
 func (e *InvalidGlobPatternError) Error() string {
-	return fmt.Sprintf("invalid glob pattern %q (must not be empty)", e.Value)
+	return fmt.Sprintf("invalid glob pattern %q: %s", e.Value, e.Reason)
 }
 
 // Unwrap returns ErrInvalidGlobPattern for errors.Is() compatibility.
 func (e *InvalidGlobPatternError) Unwrap() error { return ErrInvalidGlobPattern }
 
 // IsValid returns whether the GlobPattern is valid.
-// A valid GlobPattern must not be empty.
+// A valid GlobPattern must not be empty and must have valid glob syntax.
 func (g GlobPattern) IsValid() (bool, []error) {
 	if g == "" {
-		return false, []error{&InvalidGlobPatternError{Value: g}}
+		return false, []error{&InvalidGlobPatternError{Value: g, Reason: "must not be empty"}}
+	}
+	if _, err := doublestar.Match(string(g), ""); err != nil {
+		return false, []error{&InvalidGlobPatternError{Value: g, Reason: fmt.Sprintf("invalid syntax: %v", err)}}
 	}
 	return true, nil
 }

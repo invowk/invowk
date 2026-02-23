@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -87,7 +88,7 @@ func TestExecuteRequest_AttachesConfigPathToContext(t *testing.T) {
 
 	req := ExecuteRequest{
 		Name:       "build",
-		ConfigPath: "/tmp/custom.cue",
+		ConfigPath: types.FilesystemPath("/tmp/custom.cue"),
 	}
 	cmd := &cobra.Command{}
 
@@ -95,7 +96,7 @@ func TestExecuteRequest_AttachesConfigPathToContext(t *testing.T) {
 		t.Fatalf("executeRequest() error = %v", err)
 	}
 
-	if commands.lastConfigPath != req.ConfigPath {
+	if commands.lastConfigPath != string(req.ConfigPath) {
 		t.Fatalf("config path in context = %q, want %q", commands.lastConfigPath, req.ConfigPath)
 	}
 }
@@ -174,9 +175,9 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 
 	req := ExecuteRequest{
 		Name:       "build",
-		ConfigPath: "/tmp/custom.cue",
+		ConfigPath: types.FilesystemPath("/tmp/custom.cue"),
 	}
-	ctx := contextWithConfigPath(context.Background(), req.ConfigPath)
+	ctx := contextWithConfigPath(context.Background(), string(req.ConfigPath))
 
 	_, _, diags, err := svc.discoverCommand(ctx, req)
 	if err != nil {

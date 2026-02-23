@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -214,13 +215,13 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				Runtime:         parsedRuntime,
 				Interactive:     interactive,
 				Verbose:         verbose,
-				FromSource:      cmdFlags.fromSource,
+				FromSource:      discovery.SourceID(cmdFlags.fromSource),
 				ForceRebuild:    cmdFlags.forceRebuild,
 				DryRun:          cmdFlags.dryRun,
 				Workdir:         invowkfile.WorkDir(workdirOverride),
 				EnvFiles:        toDotenvFilePaths(envFiles),
 				EnvVars:         envVars,
-				ConfigPath:      rootFlags.configPath,
+				ConfigPath:      types.FilesystemPath(rootFlags.configPath),
 				FlagValues:      flagValues,
 				FlagDefs:        cmdRuntimeFlags,
 				ArgDefs:         cmdArgs,

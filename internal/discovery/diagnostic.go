@@ -177,6 +177,9 @@ func (e *InvalidSourceIDError) Unwrap() error {
 	return ErrInvalidSourceID
 }
 
+// String returns the string representation of the DiagnosticCode.
+func (dc DiagnosticCode) String() string { return string(dc) }
+
 // IsValid returns whether the DiagnosticCode is one of the defined codes,
 // and a list of validation errors if it is not.
 func (dc DiagnosticCode) IsValid() (bool, []error) {

@@ -263,6 +263,9 @@ func (e *InvalidContainerEngineError) Unwrap() error {
 	return ErrInvalidContainerEngine
 }
 
+// String returns the string representation of the ContainerEngine.
+func (ce ContainerEngine) String() string { return string(ce) }
+
 // IsValid returns whether the ContainerEngine is one of the defined engine types,
 // and a list of validation errors if it is not.
 func (ce ContainerEngine) IsValid() (bool, []error) {
@@ -284,6 +287,9 @@ func (e *InvalidConfigRuntimeModeError) Unwrap() error {
 	return ErrInvalidConfigRuntimeMode
 }
 
+// String returns the string representation of the config RuntimeMode.
+func (m RuntimeMode) String() string { return string(m) }
+
 // IsValid returns whether the config RuntimeMode is one of the defined runtime modes,
 // and a list of validation errors if it is not.
 func (m RuntimeMode) IsValid() (bool, []error) {
@@ -304,6 +310,9 @@ func (e *InvalidColorSchemeError) Error() string {
 func (e *InvalidColorSchemeError) Unwrap() error {
 	return ErrInvalidColorScheme
 }
+
+// String returns the string representation of the ColorScheme.
+func (cs ColorScheme) String() string { return string(cs) }
 
 // IsValid returns whether the ColorScheme is one of the defined color schemes,
 // and a list of validation errors if it is not.

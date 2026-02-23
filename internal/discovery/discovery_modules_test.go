@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestSourceModule_String(t *testing.T) {
@@ -69,8 +70,8 @@ func TestDiscoverAll_FindsModulesInUserDir(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
-		WithCommandsDir(userCmdsDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -114,7 +115,7 @@ func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 		{Path: config.ModuleIncludePath(moduleDir)},
 	}
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -372,8 +373,8 @@ func TestDiscoverAll_ConfigIncludesPrecedeUserDir(t *testing.T) {
 		{Path: config.ModuleIncludePath(configModuleDir)},
 	}
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
-		WithCommandsDir(userCmdsDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)
 
 	files, err := d.DiscoverAll()

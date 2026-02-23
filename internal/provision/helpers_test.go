@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -44,8 +45,8 @@ func TestConfigOptions(t *testing.T) {
 	cfg.Apply(
 		WithForceRebuild(true),
 		WithEnabled(false),
-		WithInvowkBinaryPath("/custom/path"),
-		WithCacheDir("/custom/cache"),
+		WithInvowkBinaryPath(types.FilesystemPath("/custom/path")),
+		WithCacheDir(types.FilesystemPath("/custom/cache")),
 	)
 
 	if !cfg.ForceRebuild {
@@ -57,11 +58,11 @@ func TestConfigOptions(t *testing.T) {
 	}
 
 	if cfg.InvowkBinaryPath != "/custom/path" {
-		t.Errorf("Expected InvowkBinaryPath to be /custom/path, got %s", cfg.InvowkBinaryPath)
+		t.Errorf("Expected InvowkBinaryPath to be /custom/path, got %s", string(cfg.InvowkBinaryPath))
 	}
 
 	if cfg.CacheDir != "/custom/cache" {
-		t.Errorf("Expected CacheDir to be /custom/cache, got %s", cfg.CacheDir)
+		t.Errorf("Expected CacheDir to be /custom/cache, got %s", string(cfg.CacheDir))
 	}
 }
 
@@ -169,7 +170,7 @@ func TestDiscoverModules(t *testing.T) {
 	}
 
 	// Discover modules
-	modules := DiscoverModules([]string{tmpDir})
+	modules := DiscoverModules([]types.FilesystemPath{types.FilesystemPath(tmpDir)})
 
 	if len(modules) != 2 {
 		t.Errorf("Expected 2 modules, got %d", len(modules))
@@ -421,7 +422,7 @@ func TestDiscoverModules_EmptyPaths(t *testing.T) {
 		t.Errorf("expected 0 modules for nil paths, got %d", len(modules))
 	}
 
-	modules = DiscoverModules([]string{})
+	modules = DiscoverModules([]types.FilesystemPath{})
 	if len(modules) != 0 {
 		t.Errorf("expected 0 modules for empty paths, got %d", len(modules))
 	}
@@ -438,7 +439,7 @@ func TestDiscoverModules_Deduplication(t *testing.T) {
 	}
 
 	// Pass the same path twice
-	modules := DiscoverModules([]string{tmpDir, tmpDir})
+	modules := DiscoverModules([]types.FilesystemPath{types.FilesystemPath(tmpDir), types.FilesystemPath(tmpDir)})
 
 	if len(modules) != 1 {
 		t.Errorf("expected 1 module after deduplication, got %d: %v", len(modules), modules)
@@ -461,7 +462,7 @@ func TestDiscoverModules_MultiplePaths(t *testing.T) {
 		t.Fatalf("failed to create mod2: %v", err)
 	}
 
-	modules := DiscoverModules([]string{dir1, dir2})
+	modules := DiscoverModules([]types.FilesystemPath{types.FilesystemPath(dir1), types.FilesystemPath(dir2)})
 
 	if len(modules) != 2 {
 		t.Errorf("expected 2 modules across paths, got %d: %v", len(modules), modules)

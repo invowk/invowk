@@ -20,7 +20,7 @@ func NewStructureValidator() *StructureValidator {
 }
 
 // Name returns the validator name.
-func (v *StructureValidator) Name() string {
+func (v *StructureValidator) Name() ValidatorName {
 	return "structure"
 }
 
@@ -32,7 +32,7 @@ func (v *StructureValidator) Validate(ctx *ValidationContext, inv *Invowkfile) [
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     "",
-			Message:   "invowkfile at " + ctx.FilePath + " has no commands defined (missing required 'cmds' list)",
+			Message:   "invowkfile at " + string(ctx.FilePath) + " has no commands defined (missing required 'cmds' list)",
 			Severity:  SeverityError,
 		})
 		return errors // No point validating further if there are no commands

@@ -321,3 +321,58 @@ func TestContainerImage_String(t *testing.T) {
 		t.Errorf("ContainerImage(\"debian:stable-slim\").String() = %q, want %q", got, "debian:stable-slim")
 	}
 }
+
+func TestRuntimeMode_String(t *testing.T) {
+	t.Parallel()
+
+	if got := RuntimeNative.String(); got != "native" {
+		t.Errorf("RuntimeNative.String() = %q, want %q", got, "native")
+	}
+	if got := RuntimeMode("").String(); got != "" {
+		t.Errorf("RuntimeMode(\"\").String() = %q, want %q", got, "")
+	}
+}
+
+func TestEnvInheritMode_String(t *testing.T) {
+	t.Parallel()
+
+	if got := EnvInheritAll.String(); got != "all" {
+		t.Errorf("EnvInheritAll.String() = %q, want %q", got, "all")
+	}
+	if got := EnvInheritMode("").String(); got != "" {
+		t.Errorf("EnvInheritMode(\"\").String() = %q, want %q", got, "")
+	}
+}
+
+func TestPlatformType_String(t *testing.T) {
+	t.Parallel()
+
+	if got := PlatformLinux.String(); got != "linux" {
+		t.Errorf("PlatformLinux.String() = %q, want %q", got, "linux")
+	}
+	if got := PlatformType("").String(); got != "" {
+		t.Errorf("PlatformType(\"\").String() = %q, want %q", got, "")
+	}
+}
+
+func TestFlagType_String(t *testing.T) {
+	t.Parallel()
+
+	if got := FlagTypeString.String(); got != "string" {
+		t.Errorf("FlagTypeString.String() = %q, want %q", got, "string")
+	}
+	if got := FlagType("").String(); got != "" {
+		t.Errorf("FlagType(\"\").String() = %q, want %q", got, "")
+	}
+}
+
+func TestArgumentType_String(t *testing.T) {
+	t.Parallel()
+
+	if got := ArgumentTypeInt.String(); got != "int" {
+		t.Errorf("ArgumentTypeInt.String() = %q, want %q", got, "int")
+	}
+	if got := ArgumentType("").String(); got != "" {
+		t.Errorf("ArgumentType(\"\").String() = %q, want %q", got, "")
+	}
+}

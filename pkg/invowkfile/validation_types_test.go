@@ -377,6 +377,53 @@ func TestFieldPath_Copy(t *testing.T) {
 	}
 }
 
+func TestValidatorName_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   ValidatorName
+		want    bool
+		wantErr bool
+	}{
+		{"valid name", "structure", true, false},
+		{"empty string", "", false, true},
+		{"space only", " ", false, true},
+		{"tab only", "\t", false, true},
+		{"mixed whitespace", " \t\n ", false, true},
+		{"name with spaces", "my validator", true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.value.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ValidatorName(%q).IsValid() = %v, want %v", tt.value, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ValidatorName(%q).IsValid() returned no errors, want error", tt.value)
+				}
+				if !errors.Is(errs[0], ErrInvalidValidatorName) {
+					t.Errorf("error should wrap ErrInvalidValidatorName, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ValidatorName(%q).IsValid() returned unexpected errors: %v", tt.value, errs)
+			}
+		})
+	}
+}
+
+func TestValidatorName_String(t *testing.T) {
+	t.Parallel()
+
+	n := ValidatorName("structure")
+	if n.String() != "structure" {
+		t.Errorf("String() = %q, want %q", n.String(), "structure")
+	}
+}
+
 func TestValidationSeverity_IsValid(t *testing.T) {
 	t.Parallel()
 

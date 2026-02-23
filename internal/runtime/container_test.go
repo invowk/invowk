@@ -16,6 +16,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // MockEngine implements container.Engine for testing.
@@ -615,9 +616,9 @@ func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
 	// Set new config
 	newCfg := &provision.Config{
 		Enabled:          true,
-		InvowkBinaryPath: "/custom/invowk",
-		BinaryMountPath:  "/opt/invowk",
-		ModulesMountPath: "/opt/modules",
+		InvowkBinaryPath: types.FilesystemPath("/custom/invowk"),
+		BinaryMountPath:  container.MountTargetPath("/opt/invowk"),
+		ModulesMountPath: container.MountTargetPath("/opt/modules"),
 	}
 	rt.SetProvisionConfig(newCfg)
 
@@ -766,9 +767,9 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	provCfg := &provision.Config{
 		Enabled:          true,
 		Strict:           true,
-		InvowkBinaryPath: filepath.Join(tmpDir, "nonexistent-invowk"),
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-invowk")),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 	rt := NewContainerRuntimeWithEngine(engine)
 	rt.SetProvisionConfig(provCfg)
@@ -817,9 +818,9 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	provCfg := &provision.Config{
 		Enabled:          true,
 		Strict:           false,
-		InvowkBinaryPath: filepath.Join(tmpDir, "nonexistent-invowk"),
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-invowk")),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 	rt := NewContainerRuntimeWithEngine(engine)
 	rt.SetProvisionConfig(provCfg)

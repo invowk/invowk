@@ -429,7 +429,7 @@ func TestStructureValidator_RuntimeDependsOn_RejectsNonContainer(t *testing.T) {
 			}
 
 			validator := NewStructureValidator()
-			ctx := &ValidationContext{FilePath: "test.cue"}
+			ctx := &ValidationContext{FilePath: FilesystemPath("test.cue")}
 			errs := validator.Validate(ctx, inv)
 
 			found := false
@@ -467,7 +467,7 @@ func TestStructureValidator_RuntimeDependsOn_AllowsContainer(t *testing.T) {
 	}
 
 	validator := NewStructureValidator()
-	ctx := &ValidationContext{FilePath: "test.cue"}
+	ctx := &ValidationContext{FilePath: FilesystemPath("test.cue")}
 	errs := validator.Validate(ctx, inv)
 
 	for _, e := range errs {

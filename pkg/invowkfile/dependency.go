@@ -222,11 +222,11 @@ func (e *InvalidBinaryNameError) Error() string {
 func (e *InvalidBinaryNameError) Unwrap() error { return ErrInvalidBinaryName }
 
 // IsValid returns whether the BinaryName is valid.
-// A valid BinaryName must be non-empty and must not contain path separators.
+// A valid BinaryName must be non-empty, not whitespace-only, and must not contain path separators.
 func (b BinaryName) IsValid() (bool, []error) {
 	s := string(b)
-	if s == "" {
-		return false, []error{&InvalidBinaryNameError{Value: b, Reason: "must not be empty"}}
+	if strings.TrimSpace(s) == "" {
+		return false, []error{&InvalidBinaryNameError{Value: b, Reason: "must not be empty or whitespace-only"}}
 	}
 	if strings.ContainsAny(s, "/\\") {
 		return false, []error{&InvalidBinaryNameError{Value: b, Reason: "must not contain path separators"}}

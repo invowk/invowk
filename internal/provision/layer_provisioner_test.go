@@ -6,6 +6,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
@@ -13,9 +16,9 @@ func TestLayerProvisionerGenerateDockerfile(t *testing.T) {
 
 	cfg := &Config{
 		Enabled:          true,
-		InvowkBinaryPath: "/usr/bin/invowk",
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		InvowkBinaryPath: types.FilesystemPath("/usr/bin/invowk"),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
 	provisioner := &LayerProvisioner{
@@ -51,9 +54,9 @@ func TestLayerProvisionerBuildEnvVars(t *testing.T) {
 
 	cfg := &Config{
 		Enabled:          true,
-		InvowkBinaryPath: "/usr/bin/invowk",
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		InvowkBinaryPath: types.FilesystemPath("/usr/bin/invowk"),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
 	provisioner := &LayerProvisioner{
@@ -204,8 +207,8 @@ func TestLayerProvisionerGenerateDockerfile_NoBinary(t *testing.T) {
 	cfg := &Config{
 		Enabled:          true,
 		InvowkBinaryPath: "", // No binary path
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
 	provisioner := &LayerProvisioner{
@@ -250,8 +253,8 @@ func TestLayerProvisionerBuildEnvVars_NoBinary(t *testing.T) {
 	cfg := &Config{
 		Enabled:          true,
 		InvowkBinaryPath: "", // No binary path
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
 	provisioner := &LayerProvisioner{

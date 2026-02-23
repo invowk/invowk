@@ -16,7 +16,7 @@ func NewCompositeValidator(validators ...Validator) *CompositeValidator {
 }
 
 // Name returns the name of this composite validator.
-func (c *CompositeValidator) Name() string {
+func (c *CompositeValidator) Name() ValidatorName {
 	return "composite"
 }
 

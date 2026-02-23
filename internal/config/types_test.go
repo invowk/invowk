@@ -267,3 +267,27 @@ func TestCacheDirPath_String(t *testing.T) {
 		t.Errorf("CacheDirPath.String() = %q, want %q", p.String(), "/var/cache/invowk")
 	}
 }
+
+func TestContainerEngine_String(t *testing.T) {
+	t.Parallel()
+
+	if got := ContainerEnginePodman.String(); got != "podman" {
+		t.Errorf("ContainerEnginePodman.String() = %q, want %q", got, "podman")
+	}
+}
+
+func TestConfigRuntimeMode_String(t *testing.T) {
+	t.Parallel()
+
+	if got := RuntimeNative.String(); got != "native" {
+		t.Errorf("RuntimeNative.String() = %q, want %q", got, "native")
+	}
+}
+
+func TestColorScheme_String(t *testing.T) {
+	t.Parallel()
+
+	if got := ColorSchemeAuto.String(); got != "auto" {
+		t.Errorf("ColorSchemeAuto.String() = %q, want %q", got, "auto")
+	}
+}

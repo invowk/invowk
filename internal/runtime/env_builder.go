@@ -61,7 +61,7 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 	env := buildHostEnv(cfg, b.Environ)
 
 	// Determine the base path for resolving env files
-	basePath := ctx.Invowkfile.GetScriptBasePath()
+	basePath := string(ctx.Invowkfile.GetScriptBasePath())
 
 	// 2. Root-level env.files
 	for _, path := range ctx.Invowkfile.Env.GetFiles() {

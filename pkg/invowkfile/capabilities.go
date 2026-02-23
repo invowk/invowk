@@ -261,6 +261,9 @@ func checkTTY() error {
 	}
 }
 
+// String returns the string representation of the CapabilityName.
+func (c CapabilityName) String() string { return string(c) }
+
 // IsValid returns whether the CapabilityName is one of the defined capability names,
 // and a list of validation errors if it is not.
 func (c CapabilityName) IsValid() (bool, []error) {

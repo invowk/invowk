@@ -102,7 +102,7 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return NewErrorResult(1, err)
 	}
@@ -189,7 +189,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 // ExecuteCapture runs a command and captures its output
 func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return NewErrorResult(1, err)
 	}
@@ -281,7 +281,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return nil, err
 	}

@@ -237,3 +237,14 @@ func TestCheckInternet_ReturnsCapabilityError(t *testing.T) {
 		}
 	}
 }
+
+func TestCapabilityName_String(t *testing.T) {
+	t.Parallel()
+
+	if got := CapabilityLocalAreaNetwork.String(); got != "local-area-network" {
+		t.Errorf("CapabilityLocalAreaNetwork.String() = %q, want %q", got, "local-area-network")
+	}
+	if got := CapabilityName("").String(); got != "" {
+		t.Errorf("CapabilityName(\"\").String() = %q, want %q", got, "")
+	}
+}

@@ -100,6 +100,9 @@ func (e *InvalidFlagTypeError) Unwrap() error {
 	return ErrInvalidFlagType
 }
 
+// String returns the string representation of the FlagType.
+func (ft FlagType) String() string { return string(ft) }
+
 // IsValid returns whether the FlagType is one of the defined flag types,
 // and a list of validation errors if it is not.
 // Note: the zero value ("") is valid — it is treated as "string" by GetType().

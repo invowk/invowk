@@ -12,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -46,11 +47,11 @@ type (
 	// surfaced through the standard diagnostics pipeline in discoverAllWithDiagnostics.
 	Discovery struct {
 		cfg             *config.Config
-		baseDir         string       // replaces hardcoded "." — resolved once at construction
-		baseDirSet      bool         // distinguishes "not set" from "explicitly set to empty"
-		commandsDir     string       // replaces config.CommandsDir() call
-		commandsDirSet  bool         // distinguishes "not set" from "explicitly set to empty"
-		initDiagnostics []Diagnostic // errors from New() constructor surfaced as diagnostics
+		baseDir         types.FilesystemPath // replaces hardcoded "." — resolved once at construction
+		baseDirSet      bool                 // distinguishes "not set" from "explicitly set to empty"
+		commandsDir     types.FilesystemPath // replaces config.CommandsDir() call
+		commandsDirSet  bool                 // distinguishes "not set" from "explicitly set to empty"
+		initDiagnostics []Diagnostic         // errors from New() constructor surfaced as diagnostics
 	}
 
 	// Option configures a Discovery instance via the functional options pattern.
@@ -75,7 +76,7 @@ func (e *ModuleCollisionError) Unwrap() error { return ErrModuleCollision }
 // WithBaseDir sets the base directory for discovery, replacing the default of
 // os.Getwd(). This enables parallel tests to inject isolated temp directories
 // instead of relying on the process-global working directory.
-func WithBaseDir(dir string) Option {
+func WithBaseDir(dir types.FilesystemPath) Option {
 	return func(d *Discovery) {
 		d.baseDir = dir
 		d.baseDirSet = true
@@ -85,7 +86,7 @@ func WithBaseDir(dir string) Option {
 // WithCommandsDir sets the user commands directory, replacing the default of
 // config.CommandsDir() (~/.invowk/cmds). Pass an empty string to skip user-dir
 // discovery entirely.
-func WithCommandsDir(dir string) Option {
+func WithCommandsDir(dir types.FilesystemPath) Option {
 	return func(d *Discovery) {
 		d.commandsDir = dir
 		d.commandsDirSet = true
@@ -103,9 +104,10 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		opt(d)
 	}
 	if !d.baseDirSet && d.baseDir == "" {
-		var err error
-		d.baseDir, err = os.Getwd()
-		if err != nil {
+		cwd, err := os.Getwd()
+		if err == nil {
+			d.baseDir = types.FilesystemPath(cwd)
+		} else {
 			slog.Debug("failed to determine working directory for discovery, current-dir lookup will be skipped",
 				"error", err)
 			d.initDiagnostics = append(d.initDiagnostics, NewDiagnosticWithCause(
@@ -119,7 +121,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 	}
 	if !d.commandsDirSet && d.commandsDir == "" {
 		if dir, err := config.CommandsDir(); err == nil {
-			d.commandsDir = dir
+			d.commandsDir = types.FilesystemPath(dir)
 		} else {
 			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
 				"error", err)

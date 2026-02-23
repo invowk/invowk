@@ -27,6 +27,8 @@ func TestDependencyMessage_IsValid(t *testing.T) {
 		{"non-empty is valid", DependencyMessage("  - kubectl - not found in PATH"), true, false},
 		{"short message is valid", DependencyMessage("test"), true, false},
 		{"empty is invalid", DependencyMessage(""), false, true},
+		{"whitespace only is invalid", DependencyMessage("   "), false, true},
+		{"tab only is invalid", DependencyMessage("\t"), false, true},
 	}
 
 	for _, tt := range tests {

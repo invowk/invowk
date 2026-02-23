@@ -289,6 +289,9 @@ func (e *InvalidHostMappingError) Error() string {
 // Unwrap returns ErrInvalidHostMapping for errors.Is() compatibility.
 func (e *InvalidHostMappingError) Unwrap() error { return ErrInvalidHostMapping }
 
+// String returns the string representation of the EngineType.
+func (et EngineType) String() string { return string(et) }
+
 // IsValid returns whether the EngineType is one of the defined engine types,
 // and a list of validation errors if it is not.
 func (et EngineType) IsValid() (bool, []error) {

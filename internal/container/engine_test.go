@@ -317,6 +317,17 @@ func TestDockerEngine_Integration(t *testing.T) {
 	})
 }
 
+func TestEngineType_String(t *testing.T) {
+	t.Parallel()
+
+	if got := EngineTypePodman.String(); got != "podman" {
+		t.Errorf("EngineTypePodman.String() = %q, want %q", got, "podman")
+	}
+	if got := EngineType("").String(); got != "" {
+		t.Errorf("EngineType(\"\").String() = %q, want %q", got, "")
+	}
+}
+
 func TestPodmanEngine_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")

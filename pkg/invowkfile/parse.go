@@ -62,13 +62,13 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 
 // ParseInvowkmod reads and parses module metadata from invowkmod.cue at the given path.
 // This is a wrapper for invowkmod.ParseInvowkmod.
-func ParseInvowkmod(path string) (*Invowkmod, error) {
+func ParseInvowkmod(path FilesystemPath) (*Invowkmod, error) {
 	return invowkmod.ParseInvowkmod(path)
 }
 
 // ParseInvowkmodBytes parses module metadata content from bytes.
 // This is a wrapper for invowkmod.ParseInvowkmodBytes.
-func ParseInvowkmodBytes(data []byte, path string) (*Invowkmod, error) {
+func ParseInvowkmodBytes(data []byte, path FilesystemPath) (*Invowkmod, error) {
 	return invowkmod.ParseInvowkmodBytes(data, path)
 }
 
@@ -85,7 +85,7 @@ func ParseModule(modulePath string) (*Module, error) {
 	invowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
 
 	// Parse invowkmod.cue (required)
-	meta, err := ParseInvowkmod(invowkmodPath)
+	meta, err := ParseInvowkmod(FilesystemPath(invowkmodPath))
 	if err != nil {
 		return nil, fmt.Errorf("module at %s: %w", modulePath, err)
 	}

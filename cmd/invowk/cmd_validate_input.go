@@ -121,7 +121,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 						CommandName:  invowkfile.CommandName(cmdName),
 						ArgDefs:      argDefs,
 						ProvidedArgs: providedArgs,
-						InvalidArg:   string(argDef.Name),
+						InvalidArg:   argDef.Name,
 						InvalidValue: providedArgs[j],
 						ValueError:   err,
 					}
@@ -137,7 +137,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 				CommandName:  invowkfile.CommandName(cmdName),
 				ArgDefs:      argDefs,
 				ProvidedArgs: providedArgs,
-				InvalidArg:   string(argDef.Name),
+				InvalidArg:   argDef.Name,
 				InvalidValue: argValue,
 				ValueError:   err,
 			}

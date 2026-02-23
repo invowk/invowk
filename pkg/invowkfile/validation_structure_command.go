@@ -16,7 +16,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     "",
-			Message:   "command must have a name in invowkfile at " + ctx.FilePath,
+			Message:   "command must have a name in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 		return errors // Can't validate further without a name
@@ -27,7 +27,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -37,7 +37,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -52,7 +52,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have at least one implementation in invowkfile at " + ctx.FilePath,
+			Message:   "must have at least one implementation in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	} else {
@@ -91,7 +91,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have a script in invowkfile at " + ctx.FilePath,
+			Message:   "must have a script in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	} else if !impl.IsScriptFile() {
@@ -100,7 +100,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -110,7 +110,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have at least one runtime in invowkfile at " + ctx.FilePath,
+			Message:   "must have at least one runtime in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	} else {
@@ -125,7 +125,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have at least one platform in invowkfile at " + ctx.FilePath,
+			Message:   "must have at least one platform in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -294,12 +294,12 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 			}
 
 			// Validate containerfile path traversal
-			baseDir := filepath.Dir(ctx.FilePath)
+			baseDir := filepath.Dir(string(ctx.FilePath))
 			if err := ValidateContainerfilePath(cfStr, baseDir); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}

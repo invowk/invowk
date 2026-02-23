@@ -28,7 +28,7 @@ func TestGetEffectiveWorkDir_DefaultToInvowkfileDir(t *testing.T) {
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 
-	if result != tmpDir {
+	if string(result) != tmpDir {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, tmpDir)
 	}
 }
@@ -50,7 +50,7 @@ func TestGetEffectiveWorkDir_RootLevel(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "build")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -72,7 +72,7 @@ func TestGetEffectiveWorkDir_CommandLevel(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "cmd-workdir")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -94,7 +94,7 @@ func TestGetEffectiveWorkDir_ImplementationLevel(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "impl-workdir")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -116,7 +116,7 @@ func TestGetEffectiveWorkDir_CLIOverride(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, impl, "cli-workdir")
 	expected := filepath.Join(tmpDir, "cli-workdir")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -138,7 +138,7 @@ func TestGetEffectiveWorkDir_AbsolutePath(t *testing.T) {
 
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 
-	if result != absPath {
+	if string(result) != absPath {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, absPath)
 	}
 }
@@ -160,7 +160,7 @@ func TestGetEffectiveWorkDir_ForwardSlashConversion(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "nested", "deep", "path")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -180,7 +180,7 @@ func TestGetEffectiveWorkDir_NilCommand(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(nil, nil, "")
 	expected := filepath.Join(tmpDir, "root-workdir")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -200,7 +200,7 @@ func TestGetEffectiveWorkDir_NilImplementation(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, nil, "")
 	expected := filepath.Join(tmpDir, "cmd-workdir")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -222,7 +222,7 @@ func TestGetEffectiveWorkDir_EmptyCommandWorkDir(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "root-workdir")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -248,7 +248,7 @@ func TestGetEffectiveWorkDir_ParentDirectory(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(subDir, "..", "sibling")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -270,7 +270,7 @@ func TestGetEffectiveWorkDir_CurrentDirectory(t *testing.T) {
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, ".")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -298,7 +298,7 @@ func TestGetEffectiveWorkDir_ModulePath(t *testing.T) {
 	// Should resolve against module directory (via GetScriptBasePath)
 	expected := filepath.Join(moduleDir, "scripts")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }
@@ -464,7 +464,7 @@ cmds: [
 	result := inv.GetEffectiveWorkDir(cmd, impl, "")
 	expected := filepath.Join(tmpDir, "impl-dir")
 
-	if result != expected {
+	if string(result) != expected {
 		t.Errorf("GetEffectiveWorkDir() = %q, want %q", result, expected)
 	}
 }

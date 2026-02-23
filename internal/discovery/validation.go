@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ArgsSubcommandConflictError is returned when a command defines both
@@ -20,9 +21,9 @@ type ArgsSubcommandConflictError struct {
 	// Args are the positional arguments defined on the command
 	Args []invowkfile.Argument
 	// Subcommands are the child command names
-	Subcommands []string
+	Subcommands []invowkfile.CommandName
 	// FilePath is the path to the invowkfile containing this command
-	FilePath string
+	FilePath types.FilesystemPath
 }
 
 // Error implements the error interface.
@@ -30,7 +31,7 @@ func (e *ArgsSubcommandConflictError) Error() string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "command '%s' has both args and subcommands", e.CommandName)
 	if e.FilePath != "" {
-		fmt.Fprintf(&sb, " in %s", e.FilePath)
+		fmt.Fprintf(&sb, " in %s", string(e.FilePath))
 	}
 	sb.WriteString("\n  defined args: ")
 	for i, arg := range e.Args {
@@ -44,7 +45,7 @@ func (e *ArgsSubcommandConflictError) Error() string {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		sb.WriteString(sub)
+		sb.WriteString(string(sub))
 	}
 	return sb.String()
 }
@@ -65,7 +66,7 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 	commandsWithArgs := make(map[invowkfile.CommandName]*CommandInfo)
 
 	// Track parent-child relationships
-	childCommands := make(map[invowkfile.CommandName][]string)
+	childCommands := make(map[invowkfile.CommandName][]invowkfile.CommandName)
 
 	for _, cmdInfo := range commands {
 		if cmdInfo == nil || cmdInfo.Command == nil {
@@ -80,7 +81,7 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 		parts := strings.Fields(string(cmdInfo.Name))
 		for i := 1; i < len(parts); i++ {
 			parentName := invowkfile.CommandName(strings.Join(parts[:i], " "))
-			childCommands[parentName] = append(childCommands[parentName], string(cmdInfo.Name))
+			childCommands[parentName] = append(childCommands[parentName], cmdInfo.Name)
 		}
 	}
 
@@ -91,7 +92,7 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 				CommandName: cmdName,
 				Args:        cmdInfo.Command.Args,
 				Subcommands: children,
-				FilePath:    string(cmdInfo.FilePath),
+				FilePath:    cmdInfo.FilePath,
 			}
 		}
 	}
