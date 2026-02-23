@@ -9,6 +9,7 @@ package watch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -31,19 +32,24 @@ import (
 // writing then renaming a temp file) to coalesce into a single callback.
 const defaultDebounce = 500 * time.Millisecond
 
-// defaultIgnores lists path patterns that are always excluded from watching,
-// regardless of user-supplied ignore patterns. These cover VCS metadata,
-// dependency caches, editor swap files, and OS metadata files that generate
-// high-frequency noise.
-var defaultIgnores = []invowkfile.GlobPattern{
-	"**/.git/**",
-	"**/node_modules/**",
-	"**/__pycache__/**",
-	"**/*.swp",
-	"**/*.swo",
-	"**/*~",
-	"**/.DS_Store",
-}
+var (
+	// defaultIgnores lists path patterns that are always excluded from watching,
+	// regardless of user-supplied ignore patterns. These cover VCS metadata,
+	// dependency caches, editor swap files, and OS metadata files that generate
+	// high-frequency noise.
+	defaultIgnores = []invowkfile.GlobPattern{
+		"**/.git/**",
+		"**/node_modules/**",
+		"**/__pycache__/**",
+		"**/*.swp",
+		"**/*.swo",
+		"**/*~",
+		"**/.DS_Store",
+	}
+
+	// ErrInvalidWatchConfig is the sentinel error wrapped by InvalidWatchConfigError.
+	ErrInvalidWatchConfig = errors.New("invalid watch config")
+)
 
 type (
 	// Config holds the parameters for a Watcher.
@@ -102,6 +108,12 @@ type (
 		started  atomic.Bool
 		closed   atomic.Bool
 	}
+
+	// InvalidWatchConfigError is returned when a Config has one or more
+	// invalid typed fields. FieldErrors contains the per-field validation errors.
+	InvalidWatchConfigError struct {
+		FieldErrors []error
+	}
 )
 
 func init() {
@@ -113,6 +125,44 @@ func init() {
 		}
 	}
 }
+
+// IsValid returns whether all typed fields in the Config are valid.
+// Debounce, ClearScreen, OnChange, Stdout, and Stderr are skipped (non-domain types).
+// BaseDir is only validated when non-empty, since empty means "use current working directory".
+// Each GlobPattern in Patterns and Ignore is validated individually.
+func (c Config) IsValid() (bool, []error) {
+	var errs []error
+	for i, p := range c.Patterns {
+		if valid, fieldErrs := p.IsValid(); !valid {
+			errs = append(errs, fmt.Errorf("patterns[%d]: %w", i, fieldErrs[0]))
+		}
+	}
+	for i, ig := range c.Ignore {
+		if valid, fieldErrs := ig.IsValid(); !valid {
+			errs = append(errs, fmt.Errorf("ignore[%d]: %w", i, fieldErrs[0]))
+		}
+	}
+	if c.BaseDir != "" {
+		if valid, fieldErrs := c.BaseDir.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidWatchConfigError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidWatchConfigError.
+func (e *InvalidWatchConfigError) Error() string {
+	if len(e.FieldErrors) == 1 {
+		return fmt.Sprintf("invalid watch config: %v", e.FieldErrors[0])
+	}
+	return fmt.Sprintf("invalid watch config: %d field errors", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidWatchConfig for errors.Is() compatibility.
+func (e *InvalidWatchConfigError) Unwrap() error { return ErrInvalidWatchConfig }
 
 // New creates a Watcher from the given Config. It resolves BaseDir to an
 // absolute path, initialises the underlying fsnotify watcher, and registers

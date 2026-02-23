@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
@@ -272,7 +274,7 @@ func (m *spinModel) runCommand() tea.Cmd {
 
 		if err != nil {
 			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-				result.ExitCode = exitErr.ExitCode()
+				result.ExitCode = types.ExitCode(exitErr.ExitCode())
 			} else {
 				result.ExitCode = 1
 			}

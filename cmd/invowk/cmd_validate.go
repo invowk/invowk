@@ -58,7 +58,7 @@ func validateHostDependencies(disc DiscoveryService, cmdInfo *discovery.CommandI
 	}
 
 	// Filepaths: always host filesystem
-	if err := checkHostFilepathDependencies(mergedDeps, string(invowkfilePath), parentCtx); err != nil {
+	if err := checkHostFilepathDependencies(mergedDeps, invowkfilePath, parentCtx); err != nil {
 		return err
 	}
 

@@ -19,13 +19,15 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
 	// GitFetcher handles Git operations for module fetching.
 	GitFetcher struct {
 		// CacheDir is the base directory for the Git source cache.
-		CacheDir string
+		CacheDir types.FilesystemPath
 
 		// auth is the authentication method to use for Git operations.
 		auth transport.AuthMethod
@@ -33,13 +35,14 @@ type (
 
 	// TagInfo contains information about a Git tag.
 	TagInfo struct {
+		// Name is the git tag name; intentionally untyped (pass-through from go-git).
 		Name   string
 		Commit GitCommit
 	}
 )
 
 // NewGitFetcher creates a new Git fetcher.
-func NewGitFetcher(cacheDir string) *GitFetcher {
+func NewGitFetcher(cacheDir types.FilesystemPath) *GitFetcher {
 	f := &GitFetcher{
 		CacheDir: cacheDir,
 	}
@@ -432,5 +435,5 @@ func (f *GitFetcher) getRepoCachePath(gitURL string) string {
 	path = strings.TrimSuffix(path, ".git")
 	path = strings.ReplaceAll(path, ":", "/")
 
-	return filepath.Join(f.CacheDir, "sources", path)
+	return filepath.Join(string(f.CacheDir), "sources", path)
 }

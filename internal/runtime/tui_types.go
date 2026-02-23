@@ -14,6 +14,8 @@ var (
 
 	// ErrInvalidTUIServerToken is the sentinel error wrapped by InvalidTUIServerTokenError.
 	ErrInvalidTUIServerToken = errors.New("invalid TUI server token")
+	// ErrInvalidTUIContext is the sentinel error wrapped by InvalidTUIContextError.
+	ErrInvalidTUIContext = errors.New("invalid TUI context")
 )
 
 type (
@@ -37,6 +39,13 @@ type (
 	// but whitespace-only.
 	InvalidTUIServerTokenError struct {
 		Value TUIServerToken
+	}
+
+	// InvalidTUIContextError is returned when a TUIContext has invalid fields.
+	// It wraps ErrInvalidTUIContext for errors.Is() compatibility and collects
+	// field-level validation errors from ServerURL and ServerToken.
+	InvalidTUIContextError struct {
+		FieldErrors []error
 	}
 )
 
@@ -86,3 +95,11 @@ func (e *InvalidTUIServerTokenError) Error() string {
 
 // Unwrap returns ErrInvalidTUIServerToken for errors.Is() compatibility.
 func (e *InvalidTUIServerTokenError) Unwrap() error { return ErrInvalidTUIServerToken }
+
+// Error implements the error interface for InvalidTUIContextError.
+func (e *InvalidTUIContextError) Error() string {
+	return fmt.Sprintf("invalid TUI context: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidTUIContext for errors.Is() compatibility.
+func (e *InvalidTUIContextError) Unwrap() error { return ErrInvalidTUIContext }

@@ -414,7 +414,7 @@ func (m *interactiveModel) appendCompletionMessage() {
 		if m.result.Error != nil {
 			status = fmt.Sprintf("FAILED: %v", m.result.Error)
 		} else {
-			status = fmt.Sprintf("EXITED WITH CODE %d", m.result.ExitCode)
+			status = fmt.Sprintf("EXITED WITH CODE %d", int(m.result.ExitCode))
 		}
 	}
 

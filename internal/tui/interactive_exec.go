@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/xpty"
 )
@@ -87,7 +89,7 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 
 		if waitErr != nil {
 			if exitErr, ok := errors.AsType[*exec.ExitError](waitErr); ok {
-				result.ExitCode = exitErr.ExitCode()
+				result.ExitCode = types.ExitCode(exitErr.ExitCode())
 			} else {
 				result.Error = waitErr
 				result.ExitCode = 1

@@ -46,6 +46,12 @@ var (
 
 	// ErrInvalidMountTargetPath is the sentinel error wrapped by InvalidMountTargetPathError.
 	ErrInvalidMountTargetPath = errors.New("invalid container filesystem path")
+
+	// ErrInvalidVolumeMount is the sentinel error wrapped by InvalidVolumeMountError.
+	ErrInvalidVolumeMount = errors.New("invalid volume mount")
+
+	// ErrInvalidPortMapping is the sentinel error wrapped by InvalidPortMappingError.
+	ErrInvalidPortMapping = errors.New("invalid port mapping")
 )
 
 type (
@@ -179,6 +185,20 @@ type (
 		ContainerPort NetworkPort
 		Protocol      PortProtocol
 	}
+
+	// InvalidVolumeMountError is returned when a VolumeMount has one or more invalid fields.
+	// It wraps the individual field validation errors for inspection.
+	InvalidVolumeMountError struct {
+		Value     VolumeMount
+		FieldErrs []error
+	}
+
+	// InvalidPortMappingError is returned when a PortMapping has one or more invalid fields.
+	// It wraps the individual field validation errors for inspection.
+	InvalidPortMappingError struct {
+		Value     PortMapping
+		FieldErrs []error
+	}
 )
 
 // Error implements the error interface.
@@ -287,6 +307,63 @@ func (e *InvalidMountTargetPathError) Error() string {
 // Unwrap returns ErrInvalidMountTargetPath for errors.Is() compatibility.
 func (e *InvalidMountTargetPathError) Unwrap() error {
 	return ErrInvalidMountTargetPath
+}
+
+// Error implements the error interface for InvalidVolumeMountError.
+func (e *InvalidVolumeMountError) Error() string {
+	return fmt.Sprintf("invalid volume mount %s:%s: %d field error(s)",
+		e.Value.HostPath, e.Value.ContainerPath, len(e.FieldErrs))
+}
+
+// Unwrap returns ErrInvalidVolumeMount for errors.Is() compatibility.
+func (e *InvalidVolumeMountError) Unwrap() error { return ErrInvalidVolumeMount }
+
+// IsValid returns whether all typed fields of the VolumeMount are valid,
+// and a combined list of validation errors from HostPath, ContainerPath, and SELinux.
+// ReadOnly is a bool and requires no validation.
+func (v VolumeMount) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := v.HostPath.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := v.ContainerPath.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := v.SELinux.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, errs
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidPortMappingError.
+func (e *InvalidPortMappingError) Error() string {
+	return fmt.Sprintf("invalid port mapping %d:%d/%s: %d field error(s)",
+		e.Value.HostPort, e.Value.ContainerPort, e.Value.Protocol, len(e.FieldErrs))
+}
+
+// Unwrap returns ErrInvalidPortMapping for errors.Is() compatibility.
+func (e *InvalidPortMappingError) Unwrap() error { return ErrInvalidPortMapping }
+
+// IsValid returns whether all typed fields of the PortMapping are valid,
+// and a combined list of validation errors from HostPort, ContainerPort, and Protocol.
+func (p PortMapping) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := p.HostPort.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := p.ContainerPort.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := p.Protocol.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, errs
+	}
+	return true, nil
 }
 
 // --- Option Functions ---

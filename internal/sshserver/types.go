@@ -16,6 +16,8 @@ var (
 	ErrInvalidTokenValue = errors.New("invalid token value")
 	// ErrInvalidListenPort is the sentinel error wrapped by InvalidListenPortError.
 	ErrInvalidListenPort = errors.New("invalid listen port")
+	// ErrInvalidSSHConfig is the sentinel error wrapped by InvalidSSHConfigError.
+	ErrInvalidSSHConfig = errors.New("invalid SSH server config")
 )
 
 type (
@@ -48,6 +50,13 @@ type (
 	// outside the valid range (0 or 1–65535).
 	InvalidListenPortError struct {
 		Value ListenPort
+	}
+
+	// InvalidSSHConfigError is returned when an SSH server Config has invalid fields.
+	// It wraps ErrInvalidSSHConfig for errors.Is() compatibility and collects
+	// field-level validation errors from Host, Port, and DefaultShell.
+	InvalidSSHConfigError struct {
+		FieldErrors []error
 	}
 )
 
@@ -111,3 +120,11 @@ func (e *InvalidListenPortError) Error() string {
 
 // Unwrap returns ErrInvalidListenPort for errors.Is() compatibility.
 func (e *InvalidListenPortError) Unwrap() error { return ErrInvalidListenPort }
+
+// Error implements the error interface for InvalidSSHConfigError.
+func (e *InvalidSSHConfigError) Error() string {
+	return fmt.Sprintf("invalid SSH server config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidSSHConfig for errors.Is() compatibility.
+func (e *InvalidSSHConfigError) Unwrap() error { return ErrInvalidSSHConfig }

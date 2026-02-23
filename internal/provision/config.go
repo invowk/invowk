@@ -3,6 +3,8 @@
 package provision
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -10,6 +12,9 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+// ErrInvalidProvisionConfig is the sentinel error wrapped by InvalidProvisionConfigError.
+var ErrInvalidProvisionConfig = errors.New("invalid provision config")
 
 type (
 	// Config holds configuration for auto-provisioning invowk resources into containers.
@@ -57,7 +62,68 @@ type (
 
 	// Option is a functional option for configuring a Config.
 	Option func(*Config)
+
+	// InvalidProvisionConfigError is returned when a Config has one or more
+	// invalid typed fields. FieldErrors contains the per-field validation errors.
+	InvalidProvisionConfigError struct {
+		FieldErrors []error
+	}
 )
+
+// IsValid returns whether all typed fields in the Config are valid.
+// Boolean fields and TagSuffix (free-form test-only string) are skipped.
+// Path fields are only validated when non-empty, since empty paths indicate
+// "use default" semantics (e.g., os.Executable() for InvowkBinaryPath).
+func (c Config) IsValid() (bool, []error) {
+	var errs []error
+	if c.InvowkBinaryPath != "" {
+		if valid, fieldErrs := c.InvowkBinaryPath.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if c.InvowkfilePath != "" {
+		if valid, fieldErrs := c.InvowkfilePath.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if c.BinaryMountPath != "" {
+		if valid, fieldErrs := c.BinaryMountPath.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if c.ModulesMountPath != "" {
+		if valid, fieldErrs := c.ModulesMountPath.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if c.CacheDir != "" {
+		if valid, fieldErrs := c.CacheDir.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	for i, mp := range c.ModulesPaths {
+		if mp != "" {
+			if valid, fieldErrs := mp.IsValid(); !valid {
+				errs = append(errs, fmt.Errorf("ModulesPaths[%d]: %w", i, fieldErrs[0]))
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidProvisionConfigError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidProvisionConfigError.
+func (e *InvalidProvisionConfigError) Error() string {
+	if len(e.FieldErrors) == 1 {
+		return fmt.Sprintf("invalid provision config: %v", e.FieldErrors[0])
+	}
+	return fmt.Sprintf("invalid provision config: %d field errors", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidProvisionConfig for errors.Is() compatibility.
+func (e *InvalidProvisionConfigError) Unwrap() error { return ErrInvalidProvisionConfig }
 
 // DefaultConfig returns a Config with default values.
 func DefaultConfig() *Config {

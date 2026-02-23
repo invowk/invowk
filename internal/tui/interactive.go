@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -31,7 +33,7 @@ type (
 		// Title is displayed at the top of the viewport.
 		Title string
 		// CommandName is the name of the command being executed.
-		CommandName string
+		CommandName invowkfile.CommandName
 		// Config holds common TUI configuration.
 		Config Config
 		// OnProgramReady is called with the *tea.Program after it's created.
@@ -43,7 +45,7 @@ type (
 	// InteractiveResult contains the result of interactive execution.
 	InteractiveResult struct {
 		// ExitCode is the exit code from the command.
-		ExitCode int
+		ExitCode types.ExitCode
 		// Error contains any execution error.
 		Error error
 		// Duration is how long the command took to execute.
@@ -129,8 +131,9 @@ func (b *InteractiveBuilder) Title(title string) *InteractiveBuilder {
 }
 
 // CommandName sets the command name displayed in the header.
+// The string is cast to invowkfile.CommandName internally.
 func (b *InteractiveBuilder) CommandName(name string) *InteractiveBuilder {
-	b.opts.CommandName = name
+	b.opts.CommandName = invowkfile.CommandName(name)
 	return b
 }
 

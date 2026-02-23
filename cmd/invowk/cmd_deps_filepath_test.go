@@ -59,7 +59,7 @@ func TestCheckFilepathDependencies_FileExists(t *testing.T) {
 			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"test.txt"}}},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil for existing file, got: %v", err)
@@ -77,7 +77,7 @@ func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
 			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"nonexistent.txt"}}},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
 		t.Error("checkHostFilepathDependencies() should return error for non-existent file")
@@ -137,7 +137,7 @@ func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil for readable file, got: %v", err)
@@ -157,7 +157,7 @@ func TestCheckFilepathDependencies_WritableDirectory(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil for writable directory, got: %v", err)
@@ -183,7 +183,7 @@ func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
 		t.Error("checkHostFilepathDependencies() should return error when any filepath dependency is not satisfied")
@@ -217,7 +217,7 @@ func TestCheckFilepathDependencies_AlternativesFirstExists(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil when first alternative exists, got: %v", err)
@@ -241,7 +241,7 @@ func TestCheckFilepathDependencies_AlternativesSecondExists(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil when second alternative exists, got: %v", err)
@@ -265,7 +265,7 @@ func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil when last alternative exists, got: %v", err)
@@ -285,7 +285,7 @@ func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
 		t.Error("checkHostFilepathDependencies() should return error when no alternatives exist")
@@ -324,7 +324,7 @@ func TestCheckFilepathDependencies_AlternativesWithPermissions(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil when alternative with proper permissions exists, got: %v", err)
@@ -351,7 +351,7 @@ func TestCheckFilepathDependencies_MultipleAlternativesExist(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil when all alternatives exist, got: %v", err)
@@ -383,7 +383,7 @@ func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testi
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil when each dependency has an alternative satisfied, got: %v", err)
@@ -411,7 +411,7 @@ func TestCheckFilepathDependencies_ExecutableFile(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil for executable file (0o755), got: %v", err)
@@ -435,7 +435,7 @@ func TestCheckFilepathDependencies_NonExecutableFile(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
 		t.Error("checkHostFilepathDependencies() should return error for non-executable file")
@@ -472,7 +472,7 @@ func TestCheckFilepathDependencies_ExecutableDirectory(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil for executable directory, got: %v", err)
@@ -502,7 +502,7 @@ func TestCheckFilepathDependencies_ExecutableExtensionWindows(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil for .exe file on Windows, got: %v", err)
@@ -530,7 +530,7 @@ func TestCheckFilepathDependencies_NonExecutableDirectory(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
 		t.Error("checkHostFilepathDependencies() should return error for non-executable directory (0o644)")
@@ -571,7 +571,7 @@ func TestCheckFilepathDependencies_InaccessibleFile(t *testing.T) {
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err == nil {
 		t.Error("checkHostFilepathDependencies() should return error for inaccessible file (0o000)")
@@ -599,7 +599,7 @@ func TestCheckFilepathDependencies_ExecutableAlternativesFallback(t *testing.T) 
 			},
 		}))
 
-	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
 	err := checkHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 
 	if goruntime.GOOS == "windows" {

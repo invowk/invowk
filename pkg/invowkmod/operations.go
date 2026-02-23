@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // moduleNameRegex validates the module folder name prefix (before .invowkmod)
@@ -16,26 +18,26 @@ import (
 var moduleNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 
 type (
-	// CreateOptions contains options for creating a new module
+	// CreateOptions contains options for creating a new module.
 	CreateOptions struct {
 		// Name is the module name (e.g., "com.example.mytools")
-		Name string
+		Name ModuleShortName
 		// ParentDir is the directory where the module will be created
-		ParentDir string
+		ParentDir types.FilesystemPath
 		// Module is the module identifier for the invowkfile (defaults to Name if empty)
-		Module string
+		Module ModuleID
 		// Description is an optional description for the invowkfile
-		Description string
+		Description types.DescriptionText
 		// CreateScriptsDir creates a scripts/ subdirectory if true
 		CreateScriptsDir bool
 	}
 
-	// UnpackOptions contains options for unpacking a module
+	// UnpackOptions contains options for unpacking a module.
 	UnpackOptions struct {
-		// Source is the path to the ZIP file or URL
+		// Source is the path to the ZIP file or URL; intentionally untyped (mixed path/URL).
 		Source string
 		// DestDir is the destination directory (defaults to current directory)
-		DestDir string
+		DestDir types.FilesystemPath
 		// Overwrite allows overwriting an existing module
 		Overwrite bool
 	}

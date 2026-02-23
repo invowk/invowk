@@ -46,3 +46,45 @@ func TestComponentType_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestComponentType_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		ct   ComponentType
+		want string
+	}{
+		{ComponentTypeInput, "input"},
+		{ComponentTypeConfirm, "confirm"},
+		{ComponentTypeChoose, "choose"},
+		{ComponentTypeFilter, "filter"},
+		{ComponentTypeFile, "file"},
+		{ComponentTypeWrite, "write"},
+		{ComponentTypeTextArea, "textarea"},
+		{ComponentTypeSpin, "spin"},
+		{ComponentTypePager, "pager"},
+		{ComponentTypeTable, "table"},
+		{"custom", "custom"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			t.Parallel()
+			got := tt.ct.String()
+			if got != tt.want {
+				t.Errorf("ComponentType(%q).String() = %q, want %q", tt.ct, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestComponentType_String_FmtStringer(t *testing.T) {
+	t.Parallel()
+
+	// Verify ComponentType implements fmt.Stringer.
+	got := ComponentTypeInput.String()
+	if got != "input" {
+		t.Errorf("ComponentTypeInput.String() = %q, want %q", got, "input")
+	}
+}

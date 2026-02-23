@@ -5,6 +5,8 @@ package sshserver
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 func TestHostAddress_IsValid(t *testing.T) {
@@ -195,5 +197,104 @@ func TestListenPort_String(t *testing.T) {
 		if got := tt.port.String(); got != tt.want {
 			t.Errorf("ListenPort(%d).String() = %q, want %q", int(tt.port), got, tt.want)
 		}
+	}
+}
+
+func TestSSHConfig_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		cfg       Config
+		want      bool
+		wantErr   bool
+		wantCount int // expected number of field errors
+	}{
+		{
+			"all valid",
+			Config{
+				Host:         HostAddress("127.0.0.1"),
+				Port:         ListenPort(2222),
+				DefaultShell: invowkfile.ShellPath("/bin/sh"),
+			},
+			true, false, 0,
+		},
+		{
+			"valid with zero port (auto-select)",
+			Config{
+				Host:         HostAddress("localhost"),
+				Port:         ListenPort(0),
+				DefaultShell: invowkfile.ShellPath("/bin/bash"),
+			},
+			true, false, 0,
+		},
+		{
+			"invalid host (empty)",
+			Config{
+				Host:         HostAddress(""),
+				Port:         ListenPort(22),
+				DefaultShell: invowkfile.ShellPath("/bin/sh"),
+			},
+			false, true, 1,
+		},
+		{
+			"invalid port (negative)",
+			Config{
+				Host:         HostAddress("127.0.0.1"),
+				Port:         ListenPort(-1),
+				DefaultShell: invowkfile.ShellPath("/bin/sh"),
+			},
+			false, true, 1,
+		},
+		{
+			"invalid default shell (whitespace-only)",
+			Config{
+				Host:         HostAddress("127.0.0.1"),
+				Port:         ListenPort(22),
+				DefaultShell: invowkfile.ShellPath("   "),
+			},
+			false, true, 1,
+		},
+		{
+			"multiple invalid fields",
+			Config{
+				Host:         HostAddress(""),
+				Port:         ListenPort(70000),
+				DefaultShell: invowkfile.ShellPath("  "),
+			},
+			false, true, 3,
+		},
+		{
+			"zero value struct",
+			Config{},
+			false, true, 1, // empty Host is invalid; Port 0 and empty ShellPath are valid
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.cfg.IsValid()
+			if isValid != tt.want {
+				t.Errorf("Config.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("Config.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidSSHConfig) {
+					t.Errorf("error should wrap ErrInvalidSSHConfig, got: %v", errs[0])
+				}
+				var cfgErr *InvalidSSHConfigError
+				if !errors.As(errs[0], &cfgErr) {
+					t.Fatalf("error should be *InvalidSSHConfigError, got: %T", errs[0])
+				}
+				if len(cfgErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("Config.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
 	}
 }

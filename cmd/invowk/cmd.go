@@ -125,6 +125,20 @@ func (e *InvalidArgErrTypeError) Error() string {
 // Unwrap returns ErrInvalidArgErrType so callers can use errors.Is for programmatic detection.
 func (e *InvalidArgErrTypeError) Unwrap() error { return ErrInvalidArgErrType }
 
+// String returns the human-readable name of the ArgErrType.
+func (t ArgErrType) String() string {
+	switch t {
+	case ArgErrMissingRequired:
+		return "missing_required"
+	case ArgErrTooMany:
+		return "too_many"
+	case ArgErrInvalidValue:
+		return "invalid_value"
+	default:
+		return fmt.Sprintf("unknown(%d)", int(t))
+	}
+}
+
 // IsValid returns whether the ArgErrType is one of the defined argument error types,
 // and a list of validation errors if it is not.
 func (t ArgErrType) IsValid() (bool, []error) {

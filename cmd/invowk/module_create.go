@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -61,10 +62,10 @@ func runModuleCreate(args []string, createPath string, createScripts bool, creat
 
 	// Create the module
 	opts := invowkmod.CreateOptions{
-		Name:             moduleName,
-		ParentDir:        createPath,
-		Module:           createModule,
-		Description:      createDescription,
+		Name:             invowkmod.ModuleShortName(moduleName),
+		ParentDir:        types.FilesystemPath(createPath),
+		Module:           invowkmod.ModuleID(createModule),
+		Description:      types.DescriptionText(createDescription),
 		CreateScriptsDir: createScripts,
 	}
 

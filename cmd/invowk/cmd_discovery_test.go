@@ -74,7 +74,7 @@ func TestGroupByCategory(t *testing.T) {
 			var cats []string
 			for _, g := range groups {
 				if g.category != "" {
-					cats = append(cats, g.category)
+					cats = append(cats, string(g.category))
 				}
 			}
 			if len(cats) != len(tt.wantCategories) {

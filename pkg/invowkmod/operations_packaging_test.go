@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ============================================================================
@@ -47,7 +48,7 @@ func TestArchive(t *testing.T) {
 		// Create a module first
 		modulePath, err := Create(CreateOptions{
 			Name:             "mytools",
-			ParentDir:        tmpDir,
+			ParentDir:        types.FilesystemPath(tmpDir),
 			CreateScriptsDir: true,
 		})
 		if err != nil {
@@ -88,7 +89,7 @@ func TestArchive(t *testing.T) {
 		// Create a module
 		modulePath, err := Create(CreateOptions{
 			Name:      "com.example.tools",
-			ParentDir: tmpDir,
+			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Create() failed: %v", err)
@@ -138,7 +139,7 @@ func TestUnpack(t *testing.T) {
 		// Create and archive a module
 		modulePath, err := Create(CreateOptions{
 			Name:      "mytools",
-			ParentDir: tmpDir,
+			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Create() failed: %v", err)
@@ -161,7 +162,7 @@ func TestUnpack(t *testing.T) {
 
 		extractedPath, err := Unpack(UnpackOptions{
 			Source:  zipPath,
-			DestDir: unpackDir,
+			DestDir: types.FilesystemPath(unpackDir),
 		})
 		if err != nil {
 			t.Fatalf("Unpack() failed: %v", err)
@@ -186,7 +187,7 @@ func TestUnpack(t *testing.T) {
 		// Create and archive a module
 		modulePath, err := Create(CreateOptions{
 			Name:      "mytools",
-			ParentDir: tmpDir,
+			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Create() failed: %v", err)
@@ -201,7 +202,7 @@ func TestUnpack(t *testing.T) {
 		// Try to unpack to same directory (module already exists)
 		_, err = Unpack(UnpackOptions{
 			Source:    zipPath,
-			DestDir:   tmpDir,
+			DestDir:   types.FilesystemPath(tmpDir),
 			Overwrite: false,
 		})
 		if err == nil {
@@ -220,7 +221,7 @@ func TestUnpack(t *testing.T) {
 		// Create and archive a module
 		modulePath, err := Create(CreateOptions{
 			Name:      "mytools",
-			ParentDir: tmpDir,
+			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Create() failed: %v", err)
@@ -241,7 +242,7 @@ func TestUnpack(t *testing.T) {
 		// Unpack with overwrite
 		extractedPath, err := Unpack(UnpackOptions{
 			Source:    zipPath,
-			DestDir:   tmpDir,
+			DestDir:   types.FilesystemPath(tmpDir),
 			Overwrite: true,
 		})
 		if err != nil {
@@ -278,7 +279,7 @@ func TestUnpack(t *testing.T) {
 
 		_, err := Unpack(UnpackOptions{
 			Source:  invalidZip,
-			DestDir: tmpDir,
+			DestDir: types.FilesystemPath(tmpDir),
 		})
 		if err == nil {
 			t.Error("Unpack() expected error for invalid ZIP, got nil")
@@ -304,7 +305,7 @@ func TestUnpack(t *testing.T) {
 
 		_, err = Unpack(UnpackOptions{
 			Source:  zipPath,
-			DestDir: tmpDir,
+			DestDir: types.FilesystemPath(tmpDir),
 		})
 		if err == nil {
 			t.Error("Unpack() expected error for ZIP without module, got nil")

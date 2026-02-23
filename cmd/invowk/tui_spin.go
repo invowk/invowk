@@ -77,7 +77,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 			return clientErr
 		}
 		output = []byte(result.Stdout)
-		exitCode = types.ExitCode(result.ExitCode)
+		exitCode = result.ExitCode
 		if exitCode != 0 {
 			// Create a synthetic error for non-zero exit
 			err = fmt.Errorf("command exited with code %d", exitCode)

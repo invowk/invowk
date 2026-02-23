@@ -49,6 +49,8 @@ var (
 	ErrInvalidBinaryFilePath = errors.New("invalid binary file path")
 	// ErrInvalidCacheDirPath is returned when a CacheDirPath value is whitespace-only.
 	ErrInvalidCacheDirPath = errors.New("invalid cache dir path")
+	// ErrInvalidIncludeEntry is the sentinel error wrapped by InvalidIncludeEntryError.
+	ErrInvalidIncludeEntry = errors.New("invalid include entry")
 )
 
 type (
@@ -111,6 +113,13 @@ type (
 	// non-empty but whitespace-only.
 	InvalidCacheDirPathError struct {
 		Value CacheDirPath
+	}
+
+	// InvalidIncludeEntryError is returned when an IncludeEntry has invalid fields.
+	// It wraps ErrInvalidIncludeEntry for errors.Is() compatibility and collects
+	// field-level validation errors from Path and Alias.
+	InvalidIncludeEntryError struct {
+		FieldErrors []error
 	}
 
 	// IncludeEntry specifies a module to include in command discovery.
@@ -184,6 +193,33 @@ type (
 func (e IncludeEntry) IsModule() bool {
 	return strings.HasSuffix(string(e.Path), moduleSuffix)
 }
+
+// IsValid returns whether the IncludeEntry has valid fields.
+// It delegates to Path.IsValid() unconditionally and to Alias.IsValid()
+// only when non-empty (the zero-value alias is always valid).
+func (e IncludeEntry) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := e.Path.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if e.Alias != "" {
+		if valid, fieldErrs := e.Alias.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidIncludeEntryError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidIncludeEntryError.
+func (e *InvalidIncludeEntryError) Error() string {
+	return fmt.Sprintf("invalid include entry: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidIncludeEntry for errors.Is() compatibility.
+func (e *InvalidIncludeEntryError) Unwrap() error { return ErrInvalidIncludeEntry }
 
 // String returns the string representation of the ModuleIncludePath.
 func (p ModuleIncludePath) String() string { return string(p) }

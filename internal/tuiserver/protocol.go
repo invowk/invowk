@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Environment variable names for TUI server communication.
@@ -204,9 +206,9 @@ type (
 
 	// SpinResult contains the result of a spin operation.
 	SpinResult struct {
-		Stdout   string `json:"stdout,omitempty"`
-		Stderr   string `json:"stderr,omitempty"`
-		ExitCode int    `json:"exit_code"`
+		Stdout   string         `json:"stdout,omitempty"`
+		Stderr   string         `json:"stderr,omitempty"`
+		ExitCode types.ExitCode `json:"exit_code"`
 	}
 
 	// PagerRequest contains options for the pager component.

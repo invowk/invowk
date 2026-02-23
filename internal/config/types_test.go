@@ -5,6 +5,8 @@ package config
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 func TestContainerEngine_IsValid(t *testing.T) {
@@ -289,5 +291,90 @@ func TestColorScheme_String(t *testing.T) {
 
 	if got := ColorSchemeAuto.String(); got != "auto" {
 		t.Errorf("ColorSchemeAuto.String() = %q, want %q", got, "auto")
+	}
+}
+
+func TestIncludeEntry_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		entry     IncludeEntry
+		want      bool
+		wantErr   bool
+		wantCount int // expected number of field errors
+	}{
+		{
+			"all valid",
+			IncludeEntry{
+				Path:  ModuleIncludePath("/home/user/modules/my.invowkmod"),
+				Alias: invowkmod.ModuleAlias("mytools"),
+			},
+			true, false, 0,
+		},
+		{
+			"valid path, empty alias (zero value alias is valid)",
+			IncludeEntry{
+				Path:  ModuleIncludePath("/home/user/modules/my.invowkmod"),
+				Alias: invowkmod.ModuleAlias(""),
+			},
+			true, false, 0,
+		},
+		{
+			"invalid path (empty)",
+			IncludeEntry{
+				Path:  ModuleIncludePath(""),
+				Alias: invowkmod.ModuleAlias("mytools"),
+			},
+			false, true, 1,
+		},
+		{
+			"invalid alias (whitespace-only)",
+			IncludeEntry{
+				Path:  ModuleIncludePath("/home/user/modules/my.invowkmod"),
+				Alias: invowkmod.ModuleAlias("   "),
+			},
+			false, true, 1,
+		},
+		{
+			"both invalid",
+			IncludeEntry{
+				Path:  ModuleIncludePath(""),
+				Alias: invowkmod.ModuleAlias("   "),
+			},
+			false, true, 2,
+		},
+		{
+			"zero value struct",
+			IncludeEntry{},
+			false, true, 1, // empty Path is invalid; empty Alias is skipped
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.entry.IsValid()
+			if isValid != tt.want {
+				t.Errorf("IncludeEntry.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("IncludeEntry.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidIncludeEntry) {
+					t.Errorf("error should wrap ErrInvalidIncludeEntry, got: %v", errs[0])
+				}
+				var entryErr *InvalidIncludeEntryError
+				if !errors.As(errs[0], &entryErr) {
+					t.Fatalf("error should be *InvalidIncludeEntryError, got: %T", errs[0])
+				}
+				if len(entryErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(entryErr.FieldErrors), tt.wantCount)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("IncludeEntry.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
 	}
 }

@@ -46,6 +46,20 @@ func (e *invalidPathTypeError) Unwrap() error {
 	return errInvalidPathType
 }
 
+// String returns the human-readable name of the pathType.
+func (p pathType) String() string {
+	switch p {
+	case pathTypeUnknown:
+		return "unknown"
+	case pathTypeInvowkfile:
+		return "invowkfile"
+	case pathTypeModule:
+		return "module"
+	default:
+		return fmt.Sprintf("unknown(%d)", int(p))
+	}
+}
+
 // isValid returns whether the pathType is one of the defined types,
 // and a list of validation errors if it is not.
 func (p pathType) isValid() (bool, []error) {

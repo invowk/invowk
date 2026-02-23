@@ -40,6 +40,8 @@ var (
 	errNoCommand = errors.New("no command provided")
 	// ErrInvalidTheme is returned when a Theme value is not one of the defined themes.
 	ErrInvalidTheme = errors.New("invalid theme")
+	// ErrInvalidTUIConfig is the sentinel error wrapped by InvalidTUIConfigError.
+	ErrInvalidTUIConfig = errors.New("invalid TUI config")
 	// modalBgColor is the lipgloss.Color version of ModalBackgroundColor for internal use.
 	modalBgColor = lipgloss.Color(ModalBackgroundColor)
 )
@@ -53,6 +55,13 @@ type (
 	// It wraps ErrInvalidTheme for errors.Is() compatibility.
 	InvalidThemeError struct {
 		Value Theme
+	}
+
+	// InvalidTUIConfigError is returned when a TUI Config has invalid fields.
+	// It wraps ErrInvalidTUIConfig for errors.Is() compatibility and collects
+	// field-level validation errors from Theme.
+	InvalidTUIConfigError struct {
+		FieldErrors []error
 	}
 
 	// Config holds common configuration for TUI components.
@@ -114,6 +123,11 @@ func (e *InvalidThemeError) Unwrap() error {
 	return ErrInvalidTheme
 }
 
+// String returns the string representation of the Theme.
+func (t Theme) String() string {
+	return string(t)
+}
+
 // IsValid returns whether the Theme is one of the defined themes,
 // and a list of validation errors if it is not.
 func (t Theme) IsValid() (bool, []error) {
@@ -123,6 +137,28 @@ func (t Theme) IsValid() (bool, []error) {
 	default:
 		return false, []error{&InvalidThemeError{Value: t}}
 	}
+}
+
+// Error implements the error interface for InvalidTUIConfigError.
+func (e *InvalidTUIConfigError) Error() string {
+	return fmt.Sprintf("invalid TUI config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidTUIConfig for errors.Is() compatibility.
+func (e *InvalidTUIConfigError) Unwrap() error { return ErrInvalidTUIConfig }
+
+// IsValid returns whether the Config has valid fields.
+// It delegates to Theme.IsValid(). Other fields (Accessible, Width, Output)
+// are primitive types without IsValid.
+func (c Config) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := c.Theme.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidTUIConfigError{FieldErrors: errs}}
+	}
+	return true, nil
 }
 
 // DefaultConfig returns the default configuration for TUI components.

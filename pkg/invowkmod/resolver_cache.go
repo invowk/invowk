@@ -47,7 +47,7 @@ func (m *Resolver) getCachePath(gitURL, version, subPath string) string {
 	urlPath = strings.TrimSuffix(urlPath, ".git")
 	urlPath = strings.ReplaceAll(urlPath, ":", "/")
 
-	parts := []string{m.cacheDir, urlPath, version}
+	parts := []string{string(m.cacheDir), urlPath, version}
 	if subPath != "" {
 		parts = append(parts, subPath)
 	}

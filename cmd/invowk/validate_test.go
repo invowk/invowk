@@ -163,6 +163,32 @@ func TestPathType_IsValid(t *testing.T) {
 	}
 }
 
+func TestPathType_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value pathType
+		want  string
+	}{
+		{"unknown", pathTypeUnknown, "unknown"},
+		{"invowkfile", pathTypeInvowkfile, "invowkfile"},
+		{"module", pathTypeModule, "module"},
+		{"out_of_range", pathType(99), "unknown(99)"},
+		{"negative", pathType(-1), "unknown(-1)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.value.String()
+			if got != tt.want {
+				t.Errorf("pathType(%d).String() = %q, want %q", tt.value, got, tt.want)
+			}
+		})
+	}
+}
+
 // containsSuffix checks if path ends with the given suffix (using filepath separators).
 func containsSuffix(fullPath, suffix string) bool {
 	if len(suffix) > len(fullPath) {

@@ -21,7 +21,7 @@ import (
 
 // commandGroup holds commands grouped by category for list rendering.
 type commandGroup struct {
-	category string
+	category invowkfile.CommandCategory
 	commands []*discovery.CommandInfo
 }
 
@@ -541,10 +541,9 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 // Commands without a category come first, followed by categorized groups
 // in alphabetical order.
 func groupByCategory(cmds []*discovery.CommandInfo) []commandGroup {
-	groups := make(map[string][]*discovery.CommandInfo)
+	groups := make(map[invowkfile.CommandCategory][]*discovery.CommandInfo)
 	for _, cmd := range cmds {
-		cat := string(cmd.Command.Category)
-		groups[cat] = append(groups[cat], cmd)
+		groups[cmd.Command.Category] = append(groups[cmd.Command.Category], cmd)
 	}
 
 	var result []commandGroup

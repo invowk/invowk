@@ -522,7 +522,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		execCtx,
 		tui.InteractiveOptions{
 			Title:       "Running Command",
-			CommandName: cmdName,
+			CommandName: invowkfile.CommandName(cmdName),
 			OnProgramReady: func(p *tea.Program) {
 				go bridgeTUIRequests(tuiServer, p)
 			},
@@ -534,7 +534,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	}
 
 	return &runtime.Result{
-		ExitCode: runtime.ExitCode(interactiveResult.ExitCode),
+		ExitCode: interactiveResult.ExitCode,
 		Error:    interactiveResult.Error,
 	}
 }

@@ -306,7 +306,7 @@ func TestCheckHostFilepathDependencies_ExistingPath(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostFilepathDependencies(deps, filepath.Join(tmpDir, "invowkfile.cue"), ctx)
+	err := checkHostFilepathDependencies(deps, types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")), ctx)
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil for existing file, got: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestCheckHostFilepathDependencies_RelativePath(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostFilepathDependencies(deps, filepath.Join(tmpDir, "invowkfile.cue"), ctx)
+	err := checkHostFilepathDependencies(deps, types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")), ctx)
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should resolve relative paths against invowkfile dir, got: %v", err)
 	}

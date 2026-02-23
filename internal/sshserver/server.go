@@ -103,6 +103,26 @@ func DefaultConfig() Config {
 	}
 }
 
+// IsValid returns whether the Config has valid fields.
+// It delegates to Host.IsValid(), Port.IsValid(), and DefaultShell.IsValid().
+// Duration fields (TokenTTL, ShutdownTimeout, StartupTimeout) have no IsValid.
+func (c Config) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := c.Host.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := c.Port.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := c.DefaultShell.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidSSHConfigError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
 // Now returns the current system time.
 func (realClock) Now() time.Time {
 	return time.Now()

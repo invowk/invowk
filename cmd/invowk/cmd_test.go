@@ -122,3 +122,29 @@ func TestArgErrType_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestArgErrType_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		aet  ArgErrType
+		want string
+	}{
+		{"missing_required", ArgErrMissingRequired, "missing_required"},
+		{"too_many", ArgErrTooMany, "too_many"},
+		{"invalid_value", ArgErrInvalidValue, "invalid_value"},
+		{"unknown_negative", ArgErrType(-1), "unknown(-1)"},
+		{"unknown_out_of_range", ArgErrType(99), "unknown(99)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.aet.String()
+			if got != tt.want {
+				t.Errorf("ArgErrType(%d).String() = %q, want %q", tt.aet, got, tt.want)
+			}
+		})
+	}
+}

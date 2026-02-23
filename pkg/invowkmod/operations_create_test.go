@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestCreate(t *testing.T) {
@@ -168,7 +170,7 @@ func TestCreate(t *testing.T) {
 			// Use temp directory as parent
 			tmpDir := t.TempDir()
 			opts := tt.opts
-			opts.ParentDir = tmpDir
+			opts.ParentDir = types.FilesystemPath(tmpDir)
 
 			modulePath, err := Create(opts)
 			if tt.expectErr {
@@ -197,7 +199,7 @@ func TestCreate_ExistingModule(t *testing.T) {
 	// Create module first time
 	opts := CreateOptions{
 		Name:      "mytools",
-		ParentDir: tmpDir,
+		ParentDir: types.FilesystemPath(tmpDir),
 	}
 
 	_, err := Create(opts)

@@ -313,6 +313,23 @@ func (t TUIContext) IsConfigured() bool {
 	return t.ServerURL != ""
 }
 
+// IsValid returns whether the TUIContext has valid fields.
+// It delegates to ServerURL.IsValid() and ServerToken.IsValid().
+// Both fields are zero-valid, so a zero-value TUIContext is valid.
+func (t TUIContext) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := t.ServerURL.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := t.ServerToken.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidTUIContextError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
 // NewExecutionContext creates a new execution context with the provided Go context.
 // The ctx parameter is required to ensure cancellation and timeout propagation —
 // passing context.Background() silently disables these features, so callers must

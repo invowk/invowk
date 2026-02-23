@@ -29,7 +29,7 @@ func checkToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runt
 	}
 
 	toolErrors := collectToolErrors(deps.Tools, func(alt invowkfile.BinaryName) error {
-		return validateToolInContainer(string(alt), rt, ctx)
+		return validateToolInContainer(alt, rt, ctx)
 	})
 
 	if len(toolErrors) > 0 {
@@ -53,15 +53,17 @@ func validateToolNative(toolName invowkfile.BinaryName) error {
 }
 
 // validateToolInContainer validates a tool dependency within a container.
-// It accepts a tool name string and checks if it exists in the container environment.
+// It accepts a BinaryName and checks if it exists in the container environment.
 // The runtime is passed directly (hoisted by caller) to avoid redundant registry lookups.
-func validateToolInContainer(toolName string, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
+func validateToolInContainer(toolName invowkfile.BinaryName, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
+	toolNameStr := string(toolName)
+
 	// Defense-in-depth: validate tool name before shell interpolation
-	if !toolNamePattern.MatchString(toolName) {
+	if !toolNamePattern.MatchString(toolNameStr) {
 		return fmt.Errorf("  • %s - invalid tool name for shell interpolation", toolName)
 	}
 
-	checkScript := fmt.Sprintf("command -v '%s' || which '%s'", shellEscapeSingleQuote(toolName), shellEscapeSingleQuote(toolName))
+	checkScript := fmt.Sprintf("command -v '%s' || which '%s'", shellEscapeSingleQuote(toolNameStr), shellEscapeSingleQuote(toolNameStr))
 
 	validationCtx, _, stderr := newContainerValidationContext(ctx, checkScript)
 
@@ -69,7 +71,7 @@ func validateToolInContainer(toolName string, rt runtime.Runtime, ctx *runtime.E
 	if result.Error != nil {
 		return fmt.Errorf("  • %s - container validation failed: %w", toolName, result.Error)
 	}
-	if err := checkTransientExitCode(result, toolName); err != nil {
+	if err := checkTransientExitCode(result, toolNameStr); err != nil {
 		return err
 	}
 	if result.ExitCode != 0 {

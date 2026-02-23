@@ -69,10 +69,10 @@ type (
 	// Resolver handles module operations including resolution, caching, and synchronization.
 	Resolver struct {
 		// cacheDir is the root directory for module cache.
-		cacheDir string
+		cacheDir types.FilesystemPath
 
 		// workingDir is the directory containing invowkmod.cue (for relative path resolution).
-		workingDir string
+		workingDir types.FilesystemPath
 
 		// fetcher handles Git operations.
 		fetcher *GitFetcher
@@ -180,18 +180,18 @@ func NewResolver(workingDir, cacheDir string) (*Resolver, error) {
 	}
 
 	return &Resolver{
-		cacheDir:   absCacheDir,
-		workingDir: absWorkingDir,
-		fetcher:    NewGitFetcher(absCacheDir),
+		cacheDir:   types.FilesystemPath(absCacheDir),
+		workingDir: types.FilesystemPath(absWorkingDir),
+		fetcher:    NewGitFetcher(types.FilesystemPath(absCacheDir)),
 		semver:     NewSemverResolver(),
 	}, nil
 }
 
 // CacheDir returns the root directory for the module cache.
-func (m *Resolver) CacheDir() string { return m.cacheDir }
+func (m *Resolver) CacheDir() types.FilesystemPath { return m.cacheDir }
 
 // WorkingDir returns the directory containing invowkmod.cue.
-func (m *Resolver) WorkingDir() string { return m.workingDir }
+func (m *Resolver) WorkingDir() types.FilesystemPath { return m.workingDir }
 
 // Add resolves a new module requirement, caches it, and updates the lock file.
 func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, error) {
@@ -210,7 +210,7 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	}
 
 	// Persist to lock file so Add is a complete single-step operation
-	lockPath := filepath.Join(m.workingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
@@ -230,7 +230,7 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 	defer m.mu.Unlock()
 
 	// Load current lock file
-	lockPath := filepath.Join(m.workingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
@@ -269,7 +269,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	defer m.mu.Unlock()
 
 	// Load current lock file
-	lockPath := filepath.Join(m.workingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
@@ -362,7 +362,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 		}
 	}
 
-	lockPath := filepath.Join(m.workingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	if err := lock.Save(lockPath); err != nil {
 		return nil, fmt.Errorf("failed to save lock file: %w", err)
 	}
@@ -375,7 +375,7 @@ func (m *Resolver) List(ctx context.Context) ([]*ResolvedModule, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	lockPath := filepath.Join(m.workingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		if os.IsNotExist(err) {

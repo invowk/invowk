@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/ansi"
@@ -118,7 +120,7 @@ type (
 	SpinResult struct {
 		Stdout   string
 		Stderr   string
-		ExitCode int
+		ExitCode types.ExitCode
 	}
 
 	// ComponentType represents the type of TUI component.
@@ -145,6 +147,11 @@ func (e *InvalidComponentTypeError) Error() string {
 // Unwrap returns the sentinel error for errors.Is() compatibility.
 func (e *InvalidComponentTypeError) Unwrap() error {
 	return ErrInvalidComponentType
+}
+
+// String returns the string representation of the ComponentType.
+func (ct ComponentType) String() string {
+	return string(ct)
 }
 
 // IsValid returns whether the ComponentType is one of the defined component types,

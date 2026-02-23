@@ -142,10 +142,10 @@ func TestNewResolver(t *testing.T) {
 		if mgr == nil {
 			t.Fatal("NewResolver() returned nil")
 		}
-		if mgr.WorkingDir() != workDir {
+		if string(mgr.WorkingDir()) != workDir {
 			t.Errorf("WorkingDir() = %q, want %q", mgr.WorkingDir(), workDir)
 		}
-		if mgr.CacheDir() != cacheDir {
+		if string(mgr.CacheDir()) != cacheDir {
 			t.Errorf("CacheDir() = %q, want %q", mgr.CacheDir(), cacheDir)
 		}
 	})

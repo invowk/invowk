@@ -155,7 +155,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	// Import the module
 	opts := invowkmod.UnpackOptions{
 		Source:    source,
-		DestDir:   destDir,
+		DestDir:   types.FilesystemPath(destDir),
 		Overwrite: importOverwrite,
 	}
 

@@ -135,7 +135,7 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	}
 
 	// Default destination to current directory
-	destDir := opts.DestDir
+	destDir := string(opts.DestDir)
 	if destDir == "" {
 		destDir, err = os.Getwd()
 		if err != nil {
