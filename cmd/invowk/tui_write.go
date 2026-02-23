@@ -83,8 +83,8 @@ func runTuiWrite(cmd *cobra.Command, args []string) error {
 			Placeholder:     writePlaceholder,
 			Value:           writeValue,
 			CharLimit:       writeCharLimit,
-			Width:           writeWidth,
-			Height:          writeHeight,
+			Width:           tui.TerminalDimension(writeWidth),
+			Height:          tui.TerminalDimension(writeHeight),
 			ShowLineNumbers: writeShowLineNum,
 		})
 	}

@@ -5,8 +5,9 @@ package sshserver
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -14,8 +15,8 @@ var (
 	ErrInvalidHostAddress = errors.New("invalid host address")
 	// ErrInvalidTokenValue is the sentinel error wrapped by InvalidTokenValueError.
 	ErrInvalidTokenValue = errors.New("invalid token value")
-	// ErrInvalidListenPort is the sentinel error wrapped by InvalidListenPortError.
-	ErrInvalidListenPort = errors.New("invalid listen port")
+	// ErrInvalidListenPort is re-exported from pkg/types for backward compatibility.
+	ErrInvalidListenPort = types.ErrInvalidListenPort
 	// ErrInvalidSSHConfig is the sentinel error wrapped by InvalidSSHConfigError.
 	ErrInvalidSSHConfig = errors.New("invalid SSH server config")
 )
@@ -29,10 +30,9 @@ type (
 	// A valid token must be non-empty and not whitespace-only.
 	TokenValue string
 
-	// ListenPort represents a TCP port for server listening.
-	// The zero value (0) is valid and means "auto-select an available port".
-	// Non-zero values must be in the range 1–65535.
-	ListenPort int
+	// ListenPort is re-exported from pkg/types as a cross-cutting type
+	// used by both sshserver and tuiserver.
+	ListenPort = types.ListenPort
 
 	// InvalidHostAddressError is returned when a HostAddress value is
 	// empty or whitespace-only.
@@ -46,11 +46,8 @@ type (
 		Value TokenValue
 	}
 
-	// InvalidListenPortError is returned when a ListenPort value is
-	// outside the valid range (0 or 1–65535).
-	InvalidListenPortError struct {
-		Value ListenPort
-	}
+	// InvalidListenPortError is re-exported from pkg/types for backward compatibility.
+	InvalidListenPortError = types.InvalidListenPortError
 
 	// InvalidSSHConfigError is returned when an SSH server Config has invalid fields.
 	// It wraps ErrInvalidSSHConfig for errors.Is() compatibility and collects
@@ -84,19 +81,6 @@ func (t TokenValue) IsValid() (bool, []error) {
 	return true, nil
 }
 
-// String returns the decimal string representation of the ListenPort.
-func (p ListenPort) String() string { return strconv.Itoa(int(p)) }
-
-// IsValid returns whether the ListenPort is valid.
-// The zero value (0) means auto-select and is valid.
-// Non-zero values must be in the range 1–65535.
-func (p ListenPort) IsValid() (bool, []error) {
-	if p < 0 || p > 65535 {
-		return false, []error{&InvalidListenPortError{Value: p}}
-	}
-	return true, nil
-}
-
 // Error implements the error interface for InvalidHostAddressError.
 func (e *InvalidHostAddressError) Error() string {
 	return fmt.Sprintf("invalid host address %q: must be non-empty", e.Value)
@@ -112,14 +96,6 @@ func (e *InvalidTokenValueError) Error() string {
 
 // Unwrap returns ErrInvalidTokenValue for errors.Is() compatibility.
 func (e *InvalidTokenValueError) Unwrap() error { return ErrInvalidTokenValue }
-
-// Error implements the error interface for InvalidListenPortError.
-func (e *InvalidListenPortError) Error() string {
-	return fmt.Sprintf("invalid listen port %d: must be 0 (auto-select) or 1-65535", e.Value)
-}
-
-// Unwrap returns ErrInvalidListenPort for errors.Is() compatibility.
-func (e *InvalidListenPortError) Unwrap() error { return ErrInvalidListenPort }
 
 // Error implements the error interface for InvalidSSHConfigError.
 func (e *InvalidSSHConfigError) Error() string {

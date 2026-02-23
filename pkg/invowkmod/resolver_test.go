@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestModuleRefKey(t *testing.T) {
@@ -135,7 +137,7 @@ func TestNewResolver(t *testing.T) {
 		workDir := t.TempDir()
 		cacheDir := t.TempDir()
 
-		mgr, err := NewResolver(workDir, cacheDir)
+		mgr, err := NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir))
 		if err != nil {
 			t.Fatalf("NewResolver() error = %v", err)
 		}
@@ -153,7 +155,7 @@ func TestNewResolver(t *testing.T) {
 	t.Run("with empty working dir", func(t *testing.T) {
 		cacheDir := t.TempDir()
 
-		mgr, err := NewResolver("", cacheDir)
+		mgr, err := NewResolver("", types.FilesystemPath(cacheDir))
 		if err != nil {
 			t.Fatalf("NewResolver() error = %v", err)
 		}
@@ -520,7 +522,7 @@ func TestRemoveByNamespace(t *testing.T) {
 		t.Fatalf("failed to save test lock file: %v", err)
 	}
 
-	resolver, err := NewResolver(workDir, cacheDir)
+	resolver, err := NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir))
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}

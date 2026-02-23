@@ -148,28 +148,30 @@ func (r ModuleRef) String() string {
 //
 // workingDir is the directory containing invowkmod.cue (typically current working directory).
 // cacheDir can be empty to use the default (~/.invowk/modules or $INVOWK_MODULES_PATH).
-func NewResolver(workingDir, cacheDir string) (*Resolver, error) {
-	if workingDir == "" {
-		wd, err := os.Getwd()
+func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
+	wd := string(workingDir)
+	if wd == "" {
+		var err error
+		wd, err = os.Getwd()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get working directory: %w", err)
 		}
-		workingDir = wd
 	}
 
-	absWorkingDir, err := filepath.Abs(workingDir)
+	absWorkingDir, err := filepath.Abs(wd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve working directory: %w", err)
 	}
 
-	if cacheDir == "" {
-		cacheDir, err = GetDefaultCacheDir()
+	cd := string(cacheDir)
+	if cd == "" {
+		cd, err = GetDefaultCacheDir()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cache directory: %w", err)
 		}
 	}
 
-	absCacheDir, err := filepath.Abs(cacheDir)
+	absCacheDir, err := filepath.Abs(cd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve cache directory: %w", err)
 	}

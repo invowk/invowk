@@ -496,7 +496,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 	}
 
 	ctx.TUI.ServerURL = runtime.TUIServerURL(tuiServerURL)
-	ctx.TUI.ServerToken = runtime.TUIServerToken(tuiServer.Token())
+	ctx.TUI.ServerToken = runtime.TUIServerToken(string(tuiServer.Token()))
 
 	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {

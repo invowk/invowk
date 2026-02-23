@@ -7,12 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestValidateModuleRef(t *testing.T) {
 	t.Parallel()
 
-	resolver, err := NewResolver(t.TempDir(), t.TempDir())
+	resolver, err := NewResolver(types.FilesystemPath(t.TempDir()), types.FilesystemPath(t.TempDir()))
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
@@ -117,7 +119,7 @@ func TestExtractRequiresFromInvowkmod(t *testing.T) {
 func TestLoadTransitiveDeps(t *testing.T) {
 	t.Parallel()
 
-	resolver, err := NewResolver(t.TempDir(), t.TempDir())
+	resolver, err := NewResolver(types.FilesystemPath(t.TempDir()), types.FilesystemPath(t.TempDir()))
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}

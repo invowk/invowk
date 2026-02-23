@@ -403,6 +403,32 @@ func TestEmojiMap_Completeness(t *testing.T) {
 	}
 }
 
+func TestFormatType_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		ft   FormatType
+		want string
+	}{
+		{FormatMarkdown, "markdown"},
+		{FormatCode, "code"},
+		{FormatTemplate, "template"},
+		{FormatEmoji, "emoji"},
+		{FormatType("custom"), "custom"},
+		{FormatType(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			t.Parallel()
+			got := tt.ft.String()
+			if got != tt.want {
+				t.Errorf("FormatType(%q).String() = %q, want %q", tt.ft, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFormatType_IsValid(t *testing.T) {
 	t.Parallel()
 

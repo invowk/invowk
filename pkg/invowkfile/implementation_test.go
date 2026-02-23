@@ -127,6 +127,31 @@ func TestPlatformRuntimeKey_IsValid(t *testing.T) {
 	}
 }
 
+func TestPlatformRuntimeKey_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		key  PlatformRuntimeKey
+		want string
+	}{
+		{"linux_native", PlatformRuntimeKey{Platform: PlatformLinux, Runtime: RuntimeNative}, "linux/native"},
+		{"macos_virtual", PlatformRuntimeKey{Platform: PlatformMac, Runtime: RuntimeVirtual}, "macos/virtual"},
+		{"windows_container", PlatformRuntimeKey{Platform: PlatformWindows, Runtime: RuntimeContainer}, "windows/container"},
+		{"empty_both", PlatformRuntimeKey{}, "/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.key.String()
+			if got != tt.want {
+				t.Errorf("PlatformRuntimeKey.String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPlatformRuntimeKey_IsValid_BothInvalidAggregatesErrors(t *testing.T) {
 	t.Parallel()
 

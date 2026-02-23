@@ -24,7 +24,7 @@ type (
 		// CharLimit limits the number of characters (0 for no limit).
 		CharLimit int
 		// Width sets the width of the input field (0 for auto).
-		Width int
+		Width TerminalDimension
 		// Password hides the input characters.
 		Password bool
 		// Prompt is the character(s) shown before the input (default: "> ").
@@ -193,7 +193,7 @@ func (b *InputBuilder) CharLimit(limit int) *InputBuilder {
 }
 
 // Width sets the width of the input field.
-func (b *InputBuilder) Width(width int) *InputBuilder {
+func (b *InputBuilder) Width(width TerminalDimension) *InputBuilder {
 	b.opts.Width = width
 	return b
 }
@@ -262,9 +262,9 @@ func newInputModelWithTheme(opts InputOptions, theme *huh.Theme) *inputModel {
 		WithAccessible(opts.Config.Accessible)
 
 	if opts.Width > 0 {
-		form = form.WithWidth(opts.Width)
+		form = form.WithWidth(int(opts.Width))
 	} else if opts.Config.Width > 0 {
-		form = form.WithWidth(opts.Config.Width)
+		form = form.WithWidth(int(opts.Config.Width))
 	}
 
 	return &inputModel{

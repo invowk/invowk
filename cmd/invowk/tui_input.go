@@ -86,7 +86,7 @@ func runTuiInput(cmd *cobra.Command, args []string) error {
 			Placeholder: inputPlaceholder,
 			Value:       inputValue,
 			CharLimit:   inputCharLimit,
-			Width:       inputWidth,
+			Width:       tui.TerminalDimension(inputWidth),
 			Password:    inputPassword,
 			Prompt:      inputPrompt,
 		})

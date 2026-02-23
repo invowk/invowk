@@ -111,6 +111,52 @@ func TestVolumeMount_IsValid(t *testing.T) {
 	}
 }
 
+func TestVolumeMount_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		mount VolumeMount
+		want  string
+	}{
+		{
+			"basic_rw",
+			VolumeMount{HostPath: "/host", ContainerPath: "/container"},
+			"/host:/container",
+		},
+		{
+			"read_only",
+			VolumeMount{HostPath: "/data", ContainerPath: "/mnt", ReadOnly: true},
+			"/data:/mnt:ro",
+		},
+		{
+			"selinux_shared",
+			VolumeMount{HostPath: "/src", ContainerPath: "/app", SELinux: SELinuxLabelShared},
+			"/src:/app:z",
+		},
+		{
+			"selinux_private_readonly",
+			VolumeMount{HostPath: "/etc", ContainerPath: "/config", SELinux: SELinuxLabelPrivate, ReadOnly: true},
+			"/etc:/config:Z:ro",
+		},
+		{
+			"empty_paths",
+			VolumeMount{},
+			":",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.mount.String()
+			if got != tt.want {
+				t.Errorf("VolumeMount.String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestVolumeMount_IsValid_FieldErrorTypes(t *testing.T) {
 	t.Parallel()
 

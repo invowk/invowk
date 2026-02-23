@@ -261,3 +261,6 @@ func (c Component) IsValid() (bool, []error) {
 		return false, []error{&InvalidComponentError{Value: c}}
 	}
 }
+
+// String returns the string representation of the Component.
+func (c Component) String() string { return string(c) }

@@ -360,6 +360,40 @@ func TestSpinnerType_IsValid(t *testing.T) {
 	}
 }
 
+func TestSpinnerType_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		st   SpinnerType
+		want string
+	}{
+		{SpinnerLine, "line"},
+		{SpinnerDot, "dot"},
+		{SpinnerMiniDot, "minidot"},
+		{SpinnerJump, "jump"},
+		{SpinnerPulse, "pulse"},
+		{SpinnerPoints, "points"},
+		{SpinnerGlobe, "globe"},
+		{SpinnerMoon, "moon"},
+		{SpinnerMonkey, "monkey"},
+		{SpinnerMeter, "meter"},
+		{SpinnerHamburger, "hamburger"},
+		{SpinnerEllipsis, "ellipsis"},
+		{SpinnerType(99), "unknown(99)"},
+		{SpinnerType(-1), "unknown(-1)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			t.Parallel()
+			got := tt.st.String()
+			if got != tt.want {
+				t.Errorf("SpinnerType(%d).String() = %q, want %q", tt.st, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSpinnerTypeNames(t *testing.T) {
 	t.Parallel()
 

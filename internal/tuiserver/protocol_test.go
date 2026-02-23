@@ -7,6 +7,38 @@ import (
 	"testing"
 )
 
+func TestComponent_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		comp Component
+		want string
+	}{
+		{ComponentInput, "input"},
+		{ComponentConfirm, "confirm"},
+		{ComponentChoose, "choose"},
+		{ComponentFilter, "filter"},
+		{ComponentFile, "file"},
+		{ComponentWrite, "write"},
+		{ComponentTextArea, "textarea"},
+		{ComponentSpin, "spin"},
+		{ComponentPager, "pager"},
+		{ComponentTable, "table"},
+		{Component("custom"), "custom"},
+		{Component(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			t.Parallel()
+			got := tt.comp.String()
+			if got != tt.want {
+				t.Errorf("Component(%q).String() = %q, want %q", tt.comp, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestComponent_IsValid(t *testing.T) {
 	t.Parallel()
 

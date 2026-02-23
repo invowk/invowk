@@ -130,6 +130,16 @@ func (t SpinnerType) IsValid() (bool, []error) {
 	}
 }
 
+// String returns the name of the SpinnerType (e.g., "line", "dot").
+// Unknown values return "unknown(<N>)" for diagnostic safety.
+func (t SpinnerType) String() string {
+	names := SpinnerTypeNames()
+	if int(t) >= 0 && int(t) < len(names) {
+		return names[t]
+	}
+	return fmt.Sprintf("unknown(%d)", t)
+}
+
 // ParseSpinnerType parses a string into a SpinnerType.
 // Returns an error if the string does not match any known spinner type name.
 func ParseSpinnerType(s string) (SpinnerType, error) {

@@ -219,7 +219,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 
 	// Create resolver with working dir set to the target module path so the
 	// lock file (invowkmod.lock.cue) lives next to invowkmod.cue.
-	resolver, err := invowkmod.NewResolver(absPath, "")
+	resolver, err := invowkmod.NewResolver(types.FilesystemPath(absPath), "")
 	if err != nil {
 		return fmt.Errorf("failed to create resolver: %w", err)
 	}

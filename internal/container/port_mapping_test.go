@@ -109,6 +109,47 @@ func TestPortMapping_IsValid(t *testing.T) {
 	}
 }
 
+func TestPortMapping_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		mapping PortMapping
+		want    string
+	}{
+		{
+			"tcp_explicit",
+			PortMapping{HostPort: 8080, ContainerPort: 80, Protocol: PortProtocolTCP},
+			"8080:80/tcp",
+		},
+		{
+			"udp",
+			PortMapping{HostPort: 53, ContainerPort: 53, Protocol: PortProtocolUDP},
+			"53:53/udp",
+		},
+		{
+			"empty_protocol_defaults_tcp",
+			PortMapping{HostPort: 443, ContainerPort: 443},
+			"443:443/tcp",
+		},
+		{
+			"zero_ports",
+			PortMapping{},
+			"0:0/tcp",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.mapping.String()
+			if got != tt.want {
+				t.Errorf("PortMapping.String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPortMapping_IsValid_FieldErrorTypes(t *testing.T) {
 	t.Parallel()
 

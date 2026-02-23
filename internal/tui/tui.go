@@ -71,7 +71,7 @@ type (
 		// Accessible enables accessible mode for screen readers.
 		Accessible bool
 		// Width specifies the width of the component (0 for auto).
-		Width int
+		Width TerminalDimension
 		// Output specifies where to write the component output.
 		Output io.Writer
 	}
@@ -79,9 +79,9 @@ type (
 	// Style represents styling options for text output.
 	Style struct {
 		// Foreground color (CSS hex, ANSI code, or color name).
-		Foreground string
+		Foreground ColorSpec
 		// Background color (CSS hex, ANSI code, or color name).
-		Background string
+		Background ColorSpec
 		// Bold enables bold text.
 		Bold bool
 		// Italic enables italic text.
@@ -99,17 +99,17 @@ type (
 		// Margin adds margin around the text (top, right, bottom, left or single value for all).
 		Margin []int
 		// Border type (none, normal, rounded, thick, double, hidden).
-		Border string
+		Border BorderStyle
 		// BorderForeground color for the border.
-		BorderForeground string
+		BorderForeground ColorSpec
 		// BorderBackground color for the border.
-		BorderBackground string
+		BorderBackground ColorSpec
 		// Width sets the width of the text block.
-		Width int
+		Width TerminalDimension
 		// Height sets the height of the text block.
-		Height int
+		Height TerminalDimension
 		// Align sets text alignment (left, center, right).
-		Align string
+		Align TextAlign
 	}
 )
 
@@ -148,11 +148,13 @@ func (e *InvalidTUIConfigError) Error() string {
 func (e *InvalidTUIConfigError) Unwrap() error { return ErrInvalidTUIConfig }
 
 // IsValid returns whether the Config has valid fields.
-// It delegates to Theme.IsValid(). Other fields (Accessible, Width, Output)
-// are primitive types without IsValid.
+// It delegates to Theme.IsValid() and Width.IsValid().
 func (c Config) IsValid() (bool, []error) {
 	var errs []error
 	if valid, fieldErrs := c.Theme.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := c.Width.IsValid(); !valid {
 		errs = append(errs, fieldErrs...)
 	}
 	if len(errs) > 0 {
@@ -176,10 +178,10 @@ func (s Style) Apply(text string) string {
 	style := lipgloss.NewStyle()
 
 	if s.Foreground != "" {
-		style = style.Foreground(lipgloss.Color(s.Foreground))
+		style = style.Foreground(lipgloss.Color(string(s.Foreground)))
 	}
 	if s.Background != "" {
-		style = style.Background(lipgloss.Color(s.Background))
+		style = style.Background(lipgloss.Color(string(s.Background)))
 	}
 	if s.Bold {
 		style = style.Bold(true)
@@ -218,45 +220,47 @@ func (s Style) Apply(text string) string {
 		style = style.Margin(s.Margin[0], s.Margin[1], s.Margin[2], s.Margin[3])
 	}
 
-	if s.Border != "" && s.Border != "none" {
+	if s.Border != "" && s.Border != BorderNone {
 		var border lipgloss.Border
 		switch s.Border {
-		case "normal":
+		case BorderNone:
+			// Already handled by the outer guard; included for exhaustive linter.
+		case BorderNormal:
 			border = lipgloss.NormalBorder()
-		case "rounded":
+		case BorderRounded:
 			border = lipgloss.RoundedBorder()
-		case "thick":
+		case BorderThick:
 			border = lipgloss.ThickBorder()
-		case "double":
+		case BorderDouble:
 			border = lipgloss.DoubleBorder()
-		case "hidden":
+		case BorderHidden:
 			border = lipgloss.HiddenBorder()
 		default:
 			border = lipgloss.NormalBorder()
 		}
 		style = style.Border(border)
 		if s.BorderForeground != "" {
-			style = style.BorderForeground(lipgloss.Color(s.BorderForeground))
+			style = style.BorderForeground(lipgloss.Color(string(s.BorderForeground)))
 		}
 		if s.BorderBackground != "" {
-			style = style.BorderBackground(lipgloss.Color(s.BorderBackground))
+			style = style.BorderBackground(lipgloss.Color(string(s.BorderBackground)))
 		}
 	}
 
 	if s.Width > 0 {
-		style = style.Width(s.Width)
+		style = style.Width(int(s.Width))
 	}
 	if s.Height > 0 {
-		style = style.Height(s.Height)
+		style = style.Height(int(s.Height))
 	}
 
 	switch s.Align {
-	case "center":
-		style = style.Align(lipgloss.Center)
-	case "right":
-		style = style.Align(lipgloss.Right)
-	default:
+	case "", AlignLeft:
 		style = style.Align(lipgloss.Left)
+	case AlignCenter:
+		style = style.Align(lipgloss.Center)
+	case AlignRight:
+		style = style.Align(lipgloss.Right)
 	}
 
 	return style.Render(text)

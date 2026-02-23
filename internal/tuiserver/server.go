@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/core/serverbase"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -45,8 +46,8 @@ type (
 		// Immutable configuration (set at creation, never modified)
 		listener   net.Listener
 		httpServer *http.Server
-		port       int
-		token      string
+		port       types.ListenPort
+		token      AuthToken
 
 		// Shutdown coordination (TUI-specific: used to signal HTTP handlers)
 		shutdownCh   chan struct{}
@@ -84,8 +85,8 @@ func New() (*Server, error) {
 	s := &Server{
 		Base:       serverbase.NewBase(),
 		listener:   listener,
-		port:       tcpAddr.Port,
-		token:      token,
+		port:       types.ListenPort(tcpAddr.Port),
+		token:      AuthToken(token),
 		shutdownCh: make(chan struct{}),
 		requestCh:  make(chan TUIRequest),
 	}
@@ -155,7 +156,7 @@ func (s *Server) Stop() error {
 }
 
 // Port returns the port number the server is listening on.
-func (s *Server) Port() int {
+func (s *Server) Port() types.ListenPort {
 	return s.port
 }
 
@@ -172,7 +173,7 @@ func (s *Server) URLWithHost(host string) string {
 }
 
 // Token returns the authentication token.
-func (s *Server) Token() string {
+func (s *Server) Token() AuthToken {
 	return s.token
 }
 
@@ -201,7 +202,7 @@ func (s *Server) handleTUI(w http.ResponseWriter, r *http.Request) {
 
 	// Verify authentication token
 	authHeader := r.Header.Get("Authorization")
-	expectedAuth := "Bearer " + s.token
+	expectedAuth := "Bearer " + string(s.token)
 	if authHeader != expectedAuth {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return

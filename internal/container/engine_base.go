@@ -338,6 +338,18 @@ func (v VolumeMount) IsValid() (bool, []error) {
 	return true, nil
 }
 
+// String returns the volume mount in "host:container[:selinux][:ro]" format.
+func (v VolumeMount) String() string {
+	s := string(v.HostPath) + ":" + string(v.ContainerPath)
+	if v.SELinux != "" {
+		s += ":" + string(v.SELinux)
+	}
+	if v.ReadOnly {
+		s += ":ro"
+	}
+	return s
+}
+
 // Error implements the error interface for InvalidPortMappingError.
 func (e *InvalidPortMappingError) Error() string {
 	return fmt.Sprintf("invalid port mapping %d:%d/%s: %d field error(s)",
@@ -364,6 +376,16 @@ func (p PortMapping) IsValid() (bool, []error) {
 		return false, errs
 	}
 	return true, nil
+}
+
+// String returns the port mapping in "host:container/protocol" format.
+// Defaults to "tcp" when the protocol is empty.
+func (p PortMapping) String() string {
+	proto := p.Protocol
+	if proto == "" {
+		proto = PortProtocolTCP
+	}
+	return fmt.Sprintf("%d:%d/%s", p.HostPort, p.ContainerPort, proto)
 }
 
 // --- Option Functions ---

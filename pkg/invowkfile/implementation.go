@@ -84,6 +84,11 @@ func (k PlatformRuntimeKey) IsValid() (bool, []error) {
 	return true, nil
 }
 
+// String returns "platform/runtime" representation (e.g., "linux/native").
+func (k PlatformRuntimeKey) String() string {
+	return string(k.Platform) + "/" + string(k.Runtime)
+}
+
 // MatchesPlatform returns true if the implementation can run on the given platform.
 func (s *Implementation) MatchesPlatform(platform Platform) bool {
 	for _, p := range s.Platforms {
