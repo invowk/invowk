@@ -361,7 +361,7 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 			Severity: discovery.SeverityError,
 			Code:     discovery.CodeConfigLoadFailed,
 			Message:  fmt.Sprintf("failed to load config from %s: %v", configPath, err),
-			Path:     configPath,
+			Path:     types.FilesystemPath(configPath),
 			Cause:    err,
 		}}
 	}

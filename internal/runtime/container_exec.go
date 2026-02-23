@@ -412,9 +412,9 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 	}
 
 	env["INVOWK_SSH_HOST"] = hostAddr
-	env["INVOWK_SSH_PORT"] = fmt.Sprintf("%d", sshConnInfo.Port)
+	env["INVOWK_SSH_PORT"] = sshConnInfo.Port.String()
 	env["INVOWK_SSH_USER"] = sshConnInfo.User
-	env["INVOWK_SSH_TOKEN"] = sshConnInfo.Token
+	env["INVOWK_SSH_TOKEN"] = string(sshConnInfo.Token)
 	env["INVOWK_SSH_ENABLED"] = "true"
 
 	return sshConnInfo, nil

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/watch"
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -48,18 +50,14 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	cmdInfo := result.Command
 
 	// Build the watch config from the command's schema or use defaults.
-	var patterns []string
-	var ignore []string
+	var patterns []invowkfile.GlobPattern
+	var ignore []invowkfile.GlobPattern
 	var debounce time.Duration
 	var clearScreen bool
 
 	if watchCfg := cmdInfo.Command.Watch; watchCfg != nil {
-		for _, p := range watchCfg.Patterns {
-			patterns = append(patterns, string(p))
-		}
-		for _, ig := range watchCfg.Ignore {
-			ignore = append(ignore, string(ig))
-		}
+		patterns = watchCfg.Patterns
+		ignore = watchCfg.Ignore
 		clearScreen = watchCfg.ClearScreen
 		if watchCfg.Debounce != "" {
 			d, parseErr := watchCfg.ParseDebounce()
@@ -72,7 +70,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Default to watching all files if no patterns configured.
 	if len(patterns) == 0 {
-		patterns = []string{"**/*"}
+		patterns = []invowkfile.GlobPattern{"**/*"}
 	}
 
 	// Build a re-execution closure that runs the command through the normal pipeline.
@@ -133,7 +131,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		Ignore:      ignore,
 		Debounce:    debounce,
 		ClearScreen: clearScreen,
-		BaseDir:     baseDir,
+		BaseDir:     types.FilesystemPath(baseDir),
 		OnChange: func(cbCtx context.Context, changed []string) error {
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])

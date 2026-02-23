@@ -210,7 +210,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 				SeverityWarning,
 				CodeInvowkfileParseSkipped,
 				fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
-				string(file.Path),
+				file.Path,
 				file.Error,
 			))
 			continue

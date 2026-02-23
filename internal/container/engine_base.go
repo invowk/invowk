@@ -81,9 +81,9 @@ type (
 		execCommand          ExecCommandFunc
 		volumeFormatter      VolumeFormatFunc
 		runArgsTransformer   RunArgsTransformer
-		cmdEnvOverrides      map[string]string // Per-command env var overrides (e.g., CONTAINERS_CONF_OVERRIDE)
-		sysctlOverridePath   string            // Temp file path for sysctl override (removed on Close)
-		sysctlOverrideActive bool              // Whether the temp file sysctl override is in effect
+		cmdEnvOverrides      map[string]string  // Per-command env var overrides (e.g., CONTAINERS_CONF_OVERRIDE)
+		sysctlOverridePath   HostFilesystemPath // Temp file path for sysctl override (removed on Close)
+		sysctlOverrideActive bool               // Whether the temp file sysctl override is in effect
 	}
 
 	// CmdCustomizer is implemented by engines that inject per-command overrides
@@ -334,7 +334,7 @@ func WithCmdEnvOverride(key, value string) BaseCLIEngineOption {
 
 // WithSysctlOverridePath records the temp file path for the sysctl override.
 // The path is cleaned up when Close() is called on the engine.
-func WithSysctlOverridePath(path string) BaseCLIEngineOption {
+func WithSysctlOverridePath(path HostFilesystemPath) BaseCLIEngineOption {
 	return func(e *BaseCLIEngine) {
 		e.sysctlOverridePath = path
 	}
@@ -586,7 +586,7 @@ func (e *BaseCLIEngine) CustomizeCmd(cmd *exec.Cmd) {
 // sysctl override temp file). It is safe to call multiple times.
 func (e *BaseCLIEngine) Close() error {
 	if e.sysctlOverridePath != "" {
-		err := os.Remove(e.sysctlOverridePath)
+		err := os.Remove(string(e.sysctlOverridePath))
 		e.sysctlOverridePath = ""
 		if err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("remove sysctl override file: %w", err)

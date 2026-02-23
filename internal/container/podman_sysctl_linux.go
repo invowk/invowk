@@ -78,7 +78,7 @@ func sysctlOverrideOpts(binaryPath string) []BaseCLIEngineOption {
 	}
 	return []BaseCLIEngineOption{
 		WithCmdEnvOverride("CONTAINERS_CONF_OVERRIDE", tempPath),
-		WithSysctlOverridePath(tempPath),
+		WithSysctlOverridePath(HostFilesystemPath(tempPath)),
 		WithSysctlOverrideActive(true),
 	}
 }

@@ -30,10 +30,10 @@ type (
 
 	// Token represents an authentication token for container callbacks.
 	Token struct {
-		Value     string
+		Value     TokenValue
 		CreatedAt time.Time
 		ExpiresAt time.Time
-		CommandID string
+		CommandID string // Composite identifier (name:executionID), intentionally untyped.
 		Used      bool
 	}
 
@@ -58,7 +58,7 @@ type (
 		addr     string // Actual bound address (including resolved port)
 
 		// Token management
-		tokens  map[string]*Token
+		tokens  map[TokenValue]*Token
 		tokenMu sync.RWMutex
 
 		// Logger
@@ -68,9 +68,9 @@ type (
 	// Config holds immutable configuration for the SSH server.
 	Config struct {
 		// Host is the address to bind to (default: 127.0.0.1)
-		Host string
+		Host HostAddress
 		// Port is the port to listen on (0 = auto-select)
-		Port int
+		Port ListenPort
 		// TokenTTL is how long tokens are valid (default: 1 hour)
 		TokenTTL time.Duration
 		// ShutdownTimeout is the timeout for graceful shutdown (default: 10s)
@@ -83,10 +83,10 @@ type (
 
 	// ConnectionInfo contains information needed to connect to the SSH server.
 	ConnectionInfo struct {
-		Host     string
-		Port     int
-		Token    string
-		User     string
+		Host     HostAddress
+		Port     ListenPort
+		Token    TokenValue
+		User     string // Always "invowk"; intentionally untyped.
 		ExpireAt time.Time
 	}
 )
@@ -94,8 +94,8 @@ type (
 // DefaultConfig returns a default configuration.
 func DefaultConfig() Config {
 	return Config{
-		Host:            "127.0.0.1",
-		Port:            0,
+		Host:            HostAddress("127.0.0.1"),
+		Port:            ListenPort(0),
 		TokenTTL:        time.Hour,
 		ShutdownTimeout: 10 * time.Second,
 		DefaultShell:    invowkfile.ShellPath("/bin/sh"),
@@ -120,7 +120,7 @@ func New(cfg Config) *Server {
 func NewWithClock(cfg Config, clock Clock) *Server {
 	// Apply defaults
 	if cfg.Host == "" {
-		cfg.Host = "127.0.0.1"
+		cfg.Host = HostAddress("127.0.0.1")
 	}
 	if cfg.TokenTTL == 0 {
 		cfg.TokenTTL = time.Hour
@@ -143,7 +143,7 @@ func NewWithClock(cfg Config, clock Clock) *Server {
 		Base:   serverbase.NewBase(),
 		cfg:    cfg,
 		clock:  clock,
-		tokens: make(map[string]*Token),
+		tokens: make(map[TokenValue]*Token),
 		logger: logger,
 	}
 

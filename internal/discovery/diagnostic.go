@@ -5,6 +5,8 @@ package discovery
 import (
 	"errors"
 	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -99,7 +101,7 @@ type (
 		// Message is the human-readable description.
 		Message string
 		// Path is the file path associated with this diagnostic (optional).
-		Path string
+		Path types.FilesystemPath
 		// Cause is the underlying error (optional, for programmatic inspection).
 		Cause error
 	}
@@ -202,11 +204,11 @@ func NewDiagnostic(severity Severity, code DiagnosticCode, message string) Diagn
 }
 
 // NewDiagnosticWithPath creates a Diagnostic with the given severity, code, message, and file path.
-func NewDiagnosticWithPath(severity Severity, code DiagnosticCode, message, path string) Diagnostic {
+func NewDiagnosticWithPath(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath) Diagnostic {
 	return Diagnostic{Severity: severity, Code: code, Message: message, Path: path}
 }
 
 // NewDiagnosticWithCause creates a Diagnostic with the given severity, code, message, file path, and cause error.
-func NewDiagnosticWithCause(severity Severity, code DiagnosticCode, message, path string, cause error) Diagnostic {
+func NewDiagnosticWithCause(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath, cause error) Diagnostic {
 	return Diagnostic{Severity: severity, Code: code, Message: message, Path: path, Cause: cause}
 }

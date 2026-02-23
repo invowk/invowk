@@ -454,25 +454,25 @@ func TestIsAlpineContainerImage(t *testing.T) {
 func TestValidateSupportedContainerImage(t *testing.T) {
 	tests := []struct {
 		name     string
-		image    string
+		image    container.ImageTag
 		wantErr  bool
 		contains string
 	}{
 		{
 			name:     "windows image rejected",
-			image:    "mcr.microsoft.com/windows/servercore:ltsc2022",
+			image:    container.ImageTag("mcr.microsoft.com/windows/servercore:ltsc2022"),
 			wantErr:  true,
 			contains: "windows container images are not supported",
 		},
 		{
 			name:     "alpine image rejected",
-			image:    "alpine:latest",
+			image:    container.ImageTag("alpine:latest"),
 			wantErr:  true,
 			contains: "alpine-based container images are not supported",
 		},
 		{
 			name:    "debian image allowed",
-			image:   "debian:stable-slim",
+			image:   container.ImageTag("debian:stable-slim"),
 			wantErr: false,
 		},
 	}
@@ -780,7 +780,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	execCtx.IO.Stderr = &stderr
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
-	cfg := invowkfileContainerConfig{Image: "debian:stable-slim"}
+	cfg := invowkfileContainerConfig{Image: container.ImageTag("debian:stable-slim")}
 	_, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 
 	if err == nil {
@@ -831,7 +831,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	execCtx.IO.Stderr = &stderr
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
-	cfg := invowkfileContainerConfig{Image: "debian:stable-slim"}
+	cfg := invowkfileContainerConfig{Image: container.ImageTag("debian:stable-slim")}
 	imageName, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 	if err != nil {
 		t.Fatalf("ensureProvisionedImage() with strict=false should not return error, got: %v", err)

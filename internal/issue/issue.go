@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
@@ -199,6 +200,9 @@ func (id Id) IsValid() (bool, []error) {
 	}
 }
 
+// String returns the decimal string representation of the issue Id.
+func (id Id) String() string { return strconv.Itoa(int(id)) }
+
 // Error implements the error interface for InvalidMarkdownMsgError.
 func (e *InvalidMarkdownMsgError) Error() string {
 	return "invalid markdown message: content is empty or whitespace-only"
@@ -217,6 +221,9 @@ func (m MarkdownMsg) IsValid() (bool, []error) {
 	}
 	return true, nil
 }
+
+// String returns the string representation of the MarkdownMsg.
+func (m MarkdownMsg) String() string { return string(m) }
 
 // Error implements the error interface for InvalidHttpLinkError.
 func (e *InvalidHttpLinkError) Error() string {
@@ -237,6 +244,9 @@ func (l HttpLink) IsValid() (bool, []error) {
 	}
 	return true, nil
 }
+
+// String returns the string representation of the HttpLink.
+func (l HttpLink) String() string { return string(l) }
 
 // Id returns the unique identifier for this issue.
 func (i *Issue) Id() Id {

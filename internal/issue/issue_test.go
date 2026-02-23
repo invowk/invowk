@@ -4,6 +4,7 @@ package issue
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -520,5 +521,63 @@ func TestHttpLink_IsValid(t *testing.T) {
 				t.Errorf("unexpected validation errors: %v", errs)
 			}
 		})
+	}
+}
+
+func TestId_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		id   Id
+		want string
+	}{
+		{FileNotFoundId, strconv.Itoa(int(FileNotFoundId))},
+		{InvalidArgumentId, strconv.Itoa(int(InvalidArgumentId))},
+		{Id(0), "0"},
+		{Id(999), "999"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.id.String(); got != tt.want {
+			t.Errorf("Id(%d).String() = %q, want %q", int(tt.id), got, tt.want)
+		}
+	}
+}
+
+func TestMarkdownMsg_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		msg  MarkdownMsg
+		want string
+	}{
+		{"# Hello", "# Hello"},
+		{"", ""},
+		{"multi\nline", "multi\nline"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.msg.String(); got != tt.want {
+			t.Errorf("MarkdownMsg(%q).String() = %q, want %q", string(tt.msg), got, tt.want)
+		}
+	}
+}
+
+func TestHttpLink_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		link HttpLink
+		want string
+	}{
+		{"https://example.com", "https://example.com"},
+		{"http://localhost:8080", "http://localhost:8080"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		if got := tt.link.String(); got != tt.want {
+			t.Errorf("HttpLink(%q).String() = %q, want %q", string(tt.link), got, tt.want)
+		}
 	}
 }

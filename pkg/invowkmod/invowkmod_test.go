@@ -648,6 +648,25 @@ func TestModuleID_IsValid(t *testing.T) {
 	}
 }
 
+func TestModuleID_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		id   ModuleID
+		want string
+	}{
+		{ModuleID("io.invowk.sample"), "io.invowk.sample"},
+		{ModuleID("mymodule"), "mymodule"},
+		{ModuleID(""), ""},
+	}
+
+	for _, tt := range tests {
+		if got := tt.id.String(); got != tt.want {
+			t.Errorf("ModuleID(%q).String() = %q, want %q", string(tt.id), got, tt.want)
+		}
+	}
+}
+
 func TestPathHelpers(t *testing.T) {
 	t.Parallel()
 

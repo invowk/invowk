@@ -265,6 +265,9 @@ func (m ModuleID) IsValid() (bool, []error) {
 	return true, nil
 }
 
+// String returns the string representation of the ModuleID.
+func (m ModuleID) String() string { return string(m) }
+
 // Error implements the error interface for InvalidModuleAliasError.
 func (e *InvalidModuleAliasError) Error() string {
 	return fmt.Sprintf("invalid module alias %q (must not be whitespace-only)", e.Value)

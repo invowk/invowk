@@ -85,7 +85,7 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileContainerConfig, invowkDir string) (string, error) {
 	// If an image is specified, use it directly
 	if cfg.Image != "" {
-		return cfg.Image, nil
+		return string(cfg.Image), nil
 	}
 
 	// Build from Containerfile/Dockerfile
@@ -94,13 +94,13 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 		// Try Containerfile first, then Dockerfile
 		containerfilePath := filepath.Join(invowkDir, "Containerfile")
 		if _, err := os.Stat(containerfilePath); err == nil {
-			containerfile = "Containerfile"
+			containerfile = container.HostFilesystemPath("Containerfile")
 		} else {
-			containerfile = "Dockerfile"
+			containerfile = container.HostFilesystemPath("Dockerfile")
 		}
 	}
 
-	containerfilePath := filepath.Join(invowkDir, containerfile)
+	containerfilePath := filepath.Join(invowkDir, string(containerfile))
 	if _, err := os.Stat(containerfilePath); err != nil {
 		return "", fmt.Errorf("containerfile not found at %s", containerfilePath)
 	}
@@ -129,7 +129,7 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 
 	buildOpts := container.BuildOptions{
 		ContextDir: container.HostFilesystemPath(invowkDir),
-		Dockerfile: container.HostFilesystemPath(containerfile),
+		Dockerfile: containerfile,
 		Tag:        container.ImageTag(imageTag),
 		NoCache:    ctx.ForceRebuild,
 		Stdout:     ctx.IO.Stdout,
@@ -254,11 +254,11 @@ func isAlpineContainerImage(image string) bool {
 }
 
 // validateSupportedContainerImage enforces the container runtime image policy.
-func validateSupportedContainerImage(image string) error {
-	if isWindowsContainerImage(image) {
+func validateSupportedContainerImage(image container.ImageTag) error {
+	if isWindowsContainerImage(string(image)) {
 		return fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
 	}
-	if isAlpineContainerImage(image) {
+	if isAlpineContainerImage(string(image)) {
 		return fmt.Errorf("alpine-based container images are not supported; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details")
 	}
 
@@ -271,8 +271,8 @@ func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContaine
 		return invowkfileContainerConfig{}
 	}
 	return invowkfileContainerConfig{
-		Containerfile: string(rt.Containerfile),
-		Image:         string(rt.Image),
+		Containerfile: container.HostFilesystemPath(rt.Containerfile),
+		Image:         container.ImageTag(rt.Image),
 		Volumes:       rt.Volumes,
 		Ports:         rt.Ports,
 	}

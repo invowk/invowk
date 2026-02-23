@@ -141,7 +141,7 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 			issueNum := fmt.Sprintf("  %d.", i+1)
 			codeTag := moduleIssueTypeStyle.Render(fmt.Sprintf("[%s]", diag.Code))
 			if diag.Path != "" {
-				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, modulePathStyle.Render(diag.Path))
+				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, modulePathStyle.Render(string(diag.Path)))
 				fmt.Fprintf(stderr, "     %s\n", diag.Message)
 			} else {
 				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, diag.Message)

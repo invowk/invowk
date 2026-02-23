@@ -67,8 +67,8 @@ type (
 
 	// invowkfileContainerConfig is a local type for container config extracted from RuntimeConfig
 	invowkfileContainerConfig struct {
-		Containerfile string
-		Image         string
+		Containerfile container.HostFilesystemPath
+		Image         container.ImageTag
 		Volumes       []invowkfile.VolumeMountSpec
 		Ports         []invowkfile.PortMappingSpec
 	}

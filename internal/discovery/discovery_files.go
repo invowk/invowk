@@ -151,7 +151,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*Discover
 			Severity: SeverityWarning,
 			Code:     CodeModuleScanPathInvalid,
 			Message:  fmt.Sprintf("failed to resolve module scan path %q: %v", dir, err),
-			Path:     dir,
+			Path:     types.FilesystemPath(dir),
 			Cause:    err,
 		})
 		return files, diagnostics
@@ -169,7 +169,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*Discover
 			Severity: SeverityWarning,
 			Code:     CodeModuleScanFailed,
 			Message:  fmt.Sprintf("failed to list directory %s while scanning modules: %v", absDir, err),
-			Path:     absDir,
+			Path:     types.FilesystemPath(absDir),
 			Cause:    err,
 		})
 		return files, diagnostics
@@ -195,7 +195,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*Discover
 				Severity: SeverityWarning,
 				Code:     CodeReservedModuleNameSkipped,
 				Message:  fmt.Sprintf("skipping reserved module name '%s'", moduleName),
-				Path:     entryPath,
+				Path:     types.FilesystemPath(entryPath),
 			})
 			continue
 		}
@@ -207,7 +207,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*Discover
 				Severity: SeverityWarning,
 				Code:     CodeModuleLoadSkipped,
 				Message:  fmt.Sprintf("skipping invalid module at %s: %v", entryPath, err),
-				Path:     entryPath,
+				Path:     types.FilesystemPath(entryPath),
 				Cause:    err,
 			})
 			continue
@@ -240,7 +240,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 				Severity: SeverityWarning,
 				Code:     CodeIncludeNotModule,
 				Message:  fmt.Sprintf("configured include is not a valid module directory, skipping: %s", entry.Path),
-				Path:     pathStr,
+				Path:     types.FilesystemPath(pathStr),
 			})
 			continue
 		}
@@ -250,7 +250,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 				Severity: SeverityWarning,
 				Code:     CodeIncludeReservedSkipped,
 				Message:  fmt.Sprintf("configured include uses reserved module name '%s', skipping", moduleName),
-				Path:     pathStr,
+				Path:     types.FilesystemPath(pathStr),
 			})
 			continue // Skip reserved module name (FR-015)
 		}
@@ -260,7 +260,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 				Severity: SeverityWarning,
 				Code:     CodeIncludeModuleLoadFailed,
 				Message:  fmt.Sprintf("failed to load included module at %s: %v", entry.Path, err),
-				Path:     pathStr,
+				Path:     types.FilesystemPath(pathStr),
 				Cause:    err,
 			})
 			continue // Skip invalid modules
@@ -295,7 +295,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			Severity: SeverityWarning,
 			Code:     CodeVendoredScanFailed,
 			Message:  fmt.Sprintf("failed to read vendored modules directory %s: %v", vendorDir, err),
-			Path:     vendorDir,
+			Path:     types.FilesystemPath(vendorDir),
 			Cause:    err,
 		})
 		return files, diagnostics
@@ -317,7 +317,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 				Severity: SeverityWarning,
 				Code:     CodeVendoredReservedSkipped,
 				Message:  fmt.Sprintf("skipping reserved module name '%s' in vendored modules of %s", moduleName, parentModule.Name()),
-				Path:     entryPath,
+				Path:     types.FilesystemPath(entryPath),
 			})
 			continue
 		}
@@ -328,7 +328,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 				Severity: SeverityWarning,
 				Code:     CodeVendoredModuleLoadSkipped,
 				Message:  fmt.Sprintf("skipping invalid vendored module at %s: %v", entryPath, err),
-				Path:     entryPath,
+				Path:     types.FilesystemPath(entryPath),
 				Cause:    err,
 			})
 			continue
@@ -341,7 +341,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 				Severity: SeverityWarning,
 				Code:     CodeVendoredNestedIgnored,
 				Message:  fmt.Sprintf("vendored module %s has its own invowk_modules/ which is not recursed into", m.Name()),
-				Path:     nestedVendorDir,
+				Path:     types.FilesystemPath(nestedVendorDir),
 			})
 		}
 

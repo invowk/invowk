@@ -84,7 +84,7 @@ func TestSysctlOverrideOpts_LocalPodman(t *testing.T) {
 	if engine.sysctlOverridePath == "" {
 		t.Error("expected sysctlOverridePath to be set")
 	}
-	if engine.cmdEnvOverrides["CONTAINERS_CONF_OVERRIDE"] != engine.sysctlOverridePath {
+	if engine.cmdEnvOverrides["CONTAINERS_CONF_OVERRIDE"] != string(engine.sysctlOverridePath) {
 		t.Errorf("expected CONTAINERS_CONF_OVERRIDE=%q, got %q",
 			engine.sysctlOverridePath, engine.cmdEnvOverrides["CONTAINERS_CONF_OVERRIDE"])
 	}
@@ -93,7 +93,7 @@ func TestSysctlOverrideOpts_LocalPodman(t *testing.T) {
 	}
 
 	// Verify the temp file is readable with correct content
-	content, err := os.ReadFile(engine.sysctlOverridePath)
+	content, err := os.ReadFile(string(engine.sysctlOverridePath))
 	if err != nil {
 		t.Fatalf("reading override file: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestBaseCLIEngine_Close_RemovesTempFile(t *testing.T) {
 	}
 
 	engine := NewBaseCLIEngine("/usr/bin/podman", opts...)
-	tempPath := engine.sysctlOverridePath
+	tempPath := string(engine.sysctlOverridePath)
 
 	// Verify the file exists
 	if _, err := os.Stat(tempPath); err != nil {
