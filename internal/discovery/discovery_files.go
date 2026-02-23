@@ -11,6 +11,7 @@ import (
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -27,7 +28,7 @@ type (
 	// DiscoveredFile represents a found invowkfile with its source
 	DiscoveredFile struct {
 		// Path is the absolute path to the invowkfile
-		Path string
+		Path types.FilesystemPath
 		// Source indicates where the file was found
 		Source Source
 		// Invowkfile is the parsed content (may be nil if not yet parsed)
@@ -126,13 +127,13 @@ func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 	// Check for invowkfile.cue first (preferred)
 	path := filepath.Join(absDir, invowkfile.InvowkfileName+".cue")
 	if _, err := os.Stat(path); err == nil {
-		return &DiscoveredFile{Path: path, Source: source}
+		return &DiscoveredFile{Path: types.FilesystemPath(path), Source: source}
 	}
 
 	// Check for invowkfile (no extension)
 	path = filepath.Join(absDir, invowkfile.InvowkfileName)
 	if _, err := os.Stat(path); err == nil {
-		return &DiscoveredFile{Path: path, Source: source}
+		return &DiscoveredFile{Path: types.FilesystemPath(path), Source: source}
 	}
 
 	return nil
@@ -213,7 +214,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*Discover
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:   m.InvowkfilePath(),
+			Path:   types.FilesystemPath(m.InvowkfilePath()),
 			Source: SourceModule,
 			Module: m,
 		})
@@ -265,7 +266,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 			continue // Skip invalid modules
 		}
 		files = append(files, &DiscoveredFile{
-			Path:   m.InvowkfilePath(),
+			Path:   types.FilesystemPath(m.InvowkfilePath()),
 			Source: SourceModule,
 			Module: m,
 		})
@@ -282,7 +283,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 	var files []*DiscoveredFile
 	diagnostics := make([]Diagnostic, 0)
 
-	vendorDir := invowkmod.GetVendoredModulesDir(parentModule.Path)
+	vendorDir := invowkmod.GetVendoredModulesDir(string(parentModule.Path))
 	if _, err := os.Stat(vendorDir); err != nil {
 		// No vendor directory is common and not a warning
 		return files, diagnostics
@@ -345,7 +346,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:         m.InvowkfilePath(),
+			Path:         types.FilesystemPath(m.InvowkfilePath()),
 			Source:       SourceModule,
 			Module:       m,
 			ParentModule: parentModule,

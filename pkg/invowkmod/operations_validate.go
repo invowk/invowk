@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Validate performs comprehensive validation of a module at the given path.
@@ -23,7 +24,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 
 	result := &ValidationResult{
 		Valid:      true,
-		ModulePath: absPath,
+		ModulePath: types.FilesystemPath(absPath),
 		Issues:     []ValidationIssue{},
 	}
 
@@ -70,7 +71,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	case invowkmodInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkmod.cue must be a file, not a directory", "")
 	default:
-		result.InvowkmodPath = invowkmodPath
+		result.InvowkmodPath = types.FilesystemPath(invowkmodPath)
 
 		// Parse invowkmod.cue and validate module field matches folder name
 		if result.ModuleName != "" {
@@ -97,7 +98,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	case invowkfileInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkfile.cue must be a file, not a directory", "")
 	default:
-		result.InvowkfilePath = invowkfilePath
+		result.InvowkfilePath = types.FilesystemPath(invowkfilePath)
 	}
 
 	// Check for nested modules and symlinks (security)
@@ -186,7 +187,7 @@ func Load(modulePath string) (*Module, error) {
 	// Parse the metadata
 	var metadata *Invowkmod
 	if result.InvowkmodPath != "" {
-		metadata, err = ParseInvowkmod(result.InvowkmodPath)
+		metadata, err = ParseInvowkmod(string(result.InvowkmodPath))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse module metadata: %w", err)
 		}

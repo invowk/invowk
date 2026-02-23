@@ -270,7 +270,7 @@ func BenchmarkRuntimeNative(b *testing.B) {
 
 	// Create a minimal invowkfile for the test
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Commands: []invowkfile.Command{
 			{
 				Name:        "test",
@@ -314,7 +314,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Commands: []invowkfile.Command{
 			{
 				Name:        "test",
@@ -371,7 +371,7 @@ fi
 `
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Commands: []invowkfile.Command{
 			{
 				Name:        "complex",
@@ -426,7 +426,7 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Commands: []invowkfile.Command{
 			{
 				Name:        "container-test",
@@ -574,7 +574,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Env: &invowkfile.EnvConfig{
 			Vars: map[string]string{
 				"ROOT_VAR1": "value1",

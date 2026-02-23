@@ -44,7 +44,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	cmd := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeNative)
@@ -81,7 +81,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	currentPlatform := invowkfile.CurrentPlatform()

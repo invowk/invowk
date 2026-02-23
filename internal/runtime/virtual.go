@@ -21,14 +21,15 @@ import (
 )
 
 type (
-	// VirtualRuntime executes commands using mvdan/sh with optional u-root utilities
+	// VirtualRuntime executes commands using mvdan/sh with optional u-root utilities.
+	// The enableUrootUtils flag is immutable after construction via NewVirtualRuntime.
 	VirtualRuntime struct {
-		// EnableUrootUtils enables u-root built-in utilities
-		EnableUrootUtils bool
+		// enableUrootUtils enables u-root built-in utilities
+		enableUrootUtils bool
 		// envBuilder builds environment variables for execution
 		envBuilder EnvBuilder
 		// urootRegistry holds the u-root command registry for built-in utilities.
-		// Nil when EnableUrootUtils is false.
+		// Nil when enableUrootUtils is false.
 		urootRegistry *uroot.Registry
 	}
 
@@ -55,18 +56,21 @@ func WithUrootRegistry(reg *uroot.Registry) VirtualRuntimeOption {
 // NewVirtualRuntime creates a new virtual runtime with optional configuration.
 func NewVirtualRuntime(enableUroot bool, opts ...VirtualRuntimeOption) *VirtualRuntime {
 	r := &VirtualRuntime{
-		EnableUrootUtils: enableUroot,
+		enableUrootUtils: enableUroot,
 		envBuilder:       NewDefaultEnvBuilder(),
 	}
 	for _, opt := range opts {
 		opt(r)
 	}
 	// Default to BuildDefaultRegistry when uroot is enabled and no registry was injected.
-	if r.EnableUrootUtils && r.urootRegistry == nil {
+	if r.enableUrootUtils && r.urootRegistry == nil {
 		r.urootRegistry = uroot.BuildDefaultRegistry()
 	}
 	return r
 }
+
+// UrootUtilsEnabled returns whether u-root utilities are enabled.
+func (r *VirtualRuntime) UrootUtilsEnabled() bool { return r.enableUrootUtils }
 
 // Name returns the runtime name
 func (r *VirtualRuntime) Name() string {
@@ -98,7 +102,7 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return err
 	}
@@ -123,7 +127,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -185,7 +189,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 // ExecuteCapture runs a command and captures its output
 func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -276,7 +280,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +363,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 func (r *VirtualRuntime) execHandler(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 	return func(ctx context.Context, args []string) error {
 		// First try u-root builtins if enabled
-		if r.EnableUrootUtils {
+		if r.enableUrootUtils {
 			if handled, err := r.tryUrootBuiltin(ctx, args); handled {
 				return err
 			}

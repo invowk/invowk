@@ -41,10 +41,10 @@ type (
 
 		Args         []string
 		Verbose      bool
-		Workdir      string
+		Workdir      invowkfile.WorkDir
 		ForceRebuild bool
 
-		EnvFiles []string
+		EnvFiles []invowkfile.DotenvFilePath
 		EnvVars  map[string]string
 
 		FlagValues map[invowkfile.FlagName]string
@@ -62,6 +62,18 @@ type (
 		Platform invowkfile.Platform
 	}
 )
+
+// NewRuntimeSelection creates a validated RuntimeSelection.
+// Mode must be a valid RuntimeMode and Impl must not be nil.
+func NewRuntimeSelection(mode invowkfile.RuntimeMode, impl *invowkfile.Implementation) (RuntimeSelection, error) {
+	if impl == nil {
+		return RuntimeSelection{}, fmt.Errorf("implementation must not be nil for runtime mode %q", mode)
+	}
+	if isValid, errs := mode.IsValid(); !isValid {
+		return RuntimeSelection{}, errs[0]
+	}
+	return RuntimeSelection{Mode: mode, Impl: impl}, nil
+}
 
 func (e *RuntimeNotAllowedError) Error() string {
 	allowed := make([]string, len(e.Allowed))
@@ -112,7 +124,8 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 				runtimeOverride,
 			)
 		}
-		return RuntimeSelection{Mode: runtimeOverride, Impl: impl}, nil
+		// Mode is validated above; constructor re-validates (defense-in-depth).
+		return NewRuntimeSelection(runtimeOverride, impl)
 	}
 
 	if cfg != nil && cfg.DefaultRuntime != "" {
@@ -125,7 +138,8 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 		if command.IsRuntimeAllowedForPlatform(platform, configRuntime) {
 			impl := command.GetImplForPlatformRuntime(platform, configRuntime)
 			if impl != nil {
-				return RuntimeSelection{Mode: configRuntime, Impl: impl}, nil
+				// Mode is validated above; constructor re-validates (defense-in-depth).
+				return NewRuntimeSelection(configRuntime, impl)
 			}
 		}
 	}
@@ -141,7 +155,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 		)
 	}
 
-	return RuntimeSelection{Mode: defaultRuntime, Impl: defaultImpl}, nil
+	return NewRuntimeSelection(defaultRuntime, defaultImpl)
 }
 
 // BuildExecutionContext converts options into a runtime.ExecutionContext.
@@ -162,7 +176,7 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 	execCtx.SelectedRuntime = opts.Selection.Mode
 	execCtx.SelectedImpl = opts.Selection.Impl
 	execCtx.PositionalArgs = opts.Args
-	execCtx.WorkDir = invowkfile.WorkDir(opts.Workdir)
+	execCtx.WorkDir = opts.Workdir
 	execCtx.ForceRebuild = opts.ForceRebuild
 	execCtx.Env.RuntimeEnvFiles = opts.EnvFiles
 	execCtx.Env.RuntimeEnvVars = opts.EnvVars

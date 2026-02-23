@@ -118,7 +118,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// how the execution pipeline resolves it (not against os.Getwd()).
 	baseDir := string(cmdInfo.Command.WorkDir)
 	if baseDir != "" && !filepath.IsAbs(baseDir) {
-		baseDir = filepath.Join(filepath.Dir(cmdInfo.FilePath), baseDir)
+		baseDir = filepath.Join(filepath.Dir(string(cmdInfo.FilePath)), baseDir)
 	}
 
 	// Track consecutive infrastructure (non-ExitError) failures in the OnChange

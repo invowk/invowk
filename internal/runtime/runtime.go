@@ -74,7 +74,7 @@ type (
 		// RuntimeEnvFiles contains dotenv file paths specified via --ivk-env-file flag.
 		// These are loaded after all other env sources but before RuntimeEnvVars.
 		// Relative paths are resolved against Cwd (or os.Getwd() when Cwd is empty).
-		RuntimeEnvFiles []string
+		RuntimeEnvFiles []invowkfile.DotenvFilePath
 		// InheritModeOverride overrides the runtime config env inherit mode when set.
 		InheritModeOverride invowkfile.EnvInheritMode
 		// InheritAllowOverride overrides the runtime config allowlist when set.
@@ -83,7 +83,7 @@ type (
 		InheritDenyOverride []invowkfile.EnvVarName
 		// Cwd overrides the working directory for --ivk-env-file path resolution.
 		// When empty, os.Getwd() is used.
-		Cwd string
+		Cwd invowkfile.WorkDir
 	}
 
 	// TUIContext holds TUI server connection details for interactive mode.

@@ -26,7 +26,7 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	cmd := testCommandWithScript("test", "echo 'Hello from virtual'", invowkfile.RuntimeVirtual)
@@ -59,7 +59,7 @@ func TestVirtualRuntime_MultiLineScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	script := `VAR="test value"
@@ -104,7 +104,7 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeVirtual)
@@ -137,7 +137,7 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Invalid shell syntax
@@ -161,7 +161,7 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script that echoes positional parameters
@@ -204,7 +204,7 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script that echoes the number of positional parameters
@@ -241,7 +241,7 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script that echoes the number of positional parameters
@@ -278,7 +278,7 @@ func TestVirtualRuntime_EnvIsolation(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Set environment variables that should be filtered
@@ -336,7 +336,7 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Try to use interpreter with virtual runtime (should be rejected)
@@ -379,7 +379,7 @@ func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script that runs forever
@@ -420,7 +420,7 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	tests := []struct {
@@ -486,7 +486,7 @@ func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Create a command with an empty script
@@ -510,7 +510,7 @@ func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	cmd := &invowkfile.Command{
@@ -586,7 +586,7 @@ func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
 			}
 			inv := &invowkfile.Invowkfile{
-				FilePath: invowkfilePath,
+				FilePath: invowkfile.FilesystemPath(invowkfilePath),
 				WorkDir:  invowkfile.WorkDir(tt.rootWorkDir),
 			}
 
@@ -637,9 +637,9 @@ func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rt := NewVirtualRuntime(tt.enableUroot)
-			if rt.EnableUrootUtils != tt.wantUroot {
-				t.Errorf("NewVirtualRuntime(%v).EnableUrootUtils = %v, want %v",
-					tt.enableUroot, rt.EnableUrootUtils, tt.wantUroot)
+			if rt.UrootUtilsEnabled() != tt.wantUroot {
+				t.Errorf("NewVirtualRuntime(%v).UrootUtilsEnabled() = %v, want %v",
+					tt.enableUroot, rt.UrootUtilsEnabled(), tt.wantUroot)
 			}
 		})
 	}
@@ -650,7 +650,7 @@ func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
 // as shell options by interp.Params(). This exercises the "--" prefix guard in virtual.go.
 func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 	tmpDir := t.TempDir()
-	inv := &invowkfile.Invowkfile{FilePath: filepath.Join(tmpDir, "invowkfile.cue")}
+	inv := &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))}
 
 	tests := []struct {
 		name   string
@@ -691,7 +691,7 @@ func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 func TestVirtualRuntime_ExecuteCapture(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	script := `echo "captured stdout"
@@ -722,7 +722,7 @@ echo "captured stderr" >&2`
 func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := testCommandWithScript("env-error", "echo test", invowkfile.RuntimeVirtual)
@@ -752,7 +752,7 @@ func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 func TestVirtualRuntime_SetE_StopsOnError(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	// "set -e" should abort the script at "false" and not reach "echo after"

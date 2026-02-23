@@ -3,42 +3,18 @@
 package invowkfile
 
 import (
-	"errors"
-	"fmt"
-	"strings"
+	"github.com/invowk/invowk/pkg/types"
 )
 
-// ErrInvalidFilesystemPath is the sentinel error wrapped by InvalidFilesystemPathError.
-var ErrInvalidFilesystemPath = errors.New("invalid filesystem path")
+// ErrInvalidFilesystemPath is the sentinel error re-exported for backward compatibility.
+var ErrInvalidFilesystemPath = types.ErrInvalidFilesystemPath
 
 type (
-	// FilesystemPath represents a filesystem path for file/directory dependency alternatives.
-	// A valid path must be non-empty and not whitespace-only.
-	FilesystemPath string
+	// FilesystemPath is a type alias for the cross-cutting DDD Value Type defined
+	// in pkg/types. All invowkfile consumers use this alias so they don't need to
+	// import pkg/types directly.
+	FilesystemPath = types.FilesystemPath
 
-	// InvalidFilesystemPathError is returned when a FilesystemPath value is
-	// empty or whitespace-only.
-	InvalidFilesystemPathError struct {
-		Value FilesystemPath
-	}
+	// InvalidFilesystemPathError is a type alias re-exported for backward compatibility.
+	InvalidFilesystemPathError = types.InvalidFilesystemPathError
 )
-
-// String returns the string representation of the FilesystemPath.
-func (p FilesystemPath) String() string { return string(p) }
-
-// IsValid returns whether the FilesystemPath is valid.
-// A valid path must be non-empty and not whitespace-only.
-func (p FilesystemPath) IsValid() (bool, []error) {
-	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidFilesystemPathError{Value: p}}
-	}
-	return true, nil
-}
-
-// Error implements the error interface for InvalidFilesystemPathError.
-func (e *InvalidFilesystemPathError) Error() string {
-	return fmt.Sprintf("invalid filesystem path %q: must be non-empty", e.Value)
-}
-
-// Unwrap returns ErrInvalidFilesystemPath for errors.Is() compatibility.
-func (e *InvalidFilesystemPathError) Unwrap() error { return ErrInvalidFilesystemPath }

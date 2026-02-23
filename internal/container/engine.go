@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Container engine type constants.
@@ -120,9 +122,9 @@ type (
 	// BuildOptions contains options for building an image
 	BuildOptions struct {
 		// ContextDir is the build context directory
-		ContextDir string
+		ContextDir HostFilesystemPath
 		// Dockerfile is the path to the Dockerfile (relative to ContextDir)
-		Dockerfile string
+		Dockerfile HostFilesystemPath
 		// Tag is the image tag to assign to the built image
 		Tag ImageTag
 		// BuildArgs are build-time variables
@@ -142,7 +144,7 @@ type (
 		// Command is the command to run
 		Command []string
 		// WorkDir is the working directory inside the container
-		WorkDir string
+		WorkDir MountTargetPath
 		// Env contains environment variables
 		Env map[string]string
 		// Volumes are volume mounts in "host:container" format
@@ -172,7 +174,7 @@ type (
 		// ContainerID is the container ID
 		ContainerID ContainerID
 		// ExitCode is the exit code
-		ExitCode int
+		ExitCode types.ExitCode
 		// Error contains any error
 		Error error
 	}

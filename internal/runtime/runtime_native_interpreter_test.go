@@ -33,7 +33,7 @@ func TestNativeRuntime_InterpreterShebangDetection(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script with Python shebang (should auto-detect)
@@ -78,7 +78,7 @@ func TestNativeRuntime_ExplicitInterpreter(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script without shebang but with explicit interpreter
@@ -123,7 +123,7 @@ func TestNativeRuntime_InterpreterWithArgs(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script with shebang including -u flag for unbuffered output
@@ -179,7 +179,7 @@ print("Hello from Python file")
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	cmd := testCommandWithScript("python-file", "./test.py", invowkfile.RuntimeNative)
@@ -215,7 +215,7 @@ func TestNativeRuntime_InterpreterNotFound(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script with a non-existent interpreter
@@ -260,7 +260,7 @@ func TestNativeRuntime_InterpreterCapture(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script with Python shebang
@@ -300,7 +300,7 @@ func TestNativeRuntime_PrepareCommand(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Simple echo command
@@ -371,7 +371,7 @@ func TestNativeRuntime_PrepareCommandWithInterpreter(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Python script with explicit interpreter

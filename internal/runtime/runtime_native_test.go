@@ -26,7 +26,7 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	cmd := testCommandWithScript("test", "echo 'Hello from inline'", invowkfile.RuntimeNative)
@@ -59,7 +59,7 @@ func TestNativeRuntime_MultiLineScript(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Multi-line script
@@ -106,7 +106,7 @@ echo "Hello from script file"
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	cmd := testCommandWithScript("from-file", "./test.sh", invowkfile.RuntimeNative)
@@ -138,7 +138,7 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script that echoes positional parameters
@@ -180,7 +180,7 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script that echoes the number of positional parameters
@@ -216,7 +216,7 @@ func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Script that echoes the first positional parameter
@@ -335,7 +335,7 @@ func TestNativeRuntime_EnvIsolation(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	// Set environment variables that should be filtered
@@ -393,7 +393,7 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	script := `echo "Should not run"`
@@ -441,7 +441,7 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	tests := []struct {
@@ -558,7 +558,7 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	tests := []struct {
@@ -661,7 +661,7 @@ func TestExecutionContext_EffectiveWorkDir_Native(t *testing.T) {
 				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
 			}
 			inv := &invowkfile.Invowkfile{
-				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+				FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				WorkDir:  "",
 			}
 			cmd := &invowkfile.Command{

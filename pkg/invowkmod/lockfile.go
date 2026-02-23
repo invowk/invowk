@@ -16,6 +16,8 @@ var (
 	ErrInvalidModuleNamespace = errors.New("invalid module namespace")
 	// ErrInvalidLockFileVersion is the sentinel error wrapped by InvalidLockFileVersionError.
 	ErrInvalidLockFileVersion = errors.New("invalid lock file version")
+	// ErrInvalidModuleRefKey is returned when a ModuleRefKey value is empty.
+	ErrInvalidModuleRefKey = errors.New("invalid module ref key")
 )
 
 type (
@@ -40,6 +42,17 @@ type (
 		Value LockFileVersion
 	}
 
+	// ModuleRefKey is a typed key for the lock file's Modules map.
+	// Format: "<git-url>" or "<git-url>#<subpath>" (e.g., "https://github.com/user/repo.git").
+	// Must not be empty.
+	ModuleRefKey string
+
+	// InvalidModuleRefKeyError is returned when a ModuleRefKey value is empty.
+	// DDD Value Type error struct — wraps ErrInvalidModuleRefKey for errors.Is().
+	InvalidModuleRefKeyError struct {
+		Value ModuleRefKey
+	}
+
 	// LockFile represents the invowkmod.lock.cue file structure.
 	LockFile struct {
 		// Version is the lock file format version.
@@ -48,8 +61,8 @@ type (
 		// Generated is the timestamp when the lock file was generated.
 		Generated time.Time
 
-		// Modules maps module keys to their locked versions.
-		Modules map[string]LockedModule
+		// Modules maps module ref keys to their locked versions.
+		Modules map[ModuleRefKey]LockedModule
 	}
 
 	// LockedModule represents a locked module entry in the lock file.
@@ -119,12 +132,32 @@ func (e *InvalidLockFileVersionError) Error() string {
 // Unwrap returns ErrInvalidLockFileVersion for errors.Is() compatibility.
 func (e *InvalidLockFileVersionError) Unwrap() error { return ErrInvalidLockFileVersion }
 
+// String returns the string representation of the ModuleRefKey.
+func (k ModuleRefKey) String() string { return string(k) }
+
+// IsValid returns whether the ModuleRefKey is valid.
+// A valid ModuleRefKey is non-empty and not whitespace-only.
+func (k ModuleRefKey) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(k)) == "" {
+		return false, []error{&InvalidModuleRefKeyError{Value: k}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidModuleRefKeyError.
+func (e *InvalidModuleRefKeyError) Error() string {
+	return fmt.Sprintf("invalid module ref key %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidModuleRefKey for errors.Is() compatibility.
+func (e *InvalidModuleRefKeyError) Unwrap() error { return ErrInvalidModuleRefKey }
+
 // NewLockFile creates a new empty lock file.
 func NewLockFile() *LockFile {
 	return &LockFile{
 		Version:   "1.0",
 		Generated: time.Now(),
-		Modules:   make(map[string]LockedModule),
+		Modules:   make(map[ModuleRefKey]LockedModule),
 	}
 }
 
@@ -178,13 +211,13 @@ func (l *LockFile) AddModule(resolved *ResolvedModule) {
 }
 
 // HasModule checks if a module is in the lock file.
-func (l *LockFile) HasModule(key string) bool {
+func (l *LockFile) HasModule(key ModuleRefKey) bool {
 	_, ok := l.Modules[key]
 	return ok
 }
 
 // GetModule returns a module from the lock file.
-func (l *LockFile) GetModule(key string) (LockedModule, bool) {
+func (l *LockFile) GetModule(key ModuleRefKey) (LockedModule, bool) {
 	mod, ok := l.Modules[key]
 	return mod, ok
 }
@@ -232,7 +265,7 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 
 	// Parse line by line (simplified parser)
 	lines := strings.Split(content, "\n")
-	var currentModuleKey string
+	var currentModuleKey ModuleRefKey
 	var currentModule LockedModule
 	inModules := false
 	braceDepth := 0
@@ -324,13 +357,13 @@ func parseStringValue(line string) string {
 }
 
 // parseModuleKey extracts the module key from a CUE line like `"key": {`.
-func parseModuleKey(line string) string {
+func parseModuleKey(line string) ModuleRefKey {
 	line = strings.TrimSpace(line)
 	// Format: "key": {
 	if strings.HasPrefix(line, "\"") {
 		end := strings.Index(line[1:], "\"")
 		if end != -1 {
-			return line[1 : end+1]
+			return ModuleRefKey(line[1 : end+1])
 		}
 	}
 	return ""

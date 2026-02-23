@@ -63,9 +63,9 @@ type (
 		// ForceRebuild forces container image rebuilds, bypassing cache.
 		ForceRebuild bool
 		// Workdir overrides the working directory for the command.
-		Workdir string
+		Workdir invowkfile.WorkDir
 		// EnvFiles are dotenv file paths from --ivk-env-file flags.
-		EnvFiles []string
+		EnvFiles []invowkfile.DotenvFilePath
 		// EnvVars are KEY=VALUE pairs from --ivk-env-var flags (highest env priority).
 		EnvVars map[string]string
 		// ConfigPath is the explicit --ivk-config flag value.

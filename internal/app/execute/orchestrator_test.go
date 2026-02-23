@@ -358,6 +358,67 @@ func TestBuildExecutionContext_InheritanceValidation(t *testing.T) {
 	}
 }
 
+func TestNewRuntimeSelection(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		mode    invowkfile.RuntimeMode
+		impl    *invowkfile.Implementation
+		wantErr string
+	}{
+		{
+			name: "Valid mode and non-nil impl",
+			mode: invowkfile.RuntimeNative,
+			impl: &invowkfile.Implementation{},
+		},
+		{
+			name:    "Nil impl returns error",
+			mode:    invowkfile.RuntimeNative,
+			impl:    nil,
+			wantErr: "implementation must not be nil",
+		},
+		{
+			name:    "Invalid mode returns error",
+			mode:    invowkfile.RuntimeMode("bogus"),
+			impl:    &invowkfile.Implementation{},
+			wantErr: "invalid runtime mode",
+		},
+		{
+			name:    "Empty mode returns error",
+			mode:    invowkfile.RuntimeMode(""),
+			impl:    &invowkfile.Implementation{},
+			wantErr: "invalid runtime mode",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := NewRuntimeSelection(tt.mode, tt.impl)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tt.wantErr)) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.Mode != tt.mode {
+				t.Errorf("got mode %q, want %q", got.Mode, tt.mode)
+			}
+			if got.Impl != tt.impl {
+				t.Error("got different impl pointer than expected")
+			}
+		})
+	}
+}
+
 func TestRuntimeNotAllowedError_Format(t *testing.T) {
 	t.Parallel()
 

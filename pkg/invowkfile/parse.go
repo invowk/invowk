@@ -49,7 +49,7 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 	}
 
 	inv := result.Value
-	inv.FilePath = path
+	inv.FilePath = FilesystemPath(path)
 
 	// Validate and collect all errors
 	if errs := inv.Validate(); len(errs) > 0 {
@@ -93,7 +93,7 @@ func ParseModule(modulePath string) (*Module, error) {
 	// Create result
 	result := &Module{
 		Metadata: meta,
-		Path:     modulePath,
+		Path:     FilesystemPath(modulePath),
 	}
 
 	// Parse invowkfile.cue (optional - may be a library-only module)
@@ -110,7 +110,7 @@ func ParseModule(modulePath string) (*Module, error) {
 
 		// Attach local metadata snapshot and module path
 		inv.Metadata = NewModuleMetadataFromInvowkmod(meta)
-		inv.ModulePath = modulePath
+		inv.ModulePath = FilesystemPath(modulePath)
 
 		result.Commands = inv
 	} else {

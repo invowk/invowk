@@ -52,16 +52,16 @@ func Archive(modulePath, outputPath string) (archivePath string, err error) {
 	}()
 
 	// Get the module directory name for the ZIP root
-	moduleDirName := filepath.Base(m.Path)
+	moduleDirName := filepath.Base(string(m.Path))
 
 	// Walk the module directory and add files to the ZIP
-	walkErr := filepath.WalkDir(m.Path, func(path string, d os.DirEntry, walkErr error) error {
+	walkErr := filepath.WalkDir(string(m.Path), func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 
 		// Get relative path from module root
-		relPath, relErr := filepath.Rel(m.Path, path)
+		relPath, relErr := filepath.Rel(string(m.Path), path)
 		if relErr != nil {
 			return fmt.Errorf("failed to get relative path: %w", relErr)
 		}

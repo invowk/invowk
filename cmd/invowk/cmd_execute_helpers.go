@@ -46,6 +46,18 @@ func toEnvVarNames(names []string) []invowkfile.EnvVarName {
 	return result
 }
 
+// toDotenvFilePaths converts a CLI string slice (from Cobra flags) to typed DotenvFilePath values.
+func toDotenvFilePaths(paths []string) []invowkfile.DotenvFilePath {
+	if len(paths) == 0 {
+		return nil
+	}
+	result := make([]invowkfile.DotenvFilePath, len(paths))
+	for i, path := range paths {
+		result[i] = invowkfile.DotenvFilePath(path)
+	}
+	return result
+}
+
 func parseEnvVarFlags(envVarFlags []string) map[string]string {
 	if len(envVarFlags) == 0 {
 		return nil

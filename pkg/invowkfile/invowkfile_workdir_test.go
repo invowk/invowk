@@ -21,7 +21,7 @@ func TestGetEffectiveWorkDir_DefaultToInvowkfileDir(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 	}
 	cmd := &Command{Name: "test"}
 	impl := &Implementation{Script: "echo test"}
@@ -41,7 +41,7 @@ func TestGetEffectiveWorkDir_RootLevel(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  "build",
 	}
 	cmd := &Command{Name: "test"}
@@ -63,7 +63,7 @@ func TestGetEffectiveWorkDir_CommandLevel(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  "root-workdir",
 	}
 	cmd := &Command{Name: "test", WorkDir: "cmd-workdir"}
@@ -85,7 +85,7 @@ func TestGetEffectiveWorkDir_ImplementationLevel(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  "root-workdir",
 	}
 	cmd := &Command{Name: "test", WorkDir: "cmd-workdir"}
@@ -107,7 +107,7 @@ func TestGetEffectiveWorkDir_CLIOverride(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  "root-workdir",
 	}
 	cmd := &Command{Name: "test", WorkDir: "cmd-workdir"}
@@ -130,7 +130,7 @@ func TestGetEffectiveWorkDir_AbsolutePath(t *testing.T) {
 	absPath := filepath.Join(t.TempDir(), "absolute-workdir")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  WorkDir(absPath),
 	}
 	cmd := &Command{Name: "test"}
@@ -151,7 +151,7 @@ func TestGetEffectiveWorkDir_ForwardSlashConversion(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  "nested/deep/path", // Forward slashes (CUE format)
 	}
 	cmd := &Command{Name: "test"}
@@ -173,7 +173,7 @@ func TestGetEffectiveWorkDir_NilCommand(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  "root-workdir",
 	}
 
@@ -193,7 +193,7 @@ func TestGetEffectiveWorkDir_NilImplementation(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 	}
 	cmd := &Command{Name: "test", WorkDir: "cmd-workdir"}
 
@@ -213,7 +213,7 @@ func TestGetEffectiveWorkDir_EmptyCommandWorkDir(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  "root-workdir",
 	}
 	cmd := &Command{Name: "test", WorkDir: ""} // Empty command workdir
@@ -239,7 +239,7 @@ func TestGetEffectiveWorkDir_ParentDirectory(t *testing.T) {
 	invowkfilePath := filepath.Join(subDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  "../sibling", // Go up and into sibling directory
 	}
 	cmd := &Command{Name: "test"}
@@ -261,7 +261,7 @@ func TestGetEffectiveWorkDir_CurrentDirectory(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: FilesystemPath(invowkfilePath),
 		WorkDir:  ".",
 	}
 	cmd := &Command{Name: "test"}
@@ -287,8 +287,8 @@ func TestGetEffectiveWorkDir_ModulePath(t *testing.T) {
 	invowkfilePath := filepath.Join(moduleDir, "invowkfile.cue")
 
 	inv := &Invowkfile{
-		FilePath:   invowkfilePath,
-		ModulePath: moduleDir, // Loaded from module
+		FilePath:   FilesystemPath(invowkfilePath),
+		ModulePath: FilesystemPath(moduleDir), // Loaded from module
 		WorkDir:    "scripts",
 	}
 	cmd := &Command{Name: "test"}

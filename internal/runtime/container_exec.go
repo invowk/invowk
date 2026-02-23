@@ -68,7 +68,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("runtime config not found for container runtime")}
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
-	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
+	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
 
 	// Validate explicit image policy before provisioning rewrites image tags.
 	if containerCfg.Image != "" {
@@ -78,7 +78,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return nil, &Result{ExitCode: 1, Error: err}
 	}
@@ -248,7 +248,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 		// engine.Run() returns exit-code failures in result rather than err.
 		// Check for transient engine exit codes (125 = generic engine error,
 		// 126 = OCI runtime failure e.g., crun ping_group_range race).
-		if result.ExitCode == 0 || !IsTransientExitCode(result.ExitCode) {
+		if result.ExitCode == 0 || !result.ExitCode.IsTransient() {
 			flushStderr(originalStderr, &stderrBuf)
 			return result, nil
 		}
@@ -312,7 +312,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	runOpts := container.RunOptions{
 		Image:       container.ImageTag(prep.image),
 		Command:     prep.shellCmd,
-		WorkDir:     prep.workDir,
+		WorkDir:     container.MountTargetPath(prep.workDir),
 		Env:         prep.env,
 		Volumes:     prep.volumes,
 		Ports:       prep.ports,
@@ -330,7 +330,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 
 	return &Result{
-		ExitCode: ExitCode(result.ExitCode),
+		ExitCode: result.ExitCode,
 		Error:    result.Error,
 	}
 }
@@ -352,7 +352,7 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	runOpts := container.RunOptions{
 		Image:       container.ImageTag(prep.image),
 		Command:     prep.shellCmd,
-		WorkDir:     prep.workDir,
+		WorkDir:     container.MountTargetPath(prep.workDir),
 		Env:         prep.env,
 		Volumes:     prep.volumes,
 		Ports:       prep.ports,
@@ -375,7 +375,7 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	}
 
 	return &Result{
-		ExitCode:  ExitCode(result.ExitCode),
+		ExitCode:  result.ExitCode,
 		Error:     result.Error,
 		Output:    stdout.String(),
 		ErrOutput: stderr.String(),

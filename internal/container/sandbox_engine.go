@@ -9,6 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // SandboxAwareEngine wraps a container Engine to handle execution from within
@@ -134,7 +135,7 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 	result := &RunResult{}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = exitErr.ExitCode()
+			result.ExitCode = types.ExitCode(exitErr.ExitCode())
 		} else {
 			result.ExitCode = 1
 			result.Error = err

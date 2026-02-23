@@ -56,7 +56,7 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 
 	// Update provisioner config with current invowkfile path and ForceRebuild
 	provCfg := r.provisioner.Config()
-	provCfg.InvowkfilePath = ctx.Invowkfile.FilePath
+	provCfg.InvowkfilePath = string(ctx.Invowkfile.FilePath)
 	provCfg.ForceRebuild = ctx.ForceRebuild
 
 	// Provision the image with invowk resources
@@ -105,7 +105,7 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 	}
 
 	// Generate a unique image tag based on invowkfile path
-	imageTag, err := r.generateImageTag(ctx.Invowkfile.FilePath)
+	imageTag, err := r.generateImageTag(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return "", err
 	}
@@ -127,8 +127,8 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 	}
 
 	buildOpts := container.BuildOptions{
-		ContextDir: invowkDir,
-		Dockerfile: containerfile,
+		ContextDir: container.HostFilesystemPath(invowkDir),
+		Dockerfile: container.HostFilesystemPath(containerfile),
 		Tag:        container.ImageTag(imageTag),
 		NoCache:    ctx.ForceRebuild,
 		Stdout:     ctx.IO.Stdout,
@@ -182,7 +182,7 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	provisionCfg.Strict = autoProv.Strict
 
 	if autoProv.BinaryPath != "" {
-		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath
+		provisionCfg.InvowkBinaryPath = string(autoProv.BinaryPath)
 	}
 
 	// Add modules from auto_provision includes (explicit provisioning paths).
@@ -198,7 +198,7 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	}
 
 	if autoProv.CacheDir != "" {
-		provisionCfg.CacheDir = autoProv.CacheDir
+		provisionCfg.CacheDir = string(autoProv.CacheDir)
 	}
 
 	return provisionCfg
@@ -298,7 +298,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 
 	if ctx.SelectedImpl.IsScriptFile() {
 		// File script: use the relative path within /workspace
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(string(ctx.Invowkfile.FilePath))
 		// Convert host path to container path (relative to /workspace)
 		relPath, err := filepath.Rel(invowkDir, scriptPath)
 		if err != nil {

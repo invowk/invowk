@@ -98,7 +98,7 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 
 	// 9. Runtime --ivk-env-file flag files
 	for _, path := range ctx.Env.RuntimeEnvFiles {
-		if err := LoadEnvFileFromCwd(env, path, ctx.Env.Cwd); err != nil {
+		if err := LoadEnvFileFromCwd(env, string(path), string(ctx.Env.Cwd)); err != nil {
 			return nil, err
 		}
 	}

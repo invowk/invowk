@@ -17,12 +17,13 @@ import (
 )
 
 type (
-	// NativeRuntime executes commands using the system's default shell
+	// NativeRuntime executes commands using the system's default shell.
+	// Shell and shell arguments are immutable after construction via NewNativeRuntime.
 	NativeRuntime struct {
-		// Shell overrides the default shell
-		Shell invowkfile.ShellPath
-		// ShellArgs are arguments passed to the shell before the script
-		ShellArgs []string
+		// shell overrides the default shell
+		shell invowkfile.ShellPath
+		// shellArgs are arguments passed to the shell before the script
+		shellArgs []string
 		// envBuilder builds environment variables for execution
 		envBuilder EnvBuilder
 	}
@@ -30,6 +31,22 @@ type (
 	// NativeRuntimeOption configures a NativeRuntime.
 	NativeRuntimeOption func(*NativeRuntime)
 )
+
+// WithShell sets the shell path for the native runtime.
+// If not set, the runtime auto-detects the shell from the environment.
+func WithShell(shell invowkfile.ShellPath) NativeRuntimeOption {
+	return func(r *NativeRuntime) {
+		r.shell = shell
+	}
+}
+
+// WithShellArgs sets the shell arguments for the native runtime.
+// If not set, arguments are derived from the shell type (e.g., "-c" for bash).
+func WithShellArgs(args []string) NativeRuntimeOption {
+	return func(r *NativeRuntime) {
+		r.shellArgs = args
+	}
+}
 
 // WithEnvBuilder sets the environment builder for the native runtime.
 // If not set, NewDefaultEnvBuilder() is used.
@@ -49,6 +66,12 @@ func NewNativeRuntime(opts ...NativeRuntimeOption) *NativeRuntime {
 	}
 	return r
 }
+
+// Shell returns the configured shell path.
+func (r *NativeRuntime) Shell() invowkfile.ShellPath { return r.shell }
+
+// ShellArgs returns the configured shell arguments.
+func (r *NativeRuntime) ShellArgs() []string { return r.shellArgs }
 
 // Name returns the runtime name
 func (r *NativeRuntime) Name() string {
@@ -74,7 +97,7 @@ func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 
 // Execute runs a command using the system shell or specified interpreter
 func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -97,7 +120,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 
 // ExecuteCapture runs a command and captures its output
 func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return &Result{ExitCode: 1, Error: err}
 	}
@@ -133,7 +156,7 @@ func (r *NativeRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedComm
 // This is useful for interactive mode where the command needs to be run on a PTY.
 // The caller must call the returned cleanup function after execution.
 func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +228,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	// Handle file vs inline script
 	var tempFile string
 	if ctx.SelectedImpl.IsScriptFile() {
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(string(ctx.Invowkfile.FilePath))
 		cmdArgs = append(cmdArgs, scriptPath)
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)
@@ -276,8 +299,8 @@ func (r *NativeRuntime) createTempScript(content, interpreter string) (string, e
 
 // getShell determines which shell to use
 func (r *NativeRuntime) getShell() (string, error) {
-	if r.Shell != "" {
-		return string(r.Shell), nil
+	if r.shell != "" {
+		return string(r.shell), nil
 	}
 
 	switch runtime.GOOS {
@@ -331,8 +354,8 @@ func (r *NativeRuntime) shellNotFoundError(attempted []string) error {
 
 // getShellArgs returns the arguments to pass to the shell
 func (r *NativeRuntime) getShellArgs(shell string) []string {
-	if len(r.ShellArgs) > 0 {
-		return r.ShellArgs
+	if len(r.shellArgs) > 0 {
+		return r.shellArgs
 	}
 
 	base := filepath.Base(shell)
@@ -414,7 +437,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 	var tempFile string
 	var cleanup func()
 	if ctx.SelectedImpl.IsScriptFile() {
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
+		scriptPath := ctx.SelectedImpl.GetScriptFilePath(string(ctx.Invowkfile.FilePath))
 		cmdArgs = append(cmdArgs, scriptPath)
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)

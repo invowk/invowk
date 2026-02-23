@@ -54,8 +54,8 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 //     current chain are flagged.
 func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]*ResolvedModule, error) {
 	var resolved []*ResolvedModule
-	visited := make(map[string]bool)
-	inProgress := make(map[string]bool) // cycle detection within current resolution path
+	visited := make(map[ModuleRefKey]bool)
+	inProgress := make(map[ModuleRefKey]bool) // cycle detection within current resolution path
 
 	var resolve func(req ModuleRef) error
 	resolve = func(req ModuleRef) error {
@@ -110,7 +110,7 @@ func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]
 }
 
 // resolveOne resolves a single module requirement.
-func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]bool) (*ResolvedModule, error) {
+func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRefKey]bool) (*ResolvedModule, error) {
 	// Get available versions from Git
 	versions, err := m.fetcher.ListVersions(ctx, req.GitURL)
 	if err != nil {
@@ -222,9 +222,9 @@ func computeNamespace(moduleName, version string, alias ModuleAlias) ModuleNames
 }
 
 // extractModuleName extracts the module name from a module key.
-func extractModuleName(key string) string {
+func extractModuleName(key ModuleRefKey) string {
 	// key format: "github.com/user/repo" or "github.com/user/repo#subpath"
-	parts := strings.Split(key, "#")
+	parts := strings.Split(string(key), "#")
 	url := parts[0]
 
 	// Extract repo name
@@ -234,7 +234,7 @@ func extractModuleName(key string) string {
 		name = strings.TrimSuffix(name, ".git")
 		return name
 	}
-	return key
+	return string(key)
 }
 
 // extractModuleFromInvowkmod extracts the module field from invowkmod content

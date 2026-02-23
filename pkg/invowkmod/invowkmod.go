@@ -148,13 +148,13 @@ type (
 		// Valid is true if the module passed all validation checks
 		Valid bool `json:"-"`
 		// ModulePath is the absolute path to the validated module
-		ModulePath string `json:"-"`
+		ModulePath types.FilesystemPath `json:"-"`
 		// ModuleName is the extracted name from the folder (without .invowkmod suffix)
 		ModuleName string `json:"-"`
 		// InvowkmodPath is the path to the invowkmod.cue within the module (required)
-		InvowkmodPath string `json:"-"`
+		InvowkmodPath types.FilesystemPath `json:"-"`
 		// InvowkfilePath is the path to the invowkfile.cue within the module (optional for library-only modules)
-		InvowkfilePath string `json:"-"`
+		InvowkfilePath types.FilesystemPath `json:"-"`
 		// IsLibraryOnly is true if the module has no invowkfile.cue
 		IsLibraryOnly bool `json:"-"`
 		// Issues contains all validation problems found
@@ -171,7 +171,7 @@ type (
 		Commands ModuleCommands `json:"-"`
 
 		// Path is the absolute filesystem path to the module directory
-		Path string `json:"-"`
+		Path types.FilesystemPath `json:"-"`
 
 		// IsLibraryOnly is true if the module has no invowkfile.cue
 		IsLibraryOnly bool `json:"-"`
@@ -218,7 +218,7 @@ type (
 		// Commands CANNOT call transitive dependencies (dependencies of dependencies).
 		Requires []ModuleRequirement `json:"requires,omitempty"`
 		// FilePath stores the path where this invowkmod.cue was loaded from (not in CUE)
-		FilePath string `json:"-"`
+		FilePath types.FilesystemPath `json:"-"`
 	}
 
 	// CommandScope defines what commands a module can access.
@@ -394,7 +394,7 @@ func (m *Module) Name() ModuleID {
 
 // InvowkmodPath returns the absolute path to invowkmod.cue for this module.
 func (m *Module) InvowkmodPath() string {
-	return filepath.Join(m.Path, "invowkmod.cue")
+	return filepath.Join(string(m.Path), "invowkmod.cue")
 }
 
 // InvowkfilePath returns the absolute path to invowkfile.cue for this module.
@@ -403,7 +403,7 @@ func (m *Module) InvowkfilePath() string {
 	if m.IsLibraryOnly {
 		return ""
 	}
-	return filepath.Join(m.Path, "invowkfile.cue")
+	return filepath.Join(string(m.Path), "invowkfile.cue")
 }
 
 // ResolveScriptPath resolves a script path relative to the module root.
@@ -419,7 +419,7 @@ func (m *Module) ResolveScriptPath(scriptPath string) string {
 	}
 
 	// Resolve relative to module root
-	return filepath.Join(m.Path, nativePath)
+	return filepath.Join(string(m.Path), nativePath)
 }
 
 // ValidateScriptPath checks if a script path is valid for this module.
@@ -438,10 +438,10 @@ func (m *Module) ValidateScriptPath(scriptPath string) error {
 	}
 
 	// Resolve the full path
-	fullPath := filepath.Join(m.Path, nativePath)
+	fullPath := filepath.Join(string(m.Path), nativePath)
 
 	// Ensure the resolved path is within the module (prevent directory traversal)
-	relPath, err := filepath.Rel(m.Path, fullPath)
+	relPath, err := filepath.Rel(string(m.Path), fullPath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve relative path: %w", err)
 	}
@@ -466,7 +466,7 @@ func (m *Module) ContainsPath(path string) bool {
 		return false
 	}
 
-	relPath, err := filepath.Rel(m.Path, absPath)
+	relPath, err := filepath.Rel(string(m.Path), absPath)
 	if err != nil {
 		return false
 	}
@@ -477,7 +477,7 @@ func (m *Module) ContainsPath(path string) bool {
 // GetInvowkfileDir returns the directory containing the invowkfile.
 // For modules, this is always the module root.
 func (m *Module) GetInvowkfileDir() string {
-	return m.Path
+	return string(m.Path)
 }
 
 // checkSymlinkSafety verifies that a path doesn't contain symlinks that could escape the module.
@@ -493,7 +493,7 @@ func (m *Module) checkSymlinkSafety(path string) error {
 	}
 
 	// Ensure the real path is still within the module
-	moduleRealPath, err := filepath.EvalSymlinks(m.Path)
+	moduleRealPath, err := filepath.EvalSymlinks(string(m.Path))
 	if err != nil {
 		return fmt.Errorf("cannot resolve module path: %w", err)
 	}
@@ -614,7 +614,7 @@ func ParseInvowkmodBytes(data []byte, path string) (*Invowkmod, error) {
 	}
 
 	meta := result.Value
-	meta.FilePath = path
+	meta.FilePath = types.FilesystemPath(path)
 
 	// Validate module requirement paths for security
 	// [GO-ONLY] Path traversal prevention and cross-platform path handling require Go.

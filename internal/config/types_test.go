@@ -167,3 +167,103 @@ func TestModuleIncludePath_String(t *testing.T) {
 		t.Errorf("ModuleIncludePath.String() = %q, want %q", p.String(), "/home/user/modules/my.invowkmod")
 	}
 }
+
+func TestBinaryFilePath_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		path    BinaryFilePath
+		want    bool
+		wantErr bool
+	}{
+		{"empty is valid (auto-detect)", BinaryFilePath(""), true, false},
+		{"absolute path", BinaryFilePath("/usr/local/bin/invowk"), true, false},
+		{"relative path", BinaryFilePath("bin/invowk"), true, false},
+		{"single char", BinaryFilePath("/"), true, false},
+		{"whitespace only is invalid", BinaryFilePath("   "), false, true},
+		{"tab only is invalid", BinaryFilePath("\t"), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.path.IsValid()
+			if isValid != tt.want {
+				t.Errorf("BinaryFilePath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("BinaryFilePath(%q).IsValid() returned no errors, want error", tt.path)
+				}
+				if !errors.Is(errs[0], ErrInvalidBinaryFilePath) {
+					t.Errorf("error should wrap ErrInvalidBinaryFilePath, got: %v", errs[0])
+				}
+				var bfpErr *InvalidBinaryFilePathError
+				if !errors.As(errs[0], &bfpErr) {
+					t.Errorf("error should be *InvalidBinaryFilePathError, got: %T", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("BinaryFilePath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			}
+		})
+	}
+}
+
+func TestBinaryFilePath_String(t *testing.T) {
+	t.Parallel()
+	p := BinaryFilePath("/usr/local/bin/invowk")
+	if p.String() != "/usr/local/bin/invowk" {
+		t.Errorf("BinaryFilePath.String() = %q, want %q", p.String(), "/usr/local/bin/invowk")
+	}
+}
+
+func TestCacheDirPath_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		path    CacheDirPath
+		want    bool
+		wantErr bool
+	}{
+		{"empty is valid (default cache)", CacheDirPath(""), true, false},
+		{"absolute path", CacheDirPath("/var/cache/invowk"), true, false},
+		{"relative path", CacheDirPath(".cache/invowk"), true, false},
+		{"single char", CacheDirPath("/"), true, false},
+		{"whitespace only is invalid", CacheDirPath("   "), false, true},
+		{"tab only is invalid", CacheDirPath("\t"), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.path.IsValid()
+			if isValid != tt.want {
+				t.Errorf("CacheDirPath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("CacheDirPath(%q).IsValid() returned no errors, want error", tt.path)
+				}
+				if !errors.Is(errs[0], ErrInvalidCacheDirPath) {
+					t.Errorf("error should wrap ErrInvalidCacheDirPath, got: %v", errs[0])
+				}
+				var cdpErr *InvalidCacheDirPathError
+				if !errors.As(errs[0], &cdpErr) {
+					t.Errorf("error should be *InvalidCacheDirPathError, got: %T", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("CacheDirPath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			}
+		})
+	}
+}
+
+func TestCacheDirPath_String(t *testing.T) {
+	t.Parallel()
+	p := CacheDirPath("/var/cache/invowk")
+	if p.String() != "/var/cache/invowk" {
+		t.Errorf("CacheDirPath.String() = %q, want %q", p.String(), "/var/cache/invowk")
+	}
+}

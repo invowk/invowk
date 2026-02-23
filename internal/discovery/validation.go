@@ -91,7 +91,7 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 				CommandName: cmdName,
 				Args:        cmdInfo.Command.Args,
 				Subcommands: children,
-				FilePath:    cmdInfo.FilePath,
+				FilePath:    string(cmdInfo.FilePath),
 			}
 		}
 	}

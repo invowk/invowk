@@ -61,7 +61,7 @@ func (m *MockEngine) WithAvailable(available bool) *MockEngine {
 }
 
 // WithRunResult configures the result of Run() calls.
-func (m *MockEngine) WithRunResult(exitCode int, err error) *MockEngine {
+func (m *MockEngine) WithRunResult(exitCode ExitCode, err error) *MockEngine {
 	m.runResult = &container.RunResult{ExitCode: exitCode}
 	m.runErr = err
 	return m
@@ -214,7 +214,7 @@ func TestContainerRuntime_Available_NilEngine(t *testing.T) {
 func TestContainerRuntime_Validate_Unit(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	tests := []struct {
@@ -315,7 +315,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	// Create a Containerfile in the temp directory
@@ -349,7 +349,7 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	// Create a Dockerfile in the temp directory
@@ -551,7 +551,7 @@ func TestGetContainerWorkDir(t *testing.T) {
 				},
 			}
 			inv := &invowkfile.Invowkfile{
-				FilePath: invowkfilePath,
+				FilePath: invowkfile.FilesystemPath(invowkfilePath),
 			}
 
 			engine := NewMockEngine()
@@ -745,7 +745,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := &invowkfile.Command{
@@ -797,7 +797,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := &invowkfile.Command{

@@ -166,7 +166,7 @@ func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 	// Check for containerfile or image
 	if rtConfig.Containerfile == "" && rtConfig.Image == "" {
 		// Check for default Containerfile/Dockerfile
-		invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
+		invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
 		containerfilePath := filepath.Join(invowkDir, "Containerfile")
 		dockerfilePath := filepath.Join(invowkDir, "Dockerfile")
 		if _, err := os.Stat(containerfilePath); err != nil {

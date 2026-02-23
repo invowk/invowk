@@ -290,7 +290,7 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 	// Should find invowkfile.cue (preferred) in current dir
 	found := false
 	for _, f := range files {
-		if f.Source == SourceCurrentDir && filepath.Base(f.Path) == "invowkfile.cue" {
+		if f.Source == SourceCurrentDir && filepath.Base(string(f.Path)) == "invowkfile.cue" {
 			found = true
 			break
 		}

@@ -374,10 +374,10 @@ func TestLoadAndSave(t *testing.T) {
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
 				Enabled:         false,
-				BinaryPath:      binaryPath,
+				BinaryPath:      BinaryFilePath(binaryPath),
 				Includes:        []IncludeEntry{{Path: ModuleIncludePath(autoProvisionIncludePath)}},
 				InheritIncludes: false,
-				CacheDir:        cacheDir,
+				CacheDir:        CacheDirPath(cacheDir),
 			},
 		},
 	}
@@ -429,7 +429,7 @@ func TestLoadAndSave(t *testing.T) {
 		t.Error("AutoProvision.Enabled = true, want false")
 	}
 
-	if loaded.Container.AutoProvision.BinaryPath != binaryPath {
+	if loaded.Container.AutoProvision.BinaryPath != BinaryFilePath(binaryPath) {
 		t.Errorf("AutoProvision.BinaryPath = %q, want %q", loaded.Container.AutoProvision.BinaryPath, binaryPath)
 	}
 
@@ -441,7 +441,7 @@ func TestLoadAndSave(t *testing.T) {
 		t.Error("AutoProvision.InheritIncludes = true, want false")
 	}
 
-	if loaded.Container.AutoProvision.CacheDir != cacheDir {
+	if loaded.Container.AutoProvision.CacheDir != CacheDirPath(cacheDir) {
 		t.Errorf("AutoProvision.CacheDir = %q, want %q", loaded.Container.AutoProvision.CacheDir, cacheDir)
 	}
 }

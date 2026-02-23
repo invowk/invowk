@@ -172,13 +172,13 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 			return file, nil
 		}
 
-		inv, parseErr = invowkfile.Parse(file.Path)
+		inv, parseErr = invowkfile.Parse(string(file.Path))
 		if parseErr == nil {
 			inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(file.Module.Metadata)
 			inv.ModulePath = file.Module.Path
 		}
 	} else {
-		inv, parseErr = invowkfile.Parse(file.Path)
+		inv, parseErr = invowkfile.Parse(string(file.Path))
 	}
 
 	if parseErr != nil {
@@ -210,9 +210,9 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 		// Use the module directory path (not the invowkfile inside it) so
 		// the error message shows the path users need for their includes config.
 		// Annotate vendored modules with their parent for clearer diagnostics.
-		sourcePath := file.Path
+		sourcePath := string(file.Path)
 		if file.Module != nil {
-			sourcePath = file.Module.Path
+			sourcePath = string(file.Module.Path)
 		}
 		if file.ParentModule != nil {
 			sourcePath = fmt.Sprintf("%s (vendored in %s)", sourcePath, file.ParentModule.Name())
@@ -248,7 +248,7 @@ func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
 	// (the invowkfile inside the module), because includes reference
 	// module directories.
 	if file.Module != nil {
-		if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
+		if alias := d.getAliasForModulePath(string(file.Module.Path)); alias != "" {
 			return alias
 		}
 	}
@@ -298,13 +298,13 @@ func (d *Discovery) loadAllWithDiagnostics() ([]*DiscoveredFile, []Diagnostic, e
 
 			// Parse module invowkfile.cue and reattach module metadata so downstream
 			// logic (scope/dependency checks) can treat it as module-backed input.
-			inv, parseErr = invowkfile.Parse(file.Path)
+			inv, parseErr = invowkfile.Parse(string(file.Path))
 			if parseErr == nil {
 				inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(file.Module.Metadata)
 				inv.ModulePath = file.Module.Path
 			}
 		} else {
-			inv, parseErr = invowkfile.Parse(file.Path)
+			inv, parseErr = invowkfile.Parse(string(file.Path))
 		}
 
 		if parseErr != nil {

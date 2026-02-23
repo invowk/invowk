@@ -64,10 +64,10 @@ type (
 		Commands []Command `json:"cmds"`
 
 		// FilePath stores the path where this invowkfile was loaded from (not in CUE)
-		FilePath string `json:"-"`
+		FilePath FilesystemPath `json:"-"`
 		// ModulePath stores the module directory path if this invowkfile is from a module (not in CUE)
-		// Empty string if not loaded from a module
-		ModulePath string `json:"-"`
+		// Empty value if not loaded from a module
+		ModulePath FilesystemPath `json:"-"`
 		// Metadata references module identity/metadata attached during discovery.
 		// It intentionally uses a local DTO to avoid coupling Invowkfile's core
 		// command model to pkg/invowkmod internals.
@@ -139,9 +139,9 @@ func (inv *Invowkfile) IsFromModule() bool {
 // For regular invowkfiles, this is the directory containing the invowkfile.
 func (inv *Invowkfile) GetScriptBasePath() string {
 	if inv.ModulePath != "" {
-		return inv.ModulePath
+		return string(inv.ModulePath)
 	}
-	return filepath.Dir(inv.FilePath)
+	return filepath.Dir(string(inv.FilePath))
 }
 
 // GetEffectiveWorkDir resolves the effective working directory for command execution.

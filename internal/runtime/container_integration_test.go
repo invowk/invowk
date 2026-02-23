@@ -496,7 +496,7 @@ func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	return tmpDir, inv

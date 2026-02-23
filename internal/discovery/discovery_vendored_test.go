@@ -12,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // createVendoredModule creates a vendored module inside a parent module's invowk_modules/ dir.
@@ -486,8 +487,8 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 	dup2Inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(dup2Mod.Metadata)
 
 	files := []*DiscoveredFile{
-		{Path: dup1Mod.InvowkfilePath(), Source: SourceModule, Module: dup1Mod, Invowkfile: dup1Inv},
-		{Path: dup2Mod.InvowkfilePath(), Source: SourceModule, Module: dup2Mod, Invowkfile: dup2Inv, ParentModule: parentMod},
+		{Path: types.FilesystemPath(dup1Mod.InvowkfilePath()), Source: SourceModule, Module: dup1Mod, Invowkfile: dup1Inv},
+		{Path: types.FilesystemPath(dup2Mod.InvowkfilePath()), Source: SourceModule, Module: dup2Mod, Invowkfile: dup2Inv, ParentModule: parentMod},
 	}
 
 	collisionErr := d.CheckModuleCollisions(files)

@@ -45,6 +45,10 @@ var (
 	ErrInvalidColorScheme = errors.New("invalid color scheme")
 	// ErrInvalidModuleIncludePath is the sentinel error wrapped by InvalidModuleIncludePathError.
 	ErrInvalidModuleIncludePath = errors.New("invalid module include path")
+	// ErrInvalidBinaryFilePath is returned when a BinaryFilePath value is whitespace-only.
+	ErrInvalidBinaryFilePath = errors.New("invalid binary file path")
+	// ErrInvalidCacheDirPath is returned when a CacheDirPath value is whitespace-only.
+	ErrInvalidCacheDirPath = errors.New("invalid cache dir path")
 )
 
 type (
@@ -87,6 +91,28 @@ type (
 		Value ModuleIncludePath
 	}
 
+	// BinaryFilePath represents a filesystem path to a binary executable.
+	// A valid path must be non-empty and not whitespace-only.
+	// The zero value ("") is valid and means "use auto-detected binary".
+	BinaryFilePath string
+
+	// InvalidBinaryFilePathError is returned when a BinaryFilePath value is
+	// non-empty but whitespace-only.
+	InvalidBinaryFilePathError struct {
+		Value BinaryFilePath
+	}
+
+	// CacheDirPath represents a filesystem path to a cache directory.
+	// The zero value ("") is valid and means "use default cache directory".
+	// Non-zero values must not be whitespace-only.
+	CacheDirPath string
+
+	// InvalidCacheDirPathError is returned when a CacheDirPath value is
+	// non-empty but whitespace-only.
+	InvalidCacheDirPathError struct {
+		Value CacheDirPath
+	}
+
 	// IncludeEntry specifies a module to include in command discovery.
 	// Each entry must point to a *.invowkmod directory via an absolute filesystem path.
 	IncludeEntry struct {
@@ -127,14 +153,14 @@ type (
 		// failure logs a warning and continues with the base image.
 		Strict bool `json:"strict" mapstructure:"strict"`
 		// BinaryPath overrides the path to the invowk binary to provision
-		BinaryPath string `json:"binary_path" mapstructure:"binary_path"`
+		BinaryPath BinaryFilePath `json:"binary_path" mapstructure:"binary_path"`
 		// Includes specifies modules to provision into containers.
 		Includes []IncludeEntry `json:"includes" mapstructure:"includes"`
 		// InheritIncludes controls whether root-level includes are automatically
 		// merged into container provisioning (default: true).
 		InheritIncludes bool `json:"inherit_includes" mapstructure:"inherit_includes"`
 		// CacheDir specifies where to store cached provisioned images metadata
-		CacheDir string `json:"cache_dir" mapstructure:"cache_dir"`
+		CacheDir CacheDirPath `json:"cache_dir" mapstructure:"cache_dir"`
 	}
 
 	// VirtualShellConfig configures the virtual shell runtime.
@@ -178,6 +204,54 @@ func (e *InvalidModuleIncludePathError) Error() string {
 
 // Unwrap returns ErrInvalidModuleIncludePath for errors.Is() compatibility.
 func (e *InvalidModuleIncludePathError) Unwrap() error { return ErrInvalidModuleIncludePath }
+
+// String returns the string representation of the BinaryFilePath.
+func (p BinaryFilePath) String() string { return string(p) }
+
+// IsValid returns whether the BinaryFilePath is valid.
+// The zero value ("") is valid (means "use auto-detected binary").
+// Non-zero values must not be whitespace-only.
+func (p BinaryFilePath) IsValid() (bool, []error) {
+	if p == "" {
+		return true, nil
+	}
+	if strings.TrimSpace(string(p)) == "" {
+		return false, []error{&InvalidBinaryFilePathError{Value: p}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidBinaryFilePathError.
+func (e *InvalidBinaryFilePathError) Error() string {
+	return fmt.Sprintf("invalid binary file path %q: non-empty value must not be whitespace-only", e.Value)
+}
+
+// Unwrap returns ErrInvalidBinaryFilePath for errors.Is() compatibility.
+func (e *InvalidBinaryFilePathError) Unwrap() error { return ErrInvalidBinaryFilePath }
+
+// String returns the string representation of the CacheDirPath.
+func (p CacheDirPath) String() string { return string(p) }
+
+// IsValid returns whether the CacheDirPath is valid.
+// The zero value ("") is valid (means "use default cache directory").
+// Non-zero values must not be whitespace-only.
+func (p CacheDirPath) IsValid() (bool, []error) {
+	if p == "" {
+		return true, nil
+	}
+	if strings.TrimSpace(string(p)) == "" {
+		return false, []error{&InvalidCacheDirPathError{Value: p}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidCacheDirPathError.
+func (e *InvalidCacheDirPathError) Error() string {
+	return fmt.Sprintf("invalid cache dir path %q: non-empty value must not be whitespace-only", e.Value)
+}
+
+// Unwrap returns ErrInvalidCacheDirPath for errors.Is() compatibility.
+func (e *InvalidCacheDirPathError) Unwrap() error { return ErrInvalidCacheDirPath }
 
 // Error implements the error interface for InvalidContainerEngineError.
 func (e *InvalidContainerEngineError) Error() string {

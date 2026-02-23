@@ -52,7 +52,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: &DefaultEnvBuilder{Environ: hostEnviron},
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 					Env:      &invowkfile.EnvConfig{Files: []invowkfile.DotenvFilePath{"root.env"}},
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
@@ -65,7 +65,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: NewDefaultEnvBuilder(),
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 					Env:      &invowkfile.EnvConfig{Files: []invowkfile.DotenvFilePath{"root.env"}},
 				}
 				cmd := &invowkfile.Command{
@@ -86,7 +86,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: NewDefaultEnvBuilder(),
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				}
 				cmd := &invowkfile.Command{
 					Name: "test",
@@ -107,7 +107,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: NewDefaultEnvBuilder(),
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 					Env: &invowkfile.EnvConfig{
 						Files: []invowkfile.DotenvFilePath{"root.env"},
 						Vars:  map[string]string{"KEY": "level5_root_var"},
@@ -123,7 +123,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: NewDefaultEnvBuilder(),
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 					Env: &invowkfile.EnvConfig{
 						Vars: map[string]string{"KEY": "level5_root_var"},
 					},
@@ -146,7 +146,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: NewDefaultEnvBuilder(),
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				}
 				cmd := &invowkfile.Command{
 					Name: "test",
@@ -167,7 +167,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: NewDefaultEnvBuilder(),
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				}
 				cmd := &invowkfile.Command{
 					Name: "test",
@@ -189,12 +189,12 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: NewDefaultEnvBuilder(),
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 				ctx := NewExecutionContext(context.Background(), cmd, inv)
 				ctx.Env.ExtraEnv["KEY"] = "level8_extra"
-				ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
+				ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{invowkfile.DotenvFilePath(filepath.Join(tmpDir, "runtime.env"))}
 				return ctx
 			},
 			wantVal: "level9_runtime_file",
@@ -204,11 +204,11 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 			builder: NewDefaultEnvBuilder(),
 			setupCtx: func(tmpDir string) *ExecutionContext {
 				inv := &invowkfile.Invowkfile{
-					FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 				ctx := NewExecutionContext(context.Background(), cmd, inv)
-				ctx.Env.RuntimeEnvFiles = []string{filepath.Join(tmpDir, "runtime.env")}
+				ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{invowkfile.DotenvFilePath(filepath.Join(tmpDir, "runtime.env"))}
 				ctx.Env.RuntimeEnvVars = map[string]string{"KEY": "level10_runtime_var"}
 				return ctx
 			},
@@ -252,7 +252,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 		{
 			name: "nil root env config",
 			inv: &invowkfile.Invowkfile{
-				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+				FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				Env:      nil,
 			},
 			cmd: testCommandWithScript("test", "echo test", invowkfile.RuntimeNative),
@@ -260,7 +260,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 		{
 			name: "nil command env config",
 			inv: &invowkfile.Invowkfile{
-				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+				FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 			},
 			cmd: &invowkfile.Command{
 				Name: "test",
@@ -275,7 +275,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 		{
 			name: "nil implementation env config",
 			inv: &invowkfile.Invowkfile{
-				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+				FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 			},
 			cmd: &invowkfile.Command{
 				Name: "test",
@@ -290,7 +290,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 		{
 			name: "all env configs nil",
 			inv: &invowkfile.Invowkfile{
-				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+				FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				Env:      nil,
 			},
 			cmd: &invowkfile.Command{
@@ -307,7 +307,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 		{
 			name: "empty vars and files",
 			inv: &invowkfile.Invowkfile{
-				FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+				FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				Env:      &invowkfile.EnvConfig{Vars: map[string]string{}, Files: []invowkfile.DotenvFilePath{}},
 			},
 			cmd: &invowkfile.Command{

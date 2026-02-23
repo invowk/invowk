@@ -48,7 +48,7 @@ func TestNewExecutionContext(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeNative)
 
@@ -93,7 +93,7 @@ func TestNewExecutionContext_VirtualRuntime(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeVirtual)
 
@@ -252,7 +252,7 @@ func TestRegistry_GetForContext(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	reg := NewRegistry()
@@ -356,7 +356,7 @@ func TestRegistry_Execute(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	tests := []struct {
@@ -657,7 +657,7 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 
@@ -670,7 +670,7 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 	ctx.WorkDir = "/custom/dir"
 	ctx.Verbose = true
 	ctx.PositionalArgs = []string{"arg1", "arg2"}
-	ctx.Env.RuntimeEnvFiles = []string{".env"}
+	ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{".env"}
 	ctx.Env.RuntimeEnvVars = map[string]string{"VAR": "val"}
 	ctx.TUI.ServerURL = "http://localhost:8080"
 	ctx.TUI.ServerToken = "token123"
@@ -715,7 +715,7 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	reg := NewRegistry()

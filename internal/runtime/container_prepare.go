@@ -35,7 +35,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return nil, fmt.Errorf("runtime config not found for container runtime")
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
-	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
+	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
 
 	// Validate explicit image policy before provisioning rewrites image tags.
 	if containerCfg.Image != "" {
@@ -45,7 +45,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	runOpts := container.RunOptions{
 		Image:       container.ImageTag(image),
 		Command:     shellCmd,
-		WorkDir:     workDir,
+		WorkDir:     container.MountTargetPath(workDir),
 		Env:         env,
 		Volumes:     volumes,
 		Ports:       containerCfg.Ports,
@@ -193,7 +193,7 @@ func (r *ContainerRuntime) GetHostAddressForContainer() string {
 
 // CleanupImage removes the built image for an invowkfile
 func (r *ContainerRuntime) CleanupImage(ctx *ExecutionContext) error {
-	imageTag, err := r.generateImageTag(ctx.Invowkfile.FilePath)
+	imageTag, err := r.generateImageTag(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return err
 	}

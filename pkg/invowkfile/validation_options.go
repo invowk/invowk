@@ -27,7 +27,7 @@ type (
 func defaultValidateOptions(inv *Invowkfile) validateOptions {
 	workDir := ""
 	if inv != nil && inv.FilePath != "" {
-		workDir = filepath.Dir(inv.FilePath)
+		workDir = filepath.Dir(string(inv.FilePath))
 	}
 
 	return validateOptions{
@@ -109,7 +109,7 @@ func (o *validateOptions) buildValidationContext(inv *Invowkfile) *ValidationCon
 
 	filePath := ""
 	if inv != nil {
-		filePath = inv.FilePath
+		filePath = string(inv.FilePath)
 	}
 
 	return &ValidationContext{

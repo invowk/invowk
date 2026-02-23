@@ -85,7 +85,7 @@ type (
 	// RemoveResult contains metadata about a removed module for CLI reporting.
 	RemoveResult struct {
 		// LockKey is the lock file key that was removed.
-		LockKey string
+		LockKey ModuleRefKey
 		// RemovedEntry is the lock file entry that was removed.
 		RemovedEntry LockedModule
 	}
@@ -93,7 +93,7 @@ type (
 	// AmbiguousMatch describes a single ambiguous lock file entry.
 	AmbiguousMatch struct {
 		// LockKey is the lock file key.
-		LockKey string
+		LockKey ModuleRefKey
 		// Namespace is the computed namespace.
 		Namespace ModuleNamespace
 		// GitURL is the Git repository URL.
@@ -122,11 +122,11 @@ func (e *AmbiguousIdentifierError) Error() string {
 }
 
 // Key returns a unique key for this requirement based on GitURL and Path.
-func (r ModuleRef) Key() string {
+func (r ModuleRef) Key() ModuleRefKey {
 	if r.Path != "" {
-		return fmt.Sprintf("%s#%s", r.GitURL, string(r.Path))
+		return ModuleRefKey(fmt.Sprintf("%s#%s", r.GitURL, string(r.Path)))
 	}
-	return string(r.GitURL)
+	return ModuleRefKey(r.GitURL)
 }
 
 // String returns a human-readable representation of the requirement.
@@ -202,7 +202,7 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	}
 
 	// Resolve the module
-	resolved, err := m.resolveOne(ctx, req, make(map[string]bool))
+	resolved, err := m.resolveOne(ctx, req, make(map[ModuleRefKey]bool))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
 	}
@@ -274,7 +274,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	}
 
 	// Determine which keys to update
-	var keysToUpdate []string
+	var keysToUpdate []ModuleRefKey
 	if identifier == "" {
 		for key := range lock.Modules {
 			keysToUpdate = append(keysToUpdate, key)
@@ -287,7 +287,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	}
 
 	var updated []*ResolvedModule
-	visited := make(map[string]bool)
+	visited := make(map[ModuleRefKey]bool)
 
 	for _, key := range keysToUpdate {
 		entry := lock.Modules[key]
@@ -345,7 +345,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 	// Save lock file
 	lock := &LockFile{
 		Version: "1.0",
-		Modules: make(map[string]LockedModule),
+		Modules: make(map[ModuleRefKey]LockedModule),
 	}
 
 	for _, mod := range resolved {
@@ -417,12 +417,12 @@ func isGitURL(s string) bool {
 // resolveIdentifier resolves a user-provided identifier to lock file keys.
 // Priority: git URL prefix match → exact lock key → exact namespace → namespace prefix.
 // Returns matched keys or an error if no match or ambiguous.
-func resolveIdentifier(identifier string, modules map[string]LockedModule) ([]string, error) {
+func resolveIdentifier(identifier string, modules map[ModuleRefKey]LockedModule) ([]ModuleRefKey, error) {
 	if isGitURL(identifier) {
 		// Git URL mode: prefix-match on lock keys (preserves monorepo #subpath matching)
-		var keys []string
+		var keys []ModuleRefKey
 		for key := range modules {
-			if strings.HasPrefix(key, identifier) {
+			if strings.HasPrefix(string(key), identifier) {
 				keys = append(keys, key)
 			}
 		}
@@ -433,12 +433,12 @@ func resolveIdentifier(identifier string, modules map[string]LockedModule) ([]st
 	}
 
 	// Exact lock key match
-	if _, ok := modules[identifier]; ok {
-		return []string{identifier}, nil
+	if _, ok := modules[ModuleRefKey(identifier)]; ok {
+		return []ModuleRefKey{ModuleRefKey(identifier)}, nil
 	}
 
 	// Namespace match: exact and prefix (bare name without @version)
-	var exactMatches, prefixMatches []string
+	var exactMatches, prefixMatches []ModuleRefKey
 	for key, entry := range modules {
 		if string(entry.Namespace) == identifier {
 			exactMatches = append(exactMatches, key)
@@ -467,7 +467,7 @@ func resolveIdentifier(identifier string, modules map[string]LockedModule) ([]st
 }
 
 // buildAmbiguousError creates an AmbiguousIdentifierError from matched keys.
-func buildAmbiguousError(identifier string, keys []string, modules map[string]LockedModule) *AmbiguousIdentifierError {
+func buildAmbiguousError(identifier string, keys []ModuleRefKey, modules map[ModuleRefKey]LockedModule) *AmbiguousIdentifierError {
 	matches := make([]AmbiguousMatch, 0, len(keys))
 	for _, key := range keys {
 		entry := modules[key]

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -397,9 +398,9 @@ func (e *BaseCLIEngine) BuildArgs(opts BuildOptions) []string {
 		// Resolve Dockerfile path relative to context directory.
 		// If ContextDir is empty, the Dockerfile path is used as-is
 		// (assumed resolvable from CWD by the container engine).
-		dockerfilePath := opts.Dockerfile
-		if !filepath.IsAbs(opts.Dockerfile) && opts.ContextDir != "" {
-			dockerfilePath = filepath.Join(opts.ContextDir, opts.Dockerfile)
+		dockerfilePath := string(opts.Dockerfile)
+		if !filepath.IsAbs(dockerfilePath) && opts.ContextDir != "" {
+			dockerfilePath = filepath.Join(string(opts.ContextDir), dockerfilePath)
 		}
 		args = append(args, "-f", dockerfilePath)
 	}
@@ -416,7 +417,7 @@ func (e *BaseCLIEngine) BuildArgs(opts BuildOptions) []string {
 		args = append(args, "--build-arg", fmt.Sprintf("%s=%s", k, v))
 	}
 
-	args = append(args, opts.ContextDir)
+	args = append(args, string(opts.ContextDir))
 
 	return args
 }
@@ -437,7 +438,7 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 	}
 
 	if opts.WorkDir != "" {
-		args = append(args, "-w", opts.WorkDir)
+		args = append(args, "-w", string(opts.WorkDir))
 	}
 
 	if opts.Interactive {
@@ -486,7 +487,7 @@ func (e *BaseCLIEngine) ExecArgs(containerID ContainerID, command []string, opts
 	}
 
 	if opts.WorkDir != "" {
-		args = append(args, "-w", opts.WorkDir)
+		args = append(args, "-w", string(opts.WorkDir))
 	}
 
 	for k, v := range opts.Env {
@@ -626,7 +627,7 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 	result := &RunResult{}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = exitErr.ExitCode()
+			result.ExitCode = types.ExitCode(exitErr.ExitCode())
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -650,7 +651,7 @@ func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, comma
 	result := &RunResult{ContainerID: containerID}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = exitErr.ExitCode()
+			result.ExitCode = types.ExitCode(exitErr.ExitCode())
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -801,9 +802,9 @@ func buildContainerError(engine string, opts BuildOptions, cause error) error {
 	// Determine resource (Dockerfile or image tag)
 	switch {
 	case opts.Dockerfile != "":
-		ctx.WithResource(opts.Dockerfile)
+		ctx.WithResource(string(opts.Dockerfile))
 	case opts.ContextDir != "":
-		ctx.WithResource(opts.ContextDir + "/Dockerfile")
+		ctx.WithResource(string(opts.ContextDir) + "/Dockerfile")
 	case opts.Tag != "":
 		ctx.WithResource(string(opts.Tag))
 	}

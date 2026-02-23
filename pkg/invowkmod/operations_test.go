@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestIsModule(t *testing.T) {
@@ -392,7 +394,7 @@ func TestModule_ResolveScriptPath(t *testing.T) {
 
 	modulePath := filepath.Join(string(filepath.Separator), "home", "user", "mycommands.invowkmod")
 	module := &Module{
-		Path: modulePath,
+		Path: types.FilesystemPath(modulePath),
 	}
 
 	tests := []struct {
@@ -509,7 +511,7 @@ func TestModule_ContainsPath(t *testing.T) {
 	}
 
 	module := &Module{
-		Path: modulePath,
+		Path: types.FilesystemPath(modulePath),
 	}
 
 	tests := []struct {

@@ -141,7 +141,7 @@ requires: [
 		if len(meta.Requires) != 1 {
 			t.Errorf("Requires length = %d, want 1", len(meta.Requires))
 		}
-		if meta.FilePath != invowkmodPath {
+		if string(meta.FilePath) != invowkmodPath {
 			t.Errorf("FilePath = %q, want %q", meta.FilePath, invowkmodPath)
 		}
 	})

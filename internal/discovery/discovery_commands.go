@@ -12,6 +12,7 @@ import (
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // SourceIDInvowkfile is the reserved source ID for the root invowkfile.
@@ -39,7 +40,7 @@ type (
 		// Source is where the command was found
 		Source Source
 		// FilePath is the path to the invowkfile containing this command
-		FilePath string
+		FilePath types.FilesystemPath
 		// Command is a reference to the actual command
 		Command *invowkfile.Command
 		// Invowkfile is a reference to the parent invowkfile
@@ -204,7 +205,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 				Severity: SeverityWarning,
 				Code:     CodeInvowkfileParseSkipped,
 				Message:  fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
-				Path:     file.Path,
+				Path:     string(file.Path),
 				Cause:    file.Error,
 			})
 			continue
@@ -220,7 +221,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		switch {
 		case isModule:
 			// From a module - use short name from folder
-			sourceID = SourceID(getModuleShortName(file.Module.Path))
+			sourceID = SourceID(getModuleShortName(string(file.Module.Path)))
 			modID := file.Module.Name()
 			moduleID = &modID
 		default:
