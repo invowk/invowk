@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -19,7 +21,7 @@ type (
 	// VendorOptions configures a VendorModules operation.
 	VendorOptions struct {
 		// ModulePath is the absolute path to the module being vendored.
-		ModulePath string
+		ModulePath types.FilesystemPath
 		// Modules are the resolved modules to copy into invowk_modules/.
 		Modules []*ResolvedModule
 		// Prune removes vendored modules not present in the Modules list.
@@ -33,7 +35,7 @@ type (
 		// Pruned lists directory names removed during pruning.
 		Pruned []string
 		// VendorDir is the absolute path to the invowk_modules/ directory.
-		VendorDir string
+		VendorDir types.FilesystemPath
 	}
 
 	// VendoredEntry describes a single module copied to the vendor directory.
@@ -41,9 +43,9 @@ type (
 		// Namespace is the module's command namespace (e.g., "tools@1.2.3").
 		Namespace ModuleNamespace
 		// SourcePath is the cache path the module was copied from.
-		SourcePath string
+		SourcePath types.FilesystemPath
 		// VendorPath is the destination path in invowk_modules/.
-		VendorPath string
+		VendorPath types.FilesystemPath
 	}
 )
 
@@ -60,14 +62,14 @@ func (e *moduleError) Unwrap() error {
 // The operation is fail-fast: if any module fails to resolve or copy, the entire
 // operation fails, leaving a partially-vendored directory rather than silently corrupt.
 func VendorModules(opts VendorOptions) (*VendorResult, error) {
-	vendorDir := GetVendoredModulesDir(opts.ModulePath)
+	vendorDir := GetVendoredModulesDir(string(opts.ModulePath))
 
 	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create vendor directory: %w", err)
 	}
 
 	result := &VendorResult{
-		VendorDir: vendorDir,
+		VendorDir: types.FilesystemPath(vendorDir),
 	}
 
 	// Track expected module directory basenames for pruning.
@@ -75,7 +77,7 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 
 	for _, mod := range opts.Modules {
 		// Locate the .invowkmod directory within the cache path.
-		moduleDir, _, err := findModuleInDir(mod.CachePath)
+		moduleDir, _, err := findModuleInDir(string(mod.CachePath))
 		if err != nil {
 			return nil, fmt.Errorf("failed to locate module in cache path %s: %w", mod.CachePath, err)
 		}
@@ -98,8 +100,8 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 
 		result.Vendored = append(result.Vendored, VendoredEntry{
 			Namespace:  mod.Namespace,
-			SourcePath: moduleDir,
-			VendorPath: destPath,
+			SourcePath: types.FilesystemPath(moduleDir),
+			VendorPath: types.FilesystemPath(destPath),
 		})
 	}
 

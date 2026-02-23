@@ -419,18 +419,15 @@ func (r *Registry) Available() []RuntimeType {
 func (r *Registry) Execute(ctx *ExecutionContext) *Result {
 	rt, err := r.GetForContext(ctx)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	if !rt.Available() {
-		return &Result{
-			ExitCode: 1,
-			Error:    fmt.Errorf("runtime '%s': %w", rt.Name(), ErrRuntimeNotAvailable),
-		}
+		return NewErrorResult(1, fmt.Errorf("runtime '%s': %w", rt.Name(), ErrRuntimeNotAvailable))
 	}
 
 	if err := rt.Validate(ctx); err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	return rt.Execute(ctx)

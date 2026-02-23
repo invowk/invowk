@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -52,11 +53,11 @@ type (
 	// This allows injection of mock implementations for testing.
 	ExecCommandFunc func(ctx context.Context, name string, arg ...string) *exec.Cmd
 
-	// VolumeFormatFunc is a function that formats a volume string.
+	// VolumeFormatFunc is a function that formats a volume mount spec as a string.
 	// Podman uses this to add SELinux labels (:z/:Z) which are required in
 	// SELinux-enforcing environments for proper volume isolation — without them,
 	// container processes cannot access bind-mounted host paths.
-	VolumeFormatFunc func(volume string) string
+	VolumeFormatFunc func(volume invowkfile.VolumeMountSpec) string
 
 	// SELinuxCheckFunc is a function that checks if SELinux is enabled.
 	// This allows injection of mock implementations for testing.
@@ -356,7 +357,7 @@ func NewBaseCLIEngine(binaryPath string, opts ...BaseCLIEngineOption) *BaseCLIEn
 		binaryPath:  binaryPath,
 		execCommand: exec.CommandContext,
 		// Identity functions by default
-		volumeFormatter:    func(v string) string { return v },
+		volumeFormatter:    func(v invowkfile.VolumeMountSpec) string { return string(v) },
 		runArgsTransformer: func(args []string) []string { return args },
 	}
 	for _, opt := range opts {
@@ -458,7 +459,7 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 	}
 
 	for _, p := range opts.Ports {
-		args = append(args, "-p", p)
+		args = append(args, "-p", string(p))
 	}
 
 	for _, h := range opts.ExtraHosts {

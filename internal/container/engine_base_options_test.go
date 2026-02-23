@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // T031: BaseCLIEngine WithExecCommand option tests
@@ -46,15 +47,15 @@ func TestBaseCLIEngine_WithExecCommand(t *testing.T) {
 func TestBaseCLIEngine_WithVolumeFormatter(t *testing.T) {
 	t.Parallel()
 
-	formatter := func(v string) string {
-		return v + ":z" // Simulate SELinux label addition
+	formatter := func(v invowkfile.VolumeMountSpec) string {
+		return string(v) + ":z" // Simulate SELinux label addition
 	}
 
 	engine := NewBaseCLIEngine("/usr/bin/podman", WithVolumeFormatter(formatter))
 
 	args := engine.RunArgs(RunOptions{
 		Image:   "debian:stable-slim",
-		Volumes: []string{"/host:/container"},
+		Volumes: []invowkfile.VolumeMountSpec{"/host:/container"},
 	})
 
 	// Check that volume has the formatted value
@@ -90,10 +91,10 @@ func TestBaseCLIEngine_DefaultOptions(t *testing.T) {
 		t.Error("volumeFormatter should not be nil")
 	}
 
-	// Test default volume formatter is identity
-	input := "/host:/container"
-	if got := engine.volumeFormatter(input); got != input {
-		t.Errorf("default volumeFormatter(%q) = %q, want %q", input, got, input)
+	// Test default volume formatter is identity (returns string representation)
+	input := invowkfile.VolumeMountSpec("/host:/container")
+	if got := engine.volumeFormatter(input); got != string(input) {
+		t.Errorf("default volumeFormatter(%q) = %q, want %q", input, got, string(input))
 	}
 }
 

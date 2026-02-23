@@ -89,7 +89,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	// Prepare volumes
 	volumes := containerCfg.Volumes
 	// Always mount the invowkfile directory
-	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
+	volumes = append(volumes, invowkfile.VolumeMountSpec(fmt.Sprintf("%s:/workspace", invowkDir)))
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)

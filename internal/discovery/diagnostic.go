@@ -192,3 +192,18 @@ func (dc DiagnosticCode) IsValid() (bool, []error) {
 		return false, []error{&InvalidDiagnosticCodeError{Value: dc}}
 	}
 }
+
+// NewDiagnostic creates a Diagnostic with the given severity, code, and message.
+func NewDiagnostic(severity Severity, code DiagnosticCode, message string) Diagnostic {
+	return Diagnostic{Severity: severity, Code: code, Message: message}
+}
+
+// NewDiagnosticWithPath creates a Diagnostic with the given severity, code, message, and file path.
+func NewDiagnosticWithPath(severity Severity, code DiagnosticCode, message, path string) Diagnostic {
+	return Diagnostic{Severity: severity, Code: code, Message: message, Path: path}
+}
+
+// NewDiagnosticWithCause creates a Diagnostic with the given severity, code, message, file path, and cause error.
+func NewDiagnosticWithCause(severity Severity, code DiagnosticCode, message, path string, cause error) Diagnostic {
+	return Diagnostic{Severity: severity, Code: code, Message: message, Path: path, Cause: cause}
+}

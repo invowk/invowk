@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -93,7 +94,7 @@ type (
 
 	// ExecuteResult contains command execution outcomes.
 	ExecuteResult struct {
-		ExitCode int
+		ExitCode types.ExitCode
 	}
 
 	// CommandService executes a resolved command request and returns user-renderable

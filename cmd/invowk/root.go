@@ -97,7 +97,7 @@ func Execute() {
 		fang.WithNotifySignal(os.Interrupt),
 	); err != nil {
 		if exitErr, ok := errors.AsType[*ExitError](err); ok {
-			os.Exit(exitErr.Code)
+			os.Exit(int(exitErr.Code))
 		}
 		os.Exit(1)
 	}

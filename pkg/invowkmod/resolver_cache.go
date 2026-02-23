@@ -75,7 +75,7 @@ func (m *Resolver) cacheModule(srcDir, dstDir string) error {
 // A Git repo is considered a module if:
 //   - Repo name ends with .invowkmod suffix, OR
 //   - Contains an invowkmod.cue file at the root
-func findModuleInDir(dir string) (moduleDir, moduleName string, err error) {
+func findModuleInDir(dir string) (moduleDir string, moduleName ModuleShortName, err error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read directory: %w", err)
@@ -84,7 +84,7 @@ func findModuleInDir(dir string) (moduleDir, moduleName string, err error) {
 	// First, look for .invowkmod directories
 	for _, entry := range entries {
 		if entry.IsDir() && strings.HasSuffix(entry.Name(), ".invowkmod") {
-			moduleName = strings.TrimSuffix(entry.Name(), ".invowkmod")
+			moduleName = ModuleShortName(strings.TrimSuffix(entry.Name(), ".invowkmod"))
 			return filepath.Join(dir, entry.Name()), moduleName, nil
 		}
 	}
@@ -96,10 +96,10 @@ func findModuleInDir(dir string) (moduleDir, moduleName string, err error) {
 		// Extract module name from directory (for .invowkmod repos)
 		dirName := filepath.Base(dir)
 		if name, found := strings.CutSuffix(dirName, ".invowkmod"); found {
-			moduleName = name
+			moduleName = ModuleShortName(name)
 		} else {
 			// Fall back to parsing invowkmod.cue to get the module name
-			moduleName = dirName
+			moduleName = ModuleShortName(dirName)
 		}
 		return dir, moduleName, nil
 	}

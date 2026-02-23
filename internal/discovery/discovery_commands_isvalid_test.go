@@ -7,6 +7,26 @@ import (
 	"testing"
 )
 
+func TestSourceID_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		value SourceID
+		want  string
+	}{
+		{SourceIDInvowkfile, "invowkfile"},
+		{SourceID("foo"), "foo"},
+		{SourceID("io.invowk.sample"), "io.invowk.sample"},
+		{SourceID(""), ""},
+	}
+
+	for _, tt := range tests {
+		if got := tt.value.String(); got != tt.want {
+			t.Errorf("SourceID(%q).String() = %q, want %q", tt.value, got, tt.want)
+		}
+	}
+}
+
 func TestSourceID_IsValid(t *testing.T) {
 	t.Parallel()
 

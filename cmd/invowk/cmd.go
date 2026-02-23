@@ -24,9 +24,15 @@ const (
 	ArgErrInvalidValue
 )
 
-// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
-// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
-var ErrInvalidArgErrType = errors.New("invalid argument error type") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
+var (
+	// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
+	// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+	ErrInvalidArgErrType = errors.New("invalid argument error type") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
+
+	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
+	// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+	ErrInvalidDependencyMessage = errors.New("invalid dependency message") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
+)
 
 type (
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
@@ -44,15 +50,26 @@ type (
 		watch bool
 	}
 
+	// DependencyMessage is a pre-formatted dependency validation message
+	// used in DependencyError fields. Each message describes a single
+	// unsatisfied dependency (e.g., "  - kubectl - not found in PATH").
+	DependencyMessage string
+
+	// InvalidDependencyMessageError is returned when a DependencyMessage value
+	// fails validation (empty string).
+	InvalidDependencyMessageError struct {
+		Value DependencyMessage
+	}
+
 	// DependencyError represents unsatisfied dependencies.
 	DependencyError struct {
 		CommandName         invowkfile.CommandName
-		MissingTools        []string
-		MissingCommands     []string
-		MissingFilepaths    []string
-		MissingCapabilities []string
-		FailedCustomChecks  []string
-		MissingEnvVars      []string
+		MissingTools        []DependencyMessage
+		MissingCommands     []DependencyMessage
+		MissingFilepaths    []DependencyMessage
+		MissingCapabilities []DependencyMessage
+		FailedCustomChecks  []DependencyMessage
+		MissingEnvVars      []DependencyMessage
 	}
 
 	// ArgErrType represents the type of argument validation error.
@@ -117,6 +134,28 @@ func (t ArgErrType) IsValid() (bool, []error) {
 		return false, []error{&InvalidArgErrTypeError{Value: t}}
 	}
 }
+
+// IsValid returns whether the DependencyMessage is non-empty,
+// and a list of validation errors if it is not.
+func (m DependencyMessage) IsValid() (bool, []error) {
+	if m == "" {
+		return false, []error{&InvalidDependencyMessageError{Value: m}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the DependencyMessage.
+func (m DependencyMessage) String() string {
+	return string(m)
+}
+
+// Error implements the error interface for InvalidDependencyMessageError.
+func (e *InvalidDependencyMessageError) Error() string {
+	return fmt.Sprintf("invalid dependency message: %q", e.Value)
+}
+
+// Unwrap returns ErrInvalidDependencyMessage so callers can use errors.Is for programmatic detection.
+func (e *InvalidDependencyMessageError) Unwrap() error { return ErrInvalidDependencyMessage }
 
 // parsedRuntimeMode parses the --ivk-runtime flag into a typed RuntimeMode.
 // Returns zero value ("") for empty input, which serves as the "no override" sentinel.

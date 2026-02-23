@@ -86,6 +86,73 @@ func TestDiagnosticCode_IsValid(t *testing.T) {
 	}
 }
 
+func TestNewDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	d := NewDiagnostic(SeverityWarning, CodeConfigLoadFailed, "test message")
+
+	if d.Severity != SeverityWarning {
+		t.Errorf("Severity = %q, want %q", d.Severity, SeverityWarning)
+	}
+	if d.Code != CodeConfigLoadFailed {
+		t.Errorf("Code = %q, want %q", d.Code, CodeConfigLoadFailed)
+	}
+	if d.Message != "test message" {
+		t.Errorf("Message = %q, want %q", d.Message, "test message")
+	}
+	if d.Path != "" {
+		t.Errorf("Path = %q, want empty string", d.Path)
+	}
+	if d.Cause != nil {
+		t.Errorf("Cause = %v, want nil", d.Cause)
+	}
+}
+
+func TestNewDiagnosticWithPath(t *testing.T) {
+	t.Parallel()
+
+	d := NewDiagnosticWithPath(SeverityError, CodeInvowkfileParseSkipped, "parse failed", "/some/path")
+
+	if d.Severity != SeverityError {
+		t.Errorf("Severity = %q, want %q", d.Severity, SeverityError)
+	}
+	if d.Code != CodeInvowkfileParseSkipped {
+		t.Errorf("Code = %q, want %q", d.Code, CodeInvowkfileParseSkipped)
+	}
+	if d.Message != "parse failed" {
+		t.Errorf("Message = %q, want %q", d.Message, "parse failed")
+	}
+	if d.Path != "/some/path" {
+		t.Errorf("Path = %q, want %q", d.Path, "/some/path")
+	}
+	if d.Cause != nil {
+		t.Errorf("Cause = %v, want nil", d.Cause)
+	}
+}
+
+func TestNewDiagnosticWithCause(t *testing.T) {
+	t.Parallel()
+
+	cause := errors.New("underlying error")
+	d := NewDiagnosticWithCause(SeverityError, CodeModuleScanFailed, "scan failed", "/module/path", cause)
+
+	if d.Severity != SeverityError {
+		t.Errorf("Severity = %q, want %q", d.Severity, SeverityError)
+	}
+	if d.Code != CodeModuleScanFailed {
+		t.Errorf("Code = %q, want %q", d.Code, CodeModuleScanFailed)
+	}
+	if d.Message != "scan failed" {
+		t.Errorf("Message = %q, want %q", d.Message, "scan failed")
+	}
+	if d.Path != "/module/path" {
+		t.Errorf("Path = %q, want %q", d.Path, "/module/path")
+	}
+	if !errors.Is(d.Cause, cause) {
+		t.Errorf("Cause = %v, want %v", d.Cause, cause)
+	}
+}
+
 func TestSource_IsValid(t *testing.T) {
 	t.Parallel()
 

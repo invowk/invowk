@@ -269,19 +269,11 @@ func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContaine
 	if rt == nil {
 		return invowkfileContainerConfig{}
 	}
-	volumes := make([]string, len(rt.Volumes))
-	for i, v := range rt.Volumes {
-		volumes[i] = string(v)
-	}
-	ports := make([]string, len(rt.Ports))
-	for i, p := range rt.Ports {
-		ports[i] = string(p)
-	}
 	return invowkfileContainerConfig{
 		Containerfile: string(rt.Containerfile),
 		Image:         string(rt.Image),
-		Volumes:       volumes,
-		Ports:         ports,
+		Volumes:       rt.Volumes,
+		Ports:         rt.Ports,
 	}
 }
 

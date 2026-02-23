@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -64,7 +66,7 @@ type (
 		// CheckScript is the script to execute for validation
 		CheckScript ScriptContent `json:"check_script"`
 		// ExpectedCode is the expected exit code from CheckScript (optional, default: 0)
-		ExpectedCode *int `json:"expected_code,omitempty"`
+		ExpectedCode *types.ExitCode `json:"expected_code,omitempty"`
 		// ExpectedOutput is a regex pattern to match against CheckScript output (optional)
 		ExpectedOutput RegexPattern `json:"expected_output,omitempty"`
 	}
@@ -79,7 +81,7 @@ type (
 		// CheckScript is the script to execute for validation
 		CheckScript ScriptContent `json:"check_script,omitempty"`
 		// ExpectedCode is the expected exit code from CheckScript (optional, default: 0)
-		ExpectedCode *int `json:"expected_code,omitempty"`
+		ExpectedCode *types.ExitCode `json:"expected_code,omitempty"`
 		// ExpectedOutput is a regex pattern to match against CheckScript output (optional)
 		ExpectedOutput RegexPattern `json:"expected_output,omitempty"`
 

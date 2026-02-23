@@ -150,7 +150,7 @@ type (
 		// ModulePath is the absolute path to the validated module
 		ModulePath types.FilesystemPath `json:"-"`
 		// ModuleName is the extracted name from the folder (without .invowkmod suffix)
-		ModuleName string `json:"-"`
+		ModuleName ModuleShortName `json:"-"`
 		// InvowkmodPath is the path to the invowkmod.cue within the module (required)
 		InvowkmodPath types.FilesystemPath `json:"-"`
 		// InvowkfilePath is the path to the invowkfile.cue within the module (optional for library-only modules)

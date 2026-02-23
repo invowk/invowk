@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/internal/sshserver"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // Container host addresses for SSH tunneling
@@ -68,8 +69,8 @@ type (
 	invowkfileContainerConfig struct {
 		Containerfile string
 		Image         string
-		Volumes       []string
-		Ports         []string
+		Volumes       []invowkfile.VolumeMountSpec
+		Ports         []invowkfile.PortMappingSpec
 	}
 )
 

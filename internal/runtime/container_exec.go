@@ -26,8 +26,8 @@ type containerExecPrep struct {
 	shellCmd       []string
 	workDir        string
 	env            map[string]string
-	volumes        []string
-	ports          []string
+	volumes        []invowkfile.VolumeMountSpec
+	ports          []invowkfile.PortMappingSpec
 	extraHosts     []container.HostMapping
 	sshConnInfo    *sshserver.ConnectionInfo
 	tempScriptPath string
@@ -65,7 +65,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Get the container runtime config
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig == nil {
-		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("runtime config not found for container runtime")}
+		return nil, NewErrorResult(1, fmt.Errorf("runtime config not found for container runtime"))
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
 	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
@@ -73,27 +73,27 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Validate explicit image policy before provisioning rewrites image tags.
 	if containerCfg.Image != "" {
 		if err := validateSupportedContainerImage(containerCfg.Image); err != nil {
-			return nil, &Result{ExitCode: 1, Error: err}
+			return nil, NewErrorResult(1, err)
 		}
 	}
 
 	// Resolve the script content (from file or inline)
 	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
-		return nil, &Result{ExitCode: 1, Error: err}
+		return nil, NewErrorResult(1, err)
 	}
 
 	// Determine the image to use (with provisioning if enabled)
 	image, pCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
-		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare container image: %w", err)}
+		return nil, NewErrorResult(1, fmt.Errorf("failed to prepare container image: %w", err))
 	}
 	provisionCleanup = pCleanup
 
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritNone)
 	if err != nil {
-		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+		return nil, NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 
 	// Check if host SSH is enabled for this runtime
@@ -103,14 +103,14 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	if hostSSHEnabled {
 		sshConnInfo, err = r.setupSSHConnection(ctx, env)
 		if err != nil {
-			return nil, &Result{ExitCode: 1, Error: err}
+			return nil, NewErrorResult(1, err)
 		}
 	}
 
 	// Prepare volumes
 	volumes := containerCfg.Volumes
 	// Always mount the invowkfile directory
-	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
+	volumes = append(volumes, invowkfile.VolumeMountSpec(fmt.Sprintf("%s:/workspace", invowkDir)))
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
@@ -122,7 +122,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 		// Use the resolved interpreter
 		shellCmd, tempScriptPath, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
 		if err != nil {
-			return nil, &Result{ExitCode: 1, Error: err}
+			return nil, NewErrorResult(1, err)
 		}
 	} else {
 		// Use default shell execution
@@ -326,13 +326,10 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	result, err := r.runWithRetry(ctx.Context, runOpts)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to run container: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to run container: %w", err))
 	}
 
-	return &Result{
-		ExitCode: result.ExitCode,
-		Error:    result.Error,
-	}
+	return NewErrorResult(result.ExitCode, result.Error)
 }
 
 // ExecuteCapture runs a command in a container and captures its stdout/stderr.

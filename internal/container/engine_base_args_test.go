@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // T028: BaseCLIEngine BuildArgs tests
@@ -153,7 +155,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 			name: "run with volumes",
 			opts: RunOptions{
 				Image:   "debian:stable-slim",
-				Volumes: []string{"/host:/container"},
+				Volumes: []invowkfile.VolumeMountSpec{"/host:/container"},
 			},
 			contains: []string{"-v", "/host:/container"},
 		},
@@ -161,7 +163,7 @@ func TestBaseCLIEngine_RunArgs(t *testing.T) {
 			name: "run with ports",
 			opts: RunOptions{
 				Image: "nginx",
-				Ports: []string{"8080:80"},
+				Ports: []invowkfile.PortMappingSpec{"8080:80"},
 			},
 			contains: []string{"-p", "8080:80"},
 		},

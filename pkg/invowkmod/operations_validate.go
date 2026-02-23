@@ -50,7 +50,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	if err != nil {
 		result.AddIssue(IssueTypeNaming, err.Error(), "")
 	} else {
-		result.ModuleName = moduleName
+		result.ModuleName = ModuleShortName(moduleName)
 
 		// Check for reserved module name "invowkfile" (FR-015)
 		// This name is reserved for the canonical namespace system where @invowkfile
@@ -78,7 +78,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 			meta, parseErr := ParseInvowkmod(invowkmodPath)
 			if parseErr != nil {
 				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
-			} else if string(meta.Module) != result.ModuleName {
+			} else if string(meta.Module) != string(result.ModuleName) {
 				result.AddIssue(IssueTypeNaming, fmt.Sprintf(
 					"module field '%s' in invowkmod.cue must match folder name '%s'",
 					meta.Module, result.ModuleName), "invowkmod.cue")

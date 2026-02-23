@@ -6,6 +6,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // =============================================================================
@@ -110,8 +112,8 @@ func TestPodmanEngine_Run_Arguments(t *testing.T) {
 			Interactive: true,
 			TTY:         true,
 			Env:         map[string]string{"VAR": "value"},
-			Volumes:     []string{"/src:/src"},
-			Ports:       []string{"8080:80"},
+			Volumes:     []invowkfile.VolumeMountSpec{"/src:/src"},
+			Ports:       []invowkfile.PortMappingSpec{"8080:80"},
 			ExtraHosts:  []HostMapping{"host.containers.internal:host-gateway"},
 		}
 
@@ -648,7 +650,7 @@ func TestPodmanEngine_SELinuxVolumeLabeling(t *testing.T) {
 
 			opts := RunOptions{
 				Image:   "debian:stable-slim",
-				Volumes: []string{tt.volume},
+				Volumes: []invowkfile.VolumeMountSpec{invowkfile.VolumeMountSpec(tt.volume)},
 			}
 
 			_, err := engine.Run(ctx, opts)
@@ -670,7 +672,7 @@ func TestAddSELinuxLabelWithCheck_EdgeCases(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		volume       string
+		volume       invowkfile.VolumeMountSpec
 		selinuxCheck SELinuxCheckFunc
 		expected     string
 	}{
@@ -740,7 +742,7 @@ func TestMakeSELinuxLabelAdder(t *testing.T) {
 		t.Parallel()
 
 		formatter := makeSELinuxLabelAdder(func() bool { return true })
-		result := formatter("/host:/container")
+		result := formatter(invowkfile.VolumeMountSpec("/host:/container"))
 		if result != "/host:/container:z" {
 			t.Errorf("formatter returned %q, want %q", result, "/host:/container:z")
 		}
@@ -750,7 +752,7 @@ func TestMakeSELinuxLabelAdder(t *testing.T) {
 		t.Parallel()
 
 		formatter := makeSELinuxLabelAdder(func() bool { return false })
-		result := formatter("/host:/container")
+		result := formatter(invowkfile.VolumeMountSpec("/host:/container"))
 		if result != "/host:/container" {
 			t.Errorf("formatter returned %q, want %q", result, "/host:/container")
 		}

@@ -170,7 +170,7 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 	fmt.Printf("%s Git URL:   %s\n", moduleInfoIcon, modulePathStyle.Render(string(resolved.ModuleRef.GitURL)))
 	fmt.Printf("%s Version:   %s → %s\n", moduleInfoIcon, version, CmdStyle.Render(string(resolved.ResolvedVersion)))
 	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(string(resolved.Namespace)))
-	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(resolved.CachePath))
+	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(string(resolved.CachePath)))
 
 	// Auto-edit invowkmod.cue to add the requires entry
 	invowkmodPath := filepath.Join(".", "invowkmod.cue")
@@ -362,7 +362,7 @@ func runModuleDeps(cmd *cobra.Command, args []string) error {
 		if len(dep.GitCommit) >= 12 {
 			fmt.Printf("   Commit:   %s\n", moduleDetailStyle.Render(string(dep.GitCommit[:12])))
 		}
-		fmt.Printf("   Cache:    %s\n", moduleDetailStyle.Render(dep.CachePath))
+		fmt.Printf("   Cache:    %s\n", moduleDetailStyle.Render(string(dep.CachePath)))
 		fmt.Println()
 	}
 

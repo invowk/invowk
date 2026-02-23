@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // LockFileName is the name of the lock file.
@@ -48,14 +50,14 @@ type (
 		GitCommit GitCommit
 
 		// CachePath is the absolute path to the cached module directory.
-		CachePath string
+		CachePath types.FilesystemPath
 
 		// Namespace is the computed namespace for this module's commands.
 		// Format: "<module>@<version>" or alias if specified.
 		Namespace ModuleNamespace
 
 		// ModuleName is the name of the module (from the folder name without .invowkmod).
-		ModuleName string
+		ModuleName ModuleShortName
 
 		// ModuleID is the module identifier from the module's invowkmod.cue.
 		ModuleID ModuleID
@@ -393,7 +395,7 @@ func (m *Resolver) List(ctx context.Context) ([]*ResolvedModule, error) {
 			},
 			ResolvedVersion: entry.ResolvedVersion,
 			GitCommit:       entry.GitCommit,
-			CachePath:       m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path)),
+			CachePath:       types.FilesystemPath(m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path))),
 			Namespace:       entry.Namespace,
 			ModuleName:      extractModuleName(key),
 		})

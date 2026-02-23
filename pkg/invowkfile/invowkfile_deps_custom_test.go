@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ============================================================================
@@ -18,7 +20,7 @@ import (
 func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 	t.Parallel()
 
-	expectedCode := 0
+	expectedCode := types.ExitCode(0)
 	inv := &Invowkfile{
 		DependsOn: &DependsOn{
 			CustomChecks: []CustomCheckDependency{

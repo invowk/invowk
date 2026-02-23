@@ -166,7 +166,7 @@ func TestNewResolver(t *testing.T) {
 func TestComputeNamespace(t *testing.T) {
 	tests := []struct {
 		name       string
-		moduleName string
+		moduleName ModuleShortName
 		version    string
 		alias      ModuleAlias
 		expected   ModuleNamespace
@@ -208,7 +208,7 @@ func TestExtractModuleName(t *testing.T) {
 	tests := []struct {
 		name     string
 		key      ModuleRefKey
-		expected string
+		expected ModuleShortName
 	}{
 		{
 			name:     "github URL",

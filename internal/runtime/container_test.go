@@ -596,10 +596,10 @@ func TestContainerConfigFromRuntime(t *testing.T) {
 			t.Errorf("Containerfile = %q, want %q", cfg.Containerfile, "Containerfile.test")
 		}
 		if len(cfg.Volumes) != 1 || cfg.Volumes[0] != "/data:/data:ro" {
-			t.Errorf("Volumes = %v, want %v", cfg.Volumes, []string{"/data:/data:ro"})
+			t.Errorf("Volumes = %v, want %v", cfg.Volumes, []invowkfile.VolumeMountSpec{"/data:/data:ro"})
 		}
 		if len(cfg.Ports) != 1 || cfg.Ports[0] != "8080:80" {
-			t.Errorf("Ports = %v, want %v", cfg.Ports, []string{"8080:80"})
+			t.Errorf("Ports = %v, want %v", cfg.Ports, []invowkfile.PortMappingSpec{"8080:80"})
 		}
 	})
 }

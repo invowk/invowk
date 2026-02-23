@@ -90,6 +90,11 @@ type (
 	}
 )
 
+// String returns the string representation of the SourceID.
+func (s SourceID) String() string {
+	return string(s)
+}
+
 // IsValid returns whether the SourceID matches the expected format (starts with a letter,
 // contains only letters, digits, dots, underscores, or hyphens),
 // and a list of validation errors if it does not.
@@ -201,13 +206,13 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		if file.Error != nil {
 			// Parse failures are recoverable for discovery: keep traversing and
 			// return structured diagnostics to the caller instead of writing output.
-			diagnostics = append(diagnostics, Diagnostic{
-				Severity: SeverityWarning,
-				Code:     CodeInvowkfileParseSkipped,
-				Message:  fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
-				Path:     string(file.Path),
-				Cause:    file.Error,
-			})
+			diagnostics = append(diagnostics, NewDiagnosticWithCause(
+				SeverityWarning,
+				CodeInvowkfileParseSkipped,
+				fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
+				string(file.Path),
+				file.Error,
+			))
 			continue
 		}
 		if file.Invowkfile == nil {
@@ -298,11 +303,11 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 
 	// Command-not-found is represented as a diagnostic so CLI callers can choose
 	// the rendering policy (execute/list/completion) consistently.
-	result.Diagnostics = append(result.Diagnostics, Diagnostic{
-		Severity: SeverityError,
-		Code:     CodeCommandNotFound,
-		Message:  fmt.Sprintf("command '%s' not found", name),
-	})
+	result.Diagnostics = append(result.Diagnostics, NewDiagnostic(
+		SeverityError,
+		CodeCommandNotFound,
+		fmt.Sprintf("command '%s' not found", name),
+	))
 
 	return LookupResult{Diagnostics: result.Diagnostics}, nil
 }

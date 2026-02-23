@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // podmanBinaryNames lists Podman binary names to try in order of preference.
@@ -139,7 +141,7 @@ func isSELinuxPresent() bool {
 // The selinuxCheck function is called to determine if SELinux labeling should be applied.
 // This factory pattern allows injection of custom SELinux check functions for testing.
 func makeSELinuxLabelAdder(selinuxCheck SELinuxCheckFunc) VolumeFormatFunc {
-	return func(volume string) string {
+	return func(volume invowkfile.VolumeMountSpec) string {
 		return addSELinuxLabelWithCheck(volume, selinuxCheck)
 	}
 }
@@ -147,19 +149,21 @@ func makeSELinuxLabelAdder(selinuxCheck SELinuxCheckFunc) VolumeFormatFunc {
 // addSELinuxLabelWithCheck adds the :z label to a volume mount if SELinux is enabled
 // and the volume doesn't already have an SELinux label (:z or :Z).
 // The selinuxCheck function is called to determine if SELinux labeling should be applied.
-func addSELinuxLabelWithCheck(volume string, selinuxCheck SELinuxCheckFunc) string {
+func addSELinuxLabelWithCheck(volume invowkfile.VolumeMountSpec, selinuxCheck SELinuxCheckFunc) string {
+	volumeStr := string(volume)
+
 	if !selinuxCheck() {
-		return volume
+		return volumeStr
 	}
 
 	// Parse the volume string to check if it already has SELinux labels
 	// Volume format: host_path:container_path[:options]
 	// Options can include: ro, rw, z, Z, and others
-	parts := strings.Split(volume, ":")
+	parts := strings.Split(volumeStr, ":")
 
 	// Need at least host:container
 	if len(parts) < 2 {
-		return volume
+		return volumeStr
 	}
 
 	// Check if options already contain SELinux label
@@ -169,15 +173,15 @@ func addSELinuxLabelWithCheck(volume string, selinuxCheck SELinuxCheckFunc) stri
 		for opt := range strings.SplitSeq(options, ",") {
 			if opt == "z" || opt == "Z" {
 				// Already has SELinux label
-				return volume
+				return volumeStr
 			}
 		}
 		// Append :z to existing options
-		return volume + ",z"
+		return volumeStr + ",z"
 	}
 
 	// No options specified, add :z
-	return volume + ":z"
+	return volumeStr + ":z"
 }
 
 // makeUsernsKeepIDAdder creates a transformer that adds --userns=keep-id to run commands.

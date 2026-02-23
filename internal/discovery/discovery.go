@@ -108,12 +108,13 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		if err != nil {
 			slog.Debug("failed to determine working directory for discovery, current-dir lookup will be skipped",
 				"error", err)
-			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
-				Severity: SeverityWarning,
-				Code:     CodeWorkingDirUnavailable,
-				Message:  fmt.Sprintf("current directory unavailable, skipping local discovery: %v", err),
-				Cause:    err,
-			})
+			d.initDiagnostics = append(d.initDiagnostics, NewDiagnosticWithCause(
+				SeverityWarning,
+				CodeWorkingDirUnavailable,
+				fmt.Sprintf("current directory unavailable, skipping local discovery: %v", err),
+				"",
+				err,
+			))
 		}
 	}
 	if !d.commandsDirSet && d.commandsDir == "" {
@@ -122,12 +123,13 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		} else {
 			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
 				"error", err)
-			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
-				Severity: SeverityWarning,
-				Code:     CodeCommandsDirUnavailable,
-				Message:  fmt.Sprintf("user commands directory unavailable, skipping user-dir discovery: %v", err),
-				Cause:    err,
-			})
+			d.initDiagnostics = append(d.initDiagnostics, NewDiagnosticWithCause(
+				SeverityWarning,
+				CodeCommandsDirUnavailable,
+				fmt.Sprintf("user commands directory unavailable, skipping user-dir discovery: %v", err),
+				"",
+				err,
+			))
 		}
 	}
 	return d

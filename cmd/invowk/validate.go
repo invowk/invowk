@@ -304,7 +304,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	}
 
 	if result.ModuleName != "" {
-		fmt.Fprintf(stdout, "%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(result.ModuleName))
+		fmt.Fprintf(stdout, "%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(string(result.ModuleName)))
 	}
 
 	// Deep validation: parse invowkfile and validate command tree if present.

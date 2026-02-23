@@ -92,7 +92,7 @@ func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
 		t.Errorf("DependencyError.MissingFilepaths length = %d, want 1", len(depErr.MissingFilepaths))
 	}
 
-	if !strings.Contains(depErr.MissingFilepaths[0], "does not exist") {
+	if !strings.Contains(depErr.MissingFilepaths[0].String(), "does not exist") {
 		t.Errorf("Error message should mention 'does not exist', got: %s", depErr.MissingFilepaths[0])
 	}
 }
@@ -301,7 +301,7 @@ func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
 	}
 
 	// Error should mention alternatives not satisfied
-	if !strings.Contains(depErr.MissingFilepaths[0], "alternatives") {
+	if !strings.Contains(depErr.MissingFilepaths[0].String(), "alternatives") {
 		t.Errorf("Error message should mention 'alternatives', got: %s", depErr.MissingFilepaths[0])
 	}
 }
@@ -450,7 +450,7 @@ func TestCheckFilepathDependencies_NonExecutableFile(t *testing.T) {
 		t.Errorf("DependencyError.MissingFilepaths length = %d, want 1", len(depErr.MissingFilepaths))
 	}
 
-	if !strings.Contains(depErr.MissingFilepaths[0], "execute") {
+	if !strings.Contains(depErr.MissingFilepaths[0].String(), "execute") {
 		t.Errorf("Error message should mention 'execute', got: %s", depErr.MissingFilepaths[0])
 	}
 }
@@ -545,7 +545,7 @@ func TestCheckFilepathDependencies_NonExecutableDirectory(t *testing.T) {
 		t.Errorf("DependencyError.MissingFilepaths length = %d, want 1", len(depErr.MissingFilepaths))
 	}
 
-	if !strings.Contains(depErr.MissingFilepaths[0], "execute") {
+	if !strings.Contains(depErr.MissingFilepaths[0].String(), "execute") {
 		t.Errorf("Error message should mention 'execute', got: %s", depErr.MissingFilepaths[0])
 	}
 }
@@ -622,7 +622,7 @@ func TestCheckFilepathDependencies_ExecutableAlternativesFallback(t *testing.T) 
 			t.Errorf("DependencyError.MissingFilepaths length = %d, want 1", len(depErr.MissingFilepaths))
 		}
 
-		if !strings.Contains(depErr.MissingFilepaths[0], "execute") {
+		if !strings.Contains(depErr.MissingFilepaths[0].String(), "execute") {
 			t.Errorf("Error message should mention 'execute', got: %s", depErr.MissingFilepaths[0])
 		}
 	}
@@ -688,7 +688,7 @@ func TestDependencyError_Error(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName:  "my-command",
-		MissingTools: []string{"tool1", "tool2"},
+		MissingTools: []DependencyMessage{"tool1", "tool2"},
 	}
 
 	expected := "dependencies not satisfied for command 'my-command'"
@@ -702,7 +702,7 @@ func TestRenderDependencyError_MissingTools(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "build",
-		MissingTools: []string{
+		MissingTools: []DependencyMessage{
 			"  - git - not found in PATH",
 			"  - docker (version: >=20.0) - not found in PATH",
 		},
@@ -733,7 +733,7 @@ func TestRenderDependencyError_MissingCommands(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "release",
-		MissingCommands: []string{
+		MissingCommands: []DependencyMessage{
 			"  - build - command not found",
 			"  - test - command not found",
 		},
@@ -755,10 +755,10 @@ func TestRenderDependencyError_BothToolsAndCommands(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "deploy",
-		MissingTools: []string{
+		MissingTools: []DependencyMessage{
 			"  - kubectl - not found in PATH",
 		},
-		MissingCommands: []string{
+		MissingCommands: []DependencyMessage{
 			"  - build - command not found",
 		},
 	}

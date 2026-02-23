@@ -99,7 +99,7 @@ func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	// Create streaming output configuration
@@ -122,7 +122,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	// Create capturing output configuration
@@ -179,7 +179,7 @@ func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand,
 func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string, output *executeOutput, captured *capturedOutput, stdin io.Reader) *Result {
 	shell, err := r.getShell()
 	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	args := r.getShellArgs(shell)
@@ -192,7 +192,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 	workDir := ctx.EffectiveWorkDir()
 	if workDir != "" {
 		if err = validateWorkDir(workDir); err != nil {
-			return &Result{ExitCode: 1, Error: fmt.Errorf("invalid working directory: %w", err)}
+			return NewErrorResult(1, fmt.Errorf("invalid working directory: %w", err))
 		}
 		cmd.Dir = workDir
 	}
@@ -200,7 +200,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 	cmd.Env = EnvToSlice(env)
 
@@ -219,7 +219,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script string, interp invowkfile.ShebangInfo, output *executeOutput, captured *capturedOutput, stdin io.Reader) *Result {
 	interpreterPath, err := exec.LookPath(interp.Interpreter)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("interpreter '%s' not found in PATH: %w", interp.Interpreter, err)}
+		return NewErrorResult(1, fmt.Errorf("interpreter '%s' not found in PATH: %w", interp.Interpreter, err))
 	}
 
 	var cmdArgs []string
@@ -233,7 +233,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)
 		if err != nil {
-			return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create temp script: %w", err)}
+			return NewErrorResult(1, fmt.Errorf("failed to create temp script: %w", err))
 		}
 		defer func() { _ = os.Remove(tempFile) }() // Cleanup temp file; error non-critical
 		cmdArgs = append(cmdArgs, tempFile)
@@ -247,7 +247,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	workDir := ctx.EffectiveWorkDir()
 	if workDir != "" {
 		if err = validateWorkDir(workDir); err != nil {
-			return &Result{ExitCode: 1, Error: fmt.Errorf("invalid working directory: %w", err)}
+			return NewErrorResult(1, fmt.Errorf("invalid working directory: %w", err))
 		}
 		cmd.Dir = workDir
 	}
@@ -255,7 +255,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 	cmd.Env = EnvToSlice(env)
 

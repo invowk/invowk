@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // isSupportedGitURLPrefix returns true when the URL uses a supported Git scheme.
@@ -164,7 +166,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRe
 		ModuleRef:       req,
 		ResolvedVersion: SemVer(resolvedVersion),
 		GitCommit:       GitCommit(commit),
-		CachePath:       cachePath,
+		CachePath:       types.FilesystemPath(cachePath),
 		Namespace:       namespace,
 		ModuleName:      moduleName,
 		ModuleID:        moduleID,
@@ -214,7 +216,7 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, 
 }
 
 // computeNamespace generates the namespace for a module.
-func computeNamespace(moduleName, version string, alias ModuleAlias) ModuleNamespace {
+func computeNamespace(moduleName ModuleShortName, version string, alias ModuleAlias) ModuleNamespace {
 	if alias != "" {
 		return ModuleNamespace(alias)
 	}
@@ -222,7 +224,7 @@ func computeNamespace(moduleName, version string, alias ModuleAlias) ModuleNames
 }
 
 // extractModuleName extracts the module name from a module key.
-func extractModuleName(key ModuleRefKey) string {
+func extractModuleName(key ModuleRefKey) ModuleShortName {
 	// key format: "github.com/user/repo" or "github.com/user/repo#subpath"
 	parts := strings.Split(string(key), "#")
 	url := parts[0]
@@ -232,9 +234,9 @@ func extractModuleName(key ModuleRefKey) string {
 	if len(urlParts) > 0 {
 		name := urlParts[len(urlParts)-1]
 		name = strings.TrimSuffix(name, ".git")
-		return name
+		return ModuleShortName(name)
 	}
-	return string(key)
+	return ModuleShortName(key)
 }
 
 // extractModuleFromInvowkmod extracts the module field from invowkmod content

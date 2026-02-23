@@ -123,7 +123,7 @@ func RenderDependencyError(err *DependencyError) string {
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf("Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
 
-	renderSection := func(label string, items []string) {
+	renderSection := func(label string, items []DependencyMessage) {
 		if len(items) == 0 {
 			return
 		}
@@ -131,7 +131,7 @@ func RenderDependencyError(err *DependencyError) string {
 		sb.WriteString(sectionStyle.Render(label))
 		sb.WriteString("\n")
 		for _, item := range items {
-			sb.WriteString(renderValueStyle.Render(item))
+			sb.WriteString(renderValueStyle.Render(item.String()))
 			sb.WriteString("\n")
 		}
 	}

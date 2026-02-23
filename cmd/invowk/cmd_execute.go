@@ -387,7 +387,7 @@ func (s *commandService) dispatchExecution(ctx context.Context, req ExecuteReque
 		)
 	}
 
-	return ExecuteResult{ExitCode: int(result.ExitCode)}, diags, nil
+	return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
 }
 
 // validateAndRenderDeps validates command dependencies and returns ServiceError

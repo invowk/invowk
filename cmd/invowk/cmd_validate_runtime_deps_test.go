@@ -14,6 +14,7 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -418,7 +419,7 @@ func TestCheckHostCustomCheckDependencies_FailingCheck(t *testing.T) {
 		CustomChecks: []invowkfile.CustomCheckDependency{{
 			Name:         "fail-check",
 			CheckScript:  "exit 1",
-			ExpectedCode: new(0),
+			ExpectedCode: new(types.ExitCode(0)),
 		}},
 	}
 	ctx := &runtime.ExecutionContext{
@@ -446,8 +447,8 @@ func TestCheckHostCustomCheckDependencies_AlternativesOR(t *testing.T) {
 	deps := &invowkfile.DependsOn{
 		CustomChecks: []invowkfile.CustomCheckDependency{{
 			Alternatives: []invowkfile.CustomCheck{
-				{Name: "failing", CheckScript: "exit 1", ExpectedCode: new(0)},
-				{Name: "passing", CheckScript: "echo ok", ExpectedCode: new(0)},
+				{Name: "failing", CheckScript: "exit 1", ExpectedCode: new(types.ExitCode(0))},
+				{Name: "passing", CheckScript: "echo ok", ExpectedCode: new(types.ExitCode(0))},
 			},
 		}},
 	}

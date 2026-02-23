@@ -156,7 +156,7 @@ func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.Depen
 		available[cmd.Name] = struct{}{}
 	}
 
-	var commandErrors []string
+	var commandErrors []DependencyMessage
 
 	for _, dep := range deps.Commands {
 		var alternatives []string
@@ -189,9 +189,9 @@ func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.Depen
 
 		if !found {
 			if len(alternatives) == 1 {
-				commandErrors = append(commandErrors, fmt.Sprintf("  • %s - command not found", alternatives[0]))
+				commandErrors = append(commandErrors, DependencyMessage(fmt.Sprintf("  • %s - command not found", alternatives[0])))
 			} else {
-				commandErrors = append(commandErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(alternatives, ", ")))
+				commandErrors = append(commandErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found", strings.Join(alternatives, ", "))))
 			}
 		}
 	}

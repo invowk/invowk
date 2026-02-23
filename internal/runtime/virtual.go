@@ -122,21 +122,21 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig != nil {
 		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
-			return &Result{ExitCode: 1, Error: err}
+			return NewErrorResult(1, err)
 		}
 	}
 
 	// Resolve the script content
 	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	// Parse the script
 	parser := syntax.NewParser()
 	prog, err := parser.Parse(strings.NewReader(script), "script")
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to parse script: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
 	}
 
 	// Determine working directory
@@ -145,7 +145,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 
 	// Create the interpreter
@@ -166,7 +166,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	runner, err := interp.New(opts...)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create interpreter: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
 	}
 
 	// Execute
@@ -178,12 +178,12 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	err = runner.Run(execCtx, prog)
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
-			return &Result{ExitCode: ExitCode(exitStatus)}
+			return NewExitCodeResult(ExitCode(exitStatus))
 		}
-		return &Result{ExitCode: 1, Error: fmt.Errorf("script execution failed: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("script execution failed: %w", err))
 	}
 
-	return &Result{ExitCode: 0}
+	return NewSuccessResult()
 }
 
 // ExecuteCapture runs a command and captures its output
@@ -191,19 +191,19 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Resolve the script content
 	script, err := ctx.SelectedImpl.ResolveScript(string(ctx.Invowkfile.FilePath))
 	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	parser := syntax.NewParser()
 	prog, err := parser.Parse(strings.NewReader(script), "script")
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to parse script: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
 	}
 
 	workDir := ctx.EffectiveWorkDir()
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -225,7 +225,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	runner, err := interp.New(opts...)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create interpreter: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
 	}
 
 	execCtx := ctx.Context
@@ -233,6 +233,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		execCtx = context.Background()
 	}
 
+	// Keep as struct literal: Output/ErrOutput fields are set
 	result := &Result{
 		Output:    stdout.String(),
 		ErrOutput: stderr.String(),

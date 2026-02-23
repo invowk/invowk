@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -147,10 +148,10 @@ type (
 		WorkDir MountTargetPath
 		// Env contains environment variables
 		Env map[string]string
-		// Volumes are volume mounts in "host:container" format
-		Volumes []string
-		// Ports are port mappings in "host:container" format
-		Ports []string
+		// Volumes are volume mounts in "host:container[:options]" format
+		Volumes []invowkfile.VolumeMountSpec
+		// Ports are port mappings in "host:container[/protocol]" format
+		Ports []invowkfile.PortMappingSpec
 		// Remove automatically removes the container after exit
 		Remove bool
 		// Name is the container name

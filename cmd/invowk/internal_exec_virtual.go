@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/types"
+
 	"github.com/spf13/cobra"
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
@@ -114,7 +116,7 @@ func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
-			return &ExitError{Code: int(exitStatus)}
+			return &ExitError{Code: types.ExitCode(exitStatus)}
 		}
 		fmt.Fprintf(os.Stderr, "Error executing script: %v\n", err)
 		cmd.SilenceErrors = true

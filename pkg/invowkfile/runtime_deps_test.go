@@ -5,6 +5,8 @@ package invowkfile
 import (
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestFindRuntimeConfig(t *testing.T) {
@@ -315,7 +317,7 @@ func TestGenerateCUE_RuntimeDependsOn(t *testing.T) {
 func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
 	t.Parallel()
 
-	expectedCode := 0
+	expectedCode := types.ExitCode(0)
 	inv := &Invowkfile{
 		Commands: []Command{{
 			Name: "all-deps",

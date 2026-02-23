@@ -11,6 +11,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -251,7 +252,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 
 	// Copy resolved modules into invowk_modules/
 	result, err := invowkmod.VendorModules(invowkmod.VendorOptions{
-		ModulePath: absPath,
+		ModulePath: types.FilesystemPath(absPath),
 		Modules:    resolved,
 		Prune:      vendorPrune,
 	})
@@ -261,7 +262,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 
 	// Print results
 	fmt.Println()
-	fmt.Printf("%s Vendor directory: %s\n", moduleInfoIcon, modulePathStyle.Render(result.VendorDir))
+	fmt.Printf("%s Vendor directory: %s\n", moduleInfoIcon, modulePathStyle.Render(string(result.VendorDir)))
 	fmt.Println()
 
 	for _, entry := range result.Vendored {

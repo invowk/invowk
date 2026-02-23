@@ -12,6 +12,7 @@ import (
 
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // shellEscapeSingleQuote escapes single quotes for safe use inside shell single-quoted arguments.
@@ -24,16 +25,16 @@ func shellEscapeSingleQuote(s string) string {
 // validateCustomCheckOutput validates custom check script output against expected values
 func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, execErr error) error {
 	// Determine expected exit code (default: 0)
-	expectedCode := 0
+	var expectedCode types.ExitCode
 	if check.ExpectedCode != nil {
 		expectedCode = *check.ExpectedCode
 	}
 
 	// Check exit code
-	actualCode := 0
+	var actualCode types.ExitCode
 	if execErr != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](execErr); ok {
-			actualCode = exitErr.ExitCode()
+			actualCode = types.ExitCode(exitErr.ExitCode())
 		} else {
 			// Try to get exit code from error message for non-native runtimes
 			actualCode = 1 // Default to 1 for errors
@@ -67,7 +68,7 @@ func checkCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registr
 		return nil
 	}
 
-	var checkErrors []string
+	var checkErrors []DependencyMessage
 
 	for _, checkDep := range deps.CustomChecks {
 		checks := checkDep.GetChecks()
@@ -77,13 +78,13 @@ func checkCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registr
 
 		if !found && lastErr != nil {
 			if len(checks) == 1 {
-				checkErrors = append(checkErrors, lastErr.Error())
+				checkErrors = append(checkErrors, DependencyMessage(lastErr.Error()))
 			} else {
 				names := make([]string, len(checks))
 				for i, c := range checks {
 					names[i] = string(c.Name)
 				}
-				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
+				checkErrors = append(checkErrors, DependencyMessage(fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", "))))
 			}
 		}
 	}
@@ -144,7 +145,7 @@ func checkHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.E
 		return nil
 	}
 
-	var checkErrors []string
+	var checkErrors []DependencyMessage
 
 	for _, checkDep := range deps.CustomChecks {
 		checks := checkDep.GetChecks()
@@ -152,13 +153,13 @@ func checkHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.E
 
 		if !found && lastErr != nil {
 			if len(checks) == 1 {
-				checkErrors = append(checkErrors, lastErr.Error())
+				checkErrors = append(checkErrors, DependencyMessage(lastErr.Error()))
 			} else {
 				names := make([]string, len(checks))
 				for i, c := range checks {
 					names[i] = string(c.Name)
 				}
-				checkErrors = append(checkErrors, fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", ")))
+				checkErrors = append(checkErrors, DependencyMessage(fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", "))))
 			}
 		}
 	}
@@ -185,7 +186,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 		return fmt.Errorf("container runtime not available for env var validation")
 	}
 
-	var envVarErrors []string
+	var envVarErrors []DependencyMessage
 
 	for _, envVar := range deps.EnvVars {
 		found, lastErr := evaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
@@ -228,13 +229,13 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 
 		if !found && lastErr != nil {
 			if len(envVar.Alternatives) == 1 {
-				envVarErrors = append(envVarErrors, lastErr.Error())
+				envVarErrors = append(envVarErrors, DependencyMessage(lastErr.Error()))
 			} else {
 				names := make([]string, len(envVar.Alternatives))
 				for i, alt := range envVar.Alternatives {
 					names[i] = strings.TrimSpace(string(alt.Name))
 				}
-				envVarErrors = append(envVarErrors, fmt.Sprintf("  • none of [%s] found or passed validation in container", strings.Join(names, ", ")))
+				envVarErrors = append(envVarErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found or passed validation in container", strings.Join(names, ", "))))
 			}
 		}
 	}
@@ -261,7 +262,7 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 		return fmt.Errorf("container runtime not available for capability validation")
 	}
 
-	var capabilityErrors []string
+	var capabilityErrors []DependencyMessage
 
 	for _, capDep := range deps.Capabilities {
 		found, lastErr := evaluateAlternatives(capDep.Alternatives, func(alt invowkfile.CapabilityName) error {
@@ -287,13 +288,13 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 
 		if !found && lastErr != nil {
 			if len(capDep.Alternatives) == 1 {
-				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • %s", lastErr.Error()))
+				capabilityErrors = append(capabilityErrors, DependencyMessage(fmt.Sprintf("  • %s", lastErr.Error())))
 			} else {
 				alts := make([]string, len(capDep.Alternatives))
 				for i, alt := range capDep.Alternatives {
 					alts[i] = string(alt)
 				}
-				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • none of capabilities [%s] satisfied in container", strings.Join(alts, ", ")))
+				capabilityErrors = append(capabilityErrors, DependencyMessage(fmt.Sprintf("  • none of capabilities [%s] satisfied in container", strings.Join(alts, ", "))))
 			}
 		}
 	}
@@ -338,7 +339,7 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 		return fmt.Errorf("container runtime not available for command dependency validation")
 	}
 
-	var commandErrors []string
+	var commandErrors []DependencyMessage
 
 	for _, dep := range deps.Commands {
 		var alternatives []string
@@ -378,9 +379,9 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 
 		if !found && lastErr != nil {
 			if len(alternatives) == 1 {
-				commandErrors = append(commandErrors, fmt.Sprintf("  • %s - command not found in container", alternatives[0]))
+				commandErrors = append(commandErrors, DependencyMessage(fmt.Sprintf("  • %s - command not found in container", alternatives[0])))
 			} else {
-				commandErrors = append(commandErrors, fmt.Sprintf("  • none of [%s] found in container", strings.Join(alternatives, ", ")))
+				commandErrors = append(commandErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found in container", strings.Join(alternatives, ", "))))
 			}
 		}
 	}
@@ -404,7 +405,7 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 		return nil
 	}
 
-	var capabilityErrors []string
+	var capabilityErrors []DependencyMessage
 
 	// Track seen capability sets to avoid duplicate network probes.
 	// Capabilities like "internet" and "local-area-network" involve network I/O,
@@ -432,13 +433,13 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 		if !found && lastErr != nil {
 			if len(capDep.Alternatives) == 1 {
-				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • %s", lastErr.Error()))
+				capabilityErrors = append(capabilityErrors, DependencyMessage(fmt.Sprintf("  • %s", lastErr.Error())))
 			} else {
 				alts := make([]string, len(capDep.Alternatives))
 				for i, alt := range capDep.Alternatives {
 					alts[i] = string(alt)
 				}
-				capabilityErrors = append(capabilityErrors, fmt.Sprintf("  • none of capabilities [%s] satisfied", strings.Join(alts, ", ")))
+				capabilityErrors = append(capabilityErrors, DependencyMessage(fmt.Sprintf("  • none of capabilities [%s] satisfied", strings.Join(alts, ", "))))
 			}
 		}
 	}
@@ -463,7 +464,7 @@ func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 		return nil
 	}
 
-	var envVarErrors []string
+	var envVarErrors []DependencyMessage
 
 	for _, envVar := range deps.EnvVars {
 		found, lastErr := evaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
@@ -496,14 +497,14 @@ func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 
 		if !found && lastErr != nil {
 			if len(envVar.Alternatives) == 1 {
-				envVarErrors = append(envVarErrors, lastErr.Error())
+				envVarErrors = append(envVarErrors, DependencyMessage(lastErr.Error()))
 			} else {
 				// Collect all alternative names for the error message
 				names := make([]string, len(envVar.Alternatives))
 				for i, alt := range envVar.Alternatives {
 					names[i] = strings.TrimSpace(string(alt.Name))
 				}
-				envVarErrors = append(envVarErrors, fmt.Sprintf("  • none of [%s] found or passed validation", strings.Join(names, ", ")))
+				envVarErrors = append(envVarErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found or passed validation", strings.Join(names, ", "))))
 			}
 		}
 	}

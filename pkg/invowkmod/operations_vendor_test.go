@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ============================================================================
@@ -383,10 +385,10 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 	cache2 := createCacheModule(t, tmpDir, "dep2.invowkmod", "dep2")
 
 	result, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
+		ModulePath: types.FilesystemPath(modulePath),
 		Modules: []*ResolvedModule{
-			{CachePath: cache1, Namespace: "dep1@1.0.0"},
-			{CachePath: cache2, Namespace: "dep2@2.0.0"},
+			{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
+			{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
 		},
 	})
 	if err != nil {
@@ -401,11 +403,11 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 	entryByNamespace := make(map[ModuleNamespace]VendoredEntry)
 	for _, entry := range result.Vendored {
 		entryByNamespace[entry.Namespace] = entry
-		if _, err := os.Stat(entry.VendorPath); err != nil {
+		if _, err := os.Stat(string(entry.VendorPath)); err != nil {
 			t.Errorf("vendored module not found at %s: %v", entry.VendorPath, err)
 		}
 		// Verify invowkmod.cue was copied
-		invowkmodPath := filepath.Join(entry.VendorPath, "invowkmod.cue")
+		invowkmodPath := filepath.Join(string(entry.VendorPath), "invowkmod.cue")
 		if _, err := os.Stat(invowkmodPath); err != nil {
 			t.Errorf("invowkmod.cue not found in vendored module: %v", err)
 		}
@@ -420,18 +422,18 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 
 	// Verify SourcePath points to the actual .invowkmod directory inside the cache
 	dep1Entry := entryByNamespace["dep1@1.0.0"]
-	expectedDep1Source := filepath.Join(cache1, "dep1.invowkmod")
+	expectedDep1Source := types.FilesystemPath(filepath.Join(cache1, "dep1.invowkmod"))
 	if dep1Entry.SourcePath != expectedDep1Source {
 		t.Errorf("dep1 SourcePath = %q, want %q", dep1Entry.SourcePath, expectedDep1Source)
 	}
 	dep2Entry := entryByNamespace["dep2@2.0.0"]
-	expectedDep2Source := filepath.Join(cache2, "dep2.invowkmod")
+	expectedDep2Source := types.FilesystemPath(filepath.Join(cache2, "dep2.invowkmod"))
 	if dep2Entry.SourcePath != expectedDep2Source {
 		t.Errorf("dep2 SourcePath = %q, want %q", dep2Entry.SourcePath, expectedDep2Source)
 	}
 
 	// Verify vendor dir is correct
-	expectedVendorDir := filepath.Join(modulePath, VendoredModulesDir)
+	expectedVendorDir := types.FilesystemPath(filepath.Join(modulePath, VendoredModulesDir))
 	if result.VendorDir != expectedVendorDir {
 		t.Errorf("VendorDir = %q, want %q", result.VendorDir, expectedVendorDir)
 	}
@@ -446,8 +448,8 @@ func TestVendorModules_OverwritesExisting(t *testing.T) {
 
 	// Vendor once
 	_, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
-		Modules:    []*ResolvedModule{{CachePath: cache1, Namespace: "dep1@1.0.0"}},
+		ModulePath: types.FilesystemPath(modulePath),
+		Modules:    []*ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
 	})
 	if err != nil {
 		t.Fatalf("first VendorModules() error: %v", err)
@@ -462,8 +464,8 @@ func TestVendorModules_OverwritesExisting(t *testing.T) {
 
 	// Vendor again — should overwrite, removing the stale marker
 	_, err = VendorModules(VendorOptions{
-		ModulePath: modulePath,
-		Modules:    []*ResolvedModule{{CachePath: cache1, Namespace: "dep1@1.0.0"}},
+		ModulePath: types.FilesystemPath(modulePath),
+		Modules:    []*ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
 	})
 	if err != nil {
 		t.Fatalf("second VendorModules() error: %v", err)
@@ -484,10 +486,10 @@ func TestVendorModules_Prune(t *testing.T) {
 
 	// Vendor both modules initially
 	_, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
+		ModulePath: types.FilesystemPath(modulePath),
 		Modules: []*ResolvedModule{
-			{CachePath: cache1, Namespace: "dep1@1.0.0"},
-			{CachePath: cache2, Namespace: "dep2@2.0.0"},
+			{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
+			{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
 		},
 	})
 	if err != nil {
@@ -496,8 +498,8 @@ func TestVendorModules_Prune(t *testing.T) {
 
 	// Now vendor only dep1 with prune — dep2 should be removed
 	result, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
-		Modules:    []*ResolvedModule{{CachePath: cache1, Namespace: "dep1@1.0.0"}},
+		ModulePath: types.FilesystemPath(modulePath),
+		Modules:    []*ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
 		Prune:      true,
 	})
 	if err != nil {
@@ -531,7 +533,7 @@ func TestVendorModules_EmptyModulesList(t *testing.T) {
 	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
 
 	result, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
+		ModulePath: types.FilesystemPath(modulePath),
 		Modules:    []*ResolvedModule{},
 	})
 	if err != nil {
@@ -543,7 +545,7 @@ func TestVendorModules_EmptyModulesList(t *testing.T) {
 	}
 
 	// Vendor dir should still be created
-	if _, err := os.Stat(result.VendorDir); err != nil {
+	if _, err := os.Stat(string(result.VendorDir)); err != nil {
 		t.Errorf("vendor directory should exist: %v", err)
 	}
 }
@@ -555,9 +557,9 @@ func TestVendorModules_InvalidCachePath(t *testing.T) {
 	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
 
 	_, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
+		ModulePath: types.FilesystemPath(modulePath),
 		Modules: []*ResolvedModule{
-			{CachePath: filepath.Join(tmpDir, "nonexistent-cache"), Namespace: "bad@1.0.0"},
+			{CachePath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-cache")), Namespace: "bad@1.0.0"},
 		},
 	})
 	if err == nil {
@@ -686,10 +688,10 @@ func TestVendorModules_SameBasenameFails(t *testing.T) {
 	cache2 := createCacheModule(t, tmpDir, "dep.invowkmod", "dep-beta")
 
 	_, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
+		ModulePath: types.FilesystemPath(modulePath),
 		Modules: []*ResolvedModule{
-			{CachePath: cache1, Namespace: "dep-alpha@1.0.0"},
-			{CachePath: cache2, Namespace: "dep-beta@2.0.0"},
+			{CachePath: types.FilesystemPath(cache1), Namespace: "dep-alpha@1.0.0"},
+			{CachePath: types.FilesystemPath(cache2), Namespace: "dep-beta@2.0.0"},
 		},
 	})
 	if err == nil {
@@ -712,13 +714,13 @@ func TestVendorModules_PruneNoOp(t *testing.T) {
 	cache2 := createCacheModule(t, tmpDir, "dep2.invowkmod", "dep2")
 
 	modules := []*ResolvedModule{
-		{CachePath: cache1, Namespace: "dep1@1.0.0"},
-		{CachePath: cache2, Namespace: "dep2@2.0.0"},
+		{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
+		{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
 	}
 
 	// Vendor both modules initially
 	_, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
+		ModulePath: types.FilesystemPath(modulePath),
 		Modules:    modules,
 	})
 	if err != nil {
@@ -727,7 +729,7 @@ func TestVendorModules_PruneNoOp(t *testing.T) {
 
 	// Re-vendor the same set with prune — nothing should be pruned
 	result, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
+		ModulePath: types.FilesystemPath(modulePath),
 		Modules:    modules,
 		Prune:      true,
 	})
@@ -756,7 +758,7 @@ func TestVendorModules_PruneNoVendorDir(t *testing.T) {
 
 	// Prune with empty modules list on a fresh module (no vendor dir yet)
 	result, err := VendorModules(VendorOptions{
-		ModulePath: modulePath,
+		ModulePath: types.FilesystemPath(modulePath),
 		Modules:    []*ResolvedModule{},
 		Prune:      true,
 	})

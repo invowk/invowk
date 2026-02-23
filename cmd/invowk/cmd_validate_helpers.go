@@ -48,20 +48,20 @@ func newContainerValidationContext(parentCtx *runtime.ExecutionContext, script s
 // tools that are not satisfied. Each tool has alternatives with OR semantics (any
 // alternative found satisfies the dependency). The check function validates a single
 // tool name; it's called for each alternative until one succeeds.
-func collectToolErrors(tools []invowkfile.ToolDependency, check func(invowkfile.BinaryName) error) []string {
-	var toolErrors []string
+func collectToolErrors(tools []invowkfile.ToolDependency, check func(invowkfile.BinaryName) error) []DependencyMessage {
+	var toolErrors []DependencyMessage
 
 	for _, tool := range tools {
 		found, lastErr := evaluateAlternatives(tool.Alternatives, check)
 		if !found && lastErr != nil {
 			if len(tool.Alternatives) == 1 {
-				toolErrors = append(toolErrors, lastErr.Error())
+				toolErrors = append(toolErrors, DependencyMessage(lastErr.Error()))
 			} else {
 				names := make([]string, len(tool.Alternatives))
 				for i, alt := range tool.Alternatives {
 					names[i] = string(alt)
 				}
-				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(names, ", ")))
+				toolErrors = append(toolErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found", strings.Join(names, ", "))))
 			}
 		}
 	}

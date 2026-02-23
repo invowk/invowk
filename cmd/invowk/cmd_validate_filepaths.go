@@ -27,11 +27,11 @@ func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, registry *
 		return fmt.Errorf("container runtime not available for filepath validation")
 	}
 
-	var filepathErrors []string
+	var filepathErrors []DependencyMessage
 
 	for _, fp := range deps.Filepaths {
 		if err := validateFilepathInContainer(fp, rt, ctx); err != nil {
-			filepathErrors = append(filepathErrors, err.Error())
+			filepathErrors = append(filepathErrors, DependencyMessage(err.Error()))
 		}
 	}
 
@@ -106,12 +106,12 @@ func checkHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath st
 		return nil
 	}
 
-	var filepathErrors []string
+	var filepathErrors []DependencyMessage
 	invowkDir := filepath.Dir(invowkfilePath)
 
 	for _, fp := range deps.Filepaths {
 		if err := validateFilepathAlternatives(fp, invowkDir); err != nil {
-			filepathErrors = append(filepathErrors, err.Error())
+			filepathErrors = append(filepathErrors, DependencyMessage(err.Error()))
 		}
 	}
 

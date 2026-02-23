@@ -11,6 +11,7 @@ import (
 
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -63,7 +64,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 
 	var output []byte
 	var err error
-	var exitCode int
+	var exitCode types.ExitCode
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
@@ -76,7 +77,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 			return clientErr
 		}
 		output = []byte(result.Stdout)
-		exitCode = result.ExitCode
+		exitCode = types.ExitCode(result.ExitCode)
 		if exitCode != 0 {
 			// Create a synthetic error for non-zero exit
 			err = fmt.Errorf("command exited with code %d", exitCode)
@@ -104,7 +105,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
-			return &ExitError{Code: exitErr.ExitCode()}
+			return &ExitError{Code: types.ExitCode(exitErr.ExitCode())}
 		}
 		// If we got a synthetic error from HTTP client
 		if exitCode != 0 {
