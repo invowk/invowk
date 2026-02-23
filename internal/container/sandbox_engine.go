@@ -164,7 +164,7 @@ func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID ContainerID
 }
 
 // ImageExists checks if an image exists.
-func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image string) (bool, error) {
+func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image ImageTag) (bool, error) {
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.ImageExists(ctx, image)
 	}
@@ -172,11 +172,12 @@ func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image string) (boo
 	// Build image exists check command
 	// Podman: "image exists <image>"
 	// Docker: "image inspect <image>"
+	imageStr := string(image)
 	var checkArgs []string
 	if e.wrapped.Name() == string(EngineTypePodman) {
-		checkArgs = []string{"image", "exists", image}
+		checkArgs = []string{"image", "exists", imageStr}
 	} else {
-		checkArgs = []string{"image", "inspect", image}
+		checkArgs = []string{"image", "inspect", imageStr}
 	}
 
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), checkArgs)
@@ -187,7 +188,7 @@ func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image string) (boo
 }
 
 // RemoveImage removes an image.
-func (e *SandboxAwareEngine) RemoveImage(ctx context.Context, image string, force bool) error {
+func (e *SandboxAwareEngine) RemoveImage(ctx context.Context, image ImageTag, force bool) error {
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.RemoveImage(ctx, image, force)
 	}

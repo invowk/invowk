@@ -116,14 +116,14 @@ type (
 		// - Specific value: use as interpreter (e.g., "python3", "node")
 		// When declared, interpreter must be non-empty (cannot be "" or whitespace-only)
 		// Not allowed for virtual runtime (CUE schema enforces this, Go validates as fallback)
-		Interpreter string `json:"interpreter,omitempty"`
+		Interpreter InterpreterSpec `json:"interpreter,omitempty"`
 		// EnvInheritMode controls host environment inheritance (optional)
 		// Allowed values: "none", "allow", "all"
 		EnvInheritMode EnvInheritMode `json:"env_inherit_mode,omitempty"`
 		// EnvInheritAllow lists host env vars to allow when EnvInheritMode is "allow"
-		EnvInheritAllow []string `json:"env_inherit_allow,omitempty"`
+		EnvInheritAllow []EnvVarName `json:"env_inherit_allow,omitempty"`
 		// EnvInheritDeny lists host env vars to block (applies to any mode)
-		EnvInheritDeny []string `json:"env_inherit_deny,omitempty"`
+		EnvInheritDeny []EnvVarName `json:"env_inherit_deny,omitempty"`
 		// DependsOn specifies dependencies validated inside the container environment.
 		// Only valid when Name is RuntimeContainer. For native/virtual runtimes, CUE schema
 		// rejects this field; Go structural validation provides defense-in-depth.
@@ -134,14 +134,14 @@ type (
 		EnableHostSSH bool `json:"enable_host_ssh,omitempty"`
 		// Containerfile specifies the path to Containerfile/Dockerfile (container only)
 		// Mutually exclusive with Image
-		Containerfile string `json:"containerfile,omitempty"`
+		Containerfile ContainerfilePath `json:"containerfile,omitempty"`
 		// Image specifies a pre-built container image to use (container only)
 		// Mutually exclusive with Containerfile
 		Image ContainerImage `json:"image,omitempty"`
 		// Volumes specifies volume mounts in "host:container" format (container only)
-		Volumes []string `json:"volumes,omitempty"`
+		Volumes []VolumeMountSpec `json:"volumes,omitempty"`
 		// Ports specifies port mappings in "host:container" format (container only)
-		Ports []string `json:"ports,omitempty"`
+		Ports []PortMappingSpec `json:"ports,omitempty"`
 	}
 
 	// PlatformConfig represents a platform configuration
@@ -283,7 +283,7 @@ func (rc *RuntimeConfig) GetEffectiveInterpreter() string {
 	if rc.Interpreter == "" {
 		return InterpreterAuto
 	}
-	return rc.Interpreter
+	return string(rc.Interpreter)
 }
 
 // ResolveInterpreterFromScript resolves the interpreter for this runtime config
@@ -401,13 +401,13 @@ func parseEnvShebang(args []string) ShebangInfo {
 //
 // This is used when the interpreter is explicitly specified (not "auto").
 // Returns ShebangInfo{Found: false} if the spec is empty or "auto".
-func ParseInterpreterString(spec string) ShebangInfo {
-	spec = strings.TrimSpace(spec)
-	if spec == "" || spec == InterpreterAuto {
+func ParseInterpreterString(spec InterpreterSpec) ShebangInfo {
+	specStr := strings.TrimSpace(string(spec))
+	if specStr == "" || specStr == InterpreterAuto {
 		return ShebangInfo{Found: false}
 	}
 
-	parts := strings.Fields(spec)
+	parts := strings.Fields(specStr)
 	if len(parts) == 0 {
 		return ShebangInfo{Found: false}
 	}
@@ -458,9 +458,9 @@ func GetExtensionForInterpreter(interpreter string) string {
 //
 // Returns the parsed ShebangInfo. If Found is false, the caller should use
 // the default shell-based execution.
-func ResolveInterpreter(interpreter, scriptContent string) ShebangInfo {
+func ResolveInterpreter(interpreter InterpreterSpec, scriptContent string) ShebangInfo {
 	// Default to "auto" if empty
-	effectiveInterpreter := interpreter
+	effectiveInterpreter := string(interpreter)
 	if effectiveInterpreter == "" {
 		effectiveInterpreter = InterpreterAuto
 	}
@@ -471,5 +471,5 @@ func ResolveInterpreter(interpreter, scriptContent string) ShebangInfo {
 	}
 
 	// Parse explicit interpreter string
-	return ParseInterpreterString(effectiveInterpreter)
+	return ParseInterpreterString(InterpreterSpec(effectiveInterpreter))
 }

@@ -328,7 +328,7 @@ func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
 						Tools:    []ToolDependency{{Alternatives: []BinaryName{"curl"}}},
 						Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
 						Filepaths: []FilepathDependency{{
-							Alternatives: []string{"/etc/hosts"},
+							Alternatives: []FilesystemPath{"/etc/hosts"},
 							Readable:     true,
 						}},
 						Capabilities: []CapabilityDependency{{

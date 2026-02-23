@@ -79,7 +79,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 	}
 
 	// Validate description is not empty (after trimming whitespace)
-	if strings.TrimSpace(arg.Description) == "" {
+	if strings.TrimSpace(string(arg.Description)) == "" {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
@@ -89,7 +89,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 	}
 
 	// [CUE-VALIDATED] Argument description length also enforced by CUE schema (#Argument.description MaxRunes(10240))
-	if err := ValidateStringLength(arg.Description, "argument description", MaxDescriptionLength); err != nil {
+	if err := ValidateStringLength(string(arg.Description), "argument description", MaxDescriptionLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),

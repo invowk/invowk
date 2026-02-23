@@ -268,8 +268,8 @@ func (d *Discovery) getAliasForModulePath(modulePath string) string {
 	cleanPath := filepath.Clean(modulePath)
 
 	for _, inc := range d.cfg.Includes {
-		if inc.Alias != "" && filepath.Clean(inc.Path) == cleanPath {
-			return inc.Alias
+		if inc.Alias != "" && filepath.Clean(string(inc.Path)) == cleanPath {
+			return string(inc.Alias)
 		}
 	}
 

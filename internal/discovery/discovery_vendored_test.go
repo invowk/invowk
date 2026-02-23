@@ -124,7 +124,7 @@ func TestDiscoverAll_FindsVendoredModulesInIncludes(t *testing.T) {
 	createVendoredModule(t, includedModule, "vendep.invowkmod", "vendep", "vendep-cmd")
 
 	cfg := config.DefaultConfig()
-	cfg.Includes = []config.IncludeEntry{{Path: includedModule}}
+	cfg.Includes = []config.IncludeEntry{{Path: config.ModuleIncludePath(includedModule)}}
 
 	workDir := filepath.Join(tmpDir, "work")
 	if err := os.MkdirAll(workDir, 0o755); err != nil {

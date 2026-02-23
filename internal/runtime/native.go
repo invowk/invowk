@@ -20,7 +20,7 @@ type (
 	// NativeRuntime executes commands using the system's default shell
 	NativeRuntime struct {
 		// Shell overrides the default shell
-		Shell string
+		Shell invowkfile.ShellPath
 		// ShellArgs are arguments passed to the shell before the script
 		ShellArgs []string
 		// envBuilder builds environment variables for execution
@@ -277,7 +277,7 @@ func (r *NativeRuntime) createTempScript(content, interpreter string) (string, e
 // getShell determines which shell to use
 func (r *NativeRuntime) getShell() (string, error) {
 	if r.Shell != "" {
-		return r.Shell, nil
+		return string(r.Shell), nil
 	}
 
 	switch runtime.GOOS {

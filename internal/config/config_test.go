@@ -359,8 +359,8 @@ func TestLoadAndSave(t *testing.T) {
 	cfg := &Config{
 		ContainerEngine: ContainerEngineDocker,
 		Includes: []IncludeEntry{
-			{Path: includePathTwo, Alias: "two-alias"},
-			{Path: includePathThree},
+			{Path: ModuleIncludePath(includePathTwo), Alias: "two-alias"},
+			{Path: ModuleIncludePath(includePathThree)},
 		},
 		DefaultRuntime: "container",
 		VirtualShell: VirtualShellConfig{
@@ -375,7 +375,7 @@ func TestLoadAndSave(t *testing.T) {
 			AutoProvision: AutoProvisionConfig{
 				Enabled:         false,
 				BinaryPath:      binaryPath,
-				Includes:        []IncludeEntry{{Path: autoProvisionIncludePath}},
+				Includes:        []IncludeEntry{{Path: ModuleIncludePath(autoProvisionIncludePath)}},
 				InheritIncludes: false,
 				CacheDir:        cacheDir,
 			},
@@ -433,7 +433,7 @@ func TestLoadAndSave(t *testing.T) {
 		t.Errorf("AutoProvision.BinaryPath = %q, want %q", loaded.Container.AutoProvision.BinaryPath, binaryPath)
 	}
 
-	if len(loaded.Container.AutoProvision.Includes) != 1 || loaded.Container.AutoProvision.Includes[0].Path != autoProvisionIncludePath {
+	if len(loaded.Container.AutoProvision.Includes) != 1 || loaded.Container.AutoProvision.Includes[0].Path != ModuleIncludePath(autoProvisionIncludePath) {
 		t.Errorf("AutoProvision.Includes = %v, want [{Path:%s}]", loaded.Container.AutoProvision.Includes, autoProvisionIncludePath)
 	}
 

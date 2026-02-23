@@ -310,7 +310,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	// Run the container
 	runOpts := container.RunOptions{
-		Image:       prep.image,
+		Image:       container.ImageTag(prep.image),
 		Command:     prep.shellCmd,
 		WorkDir:     prep.workDir,
 		Env:         prep.env,
@@ -350,7 +350,7 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	// Run the container with output capture
 	runOpts := container.RunOptions{
-		Image:       prep.image,
+		Image:       container.ImageTag(prep.image),
 		Command:     prep.shellCmd,
 		WorkDir:     prep.workDir,
 		Env:         prep.env,

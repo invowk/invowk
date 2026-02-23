@@ -499,7 +499,7 @@ func TestInvowkfile_HasRootLevelDependencies(t *testing.T) {
 		{
 			name: "with filepaths",
 			deps: &DependsOn{
-				Filepaths: []FilepathDependency{{Alternatives: []string{"/etc/hosts"}}},
+				Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"/etc/hosts"}}},
 			},
 			expected: true,
 		},
@@ -535,7 +535,7 @@ func TestMergeDependsOnAll(t *testing.T) {
 	}
 	cmdDeps := &DependsOn{
 		Tools:     []ToolDependency{{Alternatives: []BinaryName{"bash"}}},
-		Filepaths: []FilepathDependency{{Alternatives: []string{"/etc/hosts"}}},
+		Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"/etc/hosts"}}},
 		Commands:  []CommandDependency{{Alternatives: []CommandName{"build"}}},
 	}
 	implDeps := &DependsOn{
@@ -676,7 +676,7 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 		DependsOn: &DependsOn{
 			Tools:        []ToolDependency{{Alternatives: []BinaryName{"sh", "bash"}}},
 			Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
-			Filepaths:    []FilepathDependency{{Alternatives: []string{"/etc/hosts"}, Readable: true}},
+			Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{"/etc/hosts"}, Readable: true}},
 			EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}},
 		},
 		Commands: []Command{

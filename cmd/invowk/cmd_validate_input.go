@@ -25,7 +25,7 @@ func captureUserEnv() map[string]string {
 
 // validateFlagValues validates flag values at runtime.
 // It checks that required flags are provided and validates values against type and regex patterns.
-func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
+func validateFlagValues(cmdName string, flagValues map[invowkfile.FlagName]string, flagDefs []invowkfile.Flag) error {
 	if flagDefs == nil {
 		return nil
 	}
@@ -33,7 +33,7 @@ func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs [
 	var validationErrs []string
 
 	for _, flag := range flagDefs {
-		value, hasValue := flagValues[string(flag.Name)]
+		value, hasValue := flagValues[flag.Name]
 
 		// Check required flags
 		// Note: Cobra handles required flag checking via MarkFlagRequired,

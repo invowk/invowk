@@ -130,6 +130,7 @@ When working in a specific code area, apply these rules and skills:
 | `internal/benchmark/` | go-patterns, testing, licensing, commands | — |
 | `internal/watch/` | go-patterns, testing, licensing | — |
 | `pkg/platform/` | go-patterns, testing, windows, licensing | — |
+| `pkg/types/` | go-patterns, testing, licensing, package-design | — |
 | `tests/cli/` | testing | testing, cli, invowk-schema |
 
 ## Architecture Overview
@@ -168,7 +169,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
   - `benchmark/` - Benchmarks for PGO profile generation.
   - `watch/` - File-watching with debounced re-execution for `--ivk-watch` mode.
   - `provision/` - Container provisioning (ephemeral layer attachment).
-- `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform).
+- `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform, types).
 - `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
 - `modules/` - Sample invowk modules for validation and reference.
 - `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation).

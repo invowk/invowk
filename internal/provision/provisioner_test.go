@@ -57,12 +57,12 @@ func (m *mockEngine) Remove(_ context.Context, _ container.ContainerID, _ bool) 
 	return nil
 }
 
-func (m *mockEngine) ImageExists(_ context.Context, image string) (bool, error) {
-	m.imageExistsCalls = append(m.imageExistsCalls, image)
+func (m *mockEngine) ImageExists(_ context.Context, image container.ImageTag) (bool, error) {
+	m.imageExistsCalls = append(m.imageExistsCalls, string(image))
 	return m.imageExistsResult, m.imageExistsErr
 }
 
-func (m *mockEngine) RemoveImage(_ context.Context, _ string, _ bool) error {
+func (m *mockEngine) RemoveImage(_ context.Context, _ container.ImageTag, _ bool) error {
 	return nil
 }
 

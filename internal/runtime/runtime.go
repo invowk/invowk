@@ -78,9 +78,9 @@ type (
 		// InheritModeOverride overrides the runtime config env inherit mode when set.
 		InheritModeOverride invowkfile.EnvInheritMode
 		// InheritAllowOverride overrides the runtime config allowlist when set.
-		InheritAllowOverride []string
+		InheritAllowOverride []invowkfile.EnvVarName
 		// InheritDenyOverride overrides the runtime config denylist when set.
-		InheritDenyOverride []string
+		InheritDenyOverride []invowkfile.EnvVarName
 		// Cwd overrides the working directory for --ivk-env-file path resolution.
 		// When empty, os.Getwd() is used.
 		Cwd string
@@ -93,11 +93,11 @@ type (
 		// When set, runtimes should include this in the command's environment
 		// as INVOWK_TUI_ADDR. For container runtimes, this should already be
 		// translated to a container-accessible address (e.g., host.docker.internal).
-		ServerURL string
+		ServerURL TUIServerURL
 		// ServerToken is the authentication token for the TUI server.
 		// When set, runtimes should include this in the command's environment
 		// as INVOWK_TUI_TOKEN.
-		ServerToken string
+		ServerToken TUIServerToken
 	}
 
 	// ExecutionContext contains all information needed to execute a command.
@@ -122,7 +122,7 @@ type (
 		// PositionalArgs contains command-line arguments to pass as shell positional parameters ($1, $2, etc.)
 		PositionalArgs []string
 		// WorkDir overrides the working directory
-		WorkDir string
+		WorkDir invowkfile.WorkDir
 		// Verbose enables verbose output
 		Verbose bool
 		// ForceRebuild forces container image rebuilds, bypassing cache (container runtime only)

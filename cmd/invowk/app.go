@@ -71,7 +71,7 @@ type (
 		// ConfigPath is the explicit --ivk-config flag value.
 		ConfigPath string
 		// FlagValues are parsed flag values from Cobra state (key: flag name).
-		FlagValues map[string]string
+		FlagValues map[invowkfile.FlagName]string
 		// FlagDefs are the command's flag definitions from the invowkfile.
 		FlagDefs []invowkfile.Flag
 		// ArgDefs are the command's argument definitions from the invowkfile.
@@ -80,9 +80,9 @@ type (
 		// Zero value ("") means no override.
 		EnvInheritMode invowkfile.EnvInheritMode
 		// EnvInheritAllow overrides the runtime config env allowlist.
-		EnvInheritAllow []string
+		EnvInheritAllow []invowkfile.EnvVarName
 		// EnvInheritDeny overrides the runtime config env denylist.
-		EnvInheritDeny []string
+		EnvInheritDeny []invowkfile.EnvVarName
 		// DryRun enables dry-run mode: prints what would be executed without executing.
 		DryRun bool
 		// UserEnv captures the host environment at execution entry, before invowk

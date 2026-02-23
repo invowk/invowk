@@ -35,6 +35,15 @@ var (
 
 	// ErrInvalidSELinuxLabel is the sentinel error wrapped by InvalidSELinuxLabelError.
 	ErrInvalidSELinuxLabel = errors.New("invalid SELinux label")
+
+	// ErrInvalidNetworkPort is the sentinel error wrapped by InvalidNetworkPortError.
+	ErrInvalidNetworkPort = errors.New("invalid network port")
+
+	// ErrInvalidHostFilesystemPath is the sentinel error wrapped by InvalidHostFilesystemPathError.
+	ErrInvalidHostFilesystemPath = errors.New("invalid host filesystem path")
+
+	// ErrInvalidMountTargetPath is the sentinel error wrapped by InvalidMountTargetPathError.
+	ErrInvalidMountTargetPath = errors.New("invalid container filesystem path")
 )
 
 type (
@@ -127,18 +136,45 @@ type (
 		Value SELinuxLabel
 	}
 
+	// NetworkPort represents a TCP/UDP port number for container port mappings.
+	// A valid port must be greater than zero.
+	NetworkPort uint16
+
+	// InvalidNetworkPortError is returned when a NetworkPort value is zero.
+	InvalidNetworkPortError struct {
+		Value NetworkPort
+	}
+
+	// HostFilesystemPath represents a filesystem path on the host for volume mounts.
+	// A valid path must be non-empty and not whitespace-only.
+	HostFilesystemPath string
+
+	// InvalidHostFilesystemPathError is returned when a HostFilesystemPath is empty or whitespace-only.
+	InvalidHostFilesystemPathError struct {
+		Value HostFilesystemPath
+	}
+
+	// MountTargetPath represents a filesystem path inside a container for volume mounts.
+	// A valid path must be non-empty and not whitespace-only.
+	MountTargetPath string
+
+	// InvalidMountTargetPathError is returned when a MountTargetPath is empty or whitespace-only.
+	InvalidMountTargetPathError struct {
+		Value MountTargetPath
+	}
+
 	// VolumeMount represents a volume mount specification.
 	VolumeMount struct {
-		HostPath      string
-		ContainerPath string
+		HostPath      HostFilesystemPath
+		ContainerPath MountTargetPath
 		ReadOnly      bool
 		SELinux       SELinuxLabel
 	}
 
 	// PortMapping represents a port mapping specification.
 	PortMapping struct {
-		HostPort      uint16
-		ContainerPort uint16
+		HostPort      NetworkPort
+		ContainerPort NetworkPort
 		Protocol      PortProtocol
 	}
 )
@@ -188,6 +224,68 @@ func (s SELinuxLabel) IsValid() (bool, []error) {
 
 // String returns the string representation of the SELinuxLabel.
 func (s SELinuxLabel) String() string { return string(s) }
+
+// String returns the string representation of the NetworkPort.
+func (p NetworkPort) String() string { return fmt.Sprintf("%d", p) }
+
+// IsValid returns whether the NetworkPort is valid.
+// A valid port must be greater than zero.
+func (p NetworkPort) IsValid() (bool, []error) {
+	if p == 0 {
+		return false, []error{&InvalidNetworkPortError{Value: p}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidNetworkPortError.
+func (e *InvalidNetworkPortError) Error() string {
+	return fmt.Sprintf("invalid network port %d: must be greater than zero", e.Value)
+}
+
+// Unwrap returns ErrInvalidNetworkPort for errors.Is() compatibility.
+func (e *InvalidNetworkPortError) Unwrap() error { return ErrInvalidNetworkPort }
+
+// String returns the string representation of the HostFilesystemPath.
+func (p HostFilesystemPath) String() string { return string(p) }
+
+// IsValid returns whether the HostFilesystemPath is valid.
+// A valid path must be non-empty and not whitespace-only.
+func (p HostFilesystemPath) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(p)) == "" {
+		return false, []error{&InvalidHostFilesystemPathError{Value: p}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidHostFilesystemPathError.
+func (e *InvalidHostFilesystemPathError) Error() string {
+	return fmt.Sprintf("invalid host filesystem path %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidHostFilesystemPath for errors.Is() compatibility.
+func (e *InvalidHostFilesystemPathError) Unwrap() error { return ErrInvalidHostFilesystemPath }
+
+// String returns the string representation of the MountTargetPath.
+func (p MountTargetPath) String() string { return string(p) }
+
+// IsValid returns whether the MountTargetPath is valid.
+// A valid path must be non-empty and not whitespace-only.
+func (p MountTargetPath) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(p)) == "" {
+		return false, []error{&InvalidMountTargetPathError{Value: p}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidMountTargetPathError.
+func (e *InvalidMountTargetPathError) Error() string {
+	return fmt.Sprintf("invalid container filesystem path %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidMountTargetPath for errors.Is() compatibility.
+func (e *InvalidMountTargetPathError) Unwrap() error {
+	return ErrInvalidMountTargetPath
+}
 
 // --- Option Functions ---
 
@@ -366,7 +464,7 @@ func (e *BaseCLIEngine) RunArgs(opts RunOptions) []string {
 		args = append(args, "--add-host", string(h))
 	}
 
-	args = append(args, opts.Image)
+	args = append(args, string(opts.Image))
 	args = append(args, opts.Command...)
 
 	return e.runArgsTransformer(args)
@@ -412,12 +510,12 @@ func (e *BaseCLIEngine) RemoveArgs(containerID ContainerID, force bool) []string
 }
 
 // RemoveImageArgs constructs arguments for an image remove command.
-func (e *BaseCLIEngine) RemoveImageArgs(image string, force bool) []string {
+func (e *BaseCLIEngine) RemoveImageArgs(image ImageTag, force bool) []string {
 	args := []string{"rmi"}
 	if force {
 		args = append(args, "-f")
 	}
-	args = append(args, image)
+	args = append(args, string(image))
 	return args
 }
 
@@ -569,7 +667,7 @@ func (e *BaseCLIEngine) Remove(ctx context.Context, containerID ContainerID, for
 }
 
 // RemoveImage removes an image.
-func (e *BaseCLIEngine) RemoveImage(ctx context.Context, image string, force bool) error {
+func (e *BaseCLIEngine) RemoveImage(ctx context.Context, image ImageTag, force bool) error {
 	args := e.RemoveImageArgs(image, force)
 	return e.RunCommandStatus(ctx, args...)
 }
@@ -582,8 +680,8 @@ func (e *BaseCLIEngine) BuildRunArgs(opts RunOptions) []string {
 }
 
 // InspectImage returns information about an image.
-func (e *BaseCLIEngine) InspectImage(ctx context.Context, image string) (string, error) {
-	return e.RunCommandWithOutput(ctx, "image", "inspect", image)
+func (e *BaseCLIEngine) InspectImage(ctx context.Context, image ImageTag) (string, error) {
+	return e.RunCommandWithOutput(ctx, "image", "inspect", string(image))
 }
 
 // customizeCmd applies env overrides to a command.
@@ -633,9 +731,9 @@ func ResolveDockerfilePath(contextPath, dockerfilePath string) (string, error) {
 // FormatVolumeMount formats a volume mount as a string for -v flag.
 func FormatVolumeMount(mount VolumeMount) string {
 	var result strings.Builder
-	result.WriteString(mount.HostPath)
+	result.WriteString(string(mount.HostPath))
 	result.WriteString(":")
-	result.WriteString(mount.ContainerPath)
+	result.WriteString(string(mount.ContainerPath))
 
 	var options []string
 	if mount.ReadOnly {
@@ -662,10 +760,10 @@ func ParseVolumeMount(volume string) VolumeMount {
 	parts := strings.Split(volume, ":")
 
 	if len(parts) >= 1 {
-		mount.HostPath = parts[0]
+		mount.HostPath = HostFilesystemPath(parts[0])
 	}
 	if len(parts) >= 2 {
-		mount.ContainerPath = parts[1]
+		mount.ContainerPath = MountTargetPath(parts[1])
 	}
 	if len(parts) >= 3 {
 		options := parts[2]
@@ -723,7 +821,7 @@ func buildContainerError(engine string, opts BuildOptions, cause error) error {
 func runContainerError(engine string, opts RunOptions, cause error) error {
 	ctx := issue.NewErrorContext().
 		WithOperation("run container").
-		WithResource(opts.Image)
+		WithResource(string(opts.Image))
 
 	ctx.WithSuggestion("Verify the image exists (try: " + engine + " images)")
 	ctx.WithSuggestion("Check that volume mount paths exist on the host")

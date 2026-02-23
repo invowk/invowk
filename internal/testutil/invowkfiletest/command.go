@@ -66,7 +66,7 @@ func WithScript(script string) CommandOption {
 // WithDescription sets the command description.
 func WithDescription(desc string) CommandOption {
 	return func(c *invowkfile.Command) {
-		c.Description = desc
+		c.Description = invowkfile.DescriptionText(desc)
 	}
 }
 
@@ -208,7 +208,7 @@ func FlagShorthand(s string) FlagOption {
 // FlagDescription sets the flag's description.
 func FlagDescription(desc string) FlagOption {
 	return func(f *invowkfile.Flag) {
-		f.Description = desc
+		f.Description = invowkfile.DescriptionText(desc)
 	}
 }
 
@@ -263,7 +263,7 @@ func ArgVariadic() ArgOption {
 // ArgDescription sets the argument's description.
 func ArgDescription(desc string) ArgOption {
 	return func(a *invowkfile.Argument) {
-		a.Description = desc
+		a.Description = invowkfile.DescriptionText(desc)
 	}
 }
 

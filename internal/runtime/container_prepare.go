@@ -135,15 +135,15 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 
 	// Add TUI server environment variables if set (for interactive mode)
 	if ctx.TUI.ServerURL != "" {
-		env["INVOWK_TUI_ADDR"] = ctx.TUI.ServerURL
+		env["INVOWK_TUI_ADDR"] = string(ctx.TUI.ServerURL)
 	}
 	if ctx.TUI.ServerToken != "" {
-		env["INVOWK_TUI_TOKEN"] = ctx.TUI.ServerToken
+		env["INVOWK_TUI_TOKEN"] = string(ctx.TUI.ServerToken)
 	}
 
 	// Build run options - enable TTY and Interactive for PTY attachment
 	runOpts := container.RunOptions{
-		Image:       image,
+		Image:       container.ImageTag(image),
 		Command:     shellCmd,
 		WorkDir:     workDir,
 		Env:         env,
@@ -197,7 +197,7 @@ func (r *ContainerRuntime) CleanupImage(ctx *ExecutionContext) error {
 	if err != nil {
 		return err
 	}
-	return r.engine.RemoveImage(ctx.Context, imageTag, true)
+	return r.engine.RemoveImage(ctx.Context, container.ImageTag(imageTag), true)
 }
 
 // GetEngineName returns the name of the underlying container engine

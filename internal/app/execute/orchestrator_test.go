@@ -200,7 +200,7 @@ func TestBuildExecutionContext(t *testing.T) {
 				Command:    cmd,
 				Invowkfile: inv,
 				Selection:  sel,
-				FlagValues: map[string]string{
+				FlagValues: map[invowkfile.FlagName]string{
 					"output-file": "/tmp/out",
 					"verbose":     "true",
 				},
@@ -330,7 +330,7 @@ func TestBuildExecutionContext_InheritanceValidation(t *testing.T) {
 				Command:         cmd,
 				Invowkfile:      inv,
 				Selection:       sel,
-				EnvInheritAllow: []string{"INVALID-NAME!"},
+				EnvInheritAllow: []invowkfile.EnvVarName{"INVALID-NAME!"},
 			},
 			wantErr: true,
 		},
@@ -340,7 +340,7 @@ func TestBuildExecutionContext_InheritanceValidation(t *testing.T) {
 				Command:        cmd,
 				Invowkfile:     inv,
 				Selection:      sel,
-				EnvInheritDeny: []string{"1START_WITH_NUMBER"},
+				EnvInheritDeny: []invowkfile.EnvVarName{"1START_WITH_NUMBER"},
 			},
 			wantErr: true,
 		},

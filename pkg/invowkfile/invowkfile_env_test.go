@@ -53,7 +53,7 @@ cmds: [
 		t.Fatalf("Expected 3 env.files, got %d", len(cmd.Env.Files))
 	}
 
-	expectedFiles := []string{".env", "config/app.env", ".env.local?"}
+	expectedFiles := []DotenvFilePath{".env", "config/app.env", ".env.local?"}
 	for i, expected := range expectedFiles {
 		if cmd.Env.Files[i] != expected {
 			t.Errorf("Env.Files[%d] = %q, want %q", i, cmd.Env.Files[i], expected)
@@ -105,7 +105,7 @@ cmds: [
 		t.Fatalf("Expected 2 env.files, got %d", len(impl.Env.Files))
 	}
 
-	expectedFiles := []string{"impl.env", "secrets.env?"}
+	expectedFiles := []DotenvFilePath{"impl.env", "secrets.env?"}
 	for i, expected := range expectedFiles {
 		if impl.Env.Files[i] != expected {
 			t.Errorf("Env.Files[%d] = %q, want %q", i, impl.Env.Files[i], expected)
@@ -320,12 +320,12 @@ func TestGenerateCUE_WithEnv(t *testing.T) {
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 						Env: &EnvConfig{
-							Files: []string{"impl.env", "secrets.env?"},
+							Files: []DotenvFilePath{"impl.env", "secrets.env?"},
 						},
 					},
 				},
 				Env: &EnvConfig{
-					Files: []string{".env", "config/app.env"},
+					Files: []DotenvFilePath{".env", "config/app.env"},
 				},
 			},
 		},
@@ -362,12 +362,12 @@ func TestGenerateCUE_EnvRoundTrip(t *testing.T) {
 						Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
 						Platforms: []PlatformConfig{{Name: PlatformLinux}},
 						Env: &EnvConfig{
-							Files: []string{"impl.env"},
+							Files: []DotenvFilePath{"impl.env"},
 						},
 					},
 				},
 				Env: &EnvConfig{
-					Files: []string{".env", "config/app.env?"},
+					Files: []DotenvFilePath{".env", "config/app.env?"},
 				},
 			},
 		},
@@ -455,7 +455,7 @@ cmds: [
 		t.Fatalf("Expected 2 env.files, got %d", len(inv.Env.Files))
 	}
 
-	expectedFiles := []string{"global.env", "shared.env?"}
+	expectedFiles := []DotenvFilePath{"global.env", "shared.env?"}
 	for i, expected := range expectedFiles {
 		if inv.Env.Files[i] != expected {
 			t.Errorf("Env.Files[%d] = %q, want %q", i, inv.Env.Files[i], expected)
@@ -602,7 +602,7 @@ func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 
 	inv := &Invowkfile{
 		Env: &EnvConfig{
-			Files: []string{"global.env", "shared.env?"},
+			Files: []DotenvFilePath{"global.env", "shared.env?"},
 			Vars: map[string]string{
 				"GLOBAL_VAR": "global_value",
 			},
@@ -642,7 +642,7 @@ func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
 
 	original := &Invowkfile{
 		Env: &EnvConfig{
-			Files: []string{"global.env", "shared.env?"},
+			Files: []DotenvFilePath{"global.env", "shared.env?"},
 			Vars: map[string]string{
 				"GLOBAL_VAR": "global_value",
 			},

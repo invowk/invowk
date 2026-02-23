@@ -45,7 +45,7 @@ func (e *DockerEngine) Version(ctx context.Context) (string, error) {
 
 // ImageExists checks if an image exists.
 // Docker uses "image inspect" which returns detailed JSON on success.
-func (e *DockerEngine) ImageExists(ctx context.Context, image string) (bool, error) {
-	err := e.RunCommandStatus(ctx, "image", "inspect", image)
+func (e *DockerEngine) ImageExists(ctx context.Context, image ImageTag) (bool, error) {
+	err := e.RunCommandStatus(ctx, "image", "inspect", string(image))
 	return err == nil, nil
 }

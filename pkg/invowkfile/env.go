@@ -35,7 +35,7 @@ type (
 		// Files are loaded in order; later files override earlier ones.
 		// Paths are relative to the invowkfile location (or module root for modules).
 		// Files suffixed with '?' are optional and will not cause an error if missing.
-		Files []string `json:"files,omitempty"`
+		Files []DotenvFilePath `json:"files,omitempty"`
 		// Vars contains environment variables as key-value pairs (optional)
 		// These override values loaded from Files.
 		Vars map[string]string `json:"vars,omitempty"`
@@ -64,7 +64,7 @@ func (n EnvVarName) IsValid() (bool, []error) {
 func (n EnvVarName) String() string { return string(n) }
 
 // GetFiles returns the files list, or an empty slice if EnvConfig is nil
-func (e *EnvConfig) GetFiles() []string {
+func (e *EnvConfig) GetFiles() []DotenvFilePath {
 	if e == nil {
 		return nil
 	}
@@ -94,12 +94,12 @@ func ValidateEnvVarName(name string) error {
 
 // FlagNameToEnvVar converts a flag name to an environment variable name.
 // Example: "output-file" -> "INVOWK_FLAG_OUTPUT_FILE"
-func FlagNameToEnvVar(name string) string {
-	return "INVOWK_FLAG_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+func FlagNameToEnvVar(name FlagName) string {
+	return "INVOWK_FLAG_" + strings.ToUpper(strings.ReplaceAll(string(name), "-", "_"))
 }
 
 // ArgNameToEnvVar converts an argument name to an environment variable name.
 // Example: "output-file" -> "INVOWK_ARG_OUTPUT_FILE"
-func ArgNameToEnvVar(name string) string {
-	return "INVOWK_ARG_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+func ArgNameToEnvVar(name ArgumentName) string {
+	return "INVOWK_ARG_" + strings.ToUpper(strings.ReplaceAll(string(name), "-", "_"))
 }

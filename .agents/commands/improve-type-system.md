@@ -8,7 +8,7 @@ We're on a long multi-step work to completely avoid the use of simple primitive 
 - MUST have strong constructor functions that make use of the functional options pattern and whose use is enforced across the project
 - MUST enforce that all its constructor functions return '(instance T, errors []error)' with all applicable custom error types if the initialization validation failed
 - MUST use only non-primitive types for fields
-- MUST be immutable with only unexported fields and public accessor methods unless very unpractical for our use-cases
+- MUST be immutable (if they're DDD Value Types) with only unexported fields and public accessor methods unless very unpractical for our use-cases; otherwise, if they're DDD Entities, they can remain mutable if it's best.
 
 All methods MUST have unit tests for ALL conditions.
 

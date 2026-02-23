@@ -33,7 +33,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 	}
 
 	// [CUE-VALIDATED] Description length also enforced by CUE schema (#Command.description MaxRunes(10240))
-	if err := ValidateStringLength(cmd.Description, "description", MaxDescriptionLength); err != nil {
+	if err := ValidateStringLength(string(cmd.Description), "description", MaxDescriptionLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
@@ -159,11 +159,11 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 	// Validate env_inherit_allow names
 	for _, name := range rt.EnvInheritAllow {
-		if err := ValidateEnvVarName(name); err != nil {
+		if isValid, errs := name.IsValid(); !isValid {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "env_inherit_allow: " + err.Error(),
+				Message:   "env_inherit_allow: " + errs[0].Error(),
 				Severity:  SeverityError,
 			})
 		}
@@ -171,11 +171,11 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 	// Validate env_inherit_deny names
 	for _, name := range rt.EnvInheritDeny {
-		if err := ValidateEnvVarName(name); err != nil {
+		if isValid, errs := name.IsValid(); !isValid {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "env_inherit_deny: " + err.Error(),
+				Message:   "env_inherit_deny: " + errs[0].Error(),
 				Severity:  SeverityError,
 			})
 		}
@@ -275,7 +275,8 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 					Severity:  SeverityError,
 				})
 			}
-			if filepath.IsAbs(rt.Containerfile) {
+			cfStr := string(rt.Containerfile)
+			if filepath.IsAbs(cfStr) {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
@@ -283,7 +284,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 					Severity:  SeverityError,
 				})
 			}
-			if strings.ContainsRune(rt.Containerfile, '\x00') {
+			if strings.ContainsRune(cfStr, '\x00') {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
@@ -294,7 +295,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 			// Validate containerfile path traversal
 			baseDir := filepath.Dir(ctx.FilePath)
-			if err := ValidateContainerfilePath(rt.Containerfile, baseDir); err != nil {
+			if err := ValidateContainerfilePath(cfStr, baseDir); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
@@ -306,7 +307,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 		// Validate volume mounts
 		for i, vol := range rt.Volumes {
-			if err := ValidateVolumeMount(vol); err != nil {
+			if err := ValidateVolumeMount(string(vol)); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.Copy().Volume(i).String(),
@@ -318,7 +319,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 		// Validate port mappings
 		for i, port := range rt.Ports {
-			if err := ValidatePortMapping(port); err != nil {
+			if err := ValidatePortMapping(string(port)); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.Copy().Port(i).String(),

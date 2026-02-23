@@ -67,7 +67,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Re
 
 	// Check if cached image exists (skip if ForceRebuild is set)
 	if !p.config.ForceRebuild {
-		exists, _ := p.engine.ImageExists(ctx, provisionedTag) //nolint:errcheck // Error treated as "not found"
+		exists, _ := p.engine.ImageExists(ctx, container.ImageTag(provisionedTag)) //nolint:errcheck // Error treated as "not found"
 		if exists {
 			return &Result{
 				ImageTag: provisionedTag,
@@ -112,7 +112,7 @@ func (p *LayerProvisioner) IsImageProvisioned(ctx context.Context, baseImage str
 	if err != nil {
 		return false, err
 	}
-	return p.engine.ImageExists(ctx, tag)
+	return p.engine.ImageExists(ctx, container.ImageTag(tag))
 }
 
 // buildProvisionedTag constructs the image tag with optional suffix.

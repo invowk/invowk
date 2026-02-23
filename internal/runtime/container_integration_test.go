@@ -305,7 +305,7 @@ func testContainerVolumeMounts(t *testing.T) {
 					{
 						Name:    invowkfile.RuntimeContainer,
 						Image:   "debian:stable-slim",
-						Volumes: []string{dataDir + ":/data:ro"},
+						Volumes: []invowkfile.VolumeMountSpec{invowkfile.VolumeMountSpec(dataDir + ":/data:ro")},
 					},
 				},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},

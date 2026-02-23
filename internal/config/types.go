@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 const (
@@ -41,6 +43,8 @@ var (
 	ErrInvalidConfigRuntimeMode = errors.New("invalid runtime mode")
 	// ErrInvalidColorScheme is returned when a ColorScheme value is not recognized.
 	ErrInvalidColorScheme = errors.New("invalid color scheme")
+	// ErrInvalidModuleIncludePath is the sentinel error wrapped by InvalidModuleIncludePathError.
+	ErrInvalidModuleIncludePath = errors.New("invalid module include path")
 )
 
 type (
@@ -73,13 +77,23 @@ type (
 		Value ColorScheme
 	}
 
+	// ModuleIncludePath represents an absolute filesystem path to a *.invowkmod directory.
+	// A valid path must be non-empty and not whitespace-only.
+	ModuleIncludePath string
+
+	// InvalidModuleIncludePathError is returned when a ModuleIncludePath value is
+	// empty or whitespace-only. It wraps ErrInvalidModuleIncludePath for errors.Is().
+	InvalidModuleIncludePathError struct {
+		Value ModuleIncludePath
+	}
+
 	// IncludeEntry specifies a module to include in command discovery.
 	// Each entry must point to a *.invowkmod directory via an absolute filesystem path.
 	IncludeEntry struct {
 		// Path is the absolute filesystem path to a *.invowkmod directory.
-		Path string `json:"path" mapstructure:"path"`
+		Path ModuleIncludePath `json:"path" mapstructure:"path"`
 		// Alias optionally overrides the module identifier for collision disambiguation.
-		Alias string `json:"alias,omitempty" mapstructure:"alias"`
+		Alias invowkmod.ModuleAlias `json:"alias,omitempty" mapstructure:"alias"`
 	}
 
 	// Config holds the application configuration.
@@ -142,8 +156,28 @@ type (
 
 // IsModule reports whether this entry points to a module directory (.invowkmod).
 func (e IncludeEntry) IsModule() bool {
-	return strings.HasSuffix(e.Path, moduleSuffix)
+	return strings.HasSuffix(string(e.Path), moduleSuffix)
 }
+
+// String returns the string representation of the ModuleIncludePath.
+func (p ModuleIncludePath) String() string { return string(p) }
+
+// IsValid returns whether the ModuleIncludePath is valid.
+// A valid path must be non-empty and not whitespace-only.
+func (p ModuleIncludePath) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(p)) == "" {
+		return false, []error{&InvalidModuleIncludePathError{Value: p}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidModuleIncludePathError.
+func (e *InvalidModuleIncludePathError) Error() string {
+	return fmt.Sprintf("invalid module include path %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidModuleIncludePath for errors.Is() compatibility.
+func (e *InvalidModuleIncludePathError) Unwrap() error { return ErrInvalidModuleIncludePath }
 
 // Error implements the error interface for InvalidContainerEngineError.
 func (e *InvalidContainerEngineError) Error() string {

@@ -47,12 +47,12 @@ type (
 		EnvFiles []string
 		EnvVars  map[string]string
 
-		FlagValues map[string]string
+		FlagValues map[invowkfile.FlagName]string
 		ArgDefs    []invowkfile.Argument
 
 		EnvInheritMode  invowkfile.EnvInheritMode
-		EnvInheritAllow []string
-		EnvInheritDeny  []string
+		EnvInheritAllow []invowkfile.EnvVarName
+		EnvInheritDeny  []invowkfile.EnvVarName
 
 		// SourceID identifies the origin of the command (invowkfile path or module ID).
 		// Injected as INVOWK_SOURCE so scripts can identify which source they belong to.
@@ -162,7 +162,7 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 	execCtx.SelectedRuntime = opts.Selection.Mode
 	execCtx.SelectedImpl = opts.Selection.Impl
 	execCtx.PositionalArgs = opts.Args
-	execCtx.WorkDir = opts.Workdir
+	execCtx.WorkDir = invowkfile.WorkDir(opts.Workdir)
 	execCtx.ForceRebuild = opts.ForceRebuild
 	execCtx.Env.RuntimeEnvFiles = opts.EnvFiles
 	execCtx.Env.RuntimeEnvVars = opts.EnvVars
@@ -202,10 +202,10 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 	return nil
 }
 
-func validateEnvVarNames(names []string, label string) error {
+func validateEnvVarNames(names []invowkfile.EnvVarName, label string) error {
 	for _, name := range names {
-		if err := invowkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("%s: %w", label, err)
+		if isValid, errs := name.IsValid(); !isValid {
+			return fmt.Errorf("%s: %w", label, errs[0])
 		}
 	}
 	return nil
@@ -234,7 +234,7 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 
 	if len(opts.ArgDefs) > 0 {
 		for i, argDef := range opts.ArgDefs {
-			envName := invowkfile.ArgNameToEnvVar(string(argDef.Name))
+			envName := invowkfile.ArgNameToEnvVar(argDef.Name)
 
 			switch {
 			case argDef.Variadic:

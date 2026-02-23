@@ -299,7 +299,7 @@ func TestCheckHostFilepathDependencies_ExistingPath(t *testing.T) {
 	}
 
 	deps := &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{testFile}}},
+		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{invowkfile.FilesystemPath(testFile)}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
@@ -315,7 +315,7 @@ func TestCheckHostFilepathDependencies_MissingPath(t *testing.T) {
 	t.Parallel()
 
 	deps := &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"/nonexistent/path/xyz"}}},
+		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/nonexistent/path/xyz"}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
@@ -344,7 +344,7 @@ func TestCheckHostFilepathDependencies_RelativePath(t *testing.T) {
 	}
 
 	deps := &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"script.sh"}}},
+		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"script.sh"}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},

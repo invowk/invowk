@@ -103,9 +103,9 @@ type (
 		// Remove removes a container by its ID
 		Remove(ctx context.Context, containerID ContainerID, force bool) error
 		// ImageExists checks if an image exists
-		ImageExists(ctx context.Context, image string) (bool, error)
+		ImageExists(ctx context.Context, image ImageTag) (bool, error)
 		// RemoveImage removes an image
-		RemoveImage(ctx context.Context, image string, force bool) error
+		RemoveImage(ctx context.Context, image ImageTag, force bool) error
 
 		// BinaryPath returns the path to the container engine binary.
 		// This is used when preparing commands for PTY attachment in interactive mode.
@@ -138,7 +138,7 @@ type (
 	// RunOptions contains options for running a container
 	RunOptions struct {
 		// Image is the image to run
-		Image string
+		Image ImageTag
 		// Command is the command to run
 		Command []string
 		// WorkDir is the working directory inside the container

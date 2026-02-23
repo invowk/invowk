@@ -252,7 +252,7 @@ func TestParseInterpreterString(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		spec     string
+		spec     InterpreterSpec
 		expected ShebangInfo
 	}{
 		// Basic interpreters
@@ -505,7 +505,7 @@ func TestResolveInterpreter(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		interpreter   string
+		interpreter   InterpreterSpec
 		scriptContent string
 		expected      ShebangInfo
 	}{

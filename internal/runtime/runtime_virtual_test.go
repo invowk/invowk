@@ -537,11 +537,11 @@ func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		ctxWorkDir    string // WorkDir set on ExecutionContext
-		cmdWorkDir    string // WorkDir set on Command
-		implWorkDir   string // WorkDir set on Implementation
-		rootWorkDir   string // WorkDir set on Invowkfile
-		wantContains  string // Substring expected in result
+		ctxWorkDir    invowkfile.WorkDir // WorkDir set on ExecutionContext
+		cmdWorkDir    string             // WorkDir set on Command
+		implWorkDir   string             // WorkDir set on Implementation
+		rootWorkDir   string             // WorkDir set on Invowkfile
+		wantContains  string             // Substring expected in result
 		skipOnWindows bool
 	}{
 		{

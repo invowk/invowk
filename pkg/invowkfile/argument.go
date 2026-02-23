@@ -57,7 +57,7 @@ type (
 		// Used for documentation and environment variable naming (INVOWK_ARG_<NAME>)
 		Name ArgumentName `json:"name"`
 		// Description provides help text for the argument
-		Description string `json:"description"`
+		Description DescriptionText `json:"description"`
 		// Required indicates whether this argument must be provided (optional, defaults to false)
 		Required bool `json:"required,omitempty"`
 		// DefaultValue is the default value if the argument is not provided (optional)

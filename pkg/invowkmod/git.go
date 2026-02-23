@@ -34,7 +34,7 @@ type (
 	// TagInfo contains information about a Git tag.
 	TagInfo struct {
 		Name   string
-		Commit string
+		Commit GitCommit
 	}
 )
 
@@ -48,11 +48,11 @@ func NewGitFetcher(cacheDir string) *GitFetcher {
 }
 
 // ListVersions returns all version tags from a Git repository.
-func (f *GitFetcher) ListVersions(ctx context.Context, gitURL string) ([]string, error) {
+func (f *GitFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]string, error) {
 	// Use in-memory storage to list remote refs without cloning
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{gitURL},
+		URLs: []string{string(gitURL)},
 	})
 
 	// List all references from the remote
@@ -83,15 +83,15 @@ func (f *GitFetcher) ListVersions(ctx context.Context, gitURL string) ([]string,
 
 // Fetch clones or fetches a Git repository and checks out the specified version.
 // Returns the path to the repository and the commit SHA.
-func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (path, commitSHA string, err error) {
+func (f *GitFetcher) Fetch(ctx context.Context, gitURL GitURL, version string) (path, commitSHA string, err error) {
 	// Generate a cache path for this repository
-	repoPath := f.getRepoCachePath(gitURL)
+	repoPath := f.getRepoCachePath(string(gitURL))
 
 	// Check if we already have this repository
 	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
 		// Repository doesn't exist, clone it
-		repo, err = f.clone(ctx, gitURL, repoPath)
+		repo, err = f.clone(ctx, string(gitURL), repoPath)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to clone repository: %w", err)
 		}
@@ -112,11 +112,11 @@ func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (path, c
 }
 
 // GetCommitForTag returns the commit hash for a specific tag.
-func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL, tagName string) (string, error) {
+func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL GitURL, tagName string) (string, error) {
 	// Use in-memory storage to list remote refs without cloning
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{gitURL},
+		URLs: []string{string(gitURL)},
 	})
 
 	refs, err := remote.ListContext(ctx, &git.ListOptions{
@@ -145,7 +145,7 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL, tagName string
 
 // CloneShallow performs a shallow clone of a repository at a specific tag.
 // This is more efficient for modules where we only need a specific version.
-func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath string) (string, error) {
+func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL GitURL, version, destPath string) (string, error) {
 	// Ensure parent directory exists
 	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 		return "", fmt.Errorf("failed to create parent directory: %w", err)
@@ -162,7 +162,7 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath
 	var lastErr error
 	for _, tagName := range tagNames {
 		repo, err := git.PlainCloneContext(ctx, destPath, false, &git.CloneOptions{
-			URL:           gitURL,
+			URL:           string(gitURL),
 			Auth:          f.auth,
 			ReferenceName: plumbing.NewTagReferenceName(tagName),
 			SingleBranch:  true,
@@ -189,10 +189,10 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath
 }
 
 // IsPrivateRepo checks if a repository requires authentication.
-func (f *GitFetcher) IsPrivateRepo(ctx context.Context, gitURL string) bool {
+func (f *GitFetcher) IsPrivateRepo(ctx context.Context, gitURL GitURL) bool {
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{gitURL},
+		URLs: []string{string(gitURL)},
 	})
 
 	// Try to list refs without auth
@@ -204,9 +204,10 @@ func (f *GitFetcher) IsPrivateRepo(ctx context.Context, gitURL string) bool {
 }
 
 // ValidateAuth checks if authentication is configured for a URL.
-func (f *GitFetcher) ValidateAuth(gitURL string) error {
+func (f *GitFetcher) ValidateAuth(gitURL GitURL) error {
+	gitURLStr := string(gitURL)
 	if f.auth == nil {
-		if strings.HasPrefix(gitURL, "git@") || strings.Contains(gitURL, "ssh://") {
+		if strings.HasPrefix(gitURLStr, "git@") || strings.Contains(gitURLStr, "ssh://") {
 			return fmt.Errorf("SSH URL detected but no SSH key found; please add an SSH key to ~/.ssh/")
 		}
 		// No auth configured, will work for public HTTPS repos
@@ -216,15 +217,15 @@ func (f *GitFetcher) ValidateAuth(gitURL string) error {
 }
 
 // ListTags returns all tags from a repository sorted by version.
-func (f *GitFetcher) ListTags(ctx context.Context, gitURL string) ([]string, error) {
+func (f *GitFetcher) ListTags(ctx context.Context, gitURL GitURL) ([]string, error) {
 	return f.ListVersions(ctx, gitURL)
 }
 
 // ListTagsWithCommits returns all tags with their commit hashes.
-func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL string) ([]TagInfo, error) {
+func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]TagInfo, error) {
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{gitURL},
+		URLs: []string{string(gitURL)},
 	})
 
 	refs, err := remote.ListContext(ctx, &git.ListOptions{
@@ -239,7 +240,7 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL string) ([]
 		if ref.Name().IsTag() {
 			tags = append(tags, TagInfo{
 				Name:   ref.Name().Short(),
-				Commit: ref.Hash().String(),
+				Commit: GitCommit(ref.Hash().String()),
 			})
 		}
 	}

@@ -65,21 +65,21 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 
 	// 2. Root-level env.files
 	for _, path := range ctx.Invowkfile.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath); err != nil {
 			return nil, err
 		}
 	}
 
 	// 3. Command-level env.files
 	for _, path := range ctx.Command.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath); err != nil {
 			return nil, err
 		}
 	}
 
 	// 4. Implementation-level env.files
 	for _, path := range ctx.SelectedImpl.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath); err != nil {
 			return nil, err
 		}
 	}

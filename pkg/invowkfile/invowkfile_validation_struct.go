@@ -22,13 +22,13 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 		}
 	}
 	for _, name := range rt.EnvInheritAllow {
-		if err := ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("command '%s' implementation #%d: env_inherit_allow: %w", cmdName, implIndex, err)
+		if isValid, errs := name.IsValid(); !isValid {
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_allow: %w", cmdName, implIndex, errs[0])
 		}
 	}
 	for _, name := range rt.EnvInheritDeny {
-		if err := ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("command '%s' implementation #%d: env_inherit_deny: %w", cmdName, implIndex, err)
+		if isValid, errs := name.IsValid(); !isValid {
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_deny: %w", cmdName, implIndex, errs[0])
 		}
 	}
 
@@ -70,25 +70,26 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 		// Validate containerfile path for security (path traversal prevention)
 		// Note: baseDir validation is done at parse time when FilePath is available
 		if rt.Containerfile != "" {
-			if len(rt.Containerfile) > MaxPathLength {
-				return fmt.Errorf("command '%s' implementation #%d: containerfile path too long (%d chars, max %d)", cmdName, implIndex, len(rt.Containerfile), MaxPathLength)
+			cfStr := string(rt.Containerfile)
+			if len(cfStr) > MaxPathLength {
+				return fmt.Errorf("command '%s' implementation #%d: containerfile path too long (%d chars, max %d)", cmdName, implIndex, len(cfStr), MaxPathLength)
 			}
-			if filepath.IsAbs(rt.Containerfile) {
+			if filepath.IsAbs(cfStr) {
 				return fmt.Errorf("command '%s' implementation #%d: containerfile path must be relative, not absolute", cmdName, implIndex)
 			}
-			if strings.ContainsRune(rt.Containerfile, '\x00') {
+			if strings.ContainsRune(cfStr, '\x00') {
 				return fmt.Errorf("command '%s' implementation #%d: containerfile path contains null byte", cmdName, implIndex)
 			}
 		}
 		// Validate volume mounts
 		for i, vol := range rt.Volumes {
-			if err := ValidateVolumeMount(vol); err != nil {
+			if err := ValidateVolumeMount(string(vol)); err != nil {
 				return fmt.Errorf("command '%s' implementation #%d: volume #%d: %w", cmdName, implIndex, i+1, err)
 			}
 		}
 		// Validate port mappings
 		for i, port := range rt.Ports {
-			if err := ValidatePortMapping(port); err != nil {
+			if err := ValidatePortMapping(string(port)); err != nil {
 				return fmt.Errorf("command '%s' implementation #%d: port #%d: %w", cmdName, implIndex, i+1, err)
 			}
 		}

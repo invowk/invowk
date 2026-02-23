@@ -50,7 +50,7 @@ type (
 	resolvedDefinitions struct {
 		flagDefs   []invowkfile.Flag
 		argDefs    []invowkfile.Argument
-		flagValues map[string]string
+		flagValues map[invowkfile.FlagName]string
 	}
 )
 
@@ -175,10 +175,10 @@ func (s *commandService) resolveDefinitions(req ExecuteRequest, cmdInfo *discove
 	flagValues := req.FlagValues
 	// Apply command defaults when the caller did not provide parsed flag values.
 	if flagValues == nil && len(flagDefs) > 0 {
-		flagValues = make(map[string]string)
+		flagValues = make(map[invowkfile.FlagName]string)
 		for _, flag := range flagDefs {
 			if flag.DefaultValue != "" {
-				flagValues[string(flag.Name)] = flag.DefaultValue
+				flagValues[flag.Name] = flag.DefaultValue
 			}
 		}
 	}
@@ -495,8 +495,8 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		tuiServerURL = tuiServer.URL()
 	}
 
-	ctx.TUI.ServerURL = tuiServerURL
-	ctx.TUI.ServerToken = tuiServer.Token()
+	ctx.TUI.ServerURL = runtime.TUIServerURL(tuiServerURL)
+	ctx.TUI.ServerToken = runtime.TUIServerToken(tuiServer.Token())
 
 	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {

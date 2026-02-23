@@ -35,7 +35,7 @@ type (
 		// e.g., "foo build", "test unit")
 		Name invowkfile.CommandName
 		// Description is the command description
-		Description string
+		Description invowkfile.DescriptionText
 		// Source is where the command was found
 		Source Source
 		// FilePath is the path to the invowkfile containing this command

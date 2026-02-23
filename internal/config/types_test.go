@@ -117,3 +117,53 @@ func TestColorScheme_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestModuleIncludePath_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		path    ModuleIncludePath
+		want    bool
+		wantErr bool
+	}{
+		{"absolute path", ModuleIncludePath("/home/user/modules/my.invowkmod"), true, false},
+		{"relative path", ModuleIncludePath("modules/my.invowkmod"), true, false},
+		{"single char", ModuleIncludePath("/"), true, false},
+		{"empty is invalid", ModuleIncludePath(""), false, true},
+		{"whitespace only is invalid", ModuleIncludePath("   "), false, true},
+		{"tab only is invalid", ModuleIncludePath("\t"), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.path.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ModuleIncludePath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ModuleIncludePath(%q).IsValid() returned no errors, want error", tt.path)
+				}
+				if !errors.Is(errs[0], ErrInvalidModuleIncludePath) {
+					t.Errorf("error should wrap ErrInvalidModuleIncludePath, got: %v", errs[0])
+				}
+				var mpErr *InvalidModuleIncludePathError
+				if !errors.As(errs[0], &mpErr) {
+					t.Errorf("error should be *InvalidModuleIncludePathError, got: %T", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ModuleIncludePath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			}
+		})
+	}
+}
+
+func TestModuleIncludePath_String(t *testing.T) {
+	t.Parallel()
+	p := ModuleIncludePath("/home/user/modules/my.invowkmod")
+	if p.String() != "/home/user/modules/my.invowkmod" {
+		t.Errorf("ModuleIncludePath.String() = %q, want %q", p.String(), "/home/user/modules/my.invowkmod")
+	}
+}

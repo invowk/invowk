@@ -634,7 +634,7 @@ func TestExecutionContext_EffectiveWorkDir_Native(t *testing.T) {
 	tests := []struct {
 		name          string
 		cmdWorkDir    string
-		ctxWorkDir    string
+		ctxWorkDir    invowkfile.WorkDir
 		want          string
 		skipOnWindows bool
 	}{

@@ -135,7 +135,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 
 	newCmd := &cobra.Command{
 		Use:   useStr,
-		Short: cmdInfo.Description,
+		Short: string(cmdInfo.Description),
 		Long:  fmt.Sprintf("Run the '%s' command from %s", cmdInfo.Name, cmdInfo.FilePath),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
@@ -153,35 +153,35 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 
 			// Extract typed flag values from Cobra state for service-side validation
 			// and INVOWK_FLAG_* environment projection.
-			flagValues := make(map[string]string)
+			flagValues := make(map[invowkfile.FlagName]string)
 			for _, flag := range cmdRuntimeFlags {
 				var val string
 				var err error
-				name := string(flag.Name)
+				nameStr := string(flag.Name)
 				switch flag.GetType() {
 				case invowkfile.FlagTypeBool:
 					var boolVal bool
-					boolVal, err = cmd.Flags().GetBool(name)
+					boolVal, err = cmd.Flags().GetBool(nameStr)
 					if err == nil {
 						val = fmt.Sprintf("%t", boolVal)
 					}
 				case invowkfile.FlagTypeInt:
 					var intVal int
-					intVal, err = cmd.Flags().GetInt(name)
+					intVal, err = cmd.Flags().GetInt(nameStr)
 					if err == nil {
 						val = fmt.Sprintf("%d", intVal)
 					}
 				case invowkfile.FlagTypeFloat:
 					var floatVal float64
-					floatVal, err = cmd.Flags().GetFloat64(name)
+					floatVal, err = cmd.Flags().GetFloat64(nameStr)
 					if err == nil {
 						val = fmt.Sprintf("%g", floatVal)
 					}
 				case invowkfile.FlagTypeString:
-					val, err = cmd.Flags().GetString(name)
+					val, err = cmd.Flags().GetString(nameStr)
 				}
 				if err == nil {
-					flagValues[name] = val
+					flagValues[flag.Name] = val
 				}
 			}
 
@@ -225,8 +225,8 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				FlagDefs:        cmdRuntimeFlags,
 				ArgDefs:         cmdArgs,
 				EnvInheritMode:  parsedEnvInheritMode,
-				EnvInheritAllow: envInheritAllow,
-				EnvInheritDeny:  envInheritDeny,
+				EnvInheritAllow: toEnvVarNames(envInheritAllow),
+				EnvInheritDeny:  toEnvVarNames(envInheritDeny),
 			}
 
 			err = executeRequest(cmd, app, req)
@@ -256,9 +256,9 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 		case invowkfile.FlagTypeBool:
 			defaultVal := flag.DefaultValue == "true"
 			if short != "" {
-				newCmd.Flags().BoolP(name, short, defaultVal, flag.Description)
+				newCmd.Flags().BoolP(name, short, defaultVal, string(flag.Description))
 			} else {
-				newCmd.Flags().Bool(name, defaultVal, flag.Description)
+				newCmd.Flags().Bool(name, defaultVal, string(flag.Description))
 			}
 		case invowkfile.FlagTypeInt:
 			defaultVal := 0
@@ -266,9 +266,9 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				_, _ = fmt.Sscanf(flag.DefaultValue, "%d", &defaultVal)
 			}
 			if short != "" {
-				newCmd.Flags().IntP(name, short, defaultVal, flag.Description)
+				newCmd.Flags().IntP(name, short, defaultVal, string(flag.Description))
 			} else {
-				newCmd.Flags().Int(name, defaultVal, flag.Description)
+				newCmd.Flags().Int(name, defaultVal, string(flag.Description))
 			}
 		case invowkfile.FlagTypeFloat:
 			defaultVal := 0.0
@@ -276,15 +276,15 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				_, _ = fmt.Sscanf(flag.DefaultValue, "%f", &defaultVal)
 			}
 			if short != "" {
-				newCmd.Flags().Float64P(name, short, defaultVal, flag.Description)
+				newCmd.Flags().Float64P(name, short, defaultVal, string(flag.Description))
 			} else {
-				newCmd.Flags().Float64(name, defaultVal, flag.Description)
+				newCmd.Flags().Float64(name, defaultVal, string(flag.Description))
 			}
 		case invowkfile.FlagTypeString:
 			if short != "" {
-				newCmd.Flags().StringP(name, short, flag.DefaultValue, flag.Description)
+				newCmd.Flags().StringP(name, short, flag.DefaultValue, string(flag.Description))
 			} else {
-				newCmd.Flags().String(name, flag.DefaultValue, flag.Description)
+				newCmd.Flags().String(name, flag.DefaultValue, string(flag.Description))
 			}
 		}
 		if flag.Required {
@@ -406,7 +406,7 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 			if !found && strings.HasPrefix(nextPart, toComplete) {
 				desc := cmdInfo.Description
 				if len(parts) == 1 && desc != "" {
-					completions = append(completions, nextPart+"\t"+desc)
+					completions = append(completions, nextPart+"\t"+string(desc))
 				} else {
 					completions = append(completions, nextPart)
 				}
@@ -503,7 +503,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 				}
 				line := fmt.Sprintf("%s%s", indent, nameStyle.Render(string(discovered.SimpleName)))
 				if discovered.Description != "" {
-					line += fmt.Sprintf(" - %s", descStyle.Render(discovered.Description))
+					line += fmt.Sprintf(" - %s", descStyle.Render(string(discovered.Description)))
 				}
 				if discovered.IsAmbiguous {
 					line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+string(sourceID)+")"))

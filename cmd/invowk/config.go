@@ -124,9 +124,9 @@ func showConfig(ctx context.Context, app *App) error {
 	} else {
 		for _, inc := range cfg.Includes {
 			if inc.Alias != "" {
-				fmt.Printf("  - %s (alias: %s)\n", valueStyle.Render(inc.Path), valueStyle.Render(inc.Alias))
+				fmt.Printf("  - %s (alias: %s)\n", valueStyle.Render(string(inc.Path)), valueStyle.Render(string(inc.Alias)))
 			} else {
-				fmt.Printf("  - %s\n", valueStyle.Render(inc.Path))
+				fmt.Printf("  - %s\n", valueStyle.Render(string(inc.Path)))
 			}
 		}
 	}

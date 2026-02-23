@@ -32,7 +32,7 @@ func testCommandWithInterpreter(name, script, interpreter string, runtime invowk
 		Implementations: []invowkfile.Implementation{
 			{
 				Script:    invowkfile.ScriptContent(script),
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: runtime, Interpreter: invowkfile.InterpreterSpec(interpreter)}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 			},
 		},

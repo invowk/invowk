@@ -129,7 +129,7 @@ type (
 		// If any of the provided paths exists and satisfies the permission requirements,
 		// the validation succeeds (early return). This allows specifying multiple
 		// possible locations for a file (e.g., different paths on different systems).
-		Alternatives []string `json:"alternatives"`
+		Alternatives []FilesystemPath `json:"alternatives"`
 		// Readable checks if the path is readable
 		Readable bool `json:"readable,omitempty"`
 		// Writable checks if the path is writable

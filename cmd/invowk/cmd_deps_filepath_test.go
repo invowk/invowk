@@ -56,7 +56,7 @@ func TestCheckFilepathDependencies_FileExists(t *testing.T) {
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
-			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"test.txt"}}},
+			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"test.txt"}}},
 		}))
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
@@ -74,7 +74,7 @@ func TestCheckFilepathDependencies_FileNotExists(t *testing.T) {
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
-			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"nonexistent.txt"}}},
+			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"nonexistent.txt"}}},
 		}))
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
@@ -110,7 +110,7 @@ func TestCheckFilepathDependencies_AbsolutePath(t *testing.T) {
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
-			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{testFile}}}, // Absolute path
+			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{invowkfile.FilesystemPath(testFile)}}}, // Absolute path
 		}))
 
 	// Invowkfile in different directory
@@ -133,7 +133,7 @@ func TestCheckFilepathDependencies_ReadableFile(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"readable.txt"}, Readable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"readable.txt"}, Readable: true},
 			},
 		}))
 
@@ -153,7 +153,7 @@ func TestCheckFilepathDependencies_WritableDirectory(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"."}, Writable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"."}, Writable: true},
 			},
 		}))
 
@@ -177,9 +177,9 @@ func TestCheckFilepathDependencies_MultipleFilepathDependencies(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"exists.txt"}},
-				{Alternatives: []string{"nonexistent1.txt"}},
-				{Alternatives: []string{"nonexistent2.txt"}},
+				{Alternatives: []invowkfile.FilesystemPath{"exists.txt"}},
+				{Alternatives: []invowkfile.FilesystemPath{"nonexistent1.txt"}},
+				{Alternatives: []invowkfile.FilesystemPath{"nonexistent2.txt"}},
 			},
 		}))
 
@@ -213,7 +213,7 @@ func TestCheckFilepathDependencies_AlternativesFirstExists(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
+				{Alternatives: []invowkfile.FilesystemPath{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
@@ -237,7 +237,7 @@ func TestCheckFilepathDependencies_AlternativesSecondExists(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
+				{Alternatives: []invowkfile.FilesystemPath{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
@@ -261,7 +261,7 @@ func TestCheckFilepathDependencies_AlternativesLastExists(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
+				{Alternatives: []invowkfile.FilesystemPath{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
@@ -281,7 +281,7 @@ func TestCheckFilepathDependencies_AlternativesNoneExists(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
+				{Alternatives: []invowkfile.FilesystemPath{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
@@ -320,7 +320,7 @@ func TestCheckFilepathDependencies_AlternativesWithPermissions(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"nonexistent.txt", "readable.txt"}, Readable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"nonexistent.txt", "readable.txt"}, Readable: true},
 			},
 		}))
 
@@ -347,7 +347,7 @@ func TestCheckFilepathDependencies_MultipleAlternativesExist(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"first.txt", "second.txt", "third.txt"}},
+				{Alternatives: []invowkfile.FilesystemPath{"first.txt", "second.txt", "third.txt"}},
 			},
 		}))
 
@@ -375,11 +375,11 @@ func TestCheckFilepathDependencies_MultipleDependenciesWithAlternatives(t *testi
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
 				// First doesn't exist, second does
-				{Alternatives: []string{"go.mod", "go.sum"}},
+				{Alternatives: []invowkfile.FilesystemPath{"go.mod", "go.sum"}},
 				// First two don't exist, third does
-				{Alternatives: []string{"README.md", "README", "readme.md"}, Readable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"README.md", "README", "readme.md"}, Readable: true},
 				// Current directory should exist
-				{Alternatives: []string{"."}},
+				{Alternatives: []invowkfile.FilesystemPath{"."}},
 			},
 		}))
 
@@ -407,7 +407,7 @@ func TestCheckFilepathDependencies_ExecutableFile(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"run.sh"}, Executable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"run.sh"}, Executable: true},
 			},
 		}))
 
@@ -431,7 +431,7 @@ func TestCheckFilepathDependencies_NonExecutableFile(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"data.txt"}, Executable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"data.txt"}, Executable: true},
 			},
 		}))
 
@@ -468,7 +468,7 @@ func TestCheckFilepathDependencies_ExecutableDirectory(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"bin"}, Executable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"bin"}, Executable: true},
 			},
 		}))
 
@@ -498,7 +498,7 @@ func TestCheckFilepathDependencies_ExecutableExtensionWindows(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"tool.exe"}, Executable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"tool.exe"}, Executable: true},
 			},
 		}))
 
@@ -526,7 +526,7 @@ func TestCheckFilepathDependencies_NonExecutableDirectory(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"nox"}, Executable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"nox"}, Executable: true},
 			},
 		}))
 
@@ -567,7 +567,7 @@ func TestCheckFilepathDependencies_InaccessibleFile(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"denied.sh"}, Executable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"denied.sh"}, Executable: true},
 			},
 		}))
 
@@ -595,7 +595,7 @@ func TestCheckFilepathDependencies_ExecutableAlternativesFallback(t *testing.T) 
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{
-				{Alternatives: []string{"run.sh", "run.bat"}, Executable: true},
+				{Alternatives: []invowkfile.FilesystemPath{"run.sh", "run.bat"}, Executable: true},
 			},
 		}))
 

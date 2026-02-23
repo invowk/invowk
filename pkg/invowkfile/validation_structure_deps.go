@@ -142,7 +142,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 
 	// Env file path validation - path traversal prevention
 	for i, file := range env.Files {
-		if err := ValidateEnvFilePath(file); err != nil {
+		if err := ValidateEnvFilePath(string(file)); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().EnvFile(i).String(),

@@ -112,7 +112,7 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 
 	// Check if image already exists (skip if ForceRebuild is set)
 	if !ctx.ForceRebuild {
-		exists, err := r.engine.ImageExists(ctx.Context, imageTag)
+		exists, err := r.engine.ImageExists(ctx.Context, container.ImageTag(imageTag))
 		if err != nil {
 			return "", fmt.Errorf("failed to check image existence: %w", err)
 		}
@@ -187,13 +187,13 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 
 	// Add modules from auto_provision includes (explicit provisioning paths).
 	for _, inc := range autoProv.Includes {
-		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, inc.Path)
+		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, string(inc.Path))
 	}
 
 	// Conditionally inherit root-level includes into provisioning.
 	if autoProv.InheritIncludes {
 		for _, inc := range cfg.Includes {
-			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, inc.Path)
+			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, string(inc.Path))
 		}
 	}
 
@@ -269,11 +269,19 @@ func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContaine
 	if rt == nil {
 		return invowkfileContainerConfig{}
 	}
+	volumes := make([]string, len(rt.Volumes))
+	for i, v := range rt.Volumes {
+		volumes[i] = string(v)
+	}
+	ports := make([]string, len(rt.Ports))
+	for i, p := range rt.Ports {
+		ports[i] = string(p)
+	}
 	return invowkfileContainerConfig{
-		Containerfile: rt.Containerfile,
+		Containerfile: string(rt.Containerfile),
 		Image:         string(rt.Image),
-		Volumes:       append([]string{}, rt.Volumes...),
-		Ports:         append([]string{}, rt.Ports...),
+		Volumes:       volumes,
+		Ports:         ports,
 	}
 }
 

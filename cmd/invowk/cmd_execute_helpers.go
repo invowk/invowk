@@ -34,6 +34,18 @@ type runtimeRegistryResult struct {
 
 // parseEnvVarFlags parses an array of KEY=VALUE strings into a map.
 // Malformed entries (missing '=') are logged as warnings and skipped.
+// toEnvVarNames converts a CLI string slice (from Cobra flags) to typed EnvVarName values.
+func toEnvVarNames(names []string) []invowkfile.EnvVarName {
+	if len(names) == 0 {
+		return nil
+	}
+	result := make([]invowkfile.EnvVarName, len(names))
+	for i, name := range names {
+		result[i] = invowkfile.EnvVarName(name)
+	}
+	return result
+}
+
 func parseEnvVarFlags(envVarFlags []string) map[string]string {
 	if len(envVarFlags) == 0 {
 		return nil

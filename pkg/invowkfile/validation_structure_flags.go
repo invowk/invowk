@@ -110,7 +110,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 	}
 
 	// Validate description is not empty (after trimming whitespace)
-	if strings.TrimSpace(flag.Description) == "" {
+	if strings.TrimSpace(string(flag.Description)) == "" {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
@@ -120,7 +120,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 	}
 
 	// [CUE-VALIDATED] Flag description length also enforced by CUE schema (#Flag.description MaxRunes(10240))
-	if err := ValidateStringLength(flag.Description, "flag description", MaxDescriptionLength); err != nil {
+	if err := ValidateStringLength(string(flag.Description), "flag description", MaxDescriptionLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),

@@ -120,11 +120,11 @@ func (m *MockEngine) Remove(_ context.Context, _ container.ContainerID, _ bool) 
 	return nil
 }
 
-func (m *MockEngine) ImageExists(_ context.Context, _ string) (bool, error) {
+func (m *MockEngine) ImageExists(_ context.Context, _ container.ImageTag) (bool, error) {
 	return m.imageExists, nil
 }
 
-func (m *MockEngine) RemoveImage(_ context.Context, _ string, _ bool) error {
+func (m *MockEngine) RemoveImage(_ context.Context, _ container.ImageTag, _ bool) error {
 	return nil
 }
 
@@ -137,7 +137,7 @@ func (m *MockEngine) BuildRunArgs(opts container.RunOptions) []string {
 	if opts.Remove {
 		args = append(args, "--rm")
 	}
-	args = append(args, opts.Image)
+	args = append(args, string(opts.Image))
 	args = append(args, opts.Command...)
 	return args
 }
@@ -511,7 +511,7 @@ func TestGetContainerWorkDir(t *testing.T) {
 	tests := []struct {
 		name               string
 		cmdWorkDir         string
-		ctxWorkDirOverride string
+		ctxWorkDirOverride invowkfile.WorkDir
 		want               string
 	}{
 		{
@@ -583,8 +583,8 @@ func TestContainerConfigFromRuntime(t *testing.T) {
 			Name:          invowkfile.RuntimeContainer,
 			Image:         "debian:stable-slim",
 			Containerfile: "Containerfile.test",
-			Volumes:       []string{"/data:/data:ro"},
-			Ports:         []string{"8080:80"},
+			Volumes:       []invowkfile.VolumeMountSpec{"/data:/data:ro"},
+			Ports:         []invowkfile.PortMappingSpec{"8080:80"},
 		}
 
 		cfg := containerConfigFromRuntime(rtConfig)

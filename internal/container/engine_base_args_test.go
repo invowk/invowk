@@ -313,7 +313,7 @@ func TestBaseCLIEngine_RemoveImageArgs(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		image    string
+		image    ImageTag
 		force    bool
 		expected []string
 	}{

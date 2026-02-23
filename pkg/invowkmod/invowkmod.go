@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -207,7 +208,7 @@ type (
 		// No "v" prefix, no build metadata, no leading zeros on numeric segments.
 		Version SemVer `json:"version"`
 		// Description provides a summary of this module's purpose (optional).
-		Description string `json:"description,omitempty"`
+		Description types.DescriptionText `json:"description,omitempty"`
 		// Requires declares dependencies on other modules from Git repositories (optional).
 		// Dependencies are resolved at module level.
 		// All required modules are loaded and their commands made available.

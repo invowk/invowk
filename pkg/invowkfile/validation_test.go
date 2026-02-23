@@ -639,24 +639,24 @@ func TestValidateFilepathDependency(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		paths       []string
+		paths       []FilesystemPath
 		shouldError bool
 		errorMsg    string
 	}{
 		// Valid paths
-		{name: "single valid path", paths: []string{"/usr/bin/go"}, shouldError: false},
-		{name: "multiple valid paths", paths: []string{"/usr/bin/go", "/usr/local/go/bin/go"}, shouldError: false},
-		{name: "relative path", paths: []string{"./build"}, shouldError: false},
+		{name: "single valid path", paths: []FilesystemPath{"/usr/bin/go"}, shouldError: false},
+		{name: "multiple valid paths", paths: []FilesystemPath{"/usr/bin/go", "/usr/local/go/bin/go"}, shouldError: false},
+		{name: "relative path", paths: []FilesystemPath{"./build"}, shouldError: false},
 
 		// Invalid - empty path
-		{name: "empty path", paths: []string{""}, shouldError: true, errorMsg: "cannot be empty"},
-		{name: "second path empty", paths: []string{"/bin/sh", ""}, shouldError: true, errorMsg: "cannot be empty"},
+		{name: "empty path", paths: []FilesystemPath{""}, shouldError: true, errorMsg: "cannot be empty"},
+		{name: "second path empty", paths: []FilesystemPath{"/bin/sh", ""}, shouldError: true, errorMsg: "cannot be empty"},
 
 		// Invalid - null bytes
-		{name: "null byte", paths: []string{"/bin/\x00sh"}, shouldError: true, errorMsg: "null byte"},
+		{name: "null byte", paths: []FilesystemPath{"/bin/\x00sh"}, shouldError: true, errorMsg: "null byte"},
 
 		// Invalid - too long
-		{name: "too long", paths: []string{strings.Repeat("/a", 2100)}, shouldError: true, errorMsg: "too long"},
+		{name: "too long", paths: []FilesystemPath{FilesystemPath(strings.Repeat("/a", 2100))}, shouldError: true, errorMsg: "too long"},
 	}
 
 	for _, tt := range tests {

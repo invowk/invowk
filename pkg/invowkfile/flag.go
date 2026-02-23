@@ -75,7 +75,7 @@ type (
 		// Name is the flag name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)
 		Name FlagName `json:"name"`
 		// Description provides help text for the flag
-		Description string `json:"description"`
+		Description DescriptionText `json:"description"`
 		// DefaultValue is the default value for the flag (optional)
 		DefaultValue string `json:"default_value,omitempty"`
 		// Type specifies the data type of the flag (optional, defaults to "string")

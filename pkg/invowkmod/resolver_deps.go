@@ -112,7 +112,7 @@ func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]
 // resolveOne resolves a single module requirement.
 func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]bool) (*ResolvedModule, error) {
 	// Get available versions from Git
-	versions, err := m.fetcher.ListVersions(ctx, string(req.GitURL))
+	versions, err := m.fetcher.ListVersions(ctx, req.GitURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list versions for %s: %w", req.GitURL, err)
 	}
@@ -128,7 +128,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 	}
 
 	// Clone/fetch the repository at the resolved version
-	repoPath, commit, err := m.fetcher.Fetch(ctx, string(req.GitURL), resolvedVersion)
+	repoPath, commit, err := m.fetcher.Fetch(ctx, req.GitURL, resolvedVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch %s@%s: %w", req.GitURL, resolvedVersion, err)
 	}

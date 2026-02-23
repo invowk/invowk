@@ -489,7 +489,7 @@ func TestValidateRuntimeConfig_ValidInterpreters(t *testing.T) {
 
 			rt := &RuntimeConfig{
 				Name:        RuntimeNative,
-				Interpreter: tt.interpreter,
+				Interpreter: InterpreterSpec(tt.interpreter),
 			}
 
 			err := validateRuntimeConfig(rt, "test-cmd", 1)
@@ -549,8 +549,8 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 			name: "valid allow and deny lists",
 			rt: &RuntimeConfig{
 				Name:            RuntimeNative,
-				EnvInheritAllow: []string{"TERM", "LANG", "MY_VAR1"},
-				EnvInheritDeny:  []string{"AWS_SECRET_ACCESS_KEY"},
+				EnvInheritAllow: []EnvVarName{"TERM", "LANG", "MY_VAR1"},
+				EnvInheritDeny:  []EnvVarName{"AWS_SECRET_ACCESS_KEY"},
 			},
 			wantErr: false,
 		},
@@ -558,7 +558,7 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 			name: "invalid allow name",
 			rt: &RuntimeConfig{
 				Name:            RuntimeNative,
-				EnvInheritAllow: []string{"TERM", "BAD-VAR"},
+				EnvInheritAllow: []EnvVarName{"TERM", "BAD-VAR"},
 			},
 			wantErr: true,
 		},
@@ -566,7 +566,7 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 			name: "invalid deny name",
 			rt: &RuntimeConfig{
 				Name:           RuntimeNative,
-				EnvInheritDeny: []string{"OK", "NO=PE"},
+				EnvInheritDeny: []EnvVarName{"OK", "NO=PE"},
 			},
 			wantErr: true,
 		},
@@ -632,7 +632,7 @@ cmds: [
 			}
 
 			rt := inv.Commands[0].Implementations[0].Runtimes[0]
-			if rt.Interpreter != tt.interpreter {
+			if rt.Interpreter != InterpreterSpec(tt.interpreter) {
 				t.Errorf("RuntimeConfig.Interpreter = %q, want %q", rt.Interpreter, tt.interpreter)
 			}
 		})

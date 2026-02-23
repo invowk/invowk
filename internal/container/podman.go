@@ -103,8 +103,8 @@ func (e *PodmanEngine) Version(ctx context.Context) (string, error) {
 
 // ImageExists checks if an image exists.
 // Podman uses "image exists" which returns exit code 0/1 (more efficient than Docker's inspect).
-func (e *PodmanEngine) ImageExists(ctx context.Context, image string) (bool, error) {
-	err := e.RunCommandStatus(ctx, "image", "exists", image)
+func (e *PodmanEngine) ImageExists(ctx context.Context, image ImageTag) (bool, error) {
+	err := e.RunCommandStatus(ctx, "image", "exists", string(image))
 	return err == nil, nil
 }
 

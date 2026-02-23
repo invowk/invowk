@@ -233,32 +233,33 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 	}
 
 	for _, entry := range d.cfg.Includes {
-		if !invowkmod.IsModule(entry.Path) {
+		pathStr := string(entry.Path)
+		if !invowkmod.IsModule(pathStr) {
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity: SeverityWarning,
 				Code:     CodeIncludeNotModule,
 				Message:  fmt.Sprintf("configured include is not a valid module directory, skipping: %s", entry.Path),
-				Path:     entry.Path,
+				Path:     pathStr,
 			})
 			continue
 		}
-		moduleName := strings.TrimSuffix(filepath.Base(entry.Path), invowkmod.ModuleSuffix)
+		moduleName := strings.TrimSuffix(filepath.Base(pathStr), invowkmod.ModuleSuffix)
 		if SourceID(moduleName) == SourceIDInvowkfile {
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity: SeverityWarning,
 				Code:     CodeIncludeReservedSkipped,
 				Message:  fmt.Sprintf("configured include uses reserved module name '%s', skipping", moduleName),
-				Path:     entry.Path,
+				Path:     pathStr,
 			})
 			continue // Skip reserved module name (FR-015)
 		}
-		m, err := invowkmod.Load(entry.Path)
+		m, err := invowkmod.Load(pathStr)
 		if err != nil {
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity: SeverityWarning,
 				Code:     CodeIncludeModuleLoadFailed,
 				Message:  fmt.Sprintf("failed to load included module at %s: %v", entry.Path, err),
-				Path:     entry.Path,
+				Path:     pathStr,
 				Cause:    err,
 			})
 			continue // Skip invalid modules

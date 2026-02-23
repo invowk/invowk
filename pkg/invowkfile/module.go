@@ -12,7 +12,7 @@ type (
 	ModuleMetadata struct {
 		Module      invowkmod.ModuleID
 		Version     invowkmod.SemVer
-		Description string
+		Description DescriptionText
 		Requires    []ModuleRequirement
 	}
 

@@ -408,7 +408,7 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: modulePath},
+		{Path: config.ModuleIncludePath(modulePath)},
 	}
 	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(emptyDir),

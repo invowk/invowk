@@ -306,10 +306,18 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 		writeField("image", fmt.Sprintf("%q", r.Image))
 	}
 	if len(r.Volumes) > 0 {
-		writeList("volumes", r.Volumes)
+		volStrs := make([]string, len(r.Volumes))
+		for i, v := range r.Volumes {
+			volStrs[i] = string(v)
+		}
+		writeList("volumes", volStrs)
 	}
 	if len(r.Ports) > 0 {
-		writeList("ports", r.Ports)
+		portStrs := make([]string, len(r.Ports))
+		for i, p := range r.Ports {
+			portStrs[i] = string(p)
+		}
+		writeList("ports", portStrs)
 	}
 }
 

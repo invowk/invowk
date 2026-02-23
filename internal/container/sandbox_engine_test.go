@@ -65,11 +65,11 @@ func (m *mockEngine) Remove(_ context.Context, _ ContainerID, _ bool) error {
 	return nil
 }
 
-func (m *mockEngine) ImageExists(_ context.Context, _ string) (bool, error) {
+func (m *mockEngine) ImageExists(_ context.Context, _ ImageTag) (bool, error) {
 	return true, nil
 }
 
-func (m *mockEngine) RemoveImage(_ context.Context, _ string, _ bool) error {
+func (m *mockEngine) RemoveImage(_ context.Context, _ ImageTag, _ bool) error {
 	return nil
 }
 

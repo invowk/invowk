@@ -56,11 +56,30 @@ Use interface decoupling when:
 - The relationship may evolve (1:1 → 1:N or N:M).
 - You want to test one domain independently of the other.
 
-### Anti-Pattern: Bridge Package
+### Anti-Pattern: Aggregation Bridge Package
 
-Avoid creating third "bridge" packages (e.g., `ivkbridge`) that import both domains just to hold aggregations. This adds navigation complexity without providing meaningful abstraction.
+Avoid creating third "bridge" packages (e.g., `ivkbridge`) that **import both domains** just to hold aggregations. This adds navigation complexity without providing meaningful abstraction.
 
 **Exception**: A bridge package is acceptable when it genuinely adds orchestration logic beyond simple aggregation.
+
+### Pattern: Foundation Package for Cross-Cutting Value Types
+
+A **foundation package** (e.g., `pkg/types`) that defines standalone value types and is **imported by** multiple domain packages is explicitly allowed. This is the opposite of a bridge — it imports neither domain, only the standard library. Both domains depend on it as a leaf.
+
+```
+pkg/types/            ← imports only stdlib (errors, fmt, strings)
+  ↑          ↑
+invowkfile  invowkmod  ← both import types; types imports neither
+```
+
+**Use `pkg/types` when:**
+- A DDD Value Type has identical semantics across multiple domain packages (e.g., `DescriptionText` used by commands, flags, arguments, and modules).
+- Placing the type in one domain and aliasing from the other would misrepresent its ownership (e.g., `DescriptionText` is not module-specific, so placing it in `invowkmod` is semantically dishonest).
+- The type has no domain-specific dependencies — it depends only on the standard library.
+
+**Do not use `pkg/types` for:**
+- Types that belong to a single domain (keep them in that domain's package).
+- Types that require importing domain packages (that would create a bridge, not a foundation).
 
 ## State Ownership and Mutation Boundaries
 

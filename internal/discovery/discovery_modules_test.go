@@ -111,7 +111,7 @@ func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: moduleDir},
+		{Path: config.ModuleIncludePath(moduleDir)},
 	}
 	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(workDir),
@@ -369,7 +369,7 @@ func TestDiscoverAll_ConfigIncludesPrecedeUserDir(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: configModuleDir},
+		{Path: config.ModuleIncludePath(configModuleDir)},
 	}
 	d := newTestDiscovery(t, cfg, tmpDir,
 		WithBaseDir(workDir),

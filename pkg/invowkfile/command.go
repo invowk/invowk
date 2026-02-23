@@ -44,7 +44,7 @@ type (
 		// Name is the command identifier (can include spaces for subcommand-like behavior, e.g., "test unit")
 		Name CommandName `json:"name"`
 		// Description provides help text for the command
-		Description string `json:"description,omitempty"`
+		Description DescriptionText `json:"description,omitempty"`
 		// Category groups this command under a heading in 'invowk cmd' output (optional)
 		Category CommandCategory `json:"category,omitempty"`
 		// Implementations defines the executable implementations with platform/runtime constraints (required, at least one)

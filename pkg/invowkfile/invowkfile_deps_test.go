@@ -39,7 +39,7 @@ func TestDependsOn_IsEmpty(t *testing.T) {
 		{name: "zero value", deps: DependsOn{}, expected: true},
 		{name: "only tools", deps: DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"sh"}}}}, expected: false},
 		{name: "only commands", deps: DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}}}, expected: false},
-		{name: "only filepaths", deps: DependsOn{Filepaths: []FilepathDependency{{Alternatives: []string{"f.txt"}}}}, expected: false},
+		{name: "only filepaths", deps: DependsOn{Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"f.txt"}}}}, expected: false},
 		{name: "only capabilities", deps: DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: false},
 		{name: "only custom_checks", deps: DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: false},
 		{name: "only env_vars", deps: DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: false},
@@ -48,7 +48,7 @@ func TestDependsOn_IsEmpty(t *testing.T) {
 			deps: DependsOn{
 				Tools:        []ToolDependency{{Alternatives: []BinaryName{"sh"}}},
 				Commands:     []CommandDependency{{Alternatives: []CommandName{"b"}}},
-				Filepaths:    []FilepathDependency{{Alternatives: []string{"f"}}},
+				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{"f"}}},
 				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 				CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}},
 				EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "X"}}}},
@@ -208,7 +208,7 @@ func TestCommand_HasCommandLevelDependencies_AllTypes(t *testing.T) {
 		{name: "empty", deps: &DependsOn{}, expected: false},
 		{name: "tools", deps: &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"sh"}}}}, expected: true},
 		{name: "commands", deps: &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"b"}}}}, expected: true},
-		{name: "filepaths", deps: &DependsOn{Filepaths: []FilepathDependency{{Alternatives: []string{"f"}}}}, expected: true},
+		{name: "filepaths", deps: &DependsOn{Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"f"}}}}, expected: true},
 		{name: "capabilities", deps: &DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: true},
 		{name: "custom_checks", deps: &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: true},
 		{name: "env_vars", deps: &DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: true},
@@ -638,7 +638,7 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 		Name:            "test",
 		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn: &DependsOn{
-			Filepaths: []FilepathDependency{{Alternatives: []string{"config.yaml"}}},
+			Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"config.yaml"}}},
 		},
 	}
 
@@ -657,10 +657,10 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 				Implementations: []Implementation{{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}},
 				DependsOn: &DependsOn{
 					Filepaths: []FilepathDependency{
-						{Alternatives: []string{"config.yaml"}},
-						{Alternatives: []string{"secrets.env"}, Readable: true},
-						{Alternatives: []string{"output"}, Writable: true},
-						{Alternatives: []string{"deploy.sh"}, Executable: true},
+						{Alternatives: []FilesystemPath{"config.yaml"}},
+						{Alternatives: []FilesystemPath{"secrets.env"}, Readable: true},
+						{Alternatives: []FilesystemPath{"output"}, Writable: true},
+						{Alternatives: []FilesystemPath{"deploy.sh"}, Executable: true},
 					},
 				},
 			},

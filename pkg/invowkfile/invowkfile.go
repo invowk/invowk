@@ -154,7 +154,7 @@ func (inv *Invowkfile) GetScriptBasePath() string {
 //
 // All workdir paths in CUE should use forward slashes for cross-platform compatibility.
 // Relative paths are resolved against the invowkfile location.
-func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, cliOverride string) string {
+func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, cliOverride WorkDir) string {
 	invowkfileDir := inv.GetScriptBasePath()
 
 	// resolve converts a workdir path from CUE format (forward slashes) to native format
@@ -173,7 +173,7 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 
 	// Priority 1: CLI override
 	if cliOverride != "" {
-		return resolve(cliOverride)
+		return resolve(string(cliOverride))
 	}
 
 	// Priority 2: Implementation-level

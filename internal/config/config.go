@@ -293,28 +293,31 @@ func validateIncludes(fieldName string, includes []IncludeEntry) error {
 	shortNames := make(map[string][]int)   // short name -> indices of entries with that name
 
 	for i, entry := range includes {
+		pathStr := string(entry.Path)
+
 		// Check path is absolute (CUE regex cannot enforce cross-platform absolute paths)
-		if !filepath.IsAbs(entry.Path) {
+		if !filepath.IsAbs(pathStr) {
 			return fmt.Errorf("%s[%d]: path %q must be absolute", fieldName, i, entry.Path)
 		}
 
 		// Check path uniqueness (normalized to handle trailing slashes and redundant separators)
-		cleanPath := filepath.Clean(entry.Path)
+		cleanPath := filepath.Clean(pathStr)
 		if firstIdx, exists := seenPaths[cleanPath]; exists {
 			return fmt.Errorf("%s[%d]: duplicate path %q (same as %s[%d])", fieldName, i, entry.Path, fieldName, firstIdx)
 		}
 		seenPaths[cleanPath] = i
 
 		// Track short name for collision detection
-		shortName := strings.TrimSuffix(filepath.Base(entry.Path), moduleSuffix)
+		shortName := strings.TrimSuffix(filepath.Base(pathStr), moduleSuffix)
 		shortNames[shortName] = append(shortNames[shortName], i)
 
 		// Check alias uniqueness
-		if entry.Alias != "" {
-			if existingPath, exists := seenAliases[entry.Alias]; exists {
+		aliasStr := string(entry.Alias)
+		if aliasStr != "" {
+			if existingPath, exists := seenAliases[aliasStr]; exists {
 				return fmt.Errorf("%s: duplicate alias %q used by both %q and %q", fieldName, entry.Alias, existingPath, entry.Path)
 			}
-			seenAliases[entry.Alias] = entry.Path
+			seenAliases[aliasStr] = pathStr
 		}
 	}
 

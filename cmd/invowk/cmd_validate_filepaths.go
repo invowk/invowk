@@ -55,8 +55,9 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, rt runtime.Ru
 	var allErrors []string
 
 	for _, altPath := range fp.Alternatives {
+		altPathStr := string(altPath)
 		// Shell-safe single-quote escaping for paths
-		escapedPath := shellEscapeSingleQuote(altPath)
+		escapedPath := shellEscapeSingleQuote(altPathStr)
 
 		var checks []string
 		checks = append(checks, fmt.Sprintf("test -e '%s'", escapedPath))
@@ -79,7 +80,7 @@ func validateFilepathInContainer(fp invowkfile.FilepathDependency, rt runtime.Ru
 		if result.Error != nil {
 			return fmt.Errorf("  • container validation failed for path %s: %w", altPath, result.Error)
 		}
-		if err := checkTransientExitCode(result, altPath); err != nil {
+		if err := checkTransientExitCode(result, altPathStr); err != nil {
 			return err
 		}
 		if result.ExitCode == 0 {
@@ -134,13 +135,14 @@ func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir st
 	var allErrors []string
 
 	for _, altPath := range fp.Alternatives {
+		altPathStr := string(altPath)
 		// Resolve path relative to invowkfile if not absolute
-		resolvedPath := altPath
-		if !filepath.IsAbs(altPath) {
-			resolvedPath = filepath.Join(invowkDir, altPath)
+		resolvedPath := altPathStr
+		if !filepath.IsAbs(resolvedPath) {
+			resolvedPath = filepath.Join(invowkDir, resolvedPath)
 		}
 
-		if err := validateSingleFilepath(altPath, resolvedPath, fp); err == nil {
+		if err := validateSingleFilepath(altPathStr, resolvedPath, fp); err == nil {
 			// Success! This alternative satisfies the dependency
 			return nil
 		} else {
