@@ -273,7 +273,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -371,7 +371,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -426,7 +426,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -489,7 +489,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -576,7 +576,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}

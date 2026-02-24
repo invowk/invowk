@@ -118,20 +118,20 @@ func runModuleArchive(args []string, output string) error {
 	fmt.Println(moduleTitleStyle.Render("Archive Module"))
 
 	// Archive the module
-	zipPath, err := invowkmod.Archive(modulePath, output)
+	zipPath, err := invowkmod.Archive(types.FilesystemPath(modulePath), types.FilesystemPath(output))
 	if err != nil {
 		return fmt.Errorf("failed to archive module: %w", err)
 	}
 
 	// Get file info for size
-	info, err := os.Stat(zipPath)
+	info, err := os.Stat(string(zipPath))
 	if err != nil {
 		return fmt.Errorf("failed to stat output file: %w", err)
 	}
 
 	fmt.Printf("%s Module archived successfully\n", moduleSuccessIcon)
 	fmt.Println()
-	fmt.Printf("%s Output: %s\n", moduleInfoIcon, modulePathStyle.Render(zipPath))
+	fmt.Printf("%s Output: %s\n", moduleInfoIcon, modulePathStyle.Render(string(zipPath)))
 	fmt.Printf("%s Size: %s\n", moduleInfoIcon, formatFileSize(info.Size()))
 
 	return nil
@@ -165,7 +165,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	}
 
 	// Load the module to get its name
-	b, err := invowkmod.Load(modulePath)
+	b, err := invowkmod.Load(types.FilesystemPath(modulePath))
 	if err != nil {
 		return fmt.Errorf("failed to load imported module: %w", err)
 	}

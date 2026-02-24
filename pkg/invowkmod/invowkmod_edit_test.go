@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestAddRequirement(t *testing.T) {
@@ -36,7 +38,7 @@ requires: [
 			Version: "^2.0.0",
 		}
 
-		if err := AddRequirement(path, req); err != nil {
+		if err := AddRequirement(types.FilesystemPath(path), req); err != nil {
 			t.Fatalf("AddRequirement() error = %v", err)
 		}
 
@@ -75,7 +77,7 @@ description: "Test module"
 			Version: "^1.0.0",
 		}
 
-		if err := AddRequirement(path, req); err != nil {
+		if err := AddRequirement(types.FilesystemPath(path), req); err != nil {
 			t.Fatalf("AddRequirement() error = %v", err)
 		}
 
@@ -120,7 +122,7 @@ requires: [
 			Version: "^2.0.0", // Different version, but same git_url
 		}
 
-		err := AddRequirement(path, req)
+		err := AddRequirement(types.FilesystemPath(path), req)
 		if err == nil {
 			t.Fatal("expected duplicate error, got nil")
 		}
@@ -149,7 +151,7 @@ description: "A test module"
 			Version: "^1.0.0",
 		}
 
-		if err := AddRequirement(path, req); err != nil {
+		if err := AddRequirement(types.FilesystemPath(path), req); err != nil {
 			t.Fatalf("AddRequirement() error = %v", err)
 		}
 
@@ -186,7 +188,7 @@ version: "1.0.0"
 			Path:    "packages/utils",
 		}
 
-		if err := AddRequirement(path, req); err != nil {
+		if err := AddRequirement(types.FilesystemPath(path), req); err != nil {
 			t.Fatalf("AddRequirement() error = %v", err)
 		}
 
@@ -215,7 +217,7 @@ version: "1.0.0"
 			Version: "^1.0.0",
 		}
 
-		err := AddRequirement(path, req)
+		err := AddRequirement(types.FilesystemPath(path), req)
 		if err == nil {
 			t.Fatal("expected error for missing file, got nil")
 		}
@@ -248,7 +250,7 @@ requires: [
 			t.Fatalf("failed to write test file: %v", err)
 		}
 
-		if err := RemoveRequirement(path, "https://github.com/user/tools.git", ""); err != nil {
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", ""); err != nil {
 			t.Fatalf("RemoveRequirement() error = %v", err)
 		}
 
@@ -288,7 +290,7 @@ requires: [
 			t.Fatalf("failed to write test file: %v", err)
 		}
 
-		if err := RemoveRequirement(path, "https://github.com/user/tools.git", ""); err != nil {
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", ""); err != nil {
 			t.Fatalf("RemoveRequirement() error = %v", err)
 		}
 
@@ -332,7 +334,7 @@ requires: [
 		}
 
 		// Remove only packages/a (same git_url but different path)
-		if err := RemoveRequirement(path, "https://github.com/user/monorepo.git", "packages/a"); err != nil {
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/monorepo.git", "packages/a"); err != nil {
 			t.Fatalf("RemoveRequirement() error = %v", err)
 		}
 
@@ -372,7 +374,7 @@ requires: [
 			t.Fatalf("failed to write test file: %v", err)
 		}
 
-		if err := RemoveRequirement(path, "https://github.com/user/tools.git", ""); err != nil {
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", ""); err != nil {
 			t.Fatalf("RemoveRequirement() error = %v", err)
 		}
 
@@ -409,7 +411,7 @@ requires: [
 			t.Fatalf("failed to write test file: %v", err)
 		}
 
-		if err := RemoveRequirement(path, "https://github.com/other/repo.git", ""); err != nil {
+		if err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/other/repo.git", ""); err != nil {
 			t.Fatalf("RemoveRequirement() should be idempotent, got error = %v", err)
 		}
 
@@ -430,7 +432,7 @@ requires: [
 		dir := t.TempDir()
 		path := filepath.Join(dir, "nonexistent.cue")
 
-		err := RemoveRequirement(path, "https://github.com/user/tools.git", "")
+		err := RemoveRequirement(types.FilesystemPath(path), "https://github.com/user/tools.git", "")
 		if err != nil {
 			t.Fatalf("RemoveRequirement() on missing file should return nil, got error = %v", err)
 		}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -174,7 +175,7 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 
 	// Auto-edit invowkmod.cue to add the requires entry
 	invowkmodPath := filepath.Join(".", "invowkmod.cue")
-	if editErr := invowkmod.AddRequirement(invowkmodPath, req); editErr != nil {
+	if editErr := invowkmod.AddRequirement(types.FilesystemPath(invowkmodPath), req); editErr != nil {
 		if os.IsNotExist(editErr) {
 			fmt.Println()
 			fmt.Printf("%s invowkmod.cue not found — lock file was updated but you need to create invowkmod.cue\n", moduleInfoIcon)
@@ -219,7 +220,7 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	// Auto-edit invowkmod.cue to remove the requires entries
 	invowkmodPath := filepath.Join(".", "invowkmod.cue")
 	for i := range results {
-		if editErr := invowkmod.RemoveRequirement(invowkmodPath, string(results[i].RemovedEntry.GitURL), string(results[i].RemovedEntry.Path)); editErr != nil {
+		if editErr := invowkmod.RemoveRequirement(types.FilesystemPath(invowkmodPath), results[i].RemovedEntry.GitURL, results[i].RemovedEntry.Path); editErr != nil {
 			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, editErr)
 		}
 	}

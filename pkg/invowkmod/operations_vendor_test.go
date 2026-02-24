@@ -27,8 +27,8 @@ func TestVendoredModulesDir(t *testing.T) {
 func TestGetVendoredModulesDir(t *testing.T) {
 	t.Parallel()
 
-	modulePath := "/path/to/mymodule.invowkmod"
-	expected := filepath.Join(modulePath, "invowk_modules")
+	modulePath := types.FilesystemPath("/path/to/mymodule.invowkmod")
+	expected := types.FilesystemPath(filepath.Join(string(modulePath), "invowk_modules"))
 	result := GetVendoredModulesDir(modulePath)
 	if result != expected {
 		t.Errorf("GetVendoredModulesDir() = %q, want %q", result, expected)
@@ -44,7 +44,7 @@ func TestHasVendoredModules(t *testing.T) {
 		tmpDir := t.TempDir()
 		modulePath := createValidModuleForPackaging(t, tmpDir, "mymodule.invowkmod", "mymodule")
 
-		if HasVendoredModules(modulePath) {
+		if HasVendoredModules(types.FilesystemPath(modulePath)) {
 			t.Error("HasVendoredModules() should return false when invowk_modules/ doesn't exist")
 		}
 	})
@@ -59,7 +59,7 @@ func TestHasVendoredModules(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if HasVendoredModules(modulePath) {
+		if HasVendoredModules(types.FilesystemPath(modulePath)) {
 			t.Error("HasVendoredModules() should return false when invowk_modules/ is empty")
 		}
 	})
@@ -76,7 +76,7 @@ func TestHasVendoredModules(t *testing.T) {
 		// Create a vendored module using new format
 		createValidModuleForPackaging(t, vendoredDir, "vendor.invowkmod", "vendor")
 
-		if !HasVendoredModules(modulePath) {
+		if !HasVendoredModules(types.FilesystemPath(modulePath)) {
 			t.Error("HasVendoredModules() should return true when invowk_modules/ has modules")
 		}
 	})
@@ -94,7 +94,7 @@ func TestListVendoredModules(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		modules, err := ListVendoredModules(modulePath)
+		modules, err := ListVendoredModules(types.FilesystemPath(modulePath))
 		if err != nil {
 			t.Fatalf("ListVendoredModules() error: %v", err)
 		}
@@ -120,7 +120,7 @@ func TestListVendoredModules(t *testing.T) {
 		createValidModuleForPackaging(t, vendoredDir, "vendor1.invowkmod", "vendor1")
 		createValidModuleForPackaging(t, vendoredDir, "vendor2.invowkmod", "vendor2")
 
-		modules, err := ListVendoredModules(modulePath)
+		modules, err := ListVendoredModules(types.FilesystemPath(modulePath))
 		if err != nil {
 			t.Fatalf("ListVendoredModules() error: %v", err)
 		}
@@ -160,7 +160,7 @@ func TestListVendoredModules(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		modules, err := ListVendoredModules(modulePath)
+		modules, err := ListVendoredModules(types.FilesystemPath(modulePath))
 		if err != nil {
 			t.Fatalf("ListVendoredModules() error: %v", err)
 		}
@@ -190,7 +190,7 @@ func TestValidate_AllowsNestedModulesInVendoredDir(t *testing.T) {
 	}
 	createValidModuleForPackaging(t, vendoredDir, "vendored.invowkmod", "vendored")
 
-	result, err := Validate(modulePath)
+	result, err := Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestValidate_StillRejectsNestedModulesOutsideVendoredDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Validate(modulePath)
+	result, err := Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestValidate_DetectsSymlinks(t *testing.T) {
 		t.Fatalf("Failed to create symlink: %v", err)
 	}
 
-	result, err := Validate(modulePath)
+	result, err := Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestValidate_DetectsWindowsReservedFilenames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Validate(modulePath)
+	result, err := Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestValidate_RejectsAllSymlinks(t *testing.T) {
 		t.Fatalf("Failed to create symlink: %v", err)
 	}
 
-	result, err := Validate(modulePath)
+	result, err := Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -456,8 +456,8 @@ func TestVendorModules_OverwritesExisting(t *testing.T) {
 	}
 
 	// Add a marker file to the vendored copy
-	vendorDir := GetVendoredModulesDir(modulePath)
-	markerPath := filepath.Join(vendorDir, "dep1.invowkmod", "stale-marker.txt")
+	vendorDir := GetVendoredModulesDir(types.FilesystemPath(modulePath))
+	markerPath := filepath.Join(string(vendorDir), "dep1.invowkmod", "stale-marker.txt")
 	if writeErr := os.WriteFile(markerPath, []byte("stale"), 0o644); writeErr != nil {
 		t.Fatal(writeErr)
 	}
@@ -514,13 +514,13 @@ func TestVendorModules_Prune(t *testing.T) {
 	}
 
 	// Verify dep2 is gone
-	dep2Path := filepath.Join(GetVendoredModulesDir(modulePath), "dep2.invowkmod")
+	dep2Path := filepath.Join(string(GetVendoredModulesDir(types.FilesystemPath(modulePath))), "dep2.invowkmod")
 	if _, err := os.Stat(dep2Path); !os.IsNotExist(err) {
 		t.Error("dep2.invowkmod should have been pruned")
 	}
 
 	// Verify dep1 still exists
-	dep1Path := filepath.Join(GetVendoredModulesDir(modulePath), "dep1.invowkmod")
+	dep1Path := filepath.Join(string(GetVendoredModulesDir(types.FilesystemPath(modulePath))), "dep1.invowkmod")
 	if _, err := os.Stat(dep1Path); err != nil {
 		t.Errorf("dep1.invowkmod should still exist: %v", err)
 	}
@@ -743,7 +743,7 @@ func TestVendorModules_PruneNoOp(t *testing.T) {
 
 	// Verify both modules still exist on disk
 	for _, name := range []string{"dep1.invowkmod", "dep2.invowkmod"} {
-		modPath := filepath.Join(GetVendoredModulesDir(modulePath), name)
+		modPath := filepath.Join(string(GetVendoredModulesDir(types.FilesystemPath(modulePath))), name)
 		if _, statErr := os.Stat(modPath); statErr != nil {
 			t.Errorf("%s should still exist after prune no-op: %v", name, statErr)
 		}

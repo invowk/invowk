@@ -73,7 +73,7 @@ func (v *StructureValidator) validateFlags(ctx *ValidationContext, cmd *Command)
 // validateFlag validates a single flag and collects all errors.
 func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, flag *Flag, idx int, seenNames, seenShorts map[string]bool) []ValidationError {
 	var errors []ValidationError
-	path := NewFieldPath().Command(string(cmd.Name))
+	path := NewFieldPath().Command(cmd.Name)
 
 	// Validate name is not empty
 	if flag.Name == "" {
@@ -87,7 +87,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		return errors // Can't validate further without a name
 	}
 
-	path = path.Copy().Flag(string(flag.Name))
+	path = path.Copy().Flag(flag.Name)
 
 	// [CUE-VALIDATED] Flag name length also enforced by CUE schema (#Flag.name MaxRunes(256))
 	if err := ValidateStringLength(string(flag.Name), "flag name", MaxNameLength); err != nil {
@@ -133,7 +133,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 	if seenNames[string(flag.Name)] {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
-			Field:     NewFieldPath().Command(string(cmd.Name)).String(),
+			Field:     NewFieldPath().Command(cmd.Name).String(),
 			Message:   "has duplicate flag name '" + flag.Name.String() + "' in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
@@ -227,7 +227,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		if seenShorts[shortStr] {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
-				Field:     NewFieldPath().Command(string(cmd.Name)).String(),
+				Field:     NewFieldPath().Command(cmd.Name).String(),
 				Message:   "has duplicate short alias '" + shortStr + "' in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})

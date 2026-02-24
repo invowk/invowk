@@ -11,11 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
-func Archive(modulePath, outputPath string) (archivePath string, err error) {
+func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.FilesystemPath, err error) {
 	// Load and validate the module first
 	m, err := Load(modulePath)
 	if err != nil {
@@ -23,12 +25,13 @@ func Archive(modulePath, outputPath string) (archivePath string, err error) {
 	}
 
 	// Determine output path
-	if outputPath == "" {
-		outputPath = string(m.Name()) + ModuleSuffix + ".zip"
+	outputStr := string(outputPath)
+	if outputStr == "" {
+		outputStr = string(m.Name()) + ModuleSuffix + ".zip"
 	}
 
 	// Resolve absolute output path
-	absOutputPath, err := filepath.Abs(outputPath)
+	absOutputPath, err := filepath.Abs(outputStr)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve output path: %w", err)
 	}
@@ -124,7 +127,7 @@ func Archive(modulePath, outputPath string) (archivePath string, err error) {
 		return "", err
 	}
 
-	return absOutputPath, nil
+	return types.FilesystemPath(absOutputPath), nil
 }
 
 // Unpack extracts a module from a ZIP archive.
@@ -251,7 +254,7 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	}
 
 	// Validate the extracted module
-	_, err = Load(modulePath)
+	_, err = Load(types.FilesystemPath(modulePath))
 	if err != nil {
 		// Clean up on validation failure (best-effort)
 		_ = os.RemoveAll(modulePath)

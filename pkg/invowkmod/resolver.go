@@ -163,7 +163,7 @@ func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
 		return nil, fmt.Errorf("failed to resolve working directory: %w", err)
 	}
 
-	cd := string(cacheDir)
+	cd := cacheDir
 	if cd == "" {
 		cd, err = GetDefaultCacheDir()
 		if err != nil {
@@ -171,10 +171,12 @@ func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
 		}
 	}
 
-	absCacheDir, err := filepath.Abs(cd)
+	absCacheDir, err := filepath.Abs(string(cd))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve cache directory: %w", err)
 	}
+
+	absCachePath := types.FilesystemPath(absCacheDir)
 
 	// Ensure cache directory exists
 	if err := os.MkdirAll(absCacheDir, 0o755); err != nil {
@@ -182,9 +184,9 @@ func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
 	}
 
 	return &Resolver{
-		cacheDir:   types.FilesystemPath(absCacheDir),
+		cacheDir:   absCachePath,
 		workingDir: types.FilesystemPath(absWorkingDir),
-		fetcher:    NewGitFetcher(types.FilesystemPath(absCacheDir)),
+		fetcher:    NewGitFetcher(absCachePath),
 		semver:     NewSemverResolver(),
 	}, nil
 }

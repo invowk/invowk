@@ -39,7 +39,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -76,7 +76,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject invalid validation regex")
 	}
@@ -108,7 +108,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject default_value that doesn't match validation pattern")
 	}
@@ -140,7 +140,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() should accept default_value that matches validation, got error: %v", err)
 	}
@@ -352,7 +352,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}

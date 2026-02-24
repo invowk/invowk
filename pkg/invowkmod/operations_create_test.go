@@ -50,7 +50,7 @@ func TestCreate(t *testing.T) {
 				}
 
 				// Verify module is valid
-				_, err = Load(modulePath)
+				_, err = Load(types.FilesystemPath(modulePath))
 				if err != nil {
 					t.Errorf("created module is not valid: %v", err)
 				}

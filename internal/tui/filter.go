@@ -187,11 +187,11 @@ func (m *filterModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *filterModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
-	m.list.SetWidth(width)
-	m.list.SetHeight(height - 2)
+func (m *filterModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
+	m.list.SetWidth(int(width))
+	m.list.SetHeight(int(height) - 2)
 }
 
 // Filter prompts the user to filter and select from a list of options.

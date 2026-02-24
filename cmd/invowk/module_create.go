@@ -54,7 +54,7 @@ func runModuleCreate(args []string, createPath string, createScripts bool, creat
 	moduleName := args[0]
 
 	// Validate module name first
-	if err := invowkmod.ValidateName(moduleName); err != nil {
+	if err := invowkmod.ValidateName(invowkmod.ModuleShortName(moduleName)); err != nil {
 		return err
 	}
 

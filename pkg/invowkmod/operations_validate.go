@@ -15,9 +15,9 @@ import (
 // Validate performs comprehensive validation of a module at the given path.
 // Returns a ValidationResult with all issues found, or an error if the path
 // cannot be accessed.
-func Validate(modulePath string) (*ValidationResult, error) {
+func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 	// Convert to absolute path
-	absPath, err := filepath.Abs(modulePath)
+	absPath, err := filepath.Abs(string(modulePath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
@@ -50,12 +50,12 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	if err != nil {
 		result.AddIssue(IssueTypeNaming, err.Error(), "")
 	} else {
-		result.ModuleName = ModuleShortName(moduleName)
+		result.ModuleName = moduleName
 
 		// Check for reserved module name "invowkfile" (FR-015)
 		// This name is reserved for the canonical namespace system where @invowkfile
 		// refers to the root invowkfile.cue source
-		if moduleName == "invowkfile" {
+		if string(moduleName) == "invowkfile" {
 			result.AddIssue(IssueTypeNaming, "module name 'invowkfile' is reserved for the root invowkfile source", "")
 		}
 	}
@@ -169,7 +169,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 // Returns a Module (operational wrapper) if valid, or an error with validation details.
 // Note: This loads only metadata (invowkmod.cue), not commands (invowkfile.cue).
 // To load commands as well, use pkg/invowkfile.ParseModule().
-func Load(modulePath string) (*Module, error) {
+func Load(modulePath types.FilesystemPath) (*Module, error) {
 	result, err := Validate(modulePath)
 	if err != nil {
 		return nil, err

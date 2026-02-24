@@ -162,7 +162,7 @@ func (m *interactiveModel) View() string {
 
 	// If we're displaying a TUI component, render it as an overlay on top of the base view
 	if m.state == stateTUI && m.activeComponent != nil {
-		return RenderOverlay(baseView, m.activeComponent.View(), m.width, m.height)
+		return RenderOverlay(baseView, m.activeComponent.View(), TerminalDimension(m.width), TerminalDimension(m.height))
 	}
 
 	return baseView
@@ -241,7 +241,7 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleTUIComponentRequest creates an embedded TUI component and switches to TUI state.
 func (m *interactiveModel) handleTUIComponentRequest(msg TUIComponentMsg) (tea.Model, tea.Cmd) {
 	// Calculate modal dimensions based on component type
-	modalSize := CalculateModalSize(msg.Component, m.width, m.height)
+	modalSize := CalculateModalSize(msg.Component, TerminalDimension(m.width), TerminalDimension(m.height))
 
 	// Create the embeddable component with modal dimensions
 	component, err := CreateEmbeddableComponent(msg.Component, msg.Options, modalSize.Width, modalSize.Height)
@@ -382,7 +382,7 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 
 	// Resize the active TUI component if one is displayed
 	if m.activeComponent != nil && m.activeComponentType != "" {
-		modalSize := CalculateModalSize(m.activeComponentType, msg.Width, msg.Height)
+		modalSize := CalculateModalSize(m.activeComponentType, TerminalDimension(msg.Width), TerminalDimension(msg.Height))
 		m.activeComponent.SetSize(modalSize.Width, modalSize.Height)
 	}
 

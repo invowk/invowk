@@ -134,10 +134,10 @@ func (m *fileModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *fileModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
-	m.form = m.form.WithWidth(width).WithHeight(height)
+func (m *fileModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
+	m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
 }
 
 // File prompts the user to select a file from the filesystem.

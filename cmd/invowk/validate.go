@@ -12,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -254,7 +255,7 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 	fmt.Fprintln(stdout)
 
 	// Parse the invowkfile (CUE schema + structural validation).
-	inv, err := invowkfile.Parse(invowkfilePath)
+	inv, err := invowkfile.Parse(types.FilesystemPath(invowkfilePath))
 	if err != nil {
 		fmt.Fprintf(stderr, "%s CUE schema validation failed\n", moduleErrorIcon)
 		fmt.Fprintln(stderr)
@@ -312,7 +313,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	fmt.Fprintln(stdout, moduleTitleStyle.Render("Module Validation"))
 	fmt.Fprintf(stdout, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
 
-	result, err := invowkmod.Validate(modulePath)
+	result, err := invowkmod.Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		return fmt.Errorf("validation error: %w", err)
 	}
@@ -323,7 +324,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 
 	// Deep validation: parse invowkfile and validate command tree if present.
 	if result.InvowkfilePath != "" {
-		inv, invErr := invowkfile.Parse(string(result.InvowkfilePath))
+		inv, invErr := invowkfile.Parse(result.InvowkfilePath)
 		if invErr != nil {
 			result.AddIssue(invowkmod.IssueTypeInvowkfile, invErr.Error(), "invowkfile.cue")
 		} else if inv != nil {

@@ -48,7 +48,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject tool dependency with 'name' field instead of 'alternatives'")
 	}
@@ -98,7 +98,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject custom check with both direct fields and alternatives")
 	}
@@ -143,7 +143,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject capability dependency with 'name' field instead of 'alternatives'")
 	}
@@ -187,7 +187,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject command dependency with 'name' field instead of 'alternatives'")
 	}
@@ -226,7 +226,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() should accept invowkfile without module field: %v", err)
 	}
@@ -381,7 +381,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject empty interpreter when explicitly declared")
 	}
@@ -426,7 +426,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Errorf("Parse() should reject whitespace-only interpreter %q", tt.interpreter)
 			}
@@ -459,7 +459,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject empty interpreter for container runtime")
 	}
@@ -626,7 +626,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(FilesystemPath(invowkfilePath))
 			if err != nil {
 				t.Fatalf("Parse() should accept valid interpreter %q, got error: %v", tt.interpreter, err)
 			}
@@ -664,7 +664,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() should accept omitted interpreter field, got error: %v", err)
 	}

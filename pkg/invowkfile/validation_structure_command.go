@@ -10,7 +10,7 @@ import (
 // validateCommand validates a single command and collects all errors.
 func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowkfile, cmd *Command) []ValidationError {
 	var errors []ValidationError
-	path := NewFieldPath().Command(string(cmd.Name))
+	path := NewFieldPath().Command(cmd.Name)
 
 	if cmd.Name == "" {
 		errors = append(errors, ValidationError{
@@ -85,7 +85,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv *Invowkfile, cmd *Command, implIdx int) []ValidationError {
 	var errors []ValidationError
 	impl := &cmd.Implementations[implIdx]
-	path := NewFieldPath().Command(string(cmd.Name)).Implementation(implIdx)
+	path := NewFieldPath().Command(cmd.Name).Implementation(implIdx)
 
 	if impl.Script == "" {
 		errors = append(errors, ValidationError{
@@ -143,7 +143,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *Invowkfile, cmdName CommandName, implIdx, rtIdx int) []ValidationError {
 	var errors []ValidationError
 	rt := &inv.GetCommand(cmdName).Implementations[implIdx].Runtimes[rtIdx]
-	path := NewFieldPath().Command(string(cmdName)).Implementation(implIdx).Runtime(rtIdx)
+	path := NewFieldPath().Command(cmdName).Implementation(implIdx).Runtime(rtIdx)
 
 	// Validate env inherit mode
 	if rt.EnvInheritMode != "" {

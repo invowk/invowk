@@ -25,13 +25,14 @@ var (
 type Module = invowkmod.Module
 
 // Parse reads and parses an invowkfile from the given path.
-func Parse(path string) (*Invowkfile, error) {
-	data, err := os.ReadFile(path)
+func Parse(path FilesystemPath) (*Invowkfile, error) {
+	pathStr := string(path)
+	data, err := os.ReadFile(pathStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read invowkfile at %s: %w", path, err)
 	}
 
-	return ParseBytes(data, path)
+	return ParseBytes(data, pathStr)
 }
 
 // ParseBytes parses invowkfile content from bytes.
@@ -80,9 +81,10 @@ func ParseInvowkmodBytes(data []byte, path FilesystemPath) (*Invowkmod, error) {
 //
 // The modulePath should be the path to the module directory (ending in .invowkmod).
 // Returns a Module with Metadata from invowkmod.cue and Commands from invowkfile.cue.
-func ParseModule(modulePath string) (*Module, error) {
-	invowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
-	invowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
+func ParseModule(modulePath FilesystemPath) (*Module, error) {
+	modulePathStr := string(modulePath)
+	invowkmodPath := filepath.Join(modulePathStr, "invowkmod.cue")
+	invowkfilePath := filepath.Join(modulePathStr, "invowkfile.cue")
 
 	// Parse invowkmod.cue (required)
 	meta, err := ParseInvowkmod(FilesystemPath(invowkmodPath))
@@ -93,7 +95,7 @@ func ParseModule(modulePath string) (*Module, error) {
 	// Create result
 	result := &Module{
 		Metadata: meta,
-		Path:     FilesystemPath(modulePath),
+		Path:     modulePath,
 	}
 
 	// Parse invowkfile.cue (optional - may be a library-only module)

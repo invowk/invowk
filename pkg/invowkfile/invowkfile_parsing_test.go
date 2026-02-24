@@ -296,7 +296,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -389,7 +389,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 				}
 			}
 
-			_, parseErr := Parse(invowkfilePath)
+			_, parseErr := Parse(FilesystemPath(invowkfilePath))
 
 			if tt.shouldError {
 				if parseErr == nil {

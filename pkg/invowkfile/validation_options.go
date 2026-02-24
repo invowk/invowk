@@ -89,9 +89,9 @@ func WithStrictMode(strict bool) ValidateOption {
 
 // WithWorkDir overrides the working directory for path resolution.
 // By default, paths are resolved relative to the invowkfile's directory.
-func WithWorkDir(workDir string) ValidateOption {
+func WithWorkDir(workDir FilesystemPath) ValidateOption {
 	return func(o *validateOptions) {
-		o.workDir = workDir
+		o.workDir = string(workDir)
 	}
 }
 

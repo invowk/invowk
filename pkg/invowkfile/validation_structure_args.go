@@ -40,7 +40,7 @@ func (v *StructureValidator) validateArgs(ctx *ValidationContext, cmd *Command) 
 // Returns the errors, whether this arg is optional, and whether it's variadic.
 func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, arg *Argument, idx int, seenNames map[string]bool, foundOptional, foundVariadic bool) ([]ValidationError, bool, bool) {
 	var errors []ValidationError
-	path := NewFieldPath().Command(string(cmd.Name))
+	path := NewFieldPath().Command(cmd.Name)
 	isOptional := !arg.Required
 	isVariadic := arg.Variadic
 
@@ -56,7 +56,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		return errors, isOptional, isVariadic
 	}
 
-	path = path.Copy().Arg(string(arg.Name))
+	path = path.Copy().Arg(arg.Name)
 
 	// [CUE-VALIDATED] Argument name length also enforced by CUE schema (#Argument.name MaxRunes(256))
 	if err := ValidateStringLength(string(arg.Name), "argument name", MaxNameLength); err != nil {
@@ -102,7 +102,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 	if seenNames[string(arg.Name)] {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
-			Field:     NewFieldPath().Command(string(cmd.Name)).String(),
+			Field:     NewFieldPath().Command(cmd.Name).String(),
 			Message:   "has duplicate argument name '" + arg.Name.String() + "' in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})

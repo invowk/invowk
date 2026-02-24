@@ -167,7 +167,7 @@ func TestIsModule(t *testing.T) {
 			t.Parallel()
 
 			path := tt.setup(t)
-			result := IsModule(path)
+			result := IsModule(types.FilesystemPath(path))
 			if result != tt.expected {
 				t.Errorf("IsModule(%q) = %v, want %v", path, result, tt.expected)
 			}
@@ -274,7 +274,7 @@ func TestParseModuleName(t *testing.T) {
 				if err != nil {
 					t.Errorf("ParseModuleName(%q) returned error: %v, expected %q", tt.folderName, err, tt.expectedVal)
 				}
-				if result != tt.expectedVal {
+				if string(result) != tt.expectedVal {
 					t.Errorf("ParseModuleName(%q) = %q, want %q", tt.folderName, result, tt.expectedVal)
 				}
 			} else if err == nil {
@@ -316,7 +316,7 @@ func TestLoad(t *testing.T) {
 		dir := t.TempDir()
 		modulePath := createValidModule(t, dir, "com.example.test.invowkmod", "com.example.test")
 
-		module, err := Load(modulePath)
+		module, err := Load(types.FilesystemPath(modulePath))
 		if err != nil {
 			t.Fatalf("Load() returned error: %v", err)
 		}
@@ -354,7 +354,7 @@ version: "1.0.0"
 			t.Fatal(err)
 		}
 
-		module, err := Load(modulePath)
+		module, err := Load(types.FilesystemPath(modulePath))
 		if err != nil {
 			t.Fatalf("Load() returned error: %v", err)
 		}
@@ -382,7 +382,7 @@ version: "1.0.0"
 			t.Fatal(err)
 		}
 
-		_, err := Load(modulePath)
+		_, err := Load(types.FilesystemPath(modulePath))
 		if err == nil {
 			t.Error("Load() expected error for module missing invowkmod.cue, got nil")
 		}

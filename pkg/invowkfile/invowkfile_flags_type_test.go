@@ -63,7 +63,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(FilesystemPath(invowkfilePath))
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
@@ -105,7 +105,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -145,7 +145,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject invalid type")
 	}
@@ -196,7 +196,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Errorf("Parse() should reject flag with type %q and incompatible default_value %q", tt.flagType, tt.defaultValue)
 			}

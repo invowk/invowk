@@ -134,9 +134,9 @@ func (m *tableModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *tableModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+func (m *tableModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
 }
 
 // Table displays a table and optionally allows row selection.

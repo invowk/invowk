@@ -209,7 +209,7 @@ func (c *Constraint) Matches(v *Version) bool {
 }
 
 // Resolve finds the best matching version for a constraint.
-func (r *SemverResolver) Resolve(constraintStr string, availableVersions []string) (string, error) {
+func (r *SemverResolver) Resolve(constraintStr string, availableVersions []SemVer) (SemVer, error) {
 	constraint, err := r.ParseConstraint(constraintStr)
 	if err != nil {
 		return "", err
@@ -218,7 +218,7 @@ func (r *SemverResolver) Resolve(constraintStr string, availableVersions []strin
 	// Parse all available versions
 	var versions []*Version
 	for _, vs := range availableVersions {
-		v, err := ParseVersion(vs)
+		v, err := ParseVersion(string(vs))
 		if err != nil {
 			continue // Skip invalid versions
 		}
@@ -247,11 +247,13 @@ func (r *SemverResolver) Resolve(constraintStr string, availableVersions []strin
 	})
 
 	// Return the highest matching version
-	return matching[0].Original, nil
+	return SemVer(matching[0].Original), nil
 }
 
-// IsValidVersion checks if a string is a valid semantic version.
-func IsValidVersion(s string) bool {
+// isValidVersionString checks if a raw string is a valid semantic version.
+// This is an internal helper used before constructing SemVer values (e.g., when
+// filtering git tags). For typed validation, use SemVer.IsValid() instead.
+func isValidVersionString(s string) bool {
 	_, err := ParseVersion(s)
 	return err == nil
 }
@@ -263,11 +265,11 @@ func IsValidConstraint(s string) bool {
 	return err == nil
 }
 
-// SortVersions sorts a slice of version strings in descending order (newest first).
-func SortVersions(versions []string) []string {
+// SortVersions sorts a slice of SemVer values in descending order (newest first).
+func SortVersions(versions []SemVer) []SemVer {
 	var parsed []*Version
 	for _, vs := range versions {
-		v, err := ParseVersion(vs)
+		v, err := ParseVersion(string(vs))
 		if err != nil {
 			continue
 		}
@@ -278,25 +280,25 @@ func SortVersions(versions []string) []string {
 		return parsed[i].Compare(parsed[j]) > 0
 	})
 
-	result := make([]string, len(parsed))
+	result := make([]SemVer, len(parsed))
 	for i, v := range parsed {
-		result[i] = v.Original
+		result[i] = SemVer(v.Original)
 	}
 
 	return result
 }
 
-// FilterVersions filters a slice of version strings by a constraint.
-func FilterVersions(constraintStr string, versions []string) ([]string, error) {
+// FilterVersions filters a slice of SemVer values by a constraint.
+func FilterVersions(constraintStr string, versions []SemVer) ([]SemVer, error) {
 	r := &SemverResolver{}
 	constraint, err := r.ParseConstraint(constraintStr)
 	if err != nil {
 		return nil, err
 	}
 
-	var matching []string
+	var matching []SemVer
 	for _, vs := range versions {
-		v, err := ParseVersion(vs)
+		v, err := ParseVersion(string(vs))
 		if err != nil {
 			continue
 		}

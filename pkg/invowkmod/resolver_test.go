@@ -111,7 +111,7 @@ func TestGetDefaultCacheDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetDefaultCacheDirWith() error = %v", err)
 		}
-		if result != customPath {
+		if string(result) != customPath {
 			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, customPath)
 		}
 	})
@@ -126,7 +126,7 @@ func TestGetDefaultCacheDir(t *testing.T) {
 
 		homeDir, _ := os.UserHomeDir()
 		expected := filepath.Join(homeDir, ".invowk", DefaultModulesDir)
-		if result != expected {
+		if string(result) != expected {
 			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, expected)
 		}
 	})

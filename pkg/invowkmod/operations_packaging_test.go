@@ -63,13 +63,13 @@ func TestArchive(t *testing.T) {
 
 		// Archive the module
 		outputPath := filepath.Join(tmpDir, "output.zip")
-		zipPath, err := Archive(modulePath, outputPath)
+		zipPath, err := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(outputPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
 
 		// Verify ZIP was created
-		info, err := os.Stat(zipPath)
+		info, err := os.Stat(string(zipPath))
 		if err != nil {
 			t.Fatalf("ZIP file not created: %v", err)
 		}
@@ -78,7 +78,7 @@ func TestArchive(t *testing.T) {
 		}
 
 		// Verify ZIP path matches expected
-		if zipPath != outputPath {
+		if string(zipPath) != outputPath {
 			t.Errorf("Archive() returned %q, expected %q", zipPath, outputPath)
 		}
 	})
@@ -100,15 +100,15 @@ func TestArchive(t *testing.T) {
 		defer restoreWd()
 
 		// Archive with empty output path
-		zipPath, err := Archive(modulePath, "")
+		zipPath, err := Archive(types.FilesystemPath(modulePath), "")
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
 
 		// Verify default name
 		expectedName := "com.example.tools.invowkmod.zip"
-		if filepath.Base(zipPath) != expectedName {
-			t.Errorf("default ZIP name = %q, expected %q", filepath.Base(zipPath), expectedName)
+		if filepath.Base(string(zipPath)) != expectedName {
+			t.Errorf("default ZIP name = %q, expected %q", filepath.Base(string(zipPath)), expectedName)
 		}
 	})
 
@@ -121,7 +121,7 @@ func TestArchive(t *testing.T) {
 			t.Fatalf("failed to create directory: %v", err)
 		}
 
-		_, err := Archive(modulePath, "")
+		_, err := Archive(types.FilesystemPath(modulePath), "")
 		if err == nil {
 			t.Error("Archive() expected error for invalid module, got nil")
 		}
@@ -146,7 +146,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(modulePath, zipPath)
+		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
@@ -169,7 +169,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Verify extracted module is valid
-		b, err := Load(extractedPath)
+		b, err := Load(types.FilesystemPath(extractedPath))
 		if err != nil {
 			t.Fatalf("extracted module is invalid: %v", err)
 		}
@@ -194,7 +194,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(modulePath, zipPath)
+		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
@@ -228,7 +228,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(modulePath, zipPath)
+		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}

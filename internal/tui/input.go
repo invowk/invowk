@@ -129,10 +129,10 @@ func (m *inputModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *inputModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
-	m.form = m.form.WithWidth(width).WithHeight(height)
+func (m *inputModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
+	m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
 }
 
 // Input prompts the user for a single line of text input.

@@ -48,7 +48,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -114,7 +114,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -177,7 +177,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -400,7 +400,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	parsed, err := Parse(invowkfilePath)
+	parsed, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Failed to parse invowkfile: %v", err)
 	}
@@ -742,7 +742,7 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	parsed, err := Parse(invowkfilePath)
+	parsed, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Failed to parse generated CUE: %v", err)
 	}

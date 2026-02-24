@@ -107,7 +107,7 @@ type (
 
 		// SetSize sets the available width and height for the component.
 		// This should be called before Init() and when the terminal is resized.
-		SetSize(width, height int)
+		SetSize(width, height TerminalDimension)
 	}
 
 	// TableSelectionResult holds the result of a table selection.
@@ -134,8 +134,8 @@ type (
 
 	// ModalSize contains the calculated dimensions for a modal overlay.
 	ModalSize struct {
-		Width  int
-		Height int
+		Width  TerminalDimension
+		Height TerminalDimension
 	}
 )
 
@@ -171,7 +171,7 @@ func (ct ComponentType) IsValid() (bool, []error) {
 // and available screen space. The returned dimensions are for the INNER content area,
 // accounting for the modal frame overhead (border + padding).
 // Different component types have different sizing needs.
-func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight int) ModalSize {
+func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight TerminalDimension) ModalSize {
 	// Define margins to leave around the modal (outer)
 	const (
 		minMarginX = 4  // Minimum horizontal margin (2 on each side)
@@ -249,7 +249,7 @@ func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight i
 // CreateEmbeddableComponent creates an embeddable component from a component type and options.
 // The options should be a JSON-encoded representation of the component-specific options.
 // Components created here use a modal-specific theme to ensure proper rendering in overlays.
-func CreateEmbeddableComponent(componentType ComponentType, options json.RawMessage, width, height int) (EmbeddableComponent, error) {
+func CreateEmbeddableComponent(componentType ComponentType, options json.RawMessage, width, height TerminalDimension) (EmbeddableComponent, error) {
 	switch componentType {
 	case ComponentTypeInput:
 		var opts InputOptions
@@ -344,7 +344,11 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 // The function applies two layers of protection against color bleeding:
 // 1. The overlay style applies the modal background to the frame
 // 2. sanitizeModalBackground post-processes to catch any bare ANSI resets
-func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
+func RenderOverlay(base, overlay string, screenWidth, screenHeight TerminalDimension) string {
+	// Convert to int for internal arithmetic with lipgloss and string operations
+	sw := int(screenWidth)
+	sh := int(screenHeight)
+
 	// Apply overlay styling (border + padding + background)
 	styledOverlay := overlayStyle().Render(overlay)
 
@@ -358,7 +362,7 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 	overlayLines := strings.Split(styledOverlay, "\n")
 
 	// Ensure base has enough lines
-	for len(baseLines) < screenHeight {
+	for len(baseLines) < sh {
 		baseLines = append(baseLines, "")
 	}
 
@@ -373,8 +377,8 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 	}
 
 	// Calculate position to center the overlay
-	startY := (screenHeight - overlayHeight) / 2
-	startX := (screenWidth - overlayWidth) / 2
+	startY := (sh - overlayHeight) / 2
+	startX := (sw - overlayWidth) / 2
 
 	if startY < 0 {
 		startY = 0
@@ -389,12 +393,12 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 		if i >= startY && i < startY+overlayHeight {
 			overlayIdx := i - startY
 			if overlayIdx < len(overlayLines) {
-				result[i] = compositeLineANSI(baseLine, overlayLines[overlayIdx], startX, screenWidth)
+				result[i] = compositeLineANSI(baseLine, overlayLines[overlayIdx], startX, sw)
 			} else {
-				result[i] = padLineToWidth(baseLine, screenWidth)
+				result[i] = padLineToWidth(baseLine, sw)
 			}
 		} else {
-			result[i] = padLineToWidth(baseLine, screenWidth)
+			result[i] = padLineToWidth(baseLine, sw)
 		}
 	}
 

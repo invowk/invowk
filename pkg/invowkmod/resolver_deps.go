@@ -136,9 +136,9 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRe
 	}
 
 	// Determine module path within the repository
-	modulePath := repoPath
+	modulePath := string(repoPath)
 	if req.Path != "" {
-		modulePath = filepath.Join(repoPath, string(req.Path))
+		modulePath = filepath.Join(string(repoPath), string(req.Path))
 	}
 
 	// Find .invowkmod directory
@@ -148,10 +148,10 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRe
 	}
 
 	// Compute namespace
-	namespace := computeNamespace(moduleName, resolvedVersion, req.Alias)
+	namespace := computeNamespace(moduleName, string(resolvedVersion), req.Alias)
 
 	// Cache the module in the versioned directory
-	cachePath := m.getCachePath(string(req.GitURL), resolvedVersion, string(req.Path))
+	cachePath := m.getCachePath(string(req.GitURL), string(resolvedVersion), string(req.Path))
 	if err = m.cacheModule(moduleDir, cachePath); err != nil {
 		return nil, fmt.Errorf("failed to cache module: %w", err)
 	}
@@ -164,8 +164,8 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRe
 
 	return &ResolvedModule{
 		ModuleRef:       req,
-		ResolvedVersion: SemVer(resolvedVersion),
-		GitCommit:       GitCommit(commit),
+		ResolvedVersion: resolvedVersion,
+		GitCommit:       commit,
 		CachePath:       types.FilesystemPath(cachePath),
 		Namespace:       namespace,
 		ModuleName:      moduleName,

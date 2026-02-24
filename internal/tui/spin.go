@@ -263,9 +263,9 @@ func (m *spinModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *spinModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+func (m *spinModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
 }
 
 // runCommand starts the command execution and returns the result.

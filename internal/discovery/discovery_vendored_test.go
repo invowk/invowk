@@ -459,28 +459,28 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 	d := newTestDiscovery(t, cfg, tmpDir)
 
 	// Load modules
-	parentMod, err := invowkmod.Load(parentDir)
+	parentMod, err := invowkmod.Load(types.FilesystemPath(parentDir))
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup1Mod, err := invowkmod.Load(dup1Dir)
+	dup1Mod, err := invowkmod.Load(types.FilesystemPath(dup1Dir))
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup2Mod, err := invowkmod.Load(dup2Dir)
+	dup2Mod, err := invowkmod.Load(types.FilesystemPath(dup2Dir))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Build DiscoveredFiles with parsed Invowkfiles (module metadata attached).
 	// Parse the invowkfile.cue for each so CheckModuleCollisions can read module IDs.
-	dup1Inv, err := invowkfile.Parse(string(dup1Mod.InvowkfilePath()))
+	dup1Inv, err := invowkfile.Parse(dup1Mod.InvowkfilePath())
 	if err != nil {
 		t.Fatal(err)
 	}
 	dup1Inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(dup1Mod.Metadata)
 
-	dup2Inv, err := invowkfile.Parse(string(dup2Mod.InvowkfilePath()))
+	dup2Inv, err := invowkfile.Parse(dup2Mod.InvowkfilePath())
 	if err != nil {
 		t.Fatal(err)
 	}

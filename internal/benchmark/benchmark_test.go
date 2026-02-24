@@ -15,6 +15,7 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -647,7 +648,7 @@ description: "Benchmark test module for PGO profiling"
 
 	b.ResetTimer()
 	for b.Loop() {
-		result, err := invowkmod.Validate(modDir)
+		result, err := invowkmod.Validate(types.FilesystemPath(modDir))
 		if err != nil {
 			b.Fatalf("Module validation error: %v", err)
 		}

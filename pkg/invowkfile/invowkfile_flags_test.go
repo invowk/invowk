@@ -48,7 +48,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -138,7 +138,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", writeErr)
 			}
 
-			_, err = Parse(invowkfilePath)
+			_, err = Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Errorf("Parse() should reject flag with invalid name %q", tt.flagName)
 			}
@@ -193,7 +193,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", writeErr)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(FilesystemPath(invowkfilePath))
 			if err != nil {
 				t.Errorf("Parse() should accept flag with valid name %q, got error: %v", tt.flagName, err)
 				return
@@ -237,7 +237,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject flag with empty/whitespace-only description")
 	}
@@ -275,7 +275,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject duplicate flag names")
 	}
@@ -371,7 +371,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -409,7 +409,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}

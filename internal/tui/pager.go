@@ -147,11 +147,11 @@ func (m *pagerModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *pagerModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
-	m.viewport.Width = width
-	m.viewport.Height = height - 4
+func (m *pagerModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
+	m.viewport.Width = int(width)
+	m.viewport.Height = int(height) - 4
 }
 
 // Pager displays content in a scrollable viewport.

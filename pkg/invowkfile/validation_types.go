@@ -319,8 +319,8 @@ func (p *FieldPath) Root() *FieldPath {
 }
 
 // Command adds a command context to the path.
-func (p *FieldPath) Command(name string) *FieldPath {
-	p.parts = append(p.parts, "command '"+name+"'")
+func (p *FieldPath) Command(name CommandName) *FieldPath {
+	p.parts = append(p.parts, "command '"+string(name)+"'")
 	return p
 }
 
@@ -337,8 +337,8 @@ func (p *FieldPath) Runtime(index int) *FieldPath {
 }
 
 // Flag adds a flag context to the path.
-func (p *FieldPath) Flag(name string) *FieldPath {
-	p.parts = append(p.parts, "flag '"+name+"'")
+func (p *FieldPath) Flag(name FlagName) *FieldPath {
+	p.parts = append(p.parts, "flag '"+string(name)+"'")
 	return p
 }
 
@@ -349,8 +349,8 @@ func (p *FieldPath) FlagIndex(index int) *FieldPath {
 }
 
 // Arg adds an argument context to the path.
-func (p *FieldPath) Arg(name string) *FieldPath {
-	p.parts = append(p.parts, "argument '"+name+"'")
+func (p *FieldPath) Arg(name ArgumentName) *FieldPath {
+	p.parts = append(p.parts, "argument '"+string(name)+"'")
 	return p
 }
 
