@@ -195,6 +195,113 @@ func TestPortMapping_IsValid_FieldErrorTypes(t *testing.T) {
 	}
 }
 
+func TestParsePortMapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		portStr string
+		want    PortMapping
+		wantErr bool
+	}{
+		{
+			"simple TCP mapping",
+			"8080:80",
+			PortMapping{HostPort: 8080, ContainerPort: 80},
+			false,
+		},
+		{
+			"explicit TCP protocol",
+			"8080:80/tcp",
+			PortMapping{HostPort: 8080, ContainerPort: 80, Protocol: PortProtocolTCP},
+			false,
+		},
+		{
+			"UDP protocol",
+			"5353:53/udp",
+			PortMapping{HostPort: 5353, ContainerPort: 53, Protocol: PortProtocolUDP},
+			false,
+		},
+		{
+			"same port",
+			"443:443",
+			PortMapping{HostPort: 443, ContainerPort: 443},
+			false,
+		},
+		{
+			"max port",
+			"65535:65535",
+			PortMapping{HostPort: 65535, ContainerPort: 65535},
+			false,
+		},
+		{
+			"no colon separator",
+			"8080",
+			PortMapping{},
+			true,
+		},
+		{
+			"empty string",
+			"",
+			PortMapping{},
+			true,
+		},
+		{
+			"non-numeric host port",
+			"abc:80",
+			PortMapping{},
+			true,
+		},
+		{
+			"non-numeric container port",
+			"8080:abc",
+			PortMapping{HostPort: 8080},
+			true,
+		},
+		{
+			"zero host port",
+			"0:80",
+			PortMapping{HostPort: 0, ContainerPort: 80},
+			true,
+		},
+		{
+			"zero container port",
+			"8080:0",
+			PortMapping{HostPort: 8080, ContainerPort: 0},
+			true,
+		},
+		{
+			"invalid protocol",
+			"8080:80/sctp",
+			PortMapping{HostPort: 8080, ContainerPort: 80, Protocol: PortProtocol("sctp")},
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, errs := ParsePortMapping(tt.portStr)
+			if got.HostPort != tt.want.HostPort {
+				t.Errorf("HostPort = %d, want %d", got.HostPort, tt.want.HostPort)
+			}
+			if got.ContainerPort != tt.want.ContainerPort {
+				t.Errorf("ContainerPort = %d, want %d", got.ContainerPort, tt.want.ContainerPort)
+			}
+			if got.Protocol != tt.want.Protocol {
+				t.Errorf("Protocol = %q, want %q", got.Protocol, tt.want.Protocol)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Error("ParsePortMapping() returned no errors, want error")
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ParsePortMapping() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
 func TestInvalidPortMappingError(t *testing.T) {
 	t.Parallel()
 

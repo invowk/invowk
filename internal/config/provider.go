@@ -2,19 +2,23 @@
 
 package config
 
-import "context"
+import (
+	"context"
+
+	"github.com/invowk/invowk/pkg/types"
+)
 
 type (
 	// LoadOptions defines explicit configuration loading inputs.
 	LoadOptions struct {
 		// ConfigFilePath forces loading from a specific config file when set.
-		ConfigFilePath string
+		ConfigFilePath types.FilesystemPath
 		// ConfigDirPath overrides the config directory lookup when set.
-		ConfigDirPath string
+		ConfigDirPath types.FilesystemPath
 		// BaseDir overrides the directory for CWD-relative config file lookup.
 		// When empty, the relative path "config.cue" resolves against the
 		// process's current working directory (os.Getwd).
-		BaseDir string
+		BaseDir types.FilesystemPath
 	}
 
 	// Provider loads configuration from explicit options.

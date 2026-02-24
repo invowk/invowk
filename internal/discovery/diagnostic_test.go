@@ -190,6 +190,89 @@ func TestSource_IsValid(t *testing.T) {
 	}
 }
 
+func TestDiagnostic_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		diag          Diagnostic
+		want          bool
+		wantErr       bool
+		wantFieldErrs int
+	}{
+		{
+			name: "valid diagnostic",
+			diag: Diagnostic{
+				Severity: SeverityWarning,
+				Code:     CodeConfigLoadFailed,
+				Message:  "test message",
+			},
+			want: true,
+		},
+		{
+			name: "invalid severity",
+			diag: Diagnostic{
+				Severity: Severity("bogus"),
+				Code:     CodeConfigLoadFailed,
+				Message:  "test message",
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "invalid code",
+			diag: Diagnostic{
+				Severity: SeverityError,
+				Code:     DiagnosticCode("bogus_code"),
+				Message:  "test message",
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "both invalid",
+			diag: Diagnostic{
+				Severity: Severity("nope"),
+				Code:     DiagnosticCode("also_nope"),
+				Message:  "test message",
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.diag.IsValid()
+			if isValid != tt.want {
+				t.Errorf("Diagnostic.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("Diagnostic.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidDiagnostic) {
+					t.Errorf("error should wrap ErrInvalidDiagnostic, got: %v", errs[0])
+				}
+				var diagErr *InvalidDiagnosticError
+				if !errors.As(errs[0], &diagErr) {
+					t.Fatalf("error should be *InvalidDiagnosticError, got: %T", errs[0])
+				}
+				if len(diagErr.FieldErrors) != tt.wantFieldErrs {
+					t.Errorf("InvalidDiagnosticError.FieldErrors = %d, want %d", len(diagErr.FieldErrors), tt.wantFieldErrs)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("Diagnostic.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
 func TestDiagnosticCode_String(t *testing.T) {
 	t.Parallel()
 

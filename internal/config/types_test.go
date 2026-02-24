@@ -378,3 +378,307 @@ func TestIncludeEntry_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestUIConfig_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		cfg       UIConfig
+		want      bool
+		wantErr   bool
+		wantCount int
+	}{
+		{
+			"valid with auto color scheme",
+			UIConfig{ColorScheme: ColorSchemeAuto, Verbose: true, Interactive: false},
+			true, false, 0,
+		},
+		{
+			"valid with dark color scheme",
+			UIConfig{ColorScheme: ColorSchemeDark},
+			true, false, 0,
+		},
+		{
+			"invalid color scheme",
+			UIConfig{ColorScheme: "neon"},
+			false, true, 1,
+		},
+		{
+			"zero value (empty color scheme is invalid)",
+			UIConfig{},
+			false, true, 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.cfg.IsValid()
+			if isValid != tt.want {
+				t.Errorf("UIConfig.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("UIConfig.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidUIConfig) {
+					t.Errorf("error should wrap ErrInvalidUIConfig, got: %v", errs[0])
+				}
+				var cfgErr *InvalidUIConfigError
+				if !errors.As(errs[0], &cfgErr) {
+					t.Fatalf("error should be *InvalidUIConfigError, got: %T", errs[0])
+				}
+				if len(cfgErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("UIConfig.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
+func TestAutoProvisionConfig_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		cfg       AutoProvisionConfig
+		want      bool
+		wantErr   bool
+		wantCount int
+	}{
+		{
+			"valid with defaults",
+			AutoProvisionConfig{
+				Enabled:         true,
+				BinaryPath:      "",
+				Includes:        []IncludeEntry{},
+				InheritIncludes: true,
+				CacheDir:        "",
+			},
+			true, false, 0,
+		},
+		{
+			"valid with explicit paths",
+			AutoProvisionConfig{
+				BinaryPath: "/usr/bin/invowk",
+				Includes:   []IncludeEntry{{Path: "/home/user/my.invowkmod"}},
+				CacheDir:   "/tmp/cache",
+			},
+			true, false, 0,
+		},
+		{
+			"invalid binary path (whitespace-only)",
+			AutoProvisionConfig{BinaryPath: "   "},
+			false, true, 1,
+		},
+		{
+			"invalid cache dir (whitespace-only)",
+			AutoProvisionConfig{CacheDir: "   "},
+			false, true, 1,
+		},
+		{
+			"invalid include entry",
+			AutoProvisionConfig{
+				Includes: []IncludeEntry{{Path: ""}},
+			},
+			false, true, 1,
+		},
+		{
+			"multiple invalid fields",
+			AutoProvisionConfig{
+				BinaryPath: "   ",
+				Includes:   []IncludeEntry{{Path: ""}},
+				CacheDir:   "   ",
+			},
+			false, true, 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.cfg.IsValid()
+			if isValid != tt.want {
+				t.Errorf("AutoProvisionConfig.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("AutoProvisionConfig.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidAutoProvisionConfig) {
+					t.Errorf("error should wrap ErrInvalidAutoProvisionConfig, got: %v", errs[0])
+				}
+				var cfgErr *InvalidAutoProvisionConfigError
+				if !errors.As(errs[0], &cfgErr) {
+					t.Fatalf("error should be *InvalidAutoProvisionConfigError, got: %T", errs[0])
+				}
+				if len(cfgErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("AutoProvisionConfig.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
+func TestContainerConfig_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		cfg     ContainerConfig
+		want    bool
+		wantErr bool
+	}{
+		{
+			"valid with default auto provision",
+			ContainerConfig{
+				AutoProvision: AutoProvisionConfig{
+					Enabled:    true,
+					BinaryPath: "",
+					Includes:   []IncludeEntry{},
+					CacheDir:   "",
+				},
+			},
+			true, false,
+		},
+		{
+			"invalid auto provision (invalid include)",
+			ContainerConfig{
+				AutoProvision: AutoProvisionConfig{
+					Includes: []IncludeEntry{{Path: ""}},
+				},
+			},
+			false, true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.cfg.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ContainerConfig.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ContainerConfig.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidContainerConfig) {
+					t.Errorf("error should wrap ErrInvalidContainerConfig, got: %v", errs[0])
+				}
+				var cfgErr *InvalidContainerConfigError
+				if !errors.As(errs[0], &cfgErr) {
+					t.Fatalf("error should be *InvalidContainerConfigError, got: %T", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ContainerConfig.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
+func TestConfig_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		cfg       Config
+		want      bool
+		wantErr   bool
+		wantCount int
+	}{
+		{
+			"DefaultConfig is valid",
+			*DefaultConfig(),
+			true, false, 0,
+		},
+		{
+			"invalid container engine",
+			func() Config {
+				c := *DefaultConfig()
+				c.ContainerEngine = "unknown"
+				return c
+			}(),
+			false, true, 1,
+		},
+		{
+			"invalid default runtime",
+			func() Config {
+				c := *DefaultConfig()
+				c.DefaultRuntime = "bogus"
+				return c
+			}(),
+			false, true, 1,
+		},
+		{
+			"invalid UI color scheme",
+			func() Config {
+				c := *DefaultConfig()
+				c.UI.ColorScheme = "neon"
+				return c
+			}(),
+			false, true, 1,
+		},
+		{
+			"invalid include entry",
+			func() Config {
+				c := *DefaultConfig()
+				c.Includes = []IncludeEntry{{Path: ""}}
+				return c
+			}(),
+			false, true, 1,
+		},
+		{
+			"invalid container config (invalid auto provision include)",
+			func() Config {
+				c := *DefaultConfig()
+				c.Container.AutoProvision.Includes = []IncludeEntry{{Path: ""}}
+				return c
+			}(),
+			false, true, 1,
+		},
+		{
+			"multiple invalid fields",
+			func() Config {
+				c := *DefaultConfig()
+				c.ContainerEngine = "unknown"
+				c.DefaultRuntime = "bogus"
+				c.UI.ColorScheme = "neon"
+				return c
+			}(),
+			false, true, 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.cfg.IsValid()
+			if isValid != tt.want {
+				t.Errorf("Config.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("Config.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidConfig) {
+					t.Errorf("error should wrap ErrInvalidConfig, got: %v", errs[0])
+				}
+				var cfgErr *InvalidConfigError
+				if !errors.As(errs[0], &cfgErr) {
+					t.Fatalf("error should be *InvalidConfigError, got: %T", errs[0])
+				}
+				if len(cfgErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("Config.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}

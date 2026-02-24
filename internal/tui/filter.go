@@ -25,9 +25,9 @@ type (
 		// Limit is the maximum number of selections (0 for single, >0 for multi).
 		Limit int
 		// Height limits the visible height (0 for auto).
-		Height int
+		Height TerminalDimension
 		// Width limits the visible width (0 for auto).
-		Width int
+		Width TerminalDimension
 		// Reverse reverses the order of results.
 		Reverse bool
 		// Fuzzy enables fuzzy matching (default: true).
@@ -360,13 +360,13 @@ func (b *FilterBuilder) NoLimit(noLimit bool) *FilterBuilder {
 }
 
 // Height sets the visible height.
-func (b *FilterBuilder) Height(height int) *FilterBuilder {
+func (b *FilterBuilder) Height(height TerminalDimension) *FilterBuilder {
 	b.opts.Height = height
 	return b
 }
 
 // Width sets the visible width.
-func (b *FilterBuilder) Width(width int) *FilterBuilder {
+func (b *FilterBuilder) Width(width TerminalDimension) *FilterBuilder {
 	b.opts.Width = width
 	return b
 }
@@ -441,12 +441,12 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		items[i] = filterItem{text: opt}
 	}
 
-	height := opts.Height
+	height := int(opts.Height)
 	if height == 0 {
 		height = 10
 	}
 
-	width := opts.Width
+	width := int(opts.Width)
 	if width == 0 {
 		width = 50
 	}

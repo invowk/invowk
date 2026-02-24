@@ -769,7 +769,7 @@ func TestChooseStringOptions_JSONUnmarshal(t *testing.T) {
 		wantOptions []string
 		wantLimit   int
 		wantNoLimit bool
-		wantHeight  int
+		wantHeight  TerminalDimension
 	}{
 		{
 			name:        "single select with all fields",

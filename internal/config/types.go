@@ -51,6 +51,14 @@ var (
 	ErrInvalidCacheDirPath = errors.New("invalid cache dir path")
 	// ErrInvalidIncludeEntry is the sentinel error wrapped by InvalidIncludeEntryError.
 	ErrInvalidIncludeEntry = errors.New("invalid include entry")
+	// ErrInvalidUIConfig is the sentinel error wrapped by InvalidUIConfigError.
+	ErrInvalidUIConfig = errors.New("invalid UI config")
+	// ErrInvalidAutoProvisionConfig is the sentinel error wrapped by InvalidAutoProvisionConfigError.
+	ErrInvalidAutoProvisionConfig = errors.New("invalid auto-provision config")
+	// ErrInvalidContainerConfig is the sentinel error wrapped by InvalidContainerConfigError.
+	ErrInvalidContainerConfig = errors.New("invalid container config")
+	// ErrInvalidConfig is the sentinel error wrapped by InvalidConfigError.
+	ErrInvalidConfig = errors.New("invalid config")
 )
 
 type (
@@ -119,6 +127,34 @@ type (
 	// It wraps ErrInvalidIncludeEntry for errors.Is() compatibility and collects
 	// field-level validation errors from Path and Alias.
 	InvalidIncludeEntryError struct {
+		FieldErrors []error
+	}
+
+	// InvalidConfigError is returned when a Config has invalid fields.
+	// It wraps ErrInvalidConfig for errors.Is() compatibility and collects
+	// field-level validation errors from all sub-components.
+	InvalidConfigError struct {
+		FieldErrors []error
+	}
+
+	// InvalidUIConfigError is returned when a UIConfig has invalid fields.
+	// It wraps ErrInvalidUIConfig for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidUIConfigError struct {
+		FieldErrors []error
+	}
+
+	// InvalidAutoProvisionConfigError is returned when an AutoProvisionConfig has invalid fields.
+	// It wraps ErrInvalidAutoProvisionConfig for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidAutoProvisionConfigError struct {
+		FieldErrors []error
+	}
+
+	// InvalidContainerConfigError is returned when a ContainerConfig has invalid fields.
+	// It wraps ErrInvalidContainerConfig for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidContainerConfigError struct {
 		FieldErrors []error
 	}
 
@@ -220,6 +256,116 @@ func (e *InvalidIncludeEntryError) Error() string {
 
 // Unwrap returns ErrInvalidIncludeEntry for errors.Is() compatibility.
 func (e *InvalidIncludeEntryError) Unwrap() error { return ErrInvalidIncludeEntry }
+
+// IsValid returns whether the UIConfig has valid fields.
+// It delegates to ColorScheme.IsValid(); bool fields need no validation.
+func (c UIConfig) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := c.ColorScheme.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidUIConfigError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidUIConfigError.
+func (e *InvalidUIConfigError) Error() string {
+	return fmt.Sprintf("invalid UI config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidUIConfig for errors.Is() compatibility.
+func (e *InvalidUIConfigError) Unwrap() error { return ErrInvalidUIConfig }
+
+// IsValid returns whether the AutoProvisionConfig has valid fields.
+// It delegates to BinaryPath.IsValid(), each Includes entry's IsValid(),
+// and CacheDir.IsValid(). Bool fields (Enabled, Strict, InheritIncludes)
+// need no validation.
+func (c AutoProvisionConfig) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := c.BinaryPath.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	for _, entry := range c.Includes {
+		if valid, fieldErrs := entry.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if valid, fieldErrs := c.CacheDir.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidAutoProvisionConfigError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidAutoProvisionConfigError.
+func (e *InvalidAutoProvisionConfigError) Error() string {
+	return fmt.Sprintf("invalid auto-provision config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidAutoProvisionConfig for errors.Is() compatibility.
+func (e *InvalidAutoProvisionConfigError) Unwrap() error { return ErrInvalidAutoProvisionConfig }
+
+// IsValid returns whether the ContainerConfig has valid fields.
+// It delegates to AutoProvision.IsValid().
+func (c ContainerConfig) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := c.AutoProvision.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidContainerConfigError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidContainerConfigError.
+func (e *InvalidContainerConfigError) Error() string {
+	return fmt.Sprintf("invalid container config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidContainerConfig for errors.Is() compatibility.
+func (e *InvalidContainerConfigError) Unwrap() error { return ErrInvalidContainerConfig }
+
+// IsValid returns whether the Config has valid fields.
+// It delegates to ContainerEngine.IsValid(), DefaultRuntime.IsValid(),
+// each Includes entry's IsValid(), UI.IsValid(), and Container.IsValid().
+// VirtualShell has only bool fields and needs no validation.
+func (c Config) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := c.ContainerEngine.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := c.DefaultRuntime.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	for _, entry := range c.Includes {
+		if valid, fieldErrs := entry.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if valid, fieldErrs := c.UI.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := c.Container.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidConfigError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidConfigError.
+func (e *InvalidConfigError) Error() string {
+	return fmt.Sprintf("invalid config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidConfig for errors.Is() compatibility.
+func (e *InvalidConfigError) Unwrap() error { return ErrInvalidConfig }
 
 // String returns the string representation of the ModuleIncludePath.
 func (p ModuleIncludePath) String() string { return string(p) }

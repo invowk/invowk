@@ -34,7 +34,7 @@ type (
 	// Constraint represents a version constraint.
 	Constraint struct {
 		// Op is the comparison operator (=, ^, ~, >, >=, <, <=).
-		Op string
+		Op ConstraintOp
 		// Version is the version to compare against.
 		Version *Version
 		// Original is the original constraint string.
@@ -144,9 +144,9 @@ func (r *SemverResolver) ParseConstraint(s string) (*Constraint, error) {
 		return nil, fmt.Errorf("invalid constraint format: %s", s)
 	}
 
-	op := matches[1]
+	op := ConstraintOp(matches[1])
 	if op == "" {
-		op = "="
+		op = ConstraintOpEqual
 	}
 
 	version, err := ParseVersion(matches[2])
@@ -164,10 +164,10 @@ func (r *SemverResolver) ParseConstraint(s string) (*Constraint, error) {
 // Matches checks if a version satisfies the constraint.
 func (c *Constraint) Matches(v *Version) bool {
 	switch c.Op {
-	case "=":
+	case ConstraintOpEqual:
 		return v.Compare(c.Version) == 0
 
-	case "^":
+	case ConstraintOpCaret:
 		// Caret: allows changes that do not modify the left-most non-zero digit
 		// ^1.2.3 := >=1.2.3 <2.0.0
 		// ^0.2.3 := >=0.2.3 <0.3.0
@@ -183,7 +183,7 @@ func (c *Constraint) Matches(v *Version) bool {
 		}
 		return v.Major == 0 && v.Minor == 0 && v.Patch == c.Version.Patch
 
-	case "~":
+	case ConstraintOpTilde:
 		// Tilde: allows patch-level changes
 		// ~1.2.3 := >=1.2.3 <1.3.0
 		if v.Compare(c.Version) < 0 {
@@ -191,16 +191,16 @@ func (c *Constraint) Matches(v *Version) bool {
 		}
 		return v.Major == c.Version.Major && v.Minor == c.Version.Minor
 
-	case ">":
+	case ConstraintOpGT:
 		return v.Compare(c.Version) > 0
 
-	case ">=":
+	case ConstraintOpGTE:
 		return v.Compare(c.Version) >= 0
 
-	case "<":
+	case ConstraintOpLT:
 		return v.Compare(c.Version) < 0
 
-	case "<=":
+	case ConstraintOpLTE:
 		return v.Compare(c.Version) <= 0
 
 	default:

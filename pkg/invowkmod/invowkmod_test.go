@@ -682,3 +682,109 @@ func TestPathHelpers(t *testing.T) {
 		t.Errorf("InvowkmodPath() = %q, want %q", invowkmodPath, filepath.Join(string(moduleDir), "invowkmod.cue"))
 	}
 }
+
+func TestInvowkmod_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mod       Invowkmod
+		want      bool
+		wantErr   bool
+		wantCount int
+	}{
+		{
+			"valid complete module",
+			Invowkmod{
+				Module:      "io.invowk.sample",
+				Version:     "1.0.0",
+				Description: "A sample module",
+				Requires: []ModuleRequirement{
+					{GitURL: GitURL("https://github.com/example/utils.git"), Version: SemVerConstraint("^1.0.0")},
+				},
+				FilePath: types.FilesystemPath("/home/user/modules/sample.invowkmod/invowkmod.cue"),
+			},
+			true, false, 0,
+		},
+		{
+			"valid minimal module (no optional fields)",
+			Invowkmod{
+				Module:  "io.invowk.minimal",
+				Version: "0.1.0",
+			},
+			true, false, 0,
+		},
+		{
+			"invalid module ID (empty)",
+			Invowkmod{
+				Module:  "",
+				Version: "1.0.0",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid version (empty)",
+			Invowkmod{
+				Module:  "io.invowk.sample",
+				Version: "",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid description (whitespace-only)",
+			Invowkmod{
+				Module:      "io.invowk.sample",
+				Version:     "1.0.0",
+				Description: "   ",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid requirement (empty git URL)",
+			Invowkmod{
+				Module:  "io.invowk.sample",
+				Version: "1.0.0",
+				Requires: []ModuleRequirement{
+					{GitURL: GitURL(""), Version: SemVerConstraint("^1.0.0")},
+				},
+			},
+			false, true, 1,
+		},
+		{
+			"multiple invalid fields",
+			Invowkmod{
+				Module:      "",
+				Version:     "",
+				Description: "   ",
+			},
+			false, true, 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.mod.IsValid()
+			if isValid != tt.want {
+				t.Errorf("Invowkmod.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("Invowkmod.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidInvowkmod) {
+					t.Errorf("error should wrap ErrInvalidInvowkmod, got: %v", errs[0])
+				}
+				var modErr *InvalidInvowkmodError
+				if !errors.As(errs[0], &modErr) {
+					t.Fatalf("error should be *InvalidInvowkmodError, got: %T", errs[0])
+				}
+				if len(modErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(modErr.FieldErrors), tt.wantCount)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("Invowkmod.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}

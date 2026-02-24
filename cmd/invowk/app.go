@@ -348,7 +348,7 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 //   - Default path with missing config dir or similar infrastructure error:
 //     SeverityWarning (common on fresh installs, defaults are appropriate).
 func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
-	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
+	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(configPath)})
 	if err == nil {
 		return cfg, nil
 	}

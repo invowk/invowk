@@ -424,6 +424,111 @@ func TestValidatorName_String(t *testing.T) {
 	}
 }
 
+func TestNewValidationError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		validator ValidatorName
+		field     string
+		message   string
+		severity  ValidationSeverity
+		wantOK    bool
+		wantErrs  int
+	}{
+		{
+			name:      "valid construction",
+			validator: "structure",
+			field:     "command 'build'",
+			message:   "must have a script",
+			severity:  SeverityError,
+			wantOK:    true,
+			wantErrs:  0,
+		},
+		{
+			name:      "invalid validator name",
+			validator: "",
+			field:     "field",
+			message:   "msg",
+			severity:  SeverityWarning,
+			wantOK:    false,
+			wantErrs:  1,
+		},
+		{
+			name:      "invalid severity",
+			validator: "structure",
+			field:     "field",
+			message:   "msg",
+			severity:  ValidationSeverity(99),
+			wantOK:    false,
+			wantErrs:  1,
+		},
+		{
+			name:      "both invalid",
+			validator: "  ",
+			field:     "field",
+			message:   "msg",
+			severity:  ValidationSeverity(-1),
+			wantOK:    false,
+			wantErrs:  2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ve, errs := NewValidationError(tt.validator, tt.field, tt.message, tt.severity)
+			if tt.wantOK {
+				if len(errs) != 0 {
+					t.Fatalf("NewValidationError() returned errors: %v", errs)
+				}
+				if ve.Validator != tt.validator {
+					t.Errorf("Validator = %q, want %q", ve.Validator, tt.validator)
+				}
+				if ve.Field != tt.field {
+					t.Errorf("Field = %q, want %q", ve.Field, tt.field)
+				}
+				if ve.Message != tt.message {
+					t.Errorf("Message = %q, want %q", ve.Message, tt.message)
+				}
+				if ve.Severity != tt.severity {
+					t.Errorf("Severity = %d, want %d", ve.Severity, tt.severity)
+				}
+			} else {
+				if len(errs) != tt.wantErrs {
+					t.Errorf("NewValidationError() returned %d errors, want %d: %v", len(errs), tt.wantErrs, errs)
+				}
+				if ve != (ValidationError{}) {
+					t.Errorf("NewValidationError() returned non-zero ValidationError on failure: %+v", ve)
+				}
+			}
+		})
+	}
+}
+
+func TestNewValidationError_ErrorTypes(t *testing.T) {
+	t.Parallel()
+
+	// Verify invalid validator wraps correct sentinel
+	_, errs := NewValidationError("", "field", "msg", SeverityError)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(errs))
+	}
+	if !errors.Is(errs[0], ErrInvalidValidatorName) {
+		t.Errorf("error should wrap ErrInvalidValidatorName, got: %v", errs[0])
+	}
+
+	// Verify invalid severity wraps correct sentinel
+	_, errs = NewValidationError("structure", "field", "msg", ValidationSeverity(99))
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(errs))
+	}
+	if !errors.Is(errs[0], ErrInvalidValidationSeverity) {
+		t.Errorf("error should wrap ErrInvalidValidationSeverity, got: %v", errs[0])
+	}
+}
+
 func TestValidationSeverity_IsValid(t *testing.T) {
 	t.Parallel()
 

@@ -28,7 +28,7 @@ type (
 		// NoLimit allows unlimited selections in multi-select mode.
 		NoLimit bool `json:"no_limit,omitempty"`
 		// Height limits the number of visible options (0 for auto).
-		Height int `json:"height,omitempty"`
+		Height TerminalDimension `json:"height,omitempty"`
 		// Config holds common TUI configuration (internal only, not from protocol).
 		Config Config `json:"-"`
 	}
@@ -654,7 +654,7 @@ func (b *ChooseStringBuilder) NoLimit() *ChooseStringBuilder {
 }
 
 // Height sets the visible height.
-func (b *ChooseStringBuilder) Height(height int) *ChooseStringBuilder {
+func (b *ChooseStringBuilder) Height(height TerminalDimension) *ChooseStringBuilder {
 	b.opts.Height = height
 	return b
 }
@@ -696,7 +696,7 @@ func newSingleChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *
 		Value(&result)
 
 	if opts.Height > 0 {
-		sel = sel.Height(opts.Height)
+		sel = sel.Height(int(opts.Height))
 	}
 
 	form := huh.NewForm(huh.NewGroup(sel)).
@@ -722,7 +722,7 @@ func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *choo
 		items[i] = chooseItem{text: opt, index: i}
 	}
 
-	height := opts.Height
+	height := int(opts.Height)
 	if height == 0 {
 		height = 10
 	}

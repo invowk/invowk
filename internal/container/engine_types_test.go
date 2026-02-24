@@ -5,6 +5,8 @@ package container
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 func TestContainerID_IsValid(t *testing.T) {
@@ -354,5 +356,223 @@ func TestMountTargetPath_String(t *testing.T) {
 	p := MountTargetPath("/app/data")
 	if p.String() != "/app/data" {
 		t.Errorf("MountTargetPath.String() = %q, want %q", p.String(), "/app/data")
+	}
+}
+
+func TestBuildOptions_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		opts      BuildOptions
+		want      bool
+		wantErr   bool
+		wantCount int // expected number of field errors inside InvalidBuildOptionsError
+	}{
+		{
+			"all valid fields",
+			BuildOptions{
+				ContextDir: "/app",
+				Dockerfile: "Dockerfile",
+				Tag:        "myimage:latest",
+			},
+			true, false, 0,
+		},
+		{
+			"invalid context dir (empty)",
+			BuildOptions{
+				ContextDir: "",
+				Dockerfile: "Dockerfile",
+				Tag:        "myimage:latest",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid dockerfile (whitespace)",
+			BuildOptions{
+				ContextDir: "/app",
+				Dockerfile: "   ",
+				Tag:        "myimage:latest",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid tag (empty)",
+			BuildOptions{
+				ContextDir: "/app",
+				Dockerfile: "Dockerfile",
+				Tag:        "",
+			},
+			false, true, 1,
+		},
+		{
+			"all fields invalid",
+			BuildOptions{
+				ContextDir: "",
+				Dockerfile: "   ",
+				Tag:        "\t",
+			},
+			false, true, 3,
+		},
+		{
+			"zero value (all empty)",
+			BuildOptions{},
+			false, true, 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.opts.IsValid()
+			if isValid != tt.want {
+				t.Errorf("BuildOptions.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatal("BuildOptions.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidBuildOptions) {
+					t.Errorf("error should wrap ErrInvalidBuildOptions, got: %v", errs[0])
+				}
+				var boErr *InvalidBuildOptionsError
+				if !errors.As(errs[0], &boErr) {
+					t.Fatalf("error should be *InvalidBuildOptionsError, got: %T", errs[0])
+				}
+				if tt.wantCount > 0 && len(boErr.FieldErrors) != tt.wantCount {
+					t.Errorf("InvalidBuildOptionsError has %d field errors, want %d: %v",
+						len(boErr.FieldErrors), tt.wantCount, boErr.FieldErrors)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("BuildOptions.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
+func TestRunOptions_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		opts      RunOptions
+		want      bool
+		wantErr   bool
+		wantCount int // expected number of field errors inside InvalidRunOptionsError
+	}{
+		{
+			"minimal valid (image only)",
+			RunOptions{
+				Image: "debian:stable-slim",
+			},
+			true, false, 0,
+		},
+		{
+			"fully populated valid",
+			RunOptions{
+				Image:      "debian:stable-slim",
+				WorkDir:    "/app",
+				Name:       "my-container",
+				ExtraHosts: []HostMapping{"host.docker.internal:host-gateway"},
+				Volumes:    []invowkfile.VolumeMountSpec{"/host:/container"},
+				Ports:      []invowkfile.PortMappingSpec{"8080:80"},
+			},
+			true, false, 0,
+		},
+		{
+			"empty image is invalid",
+			RunOptions{
+				Image: "",
+			},
+			false, true, 1,
+		},
+		{
+			"whitespace-only workdir is invalid",
+			RunOptions{
+				Image:   "debian:stable-slim",
+				WorkDir: "   ",
+			},
+			false, true, 1,
+		},
+		{
+			"empty workdir is valid (zero value skipped)",
+			RunOptions{
+				Image:   "debian:stable-slim",
+				WorkDir: "",
+			},
+			true, false, 0,
+		},
+		{
+			"whitespace-only name is invalid",
+			RunOptions{
+				Image: "debian:stable-slim",
+				Name:  "   ",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid extra host",
+			RunOptions{
+				Image:      "debian:stable-slim",
+				ExtraHosts: []HostMapping{""},
+			},
+			false, true, 1,
+		},
+		{
+			"invalid volume spec",
+			RunOptions{
+				Image:   "debian:stable-slim",
+				Volumes: []invowkfile.VolumeMountSpec{""},
+			},
+			false, true, 1,
+		},
+		{
+			"invalid port spec",
+			RunOptions{
+				Image: "debian:stable-slim",
+				Ports: []invowkfile.PortMappingSpec{""},
+			},
+			false, true, 1,
+		},
+		{
+			"multiple invalid fields",
+			RunOptions{
+				Image:      "",
+				WorkDir:    "\t",
+				Name:       "   ",
+				ExtraHosts: []HostMapping{""},
+				Volumes:    []invowkfile.VolumeMountSpec{""},
+				Ports:      []invowkfile.PortMappingSpec{""},
+			},
+			false, true, 6,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.opts.IsValid()
+			if isValid != tt.want {
+				t.Errorf("RunOptions.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatal("RunOptions.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidRunOptions) {
+					t.Errorf("error should wrap ErrInvalidRunOptions, got: %v", errs[0])
+				}
+				var roErr *InvalidRunOptionsError
+				if !errors.As(errs[0], &roErr) {
+					t.Fatalf("error should be *InvalidRunOptionsError, got: %T", errs[0])
+				}
+				if tt.wantCount > 0 && len(roErr.FieldErrors) != tt.wantCount {
+					t.Errorf("InvalidRunOptionsError has %d field errors, want %d: %v",
+						len(roErr.FieldErrors), tt.wantCount, roErr.FieldErrors)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("RunOptions.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
 	}
 }

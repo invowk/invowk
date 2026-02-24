@@ -782,6 +782,109 @@ func TestRuntimeType_IsValid(t *testing.T) {
 	}
 }
 
+func TestEnvContext_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		envCtx        EnvContext
+		want          bool
+		wantErr       bool
+		wantFieldErrs int
+	}{
+		{
+			name:   "zero value is valid",
+			envCtx: EnvContext{},
+			want:   true,
+		},
+		{
+			name: "valid with all fields",
+			envCtx: EnvContext{
+				InheritModeOverride:  invowkfile.EnvInheritAll,
+				InheritAllowOverride: []invowkfile.EnvVarName{"HOME", "PATH"},
+				InheritDenyOverride:  []invowkfile.EnvVarName{"SECRET"},
+				Cwd:                  "/some/dir",
+			},
+			want: true,
+		},
+		{
+			name: "invalid inherit mode",
+			envCtx: EnvContext{
+				InheritModeOverride: invowkfile.EnvInheritMode("bogus"),
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "invalid env var name in allow override",
+			envCtx: EnvContext{
+				InheritAllowOverride: []invowkfile.EnvVarName{"VALID", "123-invalid"},
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "invalid env var name in deny override",
+			envCtx: EnvContext{
+				InheritDenyOverride: []invowkfile.EnvVarName{"has space"},
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "invalid cwd (whitespace-only)",
+			envCtx: EnvContext{
+				Cwd: invowkfile.WorkDir("   "),
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "multiple errors",
+			envCtx: EnvContext{
+				InheritModeOverride:  invowkfile.EnvInheritMode("bad"),
+				InheritAllowOverride: []invowkfile.EnvVarName{"123bad"},
+				InheritDenyOverride:  []invowkfile.EnvVarName{"also bad"},
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.envCtx.IsValid()
+			if isValid != tt.want {
+				t.Errorf("EnvContext.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("EnvContext.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidEnvContext) {
+					t.Errorf("error should wrap ErrInvalidEnvContext, got: %v", errs[0])
+				}
+				var envErr *InvalidEnvContextError
+				if !errors.As(errs[0], &envErr) {
+					t.Fatalf("error should be *InvalidEnvContextError, got: %T", errs[0])
+				}
+				if len(envErr.FieldErrors) != tt.wantFieldErrs {
+					t.Errorf("InvalidEnvContextError.FieldErrors = %d, want %d", len(envErr.FieldErrors), tt.wantFieldErrs)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("EnvContext.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
 func TestRuntimeType_String(t *testing.T) {
 	t.Parallel()
 

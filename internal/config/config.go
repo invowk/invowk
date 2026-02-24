@@ -115,24 +115,25 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 	resolvedPath := ""
 
 	// If a custom config file path is set via --ivk-config flag, use it exclusively.
-	if opts.ConfigFilePath != "" {
-		if !fileExists(opts.ConfigFilePath) {
+	configFilePath := string(opts.ConfigFilePath)
+	if configFilePath != "" {
+		if !fileExists(configFilePath) {
 			return nil, "", issue.NewErrorContext().
 				WithOperation("load configuration").
-				WithResource(opts.ConfigFilePath).
+				WithResource(configFilePath).
 				WithSuggestion("Verify the file path is correct").
 				WithSuggestion("Check that the file exists and is readable").
 				WithSuggestion("Use 'invowk config show' to see default configuration").
-				Wrap(fmt.Errorf("config file not found: %s", opts.ConfigFilePath)).
+				Wrap(fmt.Errorf("config file not found: %s", configFilePath)).
 				BuildError()
 		}
-		if err := loadCUEIntoViper(v, opts.ConfigFilePath); err != nil {
-			return nil, "", cueLoadError(opts.ConfigFilePath, err)
+		if err := loadCUEIntoViper(v, configFilePath); err != nil {
+			return nil, "", cueLoadError(configFilePath, err)
 		}
-		resolvedPath = opts.ConfigFilePath
+		resolvedPath = configFilePath
 	} else {
 		// Get config directory
-		cfgDir, err := configDirWithOverride(opts.ConfigDirPath)
+		cfgDir, err := configDirWithOverride(string(opts.ConfigDirPath))
 		if err != nil {
 			return nil, "", err
 		}
@@ -148,7 +149,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 			// Also check current directory (or BaseDir override)
 			localCuePath := ConfigFileName + "." + ConfigFileExt
 			if opts.BaseDir != "" {
-				localCuePath = filepath.Join(opts.BaseDir, localCuePath)
+				localCuePath = filepath.Join(string(opts.BaseDir), localCuePath)
 			}
 			if fileExists(localCuePath) {
 				if err := loadCUEIntoViper(v, localCuePath); err != nil {

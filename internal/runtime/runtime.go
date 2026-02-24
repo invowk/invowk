@@ -37,6 +37,9 @@ var (
 	// ErrInvalidExecutionID is the sentinel error wrapped by InvalidExecutionIDError.
 	ErrInvalidExecutionID = errors.New("invalid execution ID")
 
+	// ErrInvalidEnvContext is the sentinel error wrapped by InvalidEnvContextError.
+	ErrInvalidEnvContext = errors.New("invalid env context")
+
 	// executionIDPattern validates the nanoseconds-counter format used by NewExecutionID.
 	executionIDPattern = regexp.MustCompile(`^\d+-\d+$`)
 )
@@ -50,6 +53,14 @@ type (
 	// match the expected nanoseconds-counter format.
 	InvalidExecutionIDError struct {
 		Value ExecutionID
+	}
+
+	// InvalidEnvContextError is returned when an EnvContext has invalid fields.
+	// It wraps ErrInvalidEnvContext for errors.Is() compatibility and collects
+	// field-level validation errors from InheritModeOverride, InheritAllowOverride,
+	// InheritDenyOverride, and Cwd.
+	InvalidEnvContextError struct {
+		FieldErrors []error
 	}
 
 	// IOContext holds I/O streams for command execution.
@@ -326,6 +337,45 @@ func (t TUIContext) IsValid() (bool, []error) {
 	}
 	if len(errs) > 0 {
 		return false, []error{&InvalidTUIContextError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidEnvContextError.
+func (e *InvalidEnvContextError) Error() string {
+	return fmt.Sprintf("invalid env context: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidEnvContext for errors.Is() compatibility.
+func (e *InvalidEnvContextError) Unwrap() error { return ErrInvalidEnvContext }
+
+// IsValid returns whether the EnvContext has valid fields.
+// It validates InheritModeOverride (when non-empty), each element of
+// InheritAllowOverride and InheritDenyOverride, and Cwd (when non-empty).
+func (ec EnvContext) IsValid() (bool, []error) {
+	var errs []error
+	if ec.InheritModeOverride != "" {
+		if valid, fieldErrs := ec.InheritModeOverride.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	for _, name := range ec.InheritAllowOverride {
+		if valid, fieldErrs := name.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	for _, name := range ec.InheritDenyOverride {
+		if valid, fieldErrs := name.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if ec.Cwd != "" {
+		if valid, fieldErrs := ec.Cwd.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidEnvContextError{FieldErrors: errs}}
 	}
 	return true, nil
 }

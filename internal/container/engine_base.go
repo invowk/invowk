@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/invowk/invowk/internal/issue"
@@ -855,7 +856,8 @@ func FormatVolumeMount(mount VolumeMount) string {
 // ParseVolumeMount parses a volume string into a VolumeMount struct.
 // Volume format: host_path:container_path[:options]
 // Options can include: ro, rw, z, Z, and others.
-func ParseVolumeMount(volume string) VolumeMount {
+// After parsing, the result is validated via VolumeMount.IsValid().
+func ParseVolumeMount(volume string) (VolumeMount, []error) {
 	mount := VolumeMount{}
 
 	parts := strings.Split(volume, ":")
@@ -878,7 +880,10 @@ func ParseVolumeMount(volume string) VolumeMount {
 		}
 	}
 
-	return mount
+	if valid, errs := mount.IsValid(); !valid {
+		return mount, errs
+	}
+	return mount, nil
 }
 
 // --- Port Mapping Formatting ---
@@ -890,6 +895,40 @@ func FormatPortMapping(mapping PortMapping) string {
 		result += "/" + string(mapping.Protocol)
 	}
 	return result
+}
+
+// ParsePortMapping parses a port mapping string in "hostPort:containerPort[/protocol]" format
+// into a PortMapping struct. After parsing, the result is validated via PortMapping.IsValid().
+func ParsePortMapping(portStr string) (PortMapping, []error) {
+	mapping := PortMapping{}
+
+	parts := strings.SplitN(portStr, ":", 2)
+	if len(parts) != 2 {
+		return mapping, []error{fmt.Errorf("invalid port mapping format %q: must contain ':' separator", portStr)}
+	}
+
+	hostPort, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return mapping, []error{fmt.Errorf("invalid host port %q: %w", parts[0], err)}
+	}
+	mapping.HostPort = NetworkPort(hostPort)
+
+	// Split container part on "/" to get port number and optional protocol
+	containerParts := strings.SplitN(parts[1], "/", 2)
+	containerPort, err := strconv.Atoi(containerParts[0])
+	if err != nil {
+		return mapping, []error{fmt.Errorf("invalid container port %q: %w", containerParts[0], err)}
+	}
+	mapping.ContainerPort = NetworkPort(containerPort)
+
+	if len(containerParts) == 2 {
+		mapping.Protocol = PortProtocol(containerParts[1])
+	}
+
+	if valid, errs := mapping.IsValid(); !valid {
+		return mapping, errs
+	}
+	return mapping, nil
 }
 
 // --- Actionable Error Helpers ---

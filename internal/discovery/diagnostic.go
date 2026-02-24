@@ -58,6 +58,8 @@ var (
 	ErrInvalidSource = errors.New("invalid source")
 	// ErrInvalidSourceID is returned when a SourceID value does not match the expected format.
 	ErrInvalidSourceID = errors.New("invalid source id")
+	// ErrInvalidDiagnostic is returned when a Diagnostic has invalid fields.
+	ErrInvalidDiagnostic = errors.New("invalid diagnostic")
 )
 
 type (
@@ -89,6 +91,13 @@ type (
 	// It wraps ErrInvalidSourceID for errors.Is() compatibility.
 	InvalidSourceIDError struct {
 		Value SourceID
+	}
+
+	// InvalidDiagnosticError is returned when a Diagnostic has invalid Severity or Code fields.
+	// It wraps ErrInvalidDiagnostic for errors.Is() compatibility and collects
+	// field-level validation errors from Severity and Code.
+	InvalidDiagnosticError struct {
+		FieldErrors []error
 	}
 
 	// Diagnostic represents a structured discovery diagnostic that is returned
@@ -211,4 +220,28 @@ func NewDiagnosticWithPath(severity Severity, code DiagnosticCode, message strin
 // NewDiagnosticWithCause creates a Diagnostic with the given severity, code, message, file path, and cause error.
 func NewDiagnosticWithCause(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath, cause error) Diagnostic {
 	return Diagnostic{Severity: severity, Code: code, Message: message, Path: path, Cause: cause}
+}
+
+// Error implements the error interface for InvalidDiagnosticError.
+func (e *InvalidDiagnosticError) Error() string {
+	return fmt.Sprintf("invalid diagnostic: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidDiagnostic for errors.Is() compatibility.
+func (e *InvalidDiagnosticError) Unwrap() error { return ErrInvalidDiagnostic }
+
+// IsValid returns whether the Diagnostic has valid Severity and Code fields.
+// Message and Path are display-only fields and are not validated.
+func (d Diagnostic) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := d.Severity.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := d.Code.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidDiagnosticError{FieldErrors: errs}}
+	}
+	return true, nil
 }

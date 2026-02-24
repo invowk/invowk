@@ -66,6 +66,9 @@ var (
 	// path traversal or absolute paths.
 	ErrInvalidSubdirectoryPath = errors.New("invalid subdirectory path")
 
+	// ErrInvalidInvowkmod is the sentinel error wrapped by InvalidInvowkmodError.
+	ErrInvalidInvowkmod = errors.New("invalid invowkmod")
+
 	// moduleIDPattern validates the ModuleID format: starts with a letter, alphanumeric segments
 	// separated by dots. This mirrors the CUE schema constraint in invowkmod_schema.cue.
 	moduleIDPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
@@ -105,6 +108,13 @@ type (
 	InvalidSubdirectoryPathError struct {
 		Value  SubdirectoryPath
 		Reason string
+	}
+
+	// InvalidInvowkmodError is returned when an Invowkmod has invalid fields.
+	// It wraps ErrInvalidInvowkmod for errors.Is() compatibility and collects
+	// field-level validation errors from Module, Version, Description, and Requires.
+	InvalidInvowkmodError struct {
+		FieldErrors []error
 	}
 
 	// ModuleCommands defines the typed command contract stored in Module.Commands.
@@ -267,6 +277,47 @@ func (m ModuleID) IsValid() (bool, []error) {
 
 // String returns the string representation of the ModuleID.
 func (m ModuleID) String() string { return string(m) }
+
+// IsValid returns whether the Invowkmod has valid fields.
+// It delegates to Module.IsValid(), Version.IsValid(), and each
+// Requires entry's IsValid(). Description and FilePath are validated
+// only when non-empty (their zero values are valid).
+func (m Invowkmod) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := m.Module.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := m.Version.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if m.Description != "" {
+		if valid, fieldErrs := m.Description.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	for _, req := range m.Requires {
+		if valid, fieldErrs := req.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if m.FilePath != "" {
+		if valid, fieldErrs := m.FilePath.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidInvowkmodError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidInvowkmodError.
+func (e *InvalidInvowkmodError) Error() string {
+	return fmt.Sprintf("invalid invowkmod: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidInvowkmod for errors.Is() compatibility.
+func (e *InvalidInvowkmodError) Unwrap() error { return ErrInvalidInvowkmod }
 
 // Error implements the error interface for InvalidModuleAliasError.
 func (e *InvalidModuleAliasError) Error() string {

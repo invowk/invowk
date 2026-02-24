@@ -7,11 +7,30 @@ import (
 	"fmt"
 )
 
+const (
+	// ConstraintOpEqual is the exact equality operator (=).
+	ConstraintOpEqual ConstraintOp = "="
+	// ConstraintOpCaret is the caret operator (^), allowing non-breaking changes.
+	ConstraintOpCaret ConstraintOp = "^"
+	// ConstraintOpTilde is the tilde operator (~), allowing patch-level changes.
+	ConstraintOpTilde ConstraintOp = "~"
+	// ConstraintOpGT is the greater-than operator (>).
+	ConstraintOpGT ConstraintOp = ">"
+	// ConstraintOpGTE is the greater-than-or-equal operator (>=).
+	ConstraintOpGTE ConstraintOp = ">="
+	// ConstraintOpLT is the less-than operator (<).
+	ConstraintOpLT ConstraintOp = "<"
+	// ConstraintOpLTE is the less-than-or-equal operator (<=).
+	ConstraintOpLTE ConstraintOp = "<="
+)
+
 // ErrInvalidSemVer is the sentinel error wrapped by InvalidSemVerError.
 // ErrInvalidSemVerConstraint is the sentinel error wrapped by InvalidSemVerConstraintError.
+// ErrInvalidConstraintOp is the sentinel error wrapped by InvalidConstraintOpError.
 var (
 	ErrInvalidSemVer           = errors.New("invalid semver")
 	ErrInvalidSemVerConstraint = errors.New("invalid semver constraint")
+	ErrInvalidConstraintOp     = errors.New("invalid constraint operator")
 )
 
 type (
@@ -33,6 +52,16 @@ type (
 	// does not match the expected constraint format.
 	InvalidSemVerConstraintError struct {
 		Value SemVerConstraint
+	}
+
+	// ConstraintOp represents a version constraint comparison operator.
+	// Valid operators are: =, ^, ~, >, >=, <, <=.
+	ConstraintOp string
+
+	// InvalidConstraintOpError is returned when a ConstraintOp value is not
+	// one of the recognized operators.
+	InvalidConstraintOpError struct {
+		Value ConstraintOp
 	}
 )
 
@@ -76,3 +105,26 @@ func (s SemVerConstraint) IsValid() (bool, []error) {
 
 // String returns the string representation of the SemVerConstraint.
 func (s SemVerConstraint) String() string { return string(s) }
+
+// Error implements the error interface for InvalidConstraintOpError.
+func (e *InvalidConstraintOpError) Error() string {
+	return fmt.Sprintf("invalid constraint operator %q (valid: =, ^, ~, >, >=, <, <=)", e.Value)
+}
+
+// Unwrap returns ErrInvalidConstraintOp for errors.Is() compatibility.
+func (e *InvalidConstraintOpError) Unwrap() error { return ErrInvalidConstraintOp }
+
+// IsValid returns whether the ConstraintOp is one of the defined operators,
+// and a list of validation errors if it is not.
+func (op ConstraintOp) IsValid() (bool, []error) {
+	switch op {
+	case ConstraintOpEqual, ConstraintOpCaret, ConstraintOpTilde,
+		ConstraintOpGT, ConstraintOpGTE, ConstraintOpLT, ConstraintOpLTE:
+		return true, nil
+	default:
+		return false, []error{&InvalidConstraintOpError{Value: op}}
+	}
+}
+
+// String returns the string representation of the ConstraintOp.
+func (op ConstraintOp) String() string { return string(op) }

@@ -158,6 +158,22 @@ func (n ValidatorName) String() string {
 	return string(n)
 }
 
+// NewValidationError creates a validated ValidationError, returning construction errors
+// if the validator name or severity are invalid.
+func NewValidationError(validator ValidatorName, field, message string, severity ValidationSeverity) (ValidationError, []error) {
+	var errs []error
+	if valid, fieldErrs := validator.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := severity.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return ValidationError{}, errs
+	}
+	return ValidationError{Validator: validator, Field: field, Message: message, Severity: severity}, nil
+}
+
 // Error implements the error interface for ValidationError.
 func (e ValidationError) Error() string {
 	if e.Field != "" {

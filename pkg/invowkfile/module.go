@@ -3,8 +3,14 @@
 package invowkfile
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
+
+// ErrInvalidModuleMetadata is the sentinel error wrapped by InvalidModuleMetadataError.
+var ErrInvalidModuleMetadata = errors.New("invalid module metadata")
 
 type (
 	// ModuleMetadata is a lightweight module metadata snapshot attached to
@@ -14,6 +20,13 @@ type (
 		Version     invowkmod.SemVer
 		Description DescriptionText
 		Requires    []ModuleRequirement
+	}
+
+	// InvalidModuleMetadataError is returned when a ModuleMetadata has invalid fields.
+	// It wraps ErrInvalidModuleMetadata for errors.Is() compatibility and collects
+	// field-level validation errors from Module, Version, Description, and Requires.
+	InvalidModuleMetadataError struct {
+		FieldErrors []error
 	}
 
 	// ModuleRequirement represents a dependency on another module from a Git repository.
@@ -65,3 +78,39 @@ func NewModuleMetadataFromInvowkmod(meta *Invowkmod) *ModuleMetadata {
 		Requires:    requires,
 	}
 }
+
+// IsValid returns whether the ModuleMetadata has valid fields.
+// It delegates to Module.IsValid(), Version.IsValid(), and each
+// Requires entry's IsValid(). Description is validated only when
+// non-empty (the zero value is valid).
+func (m ModuleMetadata) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := m.Module.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := m.Version.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if m.Description != "" {
+		if valid, fieldErrs := m.Description.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	for _, req := range m.Requires {
+		if valid, fieldErrs := req.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidModuleMetadataError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidModuleMetadataError.
+func (e *InvalidModuleMetadataError) Error() string {
+	return fmt.Sprintf("invalid module metadata: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidModuleMetadata for errors.Is() compatibility.
+func (e *InvalidModuleMetadataError) Unwrap() error { return ErrInvalidModuleMetadata }
