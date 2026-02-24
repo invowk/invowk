@@ -81,6 +81,52 @@ func TestTUIServerToken_IsValid(t *testing.T) {
 	}
 }
 
+func TestTUIServerURL_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		url  TUIServerURL
+		want string
+	}{
+		{"http url", TUIServerURL("http://localhost:8080"), "http://localhost:8080"},
+		{"empty", TUIServerURL(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.url.String(); got != tt.want {
+				t.Errorf("TUIServerURL(%q).String() = %q, want %q", tt.url, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTUIServerToken_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		token TUIServerToken
+		want  string
+	}{
+		{"valid token", TUIServerToken("abc123"), "abc123"},
+		{"empty", TUIServerToken(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.token.String(); got != tt.want {
+				t.Errorf("TUIServerToken(%q).String() = %q, want %q", tt.token, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTUIContext_IsValid(t *testing.T) {
 	t.Parallel()
 

@@ -112,7 +112,7 @@ func ParseModule(modulePath FilesystemPath) (*Module, error) {
 
 		// Attach local metadata snapshot and module path
 		inv.Metadata = NewModuleMetadataFromInvowkmod(meta)
-		inv.ModulePath = FilesystemPath(modulePath)
+		inv.ModulePath = modulePath
 
 		result.Commands = inv
 	} else {

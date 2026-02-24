@@ -885,6 +885,29 @@ func TestEnvContext_IsValid(t *testing.T) {
 	}
 }
 
+func TestExecutionID_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		id   ExecutionID
+		want string
+	}{
+		{"valid ID", ExecutionID("1234567890-1"), "1234567890-1"},
+		{"empty", ExecutionID(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.id.String(); got != tt.want {
+				t.Errorf("ExecutionID(%q).String() = %q, want %q", tt.id, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRuntimeType_String(t *testing.T) {
 	t.Parallel()
 

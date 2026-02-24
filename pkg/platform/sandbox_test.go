@@ -139,6 +139,31 @@ func TestSpawnArgsFor(t *testing.T) {
 	}
 }
 
+func TestSandboxType_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		sandbox SandboxType
+		want    string
+	}{
+		{"none returns 'none'", SandboxNone, "none"},
+		{"flatpak", SandboxFlatpak, "flatpak"},
+		{"snap", SandboxSnap, "snap"},
+		{"unknown returns raw", SandboxType("custom"), "custom"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.sandbox.String(); got != tt.want {
+				t.Errorf("SandboxType(%q).String() = %q, want %q", string(tt.sandbox), got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSandboxTypeConstants(t *testing.T) {
 	t.Parallel()
 

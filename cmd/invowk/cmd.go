@@ -100,8 +100,6 @@ type (
 	SourceFilter struct {
 		// SourceID is the normalized source identifier (e.g., "invowkfile", "foo").
 		SourceID discovery.SourceID
-		// Raw is the original user input before normalization (e.g., "@foo.invowkmod").
-		Raw string
 	}
 
 	// SourceNotFoundError is returned when a specified source does not exist.
@@ -316,13 +314,12 @@ func normalizeSourceName(raw string) discovery.SourceID {
 func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string, error) {
 	// `--ivk-from` takes precedence because Cobra parsed it explicitly.
 	if fromFlag != "" {
-		return &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}, args, nil
+		return &SourceFilter{SourceID: normalizeSourceName(fromFlag)}, args, nil
 	}
 
 	// `@source` is only recognized as the first positional token.
 	if len(args) > 0 && strings.HasPrefix(args[0], "@") {
-		raw := args[0]
-		return &SourceFilter{SourceID: normalizeSourceName(raw), Raw: raw}, args[1:], nil
+		return &SourceFilter{SourceID: normalizeSourceName(args[0])}, args[1:], nil
 	}
 
 	return nil, args, nil

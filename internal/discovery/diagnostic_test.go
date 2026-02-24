@@ -273,6 +273,54 @@ func TestDiagnostic_IsValid(t *testing.T) {
 	}
 }
 
+func TestSeverity_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		severity Severity
+		want     string
+	}{
+		{"warning", SeverityWarning, "warning"},
+		{"error", SeverityError, "error"},
+		{"empty", Severity(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.severity.String(); got != tt.want {
+				t.Errorf("Severity(%q).String() = %q, want %q", tt.severity, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSource_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		source Source
+		want   string
+	}{
+		{"current directory", SourceCurrentDir, "current directory"},
+		{"module", SourceModule, "module"},
+		{"unknown (out of range)", Source(99), "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.source.String(); got != tt.want {
+				t.Errorf("Source(%d).String() = %q, want %q", tt.source, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDiagnosticCode_String(t *testing.T) {
 	t.Parallel()
 

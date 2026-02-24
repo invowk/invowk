@@ -130,7 +130,7 @@ func TestRunDisambiguatedCommand_AttachesConfigPathToContext(t *testing.T) {
 		app,
 		rootFlags,
 		&cmdFlagValues{},
-		&SourceFilter{SourceID: discovery.SourceIDInvowkfile, Raw: "invowkfile"},
+		&SourceFilter{SourceID: discovery.SourceIDInvowkfile},
 		[]string{"build"},
 	)
 	if err != nil {

@@ -89,7 +89,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 						if fromFlag != "" {
 							// Preserve full path for longest-match disambiguation.
 							fullArgs := append(strings.Fields(parentPrefix), args...)
-							filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}
+							filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag)}
 							return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, fullArgs)
 						}
 
@@ -144,7 +144,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 
 			fromFlag, _ := cmd.Flags().GetString("ivk-from")
 			if fromFlag != "" {
-				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}
+				filter := &SourceFilter{SourceID: normalizeSourceName(fromFlag)}
 				// If Cobra routed to the wrong source-specific leaf, delegate to
 				// source-aware lookup instead of executing the wrong command.
 				if filter.SourceID != cmdSourceID {

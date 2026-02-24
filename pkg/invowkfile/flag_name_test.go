@@ -110,6 +110,29 @@ func TestFlagShorthandString(t *testing.T) {
 	}
 }
 
+func TestArgumentName_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value ArgumentName
+		want  string
+	}{
+		{"normal name", ArgumentName("source"), "source"},
+		{"empty", ArgumentName(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.value.String(); got != tt.want {
+				t.Errorf("ArgumentName(%q).String() = %q, want %q", tt.value, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestArgumentNameIsValid(t *testing.T) {
 	t.Parallel()
 
@@ -148,6 +171,29 @@ func TestArgumentNameIsValid(t *testing.T) {
 				if !errors.Is(errs[0], ErrInvalidArgumentName) {
 					t.Errorf("error does not wrap ErrInvalidArgumentName: %v", errs[0])
 				}
+			}
+		})
+	}
+}
+
+func TestCommandCategory_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value CommandCategory
+		want  string
+	}{
+		{"normal category", CommandCategory("Build Tools"), "Build Tools"},
+		{"empty", CommandCategory(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.value.String(); got != tt.want {
+				t.Errorf("CommandCategory(%q).String() = %q, want %q", tt.value, got, tt.want)
 			}
 		})
 	}
