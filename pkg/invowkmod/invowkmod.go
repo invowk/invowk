@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
+	slashpath "path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -379,7 +379,7 @@ func (p SubdirectoryPath) IsValid() (bool, []error) {
 	// SubdirectoryPath semantics are cross-platform and repository-relative.
 	// Normalize separators first so Windows-style inputs are validated consistently
 	// on all hosts (Linux/macOS/Windows).
-	cleanPath := path.Clean(strings.ReplaceAll(s, "\\", "/"))
+	cleanPath := slashpath.Clean(strings.ReplaceAll(s, "\\", "/"))
 	if strings.HasPrefix(cleanPath, "/") {
 		return false, []error{&InvalidSubdirectoryPathError{
 			Value:  p,
