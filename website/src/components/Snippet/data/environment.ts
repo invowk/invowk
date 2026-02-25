@@ -682,25 +682,25 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
   // Precedence page snippets
   'environment/precedence-hierarchy': {
     language: 'text',
-    code: `CLI (highest priority)
-├── --ivk-env-var KEY=value
-└── --ivk-env-file .env.local
+    code: `System Environment (lowest priority)
+    │
+Files (by scope, lowest to highest)
+├── Root env.files
+├── Command env.files
+└── Implementation env.files
+    │
+Vars (by scope, lowest to highest)
+├── Root env.vars
+├── Command env.vars
+└── Implementation env.vars
     │
 Invowk Vars
-├── INVOWK_FLAG_*
-└── INVOWK_ARG_*
+├── INVOWK_*
+└── ARG*
     │
-Vars (by scope, highest to lowest)
-├── Implementation env.vars
-├── Command env.vars
-└── Root env.vars
-    │
-Files (by scope, highest to lowest)
-├── Implementation env.files
-├── Command env.files
-└── Root env.files
-    │
-System Environment (lowest priority)`,
+CLI (highest priority)
+├── --ivk-env-file .env.local
+└── --ivk-env-var KEY=value`,
   },
 
   'environment/precedence-invowkfile': {

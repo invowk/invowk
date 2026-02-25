@@ -14,20 +14,20 @@ Invowk™ provides powerful environment variable management for your commands. S
 
 ## Environment Sources
 
-Variables come from multiple sources, in order of precedence (highest first):
+Variables come from multiple sources, applied in this order (lowest to highest precedence):
 
-1. **CLI env vars** - `--ivk-env-var KEY=value`
-2. **CLI env files** - `--ivk-env-file .env.custom`
-3. **Invowk vars** - `INVOWK_FLAG_*` / `INVOWK_ARG_*`
-4. **Implementation vars** - Implementation-level `env.vars`
-5. **Command vars** - Command-level `env.vars`
-6. **Root vars** - Root-level `env.vars`
-7. **Implementation files** - Implementation-level `env.files`
-8. **Command files** - Command-level `env.files`
-9. **Root files** - Root-level `env.files`
-10. **System environment** - Host's environment variables (subject to `env_inherit_mode`)
+1. **System environment** - Host's environment variables (subject to `env_inherit_mode`)
+2. **Root files** - Root-level `env.files`
+3. **Command files** - Command-level `env.files`
+4. **Implementation files** - Implementation-level `env.files`
+5. **Root vars** - Root-level `env.vars`
+6. **Command vars** - Command-level `env.vars`
+7. **Implementation vars** - Implementation-level `env.vars`
+8. **Invowk vars** - Built-in command vars (`INVOWK_*`, `ARG*`)
+9. **CLI env files** - `--ivk-env-file .env.custom`
+10. **CLI env vars** - `--ivk-env-var KEY=value`
 
-Earlier sources override later ones.
+Later sources override earlier ones.
 
 ## Scope Levels
 
@@ -100,8 +100,8 @@ Additionally, invowk injects metadata variables during command execution:
 |----------|-------------|------------|
 | `INVOWK_CMD_NAME` | Current command name | Yes |
 | `INVOWK_RUNTIME` | Resolved runtime name (`native`, `virtual`, `container`) | Yes |
-| `INVOWK_SOURCE` | Source origin (e.g., module name) | No — only when running from a module |
-| `INVOWK_PLATFORM` | Resolved platform (`linux`, `macos`, `windows`) | No — only when running from a module |
+| `INVOWK_SOURCE` | Source origin (`invowkfile` for root commands, module name for module commands) | Yes |
+| `INVOWK_PLATFORM` | Resolved platform (`linux`, `macos`, `windows`) | Yes |
 
 ## Container Environment
 
