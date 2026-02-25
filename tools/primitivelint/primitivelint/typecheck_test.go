@@ -85,6 +85,106 @@ func makeAliasType(rhs types.Type) *types.Alias {
 	return types.NewAlias(aliasName, rhs)
 }
 
+func TestIsPrimitiveUnderlying(t *testing.T) {
+	t.Parallel()
+
+	namedString := makeNamedType() // wraps string
+
+	// makeNamedBoolType creates a *types.Named wrapping bool.
+	makeNamedBoolType := func() *types.Named {
+		pkg := types.NewPackage("test/pkg", "pkg")
+		tn := types.NewTypeName(token.NoPos, pkg, "MyBool", nil)
+		return types.NewNamed(tn, types.Typ[types.Bool], nil)
+	}
+
+	tests := []struct {
+		name string
+		typ  types.Type
+		want bool
+	}{
+		// Basic types — includes bool (differs from isPrimitive).
+		{name: "basic string", typ: types.Typ[types.String], want: true},
+		{name: "basic int", typ: types.Typ[types.Int], want: true},
+		{name: "basic bool (included)", typ: types.Typ[types.Bool], want: true},
+		{name: "basic float64", typ: types.Typ[types.Float64], want: true},
+		{name: "untyped bool", typ: types.Typ[types.UntypedBool], want: true},
+
+		// Named types — resolves through underlying.
+		{name: "named wrapping string", typ: namedString, want: true},
+		{name: "named wrapping bool", typ: makeNamedBoolType(), want: true},
+
+		// Non-primitive underlying types.
+		{name: "channel", typ: types.NewChan(types.SendRecv, types.Typ[types.Int]), want: false},
+		{name: "func signature", typ: types.NewSignatureType(nil, nil, nil, nil, nil, false), want: false},
+		{name: "interface", typ: types.NewInterfaceType(nil, nil), want: false},
+		{name: "slice", typ: types.NewSlice(types.Typ[types.String]), want: false},
+
+		// Aliases — transparent.
+		{name: "alias of string", typ: makeAliasType(types.Typ[types.String]), want: true},
+		{name: "alias of named string", typ: makeAliasType(namedString), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := isPrimitiveUnderlying(tt.typ)
+			if got != tt.want {
+				t.Errorf("isPrimitiveUnderlying(%s) = %v, want %v", tt.typ, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsErrorType(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		typ  types.Type
+		want bool
+	}{
+		{
+			name: "universe error type",
+			typ: func() types.Type {
+				// The built-in error is in the universe scope (Pkg() == nil).
+				obj := types.Universe.Lookup("error")
+				return obj.Type()
+			}(),
+			want: true,
+		},
+		{
+			name: "named non-error type",
+			typ:  makeNamedType(),
+			want: false,
+		},
+		{
+			name: "basic string",
+			typ:  types.Typ[types.String],
+			want: false,
+		},
+		{
+			name: "user-defined error-named type",
+			typ: func() types.Type {
+				// A user type named "error" in a real package — not the built-in.
+				pkg := types.NewPackage("test/pkg", "pkg")
+				tn := types.NewTypeName(token.NoPos, pkg, "error", nil)
+				return types.NewNamed(tn, types.Typ[types.String], nil)
+			}(),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := isErrorType(tt.typ)
+			if got != tt.want {
+				t.Errorf("isErrorType(%v) = %v, want %v", tt.typ, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsPrimitive(t *testing.T) {
 	t.Parallel()
 

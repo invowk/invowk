@@ -3,6 +3,7 @@
 package primitivelint
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,20 +48,20 @@ type Exception struct {
 // doesn't exist.
 func loadConfig(path string) (*ExceptionConfig, error) {
 	if path == "" {
-		return &ExceptionConfig{}, nil
+		return &ExceptionConfig{matchCounts: make(map[int]int)}, nil
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &ExceptionConfig{}, nil
+			return &ExceptionConfig{matchCounts: make(map[int]int)}, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("reading config: %w", err)
 	}
 
 	var cfg ExceptionConfig
 	if err := toml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing config TOML: %w", err)
 	}
 
 	cfg.matchCounts = make(map[int]int, len(cfg.Exceptions))

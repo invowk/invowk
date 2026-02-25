@@ -7,6 +7,8 @@ import (
 	"go/token"
 	"go/types"
 	"testing"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 func TestShouldSkipFunc(t *testing.T) {
@@ -253,40 +255,34 @@ func TestPackageName(t *testing.T) {
 	}
 }
 
-// TestIsTestFile verifies _test.go detection.
+// TestIsTestFile verifies _test.go detection by calling the real
+// isTestFile function with a minimal analysis.Pass (only Fset populated).
 func TestIsTestFile(t *testing.T) {
 	t.Parallel()
 
 	fset := token.NewFileSet()
 
-	// Create a fake file with a _test.go name.
 	testFile := fset.AddFile("foo_test.go", -1, 100)
 	testPos := testFile.Pos(0)
 
-	// Create a fake file with a regular name.
 	regularFile := fset.AddFile("foo.go", -1, 100)
 	regularPos := regularFile.Pos(0)
 
-	// isTestFile needs a *analysis.Pass, but it only uses pass.Fset.
-	// We construct a minimal pass.
-	pass := &analysisPassShim{fset: fset}
+	// Minimal-named test file — exactly 8 chars ("_test.go").
+	minimalTestFile := fset.AddFile("_test.go", -1, 100)
+	minimalTestPos := minimalTestFile.Pos(0)
 
-	if !isTestFileFromFset(pass.fset, testPos) {
-		t.Error("expected _test.go to be detected as test file")
+	// analysis.Pass is a struct, so we can construct a partial instance
+	// with only the Fset field populated — isTestFile only uses pass.Fset.
+	pass := &analysis.Pass{Fset: fset}
+
+	if !isTestFile(pass, testPos) {
+		t.Error("expected foo_test.go to be detected as test file")
 	}
-	if isTestFileFromFset(pass.fset, regularPos) {
-		t.Error("expected regular .go file to NOT be detected as test file")
+	if isTestFile(pass, regularPos) {
+		t.Error("expected foo.go to NOT be detected as test file")
 	}
-}
-
-// analysisPassShim is a minimal stand-in — isTestFile only needs Fset.
-type analysisPassShim struct {
-	fset *token.FileSet
-}
-
-// isTestFileFromFset duplicates the isTestFile logic without needing
-// a full analysis.Pass, since we can't easily construct one in unit tests.
-func isTestFileFromFset(fset *token.FileSet, pos token.Pos) bool {
-	file := fset.Position(pos).Filename
-	return len(file) > 8 && file[len(file)-8:] == "_test.go"
+	if !isTestFile(pass, minimalTestPos) {
+		t.Error("expected _test.go (minimal name) to be detected as test file")
+	}
 }

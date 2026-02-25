@@ -348,6 +348,7 @@ func TestQuote(t *testing.T) {
 		{"with quotes", `say "hi"`, `"say \"hi\""`},
 		{"with backslash", `path\to\file`, `"path\\to\\file"`},
 		{"with newline", "line1\nline2", `"line1\nline2"`},
+		{"with carriage return", "line1\rline2", `"line1\rline2"`},
 		{"with tab", "col1\tcol2", `"col1\tcol2"`},
 	}
 

@@ -42,3 +42,8 @@ type MapWithNamedKey struct {
 type MultipleFields struct {
 	X, Y int // want `struct field structs\.MultipleFields\.X uses primitive type int` `struct field structs\.MultipleFields\.Y uses primitive type int`
 }
+
+// EmbeddedPrimitive has an anonymous/embedded primitive field.
+type EmbeddedPrimitive struct {
+	string // want `struct field structs\.EmbeddedPrimitive\.\(embedded\) uses primitive type string`
+}

@@ -190,6 +190,8 @@ func quote(s string) string {
 			sb.WriteString(`\\`)
 		case '\n':
 			sb.WriteString(`\n`)
+		case '\r':
+			sb.WriteString(`\r`)
 		case '\t':
 			sb.WriteString(`\t`)
 		default:

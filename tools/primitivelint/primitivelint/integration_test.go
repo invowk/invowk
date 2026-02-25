@@ -35,6 +35,83 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-immutability", "false")
 }
 
+// TestNewRunConfig verifies the --check-all expansion logic and the
+// deliberate exclusion of --audit-exceptions.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestNewRunConfig(t *testing.T) {
+	t.Cleanup(func() { resetFlags(t) })
+
+	t.Run("check-all enables all supplementary modes", func(t *testing.T) {
+		resetFlags(t)
+		setFlag(t, "check-all", "true")
+
+		rc := newRunConfig()
+
+		if !rc.checkIsValid {
+			t.Error("expected checkIsValid = true")
+		}
+		if !rc.checkStringer {
+			t.Error("expected checkStringer = true")
+		}
+		if !rc.checkConstructors {
+			t.Error("expected checkConstructors = true")
+		}
+		if !rc.checkConstructorSig {
+			t.Error("expected checkConstructorSig = true")
+		}
+		if !rc.checkFuncOptions {
+			t.Error("expected checkFuncOptions = true")
+		}
+		if !rc.checkImmutability {
+			t.Error("expected checkImmutability = true")
+		}
+	})
+
+	t.Run("check-all does NOT enable audit-exceptions", func(t *testing.T) {
+		resetFlags(t)
+		setFlag(t, "check-all", "true")
+
+		rc := newRunConfig()
+
+		if rc.auditExceptions {
+			t.Error("expected auditExceptions = false (--check-all should NOT enable it)")
+		}
+	})
+
+	t.Run("check-all with explicit audit-exceptions preserves both", func(t *testing.T) {
+		resetFlags(t)
+		setFlag(t, "check-all", "true")
+		setFlag(t, "audit-exceptions", "true")
+
+		rc := newRunConfig()
+
+		if !rc.auditExceptions {
+			t.Error("expected auditExceptions = true (explicitly set)")
+		}
+		if !rc.checkIsValid {
+			t.Error("expected checkIsValid = true (from check-all)")
+		}
+	})
+
+	t.Run("individual flags work independently", func(t *testing.T) {
+		resetFlags(t)
+		setFlag(t, "check-isvalid", "true")
+
+		rc := newRunConfig()
+
+		if !rc.checkIsValid {
+			t.Error("expected checkIsValid = true")
+		}
+		if rc.checkStringer {
+			t.Error("expected checkStringer = false (not set)")
+		}
+		if rc.checkAll {
+			t.Error("expected checkAll = false (not set)")
+		}
+	})
+}
+
 // TestAnalyzerWithConfig exercises the full analyzer pipeline with a
 // TOML config file loaded, verifying that exception patterns and
 // skip_types correctly suppress findings.

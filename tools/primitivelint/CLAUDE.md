@@ -59,7 +59,7 @@ tools/primitivelint/
 │   ├── inspect.go              # struct/func AST visitors + helpers
 │   ├── typecheck.go            # isPrimitive() / isPrimitiveUnderlying() / isOptionFuncType()
 │   ├── *_test.go               # unit + integration tests
-│   └── testdata/src/           # analysistest fixture packages (20 packages)
+│   └── testdata/src/           # analysistest fixture packages (21 packages)
 ```
 
 **Separate Go module**: `tools/primitivelint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
