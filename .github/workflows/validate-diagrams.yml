@@ -18,6 +18,10 @@ on:
       - main
     paths:
       - 'docs/diagrams/**'
+  # Release validation must always run in full, regardless of changed paths.
+  release:
+    types:
+      - published
 
 permissions:
   contents: read

@@ -11,6 +11,10 @@ on:
       - 'scripts/validate-docs-parity.mjs'
       - 'scripts/validate-version-assets.mjs'
       - '.github/workflows/test-website.yml'
+  # Release validation must always run in full, regardless of changed paths.
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 permissions:
