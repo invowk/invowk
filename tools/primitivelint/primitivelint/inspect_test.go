@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"slices"
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
@@ -88,6 +89,106 @@ func TestIsInterfaceMethodReturn(t *testing.T) {
 	}
 }
 
+func TestParseDirectiveKeys(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		text        string
+		wantKeys    []string
+		wantUnknown []string
+	}{
+		{
+			name:     "plint:ignore standalone",
+			text:     "//plint:ignore",
+			wantKeys: []string{"ignore"},
+		},
+		{
+			name:     "plint:internal standalone",
+			text:     "//plint:internal",
+			wantKeys: []string{"internal"},
+		},
+		{
+			name:     "combined ignore,internal",
+			text:     "//plint:ignore,internal",
+			wantKeys: []string{"ignore", "internal"},
+		},
+		{
+			name:     "combined internal,ignore (order preserved)",
+			text:     "//plint:internal,ignore",
+			wantKeys: []string{"internal", "ignore"},
+		},
+		{
+			name:     "combined with reason suffix",
+			text:     "//plint:ignore,internal -- computed cache",
+			wantKeys: []string{"ignore", "internal"},
+		},
+		{
+			name:     "primitivelint prefix combined",
+			text:     "//primitivelint:ignore,internal",
+			wantKeys: []string{"ignore", "internal"},
+		},
+		{
+			name:     "whitespace around comma trimmed",
+			text:     "//plint:ignore, internal",
+			wantKeys: []string{"ignore", "internal"},
+		},
+		{
+			name:        "known and unknown keys mixed",
+			text:        "//plint:ignore,foo",
+			wantKeys:    []string{"ignore"},
+			wantUnknown: []string{"foo"},
+		},
+		{
+			name:        "all unknown keys",
+			text:        "//plint:foo,bar",
+			wantUnknown: []string{"foo", "bar"},
+		},
+		{
+			name:     "nolint:primitivelint special case",
+			text:     "//nolint:primitivelint",
+			wantKeys: []string{"ignore"},
+		},
+		{
+			name: "regular comment, no directive prefix",
+			text: "// regular comment",
+		},
+		{
+			name: "empty string",
+			text: "",
+		},
+		{
+			name:     "plint:ignore with space after //",
+			text:     "// plint:ignore",
+			wantKeys: []string{"ignore"},
+		},
+		{
+			name:     "primitivelint:ignore with reason",
+			text:     "//primitivelint:ignore -- display label",
+			wantKeys: []string{"ignore"},
+		},
+		{
+			name:        "trailing comma produces empty token (ignored)",
+			text:        "//plint:ignore,",
+			wantKeys:    []string{"ignore"},
+			wantUnknown: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotKeys, gotUnknown := parseDirectiveKeys(tt.text)
+			if !slices.Equal(gotKeys, tt.wantKeys) {
+				t.Errorf("parseDirectiveKeys(%q) keys = %v, want %v", tt.text, gotKeys, tt.wantKeys)
+			}
+			if !slices.Equal(gotUnknown, tt.wantUnknown) {
+				t.Errorf("parseDirectiveKeys(%q) unknown = %v, want %v", tt.text, gotUnknown, tt.wantUnknown)
+			}
+		})
+	}
+}
+
 func TestHasIgnoreDirective(t *testing.T) {
 	t.Parallel()
 
@@ -151,6 +252,21 @@ func TestHasIgnoreDirective(t *testing.T) {
 			doc:         "//plint:ignore",
 			want:        true,
 		},
+		{
+			name:        "combined ignore,internal matches ignore",
+			lineComment: "//plint:ignore,internal",
+			want:        true,
+		},
+		{
+			name:        "combined internal,ignore matches ignore",
+			lineComment: "//plint:internal,ignore",
+			want:        true,
+		},
+		{
+			name:        "primitivelint combined matches ignore",
+			lineComment: "//primitivelint:ignore,internal",
+			want:        true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -208,6 +324,21 @@ func TestHasInternalDirective(t *testing.T) {
 		{
 			name: "both nil",
 			want: false,
+		},
+		{
+			name:        "combined ignore,internal matches internal",
+			lineComment: "//plint:ignore,internal",
+			want:        true,
+		},
+		{
+			name:        "combined internal,ignore matches internal",
+			lineComment: "//plint:internal,ignore",
+			want:        true,
+		},
+		{
+			name:        "combined with reason matches internal",
+			lineComment: "//plint:ignore,internal -- cache",
+			want:        true,
 		},
 	}
 

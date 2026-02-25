@@ -37,6 +37,7 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 		structName := pkgName + "." + ts.Name.Name
 
 		for _, field := range st.Fields.List {
+			reportUnknownDirectives(pass, field.Doc, field.Comment)
 			if hasIgnoreDirective(field.Doc, field.Comment) {
 				continue
 			}
@@ -102,6 +103,7 @@ func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig
 		return
 	}
 
+	reportUnknownDirectives(pass, fn.Doc, nil)
 	if hasIgnoreDirective(fn.Doc, nil) {
 		return
 	}
@@ -137,6 +139,7 @@ func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig
 // Findings present in the baseline are suppressed.
 func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind string, cfg *ExceptionConfig, bl *BaselineConfig) {
 	for _, field := range fields.List {
+		reportUnknownDirectives(pass, field.Doc, field.Comment)
 		if hasIgnoreDirective(field.Doc, field.Comment) {
 			continue
 		}
@@ -198,6 +201,7 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 // Findings present in the baseline are suppressed.
 func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName string, cfg *ExceptionConfig, bl *BaselineConfig) {
 	for i, field := range results.List {
+		reportUnknownDirectives(pass, field.Doc, field.Comment)
 		if hasIgnoreDirective(field.Doc, field.Comment) {
 			continue
 		}
@@ -317,36 +321,123 @@ func receiverTypeName(expr ast.Expr) string {
 	return ""
 }
 
-// hasIgnoreDirective checks whether a field/func has a //plint:ignore,
-// //primitivelint:ignore, or //nolint:primitivelint directive.
-func hasIgnoreDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
-	return hasCommentDirective(doc, lineComment, "plint:ignore", "primitivelint:ignore", "nolint:primitivelint")
+// knownDirectiveKeys lists all recognized directive keys for validation.
+// Unknown keys in a //plint: comment trigger an unknown-directive warning.
+var knownDirectiveKeys = map[string]bool{
+	"ignore":   true,
+	"internal": true,
 }
 
-// hasInternalDirective checks whether a struct field has a //plint:internal
+// hasIgnoreDirective checks whether a field/func has an ignore directive.
+// Recognized forms: //plint:ignore, //primitivelint:ignore,
+// //nolint:primitivelint, and combined forms like //plint:ignore,internal.
+func hasIgnoreDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
+	return hasDirectiveKey(doc, lineComment, "ignore")
+}
+
+// hasInternalDirective checks whether a struct field has an internal
 // directive, indicating the field is internal state that should not be
 // initialized via functional options (excluded from WithXxx() checks).
+// Recognized forms: //plint:internal and combined forms like
+// //plint:ignore,internal.
 func hasInternalDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
-	return hasCommentDirective(doc, lineComment, "plint:internal")
+	return hasDirectiveKey(doc, lineComment, "internal")
 }
 
-// hasCommentDirective checks whether any of the given directive substrings
-// appear in the doc or line comment groups.
-func hasCommentDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup, directives ...string) bool {
+// hasDirectiveKey checks whether the given directive key appears in any
+// plint/primitivelint directive in the doc or line comment groups.
+func hasDirectiveKey(doc *ast.CommentGroup, lineComment *ast.CommentGroup, key string) bool {
 	for _, cg := range []*ast.CommentGroup{doc, lineComment} {
 		if cg == nil {
 			continue
 		}
 		for _, c := range cg.List {
 			text := strings.TrimSpace(c.Text)
-			for _, d := range directives {
-				if strings.Contains(text, d) {
+			keys, _ := parseDirectiveKeys(text)
+			for _, k := range keys {
+				if k == key {
 					return true
 				}
 			}
 		}
 	}
 	return false
+}
+
+// reportUnknownDirectives emits an unknown-directive diagnostic for each
+// unrecognized key in a plint/primitivelint directive comment. Called at
+// every site where directives are checked, so typos like //plint:ignorr
+// are caught immediately.
+func reportUnknownDirectives(pass *analysis.Pass, doc *ast.CommentGroup, lineComment *ast.CommentGroup) {
+	for _, cg := range []*ast.CommentGroup{doc, lineComment} {
+		if cg == nil {
+			continue
+		}
+		for _, c := range cg.List {
+			text := strings.TrimSpace(c.Text)
+			_, unknown := parseDirectiveKeys(text)
+			for _, u := range unknown {
+				pass.Report(analysis.Diagnostic{
+					Pos:      c.Pos(),
+					Category: CategoryUnknownDirective,
+					Message:  fmt.Sprintf("unknown directive key %q in plint comment", u),
+				})
+			}
+		}
+	}
+}
+
+// parseDirectiveKeys extracts directive keys from a plint/primitivelint
+// comment. Returns known keys and unknown keys separately.
+//
+// Supported forms (single prefix, comma-separated keys):
+//
+//	//plint:ignore              → (["ignore"], nil)
+//	//plint:ignore,internal     → (["ignore", "internal"], nil)
+//	//plint:ignore,foo          → (["ignore"], ["foo"])
+//	//primitivelint:ignore      → (["ignore"], nil)
+//	//nolint:primitivelint      → (["ignore"], nil)  — special case
+//	// regular comment          → (nil, nil)
+func parseDirectiveKeys(text string) (keys []string, unknown []string) {
+	// Handle nolint:primitivelint as a special "ignore" directive.
+	// This is a golangci-lint convention — always means "suppress all".
+	if strings.Contains(text, "nolint:primitivelint") {
+		return []string{"ignore"}, nil
+	}
+
+	// Look for plint: or primitivelint: prefix.
+	var valueStr string
+	for _, prefix := range []string{"plint:", "primitivelint:"} {
+		idx := strings.Index(text, prefix)
+		if idx < 0 {
+			continue
+		}
+		valueStr = text[idx+len(prefix):]
+		break
+	}
+	if valueStr == "" {
+		return nil, nil
+	}
+
+	// Trim the optional "-- reason" suffix. The convention is to use
+	// " -- " as the separator between directive keys and explanation text.
+	if sepIdx := strings.Index(valueStr, " --"); sepIdx >= 0 {
+		valueStr = valueStr[:sepIdx]
+	}
+
+	// Split by comma and classify each token.
+	for part := range strings.SplitSeq(valueStr, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if knownDirectiveKeys[part] {
+			keys = append(keys, part)
+		} else {
+			unknown = append(unknown, part)
+		}
+	}
+	return keys, unknown
 }
 
 // isTestFile returns true if the filename ends with _test.go.

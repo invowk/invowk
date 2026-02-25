@@ -19,3 +19,15 @@ func ExceptedFunc(name string) string {
 func NotExceptedFunc(name string) string { // want `parameter "name" of exceptions\.NotExceptedFunc uses primitive type string` `return value of exceptions\.NotExceptedFunc uses primitive type string`
 	return name
 }
+
+// CombinedDirectiveStruct tests comma-separated directive parsing.
+type CombinedDirectiveStruct struct {
+	Both    string //plint:ignore,internal -- both directives active, no primitive warning
+	Reverse string //plint:internal,ignore -- reverse order, same effect
+	Bad     string // want `struct field exceptions\.CombinedDirectiveStruct\.Bad uses primitive type string`
+}
+
+// UnknownDirectiveStruct tests unknown directive key warnings.
+type UnknownDirectiveStruct struct {
+	Name string //plint:ignore,foo -- want unknown-directive warning for "foo"  // want `unknown directive key "foo" in plint comment`
+}

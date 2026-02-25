@@ -41,6 +41,7 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `missing-func-options` | `--check-func-options` or `--check-all` | Struct should use or complete functional options |
 | `missing-immutability` | `--check-immutability` or `--check-all` | Struct with constructor has exported mutable fields |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
+| `unknown-directive` | (always active) | Unrecognized key in `//plint:` comment (typo detection) |
 
 The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, and `--check-immutability` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
 
@@ -109,15 +110,28 @@ reason = "display-only labels in 12+ unexported structs"
 
 ### 2. Inline Directives — fallback for one-offs
 
+Directives use the `//plint:` prefix (preferred) or legacy `//primitivelint:` prefix. **New directives should always use the `plint:` prefix.** Multiple directive keys can be combined with commas, following the golangci-lint convention:
+
 ```go
 type Foo struct {
-    Bar string //plint:ignore -- display-only (short form)
+    Bar string //plint:ignore -- display-only (short form, preferred)
     Baz int    //nolint:primitivelint
     Qux string //primitivelint:ignore -- legacy form (still supported)
 }
 ```
 
-Accepted directive forms: `//plint:ignore`, `//primitivelint:ignore`, `//nolint:primitivelint`.
+**Accepted directive forms**: `//plint:ignore`, `//primitivelint:ignore`, `//nolint:primitivelint`.
+
+**Combined directives**: Multiple keys separated by commas (single prefix, no prefix repetition):
+
+```go
+type Server struct {
+    //plint:ignore,internal -- suppress primitive finding AND exclude from func-options
+    cache string
+}
+```
+
+**Unknown directive keys** (typos, future keys in an old binary) emit an `unknown-directive` warning diagnostic. For example, `//plint:ignorr` would warn about the unrecognized key `"ignorr"`.
 
 ### 3. Internal-State Directive — functional options exclusion
 
@@ -132,6 +146,8 @@ type Server struct {
 ```
 
 This directive only affects `--check-func-options`. Other checks (primitive detection, immutability) still apply.
+
+When a field needs both primitive suppression and func-options exclusion, use the combined form: `//plint:ignore,internal`.
 
 ## Supplementary Modes
 
@@ -239,6 +255,8 @@ The `primitivelint-baseline` local hook in `.pre-commit-config.yaml` runs `make 
 
 ## Gotchas
 
+- **Preferred directive prefix is `plint:`**: All new directive keys and documentation should use the short `//plint:` prefix. The legacy `//primitivelint:` prefix remains supported for backwards compatibility but should not be used in new code. The `//nolint:primitivelint` form is a golangci-lint convention and remains supported as an alias for `//plint:ignore`.
+- **Combined directives**: `//plint:ignore,internal` uses comma-separated keys after a single prefix (following the golangci-lint convention). Do NOT repeat the prefix: `//plint:ignore,plint:internal` is NOT supported. Unknown keys emit `unknown-directive` warnings.
 - **`types.Alias` (Go 1.22+)**: Type aliases (`type X = string`) are transparent — `isPrimitive` must call `types.Unalias()` to resolve them. Without this, aliases silently pass the linter.
 - **Generic pointer receivers**: `*Container[T]` is `StarExpr{X: IndexExpr{...}}` in the AST. `receiverTypeName` must recurse through `StarExpr` to find the type name inside `IndexExpr`. A naive `StarExpr → Ident` check misses this.
 - **Flag binding variables**: The `-config` and supplementary mode flags are package-level variables bound via `BoolVar`/`StringVar` (required by the `go/analysis` framework). However, `run()` never reads or mutates these directly — it reads them once via `newRunConfig()` into a local `runConfig` struct, and the `--check-all` expansion happens on the local struct. Integration tests use `Analyzer.Flags.Set()` + `resetFlags()` instead of manual save/restore. Tests must NOT use `t.Parallel()` — they share the `Analyzer.Flags` FlagSet.

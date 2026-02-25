@@ -109,3 +109,31 @@ func NewHasInternalState(opts ...HasInternalStateOption) *HasInternalState {
 
 // No WithCache expected — cache has //plint:internal.
 // WithAddr satisfies the addr field. No missing-func-options diagnostics.
+
+// --- Combined directive: ignore,internal suppresses both primitive and func-options ---
+
+// HasCombinedDirective has a field with both ignore and internal via combined directive.
+// The combined form suppresses the primitive finding AND the WithXxx completeness check.
+type HasCombinedDirective struct {
+	label string // want `struct field funcoptions\.HasCombinedDirective\.label uses primitive type string`
+	//plint:ignore,internal -- both: suppress primitive finding and exclude from func-options
+	state string
+}
+
+// HasCombinedDirectiveOption is the functional option type for HasCombinedDirective.
+type HasCombinedDirectiveOption func(*HasCombinedDirective)
+
+// WithLabel sets the label on HasCombinedDirective.
+func WithLabel(l string) HasCombinedDirectiveOption { return func(s *HasCombinedDirective) { s.label = l } } // want `parameter "l" of funcoptions\.WithLabel uses primitive type string`
+
+// NewHasCombinedDirective creates a HasCombinedDirective with options.
+func NewHasCombinedDirective(opts ...HasCombinedDirectiveOption) *HasCombinedDirective {
+	s := &HasCombinedDirective{}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// No WithState expected — state has //plint:ignore,internal (combined directive).
+// WithLabel satisfies the label field. No missing-func-options diagnostics.

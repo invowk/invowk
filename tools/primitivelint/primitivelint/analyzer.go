@@ -41,7 +41,8 @@ const (
 	CategoryWrongConstructorSig = "wrong-constructor-sig"
 	CategoryMissingFuncOptions  = "missing-func-options"
 	CategoryMissingImmutability = "missing-immutability"
-	CategoryStaleException     = "stale-exception"
+	CategoryStaleException      = "stale-exception"
+	CategoryUnknownDirective    = "unknown-directive"
 )
 
 // Flag binding variables for the analyzer's flag set. These are populated
