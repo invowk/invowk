@@ -174,15 +174,14 @@ func parseAnalysisJSON(data []byte) (map[string][]string, error) {
 		}
 	}
 
-	// Convert sets to sorted slices.
+	// Convert sets to slices. WriteBaseline handles sorting.
 	findings := make(map[string][]string, len(seen))
 	for cat, msgs := range seen {
-		sorted := make([]string, 0, len(msgs))
+		slice := make([]string, 0, len(msgs))
 		for msg := range msgs {
-			sorted = append(sorted, msg)
+			slice = append(slice, msg)
 		}
-		slices.Sort(sorted)
-		findings[cat] = sorted
+		findings[cat] = slice
 	}
 
 	return findings, nil

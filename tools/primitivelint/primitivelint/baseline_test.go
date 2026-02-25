@@ -102,6 +102,21 @@ messages = [
 messages = [
     "exported struct pkg.Config has no NewConfig() constructor",
 ]
+
+[wrong-constructor-sig]
+messages = [
+    "constructor NewFoo() for pkg.Foo returns Bar, expected Foo",
+]
+
+[missing-func-options]
+messages = [
+    "constructor NewBig() for pkg.Big has 5 non-option parameters; consider using functional options",
+]
+
+[missing-immutability]
+messages = [
+    "struct pkg.Svc has NewSvc() constructor but field Addr is exported",
+]
 `
 	path := writeTempFile(t, "baseline.toml", content)
 	bl, err := loadBaseline(path)
@@ -149,6 +164,24 @@ messages = [
 			name:     "missing-constructor match",
 			category: CategoryMissingConstructor,
 			message:  "exported struct pkg.Config has no NewConfig() constructor",
+			want:     true,
+		},
+		{
+			name:     "wrong-constructor-sig match",
+			category: CategoryWrongConstructorSig,
+			message:  "constructor NewFoo() for pkg.Foo returns Bar, expected Foo",
+			want:     true,
+		},
+		{
+			name:     "missing-func-options match",
+			category: CategoryMissingFuncOptions,
+			message:  "constructor NewBig() for pkg.Big has 5 non-option parameters; consider using functional options",
+			want:     true,
+		},
+		{
+			name:     "missing-immutability match",
+			category: CategoryMissingImmutability,
+			message:  "struct pkg.Svc has NewSvc() constructor but field Addr is exported",
 			want:     true,
 		},
 		{
@@ -262,6 +295,15 @@ func TestBaselineRoundTrip(t *testing.T) {
 		},
 		CategoryMissingConstructor: {
 			"exported struct pkg.Config has no NewConfig() constructor",
+		},
+		CategoryWrongConstructorSig: {
+			"constructor NewFoo() for pkg.Foo returns Bar, expected Foo",
+		},
+		CategoryMissingFuncOptions: {
+			"constructor NewBig() for pkg.Big has 5 non-option parameters; consider using functional options",
+		},
+		CategoryMissingImmutability: {
+			"struct pkg.Svc has NewSvc() constructor but field Addr is exported",
 		},
 	}
 

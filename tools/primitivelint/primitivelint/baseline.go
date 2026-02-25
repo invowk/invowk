@@ -17,10 +17,13 @@ import (
 // new regressions are reported. Use loadBaseline to parse from disk and
 // writeBaseline to generate from collected findings.
 type BaselineConfig struct {
-	Primitive          BaselineCategory `toml:"primitive"`
-	MissingIsValid     BaselineCategory `toml:"missing-isvalid"`
-	MissingStringer    BaselineCategory `toml:"missing-stringer"`
-	MissingConstructor BaselineCategory `toml:"missing-constructor"`
+	Primitive           BaselineCategory `toml:"primitive"`
+	MissingIsValid      BaselineCategory `toml:"missing-isvalid"`
+	MissingStringer     BaselineCategory `toml:"missing-stringer"`
+	MissingConstructor  BaselineCategory `toml:"missing-constructor"`
+	WrongConstructorSig BaselineCategory `toml:"wrong-constructor-sig"`
+	MissingFuncOptions  BaselineCategory `toml:"missing-func-options"`
+	MissingImmutability BaselineCategory `toml:"missing-immutability"`
 
 	// lookup is an O(1) index built after loading. Keyed by category string,
 	// each value is the set of accepted message strings for that category.
@@ -82,16 +85,22 @@ func (b *BaselineConfig) Count() int {
 	return len(b.Primitive.Messages) +
 		len(b.MissingIsValid.Messages) +
 		len(b.MissingStringer.Messages) +
-		len(b.MissingConstructor.Messages)
+		len(b.MissingConstructor.Messages) +
+		len(b.WrongConstructorSig.Messages) +
+		len(b.MissingFuncOptions.Messages) +
+		len(b.MissingImmutability.Messages)
 }
 
 // buildLookup populates the internal lookup maps from the parsed TOML data.
 func (b *BaselineConfig) buildLookup() {
 	b.lookup = map[string]map[string]bool{
-		CategoryPrimitive:          toSet(b.Primitive.Messages),
-		CategoryMissingIsValid:     toSet(b.MissingIsValid.Messages),
-		CategoryMissingStringer:    toSet(b.MissingStringer.Messages),
-		CategoryMissingConstructor: toSet(b.MissingConstructor.Messages),
+		CategoryPrimitive:           toSet(b.Primitive.Messages),
+		CategoryMissingIsValid:      toSet(b.MissingIsValid.Messages),
+		CategoryMissingStringer:     toSet(b.MissingStringer.Messages),
+		CategoryMissingConstructor:  toSet(b.MissingConstructor.Messages),
+		CategoryWrongConstructorSig: toSet(b.WrongConstructorSig.Messages),
+		CategoryMissingFuncOptions:  toSet(b.MissingFuncOptions.Messages),
+		CategoryMissingImmutability: toSet(b.MissingImmutability.Messages),
 	}
 }
 
@@ -124,6 +133,9 @@ func WriteBaseline(path string, findings map[string][]string) error {
 		{CategoryMissingIsValid, "Named types missing IsValid() method"},
 		{CategoryMissingStringer, "Named types missing String() method"},
 		{CategoryMissingConstructor, "Exported structs missing NewXxx() constructor"},
+		{CategoryWrongConstructorSig, "Constructors with wrong return type"},
+		{CategoryMissingFuncOptions, "Structs missing functional options pattern"},
+		{CategoryMissingImmutability, "Structs with constructor but exported mutable fields"},
 	}
 
 	for _, cat := range categories {

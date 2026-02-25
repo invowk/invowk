@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -36,6 +35,9 @@ const (
 	CategoryMissingIsValid     = "missing-isvalid"
 	CategoryMissingStringer    = "missing-stringer"
 	CategoryMissingConstructor = "missing-constructor"
+	CategoryWrongConstructorSig = "wrong-constructor-sig"
+	CategoryMissingFuncOptions  = "missing-func-options"
+	CategoryMissingImmutability = "missing-immutability"
 	CategoryStaleException     = "stale-exception"
 )
 
@@ -44,13 +46,16 @@ const (
 // The run() function never reads or mutates these directly — it reads them
 // once via newRunConfig() into a local struct.
 var (
-	configPath        string
-	baselinePath      string
-	auditExceptions   bool
-	checkAll          bool
-	checkIsValid      bool
-	checkStringer     bool
-	checkConstructors bool
+	configPath          string
+	baselinePath        string
+	auditExceptions     bool
+	checkAll            bool
+	checkIsValid        bool
+	checkStringer       bool
+	checkConstructors   bool
+	checkConstructorSig bool
+	checkFuncOptions    bool
+	checkImmutability   bool
 )
 
 // Analyzer is the primitivelint analysis pass. Use it with singlechecker
@@ -76,20 +81,30 @@ func init() {
 		"report named non-struct types missing String() string method")
 	Analyzer.Flags.BoolVar(&checkConstructors, "check-constructors", false,
 		"report exported struct types missing NewXxx() constructor function")
+	Analyzer.Flags.BoolVar(&checkConstructorSig, "check-constructor-sig", false,
+		"report NewXxx() constructors whose return type doesn't match the struct")
+	Analyzer.Flags.BoolVar(&checkFuncOptions, "check-func-options", false,
+		"report structs that should use or complete the functional options pattern")
+	Analyzer.Flags.BoolVar(&checkImmutability, "check-immutability", false,
+		"report structs with constructors that have exported mutable fields")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
-		"enable all DDD compliance checks (isvalid + stringer + constructors)")
+		"enable all DDD compliance checks (isvalid + stringer + constructors + structural)")
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
 // Reading flag bindings into this struct at run() entry ensures run()
 // never reads or mutates package-level state directly.
 type runConfig struct {
-	configPath        string
-	baselinePath      string
-	auditExceptions   bool
-	checkIsValid      bool
-	checkStringer     bool
-	checkConstructors bool
+	configPath          string
+	baselinePath        string
+	auditExceptions     bool
+	checkAll            bool
+	checkIsValid        bool
+	checkStringer       bool
+	checkConstructors   bool
+	checkConstructorSig bool
+	checkFuncOptions    bool
+	checkImmutability   bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -97,20 +112,27 @@ type runConfig struct {
 // the local struct, never mutating the package-level flag variables.
 func newRunConfig() runConfig {
 	rc := runConfig{
-		configPath:        configPath,
-		baselinePath:      baselinePath,
-		auditExceptions:   auditExceptions,
-		checkIsValid:      checkIsValid,
-		checkStringer:     checkStringer,
-		checkConstructors: checkConstructors,
+		configPath:          configPath,
+		baselinePath:        baselinePath,
+		auditExceptions:     auditExceptions,
+		checkAll:            checkAll,
+		checkIsValid:        checkIsValid,
+		checkStringer:       checkStringer,
+		checkConstructors:   checkConstructors,
+		checkConstructorSig: checkConstructorSig,
+		checkFuncOptions:    checkFuncOptions,
+		checkImmutability:   checkImmutability,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions which is a config
 	// maintenance tool with per-package false positives.
-	if checkAll {
+	if rc.checkAll {
 		rc.checkIsValid = true
 		rc.checkStringer = true
 		rc.checkConstructors = true
+		rc.checkConstructorSig = true
+		rc.checkFuncOptions = true
+		rc.checkImmutability = true
 	}
 	return rc
 }
@@ -130,21 +152,35 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
+	// Determine which data needs to be collected based on active modes.
+	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability
+	needStructFields := rc.checkFuncOptions || rc.checkImmutability
+	needOptionTypes := rc.checkFuncOptions
+	needWithFunctions := rc.checkFuncOptions
+
 	// Collectors for the supplementary check modes. Built during the
 	// same AST traversal as the primary primitive check and evaluated
 	// after the traversal completes.
 	var (
-		namedTypes      []namedTypeInfo      // non-struct named types (for isvalid/stringer)
-		methodSeen      map[string]bool      // "TypeName.MethodName" → true
-		exportedStructs []exportedStructInfo // exported struct types (for constructors)
-		constructorSeen map[string]bool      // "NewTypeName" → true
+		namedTypes         []namedTypeInfo                  // non-struct named types (for isvalid/stringer)
+		methodSeen         map[string]bool                  // "TypeName.MethodName" → true
+		exportedStructs    []exportedStructInfo             // exported struct types (for constructors + structural)
+		constructorDetails map[string]*constructorFuncInfo // "NewTypeName" → details
+		optionTypes        map[string]string               // optionTypeName → targetStructName
+		withFunctions      map[string][]string             // targetStructName → ["WithXxx", ...]
 	)
 
 	if rc.checkIsValid || rc.checkStringer {
 		methodSeen = make(map[string]bool)
 	}
-	if rc.checkConstructors {
-		constructorSeen = make(map[string]bool)
+	if needConstructors {
+		constructorDetails = make(map[string]*constructorFuncInfo)
+	}
+	if needOptionTypes {
+		optionTypes = make(map[string]string)
+	}
+	if needWithFunctions {
+		withFunctions = make(map[string][]string)
 	}
 
 	nodeFilter := []ast.Node{
@@ -169,24 +205,43 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			// Primary mode: check struct fields for primitives.
 			inspectStructFields(pass, n, cfg, bl)
 
-			// Supplementary: collect named types and exported structs.
+			// Supplementary: collect named types.
 			if rc.checkIsValid || rc.checkStringer {
 				collectNamedTypes(pass, n, &namedTypes)
 			}
-			if rc.checkConstructors {
-				collectExportedStructs(pass, n, &exportedStructs)
+
+			// Collect exported structs — use field-enriched version when
+			// structural checks need field metadata.
+			if needConstructors {
+				if needStructFields {
+					collectExportedStructsWithFields(pass, n, &exportedStructs)
+				} else {
+					collectExportedStructs(pass, n, &exportedStructs)
+				}
+			}
+
+			// Structural: collect option type definitions.
+			if needOptionTypes {
+				collectOptionTypes(pass, n, optionTypes)
 			}
 
 		case *ast.FuncDecl:
 			// Primary mode: check func params and returns for primitives.
 			inspectFuncDecl(pass, n, cfg, bl)
 
-			// Supplementary: track methods and constructor functions.
+			// Supplementary: track methods for isvalid/stringer.
 			if rc.checkIsValid || rc.checkStringer {
 				trackMethods(n, methodSeen)
 			}
-			if rc.checkConstructors {
-				trackConstructors(n, constructorSeen)
+
+			// Track constructors with return type and param details.
+			if constructorDetails != nil {
+				trackConstructorDetails(pass, n, constructorDetails)
+			}
+
+			// Structural: track WithXxx option functions.
+			if needWithFunctions {
+				trackWithFunctions(pass, n, optionTypes, withFunctions)
 			}
 		}
 	})
@@ -199,8 +254,20 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		reportMissingStringer(pass, namedTypes, methodSeen, cfg, bl)
 	}
 	if rc.checkConstructors {
-		reportMissingConstructors(pass, exportedStructs, constructorSeen, cfg, bl)
+		reportMissingConstructors(pass, exportedStructs, constructorDetails, cfg, bl)
 	}
+
+	// Structural checks — all require constructorDetails.
+	if rc.checkConstructorSig {
+		reportWrongConstructorSig(pass, exportedStructs, constructorDetails, cfg, bl)
+	}
+	if rc.checkFuncOptions {
+		reportMissingFuncOptions(pass, exportedStructs, constructorDetails, optionTypes, withFunctions, cfg, bl)
+	}
+	if rc.checkImmutability {
+		reportMissingImmutability(pass, exportedStructs, constructorDetails, cfg, bl)
+	}
+
 	if rc.auditExceptions {
 		reportStaleExceptionsInline(pass, cfg)
 	}
@@ -216,10 +283,29 @@ type namedTypeInfo struct {
 	exported bool      // whether the type name is exported
 }
 
-// exportedStructInfo records an exported struct type for constructor checking.
+// exportedStructInfo records an exported struct type for constructor checking
+// and structural analysis (immutability, functional options).
 type exportedStructInfo struct {
-	name string    // unqualified type name (e.g., "Config")
-	pos  token.Pos // position for diagnostics
+	name   string            // unqualified type name (e.g., "Config")
+	pos    token.Pos         // position for diagnostics
+	fields []structFieldMeta // field metadata, populated when structural checks are active
+}
+
+// structFieldMeta records a struct field's name and visibility for
+// immutability and functional options analysis.
+type structFieldMeta struct {
+	name     string    // field name
+	exported bool      // whether the field name is exported
+	pos      token.Pos // position for diagnostics
+}
+
+// constructorFuncInfo records details about a NewXxx constructor function
+// for signature validation, functional options detection, and immutability.
+type constructorFuncInfo struct {
+	pos            token.Pos // position for diagnostics
+	returnTypeName string    // resolved first non-error return type name (e.g., "Config")
+	paramCount     int       // parameter count excluding trailing variadic option
+	hasVariadicOpt bool      // last param is ...OptionType (func taking *TargetStruct)
 }
 
 // collectNamedTypes extracts non-struct named type definitions from a
@@ -313,17 +399,6 @@ func trackMethods(fn *ast.FuncDecl, seen map[string]bool) {
 	seen[recvName+"."+fn.Name.Name] = true
 }
 
-// trackConstructors records function names that follow the NewXxx pattern.
-func trackConstructors(fn *ast.FuncDecl, seen map[string]bool) {
-	if fn.Recv != nil {
-		return // methods are not constructors
-	}
-	name := fn.Name.Name
-	if strings.HasPrefix(name, "New") && len(name) > 3 {
-		seen[name] = true
-	}
-}
-
 // reportMissingIsValid reports named non-struct types that lack an
 // IsValid() method. For unexported types, also checks for isValid()
 // (lowercase), matching the project convention.
@@ -383,11 +458,11 @@ func reportMissingStringer(pass *analysis.Pass, types []namedTypeInfo, methods m
 
 // reportMissingConstructors reports exported struct types that lack a
 // NewXxx() constructor function in the same package.
-func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]bool, cfg *ExceptionConfig, bl *BaselineConfig) {
+func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
 	for _, s := range structs {
 		ctorName := "New" + s.name
-		if ctors[ctorName] {
+		if ctors[ctorName] != nil {
 			continue
 		}
 

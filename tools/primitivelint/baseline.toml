@@ -3,7 +3,7 @@
 # primitivelint baseline — accepted DDD compliance findings
 # Generated: 2026-02-25
 # Regenerate: make update-baseline
-# Total: 932 findings
+# Total: 1003 findings
 
 # Bare primitive type usage
 [primitive]
@@ -945,4 +945,90 @@ messages = [
     "exported struct watch.Config has no NewConfig() constructor",
     "exported struct watch.InvalidWatchConfigError has no NewInvalidWatchConfigError() constructor",
     "exported struct watch.Watcher has no NewWatcher() constructor",
+]
+
+# Constructors with wrong return type
+[wrong-constructor-sig]
+messages = [
+    "constructor NewSandboxAwareEngine() for container.SandboxAwareEngine returns Engine, expected SandboxAwareEngine",
+]
+
+# Structs missing functional options pattern
+[missing-func-options]
+messages = [
+    "constructor NewValidationError() for invowkfile.ValidationError has 4 non-option parameters; consider using functional options",
+    "struct container.BaseCLIEngine has BaseCLIEngineOption type but field \"binaryPath\" has no WithBinaryPath() function",
+    "struct container.BaseCLIEngine has BaseCLIEngineOption type but field \"cmdEnvOverrides\" has no WithCmdEnvOverrides() function",
+    "struct discovery.Discovery has Option type but field \"baseDirSet\" has no WithBaseDirSet() function",
+    "struct discovery.Discovery has Option type but field \"cfg\" has no WithCfg() function",
+    "struct discovery.Discovery has Option type but field \"commandsDirSet\" has no WithCommandsDirSet() function",
+    "struct discovery.Discovery has Option type but field \"initDiagnostics\" has no WithInitDiagnostics() function",
+    "struct runtime.ContainerRuntime has ContainerRuntimeOption type but field \"cfg\" has no WithCfg() function",
+    "struct runtime.ContainerRuntime has ContainerRuntimeOption type but field \"engine\" has no WithEngine() function",
+    "struct runtime.ContainerRuntime has ContainerRuntimeOption type but field \"envBuilder\" has no WithEnvBuilder() function",
+    "struct runtime.ContainerRuntime has ContainerRuntimeOption type but field \"fallbackIDCounter\" has no WithFallbackIDCounter() function",
+    "struct runtime.ContainerRuntime has ContainerRuntimeOption type but field \"provisioner\" has no WithProvisioner() function",
+    "struct runtime.ContainerRuntime has ContainerRuntimeOption type but field \"runMu\" has no WithRunMu() function",
+    "struct runtime.ContainerRuntime has ContainerRuntimeOption type but field \"sshServer\" has no WithSshServer() function",
+    "struct runtime.VirtualRuntime has VirtualRuntimeOption type but field \"enableUrootUtils\" has no WithEnableUrootUtils() function",
+    "struct runtime.VirtualRuntime has VirtualRuntimeOption type but field \"envBuilder\" has no WithEnvBuilder() function",
+    "struct serverbase.Base has Option type but field \"cancel\" has no WithCancel() function",
+    "struct serverbase.Base has Option type but field \"ctx\" has no WithCtx() function",
+    "struct serverbase.Base has Option type but field \"errCh\" has no WithErrCh() function",
+    "struct serverbase.Base has Option type but field \"lastErr\" has no WithLastErr() function",
+    "struct serverbase.Base has Option type but field \"startedCh\" has no WithStartedCh() function",
+    "struct serverbase.Base has Option type but field \"state\" has no WithState() function",
+    "struct serverbase.Base has Option type but field \"stateMu\" has no WithStateMu() function",
+    "struct serverbase.Base has Option type but field \"wg\" has no WithWg() function",
+]
+
+# Structs with constructor but exported mutable fields
+[missing-immutability]
+messages = [
+    "struct discovery.Diagnostic has NewDiagnostic() constructor but field Cause is exported",
+    "struct discovery.Diagnostic has NewDiagnostic() constructor but field Code is exported",
+    "struct discovery.Diagnostic has NewDiagnostic() constructor but field Message is exported",
+    "struct discovery.Diagnostic has NewDiagnostic() constructor but field Path is exported",
+    "struct discovery.Diagnostic has NewDiagnostic() constructor but field Severity is exported",
+    "struct discovery.DiscoveredCommandSet has NewDiscoveredCommandSet() constructor but field AmbiguousNames is exported",
+    "struct discovery.DiscoveredCommandSet has NewDiscoveredCommandSet() constructor but field ByName is exported",
+    "struct discovery.DiscoveredCommandSet has NewDiscoveredCommandSet() constructor but field BySimpleName is exported",
+    "struct discovery.DiscoveredCommandSet has NewDiscoveredCommandSet() constructor but field BySource is exported",
+    "struct discovery.DiscoveredCommandSet has NewDiscoveredCommandSet() constructor but field Commands is exported",
+    "struct discovery.DiscoveredCommandSet has NewDiscoveredCommandSet() constructor but field SourceOrder is exported",
+    "struct execute.RuntimeSelection has NewRuntimeSelection() constructor but field Impl is exported",
+    "struct execute.RuntimeSelection has NewRuntimeSelection() constructor but field Mode is exported",
+    "struct invowk.App has NewApp() constructor but field Commands is exported",
+    "struct invowk.App has NewApp() constructor but field Config is exported",
+    "struct invowk.App has NewApp() constructor but field Diagnostics is exported",
+    "struct invowk.App has NewApp() constructor but field Discovery is exported",
+    "struct invowkfile.ValidationError has NewValidationError() constructor but field Field is exported",
+    "struct invowkfile.ValidationError has NewValidationError() constructor but field Message is exported",
+    "struct invowkfile.ValidationError has NewValidationError() constructor but field Severity is exported",
+    "struct invowkfile.ValidationError has NewValidationError() constructor but field Validator is exported",
+    "struct invowkmod.CommandScope has NewCommandScope() constructor but field DirectDeps is exported",
+    "struct invowkmod.CommandScope has NewCommandScope() constructor but field GlobalModules is exported",
+    "struct invowkmod.CommandScope has NewCommandScope() constructor but field ModuleID is exported",
+    "struct invowkmod.GitFetcher has NewGitFetcher() constructor but field CacheDir is exported",
+    "struct invowkmod.LockFile has NewLockFile() constructor but field Generated is exported",
+    "struct invowkmod.LockFile has NewLockFile() constructor but field Modules is exported",
+    "struct invowkmod.LockFile has NewLockFile() constructor but field Version is exported",
+    "struct issue.ActionableError has NewActionableError() constructor but field Cause is exported",
+    "struct issue.ActionableError has NewActionableError() constructor but field Operation is exported",
+    "struct issue.ActionableError has NewActionableError() constructor but field Resource is exported",
+    "struct issue.ActionableError has NewActionableError() constructor but field Suggestions is exported",
+    "struct runtime.DefaultEnvBuilder has NewDefaultEnvBuilder() constructor but field Environ is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field Command is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field Context is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field Env is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field ExecutionID is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field ForceRebuild is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field IO is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field Invowkfile is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field PositionalArgs is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field SelectedImpl is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field SelectedRuntime is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field TUI is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field Verbose is exported",
+    "struct runtime.ExecutionContext has NewExecutionContext() constructor but field WorkDir is exported",
 ]

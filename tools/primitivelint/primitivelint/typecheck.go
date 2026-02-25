@@ -3,7 +3,10 @@
 package primitivelint
 
 import (
+	"go/ast"
 	"go/types"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 // isPrimitive reports whether t is a bare primitive type that should be
@@ -83,4 +86,97 @@ func isPrimitiveUnderlying(t types.Type) bool {
 // underlying type so the diagnostic shows the actual primitive.
 func primitiveTypeName(t types.Type) string {
 	return types.TypeString(types.Unalias(t), nil)
+}
+
+// resolveReturnTypeName resolves the first non-error return type of a
+// function's result list. Returns the type name after dereferencing pointers
+// (e.g., *Config → "Config"). Returns "" for void functions, interface
+// returns, or unresolvable types.
+func resolveReturnTypeName(pass *analysis.Pass, results *ast.FieldList) string {
+	if results == nil || len(results.List) == 0 {
+		return ""
+	}
+
+	for _, field := range results.List {
+		resolved := pass.TypesInfo.TypeOf(field.Type)
+		if resolved == nil {
+			continue
+		}
+
+		// Skip error return types.
+		if isErrorType(resolved) {
+			continue
+		}
+
+		// Dereference pointer: *Config → Config.
+		if ptr, ok := resolved.(*types.Pointer); ok {
+			resolved = ptr.Elem()
+		}
+
+		// Resolve aliases.
+		resolved = types.Unalias(resolved)
+
+		// Extract name from named types.
+		if named, ok := resolved.(*types.Named); ok {
+			return named.Obj().Name()
+		}
+
+		// Bare primitive or other non-named type — return the type string
+		// so the diagnostic can show what the constructor actually returns.
+		return types.TypeString(resolved, nil)
+	}
+
+	return ""
+}
+
+// isErrorType reports whether t is the built-in error interface.
+func isErrorType(t types.Type) bool {
+	// The error type is a named interface in the universe scope.
+	if named, ok := t.(*types.Named); ok {
+		return named.Obj().Name() == "error" && named.Obj().Pkg() == nil
+	}
+	return false
+}
+
+// isOptionFuncType checks whether t is a named type whose underlying type
+// is a function signature taking exactly one pointer-to-struct parameter.
+// This detects the functional options pattern: type XxxOption func(*Xxx).
+// Returns the target struct name and true if the pattern matches.
+func isOptionFuncType(t types.Type) (targetStructName string, ok bool) {
+	// Must be a named type (type XxxOption func(*Xxx)).
+	named, isNamed := t.(*types.Named)
+	if !isNamed {
+		return "", false
+	}
+
+	// Underlying must be a function signature.
+	sig, isSig := named.Underlying().(*types.Signature)
+	if !isSig {
+		return "", false
+	}
+
+	// Must take exactly one parameter, no results, not variadic.
+	if sig.Params().Len() != 1 || sig.Results().Len() != 0 || sig.Variadic() {
+		return "", false
+	}
+
+	// The parameter must be a pointer to a named struct.
+	param := sig.Params().At(0).Type()
+	ptr, isPtr := param.(*types.Pointer)
+	if !isPtr {
+		return "", false
+	}
+
+	elem := types.Unalias(ptr.Elem())
+	target, isTarget := elem.(*types.Named)
+	if !isTarget {
+		return "", false
+	}
+
+	// Verify the target is actually a struct.
+	if _, isStruct := target.Underlying().(*types.Struct); !isStruct {
+		return "", false
+	}
+
+	return target.Obj().Name(), true
 }

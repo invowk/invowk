@@ -30,6 +30,9 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-isvalid", "false")
 	setFlag(t, "check-stringer", "false")
 	setFlag(t, "check-constructors", "false")
+	setFlag(t, "check-constructor-sig", "false")
+	setFlag(t, "check-func-options", "false")
+	setFlag(t, "check-immutability", "false")
 }
 
 // TestAnalyzerWithConfig exercises the full analyzer pipeline with a
@@ -110,9 +113,9 @@ func TestAuditExceptions(t *testing.T) {
 }
 
 // TestCheckAll exercises the --check-all flag, confirming it enables all
-// three DDD compliance checks (isvalid, stringer, constructors) in a
-// single run. Also explicitly enables --audit-exceptions to verify all
-// 5 diagnostic categories fire together.
+// DDD compliance checks (isvalid, stringer, constructors, constructor-sig,
+// func-options, immutability) in a single run. Also explicitly enables
+// --audit-exceptions to verify all 8 diagnostic categories fire together.
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckAll(t *testing.T) {
@@ -123,6 +126,58 @@ func TestCheckAll(t *testing.T) {
 	setFlag(t, "config", filepath.Join(testdata, "src", "checkall", "primitivelint.toml"))
 
 	analysistest.Run(t, testdata, Analyzer, "checkall")
+}
+
+// TestCheckConstructorSig exercises the --check-constructor-sig mode against
+// the constructorsig fixture, verifying constructors with wrong return types
+// are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckConstructorSig(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-constructor-sig", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "constructorsig")
+}
+
+// TestCheckFuncOptions exercises the --check-func-options mode against
+// the funcoptions fixture, verifying both detection (too many params) and
+// completeness (missing WithXxx, missing variadic) are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckFuncOptions(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-func-options", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "funcoptions")
+}
+
+// TestGenericsStructural exercises the structural modes (constructor-sig,
+// immutability) against generic types to verify type parameter handling.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestGenericsStructural(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-constructor-sig", "true")
+	setFlag(t, "check-immutability", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "generics_structural")
+}
+
+// TestCheckImmutability exercises the --check-immutability mode against
+// the immutability fixture, verifying exported fields on structs with
+// constructors are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckImmutability(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-immutability", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "immutability")
 }
 
 // TestBaselineSuppression verifies that the --baseline flag correctly
