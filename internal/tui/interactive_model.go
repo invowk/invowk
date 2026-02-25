@@ -10,9 +10,9 @@ import (
 
 	"github.com/invowk/invowk/internal/tuiserver"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func (m *interactiveModel) Init() tea.Cmd {
@@ -31,7 +31,7 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKeyMsg(msg)
 
 	case tea.WindowSizeMsg:
@@ -106,9 +106,12 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View implements tea.Model.
-func (m *interactiveModel) View() string {
+func (m *interactiveModel) View() tea.View {
 	if !m.ready {
-		return "Initializing..."
+		view := tea.NewView("Initializing...")
+		view.AltScreen = true
+		view.MouseMode = tea.MouseModeCellMotion
+		return view
 	}
 
 	// Title bar
@@ -162,14 +165,18 @@ func (m *interactiveModel) View() string {
 
 	// If we're displaying a TUI component, render it as an overlay on top of the base view
 	if m.state == stateTUI && m.activeComponent != nil {
-		return RenderOverlay(baseView, m.activeComponent.View(), TerminalDimension(m.width), TerminalDimension(m.height))
+		componentView := m.activeComponent.View()
+		baseView = RenderOverlay(baseView, componentView.Content, TerminalDimension(m.width), TerminalDimension(m.height))
 	}
 
-	return baseView
+	view := tea.NewView(baseView)
+	view.AltScreen = true
+	view.MouseMode = tea.MouseModeCellMotion
+	return view
 }
 
 // handleKeyMsg processes keyboard input based on current state.
-func (m *interactiveModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case stateExecuting:
 		// During execution, forward most keys to the PTY
@@ -195,7 +202,7 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.viewport.ScrollDown(1)
 		case "pgup", "b":
 			m.viewport.HalfPageUp()
-		case "pgdown", "f", " ":
+		case "pgdown", "f", "space":
 			m.viewport.HalfPageDown()
 		case "home", "g":
 			m.viewport.GotoTop()
@@ -308,52 +315,59 @@ func (m *interactiveModel) handleTUIComponentDone(msg tuiComponentDoneMsg) (tea.
 }
 
 // forwardKeyToPty forwards keyboard input to the PTY.
-func (m *interactiveModel) forwardKeyToPty(msg tea.KeyMsg) {
+func (m *interactiveModel) forwardKeyToPty(msg tea.KeyPressMsg) {
 	// Convert the key message to bytes and write to PTY
 	var data []byte
 
-	//exhaustive:ignore
-	switch msg.Type {
-	case tea.KeyRunes:
-		data = []byte(string(msg.Runes))
-	case tea.KeyEnter:
-		data = []byte("\r")
-	case tea.KeySpace:
-		data = []byte(" ")
-	case tea.KeyTab:
-		data = []byte("\t")
-	case tea.KeyBackspace:
-		data = []byte{0x7f} // DEL character
-	case tea.KeyDelete:
-		data = []byte{0x1b, '[', '3', '~'} // ESC [ 3 ~
-	case tea.KeyUp:
-		data = []byte{0x1b, '[', 'A'}
-	case tea.KeyDown:
-		data = []byte{0x1b, '[', 'B'}
-	case tea.KeyRight:
-		data = []byte{0x1b, '[', 'C'}
-	case tea.KeyLeft:
-		data = []byte{0x1b, '[', 'D'}
-	case tea.KeyHome:
-		data = []byte{0x1b, '[', 'H'}
-	case tea.KeyEnd:
-		data = []byte{0x1b, '[', 'F'}
-	case tea.KeyPgUp:
-		data = []byte{0x1b, '[', '5', '~'}
-	case tea.KeyPgDown:
-		data = []byte{0x1b, '[', '6', '~'}
-	case tea.KeyCtrlC:
-		data = []byte{0x03} // ETX (Ctrl+C)
-	case tea.KeyCtrlD:
-		data = []byte{0x04} // EOT (Ctrl+D)
-	case tea.KeyCtrlZ:
-		data = []byte{0x1a} // SUB (Ctrl+Z)
-	case tea.KeyEscape:
-		data = []byte{0x1b}
-	default:
-		// For other control keys, try to derive the control character
-		if len(msg.Runes) > 0 {
-			data = []byte(string(msg.Runes))
+	key := msg.Key()
+
+	// Handle common ctrl+<key> combinations first.
+	if key.Mod.Contains(tea.ModCtrl) {
+		switch key.Code {
+		case 'c':
+			data = []byte{0x03} // ETX (Ctrl+C)
+		case 'd':
+			data = []byte{0x04} // EOT (Ctrl+D)
+		case 'z':
+			data = []byte{0x1a} // SUB (Ctrl+Z)
+		}
+	}
+
+	if len(data) == 0 {
+		//exhaustive:ignore
+		switch key.Code {
+		case tea.KeyEnter:
+			data = []byte("\r")
+		case tea.KeySpace:
+			data = []byte(" ")
+		case tea.KeyTab:
+			data = []byte("\t")
+		case tea.KeyBackspace:
+			data = []byte{0x7f} // DEL character
+		case tea.KeyDelete:
+			data = []byte{0x1b, '[', '3', '~'} // ESC [ 3 ~
+		case tea.KeyUp:
+			data = []byte{0x1b, '[', 'A'}
+		case tea.KeyDown:
+			data = []byte{0x1b, '[', 'B'}
+		case tea.KeyRight:
+			data = []byte{0x1b, '[', 'C'}
+		case tea.KeyLeft:
+			data = []byte{0x1b, '[', 'D'}
+		case tea.KeyHome:
+			data = []byte{0x1b, '[', 'H'}
+		case tea.KeyEnd:
+			data = []byte{0x1b, '[', 'F'}
+		case tea.KeyPgUp:
+			data = []byte{0x1b, '[', '5', '~'}
+		case tea.KeyPgDown:
+			data = []byte{0x1b, '[', '6', '~'}
+		case tea.KeyEscape:
+			data = []byte{0x1b}
+		default:
+			if key.Text != "" {
+				data = []byte(key.Text)
+			}
 		}
 	}
 
@@ -371,13 +385,16 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 	viewportHeight := max(msg.Height-headerHeight-footerHeight, 1)
 
 	if !m.ready {
-		m.viewport = viewport.New(msg.Width, viewportHeight)
+		m.viewport = viewport.New(
+			viewport.WithWidth(msg.Width),
+			viewport.WithHeight(viewportHeight),
+		)
 		m.viewport.YPosition = headerHeight
 		m.ready = true
 		m.viewport.SetContent(m.content.String())
 	} else {
-		m.viewport.Width = msg.Width
-		m.viewport.Height = viewportHeight
+		m.viewport.SetWidth(msg.Width)
+		m.viewport.SetHeight(viewportHeight)
 	}
 
 	// Resize the active TUI component if one is displayed

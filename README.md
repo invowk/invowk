@@ -2795,7 +2795,6 @@ invowk/
 **TUI & Styling:**
 - [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
 - [Glamour](https://github.com/charmbracelet/glamour) - Markdown rendering
-- [Huh](https://github.com/charmbracelet/huh) - Terminal forms and prompts
 - [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
 - [Bubbletea](https://github.com/charmbracelet/bubbletea) - TUI framework
 

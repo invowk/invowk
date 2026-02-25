@@ -4,10 +4,12 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/invowk/invowk/pkg/types"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // All type declarations in a single block for decorder compliance.
@@ -30,12 +32,17 @@ type (
 
 	// confirmModel implements EmbeddableComponent for confirmation prompts.
 	confirmModel struct {
-		form      *huh.Form
-		result    *bool
-		done      bool
-		cancelled bool
-		width     int
-		height    int
+		result      *bool
+		done        bool
+		cancelled   bool
+		width       int
+		height      int
+		title       types.DescriptionText
+		description types.DescriptionText
+		affirmative types.DescriptionText
+		negative    types.DescriptionText
+		selection   bool
+		forModal    bool
 	}
 
 	// ConfirmBuilder provides a fluent API for building Confirm prompts.
@@ -46,66 +53,110 @@ type (
 
 // NewConfirmModel creates an embeddable confirm component.
 func NewConfirmModel(opts ConfirmOptions) *confirmModel {
-	return newConfirmModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+	return newConfirmModel(opts, false)
 }
 
 // NewConfirmModelForModal creates an embeddable confirm component with modal-specific styling.
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewConfirmModelForModal(opts ConfirmOptions) *confirmModel {
-	return newConfirmModelWithTheme(opts, getModalHuhTheme())
+	return newConfirmModel(opts, true)
 }
 
 // Init implements tea.Model.
 func (m *confirmModel) Init() tea.Cmd {
-	return m.form.Init()
+	return nil
 }
 
 // Update implements tea.Model.
 func (m *confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle cancel keys before passing to form
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
 		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
 			return m, tea.Quit
+		case "y":
+			m.selection = true
+			*m.result = true
+			m.done = true
+			return m, tea.Quit
+		case "n":
+			m.selection = false
+			*m.result = false
+			m.done = true
+			return m, tea.Quit
+		case "left", "h":
+			m.selection = true
+		case "right", "l":
+			m.selection = false
+		case "up", "down", "tab", "shift+tab":
+			m.selection = !m.selection
+		case "enter", "space":
+			*m.result = m.selection
+			m.done = true
+			return m, tea.Quit
 		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	}
 
-	// Pass to huh form
-	form, cmd := m.form.Update(msg)
-	if f, ok := form.(*huh.Form); ok {
-		m.form = f
-	}
-
-	// Check if form is complete. The huh form may not include tea.Quit in cmd
-	// for all completion paths (e.g., shortcut keys like "y"/"n"), so we
-	// explicitly return tea.Quit to ensure the bubbletea program exits.
-	switch m.form.State {
-	case huh.StateCompleted:
-		m.done = true
-		return m, tea.Quit
-	case huh.StateAborted:
-		m.done = true
-		m.cancelled = true
-		return m, tea.Quit
-	case huh.StateNormal:
-		// Form still in progress
-	}
-
-	return m, cmd
+	return m, nil
 }
 
 // View implements tea.Model.
-func (m *confirmModel) View() string {
+func (m *confirmModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
-	// Constrain the form view to the configured width to prevent overflow
+
+	var base lipgloss.Style
+	if m.forModal {
+		base = modalBaseStyle()
+	}
+
+	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
+	activeStyle := base.Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#7C3AED")).Bold(true).Padding(0, 1)
+	inactiveStyle := base.Foreground(lipgloss.Color("#9CA3AF")).Padding(0, 1)
+	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
+
+	affirmative := m.affirmative.String()
+	negative := m.negative.String()
+	if affirmative == "" {
+		affirmative = "Yes"
+	}
+	if negative == "" {
+		negative = "No"
+	}
+
+	yesView := inactiveStyle.Render(affirmative)
+	noView := inactiveStyle.Render(negative)
+	if m.selection {
+		yesView = activeStyle.Render(affirmative)
+	} else {
+		noView = activeStyle.Render(negative)
+	}
+
+	lines := make([]string, 0, 4)
+	if m.title != "" {
+		lines = append(lines, titleStyle.Render(m.title.String()))
+	}
+	if m.description != "" {
+		lines = append(lines, descStyle.Render(m.description.String()))
+	}
+	lines = append(lines,
+		yesView+"  "+noView,
+		helpStyle.Render("enter submit • y yes • n no • esc cancel"),
+	)
+
+	view := strings.Join(lines, "\n")
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
 	}
-	return m.form.View()
+
+	return tea.NewView(view)
 }
 
 // IsDone implements EmbeddableComponent.
@@ -131,7 +182,6 @@ func (m *confirmModel) Cancelled() bool {
 func (m *confirmModel) SetSize(width, height TerminalDimension) {
 	m.width = int(width)
 	m.height = int(height)
-	m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
 }
 
 // Confirm prompts the user to confirm an action (yes/no).
@@ -216,29 +266,17 @@ func (b *ConfirmBuilder) Model() EmbeddableComponent {
 	return NewConfirmModel(b.opts)
 }
 
-// newConfirmModelWithTheme creates a confirm model with a specific huh theme.
-func newConfirmModelWithTheme(opts ConfirmOptions, theme *huh.Theme) *confirmModel {
+// newConfirmModel creates a confirm model configured for standalone or modal use.
+func newConfirmModel(opts ConfirmOptions, forModal bool) *confirmModel {
 	result := opts.Default
 
-	confirm := huh.NewConfirm().
-		Title(opts.Title).
-		Description(opts.Description).
-		Value(&result)
-
-	if opts.Affirmative != "" {
-		confirm = confirm.Affirmative(opts.Affirmative)
-	}
-
-	if opts.Negative != "" {
-		confirm = confirm.Negative(opts.Negative)
-	}
-
-	form := huh.NewForm(huh.NewGroup(confirm)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
-
 	return &confirmModel{
-		form:   form,
-		result: &result,
+		result:      &result,
+		title:       types.DescriptionText(opts.Title),
+		description: types.DescriptionText(opts.Description),
+		affirmative: types.DescriptionText(opts.Affirmative),
+		negative:    types.DescriptionText(opts.Negative),
+		selection:   opts.Default,
+		forModal:    forModal,
 	}
 }

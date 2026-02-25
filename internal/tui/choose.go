@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // All type declarations in a single block for decorder compliance.
@@ -36,20 +35,15 @@ type (
 	// chooseModel implements EmbeddableComponent for single and multi-select prompts.
 	// This model works specifically with strings for the embeddable interface.
 	chooseModel struct {
-		form        *huh.Form  // Used for single-select (huh.Select)
-		list        list.Model // Used for multi-select (bubbles/list with custom delegate)
-		result      *string    // For single-select
-		multiResult *[]string  // For multi-select
+		list        list.Model
+		result      *string
+		multiResult *[]string
 		isMulti     bool
 		done        bool
 		cancelled   bool
 		width       int
 		height      int
 
-		// Fields for multi-select mode (using bubbles/list).
-		// Following the proven pattern from filter.go, we manage selection state
-		// directly with bubbles/list instead of huh.MultiSelect, which doesn't
-		// provide visual feedback when embedded within invowk's modal overlay system.
 		options  []string     // Original options list
 		selected map[int]bool // Selection state by index
 		limit    int          // Selection limit (0 = unlimited)
@@ -234,7 +228,7 @@ func NewChooseModel(opts ChooseStringOptions) *chooseModel {
 	if isMulti {
 		return newMultiChooseModelWithTheme(opts, false) // not modal
 	}
-	return newSingleChooseModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+	return newSingleChooseModel(opts, false)
 }
 
 // NewChooseModelForModal creates an embeddable choose component with modal-specific styling.
@@ -245,27 +239,24 @@ func NewChooseModelForModal(opts ChooseStringOptions) *chooseModel {
 	if isMulti {
 		return newMultiChooseModelWithTheme(opts, true) // modal mode
 	}
-	return newSingleChooseModelWithTheme(opts, getModalHuhTheme())
+	return newSingleChooseModel(opts, true)
 }
 
 // Init implements tea.Model.
 func (m *chooseModel) Init() tea.Cmd {
-	if m.isMulti {
-		return nil // bubbles/list doesn't need init
-	}
-	return m.form.Init()
+	return nil
 }
 
 // Update implements tea.Model.
 func (m *chooseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle key events
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		switch keyMsg.String() {
 		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
-			return m, nil
-		case " ", "x":
+			return m, tea.Quit
+		case "space", "x":
 			// Toggle handling for multi-select mode using bubbles/list.
 			if m.isMulti {
 				idx := m.list.Index() // Get cursor position from list
@@ -279,58 +270,48 @@ func (m *chooseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if m.isMulti {
-				// Sync selections and mark done
 				m.syncSelections()
+				// Make sure single-result pointer is not stale from prior usage.
+				if m.result != nil {
+					*m.result = ""
+				}
+			} else if m.result != nil {
+				if item, ok := m.list.SelectedItem().(chooseItem); ok {
+					*m.result = item.text
+				}
+			}
+			if m.done {
+				return m, tea.Quit
+			}
+			if m.isMulti || m.result != nil {
 				m.done = true
-				return m, nil
+				return m, tea.Quit
 			}
 		}
 	}
 
-	// Multi-select: pass to bubbles/list for navigation
-	if m.isMulti {
-		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		return m, cmd
-	}
-
-	// Single-select: pass to huh form
-	form, cmd := m.form.Update(msg)
-	if f, ok := form.(*huh.Form); ok {
-		m.form = f
-	}
-
-	// Check if form is complete
-	switch m.form.State {
-	case huh.StateCompleted:
-		m.done = true
-	case huh.StateAborted:
-		m.done = true
-		m.cancelled = true
-	case huh.StateNormal:
-		// Form still in progress
-	}
-
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
 	return m, cmd
 }
 
 // View implements tea.Model.
-func (m *chooseModel) View() string {
+func (m *chooseModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
+
+	view := m.list.View()
+	help := "↑/k up • ↓/j down • enter submit • esc cancel"
 	if m.isMulti {
-		// Multi-select: render bubbles/list
-		if m.width > 0 {
-			return lipgloss.NewStyle().MaxWidth(m.width).Render(m.list.View())
-		}
-		return m.list.View()
+		help = "↑/k up • ↓/j down • space toggle • enter submit • esc cancel"
 	}
-	// Single-select: render huh form
+	view = lipgloss.JoinVertical(lipgloss.Left, view, m.list.Styles.HelpStyle.Render(help))
+
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
 	}
-	return m.form.View()
+	return tea.NewView(view)
 }
 
 // IsDone implements EmbeddableComponent.
@@ -361,12 +342,9 @@ func (m *chooseModel) Cancelled() bool {
 func (m *chooseModel) SetSize(width, height TerminalDimension) {
 	m.width = int(width)
 	m.height = int(height)
-	if m.isMulti {
-		m.list.SetWidth(int(width))
-		m.list.SetHeight(int(height) - 2)
-	} else {
-		m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
-	}
+	m.list.SetWidth(int(width))
+	listHeight := max(1, int(height)-3) // Reserve one line for keybinding hints footer.
+	m.list.SetHeight(listHeight)
 }
 
 // syncSelections updates multiResult to match our tracked selection state.
@@ -388,29 +366,40 @@ func (m *chooseModel) syncSelections() {
 func Choose[T comparable](opts ChooseOptions[T]) (T, error) {
 	var result T
 
-	huhOpts := make([]huh.Option[T], len(opts.Options))
+	if len(opts.Options) == 0 {
+		return result, nil
+	}
+
+	titles := make([]string, len(opts.Options))
+	indices := make(map[string]int, len(opts.Options))
 	for i, opt := range opts.Options {
-		huhOpts[i] = huh.NewOption(opt.Title, opt.Value)
+		titles[i] = opt.Title
+		if _, exists := indices[opt.Title]; !exists {
+			indices[opt.Title] = i
+		}
 	}
 
-	sel := huh.NewSelect[T]().
-		Title(opts.Title).
-		Description(opts.Description).
-		Options(huhOpts...).
-		Value(&result)
-
-	if opts.Height > 0 {
-		sel = sel.Height(int(opts.Height))
-	}
-
-	form := huh.NewForm(huh.NewGroup(sel)).
-		WithTheme(getHuhTheme(opts.Config.Theme)).
-		WithAccessible(opts.Config.Accessible)
-
-	if err := form.Run(); err != nil {
+	results, err := ChooseStringsWithModel(ChooseStringOptions{
+		Title:   opts.Title,
+		Options: titles,
+		Limit:   1,
+		Height:  opts.Height,
+		Config:  opts.Config,
+	})
+	if err != nil {
 		return result, err
 	}
 
+	if len(results) == 0 {
+		return result, nil
+	}
+
+	idx, ok := indices[results[0]]
+	if !ok {
+		return result, nil
+	}
+
+	result = opts.Options[idx].Value
 	return result, nil
 }
 
@@ -449,40 +438,41 @@ func ChooseStringsWithModel(opts ChooseStringOptions) ([]string, error) {
 // MultiChoose prompts the user to select multiple options from a list.
 // Returns the selected values or an error if the prompt was cancelled.
 func MultiChoose[T comparable](opts MultiChooseOptions[T]) ([]T, error) {
-	var result []T
+	if len(opts.Options) == 0 {
+		return nil, nil
+	}
 
-	huhOpts := make([]huh.Option[T], len(opts.Options))
+	titles := make([]string, len(opts.Options))
+	indices := make(map[string]int, len(opts.Options))
 	for i, opt := range opts.Options {
-		o := huh.NewOption(opt.Title, opt.Value)
-		if opt.Selected {
-			o = o.Selected(true)
+		titles[i] = opt.Title
+		if _, exists := indices[opt.Title]; !exists {
+			indices[opt.Title] = i
 		}
-		huhOpts[i] = o
 	}
 
-	sel := huh.NewMultiSelect[T]().
-		Title(opts.Title).
-		Description(opts.Description).
-		Options(huhOpts...).
-		Value(&result)
-
-	if opts.Limit > 0 {
-		sel = sel.Limit(opts.Limit)
-	}
-
-	if opts.Height > 0 {
-		sel = sel.Height(int(opts.Height))
-	}
-
-	form := huh.NewForm(huh.NewGroup(sel)).
-		WithTheme(getHuhTheme(opts.Config.Theme)).
-		WithAccessible(opts.Config.Accessible)
-
-	if err := form.Run(); err != nil {
+	results, err := ChooseStringsWithModel(ChooseStringOptions{
+		Title:   opts.Title,
+		Options: titles,
+		Limit:   opts.Limit,
+		NoLimit: opts.Limit <= 0,
+		Height:  opts.Height,
+		Config:  opts.Config,
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	values := make([]T, 0, len(results))
+	for _, selected := range results {
+		idx, ok := indices[selected]
+		if !ok {
+			continue
+		}
+		values = append(values, opts.Options[idx].Value)
+	}
+
+	return values, nil
 }
 
 // MultiChooseStrings is a convenience function for choosing multiple string options.
@@ -681,31 +671,87 @@ func (b *ChooseStringBuilder) Model() EmbeddableComponent {
 	return NewChooseModel(b.opts)
 }
 
-// newSingleChooseModelWithTheme creates a single-select choose model with a specific theme.
-func newSingleChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *chooseModel {
+// newSingleChooseModel creates a single-select choose model using bubbles/list.
+func newSingleChooseModel(opts ChooseStringOptions, forModal bool) *chooseModel {
 	var result string
 
-	huhOpts := make([]huh.Option[string], len(opts.Options))
+	items := make([]list.Item, len(opts.Options))
 	for i, opt := range opts.Options {
-		huhOpts[i] = huh.NewOption(opt, opt)
+		items[i] = chooseItem{text: opt, index: i}
 	}
 
-	sel := huh.NewSelect[string]().
-		Title(opts.Title).
-		Options(huhOpts...).
-		Value(&result)
+	height := int(opts.Height)
+	if height == 0 {
+		height = 10
+	}
+	width := 50
 
-	if opts.Height > 0 {
-		sel = sel.Height(int(opts.Height))
+	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	delegate.SetSpacing(0)
+
+	if forModal {
+		base := modalBaseStyle()
+		delegate.Styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
+		delegate.Styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.SelectedTitle = base.
+			Foreground(lipgloss.Color("#7C3AED")).
+			Bold(true).
+			Padding(0, 0, 0, 1).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("#7C3AED"))
+		delegate.Styles.SelectedDesc = base.
+			Foreground(lipgloss.Color("#A78BFA")).
+			Padding(0, 0, 0, 1)
+		delegate.Styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
+	} else {
+		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+		delegate.Styles.NormalDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		delegate.Styles.SelectedTitle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Bold(true).
+			Padding(0, 0, 0, 1).
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("212"))
+		delegate.Styles.SelectedDesc = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Padding(0, 0, 0, 1)
+		delegate.Styles.DimmedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		delegate.Styles.DimmedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	}
 
-	form := huh.NewForm(huh.NewGroup(sel)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
+	l := list.New(items, delegate, width, height)
+	l.Title = opts.Title
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
+	l.SetShowHelp(false)
+
+	if forModal {
+		base := modalBaseStyle()
+		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
+	} else {
+		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
+		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
+		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	}
 
 	return &chooseModel{
-		form:   form,
-		result: &result,
+		list:      l,
+		result:    &result,
+		isMulti:   false,
+		options:   opts.Options,
+		selected:  map[int]bool{},
+		limit:     1,
+		width:     width,
+		height:    height,
+		noLimit:   false,
+		cancelled: false,
 	}
 }
 

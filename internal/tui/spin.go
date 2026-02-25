@@ -12,9 +12,9 @@ import (
 
 	"github.com/invowk/invowk/pkg/types"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh/spinner"
-	"github.com/charmbracelet/lipgloss"
+	bspinner "charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 const (
@@ -105,6 +105,13 @@ type (
 		opts   SpinOptions
 		action func()
 		ctx    context.Context
+	}
+
+	// spinActionModel displays a spinner while waiting for a completion signal.
+	spinActionModel struct {
+		title   types.DescriptionText
+		spinner bspinner.Model
+		doneCh  <-chan struct{}
 	}
 )
 
@@ -219,7 +226,7 @@ func (m *spinModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.done = true
 		m.result = msg.result
 		return m, nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if msg.String() == keyCtrlC {
 			m.done = true
 			return m, nil
@@ -229,9 +236,9 @@ func (m *spinModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View implements tea.Model.
-func (m *spinModel) View() string {
+func (m *spinModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
 
 	frame := m.frames[m.spinner]
@@ -242,9 +249,9 @@ func (m *spinModel) View() string {
 
 	// Constrain the view to the configured width to prevent overflow in modal overlays
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(content)
+		content = lipgloss.NewStyle().MaxWidth(m.width).Render(content)
 	}
-	return content
+	return tea.NewView(content)
 }
 
 // IsDone implements EmbeddableComponent.
@@ -304,30 +311,24 @@ func (m *spinModel) tick() tea.Cmd {
 // SpinWithAction displays a spinner while running an action function.
 // The spinner stops when the action completes.
 func SpinWithAction(opts SpinOptions, action func()) error {
-	s := spinner.New().
-		Title(opts.Title).
-		Type(getSpinnerType(opts.Type)).
-		Action(action)
+	doneCh := make(chan struct{})
+	go func() {
+		action()
+		close(doneCh)
+	}()
 
-	if opts.Config.Accessible {
-		s = s.Accessible(true)
-	}
-
-	return s.Run()
+	return runActionSpinner(opts, doneCh)
 }
 
 // SpinWithContext displays a spinner until the context is cancelled.
 func SpinWithContext(opts SpinOptions, ctx context.Context) error {
-	s := spinner.New().
-		Title(opts.Title).
-		Type(getSpinnerType(opts.Type)).
-		Context(ctx)
+	doneCh := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		close(doneCh)
+	}()
 
-	if opts.Config.Accessible {
-		s = s.Accessible(true)
-	}
-
-	return s.Run()
+	return runActionSpinner(opts, doneCh)
 }
 
 // SpinWithCommand displays a spinner while running a shell command.
@@ -415,34 +416,92 @@ func (b *SpinBuilder) Run() error {
 	return nil
 }
 
-// getSpinnerType converts SpinnerType to spinner.Type.
-func getSpinnerType(t SpinnerType) spinner.Type {
+// getSpinnerType converts SpinnerType to bubbles spinner frames.
+func getSpinnerType(t SpinnerType) bspinner.Spinner {
 	switch t {
 	case SpinnerLine:
-		return spinner.Line
+		return bspinner.Line
 	case SpinnerDot:
-		return spinner.Dots
+		return bspinner.Dot
 	case SpinnerMiniDot:
-		return spinner.MiniDot
+		return bspinner.MiniDot
 	case SpinnerJump:
-		return spinner.Jump
+		return bspinner.Jump
 	case SpinnerPulse:
-		return spinner.Pulse
+		return bspinner.Pulse
 	case SpinnerPoints:
-		return spinner.Points
+		return bspinner.Points
 	case SpinnerGlobe:
-		return spinner.Globe
+		return bspinner.Globe
 	case SpinnerMoon:
-		return spinner.Moon
+		return bspinner.Moon
 	case SpinnerMonkey:
-		return spinner.Monkey
+		return bspinner.Monkey
 	case SpinnerMeter:
-		return spinner.Meter
+		return bspinner.Meter
 	case SpinnerHamburger:
-		return spinner.Hamburger
+		return bspinner.Hamburger
 	case SpinnerEllipsis:
-		return spinner.Ellipsis
+		return bspinner.Ellipsis
 	default:
-		return spinner.Line
+		return bspinner.Line
+	}
+}
+
+// Init implements tea.Model for spinActionModel.
+func (m spinActionModel) Init() tea.Cmd {
+	return tea.Batch(
+		func() tea.Msg { return m.spinner.Tick() },
+		waitForSpinDone(m.doneCh),
+	)
+}
+
+// Update implements tea.Model for spinActionModel.
+func (m spinActionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case bspinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+	case spinnerDoneMsg:
+		return m, tea.Quit
+	case tea.KeyPressMsg:
+		if msg.String() == keyCtrlC {
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+// View implements tea.Model for spinActionModel.
+func (m spinActionModel) View() tea.View {
+	content := m.spinner.View()
+	if m.title != "" {
+		content += " " + m.title.String()
+	}
+	return tea.NewView(content)
+}
+
+// runActionSpinner displays a spinner until doneCh is closed.
+func runActionSpinner(opts SpinOptions, doneCh <-chan struct{}) error {
+	model := spinActionModel{
+		title: types.DescriptionText(opts.Title),
+		spinner: bspinner.New(
+			bspinner.WithSpinner(getSpinnerType(opts.Type)),
+			bspinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))),
+		),
+		doneCh: doneCh,
+	}
+
+	program := tea.NewProgram(model)
+	_, err := program.Run()
+	return err
+}
+
+// waitForSpinDone waits for completion and returns a done message.
+func waitForSpinDone(doneCh <-chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		<-doneCh
+		return spinnerDoneMsg{}
 	}
 }

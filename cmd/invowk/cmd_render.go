@@ -8,7 +8,7 @@ import (
 
 	"github.com/invowk/invowk/internal/discovery"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // RenderArgumentValidationError creates a styled error message for argument validation failures

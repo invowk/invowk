@@ -3,9 +3,9 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type (
@@ -30,13 +30,14 @@ type (
 	// pagerModel is the bubbletea model for the pager component.
 	// It implements EmbeddableComponent for embedded use.
 	pagerModel struct {
-		viewport viewport.Model
-		title    string
-		ready    bool
-		done     bool
-		width    int
-		height   int
-		forModal bool
+		viewport  viewport.Model
+		title     string
+		ready     bool
+		done      bool
+		width     int
+		height    int
+		forModal  bool
+		altScreen bool
 	}
 
 	// PagerBuilder provides a fluent API for building Pager displays.
@@ -64,7 +65,7 @@ func (m *pagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case keyCtrlC, "q", "esc", "enter":
 			m.done = true
@@ -72,12 +73,12 @@ func (m *pagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		if !m.ready {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - 2 // Leave room for title and footer
+			m.viewport.SetWidth(msg.Width)
+			m.viewport.SetHeight(msg.Height - 2) // Leave room for title and footer
 			m.ready = true
 		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - 2
+			m.viewport.SetWidth(msg.Width)
+			m.viewport.SetHeight(msg.Height - 2)
 		}
 	}
 
@@ -85,9 +86,9 @@ func (m *pagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *pagerModel) View() string {
+func (m *pagerModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
 
 	var titleStyle, footerStyle lipgloss.Style
@@ -122,9 +123,12 @@ func (m *pagerModel) View() string {
 
 	// Constrain the view to the configured width to prevent overflow in modal overlays
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(content)
+		content = lipgloss.NewStyle().MaxWidth(m.width).Render(content)
 	}
-	return content
+
+	view := tea.NewView(content)
+	view.AltScreen = m.altScreen
+	return view
 }
 
 // IsDone implements EmbeddableComponent.
@@ -150,14 +154,15 @@ func (m *pagerModel) Cancelled() bool {
 func (m *pagerModel) SetSize(width, height TerminalDimension) {
 	m.width = int(width)
 	m.height = int(height)
-	m.viewport.Width = int(width)
-	m.viewport.Height = int(height) - 4
+	m.viewport.SetWidth(int(width))
+	m.viewport.SetHeight(int(height) - 4)
 }
 
 // Pager displays content in a scrollable viewport.
 func Pager(opts PagerOptions) error {
 	model := NewPagerModel(opts)
-	p := tea.NewProgram(model, tea.WithAltScreen())
+	model.altScreen = true
+	p := tea.NewProgram(model)
 	_, err := p.Run()
 	return err
 }
@@ -246,7 +251,10 @@ func newPagerModelWithStyles(opts PagerOptions, forModal bool) *pagerModel {
 		vpHeight = 10
 	}
 
-	vp := viewport.New(int(width), int(vpHeight))
+	vp := viewport.New(
+		viewport.WithWidth(int(width)),
+		viewport.WithHeight(int(vpHeight)),
+	)
 	vp.SetContent(opts.Content)
 
 	return &pagerModel{

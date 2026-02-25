@@ -23,7 +23,7 @@ import (
 	"github.com/invowk/invowk/internal/tuiserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 type (

@@ -5,7 +5,7 @@ package tui
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewPagerModel(t *testing.T) {
@@ -69,7 +69,7 @@ func TestPagerModel_DismissWithQ(t *testing.T) {
 	model := NewPagerModel(opts)
 
 	// Simulate 'q' key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
+	keyMsg := tea.KeyPressMsg{Code: 'q', Text: "q"}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*pagerModel)
 
@@ -89,7 +89,7 @@ func TestPagerModel_DismissWithEsc(t *testing.T) {
 	model := NewPagerModel(opts)
 
 	// Simulate Esc key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*pagerModel)
 
@@ -109,7 +109,7 @@ func TestPagerModel_DismissWithEnter(t *testing.T) {
 	model := NewPagerModel(opts)
 
 	// Simulate Enter key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyEnter}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEnter}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*pagerModel)
 
@@ -129,7 +129,7 @@ func TestPagerModel_DismissWithCtrlC(t *testing.T) {
 	model := NewPagerModel(opts)
 
 	// Simulate Ctrl+C key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	keyMsg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*pagerModel)
 
@@ -205,7 +205,7 @@ func TestPagerModel_ViewWhenDone(t *testing.T) {
 	model := NewPagerModel(opts)
 	model.done = true
 
-	view := model.View()
+	view := model.View().Content
 
 	if view != "" {
 		t.Errorf("expected empty view when done, got %q", view)
@@ -224,7 +224,7 @@ func TestPagerModel_ViewWithTitle(t *testing.T) {
 	model := NewPagerModel(opts)
 	model.SetSize(60, 20)
 
-	view := model.View()
+	view := model.View().Content
 
 	// View should contain the title
 	if view == "" {
@@ -243,7 +243,7 @@ func TestPagerModel_ViewWithWidth(t *testing.T) {
 	model := NewPagerModel(opts)
 	model.SetSize(50, 10)
 
-	view := model.View()
+	view := model.View().Content
 
 	// View should be non-empty when not done
 	if view == "" {
@@ -320,7 +320,7 @@ func TestPagerModel_ViewForModal(t *testing.T) {
 	model := NewPagerModelForModal(opts)
 	model.SetSize(60, 15)
 
-	view := model.View()
+	view := model.View().Content
 
 	// Modal view should be rendered
 	if view == "" {

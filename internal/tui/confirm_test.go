@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewConfirmModel(t *testing.T) {
@@ -63,7 +63,7 @@ func TestConfirmModel_CancelWithEsc(t *testing.T) {
 	model := NewConfirmModel(opts)
 
 	// Simulate Esc key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*confirmModel)
 
@@ -92,7 +92,7 @@ func TestConfirmModel_CancelWithCtrlC(t *testing.T) {
 	model := NewConfirmModel(opts)
 
 	// Simulate Ctrl+C key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	keyMsg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*confirmModel)
 
@@ -134,7 +134,7 @@ func TestConfirmModel_ViewWhenDone(t *testing.T) {
 	model := NewConfirmModel(opts)
 	model.done = true
 
-	view := model.View()
+	view := model.View().Content
 
 	if view != "" {
 		t.Errorf("expected empty view when done, got %q", view)
@@ -152,7 +152,7 @@ func TestConfirmModel_ViewWithWidth(t *testing.T) {
 	model := NewConfirmModel(opts)
 	model.SetSize(60, 10)
 
-	view := model.View()
+	view := model.View().Content
 
 	// View should be non-empty when not done
 	if view == "" {

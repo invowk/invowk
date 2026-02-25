@@ -11,7 +11,7 @@ import (
 
 	"github.com/invowk/invowk/pkg/types"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/xpty"
 )
 
@@ -44,11 +44,8 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 	// Create the model
 	m := newInteractiveModel(opts, pty)
 
-	// Create the Bubbletea program with alternate screen
-	p := tea.NewProgram(m,
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
-	)
+	// Create the Bubble Tea program; alt screen and mouse mode are declared in View().
+	p := tea.NewProgram(m)
 
 	// Notify the caller that the program is ready.
 	// This allows them to access the program for terminal control.

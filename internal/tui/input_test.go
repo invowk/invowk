@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewInputModel(t *testing.T) {
@@ -66,7 +66,7 @@ func TestInputModel_CancelWithEsc(t *testing.T) {
 	model := NewInputModel(opts)
 
 	// Simulate Esc key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*inputModel)
 
@@ -95,7 +95,7 @@ func TestInputModel_CancelWithCtrlC(t *testing.T) {
 	model := NewInputModel(opts)
 
 	// Simulate Ctrl+C key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	keyMsg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*inputModel)
 
@@ -137,7 +137,7 @@ func TestInputModel_ViewWhenDone(t *testing.T) {
 	model := NewInputModel(opts)
 	model.done = true
 
-	view := model.View()
+	view := model.View().Content
 
 	if view != "" {
 		t.Errorf("expected empty view when done, got %q", view)
@@ -155,7 +155,7 @@ func TestInputModel_ViewWithWidth(t *testing.T) {
 	model := NewInputModel(opts)
 	model.SetSize(50, 10)
 
-	view := model.View()
+	view := model.View().Content
 
 	// View should be non-empty when not done
 	if view == "" {

@@ -4,10 +4,13 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/invowk/invowk/pkg/types"
+
+	"charm.land/bubbles/v2/filepicker"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // All type declarations in a single block for decorder compliance.
@@ -40,12 +43,15 @@ type (
 
 	// fileModel implements EmbeddableComponent for file picker.
 	fileModel struct {
-		form      *huh.Form
-		result    *string
-		done      bool
-		cancelled bool
-		width     int
-		height    int
+		picker      filepicker.Model
+		result      *string
+		done        bool
+		cancelled   bool
+		width       int
+		height      int
+		title       types.DescriptionText
+		description types.DescriptionText
+		forModal    bool
 	}
 
 	// FileBuilder provides a fluent API for building File picker prompts.
@@ -56,62 +62,77 @@ type (
 
 // NewFileModel creates an embeddable file picker component.
 func NewFileModel(opts FileOptions) *fileModel {
-	return newFileModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+	return newFileModel(opts, false)
 }
 
 // NewFileModelForModal creates an embeddable file picker component with modal-specific styling.
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewFileModelForModal(opts FileOptions) *fileModel {
-	return newFileModelWithTheme(opts, getModalHuhTheme())
+	return newFileModel(opts, true)
 }
 
 // Init implements tea.Model.
 func (m *fileModel) Init() tea.Cmd {
-	return m.form.Init()
+	return m.picker.Init()
 }
 
 // Update implements tea.Model.
 func (m *fileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle cancel keys before passing to form
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		switch keyMsg.String() {
 		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
-			return m, nil
+			return m, tea.Quit
 		}
 	}
 
-	// Pass to huh form
-	form, cmd := m.form.Update(msg)
-	if f, ok := form.(*huh.Form); ok {
-		m.form = f
-	}
+	var cmd tea.Cmd
+	m.picker, cmd = m.picker.Update(msg)
 
-	// Check if form is complete
-	switch m.form.State {
-	case huh.StateCompleted:
+	if didSelect, path := m.picker.DidSelectFile(msg); didSelect {
+		*m.result = path
 		m.done = true
-	case huh.StateAborted:
-		m.done = true
-		m.cancelled = true
-	case huh.StateNormal:
-		// Form still in progress
+		return m, tea.Quit
 	}
+	_, _ = m.picker.DidSelectDisabledFile(msg)
 
 	return m, cmd
 }
 
 // View implements tea.Model.
-func (m *fileModel) View() string {
+func (m *fileModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
-	// Constrain the form view to the configured width to prevent overflow
+
+	var base lipgloss.Style
+	if m.forModal {
+		base = modalBaseStyle()
+	}
+
+	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
+	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
+
+	lines := make([]string, 0, 4)
+	if m.title != "" {
+		lines = append(lines, titleStyle.Render(m.title.String()))
+	}
+	if m.description != "" {
+		lines = append(lines, descStyle.Render(m.description.String()))
+	}
+	lines = append(lines,
+		m.picker.View(),
+		helpStyle.Render("enter select • esc cancel"),
+	)
+
+	view := strings.Join(lines, "\n")
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
 	}
-	return m.form.View()
+
+	return tea.NewView(view)
 }
 
 // IsDone implements EmbeddableComponent.
@@ -137,7 +158,10 @@ func (m *fileModel) Cancelled() bool {
 func (m *fileModel) SetSize(width, height TerminalDimension) {
 	m.width = int(width)
 	m.height = int(height)
-	m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
+	if height > 0 {
+		m.picker.AutoHeight = false
+		m.picker.SetHeight(int(height))
+	}
 }
 
 // File prompts the user to select a file from the filesystem.
@@ -251,55 +275,63 @@ func (b *FileBuilder) Model() EmbeddableComponent {
 	return NewFileModel(b.opts)
 }
 
-// newFileModelWithTheme creates a file picker model with a specific huh theme.
-func newFileModelWithTheme(opts FileOptions, theme *huh.Theme) *fileModel {
+// newFileModel creates a file picker model with component-local styles.
+func newFileModel(opts FileOptions, forModal bool) *fileModel {
 	var result string
 
-	picker := huh.NewFilePicker().
-		Title(opts.Title).
-		Description(opts.Description).
-		Value(&result)
-
+	picker := filepicker.New()
+	picker.CurrentDirectory = "."
 	if opts.CurrentDirectory != "" {
-		picker = picker.CurrentDirectory(opts.CurrentDirectory)
+		picker.CurrentDirectory = opts.CurrentDirectory
 	}
-
 	if len(opts.AllowedExtensions) > 0 {
-		picker = picker.AllowedTypes(opts.AllowedExtensions)
+		picker.AllowedTypes = opts.AllowedExtensions
 	}
+	picker.ShowHidden = opts.ShowHidden
+	picker.ShowSize = opts.ShowSize
+	picker.ShowPermissions = opts.ShowPermissions
 
-	if opts.ShowHidden {
-		picker = picker.ShowHidden(true)
-	}
-
-	if opts.ShowSize {
-		picker = picker.ShowSize(true)
-	}
-
-	if opts.ShowPermissions {
-		picker = picker.ShowPermissions(true)
-	}
-
-	if opts.Height > 0 {
-		picker = picker.Height(int(opts.Height))
-	}
-
-	// Default to allowing files if neither is specified
+	// Default to allowing files if neither is specified.
 	fileAllowed := opts.FileAllowed
 	dirAllowed := opts.DirAllowed
 	if !fileAllowed && !dirAllowed {
 		fileAllowed = true
 	}
+	picker.FileAllowed = fileAllowed
+	picker.DirAllowed = dirAllowed
+	picker.Styles = newFilePickerStyles(forModal)
 
-	picker = picker.FileAllowed(fileAllowed)
-	picker = picker.DirAllowed(dirAllowed)
-
-	form := huh.NewForm(huh.NewGroup(picker)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
+	if opts.Height > 0 {
+		picker.AutoHeight = false
+		picker.SetHeight(int(opts.Height))
+	}
 
 	return &fileModel{
-		form:   form,
-		result: &result,
+		picker:      picker,
+		result:      &result,
+		title:       types.DescriptionText(opts.Title),
+		description: types.DescriptionText(opts.Description),
+		forModal:    forModal,
 	}
+}
+
+// newFilePickerStyles returns styles for file picker rendering.
+func newFilePickerStyles(forModal bool) filepicker.Styles {
+	styles := filepicker.DefaultStyles()
+	if !forModal {
+		return styles
+	}
+
+	base := modalBaseStyle()
+	styles.Cursor = base.Foreground(lipgloss.Color("#7C3AED"))
+	styles.DisabledCursor = base.Foreground(lipgloss.Color("#6B7280"))
+	styles.Directory = base.Foreground(lipgloss.Color("#A78BFA"))
+	styles.File = base.Foreground(lipgloss.Color("#FFFFFF"))
+	styles.DisabledFile = base.Foreground(lipgloss.Color("#6B7280"))
+	styles.Permission = base.Foreground(lipgloss.Color("#6B7280"))
+	styles.Selected = base.Foreground(lipgloss.Color("#7C3AED")).Bold(true)
+	styles.DisabledSelected = base.Foreground(lipgloss.Color("#6B7280"))
+	styles.FileSize = base.Foreground(lipgloss.Color("#6B7280")).Width(7).Align(lipgloss.Right)
+	styles.EmptyDirectory = base.Foreground(lipgloss.Color("#6B7280"))
+	return styles
 }
