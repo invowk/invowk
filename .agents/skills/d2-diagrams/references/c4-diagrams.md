@@ -32,7 +32,6 @@ Shows the big picture: your system and its external dependencies.
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -82,7 +81,6 @@ Zooms into the system to show its containers (applications, databases, services)
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -205,7 +203,6 @@ Zooms into a container to show its internal components.
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -339,7 +336,6 @@ D2's layer system allows you to create all C4 levels in a single file, switching
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -393,8 +389,8 @@ layers: {
 
 **Render specific layer:**
 ```bash
-d2 --target context banking.d2 context.svg
-d2 --target container banking.d2 container.svg
+d2 --layout=tala --tala-seeds=100 --target context banking.d2 context.svg
+d2 --layout=tala --tala-seeds=100 --target container banking.d2 container.svg
 ```
 
 ## The Suspend Pattern
@@ -406,7 +402,6 @@ For complex multi-view diagrams, use the suspend pattern to share a common model
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -479,7 +474,6 @@ Complete C4 diagrams for an e-commerce system:
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -557,7 +551,6 @@ ecommerce -> analytics: Tracks events
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 

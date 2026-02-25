@@ -13,6 +13,16 @@ vars: {
 
 direction: down
 
+Start: Command execution failed {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+Classify: classifyExecutionError(err) {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+
 # ==============================================================================
 # Error Categories
 # ==============================================================================
@@ -96,6 +106,16 @@ Fix8: Install required shell (bash/sh/pwsh) {
 # ==============================================================================
 # Connections
 # ==============================================================================
+
+Start -> Classify
+Classify -> errors.E1: Config parse
+Classify -> errors.E2: Discovery
+Classify -> errors.E3: Command not found
+Classify -> errors.E4: Runtime unavailable
+Classify -> errors.E5: Validation
+Classify -> errors.E6: Execution
+Classify -> errors.E7: Permission denied
+Classify -> errors.E8: Shell not found
 
 errors.E1 -> Fix1: Invalid CUE syntax
 errors.E2 -> Fix2: Module parse failure

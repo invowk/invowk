@@ -14,6 +14,15 @@ vars: {
 direction: right
 
 # ==============================================================================
+# Entry Point
+# ==============================================================================
+
+Start: Start includes resolution {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+# ==============================================================================
 # Includes Order
 # ==============================================================================
 
@@ -50,3 +59,4 @@ Win: Earlier include entries\nhave higher precedence {
 
 paths.P1 -> Win: Higher priority
 paths.P3 -> Win: Lower priority
+Start -> paths.P1

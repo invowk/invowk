@@ -14,6 +14,15 @@ vars: {
 direction: down
 
 # ==============================================================================
+# Entry Point
+# ==============================================================================
+
+Start: Start layer provisioning {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+# ==============================================================================
 # Ephemeral Layer Contents
 # ==============================================================================
 
@@ -58,3 +67,4 @@ Layer -> layer_contents.Binary
 Layer -> layer_contents.Modules
 Layer -> layer_contents.EnvVars
 Layer -> RuntimeMount
+Start -> Base

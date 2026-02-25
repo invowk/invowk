@@ -280,7 +280,6 @@ process -> end
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -351,7 +350,6 @@ create.token -> send_email -> success -> redirect
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -422,7 +420,6 @@ move_high -> check_bounds
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -589,13 +586,13 @@ error -> idle: dismiss()
 ## Best Practices
 
 1. **Set direction explicitly** - `direction: down` for traditional flowcharts
-2. **Use semantic shapes** - Diamond for decisions, oval for start/end
+2. **Make entry explicit** - Use a `Start` node with `shape: oval` and a `Start -> ...` edge
 3. **Group related steps** - Use containers for logical groupings
 4. **Style consistently** - Same colors for same types of nodes
 5. **Label all decisions** - Every diamond branch needs a label
 6. **Keep it focused** - One process per diagram
 7. **Use TALA for complex flows** - Better auto-layout than dagre
-8. **Add seeds for reproducibility** - Consistent rendering in CI
+8. **Use deterministic renders** - Pass `--tala-seeds=100` in CI/local render commands
 
 ## Shape Selection Guide
 

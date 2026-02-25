@@ -13,6 +13,11 @@ vars: {
 
 direction: down
 
+Start: Start troubleshooting {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
 Wrong: Wrong command version {
   style.fill: "#FFCDD2"
 }
@@ -43,6 +48,7 @@ Ensure3: Remove from\nlocal sources {
   style.fill: "#C8E6C9"
 }
 
+Start -> Wrong
 Wrong -> CheckPriority
 CheckPriority -> ListSources
 ListSources -> Identify

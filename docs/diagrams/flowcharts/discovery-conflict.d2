@@ -17,6 +17,15 @@ vars: {
 direction: down
 
 # ==============================================================================
+# Entry Point
+# ==============================================================================
+
+Start: Start conflict resolution {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+# ==============================================================================
 # Command Found in Multiple Locations
 # ==============================================================================
 
@@ -65,6 +74,7 @@ Disambiguate: User must disambiguate\nwith @source or --ivk-from {
   style.fill: "#BBDEFB"
 }
 
+Start -> Conflict
 Conflict -> FirstWins: same full name
 Conflict -> Ambiguous: same simple name,\ndifferent source
 FirstWins -> locations.L1

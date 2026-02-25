@@ -14,6 +14,15 @@ vars: {
 direction: down
 
 # ==============================================================================
+# Entry Point
+# ==============================================================================
+
+Start: Start module inspection {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+
+# ==============================================================================
 # Module Structure
 # ==============================================================================
 
@@ -73,3 +82,4 @@ module_metadata: Module Metadata (invowkmod.cue) {
 }
 
 module_structure.InvowkmodCue -> module_metadata.Meta
+Start -> module_structure.ModDir
