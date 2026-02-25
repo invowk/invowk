@@ -1,2 +1,5 @@
+commit_attribution = "Codex <noreply@openai.com>"
+
 [features]
 multi_agent = true
+codex_git_commit = true
