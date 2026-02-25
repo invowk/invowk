@@ -376,6 +376,12 @@ func (p SubdirectoryPath) IsValid() (bool, []error) {
 		}}
 	}
 	cleanPath := filepath.Clean(s)
+	if strings.HasPrefix(filepath.ToSlash(cleanPath), "/") {
+		return false, []error{&InvalidSubdirectoryPathError{
+			Value:  p,
+			Reason: "absolute paths not allowed",
+		}}
+	}
 	if strings.HasPrefix(cleanPath, "..") {
 		return false, []error{&InvalidSubdirectoryPathError{
 			Value:  p,
