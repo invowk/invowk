@@ -14,6 +14,7 @@ on:
       - 'go.sum'
       - '.golangci.toml'
       - '.github/workflows/lint.yml'
+      - 'tools/primitivelint/**'
   pull_request:
     branches:
       - main
@@ -27,6 +28,7 @@ on:
       - 'go.sum'
       - '.golangci.toml'
       - '.github/workflows/lint.yml'
+      - 'tools/primitivelint/**'
   workflow_dispatch:
 
 permissions:
@@ -55,3 +57,24 @@ jobs:
           version: v2.9.0
           # Run full-codebase lint (not just new issues) so CI matches local `make lint`
           only-new-issues: false
+
+  primitivelint:
+    name: primitivelint
+    runs-on: ubuntu-latest
+    # Advisory only during rollout - does not block PRs
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build primitivelint
+        run: cd tools/primitivelint && go build -o ../../bin/primitivelint .
+
+      - name: Run primitivelint
+        run: ./bin/primitivelint -config=tools/primitivelint/exceptions.toml ./...

@@ -233,6 +233,23 @@ lint:
 	@echo "Running golangci-lint..."
 	golangci-lint run ./...
 
+# Build the primitivelint analyzer (DDD Value Type enforcement)
+.PHONY: build-primitivelint
+build-primitivelint: $(BUILD_DIR)
+	@echo "Building primitivelint..."
+	cd tools/primitivelint && $(GOBUILD) -o ../../$(BUILD_DIR)/primitivelint .
+
+# Run DDD primitive type checking
+.PHONY: check-types
+check-types: build-primitivelint
+	@echo "Checking primitive type usage..."
+	./$(BUILD_DIR)/primitivelint -config=tools/primitivelint/exceptions.toml ./...
+
+# Run DDD primitive type checking with JSON output (for agent consumption)
+.PHONY: check-types-json
+check-types-json: build-primitivelint
+	./$(BUILD_DIR)/primitivelint -json -config=tools/primitivelint/exceptions.toml ./... 2>/dev/null || true
+
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)
 SHELLCHECK := $(shell command -v shellcheck 2>/dev/null)
 

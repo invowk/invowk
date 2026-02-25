@@ -10,6 +10,8 @@
 | Test short | `make test-short` |
 | Single test | `go test -v -run TestName ./path/...` |
 | Lint | `make lint` |
+| Type check (DDD) | `make check-types` |
+| Type check (JSON) | `make check-types-json` |
 | License check | `make license-check` |
 | Tidy deps | `make tidy` |
 | PGO profile | `make pgo-profile` |

@@ -1,0 +1,48 @@
+package returns
+
+// MultiReturn has multiple primitive returns.
+func MultiReturn() (int, string) { // want `return value of returns\.MultiReturn uses primitive type int` `return value of returns\.MultiReturn uses primitive type string`
+	return 0, ""
+}
+
+// MapReturn returns a map of primitives.
+func MapReturn() map[string]string { // want `return value of returns\.MapReturn uses primitive type map\[string\]string`
+	return nil
+}
+
+// BoolReturn returns bool — exempt.
+func BoolReturn() bool {
+	return false
+}
+
+// GoodName is a DDD Value Type.
+type GoodName string
+
+// GoodReturn uses named type — not flagged.
+func GoodReturn() GoodName {
+	return ""
+}
+
+// MethodReturn is a type with a method that returns a primitive.
+type MethodReturn struct{}
+
+func (m MethodReturn) GetName() string { // want `return value of returns\.MethodReturn\.GetName uses primitive type string`
+	return ""
+}
+
+// PointerReceiverReturn uses a pointer receiver.
+func (m *MethodReturn) GetID() int { // want `return value of returns\.MethodReturn\.GetID uses primitive type int`
+	return 0
+}
+
+// String implements fmt.Stringer — return type is exempt.
+func (m MethodReturn) String() string {
+	return ""
+}
+
+// Error implements the error interface — return type is exempt.
+type MyError struct{}
+
+func (e *MyError) Error() string {
+	return ""
+}

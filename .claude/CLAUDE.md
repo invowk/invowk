@@ -132,6 +132,7 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/platform/` | go-patterns, testing, windows, licensing | — |
 | `pkg/types/` | go-patterns, testing, licensing, package-design | — |
 | `tests/cli/` | testing | testing, cli, invowk-schema |
+| `tools/primitivelint/` | go-patterns, testing, licensing | — |
 
 ## Architecture Overview
 
@@ -173,6 +174,8 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
 - `modules/` - Sample invowk modules for validation and reference.
 - `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation).
+- `tools/` - Development tools (separate Go modules):
+  - `primitivelint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. Run via `make check-types`.
 - `specs/` - Feature specifications, research, and implementation plans.
 - `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 

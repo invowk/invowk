@@ -1,0 +1,456 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# primitivelint exceptions — intentional primitive type usage
+#
+# This file documents every known location where bare primitive types are
+# intentionally retained. Each entry includes a reason explaining why the
+# DDD Value Type pattern was not applied.
+#
+# Pattern syntax:
+#   Type.Field           — exact struct field match
+#   Function.param       — function param by name
+#   Function.return.N    — return type by position (0-indexed)
+#   *.Field              — any type, specific field name
+#   Package.Type.*       — all fields on a type
+#
+# To add a new exception, append an [[exceptions]] entry with both
+# pattern and reason fields.
+
+[settings]
+# Types that are never flagged regardless of context.
+skip_types = ["bool", "error", "context.Context", "any"]
+
+# File paths containing these substrings are excluded entirely.
+exclude_paths = [
+    "specs/",             # Specification/contract files, not production code
+    "internal/testutil/", # Test utilities, not domain types
+]
+
+# =============================================================================
+# Exec / OS Boundary
+# =============================================================================
+# Values passed directly to exec.CommandContext, os.Stat, filepath.Join,
+# or similar stdlib calls where named types would add more casts than
+# they remove.
+
+[[exceptions]]
+pattern = "ExecuteRequest.Name"
+reason = "Cobra + interface boundary"
+
+[[exceptions]]
+pattern = "ExecuteRequest.Args"
+reason = "exec boundary (positional args passed to shell)"
+
+[[exceptions]]
+pattern = "ExecuteRequest.EnvVars"
+reason = "exec/OS boundary (KEY=VALUE env pairs)"
+
+[[exceptions]]
+pattern = "ExecuteRequest.UserEnv"
+reason = "exec/OS boundary (captured host environment)"
+
+[[exceptions]]
+pattern = "ExecutionContext.PositionalArgs"
+reason = "exec boundary (shell positional parameters)"
+
+[[exceptions]]
+pattern = "EnvContext.ExtraEnv"
+reason = "exec/OS boundary"
+
+[[exceptions]]
+pattern = "EnvContext.RuntimeEnvVars"
+reason = "exec/OS boundary"
+
+[[exceptions]]
+pattern = "BuildExecutionContextOptions.Args"
+reason = "exec/OS boundary"
+
+[[exceptions]]
+pattern = "BuildExecutionContextOptions.EnvVars"
+reason = "exec/OS boundary"
+
+[[exceptions]]
+pattern = "BaseCLIEngine.cmdEnvOverrides"
+reason = "exec/OS boundary"
+
+[[exceptions]]
+pattern = "BaseCLIEngine.name"
+reason = "display label"
+
+[[exceptions]]
+pattern = "containerExecPrep.shellCmd"
+reason = "exec boundary"
+
+[[exceptions]]
+pattern = "containerExecPrep.env"
+reason = "exec boundary"
+
+[[exceptions]]
+pattern = "SpinCommandOptions.Command"
+reason = "exec command slice"
+
+[[exceptions]]
+pattern = "ShebangInfo.Args"
+reason = "exec boundary"
+
+[[exceptions]]
+pattern = "ShebangInfo.Interpreter"
+reason = "full paths like /bin/bash; BinaryName rejects paths"
+
+[[exceptions]]
+pattern = "Engine.BinaryPath.return.0"
+reason = "7+ call sites pass to exec.CommandContext; would add casts"
+
+[[exceptions]]
+pattern = "ResolveDockerfilePath.*"
+reason = "exec boundary — params/return passed to filepath operations"
+
+# =============================================================================
+# Display-Only Fields
+# =============================================================================
+# Fields whose values are only rendered for human consumption, with no
+# programmatic interpretation.
+
+[[exceptions]]
+pattern = "ValidationIssue.Message"
+reason = "display-only"
+
+[[exceptions]]
+pattern = "ValidationIssue.Path"
+reason = "display-only"
+
+[[exceptions]]
+pattern = "ValidationError.Field"
+reason = "display-only field path label"
+
+[[exceptions]]
+pattern = "InitDiagnostic.Message"
+reason = "display-only diagnostic message"
+
+[[exceptions]]
+pattern = "Diagnostic.Message"
+reason = "display-only diagnostic message"
+
+[[exceptions]]
+pattern = "CapabilityError.Message"
+reason = "display-only error detail"
+
+[[exceptions]]
+pattern = "EngineNotAvailableError.Reason"
+reason = "display-only error detail"
+
+[[exceptions]]
+pattern = "Result.Output"
+reason = "raw captured stdout"
+
+[[exceptions]]
+pattern = "Result.ErrOutput"
+reason = "raw captured stderr"
+
+[[exceptions]]
+pattern = "SpinResult.Stdout"
+reason = "raw captured output"
+
+[[exceptions]]
+pattern = "SpinResult.Stderr"
+reason = "raw captured output"
+
+[[exceptions]]
+pattern = "ModuleCollisionError.FirstSource"
+reason = "composite display string"
+
+[[exceptions]]
+pattern = "ModuleCollisionError.SecondSource"
+reason = "composite display string"
+
+[[exceptions]]
+pattern = "StyledMessage"
+reason = "rendering output"
+
+# =============================================================================
+# Import Cycle Prevention
+# =============================================================================
+# Using typed fields would require importing a package that creates a
+# circular dependency.
+
+[[exceptions]]
+pattern = "tuiserver.WriteRequest.*"
+reason = "import cycle: tui->tuiserver prevents typed usage"
+
+[[exceptions]]
+pattern = "tuiserver.TableRequest.*"
+reason = "import cycle: tui->tuiserver prevents typed usage"
+
+[[exceptions]]
+pattern = "tuiserver.SpinRequest.Spinner"
+reason = "JSON wire format + import cycle"
+
+[[exceptions]]
+pattern = "tuiserver.Client.addr"
+reason = "composite URL + import cycle"
+
+[[exceptions]]
+pattern = "URLWithHost.host"
+reason = "only 2 possible values, import cycle concern"
+
+# =============================================================================
+# Free-Form User Input
+# =============================================================================
+# Values from user input or external sources with no fixed domain type.
+
+[[exceptions]]
+pattern = "*.DefaultValue"
+reason = "free-form flag/argument default"
+
+[[exceptions]]
+pattern = "ArgumentValidationError.InvalidValue"
+reason = "free-form user input / Cobra boundary"
+
+[[exceptions]]
+pattern = "ArgumentValidationError.ProvidedArgs"
+reason = "free-form user input / Cobra boundary"
+
+[[exceptions]]
+pattern = "AmbiguousIdentifierError.Identifier"
+reason = "free-form user input"
+
+[[exceptions]]
+pattern = "cmdFlagValues.runtimeOverride"
+reason = "Cobra flag binding"
+
+[[exceptions]]
+pattern = "cmdFlagValues.fromSource"
+reason = "Cobra flag binding"
+
+# =============================================================================
+# Wire / Interface / External Boundaries
+# =============================================================================
+# Values crossing serialization, framework, or external contract boundaries.
+
+[[exceptions]]
+pattern = "EnvConfig.Vars"
+reason = "map key breaks maps.Copy compatibility"
+
+[[exceptions]]
+pattern = "Token.CommandID"
+reason = "composite string"
+
+[[exceptions]]
+pattern = "ConnectionInfo.User"
+reason = "always 'invowk'"
+
+[[exceptions]]
+pattern = "Server.addr"
+reason = "composite 'host:port'"
+
+[[exceptions]]
+pattern = "TagInfo.Name"
+reason = "go-git pass-through"
+
+[[exceptions]]
+pattern = "UnpackOptions.Source"
+reason = "mixed path/URL"
+
+[[exceptions]]
+pattern = "ListCommands.return.*"
+reason = "interface contract"
+
+[[exceptions]]
+pattern = "FieldPath.EnvVar.key"
+reason = "EnvConfig.Vars map key is intentionally string"
+
+[[exceptions]]
+pattern = "FieldPath.Field.name"
+reason = "generic field name adder"
+
+# =============================================================================
+# Internal Parse-Tree / Domain-Specific Fields
+# =============================================================================
+
+[[exceptions]]
+pattern = "Version.Prerelease"
+reason = "internal parse-tree field"
+
+[[exceptions]]
+pattern = "Version.Original"
+reason = "internal parse-tree field"
+
+[[exceptions]]
+pattern = "Constraint.Original"
+reason = "internal parse-tree field"
+
+[[exceptions]]
+pattern = "SemverResolver.Resolve.constraintStr"
+reason = "constraint expression, not a version tag"
+
+[[exceptions]]
+pattern = "configDirFrom.goos"
+reason = "runtime.GOOS boundary, no typed alternative"
+
+[[exceptions]]
+pattern = "moduleError.op"
+reason = "unexported display label"
+
+[[exceptions]]
+pattern = "checkCommandDependenciesExist.currentModule"
+reason = "empty string = no module; ModuleID rejects empty"
+
+# =============================================================================
+# Test-Only Fields
+# =============================================================================
+
+[[exceptions]]
+pattern = "provision.Config.TagSuffix"
+reason = "test-only"
+
+# =============================================================================
+# TUI Display Labels
+# =============================================================================
+# All TUI option Title/Description/Placeholder etc. fields are display
+# labels with no domain semantics beyond rendering.
+
+[[exceptions]]
+pattern = "*.Title"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "*.Description"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "*.Placeholder"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "*.Value"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "*.Prompt"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "*.Affirmative"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "*.Negative"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "*.Cursor"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "*.Separator"
+reason = "TUI display label"
+
+[[exceptions]]
+pattern = "TableOptions.Rows"
+reason = "display data ([][]string)"
+
+[[exceptions]]
+pattern = "FilterOptions.Options"
+reason = "display data ([]string)"
+
+[[exceptions]]
+pattern = "ChooseStringOptions.Options"
+reason = "display data ([]string)"
+
+[[exceptions]]
+pattern = "FormatOptions.Content"
+reason = "rendering input"
+
+[[exceptions]]
+pattern = "FormatOptions.Language"
+reason = "external open-ended enum"
+
+[[exceptions]]
+pattern = "FormatOptions.GlamourTheme"
+reason = "external open-ended enum"
+
+# =============================================================================
+# Rendering / Output
+# =============================================================================
+
+[[exceptions]]
+pattern = "VendorResult.Pruned"
+reason = "directory base names with .invowkmod suffix"
+
+# =============================================================================
+# Unexported Trivial Fields (bulk exceptions)
+# =============================================================================
+# Unexported fields in structs with many call sites where casts would
+# dominate with no external benefit.
+
+[[exceptions]]
+pattern = "uroot.FlagInfo.Name"
+reason = "constant string literals across 25 files, near-zero risk"
+
+[[exceptions]]
+pattern = "uroot.FlagInfo.ShortName"
+reason = "constant string literals across 25 files"
+
+[[exceptions]]
+pattern = "uroot.FlagInfo.Description"
+reason = "constant string literals across 25 files"
+
+[[exceptions]]
+pattern = "uroot.*.name"
+reason = "display-only labels in 12+ unexported structs"
+
+[[exceptions]]
+pattern = "watch.Watcher.baseDir"
+reason = "unexported, 8+ filepath.* casts for no external benefit"
+
+# =============================================================================
+# Remaining Intentional int Exceptions
+# =============================================================================
+
+[[exceptions]]
+pattern = "TableOptions.SelectedIndex"
+reason = "array index"
+
+[[exceptions]]
+pattern = "TableSelectionResult.SelectedIndex"
+reason = "array index"
+
+[[exceptions]]
+pattern = "ArgumentValidationError.MinArgs"
+reason = "argument count value"
+
+[[exceptions]]
+pattern = "ArgumentValidationError.MaxArgs"
+reason = "argument count value"
+
+[[exceptions]]
+pattern = "WriteOptions.CharLimit"
+reason = "count for huh boundary"
+
+[[exceptions]]
+pattern = "InputOptions.CharLimit"
+reason = "count for huh boundary"
+
+[[exceptions]]
+pattern = "ChooseStringOptions.Limit"
+reason = "count value"
+
+[[exceptions]]
+pattern = "MultiChooseOptions.Limit"
+reason = "count value"
+
+[[exceptions]]
+pattern = "FilterOptions.Limit"
+reason = "count value"
+
+# =============================================================================
+# Remaining Intentional []int Exceptions
+# =============================================================================
+
+[[exceptions]]
+pattern = "Style.Padding"
+reason = "lipgloss CSS-shorthand passthrough; import cycle with tuiserver"
+
+[[exceptions]]
+pattern = "Style.Margin"
+reason = "lipgloss CSS-shorthand passthrough; import cycle with tuiserver"
