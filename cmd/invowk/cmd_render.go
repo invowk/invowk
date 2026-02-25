@@ -21,8 +21,8 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 	case ArgErrMissingRequired:
 		sb.WriteString(renderHeaderStyle.Render("✗ Missing required arguments!"))
 		sb.WriteString("\n\n")
-		sb.WriteString(fmt.Sprintf("Command %s requires at least %d argument(s), but got %d.\n\n",
-			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), err.MinArgs, len(err.ProvidedArgs)))
+		fmt.Fprintf(&sb, "Command %s requires at least %d argument(s), but got %d.\n\n",
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), err.MinArgs, len(err.ProvidedArgs))
 
 		sb.WriteString(renderLabelStyle.Render("Expected arguments:"))
 		sb.WriteString("\n")
@@ -42,8 +42,8 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 	case ArgErrTooMany:
 		sb.WriteString(renderHeaderStyle.Render("✗ Too many arguments!"))
 		sb.WriteString("\n\n")
-		sb.WriteString(fmt.Sprintf("Command %s accepts at most %d argument(s), but got %d.\n\n",
-			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), err.MaxArgs, len(err.ProvidedArgs)))
+		fmt.Fprintf(&sb, "Command %s accepts at most %d argument(s), but got %d.\n\n",
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), err.MaxArgs, len(err.ProvidedArgs))
 
 		sb.WriteString(renderLabelStyle.Render("Expected arguments:"))
 		sb.WriteString("\n")
@@ -57,8 +57,8 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 	case ArgErrInvalidValue:
 		sb.WriteString(renderHeaderStyle.Render("✗ Invalid argument value!"))
 		sb.WriteString("\n\n")
-		sb.WriteString(fmt.Sprintf("Command %s received an invalid value for argument %s.\n\n",
-			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), renderCommandStyle.Render("'"+string(err.InvalidArg)+"'")))
+		fmt.Fprintf(&sb, "Command %s received an invalid value for argument %s.\n\n",
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), renderCommandStyle.Render("'"+string(err.InvalidArg)+"'"))
 
 		sb.WriteString(renderLabelStyle.Render("Value:  "))
 		sb.WriteString(renderValueStyle.Render(fmt.Sprintf("%q", err.InvalidValue)))
@@ -89,8 +89,8 @@ func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictErro
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Invalid command structure!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("Command %s defines positional arguments but also has subcommands.\n",
-		renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
+	fmt.Fprintf(&sb, "Command %s defines positional arguments but also has subcommands.\n",
+		renderCommandStyle.Render("'"+string(err.CommandName)+"'"))
 	if err.FilePath != "" {
 		sb.WriteString(pathStyle.Render(fmt.Sprintf("  in %s\n", err.FilePath)))
 	}
@@ -127,7 +127,7 @@ func RenderDependencyError(err *DependencyError) string {
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Dependencies not satisfied!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
+	fmt.Fprintf(&sb, "Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'"))
 
 	renderSection := func(label string, items []DependencyMessage) {
 		if len(items) == 0 {
@@ -164,7 +164,7 @@ func RenderHostNotSupportedError(cmdName, currentOS, supportedHosts string) stri
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Host not supported!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("Cannot run command %s on this operating system.\n\n", renderCommandStyle.Render("'"+cmdName+"'")))
+	fmt.Fprintf(&sb, "Cannot run command %s on this operating system.\n\n", renderCommandStyle.Render("'"+cmdName+"'"))
 	sb.WriteString(renderLabelStyle.Render("Current host:    "))
 	sb.WriteString(renderValueStyle.Render(currentOS))
 	sb.WriteString("\n")
@@ -185,7 +185,7 @@ func RenderRuntimeNotAllowedError(cmdName, selectedRuntime, allowedRuntimes stri
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Runtime not allowed!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("Cannot run command %s with the specified runtime.\n\n", renderCommandStyle.Render("'"+cmdName+"'")))
+	fmt.Fprintf(&sb, "Cannot run command %s with the specified runtime.\n\n", renderCommandStyle.Render("'"+cmdName+"'"))
 	sb.WriteString(renderLabelStyle.Render("Selected runtime: "))
 	sb.WriteString(renderValueStyle.Render(selectedRuntime))
 	sb.WriteString("\n")
@@ -206,7 +206,7 @@ func RenderSourceNotFoundError(err *SourceNotFoundError) string {
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Source not found!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("The source %s does not exist.\n\n", renderCommandStyle.Render("'"+string(err.Source)+"'")))
+	fmt.Fprintf(&sb, "The source %s does not exist.\n\n", renderCommandStyle.Render("'"+string(err.Source)+"'"))
 	sb.WriteString(renderLabelStyle.Render("Available sources: "))
 	if len(err.AvailableSources) > 0 {
 		var formatted []string
@@ -232,11 +232,11 @@ func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Ambiguous command!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("The command %s exists in multiple sources:\n\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
+	fmt.Fprintf(&sb, "The command %s exists in multiple sources:\n\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'"))
 
 	for _, source := range err.Sources {
 		// Show source with @prefix for disambiguation (e.g., "@invowkfile", "@foo")
-		sb.WriteString(fmt.Sprintf("  • %s (%s)\n", renderCommandStyle.Render("@"+string(source)), formatSourceDisplayName(source)))
+		fmt.Fprintf(&sb, "  • %s (%s)\n", renderCommandStyle.Render("@"+string(source)), formatSourceDisplayName(source))
 	}
 
 	sb.WriteString("\n")
@@ -245,8 +245,8 @@ func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 	// Show examples with actual source names
 	if len(err.Sources) > 0 {
 		firstSource := err.Sources[0]
-		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s\n", renderCommandStyle.Render("@"+string(firstSource)), err.CommandName))
-		sb.WriteString(fmt.Sprintf("  invowk cmd %s %s %s\n", renderCommandStyle.Render("--ivk-from"), string(firstSource), err.CommandName))
+		fmt.Fprintf(&sb, "  invowk cmd %s %s\n", renderCommandStyle.Render("@"+string(firstSource)), err.CommandName)
+		fmt.Fprintf(&sb, "  invowk cmd %s %s %s\n", renderCommandStyle.Render("--ivk-from"), string(firstSource), err.CommandName)
 	}
 
 	sb.WriteString("\n")

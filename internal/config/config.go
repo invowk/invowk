@@ -435,19 +435,19 @@ func GenerateCUE(cfg *Config) string {
 	sb.WriteString("// See https://github.com/invowk/invowk for documentation.\n\n")
 
 	// Container engine
-	sb.WriteString(fmt.Sprintf("container_engine: %q\n", cfg.ContainerEngine))
+	fmt.Fprintf(&sb, "container_engine: %q\n", cfg.ContainerEngine)
 
 	// Default runtime
-	sb.WriteString(fmt.Sprintf("default_runtime: %q\n", cfg.DefaultRuntime))
+	fmt.Fprintf(&sb, "default_runtime: %q\n", cfg.DefaultRuntime)
 
 	// Includes
 	if len(cfg.Includes) > 0 {
 		sb.WriteString("\nincludes: [\n")
 		for _, entry := range cfg.Includes {
 			if entry.Alias != "" {
-				sb.WriteString(fmt.Sprintf("\t{path: %q, alias: %q},\n", entry.Path, entry.Alias))
+				fmt.Fprintf(&sb, "\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
 			} else {
-				sb.WriteString(fmt.Sprintf("\t{path: %q},\n", entry.Path))
+				fmt.Fprintf(&sb, "\t{path: %q},\n", entry.Path)
 			}
 		}
 		sb.WriteString("]\n")
@@ -455,37 +455,37 @@ func GenerateCUE(cfg *Config) string {
 
 	// Virtual shell config
 	sb.WriteString("\nvirtual_shell: {\n")
-	sb.WriteString(fmt.Sprintf("\tenable_uroot_utils: %v\n", cfg.VirtualShell.EnableUrootUtils))
+	fmt.Fprintf(&sb, "\tenable_uroot_utils: %v\n", cfg.VirtualShell.EnableUrootUtils)
 	sb.WriteString("}\n")
 
 	// UI config
 	sb.WriteString("\nui: {\n")
-	sb.WriteString(fmt.Sprintf("\tcolor_scheme: %q\n", cfg.UI.ColorScheme))
-	sb.WriteString(fmt.Sprintf("\tverbose: %v\n", cfg.UI.Verbose))
-	sb.WriteString(fmt.Sprintf("\tinteractive: %v\n", cfg.UI.Interactive))
+	fmt.Fprintf(&sb, "\tcolor_scheme: %q\n", cfg.UI.ColorScheme)
+	fmt.Fprintf(&sb, "\tverbose: %v\n", cfg.UI.Verbose)
+	fmt.Fprintf(&sb, "\tinteractive: %v\n", cfg.UI.Interactive)
 	sb.WriteString("}\n")
 
 	// Container config
 	sb.WriteString("\ncontainer: {\n")
 	sb.WriteString("\tauto_provision: {\n")
-	sb.WriteString(fmt.Sprintf("\t\tenabled: %v\n", cfg.Container.AutoProvision.Enabled))
+	fmt.Fprintf(&sb, "\t\tenabled: %v\n", cfg.Container.AutoProvision.Enabled)
 	if cfg.Container.AutoProvision.BinaryPath != "" {
-		sb.WriteString(fmt.Sprintf("\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath))
+		fmt.Fprintf(&sb, "\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath)
 	}
 	if len(cfg.Container.AutoProvision.Includes) > 0 {
 		sb.WriteString("\t\tincludes: [\n")
 		for _, entry := range cfg.Container.AutoProvision.Includes {
 			if entry.Alias != "" {
-				sb.WriteString(fmt.Sprintf("\t\t\t{path: %q, alias: %q},\n", entry.Path, entry.Alias))
+				fmt.Fprintf(&sb, "\t\t\t{path: %q, alias: %q},\n", entry.Path, entry.Alias)
 			} else {
-				sb.WriteString(fmt.Sprintf("\t\t\t{path: %q},\n", entry.Path))
+				fmt.Fprintf(&sb, "\t\t\t{path: %q},\n", entry.Path)
 			}
 		}
 		sb.WriteString("\t\t]\n")
 	}
-	sb.WriteString(fmt.Sprintf("\t\tinherit_includes: %v\n", cfg.Container.AutoProvision.InheritIncludes))
+	fmt.Fprintf(&sb, "\t\tinherit_includes: %v\n", cfg.Container.AutoProvision.InheritIncludes)
 	if cfg.Container.AutoProvision.CacheDir != "" {
-		sb.WriteString(fmt.Sprintf("\t\tcache_dir: %q\n", cfg.Container.AutoProvision.CacheDir))
+		fmt.Fprintf(&sb, "\t\tcache_dir: %q\n", cfg.Container.AutoProvision.CacheDir)
 	}
 	sb.WriteString("\t}\n")
 	sb.WriteString("}\n")

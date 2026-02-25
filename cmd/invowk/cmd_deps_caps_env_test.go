@@ -316,7 +316,7 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 
 	// Test 1: First alternative exists
 	userEnv := map[string]string{
-		"AWS_ACCESS_KEY_ID": "AKIAIOSFODNN7EXAMPLE",
+		"AWS_ACCESS_KEY_ID": "test-access-key-id",
 	}
 
 	err := checkEnvVarDependencies(deps, userEnv, ctx)

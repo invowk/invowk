@@ -92,7 +92,7 @@ func TestGroupByCategory(t *testing.T) {
 // makeCmds creates a slice of CommandInfo from alternating (name, category) pairs.
 func makeCmds(pairs ...string) []*discovery.CommandInfo {
 	var result []*discovery.CommandInfo
-	for i := 0; i < len(pairs); i += 2 {
+	for i := 0; i+1 < len(pairs); i += 2 {
 		result = append(result, &discovery.CommandInfo{
 			Name:       invowkfile.CommandName(pairs[i]),
 			SimpleName: invowkfile.CommandName(pairs[i]),

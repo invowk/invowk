@@ -335,6 +335,10 @@ excludes = [
     "G302",  # File created with excessive perms - config files need world-readable
     "G304",  # File inclusion via variable - must read user config/invowkfiles
     "G306",  # WriteFile perms > 0600 - config/module files need 0644 for readability
+    "G702",  # Command injection taint analysis - invowk intentionally executes user-authored commands
+    "G703",  # Path traversal taint analysis - pervasive false positives on temp/self-managed paths
+    "G704",  # SSRF taint analysis - false positives on local test/control-plane HTTP clients
+    "G705",  # XSS taint analysis - CLI/TUI stdout rendering is not browser HTML context
 ]
 
 [linters.settings.gosec.config.global]

@@ -231,8 +231,8 @@ func (l *LockFile) toCUE() string {
 	sb.WriteString("// invowkmod.lock.cue - Auto-generated lock file for module dependencies\n")
 	sb.WriteString("// DO NOT EDIT MANUALLY\n\n")
 
-	sb.WriteString(fmt.Sprintf("version: %q\n", l.Version))
-	sb.WriteString(fmt.Sprintf("generated: %q\n\n", l.Generated.Format(time.RFC3339)))
+	fmt.Fprintf(&sb, "version: %q\n", l.Version)
+	fmt.Fprintf(&sb, "generated: %q\n\n", l.Generated.Format(time.RFC3339))
 
 	if len(l.Modules) == 0 {
 		sb.WriteString("modules: {}\n")
@@ -241,18 +241,18 @@ func (l *LockFile) toCUE() string {
 
 	sb.WriteString("modules: {\n")
 	for key, mod := range l.Modules {
-		sb.WriteString(fmt.Sprintf("\t%q: {\n", key))
-		sb.WriteString(fmt.Sprintf("\t\tgit_url:          %q\n", mod.GitURL))
-		sb.WriteString(fmt.Sprintf("\t\tversion:          %q\n", mod.Version))
-		sb.WriteString(fmt.Sprintf("\t\tresolved_version: %q\n", mod.ResolvedVersion))
-		sb.WriteString(fmt.Sprintf("\t\tgit_commit:       %q\n", mod.GitCommit))
+		fmt.Fprintf(&sb, "\t%q: {\n", key)
+		fmt.Fprintf(&sb, "\t\tgit_url:          %q\n", mod.GitURL)
+		fmt.Fprintf(&sb, "\t\tversion:          %q\n", mod.Version)
+		fmt.Fprintf(&sb, "\t\tresolved_version: %q\n", mod.ResolvedVersion)
+		fmt.Fprintf(&sb, "\t\tgit_commit:       %q\n", mod.GitCommit)
 		if mod.Alias != "" {
-			sb.WriteString(fmt.Sprintf("\t\talias:            %q\n", mod.Alias))
+			fmt.Fprintf(&sb, "\t\talias:            %q\n", mod.Alias)
 		}
 		if mod.Path != "" {
-			sb.WriteString(fmt.Sprintf("\t\tpath:             %q\n", mod.Path))
+			fmt.Fprintf(&sb, "\t\tpath:             %q\n", mod.Path)
 		}
-		sb.WriteString(fmt.Sprintf("\t\tnamespace:        %q\n", mod.Namespace))
+		fmt.Fprintf(&sb, "\t\tnamespace:        %q\n", mod.Namespace)
 		sb.WriteString("\t}\n")
 	}
 	sb.WriteString("}\n")
