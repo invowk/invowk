@@ -174,20 +174,8 @@ reason = "rendering output"
 # circular dependency.
 
 [[exceptions]]
-pattern = "tuiserver.WriteRequest.*"
-reason = "import cycle: tui->tuiserver prevents typed usage"
-
-[[exceptions]]
-pattern = "tuiserver.TableRequest.*"
-reason = "import cycle: tui->tuiserver prevents typed usage"
-
-[[exceptions]]
-pattern = "tuiserver.SpinRequest.Spinner"
-reason = "JSON wire format + import cycle"
-
-[[exceptions]]
-pattern = "tuiserver.Client.addr"
-reason = "composite URL + import cycle"
+pattern = "tuiserver.*.*"
+reason = "import cycle: tui->tuiserver; JSON wire format for all protocol types"
 
 [[exceptions]]
 pattern = "URLWithHost.host"
@@ -402,6 +390,134 @@ reason = "display-only labels in 12+ unexported structs"
 [[exceptions]]
 pattern = "watch.Watcher.baseDir"
 reason = "unexported, 8+ filepath.* casts for no external benefit"
+
+# =============================================================================
+# Interface Contract Implementations
+# =============================================================================
+# Method signatures dictated by external interfaces that cannot use named types.
+
+[[exceptions]]
+pattern = "uroot.*.Run.args"
+reason = "uroot Command interface contract: Run(ctx, args []string)"
+
+[[exceptions]]
+pattern = "uroot.*.Name.return.0"
+reason = "uroot Command interface contract: Name() string"
+
+[[exceptions]]
+pattern = "*.View.return.0"
+reason = "bubbletea tea.Model interface: View() string"
+
+[[exceptions]]
+pattern = "*.FilterValue.return.0"
+reason = "bubbles list.Item interface: FilterValue() string"
+
+[[exceptions]]
+pattern = "*.Height.return.0"
+reason = "bubbles list.ItemDelegate interface: Height() int"
+
+[[exceptions]]
+pattern = "*.Spacing.return.0"
+reason = "bubbles list.ItemDelegate interface: Spacing() int"
+
+# =============================================================================
+# Error Detail Fields
+# =============================================================================
+# Display-only reason/message fields in InvalidXxxError structs, same semantic
+# category as already-excepted CapabilityError.Message.
+
+[[exceptions]]
+pattern = "*.Reason"
+reason = "display-only error detail in InvalidXxxError structs"
+
+# =============================================================================
+# Set-Tracking Idiom (map[*]bool)
+# =============================================================================
+# Bool is exempt as a standalone type, but map keys in set-tracking patterns
+# are idiomatic Go and carry no domain semantics.
+
+[[exceptions]]
+pattern = "*.selected"
+reason = "map[int]bool selection set (bool value carries no domain meaning)"
+
+[[exceptions]]
+pattern = "*.seenNames"
+reason = "map[string]bool deduplication set (internal validation)"
+
+[[exceptions]]
+pattern = "*.seenShorts"
+reason = "map[string]bool deduplication set"
+
+[[exceptions]]
+pattern = "*.expectedDirs"
+reason = "map[string]bool directory-name set"
+
+# =============================================================================
+# Container / Runtime Exec Boundary (additional)
+# =============================================================================
+# Container-specific exec boundary fields not covered by existing patterns.
+
+[[exceptions]]
+pattern = "RunOptions.Command"
+reason = "exec boundary (container command slice)"
+
+[[exceptions]]
+pattern = "RunOptions.Env"
+reason = "exec/OS boundary (container env map)"
+
+[[exceptions]]
+pattern = "BuildOptions.BuildArgs"
+reason = "exec boundary (docker --build-arg map)"
+
+[[exceptions]]
+pattern = "envInheritConfig.*"
+reason = "exec/OS boundary (env var name lists for filtering)"
+
+# =============================================================================
+# MEMORY.md Gap Fixes
+# =============================================================================
+
+[[exceptions]]
+pattern = "*.FlagValues"
+reason = "map value is free-form user input; key is already typed FlagName"
+
+[[exceptions]]
+pattern = "*.commandID"
+reason = "composite string (sshserver Token.CommandID)"
+
+[[exceptions]]
+pattern = "*.message"
+reason = "display-only diagnostic/error message (constructor params)"
+
+# =============================================================================
+# TUI Rendering Internals
+# =============================================================================
+# Low-level ANSI terminal rendering functions that operate on raw terminal
+# output — no domain semantics, just string/int manipulation for rendering.
+
+[[exceptions]]
+pattern = "tui.hexToANSIBackground.*"
+reason = "ANSI rendering internal — operates on raw terminal output"
+
+[[exceptions]]
+pattern = "tui.sanitizeModalBackground.*"
+reason = "ANSI rendering internal"
+
+[[exceptions]]
+pattern = "tui.compositeLineANSI.*"
+reason = "ANSI rendering internal"
+
+[[exceptions]]
+pattern = "tui.getANSISuffix.*"
+reason = "ANSI rendering internal"
+
+[[exceptions]]
+pattern = "tui.padLineToWidth.*"
+reason = "ANSI rendering internal"
+
+[[exceptions]]
+pattern = "tui.RenderOverlay.*"
+reason = "rendering output composition"
 
 # =============================================================================
 # Remaining Intentional int Exceptions

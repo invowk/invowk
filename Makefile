@@ -250,6 +250,32 @@ check-types: build-primitivelint
 check-types-json: build-primitivelint
 	./$(BUILD_DIR)/primitivelint -json -config=tools/primitivelint/exceptions.toml ./... 2>/dev/null || true
 
+# Run all DDD checks (primitives + isvalid + stringer + constructors)
+.PHONY: check-types-all
+check-types-all: build-primitivelint
+	@echo "Checking DDD type compliance (all modes)..."
+	./$(BUILD_DIR)/primitivelint -check-all -config=tools/primitivelint/exceptions.toml ./...
+
+# Run all DDD checks with JSON output (for agent consumption)
+.PHONY: check-types-all-json
+check-types-all-json: build-primitivelint
+	./$(BUILD_DIR)/primitivelint -check-all -json -config=tools/primitivelint/exceptions.toml ./... 2>/dev/null || true
+
+# Check for primitivelint regressions against the committed baseline.
+# Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
+.PHONY: check-baseline
+check-baseline: build-primitivelint
+	@echo "Checking primitivelint baseline..."
+	./$(BUILD_DIR)/primitivelint -check-all -baseline=tools/primitivelint/baseline.toml -config=tools/primitivelint/exceptions.toml ./...
+
+# Update the primitivelint baseline from the current codebase state.
+# Run this after type improvements or new exceptions to shrink the baseline.
+.PHONY: update-baseline
+update-baseline: build-primitivelint
+	@echo "Updating primitivelint baseline..."
+	./$(BUILD_DIR)/primitivelint -check-all -update-baseline=tools/primitivelint/baseline.toml -config=tools/primitivelint/exceptions.toml ./...
+	@echo "Baseline updated: tools/primitivelint/baseline.toml"
+
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)
 SHELLCHECK := $(shell command -v shellcheck 2>/dev/null)
 

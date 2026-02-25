@@ -212,6 +212,77 @@ func TestIsSkippedType(t *testing.T) {
 	}
 }
 
+func TestStaleExceptions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no stale when all matched", func(t *testing.T) {
+		t.Parallel()
+		cfg := &ExceptionConfig{
+			Exceptions:  []Exception{{Pattern: "Foo.Bar"}, {Pattern: "*.Baz"}},
+			matchCounts: map[int]int{0: 3, 1: 1},
+		}
+		if stale := cfg.staleExceptions(); len(stale) != 0 {
+			t.Errorf("expected 0 stale, got %v", stale)
+		}
+	})
+
+	t.Run("reports unmatched entries", func(t *testing.T) {
+		t.Parallel()
+		cfg := &ExceptionConfig{
+			Exceptions:  []Exception{{Pattern: "Foo.Bar"}, {Pattern: "Stale.One"}, {Pattern: "*.Baz"}},
+			matchCounts: map[int]int{0: 1},
+		}
+		stale := cfg.staleExceptions()
+		if len(stale) != 2 {
+			t.Fatalf("expected 2 stale entries, got %d: %v", len(stale), stale)
+		}
+		if stale[0] != 1 || stale[1] != 2 {
+			t.Errorf("expected stale indices [1, 2], got %v", stale)
+		}
+	})
+
+	t.Run("empty exceptions list", func(t *testing.T) {
+		t.Parallel()
+		cfg := &ExceptionConfig{
+			Exceptions:  []Exception{},
+			matchCounts: map[int]int{},
+		}
+		if stale := cfg.staleExceptions(); len(stale) != 0 {
+			t.Errorf("expected 0 stale, got %v", stale)
+		}
+	})
+}
+
+func TestMatchCountsTracking(t *testing.T) {
+	t.Parallel()
+
+	cfg := &ExceptionConfig{
+		Exceptions:  []Exception{{Pattern: "Foo.Bar"}, {Pattern: "*.Baz"}},
+		matchCounts: make(map[int]int),
+	}
+
+	// First exception should match.
+	if !cfg.isExcepted("pkg.Foo.Bar") {
+		t.Fatal("expected Foo.Bar to be excepted")
+	}
+	if cfg.matchCounts[0] != 1 {
+		t.Errorf("expected matchCounts[0] = 1, got %d", cfg.matchCounts[0])
+	}
+
+	// Second exception should match.
+	if !cfg.isExcepted("pkg.Type.Baz") {
+		t.Fatal("expected *.Baz to match Type.Baz")
+	}
+	if cfg.matchCounts[1] != 1 {
+		t.Errorf("expected matchCounts[1] = 1, got %d", cfg.matchCounts[1])
+	}
+
+	// Non-matching name — no counts should change.
+	if cfg.isExcepted("pkg.Other.Field") {
+		t.Fatal("expected Other.Field to NOT be excepted")
+	}
+}
+
 func TestIsExcludedPath(t *testing.T) {
 	t.Parallel()
 

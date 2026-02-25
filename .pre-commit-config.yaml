@@ -12,3 +12,14 @@ repos:
       - id: golangci-lint
         args: [--config=.golangci.toml, ./...]
         pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: primitivelint-baseline
+        name: primitivelint baseline check
+        entry: "bash -c 'make check-baseline 2>&1 || true'"
+        language: system
+        pass_filenames: false
+        types: [go]
+        always_run: false
+        verbose: true

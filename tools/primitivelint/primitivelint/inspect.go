@@ -13,8 +13,8 @@ import (
 )
 
 // inspectStructFields checks all named struct types in the file for fields
-// using bare primitive types.
-func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionConfig) {
+// using bare primitive types. Findings present in the baseline are suppressed.
+func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionConfig, bl *BaselineConfig) {
 	if node.Tok != token.TYPE {
 		return
 	}
@@ -61,9 +61,16 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 					continue
 				}
 
-				pass.Reportf(name.Pos(),
-					"struct field %s uses primitive type %s",
-					qualName, typeName)
+				msg := fmt.Sprintf("struct field %s uses primitive type %s", qualName, typeName)
+				if bl.Contains(CategoryPrimitive, msg) {
+					continue
+				}
+
+				pass.Report(analysis.Diagnostic{
+					Pos:      name.Pos(),
+					Category: CategoryPrimitive,
+					Message:  msg,
+				})
 			}
 
 			// Anonymous/embedded fields (no names)
@@ -72,17 +79,25 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 				if cfg.isExcepted(qualName) {
 					continue
 				}
-				pass.Reportf(field.Pos(),
-					"struct field %s uses primitive type %s",
-					qualName, typeName)
+
+				msg := fmt.Sprintf("struct field %s uses primitive type %s", qualName, typeName)
+				if bl.Contains(CategoryPrimitive, msg) {
+					continue
+				}
+
+				pass.Report(analysis.Diagnostic{
+					Pos:      field.Pos(),
+					Category: CategoryPrimitive,
+					Message:  msg,
+				})
 			}
 		}
 	}
 }
 
 // inspectFuncDecl checks function/method parameters and return types for
-// bare primitive types.
-func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig) {
+// bare primitive types. Findings present in the baseline are suppressed.
+func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig, bl *BaselineConfig) {
 	if shouldSkipFunc(fn) {
 		return
 	}
@@ -107,19 +122,20 @@ func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig
 
 	// Check parameters
 	if fn.Type.Params != nil {
-		inspectFieldList(pass, fn.Type.Params, funcName, "parameter", cfg)
+		inspectFieldList(pass, fn.Type.Params, funcName, "parameter", cfg, bl)
 	}
 
 	// Check return types — skip for well-known interface methods
 	// (String, Error, GoString, MarshalText) whose return types are
 	// dictated by the interface contract.
 	if fn.Type.Results != nil && !isInterfaceMethodReturn(fn) {
-		inspectReturnTypes(pass, fn.Type.Results, funcName, cfg)
+		inspectReturnTypes(pass, fn.Type.Results, funcName, cfg, bl)
 	}
 }
 
 // inspectFieldList checks a function's parameter list for primitive types.
-func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind string, cfg *ExceptionConfig) {
+// Findings present in the baseline are suppressed.
+func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind string, cfg *ExceptionConfig, bl *BaselineConfig) {
 	for _, field := range fields.List {
 		if hasIgnoreDirective(field.Doc, field.Comment) {
 			continue
@@ -145,9 +161,16 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 				continue
 			}
 
-			pass.Reportf(name.Pos(),
-				"%s %q of %s uses primitive type %s",
-				kind, name.Name, funcName, typeName)
+			msg := fmt.Sprintf("%s %q of %s uses primitive type %s", kind, name.Name, funcName, typeName)
+			if bl.Contains(CategoryPrimitive, msg) {
+				continue
+			}
+
+			pass.Report(analysis.Diagnostic{
+				Pos:      name.Pos(),
+				Category: CategoryPrimitive,
+				Message:  msg,
+			})
 		}
 
 		// Unnamed parameters (e.g., func(string))
@@ -156,15 +179,24 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 			if cfg.isExcepted(qualName) {
 				continue
 			}
-			pass.Reportf(field.Pos(),
-				"unnamed %s of %s uses primitive type %s",
-				kind, funcName, typeName)
+
+			msg := fmt.Sprintf("unnamed %s of %s uses primitive type %s", kind, funcName, typeName)
+			if bl.Contains(CategoryPrimitive, msg) {
+				continue
+			}
+
+			pass.Report(analysis.Diagnostic{
+				Pos:      field.Pos(),
+				Category: CategoryPrimitive,
+				Message:  msg,
+			})
 		}
 	}
 }
 
 // inspectReturnTypes checks a function's return types for primitive types.
-func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName string, cfg *ExceptionConfig) {
+// Findings present in the baseline are suppressed.
+func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName string, cfg *ExceptionConfig, bl *BaselineConfig) {
 	for i, field := range results.List {
 		if hasIgnoreDirective(field.Doc, field.Comment) {
 			continue
@@ -190,9 +222,17 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 			if cfg.isExcepted(qualName) {
 				continue
 			}
-			pass.Reportf(name.Pos(),
-				"return value %q of %s uses primitive type %s",
-				name.Name, funcName, typeName)
+
+			msg := fmt.Sprintf("return value %q of %s uses primitive type %s", name.Name, funcName, typeName)
+			if bl.Contains(CategoryPrimitive, msg) {
+				continue
+			}
+
+			pass.Report(analysis.Diagnostic{
+				Pos:      name.Pos(),
+				Category: CategoryPrimitive,
+				Message:  msg,
+			})
 		}
 
 		// Unnamed return values
@@ -201,9 +241,17 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 			if cfg.isExcepted(qualName) {
 				continue
 			}
-			pass.Reportf(field.Pos(),
-				"return value of %s uses primitive type %s",
-				funcName, typeName)
+
+			msg := fmt.Sprintf("return value of %s uses primitive type %s", funcName, typeName)
+			if bl.Contains(CategoryPrimitive, msg) {
+				continue
+			}
+
+			pass.Report(analysis.Diagnostic{
+				Pos:      field.Pos(),
+				Category: CategoryPrimitive,
+				Message:  msg,
+			})
 		}
 	}
 }

@@ -21,3 +21,15 @@ func ExceptedFunc(name string) { // no diagnostic — excepted via config
 func NotExceptedFunc(value string) { // want `parameter "value" of configexceptions\.NotExceptedFunc uses primitive type string`
 	_ = value
 }
+
+// --- New pattern exercises ---
+
+// InvalidFooError has a Reason field excepted via "*.Reason" wildcard.
+type InvalidFooError struct {
+	Reason string // no diagnostic — excepted via "*.Reason" wildcard
+}
+
+// View return excepted via "*.View.return.0".
+type fakeModel struct{}
+
+func (f fakeModel) View() string { return "" } // no diagnostic — excepted via return wildcard

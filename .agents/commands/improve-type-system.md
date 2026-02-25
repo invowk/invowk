@@ -16,3 +16,16 @@ We're on a long multi-step work to completely avoid the use of simple primitive 
 All methods MUST have unit tests for ALL conditions.
 
 Identify ALL remaining gaps to be worked on and propose a robust plan. All pre-existing issues found during your planning MUST be fully resolved as well.
+
+## Tool Support
+
+Run `make check-types-all-json` to get a structured JSON report of all DDD gaps.
+Each diagnostic includes a `category` field for filtering:
+- `primitive` — bare primitive in struct field / function param / return type
+- `missing-isvalid` — named type missing `IsValid()` method
+- `missing-stringer` — named type missing `String()` method
+- `missing-constructor` — exported struct missing `NewXxx()` constructor
+
+Use this output as the canonical source of remaining gaps instead of manually scanning the codebase. See `tools/primitivelint/CLAUDE.md` for full documentation.
+
+After completing type improvements, run `make update-baseline` to shrink the baseline and commit the updated `tools/primitivelint/baseline.toml`.

@@ -9,40 +9,132 @@ import (
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
+// setFlag sets an analyzer flag by name using the framework-standard
+// Analyzer.Flags.Set() API. This is the same pattern used by x/tools
+// tests (testinggoroutine, findcall).
+func setFlag(t *testing.T, name, value string) {
+	t.Helper()
+	if err := Analyzer.Flags.Set(name, value); err != nil {
+		t.Fatalf("failed to set flag %q to %q: %v", name, value, err)
+	}
+}
+
+// resetFlags restores all analyzer flags to their default values.
+// Called via t.Cleanup() to ensure clean state between tests.
+func resetFlags(t *testing.T) {
+	t.Helper()
+	setFlag(t, "config", "")
+	setFlag(t, "baseline", "")
+	setFlag(t, "audit-exceptions", "false")
+	setFlag(t, "check-all", "false")
+	setFlag(t, "check-isvalid", "false")
+	setFlag(t, "check-stringer", "false")
+	setFlag(t, "check-constructors", "false")
+}
+
 // TestAnalyzerWithConfig exercises the full analyzer pipeline with a
 // TOML config file loaded, verifying that exception patterns and
 // skip_types correctly suppress findings.
 //
-// NOT parallel: mutates the global configPath variable.
+// NOT parallel: shares Analyzer.Flags state.
 func TestAnalyzerWithConfig(t *testing.T) {
 	testdata := analysistest.TestData()
-
-	// Set the config path to the test TOML file inside the fixture package.
-	origConfig := configPath
-	configPath = filepath.Join(testdata, "src", "configexceptions", "primitivelint.toml")
-	t.Cleanup(func() { configPath = origConfig })
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "config", filepath.Join(testdata, "src", "configexceptions", "primitivelint.toml"))
 
 	analysistest.Run(t, testdata, Analyzer, "configexceptions")
 }
 
 // TestAnalyzerWithRealExceptionsToml loads the real project exceptions.toml
 // and runs against the basic fixture to verify:
-// 1. The real config file parses without error.
-// 2. It doesn't accidentally suppress basic findings (the basic fixture
-//    has no patterns matching the real exceptions).
+//  1. The real config file parses without error.
+//  2. It doesn't accidentally suppress basic findings (the basic fixture
+//     has no patterns matching the real exceptions).
 //
-// NOT parallel: mutates the global configPath variable.
+// NOT parallel: shares Analyzer.Flags state.
 func TestAnalyzerWithRealExceptionsToml(t *testing.T) {
 	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "config", filepath.Join(testdata, "..", "..", "exceptions.toml"))
 
-	// The real exceptions.toml is two directories up from the primitivelint/ package.
-	realConfig := filepath.Join(testdata, "..", "..", "exceptions.toml")
-
-	origConfig := configPath
-	configPath = realConfig
-	t.Cleanup(func() { configPath = origConfig })
-
-	// The basic fixture should produce the same diagnostics regardless of
-	// the real config, because none of its types match real exception patterns.
 	analysistest.Run(t, testdata, Analyzer, "basic")
+}
+
+// TestCheckIsValid exercises the --check-isvalid mode against the isvalid
+// fixture, verifying named types without IsValid() are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckIsValid(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-isvalid", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "isvalid")
+}
+
+// TestCheckStringer exercises the --check-stringer mode against the stringer
+// fixture, verifying named types without String() are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckStringer(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-stringer", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "stringer")
+}
+
+// TestCheckConstructors exercises the --check-constructors mode against the
+// constructors fixture, verifying exported structs without NewXxx() are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckConstructors(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-constructors", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "constructors")
+}
+
+// TestAuditExceptions verifies that --audit-exceptions reports stale
+// exception patterns that matched no diagnostics within a single package.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestAuditExceptions(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "config", filepath.Join(testdata, "src", "auditexceptions", "primitivelint.toml"))
+	setFlag(t, "audit-exceptions", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "auditexceptions")
+}
+
+// TestCheckAll exercises the --check-all flag, confirming it enables all
+// three DDD compliance checks (isvalid, stringer, constructors) in a
+// single run. Also explicitly enables --audit-exceptions to verify all
+// 5 diagnostic categories fire together.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckAll(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-all", "true")
+	setFlag(t, "audit-exceptions", "true")
+	setFlag(t, "config", filepath.Join(testdata, "src", "checkall", "primitivelint.toml"))
+
+	analysistest.Run(t, testdata, Analyzer, "checkall")
+}
+
+// TestBaselineSuppression verifies that the --baseline flag correctly
+// suppresses findings present in the baseline while reporting new ones.
+// The baseline fixture has two struct fields and two function params: two
+// are in the baseline (suppressed) and two are not (reported).
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestBaselineSuppression(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline", "primitivelint-baseline.toml"))
+
+	analysistest.Run(t, testdata, Analyzer, "baseline")
 }

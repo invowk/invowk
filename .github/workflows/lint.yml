@@ -78,3 +78,28 @@ jobs:
 
       - name: Run primitivelint
         run: ./bin/primitivelint -config=tools/primitivelint/exceptions.toml ./...
+
+  primitivelint-baseline:
+    name: primitivelint (baseline)
+    runs-on: ubuntu-latest
+    # Advisory during rollout — will become required after validation.
+    # To promote: remove continue-on-error and add to branch protection.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build primitivelint
+        run: cd tools/primitivelint && go build -o ../../bin/primitivelint .
+
+      - name: Check baseline
+        run: |
+          ./bin/primitivelint -check-all \
+            -baseline=tools/primitivelint/baseline.toml \
+            -config=tools/primitivelint/exceptions.toml ./...

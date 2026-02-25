@@ -14,6 +14,11 @@ import (
 type ExceptionConfig struct {
 	Settings   Settings    `toml:"settings"`
 	Exceptions []Exception `toml:"exceptions"`
+
+	// matchCounts tracks how many times each exception pattern was matched.
+	// Populated during isExcepted calls; used by --audit-exceptions to
+	// detect stale entries that matched zero locations.
+	matchCounts map[int]int
 }
 
 // Settings configures global analyzer behavior.
@@ -58,6 +63,8 @@ func loadConfig(path string) (*ExceptionConfig, error) {
 		return nil, err
 	}
 
+	cfg.matchCounts = make(map[int]int, len(cfg.Exceptions))
+
 	return &cfg, nil
 }
 
@@ -74,8 +81,11 @@ func (c *ExceptionConfig) isExcepted(qualifiedName string) bool {
 		stripped = qualifiedName[i+1:]
 	}
 
-	for _, exc := range c.Exceptions {
+	for i, exc := range c.Exceptions {
 		if matchPattern(exc.Pattern, qualifiedName) || matchPattern(exc.Pattern, stripped) {
+			if c.matchCounts != nil {
+				c.matchCounts[i]++
+			}
 			return true
 		}
 	}
@@ -101,6 +111,19 @@ func (c *ExceptionConfig) isExcludedPath(filePath string) bool {
 		}
 	}
 	return false
+}
+
+// staleExceptions returns the indices of exception patterns that matched
+// zero locations during the analysis run. Used by --audit-exceptions to
+// detect exception config rot.
+func (c *ExceptionConfig) staleExceptions() []int {
+	var stale []int
+	for i := range c.Exceptions {
+		if c.matchCounts[i] == 0 {
+			stale = append(stale, i)
+		}
+	}
+	return stale
 }
 
 // matchPattern matches a glob-style pattern against a qualified name.

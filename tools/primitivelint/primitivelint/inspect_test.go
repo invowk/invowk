@@ -134,10 +134,10 @@ func TestHasIgnoreDirective(t *testing.T) {
 			want:        true,
 		},
 		{
-			name: "directive in doc, regular in line",
-			doc:  "//primitivelint:ignore",
+			name:        "directive in doc, regular in line",
+			doc:         "//primitivelint:ignore",
 			lineComment: "// something else",
-			want: true,
+			want:        true,
 		},
 	}
 

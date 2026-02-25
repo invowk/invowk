@@ -60,6 +60,23 @@ func isPrimitiveBasic(t *types.Basic) bool {
 	}
 }
 
+// isPrimitiveUnderlying reports whether t resolves to a basic primitive type.
+// Used by --check-isvalid and --check-stringer to restrict checks to types
+// backed by string, int, etc. — skipping func types, channels, and other
+// non-primitive underlying types that don't need IsValid/String methods.
+func isPrimitiveUnderlying(t types.Type) bool {
+	switch t := t.(type) {
+	case *types.Basic:
+		return isPrimitiveBasic(t) || t.Kind() == types.Bool || t.Kind() == types.UntypedBool
+	case *types.Named:
+		return isPrimitiveUnderlying(t.Underlying())
+	case *types.Alias:
+		return isPrimitiveUnderlying(types.Unalias(t))
+	default:
+		return false
+	}
+}
+
 // primitiveTypeName returns a human-readable name for the primitive type
 // detected in a finding. For composite types (slices, maps, pointers),
 // it shows the full composite form. Type aliases are resolved to their
