@@ -22,6 +22,40 @@ new_tmp() {
 	printf '%s\n' "$file"
 }
 
+has_rg=0
+if command -v rg >/dev/null 2>&1; then
+	has_rg=1
+fi
+if [[ "${INVOWK_CHECK_AGENT_DOCS_FORCE_GREP:-0}" == "1" ]]; then
+	has_rg=0
+fi
+
+extract_matches() {
+	local regex="$1"
+	local file="$2"
+	if [[ "$has_rg" -eq 1 ]]; then
+		rg -o "$regex" "$file"
+	else
+		grep -oE -- "$regex" "$file" || true
+	fi
+}
+
+search_docs() {
+	local pattern="$1"
+	if [[ "$has_rg" -eq 1 ]]; then
+		rg -n -g '!**/speckit.*/SKILL.md' -- "$pattern" \
+			.agents/rules \
+			.agents/skills/*/SKILL.md \
+			tools/goplint/AGENTS.md
+	else
+		grep -nE -- "$pattern" \
+			.agents/rules/*.md \
+			.agents/skills/*/SKILL.md \
+			tools/goplint/AGENTS.md \
+			| grep -vE '\.agents/skills/speckit\.[^/]+/SKILL\.md:' || true
+	fi
+}
+
 check_set_equality() {
 	local name="$1"
 	local expected_file="$2"
@@ -54,14 +88,16 @@ echo "Checking agent docs integrity..."
 
 rules_on_disk="$(new_tmp)"
 rules_indexed="$(new_tmp)"
+rules_regex="\\[\`\\.agents/rules/[^\`]+\`\\]"
 find .agents/rules -maxdepth 1 -type f -name '*.md' | sed 's#^\./##' | sort >"$rules_on_disk"
-rg -o '\[`\.agents/rules/[^`]+`\]' AGENTS.md \
+extract_matches "$rules_regex" AGENTS.md \
 	| sed -E "s/^\[\`(.+)\`\]$/\1/" \
 	| sort >"$rules_indexed"
 check_set_equality "Rules index (.agents/rules)" "$rules_on_disk" "$rules_indexed"
 
 skills_on_disk="$(new_tmp)"
 skills_indexed="$(new_tmp)"
+skills_regex="\\[\`\\.agents/skills/[^\`]+\`\\]"
 find .agents/skills -mindepth 1 -maxdepth 1 -type d \
 	| while read -r dir; do
 		if [[ -f "$dir/SKILL.md" ]]; then
@@ -70,17 +106,13 @@ find .agents/skills -mindepth 1 -maxdepth 1 -type d \
 	done \
 	| sed 's#^\./##' \
 	| sort >"$skills_on_disk"
-rg -o '\[`\.agents/skills/[^`]+`\]' AGENTS.md \
+extract_matches "$skills_regex" AGENTS.md \
 	| sed -E "s/^\[\`(.+)\`\]$/\1/; s#/\$##" \
 	| sort >"$skills_indexed"
 check_set_equality "Skills index (.agents/skills)" "$skills_on_disk" "$skills_indexed"
 
 alias_refs="$(new_tmp)"
-rg -n '\.claude/(rules|skills|agents)' \
-	.agents/rules \
-	.agents/skills/*/SKILL.md \
-	tools/goplint/AGENTS.md \
-	-g '!**/speckit.*/SKILL.md' >"$alias_refs" || true
+search_docs '\.claude/(rules|skills|agents)' >"$alias_refs" || true
 if [[ -s "$alias_refs" ]]; then
 	echo "ERROR: Found non-canonical .claude alias references in rules/skills."
 	sed 's/^/  /' "$alias_refs"
@@ -98,7 +130,7 @@ for pattern in \
 	"All new test functions MUST call \`t\.Parallel\(\)\`"
 do
 	pattern_matches="$(new_tmp)"
-	rg -n "$pattern" .agents/rules .agents/skills/*/SKILL.md -g '!**/speckit.*/SKILL.md' >"$pattern_matches" || true
+	search_docs "$pattern" >"$pattern_matches" || true
 	match_count="$(wc -l <"$pattern_matches" | tr -d ' ')"
 	if [[ "$match_count" -gt 1 ]]; then
 		echo "  - $pattern ($match_count matches)"
