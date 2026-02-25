@@ -59,7 +59,7 @@ jobs:
           only-new-issues: false
 
   goplint:
-    name: goplint
+    name: goplint (advisory full scan)
     runs-on: ubuntu-latest
     # Advisory only during rollout - does not block PRs
     continue-on-error: true
@@ -76,8 +76,14 @@ jobs:
       - name: Build goplint
         run: cd tools/goplint && go build -o ../../bin/goplint .
 
-      - name: Run goplint
-        run: ./bin/goplint -config=tools/goplint/exceptions.toml ./...
+      - name: Run goplint (advisory)
+        run: |
+          set +e
+          ./bin/goplint -config=tools/goplint/exceptions.toml ./...
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::goplint full scan reports known rollout findings; use goplint (baseline) for regression gating."
+          fi
 
   goplint-baseline:
     name: goplint (baseline)

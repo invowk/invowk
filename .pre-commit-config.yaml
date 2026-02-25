@@ -17,9 +17,9 @@ repos:
     hooks:
       - id: goplint-baseline
         name: goplint baseline check
-        entry: "bash -c 'make check-baseline 2>&1 || true'"
+        entry: "bash -c 'make check-baseline 2>&1'"
         language: system
         pass_filenames: false
         types: [go]
-        always_run: false
+        always_run: true
         verbose: true
