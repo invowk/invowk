@@ -91,20 +91,20 @@ func TestNewDiagnostic(t *testing.T) {
 
 	d := NewDiagnostic(SeverityWarning, CodeConfigLoadFailed, "test message")
 
-	if d.Severity != SeverityWarning {
-		t.Errorf("Severity = %q, want %q", d.Severity, SeverityWarning)
+	if d.severity != SeverityWarning {
+		t.Errorf("Severity = %q, want %q", d.severity, SeverityWarning)
 	}
-	if d.Code != CodeConfigLoadFailed {
-		t.Errorf("Code = %q, want %q", d.Code, CodeConfigLoadFailed)
+	if d.code != CodeConfigLoadFailed {
+		t.Errorf("Code = %q, want %q", d.code, CodeConfigLoadFailed)
 	}
-	if d.Message != "test message" {
-		t.Errorf("Message = %q, want %q", d.Message, "test message")
+	if d.message != "test message" {
+		t.Errorf("Message = %q, want %q", d.message, "test message")
 	}
-	if d.Path != "" {
-		t.Errorf("Path = %q, want empty string", d.Path)
+	if d.path != "" {
+		t.Errorf("Path = %q, want empty string", d.path)
 	}
-	if d.Cause != nil {
-		t.Errorf("Cause = %v, want nil", d.Cause)
+	if d.cause != nil {
+		t.Errorf("Cause = %v, want nil", d.cause)
 	}
 }
 
@@ -113,20 +113,20 @@ func TestNewDiagnosticWithPath(t *testing.T) {
 
 	d := NewDiagnosticWithPath(SeverityError, CodeInvowkfileParseSkipped, "parse failed", "/some/path")
 
-	if d.Severity != SeverityError {
-		t.Errorf("Severity = %q, want %q", d.Severity, SeverityError)
+	if d.severity != SeverityError {
+		t.Errorf("Severity = %q, want %q", d.severity, SeverityError)
 	}
-	if d.Code != CodeInvowkfileParseSkipped {
-		t.Errorf("Code = %q, want %q", d.Code, CodeInvowkfileParseSkipped)
+	if d.code != CodeInvowkfileParseSkipped {
+		t.Errorf("Code = %q, want %q", d.code, CodeInvowkfileParseSkipped)
 	}
-	if d.Message != "parse failed" {
-		t.Errorf("Message = %q, want %q", d.Message, "parse failed")
+	if d.message != "parse failed" {
+		t.Errorf("Message = %q, want %q", d.message, "parse failed")
 	}
-	if d.Path != "/some/path" {
-		t.Errorf("Path = %q, want %q", d.Path, "/some/path")
+	if d.path != "/some/path" {
+		t.Errorf("Path = %q, want %q", d.path, "/some/path")
 	}
-	if d.Cause != nil {
-		t.Errorf("Cause = %v, want nil", d.Cause)
+	if d.cause != nil {
+		t.Errorf("Cause = %v, want nil", d.cause)
 	}
 }
 
@@ -136,20 +136,20 @@ func TestNewDiagnosticWithCause(t *testing.T) {
 	cause := errors.New("underlying error")
 	d := NewDiagnosticWithCause(SeverityError, CodeModuleScanFailed, "scan failed", "/module/path", cause)
 
-	if d.Severity != SeverityError {
-		t.Errorf("Severity = %q, want %q", d.Severity, SeverityError)
+	if d.severity != SeverityError {
+		t.Errorf("Severity = %q, want %q", d.severity, SeverityError)
 	}
-	if d.Code != CodeModuleScanFailed {
-		t.Errorf("Code = %q, want %q", d.Code, CodeModuleScanFailed)
+	if d.code != CodeModuleScanFailed {
+		t.Errorf("Code = %q, want %q", d.code, CodeModuleScanFailed)
 	}
-	if d.Message != "scan failed" {
-		t.Errorf("Message = %q, want %q", d.Message, "scan failed")
+	if d.message != "scan failed" {
+		t.Errorf("Message = %q, want %q", d.message, "scan failed")
 	}
-	if d.Path != "/module/path" {
-		t.Errorf("Path = %q, want %q", d.Path, "/module/path")
+	if d.path != "/module/path" {
+		t.Errorf("Path = %q, want %q", d.path, "/module/path")
 	}
-	if !errors.Is(d.Cause, cause) {
-		t.Errorf("Cause = %v, want %v", d.Cause, cause)
+	if !errors.Is(d.cause, cause) {
+		t.Errorf("Cause = %v, want %v", d.cause, cause)
 	}
 }
 
@@ -203,18 +203,18 @@ func TestDiagnostic_IsValid(t *testing.T) {
 		{
 			name: "valid diagnostic",
 			diag: Diagnostic{
-				Severity: SeverityWarning,
-				Code:     CodeConfigLoadFailed,
-				Message:  "test message",
+				severity: SeverityWarning,
+				code:     CodeConfigLoadFailed,
+				message:  "test message",
 			},
 			want: true,
 		},
 		{
 			name: "invalid severity",
 			diag: Diagnostic{
-				Severity: Severity("bogus"),
-				Code:     CodeConfigLoadFailed,
-				Message:  "test message",
+				severity: Severity("bogus"),
+				code:     CodeConfigLoadFailed,
+				message:  "test message",
 			},
 			want:          false,
 			wantErr:       true,
@@ -223,9 +223,9 @@ func TestDiagnostic_IsValid(t *testing.T) {
 		{
 			name: "invalid code",
 			diag: Diagnostic{
-				Severity: SeverityError,
-				Code:     DiagnosticCode("bogus_code"),
-				Message:  "test message",
+				severity: SeverityError,
+				code:     DiagnosticCode("bogus_code"),
+				message:  "test message",
 			},
 			want:          false,
 			wantErr:       true,
@@ -234,9 +234,9 @@ func TestDiagnostic_IsValid(t *testing.T) {
 		{
 			name: "both invalid",
 			diag: Diagnostic{
-				Severity: Severity("nope"),
-				Code:     DiagnosticCode("also_nope"),
-				Message:  "test message",
+				severity: Severity("nope"),
+				code:     DiagnosticCode("also_nope"),
+				message:  "test message",
 			},
 			want:          false,
 			wantErr:       true,

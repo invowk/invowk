@@ -570,3 +570,38 @@ reason = "lipgloss CSS-shorthand passthrough; import cycle with tuiserver"
 [[exceptions]]
 pattern = "Style.Margin"
 reason = "lipgloss CSS-shorthand passthrough; import cycle with tuiserver"
+
+# =============================================================================
+# Mutable-by-Design Structs (DDD Entities / Post-Construction Mutation)
+# =============================================================================
+# These structs have constructors but are NOT Value Types — they are Entities
+# or DTOs with intentional post-construction mutation. Immutability enforcement
+# is not appropriate.
+
+[[exceptions]]
+pattern = "discovery.DiscoveredCommandSet.immutability"
+reason = "maps populated post-construction in processDiscoveredFiles()"
+
+[[exceptions]]
+pattern = "runtime.ExecutionContext.immutability"
+reason = "13 fields set post-construction in BuildExecutionContext(); DDD Entity"
+
+[[exceptions]]
+pattern = "runtime.DefaultEnvBuilder.immutability"
+reason = "Environ is intentionally public for composition"
+
+[[exceptions]]
+pattern = "invowk.App.immutability"
+reason = "fields set in NewApp() but accessed broadly; DDD Entity"
+
+[[exceptions]]
+pattern = "invowkmod.CommandScope.immutability"
+reason = "has AddDirectDep() mutation method; DDD Entity"
+
+[[exceptions]]
+pattern = "invowkmod.LockFile.immutability"
+reason = "Modules map mutated in resolver.go (Add/Remove/Update); DDD Entity"
+
+[[exceptions]]
+pattern = "invowkfile.ValidationError.immutability"
+reason = "70+ struct literal sites across validation_structure_*.go; separate PR"

@@ -702,7 +702,7 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 	if !ok {
 		t.Fatal("expected error to be *issue.ActionableError")
 	}
-	if len(ae.Suggestions) == 0 {
+	if len(ae.Suggestions()) == 0 {
 		t.Error("expected ActionableError to have suggestions")
 	}
 }

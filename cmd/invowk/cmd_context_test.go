@@ -160,11 +160,7 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 					},
 				},
 				Diagnostics: []discovery.Diagnostic{
-					{
-						Severity: discovery.SeverityWarning,
-						Code:     "lookup_diag",
-						Message:  "from discovery",
-					},
+					discovery.NewDiagnostic(discovery.SeverityWarning, "lookup_diag", "from discovery"),
 				},
 			},
 		},
@@ -188,7 +184,7 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 		t.Fatalf("discoverCommand() diagnostics count = %d, want 1; diagnostics=%#v", len(diags), diags)
 	}
 
-	if diags[0].Code != "lookup_diag" {
-		t.Fatalf("discoverCommand() diagnostic code = %q, want %q", diags[0].Code, "lookup_diag")
+	if diags[0].Code() != "lookup_diag" {
+		t.Fatalf("discoverCommand() diagnostic code = %q, want %q", diags[0].Code(), "lookup_diag")
 	}
 }

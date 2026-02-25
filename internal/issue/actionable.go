@@ -5,6 +5,7 @@ package issue
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -12,6 +13,8 @@ type (
 	// ActionableError is an error with context for user-facing error messages.
 	// It provides structured information about what operation failed, what resource
 	// was involved, and suggestions for how to fix the issue.
+	// Fields are unexported for immutability; use Operation(), Resource(),
+	// Suggestions(), and Cause() accessors.
 	//
 	// Use the ErrorContext builder for convenient construction:
 	//
@@ -22,17 +25,10 @@ type (
 	//		Wrap(originalErr).
 	//		Build()
 	ActionableError struct {
-		// Operation describes what was being attempted (e.g., "load invowkfile", "execute command").
-		Operation string
-
-		// Resource identifies the file, path, or entity involved (optional).
-		Resource string
-
-		// Suggestions provides hints on how to fix the issue (optional).
-		Suggestions []string
-
-		// Cause is the underlying error that triggered this error (optional).
-		Cause error
+		operation   string
+		resource    string
+		suggestions []string
+		cause       error
 	}
 
 	// ErrorContext is a builder for constructing ActionableError instances.
@@ -60,9 +56,23 @@ type (
 // Use this for simple errors; use ErrorContext for more complex cases.
 func NewActionableError(operation string) *ActionableError {
 	return &ActionableError{
-		Operation: operation,
+		operation: operation,
 	}
 }
+
+// --- Accessors ---
+
+// Operation returns the operation that was being attempted.
+func (e *ActionableError) Operation() string { return e.operation }
+
+// Resource returns the file, path, or entity involved (may be empty).
+func (e *ActionableError) Resource() string { return e.resource }
+
+// Suggestions returns a copy of the fix suggestions (may be empty).
+func (e *ActionableError) Suggestions() []string { return slices.Clone(e.suggestions) }
+
+// Cause returns the underlying error (may be nil).
+func (e *ActionableError) Cause() error { return e.cause }
 
 // NewErrorContext creates a new ErrorContext builder.
 func NewErrorContext() *ErrorContext {
@@ -76,8 +86,8 @@ func WrapWithOperation(err error, operation string) *ActionableError {
 		return nil
 	}
 	return &ActionableError{
-		Operation: operation,
-		Cause:     err,
+		operation: operation,
+		cause:     err,
 	}
 }
 
@@ -87,9 +97,9 @@ func WrapWithContext(err error, operation, resource string) *ActionableError {
 		return nil
 	}
 	return &ActionableError{
-		Operation: operation,
-		Resource:  resource,
-		Cause:     err,
+		operation: operation,
+		resource:  resource,
+		cause:     err,
 	}
 }
 
@@ -101,16 +111,16 @@ func (e *ActionableError) Error() string {
 	var msg strings.Builder
 
 	msg.WriteString("failed to ")
-	msg.WriteString(e.Operation)
+	msg.WriteString(e.operation)
 
-	if e.Resource != "" {
+	if e.resource != "" {
 		msg.WriteString(": ")
-		msg.WriteString(e.Resource)
+		msg.WriteString(e.resource)
 	}
 
-	if e.Cause != nil {
+	if e.cause != nil {
 		msg.WriteString(": ")
-		msg.WriteString(e.Cause.Error())
+		msg.WriteString(e.cause.Error())
 	}
 
 	return msg.String()
@@ -118,7 +128,7 @@ func (e *ActionableError) Error() string {
 
 // Unwrap returns the underlying cause error for use with errors.Is/As.
 func (e *ActionableError) Unwrap() error {
-	return e.Cause
+	return e.cause
 }
 
 // Format returns a formatted error message with optional verbosity.
@@ -137,18 +147,18 @@ func (e *ActionableError) Format(verbose bool) string {
 	msg.WriteString(e.Error())
 
 	// Add suggestions if present
-	if len(e.Suggestions) > 0 {
+	if len(e.suggestions) > 0 {
 		msg.WriteString("\n")
-		for _, suggestion := range e.Suggestions {
+		for _, suggestion := range e.suggestions {
 			msg.WriteString("\n  • ")
 			msg.WriteString(suggestion)
 		}
 	}
 
 	// In verbose mode, include the full error chain
-	if verbose && e.Cause != nil {
+	if verbose && e.cause != nil {
 		msg.WriteString("\n\nError chain:")
-		err := e.Cause
+		err := e.cause
 		depth := 1
 		for err != nil {
 			fmt.Fprintf(&msg, "\n  %d. %s", depth, err.Error())
@@ -162,7 +172,7 @@ func (e *ActionableError) Format(verbose bool) string {
 
 // HasSuggestions returns true if the error has any suggestions.
 func (e *ActionableError) HasSuggestions() bool {
-	return len(e.Suggestions) > 0
+	return len(e.suggestions) > 0
 }
 
 // --- ErrorContext Methods ---
@@ -207,10 +217,10 @@ func (c *ErrorContext) Build() *ActionableError {
 	}
 
 	return &ActionableError{
-		Operation:   c.operation,
-		Resource:    c.resource,
-		Suggestions: c.suggestions,
-		Cause:       c.cause,
+		operation:   c.operation,
+		resource:    c.resource,
+		suggestions: c.suggestions,
+		cause:       c.cause,
 	}
 }
 

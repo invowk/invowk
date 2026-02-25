@@ -259,7 +259,7 @@ func TestDiscoverAll_NestedVendoredEmitsDiagnostic(t *testing.T) {
 
 	var foundNestedWarning bool
 	for _, diag := range diagnostics {
-		if diag.Code == "vendored_nested_ignored" {
+		if diag.code == "vendored_nested_ignored" {
 			foundNestedWarning = true
 			break
 		}
@@ -297,7 +297,7 @@ func TestDiscoverAll_InvalidVendoredModuleSkipped(t *testing.T) {
 
 	var foundSkipDiag bool
 	for _, diag := range diagnostics {
-		if diag.Code == "vendored_module_load_skipped" {
+		if diag.code == "vendored_module_load_skipped" {
 			foundSkipDiag = true
 			break
 		}
@@ -338,8 +338,8 @@ func TestDiscoverAll_EmptyVendorDir(t *testing.T) {
 
 	// No vendor-related diagnostics
 	for _, diag := range diagnostics {
-		if strings.HasPrefix(string(diag.Code), "vendored_") {
-			t.Errorf("unexpected vendor diagnostic: %s", diag.Code)
+		if strings.HasPrefix(string(diag.code), "vendored_") {
+			t.Errorf("unexpected vendor diagnostic: %s", diag.code)
 		}
 	}
 }
@@ -382,7 +382,7 @@ func TestDiscoverAll_VendoredReservedModuleSkipped(t *testing.T) {
 	// Verify diagnostic was emitted
 	var foundDiag bool
 	for _, diag := range diagnostics {
-		if diag.Code == "vendored_reserved_module_skipped" {
+		if diag.code == "vendored_reserved_module_skipped" {
 			foundDiag = true
 			break
 		}
@@ -431,7 +431,7 @@ func TestDiscoverAll_VendoredScanFailed(t *testing.T) {
 
 	var foundDiag bool
 	for _, diag := range diagnostics {
-		if diag.Code == "vendored_scan_failed" {
+		if diag.code == "vendored_scan_failed" {
 			foundDiag = true
 			break
 		}

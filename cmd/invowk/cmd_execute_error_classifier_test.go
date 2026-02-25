@@ -136,7 +136,7 @@ func TestCreateRuntimeRegistryWithDiagnostics(t *testing.T) {
 
 	foundInitDiag := false
 	for _, diag := range result.Diagnostics {
-		if diag.Code == "container_runtime_init_failed" {
+		if diag.Code() == "container_runtime_init_failed" {
 			foundInitDiag = true
 			break
 		}

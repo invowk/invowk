@@ -357,13 +357,15 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 	// to defaults — surface the error as a diagnostic so downstream callers can
 	// decide whether to abort.
 	if configPath != "" {
-		return config.DefaultConfig(), []discovery.Diagnostic{{
-			Severity: discovery.SeverityError,
-			Code:     discovery.CodeConfigLoadFailed,
-			Message:  fmt.Sprintf("failed to load config from %s: %v", configPath, err),
-			Path:     types.FilesystemPath(configPath),
-			Cause:    err,
-		}}
+		return config.DefaultConfig(), []discovery.Diagnostic{
+			discovery.NewDiagnosticWithCause(
+				discovery.SeverityError,
+				discovery.CodeConfigLoadFailed,
+				fmt.Sprintf("failed to load config from %s: %v", configPath, err),
+				types.FilesystemPath(configPath),
+				err,
+			),
+		}
 	}
 
 	// Default config path: differentiate "file exists but is broken" (syntax error,
@@ -376,27 +378,30 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 		severity = discovery.SeverityWarning
 	}
 
-	return config.DefaultConfig(), []discovery.Diagnostic{{
-		Severity: severity,
-		Code:     discovery.CodeConfigLoadFailed,
-		Message:  fmt.Sprintf("failed to load config, using defaults: %v", err),
-		Cause:    err,
-	}}
+	return config.DefaultConfig(), []discovery.Diagnostic{
+		discovery.NewDiagnosticWithCause(
+			severity,
+			discovery.CodeConfigLoadFailed,
+			fmt.Sprintf("failed to load config, using defaults: %v", err),
+			"",
+			err,
+		),
+	}
 }
 
 // Render writes structured diagnostics to stderr with lipgloss styling.
 func (r *defaultDiagnosticRenderer) Render(_ context.Context, diags []discovery.Diagnostic, stderr io.Writer) {
 	for _, diag := range diags {
 		prefix := WarningStyle.Render("warning")
-		if diag.Severity == discovery.SeverityError {
+		if diag.Severity() == discovery.SeverityError {
 			prefix = ErrorStyle.Render("error")
 		}
 
-		if diag.Path != "" {
-			_, _ = fmt.Fprintf(stderr, "%s: %s (%s)\n", prefix, diag.Message, diag.Path)
+		if diag.Path() != "" {
+			_, _ = fmt.Fprintf(stderr, "%s: %s (%s)\n", prefix, diag.Message(), diag.Path())
 			continue
 		}
 
-		_, _ = fmt.Fprintf(stderr, "%s: %s\n", prefix, diag.Message)
+		_, _ = fmt.Fprintf(stderr, "%s: %s\n", prefix, diag.Message())
 	}
 }

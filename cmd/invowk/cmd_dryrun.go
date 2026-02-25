@@ -26,27 +26,27 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 	// Command metadata.
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Command:"), req.Name)
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Source:"), cmdInfo.SourceID)
-	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Runtime:"), string(resolved.Mode))
+	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Runtime:"), string(resolved.Mode()))
 	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Platform:"), string(invowkfile.CurrentPlatform()))
 
 	if execCtx.WorkDir != "" {
 		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("WorkDir:"), execCtx.WorkDir)
 	}
 
-	if resolved.Impl == nil {
+	if resolved.Impl() == nil {
 		fmt.Fprintln(w)
 		return
 	}
 
-	if resolved.Impl.Timeout != "" {
-		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Timeout:"), resolved.Impl.Timeout)
+	if resolved.Impl().Timeout != "" {
+		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Timeout:"), resolved.Impl().Timeout)
 	}
 
 	// Script content.
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, VerboseHighlightStyle.Render("  Script:"))
-	script := resolved.Impl.Script
-	if resolved.Impl.IsScriptFile() {
+	script := resolved.Impl().Script
+	if resolved.Impl().IsScriptFile() {
 		fmt.Fprintf(w, "    (file: %s)\n", script)
 	} else {
 		for line := range strings.SplitSeq(string(script), "\n") {

@@ -16,9 +16,10 @@ import (
 
 type (
 	// RuntimeSelection is the resolved runtime mode + implementation pair.
+	// Fields are unexported for immutability; use Mode() and Impl() accessors.
 	RuntimeSelection struct {
-		Mode invowkfile.RuntimeMode
-		Impl *invowkfile.Implementation
+		mode invowkfile.RuntimeMode
+		impl *invowkfile.Implementation
 	}
 
 	// RuntimeNotAllowedError indicates a runtime override incompatible with the command.
@@ -72,8 +73,22 @@ func NewRuntimeSelection(mode invowkfile.RuntimeMode, impl *invowkfile.Implement
 	if isValid, errs := mode.IsValid(); !isValid {
 		return RuntimeSelection{}, errs[0]
 	}
-	return RuntimeSelection{Mode: mode, Impl: impl}, nil
+	return RuntimeSelection{mode: mode, impl: impl}, nil
 }
+
+// RuntimeSelectionOf creates a RuntimeSelection without validation.
+// Prefer NewRuntimeSelection in production code. This variant is for test
+// fixtures and rendering paths where an incomplete selection is valid
+// (e.g., nil Impl for dry-run rendering edge cases).
+func RuntimeSelectionOf(mode invowkfile.RuntimeMode, impl *invowkfile.Implementation) RuntimeSelection {
+	return RuntimeSelection{mode: mode, impl: impl}
+}
+
+// Mode returns the resolved runtime mode.
+func (r RuntimeSelection) Mode() invowkfile.RuntimeMode { return r.mode }
+
+// Impl returns the resolved implementation.
+func (r RuntimeSelection) Impl() *invowkfile.Implementation { return r.impl }
 
 func (e *RuntimeNotAllowedError) Error() string {
 	allowed := make([]string, len(e.Allowed))
@@ -173,8 +188,8 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 	execCtx := runtime.NewExecutionContext(context.Background(), opts.Command, opts.Invowkfile)
 
 	execCtx.Verbose = opts.Verbose
-	execCtx.SelectedRuntime = opts.Selection.Mode
-	execCtx.SelectedImpl = opts.Selection.Impl
+	execCtx.SelectedRuntime = opts.Selection.Mode()
+	execCtx.SelectedImpl = opts.Selection.Impl()
 	execCtx.PositionalArgs = opts.Args
 	execCtx.WorkDir = opts.Workdir
 	execCtx.ForceRebuild = opts.ForceRebuild
@@ -229,7 +244,7 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 	// Metadata env vars for script self-introspection.
 	// These allow scripts to know which command, runtime, source, and platform they run under.
 	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = string(opts.Command.Name)
-	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode)
+	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode())
 	// EnvVarSource and EnvVarPlatform are conditionally injected (only when
 	// non-empty), but unconditionally filtered in shouldFilterEnvVar. The
 	// asymmetry is intentional: filtering prevents leakage even if future

@@ -25,12 +25,10 @@ import (
 
 type (
 	// GitFetcher handles Git operations for module fetching.
+	// Fields are unexported for immutability; use CacheDir() accessor.
 	GitFetcher struct {
-		// CacheDir is the base directory for the Git source cache.
-		CacheDir types.FilesystemPath
-
-		// auth is the authentication method to use for Git operations.
-		auth transport.AuthMethod
+		cacheDir types.FilesystemPath
+		auth     transport.AuthMethod
 	}
 
 	// TagInfo contains information about a Git tag.
@@ -44,11 +42,14 @@ type (
 // NewGitFetcher creates a new Git fetcher.
 func NewGitFetcher(cacheDir types.FilesystemPath) *GitFetcher {
 	f := &GitFetcher{
-		CacheDir: cacheDir,
+		cacheDir: cacheDir,
 	}
 	f.setupAuth()
 	return f
 }
+
+// CacheDir returns the base directory for the Git source cache.
+func (f *GitFetcher) CacheDir() types.FilesystemPath { return f.cacheDir }
 
 // ListVersions returns all version tags from a Git repository.
 func (f *GitFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer, error) {
@@ -443,5 +444,5 @@ func (f *GitFetcher) getRepoCachePath(gitURL GitURL) types.FilesystemPath {
 	path = strings.TrimSuffix(path, ".git")
 	path = strings.ReplaceAll(path, ":", "/")
 
-	return types.FilesystemPath(filepath.Join(string(f.CacheDir), "sources", path))
+	return types.FilesystemPath(filepath.Join(string(f.cacheDir), "sources", path))
 }

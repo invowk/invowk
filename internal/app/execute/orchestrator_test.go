@@ -124,10 +124,10 @@ func TestResolveRuntime(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if got.Mode != tt.wantMode {
-				t.Errorf("got mode %q, want %q", got.Mode, tt.wantMode)
+			if got.mode != tt.wantMode {
+				t.Errorf("got mode %q, want %q", got.mode, tt.wantMode)
 			}
-			if got.Impl == nil {
+			if got.impl == nil {
 				t.Error("got nil implementation")
 			}
 		})
@@ -139,7 +139,7 @@ func TestBuildExecutionContext(t *testing.T) {
 
 	cmd := &invowkfile.Command{Name: "test"}
 	inv := &invowkfile.Invowkfile{}
-	sel := RuntimeSelection{Mode: invowkfile.RuntimeNative, Impl: &invowkfile.Implementation{}}
+	sel := RuntimeSelection{mode: invowkfile.RuntimeNative, impl: &invowkfile.Implementation{}}
 
 	tests := []struct {
 		name string
@@ -263,7 +263,7 @@ func TestBuildExecutionContext_MetadataOmittedWhenEmpty(t *testing.T) {
 
 	cmd := &invowkfile.Command{Name: "test"}
 	inv := &invowkfile.Invowkfile{}
-	sel := RuntimeSelection{Mode: invowkfile.RuntimeNative, Impl: &invowkfile.Implementation{}}
+	sel := RuntimeSelection{mode: invowkfile.RuntimeNative, impl: &invowkfile.Implementation{}}
 
 	gotCtx, err := BuildExecutionContext(BuildExecutionContextOptions{
 		Command:    cmd,
@@ -297,7 +297,7 @@ func TestBuildExecutionContext_InheritanceValidation(t *testing.T) {
 
 	cmd := &invowkfile.Command{Name: "test"}
 	inv := &invowkfile.Invowkfile{}
-	sel := RuntimeSelection{Mode: invowkfile.RuntimeNative, Impl: &invowkfile.Implementation{}}
+	sel := RuntimeSelection{mode: invowkfile.RuntimeNative, impl: &invowkfile.Implementation{}}
 
 	tests := []struct {
 		name    string
@@ -409,10 +409,10 @@ func TestNewRuntimeSelection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got.Mode != tt.mode {
-				t.Errorf("got mode %q, want %q", got.Mode, tt.mode)
+			if got.mode != tt.mode {
+				t.Errorf("got mode %q, want %q", got.mode, tt.mode)
 			}
-			if got.Impl != tt.impl {
+			if got.impl != tt.impl {
 				t.Error("got different impl pointer than expected")
 			}
 		})

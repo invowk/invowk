@@ -102,17 +102,14 @@ type (
 
 	// Diagnostic represents a structured discovery diagnostic that is returned
 	// to callers (rather than written to stderr) for consistent rendering policy.
+	// Fields are unexported for immutability; use Severity(), Code(), Message(),
+	// Path(), and Cause() accessors.
 	Diagnostic struct {
-		// Severity is the diagnostic level (warning or error).
-		Severity Severity
-		// Code is a machine-readable identifier (e.g., "invowkfile_parse_skipped").
-		Code DiagnosticCode
-		// Message is the human-readable description.
-		Message string
-		// Path is the file path associated with this diagnostic (optional).
-		Path types.FilesystemPath
-		// Cause is the underlying error (optional, for programmatic inspection).
-		Cause error
+		severity Severity
+		code     DiagnosticCode
+		message  string
+		path     types.FilesystemPath
+		cause    error
 	}
 
 	// CommandSetResult bundles a DiscoveredCommandSet with diagnostics produced
@@ -209,18 +206,33 @@ func (dc DiagnosticCode) IsValid() (bool, []error) {
 
 // NewDiagnostic creates a Diagnostic with the given severity, code, and message.
 func NewDiagnostic(severity Severity, code DiagnosticCode, message string) Diagnostic {
-	return Diagnostic{Severity: severity, Code: code, Message: message}
+	return Diagnostic{severity: severity, code: code, message: message}
 }
 
 // NewDiagnosticWithPath creates a Diagnostic with the given severity, code, message, and file path.
 func NewDiagnosticWithPath(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath) Diagnostic {
-	return Diagnostic{Severity: severity, Code: code, Message: message, Path: path}
+	return Diagnostic{severity: severity, code: code, message: message, path: path}
 }
 
 // NewDiagnosticWithCause creates a Diagnostic with the given severity, code, message, file path, and cause error.
 func NewDiagnosticWithCause(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath, cause error) Diagnostic {
-	return Diagnostic{Severity: severity, Code: code, Message: message, Path: path, Cause: cause}
+	return Diagnostic{severity: severity, code: code, message: message, path: path, cause: cause}
 }
+
+// Severity returns the diagnostic level (warning or error).
+func (d Diagnostic) Severity() Severity { return d.severity }
+
+// Code returns the machine-readable identifier (e.g., "invowkfile_parse_skipped").
+func (d Diagnostic) Code() DiagnosticCode { return d.code }
+
+// Message returns the human-readable description.
+func (d Diagnostic) Message() string { return d.message }
+
+// Path returns the file path associated with this diagnostic (may be empty).
+func (d Diagnostic) Path() types.FilesystemPath { return d.path }
+
+// Cause returns the underlying error (may be nil).
+func (d Diagnostic) Cause() error { return d.cause }
 
 // Error implements the error interface for InvalidDiagnosticError.
 func (e *InvalidDiagnosticError) Error() string {
@@ -234,10 +246,10 @@ func (e *InvalidDiagnosticError) Unwrap() error { return ErrInvalidDiagnostic }
 // Message and Path are display-only fields and are not validated.
 func (d Diagnostic) IsValid() (bool, []error) {
 	var errs []error
-	if valid, fieldErrs := d.Severity.IsValid(); !valid {
+	if valid, fieldErrs := d.severity.IsValid(); !valid {
 		errs = append(errs, fieldErrs...)
 	}
-	if valid, fieldErrs := d.Code.IsValid(); !valid {
+	if valid, fieldErrs := d.code.IsValid(); !valid {
 		errs = append(errs, fieldErrs...)
 	}
 	if len(errs) > 0 {

@@ -262,12 +262,13 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 	}
 
 	for _, diag := range built.Diagnostics {
-		result.Diagnostics = append(result.Diagnostics, discovery.Diagnostic{
-			Severity: discovery.SeverityWarning,
-			Code:     discovery.DiagnosticCode(diag.Code),
-			Message:  diag.Message,
-			Cause:    diag.Cause,
-		})
+		result.Diagnostics = append(result.Diagnostics, discovery.NewDiagnosticWithCause(
+			discovery.SeverityWarning,
+			discovery.DiagnosticCode(diag.Code),
+			diag.Message,
+			"",
+			diag.Cause,
+		))
 	}
 
 	return result

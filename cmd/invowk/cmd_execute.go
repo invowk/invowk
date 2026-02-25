@@ -253,7 +253,7 @@ func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.C
 // implementation requires host SSH access (used by container runtime for host callbacks).
 // Cleanup is handled by the caller (Execute) via a "started-by-me" guard.
 func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteRequest, resolved appexec.RuntimeSelection) error {
-	if !resolved.Impl.GetHostSSHForRuntime(resolved.Mode) {
+	if !resolved.Impl().GetHostSSHForRuntime(resolved.Mode()) {
 		return nil
 	}
 
