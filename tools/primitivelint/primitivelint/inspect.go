@@ -281,20 +281,38 @@ func shouldSkipFunc(fn *ast.FuncDecl) bool {
 }
 
 // isInterfaceMethodReturn returns true if the function is a method whose
-// return type is dictated by a well-known interface contract. These methods
-// MUST return string by the interface definition and cannot use named types.
+// return type is dictated by a well-known interface contract and whose
+// signature matches that contract. These methods MUST return specific types
+// by the interface definition and cannot use named types.
 //
-// Skipped patterns:
-//   - String() string (fmt.Stringer)
-//   - Error() string (error interface)
-//   - GoString() string (fmt.GoStringer)
-//   - MarshalText() ([]byte, error) (encoding.TextMarshaler)
+// Skipped patterns (name + matching signature):
+//   - String() string (fmt.Stringer) — 0 params, 1 result
+//   - Error() string (error interface) — 0 params, 1 result
+//   - GoString() string (fmt.GoStringer) — 0 params, 1 result
+//   - MarshalText() ([]byte, error) (encoding.TextMarshaler) — 0 params, 2 results
 func isInterfaceMethodReturn(fn *ast.FuncDecl) bool {
-	if fn.Recv == nil {
+	if fn.Recv == nil || fn.Type == nil {
 		return false
 	}
-	name := fn.Name.Name
-	return name == "String" || name == "Error" || name == "GoString" || name == "MarshalText"
+
+	params := fn.Type.Params
+	results := fn.Type.Results
+
+	// All recognized interface methods have zero parameters.
+	if params != nil && countParams(params) != 0 {
+		return false
+	}
+
+	switch fn.Name.Name {
+	case "String", "Error", "GoString":
+		// Expected: () string — zero params, one result.
+		return results != nil && len(results.List) == 1
+	case "MarshalText":
+		// Expected: () ([]byte, error) — zero params, two results.
+		return results != nil && len(results.List) == 2
+	default:
+		return false
+	}
 }
 
 // receiverTypeName extracts the type name from a method receiver expression.

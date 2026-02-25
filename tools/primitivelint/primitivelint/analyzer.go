@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"go/types"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -41,6 +42,8 @@ const (
 	CategoryWrongConstructorSig = "wrong-constructor-sig"
 	CategoryMissingFuncOptions  = "missing-func-options"
 	CategoryMissingImmutability = "missing-immutability"
+	CategoryWrongIsValidSig     = "wrong-isvalid-sig"
+	CategoryWrongStringerSig    = "wrong-stringer-sig"
 	CategoryStaleException      = "stale-exception"
 	CategoryUnknownDirective    = "unknown-directive"
 )
@@ -167,7 +170,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// after the traversal completes.
 	var (
 		namedTypes         []namedTypeInfo                  // non-struct named types (for isvalid/stringer)
-		methodSeen         map[string]bool                  // "TypeName.MethodName" → true
+		methodSeen         map[string]*methodInfo            // "TypeName.MethodName" → signature info
 		exportedStructs    []exportedStructInfo             // exported struct types (for constructors + structural)
 		constructorDetails map[string]*constructorFuncInfo // "NewTypeName" → details
 		optionTypes        map[string]string               // optionTypeName → targetStructName
@@ -178,7 +181,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// for the missing-constructor check (skip structs implementing error).
 	needMethods := rc.checkIsValid || rc.checkStringer || rc.checkConstructors
 	if needMethods {
-		methodSeen = make(map[string]bool)
+		methodSeen = make(map[string]*methodInfo)
 	}
 	if needConstructors {
 		constructorDetails = make(map[string]*constructorFuncInfo)
@@ -238,7 +241,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 			// Supplementary: track methods for isvalid/stringer and error detection.
 			if needMethods {
-				trackMethods(n, methodSeen)
+				trackMethods(pass, n, methodSeen)
 			}
 
 			// Track constructors with return type and param details.
@@ -315,6 +318,15 @@ type constructorFuncInfo struct {
 	returnsInterface bool      // first non-error return is an interface (skip sig check)
 	paramCount       int       // parameter count excluding trailing variadic option
 	hasVariadicOpt   bool      // last param is ...OptionType (func taking *TargetStruct)
+}
+
+// methodInfo records a method's signature details for signature verification
+// in --check-isvalid and --check-stringer modes. A non-nil entry in the
+// methodSeen map means the method exists; the fields enable checking whether
+// the method has the expected signature (not just the expected name).
+type methodInfo struct {
+	paramCount  int    // number of parameters (excluding receiver)
+	resultTypes string // comma-separated result type names (e.g., "bool,[]error")
 }
 
 // collectNamedTypes extracts non-struct named type definitions from a
@@ -395,9 +407,10 @@ func collectExportedStructs(pass *analysis.Pass, node *ast.GenDecl, out *[]expor
 	}
 }
 
-// trackMethods records method names keyed by receiver type for the
+// trackMethods records method signatures keyed by receiver type for the
 // IsValid/Stringer checks and error type detection in --check-constructors.
-func trackMethods(fn *ast.FuncDecl, seen map[string]bool) {
+// The pass parameter is used to resolve method signatures via TypesInfo.
+func trackMethods(pass *analysis.Pass, fn *ast.FuncDecl, seen map[string]*methodInfo) {
 	if fn.Recv == nil || len(fn.Recv.List) == 0 {
 		return
 	}
@@ -405,21 +418,79 @@ func trackMethods(fn *ast.FuncDecl, seen map[string]bool) {
 	if recvName == "" {
 		return
 	}
-	seen[recvName+"."+fn.Name.Name] = true
+
+	info := &methodInfo{}
+
+	// Resolve the method's type signature via the type checker for
+	// accurate parameter and result type information.
+	obj := pass.TypesInfo.Defs[fn.Name]
+	if obj != nil {
+		if sig, ok := obj.Type().(*types.Signature); ok {
+			info.paramCount = sig.Params().Len()
+			info.resultTypes = formatResultTypes(sig.Results())
+		}
+	}
+
+	seen[recvName+"."+fn.Name.Name] = info
 }
 
+// formatResultTypes produces a comma-separated string of result type names
+// from a method signature's result tuple. Used for signature matching in
+// --check-isvalid and --check-stringer (e.g., "bool,[]error" or "string").
+func formatResultTypes(results *types.Tuple) string {
+	if results == nil || results.Len() == 0 {
+		return ""
+	}
+	parts := make([]string, results.Len())
+	for i := range results.Len() {
+		parts[i] = types.TypeString(results.At(i).Type(), nil)
+	}
+	return strings.Join(parts, ",")
+}
+
+// expectedIsValidSig is the expected signature for IsValid methods:
+// zero parameters, returning (bool, []error).
+const expectedIsValidSig = "bool,[]error"
+
+// expectedStringerSig is the expected signature for String methods:
+// zero parameters, returning string.
+const expectedStringerSig = "string"
+
 // reportMissingIsValid reports named non-struct types that lack an
-// IsValid() method. For unexported types, also checks for isValid()
-// (lowercase), matching the project convention.
-func reportMissingIsValid(pass *analysis.Pass, types []namedTypeInfo, methods map[string]bool, cfg *ExceptionConfig, bl *BaselineConfig) {
+// IsValid() method or have one with the wrong signature. For unexported
+// types, also checks for isValid() (lowercase), matching the project
+// convention.
+func reportMissingIsValid(pass *analysis.Pass, namedTypes []namedTypeInfo, methods map[string]*methodInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
-	for _, t := range types {
-		// Check for IsValid (exported) or isValid (unexported convention).
-		if methods[t.name+".IsValid"] || (!t.exported && methods[t.name+".isValid"]) {
+	for _, t := range namedTypes {
+		qualName := fmt.Sprintf("%s.%s", pkgName, t.name)
+
+		// Determine which method name to check (exported vs unexported).
+		methodKey := t.name + ".IsValid"
+		if !t.exported && methods[t.name+".isValid"] != nil {
+			methodKey = t.name + ".isValid"
+		}
+
+		mi := methods[methodKey]
+		if mi != nil {
+			// Method exists — verify its signature matches the contract.
+			if mi.paramCount != 0 || mi.resultTypes != expectedIsValidSig {
+				if cfg.isExcepted(qualName + ".IsValid") {
+					continue
+				}
+				msg := fmt.Sprintf("named type %s has IsValid() but wrong signature (want func() (bool, []error))", qualName)
+				if bl.Contains(CategoryWrongIsValidSig, msg) {
+					continue
+				}
+				pass.Report(analysis.Diagnostic{
+					Pos:      t.pos,
+					Category: CategoryWrongIsValidSig,
+					Message:  msg,
+				})
+			}
 			continue
 		}
 
-		qualName := fmt.Sprintf("%s.%s", pkgName, t.name)
 		if cfg.isExcepted(qualName + ".IsValid") {
 			continue
 		}
@@ -438,16 +509,34 @@ func reportMissingIsValid(pass *analysis.Pass, types []namedTypeInfo, methods ma
 }
 
 // reportMissingStringer reports named non-struct types that lack a
-// String() method. The String() method name is always capitalized
-// regardless of type visibility (it implements fmt.Stringer).
-func reportMissingStringer(pass *analysis.Pass, types []namedTypeInfo, methods map[string]bool, cfg *ExceptionConfig, bl *BaselineConfig) {
+// String() method or have one with the wrong signature. The String()
+// method name is always capitalized regardless of type visibility
+// (it implements fmt.Stringer).
+func reportMissingStringer(pass *analysis.Pass, namedTypes []namedTypeInfo, methods map[string]*methodInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
-	for _, t := range types {
-		if methods[t.name+".String"] {
+	for _, t := range namedTypes {
+		qualName := fmt.Sprintf("%s.%s", pkgName, t.name)
+
+		mi := methods[t.name+".String"]
+		if mi != nil {
+			// Method exists — verify its signature matches the contract.
+			if mi.paramCount != 0 || mi.resultTypes != expectedStringerSig {
+				if cfg.isExcepted(qualName + ".String") {
+					continue
+				}
+				msg := fmt.Sprintf("named type %s has String() but wrong signature (want func() string)", qualName)
+				if bl.Contains(CategoryWrongStringerSig, msg) {
+					continue
+				}
+				pass.Report(analysis.Diagnostic{
+					Pos:      t.pos,
+					Category: CategoryWrongStringerSig,
+					Message:  msg,
+				})
+			}
 			continue
 		}
 
-		qualName := fmt.Sprintf("%s.%s", pkgName, t.name)
 		if cfg.isExcepted(qualName + ".String") {
 			continue
 		}
@@ -466,20 +555,22 @@ func reportMissingStringer(pass *analysis.Pass, types []namedTypeInfo, methods m
 }
 
 // reportMissingConstructors reports exported struct types that lack a
-// NewXxx() constructor function in the same package.
+// NewXxx() constructor function in the same package. Constructor lookup
+// uses prefix matching: any function starting with "New" + structName
+// whose first non-error return type resolves to the struct satisfies
+// the check (e.g., NewMetadataFromSource satisfies Metadata).
 // Error types are skipped: structs whose name ends with "Error" or that
 // implement the error interface (have an Error() string method).
-func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, methods map[string]bool, cfg *ExceptionConfig, bl *BaselineConfig) {
+func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, methods map[string]*methodInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
 	for _, s := range structs {
-		ctorName := "New" + s.name
-		if ctors[ctorName] != nil {
+		if findConstructorForStruct(s.name, ctors) != nil {
 			continue
 		}
 
 		// Skip error types — they are typically constructed via struct
 		// literals, not constructor functions.
-		if strings.HasSuffix(s.name, "Error") || methods[s.name+".Error"] {
+		if strings.HasSuffix(s.name, "Error") || methods[s.name+".Error"] != nil {
 			continue
 		}
 
@@ -488,6 +579,7 @@ func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo
 			continue
 		}
 
+		ctorName := "New" + s.name
 		msg := fmt.Sprintf("exported struct %s has no %s() constructor", qualName, ctorName)
 		if bl.Contains(CategoryMissingConstructor, msg) {
 			continue
@@ -499,6 +591,24 @@ func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo
 			Message:  msg,
 		})
 	}
+}
+
+// findConstructorForStruct searches the constructor map for a function
+// matching the struct by prefix. Returns the first matching constructor
+// or nil. A constructor matches if its name starts with "New" + structName
+// and its return type resolves to structName (or it returns an interface).
+// This handles variant constructors like NewMetadataFromSource for Metadata.
+func findConstructorForStruct(structName string, ctors map[string]*constructorFuncInfo) *constructorFuncInfo {
+	prefix := "New" + structName
+	for name, info := range ctors {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		if info.returnTypeName == structName || info.returnsInterface {
+			return info
+		}
+	}
+	return nil
 }
 
 // reportStaleExceptionsInline reports stale exceptions via pass.Reportf.

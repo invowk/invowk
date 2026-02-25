@@ -24,8 +24,10 @@ type Client struct {
 // NewClient is the constructor for Client.
 func NewClient() *Client { return &Client{} }
 
-// WrongSig has a constructor returning the wrong type.
-type WrongSig struct {
+// WrongSig has a constructor returning the wrong type. Also flagged for
+// missing constructor since the wrong-return constructor doesn't satisfy
+// the prefix match (returnTypeName != structName).
+type WrongSig struct { // want `exported struct checkall\.WrongSig has no NewWrongSig\(\) constructor`
 	data string // want `struct field checkall\.WrongSig\.data uses primitive type string`
 }
 
@@ -91,3 +93,20 @@ func NewWithInternalState(opts ...WithInternalStateOption) *WithInternalState {
 }
 
 // No WithDerived expected — derived has //plint:internal.
+
+// --- Wrong-signature diagnostics ---
+
+// WrongSigType has IsValid() with wrong return and String() with wrong params.
+type WrongSigType string // want `named type checkall\.WrongSigType has IsValid\(\) but wrong signature` `named type checkall\.WrongSigType has String\(\) but wrong signature`
+
+func (w WrongSigType) IsValid() bool       { return w != "" }
+func (w WrongSigType) String(x int) string { return "" } // want `parameter "x" of checkall\.WrongSigType\.String uses primitive type int` `return value of checkall\.WrongSigType\.String uses primitive type string`
+
+// --- Variant constructor ---
+
+// Metadata has a variant constructor (prefix match) — NOT flagged for missing.
+type Metadata struct {
+	id string // want `struct field checkall\.Metadata\.id uses primitive type string`
+}
+
+func NewMetadataFromSource(id string) *Metadata { return &Metadata{id: id} } // want `parameter "id" of checkall\.NewMetadataFromSource uses primitive type string`

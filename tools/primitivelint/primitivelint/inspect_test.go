@@ -51,20 +51,54 @@ func TestShouldSkipFunc(t *testing.T) {
 func TestIsInterfaceMethodReturn(t *testing.T) {
 	t.Parallel()
 
+	// Helpers to build FuncType with param/result counts.
+	funcType := func(paramCount, resultCount int) *ast.FuncType {
+		ft := &ast.FuncType{}
+		if paramCount > 0 {
+			fields := make([]*ast.Field, paramCount)
+			for i := range fields {
+				fields[i] = &ast.Field{Type: ast.NewIdent("int")}
+			}
+			ft.Params = &ast.FieldList{List: fields}
+		}
+		if resultCount > 0 {
+			fields := make([]*ast.Field, resultCount)
+			for i := range fields {
+				fields[i] = &ast.Field{Type: ast.NewIdent("string")}
+			}
+			ft.Results = &ast.FieldList{List: fields}
+		}
+		return ft
+	}
+
 	tests := []struct {
 		name    string
 		hasRecv bool
 		fnName  string
+		fnType  *ast.FuncType // nil = no Type field
 		want    bool
 	}{
-		{name: "String with receiver", hasRecv: true, fnName: "String", want: true},
-		{name: "Error with receiver", hasRecv: true, fnName: "Error", want: true},
-		{name: "GoString with receiver", hasRecv: true, fnName: "GoString", want: true},
-		{name: "MarshalText with receiver", hasRecv: true, fnName: "MarshalText", want: true},
-		{name: "String without receiver", hasRecv: false, fnName: "String", want: false},
-		{name: "Error without receiver", hasRecv: false, fnName: "Error", want: false},
-		{name: "other method", hasRecv: true, fnName: "GetName", want: false},
-		{name: "regular func", hasRecv: false, fnName: "doSomething", want: false},
+		// Correct signatures — should be recognized as interface methods.
+		{name: "String() string", hasRecv: true, fnName: "String", fnType: funcType(0, 1), want: true},
+		{name: "Error() string", hasRecv: true, fnName: "Error", fnType: funcType(0, 1), want: true},
+		{name: "GoString() string", hasRecv: true, fnName: "GoString", fnType: funcType(0, 1), want: true},
+		{name: "MarshalText() ([]byte, error)", hasRecv: true, fnName: "MarshalText", fnType: funcType(0, 2), want: true},
+
+		// Wrong signatures — name matches but signature doesn't.
+		{name: "String(x int) string — has param", hasRecv: true, fnName: "String", fnType: funcType(1, 1), want: false},
+		{name: "Error() (string, error) — wrong result count", hasRecv: true, fnName: "Error", fnType: funcType(0, 2), want: false},
+		{name: "MarshalText() []byte — wrong result count", hasRecv: true, fnName: "MarshalText", fnType: funcType(0, 1), want: false},
+
+		// Not a method (no receiver).
+		{name: "String without receiver", hasRecv: false, fnName: "String", fnType: funcType(0, 1), want: false},
+		{name: "Error without receiver", hasRecv: false, fnName: "Error", fnType: funcType(0, 1), want: false},
+
+		// Other names.
+		{name: "other method", hasRecv: true, fnName: "GetName", fnType: funcType(0, 1), want: false},
+		{name: "regular func", hasRecv: false, fnName: "doSomething", fnType: funcType(0, 0), want: false},
+
+		// Nil Type field — should not panic.
+		{name: "nil Type field", hasRecv: true, fnName: "String", fnType: nil, want: false},
 	}
 
 	for _, tt := range tests {
@@ -72,6 +106,7 @@ func TestIsInterfaceMethodReturn(t *testing.T) {
 			t.Parallel()
 			fn := &ast.FuncDecl{
 				Name: ast.NewIdent(tt.fnName),
+				Type: tt.fnType,
 			}
 			if tt.hasRecv {
 				fn.Recv = &ast.FieldList{

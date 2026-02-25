@@ -219,47 +219,62 @@ func collectExportedStructsWithFields(pass *analysis.Pass, node *ast.GenDecl, ou
 // --- Phase 2: Reporters ---
 
 // reportWrongConstructorSig reports constructors whose return type does not
-// match the struct they are supposed to construct.
+// match the struct they are supposed to construct. Uses exact match for
+// the primary constructor (NewXxx) plus prefix match for variant constructors
+// (NewXxxFromY) that DO return the right type — but flags variants whose
+// return type is wrong. This avoids false positives where NewFooBar
+// (intended for FooBar) is flagged against Foo.
 func reportWrongConstructorSig(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
 
 	for _, s := range structs {
-		ctorName := "New" + s.name
-		ctorInfo := ctors[ctorName]
-		if ctorInfo == nil {
-			continue // no constructor — not our concern
-		}
-
 		qualName := fmt.Sprintf("%s.%s", pkgName, s.name)
 		if cfg.isExcepted(qualName + ".constructor-sig") {
 			continue
 		}
 
-		// Interface returns are valid factory patterns — skip the check.
-		if ctorInfo.returnsInterface {
-			continue
-		}
+		// Check all constructors matching this struct by prefix.
+		prefix := "New" + s.name
+		for ctorName, ctorInfo := range ctors {
+			if !strings.HasPrefix(ctorName, prefix) {
+				continue
+			}
 
-		var msg string
-		switch {
-		case ctorInfo.returnTypeName == "":
-			msg = fmt.Sprintf("constructor %s() for %s has no return type", ctorName, qualName)
-		case ctorInfo.returnTypeName == s.name:
-			continue // correct return type
-		default:
-			msg = fmt.Sprintf("constructor %s() for %s returns %s, expected %s",
-				ctorName, qualName, ctorInfo.returnTypeName, s.name)
-		}
+			// For variant constructors (name longer than "New" + structName),
+			// only check if they return the target struct's type. If they
+			// return a different type, they likely target a different struct
+			// (e.g., NewCommandScope targets CommandScope, not Command).
+			isExact := ctorName == prefix
+			if !isExact && ctorInfo.returnTypeName != s.name && !ctorInfo.returnsInterface {
+				continue
+			}
 
-		if bl.Contains(CategoryWrongConstructorSig, msg) {
-			continue
-		}
+			// Interface returns are valid factory patterns — skip the check.
+			if ctorInfo.returnsInterface {
+				continue
+			}
 
-		pass.Report(analysis.Diagnostic{
-			Pos:      ctorInfo.pos,
-			Category: CategoryWrongConstructorSig,
-			Message:  msg,
-		})
+			var msg string
+			switch {
+			case ctorInfo.returnTypeName == "":
+				msg = fmt.Sprintf("constructor %s() for %s has no return type", ctorName, qualName)
+			case ctorInfo.returnTypeName == s.name:
+				continue // correct return type
+			default:
+				msg = fmt.Sprintf("constructor %s() for %s returns %s, expected %s",
+					ctorName, qualName, ctorInfo.returnTypeName, s.name)
+			}
+
+			if bl.Contains(CategoryWrongConstructorSig, msg) {
+				continue
+			}
+
+			pass.Report(analysis.Diagnostic{
+				Pos:      ctorInfo.pos,
+				Category: CategoryWrongConstructorSig,
+				Message:  msg,
+			})
+		}
 	}
 }
 
@@ -284,8 +299,11 @@ func reportMissingFuncOptions(
 	}
 
 	for _, s := range structs {
+		// Prefer the exact NewXxx constructor for param-count analysis.
+		// Fall back to prefix match for existence checks.
 		ctorName := "New" + s.name
-		ctorInfo := ctors[ctorName]
+		exactCtor := ctors[ctorName]
+		anyCtor := findConstructorForStruct(s.name, ctors)
 
 		qualName := fmt.Sprintf("%s.%s", pkgName, s.name)
 		if cfg.isExcepted(qualName + ".func-options") {
@@ -295,12 +313,14 @@ func reportMissingFuncOptions(
 		optTypeName, hasOptType := structHasOptionType[s.name]
 
 		// Sub-check A: Detection — too many non-option params without options.
-		if ctorInfo != nil && !hasOptType && ctorInfo.paramCount > funcOptionsParamThreshold {
+		// Uses exact constructor match (NewXxx) for param-count analysis since
+		// variant constructors may have different param counts.
+		if exactCtor != nil && !hasOptType && exactCtor.paramCount > funcOptionsParamThreshold {
 			msg := fmt.Sprintf("constructor %s() for %s has %d non-option parameters; consider using functional options",
-				ctorName, qualName, ctorInfo.paramCount)
+				ctorName, qualName, exactCtor.paramCount)
 			if !bl.Contains(CategoryMissingFuncOptions, msg) {
 				pass.Report(analysis.Diagnostic{
-					Pos:      ctorInfo.pos,
+					Pos:      exactCtor.pos,
 					Category: CategoryMissingFuncOptions,
 					Message:  msg,
 				})
@@ -313,12 +333,27 @@ func reportMissingFuncOptions(
 		}
 
 		// B1: Constructor should accept variadic option param.
-		if ctorInfo != nil && !ctorInfo.hasVariadicOpt {
+		// Uses exact constructor for variadic check.
+		if exactCtor != nil && !exactCtor.hasVariadicOpt {
 			msg := fmt.Sprintf("constructor %s() for %s does not accept variadic ...%s",
 				ctorName, qualName, optTypeName)
 			if !bl.Contains(CategoryMissingFuncOptions, msg) {
 				pass.Report(analysis.Diagnostic{
-					Pos:      ctorInfo.pos,
+					Pos:      exactCtor.pos,
+					Category: CategoryMissingFuncOptions,
+					Message:  msg,
+				})
+			}
+		}
+
+		// If no exact constructor but a variant exists, check the variant
+		// for variadic option support.
+		if exactCtor == nil && anyCtor != nil && !anyCtor.hasVariadicOpt {
+			msg := fmt.Sprintf("constructor %s() for %s does not accept variadic ...%s",
+				ctorName, qualName, optTypeName)
+			if !bl.Contains(CategoryMissingFuncOptions, msg) {
+				pass.Report(analysis.Diagnostic{
+					Pos:      anyCtor.pos,
 					Category: CategoryMissingFuncOptions,
 					Message:  msg,
 				})
@@ -359,16 +394,17 @@ func reportMissingFuncOptions(
 
 // reportMissingImmutability reports exported struct fields on types that have
 // a constructor. If a struct uses a NewXxx constructor, its fields should be
-// unexported to enforce immutability after construction.
+// unexported to enforce immutability after construction. Uses prefix matching
+// to find constructors (e.g., NewConfigFromFile for Config).
 func reportMissingImmutability(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
 
 	for _, s := range structs {
-		ctorName := "New" + s.name
-		if ctors[ctorName] == nil {
+		if findConstructorForStruct(s.name, ctors) == nil {
 			continue // no constructor — exported fields are fine
 		}
 
+		ctorName := "New" + s.name
 		qualName := fmt.Sprintf("%s.%s", pkgName, s.name)
 		if cfg.isExcepted(qualName + ".immutability") {
 			continue

@@ -38,6 +38,8 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `missing-stringer` | `--check-stringer` or `--check-all` | Named type missing `String()` method |
 | `missing-constructor` | `--check-constructors` or `--check-all` | Exported struct missing `NewXxx()` constructor |
 | `wrong-constructor-sig` | `--check-constructor-sig` or `--check-all` | Constructor `NewXxx()` returns wrong type |
+| `wrong-isvalid-sig` | `--check-isvalid` or `--check-all` | Named type has `IsValid()` but wrong signature |
+| `wrong-stringer-sig` | `--check-stringer` or `--check-all` | Named type has `String()` but wrong signature |
 | `missing-func-options` | `--check-func-options` or `--check-all` | Struct should use or complete functional options |
 | `missing-immutability` | `--check-immutability` or `--check-all` | Struct with constructor has exported mutable fields |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
@@ -165,15 +167,19 @@ Reports exception patterns that matched **zero locations** in the current packag
 
 ### `--check-isvalid`
 
-Reports named non-struct types (`type Foo string`, `type Bar int`) that lack an `IsValid() (bool, []error)` method. Only checks types backed by primitives (string, int, bool, float). Skips struct types (which use composite `IsValid()` delegation), interface types, and type aliases (`type X = Y`, which inherit methods from the aliased type). For unexported types, also checks for `isValid()` (lowercase), matching the project convention.
+Reports named non-struct types (`type Foo string`, `type Bar int`) that lack an `IsValid() (bool, []error)` method, or that have an `IsValid()` method with the wrong signature. Only checks types backed by primitives (string, int, bool, float). Skips struct types (which use composite `IsValid()` delegation), interface types, and type aliases (`type X = Y`, which inherit methods from the aliased type). For unexported types, also checks for `isValid()` (lowercase), matching the project convention.
+
+When `IsValid()` exists but has a non-compliant signature (e.g., `IsValid() bool` instead of `IsValid() (bool, []error)`), a `wrong-isvalid-sig` diagnostic is emitted instead of `missing-isvalid`.
 
 ### `--check-stringer`
 
-Reports named non-struct types lacking a `String() string` method. Same scope as `--check-isvalid`. Recognizes both value and pointer receivers.
+Reports named non-struct types lacking a `String() string` method, or that have a `String()` method with the wrong signature. Same scope as `--check-isvalid`. Recognizes both value and pointer receivers.
+
+When `String()` exists but has a non-compliant signature (e.g., `String() int` or `String(x int) string`), a `wrong-stringer-sig` diagnostic is emitted instead of `missing-stringer`.
 
 ### `--check-constructors`
 
-Reports **exported** struct types that have no `NewXxx()` constructor function in the same package. Unexported structs and non-struct types are skipped. **Error types are automatically excluded**: structs whose name ends with `Error` or that implement the `error` interface (have an `Error() string` method) are skipped, since error types are typically constructed via struct literals.
+Reports **exported** struct types that have no `NewXxx()` constructor function in the same package. Uses **prefix matching** — any function starting with `"New" + structName` whose return type resolves to the struct satisfies the check (e.g., `NewMetadataFromSource` satisfies `Metadata`). This eliminates false positives for variant constructors. Unexported structs and non-struct types are skipped. **Error types are automatically excluded**: structs whose name ends with `Error` or that implement the `error` interface (have an `Error() string` method) are skipped, since error types are typically constructed via struct literals.
 
 ### `--check-constructor-sig`
 
@@ -236,7 +242,7 @@ messages = [
 ]
 ```
 
-Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[missing-func-options]`, `[missing-immutability]`. Empty sections are omitted. Messages sorted alphabetically for stable diffs.
+Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`. Empty sections are omitted. Messages sorted alphabetically for stable diffs.
 
 ### When to update
 

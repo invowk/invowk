@@ -23,3 +23,16 @@ func (p *PointerReceiver) String() string { return string(*p) }
 type MyStruct struct {
 	Name string // want `struct field stringer\.MyStruct\.Name uses primitive type string`
 }
+
+// WrongStringSig has String() but returns int instead of string — should
+// trigger wrong-stringer-sig instead of missing-stringer.
+type WrongStringSig string // want `named type stringer\.WrongStringSig has String\(\) but wrong signature`
+
+func (w WrongStringSig) String() int { return 0 }
+
+// WrongStringParams has String(x int) — wrong parameter count. Also
+// flagged by primary mode for param and return since it no longer matches
+// the interface method exemption.
+type WrongStringParams string // want `named type stringer\.WrongStringParams has String\(\) but wrong signature`
+
+func (w WrongStringParams) String(x int) string { return "" } // want `parameter "x" of stringer\.WrongStringParams\.String uses primitive type int` `return value of stringer\.WrongStringParams\.String uses primitive type string`

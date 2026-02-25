@@ -54,3 +54,20 @@ func (e *ParseFailure) Error() string { return e.Msg }
 type ServerError struct {
 	Code int // want `struct field constructors\.ServerError\.Code uses primitive type int`
 }
+
+// --- Variant constructor (prefix match) ---
+
+// Metadata has NewMetadataFromSource (variant constructor) — should NOT
+// be flagged for missing constructor because the prefix match finds it.
+type Metadata struct {
+	id int // want `struct field constructors\.Metadata\.id uses primitive type int`
+}
+
+func NewMetadataFromSource(id int) *Metadata { return &Metadata{id: id} } // want `parameter "id" of constructors\.NewMetadataFromSource uses primitive type int`
+
+// Result has NewResultFromData — variant constructor satisfies the check.
+type Result struct {
+	data string // want `struct field constructors\.Result\.data uses primitive type string`
+}
+
+func NewResultFromData(data string) *Result { return &Result{data: data} } // want `parameter "data" of constructors\.NewResultFromData uses primitive type string`

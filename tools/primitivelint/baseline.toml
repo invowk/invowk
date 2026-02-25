@@ -3,7 +3,7 @@
 # primitivelint baseline — accepted DDD compliance findings
 # Generated: 2026-02-25
 # Regenerate: make update-baseline
-# Total: 840 findings
+# Total: 843 findings
 
 # Bare primitive type usage
 [primitive]
@@ -748,7 +748,6 @@ messages = [
     "exported struct invowkfile.Implementation has no NewImplementation() constructor",
     "exported struct invowkfile.ImplementationMatch has no NewImplementationMatch() constructor",
     "exported struct invowkfile.Invowkfile has no NewInvowkfile() constructor",
-    "exported struct invowkfile.ModuleMetadata has no NewModuleMetadata() constructor",
     "exported struct invowkfile.PlatformConfig has no NewPlatformConfig() constructor",
     "exported struct invowkfile.PlatformRuntimeKey has no NewPlatformRuntimeKey() constructor",
     "exported struct invowkfile.RuntimeConfig has no NewRuntimeConfig() constructor",
@@ -858,4 +857,13 @@ messages = [
     "struct serverbase.Base has Option type but field \"state\" has no WithState() function",
     "struct serverbase.Base has Option type but field \"stateMu\" has no WithStateMu() function",
     "struct serverbase.Base has Option type but field \"wg\" has no WithWg() function",
+]
+
+# Structs with constructor but exported mutable fields
+[missing-immutability]
+messages = [
+    "struct invowkfile.ModuleMetadata has NewModuleMetadata() constructor but field Description is exported",
+    "struct invowkfile.ModuleMetadata has NewModuleMetadata() constructor but field Module is exported",
+    "struct invowkfile.ModuleMetadata has NewModuleMetadata() constructor but field Requires is exported",
+    "struct invowkfile.ModuleMetadata has NewModuleMetadata() constructor but field Version is exported",
 ]

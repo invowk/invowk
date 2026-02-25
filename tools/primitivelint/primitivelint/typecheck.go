@@ -23,7 +23,10 @@ func isPrimitive(t types.Type) bool {
 		return isPrimitive(t.Elem())
 	case *types.Slice:
 		// []byte is an I/O boundary type, not a domain type.
-		if basic, ok := t.Elem().(*types.Basic); ok && basic.Kind() == types.Byte {
+		// Unalias the element type first so type aliases to byte
+		// (e.g., type B = byte) are correctly recognized.
+		elem := types.Unalias(t.Elem())
+		if basic, ok := elem.(*types.Basic); ok && basic.Kind() == types.Byte {
 			return false
 		}
 		return isPrimitive(t.Elem())

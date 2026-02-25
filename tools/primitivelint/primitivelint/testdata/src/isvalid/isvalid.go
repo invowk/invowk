@@ -42,3 +42,14 @@ type MyStruct struct {
 type MyInterface interface {
 	DoSomething()
 }
+
+// WrongIsValidSig has IsValid() but with the wrong signature — should
+// trigger wrong-isvalid-sig instead of missing-isvalid.
+type WrongIsValidSig string // want `named type isvalid\.WrongIsValidSig has IsValid\(\) but wrong signature`
+
+func (w WrongIsValidSig) IsValid() bool { return w != "" }
+
+// WrongIsValidParams has IsValid with a parameter — wrong signature.
+type WrongIsValidParams string // want `named type isvalid\.WrongIsValidParams has IsValid\(\) but wrong signature`
+
+func (w WrongIsValidParams) IsValid(strict bool) (bool, []error) { return w != "", nil }

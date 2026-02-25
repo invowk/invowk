@@ -22,6 +22,8 @@ type BaselineConfig struct {
 	MissingStringer     BaselineCategory `toml:"missing-stringer"`
 	MissingConstructor  BaselineCategory `toml:"missing-constructor"`
 	WrongConstructorSig BaselineCategory `toml:"wrong-constructor-sig"`
+	WrongIsValidSig     BaselineCategory `toml:"wrong-isvalid-sig"`
+	WrongStringerSig    BaselineCategory `toml:"wrong-stringer-sig"`
 	MissingFuncOptions  BaselineCategory `toml:"missing-func-options"`
 	MissingImmutability BaselineCategory `toml:"missing-immutability"`
 
@@ -87,6 +89,8 @@ func (b *BaselineConfig) Count() int {
 		len(b.MissingStringer.Messages) +
 		len(b.MissingConstructor.Messages) +
 		len(b.WrongConstructorSig.Messages) +
+		len(b.WrongIsValidSig.Messages) +
+		len(b.WrongStringerSig.Messages) +
 		len(b.MissingFuncOptions.Messages) +
 		len(b.MissingImmutability.Messages)
 }
@@ -99,6 +103,8 @@ func (b *BaselineConfig) buildLookup() {
 		CategoryMissingStringer:     toSet(b.MissingStringer.Messages),
 		CategoryMissingConstructor:  toSet(b.MissingConstructor.Messages),
 		CategoryWrongConstructorSig: toSet(b.WrongConstructorSig.Messages),
+		CategoryWrongIsValidSig:     toSet(b.WrongIsValidSig.Messages),
+		CategoryWrongStringerSig:    toSet(b.WrongStringerSig.Messages),
 		CategoryMissingFuncOptions:  toSet(b.MissingFuncOptions.Messages),
 		CategoryMissingImmutability: toSet(b.MissingImmutability.Messages),
 	}
@@ -134,6 +140,8 @@ func WriteBaseline(path string, findings map[string][]string) error {
 		{CategoryMissingStringer, "Named types missing String() method"},
 		{CategoryMissingConstructor, "Exported structs missing NewXxx() constructor"},
 		{CategoryWrongConstructorSig, "Constructors with wrong return type"},
+		{CategoryWrongIsValidSig, "Named types with wrong IsValid() signature"},
+		{CategoryWrongStringerSig, "Named types with wrong String() signature"},
 		{CategoryMissingFuncOptions, "Structs missing functional options pattern"},
 		{CategoryMissingImmutability, "Structs with constructor but exported mutable fields"},
 	}
