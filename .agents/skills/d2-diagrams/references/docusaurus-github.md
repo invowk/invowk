@@ -54,7 +54,6 @@ Here's our system architecture:
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -96,7 +95,7 @@ for d2file in docs/**/diagrams/*.d2; do
     svgfile="${d2file%.d2}.svg"
     echo "Rendering: $d2file -> $svgfile"
     d2 fmt "$d2file"
-    d2 --layout=tala "$d2file" "$svgfile"
+    d2 --layout=tala --tala-seeds=100 "$d2file" "$svgfile"
 done
 ```
 
@@ -436,7 +435,7 @@ Use a service like Kroki:
 | "d2: command not found" | D2 not in PATH | Add `~/.local/bin` to PATH |
 | ESM import error | Docusaurus/Node version | Use dynamic import |
 | Blank diagrams | Missing D2 in CI | Install D2 in workflow |
-| Different renders | No seed set | Add `tala-seeds` config |
+| Different renders | No seed set | Use `--tala-seeds=100` in render commands |
 | TALA not available | No license | Use ELK fallback |
 
 ### Debug Mode
@@ -453,7 +452,7 @@ Use a service like Kroki:
 
 1. **Store source `.d2` files** - Version control the source
 2. **Render in CI** - Consistent output across environments
-3. **Use deterministic seeds** - Prevent unnecessary diffs
+3. **Use deterministic seeds** - Pass `--tala-seeds=100` to prevent unnecessary diffs
 4. **Cache aggressively** - Speed up builds
 5. **Validate in PRs** - Catch errors before merge
 6. **Use TALA when available** - Best layout quality

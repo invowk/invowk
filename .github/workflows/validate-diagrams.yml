@@ -66,6 +66,11 @@ jobs:
           echo ""
           echo "All D2 diagrams are valid and properly formatted."
 
+      - name: Check flowchart readability guardrails
+        run: |
+          chmod +x scripts/check-diagram-readability.sh
+          ./scripts/check-diagram-readability.sh
+
       - name: Check SVGs are up-to-date
         run: |
           echo "Checking that SVG renders exist for all D2 sources..."

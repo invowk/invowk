@@ -23,7 +23,7 @@ if ! d2 validate "$D2_FILE" 2>&1; then
 fi
 
 # Stage 3: Render (only after validation passes)
-d2 --layout=tala "$D2_FILE" "$OUTPUT"
+d2 --layout=tala --tala-seeds=100 "$D2_FILE" "$OUTPUT"
 ```
 
 **Why three stages:**
@@ -123,7 +123,7 @@ def generate_and_validate_d2(
             # Validation passed, render
             output_path = filepath.replace('.d2', '.svg')
             subprocess.run(
-                ['d2', '--layout=tala', filepath, output_path],
+                ['d2', '--layout=tala', '--tala-seeds=100', filepath, output_path],
                 check=True
             )
             return output_path
@@ -173,13 +173,9 @@ up      down      right      left
 
 For reproducible output in CI/CD:
 
-```d2
-vars: {
-  d2-config: {
-    layout-engine: tala
-    tala-seeds: 42
-  }
-}
+```bash
+# Keep d2-config layout-only; pass seeds through CLI
+d2 --layout=tala --tala-seeds=100 diagram.d2 diagram.svg
 ```
 
 **Why seeds matter:**
@@ -240,7 +236,7 @@ jobs:
           for file in docs/diagrams/**/*.d2; do
             output="${file%.d2}.svg"
             echo "Rendering $file -> $output"
-            d2 --layout=tala "$file" "$output"
+            d2 --layout=tala --tala-seeds=100 "$file" "$output"
           done
 
       - name: Commit rendered diagrams
@@ -379,7 +375,6 @@ Use validated templates as starting points:
 vars: {
   d2-config: {
     layout-engine: tala
-    tala-seeds: 42
   }
 }
 
@@ -409,7 +404,7 @@ def render_with_fallback(filepath):
     """Try TALA first, fall back to dagre on failure."""
     try:
         subprocess.run(
-            ['d2', '--layout=tala', filepath, output],
+            ['d2', '--layout=tala', '--tala-seeds=100', filepath, output],
             check=True,
             timeout=30
         )

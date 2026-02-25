@@ -284,7 +284,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -351,6 +351,12 @@ build-cross: $(BUILD_DIR)
 render-diagrams:
 	@echo "Rendering D2 diagrams..."
 	./scripts/render-diagrams.sh
+
+# Validate readability guardrails for flowchart diagrams
+.PHONY: check-diagram-readability
+check-diagram-readability:
+	@echo "Checking flowchart readability guardrails..."
+	./scripts/check-diagram-readability.sh
 
 # VHS Demo Generation (not used for CI testing - see test-cli for that)
 .PHONY: vhs-demos vhs-validate
@@ -419,6 +425,7 @@ help:
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
 	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2)"
+	@echo "  check-diagram-readability  Validate flowchart readability guardrails"
 	@echo "  version-docs     Snapshot docs for a release version"
 	@echo "  release          Create and push a signed version tag"
 	@echo "  release-bump     Compute next version and create signed tag"

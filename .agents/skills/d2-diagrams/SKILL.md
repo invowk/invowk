@@ -159,6 +159,18 @@ error -> input
 process -> end
 ```
 
+## Flowchart Readability Rules
+
+For human-friendly flowcharts, enforce these guardrails:
+
+1. **Explicit start node** - Define `Start` as `shape: oval`
+2. **Visible entry edge** - Include at least one `Start -> ...` connection
+3. **Explicit direction** - Always set `direction:` (`down` or `right` typically)
+4. **Decision branch labels** - Label all outgoing edges from decision diamonds (`Yes`, `No`, etc.)
+5. **Single primary entry path** - Avoid floating/disconnected first steps
+
+In this repository, run `./scripts/check-diagram-readability.sh` after editing flowcharts.
+
 ## Agent Workflow
 
 The recommended validation pipeline for agents:
