@@ -81,3 +81,31 @@ type NoVariadic struct {
 type NoVariadicOption func(*NoVariadic)
 
 func NewNoVariadic(name string) *NoVariadic { return &NoVariadic{name: name} } // want `constructor NewNoVariadic\(\) for funcoptions\.NoVariadic does not accept variadic \.\.\.NoVariadicOption` `parameter "name" of funcoptions\.NewNoVariadic uses primitive type string`
+
+// --- Completeness: internal state fields excluded via //plint:internal ---
+
+// HasInternalState has an option type with one internal-state field excluded
+// from the WithXxx() completeness check.
+type HasInternalState struct {
+	addr string // want `struct field funcoptions\.HasInternalState\.addr uses primitive type string`
+	//plint:internal -- computed cache, not user-configurable
+	cache string // want `struct field funcoptions\.HasInternalState\.cache uses primitive type string`
+}
+
+// HasInternalStateOption is the functional option type for HasInternalState.
+type HasInternalStateOption func(*HasInternalState)
+
+// WithAddr sets the addr on HasInternalState.
+func WithAddr(a string) HasInternalStateOption { return func(s *HasInternalState) { s.addr = a } } // want `parameter "a" of funcoptions\.WithAddr uses primitive type string`
+
+// NewHasInternalState creates a HasInternalState with options.
+func NewHasInternalState(opts ...HasInternalStateOption) *HasInternalState {
+	s := &HasInternalState{}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// No WithCache expected — cache has //plint:internal.
+// WithAddr satisfies the addr field. No missing-func-options diagnostics.

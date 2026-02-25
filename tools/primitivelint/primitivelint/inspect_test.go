@@ -141,6 +141,16 @@ func TestHasIgnoreDirective(t *testing.T) {
 			lineComment: "// something else",
 			want:        true,
 		},
+		{
+			name:        "plint:ignore short-form alias",
+			lineComment: "//plint:ignore -- short form",
+			want:        true,
+		},
+		{
+			name:        "plint:ignore in doc comment",
+			doc:         "//plint:ignore",
+			want:        true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -151,6 +161,64 @@ func TestHasIgnoreDirective(t *testing.T) {
 			got := hasIgnoreDirective(doc, lineComment)
 			if got != tt.want {
 				t.Errorf("hasIgnoreDirective(doc=%q, line=%q) = %v, want %v",
+					tt.doc, tt.lineComment, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHasInternalDirective(t *testing.T) {
+	t.Parallel()
+
+	makeCommentGroup := func(text string) *ast.CommentGroup {
+		if text == "" {
+			return nil
+		}
+		return &ast.CommentGroup{
+			List: []*ast.Comment{{Text: text}},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		doc         string
+		lineComment string
+		want        bool
+	}{
+		{
+			name:        "plint:internal in line comment",
+			lineComment: "//plint:internal",
+			want:        true,
+		},
+		{
+			name: "plint:internal in doc comment",
+			doc:  "//plint:internal -- computed cache",
+			want: true,
+		},
+		{
+			name:        "plint:ignore does not match internal",
+			lineComment: "//plint:ignore",
+			want:        false,
+		},
+		{
+			name:        "regular comment",
+			lineComment: "// some comment",
+			want:        false,
+		},
+		{
+			name: "both nil",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			doc := makeCommentGroup(tt.doc)
+			lineComment := makeCommentGroup(tt.lineComment)
+			got := hasInternalDirective(doc, lineComment)
+			if got != tt.want {
+				t.Errorf("hasInternalDirective(doc=%q, line=%q) = %v, want %v",
 					tt.doc, tt.lineComment, got, tt.want)
 			}
 		})

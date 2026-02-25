@@ -76,9 +76,10 @@ func trackConstructorDetails(pass *analysis.Pass, fn *ast.FuncDecl, seen map[str
 		pos: fn.Name.Pos(),
 	}
 
-	// Resolve return type name.
+	// Resolve return type name and detect interface returns.
 	if fn.Type.Results != nil {
 		info.returnTypeName = resolveReturnTypeName(pass, fn.Type.Results)
+		info.returnsInterface = returnsInterface(pass, fn.Type.Results)
 	}
 
 	// Count parameters and detect variadic option pattern.
@@ -198,10 +199,12 @@ func collectExportedStructsWithFields(pass *analysis.Pass, node *ast.GenDecl, ou
 
 		// Collect field metadata for structural checks.
 		for _, field := range st.Fields.List {
+			isInternal := hasInternalDirective(field.Doc, field.Comment)
 			for _, fieldName := range field.Names {
 				info.fields = append(info.fields, structFieldMeta{
 					name:     fieldName.Name,
 					exported: fieldName.IsExported(),
+					internal: isInternal,
 					pos:      fieldName.Pos(),
 				})
 			}
@@ -229,6 +232,11 @@ func reportWrongConstructorSig(pass *analysis.Pass, structs []exportedStructInfo
 
 		qualName := fmt.Sprintf("%s.%s", pkgName, s.name)
 		if cfg.isExcepted(qualName + ".constructor-sig") {
+			continue
+		}
+
+		// Interface returns are valid factory patterns — skip the check.
+		if ctorInfo.returnsInterface {
 			continue
 		}
 
@@ -326,6 +334,9 @@ func reportMissingFuncOptions(
 		for _, f := range s.fields {
 			if f.exported {
 				continue // exported fields aren't set via options
+			}
+			if f.internal {
+				continue // //plint:internal — internal state, not user-configurable
 			}
 
 			expectedWith := "With" + capitalizeFirst(f.name)

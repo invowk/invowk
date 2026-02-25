@@ -1,10 +1,11 @@
 package exceptions
 
-// ExceptedStruct has a field with an ignore directive.
+// ExceptedStruct has fields with various ignore directive forms.
 type ExceptedStruct struct {
-	Name string //primitivelint:ignore -- display-only label
-	Age  int    //nolint:primitivelint
-	Bad  string // want `struct field exceptions\.ExceptedStruct\.Bad uses primitive type string`
+	Name  string //primitivelint:ignore -- display-only label
+	Age   int    //nolint:primitivelint
+	Score int    //plint:ignore -- short-form alias
+	Bad   string // want `struct field exceptions\.ExceptedStruct\.Bad uses primitive type string`
 }
 
 // ExceptedFunc has an ignore directive on the whole function.

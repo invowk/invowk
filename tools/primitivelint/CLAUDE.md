@@ -111,10 +111,27 @@ reason = "display-only labels in 12+ unexported structs"
 
 ```go
 type Foo struct {
-    Bar string //primitivelint:ignore -- display-only
+    Bar string //plint:ignore -- display-only (short form)
     Baz int    //nolint:primitivelint
+    Qux string //primitivelint:ignore -- legacy form (still supported)
 }
 ```
+
+Accepted directive forms: `//plint:ignore`, `//primitivelint:ignore`, `//nolint:primitivelint`.
+
+### 3. Internal-State Directive — functional options exclusion
+
+Fields marked with `//plint:internal` are excluded from the `--check-func-options` completeness check. Use this for fields that represent internal state (caches, mutexes, computed values) that should not be initialized via functional options.
+
+```go
+type Server struct {
+    addr  string
+    //plint:internal -- managed by background goroutine
+    cache string
+}
+```
+
+This directive only affects `--check-func-options`. Other checks (primitive detection, immutability) still apply.
 
 ## Supplementary Modes
 
@@ -140,11 +157,11 @@ Reports named non-struct types lacking a `String() string` method. Same scope as
 
 ### `--check-constructors`
 
-Reports **exported** struct types that have no `NewXxx()` constructor function in the same package. Unexported structs and non-struct types are skipped.
+Reports **exported** struct types that have no `NewXxx()` constructor function in the same package. Unexported structs and non-struct types are skipped. **Error types are automatically excluded**: structs whose name ends with `Error` or that implement the `error` interface (have an `Error() string` method) are skipped, since error types are typically constructed via struct literals.
 
 ### `--check-constructor-sig`
 
-Reports `NewXxx()` constructor functions whose return type does not match the struct they construct. For example, `NewConfig()` must return `*Config` or `Config` — returning `*Server` is flagged. Handles multi-return patterns like `(*Config, error)` by checking the first non-error return type. Skips interface return types (can't match to a struct name). Only checks constructors that exist — missing constructors are `--check-constructors`' concern.
+Reports `NewXxx()` constructor functions whose return type does not match the struct they construct. For example, `NewConfig()` must return `*Config` or `Config` — returning `*Server` is flagged. Handles multi-return patterns like `(*Config, error)` by checking the first non-error return type. **Skips interface return types** — factory functions returning interfaces (e.g., `NewEngine() Engine` where `Engine` is an interface) are a valid Go pattern and are not flagged. Only checks constructors that exist — missing constructors are `--check-constructors`' concern.
 
 ### `--check-func-options`
 
@@ -155,6 +172,7 @@ Two sub-checks for the [functional options pattern](https://dave.cheney.net/2014
 **Completeness**: For structs that already have a functional options type (`type XxxOption func(*Xxx)`), verifies:
 - The constructor `NewXxx()` accepts `...XxxOption` as a variadic parameter
 - Each unexported field has a corresponding `WithFieldName()` function
+- Fields marked with `//plint:internal` are excluded from the completeness check
 
 Option types are detected by function signature (`func(*TargetStruct)`), not naming convention, so both `type Option func(*Server)` and `type ServerOption func(*Server)` are recognized.
 

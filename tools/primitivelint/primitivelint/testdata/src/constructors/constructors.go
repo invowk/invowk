@@ -31,3 +31,26 @@ func NewOptions() *Options { return &Options{} }
 
 // NamedType is not a struct — should NOT be checked by --check-constructors.
 type NamedType string
+
+// --- Error type exclusions ---
+
+// ConnectionError is an error type by name — not flagged for missing constructor.
+type ConnectionError struct {
+	Message string // want `struct field constructors\.ConnectionError\.Message uses primitive type string`
+}
+
+func (e *ConnectionError) Error() string { return e.Message }
+
+// ParseFailure implements error without the "Error" suffix — still skipped
+// because it has an Error() method.
+type ParseFailure struct {
+	Msg string // want `struct field constructors\.ParseFailure\.Msg uses primitive type string`
+}
+
+func (e *ParseFailure) Error() string { return e.Msg }
+
+// ServerError has "Error" suffix but no Error() method — still skipped by
+// the naming convention.
+type ServerError struct {
+	Code int // want `struct field constructors\.ServerError\.Code uses primitive type int`
+}

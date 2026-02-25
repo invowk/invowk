@@ -90,8 +90,9 @@ func primitiveTypeName(t types.Type) string {
 
 // resolveReturnTypeName resolves the first non-error return type of a
 // function's result list. Returns the type name after dereferencing pointers
-// (e.g., *Config → "Config"). Returns "" for void functions, interface
-// returns, or unresolvable types.
+// (e.g., *Config → "Config"). Returns "" for void functions or when no
+// non-error return type can be resolved. Interface returns are detected
+// separately by returnsInterface().
 func resolveReturnTypeName(pass *analysis.Pass, results *ast.FieldList) string {
 	if results == nil || len(results.List) == 0 {
 		return ""
@@ -127,6 +128,36 @@ func resolveReturnTypeName(pass *analysis.Pass, results *ast.FieldList) string {
 	}
 
 	return ""
+}
+
+// returnsInterface reports whether the first non-error return type of a
+// function result list is an interface. Interface returns are valid factory
+// patterns (e.g., NewFoo() returning io.Reader) and should not be flagged
+// as wrong return types.
+func returnsInterface(pass *analysis.Pass, results *ast.FieldList) bool {
+	if results == nil || len(results.List) == 0 {
+		return false
+	}
+
+	for _, field := range results.List {
+		resolved := pass.TypesInfo.TypeOf(field.Type)
+		if resolved == nil {
+			continue
+		}
+		if isErrorType(resolved) {
+			continue
+		}
+		if ptr, ok := resolved.(*types.Pointer); ok {
+			resolved = ptr.Elem()
+		}
+		resolved = types.Unalias(resolved)
+		if named, ok := resolved.(*types.Named); ok {
+			_, isIface := named.Underlying().(*types.Interface)
+			return isIface
+		}
+		return false
+	}
+	return false
 }
 
 // isErrorType reports whether t is the built-in error interface.

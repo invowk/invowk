@@ -1,5 +1,7 @@
 package constructorsig
 
+import "fmt"
+
 // GoodReturn has a constructor returning the correct type — no diagnostic.
 type GoodReturn struct{ name string } // want `struct field constructorsig\.GoodReturn\.name uses primitive type string`
 
@@ -27,3 +29,9 @@ func NewNoReturn() {} // want `constructor NewNoReturn\(\) for constructorsig\.N
 
 // MissingCtor has no constructor — not checked by constructor-sig.
 type MissingCtor struct{ z string } // want `struct field constructorsig\.MissingCtor\.z uses primitive type string`
+
+// InterfaceReturn has a constructor that returns an interface — not flagged.
+// Factory functions returning interfaces are a valid Go pattern.
+type InterfaceReturn struct{ w string } // want `struct field constructorsig\.InterfaceReturn\.w uses primitive type string`
+
+func NewInterfaceReturn() fmt.Stringer { return nil }

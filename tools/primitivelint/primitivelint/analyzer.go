@@ -7,8 +7,10 @@
 // instead of raw string, int, etc.
 //
 // The analyzer supports an exception mechanism via TOML config file
-// and inline //primitivelint:ignore directives for intentional
-// primitive usage at exec/OS boundaries, display-only fields, etc.
+// and inline //plint:ignore (or //primitivelint:ignore) directives for
+// intentional primitive usage at exec/OS boundaries, display-only fields,
+// etc. Fields can also be marked //plint:internal to exclude them from
+// functional options completeness checks.
 //
 // Additional modes:
 //   - --audit-exceptions: report exception patterns that matched zero locations
@@ -21,6 +23,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -170,7 +173,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		withFunctions      map[string][]string             // targetStructName → ["WithXxx", ...]
 	)
 
-	if rc.checkIsValid || rc.checkStringer {
+	// Method tracking serves IsValid/Stringer checks and error type detection
+	// for the missing-constructor check (skip structs implementing error).
+	needMethods := rc.checkIsValid || rc.checkStringer || rc.checkConstructors
+	if needMethods {
 		methodSeen = make(map[string]bool)
 	}
 	if needConstructors {
@@ -229,8 +235,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			// Primary mode: check func params and returns for primitives.
 			inspectFuncDecl(pass, n, cfg, bl)
 
-			// Supplementary: track methods for isvalid/stringer.
-			if rc.checkIsValid || rc.checkStringer {
+			// Supplementary: track methods for isvalid/stringer and error detection.
+			if needMethods {
 				trackMethods(n, methodSeen)
 			}
 
@@ -254,7 +260,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		reportMissingStringer(pass, namedTypes, methodSeen, cfg, bl)
 	}
 	if rc.checkConstructors {
-		reportMissingConstructors(pass, exportedStructs, constructorDetails, cfg, bl)
+		reportMissingConstructors(pass, exportedStructs, constructorDetails, methodSeen, cfg, bl)
 	}
 
 	// Structural checks — all require constructorDetails.
@@ -296,16 +302,18 @@ type exportedStructInfo struct {
 type structFieldMeta struct {
 	name     string    // field name
 	exported bool      // whether the field name is exported
+	internal bool      // field has //plint:internal directive (excluded from func-options)
 	pos      token.Pos // position for diagnostics
 }
 
 // constructorFuncInfo records details about a NewXxx constructor function
 // for signature validation, functional options detection, and immutability.
 type constructorFuncInfo struct {
-	pos            token.Pos // position for diagnostics
-	returnTypeName string    // resolved first non-error return type name (e.g., "Config")
-	paramCount     int       // parameter count excluding trailing variadic option
-	hasVariadicOpt bool      // last param is ...OptionType (func taking *TargetStruct)
+	pos              token.Pos // position for diagnostics
+	returnTypeName   string    // resolved first non-error return type name (e.g., "Config")
+	returnsInterface bool      // first non-error return is an interface (skip sig check)
+	paramCount       int       // parameter count excluding trailing variadic option
+	hasVariadicOpt   bool      // last param is ...OptionType (func taking *TargetStruct)
 }
 
 // collectNamedTypes extracts non-struct named type definitions from a
@@ -387,7 +395,7 @@ func collectExportedStructs(pass *analysis.Pass, node *ast.GenDecl, out *[]expor
 }
 
 // trackMethods records method names keyed by receiver type for the
-// IsValid/Stringer checks.
+// IsValid/Stringer checks and error type detection in --check-constructors.
 func trackMethods(fn *ast.FuncDecl, seen map[string]bool) {
 	if fn.Recv == nil || len(fn.Recv.List) == 0 {
 		return
@@ -458,11 +466,19 @@ func reportMissingStringer(pass *analysis.Pass, types []namedTypeInfo, methods m
 
 // reportMissingConstructors reports exported struct types that lack a
 // NewXxx() constructor function in the same package.
-func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
+// Error types are skipped: structs whose name ends with "Error" or that
+// implement the error interface (have an Error() string method).
+func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, methods map[string]bool, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
 	for _, s := range structs {
 		ctorName := "New" + s.name
 		if ctors[ctorName] != nil {
+			continue
+		}
+
+		// Skip error types — they are typically constructed via struct
+		// literals, not constructor functions.
+		if strings.HasSuffix(s.name, "Error") || methods[s.name+".Error"] {
 			continue
 		}
 

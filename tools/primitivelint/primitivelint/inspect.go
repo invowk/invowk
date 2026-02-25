@@ -317,20 +317,32 @@ func receiverTypeName(expr ast.Expr) string {
 	return ""
 }
 
-// hasIgnoreDirective checks whether a field/func has a //primitivelint:ignore
-// or //nolint:primitivelint directive in its associated comments.
+// hasIgnoreDirective checks whether a field/func has a //plint:ignore,
+// //primitivelint:ignore, or //nolint:primitivelint directive.
 func hasIgnoreDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
+	return hasCommentDirective(doc, lineComment, "plint:ignore", "primitivelint:ignore", "nolint:primitivelint")
+}
+
+// hasInternalDirective checks whether a struct field has a //plint:internal
+// directive, indicating the field is internal state that should not be
+// initialized via functional options (excluded from WithXxx() checks).
+func hasInternalDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
+	return hasCommentDirective(doc, lineComment, "plint:internal")
+}
+
+// hasCommentDirective checks whether any of the given directive substrings
+// appear in the doc or line comment groups.
+func hasCommentDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup, directives ...string) bool {
 	for _, cg := range []*ast.CommentGroup{doc, lineComment} {
 		if cg == nil {
 			continue
 		}
 		for _, c := range cg.List {
 			text := strings.TrimSpace(c.Text)
-			if strings.Contains(text, "primitivelint:ignore") {
-				return true
-			}
-			if strings.Contains(text, "nolint:primitivelint") {
-				return true
+			for _, d := range directives {
+				if strings.Contains(text, d) {
+					return true
+				}
 			}
 		}
 	}

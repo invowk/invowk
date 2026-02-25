@@ -1,5 +1,7 @@
 package checkall // want `stale exception: pattern "StalePattern.Field" matched no diagnostics`
 
+import "fmt"
+
 // Mode has both IsValid and String — no supplementary diagnostics.
 type Mode string
 
@@ -45,3 +47,47 @@ type ManyParams struct {
 }
 
 func NewManyParams(a, b, c, d int) *ManyParams { return &ManyParams{a: a, b: b, c: c, d: d} } // want `constructor NewManyParams\(\) for checkall\.ManyParams has 4 non-option parameters; consider using functional options` `parameter "a" of checkall\.NewManyParams uses primitive type int` `parameter "b" of checkall\.NewManyParams uses primitive type int` `parameter "c" of checkall\.NewManyParams uses primitive type int` `parameter "d" of checkall\.NewManyParams uses primitive type int`
+
+// --- Interface return (constructor-sig improvement) ---
+
+// InterfaceReturnAll has a constructor returning an interface — not flagged.
+type InterfaceReturnAll struct {
+	v string // want `struct field checkall\.InterfaceReturnAll\.v uses primitive type string`
+}
+
+func NewInterfaceReturnAll() fmt.Stringer { return nil }
+
+// --- Error type exclusion (missing-constructor improvement) ---
+
+// RequestError is an error type by name — not flagged for missing constructor.
+type RequestError struct {
+	Detail string // want `struct field checkall\.RequestError\.Detail uses primitive type string`
+}
+
+func (e *RequestError) Error() string { return e.Detail }
+
+// --- Internal state (func-options improvement) ---
+
+// WithInternalState has an option type and a //plint:internal field.
+type WithInternalState struct {
+	port string // want `struct field checkall\.WithInternalState\.port uses primitive type string`
+	//plint:internal -- computed state
+	derived string // want `struct field checkall\.WithInternalState\.derived uses primitive type string`
+}
+
+// WithInternalStateOption is the functional option type.
+type WithInternalStateOption func(*WithInternalState)
+
+// WithPort satisfies the port field.
+func WithPort(p string) WithInternalStateOption { return func(s *WithInternalState) { s.port = p } } // want `parameter "p" of checkall\.WithPort uses primitive type string`
+
+// NewWithInternalState creates a WithInternalState with options.
+func NewWithInternalState(opts ...WithInternalStateOption) *WithInternalState {
+	s := &WithInternalState{}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// No WithDerived expected — derived has //plint:internal.
