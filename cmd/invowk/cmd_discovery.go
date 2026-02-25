@@ -298,6 +298,8 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 }
 
 // buildCommandUsageString builds the Cobra Use string including argument placeholders.
+//
+//plint:render
 func buildCommandUsageString(cmdPart string, args []invowkfile.Argument) string {
 	if len(args) == 0 {
 		return cmdPart
@@ -323,6 +325,8 @@ func buildCommandUsageString(cmdPart string, args []invowkfile.Argument) string 
 }
 
 // buildArgsDocumentation builds the documentation string for arguments.
+//
+//plint:render
 func buildArgsDocumentation(args []invowkfile.Argument) string {
 	lines := make([]string, 0, len(args))
 	for _, arg := range args {
@@ -563,6 +567,8 @@ func groupByCategory(cmds []*discovery.CommandInfo) []commandGroup {
 }
 
 // formatSourceDisplayName converts a SourceID to a user-friendly display name.
+//
+//plint:render
 func formatSourceDisplayName(sourceID discovery.SourceID) string {
 	if sourceID == discovery.SourceIDInvowkfile {
 		return string(discovery.SourceIDInvowkfile)

@@ -46,12 +46,15 @@ type (
 	// (skip that discovery source). Init-time errors (initDiagnostics) are
 	// surfaced through the standard diagnostics pipeline in discoverAllWithDiagnostics.
 	Discovery struct {
-		cfg             *config.Config
-		baseDir         types.FilesystemPath // replaces hardcoded "." — resolved once at construction
-		baseDirSet      bool                 // distinguishes "not set" from "explicitly set to empty"
-		commandsDir     types.FilesystemPath // replaces config.CommandsDir() call
-		commandsDirSet  bool                 // distinguishes "not set" from "explicitly set to empty"
-		initDiagnostics []Diagnostic         // errors from New() constructor surfaced as diagnostics
+		cfg     *config.Config
+		baseDir types.FilesystemPath // replaces hardcoded "." — resolved once at construction
+		//plint:internal -- distinguishes "not set" from "explicitly set to empty"
+		baseDirSet  bool
+		commandsDir types.FilesystemPath // replaces config.CommandsDir() call
+		//plint:internal -- distinguishes "not set" from "explicitly set to empty"
+		commandsDirSet bool
+		//plint:internal -- errors from New() constructor surfaced as diagnostics
+		initDiagnostics []Diagnostic
 	}
 
 	// Option configures a Discovery instance via the functional options pattern.

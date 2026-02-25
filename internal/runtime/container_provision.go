@@ -159,6 +159,8 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 }
 
 // generateImageTag generates a unique image tag for an invowkfile
+//
+//plint:render
 func (r *ContainerRuntime) generateImageTag(invowkfilePath string) (string, error) {
 	absPath, err := filepath.Abs(invowkfilePath)
 	if err != nil {

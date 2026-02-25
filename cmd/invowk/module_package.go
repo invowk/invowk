@@ -284,6 +284,8 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 }
 
 // formatFileSize formats a file size in bytes to a human-readable string
+//
+//plint:render
 func formatFileSize(size int64) string {
 	const (
 		KB = 1024

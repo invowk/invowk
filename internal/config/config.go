@@ -426,6 +426,8 @@ func Save(cfg *Config, configDirPath types.FilesystemPath) error {
 }
 
 // GenerateCUE generates a CUE representation of the configuration
+//
+//plint:render
 func GenerateCUE(cfg *Config) string {
 	var sb strings.Builder
 

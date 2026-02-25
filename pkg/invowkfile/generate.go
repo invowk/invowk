@@ -11,6 +11,8 @@ import (
 
 // GenerateCUE generates CUE text from an Invowkfile struct.
 // This is useful for creating invowkfile.cue files programmatically.
+//
+//plint:render
 func GenerateCUE(inv *Invowkfile) string {
 	var sb strings.Builder
 

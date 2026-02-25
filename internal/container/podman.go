@@ -95,6 +95,8 @@ func (e *PodmanEngine) Available() bool {
 }
 
 // Version returns the Podman version.
+//
+//plint:render
 func (e *PodmanEngine) Version(ctx context.Context) (string, error) {
 	out, err := e.RunCommandWithOutput(ctx, "version", "--format", "{{.Version}}")
 	if err != nil {

@@ -16,7 +16,7 @@ import (
 //   - registry/image:tag
 //   - registry:port/image:tag
 //   - registry/namespace/image:tag
-func ValidateContainerImage(image string) error {
+func ValidateContainerImage(image ContainerImage) error {
 	if image == "" {
 		return nil // Empty is valid (will use Containerfile)
 	}
@@ -27,7 +27,8 @@ func ValidateContainerImage(image string) error {
 	}
 
 	// Check for obvious injection attempts
-	if strings.ContainsAny(image, ";&|`$(){}[]<>\\'\"\n\r\t") {
+	s := string(image)
+	if strings.ContainsAny(s, ";&|`$(){}[]<>\\'\"\n\r\t") {
 		return fmt.Errorf("container image name contains invalid characters")
 	}
 
@@ -35,7 +36,7 @@ func ValidateContainerImage(image string) error {
 	// Format: [registry[:port]/][namespace/]name[:tag][@digest]
 	// Allow: registry:port/image, registry/namespace/image:tag, image@sha256:...
 	imageRegex := regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._:/-]*[a-zA-Z0-9])?(:[a-zA-Z0-9._-]+)?(@sha256:[a-fA-F0-9]{64})?$`)
-	if !imageRegex.MatchString(image) {
+	if !imageRegex.MatchString(s) {
 		return fmt.Errorf("container image name '%s' has invalid format", image)
 	}
 

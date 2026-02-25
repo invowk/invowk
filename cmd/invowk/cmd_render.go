@@ -12,6 +12,8 @@ import (
 )
 
 // RenderArgumentValidationError creates a styled error message for argument validation failures
+//
+//plint:render
 func RenderArgumentValidationError(err *ArgumentValidationError) string {
 	var sb strings.Builder
 
@@ -75,6 +77,8 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 // RenderArgsSubcommandConflictError creates a styled error message when a command
 // has both positional arguments and subcommands defined. This is a structural error
 // because positional arguments can only be accepted by leaf commands.
+//
+//plint:render
 func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictError) string {
 	var sb strings.Builder
 
@@ -113,6 +117,8 @@ func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictErro
 }
 
 // RenderDependencyError creates a styled error message for unsatisfied dependencies
+//
+//plint:render
 func RenderDependencyError(err *DependencyError) string {
 	var sb strings.Builder
 
@@ -151,6 +157,8 @@ func RenderDependencyError(err *DependencyError) string {
 }
 
 // RenderHostNotSupportedError creates a styled error message for unsupported host OS
+//
+//plint:render
 func RenderHostNotSupportedError(cmdName, currentOS, supportedHosts string) string {
 	var sb strings.Builder
 
@@ -170,6 +178,8 @@ func RenderHostNotSupportedError(cmdName, currentOS, supportedHosts string) stri
 }
 
 // RenderRuntimeNotAllowedError creates a styled error message for invalid runtime selection
+//
+//plint:render
 func RenderRuntimeNotAllowedError(cmdName, selectedRuntime, allowedRuntimes string) string {
 	var sb strings.Builder
 
@@ -189,6 +199,8 @@ func RenderRuntimeNotAllowedError(cmdName, selectedRuntime, allowedRuntimes stri
 }
 
 // RenderSourceNotFoundError creates a styled error message when a specified source doesn't exist.
+//
+//plint:render
 func RenderSourceNotFoundError(err *SourceNotFoundError) string {
 	var sb strings.Builder
 
@@ -213,6 +225,8 @@ func RenderSourceNotFoundError(err *SourceNotFoundError) string {
 }
 
 // RenderAmbiguousCommandError creates a styled error message when a command exists in multiple sources.
+//
+//plint:render
 func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 	var sb strings.Builder
 

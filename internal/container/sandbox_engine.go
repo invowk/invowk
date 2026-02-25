@@ -67,6 +67,8 @@ func (e *SandboxAwareEngine) Available() bool {
 }
 
 // Version returns the wrapped engine version.
+//
+//plint:render
 func (e *SandboxAwareEngine) Version(ctx context.Context) (string, error) {
 	return e.wrapped.Version(ctx)
 }

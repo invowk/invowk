@@ -15,7 +15,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	// Validate tool dependencies
 	for i, dep := range deps.Tools {
 		for j, alt := range dep.Alternatives {
-			if err := ValidateToolName(string(alt)); err != nil {
+			if err := ValidateToolName(alt); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Tools(i, j).String(),
@@ -29,7 +29,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	// Validate command dependencies
 	for i, dep := range deps.Commands {
 		for j, alt := range dep.Alternatives {
-			if err := ValidateCommandDependencyName(string(alt)); err != nil {
+			if err := ValidateCommandDependencyName(alt); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Commands(i, j).String(),

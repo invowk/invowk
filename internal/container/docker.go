@@ -35,6 +35,8 @@ func (e *DockerEngine) Available() bool {
 }
 
 // Version returns the Docker version.
+//
+//plint:render
 func (e *DockerEngine) Version(ctx context.Context) (string, error) {
 	out, err := e.RunCommandWithOutput(ctx, "version", "--format", "{{.Server.Version}}")
 	if err != nil {

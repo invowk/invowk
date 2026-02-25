@@ -107,6 +107,8 @@ func Execute() {
 // Precedence: ldflags version > debug.ReadBuildInfo() module version > "dev (built from source)".
 // This ensures go-install binaries show their module version (e.g., "v1.0.0")
 // instead of the default "dev" when ldflags are not set.
+//
+//plint:render
 func getVersionString(version, commit, buildDate string) string {
 	if version != "dev" {
 		return fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildDate)
@@ -120,6 +122,8 @@ func getVersionString(version, commit, buildDate string) string {
 }
 
 // formatErrorForDisplay formats an error for user display.
+//
+//plint:render
 func formatErrorForDisplay(err error, verboseMode bool) string {
 	if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
 		return ae.Format(verboseMode)

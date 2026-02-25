@@ -52,13 +52,9 @@ type (
 		provisioner *provision.LayerProvisioner
 		cfg         *config.Config
 		envBuilder  EnvBuilder
-		// runMu is a fallback mutex used when flock-based cross-process
-		// serialization is unavailable (non-Linux platforms, lock file errors).
-		// See runWithRetry() in container_exec.go for usage details.
+		//plint:internal -- fallback mutex for non-Linux flock; see runWithRetry()
 		runMu sync.Mutex
-		// fallbackIDCounter provides uniqueness for fallback execution IDs when
-		// callers fail to set ExecutionID via Registry.NewExecutionID(). Combined
-		// with UnixNano timestamp to guarantee uniqueness across sub-nanosecond calls.
+		//plint:internal -- fallback ID counter for missing ExecutionID; see newExecutionID()
 		fallbackIDCounter atomic.Uint64
 	}
 

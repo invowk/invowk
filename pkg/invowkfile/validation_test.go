@@ -108,7 +108,7 @@ func TestValidateContainerImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateContainerImage(tt.image)
+			err := ValidateContainerImage(ContainerImage(tt.image))
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
@@ -718,7 +718,7 @@ func TestValidateToolName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateToolName(tt.toolName)
+			err := ValidateToolName(BinaryName(tt.toolName))
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
@@ -771,7 +771,7 @@ func TestValidateCommandDependencyName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateCommandDependencyName(tt.cmdName)
+			err := ValidateCommandDependencyName(CommandName(tt.cmdName))
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)

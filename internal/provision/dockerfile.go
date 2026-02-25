@@ -8,6 +8,8 @@ import (
 )
 
 // generateDockerfile creates the Dockerfile content for the provisioned image.
+//
+//plint:render
 func (p *LayerProvisioner) generateDockerfile(baseImage string) string {
 	var sb strings.Builder
 

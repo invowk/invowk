@@ -78,6 +78,7 @@ func runInit(cmd *cobra.Command, args []string, force bool, template string) err
 	return nil
 }
 
+//plint:render
 func generateInvowkfile(template string) string {
 	var inv *invowkfile.Invowkfile
 

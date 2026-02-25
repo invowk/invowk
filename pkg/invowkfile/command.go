@@ -186,6 +186,8 @@ func (c *Command) GetSupportedPlatforms() []Platform {
 }
 
 // GetPlatformsString returns a comma-separated string of supported platforms
+//
+//plint:render
 func (c *Command) GetPlatformsString() string {
 	platforms := c.GetSupportedPlatforms()
 	if len(platforms) == 0 {
@@ -218,6 +220,8 @@ func (c *Command) GetAllowedRuntimesForPlatform(platform Platform) []RuntimeMode
 }
 
 // GetRuntimesStringForPlatform returns a formatted string of runtimes for a platform with default highlighted
+//
+//plint:render
 func (c *Command) GetRuntimesStringForPlatform(platform Platform) string {
 	runtimes := c.GetAllowedRuntimesForPlatform(platform)
 	if len(runtimes) == 0 {

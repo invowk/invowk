@@ -255,7 +255,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 		// Validate container image name format
 		if rt.Image != "" {
-			if err := ValidateContainerImage(string(rt.Image)); err != nil {
+			if err := ValidateContainerImage(rt.Image); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),

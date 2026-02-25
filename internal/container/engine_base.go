@@ -83,11 +83,13 @@ type (
 	// are implemented here; engine-specific methods (Available, Version, ImageExists)
 	// remain on the concrete types.
 	BaseCLIEngine struct {
-		name                 string // Engine name for error messages (e.g., "docker", "podman")
-		binaryPath           HostFilesystemPath
-		execCommand          ExecCommandFunc
-		volumeFormatter      VolumeFormatFunc
-		runArgsTransformer   RunArgsTransformer
+		name string // Engine name for error messages (e.g., "docker", "podman")
+		//plint:internal -- resolved at construction via exec.LookPath; not user-configurable
+		binaryPath         HostFilesystemPath
+		execCommand        ExecCommandFunc
+		volumeFormatter    VolumeFormatFunc
+		runArgsTransformer RunArgsTransformer
+		//plint:internal -- injected by sysctl override setup; not a constructor option
 		cmdEnvOverrides      map[string]string  // Per-command env var overrides (e.g., CONTAINERS_CONF_OVERRIDE)
 		sysctlOverridePath   HostFilesystemPath // Temp file path for sysctl override (removed on Close)
 		sysctlOverrideActive bool               // Whether the temp file sysctl override is in effect
@@ -831,6 +833,8 @@ func ResolveDockerfilePath(contextPath, dockerfilePath string) (string, error) {
 // --- Volume Mount Formatting ---
 
 // FormatVolumeMount formats a volume mount as a string for -v flag.
+//
+//plint:render
 func FormatVolumeMount(mount VolumeMount) string {
 	var result strings.Builder
 	result.WriteString(string(mount.HostPath))
@@ -889,6 +893,8 @@ func ParseVolumeMount(volume string) (VolumeMount, []error) {
 // --- Port Mapping Formatting ---
 
 // FormatPortMapping formats a port mapping as a string for -p flag.
+//
+//plint:render
 func FormatPortMapping(mapping PortMapping) string {
 	result := fmt.Sprintf("%d:%d", mapping.HostPort, mapping.ContainerPort)
 	if mapping.Protocol != "" && mapping.Protocol != PortProtocolTCP {

@@ -55,7 +55,7 @@ The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-c
 ```
 tools/primitivelint/
 ├── main.go                 # singlechecker entry point + --update-baseline mode
-├── exceptions.toml         # ~85 intentional primitive exception patterns
+├── exceptions.toml         # ~390 intentional exception patterns (primitives, constructors, func-options, etc.)
 ├── baseline.toml           # accepted findings baseline (generated)
 ├── primitivelint/
 │   ├── analyzer.go             # analysis.Analyzer + run() wiring + basic supplementary modes

@@ -20,6 +20,8 @@ import (
 // introducing dedicated issue IDs. The user-facing message already distinguishes
 // these cases ("timed out" vs "was cancelled"), and the issue catalog entry provides
 // generic guidance that applies to all script execution failures.
+//
+//plint:render
 func classifyExecutionError(err error, verbose bool) (issueID issue.Id, styledMsg string) {
 	issueID = issue.ScriptExecutionFailedId
 

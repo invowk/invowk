@@ -24,9 +24,9 @@ type (
 	// VirtualRuntime executes commands using mvdan/sh with optional u-root utilities.
 	// The enableUrootUtils flag is immutable after construction via NewVirtualRuntime.
 	VirtualRuntime struct {
-		// enableUrootUtils enables u-root built-in utilities
+		//plint:internal -- required constructor param; immutable after construction
 		enableUrootUtils bool
-		// envBuilder builds environment variables for execution
+		//plint:internal -- has WithVirtualEnvBuilder(); field name doesn't match pattern
 		envBuilder EnvBuilder
 		// urootRegistry holds the u-root command registry for built-in utilities.
 		// Nil when enableUrootUtils is false.

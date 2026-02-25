@@ -223,6 +223,8 @@ func (l *LockFile) GetModule(key ModuleRefKey) (LockedModule, bool) {
 }
 
 // toCUE serializes the lock file to CUE format.
+//
+//plint:render
 func (l *LockFile) toCUE() string {
 	var sb strings.Builder
 
