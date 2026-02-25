@@ -85,6 +85,8 @@ func TestIsInterfaceMethodReturn(t *testing.T) {
 		{name: "Error() string", hasRecv: true, fnName: "Error", fnType: funcTypeWithResults(0, stringResult), want: true},
 		{name: "GoString() string", hasRecv: true, fnName: "GoString", fnType: funcTypeWithResults(0, stringResult), want: true},
 		{name: "MarshalText() ([]byte, error)", hasRecv: true, fnName: "MarshalText", fnType: funcTypeWithResults(0, byteSliceResult, errorResult), want: true},
+		{name: "MarshalBinary() ([]byte, error)", hasRecv: true, fnName: "MarshalBinary", fnType: funcTypeWithResults(0, byteSliceResult, errorResult), want: true},
+		{name: "MarshalJSON() ([]byte, error)", hasRecv: true, fnName: "MarshalJSON", fnType: funcTypeWithResults(0, byteSliceResult, errorResult), want: true},
 
 		// Wrong return types — name matches, count matches, but type is wrong.
 		{name: "String() int — wrong return type", hasRecv: true, fnName: "String", fnType: funcTypeWithResults(0, intResult), want: false},
@@ -92,6 +94,8 @@ func TestIsInterfaceMethodReturn(t *testing.T) {
 		{name: "GoString() int — wrong return type", hasRecv: true, fnName: "GoString", fnType: funcTypeWithResults(0, intResult), want: false},
 		{name: "MarshalText() (string, error) — wrong first result", hasRecv: true, fnName: "MarshalText", fnType: funcTypeWithResults(0, stringResult, errorResult), want: false},
 		{name: "MarshalText() ([]byte, string) — wrong second result", hasRecv: true, fnName: "MarshalText", fnType: funcTypeWithResults(0, byteSliceResult, stringResult), want: false},
+		{name: "MarshalBinary() (string, error) — wrong first result", hasRecv: true, fnName: "MarshalBinary", fnType: funcTypeWithResults(0, stringResult, errorResult), want: false},
+		{name: "MarshalJSON() ([]byte, string) — wrong second result", hasRecv: true, fnName: "MarshalJSON", fnType: funcTypeWithResults(0, byteSliceResult, stringResult), want: false},
 
 		// Wrong signatures — name matches but param/result count is wrong.
 		{name: "String(x int) string — has param", hasRecv: true, fnName: "String", fnType: funcTypeWithResults(1, stringResult), want: false},
@@ -307,9 +311,9 @@ func TestHasIgnoreDirective(t *testing.T) {
 			want:        true,
 		},
 		{
-			name:        "plint:ignore in doc comment",
-			doc:         "//plint:ignore",
-			want:        true,
+			name: "plint:ignore in doc comment",
+			doc:  "//plint:ignore",
+			want: true,
 		},
 		{
 			name:        "combined ignore,internal matches ignore",

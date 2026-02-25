@@ -53,3 +53,18 @@ type MyError struct{}
 func (e *MyError) Error() string {
 	return ""
 }
+
+// MarshalJSON implements json.Marshaler — return types are exempt.
+func (m MethodReturn) MarshalJSON() ([]byte, error) {
+	return nil, nil
+}
+
+// MarshalBinary implements encoding.BinaryMarshaler — return types are exempt.
+func (m MethodReturn) MarshalBinary() ([]byte, error) {
+	return nil, nil
+}
+
+// MarshalJSON with wrong signature is not exempt.
+func (m MethodReturn) MarshalJSONWrong() (string, error) { // want `return value of returns\.MethodReturn\.MarshalJSONWrong uses primitive type string`
+	return "", nil
+}

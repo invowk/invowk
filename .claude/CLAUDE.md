@@ -175,7 +175,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `modules/` - Sample invowk modules for validation and reference.
 - `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation).
 - `tools/` - Development tools (separate Go modules):
-  - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. Also checks for missing `IsValid`/`String` methods, constructor existence/signatures, functional options patterns, and struct immutability. Run via `make check-types`. Full DDD audit via `make check-types-all`. Baseline regression gate via `make check-baseline`; update after type improvements with `make update-baseline`.
+  - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. Also checks for missing `IsValid`/`String` methods, constructor existence/signatures, functional options patterns, and struct immutability. Run via `make check-types`. Full DDD audit via `make check-types-all`. Baseline regression gate via `make check-baseline`; update after type improvements with `make update-baseline`. Baseline format is v2 (`entries = [{id, message}]`) with legacy `messages = [...]` read fallback.
 - `specs/` - Feature specifications, research, and implementation plans.
 - `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 
@@ -209,4 +209,3 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `github.com/rogpeppe/go-internal/testscript` - CLI integration tests.
 
 See `go.mod` for exact versions. Schema sync tests verify Go struct tags match CUE schema fields at CI time.
-

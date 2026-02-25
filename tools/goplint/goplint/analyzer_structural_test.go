@@ -101,3 +101,44 @@ func TestCapitalizeFirst(t *testing.T) {
 		})
 	}
 }
+
+func TestCanonicalOptionTypeName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input []string
+		want  string
+	}{
+		{
+			name:  "empty input",
+			input: nil,
+			want:  "",
+		},
+		{
+			name:  "single value",
+			input: []string{"ServerOption"},
+			want:  "ServerOption",
+		},
+		{
+			name:  "multiple values returns lexicographically smallest",
+			input: []string{"ZOption", "AOption", "BOption"},
+			want:  "AOption",
+		},
+		{
+			name:  "input order does not matter",
+			input: []string{"MOption", "BOption", "COption"},
+			want:  "BOption",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := canonicalOptionTypeName(tt.input)
+			if got != tt.want {
+				t.Errorf("canonicalOptionTypeName(%v) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}

@@ -83,7 +83,7 @@ tools/goplint/
 - **`[]byte`**: I/O boundary type, not a domain type
 - **`error`**: Interface, not a primitive
 - **Interface method signatures**: `type Service interface { ... }` — AST-level exclusion
-- **`String()`/`Error()`/`GoString()`/`MarshalText()` returns**: Interface contract obligations
+- **`String()`/`Error()`/`GoString()`/`MarshalText()`/`MarshalBinary()`/`MarshalJSON()` returns**: Interface contract obligations
 - **Test files**: `_test.go` files skipped entirely
 - **`init()`/`main()`/`Test*`/`Benchmark*`/`Fuzz*`/`Example*`**: Skipped functions
 
@@ -248,24 +248,26 @@ make update-baseline   # Regenerate baseline from current state
 
 ### How it works
 
-- **`--baseline=path`**: Analyzer flag. Loaded per-package in `run()`, suppresses findings whose message matches a baseline entry. Only new findings are reported.
+- **`--baseline=path`**: Analyzer flag. Loaded per-package in `run()`, suppresses findings whose stable `id` matches a baseline entry (with legacy message fallback). Only new findings are reported.
 - **`--update-baseline=path`**: main() flag. Runs self as subprocess with `-json`, collects all findings, writes sorted TOML. Uses subprocess because `singlechecker.Main()` calls `os.Exit()` — no post-analysis aggregation is possible within the framework.
 
 ### Baseline TOML format
 
 ```toml
 [primitive]
-messages = [
-    "struct field pkg.Foo.Bar uses primitive type string",
+entries = [
+    { id = "gpl1_...", message = "struct field pkg.Foo.Bar uses primitive type string" },
 ]
 
 [missing-constructor]
-messages = [
-    "exported struct pkg.Config has no NewConfig() constructor",
+entries = [
+    { id = "gpl1_...", message = "exported struct pkg.Config has no NewConfig() constructor" },
 ]
 ```
 
-Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-isvalid]`, `[wrong-struct-isvalid-sig]`. Empty sections are omitted. Messages sorted alphabetically for stable diffs.
+Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-isvalid]`, `[wrong-struct-isvalid-sig]`. Empty sections are omitted.
+
+`messages = [...]` (legacy v1 format) is still parsed for backward compatibility.
 
 ### When to update
 

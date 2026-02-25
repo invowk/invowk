@@ -41,7 +41,7 @@ make update-baseline
 |---------|-------------|
 | `make check-types` | Detect bare primitives (human output) |
 | `make check-types-json` | Same, JSON output for tooling |
-| `make check-types-all` | All DDD checks: primitives + IsValid + String + constructors |
+| `make check-types-all` | All DDD checks: primitives + method + constructor + structural checks |
 | `make check-types-all-json` | Same, JSON output |
 | `make check-baseline` | Regression gate: report only **new** findings vs baseline |
 | `make update-baseline` | Regenerate `baseline.toml` from current codebase state |
@@ -64,6 +64,20 @@ make update-baseline
 | Missing `String()` | `--check-stringer` | `named type pkg.Foo has no String() method` |
 | Missing constructor | `--check-constructors` | `exported struct pkg.Foo has no NewFoo() constructor` |
 
+### Structural and Signature Checks (`--check-all`)
+
+| Check | Flag | Category |
+|-------|------|----------|
+| Constructor return mismatch | `--check-constructor-sig` | `wrong-constructor-sig` |
+| Wrong `IsValid()` signature (named types) | `--check-isvalid` | `wrong-isvalid-sig` |
+| Wrong `String()` signature (named types) | `--check-stringer` | `wrong-stringer-sig` |
+| Missing/partial functional options | `--check-func-options` | `missing-func-options` |
+| Constructor + exported mutable fields | `--check-immutability` | `missing-immutability` |
+| Struct constructor without `IsValid()` | `--check-struct-isvalid` | `missing-struct-isvalid` |
+| Wrong struct `IsValid()` signature | `--check-struct-isvalid` | `wrong-struct-isvalid-sig` |
+| Unknown directive key typo | always on | `unknown-directive` |
+| Stale exception pattern | `--audit-exceptions` | `stale-exception` |
+
 ### What Is Not Flagged
 
 - Named types (`type CommandName string`) -- these _are_ the DDD Value Types
@@ -71,7 +85,7 @@ make update-baseline
 - `[]byte` -- I/O boundary type
 - `error` -- interface, not a primitive
 - Interface method signatures
-- `String()`, `Error()`, `GoString()`, `MarshalText()` return types (interface contracts)
+- `String()`, `Error()`, `GoString()`, `MarshalText()`, `MarshalBinary()`, `MarshalJSON()` return types (interface contracts)
 - Test files (`_test.go`), `init()`, `main()`, `Test*`, `Benchmark*` functions
 
 ## Exceptions
@@ -156,19 +170,20 @@ make check-baseline
 ```toml
 # Bare primitive type usage
 [primitive]
-messages = [
-    "struct field pkg.Foo.Bar uses primitive type string",
-    "parameter \"name\" of pkg.Func uses primitive type string",
+entries = [
+    { id = "gpl1_...", message = "struct field pkg.Foo.Bar uses primitive type string" },
+    { id = "gpl1_...", message = "parameter \"name\" of pkg.Func uses primitive type string" },
 ]
 
 # Exported structs missing NewXxx() constructor
 [missing-constructor]
-messages = [
-    "exported struct pkg.Config has no NewConfig() constructor",
+entries = [
+    { id = "gpl1_...", message = "exported struct pkg.Config has no NewConfig() constructor" },
 ]
 ```
 
-Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`. Empty sections are omitted. Messages are sorted alphabetically for stable git diffs.
+`id` is the stable semantic identity used for suppression; `message` is for human readability.  
+`messages = [...]` (v1 format) is still accepted for backward compatibility and used as fallback matching.
 
 ### CI Integration
 
@@ -204,14 +219,17 @@ Each diagnostic includes a `category` field for filtering:
       {
         "posn": "pkg/invowkfile/types.go:42:5",
         "message": "struct field invowkfile.Foo.Bar uses primitive type string",
-        "category": "primitive"
+        "category": "primitive",
+        "url": "goplint://finding/gpl1_..."
       }
     ]
   }
 }
 ```
 
-Categories: `primitive`, `missing-isvalid`, `missing-stringer`, `missing-constructor`, `stale-exception`.
+`url` encodes the stable finding ID used by baseline v2.
+
+Categories: `primitive`, `missing-isvalid`, `missing-stringer`, `missing-constructor`, `wrong-constructor-sig`, `wrong-isvalid-sig`, `wrong-stringer-sig`, `missing-func-options`, `missing-immutability`, `missing-struct-isvalid`, `wrong-struct-isvalid-sig`, `stale-exception`, `unknown-directive`.
 
 ## CLI Flags
 
@@ -219,10 +237,14 @@ Categories: `primitive`, `missing-isvalid`, `missing-stringer`, `missing-constru
 |------|------|---------|-------------|
 | `-config` | string | `""` | Path to exceptions TOML config |
 | `-baseline` | string | `""` | Path to baseline TOML (suppress known findings) |
-| `-check-all` | bool | `false` | Enable all DDD checks (isvalid + stringer + constructors) |
+| `-check-all` | bool | `false` | Enable all DDD checks (isvalid + stringer + constructors + structural checks) |
 | `-check-isvalid` | bool | `false` | Report types missing `IsValid()` |
 | `-check-stringer` | bool | `false` | Report types missing `String()` |
 | `-check-constructors` | bool | `false` | Report structs missing `NewXxx()` |
+| `-check-constructor-sig` | bool | `false` | Report constructors returning wrong type |
+| `-check-func-options` | bool | `false` | Report missing/incomplete functional options pattern |
+| `-check-immutability` | bool | `false` | Report constructor-backed structs with exported mutable fields |
+| `-check-struct-isvalid` | bool | `false` | Report constructor-backed structs missing `IsValid()` |
 | `-audit-exceptions` | bool | `false` | Report stale exception patterns |
 | `-update-baseline` | string | `""` | Generate baseline TOML at the given path |
 | `-json` | bool | `false` | JSON output (built-in from `go/analysis`) |
@@ -242,7 +264,7 @@ tools/goplint/
     ├── inspect.go          # Struct/func AST visitors, diagnostic emission
     ├── typecheck.go        # isPrimitive() / isPrimitiveUnderlying() type resolution
     ├── *_test.go           # Unit + integration tests
-    └── testdata/src/       # analysistest fixture packages (16 packages)
+    └── testdata/src/       # analysistest fixture packages
 ```
 
 The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependency tree.

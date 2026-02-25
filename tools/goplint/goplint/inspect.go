@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -69,15 +70,12 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 				}
 
 				msg := fmt.Sprintf("struct field %s uses primitive type %s", qualName, typeName)
-				if bl.Contains(CategoryPrimitive, msg) {
+				findingID := StableFindingID(CategoryPrimitive, "struct-field", qualName, typeName)
+				if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 					continue
 				}
 
-				pass.Report(analysis.Diagnostic{
-					Pos:      name.Pos(),
-					Category: CategoryPrimitive,
-					Message:  msg,
-				})
+				reportDiagnostic(pass, name.Pos(), CategoryPrimitive, findingID, msg)
 			}
 
 			// Anonymous/embedded fields (no names)
@@ -88,15 +86,12 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 				}
 
 				msg := fmt.Sprintf("struct field %s uses primitive type %s", qualName, typeName)
-				if bl.Contains(CategoryPrimitive, msg) {
+				findingID := StableFindingID(CategoryPrimitive, "struct-field", qualName, typeName)
+				if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 					continue
 				}
 
-				pass.Report(analysis.Diagnostic{
-					Pos:      field.Pos(),
-					Category: CategoryPrimitive,
-					Message:  msg,
-				})
+				reportDiagnostic(pass, field.Pos(), CategoryPrimitive, findingID, msg)
 			}
 		}
 	}
@@ -146,7 +141,7 @@ func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig
 // inspectFieldList checks a function's parameter list for primitive types.
 // Findings present in the baseline are suppressed.
 func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind string, cfg *ExceptionConfig, bl *BaselineConfig) {
-	for _, field := range fields.List {
+	for fieldIndex, field := range fields.List {
 		reportUnknownDirectives(pass, field.Doc, field.Comment)
 		if hasIgnoreDirective(field.Doc, field.Comment) {
 			continue
@@ -176,15 +171,12 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 			}
 
 			msg := fmt.Sprintf("%s %q of %s uses primitive type %s", kind, name.Name, funcName, typeName)
-			if bl.Contains(CategoryPrimitive, msg) {
+			findingID := StableFindingID(CategoryPrimitive, kind, funcName, name.Name, typeName)
+			if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 				continue
 			}
 
-			pass.Report(analysis.Diagnostic{
-				Pos:      name.Pos(),
-				Category: CategoryPrimitive,
-				Message:  msg,
-			})
+			reportDiagnostic(pass, name.Pos(), CategoryPrimitive, findingID, msg)
 		}
 
 		// Unnamed parameters (e.g., func(string))
@@ -195,15 +187,12 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 			}
 
 			msg := fmt.Sprintf("unnamed %s of %s uses primitive type %s", kind, funcName, typeName)
-			if bl.Contains(CategoryPrimitive, msg) {
+			findingID := StableFindingID(CategoryPrimitive, "unnamed-"+kind, funcName, strconv.Itoa(fieldIndex), typeName)
+			if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 				continue
 			}
 
-			pass.Report(analysis.Diagnostic{
-				Pos:      field.Pos(),
-				Category: CategoryPrimitive,
-				Message:  msg,
-			})
+			reportDiagnostic(pass, field.Pos(), CategoryPrimitive, findingID, msg)
 		}
 	}
 }
@@ -242,15 +231,12 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 			}
 
 			msg := fmt.Sprintf("return value %q of %s uses primitive type %s", name.Name, funcName, typeName)
-			if bl.Contains(CategoryPrimitive, msg) {
+			findingID := StableFindingID(CategoryPrimitive, "named-return", funcName, name.Name, typeName)
+			if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 				continue
 			}
 
-			pass.Report(analysis.Diagnostic{
-				Pos:      name.Pos(),
-				Category: CategoryPrimitive,
-				Message:  msg,
-			})
+			reportDiagnostic(pass, name.Pos(), CategoryPrimitive, findingID, msg)
 		}
 
 		// Unnamed return values
@@ -261,15 +247,12 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 			}
 
 			msg := fmt.Sprintf("return value of %s uses primitive type %s", funcName, typeName)
-			if bl.Contains(CategoryPrimitive, msg) {
+			findingID := StableFindingID(CategoryPrimitive, "return", funcName, strconv.Itoa(i), typeName)
+			if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 				continue
 			}
 
-			pass.Report(analysis.Diagnostic{
-				Pos:      field.Pos(),
-				Category: CategoryPrimitive,
-				Message:  msg,
-			})
+			reportDiagnostic(pass, field.Pos(), CategoryPrimitive, findingID, msg)
 		}
 	}
 }
@@ -304,6 +287,8 @@ func shouldSkipFunc(fn *ast.FuncDecl) bool {
 //   - Error() string (error interface) — 0 params, 1 result
 //   - GoString() string (fmt.GoStringer) — 0 params, 1 result
 //   - MarshalText() ([]byte, error) (encoding.TextMarshaler) — 0 params, 2 results
+//   - MarshalBinary() ([]byte, error) (encoding.BinaryMarshaler) — 0 params, 2 results
+//   - MarshalJSON() ([]byte, error) (json.Marshaler) — 0 params, 2 results
 func isInterfaceMethodReturn(fn *ast.FuncDecl) bool {
 	if fn.Recv == nil || fn.Type == nil {
 		return false
@@ -328,26 +313,31 @@ func isInterfaceMethodReturn(fn *ast.FuncDecl) bool {
 		// incorrectly treated as fmt.Stringer and its return suppressed.
 		ident, ok := results.List[0].Type.(*ast.Ident)
 		return ok && ident.Name == "string"
-	case "MarshalText":
+	case "MarshalText", "MarshalBinary", "MarshalJSON":
 		// Expected: () ([]byte, error) — zero params, two results.
-		if results == nil || len(results.List) != 2 {
-			return false
-		}
-		// Verify first result is []byte (array type with nil len = slice).
-		arr, ok := results.List[0].Type.(*ast.ArrayType)
-		if !ok || arr.Len != nil {
-			return false
-		}
-		elemIdent, ok := arr.Elt.(*ast.Ident)
-		if !ok || elemIdent.Name != "byte" {
-			return false
-		}
-		// Verify second result is error.
-		errIdent, ok := results.List[1].Type.(*ast.Ident)
-		return ok && errIdent.Name == "error"
+		return hasByteSliceErrorResults(results)
 	default:
 		return false
 	}
+}
+
+// hasByteSliceErrorResults reports whether results is exactly ([]byte, error).
+func hasByteSliceErrorResults(results *ast.FieldList) bool {
+	if results == nil || len(results.List) != 2 {
+		return false
+	}
+	// Verify first result is []byte (array type with nil len = slice).
+	arr, ok := results.List[0].Type.(*ast.ArrayType)
+	if !ok || arr.Len != nil {
+		return false
+	}
+	elemIdent, ok := arr.Elt.(*ast.Ident)
+	if !ok || elemIdent.Name != "byte" {
+		return false
+	}
+	// Verify second result is error.
+	errIdent, ok := results.List[1].Type.(*ast.Ident)
+	return ok && errIdent.Name == "error"
 }
 
 // receiverTypeName extracts the type name from a method receiver expression.
@@ -442,11 +432,9 @@ func reportUnknownDirectives(pass *analysis.Pass, doc *ast.CommentGroup, lineCom
 			text := strings.TrimSpace(c.Text)
 			_, unknown := parseDirectiveKeys(text)
 			for _, u := range unknown {
-				pass.Report(analysis.Diagnostic{
-					Pos:      c.Pos(),
-					Category: CategoryUnknownDirective,
-					Message:  fmt.Sprintf("unknown directive key %q in goplint directive", u),
-				})
+				msg := fmt.Sprintf("unknown directive key %q in goplint directive", u)
+				findingID := StableFindingID(CategoryUnknownDirective, "directive", u)
+				reportDiagnostic(pass, c.Pos(), CategoryUnknownDirective, findingID, msg)
 			}
 		}
 	}

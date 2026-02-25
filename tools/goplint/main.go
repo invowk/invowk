@@ -87,8 +87,8 @@ func generateBaseline(outputPath string, originalArgs []string) error {
 	}
 
 	total := 0
-	for _, msgs := range findings {
-		total += len(msgs)
+	for _, entries := range findings {
+		total += len(entries)
 	}
 	fmt.Fprintf(os.Stderr, "Baseline written: %s (%d findings)\n", outputPath, total)
 
@@ -133,18 +133,20 @@ type analysisDiagnostic struct {
 	Posn     string `json:"posn"`
 	Message  string `json:"message"`
 	Category string `json:"category"`
+	URL      string `json:"url"`
 }
 
 // parseAnalysisJSON parses the go/analysis -json output (one JSON object
 // per package, concatenated) and returns findings grouped by category.
 // Filters out stale-exception diagnostics and deduplicates.
-func parseAnalysisJSON(data []byte) (map[string][]string, error) {
+func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error) {
 	// The -json output is a stream of JSON objects (one per package).
 	// Each object maps package path → analyzer name → diagnostics array.
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
 	// Deduplicate across packages (test variants can produce duplicates).
-	seen := make(map[string]map[string]bool) // category → set of messages
+	// Keyed by category and stable finding ID.
+	seen := make(map[string]map[string]goplint.BaselineFinding) // category → findingID → finding
 
 	for decoder.More() {
 		var result analysisResult
@@ -165,21 +167,29 @@ func parseAnalysisJSON(data []byte) (map[string][]string, error) {
 				if d.Category == "" || d.Message == "" {
 					continue
 				}
+				findingID := goplint.FindingIDFromDiagnosticURL(d.URL)
+				if findingID == "" {
+					// Legacy compatibility for diagnostics emitted without URL.
+					findingID = goplint.FallbackFindingID(d.Category, d.Message)
+				}
 
 				if seen[d.Category] == nil {
-					seen[d.Category] = make(map[string]bool)
+					seen[d.Category] = make(map[string]goplint.BaselineFinding)
 				}
-				seen[d.Category][d.Message] = true
+				seen[d.Category][findingID] = goplint.BaselineFinding{
+					ID:      findingID,
+					Message: d.Message,
+				}
 			}
 		}
 	}
 
 	// Convert sets to slices. WriteBaseline handles sorting.
-	findings := make(map[string][]string, len(seen))
-	for cat, msgs := range seen {
-		slice := make([]string, 0, len(msgs))
-		for msg := range msgs {
-			slice = append(slice, msg)
+	findings := make(map[string][]goplint.BaselineFinding, len(seen))
+	for cat, entries := range seen {
+		slice := make([]goplint.BaselineFinding, 0, len(entries))
+		for _, entry := range entries {
+			slice = append(slice, entry)
 		}
 		findings[cat] = slice
 	}

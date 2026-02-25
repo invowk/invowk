@@ -35,15 +35,15 @@ import (
 // These appear in the "category" field of analysis.Diagnostic
 // when using -json mode, enabling agents to filter by finding type.
 const (
-	CategoryPrimitive          = "primitive"
-	CategoryMissingIsValid     = "missing-isvalid"
-	CategoryMissingStringer    = "missing-stringer"
-	CategoryMissingConstructor = "missing-constructor"
-	CategoryWrongConstructorSig = "wrong-constructor-sig"
-	CategoryMissingFuncOptions  = "missing-func-options"
-	CategoryMissingImmutability = "missing-immutability"
-	CategoryWrongIsValidSig     = "wrong-isvalid-sig"
-	CategoryWrongStringerSig    = "wrong-stringer-sig"
+	CategoryPrimitive             = "primitive"
+	CategoryMissingIsValid        = "missing-isvalid"
+	CategoryMissingStringer       = "missing-stringer"
+	CategoryMissingConstructor    = "missing-constructor"
+	CategoryWrongConstructorSig   = "wrong-constructor-sig"
+	CategoryMissingFuncOptions    = "missing-func-options"
+	CategoryMissingImmutability   = "missing-immutability"
+	CategoryWrongIsValidSig       = "wrong-isvalid-sig"
+	CategoryWrongStringerSig      = "wrong-stringer-sig"
 	CategoryMissingStructIsValid  = "missing-struct-isvalid"
 	CategoryWrongStructIsValidSig = "wrong-struct-isvalid-sig"
 	CategoryStaleException        = "stale-exception"
@@ -177,9 +177,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// same AST traversal as the primary primitive check and evaluated
 	// after the traversal completes.
 	var (
-		namedTypes         []namedTypeInfo                  // non-struct named types (for isvalid/stringer)
-		methodSeen         map[string]*methodInfo            // "TypeName.MethodName" → signature info
-		exportedStructs    []exportedStructInfo             // exported struct types (for constructors + structural)
+		namedTypes         []namedTypeInfo                 // non-struct named types (for isvalid/stringer)
+		methodSeen         map[string]*methodInfo          // "TypeName.MethodName" → signature info
+		exportedStructs    []exportedStructInfo            // exported struct types (for constructors + structural)
 		constructorDetails map[string]*constructorFuncInfo // "NewTypeName" → details
 		optionTypes        map[string]string               // optionTypeName → targetStructName
 		withFunctions      map[string][]string             // targetStructName → ["WithXxx", ...]
@@ -325,11 +325,13 @@ type structFieldMeta struct {
 // constructorFuncInfo records details about a NewXxx constructor function
 // for signature validation, functional options detection, and immutability.
 type constructorFuncInfo struct {
-	pos              token.Pos // position for diagnostics
-	returnTypeName   string    // resolved first non-error return type name (e.g., "Config")
-	returnsInterface bool      // first non-error return is an interface (skip sig check)
-	paramCount       int       // parameter count excluding trailing variadic option
-	hasVariadicOpt   bool      // last param is ...OptionType (func taking *TargetStruct)
+	pos                    token.Pos // position for diagnostics
+	returnTypeName         string    // resolved first non-error return type name (e.g., "Config")
+	returnsInterface       bool      // first non-error return is an interface (skip sig check)
+	paramCount             int       // parameter count excluding trailing variadic option
+	hasVariadicOpt         bool      // last param is ...OptionType (func taking *TargetStruct)
+	variadicOptionTypeName string    // variadic option type name (e.g., "ConfigOption")
+	variadicOptionTarget   string    // variadic option target struct name (e.g., "Config")
 }
 
 // methodInfo records a method's signature details for signature verification
@@ -491,14 +493,11 @@ func reportMissingIsValid(pass *analysis.Pass, namedTypes []namedTypeInfo, metho
 					continue
 				}
 				msg := fmt.Sprintf("named type %s has IsValid() but wrong signature (want func() (bool, []error))", qualName)
-				if bl.Contains(CategoryWrongIsValidSig, msg) {
+				findingID := StableFindingID(CategoryWrongIsValidSig, qualName, "IsValid")
+				if bl.ContainsFinding(CategoryWrongIsValidSig, findingID, msg) {
 					continue
 				}
-				pass.Report(analysis.Diagnostic{
-					Pos:      t.pos,
-					Category: CategoryWrongIsValidSig,
-					Message:  msg,
-				})
+				reportDiagnostic(pass, t.pos, CategoryWrongIsValidSig, findingID, msg)
 			}
 			continue
 		}
@@ -508,15 +507,12 @@ func reportMissingIsValid(pass *analysis.Pass, namedTypes []namedTypeInfo, metho
 		}
 
 		msg := fmt.Sprintf("named type %s has no IsValid() method", qualName)
-		if bl.Contains(CategoryMissingIsValid, msg) {
+		findingID := StableFindingID(CategoryMissingIsValid, qualName, "IsValid")
+		if bl.ContainsFinding(CategoryMissingIsValid, findingID, msg) {
 			continue
 		}
 
-		pass.Report(analysis.Diagnostic{
-			Pos:      t.pos,
-			Category: CategoryMissingIsValid,
-			Message:  msg,
-		})
+		reportDiagnostic(pass, t.pos, CategoryMissingIsValid, findingID, msg)
 	}
 }
 
@@ -537,14 +533,11 @@ func reportMissingStringer(pass *analysis.Pass, namedTypes []namedTypeInfo, meth
 					continue
 				}
 				msg := fmt.Sprintf("named type %s has String() but wrong signature (want func() string)", qualName)
-				if bl.Contains(CategoryWrongStringerSig, msg) {
+				findingID := StableFindingID(CategoryWrongStringerSig, qualName, "String")
+				if bl.ContainsFinding(CategoryWrongStringerSig, findingID, msg) {
 					continue
 				}
-				pass.Report(analysis.Diagnostic{
-					Pos:      t.pos,
-					Category: CategoryWrongStringerSig,
-					Message:  msg,
-				})
+				reportDiagnostic(pass, t.pos, CategoryWrongStringerSig, findingID, msg)
 			}
 			continue
 		}
@@ -554,15 +547,12 @@ func reportMissingStringer(pass *analysis.Pass, namedTypes []namedTypeInfo, meth
 		}
 
 		msg := fmt.Sprintf("named type %s has no String() method", qualName)
-		if bl.Contains(CategoryMissingStringer, msg) {
+		findingID := StableFindingID(CategoryMissingStringer, qualName, "String")
+		if bl.ContainsFinding(CategoryMissingStringer, findingID, msg) {
 			continue
 		}
 
-		pass.Report(analysis.Diagnostic{
-			Pos:      t.pos,
-			Category: CategoryMissingStringer,
-			Message:  msg,
-		})
+		reportDiagnostic(pass, t.pos, CategoryMissingStringer, findingID, msg)
 	}
 }
 
@@ -593,15 +583,12 @@ func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo
 
 		ctorName := "New" + s.name
 		msg := fmt.Sprintf("exported struct %s has no %s() constructor", qualName, ctorName)
-		if bl.Contains(CategoryMissingConstructor, msg) {
+		findingID := StableFindingID(CategoryMissingConstructor, qualName, ctorName)
+		if bl.ContainsFinding(CategoryMissingConstructor, findingID, msg) {
 			continue
 		}
 
-		pass.Report(analysis.Diagnostic{
-			Pos:      s.pos,
-			Category: CategoryMissingConstructor,
-			Message:  msg,
-		})
+		reportDiagnostic(pass, s.pos, CategoryMissingConstructor, findingID, msg)
 	}
 }
 
@@ -637,12 +624,10 @@ func reportStaleExceptionsInline(pass *analysis.Pass, cfg *ExceptionConfig) {
 
 	for _, idx := range stale {
 		exc := cfg.Exceptions[idx]
-		pass.Report(analysis.Diagnostic{
-			Pos:      pos,
-			Category: CategoryStaleException,
-			Message: fmt.Sprintf(
-				"stale exception: pattern %q matched no diagnostics (reason: %s)",
-				exc.Pattern, exc.Reason),
-		})
+		msg := fmt.Sprintf(
+			"stale exception: pattern %q matched no diagnostics (reason: %s)",
+			exc.Pattern, exc.Reason)
+		findingID := StableFindingID(CategoryStaleException, exc.Pattern)
+		reportDiagnostic(pass, pos, CategoryStaleException, findingID, msg)
 	}
 }

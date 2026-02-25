@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -93,8 +94,12 @@ func trackConstructorDetails(pass *analysis.Pass, fn *ast.FuncDecl, seen map[str
 				ellipsis := lastField.Type.(*ast.Ellipsis)
 				elemType := pass.TypesInfo.TypeOf(ellipsis.Elt)
 				if elemType != nil {
-					if _, ok := isOptionFuncType(elemType); ok {
+					if targetName, ok := isOptionFuncType(elemType); ok {
 						info.hasVariadicOpt = true
+						info.variadicOptionTarget = targetName
+						if named, isNamed := types.Unalias(elemType).(*types.Named); isNamed {
+							info.variadicOptionTypeName = named.Obj().Name()
+						}
 						// Subtract the variadic option param from the count.
 						// countParams counts each name in a field, but variadic
 						// is typically unnamed or has one name.
@@ -265,15 +270,12 @@ func reportWrongConstructorSig(pass *analysis.Pass, structs []exportedStructInfo
 					ctorName, qualName, ctorInfo.returnTypeName, s.name)
 			}
 
-			if bl.Contains(CategoryWrongConstructorSig, msg) {
+			findingID := StableFindingID(CategoryWrongConstructorSig, qualName, ctorName)
+			if bl.ContainsFinding(CategoryWrongConstructorSig, findingID, msg) {
 				continue
 			}
 
-			pass.Report(analysis.Diagnostic{
-				Pos:      ctorInfo.pos,
-				Category: CategoryWrongConstructorSig,
-				Message:  msg,
-			})
+			reportDiagnostic(pass, ctorInfo.pos, CategoryWrongConstructorSig, findingID, msg)
 		}
 	}
 }
@@ -292,10 +294,10 @@ func reportMissingFuncOptions(
 ) {
 	pkgName := packageName(pass.Pkg)
 
-	// Build reverse lookup: structName → optionTypeName.
-	structHasOptionType := make(map[string]string) // structName → optionTypeName
+	// Build reverse lookup: structName → option type names.
+	structOptionTypes := make(map[string][]string) // structName → []optionTypeName
 	for optName, structName := range optionTypes {
-		structHasOptionType[structName] = optName
+		structOptionTypes[structName] = append(structOptionTypes[structName], optName)
 	}
 
 	for _, s := range structs {
@@ -310,7 +312,9 @@ func reportMissingFuncOptions(
 			continue
 		}
 
-		optTypeName, hasOptType := structHasOptionType[s.name]
+		optTypeNames := structOptionTypes[s.name]
+		hasOptType := len(optTypeNames) > 0
+		optTypeName := canonicalOptionTypeName(optTypeNames)
 
 		// Sub-check A: Detection — too many non-option params without options.
 		// Uses exact constructor match (NewXxx) for param-count analysis since
@@ -318,12 +322,9 @@ func reportMissingFuncOptions(
 		if exactCtor != nil && !hasOptType && exactCtor.paramCount > funcOptionsParamThreshold {
 			msg := fmt.Sprintf("constructor %s() for %s has %d non-option parameters; consider using functional options",
 				ctorName, qualName, exactCtor.paramCount)
-			if !bl.Contains(CategoryMissingFuncOptions, msg) {
-				pass.Report(analysis.Diagnostic{
-					Pos:      exactCtor.pos,
-					Category: CategoryMissingFuncOptions,
-					Message:  msg,
-				})
+			findingID := StableFindingID(CategoryMissingFuncOptions, qualName, ctorName, "detection")
+			if !bl.ContainsFinding(CategoryMissingFuncOptions, findingID, msg) {
+				reportDiagnostic(pass, exactCtor.pos, CategoryMissingFuncOptions, findingID, msg)
 			}
 		}
 
@@ -334,29 +335,29 @@ func reportMissingFuncOptions(
 
 		// B1: Constructor should accept variadic option param.
 		// Uses exact constructor for variadic check.
-		if exactCtor != nil && !exactCtor.hasVariadicOpt {
+		exactCtorHasMatchingVariadic := exactCtor != nil &&
+			exactCtor.hasVariadicOpt &&
+			exactCtor.variadicOptionTarget == s.name
+		if exactCtor != nil && !exactCtorHasMatchingVariadic {
 			msg := fmt.Sprintf("constructor %s() for %s does not accept variadic ...%s",
 				ctorName, qualName, optTypeName)
-			if !bl.Contains(CategoryMissingFuncOptions, msg) {
-				pass.Report(analysis.Diagnostic{
-					Pos:      exactCtor.pos,
-					Category: CategoryMissingFuncOptions,
-					Message:  msg,
-				})
+			findingID := StableFindingID(CategoryMissingFuncOptions, qualName, ctorName, "variadic")
+			if !bl.ContainsFinding(CategoryMissingFuncOptions, findingID, msg) {
+				reportDiagnostic(pass, exactCtor.pos, CategoryMissingFuncOptions, findingID, msg)
 			}
 		}
 
 		// If no exact constructor but a variant exists, check the variant
 		// for variadic option support.
-		if exactCtor == nil && anyCtor != nil && !anyCtor.hasVariadicOpt {
+		anyCtorHasMatchingVariadic := anyCtor != nil &&
+			anyCtor.hasVariadicOpt &&
+			anyCtor.variadicOptionTarget == s.name
+		if exactCtor == nil && anyCtor != nil && !anyCtorHasMatchingVariadic {
 			msg := fmt.Sprintf("constructor %s() for %s does not accept variadic ...%s",
 				ctorName, qualName, optTypeName)
-			if !bl.Contains(CategoryMissingFuncOptions, msg) {
-				pass.Report(analysis.Diagnostic{
-					Pos:      anyCtor.pos,
-					Category: CategoryMissingFuncOptions,
-					Message:  msg,
-				})
+			findingID := StableFindingID(CategoryMissingFuncOptions, qualName, ctorName, "variadic")
+			if !bl.ContainsFinding(CategoryMissingFuncOptions, findingID, msg) {
+				reportDiagnostic(pass, anyCtor.pos, CategoryMissingFuncOptions, findingID, msg)
 			}
 		}
 
@@ -381,12 +382,9 @@ func reportMissingFuncOptions(
 
 			msg := fmt.Sprintf("struct %s has %s type but field %q has no %s() function",
 				qualName, optTypeName, f.name, expectedWith)
-			if !bl.Contains(CategoryMissingFuncOptions, msg) {
-				pass.Report(analysis.Diagnostic{
-					Pos:      f.pos,
-					Category: CategoryMissingFuncOptions,
-					Message:  msg,
-				})
+			findingID := StableFindingID(CategoryMissingFuncOptions, qualName, f.name, "missing-with")
+			if !bl.ContainsFinding(CategoryMissingFuncOptions, findingID, msg) {
+				reportDiagnostic(pass, f.pos, CategoryMissingFuncOptions, findingID, msg)
 			}
 		}
 	}
@@ -417,15 +415,12 @@ func reportMissingImmutability(pass *analysis.Pass, structs []exportedStructInfo
 
 			msg := fmt.Sprintf("struct %s has %s() constructor but field %s is exported",
 				qualName, ctorName, f.name)
-			if bl.Contains(CategoryMissingImmutability, msg) {
+			findingID := StableFindingID(CategoryMissingImmutability, qualName, f.name)
+			if bl.ContainsFinding(CategoryMissingImmutability, findingID, msg) {
 				continue
 			}
 
-			pass.Report(analysis.Diagnostic{
-				Pos:      f.pos,
-				Category: CategoryMissingImmutability,
-				Message:  msg,
-			})
+			reportDiagnostic(pass, f.pos, CategoryMissingImmutability, findingID, msg)
 		}
 	}
 }
@@ -464,29 +459,35 @@ func reportMissingStructIsValid(
 			// Method exists — verify its signature matches the contract.
 			if mi.paramCount != 0 || mi.resultTypes != expectedIsValidSig {
 				msg := fmt.Sprintf("struct %s has IsValid() but wrong signature (want func() (bool, []error))", qualName)
-				if bl.Contains(CategoryWrongStructIsValidSig, msg) {
+				findingID := StableFindingID(CategoryWrongStructIsValidSig, qualName, "IsValid")
+				if bl.ContainsFinding(CategoryWrongStructIsValidSig, findingID, msg) {
 					continue
 				}
-				pass.Report(analysis.Diagnostic{
-					Pos:      s.pos,
-					Category: CategoryWrongStructIsValidSig,
-					Message:  msg,
-				})
+				reportDiagnostic(pass, s.pos, CategoryWrongStructIsValidSig, findingID, msg)
 			}
 			continue
 		}
 
 		msg := fmt.Sprintf("struct %s has constructor but no IsValid() method", qualName)
-		if bl.Contains(CategoryMissingStructIsValid, msg) {
+		findingID := StableFindingID(CategoryMissingStructIsValid, qualName, "IsValid")
+		if bl.ContainsFinding(CategoryMissingStructIsValid, findingID, msg) {
 			continue
 		}
 
-		pass.Report(analysis.Diagnostic{
-			Pos:      s.pos,
-			Category: CategoryMissingStructIsValid,
-			Message:  msg,
-		})
+		reportDiagnostic(pass, s.pos, CategoryMissingStructIsValid, findingID, msg)
 	}
+}
+
+// canonicalOptionTypeName returns a deterministic option type name from a
+// candidate list. When multiple aliases target the same struct, diagnostics
+// use the lexicographically smallest name for stable output.
+func canonicalOptionTypeName(optionTypeNames []string) string {
+	if len(optionTypeNames) == 0 {
+		return ""
+	}
+	names := append([]string(nil), optionTypeNames...)
+	slices.Sort(names)
+	return names[0]
 }
 
 // capitalizeFirst returns s with its first rune uppercased.

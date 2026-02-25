@@ -126,7 +126,9 @@ type HasCombinedDirective struct {
 type HasCombinedDirectiveOption func(*HasCombinedDirective)
 
 // WithLabel sets the label on HasCombinedDirective.
-func WithLabel(l string) HasCombinedDirectiveOption { return func(s *HasCombinedDirective) { s.label = l } } // want `parameter "l" of funcoptions\.WithLabel uses primitive type string`
+func WithLabel(l string) HasCombinedDirectiveOption { // want `parameter "l" of funcoptions\.WithLabel uses primitive type string`
+	return func(s *HasCombinedDirective) { s.label = l }
+}
 
 // NewHasCombinedDirective creates a HasCombinedDirective with options.
 func NewHasCombinedDirective(opts ...HasCombinedDirectiveOption) *HasCombinedDirective {
@@ -152,3 +154,33 @@ type VariantOnly struct {
 type VariantOnlyOption func(*VariantOnly)
 
 func NewVariantOnlyFromConfig(cfg string) *VariantOnly { return &VariantOnly{host: cfg} } // want `constructor NewVariantOnly\(\) for funcoptions\.VariantOnly does not accept variadic \.\.\.VariantOnlyOption` `parameter "cfg" of funcoptions\.NewVariantOnlyFromConfig uses primitive type string`
+
+// --- Completeness: variadic option targets a different struct ---
+
+// WrongTarget has an option type, but NewWrongTarget accepts options for OtherTarget.
+type WrongTarget struct {
+	wrongTargetName string // want `struct field funcoptions\.WrongTarget\.wrongTargetName uses primitive type string`
+}
+
+// WrongTargetOption is the functional option type for WrongTarget.
+type WrongTargetOption func(*WrongTarget)
+
+// OtherTarget is unrelated to WrongTarget.
+type OtherTarget struct{}
+
+// OtherTargetOption is an option type for OtherTarget.
+type OtherTargetOption func(*OtherTarget)
+
+// WithWrongTargetName satisfies the WrongTarget field completeness check.
+func WithWrongTargetName(name string) WrongTargetOption { // want `parameter "name" of funcoptions\.WithWrongTargetName uses primitive type string`
+	return func(w *WrongTarget) { w.wrongTargetName = name }
+}
+
+// NewWrongTarget incorrectly accepts OtherTargetOption instead of WrongTargetOption.
+func NewWrongTarget(opts ...OtherTargetOption) *WrongTarget { // want `constructor NewWrongTarget\(\) for funcoptions\.WrongTarget does not accept variadic \.\.\.WrongTargetOption`
+	w := &WrongTarget{}
+	for _, opt := range opts {
+		_ = opt
+	}
+	return w
+}

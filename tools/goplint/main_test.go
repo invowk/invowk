@@ -164,6 +164,60 @@ func TestParseAnalysisJSON(t *testing.T) {
 		}
 	})
 
+	t.Run("uses finding ID from diagnostic URL", func(t *testing.T) {
+		t.Parallel()
+		const findingID = "gpl1_deadbeef"
+		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {
+				"goplint": {
+					{
+						Category: "primitive",
+						Message:  "struct field pkg.Foo.Bar uses primitive type string",
+						URL:      goplint.DiagnosticURLForFinding(findingID),
+					},
+				},
+			},
+		})
+
+		findings, err := parseAnalysisJSON(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(findings["primitive"]) != 1 {
+			t.Fatalf("expected 1 primitive finding, got %d", len(findings["primitive"]))
+		}
+		if findings["primitive"][0].ID != findingID {
+			t.Errorf("expected finding ID %q, got %q", findingID, findings["primitive"][0].ID)
+		}
+	})
+
+	t.Run("falls back to derived ID when URL is missing", func(t *testing.T) {
+		t.Parallel()
+		const (
+			category = "primitive"
+			message  = "struct field pkg.Foo.Bar uses primitive type string"
+		)
+		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {
+				"goplint": {
+					{Category: category, Message: message},
+				},
+			},
+		})
+
+		findings, err := parseAnalysisJSON(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(findings[category]) != 1 {
+			t.Fatalf("expected 1 %s finding, got %d", category, len(findings[category]))
+		}
+		wantID := goplint.FallbackFindingID(category, message)
+		if findings[category][0].ID != wantID {
+			t.Errorf("expected fallback ID %q, got %q", wantID, findings[category][0].ID)
+		}
+	})
+
 	t.Run("filters out stale-exception diagnostics", func(t *testing.T) {
 		t.Parallel()
 		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{

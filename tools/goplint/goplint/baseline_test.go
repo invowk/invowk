@@ -68,6 +68,27 @@ messages = [
 		}
 	})
 
+	t.Run("v2 entries parse correctly", func(t *testing.T) {
+		t.Parallel()
+		content := `
+[primitive]
+entries = [
+    { id = "id-primitive-1", message = "struct field pkg.Foo.Bar uses primitive type string" },
+]
+`
+		path := writeTempFile(t, "baseline-v2.toml", content)
+		bl, err := loadBaseline(path)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if bl.Count() != 1 {
+			t.Errorf("expected 1 entry, got %d", bl.Count())
+		}
+		if !bl.ContainsFinding(CategoryPrimitive, "id-primitive-1", "") {
+			t.Error("expected id-based lookup to match v2 entry")
+		}
+	})
+
 	t.Run("invalid TOML returns error", func(t *testing.T) {
 		t.Parallel()
 		path := writeTempFile(t, "bad.toml", "[[invalid toml")
@@ -257,13 +278,13 @@ func TestWriteBaseline(t *testing.T) {
 	t.Run("writes sorted TOML with header", func(t *testing.T) {
 		t.Parallel()
 		outPath := filepath.Join(t.TempDir(), "baseline.toml")
-		findings := map[string][]string{
+		findings := map[string][]BaselineFinding{
 			CategoryPrimitive: {
-				"struct field pkg.Foo.Baz uses primitive type int",
-				"struct field pkg.Foo.Bar uses primitive type string",
+				{ID: "z-id", Message: "struct field pkg.Foo.Baz uses primitive type int"},
+				{ID: "a-id", Message: "struct field pkg.Foo.Bar uses primitive type string"},
 			},
 			CategoryMissingConstructor: {
-				"exported struct pkg.Config has no NewConfig() constructor",
+				{ID: "m-id", Message: "exported struct pkg.Config has no NewConfig() constructor"},
 			},
 		}
 
@@ -287,20 +308,25 @@ func TestWriteBaseline(t *testing.T) {
 			t.Error("missing or wrong total count")
 		}
 
-		// Verify sorting — Bar should come before Baz.
-		barIdx := indexOfStr(content, "pkg.Foo.Bar")
-		bazIdx := indexOfStr(content, "pkg.Foo.Baz")
-		if barIdx < 0 || bazIdx < 0 || barIdx > bazIdx {
-			t.Error("primitive messages not sorted alphabetically")
+		// Verify v2 schema uses entries.
+		if !containsStr(content, "entries = [") {
+			t.Error("expected entries array in v2 baseline")
+		}
+
+		// Verify sorting by ID — a-id should come before z-id.
+		aIDIdx := indexOfStr(content, `id = "a-id"`)
+		zIDIdx := indexOfStr(content, `id = "z-id"`)
+		if aIDIdx < 0 || zIDIdx < 0 || aIDIdx > zIDIdx {
+			t.Error("baseline entries not sorted by ID")
 		}
 	})
 
 	t.Run("empty categories omitted", func(t *testing.T) {
 		t.Parallel()
 		outPath := filepath.Join(t.TempDir(), "baseline.toml")
-		findings := map[string][]string{
+		findings := map[string][]BaselineFinding{
 			CategoryMissingIsValid: {
-				"named type pkg.MyType has no IsValid() method",
+				{Message: "named type pkg.MyType has no IsValid() method"},
 			},
 		}
 
@@ -326,40 +352,40 @@ func TestWriteBaseline(t *testing.T) {
 func TestBaselineRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	findings := map[string][]string{
+	findings := map[string][]BaselineFinding{
 		CategoryPrimitive: {
-			"struct field pkg.Foo.Bar uses primitive type string",
-			`parameter "name" of pkg.Func uses primitive type string`,
+			{Message: "struct field pkg.Foo.Bar uses primitive type string"},
+			{Message: `parameter "name" of pkg.Func uses primitive type string`},
 		},
 		CategoryMissingIsValid: {
-			"named type pkg.MyType has no IsValid() method",
+			{Message: "named type pkg.MyType has no IsValid() method"},
 		},
 		CategoryMissingStringer: {
-			"named type pkg.MyType has no String() method",
+			{Message: "named type pkg.MyType has no String() method"},
 		},
 		CategoryMissingConstructor: {
-			"exported struct pkg.Config has no NewConfig() constructor",
+			{Message: "exported struct pkg.Config has no NewConfig() constructor"},
 		},
 		CategoryWrongConstructorSig: {
-			"constructor NewFoo() for pkg.Foo returns Bar, expected Foo",
+			{Message: "constructor NewFoo() for pkg.Foo returns Bar, expected Foo"},
 		},
 		CategoryWrongIsValidSig: {
-			"named type pkg.BadValid has IsValid() but wrong signature (want func() (bool, []error))",
+			{Message: "named type pkg.BadValid has IsValid() but wrong signature (want func() (bool, []error))"},
 		},
 		CategoryWrongStringerSig: {
-			"named type pkg.BadStr has String() but wrong signature (want func() string)",
+			{Message: "named type pkg.BadStr has String() but wrong signature (want func() string)"},
 		},
 		CategoryMissingFuncOptions: {
-			"constructor NewBig() for pkg.Big has 5 non-option parameters; consider using functional options",
+			{Message: "constructor NewBig() for pkg.Big has 5 non-option parameters; consider using functional options"},
 		},
 		CategoryMissingImmutability: {
-			"struct pkg.Svc has NewSvc() constructor but field Addr is exported",
+			{Message: "struct pkg.Svc has NewSvc() constructor but field Addr is exported"},
 		},
 		CategoryMissingStructIsValid: {
-			"struct pkg.Svc has constructor but no IsValid() method",
+			{Message: "struct pkg.Svc has constructor but no IsValid() method"},
 		},
 		CategoryWrongStructIsValidSig: {
-			"struct pkg.BadSvc has IsValid() but wrong signature (want func() (bool, []error))",
+			{Message: "struct pkg.BadSvc has IsValid() but wrong signature (want func() (bool, []error))"},
 		},
 	}
 
@@ -374,18 +400,22 @@ func TestBaselineRoundTrip(t *testing.T) {
 	}
 
 	// Verify all original findings are present.
-	for cat, msgs := range findings {
-		for _, msg := range msgs {
-			if !bl.Contains(cat, msg) {
-				t.Errorf("round-trip lost: category=%q, message=%q", cat, msg)
+	for cat, entries := range findings {
+		for _, entry := range entries {
+			if !bl.Contains(cat, entry.Message) {
+				t.Errorf("round-trip lost: category=%q, message=%q", cat, entry.Message)
+			}
+			fallbackID := FallbackFindingID(cat, entry.Message)
+			if !bl.ContainsFinding(cat, fallbackID, "") {
+				t.Errorf("round-trip lost id match: category=%q, id=%q", cat, fallbackID)
 			}
 		}
 	}
 
 	// Verify count matches.
 	total := 0
-	for _, msgs := range findings {
-		total += len(msgs)
+	for _, entries := range findings {
+		total += len(entries)
 	}
 	if bl.Count() != total {
 		t.Errorf("count mismatch: got %d, want %d", bl.Count(), total)
@@ -446,8 +476,11 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 	// Verify buildLookup() initializes an entry for each category.
 	bl := emptyBaseline()
 	for _, cat := range baselinedCategories {
-		if _, ok := bl.lookup[cat]; !ok {
-			t.Errorf("buildLookup() missing entry for category %q", cat)
+		if _, ok := bl.lookupByID[cat]; !ok {
+			t.Errorf("buildLookup() missing ID entry for category %q", cat)
+		}
+		if _, ok := bl.lookupByMessage[cat]; !ok {
+			t.Errorf("buildLookup() missing message entry for category %q", cat)
 		}
 	}
 
@@ -456,17 +489,22 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 	for _, cat := range baselinedCategories {
 		expectedSet[cat] = true
 	}
-	for cat := range bl.lookup {
+	for cat := range bl.lookupByID {
 		if !expectedSet[cat] {
-			t.Errorf("buildLookup() has unexpected category %q not in baselinedCategories", cat)
+			t.Errorf("buildLookup() ID map has unexpected category %q not in baselinedCategories", cat)
+		}
+	}
+	for cat := range bl.lookupByMessage {
+		if !expectedSet[cat] {
+			t.Errorf("buildLookup() message map has unexpected category %q not in baselinedCategories", cat)
 		}
 	}
 
 	// Verify WriteBaseline handles every category by checking that
 	// a baseline with one entry per category round-trips correctly.
-	findings := make(map[string][]string, len(baselinedCategories))
+	findings := make(map[string][]BaselineFinding, len(baselinedCategories))
 	for _, cat := range baselinedCategories {
-		findings[cat] = []string{"test message for " + cat}
+		findings[cat] = []BaselineFinding{{Message: "test message for " + cat}}
 	}
 
 	outPath := writeTempFile(t, "completeness.toml", "")
