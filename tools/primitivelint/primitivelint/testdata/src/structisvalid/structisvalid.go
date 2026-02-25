@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package structisvalid
 
 // --- Has both constructor and IsValid — no struct-isvalid diagnostic ---

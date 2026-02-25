@@ -419,6 +419,120 @@ func TestNewRuntimeSelection(t *testing.T) {
 	}
 }
 
+func TestRuntimeSelection_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		sel            RuntimeSelection
+		wantValid      bool
+		wantFieldCount int
+	}{
+		{
+			name:      "valid native",
+			sel:       RuntimeSelection{mode: invowkfile.RuntimeNative, impl: &invowkfile.Implementation{}},
+			wantValid: true,
+		},
+		{
+			name:      "valid virtual",
+			sel:       RuntimeSelection{mode: invowkfile.RuntimeVirtual, impl: &invowkfile.Implementation{}},
+			wantValid: true,
+		},
+		{
+			name:      "valid container",
+			sel:       RuntimeSelection{mode: invowkfile.RuntimeContainer, impl: &invowkfile.Implementation{}},
+			wantValid: true,
+		},
+		{
+			name:           "nil impl",
+			sel:            RuntimeSelection{mode: invowkfile.RuntimeNative, impl: nil},
+			wantValid:      false,
+			wantFieldCount: 1,
+		},
+		{
+			name:           "invalid mode",
+			sel:            RuntimeSelection{mode: invowkfile.RuntimeMode("bogus"), impl: &invowkfile.Implementation{}},
+			wantValid:      false,
+			wantFieldCount: 1,
+		},
+		{
+			name:           "empty mode",
+			sel:            RuntimeSelection{mode: invowkfile.RuntimeMode(""), impl: &invowkfile.Implementation{}},
+			wantValid:      false,
+			wantFieldCount: 1,
+		},
+		{
+			name:           "zero value (both invalid)",
+			sel:            RuntimeSelection{},
+			wantValid:      false,
+			wantFieldCount: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.sel.IsValid()
+			if isValid != tt.wantValid {
+				t.Errorf("IsValid() = %v, want %v", isValid, tt.wantValid)
+			}
+
+			if tt.wantValid {
+				if len(errs) > 0 {
+					t.Errorf("IsValid() returned unexpected errors: %v", errs)
+				}
+				return
+			}
+
+			if len(errs) == 0 {
+				t.Fatal("expected errors, got none")
+			}
+			if !errors.Is(errs[0], ErrInvalidRuntimeSelection) {
+				t.Errorf("error should wrap ErrInvalidRuntimeSelection, got: %v", errs[0])
+			}
+
+			var selErr *InvalidRuntimeSelectionError
+			if !errors.As(errs[0], &selErr) {
+				t.Fatalf("error should be *InvalidRuntimeSelectionError, got: %T", errs[0])
+			}
+			if len(selErr.FieldErrors) != tt.wantFieldCount {
+				t.Errorf("field errors count = %d, want %d", len(selErr.FieldErrors), tt.wantFieldCount)
+			}
+		})
+	}
+}
+
+func TestRuntimeSelection_ConstructorAlwaysPassesIsValid(t *testing.T) {
+	t.Parallel()
+
+	sel, err := NewRuntimeSelection(invowkfile.RuntimeNative, &invowkfile.Implementation{})
+	if err != nil {
+		t.Fatalf("NewRuntimeSelection() unexpected error: %v", err)
+	}
+
+	if isValid, errs := sel.IsValid(); !isValid {
+		t.Errorf("constructor-created RuntimeSelection should pass IsValid(), got errors: %v", errs)
+	}
+}
+
+func TestInvalidRuntimeSelectionError_ErrorAndUnwrap(t *testing.T) {
+	t.Parallel()
+
+	fieldErrs := []error{
+		errors.New("mode error"),
+		errors.New("impl error"),
+	}
+	err := &InvalidRuntimeSelectionError{FieldErrors: fieldErrs}
+
+	if !strings.Contains(err.Error(), "2 field error(s)") {
+		t.Errorf("Error() = %q, want to contain '2 field error(s)'", err.Error())
+	}
+	if !errors.Is(err, ErrInvalidRuntimeSelection) {
+		t.Error("Unwrap() should return ErrInvalidRuntimeSelection")
+	}
+}
+
 func TestRuntimeNotAllowedError_Format(t *testing.T) {
 	t.Parallel()
 

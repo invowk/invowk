@@ -304,8 +304,8 @@ description: "A test module"
 		t.Fatal("Invowkfile.Metadata should not be nil for module-parsed file")
 	}
 
-	if moduleFile.Invowkfile.Metadata.Description != "A test module" {
-		t.Errorf("Invowkfile.Metadata.Description = %s, want 'A test module'", moduleFile.Invowkfile.Metadata.Description)
+	if moduleFile.Invowkfile.Metadata.Description() != "A test module" {
+		t.Errorf("Invowkfile.Metadata.Description() = %s, want 'A test module'", moduleFile.Invowkfile.Metadata.Description())
 	}
 
 	// Verify that ModulePath is set on the parsed invowkfile

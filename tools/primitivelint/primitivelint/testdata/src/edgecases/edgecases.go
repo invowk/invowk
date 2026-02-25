@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package edgecases
 
 // ByteData has a []byte field — exempt (I/O boundary type).

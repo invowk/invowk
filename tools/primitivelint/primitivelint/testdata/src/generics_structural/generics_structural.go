@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package generics_structural
 
 // GoodContainer is a generic struct with a correct constructor — no flag.

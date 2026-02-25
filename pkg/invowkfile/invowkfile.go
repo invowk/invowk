@@ -200,7 +200,7 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 // Returns the bare command name if no Metadata is set.
 func (inv *Invowkfile) GetFullCommandName(cmdName CommandName) CommandName {
 	if inv.Metadata != nil {
-		return CommandName(string(inv.Metadata.Module) + " " + string(cmdName))
+		return CommandName(string(inv.Metadata.Module()) + " " + string(cmdName))
 	}
 	return cmdName
 }
@@ -208,7 +208,7 @@ func (inv *Invowkfile) GetFullCommandName(cmdName CommandName) CommandName {
 // GetModule returns the module identifier from Metadata, or empty string if not set.
 func (inv *Invowkfile) GetModule() string {
 	if inv.Metadata != nil {
-		return string(inv.Metadata.Module)
+		return string(inv.Metadata.Module())
 	}
 	return ""
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package typedefs
 
 // CommandName is a type definition wrapping string.

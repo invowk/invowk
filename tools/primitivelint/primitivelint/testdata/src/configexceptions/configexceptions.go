@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package configexceptions
 
 // ExceptedByConfig has fields excepted via TOML config.

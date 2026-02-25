@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package generics
 
 // Container is a generic type.

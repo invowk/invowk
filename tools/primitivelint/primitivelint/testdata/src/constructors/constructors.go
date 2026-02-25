@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package constructors
 
 // Config has a NewConfig constructor — no diagnostic for constructor check.

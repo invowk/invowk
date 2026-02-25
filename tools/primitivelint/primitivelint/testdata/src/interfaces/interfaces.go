@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package interfaces
 
 // Service is an interface — its methods should NOT be flagged.

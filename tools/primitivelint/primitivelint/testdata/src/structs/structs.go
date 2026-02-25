@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package structs
 
 // SliceField has a slice of primitives.

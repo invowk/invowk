@@ -21,6 +21,16 @@ func moduleIDPtr(s string) *invowkmod.ModuleID {
 	return &id
 }
 
+// testModuleMetadata creates a minimal ModuleMetadata for test fixtures.
+// Uses NewModuleMetadataFromInvowkmod which does not validate, allowing
+// test-only metadata like empty module IDs.
+func testModuleMetadata(moduleID invowkmod.ModuleID) *invowkfile.ModuleMetadata {
+	return invowkfile.NewModuleMetadataFromInvowkmod(&invowkmod.Invowkmod{
+		Module:  moduleID,
+		Version: "0.0.0",
+	})
+}
+
 func TestDiscoveredCommandSet_Add(t *testing.T) {
 	t.Parallel()
 
@@ -423,11 +433,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.module1"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module1")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.module2"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module2")},
 			},
 		}
 
@@ -443,11 +453,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 			},
 		}
 
@@ -477,12 +487,12 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1.invowkmod/invowkfile.cue",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 				Module:     &invowkmod.Module{Path: "/path/to/module1.invowkmod"},
 			},
 			{
 				Path:       "/path/to/module2.invowkmod/invowkfile.cue",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 				Module:     &invowkmod.Module{Path: "/path/to/module2.invowkmod"},
 			},
 		}
@@ -499,7 +509,7 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 			},
 			{
 				Path:  "/path/to/module2",
@@ -519,11 +529,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.module1"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module1")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: ""}}, // Empty module ID
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("")}, // Empty module ID
 			},
 		}
 
@@ -545,7 +555,7 @@ func TestGetEffectiveModuleID(t *testing.T) {
 
 		file := &DiscoveredFile{
 			Path:       "/path/to/module",
-			Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.original"}},
+			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.original")},
 		}
 
 		moduleID := d.GetEffectiveModuleID(file)
@@ -565,7 +575,7 @@ func TestGetEffectiveModuleID(t *testing.T) {
 
 		file := &DiscoveredFile{
 			Path:       "/path/to/module.invowkmod/invowkfile.cue",
-			Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.original"}},
+			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.original")},
 			Module:     &invowkmod.Module{Path: "/path/to/module.invowkmod"},
 		}
 

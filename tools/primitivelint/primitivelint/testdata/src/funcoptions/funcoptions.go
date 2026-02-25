@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package funcoptions
 
 // --- Detection: too many non-option parameters ---

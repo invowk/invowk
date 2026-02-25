@@ -3,7 +3,7 @@
 # primitivelint baseline — accepted DDD compliance findings
 # Generated: 2026-02-25
 # Regenerate: make update-baseline
-# Total: 868 findings
+# Total: 840 findings
 
 # Bare primitive type usage
 [primitive]
@@ -833,6 +833,7 @@ messages = [
 # Structs missing functional options pattern
 [missing-func-options]
 messages = [
+    "constructor NewModuleMetadata() for invowkfile.ModuleMetadata has 4 non-option parameters; consider using functional options",
     "constructor NewValidationError() for invowkfile.ValidationError has 4 non-option parameters; consider using functional options",
     "struct container.BaseCLIEngine has BaseCLIEngineOption type but field \"binaryPath\" has no WithBinaryPath() function",
     "struct container.BaseCLIEngine has BaseCLIEngineOption type but field \"cmdEnvOverrides\" has no WithCmdEnvOverrides() function",
@@ -857,43 +858,4 @@ messages = [
     "struct serverbase.Base has Option type but field \"state\" has no WithState() function",
     "struct serverbase.Base has Option type but field \"stateMu\" has no WithStateMu() function",
     "struct serverbase.Base has Option type but field \"wg\" has no WithWg() function",
-]
-
-# Structs with constructor but exported mutable fields
-[missing-immutability]
-messages = [
-    "struct invowkfile.ModuleMetadata has NewModuleMetadata() constructor but field Description is exported",
-    "struct invowkfile.ModuleMetadata has NewModuleMetadata() constructor but field Module is exported",
-    "struct invowkfile.ModuleMetadata has NewModuleMetadata() constructor but field Requires is exported",
-    "struct invowkfile.ModuleMetadata has NewModuleMetadata() constructor but field Version is exported",
-]
-
-# Structs with constructor but no IsValid() method
-[missing-struct-isvalid]
-messages = [
-    "struct container.BaseCLIEngine has constructor but no IsValid() method",
-    "struct container.DockerEngine has constructor but no IsValid() method",
-    "struct container.PodmanEngine has constructor but no IsValid() method",
-    "struct container.SandboxAwareEngine has constructor but no IsValid() method",
-    "struct discovery.DiscoveredCommandSet has constructor but no IsValid() method",
-    "struct execute.RuntimeSelection has constructor but no IsValid() method",
-    "struct invowk.App has constructor but no IsValid() method",
-    "struct invowkfile.CompositeValidator has constructor but no IsValid() method",
-    "struct invowkfile.FieldPath has constructor but no IsValid() method",
-    "struct invowkfile.StructureValidator has constructor but no IsValid() method",
-    "struct invowkmod.CommandScope has constructor but no IsValid() method",
-    "struct invowkmod.GitFetcher has constructor but no IsValid() method",
-    "struct invowkmod.LockFile has constructor but no IsValid() method",
-    "struct invowkmod.Resolver has constructor but no IsValid() method",
-    "struct invowkmod.SemverResolver has constructor but no IsValid() method",
-    "struct issue.ErrorContext has constructor but no IsValid() method",
-    "struct provision.LayerProvisioner has constructor but no IsValid() method",
-    "struct runtime.ContainerRuntime has constructor but no IsValid() method",
-    "struct runtime.DefaultEnvBuilder has constructor but no IsValid() method",
-    "struct runtime.ExecutionContext has constructor but no IsValid() method",
-    "struct runtime.NativeRuntime has constructor but no IsValid() method",
-    "struct runtime.Registry has constructor but no IsValid() method",
-    "struct runtime.VirtualRuntime has constructor but no IsValid() method",
-    "struct serverbase.Base has constructor but no IsValid() method",
-    "struct uroot.Registry has constructor but no IsValid() method",
 ]

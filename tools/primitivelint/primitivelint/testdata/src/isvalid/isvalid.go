@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package isvalid
 
 // CommandName has both IsValid and String — no diagnostic.

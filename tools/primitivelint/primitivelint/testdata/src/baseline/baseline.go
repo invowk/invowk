@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package baseline
 
 // GoodName is a DDD Value Type — should not be flagged.

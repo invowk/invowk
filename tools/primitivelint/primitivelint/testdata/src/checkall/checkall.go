@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package checkall // want `stale exception: pattern "StalePattern.Field" matched no diagnostics`
 
 import "fmt"

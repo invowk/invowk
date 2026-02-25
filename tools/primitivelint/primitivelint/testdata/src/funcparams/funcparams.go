@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package funcparams
 
 // CommandName is a DDD Value Type.

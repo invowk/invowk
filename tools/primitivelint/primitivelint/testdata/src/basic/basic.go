@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package basic
 
 // GoodName is a DDD Value Type wrapping string.

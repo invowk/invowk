@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package exceptions
 
 // ExceptedStruct has fields with various ignore directive forms.

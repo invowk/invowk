@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 package immutability
 
 // Good has all unexported fields with a constructor — no diagnostic.

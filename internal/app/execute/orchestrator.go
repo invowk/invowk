@@ -4,6 +4,7 @@ package execute
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,12 +15,22 @@ import (
 	platmeta "github.com/invowk/invowk/pkg/platform"
 )
 
+// ErrInvalidRuntimeSelection is the sentinel error wrapped by InvalidRuntimeSelectionError.
+var ErrInvalidRuntimeSelection = errors.New("invalid runtime selection")
+
 type (
 	// RuntimeSelection is the resolved runtime mode + implementation pair.
 	// Fields are unexported for immutability; use Mode() and Impl() accessors.
 	RuntimeSelection struct {
 		mode invowkfile.RuntimeMode
 		impl *invowkfile.Implementation
+	}
+
+	// InvalidRuntimeSelectionError is returned when a RuntimeSelection has invalid fields.
+	// It wraps ErrInvalidRuntimeSelection for errors.Is() compatibility and collects
+	// field-level validation errors from Mode and Impl.
+	InvalidRuntimeSelectionError struct {
+		FieldErrors []error
 	}
 
 	// RuntimeNotAllowedError indicates a runtime override incompatible with the command.
@@ -89,6 +100,32 @@ func (r RuntimeSelection) Mode() invowkfile.RuntimeMode { return r.mode }
 
 // Impl returns the resolved implementation.
 func (r RuntimeSelection) Impl() *invowkfile.Implementation { return r.impl }
+
+// IsValid returns whether the RuntimeSelection has valid fields.
+// Mode must be a recognized RuntimeMode and Impl must not be nil.
+// A selection created via NewRuntimeSelection always passes IsValid();
+// selections from RuntimeSelectionOf (test fixtures) may not.
+func (r RuntimeSelection) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := r.mode.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if r.impl == nil {
+		errs = append(errs, fmt.Errorf("implementation must not be nil"))
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidRuntimeSelectionError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidRuntimeSelectionError.
+func (e *InvalidRuntimeSelectionError) Error() string {
+	return fmt.Sprintf("invalid runtime selection: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidRuntimeSelection for errors.Is() compatibility.
+func (e *InvalidRuntimeSelectionError) Unwrap() error { return ErrInvalidRuntimeSelection }
 
 func (e *RuntimeNotAllowedError) Error() string {
 	allowed := make([]string, len(e.Allowed))
