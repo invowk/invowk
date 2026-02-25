@@ -77,6 +77,8 @@ When updating English docs:
 2. Mirror the same `.mdx` path in `website/i18n/pt-BR/docusaurus-plugin-content-docs/current/`
 3. Keep translations prose-only — reuse identical snippet IDs
 4. If UI strings change: `cd website && npx docusaurus write-translations --locale pt-BR`
+5. Run `cd website && npm run docs:parity` to confirm file and Snippet/Diagram ID parity
+6. If adding entries to `website/docs-parity-exceptions.json`, include `docs-parity-exception-justification: <reason>` in the PR body
 
 ## Update Workflow
 
@@ -88,7 +90,8 @@ When asked to sync docs after a code change:
 4. **Update snippets**: If code examples changed, update the relevant file in `Snippet/data/`. Old entries superseded by new IDs can be removed — versioned docs use immutable snapshots.
 5. **Update i18n**: Mirror changes to pt-BR translations
 6. **Update diagrams**: If architecture changed, edit D2 source files
-7. **Verify**: Run `cd website && npm run build` to validate all locales
+7. **Verify parity**: Run `cd website && npm run docs:parity`
+8. **Verify build**: Run `cd website && npm run build` to validate all locales
 
 ## Style Guide
 

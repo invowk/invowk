@@ -2,7 +2,14 @@
 
 ## Instruction Priority
 
-- Follow system and user instructions first, then repo guidance (`.claude/`).
+- Follow system and user instructions first.
+- For repository guidance, use this precedence:
+  1. `AGENTS.md` for indexes, scope maps, and governance contracts.
+  2. `.agents/rules/*.md` for normative requirements.
+  3. `.agents/skills/*/SKILL.md` for procedural workflows and examples.
+  4. Package-level `AGENTS.md` files for scoped, explicit exceptions.
+- `.claude/*` paths are compatibility aliases. Canonical references in docs should use `.agents/*`.
+- If a skill conflicts with a rule, the rule wins unless it explicitly grants an exception.
 
 ## Sources and Tooling
 

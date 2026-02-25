@@ -68,6 +68,8 @@ for _, tt := range tests {
 
 All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state. **`t.Parallel()` must be the first call in the function** — before any `t.Skip()` guards or other setup. The `tparallel` linter enforces this positioning.
 
+**Scoped exception (documented and intentional):** Tests that share process-wide analyzer flag state (for example, `tools/goplint` tests that mutate `Analyzer.Flags`) must remain sequential. In these cases, do not use `t.Parallel()` and add a brief comment explaining the shared-state constraint.
+
 ### Table-Driven Subtests
 
 When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too.

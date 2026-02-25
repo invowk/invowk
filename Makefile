@@ -284,10 +284,15 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
+
+# Validate AGENTS/rules/skills index sync and canonical path usage.
+.PHONY: check-agent-docs
+check-agent-docs:
+	./scripts/check-agent-docs.sh
 
 # Run install script unit tests (POSIX only; PowerShell tests run on Windows CI)
 .PHONY: test-scripts
@@ -435,6 +440,7 @@ help:
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run golangci-lint on all packages"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
+	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
 	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
 	@echo "  size             Compare binary sizes (debug vs stripped vs UPX)"

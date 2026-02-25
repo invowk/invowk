@@ -76,6 +76,9 @@ jobs:
           VERSION: ${{ steps.tag.outputs.version }}
         run: ./scripts/version-docs.sh "$VERSION"
 
+      - name: Validate docs parity
+        run: node scripts/validate-docs-parity.mjs --mode strict --all-locales
+
       - name: Verify website builds
         working-directory: website
         run: npm run build

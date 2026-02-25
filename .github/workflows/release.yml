@@ -324,7 +324,10 @@ jobs:
 
       # Install Cosign for signing
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4
+        with:
+          # Keep the current sign-blob flow until we migrate release signing to cosign v3 bundles.
+          cosign-release: v2.6.0
 
       # Use a GitHub App token so the release event triggers version-docs.yml.
       # Releases created with GITHUB_TOKEN do NOT trigger other workflows.
@@ -338,7 +341,7 @@ jobs:
       # Run GoReleaser (publish)
       - name: Run GoReleaser
         if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: release --clean
@@ -367,7 +370,7 @@ jobs:
       # needed for the publish step above; --snapshot skips the actual push.
       - name: Run GoReleaser (dry run)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: release --clean --snapshot

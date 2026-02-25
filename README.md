@@ -934,8 +934,8 @@ Invowk injects metadata variables during command execution:
 |----------|-------------|------------|
 | `INVOWK_CMD_NAME` | Current command name | Yes |
 | `INVOWK_RUNTIME` | Resolved runtime name (`native`, `virtual`, `container`) | Yes |
-| `INVOWK_SOURCE` | Source origin (e.g., module name) | Only from modules |
-| `INVOWK_PLATFORM` | Resolved platform (`linux`, `macos`, `windows`) | Only from modules |
+| `INVOWK_SOURCE` | Source origin (`invowkfile` for root commands, module name for module commands) | Yes |
+| `INVOWK_PLATFORM` | Resolved platform (`linux`, `macos`, `windows`) | Yes |
 
 ### Script-Level Dependencies
 

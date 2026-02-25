@@ -48,7 +48,7 @@ VHS must be installed and available in PATH:
 vhs --version
 
 # Install if needed (see vhs/README.md for full instructions)
-go install github.com/charmbracelet/vhs@latest
+go install github.com/charmbracelet/vhs@v0.10.0
 ```
 
 For screenshot capture, VHS also requires `ffmpeg` and `ttyd`.

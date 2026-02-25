@@ -52,7 +52,7 @@ The `sidebar_position` frontmatter only controls ordering within a category - it
 
 All code blocks should use the reusable `<Snippet>` component. Add snippets to:
 
-`website/src/components/Snippet/snippets.ts`
+`website/src/components/Snippet/data/*.ts`
 
 ```typescript
 'section/snippet-name': {
@@ -90,7 +90,8 @@ The sidebar is manually configured in `website/sidebars.ts`. Current sections:
 - Treat `website/docs/` as the upcoming (unreleased) version. Only update it for changes targeting the next release.
 - Never edit `website/versioned_docs/version-*/` or `website/versioned_sidebars/` except to fix a bug, mismatch, or critical clarification for an already-released version.
 - When you need a backport fix, update the specific `version-*` doc and the matching translation under `website/i18n/pt-BR/docusaurus-plugin-content-docs/version-*/`.
-- When behavior changes, create new snippet IDs for the upcoming version. Old snippet IDs can be safely removed from `snippets.ts` — versioned docs resolve from immutable per-version snapshots.
+- When behavior changes, create new snippet IDs for the upcoming version. Old snippet IDs can be safely removed from `Snippet/data/*.ts` — versioned docs resolve from immutable per-version snapshots.
+- Legacy parity gaps must be recorded in `website/docs-parity-exceptions.json`. If you add new exceptions, include `docs-parity-exception-justification: <reason>` in the PR body.
 
 ### Automated Versioning (on Release)
 
@@ -105,6 +106,8 @@ Documentation versioning runs **automatically** on every GitHub Release (stable 
    - Snapshots `website/docs/` into `website/versioned_docs/version-<VERSION>/`
    - Snapshots version assets (snippets + diagrams) into immutable per-version files
    - Copies i18n translations for all locales
+   - Fails if locale source docs/labels are missing (unless `ALLOW_MISSING_LOCALES=1` is explicitly set)
+   - Validates docs parity (`current` + all versioned docs) for every locale
    - Updates `docusaurus.config.ts` with the correct `lastVersion` and pre-release banners
    - Validates all snippet/diagram references resolve correctly
 5. The versioning commit is pushed to `main`, which triggers `deploy-website.yml` to redeploy the site.
@@ -149,18 +152,19 @@ npm start -- --locale pt-BR  # Portuguese only
 
 ```bash
 cd website
+npm run docs:parity  # Enforce EN <-> locale docs/snippet/diagram parity
 npm run build    # Build all locales - must pass
 npm run serve    # Test language switcher at localhost:3000
 ```
 
-Any documentation change must include a successful `npm run build` run (no errors).
+Any documentation change must include successful `npm run docs:parity` and `npm run build` runs (no errors).
 
 ## Common Mistakes
 
 1. **Forgetting to update `sidebars.ts`** - Page exists but doesn't appear in navigation
-2. **Forgetting translations** - Build fails for non-English locales
+2. **Forgetting translations** - Docs parity validation fails in CI/release pipelines
 3. **Using inline code blocks instead of Snippets** - Creates duplication across translations
-4. **Not testing the build** - Broken links or missing translations only caught at build time
+4. **Not running parity + build checks** - Drift and broken links are only caught in CI
 
 ## File Naming Conventions
 

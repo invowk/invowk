@@ -10,20 +10,20 @@ Quando a mesma variável é definida em múltiplos lugares, o Invowk™ segue um
 
 ## Ordem de Precedência
 
-Da maior para a menor prioridade:
+Aplicada da menor para a maior prioridade:
 
 | Prioridade | Fonte | Exemplo |
 |------------|-------|---------|
-| 1 | Vars da CLI | `--ivk-env-var KEY=value` |
-| 2 | Arquivos env da CLI | `--ivk-env-file .env.local` |
-| 3 | Vars do Invowk | `INVOWK_FLAG_*`, `INVOWK_ARG_*` |
-| 4 | Vars de implementação | `implementations[].env.vars` |
-| 5 | Vars de comando | `command.env.vars` |
-| 6 | Vars raiz | `root.env.vars` |
-| 7 | Arquivos de implementação | `implementations[].env.files` |
-| 8 | Arquivos de comando | `command.env.files` |
-| 9 | Arquivos raiz | `root.env.files` |
-| 10 | Ambiente do sistema | Ambiente do host (se `env_inherit_mode` permitir) |
+| 1 | Ambiente do sistema | Ambiente do host (se `env_inherit_mode` permitir) |
+| 2 | Arquivos raiz | `root.env.files` |
+| 3 | Arquivos de comando | `command.env.files` |
+| 4 | Arquivos de implementação | `implementations[].env.files` |
+| 5 | Vars raiz | `root.env.vars` |
+| 6 | Vars de comando | `command.env.vars` |
+| 7 | Vars de implementação | `implementations[].env.vars` |
+| 8 | Vars do Invowk | `INVOWK_*`, `ARG*` |
+| 9 | Arquivos env da CLI | `--ivk-env-file .env.local` |
+| 10 | Vars da CLI | `--ivk-env-var KEY=value` |
 
 ## Hierarquia Visual
 

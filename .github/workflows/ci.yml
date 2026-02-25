@@ -33,6 +33,10 @@ on:
       - 'default.pgo'
       - '.goreleaser.yaml'
       - '.github/workflows/ci.yml'
+  # Release validation must always run in full, regardless of changed paths.
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 permissions:
@@ -322,7 +326,7 @@ jobs:
           cache: true
 
       - name: Check GoReleaser config
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: check

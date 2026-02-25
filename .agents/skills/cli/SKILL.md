@@ -17,6 +17,15 @@ Use this skill when working on:
 
 ---
 
+## Normative Quick Rules
+
+- `.agents/rules/commands.md` is the source of truth for hidden internal command policy.
+- `.agents/rules/testing.md` is the source of truth for CLI test coverage and mirror expectations.
+- `.agents/rules/go-patterns.md` is the source of truth for Go comments, ordering, and error-handling conventions.
+- This skill documents CLI architecture and implementation details; if this file conflicts with a rule, the rule wins.
+
+---
+
 ## Command Hierarchy Structure
 
 The CLI is organized under `root.go` with these main command groups:
@@ -48,7 +57,7 @@ The CLI is organized under `root.go` with these main command groups:
 **Rules:**
 - Internal commands are for inter-process communication and subprocess execution
 - Do NOT document in website docs
-- Only mention in `.claude/` and `README.md`
+- Only mention in `.agents/` and `README.md`
 - Used by container runtime, SSH server, TUI server internals
 
 **Current internal commands:**

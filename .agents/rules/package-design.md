@@ -166,4 +166,4 @@ Creating `testutil/invowkfiletest/` is acceptable when:
 - The helpers are genuinely reusable across multiple test files.
 - Import cycles would otherwise occur (test package can't import the package it tests).
 
-This is already established in the `testing` skill (`.claude/skills/testing/`) for `invowkfiletest`.
+This is already established in the `testing` skill (`.agents/skills/testing/`) for `invowkfiletest`.

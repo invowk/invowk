@@ -27,7 +27,7 @@ Verify required tools are available:
 go version
 
 # Optional but recommended
-command -v govulncheck || echo "MISSING: Install with: go install golang.org/x/vuln/cmd/govulncheck@latest"
+command -v govulncheck || echo "MISSING: Install with a pinned version, e.g. go install golang.org/x/vuln/cmd/govulncheck@vX.Y.Z"
 ```
 
 If `govulncheck` is missing, report it and continue with update checks only.
