@@ -1,0 +1,60 @@
+{
+  "exceptions": [
+    {
+      "locale": "pt-BR",
+      "version": "0.1.0",
+      "path": "architecture/c4-component-container.mdx",
+      "type": "missing-file",
+      "reason": "Historical version published before pt-BR translation for this page was added."
+    },
+    {
+      "locale": "pt-BR",
+      "version": "0.1.0",
+      "path": "architecture/c4-component-runtime.mdx",
+      "type": "missing-file",
+      "reason": "Historical version published before pt-BR translation for this page was added."
+    },
+    {
+      "locale": "pt-BR",
+      "version": "0.1.0-alpha.3",
+      "path": "architecture/c4-component-container.mdx",
+      "type": "missing-file",
+      "reason": "Historical version published before pt-BR translation for this page was added."
+    },
+    {
+      "locale": "pt-BR",
+      "version": "0.1.0-alpha.3",
+      "path": "architecture/c4-component-runtime.mdx",
+      "type": "missing-file",
+      "reason": "Historical version published before pt-BR translation for this page was added."
+    },
+    {
+      "locale": "pt-BR",
+      "version": "0.1.0-alpha.2",
+      "path": "architecture/c4-component-container.mdx",
+      "type": "missing-file",
+      "reason": "Historical version published before pt-BR translation for this page was added."
+    },
+    {
+      "locale": "pt-BR",
+      "version": "0.1.0-alpha.2",
+      "path": "architecture/c4-component-runtime.mdx",
+      "type": "missing-file",
+      "reason": "Historical version published before pt-BR translation for this page was added."
+    },
+    {
+      "locale": "pt-BR",
+      "version": "0.1.0-alpha.1",
+      "path": "architecture/c4-component-container.mdx",
+      "type": "missing-file",
+      "reason": "Historical version published before pt-BR translation for this page was added."
+    },
+    {
+      "locale": "pt-BR",
+      "version": "0.1.0-alpha.1",
+      "path": "architecture/c4-component-runtime.mdx",
+      "type": "missing-file",
+      "reason": "Historical version published before pt-BR translation for this page was added."
+    }
+  ]
+}

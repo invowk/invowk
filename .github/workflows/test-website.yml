@@ -8,6 +8,7 @@ on:
       - 'website/**'
       - 'docs/diagrams/**'
       - 'scripts/snapshot-version-assets.mjs'
+      - 'scripts/validate-docs-parity.mjs'
       - 'scripts/validate-version-assets.mjs'
       - '.github/workflows/test-website.yml'
   workflow_dispatch:
@@ -35,8 +36,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Guard parity exception growth
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+
+          base_count=$(git show "origin/$BASE_REF:website/docs-parity-exceptions.json" 2>/dev/null | jq '.exceptions | length' || echo 0)
+          current_count=$(jq '.exceptions | length' docs-parity-exceptions.json)
+
+          echo "Base exceptions: $base_count"
+          echo "Current exceptions: $current_count"
+
+          if [ "$current_count" -gt "$base_count" ]; then
+            if [[ "${PR_BODY:-}" != *"docs-parity-exception-justification:"* ]]; then
+              echo "::error::docs-parity exceptions increased. Add rationale in PR body using 'docs-parity-exception-justification: <reason>'."
+              exit 1
+            fi
+          fi
+
       - name: Validate version assets
         run: node ../scripts/validate-version-assets.mjs
+
+      - name: Validate docs parity
+        run: node ../scripts/validate-docs-parity.mjs --mode strict --all-locales
 
       - name: Build website
         run: npm run build

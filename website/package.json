@@ -12,6 +12,8 @@
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
+    "docs:parity": "node ../scripts/validate-docs-parity.mjs --mode strict --all-locales",
+    "docs:parity:report": "node ../scripts/validate-docs-parity.mjs --mode report --format json --all-locales",
     "typecheck": "tsc"
   },
   "dependencies": {

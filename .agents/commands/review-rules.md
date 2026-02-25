@@ -1,1 +1,1 @@
-Review the rules files to look for contradictions, ambiguities, incoherence, or too much noise. See if you think there's anything to improve.
+Review the rules and skills (minus speckit.*) files to look for contradictions, ambiguities, incoherence, gaps, and/or too much noise. See if you think there's anything to improve.

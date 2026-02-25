@@ -15,6 +15,10 @@
 # Usage:
 #   ./scripts/version-docs.sh <version>
 #
+# Environment:
+#   ALLOW_MISSING_LOCALES=1   Allow missing locale source docs/labels during
+#                             copy_i18n_translations (emergency bypass).
+#
 # Parameters:
 #   version - Semver version WITHOUT 'v' prefix (e.g., 0.1.0-alpha.1, 1.0.0)
 #
@@ -172,6 +176,7 @@ create_version_snapshot() {
 # ---------------------------------------------------------------------------
 copy_i18n_translations() {
     local version="$1"
+    local allow_missing_locales="${ALLOW_MISSING_LOCALES:-0}"
 
     for locale_dir in "$WEBSITE_DIR"/i18n/*/; do
         [ -d "$locale_dir" ] || continue
@@ -188,7 +193,11 @@ copy_i18n_translations() {
             rm -rf "$dst_docs"
             cp -r "$src_docs" "$dst_docs"
         else
-            echo "::warning::Missing i18n docs for locale '${locale}' at ${src_docs} — skipping."
+            if [ "$allow_missing_locales" = "1" ]; then
+                echo "::warning::Missing i18n docs for locale '${locale}' at ${src_docs} — skipping because ALLOW_MISSING_LOCALES=1."
+            else
+                die "Missing i18n docs for locale '${locale}' at ${src_docs}. Set ALLOW_MISSING_LOCALES=1 to bypass in emergency cases."
+            fi
         fi
 
         # Copy sidebar labels: current.json -> version-<VERSION>.json
@@ -208,7 +217,11 @@ copy_i18n_translations() {
                 fs.writeFileSync('$dst_json', JSON.stringify(data, null, 2) + '\n');
             "
         else
-            echo "::warning::Missing i18n sidebar labels for locale '${locale}' at ${src_json} — skipping."
+            if [ "$allow_missing_locales" = "1" ]; then
+                echo "::warning::Missing i18n sidebar labels for locale '${locale}' at ${src_json} — skipping because ALLOW_MISSING_LOCALES=1."
+            else
+                die "Missing i18n sidebar labels for locale '${locale}' at ${src_json}. Set ALLOW_MISSING_LOCALES=1 to bypass in emergency cases."
+            fi
         fi
     done
 
@@ -373,33 +386,38 @@ main() {
     fi
 
     # Step 1: Create version snapshot
-    info "Step 1/6: Creating docs version snapshot..."
+    info "Step 1/7: Creating docs version snapshot..."
     create_version_snapshot "$version"
     echo ""
 
     # Step 2: Sort versions.json by semver descending
-    info "Step 2/6: Sorting versions.json by semver..."
+    info "Step 2/7: Sorting versions.json by semver..."
     sort_versions_json
     ok "versions.json sorted."
     echo ""
 
     # Step 3: Snapshot version assets (snippets + diagrams)
-    info "Step 3/6: Snapshotting version assets..."
+    info "Step 3/7: Snapshotting version assets..."
     node "$REPO_ROOT/scripts/snapshot-version-assets.mjs" "$version"
     echo ""
 
     # Step 4: Copy i18n translations
-    info "Step 4/6: Copying i18n translations..."
+    info "Step 4/7: Copying i18n translations..."
     copy_i18n_translations "$version"
     echo ""
 
-    # Step 5: Update docusaurus.config.ts
-    info "Step 5/6: Updating docusaurus.config.ts..."
+    # Step 5: Validate docs parity across locales
+    info "Step 5/7: Validating docs parity..."
+    node "$REPO_ROOT/scripts/validate-docs-parity.mjs" --mode strict --all-locales
+    echo ""
+
+    # Step 6: Update docusaurus.config.ts
+    info "Step 6/7: Updating docusaurus.config.ts..."
     update_docusaurus_config "$version"
     echo ""
 
-    # Step 6: Validate version assets
-    info "Step 6/6: Validating version assets..."
+    # Step 7: Validate version assets
+    info "Step 7/7: Validating version assets..."
     node "$REPO_ROOT/scripts/validate-version-assets.mjs"
     echo ""
 
