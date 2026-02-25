@@ -16,21 +16,22 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // containerExecPrep holds all prepared data needed to run a container command.
 // This struct is returned by prepareContainerExecution and used by both
 // Execute and ExecuteCapture to avoid code duplication.
 type containerExecPrep struct {
-	image          string
+	image          container.ImageTag
 	shellCmd       []string
-	workDir        string
+	workDir        container.MountTargetPath
 	env            map[string]string
 	volumes        []invowkfile.VolumeMountSpec
 	ports          []invowkfile.PortMappingSpec
 	extraHosts     []container.HostMapping
 	sshConnInfo    *sshserver.ConnectionInfo
-	tempScriptPath string
+	tempScriptPath types.FilesystemPath
 	cleanup        func() // Combined cleanup for provisioning and temp files
 }
 
@@ -161,15 +162,15 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Success: clear errResult so the deferred cleanup doesn't run
 	// (errResult is nil by default on success since we return nil for the second value)
 	return &containerExecPrep{
-		image:          image,
+		image:          container.ImageTag(image),
 		shellCmd:       shellCmd,
-		workDir:        workDir,
+		workDir:        container.MountTargetPath(workDir),
 		env:            env,
 		volumes:        volumes,
 		ports:          containerCfg.Ports,
 		extraHosts:     extraHosts,
 		sshConnInfo:    sshConnInfo,
-		tempScriptPath: tempScriptPath,
+		tempScriptPath: types.FilesystemPath(tempScriptPath),
 		cleanup:        cleanup,
 	}, nil
 }
@@ -310,9 +311,9 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	// Run the container
 	runOpts := container.RunOptions{
-		Image:       container.ImageTag(prep.image),
+		Image:       prep.image,
 		Command:     prep.shellCmd,
-		WorkDir:     container.MountTargetPath(prep.workDir),
+		WorkDir:     prep.workDir,
 		Env:         prep.env,
 		Volumes:     prep.volumes,
 		Ports:       prep.ports,
@@ -347,9 +348,9 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	// Run the container with output capture
 	runOpts := container.RunOptions{
-		Image:       container.ImageTag(prep.image),
+		Image:       prep.image,
 		Command:     prep.shellCmd,
-		WorkDir:     container.MountTargetPath(prep.workDir),
+		WorkDir:     prep.workDir,
 		Env:         prep.env,
 		Volumes:     prep.volumes,
 		Ports:       prep.ports,

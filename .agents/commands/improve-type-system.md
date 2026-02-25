@@ -10,6 +10,9 @@ We're on a long multi-step work to completely avoid the use of simple primitive 
 - MUST use only non-primitive types for fields
 - MUST be immutable (if they're DDD Value Types) with only unexported fields and public accessor methods unless very unpractical for our use-cases; otherwise, if they're DDD Entities, they can remain mutable if it's best.
 
+## Import cycles
+- If the import/use of an existing type would create circular dependencies or similar issues, you MUST proceed even so by moving the type to `pkg/types` or another more appropriate package.
+
 All methods MUST have unit tests for ALL conditions.
 
 Identify ALL remaining gaps to be worked on and propose a robust plan. All pre-existing issues found during your planning MUST be fully resolved as well.

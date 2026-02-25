@@ -29,7 +29,7 @@ type (
 		// ShowPermissions enables showing file permissions.
 		ShowPermissions bool
 		// Height limits the visible height (0 for auto).
-		Height int
+		Height TerminalDimension
 		// FileAllowed enables file selection.
 		FileAllowed bool
 		// DirAllowed enables directory selection.
@@ -212,7 +212,7 @@ func (b *FileBuilder) ShowPermissions(show bool) *FileBuilder {
 }
 
 // Height sets the visible height.
-func (b *FileBuilder) Height(height int) *FileBuilder {
+func (b *FileBuilder) Height(height TerminalDimension) *FileBuilder {
 	b.opts.Height = height
 	return b
 }
@@ -281,7 +281,7 @@ func newFileModelWithTheme(opts FileOptions, theme *huh.Theme) *fileModel {
 	}
 
 	if opts.Height > 0 {
-		picker = picker.Height(opts.Height)
+		picker = picker.Height(int(opts.Height))
 	}
 
 	// Default to allowing files if neither is specified
