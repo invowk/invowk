@@ -108,7 +108,7 @@ func TestValidateContainerImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateContainerImage(tt.image)
+			err := ValidateContainerImage(ContainerImage(tt.image))
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
@@ -404,7 +404,7 @@ func TestValidateCustomChecks(t *testing.T) {
 		{
 			name: "name too long",
 			checks: []CustomCheckDependency{{
-				Name:        strings.Repeat("a", MaxNameLength+1),
+				Name:        CheckName(strings.Repeat("a", MaxNameLength+1)),
 				CheckScript: "echo test",
 			}},
 			shouldError: true,
@@ -416,7 +416,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "check_script too long",
 			checks: []CustomCheckDependency{{
 				Name:        "test",
-				CheckScript: strings.Repeat("a", MaxScriptLength+1),
+				CheckScript: ScriptContent(strings.Repeat("a", MaxScriptLength+1)),
 			}},
 			shouldError: true,
 			errorMsg:    "too long",
@@ -458,7 +458,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			checks: []CustomCheckDependency{{
 				Name:           "test",
 				CheckScript:    "echo test",
-				ExpectedOutput: strings.Repeat("a", MaxRegexPatternLength+1),
+				ExpectedOutput: RegexPattern(strings.Repeat("a", MaxRegexPatternLength+1)),
 			}},
 			shouldError: true,
 			errorMsg:    "too long",
@@ -470,7 +470,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
 					{Name: "good", CheckScript: "echo 1"},
-					{Name: strings.Repeat("x", MaxNameLength+1), CheckScript: "echo 2"},
+					{Name: CheckName(strings.Repeat("x", MaxNameLength+1)), CheckScript: "echo 2"},
 				},
 			}},
 			shouldError: true,
@@ -480,7 +480,7 @@ func TestValidateCustomChecks(t *testing.T) {
 			name: "alternatives with invalid check_script",
 			checks: []CustomCheckDependency{{
 				Alternatives: []CustomCheck{
-					{Name: "check", CheckScript: strings.Repeat("x", MaxScriptLength+1)},
+					{Name: "check", CheckScript: ScriptContent(strings.Repeat("x", MaxScriptLength+1))},
 				},
 			}},
 			shouldError: true,
@@ -499,7 +499,7 @@ func TestValidateCustomChecks(t *testing.T) {
 	}
 
 	v := NewStructureValidator()
-	ctx := &ValidationContext{FilePath: "/test/invowkfile.cue"}
+	ctx := &ValidationContext{FilePath: FilesystemPath("/test/invowkfile.cue")}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -639,24 +639,24 @@ func TestValidateFilepathDependency(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		paths       []string
+		paths       []FilesystemPath
 		shouldError bool
 		errorMsg    string
 	}{
 		// Valid paths
-		{name: "single valid path", paths: []string{"/usr/bin/go"}, shouldError: false},
-		{name: "multiple valid paths", paths: []string{"/usr/bin/go", "/usr/local/go/bin/go"}, shouldError: false},
-		{name: "relative path", paths: []string{"./build"}, shouldError: false},
+		{name: "single valid path", paths: []FilesystemPath{"/usr/bin/go"}, shouldError: false},
+		{name: "multiple valid paths", paths: []FilesystemPath{"/usr/bin/go", "/usr/local/go/bin/go"}, shouldError: false},
+		{name: "relative path", paths: []FilesystemPath{"./build"}, shouldError: false},
 
 		// Invalid - empty path
-		{name: "empty path", paths: []string{""}, shouldError: true, errorMsg: "cannot be empty"},
-		{name: "second path empty", paths: []string{"/bin/sh", ""}, shouldError: true, errorMsg: "cannot be empty"},
+		{name: "empty path", paths: []FilesystemPath{""}, shouldError: true, errorMsg: "cannot be empty"},
+		{name: "second path empty", paths: []FilesystemPath{"/bin/sh", ""}, shouldError: true, errorMsg: "cannot be empty"},
 
 		// Invalid - null bytes
-		{name: "null byte", paths: []string{"/bin/\x00sh"}, shouldError: true, errorMsg: "null byte"},
+		{name: "null byte", paths: []FilesystemPath{"/bin/\x00sh"}, shouldError: true, errorMsg: "null byte"},
 
 		// Invalid - too long
-		{name: "too long", paths: []string{strings.Repeat("/a", 2100)}, shouldError: true, errorMsg: "too long"},
+		{name: "too long", paths: []FilesystemPath{FilesystemPath(strings.Repeat("/a", 2100))}, shouldError: true, errorMsg: "too long"},
 	}
 
 	for _, tt := range tests {
@@ -718,7 +718,7 @@ func TestValidateToolName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateToolName(tt.toolName)
+			err := ValidateToolName(BinaryName(tt.toolName))
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
@@ -771,7 +771,7 @@ func TestValidateCommandDependencyName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateCommandDependencyName(tt.cmdName)
+			err := ValidateCommandDependencyName(CommandName(tt.cmdName))
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)

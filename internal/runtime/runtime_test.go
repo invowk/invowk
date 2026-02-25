@@ -48,7 +48,7 @@ func TestNewExecutionContext(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeNative)
 
@@ -93,7 +93,7 @@ func TestNewExecutionContext_VirtualRuntime(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("test", "echo hello", invowkfile.RuntimeVirtual)
 
@@ -252,7 +252,7 @@ func TestRegistry_GetForContext(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	reg := NewRegistry()
@@ -356,14 +356,14 @@ func TestRegistry_Execute(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	tests := []struct {
 		name         string
 		setupReg     func(*Registry)
 		runtime      invowkfile.RuntimeMode
-		wantExitCode int
+		wantExitCode ExitCode
 		wantErr      bool
 	}{
 		{
@@ -588,7 +588,7 @@ func TestStringsCutEnvSeparator(t *testing.T) {
 	}
 }
 
-// TestRegistryNewExecutionID tests that Registry.NewExecutionID generates unique IDs.
+// TestRegistryNewExecutionID tests that Registry.NewExecutionID generates unique, valid IDs.
 func TestRegistryNewExecutionID(t *testing.T) {
 	t.Parallel()
 
@@ -603,6 +603,52 @@ func TestRegistryNewExecutionID(t *testing.T) {
 	if id1 == id2 {
 		t.Error("Registry.NewExecutionID() should generate unique IDs")
 	}
+	// Generated IDs must pass IsValid.
+	if isValid, errs := id1.IsValid(); !isValid {
+		t.Errorf("Registry.NewExecutionID() generated invalid ID %q: %v", id1, errs)
+	}
+	if isValid, errs := id2.IsValid(); !isValid {
+		t.Errorf("Registry.NewExecutionID() generated invalid ID %q: %v", id2, errs)
+	}
+}
+
+// TestExecutionID_IsValid tests the ExecutionID validation method.
+func TestExecutionID_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		id      ExecutionID
+		want    bool
+		wantErr bool
+	}{
+		{"valid", ExecutionID("1234567890-1"), true, false},
+		{"valid_large", ExecutionID("9999999999999-42"), true, false},
+		{"empty", ExecutionID(""), false, true},
+		{"no_counter", ExecutionID("1234567890"), false, true},
+		{"letters", ExecutionID("abc-1"), false, true},
+		{"wrong_separator", ExecutionID("123_456"), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.id.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ExecutionID(%q).IsValid() = %v, want %v", tt.id, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ExecutionID(%q).IsValid() returned no errors, want error", tt.id)
+				}
+				if !errors.Is(errs[0], ErrInvalidExecutionID) {
+					t.Errorf("error should wrap ErrInvalidExecutionID, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ExecutionID(%q).IsValid() returned unexpected errors: %v", tt.id, errs)
+			}
+		})
+	}
 }
 
 // TestExecutionContext_CustomOverrides tests setting custom overrides on context.
@@ -611,7 +657,7 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
 
@@ -624,7 +670,7 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 	ctx.WorkDir = "/custom/dir"
 	ctx.Verbose = true
 	ctx.PositionalArgs = []string{"arg1", "arg2"}
-	ctx.Env.RuntimeEnvFiles = []string{".env"}
+	ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{".env"}
 	ctx.Env.RuntimeEnvVars = map[string]string{"VAR": "val"}
 	ctx.TUI.ServerURL = "http://localhost:8080"
 	ctx.TUI.ServerToken = "token123"
@@ -669,7 +715,7 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	reg := NewRegistry()
@@ -690,5 +736,185 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 	}
 	if !errors.Is(result.Error, ErrRuntimeNotAvailable) {
 		t.Errorf("Execute() error should wrap ErrRuntimeNotAvailable, got: %v", result.Error)
+	}
+}
+
+func TestRuntimeType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		runtimeType RuntimeType
+		want        bool
+		wantErr     bool
+	}{
+		{RuntimeTypeNative, true, false},
+		{RuntimeTypeVirtual, true, false},
+		{RuntimeTypeContainer, true, false},
+		{"", false, true},
+		{"invalid", false, true},
+		{"NATIVE", false, true},
+	}
+
+	for _, tt := range tests {
+		name := string(tt.runtimeType)
+		if name == "" {
+			name = "empty"
+		}
+
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.runtimeType.IsValid()
+			if isValid != tt.want {
+				t.Errorf("RuntimeType(%q).IsValid() = %v, want %v", tt.runtimeType, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("RuntimeType(%q).IsValid() returned no errors, want error", tt.runtimeType)
+				}
+				if !errors.Is(errs[0], ErrInvalidRuntimeType) {
+					t.Errorf("error should wrap ErrInvalidRuntimeType, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("RuntimeType(%q).IsValid() returned unexpected errors: %v", tt.runtimeType, errs)
+			}
+		})
+	}
+}
+
+func TestEnvContext_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		envCtx        EnvContext
+		want          bool
+		wantErr       bool
+		wantFieldErrs int
+	}{
+		{
+			name:   "zero value is valid",
+			envCtx: EnvContext{},
+			want:   true,
+		},
+		{
+			name: "valid with all fields",
+			envCtx: EnvContext{
+				InheritModeOverride:  invowkfile.EnvInheritAll,
+				InheritAllowOverride: []invowkfile.EnvVarName{"HOME", "PATH"},
+				InheritDenyOverride:  []invowkfile.EnvVarName{"SECRET"},
+				Cwd:                  "/some/dir",
+			},
+			want: true,
+		},
+		{
+			name: "invalid inherit mode",
+			envCtx: EnvContext{
+				InheritModeOverride: invowkfile.EnvInheritMode("bogus"),
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "invalid env var name in allow override",
+			envCtx: EnvContext{
+				InheritAllowOverride: []invowkfile.EnvVarName{"VALID", "123-invalid"},
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "invalid env var name in deny override",
+			envCtx: EnvContext{
+				InheritDenyOverride: []invowkfile.EnvVarName{"has space"},
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "invalid cwd (whitespace-only)",
+			envCtx: EnvContext{
+				Cwd: invowkfile.WorkDir("   "),
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 1,
+		},
+		{
+			name: "multiple errors",
+			envCtx: EnvContext{
+				InheritModeOverride:  invowkfile.EnvInheritMode("bad"),
+				InheritAllowOverride: []invowkfile.EnvVarName{"123bad"},
+				InheritDenyOverride:  []invowkfile.EnvVarName{"also bad"},
+			},
+			want:          false,
+			wantErr:       true,
+			wantFieldErrs: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.envCtx.IsValid()
+			if isValid != tt.want {
+				t.Errorf("EnvContext.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("EnvContext.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidEnvContext) {
+					t.Errorf("error should wrap ErrInvalidEnvContext, got: %v", errs[0])
+				}
+				var envErr *InvalidEnvContextError
+				if !errors.As(errs[0], &envErr) {
+					t.Fatalf("error should be *InvalidEnvContextError, got: %T", errs[0])
+				}
+				if len(envErr.FieldErrors) != tt.wantFieldErrs {
+					t.Errorf("InvalidEnvContextError.FieldErrors = %d, want %d", len(envErr.FieldErrors), tt.wantFieldErrs)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("EnvContext.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
+func TestExecutionID_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		id   ExecutionID
+		want string
+	}{
+		{"valid ID", ExecutionID("1234567890-1"), "1234567890-1"},
+		{"empty", ExecutionID(""), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.id.String(); got != tt.want {
+				t.Errorf("ExecutionID(%q).String() = %q, want %q", tt.id, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRuntimeType_String(t *testing.T) {
+	t.Parallel()
+
+	if got := RuntimeTypeNative.String(); got != "native" {
+		t.Errorf("RuntimeTypeNative.String() = %q, want %q", got, "native")
+	}
+	if got := RuntimeType("").String(); got != "" {
+		t.Errorf("RuntimeType(\"\").String() = %q, want %q", got, "")
 	}
 }

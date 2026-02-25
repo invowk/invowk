@@ -19,40 +19,44 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
 	// GitFetcher handles Git operations for module fetching.
+	// Fields are unexported for immutability; use CacheDir() accessor.
 	GitFetcher struct {
-		// CacheDir is the base directory for the Git source cache.
-		CacheDir string
-
-		// auth is the authentication method to use for Git operations.
-		auth transport.AuthMethod
+		cacheDir types.FilesystemPath
+		auth     transport.AuthMethod
 	}
 
 	// TagInfo contains information about a Git tag.
 	TagInfo struct {
+		// Name is the git tag name; intentionally untyped (pass-through from go-git).
 		Name   string
-		Commit string
+		Commit GitCommit
 	}
 )
 
 // NewGitFetcher creates a new Git fetcher.
-func NewGitFetcher(cacheDir string) *GitFetcher {
+func NewGitFetcher(cacheDir types.FilesystemPath) *GitFetcher {
 	f := &GitFetcher{
-		CacheDir: cacheDir,
+		cacheDir: cacheDir,
 	}
 	f.setupAuth()
 	return f
 }
 
+// CacheDir returns the base directory for the Git source cache.
+func (f *GitFetcher) CacheDir() types.FilesystemPath { return f.cacheDir }
+
 // ListVersions returns all version tags from a Git repository.
-func (f *GitFetcher) ListVersions(ctx context.Context, gitURL string) ([]string, error) {
+func (f *GitFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer, error) {
 	// Use in-memory storage to list remote refs without cloning
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{gitURL},
+		URLs: []string{string(gitURL)},
 	})
 
 	// List all references from the remote
@@ -64,13 +68,13 @@ func (f *GitFetcher) ListVersions(ctx context.Context, gitURL string) ([]string,
 	}
 
 	// Filter for version tags
-	var versions []string
+	var versions []SemVer
 	for _, ref := range refs {
 		if ref.Name().IsTag() {
 			tagName := ref.Name().Short()
 			// Accept both "v1.2.3" and "1.2.3" formats
-			if IsValidVersion(tagName) {
-				versions = append(versions, tagName)
+			if isValidVersionString(tagName) {
+				versions = append(versions, SemVer(tagName))
 			}
 		}
 	}
@@ -83,15 +87,15 @@ func (f *GitFetcher) ListVersions(ctx context.Context, gitURL string) ([]string,
 
 // Fetch clones or fetches a Git repository and checks out the specified version.
 // Returns the path to the repository and the commit SHA.
-func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (path, commitSHA string, err error) {
+func (f *GitFetcher) Fetch(ctx context.Context, gitURL GitURL, version SemVer) (repoPath types.FilesystemPath, commitSHA GitCommit, err error) {
 	// Generate a cache path for this repository
-	repoPath := f.getRepoCachePath(gitURL)
+	cachePath := f.getRepoCachePath(gitURL)
 
 	// Check if we already have this repository
-	repo, err := git.PlainOpen(repoPath)
+	repo, err := git.PlainOpen(string(cachePath))
 	if err != nil {
 		// Repository doesn't exist, clone it
-		repo, err = f.clone(ctx, gitURL, repoPath)
+		repo, err = f.clone(ctx, gitURL, cachePath)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to clone repository: %w", err)
 		}
@@ -108,15 +112,15 @@ func (f *GitFetcher) Fetch(ctx context.Context, gitURL, version string) (path, c
 		return "", "", fmt.Errorf("failed to checkout version %s: %w", version, err)
 	}
 
-	return repoPath, commitHash, nil
+	return cachePath, commitHash, nil
 }
 
 // GetCommitForTag returns the commit hash for a specific tag.
-func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL, tagName string) (string, error) {
+func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL GitURL, tagName SemVer) (GitCommit, error) {
 	// Use in-memory storage to list remote refs without cloning
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{gitURL},
+		URLs: []string{string(gitURL)},
 	})
 
 	refs, err := remote.ListContext(ctx, &git.ListOptions{
@@ -127,16 +131,17 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL, tagName string
 	}
 
 	// Try both with and without "v" prefix
-	tagNames := []string{tagName}
-	if noV, found := strings.CutPrefix(tagName, "v"); found {
+	tagStr := string(tagName)
+	tagNames := []string{tagStr}
+	if noV, found := strings.CutPrefix(tagStr, "v"); found {
 		tagNames = append(tagNames, noV)
 	} else {
-		tagNames = append(tagNames, "v"+tagName)
+		tagNames = append(tagNames, "v"+tagStr)
 	}
 
 	for _, ref := range refs {
 		if ref.Name().IsTag() && slices.Contains(tagNames, ref.Name().Short()) {
-			return ref.Hash().String(), nil
+			return GitCommit(ref.Hash().String()), nil
 		}
 	}
 
@@ -145,24 +150,27 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL, tagName string
 
 // CloneShallow performs a shallow clone of a repository at a specific tag.
 // This is more efficient for modules where we only need a specific version.
-func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath string) (string, error) {
+func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL GitURL, version SemVer, destPath types.FilesystemPath) (GitCommit, error) {
+	dest := string(destPath)
+
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
 	// Try with and without v prefix
-	tagNames := []string{version}
-	if noV, found := strings.CutPrefix(version, "v"); found {
+	versionStr := string(version)
+	tagNames := []string{versionStr}
+	if noV, found := strings.CutPrefix(versionStr, "v"); found {
 		tagNames = append(tagNames, noV)
 	} else {
-		tagNames = append(tagNames, "v"+version)
+		tagNames = append(tagNames, "v"+versionStr)
 	}
 
 	var lastErr error
 	for _, tagName := range tagNames {
-		repo, err := git.PlainCloneContext(ctx, destPath, false, &git.CloneOptions{
-			URL:           gitURL,
+		repo, err := git.PlainCloneContext(ctx, dest, false, &git.CloneOptions{
+			URL:           string(gitURL),
 			Auth:          f.auth,
 			ReferenceName: plumbing.NewTagReferenceName(tagName),
 			SingleBranch:  true,
@@ -172,7 +180,7 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath
 		if err != nil {
 			lastErr = err
 			// Clean up failed attempt (best-effort)
-			_ = os.RemoveAll(destPath)
+			_ = os.RemoveAll(dest)
 			continue
 		}
 
@@ -182,17 +190,17 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL, version, destPath
 			return "", fmt.Errorf("failed to get HEAD: %w", err)
 		}
 
-		return head.Hash().String(), nil
+		return GitCommit(head.Hash().String()), nil
 	}
 
 	return "", fmt.Errorf("failed to clone at version %s: %w", version, lastErr)
 }
 
 // IsPrivateRepo checks if a repository requires authentication.
-func (f *GitFetcher) IsPrivateRepo(ctx context.Context, gitURL string) bool {
+func (f *GitFetcher) IsPrivateRepo(ctx context.Context, gitURL GitURL) bool {
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{gitURL},
+		URLs: []string{string(gitURL)},
 	})
 
 	// Try to list refs without auth
@@ -204,9 +212,10 @@ func (f *GitFetcher) IsPrivateRepo(ctx context.Context, gitURL string) bool {
 }
 
 // ValidateAuth checks if authentication is configured for a URL.
-func (f *GitFetcher) ValidateAuth(gitURL string) error {
+func (f *GitFetcher) ValidateAuth(gitURL GitURL) error {
+	gitURLStr := string(gitURL)
 	if f.auth == nil {
-		if strings.HasPrefix(gitURL, "git@") || strings.Contains(gitURL, "ssh://") {
+		if strings.HasPrefix(gitURLStr, "git@") || strings.Contains(gitURLStr, "ssh://") {
 			return fmt.Errorf("SSH URL detected but no SSH key found; please add an SSH key to ~/.ssh/")
 		}
 		// No auth configured, will work for public HTTPS repos
@@ -216,15 +225,15 @@ func (f *GitFetcher) ValidateAuth(gitURL string) error {
 }
 
 // ListTags returns all tags from a repository sorted by version.
-func (f *GitFetcher) ListTags(ctx context.Context, gitURL string) ([]string, error) {
+func (f *GitFetcher) ListTags(ctx context.Context, gitURL GitURL) ([]SemVer, error) {
 	return f.ListVersions(ctx, gitURL)
 }
 
 // ListTagsWithCommits returns all tags with their commit hashes.
-func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL string) ([]TagInfo, error) {
+func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]TagInfo, error) {
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{gitURL},
+		URLs: []string{string(gitURL)},
 	})
 
 	refs, err := remote.ListContext(ctx, &git.ListOptions{
@@ -239,7 +248,7 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL string) ([]
 		if ref.Name().IsTag() {
 			tags = append(tags, TagInfo{
 				Name:   ref.Name().Short(),
-				Commit: ref.Hash().String(),
+				Commit: GitCommit(ref.Hash().String()),
 			})
 		}
 	}
@@ -330,15 +339,17 @@ func (f *GitFetcher) tryHTTPAuth() transport.AuthMethod {
 }
 
 // clone clones a repository to the specified path.
-func (f *GitFetcher) clone(ctx context.Context, gitURL, destPath string) (*git.Repository, error) {
+func (f *GitFetcher) clone(ctx context.Context, gitURL GitURL, destPath types.FilesystemPath) (*git.Repository, error) {
+	dest := string(destPath)
+
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
 	// Clone the repository
-	repo, err := git.PlainCloneContext(ctx, destPath, false, &git.CloneOptions{
-		URL:      gitURL,
+	repo, err := git.PlainCloneContext(ctx, dest, false, &git.CloneOptions{
+		URL:      string(gitURL),
 		Auth:     f.auth,
 		Progress: nil, // Could add progress reporting here
 	})
@@ -366,7 +377,7 @@ func (f *GitFetcher) fetch(ctx context.Context, repo *git.Repository) error {
 }
 
 // checkout checks out a specific version (tag) in the repository.
-func (f *GitFetcher) checkout(repo *git.Repository, version string) (string, error) {
+func (f *GitFetcher) checkout(repo *git.Repository, version SemVer) (GitCommit, error) {
 	// Get worktree
 	worktree, err := repo.Worktree()
 	if err != nil {
@@ -388,19 +399,20 @@ func (f *GitFetcher) checkout(repo *git.Repository, version string) (string, err
 		return "", fmt.Errorf("failed to checkout: %w", err)
 	}
 
-	return tagRef.String(), nil
+	return GitCommit(tagRef.String()), nil
 }
 
 // findTag finds a tag by name, trying both with and without "v" prefix.
-func (f *GitFetcher) findTag(repo *git.Repository, version string) (plumbing.Hash, error) {
+func (f *GitFetcher) findTag(repo *git.Repository, version SemVer) (plumbing.Hash, error) {
 	// Try the version as-is first
-	tagNames := []string{version}
+	versionStr := string(version)
+	tagNames := []string{versionStr}
 
 	// Also try with/without "v" prefix
-	if noV, found := strings.CutPrefix(version, "v"); found {
+	if noV, found := strings.CutPrefix(versionStr, "v"); found {
 		tagNames = append(tagNames, noV)
 	} else {
-		tagNames = append(tagNames, "v"+version)
+		tagNames = append(tagNames, "v"+versionStr)
 	}
 
 	for _, tagName := range tagNames {
@@ -422,14 +434,15 @@ func (f *GitFetcher) findTag(repo *git.Repository, version string) (plumbing.Has
 }
 
 // getRepoCachePath generates a cache path for a repository.
-func (f *GitFetcher) getRepoCachePath(gitURL string) string {
+func (f *GitFetcher) getRepoCachePath(gitURL GitURL) types.FilesystemPath {
 	// Convert git URL to path-safe format
 	// e.g., "https://github.com/user/repo.git" -> "github.com/user/repo"
-	path := strings.TrimPrefix(gitURL, "https://")
+	urlStr := string(gitURL)
+	path := strings.TrimPrefix(urlStr, "https://")
 	path = strings.TrimPrefix(path, "git@")
 	path = strings.TrimPrefix(path, "ssh://")
 	path = strings.TrimSuffix(path, ".git")
 	path = strings.ReplaceAll(path, ":", "/")
 
-	return filepath.Join(f.CacheDir, "sources", path)
+	return types.FilesystemPath(filepath.Join(string(f.cacheDir), "sources", path))
 }

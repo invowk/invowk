@@ -61,25 +61,25 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 	env := buildHostEnv(cfg, b.Environ)
 
 	// Determine the base path for resolving env files
-	basePath := ctx.Invowkfile.GetScriptBasePath()
+	basePath := string(ctx.Invowkfile.GetScriptBasePath())
 
 	// 2. Root-level env.files
 	for _, path := range ctx.Invowkfile.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath); err != nil {
 			return nil, err
 		}
 	}
 
 	// 3. Command-level env.files
 	for _, path := range ctx.Command.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath); err != nil {
 			return nil, err
 		}
 	}
 
 	// 4. Implementation-level env.files
 	for _, path := range ctx.SelectedImpl.Env.GetFiles() {
-		if err := LoadEnvFile(env, path, basePath); err != nil {
+		if err := LoadEnvFile(env, string(path), basePath); err != nil {
 			return nil, err
 		}
 	}
@@ -98,7 +98,7 @@ func (b *DefaultEnvBuilder) Build(ctx *ExecutionContext, defaultMode invowkfile.
 
 	// 9. Runtime --ivk-env-file flag files
 	for _, path := range ctx.Env.RuntimeEnvFiles {
-		if err := LoadEnvFileFromCwd(env, path, ctx.Env.Cwd); err != nil {
+		if err := LoadEnvFileFromCwd(env, string(path), string(ctx.Env.Cwd)); err != nil {
 			return nil, err
 		}
 	}

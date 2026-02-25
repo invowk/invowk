@@ -12,9 +12,9 @@ import (
 // testCommand creates a Command with a single script for testing purposes
 func testCommand(name, script string) Command {
 	return Command{
-		Name: name,
+		Name: CommandName(name),
 		Implementations: []Implementation{
-			{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
+			{Script: ScriptContent(script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}},
 		},
 	}
 }
@@ -22,8 +22,8 @@ func testCommand(name, script string) Command {
 // testCommandWithDeps creates a Command with a single script and dependencies for testing
 func testCommandWithDeps(name, script string, deps *DependsOn) Command {
 	return Command{
-		Name:            name,
-		Implementations: []Implementation{{Script: script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
+		Name:            CommandName(name),
+		Implementations: []Implementation{{Script: ScriptContent(script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn:       deps,
 	}
 }
@@ -37,18 +37,18 @@ func TestDependsOn_IsEmpty(t *testing.T) {
 		expected bool
 	}{
 		{name: "zero value", deps: DependsOn{}, expected: true},
-		{name: "only tools", deps: DependsOn{Tools: []ToolDependency{{Alternatives: []string{"sh"}}}}, expected: false},
-		{name: "only commands", deps: DependsOn{Commands: []CommandDependency{{Alternatives: []string{"build"}}}}, expected: false},
-		{name: "only filepaths", deps: DependsOn{Filepaths: []FilepathDependency{{Alternatives: []string{"f.txt"}}}}, expected: false},
+		{name: "only tools", deps: DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"sh"}}}}, expected: false},
+		{name: "only commands", deps: DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}}}, expected: false},
+		{name: "only filepaths", deps: DependsOn{Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"f.txt"}}}}, expected: false},
 		{name: "only capabilities", deps: DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: false},
 		{name: "only custom_checks", deps: DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: false},
 		{name: "only env_vars", deps: DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: false},
 		{
 			name: "all populated",
 			deps: DependsOn{
-				Tools:        []ToolDependency{{Alternatives: []string{"sh"}}},
-				Commands:     []CommandDependency{{Alternatives: []string{"b"}}},
-				Filepaths:    []FilepathDependency{{Alternatives: []string{"f"}}},
+				Tools:        []ToolDependency{{Alternatives: []BinaryName{"sh"}}},
+				Commands:     []CommandDependency{{Alternatives: []CommandName{"b"}}},
+				Filepaths:    []FilepathDependency{{Alternatives: []FilesystemPath{"f"}}},
 				Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}},
 				CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}},
 				EnvVars:      []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "X"}}}},
@@ -88,19 +88,19 @@ func TestCommand_HasDependencies(t *testing.T) {
 		},
 		{
 			name:     "only tools",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"git"}}}}),
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"git"}}}}),
 			expected: true,
 		},
 		{
 			name:     "only commands",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []string{"build"}}}}),
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}}}),
 			expected: true,
 		},
 		{
 			name: "both tools and commands",
 			cmd: testCommandWithDeps("test", "echo", &DependsOn{
-				Tools:    []ToolDependency{{Alternatives: []string{"git"}}},
-				Commands: []CommandDependency{{Alternatives: []string{"build"}}},
+				Tools:    []ToolDependency{{Alternatives: []BinaryName{"git"}}},
+				Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
 			}),
 			expected: true,
 		},
@@ -134,7 +134,7 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 	tests := []struct {
 		name     string
 		cmd      Command
-		expected []string
+		expected []CommandName
 	}{
 		{
 			name:     "nil DependsOn",
@@ -144,28 +144,28 @@ func TestCommand_GetCommandDependencies(t *testing.T) {
 		{
 			name:     "empty DependsOn",
 			cmd:      testCommandWithDeps("test", "echo", &DependsOn{}),
-			expected: []string{},
+			expected: []CommandName{},
 		},
 		{
 			name:     "single command",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []string{"build"}}}}),
-			expected: []string{"build"},
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}}}),
+			expected: []CommandName{"build"},
 		},
 		{
 			name: "multiple commands",
 			cmd: testCommandWithDeps("test", "echo", &DependsOn{
 				Commands: []CommandDependency{
-					{Alternatives: []string{"clean"}},
-					{Alternatives: []string{"build"}},
-					{Alternatives: []string{"test unit"}},
+					{Alternatives: []CommandName{"clean"}},
+					{Alternatives: []CommandName{"build"}},
+					{Alternatives: []CommandName{"test unit"}},
 				},
 			}),
-			expected: []string{"clean", "build", "test unit"},
+			expected: []CommandName{"clean", "build", "test unit"},
 		},
 		{
 			name:     "only tools no commands",
-			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"git"}}}}),
-			expected: []string{},
+			cmd:      testCommandWithDeps("test", "echo", &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"git"}}}}),
+			expected: []CommandName{},
 		},
 	}
 
@@ -206,9 +206,9 @@ func TestCommand_HasCommandLevelDependencies_AllTypes(t *testing.T) {
 	}{
 		{name: "nil", deps: nil, expected: false},
 		{name: "empty", deps: &DependsOn{}, expected: false},
-		{name: "tools", deps: &DependsOn{Tools: []ToolDependency{{Alternatives: []string{"sh"}}}}, expected: true},
-		{name: "commands", deps: &DependsOn{Commands: []CommandDependency{{Alternatives: []string{"b"}}}}, expected: true},
-		{name: "filepaths", deps: &DependsOn{Filepaths: []FilepathDependency{{Alternatives: []string{"f"}}}}, expected: true},
+		{name: "tools", deps: &DependsOn{Tools: []ToolDependency{{Alternatives: []BinaryName{"sh"}}}}, expected: true},
+		{name: "commands", deps: &DependsOn{Commands: []CommandDependency{{Alternatives: []CommandName{"b"}}}}, expected: true},
+		{name: "filepaths", deps: &DependsOn{Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"f"}}}}, expected: true},
 		{name: "capabilities", deps: &DependsOn{Capabilities: []CapabilityDependency{{Alternatives: []CapabilityName{CapabilityInternet}}}}, expected: true},
 		{name: "custom_checks", deps: &DependsOn{CustomChecks: []CustomCheckDependency{{Name: "c", CheckScript: "true"}}}, expected: true},
 		{name: "env_vars", deps: &DependsOn{EnvVars: []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "HOME"}}}}}, expected: true},
@@ -273,7 +273,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -371,7 +371,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -426,7 +426,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -489,7 +489,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -576,7 +576,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -638,7 +638,7 @@ func TestCommand_HasDependencies_WithFilepaths(t *testing.T) {
 		Name:            "test",
 		Implementations: []Implementation{{Script: "echo", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}}}},
 		DependsOn: &DependsOn{
-			Filepaths: []FilepathDependency{{Alternatives: []string{"config.yaml"}}},
+			Filepaths: []FilepathDependency{{Alternatives: []FilesystemPath{"config.yaml"}}},
 		},
 	}
 
@@ -657,10 +657,10 @@ func TestGenerateCUE_WithFilepaths(t *testing.T) {
 				Implementations: []Implementation{{Script: "echo deploy", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}, Platforms: []PlatformConfig{{Name: PlatformLinux}, {Name: PlatformMac}}}},
 				DependsOn: &DependsOn{
 					Filepaths: []FilepathDependency{
-						{Alternatives: []string{"config.yaml"}},
-						{Alternatives: []string{"secrets.env"}, Readable: true},
-						{Alternatives: []string{"output"}, Writable: true},
-						{Alternatives: []string{"deploy.sh"}, Executable: true},
+						{Alternatives: []FilesystemPath{"config.yaml"}},
+						{Alternatives: []FilesystemPath{"secrets.env"}, Readable: true},
+						{Alternatives: []FilesystemPath{"output"}, Writable: true},
+						{Alternatives: []FilesystemPath{"deploy.sh"}, Executable: true},
 					},
 				},
 			},

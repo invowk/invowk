@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/watch"
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -48,8 +50,8 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	cmdInfo := result.Command
 
 	// Build the watch config from the command's schema or use defaults.
-	var patterns []string
-	var ignore []string
+	var patterns []invowkfile.GlobPattern
+	var ignore []invowkfile.GlobPattern
 	var debounce time.Duration
 	var clearScreen bool
 
@@ -68,7 +70,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Default to watching all files if no patterns configured.
 	if len(patterns) == 0 {
-		patterns = []string{"**/*"}
+		patterns = []invowkfile.GlobPattern{"**/*"}
 	}
 
 	// Build a re-execution closure that runs the command through the normal pipeline.
@@ -112,9 +114,9 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// Resolve base directory: use command workdir if set, otherwise current dir.
 	// Relative workdir is resolved against the invowkfile directory, matching
 	// how the execution pipeline resolves it (not against os.Getwd()).
-	baseDir := cmdInfo.Command.WorkDir
+	baseDir := string(cmdInfo.Command.WorkDir)
 	if baseDir != "" && !filepath.IsAbs(baseDir) {
-		baseDir = filepath.Join(filepath.Dir(cmdInfo.FilePath), baseDir)
+		baseDir = filepath.Join(filepath.Dir(string(cmdInfo.FilePath)), baseDir)
 	}
 
 	// Track consecutive infrastructure (non-ExitError) failures in the OnChange
@@ -129,7 +131,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		Ignore:      ignore,
 		Debounce:    debounce,
 		ClearScreen: clearScreen,
-		BaseDir:     baseDir,
+		BaseDir:     types.FilesystemPath(baseDir),
 		OnChange: func(cbCtx context.Context, changed []string) error {
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])

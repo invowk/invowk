@@ -41,7 +41,9 @@ func validateValueType(value string, typeName FlagType) error {
 	case FlagTypeString:
 		// Any string is valid
 	default:
-		// Default to string (any value is valid)
+		// Defense-in-depth: CUE schema enforces valid types at parse time.
+		// This catches programmatic misuse where an invalid type bypasses parsing.
+		return fmt.Errorf("unknown flag type %q", typeName)
 	}
 	return nil
 }

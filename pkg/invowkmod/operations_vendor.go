@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -19,7 +21,7 @@ type (
 	// VendorOptions configures a VendorModules operation.
 	VendorOptions struct {
 		// ModulePath is the absolute path to the module being vendored.
-		ModulePath string
+		ModulePath types.FilesystemPath
 		// Modules are the resolved modules to copy into invowk_modules/.
 		Modules []*ResolvedModule
 		// Prune removes vendored modules not present in the Modules list.
@@ -33,17 +35,17 @@ type (
 		// Pruned lists directory names removed during pruning.
 		Pruned []string
 		// VendorDir is the absolute path to the invowk_modules/ directory.
-		VendorDir string
+		VendorDir types.FilesystemPath
 	}
 
 	// VendoredEntry describes a single module copied to the vendor directory.
 	VendoredEntry struct {
 		// Namespace is the module's command namespace (e.g., "tools@1.2.3").
-		Namespace string
+		Namespace ModuleNamespace
 		// SourcePath is the cache path the module was copied from.
-		SourcePath string
+		SourcePath types.FilesystemPath
 		// VendorPath is the destination path in invowk_modules/.
-		VendorPath string
+		VendorPath types.FilesystemPath
 	}
 )
 
@@ -62,7 +64,7 @@ func (e *moduleError) Unwrap() error {
 func VendorModules(opts VendorOptions) (*VendorResult, error) {
 	vendorDir := GetVendoredModulesDir(opts.ModulePath)
 
-	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+	if err := os.MkdirAll(string(vendorDir), 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create vendor directory: %w", err)
 	}
 
@@ -75,7 +77,7 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 
 	for _, mod := range opts.Modules {
 		// Locate the .invowkmod directory within the cache path.
-		moduleDir, _, err := findModuleInDir(mod.CachePath)
+		moduleDir, _, err := findModuleInDir(string(mod.CachePath))
 		if err != nil {
 			return nil, fmt.Errorf("failed to locate module in cache path %s: %w", mod.CachePath, err)
 		}
@@ -84,7 +86,7 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 		if expectedDirs[dirBase] {
 			return nil, fmt.Errorf("vendor conflict: multiple modules resolve to the same directory name %q", dirBase)
 		}
-		destPath := filepath.Join(vendorDir, dirBase)
+		destPath := filepath.Join(string(vendorDir), dirBase)
 		expectedDirs[dirBase] = true
 
 		// Remove any previous vendored copy so we get a clean state.
@@ -98,14 +100,14 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 
 		result.Vendored = append(result.Vendored, VendoredEntry{
 			Namespace:  mod.Namespace,
-			SourcePath: moduleDir,
-			VendorPath: destPath,
+			SourcePath: types.FilesystemPath(moduleDir),
+			VendorPath: types.FilesystemPath(destPath),
 		})
 	}
 
 	// Prune vendored modules that are no longer in the resolved set.
 	if opts.Prune {
-		pruned, err := pruneVendorDir(vendorDir, expectedDirs)
+		pruned, err := pruneVendorDir(string(vendorDir), expectedDirs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prune vendor directory: %w", err)
 		}
@@ -117,13 +119,13 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 
 // GetVendoredModulesDir returns the path to the vendored modules directory for a given module.
 // Returns the path whether or not the directory exists.
-func GetVendoredModulesDir(modulePath string) string {
-	return filepath.Join(modulePath, VendoredModulesDir)
+func GetVendoredModulesDir(modulePath types.FilesystemPath) types.FilesystemPath {
+	return types.FilesystemPath(filepath.Join(string(modulePath), VendoredModulesDir))
 }
 
 // HasVendoredModules checks if a module has vendored dependencies.
 // Returns true only if the invowk_modules/ directory exists AND contains at least one valid module.
-func HasVendoredModules(modulePath string) bool {
+func HasVendoredModules(modulePath types.FilesystemPath) bool {
 	modules, err := ListVendoredModules(modulePath)
 	if err != nil {
 		return false
@@ -133,11 +135,12 @@ func HasVendoredModules(modulePath string) bool {
 
 // ListVendoredModules returns a list of vendored modules in the given module directory.
 // Returns nil if no invowk_modules/ directory exists or it's empty.
-func ListVendoredModules(modulePath string) ([]*Module, error) {
+func ListVendoredModules(modulePath types.FilesystemPath) ([]*Module, error) {
 	vendorDir := GetVendoredModulesDir(modulePath)
+	vendorDirStr := string(vendorDir)
 
 	// Check if vendor directory exists
-	info, err := os.Stat(vendorDir)
+	info, err := os.Stat(vendorDirStr)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -149,7 +152,7 @@ func ListVendoredModules(modulePath string) ([]*Module, error) {
 	}
 
 	// Read directory entries
-	entries, err := os.ReadDir(vendorDir)
+	entries, err := os.ReadDir(vendorDirStr)
 	if err != nil {
 		return nil, &moduleError{op: "read vendor directory", err: err}
 	}
@@ -161,13 +164,13 @@ func ListVendoredModules(modulePath string) ([]*Module, error) {
 		}
 
 		// Check if it's a module
-		entryPath := filepath.Join(vendorDir, entry.Name())
-		if !IsModule(entryPath) {
+		entryPath := filepath.Join(vendorDirStr, entry.Name())
+		if !IsModule(types.FilesystemPath(entryPath)) {
 			continue
 		}
 
 		// Load the module
-		m, err := Load(entryPath)
+		m, err := Load(types.FilesystemPath(entryPath))
 		if err != nil {
 			// Skip invalid modules
 			continue

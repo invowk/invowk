@@ -11,17 +11,28 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
 
 const (
 	// ArgErrMissingRequired indicates missing required arguments.
-	ArgErrMissingRequired = iota
+	ArgErrMissingRequired ArgErrType = iota
 	// ArgErrTooMany indicates too many arguments were provided.
 	ArgErrTooMany
 	// ArgErrInvalidValue indicates an argument value failed validation.
 	ArgErrInvalidValue
+)
+
+var (
+	// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
+	// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+	ErrInvalidArgErrType = errors.New("invalid argument error type") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
+
+	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
+	// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+	ErrInvalidDependencyMessage = errors.New("invalid dependency message") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
 )
 
 type (
@@ -40,29 +51,46 @@ type (
 		watch bool
 	}
 
+	// DependencyMessage is a pre-formatted dependency validation message
+	// used in DependencyError fields. Each message describes a single
+	// unsatisfied dependency (e.g., "  - kubectl - not found in PATH").
+	DependencyMessage string
+
+	// InvalidDependencyMessageError is returned when a DependencyMessage value
+	// fails validation (empty string).
+	InvalidDependencyMessageError struct {
+		Value DependencyMessage
+	}
+
 	// DependencyError represents unsatisfied dependencies.
 	DependencyError struct {
-		CommandName         string
-		MissingTools        []string
-		MissingCommands     []string
-		MissingFilepaths    []string
-		MissingCapabilities []string
-		FailedCustomChecks  []string
-		MissingEnvVars      []string
+		CommandName         invowkfile.CommandName
+		MissingTools        []DependencyMessage
+		MissingCommands     []DependencyMessage
+		MissingFilepaths    []DependencyMessage
+		MissingCapabilities []DependencyMessage
+		FailedCustomChecks  []DependencyMessage
+		MissingEnvVars      []DependencyMessage
 	}
 
 	// ArgErrType represents the type of argument validation error.
 	ArgErrType int
 
+	// InvalidArgErrTypeError is returned when an ArgErrType value is not
+	// one of the defined argument error types.
+	InvalidArgErrTypeError struct {
+		Value ArgErrType
+	}
+
 	// ArgumentValidationError represents an argument validation failure.
 	ArgumentValidationError struct {
 		Type         ArgErrType
-		CommandName  string
+		CommandName  invowkfile.CommandName
 		ArgDefs      []invowkfile.Argument
 		ProvidedArgs []string
 		MinArgs      int
 		MaxArgs      int
-		InvalidArg   string
+		InvalidArg   invowkfile.ArgumentName
 		InvalidValue string
 		ValueError   error
 	}
@@ -72,8 +100,6 @@ type (
 	SourceFilter struct {
 		// SourceID is the normalized source identifier (e.g., "invowkfile", "foo").
 		SourceID discovery.SourceID
-		// Raw is the original user input before normalization (e.g., "@foo.invowkmod").
-		Raw string
 	}
 
 	// SourceNotFoundError is returned when a specified source does not exist.
@@ -84,10 +110,65 @@ type (
 
 	// AmbiguousCommandError is returned when a command exists in multiple sources.
 	AmbiguousCommandError struct {
-		CommandName string
+		CommandName invowkfile.CommandName
 		Sources     []discovery.SourceID
 	}
 )
+
+// Error implements the error interface.
+func (e *InvalidArgErrTypeError) Error() string {
+	return fmt.Sprintf("invalid argument error type %d (valid: 0=missing_required, 1=too_many, 2=invalid_value)", e.Value)
+}
+
+// Unwrap returns ErrInvalidArgErrType so callers can use errors.Is for programmatic detection.
+func (e *InvalidArgErrTypeError) Unwrap() error { return ErrInvalidArgErrType }
+
+// String returns the human-readable name of the ArgErrType.
+func (t ArgErrType) String() string {
+	switch t {
+	case ArgErrMissingRequired:
+		return "missing_required"
+	case ArgErrTooMany:
+		return "too_many"
+	case ArgErrInvalidValue:
+		return "invalid_value"
+	default:
+		return fmt.Sprintf("unknown(%d)", int(t))
+	}
+}
+
+// IsValid returns whether the ArgErrType is one of the defined argument error types,
+// and a list of validation errors if it is not.
+func (t ArgErrType) IsValid() (bool, []error) {
+	switch t {
+	case ArgErrMissingRequired, ArgErrTooMany, ArgErrInvalidValue:
+		return true, nil
+	default:
+		return false, []error{&InvalidArgErrTypeError{Value: t}}
+	}
+}
+
+// IsValid returns whether the DependencyMessage is non-empty and non-whitespace,
+// and a list of validation errors if it is not.
+func (m DependencyMessage) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(m)) == "" {
+		return false, []error{&InvalidDependencyMessageError{Value: m}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the DependencyMessage.
+func (m DependencyMessage) String() string {
+	return string(m)
+}
+
+// Error implements the error interface for InvalidDependencyMessageError.
+func (e *InvalidDependencyMessageError) Error() string {
+	return fmt.Sprintf("invalid dependency message: %q", e.Value)
+}
+
+// Unwrap returns ErrInvalidDependencyMessage so callers can use errors.Is for programmatic detection.
+func (e *InvalidDependencyMessageError) Unwrap() error { return ErrInvalidDependencyMessage }
 
 // parsedRuntimeMode parses the --ivk-runtime flag into a typed RuntimeMode.
 // Returns zero value ("") for empty input, which serves as the "no override" sentinel.
@@ -233,13 +314,12 @@ func normalizeSourceName(raw string) discovery.SourceID {
 func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string, error) {
 	// `--ivk-from` takes precedence because Cobra parsed it explicitly.
 	if fromFlag != "" {
-		return &SourceFilter{SourceID: normalizeSourceName(fromFlag), Raw: fromFlag}, args, nil
+		return &SourceFilter{SourceID: normalizeSourceName(fromFlag)}, args, nil
 	}
 
 	// `@source` is only recognized as the first positional token.
 	if len(args) > 0 && strings.HasPrefix(args[0], "@") {
-		raw := args[0]
-		return &SourceFilter{SourceID: normalizeSourceName(raw), Raw: raw}, args[1:], nil
+		return &SourceFilter{SourceID: normalizeSourceName(args[0])}, args[1:], nil
 	}
 
 	return nil, args, nil
@@ -271,9 +351,9 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
-		FromSource:   cmdFlags.fromSource,
+		FromSource:   discovery.SourceID(cmdFlags.fromSource),
 		ForceRebuild: cmdFlags.forceRebuild,
-		ConfigPath:   rootFlags.configPath,
+		ConfigPath:   types.FilesystemPath(rootFlags.configPath),
 		DryRun:       cmdFlags.dryRun,
 	}
 
@@ -298,7 +378,7 @@ func silenceOnExitError(cmd *cobra.Command, err error) {
 // ExitError to signal Cobra to exit without printing usage.
 func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	// Ensure every execution path carries the explicit config path and request cache.
-	reqCtx := contextWithConfigPath(cmd.Context(), req.ConfigPath)
+	reqCtx := contextWithConfigPath(cmd.Context(), string(req.ConfigPath))
 	cmd.SetContext(reqCtx)
 
 	// Cobra adapters always render service diagnostics in the CLI layer.
@@ -326,7 +406,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	verbose = rootFlags.verbose
 	interactive = rootFlags.interactive
 
-	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: rootFlags.configPath})
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)})
 	if err != nil {
 		fmt.Fprintln(app.stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, rootFlags.verbose))
 		return verbose, interactive

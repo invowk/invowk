@@ -21,7 +21,7 @@ func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
 	allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker))}
 	allOpts = append(allOpts, opts...)
 	return &DockerEngine{
-		BaseCLIEngine: NewBaseCLIEngine(path, allOpts...),
+		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...),
 	}
 }
 
@@ -35,6 +35,8 @@ func (e *DockerEngine) Available() bool {
 }
 
 // Version returns the Docker version.
+//
+//plint:render
 func (e *DockerEngine) Version(ctx context.Context) (string, error) {
 	out, err := e.RunCommandWithOutput(ctx, "version", "--format", "{{.Server.Version}}")
 	if err != nil {
@@ -45,7 +47,7 @@ func (e *DockerEngine) Version(ctx context.Context) (string, error) {
 
 // ImageExists checks if an image exists.
 // Docker uses "image inspect" which returns detailed JSON on success.
-func (e *DockerEngine) ImageExists(ctx context.Context, image string) (bool, error) {
-	err := e.RunCommandStatus(ctx, "image", "inspect", image)
+func (e *DockerEngine) ImageExists(ctx context.Context, image ImageTag) (bool, error) {
+	err := e.RunCommandStatus(ctx, "image", "inspect", string(image))
 	return err == nil, nil
 }

@@ -16,7 +16,7 @@ type (
 		// Title is the column header text.
 		Title string
 		// Width is the column width (0 for auto).
-		Width int
+		Width TerminalDimension
 	}
 
 	// TableOptions configures the Table component.
@@ -28,9 +28,9 @@ type (
 		// Rows contains the table data.
 		Rows [][]string
 		// Height limits the visible height (0 for auto).
-		Height int
+		Height TerminalDimension
 		// Width limits the visible width (0 for auto).
-		Width int
+		Width TerminalDimension
 		// Selectable enables row selection.
 		Selectable bool
 		// SelectedIndex is the initially selected row index.
@@ -134,9 +134,9 @@ func (m *tableModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *tableModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+func (m *tableModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
 }
 
 // Table displays a table and optionally allows row selection.
@@ -258,13 +258,13 @@ func (b *TableBuilder) AddRow(row ...string) *TableBuilder {
 }
 
 // Height sets the visible height.
-func (b *TableBuilder) Height(height int) *TableBuilder {
+func (b *TableBuilder) Height(height TerminalDimension) *TableBuilder {
 	b.opts.Height = height
 	return b
 }
 
 // Width sets the visible width.
-func (b *TableBuilder) Width(width int) *TableBuilder {
+func (b *TableBuilder) Width(width TerminalDimension) *TableBuilder {
 	b.opts.Width = width
 	return b
 }
@@ -335,20 +335,20 @@ func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
 	// Build columns
 	columns := make([]table.Column, len(opts.Columns))
 	for i, col := range opts.Columns {
-		width := col.Width
-		if width == 0 {
+		colWidth := int(col.Width)
+		if colWidth == 0 {
 			// Auto-calculate width based on content
-			width = len(col.Title)
+			colWidth = len(col.Title)
 			for _, row := range opts.Rows {
-				if i < len(row) && len(row[i]) > width {
-					width = len(row[i])
+				if i < len(row) && len(row[i]) > colWidth {
+					colWidth = len(row[i])
 				}
 			}
-			width += 2 // Add padding
+			colWidth += 2 // Add padding
 		}
 		columns[i] = table.Column{
 			Title: col.Title,
-			Width: width,
+			Width: colWidth,
 		}
 	}
 
@@ -358,7 +358,7 @@ func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
 		rows[i] = row
 	}
 
-	tableHeight := opts.Height
+	tableHeight := int(opts.Height)
 	if tableHeight == 0 {
 		tableHeight = min(len(opts.Rows)+1, 15)
 	}
@@ -419,7 +419,7 @@ func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
 	return &tableModel{
 		table:  t,
 		rows:   opts.Rows,
-		width:  opts.Width,
+		width:  int(opts.Width),
 		height: tableHeight,
 	}
 }

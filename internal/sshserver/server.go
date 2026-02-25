@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/core/serverbase"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/ssh"
@@ -29,10 +30,10 @@ type (
 
 	// Token represents an authentication token for container callbacks.
 	Token struct {
-		Value     string
+		Value     TokenValue
 		CreatedAt time.Time
 		ExpiresAt time.Time
-		CommandID string
+		CommandID string // Composite identifier (name:executionID), intentionally untyped.
 		Used      bool
 	}
 
@@ -57,7 +58,7 @@ type (
 		addr     string // Actual bound address (including resolved port)
 
 		// Token management
-		tokens  map[string]*Token
+		tokens  map[TokenValue]*Token
 		tokenMu sync.RWMutex
 
 		// Logger
@@ -67,25 +68,25 @@ type (
 	// Config holds immutable configuration for the SSH server.
 	Config struct {
 		// Host is the address to bind to (default: 127.0.0.1)
-		Host string
+		Host HostAddress
 		// Port is the port to listen on (0 = auto-select)
-		Port int
+		Port ListenPort
 		// TokenTTL is how long tokens are valid (default: 1 hour)
 		TokenTTL time.Duration
 		// ShutdownTimeout is the timeout for graceful shutdown (default: 10s)
 		ShutdownTimeout time.Duration
 		// DefaultShell is the shell to use (default: /bin/sh)
-		DefaultShell string
+		DefaultShell invowkfile.ShellPath
 		// StartupTimeout is the max time to wait for server to be ready (default: 5s)
 		StartupTimeout time.Duration
 	}
 
 	// ConnectionInfo contains information needed to connect to the SSH server.
 	ConnectionInfo struct {
-		Host     string
-		Port     int
-		Token    string
-		User     string
+		Host     HostAddress
+		Port     ListenPort
+		Token    TokenValue
+		User     string // Always "invowk"; intentionally untyped.
 		ExpireAt time.Time
 	}
 )
@@ -93,13 +94,33 @@ type (
 // DefaultConfig returns a default configuration.
 func DefaultConfig() Config {
 	return Config{
-		Host:            "127.0.0.1",
-		Port:            0,
+		Host:            HostAddress("127.0.0.1"),
+		Port:            ListenPort(0),
 		TokenTTL:        time.Hour,
 		ShutdownTimeout: 10 * time.Second,
-		DefaultShell:    "/bin/sh",
+		DefaultShell:    invowkfile.ShellPath("/bin/sh"),
 		StartupTimeout:  5 * time.Second,
 	}
+}
+
+// IsValid returns whether the Config has valid fields.
+// It delegates to Host.IsValid(), Port.IsValid(), and DefaultShell.IsValid().
+// Duration fields (TokenTTL, ShutdownTimeout, StartupTimeout) have no IsValid.
+func (c Config) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := c.Host.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := c.Port.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := c.DefaultShell.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidSSHConfigError{FieldErrors: errs}}
+	}
+	return true, nil
 }
 
 // Now returns the current system time.
@@ -119,7 +140,7 @@ func New(cfg Config) *Server {
 func NewWithClock(cfg Config, clock Clock) *Server {
 	// Apply defaults
 	if cfg.Host == "" {
-		cfg.Host = "127.0.0.1"
+		cfg.Host = HostAddress("127.0.0.1")
 	}
 	if cfg.TokenTTL == 0 {
 		cfg.TokenTTL = time.Hour
@@ -128,7 +149,7 @@ func NewWithClock(cfg Config, clock Clock) *Server {
 		cfg.ShutdownTimeout = 10 * time.Second
 	}
 	if cfg.DefaultShell == "" {
-		cfg.DefaultShell = "/bin/sh"
+		cfg.DefaultShell = invowkfile.ShellPath("/bin/sh")
 	}
 	if cfg.StartupTimeout == 0 {
 		cfg.StartupTimeout = 5 * time.Second
@@ -142,7 +163,7 @@ func NewWithClock(cfg Config, clock Clock) *Server {
 		Base:   serverbase.NewBase(),
 		cfg:    cfg,
 		clock:  clock,
-		tokens: make(map[string]*Token),
+		tokens: make(map[TokenValue]*Token),
 		logger: logger,
 	}
 
@@ -168,7 +189,7 @@ func (s *Server) commandMiddleware() wish.Middleware {
 
 // runInteractiveShell starts an interactive shell session.
 func (s *Server) runInteractiveShell(sess ssh.Session) {
-	shell := s.cfg.DefaultShell
+	shell := string(s.cfg.DefaultShell)
 
 	cmd := exec.CommandContext(sess.Context(), shell)
 	cmd.Env = append(os.Environ(), sess.Environ()...)
@@ -214,7 +235,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 func (s *Server) runCommand(sess ssh.Session, args []string) {
 	var cmd *exec.Cmd
 	if len(args) == 1 {
-		cmd = exec.CommandContext(sess.Context(), s.cfg.DefaultShell, "-c", args[0])
+		cmd = exec.CommandContext(sess.Context(), string(s.cfg.DefaultShell), "-c", args[0])
 	} else {
 		cmd = exec.CommandContext(sess.Context(), args[0], args[1:]...)
 	}

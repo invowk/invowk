@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
 )
 
@@ -61,15 +62,15 @@ func (m *mockEngine) Run(_ context.Context, _ RunOptions) (*RunResult, error) {
 	return &RunResult{}, nil
 }
 
-func (m *mockEngine) Remove(_ context.Context, _ string, _ bool) error {
+func (m *mockEngine) Remove(_ context.Context, _ ContainerID, _ bool) error {
 	return nil
 }
 
-func (m *mockEngine) ImageExists(_ context.Context, _ string) (bool, error) {
+func (m *mockEngine) ImageExists(_ context.Context, _ ImageTag) (bool, error) {
 	return true, nil
 }
 
-func (m *mockEngine) RemoveImage(_ context.Context, _ string, _ bool) error {
+func (m *mockEngine) RemoveImage(_ context.Context, _ ImageTag, _ bool) error {
 	return nil
 }
 
@@ -336,7 +337,7 @@ func TestSandboxAwareEngine_ComplexRunOptions(t *testing.T) {
 		Image:       "debian:stable-slim",
 		Command:     []string{"bash", "-c", "echo hello"},
 		WorkDir:     "/workspace",
-		Volumes:     []string{"/home/user/project:/workspace:z"},
+		Volumes:     []invowkfile.VolumeMountSpec{"/home/user/project:/workspace:z"},
 		Env:         map[string]string{"FOO": "bar"},
 		Remove:      true,
 		Interactive: true,

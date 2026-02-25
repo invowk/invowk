@@ -50,7 +50,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have a name in invowkfile at " + ctx.FilePath,
+			Message:   "must have a name in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 		return errors, isOptional, isVariadic
@@ -59,62 +59,62 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 	path = path.Copy().Arg(arg.Name)
 
 	// [CUE-VALIDATED] Argument name length also enforced by CUE schema (#Argument.name MaxRunes(256))
-	if err := ValidateStringLength(arg.Name, "argument name", MaxNameLength); err != nil {
+	if err := ValidateStringLength(string(arg.Name), "argument name", MaxNameLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
 
 	// Validate name is POSIX-compliant
-	if !argNameRegex.MatchString(arg.Name) {
+	if !argNameRegex.MatchString(string(arg.Name)) {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at " + ctx.FilePath,
+			Message:   "has invalid name (must start with a letter, contain only alphanumeric, hyphens, and underscores) in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
 
 	// Validate description is not empty (after trimming whitespace)
-	if strings.TrimSpace(arg.Description) == "" {
+	if strings.TrimSpace(string(arg.Description)) == "" {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have a non-empty description in invowkfile at " + ctx.FilePath,
+			Message:   "must have a non-empty description in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
 
 	// [CUE-VALIDATED] Argument description length also enforced by CUE schema (#Argument.description MaxRunes(10240))
-	if err := ValidateStringLength(arg.Description, "argument description", MaxDescriptionLength); err != nil {
+	if err := ValidateStringLength(string(arg.Description), "argument description", MaxDescriptionLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
 
 	// Check for duplicate argument names
-	if seenNames[arg.Name] {
+	if seenNames[string(arg.Name)] {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     NewFieldPath().Command(cmd.Name).String(),
-			Message:   "has duplicate argument name '" + arg.Name + "' in invowkfile at " + ctx.FilePath,
+			Message:   "has duplicate argument name '" + arg.Name.String() + "' in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
-	seenNames[arg.Name] = true
+	seenNames[string(arg.Name)] = true
 
 	// Validate type is valid (if specified) - note: bool is not allowed for args
 	if arg.Type != "" && arg.Type != ArgumentTypeString && arg.Type != ArgumentTypeInt && arg.Type != ArgumentTypeFloat {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "has invalid type '" + string(arg.Type) + "' (must be 'string', 'int', or 'float') in invowkfile at " + ctx.FilePath,
+			Message:   "has invalid type '" + string(arg.Type) + "' (must be 'string', 'int', or 'float') in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -124,7 +124,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "cannot be both required and have a default_value in invowkfile at " + ctx.FilePath,
+			Message:   "cannot be both required and have a default_value in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -134,7 +134,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "required arguments must come before optional arguments in invowkfile at " + ctx.FilePath,
+			Message:   "required arguments must come before optional arguments in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -144,7 +144,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "only the last argument can be variadic (found after variadic argument) in invowkfile at " + ctx.FilePath,
+			Message:   "only the last argument can be variadic (found after variadic argument) in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -155,7 +155,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "default_value '" + arg.DefaultValue + "' is not compatible with type '" + string(arg.GetType()) + "': " + err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   "default_value '" + arg.DefaultValue + "' is not compatible with type '" + string(arg.GetType()) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -163,20 +163,20 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 
 	// Validate validation regex is valid and safe
 	if arg.Validation != "" {
-		if err := ValidateRegexPattern(arg.Validation); err != nil {
+		if err := ValidateRegexPattern(string(arg.Validation)); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "has unsafe validation regex '" + arg.Validation + "': " + err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   "has unsafe validation regex '" + string(arg.Validation) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		} else if arg.DefaultValue != "" {
 			// Check if default_value matches validation regex
-			if !matchesValidation(arg.DefaultValue, arg.Validation) {
+			if !matchesValidation(arg.DefaultValue, string(arg.Validation)) {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + arg.Validation + "' in invowkfile at " + ctx.FilePath,
+					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + string(arg.Validation) + "' in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}

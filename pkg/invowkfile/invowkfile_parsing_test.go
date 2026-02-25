@@ -51,7 +51,7 @@ func TestIsScriptFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 			result := s.IsScriptFile()
 			if result != tt.expected {
 				t.Errorf("IsScriptFile() = %v, want %v for script %q", result, tt.expected, tt.script)
@@ -92,10 +92,10 @@ func TestGetScriptFilePath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-			result := s.GetScriptFilePath(invowkfilePath)
+			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			result := s.GetScriptFilePath(FilesystemPath(invowkfilePath))
 			if tt.expectedResult {
-				if result != tt.expectedPath {
+				if string(result) != tt.expectedPath {
 					t.Errorf("GetScriptFilePath() = %q, want %q", result, tt.expectedPath)
 				}
 			} else {
@@ -128,8 +128,8 @@ func TestResolveScript_Inline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &Implementation{Script: tt.script, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-			result, err := s.ResolveScript("/fake/path/invowkfile.cue")
+			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+			result, err := s.ResolveScript(FilesystemPath("/fake/path/invowkfile.cue"))
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
 				return
@@ -161,7 +161,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 
 	t.Run("resolve script from file", func(t *testing.T) {
 		s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScript(invowkfilePath)
+		result, err := s.ResolveScript(FilesystemPath(invowkfilePath))
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
 			return
@@ -172,8 +172,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("resolve script with absolute path", func(t *testing.T) {
-		s := &Implementation{Script: scriptPath, Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScript(invowkfilePath)
+		s := &Implementation{Script: ScriptContent(scriptPath), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
+		result, err := s.ResolveScript(FilesystemPath(invowkfilePath))
 		if err != nil {
 			t.Errorf("ResolveScript() error = %v", err)
 			return
@@ -185,7 +185,7 @@ func TestResolveScript_FromFile(t *testing.T) {
 
 	t.Run("error on missing script file", func(t *testing.T) {
 		s := &Implementation{Script: "./nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		_, err := s.ResolveScript(invowkfilePath)
+		_, err := s.ResolveScript(FilesystemPath(invowkfilePath))
 		if err == nil {
 			t.Error("ResolveScript() expected error for missing file, got nil")
 		}
@@ -221,7 +221,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 		t.Parallel()
 
 		s := &Implementation{Script: "./scripts/build.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
+		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -236,7 +236,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 		t.Parallel()
 
 		s := &Implementation{Script: "echo hello world", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
+		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), readFile)
 		if err != nil {
 			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
@@ -250,7 +250,7 @@ func TestResolveScriptWithFS(t *testing.T) {
 		t.Parallel()
 
 		s := &Implementation{Script: "./scripts/nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		_, err := s.ResolveScriptWithFS(invowkfilePath, readFile)
+		_, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), readFile)
 		if err == nil {
 			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
 		}
@@ -296,7 +296,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -310,12 +310,12 @@ cmds: [
 	if len(cmd.Implementations) == 0 {
 		t.Fatal("Expected at least 1 script")
 	}
-	if !strings.Contains(cmd.Implementations[0].Script, "Line 1") || !strings.Contains(cmd.Implementations[0].Script, "Line 2") {
+	if !strings.Contains(string(cmd.Implementations[0].Script), "Line 1") || !strings.Contains(string(cmd.Implementations[0].Script), "Line 2") {
 		t.Errorf("Multi-line script parsing failed.\nGot: %q", cmd.Implementations[0].Script)
 	}
 
 	// Verify resolution works too
-	resolved, err := cmd.Implementations[0].ResolveScript(invowkfilePath)
+	resolved, err := cmd.Implementations[0].ResolveScript(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Errorf("ResolveScript() error = %v", err)
 	}
@@ -389,7 +389,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 				}
 			}
 
-			_, parseErr := Parse(invowkfilePath)
+			_, parseErr := Parse(FilesystemPath(invowkfilePath))
 
 			if tt.shouldError {
 				if parseErr == nil {
@@ -426,7 +426,7 @@ func TestScriptCaching(t *testing.T) {
 	s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 
 	// First resolution
-	result1, err := s.ResolveScript(invowkfilePath)
+	result1, err := s.ResolveScript(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("First ResolveScript() error = %v", err)
 	}
@@ -440,7 +440,7 @@ func TestScriptCaching(t *testing.T) {
 	}
 
 	// Second resolution should return cached content
-	result2, err := s.ResolveScript(invowkfilePath)
+	result2, err := s.ResolveScript(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Second ResolveScript() error = %v", err)
 	}

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // CalculateFileHash calculates SHA256 hash of a file's contents.
@@ -63,12 +65,12 @@ func CalculateDirHash(dirPath string) (string, error) {
 }
 
 // DiscoverModules finds all .invowkmod directories in the given paths.
-func DiscoverModules(paths []string) []string {
+func DiscoverModules(paths []types.FilesystemPath) []string {
 	var modules []string
 	seen := make(map[string]bool)
 
 	for _, basePath := range paths {
-		_ = filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error { // Walk never returns error with this callback
+		_ = filepath.Walk(string(basePath), func(path string, info os.FileInfo, err error) error { // Walk never returns error with this callback
 			if err != nil {
 				return nil //nolint:nilerr // Intentionally skip errors to continue walking
 			}

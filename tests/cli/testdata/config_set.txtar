@@ -43,11 +43,11 @@ stderr 'Unknown configuration key'
 
 # Test 9: Invalid container_engine value
 ! exec invowk config set container_engine invalid
-stderr 'Invalid container_engine'
+stderr '(?i)invalid container engine'
 
 # Test 10: Invalid default_runtime value
 ! exec invowk config set default_runtime invalid
-stderr 'Invalid default_runtime'
+stderr '(?i)invalid runtime mode'
 
 # Test 11: config set requires exactly 2 args (0 given)
 ! exec invowk config set

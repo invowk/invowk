@@ -36,7 +36,7 @@ func testVirtualCommandSubstitution(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := testCommandWithScript("subst", `RESULT=$(echo "nested output"); echo "Got: $RESULT"`, invowkfile.RuntimeVirtual)
@@ -65,7 +65,7 @@ func testVirtualPipelines(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := testCommandWithScript("pipeline", `echo -e "line1\nline2\nline3" | grep line2`, invowkfile.RuntimeVirtual)
@@ -94,7 +94,7 @@ func testVirtualHeredocInput(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	script := `cat <<EOF
@@ -131,7 +131,7 @@ func testVirtualEnvironmentExpansion(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	script := `MYVAR="hello"
@@ -175,7 +175,7 @@ func testVirtualArithmeticExpansion(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	script := `echo "Sum: $((2 + 3))"
@@ -210,7 +210,7 @@ func testVirtualConditionalExecution(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	script := `true && echo "AND_SUCCESS"
@@ -262,7 +262,7 @@ func TestVirtualRuntime_ScriptFileFromSubdir(t *testing.T) {
 	}
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := testCommandWithScript("subdir-script", "./scripts/helper.sh", invowkfile.RuntimeVirtual)

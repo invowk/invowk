@@ -46,7 +46,7 @@ func (s *Server) Start(ctx context.Context) error {
 	defer startupCancel()
 
 	// Initialize listener
-	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
+	addr := fmt.Sprintf("%s:%d", string(s.cfg.Host), int(s.cfg.Port))
 	var lc net.ListenConfig
 	listener, err := lc.Listen(startupCtx, "tcp", addr)
 	if err != nil {
@@ -224,7 +224,7 @@ func (s *Server) Address() string {
 // Port returns the server's listening port.
 // Blocks until the server has started or failed.
 // Returns 0 if server never started or failed.
-func (s *Server) Port() int {
+func (s *Server) Port() ListenPort {
 	addr := s.Address()
 	if addr == "" {
 		return 0
@@ -237,11 +237,11 @@ func (s *Server) Port() int {
 	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
 		return 0 // Invalid port string
 	}
-	return port
+	return ListenPort(port)
 }
 
 // Host returns the server's configured host address.
-func (s *Server) Host() string {
+func (s *Server) Host() HostAddress {
 	return s.cfg.Host
 }
 

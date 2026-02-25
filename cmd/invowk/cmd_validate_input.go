@@ -25,7 +25,7 @@ func captureUserEnv() map[string]string {
 
 // validateFlagValues validates flag values at runtime.
 // It checks that required flags are provided and validates values against type and regex patterns.
-func validateFlagValues(cmdName string, flagValues map[string]string, flagDefs []invowkfile.Flag) error {
+func validateFlagValues(cmdName string, flagValues map[invowkfile.FlagName]string, flagDefs []invowkfile.Flag) error {
 	if flagDefs == nil {
 		return nil
 	}
@@ -83,7 +83,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 	if len(providedArgs) < minArgs {
 		return &ArgumentValidationError{
 			Type:         ArgErrMissingRequired,
-			CommandName:  cmdName,
+			CommandName:  invowkfile.CommandName(cmdName),
 			ArgDefs:      argDefs,
 			ProvidedArgs: providedArgs,
 			MinArgs:      minArgs,
@@ -95,7 +95,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 	if !hasVariadic && len(providedArgs) > maxArgs {
 		return &ArgumentValidationError{
 			Type:         ArgErrTooMany,
-			CommandName:  cmdName,
+			CommandName:  invowkfile.CommandName(cmdName),
 			ArgDefs:      argDefs,
 			ProvidedArgs: providedArgs,
 			MinArgs:      minArgs,
@@ -118,7 +118,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 				if err := argDef.ValidateArgumentValue(providedArgs[j]); err != nil {
 					return &ArgumentValidationError{
 						Type:         ArgErrInvalidValue,
-						CommandName:  cmdName,
+						CommandName:  invowkfile.CommandName(cmdName),
 						ArgDefs:      argDefs,
 						ProvidedArgs: providedArgs,
 						InvalidArg:   argDef.Name,
@@ -134,7 +134,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 		if err := argDef.ValidateArgumentValue(argValue); err != nil {
 			return &ArgumentValidationError{
 				Type:         ArgErrInvalidValue,
-				CommandName:  cmdName,
+				CommandName:  invowkfile.CommandName(cmdName),
 				ArgDefs:      argDefs,
 				ProvidedArgs: providedArgs,
 				InvalidArg:   argDef.Name,

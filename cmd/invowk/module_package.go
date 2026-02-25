@@ -11,6 +11,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -117,20 +118,20 @@ func runModuleArchive(args []string, output string) error {
 	fmt.Println(moduleTitleStyle.Render("Archive Module"))
 
 	// Archive the module
-	zipPath, err := invowkmod.Archive(modulePath, output)
+	zipPath, err := invowkmod.Archive(types.FilesystemPath(modulePath), types.FilesystemPath(output))
 	if err != nil {
 		return fmt.Errorf("failed to archive module: %w", err)
 	}
 
 	// Get file info for size
-	info, err := os.Stat(zipPath)
+	info, err := os.Stat(string(zipPath))
 	if err != nil {
 		return fmt.Errorf("failed to stat output file: %w", err)
 	}
 
 	fmt.Printf("%s Module archived successfully\n", moduleSuccessIcon)
 	fmt.Println()
-	fmt.Printf("%s Output: %s\n", moduleInfoIcon, modulePathStyle.Render(zipPath))
+	fmt.Printf("%s Output: %s\n", moduleInfoIcon, modulePathStyle.Render(string(zipPath)))
 	fmt.Printf("%s Size: %s\n", moduleInfoIcon, formatFileSize(info.Size()))
 
 	return nil
@@ -142,7 +143,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	fmt.Println(moduleTitleStyle.Render("Import Module"))
 
 	// Default destination to user commands directory
-	destDir := importPath
+	destDir := types.FilesystemPath(importPath)
 	if destDir == "" {
 		var err error
 		destDir, err = config.CommandsDir()
@@ -164,7 +165,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	}
 
 	// Load the module to get its name
-	b, err := invowkmod.Load(modulePath)
+	b, err := invowkmod.Load(types.FilesystemPath(modulePath))
 	if err != nil {
 		return fmt.Errorf("failed to load imported module: %w", err)
 	}
@@ -203,7 +204,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 	}
 
 	// Parse invowkmod.cue to get requirements.
-	meta, err := invowkfile.ParseInvowkmod(invowkmodPath)
+	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodPath))
 	if err != nil {
 		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
 	}
@@ -218,7 +219,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 
 	// Create resolver with working dir set to the target module path so the
 	// lock file (invowkmod.lock.cue) lives next to invowkmod.cue.
-	resolver, err := invowkmod.NewResolver(absPath, "")
+	resolver, err := invowkmod.NewResolver(types.FilesystemPath(absPath), "")
 	if err != nil {
 		return fmt.Errorf("failed to create resolver: %w", err)
 	}
@@ -251,7 +252,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 
 	// Copy resolved modules into invowk_modules/
 	result, err := invowkmod.VendorModules(invowkmod.VendorOptions{
-		ModulePath: absPath,
+		ModulePath: types.FilesystemPath(absPath),
 		Modules:    resolved,
 		Prune:      vendorPrune,
 	})
@@ -261,7 +262,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 
 	// Print results
 	fmt.Println()
-	fmt.Printf("%s Vendor directory: %s\n", moduleInfoIcon, modulePathStyle.Render(result.VendorDir))
+	fmt.Printf("%s Vendor directory: %s\n", moduleInfoIcon, modulePathStyle.Render(string(result.VendorDir)))
 	fmt.Println()
 
 	for _, entry := range result.Vendored {
@@ -283,6 +284,8 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 }
 
 // formatFileSize formats a file size in bytes to a human-readable string
+//
+//plint:render
 func formatFileSize(size int64) string {
 	const (
 		KB = 1024

@@ -21,7 +21,7 @@ func TestArgNameToEnvVar(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		input    string
+		input    invowkfile.ArgumentName
 		expected string
 	}{
 		{
@@ -589,7 +589,7 @@ func TestRenderArgsSubcommandConflictError(t *testing.T) {
 			{Name: "env", Description: "Target environment"},
 			{Name: "replicas", Description: "Number of replicas"},
 		},
-		Subcommands: []string{"deploy status", "deploy logs"},
+		Subcommands: []invowkfile.CommandName{"deploy status", "deploy logs"},
 		FilePath:    "/test/invowkfile.cue",
 	}
 

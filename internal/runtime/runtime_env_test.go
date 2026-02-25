@@ -17,9 +17,9 @@ import (
 // This helper is shared across test files in the runtime package.
 func testCommandWithScript(name, script string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
 	return &invowkfile.Command{
-		Name: name,
+		Name: invowkfile.CommandName(name),
 		Implementations: []invowkfile.Implementation{
-			{Script: script, Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
+			{Script: invowkfile.ScriptContent(script), Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
 		},
 	}
 }
@@ -28,11 +28,11 @@ func testCommandWithScript(name, script string, runtime invowkfile.RuntimeMode) 
 // This helper is shared across test files in the runtime package.
 func testCommandWithInterpreter(name, script, interpreter string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
 	return &invowkfile.Command{
-		Name: name,
+		Name: invowkfile.CommandName(name),
 		Implementations: []invowkfile.Implementation{
 			{
-				Script:    script,
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: runtime, Interpreter: interpreter}},
+				Script:    invowkfile.ScriptContent(script),
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: runtime, Interpreter: invowkfile.InterpreterSpec(interpreter)}},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
 			},
 		},
@@ -44,7 +44,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	cmd := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeNative)
@@ -81,7 +81,7 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	currentPlatform := invowkfile.CurrentPlatform()

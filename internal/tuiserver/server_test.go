@@ -302,7 +302,7 @@ func TestServerUnknownComponent(t *testing.T) {
 
 	httpReq, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+server.Token())
+	httpReq.Header.Set("Authorization", "Bearer "+string(server.Token()))
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(httpReq)
@@ -342,7 +342,7 @@ func TestServerInvalidJSON(t *testing.T) {
 	// Send invalid JSON
 	httpReq, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader([]byte("not json")))
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+server.Token())
+	httpReq.Header.Set("Authorization", "Bearer "+string(server.Token()))
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(httpReq)

@@ -12,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // createVendoredModule creates a vendored module inside a parent module's invowk_modules/ dir.
@@ -124,14 +125,14 @@ func TestDiscoverAll_FindsVendoredModulesInIncludes(t *testing.T) {
 	createVendoredModule(t, includedModule, "vendep.invowkmod", "vendep", "vendep-cmd")
 
 	cfg := config.DefaultConfig()
-	cfg.Includes = []config.IncludeEntry{{Path: includedModule}}
+	cfg.Includes = []config.IncludeEntry{{Path: config.ModuleIncludePath(includedModule)}}
 
 	workDir := filepath.Join(tmpDir, "work")
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	d := newTestDiscovery(t, cfg, tmpDir, WithBaseDir(workDir))
+	d := newTestDiscovery(t, cfg, tmpDir, WithBaseDir(types.FilesystemPath(workDir)))
 
 	files, err := d.DiscoverAll()
 	if err != nil {
@@ -170,8 +171,8 @@ func TestDiscoverAll_FindsVendoredModulesInUserDir(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
-		WithCommandsDir(userCmdsDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -258,7 +259,7 @@ func TestDiscoverAll_NestedVendoredEmitsDiagnostic(t *testing.T) {
 
 	var foundNestedWarning bool
 	for _, diag := range diagnostics {
-		if diag.Code == "vendored_nested_ignored" {
+		if diag.code == "vendored_nested_ignored" {
 			foundNestedWarning = true
 			break
 		}
@@ -296,7 +297,7 @@ func TestDiscoverAll_InvalidVendoredModuleSkipped(t *testing.T) {
 
 	var foundSkipDiag bool
 	for _, diag := range diagnostics {
-		if diag.Code == "vendored_module_load_skipped" {
+		if diag.code == "vendored_module_load_skipped" {
 			foundSkipDiag = true
 			break
 		}
@@ -337,8 +338,8 @@ func TestDiscoverAll_EmptyVendorDir(t *testing.T) {
 
 	// No vendor-related diagnostics
 	for _, diag := range diagnostics {
-		if strings.HasPrefix(string(diag.Code), "vendored_") {
-			t.Errorf("unexpected vendor diagnostic: %s", diag.Code)
+		if strings.HasPrefix(string(diag.code), "vendored_") {
+			t.Errorf("unexpected vendor diagnostic: %s", diag.code)
 		}
 	}
 }
@@ -381,7 +382,7 @@ func TestDiscoverAll_VendoredReservedModuleSkipped(t *testing.T) {
 	// Verify diagnostic was emitted
 	var foundDiag bool
 	for _, diag := range diagnostics {
-		if diag.Code == "vendored_reserved_module_skipped" {
+		if diag.code == "vendored_reserved_module_skipped" {
 			foundDiag = true
 			break
 		}
@@ -430,7 +431,7 @@ func TestDiscoverAll_VendoredScanFailed(t *testing.T) {
 
 	var foundDiag bool
 	for _, diag := range diagnostics {
-		if diag.Code == "vendored_scan_failed" {
+		if diag.code == "vendored_scan_failed" {
 			foundDiag = true
 			break
 		}
@@ -458,15 +459,15 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 	d := newTestDiscovery(t, cfg, tmpDir)
 
 	// Load modules
-	parentMod, err := invowkmod.Load(parentDir)
+	parentMod, err := invowkmod.Load(types.FilesystemPath(parentDir))
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup1Mod, err := invowkmod.Load(dup1Dir)
+	dup1Mod, err := invowkmod.Load(types.FilesystemPath(dup1Dir))
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup2Mod, err := invowkmod.Load(dup2Dir)
+	dup2Mod, err := invowkmod.Load(types.FilesystemPath(dup2Dir))
 	if err != nil {
 		t.Fatal(err)
 	}

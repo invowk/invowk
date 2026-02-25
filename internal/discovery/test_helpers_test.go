@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // newTestDiscovery creates a Discovery instance with standard test directories.
@@ -15,8 +16,8 @@ import (
 func newTestDiscovery(t *testing.T, cfg *config.Config, tmpDir string, opts ...Option) *Discovery {
 	t.Helper()
 	defaults := []Option{
-		WithBaseDir(tmpDir),
-		WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+		WithBaseDir(types.FilesystemPath(tmpDir)),
+		WithCommandsDir(types.FilesystemPath(filepath.Join(tmpDir, ".invowk", "cmds"))),
 	}
 	return New(cfg, append(defaults, opts...)...)
 }

@@ -10,13 +10,15 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestModuleRefKey(t *testing.T) {
 	tests := []struct {
 		name     string
 		req      ModuleRef
-		expected string
+		expected ModuleRefKey
 	}{
 		{
 			name: "simple URL",
@@ -109,7 +111,7 @@ func TestGetDefaultCacheDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetDefaultCacheDirWith() error = %v", err)
 		}
-		if result != customPath {
+		if string(result) != customPath {
 			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, customPath)
 		}
 	})
@@ -124,7 +126,7 @@ func TestGetDefaultCacheDir(t *testing.T) {
 
 		homeDir, _ := os.UserHomeDir()
 		expected := filepath.Join(homeDir, ".invowk", DefaultModulesDir)
-		if result != expected {
+		if string(result) != expected {
 			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, expected)
 		}
 	})
@@ -135,30 +137,30 @@ func TestNewResolver(t *testing.T) {
 		workDir := t.TempDir()
 		cacheDir := t.TempDir()
 
-		mgr, err := NewResolver(workDir, cacheDir)
+		mgr, err := NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir))
 		if err != nil {
 			t.Fatalf("NewResolver() error = %v", err)
 		}
 		if mgr == nil {
 			t.Fatal("NewResolver() returned nil")
 		}
-		if mgr.WorkingDir != workDir {
-			t.Errorf("WorkingDir = %q, want %q", mgr.WorkingDir, workDir)
+		if string(mgr.WorkingDir()) != workDir {
+			t.Errorf("WorkingDir() = %q, want %q", mgr.WorkingDir(), workDir)
 		}
-		if mgr.CacheDir != cacheDir {
-			t.Errorf("CacheDir = %q, want %q", mgr.CacheDir, cacheDir)
+		if string(mgr.CacheDir()) != cacheDir {
+			t.Errorf("CacheDir() = %q, want %q", mgr.CacheDir(), cacheDir)
 		}
 	})
 
 	t.Run("with empty working dir", func(t *testing.T) {
 		cacheDir := t.TempDir()
 
-		mgr, err := NewResolver("", cacheDir)
+		mgr, err := NewResolver("", types.FilesystemPath(cacheDir))
 		if err != nil {
 			t.Fatalf("NewResolver() error = %v", err)
 		}
-		if mgr.WorkingDir == "" {
-			t.Error("WorkingDir should not be empty")
+		if mgr.WorkingDir() == "" {
+			t.Error("WorkingDir() should not be empty")
 		}
 	})
 }
@@ -166,10 +168,10 @@ func TestNewResolver(t *testing.T) {
 func TestComputeNamespace(t *testing.T) {
 	tests := []struct {
 		name       string
-		moduleName string
+		moduleName ModuleShortName
 		version    string
-		alias      string
-		expected   string
+		alias      ModuleAlias
+		expected   ModuleNamespace
 	}{
 		{
 			name:       "without alias",
@@ -207,8 +209,8 @@ func TestComputeNamespace(t *testing.T) {
 func TestExtractModuleName(t *testing.T) {
 	tests := []struct {
 		name     string
-		key      string
-		expected string
+		key      ModuleRefKey
+		expected ModuleShortName
 	}{
 		{
 			name:     "github URL",
@@ -355,7 +357,7 @@ func TestIsGitURL(t *testing.T) {
 func TestResolveIdentifier(t *testing.T) {
 	t.Parallel()
 
-	modules := map[string]LockedModule{
+	modules := map[ModuleRefKey]LockedModule{
 		"https://github.com/user/tools.git": {
 			GitURL:    "https://github.com/user/tools.git",
 			Version:   "^1.0.0",
@@ -384,19 +386,19 @@ func TestResolveIdentifier(t *testing.T) {
 	tests := []struct {
 		name       string
 		identifier string
-		wantKeys   []string
+		wantKeys   []ModuleRefKey
 		wantErr    bool
 		wantAmbig  bool
 	}{
 		{
 			name:       "git URL exact match",
 			identifier: "https://github.com/user/tools.git",
-			wantKeys:   []string{"https://github.com/user/tools.git"},
+			wantKeys:   []ModuleRefKey{"https://github.com/user/tools.git"},
 		},
 		{
 			name:       "git URL prefix matches monorepo entries",
 			identifier: "https://github.com/user/monorepo.git",
-			wantKeys: []string{
+			wantKeys: []ModuleRefKey{
 				"https://github.com/user/monorepo.git#packages/a",
 				"https://github.com/user/monorepo.git#packages/b",
 			},
@@ -404,17 +406,17 @@ func TestResolveIdentifier(t *testing.T) {
 		{
 			name:       "exact namespace (alias)",
 			identifier: "myalias",
-			wantKeys:   []string{"https://github.com/user/utils.git"},
+			wantKeys:   []ModuleRefKey{"https://github.com/user/utils.git"},
 		},
 		{
 			name:       "namespace prefix (bare module name)",
 			identifier: "tools",
-			wantKeys:   []string{"https://github.com/user/tools.git"},
+			wantKeys:   []ModuleRefKey{"https://github.com/user/tools.git"},
 		},
 		{
 			name:       "exact lock key",
 			identifier: "https://github.com/user/monorepo.git#packages/a",
-			wantKeys:   []string{"https://github.com/user/monorepo.git#packages/a"},
+			wantKeys:   []ModuleRefKey{"https://github.com/user/monorepo.git#packages/a"},
 		},
 		{
 			name:       "no match",
@@ -463,7 +465,7 @@ func TestResolveIdentifierAmbiguous(t *testing.T) {
 	t.Parallel()
 
 	// Two modules with same namespace prefix
-	modules := map[string]LockedModule{
+	modules := map[ModuleRefKey]LockedModule{
 		"https://github.com/orgA/tools.git": {
 			GitURL:    "https://github.com/orgA/tools.git",
 			Namespace: "tools@1.0.0",
@@ -520,7 +522,7 @@ func TestRemoveByNamespace(t *testing.T) {
 		t.Fatalf("failed to save test lock file: %v", err)
 	}
 
-	resolver, err := NewResolver(workDir, cacheDir)
+	resolver, err := NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir))
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
@@ -594,7 +596,7 @@ func TestAddWritesLockFile(t *testing.T) {
 			t.Fatalf("lock file has %d modules, want 1", len(reloaded.Modules))
 		}
 
-		key := "https://github.com/user/tools.git"
+		key := ModuleRefKey("https://github.com/user/tools.git")
 		entry, ok := reloaded.Modules[key]
 		if !ok {
 			t.Fatalf("lock file missing key %q", key)
@@ -665,7 +667,7 @@ func TestAddWritesLockFile(t *testing.T) {
 		}
 
 		// Verify existing entry is preserved
-		utilsKey := "https://github.com/user/utils.git"
+		utilsKey := ModuleRefKey("https://github.com/user/utils.git")
 		utils, ok := reloaded.Modules[utilsKey]
 		if !ok {
 			t.Fatal("existing utils entry should be preserved")
@@ -675,7 +677,7 @@ func TestAddWritesLockFile(t *testing.T) {
 		}
 
 		// Verify new entry with alias and path
-		toolsKey := "https://github.com/user/tools.git#packages/core"
+		toolsKey := ModuleRefKey("https://github.com/user/tools.git#packages/core")
 		tools, ok := reloaded.Modules[toolsKey]
 		if !ok {
 			t.Fatalf("new tools entry missing, expected key %q", toolsKey)

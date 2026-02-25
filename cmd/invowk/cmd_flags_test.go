@@ -40,7 +40,7 @@ func TestCaptureUserEnv(t *testing.T) {
 func TestFlagNameToEnvVar(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    string
+		input    invowkfile.FlagName
 		expected string
 	}{
 		{
@@ -101,7 +101,7 @@ func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
 	// the actual runCommandWithFlags requires a full invowkfile setup
 
 	// Test that the conversion is consistent
-	flagName := "my-custom-flag"
+	flagName := invowkfile.FlagName("my-custom-flag")
 	envVar := invowkfile.FlagNameToEnvVar(flagName)
 
 	if envVar != "INVOWK_FLAG_MY_CUSTOM_FLAG" {
@@ -125,7 +125,7 @@ func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
 func TestFlagNameToEnvVar_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    string
+		input    invowkfile.FlagName
 		expected string
 	}{
 		{

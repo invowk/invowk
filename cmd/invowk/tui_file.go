@@ -98,7 +98,7 @@ func runTuiFile(cmd *cobra.Command, args []string) error {
 			FileAllowed:       allowFiles,
 			DirAllowed:        allowDirs,
 			ShowHidden:        fileHidden,
-			Height:            fileHeight,
+			Height:            tui.TerminalDimension(fileHeight),
 			AllowedExtensions: fileAllowedExts,
 		})
 	}

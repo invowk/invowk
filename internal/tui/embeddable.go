@@ -4,9 +4,12 @@ package tui
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,7 +17,6 @@ import (
 	"github.com/muesli/reflow/truncate"
 )
 
-// Using untyped const pattern for ComponentType values.
 const (
 	// modalBorderWidth is the horizontal space taken by the border (1 char each side).
 	modalBorderWidth = 2
@@ -29,17 +31,26 @@ const (
 	// modalOverheadHeight is the total vertical overhead for the modal frame.
 	modalOverheadHeight = modalBorderHeight + modalPaddingHeight // 4
 
-	// Component type constants for the TUI system.
-	ComponentTypeInput    = "input"
-	ComponentTypeConfirm  = "confirm"
-	ComponentTypeChoose   = "choose"
-	ComponentTypeFilter   = "filter"
-	ComponentTypeFile     = "file"
-	ComponentTypeWrite    = "write"
-	ComponentTypeTextArea = "textarea"
-	ComponentTypeSpin     = "spin"
-	ComponentTypePager    = "pager"
-	ComponentTypeTable    = "table"
+	// ComponentTypeInput represents the text input component.
+	ComponentTypeInput ComponentType = "input"
+	// ComponentTypeConfirm represents the yes/no confirmation component.
+	ComponentTypeConfirm ComponentType = "confirm"
+	// ComponentTypeChoose represents the single/multi-select component.
+	ComponentTypeChoose ComponentType = "choose"
+	// ComponentTypeFilter represents the filterable list component.
+	ComponentTypeFilter ComponentType = "filter"
+	// ComponentTypeFile represents the file picker component.
+	ComponentTypeFile ComponentType = "file"
+	// ComponentTypeWrite represents the styled text output component.
+	ComponentTypeWrite ComponentType = "write"
+	// ComponentTypeTextArea represents the multi-line text input component.
+	ComponentTypeTextArea ComponentType = "textarea"
+	// ComponentTypeSpin represents the spinner/loading component.
+	ComponentTypeSpin ComponentType = "spin"
+	// ComponentTypePager represents the scrollable text viewer component.
+	ComponentTypePager ComponentType = "pager"
+	// ComponentTypeTable represents the table selection component.
+	ComponentTypeTable ComponentType = "table"
 )
 
 // Modal ANSI variables: modal overlays render on a styled background, but child
@@ -57,6 +68,9 @@ var (
 	// ansiResetWithBg is the ANSI reset followed by modal background restore.
 	// This is what we replace bare resets with.
 	ansiResetWithBg = ansiReset + modalBgANSI
+
+	// ErrInvalidComponentType is returned when a ComponentType value is not one of the defined types.
+	ErrInvalidComponentType = errors.New("invalid component type")
 )
 
 type (
@@ -93,7 +107,7 @@ type (
 
 		// SetSize sets the available width and height for the component.
 		// This should be called before Init() and when the terminal is resized.
-		SetSize(width, height int)
+		SetSize(width, height TerminalDimension)
 	}
 
 	// TableSelectionResult holds the result of a table selection.
@@ -106,24 +120,58 @@ type (
 	SpinResult struct {
 		Stdout   string
 		Stderr   string
-		ExitCode int
+		ExitCode types.ExitCode
 	}
 
 	// ComponentType represents the type of TUI component.
 	ComponentType string
 
+	// InvalidComponentTypeError is returned when a ComponentType value is not recognized.
+	// It wraps ErrInvalidComponentType for errors.Is() compatibility.
+	InvalidComponentTypeError struct {
+		Value ComponentType
+	}
+
 	// ModalSize contains the calculated dimensions for a modal overlay.
 	ModalSize struct {
-		Width  int
-		Height int
+		Width  TerminalDimension
+		Height TerminalDimension
 	}
 )
+
+// Error implements the error interface for InvalidComponentTypeError.
+func (e *InvalidComponentTypeError) Error() string {
+	return fmt.Sprintf("invalid component type %q (valid: input, confirm, choose, filter, file, write, textarea, spin, pager, table)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidComponentTypeError) Unwrap() error {
+	return ErrInvalidComponentType
+}
+
+// String returns the string representation of the ComponentType.
+func (ct ComponentType) String() string {
+	return string(ct)
+}
+
+// IsValid returns whether the ComponentType is one of the defined component types,
+// and a list of validation errors if it is not.
+func (ct ComponentType) IsValid() (bool, []error) {
+	switch ct {
+	case ComponentTypeInput, ComponentTypeConfirm, ComponentTypeChoose, ComponentTypeFilter,
+		ComponentTypeFile, ComponentTypeWrite, ComponentTypeTextArea, ComponentTypeSpin,
+		ComponentTypePager, ComponentTypeTable:
+		return true, nil
+	default:
+		return false, []error{&InvalidComponentTypeError{Value: ct}}
+	}
+}
 
 // CalculateModalSize calculates appropriate modal content dimensions based on component type
 // and available screen space. The returned dimensions are for the INNER content area,
 // accounting for the modal frame overhead (border + padding).
 // Different component types have different sizing needs.
-func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight int) ModalSize {
+func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight TerminalDimension) ModalSize {
 	// Define margins to leave around the modal (outer)
 	const (
 		minMarginX = 4  // Minimum horizontal margin (2 on each side)
@@ -201,7 +249,7 @@ func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight i
 // CreateEmbeddableComponent creates an embeddable component from a component type and options.
 // The options should be a JSON-encoded representation of the component-specific options.
 // Components created here use a modal-specific theme to ensure proper rendering in overlays.
-func CreateEmbeddableComponent(componentType ComponentType, options json.RawMessage, width, height int) (EmbeddableComponent, error) {
+func CreateEmbeddableComponent(componentType ComponentType, options json.RawMessage, width, height TerminalDimension) (EmbeddableComponent, error) {
 	switch componentType {
 	case ComponentTypeInput:
 		var opts InputOptions
@@ -296,7 +344,11 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 // The function applies two layers of protection against color bleeding:
 // 1. The overlay style applies the modal background to the frame
 // 2. sanitizeModalBackground post-processes to catch any bare ANSI resets
-func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
+func RenderOverlay(base, overlay string, screenWidth, screenHeight TerminalDimension) string {
+	// Convert to int for internal arithmetic with lipgloss and string operations
+	sw := int(screenWidth)
+	sh := int(screenHeight)
+
 	// Apply overlay styling (border + padding + background)
 	styledOverlay := overlayStyle().Render(overlay)
 
@@ -310,7 +362,7 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 	overlayLines := strings.Split(styledOverlay, "\n")
 
 	// Ensure base has enough lines
-	for len(baseLines) < screenHeight {
+	for len(baseLines) < sh {
 		baseLines = append(baseLines, "")
 	}
 
@@ -325,8 +377,8 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 	}
 
 	// Calculate position to center the overlay
-	startY := (screenHeight - overlayHeight) / 2
-	startX := (screenWidth - overlayWidth) / 2
+	startY := (sh - overlayHeight) / 2
+	startX := (sw - overlayWidth) / 2
 
 	if startY < 0 {
 		startY = 0
@@ -341,12 +393,12 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight int) string {
 		if i >= startY && i < startY+overlayHeight {
 			overlayIdx := i - startY
 			if overlayIdx < len(overlayLines) {
-				result[i] = compositeLineANSI(baseLine, overlayLines[overlayIdx], startX, screenWidth)
+				result[i] = compositeLineANSI(baseLine, overlayLines[overlayIdx], startX, sw)
 			} else {
-				result[i] = padLineToWidth(baseLine, screenWidth)
+				result[i] = padLineToWidth(baseLine, sw)
 			}
 		} else {
-			result[i] = padLineToWidth(baseLine, screenWidth)
+			result[i] = padLineToWidth(baseLine, sw)
 		}
 	}
 

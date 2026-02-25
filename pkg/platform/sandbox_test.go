@@ -139,6 +139,31 @@ func TestSpawnArgsFor(t *testing.T) {
 	}
 }
 
+func TestSandboxType_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		sandbox SandboxType
+		want    string
+	}{
+		{"none returns 'none'", SandboxNone, "none"},
+		{"flatpak", SandboxFlatpak, "flatpak"},
+		{"snap", SandboxSnap, "snap"},
+		{"unknown returns raw", SandboxType("custom"), "custom"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.sandbox.String(); got != tt.want {
+				t.Errorf("SandboxType(%q).String() = %q, want %q", string(tt.sandbox), got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSandboxTypeConstants(t *testing.T) {
 	t.Parallel()
 
@@ -156,5 +181,43 @@ func TestSandboxTypeConstants(t *testing.T) {
 	// Verify SandboxNone is empty string for boolean-like checks.
 	if SandboxNone != "" {
 		t.Errorf("SandboxNone should be empty string, got %q", SandboxNone)
+	}
+}
+
+func TestSandboxType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		sandbox SandboxType
+		want    bool
+		wantErr bool
+	}{
+		{"none", SandboxNone, true, false},
+		{"flatpak", SandboxFlatpak, true, false},
+		{"snap", SandboxSnap, true, false},
+		{"invalid", SandboxType("invalid"), false, true},
+		{"unknown", SandboxType("unknown"), false, true},
+		{"FLATPAK", SandboxType("FLATPAK"), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.sandbox.IsValid()
+			if isValid != tt.want {
+				t.Errorf("SandboxType(%q).IsValid() = %v, want %v", tt.sandbox, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("SandboxType(%q).IsValid() returned no errors, want error", tt.sandbox)
+				}
+				if !errors.Is(errs[0], ErrInvalidSandboxType) {
+					t.Errorf("error should wrap ErrInvalidSandboxType, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("SandboxType(%q).IsValid() returned unexpected errors: %v", tt.sandbox, errs)
+			}
+		})
 	}
 }

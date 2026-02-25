@@ -5,19 +5,21 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os/exec"
+	"strings"
 	"time"
+
+	"github.com/invowk/invowk/pkg/types"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Const block placed before type (decorder: const → var → type → func).
-// Using untyped iota pattern for SpinnerType values.
 const (
 	// SpinnerLine is a simple line spinner.
-	SpinnerLine = iota
+	SpinnerLine SpinnerType = iota
 	// SpinnerDot is a dot spinner.
 	SpinnerDot
 	// SpinnerMiniDot is a mini dot spinner.
@@ -42,10 +44,19 @@ const (
 	SpinnerEllipsis
 )
 
+// ErrInvalidSpinnerType is the sentinel error wrapped by InvalidSpinnerTypeError.
+var ErrInvalidSpinnerType = errors.New("invalid spinner type")
+
 // All type declarations consolidated in a single block.
 type (
 	// SpinnerType represents the type of spinner animation.
 	SpinnerType int
+
+	// InvalidSpinnerTypeError is returned when a SpinnerType value is not
+	// one of the defined spinner types.
+	InvalidSpinnerTypeError struct {
+		Value SpinnerType
+	}
 
 	// SpinOptions configures the Spin component.
 	SpinOptions struct {
@@ -97,35 +108,68 @@ type (
 	}
 )
 
+// Error implements the error interface.
+func (e *InvalidSpinnerTypeError) Error() string {
+	return fmt.Sprintf("invalid spinner type %d (valid: %s)",
+		e.Value, strings.Join(SpinnerTypeNames(), ", "))
+}
+
+// Unwrap returns ErrInvalidSpinnerType so callers can use errors.Is for programmatic detection.
+func (e *InvalidSpinnerTypeError) Unwrap() error { return ErrInvalidSpinnerType }
+
+// IsValid returns whether the SpinnerType is one of the defined spinner types,
+// and a list of validation errors if it is not.
+func (t SpinnerType) IsValid() (bool, []error) {
+	switch t {
+	case SpinnerLine, SpinnerDot, SpinnerMiniDot, SpinnerJump,
+		SpinnerPulse, SpinnerPoints, SpinnerGlobe, SpinnerMoon,
+		SpinnerMonkey, SpinnerMeter, SpinnerHamburger, SpinnerEllipsis:
+		return true, nil
+	default:
+		return false, []error{&InvalidSpinnerTypeError{Value: t}}
+	}
+}
+
+// String returns the name of the SpinnerType (e.g., "line", "dot").
+// Unknown values return "unknown(<N>)" for diagnostic safety.
+func (t SpinnerType) String() string {
+	names := SpinnerTypeNames()
+	if int(t) >= 0 && int(t) < len(names) {
+		return names[t]
+	}
+	return fmt.Sprintf("unknown(%d)", t)
+}
+
 // ParseSpinnerType parses a string into a SpinnerType.
-func ParseSpinnerType(s string) SpinnerType {
+// Returns an error if the string does not match any known spinner type name.
+func ParseSpinnerType(s string) (SpinnerType, error) {
 	switch s {
 	case "line":
-		return SpinnerLine
+		return SpinnerLine, nil
 	case "dot":
-		return SpinnerDot
+		return SpinnerDot, nil
 	case "minidot":
-		return SpinnerMiniDot
+		return SpinnerMiniDot, nil
 	case "jump":
-		return SpinnerJump
+		return SpinnerJump, nil
 	case "pulse":
-		return SpinnerPulse
+		return SpinnerPulse, nil
 	case "points":
-		return SpinnerPoints
+		return SpinnerPoints, nil
 	case "globe":
-		return SpinnerGlobe
+		return SpinnerGlobe, nil
 	case "moon":
-		return SpinnerMoon
+		return SpinnerMoon, nil
 	case "monkey":
-		return SpinnerMonkey
+		return SpinnerMonkey, nil
 	case "meter":
-		return SpinnerMeter
+		return SpinnerMeter, nil
 	case "hamburger":
-		return SpinnerHamburger
+		return SpinnerHamburger, nil
 	case "ellipsis":
-		return SpinnerEllipsis
+		return SpinnerEllipsis, nil
 	default:
-		return SpinnerLine
+		return 0, fmt.Errorf("unknown spinner type %q (valid: %s)", s, strings.Join(SpinnerTypeNames(), ", "))
 	}
 }
 
@@ -219,9 +263,9 @@ func (m *spinModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *spinModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+func (m *spinModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
 }
 
 // runCommand starts the command execution and returns the result.
@@ -240,7 +284,7 @@ func (m *spinModel) runCommand() tea.Cmd {
 
 		if err != nil {
 			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-				result.ExitCode = exitErr.ExitCode()
+				result.ExitCode = types.ExitCode(exitErr.ExitCode())
 			} else {
 				result.ExitCode = 1
 			}
@@ -327,8 +371,11 @@ func (b *SpinBuilder) Type(t SpinnerType) *SpinBuilder {
 }
 
 // TypeString sets the spinner type by name.
+// Unknown names are silently ignored, keeping the current type.
 func (b *SpinBuilder) TypeString(t string) *SpinBuilder {
-	b.opts.Type = ParseSpinnerType(t)
+	if parsed, err := ParseSpinnerType(t); err == nil {
+		b.opts.Type = parsed
+	}
 	return b
 }
 

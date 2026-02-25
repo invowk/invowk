@@ -14,19 +14,24 @@ import (
 //
 // A server instance is single-use: once stopped or failed, create a new instance.
 type Base struct {
-	// State management (atomic for lock-free reads)
+	//plint:internal -- atomic lifecycle state; managed by TransitionTo*() methods
 	state atomic.Int32
 
-	// State transition protection
+	//plint:internal -- protects state transitions; not user-configurable
 	stateMu sync.Mutex
 
-	// Lifecycle management
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
+	//plint:internal -- lifecycle context; created in TransitionToStarting()
+	ctx context.Context
+	//plint:internal -- lifecycle cancel func; paired with ctx
+	cancel context.CancelFunc
+	//plint:internal -- tracks goroutines for graceful shutdown
+	wg sync.WaitGroup
+	//plint:internal -- closed on TransitionToRunning(); signals readiness
 	startedCh chan struct{}
-	errCh     chan error
-	lastErr   error
+	//plint:internal -- async error channel; created in NewBase()
+	errCh chan error
+	//plint:internal -- last error that caused Failed state
+	lastErr error
 }
 
 // NewBase creates a new Base with the given options.

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ============================================
@@ -49,7 +51,7 @@ version: "1.0.0"
 				t.Fatalf("Failed to write invowkmod.cue: %v", writeErr)
 			}
 
-			inv, err := ParseInvowkmod(invowkmodPath)
+			inv, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 			if err != nil {
 				t.Fatalf("ParseInvowkmod() error = %v", err)
 			}
@@ -97,7 +99,7 @@ version: "1.0.0"
 				t.Fatalf("Failed to write invowkmod.cue: %v", writeErr)
 			}
 
-			_, parseErr := ParseInvowkmod(invowkmodPath)
+			_, parseErr := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 			if parseErr == nil {
 				t.Errorf("ParseInvowkmod() should reject invalid module %q", tt.module)
 			}
@@ -124,7 +126,7 @@ requires: [
 			t.Fatalf("failed to write invowkmod.cue: %v", err)
 		}
 
-		meta, err := ParseInvowkmod(invowkmodPath)
+		meta, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 		if err != nil {
 			t.Fatalf("ParseInvowkmod() returned error: %v", err)
 		}
@@ -141,7 +143,7 @@ requires: [
 		if len(meta.Requires) != 1 {
 			t.Errorf("Requires length = %d, want 1", len(meta.Requires))
 		}
-		if meta.FilePath != invowkmodPath {
+		if string(meta.FilePath) != invowkmodPath {
 			t.Errorf("FilePath = %q, want %q", meta.FilePath, invowkmodPath)
 		}
 	})
@@ -158,7 +160,7 @@ version: "1.0.0"
 			t.Fatalf("failed to write invowkmod.cue: %v", err)
 		}
 
-		meta, err := ParseInvowkmod(invowkmodPath)
+		meta, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 		if err != nil {
 			t.Fatalf("ParseInvowkmod() returned error: %v", err)
 		}
@@ -179,7 +181,7 @@ version: "1.0.0"
 			t.Fatalf("failed to write invowkmod.cue: %v", err)
 		}
 
-		_, err := ParseInvowkmod(invowkmodPath)
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 		if err == nil {
 			t.Error("ParseInvowkmod() should return error for missing version field")
 		}
@@ -197,7 +199,7 @@ description: "Missing module field"
 			t.Fatalf("failed to write invowkmod.cue: %v", err)
 		}
 
-		_, err := ParseInvowkmod(invowkmodPath)
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 		if err == nil {
 			t.Error("ParseInvowkmod() should return error for missing module field")
 		}
@@ -214,7 +216,7 @@ description: "Missing module field"
 			t.Fatalf("failed to write invowkmod.cue: %v", err)
 		}
 
-		_, err := ParseInvowkmod(invowkmodPath)
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 		if err == nil {
 			t.Error("ParseInvowkmod() should return error for invalid module name")
 		}
@@ -241,7 +243,7 @@ version: "1.0.0"
 			t.Fatalf("failed to write invowkmod.cue: %v", err)
 		}
 
-		meta, err := ParseModuleMetadataOnly(moduleDir)
+		meta, err := ParseModuleMetadataOnly(types.FilesystemPath(moduleDir))
 		if err != nil {
 			t.Fatalf("ParseModuleMetadataOnly() returned error: %v", err)
 		}
@@ -263,7 +265,7 @@ version: "1.0.0"
 			t.Fatalf("failed to create module dir: %v", err)
 		}
 
-		meta, err := ParseModuleMetadataOnly(moduleDir)
+		meta, err := ParseModuleMetadataOnly(types.FilesystemPath(moduleDir))
 		if !errors.Is(err, ErrInvowkmodNotFound) {
 			t.Errorf("ParseModuleMetadataOnly() should return ErrInvowkmodNotFound, got: %v", err)
 		}
@@ -430,7 +432,7 @@ func TestHasInvowkfile(t *testing.T) {
 			t.Fatalf("failed to create invowkfile.cue: %v", err)
 		}
 
-		if !HasInvowkfile(tmpDir) {
+		if !HasInvowkfile(types.FilesystemPath(tmpDir)) {
 			t.Error("HasInvowkfile() should return true when invowkfile.cue exists")
 		}
 	})
@@ -440,24 +442,349 @@ func TestHasInvowkfile(t *testing.T) {
 
 		tmpDir := t.TempDir()
 
-		if HasInvowkfile(tmpDir) {
+		if HasInvowkfile(types.FilesystemPath(tmpDir)) {
 			t.Error("HasInvowkfile() should return false when invowkfile.cue doesn't exist")
 		}
 	})
 }
 
+// ============================================
+// Tests for IsValid() methods on type definitions
+// ============================================
+
+func TestValidationIssueType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	validTypes := []ValidationIssueType{
+		IssueTypeStructure, IssueTypeNaming, IssueTypeInvowkmod,
+		IssueTypeSecurity, IssueTypeCompatibility, IssueTypeInvowkfile,
+		IssueTypeCommandTree,
+	}
+
+	for _, vt := range validTypes {
+		t.Run(string(vt), func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := vt.IsValid()
+			if !isValid {
+				t.Errorf("ValidationIssueType(%q).IsValid() = false, want true", vt)
+			}
+			if len(errs) > 0 {
+				t.Errorf("ValidationIssueType(%q).IsValid() returned unexpected errors: %v", vt, errs)
+			}
+		})
+	}
+
+	invalidTypes := []ValidationIssueType{"", "invalid", "STRUCTURE"}
+	for _, vt := range invalidTypes {
+		name := string(vt)
+		if name == "" {
+			name = "empty"
+		}
+
+		t.Run("invalid_"+name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := vt.IsValid()
+			if isValid {
+				t.Errorf("ValidationIssueType(%q).IsValid() = true, want false", vt)
+			}
+			if len(errs) == 0 {
+				t.Fatalf("ValidationIssueType(%q).IsValid() returned no errors, want error", vt)
+			}
+			if !errors.Is(errs[0], ErrInvalidValidationIssueType) {
+				t.Errorf("error should wrap ErrInvalidValidationIssueType, got: %v", errs[0])
+			}
+		})
+	}
+}
+
+func TestModuleRequirement_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		req      ModuleRequirement
+		want     bool
+		wantErrs int
+		wantErr  bool
+	}{
+		{
+			"all valid",
+			ModuleRequirement{
+				GitURL:  "https://github.com/user/repo.git",
+				Version: "^1.0.0",
+			},
+			true, 0, false,
+		},
+		{
+			"all valid with optional fields",
+			ModuleRequirement{
+				GitURL:  "https://github.com/user/repo.git",
+				Version: "^1.0.0",
+				Alias:   "myalias",
+				Path:    "subdir",
+			},
+			true, 0, false,
+		},
+		{
+			"optional fields empty are valid",
+			ModuleRequirement{
+				GitURL:  "https://github.com/user/repo.git",
+				Version: "~2.0.0",
+				Alias:   "",
+				Path:    "",
+			},
+			true, 0, false,
+		},
+		{
+			"invalid git url",
+			ModuleRequirement{
+				GitURL:  "not-a-url",
+				Version: "^1.0.0",
+			},
+			false, 1, true,
+		},
+		{
+			"invalid version",
+			ModuleRequirement{
+				GitURL:  "https://github.com/user/repo.git",
+				Version: "not-semver",
+			},
+			false, 1, true,
+		},
+		{
+			"multiple invalid fields",
+			ModuleRequirement{
+				GitURL:  "not-a-url",
+				Version: "not-semver",
+				Alias:   "   ",
+				Path:    "../escape",
+			},
+			false, 4, true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.req.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ModuleRequirement.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ModuleRequirement.IsValid() returned no errors, want error")
+				}
+				if tt.wantErrs > 0 && len(errs) != tt.wantErrs {
+					t.Errorf("ModuleRequirement.IsValid() returned %d errors, want %d: %v",
+						len(errs), tt.wantErrs, errs)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ModuleRequirement.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
+	}
+}
+
+func TestValidationIssueType_String(t *testing.T) {
+	t.Parallel()
+
+	if got := IssueTypeStructure.String(); got != "structure" {
+		t.Errorf("IssueTypeStructure.String() = %q, want %q", got, "structure")
+	}
+	if got := ValidationIssueType("").String(); got != "" {
+		t.Errorf("ValidationIssueType(\"\").String() = %q, want %q", got, "")
+	}
+}
+
+func TestModuleID_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		id      ModuleID
+		want    bool
+		wantErr bool
+	}{
+		{"simple", ModuleID("mymodule"), true, false},
+		{"rdns two segments", ModuleID("io.invowk"), true, false},
+		{"rdns three segments", ModuleID("io.invowk.sample"), true, false},
+		{"single letter", ModuleID("a"), true, false},
+		{"alphanumeric", ModuleID("foo123.bar456"), true, false},
+		{"mixed case", ModuleID("My.Module1"), true, false},
+		{"max length valid", ModuleID(strings.Repeat("a", MaxModuleIDLength)), true, false},
+		{"empty", ModuleID(""), false, true},
+		{"starts with digit", ModuleID("1module"), false, true},
+		{"starts with dot", ModuleID(".module"), false, true},
+		{"ends with dot", ModuleID("module."), false, true},
+		{"consecutive dots", ModuleID("io..invowk"), false, true},
+		{"contains hyphen", ModuleID("io.inv-owk"), false, true},
+		{"contains underscore", ModuleID("io.inv_owk"), false, true},
+		{"contains space", ModuleID("io invowk"), false, true},
+		{"segment starts with digit", ModuleID("io.1invowk"), false, true},
+		{"too long", ModuleID(strings.Repeat("a", MaxModuleIDLength+1)), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			isValid, errs := tt.id.IsValid()
+			if isValid != tt.want {
+				t.Errorf("ModuleID(%q).IsValid() = %v, want %v", tt.id, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("ModuleID(%q).IsValid() returned no errors, want error", tt.id)
+				}
+				if !errors.Is(errs[0], ErrInvalidModuleID) {
+					t.Errorf("error should wrap ErrInvalidModuleID, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ModuleID(%q).IsValid() returned unexpected errors: %v", tt.id, errs)
+			}
+		})
+	}
+}
+
+func TestModuleID_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		id   ModuleID
+		want string
+	}{
+		{ModuleID("io.invowk.sample"), "io.invowk.sample"},
+		{ModuleID("mymodule"), "mymodule"},
+		{ModuleID(""), ""},
+	}
+
+	for _, tt := range tests {
+		if got := tt.id.String(); got != tt.want {
+			t.Errorf("ModuleID(%q).String() = %q, want %q", string(tt.id), got, tt.want)
+		}
+	}
+}
+
 func TestPathHelpers(t *testing.T) {
 	t.Parallel()
 
-	moduleDir := "/some/path/mymodule.invowkmod"
+	moduleDir := types.FilesystemPath("/some/path/mymodule.invowkmod")
 
 	invowkfilePath := InvowkfilePath(moduleDir)
-	if invowkfilePath != filepath.Join(moduleDir, "invowkfile.cue") {
-		t.Errorf("InvowkfilePath() = %q, want %q", invowkfilePath, filepath.Join(moduleDir, "invowkfile.cue"))
+	if string(invowkfilePath) != filepath.Join(string(moduleDir), "invowkfile.cue") {
+		t.Errorf("InvowkfilePath() = %q, want %q", invowkfilePath, filepath.Join(string(moduleDir), "invowkfile.cue"))
 	}
 
 	invowkmodPath := InvowkmodPath(moduleDir)
-	if invowkmodPath != filepath.Join(moduleDir, "invowkmod.cue") {
-		t.Errorf("InvowkmodPath() = %q, want %q", invowkmodPath, filepath.Join(moduleDir, "invowkmod.cue"))
+	if string(invowkmodPath) != filepath.Join(string(moduleDir), "invowkmod.cue") {
+		t.Errorf("InvowkmodPath() = %q, want %q", invowkmodPath, filepath.Join(string(moduleDir), "invowkmod.cue"))
+	}
+}
+
+func TestInvowkmod_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mod       Invowkmod
+		want      bool
+		wantErr   bool
+		wantCount int
+	}{
+		{
+			"valid complete module",
+			Invowkmod{
+				Module:      "io.invowk.sample",
+				Version:     "1.0.0",
+				Description: "A sample module",
+				Requires: []ModuleRequirement{
+					{GitURL: GitURL("https://github.com/example/utils.git"), Version: SemVerConstraint("^1.0.0")},
+				},
+				FilePath: types.FilesystemPath("/home/user/modules/sample.invowkmod/invowkmod.cue"),
+			},
+			true, false, 0,
+		},
+		{
+			"valid minimal module (no optional fields)",
+			Invowkmod{
+				Module:  "io.invowk.minimal",
+				Version: "0.1.0",
+			},
+			true, false, 0,
+		},
+		{
+			"invalid module ID (empty)",
+			Invowkmod{
+				Module:  "",
+				Version: "1.0.0",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid version (empty)",
+			Invowkmod{
+				Module:  "io.invowk.sample",
+				Version: "",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid description (whitespace-only)",
+			Invowkmod{
+				Module:      "io.invowk.sample",
+				Version:     "1.0.0",
+				Description: "   ",
+			},
+			false, true, 1,
+		},
+		{
+			"invalid requirement (empty git URL)",
+			Invowkmod{
+				Module:  "io.invowk.sample",
+				Version: "1.0.0",
+				Requires: []ModuleRequirement{
+					{GitURL: GitURL(""), Version: SemVerConstraint("^1.0.0")},
+				},
+			},
+			false, true, 1,
+		},
+		{
+			"multiple invalid fields",
+			Invowkmod{
+				Module:      "",
+				Version:     "",
+				Description: "   ",
+			},
+			false, true, 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.mod.IsValid()
+			if isValid != tt.want {
+				t.Errorf("Invowkmod.IsValid() = %v, want %v", isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("Invowkmod.IsValid() returned no errors, want error")
+				}
+				if !errors.Is(errs[0], ErrInvalidInvowkmod) {
+					t.Errorf("error should wrap ErrInvalidInvowkmod, got: %v", errs[0])
+				}
+				var modErr *InvalidInvowkmodError
+				if !errors.As(errs[0], &modErr) {
+					t.Fatalf("error should be *InvalidInvowkmodError, got: %T", errs[0])
+				}
+				if len(modErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(modErr.FieldErrors), tt.wantCount)
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("Invowkmod.IsValid() returned unexpected errors: %v", errs)
+			}
+		})
 	}
 }

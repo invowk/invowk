@@ -9,6 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // SandboxAwareEngine wraps a container Engine to handle execution from within
@@ -66,6 +67,8 @@ func (e *SandboxAwareEngine) Available() bool {
 }
 
 // Version returns the wrapped engine version.
+//
+//plint:render
 func (e *SandboxAwareEngine) Version(ctx context.Context) (string, error) {
 	return e.wrapped.Version(ctx)
 }
@@ -134,7 +137,7 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 	result := &RunResult{}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = exitErr.ExitCode()
+			result.ExitCode = types.ExitCode(exitErr.ExitCode())
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -145,7 +148,7 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 }
 
 // Remove removes a container.
-func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID string, force bool) error {
+func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID ContainerID, force bool) error {
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.Remove(ctx, containerID, force)
 	}
@@ -164,7 +167,7 @@ func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID string, for
 }
 
 // ImageExists checks if an image exists.
-func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image string) (bool, error) {
+func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image ImageTag) (bool, error) {
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.ImageExists(ctx, image)
 	}
@@ -172,11 +175,12 @@ func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image string) (boo
 	// Build image exists check command
 	// Podman: "image exists <image>"
 	// Docker: "image inspect <image>"
+	imageStr := string(image)
 	var checkArgs []string
 	if e.wrapped.Name() == string(EngineTypePodman) {
-		checkArgs = []string{"image", "exists", image}
+		checkArgs = []string{"image", "exists", imageStr}
 	} else {
-		checkArgs = []string{"image", "inspect", image}
+		checkArgs = []string{"image", "inspect", imageStr}
 	}
 
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), checkArgs)
@@ -187,7 +191,7 @@ func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image string) (boo
 }
 
 // RemoveImage removes an image.
-func (e *SandboxAwareEngine) RemoveImage(ctx context.Context, image string, force bool) error {
+func (e *SandboxAwareEngine) RemoveImage(ctx context.Context, image ImageTag, force bool) error {
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.RemoveImage(ctx, image, force)
 	}

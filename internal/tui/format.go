@@ -3,28 +3,37 @@
 package tui
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
 )
 
-// Const block placed before type (decorder: const → var → type → func).
-// Using untyped const pattern for FormatType values.
 const (
 	// FormatMarkdown formats content as Markdown.
-	FormatMarkdown = "markdown"
+	FormatMarkdown FormatType = "markdown"
 	// FormatCode formats content as code with syntax highlighting.
-	FormatCode = "code"
+	FormatCode FormatType = "code"
 	// FormatTemplate formats content using Go templates.
-	FormatTemplate = "template"
+	FormatTemplate FormatType = "template"
 	// FormatEmoji formats content with emoji substitution.
-	FormatEmoji = "emoji"
+	FormatEmoji FormatType = "emoji"
 )
+
+// ErrInvalidFormatType is the sentinel error wrapped by InvalidFormatTypeError.
+var ErrInvalidFormatType = errors.New("invalid format type")
 
 // All type declarations consolidated in a single block.
 type (
 	// FormatType specifies the type of content to format.
 	FormatType string
+
+	// InvalidFormatTypeError is returned when a FormatType value is not
+	// one of the defined format types.
+	InvalidFormatTypeError struct {
+		Value FormatType
+	}
 
 	// FormatOptions configures the Format component.
 	FormatOptions struct {
@@ -37,7 +46,7 @@ type (
 		// Theme is the glamour theme for markdown rendering.
 		GlamourTheme string
 		// Width is the word wrap width (0 for no wrap).
-		Width int
+		Width TerminalDimension
 		// Config holds common TUI configuration.
 		Config Config
 	}
@@ -47,6 +56,29 @@ type (
 		opts FormatOptions
 	}
 )
+
+// Error implements the error interface.
+func (e *InvalidFormatTypeError) Error() string {
+	return fmt.Sprintf("invalid format type %q (valid: %s, %s, %s, %s)",
+		e.Value, FormatMarkdown, FormatCode, FormatTemplate, FormatEmoji)
+}
+
+// Unwrap returns ErrInvalidFormatType so callers can use errors.Is for programmatic detection.
+func (e *InvalidFormatTypeError) Unwrap() error { return ErrInvalidFormatType }
+
+// IsValid returns whether the FormatType is one of the defined format types,
+// and a list of validation errors if it is not.
+func (f FormatType) IsValid() (bool, []error) {
+	switch f {
+	case FormatMarkdown, FormatCode, FormatTemplate, FormatEmoji:
+		return true, nil
+	default:
+		return false, []error{&InvalidFormatTypeError{Value: f}}
+	}
+}
+
+// String returns the string representation of the FormatType.
+func (f FormatType) String() string { return string(f) }
 
 // Format formats content according to the specified type.
 func Format(opts FormatOptions) (string, error) {
@@ -61,7 +93,7 @@ func Format(opts FormatOptions) (string, error) {
 		// Template formatting would require additional templating logic
 		return opts.Content, nil
 	default:
-		return opts.Content, nil
+		return "", &InvalidFormatTypeError{Value: opts.Type}
 	}
 }
 
@@ -118,7 +150,7 @@ func (b *FormatBuilder) GlamourTheme(theme string) *FormatBuilder {
 }
 
 // Width sets the word wrap width.
-func (b *FormatBuilder) Width(width int) *FormatBuilder {
+func (b *FormatBuilder) Width(width TerminalDimension) *FormatBuilder {
 	b.opts.Width = width
 	return b
 }
@@ -134,7 +166,7 @@ func formatMarkdown(opts FormatOptions) (string, error) {
 	rendererOpts = append(rendererOpts, glamour.WithAutoStyle())
 
 	if opts.Width > 0 {
-		rendererOpts = append(rendererOpts, glamour.WithWordWrap(opts.Width))
+		rendererOpts = append(rendererOpts, glamour.WithWordWrap(int(opts.Width)))
 	}
 
 	renderer, err := glamour.NewTermRenderer(rendererOpts...)

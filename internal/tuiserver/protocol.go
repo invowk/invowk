@@ -2,7 +2,13 @@
 
 package tuiserver
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
+)
 
 // Environment variable names for TUI server communication.
 const (
@@ -27,9 +33,18 @@ const (
 	ComponentTable    Component = "table"
 )
 
+// ErrInvalidComponent is returned when a Component value is not one of the defined types.
+var ErrInvalidComponent = errors.New("invalid component")
+
 type (
 	// Component represents a TUI component type.
 	Component string
+
+	// InvalidComponentError is returned when a Component value is not recognized.
+	// It wraps ErrInvalidComponent for errors.Is() compatibility.
+	InvalidComponentError struct {
+		Value Component
+	}
 
 	// Request is the common wrapper for all TUI requests.
 	Request struct {
@@ -191,9 +206,9 @@ type (
 
 	// SpinResult contains the result of a spin operation.
 	SpinResult struct {
-		Stdout   string `json:"stdout,omitempty"`
-		Stderr   string `json:"stderr,omitempty"`
-		ExitCode int    `json:"exit_code"`
+		Stdout   string         `json:"stdout,omitempty"`
+		Stderr   string         `json:"stderr,omitempty"`
+		ExitCode types.ExitCode `json:"exit_code"`
 	}
 
 	// PagerRequest contains options for the pager component.
@@ -223,3 +238,29 @@ type (
 		SelectedIndex int      `json:"selected_index"`
 	}
 )
+
+// Error implements the error interface for InvalidComponentError.
+func (e *InvalidComponentError) Error() string {
+	return fmt.Sprintf("invalid component %q (valid: input, confirm, choose, filter, file, write, textarea, spin, pager, table)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidComponentError) Unwrap() error {
+	return ErrInvalidComponent
+}
+
+// IsValid returns whether the Component is one of the defined component types,
+// and a list of validation errors if it is not.
+func (c Component) IsValid() (bool, []error) {
+	switch c {
+	case ComponentInput, ComponentConfirm, ComponentChoose, ComponentFilter,
+		ComponentFile, ComponentWrite, ComponentTextArea, ComponentSpin,
+		ComponentPager, ComponentTable:
+		return true, nil
+	default:
+		return false, []error{&InvalidComponentError{Value: c}}
+	}
+}
+
+// String returns the string representation of the Component.
+func (c Component) String() string { return string(c) }

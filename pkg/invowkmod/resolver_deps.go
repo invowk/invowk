@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // isSupportedGitURLPrefix returns true when the URL uses a supported Git scheme.
@@ -21,7 +23,7 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 		return fmt.Errorf("git_url is required")
 	}
 
-	if !isSupportedGitURLPrefix(req.GitURL) {
+	if !isSupportedGitURLPrefix(string(req.GitURL)) {
 		return fmt.Errorf("git_url must start with https://, git@, or ssh://")
 	}
 
@@ -30,15 +32,14 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 	}
 
 	// Validate version constraint format
-	if _, err := m.semver.ParseConstraint(req.Version); err != nil {
+	if _, err := m.semver.ParseConstraint(string(req.Version)); err != nil {
 		return fmt.Errorf("invalid version constraint: %w", err)
 	}
 
 	// Validate path to prevent directory traversal attacks
 	if req.Path != "" {
-		cleanPath := filepath.Clean(req.Path)
-		if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
-			return fmt.Errorf("invalid path: path traversal or absolute paths not allowed")
+		if valid, errs := req.Path.IsValid(); !valid {
+			return fmt.Errorf("invalid path: %w", errs[0])
 		}
 	}
 
@@ -55,8 +56,8 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 //     current chain are flagged.
 func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]*ResolvedModule, error) {
 	var resolved []*ResolvedModule
-	visited := make(map[string]bool)
-	inProgress := make(map[string]bool) // cycle detection within current resolution path
+	visited := make(map[ModuleRefKey]bool)
+	inProgress := make(map[ModuleRefKey]bool) // cycle detection within current resolution path
 
 	var resolve func(req ModuleRef) error
 	resolve = func(req ModuleRef) error {
@@ -111,7 +112,7 @@ func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]
 }
 
 // resolveOne resolves a single module requirement.
-func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]bool) (*ResolvedModule, error) {
+func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRefKey]bool) (*ResolvedModule, error) {
 	// Get available versions from Git
 	versions, err := m.fetcher.ListVersions(ctx, req.GitURL)
 	if err != nil {
@@ -123,7 +124,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 	}
 
 	// Resolve version constraint
-	resolvedVersion, err := m.semver.Resolve(req.Version, versions)
+	resolvedVersion, err := m.semver.Resolve(string(req.Version), versions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve version for %s: %w", req.GitURL, err)
 	}
@@ -135,9 +136,9 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 	}
 
 	// Determine module path within the repository
-	modulePath := repoPath
+	modulePath := string(repoPath)
 	if req.Path != "" {
-		modulePath = filepath.Join(repoPath, req.Path)
+		modulePath = filepath.Join(string(repoPath), string(req.Path))
 	}
 
 	// Find .invowkmod directory
@@ -147,10 +148,10 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 	}
 
 	// Compute namespace
-	namespace := computeNamespace(moduleName, resolvedVersion, req.Alias)
+	namespace := computeNamespace(moduleName, string(resolvedVersion), req.Alias)
 
 	// Cache the module in the versioned directory
-	cachePath := m.getCachePath(req.GitURL, resolvedVersion, req.Path)
+	cachePath := m.getCachePath(string(req.GitURL), string(resolvedVersion), string(req.Path))
 	if err = m.cacheModule(moduleDir, cachePath); err != nil {
 		return nil, fmt.Errorf("failed to cache module: %w", err)
 	}
@@ -165,7 +166,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 		ModuleRef:       req,
 		ResolvedVersion: resolvedVersion,
 		GitCommit:       commit,
-		CachePath:       cachePath,
+		CachePath:       types.FilesystemPath(cachePath),
 		Namespace:       namespace,
 		ModuleName:      moduleName,
 		ModuleID:        moduleID,
@@ -175,7 +176,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[string]b
 
 // loadTransitiveDeps loads transitive dependencies from a cached module.
 // Dependencies are declared in invowkmod.cue (not invowkfile.cue).
-func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, error) {
+func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, error) {
 	// Find invowkmod.cue in the module (contains module metadata and requires)
 	invowkmodPath := filepath.Join(cachePath, "invowkmod.cue")
 	if _, err := os.Stat(invowkmodPath); err != nil {
@@ -204,28 +205,28 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, string, er
 		return nil, "", fmt.Errorf("reading invowkmod %s: %w", invowkmodPath, err)
 	}
 
-	meta, err := ParseInvowkmodBytes(data, invowkmodPath)
+	meta, err := ParseInvowkmodBytes(data, types.FilesystemPath(invowkmodPath))
 	if err != nil {
 		return nil, "", fmt.Errorf("parsing invowkmod %s: %w", invowkmodPath, err)
 	}
 
 	reqs := extractRequiresFromInvowkmod(meta.Requires)
 
-	return reqs, string(meta.Module), nil
+	return reqs, meta.Module, nil
 }
 
 // computeNamespace generates the namespace for a module.
-func computeNamespace(moduleName, version, alias string) string {
+func computeNamespace(moduleName ModuleShortName, version string, alias ModuleAlias) ModuleNamespace {
 	if alias != "" {
-		return alias
+		return ModuleNamespace(alias)
 	}
-	return fmt.Sprintf("%s@%s", moduleName, version)
+	return ModuleNamespace(fmt.Sprintf("%s@%s", moduleName, version))
 }
 
 // extractModuleName extracts the module name from a module key.
-func extractModuleName(key string) string {
+func extractModuleName(key ModuleRefKey) ModuleShortName {
 	// key format: "github.com/user/repo" or "github.com/user/repo#subpath"
-	parts := strings.Split(key, "#")
+	parts := strings.Split(string(key), "#")
 	url := parts[0]
 
 	// Extract repo name
@@ -233,9 +234,9 @@ func extractModuleName(key string) string {
 	if len(urlParts) > 0 {
 		name := urlParts[len(urlParts)-1]
 		name = strings.TrimSuffix(name, ".git")
-		return name
+		return ModuleShortName(name)
 	}
-	return key
+	return ModuleShortName(key)
 }
 
 // extractModuleFromInvowkmod extracts the module field from invowkmod content

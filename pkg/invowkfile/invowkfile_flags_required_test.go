@@ -40,7 +40,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -77,7 +77,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject flag that is both required and has default_value")
 	}
@@ -113,7 +113,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
@@ -171,7 +171,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Errorf("Parse() should reject invalid short alias %q", tt.short)
 			}
@@ -206,7 +206,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject duplicate short alias")
 	}
@@ -245,7 +245,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Fatal("Parse() should fail for reserved flag name 'ivk-env-file', got nil error")
 	}
@@ -281,7 +281,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Fatal("Parse() should fail for reserved short alias 'e', got nil error")
 	}
@@ -330,7 +330,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", writeErr)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Fatalf("Parse() should fail for reserved flag name %q, got nil error", name)
 			}
@@ -385,7 +385,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", writeErr)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Fatalf("Parse() should fail for reserved short alias %q (--"+tc.longFlag+"), got nil error", tc.short)
 			}
@@ -437,7 +437,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", writeErr)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Fatalf("Parse() should fail for ivk- prefixed flag name %q, got nil error", name)
 			}
@@ -485,7 +485,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", writeErr)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Fatalf("Parse() should fail for invowk- prefixed flag name %q, got nil error", name)
 			}
@@ -533,7 +533,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", writeErr)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Fatalf("Parse() should fail for i- prefixed flag name %q, got nil error", name)
 			}

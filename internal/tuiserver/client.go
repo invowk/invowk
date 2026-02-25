@@ -16,8 +16,8 @@ import (
 // Client provides methods to communicate with the TUI server.
 // It is used by child processes to delegate TUI rendering to the parent.
 type Client struct {
-	addr   string
-	token  string
+	addr   string // Composite URL — intentional string (transport boundary).
+	token  AuthToken
 	client *http.Client
 }
 
@@ -31,11 +31,11 @@ func NewClientFromEnv() *Client {
 		return nil
 	}
 
-	return NewClient(addr, token)
+	return NewClient(addr, AuthToken(token))
 }
 
 // NewClient creates a new Client with the given server address and token.
-func NewClient(addr, token string) *Client {
+func NewClient(addr string, token AuthToken) *Client {
 	return &Client{
 		addr:  addr,
 		token: token,
@@ -308,7 +308,7 @@ func (c *Client) sendRequest(component Component, options any) (result *Response
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.token)
+	httpReq.Header.Set("Authorization", "Bearer "+string(c.token))
 
 	httpResp, err := c.client.Do(httpReq)
 	if err != nil {

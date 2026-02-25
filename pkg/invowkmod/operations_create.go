@@ -17,12 +17,12 @@ func Create(opts CreateOptions) (string, error) {
 	}
 
 	// Validate the name format
-	if !moduleNameRegex.MatchString(opts.Name) {
+	if !moduleNameRegex.MatchString(string(opts.Name)) {
 		return "", fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", opts.Name)
 	}
 
 	// Default parent directory to current directory
-	parentDir := opts.ParentDir
+	parentDir := string(opts.ParentDir)
 	if parentDir == "" {
 		var err error
 		parentDir, err = os.Getwd()
@@ -38,7 +38,7 @@ func Create(opts CreateOptions) (string, error) {
 	}
 
 	// Create module directory
-	moduleDirName := opts.Name + ModuleSuffix
+	moduleDirName := string(opts.Name) + ModuleSuffix
 	modulePath := filepath.Join(absParentDir, moduleDirName)
 
 	// Check if module already exists
@@ -51,13 +51,13 @@ func Create(opts CreateOptions) (string, error) {
 	}
 
 	// Use name as module identifier if not specified
-	moduleID := opts.Module
+	moduleID := string(opts.Module)
 	if moduleID == "" {
-		moduleID = opts.Name
+		moduleID = string(opts.Name)
 	}
 
 	// Create description
-	description := opts.Description
+	description := string(opts.Description)
 	if description == "" {
 		description = fmt.Sprintf("Commands from %s module", opts.Name)
 	}

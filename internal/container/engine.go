@@ -7,21 +7,104 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Container engine type constants.
 const (
+	// EngineTypePodman identifies the Podman container engine.
 	EngineTypePodman EngineType = "podman"
+	// EngineTypeDocker identifies the Docker container engine.
 	EngineTypeDocker EngineType = "docker"
+	// EngineTypeAny is used exclusively in EngineNotAvailableError when
+	// AutoDetectEngine fails to find any engine — it is not a valid engine
+	// type for normal operations.
+	EngineTypeAny EngineType = "any"
 )
 
-// ErrNoEngineAvailable is returned when no container engine (Docker or Podman) is available.
-// Callers can check for this error using errors.Is(err, ErrNoEngineAvailable).
-var ErrNoEngineAvailable = errors.New("no container engine available")
+var (
+	// ErrNoEngineAvailable is returned when no container engine (Docker or Podman) is available.
+	// Callers can check for this error using errors.Is(err, ErrNoEngineAvailable).
+	ErrNoEngineAvailable = errors.New("no container engine available")
+	// ErrInvalidEngineType is returned when an EngineType value is not recognized.
+	ErrInvalidEngineType = errors.New("invalid engine type")
+	// ErrInvalidContainerID is the sentinel error wrapped by InvalidContainerIDError.
+	ErrInvalidContainerID = errors.New("invalid container ID")
+	// ErrInvalidImageTag is the sentinel error wrapped by InvalidImageTagError.
+	ErrInvalidImageTag = errors.New("invalid image tag")
+	// ErrInvalidContainerName is the sentinel error wrapped by InvalidContainerNameError.
+	ErrInvalidContainerName = errors.New("invalid container name")
+	// ErrInvalidHostMapping is the sentinel error wrapped by InvalidHostMappingError.
+	ErrInvalidHostMapping = errors.New("invalid host mapping")
+	// ErrInvalidBuildOptions is the sentinel error wrapped by InvalidBuildOptionsError.
+	ErrInvalidBuildOptions = errors.New("invalid build options")
+	// ErrInvalidRunOptions is the sentinel error wrapped by InvalidRunOptionsError.
+	ErrInvalidRunOptions = errors.New("invalid run options")
+)
 
 type (
 	// EngineType identifies the container engine type
 	EngineType string
+
+	// ContainerID identifies a running or stopped container instance.
+	// DDD Value Type — name is intentionally explicit for cross-package clarity.
+	ContainerID string //nolint:revive // DDD Value Type pattern: explicit name preferred over stuttering-free abbreviation
+
+	// ImageTag identifies a container image by name and optional tag/digest.
+	// Examples: "debian:stable-slim", "invowk-provisioned:abc123"
+	ImageTag string
+
+	// ContainerName is a user-assigned name for a container instance.
+	// The zero value ("") means "no explicit name" (engine assigns one).
+	ContainerName string //nolint:revive // DDD Value Type pattern: explicit name preferred over stuttering-free abbreviation
+
+	// HostMapping is a host-to-IP mapping entry for --add-host (e.g., "host.docker.internal:host-gateway").
+	HostMapping string
+
+	// InvalidEngineTypeError is returned when an EngineType value is not recognized.
+	// It wraps ErrInvalidEngineType for errors.Is() compatibility.
+	InvalidEngineTypeError struct {
+		Value EngineType
+	}
+
+	// InvalidContainerIDError is returned when a ContainerID value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidContainerID for errors.Is().
+	InvalidContainerIDError struct {
+		Value ContainerID
+	}
+
+	// InvalidImageTagError is returned when an ImageTag value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidImageTag for errors.Is().
+	InvalidImageTagError struct {
+		Value ImageTag
+	}
+
+	// InvalidContainerNameError is returned when a ContainerName value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidContainerName for errors.Is().
+	InvalidContainerNameError struct {
+		Value ContainerName
+	}
+
+	// InvalidHostMappingError is returned when a HostMapping value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidHostMapping for errors.Is().
+	InvalidHostMappingError struct {
+		Value HostMapping
+	}
+
+	// InvalidBuildOptionsError is returned when BuildOptions has one or more invalid fields.
+	// It wraps ErrInvalidBuildOptions for errors.Is() compatibility.
+	InvalidBuildOptionsError struct {
+		FieldErrors []error
+	}
+
+	// InvalidRunOptionsError is returned when RunOptions has one or more invalid fields.
+	// It wraps ErrInvalidRunOptions for errors.Is() compatibility.
+	InvalidRunOptionsError struct {
+		FieldErrors []error
+	}
 
 	// Engine defines the interface for container operations
 	Engine interface {
@@ -36,12 +119,12 @@ type (
 		Build(ctx context.Context, opts BuildOptions) error
 		// Run runs a command in a container
 		Run(ctx context.Context, opts RunOptions) (*RunResult, error)
-		// Remove removes a container
-		Remove(ctx context.Context, containerID string, force bool) error
+		// Remove removes a container by its ID
+		Remove(ctx context.Context, containerID ContainerID, force bool) error
 		// ImageExists checks if an image exists
-		ImageExists(ctx context.Context, image string) (bool, error)
+		ImageExists(ctx context.Context, image ImageTag) (bool, error)
 		// RemoveImage removes an image
-		RemoveImage(ctx context.Context, image string, force bool) error
+		RemoveImage(ctx context.Context, image ImageTag, force bool) error
 
 		// BinaryPath returns the path to the container engine binary.
 		// This is used when preparing commands for PTY attachment in interactive mode.
@@ -56,11 +139,11 @@ type (
 	// BuildOptions contains options for building an image
 	BuildOptions struct {
 		// ContextDir is the build context directory
-		ContextDir string
+		ContextDir HostFilesystemPath
 		// Dockerfile is the path to the Dockerfile (relative to ContextDir)
-		Dockerfile string
-		// Tag is the image tag
-		Tag string
+		Dockerfile HostFilesystemPath
+		// Tag is the image tag to assign to the built image
+		Tag ImageTag
 		// BuildArgs are build-time variables
 		BuildArgs map[string]string
 		// NoCache disables the build cache
@@ -74,21 +157,21 @@ type (
 	// RunOptions contains options for running a container
 	RunOptions struct {
 		// Image is the image to run
-		Image string
+		Image ImageTag
 		// Command is the command to run
 		Command []string
 		// WorkDir is the working directory inside the container
-		WorkDir string
+		WorkDir MountTargetPath
 		// Env contains environment variables
 		Env map[string]string
-		// Volumes are volume mounts in "host:container" format
-		Volumes []string
-		// Ports are port mappings in "host:container" format
-		Ports []string
+		// Volumes are volume mounts in "host:container[:options]" format
+		Volumes []invowkfile.VolumeMountSpec
+		// Ports are port mappings in "host:container[/protocol]" format
+		Ports []invowkfile.PortMappingSpec
 		// Remove automatically removes the container after exit
 		Remove bool
 		// Name is the container name
-		Name string
+		Name ContainerName
 		// Stdin is the standard input
 		Stdin io.Reader
 		// Stdout is where to write standard output
@@ -100,22 +183,22 @@ type (
 		// TTY allocates a pseudo-TTY
 		TTY bool
 		// ExtraHosts are additional host-to-IP mappings (e.g., "host.docker.internal:host-gateway")
-		ExtraHosts []string
+		ExtraHosts []HostMapping
 	}
 
 	// RunResult contains the result of running a container
 	RunResult struct {
 		// ContainerID is the container ID
-		ContainerID string
+		ContainerID ContainerID
 		// ExitCode is the exit code
-		ExitCode int
+		ExitCode types.ExitCode
 		// Error contains any error
 		Error error
 	}
 
 	// EngineNotAvailableError is returned when a container engine is not available
 	EngineNotAvailableError struct {
-		Engine string
+		Engine EngineType
 		Reason string
 	}
 )
@@ -129,10 +212,196 @@ func (e *EngineNotAvailableError) Unwrap() error {
 	return ErrNoEngineAvailable
 }
 
+// Error implements the error interface for InvalidEngineTypeError.
+func (e *InvalidEngineTypeError) Error() string {
+	return fmt.Sprintf("invalid engine type %q (valid: podman, docker)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidEngineTypeError) Unwrap() error {
+	return ErrInvalidEngineType
+}
+
+// String returns the string representation of the ContainerID.
+func (c ContainerID) String() string { return string(c) }
+
+// IsValid returns whether the ContainerID is valid.
+// A valid ContainerID is non-empty and not whitespace-only.
+func (c ContainerID) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(c)) == "" {
+		return false, []error{&InvalidContainerIDError{Value: c}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidContainerIDError.
+func (e *InvalidContainerIDError) Error() string {
+	return fmt.Sprintf("invalid container ID %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidContainerID for errors.Is() compatibility.
+func (e *InvalidContainerIDError) Unwrap() error { return ErrInvalidContainerID }
+
+// String returns the string representation of the ImageTag.
+func (t ImageTag) String() string { return string(t) }
+
+// IsValid returns whether the ImageTag is valid.
+// A valid ImageTag is non-empty and not whitespace-only.
+func (t ImageTag) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(t)) == "" {
+		return false, []error{&InvalidImageTagError{Value: t}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidImageTagError.
+func (e *InvalidImageTagError) Error() string {
+	return fmt.Sprintf("invalid image tag %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidImageTag for errors.Is() compatibility.
+func (e *InvalidImageTagError) Unwrap() error { return ErrInvalidImageTag }
+
+// String returns the string representation of the ContainerName.
+func (n ContainerName) String() string { return string(n) }
+
+// IsValid returns whether the ContainerName is valid.
+// The zero value ("") is valid (means no explicit name). Non-zero: not whitespace-only.
+func (n ContainerName) IsValid() (bool, []error) {
+	if n == "" {
+		return true, nil
+	}
+	if strings.TrimSpace(string(n)) == "" {
+		return false, []error{&InvalidContainerNameError{Value: n}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidContainerNameError.
+func (e *InvalidContainerNameError) Error() string {
+	return fmt.Sprintf("invalid container name %q: non-empty value must not be whitespace-only", e.Value)
+}
+
+// Unwrap returns ErrInvalidContainerName for errors.Is() compatibility.
+func (e *InvalidContainerNameError) Unwrap() error { return ErrInvalidContainerName }
+
+// String returns the string representation of the HostMapping.
+func (h HostMapping) String() string { return string(h) }
+
+// IsValid returns whether the HostMapping is valid.
+// A valid HostMapping is non-empty and not whitespace-only.
+func (h HostMapping) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(h)) == "" {
+		return false, []error{&InvalidHostMappingError{Value: h}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidHostMappingError.
+func (e *InvalidHostMappingError) Error() string {
+	return fmt.Sprintf("invalid host mapping %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidHostMapping for errors.Is() compatibility.
+func (e *InvalidHostMappingError) Unwrap() error { return ErrInvalidHostMapping }
+
+// Error implements the error interface for InvalidBuildOptionsError.
+func (e *InvalidBuildOptionsError) Error() string {
+	return fmt.Sprintf("invalid build options: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidBuildOptions for errors.Is() compatibility.
+func (e *InvalidBuildOptionsError) Unwrap() error { return ErrInvalidBuildOptions }
+
+// IsValid returns whether all typed fields of the BuildOptions are valid,
+// and a combined list of validation errors from ContextDir, Dockerfile, and Tag.
+func (o BuildOptions) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := o.ContextDir.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := o.Dockerfile.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := o.Tag.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidBuildOptionsError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidRunOptionsError.
+func (e *InvalidRunOptionsError) Error() string {
+	return fmt.Sprintf("invalid run options: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidRunOptions for errors.Is() compatibility.
+func (e *InvalidRunOptionsError) Unwrap() error { return ErrInvalidRunOptions }
+
+// IsValid returns whether all typed fields of the RunOptions are valid,
+// and a combined list of validation errors from Image, WorkDir, Name, ExtraHosts,
+// Volumes, and Ports.
+func (o RunOptions) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := o.Image.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if o.WorkDir != "" {
+		if valid, fieldErrs := o.WorkDir.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if valid, fieldErrs := o.Name.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	for _, h := range o.ExtraHosts {
+		if valid, fieldErrs := h.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	for _, v := range o.Volumes {
+		if valid, fieldErrs := v.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	for _, p := range o.Ports {
+		if valid, fieldErrs := p.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidRunOptionsError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the EngineType.
+func (et EngineType) String() string { return string(et) }
+
+// IsValid returns whether the EngineType is one of the defined engine types,
+// and a list of validation errors if it is not.
+func (et EngineType) IsValid() (bool, []error) {
+	switch et {
+	case EngineTypePodman, EngineTypeDocker:
+		return true, nil
+	case EngineTypeAny:
+		// EngineTypeAny is only valid in error reporting contexts, not as an engine type
+		return false, []error{&InvalidEngineTypeError{Value: et}}
+	default:
+		return false, []error{&InvalidEngineTypeError{Value: et}}
+	}
+}
+
 // NewEngine creates a new container engine based on preference.
 // The returned engine is automatically wrapped with sandbox awareness
 // when running inside Flatpak or Snap sandboxes.
 func NewEngine(preferredType EngineType) (Engine, error) {
+	if isValid, errs := preferredType.IsValid(); !isValid {
+		return nil, errs[0]
+	}
+
 	var engine Engine
 
 	switch preferredType {
@@ -147,7 +416,7 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 				engine = docker
 			} else {
 				return nil, &EngineNotAvailableError{
-					Engine: "podman",
+					Engine: EngineTypePodman,
 					Reason: "podman is not installed or not accessible, and docker fallback is also not available",
 				}
 			}
@@ -164,13 +433,18 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 				engine = podman
 			} else {
 				return nil, &EngineNotAvailableError{
-					Engine: "docker",
+					Engine: EngineTypeDocker,
 					Reason: "docker is not installed or not accessible, and podman fallback is also not available",
 				}
 			}
 		}
 
+	case EngineTypeAny:
+		// Unreachable: IsValid() rejects EngineTypeAny before reaching this switch.
+		return nil, fmt.Errorf("EngineTypeAny is not a valid engine type for initialization")
+
 	default:
+		// Unreachable: IsValid() guard above ensures only valid types reach here.
 		return nil, fmt.Errorf("unknown container engine type: %s", preferredType)
 	}
 
@@ -204,7 +478,7 @@ func AutoDetectEngine() (Engine, error) {
 	}
 
 	return nil, &EngineNotAvailableError{
-		Engine: "any",
+		Engine: EngineTypeAny,
 		Reason: "no container engine (podman or docker) is available on this system",
 	}
 }

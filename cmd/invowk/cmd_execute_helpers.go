@@ -16,6 +16,8 @@ import (
 	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -33,6 +35,30 @@ type runtimeRegistryResult struct {
 
 // parseEnvVarFlags parses an array of KEY=VALUE strings into a map.
 // Malformed entries (missing '=') are logged as warnings and skipped.
+// toEnvVarNames converts a CLI string slice (from Cobra flags) to typed EnvVarName values.
+func toEnvVarNames(names []string) []invowkfile.EnvVarName {
+	if len(names) == 0 {
+		return nil
+	}
+	result := make([]invowkfile.EnvVarName, len(names))
+	for i, name := range names {
+		result[i] = invowkfile.EnvVarName(name)
+	}
+	return result
+}
+
+// toDotenvFilePaths converts a CLI string slice (from Cobra flags) to typed DotenvFilePath values.
+func toDotenvFilePaths(paths []string) []invowkfile.DotenvFilePath {
+	if len(paths) == 0 {
+		return nil
+	}
+	result := make([]invowkfile.DotenvFilePath, len(paths))
+	for i, path := range paths {
+		result[i] = invowkfile.DotenvFilePath(path)
+	}
+	return result
+}
+
 func parseEnvVarFlags(envVarFlags []string) map[string]string {
 	if len(envVarFlags) == 0 {
 		return nil
@@ -93,7 +119,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	for i := len(args); i > 0; i-- {
 		candidateName := strings.Join(args[:i], " ")
 		for _, discovered := range cmdsInSource {
-			if discovered.SimpleName == candidateName {
+			if string(discovered.SimpleName) == candidateName {
 				targetCmd = discovered
 				matchLen = i
 				break
@@ -116,7 +142,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		if len(cmdsInSource) > 0 {
 			fmt.Fprintf(app.stderr, "Available commands in %s:\n", formatSourceDisplayName(filter.SourceID))
 			for _, discovered := range cmdsInSource {
-				fmt.Fprintf(app.stderr, "  %s\n", discovered.SimpleName)
+				fmt.Fprintf(app.stderr, "  %s\n", string(discovered.SimpleName))
 			}
 			fmt.Fprintln(app.stderr)
 		}
@@ -125,7 +151,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 
 	// Watch mode intercepts before normal execution.
 	if cmdFlags.watch {
-		return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{targetCmd.Name}, cmdArgs...))
+		return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{string(targetCmd.Name)}, cmdArgs...))
 	}
 
 	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
@@ -136,15 +162,15 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	verbose, interactive := resolveUIFlags(ctx, app, cmd, rootFlags)
 	// Delegate final execution to CommandService with explicit per-request flags.
 	req := ExecuteRequest{
-		Name:         targetCmd.Name,
+		Name:         string(targetCmd.Name),
 		Args:         cmdArgs,
 		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
-		FromSource:   cmdFlags.fromSource,
+		FromSource:   discovery.SourceID(cmdFlags.fromSource),
 		ForceRebuild: cmdFlags.forceRebuild,
 		DryRun:       cmdFlags.dryRun,
-		ConfigPath:   rootFlags.configPath,
+		ConfigPath:   types.FilesystemPath(rootFlags.configPath),
 	}
 
 	result, diags, err := app.Commands.Execute(ctx, req)
@@ -181,10 +207,10 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 	app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
 
 	commandSet := commandSetResult.Set
-	cmdName := ""
+	var cmdName invowkfile.CommandName
 	// Mirror Cobra longest-match behavior for nested command names.
 	for i := len(args); i > 0; i-- {
-		candidateName := strings.Join(args[:i], " ")
+		candidateName := invowkfile.CommandName(strings.Join(args[:i], " "))
 		if _, exists := commandSet.BySimpleName[candidateName]; exists {
 			cmdName = candidateName
 			break
@@ -193,7 +219,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 
 	if cmdName == "" {
 		// Unknown command path: let normal Cobra command resolution handle errors.
-		cmdName = args[0]
+		cmdName = invowkfile.CommandName(args[0])
 	}
 
 	if !commandSet.AmbiguousNames[cmdName] {
@@ -236,12 +262,13 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 	}
 
 	for _, diag := range built.Diagnostics {
-		result.Diagnostics = append(result.Diagnostics, discovery.Diagnostic{
-			Severity: discovery.SeverityWarning,
-			Code:     discovery.DiagnosticCode(diag.Code),
-			Message:  diag.Message,
-			Cause:    diag.Cause,
-		})
+		result.Diagnostics = append(result.Diagnostics, discovery.NewDiagnosticWithCause(
+			discovery.SeverityWarning,
+			discovery.DiagnosticCode(diag.Code),
+			diag.Message,
+			"",
+			diag.Cause,
+		))
 	}
 
 	return result

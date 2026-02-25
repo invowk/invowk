@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // moduleNameRegex validates the module folder name prefix (before .invowkmod)
@@ -16,26 +18,26 @@ import (
 var moduleNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 
 type (
-	// CreateOptions contains options for creating a new module
+	// CreateOptions contains options for creating a new module.
 	CreateOptions struct {
 		// Name is the module name (e.g., "com.example.mytools")
-		Name string
+		Name ModuleShortName
 		// ParentDir is the directory where the module will be created
-		ParentDir string
+		ParentDir types.FilesystemPath
 		// Module is the module identifier for the invowkfile (defaults to Name if empty)
-		Module string
+		Module ModuleID
 		// Description is an optional description for the invowkfile
-		Description string
+		Description types.DescriptionText
 		// CreateScriptsDir creates a scripts/ subdirectory if true
 		CreateScriptsDir bool
 	}
 
-	// UnpackOptions contains options for unpacking a module
+	// UnpackOptions contains options for unpacking a module.
 	UnpackOptions struct {
-		// Source is the path to the ZIP file or URL
+		// Source is the path to the ZIP file or URL; intentionally untyped (mixed path/URL).
 		Source string
 		// DestDir is the destination directory (defaults to current directory)
-		DestDir string
+		DestDir types.FilesystemPath
 		// Overwrite allows overwriting an existing module
 		Overwrite bool
 	}
@@ -44,9 +46,11 @@ type (
 // IsModule checks if the given path is a valid invowk module directory.
 // This is a quick check that only verifies the folder name format and existence.
 // For full validation, use Validate().
-func IsModule(path string) bool {
+func IsModule(path types.FilesystemPath) bool {
+	pathStr := string(path)
+
 	// Check if the path ends with .invowkmod
-	base := filepath.Base(path)
+	base := filepath.Base(pathStr)
 	if !strings.HasSuffix(base, ModuleSuffix) {
 		return false
 	}
@@ -58,7 +62,7 @@ func IsModule(path string) bool {
 	}
 
 	// Check if it's a directory
-	info, err := os.Stat(path)
+	info, err := os.Stat(pathStr)
 	if err != nil {
 		return false
 	}
@@ -69,7 +73,7 @@ func IsModule(path string) bool {
 // ParseModuleName extracts and validates the module name from a folder name.
 // The folder name must end with .invowkmod and have a valid prefix.
 // Returns the module name (without suffix) or an error if invalid.
-func ParseModuleName(folderName string) (string, error) {
+func ParseModuleName(folderName string) (ModuleShortName, error) {
 	// Must end with .invowkmod
 	if !strings.HasSuffix(folderName, ModuleSuffix) {
 		return "", fmt.Errorf("folder name must end with '%s'", ModuleSuffix)
@@ -91,22 +95,24 @@ func ParseModuleName(folderName string) (string, error) {
 		return "", fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", prefix)
 	}
 
-	return prefix, nil
+	return ModuleShortName(prefix), nil
 }
 
 // ValidateName checks if a module name is valid.
 // Returns nil if valid, or an error describing the problem.
-func ValidateName(name string) error {
-	if name == "" {
+func ValidateName(name ModuleShortName) error {
+	nameStr := string(name)
+
+	if nameStr == "" {
 		return fmt.Errorf("module name cannot be empty")
 	}
 
-	if strings.HasPrefix(name, ".") {
+	if strings.HasPrefix(nameStr, ".") {
 		return fmt.Errorf("module name cannot start with a dot")
 	}
 
-	if !moduleNameRegex.MatchString(name) {
-		return fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", name)
+	if !moduleNameRegex.MatchString(nameStr) {
+		return fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", nameStr)
 	}
 
 	return nil

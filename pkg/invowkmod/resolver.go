@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // LockFileName is the name of the lock file.
@@ -20,19 +22,19 @@ type (
 	ModuleRef struct {
 		// GitURL is the Git repository URL (HTTPS or SSH format).
 		// Examples: "https://github.com/user/repo.git", "git@github.com:user/repo.git"
-		GitURL string
+		GitURL GitURL
 
 		// Version is the semver constraint for version selection.
 		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
-		Version string
+		Version SemVerConstraint
 
 		// Alias overrides the default namespace for imported commands (optional).
 		// If not set, the namespace is: <module>@<resolved-version>
-		Alias string
+		Alias ModuleAlias
 
 		// Path specifies a subdirectory containing the module (optional).
 		// Used for monorepos with multiple modules.
-		Path string
+		Path SubdirectoryPath
 	}
 
 	// ResolvedModule represents a fully resolved and cached module.
@@ -42,23 +44,23 @@ type (
 
 		// ResolvedVersion is the exact version that was selected.
 		// This is always a concrete version (e.g., "1.2.3"), not a constraint.
-		ResolvedVersion string
+		ResolvedVersion SemVer
 
 		// GitCommit is the Git commit SHA for the resolved version.
-		GitCommit string
+		GitCommit GitCommit
 
 		// CachePath is the absolute path to the cached module directory.
-		CachePath string
+		CachePath types.FilesystemPath
 
 		// Namespace is the computed namespace for this module's commands.
 		// Format: "<module>@<version>" or alias if specified.
-		Namespace string
+		Namespace ModuleNamespace
 
 		// ModuleName is the name of the module (from the folder name without .invowkmod).
-		ModuleName string
+		ModuleName ModuleShortName
 
 		// ModuleID is the module identifier from the module's invowkmod.cue.
-		ModuleID string
+		ModuleID ModuleID
 
 		// TransitiveDeps are dependencies declared by this module (for recursive resolution).
 		TransitiveDeps []ModuleRef
@@ -66,11 +68,11 @@ type (
 
 	// Resolver handles module operations including resolution, caching, and synchronization.
 	Resolver struct {
-		// CacheDir is the root directory for module cache.
-		CacheDir string
+		// cacheDir is the root directory for module cache.
+		cacheDir types.FilesystemPath
 
-		// WorkingDir is the directory containing invowkmod.cue (for relative path resolution).
-		WorkingDir string
+		// workingDir is the directory containing invowkmod.cue (for relative path resolution).
+		workingDir types.FilesystemPath
 
 		// fetcher handles Git operations.
 		fetcher *GitFetcher
@@ -85,7 +87,7 @@ type (
 	// RemoveResult contains metadata about a removed module for CLI reporting.
 	RemoveResult struct {
 		// LockKey is the lock file key that was removed.
-		LockKey string
+		LockKey ModuleRefKey
 		// RemovedEntry is the lock file entry that was removed.
 		RemovedEntry LockedModule
 	}
@@ -93,11 +95,11 @@ type (
 	// AmbiguousMatch describes a single ambiguous lock file entry.
 	AmbiguousMatch struct {
 		// LockKey is the lock file key.
-		LockKey string
+		LockKey ModuleRefKey
 		// Namespace is the computed namespace.
-		Namespace string
+		Namespace ModuleNamespace
 		// GitURL is the Git repository URL.
-		GitURL string
+		GitURL GitURL
 	}
 
 	// AmbiguousIdentifierError is returned when a module identifier matches
@@ -122,22 +124,22 @@ func (e *AmbiguousIdentifierError) Error() string {
 }
 
 // Key returns a unique key for this requirement based on GitURL and Path.
-func (r ModuleRef) Key() string {
+func (r ModuleRef) Key() ModuleRefKey {
 	if r.Path != "" {
-		return fmt.Sprintf("%s#%s", r.GitURL, r.Path)
+		return ModuleRefKey(fmt.Sprintf("%s#%s", r.GitURL, string(r.Path)))
 	}
-	return r.GitURL
+	return ModuleRefKey(r.GitURL)
 }
 
 // String returns a human-readable representation of the requirement.
 func (r ModuleRef) String() string {
-	s := r.GitURL
+	s := string(r.GitURL)
 	if r.Path != "" {
-		s += "#" + r.Path
+		s += "#" + string(r.Path)
 	}
-	s += "@" + r.Version
+	s += "@" + string(r.Version)
 	if r.Alias != "" {
-		s += " (alias: " + r.Alias + ")"
+		s += " (alias: " + string(r.Alias) + ")"
 	}
 	return s
 }
@@ -146,31 +148,35 @@ func (r ModuleRef) String() string {
 //
 // workingDir is the directory containing invowkmod.cue (typically current working directory).
 // cacheDir can be empty to use the default (~/.invowk/modules or $INVOWK_MODULES_PATH).
-func NewResolver(workingDir, cacheDir string) (*Resolver, error) {
-	if workingDir == "" {
-		wd, err := os.Getwd()
+func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
+	wd := string(workingDir)
+	if wd == "" {
+		var err error
+		wd, err = os.Getwd()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get working directory: %w", err)
 		}
-		workingDir = wd
 	}
 
-	absWorkingDir, err := filepath.Abs(workingDir)
+	absWorkingDir, err := filepath.Abs(wd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve working directory: %w", err)
 	}
 
-	if cacheDir == "" {
-		cacheDir, err = GetDefaultCacheDir()
+	cd := cacheDir
+	if cd == "" {
+		cd, err = GetDefaultCacheDir()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cache directory: %w", err)
 		}
 	}
 
-	absCacheDir, err := filepath.Abs(cacheDir)
+	absCacheDir, err := filepath.Abs(string(cd))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve cache directory: %w", err)
 	}
+
+	absCachePath := types.FilesystemPath(absCacheDir)
 
 	// Ensure cache directory exists
 	if err := os.MkdirAll(absCacheDir, 0o755); err != nil {
@@ -178,12 +184,18 @@ func NewResolver(workingDir, cacheDir string) (*Resolver, error) {
 	}
 
 	return &Resolver{
-		CacheDir:   absCacheDir,
-		WorkingDir: absWorkingDir,
-		fetcher:    NewGitFetcher(absCacheDir),
+		cacheDir:   absCachePath,
+		workingDir: types.FilesystemPath(absWorkingDir),
+		fetcher:    NewGitFetcher(absCachePath),
 		semver:     NewSemverResolver(),
 	}, nil
 }
+
+// CacheDir returns the root directory for the module cache.
+func (m *Resolver) CacheDir() types.FilesystemPath { return m.cacheDir }
+
+// WorkingDir returns the directory containing invowkmod.cue.
+func (m *Resolver) WorkingDir() types.FilesystemPath { return m.workingDir }
 
 // Add resolves a new module requirement, caches it, and updates the lock file.
 func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, error) {
@@ -196,13 +208,13 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	}
 
 	// Resolve the module
-	resolved, err := m.resolveOne(ctx, req, make(map[string]bool))
+	resolved, err := m.resolveOne(ctx, req, make(map[ModuleRefKey]bool))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
 	}
 
 	// Persist to lock file so Add is a complete single-step operation
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
@@ -222,7 +234,7 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 	defer m.mu.Unlock()
 
 	// Load current lock file
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
@@ -261,14 +273,14 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	defer m.mu.Unlock()
 
 	// Load current lock file
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load lock file: %w", err)
 	}
 
 	// Determine which keys to update
-	var keysToUpdate []string
+	var keysToUpdate []ModuleRefKey
 	if identifier == "" {
 		for key := range lock.Modules {
 			keysToUpdate = append(keysToUpdate, key)
@@ -281,7 +293,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	}
 
 	var updated []*ResolvedModule
-	visited := make(map[string]bool)
+	visited := make(map[ModuleRefKey]bool)
 
 	for _, key := range keysToUpdate {
 		entry := lock.Modules[key]
@@ -339,7 +351,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 	// Save lock file
 	lock := &LockFile{
 		Version: "1.0",
-		Modules: make(map[string]LockedModule),
+		Modules: make(map[ModuleRefKey]LockedModule),
 	}
 
 	for _, mod := range resolved {
@@ -354,7 +366,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 		}
 	}
 
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	if err := lock.Save(lockPath); err != nil {
 		return nil, fmt.Errorf("failed to save lock file: %w", err)
 	}
@@ -367,7 +379,7 @@ func (m *Resolver) List(ctx context.Context) ([]*ResolvedModule, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	lockPath := filepath.Join(m.WorkingDir, LockFileName)
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -387,7 +399,7 @@ func (m *Resolver) List(ctx context.Context) ([]*ResolvedModule, error) {
 			},
 			ResolvedVersion: entry.ResolvedVersion,
 			GitCommit:       entry.GitCommit,
-			CachePath:       m.getCachePath(entry.GitURL, entry.ResolvedVersion, entry.Path),
+			CachePath:       types.FilesystemPath(m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path))),
 			Namespace:       entry.Namespace,
 			ModuleName:      extractModuleName(key),
 		})
@@ -411,12 +423,12 @@ func isGitURL(s string) bool {
 // resolveIdentifier resolves a user-provided identifier to lock file keys.
 // Priority: git URL prefix match → exact lock key → exact namespace → namespace prefix.
 // Returns matched keys or an error if no match or ambiguous.
-func resolveIdentifier(identifier string, modules map[string]LockedModule) ([]string, error) {
+func resolveIdentifier(identifier string, modules map[ModuleRefKey]LockedModule) ([]ModuleRefKey, error) {
 	if isGitURL(identifier) {
 		// Git URL mode: prefix-match on lock keys (preserves monorepo #subpath matching)
-		var keys []string
+		var keys []ModuleRefKey
 		for key := range modules {
-			if strings.HasPrefix(key, identifier) {
+			if strings.HasPrefix(string(key), identifier) {
 				keys = append(keys, key)
 			}
 		}
@@ -427,16 +439,16 @@ func resolveIdentifier(identifier string, modules map[string]LockedModule) ([]st
 	}
 
 	// Exact lock key match
-	if _, ok := modules[identifier]; ok {
-		return []string{identifier}, nil
+	if _, ok := modules[ModuleRefKey(identifier)]; ok {
+		return []ModuleRefKey{ModuleRefKey(identifier)}, nil
 	}
 
 	// Namespace match: exact and prefix (bare name without @version)
-	var exactMatches, prefixMatches []string
+	var exactMatches, prefixMatches []ModuleRefKey
 	for key, entry := range modules {
-		if entry.Namespace == identifier {
+		if string(entry.Namespace) == identifier {
 			exactMatches = append(exactMatches, key)
-		} else if strings.HasPrefix(entry.Namespace, identifier+"@") {
+		} else if strings.HasPrefix(string(entry.Namespace), identifier+"@") {
 			prefixMatches = append(prefixMatches, key)
 		}
 	}
@@ -461,7 +473,7 @@ func resolveIdentifier(identifier string, modules map[string]LockedModule) ([]st
 }
 
 // buildAmbiguousError creates an AmbiguousIdentifierError from matched keys.
-func buildAmbiguousError(identifier string, keys []string, modules map[string]LockedModule) *AmbiguousIdentifierError {
+func buildAmbiguousError(identifier string, keys []ModuleRefKey, modules map[ModuleRefKey]LockedModule) *AmbiguousIdentifierError {
 	matches := make([]AmbiguousMatch, 0, len(keys))
 	for _, key := range keys {
 		entry := modules[key]

@@ -3,17 +3,33 @@
 package invowkfile
 
 import (
+	"errors"
+	"fmt"
+	"slices"
+
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
+
+// ErrInvalidModuleMetadata is the sentinel error wrapped by InvalidModuleMetadataError.
+var ErrInvalidModuleMetadata = errors.New("invalid module metadata")
 
 type (
 	// ModuleMetadata is a lightweight module metadata snapshot attached to
 	// Invowkfile during module parsing/discovery.
+	// Fields are unexported for immutability; use Module(), Version(),
+	// Description(), and Requires() accessors.
 	ModuleMetadata struct {
-		Module      string
-		Version     string
-		Description string
-		Requires    []ModuleRequirement
+		module      invowkmod.ModuleID
+		version     invowkmod.SemVer
+		description DescriptionText
+		requires    []ModuleRequirement
+	}
+
+	// InvalidModuleMetadataError is returned when a ModuleMetadata has invalid fields.
+	// It wraps ErrInvalidModuleMetadata for errors.Is() compatibility and collects
+	// field-level validation errors from Module, Version, Description, and Requires.
+	InvalidModuleMetadataError struct {
+		FieldErrors []error
 	}
 
 	// ModuleRequirement represents a dependency on another module from a Git repository.
@@ -48,8 +64,29 @@ func ExtractModuleFromCommand(cmd string) string {
 	return invowkmod.ExtractModuleFromCommand(cmd)
 }
 
+// NewModuleMetadata creates a validated ModuleMetadata snapshot.
+// Module and Version are required; Description and Requires are optional
+// (zero values are valid). The requires slice is defensively copied.
+func NewModuleMetadata(module invowkmod.ModuleID, version invowkmod.SemVer, description DescriptionText, requires []ModuleRequirement) (*ModuleMetadata, error) {
+	m := &ModuleMetadata{
+		module:      module,
+		version:     version,
+		description: description,
+	}
+	if len(requires) > 0 {
+		m.requires = make([]ModuleRequirement, len(requires))
+		copy(m.requires, requires)
+	}
+
+	if isValid, errs := m.IsValid(); !isValid {
+		return nil, errs[0]
+	}
+	return m, nil
+}
+
 // NewModuleMetadataFromInvowkmod converts invowkmod metadata to the lightweight
-// invowkfile-local metadata shape.
+// invowkfile-local metadata shape. This is a non-validating factory used during
+// CUE parsing where the metadata may be in an intermediate state.
 func NewModuleMetadataFromInvowkmod(meta *Invowkmod) *ModuleMetadata {
 	if meta == nil {
 		return nil
@@ -59,9 +96,60 @@ func NewModuleMetadataFromInvowkmod(meta *Invowkmod) *ModuleMetadata {
 	copy(requires, meta.Requires)
 
 	return &ModuleMetadata{
-		Module:      string(meta.Module),
-		Version:     meta.Version,
-		Description: meta.Description,
-		Requires:    requires,
+		module:      meta.Module,
+		version:     meta.Version,
+		description: meta.Description,
+		requires:    requires,
 	}
 }
+
+// Module returns the module identifier.
+func (m ModuleMetadata) Module() invowkmod.ModuleID { return m.module }
+
+// Version returns the module version.
+func (m ModuleMetadata) Version() invowkmod.SemVer { return m.version }
+
+// Description returns the module description text.
+func (m ModuleMetadata) Description() DescriptionText { return m.description }
+
+// Requires returns a copy of the module requirements slice.
+// The returned slice is a defensive copy — callers cannot mutate the original.
+func (m ModuleMetadata) Requires() []ModuleRequirement {
+	return slices.Clone(m.requires)
+}
+
+// IsValid returns whether the ModuleMetadata has valid fields.
+// It delegates to Module.IsValid(), Version.IsValid(), and each
+// Requires entry's IsValid(). Description is validated only when
+// non-empty (the zero value is valid).
+func (m ModuleMetadata) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := m.module.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := m.version.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if m.description != "" {
+		if valid, fieldErrs := m.description.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	for _, req := range m.requires {
+		if valid, fieldErrs := req.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidModuleMetadataError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidModuleMetadataError.
+func (e *InvalidModuleMetadataError) Error() string {
+	return fmt.Sprintf("invalid module metadata: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidModuleMetadata for errors.Is() compatibility.
+func (e *InvalidModuleMetadataError) Unwrap() error { return ErrInvalidModuleMetadata }

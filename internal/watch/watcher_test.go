@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // isIgnoredByDefaults reports whether rel matches any of the default ignore
@@ -21,7 +24,7 @@ import (
 func isIgnoredByDefaults(rel string) bool {
 	normalized := filepath.ToSlash(rel)
 	for _, pat := range defaultIgnores {
-		if matched, matchErr := doublestar.Match(pat, normalized); matchErr == nil && matched {
+		if matched, matchErr := doublestar.Match(string(pat), normalized); matchErr == nil && matched {
 			return true
 		}
 	}
@@ -44,7 +47,7 @@ func TestWatcherDebounce(t *testing.T) {
 	done := make(chan struct{})
 
 	w, err := New(Config{
-		BaseDir:  dir,
+		BaseDir:  types.FilesystemPath(dir),
 		Debounce: 100 * time.Millisecond,
 		Stdout:   &bytes.Buffer{},
 		Stderr:   &bytes.Buffer{},
@@ -119,8 +122,8 @@ func TestWatcherIgnorePatterns(t *testing.T) {
 	callbackFired := make(chan []string, 10)
 
 	w, err := New(Config{
-		BaseDir:  dir,
-		Ignore:   []string{"**/*.log"},
+		BaseDir:  types.FilesystemPath(dir),
+		Ignore:   []invowkfile.GlobPattern{"**/*.log"},
 		Debounce: 50 * time.Millisecond,
 		Stdout:   &bytes.Buffer{},
 		Stderr:   &bytes.Buffer{},
@@ -179,7 +182,7 @@ func TestWatcherContextCancel(t *testing.T) {
 	dir := t.TempDir()
 
 	w, err := New(Config{
-		BaseDir:  dir,
+		BaseDir:  types.FilesystemPath(dir),
 		Debounce: 50 * time.Millisecond,
 		Stdout:   &bytes.Buffer{},
 		Stderr:   &bytes.Buffer{},
@@ -262,7 +265,7 @@ func TestWatcherSkipIfBusy(t *testing.T) {
 	stderrBuf := &bytes.Buffer{}
 
 	w, err := New(Config{
-		BaseDir:  dir,
+		BaseDir:  types.FilesystemPath(dir),
 		Debounce: 50 * time.Millisecond,
 		Stdout:   &bytes.Buffer{},
 		Stderr:   stderrBuf,
@@ -348,7 +351,7 @@ func TestWatcherClearScreen(t *testing.T) {
 	stdoutBuf := &bytes.Buffer{}
 
 	w, err := New(Config{
-		BaseDir:     dir,
+		BaseDir:     types.FilesystemPath(dir),
 		Debounce:    50 * time.Millisecond,
 		ClearScreen: true,
 		Stdout:      stdoutBuf,
@@ -398,8 +401,8 @@ func TestWatcherInvalidPattern(t *testing.T) {
 	dir := t.TempDir()
 
 	_, err := New(Config{
-		BaseDir:  dir,
-		Patterns: []string{"[invalid"},
+		BaseDir:  types.FilesystemPath(dir),
+		Patterns: []invowkfile.GlobPattern{"[invalid"},
 		Debounce: 50 * time.Millisecond,
 		Stdout:   &bytes.Buffer{},
 		Stderr:   &bytes.Buffer{},
@@ -421,7 +424,7 @@ func TestWatcherDoubleRunError(t *testing.T) {
 	dir := t.TempDir()
 
 	w, err := New(Config{
-		BaseDir:  dir,
+		BaseDir:  types.FilesystemPath(dir),
 		Debounce: 50 * time.Millisecond,
 		Stdout:   &bytes.Buffer{},
 		Stderr:   &bytes.Buffer{},
@@ -466,8 +469,8 @@ func TestWatcherPatternFiltering(t *testing.T) {
 	callbackFired := make(chan []string, 10)
 
 	w, err := New(Config{
-		BaseDir:  dir,
-		Patterns: []string{"**/*.go"},
+		BaseDir:  types.FilesystemPath(dir),
+		Patterns: []invowkfile.GlobPattern{"**/*.go"},
 		Debounce: 50 * time.Millisecond,
 		Stdout:   &bytes.Buffer{},
 		Stderr:   &bytes.Buffer{},

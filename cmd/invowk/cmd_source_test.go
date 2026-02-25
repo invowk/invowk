@@ -69,9 +69,6 @@ func TestParseSourceFilter_FromFlag(t *testing.T) {
 	if filter.SourceID != "foo" {
 		t.Errorf("SourceID = %q, want %q", filter.SourceID, "foo")
 	}
-	if filter.Raw != "foo" {
-		t.Errorf("Raw = %q, want %q", filter.Raw, "foo")
-	}
 
 	// Args should be unchanged
 	if len(remaining) != 2 || remaining[0] != "deploy" {
@@ -95,9 +92,6 @@ func TestParseSourceFilter_AtPrefix(t *testing.T) {
 	}
 	if filter.SourceID != "foo" {
 		t.Errorf("SourceID = %q, want %q", filter.SourceID, "foo")
-	}
-	if filter.Raw != "@foo" {
-		t.Errorf("Raw = %q, want %q", filter.Raw, "@foo")
 	}
 
 	// @source should be consumed from args

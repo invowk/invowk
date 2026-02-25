@@ -26,7 +26,7 @@ type (
 	MockStderrEngine struct {
 		*MockEngine
 		stderrMsg string
-		exitCode  int
+		exitCode  ExitCode
 	}
 
 	// countingMockEngine is a mock engine that fails with a transient exit code for
@@ -34,10 +34,10 @@ type (
 	// failed vs successful attempts to verify that only the correct stderr is flushed.
 	countingMockEngine struct {
 		*MockEngine
-		failUntil     int    // Fail attempts [0, failUntil). Succeed on attempt >= failUntil.
-		transientCode int    // Exit code to return on failed attempts.
-		failStderr    string // Stderr message for failed attempts.
-		successStderr string // Stderr message for the successful attempt.
+		failUntil     int      // Fail attempts [0, failUntil). Succeed on attempt >= failUntil.
+		transientCode ExitCode // Exit code to return on failed attempts.
+		failStderr    string   // Stderr message for failed attempts.
+		successStderr string   // Stderr message for the successful attempt.
 		attempt       int
 	}
 

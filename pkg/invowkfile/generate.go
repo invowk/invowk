@@ -11,6 +11,8 @@ import (
 
 // GenerateCUE generates CUE text from an Invowkfile struct.
 // This is useful for creating invowkfile.cue files programmatically.
+//
+//plint:render
 func GenerateCUE(inv *Invowkfile) string {
 	var sb strings.Builder
 
@@ -189,9 +191,9 @@ func generateImplementation(sb *strings.Builder, impl *Implementation) {
 	sb.WriteString("\t\t\t{\n")
 
 	// Handle multi-line scripts with CUE's multi-line string syntax
-	if strings.Contains(impl.Script, "\n") {
+	if strings.Contains(string(impl.Script), "\n") {
 		sb.WriteString("\t\t\t\tscript: \"\"\"\n")
-		for line := range strings.SplitSeq(impl.Script, "\n") {
+		for line := range strings.SplitSeq(string(impl.Script), "\n") {
 			fmt.Fprintf(sb, "\t\t\t\t\t%s\n", line)
 		}
 		sb.WriteString("\t\t\t\t\t\"\"\"\n")
@@ -306,10 +308,18 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 		writeField("image", fmt.Sprintf("%q", r.Image))
 	}
 	if len(r.Volumes) > 0 {
-		writeList("volumes", r.Volumes)
+		volStrs := make([]string, len(r.Volumes))
+		for i, v := range r.Volumes {
+			volStrs[i] = string(v)
+		}
+		writeList("volumes", volStrs)
 	}
 	if len(r.Ports) > 0 {
-		writeList("ports", r.Ports)
+		portStrs := make([]string, len(r.Ports))
+		for i, p := range r.Ports {
+			portStrs[i] = string(p)
+		}
+		writeList("ports", portStrs)
 	}
 }
 

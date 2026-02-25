@@ -9,21 +9,22 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Validate performs comprehensive validation of a module at the given path.
 // Returns a ValidationResult with all issues found, or an error if the path
 // cannot be accessed.
-func Validate(modulePath string) (*ValidationResult, error) {
+func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 	// Convert to absolute path
-	absPath, err := filepath.Abs(modulePath)
+	absPath, err := filepath.Abs(string(modulePath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
 	result := &ValidationResult{
 		Valid:      true,
-		ModulePath: absPath,
+		ModulePath: types.FilesystemPath(absPath),
 		Issues:     []ValidationIssue{},
 	}
 
@@ -54,7 +55,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 		// Check for reserved module name "invowkfile" (FR-015)
 		// This name is reserved for the canonical namespace system where @invowkfile
 		// refers to the root invowkfile.cue source
-		if moduleName == "invowkfile" {
+		if string(moduleName) == "invowkfile" {
 			result.AddIssue(IssueTypeNaming, "module name 'invowkfile' is reserved for the root invowkfile source", "")
 		}
 	}
@@ -70,14 +71,14 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	case invowkmodInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkmod.cue must be a file, not a directory", "")
 	default:
-		result.InvowkmodPath = invowkmodPath
+		result.InvowkmodPath = types.FilesystemPath(invowkmodPath)
 
 		// Parse invowkmod.cue and validate module field matches folder name
 		if result.ModuleName != "" {
-			meta, parseErr := ParseInvowkmod(invowkmodPath)
+			meta, parseErr := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
 			if parseErr != nil {
 				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
-			} else if string(meta.Module) != result.ModuleName {
+			} else if string(meta.Module) != string(result.ModuleName) {
 				result.AddIssue(IssueTypeNaming, fmt.Sprintf(
 					"module field '%s' in invowkmod.cue must match folder name '%s'",
 					meta.Module, result.ModuleName), "invowkmod.cue")
@@ -97,7 +98,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 	case invowkfileInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkfile.cue must be a file, not a directory", "")
 	default:
-		result.InvowkfilePath = invowkfilePath
+		result.InvowkfilePath = types.FilesystemPath(invowkfilePath)
 	}
 
 	// Check for nested modules and symlinks (security)
@@ -168,7 +169,7 @@ func Validate(modulePath string) (*ValidationResult, error) {
 // Returns a Module (operational wrapper) if valid, or an error with validation details.
 // Note: This loads only metadata (invowkmod.cue), not commands (invowkfile.cue).
 // To load commands as well, use pkg/invowkfile.ParseModule().
-func Load(modulePath string) (*Module, error) {
+func Load(modulePath types.FilesystemPath) (*Module, error) {
 	result, err := Validate(modulePath)
 	if err != nil {
 		return nil, err

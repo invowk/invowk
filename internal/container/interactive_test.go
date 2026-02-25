@@ -5,6 +5,8 @@ package container
 import (
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestDockerEngineBinaryPath tests the DockerEngine.BinaryPath method.
@@ -56,9 +58,9 @@ func TestDockerEngineBuildRunArgs(t *testing.T) {
 		Env: map[string]string{
 			"FOO": "bar",
 		},
-		Volumes:    []string{"/tmp:/tmp"},
-		Ports:      []string{"8080:80"},
-		ExtraHosts: []string{"host.docker.internal:host-gateway"},
+		Volumes:    []invowkfile.VolumeMountSpec{"/tmp:/tmp"},
+		Ports:      []invowkfile.PortMappingSpec{"8080:80"},
+		ExtraHosts: []HostMapping{"host.docker.internal:host-gateway"},
 	}
 
 	args := engine.BuildRunArgs(opts)
@@ -106,9 +108,9 @@ func TestPodmanEngineBuildRunArgs(t *testing.T) {
 		Env: map[string]string{
 			"FOO": "bar",
 		},
-		Volumes:    []string{"/tmp:/tmp"},
-		Ports:      []string{"8080:80"},
-		ExtraHosts: []string{"host.containers.internal:host-gateway"},
+		Volumes:    []invowkfile.VolumeMountSpec{"/tmp:/tmp"},
+		Ports:      []invowkfile.PortMappingSpec{"8080:80"},
+		ExtraHosts: []HostMapping{"host.containers.internal:host-gateway"},
 	}
 
 	args := engine.BuildRunArgs(opts)

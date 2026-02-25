@@ -17,7 +17,7 @@ func TestInvowkfile_Validate_CollectsAllErrors(t *testing.T) {
 		Commands: []Command{
 			{
 				Name:        "test",
-				Description: strings.Repeat("x", MaxDescriptionLength+1), // Error: too long
+				Description: DescriptionText(strings.Repeat("x", MaxDescriptionLength+1)), // Error: too long
 				Implementations: []Implementation{
 					{
 						Script:   "", // Error: empty script

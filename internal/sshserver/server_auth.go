@@ -19,7 +19,7 @@ func (s *Server) GenerateToken(commandID string) (*Token, error) {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	tokenValue := hex.EncodeToString(tokenBytes)
+	tokenValue := TokenValue(hex.EncodeToString(tokenBytes))
 	now := s.clock.Now()
 
 	token := &Token{
@@ -40,7 +40,7 @@ func (s *Server) GenerateToken(commandID string) (*Token, error) {
 }
 
 // ValidateToken checks if a token is valid.
-func (s *Server) ValidateToken(tokenValue string) (*Token, bool) {
+func (s *Server) ValidateToken(tokenValue TokenValue) (*Token, bool) {
 	s.tokenMu.RLock()
 	token, exists := s.tokens[tokenValue]
 	s.tokenMu.RUnlock()
@@ -58,7 +58,7 @@ func (s *Server) ValidateToken(tokenValue string) (*Token, bool) {
 }
 
 // RevokeToken invalidates a token.
-func (s *Server) RevokeToken(tokenValue string) {
+func (s *Server) RevokeToken(tokenValue TokenValue) {
 	s.tokenMu.Lock()
 	delete(s.tokens, tokenValue)
 	s.tokenMu.Unlock()
@@ -131,7 +131,7 @@ func (s *Server) cleanupExpiredTokens() {
 
 // passwordHandler handles password authentication using tokens.
 func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
-	token, valid := s.ValidateToken(password)
+	token, valid := s.ValidateToken(TokenValue(password))
 	if !valid {
 		s.logger.Warn("Invalid token authentication attempt", "user", ctx.User())
 		return false

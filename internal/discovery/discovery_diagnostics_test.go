@@ -19,7 +19,7 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludePath(t *testing.T) {
 	invalidInclude := filepath.Join(tmpDir, "not-a-module")
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: invalidInclude},
+		{Path: config.ModuleIncludePath(invalidInclude)},
 	}
 
 	d := newTestDiscovery(t, cfg, tmpDir)
@@ -45,7 +45,7 @@ func TestDiscoverCommandSet_DiagnosticsForReservedIncludeModuleName(t *testing.T
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: reservedModulePath},
+		{Path: config.ModuleIncludePath(reservedModulePath)},
 	}
 
 	d := newTestDiscovery(t, cfg, tmpDir)
@@ -79,7 +79,7 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludedModule(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: modulePath},
+		{Path: config.ModuleIncludePath(modulePath)},
 	}
 
 	d := newTestDiscovery(t, cfg, tmpDir)
@@ -95,7 +95,7 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludedModule(t *testing.T) {
 
 func containsDiagnostic(diags []Diagnostic, code DiagnosticCode, path string) bool {
 	for _, diag := range diags {
-		if diag.Code == code && diag.Path == path {
+		if diag.code == code && string(diag.path) == path {
 			return true
 		}
 	}

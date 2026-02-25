@@ -16,9 +16,9 @@ type (
 		// Title is the title displayed at the top.
 		Title string
 		// Height limits the visible height (0 for auto).
-		Height int
+		Height TerminalDimension
 		// Width limits the visible width (0 for auto).
-		Width int
+		Width TerminalDimension
 		// ShowLineNumbers enables line number display.
 		ShowLineNumbers bool
 		// SoftWrap enables soft wrapping of long lines.
@@ -147,11 +147,11 @@ func (m *pagerModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *pagerModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
-	m.viewport.Width = width
-	m.viewport.Height = height - 4
+func (m *pagerModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
+	m.viewport.Width = int(width)
+	m.viewport.Height = int(height) - 4
 }
 
 // Pager displays content in a scrollable viewport.
@@ -184,13 +184,13 @@ func (b *PagerBuilder) Title(title string) *PagerBuilder {
 }
 
 // Height sets the visible height.
-func (b *PagerBuilder) Height(height int) *PagerBuilder {
+func (b *PagerBuilder) Height(height TerminalDimension) *PagerBuilder {
 	b.opts.Height = height
 	return b
 }
 
 // Width sets the visible width.
-func (b *PagerBuilder) Width(width int) *PagerBuilder {
+func (b *PagerBuilder) Width(width TerminalDimension) *PagerBuilder {
 	b.opts.Width = width
 	return b
 }
@@ -246,15 +246,15 @@ func newPagerModelWithStyles(opts PagerOptions, forModal bool) *pagerModel {
 		vpHeight = 10
 	}
 
-	vp := viewport.New(width, vpHeight)
+	vp := viewport.New(int(width), int(vpHeight))
 	vp.SetContent(opts.Content)
 
 	return &pagerModel{
 		viewport: vp,
 		title:    opts.Title,
 		ready:    true,
-		width:    width,
-		height:   height,
+		width:    int(width),
+		height:   int(height),
 		forModal: forModal,
 	}
 }

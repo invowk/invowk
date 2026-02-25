@@ -34,10 +34,16 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invowkfile.EnvIn
 			cfg.mode = rtConfig.EnvInheritMode
 		}
 		if len(rtConfig.EnvInheritAllow) > 0 {
-			cfg.allow = append([]string{}, rtConfig.EnvInheritAllow...)
+			cfg.allow = make([]string, len(rtConfig.EnvInheritAllow))
+			for i, name := range rtConfig.EnvInheritAllow {
+				cfg.allow[i] = string(name)
+			}
 		}
 		if len(rtConfig.EnvInheritDeny) > 0 {
-			cfg.deny = append([]string{}, rtConfig.EnvInheritDeny...)
+			cfg.deny = make([]string, len(rtConfig.EnvInheritDeny))
+			for i, name := range rtConfig.EnvInheritDeny {
+				cfg.deny[i] = string(name)
+			}
 		}
 	}
 
@@ -45,10 +51,16 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invowkfile.EnvIn
 		cfg.mode = ctx.Env.InheritModeOverride
 	}
 	if ctx.Env.InheritAllowOverride != nil {
-		cfg.allow = append([]string{}, ctx.Env.InheritAllowOverride...)
+		cfg.allow = make([]string, len(ctx.Env.InheritAllowOverride))
+		for i, name := range ctx.Env.InheritAllowOverride {
+			cfg.allow[i] = string(name)
+		}
 	}
 	if ctx.Env.InheritDenyOverride != nil {
-		cfg.deny = append([]string{}, ctx.Env.InheritDenyOverride...)
+		cfg.deny = make([]string, len(ctx.Env.InheritDenyOverride))
+		for i, name := range ctx.Env.InheritDenyOverride {
+			cfg.deny[i] = string(name)
+		}
 	}
 
 	return cfg

@@ -269,6 +269,19 @@ for _, tt := range tests {
 **When NOT to use `skipOnWindows`:**
 - Test can be made cross-platform with `filepath.Join()`
 - Platform differences are implementation bugs, not semantic differences
+- Domain type is expected to enforce a platform-agnostic contract (for example repo-relative paths)
+
+### Cross-Platform Path Validator Matrix
+
+For value-type validators that must behave identically across OSes, include all of these path vectors in one table-driven test:
+- Unix absolute: `/absolute/path`
+- Windows drive absolute: `C:\\absolute\\path`
+- Windows rooted/UNC: `\\absolute\\path`, `\\\\server\\share`
+- Traversal with slash: `a/../../escape`
+- Traversal with backslash: `a\\..\\..\\escape`
+- Valid relative controls: `tools`, `modules/tools`, `./tools`
+
+Why: this keeps Linux/macOS test runs protective against Windows-only regressions and prevents host-dependent behavior from slipping through CI.
 
 ### Path Assertions
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/invowk/invowk/internal/core/serverbase"
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 func TestGenerateToken(t *testing.T) {
@@ -527,7 +528,7 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Errorf("ShutdownTimeout = %v, want %v", cfg.ShutdownTimeout, 10*time.Second)
 	}
-	if cfg.DefaultShell != "/bin/sh" {
+	if cfg.DefaultShell != invowkfile.ShellPath("/bin/sh") {
 		t.Errorf("DefaultShell = %q, want %q", cfg.DefaultShell, "/bin/sh")
 	}
 	if cfg.StartupTimeout != 5*time.Second {

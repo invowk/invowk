@@ -15,6 +15,7 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -270,7 +271,7 @@ func BenchmarkRuntimeNative(b *testing.B) {
 
 	// Create a minimal invowkfile for the test
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Commands: []invowkfile.Command{
 			{
 				Name:        "test",
@@ -314,7 +315,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Commands: []invowkfile.Command{
 			{
 				Name:        "test",
@@ -371,14 +372,14 @@ fi
 `
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Commands: []invowkfile.Command{
 			{
 				Name:        "complex",
 				Description: "Complex command",
 				Implementations: []invowkfile.Implementation{
 					{
-						Script: script,
+						Script: invowkfile.ScriptContent(script),
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeVirtual},
 						},
@@ -426,7 +427,7 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Commands: []invowkfile.Command{
 			{
 				Name:        "container-test",
@@ -555,7 +556,7 @@ func BenchmarkCommandLookup(b *testing.B) {
 		b.Fatalf("ParseBytes failed: %v", err)
 	}
 
-	commandNames := []string{"cmd1", "cmd5", "cmd8", "nested cmd1", "nested cmd2"}
+	commandNames := []invowkfile.CommandName{"cmd1", "cmd5", "cmd8", "nested cmd1", "nested cmd2"}
 
 	b.ResetTimer()
 	for b.Loop() {
@@ -574,7 +575,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Env: &invowkfile.EnvConfig{
 			Vars: map[string]string{
 				"ROOT_VAR1": "value1",
@@ -647,7 +648,7 @@ description: "Benchmark test module for PGO profiling"
 
 	b.ResetTimer()
 	for b.Loop() {
-		result, err := invowkmod.Validate(modDir)
+		result, err := invowkmod.Validate(types.FilesystemPath(modDir))
 		if err != nil {
 			b.Fatalf("Module validation error: %v", err)
 		}

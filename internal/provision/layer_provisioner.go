@@ -49,7 +49,7 @@ func (p *LayerProvisioner) Config() *Config {
 // Provision creates or retrieves a cached provisioned image based on the
 // given base image. The returned Result contains the image tag
 // to use and any cleanup functions.
-func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Result, error) {
+func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.ImageTag) (*Result, error) {
 	if !p.config.Enabled {
 		return &Result{
 			ImageTag: baseImage,
@@ -63,7 +63,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage string) (*Re
 		return nil, fmt.Errorf("failed to calculate cache key: %w", err)
 	}
 
-	provisionedTag := p.buildProvisionedTag(cacheKey[:12])
+	provisionedTag := container.ImageTag(p.buildProvisionedTag(cacheKey[:12]))
 
 	// Check if cached image exists (skip if ForceRebuild is set)
 	if !p.config.ForceRebuild {
@@ -98,7 +98,7 @@ func (p *LayerProvisioner) CleanupProvisionedImages(ctx context.Context) error {
 
 // GetProvisionedImageTag returns the tag that would be used for a provisioned
 // image without actually building it. Useful for checking if an image is cached.
-func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage string) (string, error) {
+func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage container.ImageTag) (string, error) {
 	cacheKey, err := p.calculateCacheKey(ctx, baseImage)
 	if err != nil {
 		return "", err
@@ -107,12 +107,12 @@ func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage
 }
 
 // IsImageProvisioned checks if a provisioned image already exists in the cache.
-func (p *LayerProvisioner) IsImageProvisioned(ctx context.Context, baseImage string) (bool, error) {
+func (p *LayerProvisioner) IsImageProvisioned(ctx context.Context, baseImage container.ImageTag) (bool, error) {
 	tag, err := p.GetProvisionedImageTag(ctx, baseImage)
 	if err != nil {
 		return false, err
 	}
-	return p.engine.ImageExists(ctx, tag)
+	return p.engine.ImageExists(ctx, container.ImageTag(tag))
 }
 
 // buildProvisionedTag constructs the image tag with optional suffix.
@@ -126,7 +126,7 @@ func (p *LayerProvisioner) buildProvisionedTag(hash string) string {
 }
 
 // calculateCacheKey generates a unique key based on all provisioned resources.
-func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage string) (string, error) {
+func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag) (string, error) {
 	h := sha256.New()
 
 	// Include base image identifier
@@ -134,13 +134,13 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 	imageID, err := p.getImageIdentifier(ctx, baseImage)
 	if err != nil {
 		// Fall back to image name if we can't get the ID
-		imageID = baseImage
+		imageID = string(baseImage)
 	}
 	h.Write([]byte("image:" + imageID))
 
 	// Include invowk binary hash
 	if p.config.InvowkBinaryPath != "" {
-		binaryHash, err := CalculateFileHash(p.config.InvowkBinaryPath)
+		binaryHash, err := CalculateFileHash(string(p.config.InvowkBinaryPath))
 		if err != nil {
 			return "", fmt.Errorf("failed to hash invowk binary: %w", err)
 		}
@@ -161,7 +161,7 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 
 	// Include invowkfile directory hash if set
 	if p.config.InvowkfilePath != "" {
-		invowkfileDir := filepath.Dir(p.config.InvowkfilePath)
+		invowkfileDir := filepath.Dir(string(p.config.InvowkfilePath))
 		dirHash, err := CalculateDirHash(invowkfileDir)
 		if err == nil {
 			h.Write([]byte("invowkfile:" + dirHash))
@@ -172,14 +172,14 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage stri
 }
 
 // getImageIdentifier tries to get a stable identifier for an image.
-func (p *LayerProvisioner) getImageIdentifier(_ context.Context, image string) (string, error) {
+func (p *LayerProvisioner) getImageIdentifier(_ context.Context, image container.ImageTag) (string, error) {
 	// For now, just use the image name
 	// In a more complete implementation, we'd inspect the image to get its digest
-	return image, nil
+	return string(image), nil
 }
 
 // buildProvisionedImage creates the ephemeral image layer.
-func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage, tag string) error {
+func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage, tag container.ImageTag) error {
 	// Create temporary build context
 	buildCtx, cleanup, err := p.prepareBuildContext(baseImage)
 	if err != nil {
@@ -200,7 +200,7 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 
 	// Build the image
 	buildOpts := container.BuildOptions{
-		ContextDir: buildCtx,
+		ContextDir: container.HostFilesystemPath(buildCtx),
 		Dockerfile: "Dockerfile",
 		Tag:        tag,
 		Stdout:     os.Stderr, // Show build progress on stderr
@@ -223,7 +223,7 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 // - CAN access visible directories in $HOME like ~/invowk-build
 //
 // We use a visible directory in the user's home as the build context location.
-func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDir string, cleanup func(), err error) {
+func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (buildContextDir string, cleanup func(), err error) {
 	// Use a visible directory in user's home that Docker Snap can access
 	// Snap's home interface doesn't expose hidden directories (starting with .)
 	var buildContextParent string
@@ -264,7 +264,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDi
 	// Copy invowk binary
 	if p.config.InvowkBinaryPath != "" {
 		binaryDst := filepath.Join(tmpDir, "invowk")
-		if err := CopyFile(p.config.InvowkBinaryPath, binaryDst); err != nil {
+		if err := CopyFile(string(p.config.InvowkBinaryPath), binaryDst); err != nil {
 			cleanup()
 			return "", nil, fmt.Errorf("failed to copy invowk binary: %w", err)
 		}
@@ -291,7 +291,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage string) (buildContextDi
 	}
 
 	// Generate Dockerfile
-	dockerfile := p.generateDockerfile(baseImage)
+	dockerfile := p.generateDockerfile(string(baseImage))
 	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
 	if err := os.WriteFile(dockerfilePath, []byte(dockerfile), 0o644); err != nil {
 		cleanup()

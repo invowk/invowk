@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -59,19 +60,19 @@ type (
 		// Verbose enables verbose diagnostic output.
 		Verbose bool
 		// FromSource is the --ivk-from flag value for source disambiguation.
-		FromSource string
+		FromSource discovery.SourceID
 		// ForceRebuild forces container image rebuilds, bypassing cache.
 		ForceRebuild bool
 		// Workdir overrides the working directory for the command.
-		Workdir string
+		Workdir invowkfile.WorkDir
 		// EnvFiles are dotenv file paths from --ivk-env-file flags.
-		EnvFiles []string
+		EnvFiles []invowkfile.DotenvFilePath
 		// EnvVars are KEY=VALUE pairs from --ivk-env-var flags (highest env priority).
 		EnvVars map[string]string
 		// ConfigPath is the explicit --ivk-config flag value.
-		ConfigPath string
+		ConfigPath types.FilesystemPath
 		// FlagValues are parsed flag values from Cobra state (key: flag name).
-		FlagValues map[string]string
+		FlagValues map[invowkfile.FlagName]string
 		// FlagDefs are the command's flag definitions from the invowkfile.
 		FlagDefs []invowkfile.Flag
 		// ArgDefs are the command's argument definitions from the invowkfile.
@@ -80,9 +81,9 @@ type (
 		// Zero value ("") means no override.
 		EnvInheritMode invowkfile.EnvInheritMode
 		// EnvInheritAllow overrides the runtime config env allowlist.
-		EnvInheritAllow []string
+		EnvInheritAllow []invowkfile.EnvVarName
 		// EnvInheritDeny overrides the runtime config env denylist.
-		EnvInheritDeny []string
+		EnvInheritDeny []invowkfile.EnvVarName
 		// DryRun enables dry-run mode: prints what would be executed without executing.
 		DryRun bool
 		// UserEnv captures the host environment at execution entry, before invowk
@@ -93,7 +94,7 @@ type (
 
 	// ExecuteResult contains command execution outcomes.
 	ExecuteResult struct {
-		ExitCode int
+		ExitCode types.ExitCode
 	}
 
 	// CommandService executes a resolved command request and returns user-renderable
@@ -347,7 +348,7 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 //   - Default path with missing config dir or similar infrastructure error:
 //     SeverityWarning (common on fresh installs, defaults are appropriate).
 func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
-	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: configPath})
+	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(configPath)})
 	if err == nil {
 		return cfg, nil
 	}
@@ -356,13 +357,15 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 	// to defaults — surface the error as a diagnostic so downstream callers can
 	// decide whether to abort.
 	if configPath != "" {
-		return config.DefaultConfig(), []discovery.Diagnostic{{
-			Severity: discovery.SeverityError,
-			Code:     discovery.CodeConfigLoadFailed,
-			Message:  fmt.Sprintf("failed to load config from %s: %v", configPath, err),
-			Path:     configPath,
-			Cause:    err,
-		}}
+		return config.DefaultConfig(), []discovery.Diagnostic{
+			discovery.NewDiagnosticWithCause(
+				discovery.SeverityError,
+				discovery.CodeConfigLoadFailed,
+				fmt.Sprintf("failed to load config from %s: %v", configPath, err),
+				types.FilesystemPath(configPath),
+				err,
+			),
+		}
 	}
 
 	// Default config path: differentiate "file exists but is broken" (syntax error,
@@ -375,27 +378,30 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 		severity = discovery.SeverityWarning
 	}
 
-	return config.DefaultConfig(), []discovery.Diagnostic{{
-		Severity: severity,
-		Code:     discovery.CodeConfigLoadFailed,
-		Message:  fmt.Sprintf("failed to load config, using defaults: %v", err),
-		Cause:    err,
-	}}
+	return config.DefaultConfig(), []discovery.Diagnostic{
+		discovery.NewDiagnosticWithCause(
+			severity,
+			discovery.CodeConfigLoadFailed,
+			fmt.Sprintf("failed to load config, using defaults: %v", err),
+			"",
+			err,
+		),
+	}
 }
 
 // Render writes structured diagnostics to stderr with lipgloss styling.
 func (r *defaultDiagnosticRenderer) Render(_ context.Context, diags []discovery.Diagnostic, stderr io.Writer) {
 	for _, diag := range diags {
 		prefix := WarningStyle.Render("warning")
-		if diag.Severity == discovery.SeverityError {
+		if diag.Severity() == discovery.SeverityError {
 			prefix = ErrorStyle.Render("error")
 		}
 
-		if diag.Path != "" {
-			_, _ = fmt.Fprintf(stderr, "%s: %s (%s)\n", prefix, diag.Message, diag.Path)
+		if diag.Path() != "" {
+			_, _ = fmt.Fprintf(stderr, "%s: %s (%s)\n", prefix, diag.Message(), diag.Path())
 			continue
 		}
 
-		_, _ = fmt.Fprintf(stderr, "%s: %s\n", prefix, diag.Message)
+		_, _ = fmt.Fprintf(stderr, "%s: %s\n", prefix, diag.Message())
 	}
 }

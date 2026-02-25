@@ -36,7 +36,7 @@ type (
 //	)
 func NewTestCommand(name string, opts ...CommandOption) *invowkfile.Command {
 	cmd := &invowkfile.Command{
-		Name: name,
+		Name: invowkfile.CommandName(name),
 		Implementations: []invowkfile.Implementation{
 			{
 				Runtimes: []invowkfile.RuntimeConfig{
@@ -58,7 +58,7 @@ func NewTestCommand(name string, opts ...CommandOption) *invowkfile.Command {
 func WithScript(script string) CommandOption {
 	return func(c *invowkfile.Command) {
 		if len(c.Implementations) > 0 {
-			c.Implementations[0].Script = script
+			c.Implementations[0].Script = invowkfile.ScriptContent(script)
 		}
 	}
 }
@@ -66,7 +66,7 @@ func WithScript(script string) CommandOption {
 // WithDescription sets the command description.
 func WithDescription(desc string) CommandOption {
 	return func(c *invowkfile.Command) {
-		c.Description = desc
+		c.Description = invowkfile.DescriptionText(desc)
 	}
 }
 
@@ -145,7 +145,7 @@ func WithEnv(key, value string) CommandOption {
 // WithWorkDir sets the working directory.
 func WithWorkDir(dir string) CommandOption {
 	return func(c *invowkfile.Command) {
-		c.WorkDir = dir
+		c.WorkDir = invowkfile.WorkDir(dir)
 	}
 }
 
@@ -176,7 +176,7 @@ func WithDependsOn(deps *invowkfile.DependsOn) CommandOption {
 // WithFlag adds a flag to the command.
 func WithFlag(name string, opts ...FlagOption) CommandOption {
 	return func(c *invowkfile.Command) {
-		f := invowkfile.Flag{Name: name}
+		f := invowkfile.Flag{Name: invowkfile.FlagName(name)}
 		for _, opt := range opts {
 			opt(&f)
 		}
@@ -201,14 +201,14 @@ func FlagDefault(v string) FlagOption {
 // FlagShorthand sets the flag's single-character shorthand.
 func FlagShorthand(s string) FlagOption {
 	return func(f *invowkfile.Flag) {
-		f.Short = s
+		f.Short = invowkfile.FlagShorthand(s)
 	}
 }
 
 // FlagDescription sets the flag's description.
 func FlagDescription(desc string) FlagOption {
 	return func(f *invowkfile.Flag) {
-		f.Description = desc
+		f.Description = invowkfile.DescriptionText(desc)
 	}
 }
 
@@ -222,7 +222,7 @@ func FlagType(t invowkfile.FlagType) FlagOption {
 // FlagValidation sets the flag's validation regex pattern.
 func FlagValidation(pattern string) FlagOption {
 	return func(f *invowkfile.Flag) {
-		f.Validation = pattern
+		f.Validation = invowkfile.RegexPattern(pattern)
 	}
 }
 
@@ -231,7 +231,7 @@ func FlagValidation(pattern string) FlagOption {
 // WithArg adds a positional argument to the command.
 func WithArg(name string, opts ...ArgOption) CommandOption {
 	return func(c *invowkfile.Command) {
-		a := invowkfile.Argument{Name: name}
+		a := invowkfile.Argument{Name: invowkfile.ArgumentName(name)}
 		for _, opt := range opts {
 			opt(&a)
 		}
@@ -263,7 +263,7 @@ func ArgVariadic() ArgOption {
 // ArgDescription sets the argument's description.
 func ArgDescription(desc string) ArgOption {
 	return func(a *invowkfile.Argument) {
-		a.Description = desc
+		a.Description = invowkfile.DescriptionText(desc)
 	}
 }
 
@@ -277,6 +277,6 @@ func ArgType(t invowkfile.ArgumentType) ArgOption {
 // ArgValidation sets the argument's validation regex pattern.
 func ArgValidation(pattern string) ArgOption {
 	return func(a *invowkfile.Argument) {
-		a.Validation = pattern
+		a.Validation = invowkfile.RegexPattern(pattern)
 	}
 }

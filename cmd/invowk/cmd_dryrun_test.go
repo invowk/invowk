@@ -63,13 +63,13 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 		"ARG1":            "production",
 		"DATABASE_URL":    "postgres://localhost/app",
 	}
-	resolved := appexec.RuntimeSelection{
-		Mode: invowkfile.RuntimeVirtual,
-		Impl: &invowkfile.Implementation{
+	resolved := appexec.RuntimeSelectionOf(
+		invowkfile.RuntimeVirtual,
+		&invowkfile.Implementation{
 			Script:  "echo deploying",
 			Timeout: "30s",
 		},
-	}
+	)
 
 	renderDryRun(&buf, req, cmdInfo, execCtx, resolved)
 	out := buf.String()
@@ -104,10 +104,7 @@ func TestRenderDryRun_NoImpl(t *testing.T) {
 	cmd := &invowkfile.Command{}
 	inv := &invowkfile.Invowkfile{}
 	execCtx := runtime.NewExecutionContext(context.Background(), cmd, inv)
-	resolved := appexec.RuntimeSelection{
-		Mode: invowkfile.RuntimeNative,
-		Impl: nil,
-	}
+	resolved := appexec.RuntimeSelectionOf(invowkfile.RuntimeNative, nil)
 
 	renderDryRun(&buf, req, cmdInfo, execCtx, resolved)
 	out := buf.String()

@@ -14,6 +14,7 @@ on:
       - 'go.sum'
       - '.golangci.toml'
       - '.github/workflows/lint.yml'
+      - 'tools/goplint/**'
   pull_request:
     branches:
       - main
@@ -27,6 +28,7 @@ on:
       - 'go.sum'
       - '.golangci.toml'
       - '.github/workflows/lint.yml'
+      - 'tools/goplint/**'
   workflow_dispatch:
 
 permissions:
@@ -55,3 +57,55 @@ jobs:
           version: v2.9.0
           # Run full-codebase lint (not just new issues) so CI matches local `make lint`
           only-new-issues: false
+
+  goplint:
+    name: goplint (advisory full scan)
+    runs-on: ubuntu-latest
+    # Advisory only during rollout - does not block PRs
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build goplint
+        run: cd tools/goplint && go build -o ../../bin/goplint .
+
+      - name: Run goplint (advisory)
+        run: |
+          set +e
+          ./bin/goplint -config=tools/goplint/exceptions.toml ./...
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::goplint full scan reports known rollout findings; use goplint (baseline) for regression gating."
+          fi
+
+  goplint-baseline:
+    name: goplint (baseline)
+    runs-on: ubuntu-latest
+    # Advisory during rollout — will become required after validation.
+    # To promote: remove continue-on-error and add to branch protection.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build goplint
+        run: cd tools/goplint && go build -o ../../bin/goplint .
+
+      - name: Check baseline
+        run: |
+          ./bin/goplint -check-all \
+            -baseline=tools/goplint/baseline.toml \
+            -config=tools/goplint/exceptions.toml ./...

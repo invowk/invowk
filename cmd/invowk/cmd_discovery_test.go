@@ -74,7 +74,7 @@ func TestGroupByCategory(t *testing.T) {
 			var cats []string
 			for _, g := range groups {
 				if g.category != "" {
-					cats = append(cats, g.category)
+					cats = append(cats, string(g.category))
 				}
 			}
 			if len(cats) != len(tt.wantCategories) {
@@ -94,11 +94,11 @@ func makeCmds(pairs ...string) []*discovery.CommandInfo {
 	var result []*discovery.CommandInfo
 	for i := 0; i < len(pairs); i += 2 {
 		result = append(result, &discovery.CommandInfo{
-			Name:       pairs[i],
-			SimpleName: pairs[i],
+			Name:       invowkfile.CommandName(pairs[i]),
+			SimpleName: invowkfile.CommandName(pairs[i]),
 			Command: &invowkfile.Command{
-				Name:     pairs[i],
-				Category: pairs[i+1],
+				Name:     invowkfile.CommandName(pairs[i]),
+				Category: invowkfile.CommandCategory(pairs[i+1]),
 			},
 		})
 	}

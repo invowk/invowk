@@ -20,6 +20,7 @@ Before considering work complete:
 8. **CLI tests pass**: `make test-cli` (if CLI commands/output changed).
 9. **Native runtime mirrors**: If CLI tests were added/modified, verify native mirrors exist (`native_*.txtar` for each feature test). Exempt: u-root, container, discovery/ambiguity, dogfooding, built-in command tests (config/module/completion/tui/init/validate).
 10. **Architecture diagrams current**: If changes affect component relationships, execution flow, discovery logic, or runtime behavior, verify diagrams in `docs/architecture/` reflect the changes. Run `make render-diagrams` if D2 sources were updated.
+11. **Baseline check passes**: `make check-baseline` - Verify no new goplint findings introduced. If findings are intentional, add exceptions to `exceptions.toml` or run `make update-baseline`.
 
 ## Why Full Test Suite?
 

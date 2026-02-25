@@ -16,6 +16,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // MockEngine implements container.Engine for testing.
@@ -61,7 +62,7 @@ func (m *MockEngine) WithAvailable(available bool) *MockEngine {
 }
 
 // WithRunResult configures the result of Run() calls.
-func (m *MockEngine) WithRunResult(exitCode int, err error) *MockEngine {
+func (m *MockEngine) WithRunResult(exitCode ExitCode, err error) *MockEngine {
 	m.runResult = &container.RunResult{ExitCode: exitCode}
 	m.runErr = err
 	return m
@@ -116,15 +117,15 @@ func (m *MockEngine) Run(_ context.Context, opts container.RunOptions) (*contain
 	return m.runResult, nil
 }
 
-func (m *MockEngine) Remove(_ context.Context, _ string, _ bool) error {
+func (m *MockEngine) Remove(_ context.Context, _ container.ContainerID, _ bool) error {
 	return nil
 }
 
-func (m *MockEngine) ImageExists(_ context.Context, _ string) (bool, error) {
+func (m *MockEngine) ImageExists(_ context.Context, _ container.ImageTag) (bool, error) {
 	return m.imageExists, nil
 }
 
-func (m *MockEngine) RemoveImage(_ context.Context, _ string, _ bool) error {
+func (m *MockEngine) RemoveImage(_ context.Context, _ container.ImageTag, _ bool) error {
 	return nil
 }
 
@@ -137,7 +138,7 @@ func (m *MockEngine) BuildRunArgs(opts container.RunOptions) []string {
 	if opts.Remove {
 		args = append(args, "--rm")
 	}
-	args = append(args, opts.Image)
+	args = append(args, string(opts.Image))
 	args = append(args, opts.Command...)
 	return args
 }
@@ -214,7 +215,7 @@ func TestContainerRuntime_Available_NilEngine(t *testing.T) {
 func TestContainerRuntime_Validate_Unit(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	tests := []struct {
@@ -315,7 +316,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	// Create a Containerfile in the temp directory
@@ -349,7 +350,7 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	// Create a Dockerfile in the temp directory
@@ -453,25 +454,25 @@ func TestIsAlpineContainerImage(t *testing.T) {
 func TestValidateSupportedContainerImage(t *testing.T) {
 	tests := []struct {
 		name     string
-		image    string
+		image    container.ImageTag
 		wantErr  bool
 		contains string
 	}{
 		{
 			name:     "windows image rejected",
-			image:    "mcr.microsoft.com/windows/servercore:ltsc2022",
+			image:    container.ImageTag("mcr.microsoft.com/windows/servercore:ltsc2022"),
 			wantErr:  true,
 			contains: "windows container images are not supported",
 		},
 		{
 			name:     "alpine image rejected",
-			image:    "alpine:latest",
+			image:    container.ImageTag("alpine:latest"),
 			wantErr:  true,
 			contains: "alpine-based container images are not supported",
 		},
 		{
 			name:    "debian image allowed",
-			image:   "debian:stable-slim",
+			image:   container.ImageTag("debian:stable-slim"),
 			wantErr: false,
 		},
 	}
@@ -511,7 +512,7 @@ func TestGetContainerWorkDir(t *testing.T) {
 	tests := []struct {
 		name               string
 		cmdWorkDir         string
-		ctxWorkDirOverride string
+		ctxWorkDirOverride invowkfile.WorkDir
 		want               string
 	}{
 		{
@@ -541,7 +542,7 @@ func TestGetContainerWorkDir(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &invowkfile.Command{
 				Name:    "workdir-test",
-				WorkDir: tt.cmdWorkDir,
+				WorkDir: invowkfile.WorkDir(tt.cmdWorkDir),
 				Implementations: []invowkfile.Implementation{
 					{
 						Script:    "pwd",
@@ -551,7 +552,7 @@ func TestGetContainerWorkDir(t *testing.T) {
 				},
 			}
 			inv := &invowkfile.Invowkfile{
-				FilePath: invowkfilePath,
+				FilePath: invowkfile.FilesystemPath(invowkfilePath),
 			}
 
 			engine := NewMockEngine()
@@ -583,8 +584,8 @@ func TestContainerConfigFromRuntime(t *testing.T) {
 			Name:          invowkfile.RuntimeContainer,
 			Image:         "debian:stable-slim",
 			Containerfile: "Containerfile.test",
-			Volumes:       []string{"/data:/data:ro"},
-			Ports:         []string{"8080:80"},
+			Volumes:       []invowkfile.VolumeMountSpec{"/data:/data:ro"},
+			Ports:         []invowkfile.PortMappingSpec{"8080:80"},
 		}
 
 		cfg := containerConfigFromRuntime(rtConfig)
@@ -596,10 +597,10 @@ func TestContainerConfigFromRuntime(t *testing.T) {
 			t.Errorf("Containerfile = %q, want %q", cfg.Containerfile, "Containerfile.test")
 		}
 		if len(cfg.Volumes) != 1 || cfg.Volumes[0] != "/data:/data:ro" {
-			t.Errorf("Volumes = %v, want %v", cfg.Volumes, []string{"/data:/data:ro"})
+			t.Errorf("Volumes = %v, want %v", cfg.Volumes, []invowkfile.VolumeMountSpec{"/data:/data:ro"})
 		}
 		if len(cfg.Ports) != 1 || cfg.Ports[0] != "8080:80" {
-			t.Errorf("Ports = %v, want %v", cfg.Ports, []string{"8080:80"})
+			t.Errorf("Ports = %v, want %v", cfg.Ports, []invowkfile.PortMappingSpec{"8080:80"})
 		}
 	})
 }
@@ -615,9 +616,9 @@ func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
 	// Set new config
 	newCfg := &provision.Config{
 		Enabled:          true,
-		InvowkBinaryPath: "/custom/invowk",
-		BinaryMountPath:  "/opt/invowk",
-		ModulesMountPath: "/opt/modules",
+		InvowkBinaryPath: types.FilesystemPath("/custom/invowk"),
+		BinaryMountPath:  container.MountTargetPath("/opt/invowk"),
+		ModulesMountPath: container.MountTargetPath("/opt/modules"),
 	}
 	rt.SetProvisionConfig(newCfg)
 
@@ -745,7 +746,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := &invowkfile.Command{
@@ -766,9 +767,9 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	provCfg := &provision.Config{
 		Enabled:          true,
 		Strict:           true,
-		InvowkBinaryPath: filepath.Join(tmpDir, "nonexistent-invowk"),
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-invowk")),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 	rt := NewContainerRuntimeWithEngine(engine)
 	rt.SetProvisionConfig(provCfg)
@@ -779,7 +780,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	execCtx.IO.Stderr = &stderr
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
-	cfg := invowkfileContainerConfig{Image: "debian:stable-slim"}
+	cfg := invowkfileContainerConfig{Image: container.ImageTag("debian:stable-slim")}
 	_, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 
 	if err == nil {
@@ -797,7 +798,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := &invowkfile.Command{
@@ -817,9 +818,9 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	provCfg := &provision.Config{
 		Enabled:          true,
 		Strict:           false,
-		InvowkBinaryPath: filepath.Join(tmpDir, "nonexistent-invowk"),
-		BinaryMountPath:  "/invowk/bin",
-		ModulesMountPath: "/invowk/modules",
+		InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-invowk")),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 	rt := NewContainerRuntimeWithEngine(engine)
 	rt.SetProvisionConfig(provCfg)
@@ -830,7 +831,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	execCtx.IO.Stderr = &stderr
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
-	cfg := invowkfileContainerConfig{Image: "debian:stable-slim"}
+	cfg := invowkfileContainerConfig{Image: container.ImageTag("debian:stable-slim")}
 	imageName, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 	if err != nil {
 		t.Fatalf("ensureProvisionedImage() with strict=false should not return error, got: %v", err)

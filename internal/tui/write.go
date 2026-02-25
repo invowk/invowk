@@ -25,9 +25,9 @@ type (
 		// CharLimit limits the number of characters (0 for no limit).
 		CharLimit int
 		// Width sets the width of the text area (0 for auto).
-		Width int
+		Width TerminalDimension
 		// Height sets the height of the text area in lines (0 for auto).
-		Height int
+		Height TerminalDimension
 		// ShowLineNumbers enables line number display.
 		ShowLineNumbers bool
 		// Config holds common TUI configuration.
@@ -130,10 +130,10 @@ func (m *writeModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *writeModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
-	m.form = m.form.WithWidth(width).WithHeight(height)
+func (m *writeModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
+	m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
 }
 
 // Write prompts the user for multi-line text input.
@@ -194,13 +194,13 @@ func (b *WriteBuilder) CharLimit(limit int) *WriteBuilder {
 }
 
 // Width sets the width of the text area.
-func (b *WriteBuilder) Width(width int) *WriteBuilder {
+func (b *WriteBuilder) Width(width TerminalDimension) *WriteBuilder {
 	b.opts.Width = width
 	return b
 }
 
 // Height sets the height in lines.
-func (b *WriteBuilder) Height(height int) *WriteBuilder {
+func (b *WriteBuilder) Height(height TerminalDimension) *WriteBuilder {
 	b.opts.Height = height
 	return b
 }
@@ -251,7 +251,7 @@ func newWriteModelWithTheme(opts WriteOptions, theme *huh.Theme) *writeModel {
 	}
 
 	if opts.Height > 0 {
-		text = text.Lines(opts.Height)
+		text = text.Lines(int(opts.Height))
 	}
 
 	if opts.ShowLineNumbers {
@@ -263,9 +263,9 @@ func newWriteModelWithTheme(opts WriteOptions, theme *huh.Theme) *writeModel {
 		WithAccessible(opts.Config.Accessible)
 
 	if opts.Width > 0 {
-		form = form.WithWidth(opts.Width)
+		form = form.WithWidth(int(opts.Width))
 	} else if opts.Config.Width > 0 {
-		form = form.WithWidth(opts.Config.Width)
+		form = form.WithWidth(int(opts.Config.Width))
 	}
 
 	return &writeModel{

@@ -35,7 +35,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return nil, fmt.Errorf("runtime config not found for container runtime")
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
-	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
+	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
 
 	// Validate explicit image policy before provisioning rewrites image tags.
 	if containerCfg.Image != "" {
@@ -89,7 +89,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	// Prepare volumes
 	volumes := containerCfg.Volumes
 	// Always mount the invowkfile directory
-	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
+	volumes = append(volumes, invowkfile.VolumeMountSpec(fmt.Sprintf("%s:/workspace", invowkDir)))
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
@@ -125,27 +125,27 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	workDir := r.getContainerWorkDir(ctx, invowkDir)
 
 	// Build extra hosts for accessing host services from container
-	var extraHosts []string
+	var extraHosts []container.HostMapping
 	needsHostAccess := hostSSHEnabled || ctx.TUI.ServerURL != ""
 	if needsHostAccess {
 		// Add host gateway for accessing host from container
 		// This enables hostDockerInternal (Docker) or hostContainersInternal (Podman)
-		extraHosts = append(extraHosts, hostGatewayMapping)
+		extraHosts = append(extraHosts, container.HostMapping(hostGatewayMapping))
 	}
 
 	// Add TUI server environment variables if set (for interactive mode)
 	if ctx.TUI.ServerURL != "" {
-		env["INVOWK_TUI_ADDR"] = ctx.TUI.ServerURL
+		env["INVOWK_TUI_ADDR"] = string(ctx.TUI.ServerURL)
 	}
 	if ctx.TUI.ServerToken != "" {
-		env["INVOWK_TUI_TOKEN"] = ctx.TUI.ServerToken
+		env["INVOWK_TUI_TOKEN"] = string(ctx.TUI.ServerToken)
 	}
 
 	// Build run options - enable TTY and Interactive for PTY attachment
 	runOpts := container.RunOptions{
-		Image:       image,
+		Image:       container.ImageTag(image),
 		Command:     shellCmd,
-		WorkDir:     workDir,
+		WorkDir:     container.MountTargetPath(workDir),
 		Env:         env,
 		Volumes:     volumes,
 		Ports:       containerCfg.Ports,
@@ -193,11 +193,11 @@ func (r *ContainerRuntime) GetHostAddressForContainer() string {
 
 // CleanupImage removes the built image for an invowkfile
 func (r *ContainerRuntime) CleanupImage(ctx *ExecutionContext) error {
-	imageTag, err := r.generateImageTag(ctx.Invowkfile.FilePath)
+	imageTag, err := r.generateImageTag(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return err
 	}
-	return r.engine.RemoveImage(ctx.Context, imageTag, true)
+	return r.engine.RemoveImage(ctx.Context, container.ImageTag(imageTag), true)
 }
 
 // GetEngineName returns the name of the underlying container engine

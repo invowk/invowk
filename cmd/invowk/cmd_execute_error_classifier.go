@@ -20,6 +20,8 @@ import (
 // introducing dedicated issue IDs. The user-facing message already distinguishes
 // these cases ("timed out" vs "was cancelled"), and the issue catalog entry provides
 // generic guidance that applies to all script execution failures.
+//
+//plint:render
 func classifyExecutionError(err error, verbose bool) (issueID issue.Id, styledMsg string) {
 	issueID = issue.ScriptExecutionFailedId
 
@@ -38,7 +40,7 @@ func classifyExecutionError(err error, verbose bool) (issueID issue.Id, styledMs
 		issueID = issue.PermissionDeniedId
 	default:
 		var ae *issue.ActionableError
-		if errors.As(err, &ae) && ae.Operation == "find shell" {
+		if errors.As(err, &ae) && ae.Operation() == "find shell" {
 			issueID = issue.ShellNotFoundId
 		}
 	}

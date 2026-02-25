@@ -61,10 +61,12 @@ Commands are user-invokable slash commands (e.g., `/review-docs`) that execute m
 
 - [`.agents/commands/fix-it.md`](.agents/commands/fix-it.md) - Analyze issues and propose robust fix plan with prevention strategy.
 - [`.agents/commands/fix-it-simple.md`](.agents/commands/fix-it-simple.md) - Analyze issues and propose concise fix with prevention.
+- [`.agents/commands/improve-type-system.md`](.agents/commands/improve-type-system.md) - Identify next type definitions/structs to convert to DDD Value Types with IsValid().
 - [`.agents/commands/review-docs.md`](.agents/commands/review-docs.md) - Review README and website docs for accuracy against current architecture and behaviors.
 - [`.agents/commands/review-rules.md`](.agents/commands/review-rules.md) - Review rules files for contradictions, ambiguities, incoherence, or excessive noise.
 - [`.agents/commands/review-tests.md`](.agents/commands/review-tests.md) - Review test suite for semantic comprehensiveness, signal-to-noise, and E2E coverage.
 - [`.agents/commands/review-type-system.md`](.agents/commands/review-type-system.md) - Review Go type system for type safety improvements and abstraction opportunities.
+- [`.agents/commands/rust-alt.md`](.agents/commands/rust-alt.md) - Identify next items and plan Go→Rust conversion with DDD and 1000-line file limit.
 
 ### Skills
 
@@ -128,7 +130,9 @@ When working in a specific code area, apply these rules and skills:
 | `internal/benchmark/` | go-patterns, testing, licensing, commands | — |
 | `internal/watch/` | go-patterns, testing, licensing | — |
 | `pkg/platform/` | go-patterns, testing, windows, licensing | — |
+| `pkg/types/` | go-patterns, testing, licensing, package-design | — |
 | `tests/cli/` | testing | testing, cli, invowk-schema |
+| `tools/goplint/` | go-patterns, testing, licensing | — |
 
 ## Architecture Overview
 
@@ -166,10 +170,12 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
   - `benchmark/` - Benchmarks for PGO profile generation.
   - `watch/` - File-watching with debounced re-execution for `--ivk-watch` mode.
   - `provision/` - Container provisioning (ephemeral layer attachment).
-- `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform).
+- `pkg/` - Public packages (cueutil, invowkmod, invowkfile, platform, types).
 - `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
 - `modules/` - Sample invowk modules for validation and reference.
 - `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation).
+- `tools/` - Development tools (separate Go modules):
+  - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. Also checks for missing `IsValid`/`String` methods, constructor existence/signatures, functional options patterns, and struct immutability. Run via `make check-types`. Full DDD audit via `make check-types-all`. Baseline regression gate via `make check-baseline`; update after type improvements with `make update-baseline`. Baseline format is v2 (`entries = [{id, message}]`) with legacy `messages = [...]` read fallback.
 - `specs/` - Feature specifications, research, and implementation plans.
 - `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 
@@ -203,4 +209,3 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `github.com/rogpeppe/go-internal/testscript` - CLI integration tests.
 
 See `go.mod` for exact versions. Schema sync tests verify Go struct tags match CUE schema fields at CI time.
-

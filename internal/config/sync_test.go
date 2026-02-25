@@ -523,62 +523,62 @@ func TestValidateIncludes(t *testing.T) {
 		{
 			name: "module with alias valid",
 			includes: []IncludeEntry{
-				{Path: moduleWithAliasPath, Alias: "my-alias"},
+				{Path: ModuleIncludePath(moduleWithAliasPath), Alias: "my-alias"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "module without alias valid",
 			includes: []IncludeEntry{
-				{Path: moduleWithoutAliasPath},
+				{Path: ModuleIncludePath(moduleWithoutAliasPath)},
 			},
 			wantErr: false,
 		},
 		{
 			name: "duplicate alias rejected",
 			includes: []IncludeEntry{
-				{Path: mod1Path, Alias: "same-alias"},
-				{Path: mod2Path, Alias: "same-alias"},
+				{Path: ModuleIncludePath(mod1Path), Alias: "same-alias"},
+				{Path: ModuleIncludePath(mod2Path), Alias: "same-alias"},
 			},
 			wantErr: true,
 		},
 		{
 			name: "different aliases accepted",
 			includes: []IncludeEntry{
-				{Path: mod1Path, Alias: "alias-one"},
-				{Path: mod2Path, Alias: "alias-two"},
+				{Path: ModuleIncludePath(mod1Path), Alias: "alias-one"},
+				{Path: ModuleIncludePath(mod2Path), Alias: "alias-two"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules different short names no aliases accepted",
 			includes: []IncludeEntry{
-				{Path: fooPath},
-				{Path: barPath},
+				{Path: ModuleIncludePath(fooPath)},
+				{Path: ModuleIncludePath(barPath)},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules same short name no aliases rejected",
 			includes: []IncludeEntry{
-				{Path: fooAPath},
-				{Path: fooBPath},
+				{Path: ModuleIncludePath(fooAPath)},
+				{Path: ModuleIncludePath(fooBPath)},
 			},
 			wantErr: true,
 		},
 		{
 			name: "two modules same short name unique aliases accepted",
 			includes: []IncludeEntry{
-				{Path: fooAPath, Alias: "foo-a"},
-				{Path: fooBPath, Alias: "foo-b"},
+				{Path: ModuleIncludePath(fooAPath), Alias: "foo-a"},
+				{Path: ModuleIncludePath(fooBPath), Alias: "foo-b"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "two modules same short name only one has alias rejected",
 			includes: []IncludeEntry{
-				{Path: fooAPath, Alias: "foo-a"},
-				{Path: fooBPath},
+				{Path: ModuleIncludePath(fooAPath), Alias: "foo-a"},
+				{Path: ModuleIncludePath(fooBPath)},
 			},
 			wantErr: true,
 		},
@@ -599,16 +599,16 @@ func TestValidateIncludes(t *testing.T) {
 		{
 			name: "duplicate path rejected",
 			includes: []IncludeEntry{
-				{Path: duplicatePath},
-				{Path: duplicatePath},
+				{Path: ModuleIncludePath(duplicatePath)},
+				{Path: ModuleIncludePath(duplicatePath)},
 			},
 			wantErr: true,
 		},
 		{
 			name: "duplicate path with trailing slash rejected",
 			includes: []IncludeEntry{
-				{Path: duplicatePath},
-				{Path: duplicatePathTrailing},
+				{Path: ModuleIncludePath(duplicatePath)},
+				{Path: ModuleIncludePath(duplicatePathTrailing)},
 			},
 			wantErr: true,
 		},
@@ -637,12 +637,12 @@ func TestValidateIncludes_OSNativeAbsolutePathSemantics(t *testing.T) {
 	t.Parallel()
 
 	nativeAbsolutePath := absoluteModulePath(t, "native", "mymod.invowkmod")
-	if err := validateIncludes("includes", []IncludeEntry{{Path: nativeAbsolutePath}}); err != nil {
+	if err := validateIncludes("includes", []IncludeEntry{{Path: ModuleIncludePath(nativeAbsolutePath)}}); err != nil {
 		t.Fatalf("expected OS-native absolute path to be valid, got: %v", err)
 	}
 
 	unixStyleAbsolute := "/tmp/mymod.invowkmod"
-	err := validateIncludes("includes", []IncludeEntry{{Path: unixStyleAbsolute}})
+	err := validateIncludes("includes", []IncludeEntry{{Path: ModuleIncludePath(unixStyleAbsolute)}})
 	if runtime.GOOS == "windows" {
 		if err == nil {
 			t.Fatalf("expected Unix-style absolute path %q to be rejected on Windows", unixStyleAbsolute)
@@ -680,23 +680,23 @@ func TestValidateAutoProvisionIncludes(t *testing.T) {
 		{
 			name: "module accepted",
 			includes: []IncludeEntry{
-				{Path: modulePath},
+				{Path: ModuleIncludePath(modulePath)},
 			},
 			wantErr: false,
 		},
 		{
 			name: "same short name collision rejected",
 			includes: []IncludeEntry{
-				{Path: fooAPath},
-				{Path: fooBPath},
+				{Path: ModuleIncludePath(fooAPath)},
+				{Path: ModuleIncludePath(fooBPath)},
 			},
 			wantErr: true,
 		},
 		{
 			name: "same short name with aliases accepted",
 			includes: []IncludeEntry{
-				{Path: fooAPath, Alias: "foo-a"},
-				{Path: fooBPath, Alias: "foo-b"},
+				{Path: ModuleIncludePath(fooAPath), Alias: "foo-a"},
+				{Path: ModuleIncludePath(fooBPath), Alias: "foo-b"},
 			},
 			wantErr: false,
 		},

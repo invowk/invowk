@@ -16,21 +16,22 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // containerExecPrep holds all prepared data needed to run a container command.
 // This struct is returned by prepareContainerExecution and used by both
 // Execute and ExecuteCapture to avoid code duplication.
 type containerExecPrep struct {
-	image          string
+	image          container.ImageTag
 	shellCmd       []string
-	workDir        string
+	workDir        container.MountTargetPath
 	env            map[string]string
-	volumes        []string
-	ports          []string
-	extraHosts     []string
+	volumes        []invowkfile.VolumeMountSpec
+	ports          []invowkfile.PortMappingSpec
+	extraHosts     []container.HostMapping
 	sshConnInfo    *sshserver.ConnectionInfo
-	tempScriptPath string
+	tempScriptPath types.FilesystemPath
 	cleanup        func() // Combined cleanup for provisioning and temp files
 }
 
@@ -46,12 +47,12 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Track resources for cleanup-on-error
 	var provisionCleanup func()
 	var sshConnInfo *sshserver.ConnectionInfo
-	var tempScriptPath string
+	var tempScriptPath types.FilesystemPath
 
 	defer func() {
 		if errResult != nil {
 			if tempScriptPath != "" {
-				_ = os.Remove(tempScriptPath)
+				_ = os.Remove(string(tempScriptPath))
 			}
 			if sshConnInfo != nil {
 				r.sshServer.RevokeToken(sshConnInfo.Token)
@@ -65,35 +66,35 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Get the container runtime config
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig == nil {
-		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("runtime config not found for container runtime")}
+		return nil, NewErrorResult(1, fmt.Errorf("runtime config not found for container runtime"))
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
-	invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
+	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
 
 	// Validate explicit image policy before provisioning rewrites image tags.
 	if containerCfg.Image != "" {
 		if err := validateSupportedContainerImage(containerCfg.Image); err != nil {
-			return nil, &Result{ExitCode: 1, Error: err}
+			return nil, NewErrorResult(1, err)
 		}
 	}
 
 	// Resolve the script content (from file or inline)
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
-		return nil, &Result{ExitCode: 1, Error: err}
+		return nil, NewErrorResult(1, err)
 	}
 
 	// Determine the image to use (with provisioning if enabled)
 	image, pCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
-		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("failed to prepare container image: %w", err)}
+		return nil, NewErrorResult(1, fmt.Errorf("failed to prepare container image: %w", err))
 	}
 	provisionCleanup = pCleanup
 
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritNone)
 	if err != nil {
-		return nil, &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+		return nil, NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 
 	// Check if host SSH is enabled for this runtime
@@ -103,14 +104,14 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	if hostSSHEnabled {
 		sshConnInfo, err = r.setupSSHConnection(ctx, env)
 		if err != nil {
-			return nil, &Result{ExitCode: 1, Error: err}
+			return nil, NewErrorResult(1, err)
 		}
 	}
 
 	// Prepare volumes
 	volumes := containerCfg.Volumes
 	// Always mount the invowkfile directory
-	volumes = append(volumes, fmt.Sprintf("%s:/workspace", invowkDir))
+	volumes = append(volumes, invowkfile.VolumeMountSpec(fmt.Sprintf("%s:/workspace", invowkDir)))
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
@@ -120,9 +121,11 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 
 	if interpInfo.Found {
 		// Use the resolved interpreter
-		shellCmd, tempScriptPath, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
+		var tempFile string
+		shellCmd, tempFile, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
+		tempScriptPath = types.FilesystemPath(tempFile)
 		if err != nil {
-			return nil, &Result{ExitCode: 1, Error: err}
+			return nil, NewErrorResult(1, err)
 		}
 	} else {
 		// Use default shell execution
@@ -139,16 +142,16 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	workDir := r.getContainerWorkDir(ctx, invowkDir)
 
 	// Build extra hosts for SSH server access
-	var extraHosts []string
+	var extraHosts []container.HostMapping
 	if hostSSHEnabled && sshConnInfo != nil {
 		// Add host gateway for accessing host from container
-		extraHosts = append(extraHosts, hostGatewayMapping)
+		extraHosts = append(extraHosts, container.HostMapping(hostGatewayMapping))
 	}
 
 	// Build combined cleanup function (used on success path by the caller)
 	cleanup := func() {
 		if tempScriptPath != "" {
-			_ = os.Remove(tempScriptPath) // Cleanup temp file; error non-critical
+			_ = os.Remove(string(tempScriptPath)) // Cleanup temp file; error non-critical
 		}
 		if sshConnInfo != nil {
 			r.sshServer.RevokeToken(sshConnInfo.Token)
@@ -161,9 +164,9 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Success: clear errResult so the deferred cleanup doesn't run
 	// (errResult is nil by default on success since we return nil for the second value)
 	return &containerExecPrep{
-		image:          image,
+		image:          container.ImageTag(image),
 		shellCmd:       shellCmd,
-		workDir:        workDir,
+		workDir:        container.MountTargetPath(workDir),
 		env:            env,
 		volumes:        volumes,
 		ports:          containerCfg.Ports,
@@ -248,7 +251,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 		// engine.Run() returns exit-code failures in result rather than err.
 		// Check for transient engine exit codes (125 = generic engine error,
 		// 126 = OCI runtime failure e.g., crun ping_group_range race).
-		if result.ExitCode == 0 || !IsTransientExitCode(result.ExitCode) {
+		if result.ExitCode == 0 || !result.ExitCode.IsTransient() {
 			flushStderr(originalStderr, &stderrBuf)
 			return result, nil
 		}
@@ -326,13 +329,10 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	result, err := r.runWithRetry(ctx.Context, runOpts)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to run container: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to run container: %w", err))
 	}
 
-	return &Result{
-		ExitCode: result.ExitCode,
-		Error:    result.Error,
-	}
+	return NewErrorResult(result.ExitCode, result.Error)
 }
 
 // ExecuteCapture runs a command in a container and captures its stdout/stderr.
@@ -397,7 +397,7 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 	// uniqueness even across sub-nanosecond invocations.
 	executionID := ctx.ExecutionID
 	if executionID == "" {
-		executionID = fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.fallbackIDCounter.Add(1))
+		executionID = ExecutionID(fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.fallbackIDCounter.Add(1)))
 		slog.Warn("ExecutionID not set by caller, using fallback — callers should use Registry.NewExecutionID()",
 			"commandName", ctx.Command.Name, "executionID", executionID)
 	}
@@ -415,9 +415,9 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 	}
 
 	env["INVOWK_SSH_HOST"] = hostAddr
-	env["INVOWK_SSH_PORT"] = fmt.Sprintf("%d", sshConnInfo.Port)
+	env["INVOWK_SSH_PORT"] = sshConnInfo.Port.String()
 	env["INVOWK_SSH_USER"] = sshConnInfo.User
-	env["INVOWK_SSH_TOKEN"] = sshConnInfo.Token
+	env["INVOWK_SSH_TOKEN"] = string(sshConnInfo.Token)
 	env["INVOWK_SSH_ENABLED"] = "true"
 
 	return sshConnInfo, nil

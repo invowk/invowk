@@ -6,15 +6,23 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // SourceIDInvowkfile is the reserved source ID for the root invowkfile.
 // Used for multi-source discovery to identify commands from invowkfile.cue.
 const SourceIDInvowkfile SourceID = "invowkfile"
+
+// sourceIDPattern validates that a SourceID starts with a letter and contains only
+// letters, digits, dots, underscores, or hyphens. This matches the naming rules
+// for .invowkmod directory names used as module short names.
+var sourceIDPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
 
 type (
 	// SourceID is a typed identifier for command sources (e.g., "invowkfile", "foo").
@@ -24,14 +32,15 @@ type (
 
 	// CommandInfo contains information about a discovered command
 	CommandInfo struct {
-		// Name is the command name (may include spaces, e.g., "test unit")
-		Name string
+		// Name is the fully qualified command name (may include module prefix and spaces,
+		// e.g., "foo build", "test unit")
+		Name invowkfile.CommandName
 		// Description is the command description
-		Description string
+		Description invowkfile.DescriptionText
 		// Source is where the command was found
 		Source Source
 		// FilePath is the path to the invowkfile containing this command
-		FilePath string
+		FilePath types.FilesystemPath
 		// Command is a reference to the actual command
 		Command *invowkfile.Command
 		// Invowkfile is a reference to the parent invowkfile
@@ -39,13 +48,13 @@ type (
 
 		// SimpleName is the command name without module prefix (e.g., "deploy")
 		// Used for the transparent namespace feature
-		SimpleName string
+		SimpleName invowkfile.CommandName
 		// SourceID identifies the source: "invowkfile" for root invowkfile,
 		// or the module short name (e.g., "foo") for modules
 		SourceID SourceID
 		// ModuleID is the full module identifier if from a module
-		// (e.g., "io.invowk.sample"), empty for root invowkfile
-		ModuleID string
+		// (e.g., "io.invowk.sample"), nil for root invowkfile commands.
+		ModuleID *invowkmod.ModuleID
 		// IsAmbiguous is true if SimpleName conflicts with another command
 		// from a different source
 		IsAmbiguous bool
@@ -61,15 +70,15 @@ type (
 		// ByName indexes commands by their full name for O(1) lookup.
 		// Only the first command added with a given name is stored (respects
 		// discovery precedence order). Used by GetCommand for fast resolution.
-		ByName map[string]*CommandInfo
+		ByName map[invowkfile.CommandName]*CommandInfo
 
 		// BySimpleName indexes commands by their simple name for conflict detection.
 		// Key: simple command name (e.g., "deploy")
 		// Value: all commands with that name from different sources
-		BySimpleName map[string][]*CommandInfo
+		BySimpleName map[invowkfile.CommandName][]*CommandInfo
 
 		// AmbiguousNames contains simple names that have conflicts (>1 source)
-		AmbiguousNames map[string]bool
+		AmbiguousNames map[invowkfile.CommandName]bool
 
 		// BySource indexes commands by source for grouped listing.
 		// Key: SourceID (e.g., "invowkfile", "foo")
@@ -81,12 +90,27 @@ type (
 	}
 )
 
+// String returns the string representation of the SourceID.
+func (s SourceID) String() string {
+	return string(s)
+}
+
+// IsValid returns whether the SourceID matches the expected format (starts with a letter,
+// contains only letters, digits, dots, underscores, or hyphens),
+// and a list of validation errors if it does not.
+func (s SourceID) IsValid() (bool, []error) {
+	if !sourceIDPattern.MatchString(string(s)) {
+		return false, []error{&InvalidSourceIDError{Value: s}}
+	}
+	return true, nil
+}
+
 // NewDiscoveredCommandSet creates a new DiscoveredCommandSet with initialized maps.
 func NewDiscoveredCommandSet() *DiscoveredCommandSet {
 	return &DiscoveredCommandSet{
-		ByName:         make(map[string]*CommandInfo),
-		BySimpleName:   make(map[string][]*CommandInfo),
-		AmbiguousNames: make(map[string]bool),
+		ByName:         make(map[invowkfile.CommandName]*CommandInfo),
+		BySimpleName:   make(map[invowkfile.CommandName][]*CommandInfo),
+		AmbiguousNames: make(map[invowkfile.CommandName]bool),
 		BySource:       make(map[SourceID][]*CommandInfo),
 	}
 }
@@ -170,7 +194,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 	diagnostics := make([]Diagnostic, 0, len(discoveryDiags))
 	diagnostics = append(diagnostics, discoveryDiags...)
 	// Track seen commands for precedence within non-module sources
-	seenNonModule := make(map[string]bool)
+	seenNonModule := make(map[invowkfile.CommandName]bool)
 
 	for _, file := range files {
 		select {
@@ -182,13 +206,13 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		if file.Error != nil {
 			// Parse failures are recoverable for discovery: keep traversing and
 			// return structured diagnostics to the caller instead of writing output.
-			diagnostics = append(diagnostics, Diagnostic{
-				Severity: SeverityWarning,
-				Code:     CodeInvowkfileParseSkipped,
-				Message:  fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
-				Path:     file.Path,
-				Cause:    file.Error,
-			})
+			diagnostics = append(diagnostics, NewDiagnosticWithCause(
+				SeverityWarning,
+				CodeInvowkfileParseSkipped,
+				fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
+				file.Path,
+				file.Error,
+			))
 			continue
 		}
 		if file.Invowkfile == nil {
@@ -197,13 +221,14 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 
 		// Determine source ID and module ID for this file
 		var sourceID SourceID
-		var moduleID string
+		var moduleID *invowkmod.ModuleID
 		isModule := file.Module != nil
 		switch {
 		case isModule:
 			// From a module - use short name from folder
-			sourceID = SourceID(getModuleShortName(file.Module.Path))
-			moduleID = string(file.Module.Name())
+			sourceID = SourceID(getModuleShortName(string(file.Module.Path)))
+			modID := file.Module.Name()
+			moduleID = &modID
 		default:
 			// Non-module source: root invowkfile in current directory
 			sourceID = SourceIDInvowkfile
@@ -271,17 +296,18 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 		return LookupResult{}, err
 	}
 
-	if cmd, ok := result.Set.ByName[name]; ok {
+	cmdName := invowkfile.CommandName(name)
+	if cmd, ok := result.Set.ByName[cmdName]; ok {
 		return LookupResult{Command: cmd, Diagnostics: result.Diagnostics}, nil
 	}
 
 	// Command-not-found is represented as a diagnostic so CLI callers can choose
 	// the rendering policy (execute/list/completion) consistently.
-	result.Diagnostics = append(result.Diagnostics, Diagnostic{
-		Severity: SeverityError,
-		Code:     CodeCommandNotFound,
-		Message:  fmt.Sprintf("command '%s' not found", name),
-	})
+	result.Diagnostics = append(result.Diagnostics, NewDiagnostic(
+		SeverityError,
+		CodeCommandNotFound,
+		fmt.Sprintf("command '%s' not found", name),
+	))
 
 	return LookupResult{Diagnostics: result.Diagnostics}, nil
 }

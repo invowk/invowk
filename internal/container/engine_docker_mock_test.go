@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // =============================================================================
@@ -275,7 +277,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"ls"},
-			Volumes: []string{"/host/path:/container/path", "/data:/data:ro"},
+			Volumes: []invowkfile.VolumeMountSpec{"/host/path:/container/path", "/data:/data:ro"},
 		}
 
 		_, err := engine.Run(ctx, opts)
@@ -297,7 +299,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
 			Command: []string{"true"},
-			Ports:   []string{"8080:80", "443:443"},
+			Ports:   []invowkfile.PortMappingSpec{"8080:80", "443:443"},
 		}
 
 		_, err := engine.Run(ctx, opts)
@@ -319,7 +321,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		opts := RunOptions{
 			Image:      "debian:stable-slim",
 			Command:    []string{"true"},
-			ExtraHosts: []string{"host.docker.internal:host-gateway"},
+			ExtraHosts: []HostMapping{"host.docker.internal:host-gateway"},
 		}
 
 		_, err := engine.Run(ctx, opts)
@@ -346,9 +348,9 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 			Interactive: true,
 			TTY:         true,
 			Env:         map[string]string{"DEBUG": "1"},
-			Volumes:     []string{"/src:/src"},
-			Ports:       []string{"3000:3000"},
-			ExtraHosts:  []string{"db:192.168.1.100"},
+			Volumes:     []invowkfile.VolumeMountSpec{"/src:/src"},
+			Ports:       []invowkfile.PortMappingSpec{"3000:3000"},
+			ExtraHosts:  []HostMapping{"db:192.168.1.100"},
 		}
 
 		_, err := engine.Run(ctx, opts)

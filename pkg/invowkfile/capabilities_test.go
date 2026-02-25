@@ -141,34 +141,58 @@ func TestValidCapabilityNames(t *testing.T) {
 	}
 }
 
-func TestIsValidCapabilityName(t *testing.T) {
+func TestCapabilityName_IsValid(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     CapabilityName
-		expected bool
+		name    CapabilityName
+		want    bool
+		wantErr bool
 	}{
-		{CapabilityLocalAreaNetwork, true},
-		{CapabilityInternet, true},
-		{CapabilityContainers, true},
-		{CapabilityTTY, true},
-		{CapabilityName("unknown"), false},
-		{CapabilityName(""), false},
-		{CapabilityName("local-area-network"), true}, // explicit string match
-		{CapabilityName("internet"), true},           // explicit string match
-		{CapabilityName("containers"), true},         // explicit string match
-		{CapabilityName("tty"), true},                // explicit string match
+		{CapabilityLocalAreaNetwork, true, false},
+		{CapabilityInternet, true, false},
+		{CapabilityContainers, true, false},
+		{CapabilityTTY, true, false},
+		{"", false, true},
+		{"unknown", false, true},
+		{"LOCAL-AREA-NETWORK", false, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.name), func(t *testing.T) {
 			t.Parallel()
-
-			result := IsValidCapabilityName(tt.name)
-			if result != tt.expected {
-				t.Errorf("IsValidCapabilityName(%q) = %v, want %v", tt.name, result, tt.expected)
+			isValid, errs := tt.name.IsValid()
+			if isValid != tt.want {
+				t.Errorf("CapabilityName(%q).IsValid() = %v, want %v", tt.name, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("CapabilityName(%q).IsValid() returned no errors, want error", tt.name)
+				}
+				if !errors.Is(errs[0], ErrInvalidCapabilityName) {
+					t.Errorf("error should wrap ErrInvalidCapabilityName, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("CapabilityName(%q).IsValid() returned unexpected errors: %v", tt.name, errs)
 			}
 		})
+	}
+}
+
+func TestCapabilityName_IsValid_ErrorType(t *testing.T) {
+	t.Parallel()
+
+	_, errs := CapabilityName("bogus").IsValid()
+	if len(errs) == 0 {
+		t.Fatal("expected error for invalid capability name")
+	}
+
+	var invalidErr *InvalidCapabilityNameError
+	if !errors.As(errs[0], &invalidErr) {
+		t.Errorf("error should be *InvalidCapabilityNameError, got %T", errs[0])
+	}
+	if invalidErr.Value != "bogus" {
+		t.Errorf("InvalidCapabilityNameError.Value = %q, want %q", invalidErr.Value, "bogus")
 	}
 }
 
@@ -211,5 +235,16 @@ func TestCheckInternet_ReturnsCapabilityError(t *testing.T) {
 		if capErr != nil && capErr.Capability != CapabilityInternet {
 			t.Errorf("CapabilityError.Capability = %q, want %q", capErr.Capability, CapabilityInternet)
 		}
+	}
+}
+
+func TestCapabilityName_String(t *testing.T) {
+	t.Parallel()
+
+	if got := CapabilityLocalAreaNetwork.String(); got != "local-area-network" {
+		t.Errorf("CapabilityLocalAreaNetwork.String() = %q, want %q", got, "local-area-network")
+	}
+	if got := CapabilityName("").String(); got != "" {
+		t.Errorf("CapabilityName(\"\").String() = %q, want %q", got, "")
 	}
 }

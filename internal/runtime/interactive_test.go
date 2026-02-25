@@ -110,7 +110,7 @@ cmds: [{
 	}
 
 	// Parse the invowkfile
-	inv, err := invowkfile.Parse(invowkfilePath)
+	inv, err := invowkfile.Parse(invowkfile.FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Failed to parse invowkfile: %v", err)
 	}
@@ -159,7 +159,7 @@ cmds: [{
 	}
 
 	// Parse the invowkfile
-	inv, err := invowkfile.Parse(invowkfilePath)
+	inv, err := invowkfile.Parse(invowkfile.FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Failed to parse invowkfile: %v", err)
 	}

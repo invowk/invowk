@@ -20,6 +20,11 @@ For host-path validation tests that depend on `filepath.IsAbs`, treat absolutene
 - Keep explicit negative cases for relative and dot-relative inputs.
 - Do not assume Unix-style `/...` paths are valid on Windows.
 
+For repo-relative typed path validators (for example `SubdirectoryPath`-style values), treat validation as cross-platform:
+- Normalize paths in implementation before checks (`filepath.ToSlash` + slash-based clean).
+- Include Unix absolute, Windows drive absolute, UNC/rooted, and slash/backslash traversal vectors in one test matrix.
+- Do not use `skipOnWindows` for these contract tests; differing behavior indicates a bug.
+
 ---
 
 # Testing

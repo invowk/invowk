@@ -50,7 +50,7 @@ type (
 	resolvedDefinitions struct {
 		flagDefs   []invowkfile.Flag
 		argDefs    []invowkfile.Argument
-		flagValues map[string]string
+		flagValues map[invowkfile.FlagName]string
 	}
 )
 
@@ -138,7 +138,7 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 // Config is loaded separately because downstream callers need it for runtime
 // registry construction and env builder configuration.
 func (s *commandService) discoverCommand(ctx context.Context, req ExecuteRequest) (*config.Config, *discovery.CommandInfo, []discovery.Diagnostic, error) {
-	cfg, _ := s.loadConfig(ctx, req.ConfigPath)
+	cfg, _ := s.loadConfig(ctx, string(req.ConfigPath))
 
 	lookup, err := s.discovery.GetCommand(ctx, req.Name)
 	diags := slices.Clone(lookup.Diagnostics)
@@ -175,7 +175,7 @@ func (s *commandService) resolveDefinitions(req ExecuteRequest, cmdInfo *discove
 	flagValues := req.FlagValues
 	// Apply command defaults when the caller did not provide parsed flag values.
 	if flagValues == nil && len(flagDefs) > 0 {
-		flagValues = make(map[string]string)
+		flagValues = make(map[invowkfile.FlagName]string)
 		for _, flag := range flagDefs {
 			if flag.DefaultValue != "" {
 				flagValues[flag.Name] = flag.DefaultValue
@@ -230,7 +230,7 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 //
 // It returns ServiceError with rendering info for invalid runtime overrides (Tier 1 only).
 func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (appexec.RuntimeSelection, error) {
-	selection, err := appexec.ResolveRuntime(cmdInfo.Command, req.Name, req.Runtime, cfg, invowkfile.CurrentPlatform())
+	selection, err := appexec.ResolveRuntime(cmdInfo.Command, invowkfile.CommandName(req.Name), req.Runtime, cfg, invowkfile.CurrentPlatform())
 	if err != nil {
 		if notAllowedErr, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
 			allowed := make([]string, len(notAllowedErr.Allowed))
@@ -253,7 +253,7 @@ func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.C
 // implementation requires host SSH access (used by container runtime for host callbacks).
 // Cleanup is handled by the caller (Execute) via a "started-by-me" guard.
 func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteRequest, resolved appexec.RuntimeSelection) error {
-	if !resolved.Impl.GetHostSSHForRuntime(resolved.Mode) {
+	if !resolved.Impl().GetHostSSHForRuntime(resolved.Mode()) {
 		return nil
 	}
 
@@ -283,7 +283,7 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 		EnvInheritMode:  req.EnvInheritMode,
 		EnvInheritAllow: req.EnvInheritAllow,
 		EnvInheritDeny:  req.EnvInheritDeny,
-		SourceID:        string(cmdInfo.SourceID),
+		SourceID:        cmdInfo.SourceID,
 		Platform:        invowkfile.CurrentPlatform(),
 	})
 }
@@ -495,8 +495,8 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		tuiServerURL = tuiServer.URL()
 	}
 
-	ctx.TUI.ServerURL = tuiServerURL
-	ctx.TUI.ServerToken = tuiServer.Token()
+	ctx.TUI.ServerURL = runtime.TUIServerURL(tuiServerURL)
+	ctx.TUI.ServerToken = runtime.TUIServerToken(string(tuiServer.Token()))
 
 	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {
@@ -522,7 +522,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		execCtx,
 		tui.InteractiveOptions{
 			Title:       "Running Command",
-			CommandName: cmdName,
+			CommandName: invowkfile.CommandName(cmdName),
 			OnProgramReady: func(p *tea.Program) {
 				go bridgeTUIRequests(tuiServer, p)
 			},

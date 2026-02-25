@@ -16,6 +16,7 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // testDiscoveryService wraps a discovery.Discovery for use in unit tests.
@@ -84,7 +85,7 @@ func TestCheckToolDependencies_ToolExists(t *testing.T) {
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
-			Tools: []invowkfile.ToolDependency{{Alternatives: []string{existingTool}}},
+			Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{invowkfile.BinaryName(existingTool)}}},
 		}))
 
 	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
@@ -99,7 +100,7 @@ func TestCheckToolDependencies_ToolNotExists(t *testing.T) {
 	cmd := invowkfiletest.NewTestCommand("test",
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
-			Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
+			Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz-12345"}}},
 		}))
 
 	err := checkHostToolDependencies(cmd.DependsOn, &runtime.ExecutionContext{Command: cmd})
@@ -128,9 +129,9 @@ func TestCheckToolDependencies_MultipleToolsNotExist(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Tools: []invowkfile.ToolDependency{
-				{Alternatives: []string{"nonexistent-tool-1"}},
-				{Alternatives: []string{"nonexistent-tool-2"}},
-				{Alternatives: []string{"nonexistent-tool-3"}},
+				{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-1"}},
+				{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-2"}},
+				{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-3"}},
 			},
 		}))
 
@@ -169,8 +170,8 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{
 			Tools: []invowkfile.ToolDependency{
-				{Alternatives: []string{existingTool}},
-				{Alternatives: []string{"nonexistent-tool-xyz"}},
+				{Alternatives: []invowkfile.BinaryName{invowkfile.BinaryName(existingTool)}},
+				{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz"}},
 			},
 		}))
 
@@ -189,7 +190,7 @@ func TestCheckToolDependencies_MixedToolsExistAndNotExist(t *testing.T) {
 		t.Errorf("DependencyError.MissingTools length = %d, want 1", len(depErr.MissingTools))
 	}
 
-	if !strings.Contains(depErr.MissingTools[0], "nonexistent-tool-xyz") {
+	if !strings.Contains(depErr.MissingTools[0].String(), "nonexistent-tool-xyz") {
 		t.Errorf("MissingTools should contain 'nonexistent-tool-xyz', got: %s", depErr.MissingTools[0])
 	}
 }
@@ -228,11 +229,11 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 	}
 
 	// Standalone invowkfile has no module identifier, so pass empty string
-	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
-		discovery.WithBaseDir(tmpDir),
-		discovery.WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+		discovery.WithBaseDir(types.FilesystemPath(tmpDir)),
+		discovery.WithCommandsDir(types.FilesystemPath(filepath.Join(tmpDir, ".invowk", "cmds"))),
 	)}
 
 	if err := checkCommandDependenciesExist(disc, deps, "", ctx); err != nil {
@@ -285,11 +286,11 @@ version: "1.0.0"
 	}
 
 	// Module command is prefixed: "shared generate-types"
-	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"shared generate-types"}}}}
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"shared generate-types"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
-		discovery.WithBaseDir(tmpDir),
-		discovery.WithCommandsDir(userCmdsDir),
+		discovery.WithBaseDir(types.FilesystemPath(tmpDir)),
+		discovery.WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)}
 
 	if err := checkCommandDependenciesExist(disc, deps, "", ctx); err != nil {
@@ -316,11 +317,11 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 		t.Fatalf("failed to write invowkfile: %v", err)
 	}
 
-	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []string{"build"}}}}
+	deps := &invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"build"}}}}
 	ctx := &runtime.ExecutionContext{Command: &invowkfile.Command{Name: "deploy"}}
 	disc := &testDiscoveryService{disc: discovery.New(config.DefaultConfig(),
-		discovery.WithBaseDir(tmpDir),
-		discovery.WithCommandsDir(filepath.Join(tmpDir, ".invowk", "cmds")),
+		discovery.WithBaseDir(types.FilesystemPath(tmpDir)),
+		discovery.WithCommandsDir(types.FilesystemPath(filepath.Join(tmpDir, ".invowk", "cmds"))),
 	)}
 
 	err := checkCommandDependenciesExist(disc, deps, "", ctx)
@@ -336,7 +337,7 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 	if len(depErr.MissingCommands) != 1 {
 		t.Fatalf("expected 1 missing command, got %d", len(depErr.MissingCommands))
 	}
-	if !strings.Contains(depErr.MissingCommands[0], "build") {
+	if !strings.Contains(depErr.MissingCommands[0].String(), "build") {
 		t.Errorf("expected missing command error to mention 'build', got %q", depErr.MissingCommands[0])
 	}
 }
@@ -355,7 +356,7 @@ func TestCheckCustomChecks_Success(t *testing.T) {
 				{
 					Name:         "test-check",
 					CheckScript:  "echo 'test output'",
-					ExpectedCode: new(0),
+					ExpectedCode: new(types.ExitCode(0)),
 				},
 			},
 		}))
@@ -376,7 +377,7 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 				{
 					Name:         "test-check",
 					CheckScript:  "exit 1",
-					ExpectedCode: new(0),
+					ExpectedCode: new(types.ExitCode(0)),
 				},
 			},
 		}))
@@ -391,7 +392,7 @@ func TestCheckCustomChecks_WrongExitCode(t *testing.T) {
 		t.Fatalf("checkHostCustomCheckDependencies() should return *DependencyError, got: %T", err)
 	}
 
-	if !strings.Contains(depErr.FailedCustomChecks[0], "exit code") {
+	if !strings.Contains(depErr.FailedCustomChecks[0].String(), "exit code") {
 		t.Errorf("Error message should mention exit code, got: %s", depErr.FailedCustomChecks[0])
 	}
 }
@@ -406,7 +407,7 @@ func TestCheckCustomChecks_ExpectedNonZeroCode(t *testing.T) {
 				{
 					Name:         "test-check",
 					CheckScript:  "exit 42",
-					ExpectedCode: new(42),
+					ExpectedCode: new(types.ExitCode(42)),
 				},
 			},
 		}))
@@ -463,7 +464,7 @@ func TestCheckCustomChecks_OutputNoMatch(t *testing.T) {
 		t.Fatalf("checkHostCustomCheckDependencies() should return *DependencyError, got: %T", err)
 	}
 
-	if !strings.Contains(depErr.FailedCustomChecks[0], "does not match pattern") {
+	if !strings.Contains(depErr.FailedCustomChecks[0].String(), "does not match pattern") {
 		t.Errorf("Error message should mention pattern mismatch, got: %s", depErr.FailedCustomChecks[0])
 	}
 }
@@ -478,7 +479,7 @@ func TestCheckCustomChecks_BothCodeAndOutput(t *testing.T) {
 				{
 					Name:           "test-check",
 					CheckScript:    "echo 'go version go1.21.0'",
-					ExpectedCode:   new(0),
+					ExpectedCode:   new(types.ExitCode(0)),
 					ExpectedOutput: "go1\\.",
 				},
 			},
@@ -515,7 +516,7 @@ func TestCheckCustomChecks_InvalidRegex(t *testing.T) {
 		t.Fatalf("checkHostCustomCheckDependencies() should return *DependencyError, got: %T", err)
 	}
 
-	if !strings.Contains(depErr.FailedCustomChecks[0], "invalid regex") {
+	if !strings.Contains(depErr.FailedCustomChecks[0].String(), "invalid regex") {
 		t.Errorf("Error message should mention invalid regex, got: %s", depErr.FailedCustomChecks[0])
 	}
 }
@@ -527,7 +528,7 @@ func TestRenderDependencyError_FailedCustomChecks(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "verify",
-		FailedCustomChecks: []string{
+		FailedCustomChecks: []DependencyMessage{
 			"  - docker-version: exit code 127 (expected 0)",
 			"  - go-version: output does not match pattern 'go1\\.'",
 		},

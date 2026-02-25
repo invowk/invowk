@@ -17,7 +17,7 @@ type (
 	// Implementation represents an implementation with platform and runtime constraints
 	Implementation struct {
 		// Script contains the shell commands to execute OR a path to a script file
-		Script string `json:"script"`
+		Script ScriptContent `json:"script"`
 		// Runtimes specifies which runtimes can execute this implementation (required, at least one)
 		// The first element is the default runtime for this platform combination
 		// Each runtime is a struct with a Name field and optional type-specific fields
@@ -34,7 +34,7 @@ type (
 		// Overrides both root-level and command-level workdir settings.
 		// Can be absolute or relative to the invowkfile location.
 		// Forward slashes should be used for cross-platform compatibility.
-		WorkDir string `json:"workdir,omitempty"`
+		WorkDir WorkDir `json:"workdir,omitempty"`
 		// DependsOn specifies dependencies validated against the HOST system.
 		// Regardless of the selected runtime, these are always checked on the host.
 		// To validate dependencies inside the runtime environment (e.g., inside a container),
@@ -43,12 +43,12 @@ type (
 		// Timeout specifies the maximum execution duration (optional).
 		// Must be a valid Go duration string (e.g., "30s", "5m", "1h30m").
 		// When exceeded, the command is cancelled and returns a timeout error.
-		Timeout string `json:"timeout,omitempty"`
+		Timeout DurationString `json:"timeout,omitempty"`
 
 		// resolvedScript caches the resolved script content (lazy memoization).
 		// Script content is resolved from file path or inline source on first
 		// ResolveScript call and reused for subsequent calls.
-		resolvedScript string
+		resolvedScript ScriptContent
 		// scriptResolved tracks whether resolvedScript has been populated.
 		scriptResolved bool
 	}
@@ -67,6 +67,27 @@ type (
 		IsDefaultForPlatform bool
 	}
 )
+
+// IsValid returns whether both Platform and Runtime in the key are valid,
+// and a combined list of validation errors from both fields.
+func (k PlatformRuntimeKey) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := k.Platform.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if valid, fieldErrs := k.Runtime.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if len(errs) > 0 {
+		return false, errs
+	}
+	return true, nil
+}
+
+// String returns "platform/runtime" representation (e.g., "linux/native").
+func (k PlatformRuntimeKey) String() string {
+	return string(k.Platform) + "/" + string(k.Runtime)
+}
 
 // MatchesPlatform returns true if the implementation can run on the given platform.
 func (s *Implementation) MatchesPlatform(platform Platform) bool {
@@ -138,11 +159,11 @@ func (s *Implementation) HasDependencies() bool {
 
 // GetCommandDependencies returns the list of command dependency names from this implementation.
 // For dependencies with alternatives, returns all alternatives flattened into a single list.
-func (s *Implementation) GetCommandDependencies() []string {
+func (s *Implementation) GetCommandDependencies() []CommandName {
 	if s.DependsOn == nil {
 		return nil
 	}
-	var names []string
+	var names []CommandName
 	for _, dep := range s.DependsOn.Commands {
 		names = append(names, dep.Alternatives...)
 	}
@@ -156,7 +177,7 @@ func (s *Implementation) GetCommandDependencies() []string {
 //   - Known extension: ends with a recognized script file extension
 //     (.sh, .bash, .ps1, .bat, .cmd, .py, .rb, .pl, .zsh, .fish)
 func (s *Implementation) IsScriptFile() bool {
-	script := strings.TrimSpace(s.Script)
+	script := strings.TrimSpace(string(s.Script))
 	if script == "" {
 		return false
 	}
@@ -183,49 +204,49 @@ func (s *Implementation) IsScriptFile() bool {
 }
 
 // GetScriptFilePath returns the absolute path to the script file, if Implementation is a file reference.
-// Returns empty string if Implementation is inline content.
+// Returns empty FilesystemPath if Implementation is inline content.
 // The invowkfilePath parameter is used to resolve relative paths.
 // If modulePath is provided (non-empty), script paths are resolved relative to the module root
 // and are expected to use forward slashes for cross-platform compatibility.
-func (s *Implementation) GetScriptFilePath(invowkfilePath string) string {
+func (s *Implementation) GetScriptFilePath(invowkfilePath FilesystemPath) FilesystemPath {
 	return s.GetScriptFilePathWithModule(invowkfilePath, "")
 }
 
 // GetScriptFilePathWithModule returns the absolute path to the script file, if Implementation is a file reference.
-// Returns empty string if Implementation is inline content.
+// Returns empty FilesystemPath if Implementation is inline content.
 // The invowkfilePath parameter is used to resolve relative paths when not in a module.
 // The modulePath parameter specifies the module root directory for module-relative paths.
 // When modulePath is non-empty, script paths are expected to use forward slashes for
 // cross-platform compatibility and are resolved relative to the module root.
-func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath string) string {
+func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath FilesystemPath) FilesystemPath {
 	if !s.IsScriptFile() {
 		return ""
 	}
 
-	script := strings.TrimSpace(s.Script)
+	script := strings.TrimSpace(string(s.Script))
 
 	// If absolute path, return as-is
 	if filepath.IsAbs(script) {
-		return script
+		return FilesystemPath(script)
 	}
 
 	// If in a module, resolve relative to module root with cross-platform path conversion
 	if modulePath != "" {
 		// Convert forward slashes to native path separator for cross-platform compatibility
 		nativePath := filepath.FromSlash(script)
-		return filepath.Join(modulePath, nativePath)
+		return FilesystemPath(filepath.Join(string(modulePath), nativePath))
 	}
 
 	// Resolve relative to invowkfile directory
-	invowkDir := filepath.Dir(invowkfilePath)
-	return filepath.Join(invowkDir, script)
+	invowkDir := filepath.Dir(string(invowkfilePath))
+	return FilesystemPath(filepath.Join(invowkDir, script))
 }
 
 // ResolveScript returns the actual script content to execute.
 // If Implementation is a file path, it reads the file content.
 // If Implementation is inline content (including multi-line), it returns it directly.
 // The invowkfilePath parameter is used to resolve relative paths.
-func (s *Implementation) ResolveScript(invowkfilePath string) (string, error) {
+func (s *Implementation) ResolveScript(invowkfilePath FilesystemPath) (string, error) {
 	return s.ResolveScriptWithModule(invowkfilePath, "")
 }
 
@@ -234,50 +255,50 @@ func (s *Implementation) ResolveScript(invowkfilePath string) (string, error) {
 // If Implementation is inline content (including multi-line), it returns it directly.
 // The invowkfilePath parameter is used to resolve relative paths when not in a module.
 // The modulePath parameter specifies the module root directory for module-relative paths.
-func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath string) (string, error) {
+func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath FilesystemPath) (string, error) {
 	if s.scriptResolved {
-		return s.resolvedScript, nil
+		return string(s.resolvedScript), nil
 	}
 
-	script := s.Script
+	script := string(s.Script)
 	if script == "" {
 		return "", fmt.Errorf("script has no content")
 	}
 
 	if s.IsScriptFile() {
 		scriptPath := s.GetScriptFilePathWithModule(invowkfilePath, modulePath)
-		content, err := os.ReadFile(scriptPath)
+		content, err := os.ReadFile(string(scriptPath))
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}
-		s.resolvedScript = string(content)
+		s.resolvedScript = ScriptContent(content)
 	} else {
 		// Inline script - use directly (multi-line strings from CUE are already handled)
-		s.resolvedScript = script
+		s.resolvedScript = ScriptContent(script)
 	}
 
 	s.scriptResolved = true
-	return s.resolvedScript, nil
+	return string(s.resolvedScript), nil
 }
 
 // ResolveScriptWithFS resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
-func (s *Implementation) ResolveScriptWithFS(invowkfilePath string, readFile func(path string) ([]byte, error)) (string, error) {
+func (s *Implementation) ResolveScriptWithFS(invowkfilePath FilesystemPath, readFile func(path string) ([]byte, error)) (string, error) {
 	return s.ResolveScriptWithFSAndModule(invowkfilePath, "", readFile)
 }
 
 // ResolveScriptWithFSAndModule resolves the script using a custom filesystem reader function.
 // This is useful for testing with virtual filesystems.
 // The modulePath parameter specifies the module root directory for module-relative paths.
-func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath string, readFile func(path string) ([]byte, error)) (string, error) {
-	script := s.Script
+func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath FilesystemPath, readFile func(path string) ([]byte, error)) (string, error) {
+	script := string(s.Script)
 	if script == "" {
 		return "", fmt.Errorf("script has no content")
 	}
 
 	if s.IsScriptFile() {
 		scriptPath := s.GetScriptFilePathWithModule(invowkfilePath, modulePath)
-		content, err := readFile(scriptPath)
+		content, err := readFile(string(scriptPath))
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ============================================================================
@@ -18,7 +20,7 @@ import (
 func TestGenerateCUE_WithRootLevelDependsOn_CustomChecks(t *testing.T) {
 	t.Parallel()
 
-	expectedCode := 0
+	expectedCode := types.ExitCode(0)
 	inv := &Invowkfile{
 		DependsOn: &DependsOn{
 			CustomChecks: []CustomCheckDependency{
@@ -114,7 +116,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	parsed, err := Parse(invowkfilePath)
+	parsed, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Failed to parse invowkfile: %v", err)
 	}
@@ -185,7 +187,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	parsed, err := Parse(invowkfilePath)
+	parsed, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Failed to parse invowkfile: %v", err)
 	}
@@ -241,7 +243,7 @@ depends_on: {
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	parsed, err := Parse(invowkfilePath)
+	parsed, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() should accept valid custom_checks: %v", err)
 	}
@@ -285,7 +287,7 @@ depends_on: {
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject oversized file")
 	}
@@ -323,7 +325,7 @@ depends_on: {
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject dangerous expected_output regex pattern")
 	}
@@ -360,7 +362,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	parsed, err := Parse(invowkfilePath)
+	parsed, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() should accept valid command-level custom_checks: %v", err)
 	}
@@ -398,7 +400,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject dangerous expected_output in command-level custom_checks")
 	}
@@ -435,7 +437,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	parsed, err := Parse(invowkfilePath)
+	parsed, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() should accept valid implementation-level custom_checks: %v", err)
 	}
@@ -479,7 +481,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Errorf("Parse() should reject oversized file")
 	}

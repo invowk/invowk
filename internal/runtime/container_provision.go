@@ -15,6 +15,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -64,7 +65,7 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 		_, _ = fmt.Fprintf(ctx.IO.Stdout, "Provisioning container with invowk resources...\n") // Verbose output; error non-critical
 	}
 
-	result, err := r.provisioner.Provision(ctx.Context, baseImage)
+	result, err := r.provisioner.Provision(ctx.Context, container.ImageTag(baseImage))
 	if err != nil {
 		if r.provisioner.Config().Strict {
 			return "", nil, fmt.Errorf("container provisioning failed (strict mode enabled): %w", err)
@@ -77,14 +78,14 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 		return baseImage, nil, nil
 	}
 
-	return result.ImageTag, result.Cleanup, nil
+	return string(result.ImageTag), result.Cleanup, nil
 }
 
 // ensureImage ensures the container image exists, building if necessary
 func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileContainerConfig, invowkDir string) (string, error) {
 	// If an image is specified, use it directly
 	if cfg.Image != "" {
-		return cfg.Image, nil
+		return string(cfg.Image), nil
 	}
 
 	// Build from Containerfile/Dockerfile
@@ -93,26 +94,26 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 		// Try Containerfile first, then Dockerfile
 		containerfilePath := filepath.Join(invowkDir, "Containerfile")
 		if _, err := os.Stat(containerfilePath); err == nil {
-			containerfile = "Containerfile"
+			containerfile = container.HostFilesystemPath("Containerfile")
 		} else {
-			containerfile = "Dockerfile"
+			containerfile = container.HostFilesystemPath("Dockerfile")
 		}
 	}
 
-	containerfilePath := filepath.Join(invowkDir, containerfile)
+	containerfilePath := filepath.Join(invowkDir, string(containerfile))
 	if _, err := os.Stat(containerfilePath); err != nil {
 		return "", fmt.Errorf("containerfile not found at %s", containerfilePath)
 	}
 
 	// Generate a unique image tag based on invowkfile path
-	imageTag, err := r.generateImageTag(ctx.Invowkfile.FilePath)
+	imageTag, err := r.generateImageTag(string(ctx.Invowkfile.FilePath))
 	if err != nil {
 		return "", err
 	}
 
 	// Check if image already exists (skip if ForceRebuild is set)
 	if !ctx.ForceRebuild {
-		exists, err := r.engine.ImageExists(ctx.Context, imageTag)
+		exists, err := r.engine.ImageExists(ctx.Context, container.ImageTag(imageTag))
 		if err != nil {
 			return "", fmt.Errorf("failed to check image existence: %w", err)
 		}
@@ -127,9 +128,9 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 	}
 
 	buildOpts := container.BuildOptions{
-		ContextDir: invowkDir,
+		ContextDir: container.HostFilesystemPath(invowkDir),
 		Dockerfile: containerfile,
-		Tag:        imageTag,
+		Tag:        container.ImageTag(imageTag),
 		NoCache:    ctx.ForceRebuild,
 		Stdout:     ctx.IO.Stdout,
 		Stderr:     ctx.IO.Stderr,
@@ -158,6 +159,8 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 }
 
 // generateImageTag generates a unique image tag for an invowkfile
+//
+//plint:render
 func (r *ContainerRuntime) generateImageTag(invowkfilePath string) (string, error) {
 	absPath, err := filepath.Abs(invowkfilePath)
 	if err != nil {
@@ -182,23 +185,23 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	provisionCfg.Strict = autoProv.Strict
 
 	if autoProv.BinaryPath != "" {
-		provisionCfg.InvowkBinaryPath = autoProv.BinaryPath
+		provisionCfg.InvowkBinaryPath = types.FilesystemPath(autoProv.BinaryPath)
 	}
 
 	// Add modules from auto_provision includes (explicit provisioning paths).
 	for _, inc := range autoProv.Includes {
-		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, inc.Path)
+		provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, types.FilesystemPath(inc.Path))
 	}
 
 	// Conditionally inherit root-level includes into provisioning.
 	if autoProv.InheritIncludes {
 		for _, inc := range cfg.Includes {
-			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, inc.Path)
+			provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, types.FilesystemPath(inc.Path))
 		}
 	}
 
 	if autoProv.CacheDir != "" {
-		provisionCfg.CacheDir = autoProv.CacheDir
+		provisionCfg.CacheDir = types.FilesystemPath(autoProv.CacheDir)
 	}
 
 	return provisionCfg
@@ -253,11 +256,11 @@ func isAlpineContainerImage(image string) bool {
 }
 
 // validateSupportedContainerImage enforces the container runtime image policy.
-func validateSupportedContainerImage(image string) error {
-	if isWindowsContainerImage(image) {
+func validateSupportedContainerImage(image container.ImageTag) error {
+	if isWindowsContainerImage(string(image)) {
 		return fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
 	}
-	if isAlpineContainerImage(image) {
+	if isAlpineContainerImage(string(image)) {
 		return fmt.Errorf("alpine-based container images are not supported; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details")
 	}
 
@@ -270,10 +273,10 @@ func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContaine
 		return invowkfileContainerConfig{}
 	}
 	return invowkfileContainerConfig{
-		Containerfile: rt.Containerfile,
-		Image:         rt.Image,
-		Volumes:       append([]string{}, rt.Volumes...),
-		Ports:         append([]string{}, rt.Ports...),
+		Containerfile: container.HostFilesystemPath(rt.Containerfile),
+		Image:         container.ImageTag(rt.Image),
+		Volumes:       rt.Volumes,
+		Ports:         rt.Ports,
 	}
 }
 
@@ -292,10 +295,10 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 		// File script: use the relative path within /workspace
 		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
 		// Convert host path to container path (relative to /workspace)
-		relPath, err := filepath.Rel(invowkDir, scriptPath)
+		relPath, err := filepath.Rel(invowkDir, string(scriptPath))
 		if err != nil {
 			// Fall back to just the filename
-			relPath = filepath.Base(scriptPath)
+			relPath = filepath.Base(string(scriptPath))
 		}
 		// Use forward slashes for container path
 		containerPath := "/workspace/" + filepath.ToSlash(relPath)
@@ -345,22 +348,22 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 	effectiveWorkDir := ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir)
 
 	// If no workdir was specified at any level, default to /workspace
-	if effectiveWorkDir == invowkDir {
+	if string(effectiveWorkDir) == invowkDir {
 		return "/workspace"
 	}
 
 	// If it's an absolute path, use it directly in the container
-	if filepath.IsAbs(effectiveWorkDir) {
+	if filepath.IsAbs(string(effectiveWorkDir)) {
 		// Check if the path is inside the invowkfile directory (mounted at /workspace)
-		relPath, err := filepath.Rel(invowkDir, effectiveWorkDir)
+		relPath, err := filepath.Rel(invowkDir, string(effectiveWorkDir))
 		if err == nil && !strings.HasPrefix(relPath, "..") {
 			// Path is within invowkfile dir - map to /workspace
 			return "/workspace/" + filepath.ToSlash(relPath)
 		}
 		// Path is outside invowkfile dir - use as-is (must exist in container or be a mounted path)
-		return effectiveWorkDir
+		return string(effectiveWorkDir)
 	}
 
 	// Relative path - join with /workspace
-	return "/workspace/" + filepath.ToSlash(effectiveWorkDir)
+	return "/workspace/" + filepath.ToSlash(string(effectiveWorkDir))
 }

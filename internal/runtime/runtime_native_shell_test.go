@@ -21,7 +21,7 @@ import (
 // TestNativeRuntime_getShell tests shell detection.
 func TestNativeRuntime_getShell(t *testing.T) {
 	t.Run("uses custom shell when set", func(t *testing.T) {
-		rt := &NativeRuntime{Shell: "/custom/shell"}
+		rt := NewNativeRuntime(WithShell("/custom/shell"))
 		shell, err := rt.getShell()
 		if err != nil {
 			t.Errorf("getShell() unexpected error: %v", err)
@@ -156,7 +156,7 @@ func TestNativeRuntime_getShellArgs(t *testing.T) {
 			if tt.skipOnNonWin && goruntime.GOOS != "windows" {
 				t.Skip("skipping: Windows-style backslash paths only work on Windows")
 			}
-			testRt := &NativeRuntime{ShellArgs: tt.shellArgs}
+			testRt := NewNativeRuntime(WithShellArgs(tt.shellArgs))
 			got := testRt.getShellArgs(tt.shell)
 			if len(got) != len(tt.want) {
 				t.Errorf("getShellArgs(%q) length = %d, want %d", tt.shell, len(got), len(tt.want))
@@ -175,10 +175,7 @@ func TestNativeRuntime_getShellArgs(t *testing.T) {
 func TestNativeRuntime_ShellNotFoundError(t *testing.T) {
 	t.Parallel()
 
-	rt := &NativeRuntime{
-		// Set a shell that doesn't exist to force an error
-		Shell: "/this/shell/does/not/exist",
-	}
+	rt := NewNativeRuntime(WithShell("/this/shell/does/not/exist"))
 
 	// getShell should still succeed because it uses Shell directly
 	shell, err := rt.getShell()
@@ -217,7 +214,7 @@ func TestNativeRuntime_ShellNotFoundError(t *testing.T) {
 func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
 	t.Parallel()
 
-	rt := &NativeRuntime{}
+	rt := NewNativeRuntime()
 
 	// Get an actionable error
 	errVal := rt.shellNotFoundError([]string{"bash", "sh"})
@@ -249,7 +246,7 @@ func TestNativeRuntime_ExecuteCapture_Shell(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	script := `echo "captured stdout"
@@ -284,7 +281,7 @@ func TestNativeRuntime_MockEnvBuilder_Error(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := testCommandWithScript("env-error", "echo test", invowkfile.RuntimeNative)
@@ -316,7 +313,7 @@ func TestNativeRuntime_MockEnvBuilder_CaptureError(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
-		FilePath: filepath.Join(tmpDir, "invowkfile.cue"),
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 
 	cmd := testCommandWithScript("env-error-capture", "echo test", invowkfile.RuntimeNative)

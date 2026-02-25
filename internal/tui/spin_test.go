@@ -3,6 +3,8 @@
 package tui
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -275,28 +277,118 @@ func TestParseSpinnerType(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected SpinnerType
+		wantErr  bool
 	}{
-		{"line", SpinnerLine},
-		{"dot", SpinnerDot},
-		{"minidot", SpinnerMiniDot},
-		{"jump", SpinnerJump},
-		{"pulse", SpinnerPulse},
-		{"points", SpinnerPoints},
-		{"globe", SpinnerGlobe},
-		{"moon", SpinnerMoon},
-		{"monkey", SpinnerMonkey},
-		{"meter", SpinnerMeter},
-		{"hamburger", SpinnerHamburger},
-		{"ellipsis", SpinnerEllipsis},
-		{"unknown", SpinnerLine}, // Unknown defaults to Line
+		{"line", SpinnerLine, false},
+		{"dot", SpinnerDot, false},
+		{"minidot", SpinnerMiniDot, false},
+		{"jump", SpinnerJump, false},
+		{"pulse", SpinnerPulse, false},
+		{"points", SpinnerPoints, false},
+		{"globe", SpinnerGlobe, false},
+		{"moon", SpinnerMoon, false},
+		{"monkey", SpinnerMonkey, false},
+		{"meter", SpinnerMeter, false},
+		{"hamburger", SpinnerHamburger, false},
+		{"ellipsis", SpinnerEllipsis, false},
+		{"unknown", 0, true},
+		{"", 0, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			t.Parallel()
-			result := ParseSpinnerType(tt.input)
+			result, err := ParseSpinnerType(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ParseSpinnerType(%q) should return error", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseSpinnerType(%q) unexpected error: %v", tt.input, err)
+			}
 			if result != tt.expected {
 				t.Errorf("ParseSpinnerType(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSpinnerType_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		st      SpinnerType
+		want    bool
+		wantErr bool
+	}{
+		{SpinnerLine, true, false},
+		{SpinnerDot, true, false},
+		{SpinnerMiniDot, true, false},
+		{SpinnerJump, true, false},
+		{SpinnerPulse, true, false},
+		{SpinnerPoints, true, false},
+		{SpinnerGlobe, true, false},
+		{SpinnerMoon, true, false},
+		{SpinnerMonkey, true, false},
+		{SpinnerMeter, true, false},
+		{SpinnerHamburger, true, false},
+		{SpinnerEllipsis, true, false},
+		{SpinnerType(99), false, true},
+		{SpinnerType(-1), false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("SpinnerType_%d", tt.st), func(t *testing.T) {
+			t.Parallel()
+			isValid, errs := tt.st.IsValid()
+			if isValid != tt.want {
+				t.Errorf("SpinnerType(%d).IsValid() = %v, want %v", tt.st, isValid, tt.want)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Fatalf("SpinnerType(%d).IsValid() returned no errors, want error", tt.st)
+				}
+				if !errors.Is(errs[0], ErrInvalidSpinnerType) {
+					t.Errorf("error should wrap ErrInvalidSpinnerType, got: %v", errs[0])
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("SpinnerType(%d).IsValid() returned unexpected errors: %v", tt.st, errs)
+			}
+		})
+	}
+}
+
+func TestSpinnerType_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		st   SpinnerType
+		want string
+	}{
+		{SpinnerLine, "line"},
+		{SpinnerDot, "dot"},
+		{SpinnerMiniDot, "minidot"},
+		{SpinnerJump, "jump"},
+		{SpinnerPulse, "pulse"},
+		{SpinnerPoints, "points"},
+		{SpinnerGlobe, "globe"},
+		{SpinnerMoon, "moon"},
+		{SpinnerMonkey, "monkey"},
+		{SpinnerMeter, "meter"},
+		{SpinnerHamburger, "hamburger"},
+		{SpinnerEllipsis, "ellipsis"},
+		{SpinnerType(99), "unknown(99)"},
+		{SpinnerType(-1), "unknown(-1)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			t.Parallel()
+			got := tt.st.String()
+			if got != tt.want {
+				t.Errorf("SpinnerType(%d).String() = %q, want %q", tt.st, got, tt.want)
 			}
 		})
 	}

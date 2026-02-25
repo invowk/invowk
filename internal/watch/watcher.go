@@ -9,6 +9,7 @@ package watch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -21,6 +22,9 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fsnotify/fsnotify"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // defaultDebounce is the delay before firing the onChange callback after the
@@ -28,19 +32,24 @@ import (
 // writing then renaming a temp file) to coalesce into a single callback.
 const defaultDebounce = 500 * time.Millisecond
 
-// defaultIgnores lists path patterns that are always excluded from watching,
-// regardless of user-supplied ignore patterns. These cover VCS metadata,
-// dependency caches, editor swap files, and OS metadata files that generate
-// high-frequency noise.
-var defaultIgnores = []string{
-	"**/.git/**",
-	"**/node_modules/**",
-	"**/__pycache__/**",
-	"**/*.swp",
-	"**/*.swo",
-	"**/*~",
-	"**/.DS_Store",
-}
+var (
+	// defaultIgnores lists path patterns that are always excluded from watching,
+	// regardless of user-supplied ignore patterns. These cover VCS metadata,
+	// dependency caches, editor swap files, and OS metadata files that generate
+	// high-frequency noise.
+	defaultIgnores = []invowkfile.GlobPattern{
+		"**/.git/**",
+		"**/node_modules/**",
+		"**/__pycache__/**",
+		"**/*.swp",
+		"**/*.swo",
+		"**/*~",
+		"**/.DS_Store",
+	}
+
+	// ErrInvalidWatchConfig is the sentinel error wrapped by InvalidWatchConfigError.
+	ErrInvalidWatchConfig = errors.New("invalid watch config")
+)
 
 type (
 	// Config holds the parameters for a Watcher.
@@ -48,12 +57,12 @@ type (
 		// Patterns are doublestar-compatible glob patterns (e.g., "**/*.go")
 		// that select which files trigger callbacks. An empty slice watches all
 		// non-ignored files.
-		Patterns []string
+		Patterns []invowkfile.GlobPattern
 
 		// Ignore are additional doublestar-compatible glob patterns for paths
 		// that should never trigger callbacks. These are merged with the
 		// built-in default ignores.
-		Ignore []string
+		Ignore []invowkfile.GlobPattern
 
 		// Debounce is the quiet period after the last event before the callback
 		// fires. Zero or negative values fall back to defaultDebounce.
@@ -68,7 +77,7 @@ type (
 		// BaseDir is the root directory to watch. All patterns are resolved
 		// relative to this path. An empty value defaults to the current working
 		// directory.
-		BaseDir string
+		BaseDir types.FilesystemPath
 
 		// OnChange is called after the debounce window closes with the
 		// deduplicated list of changed file paths (relative to BaseDir). A nil
@@ -91,13 +100,19 @@ type (
 	Watcher struct {
 		cfg      Config
 		fsw      *fsnotify.Watcher
-		ignores  []string
+		ignores  []invowkfile.GlobPattern
 		stdout   io.Writer
 		stderr   io.Writer
 		debounce time.Duration
-		baseDir  string
+		baseDir  string // Resolved absolute path; string because it comes from filepath.Abs
 		started  atomic.Bool
 		closed   atomic.Bool
+	}
+
+	// InvalidWatchConfigError is returned when a Config has one or more
+	// invalid typed fields. FieldErrors contains the per-field validation errors.
+	InvalidWatchConfigError struct {
+		FieldErrors []error
 	}
 )
 
@@ -105,26 +120,64 @@ func init() {
 	// Validate default ignore patterns at startup. These are programmer-controlled
 	// constants; a match error here is always a code bug, not a user error.
 	for _, pat := range defaultIgnores {
-		if _, err := doublestar.Match(pat, ""); err != nil {
+		if _, err := doublestar.Match(string(pat), ""); err != nil {
 			panic(fmt.Sprintf("BUG: invalid default ignore pattern %q: %v", pat, err))
 		}
 	}
 }
 
+// IsValid returns whether all typed fields in the Config are valid.
+// Debounce, ClearScreen, OnChange, Stdout, and Stderr are skipped (non-domain types).
+// BaseDir is only validated when non-empty, since empty means "use current working directory".
+// Each GlobPattern in Patterns and Ignore is validated individually.
+func (c Config) IsValid() (bool, []error) {
+	var errs []error
+	for i, p := range c.Patterns {
+		if valid, fieldErrs := p.IsValid(); !valid {
+			errs = append(errs, fmt.Errorf("patterns[%d]: %w", i, fieldErrs[0]))
+		}
+	}
+	for i, ig := range c.Ignore {
+		if valid, fieldErrs := ig.IsValid(); !valid {
+			errs = append(errs, fmt.Errorf("ignore[%d]: %w", i, fieldErrs[0]))
+		}
+	}
+	if c.BaseDir != "" {
+		if valid, fieldErrs := c.BaseDir.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidWatchConfigError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidWatchConfigError.
+func (e *InvalidWatchConfigError) Error() string {
+	if len(e.FieldErrors) == 1 {
+		return fmt.Sprintf("invalid watch config: %v", e.FieldErrors[0])
+	}
+	return fmt.Sprintf("invalid watch config: %d field errors", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidWatchConfig for errors.Is() compatibility.
+func (e *InvalidWatchConfigError) Unwrap() error { return ErrInvalidWatchConfig }
+
 // New creates a Watcher from the given Config. It resolves BaseDir to an
 // absolute path, initialises the underlying fsnotify watcher, and registers
 // all non-ignored directories under BaseDir for monitoring.
 func New(cfg Config) (*Watcher, error) {
-	baseDir := cfg.BaseDir
-	if baseDir == "" {
+	baseDirStr := string(cfg.BaseDir)
+	if baseDirStr == "" {
 		wd, err := os.Getwd()
 		if err != nil {
 			return nil, fmt.Errorf("watch: determine working directory: %w", err)
 		}
-		baseDir = wd
+		baseDirStr = wd
 	}
 
-	absBase, err := filepath.Abs(baseDir)
+	absBase, err := filepath.Abs(baseDirStr)
 	if err != nil {
 		return nil, fmt.Errorf("watch: resolve base directory: %w", err)
 	}
@@ -158,7 +211,7 @@ func New(cfg Config) (*Watcher, error) {
 	}
 
 	// Merge user ignores with built-in defaults.
-	ignores := make([]string, 0, len(defaultIgnores)+len(cfg.Ignore))
+	ignores := make([]invowkfile.GlobPattern, 0, len(defaultIgnores)+len(cfg.Ignore))
 	ignores = append(ignores, defaultIgnores...)
 	ignores = append(ignores, cfg.Ignore...)
 
@@ -447,7 +500,7 @@ func (w *Watcher) isIgnored(rel string) bool {
 	// Normalise to forward slashes for consistent glob matching.
 	normalized := filepath.ToSlash(rel)
 	for _, pat := range w.ignores {
-		matched, matchErr := doublestar.Match(pat, normalized)
+		matched, matchErr := doublestar.Match(string(pat), normalized)
 		if matchErr != nil {
 			fmt.Fprintf(w.stderr, "watch: ignore pattern %q match error for %q: %v\n", pat, normalized, matchErr)
 			continue
@@ -477,7 +530,7 @@ func (w *Watcher) matchesPatterns(rel string) bool {
 	}
 	normalized := filepath.ToSlash(rel)
 	for _, pat := range w.cfg.Patterns {
-		matched, matchErr := doublestar.Match(pat, normalized)
+		matched, matchErr := doublestar.Match(string(pat), normalized)
 		if matchErr != nil {
 			fmt.Fprintf(w.stderr, "watch: pattern %q match error for %q: %v\n", pat, normalized, matchErr)
 			continue
@@ -491,15 +544,15 @@ func (w *Watcher) matchesPatterns(rel string) bool {
 
 // DefaultIgnores returns a copy of the built-in ignore patterns. This is
 // useful for tests and tooling that need to verify the default behaviour.
-func DefaultIgnores() []string {
+func DefaultIgnores() []invowkfile.GlobPattern {
 	return slices.Clone(defaultIgnores)
 }
 
 // validatePatterns checks that every pattern in the slice is a valid doublestar
 // glob. The label (e.g., "watch" or "ignore") is used in error messages.
-func validatePatterns(patterns []string, label string) error {
+func validatePatterns(patterns []invowkfile.GlobPattern, label string) error {
 	for _, pat := range patterns {
-		if _, err := doublestar.Match(pat, ""); err != nil {
+		if _, err := doublestar.Match(string(pat), ""); err != nil {
 			return fmt.Errorf("watch: invalid %s pattern %q: %w", label, pat, err)
 		}
 	}

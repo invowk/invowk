@@ -20,32 +20,32 @@ func TestActionableError_Error(t *testing.T) {
 		{
 			name: "operation only",
 			err: &ActionableError{
-				Operation: "load invowkfile",
+				operation: "load invowkfile",
 			},
 			expected: "failed to load invowkfile",
 		},
 		{
 			name: "operation with resource",
 			err: &ActionableError{
-				Operation: "load invowkfile",
-				Resource:  "./invowkfile.cue",
+				operation: "load invowkfile",
+				resource:  "./invowkfile.cue",
 			},
 			expected: "failed to load invowkfile: ./invowkfile.cue",
 		},
 		{
 			name: "operation with cause",
 			err: &ActionableError{
-				Operation: "parse config",
-				Cause:     errors.New("syntax error at line 5"),
+				operation: "parse config",
+				cause:     errors.New("syntax error at line 5"),
 			},
 			expected: "failed to parse config: syntax error at line 5",
 		},
 		{
 			name: "full context",
 			err: &ActionableError{
-				Operation: "load invowkfile",
-				Resource:  "./invowkfile.cue",
-				Cause:     errors.New("file not found"),
+				operation: "load invowkfile",
+				resource:  "./invowkfile.cue",
+				cause:     errors.New("file not found"),
 			},
 			expected: "failed to load invowkfile: ./invowkfile.cue: file not found",
 		},
@@ -68,8 +68,8 @@ func TestActionableError_Unwrap(t *testing.T) {
 
 	cause := errors.New("underlying error")
 	err := &ActionableError{
-		Operation: "test",
-		Cause:     cause,
+		operation: "test",
+		cause:     cause,
 	}
 
 	// Test that Unwrap returns the cause (use errors.Is for proper comparison)
@@ -77,7 +77,7 @@ func TestActionableError_Unwrap(t *testing.T) {
 		t.Error("Unwrap() should return the cause error")
 	}
 
-	errNoCause := &ActionableError{Operation: "test"}
+	errNoCause := &ActionableError{operation: "test"}
 	if errNoCause.Unwrap() != nil {
 		t.Error("Unwrap() should return nil when no cause")
 	}
@@ -88,8 +88,8 @@ func TestActionableError_ErrorsIs(t *testing.T) {
 
 	cause := errors.New("specific error")
 	wrapped := &ActionableError{
-		Operation: "test",
-		Cause:     cause,
+		operation: "test",
+		cause:     cause,
 	}
 
 	if !errors.Is(wrapped, cause) {
@@ -110,7 +110,7 @@ func TestActionableError_Format(t *testing.T) {
 		{
 			name: "simple error non-verbose",
 			err: &ActionableError{
-				Operation: "load config",
+				operation: "load config",
 			},
 			verbose:  false,
 			contains: []string{"failed to load config"},
@@ -118,9 +118,9 @@ func TestActionableError_Format(t *testing.T) {
 		{
 			name: "error with suggestions",
 			err: &ActionableError{
-				Operation:   "load invowkfile",
-				Resource:    "./invowkfile.cue",
-				Suggestions: []string{"Run 'invowk init'", "Check file permissions"},
+				operation:   "load invowkfile",
+				resource:    "./invowkfile.cue",
+				suggestions: []string{"Run 'invowk init'", "Check file permissions"},
 			},
 			verbose: false,
 			contains: []string{
@@ -133,8 +133,8 @@ func TestActionableError_Format(t *testing.T) {
 		{
 			name: "error chain in verbose mode",
 			err: &ActionableError{
-				Operation: "parse config",
-				Cause:     errors.New("syntax error"),
+				operation: "parse config",
+				cause:     errors.New("syntax error"),
 			},
 			verbose: true,
 			contains: []string{
@@ -146,8 +146,8 @@ func TestActionableError_Format(t *testing.T) {
 		{
 			name: "no error chain in non-verbose",
 			err: &ActionableError{
-				Operation: "parse config",
-				Cause:     errors.New("syntax error"),
+				operation: "parse config",
+				cause:     errors.New("syntax error"),
 			},
 			verbose:  false,
 			contains: []string{"failed to parse config: syntax error"},
@@ -156,10 +156,10 @@ func TestActionableError_Format(t *testing.T) {
 		{
 			name: "nested error chain verbose",
 			err: &ActionableError{
-				Operation: "execute command",
-				Cause: &ActionableError{
-					Operation: "load script",
-					Cause:     errors.New("file not found"),
+				operation: "execute command",
+				cause: &ActionableError{
+					operation: "load script",
+					cause:     errors.New("file not found"),
 				},
 			},
 			verbose: true,
@@ -196,15 +196,15 @@ func TestActionableError_HasSuggestions(t *testing.T) {
 	t.Parallel()
 
 	withSuggestions := &ActionableError{
-		Operation:   "test",
-		Suggestions: []string{"Try this"},
+		operation:   "test",
+		suggestions: []string{"Try this"},
 	}
 	if !withSuggestions.HasSuggestions() {
 		t.Error("HasSuggestions() should return true when suggestions present")
 	}
 
 	withoutSuggestions := &ActionableError{
-		Operation: "test",
+		operation: "test",
 	}
 	if withoutSuggestions.HasSuggestions() {
 		t.Error("HasSuggestions() should return false when no suggestions")
@@ -228,8 +228,8 @@ func TestErrorContext_Build(t *testing.T) {
 			wantNil: false,
 			checkError: func(t *testing.T, err *ActionableError) {
 				t.Helper()
-				if err.Operation != "test operation" {
-					t.Errorf("Operation = %q, want %q", err.Operation, "test operation")
+				if err.operation != "test operation" {
+					t.Errorf("Operation = %q, want %q", err.operation, "test operation")
 				}
 			},
 		},
@@ -253,17 +253,17 @@ func TestErrorContext_Build(t *testing.T) {
 			wantNil: false,
 			checkError: func(t *testing.T, err *ActionableError) {
 				t.Helper()
-				if err.Operation != "load config" {
-					t.Errorf("Operation = %q", err.Operation)
+				if err.operation != "load config" {
+					t.Errorf("Operation = %q", err.operation)
 				}
-				if err.Resource != "/etc/app/config.yaml" {
-					t.Errorf("Resource = %q", err.Resource)
+				if err.resource != "/etc/app/config.yaml" {
+					t.Errorf("Resource = %q", err.resource)
 				}
-				if len(err.Suggestions) != 2 {
-					t.Errorf("Suggestions count = %d, want 2", len(err.Suggestions))
+				if len(err.suggestions) != 2 {
+					t.Errorf("Suggestions count = %d, want 2", len(err.suggestions))
 				}
-				if err.Cause == nil || err.Cause.Error() != "parse error" {
-					t.Errorf("Cause = %v", err.Cause)
+				if err.cause == nil || err.cause.Error() != "parse error" {
+					t.Errorf("Cause = %v", err.cause)
 				}
 			},
 		},
@@ -277,8 +277,8 @@ func TestErrorContext_Build(t *testing.T) {
 			wantNil: false,
 			checkError: func(t *testing.T, err *ActionableError) {
 				t.Helper()
-				if len(err.Suggestions) != 3 {
-					t.Errorf("Suggestions count = %d, want 3", len(err.Suggestions))
+				if len(err.suggestions) != 3 {
+					t.Errorf("Suggestions count = %d, want 3", len(err.suggestions))
 				}
 			},
 		},
@@ -338,13 +338,13 @@ func TestNewActionableError(t *testing.T) {
 
 	err := NewActionableError("test operation")
 
-	if err.Operation != "test operation" {
-		t.Errorf("Operation = %q", err.Operation)
+	if err.operation != "test operation" {
+		t.Errorf("Operation = %q", err.operation)
 	}
-	if err.Resource != "" {
-		t.Errorf("Resource should be empty, got %q", err.Resource)
+	if err.resource != "" {
+		t.Errorf("Resource should be empty, got %q", err.resource)
 	}
-	if err.Cause != nil {
+	if err.cause != nil {
 		t.Error("Cause should be nil")
 	}
 }
@@ -359,11 +359,11 @@ func TestWrapWithOperation(t *testing.T) {
 		t.Fatal("WrapWithOperation returned nil")
 	}
 
-	if err.Operation != "process file" {
-		t.Errorf("Operation = %q", err.Operation)
+	if err.operation != "process file" {
+		t.Errorf("Operation = %q", err.operation)
 	}
 
-	if !errors.Is(err.Cause, cause) {
+	if !errors.Is(err.cause, cause) {
 		t.Error("Cause should be the original error")
 	}
 
@@ -384,15 +384,15 @@ func TestWrapWithContext(t *testing.T) {
 		t.Fatal("WrapWithContext returned nil")
 	}
 
-	if err.Operation != "load file" {
-		t.Errorf("Operation = %q", err.Operation)
+	if err.operation != "load file" {
+		t.Errorf("Operation = %q", err.operation)
 	}
 
-	if err.Resource != "/path/to/file" {
-		t.Errorf("Resource = %q", err.Resource)
+	if err.resource != "/path/to/file" {
+		t.Errorf("Resource = %q", err.resource)
 	}
 
-	if !errors.Is(err.Cause, cause) {
+	if !errors.Is(err.cause, cause) {
 		t.Error("Cause should be the original error")
 	}
 
@@ -423,11 +423,11 @@ func TestErrorContext_Reuse(t *testing.T) {
 	err2 := ctx.Wrap(errors.New("error 2")).Build()
 
 	// Both should have the same operation/resource but different causes
-	if err1.Cause.Error() == err2.Cause.Error() {
+	if err1.cause.Error() == err2.cause.Error() {
 		t.Error("Reused context should allow different causes")
 	}
 
-	if err1.Operation != err2.Operation {
+	if err1.operation != err2.operation {
 		t.Error("Reused context should preserve operation")
 	}
 }

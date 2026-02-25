@@ -28,7 +28,7 @@ type (
 		// NoLimit allows unlimited selections in multi-select mode.
 		NoLimit bool `json:"no_limit,omitempty"`
 		// Height limits the number of visible options (0 for auto).
-		Height int `json:"height,omitempty"`
+		Height TerminalDimension `json:"height,omitempty"`
 		// Config holds common TUI configuration (internal only, not from protocol).
 		Config Config `json:"-"`
 	}
@@ -88,7 +88,7 @@ type (
 		// Options is the list of options to choose from.
 		Options []Option[T]
 		// Height limits the number of visible options (0 for auto).
-		Height int
+		Height TerminalDimension
 		// Cursor is the character used for the cursor (default: "> ").
 		Cursor string
 		// Config holds common TUI configuration.
@@ -106,7 +106,7 @@ type (
 		// Limit is the maximum number of selections (0 for no limit).
 		Limit int
 		// Height limits the number of visible options (0 for auto).
-		Height int
+		Height TerminalDimension
 		// Config holds common TUI configuration.
 		Config Config
 	}
@@ -358,14 +358,14 @@ func (m *chooseModel) Cancelled() bool {
 }
 
 // SetSize implements EmbeddableComponent.
-func (m *chooseModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+func (m *chooseModel) SetSize(width, height TerminalDimension) {
+	m.width = int(width)
+	m.height = int(height)
 	if m.isMulti {
-		m.list.SetWidth(width)
-		m.list.SetHeight(height - 2)
+		m.list.SetWidth(int(width))
+		m.list.SetHeight(int(height) - 2)
 	} else {
-		m.form = m.form.WithWidth(width).WithHeight(height)
+		m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
 	}
 }
 
@@ -400,7 +400,7 @@ func Choose[T comparable](opts ChooseOptions[T]) (T, error) {
 		Value(&result)
 
 	if opts.Height > 0 {
-		sel = sel.Height(opts.Height)
+		sel = sel.Height(int(opts.Height))
 	}
 
 	form := huh.NewForm(huh.NewGroup(sel)).
@@ -471,7 +471,7 @@ func MultiChoose[T comparable](opts MultiChooseOptions[T]) ([]T, error) {
 	}
 
 	if opts.Height > 0 {
-		sel = sel.Height(opts.Height)
+		sel = sel.Height(int(opts.Height))
 	}
 
 	form := huh.NewForm(huh.NewGroup(sel)).
@@ -536,7 +536,7 @@ func (b *ChooseBuilder[T]) OptionsFromSlice(values []T, titleFunc func(T) string
 }
 
 // Height sets the visible height.
-func (b *ChooseBuilder[T]) Height(height int) *ChooseBuilder[T] {
+func (b *ChooseBuilder[T]) Height(height TerminalDimension) *ChooseBuilder[T] {
 	b.opts.Height = height
 	return b
 }
@@ -598,7 +598,7 @@ func (b *MultiChooseBuilder[T]) Limit(limit int) *MultiChooseBuilder[T] {
 }
 
 // Height sets the visible height.
-func (b *MultiChooseBuilder[T]) Height(height int) *MultiChooseBuilder[T] {
+func (b *MultiChooseBuilder[T]) Height(height TerminalDimension) *MultiChooseBuilder[T] {
 	b.opts.Height = height
 	return b
 }
@@ -654,7 +654,7 @@ func (b *ChooseStringBuilder) NoLimit() *ChooseStringBuilder {
 }
 
 // Height sets the visible height.
-func (b *ChooseStringBuilder) Height(height int) *ChooseStringBuilder {
+func (b *ChooseStringBuilder) Height(height TerminalDimension) *ChooseStringBuilder {
 	b.opts.Height = height
 	return b
 }
@@ -696,7 +696,7 @@ func newSingleChooseModelWithTheme(opts ChooseStringOptions, theme *huh.Theme) *
 		Value(&result)
 
 	if opts.Height > 0 {
-		sel = sel.Height(opts.Height)
+		sel = sel.Height(int(opts.Height))
 	}
 
 	form := huh.NewForm(huh.NewGroup(sel)).
@@ -722,7 +722,7 @@ func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *choo
 		items[i] = chooseItem{text: opt, index: i}
 	}
 
-	height := opts.Height
+	height := int(opts.Height)
 	if height == 0 {
 		height = 10
 	}

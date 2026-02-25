@@ -155,6 +155,7 @@ func TestParseVolumeMount(t *testing.T) {
 		name     string
 		volume   string
 		expected VolumeMount
+		wantErr  bool
 	}{
 		{
 			name:   "simple mount",
@@ -193,18 +194,19 @@ func TestParseVolumeMount(t *testing.T) {
 			},
 		},
 		{
-			name:   "host only",
+			name:   "host only (invalid - no container path)",
 			volume: "/host",
 			expected: VolumeMount{
 				HostPath: "/host",
 			},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := ParseVolumeMount(tt.volume)
+			got, errs := ParseVolumeMount(tt.volume)
 			if got.HostPath != tt.expected.HostPath {
 				t.Errorf("HostPath = %q, want %q", got.HostPath, tt.expected.HostPath)
 			}
@@ -216,6 +218,13 @@ func TestParseVolumeMount(t *testing.T) {
 			}
 			if got.SELinux != tt.expected.SELinux {
 				t.Errorf("SELinux = %q, want %q", got.SELinux, tt.expected.SELinux)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Error("ParseVolumeMount() returned no errors, want error")
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ParseVolumeMount() returned unexpected errors: %v", errs)
 			}
 		})
 	}
@@ -362,6 +371,7 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 		name     string
 		volume   string
 		expected VolumeMount
+		wantErr  bool
 	}{
 		{
 			name:   "empty string",
@@ -369,6 +379,7 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 			expected: VolumeMount{
 				HostPath: "",
 			},
+			wantErr: true, // empty host path is invalid
 		},
 		{
 			name:   "only colons",
@@ -377,6 +388,7 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 				HostPath:      "",
 				ContainerPath: "",
 			},
+			wantErr: true, // empty host and container paths
 		},
 		{
 			name:   "single colon",
@@ -385,6 +397,7 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 				HostPath:      "",
 				ContainerPath: "",
 			},
+			wantErr: true, // empty host and container paths
 		},
 		{
 			name:   "multiple options",
@@ -422,18 +435,19 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name:   "anonymous volume",
+			name:   "anonymous volume (invalid - no container path)",
 			volume: "/data",
 			expected: VolumeMount{
 				HostPath: "/data",
 			},
+			wantErr: true, // no container path
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := ParseVolumeMount(tt.volume)
+			got, errs := ParseVolumeMount(tt.volume)
 			if got.HostPath != tt.expected.HostPath {
 				t.Errorf("HostPath = %q, want %q", got.HostPath, tt.expected.HostPath)
 			}
@@ -445,6 +459,13 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 			}
 			if got.SELinux != tt.expected.SELinux {
 				t.Errorf("SELinux = %q, want %q", got.SELinux, tt.expected.SELinux)
+			}
+			if tt.wantErr {
+				if len(errs) == 0 {
+					t.Error("ParseVolumeMount() returned no errors, want error")
+				}
+			} else if len(errs) > 0 {
+				t.Errorf("ParseVolumeMount() returned unexpected errors: %v", errs)
 			}
 		})
 	}

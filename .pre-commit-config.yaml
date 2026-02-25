@@ -10,5 +10,19 @@ repos:
     rev: v2.9.0
     hooks:
       - id: golangci-lint
+        name: golangci-lint (ci parity)
+        entry: golangci-lint run
         args: [--config=.golangci.toml, ./...]
         pass_filenames: false
+        always_run: true
+
+  - repo: local
+    hooks:
+      - id: goplint-baseline
+        name: goplint baseline check
+        entry: "bash -c 'make check-baseline 2>&1'"
+        language: system
+        pass_filenames: false
+        types: [go]
+        always_run: true
+        verbose: true

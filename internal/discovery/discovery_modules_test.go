@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestSourceModule_String(t *testing.T) {
@@ -69,8 +70,8 @@ func TestDiscoverAll_FindsModulesInUserDir(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
-		WithCommandsDir(userCmdsDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -111,10 +112,10 @@ func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: moduleDir},
+		{Path: config.ModuleIncludePath(moduleDir)},
 	}
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -303,8 +304,8 @@ description: "A test module"
 		t.Fatal("Invowkfile.Metadata should not be nil for module-parsed file")
 	}
 
-	if moduleFile.Invowkfile.Metadata.Description != "A test module" {
-		t.Errorf("Invowkfile.Metadata.Description = %s, want 'A test module'", moduleFile.Invowkfile.Metadata.Description)
+	if moduleFile.Invowkfile.Metadata.Description() != "A test module" {
+		t.Errorf("Invowkfile.Metadata.Description() = %s, want 'A test module'", moduleFile.Invowkfile.Metadata.Description())
 	}
 
 	// Verify that ModulePath is set on the parsed invowkfile
@@ -369,11 +370,11 @@ func TestDiscoverAll_ConfigIncludesPrecedeUserDir(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: configModuleDir},
+		{Path: config.ModuleIncludePath(configModuleDir)},
 	}
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
-		WithCommandsDir(userCmdsDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)
 
 	files, err := d.DiscoverAll()

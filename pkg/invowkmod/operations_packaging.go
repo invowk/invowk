@@ -9,13 +9,16 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
-func Archive(modulePath, outputPath string) (archivePath string, err error) {
+func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.FilesystemPath, err error) {
 	// Load and validate the module first
 	m, err := Load(modulePath)
 	if err != nil {
@@ -23,12 +26,13 @@ func Archive(modulePath, outputPath string) (archivePath string, err error) {
 	}
 
 	// Determine output path
-	if outputPath == "" {
-		outputPath = string(m.Name()) + ModuleSuffix + ".zip"
+	outputStr := string(outputPath)
+	if outputStr == "" {
+		outputStr = string(m.Name()) + ModuleSuffix + ".zip"
 	}
 
 	// Resolve absolute output path
-	absOutputPath, err := filepath.Abs(outputPath)
+	absOutputPath, err := filepath.Abs(outputStr)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve output path: %w", err)
 	}
@@ -52,16 +56,16 @@ func Archive(modulePath, outputPath string) (archivePath string, err error) {
 	}()
 
 	// Get the module directory name for the ZIP root
-	moduleDirName := filepath.Base(m.Path)
+	moduleDirName := filepath.Base(string(m.Path))
 
 	// Walk the module directory and add files to the ZIP
-	walkErr := filepath.WalkDir(m.Path, func(path string, d os.DirEntry, walkErr error) error {
+	walkErr := filepath.WalkDir(string(m.Path), func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 
 		// Get relative path from module root
-		relPath, relErr := filepath.Rel(m.Path, path)
+		relPath, relErr := filepath.Rel(string(m.Path), path)
 		if relErr != nil {
 			return fmt.Errorf("failed to get relative path: %w", relErr)
 		}
@@ -124,7 +128,7 @@ func Archive(modulePath, outputPath string) (archivePath string, err error) {
 		return "", err
 	}
 
-	return absOutputPath, nil
+	return types.FilesystemPath(absOutputPath), nil
 }
 
 // Unpack extracts a module from a ZIP archive.
@@ -135,7 +139,7 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	}
 
 	// Default destination to current directory
-	destDir := opts.DestDir
+	destDir := string(opts.DestDir)
 	if destDir == "" {
 		destDir, err = os.Getwd()
 		if err != nil {
@@ -190,8 +194,16 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	// Find the module root directory in the ZIP
 	var moduleRoot string
 	for _, file := range zipReader.File {
+		cleanPath := path.Clean(strings.ReplaceAll(file.Name, "\\", "/"))
+		if cleanPath == "." || cleanPath == "" ||
+			strings.HasPrefix(cleanPath, "/") ||
+			cleanPath == ".." ||
+			strings.HasPrefix(cleanPath, "../") {
+			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
+		}
+
 		// Look for the .invowkmod directory
-		parts := strings.Split(file.Name, "/")
+		parts := strings.Split(cleanPath, "/")
 		if len(parts) > 0 && strings.HasSuffix(parts[0], ModuleSuffix) {
 			moduleRoot = parts[0]
 			break
@@ -203,7 +215,14 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	}
 
 	// Check if module already exists
-	modulePath := filepath.Join(absDestDir, moduleRoot)
+	modulePath := filepath.Join(absDestDir, filepath.FromSlash(moduleRoot))
+	moduleRelPath, relErr := filepath.Rel(absDestDir, modulePath)
+	if relErr != nil ||
+		moduleRelPath == ".." ||
+		strings.HasPrefix(moduleRelPath, ".."+string(filepath.Separator)) ||
+		filepath.IsAbs(moduleRelPath) {
+		return "", fmt.Errorf("invalid module root in ZIP: %s", moduleRoot)
+	}
 	if _, statErr := os.Stat(modulePath); statErr == nil {
 		if !opts.Overwrite {
 			return "", fmt.Errorf("module already exists at %s (use overwrite option to replace)", modulePath)
@@ -216,17 +235,28 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 
 	// Extract files
 	for _, file := range zipReader.File {
+		cleanPath := path.Clean(strings.ReplaceAll(file.Name, "\\", "/"))
+		if cleanPath == "." || cleanPath == "" ||
+			strings.HasPrefix(cleanPath, "/") ||
+			cleanPath == ".." ||
+			strings.HasPrefix(cleanPath, "../") {
+			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
+		}
+
 		// Skip files not in the module root
-		if !strings.HasPrefix(file.Name, moduleRoot) {
+		if cleanPath != moduleRoot && !strings.HasPrefix(cleanPath, moduleRoot+"/") {
 			continue
 		}
 
 		// Construct destination path
-		destPath := filepath.Join(absDestDir, filepath.FromSlash(file.Name))
+		destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
 
 		// Validate path doesn't escape destination (security check)
 		relPath, relErr := filepath.Rel(absDestDir, destPath)
-		if relErr != nil || strings.HasPrefix(relPath, "..") {
+		if relErr != nil ||
+			relPath == ".." ||
+			strings.HasPrefix(relPath, ".."+string(filepath.Separator)) ||
+			filepath.IsAbs(relPath) {
 			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
 		}
 
@@ -251,7 +281,7 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	}
 
 	// Validate the extracted module
-	_, err = Load(modulePath)
+	_, err = Load(types.FilesystemPath(modulePath))
 	if err != nil {
 		// Clean up on validation failure (best-effort)
 		_ = os.RemoveAll(modulePath)

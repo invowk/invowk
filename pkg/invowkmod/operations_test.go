@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestIsModule(t *testing.T) {
@@ -165,7 +167,7 @@ func TestIsModule(t *testing.T) {
 			t.Parallel()
 
 			path := tt.setup(t)
-			result := IsModule(path)
+			result := IsModule(types.FilesystemPath(path))
 			if result != tt.expected {
 				t.Errorf("IsModule(%q) = %v, want %v", path, result, tt.expected)
 			}
@@ -272,7 +274,7 @@ func TestParseModuleName(t *testing.T) {
 				if err != nil {
 					t.Errorf("ParseModuleName(%q) returned error: %v, expected %q", tt.folderName, err, tt.expectedVal)
 				}
-				if result != tt.expectedVal {
+				if string(result) != tt.expectedVal {
 					t.Errorf("ParseModuleName(%q) = %q, want %q", tt.folderName, result, tt.expectedVal)
 				}
 			} else if err == nil {
@@ -314,7 +316,7 @@ func TestLoad(t *testing.T) {
 		dir := t.TempDir()
 		modulePath := createValidModule(t, dir, "com.example.test.invowkmod", "com.example.test")
 
-		module, err := Load(modulePath)
+		module, err := Load(types.FilesystemPath(modulePath))
 		if err != nil {
 			t.Fatalf("Load() returned error: %v", err)
 		}
@@ -325,13 +327,13 @@ func TestLoad(t *testing.T) {
 
 		// Verify invowkmod.cue path is set
 		expectedInvowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
-		if module.InvowkmodPath() != expectedInvowkmodPath {
+		if string(module.InvowkmodPath()) != expectedInvowkmodPath {
 			t.Errorf("module.InvowkmodPath() = %q, want %q", module.InvowkmodPath(), expectedInvowkmodPath)
 		}
 
 		// Verify invowkfile.cue path is set
 		expectedInvowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
-		if module.InvowkfilePath() != expectedInvowkfilePath {
+		if string(module.InvowkfilePath()) != expectedInvowkfilePath {
 			t.Errorf("module.InvowkfilePath() = %q, want %q", module.InvowkfilePath(), expectedInvowkfilePath)
 		}
 	})
@@ -352,7 +354,7 @@ version: "1.0.0"
 			t.Fatal(err)
 		}
 
-		module, err := Load(modulePath)
+		module, err := Load(types.FilesystemPath(modulePath))
 		if err != nil {
 			t.Fatalf("Load() returned error: %v", err)
 		}
@@ -380,7 +382,7 @@ version: "1.0.0"
 			t.Fatal(err)
 		}
 
-		_, err := Load(modulePath)
+		_, err := Load(types.FilesystemPath(modulePath))
 		if err == nil {
 			t.Error("Load() expected error for module missing invowkmod.cue, got nil")
 		}
@@ -392,12 +394,12 @@ func TestModule_ResolveScriptPath(t *testing.T) {
 
 	modulePath := filepath.Join(string(filepath.Separator), "home", "user", "mycommands.invowkmod")
 	module := &Module{
-		Path: modulePath,
+		Path: types.FilesystemPath(modulePath),
 	}
 
 	tests := []struct {
 		name       string
-		scriptPath string
+		scriptPath types.FilesystemPath
 		expected   string
 	}{
 		{
@@ -422,7 +424,7 @@ func TestModule_ResolveScriptPath(t *testing.T) {
 			t.Parallel()
 
 			result := module.ResolveScriptPath(tt.scriptPath)
-			if result != tt.expected {
+			if string(result) != tt.expected {
 				t.Errorf("ResolveScriptPath(%q) = %q, want %q", tt.scriptPath, result, tt.expected)
 			}
 		})
@@ -438,7 +440,7 @@ func TestModule_ValidateScriptPath(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		scriptPath string
+		scriptPath types.FilesystemPath
 		expectErr  bool
 	}{
 		{
@@ -458,7 +460,7 @@ func TestModule_ValidateScriptPath(t *testing.T) {
 		},
 		{
 			name: "absolute path not allowed",
-			scriptPath: func() string {
+			scriptPath: func() types.FilesystemPath {
 				if runtime.GOOS == "windows" {
 					return `C:\Windows\System32\cmd.exe`
 				}
@@ -509,37 +511,37 @@ func TestModule_ContainsPath(t *testing.T) {
 	}
 
 	module := &Module{
-		Path: modulePath,
+		Path: types.FilesystemPath(modulePath),
 	}
 
 	tests := []struct {
 		name     string
-		path     string
+		path     types.FilesystemPath
 		expected bool
 	}{
 		{
 			name:     "file in module root",
-			path:     filepath.Join(modulePath, "invowkfile.cue"),
+			path:     types.FilesystemPath(filepath.Join(modulePath, "invowkfile.cue")),
 			expected: true,
 		},
 		{
 			name:     "file in subdirectory",
-			path:     filepath.Join(modulePath, "scripts", "build.sh"),
+			path:     types.FilesystemPath(filepath.Join(modulePath, "scripts", "build.sh")),
 			expected: true,
 		},
 		{
 			name:     "module path itself",
-			path:     modulePath,
+			path:     types.FilesystemPath(modulePath),
 			expected: true,
 		},
 		{
 			name:     "parent directory",
-			path:     dir,
+			path:     types.FilesystemPath(dir),
 			expected: false,
 		},
 		{
 			name:     "sibling directory",
-			path:     filepath.Join(dir, "other"),
+			path:     types.FilesystemPath(filepath.Join(dir, "other")),
 			expected: false,
 		},
 	}

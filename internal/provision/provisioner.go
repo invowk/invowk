@@ -2,7 +2,11 @@
 
 package provision
 
-import "context"
+import (
+	"context"
+
+	"github.com/invowk/invowk/internal/container"
+)
 
 type (
 	// Provisioner prepares container images with invowk resources.
@@ -12,13 +16,13 @@ type (
 		// Provision adds invowk resources (binary, modules) to a base image.
 		// Returns provisioned image tag and cleanup function.
 		// The cleanup function removes temporary build resources (not the cached image).
-		Provision(ctx context.Context, baseImage string) (*Result, error)
+		Provision(ctx context.Context, baseImage container.ImageTag) (*Result, error)
 	}
 
 	// Result contains the output of a provisioning operation.
 	Result struct {
 		// ImageTag is the tag of the provisioned image (e.g., "invowk-provisioned:abc123")
-		ImageTag string
+		ImageTag container.ImageTag
 
 		// Cleanup is called to clean up temporary resources after the container exits.
 		// This may remove temporary build contexts but typically does NOT remove

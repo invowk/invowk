@@ -165,8 +165,8 @@ func TestCalculateModalSize(t *testing.T) {
 	tests := []struct {
 		name          string
 		componentType ComponentType
-		screenWidth   int
-		screenHeight  int
+		screenWidth   TerminalDimension
+		screenHeight  TerminalDimension
 		expectWidth   bool // just verify it returns something reasonable
 		expectHeight  bool
 	}{

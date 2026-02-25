@@ -13,6 +13,7 @@ import (
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestNew(t *testing.T) {
@@ -61,7 +62,7 @@ func TestNew_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("os.Getwd() error: %v", err)
 	}
-	if d.baseDir != cwd {
+	if d.baseDir != types.FilesystemPath(cwd) {
 		t.Errorf("New() baseDir = %q, want os.Getwd() = %q", d.baseDir, cwd)
 	}
 
@@ -88,7 +89,7 @@ func TestNew_Defaults(t *testing.T) {
 func TestNew_WithBaseDir(t *testing.T) {
 	t.Parallel()
 
-	customDir := t.TempDir()
+	customDir := types.FilesystemPath(t.TempDir())
 	d := New(config.DefaultConfig(), WithBaseDir(customDir))
 
 	if d.baseDir != customDir {
@@ -104,7 +105,7 @@ func TestNew_WithBaseDir(t *testing.T) {
 func TestNew_WithCommandsDir(t *testing.T) {
 	t.Parallel()
 
-	customDir := t.TempDir()
+	customDir := types.FilesystemPath(t.TempDir())
 	d := New(config.DefaultConfig(), WithCommandsDir(customDir))
 
 	if d.commandsDir != customDir {
@@ -290,7 +291,7 @@ cmds: [{name: "test", implementations: [{script: "echo test", runtimes: [{name: 
 	// Should find invowkfile.cue (preferred) in current dir
 	found := false
 	for _, f := range files {
-		if f.Source == SourceCurrentDir && filepath.Base(f.Path) == "invowkfile.cue" {
+		if f.Source == SourceCurrentDir && filepath.Base(string(f.Path)) == "invowkfile.cue" {
 			found = true
 			break
 		}
@@ -325,8 +326,8 @@ cmds: [{name: "user-cmd", implementations: [{script: "echo user", runtimes: [{na
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
-		WithCommandsDir(userCmdsDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -356,8 +357,8 @@ func TestDiscoverAll_UserDirNonRecursive(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
-		WithCommandsDir(userCmdsDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -408,10 +409,10 @@ cmds: [{name: "custom-cmd", implementations: [{script: "echo custom", runtimes: 
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{
-		{Path: modulePath},
+		{Path: config.ModuleIncludePath(modulePath)},
 	}
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(emptyDir),
+		WithBaseDir(types.FilesystemPath(emptyDir)),
 	)
 
 	files, err := d.DiscoverAll()
@@ -644,7 +645,7 @@ cmds: [
 	filterPrefix := func(prefix string) []*CommandInfo {
 		matching := make([]*CommandInfo, 0)
 		for _, cmd := range result.Set.Commands {
-			if prefix == "" || strings.HasPrefix(cmd.Name, prefix) {
+			if prefix == "" || strings.HasPrefix(string(cmd.Name), prefix) {
 				matching = append(matching, cmd)
 			}
 		}
@@ -746,7 +747,7 @@ func TestDiscoverAll_PermissionDenied(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithCommandsDir(unreadableDir),
+		WithCommandsDir(types.FilesystemPath(unreadableDir)),
 	)
 
 	// DiscoverAll should not panic when encountering an unreadable directory.
@@ -792,7 +793,7 @@ cmds: [{name: "symlinked", implementations: [{script: "echo symlinked", runtimes
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithBaseDir(workDir),
+		WithBaseDir(types.FilesystemPath(workDir)),
 	)
 
 	files, err := d.DiscoverAll()

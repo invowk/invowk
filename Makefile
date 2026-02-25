@@ -233,6 +233,49 @@ lint:
 	@echo "Running golangci-lint..."
 	golangci-lint run ./...
 
+# Build the goplint analyzer (DDD Value Type enforcement)
+.PHONY: build-goplint
+build-goplint: $(BUILD_DIR)
+	@echo "Building goplint..."
+	cd tools/goplint && $(GOBUILD) -o ../../$(BUILD_DIR)/goplint .
+
+# Run DDD primitive type checking
+.PHONY: check-types
+check-types: build-goplint
+	@echo "Checking primitive type usage..."
+	./$(BUILD_DIR)/goplint -config=tools/goplint/exceptions.toml ./...
+
+# Run DDD primitive type checking with JSON output (for agent consumption)
+.PHONY: check-types-json
+check-types-json: build-goplint
+	./$(BUILD_DIR)/goplint -json -config=tools/goplint/exceptions.toml ./... 2>/dev/null || true
+
+# Run all DDD checks (primitives + isvalid + stringer + constructors)
+.PHONY: check-types-all
+check-types-all: build-goplint
+	@echo "Checking DDD type compliance (all modes)..."
+	./$(BUILD_DIR)/goplint -check-all -config=tools/goplint/exceptions.toml ./...
+
+# Run all DDD checks with JSON output (for agent consumption)
+.PHONY: check-types-all-json
+check-types-all-json: build-goplint
+	./$(BUILD_DIR)/goplint -check-all -json -config=tools/goplint/exceptions.toml ./... 2>/dev/null || true
+
+# Check for goplint regressions against the committed baseline.
+# Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
+.PHONY: check-baseline
+check-baseline: build-goplint
+	@echo "Checking goplint baseline..."
+	./$(BUILD_DIR)/goplint -check-all -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
+
+# Update the goplint baseline from the current codebase state.
+# Run this after type improvements or new exceptions to shrink the baseline.
+.PHONY: update-baseline
+update-baseline: build-goplint
+	@echo "Updating goplint baseline..."
+	./$(BUILD_DIR)/goplint -check-all -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
+	@echo "Baseline updated: tools/goplint/baseline.toml"
+
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)
 SHELLCHECK := $(shell command -v shellcheck 2>/dev/null)
 

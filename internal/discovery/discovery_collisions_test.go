@@ -12,7 +12,24 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
+
+// moduleIDPtr is a test helper that creates a *invowkmod.ModuleID from a string.
+func moduleIDPtr(s string) *invowkmod.ModuleID {
+	id := invowkmod.ModuleID(s)
+	return &id
+}
+
+// testModuleMetadata creates a minimal ModuleMetadata for test fixtures.
+// Uses NewModuleMetadataFromInvowkmod which does not validate, allowing
+// test-only metadata like empty module IDs.
+func testModuleMetadata(moduleID invowkmod.ModuleID) *invowkfile.ModuleMetadata {
+	return invowkfile.NewModuleMetadataFromInvowkmod(&invowkmod.Invowkmod{
+		Module:  moduleID,
+		Version: "0.0.0",
+	})
+}
 
 func TestDiscoveredCommandSet_Add(t *testing.T) {
 	t.Parallel()
@@ -189,14 +206,14 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 		Name:       "foo build",
 		SimpleName: "build",
 		SourceID:   "foo",
-		ModuleID:   "io.invowk.foo",
+		ModuleID:   moduleIDPtr("io.invowk.foo"),
 		Source:     SourceModule,
 	})
 	set.Add(&CommandInfo{
 		Name:       "foo deploy",
 		SimpleName: "deploy",
 		SourceID:   "foo",
-		ModuleID:   "io.invowk.foo",
+		ModuleID:   moduleIDPtr("io.invowk.foo"),
 		Source:     SourceModule,
 	})
 
@@ -205,7 +222,7 @@ func TestDiscoveredCommandSet_MultiSourceAggregation(t *testing.T) {
 		Name:       "bar test",
 		SimpleName: "test",
 		SourceID:   "bar",
-		ModuleID:   "io.invowk.bar",
+		ModuleID:   moduleIDPtr("io.invowk.bar"),
 		Source:     SourceModule,
 	})
 
@@ -301,7 +318,7 @@ func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
 		Name:       "foo deploy",
 		SimpleName: "deploy",
 		SourceID:   "foo",
-		ModuleID:   "io.invowk.foo",
+		ModuleID:   moduleIDPtr("io.invowk.foo"),
 		Source:     SourceModule,
 	})
 
@@ -310,14 +327,14 @@ func TestDiscoveredCommandSet_HierarchicalAmbiguity(t *testing.T) {
 		Name:       "bar deploy staging",
 		SimpleName: "deploy staging",
 		SourceID:   "bar",
-		ModuleID:   "io.invowk.bar",
+		ModuleID:   moduleIDPtr("io.invowk.bar"),
 		Source:     SourceModule,
 	})
 	set.Add(&CommandInfo{
 		Name:       "bar deploy production",
 		SimpleName: "deploy production",
 		SourceID:   "bar",
-		ModuleID:   "io.invowk.bar",
+		ModuleID:   moduleIDPtr("io.invowk.bar"),
 		Source:     SourceModule,
 	})
 
@@ -416,11 +433,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.module1"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module1")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.module2"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module2")},
 			},
 		}
 
@@ -436,11 +453,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 			},
 		}
 
@@ -470,12 +487,12 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1.invowkmod/invowkfile.cue",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 				Module:     &invowkmod.Module{Path: "/path/to/module1.invowkmod"},
 			},
 			{
 				Path:       "/path/to/module2.invowkmod/invowkfile.cue",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 				Module:     &invowkmod.Module{Path: "/path/to/module2.invowkmod"},
 			},
 		}
@@ -492,7 +509,7 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.same"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
 			},
 			{
 				Path:  "/path/to/module2",
@@ -512,11 +529,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.module1"}},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module1")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: ""}}, // Empty module ID
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("")}, // Empty module ID
 			},
 		}
 
@@ -538,7 +555,7 @@ func TestGetEffectiveModuleID(t *testing.T) {
 
 		file := &DiscoveredFile{
 			Path:       "/path/to/module",
-			Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.original"}},
+			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.original")},
 		}
 
 		moduleID := d.GetEffectiveModuleID(file)
@@ -558,7 +575,7 @@ func TestGetEffectiveModuleID(t *testing.T) {
 
 		file := &DiscoveredFile{
 			Path:       "/path/to/module.invowkmod/invowkfile.cue",
-			Invowkfile: &invowkfile.Invowkfile{Metadata: &invowkfile.ModuleMetadata{Module: "io.example.original"}},
+			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.original")},
 			Module:     &invowkmod.Module{Path: "/path/to/module.invowkmod"},
 		}
 
@@ -699,7 +716,7 @@ version: "1.0.0"
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir,
-		WithCommandsDir(filepath.Join(homeDir, ".invowk", "cmds")),
+		WithCommandsDir(types.FilesystemPath(filepath.Join(homeDir, ".invowk", "cmds"))),
 	)
 
 	files, err := d.DiscoverAll()

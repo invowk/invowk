@@ -12,6 +12,8 @@ import (
 )
 
 // RenderArgumentValidationError creates a styled error message for argument validation failures
+//
+//plint:render
 func RenderArgumentValidationError(err *ArgumentValidationError) string {
 	var sb strings.Builder
 
@@ -20,7 +22,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(renderHeaderStyle.Render("✗ Missing required arguments!"))
 		sb.WriteString("\n\n")
 		sb.WriteString(fmt.Sprintf("Command %s requires at least %d argument(s), but got %d.\n\n",
-			renderCommandStyle.Render("'"+err.CommandName+"'"), err.MinArgs, len(err.ProvidedArgs)))
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), err.MinArgs, len(err.ProvidedArgs)))
 
 		sb.WriteString(renderLabelStyle.Render("Expected arguments:"))
 		sb.WriteString("\n")
@@ -41,7 +43,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(renderHeaderStyle.Render("✗ Too many arguments!"))
 		sb.WriteString("\n\n")
 		sb.WriteString(fmt.Sprintf("Command %s accepts at most %d argument(s), but got %d.\n\n",
-			renderCommandStyle.Render("'"+err.CommandName+"'"), err.MaxArgs, len(err.ProvidedArgs)))
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), err.MaxArgs, len(err.ProvidedArgs)))
 
 		sb.WriteString(renderLabelStyle.Render("Expected arguments:"))
 		sb.WriteString("\n")
@@ -56,7 +58,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(renderHeaderStyle.Render("✗ Invalid argument value!"))
 		sb.WriteString("\n\n")
 		sb.WriteString(fmt.Sprintf("Command %s received an invalid value for argument %s.\n\n",
-			renderCommandStyle.Render("'"+err.CommandName+"'"), renderCommandStyle.Render("'"+err.InvalidArg+"'")))
+			renderCommandStyle.Render("'"+string(err.CommandName)+"'"), renderCommandStyle.Render("'"+string(err.InvalidArg)+"'")))
 
 		sb.WriteString(renderLabelStyle.Render("Value:  "))
 		sb.WriteString(renderValueStyle.Render(fmt.Sprintf("%q", err.InvalidValue)))
@@ -75,6 +77,8 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 // RenderArgsSubcommandConflictError creates a styled error message when a command
 // has both positional arguments and subcommands defined. This is a structural error
 // because positional arguments can only be accepted by leaf commands.
+//
+//plint:render
 func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictError) string {
 	var sb strings.Builder
 
@@ -86,7 +90,7 @@ func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictErro
 	sb.WriteString(renderHeaderStyle.Render("✗ Invalid command structure!"))
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf("Command %s defines positional arguments but also has subcommands.\n",
-		renderCommandStyle.Render("'"+err.CommandName+"'")))
+		renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
 	if err.FilePath != "" {
 		sb.WriteString(pathStyle.Render(fmt.Sprintf("  in %s\n", err.FilePath)))
 	}
@@ -113,6 +117,8 @@ func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictErro
 }
 
 // RenderDependencyError creates a styled error message for unsatisfied dependencies
+//
+//plint:render
 func RenderDependencyError(err *DependencyError) string {
 	var sb strings.Builder
 
@@ -121,9 +127,9 @@ func RenderDependencyError(err *DependencyError) string {
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Dependencies not satisfied!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+err.CommandName+"'")))
+	sb.WriteString(fmt.Sprintf("Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
 
-	renderSection := func(label string, items []string) {
+	renderSection := func(label string, items []DependencyMessage) {
 		if len(items) == 0 {
 			return
 		}
@@ -131,7 +137,7 @@ func RenderDependencyError(err *DependencyError) string {
 		sb.WriteString(sectionStyle.Render(label))
 		sb.WriteString("\n")
 		for _, item := range items {
-			sb.WriteString(renderValueStyle.Render(item))
+			sb.WriteString(renderValueStyle.Render(item.String()))
 			sb.WriteString("\n")
 		}
 	}
@@ -151,6 +157,8 @@ func RenderDependencyError(err *DependencyError) string {
 }
 
 // RenderHostNotSupportedError creates a styled error message for unsupported host OS
+//
+//plint:render
 func RenderHostNotSupportedError(cmdName, currentOS, supportedHosts string) string {
 	var sb strings.Builder
 
@@ -170,6 +178,8 @@ func RenderHostNotSupportedError(cmdName, currentOS, supportedHosts string) stri
 }
 
 // RenderRuntimeNotAllowedError creates a styled error message for invalid runtime selection
+//
+//plint:render
 func RenderRuntimeNotAllowedError(cmdName, selectedRuntime, allowedRuntimes string) string {
 	var sb strings.Builder
 
@@ -189,6 +199,8 @@ func RenderRuntimeNotAllowedError(cmdName, selectedRuntime, allowedRuntimes stri
 }
 
 // RenderSourceNotFoundError creates a styled error message when a specified source doesn't exist.
+//
+//plint:render
 func RenderSourceNotFoundError(err *SourceNotFoundError) string {
 	var sb strings.Builder
 
@@ -213,12 +225,14 @@ func RenderSourceNotFoundError(err *SourceNotFoundError) string {
 }
 
 // RenderAmbiguousCommandError creates a styled error message when a command exists in multiple sources.
+//
+//plint:render
 func RenderAmbiguousCommandError(err *AmbiguousCommandError) string {
 	var sb strings.Builder
 
 	sb.WriteString(renderHeaderStyle.Render("✗ Ambiguous command!"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("The command %s exists in multiple sources:\n\n", renderCommandStyle.Render("'"+err.CommandName+"'")))
+	sb.WriteString(fmt.Sprintf("The command %s exists in multiple sources:\n\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'")))
 
 	for _, source := range err.Sources {
 		// Show source with @prefix for disambiguation (e.g., "@invowkfile", "@foo")

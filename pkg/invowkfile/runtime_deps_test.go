@@ -5,6 +5,8 @@ package invowkfile
 import (
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestFindRuntimeConfig(t *testing.T) {
@@ -267,9 +269,9 @@ func TestGenerateCUE_RuntimeDependsOn(t *testing.T) {
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
 					DependsOn: &DependsOn{
-						Tools:    []ToolDependency{{Alternatives: []string{"python3"}}},
+						Tools:    []ToolDependency{{Alternatives: []BinaryName{"python3"}}},
 						EnvVars:  []EnvVarDependency{{Alternatives: []EnvVarCheck{{Name: "API_KEY"}}}},
-						Commands: []CommandDependency{{Alternatives: []string{"build"}}},
+						Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
 					},
 				}},
 				Platforms: []PlatformConfig{{Name: PlatformLinux}},
@@ -315,7 +317,7 @@ func TestGenerateCUE_RuntimeDependsOn(t *testing.T) {
 func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
 	t.Parallel()
 
-	expectedCode := 0
+	expectedCode := types.ExitCode(0)
 	inv := &Invowkfile{
 		Commands: []Command{{
 			Name: "all-deps",
@@ -325,10 +327,10 @@ func TestGenerateCUE_RuntimeDependsOn_AllDepTypes(t *testing.T) {
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
 					DependsOn: &DependsOn{
-						Tools:    []ToolDependency{{Alternatives: []string{"curl"}}},
-						Commands: []CommandDependency{{Alternatives: []string{"build"}}},
+						Tools:    []ToolDependency{{Alternatives: []BinaryName{"curl"}}},
+						Commands: []CommandDependency{{Alternatives: []CommandName{"build"}}},
 						Filepaths: []FilepathDependency{{
-							Alternatives: []string{"/etc/hosts"},
+							Alternatives: []FilesystemPath{"/etc/hosts"},
 							Readable:     true,
 						}},
 						Capabilities: []CapabilityDependency{{
@@ -418,7 +420,7 @@ func TestStructureValidator_RuntimeDependsOn_RejectsNonContainer(t *testing.T) {
 						Runtimes: []RuntimeConfig{{
 							Name: tt.runtime,
 							DependsOn: &DependsOn{
-								Tools: []ToolDependency{{Alternatives: []string{"curl"}}},
+								Tools: []ToolDependency{{Alternatives: []BinaryName{"curl"}}},
 							},
 						}},
 						Platforms: AllPlatformConfigs(),
@@ -427,7 +429,7 @@ func TestStructureValidator_RuntimeDependsOn_RejectsNonContainer(t *testing.T) {
 			}
 
 			validator := NewStructureValidator()
-			ctx := &ValidationContext{FilePath: "test.cue"}
+			ctx := &ValidationContext{FilePath: FilesystemPath("test.cue")}
 			errs := validator.Validate(ctx, inv)
 
 			found := false
@@ -456,7 +458,7 @@ func TestStructureValidator_RuntimeDependsOn_AllowsContainer(t *testing.T) {
 					Name:  RuntimeContainer,
 					Image: "debian:stable-slim",
 					DependsOn: &DependsOn{
-						Tools: []ToolDependency{{Alternatives: []string{"curl"}}},
+						Tools: []ToolDependency{{Alternatives: []BinaryName{"curl"}}},
 					},
 				}},
 				Platforms: AllPlatformConfigs(),
@@ -465,7 +467,7 @@ func TestStructureValidator_RuntimeDependsOn_AllowsContainer(t *testing.T) {
 	}
 
 	validator := NewStructureValidator()
-	ctx := &ValidationContext{FilePath: "test.cue"}
+	ctx := &ValidationContext{FilePath: FilesystemPath("test.cue")}
 	errs := validator.Validate(ctx, inv)
 
 	for _, e := range errs {

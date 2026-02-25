@@ -11,6 +11,8 @@ import (
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -26,7 +28,7 @@ var (
 type (
 	// ModuleCollisionError is returned when two modules have the same module identifier.
 	ModuleCollisionError struct {
-		ModuleID     string
+		ModuleID     invowkmod.ModuleID
 		FirstSource  string
 		SecondSource string
 	}
@@ -44,12 +46,15 @@ type (
 	// (skip that discovery source). Init-time errors (initDiagnostics) are
 	// surfaced through the standard diagnostics pipeline in discoverAllWithDiagnostics.
 	Discovery struct {
-		cfg             *config.Config
-		baseDir         string       // replaces hardcoded "." — resolved once at construction
-		baseDirSet      bool         // distinguishes "not set" from "explicitly set to empty"
-		commandsDir     string       // replaces config.CommandsDir() call
-		commandsDirSet  bool         // distinguishes "not set" from "explicitly set to empty"
-		initDiagnostics []Diagnostic // errors from New() constructor surfaced as diagnostics
+		cfg     *config.Config
+		baseDir types.FilesystemPath // replaces hardcoded "." — resolved once at construction
+		//plint:internal -- distinguishes "not set" from "explicitly set to empty"
+		baseDirSet  bool
+		commandsDir types.FilesystemPath // replaces config.CommandsDir() call
+		//plint:internal -- distinguishes "not set" from "explicitly set to empty"
+		commandsDirSet bool
+		//plint:internal -- errors from New() constructor surfaced as diagnostics
+		initDiagnostics []Diagnostic
 	}
 
 	// Option configures a Discovery instance via the functional options pattern.
@@ -74,7 +79,7 @@ func (e *ModuleCollisionError) Unwrap() error { return ErrModuleCollision }
 // WithBaseDir sets the base directory for discovery, replacing the default of
 // os.Getwd(). This enables parallel tests to inject isolated temp directories
 // instead of relying on the process-global working directory.
-func WithBaseDir(dir string) Option {
+func WithBaseDir(dir types.FilesystemPath) Option {
 	return func(d *Discovery) {
 		d.baseDir = dir
 		d.baseDirSet = true
@@ -84,7 +89,7 @@ func WithBaseDir(dir string) Option {
 // WithCommandsDir sets the user commands directory, replacing the default of
 // config.CommandsDir() (~/.invowk/cmds). Pass an empty string to skip user-dir
 // discovery entirely.
-func WithCommandsDir(dir string) Option {
+func WithCommandsDir(dir types.FilesystemPath) Option {
 	return func(d *Discovery) {
 		d.commandsDir = dir
 		d.commandsDirSet = true
@@ -102,17 +107,19 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		opt(d)
 	}
 	if !d.baseDirSet && d.baseDir == "" {
-		var err error
-		d.baseDir, err = os.Getwd()
-		if err != nil {
+		cwd, err := os.Getwd()
+		if err == nil {
+			d.baseDir = types.FilesystemPath(cwd)
+		} else {
 			slog.Debug("failed to determine working directory for discovery, current-dir lookup will be skipped",
 				"error", err)
-			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
-				Severity: SeverityWarning,
-				Code:     CodeWorkingDirUnavailable,
-				Message:  fmt.Sprintf("current directory unavailable, skipping local discovery: %v", err),
-				Cause:    err,
-			})
+			d.initDiagnostics = append(d.initDiagnostics, NewDiagnosticWithCause(
+				SeverityWarning,
+				CodeWorkingDirUnavailable,
+				fmt.Sprintf("current directory unavailable, skipping local discovery: %v", err),
+				"",
+				err,
+			))
 		}
 	}
 	if !d.commandsDirSet && d.commandsDir == "" {
@@ -121,12 +128,13 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		} else {
 			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
 				"error", err)
-			d.initDiagnostics = append(d.initDiagnostics, Diagnostic{
-				Severity: SeverityWarning,
-				Code:     CodeCommandsDirUnavailable,
-				Message:  fmt.Sprintf("user commands directory unavailable, skipping user-dir discovery: %v", err),
-				Cause:    err,
-			})
+			d.initDiagnostics = append(d.initDiagnostics, NewDiagnosticWithCause(
+				SeverityWarning,
+				CodeCommandsDirUnavailable,
+				fmt.Sprintf("user commands directory unavailable, skipping user-dir discovery: %v", err),
+				"",
+				err,
+			))
 		}
 	}
 	return d
@@ -209,9 +217,9 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 		// Use the module directory path (not the invowkfile inside it) so
 		// the error message shows the path users need for their includes config.
 		// Annotate vendored modules with their parent for clearer diagnostics.
-		sourcePath := file.Path
+		sourcePath := string(file.Path)
 		if file.Module != nil {
-			sourcePath = file.Module.Path
+			sourcePath = string(file.Module.Path)
 		}
 		if file.ParentModule != nil {
 			sourcePath = fmt.Sprintf("%s (vendored in %s)", sourcePath, file.ParentModule.Name())
@@ -219,7 +227,7 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 
 		if existingSource, exists := moduleSources[moduleID]; exists {
 			return &ModuleCollisionError{
-				ModuleID:     moduleID,
+				ModuleID:     invowkmod.ModuleID(moduleID),
 				FirstSource:  existingSource,
 				SecondSource: sourcePath,
 			}
@@ -247,7 +255,7 @@ func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
 	// (the invowkfile inside the module), because includes reference
 	// module directories.
 	if file.Module != nil {
-		if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
+		if alias := d.getAliasForModulePath(string(file.Module.Path)); alias != "" {
 			return alias
 		}
 	}
@@ -267,8 +275,8 @@ func (d *Discovery) getAliasForModulePath(modulePath string) string {
 	cleanPath := filepath.Clean(modulePath)
 
 	for _, inc := range d.cfg.Includes {
-		if inc.Alias != "" && filepath.Clean(inc.Path) == cleanPath {
-			return inc.Alias
+		if inc.Alias != "" && filepath.Clean(string(inc.Path)) == cleanPath {
+			return string(inc.Alias)
 		}
 	}
 

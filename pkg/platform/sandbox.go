@@ -3,6 +3,8 @@
 package platform
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -17,20 +19,64 @@ const (
 	SandboxSnap SandboxType = "snap"
 )
 
-// detectOnce caches the sandbox detection result for the lifetime of the process.
-// The detection is performed once on first access using real OS lookups.
-//
-// INVARIANT: detectSandboxFrom MUST NOT panic. Unlike sync.Once (where Do
-// treats a panic as "returned" and silently no-ops on subsequent calls),
-// sync.OnceValue propagates the panic on every call, creating a persistent
-// crash condition.
-// Sandbox type is immutable during process lifetime, making process-wide caching safe.
-var detectOnce = sync.OnceValue(func() SandboxType {
-	return detectSandboxFrom(os.Getenv, statFile)
-})
+var (
+	// detectOnce caches the sandbox detection result for the lifetime of the process.
+	// The detection is performed once on first access using real OS lookups.
+	//
+	// INVARIANT: detectSandboxFrom MUST NOT panic. Unlike sync.Once (where Do
+	// treats a panic as "returned" and silently no-ops on subsequent calls),
+	// sync.OnceValue propagates the panic on every call, creating a persistent
+	// crash condition.
+	// Sandbox type is immutable during process lifetime, making process-wide caching safe.
+	detectOnce = sync.OnceValue(func() SandboxType {
+		return detectSandboxFrom(os.Getenv, statFile)
+	})
 
-// SandboxType identifies the type of application sandbox, if any.
-type SandboxType string
+	// ErrInvalidSandboxType is returned when a SandboxType value is not one of the defined types.
+	ErrInvalidSandboxType = errors.New("invalid sandbox type")
+)
+
+type (
+	// SandboxType identifies the type of application sandbox, if any.
+	SandboxType string
+
+	// InvalidSandboxTypeError is returned when a SandboxType value is not recognized.
+	// It wraps ErrInvalidSandboxType for errors.Is() compatibility.
+	InvalidSandboxTypeError struct {
+		Value SandboxType
+	}
+)
+
+// String returns the string representation of the sandbox type.
+// Returns "none" for the zero value (SandboxNone).
+func (st SandboxType) String() string {
+	if st == SandboxNone {
+		return "none"
+	}
+	return string(st)
+}
+
+// Error implements the error interface for InvalidSandboxTypeError.
+func (e *InvalidSandboxTypeError) Error() string {
+	return fmt.Sprintf("invalid sandbox type %q (valid: \"\"/none, flatpak, snap)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidSandboxTypeError) Unwrap() error {
+	return ErrInvalidSandboxType
+}
+
+// IsValid returns whether the SandboxType is one of the defined sandbox types,
+// and a list of validation errors if it is not.
+// The zero value ("", SandboxNone) is valid — it means no sandbox detected.
+func (st SandboxType) IsValid() (bool, []error) {
+	switch st {
+	case SandboxNone, SandboxFlatpak, SandboxSnap:
+		return true, nil
+	default:
+		return false, []error{&InvalidSandboxTypeError{Value: st}}
+	}
+}
 
 // DetectSandbox returns the type of application sandbox the current process is running in.
 // The result is cached after the first call for performance.

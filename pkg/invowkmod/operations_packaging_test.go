@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ============================================================================
@@ -40,6 +41,33 @@ version: "1.0.0"
 	return modulePath
 }
 
+func createZipForUnpackTest(t *testing.T, zipPath string, entries map[string]string) {
+	t.Helper()
+
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatalf("failed to create ZIP file: %v", err)
+	}
+	zipWriter := zip.NewWriter(zipFile)
+
+	for name, content := range entries {
+		writer, createErr := zipWriter.Create(name)
+		if createErr != nil {
+			t.Fatalf("failed to create ZIP entry %q: %v", name, createErr)
+		}
+		if _, writeErr := writer.Write([]byte(content)); writeErr != nil {
+			t.Fatalf("failed to write ZIP entry %q: %v", name, writeErr)
+		}
+	}
+
+	if closeErr := zipWriter.Close(); closeErr != nil {
+		t.Fatalf("failed to close ZIP writer: %v", closeErr)
+	}
+	if closeErr := zipFile.Close(); closeErr != nil {
+		t.Fatalf("failed to close ZIP file: %v", closeErr)
+	}
+}
+
 func TestArchive(t *testing.T) {
 	t.Run("archive valid module", func(t *testing.T) {
 		tmpDir := t.TempDir()
@@ -47,7 +75,7 @@ func TestArchive(t *testing.T) {
 		// Create a module first
 		modulePath, err := Create(CreateOptions{
 			Name:             "mytools",
-			ParentDir:        tmpDir,
+			ParentDir:        types.FilesystemPath(tmpDir),
 			CreateScriptsDir: true,
 		})
 		if err != nil {
@@ -62,13 +90,13 @@ func TestArchive(t *testing.T) {
 
 		// Archive the module
 		outputPath := filepath.Join(tmpDir, "output.zip")
-		zipPath, err := Archive(modulePath, outputPath)
+		zipPath, err := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(outputPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
 
 		// Verify ZIP was created
-		info, err := os.Stat(zipPath)
+		info, err := os.Stat(string(zipPath))
 		if err != nil {
 			t.Fatalf("ZIP file not created: %v", err)
 		}
@@ -77,7 +105,7 @@ func TestArchive(t *testing.T) {
 		}
 
 		// Verify ZIP path matches expected
-		if zipPath != outputPath {
+		if string(zipPath) != outputPath {
 			t.Errorf("Archive() returned %q, expected %q", zipPath, outputPath)
 		}
 	})
@@ -88,7 +116,7 @@ func TestArchive(t *testing.T) {
 		// Create a module
 		modulePath, err := Create(CreateOptions{
 			Name:      "com.example.tools",
-			ParentDir: tmpDir,
+			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Create() failed: %v", err)
@@ -99,15 +127,15 @@ func TestArchive(t *testing.T) {
 		defer restoreWd()
 
 		// Archive with empty output path
-		zipPath, err := Archive(modulePath, "")
+		zipPath, err := Archive(types.FilesystemPath(modulePath), "")
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
 
 		// Verify default name
 		expectedName := "com.example.tools.invowkmod.zip"
-		if filepath.Base(zipPath) != expectedName {
-			t.Errorf("default ZIP name = %q, expected %q", filepath.Base(zipPath), expectedName)
+		if filepath.Base(string(zipPath)) != expectedName {
+			t.Errorf("default ZIP name = %q, expected %q", filepath.Base(string(zipPath)), expectedName)
 		}
 	})
 
@@ -120,7 +148,7 @@ func TestArchive(t *testing.T) {
 			t.Fatalf("failed to create directory: %v", err)
 		}
 
-		_, err := Archive(modulePath, "")
+		_, err := Archive(types.FilesystemPath(modulePath), "")
 		if err == nil {
 			t.Error("Archive() expected error for invalid module, got nil")
 		}
@@ -138,14 +166,14 @@ func TestUnpack(t *testing.T) {
 		// Create and archive a module
 		modulePath, err := Create(CreateOptions{
 			Name:      "mytools",
-			ParentDir: tmpDir,
+			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Create() failed: %v", err)
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(modulePath, zipPath)
+		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
@@ -161,14 +189,14 @@ func TestUnpack(t *testing.T) {
 
 		extractedPath, err := Unpack(UnpackOptions{
 			Source:  zipPath,
-			DestDir: unpackDir,
+			DestDir: types.FilesystemPath(unpackDir),
 		})
 		if err != nil {
 			t.Fatalf("Unpack() failed: %v", err)
 		}
 
 		// Verify extracted module is valid
-		b, err := Load(extractedPath)
+		b, err := Load(types.FilesystemPath(extractedPath))
 		if err != nil {
 			t.Fatalf("extracted module is invalid: %v", err)
 		}
@@ -186,14 +214,14 @@ func TestUnpack(t *testing.T) {
 		// Create and archive a module
 		modulePath, err := Create(CreateOptions{
 			Name:      "mytools",
-			ParentDir: tmpDir,
+			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Create() failed: %v", err)
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(modulePath, zipPath)
+		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
@@ -201,7 +229,7 @@ func TestUnpack(t *testing.T) {
 		// Try to unpack to same directory (module already exists)
 		_, err = Unpack(UnpackOptions{
 			Source:    zipPath,
-			DestDir:   tmpDir,
+			DestDir:   types.FilesystemPath(tmpDir),
 			Overwrite: false,
 		})
 		if err == nil {
@@ -220,14 +248,14 @@ func TestUnpack(t *testing.T) {
 		// Create and archive a module
 		modulePath, err := Create(CreateOptions{
 			Name:      "mytools",
-			ParentDir: tmpDir,
+			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Create() failed: %v", err)
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(modulePath, zipPath)
+		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
@@ -241,7 +269,7 @@ func TestUnpack(t *testing.T) {
 		// Unpack with overwrite
 		extractedPath, err := Unpack(UnpackOptions{
 			Source:    zipPath,
-			DestDir:   tmpDir,
+			DestDir:   types.FilesystemPath(tmpDir),
 			Overwrite: true,
 		})
 		if err != nil {
@@ -278,7 +306,7 @@ func TestUnpack(t *testing.T) {
 
 		_, err := Unpack(UnpackOptions{
 			Source:  invalidZip,
-			DestDir: tmpDir,
+			DestDir: types.FilesystemPath(tmpDir),
 		})
 		if err == nil {
 			t.Error("Unpack() expected error for invalid ZIP, got nil")
@@ -304,13 +332,61 @@ func TestUnpack(t *testing.T) {
 
 		_, err = Unpack(UnpackOptions{
 			Source:  zipPath,
-			DestDir: tmpDir,
+			DestDir: types.FilesystemPath(tmpDir),
 		})
 		if err == nil {
 			t.Error("Unpack() expected error for ZIP without module, got nil")
 		}
 		if !strings.Contains(err.Error(), "no valid module found") {
 			t.Errorf("expected 'no valid module found' error, got: %v", err)
+		}
+	})
+
+	t.Run("unpack rejects ZIP with path traversal module root", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "traversal.zip")
+		createZipForUnpackTest(t, zipPath, map[string]string{
+			"../evil.invowkmod/invowkmod.cue": `module: "evil"
+version: "1.0.0"
+`,
+			"../evil.invowkmod/invowkfile.cue": "cmds: []",
+		})
+
+		_, err := Unpack(UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(tmpDir),
+		})
+		if err == nil {
+			t.Fatal("Unpack() expected error for traversal archive path, got nil")
+		}
+		if !strings.Contains(err.Error(), "invalid path in ZIP") {
+			t.Errorf("expected invalid path error, got: %v", err)
+		}
+	})
+
+	t.Run("unpack rejects ZIP with backslash traversal path", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "backslash-traversal.zip")
+		createZipForUnpackTest(t, zipPath, map[string]string{
+			"..\\evil.invowkmod\\invowkmod.cue": `module: "evil"
+version: "1.0.0"
+`,
+			"..\\evil.invowkmod\\invowkfile.cue": "cmds: []",
+		})
+
+		_, err := Unpack(UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(tmpDir),
+		})
+		if err == nil {
+			t.Fatal("Unpack() expected error for traversal archive path, got nil")
+		}
+		if !strings.Contains(err.Error(), "invalid path in ZIP") {
+			t.Errorf("expected invalid path error, got: %v", err)
 		}
 	})
 }

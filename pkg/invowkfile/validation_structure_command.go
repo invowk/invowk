@@ -16,28 +16,28 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     "",
-			Message:   "command must have a name in invowkfile at " + ctx.FilePath,
+			Message:   "command must have a name in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 		return errors // Can't validate further without a name
 	}
 
 	// [CUE-VALIDATED] Command name length also enforced by CUE schema (#Command.name MaxRunes(256))
-	if err := ValidateStringLength(cmd.Name, "command name", MaxNameLength); err != nil {
+	if err := ValidateStringLength(string(cmd.Name), "command name", MaxNameLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
 
 	// [CUE-VALIDATED] Description length also enforced by CUE schema (#Command.description MaxRunes(10240))
-	if err := ValidateStringLength(cmd.Description, "description", MaxDescriptionLength); err != nil {
+	if err := ValidateStringLength(string(cmd.Description), "description", MaxDescriptionLength); err != nil {
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -52,7 +52,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have at least one implementation in invowkfile at " + ctx.FilePath,
+			Message:   "must have at least one implementation in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	} else {
@@ -91,16 +91,16 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have a script in invowkfile at " + ctx.FilePath,
+			Message:   "must have a script in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	} else if !impl.IsScriptFile() {
 		// [CUE-VALIDATED] Script length also enforced by CUE schema (#Implementation.script MaxRunes(10485760))
-		if err := ValidateStringLength(impl.Script, "script", MaxScriptLength); err != nil {
+		if err := ValidateStringLength(string(impl.Script), "script", MaxScriptLength); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -110,7 +110,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have at least one runtime in invowkfile at " + ctx.FilePath,
+			Message:   "must have at least one runtime in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	} else {
@@ -125,7 +125,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   "must have at least one platform in invowkfile at " + ctx.FilePath,
+			Message:   "must have at least one platform in invowkfile at " + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -140,28 +140,30 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 }
 
 // validateRuntimeConfig validates a single runtime configuration and collects all errors.
-func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *Invowkfile, cmdName string, implIdx, rtIdx int) []ValidationError {
+func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *Invowkfile, cmdName CommandName, implIdx, rtIdx int) []ValidationError {
 	var errors []ValidationError
 	rt := &inv.GetCommand(cmdName).Implementations[implIdx].Runtimes[rtIdx]
 	path := NewFieldPath().Command(cmdName).Implementation(implIdx).Runtime(rtIdx)
 
 	// Validate env inherit mode
-	if rt.EnvInheritMode != "" && !rt.EnvInheritMode.IsValid() {
-		errors = append(errors, ValidationError{
-			Validator: v.Name(),
-			Field:     path.String(),
-			Message:   "env_inherit_mode must be one of: none, allow, all",
-			Severity:  SeverityError,
-		})
+	if rt.EnvInheritMode != "" {
+		if isValid, _ := rt.EnvInheritMode.IsValid(); !isValid {
+			errors = append(errors, ValidationError{
+				Validator: v.Name(),
+				Field:     path.String(),
+				Message:   "env_inherit_mode must be one of: none, allow, all",
+				Severity:  SeverityError,
+			})
+		}
 	}
 
 	// Validate env_inherit_allow names
 	for _, name := range rt.EnvInheritAllow {
-		if err := ValidateEnvVarName(name); err != nil {
+		if isValid, errs := name.IsValid(); !isValid {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "env_inherit_allow: " + err.Error(),
+				Message:   "env_inherit_allow: " + errs[0].Error(),
 				Severity:  SeverityError,
 			})
 		}
@@ -169,11 +171,11 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 	// Validate env_inherit_deny names
 	for _, name := range rt.EnvInheritDeny {
-		if err := ValidateEnvVarName(name); err != nil {
+		if isValid, errs := name.IsValid(); !isValid {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "env_inherit_deny: " + err.Error(),
+				Message:   "env_inherit_deny: " + errs[0].Error(),
 				Severity:  SeverityError,
 			})
 		}
@@ -273,7 +275,8 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 					Severity:  SeverityError,
 				})
 			}
-			if filepath.IsAbs(rt.Containerfile) {
+			cfStr := string(rt.Containerfile)
+			if filepath.IsAbs(cfStr) {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
@@ -281,7 +284,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 					Severity:  SeverityError,
 				})
 			}
-			if strings.ContainsRune(rt.Containerfile, '\x00') {
+			if strings.ContainsRune(cfStr, '\x00') {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
@@ -291,12 +294,12 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 			}
 
 			// Validate containerfile path traversal
-			baseDir := filepath.Dir(ctx.FilePath)
-			if err := ValidateContainerfilePath(rt.Containerfile, baseDir); err != nil {
+			baseDir := filepath.Dir(string(ctx.FilePath))
+			if err := ValidateContainerfilePath(cfStr, baseDir); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}
@@ -304,7 +307,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 		// Validate volume mounts
 		for i, vol := range rt.Volumes {
-			if err := ValidateVolumeMount(vol); err != nil {
+			if err := ValidateVolumeMount(string(vol)); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.Copy().Volume(i).String(),
@@ -316,7 +319,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 		// Validate port mappings
 		for i, port := range rt.Ports {
-			if err := ValidatePortMapping(port); err != nil {
+			if err := ValidatePortMapping(string(port)); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.Copy().Port(i).String(),

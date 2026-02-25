@@ -82,7 +82,7 @@ func TestDependencyError_WithCapabilities(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "test",
-		MissingCapabilities: []string{
+		MissingCapabilities: []DependencyMessage{
 			"  - capability \"internet\" not available: no connection",
 		},
 	}
@@ -98,7 +98,7 @@ func TestRenderDependencyError_MissingCapabilities(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "deploy",
-		MissingCapabilities: []string{
+		MissingCapabilities: []DependencyMessage{
 			"  - capability \"internet\" not available: no connection",
 		},
 	}
@@ -127,16 +127,16 @@ func TestRenderDependencyError_AllDependencyTypes(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "complex-deploy",
-		MissingTools: []string{
+		MissingTools: []DependencyMessage{
 			"  - kubectl - not found in PATH",
 		},
-		MissingCommands: []string{
+		MissingCommands: []DependencyMessage{
 			"  - build - command not found",
 		},
-		MissingFilepaths: []string{
+		MissingFilepaths: []DependencyMessage{
 			"  - config.yaml - file not found",
 		},
-		MissingCapabilities: []string{
+		MissingCapabilities: []DependencyMessage{
 			"  - capability \"internet\" not available: no connection",
 		},
 	}
@@ -224,7 +224,7 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 		t.Errorf("Expected 1 missing env var error, got %d", len(depErr.MissingEnvVars))
 	}
 
-	if !strings.Contains(depErr.MissingEnvVars[0], "NONEXISTENT_ENV_VAR") {
+	if !strings.Contains(depErr.MissingEnvVars[0].String(), "NONEXISTENT_ENV_VAR") {
 		t.Errorf("Error message should contain env var name, got: %s", depErr.MissingEnvVars[0])
 	}
 }
@@ -291,7 +291,7 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 		t.Errorf("Expected 1 env var error, got %d", len(depErr.MissingEnvVars))
 	}
 
-	if !strings.Contains(depErr.MissingEnvVars[0], "does not match required pattern") {
+	if !strings.Contains(depErr.MissingEnvVars[0].String(), "does not match required pattern") {
 		t.Errorf("Error message should mention pattern mismatch, got: %s", depErr.MissingEnvVars[0])
 	}
 }
@@ -347,7 +347,7 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
-	if !strings.Contains(depErr.MissingEnvVars[0], "none of") {
+	if !strings.Contains(depErr.MissingEnvVars[0].String(), "none of") {
 		t.Errorf("Error message should mention 'none of' for multiple alternatives, got: %s", depErr.MissingEnvVars[0])
 	}
 }
@@ -381,7 +381,7 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
-	if !strings.Contains(depErr.MissingEnvVars[0], "empty") {
+	if !strings.Contains(depErr.MissingEnvVars[0].String(), "empty") {
 		t.Errorf("Error message should mention 'empty', got: %s", depErr.MissingEnvVars[0])
 	}
 }
@@ -463,7 +463,7 @@ func TestCheckEnvVarDependencies_SetButEmptyValue(t *testing.T) {
 		if len(depErr.MissingEnvVars) != 1 {
 			t.Fatalf("Expected 1 env var error, got %d", len(depErr.MissingEnvVars))
 		}
-		if !strings.Contains(depErr.MissingEnvVars[0], "does not match") {
+		if !strings.Contains(depErr.MissingEnvVars[0].String(), "does not match") {
 			t.Errorf("error should mention pattern mismatch, got: %s", depErr.MissingEnvVars[0])
 		}
 	})
@@ -474,7 +474,7 @@ func TestDependencyError_WithEnvVars(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "test",
-		MissingEnvVars: []string{
+		MissingEnvVars: []DependencyMessage{
 			"  - AWS_ACCESS_KEY_ID - not set in environment",
 		},
 	}
@@ -490,7 +490,7 @@ func TestRenderDependencyError_MissingEnvVars(t *testing.T) {
 
 	err := &DependencyError{
 		CommandName: "deploy",
-		MissingEnvVars: []string{
+		MissingEnvVars: []DependencyMessage{
 			"  - AWS_ACCESS_KEY_ID - not set in environment",
 		},
 	}
@@ -519,19 +519,19 @@ func TestRenderDependencyError_AllDependencyTypesIncludingEnvVars(t *testing.T) 
 
 	err := &DependencyError{
 		CommandName: "complex-deploy",
-		MissingTools: []string{
+		MissingTools: []DependencyMessage{
 			"  - kubectl - not found in PATH",
 		},
-		MissingCommands: []string{
+		MissingCommands: []DependencyMessage{
 			"  - build - command not found",
 		},
-		MissingFilepaths: []string{
+		MissingFilepaths: []DependencyMessage{
 			"  - config.yaml - file not found",
 		},
-		MissingCapabilities: []string{
+		MissingCapabilities: []DependencyMessage{
 			"  - capability \"internet\" not available: no connection",
 		},
-		MissingEnvVars: []string{
+		MissingEnvVars: []DependencyMessage{
 			"  - AWS_ACCESS_KEY_ID - not set in environment",
 		},
 	}

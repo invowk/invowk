@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/internal/sshserver"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // Container host addresses for SSH tunneling
@@ -51,13 +52,9 @@ type (
 		provisioner *provision.LayerProvisioner
 		cfg         *config.Config
 		envBuilder  EnvBuilder
-		// runMu is a fallback mutex used when flock-based cross-process
-		// serialization is unavailable (non-Linux platforms, lock file errors).
-		// See runWithRetry() in container_exec.go for usage details.
+		//plint:internal -- fallback mutex for non-Linux flock; see runWithRetry()
 		runMu sync.Mutex
-		// fallbackIDCounter provides uniqueness for fallback execution IDs when
-		// callers fail to set ExecutionID via Registry.NewExecutionID(). Combined
-		// with UnixNano timestamp to guarantee uniqueness across sub-nanosecond calls.
+		//plint:internal -- fallback ID counter for missing ExecutionID; see newExecutionID()
 		fallbackIDCounter atomic.Uint64
 	}
 
@@ -66,10 +63,10 @@ type (
 
 	// invowkfileContainerConfig is a local type for container config extracted from RuntimeConfig
 	invowkfileContainerConfig struct {
-		Containerfile string
-		Image         string
-		Volumes       []string
-		Ports         []string
+		Containerfile container.HostFilesystemPath
+		Image         container.ImageTag
+		Volumes       []invowkfile.VolumeMountSpec
+		Ports         []invowkfile.PortMappingSpec
 	}
 )
 
@@ -166,7 +163,7 @@ func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 	// Check for containerfile or image
 	if rtConfig.Containerfile == "" && rtConfig.Image == "" {
 		// Check for default Containerfile/Dockerfile
-		invowkDir := filepath.Dir(ctx.Invowkfile.FilePath)
+		invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
 		containerfilePath := filepath.Join(invowkDir, "Containerfile")
 		dockerfilePath := filepath.Join(invowkDir, "Dockerfile")
 		if _, err := os.Stat(containerfilePath); err != nil {

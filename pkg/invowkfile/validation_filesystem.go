@@ -136,18 +136,19 @@ func ValidateEnvFilePath(filePath string) error {
 // [GO-ONLY] Security constraints (null bytes, length limits) require Go validation.
 // [CUE-VALIDATED] Basic non-empty constraint is in CUE: alternatives: [...string & !=""]
 // These paths are checked at runtime, but we validate basic security constraints.
-func ValidateFilepathDependency(paths []string) error {
+func ValidateFilepathDependency(paths []FilesystemPath) error {
 	for i, path := range paths {
-		if path == "" {
+		s := string(path)
+		if s == "" {
 			return fmt.Errorf("filepath alternative #%d cannot be empty", i+1)
 		}
 
-		if len(path) > MaxPathLength {
-			return fmt.Errorf("filepath alternative #%d too long (%d chars, max %d)", i+1, len(path), MaxPathLength)
+		if len(s) > MaxPathLength {
+			return fmt.Errorf("filepath alternative #%d too long (%d chars, max %d)", i+1, len(s), MaxPathLength)
 		}
 
 		// Check for null bytes (security)
-		if strings.ContainsRune(path, '\x00') {
+		if strings.ContainsRune(s, '\x00') {
 			return fmt.Errorf("filepath alternative #%d contains null byte", i+1)
 		}
 	}
@@ -159,18 +160,19 @@ func ValidateFilepathDependency(paths []string) error {
 // alternatives: [...string & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"]
 // [GO-ONLY] Length limit validation (MaxNameLength) is Go-only because CUE schema
 // doesn't enforce string length limits on tool names for simplicity.
-func ValidateToolName(name string) error {
+func ValidateToolName(name BinaryName) error {
+	s := string(name)
 	// Length check is Go-only (not in CUE schema)
-	if len(name) > MaxNameLength {
-		return fmt.Errorf("tool name too long (%d chars, max %d)", len(name), MaxNameLength)
+	if len(s) > MaxNameLength {
+		return fmt.Errorf("tool name too long (%d chars, max %d)", len(s), MaxNameLength)
 	}
 	// Format validation is redundant with CUE but kept as defense-in-depth
 	// for cases where this function is called outside the CUE parse flow.
-	if name == "" {
+	if s == "" {
 		return fmt.Errorf("tool name cannot be empty")
 	}
-	if !toolNameRegex.MatchString(name) {
-		return fmt.Errorf("tool name '%s' is invalid (must be alphanumeric, can include . _ + -)", name)
+	if !toolNameRegex.MatchString(s) {
+		return fmt.Errorf("tool name '%s' is invalid (must be alphanumeric, can include . _ + -)", s)
 	}
 	return nil
 }
@@ -178,16 +180,17 @@ func ValidateToolName(name string) error {
 // ValidateCommandDependencyName validates a command dependency name.
 // [CUE-VALIDATED] Format validation is in CUE: alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"]
 // [GO-ONLY] Length limit (MaxNameLength) is Go-only for defense-in-depth.
-func ValidateCommandDependencyName(name string) error {
-	if name == "" {
+func ValidateCommandDependencyName(name CommandName) error {
+	s := string(name)
+	if s == "" {
 		return fmt.Errorf("command name cannot be empty")
 	}
 	// [GO-ONLY] Length limit - not in CUE schema
-	if len(name) > MaxNameLength {
-		return fmt.Errorf("command name too long (%d chars, max %d)", len(name), MaxNameLength)
+	if len(s) > MaxNameLength {
+		return fmt.Errorf("command name too long (%d chars, max %d)", len(s), MaxNameLength)
 	}
-	if !cmdDependencyNameRegex.MatchString(name) {
-		return fmt.Errorf("command name '%s' is invalid (must start with letter, can include alphanumeric, underscores, hyphens, spaces)", name)
+	if !cmdDependencyNameRegex.MatchString(s) {
+		return fmt.Errorf("command name '%s' is invalid (must start with letter, can include alphanumeric, underscores, hyphens, spaces)", s)
 	}
 	return nil
 }

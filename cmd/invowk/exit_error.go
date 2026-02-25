@@ -2,11 +2,15 @@
 
 package cmd
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
+)
 
 // ExitError signals a non-zero exit code without forcing os.Exit in RunE handlers.
 type ExitError struct {
-	Code int
+	Code types.ExitCode
 	Err  error
 }
 

@@ -19,7 +19,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Tools(i, j).String(),
-					Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}
@@ -33,7 +33,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().Commands(i, j).String(),
-					Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}
@@ -46,7 +46,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().Filepaths(i).String(),
-				Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -55,21 +55,21 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	// Validate env var dependencies
 	for i, dep := range deps.EnvVars {
 		for j, alt := range dep.Alternatives {
-			name := strings.TrimSpace(alt.Name)
+			name := strings.TrimSpace(string(alt.Name))
 			if err := ValidateEnvVarName(name); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     basePath.Copy().EnvVars(i, j).Field("name").String(),
-					Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}
 			if alt.Validation != "" {
-				if err := ValidateRegexPattern(alt.Validation); err != nil {
+				if err := ValidateRegexPattern(string(alt.Validation)); err != nil {
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     basePath.Copy().EnvVars(i, j).Field("validation").String(),
-						Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+						Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 						Severity:  SeverityError,
 					})
 				}
@@ -93,11 +93,11 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 
 			// [CUE-VALIDATED] Custom check name length also enforced by CUE schema (#CustomCheck.name MaxRunes(256))
 			if check.Name != "" {
-				if err := ValidateStringLength(check.Name, "custom_check name", MaxNameLength); err != nil {
+				if err := ValidateStringLength(string(check.Name), "custom_check name", MaxNameLength); err != nil {
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),
-						Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+						Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 						Severity:  SeverityError,
 					})
 				}
@@ -105,11 +105,11 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 
 			// [CUE-VALIDATED] Check script length also enforced by CUE schema (#CustomCheck.check_script MaxRunes(10485760))
 			if check.CheckScript != "" {
-				if err := ValidateStringLength(check.CheckScript, "check_script", MaxScriptLength); err != nil {
+				if err := ValidateStringLength(string(check.CheckScript), "check_script", MaxScriptLength); err != nil {
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),
-						Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+						Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 						Severity:  SeverityError,
 					})
 				}
@@ -117,11 +117,11 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 
 			// ReDoS pattern safety - CUE cannot analyze regex complexity
 			if check.ExpectedOutput != "" {
-				if err := ValidateRegexPattern(check.ExpectedOutput); err != nil {
+				if err := ValidateRegexPattern(string(check.ExpectedOutput)); err != nil {
 					errors = append(errors, ValidationError{
 						Validator: v.Name(),
 						Field:     path.String(),
-						Message:   "expected_output: " + err.Error() + " in invowkfile at " + ctx.FilePath,
+						Message:   "expected_output: " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
 						Severity:  SeverityError,
 					})
 				}
@@ -142,11 +142,11 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 
 	// Env file path validation - path traversal prevention
 	for i, file := range env.Files {
-		if err := ValidateEnvFilePath(file); err != nil {
+		if err := ValidateEnvFilePath(string(file)); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().EnvFile(i).String(),
-				Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -158,7 +158,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().EnvVar(key).String(),
-				Message:   err.Error() + " in invowkfile at " + ctx.FilePath,
+				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -167,7 +167,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().EnvVar(key).String(),
-				Message:   "value too long (" + itoa(len(value)) + " chars, max " + itoa(MaxEnvVarValueLength) + ") in invowkfile at " + ctx.FilePath,
+				Message:   "value too long (" + itoa(len(value)) + " chars, max " + itoa(MaxEnvVarValueLength) + ") in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}

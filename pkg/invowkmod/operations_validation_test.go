@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ============================================================================
@@ -253,7 +255,7 @@ version: "1.0.0"
 			t.Parallel()
 
 			path := tt.setup(t)
-			result, err := Validate(path)
+			result, err := Validate(types.FilesystemPath(path))
 			if err != nil {
 				t.Fatalf("Validate(%q) returned error: %v", path, err)
 			}
@@ -404,7 +406,7 @@ func TestValidateName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateName(tt.moduleName)
+			err := ValidateName(ModuleShortName(tt.moduleName))
 			if tt.expectErr && err == nil {
 				t.Errorf("ValidateName(%q) expected error, got nil", tt.moduleName)
 			}

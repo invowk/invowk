@@ -25,13 +25,14 @@ var (
 type Module = invowkmod.Module
 
 // Parse reads and parses an invowkfile from the given path.
-func Parse(path string) (*Invowkfile, error) {
-	data, err := os.ReadFile(path)
+func Parse(path FilesystemPath) (*Invowkfile, error) {
+	pathStr := string(path)
+	data, err := os.ReadFile(pathStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read invowkfile at %s: %w", path, err)
 	}
 
-	return ParseBytes(data, path)
+	return ParseBytes(data, pathStr)
 }
 
 // ParseBytes parses invowkfile content from bytes.
@@ -49,7 +50,7 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 	}
 
 	inv := result.Value
-	inv.FilePath = path
+	inv.FilePath = FilesystemPath(path)
 
 	// Validate and collect all errors
 	if errs := inv.Validate(); len(errs) > 0 {
@@ -62,13 +63,13 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 
 // ParseInvowkmod reads and parses module metadata from invowkmod.cue at the given path.
 // This is a wrapper for invowkmod.ParseInvowkmod.
-func ParseInvowkmod(path string) (*Invowkmod, error) {
+func ParseInvowkmod(path FilesystemPath) (*Invowkmod, error) {
 	return invowkmod.ParseInvowkmod(path)
 }
 
 // ParseInvowkmodBytes parses module metadata content from bytes.
 // This is a wrapper for invowkmod.ParseInvowkmodBytes.
-func ParseInvowkmodBytes(data []byte, path string) (*Invowkmod, error) {
+func ParseInvowkmodBytes(data []byte, path FilesystemPath) (*Invowkmod, error) {
 	return invowkmod.ParseInvowkmodBytes(data, path)
 }
 
@@ -80,12 +81,13 @@ func ParseInvowkmodBytes(data []byte, path string) (*Invowkmod, error) {
 //
 // The modulePath should be the path to the module directory (ending in .invowkmod).
 // Returns a Module with Metadata from invowkmod.cue and Commands from invowkfile.cue.
-func ParseModule(modulePath string) (*Module, error) {
-	invowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
-	invowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
+func ParseModule(modulePath FilesystemPath) (*Module, error) {
+	modulePathStr := string(modulePath)
+	invowkmodPath := filepath.Join(modulePathStr, "invowkmod.cue")
+	invowkfilePath := filepath.Join(modulePathStr, "invowkfile.cue")
 
 	// Parse invowkmod.cue (required)
-	meta, err := ParseInvowkmod(invowkmodPath)
+	meta, err := ParseInvowkmod(FilesystemPath(invowkmodPath))
 	if err != nil {
 		return nil, fmt.Errorf("module at %s: %w", modulePath, err)
 	}
@@ -126,8 +128,8 @@ func ParseEnvInheritMode(value string) (EnvInheritMode, error) {
 		return "", nil
 	}
 	mode := EnvInheritMode(value)
-	if !mode.IsValid() {
-		return "", fmt.Errorf("invalid env_inherit_mode %q (expected: none, allow, all)", value)
+	if isValid, errs := mode.IsValid(); !isValid {
+		return "", errs[0]
 	}
 	return mode, nil
 }
@@ -139,8 +141,8 @@ func ParseRuntimeMode(value string) (RuntimeMode, error) {
 		return "", nil
 	}
 	mode := RuntimeMode(value)
-	if !mode.IsValid() {
-		return "", fmt.Errorf("invalid runtime mode %q (expected: native, virtual, container)", value)
+	if isValid, errs := mode.IsValid(); !isValid {
+		return "", errs[0]
 	}
 	return mode, nil
 }

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -88,7 +89,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(xdgPath, AppName)
+		expected := types.FilesystemPath(filepath.Join(xdgPath, AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -101,7 +102,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(fakeHomeDir, ".config", AppName)
+		expected := types.FilesystemPath(filepath.Join(fakeHomeDir, ".config", AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -123,7 +124,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(fakeHomeDir, "Library", "Application Support", AppName)
+		expected := types.FilesystemPath(filepath.Join(fakeHomeDir, "Library", "Application Support", AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -151,7 +152,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(appDataPath, AppName)
+		expected := types.FilesystemPath(filepath.Join(appDataPath, AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -170,7 +171,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(userProfile, "AppData", "Roaming", AppName)
+		expected := types.FilesystemPath(filepath.Join(userProfile, "AppData", "Roaming", AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -197,7 +198,7 @@ func TestCommandsDir(t *testing.T) {
 	}
 
 	home, _ := os.UserHomeDir()
-	expected := filepath.Join(home, ".invowk", "cmds")
+	expected := types.FilesystemPath(filepath.Join(home, ".invowk", "cmds"))
 	if dir != expected {
 		t.Errorf("CommandsDir() = %s, want %s", dir, expected)
 	}
@@ -209,7 +210,7 @@ func TestEnsureConfigDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	err := EnsureConfigDir(configDir)
+	err := EnsureConfigDir(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
@@ -224,7 +225,7 @@ func TestConfigDirWithOverride(t *testing.T) {
 
 	t.Run("explicit path returned as-is", func(t *testing.T) {
 		t.Parallel()
-		want := filepath.Join(t.TempDir(), "explicit-config")
+		want := types.FilesystemPath(filepath.Join(t.TempDir(), "explicit-config"))
 		dir, err := configDirWithOverride(want)
 		if err != nil {
 			t.Fatalf("configDirWithOverride() error: %v", err)
@@ -255,7 +256,7 @@ func TestCommandsDirWithOverride(t *testing.T) {
 
 	t.Run("explicit path returned as-is", func(t *testing.T) {
 		t.Parallel()
-		want := filepath.Join(t.TempDir(), "explicit-cmds")
+		want := types.FilesystemPath(filepath.Join(t.TempDir(), "explicit-cmds"))
 		dir, err := commandsDirWithOverride(want)
 		if err != nil {
 			t.Fatalf("commandsDirWithOverride() error: %v", err)
@@ -303,7 +304,7 @@ func TestConfigDirFrom_UnknownGOOS(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(xdgPath, AppName)
+		expected := types.FilesystemPath(filepath.Join(xdgPath, AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom(freebsd) = %s, want %s", dir, expected)
 		}
@@ -316,7 +317,7 @@ func TestConfigDirFrom_UnknownGOOS(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(fakeHomeDir, ".config", AppName)
+		expected := types.FilesystemPath(filepath.Join(fakeHomeDir, ".config", AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom(freebsd) = %s, want %s", dir, expected)
 		}
@@ -328,7 +329,7 @@ func TestEnsureCommandsDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	cmdsDir := filepath.Join(tmpDir, "cmds")
 
-	err := EnsureCommandsDir(cmdsDir)
+	err := EnsureCommandsDir(types.FilesystemPath(cmdsDir))
 	if err != nil {
 		t.Fatalf("EnsureCommandsDir() returned error: %v", err)
 	}
@@ -350,7 +351,7 @@ func TestLoadAndSave(t *testing.T) {
 	cacheDir := filepath.Join(tmpDir, "tmp", "invowk-cache")
 
 	// Ensure config directory exists
-	err := EnsureConfigDir(configDir)
+	err := EnsureConfigDir(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
@@ -359,8 +360,8 @@ func TestLoadAndSave(t *testing.T) {
 	cfg := &Config{
 		ContainerEngine: ContainerEngineDocker,
 		Includes: []IncludeEntry{
-			{Path: includePathTwo, Alias: "two-alias"},
-			{Path: includePathThree},
+			{Path: ModuleIncludePath(includePathTwo), Alias: "two-alias"},
+			{Path: ModuleIncludePath(includePathThree)},
 		},
 		DefaultRuntime: "container",
 		VirtualShell: VirtualShellConfig{
@@ -374,23 +375,23 @@ func TestLoadAndSave(t *testing.T) {
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
 				Enabled:         false,
-				BinaryPath:      binaryPath,
-				Includes:        []IncludeEntry{{Path: autoProvisionIncludePath}},
+				BinaryPath:      BinaryFilePath(binaryPath),
+				Includes:        []IncludeEntry{{Path: ModuleIncludePath(autoProvisionIncludePath)}},
 				InheritIncludes: false,
-				CacheDir:        cacheDir,
+				CacheDir:        CacheDirPath(cacheDir),
 			},
 		},
 	}
 
 	// Save the config
-	err = Save(cfg, configDir)
+	err = Save(cfg, types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("Save() returned error: %v", err)
 	}
 
 	// Reload from disk via loadWithOptions
 	loaded, _, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigDirPath: configDir,
+		ConfigDirPath: types.FilesystemPath(configDir),
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -429,11 +430,11 @@ func TestLoadAndSave(t *testing.T) {
 		t.Error("AutoProvision.Enabled = true, want false")
 	}
 
-	if loaded.Container.AutoProvision.BinaryPath != binaryPath {
+	if loaded.Container.AutoProvision.BinaryPath != BinaryFilePath(binaryPath) {
 		t.Errorf("AutoProvision.BinaryPath = %q, want %q", loaded.Container.AutoProvision.BinaryPath, binaryPath)
 	}
 
-	if len(loaded.Container.AutoProvision.Includes) != 1 || loaded.Container.AutoProvision.Includes[0].Path != autoProvisionIncludePath {
+	if len(loaded.Container.AutoProvision.Includes) != 1 || loaded.Container.AutoProvision.Includes[0].Path != ModuleIncludePath(autoProvisionIncludePath) {
 		t.Errorf("AutoProvision.Includes = %v, want [{Path:%s}]", loaded.Container.AutoProvision.Includes, autoProvisionIncludePath)
 	}
 
@@ -441,7 +442,7 @@ func TestLoadAndSave(t *testing.T) {
 		t.Error("AutoProvision.InheritIncludes = true, want false")
 	}
 
-	if loaded.Container.AutoProvision.CacheDir != cacheDir {
+	if loaded.Container.AutoProvision.CacheDir != CacheDirPath(cacheDir) {
 		t.Errorf("AutoProvision.CacheDir = %q, want %q", loaded.Container.AutoProvision.CacheDir, cacheDir)
 	}
 }
@@ -453,8 +454,8 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 	configDir := filepath.Join(tmpDir, AppName)
 
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigDirPath: configDir,
-		BaseDir:       tmpDir,
+		ConfigDirPath: types.FilesystemPath(configDir),
+		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -477,7 +478,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	err := CreateDefaultConfig(configDir)
+	err := CreateDefaultConfig(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error: %v", err)
 	}
@@ -499,7 +500,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	}
 
 	// Calling again should not error (file already exists)
-	err = CreateDefaultConfig(configDir)
+	err = CreateDefaultConfig(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error on second call: %v", err)
 	}
@@ -520,8 +521,8 @@ func TestLoad_EmptyFile(t *testing.T) {
 	}
 
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigDirPath: configDir,
-		BaseDir:       tmpDir,
+		ConfigDirPath: types.FilesystemPath(configDir),
+		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error for empty config: %v", err)
@@ -563,8 +564,8 @@ some_future_field: "value"
 	// Either behavior is acceptable; the key invariant is that the
 	// function does not panic or return a nil config without an error.
 	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigDirPath: configDir,
-		BaseDir:       tmpDir,
+		ConfigDirPath: types.FilesystemPath(configDir),
+		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err != nil {
 		// CUE schema rejects unknown fields — this is acceptable behavior.
@@ -596,8 +597,8 @@ func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
 	}
 
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigDirPath: configDir,
-		BaseDir:       tmpDir,
+		ConfigDirPath: types.FilesystemPath(configDir),
+		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for malformed CUE syntax")
@@ -626,8 +627,8 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 
 	// loadWithOptions should fail with actionable error
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigDirPath: configDir,
-		BaseDir:       tmpDir,
+		ConfigDirPath: types.FilesystemPath(configDir),
+		BaseDir:       types.FilesystemPath(tmpDir),
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for invalid config")
@@ -656,8 +657,8 @@ default_runtime: "virtual"
 
 	// Load using custom path via LoadOptions
 	cfg, resolvedPath, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigFilePath: customConfigPath,
-		BaseDir:        tmpDir,
+		ConfigFilePath: types.FilesystemPath(customConfigPath),
+		BaseDir:        types.FilesystemPath(tmpDir),
 	})
 	if err != nil {
 		t.Fatalf("loadWithOptions() returned error: %v", err)
@@ -684,7 +685,7 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 
 	// loadWithOptions should fail with an actionable error
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigFilePath: nonExistentPath,
+		ConfigFilePath: types.FilesystemPath(nonExistentPath),
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for non-existent config file")
@@ -701,7 +702,7 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 	if !ok {
 		t.Fatal("expected error to be *issue.ActionableError")
 	}
-	if len(ae.Suggestions) == 0 {
+	if len(ae.Suggestions()) == 0 {
 		t.Error("expected ActionableError to have suggestions")
 	}
 }
@@ -727,8 +728,8 @@ default_runtime: "virtual"
 	t.Run("loads config from directory", func(t *testing.T) {
 		t.Parallel()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
-			ConfigDirPath: configDir,
-			BaseDir:       tmpDir,
+			ConfigDirPath: types.FilesystemPath(configDir),
+			BaseDir:       types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -745,8 +746,8 @@ default_runtime: "virtual"
 	t.Run("loads config from explicit file path", func(t *testing.T) {
 		t.Parallel()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
-			ConfigFilePath: cfgPath,
-			BaseDir:        tmpDir,
+			ConfigFilePath: types.FilesystemPath(cfgPath),
+			BaseDir:        types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -761,8 +762,8 @@ default_runtime: "virtual"
 		t.Parallel()
 		emptyDir := t.TempDir()
 		cfg, err := provider.Load(context.Background(), LoadOptions{
-			ConfigDirPath: emptyDir,
-			BaseDir:       emptyDir,
+			ConfigDirPath: types.FilesystemPath(emptyDir),
+			BaseDir:       types.FilesystemPath(emptyDir),
 		})
 		if err != nil {
 			t.Fatalf("Provider.Load() returned error: %v", err)
@@ -779,6 +780,7 @@ default_runtime: "virtual"
 		_, err := provider.Load(context.Background(), LoadOptions{
 			ConfigFilePath: "/this/path/does/not/exist.cue",
 		})
+
 		if err == nil {
 			t.Fatal("expected Provider.Load() to return error for non-existent path")
 		}
@@ -799,7 +801,7 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 
 	// loadWithOptions should fail with an actionable error
 	_, _, err := loadWithOptions(context.Background(), LoadOptions{
-		ConfigFilePath: customConfigPath,
+		ConfigFilePath: types.FilesystemPath(customConfigPath),
 	})
 	if err == nil {
 		t.Fatal("expected loadWithOptions() to return error for invalid CUE config file")

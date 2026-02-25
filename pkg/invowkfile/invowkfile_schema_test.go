@@ -48,7 +48,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject tool dependency with 'name' field instead of 'alternatives'")
 	}
@@ -98,7 +98,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject custom check with both direct fields and alternatives")
 	}
@@ -143,7 +143,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject capability dependency with 'name' field instead of 'alternatives'")
 	}
@@ -187,7 +187,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err = Parse(invowkfilePath)
+	_, err = Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject command dependency with 'name' field instead of 'alternatives'")
 	}
@@ -226,7 +226,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() should accept invowkfile without module field: %v", err)
 	}
@@ -240,13 +240,13 @@ func TestGetFullCommandName(t *testing.T) {
 	t.Parallel()
 
 	inv := &Invowkfile{
-		Metadata: &ModuleMetadata{Module: "my.module"},
+		Metadata: &ModuleMetadata{module: "my.module"},
 	}
 
 	tests := []struct {
 		name     string
-		cmdName  string
-		expected string
+		cmdName  CommandName
+		expected CommandName
 	}{
 		{"simple command", "build", "my.module build"},
 		{"subcommand with space", "test unit", "my.module test unit"},
@@ -269,7 +269,7 @@ func TestListCommands_WithModule(t *testing.T) {
 	t.Parallel()
 
 	inv := &Invowkfile{
-		Metadata: &ModuleMetadata{Module: "mymodule"},
+		Metadata: &ModuleMetadata{module: "mymodule"},
 		Commands: []Command{
 			{Name: "build"},
 			{Name: "test"},
@@ -295,7 +295,7 @@ func TestFlattenCommands_WithModule(t *testing.T) {
 	t.Parallel()
 
 	inv := &Invowkfile{
-		Metadata: &ModuleMetadata{Module: "mymodule"},
+		Metadata: &ModuleMetadata{module: "mymodule"},
 		Commands: []Command{
 			{Name: "build", Description: "Build command"},
 			{Name: "test unit", Description: "Unit tests"},
@@ -381,7 +381,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject empty interpreter when explicitly declared")
 	}
@@ -426,7 +426,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Errorf("Parse() should reject whitespace-only interpreter %q", tt.interpreter)
 			}
@@ -459,7 +459,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject empty interpreter for container runtime")
 	}
@@ -489,7 +489,7 @@ func TestValidateRuntimeConfig_ValidInterpreters(t *testing.T) {
 
 			rt := &RuntimeConfig{
 				Name:        RuntimeNative,
-				Interpreter: tt.interpreter,
+				Interpreter: InterpreterSpec(tt.interpreter),
 			}
 
 			err := validateRuntimeConfig(rt, "test-cmd", 1)
@@ -549,8 +549,8 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 			name: "valid allow and deny lists",
 			rt: &RuntimeConfig{
 				Name:            RuntimeNative,
-				EnvInheritAllow: []string{"TERM", "LANG", "MY_VAR1"},
-				EnvInheritDeny:  []string{"AWS_SECRET_ACCESS_KEY"},
+				EnvInheritAllow: []EnvVarName{"TERM", "LANG", "MY_VAR1"},
+				EnvInheritDeny:  []EnvVarName{"AWS_SECRET_ACCESS_KEY"},
 			},
 			wantErr: false,
 		},
@@ -558,7 +558,7 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 			name: "invalid allow name",
 			rt: &RuntimeConfig{
 				Name:            RuntimeNative,
-				EnvInheritAllow: []string{"TERM", "BAD-VAR"},
+				EnvInheritAllow: []EnvVarName{"TERM", "BAD-VAR"},
 			},
 			wantErr: true,
 		},
@@ -566,7 +566,7 @@ func TestValidateRuntimeConfig_EnvInheritNames(t *testing.T) {
 			name: "invalid deny name",
 			rt: &RuntimeConfig{
 				Name:           RuntimeNative,
-				EnvInheritDeny: []string{"OK", "NO=PE"},
+				EnvInheritDeny: []EnvVarName{"OK", "NO=PE"},
 			},
 			wantErr: true,
 		},
@@ -626,13 +626,13 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(FilesystemPath(invowkfilePath))
 			if err != nil {
 				t.Fatalf("Parse() should accept valid interpreter %q, got error: %v", tt.interpreter, err)
 			}
 
 			rt := inv.Commands[0].Implementations[0].Runtimes[0]
-			if rt.Interpreter != tt.interpreter {
+			if rt.Interpreter != InterpreterSpec(tt.interpreter) {
 				t.Errorf("RuntimeConfig.Interpreter = %q, want %q", rt.Interpreter, tt.interpreter)
 			}
 		})
@@ -664,7 +664,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	inv, err := Parse(invowkfilePath)
+	inv, err := Parse(FilesystemPath(invowkfilePath))
 	if err != nil {
 		t.Fatalf("Parse() should accept omitted interpreter field, got error: %v", err)
 	}

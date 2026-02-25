@@ -54,7 +54,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Errorf("Parse() should reject arg with invalid name %q", tt.argName)
 			}
@@ -104,7 +104,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			inv, err := Parse(invowkfilePath)
+			inv, err := Parse(FilesystemPath(invowkfilePath))
 			if err != nil {
 				t.Errorf("Parse() should accept arg with valid name %q, got error: %v", tt.argName, err)
 				return
@@ -143,7 +143,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject arg with empty/whitespace-only description")
 	}
@@ -176,7 +176,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject duplicate arg names")
 	}
@@ -212,7 +212,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject required arg after optional arg")
 	}
@@ -248,7 +248,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject variadic arg that is not last")
 	}
@@ -283,7 +283,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject arg that is both required and has default_value")
 	}
@@ -318,7 +318,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject invalid arg type")
 	}
@@ -365,7 +365,7 @@ cmds: [
 				t.Fatalf("Failed to write invowkfile: %v", err)
 			}
 
-			_, err := Parse(invowkfilePath)
+			_, err := Parse(FilesystemPath(invowkfilePath))
 			if err == nil {
 				t.Errorf("Parse() should reject arg with type %q and incompatible default_value %q", tt.argType, tt.defaultValue)
 			}
@@ -399,7 +399,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject invalid validation regex")
 	}
@@ -431,7 +431,7 @@ cmds: [
 		t.Fatalf("Failed to write invowkfile: %v", writeErr)
 	}
 
-	_, err := Parse(invowkfilePath)
+	_, err := Parse(FilesystemPath(invowkfilePath))
 	if err == nil {
 		t.Error("Parse() should reject default_value that doesn't match validation pattern")
 	}

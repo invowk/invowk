@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,50 +11,153 @@ import (
 	"time"
 )
 
+var (
+	// ErrInvalidModuleNamespace is returned when a ModuleNamespace value is empty.
+	ErrInvalidModuleNamespace = errors.New("invalid module namespace")
+	// ErrInvalidLockFileVersion is the sentinel error wrapped by InvalidLockFileVersionError.
+	ErrInvalidLockFileVersion = errors.New("invalid lock file version")
+	// ErrInvalidModuleRefKey is returned when a ModuleRefKey value is empty.
+	ErrInvalidModuleRefKey = errors.New("invalid module ref key")
+)
+
 type (
+	// ModuleNamespace is the computed namespace for a module's commands.
+	// Format: "<module>@<version>" or the alias if one is specified.
+	// Must not be empty — it is always a computed value.
+	ModuleNamespace string
+
+	// InvalidModuleNamespaceError is returned when a ModuleNamespace value is empty.
+	// It wraps ErrInvalidModuleNamespace for errors.Is() compatibility.
+	InvalidModuleNamespaceError struct {
+		Value ModuleNamespace
+	}
+
+	// LockFileVersion identifies the format version of a lock file.
+	// Must be non-empty.
+	LockFileVersion string
+
+	// InvalidLockFileVersionError is returned when a LockFileVersion value is invalid.
+	// DDD Value Type error struct — wraps ErrInvalidLockFileVersion for errors.Is().
+	InvalidLockFileVersionError struct {
+		Value LockFileVersion
+	}
+
+	// ModuleRefKey is a typed key for the lock file's Modules map.
+	// Format: "<git-url>" or "<git-url>#<subpath>" (e.g., "https://github.com/user/repo.git").
+	// Must not be empty.
+	ModuleRefKey string
+
+	// InvalidModuleRefKeyError is returned when a ModuleRefKey value is empty.
+	// DDD Value Type error struct — wraps ErrInvalidModuleRefKey for errors.Is().
+	InvalidModuleRefKeyError struct {
+		Value ModuleRefKey
+	}
+
 	// LockFile represents the invowkmod.lock.cue file structure.
 	LockFile struct {
 		// Version is the lock file format version.
-		Version string
+		Version LockFileVersion
 
 		// Generated is the timestamp when the lock file was generated.
 		Generated time.Time
 
-		// Modules maps module keys to their locked versions.
-		Modules map[string]LockedModule
+		// Modules maps module ref keys to their locked versions.
+		Modules map[ModuleRefKey]LockedModule
 	}
 
 	// LockedModule represents a locked module entry in the lock file.
 	LockedModule struct {
 		// GitURL is the Git repository URL.
-		GitURL string
+		GitURL GitURL
 
 		// Version is the original version constraint from the invowkfile.
-		Version string
+		Version SemVerConstraint
 
 		// ResolvedVersion is the exact version that was resolved.
-		ResolvedVersion string
+		ResolvedVersion SemVer
 
 		// GitCommit is the Git commit SHA for the resolved version.
-		GitCommit string
+		GitCommit GitCommit
 
 		// Alias is the namespace alias (optional).
-		Alias string
+		Alias ModuleAlias
 
 		// Path is the subdirectory path within the repository (optional).
-		Path string
+		Path SubdirectoryPath
 
 		// Namespace is the computed namespace for commands.
-		Namespace string
+		Namespace ModuleNamespace
 	}
 )
+
+// Error implements the error interface for InvalidModuleNamespaceError.
+func (e *InvalidModuleNamespaceError) Error() string {
+	return fmt.Sprintf("invalid module namespace %q (must not be empty)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidModuleNamespaceError) Unwrap() error {
+	return ErrInvalidModuleNamespace
+}
+
+// IsValid returns whether the ModuleNamespace is valid.
+// A valid namespace must not be empty — it is always a computed value.
+func (n ModuleNamespace) IsValid() (bool, []error) {
+	if n == "" {
+		return false, []error{&InvalidModuleNamespaceError{Value: n}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the ModuleNamespace.
+func (n ModuleNamespace) String() string { return string(n) }
+
+// String returns the string representation of the LockFileVersion.
+func (v LockFileVersion) String() string { return string(v) }
+
+// IsValid returns whether the LockFileVersion is valid.
+// A valid LockFileVersion is non-empty.
+func (v LockFileVersion) IsValid() (bool, []error) {
+	if v == "" {
+		return false, []error{&InvalidLockFileVersionError{Value: v}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidLockFileVersionError.
+func (e *InvalidLockFileVersionError) Error() string {
+	return fmt.Sprintf("invalid lock file version %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidLockFileVersion for errors.Is() compatibility.
+func (e *InvalidLockFileVersionError) Unwrap() error { return ErrInvalidLockFileVersion }
+
+// String returns the string representation of the ModuleRefKey.
+func (k ModuleRefKey) String() string { return string(k) }
+
+// IsValid returns whether the ModuleRefKey is valid.
+// A valid ModuleRefKey is non-empty and not whitespace-only.
+func (k ModuleRefKey) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(k)) == "" {
+		return false, []error{&InvalidModuleRefKeyError{Value: k}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidModuleRefKeyError.
+func (e *InvalidModuleRefKeyError) Error() string {
+	return fmt.Sprintf("invalid module ref key %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidModuleRefKey for errors.Is() compatibility.
+func (e *InvalidModuleRefKeyError) Unwrap() error { return ErrInvalidModuleRefKey }
 
 // NewLockFile creates a new empty lock file.
 func NewLockFile() *LockFile {
 	return &LockFile{
 		Version:   "1.0",
 		Generated: time.Now(),
-		Modules:   make(map[string]LockedModule),
+		Modules:   make(map[ModuleRefKey]LockedModule),
 	}
 }
 
@@ -107,18 +211,20 @@ func (l *LockFile) AddModule(resolved *ResolvedModule) {
 }
 
 // HasModule checks if a module is in the lock file.
-func (l *LockFile) HasModule(key string) bool {
+func (l *LockFile) HasModule(key ModuleRefKey) bool {
 	_, ok := l.Modules[key]
 	return ok
 }
 
 // GetModule returns a module from the lock file.
-func (l *LockFile) GetModule(key string) (LockedModule, bool) {
+func (l *LockFile) GetModule(key ModuleRefKey) (LockedModule, bool) {
 	mod, ok := l.Modules[key]
 	return mod, ok
 }
 
 // toCUE serializes the lock file to CUE format.
+//
+//plint:render
 func (l *LockFile) toCUE() string {
 	var sb strings.Builder
 
@@ -161,7 +267,7 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 
 	// Parse line by line (simplified parser)
 	lines := strings.Split(content, "\n")
-	var currentModuleKey string
+	var currentModuleKey ModuleRefKey
 	var currentModule LockedModule
 	inModules := false
 	braceDepth := 0
@@ -176,7 +282,7 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 
 		// Parse version
 		if strings.HasPrefix(line, "version:") {
-			lock.Version = parseStringValue(line)
+			lock.Version = LockFileVersion(parseStringValue(line))
 			continue
 		}
 
@@ -221,19 +327,19 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 		if braceDepth == 2 && currentModuleKey != "" {
 			switch {
 			case strings.HasPrefix(line, "git_url:"):
-				currentModule.GitURL = parseStringValue(line)
+				currentModule.GitURL = GitURL(parseStringValue(line))
 			case strings.HasPrefix(line, "version:"):
-				currentModule.Version = parseStringValue(line)
+				currentModule.Version = SemVerConstraint(parseStringValue(line))
 			case strings.HasPrefix(line, "resolved_version:"):
-				currentModule.ResolvedVersion = parseStringValue(line)
+				currentModule.ResolvedVersion = SemVer(parseStringValue(line))
 			case strings.HasPrefix(line, "git_commit:"):
-				currentModule.GitCommit = parseStringValue(line)
+				currentModule.GitCommit = GitCommit(parseStringValue(line))
 			case strings.HasPrefix(line, "alias:"):
-				currentModule.Alias = parseStringValue(line)
+				currentModule.Alias = ModuleAlias(parseStringValue(line))
 			case strings.HasPrefix(line, "path:"):
-				currentModule.Path = parseStringValue(line)
+				currentModule.Path = SubdirectoryPath(parseStringValue(line))
 			case strings.HasPrefix(line, "namespace:"):
-				currentModule.Namespace = parseStringValue(line)
+				currentModule.Namespace = ModuleNamespace(parseStringValue(line))
 			}
 		}
 	}
@@ -253,13 +359,13 @@ func parseStringValue(line string) string {
 }
 
 // parseModuleKey extracts the module key from a CUE line like `"key": {`.
-func parseModuleKey(line string) string {
+func parseModuleKey(line string) ModuleRefKey {
 	line = strings.TrimSpace(line)
 	// Format: "key": {
 	if strings.HasPrefix(line, "\"") {
 		end := strings.Index(line[1:], "\"")
 		if end != -1 {
-			return line[1 : end+1]
+			return ModuleRefKey(line[1 : end+1])
 		}
 	}
 	return ""

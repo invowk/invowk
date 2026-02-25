@@ -35,7 +35,7 @@ func newContainerValidationContext(parentCtx *runtime.ExecutionContext, script s
 	execCtx = &runtime.ExecutionContext{
 		Command:         parentCtx.Command,
 		Invowkfile:      parentCtx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: script, Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+		SelectedImpl:    &invowkfile.Implementation{Script: invowkfile.ScriptContent(script), Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
 		SelectedRuntime: invowkfile.RuntimeContainer,
 		Context:         parentCtx.Context,
 		IO:              runtime.IOContext{Stdout: stdout, Stderr: stderr},
@@ -48,16 +48,20 @@ func newContainerValidationContext(parentCtx *runtime.ExecutionContext, script s
 // tools that are not satisfied. Each tool has alternatives with OR semantics (any
 // alternative found satisfies the dependency). The check function validates a single
 // tool name; it's called for each alternative until one succeeds.
-func collectToolErrors(tools []invowkfile.ToolDependency, check func(string) error) []string {
-	var toolErrors []string
+func collectToolErrors(tools []invowkfile.ToolDependency, check func(invowkfile.BinaryName) error) []DependencyMessage {
+	var toolErrors []DependencyMessage
 
 	for _, tool := range tools {
 		found, lastErr := evaluateAlternatives(tool.Alternatives, check)
 		if !found && lastErr != nil {
 			if len(tool.Alternatives) == 1 {
-				toolErrors = append(toolErrors, lastErr.Error())
+				toolErrors = append(toolErrors, DependencyMessage(lastErr.Error()))
 			} else {
-				toolErrors = append(toolErrors, fmt.Sprintf("  • none of [%s] found", strings.Join(tool.Alternatives, ", ")))
+				names := make([]string, len(tool.Alternatives))
+				for i, alt := range tool.Alternatives {
+					names[i] = string(alt)
+				}
+				toolErrors = append(toolErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found", strings.Join(names, ", "))))
 			}
 		}
 	}
@@ -70,8 +74,8 @@ func collectToolErrors(tools []invowkfile.ToolDependency, check func(string) err
 // All container validation functions must call this after checking result.Error
 // and before interpreting result.ExitCode for domain-specific failures.
 func checkTransientExitCode(result *runtime.Result, label string) error {
-	if runtime.IsTransientExitCode(result.ExitCode) {
-		return fmt.Errorf("  • %s - container engine failure (exit code %d)", label, result.ExitCode)
+	if result.ExitCode.IsTransient() {
+		return fmt.Errorf("  • %s - container engine failure (exit code %s)", label, result.ExitCode)
 	}
 	return nil
 }

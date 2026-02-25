@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -21,8 +23,54 @@ const (
 	pathTypeModule              // *.invowkmod directory or invowkmod.cue file
 )
 
-// pathType represents the detected type of a filesystem path for validation routing.
-type pathType int
+// errInvalidPathType is returned when a pathType value is not one of the defined types.
+var errInvalidPathType = errors.New("invalid path type")
+
+type (
+	// pathType represents the detected type of a filesystem path for validation routing.
+	pathType int
+
+	// invalidPathTypeError is returned when a pathType value is not recognized.
+	// It wraps errInvalidPathType for errors.Is() compatibility.
+	invalidPathTypeError struct {
+		value pathType
+	}
+)
+
+// Error implements the error interface for invalidPathTypeError.
+func (e *invalidPathTypeError) Error() string {
+	return fmt.Sprintf("invalid path type %d (valid: 0=unknown, 1=invowkfile, 2=module)", e.value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *invalidPathTypeError) Unwrap() error {
+	return errInvalidPathType
+}
+
+// String returns the human-readable name of the pathType.
+func (p pathType) String() string {
+	switch p {
+	case pathTypeUnknown:
+		return "unknown"
+	case pathTypeInvowkfile:
+		return "invowkfile"
+	case pathTypeModule:
+		return "module"
+	default:
+		return fmt.Sprintf("unknown(%d)", int(p))
+	}
+}
+
+// isValid returns whether the pathType is one of the defined types,
+// and a list of validation errors if it is not.
+func (p pathType) isValid() (bool, []error) {
+	switch p {
+	case pathTypeUnknown, pathTypeInvowkfile, pathTypeModule:
+		return true, nil
+	default:
+		return false, []error{&invalidPathTypeError{value: p}}
+	}
+}
 
 // newValidateCommand creates the `invowk validate` command.
 // Without arguments, it runs workspace-wide discovery validation.
@@ -106,12 +154,12 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 
 		for i, diag := range result.Diagnostics {
 			issueNum := fmt.Sprintf("  %d.", i+1)
-			codeTag := moduleIssueTypeStyle.Render(fmt.Sprintf("[%s]", diag.Code))
-			if diag.Path != "" {
-				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, modulePathStyle.Render(diag.Path))
-				fmt.Fprintf(stderr, "     %s\n", diag.Message)
+			codeTag := moduleIssueTypeStyle.Render(fmt.Sprintf("[%s]", diag.Code()))
+			if diag.Path() != "" {
+				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, modulePathStyle.Render(string(diag.Path())))
+				fmt.Fprintf(stderr, "     %s\n", diag.Message())
 			} else {
-				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, diag.Message)
+				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, diag.Message())
 			}
 		}
 		hasIssues = true
@@ -207,7 +255,7 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 	fmt.Fprintln(stdout)
 
 	// Parse the invowkfile (CUE schema + structural validation).
-	inv, err := invowkfile.Parse(invowkfilePath)
+	inv, err := invowkfile.Parse(types.FilesystemPath(invowkfilePath))
 	if err != nil {
 		fmt.Fprintf(stderr, "%s CUE schema validation failed\n", moduleErrorIcon)
 		fmt.Fprintln(stderr)
@@ -227,7 +275,7 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 	for name, cmdDef := range inv.FlattenCommands() {
 		commands = append(commands, &discovery.CommandInfo{
 			Name:       name,
-			FilePath:   invowkfilePath,
+			FilePath:   invowkfile.FilesystemPath(invowkfilePath),
 			Command:    cmdDef,
 			Invowkfile: inv,
 		})
@@ -265,13 +313,13 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	fmt.Fprintln(stdout, moduleTitleStyle.Render("Module Validation"))
 	fmt.Fprintf(stdout, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
 
-	result, err := invowkmod.Validate(modulePath)
+	result, err := invowkmod.Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		return fmt.Errorf("validation error: %w", err)
 	}
 
 	if result.ModuleName != "" {
-		fmt.Fprintf(stdout, "%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(result.ModuleName))
+		fmt.Fprintf(stdout, "%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(string(result.ModuleName)))
 	}
 
 	// Deep validation: parse invowkfile and validate command tree if present.
@@ -290,7 +338,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 				})
 			}
 			if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
-				result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), result.InvowkfilePath)
+				result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), string(result.InvowkfilePath))
 			}
 		}
 	}

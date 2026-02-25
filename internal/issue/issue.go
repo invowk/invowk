@@ -4,9 +4,11 @@ package issue
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
@@ -32,6 +34,13 @@ const (
 )
 
 var (
+	// ErrInvalidId is returned when an Id value is not one of the defined issue IDs.
+	ErrInvalidId = errors.New("invalid issue id")
+	// ErrInvalidMarkdownMsg is returned when a MarkdownMsg value is empty or whitespace-only.
+	ErrInvalidMarkdownMsg = errors.New("invalid markdown message")
+	// ErrInvalidHttpLink is returned when an HttpLink value does not have an http:// or https:// scheme.
+	ErrInvalidHttpLink = errors.New("invalid http link")
+
 	//go:embed templates
 	templateFS embed.FS
 
@@ -139,6 +148,24 @@ type (
 	// HttpLink represents a URL link for documentation or external resources.
 	HttpLink string
 
+	// InvalidIdError is returned when an Id value is not one of the defined issue IDs.
+	// It wraps ErrInvalidId for errors.Is() compatibility.
+	InvalidIdError struct {
+		Value Id
+	}
+
+	// InvalidMarkdownMsgError is returned when a MarkdownMsg value is empty or whitespace-only.
+	// It wraps ErrInvalidMarkdownMsg for errors.Is() compatibility.
+	InvalidMarkdownMsgError struct {
+		Value MarkdownMsg
+	}
+
+	// InvalidHttpLinkError is returned when an HttpLink value does not have a valid URL scheme.
+	// It wraps ErrInvalidHttpLink for errors.Is() compatibility.
+	InvalidHttpLinkError struct {
+		Value HttpLink
+	}
+
 	// Issue represents a user-facing error with documentation and external links.
 	Issue struct {
 		id       Id          // ID used to lookup the issue
@@ -147,6 +174,79 @@ type (
 		extLinks []HttpLink  // external links that might be useful for the user
 	}
 )
+
+// Error implements the error interface for InvalidIdError.
+func (e *InvalidIdError) Error() string {
+	return fmt.Sprintf("invalid issue id %d", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidIdError) Unwrap() error {
+	return ErrInvalidId
+}
+
+// IsValid returns whether the Id is one of the defined issue IDs,
+// and a list of validation errors if it is not.
+func (id Id) IsValid() (bool, []error) {
+	switch id {
+	case FileNotFoundId, InvowkfileNotFoundId, InvowkfileParseErrorId,
+		CommandNotFoundId, RuntimeNotAvailableId, ContainerEngineNotFoundId,
+		DockerfileNotFoundId, ScriptExecutionFailedId, ConfigLoadFailedId,
+		InvalidRuntimeModeId, ShellNotFoundId, PermissionDeniedId,
+		DependenciesNotSatisfiedId, HostNotSupportedId, InvalidArgumentId:
+		return true, nil
+	default:
+		return false, []error{&InvalidIdError{Value: id}}
+	}
+}
+
+// String returns the decimal string representation of the issue Id.
+func (id Id) String() string { return strconv.Itoa(int(id)) }
+
+// Error implements the error interface for InvalidMarkdownMsgError.
+func (e *InvalidMarkdownMsgError) Error() string {
+	return "invalid markdown message: content is empty or whitespace-only"
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidMarkdownMsgError) Unwrap() error {
+	return ErrInvalidMarkdownMsg
+}
+
+// IsValid returns whether the MarkdownMsg contains non-whitespace content,
+// and a list of validation errors if it does not.
+func (m MarkdownMsg) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(m)) == "" {
+		return false, []error{&InvalidMarkdownMsgError{Value: m}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the MarkdownMsg.
+func (m MarkdownMsg) String() string { return string(m) }
+
+// Error implements the error interface for InvalidHttpLinkError.
+func (e *InvalidHttpLinkError) Error() string {
+	return fmt.Sprintf("invalid http link %q (must start with http:// or https://)", e.Value)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidHttpLinkError) Unwrap() error {
+	return ErrInvalidHttpLink
+}
+
+// IsValid returns whether the HttpLink has a valid URL scheme (http:// or https://),
+// and a list of validation errors if it does not.
+func (l HttpLink) IsValid() (bool, []error) {
+	s := string(l)
+	if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
+		return false, []error{&InvalidHttpLinkError{Value: l}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the HttpLink.
+func (l HttpLink) String() string { return string(l) }
 
 // Id returns the unique identifier for this issue.
 func (i *Issue) Id() Id {

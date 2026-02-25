@@ -14,6 +14,7 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -38,7 +39,7 @@ func TestValidateRuntimeDependencies_NativeRuntime_NoOp(t *testing.T) {
 			Runtimes: []invowkfile.RuntimeConfig{{
 				Name: invowkfile.RuntimeNative,
 				DependsOn: &invowkfile.DependsOn{
-					Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz"}}},
+					Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz"}}},
 				},
 			}},
 		},
@@ -66,7 +67,7 @@ func TestValidateRuntimeDependencies_VirtualRuntime_NoOp(t *testing.T) {
 			Runtimes: []invowkfile.RuntimeConfig{{
 				Name: invowkfile.RuntimeVirtual,
 				DependsOn: &invowkfile.DependsOn{
-					Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz"}}},
+					Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz"}}},
 				},
 			}},
 		},
@@ -203,7 +204,7 @@ func TestCheckHostToolDependencies_ExistingTool(t *testing.T) {
 	}
 
 	deps := &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{{Alternatives: []string{existingTool}}},
+		Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{invowkfile.BinaryName(existingTool)}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
@@ -219,7 +220,7 @@ func TestCheckHostToolDependencies_MissingTool(t *testing.T) {
 	t.Parallel()
 
 	deps := &invowkfile.DependsOn{
-		Tools: []invowkfile.ToolDependency{{Alternatives: []string{"nonexistent-tool-xyz-12345"}}},
+		Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz-12345"}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
@@ -259,7 +260,7 @@ func TestCheckHostToolDependencies_AlternativesOR(t *testing.T) {
 	// One existing + one missing → should pass (OR semantics)
 	deps := &invowkfile.DependsOn{
 		Tools: []invowkfile.ToolDependency{{
-			Alternatives: []string{"nonexistent-tool-xyz", existingTool},
+			Alternatives: []invowkfile.BinaryName{"nonexistent-tool-xyz", invowkfile.BinaryName(existingTool)},
 		}},
 	}
 	ctx := &runtime.ExecutionContext{
@@ -299,13 +300,13 @@ func TestCheckHostFilepathDependencies_ExistingPath(t *testing.T) {
 	}
 
 	deps := &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{testFile}}},
+		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{invowkfile.FilesystemPath(testFile)}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostFilepathDependencies(deps, filepath.Join(tmpDir, "invowkfile.cue"), ctx)
+	err := checkHostFilepathDependencies(deps, types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")), ctx)
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should return nil for existing file, got: %v", err)
 	}
@@ -315,7 +316,7 @@ func TestCheckHostFilepathDependencies_MissingPath(t *testing.T) {
 	t.Parallel()
 
 	deps := &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"/nonexistent/path/xyz"}}},
+		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/nonexistent/path/xyz"}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
@@ -344,13 +345,13 @@ func TestCheckHostFilepathDependencies_RelativePath(t *testing.T) {
 	}
 
 	deps := &invowkfile.DependsOn{
-		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []string{"script.sh"}}},
+		Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"script.sh"}}},
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostFilepathDependencies(deps, filepath.Join(tmpDir, "invowkfile.cue"), ctx)
+	err := checkHostFilepathDependencies(deps, types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")), ctx)
 	if err != nil {
 		t.Errorf("checkHostFilepathDependencies() should resolve relative paths against invowkfile dir, got: %v", err)
 	}
@@ -418,7 +419,7 @@ func TestCheckHostCustomCheckDependencies_FailingCheck(t *testing.T) {
 		CustomChecks: []invowkfile.CustomCheckDependency{{
 			Name:         "fail-check",
 			CheckScript:  "exit 1",
-			ExpectedCode: new(0),
+			ExpectedCode: new(types.ExitCode(0)),
 		}},
 	}
 	ctx := &runtime.ExecutionContext{
@@ -446,8 +447,8 @@ func TestCheckHostCustomCheckDependencies_AlternativesOR(t *testing.T) {
 	deps := &invowkfile.DependsOn{
 		CustomChecks: []invowkfile.CustomCheckDependency{{
 			Alternatives: []invowkfile.CustomCheck{
-				{Name: "failing", CheckScript: "exit 1", ExpectedCode: new(0)},
-				{Name: "passing", CheckScript: "echo ok", ExpectedCode: new(0)},
+				{Name: "failing", CheckScript: "exit 1", ExpectedCode: new(types.ExitCode(0))},
+				{Name: "passing", CheckScript: "echo ok", ExpectedCode: new(types.ExitCode(0))},
 			},
 		}},
 	}

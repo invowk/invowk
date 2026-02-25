@@ -194,7 +194,7 @@ echo "Variable: $VAR"`
 		Name: "test-multiline",
 		Implementations: []invowkfile.Implementation{
 			{
-				Script: script,
+				Script: invowkfile.ScriptContent(script),
 
 				Runtimes: []invowkfile.RuntimeConfig{
 					{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"},
@@ -305,7 +305,7 @@ func testContainerVolumeMounts(t *testing.T) {
 					{
 						Name:    invowkfile.RuntimeContainer,
 						Image:   "debian:stable-slim",
-						Volumes: []string{dataDir + ":/data:ro"},
+						Volumes: []invowkfile.VolumeMountSpec{invowkfile.VolumeMountSpec(dataDir + ":/data:ro")},
 					},
 				},
 				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
@@ -496,7 +496,7 @@ func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfilePath,
+		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 	}
 
 	return tmpDir, inv

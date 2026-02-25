@@ -3,44 +3,120 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 )
 
-// Command represents a single command that can be executed
-type Command struct {
-	// Name is the command identifier (can include spaces for subcommand-like behavior, e.g., "test unit")
-	Name string `json:"name"`
-	// Description provides help text for the command
-	Description string `json:"description,omitempty"`
-	// Category groups this command under a heading in 'invowk cmd' output (optional)
-	Category string `json:"category,omitempty"`
-	// Implementations defines the executable implementations with platform/runtime constraints (required, at least one)
-	Implementations []Implementation `json:"implementations"`
-	// Env contains environment configuration for this command (optional)
-	// Environment from files is loaded first, then vars override.
-	// Command-level env is applied before implementation-level env.
-	Env *EnvConfig `json:"env,omitempty"`
-	// WorkDir specifies the working directory for command execution (optional)
-	// Overrides root-level workdir but can be overridden by implementation-level workdir.
-	// Can be absolute or relative to the invowkfile location.
-	// Forward slashes should be used for cross-platform compatibility.
-	WorkDir string `json:"workdir,omitempty"`
-	// DependsOn specifies dependencies that must be satisfied before running
-	DependsOn *DependsOn `json:"depends_on,omitempty"`
-	// Flags specifies command-line flags for this command.
-	// Note: All flags starting with 'ivk-', 'invowk-', or 'i-' are reserved for system use.
-	// Additionally, 'help' and 'version' are reserved built-in flags.
-	Flags []Flag `json:"flags,omitempty"`
-	// Args specifies positional arguments for this command
-	// Arguments are passed as environment variables: INVOWK_ARG_<NAME>
-	// For variadic arguments: INVOWK_ARG_<NAME>_COUNT and INVOWK_ARG_<NAME>_1, _2, etc.
-	Args []Argument `json:"args,omitempty"`
-	// Watch defines file-watching configuration for automatic re-execution (optional).
-	// When defined, the command can be activated in watch mode via --ivk-watch.
-	Watch *WatchConfig `json:"watch,omitempty"`
+var (
+	// ErrInvalidCommandName is the sentinel error wrapped by InvalidCommandNameError.
+	ErrInvalidCommandName = errors.New("invalid command name")
+
+	// ErrInvalidCommandCategory is the sentinel error wrapped by InvalidCommandCategoryError.
+	ErrInvalidCommandCategory = errors.New("invalid command category")
+)
+
+type (
+	// CommandName represents a command identifier.
+	// Command names can contain spaces for subcommand-like behavior (e.g., "test unit").
+	// A valid command name is non-empty and not whitespace-only.
+	CommandName string
+
+	// InvalidCommandNameError is returned when a CommandName value is empty
+	// or whitespace-only.
+	InvalidCommandNameError struct {
+		Value CommandName
+	}
+
+	// CommandCategory represents the display category for a command in 'invowk cmd' output.
+	// The zero value ("") means "no category assigned" and is valid.
+	CommandCategory string
+
+	// InvalidCommandCategoryError is returned when a CommandCategory is
+	// whitespace-only (non-empty but no visible characters).
+	InvalidCommandCategoryError struct {
+		Value CommandCategory
+	}
+
+	// Command represents a single command that can be executed
+	Command struct {
+		// Name is the command identifier (can include spaces for subcommand-like behavior, e.g., "test unit")
+		Name CommandName `json:"name"`
+		// Description provides help text for the command
+		Description DescriptionText `json:"description,omitempty"`
+		// Category groups this command under a heading in 'invowk cmd' output (optional)
+		Category CommandCategory `json:"category,omitempty"`
+		// Implementations defines the executable implementations with platform/runtime constraints (required, at least one)
+		Implementations []Implementation `json:"implementations"`
+		// Env contains environment configuration for this command (optional)
+		// Environment from files is loaded first, then vars override.
+		// Command-level env is applied before implementation-level env.
+		Env *EnvConfig `json:"env,omitempty"`
+		// WorkDir specifies the working directory for command execution (optional)
+		// Overrides root-level workdir but can be overridden by implementation-level workdir.
+		// Can be absolute or relative to the invowkfile location.
+		// Forward slashes should be used for cross-platform compatibility.
+		WorkDir WorkDir `json:"workdir,omitempty"`
+		// DependsOn specifies dependencies that must be satisfied before running
+		DependsOn *DependsOn `json:"depends_on,omitempty"`
+		// Flags specifies command-line flags for this command.
+		// Note: All flags starting with 'ivk-', 'invowk-', or 'i-' are reserved for system use.
+		// Additionally, 'help' and 'version' are reserved built-in flags.
+		Flags []Flag `json:"flags,omitempty"`
+		// Args specifies positional arguments for this command
+		// Arguments are passed as environment variables: INVOWK_ARG_<NAME>
+		// For variadic arguments: INVOWK_ARG_<NAME>_COUNT and INVOWK_ARG_<NAME>_1, _2, etc.
+		Args []Argument `json:"args,omitempty"`
+		// Watch defines file-watching configuration for automatic re-execution (optional).
+		// When defined, the command can be activated in watch mode via --ivk-watch.
+		Watch *WatchConfig `json:"watch,omitempty"`
+	}
+)
+
+// Error implements the error interface.
+func (e *InvalidCommandNameError) Error() string {
+	return fmt.Sprintf("invalid command name %q (must not be empty or whitespace-only)", e.Value)
 }
+
+// Unwrap returns ErrInvalidCommandName so callers can use errors.Is for programmatic detection.
+func (e *InvalidCommandNameError) Unwrap() error { return ErrInvalidCommandName }
+
+// IsValid returns whether the CommandName is a valid command identifier,
+// and a list of validation errors if it is not.
+func (n CommandName) IsValid() (bool, []error) {
+	if strings.TrimSpace(string(n)) == "" {
+		return false, []error{&InvalidCommandNameError{Value: n}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the CommandName.
+func (n CommandName) String() string { return string(n) }
+
+// Error implements the error interface.
+func (e *InvalidCommandCategoryError) Error() string {
+	return fmt.Sprintf("invalid command category %q (must not be whitespace-only)", e.Value)
+}
+
+// Unwrap returns ErrInvalidCommandCategory so callers can use errors.Is for programmatic detection.
+func (e *InvalidCommandCategoryError) Unwrap() error { return ErrInvalidCommandCategory }
+
+// IsValid returns whether the CommandCategory is valid,
+// and a list of validation errors if it is not.
+// The zero value ("") is valid — it means "no category assigned".
+func (c CommandCategory) IsValid() (bool, []error) {
+	if c == "" {
+		return true, nil
+	}
+	if strings.TrimSpace(string(c)) == "" {
+		return false, []error{&InvalidCommandCategoryError{Value: c}}
+	}
+	return true, nil
+}
+
+// String returns the string representation of the CommandCategory.
+func (c CommandCategory) String() string { return string(c) }
 
 // GetImplForPlatformRuntime finds the implementation that matches the given platform and runtime.
 func (c *Command) GetImplForPlatformRuntime(platform Platform, runtime RuntimeMode) *Implementation {
@@ -110,6 +186,8 @@ func (c *Command) GetSupportedPlatforms() []Platform {
 }
 
 // GetPlatformsString returns a comma-separated string of supported platforms
+//
+//plint:render
 func (c *Command) GetPlatformsString() string {
 	platforms := c.GetSupportedPlatforms()
 	if len(platforms) == 0 {
@@ -142,6 +220,8 @@ func (c *Command) GetAllowedRuntimesForPlatform(platform Platform) []RuntimeMode
 }
 
 // GetRuntimesStringForPlatform returns a formatted string of runtimes for a platform with default highlighted
+//
+//plint:render
 func (c *Command) GetRuntimesStringForPlatform(platform Platform) string {
 	runtimes := c.GetAllowedRuntimesForPlatform(platform)
 	if len(runtimes) == 0 {
@@ -210,11 +290,11 @@ func (c *Command) HasCommandLevelDependencies() bool {
 
 // GetCommandDependencies returns the list of command dependency names (from command level)
 // For dependencies with alternatives, returns all alternatives flattened into a single list
-func (c *Command) GetCommandDependencies() []string {
+func (c *Command) GetCommandDependencies() []CommandName {
 	if c.DependsOn == nil {
 		return nil
 	}
-	var names []string
+	var names []CommandName
 	for _, dep := range c.DependsOn.Commands {
 		names = append(names, dep.Alternatives...)
 	}

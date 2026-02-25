@@ -4,25 +4,38 @@ package execute
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	platmeta "github.com/invowk/invowk/pkg/platform"
 )
 
+// ErrInvalidRuntimeSelection is the sentinel error wrapped by InvalidRuntimeSelectionError.
+var ErrInvalidRuntimeSelection = errors.New("invalid runtime selection")
+
 type (
 	// RuntimeSelection is the resolved runtime mode + implementation pair.
+	// Fields are unexported for immutability; use Mode() and Impl() accessors.
 	RuntimeSelection struct {
-		Mode invowkfile.RuntimeMode
-		Impl *invowkfile.Implementation
+		mode invowkfile.RuntimeMode
+		impl *invowkfile.Implementation
+	}
+
+	// InvalidRuntimeSelectionError is returned when a RuntimeSelection has invalid fields.
+	// It wraps ErrInvalidRuntimeSelection for errors.Is() compatibility and collects
+	// field-level validation errors from Mode and Impl.
+	InvalidRuntimeSelectionError struct {
+		FieldErrors []error
 	}
 
 	// RuntimeNotAllowedError indicates a runtime override incompatible with the command.
 	RuntimeNotAllowedError struct {
-		CommandName string
+		CommandName invowkfile.CommandName
 		Runtime     invowkfile.RuntimeMode
 		Platform    invowkfile.Platform
 		Allowed     []invowkfile.RuntimeMode
@@ -40,27 +53,79 @@ type (
 
 		Args         []string
 		Verbose      bool
-		Workdir      string
+		Workdir      invowkfile.WorkDir
 		ForceRebuild bool
 
-		EnvFiles []string
+		EnvFiles []invowkfile.DotenvFilePath
 		EnvVars  map[string]string
 
-		FlagValues map[string]string
+		FlagValues map[invowkfile.FlagName]string
 		ArgDefs    []invowkfile.Argument
 
 		EnvInheritMode  invowkfile.EnvInheritMode
-		EnvInheritAllow []string
-		EnvInheritDeny  []string
+		EnvInheritAllow []invowkfile.EnvVarName
+		EnvInheritDeny  []invowkfile.EnvVarName
 
 		// SourceID identifies the origin of the command (invowkfile path or module ID).
 		// Injected as INVOWK_SOURCE so scripts can identify which source they belong to.
-		SourceID string
+		SourceID discovery.SourceID
 		// Platform is the resolved platform for this execution.
 		// Injected as INVOWK_PLATFORM so scripts can self-introspect the target platform.
 		Platform invowkfile.Platform
 	}
 )
+
+// NewRuntimeSelection creates a validated RuntimeSelection.
+// Mode must be a valid RuntimeMode and Impl must not be nil.
+func NewRuntimeSelection(mode invowkfile.RuntimeMode, impl *invowkfile.Implementation) (RuntimeSelection, error) {
+	if impl == nil {
+		return RuntimeSelection{}, fmt.Errorf("implementation must not be nil for runtime mode %q", mode)
+	}
+	if isValid, errs := mode.IsValid(); !isValid {
+		return RuntimeSelection{}, errs[0]
+	}
+	return RuntimeSelection{mode: mode, impl: impl}, nil
+}
+
+// RuntimeSelectionOf creates a RuntimeSelection without validation.
+// Prefer NewRuntimeSelection in production code. This variant is for test
+// fixtures and rendering paths where an incomplete selection is valid
+// (e.g., nil Impl for dry-run rendering edge cases).
+func RuntimeSelectionOf(mode invowkfile.RuntimeMode, impl *invowkfile.Implementation) RuntimeSelection {
+	return RuntimeSelection{mode: mode, impl: impl}
+}
+
+// Mode returns the resolved runtime mode.
+func (r RuntimeSelection) Mode() invowkfile.RuntimeMode { return r.mode }
+
+// Impl returns the resolved implementation.
+func (r RuntimeSelection) Impl() *invowkfile.Implementation { return r.impl }
+
+// IsValid returns whether the RuntimeSelection has valid fields.
+// Mode must be a recognized RuntimeMode and Impl must not be nil.
+// A selection created via NewRuntimeSelection always passes IsValid();
+// selections from RuntimeSelectionOf (test fixtures) may not.
+func (r RuntimeSelection) IsValid() (bool, []error) {
+	var errs []error
+	if valid, fieldErrs := r.mode.IsValid(); !valid {
+		errs = append(errs, fieldErrs...)
+	}
+	if r.impl == nil {
+		errs = append(errs, fmt.Errorf("implementation must not be nil"))
+	}
+	if len(errs) > 0 {
+		return false, []error{&InvalidRuntimeSelectionError{FieldErrors: errs}}
+	}
+	return true, nil
+}
+
+// Error implements the error interface for InvalidRuntimeSelectionError.
+func (e *InvalidRuntimeSelectionError) Error() string {
+	return fmt.Sprintf("invalid runtime selection: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidRuntimeSelection for errors.Is() compatibility.
+func (e *InvalidRuntimeSelectionError) Unwrap() error { return ErrInvalidRuntimeSelection }
 
 func (e *RuntimeNotAllowedError) Error() string {
 	allowed := make([]string, len(e.Allowed))
@@ -85,12 +150,12 @@ func (e *RuntimeNotAllowedError) Error() string {
 // platform rather than relying on the host OS at call time. Production code
 // passes invowkfile.CurrentPlatform(); tests pass a fixed platform for
 // deterministic behavior across CI environments.
-func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOverride invowkfile.RuntimeMode, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
+func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandName, runtimeOverride invowkfile.RuntimeMode, cfg *config.Config, platform invowkfile.Platform) (RuntimeSelection, error) {
 	if runtimeOverride != "" {
 		// Defense-in-depth: the CLI boundary should have already validated the mode
 		// via ParseRuntimeMode, but verify here to catch programmatic misuse.
-		if !runtimeOverride.IsValid() {
-			return RuntimeSelection{}, fmt.Errorf("invalid runtime override %q (expected: native, virtual, container)", runtimeOverride)
+		if isValid, errs := runtimeOverride.IsValid(); !isValid {
+			return RuntimeSelection{}, errs[0]
 		}
 
 		if !command.IsRuntimeAllowedForPlatform(platform, runtimeOverride) {
@@ -111,23 +176,22 @@ func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOver
 				runtimeOverride,
 			)
 		}
-		return RuntimeSelection{Mode: runtimeOverride, Impl: impl}, nil
+		// Mode is validated above; constructor re-validates (defense-in-depth).
+		return NewRuntimeSelection(runtimeOverride, impl)
 	}
 
 	if cfg != nil && cfg.DefaultRuntime != "" {
 		configRuntime := invowkfile.RuntimeMode(cfg.DefaultRuntime)
 		// Defense-in-depth: CUE schema validates config at load time, but verify
 		// here to prevent silent fallthrough to command default on invalid config.
-		if !configRuntime.IsValid() {
-			return RuntimeSelection{}, fmt.Errorf(
-				"invalid default_runtime %q in config (expected: native, virtual, container)",
-				cfg.DefaultRuntime,
-			)
+		if isValid, errs := configRuntime.IsValid(); !isValid {
+			return RuntimeSelection{}, fmt.Errorf("invalid default_runtime in config: %w", errs[0])
 		}
 		if command.IsRuntimeAllowedForPlatform(platform, configRuntime) {
 			impl := command.GetImplForPlatformRuntime(platform, configRuntime)
 			if impl != nil {
-				return RuntimeSelection{Mode: configRuntime, Impl: impl}, nil
+				// Mode is validated above; constructor re-validates (defense-in-depth).
+				return NewRuntimeSelection(configRuntime, impl)
 			}
 		}
 	}
@@ -143,7 +207,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName string, runtimeOver
 		)
 	}
 
-	return RuntimeSelection{Mode: defaultRuntime, Impl: defaultImpl}, nil
+	return NewRuntimeSelection(defaultRuntime, defaultImpl)
 }
 
 // BuildExecutionContext converts options into a runtime.ExecutionContext.
@@ -161,8 +225,8 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 	execCtx := runtime.NewExecutionContext(context.Background(), opts.Command, opts.Invowkfile)
 
 	execCtx.Verbose = opts.Verbose
-	execCtx.SelectedRuntime = opts.Selection.Mode
-	execCtx.SelectedImpl = opts.Selection.Impl
+	execCtx.SelectedRuntime = opts.Selection.Mode()
+	execCtx.SelectedImpl = opts.Selection.Impl()
 	execCtx.PositionalArgs = opts.Args
 	execCtx.WorkDir = opts.Workdir
 	execCtx.ForceRebuild = opts.ForceRebuild
@@ -181,8 +245,8 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 	if opts.EnvInheritMode != "" {
 		// Defense-in-depth: the CLI boundary should have already validated the mode
 		// via ParseEnvInheritMode, but verify here to catch programmatic misuse.
-		if !opts.EnvInheritMode.IsValid() {
-			return fmt.Errorf("invalid env_inherit_mode %q (expected: none, allow, all)", opts.EnvInheritMode)
+		if isValid, errs := opts.EnvInheritMode.IsValid(); !isValid {
+			return errs[0]
 		}
 		execCtx.Env.InheritModeOverride = opts.EnvInheritMode
 	}
@@ -204,10 +268,10 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 	return nil
 }
 
-func validateEnvVarNames(names []string, label string) error {
+func validateEnvVarNames(names []invowkfile.EnvVarName, label string) error {
 	for _, name := range names {
-		if err := invowkfile.ValidateEnvVarName(name); err != nil {
-			return fmt.Errorf("%s: %w", label, err)
+		if isValid, errs := name.IsValid(); !isValid {
+			return fmt.Errorf("%s: %w", label, errs[0])
 		}
 	}
 	return nil
@@ -216,14 +280,14 @@ func validateEnvVarNames(names []string, label string) error {
 func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	// Metadata env vars for script self-introspection.
 	// These allow scripts to know which command, runtime, source, and platform they run under.
-	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = opts.Command.Name
-	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode)
+	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = string(opts.Command.Name)
+	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode())
 	// EnvVarSource and EnvVarPlatform are conditionally injected (only when
 	// non-empty), but unconditionally filtered in shouldFilterEnvVar. The
 	// asymmetry is intentional: filtering prevents leakage even if future
 	// code paths inject these vars unconditionally.
 	if opts.SourceID != "" {
-		execCtx.Env.ExtraEnv[platmeta.EnvVarSource] = opts.SourceID
+		execCtx.Env.ExtraEnv[platmeta.EnvVarSource] = string(opts.SourceID)
 	}
 	if opts.Platform != "" {
 		execCtx.Env.ExtraEnv[platmeta.EnvVarPlatform] = string(opts.Platform)

@@ -21,14 +21,15 @@ import (
 )
 
 type (
-	// VirtualRuntime executes commands using mvdan/sh with optional u-root utilities
+	// VirtualRuntime executes commands using mvdan/sh with optional u-root utilities.
+	// The enableUrootUtils flag is immutable after construction via NewVirtualRuntime.
 	VirtualRuntime struct {
-		// EnableUrootUtils enables u-root built-in utilities
-		EnableUrootUtils bool
-		// envBuilder builds environment variables for execution
+		//plint:internal -- required constructor param; immutable after construction
+		enableUrootUtils bool
+		//plint:internal -- has WithVirtualEnvBuilder(); field name doesn't match pattern
 		envBuilder EnvBuilder
 		// urootRegistry holds the u-root command registry for built-in utilities.
-		// Nil when EnableUrootUtils is false.
+		// Nil when enableUrootUtils is false.
 		urootRegistry *uroot.Registry
 	}
 
@@ -55,18 +56,21 @@ func WithUrootRegistry(reg *uroot.Registry) VirtualRuntimeOption {
 // NewVirtualRuntime creates a new virtual runtime with optional configuration.
 func NewVirtualRuntime(enableUroot bool, opts ...VirtualRuntimeOption) *VirtualRuntime {
 	r := &VirtualRuntime{
-		EnableUrootUtils: enableUroot,
+		enableUrootUtils: enableUroot,
 		envBuilder:       NewDefaultEnvBuilder(),
 	}
 	for _, opt := range opts {
 		opt(r)
 	}
 	// Default to BuildDefaultRegistry when uroot is enabled and no registry was injected.
-	if r.EnableUrootUtils && r.urootRegistry == nil {
+	if r.enableUrootUtils && r.urootRegistry == nil {
 		r.urootRegistry = uroot.BuildDefaultRegistry()
 	}
 	return r
 }
+
+// UrootUtilsEnabled returns whether u-root utilities are enabled.
+func (r *VirtualRuntime) UrootUtilsEnabled() bool { return r.enableUrootUtils }
 
 // Name returns the runtime name
 func (r *VirtualRuntime) Name() string {
@@ -118,21 +122,21 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig != nil {
 		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
-			return &Result{ExitCode: 1, Error: err}
+			return NewErrorResult(1, err)
 		}
 	}
 
 	// Resolve the script content
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	// Parse the script
 	parser := syntax.NewParser()
 	prog, err := parser.Parse(strings.NewReader(script), "script")
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to parse script: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
 	}
 
 	// Determine working directory
@@ -141,7 +145,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 
 	// Create the interpreter
@@ -162,7 +166,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	runner, err := interp.New(opts...)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create interpreter: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
 	}
 
 	// Execute
@@ -174,12 +178,12 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	err = runner.Run(execCtx, prog)
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
-			return &Result{ExitCode: int(exitStatus)}
+			return NewExitCodeResult(ExitCode(exitStatus))
 		}
-		return &Result{ExitCode: 1, Error: fmt.Errorf("script execution failed: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("script execution failed: %w", err))
 	}
 
-	return &Result{ExitCode: 0}
+	return NewSuccessResult()
 }
 
 // ExecuteCapture runs a command and captures its output
@@ -187,19 +191,19 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	// Resolve the script content
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: err}
+		return NewErrorResult(1, err)
 	}
 
 	parser := syntax.NewParser()
 	prog, err := parser.Parse(strings.NewReader(script), "script")
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to parse script: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
 	}
 
 	workDir := ctx.EffectiveWorkDir()
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to build environment: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -221,7 +225,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	runner, err := interp.New(opts...)
 	if err != nil {
-		return &Result{ExitCode: 1, Error: fmt.Errorf("failed to create interpreter: %w", err)}
+		return NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
 	}
 
 	execCtx := ctx.Context
@@ -229,6 +233,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		execCtx = context.Background()
 	}
 
+	// Keep as struct literal: Output/ErrOutput fields are set
 	result := &Result{
 		Output:    stdout.String(),
 		ErrOutput: stderr.String(),
@@ -237,7 +242,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	err = runner.Run(execCtx, prog)
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
-			result.ExitCode = int(exitStatus)
+			result.ExitCode = ExitCode(exitStatus)
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -359,7 +364,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 func (r *VirtualRuntime) execHandler(next interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 	return func(ctx context.Context, args []string) error {
 		// First try u-root builtins if enabled
-		if r.EnableUrootUtils {
+		if r.enableUrootUtils {
 			if handled, err := r.tryUrootBuiltin(ctx, args); handled {
 				return err
 			}

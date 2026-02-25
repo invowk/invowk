@@ -78,6 +78,7 @@ func runInit(cmd *cobra.Command, args []string, force bool, template string) err
 	return nil
 }
 
+//plint:render
 func generateInvowkfile(template string) string {
 	var inv *invowkfile.Invowkfile
 
@@ -156,8 +157,8 @@ func generateInvowkfile(template string) string {
 					},
 					DependsOn: &invowkfile.DependsOn{
 						Commands: []invowkfile.CommandDependency{
-							{Alternatives: []string{"hello"}},
-							{Alternatives: []string{"hello formal"}},
+							{Alternatives: []invowkfile.CommandName{"hello"}},
+							{Alternatives: []invowkfile.CommandName{"hello formal"}},
 						},
 					},
 				},

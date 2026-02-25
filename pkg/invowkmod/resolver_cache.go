@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -19,15 +21,15 @@ const (
 
 // GetDefaultCacheDir returns the default module cache directory.
 // It checks INVOWK_MODULES_PATH environment variable first, then falls back to ~/.invowk/modules.
-func GetDefaultCacheDir() (string, error) {
+func GetDefaultCacheDir() (types.FilesystemPath, error) {
 	return GetDefaultCacheDirWith(os.Getenv)
 }
 
 // GetDefaultCacheDirWith returns the default module cache directory using the provided
 // getenv function. This enables testing without mutating process-global environment state.
-func GetDefaultCacheDirWith(getenv func(string) string) (string, error) {
+func GetDefaultCacheDirWith(getenv func(string) string) (types.FilesystemPath, error) {
 	if envPath := getenv(ModuleCachePathEnv); envPath != "" {
-		return envPath, nil
+		return types.FilesystemPath(envPath), nil
 	}
 
 	homeDir, err := os.UserHomeDir()
@@ -35,7 +37,7 @@ func GetDefaultCacheDirWith(getenv func(string) string) (string, error) {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	return filepath.Join(homeDir, ".invowk", DefaultModulesDir), nil
+	return types.FilesystemPath(filepath.Join(homeDir, ".invowk", DefaultModulesDir)), nil
 }
 
 // getCachePath returns the cache path for a module.
@@ -47,7 +49,7 @@ func (m *Resolver) getCachePath(gitURL, version, subPath string) string {
 	urlPath = strings.TrimSuffix(urlPath, ".git")
 	urlPath = strings.ReplaceAll(urlPath, ":", "/")
 
-	parts := []string{m.CacheDir, urlPath, version}
+	parts := []string{string(m.cacheDir), urlPath, version}
 	if subPath != "" {
 		parts = append(parts, subPath)
 	}
@@ -75,7 +77,7 @@ func (m *Resolver) cacheModule(srcDir, dstDir string) error {
 // A Git repo is considered a module if:
 //   - Repo name ends with .invowkmod suffix, OR
 //   - Contains an invowkmod.cue file at the root
-func findModuleInDir(dir string) (moduleDir, moduleName string, err error) {
+func findModuleInDir(dir string) (moduleDir string, moduleName ModuleShortName, err error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read directory: %w", err)
@@ -84,7 +86,7 @@ func findModuleInDir(dir string) (moduleDir, moduleName string, err error) {
 	// First, look for .invowkmod directories
 	for _, entry := range entries {
 		if entry.IsDir() && strings.HasSuffix(entry.Name(), ".invowkmod") {
-			moduleName = strings.TrimSuffix(entry.Name(), ".invowkmod")
+			moduleName = ModuleShortName(strings.TrimSuffix(entry.Name(), ".invowkmod"))
 			return filepath.Join(dir, entry.Name()), moduleName, nil
 		}
 	}
@@ -96,10 +98,10 @@ func findModuleInDir(dir string) (moduleDir, moduleName string, err error) {
 		// Extract module name from directory (for .invowkmod repos)
 		dirName := filepath.Base(dir)
 		if name, found := strings.CutSuffix(dirName, ".invowkmod"); found {
-			moduleName = name
+			moduleName = ModuleShortName(name)
 		} else {
 			// Fall back to parsing invowkmod.cue to get the module name
-			moduleName = dirName
+			moduleName = ModuleShortName(dirName)
 		}
 		return dir, moduleName, nil
 	}
