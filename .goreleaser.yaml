@@ -71,11 +71,10 @@ checksum:
 # Cosign keyless signing using GitHub OIDC
 signs:
   - cmd: cosign
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
-      - "--output-certificate=${certificate}"
-      - "--output-signature=${signature}"
+      - "--bundle=${signature}"
       - "${artifact}"
       - "--yes"
     artifacts: checksum
@@ -108,10 +107,9 @@ release:
     All release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) using keyless signing.
 
     ```bash
-    # Download the checksum file and signature
+    # Download the checksum file and Sigstore bundle
     cosign verify-blob \
-      --certificate checksums.txt.pem \
-      --signature checksums.txt.sig \
+      --bundle checksums.txt.sigstore.json \
       --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
       --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
       checksums.txt

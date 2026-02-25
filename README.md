@@ -140,8 +140,7 @@ Release artifacts are signed with [Cosign](https://github.com/sigstore/cosign) (
 
 ```bash
 cosign verify-blob \
-  --certificate checksums.txt.pem \
-  --signature checksums.txt.sig \
+  --bundle checksums.txt.sigstore.json \
   --certificate-identity-regexp='https://github\.com/invowk/invowk/.*' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
   checksums.txt

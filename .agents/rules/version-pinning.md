@@ -19,6 +19,7 @@ build configuration.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
   - `golangci-lint`: `v2.9.0` (via golangci-lint-action `version` input)
+  - `cosign`: `v3.0.5` (via `cosign-release` input in `.github/workflows/release.yml`)
   - UPX: `5.1.0`
   - D2: `v0.7.1`
 
@@ -37,7 +38,7 @@ build configuration.
 - NEVER use Alpine or Windows container images (see `AGENTS.md` "Container Runtime Limitations").
 
 ### GoReleaser
-- Pin via semver range (`~> v2`) in the goreleaser-action `version` input.
+- Pin via semver range in the goreleaser-action `version` input (current track: `~> v2.14`).
 
 ### npm Dependencies (website)
 - Pinned via `package-lock.json`. Core Docusaurus packages use exact versions;
