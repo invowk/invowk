@@ -50,3 +50,16 @@ func (m MarshalerType) MarshalText() ([]byte, error) { return nil, nil } // no d
 // StringFunc is a top-level function named String WITHOUT a receiver.
 // It is NOT exempt because isInterfaceMethodReturn requires a receiver.
 func StringFunc() string { return "" } // want `return value of edgecases\.StringFunc uses primitive type string`
+
+// WrongStringerReturn has a String() method returning int — NOT fmt.Stringer.
+// The int return MUST be flagged because the method doesn't match the interface.
+type WrongStringerReturn struct{}
+
+func (w WrongStringerReturn) String() int { return 0 } // want `return value of edgecases\.WrongStringerReturn\.String uses primitive type int`
+
+// RenderFieldStruct tests //plint:render on struct fields — should suppress
+// the finding on the annotated field, similar to //plint:ignore.
+type RenderFieldStruct struct {
+	Output string //plint:render -- display text
+	Normal string // want `struct field edgecases\.RenderFieldStruct\.Normal uses primitive type string`
+}

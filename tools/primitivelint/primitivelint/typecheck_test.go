@@ -28,7 +28,7 @@ func TestPrimitiveMapDetail(t *testing.T) {
 		{
 			name:       "map[string]int — both primitive different types",
 			typ:        types.NewMap(types.Typ[types.String], types.Typ[types.Int]),
-			wantDetail: "string (in map key and value)",
+			wantDetail: "string (in map key), int (in map value)",
 			wantOK:     true,
 		},
 		{

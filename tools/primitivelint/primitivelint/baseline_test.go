@@ -419,6 +419,78 @@ func TestQuote(t *testing.T) {
 	}
 }
 
+// TestBaselineCategoryCompleteness verifies that every baselined diagnostic
+// category constant has a corresponding entry in buildLookup() and Count().
+// This catches silent drift when new categories are added to the analyzer but
+// not wired into the baseline infrastructure.
+func TestBaselineCategoryCompleteness(t *testing.T) {
+	t.Parallel()
+
+	// Authoritative list of categories that MUST be present in baseline
+	// infrastructure. StaleException and UnknownDirective are intentionally
+	// excluded — they are never baselined.
+	baselinedCategories := []string{
+		CategoryPrimitive,
+		CategoryMissingIsValid,
+		CategoryMissingStringer,
+		CategoryMissingConstructor,
+		CategoryWrongConstructorSig,
+		CategoryWrongIsValidSig,
+		CategoryWrongStringerSig,
+		CategoryMissingFuncOptions,
+		CategoryMissingImmutability,
+		CategoryMissingStructIsValid,
+		CategoryWrongStructIsValidSig,
+	}
+
+	// Verify buildLookup() initializes an entry for each category.
+	bl := emptyBaseline()
+	for _, cat := range baselinedCategories {
+		if _, ok := bl.lookup[cat]; !ok {
+			t.Errorf("buildLookup() missing entry for category %q", cat)
+		}
+	}
+
+	// Verify no extra entries in lookup beyond our list + zero unexpected.
+	expectedSet := make(map[string]bool, len(baselinedCategories))
+	for _, cat := range baselinedCategories {
+		expectedSet[cat] = true
+	}
+	for cat := range bl.lookup {
+		if !expectedSet[cat] {
+			t.Errorf("buildLookup() has unexpected category %q not in baselinedCategories", cat)
+		}
+	}
+
+	// Verify WriteBaseline handles every category by checking that
+	// a baseline with one entry per category round-trips correctly.
+	findings := make(map[string][]string, len(baselinedCategories))
+	for _, cat := range baselinedCategories {
+		findings[cat] = []string{"test message for " + cat}
+	}
+
+	outPath := writeTempFile(t, "completeness.toml", "")
+	if err := WriteBaseline(outPath, findings); err != nil {
+		t.Fatalf("WriteBaseline error: %v", err)
+	}
+	loaded, err := loadBaseline(outPath)
+	if err != nil {
+		t.Fatalf("loadBaseline error: %v", err)
+	}
+
+	for _, cat := range baselinedCategories {
+		msg := "test message for " + cat
+		if !loaded.Contains(cat, msg) {
+			t.Errorf("WriteBaseline/loadBaseline round-trip failed for category %q", cat)
+		}
+	}
+
+	// Verify Count includes all categories.
+	if loaded.Count() != len(baselinedCategories) {
+		t.Errorf("Count() = %d, want %d (one entry per category)", loaded.Count(), len(baselinedCategories))
+	}
+}
+
 // writeTempFile creates a temporary file with the given content and returns its path.
 func writeTempFile(t *testing.T, name, content string) string {
 	t.Helper()

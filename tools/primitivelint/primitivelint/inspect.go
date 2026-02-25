@@ -319,11 +319,32 @@ func isInterfaceMethodReturn(fn *ast.FuncDecl) bool {
 
 	switch fn.Name.Name {
 	case "String", "Error", "GoString":
-		// Expected: () string — zero params, one result.
-		return results != nil && len(results.List) == 1
+		// Expected: () string — zero params, one string result.
+		if results == nil || len(results.List) != 1 {
+			return false
+		}
+		// Verify the return type is the string identifier, not just any
+		// single-result method. Without this, String() int would be
+		// incorrectly treated as fmt.Stringer and its return suppressed.
+		ident, ok := results.List[0].Type.(*ast.Ident)
+		return ok && ident.Name == "string"
 	case "MarshalText":
 		// Expected: () ([]byte, error) — zero params, two results.
-		return results != nil && len(results.List) == 2
+		if results == nil || len(results.List) != 2 {
+			return false
+		}
+		// Verify first result is []byte (array type with nil len = slice).
+		arr, ok := results.List[0].Type.(*ast.ArrayType)
+		if !ok || arr.Len != nil {
+			return false
+		}
+		elemIdent, ok := arr.Elt.(*ast.Ident)
+		if !ok || elemIdent.Name != "byte" {
+			return false
+		}
+		// Verify second result is error.
+		errIdent, ok := results.List[1].Type.(*ast.Ident)
+		return ok && errIdent.Name == "error"
 	default:
 		return false
 	}
@@ -409,6 +430,8 @@ func hasDirectiveKey(doc *ast.CommentGroup, lineComment *ast.CommentGroup, key s
 // unrecognized key in a plint/primitivelint directive comment. Called at
 // every site where directives are checked, so typos like //plint:ignorr
 // are caught immediately.
+//
+// Intentionally does not check baseline — typo warnings must always be visible.
 func reportUnknownDirectives(pass *analysis.Pass, doc *ast.CommentGroup, lineComment *ast.CommentGroup) {
 	for _, cg := range []*ast.CommentGroup{doc, lineComment} {
 		if cg == nil {

@@ -199,9 +199,8 @@ func primitiveMapDetail(t types.Type) (string, bool) {
 		if keyName == valName {
 			return keyName + " (in map key and value)", true
 		}
-		// Different primitives — report the key type (first primitive
-		// encountered, consistent with isPrimitive's short-circuit).
-		return keyName + " (in map key and value)", true
+		// Different primitives — report both types so neither is lost.
+		return keyName + " (in map key), " + valName + " (in map value)", true
 	case keyPrim:
 		return primitiveTypeName(m.Key()) + " (in map key)", true
 	default:

@@ -38,6 +38,11 @@ type MapWithNamedKey struct {
 	Lookup map[GoodID]int // want `struct field structs\.MapWithNamedKey\.Lookup uses primitive type int \(in map value\)`
 }
 
+// HeterogeneousMap has a map with different primitive types for key and value.
+type HeterogeneousMap struct {
+	Data map[string]int // want `struct field structs\.HeterogeneousMap\.Data uses primitive type string \(in map key\), int \(in map value\)`
+}
+
 // MultipleFields on one line.
 type MultipleFields struct {
 	X, Y int // want `struct field structs\.MultipleFields\.X uses primitive type int` `struct field structs\.MultipleFields\.Y uses primitive type int`

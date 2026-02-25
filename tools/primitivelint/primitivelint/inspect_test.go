@@ -51,8 +51,8 @@ func TestShouldSkipFunc(t *testing.T) {
 func TestIsInterfaceMethodReturn(t *testing.T) {
 	t.Parallel()
 
-	// Helpers to build FuncType with param/result counts.
-	funcType := func(paramCount, resultCount int) *ast.FuncType {
+	// Helpers to build FuncType with specific return types.
+	funcTypeWithResults := func(paramCount int, results ...*ast.Field) *ast.FuncType {
 		ft := &ast.FuncType{}
 		if paramCount > 0 {
 			fields := make([]*ast.Field, paramCount)
@@ -61,15 +61,17 @@ func TestIsInterfaceMethodReturn(t *testing.T) {
 			}
 			ft.Params = &ast.FieldList{List: fields}
 		}
-		if resultCount > 0 {
-			fields := make([]*ast.Field, resultCount)
-			for i := range fields {
-				fields[i] = &ast.Field{Type: ast.NewIdent("string")}
-			}
-			ft.Results = &ast.FieldList{List: fields}
+		if len(results) > 0 {
+			ft.Results = &ast.FieldList{List: results}
 		}
 		return ft
 	}
+
+	// Shorthand for common return type fields.
+	stringResult := &ast.Field{Type: ast.NewIdent("string")}
+	intResult := &ast.Field{Type: ast.NewIdent("int")}
+	errorResult := &ast.Field{Type: ast.NewIdent("error")}
+	byteSliceResult := &ast.Field{Type: &ast.ArrayType{Elt: ast.NewIdent("byte")}}
 
 	tests := []struct {
 		name    string
@@ -79,23 +81,30 @@ func TestIsInterfaceMethodReturn(t *testing.T) {
 		want    bool
 	}{
 		// Correct signatures — should be recognized as interface methods.
-		{name: "String() string", hasRecv: true, fnName: "String", fnType: funcType(0, 1), want: true},
-		{name: "Error() string", hasRecv: true, fnName: "Error", fnType: funcType(0, 1), want: true},
-		{name: "GoString() string", hasRecv: true, fnName: "GoString", fnType: funcType(0, 1), want: true},
-		{name: "MarshalText() ([]byte, error)", hasRecv: true, fnName: "MarshalText", fnType: funcType(0, 2), want: true},
+		{name: "String() string", hasRecv: true, fnName: "String", fnType: funcTypeWithResults(0, stringResult), want: true},
+		{name: "Error() string", hasRecv: true, fnName: "Error", fnType: funcTypeWithResults(0, stringResult), want: true},
+		{name: "GoString() string", hasRecv: true, fnName: "GoString", fnType: funcTypeWithResults(0, stringResult), want: true},
+		{name: "MarshalText() ([]byte, error)", hasRecv: true, fnName: "MarshalText", fnType: funcTypeWithResults(0, byteSliceResult, errorResult), want: true},
 
-		// Wrong signatures — name matches but signature doesn't.
-		{name: "String(x int) string — has param", hasRecv: true, fnName: "String", fnType: funcType(1, 1), want: false},
-		{name: "Error() (string, error) — wrong result count", hasRecv: true, fnName: "Error", fnType: funcType(0, 2), want: false},
-		{name: "MarshalText() []byte — wrong result count", hasRecv: true, fnName: "MarshalText", fnType: funcType(0, 1), want: false},
+		// Wrong return types — name matches, count matches, but type is wrong.
+		{name: "String() int — wrong return type", hasRecv: true, fnName: "String", fnType: funcTypeWithResults(0, intResult), want: false},
+		{name: "Error() int — wrong return type", hasRecv: true, fnName: "Error", fnType: funcTypeWithResults(0, intResult), want: false},
+		{name: "GoString() int — wrong return type", hasRecv: true, fnName: "GoString", fnType: funcTypeWithResults(0, intResult), want: false},
+		{name: "MarshalText() (string, error) — wrong first result", hasRecv: true, fnName: "MarshalText", fnType: funcTypeWithResults(0, stringResult, errorResult), want: false},
+		{name: "MarshalText() ([]byte, string) — wrong second result", hasRecv: true, fnName: "MarshalText", fnType: funcTypeWithResults(0, byteSliceResult, stringResult), want: false},
+
+		// Wrong signatures — name matches but param/result count is wrong.
+		{name: "String(x int) string — has param", hasRecv: true, fnName: "String", fnType: funcTypeWithResults(1, stringResult), want: false},
+		{name: "Error() (string, error) — wrong result count", hasRecv: true, fnName: "Error", fnType: funcTypeWithResults(0, stringResult, errorResult), want: false},
+		{name: "MarshalText() []byte — wrong result count", hasRecv: true, fnName: "MarshalText", fnType: funcTypeWithResults(0, byteSliceResult), want: false},
 
 		// Not a method (no receiver).
-		{name: "String without receiver", hasRecv: false, fnName: "String", fnType: funcType(0, 1), want: false},
-		{name: "Error without receiver", hasRecv: false, fnName: "Error", fnType: funcType(0, 1), want: false},
+		{name: "String without receiver", hasRecv: false, fnName: "String", fnType: funcTypeWithResults(0, stringResult), want: false},
+		{name: "Error without receiver", hasRecv: false, fnName: "Error", fnType: funcTypeWithResults(0, stringResult), want: false},
 
 		// Other names.
-		{name: "other method", hasRecv: true, fnName: "GetName", fnType: funcType(0, 1), want: false},
-		{name: "regular func", hasRecv: false, fnName: "doSomething", fnType: funcType(0, 0), want: false},
+		{name: "other method", hasRecv: true, fnName: "GetName", fnType: funcTypeWithResults(0, stringResult), want: false},
+		{name: "regular func", hasRecv: false, fnName: "doSomething", fnType: funcTypeWithResults(0), want: false},
 
 		// Nil Type field — should not panic.
 		{name: "nil Type field", hasRecv: true, fnName: "String", fnType: nil, want: false},

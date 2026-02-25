@@ -10,6 +10,11 @@ func MapReturn() map[string]string { // want `return value of returns\.MapReturn
 	return nil
 }
 
+// HeteroMapReturn returns a map with different primitive key and value types.
+func HeteroMapReturn() map[string]int { // want `return value of returns\.HeteroMapReturn uses primitive type string \(in map key\), int \(in map value\)`
+	return nil
+}
+
 // BoolReturn returns bool — exempt.
 func BoolReturn() bool {
 	return false

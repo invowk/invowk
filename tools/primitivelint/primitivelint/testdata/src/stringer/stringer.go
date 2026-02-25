@@ -28,7 +28,7 @@ type MyStruct struct {
 // trigger wrong-stringer-sig instead of missing-stringer.
 type WrongStringSig string // want `named type stringer\.WrongStringSig has String\(\) but wrong signature`
 
-func (w WrongStringSig) String() int { return 0 }
+func (w WrongStringSig) String() int { return 0 } // want `return value of stringer\.WrongStringSig\.String uses primitive type int`
 
 // WrongStringParams has String(x int) — wrong parameter count. Also
 // flagged by primary mode for param and return since it no longer matches
