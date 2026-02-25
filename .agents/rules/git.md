@@ -21,7 +21,7 @@ git commit -S -m "feat(scope): summary
 - Bullet points describing changes
 - ...
 
-Co-Authored-By: ..."
+Co-authored-by: Name <email>"
 ```
 
 **Why squash merge:**
@@ -41,6 +41,7 @@ All commits should include a detailed description of what changed. Use a short C
 - Subject: `type(scope): summary` (keep concise, <= 72 chars).
 - Body: 3-6 bullets describing what was changed (and why if helpful).
 - Call out user-facing behavior/schema changes and migrations.
+- Preserve existing trailers and keep trailers in canonical git format (`Key: Value`) at the end of the message.
 - Avoid vague messages like "misc" or "wip".
 
 Example:

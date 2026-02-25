@@ -16,6 +16,7 @@
 | Type check (all JSON) | `make check-types-all-json` |
 | Baseline check | `make check-baseline` |
 | Baseline update | `make update-baseline` |
+| Agent docs check | `make check-agent-docs` |
 | License check | `make license-check` |
 | Tidy deps | `make tidy` |
 | PGO profile | `make pgo-profile` |
@@ -40,7 +41,7 @@
 ## Internal Commands (Hidden)
 
 - All `invowk internal *` commands and subcommands MUST remain hidden.
-- Do NOT document internal commands in website docs; only mention them in `README.md` and agent-facing docs under `.claude/`.
+- Do NOT document internal commands in website docs; only mention them in `README.md` and agent-facing docs under `.agents/`.
 
 ## Build Commands
 

@@ -15,13 +15,25 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 ### Compaction
 
 - Prioritize the keeping and remembering of file paths, function and symbol names, identified issues and goals, current architectural decisions, semantic learnings, and next steps. Do not discard the output of the latest ~5 tool calls; discard the oldest ones.
-- Never compact the content of CLAUDE.MD or rule/agent/skill definitions.
+- Never compact the content of `.claude/CLAUDE.md` or rule/agent/skill definitions.
 
 ### Workflow Orchestration
 
 **CRITICAL:** Whenever possible and appropriate, multiple Tasks, Teammates, and Subagents must be used.
 
 **CRITICAL:** Teammates must always require plan approval before they make any changes.
+
+### Governance Precedence
+
+**CRITICAL:** Use this precedence whenever repository guidance appears to conflict:
+
+1. `AGENTS.md` (indexes, scope maps, and repository-wide governance contracts)
+2. `.agents/rules/*.md` (normative policy and mandatory requirements)
+3. `.agents/skills/*/SKILL.md` (procedural workflows and implementation guidance)
+4. Package-scoped `AGENTS.md` files (for example, `tools/goplint/AGENTS.md`) for local, explicit exceptions only
+
+- If a skill conflicts with a rule, the rule wins unless the rule explicitly allows an exception.
+- `.claude/rules`, `.claude/skills`, and `.claude/agents` are compatibility symlinks. Canonical references in documentation must use `.agents/...`.
 
 ### Rules
 
@@ -39,6 +51,8 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 - [`.agents/rules/testing.md`](.agents/rules/testing.md) - Test patterns, cross-platform testing, skipOnWindows.
 - [`.agents/rules/version-pinning.md`](.agents/rules/version-pinning.md) - Version pinning policy for deps, tools, images.
 - [`.agents/rules/windows.md`](.agents/rules/windows.md) - Windows-specific constraints and guidance.
+
+**Verification:** If `AGENTS.md`, `.agents/rules/`, or `.agents/skills/` changes, run `make check-agent-docs` and fix all reported drift before considering the documentation update complete.
 
 ### Agents
 
@@ -89,7 +103,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/tmux-testing/`](.agents/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
 - [`.agents/skills/tui-testing/`](.agents/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
 - [`.agents/skills/uroot/`](.agents/skills/uroot/) - u-root utility implementation patterns.
-- [`.agents/skills/learn/`](.agents/skills/learn/) - User-invokable (`/learn`). Post-work learning review to keep CLAUDE.md, hooks, rules, and skills up-to-date.
+- [`.agents/skills/learn/`](.agents/skills/learn/) - User-invokable (`/learn`). Post-work learning review to keep `.claude/CLAUDE.md`, hooks, rules, and skills up-to-date.
 - [`.agents/skills/pr/`](.agents/skills/pr/) - GitHub PR workflow: tests, lints, license check, branch creation, conventional commits, and PR description.
 - [`.agents/skills/changelog/`](.agents/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
 - [`.agents/skills/dep-audit/`](.agents/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.

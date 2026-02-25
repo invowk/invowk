@@ -16,6 +16,15 @@ Use this skill when working on:
 
 ---
 
+## Normative Quick Rules
+
+- `.agents/rules/version-pinning.md` defines the canonical image and pinning policy.
+- `.agents/rules/windows.md` defines host vs container path semantics.
+- `.agents/rules/testing.md` defines cross-platform/container testing policy.
+- This skill focuses on container-runtime implementation details; rules remain authoritative on policy conflicts.
+
+---
+
 ## Linux-Only Container Support
 
 **CRITICAL: The container runtime ONLY supports Linux containers.**

@@ -13,6 +13,9 @@ on:
       - 'go.mod'
       - 'go.sum'
       - '.golangci.toml'
+      - 'AGENTS.md'
+      - '.agents/**'
+      - 'scripts/check-agent-docs.sh'
       - '.github/workflows/lint.yml'
       - 'tools/goplint/**'
   pull_request:
@@ -27,6 +30,9 @@ on:
       - 'go.mod'
       - 'go.sum'
       - '.golangci.toml'
+      - 'AGENTS.md'
+      - '.agents/**'
+      - 'scripts/check-agent-docs.sh'
       - '.github/workflows/lint.yml'
       - 'tools/goplint/**'
   workflow_dispatch:
@@ -36,6 +42,18 @@ permissions:
   pull-requests: read
 
 jobs:
+  agent-docs:
+    name: agent docs integrity
+    runs-on: ubuntu-latest
+    # Advisory first: switch to required after one clean cycle.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check AGENTS/rules/skills integrity
+        run: make check-agent-docs
+
   golangci-lint:
     name: golangci-lint
     runs-on: ubuntu-latest

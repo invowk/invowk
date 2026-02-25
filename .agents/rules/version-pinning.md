@@ -10,7 +10,7 @@ build configuration.
 
 ### Go Dependencies
 - Pinned automatically via `go.mod` + `go.sum` (exact versions enforced by Go toolchain).
-- CUE library has a documented 6-step upgrade process (see `.claude/skills/cue/SKILL.md`).
+- CUE library has a documented 6-step upgrade process (see `.agents/skills/cue/SKILL.md`).
 
 ### CI Tool Installs (`go install`, `curl | sh`, etc.)
 - MUST pin to an exact version: `go install tool@vX.Y.Z` (never `@latest`).
@@ -34,7 +34,7 @@ build configuration.
   CUE snippets, and tests.** No `ubuntu:*`, no `debian:bookworm`, no other base images.
   Language-specific images (e.g., `golang:1.26`, `python:3-slim`) are allowed when
   demonstrating language-specific runtimes, but must use stable tags (never `latest`).
-- NEVER use Alpine or Windows container images (see CLAUDE.md Container Runtime Limitations).
+- NEVER use Alpine or Windows container images (see `AGENTS.md` "Container Runtime Limitations").
 
 ### GoReleaser
 - Pin via semver range (`~> v2`) in the goreleaser-action `version` input.

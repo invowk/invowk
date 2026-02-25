@@ -15,6 +15,12 @@ Use this skill when:
 
 **Cross-references**: For universal test patterns (table-driven tests, `testing.Short()`, `skipOnWindows`, `t.TempDir()`, testscript HOME fix, container test timeouts, cross-platform path assertions, test file size limits), see `.agents/rules/testing.md`. This skill covers domain-specific testing guidance that extends those rules.
 
+**Normative precedence**:
+- `.agents/rules/testing.md` defines mandatory test policy.
+- Use this skill for implementation tactics and component-specific guidance.
+- If this skill conflicts with the testing rule, follow the rule.
+- Scoped exception: `tools/goplint` tests that mutate shared `Analyzer.Flags` state must remain sequential (no `t.Parallel()`).
+
 For host-path validation tests that depend on `filepath.IsAbs`, treat absoluteness as OS-native:
 - Generate valid absolute fixtures with `t.TempDir()` + `filepath.Join(...)`.
 - Keep explicit negative cases for relative and dot-relative inputs.
