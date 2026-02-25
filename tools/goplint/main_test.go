@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/invowk/invowk/tools/primitivelint/primitivelint"
+	"github.com/invowk/invowk/tools/goplint/goplint"
 )
 
 func TestExtractUpdateBaselinePath(t *testing.T) {
@@ -119,7 +119,7 @@ func TestParseAnalysisJSON(t *testing.T) {
 		t.Parallel()
 		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 			"example.com/pkg": {
-				"primitivelint": {
+				"goplint": {
 					{Category: "primitive", Message: "struct field pkg.Foo.Bar uses primitive type string"},
 					{Category: "missing-isvalid", Message: "named type pkg.MyType has no IsValid() method"},
 				},
@@ -147,10 +147,10 @@ func TestParseAnalysisJSON(t *testing.T) {
 			Message:  "struct field pkg.Foo.Bar uses primitive type string",
 		}
 		pkg1 := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
-			"example.com/pkg": {"primitivelint": {diag}},
+			"example.com/pkg": {"goplint": {diag}},
 		})
 		pkg2 := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
-			"example.com/pkg [example.com/pkg.test]": {"primitivelint": {diag}},
+			"example.com/pkg [example.com/pkg.test]": {"goplint": {diag}},
 		})
 		combined := append(pkg1, pkg2...)
 
@@ -168,9 +168,9 @@ func TestParseAnalysisJSON(t *testing.T) {
 		t.Parallel()
 		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 			"example.com/pkg": {
-				"primitivelint": {
+				"goplint": {
 					{Category: "primitive", Message: "real finding"},
-					{Category: primitivelint.CategoryStaleException, Message: "stale exception: pattern ..."},
+					{Category: goplint.CategoryStaleException, Message: "stale exception: pattern ..."},
 				},
 			},
 		})
@@ -183,8 +183,8 @@ func TestParseAnalysisJSON(t *testing.T) {
 		if len(findings["primitive"]) != 1 {
 			t.Errorf("expected 1 primitive finding, got %d", len(findings["primitive"]))
 		}
-		if len(findings[primitivelint.CategoryStaleException]) != 0 {
-			t.Errorf("expected 0 stale-exception findings, got %d", len(findings[primitivelint.CategoryStaleException]))
+		if len(findings[goplint.CategoryStaleException]) != 0 {
+			t.Errorf("expected 0 stale-exception findings, got %d", len(findings[goplint.CategoryStaleException]))
 		}
 	})
 
@@ -192,7 +192,7 @@ func TestParseAnalysisJSON(t *testing.T) {
 		t.Parallel()
 		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 			"example.com/pkg": {
-				"primitivelint": {
+				"goplint": {
 					{Category: "", Message: "orphaned message"},
 					{Category: "primitive", Message: ""},
 					{Category: "primitive", Message: "valid finding"},
@@ -229,14 +229,14 @@ func TestParseAnalysisJSON(t *testing.T) {
 		}
 	})
 
-	t.Run("ignores non-primitivelint analyzer results", func(t *testing.T) {
+	t.Run("ignores non-goplint analyzer results", func(t *testing.T) {
 		t.Parallel()
 		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 			"example.com/pkg": {
 				"otherana": {
 					{Category: "other", Message: "not our concern"},
 				},
-				"primitivelint": {
+				"goplint": {
 					{Category: "primitive", Message: "our finding"},
 				},
 			},

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package primitivelint
+package goplint
 
 import (
 	"go/ast"
@@ -168,8 +168,8 @@ func TestParseDirectiveKeys(t *testing.T) {
 			wantKeys: []string{"ignore", "internal"},
 		},
 		{
-			name:     "primitivelint prefix combined",
-			text:     "//primitivelint:ignore,internal",
+			name:     "goplint prefix combined",
+			text:     "//goplint:ignore,internal",
 			wantKeys: []string{"ignore", "internal"},
 		},
 		{
@@ -189,8 +189,8 @@ func TestParseDirectiveKeys(t *testing.T) {
 			wantUnknown: []string{"foo", "bar"},
 		},
 		{
-			name:     "nolint:primitivelint special case",
-			text:     "//nolint:primitivelint",
+			name:     "nolint:goplint special case",
+			text:     "//nolint:goplint",
 			wantKeys: []string{"ignore"},
 		},
 		{
@@ -207,8 +207,8 @@ func TestParseDirectiveKeys(t *testing.T) {
 			wantKeys: []string{"ignore"},
 		},
 		{
-			name:     "primitivelint:ignore with reason",
-			text:     "//primitivelint:ignore -- display label",
+			name:     "goplint:ignore with reason",
+			text:     "//goplint:ignore -- display label",
 			wantKeys: []string{"ignore"},
 		},
 		{
@@ -267,18 +267,18 @@ func TestHasIgnoreDirective(t *testing.T) {
 		want        bool
 	}{
 		{
-			name:        "primitivelint:ignore in line comment",
-			lineComment: "//primitivelint:ignore",
+			name:        "goplint:ignore in line comment",
+			lineComment: "//goplint:ignore",
 			want:        true,
 		},
 		{
-			name:        "nolint:primitivelint in line comment",
-			lineComment: "//nolint:primitivelint",
+			name:        "nolint:goplint in line comment",
+			lineComment: "//nolint:goplint",
 			want:        true,
 		},
 		{
-			name: "primitivelint:ignore in doc comment",
-			doc:  "//primitivelint:ignore -- reason",
+			name: "goplint:ignore in doc comment",
+			doc:  "//goplint:ignore -- reason",
 			want: true,
 		},
 		{
@@ -292,12 +292,12 @@ func TestHasIgnoreDirective(t *testing.T) {
 		},
 		{
 			name:        "directive with extra text",
-			lineComment: "//primitivelint:ignore -- display label",
+			lineComment: "//goplint:ignore -- display label",
 			want:        true,
 		},
 		{
 			name:        "directive in doc, regular in line",
-			doc:         "//primitivelint:ignore",
+			doc:         "//goplint:ignore",
 			lineComment: "// something else",
 			want:        true,
 		},
@@ -322,8 +322,8 @@ func TestHasIgnoreDirective(t *testing.T) {
 			want:        true,
 		},
 		{
-			name:        "primitivelint combined matches ignore",
-			lineComment: "//primitivelint:ignore,internal",
+			name:        "goplint combined matches ignore",
+			lineComment: "//goplint:ignore,internal",
 			want:        true,
 		},
 	}

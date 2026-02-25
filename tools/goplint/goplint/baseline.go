@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package primitivelint
+package goplint
 
 import (
 	"fmt"
@@ -124,7 +124,7 @@ func WriteBaseline(path string, findings map[string][]string) error {
 
 	sb.WriteString("# SPDX-License-Identifier: MPL-2.0\n")
 	sb.WriteString("#\n")
-	sb.WriteString("# primitivelint baseline — accepted DDD compliance findings\n")
+	sb.WriteString("# goplint baseline — accepted DDD compliance findings\n")
 	sb.WriteString(fmt.Sprintf("# Generated: %s\n", time.Now().UTC().Format("2006-01-02")))
 	sb.WriteString("# Regenerate: make update-baseline\n")
 

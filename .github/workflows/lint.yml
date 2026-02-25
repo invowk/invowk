@@ -14,7 +14,7 @@ on:
       - 'go.sum'
       - '.golangci.toml'
       - '.github/workflows/lint.yml'
-      - 'tools/primitivelint/**'
+      - 'tools/goplint/**'
   pull_request:
     branches:
       - main
@@ -28,7 +28,7 @@ on:
       - 'go.sum'
       - '.golangci.toml'
       - '.github/workflows/lint.yml'
-      - 'tools/primitivelint/**'
+      - 'tools/goplint/**'
   workflow_dispatch:
 
 permissions:
@@ -58,8 +58,8 @@ jobs:
           # Run full-codebase lint (not just new issues) so CI matches local `make lint`
           only-new-issues: false
 
-  primitivelint:
-    name: primitivelint
+  goplint:
+    name: goplint
     runs-on: ubuntu-latest
     # Advisory only during rollout - does not block PRs
     continue-on-error: true
@@ -73,14 +73,14 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build primitivelint
-        run: cd tools/primitivelint && go build -o ../../bin/primitivelint .
+      - name: Build goplint
+        run: cd tools/goplint && go build -o ../../bin/goplint .
 
-      - name: Run primitivelint
-        run: ./bin/primitivelint -config=tools/primitivelint/exceptions.toml ./...
+      - name: Run goplint
+        run: ./bin/goplint -config=tools/goplint/exceptions.toml ./...
 
-  primitivelint-baseline:
-    name: primitivelint (baseline)
+  goplint-baseline:
+    name: goplint (baseline)
     runs-on: ubuntu-latest
     # Advisory during rollout — will become required after validation.
     # To promote: remove continue-on-error and add to branch protection.
@@ -95,11 +95,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build primitivelint
-        run: cd tools/primitivelint && go build -o ../../bin/primitivelint .
+      - name: Build goplint
+        run: cd tools/goplint && go build -o ../../bin/goplint .
 
       - name: Check baseline
         run: |
-          ./bin/primitivelint -check-all \
-            -baseline=tools/primitivelint/baseline.toml \
-            -config=tools/primitivelint/exceptions.toml ./...
+          ./bin/goplint -check-all \
+            -baseline=tools/goplint/baseline.toml \
+            -config=tools/goplint/exceptions.toml ./...

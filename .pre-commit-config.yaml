@@ -15,8 +15,8 @@ repos:
 
   - repo: local
     hooks:
-      - id: primitivelint-baseline
-        name: primitivelint baseline check
+      - id: goplint-baseline
+        name: goplint baseline check
         entry: "bash -c 'make check-baseline 2>&1 || true'"
         language: system
         pass_filenames: false

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 #
-# primitivelint exceptions — intentional primitive type usage
+# goplint exceptions — intentional primitive type usage
 #
 # This file documents every known location where bare primitive types are
 # intentionally retained. Each entry includes a reason explaining why the

@@ -1,11 +1,11 @@
-# primitivelint
+# goplint
 
 A custom Go static analyzer that enforces DDD Value Type conventions. It detects bare primitive types (`string`, `int`, `float64`, `[]string`, `map[string]string`, etc.) in struct fields, function parameters, and return types where named types should be used instead.
 
 ```go
 // Flagged: bare primitive
 type Config struct {
-    Name string  // <- primitivelint reports this
+    Name string  // <- goplint reports this
 }
 
 // Correct: named DDD Value Type
@@ -20,7 +20,7 @@ type Config struct {
 
 ```bash
 # Build the tool
-make build-primitivelint
+make build-goplint
 
 # Run primitive detection (human-readable output)
 make check-types
@@ -112,8 +112,8 @@ reason = "display-only labels in 12+ unexported structs"
 
 ```go
 type Foo struct {
-    Bar string //primitivelint:ignore -- display-only
-    Baz int    //nolint:primitivelint
+    Bar string //goplint:ignore -- display-only
+    Baz int    //nolint:goplint
 }
 ```
 
@@ -122,8 +122,8 @@ type Foo struct {
 After refactors remove excepted code, entries in `exceptions.toml` become stale:
 
 ```bash
-make build-primitivelint
-./bin/primitivelint -audit-exceptions -config=tools/primitivelint/exceptions.toml ./... 2>&1 | sort -u
+make build-goplint
+./bin/goplint -audit-exceptions -config=tools/goplint/exceptions.toml ./... 2>&1 | sort -u
 ```
 
 > Note: `--audit-exceptions` reports per-package (a `go/analysis` limitation). Pipe through `sort -u` for deduplicated results.
@@ -144,8 +144,8 @@ The baseline prevents DDD compliance regressions. A committed `baseline.toml` re
 ```bash
 # After converting types or adding exceptions, shrink the baseline:
 make update-baseline
-git add tools/primitivelint/baseline.toml
-git commit -m "chore(tools): update primitivelint baseline"
+git add tools/goplint/baseline.toml
+git commit -m "chore(tools): update goplint baseline"
 
 # Verify no regressions:
 make check-baseline
@@ -172,7 +172,7 @@ Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-co
 
 ### CI Integration
 
-The `primitivelint-baseline` job in `.github/workflows/lint.yml` runs `make check-baseline` on every PR. During rollout it is advisory (`continue-on-error: true`).
+The `goplint-baseline` job in `.github/workflows/lint.yml` runs `make check-baseline` on every PR. During rollout it is advisory (`continue-on-error: true`).
 
 ### Pre-commit Hook
 
@@ -200,7 +200,7 @@ Each diagnostic includes a `category` field for filtering:
 ```json
 {
   "github.com/invowk/invowk/pkg/invowkfile": {
-    "primitivelint": [
+    "goplint": [
       {
         "posn": "pkg/invowkfile/types.go:42:5",
         "message": "struct field invowkfile.Foo.Bar uses primitive type string",
@@ -230,12 +230,12 @@ Categories: `primitive`, `missing-isvalid`, `missing-stringer`, `missing-constru
 ## Architecture
 
 ```
-tools/primitivelint/
+tools/goplint/
 ├── main.go                 # Entry point + --update-baseline subprocess mode
 ├── exceptions.toml         # Intentional primitive exceptions (~85 patterns)
 ├── baseline.toml           # Accepted findings baseline (generated)
 ├── go.mod                  # Separate Go module (avoids polluting main go.mod)
-└── primitivelint/
+└── goplint/
     ├── analyzer.go         # Analyzer definition, run() orchestration, supplementary modes
     ├── baseline.go         # Baseline TOML loading, matching, writing
     ├── config.go           # Exception TOML loading, pattern matching
@@ -251,13 +251,13 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 
 ```bash
 # Run all tests
-cd tools/primitivelint && go test ./primitivelint/
+cd tools/goplint && go test ./goplint/
 
 # Run with race detector
-cd tools/primitivelint && go test -race ./primitivelint/
+cd tools/goplint && go test -race ./goplint/
 
 # Run a specific test
-cd tools/primitivelint && go test -v -run TestBaselineSuppression ./primitivelint/
+cd tools/goplint && go test -v -run TestBaselineSuppression ./goplint/
 ```
 
 ## License

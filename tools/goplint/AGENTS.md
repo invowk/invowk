@@ -1,4 +1,4 @@
-# primitivelint
+# goplint
 
 A standalone `go/analysis` analyzer that detects bare primitive types (`string`, `int`, `float64`, `[]string`, `map[string]string`, etc.) in struct fields, function parameters, and return types. Enforces the project's DDD Value Type convention where named types (e.g., `type CommandName string`) should be used instead of raw primitives.
 
@@ -10,23 +10,23 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 
 | Task | Command |
 |------|---------|
-| Build | `make build-primitivelint` |
+| Build | `make build-goplint` |
 | Run (human output) | `make check-types` |
 | Run (JSON for agents) | `make check-types-json` |
 | **Run all DDD checks** | **`make check-types-all`** |
 | **Run all DDD checks (JSON)** | **`make check-types-all-json`** |
 | **Check baseline (regression gate)** | **`make check-baseline`** |
 | **Update baseline** | **`make update-baseline`** |
-| Run tests | `cd tools/primitivelint && go test ./primitivelint/` |
-| Run tests (race) | `cd tools/primitivelint && go test -race ./primitivelint/` |
-| Audit stale exceptions | `make build-primitivelint && ./bin/primitivelint -audit-exceptions -config=tools/primitivelint/exceptions.toml ./...` |
-| Check missing IsValid | `make build-primitivelint && ./bin/primitivelint -check-isvalid -config=tools/primitivelint/exceptions.toml ./...` |
-| Check missing String | `make build-primitivelint && ./bin/primitivelint -check-stringer -config=tools/primitivelint/exceptions.toml ./...` |
-| Check missing constructors | `make build-primitivelint && ./bin/primitivelint -check-constructors -config=tools/primitivelint/exceptions.toml ./...` |
-| Check constructor signatures | `make build-primitivelint && ./bin/primitivelint -check-constructor-sig -config=tools/primitivelint/exceptions.toml ./...` |
-| Check functional options | `make build-primitivelint && ./bin/primitivelint -check-func-options -config=tools/primitivelint/exceptions.toml ./...` |
-| Check immutability | `make build-primitivelint && ./bin/primitivelint -check-immutability -config=tools/primitivelint/exceptions.toml ./...` |
-| Check struct IsValid | `make build-primitivelint && ./bin/primitivelint -check-struct-isvalid -config=tools/primitivelint/exceptions.toml ./...` |
+| Run tests | `cd tools/goplint && go test ./goplint/` |
+| Run tests (race) | `cd tools/goplint && go test -race ./goplint/` |
+| Audit stale exceptions | `make build-goplint && ./bin/goplint -audit-exceptions -config=tools/goplint/exceptions.toml ./...` |
+| Check missing IsValid | `make build-goplint && ./bin/goplint -check-isvalid -config=tools/goplint/exceptions.toml ./...` |
+| Check missing String | `make build-goplint && ./bin/goplint -check-stringer -config=tools/goplint/exceptions.toml ./...` |
+| Check missing constructors | `make build-goplint && ./bin/goplint -check-constructors -config=tools/goplint/exceptions.toml ./...` |
+| Check constructor signatures | `make build-goplint && ./bin/goplint -check-constructor-sig -config=tools/goplint/exceptions.toml ./...` |
+| Check functional options | `make build-goplint && ./bin/goplint -check-func-options -config=tools/goplint/exceptions.toml ./...` |
+| Check immutability | `make build-goplint && ./bin/goplint -check-immutability -config=tools/goplint/exceptions.toml ./...` |
+| Check struct IsValid | `make build-goplint && ./bin/goplint -check-struct-isvalid -config=tools/goplint/exceptions.toml ./...` |
 
 ## Diagnostic Categories
 
@@ -46,18 +46,18 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `missing-struct-isvalid` | `--check-struct-isvalid` or `--check-all` | Struct with constructor missing `IsValid()` method |
 | `wrong-struct-isvalid-sig` | `--check-struct-isvalid` or `--check-all` | Struct has `IsValid()` but wrong signature |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
-| `unknown-directive` | (always active) | Unrecognized key in `//plint:` comment (typo detection) |
+| `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
 The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, and `--check-struct-isvalid` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
 
 ## Architecture
 
 ```
-tools/primitivelint/
+tools/goplint/
 ├── main.go                 # singlechecker entry point + --update-baseline mode
 ├── exceptions.toml         # ~390 intentional exception patterns (primitives, constructors, func-options, etc.)
 ├── baseline.toml           # accepted findings baseline (generated)
-├── primitivelint/
+├── goplint/
 │   ├── analyzer.go             # analysis.Analyzer + run() wiring + basic supplementary modes
 │   ├── analyzer_structural.go  # structural analysis: constructor-sig, func-options, immutability
 │   ├── baseline.go             # baseline TOML loading + matching + writing
@@ -68,7 +68,7 @@ tools/primitivelint/
 │   └── testdata/src/           # analysistest fixture packages (23 packages)
 ```
 
-**Separate Go module**: `tools/primitivelint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
+**Separate Go module**: `tools/goplint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
 
 ## What Gets Flagged
 
@@ -115,17 +115,17 @@ reason = "display-only labels in 12+ unexported structs"
 
 ### 2. Inline Directives — fallback for one-offs
 
-Directives use the `//plint:` prefix (preferred) or legacy `//primitivelint:` prefix. **New directives should always use the `plint:` prefix.** Multiple directive keys can be combined with commas, following the golangci-lint convention:
+Directives use the `//goplint:` prefix (preferred) or short `//plint:` alias. Multiple directive keys can be combined with commas, following the golangci-lint convention:
 
 ```go
 type Foo struct {
     Bar string //plint:ignore -- display-only (short form, preferred)
-    Baz int    //nolint:primitivelint
-    Qux string //primitivelint:ignore -- legacy form (still supported)
+    Baz int    //nolint:goplint
+    Qux string //goplint:ignore -- full prefix form
 }
 ```
 
-**Accepted directive forms**: `//plint:ignore`, `//primitivelint:ignore`, `//nolint:primitivelint`.
+**Accepted directive forms**: `//goplint:ignore`, `//plint:ignore`, `//nolint:goplint`.
 
 **Combined directives**: Multiple keys separated by commas (single prefix, no prefix repetition):
 
@@ -136,7 +136,7 @@ type Server struct {
 }
 ```
 
-**Unknown directive keys** (typos, future keys in an old binary) emit an `unknown-directive` warning diagnostic. For example, `//plint:ignorr` would warn about the unrecognized key `"ignorr"`.
+**Unknown directive keys** (typos, future keys in an old binary) emit an `unknown-directive` warning diagnostic. For example, `//goplint:ignorr` would warn about the unrecognized key `"ignorr"`.
 
 ### 3. Internal-State Directive — functional options exclusion
 
@@ -276,15 +276,15 @@ Run `make update-baseline` after:
 
 ### CI integration
 
-The `primitivelint-baseline` job in `lint.yml` runs `make check-baseline`. During rollout it uses `continue-on-error: true` (advisory). To promote to required: remove `continue-on-error` and add to branch protection.
+The `goplint-baseline` job in `lint.yml` runs `make check-baseline`. During rollout it uses `continue-on-error: true` (advisory). To promote to required: remove `continue-on-error` and add to branch protection.
 
 ### Pre-commit hook
 
-The `primitivelint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-baseline` advisory (always exits 0). Install with `make install-hooks`.
+The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-baseline` advisory (always exits 0). Install with `make install-hooks`.
 
 ## Gotchas
 
-- **Preferred directive prefix is `plint:`**: All new directive keys and documentation should use the short `//plint:` prefix. The legacy `//primitivelint:` prefix remains supported for backwards compatibility but should not be used in new code. The `//nolint:primitivelint` form is a golangci-lint convention and remains supported as an alias for `//plint:ignore`.
+- **Preferred directive prefix is `goplint:`**: All new directive keys and documentation should use the full `//goplint:` prefix. The short `//plint:` prefix is supported as a convenience alias. The `//nolint:goplint` form is a golangci-lint convention and remains supported as an alias for `//goplint:ignore`.
 - **Combined directives**: `//plint:ignore,internal` uses comma-separated keys after a single prefix (following the golangci-lint convention). Do NOT repeat the prefix: `//plint:ignore,plint:internal` is NOT supported. Unknown keys emit `unknown-directive` warnings.
 - **Directive prefix matching is lenient**: `plint:` is matched anywhere in the comment text via `strings.Index`, not just at the start. A comment like `// see plint:ignore for details` would trigger the directive. Avoid referencing directive names in prose comments.
 - **`types.Alias` (Go 1.22+)**: Type aliases (`type X = string`) are transparent — `isPrimitive` must call `types.Unalias()` to resolve them. Without this, aliases silently pass the linter.
@@ -292,7 +292,7 @@ The `primitivelint-baseline` local hook in `.pre-commit-config.yaml` runs `make 
 - **Flag binding variables**: The `-config` and supplementary mode flags are package-level variables bound via `BoolVar`/`StringVar` (required by the `go/analysis` framework). However, `run()` never reads or mutates these directly — it reads them once via `newRunConfig()` into a local `runConfig` struct, and the `--check-all` expansion happens on the local struct. Integration tests use `Analyzer.Flags.Set()` + `resetFlags()` instead of manual save/restore. Tests must NOT use `t.Parallel()` — they share the `Analyzer.Flags` FlagSet.
 - **`primitiveTypeName` needs `Unalias` too**: Even after `isPrimitive` correctly detects an alias as primitive, the diagnostic message must show the resolved type (`string`), not the alias name (`MyAlias`). Call `types.Unalias()` before `types.TypeString()`.
 - **Qualified name format**: The analyzer prefixes all names with the package name (`pkg.Type.Field`, `pkg.Func.param`). Exception patterns can be 2-segment (matched after stripping the package prefix) or 3-segment (exact match).
-- **CI is advisory (rollout)**: Both `primitivelint` and `primitivelint-baseline` jobs in `lint.yml` use `continue-on-error: true` during rollout. To promote the baseline check to required: remove `continue-on-error` and add to branch protection.
+- **CI is advisory (rollout)**: Both `goplint` and `goplint-baseline` jobs in `lint.yml` use `continue-on-error: true` during rollout. To promote the baseline check to required: remove `continue-on-error` and add to branch protection.
 - **Per-package execution**: `go/analysis` analyzers run per-package. `--audit-exceptions` reports stale exceptions per-package — an exception that matches in package A but not package B will only be reported as stale during B's analysis. For a global stale audit, run against the full module (`./...`).
 
 ## Test Architecture

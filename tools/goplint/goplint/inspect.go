@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package primitivelint
+package goplint
 
 import (
 	"fmt"
@@ -130,7 +130,7 @@ func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig
 	// Prefix with package name for exception matching.
 	funcName = pkgName + "." + funcName
 
-	// Check parameters — always checked, even with //plint:render.
+	// Check parameters — always checked, even with //goplint:render.
 	if fn.Type.Params != nil {
 		inspectFieldList(pass, fn.Type.Params, funcName, "parameter", cfg, bl)
 	}
@@ -375,7 +375,8 @@ func receiverTypeName(expr ast.Expr) string {
 }
 
 // knownDirectiveKeys lists all recognized directive keys for validation.
-// Unknown keys in a //plint: comment trigger an unknown-directive warning.
+// Unknown keys in a //goplint: or //plint: comment trigger an
+// unknown-directive warning.
 var knownDirectiveKeys = map[string]bool{
 	"ignore":   true,
 	"internal": true,
@@ -383,8 +384,8 @@ var knownDirectiveKeys = map[string]bool{
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.
-// Recognized forms: //plint:ignore, //primitivelint:ignore,
-// //nolint:primitivelint, and combined forms like //plint:ignore,internal.
+// Recognized forms: //goplint:ignore, //plint:ignore,
+// //nolint:goplint, and combined forms like //goplint:ignore,internal.
 func hasIgnoreDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
 	return hasDirectiveKey(doc, lineComment, "ignore")
 }
@@ -392,8 +393,8 @@ func hasIgnoreDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bo
 // hasInternalDirective checks whether a struct field has an internal
 // directive, indicating the field is internal state that should not be
 // initialized via functional options (excluded from WithXxx() checks).
-// Recognized forms: //plint:internal and combined forms like
-// //plint:ignore,internal.
+// Recognized forms: //goplint:internal, //plint:internal, and combined
+// forms like //goplint:ignore,internal.
 func hasInternalDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
 	return hasDirectiveKey(doc, lineComment, "internal")
 }
@@ -407,7 +408,7 @@ func hasRenderDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bo
 }
 
 // hasDirectiveKey checks whether the given directive key appears in any
-// plint/primitivelint directive in the doc or line comment groups.
+// goplint/plint directive in the doc or line comment groups.
 func hasDirectiveKey(doc *ast.CommentGroup, lineComment *ast.CommentGroup, key string) bool {
 	for _, cg := range []*ast.CommentGroup{doc, lineComment} {
 		if cg == nil {
@@ -427,8 +428,8 @@ func hasDirectiveKey(doc *ast.CommentGroup, lineComment *ast.CommentGroup, key s
 }
 
 // reportUnknownDirectives emits an unknown-directive diagnostic for each
-// unrecognized key in a plint/primitivelint directive comment. Called at
-// every site where directives are checked, so typos like //plint:ignorr
+// unrecognized key in a goplint/plint directive comment. Called at
+// every site where directives are checked, so typos like //goplint:ignorr
 // are caught immediately.
 //
 // Intentionally does not check baseline — typo warnings must always be visible.
@@ -444,34 +445,34 @@ func reportUnknownDirectives(pass *analysis.Pass, doc *ast.CommentGroup, lineCom
 				pass.Report(analysis.Diagnostic{
 					Pos:      c.Pos(),
 					Category: CategoryUnknownDirective,
-					Message:  fmt.Sprintf("unknown directive key %q in plint comment", u),
+					Message:  fmt.Sprintf("unknown directive key %q in goplint directive", u),
 				})
 			}
 		}
 	}
 }
 
-// parseDirectiveKeys extracts directive keys from a plint/primitivelint
+// parseDirectiveKeys extracts directive keys from a goplint/plint
 // comment. Returns known keys and unknown keys separately.
 //
 // Supported forms (single prefix, comma-separated keys):
 //
+//	//goplint:ignore            → (["ignore"], nil)
 //	//plint:ignore              → (["ignore"], nil)
-//	//plint:ignore,internal     → (["ignore", "internal"], nil)
+//	//goplint:ignore,internal   → (["ignore", "internal"], nil)
 //	//plint:ignore,foo          → (["ignore"], ["foo"])
-//	//primitivelint:ignore      → (["ignore"], nil)
-//	//nolint:primitivelint      → (["ignore"], nil)  — special case
+//	//nolint:goplint            → (["ignore"], nil)  — special case
 //	// regular comment          → (nil, nil)
 func parseDirectiveKeys(text string) (keys []string, unknown []string) {
-	// Handle nolint:primitivelint as a special "ignore" directive.
+	// Handle nolint:goplint as a special "ignore" directive.
 	// This is a golangci-lint convention — always means "suppress all".
-	if strings.Contains(text, "nolint:primitivelint") {
+	if strings.Contains(text, "nolint:goplint") {
 		return []string{"ignore"}, nil
 	}
 
-	// Look for plint: or primitivelint: prefix.
+	// Look for goplint: or plint: prefix.
 	var valueStr string
-	for _, prefix := range []string{"plint:", "primitivelint:"} {
+	for _, prefix := range []string{"goplint:", "plint:"} {
 		idx := strings.Index(text, prefix)
 		if idx < 0 {
 			continue

@@ -26,6 +26,6 @@ Each diagnostic includes a `category` field for filtering:
 - `missing-stringer` — named type missing `String()` method
 - `missing-constructor` — exported struct missing `NewXxx()` constructor
 
-Use this output as the canonical source of remaining gaps instead of manually scanning the codebase. See `tools/primitivelint/CLAUDE.md` for full documentation.
+Use this output as the canonical source of remaining gaps instead of manually scanning the codebase. See `tools/goplint/CLAUDE.md` for full documentation.
 
-After completing type improvements, run `make update-baseline` to shrink the baseline and commit the updated `tools/primitivelint/baseline.toml`.
+After completing type improvements, run `make update-baseline` to shrink the baseline and commit the updated `tools/goplint/baseline.toml`.

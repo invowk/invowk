@@ -1,4 +1,4 @@
-module github.com/invowk/invowk/tools/primitivelint
+module github.com/invowk/invowk/tools/goplint
 
 go 1.24.0
 

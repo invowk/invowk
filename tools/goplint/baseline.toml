@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 #
-# primitivelint baseline — accepted DDD compliance findings
+# goplint baseline — accepted DDD compliance findings
 # Generated: 2026-02-25
 # Regenerate: make update-baseline
 # Total: 262 findings

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package primitivelint implements a go/analysis analyzer that detects
+// Package goplint implements a go/analysis analyzer that detects
 // bare primitive type usage in struct fields, function parameters, and
 // return types. It is designed to enforce DDD Value Type conventions
 // where named types (e.g., type CommandName string) should be used
 // instead of raw string, int, etc.
 //
 // The analyzer supports an exception mechanism via TOML config file
-// and inline //plint:ignore (or //primitivelint:ignore) directives for
+// and inline //goplint:ignore (or //plint:ignore) directives for
 // intentional primitive usage at exec/OS boundaries, display-only fields,
-// etc. Fields can also be marked //plint:internal to exclude them from
+// etc. Fields can also be marked //goplint:internal to exclude them from
 // functional options completeness checks.
 //
 // Additional modes:
@@ -17,7 +17,7 @@
 //   - --check-isvalid: report named non-struct types missing IsValid() method
 //   - --check-stringer: report named non-struct types missing String() method
 //   - --check-constructors: report exported structs missing NewXxx() constructor
-package primitivelint
+package goplint
 
 import (
 	"fmt"
@@ -68,12 +68,12 @@ var (
 	checkStructIsValid  bool
 )
 
-// Analyzer is the primitivelint analysis pass. Use it with singlechecker
+// Analyzer is the goplint analysis pass. Use it with singlechecker
 // or multichecker, or via go vet -vettool.
 var Analyzer = &analysis.Analyzer{
-	Name:     "primitivelint",
+	Name:     "goplint",
 	Doc:      "reports bare primitive types where DDD Value Types should be used",
-	URL:      "https://github.com/invowk/invowk/tools/primitivelint",
+	URL:      "https://github.com/invowk/invowk/tools/goplint",
 	Run:      run,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package primitivelint
+package goplint
 
 import (
 	"path/filepath"
@@ -124,7 +124,7 @@ func TestNewRunConfig(t *testing.T) {
 func TestAnalyzerWithConfig(t *testing.T) {
 	testdata := analysistest.TestData()
 	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "config", filepath.Join(testdata, "src", "configexceptions", "primitivelint.toml"))
+	setFlag(t, "config", filepath.Join(testdata, "src", "configexceptions", "goplint.toml"))
 
 	analysistest.Run(t, testdata, Analyzer, "configexceptions")
 }
@@ -187,7 +187,7 @@ func TestCheckConstructors(t *testing.T) {
 func TestAuditExceptions(t *testing.T) {
 	testdata := analysistest.TestData()
 	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "config", filepath.Join(testdata, "src", "auditexceptions", "primitivelint.toml"))
+	setFlag(t, "config", filepath.Join(testdata, "src", "auditexceptions", "goplint.toml"))
 	setFlag(t, "audit-exceptions", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "auditexceptions")
@@ -204,7 +204,7 @@ func TestCheckAll(t *testing.T) {
 	t.Cleanup(func() { resetFlags(t) })
 	setFlag(t, "check-all", "true")
 	setFlag(t, "audit-exceptions", "true")
-	setFlag(t, "config", filepath.Join(testdata, "src", "checkall", "primitivelint.toml"))
+	setFlag(t, "config", filepath.Join(testdata, "src", "checkall", "goplint.toml"))
 
 	analysistest.Run(t, testdata, Analyzer, "checkall")
 }
@@ -283,7 +283,7 @@ func TestCheckStructIsValid(t *testing.T) {
 func TestBaselineSuppression(t *testing.T) {
 	testdata := analysistest.TestData()
 	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline", "primitivelint-baseline.toml"))
+	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline", "goplint-baseline.toml"))
 
 	analysistest.Run(t, testdata, Analyzer, "baseline")
 }
@@ -300,7 +300,7 @@ func TestBaselineSupplementaryCategories(t *testing.T) {
 	setFlag(t, "check-isvalid", "true")
 	setFlag(t, "check-stringer", "true")
 	setFlag(t, "check-constructors", "true")
-	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline_supplementary", "primitivelint-baseline.toml"))
+	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline_supplementary", "goplint-baseline.toml"))
 
 	analysistest.Run(t, testdata, Analyzer, "baseline_supplementary")
 }

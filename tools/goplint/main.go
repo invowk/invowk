@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// primitivelint reports bare primitive types (string, int, float64, etc.)
+// goplint reports bare primitive types (string, int, float64, etc.)
 // in struct fields, function parameters, and return types where DDD Value
 // Types should be used instead.
 //
 // Usage:
 //
-//	primitivelint [-config=exceptions.toml] [-json] ./...
-//	primitivelint -audit-exceptions -config=exceptions.toml ./...
-//	primitivelint -update-baseline=baseline.toml -check-all -config=exceptions.toml ./...
+//	goplint [-config=exceptions.toml] [-json] ./...
+//	goplint -audit-exceptions -config=exceptions.toml ./...
+//	goplint -update-baseline=baseline.toml -check-all -config=exceptions.toml ./...
 package main
 
 import (
@@ -22,7 +22,7 @@ import (
 
 	"golang.org/x/tools/go/analysis/singlechecker"
 
-	"github.com/invowk/invowk/tools/primitivelint/primitivelint"
+	"github.com/invowk/invowk/tools/goplint/goplint"
 )
 
 func main() {
@@ -30,13 +30,13 @@ func main() {
 	// singlechecker.Main() calls os.Exit(), so we must intercept first.
 	if outputPath := extractUpdateBaselinePath(os.Args[1:]); outputPath != "" {
 		if err := generateBaseline(outputPath, os.Args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "primitivelint: update-baseline: %v\n", err)
+			fmt.Fprintf(os.Stderr, "goplint: update-baseline: %v\n", err)
 			os.Exit(1)
 		}
 		return
 	}
 
-	singlechecker.Main(primitivelint.Analyzer)
+	singlechecker.Main(goplint.Analyzer)
 }
 
 // extractUpdateBaselinePath scans CLI args for -update-baseline=PATH or
@@ -82,7 +82,7 @@ func generateBaseline(outputPath string, originalArgs []string) error {
 		return fmt.Errorf("parsing analysis output: %w", err)
 	}
 
-	if err := primitivelint.WriteBaseline(outputPath, findings); err != nil {
+	if err := goplint.WriteBaseline(outputPath, findings); err != nil {
 		return fmt.Errorf("writing baseline: %w", err)
 	}
 
@@ -153,13 +153,13 @@ func parseAnalysisJSON(data []byte) (map[string][]string, error) {
 		}
 
 		for _, analyzers := range result {
-			diags, ok := analyzers["primitivelint"]
+			diags, ok := analyzers["goplint"]
 			if !ok {
 				continue
 			}
 			for _, d := range diags {
 				// Skip stale-exception — config maintenance, not codebase findings.
-				if d.Category == primitivelint.CategoryStaleException {
+				if d.Category == goplint.CategoryStaleException {
 					continue
 				}
 				if d.Category == "" || d.Message == "" {

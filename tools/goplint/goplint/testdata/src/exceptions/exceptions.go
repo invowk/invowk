@@ -4,15 +4,15 @@ package exceptions
 
 // ExceptedStruct has fields with various ignore directive forms.
 type ExceptedStruct struct {
-	Name  string //primitivelint:ignore -- display-only label
-	Age   int    //nolint:primitivelint
+	Name  string //goplint:ignore -- display-only label
+	Age   int    //nolint:goplint
 	Score int    //plint:ignore -- short-form alias
 	Bad   string // want `struct field exceptions\.ExceptedStruct\.Bad uses primitive type string`
 }
 
 // ExceptedFunc has an ignore directive on the whole function.
 //
-//primitivelint:ignore
+//goplint:ignore
 func ExceptedFunc(name string) string {
 	return name
 }
@@ -31,7 +31,7 @@ type CombinedDirectiveStruct struct {
 
 // UnknownDirectiveStruct tests unknown directive key warnings.
 type UnknownDirectiveStruct struct {
-	Name string //plint:ignore,foo -- want unknown-directive warning for "foo"  // want `unknown directive key "foo" in plint comment`
+	Name string //plint:ignore,foo -- want unknown-directive warning for "foo"  // want `unknown directive key "foo" in goplint directive`
 }
 
 // --- Render directive tests ---
