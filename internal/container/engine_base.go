@@ -913,7 +913,7 @@ func ParsePortMapping(portStr string) (PortMapping, []error) {
 		return mapping, []error{fmt.Errorf("invalid port mapping format %q: must contain ':' separator", portStr)}
 	}
 
-	hostPort, err := strconv.Atoi(parts[0])
+	hostPort, err := strconv.ParseUint(parts[0], 10, 16)
 	if err != nil {
 		return mapping, []error{fmt.Errorf("invalid host port %q: %w", parts[0], err)}
 	}
@@ -921,7 +921,7 @@ func ParsePortMapping(portStr string) (PortMapping, []error) {
 
 	// Split container part on "/" to get port number and optional protocol
 	containerParts := strings.SplitN(parts[1], "/", 2)
-	containerPort, err := strconv.Atoi(containerParts[0])
+	containerPort, err := strconv.ParseUint(containerParts[0], 10, 16)
 	if err != nil {
 		return mapping, []error{fmt.Errorf("invalid container port %q: %w", containerParts[0], err)}
 	}

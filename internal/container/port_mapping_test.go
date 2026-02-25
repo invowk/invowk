@@ -235,6 +235,18 @@ func TestParsePortMapping(t *testing.T) {
 			false,
 		},
 		{
+			"host port out of range",
+			"70000:80",
+			PortMapping{},
+			true,
+		},
+		{
+			"container port out of range",
+			"8080:70000",
+			PortMapping{HostPort: 8080},
+			true,
+		},
+		{
 			"no colon separator",
 			"8080",
 			PortMapping{},

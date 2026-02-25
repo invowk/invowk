@@ -41,6 +41,33 @@ version: "1.0.0"
 	return modulePath
 }
 
+func createZipForUnpackTest(t *testing.T, zipPath string, entries map[string]string) {
+	t.Helper()
+
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatalf("failed to create ZIP file: %v", err)
+	}
+	zipWriter := zip.NewWriter(zipFile)
+
+	for name, content := range entries {
+		writer, createErr := zipWriter.Create(name)
+		if createErr != nil {
+			t.Fatalf("failed to create ZIP entry %q: %v", name, createErr)
+		}
+		if _, writeErr := writer.Write([]byte(content)); writeErr != nil {
+			t.Fatalf("failed to write ZIP entry %q: %v", name, writeErr)
+		}
+	}
+
+	if closeErr := zipWriter.Close(); closeErr != nil {
+		t.Fatalf("failed to close ZIP writer: %v", closeErr)
+	}
+	if closeErr := zipFile.Close(); closeErr != nil {
+		t.Fatalf("failed to close ZIP file: %v", closeErr)
+	}
+}
+
 func TestArchive(t *testing.T) {
 	t.Run("archive valid module", func(t *testing.T) {
 		tmpDir := t.TempDir()
@@ -312,6 +339,54 @@ func TestUnpack(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "no valid module found") {
 			t.Errorf("expected 'no valid module found' error, got: %v", err)
+		}
+	})
+
+	t.Run("unpack rejects ZIP with path traversal module root", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "traversal.zip")
+		createZipForUnpackTest(t, zipPath, map[string]string{
+			"../evil.invowkmod/invowkmod.cue": `module: "evil"
+version: "1.0.0"
+`,
+			"../evil.invowkmod/invowkfile.cue": "cmds: []",
+		})
+
+		_, err := Unpack(UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(tmpDir),
+		})
+		if err == nil {
+			t.Fatal("Unpack() expected error for traversal archive path, got nil")
+		}
+		if !strings.Contains(err.Error(), "invalid path in ZIP") {
+			t.Errorf("expected invalid path error, got: %v", err)
+		}
+	})
+
+	t.Run("unpack rejects ZIP with backslash traversal path", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "backslash-traversal.zip")
+		createZipForUnpackTest(t, zipPath, map[string]string{
+			"..\\evil.invowkmod\\invowkmod.cue": `module: "evil"
+version: "1.0.0"
+`,
+			"..\\evil.invowkmod\\invowkfile.cue": "cmds: []",
+		})
+
+		_, err := Unpack(UnpackOptions{
+			Source:  zipPath,
+			DestDir: types.FilesystemPath(tmpDir),
+		})
+		if err == nil {
+			t.Fatal("Unpack() expected error for traversal archive path, got nil")
+		}
+		if !strings.Contains(err.Error(), "invalid path in ZIP") {
+			t.Errorf("expected invalid path error, got: %v", err)
 		}
 	})
 }
