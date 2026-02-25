@@ -16,37 +16,6 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// sanitizeArchivePath normalizes and validates a ZIP entry path to prevent path traversal.
-func sanitizeArchivePath(entryName types.FilesystemPath) (types.FilesystemPath, error) {
-	normalized := strings.ReplaceAll(string(entryName), "\\", "/")
-	cleanPath := path.Clean(normalized)
-
-	// path.Clean("") returns ".", which is not a valid file entry path.
-	if cleanPath == "." || cleanPath == "" {
-		return "", fmt.Errorf("empty archive path")
-	}
-	if strings.HasPrefix(cleanPath, "/") {
-		return "", fmt.Errorf("absolute archive path")
-	}
-	if cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
-		return "", fmt.Errorf("archive path escapes destination")
-	}
-
-	return types.FilesystemPath(cleanPath), nil
-}
-
-// isPathWithinBase reports whether targetPath is inside baseDir.
-func isPathWithinBase(baseDir, targetPath types.FilesystemPath) bool {
-	relPath, err := filepath.Rel(string(baseDir), string(targetPath))
-	if err != nil {
-		return false
-	}
-	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-		return false
-	}
-	return !filepath.IsAbs(relPath)
-}
-
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
 func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.FilesystemPath, err error) {
@@ -225,13 +194,16 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	// Find the module root directory in the ZIP
 	var moduleRoot string
 	for _, file := range zipReader.File {
-		cleanPath, pathErr := sanitizeArchivePath(types.FilesystemPath(file.Name))
-		if pathErr != nil {
+		cleanPath := path.Clean(strings.ReplaceAll(file.Name, "\\", "/"))
+		if cleanPath == "." || cleanPath == "" ||
+			strings.HasPrefix(cleanPath, "/") ||
+			cleanPath == ".." ||
+			strings.HasPrefix(cleanPath, "../") {
 			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
 		}
 
 		// Look for the .invowkmod directory
-		parts := strings.Split(string(cleanPath), "/")
+		parts := strings.Split(cleanPath, "/")
 		if len(parts) > 0 && strings.HasSuffix(parts[0], ModuleSuffix) {
 			moduleRoot = parts[0]
 			break
@@ -244,7 +216,11 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 
 	// Check if module already exists
 	modulePath := filepath.Join(absDestDir, filepath.FromSlash(moduleRoot))
-	if !isPathWithinBase(types.FilesystemPath(absDestDir), types.FilesystemPath(modulePath)) {
+	moduleRelPath, relErr := filepath.Rel(absDestDir, modulePath)
+	if relErr != nil ||
+		moduleRelPath == ".." ||
+		strings.HasPrefix(moduleRelPath, ".."+string(filepath.Separator)) ||
+		filepath.IsAbs(moduleRelPath) {
 		return "", fmt.Errorf("invalid module root in ZIP: %s", moduleRoot)
 	}
 	if _, statErr := os.Stat(modulePath); statErr == nil {
@@ -259,21 +235,28 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 
 	// Extract files
 	for _, file := range zipReader.File {
-		cleanPath, pathErr := sanitizeArchivePath(types.FilesystemPath(file.Name))
-		if pathErr != nil {
+		cleanPath := path.Clean(strings.ReplaceAll(file.Name, "\\", "/"))
+		if cleanPath == "." || cleanPath == "" ||
+			strings.HasPrefix(cleanPath, "/") ||
+			cleanPath == ".." ||
+			strings.HasPrefix(cleanPath, "../") {
 			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
 		}
 
 		// Skip files not in the module root
-		if string(cleanPath) != moduleRoot && !strings.HasPrefix(string(cleanPath), moduleRoot+"/") {
+		if cleanPath != moduleRoot && !strings.HasPrefix(cleanPath, moduleRoot+"/") {
 			continue
 		}
 
 		// Construct destination path
-		destPath := filepath.Join(absDestDir, filepath.FromSlash(string(cleanPath)))
+		destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
 
 		// Validate path doesn't escape destination (security check)
-		if !isPathWithinBase(types.FilesystemPath(absDestDir), types.FilesystemPath(destPath)) {
+		relPath, relErr := filepath.Rel(absDestDir, destPath)
+		if relErr != nil ||
+			relPath == ".." ||
+			strings.HasPrefix(relPath, ".."+string(filepath.Separator)) ||
+			filepath.IsAbs(relPath) {
 			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
 		}
 
