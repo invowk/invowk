@@ -430,6 +430,65 @@ func reportMissingImmutability(pass *analysis.Pass, structs []exportedStructInfo
 	}
 }
 
+// reportMissingStructIsValid reports exported struct types that have a
+// constructor but lack an IsValid() (bool, []error) method. Struct types
+// with constructors should validate their invariants via IsValid().
+// Error types are excluded (same logic as --check-constructors).
+func reportMissingStructIsValid(
+	pass *analysis.Pass,
+	structs []exportedStructInfo,
+	ctors map[string]*constructorFuncInfo,
+	methods map[string]*methodInfo,
+	cfg *ExceptionConfig,
+	bl *BaselineConfig,
+) {
+	pkgName := packageName(pass.Pkg)
+
+	for _, s := range structs {
+		if findConstructorForStruct(s.name, ctors) == nil {
+			continue // no constructor — no obligation
+		}
+
+		// Skip error types — they typically don't need IsValid().
+		if strings.HasSuffix(s.name, "Error") || methods[s.name+".Error"] != nil {
+			continue
+		}
+
+		qualName := fmt.Sprintf("%s.%s", pkgName, s.name)
+		if cfg.isExcepted(qualName + ".struct-isvalid") {
+			continue
+		}
+
+		mi := methods[s.name+".IsValid"]
+		if mi != nil {
+			// Method exists — verify its signature matches the contract.
+			if mi.paramCount != 0 || mi.resultTypes != expectedIsValidSig {
+				msg := fmt.Sprintf("struct %s has IsValid() but wrong signature (want func() (bool, []error))", qualName)
+				if bl.Contains(CategoryWrongStructIsValidSig, msg) {
+					continue
+				}
+				pass.Report(analysis.Diagnostic{
+					Pos:      s.pos,
+					Category: CategoryWrongStructIsValidSig,
+					Message:  msg,
+				})
+			}
+			continue
+		}
+
+		msg := fmt.Sprintf("struct %s has constructor but no IsValid() method", qualName)
+		if bl.Contains(CategoryMissingStructIsValid, msg) {
+			continue
+		}
+
+		pass.Report(analysis.Diagnostic{
+			Pos:      s.pos,
+			Category: CategoryMissingStructIsValid,
+			Message:  msg,
+		})
+	}
+}
+
 // capitalizeFirst returns s with its first rune uppercased.
 // Used to convert field names to expected WithXxx function names
 // (e.g., "shell" → "Shell" for "WithShell").

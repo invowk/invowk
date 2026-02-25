@@ -208,6 +208,21 @@ func TestParseDirectiveKeys(t *testing.T) {
 			wantKeys:    []string{"ignore"},
 			wantUnknown: nil,
 		},
+		{
+			name:     "plint:render standalone",
+			text:     "//plint:render",
+			wantKeys: []string{"render"},
+		},
+		{
+			name:     "combined render,internal",
+			text:     "//plint:render,internal",
+			wantKeys: []string{"render", "internal"},
+		},
+		{
+			name:     "combined ignore,render",
+			text:     "//plint:ignore,render",
+			wantKeys: []string{"ignore", "render"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -385,6 +400,79 @@ func TestHasInternalDirective(t *testing.T) {
 			got := hasInternalDirective(doc, lineComment)
 			if got != tt.want {
 				t.Errorf("hasInternalDirective(doc=%q, line=%q) = %v, want %v",
+					tt.doc, tt.lineComment, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHasRenderDirective(t *testing.T) {
+	t.Parallel()
+
+	makeCommentGroup := func(text string) *ast.CommentGroup {
+		if text == "" {
+			return nil
+		}
+		return &ast.CommentGroup{
+			List: []*ast.Comment{{Text: text}},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		doc         string
+		lineComment string
+		want        bool
+	}{
+		{
+			name: "plint:render in doc comment",
+			doc:  "//plint:render",
+			want: true,
+		},
+		{
+			name:        "plint:render in line comment",
+			lineComment: "//plint:render -- display text",
+			want:        true,
+		},
+		{
+			name:        "combined render,internal",
+			lineComment: "//plint:render,internal",
+			want:        true,
+		},
+		{
+			name:        "combined ignore,render",
+			lineComment: "//plint:ignore,render",
+			want:        true,
+		},
+		{
+			name:        "plint:ignore does not match render",
+			lineComment: "//plint:ignore",
+			want:        false,
+		},
+		{
+			name:        "plint:internal does not match render",
+			lineComment: "//plint:internal",
+			want:        false,
+		},
+		{
+			name:        "regular comment",
+			lineComment: "// render this text",
+			want:        false,
+		},
+		{
+			name: "both nil",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			doc := makeCommentGroup(tt.doc)
+			lineComment := makeCommentGroup(tt.lineComment)
+			got := hasRenderDirective(doc, lineComment)
+			if got != tt.want {
+				t.Errorf("hasRenderDirective(doc=%q, line=%q) = %v, want %v",
 					tt.doc, tt.lineComment, got, tt.want)
 			}
 		})

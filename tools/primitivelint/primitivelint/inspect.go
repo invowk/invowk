@@ -38,7 +38,7 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 
 		for _, field := range st.Fields.List {
 			reportUnknownDirectives(pass, field.Doc, field.Comment)
-			if hasIgnoreDirective(field.Doc, field.Comment) {
+			if hasIgnoreDirective(field.Doc, field.Comment) || hasRenderDirective(field.Doc, field.Comment) {
 				continue
 			}
 
@@ -51,7 +51,13 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 				continue
 			}
 
+			// For map types, produce a targeted message identifying which
+			// part(s) of the map are primitive instead of showing the full
+			// composite type.
 			typeName := primitiveTypeName(fieldType)
+			if detail, ok := primitiveMapDetail(fieldType); ok {
+				typeName = detail
+			}
 			if cfg.isSkippedType(typeName) {
 				continue
 			}
@@ -108,6 +114,8 @@ func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig
 		return
 	}
 
+	isRender := hasRenderDirective(fn.Doc, nil)
+
 	pkgName := packageName(pass.Pkg)
 	funcName := fn.Name.Name
 
@@ -122,15 +130,15 @@ func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig
 	// Prefix with package name for exception matching.
 	funcName = pkgName + "." + funcName
 
-	// Check parameters
+	// Check parameters — always checked, even with //plint:render.
 	if fn.Type.Params != nil {
 		inspectFieldList(pass, fn.Type.Params, funcName, "parameter", cfg, bl)
 	}
 
-	// Check return types — skip for well-known interface methods
-	// (String, Error, GoString, MarshalText) whose return types are
-	// dictated by the interface contract.
-	if fn.Type.Results != nil && !isInterfaceMethodReturn(fn) {
+	// Check return types — skip for render functions (display output),
+	// and for well-known interface methods (String, Error, GoString,
+	// MarshalText) whose return types are dictated by the interface contract.
+	if fn.Type.Results != nil && !isRender && !isInterfaceMethodReturn(fn) {
 		inspectReturnTypes(pass, fn.Type.Results, funcName, cfg, bl)
 	}
 }
@@ -154,6 +162,9 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 		}
 
 		typeName := primitiveTypeName(fieldType)
+		if detail, ok := primitiveMapDetail(fieldType); ok {
+			typeName = detail
+		}
 		if cfg.isSkippedType(typeName) {
 			continue
 		}
@@ -216,6 +227,9 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 		}
 
 		typeName := primitiveTypeName(fieldType)
+		if detail, ok := primitiveMapDetail(fieldType); ok {
+			typeName = detail
+		}
 		if cfg.isSkippedType(typeName) {
 			continue
 		}
@@ -344,6 +358,7 @@ func receiverTypeName(expr ast.Expr) string {
 var knownDirectiveKeys = map[string]bool{
 	"ignore":   true,
 	"internal": true,
+	"render":   true,
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.
@@ -360,6 +375,14 @@ func hasIgnoreDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bo
 // //plint:ignore,internal.
 func hasInternalDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
 	return hasDirectiveKey(doc, lineComment, "internal")
+}
+
+// hasRenderDirective checks whether a func/field has a render directive,
+// indicating the return value is intentionally a bare string (rendered
+// display text). On functions, this suppresses return-type findings only
+// — parameters are still checked. On struct fields, it behaves like ignore.
+func hasRenderDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
+	return hasDirectiveKey(doc, lineComment, "render")
 }
 
 // hasDirectiveKey checks whether the given directive key appears in any

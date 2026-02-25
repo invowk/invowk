@@ -6,7 +6,7 @@ func MultiReturn() (int, string) { // want `return value of returns\.MultiReturn
 }
 
 // MapReturn returns a map of primitives.
-func MapReturn() map[string]string { // want `return value of returns\.MapReturn uses primitive type map\[string\]string`
+func MapReturn() map[string]string { // want `return value of returns\.MapReturn uses primitive type string \(in map key and value\)`
 	return nil
 }
 

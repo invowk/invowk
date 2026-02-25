@@ -7,7 +7,7 @@ type SliceField struct {
 
 // MapField has a map with primitive keys and values.
 type MapField struct {
-	Data map[string]string // want `struct field structs\.MapField\.Data uses primitive type map\[string\]string`
+	Data map[string]string // want `struct field structs\.MapField\.Data uses primitive type string \(in map key and value\)`
 }
 
 // PointerField has a pointer to a primitive.
@@ -35,7 +35,7 @@ type NamedSlice struct {
 // MapWithNamedKey has a named type as map key — should NOT be flagged
 // for the key, but flagged for the primitive value type.
 type MapWithNamedKey struct {
-	Lookup map[GoodID]int // want `struct field structs\.MapWithNamedKey\.Lookup uses primitive type map\[structs\.GoodID\]int`
+	Lookup map[GoodID]int // want `struct field structs\.MapWithNamedKey\.Lookup uses primitive type int \(in map value\)`
 }
 
 // MultipleFields on one line.

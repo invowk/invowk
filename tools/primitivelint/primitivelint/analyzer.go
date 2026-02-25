@@ -44,8 +44,10 @@ const (
 	CategoryMissingImmutability = "missing-immutability"
 	CategoryWrongIsValidSig     = "wrong-isvalid-sig"
 	CategoryWrongStringerSig    = "wrong-stringer-sig"
-	CategoryStaleException      = "stale-exception"
-	CategoryUnknownDirective    = "unknown-directive"
+	CategoryMissingStructIsValid  = "missing-struct-isvalid"
+	CategoryWrongStructIsValidSig = "wrong-struct-isvalid-sig"
+	CategoryStaleException        = "stale-exception"
+	CategoryUnknownDirective      = "unknown-directive"
 )
 
 // Flag binding variables for the analyzer's flag set. These are populated
@@ -63,6 +65,7 @@ var (
 	checkConstructorSig bool
 	checkFuncOptions    bool
 	checkImmutability   bool
+	checkStructIsValid  bool
 )
 
 // Analyzer is the primitivelint analysis pass. Use it with singlechecker
@@ -94,6 +97,8 @@ func init() {
 		"report structs that should use or complete the functional options pattern")
 	Analyzer.Flags.BoolVar(&checkImmutability, "check-immutability", false,
 		"report structs with constructors that have exported mutable fields")
+	Analyzer.Flags.BoolVar(&checkStructIsValid, "check-struct-isvalid", false,
+		"report exported struct types with constructors missing IsValid() (bool, []error) method")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
 		"enable all DDD compliance checks (isvalid + stringer + constructors + structural)")
 }
@@ -112,6 +117,7 @@ type runConfig struct {
 	checkConstructorSig bool
 	checkFuncOptions    bool
 	checkImmutability   bool
+	checkStructIsValid  bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -129,6 +135,7 @@ func newRunConfig() runConfig {
 		checkConstructorSig: checkConstructorSig,
 		checkFuncOptions:    checkFuncOptions,
 		checkImmutability:   checkImmutability,
+		checkStructIsValid:  checkStructIsValid,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions which is a config
@@ -140,6 +147,7 @@ func newRunConfig() runConfig {
 		rc.checkConstructorSig = true
 		rc.checkFuncOptions = true
 		rc.checkImmutability = true
+		rc.checkStructIsValid = true
 	}
 	return rc
 }
@@ -160,7 +168,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	// Determine which data needs to be collected based on active modes.
-	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability
+	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability || rc.checkStructIsValid
 	needStructFields := rc.checkFuncOptions || rc.checkImmutability
 	needOptionTypes := rc.checkFuncOptions
 	needWithFunctions := rc.checkFuncOptions
@@ -177,9 +185,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		withFunctions      map[string][]string             // targetStructName → ["WithXxx", ...]
 	)
 
-	// Method tracking serves IsValid/Stringer checks and error type detection
-	// for the missing-constructor check (skip structs implementing error).
-	needMethods := rc.checkIsValid || rc.checkStringer || rc.checkConstructors
+	// Method tracking serves IsValid/Stringer checks, error type detection
+	// for the missing-constructor check (skip structs implementing error),
+	// and struct IsValid() verification.
+	needMethods := rc.checkIsValid || rc.checkStringer || rc.checkConstructors || rc.checkStructIsValid
 	if needMethods {
 		methodSeen = make(map[string]*methodInfo)
 	}
@@ -276,6 +285,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	}
 	if rc.checkImmutability {
 		reportMissingImmutability(pass, exportedStructs, constructorDetails, cfg, bl)
+	}
+	if rc.checkStructIsValid {
+		reportMissingStructIsValid(pass, exportedStructs, constructorDetails, methodSeen, cfg, bl)
 	}
 
 	if rc.auditExceptions {

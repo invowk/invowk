@@ -16,8 +16,9 @@ type Server struct { // want `exported struct checkall\.Server has no NewServer\
 	Addr string // want `struct field checkall\.Server\.Addr uses primitive type string`
 }
 
-// Client has a constructor — not flagged for missing constructor.
-type Client struct {
+// Client has a constructor — not flagged for missing constructor, but
+// flagged for missing IsValid() by --check-struct-isvalid.
+type Client struct { // want `struct checkall\.Client has constructor but no IsValid\(\) method`
 	host Mode
 }
 
@@ -34,14 +35,16 @@ type WrongSig struct { // want `exported struct checkall\.WrongSig has no NewWro
 func NewWrongSig() *Client { return nil } // want `constructor NewWrongSig\(\) for checkall\.WrongSig returns Client, expected WrongSig`
 
 // Mutable has a constructor but an exported field — immutability violation.
-type Mutable struct {
+// Also flagged for missing IsValid().
+type Mutable struct { // want `struct checkall\.Mutable has constructor but no IsValid\(\) method`
 	Name string // want `struct field checkall\.Mutable\.Name uses primitive type string` `struct checkall\.Mutable has NewMutable\(\) constructor but field Name is exported`
 }
 
 func NewMutable() *Mutable { return &Mutable{} }
 
 // ManyParams has a constructor with too many non-option params.
-type ManyParams struct {
+// Also flagged for missing IsValid().
+type ManyParams struct { // want `struct checkall\.ManyParams has constructor but no IsValid\(\) method`
 	a int // want `struct field checkall\.ManyParams\.a uses primitive type int`
 	b int // want `struct field checkall\.ManyParams\.b uses primitive type int`
 	c int // want `struct field checkall\.ManyParams\.c uses primitive type int`
@@ -52,8 +55,9 @@ func NewManyParams(a, b, c, d int) *ManyParams { return &ManyParams{a: a, b: b, 
 
 // --- Interface return (constructor-sig improvement) ---
 
-// InterfaceReturnAll has a constructor returning an interface — not flagged.
-type InterfaceReturnAll struct {
+// InterfaceReturnAll has a constructor returning an interface — not flagged
+// for wrong-sig, but still flagged for missing IsValid().
+type InterfaceReturnAll struct { // want `struct checkall\.InterfaceReturnAll has constructor but no IsValid\(\) method`
 	v string // want `struct field checkall\.InterfaceReturnAll\.v uses primitive type string`
 }
 
@@ -71,7 +75,8 @@ func (e *RequestError) Error() string { return e.Detail }
 // --- Internal state (func-options improvement) ---
 
 // WithInternalState has an option type and a //plint:internal field.
-type WithInternalState struct {
+// Also flagged for missing IsValid().
+type WithInternalState struct { // want `struct checkall\.WithInternalState has constructor but no IsValid\(\) method`
 	port string // want `struct field checkall\.WithInternalState\.port uses primitive type string`
 	//plint:internal -- computed state
 	derived string // want `struct field checkall\.WithInternalState\.derived uses primitive type string`
@@ -104,8 +109,9 @@ func (w WrongSigType) String(x int) string { return "" } // want `parameter "x" 
 
 // --- Variant constructor ---
 
-// Metadata has a variant constructor (prefix match) — NOT flagged for missing.
-type Metadata struct {
+// Metadata has a variant constructor (prefix match) — NOT flagged for missing
+// constructor, but flagged for missing IsValid().
+type Metadata struct { // want `struct checkall\.Metadata has constructor but no IsValid\(\) method`
 	id string // want `struct field checkall\.Metadata\.id uses primitive type string`
 }
 

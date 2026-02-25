@@ -26,6 +26,7 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Check constructor signatures | `make build-primitivelint && ./bin/primitivelint -check-constructor-sig -config=tools/primitivelint/exceptions.toml ./...` |
 | Check functional options | `make build-primitivelint && ./bin/primitivelint -check-func-options -config=tools/primitivelint/exceptions.toml ./...` |
 | Check immutability | `make build-primitivelint && ./bin/primitivelint -check-immutability -config=tools/primitivelint/exceptions.toml ./...` |
+| Check struct IsValid | `make build-primitivelint && ./bin/primitivelint -check-struct-isvalid -config=tools/primitivelint/exceptions.toml ./...` |
 
 ## Diagnostic Categories
 
@@ -42,10 +43,12 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `wrong-stringer-sig` | `--check-stringer` or `--check-all` | Named type has `String()` but wrong signature |
 | `missing-func-options` | `--check-func-options` or `--check-all` | Struct should use or complete functional options |
 | `missing-immutability` | `--check-immutability` or `--check-all` | Struct with constructor has exported mutable fields |
+| `missing-struct-isvalid` | `--check-struct-isvalid` or `--check-all` | Struct with constructor missing `IsValid()` method |
+| `wrong-struct-isvalid-sig` | `--check-struct-isvalid` or `--check-all` | Struct has `IsValid()` but wrong signature |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
 | `unknown-directive` | (always active) | Unrecognized key in `//plint:` comment (typo detection) |
 
-The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, and `--check-immutability` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
+The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, and `--check-struct-isvalid` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
 
 ## Architecture
 
@@ -62,7 +65,7 @@ tools/primitivelint/
 │   ├── inspect.go              # struct/func AST visitors + helpers
 │   ├── typecheck.go            # isPrimitive() / isPrimitiveUnderlying() / isOptionFuncType()
 │   ├── *_test.go               # unit + integration tests
-│   └── testdata/src/           # analysistest fixture packages (21 packages)
+│   └── testdata/src/           # analysistest fixture packages (23 packages)
 ```
 
 **Separate Go module**: `tools/primitivelint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
@@ -151,13 +154,28 @@ This directive only affects `--check-func-options`. Other checks (primitive dete
 
 When a field needs both primitive suppression and func-options exclusion, use the combined form: `//plint:ignore,internal`.
 
+### 4. Render Directive — display text suppression
+
+Functions marked with `//plint:render` have their return type findings suppressed. Use this for functions that intentionally return bare `string` as rendered display text. Parameters are still checked (they should be typed domain values).
+
+```go
+//plint:render
+func RenderHostNotSupportedError(host HostName) string {
+    return fmt.Sprintf("host %s is not supported", host)
+}
+```
+
+On struct fields, `//plint:render` behaves like `//plint:ignore` (suppresses the finding entirely).
+
+Can be combined with other directives: `//plint:render,internal`.
+
 ## Supplementary Modes
 
-Seven additional analysis modes complement the primary primitive detection:
+Eight additional analysis modes complement the primary primitive detection:
 
 ### `--check-all`
 
-Enables all DDD compliance checks (`--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
+Enables all DDD compliance checks (`--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
 
 ### `--audit-exceptions`
 
@@ -202,6 +220,10 @@ Option types are detected by function signature (`func(*TargetStruct)`), not nam
 
 Reports exported struct fields on types that have a `NewXxx()` constructor. If a struct uses a constructor pattern, its fields should be unexported (accessed via getter methods). Each exported field is flagged individually. Structs without constructors are not checked (they may be DTOs/config types where exported fields are intentional).
 
+### `--check-struct-isvalid`
+
+Reports **exported** struct types that have a `NewXxx()` constructor but lack an `IsValid() (bool, []error)` method. While `--check-isvalid` covers non-struct named types (which define their own primitive validation), struct types need their own check because nothing enforces that constructor-backed structs validate their invariants. Error types are excluded (same logic as `--check-constructors`). When `IsValid()` exists but has a non-compliant signature, a `wrong-struct-isvalid-sig` diagnostic is emitted instead.
+
 ### Exception integration
 
 All supplementary modes respect the TOML exception config:
@@ -211,6 +233,7 @@ All supplementary modes respect the TOML exception config:
 - `--check-constructor-sig`: excepted via `pkg.StructName.constructor-sig`
 - `--check-func-options`: excepted via `pkg.StructName.func-options`
 - `--check-immutability`: excepted via `pkg.StructName.immutability`
+- `--check-struct-isvalid`: excepted via `pkg.StructName.struct-isvalid`
 
 ## Baseline Comparison
 
@@ -242,7 +265,7 @@ messages = [
 ]
 ```
 
-Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`. Empty sections are omitted. Messages sorted alphabetically for stable diffs.
+Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-isvalid]`, `[wrong-struct-isvalid-sig]`. Empty sections are omitted. Messages sorted alphabetically for stable diffs.
 
 ### When to update
 
@@ -284,6 +307,8 @@ The `primitivelint-baseline` local hook in `.pre-commit-config.yaml` runs `make 
   - `TestCheckConstructorSig` — `--check-constructor-sig` mode (wrong return types)
   - `TestCheckFuncOptions` — `--check-func-options` mode (detection + completeness)
   - `TestCheckImmutability` — `--check-immutability` mode (exported fields with constructor)
+  - `TestCheckStructIsValid` — `--check-struct-isvalid` mode (missing IsValid on constructor-backed structs)
   - `TestAuditExceptions` — `--audit-exceptions` stale entry detection
-  - `TestCheckAll` — `--check-all` combined mode (all 8 categories in one fixture)
+  - `TestCheckAll` — `--check-all` combined mode (all categories in one fixture)
   - `TestBaselineSuppression` — `--baseline` mode (known findings suppressed, new ones reported)
+  - `TestBaselineSupplementaryCategories` — baseline suppression for supplementary modes (isvalid, stringer, constructors)

@@ -172,6 +172,43 @@ func isErrorType(t types.Type) bool {
 	return false
 }
 
+// primitiveMapDetail decomposes a map type and returns a targeted diagnostic
+// message identifying which part(s) of the map are primitive. For maps with
+// both primitive key and value, it reports the underlying primitive type with
+// "(in map key and value)". For mixed maps, it specifies which part is the
+// problem. Returns ("", false) for non-map types or maps with no primitive
+// parts.
+func primitiveMapDetail(t types.Type) (string, bool) {
+	m, ok := types.Unalias(t).(*types.Map)
+	if !ok {
+		return "", false
+	}
+
+	keyPrim := isPrimitive(m.Key())
+	valPrim := isPrimitive(m.Elem())
+
+	if !keyPrim && !valPrim {
+		return "", false
+	}
+
+	switch {
+	case keyPrim && valPrim:
+		// Both parts are primitive — if same type, use singular form.
+		keyName := primitiveTypeName(m.Key())
+		valName := primitiveTypeName(m.Elem())
+		if keyName == valName {
+			return keyName + " (in map key and value)", true
+		}
+		// Different primitives — report the key type (first primitive
+		// encountered, consistent with isPrimitive's short-circuit).
+		return keyName + " (in map key and value)", true
+	case keyPrim:
+		return primitiveTypeName(m.Key()) + " (in map key)", true
+	default:
+		return primitiveTypeName(m.Elem()) + " (in map value)", true
+	}
+}
+
 // isOptionFuncType checks whether t is a named type whose underlying type
 // is a function signature taking exactly one pointer-to-struct parameter.
 // This detects the functional options pattern: type XxxOption func(*Xxx).

@@ -24,8 +24,10 @@ type BaselineConfig struct {
 	WrongConstructorSig BaselineCategory `toml:"wrong-constructor-sig"`
 	WrongIsValidSig     BaselineCategory `toml:"wrong-isvalid-sig"`
 	WrongStringerSig    BaselineCategory `toml:"wrong-stringer-sig"`
-	MissingFuncOptions  BaselineCategory `toml:"missing-func-options"`
-	MissingImmutability BaselineCategory `toml:"missing-immutability"`
+	MissingFuncOptions    BaselineCategory `toml:"missing-func-options"`
+	MissingImmutability   BaselineCategory `toml:"missing-immutability"`
+	MissingStructIsValid  BaselineCategory `toml:"missing-struct-isvalid"`
+	WrongStructIsValidSig BaselineCategory `toml:"wrong-struct-isvalid-sig"`
 
 	// lookup is an O(1) index built after loading. Keyed by category string,
 	// each value is the set of accepted message strings for that category.
@@ -92,21 +94,25 @@ func (b *BaselineConfig) Count() int {
 		len(b.WrongIsValidSig.Messages) +
 		len(b.WrongStringerSig.Messages) +
 		len(b.MissingFuncOptions.Messages) +
-		len(b.MissingImmutability.Messages)
+		len(b.MissingImmutability.Messages) +
+		len(b.MissingStructIsValid.Messages) +
+		len(b.WrongStructIsValidSig.Messages)
 }
 
 // buildLookup populates the internal lookup maps from the parsed TOML data.
 func (b *BaselineConfig) buildLookup() {
 	b.lookup = map[string]map[string]bool{
-		CategoryPrimitive:           toSet(b.Primitive.Messages),
-		CategoryMissingIsValid:      toSet(b.MissingIsValid.Messages),
-		CategoryMissingStringer:     toSet(b.MissingStringer.Messages),
-		CategoryMissingConstructor:  toSet(b.MissingConstructor.Messages),
-		CategoryWrongConstructorSig: toSet(b.WrongConstructorSig.Messages),
-		CategoryWrongIsValidSig:     toSet(b.WrongIsValidSig.Messages),
-		CategoryWrongStringerSig:    toSet(b.WrongStringerSig.Messages),
-		CategoryMissingFuncOptions:  toSet(b.MissingFuncOptions.Messages),
-		CategoryMissingImmutability: toSet(b.MissingImmutability.Messages),
+		CategoryPrimitive:             toSet(b.Primitive.Messages),
+		CategoryMissingIsValid:        toSet(b.MissingIsValid.Messages),
+		CategoryMissingStringer:       toSet(b.MissingStringer.Messages),
+		CategoryMissingConstructor:    toSet(b.MissingConstructor.Messages),
+		CategoryWrongConstructorSig:   toSet(b.WrongConstructorSig.Messages),
+		CategoryWrongIsValidSig:       toSet(b.WrongIsValidSig.Messages),
+		CategoryWrongStringerSig:      toSet(b.WrongStringerSig.Messages),
+		CategoryMissingFuncOptions:    toSet(b.MissingFuncOptions.Messages),
+		CategoryMissingImmutability:   toSet(b.MissingImmutability.Messages),
+		CategoryMissingStructIsValid:  toSet(b.MissingStructIsValid.Messages),
+		CategoryWrongStructIsValidSig: toSet(b.WrongStructIsValidSig.Messages),
 	}
 }
 
@@ -144,6 +150,8 @@ func WriteBaseline(path string, findings map[string][]string) error {
 		{CategoryWrongStringerSig, "Named types with wrong String() signature"},
 		{CategoryMissingFuncOptions, "Structs missing functional options pattern"},
 		{CategoryMissingImmutability, "Structs with constructor but exported mutable fields"},
+		{CategoryMissingStructIsValid, "Structs with constructor but no IsValid() method"},
+		{CategoryWrongStructIsValidSig, "Structs with IsValid() but wrong signature"},
 	}
 
 	for _, cat := range categories {

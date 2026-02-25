@@ -31,3 +31,24 @@ type CombinedDirectiveStruct struct {
 type UnknownDirectiveStruct struct {
 	Name string //plint:ignore,foo -- want unknown-directive warning for "foo"  // want `unknown directive key "foo" in plint comment`
 }
+
+// --- Render directive tests ---
+
+// RenderFunc returns rendered display text — return type suppressed,
+// but params are still checked.
+//
+//plint:render
+func RenderFunc(name string) string { // want `parameter "name" of exceptions\.RenderFunc uses primitive type string`
+	return "rendered: " + name
+}
+
+// NonRenderFunc has no render directive — both param and return flagged.
+func NonRenderFunc(name string) string { // want `parameter "name" of exceptions\.NonRenderFunc uses primitive type string` `return value of exceptions\.NonRenderFunc uses primitive type string`
+	return name
+}
+
+// RenderFieldStruct has a field with render directive — suppresses finding.
+type RenderFieldStruct struct {
+	Output string //plint:render -- rendered display text
+	Raw    string // want `struct field exceptions\.RenderFieldStruct\.Raw uses primitive type string`
+}

@@ -137,3 +137,16 @@ func NewHasCombinedDirective(opts ...HasCombinedDirectiveOption) *HasCombinedDir
 
 // No WithState expected — state has //plint:ignore,internal (combined directive).
 // WithLabel satisfies the label field. No missing-func-options diagnostics.
+
+// --- Variant constructor only: exactCtor == nil, anyCtor != nil ---
+
+// VariantOnly has only a variant constructor (NewVariantOnlyFromConfig),
+// testing the fallback path where no exact NewVariantOnly exists.
+type VariantOnly struct {
+	host string // want `struct field funcoptions\.VariantOnly\.host uses primitive type string` `struct funcoptions\.VariantOnly has VariantOnlyOption type but field "host" has no WithHost\(\) function`
+}
+
+// VariantOnlyOption is the functional option type for VariantOnly.
+type VariantOnlyOption func(*VariantOnly)
+
+func NewVariantOnlyFromConfig(cfg string) *VariantOnly { return &VariantOnly{host: cfg} } // want `constructor NewVariantOnly\(\) for funcoptions\.VariantOnly does not accept variadic \.\.\.VariantOnlyOption` `parameter "cfg" of funcoptions\.NewVariantOnlyFromConfig uses primitive type string`

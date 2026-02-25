@@ -108,6 +108,16 @@ messages = [
     "constructor NewFoo() for pkg.Foo returns Bar, expected Foo",
 ]
 
+[wrong-isvalid-sig]
+messages = [
+    "named type pkg.BadValid has IsValid() but wrong signature (want func() (bool, []error))",
+]
+
+[wrong-stringer-sig]
+messages = [
+    "named type pkg.BadStr has String() but wrong signature (want func() string)",
+]
+
 [missing-func-options]
 messages = [
     "constructor NewBig() for pkg.Big has 5 non-option parameters; consider using functional options",
@@ -116,6 +126,16 @@ messages = [
 [missing-immutability]
 messages = [
     "struct pkg.Svc has NewSvc() constructor but field Addr is exported",
+]
+
+[missing-struct-isvalid]
+messages = [
+    "struct pkg.Svc has constructor but no IsValid() method",
+]
+
+[wrong-struct-isvalid-sig]
+messages = [
+    "struct pkg.BadSvc has IsValid() but wrong signature (want func() (bool, []error))",
 ]
 `
 	path := writeTempFile(t, "baseline.toml", content)
@@ -173,6 +193,18 @@ messages = [
 			want:     true,
 		},
 		{
+			name:     "wrong-isvalid-sig match",
+			category: CategoryWrongIsValidSig,
+			message:  "named type pkg.BadValid has IsValid() but wrong signature (want func() (bool, []error))",
+			want:     true,
+		},
+		{
+			name:     "wrong-stringer-sig match",
+			category: CategoryWrongStringerSig,
+			message:  "named type pkg.BadStr has String() but wrong signature (want func() string)",
+			want:     true,
+		},
+		{
 			name:     "missing-func-options match",
 			category: CategoryMissingFuncOptions,
 			message:  "constructor NewBig() for pkg.Big has 5 non-option parameters; consider using functional options",
@@ -182,6 +214,18 @@ messages = [
 			name:     "missing-immutability match",
 			category: CategoryMissingImmutability,
 			message:  "struct pkg.Svc has NewSvc() constructor but field Addr is exported",
+			want:     true,
+		},
+		{
+			name:     "missing-struct-isvalid match",
+			category: CategoryMissingStructIsValid,
+			message:  "struct pkg.Svc has constructor but no IsValid() method",
+			want:     true,
+		},
+		{
+			name:     "wrong-struct-isvalid-sig match",
+			category: CategoryWrongStructIsValidSig,
+			message:  "struct pkg.BadSvc has IsValid() but wrong signature (want func() (bool, []error))",
 			want:     true,
 		},
 		{
@@ -299,11 +343,23 @@ func TestBaselineRoundTrip(t *testing.T) {
 		CategoryWrongConstructorSig: {
 			"constructor NewFoo() for pkg.Foo returns Bar, expected Foo",
 		},
+		CategoryWrongIsValidSig: {
+			"named type pkg.BadValid has IsValid() but wrong signature (want func() (bool, []error))",
+		},
+		CategoryWrongStringerSig: {
+			"named type pkg.BadStr has String() but wrong signature (want func() string)",
+		},
 		CategoryMissingFuncOptions: {
 			"constructor NewBig() for pkg.Big has 5 non-option parameters; consider using functional options",
 		},
 		CategoryMissingImmutability: {
 			"struct pkg.Svc has NewSvc() constructor but field Addr is exported",
+		},
+		CategoryMissingStructIsValid: {
+			"struct pkg.Svc has constructor but no IsValid() method",
+		},
+		CategoryWrongStructIsValidSig: {
+			"struct pkg.BadSvc has IsValid() but wrong signature (want func() (bool, []error))",
 		},
 	}
 

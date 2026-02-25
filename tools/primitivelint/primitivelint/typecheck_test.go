@@ -8,6 +8,72 @@ import (
 	"testing"
 )
 
+func TestPrimitiveMapDetail(t *testing.T) {
+	t.Parallel()
+
+	named := makeNamedType() // named string type (DDD Value Type)
+
+	tests := []struct {
+		name       string
+		typ        types.Type
+		wantDetail string
+		wantOK     bool
+	}{
+		{
+			name:       "map[string]string — both primitive same type",
+			typ:        types.NewMap(types.Typ[types.String], types.Typ[types.String]),
+			wantDetail: "string (in map key and value)",
+			wantOK:     true,
+		},
+		{
+			name:       "map[string]int — both primitive different types",
+			typ:        types.NewMap(types.Typ[types.String], types.Typ[types.Int]),
+			wantDetail: "string (in map key and value)",
+			wantOK:     true,
+		},
+		{
+			name:       "map[Named]int — only value primitive",
+			typ:        types.NewMap(named, types.Typ[types.Int]),
+			wantDetail: "int (in map value)",
+			wantOK:     true,
+		},
+		{
+			name:       "map[string]Named — only key primitive",
+			typ:        types.NewMap(types.Typ[types.String], named),
+			wantDetail: "string (in map key)",
+			wantOK:     true,
+		},
+		{
+			name:   "map[Named]Named — no primitives",
+			typ:    types.NewMap(named, named),
+			wantOK: false,
+		},
+		{
+			name:   "non-map type (string)",
+			typ:    types.Typ[types.String],
+			wantOK: false,
+		},
+		{
+			name:   "non-map type (slice)",
+			typ:    types.NewSlice(types.Typ[types.String]),
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			detail, ok := primitiveMapDetail(tt.typ)
+			if ok != tt.wantOK {
+				t.Errorf("primitiveMapDetail(%s) ok = %v, want %v", tt.typ, ok, tt.wantOK)
+			}
+			if detail != tt.wantDetail {
+				t.Errorf("primitiveMapDetail(%s) detail = %q, want %q", tt.typ, detail, tt.wantDetail)
+			}
+		})
+	}
+}
+
 func TestIsPrimitiveBasic(t *testing.T) {
 	t.Parallel()
 
@@ -180,6 +246,157 @@ func TestIsErrorType(t *testing.T) {
 			got := isErrorType(tt.typ)
 			if got != tt.want {
 				t.Errorf("isErrorType(%v) = %v, want %v", tt.typ, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsOptionFuncType(t *testing.T) {
+	t.Parallel()
+
+	pkg := types.NewPackage("test/pkg", "pkg")
+
+	// Helper to create a named struct type.
+	makeStruct := func(name string) *types.Named {
+		tn := types.NewTypeName(token.NoPos, pkg, name, nil)
+		st := types.NewStruct(nil, nil)
+		return types.NewNamed(tn, st, nil)
+	}
+
+	// Helper to create a named func type.
+	makeNamedFunc := func(name string, sig *types.Signature) *types.Named {
+		tn := types.NewTypeName(token.NoPos, pkg, name, nil)
+		return types.NewNamed(tn, sig, nil)
+	}
+
+	targetStruct := makeStruct("Server")
+
+	tests := []struct {
+		name           string
+		typ            types.Type
+		wantTarget     string
+		wantOK         bool
+	}{
+		{
+			name: "valid option func(*Server)",
+			typ: makeNamedFunc("ServerOption",
+				types.NewSignatureType(nil, nil, nil,
+					types.NewTuple(types.NewVar(token.NoPos, pkg, "s", types.NewPointer(targetStruct))),
+					nil, false)),
+			wantTarget: "Server",
+			wantOK:     true,
+		},
+		{
+			name:   "non-named type (bare signature)",
+			typ:    types.NewSignatureType(nil, nil, nil, types.NewTuple(types.NewVar(token.NoPos, pkg, "s", types.NewPointer(targetStruct))), nil, false),
+			wantOK: false,
+		},
+		{
+			name: "wrong param count (0 params)",
+			typ: makeNamedFunc("NoParamFunc",
+				types.NewSignatureType(nil, nil, nil, nil, nil, false)),
+			wantOK: false,
+		},
+		{
+			name: "has results (should have none)",
+			typ: makeNamedFunc("HasResults",
+				types.NewSignatureType(nil, nil, nil,
+					types.NewTuple(types.NewVar(token.NoPos, pkg, "s", types.NewPointer(targetStruct))),
+					types.NewTuple(types.NewVar(token.NoPos, pkg, "", types.Typ[types.String])),
+					false)),
+			wantOK: false,
+		},
+		{
+			name: "variadic param",
+			typ: makeNamedFunc("VariadicFunc",
+				types.NewSignatureType(nil, nil, nil,
+					types.NewTuple(types.NewVar(token.NoPos, pkg, "s", types.NewSlice(types.NewPointer(targetStruct)))),
+					nil, true)),
+			wantOK: false,
+		},
+		{
+			name: "non-pointer param (Server, not *Server)",
+			typ: makeNamedFunc("ValueFunc",
+				types.NewSignatureType(nil, nil, nil,
+					types.NewTuple(types.NewVar(token.NoPos, pkg, "s", targetStruct)),
+					nil, false)),
+			wantOK: false,
+		},
+		{
+			name: "pointer to non-struct (named string type)",
+			typ: makeNamedFunc("BadTarget",
+				types.NewSignatureType(nil, nil, nil,
+					types.NewTuple(types.NewVar(token.NoPos, pkg, "s", types.NewPointer(makeNamedType()))),
+					nil, false)),
+			wantOK: false,
+		},
+		{
+			name: "named type but not func underlying",
+			typ: func() types.Type {
+				tn := types.NewTypeName(token.NoPos, pkg, "NotFunc", nil)
+				return types.NewNamed(tn, types.Typ[types.String], nil)
+			}(),
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotTarget, gotOK := isOptionFuncType(tt.typ)
+			if gotOK != tt.wantOK {
+				t.Errorf("isOptionFuncType() ok = %v, want %v", gotOK, tt.wantOK)
+			}
+			if gotTarget != tt.wantTarget {
+				t.Errorf("isOptionFuncType() target = %q, want %q", gotTarget, tt.wantTarget)
+			}
+		})
+	}
+}
+
+func TestFormatResultTypes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		results *types.Tuple
+		want    string
+	}{
+		{
+			name:    "nil tuple",
+			results: nil,
+			want:    "",
+		},
+		{
+			name:    "empty tuple",
+			results: types.NewTuple(),
+			want:    "",
+		},
+		{
+			name: "single result (string)",
+			results: types.NewTuple(
+				types.NewVar(token.NoPos, nil, "", types.Typ[types.String]),
+			),
+			want: "string",
+		},
+		{
+			name: "two results (bool, []error)",
+			results: types.NewTuple(
+				types.NewVar(token.NoPos, nil, "", types.Typ[types.Bool]),
+				types.NewVar(token.NoPos, nil, "", types.NewSlice(
+					types.Universe.Lookup("error").Type(),
+				)),
+			),
+			want: "bool,[]error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := formatResultTypes(tt.results)
+			if got != tt.want {
+				t.Errorf("formatResultTypes() = %q, want %q", got, tt.want)
 			}
 		})
 	}

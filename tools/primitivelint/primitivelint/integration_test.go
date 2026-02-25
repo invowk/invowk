@@ -33,6 +33,7 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-constructor-sig", "false")
 	setFlag(t, "check-func-options", "false")
 	setFlag(t, "check-immutability", "false")
+	setFlag(t, "check-struct-isvalid", "false")
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
@@ -65,6 +66,9 @@ func TestNewRunConfig(t *testing.T) {
 		}
 		if !rc.checkImmutability {
 			t.Error("expected checkImmutability = true")
+		}
+		if !rc.checkStructIsValid {
+			t.Error("expected checkStructIsValid = true")
 		}
 	})
 
@@ -257,6 +261,19 @@ func TestCheckImmutability(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "immutability")
 }
 
+// TestCheckStructIsValid exercises the --check-struct-isvalid mode against
+// the structisvalid fixture, verifying exported structs with constructors
+// but missing IsValid() are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckStructIsValid(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-struct-isvalid", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "structisvalid")
+}
+
 // TestBaselineSuppression verifies that the --baseline flag correctly
 // suppresses findings present in the baseline while reporting new ones.
 // The baseline fixture has two struct fields and two function params: two
@@ -269,4 +286,21 @@ func TestBaselineSuppression(t *testing.T) {
 	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline", "primitivelint-baseline.toml"))
 
 	analysistest.Run(t, testdata, Analyzer, "baseline")
+}
+
+// TestBaselineSupplementaryCategories verifies that baseline suppression
+// works for supplementary modes (missing-isvalid, missing-stringer,
+// missing-constructor). Some findings are baselined and suppressed; others
+// are new and reported.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestBaselineSupplementaryCategories(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-isvalid", "true")
+	setFlag(t, "check-stringer", "true")
+	setFlag(t, "check-constructors", "true")
+	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline_supplementary", "primitivelint-baseline.toml"))
+
+	analysistest.Run(t, testdata, Analyzer, "baseline_supplementary")
 }
