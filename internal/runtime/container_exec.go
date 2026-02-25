@@ -47,12 +47,12 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Track resources for cleanup-on-error
 	var provisionCleanup func()
 	var sshConnInfo *sshserver.ConnectionInfo
-	var tempScriptPath string
+	var tempScriptPath types.FilesystemPath
 
 	defer func() {
 		if errResult != nil {
 			if tempScriptPath != "" {
-				_ = os.Remove(tempScriptPath)
+				_ = os.Remove(string(tempScriptPath))
 			}
 			if sshConnInfo != nil {
 				r.sshServer.RevokeToken(sshConnInfo.Token)
@@ -121,7 +121,9 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 
 	if interpInfo.Found {
 		// Use the resolved interpreter
-		shellCmd, tempScriptPath, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
+		var tempFile string
+		shellCmd, tempFile, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
+		tempScriptPath = types.FilesystemPath(tempFile)
 		if err != nil {
 			return nil, NewErrorResult(1, err)
 		}
@@ -149,7 +151,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Build combined cleanup function (used on success path by the caller)
 	cleanup := func() {
 		if tempScriptPath != "" {
-			_ = os.Remove(tempScriptPath) // Cleanup temp file; error non-critical
+			_ = os.Remove(string(tempScriptPath)) // Cleanup temp file; error non-critical
 		}
 		if sshConnInfo != nil {
 			r.sshServer.RevokeToken(sshConnInfo.Token)
@@ -170,7 +172,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 		ports:          containerCfg.Ports,
 		extraHosts:     extraHosts,
 		sshConnInfo:    sshConnInfo,
-		tempScriptPath: types.FilesystemPath(tempScriptPath),
+		tempScriptPath: tempScriptPath,
 		cleanup:        cleanup,
 	}, nil
 }

@@ -121,7 +121,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 	}
 	if !d.commandsDirSet && d.commandsDir == "" {
 		if dir, err := config.CommandsDir(); err == nil {
-			d.commandsDir = types.FilesystemPath(dir)
+			d.commandsDir = dir
 		} else {
 			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
 				"error", err)

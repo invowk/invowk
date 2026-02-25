@@ -71,7 +71,7 @@ func TestNew_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.CommandsDir() error: %v", err)
 	}
-	if d.commandsDir != types.FilesystemPath(expectedCmdsDir) {
+	if d.commandsDir != expectedCmdsDir {
 		t.Errorf("New() commandsDir = %q, want config.CommandsDir() = %q", d.commandsDir, expectedCmdsDir)
 	}
 

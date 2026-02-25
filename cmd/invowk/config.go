@@ -102,7 +102,7 @@ func showConfig(ctx context.Context, app *App) error {
 	// does not cache resolved paths; each call derives from the standard config directory.
 	cfgDir, dirErr := config.ConfigDir()
 	if dirErr == nil {
-		cfgPath := cfgDir + "/config.cue"
+		cfgPath := string(cfgDir) + "/config.cue"
 		if info, err := os.Stat(cfgPath); err == nil && !info.IsDir() {
 			fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), cfgPath)
 		} else {

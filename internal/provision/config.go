@@ -132,8 +132,8 @@ func DefaultConfig() *Config {
 	// Discover module paths from user commands dir
 	var modulesPaths []types.FilesystemPath
 	if userDir, err := config.CommandsDir(); err == nil {
-		if info, err := os.Stat(userDir); err == nil && info.IsDir() {
-			modulesPaths = append(modulesPaths, types.FilesystemPath(userDir))
+		if info, err := os.Stat(string(userDir)); err == nil && info.IsDir() {
+			modulesPaths = append(modulesPaths, userDir)
 		}
 	}
 

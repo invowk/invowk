@@ -94,12 +94,12 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	// because the working directory was deleted). This prevents filepath.Abs("")
 	// from silently resolving to the process working directory, which may not exist.
 	if d.baseDir != "" {
-		if cwdFile := d.discoverInDir(string(d.baseDir), SourceCurrentDir); cwdFile != nil {
+		if cwdFile := d.discoverInDir(d.baseDir, SourceCurrentDir); cwdFile != nil {
 			files = append(files, cwdFile)
 		}
 
 		// 2. Modules in current directory (+ their vendored dependencies)
-		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(string(d.baseDir))
+		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
 		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags)
 	}
 
@@ -109,7 +109,7 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive) (+ their vendored dependencies)
 	if d.commandsDir != "" {
-		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(string(d.commandsDir))
+		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
 		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
 	}
 
@@ -117,8 +117,8 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 }
 
 // discoverInDir looks for an invowkfile in a specific directory.
-func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
-	absDir, err := filepath.Abs(dir)
+func (d *Discovery) discoverInDir(dir types.FilesystemPath, source Source) *DiscoveredFile {
+	absDir, err := filepath.Abs(string(dir))
 	if err != nil {
 		slog.Warn("failed to resolve absolute path for discovery directory", "dir", dir, "error", err)
 		return nil
@@ -141,17 +141,17 @@ func (d *Discovery) discoverInDir(dir string, source Source) *DiscoveredFile {
 
 // discoverModulesInDirWithDiagnostics finds all valid modules in a directory and
 // reports non-fatal warnings for skipped entries.
-func (d *Discovery) discoverModulesInDirWithDiagnostics(dir string) ([]*DiscoveredFile, []Diagnostic) {
+func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath) ([]*DiscoveredFile, []Diagnostic) {
 	var files []*DiscoveredFile
 	diagnostics := make([]Diagnostic, 0)
 
-	absDir, err := filepath.Abs(dir)
+	absDir, err := filepath.Abs(string(dir))
 	if err != nil {
 		diagnostics = append(diagnostics, NewDiagnosticWithCause(
 			SeverityWarning,
 			CodeModuleScanPathInvalid,
 			fmt.Sprintf("failed to resolve module scan path %q: %v", dir, err),
-			types.FilesystemPath(dir),
+			dir,
 			err,
 		))
 		return files, diagnostics

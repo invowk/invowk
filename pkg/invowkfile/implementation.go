@@ -48,7 +48,7 @@ type (
 		// resolvedScript caches the resolved script content (lazy memoization).
 		// Script content is resolved from file path or inline source on first
 		// ResolveScript call and reused for subsequent calls.
-		resolvedScript string
+		resolvedScript ScriptContent
 		// scriptResolved tracks whether resolvedScript has been populated.
 		scriptResolved bool
 	}
@@ -257,7 +257,7 @@ func (s *Implementation) ResolveScript(invowkfilePath FilesystemPath) (string, e
 // The modulePath parameter specifies the module root directory for module-relative paths.
 func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath FilesystemPath) (string, error) {
 	if s.scriptResolved {
-		return s.resolvedScript, nil
+		return string(s.resolvedScript), nil
 	}
 
 	script := string(s.Script)
@@ -271,14 +271,14 @@ func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath File
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}
-		s.resolvedScript = string(content)
+		s.resolvedScript = ScriptContent(content)
 	} else {
 		// Inline script - use directly (multi-line strings from CUE are already handled)
-		s.resolvedScript = script
+		s.resolvedScript = ScriptContent(script)
 	}
 
 	s.scriptResolved = true
-	return s.resolvedScript, nil
+	return string(s.resolvedScript), nil
 }
 
 // ResolveScriptWithFS resolves the script using a custom filesystem reader function.

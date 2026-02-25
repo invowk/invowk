@@ -5,6 +5,7 @@ package tui
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"strings"
 	"sync"
@@ -111,7 +112,42 @@ type (
 		cmd  *exec.Cmd
 		ctx  context.Context
 	}
+
+	// invalidExecutionStateError is returned when an executionState value is not
+	// one of the defined states.
+	invalidExecutionStateError struct {
+		value executionState
+	}
 )
+
+// String returns the human-readable name of the executionState.
+func (s executionState) String() string {
+	switch s {
+	case stateExecuting:
+		return "executing"
+	case stateCompleted:
+		return "completed"
+	case stateTUI:
+		return "tui"
+	default:
+		return fmt.Sprintf("unknown(%d)", int(s))
+	}
+}
+
+// isValid returns whether the executionState is one of the defined states,
+// and a list of validation errors if it is not.
+func (s executionState) isValid() (bool, []error) {
+	switch s {
+	case stateExecuting, stateCompleted, stateTUI:
+		return true, nil
+	default:
+		return false, []error{&invalidExecutionStateError{value: s}}
+	}
+}
+
+func (e *invalidExecutionStateError) Error() string {
+	return fmt.Sprintf("invalid execution state: %d", int(e.value))
+}
 
 // NewInteractive creates a new InteractiveBuilder with default options.
 func NewInteractive() *InteractiveBuilder {

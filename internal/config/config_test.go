@@ -89,7 +89,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(xdgPath, AppName)
+		expected := types.FilesystemPath(filepath.Join(xdgPath, AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -102,7 +102,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(fakeHomeDir, ".config", AppName)
+		expected := types.FilesystemPath(filepath.Join(fakeHomeDir, ".config", AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -124,7 +124,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(fakeHomeDir, "Library", "Application Support", AppName)
+		expected := types.FilesystemPath(filepath.Join(fakeHomeDir, "Library", "Application Support", AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -152,7 +152,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(appDataPath, AppName)
+		expected := types.FilesystemPath(filepath.Join(appDataPath, AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -171,7 +171,7 @@ func TestConfigDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(userProfile, "AppData", "Roaming", AppName)
+		expected := types.FilesystemPath(filepath.Join(userProfile, "AppData", "Roaming", AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom() = %s, want %s", dir, expected)
 		}
@@ -198,7 +198,7 @@ func TestCommandsDir(t *testing.T) {
 	}
 
 	home, _ := os.UserHomeDir()
-	expected := filepath.Join(home, ".invowk", "cmds")
+	expected := types.FilesystemPath(filepath.Join(home, ".invowk", "cmds"))
 	if dir != expected {
 		t.Errorf("CommandsDir() = %s, want %s", dir, expected)
 	}
@@ -210,7 +210,7 @@ func TestEnsureConfigDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	err := EnsureConfigDir(configDir)
+	err := EnsureConfigDir(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestConfigDirWithOverride(t *testing.T) {
 
 	t.Run("explicit path returned as-is", func(t *testing.T) {
 		t.Parallel()
-		want := filepath.Join(t.TempDir(), "explicit-config")
+		want := types.FilesystemPath(filepath.Join(t.TempDir(), "explicit-config"))
 		dir, err := configDirWithOverride(want)
 		if err != nil {
 			t.Fatalf("configDirWithOverride() error: %v", err)
@@ -256,7 +256,7 @@ func TestCommandsDirWithOverride(t *testing.T) {
 
 	t.Run("explicit path returned as-is", func(t *testing.T) {
 		t.Parallel()
-		want := filepath.Join(t.TempDir(), "explicit-cmds")
+		want := types.FilesystemPath(filepath.Join(t.TempDir(), "explicit-cmds"))
 		dir, err := commandsDirWithOverride(want)
 		if err != nil {
 			t.Fatalf("commandsDirWithOverride() error: %v", err)
@@ -304,7 +304,7 @@ func TestConfigDirFrom_UnknownGOOS(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(xdgPath, AppName)
+		expected := types.FilesystemPath(filepath.Join(xdgPath, AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom(freebsd) = %s, want %s", dir, expected)
 		}
@@ -317,7 +317,7 @@ func TestConfigDirFrom_UnknownGOOS(t *testing.T) {
 		if err != nil {
 			t.Fatalf("configDirFrom() error: %v", err)
 		}
-		expected := filepath.Join(fakeHomeDir, ".config", AppName)
+		expected := types.FilesystemPath(filepath.Join(fakeHomeDir, ".config", AppName))
 		if dir != expected {
 			t.Errorf("configDirFrom(freebsd) = %s, want %s", dir, expected)
 		}
@@ -329,7 +329,7 @@ func TestEnsureCommandsDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	cmdsDir := filepath.Join(tmpDir, "cmds")
 
-	err := EnsureCommandsDir(cmdsDir)
+	err := EnsureCommandsDir(types.FilesystemPath(cmdsDir))
 	if err != nil {
 		t.Fatalf("EnsureCommandsDir() returned error: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestLoadAndSave(t *testing.T) {
 	cacheDir := filepath.Join(tmpDir, "tmp", "invowk-cache")
 
 	// Ensure config directory exists
-	err := EnsureConfigDir(configDir)
+	err := EnsureConfigDir(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("EnsureConfigDir() returned error: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestLoadAndSave(t *testing.T) {
 	}
 
 	// Save the config
-	err = Save(cfg, configDir)
+	err = Save(cfg, types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("Save() returned error: %v", err)
 	}
@@ -478,7 +478,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	err := CreateDefaultConfig(configDir)
+	err := CreateDefaultConfig(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error: %v", err)
 	}
@@ -500,7 +500,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	}
 
 	// Calling again should not error (file already exists)
-	err = CreateDefaultConfig(configDir)
+	err = CreateDefaultConfig(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error on second call: %v", err)
 	}

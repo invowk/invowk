@@ -16,7 +16,7 @@ type (
 		fs                   fs.FS
 		platform             PlatformType
 		strictMode           bool
-		workDir              string
+		workDir              FilesystemPath
 	}
 
 	// ValidateOption configures validation behavior.
@@ -25,9 +25,9 @@ type (
 
 // defaultValidateOptions returns the default validation options for an invowkfile.
 func defaultValidateOptions(inv *Invowkfile) validateOptions {
-	workDir := ""
+	var workDir FilesystemPath
 	if inv != nil && inv.FilePath != "" {
-		workDir = filepath.Dir(string(inv.FilePath))
+		workDir = FilesystemPath(filepath.Dir(string(inv.FilePath)))
 	}
 
 	return validateOptions{
@@ -91,7 +91,7 @@ func WithStrictMode(strict bool) ValidateOption {
 // By default, paths are resolved relative to the invowkfile's directory.
 func WithWorkDir(workDir FilesystemPath) ValidateOption {
 	return func(o *validateOptions) {
-		o.workDir = string(workDir)
+		o.workDir = workDir
 	}
 }
 
@@ -101,7 +101,7 @@ func (o *validateOptions) buildValidationContext(inv *Invowkfile) *ValidationCon
 	if filesystem == nil {
 		// Default to os.DirFS rooted at the working directory
 		if o.workDir != "" {
-			filesystem = os.DirFS(o.workDir)
+			filesystem = os.DirFS(string(o.workDir))
 		} else {
 			filesystem = os.DirFS(".")
 		}
@@ -113,7 +113,7 @@ func (o *validateOptions) buildValidationContext(inv *Invowkfile) *ValidationCon
 	}
 
 	return &ValidationContext{
-		WorkDir:    WorkDir(o.workDir),
+		WorkDir:    WorkDir(string(o.workDir)),
 		FS:         filesystem,
 		Platform:   o.platform,
 		StrictMode: o.strictMode,

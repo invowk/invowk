@@ -14,6 +14,7 @@ import (
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/cueutil"
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -34,7 +35,7 @@ var configSchema string
 
 // configDirFrom computes the config directory from injectable dependencies,
 // enabling tests to avoid mutating process-global environment variables.
-func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (string, error)) (string, error) {
+func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (string, error)) (types.FilesystemPath, error) {
 	var configDir string
 
 	switch goos {
@@ -64,7 +65,7 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 		}
 	}
 
-	return filepath.Join(configDir, AppName), nil
+	return types.FilesystemPath(filepath.Join(configDir, AppName)), nil
 }
 
 // ConfigDir returns the invowk configuration directory using platform-specific
@@ -72,18 +73,18 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 // and Linux/others use $XDG_CONFIG_HOME (defaulting to ~/.config).
 //
 //nolint:revive // ConfigDir is more descriptive than Dir for external callers
-func ConfigDir() (string, error) {
+func ConfigDir() (types.FilesystemPath, error) {
 	return configDirFrom(runtime.GOOS, os.Getenv, os.UserHomeDir)
 }
 
 // CommandsDir returns the directory for user-defined invowkfiles.
 // The path is ~/.invowk/cmds on all platforms.
-func CommandsDir() (string, error) {
+func CommandsDir() (types.FilesystemPath, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
-	return filepath.Join(home, ".invowk", "cmds"), nil
+	return types.FilesystemPath(filepath.Join(home, ".invowk", "cmds")), nil
 }
 
 // loadWithOptions performs option-driven config loading from the filesystem.
@@ -133,13 +134,13 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 		resolvedPath = configFilePath
 	} else {
 		// Get config directory
-		cfgDir, err := configDirWithOverride(string(opts.ConfigDirPath))
+		cfgDir, err := configDirWithOverride(opts.ConfigDirPath)
 		if err != nil {
 			return nil, "", err
 		}
 
 		// Try to load CUE config file
-		cuePath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+		cuePath := filepath.Join(string(cfgDir), ConfigFileName+"."+ConfigFileExt)
 		if fileExists(cuePath) {
 			if err := loadCUEIntoViper(v, cuePath); err != nil {
 				return nil, "", cueLoadError(cuePath, err)
@@ -192,7 +193,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 
 // configDirWithOverride resolves the configuration directory, honoring
 // explicit provider options before platform defaults.
-func configDirWithOverride(configDirPath string) (string, error) {
+func configDirWithOverride(configDirPath types.FilesystemPath) (types.FilesystemPath, error) {
 	if configDirPath != "" {
 		return configDirPath, nil
 	}
@@ -202,7 +203,7 @@ func configDirWithOverride(configDirPath string) (string, error) {
 
 // commandsDirWithOverride resolves the commands directory, honoring
 // explicit provider options before platform defaults.
-func commandsDirWithOverride(commandsDirPath string) (string, error) {
+func commandsDirWithOverride(commandsDirPath types.FilesystemPath) (types.FilesystemPath, error) {
 	if commandsDirPath != "" {
 		return commandsDirPath, nil
 	}
@@ -352,37 +353,38 @@ func fileExists(path string) bool {
 
 // EnsureConfigDir creates the config directory if it doesn't exist.
 // When configDirPath is empty, the platform-default directory from ConfigDir() is used.
-func EnsureConfigDir(configDirPath string) error {
+func EnsureConfigDir(configDirPath types.FilesystemPath) error {
 	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}
-	return os.MkdirAll(cfgDir, 0o755)
+	return os.MkdirAll(string(cfgDir), 0o755)
 }
 
 // EnsureCommandsDir creates the commands directory if it doesn't exist.
 // When commandsDirPath is empty, the platform-default directory from CommandsDir() is used.
-func EnsureCommandsDir(commandsDirPath string) error {
+func EnsureCommandsDir(commandsDirPath types.FilesystemPath) error {
 	cmdsDir, err := commandsDirWithOverride(commandsDirPath)
 	if err != nil {
 		return err
 	}
-	return os.MkdirAll(cmdsDir, 0o755)
+	return os.MkdirAll(string(cmdsDir), 0o755)
 }
 
 // CreateDefaultConfig creates a default config file if it doesn't exist.
 // When configDirPath is empty, the platform-default directory from ConfigDir() is used.
-func CreateDefaultConfig(configDirPath string) error {
+func CreateDefaultConfig(configDirPath types.FilesystemPath) error {
 	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+	cfgDirStr := string(cfgDir)
+	if err := os.MkdirAll(cfgDirStr, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	cfgPath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+	cfgPath := filepath.Join(cfgDirStr, ConfigFileName+"."+ConfigFileExt)
 
 	// Check if file already exists
 	if _, err := os.Stat(cfgPath); err == nil {
@@ -401,17 +403,18 @@ func CreateDefaultConfig(configDirPath string) error {
 
 // Save writes the current configuration to file.
 // When configDirPath is empty, the platform-default directory from ConfigDir() is used.
-func Save(cfg *Config, configDirPath string) error {
+func Save(cfg *Config, configDirPath types.FilesystemPath) error {
 	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+	cfgDirStr := string(cfgDir)
+	if err := os.MkdirAll(cfgDirStr, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	cfgPath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+	cfgPath := filepath.Join(cfgDirStr, ConfigFileName+"."+ConfigFileExt)
 
 	cueContent := GenerateCUE(cfg)
 

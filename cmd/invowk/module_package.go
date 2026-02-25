@@ -143,7 +143,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	fmt.Println(moduleTitleStyle.Render("Import Module"))
 
 	// Default destination to user commands directory
-	destDir := importPath
+	destDir := types.FilesystemPath(importPath)
 	if destDir == "" {
 		var err error
 		destDir, err = config.CommandsDir()
@@ -155,7 +155,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	// Import the module
 	opts := invowkmod.UnpackOptions{
 		Source:    source,
-		DestDir:   types.FilesystemPath(destDir),
+		DestDir:   destDir,
 		Overwrite: importOverwrite,
 	}
 
