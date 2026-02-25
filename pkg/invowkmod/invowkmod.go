@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -375,23 +376,29 @@ func (p SubdirectoryPath) IsValid() (bool, []error) {
 			Reason: "contains null byte",
 		}}
 	}
-	cleanPath := filepath.Clean(s)
-	if strings.HasPrefix(filepath.ToSlash(cleanPath), "/") {
+	// SubdirectoryPath semantics are cross-platform and repository-relative.
+	// Normalize separators first so Windows-style inputs are validated consistently
+	// on all hosts (Linux/macOS/Windows).
+	cleanPath := path.Clean(strings.ReplaceAll(s, "\\", "/"))
+	if strings.HasPrefix(cleanPath, "/") {
 		return false, []error{&InvalidSubdirectoryPathError{
 			Value:  p,
 			Reason: "absolute paths not allowed",
 		}}
 	}
-	if strings.HasPrefix(cleanPath, "..") {
+	if len(cleanPath) >= 2 && cleanPath[1] == ':' {
+		first := cleanPath[0]
+		if (first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') {
+			return false, []error{&InvalidSubdirectoryPathError{
+				Value:  p,
+				Reason: "absolute paths not allowed",
+			}}
+		}
+	}
+	if cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
 		return false, []error{&InvalidSubdirectoryPathError{
 			Value:  p,
 			Reason: "path traversal not allowed",
-		}}
-	}
-	if filepath.IsAbs(cleanPath) {
-		return false, []error{&InvalidSubdirectoryPathError{
-			Value:  p,
-			Reason: "absolute paths not allowed",
 		}}
 	}
 	return true, nil

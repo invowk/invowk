@@ -126,7 +126,11 @@ func TestSubdirectoryPath_IsValid(t *testing.T) {
 		{"dot prefix", SubdirectoryPath("./tools"), true, false},
 		{"path traversal", SubdirectoryPath("../escape"), false, true},
 		{"nested path traversal", SubdirectoryPath("a/../../escape"), false, true},
+		{"windows-style path traversal", SubdirectoryPath(`a\..\..\escape`), false, true},
 		{"absolute unix path", SubdirectoryPath("/absolute/path"), false, true},
+		{"absolute windows drive path", SubdirectoryPath(`C:\absolute\path`), false, true},
+		{"absolute windows root path", SubdirectoryPath(`\absolute\path`), false, true},
+		{"absolute windows unc path", SubdirectoryPath(`\\server\share`), false, true},
 		{"null byte", SubdirectoryPath("path\x00evil"), false, true},
 		{"too long", SubdirectoryPath(strings.Repeat("a", MaxPathLength+1)), false, true},
 	}

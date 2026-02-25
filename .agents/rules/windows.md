@@ -31,6 +31,21 @@ There are two distinct path domains in container-related code:
 | `filepath.FromSlash()` | Converts `/` to native | Converting container path → host path |
 | `path.Join()` | Always uses `/` | Joining container path segments |
 
+### Repo-Relative Path Value Types (Cross-Platform Contract)
+
+For typed values that represent **repository-relative paths** (for example `SubdirectoryPath` in module metadata), validation must be OS-agnostic and deterministic across runners.
+
+Required pattern:
+1. Normalize separators first: `filepath.ToSlash(input)`.
+2. Canonicalize with slash semantics: `path.Clean(...)`.
+3. Reject absolute forms across platforms:
+  - slash-rooted (`/foo`)
+  - Windows drive prefix (`C:/foo`)
+  - UNC/rooted forms (`//server/share`, `\\server\\share`, `\\foo`)
+4. Reject traversal after normalization (`..`, `../...`).
+
+Do **not** rely on `filepath.IsAbs()` alone for repo-relative typed validation. It is host-dependent and can hide Windows failures when tests run on Unix hosts.
+
 ### Host Absolute Paths in Config Includes
 
 `includes[*].path` and `container.auto_provision.includes[*].path` are **host paths** validated in Go with `filepath.IsAbs()`.
@@ -195,6 +210,7 @@ go test -v -run TestCLI/native_simple ./tests/cli/...
 |---------|---------|-----|
 | Using `filepath.Join()` for container paths | Backslashes in container paths on Windows | Use `path.Join()` or string concatenation with `/` |
 | Using `filepath.IsAbs()` for container paths | `/app` not detected as absolute on Windows | Use `strings.HasPrefix(path, "/")` |
+| Using `filepath.IsAbs()` alone for repo-relative typed paths | Windows absolute-path regressions only show up in Windows CI | Normalize with `filepath.ToSlash` + `path.Clean`, then enforce absolute/traversal rules |
 | Hardcoded `/` in test expectations | Tests fail on Windows | Use `filepath.Join()` for host paths |
 | Forgetting `filepath.ToSlash()` | Container receives Windows-style paths | Always convert before passing to container |
 | Testing Unix absolute paths on Windows | Test fails or has wrong behavior | Add `skipOnWindows: true` (see `testing.md`) |
