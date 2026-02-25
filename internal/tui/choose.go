@@ -29,7 +29,7 @@ type (
 		// Height limits the number of visible options (0 for auto).
 		Height TerminalDimension `json:"height,omitempty"`
 		// Selected stores pre-selected option indices for multi-select mode (internal only).
-		Selected []TerminalDimension `json:"-"`
+		Selected []SelectionIndex `json:"-"`
 		// Config holds common TUI configuration (internal only, not from protocol).
 		Config Config `json:"-"`
 	}
@@ -364,26 +364,26 @@ func (m *chooseModel) syncSelections() {
 }
 
 // selectedIndices returns selected indices in deterministic order.
-func (m *chooseModel) selectedIndices() []TerminalDimension {
+func (m *chooseModel) selectedIndices() []SelectionIndex {
 	if !m.isMulti {
 		item, ok := m.list.SelectedItem().(chooseItem)
 		if !ok {
 			return nil
 		}
-		return []TerminalDimension{TerminalDimension(item.index)}
+		return []SelectionIndex{SelectionIndex(item.index)}
 	}
 
-	indices := make([]TerminalDimension, 0, len(m.selected))
+	indices := make([]SelectionIndex, 0, len(m.selected))
 	for i := 0; i < len(m.options); i++ {
 		if m.selected[i] {
-			indices = append(indices, TerminalDimension(i))
+			indices = append(indices, SelectionIndex(i))
 		}
 	}
 
 	return indices
 }
 
-func chooseIndicesWithModel(opts ChooseStringOptions) ([]TerminalDimension, error) {
+func chooseIndicesWithModel(opts ChooseStringOptions) ([]SelectionIndex, error) {
 	model := NewChooseModel(opts)
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
@@ -399,17 +399,17 @@ func chooseIndicesWithModel(opts ChooseStringOptions) ([]TerminalDimension, erro
 	return m.selectedIndices(), nil
 }
 
-func selectedIndicesFromOptions[T comparable](options []Option[T]) []TerminalDimension {
-	indices := make([]TerminalDimension, 0, len(options))
+func selectedIndicesFromOptions[T comparable](options []Option[T]) []SelectionIndex {
+	indices := make([]SelectionIndex, 0, len(options))
 	for i, opt := range options {
 		if opt.Selected {
-			indices = append(indices, TerminalDimension(i))
+			indices = append(indices, SelectionIndex(i))
 		}
 	}
 	return indices
 }
 
-func selectedValuesByIndex[T comparable](options []Option[T], indices []TerminalDimension) []T {
+func selectedValuesByIndex[T comparable](options []Option[T], indices []SelectionIndex) []T {
 	values := make([]T, 0, len(indices))
 	for _, idx := range indices {
 		idxInt := int(idx)

@@ -412,7 +412,7 @@ func TestSelectedIndicesFromOptions(t *testing.T) {
 	}
 
 	got := selectedIndicesFromOptions(options)
-	want := []TerminalDimension{1, 2}
+	want := []SelectionIndex{1, 2}
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("expected selected indices %v, got %v", want, got)
@@ -428,7 +428,7 @@ func TestSelectedValuesByIndex_PreservesDuplicateTitles(t *testing.T) {
 		{Title: "Deploy", Value: "third"},
 	}
 
-	got := selectedValuesByIndex(options, []TerminalDimension{1, 2})
+	got := selectedValuesByIndex(options, []SelectionIndex{1, 2})
 	want := []string{"second", "third"}
 
 	if !reflect.DeepEqual(got, want) {
@@ -443,7 +443,7 @@ func TestNewChooseModel_MultiSelectPreselected(t *testing.T) {
 		Title:    "Select multiple",
 		Options:  []string{"A", "B", "C"},
 		Limit:    3,
-		Selected: []TerminalDimension{1, 2},
+		Selected: []SelectionIndex{1, 2},
 		Config:   DefaultConfig(),
 	}
 
