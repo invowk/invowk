@@ -262,6 +262,7 @@ func newInputModel(opts InputOptions, forModal bool) *inputModel {
 	if opts.Value != "" {
 		result = opts.Value
 	}
+	configuredWidth := 0
 
 	ti := textinput.New()
 	ti.Placeholder = opts.Placeholder
@@ -277,9 +278,11 @@ func newInputModel(opts InputOptions, forModal bool) *inputModel {
 		ti.Prompt = opts.Prompt
 	}
 	if opts.Width > 0 {
-		ti.SetWidth(int(opts.Width))
+		configuredWidth = int(opts.Width)
+		ti.SetWidth(configuredWidth)
 	} else if opts.Config.Width > 0 {
-		ti.SetWidth(int(opts.Config.Width))
+		configuredWidth = int(opts.Config.Width)
+		ti.SetWidth(configuredWidth)
 	}
 	ti.SetStyles(newInputStyles(opts.Config.Theme, forModal))
 
@@ -288,6 +291,7 @@ func newInputModel(opts InputOptions, forModal bool) *inputModel {
 		result:      &result,
 		title:       types.DescriptionText(opts.Title),
 		description: types.DescriptionText(opts.Description),
+		width:       configuredWidth,
 		forModal:    forModal,
 	}
 }

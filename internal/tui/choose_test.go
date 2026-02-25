@@ -5,6 +5,7 @@ package tui
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -398,6 +399,79 @@ func TestOption_Fields(t *testing.T) {
 	}
 	if !opt.Selected {
 		t.Error("expected Selected to be true")
+	}
+}
+
+func TestSelectedIndicesFromOptions(t *testing.T) {
+	t.Parallel()
+
+	options := []Option[string]{
+		{Title: "A", Value: "a"},
+		{Title: "B", Value: "b", Selected: true},
+		{Title: "C", Value: "c", Selected: true},
+	}
+
+	got := selectedIndicesFromOptions(options)
+	want := []TerminalDimension{1, 2}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("expected selected indices %v, got %v", want, got)
+	}
+}
+
+func TestSelectedValuesByIndex_PreservesDuplicateTitles(t *testing.T) {
+	t.Parallel()
+
+	options := []Option[string]{
+		{Title: "Deploy", Value: "first"},
+		{Title: "Deploy", Value: "second"},
+		{Title: "Deploy", Value: "third"},
+	}
+
+	got := selectedValuesByIndex(options, []TerminalDimension{1, 2})
+	want := []string{"second", "third"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("expected values %v, got %v", want, got)
+	}
+}
+
+func TestNewChooseModel_MultiSelectPreselected(t *testing.T) {
+	t.Parallel()
+
+	opts := ChooseStringOptions{
+		Title:    "Select multiple",
+		Options:  []string{"A", "B", "C"},
+		Limit:    3,
+		Selected: []TerminalDimension{1, 2},
+		Config:   DefaultConfig(),
+	}
+
+	model := NewChooseModel(opts)
+
+	if len(model.selected) != 2 {
+		t.Fatalf("expected 2 pre-selected items, got %d", len(model.selected))
+	}
+	if !model.selected[1] {
+		t.Error("expected index 1 to be pre-selected")
+	}
+	if !model.selected[2] {
+		t.Error("expected index 2 to be pre-selected")
+	}
+
+	if len(*model.multiResult) != 2 {
+		t.Fatalf("expected 2 pre-selected results, got %d", len(*model.multiResult))
+	}
+	if (*model.multiResult)[0] != "B" {
+		t.Errorf("expected first pre-selected result 'B', got %q", (*model.multiResult)[0])
+	}
+	if (*model.multiResult)[1] != "C" {
+		t.Errorf("expected second pre-selected result 'C', got %q", (*model.multiResult)[1])
+	}
+
+	view := model.View().Content
+	if strings.Count(view, "[x]") != 2 {
+		t.Errorf("expected 2 checked boxes in initial view, got %d", strings.Count(view, "[x]"))
 	}
 }
 

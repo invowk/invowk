@@ -28,6 +28,8 @@ type (
 		NoLimit bool `json:"no_limit,omitempty"`
 		// Height limits the number of visible options (0 for auto).
 		Height TerminalDimension `json:"height,omitempty"`
+		// Selected stores pre-selected option indices for multi-select mode (internal only).
+		Selected []TerminalDimension `json:"-"`
 		// Config holds common TUI configuration (internal only, not from protocol).
 		Config Config `json:"-"`
 	}
@@ -361,6 +363,64 @@ func (m *chooseModel) syncSelections() {
 	*m.multiResult = results
 }
 
+// selectedIndices returns selected indices in deterministic order.
+func (m *chooseModel) selectedIndices() []TerminalDimension {
+	if !m.isMulti {
+		item, ok := m.list.SelectedItem().(chooseItem)
+		if !ok {
+			return nil
+		}
+		return []TerminalDimension{TerminalDimension(item.index)}
+	}
+
+	indices := make([]TerminalDimension, 0, len(m.selected))
+	for i := 0; i < len(m.options); i++ {
+		if m.selected[i] {
+			indices = append(indices, TerminalDimension(i))
+		}
+	}
+
+	return indices
+}
+
+func chooseIndicesWithModel(opts ChooseStringOptions) ([]TerminalDimension, error) {
+	model := NewChooseModel(opts)
+	p := tea.NewProgram(model)
+	finalModel, err := p.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	m := finalModel.(*chooseModel)
+	if m.cancelled {
+		return nil, fmt.Errorf("user aborted")
+	}
+
+	return m.selectedIndices(), nil
+}
+
+func selectedIndicesFromOptions[T comparable](options []Option[T]) []TerminalDimension {
+	indices := make([]TerminalDimension, 0, len(options))
+	for i, opt := range options {
+		if opt.Selected {
+			indices = append(indices, TerminalDimension(i))
+		}
+	}
+	return indices
+}
+
+func selectedValuesByIndex[T comparable](options []Option[T], indices []TerminalDimension) []T {
+	values := make([]T, 0, len(indices))
+	for _, idx := range indices {
+		idxInt := int(idx)
+		if idxInt < 0 || idxInt >= len(options) {
+			continue
+		}
+		values = append(values, options[idxInt].Value)
+	}
+	return values
+}
+
 // Choose prompts the user to select one option from a list.
 // Returns the selected value or an error if the prompt was cancelled.
 func Choose[T comparable](opts ChooseOptions[T]) (T, error) {
@@ -371,15 +431,11 @@ func Choose[T comparable](opts ChooseOptions[T]) (T, error) {
 	}
 
 	titles := make([]string, len(opts.Options))
-	indices := make(map[string]int, len(opts.Options))
 	for i, opt := range opts.Options {
 		titles[i] = opt.Title
-		if _, exists := indices[opt.Title]; !exists {
-			indices[opt.Title] = i
-		}
 	}
 
-	results, err := ChooseStringsWithModel(ChooseStringOptions{
+	indices, err := chooseIndicesWithModel(ChooseStringOptions{
 		Title:   opts.Title,
 		Options: titles,
 		Limit:   1,
@@ -390,12 +446,12 @@ func Choose[T comparable](opts ChooseOptions[T]) (T, error) {
 		return result, err
 	}
 
-	if len(results) == 0 {
+	if len(indices) == 0 {
 		return result, nil
 	}
 
-	idx, ok := indices[results[0]]
-	if !ok {
+	idx := int(indices[0])
+	if idx < 0 || idx >= len(opts.Options) {
 		return result, nil
 	}
 
@@ -443,36 +499,24 @@ func MultiChoose[T comparable](opts MultiChooseOptions[T]) ([]T, error) {
 	}
 
 	titles := make([]string, len(opts.Options))
-	indices := make(map[string]int, len(opts.Options))
 	for i, opt := range opts.Options {
 		titles[i] = opt.Title
-		if _, exists := indices[opt.Title]; !exists {
-			indices[opt.Title] = i
-		}
 	}
 
-	results, err := ChooseStringsWithModel(ChooseStringOptions{
-		Title:   opts.Title,
-		Options: titles,
-		Limit:   opts.Limit,
-		NoLimit: opts.Limit <= 0,
-		Height:  opts.Height,
-		Config:  opts.Config,
+	indices, err := chooseIndicesWithModel(ChooseStringOptions{
+		Title:    opts.Title,
+		Options:  titles,
+		Limit:    opts.Limit,
+		NoLimit:  opts.Limit <= 0,
+		Height:   opts.Height,
+		Selected: selectedIndicesFromOptions(opts.Options),
+		Config:   opts.Config,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	values := make([]T, 0, len(results))
-	for _, selected := range results {
-		idx, ok := indices[selected]
-		if !ok {
-			continue
-		}
-		values = append(values, opts.Options[idx].Value)
-	}
-
-	return values, nil
+	return selectedValuesByIndex(opts.Options, indices), nil
 }
 
 // MultiChooseStrings is a convenience function for choosing multiple string options.
@@ -760,7 +804,7 @@ func newSingleChooseModel(opts ChooseStringOptions, forModal bool) *chooseModel 
 // when embedded within invowk's modal overlay system. Following the proven pattern from
 // filter.go, we use bubbles/list with a custom delegate for full rendering control.
 func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *chooseModel {
-	var results []string
+	results := make([]string, 0, len(opts.Selected))
 
 	// Create list items
 	items := make([]list.Item, len(opts.Options))
@@ -777,6 +821,18 @@ func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *choo
 
 	// Create selection map first - the delegate will reference this via closure
 	selected := make(map[int]bool)
+	for _, idx := range opts.Selected {
+		idxInt := int(idx)
+		if idxInt < 0 || idxInt >= len(opts.Options) {
+			continue
+		}
+		selected[idxInt] = true
+	}
+	for i, opt := range opts.Options {
+		if selected[i] {
+			results = append(results, opt)
+		}
+	}
 
 	// Create custom delegate with a closure that checks the selection map.
 	// This closure captures 'selected' by reference, so the delegate always

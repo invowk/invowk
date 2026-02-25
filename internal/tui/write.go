@@ -266,6 +266,7 @@ func newWriteModel(opts WriteOptions, forModal bool) *writeModel {
 	if opts.Value != "" {
 		result = opts.Value
 	}
+	configuredWidth := 0
 
 	ta := textarea.New()
 	ta.SetVirtualCursor(true)
@@ -277,9 +278,11 @@ func newWriteModel(opts WriteOptions, forModal bool) *writeModel {
 	ta.ShowLineNumbers = opts.ShowLineNumbers
 
 	if opts.Width > 0 {
-		ta.SetWidth(int(opts.Width))
+		configuredWidth = int(opts.Width)
+		ta.SetWidth(configuredWidth)
 	} else if opts.Config.Width > 0 {
-		ta.SetWidth(int(opts.Config.Width))
+		configuredWidth = int(opts.Config.Width)
+		ta.SetWidth(configuredWidth)
 	}
 	if opts.Height > 0 {
 		ta.SetHeight(int(opts.Height))
@@ -291,6 +294,7 @@ func newWriteModel(opts WriteOptions, forModal bool) *writeModel {
 		result:      &result,
 		title:       types.DescriptionText(opts.Title),
 		description: types.DescriptionText(opts.Description),
+		width:       configuredWidth,
 		forModal:    forModal,
 	}
 }

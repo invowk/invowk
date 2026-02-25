@@ -126,6 +126,67 @@ func TestInputModel_SetSize(t *testing.T) {
 	}
 }
 
+func TestInputModel_WindowSizeMsgDoesNotOverrideExplicitWidth(t *testing.T) {
+	t.Parallel()
+
+	opts := InputOptions{
+		Title:  "Test",
+		Width:  30,
+		Config: DefaultConfig(),
+	}
+
+	model := NewInputModel(opts)
+
+	if model.width != 30 {
+		t.Fatalf("expected model width 30, got %d", model.width)
+	}
+	if model.input.Width() != 30 {
+		t.Fatalf("expected input width 30, got %d", model.input.Width())
+	}
+
+	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	updatedModel, _ := model.Update(msg)
+	m := updatedModel.(*inputModel)
+
+	if m.width != 30 {
+		t.Errorf("expected model width to stay 30, got %d", m.width)
+	}
+	if m.input.Width() != 30 {
+		t.Errorf("expected input width to stay 30, got %d", m.input.Width())
+	}
+}
+
+func TestInputModel_WindowSizeMsgDoesNotOverrideConfigWidth(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.Width = 45
+	opts := InputOptions{
+		Title:  "Test",
+		Config: cfg,
+	}
+
+	model := NewInputModel(opts)
+
+	if model.width != 45 {
+		t.Fatalf("expected model width 45, got %d", model.width)
+	}
+	if model.input.Width() != 45 {
+		t.Fatalf("expected input width 45, got %d", model.input.Width())
+	}
+
+	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	updatedModel, _ := model.Update(msg)
+	m := updatedModel.(*inputModel)
+
+	if m.width != 45 {
+		t.Errorf("expected model width to stay 45, got %d", m.width)
+	}
+	if m.input.Width() != 45 {
+		t.Errorf("expected input width to stay 45, got %d", m.input.Width())
+	}
+}
+
 func TestInputModel_ViewWhenDone(t *testing.T) {
 	t.Parallel()
 
