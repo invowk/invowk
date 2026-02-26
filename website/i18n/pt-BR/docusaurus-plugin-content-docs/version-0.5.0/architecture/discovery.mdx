@@ -1,0 +1,102 @@
+---
+sidebar_position: 8
+---
+
+import Diagram from '@site/src/components/Diagram';
+import Snippet from '@site/src/components/Snippet';
+
+# Fluxograma de Precedência de Descoberta
+
+Este diagrama mostra como comandos são descobertos e como conflitos são resolvidos quando o mesmo nome de comando aparece em múltiplos locais.
+
+## Fluxo de Descoberta
+
+<Diagram id="architecture/discovery-flow" />
+
+## Resolução de Conflitos
+
+Quando o mesmo nome de comando existe em múltiplos locais:
+
+<Diagram id="architecture/discovery-conflict" />
+
+### Regras de Resolução
+
+| Prioridade | Fonte | Caminho de Exemplo |
+|------------|-------|-------------------|
+| 1 (maior) | invowkfile do diretório atual | `./invowkfile.cue` |
+| 2 | Módulos locais | `./mytools.invowkmod/` |
+| 3 | Includes configurados | `/opt/invowk-modules/tools.invowkmod` |
+| 4 (menor) | Diretório de comandos do usuário | `~/.invowk/cmds/mytools.invowkmod/` |
+
+**Princípios chave**:
+- Mais perto do diretório de trabalho = maior prioridade.
+- Includes configurados têm precedência sobre o diretório de comandos do usuário porque representam configuração explícita e intencional.
+- O diretório de comandos do usuário (`~/.invowk/cmds/`) descobre apenas diretórios `*.invowkmod` como filhos imediatos (não recursivo). Invowkfiles avulsos não são descobertos a partir desse local.
+
+## Detalhes da Descoberta de Módulos
+
+<Diagram id="architecture/discovery-module-structure" />
+
+### Campos Obrigatórios do Módulo
+
+<Snippet id="architecture/discovery-module-fields" />
+
+## Resolução de Dependências
+
+<Diagram id="architecture/discovery-deps" />
+
+### Visibilidade de Dependências Transitivas
+
+| De | Pode Acessar | Não Pode Acessar |
+|----|--------------|------------------|
+| Módulo A | comandos de A, comandos de B | comandos de C (transitivo) |
+| Módulo B | comandos de B, comandos de C | - |
+| invowkfile Raiz | Próprios comandos, deps diretas | Deps transitivas |
+
+**Por que esta restrição?**
+- Previne acoplamento implícito a dependências transitivas
+- Torna dependências explícitas em cada módulo
+- Permite upgrades de dependências sem quebrar consumidores
+
+## Configuração de Includes
+
+Módulos adicionais são configurados em `~/.config/invowk/config.cue`:
+
+<Snippet id="architecture/discovery-includes-config" />
+
+### Ordem de Processamento de Entradas
+
+<Diagram id="architecture/discovery-includes" />
+
+## Cache de Descoberta
+
+<Diagram id="architecture/discovery-cache" />
+
+## Problemas Comuns de Descoberta
+
+### Problema: Comando Não Encontrado
+
+<Diagram id="architecture/discovery-not-found" />
+
+### Problema: Versão Errada do Comando
+
+<Diagram id="architecture/discovery-wrong-version" />
+
+## Comandos de Debug
+
+```bash
+# Listar todos os comandos descobertos com fontes
+invowk cmd --ivk-verbose
+
+# Validar descoberta do workspace (reporta todos os diagnósticos)
+invowk validate
+
+# Validar um módulo específico
+invowk validate ./mymodule.invowkmod
+```
+
+## Diagramas Relacionados
+
+- [Sequência de Execução de Comando](./execution-flow) - O que acontece após a descoberta
+- [Fluxograma de Seleção de Runtime](./runtime-selection) - Como runtimes são escolhidos
+- [Diagrama C4 de Container](./c4-container) - Contexto do componente de descoberta

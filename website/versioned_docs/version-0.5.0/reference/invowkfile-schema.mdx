@@ -1,0 +1,501 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Invowkfile Schema Reference
+
+:::warning Alpha — Schema May Change
+The invowkfile schema is still evolving. Fields, types, and validation rules **may change between releases** as we stabilize the format. Always check the [changelog](https://github.com/invowk/invowk/releases) when upgrading.
+:::
+
+Complete reference for the invowkfile schema. Invowkfiles use [CUE](https://cuelang.org/) format for defining commands.
+Invowkfiles are validated as closed structs, so unknown fields cause a validation error.
+
+## Root Structure
+
+Every invowkfile must define at least one command in `cmds`:
+
+<Snippet id="reference/invowkfile/root-structure" />
+
+:::note Module Metadata Lives in invowkmod.cue
+Fields like `module`, `version`, `description`, and `requires` belong in `invowkmod.cue` and are rejected in `invowkfile.cue`.
+:::
+
+### default_shell
+
+**Type:** `string`  
+**Required:** No  
+**Default:** System default
+
+Override the default shell for native runtime execution.
+
+<Snippet id="reference/invowkfile/default-shell-example" />
+
+### workdir
+
+**Type:** `string`  
+**Required:** No  
+**Default:** Invowkfile directory
+
+Default working directory for all commands. Can be absolute or relative to the invowkfile location.
+
+<Snippet id="reference/invowkfile/workdir-example" />
+
+### env
+
+**Type:** `#EnvConfig`  
+**Required:** No
+
+Global environment configuration applied to all commands. See [EnvConfig](#envconfig).
+
+### depends_on
+
+**Type:** `#DependsOn`  
+**Required:** No
+
+Global dependencies that apply to all commands. See [DependsOn](#dependson).
+
+### cmds
+
+**Type:** `[...#Command]`
+**Required:** Yes (at least one)
+
+List of commands defined in this invowkfile. See [Command](#command).
+
+:::caution Migration Note
+The field name is `cmds`, not `commands`. Using `commands` will cause a CUE validation error because the schema defines `commands?: _|_` (bottom value) to enforce the correct name.
+:::
+
+---
+
+## Command
+
+Defines an executable command:
+
+<Snippet id="reference/invowkfile/command-structure" />
+
+### name
+
+**Type:** `string` (pattern: `^[a-zA-Z][a-zA-Z0-9_ -]*$`)  
+**Required:** Yes
+
+The command identifier. Must start with a letter.
+
+<Snippet id="reference/invowkfile/command-name-examples" />
+
+### description
+
+**Type:** `string`
+**Required:** No
+
+Help text for the command. When provided, it must be non-empty (validated by regex pattern `^\s*\S.*$` -- whitespace-only strings are rejected).
+
+<Snippet id="reference/invowkfile/command-description-example" />
+
+### category
+
+**Type:** `string`
+**Required:** No
+
+Groups this command under a heading in `invowk cmd` listing output. When provided, it must be non-empty (validated by regex pattern `^\s*\S.*$` — whitespace-only strings are rejected).
+
+<Snippet id="reference/invowkfile/category-example" />
+
+### implementations
+
+**Type:** `[...#Implementation]`
+**Required:** Yes (at least one)
+
+The executable implementations. See [Implementation](#implementation).
+
+### env
+
+**Type:** `#EnvConfig`
+**Required:** No
+
+Environment configuration for this command. Command-level env is applied before implementation-level env. See [EnvConfig](#envconfig).
+
+### workdir
+
+**Type:** `string`
+**Required:** No
+
+Working directory for command execution. Overrides root-level workdir but can be overridden by implementation-level workdir. Can be absolute or relative to the invowkfile location.
+
+### depends_on
+
+**Type:** `#DependsOn`
+**Required:** No
+
+Dependencies that must be satisfied before running this command. See [DependsOn](#dependson).
+
+### flags
+
+**Type:** `[...#Flag]`  
+**Required:** No
+
+Command-line flags for this command. See [Flag](#flag).
+
+:::warning Reserved Flags
+The following flags are reserved by invowk and cannot be used in user-defined commands:
+- `ivk-env-file` (`-e`), `ivk-env-var` (`-E`)
+- `ivk-env-inherit-mode`, `ivk-env-inherit-allow`, `ivk-env-inherit-deny`
+- `ivk-workdir` (`-w`), `ivk-runtime` (`-r`), `ivk-from` (`-f`)
+- `ivk-force-rebuild`, `ivk-dry-run`
+- `ivk-watch` (`-W`)
+- `ivk-verbose` (`-v`), `ivk-config` (`-c`), `ivk-interactive` (`-i`)
+- `help` (`-h`), `version`
+
+Additionally, any flag starting with the `ivk-`, `invowk-`, or `i-` prefix is reserved for system flags.
+:::
+
+### args
+
+**Type:** `[...#Argument]`  
+**Required:** No
+
+Positional arguments for this command. See [Argument](#argument).
+
+### watch
+
+**Type:** `#WatchConfig`
+**Required:** No
+
+File-watching configuration for this command. When defined, `patterns` controls which files are watched. When `--ivk-watch` is passed without a `watch` config, invowk falls back to watching all files (`**/*`) in the working directory. See [WatchConfig](#watchconfig).
+
+<Snippet id="reference/invowkfile/watch-config-example" />
+
+---
+
+## Implementation
+
+Defines how a command is executed:
+
+<Snippet id="reference/invowkfile/implementation-structure" />
+
+### script
+
+**Type:** `string` (non-empty)  
+**Required:** Yes
+
+The shell commands to execute OR a path to a script file.
+
+<Snippet id="reference/invowkfile/script-examples" />
+
+**Recognized extensions:** `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.rb`, `.pl`, `.zsh`, `.fish`
+
+### runtimes
+
+**Type:** `[...#RuntimeConfig]`  
+**Required:** Yes (at least one)
+
+The runtimes that can execute this implementation. The first runtime is the default.
+
+<Snippet id="reference/invowkfile/runtimes-examples" />
+
+### platforms
+
+**Type:** `[...#PlatformConfig]`
+**Required:** Yes (at least one)
+
+Specify which operating systems this implementation supports.
+
+<Snippet id="reference/invowkfile/platforms-example" />
+
+### env
+
+**Type:** `#EnvConfig`
+**Required:** No
+
+Environment configuration for this implementation. Merged with command-level env: implementation files are loaded after command-level files, and implementation vars override command-level vars. See [EnvConfig](#envconfig).
+
+### workdir
+
+**Type:** `string`
+**Required:** No
+
+Working directory for this implementation. Overrides both root-level and command-level workdir settings. Can be absolute or relative to the invowkfile location.
+
+### depends_on
+
+**Type:** `#DependsOn`
+**Required:** No
+
+Dependencies that must be satisfied before running this implementation. Combined with root-level and command-level depends_on. **Always validated against the host system**, regardless of the selected runtime. To validate dependencies inside the runtime's environment (e.g., inside a container), use `depends_on` inside the runtime block instead. See [DependsOn](#dependson).
+
+### timeout
+
+**Type:** `#DurationString`
+**Required:** No
+
+Maximum execution duration. Must be a valid Go duration string (e.g., `"30s"`, `"5m"`, `"1h30m"`). When exceeded, the command is cancelled and returns a timeout error. The timeout value is validated early (before dependency checks) to fail fast on invalid values. See [DurationString](#durationstring).
+
+<Snippet id="reference/invowkfile/timeout-example" />
+
+---
+
+## RuntimeConfig
+
+Configuration for a specific runtime:
+
+<Snippet id="reference/invowkfile/runtime-config-structure" />
+
+### name
+
+**Type:** `"native" | "virtual" | "container"`  
+**Required:** Yes
+
+The runtime type.
+
+### interpreter
+
+**Type:** `string`  
+**Available for:** `native`, `container`  
+**Default:** `"auto"` (detect from shebang)
+
+Specifies how to execute the script.
+
+<Snippet id="reference/invowkfile/interpreter-examples" />
+
+:::note
+Virtual runtime uses mvdan/sh which cannot execute non-shell interpreters.
+:::
+
+### env_inherit_mode
+
+**Type:** `"none" | "allow" | "all"`  
+**Available for:** `native`, `virtual`, `container`  
+**Default:** `all` for native/virtual, `none` for container
+
+Controls whether the host environment is inherited by the runtime.
+
+### env_inherit_allow
+
+**Type:** `[...string]`  
+**Available for:** `native`, `virtual`, `container`
+
+Allowlist of host env vars when `env_inherit_mode` is `"allow"`.
+
+### env_inherit_deny
+
+**Type:** `[...string]`  
+**Available for:** `native`, `virtual`, `container`
+
+Denylist of host env vars (applies to any mode).
+
+<Snippet id="reference/invowkfile/env-inherit-example" />
+
+### enable_host_ssh
+
+**Type:** `bool`  
+**Available for:** `container`  
+**Default:** `false`
+
+Enable SSH access from container back to the host. When enabled, Invowk starts an SSH server and provides credentials via environment variables:
+
+- `INVOWK_SSH_ENABLED`
+- `INVOWK_SSH_HOST`
+- `INVOWK_SSH_PORT`
+- `INVOWK_SSH_USER`
+- `INVOWK_SSH_TOKEN`
+
+<Snippet id="reference/invowkfile/enable-host-ssh-example" />
+
+### containerfile / image
+
+**Type:** `string`  
+**Available for:** `container`
+
+Specify the container source. These are **mutually exclusive**.
+
+<Snippet id="reference/invowkfile/containerfile-image-examples" />
+
+### volumes
+
+**Type:** `[...string]`  
+**Available for:** `container`
+
+Volume mounts in `host:container[:options]` format.
+
+<Snippet id="reference/invowkfile/volumes-example" />
+
+### ports
+
+**Type:** `[...string]`
+**Available for:** `container`
+
+Port mappings in `host:container` format.
+
+<Snippet id="reference/invowkfile/ports-example" />
+
+### depends_on
+
+**Type:** `#DependsOn`
+**Available for:** `container`
+**Required:** No
+
+Dependencies validated inside the container environment. Unlike root/command/implementation-level `depends_on` (which always check the host), container runtime-level `depends_on` validates against the container's own environment — useful for verifying that the container image has the required tools, files, and configuration.
+
+Only checked when the container runtime is selected at execution time.
+
+---
+
+## PlatformConfig
+
+<Snippet id="reference/invowkfile/platform-config-structure" />
+
+---
+
+## EnvConfig
+
+Environment configuration:
+
+<Snippet id="reference/invowkfile/env-config-structure" />
+
+### files
+
+Dotenv files to load. Files are loaded in order; later files override earlier ones.
+
+<Snippet id="reference/invowkfile/env-files-example" />
+
+### vars
+
+Environment variables as key-value pairs.
+
+<Snippet id="reference/invowkfile/env-vars-example" />
+
+---
+
+## DependsOn
+
+Dependency specification:
+
+<Snippet id="reference/invowkfile/depends-on-structure" />
+
+### ToolDependency
+
+<Snippet id="reference/invowkfile/tool-dependency-structure" />
+
+<Snippet id="reference/invowkfile/tool-dependency-example" />
+
+### CommandDependency
+
+:::caution Field Name
+The field name for command dependencies is `cmds`, not `commands`. Using `commands` will cause a CUE validation error because the schema defines `commands?: _|_` (bottom value) to enforce the correct field name.
+:::
+
+<Snippet id="reference/invowkfile/command-dependency-structure" />
+
+### FilepathDependency
+
+<Snippet id="reference/invowkfile/filepath-dependency-structure" />
+
+### CapabilityDependency
+
+<Snippet id="reference/invowkfile/capability-dependency-structure" />
+
+### EnvVarDependency
+
+<Snippet id="reference/invowkfile/env-var-dependency-structure" />
+
+### CustomCheckDependency
+
+<Snippet id="reference/invowkfile/custom-check-dependency-structure" />
+
+---
+
+## Flag
+
+Command-line flag definition:
+
+<Snippet id="reference/invowkfile/flag-structure" />
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Flag name (alphanumeric, hyphens, underscores) |
+| `description` | **Yes** | Help text (must be non-empty) |
+| `type` | No | `string`, `bool`, `int`, `float` (default: `string`) |
+| `default_value` | No | Default if not provided (cannot combine with `required`) |
+| `required` | No | Must be provided (cannot combine with `default_value`) |
+| `short` | No | Single-letter alias (`a`-`z` or `A`-`Z`) |
+| `validation` | No | Regex pattern for value validation |
+
+<Snippet id="reference/invowkfile/flag-example" />
+
+---
+
+## Argument
+
+Positional argument definition:
+
+<Snippet id="reference/invowkfile/argument-structure" />
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Argument name (alphanumeric, hyphens, underscores) |
+| `description` | **Yes** | Help text (must be non-empty) |
+| `type` | No | `string`, `int`, `float` (default: `string`; `bool` not supported) |
+| `default_value` | No | Default if not provided (cannot combine with `required`) |
+| `required` | No | Must be provided (cannot combine with `default_value`) |
+| `variadic` | No | Accept multiple values (only allowed on the last argument) |
+| `validation` | No | Regex pattern for value validation |
+
+<Snippet id="reference/invowkfile/argument-example" />
+
+**Environment Variables for Arguments:**
+- `INVOWK_ARG_<NAME>` - The argument value
+- For variadic: `INVOWK_ARG_<NAME>_COUNT`, `INVOWK_ARG_<NAME>_1`, `INVOWK_ARG_<NAME>_2`, etc.
+
+---
+
+## WatchConfig
+
+File-watching configuration for automatic command re-execution:
+
+<Snippet id="reference/invowkfile/watch-config-structure" />
+
+### patterns
+
+**Type:** `[...string]` (at least one)
+**Required:** Yes
+
+Glob patterns for files to watch. Patterns support `**` for recursive matching (e.g., `"src/**/*.go"`, `"*.ts"`). Paths are relative to the effective working directory of the command.
+
+### debounce
+
+**Type:** `#DurationString`
+**Required:** No
+**Default:** `"500ms"`
+
+Delay before re-executing after a file change is detected. See [DurationString](#durationstring).
+
+### clear_screen
+
+**Type:** `bool`
+**Required:** No
+**Default:** `false`
+
+When `true`, clears the terminal before each re-execution.
+
+### ignore
+
+**Type:** `[...string]`
+**Required:** No
+
+Additional glob patterns for files/directories to exclude from watching. These are merged with built-in defaults (`.git/**`, `node_modules/**`, `__pycache__/**`, `*.swp`, etc.).
+
+---
+
+## DurationString
+
+<Snippet id="reference/invowkfile/duration-string-type" />
+
+Shared type used by [`#Implementation.timeout`](#timeout) and [`#WatchConfig.debounce`](#debounce). Valid examples: `"500ms"`, `"30s"`, `"5m"`, `"1h30m"`, `"2.5s"`.
+
+---
+
+## Complete Example
+
+<Snippet id="reference/invowkfile/complete-example" />

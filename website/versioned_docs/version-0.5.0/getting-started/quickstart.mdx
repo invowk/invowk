@@ -1,0 +1,75 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Quickstart
+
+Let's run your first Invowk™ command in under 2 minutes. Seriously, grab a coffee first if you want - you'll have time to spare.
+
+## Create Your First Invowkfile
+
+Navigate to any project directory and initialize an invowkfile:
+
+<Snippet id="quickstart/init" />
+
+This creates an `invowkfile.cue` with a `hello` command that works across all three runtimes (native, virtual, and container). Let's peek inside:
+
+<Snippet id="quickstart/default-invowkfile" />
+
+The default template gives you a single `hello` command with four implementations: native (Unix and Windows), virtual (cross-platform), and container. Each implementation declares which platforms it supports.
+
+## List Available Commands
+
+See what commands are available:
+
+<Snippet id="cli/list-commands" />
+
+You'll see something like:
+
+<Snippet id="quickstart/list-output" />
+
+The listing shows the command name, description, allowed runtimes (default marked with `*`), and supported platforms.
+
+## Run a Command
+
+Now let's run one:
+
+<Snippet id="quickstart/run-hello" />
+
+Output:
+
+<Snippet id="quickstart/hello-output" />
+
+That's it! You just ran your first Invowk command.
+
+## Pass an Argument
+
+The `hello` command accepts an optional `name` argument (defaulting to "World"). Try passing your name:
+
+<Snippet id="quickstart/info-command" />
+
+Output:
+
+<Snippet id="quickstart/run-info" />
+
+Arguments are exposed as `INVOWK_ARG_<NAME>` environment variables, making them accessible from any runtime.
+
+## Try the Virtual Runtime
+
+One of Invowk's superpowers is the **virtual runtime** - a built-in shell interpreter that works the same on every platform:
+
+<Snippet id="quickstart/virtual-runtime" />
+
+The virtual runtime uses the [mvdan/sh](https://github.com/mvdan/sh) interpreter, giving you consistent POSIX shell behavior across all platforms - no need for separate Unix and Windows implementations.
+
+## What's Next?
+
+You've just scratched the surface! Head to [Your First Invowkfile](./your-first-invowkfile) to learn how to build more powerful commands with:
+
+- Multiple runtime options (native, virtual, container)
+- Dependencies that are validated before running
+- Command flags and arguments
+- Environment variables
+- And much more!

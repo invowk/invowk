@@ -1,0 +1,146 @@
+---
+sidebar_position: 5
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Dependências de Capacidades
+
+Dependências de capacidades verificam se capacidades de sistema necessárias estão disponíveis antes que seu comando seja executado. O Invowk™ suporta conectividade de rede, disponibilidade de engine de containers e verificação de TTY interativo.
+
+## Capacidades Disponíveis
+
+| Capacidade | Descrição |
+|------------|-----------|
+| `local-area-network` | Verifica conectividade de rede local (LAN) |
+| `internet` | Verifica conectividade com a internet |
+| `containers` | Verifica se Docker ou Podman está instalado e respondendo |
+| `tty` | Verifica se o Invowk está rodando em um TTY interativo |
+
+## Uso Básico
+
+<Snippet id="dependencies/capabilities-basic" />
+
+Se a conectividade com a internet não estiver disponível:
+
+```
+✗ Dependencies not satisfied
+
+Command 'deploy' has unmet dependencies:
+
+Missing Capabilities:
+  • internet - no internet connectivity
+
+Ensure the required capabilities are available and try again.
+```
+
+## Conectividade com a Internet
+
+Verifique se há acesso à internet funcionando:
+
+<Snippet id="dependencies/capabilities-internet" />
+
+Isso verifica:
+- Resolução de DNS está funcionando
+- Consegue alcançar hosts externos
+- Rede não está bloqueada
+
+### Casos de Uso
+
+<Snippet id="dependencies/capabilities-internet-usecases" />
+
+## Rede Local (LAN)
+
+Verifique conectividade de rede local:
+
+<Snippet id="dependencies/capabilities-lan" />
+
+Isso verifica:
+- Interface de rede está ativa
+- Pode comunicar na rede local
+- Útil para serviços on-premise
+
+### Casos de Uso
+
+<Snippet id="dependencies/capabilities-lan-usecases" />
+
+## Engine de Containers
+
+Verifique se um engine de containers está instalado e pronto:
+
+<Snippet id="dependencies/capabilities-containers" />
+
+Isso verifica:
+- Docker ou Podman está no PATH
+- O engine responde ao comando de versão
+
+### Casos de Uso
+
+Use isso quando um comando chama Docker/Podman diretamente ou precisa de builds de container.
+
+## TTY Interativo
+
+Verifique se o Invowk está rodando em um terminal interativo:
+
+<Snippet id="dependencies/capabilities-tty" />
+
+Isso verifica:
+- `stdin` é um terminal
+- `stdout` é um terminal
+
+### Casos de Uso
+
+Use isso para prompts interativos, componentes TUI ou scripts que exigem entrada de teclado.
+
+## Alternativas (Semântica OU)
+
+Requer qualquer uma das capacidades:
+
+<Snippet id="dependencies/capabilities-alternatives" />
+
+Isso é útil quando um comando pode funcionar com:
+- Serviços de nuvem remotos (internet)
+- Serviços on-premise locais (LAN)
+
+## Exemplos do Mundo Real
+
+### Instalação de Pacotes
+
+<Snippet id="dependencies/capabilities-package-install" />
+
+### Pipeline de CI
+
+<Snippet id="dependencies/capabilities-ci-pipeline" />
+
+### Ambiente Híbrido
+
+<Snippet id="dependencies/capabilities-hybrid" />
+
+## Padrão Offline-First
+
+Projete comandos que funcionam offline quando possível:
+
+<Snippet id="dependencies/capabilities-offline-first" />
+
+## Contexto de Container
+
+Para runtime container, verificações de capacidade são realizadas no **host**, não dentro do container:
+
+<Snippet id="dependencies/capabilities-container-context" />
+
+Isso faz sentido porque:
+- Rede do container herda do host
+- Você está verificando se o deploy pode alcançar serviços externos
+- Rede do container é efêmera
+
+## Melhores Práticas
+
+1. **Verifique apenas quando necessário**: Não exija internet para tarefas que funcionam offline
+2. **Use alternativas**: Quando serviços locais ou de nuvem são intercambiáveis
+3. **Falhe rápido**: Verifique conectividade antes de iniciar operações longas
+4. **Forneça fallbacks**: Ofereça alternativas offline quando possível
+
+## Próximos Passos
+
+- [Environment Variables](./env-vars) - Verificar variáveis de ambiente requeridas
+- [Custom Checks](./custom-checks) - Escrever scripts de validação personalizados
