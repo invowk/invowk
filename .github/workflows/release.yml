@@ -326,7 +326,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
         with:
-          cosign-release: v3.0.5
+          cosign-release: v2.6.1
 
       # Use a GitHub App token so the release event triggers version-docs.yml.
       # Releases created with GITHUB_TOKEN do NOT trigger other workflows.

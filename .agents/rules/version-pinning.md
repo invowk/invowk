@@ -19,7 +19,7 @@ build configuration.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
   - `golangci-lint`: `v2.10.1` (via golangci-lint-action `version` input)
-  - `cosign`: `v3.0.5` (via `cosign-release` input in `.github/workflows/release.yml`)
+  - `cosign`: `v2.6.1` (via `cosign-release` input in `.github/workflows/release.yml`)
   - UPX: `5.1.0`
   - D2: `v0.7.1`
 
