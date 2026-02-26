@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/muesli/reflow/ansi"
 	"github.com/muesli/reflow/truncate"
 )
@@ -54,7 +55,7 @@ const (
 )
 
 // Modal ANSI variables: modal overlays render on a styled background, but child
-// components (huh, bubbles, external tools) may emit bare ANSI resets (\x1b[0m) that
+// components (bubbles, external tools) may emit bare ANSI resets (\x1b[0m) that
 // clear the background color, causing visual "holes." These variables enable efficient
 // replacement of bare resets with reset+background-restore sequences to maintain modal
 // visual continuity. All values are computed at declaration time from constants.
@@ -353,7 +354,7 @@ func RenderOverlay(base, overlay string, screenWidth, screenHeight TerminalDimen
 	styledOverlay := overlayStyle().Render(overlay)
 
 	// Safety net: sanitize any ANSI reset sequences that might cause color bleeding
-	// This catches escapes from third-party components (huh, bubbles) that we might
+	// This catches escapes from third-party components (bubbles, external tools) that we might
 	// have missed in the explicit background styling.
 	styledOverlay = sanitizeModalBackground(styledOverlay)
 
@@ -444,19 +445,51 @@ func sanitizeModalBackground(content string) string {
 		return content // No valid background color, skip processing
 	}
 
-	// Replace bare resets with reset + background restore
-	// We need to be careful not to double-process if ansiResetWithBg is already present
-	// First, temporarily replace existing "reset+bg" sequences to protect them
-	placeholder := "\x00MODAL_BG_SAFE\x00"
-	content = strings.ReplaceAll(content, ansiResetWithBg, placeholder)
+	// Bubble/Lip Gloss v2 can emit both:
+	// - full reset: ESC[0m
+	// - background-only reset: ESC[49m (or combined forms like ESC[39;49m)
+	//
+	// To keep modal background continuous, restore the modal background after any
+	// SGR sequence that resets all attributes or background.
+	sgrPattern := regexp.MustCompile(`\x1b\[([0-9;]*)m`)
 
-	// Now replace all remaining bare resets
-	content = strings.ReplaceAll(content, ansiReset, ansiResetWithBg)
+	var result strings.Builder
+	last := 0
+	matches := sgrPattern.FindAllStringSubmatchIndex(content, -1)
+	for _, m := range matches {
+		end := m[1]
+		paramStart, paramEnd := m[2], m[3]
 
-	// Restore the protected sequences
-	content = strings.ReplaceAll(content, placeholder, ansiResetWithBg)
+		// Copy everything up to and including this SGR sequence.
+		result.WriteString(content[last:end])
 
-	return content
+		params := types.DescriptionText(content[paramStart:paramEnd])
+		if shouldRestoreModalBackground(params) && !strings.HasPrefix(content[end:], modalBgANSI) {
+			result.WriteString(modalBgANSI)
+		}
+
+		last = end
+	}
+
+	result.WriteString(content[last:])
+	return result.String()
+}
+
+// shouldRestoreModalBackground returns true when an SGR parameter list resets
+// all attributes or explicitly resets background to default.
+func shouldRestoreModalBackground(params types.DescriptionText) bool {
+	// ESC[m is equivalent to ESC[0m.
+	if params == "" {
+		return true
+	}
+
+	for p := range strings.SplitSeq(params.String(), ";") {
+		if p == "0" || p == "49" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // overlayStyle returns the style for the overlay border.

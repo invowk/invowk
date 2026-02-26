@@ -5,10 +5,11 @@ package tui
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewChooseModel_SingleSelect(t *testing.T) {
@@ -89,7 +90,7 @@ func TestChooseModel_CancelWithEsc(t *testing.T) {
 	model := NewChooseModel(opts)
 
 	// Simulate Esc key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*chooseModel)
 
@@ -119,7 +120,7 @@ func TestChooseModel_CancelWithCtrlC(t *testing.T) {
 	model := NewChooseModel(opts)
 
 	// Simulate Ctrl+C key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	keyMsg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*chooseModel)
 
@@ -163,7 +164,7 @@ func TestChooseModel_ViewWhenDone(t *testing.T) {
 	model := NewChooseModel(opts)
 	model.done = true
 
-	view := model.View()
+	view := model.View().Content
 
 	if view != "" {
 		t.Errorf("expected empty view when done, got %q", view)
@@ -182,7 +183,7 @@ func TestChooseModel_ViewWithWidth(t *testing.T) {
 	model := NewChooseModel(opts)
 	model.SetSize(40, 10)
 
-	view := model.View()
+	view := model.View().Content
 
 	// View should be non-empty when not done
 	if view == "" {
@@ -401,6 +402,79 @@ func TestOption_Fields(t *testing.T) {
 	}
 }
 
+func TestSelectedIndicesFromOptions(t *testing.T) {
+	t.Parallel()
+
+	options := []Option[string]{
+		{Title: "A", Value: "a"},
+		{Title: "B", Value: "b", Selected: true},
+		{Title: "C", Value: "c", Selected: true},
+	}
+
+	got := selectedIndicesFromOptions(options)
+	want := []SelectionIndex{1, 2}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("expected selected indices %v, got %v", want, got)
+	}
+}
+
+func TestSelectedValuesByIndex_PreservesDuplicateTitles(t *testing.T) {
+	t.Parallel()
+
+	options := []Option[string]{
+		{Title: "Deploy", Value: "first"},
+		{Title: "Deploy", Value: "second"},
+		{Title: "Deploy", Value: "third"},
+	}
+
+	got := selectedValuesByIndex(options, []SelectionIndex{1, 2})
+	want := []string{"second", "third"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("expected values %v, got %v", want, got)
+	}
+}
+
+func TestNewChooseModel_MultiSelectPreselected(t *testing.T) {
+	t.Parallel()
+
+	opts := ChooseStringOptions{
+		Title:    "Select multiple",
+		Options:  []string{"A", "B", "C"},
+		Limit:    3,
+		Selected: []SelectionIndex{1, 2},
+		Config:   DefaultConfig(),
+	}
+
+	model := NewChooseModel(opts)
+
+	if len(model.selected) != 2 {
+		t.Fatalf("expected 2 pre-selected items, got %d", len(model.selected))
+	}
+	if !model.selected[1] {
+		t.Error("expected index 1 to be pre-selected")
+	}
+	if !model.selected[2] {
+		t.Error("expected index 2 to be pre-selected")
+	}
+
+	if len(*model.multiResult) != 2 {
+		t.Fatalf("expected 2 pre-selected results, got %d", len(*model.multiResult))
+	}
+	if (*model.multiResult)[0] != "B" {
+		t.Errorf("expected first pre-selected result 'B', got %q", (*model.multiResult)[0])
+	}
+	if (*model.multiResult)[1] != "C" {
+		t.Errorf("expected second pre-selected result 'C', got %q", (*model.multiResult)[1])
+	}
+
+	view := model.View().Content
+	if strings.Count(view, "[x]") != 2 {
+		t.Errorf("expected 2 checked boxes in initial view, got %d", strings.Count(view, "[x]"))
+	}
+}
+
 func TestChooseModel_MultiSelectToggle(t *testing.T) {
 	t.Parallel()
 
@@ -419,7 +493,7 @@ func TestChooseModel_MultiSelectToggle(t *testing.T) {
 	}
 
 	// Press space to toggle first item
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	keyMsg := tea.KeyPressMsg{Code: ' ', Text: " "}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*chooseModel)
 
@@ -449,7 +523,7 @@ func TestChooseModel_MultiSelectToggleWithX(t *testing.T) {
 	model := NewChooseModel(opts)
 
 	// Press 'x' to toggle
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
+	keyMsg := tea.KeyPressMsg{Code: 'x', Text: "x"}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*chooseModel)
 
@@ -476,7 +550,7 @@ func TestChooseModel_MultiSelectNavigation(t *testing.T) {
 	}
 
 	// Press down to move cursor
-	downMsg := tea.KeyMsg{Type: tea.KeyDown}
+	downMsg := tea.KeyPressMsg{Code: tea.KeyDown}
 	updatedModel, _ := model.Update(downMsg)
 	m := updatedModel.(*chooseModel)
 
@@ -485,7 +559,7 @@ func TestChooseModel_MultiSelectNavigation(t *testing.T) {
 	}
 
 	// Press 'j' to move cursor down again
-	jMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	jMsg := tea.KeyPressMsg{Code: 'j', Text: "j"}
 	updatedModel, _ = m.Update(jMsg)
 	m = updatedModel.(*chooseModel)
 
@@ -502,7 +576,7 @@ func TestChooseModel_MultiSelectNavigation(t *testing.T) {
 	}
 
 	// Press up to move cursor back
-	upMsg := tea.KeyMsg{Type: tea.KeyUp}
+	upMsg := tea.KeyPressMsg{Code: tea.KeyUp}
 	updatedModel, _ = m.Update(upMsg)
 	m = updatedModel.(*chooseModel)
 
@@ -511,7 +585,7 @@ func TestChooseModel_MultiSelectNavigation(t *testing.T) {
 	}
 
 	// Press 'k' to move cursor up again
-	kMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+	kMsg := tea.KeyPressMsg{Code: 'k', Text: "k"}
 	updatedModel, _ = m.Update(kMsg)
 	m = updatedModel.(*chooseModel)
 
@@ -540,8 +614,8 @@ func TestChooseModel_MultiSelectWithLimit(t *testing.T) {
 
 	model := NewChooseModel(opts)
 
-	spaceMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
-	downMsg := tea.KeyMsg{Type: tea.KeyDown}
+	spaceMsg := tea.KeyPressMsg{Code: ' ', Text: " "}
+	downMsg := tea.KeyPressMsg{Code: tea.KeyDown}
 
 	// Select first item
 	updatedModel, _ := model.Update(spaceMsg)
@@ -584,8 +658,8 @@ func TestChooseModel_MultiSelectNoLimit(t *testing.T) {
 
 	model := NewChooseModel(opts)
 
-	spaceMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
-	downMsg := tea.KeyMsg{Type: tea.KeyDown}
+	spaceMsg := tea.KeyPressMsg{Code: ' ', Text: " "}
+	downMsg := tea.KeyPressMsg{Code: tea.KeyDown}
 
 	// Select all items
 	updatedModel, _ := model.Update(spaceMsg)
@@ -617,7 +691,7 @@ func TestChooseModel_SingleSelectIgnoresSpaceToggle(t *testing.T) {
 	model := NewChooseModel(opts)
 
 	// Press space - should NOT toggle in single-select mode
-	spaceMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	spaceMsg := tea.KeyPressMsg{Code: ' ', Text: " "}
 	updatedModel, _ := model.Update(spaceMsg)
 	m := updatedModel.(*chooseModel)
 
@@ -640,8 +714,8 @@ func TestChooseModel_SyncSelectionsOrder(t *testing.T) {
 
 	model := NewChooseModel(opts)
 
-	spaceMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
-	downMsg := tea.KeyMsg{Type: tea.KeyDown}
+	spaceMsg := tea.KeyPressMsg{Code: ' ', Text: " "}
+	downMsg := tea.KeyPressMsg{Code: tea.KeyDown}
 
 	// Select C, then A (out of order)
 	// Move to C
@@ -654,7 +728,7 @@ func TestChooseModel_SyncSelectionsOrder(t *testing.T) {
 	m = updatedModel.(*chooseModel)
 
 	// Move back to A
-	upMsg := tea.KeyMsg{Type: tea.KeyUp}
+	upMsg := tea.KeyPressMsg{Code: tea.KeyUp}
 	updatedModel, _ = m.Update(upMsg)
 	m = updatedModel.(*chooseModel)
 	updatedModel, _ = m.Update(upMsg)
@@ -691,18 +765,18 @@ func TestChooseModel_MultiSelectVisualFeedback(t *testing.T) {
 	model := NewChooseModel(opts)
 
 	// Initial view should show unchecked boxes
-	view := model.View()
+	view := model.View().Content
 	if !strings.Contains(view, "[ ]") {
 		t.Error("expected unchecked boxes [ ] in initial view")
 	}
 
 	// Toggle first item
-	spaceMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	spaceMsg := tea.KeyPressMsg{Code: ' ', Text: " "}
 	updatedModel, _ := model.Update(spaceMsg)
 	m := updatedModel.(*chooseModel)
 
 	// View should now show checked box for first item
-	view = m.View()
+	view = m.View().Content
 	if !strings.Contains(view, "[x]") {
 		t.Error("expected checked box [x] after toggle")
 	}
@@ -717,7 +791,7 @@ func TestChooseModel_MultiSelectVisualFeedback(t *testing.T) {
 	m = updatedModel.(*chooseModel)
 
 	// Should be back to all unchecked
-	view = m.View()
+	view = m.View().Content
 	// Count occurrences of checked boxes
 	checkedCount := strings.Count(view, "[x]")
 	if checkedCount != 0 {
@@ -744,11 +818,11 @@ func TestChooseModel_MultiSelectForModal(t *testing.T) {
 	}
 
 	// Toggle and verify visual feedback
-	spaceMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	spaceMsg := tea.KeyPressMsg{Code: ' ', Text: " "}
 	updatedModel, _ := model.Update(spaceMsg)
 	m := updatedModel.(*chooseModel)
 
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "[x]") {
 		t.Error("expected checked box [x] in modal view after toggle")
 	}
@@ -858,17 +932,17 @@ func TestChooseStringOptions_JSONUnmarshalEnablesMultiSelect(t *testing.T) {
 	}
 
 	// Verify checkboxes render correctly
-	view := model.View()
+	view := model.View().Content
 	if !strings.Contains(view, "[ ]") {
 		t.Error("expected unchecked boxes [ ] in multi-select view")
 	}
 
 	// Toggle and verify visual feedback
-	spaceMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	spaceMsg := tea.KeyPressMsg{Code: ' ', Text: " "}
 	updatedModel, _ := model.Update(spaceMsg)
 	m := updatedModel.(*chooseModel)
 
-	view = m.View()
+	view = m.View().Content
 	if !strings.Contains(view, "[x]") {
 		t.Error("expected checked box [x] after toggle in multi-select mode")
 	}

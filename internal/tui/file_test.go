@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewFileModel(t *testing.T) {
@@ -67,7 +67,7 @@ func TestFileModel_CancelWithEsc(t *testing.T) {
 	model := NewFileModel(opts)
 
 	// Simulate Esc key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*fileModel)
 
@@ -97,7 +97,7 @@ func TestFileModel_CancelWithCtrlC(t *testing.T) {
 	model := NewFileModel(opts)
 
 	// Simulate Ctrl+C key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	keyMsg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*fileModel)
 
@@ -141,7 +141,7 @@ func TestFileModel_ViewWhenDone(t *testing.T) {
 	model := NewFileModel(opts)
 	model.done = true
 
-	view := model.View()
+	view := model.View().Content
 
 	if view != "" {
 		t.Errorf("expected empty view when done, got %q", view)
@@ -160,7 +160,7 @@ func TestFileModel_ViewWithWidth(t *testing.T) {
 	model := NewFileModel(opts)
 	model.SetSize(60, 15)
 
-	view := model.View()
+	view := model.View().Content
 
 	// View should be non-empty when not done
 	if view == "" {

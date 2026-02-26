@@ -4,10 +4,13 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/invowk/invowk/pkg/types"
+
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // All type declarations consolidated in a single block.
@@ -36,12 +39,15 @@ type (
 
 	// writeModel implements EmbeddableComponent for multi-line text input.
 	writeModel struct {
-		form      *huh.Form
-		result    *string
-		done      bool
-		cancelled bool
-		width     int
-		height    int
+		textarea    textarea.Model
+		result      *string
+		done        bool
+		cancelled   bool
+		width       int
+		height      int
+		title       types.DescriptionText
+		description types.DescriptionText
+		forModal    bool
 	}
 
 	// WriteBuilder provides a fluent API for building Write prompts.
@@ -52,62 +58,78 @@ type (
 
 // NewWriteModel creates an embeddable text area component.
 func NewWriteModel(opts WriteOptions) *writeModel {
-	return newWriteModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+	return newWriteModel(opts, false)
 }
 
 // NewWriteModelForModal creates an embeddable text area component with modal-specific styling.
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewWriteModelForModal(opts WriteOptions) *writeModel {
-	return newWriteModelWithTheme(opts, getModalHuhTheme())
+	return newWriteModel(opts, true)
 }
 
 // Init implements tea.Model.
 func (m *writeModel) Init() tea.Cmd {
-	return m.form.Init()
+	return m.textarea.Focus()
 }
 
 // Update implements tea.Model.
 func (m *writeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle cancel keys before passing to form
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
 		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
-			return m, nil
+			return m, tea.Quit
+		case "ctrl+d":
+			*m.result = m.textarea.Value()
+			m.done = true
+			return m, tea.Quit
+		}
+	case tea.WindowSizeMsg:
+		if m.width == 0 {
+			m.textarea.SetWidth(max(1, msg.Width))
 		}
 	}
 
-	// Pass to huh form
-	form, cmd := m.form.Update(msg)
-	if f, ok := form.(*huh.Form); ok {
-		m.form = f
-	}
-
-	// Check if form is complete
-	switch m.form.State {
-	case huh.StateCompleted:
-		m.done = true
-	case huh.StateAborted:
-		m.done = true
-		m.cancelled = true
-	case huh.StateNormal:
-		// Form still in progress
-	}
-
+	var cmd tea.Cmd
+	m.textarea, cmd = m.textarea.Update(msg)
 	return m, cmd
 }
 
 // View implements tea.Model.
-func (m *writeModel) View() string {
+func (m *writeModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
-	// Constrain the form view to the configured width to prevent overflow
+
+	var base lipgloss.Style
+	if m.forModal {
+		base = modalBaseStyle()
+	}
+
+	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
+	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
+
+	lines := make([]string, 0, 4)
+	if m.title != "" {
+		lines = append(lines, titleStyle.Render(m.title.String()))
+	}
+	if m.description != "" {
+		lines = append(lines, descStyle.Render(m.description.String()))
+	}
+	lines = append(lines,
+		m.textarea.View(),
+		helpStyle.Render("ctrl+d submit • esc cancel"),
+	)
+
+	view := strings.Join(lines, "\n")
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
 	}
-	return m.form.View()
+
+	return tea.NewView(view)
 }
 
 // IsDone implements EmbeddableComponent.
@@ -133,7 +155,12 @@ func (m *writeModel) Cancelled() bool {
 func (m *writeModel) SetSize(width, height TerminalDimension) {
 	m.width = int(width)
 	m.height = int(height)
-	m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
+	if width > 0 {
+		m.textarea.SetWidth(int(width))
+	}
+	if height > 0 {
+		m.textarea.SetHeight(int(height))
+	}
 }
 
 // Write prompts the user for multi-line text input.
@@ -233,43 +260,72 @@ func (b *WriteBuilder) Model() EmbeddableComponent {
 	return NewWriteModel(b.opts)
 }
 
-// newWriteModelWithTheme creates a text area model with a specific huh theme.
-func newWriteModelWithTheme(opts WriteOptions, theme *huh.Theme) *writeModel {
+// newWriteModel creates a text area model with component-local styles.
+func newWriteModel(opts WriteOptions, forModal bool) *writeModel {
 	var result string
 	if opts.Value != "" {
 		result = opts.Value
 	}
+	configuredWidth := 0
 
-	text := huh.NewText().
-		Title(opts.Title).
-		Description(opts.Description).
-		Placeholder(opts.Placeholder).
-		Value(&result)
-
+	ta := textarea.New()
+	ta.SetVirtualCursor(true)
+	ta.Placeholder = opts.Placeholder
+	ta.SetValue(result)
 	if opts.CharLimit > 0 {
-		text = text.CharLimit(opts.CharLimit)
+		ta.CharLimit = opts.CharLimit
 	}
-
-	if opts.Height > 0 {
-		text = text.Lines(int(opts.Height))
-	}
-
-	if opts.ShowLineNumbers {
-		text = text.ShowLineNumbers(true)
-	}
-
-	form := huh.NewForm(huh.NewGroup(text)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
+	ta.ShowLineNumbers = opts.ShowLineNumbers
 
 	if opts.Width > 0 {
-		form = form.WithWidth(int(opts.Width))
+		configuredWidth = int(opts.Width)
+		ta.SetWidth(configuredWidth)
 	} else if opts.Config.Width > 0 {
-		form = form.WithWidth(int(opts.Config.Width))
+		configuredWidth = int(opts.Config.Width)
+		ta.SetWidth(configuredWidth)
 	}
+	if opts.Height > 0 {
+		ta.SetHeight(int(opts.Height))
+	}
+	ta.SetStyles(newWriteStyles(opts.Config.Theme, forModal))
 
 	return &writeModel{
-		form:   form,
-		result: &result,
+		textarea:    ta,
+		result:      &result,
+		title:       types.DescriptionText(opts.Title),
+		description: types.DescriptionText(opts.Description),
+		width:       configuredWidth,
+		forModal:    forModal,
 	}
+}
+
+// newWriteStyles returns focused/blurred styles for write rendering.
+func newWriteStyles(theme Theme, forModal bool) textarea.Styles {
+	styles := textarea.DefaultStyles(isDarkTheme(theme))
+	if forModal {
+		base := modalBaseStyle()
+		styles.Focused.Base = base
+		styles.Focused.Text = base.Foreground(lipgloss.Color("#FFFFFF"))
+		styles.Focused.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Focused.CursorLine = base
+		styles.Focused.CursorLineNumber = base.Foreground(lipgloss.Color("#A78BFA"))
+		styles.Focused.LineNumber = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Focused.Prompt = base.Foreground(lipgloss.Color("#7C3AED"))
+		styles.Focused.EndOfBuffer = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Cursor.Color = lipgloss.Color("#FFFFFF")
+		styles.Blurred.Base = base
+		styles.Blurred.Text = base.Foreground(lipgloss.Color("#9CA3AF"))
+		styles.Blurred.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Blurred.CursorLine = base
+		styles.Blurred.CursorLineNumber = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Blurred.LineNumber = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Blurred.Prompt = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Blurred.EndOfBuffer = base.Foreground(lipgloss.Color("#6B7280"))
+		return styles
+	}
+
+	styles.Focused.CursorLineNumber = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+	styles.Focused.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+	styles.Cursor.Color = lipgloss.Color("212")
+	return styles
 }

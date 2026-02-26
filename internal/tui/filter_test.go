@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewFilterModel(t *testing.T) {
@@ -108,7 +108,7 @@ func TestFilterModel_CancelWithEsc_NotFiltering(t *testing.T) {
 	model := NewFilterModel(opts)
 
 	// When not in filtering mode, Esc should immediately cancel
-	keyMsg := tea.KeyMsg{Type: tea.KeyEscape}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*filterModel)
 
@@ -138,12 +138,12 @@ func TestFilterModel_TwoStageEscape(t *testing.T) {
 	model := NewFilterModel(opts)
 
 	// Step 1: Enter filter mode by pressing "/" (activates filtering)
-	slashMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}
+	slashMsg := tea.KeyPressMsg{Code: '/', Text: "/"}
 	updatedModel, _ := model.Update(slashMsg)
 	m := updatedModel.(*filterModel)
 
 	// Step 2: Type some filter text
-	typeMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+	typeMsg := tea.KeyPressMsg{Code: 'a', Text: "a"}
 	updatedModel, _ = m.Update(typeMsg)
 	m = updatedModel.(*filterModel)
 
@@ -153,7 +153,7 @@ func TestFilterModel_TwoStageEscape(t *testing.T) {
 	}
 
 	// Step 3: First Escape should clear filter, not cancel
-	escMsg := tea.KeyMsg{Type: tea.KeyEscape}
+	escMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 	updatedModel, _ = m.Update(escMsg)
 	m = updatedModel.(*filterModel)
 
@@ -189,7 +189,7 @@ func TestFilterModel_CancelWithCtrlC(t *testing.T) {
 	model := NewFilterModel(opts)
 
 	// Simulate Ctrl+C key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	keyMsg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*filterModel)
 
@@ -233,7 +233,7 @@ func TestFilterModel_ViewWhenDone(t *testing.T) {
 	model := NewFilterModel(opts)
 	model.done = true
 
-	view := model.View()
+	view := model.View().Content
 
 	if view != "" {
 		t.Errorf("expected empty view when done, got %q", view)
@@ -252,7 +252,7 @@ func TestFilterModel_ViewWithWidth(t *testing.T) {
 	model := NewFilterModel(opts)
 	model.SetSize(40, 10)
 
-	view := model.View()
+	view := model.View().Content
 
 	// View should be non-empty when not done
 	if view == "" {
@@ -312,7 +312,7 @@ func TestFilterModel_ToggleSelection(t *testing.T) {
 	}
 
 	// Simulate space key press to toggle selection (in multi-select mode)
-	keyMsg := tea.KeyMsg{Type: tea.KeySpace}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeySpace}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*filterModel)
 
@@ -368,7 +368,7 @@ func TestFilterModel_EnterSelection(t *testing.T) {
 	model := NewFilterModel(opts)
 
 	// Simulate Enter key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyEnter}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyEnter}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*filterModel)
 

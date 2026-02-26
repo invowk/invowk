@@ -5,6 +5,8 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestHexToANSIBackground(t *testing.T) {
@@ -111,6 +113,21 @@ func TestSanitizeModalBackground(t *testing.T) {
 			input:    "\x1b[31mRed\x1b[32mGreen",
 			expected: "\x1b[31mRed\x1b[32mGreen",
 		},
+		{
+			name:     "background reset sequence",
+			input:    "A\x1b[49mB",
+			expected: "A\x1b[49m" + bgEscape + "B",
+		},
+		{
+			name:     "combined sgr with background reset",
+			input:    "A\x1b[39;49mB",
+			expected: "A\x1b[39;49m" + bgEscape + "B",
+		},
+		{
+			name:     "already sanitized background reset sequence",
+			input:    "A\x1b[49m" + bgEscape + "B",
+			expected: "A\x1b[49m" + bgEscape + "B",
+		},
 	}
 
 	for _, tt := range tests {
@@ -120,6 +137,34 @@ func TestSanitizeModalBackground(t *testing.T) {
 			result := sanitizeModalBackground(tt.input)
 			if result != tt.expected {
 				t.Errorf("sanitizeModalBackground() mismatch\ngot:  %q\nwant: %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestShouldRestoreModalBackground(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		params   string
+		expected bool
+	}{
+		{name: "empty params (equivalent to 0m)", params: "", expected: true},
+		{name: "reset all", params: "0", expected: true},
+		{name: "background reset", params: "49", expected: true},
+		{name: "combined with background reset", params: "39;49", expected: true},
+		{name: "foreground only", params: "39", expected: false},
+		{name: "background set (not reset)", params: "48;5;234", expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := shouldRestoreModalBackground(types.DescriptionText(tt.params))
+			if got != tt.expected {
+				t.Errorf("shouldRestoreModalBackground(%q) = %v, want %v", tt.params, got, tt.expected)
 			}
 		})
 	}

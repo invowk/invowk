@@ -49,6 +49,35 @@ func TestNativeRuntime_InlineScript(t *testing.T) {
 	}
 }
 
+// TestNativeRuntime_InlineScriptSmoke runs in all modes (including -short) to
+// keep a fast native-runtime execution path covered in quick feedback loops.
+func TestNativeRuntime_InlineScriptSmoke(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	cmd := testCommandWithScript("smoke", "echo native-smoke", invowkfile.RuntimeNative)
+
+	rt := NewNativeRuntime()
+	ctx := NewExecutionContext(context.Background(), cmd, inv)
+
+	var stdout bytes.Buffer
+	ctx.IO.Stdout = &stdout
+	ctx.IO.Stderr = &bytes.Buffer{}
+
+	result := rt.Execute(ctx)
+	if result.ExitCode != 0 {
+		t.Fatalf("Execute() exit code = %d, want 0, error: %v", result.ExitCode, result.Error)
+	}
+
+	output := strings.TrimSpace(stdout.String())
+	if !strings.Contains(output, "native-smoke") {
+		t.Fatalf("Execute() output = %q, want substring %q", output, "native-smoke")
+	}
+}
+
 func TestNativeRuntime_MultiLineScript(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")

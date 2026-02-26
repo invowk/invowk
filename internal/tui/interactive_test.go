@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewInteractiveModel(t *testing.T) {
@@ -162,18 +162,18 @@ func TestInteractiveModel_HandleKeyMsg_CompletedState(t *testing.T) {
 			// Initialize viewport by sending WindowSizeMsg first
 			model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
-			keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tt.key)}
+			keyMsg := tea.KeyPressMsg{Code: rune(tt.key[0]), Text: tt.key}
 			switch tt.key {
 			case "enter":
-				keyMsg = tea.KeyMsg{Type: tea.KeyEnter}
+				keyMsg = tea.KeyPressMsg{Code: tea.KeyEnter}
 			case "esc":
-				keyMsg = tea.KeyMsg{Type: tea.KeyEscape}
+				keyMsg = tea.KeyPressMsg{Code: tea.KeyEscape}
 			case "up":
-				keyMsg = tea.KeyMsg{Type: tea.KeyUp}
+				keyMsg = tea.KeyPressMsg{Code: tea.KeyUp}
 			case "down":
-				keyMsg = tea.KeyMsg{Type: tea.KeyDown}
+				keyMsg = tea.KeyPressMsg{Code: tea.KeyDown}
 			case keyCtrlC:
-				keyMsg = tea.KeyMsg{Type: tea.KeyCtrlC}
+				keyMsg = tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 			}
 
 			_, cmd := model.handleKeyMsg(keyMsg)
@@ -194,7 +194,7 @@ func TestInteractiveModel_HandleKeyMsg_ExecutingState(t *testing.T) {
 	model.state = stateExecuting
 
 	// Regular keys during execution should not cause quit (without PTY, they're just ignored)
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+	keyMsg := tea.KeyPressMsg{Code: 'a', Text: "a"}
 
 	_, cmd := model.handleKeyMsg(keyMsg)
 
@@ -215,10 +215,11 @@ func TestInteractiveModel_View_NotReady(t *testing.T) {
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 
 	view := model.View()
+	viewContent := view.Content
 
 	expected := "Initializing..."
-	if view != expected {
-		t.Errorf("expected view %q, got %q", expected, view)
+	if viewContent != expected {
+		t.Errorf("expected view %q, got %q", expected, viewContent)
 	}
 }
 
@@ -234,13 +235,14 @@ func TestInteractiveModel_View_Ready(t *testing.T) {
 	model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	view := model.View()
+	viewContent := view.Content
 
 	// Check that view contains expected elements
-	if view == "Initializing..." {
+	if viewContent == "Initializing..." {
 		t.Error("expected view to be rendered, not 'Initializing...'")
 	}
 	// The view should contain the title
-	if view == "" {
+	if viewContent == "" {
 		t.Error("expected non-empty view")
 	}
 }

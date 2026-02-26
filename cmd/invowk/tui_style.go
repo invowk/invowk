@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -190,6 +190,8 @@ func runTuiStyle(cmd *cobra.Command, args []string) error {
 		style = style.Border(lipgloss.HiddenBorder())
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, style.Render(content)) // Terminal output; error non-critical
+	if _, err := lipgloss.Fprintln(os.Stdout, style.Render(content)); err != nil {
+		return fmt.Errorf("failed to write styled output: %w", err)
+	}
 	return nil
 }

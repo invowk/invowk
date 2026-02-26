@@ -8,13 +8,12 @@ import (
 	"io"
 	"os"
 
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // Const block placed before var/type (decorder: const → var → type → func).
 const (
-	// ThemeDefault uses the default huh theme.
+	// ThemeDefault uses the default style theme.
 	ThemeDefault Theme = "default"
 	// ThemeCharm uses the Charm theme.
 	ThemeCharm Theme = "charm"
@@ -266,148 +265,20 @@ func (s Style) Apply(text string) string {
 	return style.Render(text)
 }
 
-// getHuhTheme converts a Theme to a huh.Theme.
-func getHuhTheme(t Theme) *huh.Theme {
-	switch t {
-	case ThemeCharm:
-		return huh.ThemeCharm()
-	case ThemeDracula:
-		return huh.ThemeDracula()
-	case ThemeCatppuccin:
-		return huh.ThemeCatppuccin()
-	case ThemeBase16:
-		return huh.ThemeBase16()
-	case ThemeDefault:
-		return huh.ThemeBase()
-	}
-	return huh.ThemeBase() // Fallback for any future theme values
-}
-
 // modalBaseStyle returns a lipgloss style with the modal background color.
 // This is the foundation for ALL modal styles to prevent color bleeding.
 func modalBaseStyle() lipgloss.Style {
 	return lipgloss.NewStyle().Background(modalBgColor)
 }
 
-// getModalHuhTheme returns a huh theme customized for modal overlays.
-// It uses EXPLICIT background colors on ALL styles to prevent color bleeding.
-// This is critical: terminal "transparent" backgrounds don't exist - not setting
-// a background causes the terminal's default background to show through after
-// any ANSI reset sequence.
-func getModalHuhTheme() *huh.Theme {
-	// Start with a completely fresh theme to avoid inheriting any backgrounds
-	t := &huh.Theme{}
-
-	// Define colors that work well on the modal background
-	primary := lipgloss.Color("#7C3AED")   // Purple - matches modal border
-	secondary := lipgloss.Color("#A78BFA") // Light purple
-	text := lipgloss.Color("#FFFFFF")      // White
-	dimmed := lipgloss.Color("#6B7280")    // Gray
-	errorColor := lipgloss.Color("#EF4444")
-
-	// Create base style WITH EXPLICIT BACKGROUND (critical - this prevents color bleeding)
-	// Every style must have the modal background to ensure consistent rendering.
-	base := modalBaseStyle()
-
-	// === FOCUSED FIELD STYLES ===
-	t.Focused.Base = base
-	t.Focused.Title = base.Foreground(primary).Bold(true)
-	t.Focused.Description = base.Foreground(dimmed)
-	t.Focused.ErrorIndicator = base.Foreground(errorColor)
-	t.Focused.ErrorMessage = base.Foreground(errorColor)
-
-	// Text input styles - ALL have explicit backgrounds
-	t.Focused.TextInput.Cursor = base.Foreground(text)
-	t.Focused.TextInput.CursorText = base.Foreground(text)
-	t.Focused.TextInput.Placeholder = base.Foreground(dimmed)
-	t.Focused.TextInput.Prompt = base.Foreground(secondary)
-	t.Focused.TextInput.Text = base.Foreground(text)
-
-	// Select/option styles - ALL have explicit backgrounds
-	t.Focused.SelectSelector = base.Foreground(primary).Bold(true)
-	t.Focused.Option = base.Foreground(text)
-	t.Focused.NextIndicator = base.Foreground(dimmed)
-	t.Focused.PrevIndicator = base.Foreground(dimmed)
-
-	// Multi-select styles - ALL have explicit backgrounds
-	t.Focused.MultiSelectSelector = base.Foreground(primary).Bold(true)
-	t.Focused.SelectedOption = base.Foreground(secondary)
-	t.Focused.SelectedPrefix = base.Foreground(primary)
-	t.Focused.UnselectedOption = base.Foreground(text)
-	t.Focused.UnselectedPrefix = base.Foreground(dimmed)
-
-	// Button styles - FocusedButton gets primary background, BlurredButton gets modal background
-	t.Focused.FocusedButton = lipgloss.NewStyle().
-		Foreground(text).
-		Background(primary).
-		Padding(0, 1)
-	t.Focused.BlurredButton = base.
-		Foreground(dimmed).
-		Padding(0, 1)
-
-	// File picker styles - ALL have explicit backgrounds
-	t.Focused.Directory = base.Foreground(primary)
-	t.Focused.File = base.Foreground(text)
-
-	// Card style (wraps each field) - explicit background
-	t.Focused.Card = base
-
-	// Note (for additional info) - explicit background
-	t.Focused.NoteTitle = base.Foreground(primary).Bold(true)
-
-	// === BLURRED FIELD STYLES ===
-	t.Blurred.Base = base
-	t.Blurred.Title = base.Foreground(dimmed)
-	t.Blurred.Description = base.Foreground(dimmed)
-	t.Blurred.ErrorIndicator = base.Foreground(errorColor)
-	t.Blurred.ErrorMessage = base.Foreground(errorColor)
-
-	// Blurred text input - ALL have explicit backgrounds
-	t.Blurred.TextInput.Cursor = base.Foreground(dimmed)
-	t.Blurred.TextInput.CursorText = base.Foreground(dimmed)
-	t.Blurred.TextInput.Placeholder = base.Foreground(dimmed)
-	t.Blurred.TextInput.Prompt = base.Foreground(dimmed)
-	t.Blurred.TextInput.Text = base.Foreground(dimmed)
-
-	// Blurred select styles - ALL have explicit backgrounds
-	t.Blurred.SelectSelector = base.Foreground(dimmed)
-	t.Blurred.Option = base.Foreground(dimmed)
-	t.Blurred.NextIndicator = base.Foreground(dimmed)
-	t.Blurred.PrevIndicator = base.Foreground(dimmed)
-
-	// Blurred multi-select - ALL have explicit backgrounds
-	t.Blurred.MultiSelectSelector = base.Foreground(dimmed)
-	t.Blurred.SelectedOption = base.Foreground(dimmed)
-	t.Blurred.SelectedPrefix = base.Foreground(dimmed)
-	t.Blurred.UnselectedOption = base.Foreground(dimmed)
-	t.Blurred.UnselectedPrefix = base.Foreground(dimmed)
-
-	// Blurred buttons - ALL have explicit backgrounds
-	t.Blurred.FocusedButton = base.Foreground(dimmed).Padding(0, 1)
-	t.Blurred.BlurredButton = base.Foreground(dimmed).Padding(0, 1)
-
-	// Blurred file picker - ALL have explicit backgrounds
-	t.Blurred.Directory = base.Foreground(dimmed)
-	t.Blurred.File = base.Foreground(dimmed)
-
-	// Blurred card - explicit background
-	t.Blurred.Card = base
-
-	// Blurred note - explicit background
-	t.Blurred.NoteTitle = base.Foreground(dimmed)
-
-	// === HELP STYLES ===
-	t.Help.ShortKey = base.Foreground(dimmed)
-	t.Help.ShortDesc = base.Foreground(dimmed)
-	t.Help.ShortSeparator = base.Foreground(dimmed)
-	t.Help.FullKey = base.Foreground(dimmed)
-	t.Help.FullDesc = base.Foreground(dimmed)
-	t.Help.FullSeparator = base.Foreground(dimmed)
-	t.Help.Ellipsis = base.Foreground(dimmed)
-
-	// === FORM STYLES ===
-	// These are empty to prevent any form-level background bleeding
-	t.Form = huh.FormStyles{}
-
-	return t
+// isDarkTheme returns whether the given theme should use dark-oriented defaults.
+func isDarkTheme(t Theme) bool {
+	switch t {
+	case ThemeBase16:
+		return false
+	case ThemeDefault, ThemeCharm, ThemeDracula, ThemeCatppuccin:
+		return true
+	default:
+		return true
+	}
 }

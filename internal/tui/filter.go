@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -95,7 +95,7 @@ func (m *filterModel) Init() tea.Cmd {
 // Update implements tea.Model.
 func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case keyCtrlC:
 			m.done = true
@@ -114,7 +114,7 @@ func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			m.done = true
 			return m, tea.Quit
-		case "tab", " ":
+		case "tab", "space":
 			if m.limit > 1 || m.noLimit {
 				// Multi-select mode (limit > 1 or no limit)
 				// Note: limit=1 is single-select, space/tab don't toggle
@@ -137,15 +137,16 @@ func (m *filterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View implements tea.Model.
-func (m *filterModel) View() string {
+func (m *filterModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
 	// Constrain the list view to the configured width to prevent overflow in modal overlays
+	view := m.list.View()
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.list.View())
+		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
 	}
-	return m.list.View()
+	return tea.NewView(view)
 }
 
 // IsDone implements EmbeddableComponent.
@@ -497,6 +498,7 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		delegate.Styles.DimmedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	}
 	delegate.ShowDescription = false
+	delegate.SetSpacing(0)
 
 	l := list.New(items, delegate, width, height)
 	l.Title = opts.Title
@@ -512,8 +514,6 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
 		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
 		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.FilterPrompt = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.FilterCursor = base.Foreground(lipgloss.Color("#FFFFFF"))
 
 		// Additional styles - ALL have explicit backgrounds
 		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
@@ -530,20 +530,27 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		l.Styles.DefaultFilterCharacterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
 		l.Styles.ArabicPagination = base.Foreground(lipgloss.Color("#6B7280"))
 
-		// Customize the filter input - ALL have explicit backgrounds
-		l.FilterInput.PromptStyle = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.FilterInput.TextStyle = base.Foreground(lipgloss.Color("#FFFFFF"))
-		l.FilterInput.Cursor.Style = base.Foreground(lipgloss.Color("#FFFFFF"))
-		l.FilterInput.PlaceholderStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.Filter.Focused.Prompt = base.Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.Filter.Focused.Text = base.Foreground(lipgloss.Color("#FFFFFF"))
+		l.Styles.Filter.Focused.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.Filter.Focused.Suggestion = base.Foreground(lipgloss.Color("#A78BFA"))
+		l.Styles.Filter.Blurred.Prompt = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.Filter.Blurred.Text = base.Foreground(lipgloss.Color("#9CA3AF"))
+		l.Styles.Filter.Blurred.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.Filter.Blurred.Suggestion = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.Filter.Cursor.Color = lipgloss.Color("#FFFFFF")
 	} else {
 		// Default list styles
 		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
 		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-		l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+		l.Styles.Filter.Focused.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+		l.Styles.Filter.Blurred.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		l.Styles.Filter.Cursor.Color = lipgloss.Color("212")
 	}
+
+	l.FilterInput.SetStyles(l.Styles.Filter)
 
 	if opts.Placeholder != "" {
 		l.FilterInput.Placeholder = opts.Placeholder

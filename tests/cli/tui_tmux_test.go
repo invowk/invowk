@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -74,11 +76,8 @@ func (s *tmuxSession) kill() {
 	_ = exec.CommandContext(ctx, "tmux", "kill-session", "-t", s.name).Run()
 }
 
-// TestTUI_Confirm tests `invowk tui confirm` via tmux.
-// The confirm command communicates its result via exit code (0=yes, 1=no),
-// not stdout. We verify the exit code using an echo marker after the command.
-func TestTUI_Confirm(t *testing.T) {
-	t.Parallel()
+func requireTmux(t *testing.T) {
+	t.Helper()
 
 	if testing.Short() {
 		t.Skip("skipping TUI tmux test in short mode")
@@ -86,6 +85,19 @@ func TestTUI_Confirm(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not available")
 	}
+}
+
+func shellQuote(path string) string {
+	return strconv.Quote(path)
+}
+
+// TestTUI_Confirm tests `invowk tui confirm` via tmux.
+// The confirm command communicates its result via exit code (0=yes, 1=no),
+// not stdout. We verify the exit code using an echo marker after the command.
+func TestTUI_Confirm(t *testing.T) {
+	t.Parallel()
+
+	requireTmux(t)
 
 	t.Run("reject_with_shortcut", func(t *testing.T) {
 		t.Parallel()
@@ -150,12 +162,7 @@ func TestTUI_Confirm(t *testing.T) {
 func TestTUI_Choose(t *testing.T) {
 	t.Parallel()
 
-	if testing.Short() {
-		t.Skip("skipping TUI tmux test in short mode")
-	}
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not available")
-	}
+	requireTmux(t)
 
 	t.Run("navigate_and_select", func(t *testing.T) {
 		t.Parallel()
@@ -201,12 +208,7 @@ func TestTUI_Choose(t *testing.T) {
 func TestTUI_Input(t *testing.T) {
 	t.Parallel()
 
-	if testing.Short() {
-		t.Skip("skipping TUI tmux test in short mode")
-	}
-	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not available")
-	}
+	requireTmux(t)
 
 	t.Run("type_and_submit", func(t *testing.T) {
 		t.Parallel()
@@ -238,6 +240,185 @@ func TestTUI_Input(t *testing.T) {
 		output := s.capturePlain()
 		if !strings.Contains(output, "Hello World") {
 			t.Errorf("expected output to contain 'Hello World' (entered text), got:\n%s", output)
+		}
+	})
+}
+
+// TestTUI_Write exercises `invowk tui write` end-to-end via tmux.
+func TestTUI_Write(t *testing.T) {
+	t.Parallel()
+	requireTmux(t)
+
+	t.Run("multiline_submit", func(t *testing.T) {
+		t.Parallel()
+
+		s := newTmuxSession(t, "write-submit")
+		s.sendKeys(binaryPath+" tui write --title 'Enter notes'; echo INVOWK_EXIT:$?", "Enter")
+
+		if !s.waitFor("ctrl+d submit", 5*time.Second) {
+			t.Fatal("write TUI did not render within timeout")
+		}
+
+		s.sendKeys("Line 1")
+		s.sendKeys("Enter")
+		s.sendKeys("Line 2")
+		s.sendKeys("C-d")
+
+		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+			t.Fatal("write command did not exit within timeout")
+		}
+
+		output := s.capturePlain()
+		if !strings.Contains(output, "Line 1") || !strings.Contains(output, "Line 2") {
+			t.Errorf("expected submitted text in output, got:\n%s", output)
+		}
+	})
+}
+
+// TestTUI_Filter exercises `invowk tui filter` end-to-end via tmux.
+func TestTUI_Filter(t *testing.T) {
+	t.Parallel()
+	requireTmux(t)
+
+	t.Run("dismiss_with_escape", func(t *testing.T) {
+		t.Parallel()
+
+		s := newTmuxSession(t, "filter-select")
+		s.sendKeys("export INVOWK_FILTER_ONE=alpha_opt INVOWK_FILTER_TWO=beta_opt INVOWK_FILTER_THREE=gamma_opt", "Enter")
+		s.sendKeys(binaryPath+" tui filter \"$INVOWK_FILTER_ONE\" \"$INVOWK_FILTER_TWO\" \"$INVOWK_FILTER_THREE\"; echo INVOWK_EXIT:$?", "Enter")
+
+		if !s.waitFor("alpha_opt", 5*time.Second) {
+			t.Fatal("filter TUI did not render within timeout")
+		}
+
+		s.sendKeys("Escape")
+
+		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+			t.Fatal("filter command did not exit within timeout")
+		}
+	})
+}
+
+// TestTUI_File exercises `invowk tui file` cancellation flow via tmux.
+func TestTUI_File(t *testing.T) {
+	t.Parallel()
+	requireTmux(t)
+
+	t.Run("cancel_with_escape", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(tmpDir, "picked.txt"), []byte("picked"), 0o644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		s := newTmuxSession(t, "file-cancel")
+		command := fmt.Sprintf("%s tui file --allowed .txt %s && echo INVOWK_FILE_SELECTED || echo INVOWK_FILE_ABORTED", binaryPath, shellQuote(tmpDir))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("enter select", 5*time.Second) {
+			t.Fatal("file picker did not render within timeout")
+		}
+
+		s.sendKeys("Escape")
+
+		if !s.waitFor("INVOWK_FILE_ABORTED", 5*time.Second) {
+			t.Fatal("file picker command did not abort within timeout")
+		}
+
+		output := s.capturePlain()
+		if !strings.Contains(output, "INVOWK_FILE_ABORTED") {
+			t.Errorf("expected cancellation marker in output, got:\n%s", output)
+		}
+	})
+}
+
+// TestTUI_Table exercises `invowk tui table` selectable flow via tmux.
+func TestTUI_Table(t *testing.T) {
+	t.Parallel()
+	requireTmux(t)
+
+	t.Run("select_row", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		csvPath := filepath.Join(tmpDir, "rows.csv")
+		csvData := "name,age\nAlice,30\nBob,25\n"
+		if err := os.WriteFile(csvPath, []byte(csvData), 0o644); err != nil {
+			t.Fatalf("failed to create csv file: %v", err)
+		}
+
+		s := newTmuxSession(t, "table-select")
+		command := fmt.Sprintf("%s tui table --file %s --selectable; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath))
+		s.sendKeys(command, "Enter")
+
+		time.Sleep(500 * time.Millisecond)
+		s.sendKeys("Escape")
+
+		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+			t.Fatal("table command did not exit within timeout")
+		}
+	})
+}
+
+// TestTUI_Spin exercises `invowk tui spin` end-to-end via tmux.
+func TestTUI_Spin(t *testing.T) {
+	t.Parallel()
+	requireTmux(t)
+
+	t.Run("run_command", func(t *testing.T) {
+		t.Parallel()
+
+		s := newTmuxSession(t, "spin-run")
+		spinMarker := fmt.Sprintf("INVOWK_SPIN_DONE_%d", time.Now().UnixNano())
+		s.sendKeys("export INVOWK_SPIN_MARKER="+spinMarker, "Enter")
+		s.sendKeys(binaryPath+" tui spin --title 'Running...' -- sh -c \"echo $INVOWK_SPIN_MARKER\"; echo INVOWK_EXIT:$?", "Enter")
+
+		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+			t.Fatal("spin command did not exit within timeout")
+		}
+
+		output := s.capturePlain()
+		if !strings.Contains(output, spinMarker) {
+			t.Errorf("expected spin command output in pane, got:\n%s", output)
+		}
+	})
+}
+
+// TestTUI_Pager exercises `invowk tui pager` dismissal flow via tmux.
+func TestTUI_Pager(t *testing.T) {
+	t.Parallel()
+	requireTmux(t)
+
+	t.Run("dismiss_with_q", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		pagerPath := filepath.Join(tmpDir, "pager.txt")
+		content := strings.Join([]string{
+			"Line 01", "Line 02", "Line 03", "Line 04", "Line 05",
+		}, "\n") + "\n"
+		if err := os.WriteFile(pagerPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to create pager file: %v", err)
+		}
+
+		s := newTmuxSession(t, "pager-dismiss")
+		command := fmt.Sprintf("%s tui pager %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(pagerPath))
+		s.sendKeys(command, "Enter")
+
+		if !s.waitFor("Line 01", 5*time.Second) {
+			t.Fatal("pager did not render within timeout")
+		}
+
+		s.sendKeys("q")
+
+		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+			t.Fatal("pager command did not exit within timeout")
+		}
+
+		output := s.capturePlain()
+		if !strings.Contains(output, "INVOWK_EXIT:0") {
+			t.Errorf("expected zero exit marker in output, got:\n%s", output)
 		}
 	})
 }

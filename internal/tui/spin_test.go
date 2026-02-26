@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewSpinModel(t *testing.T) {
@@ -85,7 +85,7 @@ func TestSpinModel_ViewWhenDone(t *testing.T) {
 	model := NewSpinModel(opts)
 	model.done = true
 
-	view := model.View()
+	view := model.View().Content
 
 	if view != "" {
 		t.Errorf("expected empty view when done, got %q", view)
@@ -104,7 +104,7 @@ func TestSpinModel_ViewWithWidth(t *testing.T) {
 	model := NewSpinModel(opts)
 	model.SetSize(40, 10)
 
-	view := model.View()
+	view := model.View().Content
 
 	// View should be non-empty when not done
 	if view == "" {
@@ -227,7 +227,7 @@ func TestSpinModel_UpdateCtrlC(t *testing.T) {
 	model := NewSpinModel(opts)
 
 	// Simulate Ctrl+C key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	keyMsg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	updatedModel, _ := model.Update(keyMsg)
 	m := updatedModel.(*spinModel)
 

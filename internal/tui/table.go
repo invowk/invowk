@@ -5,9 +5,9 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type (
@@ -76,7 +76,7 @@ func (m *tableModel) Init() tea.Cmd {
 }
 
 func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		switch keyMsg.String() {
 		case keyCtrlC, "esc", "q":
 			m.done = true
@@ -93,15 +93,16 @@ func (m *tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *tableModel) View() string {
+func (m *tableModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
 	// Constrain the table view to the configured width to prevent overflow in modal overlays
+	view := m.table.View()
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.table.View())
+		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
 	}
-	return m.table.View()
+	return tea.NewView(view)
 }
 
 // IsDone implements EmbeddableComponent.
@@ -137,6 +138,12 @@ func (m *tableModel) Cancelled() bool {
 func (m *tableModel) SetSize(width, height TerminalDimension) {
 	m.width = int(width)
 	m.height = int(height)
+	if width > 0 {
+		m.table.SetWidth(int(width))
+	}
+	if height > 0 {
+		m.table.SetHeight(int(height))
+	}
 }
 
 // Table displays a table and optionally allows row selection.

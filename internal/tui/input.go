@@ -4,10 +4,13 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/invowk/invowk/pkg/types"
+
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type (
@@ -35,12 +38,15 @@ type (
 
 	// inputModel implements EmbeddableComponent for text input.
 	inputModel struct {
-		form      *huh.Form
-		result    *string
-		done      bool
-		cancelled bool
-		width     int
-		height    int
+		input       textinput.Model
+		result      *string
+		done        bool
+		cancelled   bool
+		width       int
+		height      int
+		title       types.DescriptionText
+		description types.DescriptionText
+		forModal    bool
 	}
 
 	// InputBuilder provides a fluent API for building Input prompts.
@@ -51,62 +57,78 @@ type (
 
 // NewInputModel creates an embeddable input component.
 func NewInputModel(opts InputOptions) *inputModel {
-	return newInputModelWithTheme(opts, getHuhTheme(opts.Config.Theme))
+	return newInputModel(opts, false)
 }
 
 // NewInputModelForModal creates an embeddable input component with modal-specific styling.
 // This uses a theme that matches the modal overlay background to prevent color bleeding.
 func NewInputModelForModal(opts InputOptions) *inputModel {
-	return newInputModelWithTheme(opts, getModalHuhTheme())
+	return newInputModel(opts, true)
 }
 
 // Init implements tea.Model.
 func (m *inputModel) Init() tea.Cmd {
-	return m.form.Init()
+	return m.input.Focus()
 }
 
 // Update implements tea.Model.
 func (m *inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle cancel keys before passing to form
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
 		case keyCtrlC, "esc":
 			m.done = true
 			m.cancelled = true
-			return m, nil
+			return m, tea.Quit
+		case "enter":
+			*m.result = m.input.Value()
+			m.done = true
+			return m, tea.Quit
+		}
+	case tea.WindowSizeMsg:
+		if m.width == 0 {
+			m.input.SetWidth(max(1, msg.Width))
 		}
 	}
 
-	// Pass to huh form
-	form, cmd := m.form.Update(msg)
-	if f, ok := form.(*huh.Form); ok {
-		m.form = f
-	}
-
-	// Check if form is complete
-	switch m.form.State {
-	case huh.StateCompleted:
-		m.done = true
-	case huh.StateAborted:
-		m.done = true
-		m.cancelled = true
-	case huh.StateNormal:
-		// Form still in progress
-	}
-
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
 	return m, cmd
 }
 
 // View implements tea.Model.
-func (m *inputModel) View() string {
+func (m *inputModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
-	// Constrain the form view to the configured width to prevent overflow
+
+	var base lipgloss.Style
+	if m.forModal {
+		base = modalBaseStyle()
+	}
+
+	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
+	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
+
+	lines := make([]string, 0, 4)
+	if m.title != "" {
+		lines = append(lines, titleStyle.Render(m.title.String()))
+	}
+	if m.description != "" {
+		lines = append(lines, descStyle.Render(m.description.String()))
+	}
+	lines = append(lines,
+		m.input.View(),
+		helpStyle.Render("enter submit • esc cancel"),
+	)
+
+	view := strings.Join(lines, "\n")
 	if m.width > 0 {
-		return lipgloss.NewStyle().MaxWidth(m.width).Render(m.form.View())
+		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
 	}
-	return m.form.View()
+
+	return tea.NewView(view)
 }
 
 // IsDone implements EmbeddableComponent.
@@ -132,7 +154,9 @@ func (m *inputModel) Cancelled() bool {
 func (m *inputModel) SetSize(width, height TerminalDimension) {
 	m.width = int(width)
 	m.height = int(height)
-	m.form = m.form.WithWidth(int(width)).WithHeight(int(height))
+	if width > 0 {
+		m.input.SetWidth(int(width))
+	}
 }
 
 // Input prompts the user for a single line of text input.
@@ -232,43 +256,67 @@ func (b *InputBuilder) Model() EmbeddableComponent {
 	return NewInputModel(b.opts)
 }
 
-// newInputModelWithTheme creates an input model with a specific huh theme.
-func newInputModelWithTheme(opts InputOptions, theme *huh.Theme) *inputModel {
+// newInputModel creates an input model with component-local styles.
+func newInputModel(opts InputOptions, forModal bool) *inputModel {
 	var result string
 	if opts.Value != "" {
 		result = opts.Value
 	}
+	configuredWidth := 0
 
-	input := huh.NewInput().
-		Title(opts.Title).
-		Description(opts.Description).
-		Placeholder(opts.Placeholder).
-		Value(&result)
-
+	ti := textinput.New()
+	ti.Placeholder = opts.Placeholder
+	ti.SetValue(result)
+	ti.SetVirtualCursor(true)
 	if opts.CharLimit > 0 {
-		input = input.CharLimit(opts.CharLimit)
+		ti.CharLimit = opts.CharLimit
 	}
-
 	if opts.Password {
-		input = input.EchoMode(huh.EchoModePassword)
+		ti.EchoMode = textinput.EchoPassword
 	}
-
 	if opts.Prompt != "" {
-		input = input.Prompt(opts.Prompt)
+		ti.Prompt = opts.Prompt
 	}
-
-	form := huh.NewForm(huh.NewGroup(input)).
-		WithTheme(theme).
-		WithAccessible(opts.Config.Accessible)
-
 	if opts.Width > 0 {
-		form = form.WithWidth(int(opts.Width))
+		configuredWidth = int(opts.Width)
+		ti.SetWidth(configuredWidth)
 	} else if opts.Config.Width > 0 {
-		form = form.WithWidth(int(opts.Config.Width))
+		configuredWidth = int(opts.Config.Width)
+		ti.SetWidth(configuredWidth)
 	}
+	ti.SetStyles(newInputStyles(opts.Config.Theme, forModal))
 
 	return &inputModel{
-		form:   form,
-		result: &result,
+		input:       ti,
+		result:      &result,
+		title:       types.DescriptionText(opts.Title),
+		description: types.DescriptionText(opts.Description),
+		width:       configuredWidth,
+		forModal:    forModal,
 	}
+}
+
+// newInputStyles returns focused/blurred styles for input rendering.
+func newInputStyles(theme Theme, forModal bool) textinput.Styles {
+	styles := textinput.DefaultStyles(isDarkTheme(theme))
+	if forModal {
+		base := modalBaseStyle()
+		styles.Focused.Prompt = base.Foreground(lipgloss.Color("#7C3AED"))
+		styles.Focused.Text = base.Foreground(lipgloss.Color("#FFFFFF"))
+		styles.Focused.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Focused.Suggestion = base.Foreground(lipgloss.Color("#A78BFA"))
+		styles.Blurred.Prompt = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Blurred.Text = base.Foreground(lipgloss.Color("#9CA3AF"))
+		styles.Blurred.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Blurred.Suggestion = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Cursor.Color = lipgloss.Color("#FFFFFF")
+		return styles
+	}
+
+	styles.Focused.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+	styles.Focused.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	styles.Focused.Suggestion = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	styles.Blurred.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	styles.Cursor.Color = lipgloss.Color("212")
+	return styles
 }

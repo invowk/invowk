@@ -95,6 +95,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/discovery/`](.agents/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
 - [`.agents/skills/docs/`](.agents/skills/docs/) - Documentation workflow and Docusaurus website development.
 - [`.agents/skills/invowk-schema/`](.agents/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
+- [`.agents/skills/invowk-typesystem/`](.agents/skills/invowk-typesystem/) - Invowk value-type system guidance: IsValid contracts, primitive wrappers, aliases/re-exports, and catalog maintenance.
 - [`.agents/skills/native-mirror/`](.agents/skills/native-mirror/) - User-invokable (`/native-mirror`). Generate native_*.txtar mirrors from virtual tests with platform-split CUE.
 - [`.agents/skills/schema-sync-check/`](.agents/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
 - [`.agents/skills/server/`](.agents/skills/server/) - Server state machine pattern for SSH and TUI servers.
@@ -144,7 +145,7 @@ When working in a specific code area, apply these rules and skills:
 | `internal/benchmark/` | go-patterns, testing, licensing, commands | — |
 | `internal/watch/` | go-patterns, testing, licensing | — |
 | `pkg/platform/` | go-patterns, testing, windows, licensing | — |
-| `pkg/types/` | go-patterns, testing, licensing, package-design | — |
+| `pkg/types/` | go-patterns, testing, licensing, package-design | invowk-typesystem |
 | `tests/cli/` | testing | testing, cli, invowk-schema |
 | `tools/goplint/` | go-patterns, testing, licensing | — |
 
