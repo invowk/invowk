@@ -16,6 +16,36 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	// builtinTxtarCoverageExemptions lists leaf built-in commands that are
+	// intentionally exempt from txtar coverage checks.
+	builtinTxtarCoverageExemptions = map[string]string{
+		"tui input":   "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+		"tui choose":  "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+		"tui confirm": "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+		"tui write":   "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+		"tui filter":  "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+		"tui file":    "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+		"tui table":   "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+		"tui spin":    "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+		"tui pager":   "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
+	}
+
+	// tuiTmuxCoverageMarkers maps TUI command paths to the marker strings that
+	// must exist in tests/cli/tui_tmux_test.go.
+	tuiTmuxCoverageMarkers = map[string]string{
+		"tui input":   " tui input ",
+		"tui choose":  " tui choose ",
+		"tui confirm": " tui confirm ",
+		"tui write":   " tui write ",
+		"tui filter":  " tui filter ",
+		"tui file":    " tui file ",
+		"tui table":   " tui table ",
+		"tui spin":    " tui spin ",
+		"tui pager":   " tui pager ",
+	}
+)
+
 // TestBuiltinCommandTxtarCoverage verifies that every non-hidden, runnable,
 // leaf built-in command has at least one testscript (.txtar) file exercising it
 // in tests/cli/testdata/. This guards the constitution's 100% CLI integration
@@ -33,20 +63,6 @@ import (
 func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	t.Parallel()
 
-	// Exemptions: commands that require interactive TTY input and are tested
-	// via tmux/VHS instead of testscript. Each entry requires a documented reason.
-	exemptions := map[string]string{
-		"tui input":   "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
-		"tui choose":  "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
-		"tui confirm": "interactive TTY required; unit-tested in internal/tui/; E2E via tmux in tests/cli/tui_tmux_test.go",
-		"tui write":   "interactive TTY required; unit-tested in internal/tui/; txtar exempt (needs TTY)",
-		"tui filter":  "interactive TTY required; unit-tested in internal/tui/; txtar exempt (needs TTY)",
-		"tui file":    "interactive TTY required; unit-tested in internal/tui/; txtar exempt (needs TTY)",
-		"tui table":   "interactive TTY required; unit-tested in internal/tui/; txtar exempt (needs TTY)",
-		"tui spin":    "interactive TTY required; unit-tested in internal/tui/; txtar exempt (needs TTY)",
-		"tui pager":   "interactive TTY required; unit-tested in internal/tui/; txtar exempt (needs TTY)",
-	}
-
 	// Build the static Cobra command tree (no dynamic command registration).
 	app, err := NewApp(Dependencies{})
 	if err != nil {
@@ -58,7 +74,7 @@ func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	commands, aliasMap := collectLeafCommands(rootCmd)
 
 	// Two-way exemption verification: detect stale exemptions.
-	for exemptCmd, reason := range exemptions {
+	for exemptCmd, reason := range builtinTxtarCoverageExemptions {
 		if !commands[exemptCmd] {
 			t.Errorf("stale exemption: %q does not exist in Cobra tree (reason was: %s)", exemptCmd, reason)
 		}
@@ -82,7 +98,7 @@ func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	covered := scanTxtarCoverage(t, testdataDir, commands, aliasMap)
 
 	// Two-way exemption verification: detect unnecessary exemptions.
-	for exemptCmd, reason := range exemptions {
+	for exemptCmd, reason := range builtinTxtarCoverageExemptions {
 		if covered[exemptCmd] {
 			t.Errorf("unnecessary exemption: %q is covered by txtar tests — remove from exemptions (reason was: %s)", exemptCmd, reason)
 		}
@@ -91,7 +107,7 @@ func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	// Report uncovered commands (sorted for deterministic output).
 	var uncovered []string
 	for cmdPath := range commands {
-		if exemptions[cmdPath] != "" {
+		if builtinTxtarCoverageExemptions[cmdPath] != "" {
 			continue
 		}
 		if !covered[cmdPath] {
@@ -102,6 +118,41 @@ func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	sort.Strings(uncovered)
 	for _, cmdPath := range uncovered {
 		t.Errorf("uncovered command: %q has no txtar test in %s", cmdPath, testdataDir)
+	}
+}
+
+// TestTUIExemptionTmuxCoverage verifies that every TUI txtar exemption has an
+// explicit tmux e2e marker, preventing silent loss of e2e coverage.
+func TestTUIExemptionTmuxCoverage(t *testing.T) {
+	t.Parallel()
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("unable to determine test file path via runtime.Caller")
+	}
+	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
+	tmuxTestPath := filepath.Join(projectRoot, "tests", "cli", "tui_tmux_test.go")
+
+	content, err := os.ReadFile(tmuxTestPath)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", tmuxTestPath, err)
+	}
+
+	tmuxTests := string(content)
+	for cmdPath, marker := range tuiTmuxCoverageMarkers {
+		reason, ok := builtinTxtarCoverageExemptions[cmdPath]
+		if !ok {
+			t.Errorf("tmux marker listed for %q, but command is not in builtin txtar exemptions", cmdPath)
+			continue
+		}
+
+		if !strings.Contains(reason, "E2E via tmux") {
+			t.Errorf("exemption reason for %q must mention tmux e2e coverage, got: %q", cmdPath, reason)
+		}
+
+		if !strings.Contains(tmuxTests, marker) {
+			t.Errorf("missing tmux e2e marker for %q in %s", cmdPath, tmuxTestPath)
+		}
 	}
 }
 

@@ -1,0 +1,94 @@
+# Test: multi-source discovery with 3 levels (native runtime mirror)
+# Mirrors virtual_multi_source_full.txtar with platform-split native implementations.
+# Exercises invowkfile + local module + vendored module discovery in a single scenario.
+
+cd $WORK
+
+# Test 1: List commands — should show commands from all 3 sources
+exec invowk cmd
+stdout 'local-cmd'
+stdout 'mod-cmd'
+stdout 'vendored-cmd'
+
+# Test 2: Execute command from main invowkfile
+exec invowk cmd local-cmd
+stdout 'from invowkfile'
+! stderr .
+
+# Test 3: Execute command from local module
+exec invowk cmd mod-cmd
+stdout 'from local module'
+! stderr .
+
+# Test 4: Execute command from vendored module
+exec invowk cmd vendored-cmd
+stdout 'from vendored module'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "local-cmd"
+		description: "Command from main invowkfile"
+		implementations: [
+			{
+				script:    "echo 'from invowkfile'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'from invowkfile'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
+
+-- mymod.invowkmod/invowkmod.cue --
+module:  "mymod"
+version: "0.1.0"
+
+-- mymod.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "mod-cmd"
+		description: "Command from local module"
+		implementations: [
+			{
+				script:    "echo 'from local module'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'from local module'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
+
+-- mymod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue --
+module:  "dep"
+version: "1.0.0"
+
+-- mymod.invowkmod/invowk_modules/dep.invowkmod/invowkfile.cue --
+cmds: [
+	{
+		name:        "vendored-cmd"
+		description: "Command from vendored module"
+		implementations: [
+			{
+				script:    "echo 'from vendored module'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:    "Write-Output 'from vendored module'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]
