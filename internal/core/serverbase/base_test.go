@@ -25,7 +25,7 @@ func TestStateTransitions(t *testing.T) {
 		}
 
 		// Transition to Starting
-		ctx := context.Background()
+		ctx := t.Context()
 		if err := b.TransitionToStarting(ctx); err != nil {
 			t.Fatalf("TransitionToStarting failed: %v", err)
 		}
@@ -62,7 +62,7 @@ func TestStateTransitions(t *testing.T) {
 
 		b := NewBase()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		if err := b.TransitionToStarting(ctx); err != nil {
 			t.Fatalf("TransitionToStarting failed: %v", err)
 		}
@@ -113,7 +113,7 @@ func TestRaceConditions(t *testing.T) {
 		}
 
 		// Perform transitions
-		ctx := context.Background()
+		ctx := t.Context()
 		_ = b.TransitionToStarting(ctx)
 		b.TransitionToRunning()
 		b.TransitionToStopping()
@@ -127,7 +127,7 @@ func TestRaceConditions(t *testing.T) {
 
 		b := NewBase()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		if err := b.TransitionToStarting(ctx); err != nil {
 			t.Fatalf("TransitionToStarting failed: %v", err)
 		}
@@ -158,7 +158,7 @@ func TestIdempotency(t *testing.T) {
 
 		b := NewBase()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		if err := b.TransitionToStarting(ctx); err != nil {
 			t.Fatalf("first TransitionToStarting failed: %v", err)
 		}
@@ -175,7 +175,7 @@ func TestIdempotency(t *testing.T) {
 
 		b := NewBase()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		if err := b.TransitionToStarting(ctx); err != nil {
 			t.Fatalf("TransitionToStarting failed: %v", err)
 		}
@@ -217,7 +217,7 @@ func TestIdempotency(t *testing.T) {
 
 		b := NewBase()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		if err := b.TransitionToStarting(ctx); err != nil {
 			t.Fatalf("TransitionToStarting failed: %v", err)
 		}
@@ -244,7 +244,7 @@ func TestCancelledContext(t *testing.T) {
 
 		b := NewBase()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel() // Cancel immediately
 
 		err := b.TransitionToStarting(ctx)
@@ -262,13 +262,13 @@ func TestCancelledContext(t *testing.T) {
 
 		b := NewBase()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		if err := b.TransitionToStarting(ctx); err != nil {
 			t.Fatalf("TransitionToStarting failed: %v", err)
 		}
 
 		// Create a context that will be cancelled
-		waitCtx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		waitCtx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
 		defer cancel()
 
 		// Don't transition to Running, so WaitForReady should timeout
@@ -283,7 +283,7 @@ func TestCancelledContext(t *testing.T) {
 
 		b := NewBase()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		if err := b.TransitionToStarting(ctx); err != nil {
 			t.Fatalf("TransitionToStarting failed: %v", err)
 		}
@@ -293,7 +293,7 @@ func TestCancelledContext(t *testing.T) {
 			b.TransitionToRunning()
 		}()
 
-		waitCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		waitCtx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
 		err := b.WaitForReady(waitCtx)
@@ -386,7 +386,7 @@ func TestGoroutineTracking(t *testing.T) {
 
 	b := NewBase()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := b.TransitionToStarting(ctx); err != nil {
 		t.Fatalf("TransitionToStarting failed: %v", err)
 	}
@@ -426,7 +426,7 @@ func TestContext(t *testing.T) {
 		t.Error("expected nil context before Start")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := b.TransitionToStarting(ctx); err != nil {
 		t.Fatalf("TransitionToStarting failed: %v", err)
 	}

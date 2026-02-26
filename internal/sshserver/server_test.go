@@ -143,7 +143,7 @@ func TestServerStartStop(t *testing.T) {
 		t.Error("Server should not be running before Start()")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestServerDoubleStart(t *testing.T) {
 
 	srv := New(cfg)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestServerDoubleStop(t *testing.T) {
 
 	srv := New(cfg)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestGetConnectionInfo(t *testing.T) {
 		t.Error("GetConnectionInfo should fail when server is not running")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if startErr := srv.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
@@ -308,7 +308,7 @@ func TestServerState(t *testing.T) {
 		t.Errorf("Initial state should be Created, got %s", srv.State())
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
@@ -335,7 +335,7 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	srv := New(cfg)
 
 	// Create an already-cancelled context
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	err := srv.Start(ctx)
@@ -422,7 +422,7 @@ func TestServerStartWithUsedPort(t *testing.T) {
 	cfg1.Port = 0
 	srv1 := New(cfg1)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := srv1.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server1: %v", err)
 	}
@@ -451,7 +451,7 @@ func TestServerAccessorsAfterStart(t *testing.T) {
 	cfg.Port = 0
 	srv := New(cfg)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestServerWaitAfterStop(t *testing.T) {
 	cfg.Port = 0
 	srv := New(cfg)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
@@ -497,7 +497,7 @@ func TestServerWaitAfterFail(t *testing.T) {
 	srv := New(cfg)
 
 	// Use an already-cancelled context to force Start to fail
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	if err := srv.Start(ctx); err == nil {

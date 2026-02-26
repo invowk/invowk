@@ -67,6 +67,7 @@ func cleanupTestContainers(prefix string) {
 		}
 
 		// List containers matching the prefix (including stopped containers)
+		// Intentional: helper runs outside test function scope; no t.Context() available.
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		listCmd := exec.CommandContext(ctx, enginePath, "ps", "-a", "-q",
 			"--filter", "name="+prefix)
@@ -79,6 +80,7 @@ func cleanupTestContainers(prefix string) {
 
 		// Remove found containers (force remove to handle running containers)
 		for containerID := range strings.FieldsSeq(strings.TrimSpace(string(output))) {
+			// Intentional: keep cleanup independent from test-scoped cancellation.
 			rmCtx, rmCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			rmCmd := exec.CommandContext(rmCtx, enginePath, "rm", "-f", containerID)
 			_ = rmCmd.Run() // Best effort - ignore errors

@@ -173,7 +173,7 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 		Name:       "build",
 		ConfigPath: types.FilesystemPath("/tmp/custom.cue"),
 	}
-	ctx := contextWithConfigPath(context.Background(), string(req.ConfigPath))
+	ctx := contextWithConfigPath(t.Context(), string(req.ConfigPath))
 
 	_, _, diags, err := svc.discoverCommand(ctx, req)
 	if err != nil {

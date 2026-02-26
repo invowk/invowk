@@ -4,7 +4,6 @@ package uroot
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"strings"
 	"testing"
@@ -46,7 +45,7 @@ func TestTrCommand_Run_BasicTranslate(t *testing.T) {
 	stdinContent := "hello world\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -73,7 +72,7 @@ func TestTrCommand_Run_Lowercase(t *testing.T) {
 	stdinContent := "HELLO WORLD\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -99,7 +98,7 @@ func TestTrCommand_Run_Uppercase(t *testing.T) {
 	stdinContent := "hello world\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -125,7 +124,7 @@ func TestTrCommand_Run_Delete(t *testing.T) {
 	stdinContent := "hello123world456\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -152,7 +151,7 @@ func TestTrCommand_Run_Squeeze(t *testing.T) {
 	stdinContent := "helllllo   wooorld\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -179,7 +178,7 @@ func TestTrCommand_Run_Complement(t *testing.T) {
 	stdinContent := "hello123world\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -206,7 +205,7 @@ func TestTrCommand_Run_ROT13(t *testing.T) {
 	stdinContent := "hello\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -230,7 +229,7 @@ func TestTrCommand_Run_EmptyInput(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -253,7 +252,7 @@ func TestTrCommand_Run_NoArgs(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader("test\n"),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -279,7 +278,7 @@ func TestTrCommand_Run_DeleteWithoutSet(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader("test\n"),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -302,7 +301,7 @@ func TestTrCommand_Run_SpecialChars(t *testing.T) {
 	stdinContent := "hello\tworld\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -329,7 +328,7 @@ func TestTrCommand_Run_NewlineToSpace(t *testing.T) {
 	stdinContent := "line1\nline2\nline3\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,

@@ -81,7 +81,7 @@ func TestLayerProvisioner_Provision_Disabled(t *testing.T) {
 
 	provisioner := NewLayerProvisioner(engine, cfg)
 
-	result, err := provisioner.Provision(context.Background(), container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestLayerProvisioner_Provision_CacheHit(t *testing.T) {
 
 	provisioner := NewLayerProvisioner(engine, cfg)
 
-	result, err := provisioner.Provision(context.Background(), container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestLayerProvisioner_Provision_ForceRebuild(t *testing.T) {
 
 	provisioner := NewLayerProvisioner(engine, cfg)
 
-	result, err := provisioner.Provision(context.Background(), container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestLayerProvisioner_Provision_CacheMiss(t *testing.T) {
 
 	provisioner := NewLayerProvisioner(engine, cfg)
 
-	result, err := provisioner.Provision(context.Background(), container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 
 	provisioner := NewLayerProvisioner(newMockEngine(), cfg)
 
-	tag, err := provisioner.GetProvisionedImageTag(context.Background(), container.ImageTag("debian:stable-slim"))
+	tag, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 	}
 
 	// Verify determinism: same inputs produce same tag
-	tag2, err := provisioner.GetProvisionedImageTag(context.Background(), container.ImageTag("debian:stable-slim"))
+	tag2, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 	}
 
 	// Different base image should produce different tag
-	tag3, err := provisioner.GetProvisionedImageTag(context.Background(), container.ImageTag("ubuntu:22.04"))
+	tag3, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("ubuntu:22.04"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
 
 		provisioner := NewLayerProvisioner(engine, cfg)
 
-		exists, err := provisioner.IsImageProvisioned(context.Background(), container.ImageTag("debian:stable-slim"))
+		exists, err := provisioner.IsImageProvisioned(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -350,7 +350,7 @@ func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
 
 		provisioner := NewLayerProvisioner(engine, cfg)
 
-		exists, err := provisioner.IsImageProvisioned(context.Background(), container.ImageTag("debian:stable-slim"))
+		exists, err := provisioner.IsImageProvisioned(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -382,12 +382,12 @@ func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 
 	provisioner := NewLayerProvisioner(newMockEngine(), cfg)
 
-	key1, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+	key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	key2, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+	key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -429,12 +429,12 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 		}
 		provisioner := NewLayerProvisioner(engine, cfg)
 
-		key1, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("ubuntu:22.04"))
+		key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("ubuntu:22.04"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -463,12 +463,12 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 		p1 := NewLayerProvisioner(engine, cfg1)
 		p2 := NewLayerProvisioner(engine, cfg2)
 
-		key1, err := p1.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := p2.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -507,12 +507,12 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 		p1 := NewLayerProvisioner(engine, cfgWithMods)
 		p2 := NewLayerProvisioner(engine, cfgWithoutMods)
 
-		key1, err := p1.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := p2.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -536,7 +536,7 @@ func TestLayerProvisioner_CalculateCacheKey_NoBinary(t *testing.T) {
 
 	provisioner := NewLayerProvisioner(engine, cfg)
 
-	key, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+	key, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

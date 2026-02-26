@@ -4,7 +4,6 @@ package uroot
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +53,7 @@ func TestMktempCommand_Run_TempFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -89,7 +88,7 @@ func TestMktempCommand_Run_TempDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -125,7 +124,7 @@ func TestMktempCommand_Run_Default(t *testing.T) {
 	// which returns the correct temp directory on all platforms.
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -156,7 +155,7 @@ func TestMktempCommand_Run_Template(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -181,7 +180,7 @@ func TestMktempCommand_Run_QuietSuppressesError(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -201,7 +200,7 @@ func TestMktempCommand_Run_InvalidDir(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -230,7 +229,7 @@ func TestMktempCommand_Run_RelativeDir(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -257,7 +256,7 @@ func TestMktempCommand_Run_TMPDIR(t *testing.T) {
 	customTmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:  strings.NewReader(""),
 		Stdout: &stdout,
 		Stderr: &stderr,
@@ -286,7 +285,7 @@ func TestMktempCommand_Run_QuietSuppressesError_EmptyStdout(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -313,7 +312,7 @@ func TestMktempCommand_Run_AllXTemplate(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -342,7 +341,7 @@ func TestMktempCommand_Run_FlagPOverridesTMPDIR(t *testing.T) {
 	tmpdirDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:  strings.NewReader(""),
 		Stdout: &stdout,
 		Stderr: &stderr,
@@ -377,7 +376,7 @@ func TestMktempCommand_Run_DirWithTemplate(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,

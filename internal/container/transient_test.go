@@ -26,12 +26,12 @@ func TestIsTransientError(t *testing.T) {
 		{name: "wrapped context deadline", err: fmt.Errorf("build failed: %w", context.DeadlineExceeded), want: false},
 		{name: "generic error", err: errors.New("containerfile not found"), want: false},
 		{name: "permission denied", err: errors.New("permission denied"), want: false},
-		{name: "exit code 1", err: newExitError(1), want: false},
-		{name: "exit code 2", err: newExitError(2), want: false},
+		{name: "exit code 1", err: newExitError(t.Context(), 1), want: false},
+		{name: "exit code 2", err: newExitError(t.Context(), 2), want: false},
 
 		// Transient: exit code 125
-		{name: "exit code 125", err: newExitError(125), want: true},
-		{name: "wrapped exit code 125", err: fmt.Errorf("build failed: %w", newExitError(125)), want: true},
+		{name: "exit code 125", err: newExitError(t.Context(), 125), want: true},
+		{name: "wrapped exit code 125", err: fmt.Errorf("build failed: %w", newExitError(t.Context(), 125)), want: true},
 
 		// Transient: rootless Podman race conditions
 		{name: "ping_group_range", err: errors.New("error reading /proc/sys/net/ipv4/ping_group_range"), want: true},
@@ -61,8 +61,8 @@ func TestIsTransientError(t *testing.T) {
 
 // newExitError creates an *exec.ExitError with the given exit code.
 // It does this by running a command that exits with the specified code.
-func newExitError(code int) *exec.ExitError {
-	cmd := exec.CommandContext(context.Background(), "sh", "-c", fmt.Sprintf("exit %d", code))
+func newExitError(ctx context.Context, code int) *exec.ExitError {
+	cmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("exit %d", code))
 	err := cmd.Run()
 
 	exitErr, ok := errors.AsType[*exec.ExitError](err)

@@ -4,7 +4,6 @@ package uroot
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,7 +64,7 @@ func TestFindCommand_Run_ByName(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -105,7 +104,7 @@ func TestFindCommand_Run_ByTypeFile(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -139,7 +138,7 @@ func TestFindCommand_Run_ByTypeDir(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -169,7 +168,7 @@ func TestFindCommand_Run_AllFiles(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,

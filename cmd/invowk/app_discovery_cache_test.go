@@ -55,7 +55,7 @@ func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T)
 		config: &staticConfigProvider{cfg: config.DefaultConfig()},
 	}
 
-	ctx := contextWithConfigPath(context.Background(), "")
+	ctx := contextWithConfigPath(t.Context(), "")
 
 	first, err := svc.GetCommand(ctx, "build")
 	if err != nil {
@@ -119,7 +119,7 @@ func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *te
 		config: &staticConfigProvider{cfg: config.DefaultConfig()},
 	}
 
-	ctx := contextWithConfigPath(context.Background(), "")
+	ctx := contextWithConfigPath(t.Context(), "")
 
 	// First call: DiscoverAndValidateCommandSet populates the cache.
 	validated, validErr := svc.DiscoverAndValidateCommandSet(ctx)
@@ -183,7 +183,7 @@ func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing
 
 	// Directly set config path in context to bypass contextWithConfigPath(), which
 	// attaches request cache.
-	ctx := context.WithValue(context.Background(), configPathContextKey{}, "")
+	ctx := context.WithValue(t.Context(), configPathContextKey{}, "")
 
 	first, err := svc.GetCommand(ctx, "build")
 	if err != nil {

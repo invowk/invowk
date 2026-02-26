@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -366,7 +365,7 @@ func TestCheckHostCustomCheckDependencies_NilDeps(t *testing.T) {
 
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
-		Context: context.Background(),
+		Context: t.Context(),
 	}
 
 	err := checkHostCustomCheckDependencies(nil, ctx)
@@ -383,7 +382,7 @@ func TestCheckHostCustomCheckDependencies_EmptyChecks(t *testing.T) {
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
-		Context: context.Background(),
+		Context: t.Context(),
 	}
 
 	err := checkHostCustomCheckDependencies(deps, ctx)
@@ -403,7 +402,7 @@ func TestCheckHostCustomCheckDependencies_PassingCheck(t *testing.T) {
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
-		Context: context.Background(),
+		Context: t.Context(),
 	}
 
 	err := checkHostCustomCheckDependencies(deps, ctx)
@@ -424,7 +423,7 @@ func TestCheckHostCustomCheckDependencies_FailingCheck(t *testing.T) {
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
-		Context: context.Background(),
+		Context: t.Context(),
 	}
 
 	err := checkHostCustomCheckDependencies(deps, ctx)
@@ -454,7 +453,7 @@ func TestCheckHostCustomCheckDependencies_AlternativesOR(t *testing.T) {
 	}
 	ctx := &runtime.ExecutionContext{
 		Command: &invowkfile.Command{Name: "test"},
-		Context: context.Background(),
+		Context: t.Context(),
 	}
 
 	// Second alternative passes → dependency satisfied

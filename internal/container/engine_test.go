@@ -3,7 +3,6 @@
 package container
 
 import (
-	"context"
 	"errors"
 	"testing"
 )
@@ -293,7 +292,7 @@ func TestDockerEngine_Integration(t *testing.T) {
 		t.Skip("Docker is not available, skipping integration tests")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("Version", func(t *testing.T) {
 		version, err := engine.Version(ctx)
@@ -338,7 +337,7 @@ func TestPodmanEngine_Integration(t *testing.T) {
 		t.Skip("Podman is not available, skipping integration tests")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("Version", func(t *testing.T) {
 		version, err := engine.Version(ctx)

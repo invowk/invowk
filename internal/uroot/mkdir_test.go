@@ -4,7 +4,6 @@ package uroot
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,7 +45,7 @@ func TestMkdirCommand_Run_SingleDir(t *testing.T) {
 	newDir := filepath.Join(tmpDir, "newdir")
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -77,7 +76,7 @@ func TestMkdirCommand_Run_MultipleDirs(t *testing.T) {
 	dir2 := filepath.Join(tmpDir, "dir2")
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -110,7 +109,7 @@ func TestMkdirCommand_Run_Parents(t *testing.T) {
 	deepDir := filepath.Join(tmpDir, "a", "b", "c")
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -145,7 +144,7 @@ func TestMkdirCommand_Run_ParentsExisting(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -173,7 +172,7 @@ func TestMkdirCommand_Run_ExistingWithoutParents(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -196,7 +195,7 @@ func TestMkdirCommand_Run_NoArgs(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -217,7 +216,7 @@ func TestMkdirCommand_Run_RelativePath(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,

@@ -4,7 +4,6 @@ package uroot
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,7 +57,7 @@ func TestTailCommand_Run_DefaultLines(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -105,7 +104,7 @@ func TestTailCommand_Run_CustomLines(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -140,7 +139,7 @@ func TestTailCommand_Run_Stdin(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent.String()),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -181,7 +180,7 @@ func TestTailCommand_Run_FewerLinesThanRequested(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -217,7 +216,7 @@ func TestTailCommand_Run_MultipleFiles(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -247,7 +246,7 @@ func TestTailCommand_Run_FileNotFound(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -279,7 +278,7 @@ func TestTailCommand_Run_EmptyFile(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -314,7 +313,7 @@ func TestTailCommand_Run_PlusN(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,

@@ -64,6 +64,7 @@ var (
 		//
 		// Retry logic handles transient OCI errors on rootless Podman.
 		for attempt := range maxRetries {
+			// Intentional: package-level probe has no *testing.T to derive context from.
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			result, err := engine.Run(ctx, container.RunOptions{
 				Image:   "debian:stable-slim",
@@ -195,6 +196,7 @@ func TestMain(m *testing.M) {
 	binaryPath = filepath.Join(binDir, binaryName)
 
 	// Build invowk
+	// Intentional: TestMain has no *testing.T/*testing.B, so t.Context()/b.Context() are unavailable.
 	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", binaryPath, ".")
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout

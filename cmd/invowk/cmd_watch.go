@@ -101,8 +101,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		// ExitError means the command ran to completion — the user may fix their
 		// code and save, so continue watching. Other errors indicate infrastructure
 		// problems that watching cannot fix; abort immediately.
-		var exitErr *ExitError
-		if errors.As(execErr, &exitErr) {
+		if exitErr, ok := errors.AsType[*ExitError](execErr); ok {
 			fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), exitErr.Code)
 		} else {
 			return fmt.Errorf("cannot start watch mode: %w", execErr)
@@ -144,8 +143,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 				// ExitError means the command ran — reset the infra counter.
 				// Other errors indicate infrastructure problems; escalate after
 				// repeated consecutive failures.
-				var exitErr *ExitError
-				if errors.As(execErr, &exitErr) {
+				if exitErr, ok := errors.AsType[*ExitError](execErr); ok {
 					consecutiveInfraErrors = 0
 					fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), exitErr.Code)
 				} else {

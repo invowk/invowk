@@ -3,7 +3,6 @@
 package discovery
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -547,7 +546,7 @@ cmds: [
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir)
 
-	result, err := d.DiscoverCommandSet(context.Background())
+	result, err := d.DiscoverCommandSet(t.Context())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}
@@ -588,7 +587,7 @@ cmds: [
 		t.Parallel()
 
 		// Current-dir invowkfiles don't have module prefix
-		lookup, err := d.GetCommand(context.Background(), "build")
+		lookup, err := d.GetCommand(t.Context(), "build")
 		if err != nil {
 			t.Fatalf("GetCommand() returned error: %v", err)
 		}
@@ -605,7 +604,7 @@ cmds: [
 	t.Run("NonExistentCommand", func(t *testing.T) {
 		t.Parallel()
 
-		lookup, err := d.GetCommand(context.Background(), "nonexistent")
+		lookup, err := d.GetCommand(t.Context(), "nonexistent")
 		if err == nil {
 			if lookup.Command != nil {
 				t.Error("GetCommand() should return nil command for non-existent command")
@@ -637,7 +636,7 @@ cmds: [
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir)
 
-	result, err := d.DiscoverCommandSet(context.Background())
+	result, err := d.DiscoverCommandSet(t.Context())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}
@@ -700,7 +699,7 @@ cmds: [{name: "build", description: "Current build", implementations: [{script: 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir)
 
-	result, err := d.DiscoverCommandSet(context.Background())
+	result, err := d.DiscoverCommandSet(t.Context())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}

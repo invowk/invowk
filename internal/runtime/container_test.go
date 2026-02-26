@@ -289,7 +289,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 			engine := NewMockEngine()
 			rt := NewContainerRuntimeWithEngine(engine)
 
-			ctx := NewExecutionContext(context.Background(), tt.cmd, inv)
+			ctx := NewExecutionContext(t.Context(), tt.cmd, inv)
 			// For the "nil implementation" test, we need to manually set it to nil
 			if tt.name == "nil implementation" {
 				ctx.SelectedImpl = nil
@@ -338,7 +338,7 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 
 	engine := NewMockEngine()
 	rt := NewContainerRuntimeWithEngine(engine)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	err := rt.Validate(ctx)
 	if err != nil {
@@ -372,7 +372,7 @@ func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 
 	engine := NewMockEngine()
 	rt := NewContainerRuntimeWithEngine(engine)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	err := rt.Validate(ctx)
 	if err != nil {
@@ -557,7 +557,7 @@ func TestGetContainerWorkDir(t *testing.T) {
 
 			engine := NewMockEngine()
 			rt := NewContainerRuntimeWithEngine(engine)
-			ctx := NewExecutionContext(context.Background(), cmd, inv)
+			ctx := NewExecutionContext(t.Context(), cmd, inv)
 			if tt.ctxWorkDirOverride != "" {
 				ctx.WorkDir = tt.ctxWorkDirOverride
 			}
@@ -774,7 +774,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	rt := NewContainerRuntimeWithEngine(engine)
 	rt.SetProvisionConfig(provCfg)
 
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stderr bytes.Buffer
 	execCtx.IO.Stderr = &stderr
@@ -825,7 +825,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	rt := NewContainerRuntimeWithEngine(engine)
 	rt.SetProvisionConfig(provCfg)
 
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stderr bytes.Buffer
 	execCtx.IO.Stderr = &stderr

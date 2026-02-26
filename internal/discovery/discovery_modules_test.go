@@ -3,7 +3,6 @@
 package discovery
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -185,7 +184,7 @@ version: "1.0.0"
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir)
 
-	result, err := d.DiscoverCommandSet(context.Background())
+	result, err := d.DiscoverCommandSet(t.Context())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}

@@ -44,8 +44,8 @@ func main() {
 func extractUpdateBaselinePath(args []string) string {
 	for _, arg := range args {
 		trimmed := strings.TrimLeft(arg, "-")
-		if strings.HasPrefix(trimmed, "update-baseline=") {
-			return strings.TrimPrefix(trimmed, "update-baseline=")
+		if after, ok := strings.CutPrefix(trimmed, "update-baseline="); ok {
+			return after
 		}
 	}
 	return ""

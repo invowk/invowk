@@ -3,7 +3,6 @@
 package runtime
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
@@ -56,7 +55,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					Env:      &invowkfile.EnvConfig{Files: []invowkfile.DotenvFilePath{"root.env"}},
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
-				return NewExecutionContext(context.Background(), cmd, inv)
+				return NewExecutionContext(t.Context(), cmd, inv)
 			},
 			wantVal: "level2_root_file",
 		},
@@ -77,7 +76,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					}},
 					Env: &invowkfile.EnvConfig{Files: []invowkfile.DotenvFilePath{"cmd.env"}},
 				}
-				return NewExecutionContext(context.Background(), cmd, inv)
+				return NewExecutionContext(t.Context(), cmd, inv)
 			},
 			wantVal: "level3_cmd_file",
 		},
@@ -98,7 +97,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					}},
 					Env: &invowkfile.EnvConfig{Files: []invowkfile.DotenvFilePath{"cmd.env"}},
 				}
-				return NewExecutionContext(context.Background(), cmd, inv)
+				return NewExecutionContext(t.Context(), cmd, inv)
 			},
 			wantVal: "level4_impl_file",
 		},
@@ -114,7 +113,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					},
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
-				return NewExecutionContext(context.Background(), cmd, inv)
+				return NewExecutionContext(t.Context(), cmd, inv)
 			},
 			wantVal: "level5_root_var",
 		},
@@ -137,7 +136,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					}},
 					Env: &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
 				}
-				return NewExecutionContext(context.Background(), cmd, inv)
+				return NewExecutionContext(t.Context(), cmd, inv)
 			},
 			wantVal: "level6_cmd_var",
 		},
@@ -158,7 +157,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					}},
 					Env: &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
 				}
-				return NewExecutionContext(context.Background(), cmd, inv)
+				return NewExecutionContext(t.Context(), cmd, inv)
 			},
 			wantVal: "level7_impl_var",
 		},
@@ -178,7 +177,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 						Env:       &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level7_impl_var"}},
 					}},
 				}
-				ctx := NewExecutionContext(context.Background(), cmd, inv)
+				ctx := NewExecutionContext(t.Context(), cmd, inv)
 				ctx.Env.ExtraEnv["KEY"] = "level8_extra"
 				return ctx
 			},
@@ -192,7 +191,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
-				ctx := NewExecutionContext(context.Background(), cmd, inv)
+				ctx := NewExecutionContext(t.Context(), cmd, inv)
 				ctx.Env.ExtraEnv["KEY"] = "level8_extra"
 				ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{invowkfile.DotenvFilePath(filepath.Join(tmpDir, "runtime.env"))}
 				return ctx
@@ -207,7 +206,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
-				ctx := NewExecutionContext(context.Background(), cmd, inv)
+				ctx := NewExecutionContext(t.Context(), cmd, inv)
 				ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{invowkfile.DotenvFilePath(filepath.Join(tmpDir, "runtime.env"))}
 				ctx.Env.RuntimeEnvVars = map[string]string{"KEY": "level10_runtime_var"}
 				return ctx
@@ -327,7 +326,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := NewExecutionContext(context.Background(), tt.cmd, tt.inv)
+			ctx := NewExecutionContext(t.Context(), tt.cmd, tt.inv)
 
 			env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritNone)
 			if tt.wantErr {

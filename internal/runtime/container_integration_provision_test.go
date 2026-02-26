@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +51,7 @@ func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -110,7 +109,7 @@ echo "Script executed from /workspace"
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -171,7 +170,7 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -218,7 +217,7 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout

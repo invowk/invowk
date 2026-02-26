@@ -154,7 +154,7 @@ func TestRunWithRetry_SerializationDecision(t *testing.T) {
 				Stderr:  &stderrBuf,
 			}
 
-			result, err := rt.runWithRetry(context.Background(), opts)
+			result, err := rt.runWithRetry(t.Context(), opts)
 			if err != nil {
 				t.Fatalf("runWithRetry() returned unexpected error: %v", err)
 			}
@@ -217,7 +217,7 @@ func TestRunWithRetry_StderrFlushedOnExhaustion(t *testing.T) {
 		Stderr:  &originalStderr,
 	}
 
-	result, err := rt.runWithRetry(context.Background(), opts)
+	result, err := rt.runWithRetry(t.Context(), opts)
 	// runWithRetry should return the last result (not an error) when retries
 	// exhaust due to transient exit codes (not transient errors).
 	if err != nil {
@@ -269,7 +269,7 @@ func TestRunWithRetry_StderrFlushedOnSuccess(t *testing.T) {
 		Stderr:  &originalStderr,
 	}
 
-	result, err := rt.runWithRetry(context.Background(), opts)
+	result, err := rt.runWithRetry(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("runWithRetry() returned unexpected error: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestRunWithRetry_StderrNotLeakedOnTransientRetry(t *testing.T) {
 		Stderr:  &originalStderr,
 	}
 
-	result, err := rt.runWithRetry(context.Background(), opts)
+	result, err := rt.runWithRetry(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("runWithRetry() returned unexpected error: %v", err)
 	}
@@ -353,7 +353,7 @@ func TestRunWithRetry_ContextCancelled(t *testing.T) {
 
 	rt := NewContainerRuntimeWithEngine(engine)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	// Cancel the context after the first attempt completes.
 	// We use a custom engine wrapper that cancels on the second call.

@@ -152,7 +152,7 @@ func newRunConfig() runConfig {
 	return rc
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
+func run(pass *analysis.Pass) (any, error) {
 	rc := newRunConfig()
 
 	cfg, err := loadConfig(rc.configPath)

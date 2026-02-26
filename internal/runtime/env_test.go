@@ -3,7 +3,6 @@
 package runtime
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +29,7 @@ func TestDefaultEnvBuilder_InheritAllFiltersInvowkVars(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("env", "echo test", invowkfile.RuntimeNative)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	builder := &DefaultEnvBuilder{
 		Environ: func() []string {
@@ -58,7 +57,7 @@ func TestDefaultEnvBuilder_InheritAllowAndDeny(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("env", "echo test", invowkfile.RuntimeNative)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.Env.InheritModeOverride = invowkfile.EnvInheritAllow
 	ctx.Env.InheritAllowOverride = []invowkfile.EnvVarName{"ALLOW_ME", "DENY_ME"}
 	ctx.Env.InheritDenyOverride = []invowkfile.EnvVarName{"DENY_ME"}
@@ -241,7 +240,7 @@ func TestResolveEnvInheritConfig(t *testing.T) {
 			t.Parallel()
 
 			cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
-			ctx := NewExecutionContext(context.Background(), cmd, inv)
+			ctx := NewExecutionContext(t.Context(), cmd, inv)
 			tt.setupCtx(ctx)
 
 			cfg := resolveEnvInheritConfig(ctx, tt.defaultMode)
@@ -393,7 +392,7 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 		},
 	}
 
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.Env.ExtraEnv = map[string]string{"SHARED": "extra_env", "EXTRA_ONLY": "extra_value"}
 	ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{invowkfile.DotenvFilePath(filepath.Join(tmpDir, "runtime.env"))}
 	ctx.Env.RuntimeEnvVars = map[string]string{"SHARED": "runtime_var", "RUNTIME_VAR_ONLY": "runtime_var"}
@@ -470,7 +469,7 @@ func TestBuildRuntimeEnv_EnvFiles(t *testing.T) {
 		},
 	}
 
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritNone)
 	if err != nil {
 		t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
@@ -529,7 +528,7 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 		},
 	}
 
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	env, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritNone)
 	if err != nil {
 		t.Fatalf("NewDefaultEnvBuilder().Build() error: %v", err)
@@ -565,7 +564,7 @@ func TestBuildRuntimeEnv_RuntimeFlags(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("flags-test", "echo test", invowkfile.RuntimeNative)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	// Pass absolute path to avoid CWD dependency.
 	ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{invowkfile.DotenvFilePath(filepath.Join(tmpDir, "flag.env"))}
 	ctx.Env.RuntimeEnvVars = map[string]string{"FLAG_VAR": "from_flag_var", "SHARED": "flag_var_wins"}
@@ -653,7 +652,7 @@ func TestBuildRuntimeEnv_InheritModes(t *testing.T) {
 				FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 			}
 			cmd := testCommandWithScript("inherit-test", "echo test", invowkfile.RuntimeNative)
-			ctx := NewExecutionContext(context.Background(), cmd, inv)
+			ctx := NewExecutionContext(t.Context(), cmd, inv)
 			ctx.Env.InheritModeOverride = tt.mode
 			ctx.Env.InheritAllowOverride = tt.allow
 			ctx.Env.InheritDenyOverride = tt.deny
@@ -688,7 +687,7 @@ func TestBuildRuntimeEnv_ExtraEnv(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
 	cmd := testCommandWithScript("extra-env-test", "echo test", invowkfile.RuntimeNative)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.Env.ExtraEnv = map[string]string{
 		"INVOWK_FLAG_VERBOSE": "true",
 		"INVOWK_ARG_FILE":     "test.txt",
@@ -730,7 +729,7 @@ func TestBuildRuntimeEnv_EnvFileNotFound(t *testing.T) {
 		},
 	}
 	cmd := testCommandWithScript("missing-env-test", "echo test", invowkfile.RuntimeNative)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	_, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritNone)
 	if err == nil {
@@ -753,7 +752,7 @@ func TestBuildRuntimeEnv_OptionalEnvFile(t *testing.T) {
 		},
 	}
 	cmd := testCommandWithScript("optional-env-test", "echo test", invowkfile.RuntimeNative)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	// Optional file should not cause an error
 	_, err := NewDefaultEnvBuilder().Build(ctx, invowkfile.EnvInheritNone)

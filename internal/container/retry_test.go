@@ -12,7 +12,7 @@ import (
 func TestRetryWithBackoff_SucceedsFirstAttempt(t *testing.T) {
 	t.Parallel()
 	calls := 0
-	err := RetryWithBackoff(context.Background(), 3, 10*time.Millisecond, func(attempt int) (bool, error) {
+	err := RetryWithBackoff(t.Context(), 3, 10*time.Millisecond, func(attempt int) (bool, error) {
 		calls++
 		return false, nil
 	})
@@ -27,7 +27,7 @@ func TestRetryWithBackoff_SucceedsFirstAttempt(t *testing.T) {
 func TestRetryWithBackoff_RetriesThenSucceeds(t *testing.T) {
 	t.Parallel()
 	calls := 0
-	err := RetryWithBackoff(context.Background(), 5, 10*time.Millisecond, func(attempt int) (bool, error) {
+	err := RetryWithBackoff(t.Context(), 5, 10*time.Millisecond, func(attempt int) (bool, error) {
 		calls++
 		if attempt < 2 {
 			return true, errors.New("transient")
@@ -45,7 +45,7 @@ func TestRetryWithBackoff_RetriesThenSucceeds(t *testing.T) {
 func TestRetryWithBackoff_ExhaustsRetries(t *testing.T) {
 	t.Parallel()
 	calls := 0
-	err := RetryWithBackoff(context.Background(), 3, 10*time.Millisecond, func(attempt int) (bool, error) {
+	err := RetryWithBackoff(t.Context(), 3, 10*time.Millisecond, func(attempt int) (bool, error) {
 		calls++
 		return true, errors.New("always transient")
 	})
@@ -62,7 +62,7 @@ func TestRetryWithBackoff_ExhaustsRetries(t *testing.T) {
 
 func TestRetryWithBackoff_ContextCancelledBetweenRetries(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	calls := 0
 	err := RetryWithBackoff(ctx, 5, 10*time.Millisecond, func(attempt int) (bool, error) {
 		calls++
@@ -85,7 +85,7 @@ func TestRetryWithBackoff_NonTransientExitsImmediately(t *testing.T) {
 	t.Parallel()
 	calls := 0
 	permanentErr := errors.New("permanent")
-	err := RetryWithBackoff(context.Background(), 5, 10*time.Millisecond, func(attempt int) (bool, error) {
+	err := RetryWithBackoff(t.Context(), 5, 10*time.Millisecond, func(attempt int) (bool, error) {
 		calls++
 		return false, permanentErr
 	})
@@ -100,7 +100,7 @@ func TestRetryWithBackoff_NonTransientExitsImmediately(t *testing.T) {
 func TestRetryWithBackoff_BackoffTiming(t *testing.T) {
 	t.Parallel()
 	start := time.Now()
-	_ = RetryWithBackoff(context.Background(), 3, 50*time.Millisecond, func(attempt int) (bool, error) {
+	_ = RetryWithBackoff(t.Context(), 3, 50*time.Millisecond, func(attempt int) (bool, error) {
 		return true, errors.New("retry")
 	})
 	elapsed := time.Since(start)

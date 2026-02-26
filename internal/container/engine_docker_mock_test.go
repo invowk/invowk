@@ -3,7 +3,6 @@
 package container
 
 import (
-	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,7 +30,7 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
@@ -55,7 +54,7 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
@@ -78,7 +77,7 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
@@ -98,7 +97,7 @@ func TestDockerEngine_Build_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
@@ -134,7 +133,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -158,7 +157,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -178,7 +177,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -199,7 +198,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -220,7 +219,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:       "debian:stable-slim",
@@ -242,7 +241,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -272,7 +271,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -294,7 +293,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -316,7 +315,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:      "debian:stable-slim",
@@ -337,7 +336,7 @@ func TestDockerEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:       "debian:stable-slim",
@@ -376,7 +375,7 @@ func TestDockerEngine_ImageExists_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		exists, err := engine.ImageExists(ctx, "myimage:latest")
 		if err != nil {
@@ -397,7 +396,7 @@ func TestDockerEngine_ImageExists_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		_, err := engine.ImageExists(ctx, "ghcr.io/invowk/invowk:v1.0.0")
 		if err != nil {
@@ -412,7 +411,7 @@ func TestDockerEngine_ImageExists_Arguments(t *testing.T) {
 func TestDockerEngine_ErrorPaths(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("build failure", func(t *testing.T) {
 		t.Parallel()
@@ -556,7 +555,7 @@ func TestDockerEngine_Remove_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		err := engine.Remove(ctx, "container123", false)
 		if err != nil {
@@ -573,7 +572,7 @@ func TestDockerEngine_Remove_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		err := engine.Remove(ctx, "container123", true)
 		if err != nil {
@@ -593,7 +592,7 @@ func TestDockerEngine_RemoveImage_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		err := engine.RemoveImage(ctx, "myimage:latest", false)
 		if err != nil {
@@ -610,7 +609,7 @@ func TestDockerEngine_RemoveImage_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestDockerEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		err := engine.RemoveImage(ctx, "myimage:latest", true)
 		if err != nil {
@@ -628,7 +627,7 @@ func TestDockerEngine_Version_Arguments(t *testing.T) {
 	recorder := NewMockCommandRecorder()
 	recorder.Stdout = "24.0.7"
 	engine := newTestDockerEngine(t, recorder)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	version, err := engine.Version(ctx)
 	if err != nil {
@@ -650,7 +649,7 @@ func TestDockerEngine_Exec_Arguments(t *testing.T) {
 
 	recorder := NewMockCommandRecorder()
 	engine := newTestDockerEngine(t, recorder)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("basic exec", func(t *testing.T) {
 		recorder.Reset()
@@ -740,7 +739,7 @@ func TestDockerEngine_Exec_Arguments(t *testing.T) {
 func TestDockerEngine_InspectImage_Arguments(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("basic inspect", func(t *testing.T) {
 		t.Parallel()

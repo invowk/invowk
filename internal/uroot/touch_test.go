@@ -4,7 +4,6 @@ package uroot
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,7 +46,7 @@ func TestTouchCommand_Run_CreateFile(t *testing.T) {
 	newFile := filepath.Join(tmpDir, "newfile.txt")
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -78,7 +77,7 @@ func TestTouchCommand_Run_MultipleFiles(t *testing.T) {
 	file2 := filepath.Join(tmpDir, "file2.txt")
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -122,7 +121,7 @@ func TestTouchCommand_Run_UpdateTimestamp(t *testing.T) {
 	modTimeBefore := infoBefore.ModTime()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -154,7 +153,7 @@ func TestTouchCommand_Run_NoCreate(t *testing.T) {
 	nonexistentFile := filepath.Join(tmpDir, "nonexistent.txt")
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -178,7 +177,7 @@ func TestTouchCommand_Run_NoArgs(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -199,7 +198,7 @@ func TestTouchCommand_Run_RelativePath(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,

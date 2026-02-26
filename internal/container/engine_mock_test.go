@@ -265,7 +265,7 @@ func TestMockCommandRecorder_Basic(t *testing.T) {
 	defer cleanup()
 
 	// Create and run a mock command
-	cmd := execCommand(context.Background(), "docker", "build", "-t", "test:latest", ".")
+	cmd := execCommand(t.Context(), "docker", "build", "-t", "test:latest", ".")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -288,7 +288,7 @@ func TestMockCommandRecorder_Output(t *testing.T) {
 	recorder, cleanup := withMockExecCommandOutput(t, "version 1.0.0", "", 0)
 	defer cleanup()
 
-	cmd := execCommand(context.Background(), "docker", "version")
+	cmd := execCommand(t.Context(), "docker", "version")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
@@ -309,7 +309,7 @@ func TestMockCommandRecorder_ExitCode(t *testing.T) {
 	_, cleanup := withMockExecCommandOutput(t, "", "build failed", 1)
 	defer cleanup()
 
-	cmd := execCommand(context.Background(), "docker", "build")
+	cmd := execCommand(t.Context(), "docker", "build")
 
 	err := cmd.Run()
 	if err == nil {

@@ -38,7 +38,7 @@ func TestServerStartStop(t *testing.T) {
 		t.Error("Server should not be running before Start()")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
@@ -62,7 +62,7 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	// Test health endpoint
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL()+"/health", http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL()+"/health", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestServerDoubleStart(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
@@ -116,7 +116,7 @@ func TestServerDoubleStop(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
@@ -156,7 +156,7 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	}
 
 	// Create an already-cancelled context
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	err = server.Start(ctx)
@@ -198,7 +198,7 @@ func TestServerAuthentication(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
@@ -212,7 +212,7 @@ func TestServerAuthentication(t *testing.T) {
 	reqBody, _ := json.Marshal(req)
 
 	// Test without auth header
-	httpReq, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -227,7 +227,7 @@ func TestServerAuthentication(t *testing.T) {
 	}
 
 	// Test with wrong token
-	httpReq, _ = http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ = http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer wrong-token")
 
@@ -248,14 +248,14 @@ func TestServerMethodNotAllowed(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
 	defer testutil.MustStop(t, server)
 
 	// Test GET request (should be method not allowed)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL()+"/tui", http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL()+"/tui", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -276,7 +276,7 @@ func TestServerUnknownComponent(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
@@ -300,7 +300,7 @@ func TestServerUnknownComponent(t *testing.T) {
 	}
 	reqBody, _ := json.Marshal(req)
 
-	httpReq, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+string(server.Token()))
 
@@ -333,14 +333,14 @@ func TestServerInvalidJSON(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if startErr := server.Start(ctx); startErr != nil {
 		t.Fatalf("Failed to start server: %v", startErr)
 	}
 	defer testutil.MustStop(t, server)
 
 	// Send invalid JSON
-	httpReq, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL()+"/tui", bytes.NewReader([]byte("not json")))
+	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL()+"/tui", bytes.NewReader([]byte("not json")))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+string(server.Token()))
 
@@ -409,7 +409,7 @@ func TestClientIsAvailable(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := server.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}

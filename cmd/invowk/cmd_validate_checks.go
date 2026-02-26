@@ -124,8 +124,7 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 	// Infrastructure failures must be surfaced immediately — if the container engine
 	// failed, no check ever ran, so we must not fall through to exit code comparison.
 	if result.Error != nil {
-		var exitErr *exec.ExitError
-		if !errors.As(result.Error, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](result.Error); !ok || exitErr == nil {
 			return fmt.Errorf("  • %s - container validation failed: %w", check.Name, result.Error)
 		}
 	}

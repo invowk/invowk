@@ -4,7 +4,6 @@ package uroot
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +43,7 @@ func TestCatCommand_Run_SingleFile(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -84,7 +83,7 @@ func TestCatCommand_Run_MultipleFiles(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -110,7 +109,7 @@ func TestCatCommand_Run_Stdin(t *testing.T) {
 	stdinContent := "from stdin\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -136,7 +135,7 @@ func TestCatCommand_Run_StdinDash(t *testing.T) {
 	stdinContent := "from stdin via dash\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(stdinContent),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -160,7 +159,7 @@ func TestCatCommand_Run_FileNotFound(t *testing.T) {
 	t.Parallel()
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -193,7 +192,7 @@ func TestCatCommand_Run_RelativePath(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(""),
 		Stdout:    &stdout,
 		Stderr:    &stderr,

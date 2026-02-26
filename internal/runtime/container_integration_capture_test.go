@@ -3,7 +3,6 @@
 package runtime
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -78,7 +77,7 @@ func testContainerExecuteCaptureBasic(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {
@@ -110,7 +109,7 @@ func testContainerExecuteCaptureExitCode(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 42 {
@@ -142,7 +141,7 @@ func testContainerExecuteCaptureStderr(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {
@@ -181,7 +180,7 @@ func testContainerExecuteCaptureEnvVars(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {

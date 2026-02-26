@@ -3,7 +3,6 @@
 package runtime
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -116,7 +115,7 @@ cmds: [{
 	}
 
 	// Create execution context
-	ctx := NewExecutionContext(context.Background(), &inv.Commands[0], inv)
+	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
 
 	// Create native runtime and prepare for interactive execution
 	rt := NewNativeRuntime()
@@ -165,7 +164,7 @@ cmds: [{
 	}
 
 	// Create execution context
-	ctx := NewExecutionContext(context.Background(), &inv.Commands[0], inv)
+	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
 
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]

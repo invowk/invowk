@@ -208,9 +208,8 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	results, err := resolver.Remove(ctx, identifier)
 	if err != nil {
 		// Format ambiguous matches nicely
-		var ambigErr *invowkmod.AmbiguousIdentifierError
-		if errors.As(err, &ambigErr) {
-			fmt.Printf("%s %v\n", moduleErrorIcon, err)
+		if ambigErr, ok := errors.AsType[*invowkmod.AmbiguousIdentifierError](err); ok && ambigErr != nil {
+			fmt.Printf("%s %v\n", moduleErrorIcon, ambigErr)
 			return err
 		}
 		fmt.Printf("%s Failed to remove module: %v\n", moduleErrorIcon, err)
@@ -303,9 +302,8 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	updated, err := resolver.Update(ctx, identifier)
 	if err != nil {
 		// Format ambiguous matches nicely
-		var ambigErr *invowkmod.AmbiguousIdentifierError
-		if errors.As(err, &ambigErr) {
-			fmt.Printf("%s %v\n", moduleErrorIcon, err)
+		if ambigErr, ok := errors.AsType[*invowkmod.AmbiguousIdentifierError](err); ok && ambigErr != nil {
+			fmt.Printf("%s %v\n", moduleErrorIcon, ambigErr)
 			return err
 		}
 		fmt.Printf("%s Failed to update modules: %v\n", moduleErrorIcon, err)

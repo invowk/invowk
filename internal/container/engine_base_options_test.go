@@ -29,7 +29,7 @@ func TestBaseCLIEngine_WithExecCommand(t *testing.T) {
 	engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(mockExec))
 
 	// Run a command that will capture args
-	_, _ = engine.RunCommand(context.Background(), "version")
+	_, _ = engine.RunCommand(t.Context(), "version")
 
 	if len(capturedArgs) < 2 {
 		t.Fatalf("expected at least 2 args, got %d: %v", len(capturedArgs), capturedArgs)
@@ -232,7 +232,7 @@ func TestBaseCLIEngine_RunCommandCombined(t *testing.T) {
 		recorder.Stdout = "combined output"
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
 
-		out, err := engine.RunCommandCombined(context.Background(), "version")
+		out, err := engine.RunCommandCombined(t.Context(), "version")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -254,7 +254,7 @@ func TestBaseCLIEngine_RunCommandCombined(t *testing.T) {
 		recorder.ExitCode = 1
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
 
-		out, err := engine.RunCommandCombined(context.Background(), "invalid-command")
+		out, err := engine.RunCommandCombined(t.Context(), "invalid-command")
 		if err == nil {
 			t.Fatal("expected error for failed command")
 		}
@@ -280,7 +280,7 @@ func TestBaseCLIEngine_RunCommand_ErrorHandling(t *testing.T) {
 	recorder.ExitCode = 127
 	engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
 
-	_, err := engine.RunCommand(context.Background(), "nonexistent-subcommand")
+	_, err := engine.RunCommand(t.Context(), "nonexistent-subcommand")
 	if err == nil {
 		t.Fatal("expected error for failed command")
 	}
@@ -304,7 +304,7 @@ func TestWithCmdEnvOverride_Single(t *testing.T) {
 		WithCmdEnvOverride("CONTAINERS_CONF_OVERRIDE", "/tmp/test.toml"),
 	)
 
-	cmd := exec.CommandContext(context.Background(), "true")
+	cmd := exec.CommandContext(t.Context(), "true")
 	engine.CustomizeCmd(cmd)
 
 	if !slices.Contains(cmd.Env, "CONTAINERS_CONF_OVERRIDE=/tmp/test.toml") {
@@ -320,7 +320,7 @@ func TestWithCmdEnvOverride_Multiple(t *testing.T) {
 		WithCmdEnvOverride("BAZ", "qux"),
 	)
 
-	cmd := exec.CommandContext(context.Background(), "true")
+	cmd := exec.CommandContext(t.Context(), "true")
 	engine.CustomizeCmd(cmd)
 
 	if !slices.Contains(cmd.Env, "FOO=bar") {
@@ -337,7 +337,7 @@ func TestCustomizeCmd_Empty(t *testing.T) {
 	// Engine with no overrides
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
-	cmd := exec.CommandContext(context.Background(), "true")
+	cmd := exec.CommandContext(t.Context(), "true")
 	engine.CustomizeCmd(cmd)
 
 	// cmd.Env should remain nil (inherit parent env)
@@ -375,7 +375,7 @@ func TestCustomizeCmd_PreservesParentEnv(t *testing.T) {
 		WithCmdEnvOverride("INVOWK_TEST_ONLY", "1"),
 	)
 
-	cmd := exec.CommandContext(context.Background(), "true")
+	cmd := exec.CommandContext(t.Context(), "true")
 	engine.CustomizeCmd(cmd)
 
 	// os.Environ() should be the base — cmd.Env must contain more than just our override.

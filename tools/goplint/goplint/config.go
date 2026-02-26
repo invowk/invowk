@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -78,8 +79,8 @@ func loadConfig(path string) (*ExceptionConfig, error) {
 func (c *ExceptionConfig) isExcepted(qualifiedName string) bool {
 	// Also try matching without the package prefix for 2-segment patterns.
 	stripped := qualifiedName
-	if i := strings.Index(qualifiedName, "."); i >= 0 {
-		stripped = qualifiedName[i+1:]
+	if _, after, ok := strings.Cut(qualifiedName, "."); ok {
+		stripped = after
 	}
 
 	for i, exc := range c.Exceptions {
@@ -95,12 +96,7 @@ func (c *ExceptionConfig) isExcepted(qualifiedName string) bool {
 
 // isSkippedType checks whether a type name is in the skip_types list.
 func (c *ExceptionConfig) isSkippedType(typeName string) bool {
-	for _, st := range c.Settings.SkipTypes {
-		if st == typeName {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(c.Settings.SkipTypes, typeName)
 }
 
 // isExcludedPath checks whether a file path contains any of the

@@ -385,8 +385,7 @@ func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	result, diags, err := app.Commands.Execute(reqCtx, req)
 	app.Diagnostics.Render(reqCtx, diags, app.stderr)
 	if err != nil {
-		var svcErr *ServiceError
-		if errors.As(err, &svcErr) {
+		if svcErr, ok := errors.AsType[*ServiceError](err); ok {
 			renderServiceError(app.stderr, svcErr)
 		}
 		return err

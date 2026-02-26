@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -407,10 +408,8 @@ func hasDirectiveKey(doc *ast.CommentGroup, lineComment *ast.CommentGroup, key s
 		for _, c := range cg.List {
 			text := strings.TrimSpace(c.Text)
 			keys, _ := parseDirectiveKeys(text)
-			for _, k := range keys {
-				if k == key {
-					return true
-				}
+			if slices.Contains(keys, key) {
+				return true
 			}
 		}
 	}
@@ -461,11 +460,11 @@ func parseDirectiveKeys(text string) (keys []string, unknown []string) {
 	// Look for goplint: or plint: prefix.
 	var valueStr string
 	for _, prefix := range []string{"goplint:", "plint:"} {
-		idx := strings.Index(text, prefix)
-		if idx < 0 {
+		_, after, ok := strings.Cut(text, prefix)
+		if !ok {
 			continue
 		}
-		valueStr = text[idx+len(prefix):]
+		valueStr = after
 		break
 	}
 	if valueStr == "" {

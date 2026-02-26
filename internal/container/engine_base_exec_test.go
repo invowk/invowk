@@ -3,7 +3,6 @@
 package container
 
 import (
-	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -17,7 +16,7 @@ func TestBaseCLIEngine_RunCommandStatus(t *testing.T) {
 		recorder := NewMockCommandRecorder()
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
 
-		err := engine.RunCommandStatus(context.Background(), "image", "inspect", "myimage:latest")
+		err := engine.RunCommandStatus(t.Context(), "image", "inspect", "myimage:latest")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -34,7 +33,7 @@ func TestBaseCLIEngine_RunCommandStatus(t *testing.T) {
 		recorder.ExitCode = 1
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
 
-		err := engine.RunCommandStatus(context.Background(), "rm", "-f", "container123")
+		err := engine.RunCommandStatus(t.Context(), "rm", "-f", "container123")
 		if err == nil {
 			t.Fatal("expected error for non-zero exit code")
 		}
@@ -57,7 +56,7 @@ func TestBaseCLIEngine_RunCommandWithOutput(t *testing.T) {
 		recorder.Stdout = "27.0.1"
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
 
-		out, err := engine.RunCommandWithOutput(context.Background(), "version", "--format", "{{.Server.Version}}")
+		out, err := engine.RunCommandWithOutput(t.Context(), "version", "--format", "{{.Server.Version}}")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -76,7 +75,7 @@ func TestBaseCLIEngine_RunCommandWithOutput(t *testing.T) {
 		recorder.ExitCode = 1
 		engine := NewBaseCLIEngine("/usr/bin/docker", WithExecCommand(recorder.ContextCommandFunc(t)))
 
-		out, err := engine.RunCommandWithOutput(context.Background(), "version")
+		out, err := engine.RunCommandWithOutput(t.Context(), "version")
 		if err == nil {
 			t.Fatal("expected error for non-zero exit code")
 		}

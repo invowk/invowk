@@ -283,7 +283,7 @@ func TestInteractiveBuilder_CommandName(t *testing.T) {
 func TestInteractiveBuilder_Context(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
 	builder := NewInteractive().Context(ctx)
@@ -314,7 +314,7 @@ func TestInteractiveBuilder_Run_NoCommand(t *testing.T) {
 func TestInteractiveBuilder_Chaining(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	builder := NewInteractive().
 		Title("Deploy").
