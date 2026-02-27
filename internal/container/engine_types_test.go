@@ -397,16 +397,16 @@ func TestBuildOptions_IsValid(t *testing.T) {
 			false, true, 1,
 		},
 		{
-			"invalid tag (empty)",
+			"empty tag is valid (zero-value-is-valid: means no explicit tag)",
 			BuildOptions{
 				ContextDir: "/app",
 				Dockerfile: "Dockerfile",
 				Tag:        "",
 			},
-			false, true, 1,
+			true, false, 0,
 		},
 		{
-			"all fields invalid",
+			"all non-empty fields invalid",
 			BuildOptions{
 				ContextDir: "",
 				Dockerfile: "   ",
@@ -415,9 +415,9 @@ func TestBuildOptions_IsValid(t *testing.T) {
 			false, true, 3,
 		},
 		{
-			"zero value (all empty)",
+			"zero value (only ContextDir is required)",
 			BuildOptions{},
-			false, true, 3,
+			false, true, 1,
 		},
 	}
 

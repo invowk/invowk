@@ -411,8 +411,8 @@ func TestWatcherInvalidPattern(t *testing.T) {
 		t.Fatal("New() should return an error for an invalid glob pattern")
 	}
 
-	if !strings.Contains(err.Error(), "invalid watch pattern") {
-		t.Errorf("error message should mention invalid watch pattern, got: %v", err)
+	if !strings.Contains(err.Error(), "invalid glob pattern") {
+		t.Errorf("error message should mention invalid glob pattern, got: %v", err)
 	}
 }
 

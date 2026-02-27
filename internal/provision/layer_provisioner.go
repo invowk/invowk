@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,14 +32,18 @@ type LayerProvisioner struct {
 }
 
 // NewLayerProvisioner creates a new LayerProvisioner.
-func NewLayerProvisioner(engine container.Engine, cfg *Config) *LayerProvisioner {
+// It validates the Config if provided; nil defaults to DefaultConfig().
+func NewLayerProvisioner(engine container.Engine, cfg *Config) (*LayerProvisioner, error) {
 	if cfg == nil {
 		cfg = DefaultConfig()
+	}
+	if isValid, errs := cfg.IsValid(); !isValid {
+		return nil, fmt.Errorf("provision config: %w", errors.Join(errs...))
 	}
 	return &LayerProvisioner{
 		engine: engine,
 		config: cfg,
-	}
+	}, nil
 }
 
 // Config returns the provisioner's configuration.

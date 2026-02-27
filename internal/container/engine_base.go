@@ -700,7 +700,12 @@ func (e *BaseCLIEngine) Close() error {
 // --- Promoted Engine Methods (shared by Docker and Podman) ---
 
 // Build builds an image from a Dockerfile.
+// It validates BuildOptions before executing to catch invalid fields early.
 func (e *BaseCLIEngine) Build(ctx context.Context, opts BuildOptions) error {
+	if isValid, errs := opts.IsValid(); !isValid {
+		return errors.Join(errs...)
+	}
+
 	args := e.BuildArgs(opts)
 
 	cmd := e.CreateCommand(ctx, args...)
@@ -717,7 +722,12 @@ func (e *BaseCLIEngine) Build(ctx context.Context, opts BuildOptions) error {
 // Run runs a command in a container and returns the result.
 // A non-zero exit code is captured in RunResult.ExitCode (not returned as error).
 // Only infrastructure failures (binary not found, etc.) set RunResult.Error.
+// It validates RunOptions before executing to catch invalid fields early.
 func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, error) {
+	if isValid, errs := opts.IsValid(); !isValid {
+		return nil, errors.Join(errs...)
+	}
+
 	args := e.RunArgs(opts)
 
 	cmd := e.CreateCommand(ctx, args...)

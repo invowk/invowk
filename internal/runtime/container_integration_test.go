@@ -511,7 +511,12 @@ func createContainerRuntime(t *testing.T) *ContainerRuntime {
 		t.Skipf("skipping test: no container engine available: %v", err)
 	}
 
-	return NewContainerRuntimeWithEngine(engine)
+	rt, rtErr := NewContainerRuntimeWithEngine(engine)
+	if rtErr != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", rtErr)
+	}
+
+	return rt
 }
 
 // createContainerRuntimeWithSSHServer creates a container runtime with an SSH server for testing

@@ -148,7 +148,10 @@ func (m *MockEngine) BuildRunArgs(opts container.RunOptions) []string {
 // TestNewContainerRuntimeWithEngine tests the constructor with a mock engine.
 func TestNewContainerRuntimeWithEngine(t *testing.T) {
 	engine := NewMockEngine()
-	rt := NewContainerRuntimeWithEngine(engine)
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+	}
 
 	if rt == nil {
 		t.Fatal("NewContainerRuntimeWithEngine() returned nil")
@@ -164,7 +167,10 @@ func TestNewContainerRuntimeWithEngine(t *testing.T) {
 // TestContainerRuntime_Name tests that Name() returns "container".
 func TestContainerRuntime_Name(t *testing.T) {
 	engine := NewMockEngine()
-	rt := NewContainerRuntimeWithEngine(engine)
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+	}
 
 	if name := rt.Name(); name != "container" {
 		t.Errorf("Name() = %q, want %q", name, "container")
@@ -193,7 +199,10 @@ func TestContainerRuntime_Available(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			engine := NewMockEngine().WithAvailable(tt.engineAvailable)
-			rt := NewContainerRuntimeWithEngine(engine)
+			rt, err := NewContainerRuntimeWithEngine(engine)
+			if err != nil {
+				t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+			}
 
 			if got := rt.Available(); got != tt.want {
 				t.Errorf("Available() = %v, want %v", got, tt.want)
@@ -287,7 +296,10 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			engine := NewMockEngine()
-			rt := NewContainerRuntimeWithEngine(engine)
+			rt, err := NewContainerRuntimeWithEngine(engine)
+			if err != nil {
+				t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+			}
 
 			ctx := NewExecutionContext(t.Context(), tt.cmd, inv)
 			// For the "nil implementation" test, we need to manually set it to nil
@@ -295,7 +307,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				ctx.SelectedImpl = nil
 			}
 
-			err := rt.Validate(ctx)
+			err = rt.Validate(ctx)
 
 			if tt.wantErr {
 				if err == nil {
@@ -337,7 +349,10 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 	}
 
 	engine := NewMockEngine()
-	rt := NewContainerRuntimeWithEngine(engine)
+	rt, rtErr := NewContainerRuntimeWithEngine(engine)
+	if rtErr != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", rtErr)
+	}
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	err := rt.Validate(ctx)
@@ -371,7 +386,10 @@ func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 	}
 
 	engine := NewMockEngine()
-	rt := NewContainerRuntimeWithEngine(engine)
+	rt, rtErr := NewContainerRuntimeWithEngine(engine)
+	if rtErr != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", rtErr)
+	}
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	err := rt.Validate(ctx)
@@ -556,7 +574,10 @@ func TestGetContainerWorkDir(t *testing.T) {
 			}
 
 			engine := NewMockEngine()
-			rt := NewContainerRuntimeWithEngine(engine)
+			rt, err := NewContainerRuntimeWithEngine(engine)
+			if err != nil {
+				t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+			}
 			ctx := NewExecutionContext(t.Context(), cmd, inv)
 			if tt.ctxWorkDirOverride != "" {
 				ctx.WorkDir = tt.ctxWorkDirOverride
@@ -608,7 +629,10 @@ func TestContainerConfigFromRuntime(t *testing.T) {
 // TestContainerRuntime_SetProvisionConfig tests updating provision config.
 func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
 	engine := NewMockEngine()
-	rt := NewContainerRuntimeWithEngine(engine)
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+	}
 
 	// Get initial provisioner
 	initialProvisioner := rt.provisioner
@@ -620,7 +644,9 @@ func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
 		BinaryMountPath:  container.MountTargetPath("/opt/invowk"),
 		ModulesMountPath: container.MountTargetPath("/opt/modules"),
 	}
-	rt.SetProvisionConfig(newCfg)
+	if err := rt.SetProvisionConfig(newCfg); err != nil {
+		t.Fatalf("SetProvisionConfig() unexpected error: %v", err)
+	}
 
 	// Provisioner should be replaced
 	if rt.provisioner == initialProvisioner {
@@ -631,12 +657,17 @@ func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
 // TestContainerRuntime_SetProvisionConfig_Nil tests that nil config is handled.
 func TestContainerRuntime_SetProvisionConfig_Nil(t *testing.T) {
 	engine := NewMockEngine()
-	rt := NewContainerRuntimeWithEngine(engine)
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+	}
 
 	initialProvisioner := rt.provisioner
 
 	// Setting nil config should not change provisioner
-	rt.SetProvisionConfig(nil)
+	if err := rt.SetProvisionConfig(nil); err != nil {
+		t.Fatalf("SetProvisionConfig(nil) unexpected error: %v", err)
+	}
 
 	if rt.provisioner != initialProvisioner {
 		t.Error("SetProvisionConfig(nil) should not change provisioner")
@@ -646,7 +677,10 @@ func TestContainerRuntime_SetProvisionConfig_Nil(t *testing.T) {
 // TestContainerRuntime_SupportsInteractive tests that container runtime supports interactive mode.
 func TestContainerRuntime_SupportsInteractive(t *testing.T) {
 	engine := NewMockEngine()
-	rt := NewContainerRuntimeWithEngine(engine)
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+	}
 
 	if !rt.SupportsInteractive() {
 		t.Error("SupportsInteractive() = false, want true")
@@ -676,7 +710,10 @@ func TestDefaultProvisionConfig_Defaults(t *testing.T) {
 // TestContainerRuntime_generateImageTag tests the image tag generation.
 func TestContainerRuntime_generateImageTag(t *testing.T) {
 	engine := NewMockEngine()
-	rt := NewContainerRuntimeWithEngine(engine)
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", err)
+	}
 
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
@@ -771,8 +808,13 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
-	rt := NewContainerRuntimeWithEngine(engine)
-	rt.SetProvisionConfig(provCfg)
+	rt, rtErr := NewContainerRuntimeWithEngine(engine)
+	if rtErr != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", rtErr)
+	}
+	if err := rt.SetProvisionConfig(provCfg); err != nil {
+		t.Fatalf("SetProvisionConfig() unexpected error: %v", err)
+	}
 
 	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
@@ -822,8 +864,13 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
-	rt := NewContainerRuntimeWithEngine(engine)
-	rt.SetProvisionConfig(provCfg)
+	rt, rtErr := NewContainerRuntimeWithEngine(engine)
+	if rtErr != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", rtErr)
+	}
+	if err := rt.SetProvisionConfig(provCfg); err != nil {
+		t.Fatalf("SetProvisionConfig() unexpected error: %v", err)
+	}
 
 	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 

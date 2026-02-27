@@ -88,7 +88,10 @@ func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*C
 
 	// Create provisioner with config
 	provisionCfg := buildProvisionConfig(cfg)
-	provisioner := provision.NewLayerProvisioner(engine, provisionCfg)
+	provisioner, err := provision.NewLayerProvisioner(engine, provisionCfg)
+	if err != nil {
+		return nil, fmt.Errorf("create provisioner: %w", err)
+	}
 
 	r := &ContainerRuntime{
 		engine:      engine,
@@ -103,17 +106,21 @@ func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*C
 }
 
 // NewContainerRuntimeWithEngine creates a container runtime with a specific engine.
-func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRuntimeOption) *ContainerRuntime {
+func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRuntimeOption) (*ContainerRuntime, error) {
 	provisionCfg := provision.DefaultConfig()
+	provisioner, err := provision.NewLayerProvisioner(engine, provisionCfg)
+	if err != nil {
+		return nil, fmt.Errorf("create provisioner: %w", err)
+	}
 	r := &ContainerRuntime{
 		engine:      engine,
-		provisioner: provision.NewLayerProvisioner(engine, provisionCfg),
+		provisioner: provisioner,
 		envBuilder:  NewDefaultEnvBuilder(),
 	}
 	for _, opt := range opts {
 		opt(r)
 	}
-	return r
+	return r, nil
 }
 
 // Close releases resources held by the container engine (e.g., the sysctl
@@ -124,10 +131,15 @@ func (r *ContainerRuntime) Close() error {
 
 // SetProvisionConfig updates the provisioner configuration.
 // This is useful for setting the invowkfile path before execution.
-func (r *ContainerRuntime) SetProvisionConfig(cfg *provision.Config) {
+func (r *ContainerRuntime) SetProvisionConfig(cfg *provision.Config) error {
 	if cfg != nil {
-		r.provisioner = provision.NewLayerProvisioner(r.engine, cfg)
+		provisioner, err := provision.NewLayerProvisioner(r.engine, cfg)
+		if err != nil {
+			return fmt.Errorf("update provisioner: %w", err)
+		}
+		r.provisioner = provisioner
 	}
+	return nil
 }
 
 // SetSSHServer sets the SSH server for host access from containers

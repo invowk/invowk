@@ -5,6 +5,7 @@ package config
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -165,6 +166,13 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, "", fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Defense-in-depth: validate all typed fields after unmarshalling.
+	// CUE schema is the primary validation layer; this catches any gaps
+	// or values that bypass CUE (e.g., env var overrides via Viper).
+	if isValid, errs := cfg.IsValid(); !isValid {
+		return nil, "", fmt.Errorf("invalid config: %w", errors.Join(errs...))
 	}
 
 	// Validate includes constraints that CUE cannot express:

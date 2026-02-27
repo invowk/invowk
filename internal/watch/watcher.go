@@ -168,6 +168,11 @@ func (e *InvalidWatchConfigError) Unwrap() error { return ErrInvalidWatchConfig 
 // absolute path, initialises the underlying fsnotify watcher, and registers
 // all non-ignored directories under BaseDir for monitoring.
 func New(cfg Config) (*Watcher, error) {
+	// Defense-in-depth: validate all typed fields before proceeding.
+	if isValid, errs := cfg.IsValid(); !isValid {
+		return nil, errors.Join(errs...)
+	}
+
 	baseDirStr := string(cfg.BaseDir)
 	if baseDirStr == "" {
 		wd, err := os.Getwd()

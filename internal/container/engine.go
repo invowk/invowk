@@ -315,16 +315,21 @@ func (e *InvalidBuildOptionsError) Unwrap() error { return ErrInvalidBuildOption
 
 // IsValid returns whether all typed fields of the BuildOptions are valid,
 // and a combined list of validation errors from ContextDir, Dockerfile, and Tag.
+// Dockerfile and Tag use zero-value-is-valid semantics: empty means "use default".
 func (o BuildOptions) IsValid() (bool, []error) {
 	var errs []error
 	if valid, fieldErrs := o.ContextDir.IsValid(); !valid {
 		errs = append(errs, fieldErrs...)
 	}
-	if valid, fieldErrs := o.Dockerfile.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if o.Dockerfile != "" {
+		if valid, fieldErrs := o.Dockerfile.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
 	}
-	if valid, fieldErrs := o.Tag.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if o.Tag != "" {
+		if valid, fieldErrs := o.Tag.IsValid(); !valid {
+			errs = append(errs, fieldErrs...)
+		}
 	}
 	if len(errs) > 0 {
 		return false, []error{&InvalidBuildOptionsError{FieldErrors: errs}}

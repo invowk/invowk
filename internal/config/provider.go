@@ -91,7 +91,13 @@ func NewProvider() Provider {
 }
 
 // Load reads configuration from the requested source.
+// It validates LoadOptions before proceeding and delegates to loadWithOptions
+// which validates the resulting Config after unmarshalling.
 func (p *fileProvider) Load(ctx context.Context, opts LoadOptions) (*Config, error) {
+	if isValid, errs := opts.IsValid(); !isValid {
+		return nil, fmt.Errorf("config load: %w", errors.Join(errs...))
+	}
+
 	cfg, _, err := loadWithOptions(ctx, opts)
 	if err != nil {
 		return nil, err
