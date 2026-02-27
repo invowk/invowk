@@ -28,6 +28,7 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Check immutability | `make build-goplint && ./bin/goplint -check-immutability -config=tools/goplint/exceptions.toml ./...` |
 | Check struct IsValid | `make build-goplint && ./bin/goplint -check-struct-isvalid -config=tools/goplint/exceptions.toml ./...` |
 | Check cast validation | `make build-goplint && ./bin/goplint -check-cast-validation -config=tools/goplint/exceptions.toml ./...` |
+| Check IsValid usage | `make build-goplint && ./bin/goplint -check-isvalid-usage -config=tools/goplint/exceptions.toml ./...` |
 
 ## Scoped Rule Exception (Testing Parallelism)
 
@@ -53,10 +54,12 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `missing-struct-isvalid` | `--check-struct-isvalid` or `--check-all` | Struct with constructor missing `IsValid()` method |
 | `wrong-struct-isvalid-sig` | `--check-struct-isvalid` or `--check-all` | Struct has `IsValid()` but wrong signature |
 | `unvalidated-cast` | `--check-cast-validation` or `--check-all` | Type conversion to DDD type from non-constant without `IsValid()` check |
+| `unused-isvalid-result` | `--check-isvalid-usage` or `--check-all` | IsValid() called with result completely discarded |
+| `truncated-isvalid-errors` | `--check-isvalid-usage` or `--check-all` | IsValid() []error return truncated via [0] indexing |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
-The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`, and `--check-cast-validation` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
+The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`, `--check-cast-validation`, and `--check-isvalid-usage` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
 
 ## Architecture
 
@@ -68,13 +71,14 @@ tools/goplint/
 ├── goplint/
 │   ├── analyzer.go                 # analysis.Analyzer + run() wiring + basic supplementary modes
 │   ├── analyzer_cast_validation.go # cast validation: unvalidated DDD type conversions
+│   ├── analyzer_isvalid_usage.go   # IsValid() usage: discarded results, truncated error slices
 │   ├── analyzer_structural.go      # structural analysis: constructor-sig, func-options, immutability
 │   ├── baseline.go             # baseline TOML loading + matching + writing
 │   ├── config.go               # exception TOML loading + pattern matching + match counting
 │   ├── inspect.go              # struct/func AST visitors + helpers
 │   ├── typecheck.go            # isPrimitive() / isPrimitiveUnderlying() / isOptionFuncType()
 │   ├── *_test.go               # unit + integration tests
-│   └── testdata/src/               # analysistest fixture packages (24 packages)
+│   └── testdata/src/               # analysistest fixture packages (25 packages)
 ```
 
 **Separate Go module**: `tools/goplint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
@@ -180,11 +184,11 @@ Can be combined with other directives: `//plint:render,internal`.
 
 ## Supplementary Modes
 
-Eight additional analysis modes complement the primary primitive detection:
+Nine additional analysis modes complement the primary primitive detection:
 
 ### `--check-all`
 
-Enables all DDD compliance checks (`--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`, `--check-cast-validation`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
+Enables all DDD compliance checks (`--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`, `--check-cast-validation`, `--check-isvalid-usage`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
 
 ### `--audit-exceptions`
 
@@ -255,6 +259,24 @@ Reports type conversions from raw primitives (string, int, etc.) to DDD Value Ty
 
 **Conservative heuristic:** Uses variable-name matching within a single function (excluding closures). If `x.IsValid()` appears anywhere in the function body, all casts assigned to `x` are considered validated. No control-flow or ordering analysis.
 
+### `--check-isvalid-usage`
+
+Reports two misuse patterns for `IsValid()` calls on DDD Value Types:
+
+**`unused-isvalid-result`**: The `(bool, []error)` return from `IsValid()` is completely discarded:
+- `x.IsValid()` as a bare expression statement
+- `_, _ = x.IsValid()` where both returns are assigned to blank identifiers
+
+**`truncated-isvalid-errors`**: The `[]error` slice returned by `IsValid()` is indexed with `[0]`, discarding subsequent errors:
+- `errs[0]` where `errs` was assigned from the `[]error` return of `IsValid()`
+- The correct pattern is `errors.Join(errs...)` to preserve all errors
+
+**What does NOT get flagged:**
+- Calls on types without `IsValid() (bool, []error)` (wrong signature)
+- `ok, _ := x.IsValid()` where only the bool is used (deliberate error suppression)
+- `errs[1]` or `errs[i]` (non-zero-literal indexing)
+- Calls inside closures (separate validation scope, skipped)
+
 ### Exception integration
 
 All supplementary modes respect the TOML exception config:
@@ -266,6 +288,7 @@ All supplementary modes respect the TOML exception config:
 - `--check-immutability`: excepted via `pkg.StructName.immutability`
 - `--check-struct-isvalid`: excepted via `pkg.StructName.struct-isvalid`
 - `--check-cast-validation`: excepted via `pkg.FuncName.cast-validation`
+- `--check-isvalid-usage`: excepted via `pkg.FuncName.isvalid-usage`
 
 ## Baseline Comparison
 
@@ -297,7 +320,7 @@ entries = [
 ]
 ```
 
-Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-isvalid]`, `[wrong-struct-isvalid-sig]`, `[unvalidated-cast]`. Empty sections are omitted.
+Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-isvalid]`, `[wrong-struct-isvalid-sig]`, `[unvalidated-cast]`, `[unused-isvalid-result]`, `[truncated-isvalid-errors]`. Empty sections are omitted.
 
 `messages = [...]` (legacy v1 format) is still parsed for backward compatibility.
 
@@ -347,4 +370,5 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
   - `TestCheckAll` — `--check-all` combined mode (all categories in one fixture)
   - `TestBaselineSuppression` — `--baseline` mode (known findings suppressed, new ones reported)
   - `TestCheckCastValidation` — `--check-cast-validation` mode (unvalidated DDD type conversions)
+  - `TestCheckIsValidUsage` — `--check-isvalid-usage` mode (discarded results, truncated error slices)
   - `TestBaselineSupplementaryCategories` — baseline suppression for supplementary modes (isvalid, stringer, constructors)

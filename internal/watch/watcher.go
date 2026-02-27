@@ -134,12 +134,12 @@ func (c Config) IsValid() (bool, []error) {
 	var errs []error
 	for i, p := range c.Patterns {
 		if valid, fieldErrs := p.IsValid(); !valid {
-			errs = append(errs, fmt.Errorf("patterns[%d]: %w", i, fieldErrs[0]))
+			errs = append(errs, fmt.Errorf("patterns[%d]: %w", i, errors.Join(fieldErrs...)))
 		}
 	}
 	for i, ig := range c.Ignore {
 		if valid, fieldErrs := ig.IsValid(); !valid {
-			errs = append(errs, fmt.Errorf("ignore[%d]: %w", i, fieldErrs[0]))
+			errs = append(errs, fmt.Errorf("ignore[%d]: %w", i, errors.Join(fieldErrs...)))
 		}
 	}
 	if c.BaseDir != "" {

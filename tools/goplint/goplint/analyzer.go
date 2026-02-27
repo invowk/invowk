@@ -47,6 +47,8 @@ const (
 	CategoryMissingStructIsValid  = "missing-struct-isvalid"
 	CategoryWrongStructIsValidSig = "wrong-struct-isvalid-sig"
 	CategoryUnvalidatedCast       = "unvalidated-cast"
+	CategoryUnusedIsValidResult   = "unused-isvalid-result"
+	CategoryTruncatedIsValidErrs  = "truncated-isvalid-errors"
 	CategoryStaleException        = "stale-exception"
 	CategoryUnknownDirective      = "unknown-directive"
 )
@@ -68,6 +70,7 @@ var (
 	checkImmutability   bool
 	checkStructIsValid  bool
 	checkCastValidation bool
+	checkIsValidUsage   bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -103,8 +106,10 @@ func init() {
 		"report exported struct types with constructors missing IsValid() (bool, []error) method")
 	Analyzer.Flags.BoolVar(&checkCastValidation, "check-cast-validation", false,
 		"report type conversions to DDD Value Types from non-constants without IsValid() check")
+	Analyzer.Flags.BoolVar(&checkIsValidUsage, "check-isvalid-usage", false,
+		"detect unused or truncated IsValid() results")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
-		"enable all DDD compliance checks (isvalid + stringer + constructors + structural + cast-validation)")
+		"enable all DDD compliance checks (isvalid + stringer + constructors + structural + cast-validation + isvalid-usage)")
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
@@ -123,6 +128,7 @@ type runConfig struct {
 	checkImmutability   bool
 	checkStructIsValid  bool
 	checkCastValidation bool
+	checkIsValidUsage   bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -142,6 +148,7 @@ func newRunConfig() runConfig {
 		checkImmutability:   checkImmutability,
 		checkStructIsValid:  checkStructIsValid,
 		checkCastValidation: checkCastValidation,
+		checkIsValidUsage:   checkIsValidUsage,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions which is a config
@@ -155,6 +162,7 @@ func newRunConfig() runConfig {
 		rc.checkImmutability = true
 		rc.checkStructIsValid = true
 		rc.checkCastValidation = true
+		rc.checkIsValidUsage = true
 	}
 	return rc
 }
@@ -273,6 +281,11 @@ func run(pass *analysis.Pass) (any, error) {
 			// Cast validation: detect unvalidated type conversions to DDD types.
 			if rc.checkCastValidation {
 				inspectUnvalidatedCasts(pass, n, cfg, bl)
+			}
+
+			// IsValid usage: detect discarded or truncated IsValid() results.
+			if rc.checkIsValidUsage {
+				inspectIsValidUsage(pass, n, cfg, bl)
 			}
 		}
 	})

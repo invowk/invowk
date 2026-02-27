@@ -35,6 +35,7 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-immutability", "false")
 	setFlag(t, "check-struct-isvalid", "false")
 	setFlag(t, "check-cast-validation", "false")
+	setFlag(t, "check-isvalid-usage", "false")
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
@@ -73,6 +74,9 @@ func TestNewRunConfig(t *testing.T) {
 		}
 		if !rc.checkCastValidation {
 			t.Error("expected checkCastValidation = true")
+		}
+		if !rc.checkIsValidUsage {
+			t.Error("expected checkIsValidUsage = true")
 		}
 	})
 
@@ -321,4 +325,18 @@ func TestBaselineSupplementaryCategories(t *testing.T) {
 	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline_supplementary", "goplint-baseline.toml"))
 
 	analysistest.Run(t, testdata, Analyzer, "baseline_supplementary")
+}
+
+// TestCheckIsValidUsage exercises the --check-isvalid-usage mode against
+// the isvalidusage fixture, verifying that discarded IsValid() results and
+// truncated error slices (errs[0]) are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckIsValidUsage(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-isvalid-usage", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "isvalidusage")
 }

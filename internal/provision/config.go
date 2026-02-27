@@ -104,7 +104,7 @@ func (c Config) IsValid() (bool, []error) {
 	for i, mp := range c.ModulesPaths {
 		if mp != "" {
 			if valid, fieldErrs := mp.IsValid(); !valid {
-				errs = append(errs, fmt.Errorf("ModulesPaths[%d]: %w", i, fieldErrs[0]))
+				errs = append(errs, fmt.Errorf("ModulesPaths[%d]: %w", i, errors.Join(fieldErrs...)))
 			}
 		}
 	}
