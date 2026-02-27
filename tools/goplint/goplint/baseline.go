@@ -29,8 +29,9 @@ type BaselineConfig struct {
 	MissingStructIsValid  BaselineCategory `toml:"missing-struct-isvalid"`
 	WrongStructIsValidSig BaselineCategory `toml:"wrong-struct-isvalid-sig"`
 	UnvalidatedCast       BaselineCategory `toml:"unvalidated-cast"`
-	UnusedIsValidResult   BaselineCategory `toml:"unused-isvalid-result"`
-	TruncatedIsValidErrs  BaselineCategory `toml:"truncated-isvalid-errors"`
+	UnusedIsValidResult    BaselineCategory `toml:"unused-isvalid-result"`
+	TruncatedIsValidErrs   BaselineCategory `toml:"truncated-isvalid-errors"`
+	UnusedConstructorError BaselineCategory `toml:"unused-constructor-error"`
 
 	// lookupByID is an O(1) index keyed by category → finding ID.
 	lookupByID map[string]map[string]bool
@@ -125,13 +126,14 @@ func (b *BaselineConfig) Count() int {
 		countCategory(b.WrongStructIsValidSig) +
 		countCategory(b.UnvalidatedCast) +
 		countCategory(b.UnusedIsValidResult) +
-		countCategory(b.TruncatedIsValidErrs)
+		countCategory(b.TruncatedIsValidErrs) +
+		countCategory(b.UnusedConstructorError)
 }
 
 // buildLookup populates the internal lookup maps from the parsed TOML data.
 func (b *BaselineConfig) buildLookup() {
-	b.lookupByID = make(map[string]map[string]bool, 14)
-	b.lookupByMessage = make(map[string]map[string]bool, 14)
+	b.lookupByID = make(map[string]map[string]bool, 15)
+	b.lookupByMessage = make(map[string]map[string]bool, 15)
 
 	categoryData := []struct {
 		key string
@@ -151,6 +153,7 @@ func (b *BaselineConfig) buildLookup() {
 		{CategoryUnvalidatedCast, b.UnvalidatedCast},
 		{CategoryUnusedIsValidResult, b.UnusedIsValidResult},
 		{CategoryTruncatedIsValidErrs, b.TruncatedIsValidErrs},
+		{CategoryUnusedConstructorError, b.UnusedConstructorError},
 	}
 
 	for _, c := range categoryData {
@@ -200,6 +203,7 @@ func WriteBaseline(path string, findings map[string][]BaselineFinding) error {
 		{CategoryUnvalidatedCast, "Type conversions to DDD types without IsValid() check"},
 		{CategoryUnusedIsValidResult, "IsValid() calls with result completely discarded"},
 		{CategoryTruncatedIsValidErrs, "IsValid() error slices truncated via [0] indexing"},
+		{CategoryUnusedConstructorError, "Constructor calls with error return assigned to blank identifier"},
 	}
 
 	for _, cat := range categories {

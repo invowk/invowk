@@ -47,10 +47,11 @@ const (
 	CategoryMissingStructIsValid  = "missing-struct-isvalid"
 	CategoryWrongStructIsValidSig = "wrong-struct-isvalid-sig"
 	CategoryUnvalidatedCast       = "unvalidated-cast"
-	CategoryUnusedIsValidResult   = "unused-isvalid-result"
-	CategoryTruncatedIsValidErrs  = "truncated-isvalid-errors"
-	CategoryStaleException        = "stale-exception"
-	CategoryUnknownDirective      = "unknown-directive"
+	CategoryUnusedIsValidResult    = "unused-isvalid-result"
+	CategoryTruncatedIsValidErrs   = "truncated-isvalid-errors"
+	CategoryUnusedConstructorError = "unused-constructor-error"
+	CategoryStaleException         = "stale-exception"
+	CategoryUnknownDirective       = "unknown-directive"
 )
 
 // Flag binding variables for the analyzer's flag set. These are populated
@@ -69,8 +70,9 @@ var (
 	checkFuncOptions    bool
 	checkImmutability   bool
 	checkStructIsValid  bool
-	checkCastValidation bool
-	checkIsValidUsage   bool
+	checkCastValidation      bool
+	checkIsValidUsage        bool
+	checkConstructorErrUsage bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -108,8 +110,10 @@ func init() {
 		"report type conversions to DDD Value Types from non-constants without IsValid() check")
 	Analyzer.Flags.BoolVar(&checkIsValidUsage, "check-isvalid-usage", false,
 		"detect unused or truncated IsValid() results")
+	Analyzer.Flags.BoolVar(&checkConstructorErrUsage, "check-constructor-error-usage", false,
+		"detect constructor calls with error return assigned to blank identifier")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
-		"enable all DDD compliance checks (isvalid + stringer + constructors + structural + cast-validation + isvalid-usage)")
+		"enable all DDD compliance checks (isvalid + stringer + constructors + structural + cast-validation + isvalid-usage + constructor-error-usage)")
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
@@ -127,8 +131,9 @@ type runConfig struct {
 	checkFuncOptions    bool
 	checkImmutability   bool
 	checkStructIsValid  bool
-	checkCastValidation bool
-	checkIsValidUsage   bool
+	checkCastValidation      bool
+	checkIsValidUsage        bool
+	checkConstructorErrUsage bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -147,8 +152,9 @@ func newRunConfig() runConfig {
 		checkFuncOptions:    checkFuncOptions,
 		checkImmutability:   checkImmutability,
 		checkStructIsValid:  checkStructIsValid,
-		checkCastValidation: checkCastValidation,
-		checkIsValidUsage:   checkIsValidUsage,
+		checkCastValidation:      checkCastValidation,
+		checkIsValidUsage:        checkIsValidUsage,
+		checkConstructorErrUsage: checkConstructorErrUsage,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions which is a config
@@ -163,6 +169,7 @@ func newRunConfig() runConfig {
 		rc.checkStructIsValid = true
 		rc.checkCastValidation = true
 		rc.checkIsValidUsage = true
+		rc.checkConstructorErrUsage = true
 	}
 	return rc
 }
@@ -286,6 +293,11 @@ func run(pass *analysis.Pass) (any, error) {
 			// IsValid usage: detect discarded or truncated IsValid() results.
 			if rc.checkIsValidUsage {
 				inspectIsValidUsage(pass, n, cfg, bl)
+			}
+
+			// Constructor error usage: detect blanked error returns.
+			if rc.checkConstructorErrUsage {
+				inspectConstructorErrorUsage(pass, n, cfg, bl)
 			}
 		}
 	})

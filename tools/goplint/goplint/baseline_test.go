@@ -474,6 +474,7 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 		CategoryUnvalidatedCast,
 		CategoryUnusedIsValidResult,
 		CategoryTruncatedIsValidErrs,
+		CategoryUnusedConstructorError,
 	}
 
 	// Verify buildLookup() initializes an entry for each category.

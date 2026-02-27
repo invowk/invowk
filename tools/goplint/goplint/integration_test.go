@@ -36,6 +36,7 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-struct-isvalid", "false")
 	setFlag(t, "check-cast-validation", "false")
 	setFlag(t, "check-isvalid-usage", "false")
+	setFlag(t, "check-constructor-error-usage", "false")
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
@@ -77,6 +78,9 @@ func TestNewRunConfig(t *testing.T) {
 		}
 		if !rc.checkIsValidUsage {
 			t.Error("expected checkIsValidUsage = true")
+		}
+		if !rc.checkConstructorErrUsage {
+			t.Error("expected checkConstructorErrUsage = true")
 		}
 	})
 
@@ -339,4 +343,18 @@ func TestCheckIsValidUsage(t *testing.T) {
 	setFlag(t, "check-isvalid-usage", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "isvalidusage")
+}
+
+// TestCheckConstructorErrorUsage exercises the --check-constructor-error-usage
+// mode against the constructorusage fixture, verifying that constructor calls
+// with error returns assigned to blank identifiers are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckConstructorErrorUsage(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-error-usage", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "constructorusage")
 }
