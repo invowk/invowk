@@ -369,11 +369,12 @@ func receiverTypeName(expr ast.Expr) string {
 // Unknown keys in a //goplint: or //plint: comment trigger an
 // unknown-directive warning.
 var knownDirectiveKeys = map[string]bool{
-	"ignore":       true,
-	"internal":     true,
-	"render":       true,
-	"nonzero":      true,
-	"validate-all": true,
+	"ignore":        true,
+	"internal":      true,
+	"render":        true,
+	"nonzero":       true,
+	"validate-all":  true,
+	"constant-only": true,
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.
@@ -444,6 +445,11 @@ func reportUnknownDirectives(pass *analysis.Pass, doc *ast.CommentGroup, lineCom
 // parseDirectiveKeys extracts directive keys from a goplint/plint
 // comment. Returns known keys and unknown keys separately.
 //
+// The directive prefix must appear at the start of the comment content
+// (after // and optional whitespace). Mentions of directive names in
+// prose comments (e.g., "// see plint:ignore for docs") are not treated
+// as directives.
+//
 // Supported forms (single prefix, comma-separated keys):
 //
 //	//goplint:ignore            → (["ignore"], nil)
@@ -452,22 +458,30 @@ func reportUnknownDirectives(pass *analysis.Pass, doc *ast.CommentGroup, lineCom
 //	//plint:ignore,foo          → (["ignore"], ["foo"])
 //	//nolint:goplint            → (["ignore"], nil)  — special case
 //	// regular comment          → (nil, nil)
+//	// see plint:ignore for docs → (nil, nil)  — prose, not directive
 func parseDirectiveKeys(text string) (keys []string, unknown []string) {
+	// Strip the comment marker and leading whitespace to get the
+	// meaningful content. This normalizes "//goplint:..." and
+	// "// goplint:..." to "goplint:..." for prefix matching.
+	content := strings.TrimPrefix(text, "//")
+	content = strings.TrimSpace(content)
+
 	// Handle nolint:goplint as a special "ignore" directive.
 	// This is a golangci-lint convention — always means "suppress all".
-	if strings.Contains(text, "nolint:goplint") {
+	// Must appear at content start, not embedded in prose.
+	if strings.HasPrefix(content, "nolint:goplint") {
 		return []string{"ignore"}, nil
 	}
 
-	// Look for goplint: or plint: prefix.
+	// Look for goplint: or plint: prefix at the start of content.
+	// Using HasPrefix ensures prose references like
+	// "see plint:ignore for docs" don't trigger the directive.
 	var valueStr string
 	for _, prefix := range []string{"goplint:", "plint:"} {
-		_, after, ok := strings.Cut(text, prefix)
-		if !ok {
-			continue
+		if strings.HasPrefix(content, prefix) {
+			valueStr = content[len(prefix):]
+			break
 		}
-		valueStr = after
-		break
 	}
 	if valueStr == "" {
 		return nil, nil

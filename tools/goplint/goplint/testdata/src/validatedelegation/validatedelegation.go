@@ -116,6 +116,24 @@ func (c *AliasConfig) Validate() error {
 	return nil
 }
 
+// --- Value receiver delegation — should NOT be flagged ---
+
+//goplint:validate-all
+type ValueReceiverConfig struct {
+	FieldName Name
+	FieldMode Mode
+}
+
+func (c ValueReceiverConfig) Validate() error {
+	if err := c.FieldName.Validate(); err != nil {
+		return err
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // --- Mix of validatable and non-validatable fields ---
 
 //goplint:validate-all

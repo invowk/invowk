@@ -229,6 +229,15 @@ func run(pass *analysis.Pass) (any, error) {
 		withFunctions      map[string][]string             // targetStructName → ["WithXxx", ...]
 	)
 
+	// constantOnlyTypes tracks type names annotated with //goplint:constant-only.
+	// These types have Validate() but are only ever instantiated from
+	// compile-time constants, so their constructors are intentionally
+	// exempt from --check-constructor-validates.
+	var constantOnlyTypes map[string]bool
+	if rc.checkConstructorValidates {
+		constantOnlyTypes = make(map[string]bool)
+	}
+
 	// Method tracking serves Validate/Stringer checks, error type detection
 	// for the missing-constructor check (skip structs implementing error),
 	// and struct Validate() verification.
@@ -286,6 +295,11 @@ func run(pass *analysis.Pass) (any, error) {
 			// Structural: collect option type definitions.
 			if needOptionTypes {
 				collectOptionTypes(pass, n, optionTypes)
+			}
+
+			// Collect types with //goplint:constant-only directive.
+			if constantOnlyTypes != nil {
+				collectConstantOnlyTypes(n, constantOnlyTypes)
 			}
 
 		case *ast.FuncDecl:
@@ -349,7 +363,7 @@ func run(pass *analysis.Pass) (any, error) {
 		reportMissingStructValidate(pass, exportedStructs, constructorDetails, methodSeen, cfg, bl)
 	}
 	if rc.checkConstructorValidates {
-		inspectConstructorValidates(pass, constructorDetails, cfg, bl)
+		inspectConstructorValidates(pass, constructorDetails, constantOnlyTypes, cfg, bl)
 	}
 
 	// Validate delegation — opt-in via //goplint:validate-all.
@@ -541,6 +555,25 @@ const expectedValidateSig = "error"
 // expectedStringerSig is the expected signature for String methods:
 // zero parameters, returning string.
 const expectedStringerSig = "string"
+
+// collectConstantOnlyTypes scans a GenDecl for type definitions annotated
+// with //goplint:constant-only. These types have Validate() but are only
+// instantiated from compile-time constants, so constructors returning them
+// are exempt from --check-constructor-validates.
+func collectConstantOnlyTypes(node *ast.GenDecl, out map[string]bool) {
+	if node.Tok != token.TYPE {
+		return
+	}
+	for _, spec := range node.Specs {
+		ts, ok := spec.(*ast.TypeSpec)
+		if !ok {
+			continue
+		}
+		if hasDirectiveKey(node.Doc, ts.Doc, "constant-only") {
+			out[ts.Name.Name] = true
+		}
+	}
+}
 
 // reportMissingValidate reports named non-struct types that lack a
 // Validate() method or have one with the wrong signature. For unexported

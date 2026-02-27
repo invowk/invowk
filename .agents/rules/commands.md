@@ -236,7 +236,7 @@ goreleaser release --snapshot --clean
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check |
-| `lint.yml` | Push/PR to main (Go code/lint config changes) | Advisory golangci-lint run |
+| `lint.yml` | Push/PR to main (Go code/lint config changes) | Advisory golangci-lint + **required** goplint baseline gate |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
 | `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |
 

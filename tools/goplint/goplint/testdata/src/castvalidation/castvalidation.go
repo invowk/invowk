@@ -247,3 +247,16 @@ func CastFromPlainVariableStillFlagged(cmdName string) { // want `parameter "cmd
 	name := CommandName(cmdName) // want `type conversion to CommandName from non-constant without Validate\(\) check`
 	_ = name
 }
+
+// --- Multi-assignment cast tests ---
+
+// MultiAssignCast tests a, b := DddType(x), DddType(y) pattern.
+// First cast is validated, second is not.
+func MultiAssignCast(x, y string) { // want `parameter "x" of castvalidation\.MultiAssignCast uses primitive type string` `parameter "y" of castvalidation\.MultiAssignCast uses primitive type string`
+	a, b := CommandName(x), CommandName(y) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	if err := a.Validate(); err != nil {
+		return
+	}
+	_ = a
+	_ = b
+}

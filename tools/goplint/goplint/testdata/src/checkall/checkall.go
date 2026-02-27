@@ -213,3 +213,23 @@ func (n NonZeroID) String() string { return fmt.Sprintf("%d", int(n)) }
 type Holder struct { // want `exported struct checkall\.Holder has no NewHolder\(\) constructor`
 	ID NonZeroID // want `struct field checkall\.Holder\.ID uses nonzero type NonZeroID as value`
 }
+
+// --- Constant-only type (--check-constructor-validates exemption) ---
+
+//goplint:constant-only
+type Priority string
+
+func (p Priority) Validate() error {
+	if p == "" {
+		return fmt.Errorf("empty priority")
+	}
+	return nil
+}
+
+func (p Priority) String() string { return string(p) }
+
+// NewPriority does NOT call Validate() — exempt because Priority is constant-only.
+func NewPriority(s string) (*Priority, error) { // want `parameter "s" of checkall\.NewPriority uses primitive type string`
+	p := Priority(s) // want `type conversion to Priority from non-constant without Validate\(\) check`
+	return &p, nil
+}

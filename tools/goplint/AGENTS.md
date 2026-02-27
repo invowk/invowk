@@ -30,6 +30,9 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Check cast validation | `make build-goplint && ./bin/goplint -check-cast-validation -config=tools/goplint/exceptions.toml ./...` |
 | Check Validate usage | `make build-goplint && ./bin/goplint -check-validate-usage -config=tools/goplint/exceptions.toml ./...` |
 | Check constructor error usage | `make build-goplint && ./bin/goplint -check-constructor-error-usage -config=tools/goplint/exceptions.toml ./...` |
+| Check constructor validates | `make build-goplint && ./bin/goplint -check-constructor-validates -config=tools/goplint/exceptions.toml ./...` |
+| Check validate delegation | `make build-goplint && ./bin/goplint -check-validate-delegation -config=tools/goplint/exceptions.toml ./...` |
+| Check nonzero fields | `make build-goplint && ./bin/goplint -check-nonzero -config=tools/goplint/exceptions.toml ./...` |
 
 ## Scoped Rule Exception (Testing Parallelism)
 
@@ -204,6 +207,23 @@ type Config struct {
 ```
 
 This directive only affects `--check-validate-delegation`. Without it, no delegation analysis is performed (opt-in to avoid false positives on structs with intentionally partial validation).
+
+### 6. Constant-Only Directive — constructor-validates exemption
+
+Types marked with `//goplint:constant-only` are exempt from `--check-constructor-validates`. Use this for types whose `Validate()` method exists for completeness but is never called in production because all values come from compile-time constants.
+
+```go
+//goplint:constant-only
+type Severity string
+
+func (s Severity) Validate() error { ... }
+
+// NewSeverity is NOT flagged by --check-constructor-validates
+// because Severity is constant-only.
+func NewSeverity(s string) (*Severity, error) { ... }
+```
+
+This directive only affects `--check-constructor-validates`. Other checks (primitive detection, validate, stringer) still apply.
 
 ## Supplementary Modes
 
@@ -407,7 +427,7 @@ Run `make update-baseline` after:
 
 ### CI integration
 
-The `goplint-baseline` job in `lint.yml` runs `make check-baseline`. During rollout it uses `continue-on-error: true` (advisory). To promote to required: remove `continue-on-error` and add to branch protection.
+The `goplint-baseline` job in `lint.yml` runs `make check-baseline`. It is a required check — any new findings not in the baseline will block the PR.
 
 ### Pre-commit hook
 
@@ -417,13 +437,13 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 
 - **Preferred directive prefix is `goplint:`**: All new directive keys and documentation should use the full `//goplint:` prefix. The short `//plint:` prefix is supported as a convenience alias. The `//nolint:goplint` form is a golangci-lint convention and remains supported as an alias for `//goplint:ignore`.
 - **Combined directives**: `//plint:ignore,internal` uses comma-separated keys after a single prefix (following the golangci-lint convention). Do NOT repeat the prefix: `//plint:ignore,plint:internal` is NOT supported. Unknown keys emit `unknown-directive` warnings.
-- **Directive prefix matching is lenient**: `plint:` is matched anywhere in the comment text via `strings.Index`, not just at the start. A comment like `// see plint:ignore for details` would trigger the directive. Avoid referencing directive names in prose comments.
+- **Directive prefix matching is start-anchored**: `goplint:` and `plint:` are matched at the start of the comment content (after `//` and optional whitespace) using `strings.HasPrefix`, not anywhere in the text. A comment like `// see plint:ignore for details` does NOT trigger the directive. Only `//plint:ignore` or `// plint:ignore` at comment-start are recognized.
 - **`types.Alias` (Go 1.22+)**: Type aliases (`type X = string`) are transparent — `isPrimitive` must call `types.Unalias()` to resolve them. Without this, aliases silently pass the linter.
 - **Generic pointer receivers**: `*Container[T]` is `StarExpr{X: IndexExpr{...}}` in the AST. `receiverTypeName` must recurse through `StarExpr` to find the type name inside `IndexExpr`. A naive `StarExpr → Ident` check misses this.
 - **Flag binding variables**: The `-config` and supplementary mode flags are package-level variables bound via `BoolVar`/`StringVar` (required by the `go/analysis` framework). However, `run()` never reads or mutates these directly — it reads them once via `newRunConfig()` into a local `runConfig` struct, and the `--check-all` expansion happens on the local struct. Integration tests use `Analyzer.Flags.Set()` + `resetFlags()` instead of manual save/restore. Tests must NOT use `t.Parallel()` — they share the `Analyzer.Flags` FlagSet.
 - **`primitiveTypeName` needs `Unalias` too**: Even after `isPrimitive` correctly detects an alias as primitive, the diagnostic message must show the resolved type (`string`), not the alias name (`MyAlias`). Call `types.Unalias()` before `types.TypeString()`.
 - **Qualified name format**: The analyzer prefixes all names with the package name (`pkg.Type.Field`, `pkg.Func.param`). Exception patterns can be 2-segment (matched after stripping the package prefix) or 3-segment (exact match).
-- **CI is advisory (rollout)**: Both `goplint` and `goplint-baseline` jobs in `lint.yml` use `continue-on-error: true` during rollout. To promote the baseline check to required: remove `continue-on-error` and add to branch protection.
+- **CI baseline is required**: The `goplint-baseline` job in `lint.yml` is a required check that blocks merges on regressions. The `goplint` (full DDD audit) job remains advisory with `continue-on-error: true`.
 - **Per-package execution**: `go/analysis` analyzers run per-package. `--audit-exceptions` reports stale exceptions per-package — an exception that matches in package A but not package B will only be reported as stale during B's analysis. For a global stale audit, run against the full module (`./...`).
 
 ## Test Architecture

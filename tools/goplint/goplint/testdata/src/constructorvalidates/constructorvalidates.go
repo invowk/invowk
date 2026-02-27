@@ -107,6 +107,25 @@ func NewResolverFromPath(path string) (*Resolver, error) { // want `parameter "p
 	return r, nil
 }
 
+// --- Single-return constructor (no error return) ---
+// Even without an error return, the constructor could call Validate()
+// and panic or log. The mode flags missing Validate() regardless.
+
+type Widget struct {
+	label string // want `struct field constructorvalidates\.Widget\.label uses primitive type string`
+}
+
+func (w *Widget) Validate() error {
+	if w.label == "" {
+		return fmt.Errorf("empty label")
+	}
+	return nil
+}
+
+func NewWidget(label string) *Widget { // want `parameter "label" of constructorvalidates\.NewWidget uses primitive type string` `constructor constructorvalidates\.NewWidget returns constructorvalidates\.Widget which has Validate\(\) but never calls it`
+	return &Widget{label: label}
+}
+
 // --- False-negative test: validates parameter, not return type ---
 
 // Handler has Validate().
@@ -126,4 +145,27 @@ func NewHandler(cfg Config) (*Handler, error) { // want `constructor constructor
 		return nil, err
 	}
 	return &Handler{config: cfg}, nil
+}
+
+// --- Constant-only type (//goplint:constant-only) — constructor NOT flagged ---
+
+//goplint:constant-only
+type Severity string
+
+func (s Severity) Validate() error {
+	switch s {
+	case "info", "warn", "error":
+		return nil
+	default:
+		return fmt.Errorf("invalid severity: %s", string(s))
+	}
+}
+
+func (s Severity) String() string { return string(s) }
+
+// NewSeverity does NOT call Validate() — but Severity is constant-only,
+// so this constructor is exempt from --check-constructor-validates.
+func NewSeverity(s string) (*Severity, error) { // want `parameter "s" of constructorvalidates\.NewSeverity uses primitive type string`
+	sev := Severity(s)
+	return &sev, nil
 }

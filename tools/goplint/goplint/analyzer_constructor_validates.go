@@ -24,12 +24,16 @@ type constructorValidateInfo struct {
 // Validate() on the type they construct. Constructors returning types with
 // a Validate() method should call it before returning to enforce invariants.
 //
+// Types annotated with //goplint:constant-only are exempt — their values
+// only come from compile-time constants, so runtime validation is unnecessary.
+//
 // This is a post-traversal check: it receives the constructorDetails map
 // already populated by trackConstructorDetails, then walks the function
 // bodies looking for .Validate() calls.
 func inspectConstructorValidates(
 	pass *analysis.Pass,
 	ctors map[string]*constructorFuncInfo,
+	constantOnlyTypes map[string]bool,
 	cfg *ExceptionConfig,
 	bl *BaselineConfig,
 ) {
@@ -80,6 +84,13 @@ func inspectConstructorValidates(
 
 			returnType := ctorInfo.returnTypeName
 			if returnType == "" || !validatableStructs[returnType] {
+				continue
+			}
+
+			// Skip types annotated with //goplint:constant-only — their
+			// Validate() is intentionally unwired because all values come
+			// from compile-time constants.
+			if constantOnlyTypes[returnType] {
 				continue
 			}
 

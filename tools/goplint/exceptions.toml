@@ -433,6 +433,11 @@ reason = "bubbles list.ItemDelegate interface: Spacing() int"
 # =============================================================================
 # Display-only reason/message fields in InvalidXxxError structs, same semantic
 # category as already-excepted CapabilityError.Message.
+# Scope: 10 error structs (InvalidSubdirectoryPathError, InvalidGlobPatternError,
+# InvalidVolumeMountSpecError, InvalidRegexPatternError, InvalidPortMappingSpecError,
+# InvalidFlagNameError, InvalidDurationStringError, InvalidBinaryNameError,
+# InvalidArgumentNameError, EngineNotAvailableError). If a non-error struct
+# adds a Reason field with domain semantics, add it as a DDD type instead.
 
 [[exceptions]]
 pattern = "*.Reason"
@@ -981,8 +986,9 @@ reason = "bubbles list.Item interface"
 # =============================================================================
 # u-root commands implement POSIX utilities operating on raw text/byte
 # streams. All params/returns/fields are POSIX domain, not Invowk domain.
-# These 3 patterns at different segment depths replace the 6 individual
-# uroot exceptions above (which are kept for backward compat).
+# These 3 patterns at different segment depths cover all findings in the
+# package. The individual uroot entries above (Name, Description, Run.args,
+# etc.) are subsumed by these broad patterns but kept for documentation.
 
 [[exceptions]]
 pattern = "uroot.*.*"
@@ -1813,10 +1819,6 @@ reason = "Cobra args boundary — import path"
 # =============================================================================
 
 [[exceptions]]
-pattern = "cueutil.FormatError.filePath"
-reason = "filepath boundary — display error formatting"
-
-[[exceptions]]
 pattern = "platform.statFile.*"
 reason = "filepath/OS boundary — os.Stat wrapper"
 
@@ -1827,14 +1829,6 @@ reason = "filepath boundary — fsnotify watcher"
 [[exceptions]]
 pattern = "invowkfile.ValidateContainerfilePath.*"
 reason = "filepath boundary — os.Stat/filepath.Rel callers"
-
-[[exceptions]]
-pattern = "invowkfile.isLiteralChar.c"
-reason = "byte-level parse primitive"
-
-[[exceptions]]
-pattern = "invowkfile.isWindowsDriveLetter.c"
-reason = "byte-level parse primitive"
 
 # =============================================================================
 # Constructor Validate() Delegation Exceptions

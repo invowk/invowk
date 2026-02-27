@@ -387,6 +387,20 @@ func TestCheckValidateDelegation(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "validatedelegation")
 }
 
+// TestCheckValidateDelegationMultiFile exercises --check-validate-delegation
+// with a multi-file package where the struct is defined in one file and its
+// Validate() method in another. Verifies cross-file delegation detection.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckValidateDelegationMultiFile(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-validate-delegation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "validatedelegation_multifile")
+}
+
 // TestCheckConstructorValidates exercises the --check-constructor-validates
 // mode against the constructorvalidates fixture, verifying that constructors
 // returning types with Validate() but not calling it are flagged.
@@ -399,6 +413,21 @@ func TestCheckConstructorValidates(t *testing.T) {
 	setFlag(t, "check-constructor-validates", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "constructorvalidates")
+}
+
+// TestConstructorValidatesException exercises that --check-constructor-validates
+// respects TOML exception patterns (e.g., "pkg.NewFoo.constructor-validate").
+// The configexceptions fixture has NewServiceConfig which does not call
+// Validate() but is excepted via TOML — no constructor-validates finding.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestConstructorValidatesException(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "config", filepath.Join(testdata, "src", "configexceptions", "goplint.toml"))
+	setFlag(t, "check-constructor-validates", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "configexceptions")
 }
 
 // TestCheckNonZero exercises the --check-nonzero mode against the nonzero
