@@ -75,7 +75,7 @@ func inspectUnvalidatedCastsCFA(
 		// When encountering a closure, delegate to CFA closure analysis
 		// instead of skipping entirely.
 		if lit, ok := n.(*ast.FuncLit); ok {
-			inspectClosureCastsCFA(pass, lit, qualFuncName, closureIndex, excCfg, bl)
+			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIndex), excCfg, bl)
 			closureIndex++
 			return false
 		}

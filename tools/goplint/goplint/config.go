@@ -42,6 +42,13 @@ type Exception struct {
 	Pattern string `toml:"pattern"`
 	// Reason documents why this primitive usage is intentional.
 	Reason string `toml:"reason"`
+	// ReviewAfter is an optional ISO date (e.g., "2025-12-01") indicating
+	// when this exception should be re-evaluated. Used by --audit-review-dates
+	// to flag overdue exceptions.
+	ReviewAfter string `toml:"review_after,omitempty"`
+	// BlockedBy documents what work item or condition must be resolved
+	// before this exception can be removed (e.g., "Tier 3.7 tui baseline").
+	BlockedBy string `toml:"blocked_by,omitempty"`
 }
 
 // loadConfig reads and parses the exceptions TOML file.

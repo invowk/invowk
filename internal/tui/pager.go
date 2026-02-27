@@ -34,8 +34,8 @@ type (
 		title     string
 		ready     bool
 		done      bool
-		width     int
-		height    int
+		width     TerminalDimension
+		height    TerminalDimension
 		forModal  bool
 		altScreen bool
 	}
@@ -123,7 +123,7 @@ func (m *pagerModel) View() tea.View {
 
 	// Constrain the view to the configured width to prevent overflow in modal overlays
 	if m.width > 0 {
-		content = lipgloss.NewStyle().MaxWidth(m.width).Render(content)
+		content = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(content)
 	}
 
 	view := tea.NewView(content)
@@ -152,8 +152,8 @@ func (m *pagerModel) Cancelled() bool {
 
 // SetSize implements EmbeddableComponent.
 func (m *pagerModel) SetSize(width, height TerminalDimension) {
-	m.width = int(width)
-	m.height = int(height)
+	m.width = width
+	m.height = height
 	m.viewport.SetWidth(int(width))
 	m.viewport.SetHeight(int(height) - 4)
 }
@@ -261,8 +261,8 @@ func newPagerModelWithStyles(opts PagerOptions, forModal bool) *pagerModel {
 		viewport: vp,
 		title:    opts.Title,
 		ready:    true,
-		width:    int(width),
-		height:   int(height),
+		width:    width,
+		height:   height,
 		forModal: forModal,
 	}
 }

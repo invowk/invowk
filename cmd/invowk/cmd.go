@@ -351,9 +351,9 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
-		FromSource:   discovery.SourceID(cmdFlags.fromSource),
+		FromSource:   discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
 		ForceRebuild: cmdFlags.forceRebuild,
-		ConfigPath:   types.FilesystemPath(rootFlags.configPath),
+		ConfigPath:   types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 		DryRun:       cmdFlags.dryRun,
 	}
 
@@ -405,7 +405,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	verbose = rootFlags.verbose
 	interactive = rootFlags.interactive
 
-	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)})
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)}) //goplint:ignore -- CLI flag value, may be empty
 	if err != nil {
 		fmt.Fprintln(app.stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, rootFlags.verbose))
 		return verbose, interactive

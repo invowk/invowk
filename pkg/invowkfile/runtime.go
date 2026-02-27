@@ -486,5 +486,5 @@ func ResolveInterpreter(interpreter InterpreterSpec, scriptContent string) Sheba
 	}
 
 	// Parse explicit interpreter string
-	return ParseInterpreterString(InterpreterSpec(effectiveInterpreter))
+	return ParseInterpreterString(InterpreterSpec(effectiveInterpreter)) //goplint:ignore -- round-trip from validated InterpreterSpec parameter
 }

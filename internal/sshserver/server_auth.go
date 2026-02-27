@@ -20,6 +20,9 @@ func (s *Server) GenerateToken(commandID string) (*Token, error) {
 	}
 
 	tokenValue := TokenValue(hex.EncodeToString(tokenBytes))
+	if err := tokenValue.Validate(); err != nil {
+		return nil, fmt.Errorf("generated token: %w", err)
+	}
 	now := s.clock.Now()
 
 	token := &Token{
@@ -131,7 +134,12 @@ func (s *Server) cleanupExpiredTokens() {
 
 // passwordHandler handles password authentication using tokens.
 func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
-	token, valid := s.ValidateToken(TokenValue(password))
+	tv := TokenValue(password)
+	if err := tv.Validate(); err != nil {
+		s.logger.Warn("Invalid token format", "user", ctx.User(), "error", err)
+		return false
+	}
+	token, valid := s.ValidateToken(tv)
 	if !valid {
 		s.logger.Warn("Invalid token authentication attempt", "user", ctx.User())
 		return false

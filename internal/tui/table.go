@@ -34,7 +34,7 @@ type (
 		// Selectable enables row selection.
 		Selectable bool
 		// SelectedIndex is the initially selected row index.
-		SelectedIndex int
+		SelectedIndex SelectionIndex
 		// Separator is the column separator character.
 		Separator string
 		// Border enables table border.
@@ -50,8 +50,8 @@ type (
 		rows      [][]string
 		done      bool
 		cancelled bool
-		width     int
-		height    int
+		width     TerminalDimension
+		height    TerminalDimension
 	}
 
 	// TableBuilder provides a fluent API for building Table displays.
@@ -100,7 +100,7 @@ func (m *tableModel) View() tea.View {
 	// Constrain the table view to the configured width to prevent overflow in modal overlays
 	view := m.table.View()
 	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
+		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
 	return tea.NewView(view)
 }
@@ -136,8 +136,8 @@ func (m *tableModel) Cancelled() bool {
 
 // SetSize implements EmbeddableComponent.
 func (m *tableModel) SetSize(width, height TerminalDimension) {
-	m.width = int(width)
-	m.height = int(height)
+	m.width = width
+	m.height = height
 	if width > 0 {
 		m.table.SetWidth(int(width))
 	}
@@ -283,7 +283,7 @@ func (b *TableBuilder) Selectable(selectable bool) *TableBuilder {
 }
 
 // SelectedIndex sets the initially selected row.
-func (b *TableBuilder) SelectedIndex(idx int) *TableBuilder {
+func (b *TableBuilder) SelectedIndex(idx SelectionIndex) *TableBuilder {
 	b.opts.SelectedIndex = idx
 	return b
 }
@@ -419,14 +419,14 @@ func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
 
 	t.SetStyles(s)
 
-	if opts.SelectedIndex >= 0 && opts.SelectedIndex < len(opts.Rows) {
-		t.SetCursor(opts.SelectedIndex)
+	if opts.SelectedIndex >= 0 && int(opts.SelectedIndex) < len(opts.Rows) {
+		t.SetCursor(int(opts.SelectedIndex))
 	}
 
 	return &tableModel{
 		table:  t,
 		rows:   opts.Rows,
-		width:  int(opts.Width),
-		height: tableHeight,
+		width:  opts.Width,
+		height: TerminalDimension(tableHeight),
 	}
 }

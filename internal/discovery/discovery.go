@@ -109,7 +109,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 	if !d.baseDirSet && d.baseDir == "" {
 		cwd, err := os.Getwd()
 		if err == nil {
-			d.baseDir = types.FilesystemPath(cwd)
+			d.baseDir = types.FilesystemPath(cwd) //goplint:ignore -- os.Getwd returns valid path or error
 		} else {
 			slog.Debug("failed to determine working directory for discovery, current-dir lookup will be skipped",
 				"error", err)
@@ -226,8 +226,12 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 		}
 
 		if existingSource, exists := moduleSources[moduleID]; exists {
+			modID := invowkmod.ModuleID(moduleID)
+			if err := modID.Validate(); err != nil {
+				return fmt.Errorf("invalid module ID %q: %w", moduleID, err)
+			}
 			return &ModuleCollisionError{
-				ModuleID:     invowkmod.ModuleID(moduleID),
+				ModuleID:     modID,
 				FirstSource:  existingSource,
 				SecondSource: sourcePath,
 			}

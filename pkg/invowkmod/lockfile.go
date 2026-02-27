@@ -339,21 +339,21 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			}
 		}
 
-		// Parse module fields
+		// Parse module fields — field-level casts are validated by struct-level checks.
 		if braceDepth == 2 && currentModuleKey != "" {
 			switch {
 			case strings.HasPrefix(line, "git_url:"):
-				currentModule.GitURL = GitURL(parseStringValue(line))
+				currentModule.GitURL = GitURL(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "version:"):
-				currentModule.Version = SemVerConstraint(parseStringValue(line))
+				currentModule.Version = SemVerConstraint(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "resolved_version:"):
-				currentModule.ResolvedVersion = SemVer(parseStringValue(line))
+				currentModule.ResolvedVersion = SemVer(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "git_commit:"):
-				currentModule.GitCommit = GitCommit(parseStringValue(line))
+				currentModule.GitCommit = GitCommit(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "alias:"):
-				currentModule.Alias = ModuleAlias(parseStringValue(line))
+				currentModule.Alias = ModuleAlias(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "path:"):
-				currentModule.Path = SubdirectoryPath(parseStringValue(line))
+				currentModule.Path = SubdirectoryPath(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "namespace:"):
 				ns := ModuleNamespace(parseStringValue(line))
 				if err := ns.Validate(); err != nil {

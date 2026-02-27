@@ -95,7 +95,11 @@ func ParseModuleName(folderName string) (ModuleShortName, error) {
 		return "", fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", prefix)
 	}
 
-	return ModuleShortName(prefix), nil
+	shortName := ModuleShortName(prefix)
+	if err := shortName.Validate(); err != nil {
+		return "", fmt.Errorf("module short name: %w", err)
+	}
+	return shortName, nil
 }
 
 // ValidateName checks if a module name is valid.

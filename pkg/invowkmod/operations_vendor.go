@@ -98,10 +98,12 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 			return nil, fmt.Errorf("failed to copy module to %s: %w", destPath, err)
 		}
 
+		srcPath := types.FilesystemPath(moduleDir) //goplint:ignore -- OS-resolved path from resolver
+		dstPath := types.FilesystemPath(destPath)  //goplint:ignore -- filepath.Join from validated components
 		result.Vendored = append(result.Vendored, VendoredEntry{
 			Namespace:  mod.Namespace,
-			SourcePath: types.FilesystemPath(moduleDir),
-			VendorPath: types.FilesystemPath(destPath),
+			SourcePath: srcPath,
+			VendorPath: dstPath,
 		})
 	}
 
@@ -120,7 +122,7 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 // GetVendoredModulesDir returns the path to the vendored modules directory for a given module.
 // Returns the path whether or not the directory exists.
 func GetVendoredModulesDir(modulePath types.FilesystemPath) types.FilesystemPath {
-	return types.FilesystemPath(filepath.Join(string(modulePath), VendoredModulesDir))
+	return types.FilesystemPath(filepath.Join(string(modulePath), VendoredModulesDir)) //goplint:ignore -- derived from validated modulePath
 }
 
 // HasVendoredModules checks if a module has vendored dependencies.
@@ -165,12 +167,13 @@ func ListVendoredModules(modulePath types.FilesystemPath) ([]*Module, error) {
 
 		// Check if it's a module
 		entryPath := filepath.Join(vendorDirStr, entry.Name())
-		if !IsModule(types.FilesystemPath(entryPath)) {
+		vendoredPath := types.FilesystemPath(entryPath) //goplint:ignore -- filepath.Join from OS-listed entry
+		if !IsModule(vendoredPath) {
 			continue
 		}
 
 		// Load the module
-		m, err := Load(types.FilesystemPath(entryPath))
+		m, err := Load(vendoredPath)
 		if err != nil {
 			// Skip invalid modules
 			continue

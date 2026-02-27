@@ -244,6 +244,23 @@ func hasValidateMethod(t types.Type) bool {
 	return false
 }
 
+// hasValidatableElements reports whether t is a slice or array type whose
+// element type has a Validate() error method. Used by validate-delegation
+// to recognize range-loop delegation patterns like:
+//
+//	for _, r := range c.Requires { r.Validate() }
+func hasValidatableElements(t types.Type) bool {
+	t = types.Unalias(t)
+	switch ct := t.(type) {
+	case *types.Slice:
+		return hasValidateMethod(ct.Elem())
+	case *types.Array:
+		return hasValidateMethod(ct.Elem())
+	default:
+		return false
+	}
+}
+
 // isOptionFuncType checks whether t is a named type whose underlying type
 // is a function signature taking exactly one pointer-to-struct parameter.
 // This detects the functional options pattern: type XxxOption func(*Xxx).

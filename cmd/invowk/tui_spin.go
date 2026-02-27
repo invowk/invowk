@@ -105,7 +105,8 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
-			return &ExitError{Code: types.ExitCode(exitErr.ExitCode())}
+			spinExitCode := types.ExitCode(exitErr.ExitCode()) //goplint:ignore -- OS exit code from exec.ExitError
+			return &ExitError{Code: spinExitCode}
 		}
 		// If we got a synthetic error from HTTP client
 		if exitCode != 0 {

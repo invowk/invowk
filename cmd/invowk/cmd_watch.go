@@ -130,7 +130,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		Ignore:      ignore,
 		Debounce:    debounce,
 		ClearScreen: clearScreen,
-		BaseDir:     types.FilesystemPath(baseDir),
+		BaseDir:     types.FilesystemPath(baseDir), //goplint:ignore -- from invowkfile directory resolution
 		OnChange: func(cbCtx context.Context, changed []string) error {
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])

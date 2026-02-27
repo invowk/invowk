@@ -95,8 +95,8 @@ type (
 		result   *InteractiveResult
 		state    executionState
 		ready    bool
-		width    int
-		height   int
+		width    TerminalDimension
+		height   TerminalDimension
 		mu       sync.Mutex
 		pty      xpty.Pty
 

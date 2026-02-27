@@ -74,7 +74,7 @@ func (f *GitFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer,
 			tagName := ref.Name().Short()
 			// Accept both "v1.2.3" and "1.2.3" formats
 			if isValidVersionString(tagName) {
-				versions = append(versions, SemVer(tagName))
+				versions = append(versions, SemVer(tagName)) //goplint:ignore -- isValidVersionString pre-validates format
 			}
 		}
 	}
@@ -141,7 +141,11 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL GitURL, tagName
 
 	for _, ref := range refs {
 		if ref.Name().IsTag() && slices.Contains(tagNames, ref.Name().Short()) {
-			return GitCommit(ref.Hash().String()), nil
+			commit := GitCommit(ref.Hash().String())
+			if err := commit.Validate(); err != nil {
+				return "", fmt.Errorf("git commit hash for tag %q: %w", tagName, err)
+			}
+			return commit, nil
 		}
 	}
 
@@ -190,7 +194,11 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL GitURL, version Se
 			return "", fmt.Errorf("failed to get HEAD: %w", err)
 		}
 
-		return GitCommit(head.Hash().String()), nil
+		commit := GitCommit(head.Hash().String())
+		if err := commit.Validate(); err != nil {
+			return "", fmt.Errorf("git HEAD commit: %w", err)
+		}
+		return commit, nil
 	}
 
 	return "", fmt.Errorf("failed to clone at version %s: %w", version, lastErr)
@@ -246,9 +254,13 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]
 	var tags []TagInfo
 	for _, ref := range refs {
 		if ref.Name().IsTag() {
+			commit := GitCommit(ref.Hash().String())
+			if err := commit.Validate(); err != nil {
+				return nil, fmt.Errorf("git commit hash for tag %q: %w", ref.Name().Short(), err)
+			}
 			tags = append(tags, TagInfo{
 				Name:   ref.Name().Short(),
-				Commit: GitCommit(ref.Hash().String()),
+				Commit: commit,
 			})
 		}
 	}
@@ -399,7 +411,11 @@ func (f *GitFetcher) checkout(repo *git.Repository, version SemVer) (GitCommit, 
 		return "", fmt.Errorf("failed to checkout: %w", err)
 	}
 
-	return GitCommit(tagRef.String()), nil
+	commit := GitCommit(tagRef.String())
+	if err := commit.Validate(); err != nil {
+		return "", fmt.Errorf("git tag commit: %w", err)
+	}
+	return commit, nil
 }
 
 // findTag finds a tag by name, trying both with and without "v" prefix.
@@ -444,5 +460,5 @@ func (f *GitFetcher) getRepoCachePath(gitURL GitURL) types.FilesystemPath {
 	path = strings.TrimSuffix(path, ".git")
 	path = strings.ReplaceAll(path, ":", "/")
 
-	return types.FilesystemPath(filepath.Join(string(f.cacheDir), "sources", path))
+	return types.FilesystemPath(filepath.Join(string(f.cacheDir), "sources", path)) //goplint:ignore -- computed from validated cache dir + safe path components
 }

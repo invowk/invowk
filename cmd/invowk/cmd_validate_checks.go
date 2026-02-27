@@ -34,7 +34,11 @@ func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 	var actualCode types.ExitCode
 	if execErr != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](execErr); ok {
-			actualCode = types.ExitCode(exitErr.ExitCode())
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if err := exitCode.Validate(); err != nil {
+				return fmt.Errorf("exit code validation: %w", err)
+			}
+			actualCode = exitCode
 		} else {
 			// Try to get exit code from error message for non-native runtimes
 			actualCode = 1 // Default to 1 for errors

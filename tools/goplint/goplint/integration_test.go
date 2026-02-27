@@ -40,7 +40,8 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-constructor-validates", "false")
 	setFlag(t, "check-validate-delegation", "false")
 	setFlag(t, "check-nonzero", "false")
-	setFlag(t, "cfa", "false")
+	setFlag(t, "no-cfa", "false")
+	setFlag(t, "audit-review-dates", "false")
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
@@ -218,6 +219,22 @@ func TestAuditExceptions(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "auditexceptions")
 }
 
+// TestAuditExceptionsMultiPackage verifies per-package stale detection across
+// two packages sharing the same exception config. An exception matching in
+// package A is reported as stale in package B. This documents the per-package
+// limitation of go/analysis.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestAuditExceptionsMultiPackage(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "config", filepath.Join(testdata, "src", "auditexceptions_pkga", "goplint.toml"))
+	setFlag(t, "audit-exceptions", "true")
+
+	analysistest.Run(t, testdata, Analyzer,
+		"auditexceptions_pkga", "auditexceptions_pkgb")
+}
+
 // TestCheckAll exercises the --check-all flag, confirming it enables all
 // 14 DDD compliance checks in a single run: primitive, validate, stringer,
 // constructors, constructor-sig, func-options, immutability, struct-validate,
@@ -301,9 +318,10 @@ func TestCheckStructValidate(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "structvalidate")
 }
 
-// TestCheckCastValidation exercises the --check-cast-validation mode against
-// the castvalidation fixture, verifying type conversions from raw primitives
-// to DDD Value Types without IsValid() are flagged.
+// TestCheckCastValidation exercises the --check-cast-validation mode with
+// --no-cfa against the castvalidation fixture, verifying type conversions
+// from raw primitives to DDD Value Types without Validate() are flagged
+// using the AST name-based heuristic.
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidation(t *testing.T) {
@@ -311,6 +329,7 @@ func TestCheckCastValidation(t *testing.T) {
 	t.Cleanup(func() { resetFlags(t) })
 	resetFlags(t)
 	setFlag(t, "check-cast-validation", "true")
+	setFlag(t, "no-cfa", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "castvalidation")
 }

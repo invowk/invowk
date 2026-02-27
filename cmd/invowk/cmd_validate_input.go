@@ -83,7 +83,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 	if len(providedArgs) < minArgs {
 		return &ArgumentValidationError{
 			Type:         ArgErrMissingRequired,
-			CommandName:  invowkfile.CommandName(cmdName),
+			CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
 			ArgDefs:      argDefs,
 			ProvidedArgs: providedArgs,
 			MinArgs:      minArgs,
@@ -95,7 +95,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 	if !hasVariadic && len(providedArgs) > maxArgs {
 		return &ArgumentValidationError{
 			Type:         ArgErrTooMany,
-			CommandName:  invowkfile.CommandName(cmdName),
+			CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
 			ArgDefs:      argDefs,
 			ProvidedArgs: providedArgs,
 			MinArgs:      minArgs,
@@ -118,7 +118,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 				if err := argDef.ValidateArgumentValue(providedArgs[j]); err != nil {
 					return &ArgumentValidationError{
 						Type:         ArgErrInvalidValue,
-						CommandName:  invowkfile.CommandName(cmdName),
+						CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
 						ArgDefs:      argDefs,
 						ProvidedArgs: providedArgs,
 						InvalidArg:   argDef.Name,
@@ -134,7 +134,7 @@ func validateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 		if err := argDef.ValidateArgumentValue(argValue); err != nil {
 			return &ArgumentValidationError{
 				Type:         ArgErrInvalidValue,
-				CommandName:  invowkfile.CommandName(cmdName),
+				CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
 				ArgDefs:      argDefs,
 				ProvidedArgs: providedArgs,
 				InvalidArg:   argDef.Name,

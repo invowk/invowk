@@ -501,7 +501,7 @@ func (m *Module) Name() ModuleID {
 
 // InvowkmodPath returns the absolute path to invowkmod.cue for this module.
 func (m *Module) InvowkmodPath() types.FilesystemPath {
-	return types.FilesystemPath(filepath.Join(string(m.Path), "invowkmod.cue"))
+	return types.FilesystemPath(filepath.Join(string(m.Path), "invowkmod.cue")) //goplint:ignore -- derived from validated Module.Path
 }
 
 // InvowkfilePath returns the absolute path to invowkfile.cue for this module.
@@ -510,7 +510,7 @@ func (m *Module) InvowkfilePath() types.FilesystemPath {
 	if m.IsLibraryOnly {
 		return ""
 	}
-	return types.FilesystemPath(filepath.Join(string(m.Path), "invowkfile.cue"))
+	return types.FilesystemPath(filepath.Join(string(m.Path), "invowkfile.cue")) //goplint:ignore -- derived from validated Module.Path
 }
 
 // ResolveScriptPath resolves a script path relative to the module root.
@@ -522,11 +522,11 @@ func (m *Module) ResolveScriptPath(scriptPath types.FilesystemPath) types.Filesy
 
 	// If already absolute, return as-is
 	if filepath.IsAbs(nativePath) {
-		return types.FilesystemPath(nativePath)
+		return types.FilesystemPath(nativePath) //goplint:ignore -- OS path from filepath.FromSlash
 	}
 
 	// Resolve relative to module root
-	return types.FilesystemPath(filepath.Join(string(m.Path), nativePath))
+	return types.FilesystemPath(filepath.Join(string(m.Path), nativePath)) //goplint:ignore -- derived from validated Module.Path
 }
 
 // ValidateScriptPath checks if a script path is valid for this module.
@@ -642,7 +642,7 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 // Returns true if allowed, false with reason if not.
 func (s *CommandScope) CanCall(targetCmd string) (allowed bool, reason string) {
 	// Extract module prefix from command name (format: "module.name cmdname" or "module.name@version cmdname")
-	targetModule := ModuleID(ExtractModuleFromCommand(targetCmd))
+	targetModule := ModuleID(ExtractModuleFromCommand(targetCmd)) //goplint:ignore -- used only for equality comparison
 
 	// If no module prefix, it's a local command (always allowed)
 	if targetModule == "" {
@@ -748,7 +748,7 @@ func ParseModuleMetadataOnly(modulePath types.FilesystemPath) (*Invowkmod, error
 		}
 		return nil, fmt.Errorf("failed to check invowkmod at %s: %w", invowkmodPath, err)
 	}
-	return ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+	return ParseInvowkmod(types.FilesystemPath(invowkmodPath)) //goplint:ignore -- os.Stat confirmed path exists
 }
 
 // HasInvowkfile checks if a module directory contains an invowkfile.cue.
@@ -760,12 +760,12 @@ func HasInvowkfile(modulePath types.FilesystemPath) bool {
 
 // InvowkfilePath returns the path to invowkfile.cue in a module directory.
 func InvowkfilePath(modulePath types.FilesystemPath) types.FilesystemPath {
-	return types.FilesystemPath(filepath.Join(string(modulePath), "invowkfile.cue"))
+	return types.FilesystemPath(filepath.Join(string(modulePath), "invowkfile.cue")) //goplint:ignore -- derived from validated modulePath
 }
 
 // InvowkmodPath returns the path to invowkmod.cue in a module directory.
 //
 //nolint:revive // Name is intentional for consistency with Module.InvowkmodPath field/method
 func InvowkmodPath(modulePath types.FilesystemPath) types.FilesystemPath {
-	return types.FilesystemPath(filepath.Join(string(modulePath), "invowkmod.cue"))
+	return types.FilesystemPath(filepath.Join(string(modulePath), "invowkmod.cue")) //goplint:ignore -- derived from validated modulePath
 }

@@ -17,13 +17,14 @@ import (
 // path-reachability analysis.
 //
 // Each closure gets its own cast index counter (starting from 0) and
-// finding IDs include "cfa", "closure", and the closure's sequential index
-// within the enclosing function for uniqueness.
+// finding IDs include "cfa", "closure", and the closure's prefix
+// within the enclosing function for uniqueness. Nested closures use
+// compound prefixes (e.g., "0/1" for the second closure inside the first).
 func inspectClosureCastsCFA(
 	pass *analysis.Pass,
 	lit *ast.FuncLit,
 	qualEnclosingFunc string,
-	closureIndex int,
+	closurePrefix string,
 	excCfg *ExceptionConfig,
 	bl *BaselineConfig,
 ) {
@@ -55,11 +56,15 @@ func inspectClosureCastsCFA(
 	var assignedCasts []assignedCast
 	var unassignedCasts []unassignedCast
 	castIndex := 0
+	nestedIndex := 0
 
 	ast.Inspect(lit.Body, func(n ast.Node) bool {
-		// Skip nested closures — each would need its own analysis,
-		// but one level of closure depth is sufficient for now.
+		// Recursively analyze nested closures with their own CFG
+		// and independent validation scope.
 		if nested, ok := n.(*ast.FuncLit); ok && nested != lit {
+			nestedPrefix := closurePrefix + "/" + strconv.Itoa(nestedIndex)
+			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl)
+			nestedIndex++
 			return false
 		}
 
@@ -132,8 +137,6 @@ func inspectClosureCastsCFA(
 		castIndex++
 		return true
 	})
-
-	closurePrefix := strconv.Itoa(closureIndex)
 
 	// Report assigned casts with unvalidated paths.
 	for _, ac := range assignedCasts {

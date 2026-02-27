@@ -97,7 +97,11 @@ func inspectConstructorValidates(
 			// Check if the constructor body calls .Validate() on the return type.
 			// This is receiver-type-aware: cfg.Validate() on a Config param does
 			// not satisfy the check when the constructor returns *Server.
+			// Also checks transitively through private factory calls.
 			if bodyCallsValidateOnType(pass, fn.Body, returnType) {
+				continue
+			}
+			if bodyCallsValidateTransitive(pass, fn.Body, returnType, nil) {
 				continue
 			}
 
@@ -178,4 +182,90 @@ func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTyp
 		return true
 	})
 	return found
+}
+
+// bodyCallsValidateTransitive checks if any private function called from
+// body transitively calls Validate() on the given return type. Uses
+// pass.TypesInfo to resolve callee identities and bounds recursion depth
+// to 3 to prevent pathological cases.
+func bodyCallsValidateTransitive(
+	pass *analysis.Pass,
+	body *ast.BlockStmt,
+	returnTypeName string,
+	visited map[string]bool,
+) bool {
+	if visited == nil {
+		visited = make(map[string]bool)
+	}
+
+	// Recursion depth limit: count visited entries.
+	if len(visited) >= 3 {
+		return false
+	}
+
+	// Collect all function call identifiers in the body.
+	var callees []string
+	ast.Inspect(body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		ident, ok := call.Fun.(*ast.Ident)
+		if !ok {
+			return true
+		}
+		// Resolve the callee to check it's a same-package function.
+		obj := pass.TypesInfo.Uses[ident]
+		if obj == nil {
+			return true
+		}
+		fn, ok := obj.(*types.Func)
+		if !ok {
+			return true
+		}
+		// Only follow same-package, non-method functions.
+		if fn.Pkg() != pass.Pkg {
+			return true
+		}
+		callees = append(callees, ident.Name)
+		return true
+	})
+
+	// For each callee, find its body and check for Validate().
+	for _, calleeName := range callees {
+		if visited[calleeName] {
+			continue
+		}
+		visited[calleeName] = true
+
+		calleeBody := findFuncBody(pass, calleeName)
+		if calleeBody == nil {
+			continue
+		}
+		if bodyCallsValidateOnType(pass, calleeBody, returnTypeName) {
+			return true
+		}
+		// Recurse into the callee's body.
+		if bodyCallsValidateTransitive(pass, calleeBody, returnTypeName, visited) {
+			return true
+		}
+	}
+	return false
+}
+
+// findFuncBody searches the package for a non-method function with the given
+// name and returns its body. Returns nil if not found.
+func findFuncBody(pass *analysis.Pass, funcName string) *ast.BlockStmt {
+	for _, file := range pass.Files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil || fn.Body == nil {
+				continue
+			}
+			if fn.Name.Name == funcName {
+				return fn.Body
+			}
+		}
+	}
+	return nil
 }

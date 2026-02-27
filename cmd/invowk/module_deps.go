@@ -219,7 +219,7 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	// Auto-edit invowkmod.cue to remove the requires entries
 	invowkmodPath := filepath.Join(".", "invowkmod.cue")
 	for i := range results {
-		if editErr := invowkmod.RemoveRequirement(types.FilesystemPath(invowkmodPath), results[i].RemovedEntry.GitURL, results[i].RemovedEntry.Path); editErr != nil {
+		if editErr := invowkmod.RemoveRequirement(types.FilesystemPath(invowkmodPath), results[i].RemovedEntry.GitURL, results[i].RemovedEntry.Path); editErr != nil { //goplint:ignore -- relative path from current dir
 			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, editErr)
 		}
 	}
@@ -239,7 +239,7 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 
 	// Parse invowkmod.cue to get requirements
 	invowkmodulePath := filepath.Join(".", "invowkmod.cue")
-	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodulePath))
+	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
 	}

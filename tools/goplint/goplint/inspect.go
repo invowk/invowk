@@ -375,6 +375,8 @@ var knownDirectiveKeys = map[string]bool{
 	"nonzero":       true,
 	"validate-all":  true,
 	"constant-only": true,
+	"mutable":       true,
+	"no-delegate":   true,
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.
@@ -399,6 +401,21 @@ func hasInternalDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) 
 // — parameters are still checked. On struct fields, it behaves like ignore.
 func hasRenderDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
 	return hasDirectiveKey(doc, lineComment, "render")
+}
+
+// hasMutableDirective checks whether a struct type has a mutable directive,
+// indicating the struct is intentionally mutable despite having a constructor.
+// Suppresses all immutability findings for the struct's exported fields.
+// Checked at GenDecl and TypeSpec level (same pattern as validate-all).
+func hasMutableDirective(genDoc *ast.CommentGroup, specDoc *ast.CommentGroup) bool {
+	return hasDirectiveKey(genDoc, nil, "mutable") || hasDirectiveKey(specDoc, nil, "mutable")
+}
+
+// hasNoDelegateDirective checks whether a struct field has a no-delegate
+// directive, indicating the field should be excluded from validate-all
+// delegation checking even though its type has a Validate() method.
+func hasNoDelegateDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
+	return hasDirectiveKey(doc, lineComment, "no-delegate")
 }
 
 // hasDirectiveKey checks whether the given directive key appears in any

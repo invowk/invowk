@@ -52,10 +52,10 @@ type (
 // This is a wrapper for invowkmod.NewCommandScope that accepts plain strings
 // and converts to ModuleID at the boundary.
 func NewCommandScope(moduleID string, globalModuleIDs []string, directRequirements []ModuleRequirement) *CommandScope {
-	modID := invowkmod.ModuleID(moduleID)
+	modID := invowkmod.ModuleID(moduleID) //goplint:ignore -- caller provides validated module ID from discovery
 	globalIDs := make([]invowkmod.ModuleID, len(globalModuleIDs))
 	for i, id := range globalModuleIDs {
-		globalIDs[i] = invowkmod.ModuleID(id)
+		globalIDs[i] = invowkmod.ModuleID(id) //goplint:ignore -- caller provides validated module IDs from discovery
 	}
 	return invowkmod.NewCommandScope(modID, globalIDs, directRequirements)
 }

@@ -22,9 +22,14 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
+	validatedAbsPath := types.FilesystemPath(absPath)
+	if validateErr := validatedAbsPath.Validate(); validateErr != nil {
+		return nil, fmt.Errorf("module path: %w", validateErr)
+	}
+
 	result := &ValidationResult{
 		Valid:      true,
-		ModulePath: types.FilesystemPath(absPath),
+		ModulePath: validatedAbsPath,
 		Issues:     []ValidationIssue{},
 	}
 
@@ -71,11 +76,12 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 	case invowkmodInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkmod.cue must be a file, not a directory", "")
 	default:
-		result.InvowkmodPath = types.FilesystemPath(invowkmodPath)
+		invowkmodFSPath := types.FilesystemPath(invowkmodPath) //goplint:ignore -- derived from validated absPath
+		result.InvowkmodPath = invowkmodFSPath
 
 		// Parse invowkmod.cue and validate module field matches folder name
 		if result.ModuleName != "" {
-			meta, parseErr := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+			meta, parseErr := ParseInvowkmod(invowkmodFSPath)
 			if parseErr != nil {
 				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
 			} else if string(meta.Module) != string(result.ModuleName) {
@@ -98,7 +104,7 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 	case invowkfileInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkfile.cue must be a file, not a directory", "")
 	default:
-		result.InvowkfilePath = types.FilesystemPath(invowkfilePath)
+		result.InvowkfilePath = types.FilesystemPath(invowkfilePath) //goplint:ignore -- derived from validated absPath
 	}
 
 	// Check for nested modules and symlinks (security)

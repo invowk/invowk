@@ -64,3 +64,10 @@ type EmbeddedNonZero struct {
 	CommandName // want `struct field nonzero\.EmbeddedNonZero\.\(embedded\) uses nonzero type CommandName as value`
 	Other       string // want `struct field nonzero\.EmbeddedNonZero\.Other uses primitive type string`
 }
+
+// --- Function parameters with nonzero types: NOT checked ---
+// --check-nonzero only checks struct fields, not function parameters.
+
+// FuncWithNonZeroParam takes a nonzero type by value — NOT flagged.
+// Documents that --check-nonzero scope is struct-field-only.
+func FuncWithNonZeroParam(id CommandName) { _ = id }

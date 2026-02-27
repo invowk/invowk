@@ -746,7 +746,11 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 	result := &RunResult{}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = types.ExitCode(exitErr.ExitCode())
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if validateErr := exitCode.Validate(); validateErr != nil {
+				return nil, fmt.Errorf("container run exit code: %w", validateErr)
+			}
+			result.ExitCode = exitCode
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -770,7 +774,11 @@ func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, comma
 	result := &RunResult{ContainerID: containerID}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = types.ExitCode(exitErr.ExitCode())
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if validateErr := exitCode.Validate(); validateErr != nil {
+				return nil, fmt.Errorf("container exec exit code: %w", validateErr)
+			}
+			result.ExitCode = exitCode
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -883,10 +891,10 @@ func ParseVolumeMount(volume string) (VolumeMount, error) {
 	parts := strings.Split(volume, ":")
 
 	if len(parts) >= 1 {
-		mount.HostPath = HostFilesystemPath(parts[0])
+		mount.HostPath = HostFilesystemPath(parts[0]) //goplint:ignore -- validated by mount.Validate() below
 	}
 	if len(parts) >= 2 {
-		mount.ContainerPath = MountTargetPath(parts[1])
+		mount.ContainerPath = MountTargetPath(parts[1]) //goplint:ignore -- validated by mount.Validate() below
 	}
 	if len(parts) >= 3 {
 		options := parts[2]
@@ -895,7 +903,7 @@ func ParseVolumeMount(volume string) (VolumeMount, error) {
 			case "ro":
 				mount.ReadOnly = true
 			case "z", "Z":
-				mount.SELinux = SELinuxLabel(opt)
+				mount.SELinux = SELinuxLabel(opt) //goplint:ignore -- validated by mount.Validate() below
 			}
 		}
 	}
@@ -933,7 +941,7 @@ func ParsePortMapping(portStr string) (PortMapping, error) {
 	if err != nil {
 		return mapping, fmt.Errorf("invalid host port %q: %w", parts[0], err)
 	}
-	mapping.HostPort = NetworkPort(hostPort)
+	mapping.HostPort = NetworkPort(hostPort) //goplint:ignore -- validated by mapping.Validate() below
 
 	// Split container part on "/" to get port number and optional protocol
 	containerParts := strings.SplitN(parts[1], "/", 2)
@@ -941,10 +949,10 @@ func ParsePortMapping(portStr string) (PortMapping, error) {
 	if err != nil {
 		return mapping, fmt.Errorf("invalid container port %q: %w", containerParts[0], err)
 	}
-	mapping.ContainerPort = NetworkPort(containerPort)
+	mapping.ContainerPort = NetworkPort(containerPort) //goplint:ignore -- validated by mapping.Validate() below
 
 	if len(containerParts) == 2 {
-		mapping.Protocol = PortProtocol(containerParts[1])
+		mapping.Protocol = PortProtocol(containerParts[1]) //goplint:ignore -- validated by mapping.Validate() below
 	}
 
 	if err := mapping.Validate(); err != nil {

@@ -108,7 +108,7 @@ func checkHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath ty
 	}
 
 	var filepathErrors []DependencyMessage
-	invowkDir := types.FilesystemPath(filepath.Dir(string(invowkfilePath)))
+	invowkDir := types.FilesystemPath(filepath.Dir(string(invowkfilePath))) //goplint:ignore -- derived from validated invowkfilePath
 
 	for _, fp := range deps.Filepaths {
 		if err := validateFilepathAlternatives(fp, invowkDir); err != nil {
@@ -143,7 +143,7 @@ func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir ty
 			resolvedPath = filepath.Join(string(invowkDir), resolvedPath)
 		}
 
-		if err := validateSingleFilepath(types.FilesystemPath(altPathStr), types.FilesystemPath(resolvedPath), fp); err == nil {
+		if err := validateSingleFilepath(types.FilesystemPath(altPathStr), types.FilesystemPath(resolvedPath), fp); err == nil { //goplint:ignore -- path from CUE alternatives list
 			// Success! This alternative satisfies the dependency
 			return nil
 		} else {

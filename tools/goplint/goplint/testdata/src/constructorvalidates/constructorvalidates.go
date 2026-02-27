@@ -147,6 +147,57 @@ func NewHandler(cfg Config) (*Handler, error) { // want `constructor constructor
 	return &Handler{config: cfg}, nil
 }
 
+// --- Factory delegation: helper validates, outer does not ---
+// Documents the inter-procedural gap: the check only looks at the
+// direct constructor body, not called functions.
+
+type Processor struct {
+	name string // want `struct field constructorvalidates\.Processor\.name uses primitive type string`
+}
+
+func (p *Processor) Validate() error {
+	if p.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+func newProcessorInternal(name string) (*Processor, error) { // want `parameter "name" of constructorvalidates\.newProcessorInternal uses primitive type string`
+	p := &Processor{name: name}
+	if err := p.Validate(); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// NewProcessor delegates to newProcessorInternal which calls Validate().
+// NOT flagged — transitive factory tracking sees through the private call.
+func NewProcessor(name string) (*Processor, error) { // want `parameter "name" of constructorvalidates\.NewProcessor uses primitive type string`
+	return newProcessorInternal(name)
+}
+
+// --- Factory delegation without Validate() — should still be flagged ---
+
+type Builder struct {
+	path string // want `struct field constructorvalidates\.Builder\.path uses primitive type string`
+}
+
+func (b *Builder) Validate() error {
+	if b.path == "" {
+		return fmt.Errorf("empty path")
+	}
+	return nil
+}
+
+func buildBuilder(path string) *Builder { // want `parameter "path" of constructorvalidates\.buildBuilder uses primitive type string`
+	return &Builder{path: path}
+}
+
+// NewBuilder delegates to buildBuilder which does NOT call Validate() — flagged.
+func NewBuilder(path string) (*Builder, error) { // want `parameter "path" of constructorvalidates\.NewBuilder uses primitive type string` `constructor constructorvalidates\.NewBuilder returns constructorvalidates\.Builder which has Validate\(\) but never calls it`
+	return buildBuilder(path), nil
+}
+
 // --- Constant-only type (//goplint:constant-only) — constructor NOT flagged ---
 
 //goplint:constant-only

@@ -37,7 +37,7 @@ type (
 		// NoLimit allows unlimited selections.
 		NoLimit bool
 		// Selected pre-selects these indices.
-		Selected []int
+		Selected []SelectionIndex
 		// Strict requires at least one match to be selected.
 		Strict bool
 		// ShowIndicator shows the selected indicator.
@@ -60,8 +60,8 @@ type (
 		selected  map[int]bool
 		limit     int
 		noLimit   bool
-		height    int
-		width     int
+		height    TerminalDimension
+		width     TerminalDimension
 		done      bool
 		cancelled bool
 	}
@@ -144,7 +144,7 @@ func (m *filterModel) View() tea.View {
 	// Constrain the list view to the configured width to prevent overflow in modal overlays
 	view := m.list.View()
 	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
+		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
 	return tea.NewView(view)
 }
@@ -189,8 +189,8 @@ func (m *filterModel) Cancelled() bool {
 
 // SetSize implements EmbeddableComponent.
 func (m *filterModel) SetSize(width, height TerminalDimension) {
-	m.width = int(width)
-	m.height = int(height)
+	m.width = width
+	m.height = height
 	m.list.SetWidth(int(width))
 	m.list.SetHeight(int(height) - 2)
 }
@@ -391,7 +391,7 @@ func (b *FilterBuilder) Sort(enabled bool) *FilterBuilder {
 }
 
 // Selected pre-selects items by index.
-func (b *FilterBuilder) Selected(indices ...int) *FilterBuilder {
+func (b *FilterBuilder) Selected(indices ...SelectionIndex) *FilterBuilder {
 	b.opts.Selected = indices
 	return b
 }
@@ -568,14 +568,15 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		selected: make(map[int]bool),
 		limit:    opts.Limit,
 		noLimit:  opts.NoLimit,
-		height:   height,
-		width:    width,
+		height:   TerminalDimension(height),
+		width:    TerminalDimension(width),
 	}
 
 	// Pre-select items
 	for _, idx := range opts.Selected {
-		if idx >= 0 && idx < len(opts.Options) {
-			m.selected[idx] = true
+		idxInt := int(idx)
+		if idxInt >= 0 && idxInt < len(opts.Options) {
+			m.selected[idxInt] = true
 		}
 	}
 

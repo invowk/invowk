@@ -140,7 +140,7 @@ func DefaultConfig() *Config {
 
 	var cacheDir types.FilesystemPath
 	if home, err := os.UserHomeDir(); err == nil {
-		cacheDir = types.FilesystemPath(filepath.Join(home, ".cache", "invowk", "provision"))
+		cacheDir = types.FilesystemPath(filepath.Join(home, ".cache", "invowk", "provision")) //goplint:ignore -- validated by Config.Validate() at usage site
 	}
 
 	// Read tag suffix from environment (for test isolation)
@@ -149,7 +149,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Enabled:          true,
 		ForceRebuild:     false,
-		InvowkBinaryPath: types.FilesystemPath(binaryPath),
+		InvowkBinaryPath: types.FilesystemPath(binaryPath), //goplint:ignore -- validated by Config.Validate() at usage site
 		ModulesPaths:     modulesPaths,
 		BinaryMountPath:  "/invowk/bin",
 		ModulesMountPath: "/invowk/modules",

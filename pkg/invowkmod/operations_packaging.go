@@ -128,7 +128,11 @@ func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.Fil
 		return "", err
 	}
 
-	return types.FilesystemPath(absOutputPath), nil
+	archiveResult := types.FilesystemPath(absOutputPath)
+	if err := archiveResult.Validate(); err != nil {
+		return "", fmt.Errorf("archive output path: %w", err)
+	}
+	return archiveResult, nil
 }
 
 // Unpack extracts a module from a ZIP archive.
@@ -281,7 +285,11 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	}
 
 	// Validate the extracted module
-	_, err = Load(types.FilesystemPath(modulePath))
+	modLoadPath := types.FilesystemPath(modulePath)
+	if validateErr := modLoadPath.Validate(); validateErr != nil {
+		return "", fmt.Errorf("extracted module path: %w", validateErr)
+	}
+	_, err = Load(modLoadPath)
 	if err != nil {
 		// Clean up on validation failure (best-effort)
 		_ = os.RemoveAll(modulePath)

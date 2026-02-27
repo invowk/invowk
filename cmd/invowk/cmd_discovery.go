@@ -215,13 +215,13 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				Runtime:         parsedRuntime,
 				Interactive:     interactive,
 				Verbose:         verbose,
-				FromSource:      discovery.SourceID(cmdFlags.fromSource),
+				FromSource:      discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
 				ForceRebuild:    cmdFlags.forceRebuild,
 				DryRun:          cmdFlags.dryRun,
-				Workdir:         invowkfile.WorkDir(workdirOverride),
+				Workdir:         invowkfile.WorkDir(workdirOverride), //goplint:ignore -- CLI flag value, may be empty
 				EnvFiles:        toDotenvFilePaths(envFiles),
 				EnvVars:         envVars,
-				ConfigPath:      types.FilesystemPath(rootFlags.configPath),
+				ConfigPath:      types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 				FlagValues:      flagValues,
 				FlagDefs:        cmdRuntimeFlags,
 				ArgDefs:         cmdArgs,

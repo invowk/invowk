@@ -234,9 +234,9 @@ func extractModuleName(key ModuleRefKey) ModuleShortName {
 	if len(urlParts) > 0 {
 		name := urlParts[len(urlParts)-1]
 		name = strings.TrimSuffix(name, ".git")
-		return ModuleShortName(name)
+		return ModuleShortName(name) //goplint:ignore -- best-effort name extraction from URL
 	}
-	return ModuleShortName(key)
+	return ModuleShortName(key) //goplint:ignore -- fallback from require key
 }
 
 // extractModuleFromInvowkmod extracts the module field from invowkmod content

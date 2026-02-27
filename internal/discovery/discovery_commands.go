@@ -297,6 +297,9 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 	}
 
 	cmdName := invowkfile.CommandName(name)
+	if err := cmdName.Validate(); err != nil {
+		return LookupResult{}, fmt.Errorf("invalid command name: %w", err)
+	}
 	if cmd, ok := result.Set.ByName[cmdName]; ok {
 		return LookupResult{Command: cmd, Diagnostics: result.Diagnostics}, nil
 	}

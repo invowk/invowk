@@ -2,7 +2,10 @@
 
 package validatedelegation
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // --- Types with Validate() for use as fields ---
 
@@ -183,5 +186,127 @@ func (c *MixedFieldConfig) Validate() error {
 	}
 	// FieldMode.Validate() is missing!
 	_ = c.plain
+	return nil
+}
+
+// --- Field with no-delegate directive — not required in Validate() ---
+
+//goplint:validate-all
+type NoDelegateConfig struct {
+	FieldName Name
+	//goplint:no-delegate -- validated by external caller
+	FieldMode Mode
+}
+
+func (c *NoDelegateConfig) Validate() error {
+	if err := c.FieldName.Validate(); err != nil {
+		return err
+	}
+	// FieldMode.Validate() deliberately not called — no-delegate.
+	return nil
+}
+
+// --- no-delegate with missing delegation on non-annotated field ---
+
+//goplint:validate-all
+type NoDelegateIncomplete struct { // want `validatedelegation\.NoDelegateIncomplete\.Validate\(\) does not delegate to field FieldName which has Validate\(\)`
+	FieldName Name
+	//goplint:no-delegate -- validated externally
+	FieldMode Mode
+}
+
+func (c *NoDelegateIncomplete) Validate() error {
+	// FieldName.Validate() is missing — should be flagged.
+	// FieldMode.Validate() is skipped via no-delegate — not flagged.
+	return nil
+}
+
+// --- Range loop delegation — complete ---
+
+//goplint:validate-all
+type LoopConfig struct {
+	Items     []Name
+	FieldMode Mode
+}
+
+func (c *LoopConfig) Validate() error {
+	for _, item := range c.Items {
+		if err := item.Validate(); err != nil {
+			return err
+		}
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// --- Range loop delegation — incomplete (Items not iterated) ---
+
+//goplint:validate-all
+type IncompleteLoopConfig struct { // want `validatedelegation\.IncompleteLoopConfig\.Validate\(\) does not delegate to field Items which has Validate\(\)`
+	Items     []Name
+	FieldMode Mode
+}
+
+func (c *IncompleteLoopConfig) Validate() error {
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	// Items not iterated — should be flagged.
+	return nil
+}
+
+// --- errors.Join delegation (already works via Pass 1 recursive walk) ---
+
+//goplint:validate-all
+type JoinConfig struct {
+	FieldName Name
+	FieldMode Mode
+}
+
+func (c *JoinConfig) Validate() error {
+	return errors.Join(c.FieldName.Validate(), c.FieldMode.Validate())
+}
+
+// --- Helper method delegation — complete ---
+
+//goplint:validate-all
+type HelperConfig struct {
+	FieldName Name
+	FieldMode Mode
+}
+
+func (c *HelperConfig) Validate() error {
+	return c.validateFields()
+}
+
+func (c *HelperConfig) validateFields() error {
+	if err := c.FieldName.Validate(); err != nil {
+		return err
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// --- Helper method delegation — incomplete (missing FieldMode in helper) ---
+
+//goplint:validate-all
+type IncompleteHelperConfig struct { // want `validatedelegation\.IncompleteHelperConfig\.Validate\(\) does not delegate to field FieldMode which has Validate\(\)`
+	FieldName Name
+	FieldMode Mode
+}
+
+func (c *IncompleteHelperConfig) Validate() error {
+	return c.validatePartial()
+}
+
+func (c *IncompleteHelperConfig) validatePartial() error {
+	if err := c.FieldName.Validate(); err != nil {
+		return err
+	}
+	// FieldMode.Validate() missing — should be flagged.
 	return nil
 }

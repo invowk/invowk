@@ -84,13 +84,12 @@ func ConstantInClosure() {
 	}()
 }
 
-// NestedClosureNotAnalyzed — the inner closure is beyond the one-depth
-// limit of CFA closure analysis. The cast inside the nested closure
-// is not analyzed (documented limitation).
-func NestedClosureNotAnalyzed(raw string) { // want `parameter "raw" of cfa_closure\.NestedClosureNotAnalyzed uses primitive type string`
+// NestedClosureAnalyzed — nested closures are now recursively analyzed.
+// The cast inside the inner closure IS flagged.
+func NestedClosureAnalyzed(raw string) { // want `parameter "raw" of cfa_closure\.NestedClosureAnalyzed uses primitive type string`
 	go func() {
 		go func() {
-			x := CommandName(raw) // NOT flagged — nested closure beyond one-depth limit
+			x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
 			useCmd(x)
 		}()
 	}()

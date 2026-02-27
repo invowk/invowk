@@ -26,6 +26,7 @@ import (
 	"go/token"
 	"go/types"
 	"strings"
+	"time"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -54,6 +55,8 @@ const (
 	CategoryIncompleteValidateDelegation = "incomplete-validate-delegation"
 	CategoryNonZeroValueField          = "nonzero-value-field"
 	CategoryStaleException             = "stale-exception"
+	CategoryWrongFuncOptionType        = "wrong-func-option-type"
+	CategoryOverdueReview              = "overdue-review"
 	CategoryUnknownDirective           = "unknown-directive"
 )
 
@@ -79,7 +82,8 @@ var (
 	checkConstructorValidates    bool
 	checkValidateDelegation      bool
 	checkNonZero                 bool
-	cfaEnabled                   bool
+	noCFA                        bool
+	auditReviewDates             bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -126,10 +130,12 @@ func init() {
 		"report structs with //goplint:validate-all whose Validate() misses field delegations")
 	Analyzer.Flags.BoolVar(&checkNonZero, "check-nonzero", false,
 		"report struct fields using nonzero-annotated types as value (non-pointer) fields where they are semantically optional")
-	Analyzer.Flags.BoolVar(&cfaEnabled, "cfa", false,
-		"enable control-flow analysis for path-sensitive cast-validation (changes finding IDs; not included in --check-all)")
+	Analyzer.Flags.BoolVar(&auditReviewDates, "audit-review-dates", false,
+		"report exception patterns with review_after dates that have passed")
+	Analyzer.Flags.BoolVar(&noCFA, "no-cfa", false,
+		"disable control-flow analysis and use AST heuristic for cast-validation (CFA is enabled by default)")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
-		"enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero)")
+		"enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + CFA)")
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
@@ -153,7 +159,8 @@ type runConfig struct {
 	checkConstructorValidates    bool
 	checkValidateDelegation      bool
 	checkNonZero                 bool
-	cfa                          bool
+	noCFA                        bool
+	auditReviewDates             bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -178,11 +185,13 @@ func newRunConfig() runConfig {
 		checkConstructorValidates:    checkConstructorValidates,
 		checkValidateDelegation:      checkValidateDelegation,
 		checkNonZero:                 checkNonZero,
-		cfa:                          cfaEnabled,
+		noCFA:                        noCFA,
+		auditReviewDates:             auditReviewDates,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions (config maintenance tool
-	// with per-package false positives) and --cfa (changes finding IDs).
+	// with per-package false positives). CFA is enabled by default
+	// (opt out via --no-cfa).
 	if rc.checkAll {
 		rc.checkValidate = true
 		rc.checkStringer = true
@@ -231,7 +240,7 @@ func run(pass *analysis.Pass) (any, error) {
 		exportedStructs    []exportedStructInfo            // exported struct types (for constructors + structural)
 		constructorDetails map[string]*constructorFuncInfo // "NewTypeName" → details
 		optionTypes        map[string]string               // optionTypeName → targetStructName
-		withFunctions      map[string][]string             // targetStructName → ["WithXxx", ...]
+		withFunctions      map[string][]withFuncInfo        // targetStructName → [withFuncInfo, ...]
 	)
 
 	// constantOnlyTypes tracks type names annotated with //goplint:constant-only.
@@ -257,7 +266,7 @@ func run(pass *analysis.Pass) (any, error) {
 		optionTypes = make(map[string]string)
 	}
 	if needWithFunctions {
-		withFunctions = make(map[string][]string)
+		withFunctions = make(map[string][]withFuncInfo)
 	}
 
 	nodeFilter := []ast.Node{
@@ -327,12 +336,13 @@ func run(pass *analysis.Pass) (any, error) {
 			}
 
 			// Cast validation: detect unvalidated type conversions to DDD types.
-			// CFA mode uses path-reachability analysis instead of name matching.
+			// CFA (default) uses path-reachability analysis; --no-cfa falls
+			// back to AST name-based heuristic.
 			if rc.checkCastValidation {
-				if rc.cfa {
-					inspectUnvalidatedCastsCFA(pass, n, cfg, bl)
-				} else {
+				if rc.noCFA {
 					inspectUnvalidatedCasts(pass, n, cfg, bl)
+				} else {
+					inspectUnvalidatedCastsCFA(pass, n, cfg, bl)
 				}
 			}
 
@@ -390,6 +400,10 @@ func run(pass *analysis.Pass) (any, error) {
 		reportStaleExceptionsInline(pass, cfg)
 	}
 
+	if rc.auditReviewDates {
+		reportOverdueExceptions(pass, cfg)
+	}
+
 	return nil, nil
 }
 
@@ -404,9 +418,10 @@ type namedTypeInfo struct {
 // exportedStructInfo records an exported struct type for constructor checking
 // and structural analysis (immutability, functional options).
 type exportedStructInfo struct {
-	name   string            // unqualified type name (e.g., "Config")
-	pos    token.Pos         // position for diagnostics
-	fields []structFieldMeta // field metadata, populated when structural checks are active
+	name    string            // unqualified type name (e.g., "Config")
+	pos     token.Pos         // position for diagnostics
+	fields  []structFieldMeta // field metadata, populated when structural checks are active
+	mutable bool              // has //goplint:mutable directive (immutability exemption)
 }
 
 // structFieldMeta records a struct field's name and visibility for
@@ -640,7 +655,13 @@ func reportMissingStringer(pass *analysis.Pass, namedTypes []namedTypeInfo, meth
 	for _, t := range namedTypes {
 		qualName := fmt.Sprintf("%s.%s", pkgName, t.name)
 
-		mi := methods[t.name+".String"]
+		// Determine which method name to check (exported vs unexported).
+		methodKey := t.name + ".String"
+		if !t.exported && methods[t.name+".string"] != nil {
+			methodKey = t.name + ".string"
+		}
+
+		mi := methods[methodKey]
 		if mi != nil {
 			// Method exists — verify its signature matches the contract.
 			if mi.paramCount != 0 || mi.resultTypes != expectedStringerSig {
@@ -762,5 +783,41 @@ func reportStaleExceptionsInline(pass *analysis.Pass, cfg *ExceptionConfig) {
 			exc.Pattern, exc.Reason)
 		findingID := StableFindingID(CategoryStaleException, exc.Pattern)
 		reportDiagnostic(pass, pos, CategoryStaleException, findingID, msg)
+	}
+}
+
+// reportOverdueExceptions reports exceptions with review_after dates that
+// have passed. Only runs once per analysis (first package).
+func reportOverdueExceptions(pass *analysis.Pass, cfg *ExceptionConfig) {
+	if len(pass.Files) == 0 {
+		return
+	}
+
+	now := time.Now()
+	pos := pass.Files[0].Package
+
+	for _, exc := range cfg.Exceptions {
+		if exc.ReviewAfter == "" {
+			continue
+		}
+		reviewDate, err := time.Parse("2006-01-02", exc.ReviewAfter)
+		if err != nil {
+			msg := fmt.Sprintf(
+				"exception pattern %q has invalid review_after date %q: %v",
+				exc.Pattern, exc.ReviewAfter, err)
+			findingID := StableFindingID(CategoryOverdueReview, exc.Pattern, "invalid-date")
+			reportDiagnostic(pass, pos, CategoryOverdueReview, findingID, msg)
+			continue
+		}
+		if now.After(reviewDate) {
+			msg := fmt.Sprintf(
+				"exception pattern %q is past its review date %s",
+				exc.Pattern, exc.ReviewAfter)
+			if exc.BlockedBy != "" {
+				msg += fmt.Sprintf(" (blocked by: %s)", exc.BlockedBy)
+			}
+			findingID := StableFindingID(CategoryOverdueReview, exc.Pattern)
+			reportDiagnostic(pass, pos, CategoryOverdueReview, findingID, msg)
+		}
 	}
 }

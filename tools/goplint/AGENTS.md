@@ -33,7 +33,9 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Check constructor validates | `make build-goplint && ./bin/goplint -check-constructor-validates -config=tools/goplint/exceptions.toml ./...` |
 | Check validate delegation | `make build-goplint && ./bin/goplint -check-validate-delegation -config=tools/goplint/exceptions.toml ./...` |
 | Check nonzero fields | `make build-goplint && ./bin/goplint -check-nonzero -config=tools/goplint/exceptions.toml ./...` |
-| CFA cast validation | `make build-goplint && ./bin/goplint -check-cast-validation -cfa -config=tools/goplint/exceptions.toml ./...` |
+| CFA cast validation (default) | `make build-goplint && ./bin/goplint -check-cast-validation -config=tools/goplint/exceptions.toml ./...` |
+| AST cast validation (fallback) | `make build-goplint && ./bin/goplint -check-cast-validation -no-cfa -config=tools/goplint/exceptions.toml ./...` |
+| Audit overdue reviews | `make build-goplint && ./bin/goplint -audit-review-dates -config=tools/goplint/exceptions.toml ./...` |
 
 ## Scoped Rule Exception (Testing Parallelism)
 
@@ -64,10 +66,12 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `unused-constructor-error` | `--check-constructor-error-usage` or `--check-all` | Constructor NewXxx() error return assigned to blank identifier |
 | `missing-constructor-validate` | `--check-constructor-validates` or `--check-all` | Constructor returns validatable type but never calls Validate() |
 | `incomplete-validate-delegation` | `--check-validate-delegation` or `--check-all` | Struct with validate-all directive missing field Validate() delegation |
+| `wrong-func-option-type` | `--check-func-options` or `--check-all` | WithXxx() parameter type does not match the struct field type |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
+| `overdue-review` | `--audit-review-dates` | Exception with `review_after` date that has passed |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
-The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, and `--check-nonzero` in a single invocation. It deliberately excludes `--audit-exceptions` (config maintenance tool with per-package false positives) and `--cfa` (changes finding IDs, opt-in only).
+The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, and `--check-nonzero` in a single invocation. CFA is enabled by default (opt out via `--no-cfa`). Deliberately excludes `--audit-exceptions` and `--audit-review-dates` (config maintenance tools with per-package false positives).
 
 ## Architecture
 
@@ -93,7 +97,7 @@ tools/goplint/
 │   ├── cfa_cast_validation.go      # inspectUnvalidatedCastsCFA (CFA replacement for cast validation)
 │   ├── cfa_closure.go              # inspectClosureCastsCFA (closure analysis with independent CFGs)
 │   ├── *_test.go               # unit + integration tests
-│   └── testdata/src/               # analysistest fixture packages (33 packages)
+│   └── testdata/src/               # analysistest fixture packages (35 packages)
 ```
 
 **Separate Go module**: `tools/goplint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
@@ -229,13 +233,41 @@ func NewSeverity(s string) (*Severity, error) { ... }
 
 This directive only affects `--check-constructor-validates`. Other checks (primitive detection, validate, stringer) still apply.
 
+### 7. Mutable Directive — immutability exemption
+
+Struct types marked with `//goplint:mutable` are exempt from `--check-immutability`. Use this for structs that intentionally have exported mutable fields despite using a constructor.
+
+```go
+//goplint:mutable
+type Builder struct {
+    Output string  // exported, but no immutability diagnostic
+}
+
+func NewBuilder() *Builder { return &Builder{} }
+```
+
+This directive is struct-level — it suppresses all immutability findings for the struct's exported fields. It coexists with TOML `pkg.Struct.immutability` exceptions.
+
+### 8. No-Delegate Directive — field-level delegation exemption
+
+Fields marked with `//goplint:no-delegate` are excluded from `--check-validate-delegation` even though their type has a `Validate()` method. Use this for fields that are intentionally validated by external callers rather than in the struct's own `Validate()`.
+
+```go
+//goplint:validate-all
+type Config struct {
+    Name Name
+    //goplint:no-delegate -- validated by the caller
+    Mode Mode
+}
+```
+
 ## Supplementary Modes
 
-Fifteen additional analysis modes complement the primary primitive detection:
+Seventeen additional analysis modes complement the primary primitive detection:
 
 ### `--check-all`
 
-Enables all DDD compliance checks (`--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
+Enables all DDD compliance checks (`--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`) in a single invocation. CFA is enabled by default (opt out with `--no-cfa`). This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` and `--audit-review-dates` (config maintenance tools with per-package false positives).
 
 ### `--audit-exceptions`
 
@@ -373,9 +405,9 @@ Reports struct fields using nonzero-annotated types as value (non-pointer) field
 - Fields of types without `//goplint:nonzero` — zero value is valid
 - Fields with `//goplint:ignore` directive
 
-### `--cfa` (Control-Flow Analysis)
+### CFA (Control-Flow Analysis) — default for `--check-cast-validation`
 
-Opt-in enhancement that replaces the AST name-based heuristic in `--check-cast-validation` with CFG path-reachability analysis. When enabled, each function gets a control-flow graph (via `golang.org/x/tools/go/cfg`) and the analyzer checks whether *every* path from a type conversion to a function return passes through a `varName.Validate()` call.
+CFA replaces the AST name-based heuristic in `--check-cast-validation` with CFG path-reachability analysis. Each function gets a control-flow graph (via `golang.org/x/tools/go/cfg`) and the analyzer checks whether *every* path from a type conversion to a function return passes through a `varName.Validate()` call. **CFA is enabled by default.** Use `--no-cfa` to fall back to the AST heuristic.
 
 **What CFA catches that AST misses:**
 - Conditional validation: `if strict { x.Validate() }` followed by unconditional use
@@ -385,13 +417,15 @@ Opt-in enhancement that replaces the AST name-based heuristic in `--check-cast-v
 - Use-before-validate ordering within a single basic block — CFA checks "path-to-return-without-validate," not temporal ordering
 - Constant folding: `if false { x.Validate() }` — the CFG doesn't evaluate boolean expressions, but the non-false path to return is still detected as unvalidated
 
-**Closure analysis:** When `--cfa` is enabled, closure bodies (`FuncLit`) are analyzed with independent CFGs instead of being skipped entirely. Each closure gets its own validation scope.
+**Closure analysis:** CFA analyzes closure bodies (`FuncLit`) with independent CFGs instead of being skipped entirely. Each closure gets its own validation scope. Nested closures are analyzed recursively with compound prefixes (e.g., `"0/1"` for the second closure inside the first).
 
-**Finding ID scheme:** CFA findings include a `"cfa"` discriminator in the stable finding ID. This prevents enabling `--cfa` from silently invalidating the existing baseline. After enabling `--cfa`, run `make update-baseline` to establish the CFA baseline.
+**Finding ID scheme:** CFA findings include a `"cfa"` discriminator in the stable finding ID. The AST mode (`--no-cfa`) produces different finding IDs.
 
-**`--check-all` does NOT include `--cfa`** — CFA is always opt-in because it changes finding IDs and may surface new findings.
+**Compartmentalization rule:** CFA is a fully compartmentalized enhancement layer. CFA files (`cfa*.go`), functions, and tests are strictly separated from AST files/tests. CFA files may import shared helpers from `inspect.go` and `typecheck.go` but NEVER import from `analyzer_cast_validation.go`, and vice versa. `analyzer.go` is the only file that routes between worlds.
 
-**Compartmentalization rule:** CFA is a fully compartmentalized enhancement layer. All existing AST-based analysis continues to work identically when `--cfa` is disabled. CFA files (`cfa*.go`), functions, and tests are strictly separated from AST files/tests. CFA files may import shared helpers from `inspect.go` and `typecheck.go` but NEVER import from `analyzer_cast_validation.go`, and vice versa. `analyzer.go` is the only file that routes between worlds.
+### `--audit-review-dates`
+
+Reports exceptions with `review_after` dates (ISO 8601 format, e.g., `"2025-12-01"`) that have passed. Use this to identify overdue exceptions that need re-evaluation. Exceptions can also have a `blocked_by` field documenting what must be resolved before the exception can be removed.
 
 ### Exception integration
 

@@ -142,7 +142,7 @@ func runTuiTable(cmd *cobra.Command, args []string) error {
 			}
 			columns[i] = tui.TableColumn{
 				Title: h,
-				Width: tui.TerminalDimension(width),
+				Width: tui.TerminalDimension(width), //goplint:ignore -- CLI integer argument
 			}
 		}
 
@@ -150,7 +150,7 @@ func runTuiTable(cmd *cobra.Command, args []string) error {
 		selectedIdx, selectedRow, err = tui.Table(tui.TableOptions{
 			Columns:    columns,
 			Rows:       rows,
-			Height:     tui.TerminalDimension(tableHeight),
+			Height:     tui.TerminalDimension(tableHeight), //goplint:ignore -- CLI integer argument
 			Selectable: tableSelectable,
 		})
 		if err != nil {

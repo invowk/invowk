@@ -56,7 +56,11 @@ func inspectValidateDelegation(pass *analysis.Pass, cfg *ExceptionConfig, bl *Ba
 					if fieldType == nil {
 						continue
 					}
-					if !hasValidateMethod(fieldType) {
+					if !hasValidateMethod(fieldType) && !hasValidatableElements(fieldType) {
+						continue
+					}
+					// Skip fields with //goplint:no-delegate directive.
+					if hasNoDelegateDirective(field.Doc, field.Comment) {
 						continue
 					}
 					if len(field.Names) > 0 {
@@ -205,10 +209,164 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 				}
 				return true
 			})
+
+			// Pass 3: Range loop delegation pattern:
+			//   for _, r := range receiver.Field { r.Validate() }
+			// Recognizes iteration over slice/array fields with
+			// validatable element types.
+			ast.Inspect(fn.Body, func(n ast.Node) bool { //nolint:dupl // distinct AST pattern
+				rangeStmt, ok := n.(*ast.RangeStmt)
+				if !ok {
+					return true
+				}
+				sel, ok := rangeStmt.X.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				if recvVarName == "" {
+					return true
+				}
+				ident, ok := sel.X.(*ast.Ident)
+				if !ok || ident.Name != recvVarName {
+					return true
+				}
+				fieldName := sel.Sel.Name
+
+				// Get the range value variable name.
+				valueVar := ""
+				if rangeStmt.Value != nil {
+					if vi, ok := rangeStmt.Value.(*ast.Ident); ok {
+						valueVar = vi.Name
+					}
+				}
+				if valueVar == "" {
+					return true
+				}
+
+				// Check if the loop body calls valueVar.Validate().
+				ast.Inspect(rangeStmt.Body, func(inner ast.Node) bool {
+					call, ok := inner.(*ast.CallExpr)
+					if !ok {
+						return true
+					}
+					callSel, ok := call.Fun.(*ast.SelectorExpr)
+					if !ok || callSel.Sel.Name != "Validate" {
+						return true
+					}
+					if vi, ok := callSel.X.(*ast.Ident); ok && vi.Name == valueVar {
+						called[fieldName] = true
+					}
+					return true
+				})
+				return true
+			})
+			// Pass 4: Helper method delegation pattern:
+			//   func (c *Config) Validate() error { return c.validateFields() }
+			// When Validate() calls a method on the same receiver, walk that
+			// method's body for direct field delegations.
+			if recvVarName != "" {
+				helperDelegated := findHelperMethodDelegations(pass, fn.Body, typeName, recvVarName)
+				for k, v := range helperDelegated {
+					if v {
+						called[k] = true
+					}
+				}
+			}
 		}
 	}
 
 	return called
+}
+
+// findHelperMethodDelegations finds receiver.helperMethod() calls in the
+// Validate body, then walks each helper method's body for direct field
+// delegation patterns. Returns the set of field names delegated via helpers.
+// Bounds recursion with a visited set to prevent infinite loops.
+func findHelperMethodDelegations(pass *analysis.Pass, body *ast.BlockStmt, typeName, recvVarName string) map[string]bool {
+	result := make(map[string]bool)
+	visited := make(map[string]bool)
+
+	// Collect receiver.helperMethod() calls.
+	var helperNames []string
+	ast.Inspect(body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		ident, ok := sel.X.(*ast.Ident)
+		if !ok || ident.Name != recvVarName {
+			return true
+		}
+		// Skip "Validate" itself to avoid infinite recursion.
+		if sel.Sel.Name != "Validate" {
+			helperNames = append(helperNames, sel.Sel.Name)
+		}
+		return true
+	})
+
+	// For each helper, find its method body and check for delegations.
+	for _, helperName := range helperNames {
+		if visited[helperName] {
+			continue
+		}
+		visited[helperName] = true
+
+		helperBody, helperRecvVar := findMethodBody(pass, typeName, helperName)
+		if helperBody == nil {
+			continue
+		}
+
+		// Walk the helper for direct receiver.Field.Validate() patterns.
+		ast.Inspect(helperBody, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || sel.Sel.Name != "Validate" {
+				return true
+			}
+			innerSel, ok := sel.X.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			if helperRecvVar != "" {
+				if id, ok := innerSel.X.(*ast.Ident); ok && id.Name == helperRecvVar {
+					result[innerSel.Sel.Name] = true
+				}
+			}
+			return true
+		})
+	}
+
+	return result
+}
+
+// findMethodBody searches the package for a method with the given receiver
+// type and name. Returns the body and the receiver variable name.
+func findMethodBody(pass *analysis.Pass, typeName, methodName string) (*ast.BlockStmt, string) {
+	for _, file := range pass.Files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv == nil || fn.Body == nil {
+				continue
+			}
+			recvName := receiverTypeName(fn.Recv.List[0].Type)
+			if recvName != typeName || fn.Name.Name != methodName {
+				continue
+			}
+			recvVar := ""
+			if len(fn.Recv.List[0].Names) > 0 {
+				recvVar = fn.Recv.List[0].Names[0].Name
+			}
+			return fn.Body, recvVar
+		}
+	}
+	return nil, ""
 }
 
 // embeddedFieldTypeName extracts the type name from an anonymous embedded

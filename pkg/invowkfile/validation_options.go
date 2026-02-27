@@ -27,7 +27,7 @@ type (
 func defaultValidateOptions(inv *Invowkfile) validateOptions {
 	var workDir FilesystemPath
 	if inv != nil && inv.FilePath != "" {
-		workDir = FilesystemPath(filepath.Dir(string(inv.FilePath)))
+		workDir = FilesystemPath(filepath.Dir(string(inv.FilePath))) //goplint:ignore -- derived from validated Invowkfile.FilePath
 	}
 
 	return validateOptions{
@@ -113,11 +113,11 @@ func (o *validateOptions) buildValidationContext(inv *Invowkfile) *ValidationCon
 	}
 
 	return &ValidationContext{
-		WorkDir:    WorkDir(string(o.workDir)),
+		WorkDir:    WorkDir(string(o.workDir)), //goplint:ignore -- round-trip from validated FilesystemPath
 		FS:         filesystem,
 		Platform:   o.platform,
 		StrictMode: o.strictMode,
-		FilePath:   FilesystemPath(filePath),
+		FilePath:   FilesystemPath(filePath), //goplint:ignore -- round-trip from validated Invowkfile.FilePath
 	}
 }
 

@@ -141,7 +141,7 @@ func (inv *Invowkfile) GetScriptBasePath() FilesystemPath {
 	if inv.ModulePath != "" {
 		return inv.ModulePath
 	}
-	return FilesystemPath(filepath.Dir(string(inv.FilePath)))
+	return FilesystemPath(filepath.Dir(string(inv.FilePath))) //goplint:ignore -- derived from validated Invowkfile.FilePath
 }
 
 // GetEffectiveWorkDir resolves the effective working directory for command execution.
@@ -166,9 +166,9 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 		// Convert forward slashes to native path separator
 		nativePath := filepath.FromSlash(workdir)
 		if filepath.IsAbs(nativePath) {
-			return FilesystemPath(nativePath)
+			return FilesystemPath(nativePath) //goplint:ignore -- OS path from filepath.IsAbs guard
 		}
-		return FilesystemPath(filepath.Join(string(invowkfileDir), nativePath))
+		return FilesystemPath(filepath.Join(string(invowkfileDir), nativePath)) //goplint:ignore -- derived from validated invowkfileDir
 	}
 
 	// Priority 1: CLI override
@@ -200,7 +200,7 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 // Returns the bare command name if no Metadata is set.
 func (inv *Invowkfile) GetFullCommandName(cmdName CommandName) CommandName {
 	if inv.Metadata != nil {
-		return CommandName(string(inv.Metadata.Module()) + " " + string(cmdName))
+		return CommandName(string(inv.Metadata.Module()) + " " + string(cmdName)) //goplint:ignore -- composed from validated module + command name
 	}
 	return cmdName
 }
