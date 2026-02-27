@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	stderrors "errors"
 	"path/filepath"
 	"strings"
 )
@@ -163,7 +164,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "env_inherit_allow: " + errs[0].Error(),
+				Message:   "env_inherit_allow: " + stderrors.Join(errs...).Error(),
 				Severity:  SeverityError,
 			})
 		}
@@ -175,7 +176,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "env_inherit_deny: " + errs[0].Error(),
+				Message:   "env_inherit_deny: " + stderrors.Join(errs...).Error(),
 				Severity:  SeverityError,
 			})
 		}

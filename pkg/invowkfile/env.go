@@ -87,7 +87,7 @@ func (e *EnvConfig) GetVars() map[string]string {
 // Therefore, this Go validation MUST be kept.
 func ValidateEnvVarName(name string) error {
 	if isValid, errs := EnvVarName(name).IsValid(); !isValid {
-		return errs[0]
+		return errors.Join(errs...)
 	}
 	return nil
 }

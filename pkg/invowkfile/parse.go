@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -129,7 +130,7 @@ func ParseEnvInheritMode(value string) (EnvInheritMode, error) {
 	}
 	mode := EnvInheritMode(value)
 	if isValid, errs := mode.IsValid(); !isValid {
-		return "", errs[0]
+		return "", errors.Join(errs...)
 	}
 	return mode, nil
 }
@@ -142,7 +143,7 @@ func ParseRuntimeMode(value string) (RuntimeMode, error) {
 	}
 	mode := RuntimeMode(value)
 	if isValid, errs := mode.IsValid(); !isValid {
-		return "", errs[0]
+		return "", errors.Join(errs...)
 	}
 	return mode, nil
 }

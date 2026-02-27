@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -39,7 +40,7 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 	// Validate path to prevent directory traversal attacks
 	if req.Path != "" {
 		if valid, errs := req.Path.IsValid(); !valid {
-			return fmt.Errorf("invalid path: %w", errs[0])
+			return fmt.Errorf("invalid path: %w", errors.Join(errs...))
 		}
 	}
 

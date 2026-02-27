@@ -82,7 +82,7 @@ func NewRuntimeSelection(mode invowkfile.RuntimeMode, impl *invowkfile.Implement
 		return RuntimeSelection{}, fmt.Errorf("implementation must not be nil for runtime mode %q", mode)
 	}
 	if isValid, errs := mode.IsValid(); !isValid {
-		return RuntimeSelection{}, errs[0]
+		return RuntimeSelection{}, errors.Join(errs...)
 	}
 	return RuntimeSelection{mode: mode, impl: impl}, nil
 }
@@ -155,7 +155,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 		// Defense-in-depth: the CLI boundary should have already validated the mode
 		// via ParseRuntimeMode, but verify here to catch programmatic misuse.
 		if isValid, errs := runtimeOverride.IsValid(); !isValid {
-			return RuntimeSelection{}, errs[0]
+			return RuntimeSelection{}, errors.Join(errs...)
 		}
 
 		if !command.IsRuntimeAllowedForPlatform(platform, runtimeOverride) {
@@ -185,7 +185,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 		// Defense-in-depth: CUE schema validates config at load time, but verify
 		// here to prevent silent fallthrough to command default on invalid config.
 		if isValid, errs := configRuntime.IsValid(); !isValid {
-			return RuntimeSelection{}, fmt.Errorf("invalid default_runtime in config: %w", errs[0])
+			return RuntimeSelection{}, fmt.Errorf("invalid default_runtime in config: %w", errors.Join(errs...))
 		}
 		if command.IsRuntimeAllowedForPlatform(platform, configRuntime) {
 			impl := command.GetImplForPlatformRuntime(platform, configRuntime)
@@ -246,7 +246,7 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 		// Defense-in-depth: the CLI boundary should have already validated the mode
 		// via ParseEnvInheritMode, but verify here to catch programmatic misuse.
 		if isValid, errs := opts.EnvInheritMode.IsValid(); !isValid {
-			return errs[0]
+			return errors.Join(errs...)
 		}
 		execCtx.Env.InheritModeOverride = opts.EnvInheritMode
 	}
@@ -271,7 +271,7 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 func validateEnvVarNames(names []invowkfile.EnvVarName, label string) error {
 	for _, name := range names {
 		if isValid, errs := name.IsValid(); !isValid {
-			return fmt.Errorf("%s: %w", label, errs[0])
+			return fmt.Errorf("%s: %w", label, errors.Join(errs...))
 		}
 	}
 	return nil

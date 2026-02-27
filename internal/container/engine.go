@@ -399,7 +399,7 @@ func (et EngineType) IsValid() (bool, []error) {
 // when running inside Flatpak or Snap sandboxes.
 func NewEngine(preferredType EngineType) (Engine, error) {
 	if isValid, errs := preferredType.IsValid(); !isValid {
-		return nil, errs[0]
+		return nil, errors.Join(errs...)
 	}
 
 	var engine Engine

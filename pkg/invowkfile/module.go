@@ -79,7 +79,7 @@ func NewModuleMetadata(module invowkmod.ModuleID, version invowkmod.SemVer, desc
 	}
 
 	if isValid, errs := m.IsValid(); !isValid {
-		return nil, errs[0]
+		return nil, errors.Join(errs...)
 	}
 	return m, nil
 }

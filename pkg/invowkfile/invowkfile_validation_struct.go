@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -23,12 +24,12 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 	}
 	for _, name := range rt.EnvInheritAllow {
 		if isValid, errs := name.IsValid(); !isValid {
-			return fmt.Errorf("command '%s' implementation #%d: env_inherit_allow: %w", cmdName, implIndex, errs[0])
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_allow: %w", cmdName, implIndex, errors.Join(errs...))
 		}
 	}
 	for _, name := range rt.EnvInheritDeny {
 		if isValid, errs := name.IsValid(); !isValid {
-			return fmt.Errorf("command '%s' implementation #%d: env_inherit_deny: %w", cmdName, implIndex, errs[0])
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_deny: %w", cmdName, implIndex, errors.Join(errs...))
 		}
 	}
 

@@ -714,7 +714,7 @@ func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, er
 	for i, req := range meta.Requires {
 		if req.Path != "" {
 			if valid, errs := req.Path.IsValid(); !valid {
-				return nil, fmt.Errorf("requires[%d].path: %w in invowkmod at %s", i, errs[0], path)
+				return nil, fmt.Errorf("requires[%d].path: %w in invowkmod at %s", i, errors.Join(errs...), path)
 			}
 		}
 	}

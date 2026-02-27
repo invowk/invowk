@@ -141,7 +141,7 @@ func (a *Argument) ValidateArgumentValue(value string) error {
 	// ArgumentType values ("string", "int", "float") are a strict subset of
 	// FlagType values, so the cast is safe for all valid ArgumentType values.
 	if isValid, errs := argType.IsValid(); !isValid {
-		return fmt.Errorf("argument '%s': %w", a.Name, errs[0])
+		return fmt.Errorf("argument '%s': %w", a.Name, errors.Join(errs...))
 	}
 	if err := validateValueType(value, FlagType(argType)); err != nil {
 		return fmt.Errorf("argument '%s' value '%s' is invalid: %s", a.Name, value, err.Error())
