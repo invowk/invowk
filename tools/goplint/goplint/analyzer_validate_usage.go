@@ -38,9 +38,25 @@ func inspectValidateUsage(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionC
 	// assignments containing Validate() calls.
 	parentMap := buildParentMap(fn.Body)
 
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		// Skip closure bodies — separate validation scope.
-		if _, ok := n.(*ast.FuncLit); ok {
+	inspectValidateUsageInBody(pass, fn.Body, parentMap, qualFuncName, cfg, bl)
+}
+
+// inspectValidateUsageInBody checks a block statement for discarded
+// Validate() results. Closures are analyzed independently with their
+// own parent maps and fresh scopes.
+func inspectValidateUsageInBody(
+	pass *analysis.Pass,
+	body *ast.BlockStmt,
+	parentMap map[ast.Node]ast.Node,
+	qualFuncName string,
+	cfg *ExceptionConfig,
+	bl *BaselineConfig,
+) {
+	ast.Inspect(body, func(n ast.Node) bool {
+		// Analyze closure bodies independently with their own parent maps.
+		if lit, ok := n.(*ast.FuncLit); ok {
+			closureParentMap := buildParentMap(lit.Body)
+			inspectValidateUsageInBody(pass, lit.Body, closureParentMap, qualFuncName, cfg, bl)
 			return false
 		}
 

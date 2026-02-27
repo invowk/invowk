@@ -79,6 +79,7 @@ var (
 	checkConstructorValidates    bool
 	checkValidateDelegation      bool
 	checkNonZero                 bool
+	cfaEnabled                   bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -125,6 +126,8 @@ func init() {
 		"report structs with //goplint:validate-all whose Validate() misses field delegations")
 	Analyzer.Flags.BoolVar(&checkNonZero, "check-nonzero", false,
 		"report struct fields using nonzero-annotated types as value (non-pointer) fields where they are semantically optional")
+	Analyzer.Flags.BoolVar(&cfaEnabled, "cfa", false,
+		"enable control-flow analysis for path-sensitive cast-validation (changes finding IDs; not included in --check-all)")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
 		"enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero)")
 }
@@ -150,6 +153,7 @@ type runConfig struct {
 	checkConstructorValidates    bool
 	checkValidateDelegation      bool
 	checkNonZero                 bool
+	cfa                          bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -174,10 +178,11 @@ func newRunConfig() runConfig {
 		checkConstructorValidates:    checkConstructorValidates,
 		checkValidateDelegation:      checkValidateDelegation,
 		checkNonZero:                 checkNonZero,
+		cfa:                          cfaEnabled,
 	}
 	// Expand --check-all into individual supplementary checks.
-	// Deliberately excludes --audit-exceptions which is a config
-	// maintenance tool with per-package false positives.
+	// Deliberately excludes --audit-exceptions (config maintenance tool
+	// with per-package false positives) and --cfa (changes finding IDs).
 	if rc.checkAll {
 		rc.checkValidate = true
 		rc.checkStringer = true
@@ -322,8 +327,13 @@ func run(pass *analysis.Pass) (any, error) {
 			}
 
 			// Cast validation: detect unvalidated type conversions to DDD types.
+			// CFA mode uses path-reachability analysis instead of name matching.
 			if rc.checkCastValidation {
-				inspectUnvalidatedCasts(pass, n, cfg, bl)
+				if rc.cfa {
+					inspectUnvalidatedCastsCFA(pass, n, cfg, bl)
+				} else {
+					inspectUnvalidatedCasts(pass, n, cfg, bl)
+				}
 			}
 
 			// Validate usage: detect discarded Validate() results.
@@ -698,21 +708,39 @@ func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo
 }
 
 // findConstructorForStruct searches the constructor map for a function
-// matching the struct by prefix. Returns the first matching constructor
+// matching the struct by prefix. Returns the best matching constructor
 // or nil. A constructor matches if its name starts with "New" + structName
 // and its return type resolves to structName (or it returns an interface).
 // This handles variant constructors like NewMetadataFromSource for Metadata.
+//
+// Selection is deterministic: exact match ("New" + structName) is preferred,
+// then the lexicographically first prefix match. This avoids non-deterministic
+// results from map iteration order when multiple variant constructors exist.
 func findConstructorForStruct(structName string, ctors map[string]*constructorFuncInfo) *constructorFuncInfo {
 	prefix := "New" + structName
+	exactName := prefix
+
+	var bestName string
+	var bestInfo *constructorFuncInfo
+
 	for name, info := range ctors {
 		if !strings.HasPrefix(name, prefix) {
 			continue
 		}
-		if info.returnTypeName == structName || info.returnsInterface {
+		if info.returnTypeName != structName && !info.returnsInterface {
+			continue
+		}
+		// Exact match always wins.
+		if name == exactName {
 			return info
 		}
+		// Among prefix matches, pick the lexicographically first for determinism.
+		if bestInfo == nil || name < bestName {
+			bestName = name
+			bestInfo = info
+		}
 	}
-	return nil
+	return bestInfo
 }
 
 // reportStaleExceptionsInline reports stale exceptions via pass.Reportf.

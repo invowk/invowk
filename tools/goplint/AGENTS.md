@@ -33,6 +33,7 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Check constructor validates | `make build-goplint && ./bin/goplint -check-constructor-validates -config=tools/goplint/exceptions.toml ./...` |
 | Check validate delegation | `make build-goplint && ./bin/goplint -check-validate-delegation -config=tools/goplint/exceptions.toml ./...` |
 | Check nonzero fields | `make build-goplint && ./bin/goplint -check-nonzero -config=tools/goplint/exceptions.toml ./...` |
+| CFA cast validation | `make build-goplint && ./bin/goplint -check-cast-validation -cfa -config=tools/goplint/exceptions.toml ./...` |
 
 ## Scoped Rule Exception (Testing Parallelism)
 
@@ -66,7 +67,7 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
-The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, and `--check-nonzero` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
+The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, and `--check-nonzero` in a single invocation. It deliberately excludes `--audit-exceptions` (config maintenance tool with per-package false positives) and `--cfa` (changes finding IDs, opt-in only).
 
 ## Architecture
 
@@ -88,8 +89,11 @@ tools/goplint/
 │   ├── config.go               # exception TOML loading + pattern matching + match counting
 │   ├── inspect.go              # struct/func AST visitors + helpers
 │   ├── typecheck.go            # isPrimitive() / isPrimitiveUnderlying() / isOptionFuncType()
+│   ├── cfa.go                      # CFA toggle, cfg.New wrapper, DFS utilities
+│   ├── cfa_cast_validation.go      # inspectUnvalidatedCastsCFA (CFA replacement for cast validation)
+│   ├── cfa_closure.go              # inspectClosureCastsCFA (closure analysis with independent CFGs)
 │   ├── *_test.go               # unit + integration tests
-│   └── testdata/src/               # analysistest fixture packages (30 packages)
+│   └── testdata/src/               # analysistest fixture packages (33 packages)
 ```
 
 **Separate Go module**: `tools/goplint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
@@ -227,7 +231,7 @@ This directive only affects `--check-constructor-validates`. Other checks (primi
 
 ## Supplementary Modes
 
-Fourteen additional analysis modes complement the primary primitive detection:
+Fifteen additional analysis modes complement the primary primitive detection:
 
 ### `--check-all`
 
@@ -295,12 +299,13 @@ Reports type conversions from raw primitives (string, int, etc.) to DDD Value Ty
 - Casts to types **without `Validate()`** — not DDD types
 - **Map index** lookups (`m[DddType(s)]`) — invalid key returns zero/false
 - **Comparison** operands (`DddType(s) == expected`) — string equality works regardless
+- **Switch tag** expression (`switch DddType(s) { case ...: }`) — semantically a comparison
 - **`fmt.*` function** arguments (`fmt.Sprintf("...", DddType(s))`) — display-only
 - **Chained `.Validate()`** (`DddType(s).Validate()`) — validated directly on cast result
 - **Error-message sources** (`DddType(err.Error())`, `DddType(fmt.Sprintf(...))`) — display text, not raw input
-- **Casts inside closures** (`go func() { DddType(s) }()`) — closure bodies are skipped to avoid false positive/negative from shared variable namespaces
+- **Casts inside closures** (`go func() { DddType(s) }()`) — in AST mode, closure bodies are skipped to avoid false positive/negative from shared variable namespaces; with `--cfa`, closures are analyzed independently
 
-**Conservative heuristic:** Uses variable-name matching within a single function (excluding closures). If `x.Validate()` appears anywhere in the function body, all casts assigned to `x` are considered validated. No control-flow or ordering analysis.
+**Conservative heuristic (AST mode):** Uses variable-name matching within a single function (excluding closures). If `x.Validate()` appears anywhere in the function body, all casts assigned to `x` are considered validated. No control-flow or ordering analysis. With `--cfa`, this heuristic is replaced by CFG path-reachability analysis.
 
 ### `--check-validate-usage`
 
@@ -312,7 +317,7 @@ Reports misuse patterns for `Validate()` calls on DDD Value Types:
 
 **What does NOT get flagged:**
 - Calls on types without `Validate() error` (wrong signature)
-- Calls inside closures (separate validation scope, skipped)
+- Calls inside closures are analyzed independently with their own parent maps
 
 ### `--check-constructor-error-usage`
 
@@ -327,7 +332,7 @@ Reports `NewXxx()` constructor calls where the error return is assigned to a bla
 - Functions that don't return `error` as the last return type (e.g., `NewBaz() (*Baz, int)`)
 - `_, err := NewFoo()` where the value is blanked but error is captured
 - Single-return constructors (e.g., `NewBar() *Bar`)
-- Calls inside closures (separate scope, skipped)
+- Calls inside closures are analyzed independently
 
 ### `--check-constructor-validates`
 
@@ -353,6 +358,7 @@ Reports structs annotated with `//goplint:validate-all` whose `Validate()` metho
 - Structs without `//goplint:validate-all` directive (opt-in only)
 - Fields whose types do not have `Validate()` (non-validatable, skipped)
 - Delegation via intermediate variable: `field := c.FieldName; field.Validate()` is recognized
+- Anonymous embedded fields: `Name` (embedded type) is tracked as `c.Name.Validate()`
 
 ### `--check-nonzero`
 
@@ -366,6 +372,26 @@ Reports struct fields using nonzero-annotated types as value (non-pointer) field
 - `Name *CommandName` — pointer fields are correct for optional usage
 - Fields of types without `//goplint:nonzero` — zero value is valid
 - Fields with `//goplint:ignore` directive
+
+### `--cfa` (Control-Flow Analysis)
+
+Opt-in enhancement that replaces the AST name-based heuristic in `--check-cast-validation` with CFG path-reachability analysis. When enabled, each function gets a control-flow graph (via `golang.org/x/tools/go/cfg`) and the analyzer checks whether *every* path from a type conversion to a function return passes through a `varName.Validate()` call.
+
+**What CFA catches that AST misses:**
+- Conditional validation: `if strict { x.Validate() }` followed by unconditional use
+- Dead-branch validation path: where Validate() is only reachable via an always-true/always-false branch that the CFG structurally includes
+
+**What CFA does NOT check:**
+- Use-before-validate ordering within a single basic block — CFA checks "path-to-return-without-validate," not temporal ordering
+- Constant folding: `if false { x.Validate() }` — the CFG doesn't evaluate boolean expressions, but the non-false path to return is still detected as unvalidated
+
+**Closure analysis:** When `--cfa` is enabled, closure bodies (`FuncLit`) are analyzed with independent CFGs instead of being skipped entirely. Each closure gets its own validation scope.
+
+**Finding ID scheme:** CFA findings include a `"cfa"` discriminator in the stable finding ID. This prevents enabling `--cfa` from silently invalidating the existing baseline. After enabling `--cfa`, run `make update-baseline` to establish the CFA baseline.
+
+**`--check-all` does NOT include `--cfa`** — CFA is always opt-in because it changes finding IDs and may surface new findings.
+
+**Compartmentalization rule:** CFA is a fully compartmentalized enhancement layer. All existing AST-based analysis continues to work identically when `--cfa` is disabled. CFA files (`cfa*.go`), functions, and tests are strictly separated from AST files/tests. CFA files may import shared helpers from `inspect.go` and `typecheck.go` but NEVER import from `analyzer_cast_validation.go`, and vice versa. `analyzer.go` is the only file that routes between worlds.
 
 ### Exception integration
 
@@ -445,6 +471,11 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **Qualified name format**: The analyzer prefixes all names with the package name (`pkg.Type.Field`, `pkg.Func.param`). Exception patterns can be 2-segment (matched after stripping the package prefix) or 3-segment (exact match).
 - **CI baseline is required**: The `goplint-baseline` job in `lint.yml` is a required check that blocks merges on regressions. The `goplint` (full DDD audit) job remains advisory with `continue-on-error: true`.
 - **Per-package execution**: `go/analysis` analyzers run per-package. `--audit-exceptions` reports stale exceptions per-package — an exception that matches in package A but not package B will only be reported as stale during B's analysis. For a global stale audit, run against the full module (`./...`).
+- **`findConstructorForStruct` determinism**: Prefers exact match (`"New" + structName`) over prefix matches. Among prefix matches, picks lexicographically first name. Prevents non-deterministic results from Go map iteration order when multiple variant constructors exist.
+- **CFA import alias**: CFA files use `gocfg "golang.org/x/tools/go/cfg"` to avoid collision with the `*ExceptionConfig` parameter commonly named `cfg` in analyzer functions.
+- **CFA compartmentalization**: `cfa*.go` files may import shared helpers from `inspect.go` and `typecheck.go` but NEVER from `analyzer_cast_validation.go`. The reverse is also true. `analyzer.go` is the sole routing point.
+- **CFA `if false` handling**: `go/cfg` does NOT perform constant folding. `if false { x.Validate() }` creates a structurally live block. However, the non-false path to return IS detected as unvalidated because the IfDone block has no Validate call.
+- **CFA path semantics**: CFA checks "path-to-return-without-validate," not "use-before-validate." If `x.Validate()` appears anywhere on a path from the cast to a return block, that path is considered validated regardless of whether `x` is used before the Validate call.
 
 ## Test Architecture
 
@@ -470,3 +501,10 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
   - `TestCheckConstructorValidates` — `--check-constructor-validates` mode (missing Validate calls in constructors)
   - `TestCheckNonZero` — `--check-nonzero` mode (nonzero types used as value fields)
   - `TestBaselineSupplementaryCategories` — baseline suppression for supplementary modes (validate, stringer, constructors)
+- **CFA tests** (`cfa_test.go`, `cfa_integration_test.go`): Unit tests for CFG utilities and integration tests for CFA cast validation and closure analysis. NOT parallel. Covers:
+  - `TestBuildFuncCFG_*` — CFG construction from function bodies
+  - `TestFindDefiningBlock_*` — locating AST nodes in CFG blocks
+  - `TestContainsValidateCall_*` — Validate() call detection in AST nodes
+  - `TestCheckCastValidationCFA` — CFA path-reachability against `cfa_castvalidation` fixture
+  - `TestCheckCastValidationCFAClosure` — CFA closure analysis against `cfa_closure` fixture
+  - `TestCFADoesNotAffectCheckAll` — verifies `--check-all` does not enable `--cfa`

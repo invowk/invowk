@@ -124,14 +124,31 @@ func nonErrorSecondReturn() {
 	_ = result
 }
 
-// --- NOT FLAGGED: closure body (skipped) ---
+// --- FLAGGED: closure body (now analyzed) ---
 
-func closureSkipped() {
+func closureAnalyzed() {
 	fn := func() {
-		result, _ := NewFoo("test") // NOT flagged — closure body is skipped
+		result, _ := NewFoo("test") // want `constructor NewFoo error return assigned to blank identifier`
 		_ = result
 	}
 	fn()
+}
+
+func closureGoroutine() {
+	go func() {
+		result, _ := NewFoo("test") // want `constructor NewFoo error return assigned to blank identifier`
+		_ = result
+	}()
+}
+
+func closureCorrectUsage() {
+	go func() {
+		result, err := NewFoo("test")
+		if err != nil {
+			return
+		}
+		_ = result
+	}()
 }
 
 // --- Selector expression: free function via package import ---

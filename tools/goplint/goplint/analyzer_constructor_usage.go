@@ -42,9 +42,22 @@ func inspectConstructorErrorUsage(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Ex
 	}
 	qualFuncName := pkgName + "." + funcName
 
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		// Skip closure bodies — separate scope, consistent with other modes.
-		if _, ok := n.(*ast.FuncLit); ok {
+	inspectConstructorErrorUsageInBody(pass, fn.Body, qualFuncName, cfg, bl)
+}
+
+// inspectConstructorErrorUsageInBody checks a block statement for constructor
+// calls with blanked error returns. Closures are analyzed independently.
+func inspectConstructorErrorUsageInBody(
+	pass *analysis.Pass,
+	body *ast.BlockStmt,
+	qualFuncName string,
+	cfg *ExceptionConfig,
+	bl *BaselineConfig,
+) {
+	ast.Inspect(body, func(n ast.Node) bool {
+		// Analyze closure bodies independently.
+		if lit, ok := n.(*ast.FuncLit); ok {
+			inspectConstructorErrorUsageInBody(pass, lit.Body, qualFuncName, cfg, bl)
 			return false
 		}
 
@@ -60,21 +73,15 @@ func inspectConstructorErrorUsage(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Ex
 				continue
 			}
 
-			// Extract the function name from the call expression.
 			ctorName := constructorCallName(call)
 			if ctorName == "" {
 				continue
 			}
 
-			// Verify the function's type signature returns at least 2 values
-			// with the last being error.
 			if !returnsErrorLast(pass, call) {
 				continue
 			}
 
-			// Find the LHS position for the error return (last position in
-			// multi-value assignment). For `x, _ := NewFoo()`, the error
-			// position is index 1 (len(LHS)-1 when RHS is a single multi-return call).
 			if !isErrorReturnBlanked(assign, call) {
 				continue
 			}

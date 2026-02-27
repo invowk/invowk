@@ -97,6 +97,8 @@ type (
 		Cwd invowkfile.WorkDir
 	}
 
+	//goplint:validate-all
+	//
 	// TUIContext holds TUI server connection details for interactive mode.
 	// This groups TUI-related fields together.
 	TUIContext struct {

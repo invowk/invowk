@@ -87,7 +87,7 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 
 - `references/type-catalog.md`
   Comprehensive catalog of all current value types, including:
-  - all types implementing `Validate() (bool, []error)`
+  - all types implementing `Validate() error`
   - all primitive-wrapper value objects
   - alias/re-export type mappings
 

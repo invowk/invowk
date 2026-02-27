@@ -230,6 +230,7 @@ func buildParentMap(root ast.Node) map[ast.Node]ast.Node {
 // a context where validation is unnecessary:
 //   - Map index expression: m[DddType(s)] — invalid key returns zero/false
 //   - Comparison operand: DddType(s) == expected — string equality works
+//   - Switch tag expression: switch DddType(s) { ... } — equivalent to comparison
 //   - fmt.* function argument: fmt.Sprintf("...", DddType(s)) — display-only
 func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node) bool {
 	if parent == nil {
@@ -246,6 +247,11 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node)
 		if bin.Op.String() == "==" || bin.Op.String() == "!=" {
 			return true
 		}
+	}
+
+	// Switch tag: switch DddType(s) { case ...: } — semantically a comparison.
+	if sw, ok := parent.(*ast.SwitchStmt); ok && sw.Tag == call {
+		return true
 	}
 
 	// fmt.* function argument: the parent is a *ast.CallExpr targeting fmt.*

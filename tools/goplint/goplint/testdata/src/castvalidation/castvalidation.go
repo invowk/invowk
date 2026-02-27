@@ -248,6 +248,16 @@ func CastFromPlainVariableStillFlagged(cmdName string) { // want `parameter "cmd
 	_ = name
 }
 
+// --- Switch tag auto-skip tests ---
+
+// UnassignedSwitchTag — should NOT be flagged (auto-skip: switch tag).
+func UnassignedSwitchTag(input string) { // want `parameter "input" of castvalidation\.UnassignedSwitchTag uses primitive type string`
+	switch CommandName(input) { // NOT flagged — switch tag is comparison-like
+	case CommandName("test"):
+	default:
+	}
+}
+
 // --- Multi-assignment cast tests ---
 
 // MultiAssignCast tests a, b := DddType(x), DddType(y) pattern.

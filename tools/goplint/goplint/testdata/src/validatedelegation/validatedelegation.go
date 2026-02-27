@@ -134,6 +134,40 @@ func (c ValueReceiverConfig) Validate() error {
 	return nil
 }
 
+// --- Embedded field delegation — complete ---
+
+//goplint:validate-all
+type EmbeddedComplete struct {
+	Name
+	FieldMode Mode
+}
+
+func (c *EmbeddedComplete) Validate() error {
+	if err := c.Name.Validate(); err != nil {
+		return err
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// --- Embedded field delegation — incomplete ---
+
+//goplint:validate-all
+type EmbeddedIncomplete struct { // want `validatedelegation\.EmbeddedIncomplete\.Validate\(\) does not delegate to field Name which has Validate\(\)`
+	Name
+	FieldMode Mode
+}
+
+func (c *EmbeddedIncomplete) Validate() error {
+	// Name.Validate() is missing!
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // --- Mix of validatable and non-validatable fields ---
 
 //goplint:validate-all

@@ -59,8 +59,16 @@ func inspectValidateDelegation(pass *analysis.Pass, cfg *ExceptionConfig, bl *Ba
 					if !hasValidateMethod(fieldType) {
 						continue
 					}
-					for _, name := range field.Names {
-						validatableKeys = append(validatableKeys, name.Name)
+					if len(field.Names) > 0 {
+						for _, name := range field.Names {
+							validatableKeys = append(validatableKeys, name.Name)
+						}
+					} else {
+						// Anonymous embedded field — use the type name as the key.
+						// Accessed as receiver.TypeName in Go.
+						if embName := embeddedFieldTypeName(field.Type); embName != "" {
+							validatableKeys = append(validatableKeys, embName)
+						}
 					}
 				}
 
@@ -201,6 +209,25 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 	}
 
 	return called
+}
+
+// embeddedFieldTypeName extracts the type name from an anonymous embedded
+// field's type expression. Returns the simple type name for same-package
+// types (*ast.Ident), qualified name for imported types (*ast.SelectorExpr),
+// and handles pointer embeds (*ast.StarExpr). Returns "" if unrecognized.
+func embeddedFieldTypeName(expr ast.Expr) string {
+	// Unwrap pointer: *Name → Name
+	if star, ok := expr.(*ast.StarExpr); ok {
+		expr = star.X
+	}
+	switch e := expr.(type) {
+	case *ast.Ident:
+		return e.Name
+	case *ast.SelectorExpr:
+		// Imported type: pkg.Name — the field key is just Name.
+		return e.Sel.Name
+	}
+	return ""
 }
 
 // hasValidateAllDirective checks whether a type declaration has the

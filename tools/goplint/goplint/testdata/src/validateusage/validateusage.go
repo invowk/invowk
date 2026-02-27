@@ -70,12 +70,29 @@ func nonDddTypeDiscarded() {
 	n.Validate() // NOT flagged — wrong Validate() signature (returns bool only)
 }
 
-// --- Closure isolation ---
+// --- Closure analysis ---
 
-func closureNotAnalyzed() {
+func closureDiscardedResult() {
 	d := DddType("test")
 	go func() {
-		d.Validate() // NOT flagged — closure body is skipped
+		d.Validate() // want `Validate\(\) result discarded`
+	}()
+	_ = d
+}
+
+func closureBlankedResult() {
+	d := DddType("test")
+	defer func() {
+		_ = d.Validate() // want `Validate\(\) result discarded`
+	}()
+}
+
+func closureCorrectUsage() {
+	d := DddType("test")
+	go func() {
+		if err := d.Validate(); err != nil {
+			_ = err
+		}
 	}()
 	_ = d
 }

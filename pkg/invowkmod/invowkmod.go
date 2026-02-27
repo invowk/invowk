@@ -206,6 +206,8 @@ type (
 		Path SubdirectoryPath `json:"path,omitempty"`
 	}
 
+	//goplint:validate-all
+	//
 	// Invowkmod represents module metadata from invowkmod.cue.
 	// This is analogous to Go's go.mod file - it contains module identity and dependencies.
 	// Command definitions remain in invowkfile.cue (separate file).

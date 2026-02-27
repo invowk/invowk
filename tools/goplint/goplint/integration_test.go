@@ -40,6 +40,7 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-constructor-validates", "false")
 	setFlag(t, "check-validate-delegation", "false")
 	setFlag(t, "check-nonzero", "false")
+	setFlag(t, "cfa", "false")
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
