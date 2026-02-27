@@ -15,10 +15,20 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+// mustNew is a test helper that creates a Server and fails the test on error.
+func mustNew(t *testing.T, cfg Config) *Server {
+	t.Helper()
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	return srv
+}
+
 func TestGenerateToken(t *testing.T) {
 	t.Parallel()
 
-	srv := New(DefaultConfig())
+	srv := mustNew(t, DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
@@ -39,7 +49,7 @@ func TestGenerateToken(t *testing.T) {
 func TestValidateToken(t *testing.T) {
 	t.Parallel()
 
-	srv := New(DefaultConfig())
+	srv := mustNew(t, DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
@@ -65,7 +75,7 @@ func TestValidateToken(t *testing.T) {
 func TestRevokeToken(t *testing.T) {
 	t.Parallel()
 
-	srv := New(DefaultConfig())
+	srv := mustNew(t, DefaultConfig())
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
@@ -91,7 +101,7 @@ func TestRevokeToken(t *testing.T) {
 func TestRevokeTokensForCommand(t *testing.T) {
 	t.Parallel()
 
-	srv := New(DefaultConfig())
+	srv := mustNew(t, DefaultConfig())
 
 	// Generate multiple tokens for same command
 	token1, _ := srv.GenerateToken("command-1")
@@ -132,7 +142,7 @@ func TestServerStartStop(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Port = 0 // Auto-select port
 
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	// Initial state should be Created
 	if srv.State() != serverbase.StateCreated {
@@ -185,7 +195,7 @@ func TestServerDoubleStart(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
@@ -206,7 +216,7 @@ func TestServerDoubleStop(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
@@ -230,7 +240,7 @@ func TestGetConnectionInfo(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	// Should fail before server starts
 	_, err := srv.GetConnectionInfo("test")
@@ -272,7 +282,10 @@ func TestExpiredToken(t *testing.T) {
 
 	// Create a FakeClock for deterministic time control
 	clock := testutil.NewFakeClock(time.Now())
-	srv := NewWithClock(cfg, clock)
+	srv, srvErr := NewWithClock(cfg, clock)
+	if srvErr != nil {
+		t.Fatalf("NewWithClock() error = %v", srvErr)
+	}
 
 	token, err := srv.GenerateToken("test-command")
 	if err != nil {
@@ -301,7 +314,7 @@ func TestServerState(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	// Test state transitions
 	if srv.State() != serverbase.StateCreated {
@@ -332,7 +345,7 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Port = 0
 
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	// Create an already-cancelled context
 	ctx, cancel := context.WithCancel(t.Context())
@@ -353,7 +366,7 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 func TestStopWithoutStart(t *testing.T) {
 	t.Parallel()
 
-	srv := New(DefaultConfig())
+	srv := mustNew(t, DefaultConfig())
 
 	// Stop without Start should be safe
 	if err := srv.Stop(); err != nil {
@@ -420,7 +433,7 @@ func TestServerStartWithUsedPort(t *testing.T) {
 
 	cfg1 := DefaultConfig()
 	cfg1.Port = 0
-	srv1 := New(cfg1)
+	srv1 := mustNew(t, cfg1)
 
 	ctx := t.Context()
 	if err := srv1.Start(ctx); err != nil {
@@ -431,7 +444,7 @@ func TestServerStartWithUsedPort(t *testing.T) {
 	// Create server2 targeting the same port
 	cfg2 := DefaultConfig()
 	cfg2.Port = srv1.Port()
-	srv2 := New(cfg2)
+	srv2 := mustNew(t, cfg2)
 
 	err := srv2.Start(ctx)
 	if err == nil {
@@ -449,7 +462,7 @@ func TestServerAccessorsAfterStart(t *testing.T) {
 
 	cfg := DefaultConfig()
 	cfg.Port = 0
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
@@ -473,7 +486,7 @@ func TestServerWaitAfterStop(t *testing.T) {
 
 	cfg := DefaultConfig()
 	cfg.Port = 0
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
@@ -494,7 +507,7 @@ func TestServerWaitAfterFail(t *testing.T) {
 
 	cfg := DefaultConfig()
 	cfg.Port = 0
-	srv := New(cfg)
+	srv := mustNew(t, cfg)
 
 	// Use an already-cancelled context to force Start to fail
 	ctx, cancel := context.WithCancel(t.Context())

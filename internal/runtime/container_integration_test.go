@@ -546,7 +546,10 @@ func createTestSSHServer(t *testing.T) (*sshserver.Server, error) {
 		TokenTTL: 5 * time.Minute,
 	}
 
-	srv := sshserver.New(cfg)
+	srv, err := sshserver.New(cfg)
+	if err != nil {
+		t.Fatalf("sshserver.New() error = %v", err)
+	}
 
 	// Start the server with context. Server.Start() blocks until the server
 	// is ready to accept connections or fails, eliminating the previous race

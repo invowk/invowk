@@ -424,7 +424,10 @@ func (s *sshServerController) ensure(ctx context.Context) error {
 	}
 
 	// Start blocks until SSH server is ready to accept connections.
-	srv := sshserver.New(sshserver.DefaultConfig())
+	srv, err := sshserver.New(sshserver.DefaultConfig())
+	if err != nil {
+		return fmt.Errorf("failed to create SSH server: %w", err)
+	}
 	if err := srv.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start SSH server: %w", err)
 	}
