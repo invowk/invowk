@@ -113,7 +113,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		} else {
 			slog.Debug("failed to determine working directory for discovery, current-dir lookup will be skipped",
 				"error", err)
-			d.initDiagnostics = append(d.initDiagnostics, NewDiagnosticWithCause(
+			d.initDiagnostics = append(d.initDiagnostics, mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeWorkingDirUnavailable,
 				fmt.Sprintf("current directory unavailable, skipping local discovery: %v", err),
@@ -128,7 +128,7 @@ func New(cfg *config.Config, opts ...Option) *Discovery {
 		} else {
 			slog.Debug("user commands directory unavailable, skipping user-dir discovery",
 				"error", err)
-			d.initDiagnostics = append(d.initDiagnostics, NewDiagnosticWithCause(
+			d.initDiagnostics = append(d.initDiagnostics, mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeCommandsDirUnavailable,
 				fmt.Sprintf("user commands directory unavailable, skipping user-dir discovery: %v", err),

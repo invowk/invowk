@@ -206,7 +206,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		if file.Error != nil {
 			// Parse failures are recoverable for discovery: keep traversing and
 			// return structured diagnostics to the caller instead of writing output.
-			diagnostics = append(diagnostics, NewDiagnosticWithCause(
+			diagnostics = append(diagnostics, mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeInvowkfileParseSkipped,
 				fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
@@ -303,7 +303,7 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 
 	// Command-not-found is represented as a diagnostic so CLI callers can choose
 	// the rendering policy (execute/list/completion) consistently.
-	result.Diagnostics = append(result.Diagnostics, NewDiagnostic(
+	result.Diagnostics = append(result.Diagnostics, mustDiagnostic(
 		SeverityError,
 		CodeCommandNotFound,
 		fmt.Sprintf("command '%s' not found", name),

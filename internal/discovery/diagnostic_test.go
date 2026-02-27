@@ -52,7 +52,7 @@ func TestDiagnosticCode_IsValid(t *testing.T) {
 		CodeModuleScanFailed, CodeReservedModuleNameSkipped, CodeModuleLoadSkipped,
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
-		CodeVendoredNestedIgnored,
+		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed,
 	}
 
 	for _, code := range validCodes {
@@ -89,7 +89,10 @@ func TestDiagnosticCode_IsValid(t *testing.T) {
 func TestNewDiagnostic(t *testing.T) {
 	t.Parallel()
 
-	d := NewDiagnostic(SeverityWarning, CodeConfigLoadFailed, "test message")
+	d, err := NewDiagnostic(SeverityWarning, CodeConfigLoadFailed, "test message")
+	if err != nil {
+		t.Fatalf("NewDiagnostic() unexpected error: %v", err)
+	}
 
 	if d.severity != SeverityWarning {
 		t.Errorf("Severity = %q, want %q", d.severity, SeverityWarning)
@@ -108,10 +111,41 @@ func TestNewDiagnostic(t *testing.T) {
 	}
 }
 
+func TestNewDiagnostic_InvalidParams(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		severity Severity
+		code     DiagnosticCode
+	}{
+		{"invalid severity", Severity("bogus"), CodeConfigLoadFailed},
+		{"invalid code", SeverityError, DiagnosticCode("bogus")},
+		{"both invalid", Severity("nope"), DiagnosticCode("also_nope")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := NewDiagnostic(tt.severity, tt.code, "msg")
+			if err == nil {
+				t.Fatal("NewDiagnostic() expected error, got nil")
+			}
+			if !errors.Is(err, ErrInvalidDiagnostic) {
+				t.Errorf("error should wrap ErrInvalidDiagnostic, got: %v", err)
+			}
+		})
+	}
+}
+
 func TestNewDiagnosticWithPath(t *testing.T) {
 	t.Parallel()
 
-	d := NewDiagnosticWithPath(SeverityError, CodeInvowkfileParseSkipped, "parse failed", "/some/path")
+	d, err := NewDiagnosticWithPath(SeverityError, CodeInvowkfileParseSkipped, "parse failed", "/some/path")
+	if err != nil {
+		t.Fatalf("NewDiagnosticWithPath() unexpected error: %v", err)
+	}
 
 	if d.severity != SeverityError {
 		t.Errorf("Severity = %q, want %q", d.severity, SeverityError)
@@ -134,7 +168,10 @@ func TestNewDiagnosticWithCause(t *testing.T) {
 	t.Parallel()
 
 	cause := errors.New("underlying error")
-	d := NewDiagnosticWithCause(SeverityError, CodeModuleScanFailed, "scan failed", "/module/path", cause)
+	d, err := NewDiagnosticWithCause(SeverityError, CodeModuleScanFailed, "scan failed", "/module/path", cause)
+	if err != nil {
+		t.Fatalf("NewDiagnosticWithCause() unexpected error: %v", err)
+	}
 
 	if d.severity != SeverityError {
 		t.Errorf("Severity = %q, want %q", d.severity, SeverityError)

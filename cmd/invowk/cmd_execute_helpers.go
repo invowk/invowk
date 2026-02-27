@@ -261,13 +261,19 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 	}
 
 	for _, diag := range built.Diagnostics {
-		result.Diagnostics = append(result.Diagnostics, discovery.NewDiagnosticWithCause(
+		d, err := discovery.NewDiagnosticWithCause(
 			discovery.SeverityWarning,
-			discovery.DiagnosticCode(diag.Code),
+			discovery.DiagnosticCode(diag.Code), //nolint:gosec // runtime.InitDiagnosticCode values align with discovery.DiagnosticCode by design
 			diag.Message,
 			"",
 			diag.Cause,
-		))
+		)
+		if err != nil {
+			slog.Error("BUG: failed to bridge runtime diagnostic to discovery diagnostic",
+				"code", diag.Code, "error", err)
+			continue
+		}
+		result.Diagnostics = append(result.Diagnostics, d)
 	}
 
 	return result

@@ -147,7 +147,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 
 	absDir, err := filepath.Abs(string(dir))
 	if err != nil {
-		diagnostics = append(diagnostics, NewDiagnosticWithCause(
+		diagnostics = append(diagnostics, mustDiagnosticWithCause(
 			SeverityWarning,
 			CodeModuleScanPathInvalid,
 			fmt.Sprintf("failed to resolve module scan path %q: %v", dir, err),
@@ -165,7 +165,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 	// Read directory entries
 	entries, err := os.ReadDir(absDir)
 	if err != nil {
-		diagnostics = append(diagnostics, NewDiagnosticWithCause(
+		diagnostics = append(diagnostics, mustDiagnosticWithCause(
 			SeverityWarning,
 			CodeModuleScanFailed,
 			fmt.Sprintf("failed to list directory %s while scanning modules: %v", absDir, err),
@@ -191,7 +191,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 		// where @invowkfile refers to the root invowkfile.cue source
 		moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
 		if SourceID(moduleName) == SourceIDInvowkfile {
-			diagnostics = append(diagnostics, NewDiagnosticWithPath(
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
 				CodeReservedModuleNameSkipped,
 				fmt.Sprintf("skipping reserved module name '%s'", moduleName),
@@ -203,7 +203,7 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 		// Load the module
 		m, err := invowkmod.Load(types.FilesystemPath(entryPath))
 		if err != nil {
-			diagnostics = append(diagnostics, NewDiagnosticWithCause(
+			diagnostics = append(diagnostics, mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeModuleLoadSkipped,
 				fmt.Sprintf("skipping invalid module at %s: %v", entryPath, err),
@@ -236,7 +236,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 	for _, entry := range d.cfg.Includes {
 		pathStr := string(entry.Path)
 		if !invowkmod.IsModule(types.FilesystemPath(pathStr)) {
-			diagnostics = append(diagnostics, NewDiagnosticWithPath(
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
 				CodeIncludeNotModule,
 				fmt.Sprintf("configured include is not a valid module directory, skipping: %s", entry.Path),
@@ -246,7 +246,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 		}
 		moduleName := strings.TrimSuffix(filepath.Base(pathStr), invowkmod.ModuleSuffix)
 		if SourceID(moduleName) == SourceIDInvowkfile {
-			diagnostics = append(diagnostics, NewDiagnosticWithPath(
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
 				CodeIncludeReservedSkipped,
 				fmt.Sprintf("configured include uses reserved module name '%s', skipping", moduleName),
@@ -256,7 +256,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 		}
 		m, err := invowkmod.Load(types.FilesystemPath(pathStr))
 		if err != nil {
-			diagnostics = append(diagnostics, NewDiagnosticWithCause(
+			diagnostics = append(diagnostics, mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeIncludeModuleLoadFailed,
 				fmt.Sprintf("failed to load included module at %s: %v", entry.Path, err),
@@ -292,7 +292,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 
 	entries, err := os.ReadDir(vendorDirStr)
 	if err != nil {
-		diagnostics = append(diagnostics, NewDiagnosticWithCause(
+		diagnostics = append(diagnostics, mustDiagnosticWithCause(
 			SeverityWarning,
 			CodeVendoredScanFailed,
 			fmt.Sprintf("failed to read vendored modules directory %s: %v", vendorDir, err),
@@ -314,7 +314,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 
 		moduleName := strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix)
 		if SourceID(moduleName) == SourceIDInvowkfile {
-			diagnostics = append(diagnostics, NewDiagnosticWithPath(
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
 				CodeVendoredReservedSkipped,
 				fmt.Sprintf("skipping reserved module name '%s' in vendored modules of %s", moduleName, parentModule.Name()),
@@ -325,7 +325,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 
 		m, err := invowkmod.Load(types.FilesystemPath(entryPath))
 		if err != nil {
-			diagnostics = append(diagnostics, NewDiagnosticWithCause(
+			diagnostics = append(diagnostics, mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeVendoredModuleLoadSkipped,
 				fmt.Sprintf("skipping invalid vendored module at %s: %v", entryPath, err),
@@ -338,7 +338,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 		// Warn if the vendored module has its own invowk_modules/ (not recursed)
 		nestedVendorDir := invowkmod.GetVendoredModulesDir(types.FilesystemPath(entryPath))
 		if info, statErr := os.Stat(string(nestedVendorDir)); statErr == nil && info.IsDir() {
-			diagnostics = append(diagnostics, NewDiagnosticWithPath(
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
 				CodeVendoredNestedIgnored,
 				fmt.Sprintf("vendored module %s has its own invowk_modules/ which is not recursed into", m.Name()),
