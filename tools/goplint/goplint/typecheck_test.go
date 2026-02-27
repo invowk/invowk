@@ -74,6 +74,79 @@ func TestPrimitiveMapDetail(t *testing.T) {
 	}
 }
 
+func TestHasIsValidMethod(t *testing.T) {
+	t.Parallel()
+
+	pkg := types.NewPackage("test/pkg", "pkg")
+	errType := types.Universe.Lookup("error").Type()
+
+	// Helper: create a named type and add methods.
+	makeTypeWithMethod := func(name string, underlying types.Type, methods ...*types.Func) *types.Named {
+		tn := types.NewTypeName(token.NoPos, pkg, name, nil)
+		named := types.NewNamed(tn, underlying, nil)
+		for _, m := range methods {
+			named.AddMethod(m)
+		}
+		return named
+	}
+
+	// Helper: create IsValid() (bool, []error) function.
+	makeIsValidFunc := func(recv *types.Named) *types.Func {
+		sig := types.NewSignatureType(
+			types.NewVar(token.NoPos, pkg, "r", recv),
+			nil, nil,
+			nil, // no params
+			types.NewTuple(
+				types.NewVar(token.NoPos, pkg, "", types.Typ[types.Bool]),
+				types.NewVar(token.NoPos, pkg, "", types.NewSlice(errType)),
+			),
+			false,
+		)
+		return types.NewFunc(token.NoPos, pkg, "IsValid", sig)
+	}
+
+	// Type with correct IsValid() (bool, []error).
+	goodType := makeTypeWithMethod("Good", types.Typ[types.String])
+	goodType.AddMethod(makeIsValidFunc(goodType))
+
+	// Type with no methods.
+	noMethodType := makeTypeWithMethod("NoMethod", types.Typ[types.String])
+
+	// Type with wrong IsValid signature: IsValid() bool.
+	wrongSigType := makeTypeWithMethod("WrongSig", types.Typ[types.String])
+	wrongSigType.AddMethod(types.NewFunc(token.NoPos, pkg, "IsValid",
+		types.NewSignatureType(
+			types.NewVar(token.NoPos, pkg, "r", wrongSigType),
+			nil, nil,
+			nil,
+			types.NewTuple(types.NewVar(token.NoPos, pkg, "", types.Typ[types.Bool])),
+			false,
+		),
+	))
+
+	tests := []struct {
+		name string
+		typ  types.Type
+		want bool
+	}{
+		{name: "type with correct IsValid", typ: goodType, want: true},
+		{name: "type without IsValid", typ: noMethodType, want: false},
+		{name: "type with wrong signature", typ: wrongSigType, want: false},
+		{name: "bare string", typ: types.Typ[types.String], want: false},
+		{name: "alias of type with IsValid", typ: makeAliasType(goodType), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := hasIsValidMethod(tt.typ)
+			if got != tt.want {
+				t.Errorf("hasIsValidMethod(%s) = %v, want %v", tt.typ, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsPrimitiveBasic(t *testing.T) {
 	t.Parallel()
 

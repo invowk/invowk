@@ -27,6 +27,7 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Check functional options | `make build-goplint && ./bin/goplint -check-func-options -config=tools/goplint/exceptions.toml ./...` |
 | Check immutability | `make build-goplint && ./bin/goplint -check-immutability -config=tools/goplint/exceptions.toml ./...` |
 | Check struct IsValid | `make build-goplint && ./bin/goplint -check-struct-isvalid -config=tools/goplint/exceptions.toml ./...` |
+| Check cast validation | `make build-goplint && ./bin/goplint -check-cast-validation -config=tools/goplint/exceptions.toml ./...` |
 
 ## Scoped Rule Exception (Testing Parallelism)
 
@@ -51,10 +52,11 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `missing-immutability` | `--check-immutability` or `--check-all` | Struct with constructor has exported mutable fields |
 | `missing-struct-isvalid` | `--check-struct-isvalid` or `--check-all` | Struct with constructor missing `IsValid()` method |
 | `wrong-struct-isvalid-sig` | `--check-struct-isvalid` or `--check-all` | Struct has `IsValid()` but wrong signature |
+| `unvalidated-cast` | `--check-cast-validation` or `--check-all` | Type conversion to DDD type from non-constant without `IsValid()` check |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
-The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, and `--check-struct-isvalid` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
+The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`, and `--check-cast-validation` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
 
 ## Architecture
 
@@ -64,14 +66,15 @@ tools/goplint/
 ├── exceptions.toml         # ~390 intentional exception patterns (primitives, constructors, func-options, etc.)
 ├── baseline.toml           # accepted findings baseline (generated)
 ├── goplint/
-│   ├── analyzer.go             # analysis.Analyzer + run() wiring + basic supplementary modes
-│   ├── analyzer_structural.go  # structural analysis: constructor-sig, func-options, immutability
+│   ├── analyzer.go                 # analysis.Analyzer + run() wiring + basic supplementary modes
+│   ├── analyzer_cast_validation.go # cast validation: unvalidated DDD type conversions
+│   ├── analyzer_structural.go      # structural analysis: constructor-sig, func-options, immutability
 │   ├── baseline.go             # baseline TOML loading + matching + writing
 │   ├── config.go               # exception TOML loading + pattern matching + match counting
 │   ├── inspect.go              # struct/func AST visitors + helpers
 │   ├── typecheck.go            # isPrimitive() / isPrimitiveUnderlying() / isOptionFuncType()
 │   ├── *_test.go               # unit + integration tests
-│   └── testdata/src/           # analysistest fixture packages (23 packages)
+│   └── testdata/src/               # analysistest fixture packages (24 packages)
 ```
 
 **Separate Go module**: `tools/goplint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
@@ -181,7 +184,7 @@ Eight additional analysis modes complement the primary primitive detection:
 
 ### `--check-all`
 
-Enables all DDD compliance checks (`--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
+Enables all DDD compliance checks (`--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`, `--check-cast-validation`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
 
 ### `--audit-exceptions`
 
@@ -230,6 +233,28 @@ Reports exported struct fields on types that have a `NewXxx()` constructor. If a
 
 Reports **exported** struct types that have a `NewXxx()` constructor but lack an `IsValid() (bool, []error)` method. While `--check-isvalid` covers non-struct named types (which define their own primitive validation), struct types need their own check because nothing enforces that constructor-backed structs validate their invariants. Error types are excluded (same logic as `--check-constructors`). When `IsValid()` exists but has a non-compliant signature, a `wrong-struct-isvalid-sig` diagnostic is emitted instead.
 
+### `--check-cast-validation`
+
+Reports type conversions from raw primitives (string, int, etc.) to DDD Value Types where `IsValid()` is never called on the result variable within the same function. Detects patterns like `CommandName(userInput)` where the cast produces a potentially invalid value that enters the system unchecked.
+
+**What gets flagged:**
+- `x := DddType(runtimeString)` where `x.IsValid()` is never called in the function
+- `return DddType(runtimeString)` — unassigned cast in a return statement
+- `useFunc(DddType(runtimeString))` — unassigned cast as a function argument
+
+**What does NOT get flagged (auto-skip contexts):**
+- Casts from **constants** (`DddType("literal")`, `DddType(namedConst)`) — developer can see the value
+- Casts between **named types** (`DddType(otherNamedType)`) — not a raw primitive
+- Casts to types **without `IsValid()`** — not DDD types
+- **Map index** lookups (`m[DddType(s)]`) — invalid key returns zero/false
+- **Comparison** operands (`DddType(s) == expected`) — string equality works regardless
+- **`fmt.*` function** arguments (`fmt.Sprintf("...", DddType(s))`) — display-only
+- **Chained `.IsValid()`** (`DddType(s).IsValid()`) — validated directly on cast result
+- **Error-message sources** (`DddType(err.Error())`, `DddType(fmt.Sprintf(...))`) — display text, not raw input
+- **Casts inside closures** (`go func() { DddType(s) }()`) — closure bodies are skipped to avoid false positive/negative from shared variable namespaces
+
+**Conservative heuristic:** Uses variable-name matching within a single function (excluding closures). If `x.IsValid()` appears anywhere in the function body, all casts assigned to `x` are considered validated. No control-flow or ordering analysis.
+
 ### Exception integration
 
 All supplementary modes respect the TOML exception config:
@@ -240,6 +265,7 @@ All supplementary modes respect the TOML exception config:
 - `--check-func-options`: excepted via `pkg.StructName.func-options`
 - `--check-immutability`: excepted via `pkg.StructName.immutability`
 - `--check-struct-isvalid`: excepted via `pkg.StructName.struct-isvalid`
+- `--check-cast-validation`: excepted via `pkg.FuncName.cast-validation`
 
 ## Baseline Comparison
 
@@ -271,7 +297,7 @@ entries = [
 ]
 ```
 
-Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-isvalid]`, `[wrong-struct-isvalid-sig]`. Empty sections are omitted.
+Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-isvalid]`, `[wrong-struct-isvalid-sig]`, `[unvalidated-cast]`. Empty sections are omitted.
 
 `messages = [...]` (legacy v1 format) is still parsed for backward compatibility.
 
@@ -320,4 +346,5 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
   - `TestAuditExceptions` — `--audit-exceptions` stale entry detection
   - `TestCheckAll` — `--check-all` combined mode (all categories in one fixture)
   - `TestBaselineSuppression` — `--baseline` mode (known findings suppressed, new ones reported)
+  - `TestCheckCastValidation` — `--check-cast-validation` mode (unvalidated DDD type conversions)
   - `TestBaselineSupplementaryCategories` — baseline suppression for supplementary modes (isvalid, stringer, constructors)

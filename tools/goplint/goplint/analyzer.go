@@ -46,6 +46,7 @@ const (
 	CategoryWrongStringerSig      = "wrong-stringer-sig"
 	CategoryMissingStructIsValid  = "missing-struct-isvalid"
 	CategoryWrongStructIsValidSig = "wrong-struct-isvalid-sig"
+	CategoryUnvalidatedCast       = "unvalidated-cast"
 	CategoryStaleException        = "stale-exception"
 	CategoryUnknownDirective      = "unknown-directive"
 )
@@ -66,6 +67,7 @@ var (
 	checkFuncOptions    bool
 	checkImmutability   bool
 	checkStructIsValid  bool
+	checkCastValidation bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -99,8 +101,10 @@ func init() {
 		"report structs with constructors that have exported mutable fields")
 	Analyzer.Flags.BoolVar(&checkStructIsValid, "check-struct-isvalid", false,
 		"report exported struct types with constructors missing IsValid() (bool, []error) method")
+	Analyzer.Flags.BoolVar(&checkCastValidation, "check-cast-validation", false,
+		"report type conversions to DDD Value Types from non-constants without IsValid() check")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
-		"enable all DDD compliance checks (isvalid + stringer + constructors + structural)")
+		"enable all DDD compliance checks (isvalid + stringer + constructors + structural + cast-validation)")
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
@@ -118,6 +122,7 @@ type runConfig struct {
 	checkFuncOptions    bool
 	checkImmutability   bool
 	checkStructIsValid  bool
+	checkCastValidation bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -136,6 +141,7 @@ func newRunConfig() runConfig {
 		checkFuncOptions:    checkFuncOptions,
 		checkImmutability:   checkImmutability,
 		checkStructIsValid:  checkStructIsValid,
+		checkCastValidation: checkCastValidation,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions which is a config
@@ -148,6 +154,7 @@ func newRunConfig() runConfig {
 		rc.checkFuncOptions = true
 		rc.checkImmutability = true
 		rc.checkStructIsValid = true
+		rc.checkCastValidation = true
 	}
 	return rc
 }
@@ -261,6 +268,11 @@ func run(pass *analysis.Pass) (any, error) {
 			// Structural: track WithXxx option functions.
 			if needWithFunctions {
 				trackWithFunctions(pass, n, optionTypes, withFunctions)
+			}
+
+			// Cast validation: detect unvalidated type conversions to DDD types.
+			if rc.checkCastValidation {
+				inspectUnvalidatedCasts(pass, n, cfg, bl)
 			}
 		}
 	})

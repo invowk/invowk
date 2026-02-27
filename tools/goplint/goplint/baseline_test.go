@@ -471,6 +471,7 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 		CategoryMissingImmutability,
 		CategoryMissingStructIsValid,
 		CategoryWrongStructIsValidSig,
+		CategoryUnvalidatedCast,
 	}
 
 	// Verify buildLookup() initializes an entry for each category.

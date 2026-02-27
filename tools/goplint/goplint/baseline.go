@@ -28,6 +28,7 @@ type BaselineConfig struct {
 	MissingImmutability   BaselineCategory `toml:"missing-immutability"`
 	MissingStructIsValid  BaselineCategory `toml:"missing-struct-isvalid"`
 	WrongStructIsValidSig BaselineCategory `toml:"wrong-struct-isvalid-sig"`
+	UnvalidatedCast       BaselineCategory `toml:"unvalidated-cast"`
 
 	// lookupByID is an O(1) index keyed by category → finding ID.
 	lookupByID map[string]map[string]bool
@@ -119,13 +120,14 @@ func (b *BaselineConfig) Count() int {
 		countCategory(b.MissingFuncOptions) +
 		countCategory(b.MissingImmutability) +
 		countCategory(b.MissingStructIsValid) +
-		countCategory(b.WrongStructIsValidSig)
+		countCategory(b.WrongStructIsValidSig) +
+		countCategory(b.UnvalidatedCast)
 }
 
 // buildLookup populates the internal lookup maps from the parsed TOML data.
 func (b *BaselineConfig) buildLookup() {
-	b.lookupByID = make(map[string]map[string]bool, 11)
-	b.lookupByMessage = make(map[string]map[string]bool, 11)
+	b.lookupByID = make(map[string]map[string]bool, 12)
+	b.lookupByMessage = make(map[string]map[string]bool, 12)
 
 	categoryData := []struct {
 		key string
@@ -142,6 +144,7 @@ func (b *BaselineConfig) buildLookup() {
 		{CategoryMissingImmutability, b.MissingImmutability},
 		{CategoryMissingStructIsValid, b.MissingStructIsValid},
 		{CategoryWrongStructIsValidSig, b.WrongStructIsValidSig},
+		{CategoryUnvalidatedCast, b.UnvalidatedCast},
 	}
 
 	for _, c := range categoryData {
@@ -188,6 +191,7 @@ func WriteBaseline(path string, findings map[string][]BaselineFinding) error {
 		{CategoryMissingImmutability, "Structs with constructor but exported mutable fields"},
 		{CategoryMissingStructIsValid, "Structs with constructor but no IsValid() method"},
 		{CategoryWrongStructIsValidSig, "Structs with IsValid() but wrong signature"},
+		{CategoryUnvalidatedCast, "Type conversions to DDD types without IsValid() check"},
 	}
 
 	for _, cat := range categories {

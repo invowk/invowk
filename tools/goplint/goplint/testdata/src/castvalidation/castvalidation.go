@@ -1,0 +1,237 @@
+// SPDX-License-Identifier: MPL-2.0
+
+package castvalidation
+
+import "fmt"
+
+// --- DDD Value Types for testing ---
+
+// CommandName is a DDD Value Type with IsValid.
+type CommandName string
+
+func (c CommandName) IsValid() (bool, []error) { return c != "", nil }
+func (c CommandName) String() string            { return string(c) }
+
+// PortNumber is an int-backed DDD Value Type.
+type PortNumber int
+
+func (p PortNumber) IsValid() (bool, []error) { return p > 0 && p < 65536, nil }
+func (p PortNumber) String() string            { return fmt.Sprintf("%d", int(p)) }
+
+// NoIsValid has no IsValid method — casts to this should NOT be flagged.
+type NoIsValid string
+
+func (n NoIsValid) String() string { return string(n) }
+
+// AnotherNamedType wraps string — not a raw primitive.
+type AnotherNamedType string
+
+// --- Helper functions providing runtime values without param-level findings ---
+
+func runtimeString() string { return "test" } // want `return value of castvalidation\.runtimeString uses primitive type string`
+
+func runtimeInt() int { return 42 } // want `return value of castvalidation\.runtimeInt uses primitive type int`
+
+// --- Assigned cast tests ---
+
+// CastFromVariableNoValidation — SHOULD be flagged.
+func CastFromVariableNoValidation(input string) { // want `parameter "input" of castvalidation\.CastFromVariableNoValidation uses primitive type string`
+	name := CommandName(input) // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+	_ = name
+}
+
+// CastFromVariableWithValidation — should NOT be flagged for cast.
+func CastFromVariableWithValidation(input string) { // want `parameter "input" of castvalidation\.CastFromVariableWithValidation uses primitive type string`
+	name := CommandName(input)
+	if ok, _ := name.IsValid(); !ok {
+		return
+	}
+	_ = name
+}
+
+// CastFromStringLiteral — should NOT be flagged (constant).
+func CastFromStringLiteral() {
+	name := CommandName("test")
+	_ = name
+}
+
+// CastFromNamedConstant — should NOT be flagged.
+func CastFromNamedConstant() {
+	const s = "test"
+	name := CommandName(s)
+	_ = name
+}
+
+// CastToTypeWithoutIsValid — should NOT be flagged (no IsValid method).
+func CastToTypeWithoutIsValid(input string) { // want `parameter "input" of castvalidation\.CastToTypeWithoutIsValid uses primitive type string`
+	name := NoIsValid(input)
+	_ = name
+}
+
+// CastFromFuncReturn — SHOULD be flagged.
+func CastFromFuncReturn() {
+	name := CommandName(runtimeString()) // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+	_ = name
+}
+
+// MultipleAssignments — only unvalidated cast should be flagged.
+func MultipleAssignments(a, b string) { // want `parameter "a" of castvalidation\.MultipleAssignments uses primitive type string` `parameter "b" of castvalidation\.MultipleAssignments uses primitive type string`
+	x := CommandName(a) // NOT flagged — IsValid is called on x below
+	if ok, _ := x.IsValid(); !ok {
+		return
+	}
+	y := CommandName(b) // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+	_ = x
+	_ = y
+}
+
+// CastIntNoValidation — should work for int types.
+func CastIntNoValidation() {
+	p := PortNumber(runtimeInt()) // want `type conversion to PortNumber from non-constant without IsValid\(\) check`
+	_ = p
+}
+
+// CastIntWithValidation — should NOT be flagged.
+func CastIntWithValidation() {
+	p := PortNumber(runtimeInt())
+	if ok, _ := p.IsValid(); !ok {
+		return
+	}
+	_ = p
+}
+
+// --- Unassigned cast tests ---
+
+// UnassignedReturn — SHOULD be flagged.
+func UnassignedReturn(input string) CommandName { // want `parameter "input" of castvalidation\.UnassignedReturn uses primitive type string`
+	return CommandName(input) // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+}
+
+// UnassignedFuncArg — SHOULD be flagged.
+func UnassignedFuncArg(input string) { // want `parameter "input" of castvalidation\.UnassignedFuncArg uses primitive type string`
+	useCmd(CommandName(input)) // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+}
+
+func useCmd(_ CommandName) {}
+
+// UnassignedMapKey — should NOT be flagged (auto-skip: map index).
+func UnassignedMapKey(input string) { // want `parameter "input" of castvalidation\.UnassignedMapKey uses primitive type string`
+	m := map[CommandName]bool{}
+	_ = m[CommandName(input)] // NOT flagged — map lookup
+}
+
+// UnassignedComparison — should NOT be flagged (auto-skip: comparison).
+func UnassignedComparison(input string, expected CommandName) bool { // want `parameter "input" of castvalidation\.UnassignedComparison uses primitive type string`
+	return CommandName(input) == expected // NOT flagged — comparison
+}
+
+// UnassignedFmtArg — should NOT be flagged (auto-skip: fmt argument).
+func UnassignedFmtArg(input string) string { // want `parameter "input" of castvalidation\.UnassignedFmtArg uses primitive type string` `return value of castvalidation\.UnassignedFmtArg uses primitive type string`
+	return fmt.Sprintf("cmd: %s", CommandName(input)) // NOT flagged — display only
+}
+
+// UnassignedConstReturn — should NOT be flagged (constant source).
+func UnassignedConstReturn() CommandName {
+	return CommandName("test") // NOT flagged — constant expression
+}
+
+// --- Named-to-named cast tests ---
+
+// CastFromNamedType — should NOT be flagged (named-to-named).
+func CastFromNamedType(input AnotherNamedType) {
+	name := CommandName(input)
+	_ = name
+}
+
+// --- Blank identifier assignment ---
+
+// CastToBlankIdentifier — treated as unassigned, SHOULD be flagged.
+func CastToBlankIdentifier(input string) { // want `parameter "input" of castvalidation\.CastToBlankIdentifier uses primitive type string`
+	_ = CommandName(input) // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+}
+
+// CastIntLiteral — should NOT be flagged (constant).
+func CastIntLiteral() {
+	p := PortNumber(8080)
+	_ = p
+}
+
+// CastWithAssignOp — test = (assign) vs := (define).
+func CastWithAssignOp(input string) { // want `parameter "input" of castvalidation\.CastWithAssignOp uses primitive type string`
+	var name CommandName
+	name = CommandName(input) // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+	_ = name
+}
+
+// CastWithAssignOpValidated — test = with IsValid.
+func CastWithAssignOpValidated(input string) { // want `parameter "input" of castvalidation\.CastWithAssignOpValidated uses primitive type string`
+	var name CommandName
+	name = CommandName(input)
+	if ok, _ := name.IsValid(); !ok {
+		return
+	}
+	_ = name
+}
+
+// --- Chained IsValid tests (Issue 1 fix) ---
+
+// ChainedIsValid — should NOT be flagged (validated directly on cast result).
+func ChainedIsValid(input string) { // want `parameter "input" of castvalidation\.ChainedIsValid uses primitive type string`
+	if ok, _ := CommandName(input).IsValid(); !ok {
+		return
+	}
+}
+
+// ChainedIsValidAssign — should NOT be flagged.
+func ChainedIsValidAssign(input string) { // want `parameter "input" of castvalidation\.ChainedIsValidAssign uses primitive type string`
+	ok, _ := CommandName(input).IsValid()
+	_ = ok
+}
+
+// ChainedNonIsValid — SHOULD be flagged (chained method is not IsValid).
+func ChainedNonIsValid(input string) { // want `parameter "input" of castvalidation\.ChainedNonIsValid uses primitive type string`
+	s := CommandName(input).String() // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+	_ = s
+}
+
+// --- Closure isolation tests (Issue 6 fix) ---
+
+// CastInsideClosure — closure casts are NOT analyzed (skipped).
+func CastInsideClosure(input string) { // want `parameter "input" of castvalidation\.CastInsideClosure uses primitive type string`
+	go func() {
+		name := CommandName(input) // NOT flagged — closure body skipped
+		_ = name
+	}()
+}
+
+// --- Error-message source auto-skip tests (Issue 7 improvement) ---
+
+// CastFromErrorMethod — should NOT be flagged (source is .Error()).
+func CastFromErrorMethod(err error) {
+	msg := CommandName(err.Error())
+	_ = msg
+}
+
+// CastFromFmtSprintf — should NOT be flagged (source is fmt.Sprintf).
+func CastFromFmtSprintf(input string) { // want `parameter "input" of castvalidation\.CastFromFmtSprintf uses primitive type string`
+	msg := CommandName(fmt.Sprintf("cmd: %s", input))
+	_ = msg
+}
+
+// CastFromFmtErrorf — should NOT be flagged (source is fmt.Errorf .Error()).
+func CastFromFmtErrorf() {
+	err := fmt.Errorf("test error")
+	msg := CommandName(err.Error())
+	_ = msg
+}
+
+// UnassignedCastFromError — should NOT be flagged (source is .Error()).
+func UnassignedCastFromError(err error) {
+	useCmd(CommandName(err.Error())) // NOT flagged — error-message source
+}
+
+// CastFromPlainVariableStillFlagged — SHOULD still be flagged.
+func CastFromPlainVariableStillFlagged(cmdName string) { // want `parameter "cmdName" of castvalidation\.CastFromPlainVariableStillFlagged uses primitive type string`
+	name := CommandName(cmdName) // want `type conversion to CommandName from non-constant without IsValid\(\) check`
+	_ = name
+}

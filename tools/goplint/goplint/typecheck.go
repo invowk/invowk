@@ -208,6 +208,50 @@ func primitiveMapDetail(t types.Type) (string, bool) {
 	}
 }
 
+// hasIsValidMethod reports whether t is a named type with an
+// IsValid() (bool, []error) method, indicating it is a DDD Value Type
+// that should be validated after construction from raw primitives.
+// Checks both value and pointer receiver method sets.
+func hasIsValidMethod(t types.Type) bool {
+	t = types.Unalias(t)
+	named, ok := t.(*types.Named)
+	if !ok {
+		return false
+	}
+
+	// Check both value and pointer receiver method sets.
+	for _, mset := range []*types.MethodSet{
+		types.NewMethodSet(named),
+		types.NewMethodSet(types.NewPointer(named)),
+	} {
+		for method := range mset.Methods() {
+			if method.Obj().Name() != "IsValid" {
+				continue
+			}
+			sig, ok := method.Obj().Type().(*types.Signature)
+			if !ok {
+				continue
+			}
+			// Must have 0 params and 2 results: (bool, []error).
+			if sig.Params().Len() != 0 || sig.Results().Len() != 2 {
+				continue
+			}
+			r0, ok0 := sig.Results().At(0).Type().(*types.Basic)
+			if !ok0 || r0.Kind() != types.Bool {
+				continue
+			}
+			r1, ok1 := sig.Results().At(1).Type().(*types.Slice)
+			if !ok1 {
+				continue
+			}
+			if isErrorType(r1.Elem()) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // isOptionFuncType checks whether t is a named type whose underlying type
 // is a function signature taking exactly one pointer-to-struct parameter.
 // This detects the functional options pattern: type XxxOption func(*Xxx).

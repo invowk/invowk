@@ -34,6 +34,7 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-func-options", "false")
 	setFlag(t, "check-immutability", "false")
 	setFlag(t, "check-struct-isvalid", "false")
+	setFlag(t, "check-cast-validation", "false")
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
@@ -69,6 +70,9 @@ func TestNewRunConfig(t *testing.T) {
 		}
 		if !rc.checkStructIsValid {
 			t.Error("expected checkStructIsValid = true")
+		}
+		if !rc.checkCastValidation {
+			t.Error("expected checkCastValidation = true")
 		}
 	})
 
@@ -272,6 +276,20 @@ func TestCheckStructIsValid(t *testing.T) {
 	setFlag(t, "check-struct-isvalid", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "structisvalid")
+}
+
+// TestCheckCastValidation exercises the --check-cast-validation mode against
+// the castvalidation fixture, verifying type conversions from raw primitives
+// to DDD Value Types without IsValid() are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidation(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "castvalidation")
 }
 
 // TestBaselineSuppression verifies that the --baseline flag correctly
