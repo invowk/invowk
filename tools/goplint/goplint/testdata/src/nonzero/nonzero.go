@@ -58,3 +58,9 @@ type MixedStruct struct {
 	Required CommandName  // want `struct field nonzero\.MixedStruct\.Required uses nonzero type CommandName as value`
 	Optional *CommandName // NOT flagged — pointer
 }
+
+// EmbeddedNonZero embeds a nonzero type directly — should be flagged.
+type EmbeddedNonZero struct {
+	CommandName // want `struct field nonzero\.EmbeddedNonZero\.\(embedded\) uses nonzero type CommandName as value`
+	Other       string // want `struct field nonzero\.EmbeddedNonZero\.Other uses primitive type string`
+}

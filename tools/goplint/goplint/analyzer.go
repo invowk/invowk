@@ -50,9 +50,11 @@ const (
 	CategoryUnvalidatedCast        = "unvalidated-cast"
 	CategoryUnusedValidateResult   = "unused-validate-result"
 	CategoryUnusedConstructorError = "unused-constructor-error"
-	CategoryNonZeroValueField      = "nonzero-value-field"
-	CategoryStaleException         = "stale-exception"
-	CategoryUnknownDirective       = "unknown-directive"
+	CategoryMissingConstructorValidate     = "missing-constructor-validate"
+	CategoryIncompleteValidateDelegation = "incomplete-validate-delegation"
+	CategoryNonZeroValueField          = "nonzero-value-field"
+	CategoryStaleException             = "stale-exception"
+	CategoryUnknownDirective           = "unknown-directive"
 )
 
 // Flag binding variables for the analyzer's flag set. These are populated
@@ -71,10 +73,12 @@ var (
 	checkFuncOptions    bool
 	checkImmutability   bool
 	checkStructValidate bool
-	checkCastValidation      bool
-	checkValidateUsage       bool
-	checkConstructorErrUsage bool
-	checkNonZero             bool
+	checkCastValidation          bool
+	checkValidateUsage           bool
+	checkConstructorErrUsage     bool
+	checkConstructorValidates    bool
+	checkValidateDelegation      bool
+	checkNonZero                 bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -115,10 +119,14 @@ func init() {
 		"detect unused Validate() results")
 	Analyzer.Flags.BoolVar(&checkConstructorErrUsage, "check-constructor-error-usage", false,
 		"detect constructor calls with error return assigned to blank identifier")
+	Analyzer.Flags.BoolVar(&checkConstructorValidates, "check-constructor-validates", false,
+		"report NewXxx() constructors that return types with Validate() but never call it")
+	Analyzer.Flags.BoolVar(&checkValidateDelegation, "check-validate-delegation", false,
+		"report structs with //goplint:validate-all whose Validate() misses field delegations")
 	Analyzer.Flags.BoolVar(&checkNonZero, "check-nonzero", false,
 		"report struct fields using nonzero-annotated types as value (non-pointer) fields where they are semantically optional")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
-		"enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + nonzero)")
+		"enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero)")
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
@@ -136,10 +144,12 @@ type runConfig struct {
 	checkFuncOptions    bool
 	checkImmutability   bool
 	checkStructValidate bool
-	checkCastValidation      bool
-	checkValidateUsage       bool
-	checkConstructorErrUsage bool
-	checkNonZero             bool
+	checkCastValidation          bool
+	checkValidateUsage           bool
+	checkConstructorErrUsage     bool
+	checkConstructorValidates    bool
+	checkValidateDelegation      bool
+	checkNonZero                 bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -158,10 +168,12 @@ func newRunConfig() runConfig {
 		checkFuncOptions:    checkFuncOptions,
 		checkImmutability:   checkImmutability,
 		checkStructValidate: checkStructValidate,
-		checkCastValidation:      checkCastValidation,
-		checkValidateUsage:       checkValidateUsage,
-		checkConstructorErrUsage: checkConstructorErrUsage,
-		checkNonZero:             checkNonZero,
+		checkCastValidation:          checkCastValidation,
+		checkValidateUsage:           checkValidateUsage,
+		checkConstructorErrUsage:     checkConstructorErrUsage,
+		checkConstructorValidates:    checkConstructorValidates,
+		checkValidateDelegation:      checkValidateDelegation,
+		checkNonZero:                 checkNonZero,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions which is a config
@@ -177,6 +189,8 @@ func newRunConfig() runConfig {
 		rc.checkCastValidation = true
 		rc.checkValidateUsage = true
 		rc.checkConstructorErrUsage = true
+		rc.checkConstructorValidates = true
+		rc.checkValidateDelegation = true
 		rc.checkNonZero = true
 	}
 	return rc
@@ -198,7 +212,7 @@ func run(pass *analysis.Pass) (any, error) {
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	// Determine which data needs to be collected based on active modes.
-	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability || rc.checkStructValidate
+	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability || rc.checkStructValidate || rc.checkConstructorValidates
 	needStructFields := rc.checkFuncOptions || rc.checkImmutability
 	needOptionTypes := rc.checkFuncOptions
 	needWithFunctions := rc.checkFuncOptions
@@ -333,6 +347,14 @@ func run(pass *analysis.Pass) (any, error) {
 	}
 	if rc.checkStructValidate {
 		reportMissingStructValidate(pass, exportedStructs, constructorDetails, methodSeen, cfg, bl)
+	}
+	if rc.checkConstructorValidates {
+		inspectConstructorValidates(pass, constructorDetails, cfg, bl)
+	}
+
+	// Validate delegation — opt-in via //goplint:validate-all.
+	if rc.checkValidateDelegation {
+		inspectValidateDelegation(pass, cfg, bl)
 	}
 
 	// Nonzero field checks — cross-package via analysis.Fact.

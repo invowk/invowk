@@ -1835,3 +1835,26 @@ reason = "byte-level parse primitive"
 [[exceptions]]
 pattern = "invowkfile.isWindowsDriveLetter.c"
 reason = "byte-level parse primitive"
+
+# =============================================================================
+# Constructor Validate() Delegation Exceptions
+# =============================================================================
+# Constructors where Validate() is intentionally NOT called because:
+#   - The constructor IS a non-validating factory (CUE parsing path)
+#   - The constructor validates individual parameters inline (redundant)
+
+[[exceptions]]
+pattern = "invowkfile.NewModuleMetadataFromInvowkmod.constructor-validate"
+reason = "non-validating factory for CUE parsing — validation deferred to caller"
+
+[[exceptions]]
+pattern = "discovery.NewDiagnostic.constructor-validate"
+reason = "constructor validates parameters inline via typed Validate() calls"
+
+[[exceptions]]
+pattern = "discovery.NewDiagnosticWithPath.constructor-validate"
+reason = "constructor validates parameters inline via typed Validate() calls"
+
+[[exceptions]]
+pattern = "discovery.NewDiagnosticWithCause.constructor-validate"
+reason = "constructor validates parameters inline via typed Validate() calls"

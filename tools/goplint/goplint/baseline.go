@@ -30,8 +30,10 @@ type BaselineConfig struct {
 	WrongStructValidateSig BaselineCategory `toml:"wrong-struct-validate-sig"`
 	UnvalidatedCast        BaselineCategory `toml:"unvalidated-cast"`
 	UnusedValidateResult   BaselineCategory `toml:"unused-validate-result"`
-	UnusedConstructorError BaselineCategory `toml:"unused-constructor-error"`
-	NonZeroValueField      BaselineCategory `toml:"nonzero-value-field"`
+	UnusedConstructorError      BaselineCategory `toml:"unused-constructor-error"`
+	MissingConstructorValidate     BaselineCategory `toml:"missing-constructor-validate"`
+	IncompleteValidateDelegation BaselineCategory `toml:"incomplete-validate-delegation"`
+	NonZeroValueField            BaselineCategory `toml:"nonzero-value-field"`
 
 	// lookupByID is an O(1) index keyed by category → finding ID.
 	lookupByID map[string]map[string]bool
@@ -127,6 +129,8 @@ func (b *BaselineConfig) Count() int {
 		countCategory(b.UnvalidatedCast) +
 		countCategory(b.UnusedValidateResult) +
 		countCategory(b.UnusedConstructorError) +
+		countCategory(b.MissingConstructorValidate) +
+		countCategory(b.IncompleteValidateDelegation) +
 		countCategory(b.NonZeroValueField)
 }
 
@@ -153,6 +157,8 @@ func (b *BaselineConfig) buildLookup() {
 		{CategoryUnvalidatedCast, b.UnvalidatedCast},
 		{CategoryUnusedValidateResult, b.UnusedValidateResult},
 		{CategoryUnusedConstructorError, b.UnusedConstructorError},
+		{CategoryMissingConstructorValidate, b.MissingConstructorValidate},
+		{CategoryIncompleteValidateDelegation, b.IncompleteValidateDelegation},
 		{CategoryNonZeroValueField, b.NonZeroValueField},
 	}
 
@@ -203,6 +209,8 @@ func WriteBaseline(path string, findings map[string][]BaselineFinding) error {
 		{CategoryUnvalidatedCast, "Type conversions to DDD types without Validate() check"},
 		{CategoryUnusedValidateResult, "Validate() calls with result completely discarded"},
 		{CategoryUnusedConstructorError, "Constructor calls with error return assigned to blank identifier"},
+		{CategoryMissingConstructorValidate, "Constructors returning validatable types without calling Validate()"},
+		{CategoryIncompleteValidateDelegation, "Structs with validate-all missing field Validate() delegation"},
 		{CategoryNonZeroValueField, "Struct fields using nonzero types as value (non-pointer)"},
 	}
 

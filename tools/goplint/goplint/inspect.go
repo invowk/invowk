@@ -369,10 +369,11 @@ func receiverTypeName(expr ast.Expr) string {
 // Unknown keys in a //goplint: or //plint: comment trigger an
 // unknown-directive warning.
 var knownDirectiveKeys = map[string]bool{
-	"ignore":   true,
-	"internal": true,
-	"render":   true,
-	"nonzero":  true,
+	"ignore":       true,
+	"internal":     true,
+	"render":       true,
+	"nonzero":      true,
+	"validate-all": true,
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.

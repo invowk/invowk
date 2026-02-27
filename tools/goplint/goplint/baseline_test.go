@@ -477,6 +477,8 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 		CategoryUnvalidatedCast,
 		CategoryUnusedValidateResult,
 		CategoryUnusedConstructorError,
+		CategoryMissingConstructorValidate,
+		CategoryIncompleteValidateDelegation,
 		CategoryNonZeroValueField,
 	}
 

@@ -20,15 +20,15 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Run tests | `cd tools/goplint && go test ./goplint/` |
 | Run tests (race) | `cd tools/goplint && go test -race ./goplint/` |
 | Audit stale exceptions | `make build-goplint && ./bin/goplint -audit-exceptions -config=tools/goplint/exceptions.toml ./...` |
-| Check missing IsValid | `make build-goplint && ./bin/goplint -check-isvalid -config=tools/goplint/exceptions.toml ./...` |
+| Check missing Validate | `make build-goplint && ./bin/goplint -check-validate -config=tools/goplint/exceptions.toml ./...` |
 | Check missing String | `make build-goplint && ./bin/goplint -check-stringer -config=tools/goplint/exceptions.toml ./...` |
 | Check missing constructors | `make build-goplint && ./bin/goplint -check-constructors -config=tools/goplint/exceptions.toml ./...` |
 | Check constructor signatures | `make build-goplint && ./bin/goplint -check-constructor-sig -config=tools/goplint/exceptions.toml ./...` |
 | Check functional options | `make build-goplint && ./bin/goplint -check-func-options -config=tools/goplint/exceptions.toml ./...` |
 | Check immutability | `make build-goplint && ./bin/goplint -check-immutability -config=tools/goplint/exceptions.toml ./...` |
-| Check struct IsValid | `make build-goplint && ./bin/goplint -check-struct-isvalid -config=tools/goplint/exceptions.toml ./...` |
+| Check struct Validate | `make build-goplint && ./bin/goplint -check-struct-validate -config=tools/goplint/exceptions.toml ./...` |
 | Check cast validation | `make build-goplint && ./bin/goplint -check-cast-validation -config=tools/goplint/exceptions.toml ./...` |
-| Check IsValid usage | `make build-goplint && ./bin/goplint -check-isvalid-usage -config=tools/goplint/exceptions.toml ./...` |
+| Check Validate usage | `make build-goplint && ./bin/goplint -check-validate-usage -config=tools/goplint/exceptions.toml ./...` |
 | Check constructor error usage | `make build-goplint && ./bin/goplint -check-constructor-error-usage -config=tools/goplint/exceptions.toml ./...` |
 
 ## Scoped Rule Exception (Testing Parallelism)
@@ -44,24 +44,26 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | Category | Flag | Description |
 |----------|------|-------------|
 | `primitive` | (always active) | Bare primitive in struct field / function param / return type |
-| `missing-isvalid` | `--check-isvalid` or `--check-all` | Named type missing `IsValid()` method |
+| `missing-validate` | `--check-validate` or `--check-all` | Named type missing `Validate()` method |
 | `missing-stringer` | `--check-stringer` or `--check-all` | Named type missing `String()` method |
 | `missing-constructor` | `--check-constructors` or `--check-all` | Exported struct missing `NewXxx()` constructor |
 | `wrong-constructor-sig` | `--check-constructor-sig` or `--check-all` | Constructor `NewXxx()` returns wrong type |
-| `wrong-isvalid-sig` | `--check-isvalid` or `--check-all` | Named type has `IsValid()` but wrong signature |
+| `wrong-validate-sig` | `--check-validate` or `--check-all` | Named type has `Validate()` but wrong signature |
 | `wrong-stringer-sig` | `--check-stringer` or `--check-all` | Named type has `String()` but wrong signature |
 | `missing-func-options` | `--check-func-options` or `--check-all` | Struct should use or complete functional options |
 | `missing-immutability` | `--check-immutability` or `--check-all` | Struct with constructor has exported mutable fields |
-| `missing-struct-isvalid` | `--check-struct-isvalid` or `--check-all` | Struct with constructor missing `IsValid()` method |
-| `wrong-struct-isvalid-sig` | `--check-struct-isvalid` or `--check-all` | Struct has `IsValid()` but wrong signature |
-| `unvalidated-cast` | `--check-cast-validation` or `--check-all` | Type conversion to DDD type from non-constant without `IsValid()` check |
-| `unused-isvalid-result` | `--check-isvalid-usage` or `--check-all` | IsValid() called with result completely discarded |
-| `truncated-isvalid-errors` | `--check-isvalid-usage` or `--check-all` | IsValid() []error return truncated via [0] indexing |
+| `missing-struct-validate` | `--check-struct-validate` or `--check-all` | Struct with constructor missing `Validate()` method |
+| `wrong-struct-validate-sig` | `--check-struct-validate` or `--check-all` | Struct has `Validate()` but wrong signature |
+| `unvalidated-cast` | `--check-cast-validation` or `--check-all` | Type conversion to DDD type from non-constant without `Validate()` check |
+| `unused-validate-result` | `--check-validate-usage` or `--check-all` | Validate() called with result completely discarded |
+| `nonzero-value-field` | `--check-nonzero` or `--check-all` | Struct field uses nonzero type as value (should be pointer) |
 | `unused-constructor-error` | `--check-constructor-error-usage` or `--check-all` | Constructor NewXxx() error return assigned to blank identifier |
+| `missing-constructor-validate` | `--check-constructor-validates` or `--check-all` | Constructor returns validatable type but never calls Validate() |
+| `incomplete-validate-delegation` | `--check-validate-delegation` or `--check-all` | Struct with validate-all directive missing field Validate() delegation |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
-The `--check-all` flag enables `--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`, `--check-cast-validation`, `--check-isvalid-usage`, and `--check-constructor-error-usage` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
+The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, and `--check-nonzero` in a single invocation. It deliberately excludes `--audit-exceptions` which is a config maintenance tool with per-package false positives.
 
 ## Architecture
 
@@ -74,7 +76,10 @@ tools/goplint/
 │   ├── analyzer.go                 # analysis.Analyzer + run() wiring + basic supplementary modes
 │   ├── analyzer_cast_validation.go # cast validation: unvalidated DDD type conversions
 │   ├── analyzer_constructor_usage.go # Constructor error usage: blanked error returns on NewXxx()
-│   ├── analyzer_isvalid_usage.go   # IsValid() usage: discarded results, truncated error slices
+│   ├── analyzer_validate_usage.go  # Validate() usage: discarded results
+│   ├── analyzer_constructor_validates.go # constructor body validation: Validate() call check
+│   ├── analyzer_validate_delegation.go  # validate-all delegation completeness
+│   ├── analyzer_nonzero.go          # nonzero analysis: fact export + struct field checking
 │   ├── analyzer_structural.go      # structural analysis: constructor-sig, func-options, immutability
 │   ├── baseline.go             # baseline TOML loading + matching + writing
 │   ├── config.go               # exception TOML loading + pattern matching + match counting
@@ -185,13 +190,28 @@ On struct fields, `//plint:render` behaves like `//plint:ignore` (suppresses the
 
 Can be combined with other directives: `//plint:render,internal`.
 
+### 5. Validate-All Directive — delegation completeness
+
+Struct types marked with `//goplint:validate-all` opt into delegation completeness checking via `--check-validate-delegation`. The check verifies that the struct's `Validate()` method calls `.Validate()` on every field whose type has a `Validate()` method.
+
+```go
+//goplint:validate-all
+type Config struct {
+    Name  Name   // has Validate() — must be called in Config.Validate()
+    Mode  Mode   // has Validate() — must be called in Config.Validate()
+    plain int    // no Validate() — not checked
+}
+```
+
+This directive only affects `--check-validate-delegation`. Without it, no delegation analysis is performed (opt-in to avoid false positives on structs with intentionally partial validation).
+
 ## Supplementary Modes
 
-Ten additional analysis modes complement the primary primitive detection:
+Fourteen additional analysis modes complement the primary primitive detection:
 
 ### `--check-all`
 
-Enables all DDD compliance checks (`--check-isvalid`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-isvalid`, `--check-cast-validation`, `--check-isvalid-usage`, `--check-constructor-error-usage`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
+Enables all DDD compliance checks (`--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`) in a single invocation. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` (a config maintenance tool with per-package false positives).
 
 ### `--audit-exceptions`
 
@@ -199,15 +219,15 @@ Reports exception patterns that matched **zero locations** in the current packag
 
 **Limitation**: Since `go/analysis` runs per-package, `--audit-exceptions` reports stale exceptions per-package. An exception matching in package A is reported as "stale" in package B. For a true global audit, pipe output through `sort -u` or look at the package where the exception is expected to match.
 
-### `--check-isvalid`
+### `--check-validate`
 
-Reports named non-struct types (`type Foo string`, `type Bar int`) that lack an `IsValid() (bool, []error)` method, or that have an `IsValid()` method with the wrong signature. Only checks types backed by primitives (string, int, bool, float). Skips struct types (which use composite `IsValid()` delegation), interface types, and type aliases (`type X = Y`, which inherit methods from the aliased type). For unexported types, also checks for `isValid()` (lowercase), matching the project convention.
+Reports named non-struct types (`type Foo string`, `type Bar int`) that lack a `Validate() error` method, or that have a `Validate()` method with the wrong signature. Only checks types backed by primitives (string, int, bool, float). Skips struct types (which use composite `Validate()` delegation), interface types, and type aliases (`type X = Y`, which inherit methods from the aliased type). For unexported types, also checks for `validate()` (lowercase), matching the project convention.
 
-When `IsValid()` exists but has a non-compliant signature (e.g., `IsValid() bool` instead of `IsValid() (bool, []error)`), a `wrong-isvalid-sig` diagnostic is emitted instead of `missing-isvalid`.
+When `Validate()` exists but has a non-compliant signature (e.g., `Validate() (bool, []error)` instead of `Validate() error`), a `wrong-validate-sig` diagnostic is emitted instead of `missing-validate`.
 
 ### `--check-stringer`
 
-Reports named non-struct types lacking a `String() string` method, or that have a `String()` method with the wrong signature. Same scope as `--check-isvalid`. Recognizes both value and pointer receivers.
+Reports named non-struct types lacking a `String() string` method, or that have a `String()` method with the wrong signature. Same scope as `--check-validate`. Recognizes both value and pointer receivers.
 
 When `String()` exists but has a non-compliant signature (e.g., `String() int` or `String(x int) string`), a `wrong-stringer-sig` diagnostic is emitted instead of `missing-stringer`.
 
@@ -236,48 +256,42 @@ Option types are detected by function signature (`func(*TargetStruct)`), not nam
 
 Reports exported struct fields on types that have a `NewXxx()` constructor. If a struct uses a constructor pattern, its fields should be unexported (accessed via getter methods). Each exported field is flagged individually. Structs without constructors are not checked (they may be DTOs/config types where exported fields are intentional).
 
-### `--check-struct-isvalid`
+### `--check-struct-validate`
 
-Reports **exported** struct types that have a `NewXxx()` constructor but lack an `IsValid() (bool, []error)` method. While `--check-isvalid` covers non-struct named types (which define their own primitive validation), struct types need their own check because nothing enforces that constructor-backed structs validate their invariants. Error types are excluded (same logic as `--check-constructors`). When `IsValid()` exists but has a non-compliant signature, a `wrong-struct-isvalid-sig` diagnostic is emitted instead.
+Reports **exported** struct types that have a `NewXxx()` constructor but lack a `Validate() error` method. While `--check-validate` covers non-struct named types (which define their own primitive validation), struct types need their own check because nothing enforces that constructor-backed structs validate their invariants. Error types are excluded (same logic as `--check-constructors`). When `Validate()` exists but has a non-compliant signature, a `wrong-struct-validate-sig` diagnostic is emitted instead.
 
 ### `--check-cast-validation`
 
-Reports type conversions from raw primitives (string, int, etc.) to DDD Value Types where `IsValid()` is never called on the result variable within the same function. Detects patterns like `CommandName(userInput)` where the cast produces a potentially invalid value that enters the system unchecked.
+Reports type conversions from raw primitives (string, int, etc.) to DDD Value Types where `Validate()` is never called on the result variable within the same function. Detects patterns like `CommandName(userInput)` where the cast produces a potentially invalid value that enters the system unchecked.
 
 **What gets flagged:**
-- `x := DddType(runtimeString)` where `x.IsValid()` is never called in the function
+- `x := DddType(runtimeString)` where `x.Validate()` is never called in the function
 - `return DddType(runtimeString)` — unassigned cast in a return statement
 - `useFunc(DddType(runtimeString))` — unassigned cast as a function argument
 
 **What does NOT get flagged (auto-skip contexts):**
 - Casts from **constants** (`DddType("literal")`, `DddType(namedConst)`) — developer can see the value
 - Casts between **named types** (`DddType(otherNamedType)`) — not a raw primitive
-- Casts to types **without `IsValid()`** — not DDD types
+- Casts to types **without `Validate()`** — not DDD types
 - **Map index** lookups (`m[DddType(s)]`) — invalid key returns zero/false
 - **Comparison** operands (`DddType(s) == expected`) — string equality works regardless
 - **`fmt.*` function** arguments (`fmt.Sprintf("...", DddType(s))`) — display-only
-- **Chained `.IsValid()`** (`DddType(s).IsValid()`) — validated directly on cast result
+- **Chained `.Validate()`** (`DddType(s).Validate()`) — validated directly on cast result
 - **Error-message sources** (`DddType(err.Error())`, `DddType(fmt.Sprintf(...))`) — display text, not raw input
 - **Casts inside closures** (`go func() { DddType(s) }()`) — closure bodies are skipped to avoid false positive/negative from shared variable namespaces
 
-**Conservative heuristic:** Uses variable-name matching within a single function (excluding closures). If `x.IsValid()` appears anywhere in the function body, all casts assigned to `x` are considered validated. No control-flow or ordering analysis.
+**Conservative heuristic:** Uses variable-name matching within a single function (excluding closures). If `x.Validate()` appears anywhere in the function body, all casts assigned to `x` are considered validated. No control-flow or ordering analysis.
 
-### `--check-isvalid-usage`
+### `--check-validate-usage`
 
-Reports two misuse patterns for `IsValid()` calls on DDD Value Types:
+Reports misuse patterns for `Validate()` calls on DDD Value Types:
 
-**`unused-isvalid-result`**: The `(bool, []error)` return from `IsValid()` is completely discarded:
-- `x.IsValid()` as a bare expression statement
-- `_, _ = x.IsValid()` where both returns are assigned to blank identifiers
-
-**`truncated-isvalid-errors`**: The `[]error` slice returned by `IsValid()` is indexed with `[0]`, discarding subsequent errors:
-- `errs[0]` where `errs` was assigned from the `[]error` return of `IsValid()`
-- The correct pattern is `errors.Join(errs...)` to preserve all errors
+**`unused-validate-result`**: The `error` return from `Validate()` is completely discarded:
+- `x.Validate()` as a bare expression statement
+- `_ = x.Validate()` where the error is assigned to a blank identifier
 
 **What does NOT get flagged:**
-- Calls on types without `IsValid() (bool, []error)` (wrong signature)
-- `ok, _ := x.IsValid()` where only the bool is used (deliberate error suppression)
-- `errs[1]` or `errs[i]` (non-zero-literal indexing)
+- Calls on types without `Validate() error` (wrong signature)
 - Calls inside closures (separate validation scope, skipped)
 
 ### `--check-constructor-error-usage`
@@ -295,19 +309,60 @@ Reports `NewXxx()` constructor calls where the error return is assigned to a bla
 - Single-return constructors (e.g., `NewBar() *Bar`)
 - Calls inside closures (separate scope, skipped)
 
+### `--check-constructor-validates`
+
+Reports `NewXxx()` constructor functions that return types with a `Validate()` method but never call `Validate()` in their body. This enforces the `Validate() Wiring Rule` from `go-patterns.md` — constructors SHOULD call `Validate()` to enforce invariants at construction time.
+
+**What gets flagged:**
+- `NewServer(addr string) (*Server, error)` where `Server` has `Validate()` but the body doesn't call it
+
+**What does NOT get flagged:**
+- Constructors that call `Validate()` anywhere in their body (any `.Validate()` selector call)
+- Constructors returning types without `Validate()` (not DDD types)
+- Constructors returning interfaces (may delegate validation to concrete implementations)
+- Functions with `//goplint:ignore` directive
+
+### `--check-validate-delegation`
+
+Reports structs annotated with `//goplint:validate-all` whose `Validate()` method does not delegate to all fields that have `Validate()`. This is an opt-in check — only structs with the directive are analyzed.
+
+**What gets flagged:**
+- Field `FieldName` whose type has `Validate()` but is not called as `receiver.FieldName.Validate()` in the struct's `Validate()` method
+
+**What does NOT get flagged:**
+- Structs without `//goplint:validate-all` directive (opt-in only)
+- Fields whose types do not have `Validate()` (non-validatable, skipped)
+- Delegation via intermediate variable: `field := c.FieldName; field.Validate()` is recognized
+
+### `--check-nonzero`
+
+Reports struct fields using nonzero-annotated types as value (non-pointer) fields. Types annotated with `//goplint:nonzero` indicate that their zero value is invalid — struct fields of such types should use `*Type` for optional fields. The annotation is propagated across packages via `analysis.Fact`, enabling cross-package enforcement.
+
+**What gets flagged:**
+- `Name CommandName` where `CommandName` has `//goplint:nonzero` — should be `Name *CommandName`
+- Embedded fields: `CommandName` (anonymous embed of nonzero type)
+
+**What does NOT get flagged:**
+- `Name *CommandName` — pointer fields are correct for optional usage
+- Fields of types without `//goplint:nonzero` — zero value is valid
+- Fields with `//goplint:ignore` directive
+
 ### Exception integration
 
 All supplementary modes respect the TOML exception config:
-- `--check-isvalid`: excepted via `pkg.TypeName.IsValid`
+- `--check-validate`: excepted via `pkg.TypeName.Validate`
 - `--check-stringer`: excepted via `pkg.TypeName.String`
 - `--check-constructors`: excepted via `pkg.StructName.constructor`
 - `--check-constructor-sig`: excepted via `pkg.StructName.constructor-sig`
 - `--check-func-options`: excepted via `pkg.StructName.func-options`
 - `--check-immutability`: excepted via `pkg.StructName.immutability`
-- `--check-struct-isvalid`: excepted via `pkg.StructName.struct-isvalid`
+- `--check-struct-validate`: excepted via `pkg.StructName.struct-validate`
 - `--check-cast-validation`: excepted via `pkg.FuncName.cast-validation`
-- `--check-isvalid-usage`: excepted via `pkg.FuncName.isvalid-usage`
+- `--check-validate-usage`: excepted via `pkg.FuncName.validate-usage`
 - `--check-constructor-error-usage`: excepted via `pkg.FuncName.constructor-error-usage`
+- `--check-constructor-validates`: excepted via `pkg.ConstructorName.constructor-validate`
+- `--check-validate-delegation`: excepted via `pkg.StructName.FieldName.validate-delegation`
+- `--check-nonzero`: excepted via `pkg.StructName.FieldName.nonzero`
 
 ## Baseline Comparison
 
@@ -339,7 +394,7 @@ entries = [
 ]
 ```
 
-Sections: `[primitive]`, `[missing-isvalid]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-isvalid-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-isvalid]`, `[wrong-struct-isvalid-sig]`, `[unvalidated-cast]`, `[unused-isvalid-result]`, `[truncated-isvalid-errors]`, `[unused-constructor-error]`. Empty sections are omitted.
+Sections: `[primitive]`, `[missing-validate]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-validate-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-validate]`, `[wrong-struct-validate-sig]`, `[unvalidated-cast]`, `[unused-validate-result]`, `[unused-constructor-error]`, `[missing-constructor-validate]`, `[incomplete-validate-delegation]`, `[nonzero-value-field]`. Empty sections are omitted.
 
 `messages = [...]` (legacy v1 format) is still parsed for backward compatibility.
 
@@ -378,17 +433,20 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **Integration tests** (`integration_test.go`): Exercises full pipeline with TOML config loaded and supplementary modes; NOT parallel due to shared `Analyzer.Flags` state. Uses `setFlag()`/`resetFlags()` helpers for declarative flag management. Covers:
   - `TestAnalyzerWithConfig` — TOML exception patterns
   - `TestAnalyzerWithRealExceptionsToml` — real `exceptions.toml` parse validation
-  - `TestCheckIsValid` — `--check-isvalid` mode
+  - `TestCheckValidate` — `--check-validate` mode
   - `TestCheckStringer` — `--check-stringer` mode
   - `TestCheckConstructors` — `--check-constructors` mode
   - `TestCheckConstructorSig` — `--check-constructor-sig` mode (wrong return types)
   - `TestCheckFuncOptions` — `--check-func-options` mode (detection + completeness)
   - `TestCheckImmutability` — `--check-immutability` mode (exported fields with constructor)
-  - `TestCheckStructIsValid` — `--check-struct-isvalid` mode (missing IsValid on constructor-backed structs)
+  - `TestCheckStructValidate` — `--check-struct-validate` mode (missing Validate on constructor-backed structs)
   - `TestAuditExceptions` — `--audit-exceptions` stale entry detection
   - `TestCheckAll` — `--check-all` combined mode (all categories in one fixture)
   - `TestBaselineSuppression` — `--baseline` mode (known findings suppressed, new ones reported)
   - `TestCheckCastValidation` — `--check-cast-validation` mode (unvalidated DDD type conversions)
-  - `TestCheckIsValidUsage` — `--check-isvalid-usage` mode (discarded results, truncated error slices)
+  - `TestCheckValidateUsage` — `--check-validate-usage` mode (discarded Validate results)
   - `TestCheckConstructorErrorUsage` — `--check-constructor-error-usage` mode (blanked error returns on constructors)
-  - `TestBaselineSupplementaryCategories` — baseline suppression for supplementary modes (isvalid, stringer, constructors)
+  - `TestCheckValidateDelegation` — `--check-validate-delegation` mode (incomplete field delegation)
+  - `TestCheckConstructorValidates` — `--check-constructor-validates` mode (missing Validate calls in constructors)
+  - `TestCheckNonZero` — `--check-nonzero` mode (nonzero types used as value fields)
+  - `TestBaselineSupplementaryCategories` — baseline suppression for supplementary modes (validate, stringer, constructors)

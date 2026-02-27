@@ -15,14 +15,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-rg -n "func \([^)]+\) IsValid\(\) \(bool, \[\]error\)" pkg internal -g '*.go' |
+rg -n "func \([^)]+\) Validate\(\) error" pkg internal -g '*.go' |
   awk -F: '
     {
       file=$1
       line=$2
       txt=$0
       sub(/^.*func \(/, "", txt)
-      sub(/\) IsValid\(\) \(bool, \[\]error\).*/, "", txt)
+      sub(/\) Validate\(\) error.*/, "", txt)
       n=split(txt, a, " ")
       t=a[n]
       gsub(/^\*/, "", t)
@@ -154,13 +154,13 @@ This catalog is generated from repository source and documents current type-syst
 
 ## Coverage Summary
 
-- \`IsValid()\` value types: ${total}
-- Primitive-wrapper + \`IsValid()\` types: ${primitive_count}
-- Composite validator + \`IsValid()\` types: ${composite_count}
+- \`Validate()\` value types: ${total}
+- Primitive-wrapper + \`Validate()\` types: ${primitive_count}
+- Composite validator + \`Validate()\` types: ${composite_count}
 - Primitive-wrapper declarations (all): ${primitive_all_count}
 - Alias/re-export type declarations: ${alias_count}
 
-## All Types With \`IsValid() (bool, []error)\`
+## All Types With \`Validate() error\`
 
 | Type | Kind | Source |
 | --- | --- | --- |

@@ -1,12 +1,12 @@
 We're on a long multi-step work to completely avoid the use of simple primitive types (including strings) and -- generally but not always when unpractical -- mutability in invowk's Go code. Instead, we must always use either 1) type definitions or 2) structs whenever possible.
 
 ## Type Definitions
-- MUST have an 'IsValid() (isValid bool, errors []error)' method with validation logic, returning the validation result and all applicable custom error types if the validation failed
+- MUST have a 'Validate() error' method with validation logic, returning an error (possibly multi-error via errors.Join) with all applicable custom error types if the validation failed
 - should generally have additional semantic methods as per Domain-Driven Design's Value Types's concept if concrete possible uses have been identified
 
 ## Structs
 - MUST have strong constructor functions that make use of the functional options pattern and whose use is enforced across the project
-- MUST enforce that all its constructor functions return '(instance T, errors []error)' with all applicable custom error types if the initialization validation failed
+- MUST enforce that all its constructor functions return '(instance T, error)' with all applicable custom error types if the initialization validation failed
 - MUST use only non-primitive types for fields
 - MUST be immutable (if they're DDD Value Types) with only unexported fields and public accessor methods unless very unpractical for our use-cases; otherwise, if they're DDD Entities, they can remain mutable if it's best.
 
@@ -22,7 +22,7 @@ Identify ALL remaining gaps to be worked on and propose a robust plan. All pre-e
 Run `make check-types-all-json` to get a structured JSON report of all DDD gaps.
 Each diagnostic includes a `category` field for filtering:
 - `primitive` — bare primitive in struct field / function param / return type
-- `missing-isvalid` — named type missing `IsValid()` method
+- `missing-validate` — named type missing `Validate()` method
 - `missing-stringer` — named type missing `String()` method
 - `missing-constructor` — exported struct missing `NewXxx()` constructor
 

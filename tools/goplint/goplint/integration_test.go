@@ -37,6 +37,8 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-cast-validation", "false")
 	setFlag(t, "check-validate-usage", "false")
 	setFlag(t, "check-constructor-error-usage", "false")
+	setFlag(t, "check-constructor-validates", "false")
+	setFlag(t, "check-validate-delegation", "false")
 	setFlag(t, "check-nonzero", "false")
 }
 
@@ -82,6 +84,12 @@ func TestNewRunConfig(t *testing.T) {
 		}
 		if !rc.checkConstructorErrUsage {
 			t.Error("expected checkConstructorErrUsage = true")
+		}
+		if !rc.checkConstructorValidates {
+			t.Error("expected checkConstructorValidates = true")
+		}
+		if !rc.checkValidateDelegation {
+			t.Error("expected checkValidateDelegation = true")
 		}
 		if !rc.checkNonZero {
 			t.Error("expected checkNonZero = true")
@@ -363,9 +371,38 @@ func TestCheckConstructorErrorUsage(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "constructorusage")
 }
 
+// TestCheckValidateDelegation exercises the --check-validate-delegation mode
+// against the validatedelegation fixture, verifying that structs with
+// //goplint:validate-all are checked for complete field delegation.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckValidateDelegation(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-validate-delegation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "validatedelegation")
+}
+
+// TestCheckConstructorValidates exercises the --check-constructor-validates
+// mode against the constructorvalidates fixture, verifying that constructors
+// returning types with Validate() but not calling it are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckConstructorValidates(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-validates", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "constructorvalidates")
+}
+
 // TestCheckNonZero exercises the --check-nonzero mode against the nonzero
-// fixture, verifying that struct fields using nonzero-annotated types as
-// value (non-pointer) fields are flagged.
+// fixture (same-package) and nonzero_consumer fixture (cross-package fact
+// propagation), verifying that struct fields using nonzero-annotated types
+// as value (non-pointer) fields are flagged both within and across packages.
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckNonZero(t *testing.T) {
@@ -374,5 +411,5 @@ func TestCheckNonZero(t *testing.T) {
 	resetFlags(t)
 	setFlag(t, "check-nonzero", "true")
 
-	analysistest.Run(t, testdata, Analyzer, "nonzero")
+	analysistest.Run(t, testdata, Analyzer, "nonzero", "nonzero_consumer")
 }

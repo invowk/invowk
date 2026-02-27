@@ -26,7 +26,7 @@ Confirm newly introduced entries are classified correctly:
 For each new/changed type, check:
 - Sentinel exists and uses `ErrInvalid<Type>` naming.
 - Typed error wraps sentinel via `Unwrap()`.
-- `IsValid() (bool, []error)` is present and behavior is deterministic.
+- `Validate() error` is present and behavior is deterministic.
 
 ## 5. Verification Commands
 

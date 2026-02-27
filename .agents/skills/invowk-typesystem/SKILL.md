@@ -1,17 +1,17 @@
 ---
 name: invowk-typesystem
-description: Invowk type-system guidance for all value types across pkg/* and internal/*, including IsValid() contracts, primitive-wrapper value objects, aliases/re-exports, sentinel errors, and Invalid*Error wrappers. Use when adding, reviewing, refactoring, or documenting value types.
+description: Invowk type-system guidance for all value types across pkg/* and internal/*, including Validate() contracts, primitive-wrapper value objects, aliases/re-exports, sentinel errors, and Invalid*Error wrappers. Use when adding, reviewing, refactoring, or documenting value types.
 disable-model-invocation: false
 metadata:
   short-description: Canonical operating guide for Invowk's value-type architecture.
   ownership: "Repo-wide type-system conventions and catalogs"
   audience:
     - "Agents implementing new domain/value types"
-    - "Agents reviewing IsValid()/error-shape consistency"
+    - "Agents reviewing Validate()/error-shape consistency"
     - "Agents documenting type-system changes"
   trigger-patterns:
     - "value type"
-    - "IsValid"
+    - "Validate"
     - "ErrInvalid"
     - "Invalid*Error"
     - "primitive wrapper"
@@ -53,7 +53,7 @@ metadata:
 
 Use this skill when:
 - Creating or refactoring value types in `pkg/*` or `internal/*`
-- Debugging `IsValid()` behavior, sentinel error wrapping, or `Invalid*Error` shapes
+- Debugging `Validate()` behavior, sentinel error wrapping, or `Invalid*Error` shapes
 - Resolving goplint findings related to primitive wrappers and type safety
 - Documenting type-system changes for agent guidance
 
@@ -76,7 +76,7 @@ Invowk value types should follow this contract unless a domain-specific exceptio
 - A dedicated type (prefer primitive wrapper where possible) with domain intent in the name.
 - A sentinel error variable, usually `ErrInvalid<Type>`.
 - A typed error struct, usually `Invalid<Type>Error`, that wraps the sentinel via `Unwrap()`.
-- `IsValid() (bool, []error)` for programmatic validation.
+- `Validate() error` for programmatic validation.
 - `String()` for wrappers where string rendering is used operationally.
 
 Reference implementation patterns are in `references/value-type-patterns.md`.
@@ -87,7 +87,7 @@ Reference implementation patterns are in `references/value-type-patterns.md`.
 
 - `references/type-catalog.md`
   Comprehensive catalog of all current value types, including:
-  - all types implementing `IsValid() (bool, []error)`
+  - all types implementing `Validate() (bool, []error)`
   - all primitive-wrapper value objects
   - alias/re-export type mappings
 
