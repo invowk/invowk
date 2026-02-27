@@ -358,6 +358,39 @@ enable = [
 setting-name = "value"  # Brief explanation of what this controls
 ```
 
+## Struct-Level Validation Contract
+
+### IsValid() Wiring Rule
+
+Every struct type with an `IsValid()` method **MUST** have at least one production call site. An `IsValid()` method that exists only in tests is dead code — it provides a false sense of safety.
+
+**Constructors accepting struct configs SHOULD call `IsValid()`** and return error if invalid. Non-validating factories for CUE parsing or test fixtures MUST be documented with a comment explaining why validation is deferred.
+
+When adding a new struct `IsValid()`, wire it into the production path **immediately** — never merge orphaned validators.
+
+### Multi-Error Preservation Rule
+
+**NEVER use `errs[0]` on `IsValid()`'s `[]error` return.** Always use `errors.Join(errs...)` to preserve the full error list. The `(bool, []error)` contract exists specifically for multi-error propagation — composite struct validators may return errors from multiple fields.
+
+```go
+// BAD: silently discards all errors except the first
+if isValid, errs := cfg.IsValid(); !isValid {
+    return errs[0]
+}
+
+// GOOD: preserves all validation errors
+if isValid, errs := cfg.IsValid(); !isValid {
+    return errors.Join(errs...)
+}
+
+// GOOD: wrapped with context
+if isValid, errs := cfg.IsValid(); !isValid {
+    return fmt.Errorf("invalid config: %w", errors.Join(errs...))
+}
+```
+
+goplint's `--check-isvalid-usage` mode enforces both rules: it flags discarded `IsValid()` results and the `errs[0]` truncation pattern.
+
 ## Common Pitfalls
 
 - **Silent close errors** - Use named returns with defer for resource cleanup.
