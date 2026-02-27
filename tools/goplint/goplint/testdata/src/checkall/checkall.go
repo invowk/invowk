@@ -124,3 +124,92 @@ type Metadata struct { // want `struct checkall\.Metadata has constructor but no
 }
 
 func NewMetadataFromSource(id string) *Metadata { return &Metadata{id: id} } // want `parameter "id" of checkall\.NewMetadataFromSource uses primitive type string`
+
+// --- Unvalidated cast (--check-cast-validation) ---
+
+// castWithoutValidate performs a DDD type cast without calling Validate().
+func castWithoutValidate(s string) Mode { // want `parameter "s" of checkall\.castWithoutValidate uses primitive type string`
+	return Mode(s) // want `type conversion to Mode from non-constant without Validate\(\) check`
+}
+
+// --- Unused validate result (--check-validate-usage) ---
+
+// discardValidateResult calls Validate() as a bare statement.
+func discardValidateResult(m Mode) {
+	m.Validate() // want `Validate\(\) result discarded`
+}
+
+// --- Unused constructor error (--check-constructor-error-usage) ---
+
+// ValidatedThing has a validating constructor.
+type ValidatedThing struct {
+	val Mode
+}
+
+func (v *ValidatedThing) Validate() error { return v.val.Validate() }
+
+func NewValidatedThing(s string) (*ValidatedThing, error) { // want `parameter "s" of checkall\.NewValidatedThing uses primitive type string`
+	vt := &ValidatedThing{val: Mode(s)} // want `type conversion to Mode from non-constant without Validate\(\) check`
+	if err := vt.Validate(); err != nil {
+		return nil, err
+	}
+	return vt, nil
+}
+
+// discardCtorError blanks the error from a constructor.
+func discardCtorError() {
+	_, _ = NewValidatedThing("test") // want `constructor NewValidatedThing error return assigned to blank identifier`
+}
+
+// --- Missing constructor validate (--check-constructor-validates) ---
+
+// Widget has Validate(), but NewWidget doesn't call it.
+type Widget struct {
+	label string // want `struct field checkall\.Widget\.label uses primitive type string`
+}
+
+func (w *Widget) Validate() error {
+	if w.label == "" {
+		return fmt.Errorf("empty label")
+	}
+	return nil
+}
+
+func NewWidget(label string) (*Widget, error) { // want `parameter "label" of checkall\.NewWidget uses primitive type string` `constructor checkall\.NewWidget returns checkall\.Widget which has Validate\(\) but never calls it`
+	return &Widget{label: label}, nil
+}
+
+// --- Incomplete validate delegation (--check-validate-delegation) ---
+
+//goplint:validate-all
+//
+// Composite has validate-all but doesn't delegate to its Mode field.
+type Composite struct { // want `exported struct checkall\.Composite has no NewComposite\(\) constructor` `checkall\.Composite\.Validate\(\) does not delegate to field Name which has Validate\(\)`
+	Name Mode
+	Tag  MissingAll
+}
+
+func (c Composite) Validate() error {
+	return nil
+}
+
+// --- Nonzero value field (--check-nonzero) ---
+
+//goplint:nonzero
+//
+// NonZeroID must not be zero-valued.
+type NonZeroID int // want NonZeroID:"nonzero"
+
+func (n NonZeroID) Validate() error {
+	if n == 0 {
+		return fmt.Errorf("zero ID")
+	}
+	return nil
+}
+
+func (n NonZeroID) String() string { return fmt.Sprintf("%d", int(n)) }
+
+// Holder uses NonZeroID as a value field (should be *NonZeroID).
+type Holder struct { // want `exported struct checkall\.Holder has no NewHolder\(\) constructor`
+	ID NonZeroID // want `struct field checkall\.Holder\.ID uses nonzero type NonZeroID as value`
+}

@@ -52,6 +52,8 @@ var (
 )
 
 type (
+	//goplint:validate-all
+	//
 	// Config holds the parameters for a Watcher.
 	Config struct {
 		// Patterns are doublestar-compatible glob patterns (e.g., "**/*.go")

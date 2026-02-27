@@ -83,8 +83,10 @@ func inspectConstructorValidates(
 				continue
 			}
 
-			// Check if the constructor body contains a .Validate() call.
-			if bodyCallsValidate(fn.Body) {
+			// Check if the constructor body calls .Validate() on the return type.
+			// This is receiver-type-aware: cfg.Validate() on a Config param does
+			// not satisfy the check when the constructor returns *Server.
+			if bodyCallsValidateOnType(pass, fn.Body, returnType) {
 				continue
 			}
 
@@ -112,12 +114,17 @@ func inspectConstructorValidates(
 	}
 }
 
-// bodyCallsValidate walks a function body looking for any selector call
-// of the form `expr.Validate()`. This is a simple heuristic — it checks
-// for any .Validate() call, not specifically on the return variable.
-// This accepts both direct calls and delegating constructors that call
-// Validate() on intermediate values.
-func bodyCallsValidate(body *ast.BlockStmt) bool {
+// bodyCallsValidateOnType walks a function body looking for a .Validate()
+// selector call where the receiver's type matches the constructor's return type.
+// This avoids the false-negative pattern where cfg.Validate() (on a Config
+// parameter) satisfies the heuristic even though the returned Server is never
+// validated.
+//
+// Accepted patterns:
+//   - Direct: s := &Server{...}; s.Validate()
+//   - Delegated: s, err := helperNewServer(); s.Validate()
+//   - Any .Validate() call on an expression whose resolved type matches returnTypeName
+func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeName string) bool {
 	found := false
 	ast.Inspect(body, func(n ast.Node) bool {
 		if found {
@@ -131,10 +138,32 @@ func bodyCallsValidate(body *ast.BlockStmt) bool {
 		if !ok {
 			return true
 		}
-		if sel.Sel.Name == "Validate" {
-			found = true
-			return false
+		if sel.Sel.Name != "Validate" {
+			return true
 		}
+
+		// Resolve the type of the receiver expression (the X in X.Validate()).
+		receiverType := pass.TypesInfo.TypeOf(sel.X)
+		if receiverType == nil {
+			return true
+		}
+
+		// Dereference pointers: *Server → Server.
+		if ptr, ok := receiverType.(*types.Pointer); ok {
+			receiverType = ptr.Elem()
+		}
+
+		// Resolve aliases.
+		receiverType = types.Unalias(receiverType)
+
+		// Check if the receiver's type name matches the constructor's return type.
+		if named, ok := receiverType.(*types.Named); ok {
+			if named.Obj().Name() == returnTypeName {
+				found = true
+				return false
+			}
+		}
+
 		return true
 	})
 	return found

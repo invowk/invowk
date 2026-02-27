@@ -149,6 +149,10 @@ func (r *SemverResolver) ParseConstraint(s string) (*Constraint, error) {
 		op = ConstraintOpEqual
 	}
 
+	if err := op.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid constraint operator in %q: %w", s, err)
+	}
+
 	version, err := ParseVersion(matches[2])
 	if err != nil {
 		return nil, fmt.Errorf("invalid version in constraint: %w", err)

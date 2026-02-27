@@ -86,7 +86,7 @@ tools/goplint/
 │   ├── inspect.go              # struct/func AST visitors + helpers
 │   ├── typecheck.go            # isPrimitive() / isPrimitiveUnderlying() / isOptionFuncType()
 │   ├── *_test.go               # unit + integration tests
-│   └── testdata/src/               # analysistest fixture packages (26 packages)
+│   └── testdata/src/               # analysistest fixture packages (30 packages)
 ```
 
 **Separate Go module**: `tools/goplint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.

@@ -285,18 +285,26 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			continue
 		}
 
-		// Parse version
-		if strings.HasPrefix(line, "version:") {
-			lock.Version = LockFileVersion(parseStringValue(line))
-			continue
-		}
-
-		// Parse generated timestamp
-		if strings.HasPrefix(line, "generated:") {
-			if t, err := time.Parse(time.RFC3339, parseStringValue(line)); err == nil {
-				lock.Generated = t
+		// Top-level fields are parsed only outside the modules block.
+		// Without this guard, module-level `version:` fields would be consumed
+		// by the top-level parser (the field names collide).
+		if !inModules {
+			// Parse version
+			if strings.HasPrefix(line, "version:") {
+				lock.Version = LockFileVersion(parseStringValue(line))
+				if err := lock.Version.Validate(); err != nil {
+					return nil, fmt.Errorf("lock file version: %w", err)
+				}
+				continue
 			}
-			continue
+
+			// Parse generated timestamp
+			if strings.HasPrefix(line, "generated:") {
+				if t, err := time.Parse(time.RFC3339, parseStringValue(line)); err == nil {
+					lock.Generated = t
+				}
+				continue
+			}
 		}
 
 		// Track modules block — fall through to process any { on this line
@@ -319,6 +327,9 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 		}
 		if strings.Contains(line, "}") {
 			if braceDepth == 2 && currentModuleKey != "" {
+				if err := currentModuleKey.Validate(); err != nil {
+					return nil, fmt.Errorf("lock file module key: %w", err)
+				}
 				lock.Modules[currentModuleKey] = currentModule
 				currentModuleKey = ""
 			}
@@ -344,7 +355,11 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			case strings.HasPrefix(line, "path:"):
 				currentModule.Path = SubdirectoryPath(parseStringValue(line))
 			case strings.HasPrefix(line, "namespace:"):
-				currentModule.Namespace = ModuleNamespace(parseStringValue(line))
+				ns := ModuleNamespace(parseStringValue(line))
+				if err := ns.Validate(); err != nil {
+					return nil, fmt.Errorf("lock file module %q namespace: %w", currentModuleKey, err)
+				}
+				currentModule.Namespace = ns
 			}
 		}
 	}

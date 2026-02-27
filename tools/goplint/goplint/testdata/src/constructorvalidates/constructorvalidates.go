@@ -106,3 +106,24 @@ func NewResolverFromPath(path string) (*Resolver, error) { // want `parameter "p
 	}
 	return r, nil
 }
+
+// --- False-negative test: validates parameter, not return type ---
+
+// Handler has Validate().
+type Handler struct {
+	config Config
+}
+
+func (h *Handler) Validate() error {
+	return h.config.Validate()
+}
+
+// NewHandler validates Config (the parameter type) but NOT Handler (the return type).
+// The old heuristic would accept this because cfg.Validate() exists in the body.
+// The receiver-aware check correctly flags this.
+func NewHandler(cfg Config) (*Handler, error) { // want `constructor constructorvalidates\.NewHandler returns constructorvalidates\.Handler which has Validate\(\) but never calls it`
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &Handler{config: cfg}, nil
+}

@@ -1858,3 +1858,26 @@ reason = "constructor validates parameters inline via typed Validate() calls"
 [[exceptions]]
 pattern = "discovery.NewDiagnosticWithCause.constructor-validate"
 reason = "constructor validates parameters inline via typed Validate() calls"
+
+[[exceptions]]
+pattern = "execute.NewRuntimeSelection.constructor-validate"
+reason = "constructor validates parameters inline — mode.Validate() + nil check match Validate() body"
+
+# =============================================================================
+# Orphaned Validator Audit — Constant-Only Types
+# =============================================================================
+# These types have Validate() methods that are never called in production because
+# all values come from package-level constants or compile-time-known sources.
+# Validation is structurally unnecessary — the enum switch in Validate() is a
+# defensive fallback, not a production gate. Documented here for audit trail.
+#
+# Types:
+#   - platform.SandboxType      — DetectSandbox() returns known constants
+#   - runtime.InitDiagnosticCode — used only as constant in BuildRegistry()
+#   - issue.Id                   — package-level iota constants only
+#   - issue.MarkdownMsg          — loadTemplate() returns from embedded FS
+#   - issue.HttpLink             — never constructed in production (link slices nil)
+#   - invowk.ArgErrType          — iota constants in struct literals
+#   - invowkfile.ValidationSeverity — iota constants via struct literals (NewValidationError unused)
+#   - invowkfile.ValidatorName   — constant strings via struct literals (NewValidationError unused)
+# =============================================================================

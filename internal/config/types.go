@@ -158,6 +158,8 @@ type (
 		FieldErrors []error
 	}
 
+	//goplint:validate-all
+	//
 	// IncludeEntry specifies a module to include in command discovery.
 	// Each entry must point to a *.invowkmod directory via an absolute filesystem path.
 	IncludeEntry struct {
@@ -167,6 +169,8 @@ type (
 		Alias invowkmod.ModuleAlias `json:"alias,omitempty" mapstructure:"alias"`
 	}
 
+	//goplint:validate-all
+	//
 	// Config holds the application configuration.
 	Config struct {
 		// ContainerEngine specifies whether to use "podman" or "docker"
@@ -183,12 +187,16 @@ type (
 		Container ContainerConfig `json:"container" mapstructure:"container"`
 	}
 
+	//goplint:validate-all
+	//
 	// ContainerConfig configures container runtime behavior.
 	ContainerConfig struct {
 		// AutoProvision configures automatic provisioning of invowk resources
 		AutoProvision AutoProvisionConfig `json:"auto_provision" mapstructure:"auto_provision"`
 	}
 
+	//goplint:validate-all
+	//
 	// AutoProvisionConfig controls auto-provisioning of invowk resources into containers.
 	AutoProvisionConfig struct {
 		// Enabled enables/disables auto-provisioning (default: true)
@@ -214,6 +222,8 @@ type (
 		EnableUrootUtils bool `json:"enable_uroot_utils" mapstructure:"enable_uroot_utils"`
 	}
 
+	//goplint:validate-all
+	//
 	// UIConfig configures the user interface.
 	UIConfig struct {
 		// ColorScheme sets the color scheme

@@ -188,6 +188,8 @@ type (
 		IsLibraryOnly bool `json:"-"`
 	}
 
+	//goplint:validate-all
+	//
 	// ModuleRequirement represents a dependency on another module from a Git repository.
 	ModuleRequirement struct {
 		// GitURL is the Git repository URL (HTTPS or SSH format).
@@ -472,7 +474,12 @@ func (v ValidationIssue) Error() string {
 }
 
 // AddIssue adds a validation issue to the result.
+// Panics if issueType is not a valid ValidationIssueType — all callers
+// pass package-level constants, so an invalid value is a programming error.
 func (r *ValidationResult) AddIssue(issueType ValidationIssueType, message, path string) {
+	if err := issueType.Validate(); err != nil {
+		panic(fmt.Sprintf("AddIssue: %v", err))
+	}
 	r.Issues = append(r.Issues, ValidationIssue{
 		Type:    issueType,
 		Message: message,

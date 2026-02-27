@@ -174,6 +174,8 @@ type (
 		Value MountTargetPath
 	}
 
+	//goplint:validate-all
+	//
 	// VolumeMount represents a volume mount specification.
 	VolumeMount struct {
 		HostPath      HostFilesystemPath
@@ -182,6 +184,8 @@ type (
 		SELinux       SELinuxLabel
 	}
 
+	//goplint:validate-all
+	//
 	// PortMapping represents a port mapping specification.
 	PortMapping struct {
 		HostPort      NetworkPort

@@ -65,6 +65,8 @@ type (
 		logger *log.Logger
 	}
 
+	//goplint:validate-all
+	//
 	// Config holds immutable configuration for the SSH server.
 	Config struct {
 		// Host is the address to bind to (default: 127.0.0.1)

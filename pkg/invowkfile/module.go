@@ -14,6 +14,8 @@ import (
 var ErrInvalidModuleMetadata = errors.New("invalid module metadata")
 
 type (
+	//goplint:validate-all
+	//
 	// ModuleMetadata is a lightweight module metadata snapshot attached to
 	// Invowkfile during module parsing/discovery.
 	// Fields are unexported for immutability; use Module(), Version(),

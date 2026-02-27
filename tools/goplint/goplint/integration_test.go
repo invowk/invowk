@@ -168,7 +168,7 @@ func TestAnalyzerWithRealExceptionsToml(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "basic")
 }
 
-// TestCheckValidate exercises the --check-validate mode against the isvalid
+// TestCheckValidate exercises the --check-validate mode against the validate
 // fixture, verifying named types without Validate() are flagged.
 //
 // NOT parallel: shares Analyzer.Flags state.
@@ -177,7 +177,7 @@ func TestCheckValidate(t *testing.T) {
 	t.Cleanup(func() { resetFlags(t) })
 	setFlag(t, "check-validate", "true")
 
-	analysistest.Run(t, testdata, Analyzer, "isvalid")
+	analysistest.Run(t, testdata, Analyzer, "validate")
 }
 
 // TestCheckStringer exercises the --check-stringer mode against the stringer
@@ -218,9 +218,11 @@ func TestAuditExceptions(t *testing.T) {
 }
 
 // TestCheckAll exercises the --check-all flag, confirming it enables all
-// DDD compliance checks (isvalid, stringer, constructors, constructor-sig,
-// func-options, immutability) in a single run. Also explicitly enables
-// --audit-exceptions to verify all 8 diagnostic categories fire together.
+// 14 DDD compliance checks in a single run: primitive, validate, stringer,
+// constructors, constructor-sig, func-options, immutability, struct-validate,
+// cast-validation, validate-usage, constructor-error-usage,
+// constructor-validates, validate-delegation, and nonzero. Also explicitly
+// enables --audit-exceptions to verify all diagnostic categories fire together.
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckAll(t *testing.T) {
@@ -286,7 +288,7 @@ func TestCheckImmutability(t *testing.T) {
 }
 
 // TestCheckStructValidate exercises the --check-struct-validate mode against
-// the structisvalid fixture, verifying exported structs with constructors
+// the structvalidate fixture, verifying exported structs with constructors
 // but missing Validate() are flagged.
 //
 // NOT parallel: shares Analyzer.Flags state.
@@ -295,7 +297,7 @@ func TestCheckStructValidate(t *testing.T) {
 	t.Cleanup(func() { resetFlags(t) })
 	setFlag(t, "check-struct-validate", "true")
 
-	analysistest.Run(t, testdata, Analyzer, "structisvalid")
+	analysistest.Run(t, testdata, Analyzer, "structvalidate")
 }
 
 // TestCheckCastValidation exercises the --check-cast-validation mode against
@@ -327,7 +329,7 @@ func TestBaselineSuppression(t *testing.T) {
 }
 
 // TestBaselineSupplementaryCategories verifies that baseline suppression
-// works for supplementary modes (missing-isvalid, missing-stringer,
+// works for supplementary modes (missing-validate, missing-stringer,
 // missing-constructor). Some findings are baselined and suppressed; others
 // are new and reported.
 //

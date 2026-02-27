@@ -136,6 +136,8 @@ type (
 		BuildRunArgs(opts RunOptions) []string
 	}
 
+	//goplint:validate-all
+	//
 	// BuildOptions contains options for building an image
 	BuildOptions struct {
 		// ContextDir is the build context directory
@@ -154,6 +156,8 @@ type (
 		Stderr io.Writer
 	}
 
+	//goplint:validate-all
+	//
 	// RunOptions contains options for running a container
 	RunOptions struct {
 		// Image is the image to run
