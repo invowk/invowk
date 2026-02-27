@@ -126,31 +126,32 @@ func init() {
 	}
 }
 
-// IsValid returns whether all typed fields in the Config are valid.
+// Validate returns nil if all typed fields in the Config are valid,
+// or an error wrapping ErrInvalidWatchConfig if any are invalid.
 // Debounce, ClearScreen, OnChange, Stdout, and Stderr are skipped (non-domain types).
 // BaseDir is only validated when non-empty, since empty means "use current working directory".
 // Each GlobPattern in Patterns and Ignore is validated individually.
-func (c Config) IsValid() (bool, []error) {
+func (c Config) Validate() error {
 	var errs []error
 	for i, p := range c.Patterns {
-		if valid, fieldErrs := p.IsValid(); !valid {
-			errs = append(errs, fmt.Errorf("patterns[%d]: %w", i, errors.Join(fieldErrs...)))
+		if err := p.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("patterns[%d]: %w", i, err))
 		}
 	}
 	for i, ig := range c.Ignore {
-		if valid, fieldErrs := ig.IsValid(); !valid {
-			errs = append(errs, fmt.Errorf("ignore[%d]: %w", i, errors.Join(fieldErrs...)))
+		if err := ig.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("ignore[%d]: %w", i, err))
 		}
 	}
 	if c.BaseDir != "" {
-		if valid, fieldErrs := c.BaseDir.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := c.BaseDir.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidWatchConfigError{FieldErrors: errs}}
+		return &InvalidWatchConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidWatchConfigError.
@@ -169,8 +170,8 @@ func (e *InvalidWatchConfigError) Unwrap() error { return ErrInvalidWatchConfig 
 // all non-ignored directories under BaseDir for monitoring.
 func New(cfg Config) (*Watcher, error) {
 	// Defense-in-depth: validate all typed fields before proceeding.
-	if isValid, errs := cfg.IsValid(); !isValid {
-		return nil, errors.Join(errs...)
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
 
 	baseDirStr := string(cfg.BaseDir)

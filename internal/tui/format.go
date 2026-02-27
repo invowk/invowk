@@ -66,14 +66,14 @@ func (e *InvalidFormatTypeError) Error() string {
 // Unwrap returns ErrInvalidFormatType so callers can use errors.Is for programmatic detection.
 func (e *InvalidFormatTypeError) Unwrap() error { return ErrInvalidFormatType }
 
-// IsValid returns whether the FormatType is one of the defined format types,
-// and a list of validation errors if it is not.
-func (f FormatType) IsValid() (bool, []error) {
+// Validate returns nil if the FormatType is one of the defined format types,
+// or a validation error if it is not.
+func (f FormatType) Validate() error {
 	switch f {
 	case FormatMarkdown, FormatCode, FormatTemplate, FormatEmoji:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidFormatTypeError{Value: f}}
+		return &InvalidFormatTypeError{Value: f}
 	}
 }
 

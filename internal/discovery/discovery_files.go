@@ -56,14 +56,14 @@ func (s Source) String() string {
 	}
 }
 
-// IsValid returns whether the Source is one of the defined source types,
-// and a list of validation errors if it is not.
-func (s Source) IsValid() (bool, []error) {
+// Validate returns nil if the Source is one of the defined source types,
+// or an error wrapping ErrInvalidSource if it is not.
+func (s Source) Validate() error {
 	switch s {
 	case SourceCurrentDir, SourceModule:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidSourceError{Value: s}}
+		return &InvalidSourceError{Value: s}
 	}
 }
 

@@ -32,7 +32,7 @@ func TestListenPort_String(t *testing.T) {
 	}
 }
 
-func TestListenPort_IsValid(t *testing.T) {
+func TestListenPort_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -54,23 +54,23 @@ func TestListenPort_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.port.String(), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.port.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ListenPort(%d).IsValid() = %v, want %v", tt.port, isValid, tt.want)
+			err := tt.port.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ListenPort(%d).Validate() error = %v, wantValid %v", tt.port, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ListenPort(%d).IsValid() returned no errors, want error", tt.port)
+				if err == nil {
+					t.Fatalf("ListenPort(%d).Validate() returned nil, want error", tt.port)
 				}
-				if !errors.Is(errs[0], ErrInvalidListenPort) {
-					t.Errorf("error should wrap ErrInvalidListenPort, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidListenPort) {
+					t.Errorf("error should wrap ErrInvalidListenPort, got: %v", err)
 				}
 				var lpErr *InvalidListenPortError
-				if !errors.As(errs[0], &lpErr) {
-					t.Errorf("error should be *InvalidListenPortError, got: %T", errs[0])
+				if !errors.As(err, &lpErr) {
+					t.Errorf("error should be *InvalidListenPortError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ListenPort(%d).IsValid() returned unexpected errors: %v", tt.port, errs)
+			} else if err != nil {
+				t.Errorf("ListenPort(%d).Validate() returned unexpected error: %v", tt.port, err)
 			}
 		})
 	}

@@ -40,14 +40,14 @@ type (
 // String returns the string representation of the BorderStyle.
 func (b BorderStyle) String() string { return string(b) }
 
-// IsValid returns whether the BorderStyle is one of the defined styles,
-// and a list of validation errors if it is not.
-func (b BorderStyle) IsValid() (bool, []error) {
+// Validate returns nil if the BorderStyle is one of the defined styles,
+// or a validation error if it is not.
+func (b BorderStyle) Validate() error {
 	switch b {
 	case BorderNone, BorderNormal, BorderRounded, BorderThick, BorderDouble, BorderHidden:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidBorderStyleError{Value: b}}
+		return &InvalidBorderStyleError{Value: b}
 	}
 }
 

@@ -32,13 +32,12 @@ func (e *InvalidExitCodeError) Error() string {
 // Unwrap returns ErrInvalidExitCode so callers can use errors.Is for programmatic detection.
 func (e *InvalidExitCodeError) Unwrap() error { return ErrInvalidExitCode }
 
-// IsValid returns whether the ExitCode is in the valid range (0-255),
-// and a list of validation errors if it is not.
-func (c ExitCode) IsValid() (bool, []error) {
+// Validate returns an error if the ExitCode is outside the valid range (0-255).
+func (c ExitCode) Validate() error {
 	if c < 0 || c > 255 {
-		return false, []error{&InvalidExitCodeError{Value: c}}
+		return &InvalidExitCodeError{Value: c}
 	}
-	return true, nil
+	return nil
 }
 
 // IsSuccess returns true if the exit code indicates successful execution.

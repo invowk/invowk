@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestInitDiagnosticCode_IsValid(t *testing.T) {
+func TestInitDiagnosticCode_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -24,19 +24,19 @@ func TestInitDiagnosticCode_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.code.IsValid()
-			if isValid != tt.want {
-				t.Errorf("InitDiagnosticCode(%q).IsValid() = %v, want %v", tt.code, isValid, tt.want)
+			err := tt.code.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("InitDiagnosticCode(%q).Validate() valid = %v, want %v", tt.code, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("InitDiagnosticCode(%q).IsValid() returned no errors, want error", tt.code)
+				if err == nil {
+					t.Fatalf("InitDiagnosticCode(%q).Validate() returned nil, want error", tt.code)
 				}
-				if !errors.Is(errs[0], ErrInvalidInitDiagnosticCode) {
-					t.Errorf("error should wrap ErrInvalidInitDiagnosticCode, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidInitDiagnosticCode) {
+					t.Errorf("error should wrap ErrInvalidInitDiagnosticCode, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("InitDiagnosticCode(%q).IsValid() returned unexpected errors: %v", tt.code, errs)
+			} else if err != nil {
+				t.Errorf("InitDiagnosticCode(%q).Validate() returned unexpected error: %v", tt.code, err)
 			}
 		})
 	}

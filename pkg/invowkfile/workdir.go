@@ -32,17 +32,17 @@ func (e *InvalidWorkDirError) Error() string {
 // Unwrap returns ErrInvalidWorkDir for errors.Is() compatibility.
 func (e *InvalidWorkDirError) Unwrap() error { return ErrInvalidWorkDir }
 
-// IsValid returns whether the WorkDir is valid.
+// Validate returns nil if the WorkDir is valid, or a validation error if not.
 // The zero value ("") is valid — it means "inherit from parent".
 // Non-zero values must not be whitespace-only.
-func (w WorkDir) IsValid() (bool, []error) {
+func (w WorkDir) Validate() error {
 	if w == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(w)) == "" {
-		return false, []error{&InvalidWorkDirError{Value: w}}
+		return &InvalidWorkDirError{Value: w}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the WorkDir.

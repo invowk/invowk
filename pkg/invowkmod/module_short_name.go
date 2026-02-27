@@ -39,14 +39,16 @@ type (
 // String returns the string representation of the ModuleShortName.
 func (n ModuleShortName) String() string { return string(n) }
 
-// IsValid returns whether the ModuleShortName matches the expected format (non-empty,
+//goplint:nonzero
+
+// Validate returns nil if the ModuleShortName matches the expected format (non-empty,
 // starts with a letter, contains only letters, digits, dots, underscores, or hyphens),
-// and a list of validation errors if it does not.
-func (n ModuleShortName) IsValid() (bool, []error) {
+// or an error describing the validation failure.
+func (n ModuleShortName) Validate() error {
 	if n == "" || !moduleShortNamePattern.MatchString(string(n)) {
-		return false, []error{&InvalidModuleShortNameError{Value: n}}
+		return &InvalidModuleShortNameError{Value: n}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidModuleShortNameError.

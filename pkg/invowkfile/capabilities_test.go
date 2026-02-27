@@ -141,7 +141,7 @@ func TestValidCapabilityNames(t *testing.T) {
 	}
 }
 
-func TestCapabilityName_IsValid(t *testing.T) {
+func TestCapabilityName_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -161,35 +161,35 @@ func TestCapabilityName_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.name), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.name.IsValid()
-			if isValid != tt.want {
-				t.Errorf("CapabilityName(%q).IsValid() = %v, want %v", tt.name, isValid, tt.want)
+			err := tt.name.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("CapabilityName(%q).Validate() error = %v, want valid=%v", tt.name, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("CapabilityName(%q).IsValid() returned no errors, want error", tt.name)
+				if err == nil {
+					t.Fatalf("CapabilityName(%q).Validate() returned nil, want error", tt.name)
 				}
-				if !errors.Is(errs[0], ErrInvalidCapabilityName) {
-					t.Errorf("error should wrap ErrInvalidCapabilityName, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidCapabilityName) {
+					t.Errorf("error should wrap ErrInvalidCapabilityName, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("CapabilityName(%q).IsValid() returned unexpected errors: %v", tt.name, errs)
+			} else if err != nil {
+				t.Errorf("CapabilityName(%q).Validate() returned unexpected error: %v", tt.name, err)
 			}
 		})
 	}
 }
 
-func TestCapabilityName_IsValid_ErrorType(t *testing.T) {
+func TestCapabilityName_Validate_ErrorType(t *testing.T) {
 	t.Parallel()
 
-	_, errs := CapabilityName("bogus").IsValid()
-	if len(errs) == 0 {
+	err := CapabilityName("bogus").Validate()
+	if err == nil {
 		t.Fatal("expected error for invalid capability name")
 	}
 
 	var invalidErr *InvalidCapabilityNameError
-	if !errors.As(errs[0], &invalidErr) {
-		t.Errorf("error should be *InvalidCapabilityNameError, got %T", errs[0])
+	if !errors.As(err, &invalidErr) {
+		t.Errorf("error should be *InvalidCapabilityNameError, got %T", err)
 	}
 	if invalidErr.Value != "bogus" {
 		t.Errorf("InvalidCapabilityNameError.Value = %q, want %q", invalidErr.Value, "bogus")

@@ -315,7 +315,7 @@ func TestParseSpinnerType(t *testing.T) {
 	}
 }
 
-func TestSpinnerType_IsValid(t *testing.T) {
+func TestSpinnerType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -342,19 +342,19 @@ func TestSpinnerType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("SpinnerType_%d", tt.st), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.st.IsValid()
-			if isValid != tt.want {
-				t.Errorf("SpinnerType(%d).IsValid() = %v, want %v", tt.st, isValid, tt.want)
+			err := tt.st.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("SpinnerType(%d).Validate() err = %v, wantValid %v", tt.st, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("SpinnerType(%d).IsValid() returned no errors, want error", tt.st)
+				if err == nil {
+					t.Fatalf("SpinnerType(%d).Validate() returned nil, want error", tt.st)
 				}
-				if !errors.Is(errs[0], ErrInvalidSpinnerType) {
-					t.Errorf("error should wrap ErrInvalidSpinnerType, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSpinnerType) {
+					t.Errorf("error should wrap ErrInvalidSpinnerType, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("SpinnerType(%d).IsValid() returned unexpected errors: %v", tt.st, errs)
+			} else if err != nil {
+				t.Errorf("SpinnerType(%d).Validate() returned unexpected error: %v", tt.st, err)
 			}
 		})
 	}

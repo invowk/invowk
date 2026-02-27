@@ -28,16 +28,16 @@ type (
 // String returns the string representation of the ContainerfilePath.
 func (p ContainerfilePath) String() string { return string(p) }
 
-// IsValid returns whether the ContainerfilePath is valid.
+// Validate returns nil if the ContainerfilePath is valid, or a validation error if not.
 // The zero value ("") is valid. Non-zero values must not be whitespace-only.
-func (p ContainerfilePath) IsValid() (bool, []error) {
+func (p ContainerfilePath) Validate() error {
 	if p == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidContainerfilePathError{Value: p}}
+		return &InvalidContainerfilePathError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidContainerfilePathError.

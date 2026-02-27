@@ -9,112 +9,94 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-func TestLoadOptions_IsValid_AllEmpty(t *testing.T) {
+func TestLoadOptions_Validate_AllEmpty(t *testing.T) {
 	t.Parallel()
 	opts := LoadOptions{}
-	valid, errs := opts.IsValid()
-	if !valid {
-		t.Errorf("empty LoadOptions should be valid, got errors: %v", errs)
-	}
-	if len(errs) != 0 {
-		t.Errorf("expected no errors, got %d", len(errs))
+	err := opts.Validate()
+	if err != nil {
+		t.Errorf("empty LoadOptions should be valid, got error: %v", err)
 	}
 }
 
-func TestLoadOptions_IsValid_AllValid(t *testing.T) {
+func TestLoadOptions_Validate_AllValid(t *testing.T) {
 	t.Parallel()
 	opts := LoadOptions{
 		ConfigFilePath: "/tmp/config.cue",
 		ConfigDirPath:  "/tmp/config",
 		BaseDir:        "/tmp/base",
 	}
-	valid, errs := opts.IsValid()
-	if !valid {
-		t.Errorf("LoadOptions with valid paths should be valid, got errors: %v", errs)
-	}
-	if len(errs) != 0 {
-		t.Errorf("expected no errors, got %d", len(errs))
+	err := opts.Validate()
+	if err != nil {
+		t.Errorf("LoadOptions with valid paths should be valid, got error: %v", err)
 	}
 }
 
-func TestLoadOptions_IsValid_InvalidConfigFilePath(t *testing.T) {
+func TestLoadOptions_Validate_InvalidConfigFilePath(t *testing.T) {
 	t.Parallel()
 	opts := LoadOptions{
 		ConfigFilePath: types.FilesystemPath("   "),
 	}
-	valid, errs := opts.IsValid()
-	if valid {
+	err := opts.Validate()
+	if err == nil {
 		t.Fatal("LoadOptions with whitespace-only ConfigFilePath should be invalid")
 	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d: %v", len(errs), errs)
-	}
-	if !errors.Is(errs[0], ErrInvalidLoadOptions) {
-		t.Errorf("error should wrap ErrInvalidLoadOptions, got: %v", errs[0])
+	if !errors.Is(err, ErrInvalidLoadOptions) {
+		t.Errorf("error should wrap ErrInvalidLoadOptions, got: %v", err)
 	}
 
 	var loadErr *InvalidLoadOptionsError
-	if !errors.As(errs[0], &loadErr) {
-		t.Fatalf("error should be *InvalidLoadOptionsError, got: %T", errs[0])
+	if !errors.As(err, &loadErr) {
+		t.Fatalf("error should be *InvalidLoadOptionsError, got: %T", err)
 	}
 	if len(loadErr.FieldErrors) != 1 {
 		t.Errorf("expected 1 field error, got %d", len(loadErr.FieldErrors))
 	}
 }
 
-func TestLoadOptions_IsValid_InvalidConfigDirPath(t *testing.T) {
+func TestLoadOptions_Validate_InvalidConfigDirPath(t *testing.T) {
 	t.Parallel()
 	opts := LoadOptions{
 		ConfigDirPath: types.FilesystemPath("\t"),
 	}
-	valid, errs := opts.IsValid()
-	if valid {
+	err := opts.Validate()
+	if err == nil {
 		t.Fatal("LoadOptions with whitespace-only ConfigDirPath should be invalid")
-	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d: %v", len(errs), errs)
 	}
 }
 
-func TestLoadOptions_IsValid_InvalidBaseDir(t *testing.T) {
+func TestLoadOptions_Validate_InvalidBaseDir(t *testing.T) {
 	t.Parallel()
 	opts := LoadOptions{
 		BaseDir: types.FilesystemPath("  \t  "),
 	}
-	valid, errs := opts.IsValid()
-	if valid {
+	err := opts.Validate()
+	if err == nil {
 		t.Fatal("LoadOptions with whitespace-only BaseDir should be invalid")
-	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d: %v", len(errs), errs)
 	}
 }
 
-func TestLoadOptions_IsValid_MultipleInvalid(t *testing.T) {
+func TestLoadOptions_Validate_MultipleInvalid(t *testing.T) {
 	t.Parallel()
 	opts := LoadOptions{
 		ConfigFilePath: types.FilesystemPath("   "),
 		ConfigDirPath:  types.FilesystemPath("\t"),
 		BaseDir:        types.FilesystemPath("  "),
 	}
-	valid, errs := opts.IsValid()
-	if valid {
+	err := opts.Validate()
+	if err == nil {
 		t.Fatal("LoadOptions with all invalid paths should be invalid")
-	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 wrapped error, got %d", len(errs))
 	}
 
 	var loadErr *InvalidLoadOptionsError
-	if !errors.As(errs[0], &loadErr) {
-		t.Fatalf("error should be *InvalidLoadOptionsError, got: %T", errs[0])
+	if !errors.As(err, &loadErr) {
+		t.Fatalf("error should be *InvalidLoadOptionsError, got: %T", err)
 	}
 	if len(loadErr.FieldErrors) != 3 {
 		t.Errorf("expected 3 field errors, got %d: %v", len(loadErr.FieldErrors), loadErr.FieldErrors)
 	}
 }
 
-func TestLoadOptions_IsValid_MixedEmptyAndInvalid(t *testing.T) {
+func TestLoadOptions_Validate_MixedEmptyAndInvalid(t *testing.T) {
 	t.Parallel()
 	// Empty fields are valid (zero-value means "use default"),
 	// only non-empty invalid fields should be caught.
@@ -123,17 +105,14 @@ func TestLoadOptions_IsValid_MixedEmptyAndInvalid(t *testing.T) {
 		ConfigDirPath:  types.FilesystemPath("   "),
 		BaseDir:        "/valid/path",
 	}
-	valid, errs := opts.IsValid()
-	if valid {
+	err := opts.Validate()
+	if err == nil {
 		t.Fatal("LoadOptions with one invalid field should be invalid")
-	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 wrapped error, got %d", len(errs))
 	}
 
 	var loadErr *InvalidLoadOptionsError
-	if !errors.As(errs[0], &loadErr) {
-		t.Fatalf("error should be *InvalidLoadOptionsError, got: %T", errs[0])
+	if !errors.As(err, &loadErr) {
+		t.Fatalf("error should be *InvalidLoadOptionsError, got: %T", err)
 	}
 	if len(loadErr.FieldErrors) != 1 {
 		t.Errorf("expected 1 field error (only ConfigDirPath), got %d", len(loadErr.FieldErrors))

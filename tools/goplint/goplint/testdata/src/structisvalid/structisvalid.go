@@ -2,25 +2,32 @@
 
 package structisvalid
 
-// --- Has both constructor and IsValid — no struct-isvalid diagnostic ---
+import "fmt"
 
-// GoodStruct has a constructor and a correct IsValid() method.
+// --- Has both constructor and Validate — no struct-isvalid diagnostic ---
+
+// GoodStruct has a constructor and a correct Validate() method.
 type GoodStruct struct {
 	name string // want `struct field structisvalid\.GoodStruct\.name uses primitive type string`
 }
 
 func NewGoodStruct(name string) *GoodStruct { return &GoodStruct{name: name} } // want `parameter "name" of structisvalid\.NewGoodStruct uses primitive type string`
 
-func (g *GoodStruct) IsValid() (bool, []error) { return g.name != "", nil }
-
-// --- Has constructor but missing IsValid — flagged ---
-
-// MissingIsValid has a constructor but no IsValid method.
-type MissingIsValid struct { // want `struct structisvalid\.MissingIsValid has constructor but no IsValid\(\) method`
-	data string // want `struct field structisvalid\.MissingIsValid\.data uses primitive type string`
+func (g *GoodStruct) Validate() error {
+	if g.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
 }
 
-func NewMissingIsValid(data string) *MissingIsValid { return &MissingIsValid{data: data} } // want `parameter "data" of structisvalid\.NewMissingIsValid uses primitive type string`
+// --- Has constructor but missing Validate — flagged ---
+
+// MissingValidate has a constructor but no Validate method.
+type MissingValidate struct { // want `struct structisvalid\.MissingValidate has constructor but no Validate\(\) method`
+	data string // want `struct field structisvalid\.MissingValidate\.data uses primitive type string`
+}
+
+func NewMissingValidate(data string) *MissingValidate { return &MissingValidate{data: data} } // want `parameter "data" of structisvalid\.NewMissingValidate uses primitive type string`
 
 // --- No constructor — not checked ---
 
@@ -51,13 +58,13 @@ func NewBadRequest(reason string) *BadRequest { return &BadRequest{Reason: reaso
 
 func (b *BadRequest) Error() string { return b.Reason }
 
-// --- Has constructor but IsValid with wrong signature — wrong-sig diagnostic ---
+// --- Has constructor but Validate with wrong signature — wrong-sig diagnostic ---
 
-// WrongSigStruct has IsValid() but with wrong return type.
-type WrongSigStruct struct { // want `struct structisvalid\.WrongSigStruct has IsValid\(\) but wrong signature`
+// WrongSigStruct has Validate() but with wrong return type.
+type WrongSigStruct struct { // want `struct structisvalid\.WrongSigStruct has Validate\(\) but wrong signature`
 	id int // want `struct field structisvalid\.WrongSigStruct\.id uses primitive type int`
 }
 
 func NewWrongSigStruct(id int) *WrongSigStruct { return &WrongSigStruct{id: id} } // want `parameter "id" of structisvalid\.NewWrongSigStruct uses primitive type int`
 
-func (w *WrongSigStruct) IsValid() bool { return w.id > 0 }
+func (w *WrongSigStruct) Validate() bool { return w.id > 0 }

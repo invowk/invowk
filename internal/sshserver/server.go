@@ -103,24 +103,25 @@ func DefaultConfig() Config {
 	}
 }
 
-// IsValid returns whether the Config has valid fields.
-// It delegates to Host.IsValid(), Port.IsValid(), and DefaultShell.IsValid().
-// Duration fields (TokenTTL, ShutdownTimeout, StartupTimeout) have no IsValid.
-func (c Config) IsValid() (bool, []error) {
+// Validate returns nil if all typed fields in the Config are valid,
+// or an error wrapping ErrInvalidSSHConfig if any are invalid.
+// It delegates to Host.Validate(), Port.Validate(), and DefaultShell.Validate().
+// Duration fields (TokenTTL, ShutdownTimeout, StartupTimeout) have no Validate.
+func (c Config) Validate() error {
 	var errs []error
-	if valid, fieldErrs := c.Host.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.Host.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := c.Port.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.Port.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := c.DefaultShell.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.DefaultShell.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidSSHConfigError{FieldErrors: errs}}
+		return &InvalidSSHConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Now returns the current system time.
@@ -157,8 +158,8 @@ func NewWithClock(cfg Config, clock Clock) (*Server, error) {
 	}
 
 	// Defense-in-depth: validate all typed fields after applying defaults.
-	if isValid, errs := cfg.IsValid(); !isValid {
-		return nil, fmt.Errorf("ssh server config: %w", errors.Join(errs...))
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("ssh server config: %w", err)
 	}
 
 	logger := log.NewWithOptions(os.Stderr, log.Options{

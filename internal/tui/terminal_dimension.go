@@ -27,14 +27,13 @@ type (
 // String returns the decimal string representation of the TerminalDimension.
 func (d TerminalDimension) String() string { return strconv.Itoa(int(d)) }
 
-// IsValid returns whether the TerminalDimension is valid.
-// The zero value (0) means "auto" and is valid.
-// Negative values are invalid.
-func (d TerminalDimension) IsValid() (bool, []error) {
+// Validate returns nil if the TerminalDimension is valid, or a validation error
+// if it is negative. The zero value (0) means "auto" and is valid.
+func (d TerminalDimension) Validate() error {
 	if d < 0 {
-		return false, []error{&InvalidTerminalDimensionError{Value: d}}
+		return &InvalidTerminalDimensionError{Value: d}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidTerminalDimensionError.

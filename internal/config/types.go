@@ -230,23 +230,23 @@ func (e IncludeEntry) IsModule() bool {
 	return strings.HasSuffix(string(e.Path), moduleSuffix)
 }
 
-// IsValid returns whether the IncludeEntry has valid fields.
-// It delegates to Path.IsValid() unconditionally and to Alias.IsValid()
+// Validate returns an error if the IncludeEntry has invalid fields.
+// It delegates to Path.Validate() unconditionally and to Alias.Validate()
 // only when non-empty (the zero-value alias is always valid).
-func (e IncludeEntry) IsValid() (bool, []error) {
+func (e IncludeEntry) Validate() error {
 	var errs []error
-	if valid, fieldErrs := e.Path.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := e.Path.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if e.Alias != "" {
-		if valid, fieldErrs := e.Alias.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := e.Alias.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidIncludeEntryError{FieldErrors: errs}}
+		return &InvalidIncludeEntryError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidIncludeEntryError.
@@ -257,17 +257,17 @@ func (e *InvalidIncludeEntryError) Error() string {
 // Unwrap returns ErrInvalidIncludeEntry for errors.Is() compatibility.
 func (e *InvalidIncludeEntryError) Unwrap() error { return ErrInvalidIncludeEntry }
 
-// IsValid returns whether the UIConfig has valid fields.
-// It delegates to ColorScheme.IsValid(); bool fields need no validation.
-func (c UIConfig) IsValid() (bool, []error) {
+// Validate returns an error if the UIConfig has invalid fields.
+// It delegates to ColorScheme.Validate(); bool fields need no validation.
+func (c UIConfig) Validate() error {
 	var errs []error
-	if valid, fieldErrs := c.ColorScheme.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.ColorScheme.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidUIConfigError{FieldErrors: errs}}
+		return &InvalidUIConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidUIConfigError.
@@ -278,27 +278,27 @@ func (e *InvalidUIConfigError) Error() string {
 // Unwrap returns ErrInvalidUIConfig for errors.Is() compatibility.
 func (e *InvalidUIConfigError) Unwrap() error { return ErrInvalidUIConfig }
 
-// IsValid returns whether the AutoProvisionConfig has valid fields.
-// It delegates to BinaryPath.IsValid(), each Includes entry's IsValid(),
-// and CacheDir.IsValid(). Bool fields (Enabled, Strict, InheritIncludes)
+// Validate returns an error if the AutoProvisionConfig has invalid fields.
+// It delegates to BinaryPath.Validate(), each Includes entry's Validate(),
+// and CacheDir.Validate(). Bool fields (Enabled, Strict, InheritIncludes)
 // need no validation.
-func (c AutoProvisionConfig) IsValid() (bool, []error) {
+func (c AutoProvisionConfig) Validate() error {
 	var errs []error
-	if valid, fieldErrs := c.BinaryPath.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.BinaryPath.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	for _, entry := range c.Includes {
-		if valid, fieldErrs := entry.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := entry.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	if valid, fieldErrs := c.CacheDir.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.CacheDir.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidAutoProvisionConfigError{FieldErrors: errs}}
+		return &InvalidAutoProvisionConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidAutoProvisionConfigError.
@@ -309,17 +309,17 @@ func (e *InvalidAutoProvisionConfigError) Error() string {
 // Unwrap returns ErrInvalidAutoProvisionConfig for errors.Is() compatibility.
 func (e *InvalidAutoProvisionConfigError) Unwrap() error { return ErrInvalidAutoProvisionConfig }
 
-// IsValid returns whether the ContainerConfig has valid fields.
-// It delegates to AutoProvision.IsValid().
-func (c ContainerConfig) IsValid() (bool, []error) {
+// Validate returns an error if the ContainerConfig has invalid fields.
+// It delegates to AutoProvision.Validate().
+func (c ContainerConfig) Validate() error {
 	var errs []error
-	if valid, fieldErrs := c.AutoProvision.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.AutoProvision.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidContainerConfigError{FieldErrors: errs}}
+		return &InvalidContainerConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidContainerConfigError.
@@ -330,33 +330,33 @@ func (e *InvalidContainerConfigError) Error() string {
 // Unwrap returns ErrInvalidContainerConfig for errors.Is() compatibility.
 func (e *InvalidContainerConfigError) Unwrap() error { return ErrInvalidContainerConfig }
 
-// IsValid returns whether the Config has valid fields.
-// It delegates to ContainerEngine.IsValid(), DefaultRuntime.IsValid(),
-// each Includes entry's IsValid(), UI.IsValid(), and Container.IsValid().
+// Validate returns an error if the Config has invalid fields.
+// It delegates to ContainerEngine.Validate(), DefaultRuntime.Validate(),
+// each Includes entry's Validate(), UI.Validate(), and Container.Validate().
 // VirtualShell has only bool fields and needs no validation.
-func (c Config) IsValid() (bool, []error) {
+func (c Config) Validate() error {
 	var errs []error
-	if valid, fieldErrs := c.ContainerEngine.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.ContainerEngine.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := c.DefaultRuntime.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.DefaultRuntime.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	for _, entry := range c.Includes {
-		if valid, fieldErrs := entry.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := entry.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	if valid, fieldErrs := c.UI.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.UI.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := c.Container.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.Container.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidConfigError{FieldErrors: errs}}
+		return &InvalidConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidConfigError.
@@ -370,13 +370,13 @@ func (e *InvalidConfigError) Unwrap() error { return ErrInvalidConfig }
 // String returns the string representation of the ModuleIncludePath.
 func (p ModuleIncludePath) String() string { return string(p) }
 
-// IsValid returns whether the ModuleIncludePath is valid.
+// Validate returns an error if the ModuleIncludePath is invalid.
 // A valid path must be non-empty and not whitespace-only.
-func (p ModuleIncludePath) IsValid() (bool, []error) {
+func (p ModuleIncludePath) Validate() error {
 	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidModuleIncludePathError{Value: p}}
+		return &InvalidModuleIncludePathError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidModuleIncludePathError.
@@ -390,17 +390,17 @@ func (e *InvalidModuleIncludePathError) Unwrap() error { return ErrInvalidModule
 // String returns the string representation of the BinaryFilePath.
 func (p BinaryFilePath) String() string { return string(p) }
 
-// IsValid returns whether the BinaryFilePath is valid.
+// Validate returns an error if the BinaryFilePath is invalid.
 // The zero value ("") is valid (means "use auto-detected binary").
 // Non-zero values must not be whitespace-only.
-func (p BinaryFilePath) IsValid() (bool, []error) {
+func (p BinaryFilePath) Validate() error {
 	if p == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidBinaryFilePathError{Value: p}}
+		return &InvalidBinaryFilePathError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidBinaryFilePathError.
@@ -414,17 +414,17 @@ func (e *InvalidBinaryFilePathError) Unwrap() error { return ErrInvalidBinaryFil
 // String returns the string representation of the CacheDirPath.
 func (p CacheDirPath) String() string { return string(p) }
 
-// IsValid returns whether the CacheDirPath is valid.
+// Validate returns an error if the CacheDirPath is invalid.
 // The zero value ("") is valid (means "use default cache directory").
 // Non-zero values must not be whitespace-only.
-func (p CacheDirPath) IsValid() (bool, []error) {
+func (p CacheDirPath) Validate() error {
 	if p == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidCacheDirPathError{Value: p}}
+		return &InvalidCacheDirPathError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidCacheDirPathError.
@@ -448,14 +448,13 @@ func (e *InvalidContainerEngineError) Unwrap() error {
 // String returns the string representation of the ContainerEngine.
 func (ce ContainerEngine) String() string { return string(ce) }
 
-// IsValid returns whether the ContainerEngine is one of the defined engine types,
-// and a list of validation errors if it is not.
-func (ce ContainerEngine) IsValid() (bool, []error) {
+// Validate returns an error if the ContainerEngine is not one of the defined engine types.
+func (ce ContainerEngine) Validate() error {
 	switch ce {
 	case ContainerEnginePodman, ContainerEngineDocker:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidContainerEngineError{Value: ce}}
+		return &InvalidContainerEngineError{Value: ce}
 	}
 }
 
@@ -472,14 +471,13 @@ func (e *InvalidConfigRuntimeModeError) Unwrap() error {
 // String returns the string representation of the config RuntimeMode.
 func (m RuntimeMode) String() string { return string(m) }
 
-// IsValid returns whether the config RuntimeMode is one of the defined runtime modes,
-// and a list of validation errors if it is not.
-func (m RuntimeMode) IsValid() (bool, []error) {
+// Validate returns an error if the config RuntimeMode is not one of the defined runtime modes.
+func (m RuntimeMode) Validate() error {
 	switch m {
 	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidConfigRuntimeModeError{Value: m}}
+		return &InvalidConfigRuntimeModeError{Value: m}
 	}
 }
 
@@ -496,14 +494,13 @@ func (e *InvalidColorSchemeError) Unwrap() error {
 // String returns the string representation of the ColorScheme.
 func (cs ColorScheme) String() string { return string(cs) }
 
-// IsValid returns whether the ColorScheme is one of the defined color schemes,
-// and a list of validation errors if it is not.
-func (cs ColorScheme) IsValid() (bool, []error) {
+// Validate returns an error if the ColorScheme is not one of the defined color schemes.
+func (cs ColorScheme) Validate() error {
 	switch cs {
 	case ColorSchemeAuto, ColorSchemeDark, ColorSchemeLight:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidColorSchemeError{Value: cs}}
+		return &InvalidColorSchemeError{Value: cs}
 	}
 }
 

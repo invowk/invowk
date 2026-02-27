@@ -83,17 +83,17 @@ func (e *InvalidShellPathError) Error() string {
 // Unwrap returns ErrInvalidShellPath for errors.Is() compatibility.
 func (e *InvalidShellPathError) Unwrap() error { return ErrInvalidShellPath }
 
-// IsValid returns whether the ShellPath is valid.
+// Validate returns nil if the ShellPath is valid, or a validation error if not.
 // The zero value ("") is valid — it means "use system default shell".
 // Non-zero values must not be whitespace-only.
-func (s ShellPath) IsValid() (bool, []error) {
+func (s ShellPath) Validate() error {
 	if s == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(s)) == "" {
-		return false, []error{&InvalidShellPathError{Value: s}}
+		return &InvalidShellPathError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ShellPath.

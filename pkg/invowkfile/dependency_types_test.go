@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestCheckName_IsValid(t *testing.T) {
+func TestCheckName_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -30,23 +30,23 @@ func TestCheckName_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.check.IsValid()
-			if isValid != tt.want {
-				t.Errorf("CheckName(%q).IsValid() = %v, want %v", tt.check, isValid, tt.want)
+			err := tt.check.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("CheckName(%q).Validate() error = %v, want valid=%v", tt.check, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("CheckName(%q).IsValid() returned no errors, want error", tt.check)
+				if err == nil {
+					t.Fatalf("CheckName(%q).Validate() returned nil, want error", tt.check)
 				}
-				if !errors.Is(errs[0], ErrInvalidCheckName) {
-					t.Errorf("error should wrap ErrInvalidCheckName, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidCheckName) {
+					t.Errorf("error should wrap ErrInvalidCheckName, got: %v", err)
 				}
 				var cnErr *InvalidCheckNameError
-				if !errors.As(errs[0], &cnErr) {
-					t.Errorf("error should be *InvalidCheckNameError, got: %T", errs[0])
+				if !errors.As(err, &cnErr) {
+					t.Errorf("error should be *InvalidCheckNameError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("CheckName(%q).IsValid() returned unexpected errors: %v", tt.check, errs)
+			} else if err != nil {
+				t.Errorf("CheckName(%q).Validate() returned unexpected error: %v", tt.check, err)
 			}
 		})
 	}
@@ -60,7 +60,7 @@ func TestCheckName_String(t *testing.T) {
 	}
 }
 
-func TestScriptContent_IsValid(t *testing.T) {
+func TestScriptContent_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -81,23 +81,23 @@ func TestScriptContent_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.script.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ScriptContent(%q).IsValid() = %v, want %v", tt.script, isValid, tt.want)
+			err := tt.script.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ScriptContent(%q).Validate() error = %v, want valid=%v", tt.script, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ScriptContent(%q).IsValid() returned no errors, want error", tt.script)
+				if err == nil {
+					t.Fatalf("ScriptContent(%q).Validate() returned nil, want error", tt.script)
 				}
-				if !errors.Is(errs[0], ErrInvalidScriptContent) {
-					t.Errorf("error should wrap ErrInvalidScriptContent, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidScriptContent) {
+					t.Errorf("error should wrap ErrInvalidScriptContent, got: %v", err)
 				}
 				var scErr *InvalidScriptContentError
-				if !errors.As(errs[0], &scErr) {
-					t.Errorf("error should be *InvalidScriptContentError, got: %T", errs[0])
+				if !errors.As(err, &scErr) {
+					t.Errorf("error should be *InvalidScriptContentError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ScriptContent(%q).IsValid() returned unexpected errors: %v", tt.script, errs)
+			} else if err != nil {
+				t.Errorf("ScriptContent(%q).Validate() returned unexpected error: %v", tt.script, err)
 			}
 		})
 	}

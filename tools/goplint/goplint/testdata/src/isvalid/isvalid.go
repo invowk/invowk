@@ -2,56 +2,79 @@
 
 package isvalid
 
-// CommandName has both IsValid and String — no diagnostic.
+import "fmt"
+
+// CommandName has both Validate and String — no diagnostic.
 type CommandName string
 
-func (c CommandName) IsValid() (bool, []error) { return c != "", nil }
-func (c CommandName) String() string            { return string(c) }
+func (c CommandName) Validate() error {
+	if c == "" {
+		return fmt.Errorf("invalid command name")
+	}
+	return nil
+}
 
-// RuntimeMode has IsValid — no diagnostic for isvalid check.
+func (c CommandName) String() string { return string(c) }
+
+// RuntimeMode has Validate — no diagnostic for validate check.
 type RuntimeMode string
 
-func (r RuntimeMode) IsValid() (bool, []error) { return r != "", nil }
+func (r RuntimeMode) Validate() error {
+	if r == "" {
+		return fmt.Errorf("invalid runtime mode")
+	}
+	return nil
+}
 
-// MissingIsValid has no IsValid method — should be flagged.
-type MissingIsValid string // want `named type isvalid\.MissingIsValid has no IsValid\(\) method`
+// MissingValidate has no Validate method — should be flagged.
+type MissingValidate string // want `named type isvalid\.MissingValidate has no Validate\(\) method`
 
-func (m MissingIsValid) String() string { return string(m) }
+func (m MissingValidate) String() string { return string(m) }
 
-// MissingBoth has neither IsValid nor String.
-type MissingBoth int // want `named type isvalid\.MissingBoth has no IsValid\(\) method`
+// MissingBoth has neither Validate nor String.
+type MissingBoth int // want `named type isvalid\.MissingBoth has no Validate\(\) method`
 
-// BoolBacked is backed by bool — still needs IsValid for enum semantics.
-type BoolBacked bool // want `named type isvalid\.BoolBacked has no IsValid\(\) method`
+// BoolBacked is backed by bool — still needs Validate for enum semantics.
+type BoolBacked bool // want `named type isvalid\.BoolBacked has no Validate\(\) method`
 
-// unexportedWithIsValid has lowercase isValid() — should NOT be flagged.
-type unexportedWithIsValid string
+// unexportedWithValidate has lowercase validate() — should NOT be flagged.
+type unexportedWithValidate string
 
-func (u unexportedWithIsValid) isValid() (bool, []error) { return u != "", nil }
+func (u unexportedWithValidate) validate() error {
+	if u == "" {
+		return fmt.Errorf("invalid")
+	}
+	return nil
+}
 
-// unexportedMissing has no isValid/IsValid — should be flagged.
-type unexportedMissing string // want `named type isvalid\.unexportedMissing has no IsValid\(\) method`
+// unexportedMissing has no validate/Validate — should be flagged.
+type unexportedMissing string // want `named type isvalid\.unexportedMissing has no Validate\(\) method`
 
 // TypeAlias is a type alias — should NOT be flagged (inherits methods).
 type TypeAlias = CommandName
 
-// MyStruct is a struct — checked by primary mode, not by --check-isvalid.
+// MyStruct is a struct — checked by primary mode, not by --check-validate.
 type MyStruct struct {
 	Name string // want `struct field isvalid\.MyStruct\.Name uses primitive type string`
 }
 
-// MyInterface should NOT be checked by --check-isvalid.
+// MyInterface should NOT be checked by --check-validate.
 type MyInterface interface {
 	DoSomething()
 }
 
-// WrongIsValidSig has IsValid() but with the wrong signature — should
-// trigger wrong-isvalid-sig instead of missing-isvalid.
-type WrongIsValidSig string // want `named type isvalid\.WrongIsValidSig has IsValid\(\) but wrong signature`
+// WrongValidateSig has Validate() but with the wrong signature — should
+// trigger wrong-validate-sig instead of missing-validate.
+type WrongValidateSig string // want `named type isvalid\.WrongValidateSig has Validate\(\) but wrong signature`
 
-func (w WrongIsValidSig) IsValid() bool { return w != "" }
+func (w WrongValidateSig) Validate() bool { return w != "" }
 
-// WrongIsValidParams has IsValid with a parameter — wrong signature.
-type WrongIsValidParams string // want `named type isvalid\.WrongIsValidParams has IsValid\(\) but wrong signature`
+// WrongValidateParams has Validate with a parameter — wrong signature.
+type WrongValidateParams string // want `named type isvalid\.WrongValidateParams has Validate\(\) but wrong signature`
 
-func (w WrongIsValidParams) IsValid(strict bool) (bool, []error) { return w != "", nil }
+func (w WrongValidateParams) Validate(strict bool) error {
+	if w == "" {
+		return fmt.Errorf("invalid")
+	}
+	return nil
+}

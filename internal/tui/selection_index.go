@@ -25,12 +25,13 @@ type (
 // String returns the decimal string representation of the SelectionIndex.
 func (i SelectionIndex) String() string { return strconv.Itoa(int(i)) }
 
-// IsValid returns whether the SelectionIndex is valid.
-func (i SelectionIndex) IsValid() (bool, []error) {
+// Validate returns nil if the SelectionIndex is valid, or a validation error
+// if it is negative.
+func (i SelectionIndex) Validate() error {
 	if i < 0 {
-		return false, []error{&InvalidSelectionIndexError{Value: i}}
+		return &InvalidSelectionIndexError{Value: i}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidSelectionIndexError.

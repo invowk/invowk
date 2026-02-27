@@ -425,11 +425,11 @@ func reportMissingImmutability(pass *analysis.Pass, structs []exportedStructInfo
 	}
 }
 
-// reportMissingStructIsValid reports exported struct types that have a
-// constructor but lack an IsValid() (bool, []error) method. Struct types
-// with constructors should validate their invariants via IsValid().
+// reportMissingStructValidate reports exported struct types that have a
+// constructor but lack a Validate() error method. Struct types
+// with constructors should validate their invariants via Validate().
 // Error types are excluded (same logic as --check-constructors).
-func reportMissingStructIsValid(
+func reportMissingStructValidate(
 	pass *analysis.Pass,
 	structs []exportedStructInfo,
 	ctors map[string]*constructorFuncInfo,
@@ -444,37 +444,37 @@ func reportMissingStructIsValid(
 			continue // no constructor — no obligation
 		}
 
-		// Skip error types — they typically don't need IsValid().
+		// Skip error types — they typically don't need Validate().
 		if strings.HasSuffix(s.name, "Error") || methods[s.name+".Error"] != nil {
 			continue
 		}
 
 		qualName := fmt.Sprintf("%s.%s", pkgName, s.name)
-		if cfg.isExcepted(qualName + ".struct-isvalid") {
+		if cfg.isExcepted(qualName + ".struct-validate") {
 			continue
 		}
 
-		mi := methods[s.name+".IsValid"]
+		mi := methods[s.name+".Validate"]
 		if mi != nil {
 			// Method exists — verify its signature matches the contract.
-			if mi.paramCount != 0 || mi.resultTypes != expectedIsValidSig {
-				msg := fmt.Sprintf("struct %s has IsValid() but wrong signature (want func() (bool, []error))", qualName)
-				findingID := StableFindingID(CategoryWrongStructIsValidSig, qualName, "IsValid")
-				if bl.ContainsFinding(CategoryWrongStructIsValidSig, findingID, msg) {
+			if mi.paramCount != 0 || mi.resultTypes != expectedValidateSig {
+				msg := fmt.Sprintf("struct %s has Validate() but wrong signature (want func() error)", qualName)
+				findingID := StableFindingID(CategoryWrongStructValidateSig, qualName, "Validate")
+				if bl.ContainsFinding(CategoryWrongStructValidateSig, findingID, msg) {
 					continue
 				}
-				reportDiagnostic(pass, s.pos, CategoryWrongStructIsValidSig, findingID, msg)
+				reportDiagnostic(pass, s.pos, CategoryWrongStructValidateSig, findingID, msg)
 			}
 			continue
 		}
 
-		msg := fmt.Sprintf("struct %s has constructor but no IsValid() method", qualName)
-		findingID := StableFindingID(CategoryMissingStructIsValid, qualName, "IsValid")
-		if bl.ContainsFinding(CategoryMissingStructIsValid, findingID, msg) {
+		msg := fmt.Sprintf("struct %s has constructor but no Validate() method", qualName)
+		findingID := StableFindingID(CategoryMissingStructValidate, qualName, "Validate")
+		if bl.ContainsFinding(CategoryMissingStructValidate, findingID, msg) {
 			continue
 		}
 
-		reportDiagnostic(pass, s.pos, CategoryMissingStructIsValid, findingID, msg)
+		reportDiagnostic(pass, s.pos, CategoryMissingStructValidate, findingID, msg)
 	}
 }
 

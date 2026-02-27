@@ -448,12 +448,12 @@ func TestContext(t *testing.T) {
 	}
 }
 
-func TestState_IsValid(t *testing.T) {
+func TestState_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		state   State
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{StateCreated, true, false},
@@ -469,19 +469,19 @@ func TestState_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.state.String(), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.state.IsValid()
-			if isValid != tt.want {
-				t.Errorf("State(%d).IsValid() = %v, want %v", tt.state, isValid, tt.want)
+			err := tt.state.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("State(%d).Validate() error = %v, wantOK %v", tt.state, err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("State(%d).IsValid() returned no errors, want error", tt.state)
+				if err == nil {
+					t.Fatalf("State(%d).Validate() returned nil, want error", tt.state)
 				}
-				if !errors.Is(errs[0], ErrInvalidState) {
-					t.Errorf("error should wrap ErrInvalidState, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidState) {
+					t.Errorf("error should wrap ErrInvalidState, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("State(%d).IsValid() returned unexpected errors: %v", tt.state, errs)
+			} else if err != nil {
+				t.Errorf("State(%d).Validate() returned unexpected error: %v", tt.state, err)
 			}
 		})
 	}

@@ -33,19 +33,19 @@ func (e *InvalidRegexPatternError) Error() string {
 // Unwrap returns ErrInvalidRegexPattern so callers can use errors.Is for programmatic detection.
 func (e *InvalidRegexPatternError) Unwrap() error { return ErrInvalidRegexPattern }
 
-// IsValid returns whether the RegexPattern is a safe, compilable regex,
-// and a list of validation errors if it is not.
+// Validate returns nil if the RegexPattern is a safe, compilable regex,
+// or a validation error if it is not.
 // The zero value ("") is valid — it means "no validation pattern".
 // Delegates to ValidateRegexPattern for dangerous pattern detection,
 // nesting depth checks, quantifier count, and compilation.
-func (r RegexPattern) IsValid() (bool, []error) {
+func (r RegexPattern) Validate() error {
 	if r == "" {
-		return true, nil
+		return nil
 	}
 	if err := ValidateRegexPattern(string(r)); err != nil {
-		return false, []error{&InvalidRegexPatternError{Value: r, Reason: err.Error()}}
+		return &InvalidRegexPatternError{Value: r, Reason: err.Error()}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the RegexPattern.

@@ -221,17 +221,19 @@ func (e *InvalidBinaryNameError) Error() string {
 // Unwrap returns ErrInvalidBinaryName for errors.Is() compatibility.
 func (e *InvalidBinaryNameError) Unwrap() error { return ErrInvalidBinaryName }
 
-// IsValid returns whether the BinaryName is valid.
+// Validate returns nil if the BinaryName is valid, or a validation error if not.
 // A valid BinaryName must be non-empty, not whitespace-only, and must not contain path separators.
-func (b BinaryName) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (b BinaryName) Validate() error {
 	s := string(b)
 	if strings.TrimSpace(s) == "" {
-		return false, []error{&InvalidBinaryNameError{Value: b, Reason: "must not be empty or whitespace-only"}}
+		return &InvalidBinaryNameError{Value: b, Reason: "must not be empty or whitespace-only"}
 	}
 	if strings.ContainsAny(s, "/\\") {
-		return false, []error{&InvalidBinaryNameError{Value: b, Reason: "must not contain path separators"}}
+		return &InvalidBinaryNameError{Value: b, Reason: "must not contain path separators"}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the BinaryName.
@@ -240,13 +242,15 @@ func (b BinaryName) String() string { return string(b) }
 // String returns the string representation of the CheckName.
 func (c CheckName) String() string { return string(c) }
 
-// IsValid returns whether the CheckName is valid.
+// Validate returns nil if the CheckName is valid, or a validation error if not.
 // A valid CheckName is non-empty and not whitespace-only.
-func (c CheckName) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (c CheckName) Validate() error {
 	if strings.TrimSpace(string(c)) == "" {
-		return false, []error{&InvalidCheckNameError{Value: c}}
+		return &InvalidCheckNameError{Value: c}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidCheckNameError.
@@ -260,16 +264,16 @@ func (e *InvalidCheckNameError) Unwrap() error { return ErrInvalidCheckName }
 // String returns the string representation of the ScriptContent.
 func (s ScriptContent) String() string { return string(s) }
 
-// IsValid returns whether the ScriptContent is valid.
+// Validate returns nil if the ScriptContent is valid, or a validation error if not.
 // The zero value ("") is valid. Non-zero values must not be whitespace-only.
-func (s ScriptContent) IsValid() (bool, []error) {
+func (s ScriptContent) Validate() error {
 	if s == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(s)) == "" {
-		return false, []error{&InvalidScriptContentError{Value: s}}
+		return &InvalidScriptContentError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidScriptContentError.

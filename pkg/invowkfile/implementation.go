@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -68,20 +69,20 @@ type (
 	}
 )
 
-// IsValid returns whether both Platform and Runtime in the key are valid,
-// and a combined list of validation errors from both fields.
-func (k PlatformRuntimeKey) IsValid() (bool, []error) {
+// Validate returns nil if both Platform and Runtime in the key are valid,
+// or a combined error from both fields.
+func (k PlatformRuntimeKey) Validate() error {
 	var errs []error
-	if valid, fieldErrs := k.Platform.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := k.Platform.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := k.Runtime.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := k.Runtime.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, errs
+		return errors.Join(errs...)
 	}
-	return true, nil
+	return nil
 }
 
 // String returns "platform/runtime" representation (e.g., "linux/native").

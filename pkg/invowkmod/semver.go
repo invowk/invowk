@@ -252,7 +252,7 @@ func (r *SemverResolver) Resolve(constraintStr string, availableVersions []SemVe
 
 // isValidVersionString checks if a raw string is a valid semantic version.
 // This is an internal helper used before constructing SemVer values (e.g., when
-// filtering git tags). For typed validation, use SemVer.IsValid() instead.
+// filtering git tags). For typed validation, use SemVer.Validate() instead.
 func isValidVersionString(s string) bool {
 	_, err := ParseVersion(s)
 	return err == nil

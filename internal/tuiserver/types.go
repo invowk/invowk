@@ -26,13 +26,15 @@ type (
 // String returns the string representation of the AuthToken.
 func (t AuthToken) String() string { return string(t) }
 
-// IsValid returns whether the AuthToken is valid.
-// A valid token must be non-empty and not whitespace-only.
-func (t AuthToken) IsValid() (bool, []error) {
+// Validate returns nil if the AuthToken is valid (non-empty and not whitespace-only),
+// or an error wrapping ErrInvalidAuthToken if it is not.
+//
+//goplint:nonzero
+func (t AuthToken) Validate() error {
 	if strings.TrimSpace(string(t)) == "" {
-		return false, []error{&InvalidAuthTokenError{Value: t}}
+		return &InvalidAuthTokenError{Value: t}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidAuthTokenError.

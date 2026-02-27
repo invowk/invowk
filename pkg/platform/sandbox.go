@@ -66,15 +66,15 @@ func (e *InvalidSandboxTypeError) Unwrap() error {
 	return ErrInvalidSandboxType
 }
 
-// IsValid returns whether the SandboxType is one of the defined sandbox types,
-// and a list of validation errors if it is not.
+// Validate returns nil if the SandboxType is one of the defined sandbox types,
+// or an error wrapping ErrInvalidSandboxType if it is not.
 // The zero value ("", SandboxNone) is valid — it means no sandbox detected.
-func (st SandboxType) IsValid() (bool, []error) {
+func (st SandboxType) Validate() error {
 	switch st {
 	case SandboxNone, SandboxFlatpak, SandboxSnap:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidSandboxTypeError{Value: st}}
+		return &InvalidSandboxTypeError{Value: st}
 	}
 }
 

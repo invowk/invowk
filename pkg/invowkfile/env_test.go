@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestEnvVarName_IsValid(t *testing.T) {
+func TestEnvVarName_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -33,25 +33,25 @@ func TestEnvVarName_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.n.IsValid()
-			if isValid != tt.want {
-				t.Errorf("EnvVarName(%q).IsValid() = %v, want %v", tt.n, isValid, tt.want)
+			err := tt.n.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("EnvVarName(%q).Validate() error = %v, want valid=%v", tt.n, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("EnvVarName(%q).IsValid() returned no errors, want error", tt.n)
+				if err == nil {
+					t.Fatalf("EnvVarName(%q).Validate() returned nil, want error", tt.n)
 				}
-				if !errors.Is(errs[0], ErrInvalidEnvVarName) {
-					t.Errorf("error should wrap ErrInvalidEnvVarName, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidEnvVarName) {
+					t.Errorf("error should wrap ErrInvalidEnvVarName, got: %v", err)
 				}
 				var typedErr *InvalidEnvVarNameError
-				if !errors.As(errs[0], &typedErr) {
-					t.Errorf("error should be *InvalidEnvVarNameError, got: %T", errs[0])
+				if !errors.As(err, &typedErr) {
+					t.Errorf("error should be *InvalidEnvVarNameError, got: %T", err)
 				} else if typedErr.Value != tt.n {
 					t.Errorf("InvalidEnvVarNameError.Value = %q, want %q", typedErr.Value, tt.n)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("EnvVarName(%q).IsValid() returned unexpected errors: %v", tt.n, errs)
+			} else if err != nil {
+				t.Errorf("EnvVarName(%q).Validate() returned unexpected error: %v", tt.n, err)
 			}
 		})
 	}

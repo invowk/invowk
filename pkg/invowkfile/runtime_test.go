@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestRuntimeMode_IsValid(t *testing.T) {
+func TestRuntimeMode_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -27,25 +27,25 @@ func TestRuntimeMode_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.mode), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.mode.IsValid()
-			if isValid != tt.want {
-				t.Errorf("RuntimeMode(%q).IsValid() = %v, want %v", tt.mode, isValid, tt.want)
+			err := tt.mode.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("RuntimeMode(%q).Validate() error = %v, want valid=%v", tt.mode, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("RuntimeMode(%q).IsValid() returned no errors, want error", tt.mode)
+				if err == nil {
+					t.Fatalf("RuntimeMode(%q).Validate() returned nil, want error", tt.mode)
 				}
-				if !errors.Is(errs[0], ErrInvalidRuntimeMode) {
-					t.Errorf("error should wrap ErrInvalidRuntimeMode, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidRuntimeMode) {
+					t.Errorf("error should wrap ErrInvalidRuntimeMode, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("RuntimeMode(%q).IsValid() returned unexpected errors: %v", tt.mode, errs)
+			} else if err != nil {
+				t.Errorf("RuntimeMode(%q).Validate() returned unexpected error: %v", tt.mode, err)
 			}
 		})
 	}
 }
 
-func TestPlatformType_IsValid(t *testing.T) {
+func TestPlatformType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -67,19 +67,19 @@ func TestPlatformType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.platform), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.platform.IsValid()
-			if isValid != tt.want {
-				t.Errorf("PlatformType(%q).IsValid() = %v, want %v", tt.platform, isValid, tt.want)
+			err := tt.platform.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("PlatformType(%q).Validate() error = %v, want valid=%v", tt.platform, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("PlatformType(%q).IsValid() returned no errors, want error", tt.platform)
+				if err == nil {
+					t.Fatalf("PlatformType(%q).Validate() returned nil, want error", tt.platform)
 				}
-				if !errors.Is(errs[0], ErrInvalidPlatform) {
-					t.Errorf("error should wrap ErrInvalidPlatform, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidPlatform) {
+					t.Errorf("error should wrap ErrInvalidPlatform, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("PlatformType(%q).IsValid() returned unexpected errors: %v", tt.platform, errs)
+			} else if err != nil {
+				t.Errorf("PlatformType(%q).Validate() returned unexpected error: %v", tt.platform, err)
 			}
 		})
 	}
@@ -121,7 +121,7 @@ func TestParseRuntimeMode(t *testing.T) {
 	}
 }
 
-func TestEnvInheritMode_IsValid(t *testing.T) {
+func TestEnvInheritMode_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -140,25 +140,25 @@ func TestEnvInheritMode_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.mode), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.mode.IsValid()
-			if isValid != tt.want {
-				t.Errorf("EnvInheritMode(%q).IsValid() = %v, want %v", tt.mode, isValid, tt.want)
+			err := tt.mode.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("EnvInheritMode(%q).Validate() error = %v, want valid=%v", tt.mode, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("EnvInheritMode(%q).IsValid() returned no errors, want error", tt.mode)
+				if err == nil {
+					t.Fatalf("EnvInheritMode(%q).Validate() returned nil, want error", tt.mode)
 				}
-				if !errors.Is(errs[0], ErrInvalidEnvInheritMode) {
-					t.Errorf("error should wrap ErrInvalidEnvInheritMode, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidEnvInheritMode) {
+					t.Errorf("error should wrap ErrInvalidEnvInheritMode, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("EnvInheritMode(%q).IsValid() returned unexpected errors: %v", tt.mode, errs)
+			} else if err != nil {
+				t.Errorf("EnvInheritMode(%q).Validate() returned unexpected error: %v", tt.mode, err)
 			}
 		})
 	}
 }
 
-func TestFlagType_IsValid(t *testing.T) {
+func TestFlagType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -179,25 +179,25 @@ func TestFlagType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.ft), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.ft.IsValid()
-			if isValid != tt.want {
-				t.Errorf("FlagType(%q).IsValid() = %v, want %v", tt.ft, isValid, tt.want)
+			err := tt.ft.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("FlagType(%q).Validate() error = %v, want valid=%v", tt.ft, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("FlagType(%q).IsValid() returned no errors, want error", tt.ft)
+				if err == nil {
+					t.Fatalf("FlagType(%q).Validate() returned nil, want error", tt.ft)
 				}
-				if !errors.Is(errs[0], ErrInvalidFlagType) {
-					t.Errorf("error should wrap ErrInvalidFlagType, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidFlagType) {
+					t.Errorf("error should wrap ErrInvalidFlagType, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("FlagType(%q).IsValid() returned unexpected errors: %v", tt.ft, errs)
+			} else if err != nil {
+				t.Errorf("FlagType(%q).Validate() returned unexpected error: %v", tt.ft, err)
 			}
 		})
 	}
 }
 
-func TestArgumentType_IsValid(t *testing.T) {
+func TestArgumentType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -217,19 +217,19 @@ func TestArgumentType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.at), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.at.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ArgumentType(%q).IsValid() = %v, want %v", tt.at, isValid, tt.want)
+			err := tt.at.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ArgumentType(%q).Validate() error = %v, want valid=%v", tt.at, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ArgumentType(%q).IsValid() returned no errors, want error", tt.at)
+				if err == nil {
+					t.Fatalf("ArgumentType(%q).Validate() returned nil, want error", tt.at)
 				}
-				if !errors.Is(errs[0], ErrInvalidArgumentType) {
-					t.Errorf("error should wrap ErrInvalidArgumentType, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidArgumentType) {
+					t.Errorf("error should wrap ErrInvalidArgumentType, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ArgumentType(%q).IsValid() returned unexpected errors: %v", tt.at, errs)
+			} else if err != nil {
+				t.Errorf("ArgumentType(%q).Validate() returned unexpected error: %v", tt.at, err)
 			}
 		})
 	}
@@ -271,7 +271,7 @@ func TestParseEnvInheritMode(t *testing.T) {
 	}
 }
 
-func TestContainerImage_IsValid(t *testing.T) {
+func TestContainerImage_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -290,25 +290,25 @@ func TestContainerImage_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.img.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ContainerImage(%q).IsValid() = %v, want %v", tt.img, isValid, tt.want)
+			err := tt.img.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ContainerImage(%q).Validate() error = %v, want valid=%v", tt.img, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ContainerImage(%q).IsValid() returned no errors, want error", tt.img)
+				if err == nil {
+					t.Fatalf("ContainerImage(%q).Validate() returned nil, want error", tt.img)
 				}
-				if !errors.Is(errs[0], ErrInvalidContainerImage) {
-					t.Errorf("error should wrap ErrInvalidContainerImage, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidContainerImage) {
+					t.Errorf("error should wrap ErrInvalidContainerImage, got: %v", err)
 				}
 				var typedErr *InvalidContainerImageError
-				if !errors.As(errs[0], &typedErr) {
-					t.Errorf("error should be *InvalidContainerImageError, got: %T", errs[0])
+				if !errors.As(err, &typedErr) {
+					t.Errorf("error should be *InvalidContainerImageError, got: %T", err)
 				} else if typedErr.Value != tt.img {
 					t.Errorf("InvalidContainerImageError.Value = %q, want %q", typedErr.Value, tt.img)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ContainerImage(%q).IsValid() returned unexpected errors: %v", tt.img, errs)
+			} else if err != nil {
+				t.Errorf("ContainerImage(%q).Validate() returned unexpected error: %v", tt.img, err)
 			}
 		})
 	}

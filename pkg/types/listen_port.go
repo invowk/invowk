@@ -27,14 +27,14 @@ type (
 // String returns the decimal string representation of the ListenPort.
 func (p ListenPort) String() string { return strconv.Itoa(int(p)) }
 
-// IsValid returns whether the ListenPort is valid.
+// Validate returns an error if the ListenPort is outside the valid range.
 // The zero value (0) means auto-select and is valid.
-// Non-zero values must be in the range 1–65535.
-func (p ListenPort) IsValid() (bool, []error) {
+// Non-zero values must be in the range 1-65535.
+func (p ListenPort) Validate() error {
 	if p < 0 || p > 65535 {
-		return false, []error{&InvalidListenPortError{Value: p}}
+		return &InvalidListenPortError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidListenPortError.

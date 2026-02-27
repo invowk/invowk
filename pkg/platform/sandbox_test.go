@@ -184,13 +184,13 @@ func TestSandboxTypeConstants(t *testing.T) {
 	}
 }
 
-func TestSandboxType_IsValid(t *testing.T) {
+func TestSandboxType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		sandbox SandboxType
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"none", SandboxNone, true, false},
@@ -204,19 +204,19 @@ func TestSandboxType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.sandbox.IsValid()
-			if isValid != tt.want {
-				t.Errorf("SandboxType(%q).IsValid() = %v, want %v", tt.sandbox, isValid, tt.want)
+			err := tt.sandbox.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("SandboxType(%q).Validate() error = %v, wantOK %v", tt.sandbox, err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("SandboxType(%q).IsValid() returned no errors, want error", tt.sandbox)
+				if err == nil {
+					t.Fatalf("SandboxType(%q).Validate() returned nil, want error", tt.sandbox)
 				}
-				if !errors.Is(errs[0], ErrInvalidSandboxType) {
-					t.Errorf("error should wrap ErrInvalidSandboxType, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSandboxType) {
+					t.Errorf("error should wrap ErrInvalidSandboxType, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("SandboxType(%q).IsValid() returned unexpected errors: %v", tt.sandbox, errs)
+			} else if err != nil {
+				t.Errorf("SandboxType(%q).Validate() returned unexpected error: %v", tt.sandbox, err)
 			}
 		})
 	}

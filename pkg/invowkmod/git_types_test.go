@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestGitURL_IsValid(t *testing.T) {
+func TestGitURL_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -28,19 +28,19 @@ func TestGitURL_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.url.IsValid()
-			if isValid != tt.want {
-				t.Errorf("GitURL(%q).IsValid() = %v, want %v", tt.url, isValid, tt.want)
+			err := tt.url.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("GitURL(%q).Validate() error = %v, wantValid %v", tt.url, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("GitURL(%q).IsValid() returned no errors, want error", tt.url)
+				if err == nil {
+					t.Fatalf("GitURL(%q).Validate() returned nil, want error", tt.url)
 				}
-				if !errors.Is(errs[0], ErrInvalidGitURL) {
-					t.Errorf("error should wrap ErrInvalidGitURL, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidGitURL) {
+					t.Errorf("error should wrap ErrInvalidGitURL, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("GitURL(%q).IsValid() returned unexpected errors: %v", tt.url, errs)
+			} else if err != nil {
+				t.Errorf("GitURL(%q).Validate() returned unexpected error: %v", tt.url, err)
 			}
 		})
 	}
@@ -54,7 +54,7 @@ func TestGitURL_String(t *testing.T) {
 	}
 }
 
-func TestGitCommit_IsValid(t *testing.T) {
+func TestGitCommit_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -76,19 +76,19 @@ func TestGitCommit_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.commit.IsValid()
-			if isValid != tt.want {
-				t.Errorf("GitCommit(%q).IsValid() = %v, want %v", tt.commit, isValid, tt.want)
+			err := tt.commit.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("GitCommit(%q).Validate() error = %v, wantValid %v", tt.commit, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("GitCommit(%q).IsValid() returned no errors, want error", tt.commit)
+				if err == nil {
+					t.Fatalf("GitCommit(%q).Validate() returned nil, want error", tt.commit)
 				}
-				if !errors.Is(errs[0], ErrInvalidGitCommit) {
-					t.Errorf("error should wrap ErrInvalidGitCommit, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidGitCommit) {
+					t.Errorf("error should wrap ErrInvalidGitCommit, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("GitCommit(%q).IsValid() returned unexpected errors: %v", tt.commit, errs)
+			} else if err != nil {
+				t.Errorf("GitCommit(%q).Validate() returned unexpected error: %v", tt.commit, err)
 			}
 		})
 	}

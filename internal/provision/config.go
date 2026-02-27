@@ -70,48 +70,49 @@ type (
 	}
 )
 
-// IsValid returns whether all typed fields in the Config are valid.
+// Validate returns nil if all typed fields in the Config are valid,
+// or an error wrapping ErrInvalidProvisionConfig if any are invalid.
 // Boolean fields and TagSuffix (free-form test-only string) are skipped.
 // Path fields are only validated when non-empty, since empty paths indicate
 // "use default" semantics (e.g., os.Executable() for InvowkBinaryPath).
-func (c Config) IsValid() (bool, []error) {
+func (c Config) Validate() error {
 	var errs []error
 	if c.InvowkBinaryPath != "" {
-		if valid, fieldErrs := c.InvowkBinaryPath.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := c.InvowkBinaryPath.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if c.InvowkfilePath != "" {
-		if valid, fieldErrs := c.InvowkfilePath.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := c.InvowkfilePath.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if c.BinaryMountPath != "" {
-		if valid, fieldErrs := c.BinaryMountPath.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := c.BinaryMountPath.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if c.ModulesMountPath != "" {
-		if valid, fieldErrs := c.ModulesMountPath.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := c.ModulesMountPath.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if c.CacheDir != "" {
-		if valid, fieldErrs := c.CacheDir.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := c.CacheDir.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	for i, mp := range c.ModulesPaths {
 		if mp != "" {
-			if valid, fieldErrs := mp.IsValid(); !valid {
-				errs = append(errs, fmt.Errorf("ModulesPaths[%d]: %w", i, errors.Join(fieldErrs...)))
+			if err := mp.Validate(); err != nil {
+				errs = append(errs, fmt.Errorf("ModulesPaths[%d]: %w", i, err))
 			}
 		}
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidProvisionConfigError{FieldErrors: errs}}
+		return &InvalidProvisionConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidProvisionConfigError.

@@ -9,7 +9,7 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
-func TestContainerEngine_IsValid(t *testing.T) {
+func TestContainerEngine_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -27,25 +27,25 @@ func TestContainerEngine_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.engine), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.engine.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ContainerEngine(%q).IsValid() = %v, want %v", tt.engine, isValid, tt.want)
+			err := tt.engine.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ContainerEngine(%q).Validate() valid = %v, want %v", tt.engine, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ContainerEngine(%q).IsValid() returned no errors, want error", tt.engine)
+				if err == nil {
+					t.Fatalf("ContainerEngine(%q).Validate() returned nil, want error", tt.engine)
 				}
-				if !errors.Is(errs[0], ErrInvalidContainerEngine) {
-					t.Errorf("error should wrap ErrInvalidContainerEngine, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidContainerEngine) {
+					t.Errorf("error should wrap ErrInvalidContainerEngine, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ContainerEngine(%q).IsValid() returned unexpected errors: %v", tt.engine, errs)
+			} else if err != nil {
+				t.Errorf("ContainerEngine(%q).Validate() returned unexpected error: %v", tt.engine, err)
 			}
 		})
 	}
 }
 
-func TestConfigRuntimeMode_IsValid(t *testing.T) {
+func TestConfigRuntimeMode_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -64,25 +64,25 @@ func TestConfigRuntimeMode_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.mode), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.mode.IsValid()
-			if isValid != tt.want {
-				t.Errorf("RuntimeMode(%q).IsValid() = %v, want %v", tt.mode, isValid, tt.want)
+			err := tt.mode.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("RuntimeMode(%q).Validate() valid = %v, want %v", tt.mode, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("RuntimeMode(%q).IsValid() returned no errors, want error", tt.mode)
+				if err == nil {
+					t.Fatalf("RuntimeMode(%q).Validate() returned nil, want error", tt.mode)
 				}
-				if !errors.Is(errs[0], ErrInvalidConfigRuntimeMode) {
-					t.Errorf("error should wrap ErrInvalidConfigRuntimeMode, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidConfigRuntimeMode) {
+					t.Errorf("error should wrap ErrInvalidConfigRuntimeMode, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("RuntimeMode(%q).IsValid() returned unexpected errors: %v", tt.mode, errs)
+			} else if err != nil {
+				t.Errorf("RuntimeMode(%q).Validate() returned unexpected error: %v", tt.mode, err)
 			}
 		})
 	}
 }
 
-func TestColorScheme_IsValid(t *testing.T) {
+func TestColorScheme_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -102,25 +102,25 @@ func TestColorScheme_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.scheme), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.scheme.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ColorScheme(%q).IsValid() = %v, want %v", tt.scheme, isValid, tt.want)
+			err := tt.scheme.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ColorScheme(%q).Validate() valid = %v, want %v", tt.scheme, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ColorScheme(%q).IsValid() returned no errors, want error", tt.scheme)
+				if err == nil {
+					t.Fatalf("ColorScheme(%q).Validate() returned nil, want error", tt.scheme)
 				}
-				if !errors.Is(errs[0], ErrInvalidColorScheme) {
-					t.Errorf("error should wrap ErrInvalidColorScheme, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidColorScheme) {
+					t.Errorf("error should wrap ErrInvalidColorScheme, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ColorScheme(%q).IsValid() returned unexpected errors: %v", tt.scheme, errs)
+			} else if err != nil {
+				t.Errorf("ColorScheme(%q).Validate() returned unexpected error: %v", tt.scheme, err)
 			}
 		})
 	}
 }
 
-func TestModuleIncludePath_IsValid(t *testing.T) {
+func TestModuleIncludePath_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -140,23 +140,23 @@ func TestModuleIncludePath_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.path.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ModuleIncludePath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			err := tt.path.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ModuleIncludePath(%q).Validate() valid = %v, want %v", tt.path, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ModuleIncludePath(%q).IsValid() returned no errors, want error", tt.path)
+				if err == nil {
+					t.Fatalf("ModuleIncludePath(%q).Validate() returned nil, want error", tt.path)
 				}
-				if !errors.Is(errs[0], ErrInvalidModuleIncludePath) {
-					t.Errorf("error should wrap ErrInvalidModuleIncludePath, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidModuleIncludePath) {
+					t.Errorf("error should wrap ErrInvalidModuleIncludePath, got: %v", err)
 				}
 				var mpErr *InvalidModuleIncludePathError
-				if !errors.As(errs[0], &mpErr) {
-					t.Errorf("error should be *InvalidModuleIncludePathError, got: %T", errs[0])
+				if !errors.As(err, &mpErr) {
+					t.Errorf("error should be *InvalidModuleIncludePathError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ModuleIncludePath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			} else if err != nil {
+				t.Errorf("ModuleIncludePath(%q).Validate() returned unexpected error: %v", tt.path, err)
 			}
 		})
 	}
@@ -170,7 +170,7 @@ func TestModuleIncludePath_String(t *testing.T) {
 	}
 }
 
-func TestBinaryFilePath_IsValid(t *testing.T) {
+func TestBinaryFilePath_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -190,23 +190,23 @@ func TestBinaryFilePath_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.path.IsValid()
-			if isValid != tt.want {
-				t.Errorf("BinaryFilePath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			err := tt.path.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("BinaryFilePath(%q).Validate() valid = %v, want %v", tt.path, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("BinaryFilePath(%q).IsValid() returned no errors, want error", tt.path)
+				if err == nil {
+					t.Fatalf("BinaryFilePath(%q).Validate() returned nil, want error", tt.path)
 				}
-				if !errors.Is(errs[0], ErrInvalidBinaryFilePath) {
-					t.Errorf("error should wrap ErrInvalidBinaryFilePath, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidBinaryFilePath) {
+					t.Errorf("error should wrap ErrInvalidBinaryFilePath, got: %v", err)
 				}
 				var bfpErr *InvalidBinaryFilePathError
-				if !errors.As(errs[0], &bfpErr) {
-					t.Errorf("error should be *InvalidBinaryFilePathError, got: %T", errs[0])
+				if !errors.As(err, &bfpErr) {
+					t.Errorf("error should be *InvalidBinaryFilePathError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("BinaryFilePath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			} else if err != nil {
+				t.Errorf("BinaryFilePath(%q).Validate() returned unexpected error: %v", tt.path, err)
 			}
 		})
 	}
@@ -220,7 +220,7 @@ func TestBinaryFilePath_String(t *testing.T) {
 	}
 }
 
-func TestCacheDirPath_IsValid(t *testing.T) {
+func TestCacheDirPath_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -240,23 +240,23 @@ func TestCacheDirPath_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.path.IsValid()
-			if isValid != tt.want {
-				t.Errorf("CacheDirPath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			err := tt.path.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("CacheDirPath(%q).Validate() valid = %v, want %v", tt.path, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("CacheDirPath(%q).IsValid() returned no errors, want error", tt.path)
+				if err == nil {
+					t.Fatalf("CacheDirPath(%q).Validate() returned nil, want error", tt.path)
 				}
-				if !errors.Is(errs[0], ErrInvalidCacheDirPath) {
-					t.Errorf("error should wrap ErrInvalidCacheDirPath, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidCacheDirPath) {
+					t.Errorf("error should wrap ErrInvalidCacheDirPath, got: %v", err)
 				}
 				var cdpErr *InvalidCacheDirPathError
-				if !errors.As(errs[0], &cdpErr) {
-					t.Errorf("error should be *InvalidCacheDirPathError, got: %T", errs[0])
+				if !errors.As(err, &cdpErr) {
+					t.Errorf("error should be *InvalidCacheDirPathError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("CacheDirPath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			} else if err != nil {
+				t.Errorf("CacheDirPath(%q).Validate() returned unexpected error: %v", tt.path, err)
 			}
 		})
 	}
@@ -294,7 +294,7 @@ func TestColorScheme_String(t *testing.T) {
 	}
 }
 
-func TestIncludeEntry_IsValid(t *testing.T) {
+func TestIncludeEntry_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -354,32 +354,32 @@ func TestIncludeEntry_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.entry.IsValid()
-			if isValid != tt.want {
-				t.Errorf("IncludeEntry.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.entry.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("IncludeEntry.Validate() valid = %v, want %v", err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("IncludeEntry.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("IncludeEntry.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidIncludeEntry) {
-					t.Errorf("error should wrap ErrInvalidIncludeEntry, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidIncludeEntry) {
+					t.Errorf("error should wrap ErrInvalidIncludeEntry, got: %v", err)
 				}
 				var entryErr *InvalidIncludeEntryError
-				if !errors.As(errs[0], &entryErr) {
-					t.Fatalf("error should be *InvalidIncludeEntryError, got: %T", errs[0])
+				if !errors.As(err, &entryErr) {
+					t.Fatalf("error should be *InvalidIncludeEntryError, got: %T", err)
 				}
 				if len(entryErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(entryErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("IncludeEntry.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("IncludeEntry.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestUIConfig_IsValid(t *testing.T) {
+func TestUIConfig_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -414,32 +414,32 @@ func TestUIConfig_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.cfg.IsValid()
-			if isValid != tt.want {
-				t.Errorf("UIConfig.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.cfg.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("UIConfig.Validate() valid = %v, want %v", err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("UIConfig.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("UIConfig.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidUIConfig) {
-					t.Errorf("error should wrap ErrInvalidUIConfig, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidUIConfig) {
+					t.Errorf("error should wrap ErrInvalidUIConfig, got: %v", err)
 				}
 				var cfgErr *InvalidUIConfigError
-				if !errors.As(errs[0], &cfgErr) {
-					t.Fatalf("error should be *InvalidUIConfigError, got: %T", errs[0])
+				if !errors.As(err, &cfgErr) {
+					t.Fatalf("error should be *InvalidUIConfigError, got: %T", err)
 				}
 				if len(cfgErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("UIConfig.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("UIConfig.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestAutoProvisionConfig_IsValid(t *testing.T) {
+func TestAutoProvisionConfig_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -500,32 +500,32 @@ func TestAutoProvisionConfig_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.cfg.IsValid()
-			if isValid != tt.want {
-				t.Errorf("AutoProvisionConfig.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.cfg.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("AutoProvisionConfig.Validate() valid = %v, want %v", err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("AutoProvisionConfig.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("AutoProvisionConfig.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidAutoProvisionConfig) {
-					t.Errorf("error should wrap ErrInvalidAutoProvisionConfig, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidAutoProvisionConfig) {
+					t.Errorf("error should wrap ErrInvalidAutoProvisionConfig, got: %v", err)
 				}
 				var cfgErr *InvalidAutoProvisionConfigError
-				if !errors.As(errs[0], &cfgErr) {
-					t.Fatalf("error should be *InvalidAutoProvisionConfigError, got: %T", errs[0])
+				if !errors.As(err, &cfgErr) {
+					t.Fatalf("error should be *InvalidAutoProvisionConfigError, got: %T", err)
 				}
 				if len(cfgErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("AutoProvisionConfig.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("AutoProvisionConfig.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestContainerConfig_IsValid(t *testing.T) {
+func TestContainerConfig_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -560,29 +560,29 @@ func TestContainerConfig_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.cfg.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ContainerConfig.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.cfg.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ContainerConfig.Validate() valid = %v, want %v", err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ContainerConfig.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("ContainerConfig.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidContainerConfig) {
-					t.Errorf("error should wrap ErrInvalidContainerConfig, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidContainerConfig) {
+					t.Errorf("error should wrap ErrInvalidContainerConfig, got: %v", err)
 				}
 				var cfgErr *InvalidContainerConfigError
-				if !errors.As(errs[0], &cfgErr) {
-					t.Fatalf("error should be *InvalidContainerConfigError, got: %T", errs[0])
+				if !errors.As(err, &cfgErr) {
+					t.Fatalf("error should be *InvalidContainerConfigError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ContainerConfig.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("ContainerConfig.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestConfig_IsValid(t *testing.T) {
+func TestConfig_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -658,26 +658,26 @@ func TestConfig_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.cfg.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Config.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.cfg.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("Config.Validate() valid = %v, want %v", err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("Config.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("Config.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidConfig) {
-					t.Errorf("error should wrap ErrInvalidConfig, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidConfig) {
+					t.Errorf("error should wrap ErrInvalidConfig, got: %v", err)
 				}
 				var cfgErr *InvalidConfigError
-				if !errors.As(errs[0], &cfgErr) {
-					t.Fatalf("error should be *InvalidConfigError, got: %T", errs[0])
+				if !errors.As(err, &cfgErr) {
+					t.Fatalf("error should be *InvalidConfigError, got: %T", err)
 				}
 				if len(cfgErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("Config.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("Config.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

@@ -32,7 +32,7 @@ func TestTextAlign_String(t *testing.T) {
 	}
 }
 
-func TestTextAlign_IsValid(t *testing.T) {
+func TestTextAlign_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -52,23 +52,23 @@ func TestTextAlign_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.a), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.a.IsValid()
-			if isValid != tt.want {
-				t.Errorf("TextAlign(%q).IsValid() = %v, want %v", tt.a, isValid, tt.want)
+			err := tt.a.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("TextAlign(%q).Validate() err = %v, wantValid %v", tt.a, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("TextAlign(%q).IsValid() returned no errors, want error", tt.a)
+				if err == nil {
+					t.Fatalf("TextAlign(%q).Validate() returned nil, want error", tt.a)
 				}
-				if !errors.Is(errs[0], ErrInvalidTextAlign) {
-					t.Errorf("error should wrap ErrInvalidTextAlign, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidTextAlign) {
+					t.Errorf("error should wrap ErrInvalidTextAlign, got: %v", err)
 				}
 				var taErr *InvalidTextAlignError
-				if !errors.As(errs[0], &taErr) {
-					t.Errorf("error should be *InvalidTextAlignError, got: %T", errs[0])
+				if !errors.As(err, &taErr) {
+					t.Errorf("error should be *InvalidTextAlignError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("TextAlign(%q).IsValid() returned unexpected errors: %v", tt.a, errs)
+			} else if err != nil {
+				t.Errorf("TextAlign(%q).Validate() returned unexpected error: %v", tt.a, err)
 			}
 		})
 	}

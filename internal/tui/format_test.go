@@ -429,7 +429,7 @@ func TestFormatType_String(t *testing.T) {
 	}
 }
 
-func TestFormatType_IsValid(t *testing.T) {
+func TestFormatType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -449,19 +449,19 @@ func TestFormatType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.ft), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.ft.IsValid()
-			if isValid != tt.want {
-				t.Errorf("FormatType(%q).IsValid() = %v, want %v", tt.ft, isValid, tt.want)
+			err := tt.ft.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("FormatType(%q).Validate() err = %v, wantValid %v", tt.ft, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("FormatType(%q).IsValid() returned no errors, want error", tt.ft)
+				if err == nil {
+					t.Fatalf("FormatType(%q).Validate() returned nil, want error", tt.ft)
 				}
-				if !errors.Is(errs[0], ErrInvalidFormatType) {
-					t.Errorf("error should wrap ErrInvalidFormatType, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidFormatType) {
+					t.Errorf("error should wrap ErrInvalidFormatType, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("FormatType(%q).IsValid() returned unexpected errors: %v", tt.ft, errs)
+			} else if err != nil {
+				t.Errorf("FormatType(%q).Validate() returned unexpected error: %v", tt.ft, err)
 			}
 		})
 	}

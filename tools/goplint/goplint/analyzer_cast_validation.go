@@ -13,7 +13,7 @@ import (
 )
 
 // inspectUnvalidatedCasts walks a function body to find type conversions from
-// raw primitives to DDD Value Types where IsValid() is not called on the
+// raw primitives to DDD Value Types where Validate() is not called on the
 // result variable in the same function. Skips test files, ignored functions,
 // constant-source casts, and auto-skip contexts (map keys, comparisons,
 // fmt.* arguments).
@@ -74,8 +74,8 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 			return true
 		}
 
-		// Detect IsValid() calls: x.IsValid()
-		if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "IsValid" {
+		// Detect Validate() calls: x.Validate()
+		if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Validate" {
 			if ident, ok := sel.X.(*ast.Ident); ok {
 				validatedVars[ident.Name] = true
 			}
@@ -93,9 +93,9 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 			return true
 		}
 
-		// Target type must have IsValid() method — i.e., it's a DDD Value Type.
+		// Target type must have Validate() method — i.e., it's a DDD Value Type.
 		targetType := tv.Type
-		if !hasIsValidMethod(targetType) {
+		if !hasValidateMethod(targetType) {
 			return true
 		}
 
@@ -176,7 +176,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 			continue
 		}
 
-		msg := fmt.Sprintf("type conversion to %s from non-constant without IsValid() check", ac.typeName)
+		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", ac.typeName)
 		findingID := StableFindingID(CategoryUnvalidatedCast, qualFuncName, ac.typeName, "assigned", strconv.Itoa(ac.castIndex))
 		if bl.ContainsFinding(CategoryUnvalidatedCast, findingID, msg) {
 			continue
@@ -192,7 +192,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 			continue
 		}
 
-		msg := fmt.Sprintf("type conversion to %s from non-constant without IsValid() check", uc.typeName)
+		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", uc.typeName)
 		findingID := StableFindingID(CategoryUnvalidatedCast, qualFuncName, uc.typeName, "unassigned", strconv.Itoa(uc.castIndex))
 		if bl.ContainsFinding(CategoryUnvalidatedCast, findingID, msg) {
 			continue
@@ -255,10 +255,10 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node)
 		}
 	}
 
-	// Chained IsValid: DddType(x).IsValid() — validated directly on cast result.
+	// Chained Validate: DddType(x).Validate() — validated directly on cast result.
 	// The parent of the type conversion CallExpr is the SelectorExpr that
-	// forms the .IsValid() method call.
-	if sel, ok := parent.(*ast.SelectorExpr); ok && sel.Sel.Name == "IsValid" {
+	// forms the .Validate() method call.
+	if sel, ok := parent.(*ast.SelectorExpr); ok && sel.Sel.Name == "Validate" {
 		return true
 	}
 
@@ -290,7 +290,7 @@ func isFmtCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 
 // isErrorMessageExpr reports whether expr is a call that produces display
 // text (error messages, formatted strings) where domain validation via
-// IsValid() would be meaningless.
+// Validate() would be meaningless.
 //
 // Recognized patterns:
 //   - x.Error() — error interface method, returns formatted message

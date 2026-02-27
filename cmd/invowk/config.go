@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -199,15 +198,15 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 	switch key {
 	case "container_engine":
 		ce := config.ContainerEngine(value)
-		if isValid, errs := ce.IsValid(); !isValid {
-			return errors.Join(errs...)
+		if err := ce.Validate(); err != nil {
+			return err
 		}
 		cfg.ContainerEngine = ce
 
 	case "default_runtime":
 		rm := config.RuntimeMode(value)
-		if isValid, errs := rm.IsValid(); !isValid {
-			return errors.Join(errs...)
+		if err := rm.Validate(); err != nil {
+			return err
 		}
 		cfg.DefaultRuntime = rm
 
@@ -219,8 +218,8 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 
 	case "ui.color_scheme":
 		cs := config.ColorScheme(value)
-		if isValid, errs := cs.IsValid(); !isValid {
-			return errors.Join(errs...)
+		if err := cs.Validate(); err != nil {
+			return err
 		}
 		cfg.UI.ColorScheme = cs
 

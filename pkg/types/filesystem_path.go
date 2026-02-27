@@ -27,13 +27,15 @@ type (
 // String returns the string representation of the FilesystemPath.
 func (p FilesystemPath) String() string { return string(p) }
 
-// IsValid returns whether the FilesystemPath is valid.
+// Validate returns an error if the FilesystemPath is invalid.
 // A valid path must be non-empty and not whitespace-only.
-func (p FilesystemPath) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (p FilesystemPath) Validate() error {
 	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidFilesystemPathError{Value: p}}
+		return &InvalidFilesystemPathError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidFilesystemPathError.

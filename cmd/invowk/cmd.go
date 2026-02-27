@@ -27,11 +27,11 @@ const (
 
 var (
 	// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
-	// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
 	ErrInvalidArgErrType = errors.New("invalid argument error type") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
 
 	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
-	// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
 	ErrInvalidDependencyMessage = errors.New("invalid dependency message") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
 )
 
@@ -137,24 +137,24 @@ func (t ArgErrType) String() string {
 	}
 }
 
-// IsValid returns whether the ArgErrType is one of the defined argument error types,
-// and a list of validation errors if it is not.
-func (t ArgErrType) IsValid() (bool, []error) {
+// Validate returns nil if the ArgErrType is one of the defined argument error types,
+// or a validation error if it is not.
+func (t ArgErrType) Validate() error {
 	switch t {
 	case ArgErrMissingRequired, ArgErrTooMany, ArgErrInvalidValue:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidArgErrTypeError{Value: t}}
+		return &InvalidArgErrTypeError{Value: t}
 	}
 }
 
-// IsValid returns whether the DependencyMessage is non-empty and non-whitespace,
-// and a list of validation errors if it is not.
-func (m DependencyMessage) IsValid() (bool, []error) {
+// Validate returns nil if the DependencyMessage is non-empty and non-whitespace,
+// or a validation error if it is not.
+func (m DependencyMessage) Validate() error {
 	if strings.TrimSpace(string(m)) == "" {
-		return false, []error{&InvalidDependencyMessageError{Value: m}}
+		return &InvalidDependencyMessageError{Value: m}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the DependencyMessage.

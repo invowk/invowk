@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestModuleShortName_IsValid(t *testing.T) {
+func TestModuleShortName_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -43,23 +43,23 @@ func TestModuleShortName_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.shortName.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ModuleShortName(%q).IsValid() = %v, want %v", tt.shortName, isValid, tt.want)
+			err := tt.shortName.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ModuleShortName(%q).Validate() error = %v, wantValid %v", tt.shortName, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ModuleShortName(%q).IsValid() returned no errors, want error", tt.shortName)
+				if err == nil {
+					t.Fatalf("ModuleShortName(%q).Validate() returned nil, want error", tt.shortName)
 				}
-				if !errors.Is(errs[0], ErrInvalidModuleShortName) {
-					t.Errorf("error should wrap ErrInvalidModuleShortName, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidModuleShortName) {
+					t.Errorf("error should wrap ErrInvalidModuleShortName, got: %v", err)
 				}
 				var snErr *InvalidModuleShortNameError
-				if !errors.As(errs[0], &snErr) {
-					t.Errorf("error should be *InvalidModuleShortNameError, got: %T", errs[0])
+				if !errors.As(err, &snErr) {
+					t.Errorf("error should be *InvalidModuleShortNameError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ModuleShortName(%q).IsValid() returned unexpected errors: %v", tt.shortName, errs)
+			} else if err != nil {
+				t.Errorf("ModuleShortName(%q).Validate() returned unexpected error: %v", tt.shortName, err)
 			}
 		})
 	}

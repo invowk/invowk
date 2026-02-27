@@ -52,17 +52,17 @@ type (
 // String returns the string representation of the TUIServerURL.
 func (u TUIServerURL) String() string { return string(u) }
 
-// IsValid returns whether the TUIServerURL is valid.
+// Validate returns nil if the TUIServerURL is valid, or a validation error if not.
 // The zero value ("") is valid. Non-zero values must start with "http://" or "https://".
-func (u TUIServerURL) IsValid() (bool, []error) {
+func (u TUIServerURL) Validate() error {
 	if u == "" {
-		return true, nil
+		return nil
 	}
 	s := string(u)
 	if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
-		return false, []error{&InvalidTUIServerURLError{Value: u}}
+		return &InvalidTUIServerURLError{Value: u}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidTUIServerURLError.
@@ -76,16 +76,16 @@ func (e *InvalidTUIServerURLError) Unwrap() error { return ErrInvalidTUIServerUR
 // String returns the string representation of the TUIServerToken.
 func (t TUIServerToken) String() string { return string(t) }
 
-// IsValid returns whether the TUIServerToken is valid.
+// Validate returns nil if the TUIServerToken is valid, or a validation error if not.
 // The zero value ("") is valid. Non-zero values must not be whitespace-only.
-func (t TUIServerToken) IsValid() (bool, []error) {
+func (t TUIServerToken) Validate() error {
 	if t == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(t)) == "" {
-		return false, []error{&InvalidTUIServerTokenError{Value: t}}
+		return &InvalidTUIServerTokenError{Value: t}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidTUIServerTokenError.

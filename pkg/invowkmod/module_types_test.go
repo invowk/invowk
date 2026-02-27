@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestModuleAlias_IsValid(t *testing.T) {
+func TestModuleAlias_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -31,23 +31,23 @@ func TestModuleAlias_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.alias.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ModuleAlias(%q).IsValid() = %v, want %v", tt.alias, isValid, tt.want)
+			err := tt.alias.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ModuleAlias(%q).Validate() error = %v, wantValid %v", tt.alias, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ModuleAlias(%q).IsValid() returned no errors, want error", tt.alias)
+				if err == nil {
+					t.Fatalf("ModuleAlias(%q).Validate() returned nil, want error", tt.alias)
 				}
-				if !errors.Is(errs[0], ErrInvalidModuleAlias) {
-					t.Errorf("error should wrap ErrInvalidModuleAlias, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidModuleAlias) {
+					t.Errorf("error should wrap ErrInvalidModuleAlias, got: %v", err)
 				}
 				var aliasErr *InvalidModuleAliasError
-				if !errors.As(errs[0], &aliasErr) {
-					t.Errorf("error should be *InvalidModuleAliasError, got: %T", errs[0])
+				if !errors.As(err, &aliasErr) {
+					t.Errorf("error should be *InvalidModuleAliasError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ModuleAlias(%q).IsValid() returned unexpected errors: %v", tt.alias, errs)
+			} else if err != nil {
+				t.Errorf("ModuleAlias(%q).Validate() returned unexpected error: %v", tt.alias, err)
 			}
 		})
 	}
@@ -61,7 +61,7 @@ func TestModuleAlias_String(t *testing.T) {
 	}
 }
 
-func TestModuleNamespace_IsValid(t *testing.T) {
+func TestModuleNamespace_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -80,23 +80,23 @@ func TestModuleNamespace_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.ns.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ModuleNamespace(%q).IsValid() = %v, want %v", tt.ns, isValid, tt.want)
+			err := tt.ns.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ModuleNamespace(%q).Validate() error = %v, wantValid %v", tt.ns, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ModuleNamespace(%q).IsValid() returned no errors, want error", tt.ns)
+				if err == nil {
+					t.Fatalf("ModuleNamespace(%q).Validate() returned nil, want error", tt.ns)
 				}
-				if !errors.Is(errs[0], ErrInvalidModuleNamespace) {
-					t.Errorf("error should wrap ErrInvalidModuleNamespace, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidModuleNamespace) {
+					t.Errorf("error should wrap ErrInvalidModuleNamespace, got: %v", err)
 				}
 				var nsErr *InvalidModuleNamespaceError
-				if !errors.As(errs[0], &nsErr) {
-					t.Errorf("error should be *InvalidModuleNamespaceError, got: %T", errs[0])
+				if !errors.As(err, &nsErr) {
+					t.Errorf("error should be *InvalidModuleNamespaceError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ModuleNamespace(%q).IsValid() returned unexpected errors: %v", tt.ns, errs)
+			} else if err != nil {
+				t.Errorf("ModuleNamespace(%q).Validate() returned unexpected error: %v", tt.ns, err)
 			}
 		})
 	}
@@ -110,7 +110,7 @@ func TestModuleNamespace_String(t *testing.T) {
 	}
 }
 
-func TestSubdirectoryPath_IsValid(t *testing.T) {
+func TestSubdirectoryPath_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -138,23 +138,23 @@ func TestSubdirectoryPath_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.path.IsValid()
-			if isValid != tt.want {
-				t.Errorf("SubdirectoryPath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			err := tt.path.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("SubdirectoryPath(%q).Validate() error = %v, wantValid %v", tt.path, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("SubdirectoryPath(%q).IsValid() returned no errors, want error", tt.path)
+				if err == nil {
+					t.Fatalf("SubdirectoryPath(%q).Validate() returned nil, want error", tt.path)
 				}
-				if !errors.Is(errs[0], ErrInvalidSubdirectoryPath) {
-					t.Errorf("error should wrap ErrInvalidSubdirectoryPath, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSubdirectoryPath) {
+					t.Errorf("error should wrap ErrInvalidSubdirectoryPath, got: %v", err)
 				}
 				var pathErr *InvalidSubdirectoryPathError
-				if !errors.As(errs[0], &pathErr) {
-					t.Errorf("error should be *InvalidSubdirectoryPathError, got: %T", errs[0])
+				if !errors.As(err, &pathErr) {
+					t.Errorf("error should be *InvalidSubdirectoryPathError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("SubdirectoryPath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			} else if err != nil {
+				t.Errorf("SubdirectoryPath(%q).Validate() returned unexpected error: %v", tt.path, err)
 			}
 		})
 	}

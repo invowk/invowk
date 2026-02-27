@@ -27,13 +27,13 @@ func TestSourceID_String(t *testing.T) {
 	}
 }
 
-func TestSourceID_IsValid(t *testing.T) {
+func TestSourceID_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		value   SourceID
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"invowkfile constant", SourceIDInvowkfile, true, false},
@@ -57,19 +57,19 @@ func TestSourceID_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.want {
-				t.Errorf("SourceID(%q).IsValid() = %v, want %v", tt.value, isValid, tt.want)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("SourceID(%q).Validate() error = %v, wantOK %v", tt.value, err, tt.wantOK)
 			}
 
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Error("expected validation errors, got none")
-				} else if !errors.Is(errs[0], ErrInvalidSourceID) {
-					t.Errorf("expected errors.Is(err, ErrInvalidSourceID), got %v", errs[0])
+				if err == nil {
+					t.Error("expected validation error, got nil")
+				} else if !errors.Is(err, ErrInvalidSourceID) {
+					t.Errorf("expected errors.Is(err, ErrInvalidSourceID), got %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("unexpected validation errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("unexpected validation error: %v", err)
 			}
 		})
 	}

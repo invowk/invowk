@@ -249,14 +249,14 @@ func (e *InvalidRuntimeTypeError) Unwrap() error {
 // String returns the string representation of the RuntimeType.
 func (rt RuntimeType) String() string { return string(rt) }
 
-// IsValid returns whether the RuntimeType is one of the defined runtime types,
-// and a list of validation errors if it is not.
-func (rt RuntimeType) IsValid() (bool, []error) {
+// Validate returns nil if the RuntimeType is one of the defined runtime types,
+// or a validation error if it is not.
+func (rt RuntimeType) Validate() error {
 	switch rt {
 	case RuntimeTypeNative, RuntimeTypeVirtual, RuntimeTypeContainer:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidRuntimeTypeError{Value: rt}}
+		return &InvalidRuntimeTypeError{Value: rt}
 	}
 }
 
@@ -268,13 +268,13 @@ func (e *InvalidExecutionIDError) Error() string {
 // Unwrap returns ErrInvalidExecutionID so callers can use errors.Is for programmatic detection.
 func (e *InvalidExecutionIDError) Unwrap() error { return ErrInvalidExecutionID }
 
-// IsValid returns whether the ExecutionID matches the expected nanoseconds-counter format,
-// and a list of validation errors if it does not.
-func (id ExecutionID) IsValid() (bool, []error) {
+// Validate returns nil if the ExecutionID matches the expected nanoseconds-counter format,
+// or a validation error if it does not.
+func (id ExecutionID) Validate() error {
 	if !executionIDPattern.MatchString(string(id)) {
-		return false, []error{&InvalidExecutionIDError{Value: id}}
+		return &InvalidExecutionIDError{Value: id}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ExecutionID.
@@ -324,21 +324,21 @@ func (t TUIContext) IsConfigured() bool {
 	return t.ServerURL != ""
 }
 
-// IsValid returns whether the TUIContext has valid fields.
-// It delegates to ServerURL.IsValid() and ServerToken.IsValid().
+// Validate returns nil if the TUIContext has valid fields, or a validation error if not.
+// It delegates to ServerURL.Validate() and ServerToken.Validate().
 // Both fields are zero-valid, so a zero-value TUIContext is valid.
-func (t TUIContext) IsValid() (bool, []error) {
+func (t TUIContext) Validate() error {
 	var errs []error
-	if valid, fieldErrs := t.ServerURL.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := t.ServerURL.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := t.ServerToken.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := t.ServerToken.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidTUIContextError{FieldErrors: errs}}
+		return &InvalidTUIContextError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidEnvContextError.
@@ -349,35 +349,35 @@ func (e *InvalidEnvContextError) Error() string {
 // Unwrap returns ErrInvalidEnvContext for errors.Is() compatibility.
 func (e *InvalidEnvContextError) Unwrap() error { return ErrInvalidEnvContext }
 
-// IsValid returns whether the EnvContext has valid fields.
+// Validate returns nil if the EnvContext has valid fields, or a validation error if not.
 // It validates InheritModeOverride (when non-empty), each element of
 // InheritAllowOverride and InheritDenyOverride, and Cwd (when non-empty).
-func (ec EnvContext) IsValid() (bool, []error) {
+func (ec EnvContext) Validate() error {
 	var errs []error
 	if ec.InheritModeOverride != "" {
-		if valid, fieldErrs := ec.InheritModeOverride.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := ec.InheritModeOverride.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	for _, name := range ec.InheritAllowOverride {
-		if valid, fieldErrs := name.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := name.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	for _, name := range ec.InheritDenyOverride {
-		if valid, fieldErrs := name.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := name.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if ec.Cwd != "" {
-		if valid, fieldErrs := ec.Cwd.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := ec.Cwd.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidEnvContextError{FieldErrors: errs}}
+		return &InvalidEnvContextError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // NewExecutionContext creates a new execution context with the provided Go context.

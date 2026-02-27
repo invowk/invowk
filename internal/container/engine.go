@@ -225,13 +225,15 @@ func (e *InvalidEngineTypeError) Unwrap() error {
 // String returns the string representation of the ContainerID.
 func (c ContainerID) String() string { return string(c) }
 
-// IsValid returns whether the ContainerID is valid.
+// Validate returns an error if the ContainerID is invalid.
 // A valid ContainerID is non-empty and not whitespace-only.
-func (c ContainerID) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (c ContainerID) Validate() error {
 	if strings.TrimSpace(string(c)) == "" {
-		return false, []error{&InvalidContainerIDError{Value: c}}
+		return &InvalidContainerIDError{Value: c}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidContainerIDError.
@@ -245,13 +247,15 @@ func (e *InvalidContainerIDError) Unwrap() error { return ErrInvalidContainerID 
 // String returns the string representation of the ImageTag.
 func (t ImageTag) String() string { return string(t) }
 
-// IsValid returns whether the ImageTag is valid.
+// Validate returns an error if the ImageTag is invalid.
 // A valid ImageTag is non-empty and not whitespace-only.
-func (t ImageTag) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (t ImageTag) Validate() error {
 	if strings.TrimSpace(string(t)) == "" {
-		return false, []error{&InvalidImageTagError{Value: t}}
+		return &InvalidImageTagError{Value: t}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidImageTagError.
@@ -265,16 +269,16 @@ func (e *InvalidImageTagError) Unwrap() error { return ErrInvalidImageTag }
 // String returns the string representation of the ContainerName.
 func (n ContainerName) String() string { return string(n) }
 
-// IsValid returns whether the ContainerName is valid.
+// Validate returns an error if the ContainerName is invalid.
 // The zero value ("") is valid (means no explicit name). Non-zero: not whitespace-only.
-func (n ContainerName) IsValid() (bool, []error) {
+func (n ContainerName) Validate() error {
 	if n == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(n)) == "" {
-		return false, []error{&InvalidContainerNameError{Value: n}}
+		return &InvalidContainerNameError{Value: n}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidContainerNameError.
@@ -288,13 +292,15 @@ func (e *InvalidContainerNameError) Unwrap() error { return ErrInvalidContainerN
 // String returns the string representation of the HostMapping.
 func (h HostMapping) String() string { return string(h) }
 
-// IsValid returns whether the HostMapping is valid.
+// Validate returns an error if the HostMapping is invalid.
 // A valid HostMapping is non-empty and not whitespace-only.
-func (h HostMapping) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (h HostMapping) Validate() error {
 	if strings.TrimSpace(string(h)) == "" {
-		return false, []error{&InvalidHostMappingError{Value: h}}
+		return &InvalidHostMappingError{Value: h}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidHostMappingError.
@@ -313,28 +319,28 @@ func (e *InvalidBuildOptionsError) Error() string {
 // Unwrap returns ErrInvalidBuildOptions for errors.Is() compatibility.
 func (e *InvalidBuildOptionsError) Unwrap() error { return ErrInvalidBuildOptions }
 
-// IsValid returns whether all typed fields of the BuildOptions are valid,
-// and a combined list of validation errors from ContextDir, Dockerfile, and Tag.
+// Validate returns an error if any typed field of the BuildOptions is invalid.
+// Validates ContextDir, Dockerfile, and Tag.
 // Dockerfile and Tag use zero-value-is-valid semantics: empty means "use default".
-func (o BuildOptions) IsValid() (bool, []error) {
+func (o BuildOptions) Validate() error {
 	var errs []error
-	if valid, fieldErrs := o.ContextDir.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := o.ContextDir.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if o.Dockerfile != "" {
-		if valid, fieldErrs := o.Dockerfile.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := o.Dockerfile.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if o.Tag != "" {
-		if valid, fieldErrs := o.Tag.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := o.Tag.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidBuildOptionsError{FieldErrors: errs}}
+		return &InvalidBuildOptionsError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidRunOptionsError.
@@ -345,57 +351,55 @@ func (e *InvalidRunOptionsError) Error() string {
 // Unwrap returns ErrInvalidRunOptions for errors.Is() compatibility.
 func (e *InvalidRunOptionsError) Unwrap() error { return ErrInvalidRunOptions }
 
-// IsValid returns whether all typed fields of the RunOptions are valid,
-// and a combined list of validation errors from Image, WorkDir, Name, ExtraHosts,
-// Volumes, and Ports.
-func (o RunOptions) IsValid() (bool, []error) {
+// Validate returns an error if any typed field of the RunOptions is invalid.
+// Validates Image, WorkDir, Name, ExtraHosts, Volumes, and Ports.
+func (o RunOptions) Validate() error {
 	var errs []error
-	if valid, fieldErrs := o.Image.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := o.Image.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if o.WorkDir != "" {
-		if valid, fieldErrs := o.WorkDir.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := o.WorkDir.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	if valid, fieldErrs := o.Name.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := o.Name.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	for _, h := range o.ExtraHosts {
-		if valid, fieldErrs := h.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := h.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	for _, v := range o.Volumes {
-		if valid, fieldErrs := v.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := v.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	for _, p := range o.Ports {
-		if valid, fieldErrs := p.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := p.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidRunOptionsError{FieldErrors: errs}}
+		return &InvalidRunOptionsError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the EngineType.
 func (et EngineType) String() string { return string(et) }
 
-// IsValid returns whether the EngineType is one of the defined engine types,
-// and a list of validation errors if it is not.
-func (et EngineType) IsValid() (bool, []error) {
+// Validate returns an error if the EngineType is not one of the defined engine types.
+func (et EngineType) Validate() error {
 	switch et {
 	case EngineTypePodman, EngineTypeDocker:
-		return true, nil
+		return nil
 	case EngineTypeAny:
 		// EngineTypeAny is only valid in error reporting contexts, not as an engine type
-		return false, []error{&InvalidEngineTypeError{Value: et}}
+		return &InvalidEngineTypeError{Value: et}
 	default:
-		return false, []error{&InvalidEngineTypeError{Value: et}}
+		return &InvalidEngineTypeError{Value: et}
 	}
 }
 
@@ -403,8 +407,8 @@ func (et EngineType) IsValid() (bool, []error) {
 // The returned engine is automatically wrapped with sandbox awareness
 // when running inside Flatpak or Snap sandboxes.
 func NewEngine(preferredType EngineType) (Engine, error) {
-	if isValid, errs := preferredType.IsValid(); !isValid {
-		return nil, errors.Join(errs...)
+	if err := preferredType.Validate(); err != nil {
+		return nil, err
 	}
 
 	var engine Engine

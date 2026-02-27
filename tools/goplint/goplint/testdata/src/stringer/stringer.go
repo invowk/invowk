@@ -2,18 +2,31 @@
 
 package stringer
 
-// CommandName has both IsValid and String — no diagnostic.
+import "fmt"
+
+// CommandName has both Validate and String — no diagnostic.
 type CommandName string
 
-func (c CommandName) IsValid() (bool, []error) { return c != "", nil }
-func (c CommandName) String() string            { return string(c) }
+func (c CommandName) Validate() error {
+	if c == "" {
+		return fmt.Errorf("invalid command name")
+	}
+	return nil
+}
 
-// MissingStringer has IsValid but no String.
+func (c CommandName) String() string { return string(c) }
+
+// MissingStringer has Validate but no String.
 type MissingStringer string // want `named type stringer\.MissingStringer has no String\(\) method`
 
-func (m MissingStringer) IsValid() (bool, []error) { return m != "", nil }
+func (m MissingStringer) Validate() error {
+	if m == "" {
+		return fmt.Errorf("invalid")
+	}
+	return nil
+}
 
-// MissingBoth has neither IsValid nor String.
+// MissingBoth has neither Validate nor String.
 type MissingBoth int // want `named type stringer\.MissingBoth has no String\(\) method`
 
 // PointerReceiver uses *T — should still be recognized.

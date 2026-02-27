@@ -95,14 +95,14 @@ func (s SourceID) String() string {
 	return string(s)
 }
 
-// IsValid returns whether the SourceID matches the expected format (starts with a letter,
+// Validate returns nil if the SourceID matches the expected format (starts with a letter,
 // contains only letters, digits, dots, underscores, or hyphens),
-// and a list of validation errors if it does not.
-func (s SourceID) IsValid() (bool, []error) {
+// or an error wrapping ErrInvalidSourceID if it does not.
+func (s SourceID) Validate() error {
 	if !sourceIDPattern.MatchString(string(s)) {
-		return false, []error{&InvalidSourceIDError{Value: s}}
+		return &InvalidSourceIDError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // NewDiscoveredCommandSet creates a new DiscoveredCommandSet with initialized maps.

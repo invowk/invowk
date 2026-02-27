@@ -7,15 +7,14 @@ import (
 	"testing"
 )
 
-func TestPortMapping_IsValid(t *testing.T) {
+func TestPortMapping_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		mapping  PortMapping
-		want     bool
-		wantErr  bool
-		wantErrs int // expected number of field errors (0 means don't check count)
+		name    string
+		mapping PortMapping
+		want    bool
+		wantErr bool
 	}{
 		{
 			"all valid fields with TCP",
@@ -24,7 +23,7 @@ func TestPortMapping_IsValid(t *testing.T) {
 				ContainerPort: 80,
 				Protocol:      PortProtocolTCP,
 			},
-			true, false, 0,
+			true, false,
 		},
 		{
 			"all valid fields with UDP",
@@ -33,7 +32,7 @@ func TestPortMapping_IsValid(t *testing.T) {
 				ContainerPort: 53,
 				Protocol:      PortProtocolUDP,
 			},
-			true, false, 0,
+			true, false,
 		},
 		{
 			"valid with empty protocol (defaults to TCP)",
@@ -42,7 +41,7 @@ func TestPortMapping_IsValid(t *testing.T) {
 				ContainerPort: 3000,
 				Protocol:      "",
 			},
-			true, false, 0,
+			true, false,
 		},
 		{
 			"invalid host port (zero)",
@@ -51,7 +50,7 @@ func TestPortMapping_IsValid(t *testing.T) {
 				ContainerPort: 80,
 				Protocol:      PortProtocolTCP,
 			},
-			false, true, 1,
+			false, true,
 		},
 		{
 			"invalid container port (zero)",
@@ -60,7 +59,7 @@ func TestPortMapping_IsValid(t *testing.T) {
 				ContainerPort: 0,
 				Protocol:      PortProtocolTCP,
 			},
-			false, true, 1,
+			false, true,
 		},
 		{
 			"invalid protocol",
@@ -69,7 +68,7 @@ func TestPortMapping_IsValid(t *testing.T) {
 				ContainerPort: 80,
 				Protocol:      PortProtocol("sctp"),
 			},
-			false, true, 1,
+			false, true,
 		},
 		{
 			"multiple invalid fields",
@@ -78,32 +77,28 @@ func TestPortMapping_IsValid(t *testing.T) {
 				ContainerPort: 0,
 				Protocol:      PortProtocol("bogus"),
 			},
-			false, true, 3,
+			false, true,
 		},
 		{
 			"zero value (all fields zero/empty)",
 			PortMapping{},
-			false, true, 2, // HostPort and ContainerPort invalid; Protocol "" is valid
+			false, true, // HostPort and ContainerPort invalid; Protocol "" is valid
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.mapping.IsValid()
-			if isValid != tt.want {
-				t.Errorf("PortMapping.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.mapping.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("PortMapping.Validate() error = %v, want valid=%v", err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatal("PortMapping.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatal("PortMapping.Validate() returned nil, want error")
 				}
-				if tt.wantErrs > 0 && len(errs) != tt.wantErrs {
-					t.Errorf("PortMapping.IsValid() returned %d errors, want %d: %v",
-						len(errs), tt.wantErrs, errs)
-				}
-			} else if len(errs) > 0 {
-				t.Errorf("PortMapping.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("PortMapping.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
@@ -150,48 +145,37 @@ func TestPortMapping_String(t *testing.T) {
 	}
 }
 
-func TestPortMapping_IsValid_FieldErrorTypes(t *testing.T) {
+func TestPortMapping_Validate_FieldErrorTypes(t *testing.T) {
 	t.Parallel()
 
-	// Verify that each field error wraps the correct sentinel and has the correct type.
+	// Verify that the joined error wraps the correct sentinels.
 	mapping := PortMapping{
 		HostPort:      0,
 		ContainerPort: 0,
 		Protocol:      PortProtocol("invalid"),
 	}
-	isValid, errs := mapping.IsValid()
-	if isValid {
-		t.Fatal("expected invalid, got valid")
-	}
-	if len(errs) != 3 {
-		t.Fatalf("expected 3 errors (one per invalid field), got %d: %v", len(errs), errs)
+	err := mapping.Validate()
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 
-	// First error: HostPort
-	if !errors.Is(errs[0], ErrInvalidNetworkPort) {
-		t.Errorf("first error should wrap ErrInvalidNetworkPort, got: %v", errs[0])
+	// The joined error should wrap all three sentinels
+	if !errors.Is(err, ErrInvalidNetworkPort) {
+		t.Errorf("error should wrap ErrInvalidNetworkPort, got: %v", err)
 	}
+	if !errors.Is(err, ErrInvalidPortProtocol) {
+		t.Errorf("error should wrap ErrInvalidPortProtocol, got: %v", err)
+	}
+
+	// Verify individual error types via errors.As
 	var npErr *InvalidNetworkPortError
-	if !errors.As(errs[0], &npErr) {
-		t.Errorf("first error should be *InvalidNetworkPortError, got: %T", errs[0])
+	if !errors.As(err, &npErr) {
+		t.Errorf("error should contain *InvalidNetworkPortError, got: %T", err)
 	}
 
-	// Second error: ContainerPort
-	if !errors.Is(errs[1], ErrInvalidNetworkPort) {
-		t.Errorf("second error should wrap ErrInvalidNetworkPort, got: %v", errs[1])
-	}
-	var npErr2 *InvalidNetworkPortError
-	if !errors.As(errs[1], &npErr2) {
-		t.Errorf("second error should be *InvalidNetworkPortError, got: %T", errs[1])
-	}
-
-	// Third error: Protocol
-	if !errors.Is(errs[2], ErrInvalidPortProtocol) {
-		t.Errorf("third error should wrap ErrInvalidPortProtocol, got: %v", errs[2])
-	}
 	var ppErr *InvalidPortProtocolError
-	if !errors.As(errs[2], &ppErr) {
-		t.Errorf("third error should be *InvalidPortProtocolError, got: %T", errs[2])
+	if !errors.As(err, &ppErr) {
+		t.Errorf("error should contain *InvalidPortProtocolError, got: %T", err)
 	}
 }
 
@@ -293,7 +277,7 @@ func TestParsePortMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, errs := ParsePortMapping(tt.portStr)
+			got, err := ParsePortMapping(tt.portStr)
 			if got.HostPort != tt.want.HostPort {
 				t.Errorf("HostPort = %d, want %d", got.HostPort, tt.want.HostPort)
 			}
@@ -304,11 +288,11 @@ func TestParsePortMapping(t *testing.T) {
 				t.Errorf("Protocol = %q, want %q", got.Protocol, tt.want.Protocol)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Error("ParsePortMapping() returned no errors, want error")
+				if err == nil {
+					t.Error("ParsePortMapping() returned nil error, want error")
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ParsePortMapping() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("ParsePortMapping() returned unexpected error: %v", err)
 			}
 		})
 	}

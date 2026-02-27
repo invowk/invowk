@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestDescriptionText_IsValid(t *testing.T) {
+func TestDescriptionText_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -27,23 +27,23 @@ func TestDescriptionText_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.desc.IsValid()
-			if isValid != tt.want {
-				t.Errorf("DescriptionText(%q).IsValid() = %v, want %v", tt.desc, isValid, tt.want)
+			err := tt.desc.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("DescriptionText(%q).Validate() error = %v, wantValid %v", tt.desc, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("DescriptionText(%q).IsValid() returned no errors, want error", tt.desc)
+				if err == nil {
+					t.Fatalf("DescriptionText(%q).Validate() returned nil, want error", tt.desc)
 				}
-				if !errors.Is(errs[0], ErrInvalidDescriptionText) {
-					t.Errorf("error should wrap ErrInvalidDescriptionText, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidDescriptionText) {
+					t.Errorf("error should wrap ErrInvalidDescriptionText, got: %v", err)
 				}
 				var dtErr *InvalidDescriptionTextError
-				if !errors.As(errs[0], &dtErr) {
-					t.Errorf("error should be *InvalidDescriptionTextError, got: %T", errs[0])
+				if !errors.As(err, &dtErr) {
+					t.Errorf("error should be *InvalidDescriptionTextError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("DescriptionText(%q).IsValid() returned unexpected errors: %v", tt.desc, errs)
+			} else if err != nil {
+				t.Errorf("DescriptionText(%q).Validate() returned unexpected error: %v", tt.desc, err)
 			}
 		})
 	}

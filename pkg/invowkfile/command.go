@@ -82,13 +82,15 @@ func (e *InvalidCommandNameError) Error() string {
 // Unwrap returns ErrInvalidCommandName so callers can use errors.Is for programmatic detection.
 func (e *InvalidCommandNameError) Unwrap() error { return ErrInvalidCommandName }
 
-// IsValid returns whether the CommandName is a valid command identifier,
-// and a list of validation errors if it is not.
-func (n CommandName) IsValid() (bool, []error) {
+// Validate returns nil if the CommandName is a valid command identifier,
+// or a validation error if it is not.
+//
+//goplint:nonzero
+func (n CommandName) Validate() error {
 	if strings.TrimSpace(string(n)) == "" {
-		return false, []error{&InvalidCommandNameError{Value: n}}
+		return &InvalidCommandNameError{Value: n}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the CommandName.
@@ -102,17 +104,17 @@ func (e *InvalidCommandCategoryError) Error() string {
 // Unwrap returns ErrInvalidCommandCategory so callers can use errors.Is for programmatic detection.
 func (e *InvalidCommandCategoryError) Unwrap() error { return ErrInvalidCommandCategory }
 
-// IsValid returns whether the CommandCategory is valid,
-// and a list of validation errors if it is not.
+// Validate returns nil if the CommandCategory is valid,
+// or a validation error if it is not.
 // The zero value ("") is valid — it means "no category assigned".
-func (c CommandCategory) IsValid() (bool, []error) {
+func (c CommandCategory) Validate() error {
 	if c == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(c)) == "" {
-		return false, []error{&InvalidCommandCategoryError{Value: c}}
+		return &InvalidCommandCategoryError{Value: c}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the CommandCategory.

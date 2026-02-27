@@ -100,13 +100,16 @@ func (e *InvalidModuleNamespaceError) Unwrap() error {
 	return ErrInvalidModuleNamespace
 }
 
-// IsValid returns whether the ModuleNamespace is valid.
-// A valid namespace must not be empty — it is always a computed value.
-func (n ModuleNamespace) IsValid() (bool, []error) {
+//goplint:nonzero
+
+// Validate returns nil if the ModuleNamespace is valid,
+// or an error if it is empty. A valid namespace must not be empty —
+// it is always a computed value.
+func (n ModuleNamespace) Validate() error {
 	if n == "" {
-		return false, []error{&InvalidModuleNamespaceError{Value: n}}
+		return &InvalidModuleNamespaceError{Value: n}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ModuleNamespace.
@@ -115,13 +118,13 @@ func (n ModuleNamespace) String() string { return string(n) }
 // String returns the string representation of the LockFileVersion.
 func (v LockFileVersion) String() string { return string(v) }
 
-// IsValid returns whether the LockFileVersion is valid.
-// A valid LockFileVersion is non-empty.
-func (v LockFileVersion) IsValid() (bool, []error) {
+// Validate returns nil if the LockFileVersion is valid (non-empty),
+// or an error describing the validation failure.
+func (v LockFileVersion) Validate() error {
 	if v == "" {
-		return false, []error{&InvalidLockFileVersionError{Value: v}}
+		return &InvalidLockFileVersionError{Value: v}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidLockFileVersionError.
@@ -135,13 +138,15 @@ func (e *InvalidLockFileVersionError) Unwrap() error { return ErrInvalidLockFile
 // String returns the string representation of the ModuleRefKey.
 func (k ModuleRefKey) String() string { return string(k) }
 
-// IsValid returns whether the ModuleRefKey is valid.
-// A valid ModuleRefKey is non-empty and not whitespace-only.
-func (k ModuleRefKey) IsValid() (bool, []error) {
+//goplint:nonzero
+
+// Validate returns nil if the ModuleRefKey is valid (non-empty and not whitespace-only),
+// or an error describing the validation failure.
+func (k ModuleRefKey) Validate() error {
 	if strings.TrimSpace(string(k)) == "" {
-		return false, []error{&InvalidModuleRefKeyError{Value: k}}
+		return &InvalidModuleRefKeyError{Value: k}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidModuleRefKeyError.

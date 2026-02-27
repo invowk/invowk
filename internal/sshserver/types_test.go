@@ -9,13 +9,13 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-func TestHostAddress_IsValid(t *testing.T) {
+func TestHostAddress_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		addr    HostAddress
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"localhost", HostAddress("localhost"), true, false},
@@ -32,23 +32,23 @@ func TestHostAddress_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.addr.IsValid()
-			if isValid != tt.want {
-				t.Errorf("HostAddress(%q).IsValid() = %v, want %v", tt.addr, isValid, tt.want)
+			err := tt.addr.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("HostAddress(%q).Validate() error = %v, wantOK %v", tt.addr, err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("HostAddress(%q).IsValid() returned no errors, want error", tt.addr)
+				if err == nil {
+					t.Fatalf("HostAddress(%q).Validate() returned nil, want error", tt.addr)
 				}
-				if !errors.Is(errs[0], ErrInvalidHostAddress) {
-					t.Errorf("error should wrap ErrInvalidHostAddress, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidHostAddress) {
+					t.Errorf("error should wrap ErrInvalidHostAddress, got: %v", err)
 				}
 				var addrErr *InvalidHostAddressError
-				if !errors.As(errs[0], &addrErr) {
-					t.Errorf("error should be *InvalidHostAddressError, got: %T", errs[0])
+				if !errors.As(err, &addrErr) {
+					t.Errorf("error should be *InvalidHostAddressError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("HostAddress(%q).IsValid() returned unexpected errors: %v", tt.addr, errs)
+			} else if err != nil {
+				t.Errorf("HostAddress(%q).Validate() returned unexpected error: %v", tt.addr, err)
 			}
 		})
 	}
@@ -73,13 +73,13 @@ func TestHostAddress_String(t *testing.T) {
 	}
 }
 
-func TestTokenValue_IsValid(t *testing.T) {
+func TestTokenValue_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		token   TokenValue
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"valid token", TokenValue("abc123def456"), true, false},
@@ -94,23 +94,23 @@ func TestTokenValue_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.token.IsValid()
-			if isValid != tt.want {
-				t.Errorf("TokenValue(%q).IsValid() = %v, want %v", tt.token, isValid, tt.want)
+			err := tt.token.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("TokenValue(%q).Validate() error = %v, wantOK %v", tt.token, err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("TokenValue(%q).IsValid() returned no errors, want error", tt.token)
+				if err == nil {
+					t.Fatalf("TokenValue(%q).Validate() returned nil, want error", tt.token)
 				}
-				if !errors.Is(errs[0], ErrInvalidTokenValue) {
-					t.Errorf("error should wrap ErrInvalidTokenValue, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidTokenValue) {
+					t.Errorf("error should wrap ErrInvalidTokenValue, got: %v", err)
 				}
 				var tokenErr *InvalidTokenValueError
-				if !errors.As(errs[0], &tokenErr) {
-					t.Errorf("error should be *InvalidTokenValueError, got: %T", errs[0])
+				if !errors.As(err, &tokenErr) {
+					t.Errorf("error should be *InvalidTokenValueError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("TokenValue(%q).IsValid() returned unexpected errors: %v", tt.token, errs)
+			} else if err != nil {
+				t.Errorf("TokenValue(%q).Validate() returned unexpected error: %v", tt.token, err)
 			}
 		})
 	}
@@ -134,13 +134,13 @@ func TestTokenValue_String(t *testing.T) {
 	}
 }
 
-func TestListenPort_IsValid(t *testing.T) {
+func TestListenPort_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		port    ListenPort
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"zero auto-select", ListenPort(0), true, false},
@@ -159,23 +159,23 @@ func TestListenPort_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.port.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ListenPort(%d).IsValid() = %v, want %v", tt.port, isValid, tt.want)
+			err := tt.port.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("ListenPort(%d).Validate() error = %v, wantOK %v", tt.port, err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ListenPort(%d).IsValid() returned no errors, want error", tt.port)
+				if err == nil {
+					t.Fatalf("ListenPort(%d).Validate() returned nil, want error", tt.port)
 				}
-				if !errors.Is(errs[0], ErrInvalidListenPort) {
-					t.Errorf("error should wrap ErrInvalidListenPort, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidListenPort) {
+					t.Errorf("error should wrap ErrInvalidListenPort, got: %v", err)
 				}
 				var portErr *InvalidListenPortError
-				if !errors.As(errs[0], &portErr) {
-					t.Errorf("error should be *InvalidListenPortError, got: %T", errs[0])
+				if !errors.As(err, &portErr) {
+					t.Errorf("error should be *InvalidListenPortError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ListenPort(%d).IsValid() returned unexpected errors: %v", tt.port, errs)
+			} else if err != nil {
+				t.Errorf("ListenPort(%d).Validate() returned unexpected error: %v", tt.port, err)
 			}
 		})
 	}
@@ -200,13 +200,13 @@ func TestListenPort_String(t *testing.T) {
 	}
 }
 
-func TestSSHConfig_IsValid(t *testing.T) {
+func TestSSHConfig_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name      string
 		cfg       Config
-		want      bool
+		wantOK    bool
 		wantErr   bool
 		wantCount int // expected number of field errors
 	}{
@@ -274,26 +274,26 @@ func TestSSHConfig_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.cfg.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Config.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.cfg.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("Config.Validate() error = %v, wantOK %v", err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("Config.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("Config.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidSSHConfig) {
-					t.Errorf("error should wrap ErrInvalidSSHConfig, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSSHConfig) {
+					t.Errorf("error should wrap ErrInvalidSSHConfig, got: %v", err)
 				}
 				var cfgErr *InvalidSSHConfigError
-				if !errors.As(errs[0], &cfgErr) {
-					t.Fatalf("error should be *InvalidSSHConfigError, got: %T", errs[0])
+				if !errors.As(err, &cfgErr) {
+					t.Fatalf("error should be *InvalidSSHConfigError, got: %T", err)
 				}
 				if len(cfgErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("Config.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("Config.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

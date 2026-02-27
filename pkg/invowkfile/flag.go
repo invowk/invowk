@@ -103,15 +103,15 @@ func (e *InvalidFlagTypeError) Unwrap() error {
 // String returns the string representation of the FlagType.
 func (ft FlagType) String() string { return string(ft) }
 
-// IsValid returns whether the FlagType is one of the defined flag types,
-// and a list of validation errors if it is not.
+// Validate returns nil if the FlagType is one of the defined flag types,
+// or a validation error if it is not.
 // Note: the zero value ("") is valid — it is treated as "string" by GetType().
-func (ft FlagType) IsValid() (bool, []error) {
+func (ft FlagType) Validate() error {
 	switch ft {
 	case FlagTypeString, FlagTypeBool, FlagTypeInt, FlagTypeFloat, "":
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidFlagTypeError{Value: ft}}
+		return &InvalidFlagTypeError{Value: ft}
 	}
 }
 
@@ -123,20 +123,22 @@ func (e *InvalidFlagNameError) Error() string {
 // Unwrap returns ErrInvalidFlagName so callers can use errors.Is for programmatic detection.
 func (e *InvalidFlagNameError) Unwrap() error { return ErrInvalidFlagName }
 
-// IsValid returns whether the FlagName matches the required POSIX-like format,
-// and a list of validation errors if it does not.
-func (n FlagName) IsValid() (bool, []error) {
+// Validate returns nil if the FlagName matches the required POSIX-like format,
+// or a validation error if it does not.
+//
+//goplint:nonzero
+func (n FlagName) Validate() error {
 	s := string(n)
 	if s == "" {
-		return false, []error{&InvalidFlagNameError{Value: n, Reason: "must not be empty"}}
+		return &InvalidFlagNameError{Value: n, Reason: "must not be empty"}
 	}
 	if utf8.RuneCountInString(s) > MaxNameLength {
-		return false, []error{&InvalidFlagNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}}
+		return &InvalidFlagNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}
 	}
 	if !flagNamePattern.MatchString(s) {
-		return false, []error{&InvalidFlagNameError{Value: n, Reason: "must start with a letter followed by alphanumeric, underscore, or hyphen characters"}}
+		return &InvalidFlagNameError{Value: n, Reason: "must start with a letter followed by alphanumeric, underscore, or hyphen characters"}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the FlagName.
@@ -150,17 +152,17 @@ func (e *InvalidFlagShorthandError) Error() string {
 // Unwrap returns ErrInvalidFlagShorthand so callers can use errors.Is for programmatic detection.
 func (e *InvalidFlagShorthandError) Unwrap() error { return ErrInvalidFlagShorthand }
 
-// IsValid returns whether the FlagShorthand is a single ASCII letter,
-// and a list of validation errors if it is not.
+// Validate returns nil if the FlagShorthand is a single ASCII letter,
+// or a validation error if it is not.
 // The zero value ("") is valid — it means "no shorthand".
-func (s FlagShorthand) IsValid() (bool, []error) {
+func (s FlagShorthand) Validate() error {
 	if s == "" {
-		return true, nil
+		return nil
 	}
 	if !flagShorthandPattern.MatchString(string(s)) {
-		return false, []error{&InvalidFlagShorthandError{Value: s}}
+		return &InvalidFlagShorthandError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the FlagShorthand.

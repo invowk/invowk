@@ -147,14 +147,14 @@ func (e *InvalidSeverityError) Unwrap() error {
 	return ErrInvalidSeverity
 }
 
-// IsValid returns whether the Severity is one of the defined severity levels,
-// and a list of validation errors if it is not.
-func (s Severity) IsValid() (bool, []error) {
+// Validate returns nil if the Severity is one of the defined severity levels,
+// or an error wrapping ErrInvalidSeverity if it is not.
+func (s Severity) Validate() error {
 	switch s {
 	case SeverityWarning, SeverityError:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidSeverityError{Value: s}}
+		return &InvalidSeverityError{Value: s}
 	}
 }
 
@@ -191,9 +191,9 @@ func (e *InvalidSourceIDError) Unwrap() error {
 // String returns the string representation of the DiagnosticCode.
 func (dc DiagnosticCode) String() string { return string(dc) }
 
-// IsValid returns whether the DiagnosticCode is one of the defined codes,
-// and a list of validation errors if it is not.
-func (dc DiagnosticCode) IsValid() (bool, []error) {
+// Validate returns nil if the DiagnosticCode is one of the defined codes,
+// or an error wrapping ErrInvalidDiagnosticCode if it is not.
+func (dc DiagnosticCode) Validate() error {
 	switch dc {
 	case CodeWorkingDirUnavailable, CodeCommandsDirUnavailable, CodeConfigLoadFailed,
 		CodeCommandNotFound, CodeInvowkfileParseSkipped, CodeModuleScanPathInvalid,
@@ -201,9 +201,9 @@ func (dc DiagnosticCode) IsValid() (bool, []error) {
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
 		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidDiagnosticCodeError{Value: dc}}
+		return &InvalidDiagnosticCodeError{Value: dc}
 	}
 }
 
@@ -241,11 +241,11 @@ func NewDiagnosticWithCause(severity Severity, code DiagnosticCode, message stri
 // Returns a joined error wrapping ErrInvalidDiagnostic if any are invalid.
 func validateDiagnosticParams(severity Severity, code DiagnosticCode) error {
 	var errs []error
-	if valid, fieldErrs := severity.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := severity.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := code.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := code.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
 		return errors.Join(append([]error{ErrInvalidDiagnostic}, errs...)...)
@@ -306,18 +306,19 @@ func (e *InvalidDiagnosticError) Error() string {
 // Unwrap returns ErrInvalidDiagnostic for errors.Is() compatibility.
 func (e *InvalidDiagnosticError) Unwrap() error { return ErrInvalidDiagnostic }
 
-// IsValid returns whether the Diagnostic has valid Severity and Code fields.
+// Validate returns nil if the Diagnostic has valid Severity and Code fields,
+// or an error wrapping ErrInvalidDiagnostic if any are invalid.
 // Message and Path are display-only fields and are not validated.
-func (d Diagnostic) IsValid() (bool, []error) {
+func (d Diagnostic) Validate() error {
 	var errs []error
-	if valid, fieldErrs := d.severity.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := d.severity.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := d.code.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := d.code.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidDiagnosticError{FieldErrors: errs}}
+		return &InvalidDiagnosticError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }

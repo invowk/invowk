@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,8 +36,8 @@ func NewLayerProvisioner(engine container.Engine, cfg *Config) (*LayerProvisione
 	if cfg == nil {
 		cfg = DefaultConfig()
 	}
-	if isValid, errs := cfg.IsValid(); !isValid {
-		return nil, fmt.Errorf("provision config: %w", errors.Join(errs...))
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("provision config: %w", err)
 	}
 	return &LayerProvisioner{
 		engine: engine,

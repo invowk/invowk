@@ -134,14 +134,14 @@ func (s executionState) String() string {
 	}
 }
 
-// isValid returns whether the executionState is one of the defined states,
-// and a list of validation errors if it is not.
-func (s executionState) isValid() (bool, []error) {
+// validate returns nil if the executionState is one of the defined states,
+// or a validation error if it is not.
+func (s executionState) validate() error {
 	switch s {
 	case stateExecuting, stateCompleted, stateTUI:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&invalidExecutionStateError{value: s}}
+		return &invalidExecutionStateError{value: s}
 	}
 }
 

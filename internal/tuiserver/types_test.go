@@ -30,13 +30,13 @@ func TestAuthToken_String(t *testing.T) {
 	}
 }
 
-func TestAuthToken_IsValid(t *testing.T) {
+func TestAuthToken_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		token   AuthToken
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"valid_hex", AuthToken("abc123def456"), true, false},
@@ -49,23 +49,23 @@ func TestAuthToken_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.token.IsValid()
-			if isValid != tt.want {
-				t.Errorf("AuthToken(%q).IsValid() = %v, want %v", tt.token, isValid, tt.want)
+			err := tt.token.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("AuthToken(%q).Validate() error = %v, wantOK %v", tt.token, err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("AuthToken(%q).IsValid() returned no errors, want error", tt.token)
+				if err == nil {
+					t.Fatalf("AuthToken(%q).Validate() returned nil, want error", tt.token)
 				}
-				if !errors.Is(errs[0], ErrInvalidAuthToken) {
-					t.Errorf("error should wrap ErrInvalidAuthToken, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidAuthToken) {
+					t.Errorf("error should wrap ErrInvalidAuthToken, got: %v", err)
 				}
 				var atErr *InvalidAuthTokenError
-				if !errors.As(errs[0], &atErr) {
-					t.Errorf("error should be *InvalidAuthTokenError, got: %T", errs[0])
+				if !errors.As(err, &atErr) {
+					t.Errorf("error should be *InvalidAuthTokenError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("AuthToken(%q).IsValid() returned unexpected errors: %v", tt.token, errs)
+			} else if err != nil {
+				t.Errorf("AuthToken(%q).Validate() returned unexpected error: %v", tt.token, err)
 			}
 		})
 	}

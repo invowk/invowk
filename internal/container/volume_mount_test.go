@@ -7,15 +7,14 @@ import (
 	"testing"
 )
 
-func TestVolumeMount_IsValid(t *testing.T) {
+func TestVolumeMount_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		mount    VolumeMount
-		want     bool
-		wantErr  bool
-		wantErrs int // expected number of field errors (0 means don't check count)
+		name    string
+		mount   VolumeMount
+		want    bool
+		wantErr bool
 	}{
 		{
 			"all valid fields",
@@ -25,7 +24,7 @@ func TestVolumeMount_IsValid(t *testing.T) {
 				ReadOnly:      false,
 				SELinux:       SELinuxLabelShared,
 			},
-			true, false, 0,
+			true, false,
 		},
 		{
 			"all valid with readonly and private SELinux",
@@ -35,7 +34,7 @@ func TestVolumeMount_IsValid(t *testing.T) {
 				ReadOnly:      true,
 				SELinux:       SELinuxLabelPrivate,
 			},
-			true, false, 0,
+			true, false,
 		},
 		{
 			"valid with no SELinux label (zero value)",
@@ -44,7 +43,7 @@ func TestVolumeMount_IsValid(t *testing.T) {
 				ContainerPath: "/workspace",
 				SELinux:       SELinuxLabelNone,
 			},
-			true, false, 0,
+			true, false,
 		},
 		{
 			"invalid host path (empty)",
@@ -53,7 +52,7 @@ func TestVolumeMount_IsValid(t *testing.T) {
 				ContainerPath: "/app",
 				SELinux:       SELinuxLabelNone,
 			},
-			false, true, 1,
+			false, true,
 		},
 		{
 			"invalid container path (whitespace)",
@@ -62,7 +61,7 @@ func TestVolumeMount_IsValid(t *testing.T) {
 				ContainerPath: "   ",
 				SELinux:       SELinuxLabelNone,
 			},
-			false, true, 1,
+			false, true,
 		},
 		{
 			"invalid SELinux label",
@@ -71,7 +70,7 @@ func TestVolumeMount_IsValid(t *testing.T) {
 				ContainerPath: "/app",
 				SELinux:       SELinuxLabel("bogus"),
 			},
-			false, true, 1,
+			false, true,
 		},
 		{
 			"multiple invalid fields",
@@ -80,32 +79,28 @@ func TestVolumeMount_IsValid(t *testing.T) {
 				ContainerPath: "",
 				SELinux:       SELinuxLabel("invalid"),
 			},
-			false, true, 3,
+			false, true,
 		},
 		{
 			"zero value (all fields empty)",
 			VolumeMount{},
-			false, true, 2, // HostPath and ContainerPath invalid; SELinux "" is valid (SELinuxLabelNone)
+			false, true, // HostPath and ContainerPath invalid; SELinux "" is valid (SELinuxLabelNone)
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.mount.IsValid()
-			if isValid != tt.want {
-				t.Errorf("VolumeMount.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.mount.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("VolumeMount.Validate() error = %v, want valid=%v", err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatal("VolumeMount.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatal("VolumeMount.Validate() returned nil, want error")
 				}
-				if tt.wantErrs > 0 && len(errs) != tt.wantErrs {
-					t.Errorf("VolumeMount.IsValid() returned %d errors, want %d: %v",
-						len(errs), tt.wantErrs, errs)
-				}
-			} else if len(errs) > 0 {
-				t.Errorf("VolumeMount.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("VolumeMount.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
@@ -157,48 +152,45 @@ func TestVolumeMount_String(t *testing.T) {
 	}
 }
 
-func TestVolumeMount_IsValid_FieldErrorTypes(t *testing.T) {
+func TestVolumeMount_Validate_FieldErrorTypes(t *testing.T) {
 	t.Parallel()
 
-	// Verify that each field error wraps the correct sentinel and has the correct type.
+	// Verify that the joined error wraps the correct sentinels.
 	mount := VolumeMount{
 		HostPath:      "   ",
 		ContainerPath: "\t",
 		SELinux:       SELinuxLabel("bad"),
 	}
-	isValid, errs := mount.IsValid()
-	if isValid {
-		t.Fatal("expected invalid, got valid")
-	}
-	if len(errs) != 3 {
-		t.Fatalf("expected 3 errors (one per invalid field), got %d: %v", len(errs), errs)
+	err := mount.Validate()
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 
-	// First error: HostPath
-	if !errors.Is(errs[0], ErrInvalidHostFilesystemPath) {
-		t.Errorf("first error should wrap ErrInvalidHostFilesystemPath, got: %v", errs[0])
+	// The joined error should wrap all three sentinels
+	if !errors.Is(err, ErrInvalidHostFilesystemPath) {
+		t.Errorf("error should wrap ErrInvalidHostFilesystemPath, got: %v", err)
 	}
+	if !errors.Is(err, ErrInvalidMountTargetPath) {
+		t.Errorf("error should wrap ErrInvalidMountTargetPath, got: %v", err)
+	}
+	if !errors.Is(err, ErrInvalidSELinuxLabel) {
+		t.Errorf("error should wrap ErrInvalidSELinuxLabel, got: %v", err)
+	}
+
+	// Verify individual error types via errors.As
 	var hfpErr *InvalidHostFilesystemPathError
-	if !errors.As(errs[0], &hfpErr) {
-		t.Errorf("first error should be *InvalidHostFilesystemPathError, got: %T", errs[0])
+	if !errors.As(err, &hfpErr) {
+		t.Errorf("error should contain *InvalidHostFilesystemPathError, got: %T", err)
 	}
 
-	// Second error: ContainerPath
-	if !errors.Is(errs[1], ErrInvalidMountTargetPath) {
-		t.Errorf("second error should wrap ErrInvalidMountTargetPath, got: %v", errs[1])
-	}
 	var mtpErr *InvalidMountTargetPathError
-	if !errors.As(errs[1], &mtpErr) {
-		t.Errorf("second error should be *InvalidMountTargetPathError, got: %T", errs[1])
+	if !errors.As(err, &mtpErr) {
+		t.Errorf("error should contain *InvalidMountTargetPathError, got: %T", err)
 	}
 
-	// Third error: SELinux
-	if !errors.Is(errs[2], ErrInvalidSELinuxLabel) {
-		t.Errorf("third error should wrap ErrInvalidSELinuxLabel, got: %v", errs[2])
-	}
 	var slErr *InvalidSELinuxLabelError
-	if !errors.As(errs[2], &slErr) {
-		t.Errorf("third error should be *InvalidSELinuxLabelError, got: %T", errs[2])
+	if !errors.As(err, &slErr) {
+		t.Errorf("error should contain *InvalidSELinuxLabelError, got: %T", err)
 	}
 }
 

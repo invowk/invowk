@@ -372,6 +372,7 @@ var knownDirectiveKeys = map[string]bool{
 	"ignore":   true,
 	"internal": true,
 	"render":   true,
+	"nonzero":  true,
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.

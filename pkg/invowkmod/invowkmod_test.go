@@ -449,10 +449,10 @@ func TestHasInvowkfile(t *testing.T) {
 }
 
 // ============================================
-// Tests for IsValid() methods on type definitions
+// Tests for Validate() methods on type definitions
 // ============================================
 
-func TestValidationIssueType_IsValid(t *testing.T) {
+func TestValidationIssueType_Validate(t *testing.T) {
 	t.Parallel()
 
 	validTypes := []ValidationIssueType{
@@ -465,12 +465,9 @@ func TestValidationIssueType_IsValid(t *testing.T) {
 		t.Run(string(vt), func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := vt.IsValid()
-			if !isValid {
-				t.Errorf("ValidationIssueType(%q).IsValid() = false, want true", vt)
-			}
-			if len(errs) > 0 {
-				t.Errorf("ValidationIssueType(%q).IsValid() returned unexpected errors: %v", vt, errs)
+			err := vt.Validate()
+			if err != nil {
+				t.Errorf("ValidationIssueType(%q).Validate() returned unexpected error: %v", vt, err)
 			}
 		})
 	}
@@ -485,29 +482,25 @@ func TestValidationIssueType_IsValid(t *testing.T) {
 		t.Run("invalid_"+name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := vt.IsValid()
-			if isValid {
-				t.Errorf("ValidationIssueType(%q).IsValid() = true, want false", vt)
+			err := vt.Validate()
+			if err == nil {
+				t.Fatalf("ValidationIssueType(%q).Validate() returned nil, want error", vt)
 			}
-			if len(errs) == 0 {
-				t.Fatalf("ValidationIssueType(%q).IsValid() returned no errors, want error", vt)
-			}
-			if !errors.Is(errs[0], ErrInvalidValidationIssueType) {
-				t.Errorf("error should wrap ErrInvalidValidationIssueType, got: %v", errs[0])
+			if !errors.Is(err, ErrInvalidValidationIssueType) {
+				t.Errorf("error should wrap ErrInvalidValidationIssueType, got: %v", err)
 			}
 		})
 	}
 }
 
-func TestModuleRequirement_IsValid(t *testing.T) {
+func TestModuleRequirement_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		req      ModuleRequirement
-		want     bool
-		wantErrs int
-		wantErr  bool
+		name    string
+		req     ModuleRequirement
+		want    bool
+		wantErr bool
 	}{
 		{
 			"all valid",
@@ -515,7 +508,7 @@ func TestModuleRequirement_IsValid(t *testing.T) {
 				GitURL:  "https://github.com/user/repo.git",
 				Version: "^1.0.0",
 			},
-			true, 0, false,
+			true, false,
 		},
 		{
 			"all valid with optional fields",
@@ -525,7 +518,7 @@ func TestModuleRequirement_IsValid(t *testing.T) {
 				Alias:   "myalias",
 				Path:    "subdir",
 			},
-			true, 0, false,
+			true, false,
 		},
 		{
 			"optional fields empty are valid",
@@ -535,7 +528,7 @@ func TestModuleRequirement_IsValid(t *testing.T) {
 				Alias:   "",
 				Path:    "",
 			},
-			true, 0, false,
+			true, false,
 		},
 		{
 			"invalid git url",
@@ -543,7 +536,7 @@ func TestModuleRequirement_IsValid(t *testing.T) {
 				GitURL:  "not-a-url",
 				Version: "^1.0.0",
 			},
-			false, 1, true,
+			false, true,
 		},
 		{
 			"invalid version",
@@ -551,7 +544,7 @@ func TestModuleRequirement_IsValid(t *testing.T) {
 				GitURL:  "https://github.com/user/repo.git",
 				Version: "not-semver",
 			},
-			false, 1, true,
+			false, true,
 		},
 		{
 			"multiple invalid fields",
@@ -561,27 +554,23 @@ func TestModuleRequirement_IsValid(t *testing.T) {
 				Alias:   "   ",
 				Path:    "../escape",
 			},
-			false, 4, true,
+			false, true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.req.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ModuleRequirement.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.req.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ModuleRequirement.Validate() error = %v, wantValid %v", err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ModuleRequirement.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("ModuleRequirement.Validate() returned nil, want error")
 				}
-				if tt.wantErrs > 0 && len(errs) != tt.wantErrs {
-					t.Errorf("ModuleRequirement.IsValid() returned %d errors, want %d: %v",
-						len(errs), tt.wantErrs, errs)
-				}
-			} else if len(errs) > 0 {
-				t.Errorf("ModuleRequirement.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("ModuleRequirement.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
@@ -598,7 +587,7 @@ func TestValidationIssueType_String(t *testing.T) {
 	}
 }
 
-func TestModuleID_IsValid(t *testing.T) {
+func TestModuleID_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -630,19 +619,19 @@ func TestModuleID_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.id.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ModuleID(%q).IsValid() = %v, want %v", tt.id, isValid, tt.want)
+			err := tt.id.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ModuleID(%q).Validate() error = %v, wantValid %v", tt.id, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ModuleID(%q).IsValid() returned no errors, want error", tt.id)
+				if err == nil {
+					t.Fatalf("ModuleID(%q).Validate() returned nil, want error", tt.id)
 				}
-				if !errors.Is(errs[0], ErrInvalidModuleID) {
-					t.Errorf("error should wrap ErrInvalidModuleID, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidModuleID) {
+					t.Errorf("error should wrap ErrInvalidModuleID, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ModuleID(%q).IsValid() returned unexpected errors: %v", tt.id, errs)
+			} else if err != nil {
+				t.Errorf("ModuleID(%q).Validate() returned unexpected error: %v", tt.id, err)
 			}
 		})
 	}
@@ -683,7 +672,7 @@ func TestPathHelpers(t *testing.T) {
 	}
 }
 
-func TestInvowkmod_IsValid(t *testing.T) {
+func TestInvowkmod_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -764,26 +753,26 @@ func TestInvowkmod_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.mod.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Invowkmod.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.mod.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("Invowkmod.Validate() error = %v, wantValid %v", err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("Invowkmod.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("Invowkmod.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidInvowkmod) {
-					t.Errorf("error should wrap ErrInvalidInvowkmod, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidInvowkmod) {
+					t.Errorf("error should wrap ErrInvalidInvowkmod, got: %v", err)
 				}
 				var modErr *InvalidInvowkmodError
-				if !errors.As(errs[0], &modErr) {
-					t.Fatalf("error should be *InvalidInvowkmodError, got: %T", errs[0])
+				if !errors.As(err, &modErr) {
+					t.Fatalf("error should be *InvalidInvowkmodError, got: %T", err)
 				}
 				if len(modErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(modErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("Invowkmod.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("Invowkmod.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

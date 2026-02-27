@@ -223,44 +223,50 @@ func (e *InvalidPlatformError) Unwrap() error {
 // String returns the string representation of the RuntimeMode.
 func (m RuntimeMode) String() string { return string(m) }
 
-// IsValid returns whether the RuntimeMode is one of the defined runtime modes,
-// and a list of validation errors if it is not.
+// Validate returns nil if the RuntimeMode is one of the defined runtime modes,
+// or a validation error if it is not.
 // Note: the zero value ("") is NOT valid — it serves as a sentinel for "no override".
-func (m RuntimeMode) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (m RuntimeMode) Validate() error {
 	switch m {
 	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidRuntimeModeError{Value: m}}
+		return &InvalidRuntimeModeError{Value: m}
 	}
 }
 
 // String returns the string representation of the EnvInheritMode.
 func (m EnvInheritMode) String() string { return string(m) }
 
-// IsValid returns whether the EnvInheritMode is one of the defined env inherit modes,
-// and a list of validation errors if it is not.
-func (m EnvInheritMode) IsValid() (bool, []error) {
+// Validate returns nil if the EnvInheritMode is one of the defined env inherit modes,
+// or a validation error if it is not.
+//
+//goplint:nonzero
+func (m EnvInheritMode) Validate() error {
 	switch m {
 	case EnvInheritNone, EnvInheritAllow, EnvInheritAll:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidEnvInheritModeError{Value: m}}
+		return &InvalidEnvInheritModeError{Value: m}
 	}
 }
 
 // String returns the string representation of the PlatformType.
 func (p PlatformType) String() string { return string(p) }
 
-// IsValid returns whether the PlatformType is one of the defined platform types,
-// and a list of validation errors if it is not.
+// Validate returns nil if the PlatformType is one of the defined platform types,
+// or a validation error if it is not.
 // Note: uses "macos" not "darwin" — this is the CUE/invowk convention.
-func (p PlatformType) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (p PlatformType) Validate() error {
 	switch p {
 	case PlatformLinux, PlatformMac, PlatformWindows:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidPlatformError{Value: p}}
+		return &InvalidPlatformError{Value: p}
 	}
 }
 
@@ -272,15 +278,15 @@ func (e *InvalidContainerImageError) Error() string {
 // Unwrap returns ErrInvalidContainerImage so callers can use errors.Is for programmatic detection.
 func (e *InvalidContainerImageError) Unwrap() error { return ErrInvalidContainerImage }
 
-// IsValid returns whether the ContainerImage is structurally valid,
-// and a list of validation errors if it is not.
+// Validate returns nil if the ContainerImage is structurally valid,
+// or a validation error if it is not.
 // The zero value ("") is valid — it means no image is specified (non-container runtimes).
 // Non-empty values must contain visible characters (not be whitespace-only).
-func (i ContainerImage) IsValid() (bool, []error) {
+func (i ContainerImage) Validate() error {
 	if i != "" && strings.TrimSpace(string(i)) == "" {
-		return false, []error{&InvalidContainerImageError{Value: i}}
+		return &InvalidContainerImageError{Value: i}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ContainerImage.

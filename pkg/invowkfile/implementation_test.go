@@ -90,7 +90,7 @@ func TestParseTimeout(t *testing.T) {
 	}
 }
 
-func TestPlatformRuntimeKey_IsValid(t *testing.T) {
+func TestPlatformRuntimeKey_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -109,19 +109,19 @@ func TestPlatformRuntimeKey_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.key.IsValid()
-			if isValid != tt.want {
-				t.Errorf("PlatformRuntimeKey{%q, %q}.IsValid() = %v, want %v",
-					tt.key.Platform, tt.key.Runtime, isValid, tt.want)
+			err := tt.key.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("PlatformRuntimeKey{%q, %q}.Validate() error = %v, want valid=%v",
+					tt.key.Platform, tt.key.Runtime, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("PlatformRuntimeKey{%q, %q}.IsValid() returned no errors, want error",
+				if err == nil {
+					t.Fatalf("PlatformRuntimeKey{%q, %q}.Validate() returned nil, want error",
 						tt.key.Platform, tt.key.Runtime)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("PlatformRuntimeKey{%q, %q}.IsValid() returned unexpected errors: %v",
-					tt.key.Platform, tt.key.Runtime, errs)
+			} else if err != nil {
+				t.Errorf("PlatformRuntimeKey{%q, %q}.Validate() returned unexpected error: %v",
+					tt.key.Platform, tt.key.Runtime, err)
 			}
 		})
 	}
@@ -152,21 +152,19 @@ func TestPlatformRuntimeKey_String(t *testing.T) {
 	}
 }
 
-func TestPlatformRuntimeKey_IsValid_BothInvalidAggregatesErrors(t *testing.T) {
+func TestPlatformRuntimeKey_Validate_BothInvalidAggregatesErrors(t *testing.T) {
 	t.Parallel()
 
 	key := PlatformRuntimeKey{Platform: "bogus-platform", Runtime: "bogus-runtime"}
-	isValid, errs := key.IsValid()
-	if isValid {
-		t.Fatal("expected invalid, got valid")
+	err := key.Validate()
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
-	if len(errs) != 2 {
-		t.Fatalf("expected 2 errors (one per field), got %d: %v", len(errs), errs)
+	// The joined error should contain both platform and runtime errors
+	if !errors.Is(err, ErrInvalidPlatform) {
+		t.Errorf("error should wrap ErrInvalidPlatform, got: %v", err)
 	}
-	if !errors.Is(errs[0], ErrInvalidPlatform) {
-		t.Errorf("first error should wrap ErrInvalidPlatform, got: %v", errs[0])
-	}
-	if !errors.Is(errs[1], ErrInvalidRuntimeMode) {
-		t.Errorf("second error should wrap ErrInvalidRuntimeMode, got: %v", errs[1])
+	if !errors.Is(err, ErrInvalidRuntimeMode) {
+		t.Errorf("error should wrap ErrInvalidRuntimeMode, got: %v", err)
 	}
 }

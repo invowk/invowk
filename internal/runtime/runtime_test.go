@@ -602,17 +602,17 @@ func TestRegistryNewExecutionID(t *testing.T) {
 	if id1 == id2 {
 		t.Error("Registry.NewExecutionID() should generate unique IDs")
 	}
-	// Generated IDs must pass IsValid.
-	if isValid, errs := id1.IsValid(); !isValid {
-		t.Errorf("Registry.NewExecutionID() generated invalid ID %q: %v", id1, errs)
+	// Generated IDs must pass Validate.
+	if err := id1.Validate(); err != nil {
+		t.Errorf("Registry.NewExecutionID() generated invalid ID %q: %v", id1, err)
 	}
-	if isValid, errs := id2.IsValid(); !isValid {
-		t.Errorf("Registry.NewExecutionID() generated invalid ID %q: %v", id2, errs)
+	if err := id2.Validate(); err != nil {
+		t.Errorf("Registry.NewExecutionID() generated invalid ID %q: %v", id2, err)
 	}
 }
 
-// TestExecutionID_IsValid tests the ExecutionID validation method.
-func TestExecutionID_IsValid(t *testing.T) {
+// TestExecutionID_Validate tests the ExecutionID validation method.
+func TestExecutionID_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -632,19 +632,19 @@ func TestExecutionID_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.id.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ExecutionID(%q).IsValid() = %v, want %v", tt.id, isValid, tt.want)
+			err := tt.id.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ExecutionID(%q).Validate() valid = %v, want %v", tt.id, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ExecutionID(%q).IsValid() returned no errors, want error", tt.id)
+				if err == nil {
+					t.Fatalf("ExecutionID(%q).Validate() returned nil, want error", tt.id)
 				}
-				if !errors.Is(errs[0], ErrInvalidExecutionID) {
-					t.Errorf("error should wrap ErrInvalidExecutionID, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidExecutionID) {
+					t.Errorf("error should wrap ErrInvalidExecutionID, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ExecutionID(%q).IsValid() returned unexpected errors: %v", tt.id, errs)
+			} else if err != nil {
+				t.Errorf("ExecutionID(%q).Validate() returned unexpected error: %v", tt.id, err)
 			}
 		})
 	}
@@ -738,7 +738,7 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 	}
 }
 
-func TestRuntimeType_IsValid(t *testing.T) {
+func TestRuntimeType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -763,25 +763,25 @@ func TestRuntimeType_IsValid(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.runtimeType.IsValid()
-			if isValid != tt.want {
-				t.Errorf("RuntimeType(%q).IsValid() = %v, want %v", tt.runtimeType, isValid, tt.want)
+			err := tt.runtimeType.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("RuntimeType(%q).Validate() valid = %v, want %v", tt.runtimeType, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("RuntimeType(%q).IsValid() returned no errors, want error", tt.runtimeType)
+				if err == nil {
+					t.Fatalf("RuntimeType(%q).Validate() returned nil, want error", tt.runtimeType)
 				}
-				if !errors.Is(errs[0], ErrInvalidRuntimeType) {
-					t.Errorf("error should wrap ErrInvalidRuntimeType, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidRuntimeType) {
+					t.Errorf("error should wrap ErrInvalidRuntimeType, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("RuntimeType(%q).IsValid() returned unexpected errors: %v", tt.runtimeType, errs)
+			} else if err != nil {
+				t.Errorf("RuntimeType(%q).Validate() returned unexpected error: %v", tt.runtimeType, err)
 			}
 		})
 	}
 }
 
-func TestEnvContext_IsValid(t *testing.T) {
+func TestEnvContext_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -859,26 +859,26 @@ func TestEnvContext_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.envCtx.IsValid()
-			if isValid != tt.want {
-				t.Errorf("EnvContext.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.envCtx.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("EnvContext.Validate() valid = %v, want %v", err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("EnvContext.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("EnvContext.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidEnvContext) {
-					t.Errorf("error should wrap ErrInvalidEnvContext, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidEnvContext) {
+					t.Errorf("error should wrap ErrInvalidEnvContext, got: %v", err)
 				}
 				var envErr *InvalidEnvContextError
-				if !errors.As(errs[0], &envErr) {
-					t.Fatalf("error should be *InvalidEnvContextError, got: %T", errs[0])
+				if !errors.As(err, &envErr) {
+					t.Fatalf("error should be *InvalidEnvContextError, got: %T", err)
 				}
 				if len(envErr.FieldErrors) != tt.wantFieldErrs {
 					t.Errorf("InvalidEnvContextError.FieldErrors = %d, want %d", len(envErr.FieldErrors), tt.wantFieldErrs)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("EnvContext.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("EnvContext.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

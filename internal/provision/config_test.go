@@ -10,19 +10,19 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-func TestConfigIsValid(t *testing.T) {
+func TestConfigValidate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		cfg       Config
-		wantValid bool
-		wantErrs  bool
+		name     string
+		cfg      Config
+		wantOK   bool
+		wantErrs bool
 	}{
 		{
-			name:      "zero value is valid (all paths empty means use defaults)",
-			cfg:       Config{},
-			wantValid: true,
+			name:   "zero value is valid (all paths empty means use defaults)",
+			cfg:    Config{},
+			wantOK: true,
 		},
 		{
 			name: "all valid paths",
@@ -34,7 +34,7 @@ func TestConfigIsValid(t *testing.T) {
 				CacheDir:         "/home/user/.cache/invowk/provision",
 				ModulesPaths:     []types.FilesystemPath{"/home/user/.config/invowk/commands"},
 			},
-			wantValid: true,
+			wantOK: true,
 		},
 		{
 			name: "booleans and TagSuffix do not affect validity",
@@ -45,31 +45,31 @@ func TestConfigIsValid(t *testing.T) {
 				TagSuffix:        "test-suffix-123",
 				InvowkBinaryPath: "/usr/local/bin/invowk",
 			},
-			wantValid: true,
+			wantOK: true,
 		},
 		{
 			name: "single invalid field: whitespace-only InvowkBinaryPath",
 			cfg: Config{
 				InvowkBinaryPath: "   ",
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "single invalid field: whitespace-only BinaryMountPath",
 			cfg: Config{
 				BinaryMountPath: "   ",
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "single invalid field: whitespace-only ModulesPaths element",
 			cfg: Config{
 				ModulesPaths: []types.FilesystemPath{"/valid/path", "   "},
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "multiple invalid fields",
@@ -80,22 +80,22 @@ func TestConfigIsValid(t *testing.T) {
 				ModulesMountPath: container.MountTargetPath("   "),
 				CacheDir:         "   ",
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "empty ModulesPaths slice is valid",
 			cfg: Config{
 				ModulesPaths: []types.FilesystemPath{},
 			},
-			wantValid: true,
+			wantOK: true,
 		},
 		{
 			name: "ModulesPaths with empty string elements are skipped",
 			cfg: Config{
 				ModulesPaths: []types.FilesystemPath{"", ""},
 			},
-			wantValid: true,
+			wantOK: true,
 		},
 	}
 
@@ -103,48 +103,45 @@ func TestConfigIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			valid, errs := tt.cfg.IsValid()
-			if valid != tt.wantValid {
-				t.Errorf("IsValid() valid = %v, want %v", valid, tt.wantValid)
+			err := tt.cfg.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("Validate() error = %v, wantOK %v", err, tt.wantOK)
 			}
-			if tt.wantErrs && len(errs) == 0 {
-				t.Error("IsValid() expected errors but got none")
+			if tt.wantErrs && err == nil {
+				t.Error("Validate() expected error but got nil")
 			}
-			if !tt.wantErrs && len(errs) > 0 {
-				t.Errorf("IsValid() unexpected errors: %v", errs)
+			if !tt.wantErrs && err != nil {
+				t.Errorf("Validate() unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestConfigIsValid_SentinelError(t *testing.T) {
+func TestConfigValidate_SentinelError(t *testing.T) {
 	t.Parallel()
 
 	cfg := Config{
 		InvowkBinaryPath: "   ",
 	}
 
-	valid, errs := cfg.IsValid()
-	if valid {
-		t.Fatal("expected invalid config")
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for invalid config")
 	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d", len(errs))
-	}
-	if !errors.Is(errs[0], ErrInvalidProvisionConfig) {
-		t.Errorf("error should wrap ErrInvalidProvisionConfig, got: %v", errs[0])
+	if !errors.Is(err, ErrInvalidProvisionConfig) {
+		t.Errorf("error should wrap ErrInvalidProvisionConfig, got: %v", err)
 	}
 
 	var configErr *InvalidProvisionConfigError
-	if !errors.As(errs[0], &configErr) {
-		t.Fatalf("error should be *InvalidProvisionConfigError, got: %T", errs[0])
+	if !errors.As(err, &configErr) {
+		t.Fatalf("error should be *InvalidProvisionConfigError, got: %T", err)
 	}
 	if len(configErr.FieldErrors) != 1 {
 		t.Errorf("expected 1 field error, got %d", len(configErr.FieldErrors))
 	}
 }
 
-func TestConfigIsValid_MultipleFieldErrors(t *testing.T) {
+func TestConfigValidate_MultipleFieldErrors(t *testing.T) {
 	t.Parallel()
 
 	cfg := Config{
@@ -153,17 +150,14 @@ func TestConfigIsValid_MultipleFieldErrors(t *testing.T) {
 		CacheDir:         "   ",
 	}
 
-	valid, errs := cfg.IsValid()
-	if valid {
-		t.Fatal("expected invalid config")
-	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 wrapped error, got %d", len(errs))
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for invalid config")
 	}
 
 	var configErr *InvalidProvisionConfigError
-	if !errors.As(errs[0], &configErr) {
-		t.Fatalf("error should be *InvalidProvisionConfigError, got: %T", errs[0])
+	if !errors.As(err, &configErr) {
+		t.Fatalf("error should be *InvalidProvisionConfigError, got: %T", err)
 	}
 	if len(configErr.FieldErrors) != 3 {
 		t.Errorf("expected 3 field errors, got %d: %v", len(configErr.FieldErrors), configErr.FieldErrors)

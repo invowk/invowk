@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestExitCodeIsValid(t *testing.T) {
+func TestExitCodeValidate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -29,20 +29,20 @@ func TestExitCodeIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.wantValid {
-				t.Errorf("ExitCode(%d).IsValid() = %v, want %v", tt.value, isValid, tt.wantValid)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("ExitCode(%d).Validate() valid = %v, want %v", tt.value, err == nil, tt.wantValid)
 			}
 			if tt.wantValid {
-				if len(errs) != 0 {
-					t.Errorf("ExitCode(%d).IsValid() returned errors for valid value: %v", tt.value, errs)
+				if err != nil {
+					t.Errorf("ExitCode(%d).Validate() returned error for valid value: %v", tt.value, err)
 				}
 			} else {
-				if len(errs) == 0 {
-					t.Error("ExitCode.IsValid() returned no errors for invalid value")
+				if err == nil {
+					t.Error("ExitCode.Validate() returned nil for invalid value")
 				}
-				if !errors.Is(errs[0], ErrInvalidExitCode) {
-					t.Errorf("error does not wrap ErrInvalidExitCode: %v", errs[0])
+				if !errors.Is(err, ErrInvalidExitCode) {
+					t.Errorf("error does not wrap ErrInvalidExitCode: %v", err)
 				}
 			}
 		})

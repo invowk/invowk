@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTUIServerURL_IsValid(t *testing.T) {
+func TestTUIServerURL_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -26,25 +26,25 @@ func TestTUIServerURL_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.url.IsValid()
-			if isValid != tt.want {
-				t.Errorf("TUIServerURL(%q).IsValid() = %v, want %v", tt.url, isValid, tt.want)
+			err := tt.url.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("TUIServerURL(%q).Validate() valid = %v, want %v", tt.url, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("TUIServerURL(%q).IsValid() returned no errors, want error", tt.url)
+				if err == nil {
+					t.Fatalf("TUIServerURL(%q).Validate() returned nil, want error", tt.url)
 				}
-				if !errors.Is(errs[0], ErrInvalidTUIServerURL) {
-					t.Errorf("error should wrap ErrInvalidTUIServerURL, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidTUIServerURL) {
+					t.Errorf("error should wrap ErrInvalidTUIServerURL, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("TUIServerURL(%q).IsValid() returned unexpected errors: %v", tt.url, errs)
+			} else if err != nil {
+				t.Errorf("TUIServerURL(%q).Validate() returned unexpected error: %v", tt.url, err)
 			}
 		})
 	}
 }
 
-func TestTUIServerToken_IsValid(t *testing.T) {
+func TestTUIServerToken_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -63,19 +63,19 @@ func TestTUIServerToken_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.token.IsValid()
-			if isValid != tt.want {
-				t.Errorf("TUIServerToken(%q).IsValid() = %v, want %v", tt.token, isValid, tt.want)
+			err := tt.token.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("TUIServerToken(%q).Validate() valid = %v, want %v", tt.token, err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("TUIServerToken(%q).IsValid() returned no errors, want error", tt.token)
+				if err == nil {
+					t.Fatalf("TUIServerToken(%q).Validate() returned nil, want error", tt.token)
 				}
-				if !errors.Is(errs[0], ErrInvalidTUIServerToken) {
-					t.Errorf("error should wrap ErrInvalidTUIServerToken, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidTUIServerToken) {
+					t.Errorf("error should wrap ErrInvalidTUIServerToken, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("TUIServerToken(%q).IsValid() returned unexpected errors: %v", tt.token, errs)
+			} else if err != nil {
+				t.Errorf("TUIServerToken(%q).Validate() returned unexpected error: %v", tt.token, err)
 			}
 		})
 	}
@@ -127,7 +127,7 @@ func TestTUIServerToken_String(t *testing.T) {
 	}
 }
 
-func TestTUIContext_IsValid(t *testing.T) {
+func TestTUIContext_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -187,26 +187,26 @@ func TestTUIContext_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.ctx.IsValid()
-			if isValid != tt.want {
-				t.Errorf("TUIContext.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.ctx.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("TUIContext.Validate() valid = %v, want %v", err == nil, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("TUIContext.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("TUIContext.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidTUIContext) {
-					t.Errorf("error should wrap ErrInvalidTUIContext, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidTUIContext) {
+					t.Errorf("error should wrap ErrInvalidTUIContext, got: %v", err)
 				}
 				var ctxErr *InvalidTUIContextError
-				if !errors.As(errs[0], &ctxErr) {
-					t.Fatalf("error should be *InvalidTUIContextError, got: %T", errs[0])
+				if !errors.As(err, &ctxErr) {
+					t.Fatalf("error should be *InvalidTUIContextError, got: %T", err)
 				}
 				if len(ctxErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(ctxErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("TUIContext.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("TUIContext.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

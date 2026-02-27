@@ -206,7 +206,7 @@ func TestParseVolumeMount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, errs := ParseVolumeMount(tt.volume)
+			got, err := ParseVolumeMount(tt.volume)
 			if got.HostPath != tt.expected.HostPath {
 				t.Errorf("HostPath = %q, want %q", got.HostPath, tt.expected.HostPath)
 			}
@@ -220,11 +220,11 @@ func TestParseVolumeMount(t *testing.T) {
 				t.Errorf("SELinux = %q, want %q", got.SELinux, tt.expected.SELinux)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Error("ParseVolumeMount() returned no errors, want error")
+				if err == nil {
+					t.Error("ParseVolumeMount() returned nil error, want error")
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ParseVolumeMount() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("ParseVolumeMount() returned unexpected error: %v", err)
 			}
 		})
 	}
@@ -447,7 +447,7 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, errs := ParseVolumeMount(tt.volume)
+			got, err := ParseVolumeMount(tt.volume)
 			if got.HostPath != tt.expected.HostPath {
 				t.Errorf("HostPath = %q, want %q", got.HostPath, tt.expected.HostPath)
 			}
@@ -461,11 +461,11 @@ func TestParseVolumeMount_EdgeCases(t *testing.T) {
 				t.Errorf("SELinux = %q, want %q", got.SELinux, tt.expected.SELinux)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Error("ParseVolumeMount() returned no errors, want error")
+				if err == nil {
+					t.Error("ParseVolumeMount() returned nil error, want error")
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ParseVolumeMount() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("ParseVolumeMount() returned unexpected error: %v", err)
 			}
 		})
 	}

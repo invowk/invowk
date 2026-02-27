@@ -614,113 +614,113 @@ reason = "Modules map mutated in resolver.go (Add/Remove/Update); DDD Entity"
 pattern = "invowkfile.ValidationError.immutability"
 reason = "70+ struct literal sites across validation_structure_*.go; separate PR"
 
-# --- Service Objects: struct-isvalid exceptions ---
+# --- Service Objects: struct-validate exceptions ---
 # Service objects, registries, builders, and state machines have runtime-dynamic
 # validity (engine availability, post-construction population, lifecycle state).
-# IsValid() is not meaningful for these — construction guarantees internal consistency.
+# Validate() is not meaningful for these — construction guarantees internal consistency.
 
 # Service objects — container engines
 [[exceptions]]
-pattern = "container.BaseCLIEngine.struct-isvalid"
+pattern = "container.BaseCLIEngine.struct-validate"
 reason = "service object; binaryPath='' valid for 'not found' sentinel"
 
 [[exceptions]]
-pattern = "container.DockerEngine.struct-isvalid"
+pattern = "container.DockerEngine.struct-validate"
 reason = "service object; wraps BaseCLIEngine"
 
 [[exceptions]]
-pattern = "container.PodmanEngine.struct-isvalid"
+pattern = "container.PodmanEngine.struct-validate"
 reason = "service object; wraps BaseCLIEngine"
 
 [[exceptions]]
-pattern = "container.SandboxAwareEngine.struct-isvalid"
+pattern = "container.SandboxAwareEngine.struct-validate"
 reason = "service decorator; used via Engine interface"
 
 # Service objects — servers, provisioners, runtimes
 [[exceptions]]
-pattern = "serverbase.Base.struct-isvalid"
+pattern = "serverbase.Base.struct-validate"
 reason = "lifecycle state machine; validity is runtime state"
 
 [[exceptions]]
-pattern = "provision.LayerProvisioner.struct-isvalid"
+pattern = "provision.LayerProvisioner.struct-validate"
 reason = "service object; fields always non-nil from constructor"
 
 [[exceptions]]
-pattern = "runtime.ContainerRuntime.struct-isvalid"
+pattern = "runtime.ContainerRuntime.struct-validate"
 reason = "stateful service with mutex/atomic; single-instance"
 
 [[exceptions]]
-pattern = "runtime.NativeRuntime.struct-isvalid"
+pattern = "runtime.NativeRuntime.struct-validate"
 reason = "service object; shell='' valid for auto-detect"
 
 [[exceptions]]
-pattern = "runtime.VirtualRuntime.struct-isvalid"
+pattern = "runtime.VirtualRuntime.struct-validate"
 reason = "service object; invariants enforced by constructor"
 
 # Service objects — module resolution
 [[exceptions]]
-pattern = "invowkmod.Resolver.struct-isvalid"
+pattern = "invowkmod.Resolver.struct-validate"
 reason = "stateful service with mutex; constructor returns error"
 
 [[exceptions]]
-pattern = "invowkmod.GitFetcher.struct-isvalid"
+pattern = "invowkmod.GitFetcher.struct-validate"
 reason = "service object; empty cacheDir valid for default"
 
 # Zero-field stateless services
 [[exceptions]]
-pattern = "invowkfile.StructureValidator.struct-isvalid"
+pattern = "invowkfile.StructureValidator.struct-validate"
 reason = "zero-field struct; no invariants"
 
 [[exceptions]]
-pattern = "invowkmod.SemverResolver.struct-isvalid"
+pattern = "invowkmod.SemverResolver.struct-validate"
 reason = "zero-field struct; no invariants"
 
 # Mutable entities (already have .immutability exceptions)
 [[exceptions]]
-pattern = "invowk.App.struct-isvalid"
+pattern = "invowk.App.struct-validate"
 reason = "composition root; validity is runtime-dynamic"
 
 [[exceptions]]
-pattern = "discovery.DiscoveredCommandSet.struct-isvalid"
+pattern = "discovery.DiscoveredCommandSet.struct-validate"
 reason = "maps populated post-construction"
 
 [[exceptions]]
-pattern = "runtime.ExecutionContext.struct-isvalid"
+pattern = "runtime.ExecutionContext.struct-validate"
 reason = "13 fields set post-construction; DDD Entity"
 
 [[exceptions]]
-pattern = "runtime.DefaultEnvBuilder.struct-isvalid"
+pattern = "runtime.DefaultEnvBuilder.struct-validate"
 reason = "strategy; nil Environ valid (os.Environ fallback)"
 
 [[exceptions]]
-pattern = "invowkmod.CommandScope.struct-isvalid"
+pattern = "invowkmod.CommandScope.struct-validate"
 reason = "has AddDirectDep() mutation; DDD Entity"
 
 [[exceptions]]
-pattern = "invowkmod.LockFile.struct-isvalid"
+pattern = "invowkmod.LockFile.struct-validate"
 reason = "Modules map mutated by resolver; DDD Entity"
 
 # Registries (post-construction population)
 [[exceptions]]
-pattern = "runtime.Registry.struct-isvalid"
+pattern = "runtime.Registry.struct-validate"
 reason = "runtime registration container; populated via Register()"
 
 [[exceptions]]
-pattern = "uroot.Registry.struct-isvalid"
+pattern = "uroot.Registry.struct-validate"
 reason = "command registration container; populated via Register()"
 
 # Fluent builders (mutable by design)
 [[exceptions]]
-pattern = "issue.ErrorContext.struct-isvalid"
+pattern = "issue.ErrorContext.struct-validate"
 reason = "fluent builder; accumulates state before BuildError()"
 
 [[exceptions]]
-pattern = "invowkfile.FieldPath.struct-isvalid"
+pattern = "invowkfile.FieldPath.struct-validate"
 reason = "fluent builder; mutated by Root()/Command()/Flag()"
 
 # Composite pattern
 [[exceptions]]
-pattern = "invowkfile.CompositeValidator.struct-isvalid"
+pattern = "invowkfile.CompositeValidator.struct-validate"
 reason = "composite pattern; has Add() mutation method"
 
 # =============================================================================

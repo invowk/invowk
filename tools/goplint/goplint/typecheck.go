@@ -67,9 +67,9 @@ func isPrimitiveBasic(t *types.Basic) bool {
 }
 
 // isPrimitiveUnderlying reports whether t resolves to a basic primitive type.
-// Used by --check-isvalid and --check-stringer to restrict checks to types
+// Used by --check-validate and --check-stringer to restrict checks to types
 // backed by string, int, etc. — skipping func types, channels, and other
-// non-primitive underlying types that don't need IsValid/String methods.
+// non-primitive underlying types that don't need Validate/String methods.
 func isPrimitiveUnderlying(t types.Type) bool {
 	switch t := t.(type) {
 	case *types.Basic:
@@ -208,11 +208,11 @@ func primitiveMapDetail(t types.Type) (string, bool) {
 	}
 }
 
-// hasIsValidMethod reports whether t is a named type with an
-// IsValid() (bool, []error) method, indicating it is a DDD Value Type
+// hasValidateMethod reports whether t is a named type with a
+// Validate() error method, indicating it is a DDD Value Type
 // that should be validated after construction from raw primitives.
 // Checks both value and pointer receiver method sets.
-func hasIsValidMethod(t types.Type) bool {
+func hasValidateMethod(t types.Type) bool {
 	t = types.Unalias(t)
 	named, ok := t.(*types.Named)
 	if !ok {
@@ -225,26 +225,18 @@ func hasIsValidMethod(t types.Type) bool {
 		types.NewMethodSet(types.NewPointer(named)),
 	} {
 		for method := range mset.Methods() {
-			if method.Obj().Name() != "IsValid" {
+			if method.Obj().Name() != "Validate" {
 				continue
 			}
 			sig, ok := method.Obj().Type().(*types.Signature)
 			if !ok {
 				continue
 			}
-			// Must have 0 params and 2 results: (bool, []error).
-			if sig.Params().Len() != 0 || sig.Results().Len() != 2 {
+			// Must have 0 params and 1 result: error.
+			if sig.Params().Len() != 0 || sig.Results().Len() != 1 {
 				continue
 			}
-			r0, ok0 := sig.Results().At(0).Type().(*types.Basic)
-			if !ok0 || r0.Kind() != types.Bool {
-				continue
-			}
-			r1, ok1 := sig.Results().At(1).Type().(*types.Slice)
-			if !ok1 {
-				continue
-			}
-			if isErrorType(r1.Elem()) {
+			if isErrorType(sig.Results().At(0).Type()) {
 				return true
 			}
 		}

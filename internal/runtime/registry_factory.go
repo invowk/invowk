@@ -70,14 +70,14 @@ func (e *InvalidInitDiagnosticCodeError) Unwrap() error { return ErrInvalidInitD
 // String returns the string representation of the InitDiagnosticCode.
 func (c InitDiagnosticCode) String() string { return string(c) }
 
-// IsValid returns whether the InitDiagnosticCode is one of the defined diagnostic codes,
-// and a list of validation errors if it is not.
-func (c InitDiagnosticCode) IsValid() (bool, []error) {
+// Validate returns nil if the InitDiagnosticCode is one of the defined diagnostic codes,
+// or a validation error if it is not.
+func (c InitDiagnosticCode) Validate() error {
 	switch c {
 	case CodeContainerRuntimeInitFailed:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidInitDiagnosticCodeError{Value: c}}
+		return &InvalidInitDiagnosticCodeError{Value: c}
 	}
 }
 

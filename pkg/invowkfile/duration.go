@@ -33,21 +33,23 @@ func (e *InvalidDurationStringError) Error() string {
 // Unwrap returns ErrInvalidDurationString so callers can use errors.Is for programmatic detection.
 func (e *InvalidDurationStringError) Unwrap() error { return ErrInvalidDurationString }
 
-// IsValid returns whether the DurationString is a parseable, positive duration,
-// and a list of validation errors if it is not.
+// Validate returns nil if the DurationString is a parseable, positive duration,
+// or a validation error if it is not.
 // The zero value ("") is valid — it means "no duration configured".
-func (d DurationString) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (d DurationString) Validate() error {
 	if d == "" {
-		return true, nil
+		return nil
 	}
 	dur, err := time.ParseDuration(string(d))
 	if err != nil {
-		return false, []error{&InvalidDurationStringError{Value: d, Reason: err.Error()}}
+		return &InvalidDurationStringError{Value: d, Reason: err.Error()}
 	}
 	if dur <= 0 {
-		return false, []error{&InvalidDurationStringError{Value: d, Reason: "must be a positive duration"}}
+		return &InvalidDurationStringError{Value: d, Reason: "must be a positive duration"}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the DurationString.

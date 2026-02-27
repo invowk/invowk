@@ -78,8 +78,8 @@ func NewModuleMetadata(module invowkmod.ModuleID, version invowkmod.SemVer, desc
 		copy(m.requires, requires)
 	}
 
-	if isValid, errs := m.IsValid(); !isValid {
-		return nil, errors.Join(errs...)
+	if err := m.Validate(); err != nil {
+		return nil, err
 	}
 	return m, nil
 }
@@ -118,32 +118,32 @@ func (m ModuleMetadata) Requires() []ModuleRequirement {
 	return slices.Clone(m.requires)
 }
 
-// IsValid returns whether the ModuleMetadata has valid fields.
-// It delegates to Module.IsValid(), Version.IsValid(), and each
-// Requires entry's IsValid(). Description is validated only when
+// Validate returns nil if the ModuleMetadata has valid fields, or a validation error if not.
+// It delegates to Module.Validate(), Version.Validate(), and each
+// Requires entry's Validate(). Description is validated only when
 // non-empty (the zero value is valid).
-func (m ModuleMetadata) IsValid() (bool, []error) {
+func (m ModuleMetadata) Validate() error {
 	var errs []error
-	if valid, fieldErrs := m.module.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := m.module.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := m.version.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := m.version.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if m.description != "" {
-		if valid, fieldErrs := m.description.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := m.description.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	for _, req := range m.requires {
-		if valid, fieldErrs := req.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := req.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidModuleMetadataError{FieldErrors: errs}}
+		return &InvalidModuleMetadataError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidModuleMetadataError.

@@ -14,9 +14,10 @@
 //
 // Additional modes:
 //   - --audit-exceptions: report exception patterns that matched zero locations
-//   - --check-isvalid: report named non-struct types missing IsValid() method
+//   - --check-validate: report named non-struct types missing Validate() method
 //   - --check-stringer: report named non-struct types missing String() method
 //   - --check-constructors: report exported structs missing NewXxx() constructor
+//   - --check-nonzero: report struct fields using nonzero types as non-pointer
 package goplint
 
 import (
@@ -35,21 +36,21 @@ import (
 // These appear in the "category" field of analysis.Diagnostic
 // when using -json mode, enabling agents to filter by finding type.
 const (
-	CategoryPrimitive             = "primitive"
-	CategoryMissingIsValid        = "missing-isvalid"
-	CategoryMissingStringer       = "missing-stringer"
-	CategoryMissingConstructor    = "missing-constructor"
-	CategoryWrongConstructorSig   = "wrong-constructor-sig"
-	CategoryMissingFuncOptions    = "missing-func-options"
-	CategoryMissingImmutability   = "missing-immutability"
-	CategoryWrongIsValidSig       = "wrong-isvalid-sig"
-	CategoryWrongStringerSig      = "wrong-stringer-sig"
-	CategoryMissingStructIsValid  = "missing-struct-isvalid"
-	CategoryWrongStructIsValidSig = "wrong-struct-isvalid-sig"
-	CategoryUnvalidatedCast       = "unvalidated-cast"
-	CategoryUnusedIsValidResult    = "unused-isvalid-result"
-	CategoryTruncatedIsValidErrs   = "truncated-isvalid-errors"
+	CategoryPrimitive              = "primitive"
+	CategoryMissingValidate        = "missing-validate"
+	CategoryMissingStringer        = "missing-stringer"
+	CategoryMissingConstructor     = "missing-constructor"
+	CategoryWrongConstructorSig    = "wrong-constructor-sig"
+	CategoryMissingFuncOptions     = "missing-func-options"
+	CategoryMissingImmutability    = "missing-immutability"
+	CategoryWrongValidateSig       = "wrong-validate-sig"
+	CategoryWrongStringerSig       = "wrong-stringer-sig"
+	CategoryMissingStructValidate  = "missing-struct-validate"
+	CategoryWrongStructValidateSig = "wrong-struct-validate-sig"
+	CategoryUnvalidatedCast        = "unvalidated-cast"
+	CategoryUnusedValidateResult   = "unused-validate-result"
 	CategoryUnusedConstructorError = "unused-constructor-error"
+	CategoryNonZeroValueField      = "nonzero-value-field"
 	CategoryStaleException         = "stale-exception"
 	CategoryUnknownDirective       = "unknown-directive"
 )
@@ -63,26 +64,28 @@ var (
 	baselinePath        string
 	auditExceptions     bool
 	checkAll            bool
-	checkIsValid        bool
+	checkValidate       bool
 	checkStringer       bool
 	checkConstructors   bool
 	checkConstructorSig bool
 	checkFuncOptions    bool
 	checkImmutability   bool
-	checkStructIsValid  bool
+	checkStructValidate bool
 	checkCastValidation      bool
-	checkIsValidUsage        bool
+	checkValidateUsage       bool
 	checkConstructorErrUsage bool
+	checkNonZero             bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
 // or multichecker, or via go vet -vettool.
 var Analyzer = &analysis.Analyzer{
-	Name:     "goplint",
-	Doc:      "reports bare primitive types where DDD Value Types should be used",
-	URL:      "https://github.com/invowk/invowk/tools/goplint",
-	Run:      run,
-	Requires: []*analysis.Analyzer{inspect.Analyzer},
+	Name:      "goplint",
+	Doc:       "reports bare primitive types where DDD Value Types should be used",
+	URL:       "https://github.com/invowk/invowk/tools/goplint",
+	Run:       run,
+	Requires:  []*analysis.Analyzer{inspect.Analyzer},
+	FactTypes: []analysis.Fact{(*NonZeroFact)(nil)},
 }
 
 func init() {
@@ -92,8 +95,8 @@ func init() {
 		"path to baseline TOML file (suppress known findings, report only new ones)")
 	Analyzer.Flags.BoolVar(&auditExceptions, "audit-exceptions", false,
 		"report exception patterns that matched zero locations (stale entries)")
-	Analyzer.Flags.BoolVar(&checkIsValid, "check-isvalid", false,
-		"report named non-struct types missing IsValid() (bool, []error) method")
+	Analyzer.Flags.BoolVar(&checkValidate, "check-validate", false,
+		"report named non-struct types missing Validate() error method")
 	Analyzer.Flags.BoolVar(&checkStringer, "check-stringer", false,
 		"report named non-struct types missing String() string method")
 	Analyzer.Flags.BoolVar(&checkConstructors, "check-constructors", false,
@@ -104,16 +107,18 @@ func init() {
 		"report structs that should use or complete the functional options pattern")
 	Analyzer.Flags.BoolVar(&checkImmutability, "check-immutability", false,
 		"report structs with constructors that have exported mutable fields")
-	Analyzer.Flags.BoolVar(&checkStructIsValid, "check-struct-isvalid", false,
-		"report exported struct types with constructors missing IsValid() (bool, []error) method")
+	Analyzer.Flags.BoolVar(&checkStructValidate, "check-struct-validate", false,
+		"report exported struct types with constructors missing Validate() error method")
 	Analyzer.Flags.BoolVar(&checkCastValidation, "check-cast-validation", false,
-		"report type conversions to DDD Value Types from non-constants without IsValid() check")
-	Analyzer.Flags.BoolVar(&checkIsValidUsage, "check-isvalid-usage", false,
-		"detect unused or truncated IsValid() results")
+		"report type conversions to DDD Value Types from non-constants without Validate() check")
+	Analyzer.Flags.BoolVar(&checkValidateUsage, "check-validate-usage", false,
+		"detect unused Validate() results")
 	Analyzer.Flags.BoolVar(&checkConstructorErrUsage, "check-constructor-error-usage", false,
 		"detect constructor calls with error return assigned to blank identifier")
+	Analyzer.Flags.BoolVar(&checkNonZero, "check-nonzero", false,
+		"report struct fields using nonzero-annotated types as value (non-pointer) fields where they are semantically optional")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
-		"enable all DDD compliance checks (isvalid + stringer + constructors + structural + cast-validation + isvalid-usage + constructor-error-usage)")
+		"enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + nonzero)")
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
@@ -124,16 +129,17 @@ type runConfig struct {
 	baselinePath        string
 	auditExceptions     bool
 	checkAll            bool
-	checkIsValid        bool
+	checkValidate       bool
 	checkStringer       bool
 	checkConstructors   bool
 	checkConstructorSig bool
 	checkFuncOptions    bool
 	checkImmutability   bool
-	checkStructIsValid  bool
+	checkStructValidate bool
 	checkCastValidation      bool
-	checkIsValidUsage        bool
+	checkValidateUsage       bool
 	checkConstructorErrUsage bool
+	checkNonZero             bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -145,31 +151,33 @@ func newRunConfig() runConfig {
 		baselinePath:        baselinePath,
 		auditExceptions:     auditExceptions,
 		checkAll:            checkAll,
-		checkIsValid:        checkIsValid,
+		checkValidate:       checkValidate,
 		checkStringer:       checkStringer,
 		checkConstructors:   checkConstructors,
 		checkConstructorSig: checkConstructorSig,
 		checkFuncOptions:    checkFuncOptions,
 		checkImmutability:   checkImmutability,
-		checkStructIsValid:  checkStructIsValid,
+		checkStructValidate: checkStructValidate,
 		checkCastValidation:      checkCastValidation,
-		checkIsValidUsage:        checkIsValidUsage,
+		checkValidateUsage:       checkValidateUsage,
 		checkConstructorErrUsage: checkConstructorErrUsage,
+		checkNonZero:             checkNonZero,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions which is a config
 	// maintenance tool with per-package false positives.
 	if rc.checkAll {
-		rc.checkIsValid = true
+		rc.checkValidate = true
 		rc.checkStringer = true
 		rc.checkConstructors = true
 		rc.checkConstructorSig = true
 		rc.checkFuncOptions = true
 		rc.checkImmutability = true
-		rc.checkStructIsValid = true
+		rc.checkStructValidate = true
 		rc.checkCastValidation = true
-		rc.checkIsValidUsage = true
+		rc.checkValidateUsage = true
 		rc.checkConstructorErrUsage = true
+		rc.checkNonZero = true
 	}
 	return rc
 }
@@ -190,7 +198,7 @@ func run(pass *analysis.Pass) (any, error) {
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	// Determine which data needs to be collected based on active modes.
-	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability || rc.checkStructIsValid
+	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability || rc.checkStructValidate
 	needStructFields := rc.checkFuncOptions || rc.checkImmutability
 	needOptionTypes := rc.checkFuncOptions
 	needWithFunctions := rc.checkFuncOptions
@@ -199,7 +207,7 @@ func run(pass *analysis.Pass) (any, error) {
 	// same AST traversal as the primary primitive check and evaluated
 	// after the traversal completes.
 	var (
-		namedTypes         []namedTypeInfo                 // non-struct named types (for isvalid/stringer)
+		namedTypes         []namedTypeInfo                 // non-struct named types (for validate/stringer)
 		methodSeen         map[string]*methodInfo          // "TypeName.MethodName" → signature info
 		exportedStructs    []exportedStructInfo            // exported struct types (for constructors + structural)
 		constructorDetails map[string]*constructorFuncInfo // "NewTypeName" → details
@@ -207,10 +215,10 @@ func run(pass *analysis.Pass) (any, error) {
 		withFunctions      map[string][]string             // targetStructName → ["WithXxx", ...]
 	)
 
-	// Method tracking serves IsValid/Stringer checks, error type detection
+	// Method tracking serves Validate/Stringer checks, error type detection
 	// for the missing-constructor check (skip structs implementing error),
-	// and struct IsValid() verification.
-	needMethods := rc.checkIsValid || rc.checkStringer || rc.checkConstructors || rc.checkStructIsValid
+	// and struct Validate() verification.
+	needMethods := rc.checkValidate || rc.checkStringer || rc.checkConstructors || rc.checkStructValidate
 	if needMethods {
 		methodSeen = make(map[string]*methodInfo)
 	}
@@ -247,7 +255,7 @@ func run(pass *analysis.Pass) (any, error) {
 			inspectStructFields(pass, n, cfg, bl)
 
 			// Supplementary: collect named types.
-			if rc.checkIsValid || rc.checkStringer {
+			if rc.checkValidate || rc.checkStringer {
 				collectNamedTypes(pass, n, &namedTypes)
 			}
 
@@ -270,7 +278,7 @@ func run(pass *analysis.Pass) (any, error) {
 			// Primary mode: check func params and returns for primitives.
 			inspectFuncDecl(pass, n, cfg, bl)
 
-			// Supplementary: track methods for isvalid/stringer and error detection.
+			// Supplementary: track methods for validate/stringer and error detection.
 			if needMethods {
 				trackMethods(pass, n, methodSeen)
 			}
@@ -290,9 +298,9 @@ func run(pass *analysis.Pass) (any, error) {
 				inspectUnvalidatedCasts(pass, n, cfg, bl)
 			}
 
-			// IsValid usage: detect discarded or truncated IsValid() results.
-			if rc.checkIsValidUsage {
-				inspectIsValidUsage(pass, n, cfg, bl)
+			// Validate usage: detect discarded Validate() results.
+			if rc.checkValidateUsage {
+				inspectValidateUsage(pass, n, cfg, bl)
 			}
 
 			// Constructor error usage: detect blanked error returns.
@@ -303,8 +311,8 @@ func run(pass *analysis.Pass) (any, error) {
 	})
 
 	// Post-traversal checks for supplementary modes.
-	if rc.checkIsValid {
-		reportMissingIsValid(pass, namedTypes, methodSeen, cfg, bl)
+	if rc.checkValidate {
+		reportMissingValidate(pass, namedTypes, methodSeen, cfg, bl)
 	}
 	if rc.checkStringer {
 		reportMissingStringer(pass, namedTypes, methodSeen, cfg, bl)
@@ -323,8 +331,13 @@ func run(pass *analysis.Pass) (any, error) {
 	if rc.checkImmutability {
 		reportMissingImmutability(pass, exportedStructs, constructorDetails, cfg, bl)
 	}
-	if rc.checkStructIsValid {
-		reportMissingStructIsValid(pass, exportedStructs, constructorDetails, methodSeen, cfg, bl)
+	if rc.checkStructValidate {
+		reportMissingStructValidate(pass, exportedStructs, constructorDetails, methodSeen, cfg, bl)
+	}
+
+	// Nonzero field checks — cross-package via analysis.Fact.
+	if rc.checkNonZero {
+		inspectNonZero(pass, cfg, bl)
 	}
 
 	if rc.auditExceptions {
@@ -335,7 +348,7 @@ func run(pass *analysis.Pass) (any, error) {
 }
 
 // namedTypeInfo records a non-struct named type definition for
-// IsValid/Stringer checking.
+// Validate/Stringer checking.
 type namedTypeInfo struct {
 	name     string    // unqualified type name (e.g., "CommandName")
 	pos      token.Pos // position for diagnostics
@@ -372,7 +385,7 @@ type constructorFuncInfo struct {
 }
 
 // methodInfo records a method's signature details for signature verification
-// in --check-isvalid and --check-stringer modes. A non-nil entry in the
+// in --check-validate and --check-stringer modes. A non-nil entry in the
 // methodSeen map means the method exists; the fields enable checking whether
 // the method has the expected signature (not just the expected name).
 type methodInfo struct {
@@ -382,7 +395,7 @@ type methodInfo struct {
 
 // collectNamedTypes extracts non-struct named type definitions from a
 // GenDecl. These are the DDD Value Types themselves (type Foo string)
-// that should have IsValid() and String() methods.
+// that should have Validate() and String() methods.
 //
 // Skips type aliases (type X = Y) since they inherit methods from the
 // aliased type.
@@ -402,7 +415,7 @@ func collectNamedTypes(pass *analysis.Pass, node *ast.GenDecl, out *[]namedTypeI
 			continue
 		}
 
-		// Skip struct types — they use composite IsValid() delegation.
+		// Skip struct types — they use composite Validate() delegation.
 		if _, isStruct := ts.Type.(*ast.StructType); isStruct {
 			continue
 		}
@@ -459,7 +472,7 @@ func collectExportedStructs(pass *analysis.Pass, node *ast.GenDecl, out *[]expor
 }
 
 // trackMethods records method signatures keyed by receiver type for the
-// IsValid/Stringer checks and error type detection in --check-constructors.
+// Validate/Stringer checks and error type detection in --check-constructors.
 // The pass parameter is used to resolve method signatures via TypesInfo.
 func trackMethods(pass *analysis.Pass, fn *ast.FuncDecl, seen map[string]*methodInfo) {
 	if fn.Recv == nil || len(fn.Recv.List) == 0 {
@@ -487,7 +500,7 @@ func trackMethods(pass *analysis.Pass, fn *ast.FuncDecl, seen map[string]*method
 
 // formatResultTypes produces a comma-separated string of result type names
 // from a method signature's result tuple. Used for signature matching in
-// --check-isvalid and --check-stringer (e.g., "bool,[]error" or "string").
+// --check-validate and --check-stringer (e.g., "error" or "string").
 func formatResultTypes(results *types.Tuple) string {
 	if results == nil || results.Len() == 0 {
 		return ""
@@ -499,57 +512,57 @@ func formatResultTypes(results *types.Tuple) string {
 	return strings.Join(parts, ",")
 }
 
-// expectedIsValidSig is the expected signature for IsValid methods:
-// zero parameters, returning (bool, []error).
-const expectedIsValidSig = "bool,[]error"
+// expectedValidateSig is the expected signature for Validate methods:
+// zero parameters, returning error.
+const expectedValidateSig = "error"
 
 // expectedStringerSig is the expected signature for String methods:
 // zero parameters, returning string.
 const expectedStringerSig = "string"
 
-// reportMissingIsValid reports named non-struct types that lack an
-// IsValid() method or have one with the wrong signature. For unexported
-// types, also checks for isValid() (lowercase), matching the project
+// reportMissingValidate reports named non-struct types that lack a
+// Validate() method or have one with the wrong signature. For unexported
+// types, also checks for validate() (lowercase), matching the project
 // convention.
-func reportMissingIsValid(pass *analysis.Pass, namedTypes []namedTypeInfo, methods map[string]*methodInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
+func reportMissingValidate(pass *analysis.Pass, namedTypes []namedTypeInfo, methods map[string]*methodInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
 	for _, t := range namedTypes {
 		qualName := fmt.Sprintf("%s.%s", pkgName, t.name)
 
 		// Determine which method name to check (exported vs unexported).
-		methodKey := t.name + ".IsValid"
-		if !t.exported && methods[t.name+".isValid"] != nil {
-			methodKey = t.name + ".isValid"
+		methodKey := t.name + ".Validate"
+		if !t.exported && methods[t.name+".validate"] != nil {
+			methodKey = t.name + ".validate"
 		}
 
 		mi := methods[methodKey]
 		if mi != nil {
 			// Method exists — verify its signature matches the contract.
-			if mi.paramCount != 0 || mi.resultTypes != expectedIsValidSig {
-				if cfg.isExcepted(qualName + ".IsValid") {
+			if mi.paramCount != 0 || mi.resultTypes != expectedValidateSig {
+				if cfg.isExcepted(qualName + ".Validate") {
 					continue
 				}
-				msg := fmt.Sprintf("named type %s has IsValid() but wrong signature (want func() (bool, []error))", qualName)
-				findingID := StableFindingID(CategoryWrongIsValidSig, qualName, "IsValid")
-				if bl.ContainsFinding(CategoryWrongIsValidSig, findingID, msg) {
+				msg := fmt.Sprintf("named type %s has Validate() but wrong signature (want func() error)", qualName)
+				findingID := StableFindingID(CategoryWrongValidateSig, qualName, "Validate")
+				if bl.ContainsFinding(CategoryWrongValidateSig, findingID, msg) {
 					continue
 				}
-				reportDiagnostic(pass, t.pos, CategoryWrongIsValidSig, findingID, msg)
+				reportDiagnostic(pass, t.pos, CategoryWrongValidateSig, findingID, msg)
 			}
 			continue
 		}
 
-		if cfg.isExcepted(qualName + ".IsValid") {
+		if cfg.isExcepted(qualName + ".Validate") {
 			continue
 		}
 
-		msg := fmt.Sprintf("named type %s has no IsValid() method", qualName)
-		findingID := StableFindingID(CategoryMissingIsValid, qualName, "IsValid")
-		if bl.ContainsFinding(CategoryMissingIsValid, findingID, msg) {
+		msg := fmt.Sprintf("named type %s has no Validate() method", qualName)
+		findingID := StableFindingID(CategoryMissingValidate, qualName, "Validate")
+		if bl.ContainsFinding(CategoryMissingValidate, findingID, msg) {
 			continue
 		}
 
-		reportDiagnostic(pass, t.pos, CategoryMissingIsValid, findingID, msg)
+		reportDiagnostic(pass, t.pos, CategoryMissingValidate, findingID, msg)
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestFlagNameIsValid(t *testing.T) {
+func TestFlagNameValidate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -32,27 +32,27 @@ func TestFlagNameIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.wantValid {
-				t.Errorf("FlagName(%q).IsValid() = %v, want %v", tt.value, isValid, tt.wantValid)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("FlagName(%q).Validate() error = %v, want valid=%v", tt.value, err, tt.wantValid)
 			}
 			if tt.wantValid {
-				if len(errs) != 0 {
-					t.Errorf("FlagName(%q).IsValid() returned errors for valid value: %v", tt.value, errs)
+				if err != nil {
+					t.Errorf("FlagName(%q).Validate() returned error for valid value: %v", tt.value, err)
 				}
 			} else {
-				if len(errs) == 0 {
-					t.Error("FlagName.IsValid() returned no errors for invalid value")
+				if err == nil {
+					t.Error("FlagName.Validate() returned nil for invalid value")
 				}
-				if !errors.Is(errs[0], ErrInvalidFlagName) {
-					t.Errorf("error does not wrap ErrInvalidFlagName: %v", errs[0])
+				if !errors.Is(err, ErrInvalidFlagName) {
+					t.Errorf("error does not wrap ErrInvalidFlagName: %v", err)
 				}
 			}
 		})
 	}
 }
 
-func TestFlagShorthandIsValid(t *testing.T) {
+func TestFlagShorthandValidate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -72,20 +72,20 @@ func TestFlagShorthandIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.wantValid {
-				t.Errorf("FlagShorthand(%q).IsValid() = %v, want %v", tt.value, isValid, tt.wantValid)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("FlagShorthand(%q).Validate() error = %v, want valid=%v", tt.value, err, tt.wantValid)
 			}
 			if tt.wantValid {
-				if len(errs) != 0 {
-					t.Errorf("FlagShorthand(%q).IsValid() returned errors for valid value: %v", tt.value, errs)
+				if err != nil {
+					t.Errorf("FlagShorthand(%q).Validate() returned error for valid value: %v", tt.value, err)
 				}
 			} else {
-				if len(errs) == 0 {
-					t.Error("FlagShorthand.IsValid() returned no errors for invalid value")
+				if err == nil {
+					t.Error("FlagShorthand.Validate() returned nil for invalid value")
 				}
-				if !errors.Is(errs[0], ErrInvalidFlagShorthand) {
-					t.Errorf("error does not wrap ErrInvalidFlagShorthand: %v", errs[0])
+				if !errors.Is(err, ErrInvalidFlagShorthand) {
+					t.Errorf("error does not wrap ErrInvalidFlagShorthand: %v", err)
 				}
 			}
 		})
@@ -133,7 +133,7 @@ func TestArgumentName_String(t *testing.T) {
 	}
 }
 
-func TestArgumentNameIsValid(t *testing.T) {
+func TestArgumentNameValidate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -156,20 +156,20 @@ func TestArgumentNameIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.wantValid {
-				t.Errorf("ArgumentName(%q).IsValid() = %v, want %v", tt.value, isValid, tt.wantValid)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("ArgumentName(%q).Validate() error = %v, want valid=%v", tt.value, err, tt.wantValid)
 			}
 			if tt.wantValid {
-				if len(errs) != 0 {
-					t.Errorf("ArgumentName(%q).IsValid() returned errors for valid value: %v", tt.value, errs)
+				if err != nil {
+					t.Errorf("ArgumentName(%q).Validate() returned error for valid value: %v", tt.value, err)
 				}
 			} else {
-				if len(errs) == 0 {
-					t.Error("ArgumentName.IsValid() returned no errors for invalid value")
+				if err == nil {
+					t.Error("ArgumentName.Validate() returned nil for invalid value")
 				}
-				if !errors.Is(errs[0], ErrInvalidArgumentName) {
-					t.Errorf("error does not wrap ErrInvalidArgumentName: %v", errs[0])
+				if !errors.Is(err, ErrInvalidArgumentName) {
+					t.Errorf("error does not wrap ErrInvalidArgumentName: %v", err)
 				}
 			}
 		})
@@ -199,7 +199,7 @@ func TestCommandCategory_String(t *testing.T) {
 	}
 }
 
-func TestCommandCategoryIsValid(t *testing.T) {
+func TestCommandCategoryValidate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -218,20 +218,20 @@ func TestCommandCategoryIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.wantValid {
-				t.Errorf("CommandCategory(%q).IsValid() = %v, want %v", tt.value, isValid, tt.wantValid)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("CommandCategory(%q).Validate() error = %v, want valid=%v", tt.value, err, tt.wantValid)
 			}
 			if tt.wantValid {
-				if len(errs) != 0 {
-					t.Errorf("CommandCategory(%q).IsValid() returned errors for valid value: %v", tt.value, errs)
+				if err != nil {
+					t.Errorf("CommandCategory(%q).Validate() returned error for valid value: %v", tt.value, err)
 				}
 			} else {
-				if len(errs) == 0 {
-					t.Error("CommandCategory.IsValid() returned no errors for invalid value")
+				if err == nil {
+					t.Error("CommandCategory.Validate() returned nil for invalid value")
 				}
-				if !errors.Is(errs[0], ErrInvalidCommandCategory) {
-					t.Errorf("error does not wrap ErrInvalidCommandCategory: %v", errs[0])
+				if !errors.Is(err, ErrInvalidCommandCategory) {
+					t.Errorf("error does not wrap ErrInvalidCommandCategory: %v", err)
 				}
 			}
 		})
