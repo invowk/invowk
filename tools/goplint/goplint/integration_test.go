@@ -498,3 +498,12 @@ func TestCheckEnumSync(t *testing.T) {
 
 	analysistest.Run(t, testdata, Analyzer, "enumsync")
 }
+
+func TestCheckEnumSyncNoSchema(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-enum-sync", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "enumsync_noschema")
+}

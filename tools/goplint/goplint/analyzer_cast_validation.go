@@ -359,6 +359,7 @@ func isFmtCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 // Recognized patterns:
 //   - x.Error() — error interface method, returns formatted message
 //   - fmt.Sprintf/Errorf/Sprint/... — fmt package formatting functions
+//   - strconv.Itoa/FormatInt/... — numeric formatting functions
 func isErrorMessageExpr(pass *analysis.Pass, expr ast.Expr) bool {
 	call, ok := expr.(*ast.CallExpr)
 	if !ok {
@@ -376,7 +377,35 @@ func isErrorMessageExpr(pass *analysis.Pass, expr ast.Expr) bool {
 	}
 
 	// Pattern 2: fmt.Sprintf(...), fmt.Errorf(...), etc.
-	return isFmtCall(pass, call)
+	if isFmtCall(pass, call) {
+		return true
+	}
+
+	// Pattern 3: strconv.Itoa(...), strconv.FormatInt(...), etc.
+	// All strconv functions return formatted strings, never raw user input.
+	return isStrconvCall(pass, call)
+}
+
+// isStrconvCall reports whether the given call expression targets a function
+// in the "strconv" package (e.g., strconv.Itoa, strconv.FormatInt).
+func isStrconvCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	ident, ok := sel.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	obj := pass.TypesInfo.Uses[ident]
+	if obj == nil {
+		return false
+	}
+	pkgName, ok := obj.(*types.PkgName)
+	if !ok {
+		return false
+	}
+	return pkgName.Imported().Path() == "strconv"
 }
 
 // isRawPrimitive reports whether t is a bare primitive type (string, int, etc.)

@@ -20,6 +20,8 @@ type ExceptionConfig struct {
 	// matchCounts tracks how many times each exception pattern was matched.
 	// Populated during isExcepted calls; used by --audit-exceptions to
 	// detect stale entries that matched zero locations.
+	// Safe for unsynchronized access: go/analysis runs per-package, and each
+	// run() creates a fresh ExceptionConfig via loadConfig().
 	matchCounts map[int]int
 }
 

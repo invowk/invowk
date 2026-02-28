@@ -98,10 +98,6 @@ pattern = "ShebangInfo.Interpreter"
 reason = "full paths like /bin/bash; BinaryName rejects paths"
 
 [[exceptions]]
-pattern = "Engine.BinaryPath.return.0"
-reason = "7+ call sites pass to exec.CommandContext; would add casts"
-
-[[exceptions]]
 pattern = "ResolveDockerfilePath.*"
 reason = "exec boundary — params/return passed to filepath operations"
 
@@ -125,10 +121,6 @@ reason = "display-only field path label"
 
 [[exceptions]]
 pattern = "InitDiagnostic.Message"
-reason = "display-only diagnostic message"
-
-[[exceptions]]
-pattern = "Diagnostic.Message"
 reason = "display-only diagnostic message"
 
 [[exceptions]]
@@ -163,10 +155,6 @@ reason = "composite display string"
 pattern = "ModuleCollisionError.SecondSource"
 reason = "composite display string"
 
-[[exceptions]]
-pattern = "StyledMessage"
-reason = "rendering output"
-
 # =============================================================================
 # Import Cycle Prevention
 # =============================================================================
@@ -184,10 +172,6 @@ reason = "import cycle: tui->tuiserver; method params"
 [[exceptions]]
 pattern = "tuiserver.*.*.*.*"
 reason = "import cycle: tui->tuiserver; method returns"
-
-[[exceptions]]
-pattern = "URLWithHost.host"
-reason = "only 2 possible values, import cycle concern"
 
 # =============================================================================
 # Free-Form User Input
@@ -246,10 +230,6 @@ reason = "go-git pass-through"
 [[exceptions]]
 pattern = "UnpackOptions.Source"
 reason = "mixed path/URL"
-
-[[exceptions]]
-pattern = "ListCommands.return.*"
-reason = "interface contract"
 
 [[exceptions]]
 pattern = "FieldPath.EnvVar.key"
@@ -388,10 +368,6 @@ pattern = "uroot.FlagInfo.ShortName"
 reason = "constant string literals across 25 files"
 
 [[exceptions]]
-pattern = "uroot.FlagInfo.Description"
-reason = "constant string literals across 25 files"
-
-[[exceptions]]
 pattern = "uroot.*.name"
 reason = "display-only labels in 12+ unexported structs"
 
@@ -411,10 +387,6 @@ reason = "uroot Command interface contract: Run(ctx, args []string)"
 [[exceptions]]
 pattern = "uroot.*.Name.return.0"
 reason = "uroot Command interface contract: Name() string"
-
-[[exceptions]]
-pattern = "*.View.return.0"
-reason = "bubbletea tea.Model interface: View() string"
 
 [[exceptions]]
 pattern = "*.FilterValue.return.0"
@@ -454,14 +426,6 @@ pattern = "*.selected"
 reason = "map[int]bool selection set (bool value carries no domain meaning)"
 
 [[exceptions]]
-pattern = "*.seenNames"
-reason = "map[string]bool deduplication set (internal validation)"
-
-[[exceptions]]
-pattern = "*.seenShorts"
-reason = "map[string]bool deduplication set"
-
-[[exceptions]]
 pattern = "*.expectedDirs"
 reason = "map[string]bool directory-name set"
 
@@ -493,10 +457,6 @@ reason = "exec/OS boundary (env var name lists for filtering)"
 [[exceptions]]
 pattern = "*.FlagValues"
 reason = "map value is free-form user input; key is already typed FlagName"
-
-[[exceptions]]
-pattern = "*.commandID"
-reason = "composite string (sshserver Token.CommandID)"
 
 [[exceptions]]
 pattern = "*.message"
@@ -535,10 +495,6 @@ reason = "rendering output composition"
 # =============================================================================
 # Remaining Intentional int Exceptions
 # =============================================================================
-
-[[exceptions]]
-pattern = "TableOptions.SelectedIndex"
-reason = "array index"
 
 [[exceptions]]
 pattern = "TableSelectionResult.SelectedIndex"
@@ -801,10 +757,6 @@ reason = "cfg is a required param, not optional"
 # Unexported TUI model structs hold transient UI state (cursor position,
 # selection indices, viewport offsets). No domain semantics.
 
-[[exceptions]]
-pattern = "tui.*model.*"
-reason = "unexported TUI model internal state"
-
 # =============================================================================
 # Primitive Bulk Exceptions — TUI Builder Method Params
 # =============================================================================
@@ -824,10 +776,6 @@ reason = "fluent builder display label / config param"
 [[exceptions]]
 pattern = "tui.ChooseStrings.*"
 reason = "TUI convenience wrapper — display data params"
-
-[[exceptions]]
-pattern = "tui.ChooseStringsWithModel.*"
-reason = "TUI convenience wrapper"
 
 [[exceptions]]
 pattern = "tui.MultiChooseStrings.*"
@@ -1118,10 +1066,6 @@ pattern = "invowkmod.parseModuleKey.*"
 reason = "CUE text key-parsing internal"
 
 [[exceptions]]
-pattern = "invowkmod.parseModuleKey.return.*"
-reason = "CUE text key-parsing return"
-
-[[exceptions]]
 pattern = "invowkmod.parseLockFileCUE.content"
 reason = "raw CUE source text input"
 
@@ -1184,10 +1128,6 @@ pattern = "invowk.isArgEnvVar.*"
 reason = "env var name pattern detection — raw text"
 
 [[exceptions]]
-pattern = "invowk.isArgEnvVar.return.*"
-reason = "env var name pattern detection return"
-
-[[exceptions]]
 pattern = "invowk.ParseSourceFilter.*"
 reason = "source filter display name parsing"
 
@@ -1198,10 +1138,6 @@ reason = "source filter parsing return"
 [[exceptions]]
 pattern = "invowk.normalizeSourceName.*"
 reason = "source name display normalization"
-
-[[exceptions]]
-pattern = "invowk.normalizeSourceName.return.*"
-reason = "source name display normalization return"
 
 [[exceptions]]
 pattern = "invowk.newServiceError.styledMessage"
@@ -1231,10 +1167,6 @@ reason = "raw command stdout capture"
 [[exceptions]]
 pattern = "BaseCLIEngine.InspectImage.return.*"
 reason = "raw docker inspect JSON output"
-
-[[exceptions]]
-pattern = "container.engineCandidate.*"
-reason = "engine candidate struct — display/exec boundary"
 
 [[exceptions]]
 pattern = "runtime.parseEnvValue.*"
@@ -1331,10 +1263,6 @@ pattern = "provision.LayerProvisioner.buildProvisionedTag.hash"
 reason = "hash string for image tag construction"
 
 [[exceptions]]
-pattern = "provision.containerNameFromPath.path"
-reason = "filesystem path for container name derivation"
-
-[[exceptions]]
 pattern = "provision.LayerProvisioner.generateDockerfile.baseImage"
 reason = "container image name — display/exec boundary"
 
@@ -1345,10 +1273,6 @@ reason = "container image name — display/exec boundary"
 [[exceptions]]
 pattern = "cueutil.formatPath.*"
 reason = "CUE path formatting — display text"
-
-[[exceptions]]
-pattern = "cueutil.parseCUEError.*"
-reason = "CUE error parsing — raw text manipulation"
 
 [[exceptions]]
 pattern = "cueutil.ParseAndDecodeString.schema"
@@ -1443,18 +1367,6 @@ pattern = "invowkmod.downloadFile.return.*"
 reason = "filesystem path return — exec boundary"
 
 [[exceptions]]
-pattern = "invowkmod.CommandScope.Includes.return.*"
-reason = "display text return — module list"
-
-[[exceptions]]
-pattern = "invowkmod.ValidationResult.ErrorMessages.return.*"
-reason = "display text return — error messages"
-
-[[exceptions]]
-pattern = "invowkmod.ValidationResult.WarningMessages.return.*"
-reason = "display text return — warning messages"
-
-[[exceptions]]
 pattern = "platform.IsWindowsReservedName.name"
 reason = "OS-specific name checking — platform boundary"
 
@@ -1490,14 +1402,6 @@ reason = "relative path — filesystem boundary"
 pattern = "invowkmod.resolveIdentifier.*"
 reason = "identifier resolution — composite string parsing"
 
-[[exceptions]]
-pattern = "invowkmod.ParseVersion.versionStr"
-reason = "raw version string input"
-
-[[exceptions]]
-pattern = "invowkmod.SemverResolver.Resolve.return.*"
-reason = "display text return (filtered version list)"
-
 # =============================================================================
 # Filesystem / filepath.Join Boundary (DDD Cost-Benefit Deferred)
 # =============================================================================
@@ -1513,44 +1417,44 @@ reason = "display text return (filtered version list)"
 [[exceptions]]
 pattern = "config.fileExists.*"
 reason = "filepath.Join boundary — 3 callers pass raw string"
-review_after = "2027-01-01"
+review_after = "2027-03-01"
 blocked_by = "types.FilesystemPath adoption in config package"
 
 [[exceptions]]
 pattern = "config.loadCUEIntoViper.*"
 reason = "filepath.Join boundary — 3 callers pass raw string"
-review_after = "2027-01-01"
+review_after = "2027-03-01"
 blocked_by = "types.FilesystemPath adoption in config package"
 
 [[exceptions]]
 pattern = "config.cueLoadError.*"
 reason = "filepath.Join boundary — 3 callers pass raw string"
-review_after = "2027-01-01"
+review_after = "2027-03-01"
 blocked_by = "types.FilesystemPath adoption in config package"
 
 # provision helpers — DiscoverModules returns []string, filepath.Dir returns string
 [[exceptions]]
 pattern = "provision.CalculateDirHash.*"
 reason = "filepath boundary — DiscoverModules returns []string; filepath.Dir"
-review_after = "2027-01-01"
+review_after = "2027-06-01"
 blocked_by = "provision package typed path migration"
 
 [[exceptions]]
 pattern = "provision.CalculateFileHash.*"
 reason = "filepath boundary — callers use string(FilesystemPath)"
-review_after = "2027-01-01"
+review_after = "2027-06-01"
 blocked_by = "provision package typed path migration"
 
 [[exceptions]]
 pattern = "provision.CopyDir.*"
 reason = "filepath.Join recursive boundary — internal calls use filepath.Join"
-review_after = "2027-01-01"
+review_after = "2027-06-01"
 blocked_by = "provision package typed path migration"
 
 [[exceptions]]
 pattern = "provision.CopyFile.*"
 reason = "filepath.Join recursive boundary"
-review_after = "2027-01-01"
+review_after = "2027-06-01"
 blocked_by = "provision package typed path migration"
 
 # invowkmod — CUE text manipulation and resolver internals
@@ -1567,19 +1471,11 @@ pattern = "invowkmod.atomicWriteFile.*"
 reason = "filepath boundary"
 
 [[exceptions]]
-pattern = "invowkmod.cacheModule.*"
-reason = "filepath boundary — cache directory operations"
-
-[[exceptions]]
 pattern = "invowkmod.copyDir.*"
 reason = "filepath boundary"
 
 [[exceptions]]
 pattern = "invowkmod.copyFile.*"
-reason = "filepath boundary"
-
-[[exceptions]]
-pattern = "invowkmod.checkSymlinkSafety.*"
 reason = "filepath boundary"
 
 [[exceptions]]
@@ -1635,14 +1531,6 @@ reason = "result used as map[string]string key — exec/OS boundary"
 pattern = "invowkfile.validateRuntimeConfig.cmdName"
 reason = "only called from tests with string literals"
 
-[[exceptions]]
-pattern = "invowkfile.generate*.*"
-reason = "CUE code generation internals — raw text construction"
-
-[[exceptions]]
-pattern = "invowkfile.generate*.return.*"
-reason = "CUE code generation return"
-
 # runtime — dotenv parsing and exec boundaries
 [[exceptions]]
 pattern = "runtime.LoadEnvFile.*"
@@ -1655,22 +1543,6 @@ reason = "callers mix WorkDir->string and DotenvFilePath->string casts"
 [[exceptions]]
 pattern = "runtime.validateWorkDir.*"
 reason = "filepath boundary"
-
-[[exceptions]]
-pattern = "runtime.createTempScript.*"
-reason = "filepath/exec boundary — creates temp file, returns path"
-
-[[exceptions]]
-pattern = "runtime.createTempScript.return.*"
-reason = "filepath boundary return"
-
-[[exceptions]]
-pattern = "runtime.getShell.return.*"
-reason = "exec.LookPath boundary"
-
-[[exceptions]]
-pattern = "runtime.getShellArgs.*"
-reason = "exec boundary — shell args"
 
 [[exceptions]]
 pattern = "runtime.lockFilePath.return.*"
@@ -1742,25 +1614,25 @@ reason = "filepath boundary"
 [[exceptions]]
 pattern = "invowk.contextWithConfigPath.*"
 reason = "Cobra flag binding → FilesystemPath deferred"
-review_after = "2027-01-01"
+review_after = "2027-09-01"
 blocked_by = "CLI typed request pattern or Cobra typed flags"
 
 [[exceptions]]
 pattern = "invowk.configPathFromContext.return.*"
 reason = "Cobra flag binding return"
-review_after = "2027-01-01"
+review_after = "2027-09-01"
 blocked_by = "CLI typed request pattern or Cobra typed flags"
 
 [[exceptions]]
 pattern = "invowk.loadConfigWithFallback.*"
 reason = "Cobra flag binding path"
-review_after = "2027-01-01"
+review_after = "2027-09-01"
 blocked_by = "CLI typed request pattern or Cobra typed flags"
 
 [[exceptions]]
 pattern = "invowk.commandService.loadConfig.*"
 reason = "Cobra flag binding path"
-review_after = "2027-01-01"
+review_after = "2027-09-01"
 blocked_by = "CLI typed request pattern or Cobra typed flags"
 
 [[exceptions]]
@@ -1825,19 +1697,16 @@ reason = "Cobra args boundary — import path"
 # =============================================================================
 
 [[exceptions]]
-pattern = "platform.statFile.*"
-reason = "filepath/OS boundary — os.Stat wrapper"
-review_after = "2027-01-01"
-
-[[exceptions]]
 pattern = "watch.Watcher.maybeAddDir.*"
 reason = "filepath boundary — fsnotify watcher"
-review_after = "2027-01-01"
+review_after = "2027-06-01"
+blocked_by = "fsnotify returns raw string paths"
 
 [[exceptions]]
 pattern = "invowkfile.ValidateContainerfilePath.*"
 reason = "filepath boundary — os.Stat/filepath.Rel callers"
-review_after = "2027-01-01"
+review_after = "2027-06-01"
+blocked_by = "pkg/fspath typed path wrapper adoption"
 
 # =============================================================================
 # Constructor Validate() Delegation Exceptions
@@ -1884,14 +1753,7 @@ reason = "TUI framework boundary — bubbletea/huh provides validated values"
 pattern = "tui.*.*.cast-validation"
 reason = "TUI method boundary — bubbletea/huh provides validated values"
 
-[[exceptions]]
-pattern = "invowk.tui*.cast-validation"
-reason = "TUI CLI handlers — bubbletea tea.WindowSizeMsg ints"
-
 # --- Server state: atomic int32 loads with known enum constants ---
-[[exceptions]]
-pattern = "serverbase.*.cast-validation"
-reason = "atomic int32 state loads — values written as typed constants via CAS"
 
 [[exceptions]]
 pattern = "serverbase.*.*.cast-validation"

@@ -254,9 +254,12 @@ func extractLiteralString(expr ast.Expr) string {
 	return ""
 }
 
-// findPackageCUESchema searches the package directory for a file matching
-// *_schema.cue. Returns the file contents, filename, and nil error when found.
-// Returns (nil, "", nil) when no schema file exists.
+// findPackageCUESchema searches the package directory for files matching
+// *_schema.cue and concatenates them. This handles packages with multiple
+// schema files (e.g., types_schema.cue and config_schema.cue) where enums
+// may be split across files. Returns the combined contents, the first
+// filename (for diagnostics), and nil error. Returns (nil, "", nil) when
+// no schema file exists.
 func findPackageCUESchema(pass *analysis.Pass) ([]byte, string, error) {
 	var pkgDir string
 	for _, file := range pass.Files {
@@ -289,13 +292,20 @@ func findPackageCUESchema(pass *analysis.Pass) ([]byte, string, error) {
 		return nil, "", nil
 	}
 	sort.Strings(schemaNames)
-	schemaFilename := filepath.Join(pkgDir, schemaNames[0])
 
-	data, err := os.ReadFile(schemaFilename)
-	if err != nil {
-		return nil, "", fmt.Errorf("reading CUE schema %s: %w", schemaFilename, err)
+	// Concatenate all schema files. CUE supports multiple definitions in
+	// a single compilation unit, so concatenation is semantically valid
+	// for top-level #Definition declarations.
+	var combined []byte
+	for _, name := range schemaNames {
+		data, readErr := os.ReadFile(filepath.Join(pkgDir, name))
+		if readErr != nil {
+			return nil, "", fmt.Errorf("reading CUE schema %s: %w", name, readErr)
+		}
+		combined = append(combined, data...)
+		combined = append(combined, '\n')
 	}
-	return data, schemaFilename, nil
+	return combined, filepath.Join(pkgDir, schemaNames[0]), nil
 }
 
 // extractCUEDisjunctionMembers compiles the CUE schema, looks up the value
