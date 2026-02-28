@@ -32,7 +32,9 @@ const (
 var ErrInvalidCapabilityName = errors.New("invalid capability name")
 
 type (
-	// CapabilityName represents a system capability type
+	// CapabilityName represents a system capability type.
+	//
+	//goplint:nonzero,enum-cue=#CapabilityName
 	CapabilityName string
 
 	// InvalidCapabilityNameError is returned when a CapabilityName value is not recognized.

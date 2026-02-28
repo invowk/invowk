@@ -30,7 +30,9 @@ var (
 )
 
 type (
-	// ArgumentType represents the data type of an argument
+	// ArgumentType represents the data type of an argument.
+	//
+	//goplint:enum-cue=#ArgumentType
 	ArgumentType string
 
 	// InvalidArgumentTypeError is returned when an ArgumentType value is not recognized.

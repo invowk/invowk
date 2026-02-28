@@ -38,7 +38,9 @@ var (
 )
 
 type (
-	// FlagType represents the data type of a flag
+	// FlagType represents the data type of a flag.
+	//
+	//goplint:enum-cue=#FlagType
 	FlagType string
 
 	// InvalidFlagTypeError is returned when a FlagType value is not recognized.

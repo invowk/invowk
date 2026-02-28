@@ -270,3 +270,18 @@ func MultiAssignCast(x, y string) { // want `parameter "x" of castvalidation\.Mu
 	_ = a
 	_ = b
 }
+
+// --- Ancestor auto-skip: nested composite literal inside fmt call ---
+
+// CastInCompositeLitFmtArg — should NOT be flagged because the cast is
+// nested inside a composite literal that is an argument to fmt.Sprintf.
+// The entire expression tree is display-only.
+func CastInCompositeLitFmtArg(input string) string { // want `parameter "input" of castvalidation\.CastInCompositeLitFmtArg uses primitive type string` `return value of castvalidation\.CastInCompositeLitFmtArg uses primitive type string`
+	type display struct{ Name CommandName }
+	return fmt.Sprintf("display: %v", display{Name: CommandName(input)})
+}
+
+// CastInSliceFmtArg — should NOT be flagged (slice inside fmt call).
+func CastInSliceFmtArg(input string) string { // want `parameter "input" of castvalidation\.CastInSliceFmtArg uses primitive type string` `return value of castvalidation\.CastInSliceFmtArg uses primitive type string`
+	return fmt.Sprintf("items: %v", []CommandName{CommandName(input)})
+}

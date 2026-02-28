@@ -467,12 +467,12 @@ func directiveValue(cgs []*ast.CommentGroup, key string) (string, bool) {
 
 			for part := range strings.SplitSeq(valueStr, ",") {
 				part = strings.TrimSpace(part)
-				eqIdx := strings.Index(part, "=")
-				if eqIdx < 0 {
+				keyPart, val, hasEq := strings.Cut(part, "=")
+				if !hasEq {
 					continue
 				}
-				if part[:eqIdx] == key {
-					return part[eqIdx+1:], true
+				if keyPart == key {
+					return val, true
 				}
 			}
 		}
@@ -561,10 +561,7 @@ func parseDirectiveKeys(text string) (keys []string, unknown []string) {
 		if part == "" {
 			continue
 		}
-		keyPart := part
-		if eqIdx := strings.Index(part, "="); eqIdx >= 0 {
-			keyPart = part[:eqIdx]
-		}
+		keyPart, _, _ := strings.Cut(part, "=")
 		if knownDirectiveKeys[keyPart] {
 			keys = append(keys, keyPart)
 		} else {

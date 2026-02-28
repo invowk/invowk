@@ -151,7 +151,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		}
 
 		// Unassigned cast — check auto-skip contexts.
-		if isAutoSkipContext(pass, call, parent) {
+		if isAutoSkipContext(pass, call, parent, parentMap) {
 			return true
 		}
 
@@ -205,25 +205,33 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 // buildParentMap builds a mapping from each AST node to its parent node
 // within the given root. Used by cast-validation to determine the syntactic
 // context of a type conversion (assignment, map index, comparison, etc.).
+// Uses a single ast.Walk traversal with a stack-based visitor for O(N)
+// performance with minimal allocations.
 func buildParentMap(root ast.Node) map[ast.Node]ast.Node {
-	parents := make(map[ast.Node]ast.Node)
-	ast.Inspect(root, func(n ast.Node) bool {
-		if n == nil {
-			return false
-		}
-		// Visit children and record their parent.
-		ast.Inspect(n, func(child ast.Node) bool {
-			if child == nil || child == n {
-				return true
-			}
-			// Only record direct children — stop recursion to avoid
-			// overwriting with a deeper parent.
-			parents[child] = n
-			return false
-		})
-		return true
-	})
-	return parents
+	rec := &parentRecorder{parents: make(map[ast.Node]ast.Node)}
+	ast.Walk(rec, root)
+	return rec.parents
+}
+
+// parentRecorder is an ast.Visitor that tracks the parent of each AST
+// node using an explicit stack. Each Visit call records the current
+// stack top as the parent of n, then pushes n. The nil sentinel from
+// ast.Walk pops the stack when leaving a node's subtree.
+type parentRecorder struct {
+	parents map[ast.Node]ast.Node
+	stack   []ast.Node
+}
+
+func (r *parentRecorder) Visit(n ast.Node) ast.Visitor {
+	if n == nil {
+		r.stack = r.stack[:len(r.stack)-1]
+		return nil
+	}
+	if len(r.stack) > 0 {
+		r.parents[n] = r.stack[len(r.stack)-1]
+	}
+	r.stack = append(r.stack, n)
+	return r
 }
 
 // isAutoSkipContext reports whether a type conversion call expression is in
@@ -232,7 +240,8 @@ func buildParentMap(root ast.Node) map[ast.Node]ast.Node {
 //   - Comparison operand: DddType(s) == expected — string equality works
 //   - Switch tag expression: switch DddType(s) { ... } — equivalent to comparison
 //   - fmt.* function argument: fmt.Sprintf("...", DddType(s)) — display-only
-func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node) bool {
+//   - Nested in composite literal inside fmt.* — display-only (ancestor check)
+func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node, parentMap map[ast.Node]ast.Node) bool {
 	if parent == nil {
 		return false
 	}
@@ -268,7 +277,56 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node)
 		return true
 	}
 
+	// Ancestor walk: check if any ancestor up to a statement boundary is
+	// in an auto-skip context (e.g., fmt.Sprintf("...", Struct{Field: DddType(s)})).
+	if isAutoSkipAncestor(pass, parent, parentMap) {
+		return true
+	}
+
 	return false
+}
+
+// isAutoSkipAncestor walks up the parent chain (bounded) looking for an
+// ancestor fmt.* call that makes the entire expression tree display-only.
+// Stops at statement boundaries to prevent cross-statement false suppression.
+func isAutoSkipAncestor(pass *analysis.Pass, start ast.Node, parentMap map[ast.Node]ast.Node) bool {
+	const maxAncestorDepth = 5
+
+	current := start
+	for range maxAncestorDepth {
+		grandparent, ok := parentMap[current]
+		if !ok || grandparent == nil {
+			break
+		}
+		// Stop at statement boundaries — a cast in one statement should
+		// not be auto-skipped because a parent statement uses fmt.*.
+		if isStatementNode(grandparent) {
+			break
+		}
+		// Check if the grandparent is an fmt.* call.
+		if outerCall, ok := grandparent.(*ast.CallExpr); ok {
+			if isFmtCall(pass, outerCall) {
+				return true
+			}
+		}
+		current = grandparent
+	}
+	return false
+}
+
+// isStatementNode reports whether n is a statement-level AST node that
+// represents a boundary for ancestor auto-skip walking.
+func isStatementNode(n ast.Node) bool {
+	switch n.(type) {
+	case *ast.AssignStmt, *ast.ExprStmt, *ast.ReturnStmt,
+		*ast.IfStmt, *ast.ForStmt, *ast.RangeStmt,
+		*ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt,
+		*ast.GoStmt, *ast.DeferStmt, *ast.SendStmt,
+		*ast.BlockStmt:
+		return true
+	default:
+		return false
+	}
 }
 
 // isFmtCall reports whether the given call expression targets a function

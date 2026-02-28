@@ -72,13 +72,19 @@ var (
 )
 
 type (
-	// RuntimeMode represents the execution runtime type
+	// RuntimeMode represents the execution runtime type.
+	//
+	//goplint:enum-cue=#RuntimeType
 	RuntimeMode string
 
-	// EnvInheritMode defines how host environment variables are inherited
+	// EnvInheritMode defines how host environment variables are inherited.
+	//
+	//goplint:enum-cue=#EnvInheritMode
 	EnvInheritMode string
 
-	// PlatformType represents a target platform type
+	// PlatformType represents a target platform type.
+	//
+	//goplint:enum-cue=#PlatformType
 	PlatformType string
 
 	// InvalidRuntimeModeError is returned when a RuntimeMode value is not recognized.

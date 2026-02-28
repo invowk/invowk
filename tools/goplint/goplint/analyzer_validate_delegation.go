@@ -265,12 +265,7 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 			// When Validate() calls a method on the same receiver, walk that
 			// method's body for direct field delegations.
 			if recvVarName != "" {
-				helperDelegated := findHelperMethodDelegations(pass, fn.Body, typeName, recvVarName)
-				for k, v := range helperDelegated {
-					if v {
-						called[k] = true
-					}
-				}
+				findHelperMethodDelegations(pass, fn.Body, typeName, recvVarName, nil, 0, called)
 			}
 		}
 	}
@@ -278,13 +273,28 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 	return called
 }
 
+// maxHelperMethodDepth bounds recursion in multi-level helper method
+// delegation tracking to prevent pathological cases.
+const maxHelperMethodDepth = 3
+
 // findHelperMethodDelegations finds receiver.helperMethod() calls in the
-// Validate body, then walks each helper method's body for direct field
-// delegation patterns. Returns the set of field names delegated via helpers.
-// Bounds recursion with a visited set to prevent infinite loops.
-func findHelperMethodDelegations(pass *analysis.Pass, body *ast.BlockStmt, typeName, recvVarName string) map[string]bool {
-	result := make(map[string]bool)
-	visited := make(map[string]bool)
+// given body, then recursively walks each helper method's body for direct
+// field delegation patterns. Writes delegated field names directly into
+// the out accumulator. Bounds recursion with a visited set and depth limit.
+func findHelperMethodDelegations(
+	pass *analysis.Pass,
+	body *ast.BlockStmt,
+	typeName, recvVarName string,
+	visited map[string]bool,
+	depth int,
+	out map[string]bool,
+) {
+	if depth >= maxHelperMethodDepth {
+		return
+	}
+	if visited == nil {
+		visited = make(map[string]bool)
+	}
 
 	// Collect receiver.helperMethod() calls.
 	var helperNames []string
@@ -336,14 +346,16 @@ func findHelperMethodDelegations(pass *analysis.Pass, body *ast.BlockStmt, typeN
 			}
 			if helperRecvVar != "" {
 				if id, ok := innerSel.X.(*ast.Ident); ok && id.Name == helperRecvVar {
-					result[innerSel.Sel.Name] = true
+					out[innerSel.Sel.Name] = true
 				}
 			}
 			return true
 		})
-	}
 
-	return result
+		// Recurse: check if this helper calls further helpers that
+		// contain field delegations.
+		findHelperMethodDelegations(pass, helperBody, typeName, helperRecvVar, visited, depth+1, out)
+	}
 }
 
 // findMethodBody searches the package for a method with the given receiver

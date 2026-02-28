@@ -67,3 +67,65 @@ func (f FlagType) Validate() error {
 }
 
 func (f FlagType) String() string { return string(f) }
+
+// --- Named constant switch cases: constants resolve to string values ---
+
+//goplint:enum-cue=#RuntimeMode
+type ConstSwitchMode string
+
+const (
+	CSMNative    ConstSwitchMode = "native"
+	CSMVirtual   ConstSwitchMode = "virtual"
+	CSMContainer ConstSwitchMode = "container"
+)
+
+func (m ConstSwitchMode) Validate() error {
+	switch m {
+	case CSMNative, CSMVirtual, CSMContainer:
+		return nil
+	default:
+		return fmt.Errorf("invalid mode %q", m)
+	}
+}
+
+func (m ConstSwitchMode) String() string { return string(m) }
+
+// --- Mixed literals and named constants ---
+
+//goplint:enum-cue=#ColorScheme
+type MixedCaseScheme string
+
+const MCSLight MixedCaseScheme = "light"
+
+func (c MixedCaseScheme) Validate() error {
+	switch c {
+	case "auto", "dark", MCSLight: // mix of literal + named constant
+		return nil
+	default:
+		return fmt.Errorf("invalid color scheme %q", c)
+	}
+}
+
+func (c MixedCaseScheme) String() string { return string(c) }
+
+// --- Named constant with missing member: "light" is in CUE but not as constant ---
+
+//goplint:enum-cue=#ColorScheme
+type ConstMissingCase string // want `type enumsync\.ConstMissingCase: CUE member "light" \(at #ColorScheme\) is missing from Validate\(\) switch cases`
+
+const (
+	CMCAuto ConstMissingCase = "auto"
+	CMCDark ConstMissingCase = "dark"
+	// CMCLight is intentionally missing
+)
+
+func (c ConstMissingCase) Validate() error {
+	switch c {
+	case CMCAuto, CMCDark: // "light" missing!
+		return nil
+	default:
+		return fmt.Errorf("invalid: %q", c)
+	}
+}
+
+func (c ConstMissingCase) String() string { return string(c) }

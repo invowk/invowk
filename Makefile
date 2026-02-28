@@ -272,14 +272,14 @@ check-types-all-json: build-goplint
 .PHONY: check-baseline
 check-baseline: build-goplint
 	@echo "Checking goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
 
 # Update the goplint baseline from the current codebase state.
 # Run this after type improvements or new exceptions to shrink the baseline.
 .PHONY: update-baseline
 update-baseline: build-goplint
 	@echo "Updating goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
 	@echo "Baseline updated: tools/goplint/baseline.toml"
 
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)

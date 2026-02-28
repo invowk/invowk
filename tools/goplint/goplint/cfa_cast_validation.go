@@ -52,108 +52,14 @@ func inspectUnvalidatedCastsCFA(
 		return
 	}
 
-	// Collect casts and closures in a single AST walk.
-	type assignedCast struct {
-		varName  string
-		typeName string
-		pos      ast.Node
-		assign   ast.Node // the AssignStmt containing this cast
-		idx      int
-	}
-	type unassignedCast struct {
-		typeName string
-		pos      ast.Node
-		idx      int
-	}
-
-	var assignedCasts []assignedCast
-	var unassignedCasts []unassignedCast
-	castIndex := 0
-	closureIndex := 0
-
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		// When encountering a closure, delegate to CFA closure analysis
-		// instead of skipping entirely.
-		if lit, ok := n.(*ast.FuncLit); ok {
-			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIndex), excCfg, bl)
-			closureIndex++
-			return false
-		}
-
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-
-		// Not a type conversion — skip.
-		tv, ok := pass.TypesInfo.Types[call.Fun]
-		if !ok || !tv.IsType() {
-			return true
-		}
-
-		if len(call.Args) != 1 {
-			return true
-		}
-
-		// Target must have Validate() — i.e., it's a DDD Value Type.
-		targetType := tv.Type
-		if !hasValidateMethod(targetType) {
-			return true
-		}
-
-		// Source must be a raw primitive from a runtime expression.
-		srcTV, srcOK := pass.TypesInfo.Types[call.Args[0]]
-		if !srcOK {
-			return true
-		}
-		if srcTV.Value != nil {
-			return true // constant expression — skip
-		}
-		if isErrorMessageExpr(pass, call.Args[0]) {
-			return true // error-message source — skip
-		}
-		if !isRawPrimitive(srcTV.Type) {
-			return true // named-to-named cast — skip
-		}
-
-		targetTypeName := qualifiedTypeName(targetType, pass.Pkg)
-		parent := parentMap[call]
-
-		// Check if assigned to a named variable.
-		if assign, ok := parent.(*ast.AssignStmt); ok {
-			for i, rhs := range assign.Rhs {
-				if rhs != call {
-					continue
-				}
-				if i < len(assign.Lhs) {
-					if ident, ok := assign.Lhs[i].(*ast.Ident); ok && ident.Name != "_" {
-						assignedCasts = append(assignedCasts, assignedCast{
-							varName:  ident.Name,
-							typeName: targetTypeName,
-							pos:      call,
-							assign:   assign,
-							idx:      castIndex,
-						})
-						castIndex++
-						return true
-					}
-				}
-			}
-		}
-
-		// Unassigned cast — check auto-skip contexts.
-		if isAutoSkipContext(pass, call, parent) {
-			return true
-		}
-
-		unassignedCasts = append(unassignedCasts, unassignedCast{
-			typeName: targetTypeName,
-			pos:      call,
-			idx:      castIndex,
-		})
-		castIndex++
-		return true
-	})
+	// Collect casts using the shared CFA collection logic.
+	// Closures are delegated to inspectClosureCastsCFA.
+	assignedCasts, unassignedCasts := collectCFACasts(
+		pass, fn.Body, parentMap,
+		func(lit *ast.FuncLit, closureIdx int) {
+			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIdx), excCfg, bl)
+		},
+	)
 
 	// Report assigned casts where an unvalidated path to return exists.
 	for _, ac := range assignedCasts {
@@ -181,7 +87,7 @@ func inspectUnvalidatedCastsCFA(
 		}
 
 		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", ac.typeName)
-		findingID := StableFindingID(CategoryUnvalidatedCast, "cfa", qualFuncName, ac.typeName, "assigned", strconv.Itoa(ac.idx))
+		findingID := StableFindingID(CategoryUnvalidatedCast, "cfa", qualFuncName, ac.typeName, "assigned", strconv.Itoa(ac.castIndex))
 		if bl.ContainsFinding(CategoryUnvalidatedCast, findingID, msg) {
 			continue
 		}
@@ -202,7 +108,7 @@ func inspectUnvalidatedCastsCFA(
 		}
 
 		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", uc.typeName)
-		findingID := StableFindingID(CategoryUnvalidatedCast, "cfa", qualFuncName, uc.typeName, "unassigned", strconv.Itoa(uc.idx))
+		findingID := StableFindingID(CategoryUnvalidatedCast, "cfa", qualFuncName, uc.typeName, "unassigned", strconv.Itoa(uc.castIndex))
 		if bl.ContainsFinding(CategoryUnvalidatedCast, findingID, msg) {
 			continue
 		}

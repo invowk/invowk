@@ -1952,6 +1952,22 @@ pattern = "invowk.*.*.cast-validation"
 reason = "cmd/invowk method boundary — Cobra/CLI boundary casts"
 
 # =============================================================================
+# Nonzero Error Type Fields
+# =============================================================================
+# Error structs carry the offending value for diagnostic messages.
+# These must be value types (not pointers) even though the underlying
+# type has //goplint:nonzero, because the error always contains a
+# concrete invalid value to report.
+
+[[exceptions]]
+pattern = "invowkfile.InvalidCapabilityNameError.Value.nonzero"
+reason = "error struct carries offending value for diagnostic output"
+
+[[exceptions]]
+pattern = "invowkfile.CapabilityError.Capability.nonzero"
+reason = "error struct carries offending capability for diagnostic output"
+
+# =============================================================================
 # Orphaned Validator Audit — Constant-Only Types
 # =============================================================================
 # All 8 constant-only types now have //goplint:constant-only directives on

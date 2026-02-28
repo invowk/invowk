@@ -346,3 +346,50 @@ func (c *IncompleteHelperConfig) validatePartial() error {
 	// FieldMode.Validate() missing — should be flagged.
 	return nil
 }
+
+// --- Two-level helper method delegation — complete ---
+
+//goplint:validate-all
+type TwoLevelHelperConfig struct {
+	FieldName Name
+	FieldMode Mode
+}
+
+func (c *TwoLevelHelperConfig) Validate() error {
+	return c.validateBase()
+}
+
+func (c *TwoLevelHelperConfig) validateBase() error {
+	if err := c.validateNameField(); err != nil {
+		return err
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *TwoLevelHelperConfig) validateNameField() error {
+	return c.FieldName.Validate()
+}
+
+// --- Two-level helper method delegation — incomplete ---
+
+//goplint:validate-all
+type TwoLevelIncomplete struct { // want `validatedelegation\.TwoLevelIncomplete\.Validate\(\) does not delegate to field FieldMode which has Validate\(\)`
+	FieldName Name
+	FieldMode Mode
+}
+
+func (c *TwoLevelIncomplete) Validate() error {
+	return c.validateOnly()
+}
+
+func (c *TwoLevelIncomplete) validateOnly() error {
+	return c.validateJustName()
+}
+
+func (c *TwoLevelIncomplete) validateJustName() error {
+	return c.FieldName.Validate()
+	// FieldMode.Validate() missing — should be flagged.
+}

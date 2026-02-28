@@ -201,3 +201,94 @@ func NonIgnoredCast(s string) CommandName { // want `parameter "s" of cfa_castva
 	cmd := CommandName(s) // want `type conversion to CommandName from non-constant without Validate\(\) check`
 	return cmd
 }
+
+// --- CFA edge case: goroutine Validate() does not cover outer path ---
+
+// GoroutineValidateDoesNotCoverOuter — FLAGGED because the goroutine's
+// Validate() call does not guarantee execution before the outer function
+// returns. containsValidateCall must not descend into FuncLit bodies.
+func GoroutineValidateDoesNotCoverOuter(raw string) { // want `parameter "raw" of cfa_castvalidation\.GoroutineValidateDoesNotCoverOuter uses primitive type string`
+	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	go func() {
+		_ = x.Validate()
+	}()
+	useCmd(x)
+}
+
+// DeferredClosureValidate — FLAGGED. Even though defer guarantees execution
+// before return, containsValidateCall does not descend into FuncLit bodies.
+// This is an accepted trade-off: the goroutine false negative (where Validate
+// may never run) is more dangerous than the deferred-closure false positive
+// (where Validate always runs but CFA cannot see it). Suppress with
+// //goplint:ignore if needed.
+func DeferredClosureValidate(raw string) { // want `parameter "raw" of cfa_castvalidation\.DeferredClosureValidate uses primitive type string`
+	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	defer func() { _ = x.Validate() }() //nolint:errcheck
+	useCmd(x)
+}
+
+// --- CFA edge case: select statement validation ---
+
+// SelectOneBranchValidated — FLAGGED because the default branch does not
+// call Validate(). Only the channel case validates.
+func SelectOneBranchValidated(raw string, ch chan string) { // want `parameter "raw" of cfa_castvalidation\.SelectOneBranchValidated uses primitive type string`
+	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	select {
+	case <-ch:
+		if err := x.Validate(); err != nil {
+			return
+		}
+	default:
+		// no validation
+	}
+	useCmd(x)
+}
+
+// SelectAllBranchesValidated — NOT flagged because all branches validate.
+func SelectAllBranchesValidated(raw string, ch chan string) { // want `parameter "raw" of cfa_castvalidation\.SelectAllBranchesValidated uses primitive type string`
+	x := CommandName(raw)
+	select {
+	case <-ch:
+		if err := x.Validate(); err != nil {
+			return
+		}
+	default:
+		if err := x.Validate(); err != nil {
+			return
+		}
+	}
+	useCmd(x)
+}
+
+// --- CFA edge case: panic path ---
+
+// ValidateOrPanic — NOT flagged because Validate() is called on the path.
+// When Validate() returns nil, the path continues to useCmd. When it returns
+// err, panic terminates (conservative mayReturn: the post-panic path is
+// still Validate()-covered because the if-body block contains the call).
+func ValidateOrPanic(raw string) { // want `parameter "raw" of cfa_castvalidation\.ValidateOrPanic uses primitive type string`
+	x := CommandName(raw)
+	if err := x.Validate(); err != nil {
+		panic(err)
+	}
+	useCmd(x)
+}
+
+// --- CFA edge case: branch-specific reassignment ---
+
+// BranchReassignmentPartialValidation — the if-branch validates its cast,
+// but the else-branch's cast is NOT validated. CFA correctly flags only the
+// else-branch cast because from its defining block, there is a path to
+// return without Validate().
+func BranchReassignmentPartialValidation(a, b string, cond bool) { // want `parameter "a" of cfa_castvalidation\.BranchReassignmentPartialValidation uses primitive type string` `parameter "b" of cfa_castvalidation\.BranchReassignmentPartialValidation uses primitive type string`
+	var x CommandName
+	if cond {
+		x = CommandName(a)
+		if err := x.Validate(); err != nil {
+			return
+		}
+	} else {
+		x = CommandName(b) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	}
+	useCmd(x)
+}

@@ -5,7 +5,9 @@ package goplint
 import (
 	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/token"
+	"go/types"
 	"os"
 	"path/filepath"
 	"sort"
@@ -62,7 +64,7 @@ func inspectEnumSync(pass *analysis.Pass, cfg *ExceptionConfig, bl *BaselineConf
 		// Extract Go switch case literals from the Validate() body.
 		var goCases []string
 		if ann.validateBody != nil {
-			goCases = extractSwitchCaseLiterals(ann.validateBody)
+			goCases = extractSwitchCaseLiterals(pass, ann.validateBody)
 		}
 		goSet := make(map[string]bool, len(goCases))
 		for _, v := range goCases {
@@ -145,7 +147,7 @@ func collectEnumCueAnnotations(pass *analysis.Pass) []enumCueAnnotation {
 					continue
 				}
 				cuePath, found := directiveValue(
-					nonNilCommentGroups(gd.Doc, ts.Doc), "enum-cue")
+					[]*ast.CommentGroup{gd.Doc, ts.Doc}, "enum-cue")
 				if !found || cuePath == "" {
 					continue
 				}
@@ -163,10 +165,10 @@ func collectEnumCueAnnotations(pass *analysis.Pass) []enumCueAnnotation {
 }
 
 // extractSwitchCaseLiterals walks a function body and collects all string
-// and int literal values from switch case clauses. Handles both direct
-// value switches (switch v { ... }) and conversion switches
-// (switch string(v) { ... }).
-func extractSwitchCaseLiterals(body *ast.BlockStmt) []string {
+// and int literal values from switch case clauses. Handles direct literals
+// (case "native":), named constants (case RuntimeNative:), and conversion
+// switches (switch string(v) { ... }).
+func extractSwitchCaseLiterals(pass *analysis.Pass, body *ast.BlockStmt) []string {
 	var literals []string
 	seen := make(map[string]bool)
 
@@ -182,6 +184,11 @@ func extractSwitchCaseLiterals(body *ast.BlockStmt) []string {
 			}
 			for _, expr := range cc.List {
 				lit := extractLiteralString(expr)
+				if lit == "" {
+					// Try resolving named constant identifiers
+					// (e.g., case RuntimeNative: where RuntimeNative = "native").
+					lit = resolveConstantValue(pass, expr)
+				}
 				if lit != "" && !seen[lit] {
 					seen[lit] = true
 					literals = append(literals, lit)
@@ -191,6 +198,39 @@ func extractSwitchCaseLiterals(body *ast.BlockStmt) []string {
 		return true
 	})
 	return literals
+}
+
+// resolveConstantValue resolves an AST expression to a constant string or
+// int value via the type checker. Handles both bare identifiers
+// (case RuntimeNative:) and qualified selectors (case invowkfile.RuntimeNative:)
+// that appear as named constants in switch case clauses.
+// Returns "" if the expression is not a resolvable constant.
+func resolveConstantValue(pass *analysis.Pass, expr ast.Expr) string {
+	var obj types.Object
+	switch e := expr.(type) {
+	case *ast.Ident:
+		obj = pass.TypesInfo.Uses[e]
+	case *ast.SelectorExpr:
+		obj = pass.TypesInfo.Uses[e.Sel]
+	default:
+		return ""
+	}
+	if obj == nil {
+		return ""
+	}
+	constObj, ok := obj.(*types.Const)
+	if !ok {
+		return ""
+	}
+	val := constObj.Val()
+	switch val.Kind() {
+	case constant.String:
+		return constant.StringVal(val)
+	case constant.Int:
+		return val.ExactString()
+	default:
+		return ""
+	}
 }
 
 // extractLiteralString extracts a comparable string from a case expression.
@@ -351,17 +391,6 @@ func cueValueToString(v cue.Value) (string, bool) {
 		return strconv.FormatInt(i, 10), true
 	}
 	return "", false
-}
-
-// nonNilCommentGroups returns a slice containing only the non-nil comment groups.
-func nonNilCommentGroups(groups ...*ast.CommentGroup) []*ast.CommentGroup {
-	result := make([]*ast.CommentGroup, 0, len(groups))
-	for _, g := range groups {
-		if g != nil {
-			result = append(result, g)
-		}
-	}
-	return result
 }
 
 // sortedKeys returns the keys of a map[string]bool in sorted order

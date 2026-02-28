@@ -52,11 +52,20 @@ func nodeSliceContainsValidateCall(nodes []ast.Node, varName string) bool {
 }
 
 // containsValidateCall checks whether a single AST node or any of its
-// descendants contains a varName.Validate() call.
+// descendants contains a varName.Validate() call. Closures (FuncLit) are
+// NOT descended into — they are analyzed independently with their own CFGs,
+// and a Validate() call inside a goroutine closure does not guarantee
+// execution before the outer function returns.
 func containsValidateCall(node ast.Node, varName string) bool {
 	found := false
 	ast.Inspect(node, func(n ast.Node) bool {
 		if found {
+			return false
+		}
+		// Do not descend into closures — they have independent
+		// validation scopes. A goroutine's Validate() does not
+		// validate the outer function's path.
+		if _, ok := n.(*ast.FuncLit); ok {
 			return false
 		}
 		call, ok := n.(*ast.CallExpr)

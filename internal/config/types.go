@@ -63,6 +63,8 @@ var (
 
 type (
 	// ContainerEngine specifies which container runtime to use.
+	//
+	//goplint:enum-cue=#ContainerEngineType
 	ContainerEngine string
 
 	// InvalidContainerEngineError is returned when a ContainerEngine value is not recognized.
@@ -74,6 +76,8 @@ type (
 	// RuntimeMode specifies the execution runtime for commands.
 	// Defined locally to avoid coupling config to pkg/invowkfile;
 	// the orchestrator casts to invowkfile.RuntimeMode at the boundary.
+	//
+	//goplint:enum-cue=#ConfigRuntimeType
 	RuntimeMode string
 
 	// InvalidConfigRuntimeModeError is returned when a config RuntimeMode value is not recognized.
@@ -83,6 +87,8 @@ type (
 	}
 
 	// ColorScheme specifies the terminal color scheme preference.
+	//
+	//goplint:enum-cue=#ColorSchemeType
 	ColorScheme string
 
 	// InvalidColorSchemeError is returned when a ColorScheme value is not recognized.
