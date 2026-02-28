@@ -34,15 +34,15 @@ type (
 // String returns the string representation of the TextAlign.
 func (a TextAlign) String() string { return string(a) }
 
-// IsValid returns whether the TextAlign is one of the defined alignments,
-// and a list of validation errors if it is not.
+// Validate returns nil if the TextAlign is one of the defined alignments,
+// or a validation error if it is not.
 // The zero value ("") is valid and defaults to left alignment.
-func (a TextAlign) IsValid() (bool, []error) {
+func (a TextAlign) Validate() error {
 	switch a {
 	case "", AlignLeft, AlignCenter, AlignRight:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidTextAlignError{Value: a}}
+		return &InvalidTextAlignError{Value: a}
 	}
 }
 

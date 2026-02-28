@@ -38,7 +38,7 @@ type (
 		Files []DotenvFilePath `json:"files,omitempty"`
 		// Vars contains environment variables as key-value pairs (optional)
 		// These override values loaded from Files.
-		Vars map[string]string `json:"vars,omitempty"`
+		Vars map[EnvVarName]string `json:"vars,omitempty"`
 	}
 )
 
@@ -50,14 +50,16 @@ func (e *InvalidEnvVarNameError) Error() string {
 // Unwrap returns ErrInvalidEnvVarName so callers can use errors.Is for programmatic detection.
 func (e *InvalidEnvVarNameError) Unwrap() error { return ErrInvalidEnvVarName }
 
-// IsValid returns whether the EnvVarName is a valid POSIX environment variable name,
-// and a list of validation errors if it is not.
-func (n EnvVarName) IsValid() (bool, []error) {
+// Validate returns nil if the EnvVarName is a valid POSIX environment variable name,
+// or a validation error if it is not.
+//
+//goplint:nonzero
+func (n EnvVarName) Validate() error {
 	s := string(n)
 	if strings.TrimSpace(s) == "" || !envVarNameRegex.MatchString(s) {
-		return false, []error{&InvalidEnvVarNameError{Value: n}}
+		return &InvalidEnvVarNameError{Value: n}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the EnvVarName.
@@ -71,12 +73,18 @@ func (e *EnvConfig) GetFiles() []DotenvFilePath {
 	return e.Files
 }
 
-// GetVars returns the vars map, or nil if EnvConfig is nil
+// GetVars returns the vars as a map[string]string, converting typed keys back
+// to raw strings for compatibility with maps.Copy and exec.Cmd.Env consumers.
+// Returns nil if EnvConfig is nil or Vars is empty.
 func (e *EnvConfig) GetVars() map[string]string {
-	if e == nil {
+	if e == nil || e.Vars == nil {
 		return nil
 	}
-	return e.Vars
+	result := make(map[string]string, len(e.Vars))
+	for k, v := range e.Vars {
+		result[string(k)] = v
+	}
+	return result
 }
 
 // ValidateEnvVarName validates a single environment variable name.
@@ -86,10 +94,7 @@ func (e *EnvConfig) GetVars() map[string]string {
 // to validate user-provided --ivk-env-var flags, which don't go through CUE.
 // Therefore, this Go validation MUST be kept.
 func ValidateEnvVarName(name string) error {
-	if isValid, errs := EnvVarName(name).IsValid(); !isValid {
-		return errs[0]
-	}
-	return nil
+	return EnvVarName(name).Validate()
 }
 
 // FlagNameToEnvVar converts a flag name to an environment variable name.

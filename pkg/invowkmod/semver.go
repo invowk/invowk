@@ -149,6 +149,10 @@ func (r *SemverResolver) ParseConstraint(s string) (*Constraint, error) {
 		op = ConstraintOpEqual
 	}
 
+	if err := op.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid constraint operator in %q: %w", s, err)
+	}
+
 	version, err := ParseVersion(matches[2])
 	if err != nil {
 		return nil, fmt.Errorf("invalid version in constraint: %w", err)
@@ -247,12 +251,16 @@ func (r *SemverResolver) Resolve(constraintStr string, availableVersions []SemVe
 	})
 
 	// Return the highest matching version
-	return SemVer(matching[0].Original), nil
+	resolved := SemVer(matching[0].Original)
+	if err := resolved.Validate(); err != nil {
+		return "", fmt.Errorf("resolved version: %w", err)
+	}
+	return resolved, nil
 }
 
 // isValidVersionString checks if a raw string is a valid semantic version.
 // This is an internal helper used before constructing SemVer values (e.g., when
-// filtering git tags). For typed validation, use SemVer.IsValid() instead.
+// filtering git tags). For typed validation, use SemVer.Validate() instead.
 func isValidVersionString(s string) bool {
 	_, err := ParseVersion(s)
 	return err == nil
@@ -282,7 +290,7 @@ func SortVersions(versions []SemVer) []SemVer {
 
 	result := make([]SemVer, len(parsed))
 	for i, v := range parsed {
-		result[i] = SemVer(v.Original)
+		result[i] = SemVer(v.Original) //goplint:ignore -- reconstructed from successfully parsed version
 	}
 
 	return result

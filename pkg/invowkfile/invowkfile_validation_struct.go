@@ -17,18 +17,18 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 
 	// Validate env inherit mode and env var names
 	if rt.EnvInheritMode != "" {
-		if isValid, _ := rt.EnvInheritMode.IsValid(); !isValid {
+		if err := rt.EnvInheritMode.Validate(); err != nil {
 			return fmt.Errorf("command '%s' implementation #%d: env_inherit_mode must be one of: none, allow, all", cmdName, implIndex)
 		}
 	}
 	for _, name := range rt.EnvInheritAllow {
-		if isValid, errs := name.IsValid(); !isValid {
-			return fmt.Errorf("command '%s' implementation #%d: env_inherit_allow: %w", cmdName, implIndex, errs[0])
+		if err := name.Validate(); err != nil {
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_allow: %w", cmdName, implIndex, err)
 		}
 	}
 	for _, name := range rt.EnvInheritDeny {
-		if isValid, errs := name.IsValid(); !isValid {
-			return fmt.Errorf("command '%s' implementation #%d: env_inherit_deny: %w", cmdName, implIndex, errs[0])
+		if err := name.Validate(); err != nil {
+			return fmt.Errorf("command '%s' implementation #%d: env_inherit_deny: %w", cmdName, implIndex, err)
 		}
 	}
 

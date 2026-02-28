@@ -3,7 +3,6 @@
 package config
 
 import (
-	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -390,7 +389,7 @@ func TestLoadAndSave(t *testing.T) {
 	}
 
 	// Reload from disk via loadWithOptions
-	loaded, _, err := loadWithOptions(context.Background(), LoadOptions{
+	loaded, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
 	})
 	if err != nil {
@@ -453,7 +452,7 @@ func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := filepath.Join(tmpDir, AppName)
 
-	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
+	cfg, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
 		BaseDir:       types.FilesystemPath(tmpDir),
 	})
@@ -520,7 +519,7 @@ func TestLoad_EmptyFile(t *testing.T) {
 		t.Fatalf("failed to write empty config: %v", err)
 	}
 
-	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
+	cfg, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
 		BaseDir:       types.FilesystemPath(tmpDir),
 	})
@@ -563,7 +562,7 @@ some_future_field: "value"
 	// The CUE schema may reject unknown fields or may ignore them.
 	// Either behavior is acceptable; the key invariant is that the
 	// function does not panic or return a nil config without an error.
-	cfg, _, err := loadWithOptions(context.Background(), LoadOptions{
+	cfg, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
 		BaseDir:       types.FilesystemPath(tmpDir),
 	})
@@ -596,7 +595,7 @@ func TestLoad_MalformedCUE_PartiallyValid(t *testing.T) {
 		t.Fatalf("failed to write malformed config: %v", err)
 	}
 
-	_, _, err := loadWithOptions(context.Background(), LoadOptions{
+	_, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
 		BaseDir:       types.FilesystemPath(tmpDir),
 	})
@@ -626,7 +625,7 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 	}
 
 	// loadWithOptions should fail with actionable error
-	_, _, err := loadWithOptions(context.Background(), LoadOptions{
+	_, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigDirPath: types.FilesystemPath(configDir),
 		BaseDir:       types.FilesystemPath(tmpDir),
 	})
@@ -656,7 +655,7 @@ default_runtime: "virtual"
 	}
 
 	// Load using custom path via LoadOptions
-	cfg, resolvedPath, err := loadWithOptions(context.Background(), LoadOptions{
+	cfg, resolvedPath, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigFilePath: types.FilesystemPath(customConfigPath),
 		BaseDir:        types.FilesystemPath(tmpDir),
 	})
@@ -684,7 +683,7 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 	nonExistentPath := "/this/path/does/not/exist/config.cue"
 
 	// loadWithOptions should fail with an actionable error
-	_, _, err := loadWithOptions(context.Background(), LoadOptions{
+	_, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigFilePath: types.FilesystemPath(nonExistentPath),
 	})
 	if err == nil {
@@ -727,7 +726,7 @@ default_runtime: "virtual"
 
 	t.Run("loads config from directory", func(t *testing.T) {
 		t.Parallel()
-		cfg, err := provider.Load(context.Background(), LoadOptions{
+		cfg, err := provider.Load(t.Context(), LoadOptions{
 			ConfigDirPath: types.FilesystemPath(configDir),
 			BaseDir:       types.FilesystemPath(tmpDir),
 		})
@@ -745,7 +744,7 @@ default_runtime: "virtual"
 
 	t.Run("loads config from explicit file path", func(t *testing.T) {
 		t.Parallel()
-		cfg, err := provider.Load(context.Background(), LoadOptions{
+		cfg, err := provider.Load(t.Context(), LoadOptions{
 			ConfigFilePath: types.FilesystemPath(cfgPath),
 			BaseDir:        types.FilesystemPath(tmpDir),
 		})
@@ -761,7 +760,7 @@ default_runtime: "virtual"
 	t.Run("returns defaults when no config exists", func(t *testing.T) {
 		t.Parallel()
 		emptyDir := t.TempDir()
-		cfg, err := provider.Load(context.Background(), LoadOptions{
+		cfg, err := provider.Load(t.Context(), LoadOptions{
 			ConfigDirPath: types.FilesystemPath(emptyDir),
 			BaseDir:       types.FilesystemPath(emptyDir),
 		})
@@ -777,7 +776,7 @@ default_runtime: "virtual"
 
 	t.Run("returns error for non-existent explicit path", func(t *testing.T) {
 		t.Parallel()
-		_, err := provider.Load(context.Background(), LoadOptions{
+		_, err := provider.Load(t.Context(), LoadOptions{
 			ConfigFilePath: "/this/path/does/not/exist.cue",
 		})
 
@@ -800,7 +799,7 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 	}
 
 	// loadWithOptions should fail with an actionable error
-	_, _, err := loadWithOptions(context.Background(), LoadOptions{
+	_, _, err := loadWithOptions(t.Context(), LoadOptions{
 		ConfigFilePath: types.FilesystemPath(customConfigPath),
 	})
 	if err == nil {

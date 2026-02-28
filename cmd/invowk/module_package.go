@@ -204,7 +204,8 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 	}
 
 	// Parse invowkmod.cue to get requirements.
-	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodPath))
+	modPath := invowkfile.FilesystemPath(invowkmodPath) //goplint:ignore -- derived from filepath.Abs result
+	meta, err := invowkfile.ParseInvowkmod(modPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
 	}
@@ -219,7 +220,8 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 
 	// Create resolver with working dir set to the target module path so the
 	// lock file (invowkmod.lock.cue) lives next to invowkmod.cue.
-	resolver, err := invowkmod.NewResolver(types.FilesystemPath(absPath), "")
+	absModPath := types.FilesystemPath(absPath) //goplint:ignore -- from filepath.Abs
+	resolver, err := invowkmod.NewResolver(absModPath, "")
 	if err != nil {
 		return fmt.Errorf("failed to create resolver: %w", err)
 	}
@@ -252,7 +254,7 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 
 	// Copy resolved modules into invowk_modules/
 	result, err := invowkmod.VendorModules(invowkmod.VendorOptions{
-		ModulePath: types.FilesystemPath(absPath),
+		ModulePath: absModPath,
 		Modules:    resolved,
 		Prune:      vendorPrune,
 	})

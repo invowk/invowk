@@ -79,9 +79,12 @@ func TestLayerProvisioner_Provision_Disabled(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(engine, cfg)
+	provisioner, provErr := NewLayerProvisioner(engine, cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
-	result, err := provisioner.Provision(context.Background(), container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -125,9 +128,12 @@ func TestLayerProvisioner_Provision_CacheHit(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(engine, cfg)
+	provisioner, provErr := NewLayerProvisioner(engine, cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
-	result, err := provisioner.Provision(context.Background(), container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -173,9 +179,12 @@ func TestLayerProvisioner_Provision_ForceRebuild(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(engine, cfg)
+	provisioner, provErr := NewLayerProvisioner(engine, cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
-	result, err := provisioner.Provision(context.Background(), container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -226,9 +235,12 @@ func TestLayerProvisioner_Provision_CacheMiss(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(engine, cfg)
+	provisioner, provErr := NewLayerProvisioner(engine, cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
-	result, err := provisioner.Provision(context.Background(), container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -266,9 +278,12 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(newMockEngine(), cfg)
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
-	tag, err := provisioner.GetProvisionedImageTag(context.Background(), container.ImageTag("debian:stable-slim"))
+	tag, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -278,7 +293,7 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 	}
 
 	// Verify determinism: same inputs produce same tag
-	tag2, err := provisioner.GetProvisionedImageTag(context.Background(), container.ImageTag("debian:stable-slim"))
+	tag2, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -288,7 +303,7 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 	}
 
 	// Different base image should produce different tag
-	tag3, err := provisioner.GetProvisionedImageTag(context.Background(), container.ImageTag("ubuntu:22.04"))
+	tag3, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("ubuntu:22.04"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -323,9 +338,12 @@ func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
 			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 		}
 
-		provisioner := NewLayerProvisioner(engine, cfg)
+		provisioner, provErr := NewLayerProvisioner(engine, cfg)
+		if provErr != nil {
+			t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+		}
 
-		exists, err := provisioner.IsImageProvisioned(context.Background(), container.ImageTag("debian:stable-slim"))
+		exists, err := provisioner.IsImageProvisioned(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -348,9 +366,12 @@ func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {
 			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 		}
 
-		provisioner := NewLayerProvisioner(engine, cfg)
+		provisioner, provErr := NewLayerProvisioner(engine, cfg)
+		if provErr != nil {
+			t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+		}
 
-		exists, err := provisioner.IsImageProvisioned(context.Background(), container.ImageTag("debian:stable-slim"))
+		exists, err := provisioner.IsImageProvisioned(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -380,14 +401,17 @@ func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(newMockEngine(), cfg)
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
-	key1, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+	key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	key2, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+	key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -427,14 +451,17 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
 			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 		}
-		provisioner := NewLayerProvisioner(engine, cfg)
+		provisioner, provErr := NewLayerProvisioner(engine, cfg)
+		if provErr != nil {
+			t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+		}
 
-		key1, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("ubuntu:22.04"))
+		key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("ubuntu:22.04"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -460,15 +487,21 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 		}
 
-		p1 := NewLayerProvisioner(engine, cfg1)
-		p2 := NewLayerProvisioner(engine, cfg2)
+		p1, p1Err := NewLayerProvisioner(engine, cfg1)
+		if p1Err != nil {
+			t.Fatalf("NewLayerProvisioner(cfg1) unexpected error: %v", p1Err)
+		}
+		p2, p2Err := NewLayerProvisioner(engine, cfg2)
+		if p2Err != nil {
+			t.Fatalf("NewLayerProvisioner(cfg2) unexpected error: %v", p2Err)
+		}
 
-		key1, err := p1.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := p2.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -504,15 +537,21 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 		}
 
-		p1 := NewLayerProvisioner(engine, cfgWithMods)
-		p2 := NewLayerProvisioner(engine, cfgWithoutMods)
+		p1, p1Err := NewLayerProvisioner(engine, cfgWithMods)
+		if p1Err != nil {
+			t.Fatalf("NewLayerProvisioner(cfgWithMods) unexpected error: %v", p1Err)
+		}
+		p2, p2Err := NewLayerProvisioner(engine, cfgWithoutMods)
+		if p2Err != nil {
+			t.Fatalf("NewLayerProvisioner(cfgWithoutMods) unexpected error: %v", p2Err)
+		}
 
-		key1, err := p1.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := p2.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -534,9 +573,12 @@ func TestLayerProvisioner_CalculateCacheKey_NoBinary(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(engine, cfg)
+	provisioner, provErr := NewLayerProvisioner(engine, cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
-	key, err := provisioner.calculateCacheKey(context.Background(), container.ImageTag("debian:stable-slim"))
+	key, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -576,7 +618,10 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(newMockEngine(), cfg)
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
 	buildCtx, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
 	if err != nil {
@@ -623,7 +668,10 @@ func TestLayerProvisioner_PrepareBuildContext_NoBinary(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(newMockEngine(), cfg)
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
 	buildCtx, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
 	if err != nil {
@@ -672,7 +720,10 @@ func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
 
-	provisioner := NewLayerProvisioner(newMockEngine(), cfg)
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
 
 	buildCtx, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
 	if err != nil {

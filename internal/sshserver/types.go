@@ -60,25 +60,29 @@ type (
 // String returns the string representation of the HostAddress.
 func (h HostAddress) String() string { return string(h) }
 
-// IsValid returns whether the HostAddress is valid.
-// A valid address must be non-empty and not whitespace-only.
-func (h HostAddress) IsValid() (bool, []error) {
+// Validate returns nil if the HostAddress is valid (non-empty and not whitespace-only),
+// or an error wrapping ErrInvalidHostAddress if it is not.
+//
+//goplint:nonzero
+func (h HostAddress) Validate() error {
 	if strings.TrimSpace(string(h)) == "" {
-		return false, []error{&InvalidHostAddressError{Value: h}}
+		return &InvalidHostAddressError{Value: h}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the TokenValue.
 func (t TokenValue) String() string { return string(t) }
 
-// IsValid returns whether the TokenValue is valid.
-// A valid token must be non-empty and not whitespace-only.
-func (t TokenValue) IsValid() (bool, []error) {
+// Validate returns nil if the TokenValue is valid (non-empty and not whitespace-only),
+// or an error wrapping ErrInvalidTokenValue if it is not.
+//
+//goplint:nonzero
+func (t TokenValue) Validate() error {
 	if strings.TrimSpace(string(t)) == "" {
-		return false, []error{&InvalidTokenValueError{Value: t}}
+		return &InvalidTokenValueError{Value: t}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidHostAddressError.

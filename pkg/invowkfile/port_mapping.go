@@ -27,17 +27,19 @@ type (
 // String returns the string representation of the PortMappingSpec.
 func (p PortMappingSpec) String() string { return string(p) }
 
-// IsValid returns whether the PortMappingSpec is valid.
+// Validate returns nil if the PortMappingSpec is valid, or a validation error if not.
 // A valid spec must be non-empty and contain at least one ':' separator.
-func (p PortMappingSpec) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (p PortMappingSpec) Validate() error {
 	s := string(p)
 	if s == "" {
-		return false, []error{&InvalidPortMappingSpecError{Value: p, Reason: "must not be empty"}}
+		return &InvalidPortMappingSpecError{Value: p, Reason: "must not be empty"}
 	}
 	if !strings.Contains(s, ":") {
-		return false, []error{&InvalidPortMappingSpecError{Value: p, Reason: "must contain ':' separator (host:container format)"}}
+		return &InvalidPortMappingSpecError{Value: p, Reason: "must contain ':' separator (host:container format)"}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidPortMappingSpecError.

@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
 
@@ -56,7 +55,7 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 	cmdInfo := &discovery.CommandInfo{SourceID: "my-module.invowkmod"}
 	cmd := &invowkfile.Command{}
 	inv := &invowkfile.Invowkfile{}
-	execCtx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := runtime.NewExecutionContext(t.Context(), cmd, inv)
 	execCtx.WorkDir = "/app"
 	execCtx.Env.ExtraEnv = map[string]string{
 		"INVOWK_CMD_NAME": "deploy",
@@ -103,7 +102,7 @@ func TestRenderDryRun_NoImpl(t *testing.T) {
 	cmdInfo := &discovery.CommandInfo{SourceID: "invowkfile"}
 	cmd := &invowkfile.Command{}
 	inv := &invowkfile.Invowkfile{}
-	execCtx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := runtime.NewExecutionContext(t.Context(), cmd, inv)
 	resolved := appexec.RuntimeSelectionOf(invowkfile.RuntimeNative, nil)
 
 	renderDryRun(&buf, req, cmdInfo, execCtx, resolved)

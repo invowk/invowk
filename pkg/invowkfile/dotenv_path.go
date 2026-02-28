@@ -28,13 +28,15 @@ type (
 // String returns the string representation of the DotenvFilePath.
 func (p DotenvFilePath) String() string { return string(p) }
 
-// IsValid returns whether the DotenvFilePath is valid.
+// Validate returns nil if the DotenvFilePath is valid, or a validation error if not.
 // A valid path must be non-empty and not whitespace-only.
-func (p DotenvFilePath) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (p DotenvFilePath) Validate() error {
 	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidDotenvFilePathError{Value: p}}
+		return &InvalidDotenvFilePathError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidDotenvFilePathError.

@@ -66,14 +66,14 @@ func (e *InvalidStateError) Unwrap() error {
 	return ErrInvalidState
 }
 
-// IsValid returns whether the State is one of the defined lifecycle states,
-// and a list of validation errors if it is not.
-func (s State) IsValid() (bool, []error) {
+// Validate returns nil if the State is one of the defined lifecycle states,
+// or an error wrapping ErrInvalidState if it is not.
+func (s State) Validate() error {
 	switch s {
 	case StateCreated, StateStarting, StateRunning, StateStopping, StateStopped, StateFailed:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidStateError{Value: s}}
+		return &InvalidStateError{Value: s}
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestComponentType_IsValid(t *testing.T) {
+func TestComponentType_Validate(t *testing.T) {
 	t.Parallel()
 
 	validTypes := []ComponentType{
@@ -19,12 +19,9 @@ func TestComponentType_IsValid(t *testing.T) {
 	for _, ct := range validTypes {
 		t.Run(string(ct), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := ct.IsValid()
-			if !isValid {
-				t.Errorf("ComponentType(%q).IsValid() = false, want true", ct)
-			}
-			if len(errs) > 0 {
-				t.Errorf("ComponentType(%q).IsValid() returned unexpected errors: %v", ct, errs)
+			err := ct.Validate()
+			if err != nil {
+				t.Errorf("ComponentType(%q).Validate() returned unexpected error: %v", ct, err)
 			}
 		})
 	}
@@ -33,15 +30,12 @@ func TestComponentType_IsValid(t *testing.T) {
 	for _, ct := range invalidTypes {
 		t.Run("invalid_"+string(ct), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := ct.IsValid()
-			if isValid {
-				t.Errorf("ComponentType(%q).IsValid() = true, want false", ct)
+			err := ct.Validate()
+			if err == nil {
+				t.Fatalf("ComponentType(%q).Validate() returned nil, want error", ct)
 			}
-			if len(errs) == 0 {
-				t.Fatalf("ComponentType(%q).IsValid() returned no errors, want error", ct)
-			}
-			if !errors.Is(errs[0], ErrInvalidComponentType) {
-				t.Errorf("error should wrap ErrInvalidComponentType, got: %v", errs[0])
+			if !errors.Is(err, ErrInvalidComponentType) {
+				t.Errorf("error should wrap ErrInvalidComponentType, got: %v", err)
 			}
 		})
 	}

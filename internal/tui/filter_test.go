@@ -338,7 +338,7 @@ func TestFilterModel_PreSelected(t *testing.T) {
 	opts := FilterOptions{
 		Title:    "Pre-selected",
 		Options:  []string{"A", "B", "C"},
-		Selected: []int{0, 2}, // Pre-select A and C
+		Selected: []SelectionIndex{0, 2}, // Pre-select A and C
 		Limit:    3,
 		Config:   DefaultConfig(),
 	}
@@ -621,7 +621,7 @@ func TestFilterOptions_Fields(t *testing.T) {
 		Fuzzy:         true,
 		Sort:          true,
 		NoLimit:       false,
-		Selected:      []int{1},
+		Selected:      []SelectionIndex{1},
 		Strict:        true,
 		ShowIndicator: true,
 		Config: Config{

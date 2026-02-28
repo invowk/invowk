@@ -33,16 +33,16 @@ type (
 // String returns the string representation of the DescriptionText.
 func (d DescriptionText) String() string { return string(d) }
 
-// IsValid returns whether the DescriptionText is valid.
+// Validate returns an error if the DescriptionText is invalid.
 // The zero value ("") is valid. Non-zero values must not be whitespace-only.
-func (d DescriptionText) IsValid() (bool, []error) {
+func (d DescriptionText) Validate() error {
 	if d == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(d)) == "" {
-		return false, []error{&InvalidDescriptionTextError{Value: d}}
+		return &InvalidDescriptionTextError{Value: d}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidDescriptionTextError.

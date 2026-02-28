@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRegexPatternIsValid(t *testing.T) {
+func TestRegexPatternValidate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -29,20 +29,20 @@ func TestRegexPatternIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.wantValid {
-				t.Errorf("RegexPattern(%q).IsValid() = %v, want %v", tt.value, isValid, tt.wantValid)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("RegexPattern(%q).Validate() error = %v, want valid=%v", tt.value, err, tt.wantValid)
 			}
 			if tt.wantValid {
-				if len(errs) != 0 {
-					t.Errorf("RegexPattern(%q).IsValid() returned errors for valid value: %v", tt.value, errs)
+				if err != nil {
+					t.Errorf("RegexPattern(%q).Validate() returned error for valid value: %v", tt.value, err)
 				}
 			} else {
-				if len(errs) == 0 {
-					t.Error("RegexPattern.IsValid() returned no errors for invalid value")
+				if err == nil {
+					t.Error("RegexPattern.Validate() returned nil for invalid value")
 				}
-				if !errors.Is(errs[0], ErrInvalidRegexPattern) {
-					t.Errorf("error does not wrap ErrInvalidRegexPattern: %v", errs[0])
+				if !errors.Is(err, ErrInvalidRegexPattern) {
+					t.Errorf("error does not wrap ErrInvalidRegexPattern: %v", err)
 				}
 			}
 		})

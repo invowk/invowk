@@ -53,6 +53,8 @@ type (
 		Value ModuleRefKey
 	}
 
+	//goplint:mutable
+	//
 	// LockFile represents the invowkmod.lock.cue file structure.
 	LockFile struct {
 		// Version is the lock file format version.
@@ -100,13 +102,16 @@ func (e *InvalidModuleNamespaceError) Unwrap() error {
 	return ErrInvalidModuleNamespace
 }
 
-// IsValid returns whether the ModuleNamespace is valid.
-// A valid namespace must not be empty — it is always a computed value.
-func (n ModuleNamespace) IsValid() (bool, []error) {
+//goplint:nonzero
+
+// Validate returns nil if the ModuleNamespace is valid,
+// or an error if it is empty. A valid namespace must not be empty —
+// it is always a computed value.
+func (n ModuleNamespace) Validate() error {
 	if n == "" {
-		return false, []error{&InvalidModuleNamespaceError{Value: n}}
+		return &InvalidModuleNamespaceError{Value: n}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ModuleNamespace.
@@ -115,13 +120,13 @@ func (n ModuleNamespace) String() string { return string(n) }
 // String returns the string representation of the LockFileVersion.
 func (v LockFileVersion) String() string { return string(v) }
 
-// IsValid returns whether the LockFileVersion is valid.
-// A valid LockFileVersion is non-empty.
-func (v LockFileVersion) IsValid() (bool, []error) {
+// Validate returns nil if the LockFileVersion is valid (non-empty),
+// or an error describing the validation failure.
+func (v LockFileVersion) Validate() error {
 	if v == "" {
-		return false, []error{&InvalidLockFileVersionError{Value: v}}
+		return &InvalidLockFileVersionError{Value: v}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidLockFileVersionError.
@@ -135,13 +140,15 @@ func (e *InvalidLockFileVersionError) Unwrap() error { return ErrInvalidLockFile
 // String returns the string representation of the ModuleRefKey.
 func (k ModuleRefKey) String() string { return string(k) }
 
-// IsValid returns whether the ModuleRefKey is valid.
-// A valid ModuleRefKey is non-empty and not whitespace-only.
-func (k ModuleRefKey) IsValid() (bool, []error) {
+//goplint:nonzero
+
+// Validate returns nil if the ModuleRefKey is valid (non-empty and not whitespace-only),
+// or an error describing the validation failure.
+func (k ModuleRefKey) Validate() error {
 	if strings.TrimSpace(string(k)) == "" {
-		return false, []error{&InvalidModuleRefKeyError{Value: k}}
+		return &InvalidModuleRefKeyError{Value: k}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidModuleRefKeyError.
@@ -280,18 +287,26 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			continue
 		}
 
-		// Parse version
-		if strings.HasPrefix(line, "version:") {
-			lock.Version = LockFileVersion(parseStringValue(line))
-			continue
-		}
-
-		// Parse generated timestamp
-		if strings.HasPrefix(line, "generated:") {
-			if t, err := time.Parse(time.RFC3339, parseStringValue(line)); err == nil {
-				lock.Generated = t
+		// Top-level fields are parsed only outside the modules block.
+		// Without this guard, module-level `version:` fields would be consumed
+		// by the top-level parser (the field names collide).
+		if !inModules {
+			// Parse version
+			if strings.HasPrefix(line, "version:") {
+				lock.Version = LockFileVersion(parseStringValue(line))
+				if err := lock.Version.Validate(); err != nil {
+					return nil, fmt.Errorf("lock file version: %w", err)
+				}
+				continue
 			}
-			continue
+
+			// Parse generated timestamp
+			if strings.HasPrefix(line, "generated:") {
+				if t, err := time.Parse(time.RFC3339, parseStringValue(line)); err == nil {
+					lock.Generated = t
+				}
+				continue
+			}
 		}
 
 		// Track modules block — fall through to process any { on this line
@@ -314,6 +329,9 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 		}
 		if strings.Contains(line, "}") {
 			if braceDepth == 2 && currentModuleKey != "" {
+				if err := currentModuleKey.Validate(); err != nil {
+					return nil, fmt.Errorf("lock file module key: %w", err)
+				}
 				lock.Modules[currentModuleKey] = currentModule
 				currentModuleKey = ""
 			}
@@ -323,23 +341,27 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 			}
 		}
 
-		// Parse module fields
+		// Parse module fields — field-level casts are validated by struct-level checks.
 		if braceDepth == 2 && currentModuleKey != "" {
 			switch {
 			case strings.HasPrefix(line, "git_url:"):
-				currentModule.GitURL = GitURL(parseStringValue(line))
+				currentModule.GitURL = GitURL(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "version:"):
-				currentModule.Version = SemVerConstraint(parseStringValue(line))
+				currentModule.Version = SemVerConstraint(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "resolved_version:"):
-				currentModule.ResolvedVersion = SemVer(parseStringValue(line))
+				currentModule.ResolvedVersion = SemVer(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "git_commit:"):
-				currentModule.GitCommit = GitCommit(parseStringValue(line))
+				currentModule.GitCommit = GitCommit(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "alias:"):
-				currentModule.Alias = ModuleAlias(parseStringValue(line))
+				currentModule.Alias = ModuleAlias(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "path:"):
-				currentModule.Path = SubdirectoryPath(parseStringValue(line))
+				currentModule.Path = SubdirectoryPath(parseStringValue(line)) //goplint:ignore -- validated at usage site
 			case strings.HasPrefix(line, "namespace:"):
-				currentModule.Namespace = ModuleNamespace(parseStringValue(line))
+				ns := ModuleNamespace(parseStringValue(line))
+				if err := ns.Validate(); err != nil {
+					return nil, fmt.Errorf("lock file module %q namespace: %w", currentModuleKey, err)
+				}
+				currentModule.Namespace = ns
 			}
 		}
 	}

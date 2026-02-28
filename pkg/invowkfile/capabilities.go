@@ -32,7 +32,9 @@ const (
 var ErrInvalidCapabilityName = errors.New("invalid capability name")
 
 type (
-	// CapabilityName represents a system capability type
+	// CapabilityName represents a system capability type.
+	//
+	//goplint:nonzero,enum-cue=#CapabilityName
 	CapabilityName string
 
 	// InvalidCapabilityNameError is returned when a CapabilityName value is not recognized.
@@ -264,14 +266,14 @@ func checkTTY() error {
 // String returns the string representation of the CapabilityName.
 func (c CapabilityName) String() string { return string(c) }
 
-// IsValid returns whether the CapabilityName is one of the defined capability names,
-// and a list of validation errors if it is not.
-func (c CapabilityName) IsValid() (bool, []error) {
+// Validate returns nil if the CapabilityName is one of the defined capability names,
+// or a validation error if it is not.
+func (c CapabilityName) Validate() error {
 	switch c {
 	case CapabilityLocalAreaNetwork, CapabilityInternet, CapabilityContainers, CapabilityTTY:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidCapabilityNameError{Value: c}}
+		return &InvalidCapabilityNameError{Value: c}
 	}
 }
 

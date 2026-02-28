@@ -249,16 +249,16 @@ func (e *InvalidComponentError) Unwrap() error {
 	return ErrInvalidComponent
 }
 
-// IsValid returns whether the Component is one of the defined component types,
-// and a list of validation errors if it is not.
-func (c Component) IsValid() (bool, []error) {
+// Validate returns nil if the Component is one of the defined component types,
+// or an error wrapping ErrInvalidComponent if it is not.
+func (c Component) Validate() error {
 	switch c {
 	case ComponentInput, ComponentConfirm, ComponentChoose, ComponentFilter,
 		ComponentFile, ComponentWrite, ComponentTextArea, ComponentSpin,
 		ComponentPager, ComponentTable:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidComponentError{Value: c}}
+		return &InvalidComponentError{Value: c}
 	}
 }
 

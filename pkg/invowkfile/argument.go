@@ -30,7 +30,9 @@ var (
 )
 
 type (
-	// ArgumentType represents the data type of an argument
+	// ArgumentType represents the data type of an argument.
+	//
+	//goplint:enum-cue=#ArgumentType
 	ArgumentType string
 
 	// InvalidArgumentTypeError is returned when an ArgumentType value is not recognized.
@@ -86,15 +88,15 @@ func (e *InvalidArgumentTypeError) Unwrap() error {
 // String returns the string representation of the ArgumentType.
 func (at ArgumentType) String() string { return string(at) }
 
-// IsValid returns whether the ArgumentType is one of the defined argument types,
-// and a list of validation errors if it is not.
+// Validate returns nil if the ArgumentType is one of the defined argument types,
+// or a validation error if it is not.
 // Note: the zero value ("") is valid — it is treated as "string" by GetType().
-func (at ArgumentType) IsValid() (bool, []error) {
+func (at ArgumentType) Validate() error {
 	switch at {
 	case ArgumentTypeString, ArgumentTypeInt, ArgumentTypeFloat, "":
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidArgumentTypeError{Value: at}}
+		return &InvalidArgumentTypeError{Value: at}
 	}
 }
 
@@ -106,20 +108,22 @@ func (e *InvalidArgumentNameError) Error() string {
 // Unwrap returns ErrInvalidArgumentName so callers can use errors.Is for programmatic detection.
 func (e *InvalidArgumentNameError) Unwrap() error { return ErrInvalidArgumentName }
 
-// IsValid returns whether the ArgumentName matches the required POSIX-like format,
-// and a list of validation errors if it does not.
-func (n ArgumentName) IsValid() (bool, []error) {
+// Validate returns nil if the ArgumentName matches the required POSIX-like format,
+// or a validation error if it does not.
+//
+//goplint:nonzero
+func (n ArgumentName) Validate() error {
 	s := string(n)
 	if s == "" {
-		return false, []error{&InvalidArgumentNameError{Value: n, Reason: "must not be empty"}}
+		return &InvalidArgumentNameError{Value: n, Reason: "must not be empty"}
 	}
 	if utf8.RuneCountInString(s) > MaxNameLength {
-		return false, []error{&InvalidArgumentNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}}
+		return &InvalidArgumentNameError{Value: n, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}
 	}
 	if !argumentNamePattern.MatchString(s) {
-		return false, []error{&InvalidArgumentNameError{Value: n, Reason: "must start with a letter followed by alphanumeric, underscore, or hyphen characters"}}
+		return &InvalidArgumentNameError{Value: n, Reason: "must start with a letter followed by alphanumeric, underscore, or hyphen characters"}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ArgumentName.
@@ -140,8 +144,8 @@ func (a *Argument) ValidateArgumentValue(value string) error {
 	// Validate the argument type itself before cross-casting to FlagType.
 	// ArgumentType values ("string", "int", "float") are a strict subset of
 	// FlagType values, so the cast is safe for all valid ArgumentType values.
-	if isValid, errs := argType.IsValid(); !isValid {
-		return fmt.Errorf("argument '%s': %w", a.Name, errs[0])
+	if err := argType.Validate(); err != nil {
+		return fmt.Errorf("argument '%s': %w", a.Name, err)
 	}
 	if err := validateValueType(value, FlagType(argType)); err != nil {
 		return fmt.Errorf("argument '%s' value '%s' is invalid: %s", a.Name, value, err.Error())

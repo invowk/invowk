@@ -65,7 +65,11 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 		}
 	}
 
-	return types.FilesystemPath(filepath.Join(configDir, AppName)), nil
+	configPath := types.FilesystemPath(filepath.Join(configDir, AppName))
+	if err := configPath.Validate(); err != nil {
+		return "", fmt.Errorf("config directory: %w", err)
+	}
+	return configPath, nil
 }
 
 // ConfigDir returns the invowk configuration directory using platform-specific
@@ -84,7 +88,11 @@ func CommandsDir() (types.FilesystemPath, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
-	return types.FilesystemPath(filepath.Join(home, ".invowk", "cmds")), nil
+	cmdsDir := types.FilesystemPath(filepath.Join(home, ".invowk", "cmds"))
+	if err := cmdsDir.Validate(); err != nil {
+		return "", fmt.Errorf("commands directory: %w", err)
+	}
+	return cmdsDir, nil
 }
 
 // loadWithOptions performs option-driven config loading from the filesystem.
@@ -165,6 +173,13 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, "", fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Defense-in-depth: validate all typed fields after unmarshalling.
+	// CUE schema is the primary validation layer; this catches any gaps
+	// or values that bypass CUE (e.g., env var overrides via Viper).
+	if err := cfg.Validate(); err != nil {
+		return nil, "", fmt.Errorf("invalid config: %w", err)
 	}
 
 	// Validate includes constraints that CUE cannot express:

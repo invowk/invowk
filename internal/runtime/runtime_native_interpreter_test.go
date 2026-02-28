@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,7 +42,7 @@ print("Hello from Python")`
 	cmd := testCommandWithScript("python-shebang", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -88,7 +87,7 @@ print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")`
 	cmd := testCommandWithInterpreter("python-explicit", script, "python3", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -134,7 +133,7 @@ print(f"arg1={sys.argv[1] if len(sys.argv) > 1 else 'none'}")`
 	cmd := testCommandWithScript("python-args", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.PositionalArgs = []string{"hello-world"}
 
 	var stdout bytes.Buffer
@@ -185,7 +184,7 @@ print("Hello from Python file")
 	cmd := testCommandWithScript("python-file", "./test.py", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -224,7 +223,7 @@ func TestNativeRuntime_InterpreterNotFound(t *testing.T) {
 	cmd := testCommandWithInterpreter("nonexistent-interp", script, "nonexistent-interpreter-xyz", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout
@@ -272,7 +271,7 @@ print("stderr output", file=sys.stderr)`
 	cmd := testCommandWithScript("python-capture", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(ctx)
 	if result.ExitCode != 0 {
@@ -309,7 +308,7 @@ func TestNativeRuntime_PrepareCommand(t *testing.T) {
 	cmd := testCommandWithScript("prepare-test", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	// Prepare the command without executing
 	prepared, err := rt.PrepareCommand(ctx)
@@ -380,7 +379,7 @@ func TestNativeRuntime_PrepareCommandWithInterpreter(t *testing.T) {
 	cmd := testCommandWithInterpreter("prepare-python", script, "python3", invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	// Prepare the command without executing
 	prepared, err := rt.PrepareCommand(ctx)

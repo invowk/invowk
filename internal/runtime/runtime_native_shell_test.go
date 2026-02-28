@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -255,7 +254,7 @@ echo "captured stderr" >&2`
 	cmd := testCommandWithScript("capture-test", script, invowkfile.RuntimeNative)
 
 	rt := NewNativeRuntime()
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}
 
@@ -288,7 +287,7 @@ func TestNativeRuntime_MockEnvBuilder_Error(t *testing.T) {
 
 	mockErr := fmt.Errorf("mock env build failure")
 	rt := NewNativeRuntime(WithEnvBuilder(&MockEnvBuilder{Err: mockErr}))
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}
 
@@ -320,7 +319,7 @@ func TestNativeRuntime_MockEnvBuilder_CaptureError(t *testing.T) {
 
 	mockErr := fmt.Errorf("capture env build failure")
 	rt := NewNativeRuntime(WithEnvBuilder(&MockEnvBuilder{Err: mockErr}))
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.IO.Stdout = &bytes.Buffer{}
 	ctx.IO.Stderr = &bytes.Buffer{}
 

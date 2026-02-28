@@ -30,50 +30,44 @@ func TestExecutionState_String(t *testing.T) {
 	}
 }
 
-func TestExecutionState_IsValid(t *testing.T) {
+func TestExecutionState_Validate(t *testing.T) {
 	t.Parallel()
 
 	t.Run("stateExecuting is valid", func(t *testing.T) {
 		t.Parallel()
-		valid, errs := stateExecuting.isValid()
-		if !valid {
-			t.Errorf("stateExecuting should be valid, got errors: %v", errs)
-		}
-		if len(errs) != 0 {
-			t.Errorf("expected no errors, got %d", len(errs))
+		err := stateExecuting.validate()
+		if err != nil {
+			t.Errorf("stateExecuting should be valid, got error: %v", err)
 		}
 	})
 
 	t.Run("stateCompleted is valid", func(t *testing.T) {
 		t.Parallel()
-		valid, errs := stateCompleted.isValid()
-		if !valid {
-			t.Errorf("stateCompleted should be valid, got errors: %v", errs)
+		err := stateCompleted.validate()
+		if err != nil {
+			t.Errorf("stateCompleted should be valid, got error: %v", err)
 		}
 	})
 
 	t.Run("stateTUI is valid", func(t *testing.T) {
 		t.Parallel()
-		valid, errs := stateTUI.isValid()
-		if !valid {
-			t.Errorf("stateTUI should be valid, got errors: %v", errs)
+		err := stateTUI.validate()
+		if err != nil {
+			t.Errorf("stateTUI should be valid, got error: %v", err)
 		}
 	})
 
 	t.Run("invalid state", func(t *testing.T) {
 		t.Parallel()
 		invalid := executionState(99)
-		valid, errs := invalid.isValid()
-		if valid {
+		err := invalid.validate()
+		if err == nil {
 			t.Fatal("executionState(99) should be invalid")
-		}
-		if len(errs) != 1 {
-			t.Fatalf("expected 1 error, got %d: %v", len(errs), errs)
 		}
 
 		var stateErr *invalidExecutionStateError
-		if !errors.As(errs[0], &stateErr) {
-			t.Fatalf("error should be *invalidExecutionStateError, got: %T", errs[0])
+		if !errors.As(err, &stateErr) {
+			t.Fatalf("error should be *invalidExecutionStateError, got: %T", err)
 		}
 		if stateErr.value != 99 {
 			t.Errorf("error value = %d, want 99", stateErr.value)

@@ -31,7 +31,7 @@ func TestColorSpec_String(t *testing.T) {
 	}
 }
 
-func TestColorSpec_IsValid(t *testing.T) {
+func TestColorSpec_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -52,23 +52,23 @@ func TestColorSpec_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.c.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ColorSpec(%q).IsValid() = %v, want %v", tt.c, isValid, tt.want)
+			err := tt.c.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ColorSpec(%q).Validate() err = %v, wantValid %v", tt.c, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ColorSpec(%q).IsValid() returned no errors, want error", tt.c)
+				if err == nil {
+					t.Fatalf("ColorSpec(%q).Validate() returned nil, want error", tt.c)
 				}
-				if !errors.Is(errs[0], ErrInvalidColorSpec) {
-					t.Errorf("error should wrap ErrInvalidColorSpec, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidColorSpec) {
+					t.Errorf("error should wrap ErrInvalidColorSpec, got: %v", err)
 				}
 				var csErr *InvalidColorSpecError
-				if !errors.As(errs[0], &csErr) {
-					t.Errorf("error should be *InvalidColorSpecError, got: %T", errs[0])
+				if !errors.As(err, &csErr) {
+					t.Errorf("error should be *InvalidColorSpecError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ColorSpec(%q).IsValid() returned unexpected errors: %v", tt.c, errs)
+			} else if err != nil {
+				t.Errorf("ColorSpec(%q).Validate() returned unexpected error: %v", tt.c, err)
 			}
 		})
 	}

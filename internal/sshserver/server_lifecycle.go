@@ -237,7 +237,11 @@ func (s *Server) Port() ListenPort {
 	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
 		return 0 // Invalid port string
 	}
-	return ListenPort(port)
+	lp := ListenPort(port)
+	if err := lp.Validate(); err != nil {
+		return 0 // Port out of valid range
+	}
+	return lp
 }
 
 // Host returns the server's configured host address.

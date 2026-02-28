@@ -64,7 +64,7 @@ func TestWatcherDebounce(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	errCh := make(chan error, 1)
@@ -136,7 +136,7 @@ func TestWatcherIgnorePatterns(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	errCh := make(chan error, 1)
@@ -191,7 +191,7 @@ func TestWatcherContextCancel(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	errCh := make(chan error, 1)
 	go func() { errCh <- w.Run(ctx) }()
 
@@ -286,7 +286,7 @@ func TestWatcherSkipIfBusy(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	errCh := make(chan error, 1)
@@ -365,7 +365,7 @@ func TestWatcherClearScreen(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	errCh := make(chan error, 1)
@@ -411,8 +411,8 @@ func TestWatcherInvalidPattern(t *testing.T) {
 		t.Fatal("New() should return an error for an invalid glob pattern")
 	}
 
-	if !strings.Contains(err.Error(), "invalid watch pattern") {
-		t.Errorf("error message should mention invalid watch pattern, got: %v", err)
+	if !strings.Contains(err.Error(), "invalid glob pattern") {
+		t.Errorf("error message should mention invalid glob pattern, got: %v", err)
 	}
 }
 
@@ -433,7 +433,7 @@ func TestWatcherDoubleRunError(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Start Run in a goroutine.
@@ -483,7 +483,7 @@ func TestWatcherPatternFiltering(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	errCh := make(chan error, 1)

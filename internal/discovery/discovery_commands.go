@@ -60,6 +60,8 @@ type (
 		IsAmbiguous bool
 	}
 
+	//goplint:mutable
+	//
 	// DiscoveredCommandSet holds aggregated discovery results with conflict analysis.
 	// It provides indexed access to commands by simple name and source for
 	// efficient conflict detection and grouped listing.
@@ -95,14 +97,14 @@ func (s SourceID) String() string {
 	return string(s)
 }
 
-// IsValid returns whether the SourceID matches the expected format (starts with a letter,
+// Validate returns nil if the SourceID matches the expected format (starts with a letter,
 // contains only letters, digits, dots, underscores, or hyphens),
-// and a list of validation errors if it does not.
-func (s SourceID) IsValid() (bool, []error) {
+// or an error wrapping ErrInvalidSourceID if it does not.
+func (s SourceID) Validate() error {
 	if !sourceIDPattern.MatchString(string(s)) {
-		return false, []error{&InvalidSourceIDError{Value: s}}
+		return &InvalidSourceIDError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // NewDiscoveredCommandSet creates a new DiscoveredCommandSet with initialized maps.
@@ -206,7 +208,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		if file.Error != nil {
 			// Parse failures are recoverable for discovery: keep traversing and
 			// return structured diagnostics to the caller instead of writing output.
-			diagnostics = append(diagnostics, NewDiagnosticWithCause(
+			diagnostics = append(diagnostics, mustDiagnosticWithCause(
 				SeverityWarning,
 				CodeInvowkfileParseSkipped,
 				fmt.Sprintf("skipping invowkfile at %s: %v", file.Path, file.Error),
@@ -226,7 +228,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		switch {
 		case isModule:
 			// From a module - use short name from folder
-			sourceID = SourceID(getModuleShortName(string(file.Module.Path)))
+			sourceID = SourceID(getModuleShortName(file.Module.Path))
 			modID := file.Module.Name()
 			moduleID = &modID
 		default:
@@ -297,13 +299,16 @@ func (d *Discovery) GetCommand(ctx context.Context, name string) (LookupResult, 
 	}
 
 	cmdName := invowkfile.CommandName(name)
+	if err := cmdName.Validate(); err != nil {
+		return LookupResult{}, fmt.Errorf("invalid command name: %w", err)
+	}
 	if cmd, ok := result.Set.ByName[cmdName]; ok {
 		return LookupResult{Command: cmd, Diagnostics: result.Diagnostics}, nil
 	}
 
 	// Command-not-found is represented as a diagnostic so CLI callers can choose
 	// the rendering policy (execute/list/completion) consistently.
-	result.Diagnostics = append(result.Diagnostics, NewDiagnostic(
+	result.Diagnostics = append(result.Diagnostics, mustDiagnostic(
 		SeverityError,
 		CodeCommandNotFound,
 		fmt.Sprintf("command '%s' not found", name),

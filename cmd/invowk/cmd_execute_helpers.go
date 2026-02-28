@@ -42,7 +42,7 @@ func toEnvVarNames(names []string) []invowkfile.EnvVarName {
 	}
 	result := make([]invowkfile.EnvVarName, len(names))
 	for i, name := range names {
-		result[i] = invowkfile.EnvVarName(name)
+		result[i] = invowkfile.EnvVarName(name) //goplint:ignore -- CLI flag boundary conversion
 	}
 	return result
 }
@@ -54,7 +54,7 @@ func toDotenvFilePaths(paths []string) []invowkfile.DotenvFilePath {
 	}
 	result := make([]invowkfile.DotenvFilePath, len(paths))
 	for i, path := range paths {
-		result[i] = invowkfile.DotenvFilePath(path)
+		result[i] = invowkfile.DotenvFilePath(path) //goplint:ignore -- CLI flag boundary conversion
 	}
 	return result
 }
@@ -167,17 +167,16 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
-		FromSource:   discovery.SourceID(cmdFlags.fromSource),
+		FromSource:   discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
 		ForceRebuild: cmdFlags.forceRebuild,
 		DryRun:       cmdFlags.dryRun,
-		ConfigPath:   types.FilesystemPath(rootFlags.configPath),
+		ConfigPath:   types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 	}
 
 	result, diags, err := app.Commands.Execute(ctx, req)
 	app.Diagnostics.Render(ctx, diags, app.stderr)
 	if err != nil {
-		var svcErr *ServiceError
-		if errors.As(err, &svcErr) {
+		if svcErr, ok := errors.AsType[*ServiceError](err); ok {
 			renderServiceError(app.stderr, svcErr)
 		}
 		return err
@@ -210,7 +209,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 	var cmdName invowkfile.CommandName
 	// Mirror Cobra longest-match behavior for nested command names.
 	for i := len(args); i > 0; i-- {
-		candidateName := invowkfile.CommandName(strings.Join(args[:i], " "))
+		candidateName := invowkfile.CommandName(strings.Join(args[:i], " ")) //goplint:ignore -- CLI args joined for Cobra resolution
 		if _, exists := commandSet.BySimpleName[candidateName]; exists {
 			cmdName = candidateName
 			break
@@ -219,7 +218,7 @@ func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagVal
 
 	if cmdName == "" {
 		// Unknown command path: let normal Cobra command resolution handle errors.
-		cmdName = invowkfile.CommandName(args[0])
+		cmdName = invowkfile.CommandName(args[0]) //goplint:ignore -- CLI arg, validated by Cobra resolution
 	}
 
 	if !commandSet.AmbiguousNames[cmdName] {
@@ -262,13 +261,19 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 	}
 
 	for _, diag := range built.Diagnostics {
-		result.Diagnostics = append(result.Diagnostics, discovery.NewDiagnosticWithCause(
+		d, err := discovery.NewDiagnosticWithCause(
 			discovery.SeverityWarning,
-			discovery.DiagnosticCode(diag.Code),
+			discovery.DiagnosticCode(diag.Code), //nolint:gosec // runtime.InitDiagnosticCode values align with discovery.DiagnosticCode by design
 			diag.Message,
 			"",
 			diag.Cause,
-		))
+		)
+		if err != nil {
+			slog.Error("BUG: failed to bridge runtime diagnostic to discovery diagnostic",
+				"code", diag.Code, "error", err)
+			continue
+		}
+		result.Diagnostics = append(result.Diagnostics, d)
 	}
 
 	return result

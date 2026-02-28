@@ -129,7 +129,7 @@ func (m *interactiveModel) View() tea.View {
 
 	separatorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#374151"))
-	separator := separatorStyle.Render(strings.Repeat("-", m.width))
+	separator := separatorStyle.Render(strings.Repeat("-", int(m.width)))
 
 	// Footer with status
 	var footerContent string
@@ -166,7 +166,7 @@ func (m *interactiveModel) View() tea.View {
 	// If we're displaying a TUI component, render it as an overlay on top of the base view
 	if m.state == stateTUI && m.activeComponent != nil {
 		componentView := m.activeComponent.View()
-		baseView = RenderOverlay(baseView, componentView.Content, TerminalDimension(m.width), TerminalDimension(m.height))
+		baseView = RenderOverlay(baseView, componentView.Content, m.width, m.height) //goplint:ignore -- bubbletea View() cannot return error
 	}
 
 	view := tea.NewView(baseView)
@@ -248,7 +248,7 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 // handleTUIComponentRequest creates an embedded TUI component and switches to TUI state.
 func (m *interactiveModel) handleTUIComponentRequest(msg TUIComponentMsg) (tea.Model, tea.Cmd) {
 	// Calculate modal dimensions based on component type
-	modalSize := CalculateModalSize(msg.Component, TerminalDimension(m.width), TerminalDimension(m.height))
+	modalSize := CalculateModalSize(msg.Component, m.width, m.height) //goplint:ignore -- bubbletea Update() cannot return error
 
 	// Create the embeddable component with modal dimensions
 	component, err := CreateEmbeddableComponent(msg.Component, msg.Options, modalSize.Width, modalSize.Height)
@@ -378,8 +378,8 @@ func (m *interactiveModel) forwardKeyToPty(msg tea.KeyPressMsg) {
 
 // handleWindowSize handles terminal resize events.
 func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
-	m.width = msg.Width
-	m.height = msg.Height
+	m.width = TerminalDimension(msg.Width)
+	m.height = TerminalDimension(msg.Height)
 	headerHeight := 2 // Title + separator
 	footerHeight := 1 // Status line
 	viewportHeight := max(msg.Height-headerHeight-footerHeight, 1)
@@ -399,7 +399,7 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 
 	// Resize the active TUI component if one is displayed
 	if m.activeComponent != nil && m.activeComponentType != "" {
-		modalSize := CalculateModalSize(m.activeComponentType, TerminalDimension(msg.Width), TerminalDimension(msg.Height))
+		modalSize := CalculateModalSize(m.activeComponentType, m.width, m.height) //goplint:ignore -- bubbletea Update() cannot return error
 		m.activeComponent.SetSize(modalSize.Width, modalSize.Height)
 	}
 

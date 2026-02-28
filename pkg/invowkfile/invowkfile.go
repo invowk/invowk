@@ -9,6 +9,8 @@ import (
 	goruntime "runtime"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/fspath"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
 )
 
@@ -83,17 +85,17 @@ func (e *InvalidShellPathError) Error() string {
 // Unwrap returns ErrInvalidShellPath for errors.Is() compatibility.
 func (e *InvalidShellPathError) Unwrap() error { return ErrInvalidShellPath }
 
-// IsValid returns whether the ShellPath is valid.
+// Validate returns nil if the ShellPath is valid, or a validation error if not.
 // The zero value ("") is valid — it means "use system default shell".
 // Non-zero values must not be whitespace-only.
-func (s ShellPath) IsValid() (bool, []error) {
+func (s ShellPath) Validate() error {
 	if s == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(s)) == "" {
-		return false, []error{&InvalidShellPathError{Value: s}}
+		return &InvalidShellPathError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ShellPath.
@@ -141,7 +143,7 @@ func (inv *Invowkfile) GetScriptBasePath() FilesystemPath {
 	if inv.ModulePath != "" {
 		return inv.ModulePath
 	}
-	return FilesystemPath(filepath.Dir(string(inv.FilePath)))
+	return fspath.Dir(inv.FilePath)
 }
 
 // GetEffectiveWorkDir resolves the effective working directory for command execution.
@@ -166,9 +168,9 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 		// Convert forward slashes to native path separator
 		nativePath := filepath.FromSlash(workdir)
 		if filepath.IsAbs(nativePath) {
-			return FilesystemPath(nativePath)
+			return FilesystemPath(nativePath) //goplint:ignore -- OS path from filepath.IsAbs guard
 		}
-		return FilesystemPath(filepath.Join(string(invowkfileDir), nativePath))
+		return fspath.JoinStr(invowkfileDir, nativePath)
 	}
 
 	// Priority 1: CLI override
@@ -200,15 +202,15 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 // Returns the bare command name if no Metadata is set.
 func (inv *Invowkfile) GetFullCommandName(cmdName CommandName) CommandName {
 	if inv.Metadata != nil {
-		return CommandName(string(inv.Metadata.Module()) + " " + string(cmdName))
+		return CommandName(string(inv.Metadata.Module()) + " " + string(cmdName)) //goplint:ignore -- composed from validated module + command name
 	}
 	return cmdName
 }
 
-// GetModule returns the module identifier from Metadata, or empty string if not set.
-func (inv *Invowkfile) GetModule() string {
+// GetModule returns the module identifier from Metadata, or empty ModuleID if not set.
+func (inv *Invowkfile) GetModule() invowkmod.ModuleID {
 	if inv.Metadata != nil {
-		return string(inv.Metadata.Module())
+		return inv.Metadata.Module()
 	}
 	return ""
 }

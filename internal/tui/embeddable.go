@@ -155,16 +155,16 @@ func (ct ComponentType) String() string {
 	return string(ct)
 }
 
-// IsValid returns whether the ComponentType is one of the defined component types,
-// and a list of validation errors if it is not.
-func (ct ComponentType) IsValid() (bool, []error) {
+// Validate returns nil if the ComponentType is one of the defined component types,
+// or a validation error if it is not.
+func (ct ComponentType) Validate() error {
 	switch ct {
 	case ComponentTypeInput, ComponentTypeConfirm, ComponentTypeChoose, ComponentTypeFilter,
 		ComponentTypeFile, ComponentTypeWrite, ComponentTypeTextArea, ComponentTypeSpin,
 		ComponentTypePager, ComponentTypeTable:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidComponentTypeError{Value: ct}}
+		return &InvalidComponentTypeError{Value: ct}
 	}
 }
 

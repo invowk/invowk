@@ -8,7 +8,7 @@
 //
 // The main entry point is the Provisioner interface, implemented by LayerProvisioner:
 //
-//	provisioner := provision.NewLayerProvisioner(engine, cfg)
+//	provisioner, err := provision.NewLayerProvisioner(engine, cfg)
 //	result, err := provisioner.Provision(ctx, container.ImageTag("debian:stable-slim"))
 //	// result.ImageTag contains the provisioned image to use
 //

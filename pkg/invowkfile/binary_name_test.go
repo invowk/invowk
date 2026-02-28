@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestBinaryName_IsValid(t *testing.T) {
+func TestBinaryName_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -32,23 +32,23 @@ func TestBinaryName_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.binary.IsValid()
-			if isValid != tt.want {
-				t.Errorf("BinaryName(%q).IsValid() = %v, want %v", tt.binary, isValid, tt.want)
+			err := tt.binary.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("BinaryName(%q).Validate() error = %v, want valid=%v", tt.binary, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("BinaryName(%q).IsValid() returned no errors, want error", tt.binary)
+				if err == nil {
+					t.Fatalf("BinaryName(%q).Validate() returned nil, want error", tt.binary)
 				}
-				if !errors.Is(errs[0], ErrInvalidBinaryName) {
-					t.Errorf("error should wrap ErrInvalidBinaryName, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidBinaryName) {
+					t.Errorf("error should wrap ErrInvalidBinaryName, got: %v", err)
 				}
 				var bnErr *InvalidBinaryNameError
-				if !errors.As(errs[0], &bnErr) {
-					t.Errorf("error should be *InvalidBinaryNameError, got: %T", errs[0])
+				if !errors.As(err, &bnErr) {
+					t.Errorf("error should be *InvalidBinaryNameError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("BinaryName(%q).IsValid() returned unexpected errors: %v", tt.binary, errs)
+			} else if err != nil {
+				t.Errorf("BinaryName(%q).Validate() returned unexpected error: %v", tt.binary, err)
 			}
 		})
 	}

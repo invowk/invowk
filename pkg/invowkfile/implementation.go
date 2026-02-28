@@ -3,11 +3,14 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/invowk/invowk/pkg/fspath"
 )
 
 // scriptFileExtensions contains extensions that indicate a script file
@@ -68,20 +71,20 @@ type (
 	}
 )
 
-// IsValid returns whether both Platform and Runtime in the key are valid,
-// and a combined list of validation errors from both fields.
-func (k PlatformRuntimeKey) IsValid() (bool, []error) {
+// Validate returns nil if both Platform and Runtime in the key are valid,
+// or a combined error from both fields.
+func (k PlatformRuntimeKey) Validate() error {
 	var errs []error
-	if valid, fieldErrs := k.Platform.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := k.Platform.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := k.Runtime.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := k.Runtime.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, errs
+		return errors.Join(errs...)
 	}
-	return true, nil
+	return nil
 }
 
 // String returns "platform/runtime" representation (e.g., "linux/native").
@@ -227,19 +230,18 @@ func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath 
 
 	// If absolute path, return as-is
 	if filepath.IsAbs(script) {
-		return FilesystemPath(script)
+		return FilesystemPath(script) //goplint:ignore -- OS-absolute path from filepath.IsAbs guard
 	}
 
 	// If in a module, resolve relative to module root with cross-platform path conversion
 	if modulePath != "" {
 		// Convert forward slashes to native path separator for cross-platform compatibility
 		nativePath := filepath.FromSlash(script)
-		return FilesystemPath(filepath.Join(string(modulePath), nativePath))
+		return fspath.JoinStr(modulePath, nativePath)
 	}
 
 	// Resolve relative to invowkfile directory
-	invowkDir := filepath.Dir(string(invowkfilePath))
-	return FilesystemPath(filepath.Join(invowkDir, script))
+	return fspath.JoinStr(fspath.Dir(invowkfilePath), script)
 }
 
 // ResolveScript returns the actual script content to execute.
@@ -271,10 +273,18 @@ func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath File
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}
-		s.resolvedScript = ScriptContent(content)
+		resolved := ScriptContent(content)
+		if err := resolved.Validate(); err != nil {
+			return "", fmt.Errorf("script file content: %w", err)
+		}
+		s.resolvedScript = resolved
 	} else {
 		// Inline script - use directly (multi-line strings from CUE are already handled)
-		s.resolvedScript = ScriptContent(script)
+		resolved := ScriptContent(script)
+		if err := resolved.Validate(); err != nil {
+			return "", fmt.Errorf("inline script content: %w", err)
+		}
+		s.resolvedScript = resolved
 	}
 
 	s.scriptResolved = true

@@ -3,7 +3,6 @@
 package container
 
 import (
-	"context"
 	"errors"
 	"testing"
 )
@@ -66,7 +65,7 @@ func TestPodmanEngine_AvailableWithNoPath(t *testing.T) {
 	}
 }
 
-func TestEngineType_IsValid(t *testing.T) {
+func TestEngineType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -84,19 +83,19 @@ func TestEngineType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.et), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.et.IsValid()
-			if isValid != tt.want {
-				t.Errorf("EngineType(%q).IsValid() = %v, want %v", tt.et, isValid, tt.want)
+			err := tt.et.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("EngineType(%q).Validate() error = %v, want valid=%v", tt.et, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("EngineType(%q).IsValid() returned no errors, want error", tt.et)
+				if err == nil {
+					t.Fatalf("EngineType(%q).Validate() returned nil, want error", tt.et)
 				}
-				if !errors.Is(errs[0], ErrInvalidEngineType) {
-					t.Errorf("error should wrap ErrInvalidEngineType, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidEngineType) {
+					t.Errorf("error should wrap ErrInvalidEngineType, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("EngineType(%q).IsValid() returned unexpected errors: %v", tt.et, errs)
+			} else if err != nil {
+				t.Errorf("EngineType(%q).Validate() returned unexpected error: %v", tt.et, err)
 			}
 		})
 	}
@@ -170,7 +169,7 @@ func TestAutoDetectEngine(t *testing.T) {
 	}
 }
 
-func TestPortProtocol_IsValid(t *testing.T) {
+func TestPortProtocol_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -189,25 +188,25 @@ func TestPortProtocol_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.pp.IsValid()
-			if isValid != tt.want {
-				t.Errorf("PortProtocol(%q).IsValid() = %v, want %v", tt.pp, isValid, tt.want)
+			err := tt.pp.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("PortProtocol(%q).Validate() error = %v, want valid=%v", tt.pp, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("PortProtocol(%q).IsValid() returned no errors, want error", tt.pp)
+				if err == nil {
+					t.Fatalf("PortProtocol(%q).Validate() returned nil, want error", tt.pp)
 				}
-				if !errors.Is(errs[0], ErrInvalidPortProtocol) {
-					t.Errorf("error should wrap ErrInvalidPortProtocol, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidPortProtocol) {
+					t.Errorf("error should wrap ErrInvalidPortProtocol, got: %v", err)
 				}
 				var typedErr *InvalidPortProtocolError
-				if !errors.As(errs[0], &typedErr) {
-					t.Errorf("error should be *InvalidPortProtocolError, got: %T", errs[0])
+				if !errors.As(err, &typedErr) {
+					t.Errorf("error should be *InvalidPortProtocolError, got: %T", err)
 				} else if typedErr.Value != tt.pp {
 					t.Errorf("InvalidPortProtocolError.Value = %q, want %q", typedErr.Value, tt.pp)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("PortProtocol(%q).IsValid() returned unexpected errors: %v", tt.pp, errs)
+			} else if err != nil {
+				t.Errorf("PortProtocol(%q).Validate() returned unexpected error: %v", tt.pp, err)
 			}
 		})
 	}
@@ -224,7 +223,7 @@ func TestPortProtocol_String(t *testing.T) {
 	}
 }
 
-func TestSELinuxLabel_IsValid(t *testing.T) {
+func TestSELinuxLabel_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -244,25 +243,25 @@ func TestSELinuxLabel_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.sl.IsValid()
-			if isValid != tt.want {
-				t.Errorf("SELinuxLabel(%q).IsValid() = %v, want %v", tt.sl, isValid, tt.want)
+			err := tt.sl.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("SELinuxLabel(%q).Validate() error = %v, want valid=%v", tt.sl, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("SELinuxLabel(%q).IsValid() returned no errors, want error", tt.sl)
+				if err == nil {
+					t.Fatalf("SELinuxLabel(%q).Validate() returned nil, want error", tt.sl)
 				}
-				if !errors.Is(errs[0], ErrInvalidSELinuxLabel) {
-					t.Errorf("error should wrap ErrInvalidSELinuxLabel, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSELinuxLabel) {
+					t.Errorf("error should wrap ErrInvalidSELinuxLabel, got: %v", err)
 				}
 				var typedErr *InvalidSELinuxLabelError
-				if !errors.As(errs[0], &typedErr) {
-					t.Errorf("error should be *InvalidSELinuxLabelError, got: %T", errs[0])
+				if !errors.As(err, &typedErr) {
+					t.Errorf("error should be *InvalidSELinuxLabelError, got: %T", err)
 				} else if typedErr.Value != tt.sl {
 					t.Errorf("InvalidSELinuxLabelError.Value = %q, want %q", typedErr.Value, tt.sl)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("SELinuxLabel(%q).IsValid() returned unexpected errors: %v", tt.sl, errs)
+			} else if err != nil {
+				t.Errorf("SELinuxLabel(%q).Validate() returned unexpected error: %v", tt.sl, err)
 			}
 		})
 	}
@@ -293,7 +292,7 @@ func TestDockerEngine_Integration(t *testing.T) {
 		t.Skip("Docker is not available, skipping integration tests")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("Version", func(t *testing.T) {
 		version, err := engine.Version(ctx)
@@ -338,7 +337,7 @@ func TestPodmanEngine_Integration(t *testing.T) {
 		t.Skip("Podman is not available, skipping integration tests")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("Version", func(t *testing.T) {
 		version, err := engine.Version(ctx)

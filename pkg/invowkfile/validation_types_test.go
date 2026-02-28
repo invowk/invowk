@@ -377,7 +377,7 @@ func TestFieldPath_Copy(t *testing.T) {
 	}
 }
 
-func TestValidatorName_IsValid(t *testing.T) {
+func TestValidatorName_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -397,19 +397,19 @@ func TestValidatorName_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ValidatorName(%q).IsValid() = %v, want %v", tt.value, isValid, tt.want)
+			err := tt.value.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ValidatorName(%q).Validate() error = %v, want valid=%v", tt.value, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ValidatorName(%q).IsValid() returned no errors, want error", tt.value)
+				if err == nil {
+					t.Fatalf("ValidatorName(%q).Validate() returned nil, want error", tt.value)
 				}
-				if !errors.Is(errs[0], ErrInvalidValidatorName) {
-					t.Errorf("error should wrap ErrInvalidValidatorName, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidValidatorName) {
+					t.Errorf("error should wrap ErrInvalidValidatorName, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ValidatorName(%q).IsValid() returned unexpected errors: %v", tt.value, errs)
+			} else if err != nil {
+				t.Errorf("ValidatorName(%q).Validate() returned unexpected error: %v", tt.value, err)
 			}
 		})
 	}
@@ -478,10 +478,10 @@ func TestNewValidationError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ve, errs := NewValidationError(tt.validator, tt.field, tt.message, tt.severity)
+			ve, err := NewValidationError(tt.validator, tt.field, tt.message, tt.severity)
 			if tt.wantOK {
-				if len(errs) != 0 {
-					t.Fatalf("NewValidationError() returned errors: %v", errs)
+				if err != nil {
+					t.Fatalf("NewValidationError() returned error: %v", err)
 				}
 				if ve.Validator != tt.validator {
 					t.Errorf("Validator = %q, want %q", ve.Validator, tt.validator)
@@ -496,8 +496,8 @@ func TestNewValidationError(t *testing.T) {
 					t.Errorf("Severity = %d, want %d", ve.Severity, tt.severity)
 				}
 			} else {
-				if len(errs) != tt.wantErrs {
-					t.Errorf("NewValidationError() returned %d errors, want %d: %v", len(errs), tt.wantErrs, errs)
+				if err == nil {
+					t.Fatalf("NewValidationError() returned nil error, want error")
 				}
 				if ve != (ValidationError{}) {
 					t.Errorf("NewValidationError() returned non-zero ValidationError on failure: %+v", ve)
@@ -511,25 +511,25 @@ func TestNewValidationError_ErrorTypes(t *testing.T) {
 	t.Parallel()
 
 	// Verify invalid validator wraps correct sentinel
-	_, errs := NewValidationError("", "field", "msg", SeverityError)
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d", len(errs))
+	_, err := NewValidationError("", "field", "msg", SeverityError)
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(errs[0], ErrInvalidValidatorName) {
-		t.Errorf("error should wrap ErrInvalidValidatorName, got: %v", errs[0])
+	if !errors.Is(err, ErrInvalidValidatorName) {
+		t.Errorf("error should wrap ErrInvalidValidatorName, got: %v", err)
 	}
 
 	// Verify invalid severity wraps correct sentinel
-	_, errs = NewValidationError("structure", "field", "msg", ValidationSeverity(99))
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d", len(errs))
+	_, err = NewValidationError("structure", "field", "msg", ValidationSeverity(99))
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
-	if !errors.Is(errs[0], ErrInvalidValidationSeverity) {
-		t.Errorf("error should wrap ErrInvalidValidationSeverity, got: %v", errs[0])
+	if !errors.Is(err, ErrInvalidValidationSeverity) {
+		t.Errorf("error should wrap ErrInvalidValidationSeverity, got: %v", err)
 	}
 }
 
-func TestValidationSeverity_IsValid(t *testing.T) {
+func TestValidationSeverity_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -546,19 +546,19 @@ func TestValidationSeverity_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.severity.String(), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.severity.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ValidationSeverity(%d).IsValid() = %v, want %v", tt.severity, isValid, tt.want)
+			err := tt.severity.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ValidationSeverity(%d).Validate() error = %v, want valid=%v", tt.severity, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ValidationSeverity(%d).IsValid() returned no errors, want error", tt.severity)
+				if err == nil {
+					t.Fatalf("ValidationSeverity(%d).Validate() returned nil, want error", tt.severity)
 				}
-				if !errors.Is(errs[0], ErrInvalidValidationSeverity) {
-					t.Errorf("error should wrap ErrInvalidValidationSeverity, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidValidationSeverity) {
+					t.Errorf("error should wrap ErrInvalidValidationSeverity, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ValidationSeverity(%d).IsValid() returned unexpected errors: %v", tt.severity, errs)
+			} else if err != nil {
+				t.Errorf("ValidationSeverity(%d).Validate() returned unexpected error: %v", tt.severity, err)
 			}
 		})
 	}

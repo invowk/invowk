@@ -240,7 +240,7 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := checkAmbiguousCommand(context.Background(), app, rootFlags, tt.args)
+			err := checkAmbiguousCommand(t.Context(), app, rootFlags, tt.args)
 
 			if tt.wantErr {
 				if err == nil {
@@ -277,7 +277,7 @@ func TestCheckAmbiguousCommand_DiscoveryError(t *testing.T) {
 		stderr:      &bytes.Buffer{},
 	}
 
-	err := checkAmbiguousCommand(context.Background(), app, &rootFlagValues{}, []string{"deploy"})
+	err := checkAmbiguousCommand(t.Context(), app, &rootFlagValues{}, []string{"deploy"})
 	if err != nil {
 		t.Fatalf("expected nil (discovery errors swallowed), got: %v", err)
 	}

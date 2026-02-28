@@ -227,11 +227,17 @@ license-check:
 		echo "All Go files have proper SPDX license headers."; \
 	fi
 
-# Run golangci-lint
-.PHONY: lint
-lint:
-	@echo "Running golangci-lint..."
+# Run golangci-lint in all Go modules
+.PHONY: lint lint-root lint-tools-goplint
+lint: lint-root lint-tools-goplint
+
+lint-root:
+	@echo "Running golangci-lint (root module)..."
 	golangci-lint run ./...
+
+lint-tools-goplint:
+	@echo "Running golangci-lint (tools/goplint module)..."
+	cd tools/goplint && golangci-lint run ./...
 
 # Build the goplint analyzer (DDD Value Type enforcement)
 .PHONY: build-goplint
@@ -266,14 +272,14 @@ check-types-all-json: build-goplint
 .PHONY: check-baseline
 check-baseline: build-goplint
 	@echo "Checking goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
 
 # Update the goplint baseline from the current codebase state.
 # Run this after type improvements or new exceptions to shrink the baseline.
 .PHONY: update-baseline
 update-baseline: build-goplint
 	@echo "Updating goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
 	@echo "Baseline updated: tools/goplint/baseline.toml"
 
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)
@@ -438,7 +444,8 @@ help:
 	@echo "  install          Install to GOPATH/bin"
 	@echo "  tidy             Tidy go.mod dependencies"
 	@echo "  license-check    Verify SPDX headers in all Go files"
-	@echo "  lint             Run golangci-lint on all packages"
+	@echo "  lint             Run golangci-lint on root and tools/goplint modules"
+	@echo "  lint-tools-goplint  Run golangci-lint for tools/goplint module"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
 	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"

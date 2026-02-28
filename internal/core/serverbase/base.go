@@ -55,7 +55,7 @@ func NewBase(opts ...Option) *Base {
 
 // State returns the current server state (atomic, lock-free read).
 func (b *Base) State() State {
-	return State(b.state.Load())
+	return State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
 }
 
 // IsRunning returns true if the server is in the Running state.
@@ -94,7 +94,7 @@ func (b *Base) TransitionToStarting(ctx context.Context) error {
 
 	// Atomic state transition: Created -> Starting
 	if !b.state.CompareAndSwap(int32(StateCreated), int32(StateStarting)) {
-		currentState := State(b.state.Load())
+		currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
 		return fmt.Errorf("cannot start server in state %s", currentState)
 	}
 
@@ -142,7 +142,7 @@ func (b *Base) TransitionToFailed(err error) {
 // succeeds and performs cleanup (context cancellation); others return false.
 func (b *Base) TransitionToStopping() bool {
 	for {
-		currentState := State(b.state.Load())
+		currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
 		switch currentState {
 		case StateStopped, StateFailed:
 			return false // Already stopped

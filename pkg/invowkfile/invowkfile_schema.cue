@@ -13,6 +13,15 @@ import "strings"
 // PlatformType defines the supported operating system types
 #PlatformType: "linux" | "macos" | "windows"
 
+// EnvInheritMode defines how environment variables are inherited
+#EnvInheritMode: "none" | "allow" | "all"
+
+// FlagType defines the valid types for command flags
+#FlagType: "string" | "bool" | "int" | "float"
+
+// ArgumentType defines the valid types for command arguments
+#ArgumentType: "string" | "int" | "float"
+
 // DurationString constrains a Go-style duration string (e.g., "30s", "5m", "1h30m").
 // Shared by #Implementation.timeout and #WatchConfig.debounce.
 #DurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(32)
@@ -39,7 +48,7 @@ import "strings"
 
 	// env_inherit_mode controls host environment inheritance (optional)
 	// Allowed values: "none", "allow", "all"
-	env_inherit_mode?: "none" | "allow" | "all"
+	env_inherit_mode?: #EnvInheritMode
 
 	// env_inherit_allow lists host env vars to allow when env_inherit_mode is "allow"
 	env_inherit_allow?: [...string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)]
@@ -324,7 +333,7 @@ import "strings"
 	// - "int": must be a valid integer
 	// - "float": must be a valid floating-point number
 	// Note: "bool" is not supported for positional arguments (use flags instead)
-	type?: "string" | "int" | "float"
+	type?: #ArgumentType
 
 	// validation is a regex pattern to validate the argument value (optional)
 	// The argument value must match this pattern
@@ -360,7 +369,7 @@ import "strings"
 	// - "bool": must be "true" or "false"
 	// - "int": must be a valid integer
 	// - "float": must be a valid floating-point number
-	type?: "string" | "bool" | "int" | "float"
+	type?: #FlagType
 
 	// required indicates whether this flag must be provided (optional, defaults to false)
 	// If true, the command will fail if the flag is not provided

@@ -24,6 +24,8 @@ var (
 )
 
 type (
+	//goplint:constant-only
+	//
 	// ValidationSeverity indicates the severity level of a validation error.
 	ValidationSeverity int
 
@@ -33,6 +35,8 @@ type (
 		Value ValidationSeverity
 	}
 
+	//goplint:constant-only
+	//
 	// ValidatorName identifies a validation component (e.g., "structure", "shebang").
 	// Must be non-empty and not whitespace-only.
 	ValidatorName string
@@ -111,14 +115,14 @@ func (e *InvalidValidationSeverityError) Unwrap() error {
 	return ErrInvalidValidationSeverity
 }
 
-// IsValid returns whether the ValidationSeverity is one of the defined severity levels,
-// and a list of validation errors if it is not.
-func (s ValidationSeverity) IsValid() (bool, []error) {
+// Validate returns nil if the ValidationSeverity is one of the defined severity levels,
+// or a validation error if it is not.
+func (s ValidationSeverity) Validate() error {
 	switch s {
 	case SeverityError, SeverityWarning:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidValidationSeverityError{Value: s}}
+		return &InvalidValidationSeverityError{Value: s}
 	}
 }
 
@@ -144,13 +148,13 @@ func (e *InvalidValidatorNameError) Unwrap() error {
 	return ErrInvalidValidatorName
 }
 
-// IsValid returns whether the ValidatorName is non-empty and not whitespace-only,
-// and a list of validation errors if it is not.
-func (n ValidatorName) IsValid() (bool, []error) {
+// Validate returns nil if the ValidatorName is non-empty and not whitespace-only,
+// or a validation error if it is not.
+func (n ValidatorName) Validate() error {
 	if strings.TrimSpace(string(n)) == "" {
-		return false, []error{&InvalidValidatorNameError{Value: n}}
+		return &InvalidValidatorNameError{Value: n}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ValidatorName.
@@ -160,16 +164,16 @@ func (n ValidatorName) String() string {
 
 // NewValidationError creates a validated ValidationError, returning construction errors
 // if the validator name or severity are invalid.
-func NewValidationError(validator ValidatorName, field, message string, severity ValidationSeverity) (ValidationError, []error) {
+func NewValidationError(validator ValidatorName, field, message string, severity ValidationSeverity) (ValidationError, error) {
 	var errs []error
-	if valid, fieldErrs := validator.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := validator.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := severity.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := severity.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return ValidationError{}, errs
+		return ValidationError{}, errors.Join(errs...)
 	}
 	return ValidationError{Validator: validator, Field: field, Message: message, Severity: severity}, nil
 }

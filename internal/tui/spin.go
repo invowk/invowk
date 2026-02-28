@@ -86,8 +86,8 @@ type (
 		command []string
 		done    bool
 		result  SpinResult
-		width   int
-		height  int
+		width   TerminalDimension
+		height  TerminalDimension
 		spinner int
 		frames  []string
 	}
@@ -124,16 +124,16 @@ func (e *InvalidSpinnerTypeError) Error() string {
 // Unwrap returns ErrInvalidSpinnerType so callers can use errors.Is for programmatic detection.
 func (e *InvalidSpinnerTypeError) Unwrap() error { return ErrInvalidSpinnerType }
 
-// IsValid returns whether the SpinnerType is one of the defined spinner types,
-// and a list of validation errors if it is not.
-func (t SpinnerType) IsValid() (bool, []error) {
+// Validate returns nil if the SpinnerType is one of the defined spinner types,
+// or a validation error if it is not.
+func (t SpinnerType) Validate() error {
 	switch t {
 	case SpinnerLine, SpinnerDot, SpinnerMiniDot, SpinnerJump,
 		SpinnerPulse, SpinnerPoints, SpinnerGlobe, SpinnerMoon,
 		SpinnerMonkey, SpinnerMeter, SpinnerHamburger, SpinnerEllipsis:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidSpinnerTypeError{Value: t}}
+		return &InvalidSpinnerTypeError{Value: t}
 	}
 }
 
@@ -249,7 +249,7 @@ func (m *spinModel) View() tea.View {
 
 	// Constrain the view to the configured width to prevent overflow in modal overlays
 	if m.width > 0 {
-		content = lipgloss.NewStyle().MaxWidth(m.width).Render(content)
+		content = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(content)
 	}
 	return tea.NewView(content)
 }
@@ -271,8 +271,8 @@ func (m *spinModel) Cancelled() bool {
 
 // SetSize implements EmbeddableComponent.
 func (m *spinModel) SetSize(width, height TerminalDimension) {
-	m.width = int(width)
-	m.height = int(height)
+	m.width = width
+	m.height = height
 }
 
 // runCommand starts the command execution and returns the result.
@@ -291,7 +291,12 @@ func (m *spinModel) runCommand() tea.Cmd {
 
 		if err != nil {
 			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-				result.ExitCode = types.ExitCode(exitErr.ExitCode())
+				exitCode := types.ExitCode(exitErr.ExitCode())
+				if err := exitCode.Validate(); err != nil {
+					result.ExitCode = 1
+				} else {
+					result.ExitCode = exitCode
+				}
 			} else {
 				result.ExitCode = 1
 			}
@@ -485,7 +490,7 @@ func (m spinActionModel) View() tea.View {
 // runActionSpinner displays a spinner until doneCh is closed.
 func runActionSpinner(opts SpinOptions, doneCh <-chan struct{}) error {
 	model := spinActionModel{
-		title: types.DescriptionText(opts.Title),
+		title: types.DescriptionText(opts.Title), //goplint:ignore -- display text from TUI options
 		spinner: bspinner.New(
 			bspinner.WithSpinner(getSpinnerType(opts.Type)),
 			bspinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))),

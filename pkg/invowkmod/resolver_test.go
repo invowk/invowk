@@ -3,7 +3,6 @@
 package invowkmod
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -528,7 +527,7 @@ func TestRemoveByNamespace(t *testing.T) {
 	}
 
 	// Remove by alias namespace
-	results, err := resolver.Remove(context.Background(), "myalias")
+	results, err := resolver.Remove(t.Context(), "myalias")
 	if err != nil {
 		t.Fatalf("Remove(myalias) error = %v", err)
 	}

@@ -5,6 +5,7 @@ package container
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os/exec"
 
@@ -137,7 +138,11 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 	result := &RunResult{}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = types.ExitCode(exitErr.ExitCode())
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if validateErr := exitCode.Validate(); validateErr != nil {
+				return nil, fmt.Errorf("sandbox run exit code: %w", validateErr)
+			}
+			result.ExitCode = exitCode
 		} else {
 			result.ExitCode = 1
 			result.Error = err

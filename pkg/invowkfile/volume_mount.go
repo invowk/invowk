@@ -27,17 +27,19 @@ type (
 // String returns the string representation of the VolumeMountSpec.
 func (v VolumeMountSpec) String() string { return string(v) }
 
-// IsValid returns whether the VolumeMountSpec is valid.
+// Validate returns nil if the VolumeMountSpec is valid, or a validation error if not.
 // A valid spec must be non-empty and contain at least one ':' separator.
-func (v VolumeMountSpec) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (v VolumeMountSpec) Validate() error {
 	s := string(v)
 	if s == "" {
-		return false, []error{&InvalidVolumeMountSpecError{Value: v, Reason: "must not be empty"}}
+		return &InvalidVolumeMountSpecError{Value: v, Reason: "must not be empty"}
 	}
 	if !strings.Contains(s, ":") {
-		return false, []error{&InvalidVolumeMountSpecError{Value: v, Reason: "must contain ':' separator (host:container format)"}}
+		return &InvalidVolumeMountSpecError{Value: v, Reason: "must contain ':' separator (host:container format)"}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidVolumeMountSpecError.

@@ -15,6 +15,15 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 )
 
+// behavioralSyncCase defines a single input for behavioral equivalence testing.
+// Used by TestBehavioralSync_* tests at the bottom of this file.
+type behavioralSyncCase struct {
+	input       string
+	goExpect    bool
+	cueExpect   bool
+	divergeNote string
+}
+
 // configSchema is embedded in config.go and available to tests via the same package.
 
 // =============================================================================
@@ -715,4 +724,144 @@ func TestValidateAutoProvisionIncludes(t *testing.T) {
 			}
 		})
 	}
+}
+
+// =============================================================================
+// Behavioral Sync Tests — CUE Oracle
+// =============================================================================
+// These tests verify that Go Validate() methods and CUE schema constraints
+// produce the same accept/reject verdict on identical inputs.
+
+// lookupCUEFieldConstraint extracts the constraint value for a specific field
+// within a CUE struct definition, including optional fields.
+func lookupCUEFieldConstraint(t *testing.T, schema cue.Value, parentPath, fieldName string) cue.Value {
+	t.Helper()
+
+	parent := schema.LookupPath(cue.ParsePath(parentPath))
+	if parent.Err() != nil {
+		t.Fatalf("CUE parent %s not found: %v", parentPath, parent.Err())
+	}
+
+	iter, err := parent.Fields(cue.Optional(true))
+	if err != nil {
+		t.Fatalf("failed to iterate fields of %s: %v", parentPath, err)
+	}
+
+	for iter.Next() {
+		sel := iter.Selector()
+		name := strings.TrimSuffix(sel.String(), "?")
+		if name == fieldName {
+			return iter.Value()
+		}
+	}
+
+	t.Fatalf("CUE field %s not found in %s", fieldName, parentPath)
+	return cue.Value{} // unreachable
+}
+
+// runBehavioralSyncField runs behavioral equivalence tests using field-level CUE
+// constraint lookup for optional fields.
+func runBehavioralSyncField(
+	t *testing.T, schema cue.Value, ctx *cue.Context,
+	parentPath, fieldName string,
+	goValidate func(string) error,
+	cases []behavioralSyncCase,
+) {
+	t.Helper()
+
+	constraint := lookupCUEFieldConstraint(t, schema, parentPath, fieldName)
+	for _, tc := range cases {
+		label := tc.input
+		if len(label) > 30 {
+			label = label[:27] + "..."
+		}
+		if label == "" {
+			label = "<empty>"
+		}
+
+		t.Run(label, func(t *testing.T) {
+			t.Parallel()
+
+			goErr := goValidate(tc.input)
+			goAccepts := goErr == nil
+
+			unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", tc.input)))
+			cueErr := unified.Validate(cue.Concrete(true))
+			cueAccepts := cueErr == nil
+
+			if goAccepts != tc.goExpect {
+				t.Errorf("Go Validate() unexpected: got accept=%v, want %v (err=%v)", goAccepts, tc.goExpect, goErr)
+			}
+			if cueAccepts != tc.cueExpect {
+				t.Errorf("CUE Validate() unexpected: got accept=%v, want %v (err=%v)", cueAccepts, tc.cueExpect, cueErr)
+			}
+			if tc.divergeNote == "" && goAccepts != cueAccepts {
+				t.Errorf("BEHAVIORAL DRIFT: Go accept=%v, CUE accept=%v for input %q", goAccepts, cueAccepts, tc.input)
+			}
+			if tc.divergeNote != "" && goAccepts != cueAccepts {
+				t.Logf("Expected divergence: %s (Go=%v, CUE=%v)", tc.divergeNote, goAccepts, cueAccepts)
+			}
+		})
+	}
+}
+
+// TestBehavioralSync_ContainerEngine verifies Go ContainerEngine.Validate() agrees with
+// CUE #Config.container_engine disjunction ("podman" | "docker").
+func TestBehavioralSync_ContainerEngine(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// container_engine is an optional field in #Config — use field-level lookup
+	runBehavioralSyncField(t, schema, ctx, "#Config", "container_engine",
+		func(s string) error { return ContainerEngine(s).Validate() },
+		[]behavioralSyncCase{
+			{"podman", true, true, ""},
+			{"docker", true, true, ""},
+			{"invalid", false, false, ""},
+			{"PODMAN", false, false, ""},
+			// Config types reject empty (unlike invowkfile types which accept empty for defaults).
+			// Both Go and CUE reject empty — agreement on rejection.
+			{"", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_ConfigRuntimeMode verifies Go config.RuntimeMode.Validate() agrees with
+// CUE #Config.default_runtime disjunction ("native" | "virtual" | "container").
+func TestBehavioralSync_ConfigRuntimeMode(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// default_runtime is an optional field in #Config — use field-level lookup
+	runBehavioralSyncField(t, schema, ctx, "#Config", "default_runtime",
+		func(s string) error { return RuntimeMode(s).Validate() },
+		[]behavioralSyncCase{
+			{"native", true, true, ""},
+			{"virtual", true, true, ""},
+			{"container", true, true, ""},
+			{"invalid", false, false, ""},
+			{"NATIVE", false, false, ""},
+			{"", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_ColorScheme verifies Go ColorScheme.Validate() agrees with
+// CUE #UIConfig.color_scheme disjunction ("auto" | "dark" | "light").
+func TestBehavioralSync_ColorScheme(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// color_scheme is an optional field in #UIConfig — use field-level lookup
+	runBehavioralSyncField(t, schema, ctx, "#UIConfig", "color_scheme",
+		func(s string) error { return ColorScheme(s).Validate() },
+		[]behavioralSyncCase{
+			{"auto", true, true, ""},
+			{"dark", true, true, ""},
+			{"light", true, true, ""},
+			{"invalid", false, false, ""},
+			{"AUTO", false, false, ""},
+			{"", false, false, ""},
+		},
+	)
 }

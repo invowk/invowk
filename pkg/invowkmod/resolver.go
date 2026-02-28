@@ -177,15 +177,23 @@ func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
 	}
 
 	absCachePath := types.FilesystemPath(absCacheDir)
+	if err := absCachePath.Validate(); err != nil {
+		return nil, fmt.Errorf("cache directory: %w", err)
+	}
 
 	// Ensure cache directory exists
 	if err := os.MkdirAll(absCacheDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
+	absWorkingPath := types.FilesystemPath(absWorkingDir)
+	if err := absWorkingPath.Validate(); err != nil {
+		return nil, fmt.Errorf("working directory: %w", err)
+	}
+
 	return &Resolver{
 		cacheDir:   absCachePath,
-		workingDir: types.FilesystemPath(absWorkingDir),
+		workingDir: absWorkingPath,
 		fetcher:    NewGitFetcher(absCachePath),
 		semver:     NewSemverResolver(),
 	}, nil

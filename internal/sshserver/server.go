@@ -65,6 +65,8 @@ type (
 		logger *log.Logger
 	}
 
+	//goplint:validate-all
+	//
 	// Config holds immutable configuration for the SSH server.
 	Config struct {
 		// Host is the address to bind to (default: 127.0.0.1)
@@ -103,24 +105,25 @@ func DefaultConfig() Config {
 	}
 }
 
-// IsValid returns whether the Config has valid fields.
-// It delegates to Host.IsValid(), Port.IsValid(), and DefaultShell.IsValid().
-// Duration fields (TokenTTL, ShutdownTimeout, StartupTimeout) have no IsValid.
-func (c Config) IsValid() (bool, []error) {
+// Validate returns nil if all typed fields in the Config are valid,
+// or an error wrapping ErrInvalidSSHConfig if any are invalid.
+// It delegates to Host.Validate(), Port.Validate(), and DefaultShell.Validate().
+// Duration fields (TokenTTL, ShutdownTimeout, StartupTimeout) have no Validate.
+func (c Config) Validate() error {
 	var errs []error
-	if valid, fieldErrs := c.Host.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.Host.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := c.Port.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.Port.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := c.DefaultShell.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.DefaultShell.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidSSHConfigError{FieldErrors: errs}}
+		return &InvalidSSHConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Now returns the current system time.
@@ -130,14 +133,15 @@ func (realClock) Now() time.Time {
 
 // New creates a new SSH server instance with real system time.
 // The server is not started; call Start() to begin accepting connections.
-func New(cfg Config) *Server {
+func New(cfg Config) (*Server, error) {
 	return NewWithClock(cfg, realClock{})
 }
 
 // NewWithClock creates a new SSH server instance with a custom clock.
 // This is primarily used for testing with FakeClock for deterministic time control.
 // The server is not started; call Start() to begin accepting connections.
-func NewWithClock(cfg Config, clock Clock) *Server {
+// Returns error if the Config has invalid typed fields.
+func NewWithClock(cfg Config, clock Clock) (*Server, error) {
 	// Apply defaults
 	if cfg.Host == "" {
 		cfg.Host = HostAddress("127.0.0.1")
@@ -155,6 +159,11 @@ func NewWithClock(cfg Config, clock Clock) *Server {
 		cfg.StartupTimeout = 5 * time.Second
 	}
 
+	// Defense-in-depth: validate all typed fields after applying defaults.
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("ssh server config: %w", err)
+	}
+
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		Prefix: "ssh-server",
 	})
@@ -167,7 +176,7 @@ func NewWithClock(cfg Config, clock Clock) *Server {
 		logger: logger,
 	}
 
-	return s
+	return s, nil
 }
 
 // commandMiddleware handles command execution.

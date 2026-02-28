@@ -603,7 +603,7 @@ func TestGenerateCUE_WithRootLevelEnv(t *testing.T) {
 	inv := &Invowkfile{
 		Env: &EnvConfig{
 			Files: []DotenvFilePath{"global.env", "shared.env?"},
-			Vars: map[string]string{
+			Vars: map[EnvVarName]string{
 				"GLOBAL_VAR": "global_value",
 			},
 		},
@@ -643,7 +643,7 @@ func TestGenerateCUE_RootEnvRoundTrip(t *testing.T) {
 	original := &Invowkfile{
 		Env: &EnvConfig{
 			Files: []DotenvFilePath{"global.env", "shared.env?"},
-			Vars: map[string]string{
+			Vars: map[EnvVarName]string{
 				"GLOBAL_VAR": "global_value",
 			},
 		},

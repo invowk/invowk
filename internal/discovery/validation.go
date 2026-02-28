@@ -80,7 +80,7 @@ func ValidateCommandTree(commands []*CommandInfo) error {
 		// Record parent-child relationships by splitting the command name
 		parts := strings.Fields(string(cmdInfo.Name))
 		for i := 1; i < len(parts); i++ {
-			parentName := invowkfile.CommandName(strings.Join(parts[:i], " "))
+			parentName := invowkfile.CommandName(strings.Join(parts[:i], " ")) //goplint:ignore -- derived from valid command name parts
 			childCommands[parentName] = append(childCommands[parentName], cmdInfo.Name)
 		}
 	}

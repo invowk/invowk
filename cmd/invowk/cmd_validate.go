@@ -174,13 +174,13 @@ func checkCommandDependenciesExist(disc DiscoveryService, deps *invowkfile.Depen
 		// OR semantics: any alternative being discoverable satisfies this dependency.
 		found := false
 		for _, alt := range alternatives {
-			if _, ok := available[invowkfile.CommandName(alt)]; ok {
+			if _, ok := available[invowkfile.CommandName(alt)]; ok { //goplint:ignore -- map key lookup only
 				found = true
 				break
 			}
 
 			// Also allow referencing commands from the current invowkfile without a module prefix.
-			qualified := invowkfile.CommandName(currentModule + " " + alt)
+			qualified := invowkfile.CommandName(currentModule + " " + alt) //goplint:ignore -- map key lookup only
 			if _, ok := available[qualified]; ok {
 				found = true
 				break

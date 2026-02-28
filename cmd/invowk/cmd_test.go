@@ -15,14 +15,14 @@ import (
 // - cmd_args_test.go: Positional argument tests
 // - cmd_source_test.go: Source filter tests
 
-func TestDependencyMessage_IsValid(t *testing.T) {
+func TestDependencyMessage_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		msg     DependencyMessage
-		want    bool
-		wantErr bool
+		name      string
+		msg       DependencyMessage
+		wantValid bool
+		wantErr   bool
 	}{
 		{"non-empty is valid", DependencyMessage("  - kubectl - not found in PATH"), true, false},
 		{"short message is valid", DependencyMessage("test"), true, false},
@@ -34,19 +34,19 @@ func TestDependencyMessage_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.msg.IsValid()
-			if isValid != tt.want {
-				t.Errorf("DependencyMessage(%q).IsValid() = %v, want %v", tt.msg, isValid, tt.want)
+			err := tt.msg.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("DependencyMessage(%q).Validate() error = %v, wantValid %v", tt.msg, err, tt.wantValid)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("DependencyMessage(%q).IsValid() returned no errors, want error", tt.msg)
+				if err == nil {
+					t.Fatalf("DependencyMessage(%q).Validate() returned nil, want error", tt.msg)
 				}
-				if !errors.Is(errs[0], ErrInvalidDependencyMessage) {
-					t.Errorf("error should wrap ErrInvalidDependencyMessage, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidDependencyMessage) {
+					t.Errorf("error should wrap ErrInvalidDependencyMessage, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("DependencyMessage(%q).IsValid() returned unexpected errors: %v", tt.msg, errs)
+			} else if err != nil {
+				t.Errorf("DependencyMessage(%q).Validate() returned unexpected error: %v", tt.msg, err)
 			}
 		})
 	}
@@ -86,14 +86,14 @@ func TestInvalidDependencyMessageError(t *testing.T) {
 	}
 }
 
-func TestArgErrType_IsValid(t *testing.T) {
+func TestArgErrType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		aet     ArgErrType
-		want    bool
-		wantErr bool
+		name      string
+		aet       ArgErrType
+		wantValid bool
+		wantErr   bool
 	}{
 		{"missing_required", ArgErrMissingRequired, true, false},
 		{"too_many", ArgErrTooMany, true, false},
@@ -105,19 +105,19 @@ func TestArgErrType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.aet.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ArgErrType(%d).IsValid() = %v, want %v", tt.aet, isValid, tt.want)
+			err := tt.aet.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("ArgErrType(%d).Validate() error = %v, wantValid %v", tt.aet, err, tt.wantValid)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ArgErrType(%d).IsValid() returned no errors, want error", tt.aet)
+				if err == nil {
+					t.Fatalf("ArgErrType(%d).Validate() returned nil, want error", tt.aet)
 				}
-				if !errors.Is(errs[0], ErrInvalidArgErrType) {
-					t.Errorf("error should wrap ErrInvalidArgErrType, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidArgErrType) {
+					t.Errorf("error should wrap ErrInvalidArgErrType, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ArgErrType(%d).IsValid() returned unexpected errors: %v", tt.aet, errs)
+			} else if err != nil {
+				t.Errorf("ArgErrType(%d).Validate() returned unexpected error: %v", tt.aet, err)
 			}
 		})
 	}

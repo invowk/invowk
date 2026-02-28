@@ -123,9 +123,14 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 		// Use the resolved interpreter
 		var tempFile string
 		shellCmd, tempFile, err = r.buildInterpreterCommand(ctx, script, interpInfo, invowkDir)
-		tempScriptPath = types.FilesystemPath(tempFile)
 		if err != nil {
 			return nil, NewErrorResult(1, err)
+		}
+		if tempFile != "" {
+			tempScriptPath = types.FilesystemPath(tempFile)
+			if err := tempScriptPath.Validate(); err != nil {
+				return nil, NewErrorResult(1, fmt.Errorf("temp script path: %w", err))
+			}
 		}
 	} else {
 		// Use default shell execution
@@ -163,10 +168,19 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 
 	// Success: clear errResult so the deferred cleanup doesn't run
 	// (errResult is nil by default on success since we return nil for the second value)
+	imageTag := container.ImageTag(image)
+	if err := imageTag.Validate(); err != nil {
+		return nil, NewErrorResult(1, fmt.Errorf("container image tag: %w", err))
+	}
+	mountTarget := container.MountTargetPath(workDir)
+	if err := mountTarget.Validate(); err != nil {
+		return nil, NewErrorResult(1, fmt.Errorf("container work dir: %w", err))
+	}
+
 	return &containerExecPrep{
-		image:          container.ImageTag(image),
+		image:          imageTag,
 		shellCmd:       shellCmd,
-		workDir:        container.MountTargetPath(workDir),
+		workDir:        mountTarget,
 		env:            env,
 		volumes:        volumes,
 		ports:          containerCfg.Ports,

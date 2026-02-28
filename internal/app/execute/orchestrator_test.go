@@ -419,7 +419,7 @@ func TestNewRuntimeSelection(t *testing.T) {
 	}
 }
 
-func TestRuntimeSelection_IsValid(t *testing.T) {
+func TestRuntimeSelection_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -473,28 +473,28 @@ func TestRuntimeSelection_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.sel.IsValid()
-			if isValid != tt.wantValid {
-				t.Errorf("IsValid() = %v, want %v", isValid, tt.wantValid)
+			err := tt.sel.Validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("Validate() error = %v, wantValid %v", err, tt.wantValid)
 			}
 
 			if tt.wantValid {
-				if len(errs) > 0 {
-					t.Errorf("IsValid() returned unexpected errors: %v", errs)
+				if err != nil {
+					t.Errorf("Validate() returned unexpected error: %v", err)
 				}
 				return
 			}
 
-			if len(errs) == 0 {
-				t.Fatal("expected errors, got none")
+			if err == nil {
+				t.Fatal("expected error, got nil")
 			}
-			if !errors.Is(errs[0], ErrInvalidRuntimeSelection) {
-				t.Errorf("error should wrap ErrInvalidRuntimeSelection, got: %v", errs[0])
+			if !errors.Is(err, ErrInvalidRuntimeSelection) {
+				t.Errorf("error should wrap ErrInvalidRuntimeSelection, got: %v", err)
 			}
 
 			var selErr *InvalidRuntimeSelectionError
-			if !errors.As(errs[0], &selErr) {
-				t.Fatalf("error should be *InvalidRuntimeSelectionError, got: %T", errs[0])
+			if !errors.As(err, &selErr) {
+				t.Fatalf("error should be *InvalidRuntimeSelectionError, got: %T", err)
 			}
 			if len(selErr.FieldErrors) != tt.wantFieldCount {
 				t.Errorf("field errors count = %d, want %d", len(selErr.FieldErrors), tt.wantFieldCount)
@@ -503,7 +503,7 @@ func TestRuntimeSelection_IsValid(t *testing.T) {
 	}
 }
 
-func TestRuntimeSelection_ConstructorAlwaysPassesIsValid(t *testing.T) {
+func TestRuntimeSelection_ConstructorAlwaysPassesValidate(t *testing.T) {
 	t.Parallel()
 
 	sel, err := NewRuntimeSelection(invowkfile.RuntimeNative, &invowkfile.Implementation{})
@@ -511,8 +511,8 @@ func TestRuntimeSelection_ConstructorAlwaysPassesIsValid(t *testing.T) {
 		t.Fatalf("NewRuntimeSelection() unexpected error: %v", err)
 	}
 
-	if isValid, errs := sel.IsValid(); !isValid {
-		t.Errorf("constructor-created RuntimeSelection should pass IsValid(), got errors: %v", errs)
+	if err := sel.Validate(); err != nil {
+		t.Errorf("constructor-created RuntimeSelection should pass Validate(), got error: %v", err)
 	}
 }
 

@@ -34,7 +34,7 @@ func TestBorderStyle_String(t *testing.T) {
 	}
 }
 
-func TestBorderStyle_IsValid(t *testing.T) {
+func TestBorderStyle_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -55,23 +55,23 @@ func TestBorderStyle_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.bs), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.bs.IsValid()
-			if isValid != tt.want {
-				t.Errorf("BorderStyle(%q).IsValid() = %v, want %v", tt.bs, isValid, tt.want)
+			err := tt.bs.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("BorderStyle(%q).Validate() err = %v, wantValid %v", tt.bs, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("BorderStyle(%q).IsValid() returned no errors, want error", tt.bs)
+				if err == nil {
+					t.Fatalf("BorderStyle(%q).Validate() returned nil, want error", tt.bs)
 				}
-				if !errors.Is(errs[0], ErrInvalidBorderStyle) {
-					t.Errorf("error should wrap ErrInvalidBorderStyle, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidBorderStyle) {
+					t.Errorf("error should wrap ErrInvalidBorderStyle, got: %v", err)
 				}
 				var bsErr *InvalidBorderStyleError
-				if !errors.As(errs[0], &bsErr) {
-					t.Errorf("error should be *InvalidBorderStyleError, got: %T", errs[0])
+				if !errors.As(err, &bsErr) {
+					t.Errorf("error should be *InvalidBorderStyleError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("BorderStyle(%q).IsValid() returned unexpected errors: %v", tt.bs, errs)
+			} else if err != nil {
+				t.Errorf("BorderStyle(%q).Validate() returned unexpected error: %v", tt.bs, err)
 			}
 		})
 	}

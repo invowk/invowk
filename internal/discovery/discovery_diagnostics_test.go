@@ -3,7 +3,6 @@
 package discovery
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +22,7 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludePath(t *testing.T) {
 	}
 
 	d := newTestDiscovery(t, cfg, tmpDir)
-	result, err := d.DiscoverCommandSet(context.Background())
+	result, err := d.DiscoverCommandSet(t.Context())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}
@@ -49,7 +48,7 @@ func TestDiscoverCommandSet_DiagnosticsForReservedIncludeModuleName(t *testing.T
 	}
 
 	d := newTestDiscovery(t, cfg, tmpDir)
-	result, err := d.DiscoverCommandSet(context.Background())
+	result, err := d.DiscoverCommandSet(t.Context())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}
@@ -83,7 +82,7 @@ func TestDiscoverCommandSet_DiagnosticsForInvalidIncludedModule(t *testing.T) {
 	}
 
 	d := newTestDiscovery(t, cfg, tmpDir)
-	result, err := d.DiscoverCommandSet(context.Background())
+	result, err := d.DiscoverCommandSet(t.Context())
 	if err != nil {
 		t.Fatalf("DiscoverCommandSet() returned error: %v", err)
 	}

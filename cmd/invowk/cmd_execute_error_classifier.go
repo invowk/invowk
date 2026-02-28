@@ -39,8 +39,7 @@ func classifyExecutionError(err error, verbose bool) (issueID issue.Id, styledMs
 	case errors.Is(err, os.ErrPermission):
 		issueID = issue.PermissionDeniedId
 	default:
-		var ae *issue.ActionableError
-		if errors.As(err, &ae) && ae.Operation() == "find shell" {
+		if ae, ok := errors.AsType[*issue.ActionableError](err); ok && ae.Operation() == "find shell" {
 			issueID = issue.ShellNotFoundId
 		}
 	}

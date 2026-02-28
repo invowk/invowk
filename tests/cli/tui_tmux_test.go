@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -24,7 +23,7 @@ type tmuxSession struct {
 func newTmuxSession(t *testing.T, suffix string) *tmuxSession {
 	t.Helper()
 	name := fmt.Sprintf("invowk-test-%s-%d", suffix, os.Getpid())
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Ensure any stale session is cleaned up first
 	_ = exec.CommandContext(ctx, "tmux", "kill-session", "-t", name).Run()
@@ -41,7 +40,7 @@ func newTmuxSession(t *testing.T, suffix string) *tmuxSession {
 
 func (s *tmuxSession) sendKeys(keys ...string) {
 	s.t.Helper()
-	ctx := context.Background()
+	ctx := s.t.Context()
 	args := append([]string{"send-keys", "-t", s.name}, keys...)
 	if err := exec.CommandContext(ctx, "tmux", args...).Run(); err != nil {
 		s.t.Fatalf("tmux send-keys failed: %v", err)
@@ -50,7 +49,7 @@ func (s *tmuxSession) sendKeys(keys ...string) {
 
 func (s *tmuxSession) capturePlain() string {
 	s.t.Helper()
-	ctx := context.Background()
+	ctx := s.t.Context()
 	out, err := exec.CommandContext(ctx, "tmux", "capture-pane", "-t", s.name, "-p").Output()
 	if err != nil {
 		s.t.Fatalf("tmux capture-pane failed: %v", err)
@@ -72,7 +71,7 @@ func (s *tmuxSession) waitFor(pattern string, timeout time.Duration) bool {
 }
 
 func (s *tmuxSession) kill() {
-	ctx := context.Background()
+	ctx := s.t.Context()
 	_ = exec.CommandContext(ctx, "tmux", "kill-session", "-t", s.name).Run()
 }
 

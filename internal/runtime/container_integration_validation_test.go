@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,7 +78,7 @@ func TestContainerRuntime_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			rt := createContainerRuntime(t)
-			execCtx := NewExecutionContext(context.Background(), tt.cmd, inv)
+			execCtx := NewExecutionContext(t.Context(), tt.cmd, inv)
 
 			err := rt.Validate(execCtx)
 
@@ -123,7 +122,7 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 
 	// Create runtime WITHOUT SSH server
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -180,7 +179,7 @@ RUN echo "Built from Containerfile" > /built.txt
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	execCtx.Verbose = true
 

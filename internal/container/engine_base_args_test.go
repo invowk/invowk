@@ -3,7 +3,6 @@
 package container
 
 import (
-	"context"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -355,7 +354,7 @@ func TestBaseCLIEngine_CreateCommand(t *testing.T) {
 	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")
 
-	cmd := engine.CreateCommand(context.Background(), "version", "--format", "{{.Server.Version}}")
+	cmd := engine.CreateCommand(t.Context(), "version", "--format", "{{.Server.Version}}")
 
 	if cmd.Path == "" {
 		t.Error("CreateCommand returned cmd with empty Path")

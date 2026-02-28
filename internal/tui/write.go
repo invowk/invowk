@@ -43,8 +43,8 @@ type (
 		result      *string
 		done        bool
 		cancelled   bool
-		width       int
-		height      int
+		width       TerminalDimension
+		height      TerminalDimension
 		title       types.DescriptionText
 		description types.DescriptionText
 		forModal    bool
@@ -126,7 +126,7 @@ func (m *writeModel) View() tea.View {
 
 	view := strings.Join(lines, "\n")
 	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
+		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
 
 	return tea.NewView(view)
@@ -153,8 +153,8 @@ func (m *writeModel) Cancelled() bool {
 
 // SetSize implements EmbeddableComponent.
 func (m *writeModel) SetSize(width, height TerminalDimension) {
-	m.width = int(width)
-	m.height = int(height)
+	m.width = width
+	m.height = height
 	if width > 0 {
 		m.textarea.SetWidth(int(width))
 	}
@@ -266,7 +266,7 @@ func newWriteModel(opts WriteOptions, forModal bool) *writeModel {
 	if opts.Value != "" {
 		result = opts.Value
 	}
-	configuredWidth := 0
+	var configuredWidth TerminalDimension
 
 	ta := textarea.New()
 	ta.SetVirtualCursor(true)
@@ -278,11 +278,11 @@ func newWriteModel(opts WriteOptions, forModal bool) *writeModel {
 	ta.ShowLineNumbers = opts.ShowLineNumbers
 
 	if opts.Width > 0 {
-		configuredWidth = int(opts.Width)
-		ta.SetWidth(configuredWidth)
+		configuredWidth = opts.Width
+		ta.SetWidth(int(configuredWidth))
 	} else if opts.Config.Width > 0 {
-		configuredWidth = int(opts.Config.Width)
-		ta.SetWidth(configuredWidth)
+		configuredWidth = opts.Config.Width
+		ta.SetWidth(int(configuredWidth))
 	}
 	if opts.Height > 0 {
 		ta.SetHeight(int(opts.Height))
@@ -292,8 +292,8 @@ func newWriteModel(opts WriteOptions, forModal bool) *writeModel {
 	return &writeModel{
 		textarea:    ta,
 		result:      &result,
-		title:       types.DescriptionText(opts.Title),
-		description: types.DescriptionText(opts.Description),
+		title:       types.DescriptionText(opts.Title),       //goplint:ignore -- display text from TUI options
+		description: types.DescriptionText(opts.Description), //goplint:ignore -- display text from TUI options
 		width:       configuredWidth,
 		forModal:    forModal,
 	}

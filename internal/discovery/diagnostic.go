@@ -47,6 +47,9 @@ const (
 	CodeVendoredModuleLoadSkipped DiagnosticCode = "vendored_module_load_skipped"
 	// CodeVendoredNestedIgnored indicates nested vendored modules were ignored.
 	CodeVendoredNestedIgnored DiagnosticCode = "vendored_nested_ignored"
+	// CodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
+	// Bridged from runtime.CodeContainerRuntimeInitFailed at the CLI layer boundary.
+	CodeContainerRuntimeInitFailed DiagnosticCode = "container_runtime_init_failed"
 )
 
 var (
@@ -144,14 +147,14 @@ func (e *InvalidSeverityError) Unwrap() error {
 	return ErrInvalidSeverity
 }
 
-// IsValid returns whether the Severity is one of the defined severity levels,
-// and a list of validation errors if it is not.
-func (s Severity) IsValid() (bool, []error) {
+// Validate returns nil if the Severity is one of the defined severity levels,
+// or an error wrapping ErrInvalidSeverity if it is not.
+func (s Severity) Validate() error {
 	switch s {
 	case SeverityWarning, SeverityError:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidSeverityError{Value: s}}
+		return &InvalidSeverityError{Value: s}
 	}
 }
 
@@ -188,35 +191,96 @@ func (e *InvalidSourceIDError) Unwrap() error {
 // String returns the string representation of the DiagnosticCode.
 func (dc DiagnosticCode) String() string { return string(dc) }
 
-// IsValid returns whether the DiagnosticCode is one of the defined codes,
-// and a list of validation errors if it is not.
-func (dc DiagnosticCode) IsValid() (bool, []error) {
+// Validate returns nil if the DiagnosticCode is one of the defined codes,
+// or an error wrapping ErrInvalidDiagnosticCode if it is not.
+func (dc DiagnosticCode) Validate() error {
 	switch dc {
 	case CodeWorkingDirUnavailable, CodeCommandsDirUnavailable, CodeConfigLoadFailed,
 		CodeCommandNotFound, CodeInvowkfileParseSkipped, CodeModuleScanPathInvalid,
 		CodeModuleScanFailed, CodeReservedModuleNameSkipped, CodeModuleLoadSkipped,
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
-		CodeVendoredNestedIgnored:
-		return true, nil
+		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed:
+		return nil
 	default:
-		return false, []error{&InvalidDiagnosticCodeError{Value: dc}}
+		return &InvalidDiagnosticCodeError{Value: dc}
 	}
 }
 
 // NewDiagnostic creates a Diagnostic with the given severity, code, and message.
-func NewDiagnostic(severity Severity, code DiagnosticCode, message string) Diagnostic {
-	return Diagnostic{severity: severity, code: code, message: message}
+// It validates severity and code before construction and returns an error
+// (wrapping ErrInvalidDiagnostic) if either is invalid.
+func NewDiagnostic(severity Severity, code DiagnosticCode, message string) (Diagnostic, error) {
+	if err := validateDiagnosticParams(severity, code); err != nil {
+		return Diagnostic{}, err
+	}
+	return Diagnostic{severity: severity, code: code, message: message}, nil
 }
 
 // NewDiagnosticWithPath creates a Diagnostic with the given severity, code, message, and file path.
-func NewDiagnosticWithPath(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath) Diagnostic {
-	return Diagnostic{severity: severity, code: code, message: message, path: path}
+// It validates severity and code before construction and returns an error
+// (wrapping ErrInvalidDiagnostic) if either is invalid.
+func NewDiagnosticWithPath(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath) (Diagnostic, error) {
+	if err := validateDiagnosticParams(severity, code); err != nil {
+		return Diagnostic{}, err
+	}
+	return Diagnostic{severity: severity, code: code, message: message, path: path}, nil
 }
 
 // NewDiagnosticWithCause creates a Diagnostic with the given severity, code, message, file path, and cause error.
-func NewDiagnosticWithCause(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath, cause error) Diagnostic {
-	return Diagnostic{severity: severity, code: code, message: message, path: path, cause: cause}
+// It validates severity and code before construction and returns an error
+// (wrapping ErrInvalidDiagnostic) if either is invalid.
+func NewDiagnosticWithCause(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath, cause error) (Diagnostic, error) {
+	if err := validateDiagnosticParams(severity, code); err != nil {
+		return Diagnostic{}, err
+	}
+	return Diagnostic{severity: severity, code: code, message: message, path: path, cause: cause}, nil
+}
+
+// validateDiagnosticParams checks that severity and code are valid enum values.
+// Returns a joined error wrapping ErrInvalidDiagnostic if any are invalid.
+func validateDiagnosticParams(severity Severity, code DiagnosticCode) error {
+	var errs []error
+	if err := severity.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := code.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return errors.Join(append([]error{ErrInvalidDiagnostic}, errs...)...)
+	}
+	return nil
+}
+
+// mustDiagnostic creates a Diagnostic and panics if the parameters are invalid.
+// Use only with known-valid constant severity/code values (not user input).
+func mustDiagnostic(severity Severity, code DiagnosticCode, message string) Diagnostic {
+	d, err := NewDiagnostic(severity, code, message)
+	if err != nil {
+		panic(fmt.Sprintf("BUG: invalid diagnostic: %v", err))
+	}
+	return d
+}
+
+// mustDiagnosticWithPath creates a Diagnostic with a path and panics if invalid.
+// Use only with known-valid constant severity/code values (not user input).
+func mustDiagnosticWithPath(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath) Diagnostic {
+	d, err := NewDiagnosticWithPath(severity, code, message, path)
+	if err != nil {
+		panic(fmt.Sprintf("BUG: invalid diagnostic: %v", err))
+	}
+	return d
+}
+
+// mustDiagnosticWithCause creates a Diagnostic with cause and panics if invalid.
+// Use only with known-valid constant severity/code values (not user input).
+func mustDiagnosticWithCause(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath, cause error) Diagnostic {
+	d, err := NewDiagnosticWithCause(severity, code, message, path, cause)
+	if err != nil {
+		panic(fmt.Sprintf("BUG: invalid diagnostic: %v", err))
+	}
+	return d
 }
 
 // Severity returns the diagnostic level (warning or error).
@@ -242,18 +306,19 @@ func (e *InvalidDiagnosticError) Error() string {
 // Unwrap returns ErrInvalidDiagnostic for errors.Is() compatibility.
 func (e *InvalidDiagnosticError) Unwrap() error { return ErrInvalidDiagnostic }
 
-// IsValid returns whether the Diagnostic has valid Severity and Code fields.
+// Validate returns nil if the Diagnostic has valid Severity and Code fields,
+// or an error wrapping ErrInvalidDiagnostic if any are invalid.
 // Message and Path are display-only fields and are not validated.
-func (d Diagnostic) IsValid() (bool, []error) {
+func (d Diagnostic) Validate() error {
 	var errs []error
-	if valid, fieldErrs := d.severity.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := d.severity.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := d.code.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := d.code.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidDiagnosticError{FieldErrors: errs}}
+		return &InvalidDiagnosticError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }

@@ -47,8 +47,8 @@ type (
 		result      *string
 		done        bool
 		cancelled   bool
-		width       int
-		height      int
+		width       TerminalDimension
+		height      TerminalDimension
 		title       types.DescriptionText
 		description types.DescriptionText
 		forModal    bool
@@ -129,7 +129,7 @@ func (m *fileModel) View() tea.View {
 
 	view := strings.Join(lines, "\n")
 	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
+		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
 
 	return tea.NewView(view)
@@ -156,8 +156,8 @@ func (m *fileModel) Cancelled() bool {
 
 // SetSize implements EmbeddableComponent.
 func (m *fileModel) SetSize(width, height TerminalDimension) {
-	m.width = int(width)
-	m.height = int(height)
+	m.width = width
+	m.height = height
 	if height > 0 {
 		m.picker.AutoHeight = false
 		m.picker.SetHeight(int(height))
@@ -309,8 +309,8 @@ func newFileModel(opts FileOptions, forModal bool) *fileModel {
 	return &fileModel{
 		picker:      picker,
 		result:      &result,
-		title:       types.DescriptionText(opts.Title),
-		description: types.DescriptionText(opts.Description),
+		title:       types.DescriptionText(opts.Title),       //goplint:ignore -- display text from TUI options
+		description: types.DescriptionText(opts.Description), //goplint:ignore -- display text from TUI options
 		forModal:    forModal,
 	}
 }

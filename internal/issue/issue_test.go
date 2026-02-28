@@ -393,13 +393,13 @@ func TestIssueTemplates_NoStaleGuidance(t *testing.T) {
 	}
 }
 
-func TestId_IsValid(t *testing.T) {
+func TestId_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		value   Id
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"FileNotFoundId", FileNotFoundId, true, false},
@@ -426,31 +426,31 @@ func TestId_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Id(%d).IsValid() = %v, want %v", tt.value, isValid, tt.want)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("Id(%d).Validate() error = %v, wantOK %v", tt.value, err, tt.wantOK)
 			}
 
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Error("expected validation errors, got none")
-				} else if !errors.Is(errs[0], ErrInvalidId) {
-					t.Errorf("expected errors.Is(err, ErrInvalidId), got %v", errs[0])
+				if err == nil {
+					t.Error("expected validation error, got nil")
+				} else if !errors.Is(err, ErrInvalidId) {
+					t.Errorf("expected errors.Is(err, ErrInvalidId), got %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("unexpected validation errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("unexpected validation error: %v", err)
 			}
 		})
 	}
 }
 
-func TestMarkdownMsg_IsValid(t *testing.T) {
+func TestMarkdownMsg_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		value   MarkdownMsg
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"valid markdown", MarkdownMsg("# Hello\n\nWorld"), true, false},
@@ -465,31 +465,31 @@ func TestMarkdownMsg_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.want {
-				t.Errorf("MarkdownMsg(%q).IsValid() = %v, want %v", tt.value, isValid, tt.want)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("MarkdownMsg(%q).Validate() error = %v, wantOK %v", tt.value, err, tt.wantOK)
 			}
 
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Error("expected validation errors, got none")
-				} else if !errors.Is(errs[0], ErrInvalidMarkdownMsg) {
-					t.Errorf("expected errors.Is(err, ErrInvalidMarkdownMsg), got %v", errs[0])
+				if err == nil {
+					t.Error("expected validation error, got nil")
+				} else if !errors.Is(err, ErrInvalidMarkdownMsg) {
+					t.Errorf("expected errors.Is(err, ErrInvalidMarkdownMsg), got %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("unexpected validation errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("unexpected validation error: %v", err)
 			}
 		})
 	}
 }
 
-func TestHttpLink_IsValid(t *testing.T) {
+func TestHttpLink_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		value   HttpLink
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"https URL", HttpLink("https://example.com"), true, false},
@@ -506,19 +506,19 @@ func TestHttpLink_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.IsValid()
-			if isValid != tt.want {
-				t.Errorf("HttpLink(%q).IsValid() = %v, want %v", tt.value, isValid, tt.want)
+			err := tt.value.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("HttpLink(%q).Validate() error = %v, wantOK %v", tt.value, err, tt.wantOK)
 			}
 
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Error("expected validation errors, got none")
-				} else if !errors.Is(errs[0], ErrInvalidHttpLink) {
-					t.Errorf("expected errors.Is(err, ErrInvalidHttpLink), got %v", errs[0])
+				if err == nil {
+					t.Error("expected validation error, got nil")
+				} else if !errors.Is(err, ErrInvalidHttpLink) {
+					t.Errorf("expected errors.Is(err, ErrInvalidHttpLink), got %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("unexpected validation errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("unexpected validation error: %v", err)
 			}
 		})
 	}

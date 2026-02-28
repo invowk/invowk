@@ -127,14 +127,14 @@ func (t Theme) String() string {
 	return string(t)
 }
 
-// IsValid returns whether the Theme is one of the defined themes,
-// and a list of validation errors if it is not.
-func (t Theme) IsValid() (bool, []error) {
+// Validate returns nil if the Theme is one of the defined themes,
+// or a validation error if it is not.
+func (t Theme) Validate() error {
 	switch t {
 	case ThemeDefault, ThemeCharm, ThemeDracula, ThemeCatppuccin, ThemeBase16:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidThemeError{Value: t}}
+		return &InvalidThemeError{Value: t}
 	}
 }
 
@@ -146,20 +146,20 @@ func (e *InvalidTUIConfigError) Error() string {
 // Unwrap returns ErrInvalidTUIConfig for errors.Is() compatibility.
 func (e *InvalidTUIConfigError) Unwrap() error { return ErrInvalidTUIConfig }
 
-// IsValid returns whether the Config has valid fields.
-// It delegates to Theme.IsValid() and Width.IsValid().
-func (c Config) IsValid() (bool, []error) {
+// Validate returns nil if the Config has valid fields, or a validation error
+// wrapping all field-level errors. It delegates to Theme.Validate() and Width.Validate().
+func (c Config) Validate() error {
 	var errs []error
-	if valid, fieldErrs := c.Theme.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.Theme.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := c.Width.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := c.Width.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidTUIConfigError{FieldErrors: errs}}
+		return &InvalidTUIConfigError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // DefaultConfig returns the default configuration for TUI components.

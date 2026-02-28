@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestInterpreterSpec_IsValid(t *testing.T) {
+func TestInterpreterSpec_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -29,23 +29,23 @@ func TestInterpreterSpec_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.spec.IsValid()
-			if isValid != tt.want {
-				t.Errorf("InterpreterSpec(%q).IsValid() = %v, want %v", tt.spec, isValid, tt.want)
+			err := tt.spec.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("InterpreterSpec(%q).Validate() error = %v, want valid=%v", tt.spec, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("InterpreterSpec(%q).IsValid() returned no errors, want error", tt.spec)
+				if err == nil {
+					t.Fatalf("InterpreterSpec(%q).Validate() returned nil, want error", tt.spec)
 				}
-				if !errors.Is(errs[0], ErrInvalidInterpreterSpec) {
-					t.Errorf("error should wrap ErrInvalidInterpreterSpec, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidInterpreterSpec) {
+					t.Errorf("error should wrap ErrInvalidInterpreterSpec, got: %v", err)
 				}
 				var isErr *InvalidInterpreterSpecError
-				if !errors.As(errs[0], &isErr) {
-					t.Errorf("error should be *InvalidInterpreterSpecError, got: %T", errs[0])
+				if !errors.As(err, &isErr) {
+					t.Errorf("error should be *InvalidInterpreterSpecError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("InterpreterSpec(%q).IsValid() returned unexpected errors: %v", tt.spec, errs)
+			} else if err != nil {
+				t.Errorf("InterpreterSpec(%q).Validate() returned unexpected error: %v", tt.spec, err)
 			}
 		})
 	}

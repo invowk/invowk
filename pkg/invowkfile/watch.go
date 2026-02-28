@@ -52,16 +52,18 @@ func (e *InvalidGlobPatternError) Error() string {
 // Unwrap returns ErrInvalidGlobPattern for errors.Is() compatibility.
 func (e *InvalidGlobPatternError) Unwrap() error { return ErrInvalidGlobPattern }
 
-// IsValid returns whether the GlobPattern is valid.
+// Validate returns nil if the GlobPattern is valid, or a validation error if not.
 // A valid GlobPattern must not be empty and must have valid glob syntax.
-func (g GlobPattern) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (g GlobPattern) Validate() error {
 	if g == "" {
-		return false, []error{&InvalidGlobPatternError{Value: g, Reason: "must not be empty"}}
+		return &InvalidGlobPatternError{Value: g, Reason: "must not be empty"}
 	}
 	if _, err := doublestar.Match(string(g), ""); err != nil {
-		return false, []error{&InvalidGlobPatternError{Value: g, Reason: fmt.Sprintf("invalid syntax: %v", err)}}
+		return &InvalidGlobPatternError{Value: g, Reason: fmt.Sprintf("invalid syntax: %v", err)}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the GlobPattern.

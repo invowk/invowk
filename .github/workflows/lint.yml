@@ -110,9 +110,6 @@ jobs:
   goplint-baseline:
     name: goplint (baseline)
     runs-on: ubuntu-latest
-    # Advisory during rollout — will become required after validation.
-    # To promote: remove continue-on-error and add to branch protection.
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6

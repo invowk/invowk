@@ -7,21 +7,23 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue/errors"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ValidationError represents a CUE validation error with context.
 type ValidationError struct {
 	// FilePath is the file being validated.
-	FilePath string
+	FilePath types.FilesystemPath
 
 	// CUEPath is the JSON path to the invalid value (e.g., "cmds[0].name").
-	CUEPath string
+	CUEPath CUEPath
 
 	// Message is the validation error message.
-	Message string
+	Message types.DescriptionText
 
 	// Suggestion is an optional hint for fixing the error.
-	Suggestion string
+	Suggestion types.DescriptionText
 }
 
 // Error implements the error interface.

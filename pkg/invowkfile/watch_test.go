@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestGlobPattern_IsValid(t *testing.T) {
+func TestGlobPattern_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -30,23 +30,23 @@ func TestGlobPattern_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.pattern.IsValid()
-			if isValid != tt.want {
-				t.Errorf("GlobPattern(%q).IsValid() = %v, want %v", tt.pattern, isValid, tt.want)
+			err := tt.pattern.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("GlobPattern(%q).Validate() error = %v, want valid=%v", tt.pattern, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("GlobPattern(%q).IsValid() returned no errors, want error", tt.pattern)
+				if err == nil {
+					t.Fatalf("GlobPattern(%q).Validate() returned nil, want error", tt.pattern)
 				}
-				if !errors.Is(errs[0], ErrInvalidGlobPattern) {
-					t.Errorf("error should wrap ErrInvalidGlobPattern, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidGlobPattern) {
+					t.Errorf("error should wrap ErrInvalidGlobPattern, got: %v", err)
 				}
 				var gpErr *InvalidGlobPatternError
-				if !errors.As(errs[0], &gpErr) {
-					t.Errorf("error should be *InvalidGlobPatternError, got: %T", errs[0])
+				if !errors.As(err, &gpErr) {
+					t.Errorf("error should be *InvalidGlobPatternError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("GlobPattern(%q).IsValid() returned unexpected errors: %v", tt.pattern, errs)
+			} else if err != nil {
+				t.Errorf("GlobPattern(%q).Validate() returned unexpected error: %v", tt.pattern, err)
 			}
 		})
 	}

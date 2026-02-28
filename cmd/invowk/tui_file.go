@@ -98,7 +98,7 @@ func runTuiFile(cmd *cobra.Command, args []string) error {
 			FileAllowed:       allowFiles,
 			DirAllowed:        allowDirs,
 			ShowHidden:        fileHidden,
-			Height:            tui.TerminalDimension(fileHeight),
+			Height:            tui.TerminalDimension(fileHeight), //goplint:ignore -- CLI integer argument
 			AllowedExtensions: fileAllowedExts,
 		})
 	}

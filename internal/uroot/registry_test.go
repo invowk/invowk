@@ -201,7 +201,7 @@ func TestRegistry_Run(t *testing.T) {
 	cmd := newMockCommand("echo")
 	r.Register(cmd)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := r.Run(ctx, "echo", []string{"echo", "hello", "world"})
 	if err != nil {
 		t.Errorf("Run returned unexpected error: %v", err)
@@ -219,7 +219,7 @@ func TestRegistry_Run_NotFound(t *testing.T) {
 
 	r := NewRegistry()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := r.Run(ctx, "nonexistent", []string{"nonexistent"})
 
 	if err == nil {
@@ -246,7 +246,7 @@ func TestRegistry_Run_CommandError(t *testing.T) {
 	}
 	r.Register(cmd)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := r.Run(ctx, "test", []string{"test"})
 
 	if !errors.Is(err, expectedErr) {
@@ -343,7 +343,7 @@ func TestHandlerContext_WithContext(t *testing.T) {
 		},
 	}
 
-	ctx := WithHandlerContext(context.Background(), hc)
+	ctx := WithHandlerContext(t.Context(), hc)
 	retrieved := GetHandlerContext(ctx)
 
 	if retrieved != hc {
@@ -576,7 +576,7 @@ func TestRegistry_Run_NoSilentFallback(t *testing.T) {
 			r.Register(cmd)
 
 			// Run the command
-			ctx := context.Background()
+			ctx := t.Context()
 			err := r.Run(ctx, tt.cmdName, []string{tt.cmdName, "arg1", "arg2"})
 
 			// Verify error is propagated (not nil, not wrapped differently)
@@ -613,7 +613,7 @@ func TestRegistry_Run_CombinedFlagsSplit(t *testing.T) {
 	cmd := newMockCommand("testcmd")
 	r.Register(cmd)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := r.Run(ctx, "testcmd", []string{"testcmd", "-abc", "file.txt"})
 	if err != nil {
 		t.Fatalf("Run returned unexpected error: %v", err)
@@ -645,7 +645,7 @@ func TestRegistry_Run_SingleFlagsUnchanged(t *testing.T) {
 	cmd := newMockCommand("testcmd")
 	r.Register(cmd)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := r.Run(ctx, "testcmd", []string{"testcmd", "-s", "-f", "target", "link"})
 	if err != nil {
 		t.Fatalf("Run returned unexpected error: %v", err)
@@ -671,7 +671,7 @@ func TestRegistry_Run_MixedFlagsAndPositionalArgs(t *testing.T) {
 	cmd := newMockCommand("grep")
 	r.Register(cmd)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := r.Run(ctx, "grep", []string{"grep", "-in", "pattern", "file.txt"})
 	if err != nil {
 		t.Fatalf("Run returned unexpected error: %v", err)
@@ -700,7 +700,7 @@ func TestRegistry_Run_NativePreprocessorSkipped(t *testing.T) {
 	}
 	r.Register(cmd)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := r.Run(ctx, "nativecmd", []string{"nativecmd", "-abc", "file.txt"})
 	if err != nil {
 		t.Fatalf("Run returned unexpected error: %v", err)
@@ -731,7 +731,7 @@ func TestRegistry_Run_CommandNameOnlyArgs(t *testing.T) {
 	cmd := newMockCommand("testcmd")
 	r.Register(cmd)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := r.Run(ctx, "testcmd", []string{"testcmd"})
 	if err != nil {
 		t.Fatalf("Run returned unexpected error: %v", err)
@@ -790,7 +790,7 @@ func TestRegistry_CommandError_NotSwallowed(t *testing.T) {
 	}
 	r.Register(cmd)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Run multiple times to ensure consistent behavior
 	for i := range 3 {

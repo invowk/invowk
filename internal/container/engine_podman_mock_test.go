@@ -3,7 +3,6 @@
 package container
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -31,7 +30,7 @@ func TestPodmanEngine_Build_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
@@ -54,7 +53,7 @@ func TestPodmanEngine_Build_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := BuildOptions{
 			ContextDir: "/tmp/build",
@@ -79,7 +78,7 @@ func TestPodmanEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:   "debian:stable-slim",
@@ -101,7 +100,7 @@ func TestPodmanEngine_Run_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		opts := RunOptions{
 			Image:       "debian:stable-slim",
@@ -145,7 +144,7 @@ func TestPodmanEngine_ImageExists_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		exists, err := engine.ImageExists(ctx, "myimage:latest")
 		if err != nil {
@@ -168,7 +167,7 @@ func TestPodmanEngine_ImageExists_Arguments(t *testing.T) {
 func TestPodmanEngine_ErrorPaths(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("build failure", func(t *testing.T) {
 		t.Parallel()
@@ -310,7 +309,7 @@ func TestPodmanEngine_Version_Arguments(t *testing.T) {
 	recorder := NewMockCommandRecorder()
 	recorder.Stdout = "5.0.0"
 	engine := newTestPodmanEngine(t, recorder)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	version, err := engine.Version(ctx)
 	if err != nil {
@@ -335,7 +334,7 @@ func TestPodmanEngine_Remove_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		err := engine.Remove(ctx, "container123", false)
 		if err != nil {
@@ -353,7 +352,7 @@ func TestPodmanEngine_Remove_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		err := engine.Remove(ctx, "container456", true)
 		if err != nil {
@@ -373,7 +372,7 @@ func TestPodmanEngine_RemoveImage_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		err := engine.RemoveImage(ctx, "myimage:latest", false)
 		if err != nil {
@@ -391,7 +390,7 @@ func TestPodmanEngine_RemoveImage_Arguments(t *testing.T) {
 		t.Parallel()
 		recorder := NewMockCommandRecorder()
 		engine := newTestPodmanEngine(t, recorder)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		err := engine.RemoveImage(ctx, "myimage:v2", true)
 		if err != nil {
@@ -409,7 +408,7 @@ func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 
 	recorder := NewMockCommandRecorder()
 	engine := newTestPodmanEngine(t, recorder)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("basic exec", func(t *testing.T) {
 		recorder.Reset()
@@ -499,7 +498,7 @@ func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 func TestPodmanEngine_InspectImage_Arguments(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("basic inspect", func(t *testing.T) {
 		t.Parallel()
@@ -569,7 +568,7 @@ func newTestPodmanEngineWithSELinux(t *testing.T, recorder *MockCommandRecorder,
 func TestPodmanEngine_SELinuxVolumeLabeling(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name           string

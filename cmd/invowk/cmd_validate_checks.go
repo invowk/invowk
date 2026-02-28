@@ -34,7 +34,11 @@ func validateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 	var actualCode types.ExitCode
 	if execErr != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](execErr); ok {
-			actualCode = types.ExitCode(exitErr.ExitCode())
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if err := exitCode.Validate(); err != nil {
+				return fmt.Errorf("exit code validation: %w", err)
+			}
+			actualCode = exitCode
 		} else {
 			// Try to get exit code from error message for non-native runtimes
 			actualCode = 1 // Default to 1 for errors
@@ -124,8 +128,7 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 	// Infrastructure failures must be surfaced immediately — if the container engine
 	// failed, no check ever ran, so we must not fall through to exit code comparison.
 	if result.Error != nil {
-		var exitErr *exec.ExitError
-		if !errors.As(result.Error, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](result.Error); !ok || exitErr == nil {
 			return fmt.Errorf("  • %s - container validation failed: %w", check.Name, result.Error)
 		}
 	}

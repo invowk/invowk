@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTheme_IsValid(t *testing.T) {
+func TestTheme_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -28,19 +28,19 @@ func TestTheme_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.theme), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.theme.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Theme(%q).IsValid() = %v, want %v", tt.theme, isValid, tt.want)
+			err := tt.theme.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("Theme(%q).Validate() err = %v, wantValid %v", tt.theme, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("Theme(%q).IsValid() returned no errors, want error", tt.theme)
+				if err == nil {
+					t.Fatalf("Theme(%q).Validate() returned nil, want error", tt.theme)
 				}
-				if !errors.Is(errs[0], ErrInvalidTheme) {
-					t.Errorf("error should wrap ErrInvalidTheme, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidTheme) {
+					t.Errorf("error should wrap ErrInvalidTheme, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("Theme(%q).IsValid() returned unexpected errors: %v", tt.theme, errs)
+			} else if err != nil {
+				t.Errorf("Theme(%q).Validate() returned unexpected error: %v", tt.theme, err)
 			}
 		})
 	}
@@ -83,7 +83,7 @@ func TestTheme_String_FmtStringer(t *testing.T) {
 	}
 }
 
-func TestTUIConfig_IsValid(t *testing.T) {
+func TestTUIConfig_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -123,26 +123,26 @@ func TestTUIConfig_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.cfg.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Config.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.cfg.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("Config.Validate() err = %v, wantValid %v", err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("Config.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("Config.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidTUIConfig) {
-					t.Errorf("error should wrap ErrInvalidTUIConfig, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidTUIConfig) {
+					t.Errorf("error should wrap ErrInvalidTUIConfig, got: %v", err)
 				}
 				var cfgErr *InvalidTUIConfigError
-				if !errors.As(errs[0], &cfgErr) {
-					t.Fatalf("error should be *InvalidTUIConfigError, got: %T", errs[0])
+				if !errors.As(err, &cfgErr) {
+					t.Fatalf("error should be *InvalidTUIConfigError, got: %T", err)
 				}
 				if len(cfgErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(cfgErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("Config.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("Config.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

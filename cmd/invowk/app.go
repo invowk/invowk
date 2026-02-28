@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sync"
 
@@ -20,6 +21,8 @@ type (
 	configPathContextKey            struct{}
 	discoveryRequestCacheContextKey struct{}
 
+	//goplint:mutable
+	//
 	// App wires CLI services and shared dependencies. It is the composition root for
 	// the CLI layer — all Cobra command handlers receive an App reference and delegate
 	// business logic through its service interfaces (Commands, Discovery, Config).
@@ -357,15 +360,18 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 	// to defaults — surface the error as a diagnostic so downstream callers can
 	// decide whether to abort.
 	if configPath != "" {
-		return config.DefaultConfig(), []discovery.Diagnostic{
-			discovery.NewDiagnosticWithCause(
-				discovery.SeverityError,
-				discovery.CodeConfigLoadFailed,
-				fmt.Sprintf("failed to load config from %s: %v", configPath, err),
-				types.FilesystemPath(configPath),
-				err,
-			),
+		diag, diagErr := discovery.NewDiagnosticWithCause(
+			discovery.SeverityError,
+			discovery.CodeConfigLoadFailed,
+			fmt.Sprintf("failed to load config from %s: %v", configPath, err),
+			types.FilesystemPath(configPath),
+			err,
+		)
+		if diagErr != nil {
+			slog.Error("BUG: failed to create config-load diagnostic", "error", diagErr)
+			return config.DefaultConfig(), nil
 		}
+		return config.DefaultConfig(), []discovery.Diagnostic{diag}
 	}
 
 	// Default config path: differentiate "file exists but is broken" (syntax error,
@@ -378,15 +384,18 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 		severity = discovery.SeverityWarning
 	}
 
-	return config.DefaultConfig(), []discovery.Diagnostic{
-		discovery.NewDiagnosticWithCause(
-			severity,
-			discovery.CodeConfigLoadFailed,
-			fmt.Sprintf("failed to load config, using defaults: %v", err),
-			"",
-			err,
-		),
+	diag, diagErr := discovery.NewDiagnosticWithCause(
+		severity,
+		discovery.CodeConfigLoadFailed,
+		fmt.Sprintf("failed to load config, using defaults: %v", err),
+		"",
+		err,
+	)
+	if diagErr != nil {
+		slog.Error("BUG: failed to create config-load diagnostic", "error", diagErr)
+		return config.DefaultConfig(), nil
 	}
+	return config.DefaultConfig(), []discovery.Diagnostic{diag}
 }
 
 // Render writes structured diagnostics to stderr with lipgloss styling.

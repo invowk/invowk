@@ -27,11 +27,11 @@ const (
 
 var (
 	// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
-	// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
 	ErrInvalidArgErrType = errors.New("invalid argument error type") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
 
 	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
-	// The name follows the DDD IsValid() pattern: Err + Invalid + <TypeName>.
+	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
 	ErrInvalidDependencyMessage = errors.New("invalid dependency message") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
 )
 
@@ -73,6 +73,8 @@ type (
 		MissingEnvVars      []DependencyMessage
 	}
 
+	//goplint:constant-only
+	//
 	// ArgErrType represents the type of argument validation error.
 	ArgErrType int
 
@@ -137,24 +139,24 @@ func (t ArgErrType) String() string {
 	}
 }
 
-// IsValid returns whether the ArgErrType is one of the defined argument error types,
-// and a list of validation errors if it is not.
-func (t ArgErrType) IsValid() (bool, []error) {
+// Validate returns nil if the ArgErrType is one of the defined argument error types,
+// or a validation error if it is not.
+func (t ArgErrType) Validate() error {
 	switch t {
 	case ArgErrMissingRequired, ArgErrTooMany, ArgErrInvalidValue:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidArgErrTypeError{Value: t}}
+		return &InvalidArgErrTypeError{Value: t}
 	}
 }
 
-// IsValid returns whether the DependencyMessage is non-empty and non-whitespace,
-// and a list of validation errors if it is not.
-func (m DependencyMessage) IsValid() (bool, []error) {
+// Validate returns nil if the DependencyMessage is non-empty and non-whitespace,
+// or a validation error if it is not.
+func (m DependencyMessage) Validate() error {
 	if strings.TrimSpace(string(m)) == "" {
-		return false, []error{&InvalidDependencyMessageError{Value: m}}
+		return &InvalidDependencyMessageError{Value: m}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the DependencyMessage.
@@ -351,9 +353,9 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		Runtime:      parsedRuntime,
 		Interactive:  interactive,
 		Verbose:      verbose,
-		FromSource:   discovery.SourceID(cmdFlags.fromSource),
+		FromSource:   discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
 		ForceRebuild: cmdFlags.forceRebuild,
-		ConfigPath:   types.FilesystemPath(rootFlags.configPath),
+		ConfigPath:   types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 		DryRun:       cmdFlags.dryRun,
 	}
 
@@ -385,8 +387,7 @@ func executeRequest(cmd *cobra.Command, app *App, req ExecuteRequest) error {
 	result, diags, err := app.Commands.Execute(reqCtx, req)
 	app.Diagnostics.Render(reqCtx, diags, app.stderr)
 	if err != nil {
-		var svcErr *ServiceError
-		if errors.As(err, &svcErr) {
+		if svcErr, ok := errors.AsType[*ServiceError](err); ok {
 			renderServiceError(app.stderr, svcErr)
 		}
 		return err
@@ -406,7 +407,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	verbose = rootFlags.verbose
 	interactive = rootFlags.interactive
 
-	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)})
+	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)}) //goplint:ignore -- CLI flag value, may be empty
 	if err != nil {
 		fmt.Fprintln(app.stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, rootFlags.verbose))
 		return verbose, interactive

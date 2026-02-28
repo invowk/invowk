@@ -23,11 +23,11 @@ type (
 
 func (e Example) String() string { return string(e) }
 
-func (e Example) IsValid() (bool, []error) {
+func (e Example) Validate() error {
     if strings.TrimSpace(string(e)) == "" {
-        return false, []error{&InvalidExampleError{Value: e, Reason: "must not be empty"}}
+        return &InvalidExampleError{Value: e, Reason: "must not be empty"}
     }
-    return true, nil
+    return nil
 }
 
 func (e *InvalidExampleError) Error() string {
@@ -47,20 +47,17 @@ type ExampleConfig struct {
     Limit int
 }
 
-func (c ExampleConfig) IsValid() (bool, []error) {
+func (c ExampleConfig) Validate() error {
     var errs []error
 
-    if ok, fieldErrs := c.Name.IsValid(); !ok {
-        errs = append(errs, fieldErrs...)
+    if err := c.Name.Validate(); err != nil {
+        errs = append(errs, err)
     }
     if c.Limit < 0 {
         errs = append(errs, fmt.Errorf("limit must be >= 0"))
     }
 
-    if len(errs) > 0 {
-        return false, errs
-    }
-    return true, nil
+    return errors.Join(errs...)
 }
 ```
 
@@ -86,8 +83,8 @@ var ErrInvalidDescriptionText = types.ErrInvalidDescriptionText
 
 ## 5. Validation Method Rules
 
-- Signature must be `IsValid() (bool, []error)`.
-- Return all actionable errors when multiple checks are independent.
+- Signature must be `Validate() error`.
+- For composite validators, use `errors.Join(errs...)` to return all actionable errors when multiple checks are independent.
 - Keep messages precise and stable enough for tests.
 - Use domain terminology in error text, not generic phrasing.
 

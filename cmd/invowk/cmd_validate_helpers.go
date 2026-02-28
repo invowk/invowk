@@ -35,7 +35,7 @@ func newContainerValidationContext(parentCtx *runtime.ExecutionContext, script s
 	execCtx = &runtime.ExecutionContext{
 		Command:         parentCtx.Command,
 		Invowkfile:      parentCtx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: invowkfile.ScriptContent(script), Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}},
+		SelectedImpl:    &invowkfile.Implementation{Script: invowkfile.ScriptContent(script), Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}}, //goplint:ignore -- inline validation script
 		SelectedRuntime: invowkfile.RuntimeContainer,
 		Context:         parentCtx.Context,
 		IO:              runtime.IOContext{Stdout: stdout, Stderr: stderr},

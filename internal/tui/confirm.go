@@ -35,8 +35,8 @@ type (
 		result      *bool
 		done        bool
 		cancelled   bool
-		width       int
-		height      int
+		width       TerminalDimension
+		height      TerminalDimension
 		title       types.DescriptionText
 		description types.DescriptionText
 		affirmative types.DescriptionText
@@ -98,8 +98,8 @@ func (m *confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.width = TerminalDimension(msg.Width)
+		m.height = TerminalDimension(msg.Height)
 	}
 
 	return m, nil
@@ -153,7 +153,7 @@ func (m *confirmModel) View() tea.View {
 
 	view := strings.Join(lines, "\n")
 	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
+		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
 
 	return tea.NewView(view)
@@ -180,8 +180,8 @@ func (m *confirmModel) Cancelled() bool {
 
 // SetSize implements EmbeddableComponent.
 func (m *confirmModel) SetSize(width, height TerminalDimension) {
-	m.width = int(width)
-	m.height = int(height)
+	m.width = width
+	m.height = height
 }
 
 // Confirm prompts the user to confirm an action (yes/no).
@@ -272,10 +272,10 @@ func newConfirmModel(opts ConfirmOptions, forModal bool) *confirmModel {
 
 	return &confirmModel{
 		result:      &result,
-		title:       types.DescriptionText(opts.Title),
-		description: types.DescriptionText(opts.Description),
-		affirmative: types.DescriptionText(opts.Affirmative),
-		negative:    types.DescriptionText(opts.Negative),
+		title:       types.DescriptionText(opts.Title),       //goplint:ignore -- display text from TUI options
+		description: types.DescriptionText(opts.Description), //goplint:ignore -- display text from TUI options
+		affirmative: types.DescriptionText(opts.Affirmative), //goplint:ignore -- display text from TUI options
+		negative:    types.DescriptionText(opts.Negative),    //goplint:ignore -- display text from TUI options
 		selection:   opts.Default,
 		forModal:    forModal,
 	}

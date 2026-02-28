@@ -43,8 +43,8 @@ type (
 		isMulti     bool
 		done        bool
 		cancelled   bool
-		width       int
-		height      int
+		width       TerminalDimension
+		height      TerminalDimension
 
 		options  []string     // Original options list
 		selected map[int]bool // Selection state by index
@@ -55,7 +55,7 @@ type (
 	// chooseItem implements list.Item for the bubbles list component in multi-select mode.
 	chooseItem struct {
 		text  string
-		index int // Track original index for selection map
+		index SelectionIndex // Track original index for selection map
 	}
 
 	// multiChooseDelegate renders items with selection checkboxes for multi-select mode.
@@ -199,7 +199,7 @@ func (d multiChooseDelegate) Render(w io.Writer, m list.Model, index int, item l
 
 	// Determine checkbox state using the callback
 	checkbox := "[ ] "
-	if d.isSelected(i.index) {
+	if d.isSelected(int(i.index)) {
 		checkbox = "[x] "
 	}
 
@@ -311,7 +311,7 @@ func (m *chooseModel) View() tea.View {
 	view = lipgloss.JoinVertical(lipgloss.Left, view, m.list.Styles.HelpStyle.Render(help))
 
 	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(m.width).Render(view)
+		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
 	}
 	return tea.NewView(view)
 }
@@ -342,8 +342,8 @@ func (m *chooseModel) Cancelled() bool {
 
 // SetSize implements EmbeddableComponent.
 func (m *chooseModel) SetSize(width, height TerminalDimension) {
-	m.width = int(width)
-	m.height = int(height)
+	m.width = width
+	m.height = height
 	m.list.SetWidth(int(width))
 	listHeight := max(1, int(height)-3) // Reserve one line for keybinding hints footer.
 	m.list.SetHeight(listHeight)
@@ -370,13 +370,13 @@ func (m *chooseModel) selectedIndices() []SelectionIndex {
 		if !ok {
 			return nil
 		}
-		return []SelectionIndex{SelectionIndex(item.index)}
+		return []SelectionIndex{item.index}
 	}
 
 	indices := make([]SelectionIndex, 0, len(m.selected))
 	for i := 0; i < len(m.options); i++ {
 		if m.selected[i] {
-			indices = append(indices, SelectionIndex(i))
+			indices = append(indices, SelectionIndex(i)) //goplint:ignore -- bounded loop index over known-length slice
 		}
 	}
 
@@ -403,7 +403,7 @@ func selectedIndicesFromOptions[T comparable](options []Option[T]) []SelectionIn
 	indices := make([]SelectionIndex, 0, len(options))
 	for i, opt := range options {
 		if opt.Selected {
-			indices = append(indices, SelectionIndex(i))
+			indices = append(indices, SelectionIndex(i)) //goplint:ignore -- bounded loop index over known-length slice
 		}
 	}
 	return indices
@@ -721,7 +721,7 @@ func newSingleChooseModel(opts ChooseStringOptions, forModal bool) *chooseModel 
 
 	items := make([]list.Item, len(opts.Options))
 	for i, opt := range opts.Options {
-		items[i] = chooseItem{text: opt, index: i}
+		items[i] = chooseItem{text: opt, index: SelectionIndex(i)}
 	}
 
 	height := int(opts.Height)
@@ -792,8 +792,8 @@ func newSingleChooseModel(opts ChooseStringOptions, forModal bool) *chooseModel 
 		options:   opts.Options,
 		selected:  map[int]bool{},
 		limit:     1,
-		width:     width,
-		height:    height,
+		width:     TerminalDimension(width),
+		height:    TerminalDimension(height),
 		noLimit:   false,
 		cancelled: false,
 	}
@@ -809,7 +809,7 @@ func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *choo
 	// Create list items
 	items := make([]list.Item, len(opts.Options))
 	for i, opt := range opts.Options {
-		items[i] = chooseItem{text: opt, index: i}
+		items[i] = chooseItem{text: opt, index: SelectionIndex(i)}
 	}
 
 	height := int(opts.Height)
@@ -873,7 +873,7 @@ func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *choo
 		selected:    selected,
 		limit:       opts.Limit,
 		noLimit:     opts.NoLimit,
-		width:       width,
-		height:      height,
+		width:       TerminalDimension(width),
+		height:      TerminalDimension(height),
 	}
 }

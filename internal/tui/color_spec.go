@@ -27,14 +27,14 @@ type (
 // String returns the string representation of the ColorSpec.
 func (c ColorSpec) String() string { return string(c) }
 
-// IsValid returns whether the ColorSpec is valid.
+// Validate returns nil if the ColorSpec is valid, or a validation error
+// if it is non-empty but whitespace-only.
 // The zero value ("") is valid (means "no color").
-// Non-empty values must not be whitespace-only.
-func (c ColorSpec) IsValid() (bool, []error) {
+func (c ColorSpec) Validate() error {
 	if c != "" && strings.TrimSpace(string(c)) == "" {
-		return false, []error{&InvalidColorSpecError{Value: c}}
+		return &InvalidColorSpecError{Value: c}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidColorSpecError.

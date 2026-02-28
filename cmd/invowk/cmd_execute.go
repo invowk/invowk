@@ -230,7 +230,8 @@ func (s *commandService) validateInputs(req ExecuteRequest, cmdInfo *discovery.C
 //
 // It returns ServiceError with rendering info for invalid runtime overrides (Tier 1 only).
 func (s *commandService) resolveRuntime(req ExecuteRequest, cmdInfo *discovery.CommandInfo, cfg *config.Config) (appexec.RuntimeSelection, error) {
-	selection, err := appexec.ResolveRuntime(cmdInfo.Command, invowkfile.CommandName(req.Name), req.Runtime, cfg, invowkfile.CurrentPlatform())
+	cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- CLI boundary, validated by discovery lookup
+	selection, err := appexec.ResolveRuntime(cmdInfo.Command, cmdName, req.Runtime, cfg, invowkfile.CurrentPlatform())
 	if err != nil {
 		if notAllowedErr, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
 			allowed := make([]string, len(notAllowedErr.Allowed))
@@ -424,7 +425,10 @@ func (s *sshServerController) ensure(ctx context.Context) error {
 	}
 
 	// Start blocks until SSH server is ready to accept connections.
-	srv := sshserver.New(sshserver.DefaultConfig())
+	srv, err := sshserver.New(sshserver.DefaultConfig())
+	if err != nil {
+		return fmt.Errorf("failed to create SSH server: %w", err)
+	}
 	if err := srv.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start SSH server: %w", err)
 	}
@@ -495,8 +499,8 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		tuiServerURL = tuiServer.URL()
 	}
 
-	ctx.TUI.ServerURL = runtime.TUIServerURL(tuiServerURL)
-	ctx.TUI.ServerToken = runtime.TUIServerToken(string(tuiServer.Token()))
+	ctx.TUI.ServerURL = runtime.TUIServerURL(tuiServerURL)                  //goplint:ignore -- from tuiserver.URL(), validated internally
+	ctx.TUI.ServerToken = runtime.TUIServerToken(string(tuiServer.Token())) //goplint:ignore -- from tuiserver.Token(), validated internally
 
 	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {
@@ -522,7 +526,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		execCtx,
 		tui.InteractiveOptions{
 			Title:       "Running Command",
-			CommandName: invowkfile.CommandName(cmdName),
+			CommandName: invowkfile.CommandName(cmdName), //goplint:ignore -- from Cobra command name, validated by discovery
 			OnProgramReady: func(p *tea.Program) {
 				go bridgeTUIRequests(tuiServer, p)
 			},

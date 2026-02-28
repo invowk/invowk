@@ -31,14 +31,18 @@ type LayerProvisioner struct {
 }
 
 // NewLayerProvisioner creates a new LayerProvisioner.
-func NewLayerProvisioner(engine container.Engine, cfg *Config) *LayerProvisioner {
+// It validates the Config if provided; nil defaults to DefaultConfig().
+func NewLayerProvisioner(engine container.Engine, cfg *Config) (*LayerProvisioner, error) {
 	if cfg == nil {
 		cfg = DefaultConfig()
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("provision config: %w", err)
 	}
 	return &LayerProvisioner{
 		engine: engine,
 		config: cfg,
-	}
+	}, nil
 }
 
 // Config returns the provisioner's configuration.
@@ -64,6 +68,9 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.Im
 	}
 
 	provisionedTag := container.ImageTag(p.buildProvisionedTag(cacheKey[:12]))
+	if err := provisionedTag.Validate(); err != nil {
+		return nil, fmt.Errorf("provisioned image tag: %w", err)
+	}
 
 	// Check if cached image exists (skip if ForceRebuild is set)
 	if !p.config.ForceRebuild {
@@ -112,7 +119,11 @@ func (p *LayerProvisioner) IsImageProvisioned(ctx context.Context, baseImage con
 	if err != nil {
 		return false, err
 	}
-	return p.engine.ImageExists(ctx, container.ImageTag(tag))
+	imgTag := container.ImageTag(tag)
+	if err := imgTag.Validate(); err != nil {
+		return false, fmt.Errorf("provisioned image tag: %w", err)
+	}
+	return p.engine.ImageExists(ctx, imgTag)
 }
 
 // buildProvisionedTag constructs the image tag with optional suffix.
@@ -199,8 +210,12 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 	}
 
 	// Build the image
+	ctxDir := container.HostFilesystemPath(buildCtx)
+	if err := ctxDir.Validate(); err != nil {
+		return fmt.Errorf("build context directory: %w", err)
+	}
 	buildOpts := container.BuildOptions{
-		ContextDir: container.HostFilesystemPath(buildCtx),
+		ContextDir: ctxDir,
 		Dockerfile: "Dockerfile",
 		Tag:        tag,
 		Stdout:     os.Stderr, // Show build progress on stderr

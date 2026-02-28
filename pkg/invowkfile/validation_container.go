@@ -9,38 +9,11 @@ import (
 )
 
 // ValidateContainerImage validates a container image name format.
-// Valid formats:
-//   - image
-//   - image:tag
-//   - registry/image
-//   - registry/image:tag
-//   - registry:port/image:tag
-//   - registry/namespace/image:tag
+// This function delegates to ContainerImage.Validate() which performs
+// the full validation (empty/whitespace, length, injection chars, format).
+// Kept for backward compatibility — prefer calling image.Validate() directly.
 func ValidateContainerImage(image ContainerImage) error {
-	if image == "" {
-		return nil // Empty is valid (will use Containerfile)
-	}
-
-	// [CUE-VALIDATED] Image length also enforced by CUE schema (#RuntimeConfigContainer.image MaxRunes(512))
-	if len(image) > 512 {
-		return fmt.Errorf("container image name too long (%d chars, max 512)", len(image))
-	}
-
-	// Check for obvious injection attempts
-	s := string(image)
-	if strings.ContainsAny(s, ";&|`$(){}[]<>\\'\"\n\r\t") {
-		return fmt.Errorf("container image name contains invalid characters")
-	}
-
-	// Basic format validation using a permissive regex
-	// Format: [registry[:port]/][namespace/]name[:tag][@digest]
-	// Allow: registry:port/image, registry/namespace/image:tag, image@sha256:...
-	imageRegex := regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._:/-]*[a-zA-Z0-9])?(:[a-zA-Z0-9._-]+)?(@sha256:[a-fA-F0-9]{64})?$`)
-	if !imageRegex.MatchString(s) {
-		return fmt.Errorf("container image name '%s' has invalid format", image)
-	}
-
-	return nil
+	return image.Validate()
 }
 
 // ValidateVolumeMount validates a container volume mount specification.

@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -51,7 +50,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 
 	t.Run("native runtime", func(t *testing.T) {
 		rt := NewNativeRuntime()
-		ctx := NewExecutionContext(context.Background(), cmd, inv)
+		ctx := NewExecutionContext(t.Context(), cmd, inv)
 		ctx.IO.Stdout = &bytes.Buffer{}
 		ctx.IO.Stderr = &bytes.Buffer{}
 
@@ -64,7 +63,7 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	t.Run("virtual runtime", func(t *testing.T) {
 		cmdVirtual := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeVirtual)
 		rt := NewVirtualRuntime(false)
-		ctx := NewExecutionContext(context.Background(), cmdVirtual, inv)
+		ctx := NewExecutionContext(t.Context(), cmdVirtual, inv)
 
 		ctx.IO.Stdout = &bytes.Buffer{}
 		ctx.IO.Stderr = &bytes.Buffer{}
@@ -93,18 +92,18 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
-				Env:       &invowkfile.EnvConfig{Vars: map[string]string{"IMPL_VAR": "impl_value"}},
+				Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"IMPL_VAR": "impl_value"}},
 			},
 		},
 		Env: &invowkfile.EnvConfig{
-			Vars: map[string]string{
+			Vars: map[invowkfile.EnvVarName]string{
 				"CMD_VAR": "command_value",
 			},
 		},
 	}
 
 	rt := NewVirtualRuntime(false)
-	ctx := NewExecutionContext(context.Background(), cmd, inv)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout bytes.Buffer
 	ctx.IO.Stdout = &stdout

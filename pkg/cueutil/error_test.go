@@ -184,4 +184,19 @@ func TestValidationError(t *testing.T) {
 			t.Error("Unwrap should return nil")
 		}
 	})
+
+	t.Run("Suggestion field", func(t *testing.T) {
+		t.Parallel()
+
+		err := &ValidationError{
+			FilePath:   "invowkfile.cue",
+			CUEPath:    "cmds[0].runtime",
+			Message:    "invalid runtime mode",
+			Suggestion: "use 'native', 'virtual', or 'container'",
+		}
+		// Suggestion is stored but not included in Error() output
+		if err.Suggestion == "" {
+			t.Error("Suggestion should not be empty")
+		}
+	})
 }

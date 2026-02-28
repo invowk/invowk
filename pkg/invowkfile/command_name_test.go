@@ -4,10 +4,11 @@ package invowkfile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
-func TestCommandName_IsValid(t *testing.T) {
+func TestCommandName_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -24,24 +25,32 @@ func TestCommandName_IsValid(t *testing.T) {
 		{"whitespace_only", CommandName("   "), false, true},
 		{"tab_only", CommandName("\t"), false, true},
 		{"newline_only", CommandName("\n"), false, true},
+		// Regex constraints (must start with letter, alphanumeric + underscore/hyphen/space)
+		{"starts_with_digit", CommandName("123bad"), false, true},
+		{"starts_with_hyphen", CommandName("-deploy"), false, true},
+		{"with_underscore", CommandName("my_task"), true, false},
+		{"special_chars", CommandName("build!"), false, true},
+		// Length constraint (MaxRunes 256)
+		{"max_length", CommandName("a" + strings.Repeat("b", 255)), true, false},
+		{"over_max_length", CommandName("a" + strings.Repeat("b", 256)), false, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.cn.IsValid()
-			if isValid != tt.want {
-				t.Errorf("CommandName(%q).IsValid() = %v, want %v", tt.cn, isValid, tt.want)
+			err := tt.cn.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("CommandName(%q).Validate() error = %v, want valid=%v", tt.cn, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("CommandName(%q).IsValid() returned no errors, want error", tt.cn)
+				if err == nil {
+					t.Fatalf("CommandName(%q).Validate() returned nil, want error", tt.cn)
 				}
-				if !errors.Is(errs[0], ErrInvalidCommandName) {
-					t.Errorf("error should wrap ErrInvalidCommandName, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidCommandName) {
+					t.Errorf("error should wrap ErrInvalidCommandName, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("CommandName(%q).IsValid() returned unexpected errors: %v", tt.cn, errs)
+			} else if err != nil {
+				t.Errorf("CommandName(%q).Validate() returned unexpected error: %v", tt.cn, err)
 			}
 		})
 	}

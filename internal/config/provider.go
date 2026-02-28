@@ -42,35 +42,35 @@ type (
 	fileProvider struct{}
 )
 
-// IsValid returns whether all typed fields in the LoadOptions are valid.
+// Validate returns an error if any typed fields in the LoadOptions are invalid.
 // All three fields use zero-value-is-valid semantics: empty means "use default".
-// Only non-empty values are validated via their respective IsValid() methods.
-func (o LoadOptions) IsValid() (bool, []error) {
+// Only non-empty values are validated via their respective Validate() methods.
+func (o LoadOptions) Validate() error {
 	var errs []error
 
 	if o.ConfigFilePath != "" {
-		if valid, fieldErrs := o.ConfigFilePath.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := o.ConfigFilePath.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	if o.ConfigDirPath != "" {
-		if valid, fieldErrs := o.ConfigDirPath.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := o.ConfigDirPath.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	if o.BaseDir != "" {
-		if valid, fieldErrs := o.BaseDir.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := o.BaseDir.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	if len(errs) > 0 {
-		return false, []error{&InvalidLoadOptionsError{FieldErrors: errs}}
+		return &InvalidLoadOptionsError{FieldErrors: errs}
 	}
 
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidLoadOptionsError.
@@ -91,7 +91,13 @@ func NewProvider() Provider {
 }
 
 // Load reads configuration from the requested source.
+// It validates LoadOptions before proceeding and delegates to loadWithOptions
+// which validates the resulting Config after unmarshalling.
 func (p *fileProvider) Load(ctx context.Context, opts LoadOptions) (*Config, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, fmt.Errorf("config load: %w", err)
+	}
+
 	cfg, _, err := loadWithOptions(ctx, opts)
 	if err != nil {
 		return nil, err

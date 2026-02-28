@@ -48,14 +48,16 @@ func (e *InvalidGitURLError) Error() string {
 // Unwrap returns ErrInvalidGitURL so callers can use errors.Is for programmatic detection.
 func (e *InvalidGitURLError) Unwrap() error { return ErrInvalidGitURL }
 
-// IsValid returns whether the GitURL is a valid Git repository URL,
-// and a list of validation errors if it is not.
-func (u GitURL) IsValid() (bool, []error) {
+//goplint:nonzero
+
+// Validate returns nil if the GitURL is a valid Git repository URL,
+// or an error describing the validation failure.
+func (u GitURL) Validate() error {
 	s := string(u)
 	if s == "" || (!strings.HasPrefix(s, "https://") && !strings.HasPrefix(s, "git@") && !strings.HasPrefix(s, "ssh://")) {
-		return false, []error{&InvalidGitURLError{Value: u}}
+		return &InvalidGitURLError{Value: u}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the GitURL.
@@ -69,13 +71,15 @@ func (e *InvalidGitCommitError) Error() string {
 // Unwrap returns ErrInvalidGitCommit so callers can use errors.Is for programmatic detection.
 func (e *InvalidGitCommitError) Unwrap() error { return ErrInvalidGitCommit }
 
-// IsValid returns whether the GitCommit is a valid 40-character lowercase hex SHA,
-// and a list of validation errors if it is not.
-func (c GitCommit) IsValid() (bool, []error) {
+//goplint:nonzero
+
+// Validate returns nil if the GitCommit is a valid 40-character lowercase hex SHA,
+// or an error describing the validation failure.
+func (c GitCommit) Validate() error {
 	if !gitCommitPattern.MatchString(string(c)) {
-		return false, []error{&InvalidGitCommitError{Value: c}}
+		return &InvalidGitCommitError{Value: c}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the GitCommit.

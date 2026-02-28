@@ -31,7 +31,7 @@ func TestTerminalDimension_String(t *testing.T) {
 	}
 }
 
-func TestTerminalDimension_IsValid(t *testing.T) {
+func TestTerminalDimension_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -50,23 +50,23 @@ func TestTerminalDimension_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.d.String(), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.d.IsValid()
-			if isValid != tt.want {
-				t.Errorf("TerminalDimension(%d).IsValid() = %v, want %v", tt.d, isValid, tt.want)
+			err := tt.d.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("TerminalDimension(%d).Validate() err = %v, wantValid %v", tt.d, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("TerminalDimension(%d).IsValid() returned no errors, want error", tt.d)
+				if err == nil {
+					t.Fatalf("TerminalDimension(%d).Validate() returned nil, want error", tt.d)
 				}
-				if !errors.Is(errs[0], ErrInvalidTerminalDimension) {
-					t.Errorf("error should wrap ErrInvalidTerminalDimension, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidTerminalDimension) {
+					t.Errorf("error should wrap ErrInvalidTerminalDimension, got: %v", err)
 				}
 				var tdErr *InvalidTerminalDimensionError
-				if !errors.As(errs[0], &tdErr) {
-					t.Errorf("error should be *InvalidTerminalDimensionError, got: %T", errs[0])
+				if !errors.As(err, &tdErr) {
+					t.Errorf("error should be *InvalidTerminalDimensionError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("TerminalDimension(%d).IsValid() returned unexpected errors: %v", tt.d, errs)
+			} else if err != nil {
+				t.Errorf("TerminalDimension(%d).Validate() returned unexpected error: %v", tt.d, err)
 			}
 		})
 	}

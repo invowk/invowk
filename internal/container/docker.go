@@ -20,8 +20,9 @@ func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
 	path, _ := exec.LookPath("docker")
 	allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker))}
 	allOpts = append(allOpts, opts...)
+	// Binary path may be empty if Docker is not installed — validated later via Available().
 	return &DockerEngine{
-		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...),
+		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...), //goplint:ignore -- validated by Available() guard
 	}
 }
 

@@ -5,11 +5,22 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 )
 
+// commandNameMaxRunes is the maximum length for a command name, matching
+// the CUE constraint strings.MaxRunes(256) on #Command.name.
+const commandNameMaxRunes = 256
+
 var (
+	// commandNameRegex matches the CUE constraint for #Command.name:
+	// must start with a letter, followed by letters, digits, underscores,
+	// hyphens, or spaces. Matches: "build", "test unit", "deploy-prod".
+	commandNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_ -]*$`)
+
 	// ErrInvalidCommandName is the sentinel error wrapped by InvalidCommandNameError.
 	ErrInvalidCommandName = errors.New("invalid command name")
 
@@ -76,19 +87,29 @@ type (
 
 // Error implements the error interface.
 func (e *InvalidCommandNameError) Error() string {
-	return fmt.Sprintf("invalid command name %q (must not be empty or whitespace-only)", e.Value)
+	return fmt.Sprintf("invalid command name %q (must start with a letter, contain only letters/digits/underscores/hyphens/spaces, max %d chars)", e.Value, commandNameMaxRunes)
 }
 
 // Unwrap returns ErrInvalidCommandName so callers can use errors.Is for programmatic detection.
 func (e *InvalidCommandNameError) Unwrap() error { return ErrInvalidCommandName }
 
-// IsValid returns whether the CommandName is a valid command identifier,
-// and a list of validation errors if it is not.
-func (n CommandName) IsValid() (bool, []error) {
-	if strings.TrimSpace(string(n)) == "" {
-		return false, []error{&InvalidCommandNameError{Value: n}}
+// Validate returns nil if the CommandName is a valid command identifier,
+// or a validation error if it is not.
+// Matches the CUE constraint: ^[a-zA-Z][a-zA-Z0-9_ -]*$ with MaxRunes(256).
+//
+//goplint:nonzero
+func (n CommandName) Validate() error {
+	s := string(n)
+	if strings.TrimSpace(s) == "" {
+		return &InvalidCommandNameError{Value: n}
 	}
-	return true, nil
+	if utf8.RuneCountInString(s) > commandNameMaxRunes {
+		return &InvalidCommandNameError{Value: n}
+	}
+	if !commandNameRegex.MatchString(s) {
+		return &InvalidCommandNameError{Value: n}
+	}
+	return nil
 }
 
 // String returns the string representation of the CommandName.
@@ -102,17 +123,17 @@ func (e *InvalidCommandCategoryError) Error() string {
 // Unwrap returns ErrInvalidCommandCategory so callers can use errors.Is for programmatic detection.
 func (e *InvalidCommandCategoryError) Unwrap() error { return ErrInvalidCommandCategory }
 
-// IsValid returns whether the CommandCategory is valid,
-// and a list of validation errors if it is not.
+// Validate returns nil if the CommandCategory is valid,
+// or a validation error if it is not.
 // The zero value ("") is valid — it means "no category assigned".
-func (c CommandCategory) IsValid() (bool, []error) {
+func (c CommandCategory) Validate() error {
 	if c == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(c)) == "" {
-		return false, []error{&InvalidCommandCategoryError{Value: c}}
+		return &InvalidCommandCategoryError{Value: c}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the CommandCategory.

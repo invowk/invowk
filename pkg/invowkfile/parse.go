@@ -50,7 +50,11 @@ func ParseBytes(data []byte, path string) (*Invowkfile, error) {
 	}
 
 	inv := result.Value
-	inv.FilePath = FilesystemPath(path)
+	filePath := FilesystemPath(path)
+	if err := filePath.Validate(); err != nil {
+		return nil, fmt.Errorf("invowkfile path: %w", err)
+	}
+	inv.FilePath = filePath
 
 	// Validate and collect all errors
 	if errs := inv.Validate(); len(errs) > 0 {
@@ -87,7 +91,8 @@ func ParseModule(modulePath FilesystemPath) (*Module, error) {
 	invowkfilePath := filepath.Join(modulePathStr, "invowkfile.cue")
 
 	// Parse invowkmod.cue (required)
-	meta, err := ParseInvowkmod(FilesystemPath(invowkmodPath))
+	invowkmodFSPath := FilesystemPath(invowkmodPath) //goplint:ignore -- derived from validated modulePath
+	meta, err := ParseInvowkmod(invowkmodFSPath)
 	if err != nil {
 		return nil, fmt.Errorf("module at %s: %w", modulePath, err)
 	}
@@ -128,8 +133,8 @@ func ParseEnvInheritMode(value string) (EnvInheritMode, error) {
 		return "", nil
 	}
 	mode := EnvInheritMode(value)
-	if isValid, errs := mode.IsValid(); !isValid {
-		return "", errs[0]
+	if err := mode.Validate(); err != nil {
+		return "", err
 	}
 	return mode, nil
 }
@@ -141,8 +146,8 @@ func ParseRuntimeMode(value string) (RuntimeMode, error) {
 		return "", nil
 	}
 	mode := RuntimeMode(value)
-	if isValid, errs := mode.IsValid(); !isValid {
-		return "", errs[0]
+	if err := mode.Validate(); err != nil {
+		return "", err
 	}
 	return mode, nil
 }

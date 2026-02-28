@@ -1,17 +1,27 @@
-We're on a long multi-step work to completely avoid the use of simple primitive types (including strings) and -- generally but not always when unpractical -- mutability in invowk's Go code. Instead, we must always use either 1) type definitions or 2) structs whenever possible.
+We're on a long multi-step work to completely avoid the use of simple primitive types (including strings) and — generally but not always when unpractical — mutability in invowk's Go code. Instead, we must always use either 1) type definitions or 2) structs whenever possible.
 
 ## Type Definitions
-- MUST have an 'IsValid() (isValid bool, errors []error)' method with validation logic, returning the validation result and all applicable custom error types if the validation failed
-- should generally have additional semantic methods as per Domain-Driven Design's Value Types's concept if concrete possible uses have been identified
+- MUST have a `Validate() error` method with validation logic
+- MUST have a `String() string` method
+- MUST have sentinel error `ErrInvalid<Type>` + typed error struct `Invalid<Type>Error` with `Unwrap()` returning the sentinel
+- Mark zero-value-invalid types with `//goplint:nonzero`
+- Mark compile-time-constant-only types with `//goplint:constant-only`
+- Enum types with CUE counterparts MUST have `//goplint:enum-cue=<path>`
 
 ## Structs
-- MUST have strong constructor functions that make use of the functional options pattern and whose use is enforced across the project
-- MUST enforce that all its constructor functions return '(instance T, errors []error)' with all applicable custom error types if the initialization validation failed
-- MUST use only non-primitive types for fields
-- MUST be immutable (if they're DDD Value Types) with only unexported fields and public accessor methods unless very unpractical for our use-cases; otherwise, if they're DDD Entities, they can remain mutable if it's best.
+- Constructor-backed structs should use `NewXxx()` returning `(*T, error)`
+- Functional options only when >3 optional parameters; not every struct needs a constructor (CUE-parsed DTOs and data carriers are fine as-is)
+- Structs with constructors should be immutable (unexported fields + getters) unless marked `//goplint:mutable`
+- Structs with `Validate()` + validatable fields should use `//goplint:validate-all` for delegation completeness checking
+- Constructor `Validate()` calls must exist unless `//goplint:constant-only`
+
+## Typed Path Operations
+- Use `pkg/fspath/` wrappers (`JoinStr`, `Dir`, `Abs`, `Clean`, `FromSlash`, `IsAbs`) instead of manual `FilesystemPath(filepath.Join(string(path), ...))` patterns
+- Each wrapper centralizes the `//goplint:ignore` annotation — callers get typed-in/typed-out without per-site suppression
+- `JoinStr(base, "file.cue")` for typed base + literal segments; `Join(a, b)` for all-typed segments
 
 ## Import cycles
-- If the import/use of an existing type would create circular dependencies or similar issues, you MUST proceed even so by moving the type to `pkg/types` or another more appropriate package.
+- If importing an existing type would create circular dependencies, move the type to `pkg/types` or another more appropriate package.
 
 All methods MUST have unit tests for ALL conditions.
 
@@ -19,13 +29,28 @@ Identify ALL remaining gaps to be worked on and propose a robust plan. All pre-e
 
 ## Tool Support
 
-Run `make check-types-all-json` to get a structured JSON report of all DDD gaps.
-Each diagnostic includes a `category` field for filtering:
-- `primitive` — bare primitive in struct field / function param / return type
-- `missing-isvalid` — named type missing `IsValid()` method
-- `missing-stringer` — named type missing `String()` method
-- `missing-constructor` — exported struct missing `NewXxx()` constructor
+Run `make check-types-all-json` for a structured JSON report.
+Key diagnostic categories:
+- `primitive` — bare primitive in struct field / param / return
+- `missing-validate` / `missing-stringer` — missing methods
+- `missing-constructor` / `wrong-constructor-sig` — constructor issues
+- `missing-immutability` — exported fields on constructor-backed structs
+- `unvalidated-cast` — DDD cast without Validate() check (CFA-enabled)
+- `incomplete-validate-delegation` — missing field Validate() calls
+- `nonzero-value-field` — nonzero type used as value (should be *Type)
+- `enum-cue-missing-go` / `enum-cue-extra-go` — CUE/Go enum drift
 
-Use this output as the canonical source of remaining gaps instead of manually scanning the codebase. See `tools/goplint/CLAUDE.md` for full documentation.
+- `suggest-validate-all` — structs with Validate() + validatable fields but no `//goplint:validate-all`
+- `missing-constructor-validate` — constructors returning validatable types without calling Validate()
 
-After completing type improvements, run `make update-baseline` to shrink the baseline and commit the updated `tools/goplint/baseline.toml`.
+See `tools/goplint/CLAUDE.md` for all 24 categories and directives.
+
+## Workflow
+1. `make check-baseline` — verify no regressions first
+2. Apply type improvements
+3. `make update-baseline` — shrink baseline
+4. `make check-baseline` — verify clean
+5. Commit updated `tools/goplint/baseline.toml`
+
+## Cost-Benefit Rule
+If typing adds more `string()` casts than it removes (e.g., `filepath.Join`, `os.Stat`, `exec.LookPath` boundaries), DEFER the typing and add an exception to `tools/goplint/exceptions.toml` with a `reason` and optionally `review_after` + `blocked_by` fields.

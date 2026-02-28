@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-func TestSeverity_IsValid(t *testing.T) {
+func TestSeverity_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		severity Severity
-		want     bool
+		wantOK   bool
 		wantErr  bool
 	}{
 		{SeverityWarning, true, false},
@@ -25,25 +25,25 @@ func TestSeverity_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.severity), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.severity.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Severity(%q).IsValid() = %v, want %v", tt.severity, isValid, tt.want)
+			err := tt.severity.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("Severity(%q).Validate() error = %v, wantOK %v", tt.severity, err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("Severity(%q).IsValid() returned no errors, want error", tt.severity)
+				if err == nil {
+					t.Fatalf("Severity(%q).Validate() returned nil, want error", tt.severity)
 				}
-				if !errors.Is(errs[0], ErrInvalidSeverity) {
-					t.Errorf("error should wrap ErrInvalidSeverity, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSeverity) {
+					t.Errorf("error should wrap ErrInvalidSeverity, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("Severity(%q).IsValid() returned unexpected errors: %v", tt.severity, errs)
+			} else if err != nil {
+				t.Errorf("Severity(%q).Validate() returned unexpected error: %v", tt.severity, err)
 			}
 		})
 	}
 }
 
-func TestDiagnosticCode_IsValid(t *testing.T) {
+func TestDiagnosticCode_Validate(t *testing.T) {
 	t.Parallel()
 
 	validCodes := []DiagnosticCode{
@@ -52,18 +52,15 @@ func TestDiagnosticCode_IsValid(t *testing.T) {
 		CodeModuleScanFailed, CodeReservedModuleNameSkipped, CodeModuleLoadSkipped,
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
-		CodeVendoredNestedIgnored,
+		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed,
 	}
 
 	for _, code := range validCodes {
 		t.Run(string(code), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := code.IsValid()
-			if !isValid {
-				t.Errorf("DiagnosticCode(%q).IsValid() = false, want true", code)
-			}
-			if len(errs) > 0 {
-				t.Errorf("DiagnosticCode(%q).IsValid() returned unexpected errors: %v", code, errs)
+			err := code.Validate()
+			if err != nil {
+				t.Errorf("DiagnosticCode(%q).Validate() returned unexpected error: %v", code, err)
 			}
 		})
 	}
@@ -72,15 +69,12 @@ func TestDiagnosticCode_IsValid(t *testing.T) {
 	for _, code := range invalidCodes {
 		t.Run("invalid_"+string(code), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := code.IsValid()
-			if isValid {
-				t.Errorf("DiagnosticCode(%q).IsValid() = true, want false", code)
+			err := code.Validate()
+			if err == nil {
+				t.Fatalf("DiagnosticCode(%q).Validate() returned nil, want error", code)
 			}
-			if len(errs) == 0 {
-				t.Fatalf("DiagnosticCode(%q).IsValid() returned no errors, want error", code)
-			}
-			if !errors.Is(errs[0], ErrInvalidDiagnosticCode) {
-				t.Errorf("error should wrap ErrInvalidDiagnosticCode, got: %v", errs[0])
+			if !errors.Is(err, ErrInvalidDiagnosticCode) {
+				t.Errorf("error should wrap ErrInvalidDiagnosticCode, got: %v", err)
 			}
 		})
 	}
@@ -89,7 +83,10 @@ func TestDiagnosticCode_IsValid(t *testing.T) {
 func TestNewDiagnostic(t *testing.T) {
 	t.Parallel()
 
-	d := NewDiagnostic(SeverityWarning, CodeConfigLoadFailed, "test message")
+	d, err := NewDiagnostic(SeverityWarning, CodeConfigLoadFailed, "test message")
+	if err != nil {
+		t.Fatalf("NewDiagnostic() unexpected error: %v", err)
+	}
 
 	if d.severity != SeverityWarning {
 		t.Errorf("Severity = %q, want %q", d.severity, SeverityWarning)
@@ -108,10 +105,41 @@ func TestNewDiagnostic(t *testing.T) {
 	}
 }
 
+func TestNewDiagnostic_InvalidParams(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		severity Severity
+		code     DiagnosticCode
+	}{
+		{"invalid severity", Severity("bogus"), CodeConfigLoadFailed},
+		{"invalid code", SeverityError, DiagnosticCode("bogus")},
+		{"both invalid", Severity("nope"), DiagnosticCode("also_nope")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := NewDiagnostic(tt.severity, tt.code, "msg")
+			if err == nil {
+				t.Fatal("NewDiagnostic() expected error, got nil")
+			}
+			if !errors.Is(err, ErrInvalidDiagnostic) {
+				t.Errorf("error should wrap ErrInvalidDiagnostic, got: %v", err)
+			}
+		})
+	}
+}
+
 func TestNewDiagnosticWithPath(t *testing.T) {
 	t.Parallel()
 
-	d := NewDiagnosticWithPath(SeverityError, CodeInvowkfileParseSkipped, "parse failed", "/some/path")
+	d, err := NewDiagnosticWithPath(SeverityError, CodeInvowkfileParseSkipped, "parse failed", "/some/path")
+	if err != nil {
+		t.Fatalf("NewDiagnosticWithPath() unexpected error: %v", err)
+	}
 
 	if d.severity != SeverityError {
 		t.Errorf("Severity = %q, want %q", d.severity, SeverityError)
@@ -134,7 +162,10 @@ func TestNewDiagnosticWithCause(t *testing.T) {
 	t.Parallel()
 
 	cause := errors.New("underlying error")
-	d := NewDiagnosticWithCause(SeverityError, CodeModuleScanFailed, "scan failed", "/module/path", cause)
+	d, err := NewDiagnosticWithCause(SeverityError, CodeModuleScanFailed, "scan failed", "/module/path", cause)
+	if err != nil {
+		t.Fatalf("NewDiagnosticWithCause() unexpected error: %v", err)
+	}
 
 	if d.severity != SeverityError {
 		t.Errorf("Severity = %q, want %q", d.severity, SeverityError)
@@ -153,13 +184,13 @@ func TestNewDiagnosticWithCause(t *testing.T) {
 	}
 }
 
-func TestSource_IsValid(t *testing.T) {
+func TestSource_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		source  Source
-		want    bool
+		wantOK  bool
 		wantErr bool
 	}{
 		{"SourceCurrentDir", SourceCurrentDir, true, false},
@@ -172,31 +203,31 @@ func TestSource_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.source.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Source(%d).IsValid() = %v, want %v", tt.source, isValid, tt.want)
+			err := tt.source.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("Source(%d).Validate() error = %v, wantOK %v", tt.source, err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("Source(%d).IsValid() returned no errors, want error", tt.source)
+				if err == nil {
+					t.Fatalf("Source(%d).Validate() returned nil, want error", tt.source)
 				}
-				if !errors.Is(errs[0], ErrInvalidSource) {
-					t.Errorf("error should wrap ErrInvalidSource, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSource) {
+					t.Errorf("error should wrap ErrInvalidSource, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("Source(%d).IsValid() returned unexpected errors: %v", tt.source, errs)
+			} else if err != nil {
+				t.Errorf("Source(%d).Validate() returned unexpected error: %v", tt.source, err)
 			}
 		})
 	}
 }
 
-func TestDiagnostic_IsValid(t *testing.T) {
+func TestDiagnostic_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name          string
 		diag          Diagnostic
-		want          bool
+		wantOK        bool
 		wantErr       bool
 		wantFieldErrs int
 	}{
@@ -207,7 +238,7 @@ func TestDiagnostic_IsValid(t *testing.T) {
 				code:     CodeConfigLoadFailed,
 				message:  "test message",
 			},
-			want: true,
+			wantOK: true,
 		},
 		{
 			name: "invalid severity",
@@ -216,7 +247,7 @@ func TestDiagnostic_IsValid(t *testing.T) {
 				code:     CodeConfigLoadFailed,
 				message:  "test message",
 			},
-			want:          false,
+			wantOK:        false,
 			wantErr:       true,
 			wantFieldErrs: 1,
 		},
@@ -227,7 +258,7 @@ func TestDiagnostic_IsValid(t *testing.T) {
 				code:     DiagnosticCode("bogus_code"),
 				message:  "test message",
 			},
-			want:          false,
+			wantOK:        false,
 			wantErr:       true,
 			wantFieldErrs: 1,
 		},
@@ -238,7 +269,7 @@ func TestDiagnostic_IsValid(t *testing.T) {
 				code:     DiagnosticCode("also_nope"),
 				message:  "test message",
 			},
-			want:          false,
+			wantOK:        false,
 			wantErr:       true,
 			wantFieldErrs: 2,
 		},
@@ -248,26 +279,26 @@ func TestDiagnostic_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.diag.IsValid()
-			if isValid != tt.want {
-				t.Errorf("Diagnostic.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.diag.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("Diagnostic.Validate() error = %v, wantOK %v", err, tt.wantOK)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("Diagnostic.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("Diagnostic.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidDiagnostic) {
-					t.Errorf("error should wrap ErrInvalidDiagnostic, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidDiagnostic) {
+					t.Errorf("error should wrap ErrInvalidDiagnostic, got: %v", err)
 				}
 				var diagErr *InvalidDiagnosticError
-				if !errors.As(errs[0], &diagErr) {
-					t.Fatalf("error should be *InvalidDiagnosticError, got: %T", errs[0])
+				if !errors.As(err, &diagErr) {
+					t.Fatalf("error should be *InvalidDiagnosticError, got: %T", err)
 				}
 				if len(diagErr.FieldErrors) != tt.wantFieldErrs {
 					t.Errorf("InvalidDiagnosticError.FieldErrors = %d, want %d", len(diagErr.FieldErrors), tt.wantFieldErrs)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("Diagnostic.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("Diagnostic.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

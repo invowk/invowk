@@ -61,14 +61,14 @@ func (p pathType) String() string {
 	}
 }
 
-// isValid returns whether the pathType is one of the defined types,
-// and a list of validation errors if it is not.
-func (p pathType) isValid() (bool, []error) {
+// validate returns nil if the pathType is one of the defined types,
+// or a validation error if it is not.
+func (p pathType) validate() error {
 	switch p {
 	case pathTypeUnknown, pathTypeInvowkfile, pathTypeModule:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&invalidPathTypeError{value: p}}
+		return &invalidPathTypeError{value: p}
 	}
 }
 

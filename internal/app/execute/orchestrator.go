@@ -81,8 +81,8 @@ func NewRuntimeSelection(mode invowkfile.RuntimeMode, impl *invowkfile.Implement
 	if impl == nil {
 		return RuntimeSelection{}, fmt.Errorf("implementation must not be nil for runtime mode %q", mode)
 	}
-	if isValid, errs := mode.IsValid(); !isValid {
-		return RuntimeSelection{}, errs[0]
+	if err := mode.Validate(); err != nil {
+		return RuntimeSelection{}, err
 	}
 	return RuntimeSelection{mode: mode, impl: impl}, nil
 }
@@ -101,22 +101,22 @@ func (r RuntimeSelection) Mode() invowkfile.RuntimeMode { return r.mode }
 // Impl returns the resolved implementation.
 func (r RuntimeSelection) Impl() *invowkfile.Implementation { return r.impl }
 
-// IsValid returns whether the RuntimeSelection has valid fields.
+// Validate returns nil if the RuntimeSelection has valid fields, or an error if not.
 // Mode must be a recognized RuntimeMode and Impl must not be nil.
-// A selection created via NewRuntimeSelection always passes IsValid();
+// A selection created via NewRuntimeSelection always passes Validate();
 // selections from RuntimeSelectionOf (test fixtures) may not.
-func (r RuntimeSelection) IsValid() (bool, []error) {
+func (r RuntimeSelection) Validate() error {
 	var errs []error
-	if valid, fieldErrs := r.mode.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := r.mode.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if r.impl == nil {
 		errs = append(errs, fmt.Errorf("implementation must not be nil"))
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidRuntimeSelectionError{FieldErrors: errs}}
+		return &InvalidRuntimeSelectionError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidRuntimeSelectionError.
@@ -154,8 +154,8 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 	if runtimeOverride != "" {
 		// Defense-in-depth: the CLI boundary should have already validated the mode
 		// via ParseRuntimeMode, but verify here to catch programmatic misuse.
-		if isValid, errs := runtimeOverride.IsValid(); !isValid {
-			return RuntimeSelection{}, errs[0]
+		if err := runtimeOverride.Validate(); err != nil {
+			return RuntimeSelection{}, err
 		}
 
 		if !command.IsRuntimeAllowedForPlatform(platform, runtimeOverride) {
@@ -184,8 +184,8 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 		configRuntime := invowkfile.RuntimeMode(cfg.DefaultRuntime)
 		// Defense-in-depth: CUE schema validates config at load time, but verify
 		// here to prevent silent fallthrough to command default on invalid config.
-		if isValid, errs := configRuntime.IsValid(); !isValid {
-			return RuntimeSelection{}, fmt.Errorf("invalid default_runtime in config: %w", errs[0])
+		if err := configRuntime.Validate(); err != nil {
+			return RuntimeSelection{}, fmt.Errorf("invalid default_runtime in config: %w", err)
 		}
 		if command.IsRuntimeAllowedForPlatform(platform, configRuntime) {
 			impl := command.GetImplForPlatformRuntime(platform, configRuntime)
@@ -245,8 +245,8 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 	if opts.EnvInheritMode != "" {
 		// Defense-in-depth: the CLI boundary should have already validated the mode
 		// via ParseEnvInheritMode, but verify here to catch programmatic misuse.
-		if isValid, errs := opts.EnvInheritMode.IsValid(); !isValid {
-			return errs[0]
+		if err := opts.EnvInheritMode.Validate(); err != nil {
+			return err
 		}
 		execCtx.Env.InheritModeOverride = opts.EnvInheritMode
 	}
@@ -270,8 +270,8 @@ func applyEnvInheritOverrides(opts BuildExecutionContextOptions, execCtx *runtim
 
 func validateEnvVarNames(names []invowkfile.EnvVarName, label string) error {
 	for _, name := range names {
-		if isValid, errs := name.IsValid(); !isValid {
-			return fmt.Errorf("%s: %w", label, errs[0])
+		if err := name.Validate(); err != nil {
+			return fmt.Errorf("%s: %w", label, err)
 		}
 	}
 	return nil

@@ -5,11 +5,20 @@ package config
 
 import "strings"
 
+// ContainerEngineType defines valid container engine types
+#ContainerEngineType: "podman" | "docker"
+
+// ConfigRuntimeType defines valid default runtime types
+#ConfigRuntimeType: "native" | "virtual" | "container"
+
+// ColorSchemeType defines valid color scheme types
+#ColorSchemeType: "auto" | "dark" | "light"
+
 // Config is the root configuration structure
 #Config: close({
 	// container_engine specifies which container runtime to use
 	// Valid values: "podman", "docker"
-	container_engine?: "podman" | "docker"
+	container_engine?: #ContainerEngineType
 
 	// includes specifies modules to include in command discovery.
 	// Each entry points to a *.invowkmod directory.
@@ -18,7 +27,7 @@ import "strings"
 
 	// default_runtime sets the global default runtime mode
 	// Valid values: "native", "virtual", "container"
-	default_runtime?: "native" | "virtual" | "container"
+	default_runtime?: #ConfigRuntimeType
 
 	// virtual_shell configures the virtual shell behavior
 	virtual_shell?: #VirtualShellConfig
@@ -86,7 +95,7 @@ import "strings"
 #UIConfig: close({
 	// color_scheme sets the color scheme
 	// Valid values: "auto", "dark", "light"
-	color_scheme?: "auto" | "dark" | "light"
+	color_scheme?: #ColorSchemeType
 
 	// verbose enables verbose output
 	verbose?: bool

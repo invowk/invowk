@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -114,7 +113,7 @@ func testContainerBasicExecution(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -149,18 +148,18 @@ func testContainerEnvironmentVariables(t *testing.T) {
 				Platforms: []invowkfile.PlatformConfig{
 					{Name: currentPlatform},
 				},
-				Env: &invowkfile.EnvConfig{Vars: map[string]string{"MY_VAR1": "impl_value"}},
+				Env: &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"MY_VAR1": "impl_value"}},
 			},
 		},
 		Env: &invowkfile.EnvConfig{
-			Vars: map[string]string{
+			Vars: map[invowkfile.EnvVarName]string{
 				"MY_VAR2": "command_value",
 			},
 		},
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -205,7 +204,7 @@ echo "Variable: $VAR"`
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -255,7 +254,7 @@ func testContainerWorkingDirectory(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -314,7 +313,7 @@ func testContainerVolumeMounts(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -354,7 +353,7 @@ func testContainerExitCode(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -386,7 +385,7 @@ func testContainerPositionalArgs(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	execCtx.PositionalArgs = []string{"hello", "world"}
 
@@ -434,7 +433,7 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 	}
 
 	rt := createContainerRuntimeWithSSHServer(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -512,7 +511,12 @@ func createContainerRuntime(t *testing.T) *ContainerRuntime {
 		t.Skipf("skipping test: no container engine available: %v", err)
 	}
 
-	return NewContainerRuntimeWithEngine(engine)
+	rt, rtErr := NewContainerRuntimeWithEngine(engine)
+	if rtErr != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", rtErr)
+	}
+
+	return rt
 }
 
 // createContainerRuntimeWithSSHServer creates a container runtime with an SSH server for testing
@@ -542,12 +546,15 @@ func createTestSSHServer(t *testing.T) (*sshserver.Server, error) {
 		TokenTTL: 5 * time.Minute,
 	}
 
-	srv := sshserver.New(cfg)
+	srv, err := sshserver.New(cfg)
+	if err != nil {
+		t.Fatalf("sshserver.New() error = %v", err)
+	}
 
 	// Start the server with context. Server.Start() blocks until the server
 	// is ready to accept connections or fails, eliminating the previous race
 	// condition where we'd access srv.Address() before initialization completed.
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := srv.Start(ctx); err != nil {
 		return nil, fmt.Errorf("failed to start SSH server: %w", err)
 	}

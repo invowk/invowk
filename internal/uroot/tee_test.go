@@ -4,7 +4,6 @@ package uroot
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,7 +45,7 @@ func TestTeeCommand_Run_StdoutAndFile(t *testing.T) {
 	input := "hello, tee\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(input),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -87,7 +86,7 @@ func TestTeeCommand_Run_AppendMode(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader("second\n"),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -124,7 +123,7 @@ func TestTeeCommand_Run_OverwriteMode(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader("new content\n"),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -159,7 +158,7 @@ func TestTeeCommand_Run_MultipleFiles(t *testing.T) {
 	input := "multi-file test\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(input),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -195,7 +194,7 @@ func TestTeeCommand_Run_RelativePath(t *testing.T) {
 	input := "relative path test\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(input),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -225,7 +224,7 @@ func TestTeeCommand_Run_InvalidFilePath(t *testing.T) {
 	input := "stdin content\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(input),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -255,7 +254,7 @@ func TestTeeCommand_Run_PartialOpenFailure(t *testing.T) {
 	input := "partial test\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(input),
 		Stdout:    &stdout,
 		Stderr:    &stderr,
@@ -288,7 +287,7 @@ func TestTeeCommand_Run_StdinOnly(t *testing.T) {
 	input := "just stdout\n"
 
 	var stdout, stderr bytes.Buffer
-	ctx := WithHandlerContext(context.Background(), &HandlerContext{
+	ctx := WithHandlerContext(t.Context(), &HandlerContext{
 		Stdin:     strings.NewReader(input),
 		Stdout:    &stdout,
 		Stderr:    &stderr,

@@ -358,6 +358,40 @@ enable = [
 setting-name = "value"  # Brief explanation of what this controls
 ```
 
+## Struct-Level Validation Contract
+
+### Validate() Wiring Rule
+
+Every struct type with a `Validate()` method **MUST** have at least one production call site. A `Validate()` method that exists only in tests is dead code — it provides a false sense of safety.
+
+**Constructors accepting struct configs SHOULD call `Validate()`** and return error if invalid. Non-validating factories for CUE parsing or test fixtures MUST be documented with a comment explaining why validation is deferred.
+
+When adding a new struct `Validate()`, wire it into the production path **immediately** — never merge orphaned validators.
+
+### Validate() Usage Rule
+
+**NEVER discard the `Validate()` error return.** Always check and propagate it.
+
+```go
+// BAD: silently discards validation error
+cfg.Validate()
+
+// BAD: explicitly discards validation error
+_ = cfg.Validate()
+
+// GOOD: check and propagate
+if err := cfg.Validate(); err != nil {
+    return err
+}
+
+// GOOD: wrapped with context
+if err := cfg.Validate(); err != nil {
+    return fmt.Errorf("invalid config: %w", err)
+}
+```
+
+goplint's `--check-validate-usage` mode enforces this rule: it flags discarded `Validate()` results.
+
 ## Common Pitfalls
 
 - **Silent close errors** - Use named returns with defer for resource cleanup.

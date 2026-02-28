@@ -142,10 +142,18 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	}
 
 	// Build run options - enable TTY and Interactive for PTY attachment
+	imgTag := container.ImageTag(image)
+	if err := imgTag.Validate(); err != nil {
+		return nil, fmt.Errorf("container image tag: %w", err)
+	}
+	mountWorkDir := container.MountTargetPath(workDir)
+	if err := mountWorkDir.Validate(); err != nil {
+		return nil, fmt.Errorf("container work dir: %w", err)
+	}
 	runOpts := container.RunOptions{
-		Image:       container.ImageTag(image),
+		Image:       imgTag,
 		Command:     shellCmd,
-		WorkDir:     container.MountTargetPath(workDir),
+		WorkDir:     mountWorkDir,
 		Env:         env,
 		Volumes:     volumes,
 		Ports:       containerCfg.Ports,
@@ -197,7 +205,11 @@ func (r *ContainerRuntime) CleanupImage(ctx *ExecutionContext) error {
 	if err != nil {
 		return err
 	}
-	return r.engine.RemoveImage(ctx.Context, container.ImageTag(imageTag), true)
+	tag := container.ImageTag(imageTag)
+	if err := tag.Validate(); err != nil {
+		return fmt.Errorf("cleanup image tag: %w", err)
+	}
+	return r.engine.RemoveImage(ctx.Context, tag, true)
 }
 
 // GetEngineName returns the name of the underlying container engine

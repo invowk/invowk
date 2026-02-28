@@ -31,7 +31,7 @@ func TestSelectionIndex_String(t *testing.T) {
 	}
 }
 
-func TestSelectionIndex_IsValid(t *testing.T) {
+func TestSelectionIndex_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -49,23 +49,23 @@ func TestSelectionIndex_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.index.String(), func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.index.IsValid()
-			if isValid != tt.want {
-				t.Errorf("SelectionIndex(%d).IsValid() = %v, want %v", tt.index, isValid, tt.want)
+			err := tt.index.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("SelectionIndex(%d).Validate() err = %v, wantValid %v", tt.index, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("SelectionIndex(%d).IsValid() returned no errors, want error", tt.index)
+				if err == nil {
+					t.Fatalf("SelectionIndex(%d).Validate() returned nil, want error", tt.index)
 				}
-				if !errors.Is(errs[0], ErrInvalidSelectionIndex) {
-					t.Errorf("error should wrap ErrInvalidSelectionIndex, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSelectionIndex) {
+					t.Errorf("error should wrap ErrInvalidSelectionIndex, got: %v", err)
 				}
 				var idxErr *InvalidSelectionIndexError
-				if !errors.As(errs[0], &idxErr) {
-					t.Errorf("error should be *InvalidSelectionIndexError, got: %T", errs[0])
+				if !errors.As(err, &idxErr) {
+					t.Errorf("error should be *InvalidSelectionIndexError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("SelectionIndex(%d).IsValid() returned unexpected errors: %v", tt.index, errs)
+			} else if err != nil {
+				t.Errorf("SelectionIndex(%d).Validate() returned unexpected error: %v", tt.index, err)
 			}
 		})
 	}

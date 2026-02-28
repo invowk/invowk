@@ -125,14 +125,14 @@ func TestDetectPathType(t *testing.T) {
 	}
 }
 
-func TestPathType_IsValid(t *testing.T) {
+func TestPathType_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		value   pathType
-		want    bool
-		wantErr bool
+		name      string
+		value     pathType
+		wantValid bool
+		wantErr   bool
 	}{
 		{"unknown", pathTypeUnknown, true, false},
 		{"invowkfile", pathTypeInvowkfile, true, false},
@@ -145,19 +145,19 @@ func TestPathType_IsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			isValid, errs := tt.value.isValid()
-			if isValid != tt.want {
-				t.Errorf("pathType(%d).isValid() = %v, want %v", tt.value, isValid, tt.want)
+			err := tt.value.validate()
+			if (err == nil) != tt.wantValid {
+				t.Errorf("pathType(%d).validate() error = %v, wantValid %v", tt.value, err, tt.wantValid)
 			}
 
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Error("expected validation errors, got none")
-				} else if !errors.Is(errs[0], errInvalidPathType) {
-					t.Errorf("expected errors.Is(err, errInvalidPathType), got %v", errs[0])
+				if err == nil {
+					t.Error("expected validation error, got nil")
+				} else if !errors.Is(err, errInvalidPathType) {
+					t.Errorf("expected errors.Is(err, errInvalidPathType), got %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("unexpected validation errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("unexpected validation error: %v", err)
 			}
 		})
 	}

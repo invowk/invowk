@@ -116,8 +116,8 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 			Title:       filterTitle,
 			Placeholder: filterPlaceholder,
 			Options:     options,
-			Width:       tui.TerminalDimension(filterWidth),
-			Height:      tui.TerminalDimension(filterHeight),
+			Width:       tui.TerminalDimension(filterWidth),  //goplint:ignore -- CLI integer argument
+			Height:      tui.TerminalDimension(filterHeight), //goplint:ignore -- CLI integer argument
 			Limit:       limit,
 			NoLimit:     filterNoLimit,
 			Reverse:     filterReverse,

@@ -10,7 +10,7 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
-func TestModuleMetadata_IsValid(t *testing.T) {
+func TestModuleMetadata_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -90,26 +90,26 @@ func TestModuleMetadata_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.meta.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ModuleMetadata.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.meta.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ModuleMetadata.Validate() error = %v, want valid=%v", err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ModuleMetadata.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatalf("ModuleMetadata.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidModuleMetadata) {
-					t.Errorf("error should wrap ErrInvalidModuleMetadata, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidModuleMetadata) {
+					t.Errorf("error should wrap ErrInvalidModuleMetadata, got: %v", err)
 				}
 				var metaErr *InvalidModuleMetadataError
-				if !errors.As(errs[0], &metaErr) {
-					t.Fatalf("error should be *InvalidModuleMetadataError, got: %T", errs[0])
+				if !errors.As(err, &metaErr) {
+					t.Fatalf("error should be *InvalidModuleMetadataError, got: %T", err)
 				}
 				if len(metaErr.FieldErrors) != tt.wantCount {
 					t.Errorf("field errors count = %d, want %d", len(metaErr.FieldErrors), tt.wantCount)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ModuleMetadata.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("ModuleMetadata.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
@@ -184,15 +184,15 @@ func TestNewModuleMetadata(t *testing.T) {
 	}
 }
 
-func TestNewModuleMetadata_ConstructorAlwaysPassesIsValid(t *testing.T) {
+func TestNewModuleMetadata_ConstructorAlwaysPassesValidate(t *testing.T) {
 	t.Parallel()
 
 	meta, err := NewModuleMetadata("io.invowk.test", "1.0.0", "Test", nil)
 	if err != nil {
 		t.Fatalf("NewModuleMetadata() unexpected error: %v", err)
 	}
-	if isValid, errs := meta.IsValid(); !isValid {
-		t.Errorf("constructor-created ModuleMetadata should pass IsValid(), got errors: %v", errs)
+	if err := meta.Validate(); err != nil {
+		t.Errorf("constructor-created ModuleMetadata should pass Validate(), got error: %v", err)
 	}
 }
 

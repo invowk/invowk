@@ -99,7 +99,10 @@ func TestNewLayerProvisionerWithNilConfig(t *testing.T) {
 	t.Parallel()
 
 	// NewLayerProvisioner should use DefaultConfig when passed nil
-	provisioner := NewLayerProvisioner(nil, nil)
+	provisioner, err := NewLayerProvisioner(nil, nil)
+	if err != nil {
+		t.Fatalf("NewLayerProvisioner(nil, nil) unexpected error: %v", err)
+	}
 
 	if provisioner.config == nil {
 		t.Fatal("Expected config to be set to defaults when nil passed")

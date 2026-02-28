@@ -174,6 +174,8 @@ type (
 		Value MountTargetPath
 	}
 
+	//goplint:validate-all
+	//
 	// VolumeMount represents a volume mount specification.
 	VolumeMount struct {
 		HostPath      HostFilesystemPath
@@ -182,6 +184,8 @@ type (
 		SELinux       SELinuxLabel
 	}
 
+	//goplint:validate-all
+	//
 	// PortMapping represents a port mapping specification.
 	PortMapping struct {
 		HostPort      NetworkPort
@@ -212,15 +216,14 @@ func (e *InvalidPortProtocolError) Error() string {
 // Unwrap returns ErrInvalidPortProtocol so callers can use errors.Is for programmatic detection.
 func (e *InvalidPortProtocolError) Unwrap() error { return ErrInvalidPortProtocol }
 
-// IsValid returns whether the PortProtocol is one of the defined protocols,
-// and a list of validation errors if it is not.
+// Validate returns an error if the PortProtocol is not one of the defined protocols.
 // The zero value ("") is valid — it is treated as "tcp" by FormatPortMapping.
-func (p PortProtocol) IsValid() (bool, []error) {
+func (p PortProtocol) Validate() error {
 	switch p {
 	case PortProtocolTCP, PortProtocolUDP, "":
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidPortProtocolError{Value: p}}
+		return &InvalidPortProtocolError{Value: p}
 	}
 }
 
@@ -235,15 +238,14 @@ func (e *InvalidSELinuxLabelError) Error() string {
 // Unwrap returns ErrInvalidSELinuxLabel so callers can use errors.Is for programmatic detection.
 func (e *InvalidSELinuxLabelError) Unwrap() error { return ErrInvalidSELinuxLabel }
 
-// IsValid returns whether the SELinuxLabel is one of the defined labels,
-// and a list of validation errors if it is not.
+// Validate returns an error if the SELinuxLabel is not one of the defined labels.
 // The zero value ("") is valid — it means no SELinux label.
-func (s SELinuxLabel) IsValid() (bool, []error) {
+func (s SELinuxLabel) Validate() error {
 	switch s {
 	case SELinuxLabelNone, SELinuxLabelShared, SELinuxLabelPrivate:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidSELinuxLabelError{Value: s}}
+		return &InvalidSELinuxLabelError{Value: s}
 	}
 }
 
@@ -253,13 +255,13 @@ func (s SELinuxLabel) String() string { return string(s) }
 // String returns the string representation of the NetworkPort.
 func (p NetworkPort) String() string { return fmt.Sprintf("%d", p) }
 
-// IsValid returns whether the NetworkPort is valid.
+// Validate returns an error if the NetworkPort is invalid.
 // A valid port must be greater than zero.
-func (p NetworkPort) IsValid() (bool, []error) {
+func (p NetworkPort) Validate() error {
 	if p == 0 {
-		return false, []error{&InvalidNetworkPortError{Value: p}}
+		return &InvalidNetworkPortError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidNetworkPortError.
@@ -273,13 +275,15 @@ func (e *InvalidNetworkPortError) Unwrap() error { return ErrInvalidNetworkPort 
 // String returns the string representation of the HostFilesystemPath.
 func (p HostFilesystemPath) String() string { return string(p) }
 
-// IsValid returns whether the HostFilesystemPath is valid.
+// Validate returns an error if the HostFilesystemPath is invalid.
 // A valid path must be non-empty and not whitespace-only.
-func (p HostFilesystemPath) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (p HostFilesystemPath) Validate() error {
 	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidHostFilesystemPathError{Value: p}}
+		return &InvalidHostFilesystemPathError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidHostFilesystemPathError.
@@ -293,13 +297,15 @@ func (e *InvalidHostFilesystemPathError) Unwrap() error { return ErrInvalidHostF
 // String returns the string representation of the MountTargetPath.
 func (p MountTargetPath) String() string { return string(p) }
 
-// IsValid returns whether the MountTargetPath is valid.
+// Validate returns an error if the MountTargetPath is invalid.
 // A valid path must be non-empty and not whitespace-only.
-func (p MountTargetPath) IsValid() (bool, []error) {
+//
+//goplint:nonzero
+func (p MountTargetPath) Validate() error {
 	if strings.TrimSpace(string(p)) == "" {
-		return false, []error{&InvalidMountTargetPathError{Value: p}}
+		return &InvalidMountTargetPathError{Value: p}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidMountTargetPathError.
@@ -321,24 +327,24 @@ func (e *InvalidVolumeMountError) Error() string {
 // Unwrap returns ErrInvalidVolumeMount for errors.Is() compatibility.
 func (e *InvalidVolumeMountError) Unwrap() error { return ErrInvalidVolumeMount }
 
-// IsValid returns whether all typed fields of the VolumeMount are valid,
-// and a combined list of validation errors from HostPath, ContainerPath, and SELinux.
+// Validate returns an error if any typed field of the VolumeMount is invalid.
+// Validates HostPath, ContainerPath, and SELinux.
 // ReadOnly is a bool and requires no validation.
-func (v VolumeMount) IsValid() (bool, []error) {
+func (v VolumeMount) Validate() error {
 	var errs []error
-	if valid, fieldErrs := v.HostPath.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := v.HostPath.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := v.ContainerPath.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := v.ContainerPath.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := v.SELinux.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := v.SELinux.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, errs
+		return errors.Join(errs...)
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the volume mount in "host:container[:selinux][:ro]" format.
@@ -362,23 +368,23 @@ func (e *InvalidPortMappingError) Error() string {
 // Unwrap returns ErrInvalidPortMapping for errors.Is() compatibility.
 func (e *InvalidPortMappingError) Unwrap() error { return ErrInvalidPortMapping }
 
-// IsValid returns whether all typed fields of the PortMapping are valid,
-// and a combined list of validation errors from HostPort, ContainerPort, and Protocol.
-func (p PortMapping) IsValid() (bool, []error) {
+// Validate returns an error if any typed field of the PortMapping is invalid.
+// Validates HostPort, ContainerPort, and Protocol.
+func (p PortMapping) Validate() error {
 	var errs []error
-	if valid, fieldErrs := p.HostPort.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := p.HostPort.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := p.ContainerPort.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := p.ContainerPort.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := p.Protocol.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := p.Protocol.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, errs
+		return errors.Join(errs...)
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the port mapping in "host:container/protocol" format.
@@ -700,7 +706,12 @@ func (e *BaseCLIEngine) Close() error {
 // --- Promoted Engine Methods (shared by Docker and Podman) ---
 
 // Build builds an image from a Dockerfile.
+// It validates BuildOptions before executing to catch invalid fields early.
 func (e *BaseCLIEngine) Build(ctx context.Context, opts BuildOptions) error {
+	if err := opts.Validate(); err != nil {
+		return err
+	}
+
 	args := e.BuildArgs(opts)
 
 	cmd := e.CreateCommand(ctx, args...)
@@ -717,7 +728,12 @@ func (e *BaseCLIEngine) Build(ctx context.Context, opts BuildOptions) error {
 // Run runs a command in a container and returns the result.
 // A non-zero exit code is captured in RunResult.ExitCode (not returned as error).
 // Only infrastructure failures (binary not found, etc.) set RunResult.Error.
+// It validates RunOptions before executing to catch invalid fields early.
 func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+
 	args := e.RunArgs(opts)
 
 	cmd := e.CreateCommand(ctx, args...)
@@ -730,7 +746,11 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 	result := &RunResult{}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = types.ExitCode(exitErr.ExitCode())
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if validateErr := exitCode.Validate(); validateErr != nil {
+				return nil, fmt.Errorf("container run exit code: %w", validateErr)
+			}
+			result.ExitCode = exitCode
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -754,7 +774,11 @@ func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, comma
 	result := &RunResult{ContainerID: containerID}
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			result.ExitCode = types.ExitCode(exitErr.ExitCode())
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if validateErr := exitCode.Validate(); validateErr != nil {
+				return nil, fmt.Errorf("container exec exit code: %w", validateErr)
+			}
+			result.ExitCode = exitCode
 		} else {
 			result.ExitCode = 1
 			result.Error = err
@@ -860,17 +884,17 @@ func FormatVolumeMount(mount VolumeMount) string {
 // ParseVolumeMount parses a volume string into a VolumeMount struct.
 // Volume format: host_path:container_path[:options]
 // Options can include: ro, rw, z, Z, and others.
-// After parsing, the result is validated via VolumeMount.IsValid().
-func ParseVolumeMount(volume string) (VolumeMount, []error) {
+// After parsing, the result is validated via VolumeMount.Validate().
+func ParseVolumeMount(volume string) (VolumeMount, error) {
 	mount := VolumeMount{}
 
 	parts := strings.Split(volume, ":")
 
 	if len(parts) >= 1 {
-		mount.HostPath = HostFilesystemPath(parts[0])
+		mount.HostPath = HostFilesystemPath(parts[0]) //goplint:ignore -- validated by mount.Validate() below
 	}
 	if len(parts) >= 2 {
-		mount.ContainerPath = MountTargetPath(parts[1])
+		mount.ContainerPath = MountTargetPath(parts[1]) //goplint:ignore -- validated by mount.Validate() below
 	}
 	if len(parts) >= 3 {
 		options := parts[2]
@@ -879,13 +903,13 @@ func ParseVolumeMount(volume string) (VolumeMount, []error) {
 			case "ro":
 				mount.ReadOnly = true
 			case "z", "Z":
-				mount.SELinux = SELinuxLabel(opt)
+				mount.SELinux = SELinuxLabel(opt) //goplint:ignore -- validated by mount.Validate() below
 			}
 		}
 	}
 
-	if valid, errs := mount.IsValid(); !valid {
-		return mount, errs
+	if err := mount.Validate(); err != nil {
+		return mount, err
 	}
 	return mount, nil
 }
@@ -904,35 +928,35 @@ func FormatPortMapping(mapping PortMapping) string {
 }
 
 // ParsePortMapping parses a port mapping string in "hostPort:containerPort[/protocol]" format
-// into a PortMapping struct. After parsing, the result is validated via PortMapping.IsValid().
-func ParsePortMapping(portStr string) (PortMapping, []error) {
+// into a PortMapping struct. After parsing, the result is validated via PortMapping.Validate().
+func ParsePortMapping(portStr string) (PortMapping, error) {
 	mapping := PortMapping{}
 
 	parts := strings.SplitN(portStr, ":", 2)
 	if len(parts) != 2 {
-		return mapping, []error{fmt.Errorf("invalid port mapping format %q: must contain ':' separator", portStr)}
+		return mapping, fmt.Errorf("invalid port mapping format %q: must contain ':' separator", portStr)
 	}
 
 	hostPort, err := strconv.ParseUint(parts[0], 10, 16)
 	if err != nil {
-		return mapping, []error{fmt.Errorf("invalid host port %q: %w", parts[0], err)}
+		return mapping, fmt.Errorf("invalid host port %q: %w", parts[0], err)
 	}
-	mapping.HostPort = NetworkPort(hostPort)
+	mapping.HostPort = NetworkPort(hostPort) //goplint:ignore -- validated by mapping.Validate() below
 
 	// Split container part on "/" to get port number and optional protocol
 	containerParts := strings.SplitN(parts[1], "/", 2)
 	containerPort, err := strconv.ParseUint(containerParts[0], 10, 16)
 	if err != nil {
-		return mapping, []error{fmt.Errorf("invalid container port %q: %w", containerParts[0], err)}
+		return mapping, fmt.Errorf("invalid container port %q: %w", containerParts[0], err)
 	}
-	mapping.ContainerPort = NetworkPort(containerPort)
+	mapping.ContainerPort = NetworkPort(containerPort) //goplint:ignore -- validated by mapping.Validate() below
 
 	if len(containerParts) == 2 {
-		mapping.Protocol = PortProtocol(containerParts[1])
+		mapping.Protocol = PortProtocol(containerParts[1]) //goplint:ignore -- validated by mapping.Validate() below
 	}
 
-	if valid, errs := mapping.IsValid(); !valid {
-		return mapping, errs
+	if err := mapping.Validate(); err != nil {
+		return mapping, err
 	}
 	return mapping, nil
 }

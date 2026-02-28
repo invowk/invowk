@@ -9,7 +9,7 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-func TestContainerID_IsValid(t *testing.T) {
+func TestContainerID_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -29,23 +29,23 @@ func TestContainerID_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.id.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ContainerID(%q).IsValid() = %v, want %v", tt.id, isValid, tt.want)
+			err := tt.id.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ContainerID(%q).Validate() error = %v, want valid=%v", tt.id, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ContainerID(%q).IsValid() returned no errors, want error", tt.id)
+				if err == nil {
+					t.Fatalf("ContainerID(%q).Validate() returned nil, want error", tt.id)
 				}
-				if !errors.Is(errs[0], ErrInvalidContainerID) {
-					t.Errorf("error should wrap ErrInvalidContainerID, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidContainerID) {
+					t.Errorf("error should wrap ErrInvalidContainerID, got: %v", err)
 				}
 				var cidErr *InvalidContainerIDError
-				if !errors.As(errs[0], &cidErr) {
-					t.Errorf("error should be *InvalidContainerIDError, got: %T", errs[0])
+				if !errors.As(err, &cidErr) {
+					t.Errorf("error should be *InvalidContainerIDError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ContainerID(%q).IsValid() returned unexpected errors: %v", tt.id, errs)
+			} else if err != nil {
+				t.Errorf("ContainerID(%q).Validate() returned unexpected error: %v", tt.id, err)
 			}
 		})
 	}
@@ -59,7 +59,7 @@ func TestContainerID_String(t *testing.T) {
 	}
 }
 
-func TestImageTag_IsValid(t *testing.T) {
+func TestImageTag_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -80,23 +80,23 @@ func TestImageTag_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.tag.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ImageTag(%q).IsValid() = %v, want %v", tt.tag, isValid, tt.want)
+			err := tt.tag.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ImageTag(%q).Validate() error = %v, want valid=%v", tt.tag, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ImageTag(%q).IsValid() returned no errors, want error", tt.tag)
+				if err == nil {
+					t.Fatalf("ImageTag(%q).Validate() returned nil, want error", tt.tag)
 				}
-				if !errors.Is(errs[0], ErrInvalidImageTag) {
-					t.Errorf("error should wrap ErrInvalidImageTag, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidImageTag) {
+					t.Errorf("error should wrap ErrInvalidImageTag, got: %v", err)
 				}
 				var itErr *InvalidImageTagError
-				if !errors.As(errs[0], &itErr) {
-					t.Errorf("error should be *InvalidImageTagError, got: %T", errs[0])
+				if !errors.As(err, &itErr) {
+					t.Errorf("error should be *InvalidImageTagError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ImageTag(%q).IsValid() returned unexpected errors: %v", tt.tag, errs)
+			} else if err != nil {
+				t.Errorf("ImageTag(%q).Validate() returned unexpected error: %v", tt.tag, err)
 			}
 		})
 	}
@@ -110,7 +110,7 @@ func TestImageTag_String(t *testing.T) {
 	}
 }
 
-func TestContainerName_IsValid(t *testing.T) {
+func TestContainerName_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -130,23 +130,23 @@ func TestContainerName_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.cn.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ContainerName(%q).IsValid() = %v, want %v", tt.cn, isValid, tt.want)
+			err := tt.cn.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ContainerName(%q).Validate() error = %v, want valid=%v", tt.cn, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ContainerName(%q).IsValid() returned no errors, want error", tt.cn)
+				if err == nil {
+					t.Fatalf("ContainerName(%q).Validate() returned nil, want error", tt.cn)
 				}
-				if !errors.Is(errs[0], ErrInvalidContainerName) {
-					t.Errorf("error should wrap ErrInvalidContainerName, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidContainerName) {
+					t.Errorf("error should wrap ErrInvalidContainerName, got: %v", err)
 				}
 				var cnErr *InvalidContainerNameError
-				if !errors.As(errs[0], &cnErr) {
-					t.Errorf("error should be *InvalidContainerNameError, got: %T", errs[0])
+				if !errors.As(err, &cnErr) {
+					t.Errorf("error should be *InvalidContainerNameError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ContainerName(%q).IsValid() returned unexpected errors: %v", tt.cn, errs)
+			} else if err != nil {
+				t.Errorf("ContainerName(%q).Validate() returned unexpected error: %v", tt.cn, err)
 			}
 		})
 	}
@@ -160,7 +160,7 @@ func TestContainerName_String(t *testing.T) {
 	}
 }
 
-func TestHostMapping_IsValid(t *testing.T) {
+func TestHostMapping_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -180,23 +180,23 @@ func TestHostMapping_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.hm.IsValid()
-			if isValid != tt.want {
-				t.Errorf("HostMapping(%q).IsValid() = %v, want %v", tt.hm, isValid, tt.want)
+			err := tt.hm.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("HostMapping(%q).Validate() error = %v, want valid=%v", tt.hm, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("HostMapping(%q).IsValid() returned no errors, want error", tt.hm)
+				if err == nil {
+					t.Fatalf("HostMapping(%q).Validate() returned nil, want error", tt.hm)
 				}
-				if !errors.Is(errs[0], ErrInvalidHostMapping) {
-					t.Errorf("error should wrap ErrInvalidHostMapping, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidHostMapping) {
+					t.Errorf("error should wrap ErrInvalidHostMapping, got: %v", err)
 				}
 				var hmErr *InvalidHostMappingError
-				if !errors.As(errs[0], &hmErr) {
-					t.Errorf("error should be *InvalidHostMappingError, got: %T", errs[0])
+				if !errors.As(err, &hmErr) {
+					t.Errorf("error should be *InvalidHostMappingError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("HostMapping(%q).IsValid() returned unexpected errors: %v", tt.hm, errs)
+			} else if err != nil {
+				t.Errorf("HostMapping(%q).Validate() returned unexpected error: %v", tt.hm, err)
 			}
 		})
 	}
@@ -210,7 +210,7 @@ func TestHostMapping_String(t *testing.T) {
 	}
 }
 
-func TestNetworkPort_IsValid(t *testing.T) {
+func TestNetworkPort_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -229,23 +229,23 @@ func TestNetworkPort_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.port.IsValid()
-			if isValid != tt.want {
-				t.Errorf("NetworkPort(%d).IsValid() = %v, want %v", tt.port, isValid, tt.want)
+			err := tt.port.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("NetworkPort(%d).Validate() error = %v, want valid=%v", tt.port, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("NetworkPort(%d).IsValid() returned no errors, want error", tt.port)
+				if err == nil {
+					t.Fatalf("NetworkPort(%d).Validate() returned nil, want error", tt.port)
 				}
-				if !errors.Is(errs[0], ErrInvalidNetworkPort) {
-					t.Errorf("error should wrap ErrInvalidNetworkPort, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidNetworkPort) {
+					t.Errorf("error should wrap ErrInvalidNetworkPort, got: %v", err)
 				}
 				var npErr *InvalidNetworkPortError
-				if !errors.As(errs[0], &npErr) {
-					t.Errorf("error should be *InvalidNetworkPortError, got: %T", errs[0])
+				if !errors.As(err, &npErr) {
+					t.Errorf("error should be *InvalidNetworkPortError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("NetworkPort(%d).IsValid() returned unexpected errors: %v", tt.port, errs)
+			} else if err != nil {
+				t.Errorf("NetworkPort(%d).Validate() returned unexpected error: %v", tt.port, err)
 			}
 		})
 	}
@@ -259,7 +259,7 @@ func TestNetworkPort_String(t *testing.T) {
 	}
 }
 
-func TestHostFilesystemPath_IsValid(t *testing.T) {
+func TestHostFilesystemPath_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -279,23 +279,23 @@ func TestHostFilesystemPath_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.path.IsValid()
-			if isValid != tt.want {
-				t.Errorf("HostFilesystemPath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			err := tt.path.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("HostFilesystemPath(%q).Validate() error = %v, want valid=%v", tt.path, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("HostFilesystemPath(%q).IsValid() returned no errors, want error", tt.path)
+				if err == nil {
+					t.Fatalf("HostFilesystemPath(%q).Validate() returned nil, want error", tt.path)
 				}
-				if !errors.Is(errs[0], ErrInvalidHostFilesystemPath) {
-					t.Errorf("error should wrap ErrInvalidHostFilesystemPath, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidHostFilesystemPath) {
+					t.Errorf("error should wrap ErrInvalidHostFilesystemPath, got: %v", err)
 				}
 				var hfpErr *InvalidHostFilesystemPathError
-				if !errors.As(errs[0], &hfpErr) {
-					t.Errorf("error should be *InvalidHostFilesystemPathError, got: %T", errs[0])
+				if !errors.As(err, &hfpErr) {
+					t.Errorf("error should be *InvalidHostFilesystemPathError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("HostFilesystemPath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			} else if err != nil {
+				t.Errorf("HostFilesystemPath(%q).Validate() returned unexpected error: %v", tt.path, err)
 			}
 		})
 	}
@@ -309,7 +309,7 @@ func TestHostFilesystemPath_String(t *testing.T) {
 	}
 }
 
-func TestMountTargetPath_IsValid(t *testing.T) {
+func TestMountTargetPath_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -329,23 +329,23 @@ func TestMountTargetPath_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.path.IsValid()
-			if isValid != tt.want {
-				t.Errorf("MountTargetPath(%q).IsValid() = %v, want %v", tt.path, isValid, tt.want)
+			err := tt.path.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("MountTargetPath(%q).Validate() error = %v, want valid=%v", tt.path, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("MountTargetPath(%q).IsValid() returned no errors, want error", tt.path)
+				if err == nil {
+					t.Fatalf("MountTargetPath(%q).Validate() returned nil, want error", tt.path)
 				}
-				if !errors.Is(errs[0], ErrInvalidMountTargetPath) {
-					t.Errorf("error should wrap ErrInvalidMountTargetPath, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidMountTargetPath) {
+					t.Errorf("error should wrap ErrInvalidMountTargetPath, got: %v", err)
 				}
 				var mtpErr *InvalidMountTargetPathError
-				if !errors.As(errs[0], &mtpErr) {
-					t.Errorf("error should be *InvalidMountTargetPathError, got: %T", errs[0])
+				if !errors.As(err, &mtpErr) {
+					t.Errorf("error should be *InvalidMountTargetPathError, got: %T", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("MountTargetPath(%q).IsValid() returned unexpected errors: %v", tt.path, errs)
+			} else if err != nil {
+				t.Errorf("MountTargetPath(%q).Validate() returned unexpected error: %v", tt.path, err)
 			}
 		})
 	}
@@ -359,7 +359,7 @@ func TestMountTargetPath_String(t *testing.T) {
 	}
 }
 
-func TestBuildOptions_IsValid(t *testing.T) {
+func TestBuildOptions_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -397,16 +397,16 @@ func TestBuildOptions_IsValid(t *testing.T) {
 			false, true, 1,
 		},
 		{
-			"invalid tag (empty)",
+			"empty tag is valid (zero-value-is-valid: means no explicit tag)",
 			BuildOptions{
 				ContextDir: "/app",
 				Dockerfile: "Dockerfile",
 				Tag:        "",
 			},
-			false, true, 1,
+			true, false, 0,
 		},
 		{
-			"all fields invalid",
+			"all non-empty fields invalid",
 			BuildOptions{
 				ContextDir: "",
 				Dockerfile: "   ",
@@ -415,42 +415,42 @@ func TestBuildOptions_IsValid(t *testing.T) {
 			false, true, 3,
 		},
 		{
-			"zero value (all empty)",
+			"zero value (only ContextDir is required)",
 			BuildOptions{},
-			false, true, 3,
+			false, true, 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.opts.IsValid()
-			if isValid != tt.want {
-				t.Errorf("BuildOptions.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.opts.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("BuildOptions.Validate() error = %v, want valid=%v", err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatal("BuildOptions.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatal("BuildOptions.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidBuildOptions) {
-					t.Errorf("error should wrap ErrInvalidBuildOptions, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidBuildOptions) {
+					t.Errorf("error should wrap ErrInvalidBuildOptions, got: %v", err)
 				}
 				var boErr *InvalidBuildOptionsError
-				if !errors.As(errs[0], &boErr) {
-					t.Fatalf("error should be *InvalidBuildOptionsError, got: %T", errs[0])
+				if !errors.As(err, &boErr) {
+					t.Fatalf("error should be *InvalidBuildOptionsError, got: %T", err)
 				}
 				if tt.wantCount > 0 && len(boErr.FieldErrors) != tt.wantCount {
 					t.Errorf("InvalidBuildOptionsError has %d field errors, want %d: %v",
 						len(boErr.FieldErrors), tt.wantCount, boErr.FieldErrors)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("BuildOptions.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("BuildOptions.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestRunOptions_IsValid(t *testing.T) {
+func TestRunOptions_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -551,27 +551,27 @@ func TestRunOptions_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.opts.IsValid()
-			if isValid != tt.want {
-				t.Errorf("RunOptions.IsValid() = %v, want %v", isValid, tt.want)
+			err := tt.opts.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("RunOptions.Validate() error = %v, want valid=%v", err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatal("RunOptions.IsValid() returned no errors, want error")
+				if err == nil {
+					t.Fatal("RunOptions.Validate() returned nil, want error")
 				}
-				if !errors.Is(errs[0], ErrInvalidRunOptions) {
-					t.Errorf("error should wrap ErrInvalidRunOptions, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidRunOptions) {
+					t.Errorf("error should wrap ErrInvalidRunOptions, got: %v", err)
 				}
 				var roErr *InvalidRunOptionsError
-				if !errors.As(errs[0], &roErr) {
-					t.Fatalf("error should be *InvalidRunOptionsError, got: %T", errs[0])
+				if !errors.As(err, &roErr) {
+					t.Fatalf("error should be *InvalidRunOptionsError, got: %T", err)
 				}
 				if tt.wantCount > 0 && len(roErr.FieldErrors) != tt.wantCount {
 					t.Errorf("InvalidRunOptionsError has %d field errors, want %d: %v",
 						len(roErr.FieldErrors), tt.wantCount, roErr.FieldErrors)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("RunOptions.IsValid() returned unexpected errors: %v", errs)
+			} else if err != nil {
+				t.Errorf("RunOptions.Validate() returned unexpected error: %v", err)
 			}
 		})
 	}

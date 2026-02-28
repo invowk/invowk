@@ -29,7 +29,11 @@ func GetDefaultCacheDir() (types.FilesystemPath, error) {
 // getenv function. This enables testing without mutating process-global environment state.
 func GetDefaultCacheDirWith(getenv func(string) string) (types.FilesystemPath, error) {
 	if envPath := getenv(ModuleCachePathEnv); envPath != "" {
-		return types.FilesystemPath(envPath), nil
+		cachePath := types.FilesystemPath(envPath)
+		if err := cachePath.Validate(); err != nil {
+			return "", fmt.Errorf("module cache path from %s: %w", ModuleCachePathEnv, err)
+		}
+		return cachePath, nil
 	}
 
 	homeDir, err := os.UserHomeDir()
@@ -37,7 +41,11 @@ func GetDefaultCacheDirWith(getenv func(string) string) (types.FilesystemPath, e
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	return types.FilesystemPath(filepath.Join(homeDir, ".invowk", DefaultModulesDir)), nil
+	cachePath := types.FilesystemPath(filepath.Join(homeDir, ".invowk", DefaultModulesDir))
+	if err := cachePath.Validate(); err != nil {
+		return "", fmt.Errorf("module cache path: %w", err)
+	}
+	return cachePath, nil
 }
 
 // getCachePath returns the cache path for a module.

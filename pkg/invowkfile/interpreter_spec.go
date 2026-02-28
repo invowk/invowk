@@ -27,16 +27,16 @@ type (
 // String returns the string representation of the InterpreterSpec.
 func (s InterpreterSpec) String() string { return string(s) }
 
-// IsValid returns whether the InterpreterSpec is valid.
+// Validate returns nil if the InterpreterSpec is valid, or a validation error if not.
 // The zero value ("") is valid (means "auto"). Non-zero values must not be whitespace-only.
-func (s InterpreterSpec) IsValid() (bool, []error) {
+func (s InterpreterSpec) Validate() error {
 	if s == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(s)) == "" {
-		return false, []error{&InvalidInterpreterSpecError{Value: s}}
+		return &InvalidInterpreterSpecError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidInterpreterSpecError.

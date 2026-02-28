@@ -38,8 +38,8 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 
 	// Validate path to prevent directory traversal attacks
 	if req.Path != "" {
-		if valid, errs := req.Path.IsValid(); !valid {
-			return fmt.Errorf("invalid path: %w", errs[0])
+		if err := req.Path.Validate(); err != nil {
+			return fmt.Errorf("invalid path: %w", err)
 		}
 	}
 
@@ -234,9 +234,9 @@ func extractModuleName(key ModuleRefKey) ModuleShortName {
 	if len(urlParts) > 0 {
 		name := urlParts[len(urlParts)-1]
 		name = strings.TrimSuffix(name, ".git")
-		return ModuleShortName(name)
+		return ModuleShortName(name) //goplint:ignore -- best-effort name extraction from URL
 	}
-	return ModuleShortName(key)
+	return ModuleShortName(key) //goplint:ignore -- fallback from require key
 }
 
 // extractModuleFromInvowkmod extracts the module field from invowkmod content

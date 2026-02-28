@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSemVer_IsValid(t *testing.T) {
+func TestSemVer_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -29,19 +29,19 @@ func TestSemVer_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.sv.IsValid()
-			if isValid != tt.want {
-				t.Errorf("SemVer(%q).IsValid() = %v, want %v", tt.sv, isValid, tt.want)
+			err := tt.sv.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("SemVer(%q).Validate() error = %v, wantValid %v", tt.sv, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("SemVer(%q).IsValid() returned no errors, want error", tt.sv)
+				if err == nil {
+					t.Fatalf("SemVer(%q).Validate() returned nil, want error", tt.sv)
 				}
-				if !errors.Is(errs[0], ErrInvalidSemVer) {
-					t.Errorf("error should wrap ErrInvalidSemVer, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSemVer) {
+					t.Errorf("error should wrap ErrInvalidSemVer, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("SemVer(%q).IsValid() returned unexpected errors: %v", tt.sv, errs)
+			} else if err != nil {
+				t.Errorf("SemVer(%q).Validate() returned unexpected error: %v", tt.sv, err)
 			}
 		})
 	}
@@ -55,7 +55,7 @@ func TestSemVer_String(t *testing.T) {
 	}
 }
 
-func TestSemVerConstraint_IsValid(t *testing.T) {
+func TestSemVerConstraint_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -77,19 +77,19 @@ func TestSemVerConstraint_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.sc.IsValid()
-			if isValid != tt.want {
-				t.Errorf("SemVerConstraint(%q).IsValid() = %v, want %v", tt.sc, isValid, tt.want)
+			err := tt.sc.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("SemVerConstraint(%q).Validate() error = %v, wantValid %v", tt.sc, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("SemVerConstraint(%q).IsValid() returned no errors, want error", tt.sc)
+				if err == nil {
+					t.Fatalf("SemVerConstraint(%q).Validate() returned nil, want error", tt.sc)
 				}
-				if !errors.Is(errs[0], ErrInvalidSemVerConstraint) {
-					t.Errorf("error should wrap ErrInvalidSemVerConstraint, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidSemVerConstraint) {
+					t.Errorf("error should wrap ErrInvalidSemVerConstraint, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("SemVerConstraint(%q).IsValid() returned unexpected errors: %v", tt.sc, errs)
+			} else if err != nil {
+				t.Errorf("SemVerConstraint(%q).Validate() returned unexpected error: %v", tt.sc, err)
 			}
 		})
 	}
@@ -103,7 +103,7 @@ func TestSemVerConstraint_String(t *testing.T) {
 	}
 }
 
-func TestConstraintOp_IsValid(t *testing.T) {
+func TestConstraintOp_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -127,19 +127,19 @@ func TestConstraintOp_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			isValid, errs := tt.op.IsValid()
-			if isValid != tt.want {
-				t.Errorf("ConstraintOp(%q).IsValid() = %v, want %v", tt.op, isValid, tt.want)
+			err := tt.op.Validate()
+			if (err == nil) != tt.want {
+				t.Errorf("ConstraintOp(%q).Validate() error = %v, wantValid %v", tt.op, err, tt.want)
 			}
 			if tt.wantErr {
-				if len(errs) == 0 {
-					t.Fatalf("ConstraintOp(%q).IsValid() returned no errors, want error", tt.op)
+				if err == nil {
+					t.Fatalf("ConstraintOp(%q).Validate() returned nil, want error", tt.op)
 				}
-				if !errors.Is(errs[0], ErrInvalidConstraintOp) {
-					t.Errorf("error should wrap ErrInvalidConstraintOp, got: %v", errs[0])
+				if !errors.Is(err, ErrInvalidConstraintOp) {
+					t.Errorf("error should wrap ErrInvalidConstraintOp, got: %v", err)
 				}
-			} else if len(errs) > 0 {
-				t.Errorf("ConstraintOp(%q).IsValid() returned unexpected errors: %v", tt.op, errs)
+			} else if err != nil {
+				t.Errorf("ConstraintOp(%q).Validate() returned unexpected error: %v", tt.op, err)
 			}
 		})
 	}

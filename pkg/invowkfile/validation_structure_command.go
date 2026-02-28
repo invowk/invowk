@@ -147,7 +147,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 	// Validate env inherit mode
 	if rt.EnvInheritMode != "" {
-		if isValid, _ := rt.EnvInheritMode.IsValid(); !isValid {
+		if err := rt.EnvInheritMode.Validate(); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
@@ -159,11 +159,11 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 	// Validate env_inherit_allow names
 	for _, name := range rt.EnvInheritAllow {
-		if isValid, errs := name.IsValid(); !isValid {
+		if err := name.Validate(); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "env_inherit_allow: " + errs[0].Error(),
+				Message:   "env_inherit_allow: " + err.Error(),
 				Severity:  SeverityError,
 			})
 		}
@@ -171,11 +171,11 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 	// Validate env_inherit_deny names
 	for _, name := range rt.EnvInheritDeny {
-		if isValid, errs := name.IsValid(); !isValid {
+		if err := name.Validate(); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "env_inherit_deny: " + errs[0].Error(),
+				Message:   "env_inherit_deny: " + err.Error(),
 				Severity:  SeverityError,
 			})
 		}

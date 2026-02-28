@@ -73,13 +73,15 @@ func (e *InvalidSemVerError) Error() string {
 // Unwrap returns ErrInvalidSemVer so callers can use errors.Is for programmatic detection.
 func (e *InvalidSemVerError) Unwrap() error { return ErrInvalidSemVer }
 
-// IsValid returns whether the SemVer is a valid semantic version string,
-// and a list of validation errors if it is not.
-func (s SemVer) IsValid() (bool, []error) {
+//goplint:nonzero
+
+// Validate returns nil if the SemVer is a valid semantic version string,
+// or an error describing the validation failure.
+func (s SemVer) Validate() error {
 	if _, err := ParseVersion(string(s)); err != nil {
-		return false, []error{&InvalidSemVerError{Value: s}}
+		return &InvalidSemVerError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the SemVer.
@@ -93,14 +95,14 @@ func (e *InvalidSemVerConstraintError) Error() string {
 // Unwrap returns ErrInvalidSemVerConstraint so callers can use errors.Is for programmatic detection.
 func (e *InvalidSemVerConstraintError) Unwrap() error { return ErrInvalidSemVerConstraint }
 
-// IsValid returns whether the SemVerConstraint is a valid version constraint string,
-// and a list of validation errors if it is not.
-func (s SemVerConstraint) IsValid() (bool, []error) {
+// Validate returns nil if the SemVerConstraint is a valid version constraint string,
+// or an error describing the validation failure.
+func (s SemVerConstraint) Validate() error {
 	r := &SemverResolver{}
 	if _, err := r.ParseConstraint(string(s)); err != nil {
-		return false, []error{&InvalidSemVerConstraintError{Value: s}}
+		return &InvalidSemVerConstraintError{Value: s}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the SemVerConstraint.
@@ -114,15 +116,15 @@ func (e *InvalidConstraintOpError) Error() string {
 // Unwrap returns ErrInvalidConstraintOp for errors.Is() compatibility.
 func (e *InvalidConstraintOpError) Unwrap() error { return ErrInvalidConstraintOp }
 
-// IsValid returns whether the ConstraintOp is one of the defined operators,
-// and a list of validation errors if it is not.
-func (op ConstraintOp) IsValid() (bool, []error) {
+// Validate returns nil if the ConstraintOp is one of the defined operators,
+// or an error describing the validation failure.
+func (op ConstraintOp) Validate() error {
 	switch op {
 	case ConstraintOpEqual, ConstraintOpCaret, ConstraintOpTilde,
 		ConstraintOpGT, ConstraintOpGTE, ConstraintOpLT, ConstraintOpLTE:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidConstraintOpError{Value: op}}
+		return &InvalidConstraintOpError{Value: op}
 	}
 }
 

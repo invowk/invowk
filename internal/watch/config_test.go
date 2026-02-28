@@ -10,19 +10,19 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-func TestConfigIsValid(t *testing.T) {
+func TestConfigValidate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		cfg       Config
-		wantValid bool
-		wantErrs  bool
+		name     string
+		cfg      Config
+		wantOK   bool
+		wantErrs bool
 	}{
 		{
-			name:      "zero value is valid (empty patterns and empty BaseDir)",
-			cfg:       Config{},
-			wantValid: true,
+			name:   "zero value is valid (empty patterns and empty BaseDir)",
+			cfg:    Config{},
+			wantOK: true,
 		},
 		{
 			name: "all valid fields",
@@ -31,7 +31,7 @@ func TestConfigIsValid(t *testing.T) {
 				Ignore:   []invowkfile.GlobPattern{"**/.git/**"},
 				BaseDir:  "/home/user/project",
 			},
-			wantValid: true,
+			wantOK: true,
 		},
 		{
 			name: "empty pattern slices are valid",
@@ -39,7 +39,7 @@ func TestConfigIsValid(t *testing.T) {
 				Patterns: []invowkfile.GlobPattern{},
 				Ignore:   []invowkfile.GlobPattern{},
 			},
-			wantValid: true,
+			wantOK: true,
 		},
 		{
 			name: "non-domain fields do not affect validity",
@@ -47,39 +47,39 @@ func TestConfigIsValid(t *testing.T) {
 				ClearScreen: true,
 				Patterns:    []invowkfile.GlobPattern{"**/*.go"},
 			},
-			wantValid: true,
+			wantOK: true,
 		},
 		{
 			name: "single invalid pattern: empty GlobPattern",
 			cfg: Config{
 				Patterns: []invowkfile.GlobPattern{""},
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "single invalid ignore: empty GlobPattern",
 			cfg: Config{
 				Ignore: []invowkfile.GlobPattern{""},
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "single invalid field: whitespace-only BaseDir",
 			cfg: Config{
 				BaseDir: types.FilesystemPath("   "),
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "invalid pattern syntax",
 			cfg: Config{
 				Patterns: []invowkfile.GlobPattern{"[invalid"},
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "multiple invalid fields",
@@ -88,15 +88,15 @@ func TestConfigIsValid(t *testing.T) {
 				Ignore:   []invowkfile.GlobPattern{""},
 				BaseDir:  types.FilesystemPath("   "),
 			},
-			wantValid: false,
-			wantErrs:  true,
+			wantOK:   false,
+			wantErrs: true,
 		},
 		{
 			name: "valid patterns with empty BaseDir (uses cwd default)",
 			cfg: Config{
 				Patterns: []invowkfile.GlobPattern{"**/*.go"},
 			},
-			wantValid: true,
+			wantOK: true,
 		},
 	}
 
@@ -104,48 +104,45 @@ func TestConfigIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			valid, errs := tt.cfg.IsValid()
-			if valid != tt.wantValid {
-				t.Errorf("IsValid() valid = %v, want %v", valid, tt.wantValid)
+			err := tt.cfg.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("Validate() error = %v, wantOK %v", err, tt.wantOK)
 			}
-			if tt.wantErrs && len(errs) == 0 {
-				t.Error("IsValid() expected errors but got none")
+			if tt.wantErrs && err == nil {
+				t.Error("Validate() expected error but got nil")
 			}
-			if !tt.wantErrs && len(errs) > 0 {
-				t.Errorf("IsValid() unexpected errors: %v", errs)
+			if !tt.wantErrs && err != nil {
+				t.Errorf("Validate() unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestConfigIsValid_SentinelError(t *testing.T) {
+func TestConfigValidate_SentinelError(t *testing.T) {
 	t.Parallel()
 
 	cfg := Config{
 		Patterns: []invowkfile.GlobPattern{""},
 	}
 
-	valid, errs := cfg.IsValid()
-	if valid {
-		t.Fatal("expected invalid config")
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for invalid config")
 	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d", len(errs))
-	}
-	if !errors.Is(errs[0], ErrInvalidWatchConfig) {
-		t.Errorf("error should wrap ErrInvalidWatchConfig, got: %v", errs[0])
+	if !errors.Is(err, ErrInvalidWatchConfig) {
+		t.Errorf("error should wrap ErrInvalidWatchConfig, got: %v", err)
 	}
 
 	var configErr *InvalidWatchConfigError
-	if !errors.As(errs[0], &configErr) {
-		t.Fatalf("error should be *InvalidWatchConfigError, got: %T", errs[0])
+	if !errors.As(err, &configErr) {
+		t.Fatalf("error should be *InvalidWatchConfigError, got: %T", err)
 	}
 	if len(configErr.FieldErrors) != 1 {
 		t.Errorf("expected 1 field error, got %d", len(configErr.FieldErrors))
 	}
 }
 
-func TestConfigIsValid_MultipleFieldErrors(t *testing.T) {
+func TestConfigValidate_MultipleFieldErrors(t *testing.T) {
 	t.Parallel()
 
 	cfg := Config{
@@ -154,17 +151,14 @@ func TestConfigIsValid_MultipleFieldErrors(t *testing.T) {
 		BaseDir:  types.FilesystemPath("   "),
 	}
 
-	valid, errs := cfg.IsValid()
-	if valid {
-		t.Fatal("expected invalid config")
-	}
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 wrapped error, got %d", len(errs))
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for invalid config")
 	}
 
 	var configErr *InvalidWatchConfigError
-	if !errors.As(errs[0], &configErr) {
-		t.Fatalf("error should be *InvalidWatchConfigError, got: %T", errs[0])
+	if !errors.As(err, &configErr) {
+		t.Fatalf("error should be *InvalidWatchConfigError, got: %T", err)
 	}
 	// 2 empty Patterns + 1 empty Ignore + 1 whitespace BaseDir = 4 field errors
 	if len(configErr.FieldErrors) != 4 {

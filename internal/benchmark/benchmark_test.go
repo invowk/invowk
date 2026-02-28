@@ -4,7 +4,6 @@ package benchmark
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -289,7 +288,7 @@ func BenchmarkRuntimeNative(b *testing.B) {
 	}
 
 	cmd := inv.GetCommand("test")
-	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
@@ -333,7 +332,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 	}
 
 	cmd := inv.GetCommand("test")
-	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.IO = runtime.IOContext{
@@ -390,7 +389,7 @@ fi
 	}
 
 	cmd := inv.GetCommand("complex")
-	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.IO = runtime.IOContext{
@@ -448,7 +447,7 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 	}
 
 	cmd := inv.GetCommand("container-test")
-	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
 	ctx.SelectedRuntime = invowkfile.RuntimeContainer
 	ctx.IO = runtime.IOContext{
@@ -531,7 +530,7 @@ cmds: [
 		}
 
 		// Execution phase
-		ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+		ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
 		ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 		ctx.IO = runtime.IOContext{
@@ -577,7 +576,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Env: &invowkfile.EnvConfig{
-			Vars: map[string]string{
+			Vars: map[invowkfile.EnvVarName]string{
 				"ROOT_VAR1": "value1",
 				"ROOT_VAR2": "value2",
 			},
@@ -587,7 +586,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 				Name:        "test",
 				Description: "Test command",
 				Env: &invowkfile.EnvConfig{
-					Vars: map[string]string{
+					Vars: map[invowkfile.EnvVarName]string{
 						"CMD_VAR1": "cmd_value1",
 						"CMD_VAR2": "cmd_value2",
 					},
@@ -599,7 +598,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 							{Name: invowkfile.RuntimeNative},
 						},
 						Env: &invowkfile.EnvConfig{
-							Vars: map[string]string{
+							Vars: map[invowkfile.EnvVarName]string{
 								"IMPL_VAR1": "impl_value1",
 							},
 						},
@@ -610,7 +609,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 	}
 
 	cmd := inv.GetCommand("test")
-	ctx := runtime.NewExecutionContext(context.Background(), cmd, inv)
+	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
 	envBuilder := runtime.NewDefaultEnvBuilder()
 

@@ -173,7 +173,7 @@ func TestSandboxAwareEngine_DelegatesMethods(t *testing.T) {
 	}
 
 	// Version should delegate
-	version, err := engine.Version(context.Background())
+	version, err := engine.Version(t.Context())
 	if err != nil {
 		t.Errorf("Version() error = %v", err)
 	}
@@ -384,7 +384,7 @@ func TestSandboxAwareEngine_CustomizeCmd_Propagates(t *testing.T) {
 	// Wrap in SandboxAwareEngine
 	wrapper := newSandboxAwareEngineForTesting(podman, platform.SandboxFlatpak)
 
-	cmd := exec.CommandContext(context.Background(), "true")
+	cmd := exec.CommandContext(t.Context(), "true")
 	wrapper.CustomizeCmd(cmd)
 
 	if !slices.ContainsFunc(cmd.Env, func(s string) bool {

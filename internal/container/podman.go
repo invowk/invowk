@@ -58,8 +58,9 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 	allOpts = append(allOpts, sysctlOverrideOpts(path)...)
 	allOpts = append(allOpts, opts...)
 
+	// Binary path may be empty if Podman is not installed — validated later via Available().
 	return &PodmanEngine{
-		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...),
+		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...), //goplint:ignore -- validated by Available() guard
 	}
 }
 
@@ -80,8 +81,9 @@ func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...Base
 	allOpts = append(allOpts, sysctlOverrideOpts(path)...)
 	allOpts = append(allOpts, opts...)
 
+	// Binary path may be empty if Podman is not installed — validated later via Available().
 	return &PodmanEngine{
-		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...),
+		BaseCLIEngine: NewBaseCLIEngine(HostFilesystemPath(path), allOpts...), //goplint:ignore -- validated by Available() guard
 	}
 }
 

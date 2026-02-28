@@ -69,7 +69,13 @@ func extractExitCode(err error, captured *capturedOutput) *Result {
 
 	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		// Command executed but returned non-zero exit code
-		result.ExitCode = ExitCode(exitErr.ExitCode())
+		exitCode := ExitCode(exitErr.ExitCode())
+		if validateErr := exitCode.Validate(); validateErr != nil {
+			result.ExitCode = 1
+			result.Error = validateErr
+			return result
+		}
+		result.ExitCode = exitCode
 		return result
 	}
 

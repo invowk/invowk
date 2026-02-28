@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -122,9 +123,10 @@ type (
 	// This abstraction decouples module identity from invowkfile command listing,
 	// allowing Module to hold command access without depending on pkg/invowkfile
 	// parsing types. GetModule returns the module identifier from invowkmod.cue.
-	// ListCommands returns command names in no guaranteed order.
+	// ListCommands returns command names in no guaranteed order ([]string to avoid
+	// circular dependency on invowkfile.CommandName).
 	ModuleCommands interface {
-		GetModule() string
+		GetModule() ModuleID
 		ListCommands() []string
 	}
 
@@ -188,6 +190,8 @@ type (
 		IsLibraryOnly bool `json:"-"`
 	}
 
+	//goplint:validate-all
+	//
 	// ModuleRequirement represents a dependency on another module from a Git repository.
 	ModuleRequirement struct {
 		// GitURL is the Git repository URL (HTTPS or SSH format).
@@ -204,6 +208,8 @@ type (
 		Path SubdirectoryPath `json:"path,omitempty"`
 	}
 
+	//goplint:validate-all
+	//
 	// Invowkmod represents module metadata from invowkmod.cue.
 	// This is analogous to Go's go.mod file - it contains module identity and dependencies.
 	// Command definitions remain in invowkfile.cue (separate file).
@@ -238,7 +244,10 @@ type (
 	//  2. Commands from globally installed modules (~/.invowk/modules/)
 	//  3. Commands from first-level requirements (direct dependencies in invowkmod.cue:requires)
 	//
-	// Commands CANNOT call transitive dependencies (dependencies of dependencies).
+	//goplint:mutable
+	//
+	// CommandScope holds the commands visible to a module, populated post-construction
+	// via AddDirectDep(). Commands CANNOT call transitive dependencies.
 	CommandScope struct {
 		// ModuleID is the module identifier that owns this scope
 		ModuleID ModuleID `json:"-"`
@@ -263,53 +272,56 @@ func (e *InvalidModuleIDError) Unwrap() error {
 	return ErrInvalidModuleID
 }
 
-// IsValid returns whether the ModuleID matches the required RDNS format,
-// and a list of validation errors if it does not. The format requires:
+//goplint:nonzero
+
+// Validate returns nil if the ModuleID matches the required RDNS format,
+// or an error describing the validation failure. The format requires:
 // starts with a letter, alphanumeric segments separated by dots, max 256 runes.
 // This mirrors the CUE schema constraint in invowkmod_schema.cue.
-func (m ModuleID) IsValid() (bool, []error) {
+func (m ModuleID) Validate() error {
 	s := string(m)
 	if s == "" || len([]rune(s)) > MaxModuleIDLength || !moduleIDPattern.MatchString(s) {
-		return false, []error{&InvalidModuleIDError{Value: m}}
+		return &InvalidModuleIDError{Value: m}
 	}
 
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ModuleID.
 func (m ModuleID) String() string { return string(m) }
 
-// IsValid returns whether the Invowkmod has valid fields.
-// It delegates to Module.IsValid(), Version.IsValid(), and each
-// Requires entry's IsValid(). Description and FilePath are validated
+// Validate returns nil if the Invowkmod has valid fields, or an error
+// collecting all field-level validation failures.
+// It delegates to Module.Validate(), Version.Validate(), and each
+// Requires entry's Validate(). Description and FilePath are validated
 // only when non-empty (their zero values are valid).
-func (m Invowkmod) IsValid() (bool, []error) {
+func (m Invowkmod) Validate() error {
 	var errs []error
-	if valid, fieldErrs := m.Module.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := m.Module.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := m.Version.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := m.Version.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if m.Description != "" {
-		if valid, fieldErrs := m.Description.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := m.Description.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	for _, req := range m.Requires {
-		if valid, fieldErrs := req.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := req.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if m.FilePath != "" {
-		if valid, fieldErrs := m.FilePath.IsValid(); !valid {
-			errs = append(errs, fieldErrs...)
+		if err := m.FilePath.Validate(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
-		return false, []error{&InvalidInvowkmodError{FieldErrors: errs}}
+		return &InvalidInvowkmodError{FieldErrors: errs}
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidInvowkmodError.
@@ -330,17 +342,18 @@ func (e *InvalidModuleAliasError) Unwrap() error {
 	return ErrInvalidModuleAlias
 }
 
-// IsValid returns whether the ModuleAlias is valid.
+// Validate returns nil if the ModuleAlias is valid, or an error
+// describing the validation failure.
 // The zero value ("") is valid — it means "no alias".
 // Non-zero values must not be whitespace-only.
-func (a ModuleAlias) IsValid() (bool, []error) {
+func (a ModuleAlias) Validate() error {
 	if a == "" {
-		return true, nil
+		return nil
 	}
 	if strings.TrimSpace(string(a)) == "" {
-		return false, []error{&InvalidModuleAliasError{Value: a}}
+		return &InvalidModuleAliasError{Value: a}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the ModuleAlias.
@@ -356,77 +369,79 @@ func (e *InvalidSubdirectoryPathError) Unwrap() error {
 	return ErrInvalidSubdirectoryPath
 }
 
-// IsValid returns whether the SubdirectoryPath is valid.
+// Validate returns nil if the SubdirectoryPath is valid, or an error
+// describing the validation failure.
 // The zero value ("") is valid — it means "repository root".
 // Non-zero values must not contain path traversal (..) or absolute paths.
-func (p SubdirectoryPath) IsValid() (bool, []error) {
+func (p SubdirectoryPath) Validate() error {
 	if p == "" {
-		return true, nil
+		return nil
 	}
 	s := string(p)
 	if len(s) > MaxPathLength {
-		return false, []error{&InvalidSubdirectoryPathError{
+		return &InvalidSubdirectoryPathError{
 			Value:  p,
 			Reason: fmt.Sprintf("too long (%d chars, max %d)", len(s), MaxPathLength),
-		}}
+		}
 	}
 	if strings.ContainsRune(s, '\x00') {
-		return false, []error{&InvalidSubdirectoryPathError{
+		return &InvalidSubdirectoryPathError{
 			Value:  p,
 			Reason: "contains null byte",
-		}}
+		}
 	}
 	// SubdirectoryPath semantics are cross-platform and repository-relative.
 	// Normalize separators first so Windows-style inputs are validated consistently
 	// on all hosts (Linux/macOS/Windows).
 	cleanPath := slashpath.Clean(strings.ReplaceAll(s, "\\", "/"))
 	if strings.HasPrefix(cleanPath, "/") {
-		return false, []error{&InvalidSubdirectoryPathError{
+		return &InvalidSubdirectoryPathError{
 			Value:  p,
 			Reason: "absolute paths not allowed",
-		}}
+		}
 	}
 	if len(cleanPath) >= 2 && cleanPath[1] == ':' {
 		first := cleanPath[0]
 		if (first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') {
-			return false, []error{&InvalidSubdirectoryPathError{
+			return &InvalidSubdirectoryPathError{
 				Value:  p,
 				Reason: "absolute paths not allowed",
-			}}
+			}
 		}
 	}
 	if cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
-		return false, []error{&InvalidSubdirectoryPathError{
+		return &InvalidSubdirectoryPathError{
 			Value:  p,
 			Reason: "path traversal not allowed",
-		}}
+		}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the SubdirectoryPath.
 func (p SubdirectoryPath) String() string { return string(p) }
 
-// IsValid returns whether all typed fields of the ModuleRequirement are valid.
+// Validate returns nil if all typed fields of the ModuleRequirement are valid,
+// or an error collecting all field-level validation failures.
 // GitURL and Version are required; Alias and Path are optional (zero values are valid).
-func (r ModuleRequirement) IsValid() (bool, []error) {
+func (r ModuleRequirement) Validate() error {
 	var errs []error
-	if valid, fieldErrs := r.GitURL.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := r.GitURL.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := r.Version.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := r.Version.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := r.Alias.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := r.Alias.Validate(); err != nil {
+		errs = append(errs, err)
 	}
-	if valid, fieldErrs := r.Path.IsValid(); !valid {
-		errs = append(errs, fieldErrs...)
+	if err := r.Path.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return false, errs
+		return errors.Join(errs...)
 	}
-	return true, nil
+	return nil
 }
 
 // Error implements the error interface for InvalidValidationIssueTypeError.
@@ -445,15 +460,15 @@ func (e *InvalidValidationIssueTypeError) Unwrap() error {
 // String returns the string representation of the ValidationIssueType.
 func (v ValidationIssueType) String() string { return string(v) }
 
-// IsValid returns whether the ValidationIssueType is one of the defined issue types,
-// and a list of validation errors if it is not.
-func (v ValidationIssueType) IsValid() (bool, []error) {
+// Validate returns nil if the ValidationIssueType is one of the defined issue types,
+// or an error describing the validation failure.
+func (v ValidationIssueType) Validate() error {
 	switch v {
 	case IssueTypeStructure, IssueTypeNaming, IssueTypeInvowkmod, IssueTypeSecurity,
 		IssueTypeCompatibility, IssueTypeInvowkfile, IssueTypeCommandTree:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidValidationIssueTypeError{Value: v}}
+		return &InvalidValidationIssueTypeError{Value: v}
 	}
 }
 
@@ -466,7 +481,12 @@ func (v ValidationIssue) Error() string {
 }
 
 // AddIssue adds a validation issue to the result.
+// Panics if issueType is not a valid ValidationIssueType — all callers
+// pass package-level constants, so an invalid value is a programming error.
 func (r *ValidationResult) AddIssue(issueType ValidationIssueType, message, path string) {
+	if err := issueType.Validate(); err != nil {
+		panic(fmt.Sprintf("AddIssue: %v", err))
+	}
 	r.Issues = append(r.Issues, ValidationIssue{
 		Type:    issueType,
 		Message: message,
@@ -486,7 +506,7 @@ func (m *Module) Name() ModuleID {
 
 // InvowkmodPath returns the absolute path to invowkmod.cue for this module.
 func (m *Module) InvowkmodPath() types.FilesystemPath {
-	return types.FilesystemPath(filepath.Join(string(m.Path), "invowkmod.cue"))
+	return fspath.JoinStr(m.Path, "invowkmod.cue")
 }
 
 // InvowkfilePath returns the absolute path to invowkfile.cue for this module.
@@ -495,7 +515,7 @@ func (m *Module) InvowkfilePath() types.FilesystemPath {
 	if m.IsLibraryOnly {
 		return ""
 	}
-	return types.FilesystemPath(filepath.Join(string(m.Path), "invowkfile.cue"))
+	return fspath.JoinStr(m.Path, "invowkfile.cue")
 }
 
 // ResolveScriptPath resolves a script path relative to the module root.
@@ -507,11 +527,11 @@ func (m *Module) ResolveScriptPath(scriptPath types.FilesystemPath) types.Filesy
 
 	// If already absolute, return as-is
 	if filepath.IsAbs(nativePath) {
-		return types.FilesystemPath(nativePath)
+		return types.FilesystemPath(nativePath) //goplint:ignore -- OS path from filepath.FromSlash
 	}
 
 	// Resolve relative to module root
-	return types.FilesystemPath(filepath.Join(string(m.Path), nativePath))
+	return fspath.JoinStr(m.Path, nativePath)
 }
 
 // ValidateScriptPath checks if a script path is valid for this module.
@@ -627,7 +647,7 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 // Returns true if allowed, false with reason if not.
 func (s *CommandScope) CanCall(targetCmd string) (allowed bool, reason string) {
 	// Extract module prefix from command name (format: "module.name cmdname" or "module.name@version cmdname")
-	targetModule := ModuleID(ExtractModuleFromCommand(targetCmd))
+	targetModule := ModuleID(ExtractModuleFromCommand(targetCmd)) //goplint:ignore -- used only for equality comparison
 
 	// If no module prefix, it's a local command (always allowed)
 	if targetModule == "" {
@@ -713,8 +733,8 @@ func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, er
 	// CUE cannot perform filesystem operations or cross-platform path normalization.
 	for i, req := range meta.Requires {
 		if req.Path != "" {
-			if valid, errs := req.Path.IsValid(); !valid {
-				return nil, fmt.Errorf("requires[%d].path: %w in invowkmod at %s", i, errs[0], path)
+			if err := req.Path.Validate(); err != nil {
+				return nil, fmt.Errorf("requires[%d].path: %w in invowkmod at %s", i, err, path)
 			}
 		}
 	}
@@ -733,7 +753,7 @@ func ParseModuleMetadataOnly(modulePath types.FilesystemPath) (*Invowkmod, error
 		}
 		return nil, fmt.Errorf("failed to check invowkmod at %s: %w", invowkmodPath, err)
 	}
-	return ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+	return ParseInvowkmod(types.FilesystemPath(invowkmodPath)) //goplint:ignore -- os.Stat confirmed path exists
 }
 
 // HasInvowkfile checks if a module directory contains an invowkfile.cue.
@@ -745,12 +765,12 @@ func HasInvowkfile(modulePath types.FilesystemPath) bool {
 
 // InvowkfilePath returns the path to invowkfile.cue in a module directory.
 func InvowkfilePath(modulePath types.FilesystemPath) types.FilesystemPath {
-	return types.FilesystemPath(filepath.Join(string(modulePath), "invowkfile.cue"))
+	return fspath.JoinStr(modulePath, "invowkfile.cue")
 }
 
 // InvowkmodPath returns the path to invowkmod.cue in a module directory.
 //
 //nolint:revive // Name is intentional for consistency with Module.InvowkmodPath field/method
 func InvowkmodPath(modulePath types.FilesystemPath) types.FilesystemPath {
-	return types.FilesystemPath(filepath.Join(string(modulePath), "invowkmod.cue"))
+	return fspath.JoinStr(modulePath, "invowkmod.cue")
 }

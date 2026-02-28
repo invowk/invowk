@@ -3,7 +3,6 @@
 package runtime
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -78,7 +77,7 @@ func testContainerExecuteCaptureBasic(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {
@@ -110,7 +109,7 @@ func testContainerExecuteCaptureExitCode(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 42 {
@@ -142,7 +141,7 @@ func testContainerExecuteCaptureStderr(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {
@@ -175,13 +174,13 @@ func testContainerExecuteCaptureEnvVars(t *testing.T) {
 				Platforms: []invowkfile.PlatformConfig{
 					{Name: currentPlatform},
 				},
-				Env: &invowkfile.EnvConfig{Vars: map[string]string{"MY_VAR": "captured_value"}},
+				Env: &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"MY_VAR": "captured_value"}},
 			},
 		},
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(context.Background(), cmd, inv)
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
 
 	result := rt.ExecuteCapture(execCtx)
 	if result.ExitCode != 0 {

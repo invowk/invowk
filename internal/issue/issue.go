@@ -139,12 +139,18 @@ var (
 )
 
 type (
+	//goplint:constant-only
+	//
 	// Id represents a unique identifier for an issue type.
 	Id int
 
+	//goplint:constant-only
+	//
 	// MarkdownMsg represents markdown-formatted issue message content.
 	MarkdownMsg string
 
+	//goplint:constant-only
+	//
 	// HttpLink represents a URL link for documentation or external resources.
 	HttpLink string
 
@@ -185,18 +191,20 @@ func (e *InvalidIdError) Unwrap() error {
 	return ErrInvalidId
 }
 
-// IsValid returns whether the Id is one of the defined issue IDs,
-// and a list of validation errors if it is not.
-func (id Id) IsValid() (bool, []error) {
+// Validate returns nil if the Id is one of the defined issue IDs,
+// or an error wrapping ErrInvalidId if it is not.
+//
+//goplint:nonzero
+func (id Id) Validate() error {
 	switch id {
 	case FileNotFoundId, InvowkfileNotFoundId, InvowkfileParseErrorId,
 		CommandNotFoundId, RuntimeNotAvailableId, ContainerEngineNotFoundId,
 		DockerfileNotFoundId, ScriptExecutionFailedId, ConfigLoadFailedId,
 		InvalidRuntimeModeId, ShellNotFoundId, PermissionDeniedId,
 		DependenciesNotSatisfiedId, HostNotSupportedId, InvalidArgumentId:
-		return true, nil
+		return nil
 	default:
-		return false, []error{&InvalidIdError{Value: id}}
+		return &InvalidIdError{Value: id}
 	}
 }
 
@@ -213,13 +221,15 @@ func (e *InvalidMarkdownMsgError) Unwrap() error {
 	return ErrInvalidMarkdownMsg
 }
 
-// IsValid returns whether the MarkdownMsg contains non-whitespace content,
-// and a list of validation errors if it does not.
-func (m MarkdownMsg) IsValid() (bool, []error) {
+// Validate returns nil if the MarkdownMsg contains non-whitespace content,
+// or an error wrapping ErrInvalidMarkdownMsg if it does not.
+//
+//goplint:nonzero
+func (m MarkdownMsg) Validate() error {
 	if strings.TrimSpace(string(m)) == "" {
-		return false, []error{&InvalidMarkdownMsgError{Value: m}}
+		return &InvalidMarkdownMsgError{Value: m}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the MarkdownMsg.
@@ -235,14 +245,16 @@ func (e *InvalidHttpLinkError) Unwrap() error {
 	return ErrInvalidHttpLink
 }
 
-// IsValid returns whether the HttpLink has a valid URL scheme (http:// or https://),
-// and a list of validation errors if it does not.
-func (l HttpLink) IsValid() (bool, []error) {
+// Validate returns nil if the HttpLink has a valid URL scheme (http:// or https://),
+// or an error wrapping ErrInvalidHttpLink if it does not.
+//
+//goplint:nonzero
+func (l HttpLink) Validate() error {
 	s := string(l)
 	if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
-		return false, []error{&InvalidHttpLinkError{Value: l}}
+		return &InvalidHttpLinkError{Value: l}
 	}
-	return true, nil
+	return nil
 }
 
 // String returns the string representation of the HttpLink.

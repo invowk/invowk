@@ -112,6 +112,10 @@ enable = [
     # your Go test codes.
     "tparallel",
 
+    # usetesting: Reports uses of functions with replacement inside the testing
+    # package. [auto-fix]
+    "usetesting",
+
     # unconvert: Remove unnecessary type conversions.
     "unconvert",
 
@@ -140,6 +144,9 @@ enable = [
     # errorlint: Find code that can cause problems with the error wrapping
     # scheme introduced in Go 1.13. [auto-fix]
     "errorlint",
+
+    # forbidigo: Forbids identifiers.
+    "forbidigo",
 
     # exhaustive: Check exhaustiveness of enum switch statements.
     "exhaustive",
@@ -351,6 +358,29 @@ tests = false  # Don't run gosec on test files
 enable = ["shadow"]  # Detect variable shadowing
 
 # -----------------------------------------------------------------------------
+# forbidigo: Enforce banned identifiers and APIs
+# -----------------------------------------------------------------------------
+[linters.settings.forbidigo]
+forbid = [
+    # Go 1.26+ supports typed extraction via errors.AsType[T].
+    { pattern = '^errors\.As$', msg = "use errors.AsType[T] (Go 1.26+)" },
+]
+
+# -----------------------------------------------------------------------------
+# usetesting: Prefer testing package helpers in tests/benchmarks
+# -----------------------------------------------------------------------------
+[linters.settings.usetesting]
+# Scope this to context modernization (JetBrains modern-go guidance). Keep
+# os.* helper checks disabled to avoid unrelated policy churn.
+os-create-temp = false
+os-mkdir-temp = false
+os-setenv = false
+os-temp-dir = false
+os-chdir = false
+context-background = true
+context-todo = true
+
+# -----------------------------------------------------------------------------
 # nakedret: Naked return length limit
 # -----------------------------------------------------------------------------
 [linters.settings.nakedret]
@@ -529,6 +559,12 @@ path = "_test\\.go$"
 # for readability and test self-documentation
 [[linters.exclusions.rules]]
 linters = ["goconst"]
+path = "_test\\.go$"
+
+# Enforce errors.AsType[T] in non-test code. Test migrations can proceed
+# independently while production code remains strictly gated.
+[[linters.exclusions.rules]]
+linters = ["forbidigo"]
 path = "_test\\.go$"
 
 # =============================================================================
