@@ -1175,24 +1175,6 @@ cmds: [{
 // cannot detect — for example, a regex difference of one character between
 // CUE and Go would pass both test suites independently.
 
-// validateStringAgainstCUE validates a single string value against a CUE
-// constraint path. Returns nil if CUE accepts the value, error if it rejects.
-// The cuePath should point to a CUE definition or field (e.g., "#RuntimeType",
-// "#Flag.name"). For optional CUE fields, use lookupCUEFieldConstraint instead.
-func validateStringAgainstCUE(t *testing.T, schema cue.Value, ctx *cue.Context, cuePath, value string) error {
-	t.Helper()
-
-	constraint := schema.LookupPath(cue.ParsePath(cuePath))
-	if constraint.Err() != nil {
-		t.Fatalf("CUE path %s not found: %v", cuePath, constraint.Err())
-	}
-	unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", value)))
-	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		return fmt.Errorf("CUE validation: %w", err)
-	}
-	return nil
-}
-
 // lookupCUEFieldConstraint extracts the constraint value for a specific field
 // within a CUE struct definition. Unlike LookupPath, this handles optional
 // fields by iterating with cue.Optional(true).
@@ -1221,6 +1203,65 @@ func lookupCUEFieldConstraint(t *testing.T, schema cue.Value, parentPath, fieldN
 	return cue.Value{} // unreachable
 }
 
+// subtestLabel returns a truncated, human-readable label for subtest names.
+func subtestLabel(input string) string {
+	if len(input) > 30 {
+		return input[:27] + "..."
+	}
+	if input == "" {
+		return "<empty>"
+	}
+	return input
+}
+
+// assertBehavioralSync checks Go and CUE accept/reject verdicts against expectations
+// and verifies behavioral agreement (or logs expected divergence).
+func assertBehavioralSync(t *testing.T, tc behavioralSyncCase, goErr, cueErr error) {
+	t.Helper()
+
+	goAccepts := goErr == nil
+	cueAccepts := cueErr == nil
+
+	if goAccepts != tc.goExpect {
+		t.Errorf("Go Validate() unexpected: got accept=%v, want %v (err=%v)", goAccepts, tc.goExpect, goErr)
+	}
+	if cueAccepts != tc.cueExpect {
+		t.Errorf("CUE Validate() unexpected: got accept=%v, want %v (err=%v)", cueAccepts, tc.cueExpect, cueErr)
+	}
+	if tc.divergeNote == "" && goAccepts != cueAccepts {
+		t.Errorf("BEHAVIORAL DRIFT: Go accept=%v, CUE accept=%v for input %q", goAccepts, cueAccepts, tc.input)
+	}
+	if tc.divergeNote != "" && goAccepts != cueAccepts {
+		t.Logf("Expected divergence: %s (Go=%v, CUE=%v)", tc.divergeNote, goAccepts, cueAccepts)
+	}
+}
+
+// runBehavioralSyncCore runs behavioral equivalence subtests against a pre-resolved
+// CUE constraint. Both runBehavioralSync and runBehavioralSyncField delegate here.
+//
+// Subtests run serially: CUE Value.Unify() and Context.CompileString() mutate
+// internal state and are not safe for concurrent use. Parent tests already run
+// in parallel, so test-function-level parallelism is preserved.
+func runBehavioralSyncCore(
+	t *testing.T, ctx *cue.Context,
+	constraint cue.Value,
+	goValidate func(string) error,
+	cases []behavioralSyncCase,
+) {
+	t.Helper()
+
+	for _, tc := range cases {
+		t.Run(subtestLabel(tc.input), func(t *testing.T) {
+			goErr := goValidate(tc.input)
+
+			unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", tc.input)))
+			cueErr := unified.Validate(cue.Concrete(true))
+
+			assertBehavioralSync(t, tc, goErr, cueErr)
+		})
+	}
+}
+
 // runBehavioralSyncField runs behavioral equivalence tests using field-level CUE
 // constraint lookup. This handles optional CUE fields that LookupPath cannot find.
 func runBehavioralSyncField(
@@ -1232,43 +1273,11 @@ func runBehavioralSyncField(
 	t.Helper()
 
 	constraint := lookupCUEFieldConstraint(t, schema, parentPath, fieldName)
-	for _, tc := range cases {
-		label := tc.input
-		if len(label) > 30 {
-			label = label[:27] + "..."
-		}
-		if label == "" {
-			label = "<empty>"
-		}
-
-		t.Run(label, func(t *testing.T) {
-			t.Parallel()
-
-			goErr := goValidate(tc.input)
-			goAccepts := goErr == nil
-
-			unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", tc.input)))
-			cueErr := unified.Validate(cue.Concrete(true))
-			cueAccepts := cueErr == nil
-
-			if goAccepts != tc.goExpect {
-				t.Errorf("Go Validate() unexpected: got accept=%v, want %v (err=%v)", goAccepts, tc.goExpect, goErr)
-			}
-			if cueAccepts != tc.cueExpect {
-				t.Errorf("CUE Validate() unexpected: got accept=%v, want %v (err=%v)", cueAccepts, tc.cueExpect, cueErr)
-			}
-			if tc.divergeNote == "" && goAccepts != cueAccepts {
-				t.Errorf("BEHAVIORAL DRIFT: Go accept=%v, CUE accept=%v for input %q", goAccepts, cueAccepts, tc.input)
-			}
-			if tc.divergeNote != "" && goAccepts != cueAccepts {
-				t.Logf("Expected divergence: %s (Go=%v, CUE=%v)", tc.divergeNote, goAccepts, cueAccepts)
-			}
-		})
-	}
+	runBehavioralSyncCore(t, ctx, constraint, goValidate, cases)
 }
 
 // runBehavioralSync runs behavioral equivalence tests for a string-backed DDD type.
-// goValidate is the Go Validate() function; cuePath is the CUE constraint path.
+// cuePath is the CUE constraint path (e.g., "#RuntimeType", "#Flag.name").
 func runBehavioralSync(
 	t *testing.T, schema cue.Value, ctx *cue.Context,
 	cuePath string,
@@ -1277,49 +1286,16 @@ func runBehavioralSync(
 ) {
 	t.Helper()
 
-	for _, tc := range cases {
-		// Use a truncated label for readability
-		label := tc.input
-		if len(label) > 30 {
-			label = label[:27] + "..."
-		}
-		if label == "" {
-			label = "<empty>"
-		}
-
-		t.Run(label, func(t *testing.T) {
-			t.Parallel()
-
-			goErr := goValidate(tc.input)
-			goAccepts := goErr == nil
-
-			cueErr := validateStringAgainstCUE(t, schema, ctx, cuePath, tc.input)
-			cueAccepts := cueErr == nil
-
-			// Verify Go matches expectation
-			if goAccepts != tc.goExpect {
-				t.Errorf("Go Validate() unexpected: got accept=%v, want %v (err=%v)", goAccepts, tc.goExpect, goErr)
-			}
-
-			// Verify CUE matches expectation
-			if cueAccepts != tc.cueExpect {
-				t.Errorf("CUE Validate() unexpected: got accept=%v, want %v (err=%v)", cueAccepts, tc.cueExpect, cueErr)
-			}
-
-			// Verify behavioral agreement (unless known divergence)
-			if tc.divergeNote == "" && goAccepts != cueAccepts {
-				t.Errorf("BEHAVIORAL DRIFT: Go accept=%v, CUE accept=%v for input %q", goAccepts, cueAccepts, tc.input)
-			}
-			if tc.divergeNote != "" && goAccepts != cueAccepts {
-				t.Logf("Expected divergence: %s (Go=%v, CUE=%v)", tc.divergeNote, goAccepts, cueAccepts)
-			}
-		})
+	constraint := schema.LookupPath(cue.ParsePath(cuePath))
+	if constraint.Err() != nil {
+		t.Fatalf("CUE path %s not found: %v", cuePath, constraint.Err())
 	}
+	runBehavioralSyncCore(t, ctx, constraint, goValidate, cases)
 }
 
 // TestBehavioralSync_RuntimeMode verifies Go RuntimeMode.Validate() agrees with
 // CUE #RuntimeType disjunction ("native" | "virtual" | "container").
-func TestBehavioralSync_RuntimeMode(t *testing.T) {
+func TestBehavioralSync_RuntimeMode(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1340,7 +1316,7 @@ func TestBehavioralSync_RuntimeMode(t *testing.T) {
 
 // TestBehavioralSync_PlatformType verifies Go PlatformType.Validate() agrees with
 // CUE #PlatformType disjunction ("linux" | "macos" | "windows").
-func TestBehavioralSync_PlatformType(t *testing.T) {
+func TestBehavioralSync_PlatformType(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1360,7 +1336,7 @@ func TestBehavioralSync_PlatformType(t *testing.T) {
 
 // TestBehavioralSync_EnvInheritMode verifies Go EnvInheritMode.Validate() agrees with
 // CUE #RuntimeConfigBase.env_inherit_mode disjunction ("none" | "allow" | "all").
-func TestBehavioralSync_EnvInheritMode(t *testing.T) {
+func TestBehavioralSync_EnvInheritMode(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1381,7 +1357,7 @@ func TestBehavioralSync_EnvInheritMode(t *testing.T) {
 
 // TestBehavioralSync_CapabilityName verifies Go CapabilityName.Validate() agrees with
 // CUE #CapabilityName disjunction.
-func TestBehavioralSync_CapabilityName(t *testing.T) {
+func TestBehavioralSync_CapabilityName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1403,7 +1379,7 @@ func TestBehavioralSync_CapabilityName(t *testing.T) {
 // CUE #Flag.type disjunction ("string" | "bool" | "int" | "float").
 // Note: FlagType("") is valid in Go (defaults to "string") but CUE field type?
 // is optional — absent means default. The zero-value divergence is expected.
-func TestBehavioralSync_FlagType(t *testing.T) {
+func TestBehavioralSync_FlagType(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1426,7 +1402,7 @@ func TestBehavioralSync_FlagType(t *testing.T) {
 
 // TestBehavioralSync_ArgumentType verifies Go ArgumentType.Validate() agrees with
 // CUE #Argument.type disjunction ("string" | "int" | "float").
-func TestBehavioralSync_ArgumentType(t *testing.T) {
+func TestBehavioralSync_ArgumentType(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1445,7 +1421,7 @@ func TestBehavioralSync_ArgumentType(t *testing.T) {
 
 // TestBehavioralSync_FlagName verifies Go FlagName.Validate() agrees with
 // CUE #Flag.name constraint (regex + length + non-empty).
-func TestBehavioralSync_FlagName(t *testing.T) {
+func TestBehavioralSync_FlagName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1471,7 +1447,7 @@ func TestBehavioralSync_FlagName(t *testing.T) {
 
 // TestBehavioralSync_ArgumentName verifies Go ArgumentName.Validate() agrees with
 // CUE #Argument.name constraint (regex + length + non-empty).
-func TestBehavioralSync_ArgumentName(t *testing.T) {
+func TestBehavioralSync_ArgumentName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1495,7 +1471,7 @@ func TestBehavioralSync_ArgumentName(t *testing.T) {
 // CUE #Command.name constraint (regex + length + non-empty).
 // Go now enforces the same regex (^[a-zA-Z][a-zA-Z0-9_ -]*$) and MaxRunes(256)
 // as CUE, so all cases are in agreement.
-func TestBehavioralSync_CommandName(t *testing.T) {
+func TestBehavioralSync_CommandName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1523,7 +1499,7 @@ func TestBehavioralSync_CommandName(t *testing.T) {
 // Note: Go uses time.ParseDuration() which is strictly more powerful than CUE's regex.
 // CUE regex: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
 // Go: time.ParseDuration + positive check
-func TestBehavioralSync_DurationString(t *testing.T) {
+func TestBehavioralSync_DurationString(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1552,7 +1528,7 @@ func TestBehavioralSync_DurationString(t *testing.T) {
 // Note: ContainerImage("") is valid in Go (no image = use containerfile),
 // but CUE field image?: string & !="" means empty is rejected at the CUE level.
 // The CUE optionality handles the "no image" case (field is absent, not empty).
-func TestBehavioralSync_ContainerImage(t *testing.T) {
+func TestBehavioralSync_ContainerImage(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
