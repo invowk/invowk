@@ -2,7 +2,11 @@
 
 package castvalidation
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"log/slog"
+)
 
 // --- DDD Value Types for testing ---
 
@@ -284,4 +288,21 @@ func CastInCompositeLitFmtArg(input string) string { // want `parameter "input" 
 // CastInSliceFmtArg — should NOT be flagged (slice inside fmt call).
 func CastInSliceFmtArg(input string) string { // want `parameter "input" of castvalidation\.CastInSliceFmtArg uses primitive type string` `return value of castvalidation\.CastInSliceFmtArg uses primitive type string`
 	return fmt.Sprintf("items: %v", []CommandName{CommandName(input)})
+}
+
+// --- log/slog auto-skip: display-only logging sinks ---
+
+// LogPrintfAutoSkip — should NOT be flagged (log.Printf is display-only).
+func LogPrintfAutoSkip(input string) { // want `parameter "input" of castvalidation\.LogPrintfAutoSkip uses primitive type string`
+	log.Printf("cmd: %s", CommandName(input)) // NOT flagged — display only
+}
+
+// SlogInfoAutoSkip — should NOT be flagged (slog.Info is display-only).
+func SlogInfoAutoSkip(input string) { // want `parameter "input" of castvalidation\.SlogInfoAutoSkip uses primitive type string`
+	slog.Info("cmd", "name", CommandName(input)) // NOT flagged — display only
+}
+
+// LogPrintAutoSkip — should NOT be flagged (log.Print is display-only).
+func LogPrintAutoSkip(input string) { // want `parameter "input" of castvalidation\.LogPrintAutoSkip uses primitive type string`
+	log.Print("cmd: ", CommandName(input)) // NOT flagged — display only
 }

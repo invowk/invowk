@@ -1242,10 +1242,18 @@ func assertBehavioralSync(t *testing.T, tc behavioralSyncCase, goErr, cueErr err
 // Subtests run serially: CUE Value.Unify() and Context.CompileString() mutate
 // internal state and are not safe for concurrent use. Parent tests already run
 // in parallel, so test-function-level parallelism is preserved.
+// cueExprForScalar formats a test input as a quoted CUE string literal.
+func cueExprForScalar(input string) string { return fmt.Sprintf("%q", input) }
+
+// cueExprForListElement wraps a test input in a single-element CUE list,
+// matching list-typed constraints like [...string & !=""].
+func cueExprForListElement(input string) string { return fmt.Sprintf("[%q]", input) }
+
 func runBehavioralSyncCore(
 	t *testing.T, ctx *cue.Context,
 	constraint cue.Value,
 	goValidate func(string) error,
+	formatCUEExpr func(string) string,
 	cases []behavioralSyncCase,
 ) {
 	t.Helper()
@@ -1254,7 +1262,7 @@ func runBehavioralSyncCore(
 		t.Run(subtestLabel(tc.input), func(t *testing.T) {
 			goErr := goValidate(tc.input)
 
-			unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", tc.input)))
+			unified := constraint.Unify(ctx.CompileString(formatCUEExpr(tc.input)))
 			cueErr := unified.Validate(cue.Concrete(true))
 
 			assertBehavioralSync(t, tc, goErr, cueErr)
@@ -1273,7 +1281,23 @@ func runBehavioralSyncField(
 	t.Helper()
 
 	constraint := lookupCUEFieldConstraint(t, schema, parentPath, fieldName)
-	runBehavioralSyncCore(t, ctx, constraint, goValidate, cases)
+	runBehavioralSyncCore(t, ctx, constraint, goValidate, cueExprForScalar, cases)
+}
+
+// runBehavioralSyncListElement runs behavioral equivalence tests for a type
+// that maps to a CUE list element constraint (e.g., [...string & !=""]).
+// Wraps each test value in a single-element list before unifying with the
+// list constraint, then checks element 0 for validity.
+func runBehavioralSyncListElement(
+	t *testing.T, schema cue.Value, ctx *cue.Context,
+	parentPath, fieldName string,
+	goValidate func(string) error,
+	cases []behavioralSyncCase,
+) {
+	t.Helper()
+
+	constraint := lookupCUEFieldConstraint(t, schema, parentPath, fieldName)
+	runBehavioralSyncCore(t, ctx, constraint, goValidate, cueExprForListElement, cases)
 }
 
 // runBehavioralSync runs behavioral equivalence tests for a string-backed DDD type.
@@ -1290,7 +1314,7 @@ func runBehavioralSync(
 	if constraint.Err() != nil {
 		t.Fatalf("CUE path %s not found: %v", cuePath, constraint.Err())
 	}
-	runBehavioralSyncCore(t, ctx, constraint, goValidate, cases)
+	runBehavioralSyncCore(t, ctx, constraint, goValidate, cueExprForScalar, cases)
 }
 
 // TestBehavioralSync_RuntimeMode verifies Go RuntimeMode.Validate() agrees with
@@ -1547,6 +1571,240 @@ func TestBehavioralSync_ContainerImage(t *testing.T) { //nolint:tparallel // sub
 			// Both Go and CUE reject >512 chars. Go Validate() now includes length,
 			// injection, and format checks (merged from ValidateContainerImage).
 			{strings.Repeat("a", 513), false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_EnvVarName verifies Go EnvVarName.Validate() agrees with
+// CUE #EnvVarCheck.name constraint (=~"^[A-Za-z_][A-Za-z0-9_]*$").
+func TestBehavioralSync_EnvVarName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#EnvVarCheck", "name",
+		func(s string) error { return EnvVarName(s).Validate() },
+		[]behavioralSyncCase{
+			{"HOME", true, true, ""},
+			{"_private", true, true, ""},
+			{"PATH", true, true, ""},
+			{"MY_VAR_123", true, true, ""},
+			{"a", true, true, ""},
+			{"", false, false, ""},
+			{"123BAD", false, false, ""},
+			{"-invalid", false, false, ""},
+			{"has space", false, false, ""},
+			{"has-hyphen", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_BinaryName verifies Go BinaryName.Validate() agrees with
+// CUE #ToolDependency.alternatives element constraint (=~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$").
+func TestBehavioralSync_BinaryName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncListElement(t, schema, ctx, "#ToolDependency", "alternatives",
+		func(s string) error { return BinaryName(s).Validate() },
+		[]behavioralSyncCase{
+			{"git", true, true, ""},
+			{"python3.11", true, true, ""},
+			{"g++", true, true, ""},
+			{"my-tool", true, true, ""},
+			{"a", true, true, ""},
+			{"", false, false, ""},
+			{"/usr/bin/git", false, false, ""},
+			// Go BinaryName.Validate() only checks non-empty + no path separators.
+			// CUE regex is stricter: must start with alphanumeric, only [a-zA-Z0-9._+-].
+			{".hidden", true, false, "Go allows dot-start; CUE regex requires alphanumeric start"},
+			{"-flag", true, false, "Go allows hyphen-start; CUE regex requires alphanumeric start"},
+			{"has space", true, false, "Go allows spaces; CUE regex does not include space"},
+		},
+	)
+}
+
+// TestBehavioralSync_FlagShorthand verifies Go FlagShorthand.Validate() agrees with
+// CUE #Flag.short constraint (=~"^[a-zA-Z]$").
+func TestBehavioralSync_FlagShorthand(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#Flag", "short",
+		func(s string) error { return FlagShorthand(s).Validate() },
+		[]behavioralSyncCase{
+			{"v", true, true, ""},
+			{"o", true, true, ""},
+			{"Z", true, true, ""},
+			{"ab", false, false, ""},
+			{"1", false, false, ""},
+			{"-", false, false, ""},
+			// Go accepts "" (no shorthand), CUE rejects "" because short? is optional field
+			{"", true, false, "Go zero-value means no shorthand; CUE uses field optionality"},
+		},
+	)
+}
+
+// TestBehavioralSync_DotenvFilePath verifies Go DotenvFilePath.Validate() agrees with
+// CUE #EnvConfig.files element constraint (!="" & strings.MaxRunes(4096)).
+func TestBehavioralSync_DotenvFilePath(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncListElement(t, schema, ctx, "#EnvConfig", "files",
+		func(s string) error { return DotenvFilePath(s).Validate() },
+		[]behavioralSyncCase{
+			{".env", true, true, ""},
+			{".env.local", true, true, ""},
+			{"path/to/.env", true, true, ""},
+			{".env?", true, true, ""},
+			{"", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_GlobPattern verifies Go GlobPattern.Validate() agrees with
+// CUE #WatchConfig.patterns element constraint (!="" & strings.MaxRunes(4096)).
+func TestBehavioralSync_GlobPattern(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncListElement(t, schema, ctx, "#WatchConfig", "patterns",
+		func(s string) error { return GlobPattern(s).Validate() },
+		[]behavioralSyncCase{
+			{"**/*.go", true, true, ""},
+			{"src/**", true, true, ""},
+			{"*.ts", true, true, ""},
+			{"", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_CheckName verifies Go CheckName.Validate() agrees with
+// CUE #CustomCheck.name constraint (!="" & strings.MaxRunes(256)).
+func TestBehavioralSync_CheckName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#CustomCheck", "name",
+		func(s string) error { return CheckName(s).Validate() },
+		[]behavioralSyncCase{
+			{"check-ports", true, true, ""},
+			{"validate", true, true, ""},
+			{"a", true, true, ""},
+			{"", false, false, ""},
+			{"   ", false, true, "Go rejects whitespace-only; CUE !=\"\" only rejects literal empty"},
+		},
+	)
+}
+
+// TestBehavioralSync_ScriptContent verifies Go ScriptContent.Validate() agrees with
+// CUE #CustomCheck.check_script constraint (!="" & strings.MaxRunes(10485760)).
+func TestBehavioralSync_ScriptContent(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#CustomCheck", "check_script",
+		func(s string) error { return ScriptContent(s).Validate() },
+		[]behavioralSyncCase{
+			{"echo hello", true, true, ""},
+			{"#!/bin/bash\nset -e\necho ok", true, true, ""},
+			{"a", true, true, ""},
+			// Go accepts "" (zero=valid for ScriptContent), CUE rejects "" (!="")
+			{"", true, false, "Go zero-value is valid (no script); CUE !=\"\" rejects empty"},
+			{"   ", false, true, "Go rejects whitespace-only; CUE !=\"\" only rejects literal empty"},
+		},
+	)
+}
+
+// TestBehavioralSync_VolumeMountSpec verifies Go VolumeMountSpec.Validate() agrees with
+// CUE #RuntimeConfigContainer.volumes element constraint (!="" & strings.MaxRunes(4096)).
+func TestBehavioralSync_VolumeMountSpec(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncListElement(t, schema, ctx, "#RuntimeConfigContainer", "volumes",
+		func(s string) error { return VolumeMountSpec(s).Validate() },
+		[]behavioralSyncCase{
+			{"./data:/data", true, true, ""},
+			{"/tmp:/tmp:ro", true, true, ""},
+			{"", false, false, ""},
+			// Go requires ':' separator; CUE only requires non-empty
+			{"no-colon", false, true, "Go requires host:container format; CUE only checks non-empty"},
+		},
+	)
+}
+
+// TestBehavioralSync_PortMappingSpec verifies Go PortMappingSpec.Validate() agrees with
+// CUE #RuntimeConfigContainer.ports element constraint (!="" & strings.MaxRunes(256)).
+func TestBehavioralSync_PortMappingSpec(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncListElement(t, schema, ctx, "#RuntimeConfigContainer", "ports",
+		func(s string) error { return PortMappingSpec(s).Validate() },
+		[]behavioralSyncCase{
+			{"8080:80", true, true, ""},
+			{"3000:3000", true, true, ""},
+			{"", false, false, ""},
+			// Go requires ':' separator; CUE only requires non-empty
+			{"no-colon", false, true, "Go requires host:container format; CUE only checks non-empty"},
+		},
+	)
+}
+
+// TestBehavioralSync_WorkDir verifies Go WorkDir.Validate() agrees with
+// CUE #Command.workdir constraint (strings.MaxRunes(4096), optional field).
+func TestBehavioralSync_WorkDir(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#Command", "workdir",
+		func(s string) error { return WorkDir(s).Validate() },
+		[]behavioralSyncCase{
+			{"./build", true, true, ""},
+			{"/absolute/path", true, true, ""},
+			{"relative", true, true, ""},
+			// Go accepts "" (inherit parent workdir), CUE accepts "" (optional, no !="" constraint)
+			{"", true, true, ""},
+			{"   ", false, true, "Go rejects whitespace-only; CUE accepts any string"},
+		},
+	)
+}
+
+// TestBehavioralSync_CommandCategory verifies Go CommandCategory.Validate() agrees with
+// CUE #Command.category constraint (=~"^\\s*\\S.*$" & strings.MaxRunes(256), optional field).
+func TestBehavioralSync_CommandCategory(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#Command", "category",
+		func(s string) error { return CommandCategory(s).Validate() },
+		[]behavioralSyncCase{
+			{"build", true, true, ""},
+			{"test & verify", true, true, ""},
+			{"  padded  ", true, true, ""},
+			// Go accepts "" (no category), CUE rejects "" as optional field
+			{"", true, false, "Go zero-value means no category; CUE uses field optionality"},
+			{"   ", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_ContainerfilePath verifies Go ContainerfilePath.Validate() agrees with
+// CUE #RuntimeConfigContainer.containerfile constraint (strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\.", optional).
+func TestBehavioralSync_ContainerfilePath(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncField(t, schema, ctx, "#RuntimeConfigContainer", "containerfile",
+		func(s string) error { return ContainerfilePath(s).Validate() },
+		[]behavioralSyncCase{
+			{"Dockerfile", true, true, ""},
+			{"build/Containerfile", true, true, ""},
+			{"my.Dockerfile", true, true, ""},
+			// Go accepts "" (no containerfile), CUE rejects as optional field
+			{"", true, false, "Go zero-value means no containerfile; CUE uses field optionality"},
+			{"   ", false, true, "Go rejects whitespace-only; CUE regex accepts non-slash start"},
 		},
 	)
 }

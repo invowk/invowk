@@ -213,8 +213,10 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 
 			// Pass 3: Range loop delegation pattern:
 			//   for _, r := range receiver.Field { r.Validate() }
+			//   for i := range receiver.Field { receiver.Field[i].Validate() }
 			// Recognizes iteration over slice/array fields with
-			// validatable element types.
+			// validatable element types. Supports both value-variable
+			// and index-variable delegation patterns.
 			ast.Inspect(fn.Body, func(n ast.Node) bool { //nolint:dupl // distinct AST pattern
 				rangeStmt, ok := n.(*ast.RangeStmt)
 				if !ok {
@@ -240,11 +242,17 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 						valueVar = vi.Name
 					}
 				}
-				if valueVar == "" {
-					return true
+
+				// Get the range key (index) variable name.
+				keyVar := ""
+				if rangeStmt.Key != nil {
+					if ki, ok := rangeStmt.Key.(*ast.Ident); ok {
+						keyVar = ki.Name
+					}
 				}
 
-				// Check if the loop body calls valueVar.Validate().
+				// Check if the loop body calls valueVar.Validate()
+				// or receiver.Field[keyVar].Validate().
 				ast.Inspect(rangeStmt.Body, func(inner ast.Node) bool {
 					call, ok := inner.(*ast.CallExpr)
 					if !ok {
@@ -254,9 +262,30 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 					if !ok || callSel.Sel.Name != "Validate" {
 						return true
 					}
-					if vi, ok := callSel.X.(*ast.Ident); ok && vi.Name == valueVar {
-						called[fieldName] = true
+
+					// Pattern 1: valueVar.Validate()
+					if valueVar != "" {
+						if vi, ok := callSel.X.(*ast.Ident); ok && vi.Name == valueVar {
+							called[fieldName] = true
+							return true
+						}
 					}
+
+					// Pattern 2: receiver.Field[keyVar].Validate()
+					if keyVar != "" {
+						if indexExpr, ok := callSel.X.(*ast.IndexExpr); ok {
+							if innerSel, ok := indexExpr.X.(*ast.SelectorExpr); ok {
+								if innerIdent, ok := innerSel.X.(*ast.Ident); ok &&
+									innerIdent.Name == recvVarName &&
+									innerSel.Sel.Name == fieldName {
+									if ki, ok := indexExpr.Index.(*ast.Ident); ok && ki.Name == keyVar {
+										called[fieldName] = true
+									}
+								}
+							}
+						}
+					}
+
 					return true
 				})
 				return true
@@ -275,8 +304,9 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 }
 
 // maxHelperMethodDepth bounds recursion in multi-level helper method
-// delegation tracking to prevent pathological cases.
-const maxHelperMethodDepth = 3
+// delegation tracking to prevent pathological cases. Aligned with
+// maxTransitiveDepth in constructor-validates for consistency.
+const maxHelperMethodDepth = 5
 
 // findHelperMethodDelegations finds receiver.helperMethod() calls in the
 // given body, then recursively walks each helper method's body for direct

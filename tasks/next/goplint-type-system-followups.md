@@ -1,8 +1,8 @@
 # goplint & Type System Deferred Improvements
 
-> **STATUS: PARTIALLY COMPLETED** — items from the 2026-02-28 goplint precision session.
-> Items marked DONE were completed in the `chore/lint-modern-go-enforcement` branch.
-> Remaining items are independently implementable as separate PRs.
+> **STATUS: COMPLETED** — all items from the 2026-02-28 goplint precision session.
+> Items marked DONE were completed across `chore/lint-modern-go-enforcement` and
+> `chore/goplint-type-system-followups-v2` branches.
 
 ## Type System Gaps
 
@@ -41,28 +41,36 @@ Created `pkg/fspath/` with `Join`, `JoinStr`, `Dir`, `Abs`, `Clean`, `FromSlash`
 Converted ~10 call sites in `pkg/invowkmod/` and `pkg/invowkfile/`. Also tightened
 discovery cast-validation exceptions from 2 blanket patterns to 6 specific ones.
 
-## Baseline Reclassification — PENDING (follow-up PR)
+## Baseline Reclassification — DONE
 
-### 4F. TUI/Container/Env Map — Baseline-to-Exception Migration
+### 4F. TUI/Container/Env Map — Baseline-to-Exception Migration — DONE
 
-**Problem:** 38 TUI + 4 container + 19 env map baseline findings are genuine framework
-boundaries with no domain semantics beyond rendering/exec.
-**Fix:** Move ~61 findings from baseline to exceptions with documented reasons. Reduces
-baseline from 235 to ~174 with better signal-to-noise.
+Migrated ALL 235 baseline findings to specific exception patterns with documented reasons.
+Covers TUI (40), container (24), runtime (40), invowk (28), invowkfile (57), invowkmod (21),
+provision (11), platform (4), sshserver (2), cueutil (3), config (1), fspath (1),
+discovery (1), serverbase (1), plus 1 unvalidated-cast. Baseline: 235 → 0.
 **Files:** `tools/goplint/exceptions.toml`, `tools/goplint/baseline.toml`.
 
-### 4G. Constructor Exception Granularity
+### 4G. Constructor Exception Granularity — DONE (RETAINED)
 
-**Problem:** 15 `pkg.*.constructor` blanket patterns hide structs that may now warrant
-constructors after type migration.
-**Fix:** Replace blanket patterns with specific struct-level exceptions after auditing
-each exported struct.
+Audited all 15 `pkg.*.constructor` blanket patterns via `--audit-exceptions --global`.
+All 15 are ACTIVE (suppress 106 exported DTO structs across the codebase). The audit
+tool falsely reported them as stale because it doesn't enable `--check-constructors` in
+its subprocess invocation. Updated documentation in `exceptions.toml` to clarify.
 **Files:** `tools/goplint/exceptions.toml`.
 
-### 4H. Cast-Validation Exception Tightening
+### 4H. Cast-Validation Exception Tightening — DONE
 
-**Problem:** 7 `pkg.*.cast-validation` blanket patterns (excluding discovery, already
-tightened) were added during initial CFA rollout and may mask legitimate unvalidated
-casts in new code.
-**Fix:** Replace blanket patterns with specific function-level exceptions.
+Replaced 8 blanket `pkg.{*,*.*}.cast-validation` patterns with specific function-level patterns:
+- **container (2 blankets → 0):** 0 findings — all casts handled by auto-skip contexts.
+- **provision (2 blankets → 0):** 0 findings — all casts handled by auto-skip contexts.
+- **invowkfile (2 blankets → 0):** 0 findings — all casts handled by auto-skip contexts.
+- **invowkmod (2 blankets → 7 specific):** Filesystem/parse boundary casts in findModuleInDir,
+  parseLockFileCUE, parseModuleKey, resolveIdentifier, Resolver.loadTransitiveDeps,
+  Resolver.resolveOne, Resolver.List.
+- **invowk (2 blankets → 8 specific):** CLI boundary casts in loadConfigWithFallback,
+  normalizeSourceName, runInvowkfilePathValidation, runModulePathValidation,
+  runModuleAdd, runModuleArchive, runModuleCreate, runModuleImport.
+- **TUI/serverbase:** Retained (all casts are framework-boundary — bubbletea/huh values).
+- **discovery:** Already tightened (6 specific patterns from 3D work).
 **Files:** `tools/goplint/exceptions.toml`.

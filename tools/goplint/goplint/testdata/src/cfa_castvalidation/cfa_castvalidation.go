@@ -5,7 +5,11 @@
 // behavior where the CFA mode and AST heuristic differ.
 package cfa_castvalidation
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"log/slog"
+)
 
 // --- DDD Value Types for testing ---
 
@@ -291,4 +295,16 @@ func BranchReassignmentPartialValidation(a, b string, cond bool) { // want `para
 		x = CommandName(b) // want `type conversion to CommandName from non-constant without Validate\(\) check`
 	}
 	useCmd(x)
+}
+
+// --- CFA: log/slog auto-skip ---
+
+// LogPrintfAutoSkipCFA — should NOT be flagged (log.Printf is display-only).
+func LogPrintfAutoSkipCFA(input string) { // want `parameter "input" of cfa_castvalidation\.LogPrintfAutoSkipCFA uses primitive type string`
+	log.Printf("cmd: %s", CommandName(input)) // NOT flagged — display only
+}
+
+// SlogInfoAutoSkipCFA — should NOT be flagged (slog.Info is display-only).
+func SlogInfoAutoSkipCFA(input string) { // want `parameter "input" of cfa_castvalidation\.SlogInfoAutoSkipCFA uses primitive type string`
+	slog.Info("cmd", "name", CommandName(input)) // NOT flagged — display only
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -263,9 +264,10 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node,
 		return true
 	}
 
-	// fmt.* function argument: the parent is a *ast.CallExpr targeting fmt.*
+	// fmt.* or log/slog function argument: the parent is a *ast.CallExpr
+	// targeting a display-only package.
 	if outerCall, ok := parent.(*ast.CallExpr); ok && outerCall != call {
-		if isFmtCall(pass, outerCall) {
+		if isFmtCall(pass, outerCall) || isLogCall(pass, outerCall) {
 			return true
 		}
 	}
@@ -303,9 +305,9 @@ func isAutoSkipAncestor(pass *analysis.Pass, start ast.Node, parentMap map[ast.N
 		if isStatementNode(grandparent) {
 			break
 		}
-		// Check if the grandparent is an fmt.* call.
+		// Check if the grandparent is a display-only call (fmt.* or log/slog).
 		if outerCall, ok := grandparent.(*ast.CallExpr); ok {
-			if isFmtCall(pass, outerCall) {
+			if isFmtCall(pass, outerCall) || isLogCall(pass, outerCall) {
 				return true
 			}
 		}
@@ -329,9 +331,10 @@ func isStatementNode(n ast.Node) bool {
 	}
 }
 
-// isFmtCall reports whether the given call expression targets a function
-// in the "fmt" package (e.g., fmt.Sprintf, fmt.Fprintf).
-func isFmtCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+// isPackageCall reports whether the given call expression targets a function
+// in one of the specified import paths. Uses the type checker to resolve
+// the package through any import alias.
+func isPackageCall(pass *analysis.Pass, call *ast.CallExpr, importPaths ...string) bool {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
 		return false
@@ -340,7 +343,6 @@ func isFmtCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 	if !ok {
 		return false
 	}
-	// Use the type checker to resolve the identifier to its package.
 	obj := pass.TypesInfo.Uses[ident]
 	if obj == nil {
 		return false
@@ -349,7 +351,22 @@ func isFmtCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 	if !ok {
 		return false
 	}
-	return pkgName.Imported().Path() == "fmt"
+	return slices.Contains(importPaths, pkgName.Imported().Path())
+}
+
+// isFmtCall reports whether the call targets the "fmt" package.
+func isFmtCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+	return isPackageCall(pass, call, "fmt")
+}
+
+// isLogCall reports whether the call targets "log" or "log/slog" — display-only sinks.
+func isLogCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+	return isPackageCall(pass, call, "log", "log/slog")
+}
+
+// isStrconvCall reports whether the call targets the "strconv" package.
+func isStrconvCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+	return isPackageCall(pass, call, "strconv")
 }
 
 // isErrorMessageExpr reports whether expr is a call that produces display
@@ -376,36 +393,8 @@ func isErrorMessageExpr(pass *analysis.Pass, expr ast.Expr) bool {
 		return true
 	}
 
-	// Pattern 2: fmt.Sprintf(...), fmt.Errorf(...), etc.
-	if isFmtCall(pass, call) {
-		return true
-	}
-
-	// Pattern 3: strconv.Itoa(...), strconv.FormatInt(...), etc.
-	// All strconv functions return formatted strings, never raw user input.
-	return isStrconvCall(pass, call)
-}
-
-// isStrconvCall reports whether the given call expression targets a function
-// in the "strconv" package (e.g., strconv.Itoa, strconv.FormatInt).
-func isStrconvCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	ident, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return false
-	}
-	obj := pass.TypesInfo.Uses[ident]
-	if obj == nil {
-		return false
-	}
-	pkgName, ok := obj.(*types.PkgName)
-	if !ok {
-		return false
-	}
-	return pkgName.Imported().Path() == "strconv"
+	// Pattern 2+3: display-only packages (fmt, strconv).
+	return isPackageCall(pass, call, "fmt", "strconv")
 }
 
 // isRawPrimitive reports whether t is a bare primitive type (string, int, etc.)

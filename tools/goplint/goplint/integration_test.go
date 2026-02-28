@@ -111,6 +111,17 @@ func TestNewRunConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("check-all does NOT enable suggest-validate-all", func(t *testing.T) {
+		resetFlags(t)
+		setFlag(t, "check-all", "true")
+
+		rc := newRunConfig()
+
+		if rc.suggestValidateAll {
+			t.Error("expected suggestValidateAll = false (--check-all should NOT enable it)")
+		}
+	})
+
 	t.Run("check-all with explicit audit-exceptions preserves both", func(t *testing.T) {
 		resetFlags(t)
 		setFlag(t, "check-all", "true")
@@ -521,4 +532,20 @@ func TestCheckEnumSyncNoSchema(t *testing.T) {
 	setFlag(t, "check-enum-sync", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "enumsync_noschema")
+}
+
+// TestCheckEnumSyncMultiFile exercises enum-sync with multiple CUE schema
+// files in the same package directory. Verifies that definitions from
+// different schema files are correctly loaded after concatenation.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckEnumSyncMultiFile(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-enum-sync", "true")
+
+	// No `want` annotations needed — both Mode and Format are
+	// fully synced with their respective CUE schema files.
+	analysistest.Run(t, testdata, Analyzer, "enumsync_multifile")
 }

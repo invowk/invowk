@@ -3,6 +3,7 @@
 package goplint
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/constant"
@@ -295,13 +296,16 @@ func findPackageCUESchema(pass *analysis.Pass) ([]byte, string, error) {
 
 	// Concatenate all schema files. CUE supports multiple definitions in
 	// a single compilation unit, so concatenation is semantically valid
-	// for top-level #Definition declarations.
+	// for top-level #Definition declarations. Package declarations are
+	// stripped to prevent compilation errors when merging files that each
+	// have their own "package" line.
 	var combined []byte
 	for _, name := range schemaNames {
 		data, readErr := os.ReadFile(filepath.Join(pkgDir, name))
 		if readErr != nil {
 			return nil, "", fmt.Errorf("reading CUE schema %s: %w", name, readErr)
 		}
+		data = stripCUEPackageDecl(data)
 		combined = append(combined, data...)
 		combined = append(combined, '\n')
 	}
@@ -418,4 +422,20 @@ func sortedKeys(m map[string]bool) []string {
 // underscores so CUE member values don't confuse the exception matcher.
 func sanitizeForPattern(s string) string {
 	return strings.ReplaceAll(s, ".", "_")
+}
+
+// stripCUEPackageDecl removes CUE "package <name>" declaration lines from
+// schema file contents. This is needed when concatenating multiple schema
+// files — each file may have its own package declaration, but the combined
+// content is compiled as a single CUE compilation unit.
+func stripCUEPackageDecl(data []byte) []byte {
+	result := make([]byte, 0, len(data))
+	for line := range bytes.SplitSeq(data, []byte("\n")) {
+		if bytes.HasPrefix(bytes.TrimSpace(line), []byte("package ")) {
+			continue
+		}
+		result = append(result, line...)
+		result = append(result, '\n')
+	}
+	return result
 }

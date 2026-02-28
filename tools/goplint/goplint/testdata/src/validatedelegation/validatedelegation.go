@@ -393,3 +393,68 @@ func (c *TwoLevelIncomplete) validateJustName() error {
 	return c.FieldName.Validate()
 	// FieldMode.Validate() missing — should be flagged.
 }
+
+// --- Index-based range loop delegation — complete ---
+
+//goplint:validate-all
+type IndexLoopConfig struct {
+	Items     []Name
+	FieldMode Mode
+}
+
+func (c *IndexLoopConfig) Validate() error {
+	for i := range c.Items {
+		if err := c.Items[i].Validate(); err != nil {
+			return err
+		}
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// --- Index-based range loop delegation — incomplete (Items not validated) ---
+
+//goplint:validate-all
+type IncompleteIndexLoopConfig struct { // want `validatedelegation\.IncompleteIndexLoopConfig\.Validate\(\) does not delegate to field Items which has Validate\(\)`
+	Items     []Name
+	FieldMode Mode
+}
+
+func (c *IncompleteIndexLoopConfig) Validate() error {
+	for i := range c.Items {
+		_ = c.Items[i] // use but no Validate()
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// --- Four-level helper delegation — complete (tests depth=5 limit) ---
+
+//goplint:validate-all
+type FourLevelHelperConfig struct {
+	FieldName Name
+	FieldMode Mode
+}
+
+func (c *FourLevelHelperConfig) Validate() error {
+	return c.level1()
+}
+
+func (c *FourLevelHelperConfig) level1() error {
+	return c.level2()
+}
+
+func (c *FourLevelHelperConfig) level2() error {
+	return c.level3()
+}
+
+func (c *FourLevelHelperConfig) level3() error {
+	if err := c.FieldName.Validate(); err != nil {
+		return err
+	}
+	return c.FieldMode.Validate()
+}
