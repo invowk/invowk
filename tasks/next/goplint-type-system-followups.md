@@ -1,72 +1,54 @@
 # goplint & Type System Deferred Improvements
 
-> **STATUS: PENDING** — items deferred from the 2026-02-28 goplint precision session.
-> Each item is independently implementable as a separate PR.
+> **STATUS: PARTIALLY COMPLETED** — items from the 2026-02-28 goplint precision session.
+> Items marked DONE were completed in the `chore/lint-modern-go-enforcement` branch.
+> Remaining items are independently implementable as separate PRs.
 
 ## Type System Gaps
 
-### 2E. Type `EnvConfig.Vars` Map Keys as `EnvVarName`
+### 2E. Type `EnvConfig.Vars` Map Keys as `EnvVarName` — DONE
 
-**Problem:** `EnvConfig.Vars` is `map[string]string` but keys should be `EnvVarName`.
-**Fix:** Change field type in `pkg/invowkfile/env.go`, update `GetVars()` return type,
-add conversion at CUE parse boundary, update ~5 downstream consumers.
-**Impact:** Baseline -2 to -4.
-**Files:** `pkg/invowkfile/env.go`, `pkg/invowkfile/parse.go`, ~5 consumer files.
+Changed `Vars map[string]string` → `map[EnvVarName]string` in `pkg/invowkfile/env.go`.
+`GetVars()` converts keys back to `map[string]string` for backward compatibility with
+`maps.Copy` consumers. Baseline -5 (240 → 235).
 
-### 4B. Type `cueutil.ValidationError` Fields
+### 4B. Type `cueutil.ValidationError` Fields — DONE
 
-**Problem:** `FilePath`, `CUEPath`, `Message`, `Suggestion` are bare `string`.
-**Fix:** Change `FilePath` → `types.FilesystemPath`, add new `CUEPath string` type in
-`pkg/cueutil/`, change `Message`/`Suggestion` → `types.DescriptionText`.
-**Impact:** Baseline -4 to -6.
-**Files:** `pkg/cueutil/` (~3 construction sites, ~6-8 consumer files).
+Changed `FilePath` → `types.FilesystemPath`, `CUEPath` → new `CUEPath` type,
+`Message`/`Suggestion` → `types.DescriptionText`. New `pkg/cueutil/cuepath.go` DDD type.
 
 ## Enforcement Improvements
 
-### 3A. New Mode: `--audit-exceptions --global`
+### 3A. New Mode: `--audit-exceptions --global` — DONE
 
-**Problem:** `--audit-exceptions` reports per-package (a pattern valid in pkg A appears
-stale in pkg B). Manual deduplication required.
-**Fix:** New `main.go` flag using the established subprocess pattern. Run
-`-audit-exceptions -json` as subprocess, aggregate findings across all packages, report
-patterns that never matched in any package.
-**Files:** `tools/goplint/main.go` (~150 lines).
+Subprocess-based aggregation in `main.go`. Reports patterns stale in ALL packages.
 
-### 4E. Constructor Validates: Follow Method Calls on Return Type
+### 4E. Constructor Validates: Follow Method Calls on Return Type — DONE
 
-**Problem:** `bodyCallsValidateTransitive` only follows same-package non-method functions.
-If a constructor calls `result.Setup()` which internally calls `result.Validate()`, this
-is missed.
-**Fix:** Extend `bodyCallsValidateTransitive` to follow method calls on variables whose
-type matches `returnTypeName`.
-**Files:** `tools/goplint/goplint/analyzer_constructor_validates.go`, test fixtures.
+Extended `bodyCallsValidateTransitive` to follow `*ast.SelectorExpr` method calls on
+variables whose type matches `returnTypeName`. Uses existing `findMethodBody()`.
 
-### 4I. New Advisory Mode: `--suggest-validate-all`
+### 4I. New Advisory Mode: `--suggest-validate-all` — DONE
 
-**Problem:** Only 15 structs currently annotated with `//goplint:validate-all`. Some
-structs with `Validate()` + validatable fields may be missing the directive.
-**Fix:** Advisory mode reporting structs that have `Validate()` + validatable fields
-but no `//goplint:validate-all` directive.
-**Files:** `tools/goplint/goplint/analyzer.go` (~100 lines new mode).
+Reports structs with `Validate()` + validatable fields but no `//goplint:validate-all`
+directive. NOT included in `--check-all` (advisory only).
 
 ## Structural Improvements
 
-### 3D. Create Typed Path Wrapper `pkg/fspath/`
+### 3D. Create Typed Path Wrapper `pkg/fspath/` — DONE
 
-**Problem:** ~38 `//goplint:ignore` sites in `pkg/invowkfile/` and `pkg/invowkmod/` all
-do the same pattern: `FilesystemPath(filepath.Join(string(path), ...))`.
-**Fix:** Create `pkg/fspath/` with `Join`, `Dir`, `Abs`, `Rel` wrappers that accept/return
-`types.FilesystemPath`. Centralizes the single `//goplint:ignore` inside the wrapper.
-**Files:** New `pkg/fspath/fspath.go`, `pkg/fspath/fspath_test.go`, ~38 call-site updates.
+Created `pkg/fspath/` with `Join`, `JoinStr`, `Dir`, `Abs`, `Clean`, `FromSlash`, `IsAbs`.
+Converted ~10 call sites in `pkg/invowkmod/` and `pkg/invowkfile/`. Also tightened
+discovery cast-validation exceptions from 2 blanket patterns to 6 specific ones.
 
-## Baseline Reclassification
+## Baseline Reclassification — PENDING (follow-up PR)
 
 ### 4F. TUI/Container/Env Map — Baseline-to-Exception Migration
 
 **Problem:** 38 TUI + 4 container + 19 env map baseline findings are genuine framework
 boundaries with no domain semantics beyond rendering/exec.
 **Fix:** Move ~61 findings from baseline to exceptions with documented reasons. Reduces
-baseline from 240 to ~179 with better signal-to-noise.
+baseline from 235 to ~174 with better signal-to-noise.
 **Files:** `tools/goplint/exceptions.toml`, `tools/goplint/baseline.toml`.
 
 ### 4G. Constructor Exception Granularity
@@ -79,7 +61,8 @@ each exported struct.
 
 ### 4H. Cast-Validation Exception Tightening
 
-**Problem:** 7 `pkg.*.cast-validation` blanket patterns were added during initial CFA
-rollout and may mask legitimate unvalidated casts in new code.
+**Problem:** 7 `pkg.*.cast-validation` blanket patterns (excluding discovery, already
+tightened) were added during initial CFA rollout and may mask legitimate unvalidated
+casts in new code.
 **Fix:** Replace blanket patterns with specific function-level exceptions.
 **Files:** `tools/goplint/exceptions.toml`.

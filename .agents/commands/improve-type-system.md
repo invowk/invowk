@@ -15,6 +15,11 @@ We're on a long multi-step work to completely avoid the use of simple primitive 
 - Structs with `Validate()` + validatable fields should use `//goplint:validate-all` for delegation completeness checking
 - Constructor `Validate()` calls must exist unless `//goplint:constant-only`
 
+## Typed Path Operations
+- Use `pkg/fspath/` wrappers (`JoinStr`, `Dir`, `Abs`, `Clean`, `FromSlash`, `IsAbs`) instead of manual `FilesystemPath(filepath.Join(string(path), ...))` patterns
+- Each wrapper centralizes the `//goplint:ignore` annotation — callers get typed-in/typed-out without per-site suppression
+- `JoinStr(base, "file.cue")` for typed base + literal segments; `Join(a, b)` for all-typed segments
+
 ## Import cycles
 - If importing an existing type would create circular dependencies, move the type to `pkg/types` or another more appropriate package.
 
@@ -35,7 +40,10 @@ Key diagnostic categories:
 - `nonzero-value-field` — nonzero type used as value (should be *Type)
 - `enum-cue-missing-go` / `enum-cue-extra-go` — CUE/Go enum drift
 
-See `tools/goplint/CLAUDE.md` for all 18+ categories and directives.
+- `suggest-validate-all` — structs with Validate() + validatable fields but no `//goplint:validate-all`
+- `missing-constructor-validate` — constructors returning validatable types without calling Validate()
+
+See `tools/goplint/CLAUDE.md` for all 24 categories and directives.
 
 ## Workflow
 1. `make check-baseline` — verify no regressions first

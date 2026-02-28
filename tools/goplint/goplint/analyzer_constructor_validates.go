@@ -191,12 +191,24 @@ func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTyp
 	return found
 }
 
-// bodyCallsValidateTransitive checks if any private function called from
-// body transitively calls Validate() on the given return type. Uses
+// methodCallTarget identifies a method call on the constructor's return type
+// for transitive validation tracking.
+type methodCallTarget struct {
+	typeName   string
+	methodName string
+}
+
+// bodyCallsValidateTransitive checks if any private function or method called
+// from body transitively calls Validate() on the given return type. Uses
 // pass.TypesInfo to resolve callee identities. Bounds recursion depth
 // to maxTransitiveDepth to prevent pathological cases. The visited map
-// prevents cycles (re-visiting the same function); depth tracks the
+// prevents cycles (re-visiting the same function/method); depth tracks the
 // actual call chain depth independently.
+//
+// This function follows two kinds of callees:
+//  1. Same-package bare function calls (e.g., helper()) — via *ast.Ident
+//  2. Method calls on variables whose type matches returnTypeName
+//     (e.g., s.Setup() where s is *Server) — via *ast.SelectorExpr
 func bodyCallsValidateTransitive(
 	pass *analysis.Pass,
 	body *ast.BlockStmt,
@@ -213,36 +225,64 @@ func bodyCallsValidateTransitive(
 		return false
 	}
 
-	// Collect all function call identifiers in the body.
-	var callees []string
+	// Collect bare function call identifiers AND method calls on the return type.
+	var bareFuncCallees []string
+	var methodCallees []methodCallTarget
+
 	ast.Inspect(body, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
-		ident, ok := call.Fun.(*ast.Ident)
-		if !ok {
-			return true
+
+		switch fun := call.Fun.(type) {
+		case *ast.Ident:
+			// Same-package bare function calls.
+			obj := pass.TypesInfo.Uses[fun]
+			if obj == nil {
+				return true
+			}
+			fn, ok := obj.(*types.Func)
+			if !ok {
+				return true
+			}
+			// Only follow same-package, non-method functions.
+			if fn.Pkg() != pass.Pkg {
+				return true
+			}
+			bareFuncCallees = append(bareFuncCallees, fun.Name)
+
+		case *ast.SelectorExpr:
+			// Method calls on variables whose type matches the return type.
+			// Skip Validate() itself — already handled by bodyCallsValidateOnType.
+			if fun.Sel.Name == "Validate" {
+				return true
+			}
+			receiverType := pass.TypesInfo.TypeOf(fun.X)
+			if receiverType == nil {
+				return true
+			}
+			// Dereference pointers: *Server → Server.
+			if ptr, ok := receiverType.(*types.Pointer); ok {
+				receiverType = ptr.Elem()
+			}
+			receiverType = types.Unalias(receiverType)
+			named, ok := receiverType.(*types.Named)
+			if !ok {
+				return true
+			}
+			if named.Obj().Name() == returnTypeName && named.Obj().Pkg() == pass.Pkg {
+				methodCallees = append(methodCallees, methodCallTarget{
+					typeName:   returnTypeName,
+					methodName: fun.Sel.Name,
+				})
+			}
 		}
-		// Resolve the callee to check it's a same-package function.
-		obj := pass.TypesInfo.Uses[ident]
-		if obj == nil {
-			return true
-		}
-		fn, ok := obj.(*types.Func)
-		if !ok {
-			return true
-		}
-		// Only follow same-package, non-method functions.
-		if fn.Pkg() != pass.Pkg {
-			return true
-		}
-		callees = append(callees, ident.Name)
 		return true
 	})
 
-	// For each callee, find its body and check for Validate().
-	for _, calleeName := range callees {
+	// Follow bare function callees.
+	for _, calleeName := range bareFuncCallees {
 		if visited[calleeName] {
 			continue
 		}
@@ -260,6 +300,27 @@ func bodyCallsValidateTransitive(
 			return true
 		}
 	}
+
+	// Follow method callees on the return type.
+	for _, mc := range methodCallees {
+		visitKey := mc.typeName + "." + mc.methodName
+		if visited[visitKey] {
+			continue
+		}
+		visited[visitKey] = true
+
+		methodBody, _ := findMethodBody(pass, mc.typeName, mc.methodName)
+		if methodBody == nil {
+			continue
+		}
+		if bodyCallsValidateOnType(pass, methodBody, returnTypeName) {
+			return true
+		}
+		if bodyCallsValidateTransitive(pass, methodBody, returnTypeName, visited, depth+1) {
+			return true
+		}
+	}
+
 	return false
 }
 

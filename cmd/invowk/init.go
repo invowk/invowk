@@ -140,7 +140,7 @@ func generateInvowkfile(template string) string {
 						{Name: "name", Description: "Who to greet", Required: true},
 					},
 					Env: &invowkfile.EnvConfig{
-						Vars: map[string]string{
+						Vars: map[invowkfile.EnvVarName]string{
 							"GREETING_STYLE": "formal",
 						},
 					},

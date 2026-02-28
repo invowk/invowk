@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -122,7 +123,7 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 // GetVendoredModulesDir returns the path to the vendored modules directory for a given module.
 // Returns the path whether or not the directory exists.
 func GetVendoredModulesDir(modulePath types.FilesystemPath) types.FilesystemPath {
-	return types.FilesystemPath(filepath.Join(string(modulePath), VendoredModulesDir)) //goplint:ignore -- derived from validated modulePath
+	return fspath.JoinStr(modulePath, VendoredModulesDir)
 }
 
 // HasVendoredModules checks if a module has vendored dependencies.

@@ -60,6 +60,7 @@ const (
 	CategoryEnumCueMissingGo           = "enum-cue-missing-go"
 	CategoryEnumCueExtraGo             = "enum-cue-extra-go"
 	CategoryUnknownDirective           = "unknown-directive"
+	CategorySuggestValidateAll         = "suggest-validate-all"
 )
 
 // Flag binding variables for the analyzer's flag set. These are populated
@@ -87,6 +88,7 @@ var (
 	noCFA                        bool
 	auditReviewDates             bool
 	checkEnumSync                bool
+	suggestValidateAll           bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -139,6 +141,8 @@ func init() {
 		"disable control-flow analysis and use AST heuristic for cast-validation (CFA is enabled by default)")
 	Analyzer.Flags.BoolVar(&checkEnumSync, "check-enum-sync", false,
 		"report mismatches between Go Validate() switch cases and CUE schema disjunction members (requires //goplint:enum-cue= directive)")
+	Analyzer.Flags.BoolVar(&suggestValidateAll, "suggest-validate-all", false,
+		"report structs with Validate() + validatable fields but no //goplint:validate-all directive (advisory)")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
 		"enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + CFA)")
 }
@@ -167,6 +171,7 @@ type runConfig struct {
 	noCFA                        bool
 	auditReviewDates             bool
 	checkEnumSync                bool
+	suggestValidateAll           bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -194,6 +199,7 @@ func newRunConfig() runConfig {
 		noCFA:                        noCFA,
 		auditReviewDates:             auditReviewDates,
 		checkEnumSync:                checkEnumSync,
+		suggestValidateAll:           suggestValidateAll,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions (config maintenance tool
@@ -409,6 +415,12 @@ func run(pass *analysis.Pass) (any, error) {
 
 	if rc.auditReviewDates {
 		reportOverdueExceptions(pass, cfg)
+	}
+
+	// Suggest validate-all: advisory mode for structs that may benefit from the directive.
+	// NOT included in --check-all — this is purely advisory.
+	if rc.suggestValidateAll {
+		inspectSuggestValidateAll(pass, cfg, bl)
 	}
 
 	// Enum sync: compare Go Validate() switch cases against CUE disjunctions.

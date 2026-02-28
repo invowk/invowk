@@ -388,7 +388,7 @@ func (d *Discovery) appendModulesWithVendored(
 
 // getModuleShortName extracts the short name from a module path.
 // e.g., "/path/to/foo.invowkmod" -> "foo"
-func getModuleShortName(modulePath string) invowkmod.ModuleShortName {
-	base := filepath.Base(modulePath)
+func getModuleShortName(modulePath types.FilesystemPath) invowkmod.ModuleShortName {
+	base := filepath.Base(string(modulePath))
 	return invowkmod.ModuleShortName(strings.TrimSuffix(base, invowkmod.ModuleSuffix))
 }

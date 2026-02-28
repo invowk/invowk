@@ -154,10 +154,11 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 
 	// Validate env var names and values
 	for key, value := range env.Vars {
-		if err := ValidateEnvVarName(key); err != nil {
+		keyStr := string(key)
+		if err := key.Validate(); err != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
-				Field:     basePath.Copy().EnvVar(key).String(),
+				Field:     basePath.Copy().EnvVar(keyStr).String(),
 				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
@@ -166,7 +167,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 		if len(value) > MaxEnvVarValueLength {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
-				Field:     basePath.Copy().EnvVar(key).String(),
+				Field:     basePath.Copy().EnvVar(keyStr).String(),
 				Message:   "value too long (" + itoa(len(value)) + " chars, max " + itoa(MaxEnvVarValueLength) + ") in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})

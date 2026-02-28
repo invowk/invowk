@@ -92,11 +92,11 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
-				Env:       &invowkfile.EnvConfig{Vars: map[string]string{"IMPL_VAR": "impl_value"}},
+				Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"IMPL_VAR": "impl_value"}},
 			},
 		},
 		Env: &invowkfile.EnvConfig{
-			Vars: map[string]string{
+			Vars: map[invowkfile.EnvVarName]string{
 				"CMD_VAR": "command_value",
 			},
 		},

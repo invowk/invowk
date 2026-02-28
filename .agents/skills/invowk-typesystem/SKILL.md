@@ -22,6 +22,8 @@ metadata:
   scope:
     includes:
       - pkg/types
+      - pkg/fspath
+      - pkg/cueutil
       - pkg/invowkfile
       - pkg/invowkmod
       - pkg/platform

@@ -1594,13 +1594,8 @@ reason = "container name — display/exec boundary"
 pattern = "discovery.Discovery.GetCommand.name"
 reason = "Cobra CLI boundary — callers pass args[0] or ExecuteRequest.Name"
 
-[[exceptions]]
-pattern = "discovery.Discovery.getAliasForModulePath.*"
-reason = "filepath boundary"
-
-[[exceptions]]
-pattern = "discovery.getModuleShortName.*"
-reason = "filepath boundary"
+# discovery.Discovery.getAliasForModulePath — typed as (types.FilesystemPath) invowkmod.ModuleAlias
+# discovery.getModuleShortName — typed as (types.FilesystemPath) ModuleShortName
 
 # =============================================================================
 # cmd/invowk — Cobra / Config / Path Boundary (DDD Cost-Benefit Deferred)
@@ -1786,14 +1781,30 @@ reason = "invowkfile package — CUE-parsed values validated at schema level"
 pattern = "invowkfile.*.*.cast-validation"
 reason = "invowkfile method boundary — CUE-parsed values validated at schema level"
 
-# --- discovery package: filesystem paths and CUE-parsed module IDs ---
+# --- discovery package: specific filesystem path and identifier cast sites ---
 [[exceptions]]
-pattern = "discovery.*.cast-validation"
-reason = "discovery package — filesystem paths and CUE-parsed identifiers"
+pattern = "discovery.Discovery.New.cast-validation"
+reason = "os.Getwd returns valid path or error"
 
 [[exceptions]]
-pattern = "discovery.*.*.cast-validation"
-reason = "discovery method boundary — filesystem paths and CUE-parsed identifiers"
+pattern = "discovery.discoverInDir.cast-validation"
+reason = "os.Stat confirmed path exists"
+
+[[exceptions]]
+pattern = "discovery.Discovery.discoverModulesInDirWithDiagnostics.cast-validation"
+reason = "filepath.Abs + os.ReadDir confirmed paths"
+
+[[exceptions]]
+pattern = "discovery.Discovery.loadIncludesWithDiagnostics.cast-validation"
+reason = "round-trip from config entry.Path"
+
+[[exceptions]]
+pattern = "discovery.Discovery.discoverVendoredModulesWithDiagnostics.cast-validation"
+reason = "filepath.Join from OS-listed entry"
+
+[[exceptions]]
+pattern = "discovery.ValidateCommandTree.cast-validation"
+reason = "derived from valid command name parts"
 
 # --- provision package: filesystem paths ---
 [[exceptions]]

@@ -202,7 +202,8 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 // and neither has an alias configured via includes.
 func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 	// Map effective module IDs to their source paths for collision detection.
-	moduleSources := make(map[string]string)
+	// Values are display strings (may include annotations like "vendored in ...").
+	moduleSources := make(map[invowkmod.ModuleID]string)
 
 	for _, file := range files {
 		if file.Error != nil || file.Invowkfile == nil {
@@ -226,12 +227,11 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 		}
 
 		if existingSource, exists := moduleSources[moduleID]; exists {
-			modID := invowkmod.ModuleID(moduleID)
-			if err := modID.Validate(); err != nil {
+			if err := moduleID.Validate(); err != nil {
 				return fmt.Errorf("invalid module ID %q: %w", moduleID, err)
 			}
 			return &ModuleCollisionError{
-				ModuleID:     modID,
+				ModuleID:     moduleID,
 				FirstSource:  existingSource,
 				SecondSource: sourcePath,
 			}
@@ -247,7 +247,7 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 // aliases from the includes config. For module-backed files, if the module's
 // directory matches an include entry with an alias, the alias overrides the
 // module's declared ID.
-func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
+func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) invowkmod.ModuleID {
 	if file.Invowkfile == nil {
 		return ""
 	}
@@ -259,8 +259,8 @@ func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
 	// (the invowkfile inside the module), because includes reference
 	// module directories.
 	if file.Module != nil {
-		if alias := d.getAliasForModulePath(string(file.Module.Path)); alias != "" {
-			return alias
+		if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
+			return invowkmod.ModuleID(alias)
 		}
 	}
 
@@ -270,17 +270,17 @@ func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) string {
 // getAliasForModulePath looks up an alias for the given module directory path
 // from the includes config. Paths are normalized with filepath.Clean before
 // comparison to handle trailing slashes and redundant separators. Returns the
-// alias if found, or empty string if no alias is configured.
-func (d *Discovery) getAliasForModulePath(modulePath string) string {
+// alias if found, or empty ModuleAlias if no alias is configured.
+func (d *Discovery) getAliasForModulePath(modulePath types.FilesystemPath) invowkmod.ModuleAlias {
 	if d.cfg == nil {
 		return ""
 	}
 
-	cleanPath := filepath.Clean(modulePath)
+	cleanPath := filepath.Clean(string(modulePath))
 
 	for _, inc := range d.cfg.Includes {
 		if inc.Alias != "" && filepath.Clean(string(inc.Path)) == cleanPath {
-			return string(inc.Alias)
+			return inc.Alias
 		}
 	}
 

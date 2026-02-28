@@ -148,11 +148,11 @@ func testContainerEnvironmentVariables(t *testing.T) {
 				Platforms: []invowkfile.PlatformConfig{
 					{Name: currentPlatform},
 				},
-				Env: &invowkfile.EnvConfig{Vars: map[string]string{"MY_VAR1": "impl_value"}},
+				Env: &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"MY_VAR1": "impl_value"}},
 			},
 		},
 		Env: &invowkfile.EnvConfig{
-			Vars: map[string]string{
+			Vars: map[invowkfile.EnvVarName]string{
 				"MY_VAR2": "command_value",
 			},
 		},

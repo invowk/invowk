@@ -258,3 +258,83 @@ func NewSeverity(s string) (*Severity, error) { // want `parameter "s" of constr
 	sev := Severity(s)
 	return &sev, nil
 }
+
+// --- Method-call transitive tracking: r.init() → r.Validate() ---
+
+type Registry struct {
+	prefix string // want `struct field constructorvalidates\.Registry\.prefix uses primitive type string`
+}
+
+func (r *Registry) Validate() error {
+	if r.prefix == "" {
+		return fmt.Errorf("empty prefix")
+	}
+	return nil
+}
+
+func (r *Registry) init() error {
+	return r.Validate()
+}
+
+// NewRegistry calls r.init() which transitively calls r.Validate().
+// NOT flagged — method-call transitive tracking recognizes this.
+func NewRegistry(prefix string) (*Registry, error) { // want `parameter "prefix" of constructorvalidates\.NewRegistry uses primitive type string`
+	r := &Registry{prefix: prefix}
+	if err := r.init(); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// --- Method-call that does NOT call Validate() ---
+
+type Store struct {
+	name string // want `struct field constructorvalidates\.Store\.name uses primitive type string`
+}
+
+func (s *Store) Validate() error {
+	if s.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+func (s *Store) prepare() {
+	// Does not call Validate()
+}
+
+// NewStore calls s.prepare() but prepare() does NOT call Validate() — flagged.
+func NewStore(name string) (*Store, error) { // want `parameter "name" of constructorvalidates\.NewStore uses primitive type string` `constructor constructorvalidates\.NewStore returns constructorvalidates\.Store which has Validate\(\) but never calls it`
+	s := &Store{name: name}
+	s.prepare()
+	return s, nil
+}
+
+// --- Method-call on wrong type — should NOT satisfy the check ---
+
+type GatewayConfig struct {
+	host string // want `struct field constructorvalidates\.GatewayConfig\.host uses primitive type string`
+}
+
+func (gc *GatewayConfig) Validate() error {
+	if gc.host == "" {
+		return fmt.Errorf("empty host")
+	}
+	return nil
+}
+
+type Gateway struct {
+	config GatewayConfig
+}
+
+func (g *Gateway) Validate() error {
+	return g.config.Validate()
+}
+
+// NewGateway calls gc.Validate() on GatewayConfig, not on Gateway — flagged.
+func NewGateway(gc GatewayConfig) (*Gateway, error) { // want `constructor constructorvalidates\.NewGateway returns constructorvalidates\.Gateway which has Validate\(\) but never calls it`
+	if err := gc.Validate(); err != nil {
+		return nil, err
+	}
+	return &Gateway{config: gc}, nil
+}

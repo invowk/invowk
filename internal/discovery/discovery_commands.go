@@ -228,7 +228,7 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		switch {
 		case isModule:
 			// From a module - use short name from folder
-			sourceID = SourceID(getModuleShortName(string(file.Module.Path)))
+			sourceID = SourceID(getModuleShortName(file.Module.Path))
 			modID := file.Module.Name()
 			moduleID = &modID
 		default:

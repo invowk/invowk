@@ -20,6 +20,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -460,5 +461,5 @@ func (f *GitFetcher) getRepoCachePath(gitURL GitURL) types.FilesystemPath {
 	path = strings.TrimSuffix(path, ".git")
 	path = strings.ReplaceAll(path, ":", "/")
 
-	return types.FilesystemPath(filepath.Join(string(f.cacheDir), "sources", path)) //goplint:ignore -- computed from validated cache dir + safe path components
+	return fspath.JoinStr(f.cacheDir, "sources", path)
 }

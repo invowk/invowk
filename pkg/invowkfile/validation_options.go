@@ -5,7 +5,8 @@ package invowkfile
 import (
 	"io/fs"
 	"os"
-	"path/filepath"
+
+	"github.com/invowk/invowk/pkg/fspath"
 )
 
 type (
@@ -27,7 +28,7 @@ type (
 func defaultValidateOptions(inv *Invowkfile) validateOptions {
 	var workDir FilesystemPath
 	if inv != nil && inv.FilePath != "" {
-		workDir = FilesystemPath(filepath.Dir(string(inv.FilePath))) //goplint:ignore -- derived from validated Invowkfile.FilePath
+		workDir = fspath.Dir(inv.FilePath)
 	}
 
 	return validateOptions{

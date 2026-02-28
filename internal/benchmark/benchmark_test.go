@@ -576,7 +576,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(invowkfilePath),
 		Env: &invowkfile.EnvConfig{
-			Vars: map[string]string{
+			Vars: map[invowkfile.EnvVarName]string{
 				"ROOT_VAR1": "value1",
 				"ROOT_VAR2": "value2",
 			},
@@ -586,7 +586,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 				Name:        "test",
 				Description: "Test command",
 				Env: &invowkfile.EnvConfig{
-					Vars: map[string]string{
+					Vars: map[invowkfile.EnvVarName]string{
 						"CMD_VAR1": "cmd_value1",
 						"CMD_VAR2": "cmd_value2",
 					},
@@ -598,7 +598,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 							{Name: invowkfile.RuntimeNative},
 						},
 						Env: &invowkfile.EnvConfig{
-							Vars: map[string]string{
+							Vars: map[invowkfile.EnvVarName]string{
 								"IMPL_VAR1": "impl_value1",
 							},
 						},

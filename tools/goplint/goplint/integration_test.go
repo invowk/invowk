@@ -43,6 +43,7 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "no-cfa", "false")
 	setFlag(t, "audit-review-dates", "false")
 	setFlag(t, "check-enum-sync", "false")
+	setFlag(t, "suggest-validate-all", "false")
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
@@ -449,6 +450,20 @@ func TestConstructorValidatesException(t *testing.T) {
 	setFlag(t, "check-constructor-validates", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "configexceptions")
+}
+
+// TestSuggestValidateAll exercises the --suggest-validate-all advisory mode
+// against the suggestvalidateall fixture, verifying that structs with Validate()
+// and validatable fields but no //goplint:validate-all directive are reported.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestSuggestValidateAll(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "suggest-validate-all", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "suggestvalidateall")
 }
 
 // TestCheckNonZero exercises the --check-nonzero mode against the nonzero

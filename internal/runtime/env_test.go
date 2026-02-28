@@ -374,13 +374,13 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				Env: &invowkfile.EnvConfig{
 					Files: []invowkfile.DotenvFilePath{"impl.env"},
-					Vars:  map[string]string{"SHARED": "impl_var", "IMPL_VAR_ONLY": "impl_var"},
+					Vars:  map[invowkfile.EnvVarName]string{"SHARED": "impl_var", "IMPL_VAR_ONLY": "impl_var"},
 				},
 			},
 		},
 		Env: &invowkfile.EnvConfig{
 			Files: []invowkfile.DotenvFilePath{"cmd.env"},
-			Vars:  map[string]string{"SHARED": "cmd_var", "CMD_VAR_ONLY": "cmd_var"},
+			Vars:  map[invowkfile.EnvVarName]string{"SHARED": "cmd_var", "CMD_VAR_ONLY": "cmd_var"},
 		},
 	}
 
@@ -388,7 +388,7 @@ func TestBuildRuntimeEnv_Precedence(t *testing.T) {
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 		Env: &invowkfile.EnvConfig{
 			Files: []invowkfile.DotenvFilePath{"root.env"},
-			Vars:  map[string]string{"SHARED": "root_var", "ROOT_VAR_ONLY": "root_var"},
+			Vars:  map[invowkfile.EnvVarName]string{"SHARED": "root_var", "ROOT_VAR_ONLY": "root_var"},
 		},
 	}
 
@@ -503,7 +503,7 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 				Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 				Env: &invowkfile.EnvConfig{
-					Vars: map[string]string{
+					Vars: map[invowkfile.EnvVarName]string{
 						"IMPL_VAR":  "impl_value",
 						"OVERWRITE": "impl_wins",
 					},
@@ -511,7 +511,7 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 			},
 		},
 		Env: &invowkfile.EnvConfig{
-			Vars: map[string]string{
+			Vars: map[invowkfile.EnvVarName]string{
 				"CMD_VAR":   "cmd_value",
 				"OVERWRITE": "cmd_value",
 			},
@@ -521,7 +521,7 @@ func TestBuildRuntimeEnv_EnvVars(t *testing.T) {
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 		Env: &invowkfile.EnvConfig{
-			Vars: map[string]string{
+			Vars: map[invowkfile.EnvVarName]string{
 				"ROOT_VAR":  "root_value",
 				"OVERWRITE": "root_value",
 			},

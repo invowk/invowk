@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/invowk/invowk/pkg/fspath"
 )
 
 // scriptFileExtensions contains extensions that indicate a script file
@@ -235,12 +237,11 @@ func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath 
 	if modulePath != "" {
 		// Convert forward slashes to native path separator for cross-platform compatibility
 		nativePath := filepath.FromSlash(script)
-		return FilesystemPath(filepath.Join(string(modulePath), nativePath)) //goplint:ignore -- derived from validated modulePath
+		return fspath.JoinStr(modulePath, nativePath)
 	}
 
 	// Resolve relative to invowkfile directory
-	invowkDir := filepath.Dir(string(invowkfilePath))
-	return FilesystemPath(filepath.Join(invowkDir, script)) //goplint:ignore -- derived from validated invowkfilePath
+	return fspath.JoinStr(fspath.Dir(invowkfilePath), script)
 }
 
 // ResolveScript returns the actual script content to execute.

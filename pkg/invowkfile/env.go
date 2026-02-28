@@ -38,7 +38,7 @@ type (
 		Files []DotenvFilePath `json:"files,omitempty"`
 		// Vars contains environment variables as key-value pairs (optional)
 		// These override values loaded from Files.
-		Vars map[string]string `json:"vars,omitempty"`
+		Vars map[EnvVarName]string `json:"vars,omitempty"`
 	}
 )
 
@@ -73,12 +73,18 @@ func (e *EnvConfig) GetFiles() []DotenvFilePath {
 	return e.Files
 }
 
-// GetVars returns the vars map, or nil if EnvConfig is nil
+// GetVars returns the vars as a map[string]string, converting typed keys back
+// to raw strings for compatibility with maps.Copy and exec.Cmd.Env consumers.
+// Returns nil if EnvConfig is nil or Vars is empty.
 func (e *EnvConfig) GetVars() map[string]string {
-	if e == nil {
+	if e == nil || e.Vars == nil {
 		return nil
 	}
-	return e.Vars
+	result := make(map[string]string, len(e.Vars))
+	for k, v := range e.Vars {
+		result[string(k)] = v
+	}
+	return result
 }
 
 // ValidateEnvVarName validates a single environment variable name.

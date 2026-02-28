@@ -109,7 +109,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 					Env: &invowkfile.EnvConfig{
 						Files: []invowkfile.DotenvFilePath{"root.env"},
-						Vars:  map[string]string{"KEY": "level5_root_var"},
+						Vars:  map[invowkfile.EnvVarName]string{"KEY": "level5_root_var"},
 					},
 				}
 				cmd := testCommandWithScript("test", "echo test", invowkfile.RuntimeNative)
@@ -124,7 +124,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 				inv := &invowkfile.Invowkfile{
 					FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 					Env: &invowkfile.EnvConfig{
-						Vars: map[string]string{"KEY": "level5_root_var"},
+						Vars: map[invowkfile.EnvVarName]string{"KEY": "level5_root_var"},
 					},
 				}
 				cmd := &invowkfile.Command{
@@ -134,7 +134,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
 					}},
-					Env: &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
+					Env: &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"KEY": "level6_cmd_var"}},
 				}
 				return NewExecutionContext(t.Context(), cmd, inv)
 			},
@@ -153,9 +153,9 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 						Script:    "echo test",
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
-						Env:       &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level7_impl_var"}},
+						Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"KEY": "level7_impl_var"}},
 					}},
-					Env: &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level6_cmd_var"}},
+					Env: &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"KEY": "level6_cmd_var"}},
 				}
 				return NewExecutionContext(t.Context(), cmd, inv)
 			},
@@ -174,7 +174,7 @@ func TestBuildRuntimeEnv_PairwisePrecedence(t *testing.T) {
 						Script:    "echo test",
 						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 						Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
-						Env:       &invowkfile.EnvConfig{Vars: map[string]string{"KEY": "level7_impl_var"}},
+						Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"KEY": "level7_impl_var"}},
 					}},
 				}
 				ctx := NewExecutionContext(t.Context(), cmd, inv)
@@ -307,7 +307,7 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 			name: "empty vars and files",
 			inv: &invowkfile.Invowkfile{
 				FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
-				Env:      &invowkfile.EnvConfig{Vars: map[string]string{}, Files: []invowkfile.DotenvFilePath{}},
+				Env:      &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{}, Files: []invowkfile.DotenvFilePath{}},
 			},
 			cmd: &invowkfile.Command{
 				Name: "test",
@@ -315,9 +315,9 @@ func TestBuildRuntimeEnv_NilEnvConfigs(t *testing.T) {
 					Script:    "echo test",
 					Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
 					Platforms: []invowkfile.PlatformConfig{{Name: currentPlatform}},
-					Env:       &invowkfile.EnvConfig{Vars: map[string]string{}, Files: []invowkfile.DotenvFilePath{}},
+					Env:       &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{}, Files: []invowkfile.DotenvFilePath{}},
 				}},
-				Env: &invowkfile.EnvConfig{Vars: map[string]string{}, Files: []invowkfile.DotenvFilePath{}},
+				Env: &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{}, Files: []invowkfile.DotenvFilePath{}},
 			},
 		},
 	}

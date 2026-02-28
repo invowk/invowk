@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"go/types"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -404,4 +405,112 @@ func embeddedFieldTypeName(expr ast.Expr) string {
 // //goplint:validate-all directive.
 func hasValidateAllDirective(genDoc *ast.CommentGroup, specDoc *ast.CommentGroup) bool {
 	return hasDirectiveKey(genDoc, nil, "validate-all") || hasDirectiveKey(specDoc, nil, "validate-all")
+}
+
+// inspectSuggestValidateAll reports structs that have Validate() and at least
+// one field whose type also has Validate(), but are not annotated with
+// //goplint:validate-all. This is an advisory mode to help identify candidates
+// for the directive — it does not block CI.
+func inspectSuggestValidateAll(
+	pass *analysis.Pass,
+	cfg *ExceptionConfig,
+	bl *BaselineConfig,
+) {
+	pkgName := packageName(pass.Pkg)
+
+	// Build a set of type names with Validate() methods in this package.
+	validatableTypes := make(map[string]bool)
+	for _, obj := range pass.TypesInfo.Defs {
+		if obj == nil {
+			continue
+		}
+		named := resolveNamedType(obj.Type())
+		if named == nil {
+			continue
+		}
+		if hasValidateMethod(named) {
+			validatableTypes[obj.Name()] = true
+		}
+	}
+
+	for _, file := range pass.Files {
+		if isTestFile(pass, file.Pos()) {
+			continue
+		}
+		for _, decl := range file.Decls {
+			gd, ok := decl.(*ast.GenDecl)
+			if !ok || gd.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gd.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				st, ok := ts.Type.(*ast.StructType)
+				if !ok || st.Fields == nil {
+					continue
+				}
+
+				// Skip if already annotated.
+				if hasValidateAllDirective(gd.Doc, ts.Doc) {
+					continue
+				}
+
+				// Skip if the struct itself doesn't have Validate().
+				if !validatableTypes[ts.Name.Name] {
+					continue
+				}
+
+				// Count fields whose types have Validate().
+				validatableFieldCount := 0
+				for _, field := range st.Fields.List {
+					fieldType := pass.TypesInfo.TypeOf(field.Type)
+					if fieldType == nil {
+						continue
+					}
+					named := resolveNamedType(fieldType)
+					if named != nil && hasValidateMethod(named) {
+						if len(field.Names) > 0 {
+							validatableFieldCount += len(field.Names)
+						} else {
+							validatableFieldCount++
+						}
+					}
+				}
+
+				if validatableFieldCount == 0 {
+					continue
+				}
+
+				qualName := fmt.Sprintf("%s.%s", pkgName, ts.Name.Name)
+				excKey := qualName + ".suggest-validate-all"
+				if cfg.isExcepted(excKey) {
+					continue
+				}
+
+				msg := fmt.Sprintf(
+					"struct %s has Validate() and %d validatable field(s) but no //goplint:validate-all directive",
+					qualName, validatableFieldCount)
+				findingID := StableFindingID(CategorySuggestValidateAll, qualName)
+				if bl.ContainsFinding(CategorySuggestValidateAll, findingID, msg) {
+					continue
+				}
+
+				reportDiagnostic(pass, ts.Name.Pos(), CategorySuggestValidateAll, findingID, msg)
+			}
+		}
+	}
+}
+
+// resolveNamedType dereferences pointers and aliases to find the underlying
+// *types.Named type. Returns nil if the type is not a named type.
+func resolveNamedType(t types.Type) *types.Named {
+	// Dereference pointers.
+	if ptr, ok := t.(*types.Pointer); ok {
+		t = ptr.Elem()
+	}
+	t = types.Unalias(t)
+	named, _ := t.(*types.Named)
+	return named
 }

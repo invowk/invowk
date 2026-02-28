@@ -174,7 +174,7 @@ func testContainerExecuteCaptureEnvVars(t *testing.T) {
 				Platforms: []invowkfile.PlatformConfig{
 					{Name: currentPlatform},
 				},
-				Env: &invowkfile.EnvConfig{Vars: map[string]string{"MY_VAR": "captured_value"}},
+				Env: &invowkfile.EnvConfig{Vars: map[invowkfile.EnvVarName]string{"MY_VAR": "captured_value"}},
 			},
 		},
 	}

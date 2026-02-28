@@ -3,7 +3,7 @@
 # goplint baseline — accepted DDD compliance findings
 # Generated: 2026-02-28
 # Regenerate: make update-baseline
-# Total: 240 findings
+# Total: 235 findings
 
 # Bare primitive type usage
 [primitive]
@@ -12,7 +12,6 @@ entries = [
     { id = "gpl1_02abe909fd3b22a38dc9960424a84fade7dca40dc58c8a5a2b26a59340344e5a", message = "return value of runtime.NativeRuntime.ShellArgs uses primitive type []string" },
     { id = "gpl1_04b8947962f0f5e1b719c3f0f5cd71f1bf26a57ca885747a369ee3ecccf0f966", message = "parameter \"globalModuleIDs\" of invowkfile.NewCommandScope uses primitive type []string" },
     { id = "gpl1_05473a7631b58d36c311ea1190311babf0939985972320a4d955b0f2b0565f58", message = "parameter \"seenNames\" of invowkfile.StructureValidator.validateFlag uses primitive type string (in map key)" },
-    { id = "gpl1_0587a4a95fa65297427f7095b116b947b3caa5e364da76e46ee19e2bfb671be8", message = "struct field cueutil.ValidationError.Message uses primitive type string" },
     { id = "gpl1_06f45d1895fdf917ba51dc11c78c64c4fa9fd2935ab3a5ba7c6594d312eb1401", message = "parameter \"value\" of invowkfile.matchesValidation uses primitive type string" },
     { id = "gpl1_071a83a5702f2d614cedea5daf487de0116020dcedb8bb4b2fa59aff3921e87c", message = "return value of platform.GetSpawnCommand uses primitive type string" },
     { id = "gpl1_0867d76d2d406cfa98d8a49df69cfca7cadcce53901e1baa30af83f5e8bb471a", message = "parameter \"value\" of container.WithCmdEnvOverride uses primitive type string" },
@@ -44,7 +43,6 @@ entries = [
     { id = "gpl1_2510a4135fab4192f08a80df52bf81c5e300df491f7223a9fcfc471b55e15b52", message = "parameter \"userEnv\" of invowk.validateHostDependencies uses primitive type string (in map key and value)" },
     { id = "gpl1_25978f672a826c05da84503a3ae8777865fc9d5ed70e4a93f6825df1efd3c6c3", message = "parameter \"implIdx\" of invowkfile.StructureValidator.validateRuntimeConfig uses primitive type int" },
     { id = "gpl1_26787ce49cb75508fa92feefef2dc7e458aa66e09f41911c365874274ab835a3", message = "parameter \"path\" of invowkmod.Module.checkSymlinkSafety uses primitive type string" },
-    { id = "gpl1_28039fa4bf896f9a2ae57037fec3508992b1b1a1d652792e6b16825ec18626ab", message = "struct field cueutil.ValidationError.Suggestion uses primitive type string" },
     { id = "gpl1_2ae13994859838421aa6cfa0da22474b91bec38709865e4e7bd7a21bbeea49d8", message = "return value of runtime.DefaultEnvBuilder.Build uses primitive type string (in map key and value)" },
     { id = "gpl1_2b0a404d2a88ef219f11b5f3e6f65e5ef755a86add130f7477a1cecf00fcea96", message = "struct field tui.TableSelectionResult.SelectedRow uses primitive type []string" },
     { id = "gpl1_2ba1eca26c4e435a6f3f67deeed2489d8cdd87869da243d0a8d1b8c66f557a85", message = "return value of runtime.lockFilePathWith uses primitive type string" },
@@ -59,7 +57,6 @@ entries = [
     { id = "gpl1_30202cb3a77024734599d6ca2209409cb54a1b2d14cb712c8fa679fc30c68196", message = "return value of platform.SpawnCommandFor uses primitive type string" },
     { id = "gpl1_32e5cdd8fe247808bc02a76cc14f903709af736a10d1a6b9566a8714f9550c8f", message = "parameter \"supportedHosts\" of invowk.RenderHostNotSupportedError uses primitive type string" },
     { id = "gpl1_33f41cf43681997be8e92f6512b85e6b8c6eda75c502ffa9e14ada6d6da7cc63", message = "parameter \"size\" of serverbase.WithErrorChannel uses primitive type int" },
-    { id = "gpl1_341c26ba43dd7de5098971d4e635053f32bdb29301ed9c6551cb0f2bd825f1ef", message = "struct field cueutil.ValidationError.CUEPath uses primitive type string" },
     { id = "gpl1_34cafd81a232a22bf5abbed4e6ebfeced247bff57c1cf56324b148108b36b0c0", message = "return value of invowkfile.Implementation.ResolveScript uses primitive type string" },
     { id = "gpl1_3510e3e15b977c6c1c8b1ab921ce77da860a1dfebed18abb78fea43e36a0b624", message = "parameter \"shell\" of runtime.NativeRuntime.getShellArgs uses primitive type string" },
     { id = "gpl1_35d142c45a72d53234f347a89944f3c303091d9713d00c6fef02061cc9f2b2fc", message = "return value \"cmd\" of container.SandboxAwareEngine.getSpawnInfo uses primitive type string" },
@@ -106,6 +103,7 @@ entries = [
     { id = "gpl1_69643d5521e5ab1ae6d77a8462d1199acb6f3711401e572e13109ffc676f8a60", message = "struct field tui.filterItem.text uses primitive type string" },
     { id = "gpl1_6b397a0bc00157cdce4baeb91a3bd3f59ca823ea7fa034d129c4be1b8e3a742c", message = "return value of tui.WriteBuilder.Run uses primitive type string" },
     { id = "gpl1_6bb41bea8b726e5ce83bcad511bb97eb96e35b2f6867baa0b9915fa25e8c92da", message = "struct field cueutil.parseOptions.maxFileSize uses primitive type int64" },
+    { id = "gpl1_6bbc4eecd7567ccb4427a0f85e0d622ff487f999cc848256436e99468bc0e86e", message = "parameter \"elem\" of fspath.JoinStr uses primitive type []string" },
     { id = "gpl1_6eca073e1c9e0619f03be4c5718d3b61c9efd91f498997cba56f037de2c17d52", message = "parameter \"filePath\" of invowkfile.ValidateEnvFilePath uses primitive type string" },
     { id = "gpl1_6fceaabc4c657cebaa482c99fa23b0e9ce78faefd03647f230f0c4a724efe2dc", message = "parameter \"value\" of invowkfile.Flag.ValidateFlagValue uses primitive type string" },
     { id = "gpl1_7084dfcc3b55904fa43d288b7e18ae674b1ab130d3e2b792c61d2502193f1da9", message = "return value of tui.InputBuilder.Run uses primitive type string" },
@@ -138,7 +136,6 @@ entries = [
     { id = "gpl1_8911815fc8fa3c38a6d52e09f7af6b5db52c6bb3219f42a833287caa2c1159c8", message = "parameter \"key\" of runtime.EnvContext.WithVar uses primitive type string" },
     { id = "gpl1_89db3497f5a04d8db82fb1a8e8ea1b009c7e9abaf8cfdefc18ed6f915bb669fc", message = "parameter \"name\" of invowk.appDiscoveryService.GetCommand uses primitive type string" },
     { id = "gpl1_8acd46166b329d2bbdfbb6db344e659ad1a84c68288279807a7fabb77fd7519d", message = "parameter \"paths\" of invowk.toDotenvFilePaths uses primitive type []string" },
-    { id = "gpl1_8b1af5ae7243424f3cf9906319af395a30e9fb22ed5ebf79662fc9d2c0d38aee", message = "return value of invowkfile.Invowkfile.GetModule uses primitive type string" },
     { id = "gpl1_8b911d92f10fbe37125b3853ed1eb5646b4cf6c8de5ec54729e6d6aa6161420f", message = "return value \"extractedPath\" of invowkmod.Unpack uses primitive type string" },
     { id = "gpl1_8ddeb764920eb57f66682ac38c0e390c47b409b1aba0cc8b9b762c62d30a2759", message = "parameter \"value\" of invowkfile.ValidateStringLength uses primitive type string" },
     { id = "gpl1_8e852ef668188d8aa088aa55d80e7a34ec625a9dc7eb675a3031b0c0fcbebe2d", message = "return value of provision.LayerProvisioner.GetProvisionedImageTag uses primitive type string" },
@@ -184,8 +181,6 @@ entries = [
     { id = "gpl1_b9a79302b0fbee2ffb278edbac57bf70147d17df678f9ddc3afbbf85fe35f1af", message = "return value of tui.FileBuilder.Run uses primitive type string" },
     { id = "gpl1_ba09599b7d04bc6bf91e4af0d5112eff5586e632fc34d8c6ee3394addcf40473", message = "parameter \"script\" of runtime.NativeRuntime.prepareInterpreterCommand uses primitive type string" },
     { id = "gpl1_bb6340a91d1b29fdfa3aaa35a99bd332e9546864375629ad3801417cace6fb42", message = "return value of container.BaseCLIEngine.RemoveImageArgs uses primitive type []string" },
-    { id = "gpl1_bcf47b9da390a023f639d4fba7bca2e9effef6693cefeb0e63618137b40cb2fd", message = "struct field cueutil.ValidationError.FilePath uses primitive type string" },
-    { id = "gpl1_bd3837157762ca02a85ea4d614faed96b42dd468a641ce58528fda1d12ea3f41", message = "return value of discovery.Discovery.getAliasForModulePath uses primitive type string" },
     { id = "gpl1_bf80fe9a5961a4f474d036a917dc4b952c2851dee9204a5718e8fbd7ec48948e", message = "parameter \"cmdName\" of invowk.RenderHostNotSupportedError uses primitive type string" },
     { id = "gpl1_bfd433fad2ed59581bf9dd504acd82f21cf972946ea5c2e6a6ea2eec64839e4d", message = "struct field tui.spinModel.spinner uses primitive type int" },
     { id = "gpl1_c241a89e7f32ff57f7c43ac2b6d0dafe3107f9d89b92f06c6f78d9b9926db31f", message = "parameter \"commit\" of invowk.getVersionString uses primitive type string" },
@@ -194,7 +189,6 @@ entries = [
     { id = "gpl1_c56ad34799041ba9aebe0a7e845742cd10a15d51ec3d97b25dfc66f4c0139a62", message = "return value of container.BaseCLIEngine.RemoveArgs uses primitive type []string" },
     { id = "gpl1_c6ac3bb1c6988c2e6a30ab738d2bd8b45564fdd67cfa5b5dc21267481aeead9f", message = "return value of tui.hexToANSIBackground uses primitive type string" },
     { id = "gpl1_c72e5a0685a8b39d965d83ec0771b221bc86663a3815207e29a2c749bc409757", message = "parameter \"pattern\" of invowkfile.ValidateRegexPattern uses primitive type string" },
-    { id = "gpl1_ccb0b337e0cb251ba0954d245c71e41d16722ce9f81e5195c718041f682ac49e", message = "return value of discovery.Discovery.GetEffectiveModuleID uses primitive type string" },
     { id = "gpl1_cd04a5bdc622f63c15ef6c679fca9a065b368bbd0261f6111331dfe9e2d9fe6e", message = "parameter \"value\" of invowkfile.ParseRuntimeMode uses primitive type string" },
     { id = "gpl1_cd4f896454b58148940de24c7f8c23c098d556ea1302cbfcebe1be04d9464bf9", message = "return value of invowkfile.CompositeValidator.Count uses primitive type int" },
     { id = "gpl1_cd78cdad65f99111602b0251520c31eb9abd39d31e2ac25192873bc17f96c605", message = "struct field runtime.NativeRuntime.shellArgs uses primitive type []string" },
@@ -248,4 +242,10 @@ entries = [
     { id = "gpl1_fe6cdcc647be801adec247b841f7e78baf144c24de88ebd07e3973accec7b3c9", message = "parameter \"binary\" of container.SandboxAwareEngine.buildSpawnArgs uses primitive type string" },
     { id = "gpl1_ff0c5c7abf47731a42bb7a87c4bed30f98864e70be133894a5379f87643e1501", message = "parameter \"suffix\" of provision.WithTagSuffix uses primitive type string" },
     { id = "gpl1_ff66ce346396a61a496436e3533b68e01ba99258c4e76176317a2c98c238791a", message = "parameter \"image\" of runtime.isAlpineContainerImage uses primitive type string" },
+]
+
+# Type conversions to DDD types without Validate() check
+[unvalidated-cast]
+entries = [
+    { id = "gpl1_d9e53c99d4895827202e96add12a3399f8cf0082b4d4eb5ab37d7a49b5e10d23", message = "type conversion to invowkmod.ModuleShortName from non-constant without Validate() check" },
 ]

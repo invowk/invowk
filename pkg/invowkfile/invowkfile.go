@@ -9,6 +9,8 @@ import (
 	goruntime "runtime"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/fspath"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
 )
 
@@ -141,7 +143,7 @@ func (inv *Invowkfile) GetScriptBasePath() FilesystemPath {
 	if inv.ModulePath != "" {
 		return inv.ModulePath
 	}
-	return FilesystemPath(filepath.Dir(string(inv.FilePath))) //goplint:ignore -- derived from validated Invowkfile.FilePath
+	return fspath.Dir(inv.FilePath)
 }
 
 // GetEffectiveWorkDir resolves the effective working directory for command execution.
@@ -168,7 +170,7 @@ func (inv *Invowkfile) GetEffectiveWorkDir(cmd *Command, impl *Implementation, c
 		if filepath.IsAbs(nativePath) {
 			return FilesystemPath(nativePath) //goplint:ignore -- OS path from filepath.IsAbs guard
 		}
-		return FilesystemPath(filepath.Join(string(invowkfileDir), nativePath)) //goplint:ignore -- derived from validated invowkfileDir
+		return fspath.JoinStr(invowkfileDir, nativePath)
 	}
 
 	// Priority 1: CLI override
@@ -205,10 +207,10 @@ func (inv *Invowkfile) GetFullCommandName(cmdName CommandName) CommandName {
 	return cmdName
 }
 
-// GetModule returns the module identifier from Metadata, or empty string if not set.
-func (inv *Invowkfile) GetModule() string {
+// GetModule returns the module identifier from Metadata, or empty ModuleID if not set.
+func (inv *Invowkfile) GetModule() invowkmod.ModuleID {
 	if inv.Metadata != nil {
-		return string(inv.Metadata.Module())
+		return inv.Metadata.Module()
 	}
 	return ""
 }

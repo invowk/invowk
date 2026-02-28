@@ -132,13 +132,13 @@ func WithEnv(key, value string) CommandOption {
 	return func(c *invowkfile.Command) {
 		if c.Env == nil {
 			c.Env = &invowkfile.EnvConfig{
-				Vars: make(map[string]string),
+				Vars: make(map[invowkfile.EnvVarName]string),
 			}
 		}
 		if c.Env.Vars == nil {
-			c.Env.Vars = make(map[string]string)
+			c.Env.Vars = make(map[invowkfile.EnvVarName]string)
 		}
-		c.Env.Vars[key] = value
+		c.Env.Vars[invowkfile.EnvVarName(key)] = value
 	}
 }
 
