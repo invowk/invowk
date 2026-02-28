@@ -60,6 +60,8 @@ type (
 		IsAmbiguous bool
 	}
 
+	//goplint:mutable
+	//
 	// DiscoveredCommandSet holds aggregated discovery results with conflict analysis.
 	// It provides indexed access to commands by simple name and source for
 	// efficient conflict detection and grouped listing.

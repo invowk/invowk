@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # goplint baseline — accepted DDD compliance findings
-# Generated: 2026-02-27
+# Generated: 2026-02-28
 # Regenerate: make update-baseline
-# Total: 273 findings
+# Total: 240 findings
 
 # Bare primitive type usage
 [primitive]
@@ -248,42 +248,4 @@ entries = [
     { id = "gpl1_fe6cdcc647be801adec247b841f7e78baf144c24de88ebd07e3973accec7b3c9", message = "parameter \"binary\" of container.SandboxAwareEngine.buildSpawnArgs uses primitive type string" },
     { id = "gpl1_ff0c5c7abf47731a42bb7a87c4bed30f98864e70be133894a5379f87643e1501", message = "parameter \"suffix\" of provision.WithTagSuffix uses primitive type string" },
     { id = "gpl1_ff66ce346396a61a496436e3533b68e01ba99258c4e76176317a2c98c238791a", message = "parameter \"image\" of runtime.isAlpineContainerImage uses primitive type string" },
-]
-
-# Type conversions to DDD types without Validate() check
-[unvalidated-cast]
-entries = [
-    { id = "gpl1_14cd8d172d1c33e51a24d70ee9593f226274120d55e9d8de1e350f824722aae7", message = "type conversion to PortProtocol from non-constant without Validate() check" },
-    { id = "gpl1_1e47e1f13215cc78225a457d5728259d94e71580687fbafeed76361b93e90eab", message = "type conversion to WorkDir from non-constant without Validate() check" },
-    { id = "gpl1_201def99eeec82100426f9d4bc6ee4b08dace2b882576089d4e0030cf0a4290a", message = "type conversion to SemVer from non-constant without Validate() check" },
-    { id = "gpl1_2a6f73e2f0a03b3f97ea445c72fab2116ddffafe45a2630a17ff7346da67a4e1", message = "type conversion to GitCommit from non-constant without Validate() check" },
-    { id = "gpl1_390578755d62762f0fff2252b1277c9352e38f3889fdd4dde9bff5190e17dea4", message = "type conversion to TerminalDimension from non-constant without Validate() check" },
-    { id = "gpl1_4056e4f87f7663c557332c252aa81b4330f0ba5746ac27bf21d7c306fa62a563", message = "type conversion to NetworkPort from non-constant without Validate() check" },
-    { id = "gpl1_4b34bdd48e6033e71c6b8bbe09fb73c651e42173fc767328d4f03399921084e1", message = "type conversion to invowkmod.ModuleID from non-constant without Validate() check" },
-    { id = "gpl1_4b695eb99c29c2c0487b0da7805d89385e17c0cef668063a989f5ad39cffc26f", message = "type conversion to LockFileVersion from non-constant without Validate() check" },
-    { id = "gpl1_64ea8f424dc67a156cefbbdbb0d5e97df1c49490d11e93d3e8296c9030d0239a", message = "type conversion to SubdirectoryPath from non-constant without Validate() check" },
-    { id = "gpl1_6883f521c4786c3e3061239faec53a8b3901b03762b83dbe5b0f3228f410b32a", message = "type conversion to tui.TerminalDimension from non-constant without Validate() check" },
-    { id = "gpl1_68ca2c70a6d76d02ce49993873bbd371a2868a8924eea50bc579040683dbffe4", message = "type conversion to runtime.TUIServerURL from non-constant without Validate() check" },
-    { id = "gpl1_696a0a7d62879c2a4c537e95563d77d3f3bc11c48b9eba7682c1b81e6e15d79f", message = "type conversion to GitURL from non-constant without Validate() check" },
-    { id = "gpl1_6ba83745b3170fb170139f9dffc5df598d4a23019cf62e49d00dbb1e8d770c5d", message = "type conversion to SelectionIndex from non-constant without Validate() check" },
-    { id = "gpl1_6de0bd8fd1a289aff01f409811793b9778f4e6df895e2334237619105fd763d3", message = "type conversion to MountTargetPath from non-constant without Validate() check" },
-    { id = "gpl1_7c545fdce4b61ae534c96b0db388cb868b87d09b844a64adcdd7768be5c72501", message = "type conversion to invowkfile.ScriptContent from non-constant without Validate() check" },
-    { id = "gpl1_808a209a11876179c0c22ee12108ca764a6207ca789c252ca04551d4d4485c9a", message = "type conversion to discovery.SourceID from non-constant without Validate() check" },
-    { id = "gpl1_810eb8e7255e387d277c4eb01768cfab4403fa9616371de35848ee5f820df893", message = "type conversion to ModuleAlias from non-constant without Validate() check" },
-    { id = "gpl1_8bc95280650a0580ed40241163f5dce417a3e2eadda457307424c06d9d9a042d", message = "type conversion to types.DescriptionText from non-constant without Validate() check" },
-    { id = "gpl1_8c7f35836e65444cda2fc9b6c16d4b5f707928465ebba256613e2fd2574b2e7b", message = "type conversion to invowkfile.DotenvFilePath from non-constant without Validate() check" },
-    { id = "gpl1_95df398c3638e7f3459696fad1259e03c03e7095dd2dc242c7d13eb64f8be3c8", message = "type conversion to invowkfile.EnvVarName from non-constant without Validate() check" },
-    { id = "gpl1_96a99b811ef7020a052ed8ea5173ccabf74ac0ddb7c21fb7745cb23a10fb46b5", message = "type conversion to invowkfile.CommandName from non-constant without Validate() check" },
-    { id = "gpl1_9a5c8e3066d02984bce08c6a4b6b2c0ecd508a011198d28eaa2aad1c32a2e30e", message = "type conversion to CommandName from non-constant without Validate() check" },
-    { id = "gpl1_a0c889e3a330b32ec59cdef1a532a277c2efe54865072acf0b5a2f7425ad6afe", message = "type conversion to InterpreterSpec from non-constant without Validate() check" },
-    { id = "gpl1_ab8c9c690fd2421de7856e0d6f67945a5e2461bd32e7f965f734cc55587e6a5f", message = "type conversion to types.ExitCode from non-constant without Validate() check" },
-    { id = "gpl1_aede79442963c4d4de7d80bdbaf8cbb733eb61faa1c798eff35d8338082c60a1", message = "type conversion to ModuleID from non-constant without Validate() check" },
-    { id = "gpl1_b069a4f77062ffd1faf2f66efcd987260bc2656faef445a1d7dc937e01a98984", message = "type conversion to ModuleShortName from non-constant without Validate() check" },
-    { id = "gpl1_b2173cb8f5f69f26f45a439a5db52d37c97cf3f493eb27e0d3fa898dce026576", message = "type conversion to State from non-constant without Validate() check" },
-    { id = "gpl1_bc201766bc55b1476437fa620ac906f4e46b843f9dd3d3fd21011346495bc626", message = "type conversion to HostFilesystemPath from non-constant without Validate() check" },
-    { id = "gpl1_c666c9ea54dfa28a3b234d023ca106201e2751b7b6bdea70eb410d7b074fdb58", message = "type conversion to invowkfile.WorkDir from non-constant without Validate() check" },
-    { id = "gpl1_c94d515caa7580b296a9b28140e5bd9a8366352b0899f3f75e54003e8f48f840", message = "type conversion to SemVerConstraint from non-constant without Validate() check" },
-    { id = "gpl1_d5492bcf4041968fe21722f6949b9dc1c44f2948b5a68aae5b0783d1bb7efd8b", message = "type conversion to SELinuxLabel from non-constant without Validate() check" },
-    { id = "gpl1_d5f1a00acdf88d7d1111031cecb22c2655dae2fffa00429ba6dea77ffcd50211", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
-    { id = "gpl1_dcb4cf5d75d8d856a6884af75408c9a8c29150fc405e206206fe61482080670b", message = "type conversion to runtime.TUIServerToken from non-constant without Validate() check" },
 ]

@@ -198,6 +198,44 @@ func NewBuilder(path string) (*Builder, error) { // want `parameter "path" of co
 	return buildBuilder(path), nil
 }
 
+// --- Deep transitive chain: NewPipeline → buildStages → initStage → stage.Validate() ---
+// This is a 3-level delegation chain (depth 0→1→2→validate). Previously,
+// len(visited) >= 3 would have stopped at the 3rd unique function, but
+// the fix uses explicit depth tracking so chains up to maxTransitiveDepth (5) work.
+
+type Pipeline struct {
+	name string // want `struct field constructorvalidates\.Pipeline\.name uses primitive type string`
+}
+
+func (p *Pipeline) Validate() error {
+	if p.name == "" {
+		return fmt.Errorf("empty pipeline name")
+	}
+	return nil
+}
+
+func initStage(p *Pipeline) error {
+	return p.Validate()
+}
+
+func buildStages(p *Pipeline) error {
+	return initStage(p)
+}
+
+func assemblePipeline(name string) (*Pipeline, error) { // want `parameter "name" of constructorvalidates\.assemblePipeline uses primitive type string`
+	p := &Pipeline{name: name}
+	if err := buildStages(p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// NewPipeline delegates through assemblePipeline → buildStages → initStage → p.Validate().
+// NOT flagged — the 4-level chain (depth 0→1→2→3) is within the maxTransitiveDepth limit.
+func NewPipeline(name string) (*Pipeline, error) { // want `parameter "name" of constructorvalidates\.NewPipeline uses primitive type string`
+	return assemblePipeline(name)
+}
+
 // --- Constant-only type (//goplint:constant-only) — constructor NOT flagged ---
 
 //goplint:constant-only

@@ -33,6 +33,7 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Check constructor validates | `make build-goplint && ./bin/goplint -check-constructor-validates -config=tools/goplint/exceptions.toml ./...` |
 | Check validate delegation | `make build-goplint && ./bin/goplint -check-validate-delegation -config=tools/goplint/exceptions.toml ./...` |
 | Check nonzero fields | `make build-goplint && ./bin/goplint -check-nonzero -config=tools/goplint/exceptions.toml ./...` |
+| Check enum CUE sync | `make build-goplint && ./bin/goplint -check-enum-sync -config=tools/goplint/exceptions.toml ./...` |
 | CFA cast validation (default) | `make build-goplint && ./bin/goplint -check-cast-validation -config=tools/goplint/exceptions.toml ./...` |
 | AST cast validation (fallback) | `make build-goplint && ./bin/goplint -check-cast-validation -no-cfa -config=tools/goplint/exceptions.toml ./...` |
 | Audit overdue reviews | `make build-goplint && ./bin/goplint -audit-review-dates -config=tools/goplint/exceptions.toml ./...` |
@@ -67,11 +68,13 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `missing-constructor-validate` | `--check-constructor-validates` or `--check-all` | Constructor returns validatable type but never calls Validate() |
 | `incomplete-validate-delegation` | `--check-validate-delegation` or `--check-all` | Struct with validate-all directive missing field Validate() delegation |
 | `wrong-func-option-type` | `--check-func-options` or `--check-all` | WithXxx() parameter type does not match the struct field type |
+| `enum-cue-missing-go` | `--check-enum-sync` | CUE disjunction member not in Go Validate() switch |
+| `enum-cue-extra-go` | `--check-enum-sync` | Go Validate() switch case not in CUE disjunction |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
 | `overdue-review` | `--audit-review-dates` | Exception with `review_after` date that has passed |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
-The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, and `--check-nonzero` in a single invocation. CFA is enabled by default (opt out via `--no-cfa`). Deliberately excludes `--audit-exceptions` and `--audit-review-dates` (config maintenance tools with per-package false positives).
+The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, and `--check-nonzero` in a single invocation. CFA is enabled by default (opt out via `--no-cfa`). Deliberately excludes `--audit-exceptions`, `--audit-review-dates` (config maintenance tools with per-package false positives), and `--check-enum-sync` (requires per-type opt-in directive and CUE schema files).
 
 ## Architecture
 
@@ -88,6 +91,7 @@ tools/goplint/
 │   ├── analyzer_constructor_validates.go # constructor body validation: Validate() call check
 │   ├── analyzer_validate_delegation.go  # validate-all delegation completeness
 │   ├── analyzer_nonzero.go          # nonzero analysis: fact export + struct field checking
+│   ├── analyzer_enum_sync.go       # enum sync: CUE disjunction ↔ Go Validate() switch comparison
 │   ├── analyzer_structural.go      # structural analysis: constructor-sig, func-options, immutability
 │   ├── baseline.go             # baseline TOML loading + matching + writing
 │   ├── config.go               # exception TOML loading + pattern matching + match counting
@@ -423,6 +427,22 @@ CFA replaces the AST name-based heuristic in `--check-cast-validation` with CFG 
 
 **Compartmentalization rule:** CFA is a fully compartmentalized enhancement layer. CFA files (`cfa*.go`), functions, and tests are strictly separated from AST files/tests. CFA files may import shared helpers from `inspect.go` and `typecheck.go` but NEVER import from `analyzer_cast_validation.go`, and vice versa. `analyzer.go` is the only file that routes between worlds.
 
+### `--check-enum-sync`
+
+Compares Go `Validate()` switch case literals against CUE schema disjunction members for types annotated with `//goplint:enum-cue=<CUEPath>`. The CUE schema is loaded from `*_schema.cue` files in the same package directory.
+
+**What gets flagged:**
+- `enum-cue-missing-go`: A CUE disjunction member is not present in the Go `Validate()` switch
+- `enum-cue-extra-go`: A Go switch case is not present in the CUE disjunction
+
+**What does NOT get flagged:**
+- Types without the `//goplint:enum-cue=` directive (opt-in only)
+- Types in packages without `*_schema.cue` files (a missing-schema diagnostic is emitted instead)
+
+**Directive format:** `//goplint:enum-cue=#RuntimeType` where the value after `=` is a CUE path expression (e.g., `#RuntimeType`, `#FlagType`). Placed on the type declaration.
+
+**Not included in `--check-all`** — requires per-type opt-in and only works in packages with CUE schemas.
+
 ### `--audit-review-dates`
 
 Reports exceptions with `review_after` dates (ISO 8601 format, e.g., `"2025-12-01"`) that have passed. Use this to identify overdue exceptions that need re-evaluation. Exceptions can also have a `blocked_by` field documenting what must be resolved before the exception can be removed.
@@ -443,6 +463,7 @@ All supplementary modes respect the TOML exception config:
 - `--check-constructor-validates`: excepted via `pkg.ConstructorName.constructor-validate`
 - `--check-validate-delegation`: excepted via `pkg.StructName.FieldName.validate-delegation`
 - `--check-nonzero`: excepted via `pkg.StructName.FieldName.nonzero`
+- `--check-enum-sync`: excepted via `pkg.TypeName.memberValue.enum-cue-missing-go` or `pkg.TypeName.memberValue.enum-cue-extra-go`
 
 ## Baseline Comparison
 

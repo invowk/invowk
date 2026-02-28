@@ -21,6 +21,8 @@ type (
 	configPathContextKey            struct{}
 	discoveryRequestCacheContextKey struct{}
 
+	//goplint:mutable
+	//
 	// App wires CLI services and shared dependencies. It is the composition root for
 	// the CLI layer — all Cobra command handlers receive an App reference and delegate
 	// business logic through its service interfaces (Commands, Discovery, Config).

@@ -37,6 +37,8 @@ var (
 )
 
 type (
+	//goplint:constant-only
+	//
 	// SandboxType identifies the type of application sandbox, if any.
 	SandboxType string
 

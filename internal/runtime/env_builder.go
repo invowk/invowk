@@ -31,6 +31,8 @@ type (
 		Build(ctx *ExecutionContext, defaultMode invowkfile.EnvInheritMode) (map[string]string, error)
 	}
 
+	//goplint:mutable
+	//
 	// DefaultEnvBuilder implements the standard 10-level precedence for environment building.
 	DefaultEnvBuilder struct {
 		// Environ returns the host environment as "KEY=VALUE" strings.

@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -24,6 +25,14 @@ func TestCommandName_Validate(t *testing.T) {
 		{"whitespace_only", CommandName("   "), false, true},
 		{"tab_only", CommandName("\t"), false, true},
 		{"newline_only", CommandName("\n"), false, true},
+		// Regex constraints (must start with letter, alphanumeric + underscore/hyphen/space)
+		{"starts_with_digit", CommandName("123bad"), false, true},
+		{"starts_with_hyphen", CommandName("-deploy"), false, true},
+		{"with_underscore", CommandName("my_task"), true, false},
+		{"special_chars", CommandName("build!"), false, true},
+		// Length constraint (MaxRunes 256)
+		{"max_length", CommandName("a" + strings.Repeat("b", 255)), true, false},
+		{"over_max_length", CommandName("a" + strings.Repeat("b", 256)), false, true},
 	}
 
 	for _, tt := range tests {

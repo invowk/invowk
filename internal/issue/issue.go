@@ -139,12 +139,18 @@ var (
 )
 
 type (
+	//goplint:constant-only
+	//
 	// Id represents a unique identifier for an issue type.
 	Id int
 
+	//goplint:constant-only
+	//
 	// MarkdownMsg represents markdown-formatted issue message content.
 	MarkdownMsg string
 
+	//goplint:constant-only
+	//
 	// HttpLink represents a URL link for documentation or external resources.
 	HttpLink string
 

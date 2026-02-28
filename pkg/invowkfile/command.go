@@ -5,11 +5,22 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 )
 
+// commandNameMaxRunes is the maximum length for a command name, matching
+// the CUE constraint strings.MaxRunes(256) on #Command.name.
+const commandNameMaxRunes = 256
+
 var (
+	// commandNameRegex matches the CUE constraint for #Command.name:
+	// must start with a letter, followed by letters, digits, underscores,
+	// hyphens, or spaces. Matches: "build", "test unit", "deploy-prod".
+	commandNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_ -]*$`)
+
 	// ErrInvalidCommandName is the sentinel error wrapped by InvalidCommandNameError.
 	ErrInvalidCommandName = errors.New("invalid command name")
 
@@ -76,7 +87,7 @@ type (
 
 // Error implements the error interface.
 func (e *InvalidCommandNameError) Error() string {
-	return fmt.Sprintf("invalid command name %q (must not be empty or whitespace-only)", e.Value)
+	return fmt.Sprintf("invalid command name %q (must start with a letter, contain only letters/digits/underscores/hyphens/spaces, max %d chars)", e.Value, commandNameMaxRunes)
 }
 
 // Unwrap returns ErrInvalidCommandName so callers can use errors.Is for programmatic detection.
@@ -84,10 +95,18 @@ func (e *InvalidCommandNameError) Unwrap() error { return ErrInvalidCommandName 
 
 // Validate returns nil if the CommandName is a valid command identifier,
 // or a validation error if it is not.
+// Matches the CUE constraint: ^[a-zA-Z][a-zA-Z0-9_ -]*$ with MaxRunes(256).
 //
 //goplint:nonzero
 func (n CommandName) Validate() error {
-	if strings.TrimSpace(string(n)) == "" {
+	s := string(n)
+	if strings.TrimSpace(s) == "" {
+		return &InvalidCommandNameError{Value: n}
+	}
+	if utf8.RuneCountInString(s) > commandNameMaxRunes {
+		return &InvalidCommandNameError{Value: n}
+	}
+	if !commandNameRegex.MatchString(s) {
 		return &InvalidCommandNameError{Value: n}
 	}
 	return nil

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -46,6 +47,10 @@ var (
 	ErrInvalidPlatform = errors.New("invalid platform type")
 	// ErrInvalidContainerImage is the sentinel error wrapped by InvalidContainerImageError.
 	ErrInvalidContainerImage = errors.New("invalid container image")
+
+	// containerImageRegex validates container image name format.
+	// Format: [registry[:port]/][namespace/]name[:tag][@digest]
+	containerImageRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._:/-]*[a-zA-Z0-9])?(:[a-zA-Z0-9._-]+)?(@sha256:[a-fA-F0-9]{64})?$`)
 
 	// shellInterpreters maps shell interpreter base names to true.
 	// These interpreters are compatible with the virtual runtime (mvdan/sh).
@@ -281,11 +286,30 @@ func (e *InvalidContainerImageError) Unwrap() error { return ErrInvalidContainer
 // Validate returns nil if the ContainerImage is structurally valid,
 // or a validation error if it is not.
 // The zero value ("") is valid — it means no image is specified (non-container runtimes).
-// Non-empty values must contain visible characters (not be whitespace-only).
+// Non-empty values are checked for: whitespace-only, length (≤512), injection
+// characters, and format (registry/namespace/image:tag pattern).
 func (i ContainerImage) Validate() error {
-	if i != "" && strings.TrimSpace(string(i)) == "" {
+	if i == "" {
+		return nil
+	}
+	if strings.TrimSpace(string(i)) == "" {
 		return &InvalidContainerImageError{Value: i}
 	}
+
+	// [CUE-VALIDATED] Image length also enforced by CUE schema (#RuntimeConfigContainer.image MaxRunes(512))
+	if len(i) > 512 {
+		return fmt.Errorf("invalid container image %q (name too long: %d chars, max 512)", i, len(i))
+	}
+
+	s := string(i)
+	if strings.ContainsAny(s, ";&|`$(){}[]<>\\'\"\n\r\t") {
+		return fmt.Errorf("invalid container image %q (contains invalid characters)", i)
+	}
+
+	if !containerImageRegex.MatchString(s) {
+		return fmt.Errorf("invalid container image %q (invalid format)", i)
+	}
+
 	return nil
 }
 

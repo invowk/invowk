@@ -145,6 +145,10 @@ func inspectClosureCastsCFA(
 			continue
 		}
 
+		if hasIgnoreAtPos(pass, ac.pos.Pos()) {
+			continue
+		}
+
 		defBlock, defIdx := findDefiningBlock(closureCFG, ac.assign)
 		if defBlock == nil {
 			continue
@@ -167,6 +171,10 @@ func inspectClosureCastsCFA(
 	for _, uc := range unassignedCasts {
 		excKey := qualEnclosingFunc + ".cast-validation"
 		if excCfg.isExcepted(excKey) {
+			continue
+		}
+
+		if hasIgnoreAtPos(pass, uc.pos.Pos()) {
 			continue
 		}
 

@@ -28,6 +28,8 @@ type (
 		SSHServer *sshserver.Server
 	}
 
+	//goplint:constant-only
+	//
 	// InitDiagnosticCode categorizes non-fatal runtime initialization diagnostics.
 	// Values are string-typed so the CLI layer can cast to discovery.DiagnosticCode
 	// at the package boundary (runtime cannot import discovery).

@@ -244,17 +244,23 @@ func hasValidateMethod(t types.Type) bool {
 	return false
 }
 
-// hasValidatableElements reports whether t is a slice or array type whose
-// element type has a Validate() error method. Used by validate-delegation
+// hasValidatableElements reports whether t is a slice, array, or map type
+// whose element type has a Validate() error method. Used by validate-delegation
 // to recognize range-loop delegation patterns like:
 //
 //	for _, r := range c.Requires { r.Validate() }
+//	for _, v := range c.Items { v.Validate() }
+//
+// For maps, only the value type is checked — map keys are typically lookup
+// identifiers rather than validatable domain values.
 func hasValidatableElements(t types.Type) bool {
 	t = types.Unalias(t)
 	switch ct := t.(type) {
 	case *types.Slice:
 		return hasValidateMethod(ct.Elem())
 	case *types.Array:
+		return hasValidateMethod(ct.Elem())
+	case *types.Map:
 		return hasValidateMethod(ct.Elem())
 	default:
 		return false

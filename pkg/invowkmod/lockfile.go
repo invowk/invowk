@@ -53,6 +53,8 @@ type (
 		Value ModuleRefKey
 	}
 
+	//goplint:mutable
+	//
 	// LockFile represents the invowkmod.lock.cue file structure.
 	LockFile struct {
 		// Version is the lock file format version.

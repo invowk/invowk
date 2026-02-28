@@ -11,6 +11,13 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// maxTransitiveDepth is the maximum call chain depth for transitive
+// factory tracking in --check-constructor-validates. This bounds
+// recursion in bodyCallsValidateTransitive() to prevent pathological
+// cases while allowing realistic delegation chains (e.g.,
+// NewFoo → buildBar → initBaz → baz.Validate()).
+const maxTransitiveDepth = 5
+
 // constructorValidateInfo records a constructor function and whether
 // its body calls Validate() on the returned value.
 type constructorValidateInfo struct {
@@ -101,7 +108,7 @@ func inspectConstructorValidates(
 			if bodyCallsValidateOnType(pass, fn.Body, returnType) {
 				continue
 			}
-			if bodyCallsValidateTransitive(pass, fn.Body, returnType, nil) {
+			if bodyCallsValidateTransitive(pass, fn.Body, returnType, nil, 0) {
 				continue
 			}
 
@@ -186,20 +193,23 @@ func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTyp
 
 // bodyCallsValidateTransitive checks if any private function called from
 // body transitively calls Validate() on the given return type. Uses
-// pass.TypesInfo to resolve callee identities and bounds recursion depth
-// to 3 to prevent pathological cases.
+// pass.TypesInfo to resolve callee identities. Bounds recursion depth
+// to maxTransitiveDepth to prevent pathological cases. The visited map
+// prevents cycles (re-visiting the same function); depth tracks the
+// actual call chain depth independently.
 func bodyCallsValidateTransitive(
 	pass *analysis.Pass,
 	body *ast.BlockStmt,
 	returnTypeName string,
 	visited map[string]bool,
+	depth int,
 ) bool {
 	if visited == nil {
 		visited = make(map[string]bool)
 	}
 
-	// Recursion depth limit: count visited entries.
-	if len(visited) >= 3 {
+	// Bound recursion by call chain depth, not visit count.
+	if depth >= maxTransitiveDepth {
 		return false
 	}
 
@@ -246,7 +256,7 @@ func bodyCallsValidateTransitive(
 			return true
 		}
 		// Recurse into the callee's body.
-		if bodyCallsValidateTransitive(pass, calleeBody, returnTypeName, visited) {
+		if bodyCallsValidateTransitive(pass, calleeBody, returnTypeName, visited, depth+1) {
 			return true
 		}
 	}

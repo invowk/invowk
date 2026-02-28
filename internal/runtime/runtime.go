@@ -117,6 +117,8 @@ type (
 	// It uses composition of focused sub-types (IO, Env, TUI) for better
 	// organization and testability.
 	//
+	//goplint:mutable
+	//
 	// SelectedRuntime and SelectedImpl are resolved together: SelectedImpl is the
 	// implementation matching SelectedRuntime + current platform. Both are populated
 	// by NewExecutionContext using the command's defaults and can be overridden by

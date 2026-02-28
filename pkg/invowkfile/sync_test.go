@@ -1493,10 +1493,8 @@ func TestBehavioralSync_ArgumentName(t *testing.T) {
 
 // TestBehavioralSync_CommandName verifies Go CommandName.Validate() agrees with
 // CUE #Command.name constraint (regex + length + non-empty).
-// FINDING: Go CommandName.Validate() only checks non-empty/non-whitespace.
-// CUE enforces regex (^[a-zA-Z][a-zA-Z0-9_ -]*$) and MaxRunes(256).
-// Go is MORE LENIENT than CUE — it accepts values CUE rejects.
-// CUE is the primary validator at parse time; Go Validate() is a secondary guard.
+// Go now enforces the same regex (^[a-zA-Z][a-zA-Z0-9_ -]*$) and MaxRunes(256)
+// as CUE, so all cases are in agreement.
 func TestBehavioralSync_CommandName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
@@ -1510,12 +1508,12 @@ func TestBehavioralSync_CommandName(t *testing.T) {
 			{"a", true, true, ""},
 			{"", false, false, ""},
 			{"   ", false, false, ""},
-			// Go accepts these because it only checks non-whitespace; CUE enforces regex
-			{"123bad", true, false, "Go only checks non-whitespace; CUE enforces regex ^[a-zA-Z]..."},
-			{"-starts-hyphen", true, false, "Go only checks non-whitespace; CUE enforces regex ^[a-zA-Z]..."},
+			// Both Go and CUE reject names not starting with a letter
+			{"123bad", false, false, ""},
+			{"-starts-hyphen", false, false, ""},
 			{"a" + strings.Repeat("b", 255), true, true, ""},
-			// Go accepts over-length because it doesn't check MaxRunes; CUE enforces MaxRunes(256)
-			{"a" + strings.Repeat("b", 256), true, false, "Go has no length check; CUE enforces MaxRunes(256)"},
+			// Both Go and CUE reject names exceeding 256 runes
+			{"a" + strings.Repeat("b", 256), false, false, ""},
 		},
 	)
 }
@@ -1570,9 +1568,9 @@ func TestBehavioralSync_ContainerImage(t *testing.T) {
 			// Whitespace-only: Go rejects (TrimSpace check), CUE accepts (!="" passes for whitespace)
 			{"   ", false, true, "Go checks TrimSpace; CUE !=\"\" only rejects literal empty string"},
 			{strings.Repeat("a", 512), true, true, ""},
-			// Go ContainerImage.Validate() only checks whitespace; length check is in
-			// ValidateContainerImage() (a separate function). CUE enforces MaxRunes(512).
-			{strings.Repeat("a", 513), true, false, "Go Validate() has no length check; CUE enforces MaxRunes(512)"},
+			// Both Go and CUE reject >512 chars. Go Validate() now includes length,
+			// injection, and format checks (merged from ValidateContainerImage).
+			{strings.Repeat("a", 513), false, false, ""},
 		},
 	)
 }

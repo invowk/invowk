@@ -257,6 +257,42 @@ func (c *IncompleteLoopConfig) Validate() error {
 	return nil
 }
 
+// --- Map value delegation — complete ---
+
+//goplint:validate-all
+type MapConfig struct {
+	Entries   map[string]Name // want `struct field validatedelegation\.MapConfig\.Entries uses primitive type string \(in map key\)`
+	FieldMode Mode
+}
+
+func (c *MapConfig) Validate() error {
+	for _, v := range c.Entries {
+		if err := v.Validate(); err != nil {
+			return err
+		}
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// --- Map value delegation — incomplete (Entries not iterated) ---
+
+//goplint:validate-all
+type IncompleteMapConfig struct { // want `validatedelegation\.IncompleteMapConfig\.Validate\(\) does not delegate to field Entries which has Validate\(\)`
+	Entries   map[string]Name // want `struct field validatedelegation\.IncompleteMapConfig\.Entries uses primitive type string \(in map key\)`
+	FieldMode Mode
+}
+
+func (c *IncompleteMapConfig) Validate() error {
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	// Entries not iterated — should be flagged.
+	return nil
+}
+
 // --- errors.Join delegation (already works via Pass 1 recursive walk) ---
 
 //goplint:validate-all

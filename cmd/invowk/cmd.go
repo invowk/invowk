@@ -73,6 +73,8 @@ type (
 		MissingEnvVars      []DependencyMessage
 	}
 
+	//goplint:constant-only
+	//
 	// ArgErrType represents the type of argument validation error.
 	ArgErrType int
 

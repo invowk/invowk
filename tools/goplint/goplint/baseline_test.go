@@ -480,6 +480,8 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 		CategoryMissingConstructorValidate,
 		CategoryIncompleteValidateDelegation,
 		CategoryNonZeroValueField,
+		CategoryEnumCueMissingGo,
+		CategoryEnumCueExtraGo,
 	}
 
 	// Verify buildLookup() initializes an entry for each category.

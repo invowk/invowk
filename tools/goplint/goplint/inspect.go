@@ -377,6 +377,7 @@ var knownDirectiveKeys = map[string]bool{
 	"constant-only": true,
 	"mutable":       true,
 	"no-delegate":   true,
+	"enum-cue":      true,
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.
@@ -434,6 +435,49 @@ func hasDirectiveKey(doc *ast.CommentGroup, lineComment *ast.CommentGroup, key s
 		}
 	}
 	return false
+}
+
+// directiveValue extracts the value from a parametric directive of the form
+// //goplint:key=value (e.g., //goplint:enum-cue=#RuntimeType).
+// Returns the value after "=" and true when the directive key is present
+// with a value; returns "", false otherwise.
+func directiveValue(cgs []*ast.CommentGroup, key string) (string, bool) {
+	for _, cg := range cgs {
+		if cg == nil {
+			continue
+		}
+		for _, c := range cg.List {
+			content := strings.TrimPrefix(strings.TrimSpace(c.Text), "//")
+			content = strings.TrimSpace(content)
+
+			var valueStr string
+			for _, prefix := range []string{"goplint:", "plint:"} {
+				if strings.HasPrefix(content, prefix) {
+					valueStr = content[len(prefix):]
+					break
+				}
+			}
+			if valueStr == "" {
+				continue
+			}
+
+			if sepIdx := strings.Index(valueStr, " --"); sepIdx >= 0 {
+				valueStr = valueStr[:sepIdx]
+			}
+
+			for part := range strings.SplitSeq(valueStr, ",") {
+				part = strings.TrimSpace(part)
+				eqIdx := strings.Index(part, "=")
+				if eqIdx < 0 {
+					continue
+				}
+				if part[:eqIdx] == key {
+					return part[eqIdx+1:], true
+				}
+			}
+		}
+	}
+	return "", false
 }
 
 // reportUnknownDirectives emits an unknown-directive diagnostic for each
@@ -510,19 +554,54 @@ func parseDirectiveKeys(text string) (keys []string, unknown []string) {
 		valueStr = valueStr[:sepIdx]
 	}
 
-	// Split by comma and classify each token.
+	// Split by comma and classify each token. For parametric directives
+	// like enum-cue=#RuntimeType, strip the =value suffix before key lookup.
 	for part := range strings.SplitSeq(valueStr, ",") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
-		if knownDirectiveKeys[part] {
-			keys = append(keys, part)
+		keyPart := part
+		if eqIdx := strings.Index(part, "="); eqIdx >= 0 {
+			keyPart = part[:eqIdx]
+		}
+		if knownDirectiveKeys[keyPart] {
+			keys = append(keys, keyPart)
 		} else {
 			unknown = append(unknown, part)
 		}
 	}
 	return keys, unknown
+}
+
+// hasIgnoreAtPos checks if any comment in the file associated with pos
+// contains a //goplint:ignore or //plint:ignore directive on the same line
+// or the line immediately before the given position. This enables per-statement
+// suppression in CFA mode where struct-level doc comments are not available.
+func hasIgnoreAtPos(pass *analysis.Pass, pos token.Pos) bool {
+	posLine := pass.Fset.Position(pos).Line
+	filename := pass.Fset.Position(pos).Filename
+
+	for _, file := range pass.Files {
+		if pass.Fset.Position(file.Pos()).Filename != filename {
+			continue
+		}
+		for _, cg := range file.Comments {
+			for _, c := range cg.List {
+				commentLine := pass.Fset.Position(c.Pos()).Line
+				// Check same line or line immediately above.
+				if commentLine != posLine && commentLine != posLine-1 {
+					continue
+				}
+				keys, _ := parseDirectiveKeys(strings.TrimSpace(c.Text))
+				if slices.Contains(keys, "ignore") {
+					return true
+				}
+			}
+		}
+		break
+	}
+	return false
 }
 
 // isTestFile returns true if the filename ends with _test.go.

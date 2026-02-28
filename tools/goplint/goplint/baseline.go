@@ -34,6 +34,8 @@ type BaselineConfig struct {
 	MissingConstructorValidate     BaselineCategory `toml:"missing-constructor-validate"`
 	IncompleteValidateDelegation BaselineCategory `toml:"incomplete-validate-delegation"`
 	NonZeroValueField            BaselineCategory `toml:"nonzero-value-field"`
+	EnumCueMissingGo             BaselineCategory `toml:"enum-cue-missing-go"`
+	EnumCueExtraGo               BaselineCategory `toml:"enum-cue-extra-go"`
 
 	// lookupByID is an O(1) index keyed by category → finding ID.
 	lookupByID map[string]map[string]bool
@@ -131,7 +133,9 @@ func (b *BaselineConfig) Count() int {
 		countCategory(b.UnusedConstructorError) +
 		countCategory(b.MissingConstructorValidate) +
 		countCategory(b.IncompleteValidateDelegation) +
-		countCategory(b.NonZeroValueField)
+		countCategory(b.NonZeroValueField) +
+		countCategory(b.EnumCueMissingGo) +
+		countCategory(b.EnumCueExtraGo)
 }
 
 // buildLookup populates the internal lookup maps from the parsed TOML data.
@@ -160,6 +164,8 @@ func (b *BaselineConfig) buildLookup() {
 		{CategoryMissingConstructorValidate, b.MissingConstructorValidate},
 		{CategoryIncompleteValidateDelegation, b.IncompleteValidateDelegation},
 		{CategoryNonZeroValueField, b.NonZeroValueField},
+		{CategoryEnumCueMissingGo, b.EnumCueMissingGo},
+		{CategoryEnumCueExtraGo, b.EnumCueExtraGo},
 	}
 
 	for _, c := range categoryData {
@@ -212,6 +218,8 @@ func WriteBaseline(path string, findings map[string][]BaselineFinding) error {
 		{CategoryMissingConstructorValidate, "Constructors returning validatable types without calling Validate()"},
 		{CategoryIncompleteValidateDelegation, "Structs with validate-all missing field Validate() delegation"},
 		{CategoryNonZeroValueField, "Struct fields using nonzero types as value (non-pointer)"},
+		{CategoryEnumCueMissingGo, "CUE disjunction members missing from Go Validate() switch"},
+		{CategoryEnumCueExtraGo, "Go Validate() switch cases not present in CUE disjunction"},
 	}
 
 	for _, cat := range categories {

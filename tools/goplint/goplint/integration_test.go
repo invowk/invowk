@@ -42,6 +42,7 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-nonzero", "false")
 	setFlag(t, "no-cfa", "false")
 	setFlag(t, "audit-review-dates", "false")
+	setFlag(t, "check-enum-sync", "false")
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
@@ -463,4 +464,37 @@ func TestCheckNonZero(t *testing.T) {
 	setFlag(t, "check-nonzero", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "nonzero", "nonzero_consumer")
+}
+
+// TestAuditReviewDates exercises the --audit-review-dates mode against
+// a dedicated fixture with overdue, future, invalid, and blocked_by entries.
+// Verifies that:
+//   - Past review_after dates produce overdue-review diagnostics
+//   - Future review_after dates do NOT produce diagnostics
+//   - Invalid review_after dates produce invalid-date diagnostics
+//   - blocked_by text is included in the diagnostic message
+//   - Entries without review_after are ignored
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestAuditReviewDates(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "config", filepath.Join(testdata, "src", "auditreviewdates", "config.toml"))
+	setFlag(t, "audit-review-dates", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "auditreviewdates")
+}
+
+// TestCheckEnumSync exercises the --check-enum-sync mode against the
+// enumsync fixture, verifying that CUE disjunction members missing from
+// Go Validate() switch cases and extra Go cases not in CUE are flagged.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckEnumSync(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-enum-sync", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "enumsync")
 }

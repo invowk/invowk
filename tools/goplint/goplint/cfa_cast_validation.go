@@ -162,6 +162,11 @@ func inspectUnvalidatedCastsCFA(
 			continue
 		}
 
+		// Check inline //goplint:ignore directive on the cast statement.
+		if hasIgnoreAtPos(pass, ac.pos.Pos()) {
+			continue
+		}
+
 		// Find the assignment in the CFG.
 		defBlock, defIdx := findDefiningBlock(funcCFG, ac.assign)
 		if defBlock == nil {
@@ -188,6 +193,11 @@ func inspectUnvalidatedCastsCFA(
 	for _, uc := range unassignedCasts {
 		excKey := qualFuncName + ".cast-validation"
 		if excCfg.isExcepted(excKey) {
+			continue
+		}
+
+		// Check inline //goplint:ignore directive on the cast expression.
+		if hasIgnoreAtPos(pass, uc.pos.Pos()) {
 			continue
 		}
 

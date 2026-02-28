@@ -1,5 +1,9 @@
 # CUE-Aware goplint Enum Exhaustiveness (`--check-enum-sync`)
 
+> **STATUS: IMPLEMENTED** (2026-02-28). The mode is available as `--check-enum-sync` with
+> the `//goplint:enum-cue=<CUEPath>` directive. See `tools/goplint/goplint/analyzer_enum_sync.go`.
+> Remaining work: annotate production enum types with the directive.
+
 ## Summary
 
 Add a new goplint analysis mode that reads CUE schema disjunctions and verifies

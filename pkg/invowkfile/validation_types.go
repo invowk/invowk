@@ -24,6 +24,8 @@ var (
 )
 
 type (
+	//goplint:constant-only
+	//
 	// ValidationSeverity indicates the severity level of a validation error.
 	ValidationSeverity int
 
@@ -33,6 +35,8 @@ type (
 		Value ValidationSeverity
 	}
 
+	//goplint:constant-only
+	//
 	// ValidatorName identifies a validation component (e.g., "structure", "shebang").
 	// Must be non-empty and not whitespace-only.
 	ValidatorName string

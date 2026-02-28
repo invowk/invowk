@@ -178,3 +178,26 @@ func ReassignedVariable(a, b string) { // want `parameter "a" of cfa_castvalidat
 	x = CommandName(b) // want `type conversion to CommandName from non-constant without Validate\(\) check`
 	useCmd(x)
 }
+
+// --- Inline ignore directive — CFA should respect //goplint:ignore on cast lines ---
+
+// InlineIgnoredCast — the cast has an inline ignore directive on the same line,
+// so CFA should NOT flag it despite having an unvalidated path to return.
+func InlineIgnoredCast(s string) CommandName { // want `parameter "s" of cfa_castvalidation\.InlineIgnoredCast uses primitive type string`
+	cmd := CommandName(s) //goplint:ignore -- trusted source, CFA should skip
+	return cmd
+}
+
+// InlineIgnoredCastDocComment — the cast has an ignore directive on the line above
+// (doc comment pattern). CFA should NOT flag it.
+func InlineIgnoredCastDocComment(s string) CommandName { // want `parameter "s" of cfa_castvalidation\.InlineIgnoredCastDocComment uses primitive type string`
+	//goplint:ignore -- trusted source
+	cmd := CommandName(s)
+	return cmd
+}
+
+// NonIgnoredCast — no inline ignore, should be flagged normally.
+func NonIgnoredCast(s string) CommandName { // want `parameter "s" of cfa_castvalidation\.NonIgnoredCast uses primitive type string`
+	cmd := CommandName(s) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	return cmd
+}

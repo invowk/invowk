@@ -242,7 +242,10 @@ type (
 	//  2. Commands from globally installed modules (~/.invowk/modules/)
 	//  3. Commands from first-level requirements (direct dependencies in invowkmod.cue:requires)
 	//
-	// Commands CANNOT call transitive dependencies (dependencies of dependencies).
+	//goplint:mutable
+	//
+	// CommandScope holds the commands visible to a module, populated post-construction
+	// via AddDirectDep(). Commands CANNOT call transitive dependencies.
 	CommandScope struct {
 		// ModuleID is the module identifier that owns this scope
 		ModuleID ModuleID `json:"-"`

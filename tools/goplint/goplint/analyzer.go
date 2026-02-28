@@ -57,6 +57,8 @@ const (
 	CategoryStaleException             = "stale-exception"
 	CategoryWrongFuncOptionType        = "wrong-func-option-type"
 	CategoryOverdueReview              = "overdue-review"
+	CategoryEnumCueMissingGo           = "enum-cue-missing-go"
+	CategoryEnumCueExtraGo             = "enum-cue-extra-go"
 	CategoryUnknownDirective           = "unknown-directive"
 )
 
@@ -84,6 +86,7 @@ var (
 	checkNonZero                 bool
 	noCFA                        bool
 	auditReviewDates             bool
+	checkEnumSync                bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -134,6 +137,8 @@ func init() {
 		"report exception patterns with review_after dates that have passed")
 	Analyzer.Flags.BoolVar(&noCFA, "no-cfa", false,
 		"disable control-flow analysis and use AST heuristic for cast-validation (CFA is enabled by default)")
+	Analyzer.Flags.BoolVar(&checkEnumSync, "check-enum-sync", false,
+		"report mismatches between Go Validate() switch cases and CUE schema disjunction members (requires //goplint:enum-cue= directive)")
 	Analyzer.Flags.BoolVar(&checkAll, "check-all", false,
 		"enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + CFA)")
 }
@@ -161,6 +166,7 @@ type runConfig struct {
 	checkNonZero                 bool
 	noCFA                        bool
 	auditReviewDates             bool
+	checkEnumSync                bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -187,6 +193,7 @@ func newRunConfig() runConfig {
 		checkNonZero:                 checkNonZero,
 		noCFA:                        noCFA,
 		auditReviewDates:             auditReviewDates,
+		checkEnumSync:                checkEnumSync,
 	}
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions (config maintenance tool
@@ -402,6 +409,11 @@ func run(pass *analysis.Pass) (any, error) {
 
 	if rc.auditReviewDates {
 		reportOverdueExceptions(pass, cfg)
+	}
+
+	// Enum sync: compare Go Validate() switch cases against CUE disjunctions.
+	if rc.checkEnumSync {
+		inspectEnumSync(pass, cfg, bl)
 	}
 
 	return nil, nil
