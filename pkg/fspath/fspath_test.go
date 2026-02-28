@@ -4,9 +4,11 @@ package fspath_test
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/fspath"
+	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -87,7 +89,13 @@ func TestFromSlash(t *testing.T) {
 func TestIsAbs(t *testing.T) {
 	t.Parallel()
 
-	if !fspath.IsAbs(types.FilesystemPath("/absolute/path")) {
+	// filepath.IsAbs() is OS-specific: on Windows, paths need a drive letter
+	// (e.g., C:\path) to be absolute; POSIX-style /path is not absolute.
+	absPath := types.FilesystemPath("/absolute/path")
+	if runtime.GOOS == platform.Windows {
+		absPath = types.FilesystemPath(`C:\absolute\path`)
+	}
+	if !fspath.IsAbs(absPath) {
 		t.Error("IsAbs() = false for absolute path")
 	}
 	if fspath.IsAbs(types.FilesystemPath("relative/path")) {

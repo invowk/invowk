@@ -526,7 +526,9 @@ func runBehavioralSyncField(
 		}
 
 		t.Run(label, func(t *testing.T) {
-			t.Parallel()
+			// No t.Parallel(): CUE Value.Unify() and Context.CompileString() mutate
+			// internal state and are not safe for concurrent use. Parent tests already
+			// run in parallel, so test-function-level parallelism is preserved.
 
 			goErr := goValidate(tc.input)
 			goAccepts := goErr == nil
@@ -570,7 +572,9 @@ func runBehavioralSync(
 		}
 
 		t.Run(label, func(t *testing.T) {
-			t.Parallel()
+			// No t.Parallel(): CUE Value.Unify() and Context.CompileString() mutate
+			// internal state and are not safe for concurrent use. Parent tests already
+			// run in parallel, so test-function-level parallelism is preserved.
 
 			goErr := goValidate(tc.input)
 			goAccepts := goErr == nil
@@ -596,7 +600,7 @@ func runBehavioralSync(
 
 // TestBehavioralSync_ModuleID verifies Go ModuleID.Validate() agrees with
 // CUE #Invowkmod.module constraint (RDNS regex + length).
-func TestBehavioralSync_ModuleID(t *testing.T) {
+func TestBehavioralSync_ModuleID(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -623,7 +627,7 @@ func TestBehavioralSync_ModuleID(t *testing.T) {
 
 // TestBehavioralSync_SemVer verifies Go SemVer.Validate() agrees with
 // CUE #Invowkmod.version constraint (strict semver regex).
-func TestBehavioralSync_SemVer(t *testing.T) {
+func TestBehavioralSync_SemVer(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -649,7 +653,7 @@ func TestBehavioralSync_SemVer(t *testing.T) {
 
 // TestBehavioralSync_GitURL verifies Go GitURL.Validate() agrees with
 // CUE #ModuleRequirement.git_url constraint (prefix regex + length).
-func TestBehavioralSync_GitURL(t *testing.T) {
+func TestBehavioralSync_GitURL(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -672,7 +676,7 @@ func TestBehavioralSync_GitURL(t *testing.T) {
 // CUE #ModuleRequirement.path constraint (relative path, no traversal).
 // Note: Go performs additional security validation (path normalization via slashpath.Clean)
 // that CUE's regex cannot express.
-func TestBehavioralSync_SubdirectoryPath(t *testing.T) {
+func TestBehavioralSync_SubdirectoryPath(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
