@@ -14,6 +14,15 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 )
 
+// behavioralSyncCase defines a single input for behavioral equivalence testing.
+// Used by TestBehavioralSync_* tests at the bottom of this file.
+type behavioralSyncCase struct {
+	input       string // The value to test
+	goExpect    bool   // true = Go Validate() should return nil
+	cueExpect   bool   // true = CUE should accept
+	divergeNote string // non-empty = expected CUE/Go divergence, skip agreement check
+}
+
 // extractCUEFields extracts all field names from a CUE struct definition.
 // It returns a map of field names to whether the field is optional.
 // Nested struct fields are not included; only top-level fields of the given definition.
@@ -1155,4 +1164,415 @@ cmds: [{
 	if err := validateCUE(t, invalid); err == nil {
 		t.Errorf("empty image string should fail validation, but passed")
 	}
+}
+
+// =============================================================================
+// Behavioral Sync Tests — CUE Oracle
+// =============================================================================
+// These tests verify that Go Validate() methods and CUE schema constraints
+// produce the same accept/reject verdict on identical inputs. This catches
+// behavioral drift that structural sync tests and individual boundary tests
+// cannot detect — for example, a regex difference of one character between
+// CUE and Go would pass both test suites independently.
+
+// validateStringAgainstCUE validates a single string value against a CUE
+// constraint path. Returns nil if CUE accepts the value, error if it rejects.
+// The cuePath should point to a CUE definition or field (e.g., "#RuntimeType",
+// "#Flag.name"). For optional CUE fields, use lookupCUEFieldConstraint instead.
+func validateStringAgainstCUE(t *testing.T, schema cue.Value, ctx *cue.Context, cuePath, value string) error {
+	t.Helper()
+
+	constraint := schema.LookupPath(cue.ParsePath(cuePath))
+	if constraint.Err() != nil {
+		t.Fatalf("CUE path %s not found: %v", cuePath, constraint.Err())
+	}
+	unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", value)))
+	if err := unified.Validate(cue.Concrete(true)); err != nil {
+		return fmt.Errorf("CUE validation: %w", err)
+	}
+	return nil
+}
+
+// lookupCUEFieldConstraint extracts the constraint value for a specific field
+// within a CUE struct definition. Unlike LookupPath, this handles optional
+// fields by iterating with cue.Optional(true).
+func lookupCUEFieldConstraint(t *testing.T, schema cue.Value, parentPath, fieldName string) cue.Value {
+	t.Helper()
+
+	parent := schema.LookupPath(cue.ParsePath(parentPath))
+	if parent.Err() != nil {
+		t.Fatalf("CUE parent %s not found: %v", parentPath, parent.Err())
+	}
+
+	iter, err := parent.Fields(cue.Optional(true))
+	if err != nil {
+		t.Fatalf("failed to iterate fields of %s: %v", parentPath, err)
+	}
+
+	for iter.Next() {
+		sel := iter.Selector()
+		name := strings.TrimSuffix(sel.String(), "?")
+		if name == fieldName {
+			return iter.Value()
+		}
+	}
+
+	t.Fatalf("CUE field %s not found in %s", fieldName, parentPath)
+	return cue.Value{} // unreachable
+}
+
+// runBehavioralSyncField runs behavioral equivalence tests using field-level CUE
+// constraint lookup. This handles optional CUE fields that LookupPath cannot find.
+func runBehavioralSyncField(
+	t *testing.T, schema cue.Value, ctx *cue.Context,
+	parentPath, fieldName string,
+	goValidate func(string) error,
+	cases []behavioralSyncCase,
+) {
+	t.Helper()
+
+	constraint := lookupCUEFieldConstraint(t, schema, parentPath, fieldName)
+	for _, tc := range cases {
+		label := tc.input
+		if len(label) > 30 {
+			label = label[:27] + "..."
+		}
+		if label == "" {
+			label = "<empty>"
+		}
+
+		t.Run(label, func(t *testing.T) {
+			t.Parallel()
+
+			goErr := goValidate(tc.input)
+			goAccepts := goErr == nil
+
+			unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", tc.input)))
+			cueErr := unified.Validate(cue.Concrete(true))
+			cueAccepts := cueErr == nil
+
+			if goAccepts != tc.goExpect {
+				t.Errorf("Go Validate() unexpected: got accept=%v, want %v (err=%v)", goAccepts, tc.goExpect, goErr)
+			}
+			if cueAccepts != tc.cueExpect {
+				t.Errorf("CUE Validate() unexpected: got accept=%v, want %v (err=%v)", cueAccepts, tc.cueExpect, cueErr)
+			}
+			if tc.divergeNote == "" && goAccepts != cueAccepts {
+				t.Errorf("BEHAVIORAL DRIFT: Go accept=%v, CUE accept=%v for input %q", goAccepts, cueAccepts, tc.input)
+			}
+			if tc.divergeNote != "" && goAccepts != cueAccepts {
+				t.Logf("Expected divergence: %s (Go=%v, CUE=%v)", tc.divergeNote, goAccepts, cueAccepts)
+			}
+		})
+	}
+}
+
+// runBehavioralSync runs behavioral equivalence tests for a string-backed DDD type.
+// goValidate is the Go Validate() function; cuePath is the CUE constraint path.
+func runBehavioralSync(
+	t *testing.T, schema cue.Value, ctx *cue.Context,
+	cuePath string,
+	goValidate func(string) error,
+	cases []behavioralSyncCase,
+) {
+	t.Helper()
+
+	for _, tc := range cases {
+		// Use a truncated label for readability
+		label := tc.input
+		if len(label) > 30 {
+			label = label[:27] + "..."
+		}
+		if label == "" {
+			label = "<empty>"
+		}
+
+		t.Run(label, func(t *testing.T) {
+			t.Parallel()
+
+			goErr := goValidate(tc.input)
+			goAccepts := goErr == nil
+
+			cueErr := validateStringAgainstCUE(t, schema, ctx, cuePath, tc.input)
+			cueAccepts := cueErr == nil
+
+			// Verify Go matches expectation
+			if goAccepts != tc.goExpect {
+				t.Errorf("Go Validate() unexpected: got accept=%v, want %v (err=%v)", goAccepts, tc.goExpect, goErr)
+			}
+
+			// Verify CUE matches expectation
+			if cueAccepts != tc.cueExpect {
+				t.Errorf("CUE Validate() unexpected: got accept=%v, want %v (err=%v)", cueAccepts, tc.cueExpect, cueErr)
+			}
+
+			// Verify behavioral agreement (unless known divergence)
+			if tc.divergeNote == "" && goAccepts != cueAccepts {
+				t.Errorf("BEHAVIORAL DRIFT: Go accept=%v, CUE accept=%v for input %q", goAccepts, cueAccepts, tc.input)
+			}
+			if tc.divergeNote != "" && goAccepts != cueAccepts {
+				t.Logf("Expected divergence: %s (Go=%v, CUE=%v)", tc.divergeNote, goAccepts, cueAccepts)
+			}
+		})
+	}
+}
+
+// TestBehavioralSync_RuntimeMode verifies Go RuntimeMode.Validate() agrees with
+// CUE #RuntimeType disjunction ("native" | "virtual" | "container").
+func TestBehavioralSync_RuntimeMode(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#RuntimeType",
+		func(s string) error { return RuntimeMode(s).Validate() },
+		[]behavioralSyncCase{
+			{"native", true, true, ""},
+			{"virtual", true, true, ""},
+			{"container", true, true, ""},
+			{"invalid", false, false, ""},
+			{"NATIVE", false, false, ""},
+			{"", false, false, ""},
+			{" ", false, false, ""},
+			{"native ", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_PlatformType verifies Go PlatformType.Validate() agrees with
+// CUE #PlatformType disjunction ("linux" | "macos" | "windows").
+func TestBehavioralSync_PlatformType(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#PlatformType",
+		func(s string) error { return PlatformType(s).Validate() },
+		[]behavioralSyncCase{
+			{"linux", true, true, ""},
+			{"macos", true, true, ""},
+			{"windows", true, true, ""},
+			{"darwin", false, false, ""},
+			{"LINUX", false, false, ""},
+			{"", false, false, ""},
+			{"freebsd", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_EnvInheritMode verifies Go EnvInheritMode.Validate() agrees with
+// CUE #RuntimeConfigBase.env_inherit_mode disjunction ("none" | "allow" | "all").
+func TestBehavioralSync_EnvInheritMode(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// env_inherit_mode is an optional field in #RuntimeConfigBase.
+	// We use the field-level lookup to extract the constraint.
+	runBehavioralSyncField(t, schema, ctx, "#RuntimeConfigBase", "env_inherit_mode",
+		func(s string) error { return EnvInheritMode(s).Validate() },
+		[]behavioralSyncCase{
+			{"none", true, true, ""},
+			{"allow", true, true, ""},
+			{"all", true, true, ""},
+			{"inherit", false, false, ""},
+			{"NONE", false, false, ""},
+			{"", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_CapabilityName verifies Go CapabilityName.Validate() agrees with
+// CUE #CapabilityName disjunction.
+func TestBehavioralSync_CapabilityName(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#CapabilityName",
+		func(s string) error { return CapabilityName(s).Validate() },
+		[]behavioralSyncCase{
+			{"local-area-network", true, true, ""},
+			{"internet", true, true, ""},
+			{"containers", true, true, ""},
+			{"tty", true, true, ""},
+			{"gpu", false, false, ""},
+			{"", false, false, ""},
+			{"TTY", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_FlagType verifies Go FlagType.Validate() agrees with
+// CUE #Flag.type disjunction ("string" | "bool" | "int" | "float").
+// Note: FlagType("") is valid in Go (defaults to "string") but CUE field type?
+// is optional — absent means default. The zero-value divergence is expected.
+func TestBehavioralSync_FlagType(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// type is an optional field in #Flag — use field-level lookup
+	runBehavioralSyncField(t, schema, ctx, "#Flag", "type",
+		func(s string) error { return FlagType(s).Validate() },
+		[]behavioralSyncCase{
+			{"string", true, true, ""},
+			{"bool", true, true, ""},
+			{"int", true, true, ""},
+			{"float", true, true, ""},
+			{"array", false, false, ""},
+			{"STRING", false, false, ""},
+			// Go accepts "" (defaults to "string"), CUE rejects "" because it doesn't match the disjunction.
+			// This is expected: CUE handles optionality at the field level (type? is omitted), not value level.
+			{"", true, false, "Go zero-value defaults to string; CUE uses field optionality"},
+		},
+	)
+}
+
+// TestBehavioralSync_ArgumentType verifies Go ArgumentType.Validate() agrees with
+// CUE #Argument.type disjunction ("string" | "int" | "float").
+func TestBehavioralSync_ArgumentType(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// type is an optional field in #Argument — use field-level lookup
+	runBehavioralSyncField(t, schema, ctx, "#Argument", "type",
+		func(s string) error { return ArgumentType(s).Validate() },
+		[]behavioralSyncCase{
+			{"string", true, true, ""},
+			{"int", true, true, ""},
+			{"float", true, true, ""},
+			{"bool", false, false, ""},
+			{"", true, false, "Go zero-value defaults to string; CUE uses field optionality"},
+		},
+	)
+}
+
+// TestBehavioralSync_FlagName verifies Go FlagName.Validate() agrees with
+// CUE #Flag.name constraint (regex + length + non-empty).
+func TestBehavioralSync_FlagName(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#Flag.name",
+		func(s string) error { return FlagName(s).Validate() },
+		[]behavioralSyncCase{
+			{"verbose", true, true, ""},
+			{"output-file", true, true, ""},
+			{"num_retries", true, true, ""},
+			{"a", true, true, ""},
+			{"A", true, true, ""},
+			{"a1", true, true, ""},
+			{"", false, false, ""},
+			{"   ", false, false, ""},
+			{"123bad", false, false, ""},
+			{"-starts-hyphen", false, false, ""},
+			{"_starts_underscore", false, false, ""},
+			{"a" + strings.Repeat("b", 255), true, true, ""},   // exactly 256 runes
+			{"a" + strings.Repeat("b", 256), false, false, ""}, // 257 runes
+		},
+	)
+}
+
+// TestBehavioralSync_ArgumentName verifies Go ArgumentName.Validate() agrees with
+// CUE #Argument.name constraint (regex + length + non-empty).
+func TestBehavioralSync_ArgumentName(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#Argument.name",
+		func(s string) error { return ArgumentName(s).Validate() },
+		[]behavioralSyncCase{
+			{"file", true, true, ""},
+			{"output-dir", true, true, ""},
+			{"source_path", true, true, ""},
+			{"a", true, true, ""},
+			{"", false, false, ""},
+			{"123bad", false, false, ""},
+			{"-flag", false, false, ""},
+			{"a" + strings.Repeat("b", 255), true, true, ""},
+			{"a" + strings.Repeat("b", 256), false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_CommandName verifies Go CommandName.Validate() agrees with
+// CUE #Command.name constraint (regex + length + non-empty).
+// FINDING: Go CommandName.Validate() only checks non-empty/non-whitespace.
+// CUE enforces regex (^[a-zA-Z][a-zA-Z0-9_ -]*$) and MaxRunes(256).
+// Go is MORE LENIENT than CUE — it accepts values CUE rejects.
+// CUE is the primary validator at parse time; Go Validate() is a secondary guard.
+func TestBehavioralSync_CommandName(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#Command.name",
+		func(s string) error { return CommandName(s).Validate() },
+		[]behavioralSyncCase{
+			{"build", true, true, ""},
+			{"test unit", true, true, ""},
+			{"deploy-prod", true, true, ""},
+			{"a", true, true, ""},
+			{"", false, false, ""},
+			{"   ", false, false, ""},
+			// Go accepts these because it only checks non-whitespace; CUE enforces regex
+			{"123bad", true, false, "Go only checks non-whitespace; CUE enforces regex ^[a-zA-Z]..."},
+			{"-starts-hyphen", true, false, "Go only checks non-whitespace; CUE enforces regex ^[a-zA-Z]..."},
+			{"a" + strings.Repeat("b", 255), true, true, ""},
+			// Go accepts over-length because it doesn't check MaxRunes; CUE enforces MaxRunes(256)
+			{"a" + strings.Repeat("b", 256), true, false, "Go has no length check; CUE enforces MaxRunes(256)"},
+		},
+	)
+}
+
+// TestBehavioralSync_DurationString verifies Go DurationString.Validate() agrees with
+// CUE #DurationString constraint (regex + length).
+// Note: Go uses time.ParseDuration() which is strictly more powerful than CUE's regex.
+// CUE regex: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+// Go: time.ParseDuration + positive check
+func TestBehavioralSync_DurationString(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#DurationString",
+		func(s string) error { return DurationString(s).Validate() },
+		[]behavioralSyncCase{
+			{"30s", true, true, ""},
+			{"5m", true, true, ""},
+			{"1h30m", true, true, ""},
+			{"500ms", true, true, ""},
+			{"1h", true, true, ""},
+			{"100ns", true, true, ""},
+			// Go accepts "" (no duration = use default), CUE regex rejects ""
+			{"", true, false, "Go zero-value means no duration; CUE regex requires content"},
+			{"abc", false, false, ""},
+			// Go rejects negative durations; CUE regex doesn't match negative sign
+			{"-5s", false, false, ""},
+			// Go rejects "0s" (non-positive); CUE regex accepts "0s" format
+			{"0s", false, true, "Go rejects zero duration (must be positive); CUE only checks format"},
+		},
+	)
+}
+
+// TestBehavioralSync_ContainerImage verifies Go ContainerImage.Validate() agrees with
+// CUE #RuntimeConfigContainer.image constraint (non-empty + length).
+// Note: ContainerImage("") is valid in Go (no image = use containerfile),
+// but CUE field image?: string & !="" means empty is rejected at the CUE level.
+// The CUE optionality handles the "no image" case (field is absent, not empty).
+func TestBehavioralSync_ContainerImage(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// image is an optional field in #RuntimeConfigContainer — use field-level lookup
+	runBehavioralSyncField(t, schema, ctx, "#RuntimeConfigContainer", "image",
+		func(s string) error { return ContainerImage(s).Validate() },
+		[]behavioralSyncCase{
+			{"debian:stable-slim", true, true, ""},
+			{"golang:1.26", true, true, ""},
+			{"myregistry.io/myimage:latest", true, true, ""},
+			// Go accepts "" (containerfile will be used), CUE rejects "" (!="")
+			{"", true, false, "Go zero-value means no image; CUE uses field optionality with !=\"\""},
+			// Whitespace-only: Go rejects (TrimSpace check), CUE accepts (!="" passes for whitespace)
+			{"   ", false, true, "Go checks TrimSpace; CUE !=\"\" only rejects literal empty string"},
+			{strings.Repeat("a", 512), true, true, ""},
+			// Go ContainerImage.Validate() only checks whitespace; length check is in
+			// ValidateContainerImage() (a separate function). CUE enforces MaxRunes(512).
+			{strings.Repeat("a", 513), true, false, "Go Validate() has no length check; CUE enforces MaxRunes(512)"},
+		},
+	)
 }

@@ -13,6 +13,15 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 )
 
+// behavioralSyncCase defines a single input for behavioral equivalence testing.
+// Used by TestBehavioralSync_* tests at the bottom of this file.
+type behavioralSyncCase struct {
+	input       string
+	goExpect    bool
+	cueExpect   bool
+	divergeNote string
+}
+
 // =============================================================================
 // Schema Sync Tests - Phase 3 (T013)
 // =============================================================================
@@ -445,4 +454,241 @@ func TestPathRegexConstraints(t *testing.T) {
 			}
 		})
 	}
+}
+
+// =============================================================================
+// Behavioral Sync Tests — CUE Oracle
+// =============================================================================
+// These tests verify that Go Validate() methods and CUE schema constraints
+// produce the same accept/reject verdict on identical inputs.
+
+// validateStringAgainstCUE validates a single string value against a CUE
+// constraint path. Returns nil if CUE accepts the value, error if it rejects.
+func validateStringAgainstCUE(t *testing.T, schema cue.Value, ctx *cue.Context, cuePath, value string) error {
+	t.Helper()
+
+	constraint := schema.LookupPath(cue.ParsePath(cuePath))
+	if constraint.Err() != nil {
+		t.Fatalf("CUE path %s not found: %v", cuePath, constraint.Err())
+	}
+	unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", value)))
+	if err := unified.Validate(cue.Concrete(true)); err != nil {
+		return fmt.Errorf("CUE validation: %w", err)
+	}
+	return nil
+}
+
+// lookupCUEFieldConstraint extracts the constraint value for a specific field
+// within a CUE struct definition, including optional fields.
+func lookupCUEFieldConstraint(t *testing.T, schema cue.Value, parentPath, fieldName string) cue.Value {
+	t.Helper()
+
+	parent := schema.LookupPath(cue.ParsePath(parentPath))
+	if parent.Err() != nil {
+		t.Fatalf("CUE parent %s not found: %v", parentPath, parent.Err())
+	}
+
+	iter, err := parent.Fields(cue.Optional(true))
+	if err != nil {
+		t.Fatalf("failed to iterate fields of %s: %v", parentPath, err)
+	}
+
+	for iter.Next() {
+		sel := iter.Selector()
+		name := strings.TrimSuffix(sel.String(), "?")
+		if name == fieldName {
+			return iter.Value()
+		}
+	}
+
+	t.Fatalf("CUE field %s not found in %s", fieldName, parentPath)
+	return cue.Value{} // unreachable
+}
+
+// runBehavioralSyncField runs behavioral equivalence tests using field-level CUE
+// constraint lookup for optional fields.
+func runBehavioralSyncField(
+	t *testing.T, schema cue.Value, ctx *cue.Context,
+	parentPath, fieldName string,
+	goValidate func(string) error,
+	cases []behavioralSyncCase,
+) {
+	t.Helper()
+
+	constraint := lookupCUEFieldConstraint(t, schema, parentPath, fieldName)
+	for _, tc := range cases {
+		label := tc.input
+		if len(label) > 30 {
+			label = label[:27] + "..."
+		}
+		if label == "" {
+			label = "<empty>"
+		}
+
+		t.Run(label, func(t *testing.T) {
+			t.Parallel()
+
+			goErr := goValidate(tc.input)
+			goAccepts := goErr == nil
+
+			unified := constraint.Unify(ctx.CompileString(fmt.Sprintf("%q", tc.input)))
+			cueErr := unified.Validate(cue.Concrete(true))
+			cueAccepts := cueErr == nil
+
+			if goAccepts != tc.goExpect {
+				t.Errorf("Go Validate() unexpected: got accept=%v, want %v (err=%v)", goAccepts, tc.goExpect, goErr)
+			}
+			if cueAccepts != tc.cueExpect {
+				t.Errorf("CUE Validate() unexpected: got accept=%v, want %v (err=%v)", cueAccepts, tc.cueExpect, cueErr)
+			}
+			if tc.divergeNote == "" && goAccepts != cueAccepts {
+				t.Errorf("BEHAVIORAL DRIFT: Go accept=%v, CUE accept=%v for input %q", goAccepts, cueAccepts, tc.input)
+			}
+			if tc.divergeNote != "" && goAccepts != cueAccepts {
+				t.Logf("Expected divergence: %s (Go=%v, CUE=%v)", tc.divergeNote, goAccepts, cueAccepts)
+			}
+		})
+	}
+}
+
+// runBehavioralSync runs behavioral equivalence tests for a string-backed DDD type.
+func runBehavioralSync(
+	t *testing.T, schema cue.Value, ctx *cue.Context,
+	cuePath string,
+	goValidate func(string) error,
+	cases []behavioralSyncCase,
+) {
+	t.Helper()
+
+	for _, tc := range cases {
+		label := tc.input
+		if len(label) > 30 {
+			label = label[:27] + "..."
+		}
+		if label == "" {
+			label = "<empty>"
+		}
+
+		t.Run(label, func(t *testing.T) {
+			t.Parallel()
+
+			goErr := goValidate(tc.input)
+			goAccepts := goErr == nil
+
+			cueErr := validateStringAgainstCUE(t, schema, ctx, cuePath, tc.input)
+			cueAccepts := cueErr == nil
+
+			if goAccepts != tc.goExpect {
+				t.Errorf("Go Validate() unexpected: got accept=%v, want %v (err=%v)", goAccepts, tc.goExpect, goErr)
+			}
+			if cueAccepts != tc.cueExpect {
+				t.Errorf("CUE Validate() unexpected: got accept=%v, want %v (err=%v)", cueAccepts, tc.cueExpect, cueErr)
+			}
+			if tc.divergeNote == "" && goAccepts != cueAccepts {
+				t.Errorf("BEHAVIORAL DRIFT: Go accept=%v, CUE accept=%v for input %q", goAccepts, cueAccepts, tc.input)
+			}
+			if tc.divergeNote != "" && goAccepts != cueAccepts {
+				t.Logf("Expected divergence: %s (Go=%v, CUE=%v)", tc.divergeNote, goAccepts, cueAccepts)
+			}
+		})
+	}
+}
+
+// TestBehavioralSync_ModuleID verifies Go ModuleID.Validate() agrees with
+// CUE #Invowkmod.module constraint (RDNS regex + length).
+func TestBehavioralSync_ModuleID(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#Invowkmod.module",
+		func(s string) error { return ModuleID(s).Validate() },
+		[]behavioralSyncCase{
+			{"io.invowk.sample", true, true, ""},
+			{"com.example.mytools", true, true, ""},
+			{"simple", true, true, ""},
+			{"a", true, true, ""},
+			{"a.b", true, true, ""},
+			{"a1.b2", true, true, ""},
+			{"", false, false, ""},
+			{"123", false, false, ""},
+			{".bad", false, false, ""},
+			{"a.", false, false, ""},
+			{"a..b", false, false, ""},
+			{"a.1b", false, false, ""},
+			{strings.Repeat("a", 256), true, true, ""},
+			{strings.Repeat("a", 257), false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_SemVer verifies Go SemVer.Validate() agrees with
+// CUE #Invowkmod.version constraint (strict semver regex).
+func TestBehavioralSync_SemVer(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#Invowkmod.version",
+		func(s string) error { return SemVer(s).Validate() },
+		[]behavioralSyncCase{
+			{"1.0.0", true, true, ""},
+			{"0.1.0", true, true, ""},
+			{"10.20.30", true, true, ""},
+			{"1.0.0-alpha.1", true, true, ""},
+			{"1.0.0-beta", true, true, ""},
+			{"1.0.0-rc.1", true, true, ""},
+			{"", false, false, ""},
+			// Go's semver library is lenient: accepts "v" prefix, incomplete versions, leading zeros.
+			// CUE enforces strict format via regex. Document as expected divergences.
+			{"v1.0.0", true, false, "Go semver library strips v prefix; CUE regex rejects it"},
+			{"01.0.0", true, false, "Go semver library accepts leading zeros; CUE regex rejects them"},
+			{"1.0", true, false, "Go semver library accepts incomplete version; CUE regex requires MAJOR.MINOR.PATCH"},
+			{"abc", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_GitURL verifies Go GitURL.Validate() agrees with
+// CUE #ModuleRequirement.git_url constraint (prefix regex + length).
+func TestBehavioralSync_GitURL(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSync(t, schema, ctx, "#ModuleRequirement.git_url",
+		func(s string) error { return GitURL(s).Validate() },
+		[]behavioralSyncCase{
+			{"https://github.com/user/repo.git", true, true, ""},
+			{"git@github.com:user/repo.git", true, true, ""},
+			{"ssh://git@host/repo", true, true, ""},
+			{"https://gitlab.com/group/project.invowkmod.git", true, true, ""},
+			{"", false, false, ""},
+			{"ftp://bad.com/repo", false, false, ""},
+			{"http://not-https.com/repo", false, false, ""},
+			{"just-a-string", false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_SubdirectoryPath verifies Go SubdirectoryPath.Validate() agrees with
+// CUE #ModuleRequirement.path constraint (relative path, no traversal).
+// Note: Go performs additional security validation (path normalization via slashpath.Clean)
+// that CUE's regex cannot express.
+func TestBehavioralSync_SubdirectoryPath(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// path is an optional field in #ModuleRequirement — use field-level lookup
+	runBehavioralSyncField(t, schema, ctx, "#ModuleRequirement", "path",
+		func(s string) error { return SubdirectoryPath(s).Validate() },
+		[]behavioralSyncCase{
+			{"subdir", true, true, ""},
+			{"a/b/c", true, true, ""},
+			{"module-name", true, true, ""},
+			// Go accepts "" (repo root), CUE path? is optional so absent means root.
+			// But if path is present in CUE, the field has constraints including =~"^[^/]".
+			// An explicit empty string would not match the regex, so CUE rejects "".
+			{"", true, false, "Go zero-value means repo root; CUE uses field optionality"},
+			{"/absolute", false, false, ""},
+			{"../traversal", false, false, ""},
+		},
+	)
 }
