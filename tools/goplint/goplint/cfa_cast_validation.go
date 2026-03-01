@@ -24,6 +24,7 @@ func inspectUnvalidatedCastsCFA(
 	fn *ast.FuncDecl,
 	excCfg *ExceptionConfig,
 	bl *BaselineConfig,
+	checkUBV bool,
 ) {
 	if fn.Body == nil {
 		return
@@ -57,7 +58,7 @@ func inspectUnvalidatedCastsCFA(
 	assignedCasts, unassignedCasts := collectCFACasts(
 		pass, fn.Body, parentMap,
 		func(lit *ast.FuncLit, closureIdx int) {
-			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIdx), excCfg, bl)
+			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIdx), excCfg, bl, checkUBV)
 		},
 	)
 
@@ -83,6 +84,16 @@ func inspectUnvalidatedCastsCFA(
 		// Check if there's any path from the cast to a return block
 		// that doesn't pass through varName.Validate().
 		if !hasPathToReturnWithoutValidate(funcCFG, defBlock, defIdx, ac.varName) {
+			// All paths DO have validate. Check for use-before-validate
+			// in the defining block: is the variable passed to a function
+			// or used as a method receiver before Validate() is called?
+			if checkUBV && hasUseBeforeValidateInBlock(defBlock.Nodes, defIdx+1, ac.varName) {
+				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.varName, ac.typeName)
+				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", qualFuncName, ac.typeName, "ubv", strconv.Itoa(ac.castIndex))
+				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
+					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+				}
+			}
 			continue // all paths validated
 		}
 

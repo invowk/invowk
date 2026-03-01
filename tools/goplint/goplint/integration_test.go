@@ -40,6 +40,7 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-constructor-validates", "false")
 	setFlag(t, "check-validate-delegation", "false")
 	setFlag(t, "check-nonzero", "false")
+	setFlag(t, "check-use-before-validate", "false")
 	setFlag(t, "no-cfa", "false")
 	setFlag(t, "audit-review-dates", "false")
 	setFlag(t, "check-enum-sync", "false")
@@ -97,6 +98,9 @@ func TestNewRunConfig(t *testing.T) {
 		}
 		if !rc.checkNonZero {
 			t.Error("expected checkNonZero = true")
+		}
+		if !rc.checkUseBeforeValidate {
+			t.Error("expected checkUseBeforeValidate = true")
 		}
 	})
 
@@ -446,6 +450,23 @@ func TestCheckConstructorValidates(t *testing.T) {
 	setFlag(t, "check-constructor-validates", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "constructorvalidates")
+}
+
+// TestConstructorValidatesCrossPackage exercises --check-constructor-validates
+// with a cross-package helper annotated with //goplint:validates-type=TypeName.
+// Verifies that the ValidatesTypeFact is exported from the helper package and
+// imported correctly in the consuming package.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestConstructorValidatesCrossPackage(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-validates", "true")
+
+	analysistest.Run(t, testdata, Analyzer,
+		"constructorvalidates_cross/util",
+		"constructorvalidates_cross/myapp")
 }
 
 // TestConstructorValidatesException exercises that --check-constructor-validates

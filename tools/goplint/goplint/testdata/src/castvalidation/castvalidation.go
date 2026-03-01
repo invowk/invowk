@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"strings"
 )
 
 // --- DDD Value Types for testing ---
@@ -305,4 +306,68 @@ func SlogInfoAutoSkip(input string) { // want `parameter "input" of castvalidati
 // LogPrintAutoSkip — should NOT be flagged (log.Print is display-only).
 func LogPrintAutoSkip(input string) { // want `parameter "input" of castvalidation\.LogPrintAutoSkip uses primitive type string`
 	log.Print("cmd: ", CommandName(input)) // NOT flagged — display only
+}
+
+// --- Ancestor depth limit tests (maxAncestorDepth = 5) ---
+
+// CastAtAncestorDepthWithinLimit — should NOT be flagged because the cast
+// is nested inside a 2-level composite literal chain within fmt.Sprintf.
+// The ancestor walk reaches fmt.Sprintf at hop 4 (within maxAncestorDepth=5):
+//
+//	start = KeyValueExpr(V: cast)
+//	hop 1 = CompositeLit(Inner{...})
+//	hop 2 = KeyValueExpr(V: Inner{...})
+//	hop 3 = CompositeLit(Outer{...})
+//	hop 4 = CallExpr(fmt.Sprintf) → found, auto-skip
+func CastAtAncestorDepthWithinLimit(input string) string { // want `parameter "input" of castvalidation\.CastAtAncestorDepthWithinLimit uses primitive type string` `return value of castvalidation\.CastAtAncestorDepthWithinLimit uses primitive type string`
+	type inner struct{ V CommandName }
+	type outer struct{ V inner }
+	return fmt.Sprintf("%v", outer{V: inner{V: CommandName(input)}})
+}
+
+// CastBeyondAncestorDepthLimit — SHOULD be flagged because the cast is
+// nested inside a 3-level composite literal chain within fmt.Sprintf.
+// The ancestor walk exhausts all 5 iterations before reaching fmt.Sprintf:
+//
+//	start = KeyValueExpr(V: cast)
+//	hop 1 = CompositeLit(L1{...})
+//	hop 2 = KeyValueExpr(V: L1{...})
+//	hop 3 = CompositeLit(L2{...})
+//	hop 4 = KeyValueExpr(V: L2{...})
+//	hop 5 = CompositeLit(L3{...}) — NOT a call, loop ends
+//	fmt.Sprintf would be at hop 6, beyond maxAncestorDepth
+func CastBeyondAncestorDepthLimit(input string) string { // want `parameter "input" of castvalidation\.CastBeyondAncestorDepthLimit uses primitive type string` `return value of castvalidation\.CastBeyondAncestorDepthLimit uses primitive type string`
+	type l1 struct{ V CommandName }
+	type l2 struct{ V l1 }
+	type l3 struct{ V l2 }
+	return fmt.Sprintf("%v", l3{V: l2{V: l1{V: CommandName(input)}}}) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+}
+
+// --- strings.* comparison auto-skip tests ---
+
+// StringsContainsAutoSkip — should NOT be flagged (strings.Contains is
+// a comparison predicate — the cast value is tested, not used as domain input).
+func StringsContainsAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.StringsContainsAutoSkip uses primitive type string`
+	return strings.Contains(string(CommandName(input)), "prefix") // NOT flagged — comparison
+}
+
+// StringsHasPrefixAutoSkip — should NOT be flagged.
+func StringsHasPrefixAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.StringsHasPrefixAutoSkip uses primitive type string`
+	return strings.HasPrefix(string(CommandName(input)), "cmd") // NOT flagged — comparison
+}
+
+// StringsHasSuffixAutoSkip — should NOT be flagged.
+func StringsHasSuffixAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.StringsHasSuffixAutoSkip uses primitive type string`
+	return strings.HasSuffix(string(CommandName(input)), "-run") // NOT flagged — comparison
+}
+
+// StringsEqualFoldAutoSkip — should NOT be flagged.
+func StringsEqualFoldAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.StringsEqualFoldAutoSkip uses primitive type string`
+	return strings.EqualFold(string(CommandName(input)), "RUN") // NOT flagged — comparison
+}
+
+// StringsReplaceNotSkipped — SHOULD be flagged because strings.ReplaceAll
+// is not a comparison function — it processes the domain value.
+func StringsReplaceNotSkipped(input string) string { // want `parameter "input" of castvalidation\.StringsReplaceNotSkipped uses primitive type string` `return value of castvalidation\.StringsReplaceNotSkipped uses primitive type string`
+	return strings.ReplaceAll(string(CommandName(input)), "-", "_") // want `type conversion to CommandName from non-constant without Validate\(\) check`
 }

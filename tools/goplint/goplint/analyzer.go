@@ -60,6 +60,7 @@ const (
 	CategoryEnumCueMissingGo           = "enum-cue-missing-go"
 	CategoryEnumCueExtraGo             = "enum-cue-extra-go"
 	CategoryUnknownDirective           = "unknown-directive"
+	CategoryUseBeforeValidate          = "use-before-validate"
 	CategorySuggestValidateAll         = "suggest-validate-all"
 )
 
@@ -85,6 +86,7 @@ var (
 	checkConstructorValidates    bool
 	checkValidateDelegation      bool
 	checkNonZero                 bool
+	checkUseBeforeValidate       bool
 	noCFA                        bool
 	auditReviewDates             bool
 	checkEnumSync                bool
@@ -99,7 +101,7 @@ var Analyzer = &analysis.Analyzer{
 	URL:       "https://github.com/invowk/invowk/tools/goplint",
 	Run:       run,
 	Requires:  []*analysis.Analyzer{inspect.Analyzer},
-	FactTypes: []analysis.Fact{(*NonZeroFact)(nil)},
+	FactTypes: []analysis.Fact{(*NonZeroFact)(nil), (*ValidatesTypeFact)(nil)},
 }
 
 func init() {
@@ -137,6 +139,8 @@ func init() {
 		"report struct fields using nonzero-annotated types as value (non-pointer) fields where they are semantically optional")
 	Analyzer.Flags.BoolVar(&auditReviewDates, "audit-review-dates", false,
 		"report exception patterns with review_after dates that have passed")
+	Analyzer.Flags.BoolVar(&checkUseBeforeValidate, "check-use-before-validate", false,
+		"report DDD Value Type variables used before Validate() in the same basic block (CFA only)")
 	Analyzer.Flags.BoolVar(&noCFA, "no-cfa", false,
 		"disable control-flow analysis and use AST heuristic for cast-validation (CFA is enabled by default)")
 	Analyzer.Flags.BoolVar(&checkEnumSync, "check-enum-sync", false,
@@ -168,6 +172,7 @@ type runConfig struct {
 	checkConstructorValidates    bool
 	checkValidateDelegation      bool
 	checkNonZero                 bool
+	checkUseBeforeValidate       bool
 	noCFA                        bool
 	auditReviewDates             bool
 	checkEnumSync                bool
@@ -196,6 +201,7 @@ func newRunConfig() runConfig {
 		checkConstructorValidates:    checkConstructorValidates,
 		checkValidateDelegation:      checkValidateDelegation,
 		checkNonZero:                 checkNonZero,
+		checkUseBeforeValidate:       checkUseBeforeValidate,
 		noCFA:                        noCFA,
 		auditReviewDates:             auditReviewDates,
 		checkEnumSync:                checkEnumSync,
@@ -219,6 +225,7 @@ func newRunConfig() runConfig {
 		rc.checkConstructorValidates = true
 		rc.checkValidateDelegation = true
 		rc.checkNonZero = true
+		rc.checkUseBeforeValidate = true
 	}
 	return rc
 }
@@ -330,6 +337,10 @@ func run(pass *analysis.Pass) (any, error) {
 			}
 
 		case *ast.FuncDecl:
+			// Always export validates-type facts for cross-package
+			// constructor-validates tracking (analysis.Fact propagation).
+			exportValidatesTypeFacts(pass, n)
+
 			// Primary mode: check func params and returns for primitives.
 			inspectFuncDecl(pass, n, cfg, bl)
 
@@ -355,7 +366,7 @@ func run(pass *analysis.Pass) (any, error) {
 				if rc.noCFA {
 					inspectUnvalidatedCasts(pass, n, cfg, bl)
 				} else {
-					inspectUnvalidatedCastsCFA(pass, n, cfg, bl)
+					inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate)
 				}
 			}
 

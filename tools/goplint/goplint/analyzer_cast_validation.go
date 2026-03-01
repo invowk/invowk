@@ -264,10 +264,10 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node,
 		return true
 	}
 
-	// fmt.* or log/slog function argument: the parent is a *ast.CallExpr
-	// targeting a display-only package.
+	// fmt.*, log/slog, or strings comparison function argument: the parent
+	// is a *ast.CallExpr targeting a display-only or comparison-only package.
 	if outerCall, ok := parent.(*ast.CallExpr); ok && outerCall != call {
-		if isFmtCall(pass, outerCall) || isLogCall(pass, outerCall) {
+		if isAutoSkipCall(pass, outerCall) {
 			return true
 		}
 	}
@@ -305,9 +305,9 @@ func isAutoSkipAncestor(pass *analysis.Pass, start ast.Node, parentMap map[ast.N
 		if isStatementNode(grandparent) {
 			break
 		}
-		// Check if the grandparent is a display-only call (fmt.* or log/slog).
+		// Check if the grandparent is a display-only or comparison-only call.
 		if outerCall, ok := grandparent.(*ast.CallExpr); ok {
-			if isFmtCall(pass, outerCall) || isLogCall(pass, outerCall) {
+			if isAutoSkipCall(pass, outerCall) {
 				return true
 			}
 		}
@@ -367,6 +367,39 @@ func isLogCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 // isStrconvCall reports whether the call targets the "strconv" package.
 func isStrconvCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 	return isPackageCall(pass, call, "strconv")
+}
+
+// isAutoSkipCall reports whether the call targets a display-only or
+// comparison-only package function. Used by both isAutoSkipContext
+// (direct parent) and isAutoSkipAncestor (grandparent walk) to avoid
+// repeating the same three-way disjunction.
+func isAutoSkipCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+	return isFmtCall(pass, call) || isLogCall(pass, call) || isStringsComparisonCall(pass, call)
+}
+
+// stringsComparisonFuncs lists "strings" package functions that are
+// semantically comparison operations. Casts used as arguments to these
+// are testing string attributes, not consuming the value as domain input.
+//
+// Allowed: Contains, HasPrefix, HasSuffix, EqualFold — pure predicates.
+// Not allowed: Replace, Split, Join, TrimPrefix, etc. — these process the value.
+var stringsComparisonFuncs = map[string]bool{
+	"Contains":  true,
+	"HasPrefix": true,
+	"HasSuffix": true,
+	"EqualFold": true,
+}
+
+// isStringsComparisonCall reports whether the call targets one of the string
+// comparison functions in the "strings" package that are semantically
+// equivalent to equality/containment checks.
+func isStringsComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+	if !isPackageCall(pass, call, "strings") {
+		return false
+	}
+	// isPackageCall already verified call.Fun is a *ast.SelectorExpr.
+	sel := call.Fun.(*ast.SelectorExpr)
+	return stringsComparisonFuncs[sel.Sel.Name]
 }
 
 // isErrorMessageExpr reports whether expr is a call that produces display

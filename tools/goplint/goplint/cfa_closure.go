@@ -27,6 +27,7 @@ func inspectClosureCastsCFA(
 	closurePrefix string,
 	excCfg *ExceptionConfig,
 	bl *BaselineConfig,
+	checkUBV bool,
 ) {
 	if lit.Body == nil {
 		return
@@ -46,7 +47,7 @@ func inspectClosureCastsCFA(
 		pass, lit.Body, parentMap,
 		func(nested *ast.FuncLit, nestedIdx int) {
 			nestedPrefix := closurePrefix + "/" + strconv.Itoa(nestedIdx)
-			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl)
+			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl, checkUBV)
 		},
 	)
 
@@ -67,6 +68,14 @@ func inspectClosureCastsCFA(
 		}
 
 		if !hasPathToReturnWithoutValidate(closureCFG, defBlock, defIdx, ac.varName) {
+			// All paths validated. Check for use-before-validate.
+			if checkUBV && hasUseBeforeValidateInBlock(defBlock.Nodes, defIdx+1, ac.varName) {
+				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.varName, ac.typeName)
+				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", "closure", closurePrefix, qualEnclosingFunc, ac.typeName, "ubv", strconv.Itoa(ac.castIndex))
+				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
+					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+				}
+			}
 			continue
 		}
 

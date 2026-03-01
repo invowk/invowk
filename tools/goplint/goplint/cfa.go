@@ -168,3 +168,81 @@ func dfsUnvalidatedPath(succs []*gocfg.Block, varName string, visited map[int32]
 	}
 	return false
 }
+
+// isVarUse reports whether the given AST node contains a "use" of varName
+// that is not a display-only or validation call. A use means the variable's
+// value is consumed by a non-trivial operation before it is validated.
+//
+// What counts as a use:
+//   - Passing varName as a function argument: useFunc(x)
+//   - Method call on varName where the method is not Validate, String,
+//     Error, or GoString: x.Setup()
+//
+// What does NOT count as a use:
+//   - x.Validate() — the validation call itself
+//   - x.String(), x.Error(), x.GoString() — display-only methods
+//
+// Closures are NOT descended into (same reasoning as containsValidateCall).
+func isVarUse(node ast.Node, varName string) bool {
+	found := false
+	ast.Inspect(node, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		if _, ok := n.(*ast.FuncLit); ok {
+			return false
+		}
+
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+
+		// Check for method call on varName: x.Method(...)
+		if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
+			if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == varName {
+				switch sel.Sel.Name {
+				case "Validate", "String", "Error", "GoString":
+					return true // display-only or validation — not a use
+				default:
+					found = true
+					return false
+				}
+			}
+		}
+
+		// Check for varName appearing as a function argument.
+		for _, arg := range call.Args {
+			if ident, ok := arg.(*ast.Ident); ok && ident.Name == varName {
+				found = true
+				return false
+			}
+		}
+
+		return true
+	})
+	return found
+}
+
+// hasUseBeforeValidateInBlock checks whether, in the nodes of a block
+// starting at startIdx, a "use" of varName appears before a Validate()
+// call. Returns true if the variable is used (as an argument or non-display
+// method receiver) before Validate() is encountered.
+//
+// Algorithm:
+//  1. Scan nodes[startIdx:] in order.
+//  2. If a Validate() call on varName is found first → return false (safe).
+//  3. If a "use" of varName is found first → return true (UBV detected).
+//  4. If neither is found → return false (no use in this block).
+func hasUseBeforeValidateInBlock(nodes []ast.Node, startIdx int, varName string) bool {
+	for i := startIdx; i < len(nodes); i++ {
+		node := nodes[i]
+		if containsValidateCall(node, varName) {
+			return false // Validate() seen first — safe
+		}
+		if isVarUse(node, varName) {
+			return true // use before Validate() — flagged
+		}
+	}
+	return false
+}

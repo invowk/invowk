@@ -38,6 +38,22 @@ func TestCheckCastValidationCFAClosure(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "cfa_closure")
 }
 
+// TestCheckUseBeforeValidateCFA exercises --check-use-before-validate mode
+// against the use_before_validate fixture. Verifies that DDD Value Type
+// variables used as function arguments or method receivers before Validate()
+// in the same basic block are flagged, even when all paths to return
+// eventually call Validate().
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckUseBeforeValidateCFA(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+	setFlag(t, "check-use-before-validate", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "use_before_validate")
+}
+
 // TestCFAEnabledByDefault verifies that CFA is enabled by default when
 // --check-cast-validation is active.
 //
