@@ -397,10 +397,10 @@ func use(_ T) {}`
 		nodes = append(nodes, stmt)
 	}
 
-	if hasUseBeforeValidateInBlock(nil, nodes, 1, target, collectSynchronousClosureLits(body), nil) {
+	if hasUseBeforeValidateInBlock(nil, nodes, 1, target, collectSynchronousClosureLits(body), nil, nil) {
 		t.Fatal("expected sync closure set to treat deferred Validate as ordering-safe")
 	}
-	if !hasUseBeforeValidateInBlock(nil, nodes, 1, target, collectUBVClosureLits(body), nil) {
+	if !hasUseBeforeValidateInBlock(nil, nodes, 1, target, collectUBVClosureLits(body), nil, nil) {
 		t.Fatal("expected UBV closure set to flag use before deferred Validate")
 	}
 }
@@ -438,10 +438,10 @@ func f() {
 	}
 
 	target := newCastTargetFromName("x")
-	if got := firstUseValidateOrderInNode(nil, fn.Body.List[1], target, nil, nil); got != ubvOrderNone {
+	if got := firstUseValidateOrderInNode(nil, fn.Body.List[1], target, nil, nil, nil); got != ubvOrderNone {
 		t.Fatalf("go x.Validate() order = %v, want %v", got, ubvOrderNone)
 	}
-	if got := firstUseValidateOrderInNode(nil, fn.Body.List[2], target, nil, nil); got != ubvOrderNone {
+	if got := firstUseValidateOrderInNode(nil, fn.Body.List[2], target, nil, nil, nil); got != ubvOrderNone {
 		t.Fatalf("defer x.Validate() order = %v, want %v", got, ubvOrderNone)
 	}
 }

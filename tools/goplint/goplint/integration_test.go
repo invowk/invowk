@@ -25,10 +25,7 @@ func setFlag(t *testing.T, name, value string) {
 // Called via t.Cleanup() to ensure clean state between tests.
 func resetFlags(t *testing.T) {
 	t.Helper()
-	configPath = ""
-	baselinePath = ""
-	configPathExplicit = false
-	baselinePathExplicit = false
+	resetFlagStateDefaults(defaultFlagState)
 	resetOverdueReviewCache()
 	for _, spec := range modeFlagSpecs {
 		setFlag(t, spec.flagName, strconv.FormatBool(spec.defaultValue))
@@ -167,16 +164,16 @@ func TestTrackedStringFlagsExplicitness(t *testing.T) {
 	t.Cleanup(func() { resetFlags(t) })
 	resetFlags(t)
 
-	configPathExplicit = false
-	baselinePathExplicit = false
+	defaultFlagState.configPathExplicit = false
+	defaultFlagState.baselinePathExplicit = false
 
 	setFlag(t, "config", "")
-	if !configPathExplicit {
+	if !defaultFlagState.configPathExplicit {
 		t.Fatal("expected configPathExplicit = true after setting --config")
 	}
 
 	setFlag(t, "baseline", "")
-	if !baselinePathExplicit {
+	if !defaultFlagState.baselinePathExplicit {
 		t.Fatal("expected baselinePathExplicit = true after setting --baseline")
 	}
 }
@@ -407,6 +404,21 @@ func TestCheckCastValidationNoCFAValidateBeforeCast(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "castvalidation_nocfa_validate_before_cast")
 }
 
+// TestCheckCastValidationNoCFADeadBranchContract documents the intentional
+// AST fallback contract: with --no-cfa, a dead-branch Validate() call counts
+// as present and suppresses cast-validation findings.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationNoCFADeadBranchContract(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-cast-validation", "true")
+	setFlag(t, "no-cfa", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "castvalidation_nocfa_dead_branch")
+}
+
 // TestBaselineSuppression verifies that the --baseline flag correctly
 // suppresses findings present in the baseline while reporting new ones.
 // The baseline fixture has two struct fields and two function params: two
@@ -519,6 +531,19 @@ func TestCheckConstructorValidates(t *testing.T) {
 	setFlag(t, "check-constructor-validates", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "constructorvalidates")
+}
+
+// TestCheckConstructorValidatesMethodValue verifies constructor-validates
+// recognizes Validate() calls made through method values.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckConstructorValidatesMethodValue(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-validates", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "constructorvalidates_method_value")
 }
 
 // TestCheckConstructorReturnError exercises the --check-constructor-return-error

@@ -65,15 +65,31 @@ const (
 	CategoryMissingConstructorErrorReturn = "missing-constructor-error-return"
 )
 
-// Analyzer is the goplint analysis pass. Use it with singlechecker
-// or multichecker, or via go vet -vettool.
-var Analyzer = &analysis.Analyzer{
-	Name:      "goplint",
-	Doc:       "reports bare primitive types where DDD Value Types should be used",
-	URL:       "https://github.com/invowk/invowk/tools/goplint",
-	Run:       run,
-	Requires:  []*analysis.Analyzer{inspect.Analyzer},
-	FactTypes: []analysis.Fact{(*NonZeroFact)(nil), (*ValidatesTypeFact)(nil)},
+// Analyzer is the default goplint analysis pass used by main and tests.
+var Analyzer = newAnalyzerWithState(defaultFlagState)
+
+// NewAnalyzer constructs an analyzer with isolated flag state.
+func NewAnalyzer() *analysis.Analyzer {
+	return newAnalyzerWithState(&flagState{})
+}
+
+func newAnalyzerWithState(state *flagState) *analysis.Analyzer {
+	resetFlagStateDefaults(state)
+	analyzer := &analysis.Analyzer{
+		Name:     "goplint",
+		Doc:      "reports bare primitive types where DDD Value Types should be used",
+		URL:      "https://github.com/invowk/invowk/tools/goplint",
+		Requires: []*analysis.Analyzer{inspect.Analyzer},
+		FactTypes: []analysis.Fact{
+			(*NonZeroFact)(nil),
+			(*ValidatesTypeFact)(nil),
+		},
+	}
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		return runWithState(pass, state)
+	}
+	bindAnalyzerFlags(analyzer, state)
+	return analyzer
 }
 
 var overdueReviewSeen struct {

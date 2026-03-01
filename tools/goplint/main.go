@@ -87,7 +87,7 @@ func dispatch(args []string, stderr io.Writer) (nextArgs []string, exitCode int,
 //
 // Returns "" if not found or if the flag is present without a value.
 func extractUpdateBaselinePath(args []string) string {
-	for i := 0; i < len(args); i++ {
+	for i := range len(args) {
 		arg := args[i]
 		matched, value, hasInlineValue := parseFlagToken(arg, "update-baseline")
 		if !matched {
@@ -115,9 +115,19 @@ func generateBaseline(outputPath string, originalArgs []string) error {
 	if err != nil {
 		return fmt.Errorf("resolving executable path: %w", err)
 	}
+	findingsFile, err := os.CreateTemp("", "goplint-findings-*.jsonl")
+	if err != nil {
+		return fmt.Errorf("creating findings stream temp file: %w", err)
+	}
+	findingsPath := findingsFile.Name()
+	if err := findingsFile.Close(); err != nil {
+		return fmt.Errorf("closing findings stream temp file: %w", err)
+	}
+	defer func() { _ = os.Remove(findingsPath) }()
 
 	// Build subprocess args: remove -update-baseline, ensure -json is present.
 	subArgs := buildSubprocessArgs(originalArgs)
+	subArgs = slices.Insert(subArgs, 0, "-emit-findings-jsonl="+findingsPath)
 
 	cmd := exec.Command(selfPath, subArgs...)
 	cmd.Stderr = os.Stderr // let warnings/errors pass through
@@ -130,8 +140,12 @@ func generateBaseline(outputPath string, originalArgs []string) error {
 		return fmt.Errorf("running analyzer subprocess: %w", err)
 	}
 
-	// Parse the go/analysis JSON output.
-	findings, err := parseAnalysisJSON(stdout.Bytes())
+	// Parse the machine findings stream emitted by the analyzer.
+	findingsData, err := os.ReadFile(findingsPath)
+	if err != nil {
+		return fmt.Errorf("reading findings stream: %w", err)
+	}
+	findings, err := parseFindingsJSONL(findingsData)
 	if err != nil {
 		return fmt.Errorf("parsing analysis output: %w", err)
 	}
@@ -158,7 +172,7 @@ func buildSubprocessArgs(args []string) []string {
 
 // hasFlag checks if any CLI arg matches the given flag name (with or without leading dashes).
 func hasFlag(args []string, flagName string) bool {
-	for i := 0; i < len(args); i++ {
+	for i := range len(args) {
 		matched, value, hasInlineValue := parseFlagToken(args[i], flagName)
 		if !matched {
 			continue
@@ -421,6 +435,71 @@ type analysisDiagnostic struct {
 	Message  string `json:"message"`
 	Category string `json:"category"`
 	URL      string `json:"url"`
+}
+
+type findingJSONLRecord struct {
+	Category string `json:"category"`
+	ID       string `json:"id"`
+	Message  string `json:"message"`
+	Posn     string `json:"posn"`
+}
+
+func parseFindingsJSONL(data []byte) (map[string][]goplint.BaselineFinding, error) {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return map[string][]goplint.BaselineFinding{}, nil
+	}
+
+	seen := make(map[string]map[string]goplint.BaselineFinding)
+	scanner := bytes.NewBuffer(data)
+	for {
+		line, err := scanner.ReadBytes('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("reading findings stream: %w", err)
+		}
+		line = bytes.TrimSpace(line)
+		if len(line) > 0 {
+			var record findingJSONLRecord
+			if unmarshalErr := json.Unmarshal(line, &record); unmarshalErr != nil {
+				return nil, fmt.Errorf("decoding findings record: %w", unmarshalErr)
+			}
+			if record.Category == "" || record.Message == "" || record.ID == "" {
+				// Ignore malformed rows from older/partial emitters.
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				continue
+			}
+			if !goplint.IsKnownDiagnosticCategory(record.Category) {
+				return nil, fmt.Errorf("unknown goplint category %q", record.Category)
+			}
+			if !goplint.IsBaselineSuppressibleCategory(record.Category) {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				continue
+			}
+			if seen[record.Category] == nil {
+				seen[record.Category] = make(map[string]goplint.BaselineFinding)
+			}
+			seen[record.Category][record.ID] = goplint.BaselineFinding{
+				ID:      record.ID,
+				Message: record.Message,
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		}
+	}
+
+	findings := make(map[string][]goplint.BaselineFinding, len(seen))
+	for category, entries := range seen {
+		out := make([]goplint.BaselineFinding, 0, len(entries))
+		for _, entry := range entries {
+			out = append(out, entry)
+		}
+		findings[category] = out
+	}
+	return findings, nil
 }
 
 // parseAnalysisJSON parses the go/analysis -json output (one JSON object

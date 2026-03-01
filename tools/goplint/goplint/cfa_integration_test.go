@@ -64,6 +64,30 @@ func TestCheckCastValidationCFASelectorShadowing(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "castvalidation_selector_shadowing")
 }
 
+// TestCheckCastValidationCFAMethodValue verifies CFA recognizes Validate()
+// invoked through bound method values (including aliased function variables).
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFAMethodValue(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "castvalidation_method_value")
+}
+
+// TestCheckCastValidationCFAClosureVarAlias verifies closure-variable alias
+// calls (g := f; g()) resolve back to the bound literal for CFA analysis.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFAClosureVarAlias(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "cfa_closure_var_alias")
+}
+
 // TestCheckCastValidationCFAShortCircuit verifies that short-circuit boolean
 // expressions do not count as guaranteed validation in CFA mode.
 //
@@ -184,6 +208,31 @@ func TestCheckUseBeforeValidateClosureVarCall(t *testing.T) {
 	setFlag(t, "check-use-before-validate", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "use_before_validate_closure_var_call")
+}
+
+// TestCheckUseBeforeValidateMethodValue verifies same-block UBV ordering
+// recognizes Validate() calls invoked via method values.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckUseBeforeValidateMethodValue(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+	setFlag(t, "check-use-before-validate", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "use_before_validate_method_value")
+}
+
+// TestCheckCastValidationCFANoReturnTerminator verifies non-return sinks like
+// panic/os.Exit/log.Fatal do not create synthetic "unvalidated return" paths.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFANoReturnTerminator(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "cfa_no_return_terminator")
 }
 
 // TestCFAEnabledByDefault verifies that CFA is enabled by default when

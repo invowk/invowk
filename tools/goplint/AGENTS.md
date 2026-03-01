@@ -87,9 +87,9 @@ tools/goplint/
 ├── exceptions.toml         # ~390 intentional exception patterns (primitives, constructors, func-options, etc.)
 ├── baseline.toml           # accepted findings baseline (generated)
 ├── goplint/
-│   ├── analyzer.go                 # analysis.Analyzer definition + shared supplementary-mode helpers
+│   ├── analyzer.go                 # default Analyzer + NewAnalyzer factory
 │   ├── flags.go                    # declarative mode flag table + flag binding/newRunConfig/check-all expansion
-│   ├── analyzer_run.go             # run() orchestration phases: inputs, traversal, post-traversal checks
+│   ├── analyzer_run.go             # runWithState() orchestration + per-pass finding sink wiring
 │   ├── analyzer_cast_validation.go # cast validation: unvalidated DDD type conversions
 │   ├── analyzer_constructor_usage.go # Constructor error usage: blanked error returns on NewXxx()
 │   ├── analyzer_validate_usage.go  # Validate() usage: discarded results
@@ -105,9 +105,10 @@ tools/goplint/
 │   ├── cfa.go                      # CFA toggle, cfg.New wrapper, DFS utilities
 │   ├── cfa_cast_validation.go      # inspectUnvalidatedCastsCFA (CFA replacement for cast validation)
 │   ├── cfa_closure.go              # inspectClosureCastsCFA (closure analysis with independent CFGs)
-│   ├── cfa_collect.go              # collectCFACasts shared cast-collection for CFA (both outer + closure)
+│   ├── cfa_collect.go              # collectCFACasts shared cast/method-value collection for CFA
+│   ├── finding_sink.go             # JSONL machine findings stream used by baseline generation
 │   ├── *_test.go               # unit + integration tests
-│   └── testdata/src/               # analysistest fixture packages (35 packages)
+│   └── testdata/src/               # analysistest fixture packages
 ```
 
 **Separate Go module**: `tools/goplint/` has its own `go.mod` to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependencies.
@@ -539,7 +540,7 @@ make update-baseline   # Regenerate baseline from current state
 ### How it works
 
 - **`--baseline=path`**: Analyzer flag. Loaded per-package in `run()`, suppresses findings whose stable `id` matches a baseline entry (with legacy message fallback). Only new findings are reported.
-- **`--update-baseline=path`**: main() flag. Runs self as subprocess with `-json`, collects all findings, writes sorted TOML. Uses subprocess because `singlechecker.Main()` calls `os.Exit()` — no post-analysis aggregation is possible within the framework.
+- **`--update-baseline=path`**: main() flag. Runs self as subprocess and injects `-emit-findings-jsonl=<tmp>` so baseline generation consumes machine-stable finding IDs from a JSONL stream. Uses subprocess because `singlechecker.Main()` calls `os.Exit()` — no post-analysis aggregation is possible within the framework.
 
 ### Baseline TOML format
 
@@ -581,7 +582,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **Directive prefix matching is start-anchored**: `goplint:` and `plint:` are matched at the start of the comment content (after `//` and optional whitespace) using `strings.HasPrefix`, not anywhere in the text. A comment like `// see plint:ignore for details` does NOT trigger the directive. Only `//plint:ignore` or `// plint:ignore` at comment-start are recognized.
 - **`types.Alias` (Go 1.22+)**: Type aliases (`type X = string`) are transparent — `isPrimitive` must call `types.Unalias()` to resolve them. Without this, aliases silently pass the linter.
 - **Generic pointer receivers**: `*Container[T]` is `StarExpr{X: IndexExpr{...}}` in the AST. `receiverTypeName` must recurse through `StarExpr` to find the type name inside `IndexExpr`. A naive `StarExpr → Ident` check misses this.
-- **Flag binding variables**: The `-config`/`-baseline` tracked string flags and supplementary mode bool flags are package-level bindings (required by `go/analysis`). Bool modes are declared in `modeFlagSpecs` (`flags.go`) and used for registration, `newRunConfig()` snapshotting, and `--check-all` expansion to reduce wiring drift. Integration tests use `Analyzer.Flags.Set()` + `resetFlags()` and must NOT use `t.Parallel()` — they share the `Analyzer.Flags` FlagSet.
+- **Flag state model**: `Analyzer` is the default instance backed by `defaultFlagState`, and `NewAnalyzer()` creates isolated analyzers with independent `flagState`. Bool modes are declared in `modeFlagSpecs` (`flags.go`) and used for registration, `newRunConfig*()` snapshotting, and `--check-all` expansion to reduce wiring drift. Integration tests that mutate the package-level `Analyzer.Flags` must remain sequential (no `t.Parallel()`).
 - **`primitiveTypeName` needs `Unalias` too**: Even after `isPrimitive` correctly detects an alias as primitive, the diagnostic message must show the resolved type (`string`), not the alias name (`MyAlias`). Call `types.Unalias()` before `types.TypeString()`.
 - **Qualified name format**: The analyzer prefixes all names with the package name (`pkg.Type.Field`, `pkg.Func.param`). Exception patterns can be 2-segment (matched after stripping the package prefix) or 3-segment (exact match).
 - **CI baseline is required**: The `goplint-baseline` job in `lint.yml` is a required check that blocks merges on regressions. The `goplint` (full DDD audit) job remains advisory with `continue-on-error: true`. `make check-baseline` runs `-check-all -check-enum-sync` — enum sync is included in the baseline gate even though `--check-all` alone excludes it.
@@ -591,6 +592,8 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **CFA compartmentalization**: `cfa*.go` files may import shared helpers from `inspect.go` and `typecheck.go` but NEVER from `analyzer_cast_validation.go`. The reverse is also true. `analyzer.go` is the sole routing point. Within CFA, `cfa_collect.go` is the shared cast-collection layer.
 - **CFA synchronous closure tracking (`syncLits`)**: Outer-path validation checks descend into deferred closures (`defer func() { x.Validate() }()`) and immediate IIFEs (`func() { x.Validate() }()`), because both execute before function return. Goroutine closures remain excluded (`go func() { x.Validate() }()`), since they execute concurrently with no return-order guarantee.
 - **UBV closure ordering semantics**: `--check-use-before-validate` and `--check-use-before-validate-cross` use immediate-IIFE closure sets only. Deferred closures do NOT suppress UBV findings because deferred `Validate()` runs at function return, after earlier uses.
+- **CFA no-return terminal paths**: Leaf CFG blocks ending in no-return calls (`panic`, `os.Exit`, `runtime.Goexit`, `log.Fatal*`, `testing.FailNow/Fatal*`) are treated as terminating paths, not implicit return paths. They must not trigger unvalidated-cast or constructor-validates path-to-return findings.
+- **Method-value Validate tracking**: CFA and constructor-validates recognize `Validate` method values (`vf := x.Validate; vf()`) including simple alias chains (`alias := vf; alias()`). Storing a method value without calling it does not count as validation.
 - **CFA `if false` handling**: `go/cfg` does NOT perform constant folding. `if false { x.Validate() }` creates a structurally live block. However, the non-false path to return IS detected as unvalidated because the IfDone block has no Validate call.
 - **CFA path semantics**: CFA checks "path-to-return-without-validate," not "use-before-validate." If `x.Validate()` appears anywhere on a path from the cast to a return block, that path is considered validated regardless of whether `x` is used before the Validate call.
 - **Constructor-validates CFA**: `--check-constructor-validates` uses CFA (gated by `--no-cfa`) to verify ALL return paths pass through `.Validate()` on the return type. Uses `constructorHasUnvalidatedReturnPath` which builds a CFG and DFS-checks from the entry block. Type-identity matching (via `typeIdentityKey`) is used instead of variable-name matching. Transitive delegation is accepted without CFA path checking (too complex to track which callee covers which path).
@@ -626,5 +629,9 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
   - `TestContainsValidateCall_*` — Validate() call detection in AST nodes
   - `TestCheckCastValidationCFA` — CFA path-reachability against `cfa_castvalidation` fixture
   - `TestCheckCastValidationCFAClosure` — CFA closure analysis against `cfa_closure` fixture
+  - `TestCheckCastValidationCFAMethodValue` — method-value Validate tracking for cast validation
+  - `TestCheckCastValidationCFAClosureVarAlias` — closure-variable alias execution tracking
+  - `TestCheckCastValidationCFANoReturnTerminator` — no-return sink handling in CFG leaves
   - `TestCheckUseBeforeValidateCFA` — use-before-validate detection against `use_before_validate` fixture
-  - `TestCFADoesNotAffectCheckAll` — verifies `--check-all` does not enable `--cfa`
+  - `TestCheckUseBeforeValidateMethodValue` — UBV ordering with method-value Validate calls
+  - `TestCFAEnabledByDefault` — verifies CFA stays enabled by default unless `--no-cfa` is set

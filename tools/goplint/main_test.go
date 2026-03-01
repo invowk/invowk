@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/tools/go/analysis/analysistest"
+
 	"github.com/invowk/invowk/tools/goplint/goplint"
 )
 
@@ -599,24 +601,36 @@ func TestGenerateBaseline(t *testing.T) {
 			runCommand = originalRunCommand
 		})
 
-		stream := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
-			"example.com/pkg": {
-				"goplint": {
-					{Category: goplint.CategoryPrimitive, Posn: "pkg/a.go:10:2", Message: "struct field pkg.A.B uses primitive type string"},
-					{Category: goplint.CategoryUnusedValidateResult, Posn: "pkg/a.go:20:2", Message: "Validate() result discarded — error return is unused"},
-					{Category: goplint.CategoryUnusedValidateResult, Posn: "pkg/a.go:30:2", Message: "Validate() result discarded — error return is unused"},
-					{Category: goplint.CategoryStaleException, Posn: "pkg/a.go:1:1", Message: `stale exception: pattern "x" matched no diagnostics (reason: y)`},
-				},
-			},
-		})
-
 		runCommand = func(cmd *exec.Cmd) error {
 			buf, ok := cmd.Stdout.(*bytes.Buffer)
 			if !ok {
 				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
 			}
-			_, err := buf.Write(stream)
-			return err
+			stream := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/pkg": {"goplint": {}},
+			})
+			if _, err := buf.Write(stream); err != nil {
+				return err
+			}
+
+			findingsPath := ""
+			for _, arg := range cmd.Args {
+				if after, ok := strings.CutPrefix(arg, "-emit-findings-jsonl="); ok {
+					findingsPath = after
+					break
+				}
+			}
+			if findingsPath == "" {
+				t.Fatal("expected -emit-findings-jsonl arg")
+			}
+			findings := []byte(strings.Join([]string{
+				`{"category":"primitive","id":"id-primitive","message":"struct field pkg.A.B uses primitive type string","posn":"pkg/a.go:10:2"}`,
+				`{"category":"unused-validate-result","id":"id-uvr-1","message":"Validate() result discarded — error return is unused","posn":"pkg/a.go:20:2"}`,
+				`{"category":"unused-validate-result","id":"id-uvr-2","message":"Validate() result discarded — error return is unused","posn":"pkg/a.go:30:2"}`,
+				`{"category":"stale-exception","id":"id-stale","message":"stale exception: pattern \"x\" matched no diagnostics (reason: y)","posn":"pkg/a.go:1:1"}`,
+				"",
+			}, "\n"))
+			return os.WriteFile(findingsPath, findings, 0o644)
 		}
 
 		outPath := filepath.Join(t.TempDir(), "baseline.toml")
@@ -653,8 +667,22 @@ func TestGenerateBaseline(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
 			}
-			_, err := buf.Write([]byte("{invalid"))
-			return err
+			if _, err := buf.Write(makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/pkg": {"goplint": {}},
+			})); err != nil {
+				return err
+			}
+			findingsPath := ""
+			for _, arg := range cmd.Args {
+				if after, ok := strings.CutPrefix(arg, "-emit-findings-jsonl="); ok {
+					findingsPath = after
+					break
+				}
+			}
+			if findingsPath == "" {
+				t.Fatal("expected -emit-findings-jsonl arg")
+			}
+			return os.WriteFile(findingsPath, []byte("{invalid\n"), 0o644)
 		}
 		outPath := filepath.Join(t.TempDir(), "baseline.toml")
 		err := generateBaseline(outPath, []string{"--update-baseline", outPath, "./..."})
@@ -684,6 +712,71 @@ func TestGenerateBaseline(t *testing.T) {
 			t.Fatalf("expected wrapped subprocess error, got %v", err)
 		}
 	})
+}
+
+func TestUpdateBaselineRoundTripSuppression(t *testing.T) {
+	originalRunCommand := runCommand
+	t.Cleanup(func() {
+		runCommand = originalRunCommand
+	})
+
+	runCommand = func(cmd *exec.Cmd) error {
+		buf, ok := cmd.Stdout.(*bytes.Buffer)
+		if !ok {
+			t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
+		}
+		if _, err := buf.Write(makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {"goplint": {}},
+		})); err != nil {
+			return err
+		}
+
+		findingsPath := ""
+		for _, arg := range cmd.Args {
+			if after, ok := strings.CutPrefix(arg, "-emit-findings-jsonl="); ok {
+				findingsPath = after
+				break
+			}
+		}
+		if findingsPath == "" {
+			t.Fatal("expected -emit-findings-jsonl arg")
+		}
+
+		nameID := goplint.StableFindingID(
+			goplint.CategoryPrimitive,
+			"struct-field",
+			"baseline_roundtrip.RoundTrip.Name",
+			"string",
+		)
+		ageID := goplint.StableFindingID(
+			goplint.CategoryPrimitive,
+			"struct-field",
+			"baseline_roundtrip.RoundTrip.Age",
+			"int",
+		)
+		findings := []byte(strings.Join([]string{
+			`{"category":"primitive","id":"` + nameID + `","message":"struct field baseline_roundtrip.RoundTrip.Name uses primitive type string","posn":"baseline_roundtrip.go:4:2"}`,
+			`{"category":"primitive","id":"` + ageID + `","message":"struct field baseline_roundtrip.RoundTrip.Age uses primitive type int","posn":"baseline_roundtrip.go:5:2"}`,
+			"",
+		}, "\n"))
+		return os.WriteFile(findingsPath, findings, 0o644)
+	}
+
+	outPath := filepath.Join(t.TempDir(), "baseline.toml")
+	if err := generateBaseline(outPath, []string{"--update-baseline=" + outPath, "./..."}); err != nil {
+		t.Fatalf("generateBaseline() error = %v", err)
+	}
+
+	analyzer := goplint.NewAnalyzer()
+	if err := analyzer.Flags.Set("baseline", outPath); err != nil {
+		t.Fatalf("setting baseline flag: %v", err)
+	}
+
+	testdata, err := filepath.Abs(filepath.Join("goplint", "testdata"))
+	if err != nil {
+		t.Fatalf("resolving testdata path: %v", err)
+	}
+	analysistest.Run(t, testdata, analyzer, "baseline_roundtrip")
 }
 
 // makeAnalysisJSON serializes the go/analysis -json output format for testing.

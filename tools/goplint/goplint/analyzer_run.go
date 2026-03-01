@@ -80,12 +80,19 @@ func newRunCollectors(rc runConfig, needs runNeeds) runCollectors {
 	return collectors
 }
 
-func run(pass *analysis.Pass) (any, error) {
-	rc := newRunConfig()
+func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
+	rc := newRunConfigForState(state)
 
 	cfg, bl, err := loadRunInputs(rc)
 	if err != nil {
 		return nil, err
+	}
+
+	if rc.emitFindingsPath != "" {
+		if err := registerFindingSinkForPass(pass, rc.emitFindingsPath); err != nil {
+			return nil, err
+		}
+		defer unregisterFindingSinkForPass(pass)
 	}
 
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)

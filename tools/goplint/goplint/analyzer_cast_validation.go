@@ -8,7 +8,6 @@ import (
 	"go/token"
 	"go/types"
 	"slices"
-	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -178,7 +177,15 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		}
 
 		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", ac.typeName)
-		findingID := StableFindingID(CategoryUnvalidatedCast, qualFuncName, ac.typeName, "assigned", strconv.Itoa(ac.castIndex))
+		findingID := StableFindingID(
+			CategoryUnvalidatedCast,
+			"ast",
+			qualFuncName,
+			ac.typeName,
+			"assigned",
+			stablePosKey(pass, ac.pos.Pos()),
+			ac.target.key(),
+		)
 		if bl.ContainsFinding(CategoryUnvalidatedCast, findingID, msg) {
 			continue
 		}
@@ -194,7 +201,14 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		}
 
 		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", uc.typeName)
-		findingID := StableFindingID(CategoryUnvalidatedCast, qualFuncName, uc.typeName, "unassigned", strconv.Itoa(uc.castIndex))
+		findingID := StableFindingID(
+			CategoryUnvalidatedCast,
+			"ast",
+			qualFuncName,
+			uc.typeName,
+			"unassigned",
+			stablePosKey(pass, uc.pos.Pos()),
+		)
 		if bl.ContainsFinding(CategoryUnvalidatedCast, findingID, msg) {
 			continue
 		}

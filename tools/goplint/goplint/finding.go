@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"go/token"
 	"net/url"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -51,6 +53,19 @@ func FallbackFindingIDForDiagnostic(category, posn, message string) string {
 		return FallbackFindingID(category, message)
 	}
 	return StableFindingID(category, "legacy-diagnostic", posn, message)
+}
+
+func stablePosKey(pass *analysis.Pass, pos token.Pos) string {
+	if pass == nil || pass.Fset == nil || !pos.IsValid() {
+		return "unknown-pos"
+	}
+	position := pass.Fset.Position(pos)
+	if position.Filename == "" {
+		return "unknown-pos"
+	}
+	return filepath.Base(position.Filename) + ":" +
+		strconv.Itoa(position.Line) + ":" +
+		strconv.Itoa(position.Column)
 }
 
 // DiagnosticURLForFinding formats a finding ID for analysis.Diagnostic.URL.
@@ -133,6 +148,7 @@ func reportDiagnosticWithMeta(
 	category, findingID, message string,
 	meta map[string]string,
 ) {
+	writeFindingToSink(pass, pos, category, findingID, message)
 	pass.Report(analysis.Diagnostic{
 		Pos:      pos,
 		Category: category,

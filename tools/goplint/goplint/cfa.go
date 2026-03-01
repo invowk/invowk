@@ -5,12 +5,28 @@ package goplint
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 
 	"golang.org/x/tools/go/analysis"
 	gocfg "golang.org/x/tools/go/cfg"
 )
 
 type closureVarCallSet map[*ast.CallExpr]*ast.FuncLit
+type methodValueValidateCallSet map[*ast.CallExpr]ast.Expr
+
+func collectMethodValueValidateCallSet(calls []methodValueValidateCall) methodValueValidateCallSet {
+	if len(calls) == 0 {
+		return nil
+	}
+	out := make(methodValueValidateCallSet)
+	for _, call := range calls {
+		if call.call == nil || call.receiver == nil {
+			continue
+		}
+		out[call.call] = call.receiver
+	}
+	return out
+}
 
 // collectDeferredClosureLits scans a function or closure body for deferred
 // closures: defer func() { ... }(). Returns the set of *ast.FuncLit nodes
@@ -180,6 +196,81 @@ func buildFuncCFG(body *ast.BlockStmt) *gocfg.CFG {
 	return gocfg.New(body, func(*ast.CallExpr) bool { return true })
 }
 
+// buildFuncCFGForPass constructs a CFG using a no-return-aware mayReturn
+// predicate when type information is available.
+func buildFuncCFGForPass(pass *analysis.Pass, body *ast.BlockStmt) *gocfg.CFG {
+	if body == nil {
+		return nil
+	}
+	if pass == nil || pass.TypesInfo == nil {
+		return buildFuncCFG(body)
+	}
+	return gocfg.New(body, func(call *ast.CallExpr) bool {
+		return callMayReturn(pass, call)
+	})
+}
+
+func callMayReturn(pass *analysis.Pass, call *ast.CallExpr) bool {
+	if pass == nil || pass.TypesInfo == nil || call == nil {
+		return true
+	}
+
+	switch fun := stripParens(call.Fun).(type) {
+	case *ast.Ident:
+		if fun.Name == "panic" {
+			return false
+		}
+		obj := objectForIdent(pass, fun)
+		if obj == nil {
+			return true
+		}
+		fn, ok := obj.(*types.Func)
+		if !ok {
+			return true
+		}
+		return !isKnownNoReturnFunc(fn.Pkg(), fn.Name())
+	case *ast.SelectorExpr:
+		obj := objectForIdent(pass, fun.Sel)
+		if obj == nil {
+			return true
+		}
+		fn, ok := obj.(*types.Func)
+		if !ok {
+			return true
+		}
+		return !isKnownNoReturnFunc(fn.Pkg(), fn.Name())
+	default:
+		return true
+	}
+}
+
+func isKnownNoReturnFunc(pkg *types.Package, name string) bool {
+	pkgPath := ""
+	if pkg != nil {
+		pkgPath = pkg.Path()
+	}
+
+	switch pkgPath {
+	case "":
+		return name == "panic"
+	case "os":
+		return name == "Exit"
+	case "runtime":
+		return name == "Goexit"
+	case "log":
+		switch name {
+		case "Fatal", "Fatalf", "Fatalln", "Panic", "Panicf", "Panicln":
+			return true
+		}
+	case "testing":
+		switch name {
+		case "FailNow", "Fatal", "Fatalf":
+			return true
+		}
+	}
+	return false
+}
+
 // findDefiningBlock locates the CFG block containing the given AST node.
 // Returns the block and the node's index within Block.Nodes.
 // Returns (nil, -1) if the node is not found (e.g., in unreachable code
@@ -209,10 +300,17 @@ type validateReceiverMatcher func(pass *analysis.Pass, receiverExpr ast.Expr) bo
 // slice contains a varName.Validate() selector call expression.
 // Closures in syncLits are descended into (their Validate calls count as
 // outer-path validation); other closures are skipped.
-func nodeSliceContainsValidateCall(pass *analysis.Pass, nodes []ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool, syncCalls closureVarCallSet) bool {
+func nodeSliceContainsValidateCall(
+	pass *analysis.Pass,
+	nodes []ast.Node,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+) bool {
 	matcher := castTargetMatcher(pass, target)
 	for _, node := range nodes {
-		if containsValidateOnReceiver(pass, node, matcher, syncLits, syncCalls) {
+		if containsValidateOnReceiver(pass, node, matcher, syncLits, syncCalls, methodCalls) {
 			return true
 		}
 	}
@@ -225,14 +323,21 @@ func nodeSliceContainsValidateCall(pass *analysis.Pass, nodes []ast.Node, target
 func containsValidateCall(node ast.Node, varName string, syncLits map[*ast.FuncLit]bool) bool {
 	target := newCastTargetFromName(varName)
 	matcher := castTargetMatcher(nil, target)
-	return containsValidateOnReceiver(nil, node, matcher, syncLits, nil)
+	return containsValidateOnReceiver(nil, node, matcher, syncLits, nil, nil)
 }
 
 // containsValidateCallTarget checks whether a single AST node or any of its
 // descendants contains a varName.Validate() call. Delegates to
 // containsValidateOnReceiver with a castTarget matcher.
-func containsValidateCallTarget(pass *analysis.Pass, node ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool, syncCalls closureVarCallSet) bool {
-	return containsValidateOnReceiver(pass, node, castTargetMatcher(pass, target), syncLits, syncCalls)
+func containsValidateCallTarget(
+	pass *analysis.Pass,
+	node ast.Node,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+) bool {
+	return containsValidateOnReceiver(pass, node, castTargetMatcher(pass, target), syncLits, syncCalls, methodCalls)
 }
 
 // castTargetMatcher returns a validateReceiverMatcher that matches
@@ -277,9 +382,10 @@ func containsValidateOnReceiver(
 	matches validateReceiverMatcher,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 ) bool {
 	seen := make(map[*ast.FuncLit]bool)
-	return containsValidateOnReceiverSeen(pass, node, matches, syncLits, syncCalls, seen)
+	return containsValidateOnReceiverSeen(pass, node, matches, syncLits, syncCalls, methodCalls, seen)
 }
 
 func containsValidateOnReceiverSeen(
@@ -288,6 +394,7 @@ func containsValidateOnReceiverSeen(
 	matches validateReceiverMatcher,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 	seen map[*ast.FuncLit]bool,
 ) bool {
 	found := false
@@ -297,19 +404,19 @@ func containsValidateOnReceiverSeen(
 			return false
 		}
 		if ifStmt, ok := n.(*ast.IfStmt); ok {
-			if ifStmt.Init != nil && containsValidateOnReceiverSeen(pass, ifStmt.Init, matches, syncLits, syncCalls, seen) {
+			if ifStmt.Init != nil && containsValidateOnReceiverSeen(pass, ifStmt.Init, matches, syncLits, syncCalls, methodCalls, seen) {
 				found = true
 				return false
 			}
-			if ifStmt.Cond != nil && containsValidateOnReceiverSeen(pass, ifStmt.Cond, matches, syncLits, syncCalls, seen) {
+			if ifStmt.Cond != nil && containsValidateOnReceiverSeen(pass, ifStmt.Cond, matches, syncLits, syncCalls, methodCalls, seen) {
 				found = true
 				return false
 			}
 			// A Validate call inside an if/else only guarantees validation
 			// when both branches validate.
 			if ifStmt.Else != nil &&
-				containsValidateOnReceiverSeen(pass, ifStmt.Body, matches, syncLits, syncCalls, seen) &&
-				containsValidateOnReceiverSeen(pass, ifStmt.Else, matches, syncLits, syncCalls, seen) {
+				containsValidateOnReceiverSeen(pass, ifStmt.Body, matches, syncLits, syncCalls, methodCalls, seen) &&
+				containsValidateOnReceiverSeen(pass, ifStmt.Else, matches, syncLits, syncCalls, methodCalls, seen) {
 				found = true
 				return false
 			}
@@ -330,7 +437,7 @@ func containsValidateOnReceiverSeen(
 		if lit := syncCalls[call]; lit != nil && lit.Body != nil {
 			if !seen[lit] {
 				seen[lit] = true
-				if containsValidateOnReceiverSeen(pass, lit.Body, matches, syncLits, syncCalls, seen) {
+				if containsValidateOnReceiverSeen(pass, lit.Body, matches, syncLits, syncCalls, methodCalls, seen) {
 					found = true
 					delete(seen, lit)
 					return false
@@ -338,6 +445,14 @@ func containsValidateOnReceiverSeen(
 				delete(seen, lit)
 			}
 		}
+		if receiver := methodCalls[call]; receiver != nil && matches(pass, receiver) {
+			if isConditionallyEvaluated(call, parentMap) {
+				return true
+			}
+			found = true
+			return false
+		}
+
 		sel, ok := call.Fun.(*ast.SelectorExpr)
 		if !ok {
 			return true
@@ -420,8 +535,40 @@ func isConditionallyEvaluated(node ast.Node, parentMap map[ast.Node]ast.Node) bo
 // blockContainsValidateCall checks all nodes in a CFG block for a
 // varName.Validate() call. Closures in syncLits are
 // descended into.
-func blockContainsValidateCall(pass *analysis.Pass, block *gocfg.Block, target castTarget, syncLits map[*ast.FuncLit]bool, syncCalls closureVarCallSet) bool {
-	return nodeSliceContainsValidateCall(pass, block.Nodes, target, syncLits, syncCalls)
+func blockContainsValidateCall(
+	pass *analysis.Pass,
+	block *gocfg.Block,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+) bool {
+	return nodeSliceContainsValidateCall(pass, block.Nodes, target, syncLits, syncCalls, methodCalls)
+}
+
+// blockTerminatesWithoutReturn reports whether a leaf CFG block ends in a
+// known no-return call (for example, panic/os.Exit/log.Fatal). Such blocks do
+// not represent function return paths and must not trigger "missing Validate on
+// path-to-return" diagnostics.
+func blockTerminatesWithoutReturn(pass *analysis.Pass, block *gocfg.Block) bool {
+	if block == nil || len(block.Succs) != 0 || len(block.Nodes) == 0 {
+		return false
+	}
+	// Explicit return statements are true return paths.
+	for _, node := range block.Nodes {
+		if _, ok := node.(*ast.ReturnStmt); ok {
+			return false
+		}
+	}
+	exprStmt, ok := block.Nodes[len(block.Nodes)-1].(*ast.ExprStmt)
+	if !ok {
+		return false
+	}
+	call, ok := exprStmt.X.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	return !callMayReturn(pass, call)
 }
 
 // blockValidateChecker is a predicate that reports whether a CFG block
@@ -454,23 +601,24 @@ func hasPathToReturnWithoutValidate(
 	target castTarget,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 ) bool {
 	// Check the remainder of the defining block after the cast.
 	remainder := defBlock.Nodes[defIdx+1:]
-	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits, syncCalls) {
+	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits, syncCalls, methodCalls) {
 		return false // validated in same block after cast
 	}
 
 	// If no successors, this is a return block — unvalidated path exists.
 	if len(defBlock.Succs) == 0 {
-		return true
+		return !blockTerminatesWithoutReturn(pass, defBlock)
 	}
 
 	// DFS from successors.
 	visited := make(map[int32]bool)
 	visited[defBlock.Index] = true
 
-	return dfsUnvalidatedPath(pass, defBlock.Succs, target, visited, syncLits, syncCalls)
+	return dfsUnvalidatedPath(pass, defBlock.Succs, target, visited, syncLits, syncCalls, methodCalls)
 }
 
 // dfsUnvalidatedPath recursively checks whether any path through the given
@@ -483,9 +631,13 @@ func dfsUnvalidatedPath(
 	visited map[int32]bool,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 ) bool {
 	checker := func(block *gocfg.Block) bool {
-		return blockContainsValidateCall(pass, block, target, syncLits, syncCalls)
+		if blockTerminatesWithoutReturn(pass, block) {
+			return true
+		}
+		return blockContainsValidateCall(pass, block, target, syncLits, syncCalls, methodCalls)
 	}
 	return dfsUnvalidatedBlocks(succs, visited, checker)
 }
@@ -532,7 +684,7 @@ func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHa
 // isVarUse reports whether the given AST node contains a "use" of varName.
 // This wrapper keeps tests and call sites that only need name matching.
 func isVarUse(node ast.Node, varName string) bool {
-	return isVarUseTarget(nil, node, newCastTargetFromName(varName), nil, nil)
+	return isVarUseTarget(nil, node, newCastTargetFromName(varName), nil, nil, nil)
 }
 
 // isVarUseTarget reports whether the given AST node contains a "use" of target
@@ -553,9 +705,16 @@ func isVarUse(node ast.Node, varName string) bool {
 // Closures are NOT descended into by default. When syncLits is provided,
 // only those closure literals are descended into (for example, deferred
 // closures and IIFEs that execute synchronously in the current path).
-func isVarUseTarget(pass *analysis.Pass, node ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool, syncCalls closureVarCallSet) bool {
+func isVarUseTarget(
+	pass *analysis.Pass,
+	node ast.Node,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+) bool {
 	seen := make(map[*ast.FuncLit]bool)
-	return isVarUseTargetSeen(pass, node, target, syncLits, syncCalls, seen)
+	return isVarUseTargetSeen(pass, node, target, syncLits, syncCalls, methodCalls, seen)
 }
 
 func isVarUseTargetSeen(
@@ -564,6 +723,7 @@ func isVarUseTargetSeen(
 	target castTarget,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 	seen map[*ast.FuncLit]bool,
 ) bool {
 	found := false
@@ -617,7 +777,7 @@ func isVarUseTargetSeen(
 		}
 		if lit := syncCalls[call]; lit != nil && lit.Body != nil && !seen[lit] {
 			seen[lit] = true
-			order := firstUseValidateOrderInNodeSeen(pass, lit.Body, target, syncLits, syncCalls, seen)
+			order := firstUseValidateOrderInNodeSeen(pass, lit.Body, target, syncLits, syncCalls, methodCalls, seen)
 			delete(seen, lit)
 			if order == ubvOrderUseBeforeValidate {
 				found = true
@@ -659,9 +819,16 @@ const (
 	ubvOrderValidateBeforeUse
 )
 
-func firstUseValidateOrderInNode(pass *analysis.Pass, node ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool, syncCalls closureVarCallSet) ubvOrderResult {
+func firstUseValidateOrderInNode(
+	pass *analysis.Pass,
+	node ast.Node,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+) ubvOrderResult {
 	seen := make(map[*ast.FuncLit]bool)
-	return firstUseValidateOrderInNodeSeen(pass, node, target, syncLits, syncCalls, seen)
+	return firstUseValidateOrderInNodeSeen(pass, node, target, syncLits, syncCalls, methodCalls, seen)
 }
 
 func firstUseValidateOrderInNodeSeen(
@@ -670,6 +837,7 @@ func firstUseValidateOrderInNodeSeen(
 	target castTarget,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 	seen map[*ast.FuncLit]bool,
 ) ubvOrderResult {
 	if node == nil {
@@ -688,7 +856,7 @@ func firstUseValidateOrderInNodeSeen(
 		if call, ok := n.(*ast.CallExpr); ok {
 			if lit := syncCalls[call]; lit != nil && lit.Body != nil && !seen[lit] {
 				seen[lit] = true
-				order := firstUseValidateOrderInNodeSeen(pass, lit.Body, target, syncLits, syncCalls, seen)
+				order := firstUseValidateOrderInNodeSeen(pass, lit.Body, target, syncLits, syncCalls, methodCalls, seen)
 				delete(seen, lit)
 				if order != ubvOrderNone {
 					result = order
@@ -697,11 +865,11 @@ func firstUseValidateOrderInNodeSeen(
 			}
 		}
 
-		if isValidateCallNode(pass, n, target, parentMap) {
+		if isValidateCallNode(pass, n, target, parentMap, methodCalls) {
 			result = ubvOrderValidateBeforeUse
 			return false
 		}
-		if isUseNode(pass, n, target, syncLits, syncCalls) {
+		if isUseNode(pass, n, target, syncLits, syncCalls, methodCalls) {
 			result = ubvOrderUseBeforeValidate
 			return false
 		}
@@ -710,10 +878,22 @@ func firstUseValidateOrderInNodeSeen(
 	return result
 }
 
-func isValidateCallNode(pass *analysis.Pass, n ast.Node, target castTarget, parentMap map[ast.Node]ast.Node) bool {
+func isValidateCallNode(
+	pass *analysis.Pass,
+	n ast.Node,
+	target castTarget,
+	parentMap map[ast.Node]ast.Node,
+	methodCalls methodValueValidateCallSet,
+) bool {
 	call, ok := n.(*ast.CallExpr)
 	if !ok {
 		return false
+	}
+	if receiver := methodCalls[call]; receiver != nil {
+		if !target.matchesExpr(pass, receiver) {
+			return false
+		}
+		return !isConditionallyEvaluated(call, parentMap)
 	}
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok || sel.Sel.Name != "Validate" {
@@ -733,7 +913,14 @@ func isValidateCallNode(pass *analysis.Pass, n ast.Node, target castTarget, pare
 	return !isConditionallyEvaluated(call, parentMap)
 }
 
-func isUseNode(pass *analysis.Pass, n ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool, syncCalls closureVarCallSet) bool {
+func isUseNode(
+	pass *analysis.Pass,
+	n ast.Node,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+) bool {
 	switch node := n.(type) {
 	case *ast.KeyValueExpr:
 		return target.matchesExpr(pass, node.Key) || target.matchesExpr(pass, node.Value)
@@ -752,7 +939,7 @@ func isUseNode(pass *analysis.Pass, n ast.Node, target castTarget, syncLits map[
 		}
 		validateSeen := false
 		for _, arg := range node.Args {
-			switch firstUseValidateOrderInNode(pass, arg, target, syncLits, syncCalls) {
+			switch firstUseValidateOrderInNode(pass, arg, target, syncLits, syncCalls, methodCalls) {
 			case ubvOrderUseBeforeValidate:
 				if !validateSeen {
 					return true
@@ -762,12 +949,12 @@ func isUseNode(pass *analysis.Pass, n ast.Node, target castTarget, syncLits map[
 				validateSeen = true
 				continue
 			}
-			if target.matchesExpr(pass, arg) || isVarUseTarget(pass, arg, target, syncLits, syncCalls) {
+			if target.matchesExpr(pass, arg) || isVarUseTarget(pass, arg, target, syncLits, syncCalls, methodCalls) {
 				if !validateSeen {
 					return true
 				}
 			}
-			if containsValidateCallTarget(pass, arg, target, syncLits, syncCalls) {
+			if containsValidateCallTarget(pass, arg, target, syncLits, syncCalls, methodCalls) {
 				validateSeen = true
 			}
 		}
@@ -794,16 +981,17 @@ func hasUseBeforeValidateInBlock(
 	target castTarget,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 ) bool {
 	for i := startIdx; i < len(nodes); i++ {
 		node := nodes[i]
-		switch firstUseValidateOrderInNode(pass, node, target, syncLits, syncCalls) {
+		switch firstUseValidateOrderInNode(pass, node, target, syncLits, syncCalls, methodCalls) {
 		case ubvOrderUseBeforeValidate:
 			return true
 		case ubvOrderValidateBeforeUse:
 			return false
 		}
-		if isVarUseTarget(pass, node, target, syncLits, syncCalls) {
+		if isVarUseTarget(pass, node, target, syncLits, syncCalls, methodCalls) {
 			return true // use before Validate() — flagged
 		}
 	}
@@ -834,13 +1022,14 @@ func hasUseBeforeValidateCrossBlock(
 	target castTarget,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 ) bool {
 	// First check remainder of defBlock for use (same-block already
 	// handled) — skip directly to successor blocks.
 	// But we need to check if defBlock remainder has validate, which
 	// would prune all successor paths.
 	remainder := defBlock.Nodes[defIdx+1:]
-	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits, syncCalls) {
+	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits, syncCalls, methodCalls) {
 		return false // validated in same block — successors are safe
 	}
 
@@ -851,7 +1040,7 @@ func hasUseBeforeValidateCrossBlock(
 	visited := make(map[int32]bool)
 	visited[defBlock.Index] = true
 
-	return dfsUseBeforeValidate(pass, defBlock.Succs, target, visited, syncLits, syncCalls)
+	return dfsUseBeforeValidate(pass, defBlock.Succs, target, visited, syncLits, syncCalls, methodCalls)
 }
 
 // dfsUseBeforeValidate recursively checks whether any path through
@@ -865,6 +1054,7 @@ func dfsUseBeforeValidate(
 	visited map[int32]bool,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
 ) bool {
 	for _, succ := range succs {
 		if visited[succ.Index] {
@@ -880,7 +1070,7 @@ func dfsUseBeforeValidate(
 		foundUse := false
 		foundValidate := false
 		for _, node := range succ.Nodes {
-			order := firstUseValidateOrderInNode(pass, node, target, syncLits, syncCalls)
+			order := firstUseValidateOrderInNode(pass, node, target, syncLits, syncCalls, methodCalls)
 			if order == ubvOrderUseBeforeValidate {
 				foundUse = true
 				break // use found before Validate in this node
@@ -889,7 +1079,7 @@ func dfsUseBeforeValidate(
 				foundValidate = true
 				break // Validate found before use in this node
 			}
-			if isVarUseTarget(pass, node, target, syncLits, syncCalls) {
+			if isVarUseTarget(pass, node, target, syncLits, syncCalls, methodCalls) {
 				foundUse = true
 				break // use found before Validate in this block
 			}
@@ -903,7 +1093,7 @@ func dfsUseBeforeValidate(
 		}
 
 		// Neither use nor validate in this block — continue DFS.
-		if dfsUseBeforeValidate(pass, succ.Succs, target, visited, syncLits, syncCalls) {
+		if dfsUseBeforeValidate(pass, succ.Succs, target, visited, syncLits, syncCalls, methodCalls) {
 			return true
 		}
 	}

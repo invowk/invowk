@@ -5,23 +5,23 @@ package goplint
 import "testing"
 
 func TestLoadRunInputsUsesRunConfigPaths(t *testing.T) {
-	origConfigPath := configPath
-	origBaselinePath := baselinePath
-	origConfigExplicit := configPathExplicit
-	origBaselineExplicit := baselinePathExplicit
+	origConfigPath := defaultFlagState.configPath
+	origBaselinePath := defaultFlagState.baselinePath
+	origConfigExplicit := defaultFlagState.configPathExplicit
+	origBaselineExplicit := defaultFlagState.baselinePathExplicit
 	t.Cleanup(func() {
-		configPath = origConfigPath
-		baselinePath = origBaselinePath
-		configPathExplicit = origConfigExplicit
-		baselinePathExplicit = origBaselineExplicit
+		defaultFlagState.configPath = origConfigPath
+		defaultFlagState.baselinePath = origBaselinePath
+		defaultFlagState.configPathExplicit = origConfigExplicit
+		defaultFlagState.baselinePathExplicit = origBaselineExplicit
 	})
 
 	// Set globals to strict missing paths. If loadRunInputs still read globals,
 	// this test would fail.
-	configPath = "/__missing__/config.toml"
-	baselinePath = "/__missing__/baseline.toml"
-	configPathExplicit = true
-	baselinePathExplicit = true
+	defaultFlagState.configPath = "/__missing__/config.toml"
+	defaultFlagState.baselinePath = "/__missing__/baseline.toml"
+	defaultFlagState.configPathExplicit = true
+	defaultFlagState.baselinePathExplicit = true
 
 	cfgPath := writeTempFile(t, "goplint-config.toml", `
 [[exceptions]]

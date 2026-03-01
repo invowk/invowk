@@ -215,7 +215,8 @@ func inspectConstructorValidates(
 // pre-check before CFA. The full path-sensitive analysis in
 // constructorHasUnvalidatedReturnPath handles those cases.
 func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeKey string) bool {
-	return containsValidateOnReceiver(pass, body, typeKeyMatcher(returnTypeKey), nil, nil)
+	methodCalls := collectMethodValueValidateCalls(pass, body)
+	return containsValidateOnReceiver(pass, body, typeKeyMatcher(returnTypeKey), nil, nil, methodCalls)
 }
 
 // methodCallTarget identifies a method call on the constructor's return type
@@ -508,16 +509,27 @@ func constructorHasUnvalidatedReturnPath(
 	returnTypePkgPath string,
 	returnTypeKey string,
 ) bool {
-	funcCFG := buildFuncCFG(fn.Body)
+	funcCFG := buildFuncCFGForPass(pass, fn.Body)
 	if funcCFG == nil || len(funcCFG.Blocks) == 0 {
 		return false
 	}
 	syncLits := collectSynchronousClosureLits(fn.Body)
+	methodCalls := collectMethodValueValidateCalls(pass, fn.Body)
 	bareReturnIncludesTarget := constructorBareReturnIncludesType(pass, fn, returnTypeKey)
 
 	// DFS from the entry block (index 0).
 	visited := make(map[int32]bool)
-	return dfsConstructorUnvalidated(pass, funcCFG.Blocks[0:1], returnTypeName, returnTypePkgPath, returnTypeKey, bareReturnIncludesTarget, visited, syncLits)
+	return dfsConstructorUnvalidated(
+		pass,
+		funcCFG.Blocks[0:1],
+		returnTypeName,
+		returnTypePkgPath,
+		returnTypeKey,
+		bareReturnIncludesTarget,
+		visited,
+		syncLits,
+		methodCalls,
+	)
 }
 
 // dfsConstructorUnvalidated recursively checks whether any path through the
@@ -533,9 +545,13 @@ func dfsConstructorUnvalidated(
 	bareReturnIncludesTarget bool,
 	visited map[int32]bool,
 	syncLits map[*ast.FuncLit]bool,
+	methodCalls methodValueValidateCallSet,
 ) bool {
 	matcher := typeKeyMatcher(returnTypeKey)
 	checker := func(block *gocfg.Block) bool {
+		if blockTerminatesWithoutReturn(pass, block) {
+			return true
+		}
 		// Return blocks that do not return the constructor target type
 		// (for example, early `return nil, err`) are irrelevant for
 		// constructor-validates path checks.
@@ -543,7 +559,7 @@ func dfsConstructorUnvalidated(
 			return true
 		}
 		for _, node := range block.Nodes {
-			if containsValidateOnReceiver(pass, node, matcher, syncLits, nil) {
+			if containsValidateOnReceiver(pass, node, matcher, syncLits, nil, methodCalls) {
 				return true
 			}
 			if stmt, ok := node.(ast.Stmt); ok {
@@ -619,15 +635,19 @@ func helperBodyAlwaysValidatesType(pass *analysis.Pass, body *ast.BlockStmt, ret
 	if body == nil {
 		return false
 	}
-	cfg := buildFuncCFG(body)
+	cfg := buildFuncCFGForPass(pass, body)
 	if cfg == nil || len(cfg.Blocks) == 0 {
 		return false
 	}
 	syncLits := collectSynchronousClosureLits(body)
+	methodCalls := collectMethodValueValidateCalls(pass, body)
 	matcher := typeKeyMatcher(returnTypeKey)
 	checker := func(block *gocfg.Block) bool {
+		if blockTerminatesWithoutReturn(pass, block) {
+			return true
+		}
 		for _, node := range block.Nodes {
-			if containsValidateOnReceiver(pass, node, matcher, syncLits, nil) {
+			if containsValidateOnReceiver(pass, node, matcher, syncLits, nil, methodCalls) {
 				return true
 			}
 		}
