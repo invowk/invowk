@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/analysis/singlechecker"
@@ -31,10 +33,17 @@ var runCommand = func(cmd *exec.Cmd) error {
 }
 
 func main() {
+	args := os.Args[1:]
+
 	// Detect --update-baseline before singlechecker takes over flag parsing.
 	// singlechecker.Main() calls os.Exit(), so we must intercept first.
-	if outputPath := extractUpdateBaselinePath(os.Args[1:]); outputPath != "" {
-		if err := generateBaseline(outputPath, os.Args[1:]); err != nil {
+	if hasFlagToken(args, "update-baseline") {
+		outputPath := extractUpdateBaselinePath(args)
+		if outputPath == "" {
+			fmt.Fprintln(os.Stderr, "goplint: update-baseline: missing required path value")
+			os.Exit(2)
+		}
+		if err := generateBaseline(outputPath, args); err != nil {
 			fmt.Fprintf(os.Stderr, "goplint: update-baseline: %v\n", err)
 			os.Exit(1)
 		}
@@ -43,25 +52,41 @@ func main() {
 
 	// Detect --global (only meaningful with --audit-exceptions).
 	// Runs self as subprocess to aggregate stale exceptions across all packages.
-	if hasFlag(os.Args[1:], "global") {
-		if err := auditExceptionsGlobal(os.Args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "goplint: audit-exceptions-global: %v\n", err)
-			os.Exit(1)
+	if hasFlagToken(args, "global") {
+		if hasFlag(args, "global") {
+			if err := auditExceptionsGlobal(args); err != nil {
+				fmt.Fprintf(os.Stderr, "goplint: audit-exceptions-global: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		}
-		return
+		// Explicitly disabled (--global=false): strip the meta-flag before
+		// delegating to singlechecker, which does not recognize it.
+		os.Args = append(os.Args[:1], removeFlagWithOptionalValue(args, "global", true)...)
 	}
 
 	singlechecker.Main(goplint.Analyzer)
 }
 
-// extractUpdateBaselinePath scans CLI args for -update-baseline=PATH or
-// --update-baseline=PATH and returns the path. Returns "" if not found.
+// extractUpdateBaselinePath scans CLI args for:
+//   - -update-baseline=PATH / --update-baseline=PATH
+//   - -update-baseline PATH / --update-baseline PATH
+//
+// Returns "" if not found or if the flag is present without a value.
 func extractUpdateBaselinePath(args []string) string {
-	for _, arg := range args {
-		trimmed := strings.TrimLeft(arg, "-")
-		if after, ok := strings.CutPrefix(trimmed, "update-baseline="); ok {
-			return after
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		matched, value, hasInlineValue := parseFlagToken(arg, "update-baseline")
+		if !matched {
+			continue
 		}
+		if hasInlineValue {
+			return value
+		}
+		if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			return args[i+1]
+		}
+		return ""
 	}
 	return ""
 }
@@ -114,16 +139,40 @@ func generateBaseline(outputPath string, originalArgs []string) error {
 // buildSubprocessArgs constructs args for the subprocess invocation by
 // removing -update-baseline and ensuring -json is present.
 func buildSubprocessArgs(args []string) []string {
-	return filterAndEnsureFlags(args, func(trimmed string) bool {
-		return strings.HasPrefix(trimmed, "update-baseline")
-	}, []string{"-json"})
+	filtered := removeFlagWithOptionalValue(args, "update-baseline", false)
+	return filterAndEnsureFlags(filtered, func(string) bool { return false }, []string{"-json"})
 }
 
 // hasFlag checks if any CLI arg matches the given flag name (with or without leading dashes).
 func hasFlag(args []string, flagName string) bool {
+	for i := 0; i < len(args); i++ {
+		matched, value, hasInlineValue := parseFlagToken(args[i], flagName)
+		if !matched {
+			continue
+		}
+		if hasInlineValue {
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return true
+			}
+			return parsed
+		}
+		if i+1 < len(args) {
+			if parsed, err := strconv.ParseBool(args[i+1]); err == nil {
+				return parsed
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// hasFlagToken reports whether flagName appears in args in any supported form:
+// -flag, --flag, -flag=value, --flag=value.
+func hasFlagToken(args []string, flagName string) bool {
 	for _, arg := range args {
-		trimmed := strings.TrimLeft(arg, "-")
-		if trimmed == flagName {
+		matched, _, _ := parseFlagToken(arg, flagName)
+		if matched {
 			return true
 		}
 	}
@@ -153,21 +202,47 @@ func auditExceptionsGlobal(originalArgs []string) error {
 		return fmt.Errorf("running global audit subprocess: %w", err)
 	}
 
-	// Parse the JSON stream — track stale patterns per package.
-	decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
+	stalePatterns, totalPatterns, totalPackages, err := aggregateGlobalStalePatterns(stdout.Bytes())
+	if err != nil {
+		return fmt.Errorf("aggregating global stale exceptions: %w", err)
+	}
+	if totalPackages == 0 {
+		fmt.Fprintf(os.Stderr, "Global audit: no packages analyzed\n")
+		return nil
+	}
 
-	// pattern → count of packages where it was reported as stale
-	stalePerPattern := make(map[string]int)
-	totalPackages := 0
+	for _, pattern := range stalePatterns {
+		fmt.Printf("globally stale exception: pattern %q matched no diagnostics in any package\n", pattern)
+	}
+
+	fmt.Fprintf(os.Stderr, "Global audit: %d/%d stale exception patterns are globally stale (%d packages analyzed)\n",
+		len(stalePatterns), totalPatterns, totalPackages)
+
+	if len(stalePatterns) > 0 {
+		return fmt.Errorf("%d globally stale exception patterns found", len(stalePatterns))
+	}
+	return nil
+}
+
+// aggregateGlobalStalePatterns parses go/analysis JSON output and returns
+// stale exception patterns that were reported as stale in all analyzed
+// packages. Aggregation is package-based (not diagnostic-count based), so
+// duplicate stale diagnostics in one package do not inflate global coverage.
+func aggregateGlobalStalePatterns(data []byte) (stalePatterns []string, totalPatterns, totalPackages int, err error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+
+	// pattern -> set(packagePath)
+	patternPackages := make(map[string]map[string]bool)
+	seenPackages := make(map[string]bool)
 
 	for decoder.More() {
 		var result analysisResult
-		if err := decoder.Decode(&result); err != nil {
-			return fmt.Errorf("decoding JSON: %w", err)
+		if decodeErr := decoder.Decode(&result); decodeErr != nil {
+			return nil, 0, 0, fmt.Errorf("decoding JSON: %w", decodeErr)
 		}
 
-		for _, analyzers := range result {
-			totalPackages++
+		for pkgPath, analyzers := range result {
+			seenPackages[pkgPath] = true
 			diags, ok := analyzers["goplint"]
 			if !ok {
 				continue
@@ -177,43 +252,81 @@ func auditExceptionsGlobal(originalArgs []string) error {
 					continue
 				}
 				pattern := extractPatternFromStaleDiagnostic(d)
-				if pattern != "" {
-					stalePerPattern[pattern]++
+				if pattern == "" {
+					continue
 				}
+				if patternPackages[pattern] == nil {
+					patternPackages[pattern] = make(map[string]bool)
+				}
+				patternPackages[pattern][pkgPath] = true
 			}
 		}
 	}
 
-	if totalPackages == 0 {
-		fmt.Fprintf(os.Stderr, "Global audit: no packages analyzed\n")
-		return nil
+	totalPackages = len(seenPackages)
+	totalPatterns = len(patternPackages)
+	if totalPackages == 0 || totalPatterns == 0 {
+		return nil, totalPatterns, totalPackages, nil
 	}
 
-	// Report patterns stale in ALL packages (truly globally stale).
-	var stalePatterns []string
-	for pattern, count := range stalePerPattern {
-		if count >= totalPackages {
+	for pattern, pkgSet := range patternPackages {
+		if len(pkgSet) == totalPackages {
 			stalePatterns = append(stalePatterns, pattern)
 		}
 	}
 	slices.Sort(stalePatterns)
-
-	for _, pattern := range stalePatterns {
-		fmt.Printf("globally stale exception: pattern %q matched no diagnostics in any package\n", pattern)
-	}
-
-	fmt.Fprintf(os.Stderr, "Global audit: %d/%d stale exception patterns are globally stale (%d packages analyzed)\n",
-		len(stalePatterns), len(stalePerPattern), totalPackages)
-
-	return nil
+	return stalePatterns, totalPatterns, totalPackages, nil
 }
 
 // buildGlobalAuditArgs constructs args for the subprocess invocation by
 // removing --global and ensuring -json and -audit-exceptions are present.
 func buildGlobalAuditArgs(args []string) []string {
-	return filterAndEnsureFlags(args, func(trimmed string) bool {
-		return trimmed == "global"
-	}, []string{"-json", "-audit-exceptions"})
+	filtered := removeFlagWithOptionalValue(args, "global", true)
+	return filterAndEnsureFlags(filtered, func(string) bool { return false }, []string{"-json", "-audit-exceptions"})
+}
+
+// parseFlagToken matches one flag token against flagName and returns whether it
+// matched, optional inline value (for --flag=value), and whether a value was
+// present inline.
+func parseFlagToken(arg, flagName string) (matched bool, value string, hasInlineValue bool) {
+	trimmed := strings.TrimLeft(arg, "-")
+	if trimmed == flagName {
+		return true, "", false
+	}
+	prefix := flagName + "="
+	if after, ok := strings.CutPrefix(trimmed, prefix); ok {
+		return true, after, true
+	}
+	return false, "", false
+}
+
+// removeFlagWithOptionalValue strips flagName from args. For value-style flags
+// (consumeOptionalBoolValue=false), a following non-flag token is also removed.
+// For bool-style flags (consumeOptionalBoolValue=true), a following token is
+// removed only when it parses as a bool.
+func removeFlagWithOptionalValue(args []string, flagName string, consumeOptionalBoolValue bool) []string {
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		matched, _, hasInlineValue := parseFlagToken(args[i], flagName)
+		if !matched {
+			out = append(out, args[i])
+			continue
+		}
+		if hasInlineValue || i+1 >= len(args) {
+			continue
+		}
+		next := args[i+1]
+		if consumeOptionalBoolValue {
+			if _, err := strconv.ParseBool(next); err == nil {
+				i++
+			}
+			continue
+		}
+		if !strings.HasPrefix(next, "-") {
+			i++
+		}
+	}
+	return out
 }
 
 // filterAndEnsureFlags is a shared helper for building subprocess arg lists.
@@ -230,7 +343,7 @@ func filterAndEnsureFlags(args []string, skipFn func(trimmed string) bool, requi
 			continue
 		}
 		for _, rf := range requiredFlags {
-			if trimmed == strings.TrimLeft(rf, "-") {
+			if matched, _, _ := parseFlagToken(arg, strings.TrimLeft(rf, "-")); matched {
 				present[rf] = true
 			}
 		}
@@ -315,11 +428,12 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 			return nil, fmt.Errorf("decoding JSON object: %w", err)
 		}
 
-		for _, analyzers := range result {
-			diags, ok := analyzers["goplint"]
-			if !ok {
-				continue
-			}
+			for pkgPath, analyzers := range result {
+				canonicalPkgPath := canonicalPackagePath(pkgPath)
+				diags, ok := analyzers["goplint"]
+				if !ok {
+					continue
+				}
 			for _, d := range diags {
 				if d.Category == "" || d.Message == "" {
 					continue
@@ -330,11 +444,17 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 				if !goplint.IsBaselineSuppressibleCategory(d.Category) {
 					continue
 				}
-				findingID := goplint.FindingIDFromDiagnosticURL(d.URL)
-				if findingID == "" {
-					// Legacy compatibility for diagnostics emitted without URL.
-					findingID = goplint.FallbackFindingID(d.Category, d.Message)
-				}
+					findingID := goplint.FindingIDFromDiagnosticURL(d.URL)
+					if findingID == "" {
+						// Legacy compatibility for diagnostics emitted without URL.
+						// Include position when available to keep repeated same-message
+						// diagnostics distinct.
+						findingID = goplint.FallbackFindingIDForDiagnostic(
+							d.Category,
+							stableDiagnosticPosKey(canonicalPkgPath, d.Posn),
+							d.Message,
+						)
+					}
 
 				if seen[d.Category] == nil {
 					seen[d.Category] = make(map[string]goplint.BaselineFinding)
@@ -358,4 +478,40 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 	}
 
 	return findings, nil
+}
+
+func canonicalPackagePath(pkgPath string) string {
+	if base, _, found := strings.Cut(pkgPath, " ["); found {
+		return base
+	}
+	return pkgPath
+}
+
+// stableDiagnosticPosKey normalizes analysis JSON positions into a
+// machine-independent key:
+//   <pkg-path>:<base-file>:<line>:<col>
+//
+// This avoids embedding absolute filesystem paths in fallback finding IDs.
+func stableDiagnosticPosKey(pkgPath, posn string) string {
+	if posn == "" {
+		return pkgPath
+	}
+
+	colSep := strings.LastIndex(posn, ":")
+	if colSep < 0 {
+		return pkgPath + ":" + posn
+	}
+	col := posn[colSep+1:]
+	rest := posn[:colSep]
+
+	lineSep := strings.LastIndex(rest, ":")
+	if lineSep < 0 {
+		return pkgPath + ":" + posn
+	}
+	line := rest[lineSep+1:]
+	file := filepath.Base(rest[:lineSep])
+	if file == "." || file == "" {
+		file = rest[:lineSep]
+	}
+	return strings.Join([]string{pkgPath, file, line, col}, ":")
 }

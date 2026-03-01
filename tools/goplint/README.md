@@ -142,6 +142,15 @@ make build-goplint
 
 > Note: `--audit-exceptions` reports per-package (a `go/analysis` limitation). Pipe through `sort -u` for deduplicated results.
 
+For CI-friendly global stale detection:
+
+```bash
+make build-goplint
+./bin/goplint -audit-exceptions -global -config=tools/goplint/exceptions.toml ./...
+```
+
+`-global` aggregates stale patterns by package coverage and exits non-zero when globally stale patterns are found.
+
 ## Baseline Comparison
 
 The baseline prevents DDD compliance regressions. A committed `baseline.toml` records all accepted findings; only **new** findings trigger errors.
@@ -183,11 +192,11 @@ entries = [
 ```
 
 `id` is the stable semantic identity used for suppression; `message` is for human readability.  
-`messages = [...]` (v1 format) is still accepted for backward compatibility and used as fallback matching.
+`messages = [...]` (v1 format) is still accepted for backward compatibility, but ID matching is authoritative when diagnostics provide IDs.
 
 ### CI Integration
 
-The `goplint-baseline` job in `.github/workflows/lint.yml` runs `make check-baseline` on every PR. During rollout it is advisory (`continue-on-error: true`).
+The `goplint-baseline` job in `.github/workflows/lint.yml` runs `make check-baseline` on every PR as a required regression gate.
 
 ### Pre-commit Hook
 
@@ -246,6 +255,7 @@ Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constr
 | `-check-immutability` | bool | `false` | Report constructor-backed structs with exported mutable fields |
 | `-check-struct-validate` | bool | `false` | Report constructor-backed structs missing `Validate()` |
 | `-audit-exceptions` | bool | `false` | Report stale exception patterns |
+| `-global` | bool | `false` | Aggregate `-audit-exceptions` globally and fail on globally stale patterns |
 | `-update-baseline` | string | `""` | Generate baseline TOML at the given path |
 | `-json` | bool | `false` | JSON output (built-in from `go/analysis`) |
 

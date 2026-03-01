@@ -26,6 +26,7 @@ import (
 	"go/token"
 	"go/types"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/tools/go/analysis"
@@ -73,6 +74,30 @@ var Analyzer = &analysis.Analyzer{
 	Run:       run,
 	Requires:  []*analysis.Analyzer{inspect.Analyzer},
 	FactTypes: []analysis.Fact{(*NonZeroFact)(nil), (*ValidatesTypeFact)(nil)},
+}
+
+var overdueReviewSeen struct {
+	mu   sync.Mutex
+	byID map[string]bool
+}
+
+func shouldReportOverdueReviewFinding(findingID string) bool {
+	overdueReviewSeen.mu.Lock()
+	defer overdueReviewSeen.mu.Unlock()
+	if overdueReviewSeen.byID == nil {
+		overdueReviewSeen.byID = make(map[string]bool)
+	}
+	if overdueReviewSeen.byID[findingID] {
+		return false
+	}
+	overdueReviewSeen.byID[findingID] = true
+	return true
+}
+
+func resetOverdueReviewCache() {
+	overdueReviewSeen.mu.Lock()
+	defer overdueReviewSeen.mu.Unlock()
+	overdueReviewSeen.byID = make(map[string]bool)
 }
 
 // namedTypeInfo records a non-struct named type definition for
@@ -458,7 +483,8 @@ func reportStaleExceptionsInline(pass *analysis.Pass, cfg *ExceptionConfig) {
 }
 
 // reportOverdueExceptions reports exceptions with review_after dates that
-// have passed. Only runs once per analysis (first package).
+// have passed. Findings are deduplicated by stable finding ID across package
+// passes in the current process.
 func reportOverdueExceptions(pass *analysis.Pass, cfg *ExceptionConfig) {
 	if len(pass.Files) == 0 {
 		return
@@ -477,6 +503,9 @@ func reportOverdueExceptions(pass *analysis.Pass, cfg *ExceptionConfig) {
 				"exception pattern %q has invalid review_after date %q: %v",
 				exc.Pattern, exc.ReviewAfter, err)
 			findingID := StableFindingID(CategoryOverdueReview, exc.Pattern, "invalid-date")
+			if !shouldReportOverdueReviewFinding(findingID) {
+				continue
+			}
 			reportDiagnostic(pass, pos, CategoryOverdueReview, findingID, msg)
 			continue
 		}
@@ -488,6 +517,9 @@ func reportOverdueExceptions(pass *analysis.Pass, cfg *ExceptionConfig) {
 				msg += fmt.Sprintf(" (blocked by: %s)", exc.BlockedBy)
 			}
 			findingID := StableFindingID(CategoryOverdueReview, exc.Pattern)
+			if !shouldReportOverdueReviewFinding(findingID) {
+				continue
+			}
 			reportDiagnostic(pass, pos, CategoryOverdueReview, findingID, msg)
 		}
 	}

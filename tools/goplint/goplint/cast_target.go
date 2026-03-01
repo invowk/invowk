@@ -5,6 +5,7 @@ package goplint
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/types"
 	"strings"
 
@@ -142,6 +143,12 @@ func stripParensAndStar(expr ast.Expr) ast.Expr {
 		case *ast.ParenExpr:
 			expr = e.X
 		case *ast.StarExpr:
+			expr = e.X
+		case *ast.UnaryExpr:
+			// Receivers like (&x).Validate() should match casts assigned to x.
+			if e.Op != token.AND {
+				return expr
+			}
 			expr = e.X
 		default:
 			return expr

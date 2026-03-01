@@ -254,8 +254,9 @@ func countParams(fields *ast.FieldList) int {
 // withFuncInfo records a WithXxx option function with its resolved
 // parameter type for type verification.
 type withFuncInfo struct {
-	name      string     // function name (e.g., "WithHost")
-	paramType types.Type // resolved type of the first non-option parameter, nil if none
+	name       string     // function name (e.g., "WithHost")
+	paramType  types.Type // resolved type of the first non-option parameter, nil if none
+	paramCount int        // total parameter count
 }
 
 // trackWithFunctions records free functions named WithXxx that return a
@@ -297,6 +298,9 @@ func trackWithFunctions(pass *analysis.Pass, fn *ast.FuncDecl, optionTypes map[s
 		return
 	}
 
+	// Resolve parameter shape for signature and type verification.
+	paramCount := countParams(fn.Type.Params)
+
 	// Resolve the first parameter type for type verification.
 	var paramType types.Type
 	if fn.Type.Params != nil && len(fn.Type.Params.List) > 0 {
@@ -304,8 +308,9 @@ func trackWithFunctions(pass *analysis.Pass, fn *ast.FuncDecl, optionTypes map[s
 	}
 
 	out[targetStruct] = append(out[targetStruct], withFuncInfo{
-		name:      name,
-		paramType: paramType,
+		name:       name,
+		paramType:  paramType,
+		paramCount: paramCount,
 	})
 }
 
@@ -362,10 +367,10 @@ func collectExportedStructsWithFields(pass *analysis.Pass, node *ast.GenDecl, ou
 
 // reportWrongConstructorSig reports constructors whose return type does not
 // match the struct they are supposed to construct. Uses exact match for
-// the primary constructor (NewXxx) plus prefix match for variant constructors
-// (NewXxxFromY) that DO return the right type — but flags variants whose
-// return type is wrong. This avoids false positives where NewFooBar
-// (intended for FooBar) is flagged against Foo.
+// the primary constructor (NewXxx) plus prefix match for variants.
+// For variants, disambiguation prefers a likely alternate target when the
+// constructor name also starts with "New"+returnedType (for example,
+// NewFooBar returning FooBar should not be flagged against Foo).
 func reportWrongConstructorSig(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
 
@@ -383,12 +388,13 @@ func reportWrongConstructorSig(pass *analysis.Pass, structs []exportedStructInfo
 			}
 
 			// For variant constructors (name longer than "New" + structName),
-			// only check if they return the target struct's type. If they
-			// return a different type, they likely target a different struct
-			// (e.g., NewCommandScope targets CommandScope, not Command).
+			// disambiguate likely alternate targets by returned type.
 			isExact := ctorName == prefix
-			if !isExact && ctorInfo.returnTypeName != s.name && !ctorInfo.returnsInterface {
-				continue
+			if !isExact && ctorInfo.returnTypeName != "" && ctorInfo.returnTypeName != s.name && !ctorInfo.returnsInterface {
+				candidatePrefix := "New" + ctorInfo.returnTypeName
+				if strings.HasPrefix(ctorName, candidatePrefix) {
+					continue
+				}
 			}
 
 			// Interface returns are valid factory patterns — skip the check.
@@ -524,7 +530,16 @@ func reportMissingFuncOptions(
 				continue
 			}
 
-			// B3: Verify WithXxx parameter type matches the field type.
+			// B3: Verify WithXxx signature shape and parameter type.
+			if wfi.paramCount != 1 {
+				msg := fmt.Sprintf("%s() should accept exactly one parameter matching field %s.%s, got %d parameters",
+					expectedWith, s.name, f.name, wfi.paramCount)
+				findingID := StableFindingID(CategoryWrongFuncOptionType, qualName, f.name, expectedWith, "arity")
+				if !bl.ContainsFinding(CategoryWrongFuncOptionType, findingID, msg) {
+					reportDiagnostic(pass, f.pos, CategoryWrongFuncOptionType, findingID, msg)
+				}
+				continue
+			}
 			if wfi.paramType != nil && len(s.fields) > 0 {
 				fieldType := fieldTypeForMeta(pass, s.name, f.name)
 				if fieldType != nil && !types.Identical(wfi.paramType, fieldType) {

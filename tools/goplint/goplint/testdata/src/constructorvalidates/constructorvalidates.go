@@ -44,6 +44,13 @@ func NewServer(addr string) (*Server, error) { // want `parameter "addr" of cons
 	return &Server{addr: addr}, nil
 }
 
+// NewServerNamedResultBareReturn uses named results and bare return, but does
+// NOT validate the returned Server. This must be flagged.
+func NewServerNamedResultBareReturn(addr string) (srv *Server, err error) { // want `parameter "addr" of constructorvalidates\.NewServerNamedResultBareReturn uses primitive type string` `constructor constructorvalidates\.NewServerNamedResultBareReturn returns constructorvalidates\.Server which has Validate\(\) but never calls it`
+	srv = &Server{addr: addr}
+	return
+}
+
 // --- Non-validating factory (with ignore directive) ---
 
 type Options struct {
@@ -196,6 +203,35 @@ func buildBuilder(path string) *Builder { // want `parameter "path" of construct
 // NewBuilder delegates to buildBuilder which does NOT call Validate() — flagged.
 func NewBuilder(path string) (*Builder, error) { // want `parameter "path" of constructorvalidates\.NewBuilder uses primitive type string` `constructor constructorvalidates\.NewBuilder returns constructorvalidates\.Builder which has Validate\(\) but never calls it`
 	return buildBuilder(path), nil
+}
+
+// --- Helper with partial validation coverage ---
+
+type Partial struct {
+	name string // want `struct field constructorvalidates\.Partial\.name uses primitive type string`
+}
+
+func (p *Partial) Validate() error {
+	if p.name == "" {
+		return fmt.Errorf("empty partial name")
+	}
+	return nil
+}
+
+func maybeInitPartial(name string, validate bool) (*Partial, error) { // want `parameter "name" of constructorvalidates\.maybeInitPartial uses primitive type string`
+	p := &Partial{name: name}
+	if !validate {
+		return p, nil
+	}
+	if err := p.Validate(); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// NewPartial delegates to helper that validates only on one branch — flagged.
+func NewPartial(name string, validate bool) (*Partial, error) { // want `parameter "name" of constructorvalidates\.NewPartial uses primitive type string` `constructor constructorvalidates\.NewPartial returns constructorvalidates\.Partial which has Validate\(\) but never calls it`
+	return maybeInitPartial(name, validate)
 }
 
 // --- Deep transitive chain: NewPipeline → buildStages → initStage → stage.Validate() ---
@@ -430,4 +466,63 @@ func NewPathSensitive(name string) (*PathSensitive, error) { // want `parameter 
 	p := &PathSensitive{name: name}
 	maybeValidatePathSensitive(p)
 	return p, nil
+}
+
+// --- Deferred closure validation should count in CFA mode ---
+
+type DeferredValidated struct {
+	name string // want `struct field constructorvalidates\.DeferredValidated\.name uses primitive type string`
+}
+
+func (d *DeferredValidated) Validate() error {
+	if d.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+// NewDeferredValidated validates via a deferred closure that sets the named
+// error return before function exit.
+func NewDeferredValidated(name string) (d *DeferredValidated, err error) { // want `parameter "name" of constructorvalidates\.NewDeferredValidated uses primitive type string`
+	d = &DeferredValidated{name: name}
+	defer func() {
+		validateErr := d.Validate()
+		if err == nil {
+			err = validateErr
+		}
+	}()
+	return d, nil
+}
+
+// --- Mixed direct + helper validation across paths ---
+
+type MixedPathValidated struct {
+	name string // want `struct field constructorvalidates\.MixedPathValidated\.name uses primitive type string`
+}
+
+func (m *MixedPathValidated) Validate() error {
+	if m.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+func validateMixedPath(m *MixedPathValidated) error {
+	return m.Validate()
+}
+
+// NewMixedPathValidated validates directly on one branch and via helper on the
+// other branch. All return paths validate.
+func NewMixedPathValidated(name string, fast bool) (*MixedPathValidated, error) { // want `parameter "name" of constructorvalidates\.NewMixedPathValidated uses primitive type string`
+	m := &MixedPathValidated{name: name}
+	if fast {
+		if err := m.Validate(); err != nil {
+			return nil, err
+		}
+		return m, nil
+	}
+	if err := validateMixedPath(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

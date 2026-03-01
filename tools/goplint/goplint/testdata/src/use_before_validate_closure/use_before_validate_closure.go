@@ -71,6 +71,24 @@ func DeferredValidateDoesNotSuppressUBV(raw string) error { // want `parameter "
 	return nil
 }
 
+// DirectDeferValidateIgnoredForOrdering — SHOULD be flagged. A direct
+// defer x.Validate() must not count as validation-before-use for UBV ordering.
+func DirectDeferValidateIgnoredForOrdering(raw string) error { // want `parameter "raw" of use_before_validate_closure\.DirectDeferValidateIgnoredForOrdering uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	defer x.Validate()
+	useCmd(x)
+	return x.Validate()
+}
+
+// DirectGoValidateIgnoredForOrdering — SHOULD be flagged. A direct
+// go x.Validate() call is asynchronous and must not satisfy UBV ordering.
+func DirectGoValidateIgnoredForOrdering(raw string) error { // want `parameter "raw" of use_before_validate_closure\.DirectGoValidateIgnoredForOrdering uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	go x.Validate()
+	useCmd(x)
+	return x.Validate()
+}
+
 // IIFEValidateBeforeUseCounts — should NOT be flagged. Immediate closure
 // Validate runs before use and should count for UBV ordering.
 func IIFEValidateBeforeUseCounts(raw string) { // want `parameter "raw" of use_before_validate_closure\.IIFEValidateBeforeUseCounts uses primitive type string`

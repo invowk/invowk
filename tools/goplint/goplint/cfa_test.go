@@ -200,6 +200,14 @@ func f() {
 }`,
 			wantLen: 3,
 		},
+		{
+			name: "parenthesized iife",
+			src: `package p
+func f() {
+	(func() {})()
+}`,
+			wantLen: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -210,6 +218,19 @@ func f() {
 				t.Fatalf("len(collectImmediateClosureLits) = %d, want %d", len(got), tt.wantLen)
 			}
 		})
+	}
+}
+
+func TestCollectDeferredClosureLits_Parenthesized(t *testing.T) {
+	src := `package p
+func f() {
+	defer (func() {})()
+}`
+
+	body, _ := parseFuncBody(t, src)
+	got := collectDeferredClosureLits(body)
+	if len(got) != 1 {
+		t.Fatalf("len(collectDeferredClosureLits) = %d, want 1", len(got))
 	}
 }
 
@@ -336,6 +357,25 @@ func TestCastTargetMatchesExpr_IndexParensCanonicalization(t *testing.T) {
 	}
 }
 
+func TestCastTargetMatchesExpr_AddressOfReceiverCanonicalization(t *testing.T) {
+	lhsExpr, err := parser.ParseExpr("x")
+	if err != nil {
+		t.Fatalf("parse lhs: %v", err)
+	}
+	target, ok := castTargetFromExpr(nil, lhsExpr)
+	if !ok {
+		t.Fatal("castTargetFromExpr returned ok=false for lhs x")
+	}
+
+	receiverExpr, err := parser.ParseExpr("(&x)")
+	if err != nil {
+		t.Fatalf("parse receiver: %v", err)
+	}
+	if !target.matchesExpr(nil, receiverExpr) {
+		t.Fatal("expected (&x) receiver to match target derived from x")
+	}
+}
+
 func TestHasUseBeforeValidateInBlock_DeferredValidateDoesNotSuppress(t *testing.T) {
 	src := `package p
 type T string
@@ -362,5 +402,46 @@ func use(_ T) {}`
 	}
 	if !hasUseBeforeValidateInBlock(nil, nodes, 1, target, collectUBVClosureLits(body)) {
 		t.Fatal("expected UBV closure set to flag use before deferred Validate")
+	}
+}
+
+func TestFirstUseValidateOrderInNode_AsyncValidateIgnored(t *testing.T) {
+	src := `package p
+type T string
+func (t T) Validate() error { return nil }
+func f() {
+	var x T
+	go x.Validate()
+	defer x.Validate()
+}`
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "test.go", src, 0)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	var fn *ast.FuncDecl
+	for _, decl := range file.Decls {
+		candidate, ok := decl.(*ast.FuncDecl)
+		if !ok || candidate.Name.Name != "f" {
+			continue
+		}
+		fn = candidate
+		break
+	}
+	if fn == nil {
+		t.Fatal("function f not found")
+	}
+	if len(fn.Body.List) < 3 {
+		t.Fatalf("expected at least 3 statements, got %d", len(fn.Body.List))
+	}
+
+	target := newCastTargetFromName("x")
+	if got := firstUseValidateOrderInNode(nil, fn.Body.List[1], target, nil); got != ubvOrderNone {
+		t.Fatalf("go x.Validate() order = %v, want %v", got, ubvOrderNone)
+	}
+	if got := firstUseValidateOrderInNode(nil, fn.Body.List[2], target, nil); got != ubvOrderNone {
+		t.Fatalf("defer x.Validate() order = %v, want %v", got, ubvOrderNone)
 	}
 }

@@ -125,6 +125,16 @@ func SelectorLHSValidated(raw string) { // want `parameter "raw" of cfa_castvali
 	useCmd(holder.Name)
 }
 
+// AddressOfValidateReceiver — should NOT be flagged. Address-of receiver forms
+// like (&x).Validate() must canonicalize to the assigned cast target.
+func AddressOfValidateReceiver(raw string) { // want `parameter "raw" of cfa_castvalidation\.AddressOfValidateReceiver uses primitive type string`
+	x := CommandName(raw)
+	if err := (&x).Validate(); err != nil {
+		return
+	}
+	useCmd(x)
+}
+
 // ParenAssignedValidated — parenthesized RHS should still be tracked as an
 // assigned cast in CFA mode.
 func ParenAssignedValidated(raw string) { // want `parameter "raw" of cfa_castvalidation\.ParenAssignedValidated uses primitive type string`
@@ -197,6 +207,18 @@ func UnassignedMapKey(raw string) { // want `parameter "raw" of cfa_castvalidati
 	_ = m[CommandName(raw)]
 }
 
+// UnassignedMapKeyWrite — SHOULD be flagged (map assignment LHS key is a use).
+func UnassignedMapKeyWrite(raw string) { // want `parameter "raw" of cfa_castvalidation\.UnassignedMapKeyWrite uses primitive type string`
+	m := map[CommandName]bool{}
+	m[CommandName(raw)] = true // want `type conversion to CommandName from non-constant without Validate\(\) check`
+}
+
+// UnassignedMapKeyParenLookup — NOT flagged (auto-skip with parens).
+func UnassignedMapKeyParenLookup(raw string) { // want `parameter "raw" of cfa_castvalidation\.UnassignedMapKeyParenLookup uses primitive type string`
+	m := map[CommandName]bool{}
+	_ = m[(CommandName(raw))]
+}
+
 // UnassignedSliceIndexNotAutoSkip — SHOULD be flagged. Auto-skip for index
 // expressions only applies to map-key lookups.
 func UnassignedSliceIndexNotAutoSkip() {
@@ -210,6 +232,19 @@ func SwitchTagAutoSkip(raw string) { // want `parameter "raw" of cfa_castvalidat
 	case CommandName("test"):
 	default:
 	}
+}
+
+// SwitchTagParenAutoSkip — NOT flagged (parenthesized switch tag).
+func SwitchTagParenAutoSkip(raw string) { // want `parameter "raw" of cfa_castvalidation\.SwitchTagParenAutoSkip uses primitive type string`
+	switch CommandName(raw) {
+	case CommandName("test"):
+	default:
+	}
+}
+
+// ComparisonParenAutoSkip — NOT flagged (parenthesized comparison operand).
+func ComparisonParenAutoSkip(raw string, expected CommandName) bool { // want `parameter "raw" of cfa_castvalidation\.ComparisonParenAutoSkip uses primitive type string`
+	return (CommandName(raw)) == expected
 }
 
 // FuncReturnCast — flagged for cast from function return.

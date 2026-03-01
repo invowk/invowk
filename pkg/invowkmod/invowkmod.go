@@ -635,7 +635,7 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 	for _, req := range directRequirements {
 		// The direct dependency namespace uses either alias or the resolved module ID
 		if req.Alias != "" {
-			scope.DirectDeps[ModuleID(string(req.Alias))] = true
+			scope.DirectDeps[ModuleID(string(req.Alias))] = true //goplint:ignore -- used only for equality comparison
 		}
 		// Note: The actual resolved module ID will be added during resolution
 	}

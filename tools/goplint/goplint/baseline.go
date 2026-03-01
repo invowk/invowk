@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -47,6 +48,18 @@ type BaselineConfig struct {
 	lookupByMessage map[string]map[string]bool
 }
 
+type baselineCacheKey struct {
+	path          string
+	strictMissing bool
+}
+
+type baselineCacheEntry struct {
+	config *BaselineConfig
+	err    error
+}
+
+var baselineCache sync.Map // map[baselineCacheKey]*baselineCacheEntry
+
 // BaselineFinding holds a single accepted finding entry in baseline v2.
 // ID is the stable semantic identity. Message is retained for readability.
 type BaselineFinding struct {
@@ -84,13 +97,32 @@ func loadBaseline(path string, strictMissing bool) (*BaselineConfig, error) {
 	}
 
 	var cfg BaselineConfig
-	if err := toml.Unmarshal(data, &cfg); err != nil {
+	meta, err := toml.Decode(string(data), &cfg)
+	if err != nil {
 		return nil, fmt.Errorf("parsing baseline TOML: %w", err)
+	}
+	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
+		return nil, fmt.Errorf("parsing baseline TOML: unknown keys: %s", joinTOMLKeys(undecoded))
 	}
 
 	cfg.buildLookup()
 
 	return &cfg, nil
+}
+
+// loadBaselineCached reads baseline data through a process-local cache.
+// BaselineConfig is immutable after load/buildLookup and can be safely reused.
+func loadBaselineCached(path string, strictMissing bool) (*BaselineConfig, error) {
+	key := baselineCacheKey{path: path, strictMissing: strictMissing}
+	if cached, ok := baselineCache.Load(key); ok {
+		entry := cached.(*baselineCacheEntry)
+		return entry.config, entry.err
+	}
+
+	cfg, err := loadBaseline(path, strictMissing)
+	entry := &baselineCacheEntry{config: cfg, err: err}
+	baselineCache.Store(key, entry)
+	return cfg, err
 }
 
 // Contains reports whether a finding with the given category and message
@@ -110,6 +142,10 @@ func (b *BaselineConfig) ContainsFinding(category, findingID, message string) bo
 		if ids, ok := b.lookupByID[category]; ok && ids[findingID] {
 			return true
 		}
+		// Strict ID matching: when caller provides a finding ID, do not
+		// fall back to message matching, which can over-suppress distinct
+		// findings that share the same text.
+		return false
 	}
 	if message != "" && b.lookupByMessage != nil {
 		if msgs, ok := b.lookupByMessage[category]; ok && msgs[message] {

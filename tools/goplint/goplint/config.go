@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 )
@@ -24,6 +25,18 @@ type ExceptionConfig struct {
 	// run() creates a fresh ExceptionConfig via loadConfig().
 	matchCounts map[int]int
 }
+
+type configCacheKey struct {
+	path          string
+	strictMissing bool
+}
+
+type configCacheEntry struct {
+	template *ExceptionConfig
+	err      error
+}
+
+var configCache sync.Map // map[configCacheKey]*configCacheEntry
 
 // Settings configures global analyzer behavior.
 type Settings struct {
@@ -74,13 +87,78 @@ func loadConfig(path string, strictMissing bool) (*ExceptionConfig, error) {
 	}
 
 	var cfg ExceptionConfig
-	if err := toml.Unmarshal(data, &cfg); err != nil {
+	meta, err := toml.Decode(string(data), &cfg)
+	if err != nil {
 		return nil, fmt.Errorf("parsing config TOML: %w", err)
+	}
+	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
+		return nil, fmt.Errorf("parsing config TOML: unknown keys: %s", joinTOMLKeys(undecoded))
 	}
 
 	cfg.matchCounts = make(map[int]int, len(cfg.Exceptions))
 
 	return &cfg, nil
+}
+
+// loadConfigCached reads exceptions config through a process-local cache.
+// The returned config is always a per-run clone with fresh match counters.
+func loadConfigCached(path string, strictMissing bool) (*ExceptionConfig, error) {
+	key := configCacheKey{path: path, strictMissing: strictMissing}
+	if cached, ok := configCache.Load(key); ok {
+		entry := cached.(*configCacheEntry)
+		if entry.err != nil {
+			return nil, entry.err
+		}
+		return cloneExceptionConfig(entry.template), nil
+	}
+
+	cfg, err := loadConfig(path, strictMissing)
+	entry := &configCacheEntry{err: err}
+	if err == nil {
+		entry.template = configTemplate(cfg)
+	}
+	configCache.Store(key, entry)
+	if err != nil {
+		return nil, err
+	}
+
+	return cloneExceptionConfig(entry.template), nil
+}
+
+func configTemplate(cfg *ExceptionConfig) *ExceptionConfig {
+	if cfg == nil {
+		return &ExceptionConfig{}
+	}
+	return &ExceptionConfig{
+		Settings: Settings{
+			SkipTypes:    slices.Clone(cfg.Settings.SkipTypes),
+			ExcludePaths: slices.Clone(cfg.Settings.ExcludePaths),
+		},
+		Exceptions: slices.Clone(cfg.Exceptions),
+	}
+}
+
+func cloneExceptionConfig(template *ExceptionConfig) *ExceptionConfig {
+	if template == nil {
+		return &ExceptionConfig{matchCounts: make(map[int]int)}
+	}
+	clone := &ExceptionConfig{
+		Settings: Settings{
+			SkipTypes:    slices.Clone(template.Settings.SkipTypes),
+			ExcludePaths: slices.Clone(template.Settings.ExcludePaths),
+		},
+		Exceptions: slices.Clone(template.Exceptions),
+		matchCounts: make(map[int]int, len(template.Exceptions)),
+	}
+	return clone
+}
+
+func joinTOMLKeys(keys []toml.Key) string {
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, key.String())
+	}
+	return strings.Join(parts, ", ")
 }
 
 // isExcepted checks whether a qualified name (e.g., "pkg.Type.Field")
@@ -115,8 +193,10 @@ func (c *ExceptionConfig) isSkippedType(typeName string) bool {
 // isExcludedPath checks whether a file path contains any of the
 // exclude_paths substrings.
 func (c *ExceptionConfig) isExcludedPath(filePath string) bool {
+	normalizedPath := strings.ReplaceAll(filepath.ToSlash(filePath), "\\", "/")
 	for _, ep := range c.Settings.ExcludePaths {
-		if strings.Contains(filePath, ep) {
+		normalizedExclude := strings.ReplaceAll(filepath.ToSlash(ep), "\\", "/")
+		if strings.Contains(normalizedPath, normalizedExclude) {
 			return true
 		}
 	}

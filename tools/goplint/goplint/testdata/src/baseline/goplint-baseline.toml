@@ -1,7 +1,7 @@
 # Test baseline — suppresses specific known findings.
 
 [primitive]
-messages = [
-    "struct field baseline.BaselinedStruct.Known uses primitive type string",
-    "parameter \"known\" of baseline.BaselinedFunc uses primitive type string",
+entries = [
+    { id = "gpl1_25c024fdbbd65ad23269ce584280935a6fbb459f3810eea520ec8a09dcac8116", message = "struct field baseline.BaselinedStruct.Known uses primitive type string" },
+    { id = "gpl1_ed1faf1c21eec8b15cc83746b171561a0a43a0b03021d4c4e1e448447a7eddf5", message = "parameter \"known\" of baseline.BaselinedFunc uses primitive type string" },
 ]

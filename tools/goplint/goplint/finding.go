@@ -41,6 +41,18 @@ func FallbackFindingID(category, message string) string {
 	return StableFindingID(category, "legacy-message", message)
 }
 
+// FallbackFindingIDForDiagnostic derives an ID from category + diagnostic
+// position + message for analysis outputs that omit explicit finding URLs.
+//
+// The position component keeps repeated same-message diagnostics distinct
+// (for example, multiple discarded Validate() calls in one function).
+func FallbackFindingIDForDiagnostic(category, posn, message string) string {
+	if posn == "" {
+		return FallbackFindingID(category, message)
+	}
+	return StableFindingID(category, "legacy-diagnostic", posn, message)
+}
+
 // DiagnosticURLForFinding formats a finding ID for analysis.Diagnostic.URL.
 func DiagnosticURLForFinding(id string) string {
 	if id == "" {

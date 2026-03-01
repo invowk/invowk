@@ -25,8 +25,11 @@ func setFlag(t *testing.T, name, value string) {
 // Called via t.Cleanup() to ensure clean state between tests.
 func resetFlags(t *testing.T) {
 	t.Helper()
-	setFlag(t, "config", "")
-	setFlag(t, "baseline", "")
+	configPath = ""
+	baselinePath = ""
+	configPathExplicit = false
+	baselinePathExplicit = false
+	resetOverdueReviewCache()
 	for _, spec := range modeFlagSpecs {
 		setFlag(t, spec.flagName, strconv.FormatBool(spec.defaultValue))
 	}
@@ -175,6 +178,26 @@ func TestTrackedStringFlagsExplicitness(t *testing.T) {
 	setFlag(t, "baseline", "")
 	if !baselinePathExplicit {
 		t.Fatal("expected baselinePathExplicit = true after setting --baseline")
+	}
+}
+
+// TestNewRunConfigCarriesTrackedStringExplicitness verifies that explicit-set
+// markers for --config/--baseline are copied into runConfig.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestNewRunConfigCarriesTrackedStringExplicitness(t *testing.T) {
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+
+	setFlag(t, "config", "")
+	setFlag(t, "baseline", "")
+
+	rc := newRunConfig()
+	if !rc.configPathExplicit {
+		t.Fatal("expected runConfig.configPathExplicit = true after setting --config")
+	}
+	if !rc.baselinePathExplicit {
+		t.Fatal("expected runConfig.baselinePathExplicit = true after setting --baseline")
 	}
 }
 
@@ -665,6 +688,48 @@ func TestCheckEnumSyncNoSchema(t *testing.T) {
 	setFlag(t, "check-enum-sync", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "enumsync_noschema")
+}
+
+// TestCheckEnumSyncNoSchemaExceptionSuppression verifies no-schema enum-sync
+// diagnostics respect TOML exceptions.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckEnumSyncNoSchemaExceptionSuppression(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-enum-sync", "true")
+	setFlag(t, "config", filepath.Join(testdata, "src", "enumsync_noschema_suppressed", "goplint.toml"))
+
+	analysistest.Run(t, testdata, Analyzer, "enumsync_noschema_suppressed")
+}
+
+// TestCheckEnumSyncNoSchemaBaselineSuppression verifies no-schema enum-sync
+// diagnostics respect baseline suppression.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckEnumSyncNoSchemaBaselineSuppression(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-enum-sync", "true")
+	setFlag(t, "baseline", filepath.Join(testdata, "src", "enumsync_noschema_suppressed", "goplint-baseline.toml"))
+
+	analysistest.Run(t, testdata, Analyzer, "enumsync_noschema_suppressed")
+}
+
+// TestCheckEnumSyncCueErrorExceptionSuppression verifies cue-error enum-sync
+// diagnostics respect TOML exceptions.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckEnumSyncCueErrorExceptionSuppression(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-enum-sync", "true")
+	setFlag(t, "config", filepath.Join(testdata, "src", "enumsync_cueerror_suppressed", "goplint.toml"))
+
+	analysistest.Run(t, testdata, Analyzer, "enumsync_cueerror_suppressed")
 }
 
 // TestCheckEnumSyncMultiFile exercises enum-sync with multiple CUE schema

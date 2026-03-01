@@ -5,6 +5,7 @@ package goplint
 import (
 	"go/ast"
 	"go/token"
+	"strconv"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -166,7 +167,7 @@ func reportValidateUsageFinding(
 		return
 	}
 
-	findingID := StableFindingID(CategoryUnusedValidateResult, qualFuncName, message)
+	findingID := StableFindingID(CategoryUnusedValidateResult, qualFuncName, message, strconv.Itoa(int(pos)))
 	if bl.ContainsFinding(CategoryUnusedValidateResult, findingID, message) {
 		return
 	}

@@ -4,6 +4,7 @@ package goplint
 
 import (
 	"go/ast"
+	"go/types"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -35,9 +36,9 @@ type cfaClosureHandler func(lit *ast.FuncLit, closureIdx int)
 
 // collectCFACasts walks a function or closure body and classifies type
 // conversions from raw primitives to DDD Value Types into assigned and
-// unassigned casts. Closures are delegated to the provided handler
-// rather than being analyzed inline — each closure gets its own CFG
-// and independent validation scope.
+// unassigned casts. Executable closures (IIFEs, go/defer closure calls)
+// are delegated to the provided handler rather than being analyzed inline.
+// Non-executable literals (for example, detached func values) are skipped.
 //
 // This is the shared cast-collection logic used by both
 // inspectUnvalidatedCastsCFA (outer functions) and
@@ -53,17 +54,32 @@ func collectCFACasts(
 	var unassignedCasts []cfaUnassignedCast
 	castIndex := 0
 	closureIndex := 0
+	closureVarBindings := collectClosureVarBindings(pass, body)
+	analyzedClosures := make(map[*ast.FuncLit]bool)
+
+	analyzeClosure := func(lit *ast.FuncLit) {
+		if lit == nil || analyzedClosures[lit] {
+			return
+		}
+		analyzedClosures[lit] = true
+		onClosure(lit, closureIndex)
+		closureIndex++
+	}
 
 	ast.Inspect(body, func(n ast.Node) bool {
 		if lit, ok := n.(*ast.FuncLit); ok {
-			onClosure(lit, closureIndex)
-			closureIndex++
+			if isExecutableClosureLiteral(lit, parentMap) {
+				analyzeClosure(lit)
+			}
 			return false
 		}
 
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
+		}
+		if lit, ok := executableClosureVarCall(pass, call, closureVarBindings); ok {
+			analyzeClosure(lit)
 		}
 
 		// Not a type conversion — skip.
@@ -128,4 +144,122 @@ func collectCFACasts(
 	})
 
 	return assignedCasts, unassignedCasts
+}
+
+// isExecutableClosureLiteral reports whether lit is directly invoked in-place:
+// func() { ... }(), go func() { ... }(), or defer func() { ... }().
+func isExecutableClosureLiteral(lit *ast.FuncLit, parentMap map[ast.Node]ast.Node) bool {
+	if lit == nil || parentMap == nil {
+		return false
+	}
+	call, ok := closureLiteralCall(lit, parentMap)
+	if !ok {
+		return false
+	}
+	return stripParens(call.Fun) == lit
+}
+
+// closureLiteralCall returns the CallExpr that invokes lit, allowing any number
+// of parenthesized wrappers between the literal and the call expression.
+func closureLiteralCall(lit *ast.FuncLit, parentMap map[ast.Node]ast.Node) (*ast.CallExpr, bool) {
+	if lit == nil || parentMap == nil {
+		return nil, false
+	}
+	current := ast.Node(lit)
+	for {
+		parent := parentMap[current]
+		if parent == nil {
+			return nil, false
+		}
+		if paren, ok := parent.(*ast.ParenExpr); ok && paren.X == current {
+			current = paren
+			continue
+		}
+		call, ok := parent.(*ast.CallExpr)
+		if !ok {
+			return nil, false
+		}
+		return call, true
+	}
+}
+
+func collectClosureVarBindings(pass *analysis.Pass, body *ast.BlockStmt) map[string]*ast.FuncLit {
+	if pass == nil || pass.TypesInfo == nil || body == nil {
+		return nil
+	}
+	bindings := make(map[string]*ast.FuncLit)
+
+	recordBinding := func(lhs *ast.Ident, rhs ast.Expr) {
+		if lhs == nil || lhs.Name == "_" {
+			return
+		}
+		lit, ok := exprFuncLit(rhs)
+		if !ok {
+			return
+		}
+		obj := objectForIdent(pass, lhs)
+		if obj == nil {
+			return
+		}
+		if _, isVar := obj.(*types.Var); !isVar {
+			return
+		}
+		bindings[objectKey(obj)] = lit
+	}
+
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.AssignStmt:
+			for i, rhs := range node.Rhs {
+				if i >= len(node.Lhs) {
+					break
+				}
+				lhsIdent, ok := stripParens(node.Lhs[i]).(*ast.Ident)
+				if !ok {
+					continue
+				}
+				recordBinding(lhsIdent, rhs)
+			}
+		case *ast.ValueSpec:
+			for i, rhs := range node.Values {
+				if i >= len(node.Names) {
+					break
+				}
+				recordBinding(node.Names[i], rhs)
+			}
+		}
+		return true
+	})
+
+	return bindings
+}
+
+func exprFuncLit(expr ast.Expr) (*ast.FuncLit, bool) {
+	if expr == nil {
+		return nil, false
+	}
+	lit, ok := stripParens(expr).(*ast.FuncLit)
+	return lit, ok
+}
+
+// executableClosureVarCall reports whether call invokes a local variable bound
+// to a function literal (for example, f := func() { ... }; f()).
+func executableClosureVarCall(
+	pass *analysis.Pass,
+	call *ast.CallExpr,
+	bindings map[string]*ast.FuncLit,
+) (*ast.FuncLit, bool) {
+	if pass == nil || pass.TypesInfo == nil || call == nil || len(bindings) == 0 {
+		return nil, false
+	}
+	funIdent, ok := stripParens(call.Fun).(*ast.Ident)
+	if !ok {
+		return nil, false
+	}
+	obj := objectForIdent(pass, funIdent)
+	if obj == nil {
+		return nil, false
+	}
+	lit, ok := bindings[objectKey(obj)]
+	return lit, ok
 }

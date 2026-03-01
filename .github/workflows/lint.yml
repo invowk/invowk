@@ -125,6 +125,4 @@ jobs:
 
       - name: Check baseline
         run: |
-          ./bin/goplint -check-all \
-            -baseline=tools/goplint/baseline.toml \
-            -config=tools/goplint/exceptions.toml ./...
+          make check-baseline

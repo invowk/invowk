@@ -312,7 +312,9 @@ func init() {
 // never reads or mutates package-level state directly.
 type runConfig struct {
 	configPath                  string
+	configPathExplicit          bool
 	baselinePath                string
+	baselinePathExplicit        bool
 	auditExceptions             bool
 	checkAll                    bool
 	checkValidate               bool
@@ -342,8 +344,10 @@ type runConfig struct {
 // the local struct, never mutating the package-level flag variables.
 func newRunConfig() runConfig {
 	rc := runConfig{
-		configPath:   configPath,
-		baselinePath: baselinePath,
+		configPath:           configPath,
+		configPathExplicit:   configPathExplicit,
+		baselinePath:         baselinePath,
+		baselinePathExplicit: baselinePathExplicit,
 	}
 	for _, spec := range modeFlagSpecs {
 		*spec.runConfigBoolField(&rc) = *spec.binding

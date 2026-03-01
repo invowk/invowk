@@ -32,8 +32,8 @@ func collectDeferredClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
 			return true
 		}
 		// defer expr() — the deferred expression is always a CallExpr.
-		// Check if the call's function is a FuncLit: defer func() { ... }()
-		if funcLit, ok := deferStmt.Call.Fun.(*ast.FuncLit); ok {
+		// Parenthesized forms are equivalent: defer (func() { ... })().
+		if funcLit, ok := callFuncLit(deferStmt.Call); ok {
 			if result == nil {
 				result = make(map[*ast.FuncLit]bool)
 			}
@@ -62,7 +62,7 @@ func collectImmediateClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
 		if !ok {
 			return true
 		}
-		lit, ok := call.Fun.(*ast.FuncLit)
+		lit, ok := callFuncLit(call)
 		if !ok {
 			return true
 		}
@@ -81,6 +81,18 @@ func collectImmediateClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
 		return true
 	})
 	return result
+}
+
+// callFuncLit returns the function literal invoked by call, accepting both
+// direct and parenthesized forms:
+//   - func() { ... }()
+//   - (func() { ... })()
+func callFuncLit(call *ast.CallExpr) (*ast.FuncLit, bool) {
+	if call == nil {
+		return nil, false
+	}
+	lit, ok := stripParens(call.Fun).(*ast.FuncLit)
+	return lit, ok
 }
 
 // collectSynchronousClosureLits returns closure literals whose Validate calls
@@ -544,6 +556,108 @@ func isVarUseTarget(pass *analysis.Pass, node ast.Node, target castTarget, syncL
 	return found
 }
 
+type ubvOrderResult int
+
+const (
+	ubvOrderNone ubvOrderResult = iota
+	ubvOrderUseBeforeValidate
+	ubvOrderValidateBeforeUse
+)
+
+func firstUseValidateOrderInNode(pass *analysis.Pass, node ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool) ubvOrderResult {
+	if node == nil {
+		return ubvOrderNone
+	}
+
+	result := ubvOrderNone
+	parentMap := buildParentMap(node)
+	ast.Inspect(node, func(n ast.Node) bool {
+		if result != ubvOrderNone {
+			return false
+		}
+		if lit, ok := n.(*ast.FuncLit); ok {
+			return syncLits[lit]
+		}
+
+		if isValidateCallNode(pass, n, target, parentMap) {
+			result = ubvOrderValidateBeforeUse
+			return false
+		}
+		if isUseNode(pass, n, target, syncLits) {
+			result = ubvOrderUseBeforeValidate
+			return false
+		}
+		return true
+	})
+	return result
+}
+
+func isValidateCallNode(pass *analysis.Pass, n ast.Node, target castTarget, parentMap map[ast.Node]ast.Node) bool {
+	call, ok := n.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != "Validate" {
+		return false
+	}
+	if !target.matchesExpr(pass, sel.X) {
+		return false
+	}
+	// UBV ordering requires a Validate call to execute before the use in the
+	// same execution path. Direct defer/go wrappers do not satisfy that
+	// requirement, and conditionally evaluated calls are not guaranteed.
+	if parent, ok := parentMap[call]; ok {
+		if _, isDefer := parent.(*ast.DeferStmt); isDefer {
+			return false
+		}
+	}
+	return !isConditionallyEvaluated(call, parentMap)
+}
+
+func isUseNode(pass *analysis.Pass, n ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool) bool {
+	switch node := n.(type) {
+	case *ast.KeyValueExpr:
+		return target.matchesExpr(pass, node.Key) || target.matchesExpr(pass, node.Value)
+	case *ast.IndexExpr:
+		return target.matchesExpr(pass, node.Index)
+	case *ast.SendStmt:
+		return target.matchesExpr(pass, node.Value)
+	case *ast.CallExpr:
+		if sel, ok := node.Fun.(*ast.SelectorExpr); ok && target.matchesExpr(pass, sel.X) {
+			switch sel.Sel.Name {
+			case "Validate", "String", "Error", "GoString":
+				return false
+			default:
+				return true
+			}
+		}
+		validateSeen := false
+		for _, arg := range node.Args {
+			switch firstUseValidateOrderInNode(pass, arg, target, syncLits) {
+			case ubvOrderUseBeforeValidate:
+				if !validateSeen {
+					return true
+				}
+				continue
+			case ubvOrderValidateBeforeUse:
+				validateSeen = true
+				continue
+			}
+			if target.matchesExpr(pass, arg) || isVarUseTarget(pass, arg, target, syncLits) {
+				if !validateSeen {
+					return true
+				}
+			}
+			if containsValidateCallTarget(pass, arg, target, syncLits) {
+				validateSeen = true
+			}
+		}
+		return false
+	}
+	return false
+}
+
 // hasUseBeforeValidateInBlock checks whether, in the nodes of a block
 // starting at startIdx, a "use" of varName appears before a Validate()
 // call. Returns true if the variable is used (as an argument or non-display
@@ -558,8 +672,11 @@ func isVarUseTarget(pass *analysis.Pass, node ast.Node, target castTarget, syncL
 func hasUseBeforeValidateInBlock(pass *analysis.Pass, nodes []ast.Node, startIdx int, target castTarget, syncLits map[*ast.FuncLit]bool) bool {
 	for i := startIdx; i < len(nodes); i++ {
 		node := nodes[i]
-		if containsValidateCallTarget(pass, node, target, syncLits) {
-			return false // Validate() seen first — safe
+		switch firstUseValidateOrderInNode(pass, node, target, syncLits) {
+		case ubvOrderUseBeforeValidate:
+			return true
+		case ubvOrderValidateBeforeUse:
+			return false
 		}
 		if isVarUseTarget(pass, node, target, syncLits) {
 			return true // use before Validate() — flagged
@@ -636,9 +753,14 @@ func dfsUseBeforeValidate(
 		foundUse := false
 		foundValidate := false
 		for _, node := range succ.Nodes {
-			if containsValidateCallTarget(pass, node, target, syncLits) {
+			order := firstUseValidateOrderInNode(pass, node, target, syncLits)
+			if order == ubvOrderUseBeforeValidate {
+				foundUse = true
+				break // use found before Validate in this node
+			}
+			if order == ubvOrderValidateBeforeUse {
 				foundValidate = true
-				break // Validate found first in this block — path is pruned
+				break // Validate found before use in this node
 			}
 			if isVarUseTarget(pass, node, target, syncLits) {
 				foundUse = true

@@ -160,29 +160,19 @@ func inspectConstructorValidates(
 				continue
 			}
 
-			// Check if the constructor body calls .Validate() on the return type.
-			// This is receiver-type-aware: cfg.Validate() on a Config param does
-			// not satisfy the check when the constructor returns *Server.
+			// Check whether constructor paths validate the returned type.
 			//
-			// CFA mode (default): if a direct .Validate() call exists, build a
-			// CFG and verify ALL return paths pass through it. A constructor that
-			// validates on only one branch (e.g., "if fast { return f, nil }")
-			// is still flagged because the unvalidated path is a false negative.
+			// CFA mode (default): evaluate all return paths directly in CFG.
+			// This includes synchronous closures (defer/IIFE) and recognizes
+			// transitive helper calls in the current block.
 			//
-			// AST mode (--no-cfa): any .Validate() call anywhere in the body is
-			// sufficient (legacy heuristic, no path sensitivity).
-			directlyValidates := bodyCallsValidateOnType(pass, fn.Body, returnTypeKey)
-			if directlyValidates {
-				if noCFA {
-					continue // AST mode: any direct call is sufficient
+			// AST mode (--no-cfa): use direct/transitive body heuristics.
+			if noCFA {
+				if bodyCallsValidateOnType(pass, fn.Body, returnTypeKey) ||
+					bodyCallsValidateTransitive(pass, fn.Body, returnType, returnTypePkgPath, returnTypeKey, nil, 0) {
+					continue
 				}
-				if !constructorHasUnvalidatedReturnPath(pass, fn, returnTypeKey) {
-					continue // CFA confirms: all relevant return paths validated
-				}
-				// Direct validate exists, but CFA found a path returning the target
-				// type without validation. Avoid path-insensitive transitive fallback
-				// here: it can hide real misses when helper calls are conditional.
-			} else if bodyCallsValidateTransitive(pass, fn.Body, returnType, returnTypePkgPath, returnTypeKey, nil, 0) {
+			} else if !constructorHasUnvalidatedReturnPath(pass, fn, returnType, returnTypePkgPath, returnTypeKey) {
 				continue
 			}
 
@@ -381,7 +371,7 @@ func bodyCallsValidateTransitive(
 		if calleeBody == nil {
 			continue
 		}
-		if bodyCallsValidateOnType(pass, calleeBody, returnTypeKey) {
+		if helperBodyAlwaysValidatesType(pass, calleeBody, returnTypeKey) {
 			return true
 		}
 		// Recurse into the callee's body.
@@ -402,7 +392,7 @@ func bodyCallsValidateTransitive(
 		if methodBody == nil {
 			continue
 		}
-		if bodyCallsValidateOnType(pass, methodBody, returnTypeKey) {
+		if helperBodyAlwaysValidatesType(pass, methodBody, returnTypeKey) {
 			return true
 		}
 		if bodyCallsValidateTransitive(pass, methodBody, returnTypeName, returnTypePkgPath, returnTypeKey, visited, depth+1) {
@@ -517,6 +507,8 @@ func findFuncBody(pass *analysis.Pass, funcName string) *ast.BlockStmt {
 func constructorHasUnvalidatedReturnPath(
 	pass *analysis.Pass,
 	fn *ast.FuncDecl,
+	returnTypeName string,
+	returnTypePkgPath string,
 	returnTypeKey string,
 ) bool {
 	funcCFG := buildFuncCFG(fn.Body)
@@ -524,10 +516,11 @@ func constructorHasUnvalidatedReturnPath(
 		return false
 	}
 	syncLits := collectSynchronousClosureLits(fn.Body)
+	bareReturnIncludesTarget := constructorBareReturnIncludesType(pass, fn, returnTypeKey)
 
 	// DFS from the entry block (index 0).
 	visited := make(map[int32]bool)
-	return dfsConstructorUnvalidated(pass, funcCFG.Blocks[0:1], returnTypeKey, visited, syncLits)
+	return dfsConstructorUnvalidated(pass, funcCFG.Blocks[0:1], returnTypeName, returnTypePkgPath, returnTypeKey, bareReturnIncludesTarget, visited, syncLits)
 }
 
 // dfsConstructorUnvalidated recursively checks whether any path through the
@@ -537,7 +530,10 @@ func constructorHasUnvalidatedReturnPath(
 func dfsConstructorUnvalidated(
 	pass *analysis.Pass,
 	blocks []*gocfg.Block,
+	returnTypeName string,
+	returnTypePkgPath string,
 	returnTypeKey string,
+	bareReturnIncludesTarget bool,
 	visited map[int32]bool,
 	syncLits map[*ast.FuncLit]bool,
 ) bool {
@@ -546,12 +542,22 @@ func dfsConstructorUnvalidated(
 		// Return blocks that do not return the constructor target type
 		// (for example, early `return nil, err`) are irrelevant for
 		// constructor-validates path checks.
-		if len(block.Succs) == 0 && !blockReturnsTargetType(pass, block, returnTypeKey) {
+		if len(block.Succs) == 0 && !blockReturnsTargetType(pass, block, returnTypeKey, bareReturnIncludesTarget) {
 			return true
 		}
 		for _, node := range block.Nodes {
 			if containsValidateOnReceiver(pass, node, matcher, syncLits) {
 				return true
+			}
+			if stmt, ok := node.(ast.Stmt); ok {
+				// Consider transitive helper validation for this statement.
+				// Wrapping in a one-statement block preserves the existing
+				// transitive walker behavior while keeping block-level path
+				// sensitivity in the outer CFG DFS.
+				stmtBody := &ast.BlockStmt{List: []ast.Stmt{stmt}}
+				if bodyCallsValidateTransitive(pass, stmtBody, returnTypeName, returnTypePkgPath, returnTypeKey, nil, 0) {
+					return true
+				}
 			}
 		}
 		return false
@@ -559,22 +565,25 @@ func dfsConstructorUnvalidated(
 	return dfsUnvalidatedBlocks(blocks, visited, checker)
 }
 
-func blockReturnsTargetType(pass *analysis.Pass, block *gocfg.Block, returnTypeKey string) bool {
+func blockReturnsTargetType(pass *analysis.Pass, block *gocfg.Block, returnTypeKey string, bareReturnIncludesTarget bool) bool {
 	for _, node := range block.Nodes {
 		ret, ok := node.(*ast.ReturnStmt)
 		if !ok {
 			continue
 		}
-		if returnStmtReturnsType(pass, ret, returnTypeKey) {
+		if returnStmtReturnsType(pass, ret, returnTypeKey, bareReturnIncludesTarget) {
 			return true
 		}
 	}
 	return false
 }
 
-func returnStmtReturnsType(pass *analysis.Pass, ret *ast.ReturnStmt, returnTypeKey string) bool {
+func returnStmtReturnsType(pass *analysis.Pass, ret *ast.ReturnStmt, returnTypeKey string, bareReturnIncludesTarget bool) bool {
 	if ret == nil {
 		return false
+	}
+	if len(ret.Results) == 0 {
+		return bareReturnIncludesTarget
 	}
 	for _, expr := range ret.Results {
 		if exprReturnsType(pass, expr, returnTypeKey) {
@@ -582,6 +591,53 @@ func returnStmtReturnsType(pass *analysis.Pass, ret *ast.ReturnStmt, returnTypeK
 		}
 	}
 	return false
+}
+
+func constructorBareReturnIncludesType(pass *analysis.Pass, fn *ast.FuncDecl, returnTypeKey string) bool {
+	if pass == nil || pass.TypesInfo == nil || fn == nil {
+		return false
+	}
+	obj := pass.TypesInfo.Defs[fn.Name]
+	if obj == nil {
+		return false
+	}
+	sig, ok := obj.Type().(*types.Signature)
+	if !ok || sig.Results() == nil || sig.Results().Len() == 0 {
+		return false
+	}
+
+	hasNamedResults := false
+	for resultVar := range sig.Results().Variables() {
+		if resultVar.Name() != "" {
+			hasNamedResults = true
+		}
+		if typeIdentityKey(resultVar.Type()) == returnTypeKey && hasNamedResults {
+			return true
+		}
+	}
+	return false
+}
+
+func helperBodyAlwaysValidatesType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeKey string) bool {
+	if body == nil {
+		return false
+	}
+	cfg := buildFuncCFG(body)
+	if cfg == nil || len(cfg.Blocks) == 0 {
+		return false
+	}
+	syncLits := collectSynchronousClosureLits(body)
+	matcher := typeKeyMatcher(returnTypeKey)
+	checker := func(block *gocfg.Block) bool {
+		for _, node := range block.Nodes {
+			if containsValidateOnReceiver(pass, node, matcher, syncLits) {
+				return true
+			}
+		}
+		return false
+	}
+	visited := make(map[int32]bool)
+	return !dfsUnvalidatedBlocks(cfg.Blocks[0:1], visited, checker)
 }
 
 func exprReturnsType(pass *analysis.Pass, expr ast.Expr, returnTypeKey string) bool {

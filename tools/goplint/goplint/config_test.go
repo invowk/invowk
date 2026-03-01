@@ -90,6 +90,44 @@ reason = "wildcard test"
 		}
 	})
 
+	t.Run("unknown top-level key returns error", func(t *testing.T) {
+		t.Parallel()
+		content := `
+[settings]
+skip_types = ["bool"]
+
+unknown_key = "oops"
+`
+		path := filepath.Join(t.TempDir(), "unknown-top.toml")
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write test file: %v", err)
+		}
+
+		_, err := loadConfig(path, false)
+		if err == nil {
+			t.Fatal("expected error for unknown top-level key")
+		}
+	})
+
+	t.Run("unknown exception field returns error", func(t *testing.T) {
+		t.Parallel()
+		content := `
+[[exceptions]]
+pattern = "Foo.Bar"
+reason = "test"
+unexpected = "nope"
+`
+		path := filepath.Join(t.TempDir(), "unknown-exception-field.toml")
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write test file: %v", err)
+		}
+
+		_, err := loadConfig(path, false)
+		if err == nil {
+			t.Fatal("expected error for unknown exception field")
+		}
+	})
+
 	t.Run("nonexistent file returns error when strict", func(t *testing.T) {
 		t.Parallel()
 		_, err := loadConfig(filepath.Join(t.TempDir(), "nonexistent.toml"), true)
@@ -97,6 +135,50 @@ reason = "wildcard test"
 			t.Fatal("expected error for missing config in strict mode")
 		}
 	})
+}
+
+func TestLoadConfigCached_CloneIsolation(t *testing.T) {
+	content := `
+[settings]
+skip_types = ["bool"]
+exclude_paths = ["specs/"]
+
+[[exceptions]]
+pattern = "pkg.Type.Field"
+reason = "test"
+`
+	path := writeTempFile(t, "cached-config.toml", content)
+
+	first, err := loadConfigCached(path, false)
+	if err != nil {
+		t.Fatalf("first loadConfigCached error: %v", err)
+	}
+	second, err := loadConfigCached(path, false)
+	if err != nil {
+		t.Fatalf("second loadConfigCached error: %v", err)
+	}
+
+	if first == second {
+		t.Fatal("expected per-run config clone, got shared pointer")
+	}
+
+	first.Settings.SkipTypes[0] = "mutated-skip-type"
+	first.Settings.ExcludePaths[0] = "mutated-path"
+	first.Exceptions[0].Pattern = "mutated.pattern"
+	first.matchCounts[0] = 42
+
+	if second.Settings.SkipTypes[0] != "bool" {
+		t.Fatalf("skip_types leaked across clones: got %q", second.Settings.SkipTypes[0])
+	}
+	if second.Settings.ExcludePaths[0] != "specs/" {
+		t.Fatalf("exclude_paths leaked across clones: got %q", second.Settings.ExcludePaths[0])
+	}
+	if second.Exceptions[0].Pattern != "pkg.Type.Field" {
+		t.Fatalf("exceptions leaked across clones: got %q", second.Exceptions[0].Pattern)
+	}
+	if second.matchCounts[0] != 0 {
+		t.Fatalf("matchCounts leaked across clones: got %d", second.matchCounts[0])
+	}
 }
 
 func TestMatchPattern(t *testing.T) {
@@ -328,6 +410,12 @@ func TestIsExcludedPath(t *testing.T) {
 			name:         "multiple excludes second matches",
 			excludePaths: []string{"specs/", "testutil/"},
 			filePath:     "/home/foo/testutil/bar.go",
+			want:         true,
+		},
+		{
+			name:         "windows separators are normalized",
+			excludePaths: []string{"specs/", "testutil/"},
+			filePath:     `C:\work\repo\specs\bar.go`,
 			want:         true,
 		},
 	}

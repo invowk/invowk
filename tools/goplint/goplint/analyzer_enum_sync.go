@@ -49,10 +49,17 @@ func inspectEnumSync(pass *analysis.Pass, cfg *ExceptionConfig, bl *BaselineConf
 		pkgName := packageName(pass.Pkg)
 		for _, ann := range annotations {
 			qualName := pkgName + "." + ann.typeName
+			excKey := fmt.Sprintf("%s.no-schema.enum-cue-missing-go", qualName)
+			if cfg.isExcepted(excKey) {
+				continue
+			}
 			msg := fmt.Sprintf(
 				"type %s has //goplint:enum-cue directive but no *_schema.cue file found in package directory",
 				qualName)
 			findingID := StableFindingID(CategoryEnumCueMissingGo, qualName, "no-schema")
+			if bl.ContainsFinding(CategoryEnumCueMissingGo, findingID, msg) {
+				continue
+			}
 			reportDiagnostic(pass, ann.pos, CategoryEnumCueMissingGo, findingID, msg)
 		}
 		return
@@ -76,10 +83,17 @@ func inspectEnumSync(pass *analysis.Pass, cfg *ExceptionConfig, bl *BaselineConf
 		// Extract CUE disjunction members from the schema.
 		cueMembers, cueErr := extractCUEDisjunctionMembers(schemaBytes, schemaFilename, ann.cuePath)
 		if cueErr != nil {
+			excKey := fmt.Sprintf("%s.cue-error.enum-cue-missing-go", qualName)
+			if cfg.isExcepted(excKey) {
+				continue
+			}
 			msg := fmt.Sprintf(
 				"type %s: failed to extract CUE disjunction from %s at path %q: %v",
 				qualName, filepath.Base(schemaFilename), ann.cuePath, cueErr)
 			findingID := StableFindingID(CategoryEnumCueMissingGo, qualName, ann.cuePath, "cue-error")
+			if bl.ContainsFinding(CategoryEnumCueMissingGo, findingID, msg) {
+				continue
+			}
 			reportDiagnostic(pass, ann.pos, CategoryEnumCueMissingGo, findingID, msg)
 			continue
 		}

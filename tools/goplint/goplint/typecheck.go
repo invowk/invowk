@@ -236,6 +236,9 @@ func primitiveMapDetail(t types.Type) (string, bool) {
 // Checks both value and pointer receiver method sets.
 func hasValidateMethod(t types.Type) bool {
 	t = types.Unalias(t)
+	if ptr, ok := t.(*types.Pointer); ok {
+		t = types.Unalias(ptr.Elem())
+	}
 	named, ok := t.(*types.Named)
 	if !ok {
 		return false

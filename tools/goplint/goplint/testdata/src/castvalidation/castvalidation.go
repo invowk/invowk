@@ -60,6 +60,12 @@ func (n NoValidate) String() string { return string(n) }
 // AnotherNamedType wraps string — not a raw primitive.
 type AnotherNamedType string
 
+// errorFieldHolder exposes a field named Error to ensure we do not treat any
+// `.Error()` selector call as an error-message source.
+type errorFieldHolder struct {
+	Error func() string
+}
+
 // --- Helper functions providing runtime values without param-level findings ---
 
 func runtimeString() string { return "test" } // want `return value of castvalidation\.runtimeString uses primitive type string`
@@ -154,6 +160,18 @@ func UnassignedMapKey(input string) { // want `parameter "input" of castvalidati
 	_ = m[CommandName(input)] // NOT flagged — map lookup
 }
 
+// UnassignedMapKeyWrite — SHOULD be flagged (map assignment LHS key is a use).
+func UnassignedMapKeyWrite(input string) { // want `parameter "input" of castvalidation\.UnassignedMapKeyWrite uses primitive type string`
+	m := map[CommandName]bool{}
+	m[CommandName(input)] = true // want `type conversion to CommandName from non-constant without Validate\(\) check`
+}
+
+// UnassignedMapKeyParenLookup — should NOT be flagged (auto-skip with parens).
+func UnassignedMapKeyParenLookup(input string) { // want `parameter "input" of castvalidation\.UnassignedMapKeyParenLookup uses primitive type string`
+	m := map[CommandName]bool{}
+	_ = m[(CommandName(input))] // NOT flagged — map lookup with parenthesized cast
+}
+
 // UnassignedSliceIndexNotAutoSkip — SHOULD be flagged. Auto-skip for index
 // expressions only applies to map-key lookups.
 func UnassignedSliceIndexNotAutoSkip() {
@@ -164,6 +182,21 @@ func UnassignedSliceIndexNotAutoSkip() {
 // UnassignedComparison — should NOT be flagged (auto-skip: comparison).
 func UnassignedComparison(input string, expected CommandName) bool { // want `parameter "input" of castvalidation\.UnassignedComparison uses primitive type string`
 	return CommandName(input) == expected // NOT flagged — comparison
+}
+
+// UnassignedComparisonParen — should NOT be flagged (comparison with parens).
+func UnassignedComparisonParen(input string, expected CommandName) bool { // want `parameter "input" of castvalidation\.UnassignedComparisonParen uses primitive type string`
+	return (CommandName(input)) == expected // NOT flagged — parenthesized comparison
+}
+
+// UnassignedSwitchParenTag — should NOT be flagged (switch tag with parens).
+func UnassignedSwitchParenTag(input string) bool { // want `parameter "input" of castvalidation\.UnassignedSwitchParenTag uses primitive type string`
+	switch CommandName(input) {
+	case CommandName("run"):
+		return true
+	default:
+		return false
+	}
 }
 
 // UnassignedFmtArg — should NOT be flagged (auto-skip: fmt argument).
@@ -245,6 +278,16 @@ func CastSelectorLHSValidated(input string) { // want `parameter "input" of cast
 	_ = cfg
 }
 
+// CastWithAddressOfValidateReceiver — should NOT be flagged. Address-of on the
+// Validate receiver must canonicalize to the assigned target.
+func CastWithAddressOfValidateReceiver(input string) { // want `parameter "input" of castvalidation\.CastWithAddressOfValidateReceiver uses primitive type string`
+	name := CommandName(input)
+	if err := (&name).Validate(); err != nil {
+		return
+	}
+	_ = name
+}
+
 // IndexedLHSParenCanonicalization — should NOT be flagged. Parentheses on
 // an indexed Validate receiver must canonicalize to the same cast target.
 func IndexedLHSParenCanonicalization() {
@@ -323,6 +366,16 @@ func CastFromStrconvFormatInt(v int64) { // want `parameter "v" of castvalidatio
 // UnassignedCastFromError — should NOT be flagged (source is .Error()).
 func UnassignedCastFromError(err error) {
 	useCmd(CommandName(err.Error())) // NOT flagged — error-message source
+}
+
+// CastFromNonErrorErrorFieldCall — SHOULD be flagged. A selector call named
+// Error() is only auto-skipped when the receiver actually implements error.
+func CastFromNonErrorErrorFieldCall(input string) { // want `parameter "input" of castvalidation\.CastFromNonErrorErrorFieldCall uses primitive type string`
+	holder := errorFieldHolder{
+		Error: func() string { return input },
+	}
+	name := CommandName(holder.Error()) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	_ = name
 }
 
 // CastFromPlainVariableStillFlagged — SHOULD still be flagged.

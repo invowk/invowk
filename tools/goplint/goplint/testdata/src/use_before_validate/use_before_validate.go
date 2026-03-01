@@ -210,3 +210,21 @@ func ImmediateValidateBeforeUse(raw string) { // want `parameter "raw" of use_be
 	}()
 	useCmd(x)
 }
+
+func useThenValidate(_ CommandName, _ error) {}
+
+func validateThenUse(_ error, _ CommandName) {}
+
+// UseThenValidateInSameNode — SHOULD be flagged. Go evaluates call arguments
+// left-to-right, so x is used before x.Validate() within one node.
+func UseThenValidateInSameNode(raw string) { // want `parameter "raw" of use_before_validate\.UseThenValidateInSameNode uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	useThenValidate(x, x.Validate())
+}
+
+// ValidateThenUseInSameNode — should NOT be flagged. Validate argument is
+// evaluated before the value-use argument in the same call expression.
+func ValidateThenUseInSameNode(raw string) { // want `parameter "raw" of use_before_validate\.ValidateThenUseInSameNode uses primitive type string`
+	x := CommandName(raw)
+	validateThenUse(x.Validate(), x)
+}

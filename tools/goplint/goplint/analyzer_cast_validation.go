@@ -261,9 +261,16 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node,
 	if parent == nil {
 		return false
 	}
+	castNode, nonParenParent := parentAfterParens(call, parentMap)
+	if nonParenParent != nil {
+		parent = nonParenParent
+	}
 
 	// Map index: m[DddType(s)]
-	if idx, ok := parent.(*ast.IndexExpr); ok && idx.Index == call && isMapIndexExpr(pass, idx) {
+	if idx, ok := parent.(*ast.IndexExpr); ok && idx.Index == castNode && isMapIndexExpr(pass, idx) {
+		if isMapIndexWriteLHS(idx, parentMap) {
+			return false
+		}
 		return true
 	}
 
@@ -275,7 +282,7 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node,
 	}
 
 	// Switch tag: switch DddType(s) { case ...: } — semantically a comparison.
-	if sw, ok := parent.(*ast.SwitchStmt); ok && sw.Tag == call {
+	if sw, ok := parent.(*ast.SwitchStmt); ok && sw.Tag == castNode {
 		return true
 	}
 
@@ -356,6 +363,22 @@ func isMapIndexExpr(pass *analysis.Pass, idx *ast.IndexExpr) bool {
 	}
 	_, ok := types.Unalias(baseType).Underlying().(*types.Map)
 	return ok
+}
+
+func isMapIndexWriteLHS(idx *ast.IndexExpr, parentMap map[ast.Node]ast.Node) bool {
+	if idx == nil {
+		return false
+	}
+	assign, ok := parentMap[idx].(*ast.AssignStmt)
+	if !ok {
+		return false
+	}
+	for _, lhs := range assign.Lhs {
+		if stripParens(lhs) == idx {
+			return true
+		}
+	}
+	return false
 }
 
 // isPackageCall reports whether the given call expression targets a function
@@ -531,13 +554,29 @@ func isErrorMessageExpr(pass *analysis.Pass, expr ast.Expr) bool {
 		return false
 	}
 
-	// Pattern 1: x.Error() — error interface method.
-	if sel.Sel.Name == "Error" && len(call.Args) == 0 {
+	// Pattern 1: x.Error() on values implementing the built-in error interface.
+	if sel.Sel.Name == "Error" && len(call.Args) == 0 && receiverImplementsError(pass, sel.X) {
 		return true
 	}
 
 	// Pattern 2+3: display-only packages (fmt, strconv).
 	return isFmtCall(pass, call) || isStrconvCall(pass, call)
+}
+
+func receiverImplementsError(pass *analysis.Pass, expr ast.Expr) bool {
+	if pass == nil || pass.TypesInfo == nil || expr == nil {
+		return false
+	}
+	receiverType := pass.TypesInfo.TypeOf(expr)
+	if receiverType == nil {
+		return false
+	}
+	errorType := types.Universe.Lookup("error").Type()
+	if errorType == nil {
+		return false
+	}
+	return types.Implements(receiverType, errorType.Underlying().(*types.Interface)) ||
+		types.Implements(types.NewPointer(receiverType), errorType.Underlying().(*types.Interface))
 }
 
 // isRawPrimitive reports whether t is a bare primitive type (string, int, etc.)

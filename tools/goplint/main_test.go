@@ -3,9 +3,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/tools/goplint/goplint"
@@ -33,6 +38,11 @@ func TestExtractUpdateBaselinePath(t *testing.T) {
 			name: "mixed with other flags",
 			args: []string{"-check-all", "--update-baseline=b.toml", "-config=e.toml", "./..."},
 			want: "b.toml",
+		},
+		{
+			name: "space separated value",
+			args: []string{"--update-baseline", "out.toml", "./..."},
+			want: "out.toml",
 		},
 		{
 			name: "absent flag returns empty",
@@ -96,6 +106,11 @@ func TestBuildSubprocessArgs(t *testing.T) {
 			want: []string{"-json", "-check-all", "-config=e.toml", "./internal/...", "./pkg/..."},
 		},
 		{
+			name: "removes space separated update-baseline and value",
+			args: []string{"--update-baseline", "out.toml", "-check-all", "./..."},
+			want: []string{"-json", "-check-all", "./..."},
+		},
+		{
 			name: "empty args adds json only",
 			args: []string{},
 			want: []string{"-json"},
@@ -125,7 +140,10 @@ func TestHasFlag(t *testing.T) {
 		{name: "single-dash present", args: []string{"-global"}, flag: "global", want: true},
 		{name: "double-dash present", args: []string{"--global"}, flag: "global", want: true},
 		{name: "absent", args: []string{"-check-all"}, flag: "global", want: false},
-		{name: "value form is not a bare flag", args: []string{"--global=true"}, flag: "global", want: false},
+		{name: "value form true", args: []string{"--global=true"}, flag: "global", want: true},
+		{name: "value form false", args: []string{"--global=false"}, flag: "global", want: false},
+		{name: "space value true", args: []string{"--global", "true"}, flag: "global", want: true},
+		{name: "space value false", args: []string{"--global", "false"}, flag: "global", want: false},
 	}
 
 	for _, tt := range tests {
@@ -134,6 +152,32 @@ func TestHasFlag(t *testing.T) {
 			got := hasFlag(tt.args, tt.flag)
 			if got != tt.want {
 				t.Errorf("hasFlag(%v, %q) = %v, want %v", tt.args, tt.flag, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHasFlagToken(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+		flag string
+		want bool
+	}{
+		{name: "double dash bare", args: []string{"--global"}, flag: "global", want: true},
+		{name: "double dash equals", args: []string{"--global=false"}, flag: "global", want: true},
+		{name: "single dash equals", args: []string{"-global=true"}, flag: "global", want: true},
+		{name: "absent", args: []string{"-check-all"}, flag: "global", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := hasFlagToken(tt.args, tt.flag)
+			if got != tt.want {
+				t.Errorf("hasFlagToken(%v, %q) = %v, want %v", tt.args, tt.flag, got, tt.want)
 			}
 		})
 	}
@@ -162,6 +206,11 @@ func TestBuildGlobalAuditArgs(t *testing.T) {
 			args: []string{"--global", "-config=exceptions.toml", "./pkg/..."},
 			want: []string{"-audit-exceptions", "-json", "-config=exceptions.toml", "./pkg/..."},
 		},
+		{
+			name: "removes bool value token when explicit",
+			args: []string{"--global", "true", "-config=exceptions.toml", "./pkg/..."},
+			want: []string{"-audit-exceptions", "-json", "-config=exceptions.toml", "./pkg/..."},
+		},
 	}
 
 	for _, tt := range tests {
@@ -173,6 +222,169 @@ func TestBuildGlobalAuditArgs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAggregateGlobalStalePatterns(t *testing.T) {
+	t.Parallel()
+
+	t.Run("deduplicates package coverage per pattern", func(t *testing.T) {
+		t.Parallel()
+		stream := append(
+			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/a": {
+					"goplint": {
+						{Category: goplint.CategoryStaleException, Message: `stale exception: pattern "dup.pattern" matched no diagnostics (reason: x)`},
+						{Category: goplint.CategoryStaleException, Message: `stale exception: pattern "dup.pattern" matched no diagnostics (reason: x)`},
+					},
+				},
+			}),
+			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/b": {
+					"goplint": {},
+				},
+			})...,
+		)
+
+		patterns, totalPatterns, totalPackages, err := aggregateGlobalStalePatterns(stream)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if totalPackages != 2 {
+			t.Fatalf("expected 2 packages, got %d", totalPackages)
+		}
+		if totalPatterns != 1 {
+			t.Fatalf("expected 1 stale pattern, got %d", totalPatterns)
+		}
+		if len(patterns) != 0 {
+			t.Fatalf("expected no globally stale patterns, got %v", patterns)
+		}
+	})
+
+	t.Run("reports patterns stale in all packages", func(t *testing.T) {
+		t.Parallel()
+		stream := append(
+			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/a": {
+					"goplint": {
+						{Category: goplint.CategoryStaleException, Message: `stale exception: pattern "shared.pattern" matched no diagnostics (reason: x)`},
+					},
+				},
+			}),
+			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/b": {
+					"goplint": {
+						{Category: goplint.CategoryStaleException, Message: `stale exception: pattern "shared.pattern" matched no diagnostics (reason: y)`},
+					},
+				},
+			})...,
+		)
+
+		patterns, totalPatterns, totalPackages, err := aggregateGlobalStalePatterns(stream)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if totalPackages != 2 {
+			t.Fatalf("expected 2 packages, got %d", totalPackages)
+		}
+		if totalPatterns != 1 {
+			t.Fatalf("expected 1 stale pattern, got %d", totalPatterns)
+		}
+		if !slices.Equal(patterns, []string{"shared.pattern"}) {
+			t.Fatalf("unexpected globally stale patterns: got %v", patterns)
+		}
+	})
+
+	t.Run("no packages analyzed returns zero counts", func(t *testing.T) {
+		t.Parallel()
+		patterns, totalPatterns, totalPackages, err := aggregateGlobalStalePatterns(nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(patterns) != 0 {
+			t.Fatalf("expected no patterns, got %v", patterns)
+		}
+		if totalPatterns != 0 || totalPackages != 0 {
+			t.Fatalf("expected zero counts, got patterns=%d packages=%d", totalPatterns, totalPackages)
+		}
+	})
+
+	t.Run("malformed stream returns decode error", func(t *testing.T) {
+		t.Parallel()
+		_, _, _, err := aggregateGlobalStalePatterns([]byte("{invalid"))
+		if err == nil {
+			t.Fatal("expected decode error")
+		}
+	})
+}
+
+func TestAuditExceptionsGlobalExitBehavior(t *testing.T) {
+	originalRunCommand := runCommand
+	t.Cleanup(func() {
+		runCommand = originalRunCommand
+	})
+
+	t.Run("fails when globally stale patterns are found", func(t *testing.T) {
+		stream := append(
+			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/a": {
+					"goplint": {
+						{Category: goplint.CategoryStaleException, Message: `stale exception: pattern "shared.pattern" matched no diagnostics (reason: x)`},
+					},
+				},
+			}),
+			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/b": {
+					"goplint": {
+						{Category: goplint.CategoryStaleException, Message: `stale exception: pattern "shared.pattern" matched no diagnostics (reason: y)`},
+					},
+				},
+			})...,
+		)
+
+		runCommand = func(cmd *exec.Cmd) error {
+			buf, ok := cmd.Stdout.(*bytes.Buffer)
+			if !ok {
+				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
+			}
+			_, err := buf.Write(stream)
+			return err
+		}
+
+		err := auditExceptionsGlobal([]string{"--global", "./..."})
+		if err == nil {
+			t.Fatal("expected non-nil error when globally stale patterns exist")
+		}
+	})
+
+	t.Run("succeeds when no globally stale patterns are found", func(t *testing.T) {
+		stream := append(
+			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/a": {
+					"goplint": {
+						{Category: goplint.CategoryStaleException, Message: `stale exception: pattern "only.in.a" matched no diagnostics (reason: x)`},
+					},
+				},
+			}),
+			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/b": {
+					"goplint": {},
+				},
+			})...,
+		)
+
+		runCommand = func(cmd *exec.Cmd) error {
+			buf, ok := cmd.Stdout.(*bytes.Buffer)
+			if !ok {
+				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
+			}
+			_, err := buf.Write(stream)
+			return err
+		}
+
+		if err := auditExceptionsGlobal([]string{"--global", "./..."}); err != nil {
+			t.Fatalf("expected nil error when no globally stale patterns exist, got %v", err)
+		}
+	})
 }
 
 func TestFilterAndEnsureFlags(t *testing.T) {
@@ -291,6 +503,100 @@ func TestTolerateAnalyzerExit(t *testing.T) {
 		exitErr := makeExitError(t)
 		if err := tolerateAnalyzerExit(exitErr, 0); err == nil {
 			t.Fatal("expected error for empty stdout")
+		}
+	})
+}
+
+func TestGenerateBaseline(t *testing.T) {
+	t.Run("happy path writes baseline file", func(t *testing.T) {
+		originalRunCommand := runCommand
+		t.Cleanup(func() {
+			runCommand = originalRunCommand
+		})
+
+		stream := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {
+				"goplint": {
+					{Category: goplint.CategoryPrimitive, Posn: "pkg/a.go:10:2", Message: "struct field pkg.A.B uses primitive type string"},
+					{Category: goplint.CategoryUnusedValidateResult, Posn: "pkg/a.go:20:2", Message: "Validate() result discarded — error return is unused"},
+					{Category: goplint.CategoryUnusedValidateResult, Posn: "pkg/a.go:30:2", Message: "Validate() result discarded — error return is unused"},
+					{Category: goplint.CategoryStaleException, Posn: "pkg/a.go:1:1", Message: `stale exception: pattern "x" matched no diagnostics (reason: y)`},
+				},
+			},
+		})
+
+		runCommand = func(cmd *exec.Cmd) error {
+			buf, ok := cmd.Stdout.(*bytes.Buffer)
+			if !ok {
+				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
+			}
+			_, err := buf.Write(stream)
+			return err
+		}
+
+		outPath := filepath.Join(t.TempDir(), "baseline.toml")
+		if err := generateBaseline(outPath, []string{"--update-baseline", outPath, "./..."}); err != nil {
+			t.Fatalf("generateBaseline() error = %v", err)
+		}
+
+		data, err := os.ReadFile(outPath)
+		if err != nil {
+			t.Fatalf("reading baseline output: %v", err)
+		}
+		content := string(data)
+		if !strings.Contains(content, "[primitive]") {
+			t.Fatal("expected primitive section in baseline output")
+		}
+		if !strings.Contains(content, "[unused-validate-result]") {
+			t.Fatal("expected unused-validate-result section in baseline output")
+		}
+		if strings.Contains(content, "[stale-exception]") {
+			t.Fatal("did not expect stale-exception section in baseline output")
+		}
+		if got := strings.Count(content, "Validate() result discarded — error return is unused"); got != 2 {
+			t.Fatalf("expected 2 validate-usage entries, got %d", got)
+		}
+	})
+
+	t.Run("malformed JSON stream returns parse error", func(t *testing.T) {
+		originalRunCommand := runCommand
+		t.Cleanup(func() {
+			runCommand = originalRunCommand
+		})
+		runCommand = func(cmd *exec.Cmd) error {
+			buf, ok := cmd.Stdout.(*bytes.Buffer)
+			if !ok {
+				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
+			}
+			_, err := buf.Write([]byte("{invalid"))
+			return err
+		}
+		outPath := filepath.Join(t.TempDir(), "baseline.toml")
+		err := generateBaseline(outPath, []string{"--update-baseline", outPath, "./..."})
+		if err == nil {
+			t.Fatal("expected parse error from malformed JSON stream")
+		}
+		if !strings.Contains(err.Error(), "parsing analysis output") {
+			t.Fatalf("expected parsing analysis output error, got %v", err)
+		}
+	})
+
+	t.Run("non-exit command error is returned", func(t *testing.T) {
+		originalRunCommand := runCommand
+		t.Cleanup(func() {
+			runCommand = originalRunCommand
+		})
+
+		expectedErr := errors.New("boom")
+		runCommand = func(*exec.Cmd) error { return expectedErr }
+
+		outPath := filepath.Join(t.TempDir(), "baseline.toml")
+		err := generateBaseline(outPath, []string{"--update-baseline", outPath, "./..."})
+		if err == nil {
+			t.Fatal("expected command error")
+		}
+		if !strings.Contains(err.Error(), "running analyzer subprocess") {
+			t.Fatalf("expected wrapped subprocess error, got %v", err)
 		}
 	})
 }
@@ -426,9 +732,33 @@ func TestParseAnalysisJSON(t *testing.T) {
 		if len(findings[category]) != 1 {
 			t.Fatalf("expected 1 %s finding, got %d", category, len(findings[category]))
 		}
-		wantID := goplint.FallbackFindingID(category, message)
+		wantID := goplint.FallbackFindingIDForDiagnostic(category, "example.com/pkg", message)
 		if findings[category][0].ID != wantID {
 			t.Errorf("expected fallback ID %q, got %q", wantID, findings[category][0].ID)
+		}
+	})
+
+	t.Run("fallback ID uses position to keep repeated messages distinct", func(t *testing.T) {
+		t.Parallel()
+		const (
+			category = goplint.CategoryUnusedValidateResult
+			message  = "Validate() result discarded — error return is unused"
+		)
+		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {
+				"goplint": {
+					{Category: category, Posn: "pkg/file.go:10:2", Message: message},
+					{Category: category, Posn: "pkg/file.go:20:2", Message: message},
+				},
+			},
+		})
+
+		findings, err := parseAnalysisJSON(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(findings[category]) != 2 {
+			t.Fatalf("expected 2 %s findings, got %d", category, len(findings[category]))
 		}
 	})
 
@@ -561,6 +891,25 @@ func TestParseAnalysisJSON(t *testing.T) {
 			t.Errorf("expected 1 primitive finding, got %d", len(findings["primitive"]))
 		}
 	})
+}
+
+func TestStableDiagnosticPosKey(t *testing.T) {
+	t.Parallel()
+
+	got := stableDiagnosticPosKey("example.com/pkg", "/tmp/work/pkg/file.go:10:2")
+	want := "example.com/pkg:file.go:10:2"
+	if got != want {
+		t.Fatalf("stableDiagnosticPosKey() = %q, want %q", got, want)
+	}
+}
+
+func TestCanonicalPackagePath(t *testing.T) {
+	t.Parallel()
+
+	got := canonicalPackagePath("example.com/pkg [example.com/pkg.test]")
+	if got != "example.com/pkg" {
+		t.Fatalf("canonicalPackagePath() = %q, want %q", got, "example.com/pkg")
+	}
 }
 
 // makeAnalysisJSON serializes the go/analysis -json output format for testing.

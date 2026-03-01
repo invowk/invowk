@@ -99,12 +99,12 @@ func run(pass *analysis.Pass) (any, error) {
 }
 
 func loadRunInputs(rc runConfig) (*ExceptionConfig, *BaselineConfig, error) {
-	cfg, err := loadConfig(rc.configPath, configPathExplicit)
+	cfg, err := loadConfigCached(rc.configPath, rc.configPathExplicit)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	bl, err := loadBaseline(rc.baselinePath, baselinePathExplicit)
+	bl, err := loadBaselineCached(rc.baselinePath, rc.baselinePathExplicit)
 	if err != nil {
 		return nil, nil, err
 	}

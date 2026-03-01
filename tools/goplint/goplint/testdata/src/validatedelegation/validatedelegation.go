@@ -458,3 +458,41 @@ func (c *FourLevelHelperConfig) level3() error {
 	}
 	return c.FieldMode.Validate()
 }
+
+// --- Pointer validatable fields ---
+
+//goplint:validate-all
+type PointerCompleteConfig struct {
+	FieldName *Name
+	FieldMode *Mode
+}
+
+func (c *PointerCompleteConfig) Validate() error {
+	if c.FieldName != nil {
+		if err := c.FieldName.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.FieldMode != nil {
+		if err := c.FieldMode.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//goplint:validate-all
+type PointerIncompleteConfig struct { // want `validatedelegation\.PointerIncompleteConfig\.Validate\(\) does not delegate to field FieldMode which has Validate\(\)`
+	FieldName *Name
+	FieldMode *Mode
+}
+
+func (c *PointerIncompleteConfig) Validate() error {
+	if c.FieldName != nil {
+		if err := c.FieldName.Validate(); err != nil {
+			return err
+		}
+	}
+	// FieldMode.Validate() is missing!
+	return nil
+}

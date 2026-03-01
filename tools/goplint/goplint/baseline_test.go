@@ -98,6 +98,36 @@ entries = [
 		}
 	})
 
+	t.Run("unknown top-level baseline category returns error", func(t *testing.T) {
+		t.Parallel()
+		content := `
+[unknown-category]
+entries = [
+    { id = "id-1", message = "x" },
+]
+`
+		path := writeTempFile(t, "unknown-category.toml", content)
+		_, err := loadBaseline(path, false)
+		if err == nil {
+			t.Fatal("expected error for unknown top-level baseline category")
+		}
+	})
+
+	t.Run("unknown field in entry returns error", func(t *testing.T) {
+		t.Parallel()
+		content := `
+[primitive]
+entries = [
+    { id = "id-1", message = "x", extra = "unexpected" },
+]
+`
+		path := writeTempFile(t, "unknown-entry-field.toml", content)
+		_, err := loadBaseline(path, false)
+		if err == nil {
+			t.Fatal("expected error for unknown baseline entry field")
+		}
+	})
+
 	t.Run("nonexistent file returns error when strict", func(t *testing.T) {
 		t.Parallel()
 		_, err := loadBaseline("/nonexistent/path/baseline.toml", true)
@@ -105,6 +135,32 @@ entries = [
 			t.Fatal("expected error for missing baseline in strict mode")
 		}
 	})
+}
+
+func TestLoadBaselineCached_ReusesConfig(t *testing.T) {
+	content := `
+[primitive]
+entries = [
+    { id = "id-1", message = "struct field pkg.Foo.Bar uses primitive type string" },
+]
+`
+	path := writeTempFile(t, "cached-baseline.toml", content)
+
+	first, err := loadBaselineCached(path, false)
+	if err != nil {
+		t.Fatalf("first loadBaselineCached error: %v", err)
+	}
+	second, err := loadBaselineCached(path, false)
+	if err != nil {
+		t.Fatalf("second loadBaselineCached error: %v", err)
+	}
+
+	if first != second {
+		t.Fatal("expected cached baseline pointer reuse across loads")
+	}
+	if !second.ContainsFinding(CategoryPrimitive, "id-1", "") {
+		t.Fatal("expected cached baseline to retain loaded entries")
+	}
 }
 
 func TestBaselineContains(t *testing.T) {
@@ -277,6 +333,26 @@ messages = [
 				t.Errorf("Contains(%q, %q) = %v, want %v", tt.category, tt.message, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestContainsFinding_StrictIDNoMessageFallback(t *testing.T) {
+	t.Parallel()
+
+	content := `
+[primitive]
+messages = [
+    "struct field pkg.Foo.Bar uses primitive type string",
+]
+`
+	path := writeTempFile(t, "baseline.toml", content)
+	bl, err := loadBaseline(path, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if bl.ContainsFinding(CategoryPrimitive, "non-matching-id", "struct field pkg.Foo.Bar uses primitive type string") {
+		t.Fatal("expected non-matching ID to fail without message fallback")
 	}
 }
 

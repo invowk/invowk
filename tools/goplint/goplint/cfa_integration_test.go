@@ -136,6 +136,31 @@ func TestCheckCastValidationCFAConditionalContexts(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "cfa_conditional_contexts")
 }
 
+// TestCheckCastValidationCFANonExecutableClosure verifies CFA skips detached
+// closure literals while still analyzing executable closures (IIFE/go/defer).
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFANonExecutableClosure(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "cfa_non_executable_closure")
+}
+
+// TestCheckCastValidationCFAExecutableClosureVar verifies that closures bound
+// to local variables are analyzed when invoked (f(), defer f(), go f()) and
+// remain ignored when only stored.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFAExecutableClosureVar(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "cfa_executable_closure_var")
+}
+
 // TestCFAEnabledByDefault verifies that CFA is enabled by default when
 // --check-cast-validation is active.
 //
