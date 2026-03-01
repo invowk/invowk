@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,40 +33,52 @@ var runCommand = func(cmd *exec.Cmd) error {
 	return cmd.Run()
 }
 
-func main() {
-	args := os.Args[1:]
+var generateBaselineHandler = generateBaseline
+var auditExceptionsGlobalHandler = auditExceptionsGlobal
 
+func main() {
+	nextArgs, exitCode, handled := dispatch(os.Args[1:], os.Stderr)
+	if handled {
+		os.Exit(exitCode)
+		return
+	}
+
+	os.Args = append(os.Args[:1], nextArgs...)
+	singlechecker.Main(goplint.Analyzer)
+}
+
+func dispatch(args []string, stderr io.Writer) (nextArgs []string, exitCode int, handled bool) {
 	// Detect --update-baseline before singlechecker takes over flag parsing.
 	// singlechecker.Main() calls os.Exit(), so we must intercept first.
 	if hasFlagToken(args, "update-baseline") {
 		outputPath := extractUpdateBaselinePath(args)
 		if outputPath == "" {
-			fmt.Fprintln(os.Stderr, "goplint: update-baseline: missing required path value")
-			os.Exit(2)
+			fmt.Fprintln(stderr, "goplint: update-baseline: missing required path value")
+			return nil, 2, true
 		}
-		if err := generateBaseline(outputPath, args); err != nil {
-			fmt.Fprintf(os.Stderr, "goplint: update-baseline: %v\n", err)
-			os.Exit(1)
+		if err := generateBaselineHandler(outputPath, args); err != nil {
+			fmt.Fprintf(stderr, "goplint: update-baseline: %v\n", err)
+			return nil, 1, true
 		}
-		return
+		return nil, 0, true
 	}
 
 	// Detect --global (only meaningful with --audit-exceptions).
 	// Runs self as subprocess to aggregate stale exceptions across all packages.
 	if hasFlagToken(args, "global") {
 		if hasFlag(args, "global") {
-			if err := auditExceptionsGlobal(args); err != nil {
-				fmt.Fprintf(os.Stderr, "goplint: audit-exceptions-global: %v\n", err)
-				os.Exit(1)
+			if err := auditExceptionsGlobalHandler(args); err != nil {
+				fmt.Fprintf(stderr, "goplint: audit-exceptions-global: %v\n", err)
+				return nil, 1, true
 			}
-			return
+			return nil, 0, true
 		}
 		// Explicitly disabled (--global=false): strip the meta-flag before
 		// delegating to singlechecker, which does not recognize it.
-		os.Args = append(os.Args[:1], removeFlagWithOptionalValue(args, "global", true)...)
+		return removeFlagWithOptionalValue(args, "global", true), 0, false
 	}
 
-	singlechecker.Main(goplint.Analyzer)
+	return args, 0, false
 }
 
 // extractUpdateBaselinePath scans CLI args for:
@@ -428,12 +441,12 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 			return nil, fmt.Errorf("decoding JSON object: %w", err)
 		}
 
-			for pkgPath, analyzers := range result {
-				canonicalPkgPath := canonicalPackagePath(pkgPath)
-				diags, ok := analyzers["goplint"]
-				if !ok {
-					continue
-				}
+		for pkgPath, analyzers := range result {
+			canonicalPkgPath := canonicalPackagePath(pkgPath)
+			diags, ok := analyzers["goplint"]
+			if !ok {
+				continue
+			}
 			for _, d := range diags {
 				if d.Category == "" || d.Message == "" {
 					continue
@@ -444,17 +457,17 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 				if !goplint.IsBaselineSuppressibleCategory(d.Category) {
 					continue
 				}
-					findingID := goplint.FindingIDFromDiagnosticURL(d.URL)
-					if findingID == "" {
-						// Legacy compatibility for diagnostics emitted without URL.
-						// Include position when available to keep repeated same-message
-						// diagnostics distinct.
-						findingID = goplint.FallbackFindingIDForDiagnostic(
-							d.Category,
-							stableDiagnosticPosKey(canonicalPkgPath, d.Posn),
-							d.Message,
-						)
-					}
+				findingID := goplint.FindingIDFromDiagnosticURL(d.URL)
+				if findingID == "" {
+					// Legacy compatibility for diagnostics emitted without URL.
+					// Include position when available to keep repeated same-message
+					// diagnostics distinct.
+					findingID = goplint.FallbackFindingIDForDiagnostic(
+						d.Category,
+						stableDiagnosticPosKey(canonicalPkgPath, d.Posn),
+						d.Message,
+					)
+				}
 
 				if seen[d.Category] == nil {
 					seen[d.Category] = make(map[string]goplint.BaselineFinding)
@@ -489,7 +502,8 @@ func canonicalPackagePath(pkgPath string) string {
 
 // stableDiagnosticPosKey normalizes analysis JSON positions into a
 // machine-independent key:
-//   <pkg-path>:<base-file>:<line>:<col>
+//
+//	<pkg-path>:<base-file>:<line>:<col>
 //
 // This avoids embedding absolute filesystem paths in fallback finding IDs.
 func stableDiagnosticPosKey(pkgPath, posn string) string {
