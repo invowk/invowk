@@ -139,25 +139,26 @@ func TestNewRunConfig(t *testing.T) {
 		}
 	})
 
-	t.Run("check-all does NOT enable audit-exceptions", func(t *testing.T) {
+	t.Run("check-all does NOT enable opt-in and audit modes", func(t *testing.T) {
 		resetFlags(t)
 		setFlag(t, "check-all", "true")
 
 		rc := newRunConfig()
 
 		if rc.auditExceptions {
-			t.Error("expected auditExceptions = false (--check-all should NOT enable it)")
+			t.Error("expected auditExceptions = false (config maintenance tool)")
 		}
-	})
-
-	t.Run("check-all does NOT enable suggest-validate-all", func(t *testing.T) {
-		resetFlags(t)
-		setFlag(t, "check-all", "true")
-
-		rc := newRunConfig()
-
 		if rc.suggestValidateAll {
-			t.Error("expected suggestValidateAll = false (--check-all should NOT enable it)")
+			t.Error("expected suggestValidateAll = false (advisory mode)")
+		}
+		if rc.checkUseBeforeValidateCross {
+			t.Error("expected checkUseBeforeValidateCross = false (opt-in, higher FP surface)")
+		}
+		if rc.checkEnumSync {
+			t.Error("expected checkEnumSync = false (requires per-type opt-in directive)")
+		}
+		if rc.auditReviewDates {
+			t.Error("expected auditReviewDates = false (config maintenance tool)")
 		}
 	})
 

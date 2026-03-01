@@ -419,7 +419,7 @@ func run(pass *analysis.Pass) (any, error) {
 		reportMissingStructValidate(pass, exportedStructs, constructorDetails, methodSeen, cfg, bl)
 	}
 	if rc.checkConstructorValidates {
-		inspectConstructorValidates(pass, constructorDetails, constantOnlyTypes, cfg, bl)
+		inspectConstructorValidates(pass, constructorDetails, constantOnlyTypes, cfg, bl, rc.noCFA)
 	}
 
 	// Constructor return error — constructors for validatable types should return error.

@@ -3,6 +3,7 @@
 package castvalidation
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -447,4 +448,30 @@ func ErrorsIsAutoSkip(input int) bool { // want `parameter "input" of castvalida
 func ErrorsAsAutoSkip() bool {
 	err := errors.New("test")
 	return errors.As(err, ErrorCode(runtimeInt())) // NOT flagged — comparison
+}
+
+// --- bytes.Contains/HasPrefix/HasSuffix/EqualFold comparison auto-skip tests ---
+
+// BytesContainsAutoSkip — should NOT be flagged (bytes.Contains is
+// a comparison predicate — the cast value is tested for containment).
+func BytesContainsAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.BytesContainsAutoSkip uses primitive type string`
+	return bytes.Contains([]byte(string(CommandName(input))), []byte("run")) // NOT flagged — comparison
+}
+
+// BytesHasPrefixAutoSkip — should NOT be flagged (bytes.HasPrefix is
+// a comparison predicate — the cast value is tested for prefix matching).
+func BytesHasPrefixAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.BytesHasPrefixAutoSkip uses primitive type string`
+	return bytes.HasPrefix([]byte(string(CommandName(input))), []byte("cmd")) // NOT flagged — comparison
+}
+
+// BytesHasSuffixAutoSkip — should NOT be flagged (bytes.HasSuffix is
+// a comparison predicate — the cast value is tested for suffix matching).
+func BytesHasSuffixAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.BytesHasSuffixAutoSkip uses primitive type string`
+	return bytes.HasSuffix([]byte(string(CommandName(input))), []byte("-run")) // NOT flagged — comparison
+}
+
+// BytesEqualFoldAutoSkip — should NOT be flagged (bytes.EqualFold is
+// a comparison predicate — the cast value is tested for case-insensitive equality).
+func BytesEqualFoldAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.BytesEqualFoldAutoSkip uses primitive type string`
+	return bytes.EqualFold([]byte(string(CommandName(input))), []byte("RUN")) // NOT flagged — comparison
 }

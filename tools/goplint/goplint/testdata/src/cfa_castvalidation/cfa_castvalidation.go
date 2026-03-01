@@ -6,6 +6,7 @@
 package cfa_castvalidation
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"log/slog"
@@ -397,4 +398,11 @@ func StringsContainsAutoSkipCFA(input string) bool { // want `parameter "input" 
 // StringsReplaceNotSkippedCFA — SHOULD be flagged (not a comparison function).
 func StringsReplaceNotSkippedCFA(input string) string { // want `parameter "input" of cfa_castvalidation\.StringsReplaceNotSkippedCFA uses primitive type string` `return value of cfa_castvalidation\.StringsReplaceNotSkippedCFA uses primitive type string`
 	return strings.ReplaceAll(string(CommandName(input)), "-", "_") // want `type conversion to CommandName from non-constant without Validate\(\) check`
+}
+
+// --- CFA: bytes.* comparison auto-skip ---
+
+// BytesContainsAutoSkipCFA — should NOT be flagged (comparison context).
+func BytesContainsAutoSkipCFA(input string) bool { // want `parameter "input" of cfa_castvalidation\.BytesContainsAutoSkipCFA uses primitive type string`
+	return bytes.Contains([]byte(string(CommandName(input))), []byte("prefix")) // NOT flagged — comparison
 }

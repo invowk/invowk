@@ -297,7 +297,7 @@ Eighteen additional analysis modes complement the primary primitive detection:
 
 ### `--check-all`
 
-Enables all DDD compliance checks (`--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`, `--check-use-before-validate`) in a single invocation. CFA is enabled by default (opt out with `--no-cfa`). This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions` and `--audit-review-dates` (config maintenance tools with per-package false positives).
+Enables all DDD compliance checks (`--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`, `--check-use-before-validate`, `--check-constructor-return-error`) in a single invocation. CFA is enabled by default (opt out with `--no-cfa`). This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions`, `--audit-review-dates` (config maintenance tools with per-package false positives), `--check-enum-sync` (requires per-type opt-in directive and CUE schema files), `--check-use-before-validate-cross` (opt-in, higher FP surface), and `--suggest-validate-all` (advisory mode).
 
 ### `--audit-exceptions`
 
@@ -366,6 +366,7 @@ Reports type conversions from raw primitives (string, int, etc.) to DDD Value Ty
 - **Chained `.Validate()`** (`DddType(s).Validate()`) — validated directly on cast result
 - **Error-message sources** (`DddType(err.Error())`, `DddType(fmt.Sprintf(...))`) — display text, not raw input
 - **`strings.*` comparison** arguments (`strings.Contains(string(DddType(s)), "prefix")`) — comparison predicates (Contains, HasPrefix, HasSuffix, EqualFold) are semantically comparison operations
+- **`bytes.*` comparison** arguments (`bytes.Contains([]byte(string(DddType(s))), ...)`) — byte-slice comparison predicates (Contains, HasPrefix, HasSuffix, EqualFold) mirror the `strings.*` exemptions
 - **`slices.*` comparison** arguments (`slices.Contains(items, DddType(s))`) — membership/lookup predicates (Contains, ContainsFunc, Index, IndexFunc) are semantically comparison operations
 - **`errors.*` comparison** arguments (`errors.Is(err, DddType(s))`) — error identity/type matching (Is, As) are semantically comparison operations
 - **Casts inside closures** (`go func() { DddType(s) }()`) — in AST mode, closure bodies are skipped to avoid false positive/negative from shared variable namespaces; with `--cfa`, closures are analyzed independently
@@ -403,11 +404,15 @@ Reports `NewXxx()` constructor calls where the error return is assigned to a bla
 
 Reports `NewXxx()` constructor functions that return types with a `Validate()` method but never call `Validate()` in their body. This enforces the `Validate() Wiring Rule` from `go-patterns.md` — constructors SHOULD call `Validate()` to enforce invariants at construction time.
 
+**CFA mode (default):** When a direct `.Validate()` call exists in the body, the check builds a CFG and verifies ALL return paths pass through a `.Validate()` call on the return type. A constructor that validates on only one branch (e.g., `if fast { return f, nil }` while the else branch calls `f.Validate()`) is flagged because the "fast" path skips validation. Use `--no-cfa` to fall back to AST-mode (any `.Validate()` call anywhere in the body is sufficient).
+
 **What gets flagged:**
 - `NewServer(addr string) (*Server, error)` where `Server` has `Validate()` but the body doesn't call it
+- `NewFoo(name string, fast bool) (*Foo, error)` where `Validate()` is only called on one return path (CFA mode)
 
 **What does NOT get flagged:**
-- Constructors that call `Validate()` anywhere in their body (any `.Validate()` selector call)
+- Constructors that call `Validate()` on ALL return paths (CFA mode)
+- Constructors that call `Validate()` anywhere in their body (AST mode with `--no-cfa`)
 - Constructors returning types without `Validate()` (not DDD types)
 - Constructors returning interfaces (may delegate validation to concrete implementations)
 - Functions with `//goplint:ignore` directive
@@ -585,6 +590,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **CFA `containsValidateCall` and deferred closures**: Does NOT descend into goroutine `*ast.FuncLit` bodies — `go func() { x.Validate() }()` does not validate the outer path. However, deferred closures ARE recognized: `defer func() { x.Validate() }()` counts as validating the outer path because Go guarantees deferred functions execute before return. The `deferredLits map[*ast.FuncLit]bool` parameter enables this distinction.
 - **CFA `if false` handling**: `go/cfg` does NOT perform constant folding. `if false { x.Validate() }` creates a structurally live block. However, the non-false path to return IS detected as unvalidated because the IfDone block has no Validate call.
 - **CFA path semantics**: CFA checks "path-to-return-without-validate," not "use-before-validate." If `x.Validate()` appears anywhere on a path from the cast to a return block, that path is considered validated regardless of whether `x` is used before the Validate call.
+- **Constructor-validates CFA**: `--check-constructor-validates` uses CFA (gated by `--no-cfa`) to verify ALL return paths pass through `.Validate()` on the return type. Uses `constructorHasUnvalidatedReturnPath` which builds a CFG and DFS-checks from the entry block. Type-identity matching (via `typeIdentityKey`) is used instead of variable-name matching. Transitive delegation is accepted without CFA path checking (too complex to track which callee covers which path).
 
 ## Test Architecture
 

@@ -338,3 +338,43 @@ func NewGateway(gc GatewayConfig) (*Gateway, error) { // want `constructor const
 	}
 	return &Gateway{config: gc}, nil
 }
+
+// --- Multi-path constructor: CFA detects partial validation ---
+
+type MultiPath struct {
+	name string // want `struct field constructorvalidates\.MultiPath\.name uses primitive type string`
+}
+
+func (m *MultiPath) Validate() error {
+	if m.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+// NewMultiPath validates on only one path — CFA flags this because the
+// "fast" path returns without calling Validate(). In AST mode (--no-cfa),
+// this would NOT be flagged because bodyCallsValidateOnType finds the
+// Validate() call in the else branch.
+func NewMultiPath(name string, fast bool) (*MultiPath, error) { // want `parameter "name" of constructorvalidates\.NewMultiPath uses primitive type string` `constructor constructorvalidates\.NewMultiPath returns constructorvalidates\.MultiPath which has Validate\(\) but never calls it`
+	m := &MultiPath{name: name}
+	if fast {
+		return m, nil // unvalidated return
+	}
+	return m, m.Validate()
+}
+
+// NewMultiPathAllPaths validates on ALL paths — NOT flagged by CFA.
+func NewMultiPathAllPaths(name string, mode bool) (*MultiPath, error) { // want `parameter "name" of constructorvalidates\.NewMultiPathAllPaths uses primitive type string`
+	m := &MultiPath{name: name}
+	if mode {
+		if err := m.Validate(); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := m.Validate(); err != nil {
+			return nil, err
+		}
+	}
+	return m, nil
+}

@@ -75,13 +75,21 @@ func findDefiningBlock(g *gocfg.CFG, target ast.Node) (*gocfg.Block, int) {
 	return nil, -1
 }
 
+// validateReceiverMatcher is a predicate that checks whether a .Validate()
+// call's receiver expression matches the target being tracked. This
+// abstraction enables the same AST walking and IIFE/deferred-closure logic
+// to serve both cast-validation (castTarget matching) and constructor-validates
+// (type-identity matching).
+type validateReceiverMatcher func(pass *analysis.Pass, receiverExpr ast.Expr) bool
+
 // nodeSliceContainsValidateCall checks whether any node in the given
 // slice contains a varName.Validate() selector call expression.
 // Deferred closures in deferredLits are descended into (their Validate
 // calls count as outer-path validation); other closures are skipped.
 func nodeSliceContainsValidateCall(pass *analysis.Pass, nodes []ast.Node, target castTarget, deferredLits map[*ast.FuncLit]bool) bool {
+	matcher := castTargetMatcher(pass, target)
 	for _, node := range nodes {
-		if containsValidateCallTarget(pass, node, target, deferredLits) {
+		if containsValidateOnReceiver(pass, node, matcher, deferredLits) {
 			return true
 		}
 	}
@@ -92,16 +100,47 @@ func nodeSliceContainsValidateCall(pass *analysis.Pass, nodes []ast.Node, target
 // descendants contains a varName.Validate() call.
 // This wrapper keeps tests and call sites that only need name matching.
 func containsValidateCall(node ast.Node, varName string, deferredLits map[*ast.FuncLit]bool) bool {
-	return containsValidateCallTarget(nil, node, newCastTargetFromName(varName), deferredLits)
+	target := newCastTargetFromName(varName)
+	matcher := castTargetMatcher(nil, target)
+	return containsValidateOnReceiver(nil, node, matcher, deferredLits)
 }
 
 // containsValidateCallTarget checks whether a single AST node or any of its
-// descendants contains a varName.Validate() call. Closures (FuncLit) are
-// NOT descended into by default — they are analyzed independently with
-// their own CFGs, and a Validate() call inside a goroutine closure does
-// not guarantee execution before the outer function returns. Immediately
-// invoked closures (func() { ... }()) are treated as synchronous and are
-// analyzed as part of the current path.
+// descendants contains a varName.Validate() call. Delegates to
+// containsValidateOnReceiver with a castTarget matcher.
+func containsValidateCallTarget(pass *analysis.Pass, node ast.Node, target castTarget, deferredLits map[*ast.FuncLit]bool) bool {
+	return containsValidateOnReceiver(pass, node, castTargetMatcher(pass, target), deferredLits)
+}
+
+// castTargetMatcher returns a validateReceiverMatcher that matches
+// using castTarget.matchesExpr. This bridges the castTarget API into
+// the generic matcher interface.
+func castTargetMatcher(pass *analysis.Pass, target castTarget) validateReceiverMatcher {
+	return func(p *analysis.Pass, expr ast.Expr) bool {
+		return target.matchesExpr(pass, expr)
+	}
+}
+
+// typeKeyMatcher returns a validateReceiverMatcher that matches using
+// type-identity key comparison. Used by constructor-validates CFA to
+// check whether a .Validate() call targets the constructor's return type.
+func typeKeyMatcher(returnTypeKey string) validateReceiverMatcher {
+	return func(pass *analysis.Pass, expr ast.Expr) bool {
+		receiverType := pass.TypesInfo.TypeOf(expr)
+		if receiverType == nil {
+			return false
+		}
+		return typeIdentityKey(receiverType) == returnTypeKey
+	}
+}
+
+// containsValidateOnReceiver checks whether a single AST node or any of its
+// descendants contains a .Validate() call whose receiver matches the given
+// predicate. Closures (FuncLit) are NOT descended into by default — they are
+// analyzed independently with their own CFGs, and a Validate() call inside a
+// goroutine closure does not guarantee execution before the outer function
+// returns. Immediately invoked closures (func() { ... }()) are treated as
+// synchronous and are analyzed as part of the current path.
 //
 // Exception: deferred closures (FuncLit nodes in deferredLits) ARE
 // descended into. Go guarantees that deferred functions execute before
@@ -109,7 +148,12 @@ func containsValidateCall(node ast.Node, varName string, deferredLits map[*ast.F
 // closure does validate the outer function's path. This distinguishes
 // defer func() { x.Validate() }() (safe) from go func() { x.Validate() }()
 // (unsafe). Immediate calls (func() { x.Validate() }()) are also safe.
-func containsValidateCallTarget(pass *analysis.Pass, node ast.Node, target castTarget, deferredLits map[*ast.FuncLit]bool) bool {
+func containsValidateOnReceiver(
+	pass *analysis.Pass,
+	node ast.Node,
+	matches validateReceiverMatcher,
+	deferredLits map[*ast.FuncLit]bool,
+) bool {
 	found := false
 	parentMap := buildParentMap(node)
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -124,7 +168,7 @@ func containsValidateCallTarget(pass *analysis.Pass, node ast.Node, target castT
 				if parent, ok := parentMap[call]; ok {
 					if _, isGo := parent.(*ast.GoStmt); !isGo {
 						if _, isDefer := parent.(*ast.DeferStmt); !isDefer {
-							if containsValidateCallTarget(pass, lit.Body, target, deferredLits) {
+							if containsValidateOnReceiver(pass, lit.Body, matches, deferredLits) {
 								found = true
 								return false
 							}
@@ -150,7 +194,7 @@ func containsValidateCallTarget(pass *analysis.Pass, node ast.Node, target castT
 		if sel.Sel.Name != "Validate" {
 			return true
 		}
-		if target.matchesExpr(pass, sel.X) {
+		if matches(pass, sel.X) {
 			found = true
 		}
 		return !found
@@ -164,6 +208,12 @@ func containsValidateCallTarget(pass *analysis.Pass, node ast.Node, target castT
 func blockContainsValidateCall(pass *analysis.Pass, block *gocfg.Block, target castTarget, deferredLits map[*ast.FuncLit]bool) bool {
 	return nodeSliceContainsValidateCall(pass, block.Nodes, target, deferredLits)
 }
+
+// blockValidateChecker is a predicate that reports whether a CFG block
+// contains a .Validate() call matching the caller's target. This abstraction
+// enables dfsUnvalidatedBlocks to serve both cast-validation (castTarget)
+// and constructor-validates (type-identity) use cases.
+type blockValidateChecker func(block *gocfg.Block) bool
 
 // hasPathToReturnWithoutValidate performs a depth-first search from the
 // defining block (starting after defIdx) through CFG successors. Returns
@@ -211,31 +261,45 @@ func hasPathToReturnWithoutValidate(
 // successor blocks reaches a return block without encountering a Validate()
 // call on varName. Deferred closures in deferredLits are descended into.
 func dfsUnvalidatedPath(pass *analysis.Pass, succs []*gocfg.Block, target castTarget, visited map[int32]bool, deferredLits map[*ast.FuncLit]bool) bool {
-	for _, succ := range succs {
-		if visited[succ.Index] {
+	checker := func(block *gocfg.Block) bool {
+		return blockContainsValidateCall(pass, block, target, deferredLits)
+	}
+	return dfsUnvalidatedBlocks(succs, visited, checker)
+}
+
+// dfsUnvalidatedBlocks performs a depth-first search through CFG blocks,
+// returning true if any path from the given blocks reaches a return block
+// (zero successors) without passing through a block where blockHasValidate
+// returns true. This is the shared DFS engine used by both cast-validation
+// (via dfsUnvalidatedPath) and constructor-validates (via
+// dfsConstructorUnvalidated). The blockHasValidate predicate abstracts the
+// validate-matching strategy.
+func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHasValidate blockValidateChecker) bool {
+	for _, block := range blocks {
+		if visited[block.Index] {
 			continue
 		}
-		visited[succ.Index] = true
+		visited[block.Index] = true
 
 		// Skip dead blocks — unreachable code can't constitute a
 		// real execution path.
-		if !succ.Live {
+		if !block.Live {
 			continue
 		}
 
 		// If this block contains Validate(), this path is safe.
-		if blockContainsValidateCall(pass, succ, target, deferredLits) {
+		if blockHasValidate(block) {
 			continue
 		}
 
 		// If this is a return block (no successors), we have an
 		// unvalidated path.
-		if len(succ.Succs) == 0 {
+		if len(block.Succs) == 0 {
 			return true
 		}
 
 		// Recurse into successors.
-		if dfsUnvalidatedPath(pass, succ.Succs, target, visited, deferredLits) {
+		if dfsUnvalidatedBlocks(block.Succs, visited, blockHasValidate) {
 			return true
 		}
 	}

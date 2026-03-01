@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
+	gocfg "golang.org/x/tools/go/cfg"
 )
 
 // maxTransitiveDepth is the maximum call chain depth for transitive
@@ -90,6 +91,7 @@ func inspectConstructorValidates(
 	constantOnlyTypes map[string]bool,
 	cfg *ExceptionConfig,
 	bl *BaselineConfig,
+	noCFA bool,
 ) {
 	pkgName := packageName(pass.Pkg)
 
@@ -161,9 +163,23 @@ func inspectConstructorValidates(
 			// Check if the constructor body calls .Validate() on the return type.
 			// This is receiver-type-aware: cfg.Validate() on a Config param does
 			// not satisfy the check when the constructor returns *Server.
-			// Also checks transitively through private factory calls.
-			if bodyCallsValidateOnType(pass, fn.Body, returnTypeKey) {
-				continue
+			//
+			// CFA mode (default): if a direct .Validate() call exists, build a
+			// CFG and verify ALL return paths pass through it. A constructor that
+			// validates on only one branch (e.g., "if fast { return f, nil }")
+			// is still flagged because the unvalidated path is a false negative.
+			//
+			// AST mode (--no-cfa): any .Validate() call anywhere in the body is
+			// sufficient (legacy heuristic, no path sensitivity).
+			directlyValidates := bodyCallsValidateOnType(pass, fn.Body, returnTypeKey)
+			if directlyValidates && !noCFA {
+				if !constructorHasUnvalidatedReturnPath(pass, fn, returnTypeKey) {
+					continue // CFA confirms: all paths validated
+				}
+				// CFA found an unvalidated return path. Fall through to
+				// transitive check — a helper may cover the other paths.
+			} else if directlyValidates {
+				continue // AST mode: any direct call is sufficient
 			}
 			if bodyCallsValidateTransitive(pass, fn.Body, returnType, returnTypePkgPath, returnTypeKey, nil, 0) {
 				continue
@@ -203,48 +219,12 @@ func inspectConstructorValidates(
 //   - Direct: s := &Server{...}; s.Validate()
 //   - Delegated: s, err := helperNewServer(); s.Validate()
 //   - Any .Validate() call on an expression whose resolved type matches returnTypeName
+//
+// Note: this does not handle deferred closures or IIFEs — it is a quick
+// pre-check before CFA. The full path-sensitive analysis in
+// constructorHasUnvalidatedReturnPath handles those cases.
 func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeKey string) bool {
-	found := false
-	ast.Inspect(body, func(n ast.Node) bool {
-		if found {
-			return false
-		}
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-		if sel.Sel.Name != "Validate" {
-			return true
-		}
-
-		// Resolve the type of the receiver expression (the X in X.Validate()).
-		receiverType := pass.TypesInfo.TypeOf(sel.X)
-		if receiverType == nil {
-			return true
-		}
-
-		// Dereference pointers: *Server → Server.
-		if ptr, ok := receiverType.(*types.Pointer); ok {
-			receiverType = ptr.Elem()
-		}
-
-		// Resolve aliases.
-		receiverType = types.Unalias(receiverType)
-
-		// Check full type identity (package path + type name) to avoid
-		// same-name collisions across packages.
-		if typeIdentityKey(receiverType) == returnTypeKey {
-			found = true
-			return false
-		}
-
-		return true
-	})
-	return found
+	return containsValidateOnReceiver(pass, body, typeKeyMatcher(returnTypeKey), nil)
 }
 
 // methodCallTarget identifies a method call on the constructor's return type
@@ -515,4 +495,50 @@ func findFuncBody(pass *analysis.Pass, funcName string) *ast.BlockStmt {
 		}
 	}
 	return nil
+}
+
+// constructorHasUnvalidatedReturnPath builds a CFG for the constructor body
+// and checks whether any path from entry to a return block lacks a .Validate()
+// call on the return type. Unlike the cast-validation CFA which starts from a
+// specific cast site, this starts from the function entry (block 0) and checks
+// all return paths.
+//
+// Returns true if any return path lacks Validate() on the return type.
+func constructorHasUnvalidatedReturnPath(
+	pass *analysis.Pass,
+	fn *ast.FuncDecl,
+	returnTypeKey string,
+) bool {
+	funcCFG := buildFuncCFG(fn.Body)
+	if funcCFG == nil || len(funcCFG.Blocks) == 0 {
+		return false
+	}
+	deferredLits := collectDeferredClosureLits(fn.Body)
+
+	// DFS from the entry block (index 0).
+	visited := make(map[int32]bool)
+	return dfsConstructorUnvalidated(pass, funcCFG.Blocks[0:1], returnTypeKey, visited, deferredLits)
+}
+
+// dfsConstructorUnvalidated recursively checks whether any path through the
+// given CFG blocks reaches a return block without encountering a .Validate()
+// call on the constructor's return type. Delegates to the shared
+// dfsUnvalidatedBlocks engine with a type-identity matcher.
+func dfsConstructorUnvalidated(
+	pass *analysis.Pass,
+	blocks []*gocfg.Block,
+	returnTypeKey string,
+	visited map[int32]bool,
+	deferredLits map[*ast.FuncLit]bool,
+) bool {
+	matcher := typeKeyMatcher(returnTypeKey)
+	checker := func(block *gocfg.Block) bool {
+		for _, node := range block.Nodes {
+			if containsValidateOnReceiver(pass, node, matcher, deferredLits) {
+				return true
+			}
+		}
+		return false
+	}
+	return dfsUnvalidatedBlocks(blocks, visited, checker)
 }
