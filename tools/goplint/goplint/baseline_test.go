@@ -138,6 +138,8 @@ entries = [
 }
 
 func TestLoadBaselineCached_ReusesConfig(t *testing.T) {
+	t.Parallel()
+
 	content := `
 [primitive]
 entries = [
@@ -145,12 +147,14 @@ entries = [
 ]
 `
 	path := writeTempFile(t, "cached-baseline.toml", content)
+	state := &flagState{}
+	resetFlagStateDefaults(state)
 
-	first, err := loadBaselineCached(path, false)
+	first, err := loadBaselineCached(state, path, false)
 	if err != nil {
 		t.Fatalf("first loadBaselineCached error: %v", err)
 	}
-	second, err := loadBaselineCached(path, false)
+	second, err := loadBaselineCached(state, path, false)
 	if err != nil {
 		t.Fatalf("second loadBaselineCached error: %v", err)
 	}
@@ -164,6 +168,8 @@ entries = [
 }
 
 func TestLoadBaselineCached_StrictModeCacheIsolation(t *testing.T) {
+	t.Parallel()
+
 	content := `
 [primitive]
 entries = [
@@ -171,12 +177,14 @@ entries = [
 ]
 `
 	path := writeTempFile(t, "strict-mode-baseline.toml", content)
+	state := &flagState{}
+	resetFlagStateDefaults(state)
 
-	nonStrict, err := loadBaselineCached(path, false)
+	nonStrict, err := loadBaselineCached(state, path, false)
 	if err != nil {
 		t.Fatalf("non-strict load error: %v", err)
 	}
-	strict, err := loadBaselineCached(path, true)
+	strict, err := loadBaselineCached(state, path, true)
 	if err != nil {
 		t.Fatalf("strict load error: %v", err)
 	}
@@ -185,7 +193,7 @@ entries = [
 	}
 
 	missingPath := filepath.Join(t.TempDir(), "missing-baseline.toml")
-	nonStrictMissing, err := loadBaselineCached(missingPath, false)
+	nonStrictMissing, err := loadBaselineCached(state, missingPath, false)
 	if err != nil {
 		t.Fatalf("non-strict missing baseline should not error: %v", err)
 	}
@@ -193,7 +201,7 @@ entries = [
 		t.Fatal("expected non-strict missing baseline load to return empty baseline")
 	}
 
-	if _, err := loadBaselineCached(missingPath, true); err == nil {
+	if _, err := loadBaselineCached(state, missingPath, true); err == nil {
 		t.Fatal("expected strict missing baseline load to return error")
 	}
 }

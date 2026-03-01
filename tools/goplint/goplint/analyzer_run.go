@@ -83,16 +83,9 @@ func newRunCollectors(rc runConfig, needs runNeeds) runCollectors {
 func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 	rc := newRunConfigForState(state)
 
-	cfg, bl, err := loadRunInputs(rc)
+	cfg, bl, err := loadRunInputs(state, rc)
 	if err != nil {
 		return nil, err
-	}
-
-	if rc.emitFindingsPath != "" {
-		if err := registerFindingSinkForPass(pass, rc.emitFindingsPath); err != nil {
-			return nil, err
-		}
-		defer unregisterFindingSinkForPass(pass)
 	}
 
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
@@ -100,18 +93,18 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 	collectors := newRunCollectors(rc, needs)
 
 	runTraversal(pass, insp, rc, cfg, bl, needs, &collectors)
-	runPostTraversalChecks(pass, rc, cfg, bl, &collectors)
+	runPostTraversalChecks(pass, state, rc, cfg, bl, &collectors)
 
 	return nil, nil
 }
 
-func loadRunInputs(rc runConfig) (*ExceptionConfig, *BaselineConfig, error) {
-	cfg, err := loadConfigCached(rc.configPath, rc.configPathExplicit)
+func loadRunInputs(state *flagState, rc runConfig) (*ExceptionConfig, *BaselineConfig, error) {
+	cfg, err := loadConfigCached(state, rc.configPath, rc.configPathExplicit)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	bl, err := loadBaselineCached(rc.baselinePath, rc.baselinePathExplicit)
+	bl, err := loadBaselineCached(state, rc.baselinePath, rc.baselinePathExplicit)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -224,6 +217,7 @@ func runTraversal(
 
 func runPostTraversalChecks(
 	pass *analysis.Pass,
+	state *flagState,
 	rc runConfig,
 	cfg *ExceptionConfig,
 	bl *BaselineConfig,
@@ -277,7 +271,7 @@ func runPostTraversalChecks(
 	}
 
 	if rc.auditReviewDates {
-		reportOverdueExceptions(pass, cfg)
+		reportOverdueExceptions(pass, cfg, state)
 	}
 
 	// Suggest validate-all: advisory mode for structs that may benefit from the directive.

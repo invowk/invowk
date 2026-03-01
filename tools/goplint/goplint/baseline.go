@@ -7,7 +7,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -57,8 +56,6 @@ type baselineCacheEntry struct {
 	config *BaselineConfig
 	err    error
 }
-
-var baselineCache sync.Map // map[baselineCacheKey]*baselineCacheEntry
 
 // BaselineFinding holds a single accepted finding entry in baseline v2.
 // ID is the stable semantic identity. Message is retained for readability.
@@ -112,16 +109,19 @@ func loadBaseline(path string, strictMissing bool) (*BaselineConfig, error) {
 
 // loadBaselineCached reads baseline data through a process-local cache.
 // BaselineConfig is immutable after load/buildLookup and can be safely reused.
-func loadBaselineCached(path string, strictMissing bool) (*BaselineConfig, error) {
+func loadBaselineCached(state *flagState, path string, strictMissing bool) (*BaselineConfig, error) {
+	if state == nil {
+		return loadBaseline(path, strictMissing)
+	}
 	key := baselineCacheKey{path: path, strictMissing: strictMissing}
-	if cached, ok := baselineCache.Load(key); ok {
+	if cached, ok := state.baselineCache.Load(key); ok {
 		entry := cached.(*baselineCacheEntry)
 		return entry.config, entry.err
 	}
 
 	cfg, err := loadBaseline(path, strictMissing)
 	entry := &baselineCacheEntry{config: cfg, err: err}
-	baselineCache.Store(key, entry)
+	state.baselineCache.Store(key, entry)
 	return cfg, err
 }
 

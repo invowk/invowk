@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -150,20 +151,19 @@ func TestDispatch(t *testing.T) {
 	})
 
 	t.Run("update-baseline success delegates to handler", func(t *testing.T) {
-		original := generateBaselineHandler
-		t.Cleanup(func() { generateBaselineHandler = original })
-
 		called := false
-		generateBaselineHandler = func(outputPath string, originalArgs []string) error {
-			called = true
-			if outputPath != "out.toml" {
-				t.Fatalf("outputPath = %q, want %q", outputPath, "out.toml")
-			}
-			return nil
+		deps := dispatchDeps{
+			generateBaseline: func(outputPath string, originalArgs []string) error {
+				called = true
+				if outputPath != "out.toml" {
+					t.Fatalf("outputPath = %q, want %q", outputPath, "out.toml")
+				}
+				return nil
+			},
+			auditExceptionsGlobal: func(_ []string) error { return nil },
 		}
-
 		var stderr bytes.Buffer
-		args, code, handled := dispatch([]string{"--update-baseline=out.toml", "./..."}, &stderr)
+		args, code, handled := dispatchWithDeps([]string{"--update-baseline=out.toml", "./..."}, &stderr, deps)
 		if !handled || code != 0 {
 			t.Fatalf("dispatch() = (args=%v, code=%d, handled=%v), want handled success", args, code, handled)
 		}
@@ -173,20 +173,20 @@ func TestDispatch(t *testing.T) {
 	})
 
 	t.Run("global true delegates to audit handler", func(t *testing.T) {
-		original := auditExceptionsGlobalHandler
-		t.Cleanup(func() { auditExceptionsGlobalHandler = original })
-
 		called := false
-		auditExceptionsGlobalHandler = func(args []string) error {
-			called = true
-			if !hasFlagToken(args, "global") {
-				t.Fatalf("expected original args to include global flag, got %v", args)
-			}
-			return nil
+		deps := dispatchDeps{
+			generateBaseline: func(_ string, _ []string) error { return nil },
+			auditExceptionsGlobal: func(args []string) error {
+				called = true
+				if !hasFlagToken(args, "global") {
+					t.Fatalf("expected original args to include global flag, got %v", args)
+				}
+				return nil
+			},
 		}
 
 		var stderr bytes.Buffer
-		nextArgs, code, handled := dispatch([]string{"--global", "./..."}, &stderr)
+		nextArgs, code, handled := dispatchWithDeps([]string{"--global", "./..."}, &stderr, deps)
 		if !handled || code != 0 {
 			t.Fatalf("dispatch() = (args=%v, code=%d, handled=%v), want handled success", nextArgs, code, handled)
 		}
@@ -405,12 +405,10 @@ func TestAggregateGlobalStalePatterns(t *testing.T) {
 }
 
 func TestAuditExceptionsGlobalExitBehavior(t *testing.T) {
-	originalRunCommand := runCommand
-	t.Cleanup(func() {
-		runCommand = originalRunCommand
-	})
+	t.Parallel()
 
 	t.Run("fails when globally stale patterns are found", func(t *testing.T) {
+		t.Parallel()
 		stream := append(
 			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 				"example.com/a": {
@@ -428,7 +426,7 @@ func TestAuditExceptionsGlobalExitBehavior(t *testing.T) {
 			})...,
 		)
 
-		runCommand = func(cmd *exec.Cmd) error {
+		runner := func(cmd *exec.Cmd) error {
 			buf, ok := cmd.Stdout.(*bytes.Buffer)
 			if !ok {
 				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
@@ -437,13 +435,14 @@ func TestAuditExceptionsGlobalExitBehavior(t *testing.T) {
 			return err
 		}
 
-		err := auditExceptionsGlobal([]string{"--global", "./..."})
+		err := auditExceptionsGlobalWithRunner([]string{"--global", "./..."}, runner, io.Discard)
 		if err == nil {
 			t.Fatal("expected non-nil error when globally stale patterns exist")
 		}
 	})
 
 	t.Run("succeeds when no globally stale patterns are found", func(t *testing.T) {
+		t.Parallel()
 		stream := append(
 			makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 				"example.com/a": {
@@ -459,7 +458,7 @@ func TestAuditExceptionsGlobalExitBehavior(t *testing.T) {
 			})...,
 		)
 
-		runCommand = func(cmd *exec.Cmd) error {
+		runner := func(cmd *exec.Cmd) error {
 			buf, ok := cmd.Stdout.(*bytes.Buffer)
 			if !ok {
 				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
@@ -468,7 +467,7 @@ func TestAuditExceptionsGlobalExitBehavior(t *testing.T) {
 			return err
 		}
 
-		if err := auditExceptionsGlobal([]string{"--global", "./..."}); err != nil {
+		if err := auditExceptionsGlobalWithRunner([]string{"--global", "./..."}, runner, io.Discard); err != nil {
 			t.Fatalf("expected nil error when no globally stale patterns exist, got %v", err)
 		}
 	})
@@ -595,13 +594,12 @@ func TestTolerateAnalyzerExit(t *testing.T) {
 }
 
 func TestGenerateBaseline(t *testing.T) {
-	t.Run("happy path writes baseline file", func(t *testing.T) {
-		originalRunCommand := runCommand
-		t.Cleanup(func() {
-			runCommand = originalRunCommand
-		})
+	t.Parallel()
 
-		runCommand = func(cmd *exec.Cmd) error {
+	t.Run("happy path writes baseline file", func(t *testing.T) {
+		t.Parallel()
+
+		runner := func(cmd *exec.Cmd) error {
 			buf, ok := cmd.Stdout.(*bytes.Buffer)
 			if !ok {
 				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
@@ -634,7 +632,7 @@ func TestGenerateBaseline(t *testing.T) {
 		}
 
 		outPath := filepath.Join(t.TempDir(), "baseline.toml")
-		if err := generateBaseline(outPath, []string{"--update-baseline", outPath, "./..."}); err != nil {
+		if err := generateBaselineWithRunner(outPath, []string{"--update-baseline", outPath, "./..."}, runner, io.Discard); err != nil {
 			t.Fatalf("generateBaseline() error = %v", err)
 		}
 
@@ -658,11 +656,8 @@ func TestGenerateBaseline(t *testing.T) {
 	})
 
 	t.Run("malformed JSON stream returns parse error", func(t *testing.T) {
-		originalRunCommand := runCommand
-		t.Cleanup(func() {
-			runCommand = originalRunCommand
-		})
-		runCommand = func(cmd *exec.Cmd) error {
+		t.Parallel()
+		runner := func(cmd *exec.Cmd) error {
 			buf, ok := cmd.Stdout.(*bytes.Buffer)
 			if !ok {
 				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
@@ -685,7 +680,7 @@ func TestGenerateBaseline(t *testing.T) {
 			return os.WriteFile(findingsPath, []byte("{invalid\n"), 0o644)
 		}
 		outPath := filepath.Join(t.TempDir(), "baseline.toml")
-		err := generateBaseline(outPath, []string{"--update-baseline", outPath, "./..."})
+		err := generateBaselineWithRunner(outPath, []string{"--update-baseline", outPath, "./..."}, runner, io.Discard)
 		if err == nil {
 			t.Fatal("expected parse error from malformed JSON stream")
 		}
@@ -695,16 +690,13 @@ func TestGenerateBaseline(t *testing.T) {
 	})
 
 	t.Run("non-exit command error is returned", func(t *testing.T) {
-		originalRunCommand := runCommand
-		t.Cleanup(func() {
-			runCommand = originalRunCommand
-		})
+		t.Parallel()
 
 		expectedErr := errors.New("boom")
-		runCommand = func(*exec.Cmd) error { return expectedErr }
+		runner := func(*exec.Cmd) error { return expectedErr }
 
 		outPath := filepath.Join(t.TempDir(), "baseline.toml")
-		err := generateBaseline(outPath, []string{"--update-baseline", outPath, "./..."})
+		err := generateBaselineWithRunner(outPath, []string{"--update-baseline", outPath, "./..."}, runner, io.Discard)
 		if err == nil {
 			t.Fatal("expected command error")
 		}
@@ -715,12 +707,9 @@ func TestGenerateBaseline(t *testing.T) {
 }
 
 func TestUpdateBaselineRoundTripSuppression(t *testing.T) {
-	originalRunCommand := runCommand
-	t.Cleanup(func() {
-		runCommand = originalRunCommand
-	})
+	t.Parallel()
 
-	runCommand = func(cmd *exec.Cmd) error {
+	runner := func(cmd *exec.Cmd) error {
 		buf, ok := cmd.Stdout.(*bytes.Buffer)
 		if !ok {
 			t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
@@ -763,7 +752,7 @@ func TestUpdateBaselineRoundTripSuppression(t *testing.T) {
 	}
 
 	outPath := filepath.Join(t.TempDir(), "baseline.toml")
-	if err := generateBaseline(outPath, []string{"--update-baseline=" + outPath, "./..."}); err != nil {
+	if err := generateBaselineWithRunner(outPath, []string{"--update-baseline=" + outPath, "./..."}, runner, io.Discard); err != nil {
 		t.Fatalf("generateBaseline() error = %v", err)
 	}
 

@@ -10,12 +10,12 @@ import (
 
 // TestLookupWithOptional verifies that lookupWithOptional can navigate CUE
 // values including optional fields that LookupPath cannot find directly.
-//
-// NOT parallel: uses shared CUE context (not thread-safe).
 func TestLookupWithOptional(t *testing.T) {
-	ctx := cuecontext.New()
+	t.Parallel()
 
 	t.Run("required definition field", func(t *testing.T) {
+		t.Parallel()
+		ctx := cuecontext.New()
 		v := ctx.CompileString(`#Config: { mode: "a" | "b" }`)
 		if v.Err() != nil {
 			t.Fatalf("compile: %v", v.Err())
@@ -30,6 +30,8 @@ func TestLookupWithOptional(t *testing.T) {
 	})
 
 	t.Run("optional field", func(t *testing.T) {
+		t.Parallel()
+		ctx := cuecontext.New()
 		v := ctx.CompileString(`#Config: { engine?: "docker" | "podman" }`)
 		if v.Err() != nil {
 			t.Fatalf("compile: %v", v.Err())
@@ -44,6 +46,8 @@ func TestLookupWithOptional(t *testing.T) {
 	})
 
 	t.Run("nested definition", func(t *testing.T) {
+		t.Parallel()
+		ctx := cuecontext.New()
 		v := ctx.CompileString(`#Outer: { #Inner: { mode: "x" | "y" } }`)
 		if v.Err() != nil {
 			t.Fatalf("compile: %v", v.Err())
@@ -58,6 +62,8 @@ func TestLookupWithOptional(t *testing.T) {
 	})
 
 	t.Run("missing field returns error", func(t *testing.T) {
+		t.Parallel()
+		ctx := cuecontext.New()
 		v := ctx.CompileString(`#Config: { mode: "a" }`)
 		if v.Err() != nil {
 			t.Fatalf("compile: %v", v.Err())

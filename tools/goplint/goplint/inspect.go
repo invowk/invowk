@@ -365,20 +365,22 @@ func receiverTypeName(expr ast.Expr) string {
 	return ""
 }
 
-// knownDirectiveKeys lists all recognized directive keys for validation.
-// Unknown keys in a //goplint: or //plint: comment trigger an
-// unknown-directive warning.
-var knownDirectiveKeys = map[string]bool{
-	"ignore":         true,
-	"internal":       true,
-	"render":         true,
-	"nonzero":        true,
-	"validate-all":   true,
-	"constant-only":  true,
-	"mutable":        true,
-	"no-delegate":    true,
-	"enum-cue":       true,
-	"validates-type": true,
+func isKnownDirectiveKey(key string) bool {
+	switch key {
+	case "ignore",
+		"internal",
+		"render",
+		"nonzero",
+		"validate-all",
+		"constant-only",
+		"mutable",
+		"no-delegate",
+		"enum-cue",
+		"validates-type":
+		return true
+	default:
+		return false
+	}
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.
@@ -571,7 +573,7 @@ func parseDirectiveKeys(text string) (keys []string, unknown []string) {
 			continue
 		}
 		keyPart, _, _ := strings.Cut(part, "=")
-		if knownDirectiveKeys[keyPart] {
+		if isKnownDirectiveKey(keyPart) {
 			keys = append(keys, keyPart)
 		} else {
 			unknown = append(unknown, part)

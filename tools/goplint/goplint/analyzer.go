@@ -26,7 +26,6 @@ import (
 	"go/token"
 	"go/types"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/tools/go/analysis"
@@ -65,9 +64,6 @@ const (
 	CategoryMissingConstructorErrorReturn = "missing-constructor-error-return"
 )
 
-// Analyzer is the default goplint analysis pass used by main and tests.
-var Analyzer = newAnalyzerWithState(defaultFlagState)
-
 // NewAnalyzer constructs an analyzer with isolated flag state.
 func NewAnalyzer() *analysis.Analyzer {
 	return newAnalyzerWithState(&flagState{})
@@ -92,28 +88,20 @@ func newAnalyzerWithState(state *flagState) *analysis.Analyzer {
 	return analyzer
 }
 
-var overdueReviewSeen struct {
-	mu   sync.Mutex
-	byID map[string]bool
-}
-
-func shouldReportOverdueReviewFinding(findingID string) bool {
-	overdueReviewSeen.mu.Lock()
-	defer overdueReviewSeen.mu.Unlock()
-	if overdueReviewSeen.byID == nil {
-		overdueReviewSeen.byID = make(map[string]bool)
+func shouldReportOverdueReviewFinding(state *flagState, findingID string) bool {
+	if state == nil {
+		return true
 	}
-	if overdueReviewSeen.byID[findingID] {
+	state.overdueReviewMu.Lock()
+	defer state.overdueReviewMu.Unlock()
+	if state.overdueReviewSeen == nil {
+		state.overdueReviewSeen = make(map[string]bool)
+	}
+	if state.overdueReviewSeen[findingID] {
 		return false
 	}
-	overdueReviewSeen.byID[findingID] = true
+	state.overdueReviewSeen[findingID] = true
 	return true
-}
-
-func resetOverdueReviewCache() {
-	overdueReviewSeen.mu.Lock()
-	defer overdueReviewSeen.mu.Unlock()
-	overdueReviewSeen.byID = make(map[string]bool)
 }
 
 // namedTypeInfo records a non-struct named type definition for
@@ -501,7 +489,7 @@ func reportStaleExceptionsInline(pass *analysis.Pass, cfg *ExceptionConfig) {
 // reportOverdueExceptions reports exceptions with review_after dates that
 // have passed. Findings are deduplicated by stable finding ID across package
 // passes in the current process.
-func reportOverdueExceptions(pass *analysis.Pass, cfg *ExceptionConfig) {
+func reportOverdueExceptions(pass *analysis.Pass, cfg *ExceptionConfig, state *flagState) {
 	if len(pass.Files) == 0 {
 		return
 	}
@@ -519,7 +507,7 @@ func reportOverdueExceptions(pass *analysis.Pass, cfg *ExceptionConfig) {
 				"exception pattern %q has invalid review_after date %q: %v",
 				exc.Pattern, exc.ReviewAfter, err)
 			findingID := StableFindingID(CategoryOverdueReview, exc.Pattern, "invalid-date")
-			if !shouldReportOverdueReviewFinding(findingID) {
+			if !shouldReportOverdueReviewFinding(state, findingID) {
 				continue
 			}
 			reportDiagnostic(pass, pos, CategoryOverdueReview, findingID, msg)
@@ -533,7 +521,7 @@ func reportOverdueExceptions(pass *analysis.Pass, cfg *ExceptionConfig) {
 				msg += fmt.Sprintf(" (blocked by: %s)", exc.BlockedBy)
 			}
 			findingID := StableFindingID(CategoryOverdueReview, exc.Pattern)
-			if !shouldReportOverdueReviewFinding(findingID) {
+			if !shouldReportOverdueReviewFinding(state, findingID) {
 				continue
 			}
 			reportDiagnostic(pass, pos, CategoryOverdueReview, findingID, msg)

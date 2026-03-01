@@ -34,6 +34,8 @@ func parseFuncBody(t *testing.T, src string) (*ast.BlockStmt, *gocfg.CFG) {
 }
 
 func TestBuildFuncCFG_NilBody(t *testing.T) {
+	t.Parallel()
+
 	g := buildFuncCFG(nil)
 	if g != nil {
 		t.Error("expected nil CFG for nil body")
@@ -41,6 +43,8 @@ func TestBuildFuncCFG_NilBody(t *testing.T) {
 }
 
 func TestBuildFuncCFG_SimpleFunction(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 func f() {
 	x := 1
@@ -56,6 +60,8 @@ func f() {
 }
 
 func TestFindDefiningBlock_Found(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 func f() {
 	x := 1
@@ -79,6 +85,8 @@ func f() {
 }
 
 func TestFindDefiningBlock_NotFound(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 func f() {
 	x := 1
@@ -98,6 +106,8 @@ func f() {
 }
 
 func TestContainsValidateCall_Found(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 type T string
 func (t T) Validate() error { return nil }
@@ -132,6 +142,8 @@ func f() {
 }
 
 func TestContainsValidateCall_WrongVar(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 type T string
 func (t T) Validate() error { return nil }
@@ -160,6 +172,8 @@ func f() {
 }
 
 func TestCollectImmediateClosureLits(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		src     string
@@ -212,6 +226,8 @@ func f() {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			body, _ := parseFuncBody(t, tt.src)
 			got := collectImmediateClosureLits(body)
 			if len(got) != tt.wantLen {
@@ -222,6 +238,8 @@ func f() {
 }
 
 func TestCollectDeferredClosureLits_Parenthesized(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 func f() {
 	defer (func() {})()
@@ -235,6 +253,8 @@ func f() {
 }
 
 func TestCollectImmediateClosureLits_NilBody(t *testing.T) {
+	t.Parallel()
+
 	got := collectImmediateClosureLits(nil)
 	if got != nil {
 		t.Fatalf("collectImmediateClosureLits(nil) = %v, want nil", got)
@@ -242,6 +262,8 @@ func TestCollectImmediateClosureLits_NilBody(t *testing.T) {
 }
 
 func TestCollectSynchronousClosureLits_ClassifiesExactClosures(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 func f() {
 	defer func() {}()
@@ -318,6 +340,8 @@ func f() {
 }
 
 func TestCastTargetMatchesExpr_IndexParensCanonicalization(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		lhs    string
@@ -337,6 +361,8 @@ func TestCastTargetMatchesExpr_IndexParensCanonicalization(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lhsExpr, err := parser.ParseExpr(tt.lhs)
 			if err != nil {
 				t.Fatalf("parse lhs: %v", err)
@@ -358,6 +384,8 @@ func TestCastTargetMatchesExpr_IndexParensCanonicalization(t *testing.T) {
 }
 
 func TestCastTargetMatchesExpr_AddressOfReceiverCanonicalization(t *testing.T) {
+	t.Parallel()
+
 	lhsExpr, err := parser.ParseExpr("x")
 	if err != nil {
 		t.Fatalf("parse lhs: %v", err)
@@ -377,6 +405,8 @@ func TestCastTargetMatchesExpr_AddressOfReceiverCanonicalization(t *testing.T) {
 }
 
 func TestHasUseBeforeValidateInBlock_DeferredValidateDoesNotSuppress(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 type T string
 func f() {
@@ -406,6 +436,8 @@ func use(_ T) {}`
 }
 
 func TestFirstUseValidateOrderInNode_AsyncValidateIgnored(t *testing.T) {
+	t.Parallel()
+
 	src := `package p
 type T string
 func (t T) Validate() error { return nil }

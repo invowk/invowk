@@ -38,11 +38,9 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | AST cast validation (fallback) | `make build-goplint && ./bin/goplint -check-cast-validation -no-cfa -config=tools/goplint/exceptions.toml ./...` |
 | Audit overdue reviews | `make build-goplint && ./bin/goplint -audit-review-dates -config=tools/goplint/exceptions.toml ./...` |
 
-## Scoped Rule Exception (Testing Parallelism)
+## Testing Parallelism
 
-`tools/goplint` integration tests mutate the shared `Analyzer.Flags` `FlagSet`, which is process-wide state. Because of this, tests in this package intentionally run sequentially and must not call `t.Parallel()` in those suites.
-
-This is an explicit scoped exception to the default parallelism rule in `.agents/rules/testing.md`, not a general exception for the rest of the repository.
+`tools/goplint` tests now use per-test analyzer instances (`NewAnalyzer()`/`newAnalyzerWithState`) instead of shared process-wide analyzer flag state. Integration suites are parallelized and guarded by a bounded `analysistest` semaphore to avoid process exhaustion on constrained runners.
 
 ## Diagnostic Categories
 
@@ -89,7 +87,7 @@ tools/goplint/
 ├── goplint/
 │   ├── analyzer.go                 # default Analyzer + NewAnalyzer factory
 │   ├── flags.go                    # declarative mode flag table + flag binding/newRunConfig/check-all expansion
-│   ├── analyzer_run.go             # runWithState() orchestration + per-pass finding sink wiring
+│   ├── analyzer_run.go             # runWithState() orchestration + run input loading
 │   ├── analyzer_cast_validation.go # cast validation: unvalidated DDD type conversions
 │   ├── analyzer_constructor_usage.go # Constructor error usage: blanked error returns on NewXxx()
 │   ├── analyzer_validate_usage.go  # Validate() usage: discarded results
@@ -582,7 +580,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **Directive prefix matching is start-anchored**: `goplint:` and `plint:` are matched at the start of the comment content (after `//` and optional whitespace) using `strings.HasPrefix`, not anywhere in the text. A comment like `// see plint:ignore for details` does NOT trigger the directive. Only `//plint:ignore` or `// plint:ignore` at comment-start are recognized.
 - **`types.Alias` (Go 1.22+)**: Type aliases (`type X = string`) are transparent — `isPrimitive` must call `types.Unalias()` to resolve them. Without this, aliases silently pass the linter.
 - **Generic pointer receivers**: `*Container[T]` is `StarExpr{X: IndexExpr{...}}` in the AST. `receiverTypeName` must recurse through `StarExpr` to find the type name inside `IndexExpr`. A naive `StarExpr → Ident` check misses this.
-- **Flag state model**: `Analyzer` is the default instance backed by `defaultFlagState`, and `NewAnalyzer()` creates isolated analyzers with independent `flagState`. Bool modes are declared in `modeFlagSpecs` (`flags.go`) and used for registration, `newRunConfig*()` snapshotting, and `--check-all` expansion to reduce wiring drift. Integration tests that mutate the package-level `Analyzer.Flags` must remain sequential (no `t.Parallel()`).
+- **Flag state model**: `NewAnalyzer()` constructs analyzers with isolated `flagState`; there is no package-level shared analyzer instance. Bool modes are declared in `modeFlagSpecs` (`flags.go`) and used for registration, `newRunConfigForState()` snapshotting, and `--check-all` expansion to reduce wiring drift.
 - **`primitiveTypeName` needs `Unalias` too**: Even after `isPrimitive` correctly detects an alias as primitive, the diagnostic message must show the resolved type (`string`), not the alias name (`MyAlias`). Call `types.Unalias()` before `types.TypeString()`.
 - **Qualified name format**: The analyzer prefixes all names with the package name (`pkg.Type.Field`, `pkg.Func.param`). Exception patterns can be 2-segment (matched after stripping the package prefix) or 3-segment (exact match).
 - **CI baseline is required**: The `goplint-baseline` job in `lint.yml` is a required check that blocks merges on regressions. The `goplint` (full DDD audit) job remains advisory with `continue-on-error: true`. `make check-baseline` runs `-check-all -check-enum-sync` — enum sync is included in the baseline gate even though `--check-all` alone excludes it.
@@ -602,7 +600,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 
 - **Unit tests** (`config_test.go`, `typecheck_test.go`, `inspect_test.go`): White-box (same package), test all helper functions in isolation
 - **E2E analysistest** (`analyzer_test.go`): Runs analyzer against 10 fixture packages in `testdata/src/`
-- **Integration tests** (`integration_test.go`): Exercises full pipeline with TOML config loaded and supplementary modes; NOT parallel due to shared `Analyzer.Flags` state. Uses `setFlag()`/`resetFlags()` helpers for declarative flag management. Covers:
+- **Integration tests** (`integration_test.go`): Exercises full pipeline with TOML config loaded and supplementary modes. Tests run in parallel using per-test analyzer harnesses plus a bounded `analysistest` limiter. Covers:
   - `TestAnalyzerWithConfig` — TOML exception patterns
   - `TestAnalyzerWithRealExceptionsToml` — real `exceptions.toml` parse validation
   - `TestCheckValidate` — `--check-validate` mode
@@ -623,7 +621,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
   - `TestConstructorValidatesCrossPackage` — cross-package `validates-type` fact propagation
   - `TestCheckNonZero` — `--check-nonzero` mode (nonzero types used as value fields)
   - `TestBaselineSupplementaryCategories` — baseline suppression for supplementary modes (validate, stringer, constructors)
-- **CFA tests** (`cfa_test.go`, `cfa_integration_test.go`): Unit tests for CFG utilities and integration tests for CFA cast validation and closure analysis. NOT parallel. Covers:
+- **CFA tests** (`cfa_test.go`, `cfa_integration_test.go`): Unit tests for CFG utilities and integration tests for CFA cast validation and closure analysis. Suites are parallelized and use per-test analyzer instances for isolation. Covers:
   - `TestBuildFuncCFG_*` — CFG construction from function bodies
   - `TestFindDefiningBlock_*` — locating AST nodes in CFG blocks
   - `TestContainsValidateCall_*` — Validate() call detection in AST nodes

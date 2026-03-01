@@ -15,12 +15,14 @@ import (
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFA(t *testing.T) {
+	t.Parallel()
+
 	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	// CFA is default — no explicit flag needed.
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_castvalidation")
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_castvalidation")
 }
 
 // TestCheckCastValidationCFAClosure exercises --check-cast-validation with
@@ -30,12 +32,14 @@ func TestCheckCastValidationCFA(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFAClosure(t *testing.T) {
+	t.Parallel()
+
 	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	// CFA is default — no explicit flag needed.
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_closure")
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_closure")
 }
 
 // TestCheckCastValidationCFASelectorCanonicalization verifies selector target
@@ -44,11 +48,13 @@ func TestCheckCastValidationCFAClosure(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFASelectorCanonicalization(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "castvalidation_selector_canonicalization")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation_selector_canonicalization")
 }
 
 // TestCheckCastValidationCFASelectorShadowing verifies shadowed selector
@@ -57,11 +63,13 @@ func TestCheckCastValidationCFASelectorCanonicalization(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFASelectorShadowing(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "castvalidation_selector_shadowing")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation_selector_shadowing")
 }
 
 // TestCheckCastValidationCFAMethodValue verifies CFA recognizes Validate()
@@ -69,11 +77,13 @@ func TestCheckCastValidationCFASelectorShadowing(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFAMethodValue(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "castvalidation_method_value")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation_method_value")
 }
 
 // TestCheckCastValidationCFAClosureVarAlias verifies closure-variable alias
@@ -81,11 +91,13 @@ func TestCheckCastValidationCFAMethodValue(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFAClosureVarAlias(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_closure_var_alias")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_closure_var_alias")
 }
 
 // TestCheckCastValidationCFAShortCircuit verifies that short-circuit boolean
@@ -93,11 +105,13 @@ func TestCheckCastValidationCFAClosureVarAlias(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFAShortCircuit(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_short_circuit_validate")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_short_circuit_validate")
 }
 
 // TestCheckUseBeforeValidateCFA exercises --check-use-before-validate mode
@@ -108,12 +122,14 @@ func TestCheckCastValidationCFAShortCircuit(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckUseBeforeValidateCFA(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
-	setFlag(t, "check-use-before-validate", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "use_before_validate")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate")
 }
 
 // TestCheckUseBeforeValidateCrossCFA exercises the --check-use-before-validate
@@ -124,13 +140,15 @@ func TestCheckUseBeforeValidateCFA(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckUseBeforeValidateCrossCFA(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
-	setFlag(t, "check-use-before-validate", "true")
-	setFlag(t, "check-use-before-validate-cross", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "use_before_validate_cross")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+	setFlag(t, h.Analyzer, "check-use-before-validate-cross", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_cross")
 }
 
 // TestCheckUseBeforeValidateClosureCFA exercises UBV in synchronous closures
@@ -139,13 +157,15 @@ func TestCheckUseBeforeValidateCrossCFA(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckUseBeforeValidateClosureCFA(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
-	setFlag(t, "check-use-before-validate", "true")
-	setFlag(t, "check-use-before-validate-cross", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "use_before_validate_closure")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+	setFlag(t, h.Analyzer, "check-use-before-validate-cross", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_closure")
 }
 
 // TestCheckCastValidationCFAConditionalContexts exercises conditional-context
@@ -153,11 +173,13 @@ func TestCheckUseBeforeValidateClosureCFA(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFAConditionalContexts(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_conditional_contexts")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_conditional_contexts")
 }
 
 // TestCheckCastValidationCFANonExecutableClosure verifies CFA skips detached
@@ -165,11 +187,13 @@ func TestCheckCastValidationCFAConditionalContexts(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFANonExecutableClosure(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_non_executable_closure")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_non_executable_closure")
 }
 
 // TestCheckCastValidationCFAExecutableClosureVar verifies that closures bound
@@ -178,11 +202,13 @@ func TestCheckCastValidationCFANonExecutableClosure(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFAExecutableClosureVar(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_executable_closure_var")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_executable_closure_var")
 }
 
 // TestCheckCastValidationCFAClosureVarRebind verifies closure-variable calls
@@ -190,11 +216,13 @@ func TestCheckCastValidationCFAExecutableClosureVar(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFAClosureVarRebind(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_closure_var_rebind")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_closure_var_rebind")
 }
 
 // TestCheckUseBeforeValidateClosureVarCall verifies UBV ordering for direct and
@@ -202,12 +230,14 @@ func TestCheckCastValidationCFAClosureVarRebind(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckUseBeforeValidateClosureVarCall(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
-	setFlag(t, "check-use-before-validate", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "use_before_validate_closure_var_call")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_closure_var_call")
 }
 
 // TestCheckUseBeforeValidateMethodValue verifies same-block UBV ordering
@@ -215,12 +245,14 @@ func TestCheckUseBeforeValidateClosureVarCall(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckUseBeforeValidateMethodValue(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
-	setFlag(t, "check-use-before-validate", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "use_before_validate_method_value")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_method_value")
 }
 
 // TestCheckCastValidationCFANoReturnTerminator verifies non-return sinks like
@@ -228,11 +260,13 @@ func TestCheckUseBeforeValidateMethodValue(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCheckCastValidationCFANoReturnTerminator(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-cast-validation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "cfa_no_return_terminator")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_no_return_terminator")
 }
 
 // TestCFAEnabledByDefault verifies that CFA is enabled by default when
@@ -240,10 +274,12 @@ func TestCheckCastValidationCFANoReturnTerminator(t *testing.T) {
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestCFAEnabledByDefault(t *testing.T) {
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-all", "true")
+	t.Parallel()
 
-	rc := newRunConfig()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-all", "true")
+
+	rc := newRunConfigForState(h.state)
 	if rc.noCFA {
 		t.Error("expected noCFA = false (CFA enabled) when --check-all is set")
 	}

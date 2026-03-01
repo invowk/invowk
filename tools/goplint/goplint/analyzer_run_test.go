@@ -5,23 +5,7 @@ package goplint
 import "testing"
 
 func TestLoadRunInputsUsesRunConfigPaths(t *testing.T) {
-	origConfigPath := defaultFlagState.configPath
-	origBaselinePath := defaultFlagState.baselinePath
-	origConfigExplicit := defaultFlagState.configPathExplicit
-	origBaselineExplicit := defaultFlagState.baselinePathExplicit
-	t.Cleanup(func() {
-		defaultFlagState.configPath = origConfigPath
-		defaultFlagState.baselinePath = origBaselinePath
-		defaultFlagState.configPathExplicit = origConfigExplicit
-		defaultFlagState.baselinePathExplicit = origBaselineExplicit
-	})
-
-	// Set globals to strict missing paths. If loadRunInputs still read globals,
-	// this test would fail.
-	defaultFlagState.configPath = "/__missing__/config.toml"
-	defaultFlagState.baselinePath = "/__missing__/baseline.toml"
-	defaultFlagState.configPathExplicit = true
-	defaultFlagState.baselinePathExplicit = true
+	t.Parallel()
 
 	cfgPath := writeTempFile(t, "goplint-config.toml", `
 [[exceptions]]
@@ -42,7 +26,10 @@ entries = [
 		baselinePathExplicit: true,
 	}
 
-	cfg, bl, err := loadRunInputs(rc)
+	state := &flagState{}
+	resetFlagStateDefaults(state)
+
+	cfg, bl, err := loadRunInputs(state, rc)
 	if err != nil {
 		t.Fatalf("loadRunInputs returned error: %v", err)
 	}

@@ -27,58 +27,59 @@ type CategorySpec struct {
 	BaselineLabel string
 }
 
-// diagnosticCategoryRegistry is the canonical, single-source category list.
+// diagnosticCategoryRegistry returns the canonical category list.
 // Keep this list in sync with category constants and diagnostic emitters.
-var diagnosticCategoryRegistry = []CategorySpec{
-	{Name: CategoryPrimitive, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Bare primitive type usage"},
-	{Name: CategoryMissingValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Named types missing Validate() method"},
-	{Name: CategoryMissingStringer, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Named types missing String() method"},
-	{Name: CategoryMissingConstructor, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Exported structs missing NewXxx() constructor"},
-	{Name: CategoryWrongConstructorSig, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructors with wrong return type"},
-	{Name: CategoryMissingFuncOptions, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs missing functional options pattern"},
-	{Name: CategoryMissingImmutability, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with constructor but exported mutable fields"},
-	{Name: CategoryWrongValidateSig, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Named types with wrong Validate() signature"},
-	{Name: CategoryWrongStringerSig, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Named types with wrong String() signature"},
-	{Name: CategoryMissingStructValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with constructor but no Validate() method"},
-	{Name: CategoryWrongStructValidateSig, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with Validate() but wrong signature"},
-	{Name: CategoryUnvalidatedCast, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Type conversions to DDD types without Validate() check"},
-	{Name: CategoryUnusedValidateResult, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Validate() calls with result completely discarded"},
-	{Name: CategoryUnusedConstructorError, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructor calls with error return assigned to blank identifier"},
-	{Name: CategoryMissingConstructorValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructors returning validatable types without calling Validate()"},
-	{Name: CategoryIncompleteValidateDelegation, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with validate-all missing field Validate() delegation"},
-	{Name: CategoryNonZeroValueField, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Struct fields using nonzero types as value (non-pointer)"},
-	{Name: CategoryWrongFuncOptionType, BaselinePolicy: BaselineSuppressible, BaselineLabel: "WithXxx option functions with parameter type mismatches"},
-	{Name: CategoryEnumCueMissingGo, BaselinePolicy: BaselineSuppressible, BaselineLabel: "CUE disjunction members missing from Go Validate() switch"},
-	{Name: CategoryEnumCueExtraGo, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Go Validate() switch cases not present in CUE disjunction"},
-	{Name: CategoryUseBeforeValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "DDD Value Type values used before Validate()"},
-	{Name: CategorySuggestValidateAll, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs suggesting //goplint:validate-all adoption"},
-	{Name: CategoryMissingConstructorErrorReturn, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructors returning validatable types without an error return"},
-	{Name: CategoryUnknownDirective, BaselinePolicy: BaselineAlwaysVisible},
-	{Name: CategoryStaleException, BaselinePolicy: BaselineAuditOnly},
-	{Name: CategoryOverdueReview, BaselinePolicy: BaselineAuditOnly},
+func diagnosticCategoryRegistry() []CategorySpec {
+	return []CategorySpec{
+		{Name: CategoryPrimitive, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Bare primitive type usage"},
+		{Name: CategoryMissingValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Named types missing Validate() method"},
+		{Name: CategoryMissingStringer, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Named types missing String() method"},
+		{Name: CategoryMissingConstructor, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Exported structs missing NewXxx() constructor"},
+		{Name: CategoryWrongConstructorSig, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructors with wrong return type"},
+		{Name: CategoryMissingFuncOptions, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs missing functional options pattern"},
+		{Name: CategoryMissingImmutability, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with constructor but exported mutable fields"},
+		{Name: CategoryWrongValidateSig, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Named types with wrong Validate() signature"},
+		{Name: CategoryWrongStringerSig, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Named types with wrong String() signature"},
+		{Name: CategoryMissingStructValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with constructor but no Validate() method"},
+		{Name: CategoryWrongStructValidateSig, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with Validate() but wrong signature"},
+		{Name: CategoryUnvalidatedCast, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Type conversions to DDD types without Validate() check"},
+		{Name: CategoryUnusedValidateResult, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Validate() calls with result completely discarded"},
+		{Name: CategoryUnusedConstructorError, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructor calls with error return assigned to blank identifier"},
+		{Name: CategoryMissingConstructorValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructors returning validatable types without calling Validate()"},
+		{Name: CategoryIncompleteValidateDelegation, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with validate-all missing field Validate() delegation"},
+		{Name: CategoryNonZeroValueField, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Struct fields using nonzero types as value (non-pointer)"},
+		{Name: CategoryWrongFuncOptionType, BaselinePolicy: BaselineSuppressible, BaselineLabel: "WithXxx option functions with parameter type mismatches"},
+		{Name: CategoryEnumCueMissingGo, BaselinePolicy: BaselineSuppressible, BaselineLabel: "CUE disjunction members missing from Go Validate() switch"},
+		{Name: CategoryEnumCueExtraGo, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Go Validate() switch cases not present in CUE disjunction"},
+		{Name: CategoryUseBeforeValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "DDD Value Type values used before Validate()"},
+		{Name: CategorySuggestValidateAll, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs suggesting //goplint:validate-all adoption"},
+		{Name: CategoryMissingConstructorErrorReturn, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructors returning validatable types without an error return"},
+		{Name: CategoryUnknownDirective, BaselinePolicy: BaselineAlwaysVisible},
+		{Name: CategoryStaleException, BaselinePolicy: BaselineAuditOnly},
+		{Name: CategoryOverdueReview, BaselinePolicy: BaselineAuditOnly},
+	}
 }
 
-var diagnosticCategoryByName = buildDiagnosticCategoryByName()
-
-func buildDiagnosticCategoryByName() map[string]CategorySpec {
-	out := make(map[string]CategorySpec, len(diagnosticCategoryRegistry))
-	for _, spec := range diagnosticCategoryRegistry {
-		out[spec.Name] = spec
+func diagnosticCategorySpec(name string) (CategorySpec, bool) {
+	for _, spec := range diagnosticCategoryRegistry() {
+		if spec.Name == name {
+			return spec, true
+		}
 	}
-	return out
+	return CategorySpec{}, false
 }
 
 // IsKnownDiagnosticCategory reports whether category exists in the canonical
 // category registry.
 func IsKnownDiagnosticCategory(category string) bool {
-	_, ok := diagnosticCategoryByName[category]
+	_, ok := diagnosticCategorySpec(category)
 	return ok
 }
 
 // IsBaselineSuppressibleCategory reports whether category is included in
 // baseline generation/suppression.
 func IsBaselineSuppressibleCategory(category string) bool {
-	spec, ok := diagnosticCategoryByName[category]
+	spec, ok := diagnosticCategorySpec(category)
 	return ok && spec.BaselinePolicy == BaselineSuppressible
 }
 
@@ -94,8 +95,9 @@ func BaselinedCategoryNames() []string {
 }
 
 func suppressibleCategorySpecs() []CategorySpec {
-	out := make([]CategorySpec, 0, len(diagnosticCategoryRegistry))
-	for _, spec := range diagnosticCategoryRegistry {
+	registry := diagnosticCategoryRegistry()
+	out := make([]CategorySpec, 0, len(registry))
+	for _, spec := range registry {
 		if spec.BaselinePolicy == BaselineSuppressible {
 			out = append(out, spec)
 		}

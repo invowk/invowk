@@ -29,12 +29,20 @@ import (
 	"github.com/invowk/invowk/tools/goplint/goplint"
 )
 
-var runCommand = func(cmd *exec.Cmd) error {
-	return cmd.Run()
+type commandRunner func(cmd *exec.Cmd) error
+
+type baselineGenerator func(outputPath string, originalArgs []string) error
+
+type globalAuditRunner func(originalArgs []string) error
+
+type dispatchDeps struct {
+	generateBaseline      baselineGenerator
+	auditExceptionsGlobal globalAuditRunner
 }
 
-var generateBaselineHandler = generateBaseline
-var auditExceptionsGlobalHandler = auditExceptionsGlobal
+func defaultRunCommand(cmd *exec.Cmd) error {
+	return cmd.Run()
+}
 
 func main() {
 	nextArgs, exitCode, handled := dispatch(os.Args[1:], os.Stderr)
@@ -44,10 +52,24 @@ func main() {
 	}
 
 	os.Args = append(os.Args[:1], nextArgs...)
-	singlechecker.Main(goplint.Analyzer)
+	singlechecker.Main(goplint.NewAnalyzer())
 }
 
 func dispatch(args []string, stderr io.Writer) (nextArgs []string, exitCode int, handled bool) {
+	return dispatchWithDeps(args, stderr, dispatchDeps{
+		generateBaseline:      generateBaseline,
+		auditExceptionsGlobal: auditExceptionsGlobal,
+	})
+}
+
+func dispatchWithDeps(args []string, stderr io.Writer, deps dispatchDeps) (nextArgs []string, exitCode int, handled bool) {
+	if deps.generateBaseline == nil {
+		deps.generateBaseline = generateBaseline
+	}
+	if deps.auditExceptionsGlobal == nil {
+		deps.auditExceptionsGlobal = auditExceptionsGlobal
+	}
+
 	// Detect --update-baseline before singlechecker takes over flag parsing.
 	// singlechecker.Main() calls os.Exit(), so we must intercept first.
 	if hasFlagToken(args, "update-baseline") {
@@ -56,7 +78,7 @@ func dispatch(args []string, stderr io.Writer) (nextArgs []string, exitCode int,
 			fmt.Fprintln(stderr, "goplint: update-baseline: missing required path value")
 			return nil, 2, true
 		}
-		if err := generateBaselineHandler(outputPath, args); err != nil {
+		if err := deps.generateBaseline(outputPath, args); err != nil {
 			fmt.Fprintf(stderr, "goplint: update-baseline: %v\n", err)
 			return nil, 1, true
 		}
@@ -67,7 +89,7 @@ func dispatch(args []string, stderr io.Writer) (nextArgs []string, exitCode int,
 	// Runs self as subprocess to aggregate stale exceptions across all packages.
 	if hasFlagToken(args, "global") {
 		if hasFlag(args, "global") {
-			if err := auditExceptionsGlobalHandler(args); err != nil {
+			if err := deps.auditExceptionsGlobal(args); err != nil {
 				fmt.Fprintf(stderr, "goplint: audit-exceptions-global: %v\n", err)
 				return nil, 1, true
 			}
@@ -111,6 +133,22 @@ func extractUpdateBaselinePath(args []string) string {
 // os.Exit() after analysis — there is no post-analysis hook for cross-package
 // aggregation within the framework.
 func generateBaseline(outputPath string, originalArgs []string) error {
+	return generateBaselineWithRunner(outputPath, originalArgs, defaultRunCommand, os.Stderr)
+}
+
+func generateBaselineWithRunner(
+	outputPath string,
+	originalArgs []string,
+	runCommand commandRunner,
+	stderr io.Writer,
+) error {
+	if runCommand == nil {
+		runCommand = defaultRunCommand
+	}
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
 	selfPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("resolving executable path: %w", err)
@@ -130,7 +168,7 @@ func generateBaseline(outputPath string, originalArgs []string) error {
 	subArgs = slices.Insert(subArgs, 0, "-emit-findings-jsonl="+findingsPath)
 
 	cmd := exec.Command(selfPath, subArgs...)
-	cmd.Stderr = os.Stderr // let warnings/errors pass through
+	cmd.Stderr = stderr // let warnings/errors pass through
 
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -158,7 +196,7 @@ func generateBaseline(outputPath string, originalArgs []string) error {
 	for _, entries := range findings {
 		total += len(entries)
 	}
-	fmt.Fprintf(os.Stderr, "Baseline written: %s (%d findings)\n", outputPath, total)
+	fmt.Fprintf(stderr, "Baseline written: %s (%d findings)\n", outputPath, total)
 
 	return nil
 }
@@ -210,6 +248,17 @@ func hasFlagToken(args []string, flagName string) bool {
 // aggregates stale exception patterns across all packages, and reports patterns
 // that were stale in every package (globally stale — truly unreachable patterns).
 func auditExceptionsGlobal(originalArgs []string) error {
+	return auditExceptionsGlobalWithRunner(originalArgs, defaultRunCommand, os.Stderr)
+}
+
+func auditExceptionsGlobalWithRunner(originalArgs []string, runCommand commandRunner, stderr io.Writer) error {
+	if runCommand == nil {
+		runCommand = defaultRunCommand
+	}
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
 	selfPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("resolving executable path: %w", err)
@@ -219,7 +268,7 @@ func auditExceptionsGlobal(originalArgs []string) error {
 	subArgs := buildGlobalAuditArgs(originalArgs)
 
 	cmd := exec.Command(selfPath, subArgs...)
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = stderr
 
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -234,7 +283,7 @@ func auditExceptionsGlobal(originalArgs []string) error {
 		return fmt.Errorf("aggregating global stale exceptions: %w", err)
 	}
 	if totalPackages == 0 {
-		fmt.Fprintf(os.Stderr, "Global audit: no packages analyzed\n")
+		fmt.Fprintf(stderr, "Global audit: no packages analyzed\n")
 		return nil
 	}
 
@@ -242,7 +291,7 @@ func auditExceptionsGlobal(originalArgs []string) error {
 		fmt.Printf("globally stale exception: pattern %q matched no diagnostics in any package\n", pattern)
 	}
 
-	fmt.Fprintf(os.Stderr, "Global audit: %d/%d stale exception patterns are globally stale (%d packages analyzed)\n",
+	fmt.Fprintf(stderr, "Global audit: %d/%d stale exception patterns are globally stale (%d packages analyzed)\n",
 		len(stalePatterns), totalPatterns, totalPackages)
 
 	if len(stalePatterns) > 0 {

@@ -8,51 +8,80 @@ import (
 	"strconv"
 	"testing"
 
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
+type analyzerHarness struct {
+	Analyzer *analysis.Analyzer
+	state    *flagState
+}
+
+var analysistestParallelLimiter = make(chan struct{}, 2)
+
+func newAnalyzerHarness() analyzerHarness {
+	state := &flagState{}
+	return analyzerHarness{
+		Analyzer: newAnalyzerWithState(state),
+		state:    state,
+	}
+}
+
 // setFlag sets an analyzer flag by name using the framework-standard
-// Analyzer.Flags.Set() API. This is the same pattern used by x/tools
+// h.Analyzer.Flags.Set() API. This is the same pattern used by x/tools
 // tests (testinggoroutine, findcall).
-func setFlag(t *testing.T, name, value string) {
+func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
 	t.Helper()
-	if err := Analyzer.Flags.Set(name, value); err != nil {
+	if err := analyzer.Flags.Set(name, value); err != nil {
 		t.Fatalf("failed to set flag %q to %q: %v", name, value, err)
 	}
 }
 
 // resetFlags restores all analyzer flags to their default values.
 // Called via t.Cleanup() to ensure clean state between tests.
-func resetFlags(t *testing.T) {
+func resetFlags(t *testing.T, h analyzerHarness) {
 	t.Helper()
-	resetFlagStateDefaults(defaultFlagState)
-	resetOverdueReviewCache()
-	for _, spec := range modeFlagSpecs {
-		setFlag(t, spec.flagName, strconv.FormatBool(spec.defaultValue))
+	resetFlagStateDefaults(h.state)
+	setFlag(t, h.Analyzer, "config", "")
+	setFlag(t, h.Analyzer, "baseline", "")
+	setFlag(t, h.Analyzer, "emit-findings-jsonl", "")
+	for _, spec := range modeFlagSpecs() {
+		setFlag(t, h.Analyzer, spec.flagName, strconv.FormatBool(spec.defaultValue))
 	}
+}
+
+func runAnalysisTest(t *testing.T, testdata string, analyzer *analysis.Analyzer, pkgs ...string) {
+	t.Helper()
+
+	analysistestParallelLimiter <- struct{}{}
+	t.Cleanup(func() { <-analysistestParallelLimiter })
+
+	analysistest.Run(t, testdata, analyzer, pkgs...)
 }
 
 // TestResetFlagsCompleteness ensures resetFlags restores every analyzer flag
 // to its declared default, preventing drift when new flags are introduced.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestResetFlagsCompleteness(t *testing.T) {
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
+	t.Parallel()
 
-	specsByName := make(map[string]modeFlagSpec, len(modeFlagSpecs))
-	for _, spec := range modeFlagSpecs {
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+
+	specsByName := make(map[string]modeFlagSpec, len(modeFlagSpecs()))
+	for _, spec := range modeFlagSpecs() {
 		specsByName[spec.flagName] = spec
 	}
 
 	boolFlags := make(map[string]*flag.Flag)
-	Analyzer.Flags.VisitAll(func(f *flag.Flag) {
+	h.Analyzer.Flags.VisitAll(func(f *flag.Flag) {
 		if f.DefValue == "false" || f.DefValue == "true" {
 			boolFlags[f.Name] = f
 		}
 	})
-	if len(boolFlags) != len(modeFlagSpecs) {
-		t.Fatalf("mode specs mismatch: analyzer bool flags=%d specs=%d", len(boolFlags), len(modeFlagSpecs))
+	if len(boolFlags) != len(modeFlagSpecs()) {
+		t.Fatalf("mode specs mismatch: analyzer bool flags=%d specs=%d", len(boolFlags), len(modeFlagSpecs()))
 	}
 	for name, analyzerFlag := range boolFlags {
 		spec, ok := specsByName[name]
@@ -63,23 +92,23 @@ func TestResetFlagsCompleteness(t *testing.T) {
 			t.Fatalf("mode spec default mismatch for %q: analyzer=%q spec=%t", name, analyzerFlag.DefValue, spec.defaultValue)
 		}
 	}
-	for _, spec := range modeFlagSpecs {
+	for _, spec := range modeFlagSpecs() {
 		if _, ok := boolFlags[spec.flagName]; !ok {
 			t.Fatalf("modeFlagSpecs entry %q missing from analyzer flags", spec.flagName)
 		}
 	}
 
 	// Mutate each flag away from its default.
-	setFlag(t, "config", "__non_default__")
-	setFlag(t, "baseline", "__non_default__")
-	for _, spec := range modeFlagSpecs {
-		setFlag(t, spec.flagName, strconv.FormatBool(!spec.defaultValue))
+	setFlag(t, h.Analyzer, "config", "__non_default__")
+	setFlag(t, h.Analyzer, "baseline", "__non_default__")
+	for _, spec := range modeFlagSpecs() {
+		setFlag(t, h.Analyzer, spec.flagName, strconv.FormatBool(!spec.defaultValue))
 	}
 
 	// Restore defaults and verify all flags are reset.
-	resetFlags(t)
+	resetFlags(t, h)
 	for _, name := range []string{"config", "baseline"} {
-		f := Analyzer.Flags.Lookup(name)
+		f := h.Analyzer.Flags.Lookup(name)
 		if f == nil {
 			t.Fatalf("missing analyzer flag %q", name)
 		}
@@ -87,7 +116,7 @@ func TestResetFlagsCompleteness(t *testing.T) {
 			t.Errorf("flag %q reset mismatch: got %q, want default %q", f.Name, got, f.DefValue)
 		}
 	}
-	Analyzer.Flags.VisitAll(func(f *flag.Flag) {
+	h.Analyzer.Flags.VisitAll(func(f *flag.Flag) {
 		if f.DefValue != "false" && f.DefValue != "true" {
 			return
 		}
@@ -100,17 +129,17 @@ func TestResetFlagsCompleteness(t *testing.T) {
 // TestNewRunConfig verifies the --check-all expansion logic and the
 // deliberate exclusion of --audit-exceptions.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestNewRunConfig(t *testing.T) {
-	t.Cleanup(func() { resetFlags(t) })
+	h := newAnalyzerHarness()
 
 	t.Run("check-all expansion follows mode specs", func(t *testing.T) {
-		resetFlags(t)
-		setFlag(t, "check-all", "true")
+		resetFlags(t, h)
+		setFlag(t, h.Analyzer, "check-all", "true")
 
-		rc := newRunConfig()
+		rc := newRunConfigForState(h.state)
 
-		for _, spec := range modeFlagSpecs {
+		for _, spec := range modeFlagSpecs() {
 			want := spec.defaultValue
 			if spec.flagName == "check-all" || spec.includeInCheckAll {
 				want = true
@@ -123,13 +152,13 @@ func TestNewRunConfig(t *testing.T) {
 	})
 
 	t.Run("check-all with explicit audit-exceptions preserves both", func(t *testing.T) {
-		resetFlags(t)
-		setFlag(t, "check-all", "true")
-		setFlag(t, "audit-exceptions", "true")
+		resetFlags(t, h)
+		setFlag(t, h.Analyzer, "check-all", "true")
+		setFlag(t, h.Analyzer, "audit-exceptions", "true")
 
-		rc := newRunConfig()
+		rc := newRunConfigForState(h.state)
 
-		for _, spec := range modeFlagSpecs {
+		for _, spec := range modeFlagSpecs() {
 			if spec.flagName == "audit-exceptions" && !spec.runConfigValue(&rc) {
 				t.Fatal("expected audit-exceptions = true (explicitly set)")
 			}
@@ -140,11 +169,11 @@ func TestNewRunConfig(t *testing.T) {
 	})
 
 	t.Run("individual flags work independently", func(t *testing.T) {
-		resetFlags(t)
-		setFlag(t, "check-validate", "true")
+		resetFlags(t, h)
+		setFlag(t, h.Analyzer, "check-validate", "true")
 
-		rc := newRunConfig()
-		for _, spec := range modeFlagSpecs {
+		rc := newRunConfigForState(h.state)
+		for _, spec := range modeFlagSpecs() {
 			want := spec.defaultValue
 			if spec.flagName == "check-validate" {
 				want = true
@@ -159,21 +188,23 @@ func TestNewRunConfig(t *testing.T) {
 // TestTrackedStringFlagsExplicitness verifies config/baseline tracked string
 // flags preserve explicit-set markers even when set to empty string.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestTrackedStringFlagsExplicitness(t *testing.T) {
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
+	t.Parallel()
 
-	defaultFlagState.configPathExplicit = false
-	defaultFlagState.baselinePathExplicit = false
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
 
-	setFlag(t, "config", "")
-	if !defaultFlagState.configPathExplicit {
+	h.state.configPathExplicit = false
+	h.state.baselinePathExplicit = false
+
+	setFlag(t, h.Analyzer, "config", "")
+	if !h.state.configPathExplicit {
 		t.Fatal("expected configPathExplicit = true after setting --config")
 	}
 
-	setFlag(t, "baseline", "")
-	if !defaultFlagState.baselinePathExplicit {
+	setFlag(t, h.Analyzer, "baseline", "")
+	if !h.state.baselinePathExplicit {
 		t.Fatal("expected baselinePathExplicit = true after setting --baseline")
 	}
 }
@@ -181,15 +212,17 @@ func TestTrackedStringFlagsExplicitness(t *testing.T) {
 // TestNewRunConfigCarriesTrackedStringExplicitness verifies that explicit-set
 // markers for --config/--baseline are copied into runConfig.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestNewRunConfigCarriesTrackedStringExplicitness(t *testing.T) {
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
+	t.Parallel()
 
-	setFlag(t, "config", "")
-	setFlag(t, "baseline", "")
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
 
-	rc := newRunConfig()
+	setFlag(t, h.Analyzer, "config", "")
+	setFlag(t, h.Analyzer, "baseline", "")
+
+	rc := newRunConfigForState(h.state)
 	if !rc.configPathExplicit {
 		t.Fatal("expected runConfig.configPathExplicit = true after setting --config")
 	}
@@ -202,13 +235,15 @@ func TestNewRunConfigCarriesTrackedStringExplicitness(t *testing.T) {
 // TOML config file loaded, verifying that exception patterns and
 // skip_types correctly suppress findings.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestAnalyzerWithConfig(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "config", filepath.Join(testdata, "src", "configexceptions", "goplint.toml"))
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "configexceptions")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "src", "configexceptions", "goplint.toml"))
+
+	runAnalysisTest(t, testdata, h.Analyzer, "configexceptions")
 }
 
 // TestAnalyzerWithRealExceptionsToml loads the real project exceptions.toml
@@ -217,62 +252,72 @@ func TestAnalyzerWithConfig(t *testing.T) {
 //  2. It doesn't accidentally suppress basic findings (the basic fixture
 //     has no patterns matching the real exceptions).
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestAnalyzerWithRealExceptionsToml(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "config", filepath.Join(testdata, "..", "..", "exceptions.toml"))
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "basic")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "..", "..", "exceptions.toml"))
+
+	runAnalysisTest(t, testdata, h.Analyzer, "basic")
 }
 
 // TestCheckValidate exercises the --check-validate mode against the validate
 // fixture, verifying named types without Validate() are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckValidate(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-validate", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "validate")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-validate", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "validate")
 }
 
 // TestCheckStringer exercises the --check-stringer mode against the stringer
 // fixture, verifying named types without String() are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckStringer(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-stringer", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "stringer")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-stringer", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "stringer")
 }
 
 // TestCheckConstructors exercises the --check-constructors mode against the
 // constructors fixture, verifying exported structs without NewXxx() are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckConstructors(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-constructors", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "constructors")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-constructors", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructors")
 }
 
 // TestAuditExceptions verifies that --audit-exceptions reports stale
 // exception patterns that matched no diagnostics within a single package.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestAuditExceptions(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "config", filepath.Join(testdata, "src", "auditexceptions", "goplint.toml"))
-	setFlag(t, "audit-exceptions", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "auditexceptions")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "src", "auditexceptions", "goplint.toml"))
+	setFlag(t, h.Analyzer, "audit-exceptions", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "auditexceptions")
 }
 
 // TestAuditExceptionsMultiPackage verifies per-package stale detection across
@@ -280,14 +325,16 @@ func TestAuditExceptions(t *testing.T) {
 // package A is reported as stale in package B. This documents the per-package
 // limitation of go/analysis.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestAuditExceptionsMultiPackage(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "config", filepath.Join(testdata, "src", "auditexceptions_pkga", "goplint.toml"))
-	setFlag(t, "audit-exceptions", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer,
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "src", "auditexceptions_pkga", "goplint.toml"))
+	setFlag(t, h.Analyzer, "audit-exceptions", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer,
 		"auditexceptions_pkga", "auditexceptions_pkgb")
 }
 
@@ -298,80 +345,92 @@ func TestAuditExceptionsMultiPackage(t *testing.T) {
 // constructor-validates, validate-delegation, and nonzero. Also explicitly
 // enables --audit-exceptions to verify all diagnostic categories fire together.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckAll(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-all", "true")
-	setFlag(t, "audit-exceptions", "true")
-	setFlag(t, "config", filepath.Join(testdata, "src", "checkall", "goplint.toml"))
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "checkall")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-all", "true")
+	setFlag(t, h.Analyzer, "audit-exceptions", "true")
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "src", "checkall", "goplint.toml"))
+
+	runAnalysisTest(t, testdata, h.Analyzer, "checkall")
 }
 
 // TestCheckConstructorSig exercises the --check-constructor-sig mode against
 // the constructorsig fixture, verifying constructors with wrong return types
 // are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckConstructorSig(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-constructor-sig", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "constructorsig")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-constructor-sig", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructorsig")
 }
 
 // TestCheckFuncOptions exercises the --check-func-options mode against
 // the funcoptions fixture, verifying both detection (too many params) and
 // completeness (missing WithXxx, missing variadic) are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckFuncOptions(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-func-options", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "funcoptions")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-func-options", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "funcoptions")
 }
 
 // TestGenericsStructural exercises the structural modes (constructor-sig,
 // immutability) against generic types to verify type parameter handling.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestGenericsStructural(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-constructor-sig", "true")
-	setFlag(t, "check-immutability", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "generics_structural")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-constructor-sig", "true")
+	setFlag(t, h.Analyzer, "check-immutability", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "generics_structural")
 }
 
 // TestCheckImmutability exercises the --check-immutability mode against
 // the immutability fixture, verifying exported fields on structs with
 // constructors are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckImmutability(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-immutability", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "immutability")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-immutability", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "immutability")
 }
 
 // TestCheckStructValidate exercises the --check-struct-validate mode against
 // the structvalidate fixture, verifying exported structs with constructors
 // but missing Validate() are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckStructValidate(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-struct-validate", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "structvalidate")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-struct-validate", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "structvalidate")
 }
 
 // TestCheckCastValidation exercises the --check-cast-validation mode with
@@ -379,44 +438,50 @@ func TestCheckStructValidate(t *testing.T) {
 // from raw primitives to DDD Value Types without Validate() are flagged
 // using the AST name-based heuristic.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckCastValidation(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-cast-validation", "true")
-	setFlag(t, "no-cfa", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "castvalidation")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "no-cfa", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation")
 }
 
 // TestCheckCastValidationNoCFAValidateBeforeCast verifies AST fallback mode
 // does not treat pre-cast Validate() calls as satisfying later casts.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckCastValidationNoCFAValidateBeforeCast(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-cast-validation", "true")
-	setFlag(t, "no-cfa", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "castvalidation_nocfa_validate_before_cast")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "no-cfa", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation_nocfa_validate_before_cast")
 }
 
 // TestCheckCastValidationNoCFADeadBranchContract documents the intentional
 // AST fallback contract: with --no-cfa, a dead-branch Validate() call counts
 // as present and suppresses cast-validation findings.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckCastValidationNoCFADeadBranchContract(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-cast-validation", "true")
-	setFlag(t, "no-cfa", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "castvalidation_nocfa_dead_branch")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "no-cfa", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation_nocfa_dead_branch")
 }
 
 // TestBaselineSuppression verifies that the --baseline flag correctly
@@ -424,13 +489,15 @@ func TestCheckCastValidationNoCFADeadBranchContract(t *testing.T) {
 // The baseline fixture has two struct fields and two function params: two
 // are in the baseline (suppressed) and two are not (reported).
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestBaselineSuppression(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline", "goplint-baseline.toml"))
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "baseline")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "baseline", filepath.Join(testdata, "src", "baseline", "goplint-baseline.toml"))
+
+	runAnalysisTest(t, testdata, h.Analyzer, "baseline")
 }
 
 // TestBaselineSupplementaryCategories verifies that baseline suppression
@@ -438,112 +505,128 @@ func TestBaselineSuppression(t *testing.T) {
 // missing-constructor). Some findings are baselined and suppressed; others
 // are new and reported.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestBaselineSupplementaryCategories(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "check-validate", "true")
-	setFlag(t, "check-stringer", "true")
-	setFlag(t, "check-constructors", "true")
-	setFlag(t, "baseline", filepath.Join(testdata, "src", "baseline_supplementary", "goplint-baseline.toml"))
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "baseline_supplementary")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-validate", "true")
+	setFlag(t, h.Analyzer, "check-stringer", "true")
+	setFlag(t, h.Analyzer, "check-constructors", "true")
+	setFlag(t, h.Analyzer, "baseline", filepath.Join(testdata, "src", "baseline_supplementary", "goplint-baseline.toml"))
+
+	runAnalysisTest(t, testdata, h.Analyzer, "baseline_supplementary")
 }
 
 // TestCheckValidateUsage exercises the --check-validate-usage mode against
 // the validateusage fixture, verifying that discarded Validate() results
 // are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckValidateUsage(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-validate-usage", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "validateusage")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-validate-usage", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "validateusage")
 }
 
 // TestCheckConstructorErrorUsage exercises the --check-constructor-error-usage
 // mode against the constructorusage fixture, verifying that constructor calls
 // with error returns assigned to blank identifiers are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckConstructorErrorUsage(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-error-usage", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "constructorusage")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-error-usage", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructorusage")
 }
 
 // TestCheckValidateDelegation exercises the --check-validate-delegation mode
 // against the validatedelegation fixture, verifying that structs with
 // //goplint:validate-all are checked for complete field delegation.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckValidateDelegation(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-validate-delegation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "validatedelegation")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-validate-delegation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "validatedelegation")
 }
 
 // TestCheckValidateDelegationMultiFile exercises --check-validate-delegation
 // with a multi-file package where the struct is defined in one file and its
 // Validate() method in another. Verifies cross-file delegation detection.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckValidateDelegationMultiFile(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-validate-delegation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "validatedelegation_multifile")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-validate-delegation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "validatedelegation_multifile")
 }
 
 // TestCheckValidateDelegationVarAlias verifies delegation detection recognizes
 // var aliasing patterns: var x = receiver.Field; x.Validate().
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckValidateDelegationVarAlias(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-validate-delegation", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "validatedelegation_var_alias")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-validate-delegation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "validatedelegation_var_alias")
 }
 
 // TestCheckConstructorValidates exercises the --check-constructor-validates
 // mode against the constructorvalidates fixture, verifying that constructors
 // returning types with Validate() but not calling it are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckConstructorValidates(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-validates", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "constructorvalidates")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructorvalidates")
 }
 
 // TestCheckConstructorValidatesMethodValue verifies constructor-validates
 // recognizes Validate() calls made through method values.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckConstructorValidatesMethodValue(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-validates", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "constructorvalidates_method_value")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructorvalidates_method_value")
 }
 
 // TestCheckConstructorReturnError exercises the --check-constructor-return-error
@@ -551,27 +634,31 @@ func TestCheckConstructorValidatesMethodValue(t *testing.T) {
 // types with Validate() that do not return error are flagged, while constructors
 // that return error, return interfaces, or construct constant-only types are safe.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckConstructorReturnError(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-return-error", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "constructorreturn")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-return-error", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructorreturn")
 }
 
 // TestCheckConstructorReturnErrorAlias verifies type aliases to the built-in
 // error interface satisfy constructor-return-error requirements.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckConstructorReturnErrorAlias(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-return-error", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "constructorreturn_error_alias")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-return-error", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructorreturn_error_alias")
 }
 
 // TestConstructorValidatesCrossPackage exercises --check-constructor-validates
@@ -581,15 +668,17 @@ func TestCheckConstructorReturnErrorAlias(t *testing.T) {
 // --check-constructor-return-error since the shared fixture has expectations
 // for both checks.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestConstructorValidatesCrossPackage(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-validates", "true")
-	setFlag(t, "check-constructor-return-error", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer,
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+	setFlag(t, h.Analyzer, "check-constructor-return-error", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer,
 		"constructorvalidates_cross/util",
 		"constructorvalidates_cross/myapp")
 }
@@ -597,14 +686,16 @@ func TestConstructorValidatesCrossPackage(t *testing.T) {
 // TestConstructorValidatesPackageCollision verifies constructor-validates uses
 // full type identity (package path + type name), not just type name.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestConstructorValidatesPackageCollision(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-validates", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer,
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer,
 		"constructorvalidates_pkg_collision/util",
 		"constructorvalidates_pkg_collision/myapp")
 }
@@ -613,14 +704,16 @@ func TestConstructorValidatesPackageCollision(t *testing.T) {
 // type identity distinguishes generic instantiations (for example Box[int] vs
 // Box[string]) when evaluating transitive helper validation.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestConstructorValidatesGenericInstantiation(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-validates", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "constructorvalidates_generic")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructorvalidates_generic")
 }
 
 // TestCheckConstructorReturnErrorCrossPackage exercises
@@ -630,15 +723,17 @@ func TestConstructorValidatesGenericInstantiation(t *testing.T) {
 // Also enables --check-constructor-validates since the shared fixture has
 // expectations for both checks.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckConstructorReturnErrorCrossPackage(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-constructor-return-error", "true")
-	setFlag(t, "check-constructor-validates", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer,
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-return-error", "true")
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer,
 		"constructorvalidates_cross/util",
 		"constructorvalidates_cross/myapp")
 }
@@ -648,28 +743,32 @@ func TestCheckConstructorReturnErrorCrossPackage(t *testing.T) {
 // The configexceptions fixture has NewServiceConfig which does not call
 // Validate() but is excepted via TOML — no constructor-validates finding.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestConstructorValidatesException(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "config", filepath.Join(testdata, "src", "configexceptions", "goplint.toml"))
-	setFlag(t, "check-constructor-validates", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "configexceptions")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "src", "configexceptions", "goplint.toml"))
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "configexceptions")
 }
 
 // TestSuggestValidateAll exercises the --suggest-validate-all advisory mode
 // against the suggestvalidateall fixture, verifying that structs with Validate()
 // and validatable fields but no //goplint:validate-all directive are reported.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestSuggestValidateAll(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "suggest-validate-all", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "suggestvalidateall")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "suggest-validate-all", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "suggestvalidateall")
 }
 
 // TestCheckNonZero exercises the --check-nonzero mode against the nonzero
@@ -677,14 +776,16 @@ func TestSuggestValidateAll(t *testing.T) {
 // propagation), verifying that struct fields using nonzero-annotated types
 // as value (non-pointer) fields are flagged both within and across packages.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckNonZero(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-nonzero", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "nonzero", "nonzero_consumer")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-nonzero", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "nonzero", "nonzero_consumer")
 }
 
 // TestAuditReviewDates exercises the --audit-review-dates mode against
@@ -696,106 +797,122 @@ func TestCheckNonZero(t *testing.T) {
 //   - blocked_by text is included in the diagnostic message
 //   - Entries without review_after are ignored
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestAuditReviewDates(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	setFlag(t, "config", filepath.Join(testdata, "src", "auditreviewdates", "config.toml"))
-	setFlag(t, "audit-review-dates", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "auditreviewdates")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "src", "auditreviewdates", "config.toml"))
+	setFlag(t, h.Analyzer, "audit-review-dates", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "auditreviewdates")
 }
 
 // TestCheckEnumSync exercises the --check-enum-sync mode against the
 // enumsync fixture, verifying that CUE disjunction members missing from
 // Go Validate() switch cases and extra Go cases not in CUE are flagged.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckEnumSync(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-enum-sync", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "enumsync")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-enum-sync", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "enumsync")
 }
 
 func TestCheckEnumSyncNoSchema(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-enum-sync", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "enumsync_noschema")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-enum-sync", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "enumsync_noschema")
 }
 
 // TestCheckEnumSyncNoSchemaExceptionSuppression verifies no-schema enum-sync
 // diagnostics respect TOML exceptions.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckEnumSyncNoSchemaExceptionSuppression(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-enum-sync", "true")
-	setFlag(t, "config", filepath.Join(testdata, "src", "enumsync_noschema_suppressed", "goplint.toml"))
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "enumsync_noschema_suppressed")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-enum-sync", "true")
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "src", "enumsync_noschema_suppressed", "goplint.toml"))
+
+	runAnalysisTest(t, testdata, h.Analyzer, "enumsync_noschema_suppressed")
 }
 
 // TestCheckEnumSyncNoSchemaBaselineSuppression verifies no-schema enum-sync
 // diagnostics respect baseline suppression.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckEnumSyncNoSchemaBaselineSuppression(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-enum-sync", "true")
-	setFlag(t, "baseline", filepath.Join(testdata, "src", "enumsync_noschema_suppressed", "goplint-baseline.toml"))
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "enumsync_noschema_suppressed")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-enum-sync", "true")
+	setFlag(t, h.Analyzer, "baseline", filepath.Join(testdata, "src", "enumsync_noschema_suppressed", "goplint-baseline.toml"))
+
+	runAnalysisTest(t, testdata, h.Analyzer, "enumsync_noschema_suppressed")
 }
 
 // TestCheckEnumSyncCueErrorExceptionSuppression verifies cue-error enum-sync
 // diagnostics respect TOML exceptions.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckEnumSyncCueErrorExceptionSuppression(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-enum-sync", "true")
-	setFlag(t, "config", filepath.Join(testdata, "src", "enumsync_cueerror_suppressed", "goplint.toml"))
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "enumsync_cueerror_suppressed")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-enum-sync", "true")
+	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "src", "enumsync_cueerror_suppressed", "goplint.toml"))
+
+	runAnalysisTest(t, testdata, h.Analyzer, "enumsync_cueerror_suppressed")
 }
 
 // TestCheckEnumSyncMultiFile exercises enum-sync with multiple CUE schema
 // files in the same package directory. Verifies that definitions from
 // different schema files are correctly loaded after concatenation.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckEnumSyncMultiFile(t *testing.T) {
+	t.Parallel()
+
 	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-enum-sync", "true")
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-enum-sync", "true")
 
 	// No `want` annotations needed — both Mode and Format are
 	// fully synced with their respective CUE schema files.
-	analysistest.Run(t, testdata, Analyzer, "enumsync_multifile")
+	runAnalysisTest(t, testdata, h.Analyzer, "enumsync_multifile")
 }
 
 // TestCheckEnumSyncScopedSwitches verifies enum-sync only considers switch
 // statements that target the annotated receiver value.
 //
-// NOT parallel: shares Analyzer.Flags state.
+// NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckEnumSyncScopedSwitches(t *testing.T) {
-	testdata := analysistest.TestData()
-	t.Cleanup(func() { resetFlags(t) })
-	resetFlags(t)
-	setFlag(t, "check-enum-sync", "true")
+	t.Parallel()
 
-	analysistest.Run(t, testdata, Analyzer, "enumsync_multiswitch_scoped")
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-enum-sync", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "enumsync_multiswitch_scoped")
 }

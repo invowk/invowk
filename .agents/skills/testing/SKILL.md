@@ -19,7 +19,7 @@ Use this skill when:
 - `.agents/rules/testing.md` defines mandatory test policy.
 - Use this skill for implementation tactics and component-specific guidance.
 - If this skill conflicts with the testing rule, follow the rule.
-- Scoped exception: `tools/goplint` tests that mutate shared `Analyzer.Flags` state must remain sequential (no `t.Parallel()`).
+- `tools/goplint` tests are parallel-safe after analyzer-state de-globalization; use per-test analyzers and bounded `analysistest` concurrency where necessary.
 
 For host-path validation tests that depend on `filepath.IsAbs`, treat absoluteness as OS-native:
 - Generate valid absolute fixtures with `t.TempDir()` + `filepath.Join(...)`.

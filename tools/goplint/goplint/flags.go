@@ -2,7 +2,11 @@
 
 package goplint
 
-import "golang.org/x/tools/go/analysis"
+import (
+	"sync"
+
+	"golang.org/x/tools/go/analysis"
+)
 
 // flagState contains one analyzer instance's parsed flag values. Keeping this
 // state instance-local avoids package-global mutable flag coupling.
@@ -35,10 +39,13 @@ type flagState struct {
 	auditReviewDates            bool
 	checkEnumSync               bool
 	suggestValidateAll          bool
-}
 
-// defaultFlagState backs the package-level Analyzer variable.
-var defaultFlagState = &flagState{}
+	// runtime caches/state are intentionally analyzer-instance scoped.
+	overdueReviewMu   sync.Mutex
+	overdueReviewSeen map[string]bool
+	configCache       sync.Map // map[configCacheKey]*configCacheEntry
+	baselineCache     sync.Map // map[baselineCacheKey]*baselineCacheEntry
+}
 
 type trackedStringFlag struct {
 	value    *string
@@ -77,271 +84,273 @@ func (s modeFlagSpec) runConfigValue(rc *runConfig) bool {
 	return *s.runConfigBoolField(rc)
 }
 
-var modeFlagSpecs = []modeFlagSpec{
-	{
-		flagName:          "audit-exceptions",
-		usage:             "report exception patterns that matched zero locations (stale entries)",
-		defaultValue:      false,
-		includeInCheckAll: false,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.auditExceptions
+func modeFlagSpecs() []modeFlagSpec {
+	return []modeFlagSpec{
+		{
+			flagName:          "audit-exceptions",
+			usage:             "report exception patterns that matched zero locations (stale entries)",
+			defaultValue:      false,
+			includeInCheckAll: false,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.auditExceptions
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.auditExceptions
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.auditExceptions
+		{
+			flagName:          "check-validate",
+			usage:             "report named non-struct types missing Validate() error method",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkValidate
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkValidate
+			},
 		},
-	},
-	{
-		flagName:          "check-validate",
-		usage:             "report named non-struct types missing Validate() error method",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkValidate
+		{
+			flagName:          "check-stringer",
+			usage:             "report named non-struct types missing String() string method",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkStringer
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkStringer
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkValidate
+		{
+			flagName:          "check-constructors",
+			usage:             "report exported struct types missing NewXxx() constructor function",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkConstructors
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkConstructors
+			},
 		},
-	},
-	{
-		flagName:          "check-stringer",
-		usage:             "report named non-struct types missing String() string method",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkStringer
+		{
+			flagName:          "check-constructor-sig",
+			usage:             "report NewXxx() constructors whose return type doesn't match the struct",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkConstructorSig
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkConstructorSig
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkStringer
+		{
+			flagName:          "check-func-options",
+			usage:             "report structs that should use or complete the functional options pattern",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkFuncOptions
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkFuncOptions
+			},
 		},
-	},
-	{
-		flagName:          "check-constructors",
-		usage:             "report exported struct types missing NewXxx() constructor function",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkConstructors
+		{
+			flagName:          "check-immutability",
+			usage:             "report structs with constructors that have exported mutable fields",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkImmutability
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkImmutability
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkConstructors
+		{
+			flagName:          "check-struct-validate",
+			usage:             "report exported struct types with constructors missing Validate() error method",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkStructValidate
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkStructValidate
+			},
 		},
-	},
-	{
-		flagName:          "check-constructor-sig",
-		usage:             "report NewXxx() constructors whose return type doesn't match the struct",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkConstructorSig
+		{
+			flagName:          "check-cast-validation",
+			usage:             "report type conversions to DDD Value Types from non-constants without Validate() check",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkCastValidation
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkCastValidation
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkConstructorSig
+		{
+			flagName:          "check-validate-usage",
+			usage:             "detect unused Validate() results",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkValidateUsage
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkValidateUsage
+			},
 		},
-	},
-	{
-		flagName:          "check-func-options",
-		usage:             "report structs that should use or complete the functional options pattern",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkFuncOptions
+		{
+			flagName:          "check-constructor-error-usage",
+			usage:             "detect constructor calls with error return assigned to blank identifier",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkConstructorErrUsage
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkConstructorErrUsage
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkFuncOptions
+		{
+			flagName:          "check-constructor-validates",
+			usage:             "report NewXxx() constructors that return types with Validate() but never call it",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkConstructorValidates
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkConstructorValidates
+			},
 		},
-	},
-	{
-		flagName:          "check-immutability",
-		usage:             "report structs with constructors that have exported mutable fields",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkImmutability
+		{
+			flagName:          "check-validate-delegation",
+			usage:             "report structs with //goplint:validate-all whose Validate() misses field delegations",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkValidateDelegation
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkValidateDelegation
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkImmutability
+		{
+			flagName:          "check-nonzero",
+			usage:             "report struct fields using nonzero-annotated types as value (non-pointer) fields where they are semantically optional",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkNonZero
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkNonZero
+			},
 		},
-	},
-	{
-		flagName:          "check-struct-validate",
-		usage:             "report exported struct types with constructors missing Validate() error method",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkStructValidate
+		{
+			flagName:          "audit-review-dates",
+			usage:             "report exception patterns with review_after dates that have passed",
+			defaultValue:      false,
+			includeInCheckAll: false,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.auditReviewDates
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.auditReviewDates
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkStructValidate
+		{
+			flagName:          "check-use-before-validate",
+			usage:             "report DDD Value Type variables used before Validate() in the same basic block (CFA only)",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkUseBeforeValidate
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkUseBeforeValidate
+			},
 		},
-	},
-	{
-		flagName:          "check-cast-validation",
-		usage:             "report type conversions to DDD Value Types from non-constants without Validate() check",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkCastValidation
+		{
+			flagName:          "check-constructor-return-error",
+			usage:             "report NewXxx() constructors for validatable types that do not return error",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkConstructorReturnError
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkConstructorReturnError
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkCastValidation
+		{
+			flagName:          "check-use-before-validate-cross",
+			usage:             "report DDD Value Type variables used before Validate() across CFG blocks (CFA only, opt-in)",
+			defaultValue:      false,
+			includeInCheckAll: false,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkUseBeforeValidateCross
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkUseBeforeValidateCross
+			},
 		},
-	},
-	{
-		flagName:          "check-validate-usage",
-		usage:             "detect unused Validate() results",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkValidateUsage
+		{
+			flagName:          "no-cfa",
+			usage:             "disable control-flow analysis and use AST heuristic for cast-validation (CFA is enabled by default)",
+			defaultValue:      false,
+			includeInCheckAll: false,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.noCFA
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.noCFA
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkValidateUsage
+		{
+			flagName:          "check-enum-sync",
+			usage:             "report mismatches between Go Validate() switch cases and CUE schema disjunction members (requires //goplint:enum-cue= directive)",
+			defaultValue:      false,
+			includeInCheckAll: false,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkEnumSync
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkEnumSync
+			},
 		},
-	},
-	{
-		flagName:          "check-constructor-error-usage",
-		usage:             "detect constructor calls with error return assigned to blank identifier",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkConstructorErrUsage
+		{
+			flagName:          "suggest-validate-all",
+			usage:             "report structs with Validate() + validatable fields but no //goplint:validate-all directive (advisory)",
+			defaultValue:      false,
+			includeInCheckAll: false,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.suggestValidateAll
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.suggestValidateAll
+			},
 		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkConstructorErrUsage
+		{
+			flagName:          "check-all",
+			usage:             "enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + CFA)",
+			defaultValue:      false,
+			includeInCheckAll: false,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkAll
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkAll
+			},
 		},
-	},
-	{
-		flagName:          "check-constructor-validates",
-		usage:             "report NewXxx() constructors that return types with Validate() but never call it",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkConstructorValidates
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkConstructorValidates
-		},
-	},
-	{
-		flagName:          "check-validate-delegation",
-		usage:             "report structs with //goplint:validate-all whose Validate() misses field delegations",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkValidateDelegation
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkValidateDelegation
-		},
-	},
-	{
-		flagName:          "check-nonzero",
-		usage:             "report struct fields using nonzero-annotated types as value (non-pointer) fields where they are semantically optional",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkNonZero
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkNonZero
-		},
-	},
-	{
-		flagName:          "audit-review-dates",
-		usage:             "report exception patterns with review_after dates that have passed",
-		defaultValue:      false,
-		includeInCheckAll: false,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.auditReviewDates
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.auditReviewDates
-		},
-	},
-	{
-		flagName:          "check-use-before-validate",
-		usage:             "report DDD Value Type variables used before Validate() in the same basic block (CFA only)",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkUseBeforeValidate
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkUseBeforeValidate
-		},
-	},
-	{
-		flagName:          "check-constructor-return-error",
-		usage:             "report NewXxx() constructors for validatable types that do not return error",
-		defaultValue:      false,
-		includeInCheckAll: true,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkConstructorReturnError
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkConstructorReturnError
-		},
-	},
-	{
-		flagName:          "check-use-before-validate-cross",
-		usage:             "report DDD Value Type variables used before Validate() across CFG blocks (CFA only, opt-in)",
-		defaultValue:      false,
-		includeInCheckAll: false,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkUseBeforeValidateCross
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkUseBeforeValidateCross
-		},
-	},
-	{
-		flagName:          "no-cfa",
-		usage:             "disable control-flow analysis and use AST heuristic for cast-validation (CFA is enabled by default)",
-		defaultValue:      false,
-		includeInCheckAll: false,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.noCFA
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.noCFA
-		},
-	},
-	{
-		flagName:          "check-enum-sync",
-		usage:             "report mismatches between Go Validate() switch cases and CUE schema disjunction members (requires //goplint:enum-cue= directive)",
-		defaultValue:      false,
-		includeInCheckAll: false,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkEnumSync
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkEnumSync
-		},
-	},
-	{
-		flagName:          "suggest-validate-all",
-		usage:             "report structs with Validate() + validatable fields but no //goplint:validate-all directive (advisory)",
-		defaultValue:      false,
-		includeInCheckAll: false,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.suggestValidateAll
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.suggestValidateAll
-		},
-	},
-	{
-		flagName:          "check-all",
-		usage:             "enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + CFA)",
-		defaultValue:      false,
-		includeInCheckAll: false,
-		stateBoolField: func(fs *flagState) *bool {
-			return &fs.checkAll
-		},
-		runConfigBoolField: func(rc *runConfig) *bool {
-			return &rc.checkAll
-		},
-	},
+	}
 }
 
 func bindAnalyzerFlags(analyzer *analysis.Analyzer, state *flagState) {
@@ -355,7 +364,7 @@ func bindAnalyzerFlags(analyzer *analysis.Analyzer, state *flagState) {
 		explicit: &state.emitFindingsPathExplicit,
 	}, "emit-findings-jsonl", "internal path to write structured findings stream")
 
-	for _, spec := range modeFlagSpecs {
+	for _, spec := range modeFlagSpecs() {
 		analyzer.Flags.BoolVar(spec.stateBoolField(state), spec.flagName, spec.defaultValue, spec.usage)
 	}
 }
@@ -370,9 +379,14 @@ func resetFlagStateDefaults(state *flagState) {
 	state.configPathExplicit = false
 	state.baselinePathExplicit = false
 	state.emitFindingsPathExplicit = false
-	for _, spec := range modeFlagSpecs {
+	for _, spec := range modeFlagSpecs() {
 		*spec.stateBoolField(state) = spec.defaultValue
 	}
+	state.overdueReviewMu.Lock()
+	state.overdueReviewSeen = make(map[string]bool)
+	state.overdueReviewMu.Unlock()
+	state.configCache = sync.Map{}
+	state.baselineCache = sync.Map{}
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
@@ -409,13 +423,6 @@ type runConfig struct {
 	suggestValidateAll          bool
 }
 
-// newRunConfig reads the current flag binding values into a local config
-// struct and applies the --check-all expansion. The expansion happens on
-// the local struct, never mutating the package-level flag variables.
-func newRunConfig() runConfig {
-	return newRunConfigForState(defaultFlagState)
-}
-
 func newRunConfigForState(state *flagState) runConfig {
 	rc := runConfig{
 		configPath:               state.configPath,
@@ -425,7 +432,7 @@ func newRunConfigForState(state *flagState) runConfig {
 		emitFindingsPath:         state.emitFindingsPath,
 		emitFindingsPathExplicit: state.emitFindingsPathExplicit,
 	}
-	for _, spec := range modeFlagSpecs {
+	for _, spec := range modeFlagSpecs() {
 		*spec.runConfigBoolField(&rc) = *spec.stateBoolField(state)
 	}
 	expandCheckAllModes(&rc)
@@ -440,7 +447,7 @@ func expandCheckAllModes(rc *runConfig) {
 	if !rc.checkAll {
 		return
 	}
-	for _, spec := range modeFlagSpecs {
+	for _, spec := range modeFlagSpecs() {
 		if !spec.includeInCheckAll {
 			continue
 		}

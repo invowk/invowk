@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/BurntSushi/toml"
 )
@@ -35,8 +34,6 @@ type configCacheEntry struct {
 	template *ExceptionConfig
 	err      error
 }
-
-var configCache sync.Map // map[configCacheKey]*configCacheEntry
 
 // Settings configures global analyzer behavior.
 type Settings struct {
@@ -102,9 +99,12 @@ func loadConfig(path string, strictMissing bool) (*ExceptionConfig, error) {
 
 // loadConfigCached reads exceptions config through a process-local cache.
 // The returned config is always a per-run clone with fresh match counters.
-func loadConfigCached(path string, strictMissing bool) (*ExceptionConfig, error) {
+func loadConfigCached(state *flagState, path string, strictMissing bool) (*ExceptionConfig, error) {
+	if state == nil {
+		return loadConfig(path, strictMissing)
+	}
 	key := configCacheKey{path: path, strictMissing: strictMissing}
-	if cached, ok := configCache.Load(key); ok {
+	if cached, ok := state.configCache.Load(key); ok {
 		entry := cached.(*configCacheEntry)
 		if entry.err != nil {
 			return nil, entry.err
@@ -117,7 +117,7 @@ func loadConfigCached(path string, strictMissing bool) (*ExceptionConfig, error)
 	if err == nil {
 		entry.template = configTemplate(cfg)
 	}
-	configCache.Store(key, entry)
+	state.configCache.Store(key, entry)
 	if err != nil {
 		return nil, err
 	}

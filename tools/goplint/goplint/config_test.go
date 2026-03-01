@@ -138,6 +138,8 @@ unexpected = "nope"
 }
 
 func TestLoadConfigCached_CloneIsolation(t *testing.T) {
+	t.Parallel()
+
 	content := `
 [settings]
 skip_types = ["bool"]
@@ -148,12 +150,14 @@ pattern = "pkg.Type.Field"
 reason = "test"
 `
 	path := writeTempFile(t, "cached-config.toml", content)
+	state := &flagState{}
+	resetFlagStateDefaults(state)
 
-	first, err := loadConfigCached(path, false)
+	first, err := loadConfigCached(state, path, false)
 	if err != nil {
 		t.Fatalf("first loadConfigCached error: %v", err)
 	}
-	second, err := loadConfigCached(path, false)
+	second, err := loadConfigCached(state, path, false)
 	if err != nil {
 		t.Fatalf("second loadConfigCached error: %v", err)
 	}

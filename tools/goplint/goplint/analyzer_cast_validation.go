@@ -457,44 +457,15 @@ func isAutoSkipCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 		isErrorsComparisonCall(pass, call)
 }
 
-// containmentPredicateFuncs lists function names that are semantically
-// comparison/containment operations, shared by the "strings" and "bytes"
-// packages (both expose the same predicate names). Casts used as arguments
-// to these are testing content attributes, not consuming the value as
-// domain input.
-//
-// Allowed: Contains, HasPrefix, HasSuffix, EqualFold — pure predicates.
-// Not allowed: Replace, Split, Join, TrimPrefix, etc. — these process the value.
-var containmentPredicateFuncs = map[string]bool{
-	"Contains":  true,
-	"HasPrefix": true,
-	"HasSuffix": true,
-	"EqualFold": true,
-}
+type packageFuncMatcher func(name string) bool
 
-// slicesComparisonFuncs lists "slices" package functions that are
-// semantically comparison or lookup operations. Casts used as arguments
-// to these are testing membership or position, not consuming the value
-// as domain input.
-//
-// Allowed: Contains, ContainsFunc, Index, IndexFunc — pure predicates.
-// Not allowed: Sort, Replace, Insert, Delete, etc. — these mutate or process.
-var slicesComparisonFuncs = map[string]bool{
-	"Contains":     true,
-	"ContainsFunc": true,
-	"Index":        true,
-	"IndexFunc":    true,
-}
-
-// isPackageFuncInSet reports whether the call targets a function in the
-// given import path whose name is in the allowed set. Used by comparison
-// auto-skip functions to avoid repeating the isPackageCall + function-name
-// extraction pattern.
-func isPackageFuncInSet(pass *analysis.Pass, call *ast.CallExpr, importPath string, allowed map[string]bool) bool {
+// isPackageFuncMatch reports whether the call targets a function in the
+// given import path that satisfies matcher.
+func isPackageFuncMatch(pass *analysis.Pass, call *ast.CallExpr, importPath string, matcher packageFuncMatcher) bool {
 	if !isPackageCall(pass, call, importPath) {
 		return false
 	}
-	return allowed[packageCallFuncName(call)]
+	return matcher(packageCallFuncName(call))
 }
 
 func packageCallFuncName(call *ast.CallExpr) string {
@@ -515,30 +486,21 @@ func packageCallFuncName(call *ast.CallExpr) string {
 // comparison functions in the "strings" package that are semantically
 // equivalent to equality/containment checks.
 func isStringsComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	return isPackageFuncInSet(pass, call, "strings", containmentPredicateFuncs)
+	return isPackageFuncMatch(pass, call, "strings", isContainmentPredicateFunc)
 }
 
 // isSlicesComparisonCall reports whether the call targets one of the
 // comparison/lookup functions in the "slices" package that are semantically
 // equivalent to membership or position checks.
 func isSlicesComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	return isPackageFuncInSet(pass, call, "slices", slicesComparisonFuncs)
-}
-
-// errorsComparisonFuncs lists "errors" package functions that are
-// semantically type-matching comparison operations. Casts used as
-// arguments to these are testing error identity or type, not consuming
-// the value as domain input.
-var errorsComparisonFuncs = map[string]bool{
-	"As": true,
-	"Is": true,
+	return isPackageFuncMatch(pass, call, "slices", isSlicesComparisonFunc)
 }
 
 // isErrorsComparisonCall reports whether the call targets errors.Is or
 // errors.As — type-matching comparison operations where the cast value
 // is used for error identity/type matching, not as domain input.
 func isErrorsComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	return isPackageFuncInSet(pass, call, "errors", errorsComparisonFuncs)
+	return isPackageFuncMatch(pass, call, "errors", isErrorsComparisonFunc)
 }
 
 // isBytesComparisonCall reports whether the call targets one of the
@@ -546,7 +508,34 @@ func isErrorsComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 // equivalent to equality/containment checks on byte slices. Uses the
 // same function name set as strings (Contains, HasPrefix, etc.).
 func isBytesComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	return isPackageFuncInSet(pass, call, "bytes", containmentPredicateFuncs)
+	return isPackageFuncMatch(pass, call, "bytes", isContainmentPredicateFunc)
+}
+
+func isContainmentPredicateFunc(name string) bool {
+	switch name {
+	case "Contains", "HasPrefix", "HasSuffix", "EqualFold":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSlicesComparisonFunc(name string) bool {
+	switch name {
+	case "Contains", "ContainsFunc", "Index", "IndexFunc":
+		return true
+	default:
+		return false
+	}
+}
+
+func isErrorsComparisonFunc(name string) bool {
+	switch name {
+	case "As", "Is":
+		return true
+	default:
+		return false
+	}
 }
 
 // isErrorMessageExpr reports whether expr is a call that produces display
