@@ -92,8 +92,8 @@ constraints, downloads the modules, and updates the lock file.
 Examples:
   invowk module sync`,
 		Args: cobra.ExactArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleSync(cmd.Context(), args)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runModuleSync(cmd.Context())
 		},
 	}
 }
@@ -138,8 +138,8 @@ Shows all resolved modules with their versions, namespaces, and cache paths.
 Examples:
   invowk module deps`,
 		Args: cobra.ExactArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleDeps(cmd.Context(), args)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runModuleDeps(cmd.Context())
 		},
 	}
 }
@@ -238,7 +238,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 	return nil
 }
 
-func runModuleSync(ctx context.Context, args []string) error {
+func runModuleSync(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
 
 	// Parse invowkmod.cue to get requirements
@@ -330,7 +330,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	return nil
 }
 
-func runModuleDeps(ctx context.Context, args []string) error {
+func runModuleDeps(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Module Dependencies"))
 
 	// Create module resolver
