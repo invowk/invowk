@@ -72,6 +72,12 @@ type (
 		// Platform is the resolved platform for this execution.
 		// Injected as INVOWK_PLATFORM so scripts can self-introspect the target platform.
 		Platform invowkfile.Platform
+
+		// Context is the caller's context for cancellation and timeout propagation.
+		// When nil, defaults to context.Background(). Callers should set this to
+		// their request-scoped context so that Ctrl+C and deadlines propagate to
+		// the execution runtime.
+		Context context.Context
 	}
 )
 
@@ -222,7 +228,11 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 		return nil, fmt.Errorf("BuildExecutionContext: Invowkfile must not be nil")
 	}
 
-	execCtx := runtime.NewExecutionContext(context.Background(), opts.Command, opts.Invowkfile)
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	execCtx := runtime.NewExecutionContext(ctx, opts.Command, opts.Invowkfile)
 
 	execCtx.Verbose = opts.Verbose
 	execCtx.SelectedRuntime = opts.Selection.Mode()

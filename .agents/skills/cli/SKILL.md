@@ -426,3 +426,4 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | Not using styled output | Inconsistent CLI appearance | Use styles from `styles.go` |
 | Wrong flag priority | Config overrides CLI flag | Check precedence logic |
 | New flag missing from one ExecuteRequest site | Flag silently ignored for some paths | Wire in ALL 3 sites: `runCommand`, `buildLeafCommand`, `runDisambiguatedCommand` |
+| `context.Background()` in Cobra RunE handler | Ctrl+C / timeout not propagated | Extract `cmd.Context()` at closure boundary, pass as `ctx context.Context` first param to handler function |

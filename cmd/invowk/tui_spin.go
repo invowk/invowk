@@ -88,7 +88,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 		if parseErr != nil {
 			return parseErr
 		}
-		output, err = tui.SpinWithCommand(tui.SpinOptions{
+		output, err = tui.SpinWithCommand(cmd.Context(), tui.SpinOptions{
 			Title: spinTitle,
 			Type:  parsedType,
 		}, command, cmdArgs...)

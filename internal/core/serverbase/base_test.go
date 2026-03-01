@@ -303,6 +303,34 @@ func TestCancelledContext(t *testing.T) {
 	})
 }
 
+func TestTransitionToStarting_LifecycleContextInheritsCallerContext(t *testing.T) {
+	t.Parallel()
+
+	b := NewBase()
+
+	// Create a cancellable context to simulate caller cancellation (e.g., Ctrl+C).
+	callerCtx, cancel := context.WithCancel(t.Context())
+	if err := b.TransitionToStarting(callerCtx); err != nil {
+		t.Fatalf("TransitionToStarting failed: %v", err)
+	}
+
+	// The server's internal context should still be active.
+	if b.Context().Err() != nil {
+		t.Fatal("server context should not be cancelled before caller cancels")
+	}
+
+	// Cancel the caller's context — this should propagate to the server's lifecycle context.
+	cancel()
+
+	// Give the cancellation a moment to propagate through the context tree.
+	select {
+	case <-b.Context().Done():
+		// Expected: server context is now cancelled.
+	case <-time.After(time.Second):
+		t.Fatal("server context was not cancelled after caller context was cancelled")
+	}
+}
+
 // Test State.String()
 func TestStateString(t *testing.T) {
 	t.Parallel()

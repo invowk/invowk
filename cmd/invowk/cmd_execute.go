@@ -108,16 +108,10 @@ func (s *commandService) Execute(ctx context.Context, req ExecuteRequest) (Execu
 		defer s.ssh.stop()
 	}
 
-	execCtx, err := s.buildExecContext(req, cmdInfo, defs, resolved)
+	execCtx, err := s.buildExecContext(ctx, req, cmdInfo, defs, resolved)
 	if err != nil {
 		return ExecuteResult{}, diags, err
 	}
-
-	// Propagate the incoming context so that timeout and parent cancellation
-	// signals survive. NewExecutionContext (called transitively by buildExecContext)
-	// sets context.Background(); overriding it here preserves the Ctrl+C
-	// propagation chain and timeout deadline.
-	execCtx.Context = ctx
 
 	// Dry-run mode: print what would be executed and exit without executing.
 	if req.DryRun {
@@ -268,7 +262,7 @@ func (s *commandService) ensureSSHIfNeeded(ctx context.Context, req ExecuteReque
 // discovered command info, resolved definitions, and selected runtime. It projects
 // flags and arguments into environment variables following the INVOWK_FLAG_*,
 // INVOWK_ARG_*, ARGn, and ARGC conventions.
-func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions, resolved appexec.RuntimeSelection) (*runtime.ExecutionContext, error) {
+func (s *commandService) buildExecContext(ctx context.Context, req ExecuteRequest, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions, resolved appexec.RuntimeSelection) (*runtime.ExecutionContext, error) {
 	return appexec.BuildExecutionContext(appexec.BuildExecutionContextOptions{
 		Command:         cmdInfo.Command,
 		Invowkfile:      cmdInfo.Invowkfile,
@@ -286,6 +280,7 @@ func (s *commandService) buildExecContext(req ExecuteRequest, cmdInfo *discovery
 		EnvInheritDeny:  req.EnvInheritDeny,
 		SourceID:        cmdInfo.SourceID,
 		Platform:        invowkfile.CurrentPlatform(),
+		Context:         ctx,
 	})
 }
 
@@ -475,7 +470,17 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to create TUI server: %w", err)}
 	}
 
-	if err = tuiServer.Start(context.Background()); err != nil {
+	// Resolve the Go context once for reuse by both the TUI server and
+	// the interactive command. Parent cancellation (e.g., Ctrl+C) propagates
+	// to server goroutines and the subprocess. The nil guard is defensive —
+	// BuildExecutionContext guarantees non-nil, but executeInteractive is a
+	// package-level function that could be called from other paths.
+	goCtx := ctx.Context
+	if goCtx == nil {
+		goCtx = context.Background()
+	}
+
+	if err = tuiServer.Start(goCtx); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: fmt.Errorf("failed to start TUI server: %w", err)}
 	}
 	defer func() {
@@ -517,13 +522,8 @@ func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registr
 		fmt.Sprintf("%s=%s", tuiserver.EnvTUIToken, tuiServer.Token()),
 	)
 
-	execCtx := ctx.Context
-	if execCtx == nil {
-		execCtx = context.Background()
-	}
-
 	interactiveResult, err := tui.RunInteractiveCmd(
-		execCtx,
+		goCtx,
 		tui.InteractiveOptions{
 			Title:       "Running Command",
 			CommandName: invowkfile.CommandName(cmdName), //goplint:ignore -- from Cobra command name, validated by discovery

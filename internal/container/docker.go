@@ -27,11 +27,14 @@ func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
 }
 
 // Available checks if Docker is available.
+// Uses an internal timeout to prevent indefinite hangs when the daemon is unresponsive.
 func (e *DockerEngine) Available() bool {
 	if e.BinaryPath() == "" {
 		return false
 	}
-	cmd := e.CreateCommand(context.Background(), "version", "--format", "{{.Server.Version}}")
+	ctx, cancel := context.WithTimeout(context.Background(), availabilityTimeout)
+	defer cancel()
+	cmd := e.CreateCommand(ctx, "version", "--format", "{{.Server.Version}}")
 	return cmd.Run() == nil
 }
 

@@ -62,6 +62,15 @@ for _, tt := range tests {
 }
 ```
 
+## Test Context Usage
+
+**Use `t.Context()` (Go 1.24+) as the default context in tests.** Do NOT use `context.Background()` unless structurally forced (e.g., `TestMain`, package-level variable init).
+
+- `context.WithCancel(t.Context())` — only when the test scenario requires explicit mid-test cancellation (e.g., testing graceful shutdown)
+- `context.WithTimeout(t.Context(), ...)` — only when the test needs a specific deadline as part of the test logic
+- `context.Background()` — only in `TestMain` (`*testing.M` has no `Context()` method) or in `testscript.Env.Defer()` cleanup hooks (no `*testing.T` in scope). Always comment why `context.Background()` is used.
+- Benchmarks: Use `b.Context()`, not `t.Context()`.
+
 ## Test Parallelism
 
 ### Default Rule

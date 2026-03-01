@@ -78,10 +78,16 @@ type (
 		Type SpinnerType
 		// Config holds common TUI configuration.
 		Config Config
+		// Context controls cancellation for the spawned subprocess.
+		// When nil, defaults to context.Background().
+		// Excluded from JSON: this struct doubles as the wire format for TUI
+		// server RPC (embeddable.go), where context is not serializable.
+		Context context.Context `json:"-"`
 	}
 
 	// spinModel implements EmbeddableComponent for spinner with command execution.
 	spinModel struct {
+		ctx     context.Context
 		title   string
 		command []string
 		done    bool
@@ -190,14 +196,21 @@ func SpinnerTypeNames() []string {
 
 // NewSpinModel creates an embeddable spinner component.
 func NewSpinModel(opts SpinCommandOptions) *spinModel {
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	if len(opts.Command) == 0 {
 		// No command - return immediately done
 		return &spinModel{
+			ctx:  ctx,
 			done: true,
 		}
 	}
 
 	return &spinModel{
+		ctx:     ctx,
 		title:   opts.Title,
 		command: opts.Command,
 		frames:  []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
@@ -282,7 +295,7 @@ func (m *spinModel) runCommand() tea.Cmd {
 			return spinnerDoneMsg{result: SpinResult{}}
 		}
 
-		cmd := exec.CommandContext(context.Background(), m.command[0], m.command[1:]...)
+		cmd := exec.CommandContext(m.ctx, m.command[0], m.command[1:]...)
 		output, err := cmd.CombinedOutput()
 
 		result := SpinResult{
@@ -337,13 +350,14 @@ func SpinWithContext(opts SpinOptions, ctx context.Context) error {
 }
 
 // SpinWithCommand displays a spinner while running a shell command.
+// The context controls cancellation for the spawned subprocess.
 // Returns the command output and any error.
-func SpinWithCommand(opts SpinOptions, command string, args ...string) ([]byte, error) {
+func SpinWithCommand(ctx context.Context, opts SpinOptions, command string, args ...string) ([]byte, error) {
 	var output []byte
 	var cmdErr error
 
 	action := func() {
-		cmd := exec.CommandContext(context.Background(), command, args...)
+		cmd := exec.CommandContext(ctx, command, args...)
 		output, cmdErr = cmd.CombinedOutput()
 	}
 

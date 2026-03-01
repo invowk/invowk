@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
@@ -23,6 +24,11 @@ const (
 	// AutoDetectEngine fails to find any engine — it is not a valid engine
 	// type for normal operations.
 	EngineTypeAny EngineType = "any"
+
+	// availabilityTimeout is the maximum time to wait for a container engine
+	// to respond during availability checks. Prevents indefinite hangs when
+	// the engine daemon is unresponsive or starting up.
+	availabilityTimeout = 3 * time.Second
 )
 
 var (

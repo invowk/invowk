@@ -62,7 +62,7 @@ Examples:
   invowk module import ./module.zip --overwrite`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleImport(args, importPath, importOverwrite)
+			return runModuleImport(cmd.Context(), args, importPath, importOverwrite)
 		},
 	}
 
@@ -102,7 +102,7 @@ Examples:
   invowk module vendor --prune`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleVendor(args, vendorUpdate, vendorPrune)
+			return runModuleVendor(cmd.Context(), args, vendorUpdate, vendorPrune)
 		},
 	}
 
@@ -137,7 +137,7 @@ func runModuleArchive(args []string, output string) error {
 	return nil
 }
 
-func runModuleImport(args []string, importPath string, importOverwrite bool) error {
+func runModuleImport(ctx context.Context, args []string, importPath string, importOverwrite bool) error {
 	source := args[0]
 
 	fmt.Println(moduleTitleStyle.Render("Import Module"))
@@ -159,7 +159,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 		Overwrite: importOverwrite,
 	}
 
-	modulePath, err := invowkmod.Unpack(opts)
+	modulePath, err := invowkmod.Unpack(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to import module: %w", err)
 	}
@@ -180,7 +180,7 @@ func runModuleImport(args []string, importPath string, importOverwrite bool) err
 	return nil
 }
 
-func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
+func runModuleVendor(ctx context.Context, args []string, vendorUpdate, vendorPrune bool) error {
 	fmt.Println(moduleTitleStyle.Render("Vendor Module Dependencies"))
 
 	// Determine the target directory
@@ -225,8 +225,6 @@ func runModuleVendor(args []string, vendorUpdate, vendorPrune bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to create resolver: %w", err)
 	}
-
-	ctx := context.Background()
 
 	// Resolution strategy:
 	//   --update          → always re-resolve (updates lock file)
