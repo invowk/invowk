@@ -91,6 +91,9 @@ func loadConfig(path string, strictMissing bool) (*ExceptionConfig, error) {
 	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
 		return nil, fmt.Errorf("parsing config TOML: unknown keys: %s", joinTOMLKeys(undecoded))
 	}
+	if err := validateExceptionPatterns(cfg.Exceptions); err != nil {
+		return nil, err
+	}
 
 	cfg.matchCounts = make(map[int]int, len(cfg.Exceptions))
 
@@ -147,7 +150,7 @@ func cloneExceptionConfig(template *ExceptionConfig) *ExceptionConfig {
 			SkipTypes:    slices.Clone(template.Settings.SkipTypes),
 			ExcludePaths: slices.Clone(template.Settings.ExcludePaths),
 		},
-		Exceptions: slices.Clone(template.Exceptions),
+		Exceptions:  slices.Clone(template.Exceptions),
 		matchCounts: make(map[int]int, len(template.Exceptions)),
 	}
 	return clone
@@ -242,4 +245,32 @@ func matchPattern(pattern, name string) bool {
 		}
 	}
 	return true
+}
+
+func validateExceptionPatterns(exceptions []Exception) error {
+	for i, exc := range exceptions {
+		if err := validateExceptionPattern(exc.Pattern); err != nil {
+			return fmt.Errorf("parsing config TOML: exceptions[%d].pattern: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func validateExceptionPattern(pattern string) error {
+	parts := strings.Split(pattern, ".")
+	if len(parts) == 0 {
+		return fmt.Errorf("must contain at least one segment")
+	}
+	for _, part := range parts {
+		if part == "" {
+			return fmt.Errorf("empty segment in pattern %q", pattern)
+		}
+		if part == "*" {
+			continue
+		}
+		if _, err := filepath.Match(part, "probe"); err != nil {
+			return fmt.Errorf("invalid glob %q: %w", part, err)
+		}
+	}
+	return nil
 }

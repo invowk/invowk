@@ -183,6 +183,16 @@ func TestNewRunConfig(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("ubv flags auto-enable cast-validation", func(t *testing.T) {
+		resetFlags(t, h)
+		setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+
+		rc := newRunConfigForState(h.state)
+		if !rc.checkCastValidation {
+			t.Fatal("expected check-cast-validation to auto-enable with UBV flag")
+		}
+	})
 }
 
 // TestTrackedStringFlagsExplicitness verifies config/baseline tracked string
@@ -681,6 +691,25 @@ func TestConstructorValidatesCrossPackage(t *testing.T) {
 	runAnalysisTest(t, testdata, h.Analyzer,
 		"constructorvalidates_cross/util",
 		"constructorvalidates_cross/myapp")
+}
+
+// TestConstructorValidatesCrossPackageThirdPartyType verifies validates-type
+// facts carry the validated type identity (package path + type name), not the
+// helper package path, when the helper validates a third package's type.
+//
+// NOT parallel: shares h.Analyzer.Flags state.
+func TestConstructorValidatesCrossPackageThirdPartyType(t *testing.T) {
+	t.Parallel()
+
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer,
+		"constructorvalidates_cross_third/model",
+		"constructorvalidates_cross_third/util",
+		"constructorvalidates_cross_third/app")
 }
 
 // TestConstructorValidatesPackageCollision verifies constructor-validates uses

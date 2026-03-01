@@ -436,6 +436,7 @@ func newRunConfigForState(state *flagState) runConfig {
 		*spec.runConfigBoolField(&rc) = *spec.stateBoolField(state)
 	}
 	expandCheckAllModes(&rc)
+	normalizeRunConfig(&rc)
 	return rc
 }
 
@@ -452,5 +453,16 @@ func expandCheckAllModes(rc *runConfig) {
 			continue
 		}
 		*spec.runConfigBoolField(rc) = true
+	}
+}
+
+func normalizeRunConfig(rc *runConfig) {
+	if rc == nil {
+		return
+	}
+	// UBV checks are CFA-only extensions of cast-validation. Auto-enable cast
+	// validation so explicit UBV flags are never silently inert.
+	if rc.checkUseBeforeValidate || rc.checkUseBeforeValidateCross {
+		rc.checkCastValidation = true
 	}
 }

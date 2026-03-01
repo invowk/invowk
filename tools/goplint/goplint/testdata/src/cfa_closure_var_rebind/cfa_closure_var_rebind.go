@@ -15,6 +15,8 @@ func (c CommandName) Validate() error {
 
 func useCmd(_ CommandName) {}
 
+func noValidate() {}
+
 // RebindingTracksCallSite verifies closure-variable calls resolve bindings at
 // each call site, not by the last assignment in the function.
 func RebindingTracksCallSite(raw string) { // want `parameter "raw" of cfa_closure_var_rebind\.RebindingTracksCallSite uses primitive type string`
@@ -41,6 +43,19 @@ func OuterCastValidatedViaClosureVar(raw string) { // want `parameter "raw" of c
 	f := func() {
 		_ = x.Validate()
 	}
+	f()
+	useCmd(x)
+}
+
+// RebindingToNonClosureInvalidates verifies that rebinding a closure variable to
+// a non-closure function invalidates prior closure-based Validate tracking.
+func RebindingToNonClosureInvalidates(raw string) { // want `parameter "raw" of cfa_closure_var_rebind\.RebindingToNonClosureInvalidates uses primitive type string`
+	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	f := func() {
+		_ = x.Validate()
+	}
+	noOp := noValidate
+	f = noOp
 	f()
 	useCmd(x)
 }

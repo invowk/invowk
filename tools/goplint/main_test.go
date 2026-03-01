@@ -571,7 +571,7 @@ func TestTolerateAnalyzerExit(t *testing.T) {
 
 	t.Run("nil error accepted", func(t *testing.T) {
 		t.Parallel()
-		if err := tolerateAnalyzerExit(nil, 0); err != nil {
+		if err := tolerateAnalyzerExit(nil, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -579,7 +579,10 @@ func TestTolerateAnalyzerExit(t *testing.T) {
 	t.Run("exit error with json output accepted", func(t *testing.T) {
 		t.Parallel()
 		exitErr := makeExitError(t)
-		if err := tolerateAnalyzerExit(exitErr, 10); err != nil {
+		stdout := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {"goplint": {}},
+		})
+		if err := tolerateAnalyzerExit(exitErr, stdout); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -587,8 +590,16 @@ func TestTolerateAnalyzerExit(t *testing.T) {
 	t.Run("exit error with empty output rejected", func(t *testing.T) {
 		t.Parallel()
 		exitErr := makeExitError(t)
-		if err := tolerateAnalyzerExit(exitErr, 0); err == nil {
+		if err := tolerateAnalyzerExit(exitErr, nil); err == nil {
 			t.Fatal("expected error for empty stdout")
+		}
+	})
+
+	t.Run("exit error with malformed output rejected", func(t *testing.T) {
+		t.Parallel()
+		exitErr := makeExitError(t)
+		if err := tolerateAnalyzerExit(exitErr, []byte("{invalid")); err == nil {
+			t.Fatal("expected error for malformed analyzer stdout")
 		}
 	})
 }
@@ -686,6 +697,35 @@ func TestGenerateBaseline(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "parsing analysis output") {
 			t.Fatalf("expected parsing analysis output error, got %v", err)
+		}
+	})
+
+	t.Run("empty findings stream with analyzer findings fails closed", func(t *testing.T) {
+		t.Parallel()
+		runner := func(cmd *exec.Cmd) error {
+			buf, ok := cmd.Stdout.(*bytes.Buffer)
+			if !ok {
+				t.Fatalf("expected *bytes.Buffer stdout, got %T", cmd.Stdout)
+			}
+			if _, err := buf.Write(makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+				"example.com/pkg": {
+					"goplint": {
+						{Category: "primitive", Message: "struct field pkg.A.B uses primitive type string"},
+					},
+				},
+			})); err != nil {
+				return err
+			}
+			// Simulate sink write failure by leaving the findings stream empty.
+			return &exec.ExitError{}
+		}
+		outPath := filepath.Join(t.TempDir(), "baseline.toml")
+		err := generateBaselineWithRunner(outPath, []string{"--update-baseline", outPath, "./..."}, runner, io.Discard)
+		if err == nil {
+			t.Fatal("expected empty findings stream error")
+		}
+		if !strings.Contains(err.Error(), "findings stream is empty") {
+			t.Fatalf("expected fail-closed findings stream error, got %v", err)
 		}
 	})
 

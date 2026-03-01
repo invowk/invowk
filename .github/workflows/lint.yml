@@ -126,3 +126,26 @@ jobs:
       - name: Check baseline
         run: |
           make check-baseline
+
+  goplint-tests:
+    name: goplint tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: tools/goplint/go.mod
+          cache: true
+
+      - name: Run goplint tests (race)
+        run: |
+          cd tools/goplint
+          go test -race -count=1 ./...
+
+      - name: Run goplint tests (repeat)
+        run: |
+          cd tools/goplint
+          go test -count=3 ./...

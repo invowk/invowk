@@ -567,7 +567,7 @@ Run `make update-baseline` after:
 
 ### CI integration
 
-The `goplint-baseline` job in `lint.yml` runs `make check-baseline`. It is a required check — any new findings not in the baseline will block the PR.
+The `goplint-baseline` and `goplint-tests` jobs in `lint.yml` are required checks. `goplint-baseline` runs `make check-baseline` (regression gate), while `goplint-tests` runs nested-module analyzer tests (`go test -race -count=1 ./...` and repeat runs) to catch tool-only regressions.
 
 ### Pre-commit hook
 
@@ -583,7 +583,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **Flag state model**: `NewAnalyzer()` constructs analyzers with isolated `flagState`; there is no package-level shared analyzer instance. Bool modes are declared in `modeFlagSpecs` (`flags.go`) and used for registration, `newRunConfigForState()` snapshotting, and `--check-all` expansion to reduce wiring drift.
 - **`primitiveTypeName` needs `Unalias` too**: Even after `isPrimitive` correctly detects an alias as primitive, the diagnostic message must show the resolved type (`string`), not the alias name (`MyAlias`). Call `types.Unalias()` before `types.TypeString()`.
 - **Qualified name format**: The analyzer prefixes all names with the package name (`pkg.Type.Field`, `pkg.Func.param`). Exception patterns can be 2-segment (matched after stripping the package prefix) or 3-segment (exact match).
-- **CI baseline is required**: The `goplint-baseline` job in `lint.yml` is a required check that blocks merges on regressions. The `goplint` (full DDD audit) job remains advisory with `continue-on-error: true`. `make check-baseline` runs `-check-all -check-enum-sync` — enum sync is included in the baseline gate even though `--check-all` alone excludes it.
+- **CI baseline + analyzer tests are required**: `goplint-baseline` blocks merges on baseline regressions, and `goplint-tests` blocks merges on analyzer test/race regressions. The `goplint` full DDD scan remains advisory with `continue-on-error: true`. `make check-baseline` runs `-check-all -check-enum-sync` — enum sync is included in the baseline gate even though `--check-all` alone excludes it.
 - **Per-package execution**: `go/analysis` analyzers run per-package. `--audit-exceptions` reports stale exceptions per-package — an exception that matches in package A but not package B will only be reported as stale during B's analysis. For a global stale audit, run against the full module (`./...`).
 - **`findConstructorForStruct` determinism**: Prefers exact match (`"New" + structName`) over prefix matches. Among prefix matches, picks lexicographically first name. Prevents non-deterministic results from Go map iteration order when multiple variant constructors exist.
 - **CFA import alias**: CFA files use `gocfg "golang.org/x/tools/go/cfg"` to avoid collision with the `*ExceptionConfig` parameter commonly named `cfg` in analyzer functions.
@@ -592,9 +592,12 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **UBV closure ordering semantics**: `--check-use-before-validate` and `--check-use-before-validate-cross` use immediate-IIFE closure sets only. Deferred closures do NOT suppress UBV findings because deferred `Validate()` runs at function return, after earlier uses.
 - **CFA no-return terminal paths**: Leaf CFG blocks ending in no-return calls (`panic`, `os.Exit`, `runtime.Goexit`, `log.Fatal*`, `testing.FailNow/Fatal*`) are treated as terminating paths, not implicit return paths. They must not trigger unvalidated-cast or constructor-validates path-to-return findings.
 - **Method-value Validate tracking**: CFA and constructor-validates recognize `Validate` method values (`vf := x.Validate; vf()`) including simple alias chains (`alias := vf; alias()`). Storing a method value without calling it does not count as validation.
+- **Method-expression Validate tracking**: CFA also recognizes method expressions (`vf := Type.Validate; vf(x)`) by mapping the first call argument as the receiver for Validate matching.
+- **Rebinding invalidation (closure vars + method values)**: Any reassignment to a tracked closure variable or method-value variable records a tombstone when the new RHS cannot be proven to preserve validation semantics. This intentionally prefers false positives over false negatives for rebinding-heavy code.
+- **UBV/CFA flag contract**: `--check-use-before-validate*` auto-enables `--check-cast-validation`, and UBV modes reject `--no-cfa` (UBV is CFA-only).
 - **CFA `if false` handling**: `go/cfg` does NOT perform constant folding. `if false { x.Validate() }` creates a structurally live block. However, the non-false path to return IS detected as unvalidated because the IfDone block has no Validate call.
 - **CFA path semantics**: CFA checks "path-to-return-without-validate," not "use-before-validate." If `x.Validate()` appears anywhere on a path from the cast to a return block, that path is considered validated regardless of whether `x` is used before the Validate call.
-- **Constructor-validates CFA**: `--check-constructor-validates` uses CFA (gated by `--no-cfa`) to verify ALL return paths pass through `.Validate()` on the return type. Uses `constructorHasUnvalidatedReturnPath` which builds a CFG and DFS-checks from the entry block. Type-identity matching (via `typeIdentityKey`) is used instead of variable-name matching. Transitive delegation is accepted without CFA path checking (too complex to track which callee covers which path).
+- **Constructor-validates CFA**: `--check-constructor-validates` uses CFA (gated by `--no-cfa`) to verify ALL return paths pass through `.Validate()` on the return type. Uses `constructorHasUnvalidatedReturnPath` which builds a CFG and DFS-checks from the entry block. Type-identity matching (via `typeIdentityKey`) is used instead of variable-name matching. Synchronous closure-var calls are included in path checks, and `//goplint:validates-type=...` facts resolve to the validated type identity (not only helper package identity).
 
 ## Test Architecture
 

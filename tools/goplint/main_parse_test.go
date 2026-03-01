@@ -303,10 +303,41 @@ func TestParseAnalysisJSON(t *testing.T) {
 func TestStableDiagnosticPosKey(t *testing.T) {
 	t.Parallel()
 
-	got := stableDiagnosticPosKey("example.com/pkg", "/tmp/work/pkg/file.go:10:2")
-	want := "example.com/pkg:file.go:10:2"
-	if got != want {
-		t.Fatalf("stableDiagnosticPosKey() = %q, want %q", got, want)
+	tests := []struct {
+		name string
+		posn string
+		want string
+	}{
+		{
+			name: "unix absolute path",
+			posn: "/tmp/work/pkg/file.go:10:2",
+			want: "example.com/pkg:file.go:10:2",
+		},
+		{
+			name: "windows path",
+			posn: `C:\work\pkg\file.go:10:2`,
+			want: "example.com/pkg:file.go:10:2",
+		},
+		{
+			name: "mixed separators",
+			posn: `C:/work/pkg\inner/file.go:22:9`,
+			want: "example.com/pkg:file.go:22:9",
+		},
+		{
+			name: "malformed token falls back to raw",
+			posn: "file.go:not-a-line",
+			want: "example.com/pkg:file.go:not-a-line",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := stableDiagnosticPosKey("example.com/pkg", tt.posn)
+			if got != tt.want {
+				t.Fatalf("stableDiagnosticPosKey() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 

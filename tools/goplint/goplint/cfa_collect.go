@@ -55,8 +55,9 @@ type closureBindingEvent struct {
 }
 
 type validateMethodValueBindingEvent struct {
-	pos      token.Pos
-	receiver ast.Expr
+	pos          token.Pos
+	receiver     ast.Expr
+	isMethodExpr bool
 }
 
 type methodValueValidateCall struct {
@@ -256,14 +257,12 @@ func collectClosureVarBindingEvents(pass *analysis.Pass, body *ast.BlockStmt) ma
 				}
 			}
 		}
-		if !ok {
-			return
-		}
 		key := objectKey(obj)
-		bindings[key] = append(bindings[key], closureBindingEvent{
-			pos: atPos,
-			lit: lit,
-		})
+		event := closureBindingEvent{pos: atPos}
+		if ok {
+			event.lit = lit
+		}
+		bindings[key] = append(bindings[key], event)
 	}
 
 	ast.Inspect(body, func(n ast.Node) bool {
@@ -298,9 +297,10 @@ func latestClosureBindingBefore(events []closureBindingEvent, atPos token.Pos) (
 		if events[i].pos > atPos {
 			continue
 		}
-		if events[i].lit != nil {
-			return events[i].lit, true
+		if events[i].lit == nil {
+			return nil, false
 		}
+		return events[i].lit, true
 	}
 	return nil, false
 }
@@ -323,26 +323,26 @@ func collectValidateMethodValueBindingEvents(pass *analysis.Pass, body *ast.Bloc
 			return
 		}
 
-		receiver, ok := validateMethodReceiverFromExpr(pass, rhs)
+		receiver, isMethodExpr, ok := validateMethodReceiverFromExpr(pass, rhs)
 		if !ok {
 			if rhsIdent, rhsOK := stripParens(rhs).(*ast.Ident); rhsOK {
 				rhsObj := objectForIdent(pass, rhsIdent)
 				if rhsObj != nil {
 					if matched, aliasOK := latestValidateMethodBindingBefore(bindings[objectKey(rhsObj)], atPos); aliasOK {
-						receiver = matched
+						receiver = matched.receiver
+						isMethodExpr = matched.isMethodExpr
 						ok = true
 					}
 				}
 			}
 		}
-		if !ok {
-			return
-		}
 
-		bindings[objectKey(obj)] = append(bindings[objectKey(obj)], validateMethodValueBindingEvent{
-			pos:      atPos,
-			receiver: receiver,
-		})
+		event := validateMethodValueBindingEvent{pos: atPos}
+		if ok {
+			event.receiver = receiver
+			event.isMethodExpr = isMethodExpr
+		}
+		bindings[objectKey(obj)] = append(bindings[objectKey(obj)], event)
 	}
 
 	ast.Inspect(body, func(n ast.Node) bool {
@@ -372,28 +372,51 @@ func collectValidateMethodValueBindingEvents(pass *analysis.Pass, body *ast.Bloc
 	return bindings
 }
 
-func latestValidateMethodBindingBefore(events []validateMethodValueBindingEvent, atPos token.Pos) (ast.Expr, bool) {
+func latestValidateMethodBindingBefore(events []validateMethodValueBindingEvent, atPos token.Pos) (validateMethodValueBindingEvent, bool) {
 	for i := len(events) - 1; i >= 0; i-- {
 		if events[i].pos > atPos {
 			continue
 		}
-		if events[i].receiver != nil {
-			return events[i].receiver, true
+		if events[i].receiver == nil {
+			return validateMethodValueBindingEvent{}, false
 		}
+		return events[i], true
 	}
-	return nil, false
+	return validateMethodValueBindingEvent{}, false
 }
 
-func validateMethodReceiverFromExpr(pass *analysis.Pass, expr ast.Expr) (ast.Expr, bool) {
+func validateMethodReceiverFromExpr(pass *analysis.Pass, expr ast.Expr) (receiver ast.Expr, isMethodExpr bool, ok bool) {
+	if pass == nil || pass.TypesInfo == nil || expr == nil {
+		return nil, false, false
+	}
 	sel, ok := stripParens(expr).(*ast.SelectorExpr)
 	if !ok || sel.Sel.Name != "Validate" {
-		return nil, false
+		return nil, false, false
 	}
+
+	if selection, hasSelection := pass.TypesInfo.Selections[sel]; hasSelection {
+		if selection.Obj() == nil || selection.Obj().Name() != "Validate" {
+			return nil, false, false
+		}
+		switch selection.Kind() {
+		case types.MethodVal:
+			recvType := pass.TypesInfo.TypeOf(sel.X)
+			if recvType == nil || !hasValidateMethod(recvType) {
+				return nil, false, false
+			}
+			return sel.X, false, true
+		case types.MethodExpr:
+			return sel.X, true, true
+		default:
+			return nil, false, false
+		}
+	}
+
 	recvType := pass.TypesInfo.TypeOf(sel.X)
 	if recvType == nil || !hasValidateMethod(recvType) {
-		return nil, false
+		return nil, false, false
 	}
-	return sel.X, true
+	return sel.X, false, true
 }
 
 func validateMethodReceiverForCall(
@@ -412,11 +435,17 @@ func validateMethodReceiverForCall(
 	if obj == nil {
 		return nil, false
 	}
-	receiver, ok := latestValidateMethodBindingBefore(bindings[objectKey(obj)], call.Pos())
+	matched, ok := latestValidateMethodBindingBefore(bindings[objectKey(obj)], call.Pos())
 	if !ok {
 		return nil, false
 	}
-	return receiver, true
+	if matched.isMethodExpr {
+		if len(call.Args) == 0 {
+			return nil, false
+		}
+		return call.Args[0], true
+	}
+	return matched.receiver, true
 }
 
 func collectMethodValueValidateCalls(pass *analysis.Pass, body *ast.BlockStmt) methodValueValidateCallSet {

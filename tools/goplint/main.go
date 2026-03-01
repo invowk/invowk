@@ -174,7 +174,7 @@ func generateBaselineWithRunner(
 	cmd.Stdout = &stdout
 
 	runErr := runCommand(cmd)
-	if err := tolerateAnalyzerExit(runErr, stdout.Len()); err != nil {
+	if err := tolerateAnalyzerExit(runErr, stdout.Bytes()); err != nil {
 		return fmt.Errorf("running analyzer subprocess: %w", err)
 	}
 
@@ -186,6 +186,18 @@ func generateBaselineWithRunner(
 	findings, err := parseFindingsJSONL(findingsData)
 	if err != nil {
 		return fmt.Errorf("parsing analysis output: %w", err)
+	}
+	analysisFindings, err := parseAnalysisJSON(stdout.Bytes())
+	if err != nil {
+		return fmt.Errorf("parsing analyzer json output: %w", err)
+	}
+	streamCount := countBaselineFindings(findings)
+	analysisCount := countBaselineFindings(analysisFindings)
+	if analysisCount > 0 && streamCount == 0 {
+		return fmt.Errorf("findings stream is empty but analyzer output contains %d suppressible findings", analysisCount)
+	}
+	if streamCount < analysisCount {
+		return fmt.Errorf("findings stream is incomplete (%d findings) versus analyzer output (%d findings)", streamCount, analysisCount)
 	}
 
 	if err := goplint.WriteBaseline(outputPath, findings); err != nil {
@@ -274,7 +286,7 @@ func auditExceptionsGlobalWithRunner(originalArgs []string, runCommand commandRu
 	cmd.Stdout = &stdout
 
 	runErr := runCommand(cmd)
-	if err := tolerateAnalyzerExit(runErr, stdout.Len()); err != nil {
+	if err := tolerateAnalyzerExit(runErr, stdout.Bytes()); err != nil {
 		return fmt.Errorf("running global audit subprocess: %w", err)
 	}
 
@@ -438,15 +450,18 @@ func filterAndEnsureFlags(args []string, skipFn func(trimmed string) bool, requi
 // tolerateAnalyzerExit accepts a non-zero subprocess exit only when it is an
 // ExitError and JSON output exists on stdout. singlechecker exits non-zero
 // when diagnostics are reported, which is expected for baseline generation.
-func tolerateAnalyzerExit(runErr error, stdoutLen int) error {
+func tolerateAnalyzerExit(runErr error, stdout []byte) error {
 	if runErr == nil {
 		return nil
 	}
 	if exitErr, ok := errors.AsType[*exec.ExitError](runErr); !ok || exitErr == nil {
 		return runErr
 	}
-	if stdoutLen == 0 {
+	if len(bytes.TrimSpace(stdout)) == 0 {
 		return runErr
+	}
+	if _, err := parseAnalysisJSON(stdout); err != nil {
+		return fmt.Errorf("invalid analyzer JSON output: %w", err)
 	}
 	return nil
 }
@@ -486,13 +501,6 @@ type analysisDiagnostic struct {
 	URL      string `json:"url"`
 }
 
-type findingJSONLRecord struct {
-	Category string `json:"category"`
-	ID       string `json:"id"`
-	Message  string `json:"message"`
-	Posn     string `json:"posn"`
-}
-
 func parseFindingsJSONL(data []byte) (map[string][]goplint.BaselineFinding, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return map[string][]goplint.BaselineFinding{}, nil
@@ -507,16 +515,12 @@ func parseFindingsJSONL(data []byte) (map[string][]goplint.BaselineFinding, erro
 		}
 		line = bytes.TrimSpace(line)
 		if len(line) > 0 {
-			var record findingJSONLRecord
+			var record goplint.FindingStreamRecord
 			if unmarshalErr := json.Unmarshal(line, &record); unmarshalErr != nil {
 				return nil, fmt.Errorf("decoding findings record: %w", unmarshalErr)
 			}
 			if record.Category == "" || record.Message == "" || record.ID == "" {
-				// Ignore malformed rows from older/partial emitters.
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				continue
+				return nil, fmt.Errorf("decoding findings record: missing required fields")
 			}
 			if !goplint.IsKnownDiagnosticCategory(record.Category) {
 				return nil, fmt.Errorf("unknown goplint category %q", record.Category)
@@ -549,6 +553,14 @@ func parseFindingsJSONL(data []byte) (map[string][]goplint.BaselineFinding, erro
 		findings[category] = out
 	}
 	return findings, nil
+}
+
+func countBaselineFindings(findings map[string][]goplint.BaselineFinding) int {
+	total := 0
+	for _, entries := range findings {
+		total += len(entries)
+	}
+	return total
 }
 
 // parseAnalysisJSON parses the go/analysis -json output (one JSON object
@@ -651,9 +663,10 @@ func stableDiagnosticPosKey(pkgPath, posn string) string {
 		return pkgPath + ":" + posn
 	}
 	line := rest[lineSep+1:]
-	file := filepath.Base(rest[:lineSep])
+	filePath := strings.ReplaceAll(rest[:lineSep], "\\", "/")
+	file := filepath.Base(filePath)
 	if file == "." || file == "" {
-		file = rest[:lineSep]
+		file = filePath
 	}
 	return strings.Join([]string{pkgPath, file, line, col}, ":")
 }

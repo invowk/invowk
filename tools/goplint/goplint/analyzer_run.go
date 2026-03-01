@@ -3,6 +3,7 @@
 package goplint
 
 import (
+	"fmt"
 	"go/ast"
 
 	"golang.org/x/tools/go/analysis"
@@ -82,6 +83,9 @@ func newRunCollectors(rc runConfig, needs runNeeds) runCollectors {
 
 func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 	rc := newRunConfigForState(state)
+	if err := validateRunConfig(rc); err != nil {
+		return nil, err
+	}
 
 	cfg, bl, err := loadRunInputs(state, rc)
 	if err != nil {
@@ -96,6 +100,13 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 	runPostTraversalChecks(pass, state, rc, cfg, bl, &collectors)
 
 	return nil, nil
+}
+
+func validateRunConfig(rc runConfig) error {
+	if (rc.checkUseBeforeValidate || rc.checkUseBeforeValidateCross) && rc.noCFA {
+		return fmt.Errorf("flags --check-use-before-validate and --check-use-before-validate-cross require CFA; remove --no-cfa")
+	}
+	return nil
 }
 
 func loadRunInputs(state *flagState, rc runConfig) (*ExceptionConfig, *BaselineConfig, error) {

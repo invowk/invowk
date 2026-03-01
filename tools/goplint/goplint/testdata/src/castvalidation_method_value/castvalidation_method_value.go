@@ -15,6 +15,8 @@ func (c CommandName) Validate() error {
 
 func useCmd(_ CommandName) {}
 
+func alwaysNil() error { return nil }
+
 // MethodValueValidate should not be flagged: calling a bound method value
 // invokes Validate() on x before use.
 func MethodValueValidate(raw string) { // want `parameter "raw" of castvalidation_method_value\.MethodValueValidate uses primitive type string`
@@ -56,6 +58,28 @@ func MethodValueConditionalCall(raw string, strict bool) { // want `parameter "r
 		if err := validateFn(); err != nil {
 			return
 		}
+	}
+	useCmd(x)
+}
+
+// MethodValueReboundToNonValidate should be flagged: rebinding to a non-Validate
+// function must invalidate earlier method-value binding assumptions.
+func MethodValueReboundToNonValidate(raw string) { // want `parameter "raw" of castvalidation_method_value\.MethodValueReboundToNonValidate uses primitive type string`
+	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	validateFn := x.Validate
+	noop := alwaysNil
+	validateFn = noop
+	_ = validateFn()
+	useCmd(x)
+}
+
+// MethodExpressionValidate should not be flagged: method expressions pass the
+// receiver as the first argument (CommandName.Validate(x)).
+func MethodExpressionValidate(raw string) { // want `parameter "raw" of castvalidation_method_value\.MethodExpressionValidate uses primitive type string`
+	x := CommandName(raw)
+	validateFn := CommandName.Validate
+	if err := validateFn(x); err != nil {
+		return
 	}
 	useCmd(x)
 }

@@ -52,8 +52,12 @@ func exportValidatesTypeFacts(pass *analysis.Pass, fn *ast.FuncDecl) {
 	if fn.Recv != nil {
 		return
 	}
-	typeName, ok := directiveValue([]*ast.CommentGroup{fn.Doc}, "validates-type")
-	if !ok || typeName == "" {
+	directiveType, ok := directiveValue([]*ast.CommentGroup{fn.Doc}, "validates-type")
+	if !ok || directiveType == "" {
+		return
+	}
+	typeName, typePkgPath := resolveDirectiveTypeIdentity(pass, fn, directiveType)
+	if typeName == "" {
 		return
 	}
 	obj := pass.TypesInfo.Defs[fn.Name]
@@ -62,8 +66,88 @@ func exportValidatesTypeFacts(pass *analysis.Pass, fn *ast.FuncDecl) {
 	}
 	pass.ExportObjectFact(obj, &ValidatesTypeFact{
 		TypeName:    typeName,
-		TypePkgPath: pass.Pkg.Path(),
+		TypePkgPath: typePkgPath,
 	})
+}
+
+func resolveDirectiveTypeIdentity(pass *analysis.Pass, fn *ast.FuncDecl, raw string) (typeName, typePkgPath string) {
+	directive := strings.TrimSpace(raw)
+	if directive == "" {
+		return "", ""
+	}
+
+	pkgAlias := ""
+	if dot := strings.LastIndex(directive, "."); dot > 0 && dot < len(directive)-1 {
+		left := directive[:dot]
+		right := directive[dot+1:]
+		directive = right
+		if strings.Contains(left, "/") {
+			typePkgPath = left
+		} else {
+			pkgAlias = left
+		}
+	}
+
+	typeName = directive
+	if typePkgPath == "" {
+		typePkgPath = inferDirectiveTypePkgPath(pass, fn, typeName, pkgAlias)
+	}
+	if typePkgPath == "" && pass != nil && pass.Pkg != nil {
+		typePkgPath = pass.Pkg.Path()
+	}
+	return typeName, typePkgPath
+}
+
+func inferDirectiveTypePkgPath(pass *analysis.Pass, fn *ast.FuncDecl, typeName, pkgAlias string) string {
+	if pass == nil || pass.TypesInfo == nil || fn == nil {
+		return ""
+	}
+	obj := pass.TypesInfo.Defs[fn.Name]
+	if obj == nil {
+		return ""
+	}
+	fnObj, ok := obj.(*types.Func)
+	if !ok {
+		return ""
+	}
+	sig, ok := fnObj.Type().(*types.Signature)
+	if !ok {
+		return ""
+	}
+
+	if path := matchNamedTypePkgPath(sig.Params(), typeName, pkgAlias); path != "" {
+		return path
+	}
+	if path := matchNamedTypePkgPath(sig.Results(), typeName, pkgAlias); path != "" {
+		return path
+	}
+	return ""
+}
+
+func matchNamedTypePkgPath(tuple *types.Tuple, typeName, pkgAlias string) string {
+	if tuple == nil || typeName == "" {
+		return ""
+	}
+	for variable := range tuple.Variables() {
+		t := variable.Type()
+		if ptr, ok := t.(*types.Pointer); ok {
+			t = ptr.Elem()
+		}
+		t = types.Unalias(t)
+		named, ok := t.(*types.Named)
+		if !ok || named.Obj() == nil || named.Obj().Name() != typeName {
+			continue
+		}
+		pkg := named.Obj().Pkg()
+		if pkg == nil {
+			continue
+		}
+		if pkgAlias != "" && pkg.Name() != pkgAlias {
+			continue
+		}
+		return pkg.Path()
+	}
+	return ""
 }
 
 // constructorValidateInfo records a constructor function and whether
@@ -513,8 +597,16 @@ func constructorHasUnvalidatedReturnPath(
 	if funcCFG == nil || len(funcCFG.Blocks) == 0 {
 		return false
 	}
+	parentMap := buildParentMap(fn.Body)
+	_, _, closureCalls, methodValueCalls := collectCFACasts(
+		pass,
+		fn.Body,
+		parentMap,
+		func(*ast.FuncLit, int) {},
+	)
 	syncLits := collectSynchronousClosureLits(fn.Body)
-	methodCalls := collectMethodValueValidateCalls(pass, fn.Body)
+	syncCalls := collectSynchronousClosureVarCalls(closureCalls)
+	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
 	bareReturnIncludesTarget := constructorBareReturnIncludesType(pass, fn, returnTypeKey)
 
 	// DFS from the entry block (index 0).
@@ -528,6 +620,7 @@ func constructorHasUnvalidatedReturnPath(
 		bareReturnIncludesTarget,
 		visited,
 		syncLits,
+		syncCalls,
 		methodCalls,
 	)
 }
@@ -545,6 +638,7 @@ func dfsConstructorUnvalidated(
 	bareReturnIncludesTarget bool,
 	visited map[int32]bool,
 	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
 ) bool {
 	matcher := typeKeyMatcher(returnTypeKey)
@@ -559,7 +653,7 @@ func dfsConstructorUnvalidated(
 			return true
 		}
 		for _, node := range block.Nodes {
-			if containsValidateOnReceiver(pass, node, matcher, syncLits, nil, methodCalls) {
+			if containsValidateOnReceiver(pass, node, matcher, syncLits, syncCalls, methodCalls) {
 				return true
 			}
 			if stmt, ok := node.(ast.Stmt); ok {
@@ -639,15 +733,23 @@ func helperBodyAlwaysValidatesType(pass *analysis.Pass, body *ast.BlockStmt, ret
 	if cfg == nil || len(cfg.Blocks) == 0 {
 		return false
 	}
+	parentMap := buildParentMap(body)
+	_, _, closureCalls, methodValueCalls := collectCFACasts(
+		pass,
+		body,
+		parentMap,
+		func(*ast.FuncLit, int) {},
+	)
 	syncLits := collectSynchronousClosureLits(body)
-	methodCalls := collectMethodValueValidateCalls(pass, body)
+	syncCalls := collectSynchronousClosureVarCalls(closureCalls)
+	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
 	matcher := typeKeyMatcher(returnTypeKey)
 	checker := func(block *gocfg.Block) bool {
 		if blockTerminatesWithoutReturn(pass, block) {
 			return true
 		}
 		for _, node := range block.Nodes {
-			if containsValidateOnReceiver(pass, node, matcher, syncLits, nil, methodCalls) {
+			if containsValidateOnReceiver(pass, node, matcher, syncLits, syncCalls, methodCalls) {
 				return true
 			}
 		}

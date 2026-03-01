@@ -120,7 +120,34 @@ func objectKey(obj types.Object) string {
 	if obj == nil {
 		return ""
 	}
-	return fmt.Sprintf("obj:%p", obj)
+	pkgPath := ""
+	if pkg := obj.Pkg(); pkg != nil {
+		pkgPath = pkg.Path()
+	}
+	return fmt.Sprintf("obj:%s:%s:%s:%d", objectKind(obj), pkgPath, obj.Name(), obj.Pos())
+}
+
+func objectKind(obj types.Object) string {
+	switch obj.(type) {
+	case *types.Var:
+		return "var"
+	case *types.Const:
+		return "const"
+	case *types.Func:
+		return "func"
+	case *types.TypeName:
+		return "type"
+	case *types.Label:
+		return "label"
+	case *types.PkgName:
+		return "pkg"
+	case *types.Builtin:
+		return "builtin"
+	case *types.Nil:
+		return "nil"
+	default:
+		return "obj"
+	}
 }
 
 func canonicalIndexExprKey(expr ast.Expr) string {

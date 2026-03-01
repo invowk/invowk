@@ -43,3 +43,15 @@ entries = [
 		t.Fatal("expected runConfig-provided baseline to be loaded")
 	}
 }
+
+func TestValidateRunConfigRejectsUBVWithoutCFA(t *testing.T) {
+	t.Parallel()
+
+	rc := runConfig{
+		checkUseBeforeValidate: true,
+		noCFA:                  true,
+	}
+	if err := validateRunConfig(rc); err == nil {
+		t.Fatal("expected UBV + no-cfa combination to fail validation")
+	}
+}

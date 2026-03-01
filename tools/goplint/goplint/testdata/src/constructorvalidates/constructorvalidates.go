@@ -346,6 +346,32 @@ func NewStore(name string) (*Store, error) { // want `parameter "name" of constr
 	return s, nil
 }
 
+// --- Closure-variable validation path should count ---
+
+type Session struct {
+	addr string // want `struct field constructorvalidates\.Session\.addr uses primitive type string`
+}
+
+func (s *Session) Validate() error {
+	if s.addr == "" {
+		return fmt.Errorf("empty addr")
+	}
+	return nil
+}
+
+// NewSession uses a closure variable call to invoke Validate(). This should
+// satisfy constructor-validates in CFA mode.
+func NewSession(addr string) (*Session, error) { // want `parameter "addr" of constructorvalidates\.NewSession uses primitive type string`
+	s := &Session{addr: addr}
+	validateFn := func() error {
+		return s.Validate()
+	}
+	if err := validateFn(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 // --- Method-call on wrong type — should NOT satisfy the check ---
 
 type GatewayConfig struct {

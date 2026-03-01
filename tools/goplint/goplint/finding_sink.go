@@ -10,7 +10,9 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-type findingJSONLRecord struct {
+// FindingStreamRecord is one JSONL entry in the internal findings stream used
+// by -emit-findings-jsonl / -update-baseline plumbing.
+type FindingStreamRecord struct {
 	Category string `json:"category"`
 	ID       string `json:"id"`
 	Message  string `json:"message"`
@@ -27,7 +29,7 @@ func writeFindingToSink(pass *analysis.Pass, pos token.Pos, category, findingID,
 		return
 	}
 
-	record := findingJSONLRecord{
+	record := FindingStreamRecord{
 		Category: category,
 		ID:       findingID,
 		Message:  message,

@@ -128,6 +128,24 @@ unexpected = "nope"
 		}
 	})
 
+	t.Run("invalid exception glob returns error", func(t *testing.T) {
+		t.Parallel()
+		content := `
+[[exceptions]]
+pattern = "pkg.[bad.Type"
+reason = "invalid glob"
+`
+		path := filepath.Join(t.TempDir(), "invalid-exception-glob.toml")
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write test file: %v", err)
+		}
+
+		_, err := loadConfig(path, false)
+		if err == nil {
+			t.Fatal("expected error for invalid exception glob")
+		}
+	})
+
 	t.Run("nonexistent file returns error when strict", func(t *testing.T) {
 		t.Parallel()
 		_, err := loadConfig(filepath.Join(t.TempDir(), "nonexistent.toml"), true)
