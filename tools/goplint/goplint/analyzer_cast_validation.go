@@ -5,6 +5,7 @@ package goplint
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/types"
 	"slices"
 	"strconv"
@@ -12,6 +13,11 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 )
+
+type validateCall struct {
+	targetKey string
+	pos       token.Pos
+}
 
 // inspectUnvalidatedCasts walks a function body to find type conversions from
 // raw primitives to DDD Value Types where Validate() is not called on the
@@ -56,7 +62,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 
 	var assignedCasts []assignedCast
 	var unassignedCasts []unassignedCast
-	validatedTargets := make(map[string]bool)
+	var validateCalls []validateCall
 	castIndex := 0 // sequential counter for unique finding IDs per cast
 
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
@@ -78,7 +84,10 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		// Detect Validate() calls: x.Validate()
 		if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Validate" {
 			if key := targetKeyForExpr(pass, sel.X); key != "" {
-				validatedTargets[key] = true
+				validateCalls = append(validateCalls, validateCall{
+					targetKey: key,
+					pos:       call.Pos(),
+				})
 			}
 			return true
 		}
@@ -193,9 +202,10 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 	})
 
 	// Phase 3: Report findings.
-	// Assigned casts: report if variable is not in the validated set.
+	// Assigned casts: report if no matching Validate call occurs after
+	// the cast site. This preserves basic ordering in AST fallback mode.
 	for _, ac := range assignedCasts {
-		if validatedTargets[ac.target.key()] {
+		if hasValidateAfterCast(validateCalls, ac.target.key(), ac.pos.Pos()) {
 			continue
 		}
 
@@ -228,6 +238,21 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 
 		reportDiagnostic(pass, uc.pos.Pos(), CategoryUnvalidatedCast, findingID, msg)
 	}
+}
+
+func hasValidateAfterCast(validateCalls []validateCall, targetKey string, castPos token.Pos) bool {
+	if targetKey == "" {
+		return false
+	}
+	for _, vc := range validateCalls {
+		if vc.targetKey != targetKey {
+			continue
+		}
+		if vc.pos > castPos {
+			return true
+		}
+	}
+	return false
 }
 
 // buildParentMap builds a mapping from each AST node to its parent node

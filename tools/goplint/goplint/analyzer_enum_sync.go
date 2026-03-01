@@ -24,10 +24,11 @@ import (
 // //goplint:enum-cue=<cuePath>. The analyzer compares the CUE
 // disjunction members against the Go Validate() switch case literals.
 type enumCueAnnotation struct {
-	typeName     string         // unqualified Go type name (e.g., "RuntimeMode")
-	cuePath      string         // CUE path expression (e.g., "#RuntimeType")
-	pos          token.Pos      // position of the type declaration for diagnostics
-	validateBody *ast.BlockStmt // body of the Validate() method; nil if not found
+	typeName         string         // unqualified Go type name (e.g., "RuntimeMode")
+	cuePath          string         // CUE path expression (e.g., "#RuntimeType")
+	pos              token.Pos      // position of the type declaration for diagnostics
+	validateBody     *ast.BlockStmt // body of the Validate() method; nil if not found
+	validateReceiver string         // receiver identifier used in Validate() (e.g., "m")
 }
 
 // inspectEnumSync compares Go Validate() switch case literals against CUE
@@ -65,7 +66,7 @@ func inspectEnumSync(pass *analysis.Pass, cfg *ExceptionConfig, bl *BaselineConf
 		// Extract Go switch case literals from the Validate() body.
 		var goCases []string
 		if ann.validateBody != nil {
-			goCases = extractSwitchCaseLiterals(pass, ann.validateBody)
+			goCases = extractSwitchCaseLiterals(pass, ann.validateBody, ann.validateReceiver)
 		}
 		goSet := make(map[string]bool, len(goCases))
 		for _, v := range goCases {
@@ -152,12 +153,13 @@ func collectEnumCueAnnotations(pass *analysis.Pass) []enumCueAnnotation {
 				if !found || cuePath == "" {
 					continue
 				}
-				validateBody, _ := findMethodBody(pass, ts.Name.Name, "Validate")
+				validateBody, validateReceiver := findMethodBody(pass, ts.Name.Name, "Validate")
 				result = append(result, enumCueAnnotation{
-					typeName:     ts.Name.Name,
-					cuePath:      cuePath,
-					pos:          ts.Name.Pos(),
-					validateBody: validateBody,
+					typeName:         ts.Name.Name,
+					cuePath:          cuePath,
+					pos:              ts.Name.Pos(),
+					validateBody:     validateBody,
+					validateReceiver: validateReceiver,
 				})
 			}
 		}
@@ -165,27 +167,20 @@ func collectEnumCueAnnotations(pass *analysis.Pass) []enumCueAnnotation {
 	return result
 }
 
-// extractSwitchCaseLiterals walks a function body and collects all string
-// and int literal values from switch case clauses. Handles direct literals
-// (case "native":), named constants (case RuntimeNative:), and conversion
-// switches (switch string(v) { ... }).
-//
-// Limitation: collects cases from ALL switch statements in the body, not
-// just the one matching the annotated type's value. If a Validate() method
-// contains multiple switches for different concerns (e.g., validating both
-// an enum field and a range field), literals from all switches are merged.
-// This could cause false enum-cue-extra-go findings for the non-enum switch.
-// Current production types all use single-switch Validate() methods, so this
-// is not an issue today. A future improvement could scope collection to
-// switches whose tag expression references the receiver (e.g., switch t { },
-// switch string(t) { }) by threading the receiver name from the caller.
-func extractSwitchCaseLiterals(pass *analysis.Pass, body *ast.BlockStmt) []string {
+// extractSwitchCaseLiterals walks a function body and collects string/int
+// literals from switch case clauses. When receiverName is non-empty, only
+// switches whose tag directly references the receiver (switch r { ... }) or
+// a simple conversion of it (switch string(r) { ... }) are considered.
+func extractSwitchCaseLiterals(pass *analysis.Pass, body *ast.BlockStmt, receiverName string) []string {
 	var literals []string
 	seen := make(map[string]bool)
 
 	ast.Inspect(body, func(n ast.Node) bool {
 		sw, ok := n.(*ast.SwitchStmt)
 		if !ok {
+			return true
+		}
+		if receiverName != "" && !switchTagUsesReceiver(pass, sw.Tag, receiverName) {
 			return true
 		}
 		for _, stmt := range sw.Body.List {
@@ -209,6 +204,28 @@ func extractSwitchCaseLiterals(pass *analysis.Pass, body *ast.BlockStmt) []strin
 		return true
 	})
 	return literals
+}
+
+func switchTagUsesReceiver(pass *analysis.Pass, tag ast.Expr, receiverName string) bool {
+	if tag == nil || receiverName == "" {
+		return false
+	}
+	if ident, ok := stripParensAndStar(tag).(*ast.Ident); ok {
+		return ident.Name == receiverName
+	}
+	call, ok := stripParensAndStar(tag).(*ast.CallExpr)
+	if !ok || len(call.Args) != 1 {
+		return false
+	}
+	// Only accept explicit conversions (e.g., string(v), int(v)).
+	tv, ok := pass.TypesInfo.Types[call.Fun]
+	if !ok || !tv.IsType() {
+		return false
+	}
+	if ident, ok := stripParensAndStar(call.Args[0]).(*ast.Ident); ok {
+		return ident.Name == receiverName
+	}
+	return false
 }
 
 // resolveConstantValue resolves an AST expression to a constant string or

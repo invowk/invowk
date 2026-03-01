@@ -4,6 +4,7 @@ package goplint
 
 import (
 	"go/ast"
+	"go/token"
 
 	"golang.org/x/tools/go/analysis"
 	gocfg "golang.org/x/tools/go/cfg"
@@ -40,6 +41,65 @@ func collectDeferredClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
 		}
 		return true
 	})
+	return result
+}
+
+// collectImmediateClosureLits scans a function or closure body for
+// immediately-invoked closures: func() { ... }(). Returns the set of
+// *ast.FuncLit nodes that execute synchronously in the current path.
+//
+// Closures invoked by go/defer wrappers are excluded:
+//   - go func() { ... }() executes concurrently (not guaranteed before return)
+//   - defer func() { ... }() executes at function exit (handled separately)
+func collectImmediateClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
+	if body == nil {
+		return nil
+	}
+	parentMap := buildParentMap(body)
+	var result map[*ast.FuncLit]bool
+	ast.Inspect(body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		lit, ok := call.Fun.(*ast.FuncLit)
+		if !ok {
+			return true
+		}
+		if parent := parentMap[call]; parent != nil {
+			if _, isGo := parent.(*ast.GoStmt); isGo {
+				return true
+			}
+			if _, isDefer := parent.(*ast.DeferStmt); isDefer {
+				return true
+			}
+		}
+		if result == nil {
+			result = make(map[*ast.FuncLit]bool)
+		}
+		result[lit] = true
+		return true
+	})
+	return result
+}
+
+// collectSynchronousClosureLits returns closure literals whose Validate calls
+// can satisfy outer-path validation checks in CFA:
+//   - deferred closures (execute before function return)
+//   - immediate IIFEs (execute synchronously at call site)
+func collectSynchronousClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
+	deferred := collectDeferredClosureLits(body)
+	immediate := collectImmediateClosureLits(body)
+	if len(deferred) == 0 && len(immediate) == 0 {
+		return nil
+	}
+	result := make(map[*ast.FuncLit]bool, len(deferred)+len(immediate))
+	for lit := range deferred {
+		result[lit] = true
+	}
+	for lit := range immediate {
+		result[lit] = true
+	}
 	return result
 }
 
@@ -84,12 +144,12 @@ type validateReceiverMatcher func(pass *analysis.Pass, receiverExpr ast.Expr) bo
 
 // nodeSliceContainsValidateCall checks whether any node in the given
 // slice contains a varName.Validate() selector call expression.
-// Deferred closures in deferredLits are descended into (their Validate
-// calls count as outer-path validation); other closures are skipped.
-func nodeSliceContainsValidateCall(pass *analysis.Pass, nodes []ast.Node, target castTarget, deferredLits map[*ast.FuncLit]bool) bool {
+// Closures in syncLits are descended into (their Validate calls count as
+// outer-path validation); other closures are skipped.
+func nodeSliceContainsValidateCall(pass *analysis.Pass, nodes []ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool) bool {
 	matcher := castTargetMatcher(pass, target)
 	for _, node := range nodes {
-		if containsValidateOnReceiver(pass, node, matcher, deferredLits) {
+		if containsValidateOnReceiver(pass, node, matcher, syncLits) {
 			return true
 		}
 	}
@@ -99,17 +159,17 @@ func nodeSliceContainsValidateCall(pass *analysis.Pass, nodes []ast.Node, target
 // containsValidateCall checks whether a single AST node or any of its
 // descendants contains a varName.Validate() call.
 // This wrapper keeps tests and call sites that only need name matching.
-func containsValidateCall(node ast.Node, varName string, deferredLits map[*ast.FuncLit]bool) bool {
+func containsValidateCall(node ast.Node, varName string, syncLits map[*ast.FuncLit]bool) bool {
 	target := newCastTargetFromName(varName)
 	matcher := castTargetMatcher(nil, target)
-	return containsValidateOnReceiver(nil, node, matcher, deferredLits)
+	return containsValidateOnReceiver(nil, node, matcher, syncLits)
 }
 
 // containsValidateCallTarget checks whether a single AST node or any of its
 // descendants contains a varName.Validate() call. Delegates to
 // containsValidateOnReceiver with a castTarget matcher.
-func containsValidateCallTarget(pass *analysis.Pass, node ast.Node, target castTarget, deferredLits map[*ast.FuncLit]bool) bool {
-	return containsValidateOnReceiver(pass, node, castTargetMatcher(pass, target), deferredLits)
+func containsValidateCallTarget(pass *analysis.Pass, node ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool) bool {
+	return containsValidateOnReceiver(pass, node, castTargetMatcher(pass, target), syncLits)
 }
 
 // castTargetMatcher returns a validateReceiverMatcher that matches
@@ -142,17 +202,17 @@ func typeKeyMatcher(returnTypeKey string) validateReceiverMatcher {
 // returns. Immediately invoked closures (func() { ... }()) are treated as
 // synchronous and are analyzed as part of the current path.
 //
-// Exception: deferred closures (FuncLit nodes in deferredLits) ARE
-// descended into. Go guarantees that deferred functions execute before
-// the enclosing function returns, so a Validate() call inside a deferred
-// closure does validate the outer function's path. This distinguishes
-// defer func() { x.Validate() }() (safe) from go func() { x.Validate() }()
-// (unsafe). Immediate calls (func() { x.Validate() }()) are also safe.
+// Exception: closures in syncLits ARE descended into. Go guarantees that
+// deferred functions execute before return, and immediate IIFEs execute
+// synchronously at call site. This distinguishes:
+//   - defer func() { x.Validate() }() (safe)
+//   - func() { x.Validate() }() (safe)
+//   - go func() { x.Validate() }() (unsafe for outer-path validation)
 func containsValidateOnReceiver(
 	pass *analysis.Pass,
 	node ast.Node,
 	matches validateReceiverMatcher,
-	deferredLits map[*ast.FuncLit]bool,
+	syncLits map[*ast.FuncLit]bool,
 ) bool {
 	found := false
 	parentMap := buildParentMap(node)
@@ -160,28 +220,32 @@ func containsValidateOnReceiver(
 		if found {
 			return false
 		}
-		if call, ok := n.(*ast.CallExpr); ok {
-			// Immediate invocation: (func() { ... })() is synchronous in the
-			// current path and should count as validation if its body validates.
-			// Exclude go/defer wrappers (no immediate execution in current path).
-			if lit, ok := call.Fun.(*ast.FuncLit); ok {
-				if parent, ok := parentMap[call]; ok {
-					if _, isGo := parent.(*ast.GoStmt); !isGo {
-						if _, isDefer := parent.(*ast.DeferStmt); !isDefer {
-							if containsValidateOnReceiver(pass, lit.Body, matches, deferredLits) {
-								found = true
-								return false
-							}
-						}
-					}
-				}
+		if ifStmt, ok := n.(*ast.IfStmt); ok {
+			if ifStmt.Init != nil && containsValidateOnReceiver(pass, ifStmt.Init, matches, syncLits) {
+				found = true
+				return false
 			}
+			if ifStmt.Cond != nil && containsValidateOnReceiver(pass, ifStmt.Cond, matches, syncLits) {
+				found = true
+				return false
+			}
+			// A Validate call inside an if/else only guarantees validation
+			// when both branches validate.
+			if ifStmt.Else != nil &&
+				containsValidateOnReceiver(pass, ifStmt.Body, matches, syncLits) &&
+				containsValidateOnReceiver(pass, ifStmt.Else, matches, syncLits) {
+				found = true
+				return false
+			}
+			// Handled explicitly above; avoid descending into branch bodies
+			// where calls are conditionally executed.
+			return false
 		}
-		// Closures: descend into deferred closures (guaranteed to execute
-		// before return). Non-deferred closure literals are analyzed only
-		// when reached via explicit immediate invocation above.
+		// Closures: descend only into synchronously-executed closure literals.
+		// Goroutine closures are skipped: they do not guarantee execution before
+		// the enclosing function returns.
 		if lit, ok := n.(*ast.FuncLit); ok {
-			return deferredLits[lit]
+			return syncLits[lit]
 		}
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
@@ -195,6 +259,11 @@ func containsValidateOnReceiver(
 			return true
 		}
 		if matches(pass, sel.X) {
+			// Calls nested in conditionally executed contexts do not
+			// guarantee validation on every path through the block.
+			if isConditionallyEvaluated(call, parentMap) {
+				return true
+			}
 			found = true
 		}
 		return !found
@@ -202,11 +271,70 @@ func containsValidateOnReceiver(
 	return found
 }
 
+// isConditionallyEvaluated reports whether node is nested in a context that
+// might not execute on every path in the current block.
+//
+// Examples considered conditional:
+//   - RHS of && / || (short-circuit)
+//   - if/for/range/switch/select bodies
+//   - loop condition/post clauses
+//   - goroutine bodies/calls
+//
+// Contexts considered guaranteed:
+//   - standalone statements
+//   - if/switch init statements
+//   - if/switch tag/condition expressions (except short-circuit RHS)
+//   - synchronous closures (handled by caller via syncLits traversal)
+func isConditionallyEvaluated(node ast.Node, parentMap map[ast.Node]ast.Node) bool {
+	child := node
+	for {
+		parent, ok := parentMap[child]
+		if !ok || parent == nil {
+			return false
+		}
+		switch p := parent.(type) {
+		case *ast.BinaryExpr:
+			if (p.Op == token.LAND || p.Op == token.LOR) && p.Y == child {
+				return true
+			}
+		case *ast.IfStmt:
+			if p.Init != nil && child == p.Init {
+				break
+			}
+			if child != p.Cond {
+				return true
+			}
+		case *ast.ForStmt:
+			if p.Init != nil && child == p.Init {
+				break
+			}
+			return true
+		case *ast.RangeStmt:
+			if child != p.X {
+				return true
+			}
+		case *ast.SwitchStmt:
+			if (p.Init != nil && child == p.Init) || child == p.Tag {
+				break
+			}
+			return true
+		case *ast.TypeSwitchStmt:
+			if (p.Init != nil && child == p.Init) || child == p.Assign {
+				break
+			}
+			return true
+		case *ast.SelectStmt, *ast.CaseClause, *ast.CommClause, *ast.GoStmt:
+			return true
+		}
+		child = parent
+	}
+}
+
 // blockContainsValidateCall checks all nodes in a CFG block for a
-// varName.Validate() call. Deferred closures in deferredLits are
+// varName.Validate() call. Closures in syncLits are
 // descended into.
-func blockContainsValidateCall(pass *analysis.Pass, block *gocfg.Block, target castTarget, deferredLits map[*ast.FuncLit]bool) bool {
-	return nodeSliceContainsValidateCall(pass, block.Nodes, target, deferredLits)
+func blockContainsValidateCall(pass *analysis.Pass, block *gocfg.Block, target castTarget, syncLits map[*ast.FuncLit]bool) bool {
+	return nodeSliceContainsValidateCall(pass, block.Nodes, target, syncLits)
 }
 
 // blockValidateChecker is a predicate that reports whether a CFG block
@@ -220,7 +348,7 @@ type blockValidateChecker func(block *gocfg.Block) bool
 // true if any path from the cast definition to a return block never passes
 // through a Validate() call on varName.
 //
-// Deferred closures in deferredLits are recognized as containing Validate
+// Closures in syncLits are recognized as containing Validate
 // calls when applicable (their execution before return is guaranteed).
 //
 // Algorithm:
@@ -237,11 +365,11 @@ func hasPathToReturnWithoutValidate(
 	defBlock *gocfg.Block,
 	defIdx int,
 	target castTarget,
-	deferredLits map[*ast.FuncLit]bool,
+	syncLits map[*ast.FuncLit]bool,
 ) bool {
 	// Check the remainder of the defining block after the cast.
 	remainder := defBlock.Nodes[defIdx+1:]
-	if nodeSliceContainsValidateCall(pass, remainder, target, deferredLits) {
+	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits) {
 		return false // validated in same block after cast
 	}
 
@@ -254,15 +382,15 @@ func hasPathToReturnWithoutValidate(
 	visited := make(map[int32]bool)
 	visited[defBlock.Index] = true
 
-	return dfsUnvalidatedPath(pass, defBlock.Succs, target, visited, deferredLits)
+	return dfsUnvalidatedPath(pass, defBlock.Succs, target, visited, syncLits)
 }
 
 // dfsUnvalidatedPath recursively checks whether any path through the given
 // successor blocks reaches a return block without encountering a Validate()
-// call on varName. Deferred closures in deferredLits are descended into.
-func dfsUnvalidatedPath(pass *analysis.Pass, succs []*gocfg.Block, target castTarget, visited map[int32]bool, deferredLits map[*ast.FuncLit]bool) bool {
+// call on varName. Closures in syncLits are descended into.
+func dfsUnvalidatedPath(pass *analysis.Pass, succs []*gocfg.Block, target castTarget, visited map[int32]bool, syncLits map[*ast.FuncLit]bool) bool {
 	checker := func(block *gocfg.Block) bool {
-		return blockContainsValidateCall(pass, block, target, deferredLits)
+		return blockContainsValidateCall(pass, block, target, syncLits)
 	}
 	return dfsUnvalidatedBlocks(succs, visited, checker)
 }
@@ -339,10 +467,24 @@ func isVarUseTarget(pass *analysis.Pass, node ast.Node, target castTarget) bool 
 		}
 
 		// Composite literal field value: SomeStruct{Field: x} or
-		// map[K]V{"k": x}. Placing an unvalidated value into a
+		// map[K]V{x: v}. Placing an unvalidated value into a
 		// struct or map field is a meaningful consumption.
 		if kv, ok := n.(*ast.KeyValueExpr); ok {
+			if target.matchesExpr(pass, kv.Key) {
+				found = true
+				return false
+			}
 			if target.matchesExpr(pass, kv.Value) {
+				found = true
+				return false
+			}
+			return true
+		}
+
+		// Index expression: m[x]. Using a value as an index/key is a
+		// meaningful consumption before validation.
+		if idx, ok := n.(*ast.IndexExpr); ok {
+			if target.matchesExpr(pass, idx.Index) {
 				found = true
 				return false
 			}
@@ -394,18 +536,18 @@ func isVarUseTarget(pass *analysis.Pass, node ast.Node, target castTarget) bool 
 // hasUseBeforeValidateInBlock checks whether, in the nodes of a block
 // starting at startIdx, a "use" of varName appears before a Validate()
 // call. Returns true if the variable is used (as an argument or non-display
-// method receiver) before Validate() is encountered. Deferred closures
-// in deferredLits are recognized when checking for Validate() calls.
+// method receiver) before Validate() is encountered. Closures
+// in syncLits are recognized when checking for Validate() calls.
 //
 // Algorithm:
 //  1. Scan nodes[startIdx:] in order.
 //  2. If a Validate() call on varName is found first → return false (safe).
 //  3. If a "use" of varName is found first → return true (UBV detected).
 //  4. If neither is found → return false (no use in this block).
-func hasUseBeforeValidateInBlock(pass *analysis.Pass, nodes []ast.Node, startIdx int, target castTarget, deferredLits map[*ast.FuncLit]bool) bool {
+func hasUseBeforeValidateInBlock(pass *analysis.Pass, nodes []ast.Node, startIdx int, target castTarget, syncLits map[*ast.FuncLit]bool) bool {
 	for i := startIdx; i < len(nodes); i++ {
 		node := nodes[i]
-		if containsValidateCallTarget(pass, node, target, deferredLits) {
+		if containsValidateCallTarget(pass, node, target, syncLits) {
 			return false // Validate() seen first — safe
 		}
 		if isVarUseTarget(pass, node, target) {
@@ -437,14 +579,14 @@ func hasUseBeforeValidateCrossBlock(
 	defBlock *gocfg.Block,
 	defIdx int,
 	target castTarget,
-	deferredLits map[*ast.FuncLit]bool,
+	syncLits map[*ast.FuncLit]bool,
 ) bool {
 	// First check remainder of defBlock for use (same-block already
 	// handled) — skip directly to successor blocks.
 	// But we need to check if defBlock remainder has validate, which
 	// would prune all successor paths.
 	remainder := defBlock.Nodes[defIdx+1:]
-	if nodeSliceContainsValidateCall(pass, remainder, target, deferredLits) {
+	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits) {
 		return false // validated in same block — successors are safe
 	}
 
@@ -455,7 +597,7 @@ func hasUseBeforeValidateCrossBlock(
 	visited := make(map[int32]bool)
 	visited[defBlock.Index] = true
 
-	return dfsUseBeforeValidate(pass, defBlock.Succs, target, visited, deferredLits)
+	return dfsUseBeforeValidate(pass, defBlock.Succs, target, visited, syncLits)
 }
 
 // dfsUseBeforeValidate recursively checks whether any path through
@@ -467,7 +609,7 @@ func dfsUseBeforeValidate(
 	succs []*gocfg.Block,
 	target castTarget,
 	visited map[int32]bool,
-	deferredLits map[*ast.FuncLit]bool,
+	syncLits map[*ast.FuncLit]bool,
 ) bool {
 	for _, succ := range succs {
 		if visited[succ.Index] {
@@ -483,7 +625,7 @@ func dfsUseBeforeValidate(
 		foundUse := false
 		foundValidate := false
 		for _, node := range succ.Nodes {
-			if containsValidateCallTarget(pass, node, target, deferredLits) {
+			if containsValidateCallTarget(pass, node, target, syncLits) {
 				foundValidate = true
 				break // Validate found first in this block — path is pruned
 			}
@@ -501,7 +643,7 @@ func dfsUseBeforeValidate(
 		}
 
 		// Neither use nor validate in this block — continue DFS.
-		if dfsUseBeforeValidate(pass, succ.Succs, target, visited, deferredLits) {
+		if dfsUseBeforeValidate(pass, succ.Succs, target, visited, syncLits) {
 			return true
 		}
 	}

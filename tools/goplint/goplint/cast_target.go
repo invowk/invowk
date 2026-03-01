@@ -6,73 +6,47 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 )
 
 // castTarget identifies the LHS target of a cast assignment.
-// For identifiers it tracks type-checker object identity; for non-identifier
-// targets (for example selector assignments like cfg.Name = T(raw)) it falls
-// back to expression-key matching.
+// It stores a canonical key so equivalent selector forms (for example
+// (*cfg).Name and cfg.Name) match consistently.
 type castTarget struct {
 	displayName string
-	obj         types.Object
-	exprKey     string
+	targetKey   string
 }
 
 func newCastTargetFromName(name string) castTarget {
 	return castTarget{
 		displayName: name,
-		exprKey:     name,
+		targetKey:   "name:" + name,
 	}
 }
 
 func castTargetFromExpr(pass *analysis.Pass, expr ast.Expr) (castTarget, bool) {
-	if expr == nil {
-		return castTarget{}, false
-	}
-	if ident, ok := expr.(*ast.Ident); ok {
-		if ident.Name == "_" {
-			return castTarget{}, false
-		}
-		return castTarget{
-			displayName: ident.Name,
-			obj:         objectForIdent(pass, ident),
-			exprKey:     exprStringKey(expr),
-		}, true
-	}
-	key := exprStringKey(expr)
+	key := targetKeyForExpr(pass, expr)
 	if key == "" {
 		return castTarget{}, false
 	}
+	display := exprStringKey(expr)
+	if ident, ok := stripParensAndStar(expr).(*ast.Ident); ok {
+		display = ident.Name
+	}
 	return castTarget{
-		displayName: key,
-		exprKey:     key,
+		displayName: display,
+		targetKey:   key,
 	}, true
 }
 
 func (t castTarget) key() string {
-	if t.obj != nil {
-		return fmt.Sprintf("obj:%p", t.obj)
-	}
-	if t.exprKey != "" {
-		return "expr:" + t.exprKey
-	}
-	return "name:" + t.displayName
+	return t.targetKey
 }
 
 func (t castTarget) matchesExpr(pass *analysis.Pass, expr ast.Expr) bool {
-	if expr == nil {
-		return false
-	}
-	if t.obj != nil {
-		ident, ok := expr.(*ast.Ident)
-		if !ok {
-			return false
-		}
-		return objectForIdent(pass, ident) == t.obj
-	}
-	return t.exprKey != "" && exprStringKey(expr) == t.exprKey
+	return t.targetKey != "" && targetKeyForExpr(pass, expr) == t.targetKey
 }
 
 func objectForIdent(pass *analysis.Pass, ident *ast.Ident) types.Object {
@@ -92,19 +66,73 @@ func targetKeyForExpr(pass *analysis.Pass, expr ast.Expr) string {
 	if expr == nil {
 		return ""
 	}
-	if ident, ok := expr.(*ast.Ident); ok {
-		if ident.Name == "_" {
+	expr = stripParensAndStar(expr)
+	switch e := expr.(type) {
+	case *ast.Ident:
+		if e.Name == "_" {
 			return ""
 		}
-		if obj := objectForIdent(pass, ident); obj != nil {
-			return fmt.Sprintf("obj:%p", obj)
+		if obj := objectForIdent(pass, e); obj != nil {
+			return objectKey(obj)
 		}
+		return "name:" + e.Name
+	case *ast.SelectorExpr:
+		base := targetKeyForExpr(pass, e.X)
+		if base == "" {
+			return ""
+		}
+		return base + "." + e.Sel.Name
+	case *ast.IndexExpr:
+		base := targetKeyForExpr(pass, e.X)
+		if base == "" {
+			return ""
+		}
+		index := exprStringKey(e.Index)
+		if index == "" {
+			return ""
+		}
+		return base + "[" + index + "]"
+	case *ast.IndexListExpr:
+		base := targetKeyForExpr(pass, e.X)
+		if base == "" {
+			return ""
+		}
+		indexes := make([]string, 0, len(e.Indices))
+		for _, idx := range e.Indices {
+			key := exprStringKey(idx)
+			if key == "" {
+				return ""
+			}
+			indexes = append(indexes, key)
+		}
+		return base + "[" + strings.Join(indexes, ",") + "]"
 	}
+
 	key := exprStringKey(expr)
 	if key == "" {
 		return ""
 	}
 	return "expr:" + key
+}
+
+func objectKey(obj types.Object) string {
+	if obj == nil {
+		return ""
+	}
+	return fmt.Sprintf("obj:%p", obj)
+}
+
+func stripParensAndStar(expr ast.Expr) ast.Expr {
+	for {
+		switch e := expr.(type) {
+		case *ast.ParenExpr:
+			expr = e.X
+		case *ast.StarExpr:
+			expr = e.X
+		default:
+			return expr
+		}
+	}
 }
 
 func exprStringKey(expr ast.Expr) string {

@@ -52,10 +52,11 @@ func inspectClosureCastsCFA(
 		},
 	)
 
-	// Collect deferred closures lazily — only needed when assigned casts exist.
-	var deferredLits map[*ast.FuncLit]bool
+	// Collect synchronously-executed closures lazily — only needed when
+	// assigned casts exist.
+	var syncLits map[*ast.FuncLit]bool
 	if len(assignedCasts) > 0 {
-		deferredLits = collectDeferredClosureLits(lit.Body)
+		syncLits = collectSynchronousClosureLits(lit.Body)
 	}
 
 	// Report assigned casts with unvalidated paths.
@@ -74,15 +75,15 @@ func inspectClosureCastsCFA(
 			continue
 		}
 
-		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, deferredLits) {
+		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, syncLits) {
 			// All paths validated. Check for use-before-validate (same-block first, then cross-block).
-			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, deferredLits) {
+			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, syncLits) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.target.displayName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", "closure", closurePrefix, qualEnclosingFunc, ac.typeName, "ubv", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
 					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
 				}
-			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, deferredLits) {
+			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, syncLits) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.target.displayName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", "closure", closurePrefix, qualEnclosingFunc, ac.typeName, "ubv-xblock", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {

@@ -107,3 +107,15 @@ func SameBlockUBVNotCrossBlock(raw string) error { // want `parameter "raw" of u
 	useCmd(x)
 	return x.Validate()
 }
+
+// SameBlockPriorityWithCrossBlockUse — SHOULD be flagged only by same-block UBV
+// even though a cross-block use also exists. This verifies the mutual exclusion:
+// once same-block UBV is detected, cross-block UBV for the same cast is skipped.
+func SameBlockPriorityWithCrossBlockUse(raw string, cond bool) error { // want `parameter "raw" of use_before_validate_cross\.SameBlockPriorityWithCrossBlockUse uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	useCmd(x)             // same-block use
+	if cond {
+		useCmd(x) // cross-block use in successor block
+	}
+	return x.Validate()
+}

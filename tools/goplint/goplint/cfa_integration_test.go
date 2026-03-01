@@ -38,6 +38,44 @@ func TestCheckCastValidationCFAClosure(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "cfa_closure")
 }
 
+// TestCheckCastValidationCFASelectorCanonicalization verifies selector target
+// canonicalization in CFA mode. Equivalent forms like (*h).Name and h.Name
+// should match and avoid false positives.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFASelectorCanonicalization(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "castvalidation_selector_canonicalization")
+}
+
+// TestCheckCastValidationCFASelectorShadowing verifies shadowed selector
+// targets are tracked by object identity and do not get incorrectly
+// suppressed by Validate() on outer variables.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFASelectorShadowing(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "castvalidation_selector_shadowing")
+}
+
+// TestCheckCastValidationCFAShortCircuit verifies that short-circuit boolean
+// expressions do not count as guaranteed validation in CFA mode.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFAShortCircuit(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "cfa_short_circuit_validate")
+}
+
 // TestCheckUseBeforeValidateCFA exercises --check-use-before-validate mode
 // against the use_before_validate fixture. Verifies that DDD Value Type
 // variables used as function arguments or method receivers before Validate()

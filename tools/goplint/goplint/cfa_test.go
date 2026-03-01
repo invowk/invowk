@@ -158,3 +158,64 @@ func f() {
 	}
 	t.Fatal("function f not found")
 }
+
+func TestCollectImmediateClosureLits(t *testing.T) {
+	tests := []struct {
+		name    string
+		src     string
+		wantLen int
+	}{
+		{
+			name: "iife only",
+			src: `package p
+func f() {
+	func() {}()
+}`,
+			wantLen: 1,
+		},
+		{
+			name: "goroutine excluded",
+			src: `package p
+func f() {
+	go func() {}()
+}`,
+			wantLen: 0,
+		},
+		{
+			name: "defer excluded",
+			src: `package p
+func f() {
+	defer func() {}()
+}`,
+			wantLen: 0,
+		},
+		{
+			name: "mixed immediate and wrappers",
+			src: `package p
+func f() {
+	func() {}()
+	go func() {}()
+	defer func() {}()
+	func() { func() {}() }()
+}`,
+			wantLen: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := parseFuncBody(t, tt.src)
+			got := collectImmediateClosureLits(body)
+			if len(got) != tt.wantLen {
+				t.Fatalf("len(collectImmediateClosureLits) = %d, want %d", len(got), tt.wantLen)
+			}
+		})
+	}
+}
+
+func TestCollectImmediateClosureLits_NilBody(t *testing.T) {
+	got := collectImmediateClosureLits(nil)
+	if got != nil {
+		t.Fatalf("collectImmediateClosureLits(nil) = %v, want nil", got)
+	}
+}

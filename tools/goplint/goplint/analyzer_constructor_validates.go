@@ -424,8 +424,8 @@ func resolveReturnTypeValidateInfo(pass *analysis.Pass, fn *ast.FuncDecl) return
 	}
 
 	var retType types.Type
-	for i := range sig.Results().Len() {
-		candidate := sig.Results().At(i).Type()
+	for resultVar := range sig.Results().Variables() {
+		candidate := resultVar.Type()
 		if !isErrorType(candidate) {
 			retType = candidate
 			break
@@ -513,11 +513,11 @@ func constructorHasUnvalidatedReturnPath(
 	if funcCFG == nil || len(funcCFG.Blocks) == 0 {
 		return false
 	}
-	deferredLits := collectDeferredClosureLits(fn.Body)
+	syncLits := collectSynchronousClosureLits(fn.Body)
 
 	// DFS from the entry block (index 0).
 	visited := make(map[int32]bool)
-	return dfsConstructorUnvalidated(pass, funcCFG.Blocks[0:1], returnTypeKey, visited, deferredLits)
+	return dfsConstructorUnvalidated(pass, funcCFG.Blocks[0:1], returnTypeKey, visited, syncLits)
 }
 
 // dfsConstructorUnvalidated recursively checks whether any path through the
@@ -529,12 +529,12 @@ func dfsConstructorUnvalidated(
 	blocks []*gocfg.Block,
 	returnTypeKey string,
 	visited map[int32]bool,
-	deferredLits map[*ast.FuncLit]bool,
+	syncLits map[*ast.FuncLit]bool,
 ) bool {
 	matcher := typeKeyMatcher(returnTypeKey)
 	checker := func(block *gocfg.Block) bool {
 		for _, node := range block.Nodes {
-			if containsValidateOnReceiver(pass, node, matcher, deferredLits) {
+			if containsValidateOnReceiver(pass, node, matcher, syncLits) {
 				return true
 			}
 		}

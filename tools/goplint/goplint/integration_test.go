@@ -387,6 +387,20 @@ func TestCheckCastValidation(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "castvalidation")
 }
 
+// TestCheckCastValidationNoCFAValidateBeforeCast verifies AST fallback mode
+// does not treat pre-cast Validate() calls as satisfying later casts.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationNoCFAValidateBeforeCast(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-cast-validation", "true")
+	setFlag(t, "no-cfa", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "castvalidation_nocfa_validate_before_cast")
+}
+
 // TestBaselineSuppression verifies that the --baseline flag correctly
 // suppresses findings present in the baseline while reporting new ones.
 // The baseline fixture has two struct fields and two function params: two
@@ -474,6 +488,19 @@ func TestCheckValidateDelegationMultiFile(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "validatedelegation_multifile")
 }
 
+// TestCheckValidateDelegationVarAlias verifies delegation detection recognizes
+// var aliasing patterns: var x = receiver.Field; x.Validate().
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckValidateDelegationVarAlias(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-validate-delegation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "validatedelegation_var_alias")
+}
+
 // TestCheckConstructorValidates exercises the --check-constructor-validates
 // mode against the constructorvalidates fixture, verifying that constructors
 // returning types with Validate() but not calling it are flagged.
@@ -501,6 +528,19 @@ func TestCheckConstructorReturnError(t *testing.T) {
 	setFlag(t, "check-constructor-return-error", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "constructorreturn")
+}
+
+// TestCheckConstructorReturnErrorAlias verifies type aliases to the built-in
+// error interface satisfy constructor-return-error requirements.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckConstructorReturnErrorAlias(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-return-error", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "constructorreturn_error_alias")
 }
 
 // TestConstructorValidatesCrossPackage exercises --check-constructor-validates
@@ -658,4 +698,17 @@ func TestCheckEnumSyncMultiFile(t *testing.T) {
 	// No `want` annotations needed — both Mode and Format are
 	// fully synced with their respective CUE schema files.
 	analysistest.Run(t, testdata, Analyzer, "enumsync_multifile")
+}
+
+// TestCheckEnumSyncScopedSwitches verifies enum-sync only considers switch
+// statements that target the annotated receiver value.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckEnumSyncScopedSwitches(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-enum-sync", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "enumsync_multiswitch_scoped")
 }

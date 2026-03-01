@@ -253,8 +253,7 @@ func tolerateAnalyzerExit(runErr error, stdoutLen int) error {
 	if runErr == nil {
 		return nil
 	}
-	var exitErr *exec.ExitError
-	if !errors.As(runErr, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](runErr); !ok || exitErr == nil {
 		return runErr
 	}
 	if stdoutLen == 0 {

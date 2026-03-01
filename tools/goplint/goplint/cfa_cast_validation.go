@@ -63,12 +63,12 @@ func inspectUnvalidatedCastsCFA(
 		},
 	)
 
-	// Collect deferred closures lazily — only needed when assigned casts
-	// exist. Go guarantees deferred functions execute before return, so
-	// defer func() { x.Validate() }() validates the outer path.
-	var deferredLits map[*ast.FuncLit]bool
+	// Collect synchronously-executed closures lazily — only needed when
+	// assigned casts exist. Deferred closures execute before return and IIFEs
+	// execute at call site, so both can satisfy outer-path validation checks.
+	var syncLits map[*ast.FuncLit]bool
 	if len(assignedCasts) > 0 {
-		deferredLits = collectDeferredClosureLits(fn.Body)
+		syncLits = collectSynchronousClosureLits(fn.Body)
 	}
 
 	// Report assigned casts where an unvalidated path to return exists.
@@ -92,17 +92,17 @@ func inspectUnvalidatedCastsCFA(
 
 		// Check if there's any path from the cast to a return block
 		// that doesn't pass through varName.Validate().
-		if !hasPathToReturnWithoutValidate(pass, funcCFG, defBlock, defIdx, ac.target, deferredLits) {
+		if !hasPathToReturnWithoutValidate(pass, funcCFG, defBlock, defIdx, ac.target, syncLits) {
 			// All paths DO have validate. Check for use-before-validate:
 			// same-block takes priority over cross-block — both cannot fire
 			// on the same cast. --check-all only enables same-block.
-			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, deferredLits) {
+			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, syncLits) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.target.displayName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", qualFuncName, ac.typeName, "ubv", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
 					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
 				}
-			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, deferredLits) {
+			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, syncLits) {
 				// Cross-block UBV: the variable is used in a successor
 				// block before any block on that path calls Validate().
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.target.displayName, ac.typeName)

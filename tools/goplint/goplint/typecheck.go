@@ -186,6 +186,7 @@ func buildValidatableStructs(pass *analysis.Pass) map[string]bool {
 
 // isErrorType reports whether t is the built-in error interface.
 func isErrorType(t types.Type) bool {
+	t = types.Unalias(t)
 	// The error type is a named interface in the universe scope.
 	if named, ok := t.(*types.Named); ok {
 		return named.Obj().Name() == "error" && named.Obj().Pkg() == nil

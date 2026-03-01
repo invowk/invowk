@@ -40,7 +40,7 @@ type Server struct {
 	cmd CommandName
 }
 
-func (s *Server) Setup()         {}
+func (s *Server) Setup()          {}
 func (s *Server) Validate() error { return nil }
 
 // --- Use-before-validate test cases ---
@@ -96,7 +96,7 @@ func NoValidateButNoUse(raw string) { // want `parameter "raw" of use_before_val
 // passed as a function argument before Validate().
 func UseInFuncArgBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate\.UseInFuncArgBeforeValidate uses primitive type string`
 	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
-	fmt.Println(x) // passes x as an argument (not x.String())
+	fmt.Println(x)        // passes x as an argument (not x.String())
 	return x.Validate()
 }
 
@@ -159,6 +159,14 @@ func StructLiteralAfterValidate(raw string) { // want `parameter "raw" of use_be
 func MapLiteralUseBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate\.MapLiteralUseBeforeValidate uses primitive type string`
 	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
 	_ = map[string]CommandName{"key": x}
+	return x.Validate()
+}
+
+// MapLiteralKeyUseBeforeValidate — SHOULD be flagged. The variable x
+// is used as a map literal key before Validate() is called.
+func MapLiteralKeyUseBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate\.MapLiteralKeyUseBeforeValidate uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	_ = map[CommandName]string{x: "value"}
 	return x.Validate()
 }
 

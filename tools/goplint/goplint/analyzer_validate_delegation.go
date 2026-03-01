@@ -168,25 +168,43 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 
 			// Pass 2: Intermediate variable pattern:
 			//   field := receiver.Field
+			//   var field = receiver.Field
 			//   field.Validate()
 			fieldAliases := make(map[string]string)
 			ast.Inspect(fn.Body, func(n ast.Node) bool {
-				assign, ok := n.(*ast.AssignStmt)
-				if !ok {
+				if recvVarName == "" {
 					return true
 				}
-				for i, rhs := range assign.Rhs {
-					sel, ok := rhs.(*ast.SelectorExpr)
-					if !ok {
-						continue
-					}
-					if recvVarName != "" {
-						if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == recvVarName {
-							if i < len(assign.Lhs) {
-								if lhsIdent, ok := assign.Lhs[i].(*ast.Ident); ok {
-									fieldAliases[lhsIdent.Name] = sel.Sel.Name
-								}
+
+				switch decl := n.(type) {
+				case *ast.AssignStmt:
+					for i, rhs := range decl.Rhs {
+						sel, ok := rhs.(*ast.SelectorExpr)
+						if !ok {
+							continue
+						}
+						ident, ok := sel.X.(*ast.Ident)
+						if !ok || ident.Name != recvVarName {
+							continue
+						}
+						if i < len(decl.Lhs) {
+							if lhsIdent, ok := decl.Lhs[i].(*ast.Ident); ok {
+								fieldAliases[lhsIdent.Name] = sel.Sel.Name
 							}
+						}
+					}
+				case *ast.ValueSpec:
+					for i, rhs := range decl.Values {
+						sel, ok := rhs.(*ast.SelectorExpr)
+						if !ok {
+							continue
+						}
+						ident, ok := sel.X.(*ast.Ident)
+						if !ok || ident.Name != recvVarName {
+							continue
+						}
+						if i < len(decl.Names) {
+							fieldAliases[decl.Names[i].Name] = sel.Sel.Name
 						}
 					}
 				}

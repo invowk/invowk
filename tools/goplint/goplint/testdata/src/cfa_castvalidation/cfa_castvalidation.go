@@ -124,6 +124,15 @@ func ValidateInsideIIFE(raw string) { // want `parameter "raw" of cfa_castvalida
 	useCmd(x)
 }
 
+// IIFEWithoutValidate — FLAGGED. The immediate closure executes synchronously
+// but does not call Validate(), so the cast remains unvalidated.
+func IIFEWithoutValidate(raw string) { // want `parameter "raw" of cfa_castvalidation\.IIFEWithoutValidate uses primitive type string`
+	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	func() {
+		useCmd(x)
+	}()
+}
+
 // SimpleNoValidation — basic case flagged by both AST and CFA.
 func SimpleNoValidation(raw string) { // want `parameter "raw" of cfa_castvalidation\.SimpleNoValidation uses primitive type string`
 	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
