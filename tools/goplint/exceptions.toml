@@ -2748,6 +2748,20 @@ pattern = "container.SandboxAwareEngine.buildSpawnArgs.binary"
 reason = "exec boundary — binary path for container spawn"
 
 # =============================================================================
+# Stdin Boundary
+# =============================================================================
+# readStdinAll is a raw stdin reader. Its parameter is an error message string
+# and its return is raw user-piped content — neither is a domain value.
+
+[[exceptions]]
+pattern = "invowk.readStdinAll.noInputMsg"
+reason = "error message text, not a domain value"
+
+[[exceptions]]
+pattern = "invowk.readStdinAll.return.0"
+reason = "raw stdin content, not a domain value"
+
+# =============================================================================
 # Nonzero Error Type Fields
 # =============================================================================
 # Error structs carry the offending value for diagnostic messages.
