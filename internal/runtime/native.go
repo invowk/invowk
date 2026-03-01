@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -87,10 +88,10 @@ func (r *NativeRuntime) Available() bool {
 // Validate checks if a command can be executed
 func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
-		return fmt.Errorf("no script selected for execution")
+		return errors.New("no script selected for execution")
 	}
 	if ctx.SelectedImpl.Script == "" {
-		return fmt.Errorf("script has no content to execute")
+		return errors.New("script has no content to execute")
 	}
 	return nil
 }
@@ -349,7 +350,7 @@ func (r *NativeRuntime) shellNotFoundError(attempted []string) error {
 
 	ctx.WithSuggestion("Alternatively, use the virtual runtime: invowk cmd <command> --ivk-runtime virtual")
 
-	return ctx.Wrap(fmt.Errorf("no shell found in PATH")).BuildError()
+	return ctx.Wrap(errors.New("no shell found in PATH")).BuildError()
 }
 
 // getShellArgs returns the arguments to pass to the shell

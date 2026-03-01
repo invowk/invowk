@@ -264,7 +264,7 @@ func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath File
 
 	script := string(s.Script)
 	if script == "" {
-		return "", fmt.Errorf("script has no content")
+		return "", errors.New("script has no content")
 	}
 
 	if s.IsScriptFile() {
@@ -303,7 +303,7 @@ func (s *Implementation) ResolveScriptWithFS(invowkfilePath FilesystemPath, read
 func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath FilesystemPath, readFile func(path string) ([]byte, error)) (string, error) {
 	script := string(s.Script)
 	if script == "" {
-		return "", fmt.Errorf("script has no content")
+		return "", errors.New("script has no content")
 	}
 
 	if s.IsScriptFile() {

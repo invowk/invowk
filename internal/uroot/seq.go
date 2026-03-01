@@ -4,6 +4,7 @@ package uroot
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -51,7 +52,7 @@ func (c *seqCommand) Run(ctx context.Context, args []string) error {
 
 	posArgs := fs.Args()
 	if len(posArgs) == 0 {
-		return wrapError(c.name, fmt.Errorf("missing operand"))
+		return wrapError(c.name, errors.New("missing operand"))
 	}
 
 	// Parse positional args: seq LAST, seq FIRST LAST, seq FIRST INCREMENT LAST
@@ -84,7 +85,7 @@ func (c *seqCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	if increment == 0 {
-		return wrapError(c.name, fmt.Errorf("increment must not be zero"))
+		return wrapError(c.name, errors.New("increment must not be zero"))
 	}
 
 	// Calculate width for -w padding by examining first and last values

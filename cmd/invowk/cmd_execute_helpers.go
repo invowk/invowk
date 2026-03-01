@@ -94,7 +94,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	cmd.SetContext(ctx)
 
 	if len(args) == 0 {
-		return fmt.Errorf("no command specified")
+		return errors.New("no command specified")
 	}
 
 	commandSetResult, err := app.Discovery.DiscoverCommandSet(ctx)
@@ -263,7 +263,7 @@ func createRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) runt
 	for _, diag := range built.Diagnostics {
 		d, err := discovery.NewDiagnosticWithCause(
 			discovery.SeverityWarning,
-			discovery.DiagnosticCode(diag.Code), //nolint:gosec // runtime.InitDiagnosticCode values align with discovery.DiagnosticCode by design
+			discovery.DiagnosticCode(diag.Code),
 			diag.Message,
 			"",
 			diag.Cause,

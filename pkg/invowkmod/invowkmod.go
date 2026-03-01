@@ -538,7 +538,7 @@ func (m *Module) ResolveScriptPath(scriptPath types.FilesystemPath) types.Filesy
 // Returns an error if the path is invalid (e.g., escapes module directory, is a symlink).
 func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
 	if scriptPath == "" {
-		return fmt.Errorf("script path cannot be empty")
+		return errors.New("script path cannot be empty")
 	}
 
 	// Convert to native path
@@ -546,7 +546,7 @@ func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
 
 	// Absolute paths are not allowed in modules
 	if filepath.IsAbs(nativePath) {
-		return fmt.Errorf("absolute paths are not allowed in modules; use paths relative to module root")
+		return errors.New("absolute paths are not allowed in modules; use paths relative to module root")
 	}
 
 	// Resolve the full path
@@ -612,7 +612,7 @@ func (m *Module) checkSymlinkSafety(path string) error {
 
 	relPath, err := filepath.Rel(moduleRealPath, realPath)
 	if err != nil || strings.HasPrefix(relPath, "..") {
-		return fmt.Errorf("path resolves to location outside module directory (symlink escape)")
+		return errors.New("path resolves to location outside module directory (symlink escape)")
 	}
 
 	return nil

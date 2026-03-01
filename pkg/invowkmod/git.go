@@ -225,7 +225,7 @@ func (f *GitFetcher) ValidateAuth(gitURL GitURL) error {
 	gitURLStr := string(gitURL)
 	if f.auth == nil {
 		if strings.HasPrefix(gitURLStr, "git@") || strings.Contains(gitURLStr, "ssh://") {
-			return fmt.Errorf("SSH URL detected but no SSH key found; please add an SSH key to ~/.ssh/")
+			return errors.New("SSH URL detected but no SSH key found; please add an SSH key to ~/.ssh/")
 		}
 		// No auth configured, will work for public HTTPS repos
 		return nil

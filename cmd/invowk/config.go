@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/issue"
@@ -133,13 +134,13 @@ func showConfig(ctx context.Context, app *App) error {
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("virtual_shell"))
-	fmt.Printf("  enable_uroot_utils: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.VirtualShell.EnableUrootUtils)))
+	fmt.Printf("  enable_uroot_utils: %s\n", valueStyle.Render(strconv.FormatBool(cfg.VirtualShell.EnableUrootUtils)))
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("ui"))
 	fmt.Printf("  color_scheme: %s\n", valueStyle.Render(string(cfg.UI.ColorScheme)))
-	fmt.Printf("  interactive: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.UI.Interactive)))
-	fmt.Printf("  verbose: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.UI.Verbose)))
+	fmt.Printf("  interactive: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Interactive)))
+	fmt.Printf("  verbose: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Verbose)))
 
 	return nil
 }

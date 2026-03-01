@@ -339,7 +339,7 @@ func SpinWithAction(opts SpinOptions, action func()) error {
 }
 
 // SpinWithContext displays a spinner until the context is cancelled.
-func SpinWithContext(opts SpinOptions, ctx context.Context) error {
+func SpinWithContext(ctx context.Context, opts SpinOptions) error {
 	doneCh := make(chan struct{})
 	go func() {
 		<-ctx.Done()
@@ -426,7 +426,7 @@ func (b *SpinBuilder) Context(ctx context.Context) *SpinBuilder {
 // Run executes the spinner with the configured action or context.
 func (b *SpinBuilder) Run() error {
 	if b.ctx != nil {
-		return SpinWithContext(b.opts, b.ctx)
+		return SpinWithContext(b.ctx, b.opts)
 	}
 	if b.action != nil {
 		return SpinWithAction(b.opts, b.action)

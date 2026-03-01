@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -48,7 +49,7 @@ func TestClassifyExecutionError(t *testing.T) {
 			err: issue.NewErrorContext().
 				WithOperation("find shell").
 				WithSuggestion("Install bash").
-				Wrap(fmt.Errorf("no shell found in PATH")).
+				Wrap(errors.New("no shell found in PATH")).
 				BuildError(),
 			wantIssueID: issue.ShellNotFoundId,
 			wantInStyle: []string{"Install bash"},
@@ -79,7 +80,7 @@ func TestClassifyExecutionError(t *testing.T) {
 		},
 		{
 			name:        "unknown error falls back to script execution issue",
-			err:         fmt.Errorf("unexpected boom"),
+			err:         errors.New("unexpected boom"),
 			wantIssueID: issue.ScriptExecutionFailedId,
 			wantInStyle: []string{"unexpected boom"},
 		},
@@ -87,7 +88,7 @@ func TestClassifyExecutionError(t *testing.T) {
 			name: "verbose actionable error includes chain",
 			err: issue.NewErrorContext().
 				WithOperation("find shell").
-				Wrap(fmt.Errorf("no shell found in PATH")).
+				Wrap(errors.New("no shell found in PATH")).
 				BuildError(),
 			verbose:     true,
 			wantIssueID: issue.ShellNotFoundId,

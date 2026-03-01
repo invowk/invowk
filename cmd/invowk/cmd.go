@@ -32,7 +32,7 @@ var (
 
 	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
 	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
-	ErrInvalidDependencyMessage = errors.New("invalid dependency message") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
+	ErrInvalidDependencyMessage = errors.New("invalid dependency message")
 )
 
 type (
@@ -332,7 +332,7 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
 // disambiguation (@source / --ivk-from) is specified and no ambiguity is detected.
 func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no command specified")
+		return errors.New("no command specified")
 	}
 
 	// Watch mode intercepts before normal execution.

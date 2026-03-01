@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,7 +26,7 @@ func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, registry *
 
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return fmt.Errorf("container runtime not available for filepath validation")
+		return errors.New("container runtime not available for filepath validation")
 	}
 
 	var filepathErrors []DependencyMessage
@@ -50,7 +51,7 @@ func checkFilepathDependenciesInContainer(deps *invowkfile.DependsOn, registry *
 // The runtime is passed directly (hoisted by caller) to avoid redundant registry lookups.
 func validateFilepathInContainer(fp invowkfile.FilepathDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
 	if len(fp.Alternatives) == 0 {
-		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
+		return errors.New("  • (no paths specified) - at least one path must be provided in alternatives")
 	}
 
 	var allErrors []string
@@ -130,7 +131,7 @@ func checkHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath ty
 // Returns nil (success) if any alternative satisfies all requirements
 func validateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir types.FilesystemPath) error {
 	if len(fp.Alternatives) == 0 {
-		return fmt.Errorf("  • (no paths specified) - at least one path must be provided in alternatives")
+		return errors.New("  • (no paths specified) - at least one path must be provided in alternatives")
 	}
 
 	var allErrors []string
@@ -166,7 +167,7 @@ func validateSingleFilepath(displayPath, resolvedPath types.FilesystemPath, fp i
 	// Check if path exists
 	info, err := os.Stat(resolvedPathStr)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("path does not exist")
+		return errors.New("path does not exist")
 	}
 	if err != nil {
 		return fmt.Errorf("cannot access path: %w", err)

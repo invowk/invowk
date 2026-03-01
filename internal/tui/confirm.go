@@ -3,7 +3,7 @@
 package tui
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -196,7 +196,7 @@ func Confirm(opts ConfirmOptions) (bool, error) {
 
 	m := finalModel.(*confirmModel)
 	if m.cancelled {
-		return false, fmt.Errorf("user aborted")
+		return false, errors.New("user aborted")
 	}
 	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
 	return result.(bool), nil

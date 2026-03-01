@@ -5,6 +5,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -76,28 +77,25 @@ func runTuiTable(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to parse CSV: %w", err)
 		}
 	} else {
-		// Check if we have stdin input
-		stat, _ := os.Stdin.Stat()
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			// Read from stdin
-			scanner := bufio.NewScanner(os.Stdin)
-			for scanner.Scan() {
-				line := scanner.Text()
-				if line != "" {
-					parts := strings.Split(line, tableSeparator)
-					rows = append(rows, parts)
-				}
+		if !isStdinPiped() {
+			return errors.New("no data provided; use --file or pipe data via stdin")
+		}
+
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line != "" {
+				parts := strings.Split(line, tableSeparator)
+				rows = append(rows, parts)
 			}
-			if err := scanner.Err(); err != nil {
-				return fmt.Errorf("error reading stdin: %w", err)
-			}
-		} else {
-			return fmt.Errorf("no data provided; use --file or pipe data via stdin")
+		}
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("error reading stdin: %w", err)
 		}
 	}
 
 	if len(rows) == 0 {
-		return fmt.Errorf("no data to display")
+		return errors.New("no data to display")
 	}
 
 	// Extract headers

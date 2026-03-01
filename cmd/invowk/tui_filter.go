@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -66,10 +67,7 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 
 	var options []string
 
-	// Check if we have stdin input
-	stat, _ := os.Stdin.Stat()
-	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		// Read from stdin
+	if isStdinPiped() {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
@@ -86,7 +84,7 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 	options = append(options, args...)
 
 	if len(options) == 0 {
-		return fmt.Errorf("no options provided; provide as arguments or pipe via stdin")
+		return errors.New("no options provided; provide as arguments or pipe via stdin")
 	}
 
 	limit := filterLimit

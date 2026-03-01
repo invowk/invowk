@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-//nolint:goconst // Test files naturally repeat string literals across test functions
 package uroot
 
 import (

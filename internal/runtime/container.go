@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -160,16 +161,16 @@ func (r *ContainerRuntime) Available() bool {
 // Validate checks if a command can be executed
 func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
-		return fmt.Errorf("no implementation selected for execution")
+		return errors.New("no implementation selected for execution")
 	}
 	if ctx.SelectedImpl.Script == "" {
-		return fmt.Errorf("implementation has no script to execute")
+		return errors.New("implementation has no script to execute")
 	}
 
 	// Get the container runtime config
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig == nil {
-		return fmt.Errorf("runtime config not found for container runtime")
+		return errors.New("runtime config not found for container runtime")
 	}
 
 	// Check for containerfile or image

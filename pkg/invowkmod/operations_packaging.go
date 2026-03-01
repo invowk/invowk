@@ -5,6 +5,7 @@ package invowkmod
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -140,7 +141,7 @@ func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.Fil
 // Returns the path to the extracted module or an error.
 func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err error) {
 	if opts.Source == "" {
-		return "", fmt.Errorf("source cannot be empty")
+		return "", errors.New("source cannot be empty")
 	}
 
 	// Default destination to current directory
@@ -328,7 +329,7 @@ func downloadFile(ctx context.Context, url string) (tmpPath string, err error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-	resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL is validated by caller
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to download: %w", err)
 	}

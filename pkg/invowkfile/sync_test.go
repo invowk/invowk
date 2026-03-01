@@ -1319,7 +1319,7 @@ func runBehavioralSync(
 
 // TestBehavioralSync_RuntimeMode verifies Go RuntimeMode.Validate() agrees with
 // CUE #RuntimeType disjunction ("native" | "virtual" | "container").
-func TestBehavioralSync_RuntimeMode(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_RuntimeMode(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1340,7 +1340,7 @@ func TestBehavioralSync_RuntimeMode(t *testing.T) { //nolint:tparallel // subtes
 
 // TestBehavioralSync_PlatformType verifies Go PlatformType.Validate() agrees with
 // CUE #PlatformType disjunction ("linux" | "macos" | "windows").
-func TestBehavioralSync_PlatformType(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_PlatformType(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1360,7 +1360,7 @@ func TestBehavioralSync_PlatformType(t *testing.T) { //nolint:tparallel // subte
 
 // TestBehavioralSync_EnvInheritMode verifies Go EnvInheritMode.Validate() agrees with
 // CUE #RuntimeConfigBase.env_inherit_mode disjunction ("none" | "allow" | "all").
-func TestBehavioralSync_EnvInheritMode(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_EnvInheritMode(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1381,7 +1381,7 @@ func TestBehavioralSync_EnvInheritMode(t *testing.T) { //nolint:tparallel // sub
 
 // TestBehavioralSync_CapabilityName verifies Go CapabilityName.Validate() agrees with
 // CUE #CapabilityName disjunction.
-func TestBehavioralSync_CapabilityName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_CapabilityName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1403,7 +1403,7 @@ func TestBehavioralSync_CapabilityName(t *testing.T) { //nolint:tparallel // sub
 // CUE #Flag.type disjunction ("string" | "bool" | "int" | "float").
 // Note: FlagType("") is valid in Go (defaults to "string") but CUE field type?
 // is optional — absent means default. The zero-value divergence is expected.
-func TestBehavioralSync_FlagType(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_FlagType(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1426,7 +1426,7 @@ func TestBehavioralSync_FlagType(t *testing.T) { //nolint:tparallel // subtests 
 
 // TestBehavioralSync_ArgumentType verifies Go ArgumentType.Validate() agrees with
 // CUE #Argument.type disjunction ("string" | "int" | "float").
-func TestBehavioralSync_ArgumentType(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_ArgumentType(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1445,7 +1445,7 @@ func TestBehavioralSync_ArgumentType(t *testing.T) { //nolint:tparallel // subte
 
 // TestBehavioralSync_FlagName verifies Go FlagName.Validate() agrees with
 // CUE #Flag.name constraint (regex + length + non-empty).
-func TestBehavioralSync_FlagName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_FlagName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1471,7 +1471,7 @@ func TestBehavioralSync_FlagName(t *testing.T) { //nolint:tparallel // subtests 
 
 // TestBehavioralSync_ArgumentName verifies Go ArgumentName.Validate() agrees with
 // CUE #Argument.name constraint (regex + length + non-empty).
-func TestBehavioralSync_ArgumentName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_ArgumentName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1495,7 +1495,7 @@ func TestBehavioralSync_ArgumentName(t *testing.T) { //nolint:tparallel // subte
 // CUE #Command.name constraint (regex + length + non-empty).
 // Go now enforces the same regex (^[a-zA-Z][a-zA-Z0-9_ -]*$) and MaxRunes(256)
 // as CUE, so all cases are in agreement.
-func TestBehavioralSync_CommandName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_CommandName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1523,7 +1523,7 @@ func TestBehavioralSync_CommandName(t *testing.T) { //nolint:tparallel // subtes
 // Note: Go uses time.ParseDuration() which is strictly more powerful than CUE's regex.
 // CUE regex: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
 // Go: time.ParseDuration + positive check
-func TestBehavioralSync_DurationString(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_DurationString(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1552,7 +1552,7 @@ func TestBehavioralSync_DurationString(t *testing.T) { //nolint:tparallel // sub
 // Note: ContainerImage("") is valid in Go (no image = use containerfile),
 // but CUE field image?: string & !="" means empty is rejected at the CUE level.
 // The CUE optionality handles the "no image" case (field is absent, not empty).
-func TestBehavioralSync_ContainerImage(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_ContainerImage(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1577,7 +1577,7 @@ func TestBehavioralSync_ContainerImage(t *testing.T) { //nolint:tparallel // sub
 
 // TestBehavioralSync_EnvVarName verifies Go EnvVarName.Validate() agrees with
 // CUE #EnvVarCheck.name constraint (=~"^[A-Za-z_][A-Za-z0-9_]*$").
-func TestBehavioralSync_EnvVarName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_EnvVarName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1600,7 +1600,7 @@ func TestBehavioralSync_EnvVarName(t *testing.T) { //nolint:tparallel // subtest
 
 // TestBehavioralSync_BinaryName verifies Go BinaryName.Validate() agrees with
 // CUE #ToolDependency.alternatives element constraint (=~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$").
-func TestBehavioralSync_BinaryName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_BinaryName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1625,7 +1625,7 @@ func TestBehavioralSync_BinaryName(t *testing.T) { //nolint:tparallel // subtest
 
 // TestBehavioralSync_FlagShorthand verifies Go FlagShorthand.Validate() agrees with
 // CUE #Flag.short constraint (=~"^[a-zA-Z]$").
-func TestBehavioralSync_FlagShorthand(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_FlagShorthand(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1646,7 +1646,7 @@ func TestBehavioralSync_FlagShorthand(t *testing.T) { //nolint:tparallel // subt
 
 // TestBehavioralSync_DotenvFilePath verifies Go DotenvFilePath.Validate() agrees with
 // CUE #EnvConfig.files element constraint (!="" & strings.MaxRunes(4096)).
-func TestBehavioralSync_DotenvFilePath(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_DotenvFilePath(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1664,7 +1664,7 @@ func TestBehavioralSync_DotenvFilePath(t *testing.T) { //nolint:tparallel // sub
 
 // TestBehavioralSync_GlobPattern verifies Go GlobPattern.Validate() agrees with
 // CUE #WatchConfig.patterns element constraint (!="" & strings.MaxRunes(4096)).
-func TestBehavioralSync_GlobPattern(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_GlobPattern(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1681,7 +1681,7 @@ func TestBehavioralSync_GlobPattern(t *testing.T) { //nolint:tparallel // subtes
 
 // TestBehavioralSync_CheckName verifies Go CheckName.Validate() agrees with
 // CUE #CustomCheck.name constraint (!="" & strings.MaxRunes(256)).
-func TestBehavioralSync_CheckName(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_CheckName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1699,7 +1699,7 @@ func TestBehavioralSync_CheckName(t *testing.T) { //nolint:tparallel // subtests
 
 // TestBehavioralSync_ScriptContent verifies Go ScriptContent.Validate() agrees with
 // CUE #CustomCheck.check_script constraint (!="" & strings.MaxRunes(10485760)).
-func TestBehavioralSync_ScriptContent(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_ScriptContent(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1718,7 +1718,7 @@ func TestBehavioralSync_ScriptContent(t *testing.T) { //nolint:tparallel // subt
 
 // TestBehavioralSync_VolumeMountSpec verifies Go VolumeMountSpec.Validate() agrees with
 // CUE #RuntimeConfigContainer.volumes element constraint (!="" & strings.MaxRunes(4096)).
-func TestBehavioralSync_VolumeMountSpec(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_VolumeMountSpec(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1736,7 +1736,7 @@ func TestBehavioralSync_VolumeMountSpec(t *testing.T) { //nolint:tparallel // su
 
 // TestBehavioralSync_PortMappingSpec verifies Go PortMappingSpec.Validate() agrees with
 // CUE #RuntimeConfigContainer.ports element constraint (!="" & strings.MaxRunes(256)).
-func TestBehavioralSync_PortMappingSpec(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_PortMappingSpec(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1754,7 +1754,7 @@ func TestBehavioralSync_PortMappingSpec(t *testing.T) { //nolint:tparallel // su
 
 // TestBehavioralSync_WorkDir verifies Go WorkDir.Validate() agrees with
 // CUE #Command.workdir constraint (strings.MaxRunes(4096), optional field).
-func TestBehavioralSync_WorkDir(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_WorkDir(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1773,7 +1773,7 @@ func TestBehavioralSync_WorkDir(t *testing.T) { //nolint:tparallel // subtests s
 
 // TestBehavioralSync_CommandCategory verifies Go CommandCategory.Validate() agrees with
 // CUE #Command.category constraint (=~"^\\s*\\S.*$" & strings.MaxRunes(256), optional field).
-func TestBehavioralSync_CommandCategory(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_CommandCategory(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 
@@ -1792,7 +1792,7 @@ func TestBehavioralSync_CommandCategory(t *testing.T) { //nolint:tparallel // su
 
 // TestBehavioralSync_ContainerfilePath verifies Go ContainerfilePath.Validate() agrees with
 // CUE #RuntimeConfigContainer.containerfile constraint (strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\.", optional).
-func TestBehavioralSync_ContainerfilePath(t *testing.T) { //nolint:tparallel // subtests share CUE context (not thread-safe)
+func TestBehavioralSync_ContainerfilePath(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
 

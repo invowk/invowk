@@ -5,6 +5,7 @@ package uroot
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -73,7 +74,7 @@ func (c *grepCommand) Run(ctx context.Context, args []string) error {
 
 	remaining := fs.Args()
 	if len(remaining) == 0 {
-		return wrapError(c.name, fmt.Errorf("missing pattern"))
+		return wrapError(c.name, errors.New("missing pattern"))
 	}
 
 	pattern := remaining[0]
@@ -142,7 +143,7 @@ func (c *grepCommand) Run(ctx context.Context, args []string) error {
 
 	// grep returns exit status 1 when no matches found
 	if !matchFound {
-		return wrapError(c.name, fmt.Errorf("no matches found"))
+		return wrapError(c.name, errors.New("no matches found"))
 	}
 
 	return nil

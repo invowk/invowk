@@ -260,7 +260,7 @@ func (w *Watcher) Close() error {
 // called exactly once; a second call returns an error immediately.
 func (w *Watcher) Run(ctx context.Context) error {
 	if !w.started.CompareAndSwap(false, true) {
-		return fmt.Errorf("watch: Run called more than once")
+		return errors.New("watch: Run called more than once")
 	}
 	// Mark as closed so a subsequent Close() is a no-op — Run owns
 	// the fsnotify lifecycle from this point via its defer block.
@@ -376,7 +376,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 		case evt, ok := <-w.fsw.Events:
 			if !ok {
-				return fmt.Errorf("watch: fsnotify event channel closed unexpectedly")
+				return errors.New("watch: fsnotify event channel closed unexpectedly")
 			}
 
 			rel, err := filepath.Rel(w.baseDir, evt.Name)
@@ -415,7 +415,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 		case err, ok := <-w.fsw.Errors:
 			if !ok {
-				return fmt.Errorf("watch: fsnotify error channel closed unexpectedly")
+				return errors.New("watch: fsnotify error channel closed unexpectedly")
 			}
 			// Classify the error: resource exhaustion (inotify limit, file
 			// descriptor limits) indicates the watcher is fundamentally broken.
@@ -445,7 +445,7 @@ func (w *Watcher) addDirectories() error {
 			if d != nil && d.IsDir() {
 				return filepath.SkipDir
 			}
-			return nil //nolint:nilerr // intentional skip of inaccessible files
+			return nil
 		}
 		if !d.IsDir() {
 			return nil
@@ -454,7 +454,7 @@ func (w *Watcher) addDirectories() error {
 		rel, relErr := filepath.Rel(w.baseDir, path)
 		if relErr != nil {
 			fmt.Fprintf(w.stderr, "watch: skipping path %q (cannot make relative): %v\n", path, relErr)
-			return nil //nolint:nilerr // skip paths that cannot be made relative
+			return nil
 		}
 
 		// Skip ignored directories entirely to avoid descending into them.

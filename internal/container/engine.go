@@ -428,16 +428,13 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 		podman := NewPodmanEngine()
 		if podman.Available() {
 			engine = podman
-		} else {
+		} else if docker := NewDockerEngine(); docker.Available() {
 			// Fall back to Docker
-			docker := NewDockerEngine()
-			if docker.Available() {
-				engine = docker
-			} else {
-				return nil, &EngineNotAvailableError{
-					Engine: EngineTypePodman,
-					Reason: "podman is not installed or not accessible, and docker fallback is also not available",
-				}
+			engine = docker
+		} else {
+			return nil, &EngineNotAvailableError{
+				Engine: EngineTypePodman,
+				Reason: "podman is not installed or not accessible, and docker fallback is also not available",
 			}
 		}
 
@@ -445,25 +442,22 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 		docker := NewDockerEngine()
 		if docker.Available() {
 			engine = docker
-		} else {
+		} else if podman := NewPodmanEngine(); podman.Available() {
 			// Fall back to Podman
-			podman := NewPodmanEngine()
-			if podman.Available() {
-				engine = podman
-			} else {
-				return nil, &EngineNotAvailableError{
-					Engine: EngineTypeDocker,
-					Reason: "docker is not installed or not accessible, and podman fallback is also not available",
-				}
+			engine = podman
+		} else {
+			return nil, &EngineNotAvailableError{
+				Engine: EngineTypeDocker,
+				Reason: "docker is not installed or not accessible, and podman fallback is also not available",
 			}
 		}
 
 	case EngineTypeAny:
-		// Unreachable: IsValid() rejects EngineTypeAny before reaching this switch.
-		return nil, fmt.Errorf("EngineTypeAny is not a valid engine type for initialization")
+		// Unreachable: Validate() rejects EngineTypeAny before reaching this switch.
+		return nil, errors.New("EngineTypeAny is not a valid engine type for initialization")
 
 	default:
-		// Unreachable: IsValid() guard above ensures only valid types reach here.
+		// Unreachable: Validate() guard above ensures only valid types reach here.
 		return nil, fmt.Errorf("unknown container engine type: %s", preferredType)
 	}
 

@@ -51,7 +51,7 @@ func (c *lnCommand) Run(ctx context.Context, args []string) error {
 
 	posArgs := fs.Args()
 	if len(posArgs) < 2 {
-		return wrapError(c.name, fmt.Errorf("missing file operand"))
+		return wrapError(c.name, errors.New("missing file operand"))
 	}
 
 	target := posArgs[0]

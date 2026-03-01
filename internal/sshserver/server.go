@@ -205,7 +205,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 
 	ptyReq, winCh, isPty := sess.Pty()
 	if isPty {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
+		cmd.Env = append(cmd.Env, "TERM="+ptyReq.Term)
 	}
 
 	// Start the command with a pseudo-terminal

@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -100,7 +101,7 @@ func checkDangerousPatterns(pattern string) error {
 	// Simple heuristic: look for quantifier immediately after a group that contains a quantifier
 	nestedQuantifierPattern := regexp.MustCompile(`\([^)]*[+*][^)]*\)[+*?]|\([^)]*[+*][^)]*\)\{`)
 	if nestedQuantifierPattern.MatchString(pattern) {
-		return fmt.Errorf("regex pattern contains nested quantifiers which may cause performance issues")
+		return errors.New("regex pattern contains nested quantifiers which may cause performance issues")
 	}
 
 	// Check for repetition on alternation with overlapping patterns
@@ -111,7 +112,7 @@ func checkDangerousPatterns(pattern string) error {
 		// Only flag if both sides of alternation have similar starting patterns
 		// This is a conservative check - we allow most alternations
 		if hasOverlappingAlternation(pattern) {
-			return fmt.Errorf("regex pattern contains alternation with potentially overlapping patterns and quantifiers")
+			return errors.New("regex pattern contains alternation with potentially overlapping patterns and quantifiers")
 		}
 	}
 

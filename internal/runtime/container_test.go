@@ -5,7 +5,7 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -797,7 +797,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 		},
 	}
 
-	engine := NewMockEngine().WithImageExists(false).WithBuildError(fmt.Errorf("disk full"))
+	engine := NewMockEngine().WithImageExists(false).WithBuildError(errors.New("disk full"))
 
 	// Configure provisioner with strict=true and a non-existent binary path
 	// to force Provision() to fail during resource hash computation.
@@ -854,7 +854,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 		},
 	}
 
-	engine := NewMockEngine().WithImageExists(false).WithBuildError(fmt.Errorf("disk full"))
+	engine := NewMockEngine().WithImageExists(false).WithBuildError(errors.New("disk full"))
 
 	// Configure provisioner with strict=false and a non-existent binary path
 	provCfg := &provision.Config{

@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -393,7 +394,7 @@ func chooseIndicesWithModel(opts ChooseStringOptions) ([]SelectionIndex, error) 
 
 	m := finalModel.(*chooseModel)
 	if m.cancelled {
-		return nil, fmt.Errorf("user aborted")
+		return nil, errors.New("user aborted")
 	}
 
 	return m.selectedIndices(), nil
@@ -485,7 +486,7 @@ func ChooseStringsWithModel(opts ChooseStringOptions) ([]string, error) {
 
 	m := finalModel.(*chooseModel)
 	if m.cancelled {
-		return nil, fmt.Errorf("user aborted")
+		return nil, errors.New("user aborted")
 	}
 	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
 	return result.([]string), nil

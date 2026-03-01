@@ -115,6 +115,6 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 	// If we get here without a result, the user force-quit
 	return &InteractiveResult{
 		ExitCode: 130, // Standard exit code for Ctrl+C
-		Error:    fmt.Errorf("execution interrupted"),
+		Error:    errors.New("execution interrupted"),
 	}, nil
 }

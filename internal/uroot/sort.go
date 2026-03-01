@@ -143,11 +143,11 @@ func parseNumber(s string) float64 {
 	// Find the numeric prefix
 	end := 0
 	for i, r := range s {
-		if (r >= '0' && r <= '9') || r == '.' || r == '-' || r == '+' {
-			end = i + 1
-		} else {
+		if (r < '0' || r > '9') && r != '.' && r != '-' && r != '+' {
 			break
 		}
+
+		end = i + 1
 	}
 	if end == 0 {
 		return 0

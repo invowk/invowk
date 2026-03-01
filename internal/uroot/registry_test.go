@@ -785,7 +785,7 @@ func TestRegistry_CommandError_NotSwallowed(t *testing.T) {
 		name: "failcmd",
 		runFn: func(ctx context.Context, args []string) error {
 			callCount++
-			return fmt.Errorf("[uroot] failcmd: intentional failure")
+			return errors.New("[uroot] failcmd: intentional failure")
 		},
 	}
 	r.Register(cmd)

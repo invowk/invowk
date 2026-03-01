@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -230,7 +231,7 @@ func (r *SemverResolver) Resolve(constraintStr string, availableVersions []SemVe
 	}
 
 	if len(versions) == 0 {
-		return "", fmt.Errorf("no valid versions available")
+		return "", errors.New("no valid versions available")
 	}
 
 	// Filter versions that match the constraint

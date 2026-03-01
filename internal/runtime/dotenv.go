@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -144,7 +145,7 @@ func parseEnvValue(value string) (string, error) {
 		if value[0] == '"' {
 			// Double-quoted value
 			if len(value) < 2 || value[len(value)-1] != '"' {
-				return "", fmt.Errorf("unterminated double quote")
+				return "", errors.New("unterminated double quote")
 			}
 			// Process escape sequences
 			return parseDoubleQuotedValue(value[1 : len(value)-1])
@@ -152,7 +153,7 @@ func parseEnvValue(value string) (string, error) {
 		if value[0] == '\'' {
 			// Single-quoted value
 			if len(value) < 2 || value[len(value)-1] != '\'' {
-				return "", fmt.Errorf("unterminated single quote")
+				return "", errors.New("unterminated single quote")
 			}
 			// Single-quoted: literal value, no escape processing
 			return value[1 : len(value)-1], nil

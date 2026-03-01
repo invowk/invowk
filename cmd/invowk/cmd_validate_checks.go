@@ -186,7 +186,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return fmt.Errorf("container runtime not available for env var validation")
+		return errors.New("container runtime not available for env var validation")
 	}
 
 	var envVarErrors []DependencyMessage
@@ -195,7 +195,7 @@ func checkEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 		found, lastErr := evaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
 			name := strings.TrimSpace(string(alt.Name))
 			if name == "" {
-				return fmt.Errorf("  • (empty) - environment variable name cannot be empty")
+				return errors.New("  • (empty) - environment variable name cannot be empty")
 			}
 
 			// Defense-in-depth: validate env var name before shell interpolation
@@ -262,7 +262,7 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return fmt.Errorf("container runtime not available for capability validation")
+		return errors.New("container runtime not available for capability validation")
 	}
 
 	var capabilityErrors []DependencyMessage
@@ -291,7 +291,7 @@ func checkCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 
 		if !found && lastErr != nil {
 			if len(capDep.Alternatives) == 1 {
-				capabilityErrors = append(capabilityErrors, DependencyMessage(fmt.Sprintf("  • %s", lastErr.Error())))
+				capabilityErrors = append(capabilityErrors, DependencyMessage("  • "+lastErr.Error()))
 			} else {
 				alts := make([]string, len(capDep.Alternatives))
 				for i, alt := range capDep.Alternatives {
@@ -339,7 +339,7 @@ func checkCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return fmt.Errorf("container runtime not available for command dependency validation")
+		return errors.New("container runtime not available for command dependency validation")
 	}
 
 	var commandErrors []DependencyMessage
@@ -436,7 +436,7 @@ func checkCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 		if !found && lastErr != nil {
 			if len(capDep.Alternatives) == 1 {
-				capabilityErrors = append(capabilityErrors, DependencyMessage(fmt.Sprintf("  • %s", lastErr.Error())))
+				capabilityErrors = append(capabilityErrors, DependencyMessage("  • "+lastErr.Error()))
 			} else {
 				alts := make([]string, len(capDep.Alternatives))
 				for i, alt := range capDep.Alternatives {
@@ -474,7 +474,7 @@ func checkEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 			// Trim whitespace from name as per schema
 			name := strings.TrimSpace(string(alt.Name))
 			if name == "" {
-				return fmt.Errorf("  • (empty) - environment variable name cannot be empty")
+				return errors.New("  • (empty) - environment variable name cannot be empty")
 			}
 
 			// Check if env var exists

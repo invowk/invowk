@@ -3,7 +3,7 @@
 package tui
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -176,7 +176,7 @@ func File(opts FileOptions) (string, error) {
 
 	m := finalModel.(*fileModel)
 	if m.cancelled {
-		return "", fmt.Errorf("user aborted")
+		return "", errors.New("user aborted")
 	}
 	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
 	return result.(string), nil

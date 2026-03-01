@@ -741,7 +741,7 @@ func TestDiscoverAll_PermissionDenied(t *testing.T) {
 	}
 	// Restore permissions so t.TempDir() cleanup can remove the directory
 	t.Cleanup(func() {
-		_ = os.Chmod(unreadableDir, 0o755) //nolint:errcheck // best-effort cleanup
+		_ = os.Chmod(unreadableDir, 0o755)
 	})
 
 	cfg := config.DefaultConfig()

@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -16,7 +17,7 @@ func validateValueType(value string, typeName FlagType) error {
 	switch typeName {
 	case FlagTypeBool:
 		if value != "true" && value != "false" {
-			return fmt.Errorf("must be 'true' or 'false'")
+			return errors.New("must be 'true' or 'false'")
 		}
 	case FlagTypeInt:
 		for i, c := range value {
@@ -24,19 +25,19 @@ func validateValueType(value string, typeName FlagType) error {
 				continue // Allow negative sign at start
 			}
 			if c < '0' || c > '9' {
-				return fmt.Errorf("must be a valid integer")
+				return errors.New("must be a valid integer")
 			}
 		}
 		if value == "" || value == "-" {
-			return fmt.Errorf("must be a valid integer")
+			return errors.New("must be a valid integer")
 		}
 	case FlagTypeFloat:
 		if value == "" {
-			return fmt.Errorf("must be a valid floating-point number")
+			return errors.New("must be a valid floating-point number")
 		}
 		_, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return fmt.Errorf("must be a valid floating-point number")
+			return errors.New("must be a valid floating-point number")
 		}
 	case FlagTypeString:
 		// Any string is valid

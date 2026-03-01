@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,7 +74,7 @@ func (c *Client) Input(opts InputRequest) (string, error) {
 	}
 
 	if resp.Cancelled {
-		return "", fmt.Errorf("user aborted")
+		return "", errors.New("user aborted")
 	}
 
 	var result InputResult
@@ -93,7 +94,7 @@ func (c *Client) Confirm(opts ConfirmRequest) (bool, error) {
 	}
 
 	if resp.Cancelled {
-		return false, fmt.Errorf("user aborted")
+		return false, errors.New("user aborted")
 	}
 
 	var result ConfirmResult
@@ -114,7 +115,7 @@ func (c *Client) Choose(opts ChooseRequest) (any, error) {
 	}
 
 	if resp.Cancelled {
-		return nil, fmt.Errorf("user aborted")
+		return nil, errors.New("user aborted")
 	}
 
 	var result ChooseResult
@@ -186,7 +187,7 @@ func (c *Client) Filter(opts FilterRequest) ([]string, error) {
 	}
 
 	if resp.Cancelled {
-		return nil, fmt.Errorf("user aborted")
+		return nil, errors.New("user aborted")
 	}
 
 	var result FilterResult
@@ -206,7 +207,7 @@ func (c *Client) File(opts FileRequest) (string, error) {
 	}
 
 	if resp.Cancelled {
-		return "", fmt.Errorf("user aborted")
+		return "", errors.New("user aborted")
 	}
 
 	var result FileResult
@@ -232,7 +233,7 @@ func (c *Client) TextArea(opts TextAreaRequest) (string, error) {
 	}
 
 	if resp.Cancelled {
-		return "", fmt.Errorf("user aborted")
+		return "", errors.New("user aborted")
 	}
 
 	var result TextAreaResult
@@ -274,7 +275,7 @@ func (c *Client) Table(opts TableRequest) (*TableResult, error) {
 	}
 
 	if resp.Cancelled {
-		return nil, fmt.Errorf("user aborted")
+		return nil, errors.New("user aborted")
 	}
 
 	var result TableResult

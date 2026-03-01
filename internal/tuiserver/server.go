@@ -72,7 +72,6 @@ func New() (*Server, error) {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	//nolint:gosec // G102: Binding to 0.0.0.0 required for container runtime access to TUI server
 	var lc net.ListenConfig
 	listener, err := lc.Listen(context.Background(), "tcp", "0.0.0.0:0")
 	if err != nil {

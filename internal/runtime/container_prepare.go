@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,7 +33,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	// Get the container runtime config
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig == nil {
-		return nil, fmt.Errorf("runtime config not found for container runtime")
+		return nil, errors.New("runtime config not found for container runtime")
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
 	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
@@ -89,7 +90,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	// Prepare volumes
 	volumes := containerCfg.Volumes
 	// Always mount the invowkfile directory
-	volumes = append(volumes, invowkfile.VolumeMountSpec(fmt.Sprintf("%s:/workspace", invowkDir)))
+	volumes = append(volumes, invowkfile.VolumeMountSpec(invowkDir+":/workspace"))
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)

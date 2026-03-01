@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -268,7 +267,7 @@ func TestArgumentValidationError_Error(t *testing.T) {
 				CommandName:  "deploy",
 				InvalidArg:   "replicas",
 				InvalidValue: "abc",
-				ValueError:   fmt.Errorf("not a valid integer"),
+				ValueError:   errors.New("not a valid integer"),
 			},
 			expected: "invalid value for argument 'replicas': not a valid integer",
 		},
@@ -558,7 +557,7 @@ func TestRenderArgumentValidationError_InvalidValue(t *testing.T) {
 		CommandName:  "deploy",
 		InvalidArg:   "replicas",
 		InvalidValue: "abc",
-		ValueError:   fmt.Errorf("must be a valid integer"),
+		ValueError:   errors.New("must be a valid integer"),
 	}
 
 	output := RenderArgumentValidationError(err)

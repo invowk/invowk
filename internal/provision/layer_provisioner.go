@@ -133,7 +133,7 @@ func (p *LayerProvisioner) buildProvisionedTag(hash string) string {
 	if p.config.TagSuffix != "" {
 		return fmt.Sprintf("invowk-provisioned:%s-%s", hash, p.config.TagSuffix)
 	}
-	return fmt.Sprintf("invowk-provisioned:%s", hash)
+	return "invowk-provisioned:" + hash
 }
 
 // calculateCacheKey generates a unique key based on all provisioned resources.

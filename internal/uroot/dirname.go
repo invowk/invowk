@@ -4,6 +4,7 @@ package uroot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 )
@@ -36,7 +37,7 @@ func (c *dirnameCommand) Run(ctx context.Context, args []string) error {
 
 	posArgs := args[1:]
 	if len(posArgs) == 0 {
-		return wrapError(c.name, fmt.Errorf("missing operand"))
+		return wrapError(c.name, errors.New("missing operand"))
 	}
 
 	for _, p := range posArgs {

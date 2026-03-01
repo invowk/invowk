@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
@@ -117,7 +118,7 @@ func (r RuntimeSelection) Validate() error {
 		errs = append(errs, err)
 	}
 	if r.impl == nil {
-		errs = append(errs, fmt.Errorf("implementation must not be nil"))
+		errs = append(errs, errors.New("implementation must not be nil"))
 	}
 	if len(errs) > 0 {
 		return &InvalidRuntimeSelectionError{FieldErrors: errs}
@@ -222,10 +223,10 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 // INVOWK_ARG_*, ARGn, and ARGC environment variables.
 func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.ExecutionContext, error) {
 	if opts.Command == nil {
-		return nil, fmt.Errorf("BuildExecutionContext: Command must not be nil")
+		return nil, errors.New("BuildExecutionContext: Command must not be nil")
 	}
 	if opts.Invowkfile == nil {
-		return nil, fmt.Errorf("BuildExecutionContext: Invowkfile must not be nil")
+		return nil, errors.New("BuildExecutionContext: Invowkfile must not be nil")
 	}
 
 	ctx := opts.Context
@@ -306,7 +307,7 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 	for i, arg := range opts.Args {
 		execCtx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
-	execCtx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(opts.Args))
+	execCtx.Env.ExtraEnv["ARGC"] = strconv.Itoa(len(opts.Args))
 
 	if len(opts.ArgDefs) > 0 {
 		for i, argDef := range opts.ArgDefs {
@@ -318,7 +319,7 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 				if i < len(opts.Args) {
 					variadicValues = opts.Args[i:]
 				}
-				execCtx.Env.ExtraEnv[envName+"_COUNT"] = fmt.Sprintf("%d", len(variadicValues))
+				execCtx.Env.ExtraEnv[envName+"_COUNT"] = strconv.Itoa(len(variadicValues))
 				for j, val := range variadicValues {
 					execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
 				}
