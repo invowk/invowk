@@ -584,6 +584,20 @@ func TestConstructorValidatesPackageCollision(t *testing.T) {
 		"constructorvalidates_pkg_collision/myapp")
 }
 
+// TestConstructorValidatesGenericInstantiation verifies constructor-validates
+// type identity distinguishes generic instantiations (for example Box[int] vs
+// Box[string]) when evaluating transitive helper validation.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestConstructorValidatesGenericInstantiation(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-validates", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "constructorvalidates_generic")
+}
+
 // TestCheckConstructorReturnErrorCrossPackage exercises
 // --check-constructor-return-error against the cross-package fixture.
 // Verifies that constructors returning cross-package types with Validate()

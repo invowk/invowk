@@ -161,6 +161,31 @@ func TestCheckCastValidationCFAExecutableClosureVar(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "cfa_executable_closure_var")
 }
 
+// TestCheckCastValidationCFAClosureVarRebind verifies closure-variable calls
+// resolve function literal bindings at each call site, even after rebinding.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFAClosureVarRebind(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "cfa_closure_var_rebind")
+}
+
+// TestCheckUseBeforeValidateClosureVarCall verifies UBV ordering for direct and
+// deferred closure-variable calls in the enclosing function block.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckUseBeforeValidateClosureVarCall(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+	setFlag(t, "check-use-before-validate", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "use_before_validate_closure_var_call")
+}
+
 // TestCFAEnabledByDefault verifies that CFA is enabled by default when
 // --check-cast-validation is active.
 //

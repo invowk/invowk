@@ -163,6 +163,41 @@ entries = [
 	}
 }
 
+func TestLoadBaselineCached_StrictModeCacheIsolation(t *testing.T) {
+	content := `
+[primitive]
+entries = [
+    { id = "id-1", message = "struct field pkg.Foo.Bar uses primitive type string" },
+]
+`
+	path := writeTempFile(t, "strict-mode-baseline.toml", content)
+
+	nonStrict, err := loadBaselineCached(path, false)
+	if err != nil {
+		t.Fatalf("non-strict load error: %v", err)
+	}
+	strict, err := loadBaselineCached(path, true)
+	if err != nil {
+		t.Fatalf("strict load error: %v", err)
+	}
+	if nonStrict == strict {
+		t.Fatal("expected strict and non-strict cache keys to use distinct cache entries")
+	}
+
+	missingPath := filepath.Join(t.TempDir(), "missing-baseline.toml")
+	nonStrictMissing, err := loadBaselineCached(missingPath, false)
+	if err != nil {
+		t.Fatalf("non-strict missing baseline should not error: %v", err)
+	}
+	if nonStrictMissing == nil {
+		t.Fatal("expected non-strict missing baseline load to return empty baseline")
+	}
+
+	if _, err := loadBaselineCached(missingPath, true); err == nil {
+		t.Fatal("expected strict missing baseline load to return error")
+	}
+}
+
 func TestBaselineContains(t *testing.T) {
 	t.Parallel()
 

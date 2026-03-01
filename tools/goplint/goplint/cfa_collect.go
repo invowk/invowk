@@ -4,6 +4,7 @@ package goplint
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 
 	"golang.org/x/tools/go/analysis"
@@ -34,6 +35,25 @@ type cfaUnassignedCast struct {
 // the closure body.
 type cfaClosureHandler func(lit *ast.FuncLit, closureIdx int)
 
+type closureInvocationKind int
+
+const (
+	closureInvocationDirect closureInvocationKind = iota
+	closureInvocationDefer
+	closureInvocationGo
+)
+
+type closureVarCall struct {
+	call ast.Node
+	lit  *ast.FuncLit
+	kind closureInvocationKind
+}
+
+type closureBindingEvent struct {
+	pos token.Pos
+	lit *ast.FuncLit
+}
+
 // collectCFACasts walks a function or closure body and classifies type
 // conversions from raw primitives to DDD Value Types into assigned and
 // unassigned casts. Executable closures (IIFEs, go/defer closure calls)
@@ -49,12 +69,13 @@ func collectCFACasts(
 	body *ast.BlockStmt,
 	parentMap map[ast.Node]ast.Node,
 	onClosure cfaClosureHandler,
-) ([]cfaAssignedCast, []cfaUnassignedCast) {
+) ([]cfaAssignedCast, []cfaUnassignedCast, []closureVarCall) {
 	var assignedCasts []cfaAssignedCast
 	var unassignedCasts []cfaUnassignedCast
+	var closureCalls []closureVarCall
 	castIndex := 0
 	closureIndex := 0
-	closureVarBindings := collectClosureVarBindings(pass, body)
+	closureVarBindings := collectClosureVarBindingEvents(pass, body)
 	analyzedClosures := make(map[*ast.FuncLit]bool)
 
 	analyzeClosure := func(lit *ast.FuncLit) {
@@ -78,8 +99,13 @@ func collectCFACasts(
 		if !ok {
 			return true
 		}
-		if lit, ok := executableClosureVarCall(pass, call, closureVarBindings); ok {
+		if lit, kind, ok := executableClosureVarCall(pass, call, closureVarBindings, parentMap); ok {
 			analyzeClosure(lit)
+			closureCalls = append(closureCalls, closureVarCall{
+				call: call,
+				lit:  lit,
+				kind: kind,
+			})
 		}
 
 		// Not a type conversion — skip.
@@ -143,7 +169,7 @@ func collectCFACasts(
 		return true
 	})
 
-	return assignedCasts, unassignedCasts
+	return assignedCasts, unassignedCasts, closureCalls
 }
 
 // isExecutableClosureLiteral reports whether lit is directly invoked in-place:
@@ -183,11 +209,11 @@ func closureLiteralCall(lit *ast.FuncLit, parentMap map[ast.Node]ast.Node) (*ast
 	}
 }
 
-func collectClosureVarBindings(pass *analysis.Pass, body *ast.BlockStmt) map[string]*ast.FuncLit {
+func collectClosureVarBindingEvents(pass *analysis.Pass, body *ast.BlockStmt) map[string][]closureBindingEvent {
 	if pass == nil || pass.TypesInfo == nil || body == nil {
 		return nil
 	}
-	bindings := make(map[string]*ast.FuncLit)
+	bindings := make(map[string][]closureBindingEvent)
 
 	recordBinding := func(lhs *ast.Ident, rhs ast.Expr) {
 		if lhs == nil || lhs.Name == "_" {
@@ -204,7 +230,11 @@ func collectClosureVarBindings(pass *analysis.Pass, body *ast.BlockStmt) map[str
 		if _, isVar := obj.(*types.Var); !isVar {
 			return
 		}
-		bindings[objectKey(obj)] = lit
+		key := objectKey(obj)
+		bindings[key] = append(bindings[key], closureBindingEvent{
+			pos: lhs.Pos(),
+			lit: lit,
+		})
 	}
 
 	ast.Inspect(body, func(n ast.Node) bool {
@@ -247,19 +277,51 @@ func exprFuncLit(expr ast.Expr) (*ast.FuncLit, bool) {
 func executableClosureVarCall(
 	pass *analysis.Pass,
 	call *ast.CallExpr,
-	bindings map[string]*ast.FuncLit,
-) (*ast.FuncLit, bool) {
+	bindings map[string][]closureBindingEvent,
+	parentMap map[ast.Node]ast.Node,
+) (*ast.FuncLit, closureInvocationKind, bool) {
 	if pass == nil || pass.TypesInfo == nil || call == nil || len(bindings) == 0 {
-		return nil, false
+		return nil, closureInvocationDirect, false
 	}
 	funIdent, ok := stripParens(call.Fun).(*ast.Ident)
 	if !ok {
-		return nil, false
+		return nil, closureInvocationDirect, false
 	}
 	obj := objectForIdent(pass, funIdent)
 	if obj == nil {
-		return nil, false
+		return nil, closureInvocationDirect, false
 	}
-	lit, ok := bindings[objectKey(obj)]
-	return lit, ok
+
+	events, ok := bindings[objectKey(obj)]
+	if !ok || len(events) == 0 {
+		return nil, closureInvocationDirect, false
+	}
+
+	var matched *ast.FuncLit
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].pos > call.Pos() {
+			continue
+		}
+		matched = events[i].lit
+		break
+	}
+	if matched == nil {
+		return nil, closureInvocationDirect, false
+	}
+
+	return matched, closureInvocationKindForCall(call, parentMap), true
+}
+
+func closureInvocationKindForCall(call *ast.CallExpr, parentMap map[ast.Node]ast.Node) closureInvocationKind {
+	if call == nil || parentMap == nil {
+		return closureInvocationDirect
+	}
+	switch parentMap[call].(type) {
+	case *ast.GoStmt:
+		return closureInvocationGo
+	case *ast.DeferStmt:
+		return closureInvocationDefer
+	default:
+		return closureInvocationDirect
+	}
 }

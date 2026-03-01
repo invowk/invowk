@@ -529,10 +529,18 @@ func parseDirectiveKeys(text string) (keys []string, unknown []string) {
 	content = strings.TrimSpace(content)
 
 	// Handle nolint:goplint as a special "ignore" directive.
-	// This is a golangci-lint convention — always means "suppress all".
-	// Must appear at content start, not embedded in prose.
-	if strings.HasPrefix(content, "nolint:goplint") {
-		return []string{"ignore"}, nil
+	// Match the token exactly in the nolint linter list, so near-misses like
+	// nolint:goplintfoo are not treated as valid suppressions.
+	if rest, ok := strings.CutPrefix(content, "nolint:"); ok {
+		if sepIdx := strings.Index(rest, " --"); sepIdx >= 0 {
+			rest = rest[:sepIdx]
+		}
+		for linter := range strings.SplitSeq(rest, ",") {
+			if strings.TrimSpace(linter) == "goplint" {
+				return []string{"ignore"}, nil
+			}
+		}
+		return nil, nil
 	}
 
 	// Look for goplint: or plint: prefix at the start of content.
@@ -577,8 +585,10 @@ func parseDirectiveKeys(text string) (keys []string, unknown []string) {
 // or the line immediately before the given position. This enables per-statement
 // suppression in CFA mode where struct-level doc comments are not available.
 func hasIgnoreAtPos(pass *analysis.Pass, pos token.Pos) bool {
-	posLine := pass.Fset.Position(pos).Line
-	filename := pass.Fset.Position(pos).Filename
+	posPos := pass.Fset.Position(pos)
+	posLine := posPos.Line
+	filename := posPos.Filename
+	stmtStartLine := findEnclosingStmtStartLine(pass, pos)
 
 	for _, file := range pass.Files {
 		if pass.Fset.Position(file.Pos()).Filename != filename {
@@ -586,9 +596,16 @@ func hasIgnoreAtPos(pass *analysis.Pass, pos token.Pos) bool {
 		}
 		for _, cg := range file.Comments {
 			for _, c := range cg.List {
-				commentLine := pass.Fset.Position(c.Pos()).Line
-				// Check same line or line immediately above.
-				if commentLine != posLine && commentLine != posLine-1 {
+				commentPos := pass.Fset.Position(c.Slash)
+				commentLine := commentPos.Line
+
+				if commentLine != posLine && commentLine != stmtStartLine && commentLine != stmtStartLine-1 {
+					continue
+				}
+				// For previous-line comments, only accept standalone directives.
+				// Trailing comments from the previous statement must not suppress
+				// the next statement.
+				if commentLine == stmtStartLine-1 && isTrailingComment(pass, file, c) {
 					continue
 				}
 				keys, _ := parseDirectiveKeys(strings.TrimSpace(c.Text))
@@ -600,6 +617,83 @@ func hasIgnoreAtPos(pass *analysis.Pass, pos token.Pos) bool {
 		break
 	}
 	return false
+}
+
+func findEnclosingStmtStartLine(pass *analysis.Pass, pos token.Pos) int {
+	if pass == nil || pass.Fset == nil {
+		return 0
+	}
+	target := pass.Fset.Position(pos)
+	if target.Line == 0 || target.Filename == "" {
+		return 0
+	}
+
+	bestLine := target.Line
+	bestSpan := target.Offset + 1
+
+	for _, file := range pass.Files {
+		filePos := pass.Fset.Position(file.Pos())
+		if filePos.Filename != target.Filename {
+			continue
+		}
+
+		ast.Inspect(file, func(n ast.Node) bool {
+			stmt, ok := n.(ast.Stmt)
+			if !ok {
+				return true
+			}
+			stmtPos := pass.Fset.Position(stmt.Pos())
+			stmtEnd := pass.Fset.Position(stmt.End())
+			if stmtPos.Filename != target.Filename || stmtEnd.Filename != target.Filename {
+				return true
+			}
+			if stmtPos.Offset > target.Offset || target.Offset >= stmtEnd.Offset {
+				return true
+			}
+
+			span := stmtEnd.Offset - stmtPos.Offset
+			if span < bestSpan {
+				bestSpan = span
+				bestLine = stmtPos.Line
+			}
+			return true
+		})
+		break
+	}
+
+	return bestLine
+}
+
+func isTrailingComment(pass *analysis.Pass, file *ast.File, comment *ast.Comment) bool {
+	if pass == nil || pass.Fset == nil || file == nil || comment == nil {
+		return false
+	}
+	commentPos := pass.Fset.Position(comment.Slash)
+	if commentPos.Line == 0 || commentPos.Filename == "" {
+		return false
+	}
+
+	isTrailing := false
+	ast.Inspect(file, func(n ast.Node) bool {
+		if isTrailing {
+			return false
+		}
+		stmt, ok := n.(ast.Stmt)
+		if !ok {
+			return true
+		}
+		stmtEnd := pass.Fset.Position(stmt.End())
+		if stmtEnd.Filename != commentPos.Filename || stmtEnd.Line != commentPos.Line {
+			return true
+		}
+		if stmtEnd.Offset <= commentPos.Offset {
+			isTrailing = true
+			return false
+		}
+		return true
+	})
+
+	return isTrailing
 }
 
 // isTestFile returns true if the filename ends with _test.go.

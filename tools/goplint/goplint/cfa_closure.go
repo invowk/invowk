@@ -44,7 +44,7 @@ func inspectClosureCastsCFA(
 
 	// Collect casts using the shared CFA collection logic.
 	// Nested closures are analyzed recursively with compound prefixes.
-	assignedCasts, unassignedCasts := collectCFACasts(
+	assignedCasts, unassignedCasts, closureCalls := collectCFACasts(
 		pass, lit.Body, parentMap,
 		func(nested *ast.FuncLit, nestedIdx int) {
 			nestedPrefix := closurePrefix + "/" + strconv.Itoa(nestedIdx)
@@ -56,10 +56,14 @@ func inspectClosureCastsCFA(
 	// Path validation includes deferred closures + IIFEs; UBV ordering uses only IIFEs.
 	var pathSyncLits map[*ast.FuncLit]bool
 	var ubvSyncLits map[*ast.FuncLit]bool
+	var pathSyncCalls closureVarCallSet
+	var ubvSyncCalls closureVarCallSet
 	if len(assignedCasts) > 0 {
 		pathSyncLits = collectSynchronousClosureLits(lit.Body)
+		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
 		if checkUBV || checkUBVCross {
 			ubvSyncLits = collectUBVClosureLits(lit.Body)
+			ubvSyncCalls = collectUBVClosureVarCalls(closureCalls)
 		}
 	}
 
@@ -79,15 +83,15 @@ func inspectClosureCastsCFA(
 			continue
 		}
 
-		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, pathSyncLits) {
+		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls) {
 			// All paths validated. Check for use-before-validate (same-block first, then cross-block).
-			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits) {
+			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.target.displayName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", "closure", closurePrefix, qualEnclosingFunc, ac.typeName, "ubv", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
 					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
 				}
-			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits) {
+			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.target.displayName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", "closure", closurePrefix, qualEnclosingFunc, ac.typeName, "ubv-xblock", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {

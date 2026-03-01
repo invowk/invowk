@@ -215,7 +215,7 @@ func inspectConstructorValidates(
 // pre-check before CFA. The full path-sensitive analysis in
 // constructorHasUnvalidatedReturnPath handles those cases.
 func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeKey string) bool {
-	return containsValidateOnReceiver(pass, body, typeKeyMatcher(returnTypeKey), nil)
+	return containsValidateOnReceiver(pass, body, typeKeyMatcher(returnTypeKey), nil, nil)
 }
 
 // methodCallTarget identifies a method call on the constructor's return type
@@ -469,15 +469,12 @@ func typeIdentityKey(t types.Type) string {
 		t = ptr.Elem()
 	}
 	t = types.Unalias(t)
-	named, ok := t.(*types.Named)
-	if !ok {
-		return types.TypeString(t, nil)
-	}
-	pkgPath := ""
-	if pkg := named.Obj().Pkg(); pkg != nil {
-		pkgPath = pkg.Path()
-	}
-	return pkgPath + "." + named.Obj().Name()
+	return types.TypeString(t, func(pkg *types.Package) string {
+		if pkg == nil {
+			return ""
+		}
+		return pkg.Path()
+	})
 }
 
 // findFuncBody searches the package for a non-method function with the given
@@ -546,7 +543,7 @@ func dfsConstructorUnvalidated(
 			return true
 		}
 		for _, node := range block.Nodes {
-			if containsValidateOnReceiver(pass, node, matcher, syncLits) {
+			if containsValidateOnReceiver(pass, node, matcher, syncLits, nil) {
 				return true
 			}
 			if stmt, ok := node.(ast.Stmt); ok {
@@ -630,7 +627,7 @@ func helperBodyAlwaysValidatesType(pass *analysis.Pass, body *ast.BlockStmt, ret
 	matcher := typeKeyMatcher(returnTypeKey)
 	checker := func(block *gocfg.Block) bool {
 		for _, node := range block.Nodes {
-			if containsValidateOnReceiver(pass, node, matcher, syncLits) {
+			if containsValidateOnReceiver(pass, node, matcher, syncLits, nil) {
 				return true
 			}
 		}

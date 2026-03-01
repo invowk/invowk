@@ -56,7 +56,7 @@ func inspectUnvalidatedCastsCFA(
 
 	// Collect casts using the shared CFA collection logic.
 	// Closures are delegated to inspectClosureCastsCFA.
-	assignedCasts, unassignedCasts := collectCFACasts(
+	assignedCasts, unassignedCasts, closureCalls := collectCFACasts(
 		pass, fn.Body, parentMap,
 		func(lit *ast.FuncLit, closureIdx int) {
 			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIdx), excCfg, bl, checkUBV, checkUBVCross)
@@ -67,10 +67,14 @@ func inspectUnvalidatedCastsCFA(
 	// Path validation includes deferred closures + IIFEs; UBV ordering uses only IIFEs.
 	var pathSyncLits map[*ast.FuncLit]bool
 	var ubvSyncLits map[*ast.FuncLit]bool
+	var pathSyncCalls closureVarCallSet
+	var ubvSyncCalls closureVarCallSet
 	if len(assignedCasts) > 0 {
 		pathSyncLits = collectSynchronousClosureLits(fn.Body)
+		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
 		if checkUBV || checkUBVCross {
 			ubvSyncLits = collectUBVClosureLits(fn.Body)
+			ubvSyncCalls = collectUBVClosureVarCalls(closureCalls)
 		}
 	}
 
@@ -95,17 +99,17 @@ func inspectUnvalidatedCastsCFA(
 
 		// Check if there's any path from the cast to a return block
 		// that doesn't pass through varName.Validate().
-		if !hasPathToReturnWithoutValidate(pass, funcCFG, defBlock, defIdx, ac.target, pathSyncLits) {
+		if !hasPathToReturnWithoutValidate(pass, funcCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls) {
 			// All paths DO have validate. Check for use-before-validate:
 			// same-block takes priority over cross-block — both cannot fire
 			// on the same cast. --check-all only enables same-block.
-			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits) {
+			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.target.displayName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", qualFuncName, ac.typeName, "ubv", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
 					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
 				}
-			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits) {
+			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls) {
 				// Cross-block UBV: the variable is used in a successor
 				// block before any block on that path calls Validate().
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.target.displayName, ac.typeName)
