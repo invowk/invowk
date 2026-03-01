@@ -92,20 +92,20 @@ func inspectUnvalidatedCastsCFA(
 
 		// Check if there's any path from the cast to a return block
 		// that doesn't pass through varName.Validate().
-		if !hasPathToReturnWithoutValidate(funcCFG, defBlock, defIdx, ac.varName, deferredLits) {
+		if !hasPathToReturnWithoutValidate(pass, funcCFG, defBlock, defIdx, ac.target, deferredLits) {
 			// All paths DO have validate. Check for use-before-validate:
 			// same-block takes priority over cross-block — both cannot fire
 			// on the same cast. --check-all only enables same-block.
-			if checkUBV && hasUseBeforeValidateInBlock(defBlock.Nodes, defIdx+1, ac.varName, deferredLits) {
-				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.varName, ac.typeName)
+			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, deferredLits) {
+				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.target.displayName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", qualFuncName, ac.typeName, "ubv", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
 					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
 				}
-			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(defBlock, defIdx, ac.varName, deferredLits) {
+			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, deferredLits) {
 				// Cross-block UBV: the variable is used in a successor
 				// block before any block on that path calls Validate().
-				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.varName, ac.typeName)
+				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.target.displayName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", qualFuncName, ac.typeName, "ubv-xblock", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
 					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)

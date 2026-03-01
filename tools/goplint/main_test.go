@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"os/exec"
 	"slices"
 	"testing"
 
@@ -110,6 +111,156 @@ func TestBuildSubprocessArgs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHasFlag(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+		flag string
+		want bool
+	}{
+		{name: "single-dash present", args: []string{"-global"}, flag: "global", want: true},
+		{name: "double-dash present", args: []string{"--global"}, flag: "global", want: true},
+		{name: "absent", args: []string{"-check-all"}, flag: "global", want: false},
+		{name: "value form is not a bare flag", args: []string{"--global=true"}, flag: "global", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := hasFlag(tt.args, tt.flag)
+			if got != tt.want {
+				t.Errorf("hasFlag(%v, %q) = %v, want %v", tt.args, tt.flag, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildGlobalAuditArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{
+			name: "removes global and adds required flags",
+			args: []string{"--global", "./..."},
+			want: []string{"-audit-exceptions", "-json", "./..."},
+		},
+		{
+			name: "preserves existing required flags",
+			args: []string{"-json", "-audit-exceptions", "--global", "./..."},
+			want: []string{"-json", "-audit-exceptions", "./..."},
+		},
+		{
+			name: "keeps unrelated flags",
+			args: []string{"--global", "-config=exceptions.toml", "./pkg/..."},
+			want: []string{"-audit-exceptions", "-json", "-config=exceptions.toml", "./pkg/..."},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := buildGlobalAuditArgs(tt.args)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("buildGlobalAuditArgs(%v) = %v, want %v", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterAndEnsureFlags(t *testing.T) {
+	t.Parallel()
+
+	t.Run("skip and prepend required flags", func(t *testing.T) {
+		t.Parallel()
+		got := filterAndEnsureFlags(
+			[]string{"--drop", "-x", "./..."},
+			func(trimmed string) bool { return trimmed == "drop" },
+			[]string{"-a", "-b"},
+		)
+		want := []string{"-b", "-a", "-x", "./..."}
+		if !slices.Equal(got, want) {
+			t.Errorf("filterAndEnsureFlags() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("does not duplicate existing required flags", func(t *testing.T) {
+		t.Parallel()
+		got := filterAndEnsureFlags(
+			[]string{"-a", "-x"},
+			func(string) bool { return false },
+			[]string{"-a"},
+		)
+		want := []string{"-a", "-x"}
+		if !slices.Equal(got, want) {
+			t.Errorf("filterAndEnsureFlags() = %v, want %v", got, want)
+		}
+	})
+}
+
+func TestExtractPatternFromStaleMessage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		message string
+		want    string
+	}{
+		{
+			name:    "valid format",
+			message: `stale exception: pattern "pkg.Type.Field" matched no diagnostics (reason: test)`,
+			want:    "pkg.Type.Field",
+		},
+		{
+			name:    "invalid format",
+			message: "something else",
+			want:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := extractPatternFromStaleMessage(tt.message)
+			if got != tt.want {
+				t.Errorf("extractPatternFromStaleMessage(%q) = %q, want %q", tt.message, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTolerateAnalyzerExit(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil error accepted", func(t *testing.T) {
+		t.Parallel()
+		if err := tolerateAnalyzerExit(nil, 0); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("exit error with json output accepted", func(t *testing.T) {
+		t.Parallel()
+		exitErr := makeExitError(t)
+		if err := tolerateAnalyzerExit(exitErr, 10); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("exit error with empty output rejected", func(t *testing.T) {
+		t.Parallel()
+		exitErr := makeExitError(t)
+		if err := tolerateAnalyzerExit(exitErr, 0); err == nil {
+			t.Fatal("expected error for empty stdout")
+		}
+	})
 }
 
 func TestParseAnalysisJSON(t *testing.T) {
@@ -264,6 +415,45 @@ func TestParseAnalysisJSON(t *testing.T) {
 		}
 	})
 
+	t.Run("filters non-suppressible categories", func(t *testing.T) {
+		t.Parallel()
+		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {
+				"goplint": {
+					{Category: goplint.CategoryUnknownDirective, Message: "unknown directive key"},
+					{Category: "primitive", Message: "valid finding"},
+				},
+			},
+		})
+
+		findings, err := parseAnalysisJSON(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(findings[goplint.CategoryUnknownDirective]) != 0 {
+			t.Errorf("expected unknown-directive to be excluded from baseline findings")
+		}
+		if len(findings["primitive"]) != 1 {
+			t.Errorf("expected primitive finding to remain, got %d", len(findings["primitive"]))
+		}
+	})
+
+	t.Run("unknown category returns error", func(t *testing.T) {
+		t.Parallel()
+		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {
+				"goplint": {
+					{Category: "totally-unknown-category", Message: "unexpected"},
+				},
+			},
+		})
+		_, err := parseAnalysisJSON(input)
+		if err == nil {
+			t.Fatal("expected error for unknown category")
+		}
+	})
+
 	t.Run("empty input returns empty findings", func(t *testing.T) {
 		t.Parallel()
 		findings, err := parseAnalysisJSON([]byte{})
@@ -318,4 +508,9 @@ func makeAnalysisJSON(t *testing.T, result analysisResult) []byte {
 		t.Fatalf("marshaling test JSON: %v", err)
 	}
 	return data
+}
+
+func makeExitError(t *testing.T) error {
+	t.Helper()
+	return &exec.ExitError{}
 }

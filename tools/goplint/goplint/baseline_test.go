@@ -459,30 +459,8 @@ func TestQuote(t *testing.T) {
 func TestBaselineCategoryCompleteness(t *testing.T) {
 	t.Parallel()
 
-	// Authoritative list of categories that MUST be present in baseline
-	// infrastructure. StaleException and UnknownDirective are intentionally
-	// excluded — they are never baselined.
-	baselinedCategories := []string{
-		CategoryPrimitive,
-		CategoryMissingValidate,
-		CategoryMissingStringer,
-		CategoryMissingConstructor,
-		CategoryWrongConstructorSig,
-		CategoryWrongValidateSig,
-		CategoryWrongStringerSig,
-		CategoryMissingFuncOptions,
-		CategoryMissingImmutability,
-		CategoryMissingStructValidate,
-		CategoryWrongStructValidateSig,
-		CategoryUnvalidatedCast,
-		CategoryUnusedValidateResult,
-		CategoryUnusedConstructorError,
-		CategoryMissingConstructorValidate,
-		CategoryIncompleteValidateDelegation,
-		CategoryNonZeroValueField,
-		CategoryEnumCueMissingGo,
-		CategoryEnumCueExtraGo,
-	}
+	// Authoritative list comes from the canonical category registry.
+	baselinedCategories := BaselinedCategoryNames()
 
 	// Verify buildLookup() initializes an entry for each category.
 	bl := emptyBaseline()

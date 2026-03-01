@@ -194,11 +194,14 @@ func inspectConstructorReturnError(
 			if validatableStructs[returnType] {
 				returnTypePkg = pkgName
 			} else {
-				hasValidate, retPkg := resolveReturnTypeValidateInfo(pass, fn)
-				if !hasValidate {
+				retInfo := resolveReturnTypeValidateInfo(pass, fn)
+				if !retInfo.HasValidate {
 					continue
 				}
-				returnTypePkg = retPkg
+				returnTypePkg = retInfo.TypePkgName
+			}
+			if returnTypePkg == "" {
+				returnTypePkg = pkgName
 			}
 
 			// Skip types annotated with //goplint:constant-only.

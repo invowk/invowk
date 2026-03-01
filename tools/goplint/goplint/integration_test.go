@@ -3,6 +3,7 @@
 package goplint
 
 import (
+	"flag"
 	"path/filepath"
 	"testing"
 
@@ -47,6 +48,35 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "audit-review-dates", "false")
 	setFlag(t, "check-enum-sync", "false")
 	setFlag(t, "suggest-validate-all", "false")
+}
+
+// TestResetFlagsCompleteness ensures resetFlags restores every analyzer flag
+// to its declared default, preventing drift when new flags are introduced.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestResetFlagsCompleteness(t *testing.T) {
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+
+	// Mutate each flag away from its default.
+	Analyzer.Flags.VisitAll(func(f *flag.Flag) {
+		switch f.DefValue {
+		case "false":
+			setFlag(t, f.Name, "true")
+		case "true":
+			setFlag(t, f.Name, "false")
+		default:
+			setFlag(t, f.Name, "__non_default__")
+		}
+	})
+
+	// Restore defaults and verify all flags are reset.
+	resetFlags(t)
+	Analyzer.Flags.VisitAll(func(f *flag.Flag) {
+		if got := f.Value.String(); got != f.DefValue {
+			t.Errorf("flag %q reset mismatch: got %q, want default %q", f.Name, got, f.DefValue)
+		}
+	})
 }
 
 // TestNewRunConfig verifies the --check-all expansion logic and the
@@ -490,6 +520,21 @@ func TestConstructorValidatesCrossPackage(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer,
 		"constructorvalidates_cross/util",
 		"constructorvalidates_cross/myapp")
+}
+
+// TestConstructorValidatesPackageCollision verifies constructor-validates uses
+// full type identity (package path + type name), not just type name.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestConstructorValidatesPackageCollision(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-validates", "true")
+
+	analysistest.Run(t, testdata, Analyzer,
+		"constructorvalidates_pkg_collision/util",
+		"constructorvalidates_pkg_collision/myapp")
 }
 
 // TestCheckConstructorReturnErrorCrossPackage exercises

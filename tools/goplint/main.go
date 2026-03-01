@@ -14,6 +14,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -24,6 +25,10 @@ import (
 
 	"github.com/invowk/invowk/tools/goplint/goplint"
 )
+
+var runCommand = func(cmd *exec.Cmd) error {
+	return cmd.Run()
+}
 
 func main() {
 	// Detect --update-baseline before singlechecker takes over flag parsing.
@@ -82,9 +87,10 @@ func generateBaseline(outputPath string, originalArgs []string) error {
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
-	// singlechecker exits non-zero when diagnostics are found.
-	// We need the JSON output regardless, so ignore exit errors.
-	_ = cmd.Run()
+	runErr := runCommand(cmd)
+	if err := tolerateAnalyzerExit(runErr, stdout.Len()); err != nil {
+		return fmt.Errorf("running analyzer subprocess: %w", err)
+	}
 
 	// Parse the go/analysis JSON output.
 	findings, err := parseAnalysisJSON(stdout.Bytes())
@@ -142,8 +148,10 @@ func auditExceptionsGlobal(originalArgs []string) error {
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
-	// singlechecker exits non-zero when diagnostics are found.
-	_ = cmd.Run()
+	runErr := runCommand(cmd)
+	if err := tolerateAnalyzerExit(runErr, stdout.Len()); err != nil {
+		return fmt.Errorf("running global audit subprocess: %w", err)
+	}
 
 	// Parse the JSON stream — track stale patterns per package.
 	decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
@@ -238,6 +246,23 @@ func filterAndEnsureFlags(args []string, skipFn func(trimmed string) bool, requi
 	return result
 }
 
+// tolerateAnalyzerExit accepts a non-zero subprocess exit only when it is an
+// ExitError and JSON output exists on stdout. singlechecker exits non-zero
+// when diagnostics are reported, which is expected for baseline generation.
+func tolerateAnalyzerExit(runErr error, stdoutLen int) error {
+	if runErr == nil {
+		return nil
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(runErr, &exitErr) {
+		return runErr
+	}
+	if stdoutLen == 0 {
+		return runErr
+	}
+	return nil
+}
+
 // extractPatternFromStaleMessage extracts the exception pattern from a
 // stale-exception diagnostic message. The message format is:
 // 'stale exception: pattern "X" matched no diagnostics (reason: Y)'
@@ -290,11 +315,13 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 				continue
 			}
 			for _, d := range diags {
-				// Skip stale-exception — config maintenance, not codebase findings.
-				if d.Category == goplint.CategoryStaleException {
+				if d.Category == "" || d.Message == "" {
 					continue
 				}
-				if d.Category == "" || d.Message == "" {
+				if !goplint.IsKnownDiagnosticCategory(d.Category) {
+					return nil, fmt.Errorf("unknown goplint category %q", d.Category)
+				}
+				if !goplint.IsBaselineSuppressibleCategory(d.Category) {
 					continue
 				}
 				findingID := goplint.FindingIDFromDiagnosticURL(d.URL)

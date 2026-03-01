@@ -11,18 +11,18 @@ import (
 // cfaAssignedCast records a type conversion assigned to a named variable,
 // along with its containing AssignStmt for CFG lookup.
 type cfaAssignedCast struct {
-	varName  string
-	typeName string
-	pos      ast.Node
-	assign   ast.Node // the AssignStmt containing this cast
+	target    castTarget
+	typeName  string
+	pos       ast.Node
+	assign    ast.Node // AssignStmt or ValueSpec containing this cast
 	castIndex int
 }
 
 // cfaUnassignedCast records a type conversion not assigned to a named
 // variable (e.g., return, function argument, blank identifier).
 type cfaUnassignedCast struct {
-	typeName string
-	pos      ast.Node
+	typeName  string
+	pos       ast.Node
 	castIndex int
 }
 
@@ -100,26 +100,55 @@ func collectCFACasts(
 		targetTypeName := qualifiedTypeName(targetType, pass.Pkg)
 		parent := parentMap[call]
 
-		// Check if assigned to a named variable.
+		assigned := false
+		// Check if assigned to a trackable target via assignment statement.
 		if assign, ok := parent.(*ast.AssignStmt); ok {
 			for i, rhs := range assign.Rhs {
 				if rhs != call {
 					continue
 				}
 				if i < len(assign.Lhs) {
-					if ident, ok := assign.Lhs[i].(*ast.Ident); ok && ident.Name != "_" {
+					if target, ok := castTargetFromExpr(pass, assign.Lhs[i]); ok {
 						assignedCasts = append(assignedCasts, cfaAssignedCast{
-							varName:  ident.Name,
-							typeName: targetTypeName,
-							pos:      call,
-							assign:   assign,
+							target:    target,
+							typeName:  targetTypeName,
+							pos:       call,
+							assign:    assign,
 							castIndex: castIndex,
 						})
 						castIndex++
-						return true
+						assigned = true
+						break
 					}
 				}
 			}
+		}
+		// Track var declarations: var x T = T(raw)
+		if !assigned {
+			if valueSpec, ok := parent.(*ast.ValueSpec); ok {
+				for i, value := range valueSpec.Values {
+					if value != call {
+						continue
+					}
+					if i < len(valueSpec.Names) {
+						if target, ok := castTargetFromExpr(pass, valueSpec.Names[i]); ok {
+							assignedCasts = append(assignedCasts, cfaAssignedCast{
+								target:    target,
+								typeName:  targetTypeName,
+								pos:       call,
+								assign:    valueSpec,
+								castIndex: castIndex,
+							})
+							castIndex++
+							assigned = true
+							break
+						}
+					}
+				}
+			}
+		}
+		if assigned {
+			return true
 		}
 
 		// Unassigned cast — check auto-skip contexts.
@@ -128,8 +157,8 @@ func collectCFACasts(
 		}
 
 		unassignedCasts = append(unassignedCasts, cfaUnassignedCast{
-			typeName: targetTypeName,
-			pos:      call,
+			typeName:  targetTypeName,
+			pos:       call,
 			castIndex: castIndex,
 		})
 		castIndex++

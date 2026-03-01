@@ -92,6 +92,37 @@ func ValidateBeforeUse(raw string) { // want `parameter "raw" of cfa_castvalidat
 	useCmd(x)
 }
 
+// VarDeclValidated — var declaration assignment should be tracked as assigned.
+func VarDeclValidated(raw string) { // want `parameter "raw" of cfa_castvalidation\.VarDeclValidated uses primitive type string`
+	var x CommandName = CommandName(raw)
+	if err := x.Validate(); err != nil {
+		return
+	}
+	useCmd(x)
+}
+
+// SelectorLHSValidated — selector assignment should be tracked as assigned.
+func SelectorLHSValidated(raw string) { // want `parameter "raw" of cfa_castvalidation\.SelectorLHSValidated uses primitive type string`
+	holder := struct {
+		Name CommandName
+	}{}
+	holder.Name = CommandName(raw)
+	if err := holder.Name.Validate(); err != nil {
+		return
+	}
+	useCmd(holder.Name)
+}
+
+// ValidateInsideIIFE — immediately-invoked closures execute synchronously and
+// should count as validation on the current path.
+func ValidateInsideIIFE(raw string) { // want `parameter "raw" of cfa_castvalidation\.ValidateInsideIIFE uses primitive type string`
+	x := CommandName(raw)
+	func() {
+		_ = x.Validate()
+	}()
+	useCmd(x)
+}
+
 // SimpleNoValidation — basic case flagged by both AST and CFA.
 func SimpleNoValidation(raw string) { // want `parameter "raw" of cfa_castvalidation\.SimpleNoValidation uses primitive type string`
 	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
@@ -244,7 +275,7 @@ func DeferredButNotValidating(raw string) { // want `parameter "raw" of cfa_cast
 // and the defer does not call Validate(). Only the deferred closure is
 // recognized; the goroutine closure is still correctly rejected.
 func GoAndDeferMixed(raw string) { // want `parameter "raw" of cfa_castvalidation\.GoAndDeferMixed uses primitive type string`
-	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	x := CommandName(raw)            // want `type conversion to CommandName from non-constant without Validate\(\) check`
 	go func() { _ = x.Validate() }() //nolint:errcheck
 	defer func() { useCmd(x) }()
 }
@@ -254,7 +285,7 @@ func GoAndDeferMixed(raw string) { // want `parameter "raw" of cfa_castvalidatio
 // irrelevant (redundant but harmless).
 func DeferredValidateWithGoRoutine(raw string) { // want `parameter "raw" of cfa_castvalidation\.DeferredValidateWithGoRoutine uses primitive type string`
 	x := CommandName(raw)
-	go func() { _ = x.Validate() }() //nolint:errcheck
+	go func() { _ = x.Validate() }()    //nolint:errcheck
 	defer func() { _ = x.Validate() }() //nolint:errcheck
 	useCmd(x)
 }

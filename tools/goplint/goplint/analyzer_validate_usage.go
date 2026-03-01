@@ -96,6 +96,15 @@ func inspectValidateUsageInBody(
 				return true
 			}
 		}
+		// Check 3: Blank identifier in var declaration.
+		// Pattern: var _ = x.Validate()
+		if valueSpec, isValueSpec := parent.(*ast.ValueSpec); isValueSpec {
+			if isBlankValueSpecForValidate(valueSpec, call) {
+				reportValidateUsageFinding(pass, call.Pos(), qualFuncName, cfg, bl,
+					"Validate() result discarded — error return is unused")
+				return true
+			}
+		}
 
 		return true
 	})
@@ -124,6 +133,22 @@ func isAllBlankForValidate(assign *ast.AssignStmt, call *ast.CallExpr) bool {
 	}
 
 	return false
+}
+
+// isBlankValueSpecForValidate reports whether a ValueSpec assigns the
+// Validate() call result to blank identifier.
+func isBlankValueSpecForValidate(valueSpec *ast.ValueSpec, call *ast.CallExpr) bool {
+	valueIdx := -1
+	for i, value := range valueSpec.Values {
+		if value == call {
+			valueIdx = i
+			break
+		}
+	}
+	if valueIdx < 0 || valueIdx >= len(valueSpec.Names) {
+		return false
+	}
+	return valueSpec.Names[valueIdx].Name == "_"
 }
 
 // reportValidateUsageFinding emits a diagnostic for a Validate() usage issue,

@@ -43,7 +43,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 	// Phase 2: Single walk collecting assigned casts, unassigned casts,
 	// and validated variable names.
 	type assignedCast struct {
-		varName   string
+		target    castTarget
 		typeName  string
 		pos       ast.Node
 		castIndex int
@@ -56,7 +56,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 
 	var assignedCasts []assignedCast
 	var unassignedCasts []unassignedCast
-	validatedVars := make(map[string]bool)
+	validatedTargets := make(map[string]bool)
 	castIndex := 0 // sequential counter for unique finding IDs per cast
 
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
@@ -77,8 +77,8 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 
 		// Detect Validate() calls: x.Validate()
 		if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Validate" {
-			if ident, ok := sel.X.(*ast.Ident); ok {
-				validatedVars[ident.Name] = true
+			if key := targetKeyForExpr(pass, sel.X); key != "" {
+				validatedTargets[key] = true
 			}
 			return true
 		}
@@ -130,25 +130,52 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		// Determine if this cast is assigned to a variable.
 		parent := parentMap[call]
 
+		assigned := false
 		if assign, ok := parent.(*ast.AssignStmt); ok {
-			// Find the variable name that receives this cast.
+			// Find the assignment target that receives this cast.
 			for i, rhs := range assign.Rhs {
 				if rhs != call {
 					continue
 				}
 				if i < len(assign.Lhs) {
-					if ident, ok := assign.Lhs[i].(*ast.Ident); ok && ident.Name != "_" {
+					if target, ok := castTargetFromExpr(pass, assign.Lhs[i]); ok {
 						assignedCasts = append(assignedCasts, assignedCast{
-							varName:   ident.Name,
+							target:    target,
 							typeName:  targetTypeName,
 							pos:       call,
 							castIndex: castIndex,
 						})
 						castIndex++
-						return true
+						assigned = true
+						break
 					}
 				}
 			}
+		}
+		if !assigned {
+			if valueSpec, ok := parent.(*ast.ValueSpec); ok {
+				for i, value := range valueSpec.Values {
+					if value != call {
+						continue
+					}
+					if i < len(valueSpec.Names) {
+						if target, ok := castTargetFromExpr(pass, valueSpec.Names[i]); ok {
+							assignedCasts = append(assignedCasts, assignedCast{
+								target:    target,
+								typeName:  targetTypeName,
+								pos:       call,
+								castIndex: castIndex,
+							})
+							castIndex++
+							assigned = true
+							break
+						}
+					}
+				}
+			}
+		}
+		if assigned {
+			return true
 		}
 
 		// Unassigned cast — check auto-skip contexts.
@@ -168,7 +195,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 	// Phase 3: Report findings.
 	// Assigned casts: report if variable is not in the validated set.
 	for _, ac := range assignedCasts {
-		if validatedVars[ac.varName] {
+		if validatedTargets[ac.target.key()] {
 			continue
 		}
 

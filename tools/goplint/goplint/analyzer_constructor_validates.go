@@ -28,7 +28,8 @@ const maxTransitiveDepth = 5
 // import the fact when checking whether a constructor's call to the helper
 // satisfies the Validate() requirement.
 type ValidatesTypeFact struct {
-	TypeName string // unqualified type name (e.g., "Server")
+	TypeName    string // unqualified type name (e.g., "Server")
+	TypePkgPath string // package path for the type name (optional for legacy facts)
 }
 
 // AFact implements the analysis.Fact interface marker method.
@@ -58,16 +59,19 @@ func exportValidatesTypeFacts(pass *analysis.Pass, fn *ast.FuncDecl) {
 	if obj == nil {
 		return
 	}
-	pass.ExportObjectFact(obj, &ValidatesTypeFact{TypeName: typeName})
+	pass.ExportObjectFact(obj, &ValidatesTypeFact{
+		TypeName:    typeName,
+		TypePkgPath: pass.Pkg.Path(),
+	})
 }
 
 // constructorValidateInfo records a constructor function and whether
 // its body calls Validate() on the returned value.
 type constructorValidateInfo struct {
-	name           string    // function name (e.g., "NewConfig")
-	pos            ast.Node  // position of the function declaration
-	returnTypeName string    // resolved first non-error return type name
-	callsValidate  bool      // body contains a .Validate() selector call
+	name           string   // function name (e.g., "NewConfig")
+	pos            ast.Node // position of the function declaration
+	returnTypeName string   // resolved first non-error return type name
+	callsValidate  bool     // body contains a .Validate() selector call
 }
 
 // inspectConstructorValidates checks whether NewXxx() constructors call
@@ -119,23 +123,32 @@ func inspectConstructorValidates(
 				continue
 			}
 
-			returnType := ctorInfo.returnTypeName
+			retInfo := resolveReturnTypeValidateInfo(pass, fn)
+			returnType := retInfo.TypeName
+			if returnType == "" {
+				returnType = ctorInfo.returnTypeName
+			}
 			if returnType == "" {
 				continue
 			}
-			// Check if the return type has Validate(). First try same-package
-			// types (fast path), then check cross-package types via the
-			// constructor's type signature. Also resolve the return type's
-			// package name for diagnostics (reused below).
-			var returnTypePkg string
-			if validatableStructs[returnType] {
+			returnTypePkg := retInfo.TypePkgName
+			if returnTypePkg == "" {
 				returnTypePkg = pkgName
-			} else {
-				hasValidate, retPkg := resolveReturnTypeValidateInfo(pass, fn)
-				if !hasValidate {
-					continue
-				}
-				returnTypePkg = retPkg
+			}
+			returnTypePkgPath := retInfo.TypePkgPath
+			if returnTypePkgPath == "" {
+				returnTypePkgPath = pass.Pkg.Path()
+			}
+			returnTypeKey := retInfo.TypeKey
+			if returnTypeKey == "" {
+				returnTypeKey = returnTypePkgPath + "." + returnType
+			}
+
+			// Check if the return type has Validate(). Try same-package
+			// fast path first; fall back to type-checker resolution for
+			// cross-package and alias-heavy cases.
+			if !retInfo.HasValidate && !(returnTypePkgPath == pass.Pkg.Path() && validatableStructs[returnType]) {
+				continue
 			}
 
 			// Skip types annotated with //goplint:constant-only — their
@@ -149,10 +162,10 @@ func inspectConstructorValidates(
 			// This is receiver-type-aware: cfg.Validate() on a Config param does
 			// not satisfy the check when the constructor returns *Server.
 			// Also checks transitively through private factory calls.
-			if bodyCallsValidateOnType(pass, fn.Body, returnType) {
+			if bodyCallsValidateOnType(pass, fn.Body, returnTypeKey) {
 				continue
 			}
-			if bodyCallsValidateTransitive(pass, fn.Body, returnType, nil, 0) {
+			if bodyCallsValidateTransitive(pass, fn.Body, returnType, returnTypePkgPath, returnTypeKey, nil, 0) {
 				continue
 			}
 
@@ -190,7 +203,7 @@ func inspectConstructorValidates(
 //   - Direct: s := &Server{...}; s.Validate()
 //   - Delegated: s, err := helperNewServer(); s.Validate()
 //   - Any .Validate() call on an expression whose resolved type matches returnTypeName
-func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeName string) bool {
+func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeKey string) bool {
 	found := false
 	ast.Inspect(body, func(n ast.Node) bool {
 		if found {
@@ -222,12 +235,11 @@ func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTyp
 		// Resolve aliases.
 		receiverType = types.Unalias(receiverType)
 
-		// Check if the receiver's type name matches the constructor's return type.
-		if named, ok := receiverType.(*types.Named); ok {
-			if named.Obj().Name() == returnTypeName {
-				found = true
-				return false
-			}
+		// Check full type identity (package path + type name) to avoid
+		// same-name collisions across packages.
+		if typeIdentityKey(receiverType) == returnTypeKey {
+			found = true
+			return false
 		}
 
 		return true
@@ -239,6 +251,7 @@ func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTyp
 // for transitive validation tracking.
 type methodCallTarget struct {
 	typeName   string
+	typeKey    string
 	methodName string
 }
 
@@ -257,6 +270,8 @@ func bodyCallsValidateTransitive(
 	pass *analysis.Pass,
 	body *ast.BlockStmt,
 	returnTypeName string,
+	returnTypePkgPath string,
+	returnTypeKey string,
 	visited map[string]bool,
 	depth int,
 ) bool {
@@ -299,7 +314,7 @@ func bodyCallsValidateTransitive(
 			if fn.Pkg() != pass.Pkg {
 				// Cross-package: check for validates-type fact.
 				var fact ValidatesTypeFact
-				if pass.ImportObjectFact(fn, &fact) && fact.TypeName == returnTypeName {
+				if pass.ImportObjectFact(fn, &fact) && factMatchesReturnType(fact, returnTypeName, returnTypePkgPath) {
 					crossPkgValidates = true
 					return false
 				}
@@ -324,7 +339,7 @@ func bodyCallsValidateTransitive(
 						if selObj != nil {
 							if callee, ok := selObj.(*types.Func); ok {
 								var fact ValidatesTypeFact
-								if pass.ImportObjectFact(callee, &fact) && fact.TypeName == returnTypeName {
+								if pass.ImportObjectFact(callee, &fact) && factMatchesReturnType(fact, returnTypeName, returnTypePkgPath) {
 									crossPkgValidates = true
 									return false
 								}
@@ -349,9 +364,10 @@ func bodyCallsValidateTransitive(
 			if !ok {
 				return true
 			}
-			if named.Obj().Name() == returnTypeName && named.Obj().Pkg() == pass.Pkg {
+			if typeIdentityKey(receiverType) == returnTypeKey && named.Obj().Pkg() == pass.Pkg {
 				methodCallees = append(methodCallees, methodCallTarget{
-					typeName:   returnTypeName,
+					typeName:   named.Obj().Name(),
+					typeKey:    returnTypeKey,
 					methodName: fun.Sel.Name,
 				})
 			}
@@ -375,18 +391,18 @@ func bodyCallsValidateTransitive(
 		if calleeBody == nil {
 			continue
 		}
-		if bodyCallsValidateOnType(pass, calleeBody, returnTypeName) {
+		if bodyCallsValidateOnType(pass, calleeBody, returnTypeKey) {
 			return true
 		}
 		// Recurse into the callee's body.
-		if bodyCallsValidateTransitive(pass, calleeBody, returnTypeName, visited, depth+1) {
+		if bodyCallsValidateTransitive(pass, calleeBody, returnTypeName, returnTypePkgPath, returnTypeKey, visited, depth+1) {
 			return true
 		}
 	}
 
 	// Follow method callees on the return type.
 	for _, mc := range methodCallees {
-		visitKey := mc.typeName + "." + mc.methodName
+		visitKey := mc.typeKey + "." + mc.methodName
 		if visited[visitKey] {
 			continue
 		}
@@ -396,10 +412,10 @@ func bodyCallsValidateTransitive(
 		if methodBody == nil {
 			continue
 		}
-		if bodyCallsValidateOnType(pass, methodBody, returnTypeName) {
+		if bodyCallsValidateOnType(pass, methodBody, returnTypeKey) {
 			return true
 		}
-		if bodyCallsValidateTransitive(pass, methodBody, returnTypeName, visited, depth+1) {
+		if bodyCallsValidateTransitive(pass, methodBody, returnTypeName, returnTypePkgPath, returnTypeKey, visited, depth+1) {
 			return true
 		}
 	}
@@ -407,29 +423,81 @@ func bodyCallsValidateTransitive(
 	return false
 }
 
+type returnTypeValidateInfo struct {
+	HasValidate bool
+	TypeName    string
+	TypePkgName string
+	TypePkgPath string
+	TypeKey     string
+}
+
 // resolveReturnTypeValidateInfo resolves the constructor's first non-error
 // return type via the type checker and checks if it has a Validate() method.
-// Returns (hasValidate, returnTypePkgName) where returnTypePkgName is the
-// resolved package name of the return type (for cross-package diagnostics).
-func resolveReturnTypeValidateInfo(pass *analysis.Pass, fn *ast.FuncDecl) (bool, string) {
+func resolveReturnTypeValidateInfo(pass *analysis.Pass, fn *ast.FuncDecl) returnTypeValidateInfo {
 	obj := pass.TypesInfo.Defs[fn.Name]
 	if obj == nil {
-		return false, ""
+		return returnTypeValidateInfo{}
 	}
 	sig, ok := obj.Type().(*types.Signature)
 	if !ok || sig.Results().Len() == 0 {
-		return false, ""
+		return returnTypeValidateInfo{}
 	}
-	retType := sig.Results().At(0).Type()
+
+	var retType types.Type
+	for i := range sig.Results().Len() {
+		candidate := sig.Results().At(i).Type()
+		if !isErrorType(candidate) {
+			retType = candidate
+			break
+		}
+	}
+	if retType == nil {
+		retType = sig.Results().At(0).Type()
+	}
 	if ptr, ok := retType.(*types.Pointer); ok {
 		retType = ptr.Elem()
 	}
 	retType = types.Unalias(retType)
-	retPkg := ""
-	if named, ok := retType.(*types.Named); ok && named.Obj().Pkg() != nil {
-		retPkg = packageName(named.Obj().Pkg())
+
+	info := returnTypeValidateInfo{
+		HasValidate: hasValidateMethod(retType),
+		TypeKey:     typeIdentityKey(retType),
 	}
-	return hasValidateMethod(retType), retPkg
+	if named, ok := retType.(*types.Named); ok {
+		info.TypeName = named.Obj().Name()
+		if pkg := named.Obj().Pkg(); pkg != nil {
+			info.TypePkgName = packageName(pkg)
+			info.TypePkgPath = pkg.Path()
+		}
+	}
+	return info
+}
+
+func factMatchesReturnType(fact ValidatesTypeFact, returnTypeName, returnTypePkgPath string) bool {
+	if fact.TypeName != returnTypeName {
+		return false
+	}
+	// Legacy facts only had TypeName. Accept them for compatibility.
+	if fact.TypePkgPath == "" {
+		return true
+	}
+	return fact.TypePkgPath == returnTypePkgPath
+}
+
+func typeIdentityKey(t types.Type) string {
+	if ptr, ok := t.(*types.Pointer); ok {
+		t = ptr.Elem()
+	}
+	t = types.Unalias(t)
+	named, ok := t.(*types.Named)
+	if !ok {
+		return types.TypeString(t, nil)
+	}
+	pkgPath := ""
+	if pkg := named.Obj().Pkg(); pkg != nil {
+		pkgPath = pkg.Path()
+	}
+	return pkgPath + "." + named.Obj().Name()
 }
 
 // findFuncBody searches the package for a non-method function with the given

@@ -205,6 +205,27 @@ func CastWithAssignOpValidated(input string) { // want `parameter "input" of cas
 	_ = name
 }
 
+// CastWithVarDeclValidated — var declaration assignment should be tracked.
+func CastWithVarDeclValidated(input string) { // want `parameter "input" of castvalidation\.CastWithVarDeclValidated uses primitive type string`
+	var name CommandName = CommandName(input)
+	if err := name.Validate(); err != nil {
+		return
+	}
+	_ = name
+}
+
+// CastSelectorLHSValidated — selector assignment should be treated as assigned.
+func CastSelectorLHSValidated(input string) { // want `parameter "input" of castvalidation\.CastSelectorLHSValidated uses primitive type string`
+	cfg := struct {
+		Name CommandName
+	}{}
+	cfg.Name = CommandName(input)
+	if err := cfg.Name.Validate(); err != nil {
+		return
+	}
+	_ = cfg
+}
+
 // --- Chained Validate tests (Issue 1 fix) ---
 
 // ChainedValidate — should NOT be flagged (validated directly on cast result).
