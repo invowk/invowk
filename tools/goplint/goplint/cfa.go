@@ -103,6 +103,15 @@ func collectSynchronousClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
 	return result
 }
 
+// collectUBVClosureLits returns closure literals whose contents should be
+// considered when checking use-before-validate ordering.
+//
+// Only immediate IIFEs are included. Deferred closures execute at function
+// return, so a deferred Validate() must not suppress a prior use.
+func collectUBVClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
+	return collectImmediateClosureLits(body)
+}
+
 // buildFuncCFG constructs a control-flow graph for a function body using
 // conservative mayReturn (all calls may return). Returns nil if body is nil.
 //

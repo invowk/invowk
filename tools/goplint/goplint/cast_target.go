@@ -87,7 +87,7 @@ func targetKeyForExpr(pass *analysis.Pass, expr ast.Expr) string {
 		if base == "" {
 			return ""
 		}
-		index := exprStringKey(e.Index)
+		index := canonicalIndexExprKey(e.Index)
 		if index == "" {
 			return ""
 		}
@@ -99,7 +99,7 @@ func targetKeyForExpr(pass *analysis.Pass, expr ast.Expr) string {
 		}
 		indexes := make([]string, 0, len(e.Indices))
 		for _, idx := range e.Indices {
-			key := exprStringKey(idx)
+			key := canonicalIndexExprKey(idx)
 			if key == "" {
 				return ""
 			}
@@ -120,6 +120,20 @@ func objectKey(obj types.Object) string {
 		return ""
 	}
 	return fmt.Sprintf("obj:%p", obj)
+}
+
+func canonicalIndexExprKey(expr ast.Expr) string {
+	return exprStringKey(stripParens(expr))
+}
+
+func stripParens(expr ast.Expr) ast.Expr {
+	for {
+		paren, ok := expr.(*ast.ParenExpr)
+		if !ok {
+			return expr
+		}
+		expr = paren.X
+	}
 }
 
 func stripParensAndStar(expr ast.Expr) ast.Expr {

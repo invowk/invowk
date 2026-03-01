@@ -119,3 +119,17 @@ func SameBlockPriorityWithCrossBlockUse(raw string, cond bool) error { // want `
 	}
 	return x.Validate()
 }
+
+// CrossBlockDeferredValidateDoesNotSuppress — SHOULD be flagged. A deferred
+// Validate in the successor block executes at function exit and must not
+// suppress UBV for a use that occurs earlier on that path.
+func CrossBlockDeferredValidateDoesNotSuppress(raw string, cond bool) error { // want `parameter "raw" of use_before_validate_cross\.CrossBlockDeferredValidateDoesNotSuppress uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) across blocks`
+	if cond {
+		defer func() {
+			_ = x.Validate()
+		}()
+		useCmd(x)
+	}
+	return x.Validate()
+}

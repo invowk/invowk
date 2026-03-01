@@ -59,3 +59,24 @@ func CrossBlockIIFEUseBeforeValidate(raw string, cond bool) error { // want `par
 	}
 	return x.Validate()
 }
+
+// DeferredValidateDoesNotSuppressUBV — SHOULD be flagged. Deferred Validate
+// must not suppress use-before-validate in the enclosing block.
+func DeferredValidateDoesNotSuppressUBV(raw string) error { // want `parameter "raw" of use_before_validate_closure\.DeferredValidateDoesNotSuppressUBV uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	defer func() {
+		_ = x.Validate()
+	}()
+	useCmd(x)
+	return nil
+}
+
+// IIFEValidateBeforeUseCounts — should NOT be flagged. Immediate closure
+// Validate runs before use and should count for UBV ordering.
+func IIFEValidateBeforeUseCounts(raw string) { // want `parameter "raw" of use_before_validate_closure\.IIFEValidateBeforeUseCounts uses primitive type string`
+	x := CommandName(raw)
+	func() {
+		_ = x.Validate()
+	}()
+	useCmd(x)
+}

@@ -189,3 +189,24 @@ func ChannelSendAfterValidate(raw string, ch chan CommandName) { // want `parame
 	}
 	ch <- x
 }
+
+// DeferredValidateBeforeUse — SHOULD be flagged. Deferred Validate executes
+// at function exit and must not suppress a prior use in UBV checks.
+func DeferredValidateBeforeUse(raw string) error { // want `parameter "raw" of use_before_validate\.DeferredValidateBeforeUse uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	defer func() {
+		_ = x.Validate()
+	}()
+	useCmd(x)
+	return nil
+}
+
+// ImmediateValidateBeforeUse — should NOT be flagged. IIFE Validate executes
+// immediately and can satisfy UBV ordering before later uses.
+func ImmediateValidateBeforeUse(raw string) { // want `parameter "raw" of use_before_validate\.ImmediateValidateBeforeUse uses primitive type string`
+	x := CommandName(raw)
+	func() {
+		_ = x.Validate()
+	}()
+	useCmd(x)
+}

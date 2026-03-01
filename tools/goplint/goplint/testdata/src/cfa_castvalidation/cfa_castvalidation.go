@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"log/slog"
+	. "log/slog"
 	"strconv"
 	"strings"
 )
@@ -28,9 +28,19 @@ func (c CommandName) Validate() error {
 
 func (c CommandName) String() string { return string(c) }
 
+type PortNumber int
+
+func (p PortNumber) Validate() error {
+	if p <= 0 || p >= 65536 {
+		return fmt.Errorf("invalid port number: %d", int(p))
+	}
+	return nil
+}
+
 // --- Helpers that provide runtime values ---
 
 func runtimeString() string { return "test" } // want `return value of cfa_castvalidation\.runtimeString uses primitive type string`
+func runtimeInt() int       { return 42 }     // want `return value of cfa_castvalidation\.runtimeInt uses primitive type int`
 
 func useCmd(_ CommandName) {}
 
@@ -125,6 +135,17 @@ func ParenAssignedValidated(raw string) { // want `parameter "raw" of cfa_castva
 	useCmd(x)
 }
 
+// IndexedLHSParenCanonicalization — should NOT be flagged. Parentheses on an
+// indexed Validate receiver must canonicalize to the same cast target.
+func IndexedLHSParenCanonicalization() {
+	ports := []PortNumber{0}
+	ports[0] = PortNumber(runtimeInt())
+	if err := ports[(0)].Validate(); err != nil {
+		return
+	}
+	_ = ports
+}
+
 // ValidateInsideIIFE — immediately-invoked closures execute synchronously and
 // should count as validation on the current path.
 func ValidateInsideIIFE(raw string) { // want `parameter "raw" of cfa_castvalidation\.ValidateInsideIIFE uses primitive type string`
@@ -174,6 +195,13 @@ func ConstantCast() {
 func UnassignedMapKey(raw string) { // want `parameter "raw" of cfa_castvalidation\.UnassignedMapKey uses primitive type string`
 	m := map[CommandName]bool{}
 	_ = m[CommandName(raw)]
+}
+
+// UnassignedSliceIndexNotAutoSkip — SHOULD be flagged. Auto-skip for index
+// expressions only applies to map-key lookups.
+func UnassignedSliceIndexNotAutoSkip() {
+	items := []string{"run", "build"}
+	_ = items[PortNumber(runtimeInt())] // want `type conversion to PortNumber from non-constant without Validate\(\) check`
 }
 
 // SwitchTagAutoSkip — NOT flagged (auto-skip: switch tag).
@@ -398,7 +426,7 @@ func LogPrintfAutoSkipCFA(input string) { // want `parameter "input" of cfa_cast
 
 // SlogInfoAutoSkipCFA — should NOT be flagged (slog.Info is display-only).
 func SlogInfoAutoSkipCFA(input string) { // want `parameter "input" of cfa_castvalidation\.SlogInfoAutoSkipCFA uses primitive type string`
-	slog.Info("cmd", "name", CommandName(input)) // NOT flagged — display only
+	Info("cmd", "name", CommandName(input)) // NOT flagged — display only (dot import)
 }
 
 // --- CFA: ancestor depth limit tests (maxAncestorDepth = 5) ---

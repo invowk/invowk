@@ -266,6 +266,7 @@ func f() {
 	deferred := collectDeferredClosureLits(body)
 	immediate := collectImmediateClosureLits(body)
 	sync := collectSynchronousClosureLits(body)
+	ubv := collectUBVClosureLits(body)
 
 	if !deferred[deferLit] {
 		t.Fatal("expected defer closure to be classified as deferred")
@@ -286,5 +287,80 @@ func f() {
 	}
 	if sync[goLit] {
 		t.Fatal("did not expect goroutine closure in sync set")
+	}
+	if !ubv[immediateLit] {
+		t.Fatal("expected UBV set to include immediate closure")
+	}
+	if ubv[deferLit] || ubv[goLit] {
+		t.Fatal("did not expect defer/go closures in UBV set")
+	}
+}
+
+func TestCastTargetMatchesExpr_IndexParensCanonicalization(t *testing.T) {
+	tests := []struct {
+		name   string
+		lhs    string
+		target string
+	}{
+		{
+			name:   "index expr",
+			lhs:    "ports[0]",
+			target: "ports[(0)]",
+		},
+		{
+			name:   "index list expr",
+			lhs:    "matrix[i,j]",
+			target: "matrix[(i),(j)]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lhsExpr, err := parser.ParseExpr(tt.lhs)
+			if err != nil {
+				t.Fatalf("parse lhs: %v", err)
+			}
+			target, ok := castTargetFromExpr(nil, lhsExpr)
+			if !ok {
+				t.Fatalf("castTargetFromExpr returned ok=false for %q", tt.lhs)
+			}
+
+			matchExpr, err := parser.ParseExpr(tt.target)
+			if err != nil {
+				t.Fatalf("parse target: %v", err)
+			}
+			if !target.matchesExpr(nil, matchExpr) {
+				t.Fatalf("expected %q to match target from %q", tt.target, tt.lhs)
+			}
+		})
+	}
+}
+
+func TestHasUseBeforeValidateInBlock_DeferredValidateDoesNotSuppress(t *testing.T) {
+	src := `package p
+type T string
+func f() {
+	var x T
+	defer func() { _ = x.Validate() }()
+	use(x)
+}
+func (t T) Validate() error { return nil }
+func use(_ T) {}`
+
+	body, _ := parseFuncBody(t, src)
+	if len(body.List) < 3 {
+		t.Fatalf("expected at least 3 statements, got %d", len(body.List))
+	}
+	target := newCastTargetFromName("x")
+	nodes := make([]ast.Node, 0, len(body.List))
+	for _, stmt := range body.List {
+		nodes = append(nodes, stmt)
+	}
+
+	if hasUseBeforeValidateInBlock(nil, nodes, 1, target, collectSynchronousClosureLits(body)) {
+		t.Fatal("expected sync closure set to treat deferred Validate as ordering-safe")
+	}
+	if !hasUseBeforeValidateInBlock(nil, nodes, 1, target, collectUBVClosureLits(body)) {
+		t.Fatal("expected UBV closure set to flag use before deferred Validate")
 	}
 }

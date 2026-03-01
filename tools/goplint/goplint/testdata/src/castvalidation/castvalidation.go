@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"log/slog"
+	. "log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -154,6 +154,13 @@ func UnassignedMapKey(input string) { // want `parameter "input" of castvalidati
 	_ = m[CommandName(input)] // NOT flagged — map lookup
 }
 
+// UnassignedSliceIndexNotAutoSkip — SHOULD be flagged. Auto-skip for index
+// expressions only applies to map-key lookups.
+func UnassignedSliceIndexNotAutoSkip() {
+	items := []string{"run", "build"}
+	_ = items[PortNumber(runtimeInt())] // want `type conversion to PortNumber from non-constant without Validate\(\) check`
+}
+
 // UnassignedComparison — should NOT be flagged (auto-skip: comparison).
 func UnassignedComparison(input string, expected CommandName) bool { // want `parameter "input" of castvalidation\.UnassignedComparison uses primitive type string`
 	return CommandName(input) == expected // NOT flagged — comparison
@@ -236,6 +243,17 @@ func CastSelectorLHSValidated(input string) { // want `parameter "input" of cast
 		return
 	}
 	_ = cfg
+}
+
+// IndexedLHSParenCanonicalization — should NOT be flagged. Parentheses on
+// an indexed Validate receiver must canonicalize to the same cast target.
+func IndexedLHSParenCanonicalization() {
+	ports := []PortNumber{0}
+	ports[0] = PortNumber(runtimeInt())
+	if err := ports[(0)].Validate(); err != nil {
+		return
+	}
+	_ = ports
 }
 
 // --- Chained Validate tests (Issue 1 fix) ---
@@ -360,7 +378,7 @@ func LogPrintfAutoSkip(input string) { // want `parameter "input" of castvalidat
 
 // SlogInfoAutoSkip — should NOT be flagged (slog.Info is display-only).
 func SlogInfoAutoSkip(input string) { // want `parameter "input" of castvalidation\.SlogInfoAutoSkip uses primitive type string`
-	slog.Info("cmd", "name", CommandName(input)) // NOT flagged — display only
+	Info("cmd", "name", CommandName(input)) // NOT flagged — display only (dot import)
 }
 
 // LogPrintAutoSkip — should NOT be flagged (log.Print is display-only).

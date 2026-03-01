@@ -263,7 +263,7 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node,
 	}
 
 	// Map index: m[DddType(s)]
-	if idx, ok := parent.(*ast.IndexExpr); ok && idx.Index == call {
+	if idx, ok := parent.(*ast.IndexExpr); ok && idx.Index == call && isMapIndexExpr(pass, idx) {
 		return true
 	}
 
@@ -346,27 +346,50 @@ func isStatementNode(n ast.Node) bool {
 	}
 }
 
+func isMapIndexExpr(pass *analysis.Pass, idx *ast.IndexExpr) bool {
+	if pass == nil || pass.TypesInfo == nil || idx == nil {
+		return false
+	}
+	baseType := pass.TypesInfo.TypeOf(idx.X)
+	if baseType == nil {
+		return false
+	}
+	_, ok := types.Unalias(baseType).Underlying().(*types.Map)
+	return ok
+}
+
 // isPackageCall reports whether the given call expression targets a function
 // in one of the specified import paths. Uses the type checker to resolve
-// the package through any import alias.
+// the package through any import alias, including dot-imported symbols.
 func isPackageCall(pass *analysis.Pass, call *ast.CallExpr, importPaths ...string) bool {
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
+	if pass == nil || pass.TypesInfo == nil || call == nil {
 		return false
 	}
-	ident, ok := sel.X.(*ast.Ident)
-	if !ok {
+
+	switch fun := call.Fun.(type) {
+	case *ast.SelectorExpr:
+		ident, ok := fun.X.(*ast.Ident)
+		if !ok {
+			return false
+		}
+		obj := pass.TypesInfo.Uses[ident]
+		if obj == nil {
+			return false
+		}
+		pkgName, ok := obj.(*types.PkgName)
+		if !ok {
+			return false
+		}
+		return slices.Contains(importPaths, pkgName.Imported().Path())
+	case *ast.Ident:
+		obj := pass.TypesInfo.Uses[fun]
+		if obj == nil || obj.Pkg() == nil {
+			return false
+		}
+		return slices.Contains(importPaths, obj.Pkg().Path())
+	default:
 		return false
 	}
-	obj := pass.TypesInfo.Uses[ident]
-	if obj == nil {
-		return false
-	}
-	pkgName, ok := obj.(*types.PkgName)
-	if !ok {
-		return false
-	}
-	return slices.Contains(importPaths, pkgName.Imported().Path())
 }
 
 // isFmtCall reports whether the call targets the "fmt" package.
@@ -428,15 +451,27 @@ var slicesComparisonFuncs = map[string]bool{
 
 // isPackageFuncInSet reports whether the call targets a function in the
 // given import path whose name is in the allowed set. Used by comparison
-// auto-skip functions to avoid repeating the isPackageCall + selector
-// lookup pattern. The unchecked SelectorExpr assertion is safe because
-// isPackageCall already verified call.Fun is a *ast.SelectorExpr.
+// auto-skip functions to avoid repeating the isPackageCall + function-name
+// extraction pattern.
 func isPackageFuncInSet(pass *analysis.Pass, call *ast.CallExpr, importPath string, allowed map[string]bool) bool {
 	if !isPackageCall(pass, call, importPath) {
 		return false
 	}
-	sel := call.Fun.(*ast.SelectorExpr)
-	return allowed[sel.Sel.Name]
+	return allowed[packageCallFuncName(call)]
+}
+
+func packageCallFuncName(call *ast.CallExpr) string {
+	if call == nil {
+		return ""
+	}
+	switch fun := call.Fun.(type) {
+	case *ast.SelectorExpr:
+		return fun.Sel.Name
+	case *ast.Ident:
+		return fun.Name
+	default:
+		return ""
+	}
 }
 
 // isStringsComparisonCall reports whether the call targets one of the string

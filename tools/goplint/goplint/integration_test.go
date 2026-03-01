@@ -5,6 +5,7 @@ package goplint
 import (
 	"flag"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -26,28 +27,9 @@ func resetFlags(t *testing.T) {
 	t.Helper()
 	setFlag(t, "config", "")
 	setFlag(t, "baseline", "")
-	setFlag(t, "audit-exceptions", "false")
-	setFlag(t, "check-all", "false")
-	setFlag(t, "check-validate", "false")
-	setFlag(t, "check-stringer", "false")
-	setFlag(t, "check-constructors", "false")
-	setFlag(t, "check-constructor-sig", "false")
-	setFlag(t, "check-func-options", "false")
-	setFlag(t, "check-immutability", "false")
-	setFlag(t, "check-struct-validate", "false")
-	setFlag(t, "check-cast-validation", "false")
-	setFlag(t, "check-validate-usage", "false")
-	setFlag(t, "check-constructor-error-usage", "false")
-	setFlag(t, "check-constructor-validates", "false")
-	setFlag(t, "check-validate-delegation", "false")
-	setFlag(t, "check-nonzero", "false")
-	setFlag(t, "check-use-before-validate", "false")
-	setFlag(t, "check-constructor-return-error", "false")
-	setFlag(t, "check-use-before-validate-cross", "false")
-	setFlag(t, "no-cfa", "false")
-	setFlag(t, "audit-review-dates", "false")
-	setFlag(t, "check-enum-sync", "false")
-	setFlag(t, "suggest-validate-all", "false")
+	for _, spec := range modeFlagSpecs {
+		setFlag(t, spec.flagName, strconv.FormatBool(spec.defaultValue))
+	}
 }
 
 // TestResetFlagsCompleteness ensures resetFlags restores every analyzer flag
@@ -58,21 +40,57 @@ func TestResetFlagsCompleteness(t *testing.T) {
 	t.Cleanup(func() { resetFlags(t) })
 	resetFlags(t)
 
-	// Mutate each flag away from its default.
+	specsByName := make(map[string]modeFlagSpec, len(modeFlagSpecs))
+	for _, spec := range modeFlagSpecs {
+		specsByName[spec.flagName] = spec
+	}
+
+	boolFlags := make(map[string]*flag.Flag)
 	Analyzer.Flags.VisitAll(func(f *flag.Flag) {
-		switch f.DefValue {
-		case "false":
-			setFlag(t, f.Name, "true")
-		case "true":
-			setFlag(t, f.Name, "false")
-		default:
-			setFlag(t, f.Name, "__non_default__")
+		if f.DefValue == "false" || f.DefValue == "true" {
+			boolFlags[f.Name] = f
 		}
 	})
+	if len(boolFlags) != len(modeFlagSpecs) {
+		t.Fatalf("mode specs mismatch: analyzer bool flags=%d specs=%d", len(boolFlags), len(modeFlagSpecs))
+	}
+	for name, analyzerFlag := range boolFlags {
+		spec, ok := specsByName[name]
+		if !ok {
+			t.Fatalf("analyzer bool flag %q missing from modeFlagSpecs", name)
+		}
+		if analyzerFlag.DefValue != strconv.FormatBool(spec.defaultValue) {
+			t.Fatalf("mode spec default mismatch for %q: analyzer=%q spec=%t", name, analyzerFlag.DefValue, spec.defaultValue)
+		}
+	}
+	for _, spec := range modeFlagSpecs {
+		if _, ok := boolFlags[spec.flagName]; !ok {
+			t.Fatalf("modeFlagSpecs entry %q missing from analyzer flags", spec.flagName)
+		}
+	}
+
+	// Mutate each flag away from its default.
+	setFlag(t, "config", "__non_default__")
+	setFlag(t, "baseline", "__non_default__")
+	for _, spec := range modeFlagSpecs {
+		setFlag(t, spec.flagName, strconv.FormatBool(!spec.defaultValue))
+	}
 
 	// Restore defaults and verify all flags are reset.
 	resetFlags(t)
+	for _, name := range []string{"config", "baseline"} {
+		f := Analyzer.Flags.Lookup(name)
+		if f == nil {
+			t.Fatalf("missing analyzer flag %q", name)
+		}
+		if got := f.Value.String(); got != f.DefValue {
+			t.Errorf("flag %q reset mismatch: got %q, want default %q", f.Name, got, f.DefValue)
+		}
+	}
 	Analyzer.Flags.VisitAll(func(f *flag.Flag) {
+		if f.DefValue != "false" && f.DefValue != "true" {
+			return
+		}
 		if got := f.Value.String(); got != f.DefValue {
 			t.Errorf("flag %q reset mismatch: got %q, want default %q", f.Name, got, f.DefValue)
 		}
@@ -86,79 +104,21 @@ func TestResetFlagsCompleteness(t *testing.T) {
 func TestNewRunConfig(t *testing.T) {
 	t.Cleanup(func() { resetFlags(t) })
 
-	t.Run("check-all enables all supplementary modes", func(t *testing.T) {
+	t.Run("check-all expansion follows mode specs", func(t *testing.T) {
 		resetFlags(t)
 		setFlag(t, "check-all", "true")
 
 		rc := newRunConfig()
 
-		if !rc.checkValidate {
-			t.Error("expected checkValidate = true")
-		}
-		if !rc.checkStringer {
-			t.Error("expected checkStringer = true")
-		}
-		if !rc.checkConstructors {
-			t.Error("expected checkConstructors = true")
-		}
-		if !rc.checkConstructorSig {
-			t.Error("expected checkConstructorSig = true")
-		}
-		if !rc.checkFuncOptions {
-			t.Error("expected checkFuncOptions = true")
-		}
-		if !rc.checkImmutability {
-			t.Error("expected checkImmutability = true")
-		}
-		if !rc.checkStructValidate {
-			t.Error("expected checkStructValidate = true")
-		}
-		if !rc.checkCastValidation {
-			t.Error("expected checkCastValidation = true")
-		}
-		if !rc.checkValidateUsage {
-			t.Error("expected checkValidateUsage = true")
-		}
-		if !rc.checkConstructorErrUsage {
-			t.Error("expected checkConstructorErrUsage = true")
-		}
-		if !rc.checkConstructorValidates {
-			t.Error("expected checkConstructorValidates = true")
-		}
-		if !rc.checkValidateDelegation {
-			t.Error("expected checkValidateDelegation = true")
-		}
-		if !rc.checkNonZero {
-			t.Error("expected checkNonZero = true")
-		}
-		if !rc.checkUseBeforeValidate {
-			t.Error("expected checkUseBeforeValidate = true")
-		}
-		if !rc.checkConstructorReturnError {
-			t.Error("expected checkConstructorReturnError = true")
-		}
-	})
-
-	t.Run("check-all does NOT enable opt-in and audit modes", func(t *testing.T) {
-		resetFlags(t)
-		setFlag(t, "check-all", "true")
-
-		rc := newRunConfig()
-
-		if rc.auditExceptions {
-			t.Error("expected auditExceptions = false (config maintenance tool)")
-		}
-		if rc.suggestValidateAll {
-			t.Error("expected suggestValidateAll = false (advisory mode)")
-		}
-		if rc.checkUseBeforeValidateCross {
-			t.Error("expected checkUseBeforeValidateCross = false (opt-in, higher FP surface)")
-		}
-		if rc.checkEnumSync {
-			t.Error("expected checkEnumSync = false (requires per-type opt-in directive)")
-		}
-		if rc.auditReviewDates {
-			t.Error("expected auditReviewDates = false (config maintenance tool)")
+		for _, spec := range modeFlagSpecs {
+			want := spec.defaultValue
+			if spec.flagName == "check-all" || spec.includeInCheckAll {
+				want = true
+			}
+			if got := spec.runConfigValue(&rc); got != want {
+				t.Errorf("mode %q mismatch: got %t, want %t (check-all=%t, include=%t)",
+					spec.flagName, got, want, rc.checkAll, spec.includeInCheckAll)
+			}
 		}
 	})
 
@@ -169,11 +129,13 @@ func TestNewRunConfig(t *testing.T) {
 
 		rc := newRunConfig()
 
-		if !rc.auditExceptions {
-			t.Error("expected auditExceptions = true (explicitly set)")
-		}
-		if !rc.checkValidate {
-			t.Error("expected checkValidate = true (from check-all)")
+		for _, spec := range modeFlagSpecs {
+			if spec.flagName == "audit-exceptions" && !spec.runConfigValue(&rc) {
+				t.Fatal("expected audit-exceptions = true (explicitly set)")
+			}
+			if spec.flagName == "check-validate" && !spec.runConfigValue(&rc) {
+				t.Fatal("expected check-validate = true (from check-all)")
+			}
 		}
 	})
 
@@ -182,17 +144,38 @@ func TestNewRunConfig(t *testing.T) {
 		setFlag(t, "check-validate", "true")
 
 		rc := newRunConfig()
-
-		if !rc.checkValidate {
-			t.Error("expected checkValidate = true")
-		}
-		if rc.checkStringer {
-			t.Error("expected checkStringer = false (not set)")
-		}
-		if rc.checkAll {
-			t.Error("expected checkAll = false (not set)")
+		for _, spec := range modeFlagSpecs {
+			want := spec.defaultValue
+			if spec.flagName == "check-validate" {
+				want = true
+			}
+			if got := spec.runConfigValue(&rc); got != want {
+				t.Errorf("mode %q mismatch: got %t, want %t", spec.flagName, got, want)
+			}
 		}
 	})
+}
+
+// TestTrackedStringFlagsExplicitness verifies config/baseline tracked string
+// flags preserve explicit-set markers even when set to empty string.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestTrackedStringFlagsExplicitness(t *testing.T) {
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+
+	configPathExplicit = false
+	baselinePathExplicit = false
+
+	setFlag(t, "config", "")
+	if !configPathExplicit {
+		t.Fatal("expected configPathExplicit = true after setting --config")
+	}
+
+	setFlag(t, "baseline", "")
+	if !baselinePathExplicit {
+		t.Fatal("expected baselinePathExplicit = true after setting --baseline")
+	}
 }
 
 // TestAnalyzerWithConfig exercises the full analyzer pipeline with a

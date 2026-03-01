@@ -258,7 +258,11 @@ tools/goplint/
 ├── baseline.toml           # Accepted findings baseline (generated)
 ├── go.mod                  # Separate Go module (avoids polluting main go.mod)
 └── goplint/
-    ├── analyzer.go         # Analyzer definition, run() orchestration, supplementary modes
+    ├── analyzer.go         # Analyzer definition + shared supplementary-mode helpers
+    ├── flags.go            # Declarative mode flag table + registration/newRunConfig/check-all
+    ├── analyzer_run.go     # run() orchestration phases (inputs/traversal/post-checks)
+    ├── analyzer_cast_validation.go # AST cast-validation heuristics + auto-skip contexts
+    ├── cfa*.go             # CFA layer for path-sensitive cast and UBV checks
     ├── baseline.go         # Baseline TOML loading, matching, writing
     ├── config.go           # Exception TOML loading, pattern matching
     ├── inspect.go          # Struct/func AST visitors, diagnostic emission
@@ -268,6 +272,12 @@ tools/goplint/
 ```
 
 The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `github.com/BurntSushi/toml` to the main project's dependency tree.
+
+### CFA Notes
+
+- `--check-cast-validation` uses CFA by default (`--no-cfa` for AST fallback).
+- Auto-skip for index expressions is map-only (map lookups), not slice/array indexing.
+- UBV checks treat immediate IIFEs as synchronous ordering context; deferred `Validate()` does not suppress use-before-validate findings.
 
 ## Testing
 
