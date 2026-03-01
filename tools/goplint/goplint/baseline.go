@@ -64,10 +64,10 @@ type BaselineCategory struct {
 // loadBaseline reads and parses a baseline TOML file, building an internal
 // lookup index for fast Contains checks.
 //
-// Returns an empty baseline (matches nothing) if path is empty or the file
-// does not exist. This graceful fallback lets old PRs without a baseline
-// file pass the check.
-func loadBaseline(path string) (*BaselineConfig, error) {
+// Returns an empty baseline (matches nothing) if path is empty.
+// If strictMissing is false, a missing file also yields an empty baseline.
+// If strictMissing is true, a missing file returns an error.
+func loadBaseline(path string, strictMissing bool) (*BaselineConfig, error) {
 	if path == "" {
 		return emptyBaseline(), nil
 	}
@@ -75,6 +75,9 @@ func loadBaseline(path string) (*BaselineConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			if strictMissing {
+				return nil, fmt.Errorf("reading baseline: %w", err)
+			}
 			return emptyBaseline(), nil
 		}
 		return nil, fmt.Errorf("reading baseline: %w", err)

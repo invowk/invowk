@@ -54,9 +54,10 @@ type Exception struct {
 }
 
 // loadConfig reads and parses the exceptions TOML file.
-// Returns an empty config (no exceptions) if path is empty or the file
-// doesn't exist.
-func loadConfig(path string) (*ExceptionConfig, error) {
+// Returns an empty config (no exceptions) if path is empty.
+// If strictMissing is false, a missing file also yields an empty config.
+// If strictMissing is true, a missing file returns an error.
+func loadConfig(path string, strictMissing bool) (*ExceptionConfig, error) {
 	if path == "" {
 		return &ExceptionConfig{matchCounts: make(map[int]int)}, nil
 	}
@@ -64,6 +65,9 @@ func loadConfig(path string) (*ExceptionConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			if strictMissing {
+				return nil, fmt.Errorf("reading config: %w", err)
+			}
 			return &ExceptionConfig{matchCounts: make(map[int]int)}, nil
 		}
 		return nil, fmt.Errorf("reading config: %w", err)

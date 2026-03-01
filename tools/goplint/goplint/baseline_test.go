@@ -14,7 +14,7 @@ func TestLoadBaseline(t *testing.T) {
 
 	t.Run("empty path returns empty baseline", func(t *testing.T) {
 		t.Parallel()
-		bl, err := loadBaseline("")
+		bl, err := loadBaseline("", false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -29,7 +29,7 @@ func TestLoadBaseline(t *testing.T) {
 
 	t.Run("nonexistent file returns empty baseline", func(t *testing.T) {
 		t.Parallel()
-		bl, err := loadBaseline("/nonexistent/path/baseline.toml")
+		bl, err := loadBaseline("/nonexistent/path/baseline.toml", false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -58,7 +58,7 @@ messages = [
 ]
 `
 		path := writeTempFile(t, "baseline.toml", content)
-		bl, err := loadBaseline(path)
+		bl, err := loadBaseline(path, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -77,7 +77,7 @@ entries = [
 ]
 `
 		path := writeTempFile(t, "baseline-v2.toml", content)
-		bl, err := loadBaseline(path)
+		bl, err := loadBaseline(path, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -92,9 +92,17 @@ entries = [
 	t.Run("invalid TOML returns error", func(t *testing.T) {
 		t.Parallel()
 		path := writeTempFile(t, "bad.toml", "[[invalid toml")
-		_, err := loadBaseline(path)
+		_, err := loadBaseline(path, false)
 		if err == nil {
 			t.Fatal("expected error for invalid TOML")
+		}
+	})
+
+	t.Run("nonexistent file returns error when strict", func(t *testing.T) {
+		t.Parallel()
+		_, err := loadBaseline("/nonexistent/path/baseline.toml", true)
+		if err == nil {
+			t.Fatal("expected error for missing baseline in strict mode")
 		}
 	})
 }
@@ -160,7 +168,7 @@ messages = [
 ]
 `
 	path := writeTempFile(t, "baseline.toml", content)
-	bl, err := loadBaseline(path)
+	bl, err := loadBaseline(path, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -397,7 +405,7 @@ func TestBaselineRoundTrip(t *testing.T) {
 		t.Fatalf("write error: %v", err)
 	}
 
-	bl, err := loadBaseline(outPath)
+	bl, err := loadBaseline(outPath, false)
 	if err != nil {
 		t.Fatalf("load error: %v", err)
 	}
@@ -500,7 +508,7 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 	if err := WriteBaseline(outPath, findings); err != nil {
 		t.Fatalf("WriteBaseline error: %v", err)
 	}
-	loaded, err := loadBaseline(outPath)
+	loaded, err := loadBaseline(outPath, false)
 	if err != nil {
 		t.Fatalf("loadBaseline error: %v", err)
 	}

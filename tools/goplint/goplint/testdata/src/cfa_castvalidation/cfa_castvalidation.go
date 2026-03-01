@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"strconv"
 	"strings"
 )
 
@@ -114,6 +115,16 @@ func SelectorLHSValidated(raw string) { // want `parameter "raw" of cfa_castvali
 	useCmd(holder.Name)
 }
 
+// ParenAssignedValidated — parenthesized RHS should still be tracked as an
+// assigned cast in CFA mode.
+func ParenAssignedValidated(raw string) { // want `parameter "raw" of cfa_castvalidation\.ParenAssignedValidated uses primitive type string`
+	x := (CommandName(raw))
+	if err := x.Validate(); err != nil {
+		return
+	}
+	useCmd(x)
+}
+
 // ValidateInsideIIFE — immediately-invoked closures execute synchronously and
 // should count as validation on the current path.
 func ValidateInsideIIFE(raw string) { // want `parameter "raw" of cfa_castvalidation\.ValidateInsideIIFE uses primitive type string`
@@ -176,6 +187,18 @@ func SwitchTagAutoSkip(raw string) { // want `parameter "raw" of cfa_castvalidat
 // FuncReturnCast — flagged for cast from function return.
 func FuncReturnCast() {
 	x := CommandName(runtimeString()) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	useCmd(x)
+}
+
+// StrconvItoaAutoSkipCFA — should NOT be flagged (source is strconv formatting).
+func StrconvItoaAutoSkipCFA(v int) { // want `parameter "v" of cfa_castvalidation\.StrconvItoaAutoSkipCFA uses primitive type int`
+	x := CommandName(strconv.Itoa(v))
+	useCmd(x)
+}
+
+// StrconvFormatIntAutoSkipCFA — should NOT be flagged (source is strconv formatting).
+func StrconvFormatIntAutoSkipCFA(v int64) { // want `parameter "v" of cfa_castvalidation\.StrconvFormatIntAutoSkipCFA uses primitive type int64`
+	x := CommandName(strconv.FormatInt(v, 10))
 	useCmd(x)
 }
 

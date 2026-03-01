@@ -437,7 +437,7 @@ func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHa
 // isVarUse reports whether the given AST node contains a "use" of varName.
 // This wrapper keeps tests and call sites that only need name matching.
 func isVarUse(node ast.Node, varName string) bool {
-	return isVarUseTarget(nil, node, newCastTargetFromName(varName))
+	return isVarUseTarget(nil, node, newCastTargetFromName(varName), nil)
 }
 
 // isVarUseTarget reports whether the given AST node contains a "use" of target
@@ -455,15 +455,17 @@ func isVarUse(node ast.Node, varName string) bool {
 //   - x.Validate() — the validation call itself
 //   - x.String(), x.Error(), x.GoString() — display-only methods
 //
-// Closures are NOT descended into (same reasoning as containsValidateCall).
-func isVarUseTarget(pass *analysis.Pass, node ast.Node, target castTarget) bool {
+// Closures are NOT descended into by default. When syncLits is provided,
+// only those closure literals are descended into (for example, deferred
+// closures and IIFEs that execute synchronously in the current path).
+func isVarUseTarget(pass *analysis.Pass, node ast.Node, target castTarget, syncLits map[*ast.FuncLit]bool) bool {
 	found := false
 	ast.Inspect(node, func(n ast.Node) bool {
 		if found {
 			return false
 		}
-		if _, ok := n.(*ast.FuncLit); ok {
-			return false
+		if lit, ok := n.(*ast.FuncLit); ok {
+			return syncLits[lit]
 		}
 
 		// Composite literal field value: SomeStruct{Field: x} or
@@ -550,7 +552,7 @@ func hasUseBeforeValidateInBlock(pass *analysis.Pass, nodes []ast.Node, startIdx
 		if containsValidateCallTarget(pass, node, target, syncLits) {
 			return false // Validate() seen first — safe
 		}
-		if isVarUseTarget(pass, node, target) {
+		if isVarUseTarget(pass, node, target, syncLits) {
 			return true // use before Validate() — flagged
 		}
 	}
@@ -629,7 +631,7 @@ func dfsUseBeforeValidate(
 				foundValidate = true
 				break // Validate found first in this block — path is pruned
 			}
-			if isVarUseTarget(pass, node, target) {
+			if isVarUseTarget(pass, node, target, syncLits) {
 				foundUse = true
 				break // use found before Validate in this block
 			}

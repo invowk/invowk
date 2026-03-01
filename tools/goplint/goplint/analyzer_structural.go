@@ -187,6 +187,11 @@ func inspectConstructorReturnError(
 			if returnType == "" {
 				continue
 			}
+			retInfo := resolveReturnTypeValidateInfo(pass, fn)
+			returnTypeKey := retInfo.TypeKey
+			if returnTypeKey == "" {
+				returnTypeKey = pass.Pkg.Path() + "." + returnType
+			}
 
 			// Check if the return type has Validate(). Try same-package
 			// fast path first, then cross-package via type checker.
@@ -194,7 +199,6 @@ func inspectConstructorReturnError(
 			if validatableStructs[returnType] {
 				returnTypePkg = pkgName
 			} else {
-				retInfo := resolveReturnTypeValidateInfo(pass, fn)
 				if !retInfo.HasValidate {
 					continue
 				}
@@ -205,7 +209,7 @@ func inspectConstructorReturnError(
 			}
 
 			// Skip types annotated with //goplint:constant-only.
-			if constantOnlyTypes[returnType] {
+			if constantOnlyTypes[returnTypeKey] {
 				continue
 			}
 

@@ -109,6 +109,33 @@ func TestCheckUseBeforeValidateCrossCFA(t *testing.T) {
 	analysistest.Run(t, testdata, Analyzer, "use_before_validate_cross")
 }
 
+// TestCheckUseBeforeValidateClosureCFA exercises UBV in synchronous closures
+// (IIFEs and deferred closures). Verifies synchronous closure bodies are
+// considered for use detection while goroutine closures remain excluded.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckUseBeforeValidateClosureCFA(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+	setFlag(t, "check-use-before-validate", "true")
+	setFlag(t, "check-use-before-validate-cross", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "use_before_validate_closure")
+}
+
+// TestCheckCastValidationCFAConditionalContexts exercises conditional-context
+// handling in CFA helper logic (range/type-switch and init statements).
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckCastValidationCFAConditionalContexts(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	setFlag(t, "check-cast-validation", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "cfa_conditional_contexts")
+}
+
 // TestCFAEnabledByDefault verifies that CFA is enabled by default when
 // --check-cast-validation is active.
 //

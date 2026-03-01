@@ -8,6 +8,8 @@ import (
 )
 
 // Local Server has the same type name as util.Server, but is a different type.
+//
+//goplint:constant-only
 type Server struct {
 	addr string // want `struct field myapp\.Server\.addr uses primitive type string`
 }

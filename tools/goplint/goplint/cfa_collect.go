@@ -100,54 +100,16 @@ func collectCFACasts(
 		targetTypeName := qualifiedTypeName(targetType, pass.Pkg)
 		parent := parentMap[call]
 
-		assigned := false
-		// Check if assigned to a trackable target via assignment statement.
-		if assign, ok := parent.(*ast.AssignStmt); ok {
-			for i, rhs := range assign.Rhs {
-				if rhs != call {
-					continue
-				}
-				if i < len(assign.Lhs) {
-					if target, ok := castTargetFromExpr(pass, assign.Lhs[i]); ok {
-						assignedCasts = append(assignedCasts, cfaAssignedCast{
-							target:    target,
-							typeName:  targetTypeName,
-							pos:       call,
-							assign:    assign,
-							castIndex: castIndex,
-						})
-						castIndex++
-						assigned = true
-						break
-					}
-				}
-			}
-		}
-		// Track var declarations: var x T = T(raw)
-		if !assigned {
-			if valueSpec, ok := parent.(*ast.ValueSpec); ok {
-				for i, value := range valueSpec.Values {
-					if value != call {
-						continue
-					}
-					if i < len(valueSpec.Names) {
-						if target, ok := castTargetFromExpr(pass, valueSpec.Names[i]); ok {
-							assignedCasts = append(assignedCasts, cfaAssignedCast{
-								target:    target,
-								typeName:  targetTypeName,
-								pos:       call,
-								assign:    valueSpec,
-								castIndex: castIndex,
-							})
-							castIndex++
-							assigned = true
-							break
-						}
-					}
-				}
-			}
-		}
+		target, assignNode, assigned := resolveCastAssignmentTarget(pass, call, parentMap)
 		if assigned {
+			assignedCasts = append(assignedCasts, cfaAssignedCast{
+				target:    target,
+				typeName:  targetTypeName,
+				pos:       call,
+				assign:    assignNode,
+				castIndex: castIndex,
+			})
+			castIndex++
 			return true
 		}
 

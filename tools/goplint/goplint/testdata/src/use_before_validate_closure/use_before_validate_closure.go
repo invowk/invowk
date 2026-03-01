@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: MPL-2.0
+
+package use_before_validate_closure
+
+import "fmt"
+
+type CommandName string
+
+func (c CommandName) Validate() error {
+	if c == "" {
+		return fmt.Errorf("invalid command name")
+	}
+	return nil
+}
+
+func useCmd(_ CommandName) {}
+
+// IIFEUseBeforeValidate — SHOULD be flagged. The synchronous closure uses x
+// before x.Validate() is reached in the enclosing block.
+func IIFEUseBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate_closure\.IIFEUseBeforeValidate uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	func() {
+		useCmd(x)
+	}()
+	return x.Validate()
+}
+
+// IIFEUseAfterValidate — should NOT be flagged. Validation occurs before use.
+func IIFEUseAfterValidate(raw string) error { // want `parameter "raw" of use_before_validate_closure\.IIFEUseAfterValidate uses primitive type string`
+	x := CommandName(raw)
+	if err := x.Validate(); err != nil {
+		return err
+	}
+	func() {
+		useCmd(x)
+	}()
+	return nil
+}
+
+// GoroutineUseBeforeValidate — should NOT be flagged by UBV. Goroutine
+// closures execute asynchronously and are excluded from synchronous use checks.
+func GoroutineUseBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate_closure\.GoroutineUseBeforeValidate uses primitive type string`
+	x := CommandName(raw)
+	go func() {
+		useCmd(x)
+	}()
+	return x.Validate()
+}
+
+// CrossBlockIIFEUseBeforeValidate — SHOULD be flagged by cross-block UBV.
+// The cast occurs in the entry block and the use occurs in an IIFE within a
+// successor block before the shared Validate() call.
+func CrossBlockIIFEUseBeforeValidate(raw string, cond bool) error { // want `parameter "raw" of use_before_validate_closure\.CrossBlockIIFEUseBeforeValidate uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) across blocks`
+	if cond {
+		func() {
+			useCmd(x)
+		}()
+	}
+	return x.Validate()
+}

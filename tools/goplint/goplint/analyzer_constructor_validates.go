@@ -156,7 +156,7 @@ func inspectConstructorValidates(
 			// Skip types annotated with //goplint:constant-only — their
 			// Validate() is intentionally unwired because all values come
 			// from compile-time constants.
-			if constantOnlyTypes[returnType] {
+			if constantOnlyTypes[returnTypeKey] {
 				continue
 			}
 
@@ -172,16 +172,17 @@ func inspectConstructorValidates(
 			// AST mode (--no-cfa): any .Validate() call anywhere in the body is
 			// sufficient (legacy heuristic, no path sensitivity).
 			directlyValidates := bodyCallsValidateOnType(pass, fn.Body, returnTypeKey)
-			if directlyValidates && !noCFA {
-				if !constructorHasUnvalidatedReturnPath(pass, fn, returnTypeKey) {
-					continue // CFA confirms: all paths validated
+			if directlyValidates {
+				if noCFA {
+					continue // AST mode: any direct call is sufficient
 				}
-				// CFA found an unvalidated return path. Fall through to
-				// transitive check — a helper may cover the other paths.
-			} else if directlyValidates {
-				continue // AST mode: any direct call is sufficient
-			}
-			if bodyCallsValidateTransitive(pass, fn.Body, returnType, returnTypePkgPath, returnTypeKey, nil, 0) {
+				if !constructorHasUnvalidatedReturnPath(pass, fn, returnTypeKey) {
+					continue // CFA confirms: all relevant return paths validated
+				}
+				// Direct validate exists, but CFA found a path returning the target
+				// type without validation. Avoid path-insensitive transitive fallback
+				// here: it can hide real misses when helper calls are conditional.
+			} else if bodyCallsValidateTransitive(pass, fn.Body, returnType, returnTypePkgPath, returnTypeKey, nil, 0) {
 				continue
 			}
 
@@ -265,18 +266,27 @@ func bodyCallsValidateTransitive(
 	}
 
 	// Collect bare function call identifiers AND method calls on the return type.
+	// Calls in conditionally-evaluated contexts are ignored to avoid treating
+	// partial/dead-branch delegation as whole-function coverage.
 	var bareFuncCallees []string
 	var methodCallees []methodCallTarget
 
 	crossPkgValidates := false
+	parentMap := buildParentMap(body)
 
 	ast.Inspect(body, func(n ast.Node) bool {
 		if crossPkgValidates {
 			return false
 		}
+		if _, ok := n.(*ast.FuncLit); ok {
+			return false
+		}
 
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
+			return true
+		}
+		if isConditionallyEvaluated(call, parentMap) {
 			return true
 		}
 
@@ -533,6 +543,12 @@ func dfsConstructorUnvalidated(
 ) bool {
 	matcher := typeKeyMatcher(returnTypeKey)
 	checker := func(block *gocfg.Block) bool {
+		// Return blocks that do not return the constructor target type
+		// (for example, early `return nil, err`) are irrelevant for
+		// constructor-validates path checks.
+		if len(block.Succs) == 0 && !blockReturnsTargetType(pass, block, returnTypeKey) {
+			return true
+		}
 		for _, node := range block.Nodes {
 			if containsValidateOnReceiver(pass, node, matcher, syncLits) {
 				return true
@@ -541,4 +557,49 @@ func dfsConstructorUnvalidated(
 		return false
 	}
 	return dfsUnvalidatedBlocks(blocks, visited, checker)
+}
+
+func blockReturnsTargetType(pass *analysis.Pass, block *gocfg.Block, returnTypeKey string) bool {
+	for _, node := range block.Nodes {
+		ret, ok := node.(*ast.ReturnStmt)
+		if !ok {
+			continue
+		}
+		if returnStmtReturnsType(pass, ret, returnTypeKey) {
+			return true
+		}
+	}
+	return false
+}
+
+func returnStmtReturnsType(pass *analysis.Pass, ret *ast.ReturnStmt, returnTypeKey string) bool {
+	if ret == nil {
+		return false
+	}
+	for _, expr := range ret.Results {
+		if exprReturnsType(pass, expr, returnTypeKey) {
+			return true
+		}
+	}
+	return false
+}
+
+func exprReturnsType(pass *analysis.Pass, expr ast.Expr, returnTypeKey string) bool {
+	if pass == nil || pass.TypesInfo == nil || expr == nil {
+		return false
+	}
+	exprType := pass.TypesInfo.TypeOf(expr)
+	if exprType == nil {
+		return false
+	}
+	exprType = types.Unalias(exprType)
+	if tuple, ok := exprType.(*types.Tuple); ok {
+		for variable := range tuple.Variables() {
+			if typeIdentityKey(variable.Type()) == returnTypeKey {
+				return true
+			}
+		}
+		return false
+	}
+	return typeIdentityKey(exprType) == returnTypeKey
 }

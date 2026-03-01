@@ -37,6 +37,22 @@ func TestDiagnosticURLRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDiagnosticURLWithMeta(t *testing.T) {
+	t.Parallel()
+
+	id := StableFindingID(CategoryStaleException, "pkg.Type.Field")
+	url := DiagnosticURLForFindingWithMeta(id, map[string]string{
+		"pattern": "pkg.Type.Field",
+		"reason":  "legacy",
+	})
+	if got := FindingIDFromDiagnosticURL(url); got != id {
+		t.Fatalf("FindingIDFromDiagnosticURL(%q) = %q, want %q", url, got, id)
+	}
+	if got := FindingMetaFromDiagnosticURL(url, "pattern"); got != "pkg.Type.Field" {
+		t.Fatalf("FindingMetaFromDiagnosticURL(..., pattern) = %q, want %q", got, "pkg.Type.Field")
+	}
+}
+
 func TestFallbackFindingID(t *testing.T) {
 	t.Parallel()
 

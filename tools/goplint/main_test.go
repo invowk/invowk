@@ -236,6 +236,38 @@ func TestExtractPatternFromStaleMessage(t *testing.T) {
 	}
 }
 
+func TestExtractPatternFromStaleDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	t.Run("prefers URL metadata", func(t *testing.T) {
+		t.Parallel()
+		diag := analysisDiagnostic{
+			Category: goplint.CategoryStaleException,
+			Message:  `stale exception: pattern "wrong" matched no diagnostics (reason: test)`,
+			URL: goplint.DiagnosticURLForFindingWithMeta(
+				goplint.StableFindingID(goplint.CategoryStaleException, "pkg.Type.Field"),
+				map[string]string{"pattern": "pkg.Type.Field"},
+			),
+		}
+		got := extractPatternFromStaleDiagnostic(diag)
+		if got != "pkg.Type.Field" {
+			t.Fatalf("extractPatternFromStaleDiagnostic() = %q, want %q", got, "pkg.Type.Field")
+		}
+	})
+
+	t.Run("falls back to message parsing", func(t *testing.T) {
+		t.Parallel()
+		diag := analysisDiagnostic{
+			Category: goplint.CategoryStaleException,
+			Message:  `stale exception: pattern "pkg.Type.Legacy" matched no diagnostics (reason: legacy)`,
+		}
+		got := extractPatternFromStaleDiagnostic(diag)
+		if got != "pkg.Type.Legacy" {
+			t.Fatalf("extractPatternFromStaleDiagnostic() = %q, want %q", got, "pkg.Type.Legacy")
+		}
+	})
+}
+
 func TestTolerateAnalyzerExit(t *testing.T) {
 	t.Parallel()
 
@@ -339,6 +371,37 @@ func TestParseAnalysisJSON(t *testing.T) {
 		}
 		if findings["primitive"][0].ID != findingID {
 			t.Errorf("expected finding ID %q, got %q", findingID, findings["primitive"][0].ID)
+		}
+	})
+
+	t.Run("handles CFA categories in baseline parsing", func(t *testing.T) {
+		t.Parallel()
+		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {
+				"goplint": {
+					{
+						Category: goplint.CategoryUnvalidatedCast,
+						Message:  "type conversion to pkg.CommandName from non-constant without Validate() check",
+						URL:      goplint.DiagnosticURLForFinding("gpl1_cfa_unvalidated"),
+					},
+					{
+						Category: goplint.CategoryUseBeforeValidate,
+						Message:  "variable x of type pkg.CommandName used before Validate() in same block",
+						URL:      goplint.DiagnosticURLForFinding("gpl1_cfa_ubv"),
+					},
+				},
+			},
+		})
+
+		findings, err := parseAnalysisJSON(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(findings[goplint.CategoryUnvalidatedCast]) != 1 {
+			t.Fatalf("expected 1 %s finding, got %d", goplint.CategoryUnvalidatedCast, len(findings[goplint.CategoryUnvalidatedCast]))
+		}
+		if len(findings[goplint.CategoryUseBeforeValidate]) != 1 {
+			t.Fatalf("expected 1 %s finding, got %d", goplint.CategoryUseBeforeValidate, len(findings[goplint.CategoryUseBeforeValidate]))
 		}
 	})
 

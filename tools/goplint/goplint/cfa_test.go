@@ -219,3 +219,72 @@ func TestCollectImmediateClosureLits_NilBody(t *testing.T) {
 		t.Fatalf("collectImmediateClosureLits(nil) = %v, want nil", got)
 	}
 }
+
+func TestCollectSynchronousClosureLits_ClassifiesExactClosures(t *testing.T) {
+	src := `package p
+func f() {
+	defer func() {}()
+	go func() {}()
+	func() {}()
+}`
+	body, _ := parseFuncBody(t, src)
+	if len(body.List) != 3 {
+		t.Fatalf("expected 3 statements, got %d", len(body.List))
+	}
+
+	deferStmt, ok := body.List[0].(*ast.DeferStmt)
+	if !ok {
+		t.Fatalf("expected defer stmt at index 0, got %T", body.List[0])
+	}
+	deferLit, ok := deferStmt.Call.Fun.(*ast.FuncLit)
+	if !ok {
+		t.Fatal("expected defer function literal")
+	}
+
+	goStmt, ok := body.List[1].(*ast.GoStmt)
+	if !ok {
+		t.Fatalf("expected go stmt at index 1, got %T", body.List[1])
+	}
+	goLit, ok := goStmt.Call.Fun.(*ast.FuncLit)
+	if !ok {
+		t.Fatal("expected go function literal")
+	}
+
+	exprStmt, ok := body.List[2].(*ast.ExprStmt)
+	if !ok {
+		t.Fatalf("expected expression stmt at index 2, got %T", body.List[2])
+	}
+	call, ok := exprStmt.X.(*ast.CallExpr)
+	if !ok {
+		t.Fatalf("expected call expr at index 2, got %T", exprStmt.X)
+	}
+	immediateLit, ok := call.Fun.(*ast.FuncLit)
+	if !ok {
+		t.Fatal("expected immediate function literal")
+	}
+
+	deferred := collectDeferredClosureLits(body)
+	immediate := collectImmediateClosureLits(body)
+	sync := collectSynchronousClosureLits(body)
+
+	if !deferred[deferLit] {
+		t.Fatal("expected defer closure to be classified as deferred")
+	}
+	if deferred[goLit] || deferred[immediateLit] {
+		t.Fatal("did not expect go/IIFE closures in deferred set")
+	}
+
+	if !immediate[immediateLit] {
+		t.Fatal("expected IIFE closure to be classified as immediate")
+	}
+	if immediate[deferLit] || immediate[goLit] {
+		t.Fatal("did not expect defer/go closures in immediate set")
+	}
+
+	if !sync[deferLit] || !sync[immediateLit] {
+		t.Fatal("expected sync set to include deferred + immediate closures")
+	}
+	if sync[goLit] {
+		t.Fatal("did not expect goroutine closure in sync set")
+	}
+}

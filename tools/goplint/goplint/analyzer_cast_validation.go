@@ -138,52 +138,15 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 
 		// Determine if this cast is assigned to a variable.
 		parent := parentMap[call]
-
-		assigned := false
-		if assign, ok := parent.(*ast.AssignStmt); ok {
-			// Find the assignment target that receives this cast.
-			for i, rhs := range assign.Rhs {
-				if rhs != call {
-					continue
-				}
-				if i < len(assign.Lhs) {
-					if target, ok := castTargetFromExpr(pass, assign.Lhs[i]); ok {
-						assignedCasts = append(assignedCasts, assignedCast{
-							target:    target,
-							typeName:  targetTypeName,
-							pos:       call,
-							castIndex: castIndex,
-						})
-						castIndex++
-						assigned = true
-						break
-					}
-				}
-			}
-		}
-		if !assigned {
-			if valueSpec, ok := parent.(*ast.ValueSpec); ok {
-				for i, value := range valueSpec.Values {
-					if value != call {
-						continue
-					}
-					if i < len(valueSpec.Names) {
-						if target, ok := castTargetFromExpr(pass, valueSpec.Names[i]); ok {
-							assignedCasts = append(assignedCasts, assignedCast{
-								target:    target,
-								typeName:  targetTypeName,
-								pos:       call,
-								castIndex: castIndex,
-							})
-							castIndex++
-							assigned = true
-							break
-						}
-					}
-				}
-			}
-		}
+		target, _, assigned := resolveCastAssignmentTarget(pass, call, parentMap)
 		if assigned {
+			assignedCasts = append(assignedCasts, assignedCast{
+				target:    target,
+				typeName:  targetTypeName,
+				pos:       call,
+				castIndex: castIndex,
+			})
+			castIndex++
 			return true
 		}
 
@@ -539,7 +502,7 @@ func isErrorMessageExpr(pass *analysis.Pass, expr ast.Expr) bool {
 	}
 
 	// Pattern 2+3: display-only packages (fmt, strconv).
-	return isPackageCall(pass, call, "fmt", "strconv")
+	return isFmtCall(pass, call) || isStrconvCall(pass, call)
 }
 
 // isRawPrimitive reports whether t is a bare primitive type (string, int, etc.)

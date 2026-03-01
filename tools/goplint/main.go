@@ -176,7 +176,7 @@ func auditExceptionsGlobal(originalArgs []string) error {
 				if d.Category != goplint.CategoryStaleException {
 					continue
 				}
-				pattern := extractPatternFromStaleMessage(d.Message)
+				pattern := extractPatternFromStaleDiagnostic(d)
 				if pattern != "" {
 					stalePerPattern[pattern]++
 				}
@@ -276,6 +276,13 @@ func extractPatternFromStaleMessage(message string) string {
 		return ""
 	}
 	return pattern
+}
+
+func extractPatternFromStaleDiagnostic(diag analysisDiagnostic) string {
+	if pattern := goplint.FindingMetaFromDiagnosticURL(diag.URL, "pattern"); pattern != "" {
+		return pattern
+	}
+	return extractPatternFromStaleMessage(diag.Message)
 }
 
 // analysisResult represents the go/analysis -json output structure.

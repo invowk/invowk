@@ -13,7 +13,7 @@ func TestLoadConfig(t *testing.T) {
 
 	t.Run("empty path returns empty config", func(t *testing.T) {
 		t.Parallel()
-		cfg, err := loadConfig("")
+		cfg, err := loadConfig("", false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -24,7 +24,7 @@ func TestLoadConfig(t *testing.T) {
 
 	t.Run("nonexistent file returns empty config", func(t *testing.T) {
 		t.Parallel()
-		cfg, err := loadConfig(filepath.Join(t.TempDir(), "nonexistent.toml"))
+		cfg, err := loadConfig(filepath.Join(t.TempDir(), "nonexistent.toml"), false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -53,7 +53,7 @@ reason = "wildcard test"
 			t.Fatalf("failed to write test file: %v", err)
 		}
 
-		cfg, err := loadConfig(path)
+		cfg, err := loadConfig(path, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -81,12 +81,20 @@ reason = "wildcard test"
 			t.Fatalf("failed to write test file: %v", err)
 		}
 
-		cfg, err := loadConfig(path)
+		cfg, err := loadConfig(path, false)
 		if err == nil {
 			t.Fatal("expected error for invalid TOML, got nil")
 		}
 		if cfg != nil {
 			t.Errorf("expected nil config on error, got %+v", cfg)
+		}
+	})
+
+	t.Run("nonexistent file returns error when strict", func(t *testing.T) {
+		t.Parallel()
+		_, err := loadConfig(filepath.Join(t.TempDir(), "nonexistent.toml"), true)
+		if err == nil {
+			t.Fatal("expected error for missing config in strict mode")
 		}
 	})
 }

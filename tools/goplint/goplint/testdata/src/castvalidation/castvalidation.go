@@ -9,6 +9,7 @@ import (
 	"log"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -215,6 +216,16 @@ func CastWithVarDeclValidated(input string) { // want `parameter "input" of cast
 	_ = name
 }
 
+// CastWithParenAssignmentValidated — parenthesized RHS should still be tracked
+// as an assigned cast.
+func CastWithParenAssignmentValidated(input string) { // want `parameter "input" of castvalidation\.CastWithParenAssignmentValidated uses primitive type string`
+	name := (CommandName(input))
+	if err := name.Validate(); err != nil {
+		return
+	}
+	_ = name
+}
+
 // CastSelectorLHSValidated — selector assignment should be treated as assigned.
 func CastSelectorLHSValidated(input string) { // want `parameter "input" of castvalidation\.CastSelectorLHSValidated uses primitive type string`
 	cfg := struct {
@@ -276,6 +287,18 @@ func CastFromFmtSprintf(input string) { // want `parameter "input" of castvalida
 func CastFromFmtErrorf() {
 	err := fmt.Errorf("test error")
 	msg := CommandName(err.Error())
+	_ = msg
+}
+
+// CastFromStrconvItoa — should NOT be flagged (source is strconv formatting).
+func CastFromStrconvItoa(v int) { // want `parameter "v" of castvalidation\.CastFromStrconvItoa uses primitive type int`
+	msg := CommandName(strconv.Itoa(v))
+	_ = msg
+}
+
+// CastFromStrconvFormatInt — should NOT be flagged (source is strconv formatting).
+func CastFromStrconvFormatInt(v int64) { // want `parameter "v" of castvalidation\.CastFromStrconvFormatInt uses primitive type int64`
+	msg := CommandName(strconv.FormatInt(v, 10))
 	_ = msg
 }
 

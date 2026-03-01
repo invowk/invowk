@@ -30,20 +30,23 @@ Identify ALL remaining gaps to be worked on and propose a robust plan. All pre-e
 ## Tool Support
 
 Run `make check-types-all-json` for a structured JSON report.
-Key diagnostic categories:
+High-signal diagnostic categories:
 - `primitive` — bare primitive in struct field / param / return
 - `missing-validate` / `missing-stringer` — missing methods
 - `missing-constructor` / `wrong-constructor-sig` — constructor issues
 - `missing-immutability` — exported fields on constructor-backed structs
 - `unvalidated-cast` — DDD cast without Validate() check (CFA-enabled)
+- `use-before-validate` — DDD variable used before Validate() (same-block mode in `--check-all`; cross-block is opt-in)
+- `missing-constructor-error-return` — constructor for validatable type does not return `error`
 - `incomplete-validate-delegation` — missing field Validate() calls
 - `nonzero-value-field` — nonzero type used as value (should be *Type)
 - `enum-cue-missing-go` / `enum-cue-extra-go` — CUE/Go enum drift
+- `stale-exception` / `overdue-review` — exception hygiene debt
 
 - `suggest-validate-all` — structs with Validate() + validatable fields but no `//goplint:validate-all`
 - `missing-constructor-validate` — constructors returning validatable types without calling Validate()
 
-See `tools/goplint/CLAUDE.md` for all 24 categories and directives.
+See `tools/goplint/CLAUDE.md` for all 26 categories and directives.
 
 ## Workflow
 1. `make check-baseline` — verify no regressions first

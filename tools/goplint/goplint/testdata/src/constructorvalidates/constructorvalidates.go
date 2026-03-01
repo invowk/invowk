@@ -79,7 +79,7 @@ type engineImpl struct {
 	name string // want `struct field constructorvalidates\.engineImpl\.name uses primitive type string`
 }
 
-func (e *engineImpl) Run() error     { return nil }
+func (e *engineImpl) Run() error      { return nil }
 func (e *engineImpl) Validate() error { return nil }
 
 func NewEngine(name string) Engine { // want `parameter "name" of constructorvalidates\.NewEngine uses primitive type string`
@@ -377,4 +377,57 @@ func NewMultiPathAllPaths(name string, mode bool) (*MultiPath, error) { // want 
 		}
 	}
 	return m, nil
+}
+
+// --- Early error return should not require Validate() on nil return paths ---
+
+type EarlyReturn struct {
+	name string // want `struct field constructorvalidates\.EarlyReturn\.name uses primitive type string`
+}
+
+func (e *EarlyReturn) Validate() error {
+	if e.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+// NewEarlyReturn validates on the success path. The early nil/error return
+// must not force a constructor-validates finding.
+func NewEarlyReturn(name string, fail bool) (*EarlyReturn, error) { // want `parameter "name" of constructorvalidates\.NewEarlyReturn uses primitive type string`
+	if fail {
+		return nil, fmt.Errorf("forced failure")
+	}
+	e := &EarlyReturn{name: name}
+	if err := e.Validate(); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+// --- Path-sensitive transitive validation ---
+
+type PathSensitive struct {
+	name string // want `struct field constructorvalidates\.PathSensitive\.name uses primitive type string`
+}
+
+func (p *PathSensitive) Validate() error {
+	if p.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+func maybeValidatePathSensitive(p *PathSensitive) {
+	if false {
+		_ = p.Validate()
+	}
+}
+
+// NewPathSensitive only calls a helper that validates on a dead branch.
+// SHOULD be flagged by constructor-validates.
+func NewPathSensitive(name string) (*PathSensitive, error) { // want `parameter "name" of constructorvalidates\.NewPathSensitive uses primitive type string` `constructor constructorvalidates\.NewPathSensitive returns constructorvalidates\.PathSensitive which has Validate\(\) but never calls it`
+	p := &PathSensitive{name: name}
+	maybeValidatePathSensitive(p)
+	return p, nil
 }
