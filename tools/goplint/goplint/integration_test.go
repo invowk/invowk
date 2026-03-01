@@ -475,13 +475,36 @@ func TestCheckConstructorReturnError(t *testing.T) {
 // TestConstructorValidatesCrossPackage exercises --check-constructor-validates
 // with a cross-package helper annotated with //goplint:validates-type=TypeName.
 // Verifies that the ValidatesTypeFact is exported from the helper package and
-// imported correctly in the consuming package.
+// imported correctly in the consuming package. Also enables
+// --check-constructor-return-error since the shared fixture has expectations
+// for both checks.
 //
 // NOT parallel: shares Analyzer.Flags state.
 func TestConstructorValidatesCrossPackage(t *testing.T) {
 	testdata := analysistest.TestData()
 	t.Cleanup(func() { resetFlags(t) })
 	resetFlags(t)
+	setFlag(t, "check-constructor-validates", "true")
+	setFlag(t, "check-constructor-return-error", "true")
+
+	analysistest.Run(t, testdata, Analyzer,
+		"constructorvalidates_cross/util",
+		"constructorvalidates_cross/myapp")
+}
+
+// TestCheckConstructorReturnErrorCrossPackage exercises
+// --check-constructor-return-error against the cross-package fixture.
+// Verifies that constructors returning cross-package types with Validate()
+// but no error return are flagged, while those returning error are safe.
+// Also enables --check-constructor-validates since the shared fixture has
+// expectations for both checks.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckConstructorReturnErrorCrossPackage(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-return-error", "true")
 	setFlag(t, "check-constructor-validates", "true")
 
 	analysistest.Run(t, testdata, Analyzer,

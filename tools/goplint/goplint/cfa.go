@@ -225,6 +225,8 @@ func dfsUnvalidatedPath(succs []*gocfg.Block, varName string, visited map[int32]
 //   - Passing varName as a function argument: useFunc(x)
 //   - Method call on varName where the method is not Validate, String,
 //     Error, or GoString: x.Setup()
+//   - Composite literal field value: SomeStruct{Field: x} or map[K]V{"k": x}
+//   - Channel send value: ch <- x
 //
 // What does NOT count as a use:
 //   - x.Validate() — the validation call itself
@@ -239,6 +241,28 @@ func isVarUse(node ast.Node, varName string) bool {
 		}
 		if _, ok := n.(*ast.FuncLit); ok {
 			return false
+		}
+
+		// Composite literal field value: SomeStruct{Field: x} or
+		// map[K]V{"k": x}. Placing an unvalidated value into a
+		// struct or map field is a meaningful consumption.
+		if kv, ok := n.(*ast.KeyValueExpr); ok {
+			if ident, ok := kv.Value.(*ast.Ident); ok && ident.Name == varName {
+				found = true
+				return false
+			}
+			return true
+		}
+
+		// Channel send: ch <- x. Sending an unvalidated value on
+		// a channel propagates it to another goroutine without
+		// validation guarantees.
+		if send, ok := n.(*ast.SendStmt); ok {
+			if ident, ok := send.Value.(*ast.Ident); ok && ident.Name == varName {
+				found = true
+				return false
+			}
+			return true
 		}
 
 		call, ok := n.(*ast.CallExpr)

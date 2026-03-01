@@ -366,6 +366,8 @@ Reports type conversions from raw primitives (string, int, etc.) to DDD Value Ty
 - **Chained `.Validate()`** (`DddType(s).Validate()`) — validated directly on cast result
 - **Error-message sources** (`DddType(err.Error())`, `DddType(fmt.Sprintf(...))`) — display text, not raw input
 - **`strings.*` comparison** arguments (`strings.Contains(string(DddType(s)), "prefix")`) — comparison predicates (Contains, HasPrefix, HasSuffix, EqualFold) are semantically comparison operations
+- **`slices.*` comparison** arguments (`slices.Contains(items, DddType(s))`) — membership/lookup predicates (Contains, ContainsFunc, Index, IndexFunc) are semantically comparison operations
+- **`errors.*` comparison** arguments (`errors.Is(err, DddType(s))`) — error identity/type matching (Is, As) are semantically comparison operations
 - **Casts inside closures** (`go func() { DddType(s) }()`) — in AST mode, closure bodies are skipped to avoid false positive/negative from shared variable namespaces; with `--cfa`, closures are analyzed independently
 
 **Conservative heuristic (AST mode):** Uses variable-name matching within a single function (excluding closures). If `x.Validate()` appears anywhere in the function body, all casts assigned to `x` are considered validated. No control-flow or ordering analysis. With `--cfa`, this heuristic is replaced by CFG path-reachability analysis.
@@ -456,11 +458,13 @@ CFA replaces the AST name-based heuristic in `--check-cast-validation` with CFG 
 
 ### `--check-use-before-validate`
 
-Reports DDD Value Type variables that are used (passed as a function argument or non-display method receiver) before `Validate()` is called in the same basic block. This is a CFA-only check — it requires `--check-cast-validation` to be active and CFA to be enabled (default).
+Reports DDD Value Type variables that are used before `Validate()` is called in the same basic block. This is a CFA-only check — it requires `--check-cast-validation` to be active and CFA to be enabled (default).
 
 **What counts as a "use":**
 - Passing the variable as a function argument: `useFunc(x)`
 - Method call on the variable where the method is not `Validate`, `String`, `Error`, or `GoString`: `x.Setup()`
+- Composite literal field value: `SomeStruct{Field: x}` or `map[K]V{"k": x}`
+- Channel send value: `ch <- x`
 
 **What does NOT count as a "use":**
 - `x.Validate()` — the validation call itself

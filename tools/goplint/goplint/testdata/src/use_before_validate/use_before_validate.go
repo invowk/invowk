@@ -128,3 +128,56 @@ func MethodReceiverValidateFirst(raw string) { // want `parameter "raw" of use_b
 	}
 	_ = x.IsBuiltin()
 }
+
+// --- Composite literal UBV tests ---
+
+// Holder is a struct used to test composite literal UBV detection.
+type Holder struct {
+	Cmd CommandName
+}
+
+// StructLiteralUseBeforeValidate — SHOULD be flagged. The variable x
+// is placed in a struct literal field before Validate() is called.
+func StructLiteralUseBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate\.StructLiteralUseBeforeValidate uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	_ = Holder{Cmd: x}
+	return x.Validate()
+}
+
+// StructLiteralAfterValidate — should NOT be flagged. Validate() is
+// called before the variable is placed in a struct literal.
+func StructLiteralAfterValidate(raw string) { // want `parameter "raw" of use_before_validate\.StructLiteralAfterValidate uses primitive type string`
+	x := CommandName(raw)
+	if err := x.Validate(); err != nil {
+		return
+	}
+	_ = Holder{Cmd: x}
+}
+
+// MapLiteralUseBeforeValidate — SHOULD be flagged. The variable x
+// is placed in a map literal value before Validate() is called.
+func MapLiteralUseBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate\.MapLiteralUseBeforeValidate uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	_ = map[string]CommandName{"key": x}
+	return x.Validate()
+}
+
+// --- Channel send UBV tests ---
+
+// ChannelSendBeforeValidate — SHOULD be flagged. The variable x
+// is sent on a channel before Validate() is called.
+func ChannelSendBeforeValidate(raw string, ch chan CommandName) error { // want `parameter "raw" of use_before_validate\.ChannelSendBeforeValidate uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	ch <- x
+	return x.Validate()
+}
+
+// ChannelSendAfterValidate — should NOT be flagged. Validate() is
+// called before the variable is sent on a channel.
+func ChannelSendAfterValidate(raw string, ch chan CommandName) { // want `parameter "raw" of use_before_validate\.ChannelSendAfterValidate uses primitive type string`
+	x := CommandName(raw)
+	if err := x.Validate(); err != nil {
+		return
+	}
+	ch <- x
+}

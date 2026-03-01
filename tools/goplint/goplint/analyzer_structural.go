@@ -141,6 +141,10 @@ func constructorReturnsError(pass *analysis.Pass, results *ast.FieldList) bool {
 //
 // Types annotated with //goplint:constant-only are exempt — their values
 // only come from compile-time constants, so Validate() never fails.
+//
+// Supports both same-package and cross-package return types. Same-package
+// types are checked via buildValidatableStructs (fast path); cross-package
+// types are resolved via the type checker using resolveReturnTypeValidateInfo.
 func inspectConstructorReturnError(
 	pass *analysis.Pass,
 	ctors map[string]*constructorFuncInfo,
@@ -150,52 +154,79 @@ func inspectConstructorReturnError(
 ) {
 	pkgName := packageName(pass.Pkg)
 
-	// Build a set of struct names that have Validate() methods.
+	// Build a set of struct names that have Validate() methods (same-package).
 	validatableStructs := buildValidatableStructs(pass)
 
-	for name, ctorInfo := range ctors {
-		// Skip constructors returning interfaces.
-		if ctorInfo.returnsInterface {
+	// Walk file decls to access FuncDecl for cross-package type resolution.
+	for _, file := range pass.Files {
+		if isTestFile(pass, file.Pos()) {
 			continue
 		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil || fn.Body == nil {
+				continue
+			}
 
-		returnType := ctorInfo.returnTypeName
-		if returnType == "" {
-			continue
+			name := fn.Name.Name
+			if !strings.HasPrefix(name, "New") || len(name) <= 3 {
+				continue
+			}
+
+			ctorInfo, exists := ctors[name]
+			if !exists {
+				continue
+			}
+
+			// Skip constructors returning interfaces.
+			if ctorInfo.returnsInterface {
+				continue
+			}
+
+			returnType := ctorInfo.returnTypeName
+			if returnType == "" {
+				continue
+			}
+
+			// Check if the return type has Validate(). Try same-package
+			// fast path first, then cross-package via type checker.
+			var returnTypePkg string
+			if validatableStructs[returnType] {
+				returnTypePkg = pkgName
+			} else {
+				hasValidate, retPkg := resolveReturnTypeValidateInfo(pass, fn)
+				if !hasValidate {
+					continue
+				}
+				returnTypePkg = retPkg
+			}
+
+			// Skip types annotated with //goplint:constant-only.
+			if constantOnlyTypes[returnType] {
+				continue
+			}
+
+			// Check if the constructor already returns error.
+			if ctorInfo.returnsError {
+				continue
+			}
+
+			qualName := fmt.Sprintf("%s.%s", pkgName, name)
+			excKey := qualName + ".constructor-return-error"
+			if cfg.isExcepted(excKey) {
+				continue
+			}
+
+			msg := fmt.Sprintf(
+				"constructor %s returns %s.%s which has Validate() but constructor does not return error",
+				qualName, returnTypePkg, returnType)
+			findingID := StableFindingID(CategoryMissingConstructorErrorReturn, qualName, returnType)
+			if bl.ContainsFinding(CategoryMissingConstructorErrorReturn, findingID, msg) {
+				continue
+			}
+
+			reportDiagnostic(pass, ctorInfo.pos, CategoryMissingConstructorErrorReturn, findingID, msg)
 		}
-
-		// Check if the return type has Validate(). Only same-package
-		// types are checked — cross-package return types would require
-		// the FuncDecl for type resolution, which is not available here.
-		if !validatableStructs[returnType] {
-			continue
-		}
-
-		// Skip types annotated with //goplint:constant-only.
-		if constantOnlyTypes[returnType] {
-			continue
-		}
-
-		// Check if the constructor already returns error.
-		if ctorInfo.returnsError {
-			continue
-		}
-
-		qualName := fmt.Sprintf("%s.%s", pkgName, name)
-		excKey := qualName + ".constructor-return-error"
-		if cfg.isExcepted(excKey) {
-			continue
-		}
-
-		msg := fmt.Sprintf(
-			"constructor %s returns %s.%s which has Validate() but constructor does not return error",
-			qualName, pkgName, returnType)
-		findingID := StableFindingID(CategoryMissingConstructorErrorReturn, qualName, returnType)
-		if bl.ContainsFinding(CategoryMissingConstructorErrorReturn, findingID, msg) {
-			continue
-		}
-
-		reportDiagnostic(pass, ctorInfo.pos, CategoryMissingConstructorErrorReturn, findingID, msg)
 	}
 }
 

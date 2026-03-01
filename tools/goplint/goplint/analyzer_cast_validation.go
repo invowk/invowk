@@ -374,7 +374,11 @@ func isStrconvCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 // (direct parent) and isAutoSkipAncestor (grandparent walk) to avoid
 // repeating the same three-way disjunction.
 func isAutoSkipCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	return isFmtCall(pass, call) || isLogCall(pass, call) || isStringsComparisonCall(pass, call)
+	return isFmtCall(pass, call) ||
+		isLogCall(pass, call) ||
+		isStringsComparisonCall(pass, call) ||
+		isSlicesComparisonCall(pass, call) ||
+		isErrorsComparisonCall(pass, call)
 }
 
 // stringsComparisonFuncs lists "strings" package functions that are
@@ -390,16 +394,61 @@ var stringsComparisonFuncs = map[string]bool{
 	"EqualFold": true,
 }
 
+// slicesComparisonFuncs lists "slices" package functions that are
+// semantically comparison or lookup operations. Casts used as arguments
+// to these are testing membership or position, not consuming the value
+// as domain input.
+//
+// Allowed: Contains, ContainsFunc, Index, IndexFunc — pure predicates.
+// Not allowed: Sort, Replace, Insert, Delete, etc. — these mutate or process.
+var slicesComparisonFuncs = map[string]bool{
+	"Contains":     true,
+	"ContainsFunc": true,
+	"Index":        true,
+	"IndexFunc":    true,
+}
+
+// isPackageFuncInSet reports whether the call targets a function in the
+// given import path whose name is in the allowed set. Used by comparison
+// auto-skip functions to avoid repeating the isPackageCall + selector
+// lookup pattern. The unchecked SelectorExpr assertion is safe because
+// isPackageCall already verified call.Fun is a *ast.SelectorExpr.
+func isPackageFuncInSet(pass *analysis.Pass, call *ast.CallExpr, importPath string, allowed map[string]bool) bool {
+	if !isPackageCall(pass, call, importPath) {
+		return false
+	}
+	sel := call.Fun.(*ast.SelectorExpr)
+	return allowed[sel.Sel.Name]
+}
+
 // isStringsComparisonCall reports whether the call targets one of the string
 // comparison functions in the "strings" package that are semantically
 // equivalent to equality/containment checks.
 func isStringsComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	if !isPackageCall(pass, call, "strings") {
-		return false
-	}
-	// isPackageCall already verified call.Fun is a *ast.SelectorExpr.
-	sel := call.Fun.(*ast.SelectorExpr)
-	return stringsComparisonFuncs[sel.Sel.Name]
+	return isPackageFuncInSet(pass, call, "strings", stringsComparisonFuncs)
+}
+
+// isSlicesComparisonCall reports whether the call targets one of the
+// comparison/lookup functions in the "slices" package that are semantically
+// equivalent to membership or position checks.
+func isSlicesComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+	return isPackageFuncInSet(pass, call, "slices", slicesComparisonFuncs)
+}
+
+// errorsComparisonFuncs lists "errors" package functions that are
+// semantically type-matching comparison operations. Casts used as
+// arguments to these are testing error identity or type, not consuming
+// the value as domain input.
+var errorsComparisonFuncs = map[string]bool{
+	"As": true,
+	"Is": true,
+}
+
+// isErrorsComparisonCall reports whether the call targets errors.Is or
+// errors.As — type-matching comparison operations where the cast value
+// is used for error identity/type matching, not as domain input.
+func isErrorsComparisonCall(pass *analysis.Pass, call *ast.CallExpr) bool {
+	return isPackageFuncInSet(pass, call, "errors", errorsComparisonFuncs)
 }
 
 // isErrorMessageExpr reports whether expr is a call that produces display

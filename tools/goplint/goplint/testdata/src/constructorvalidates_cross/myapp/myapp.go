@@ -22,3 +22,19 @@ func NewServerNoDirective(addr string) (*util.Server, error) { // want `paramete
 	s := &util.Server{Addr: addr}
 	return s, util.HelperNoDirective(s)
 }
+
+// --- Cross-package constructor-return-error tests ---
+
+// NewServerNoErrorCross returns a cross-package type (util.Server)
+// which has Validate(), but the constructor does not return error.
+// SHOULD be flagged by --check-constructor-return-error AND
+// --check-constructor-validates (never calls Validate).
+func NewServerNoErrorCross(addr string) *util.Server { // want `parameter "addr" of myapp\.NewServerNoErrorCross uses primitive type string` `constructor myapp\.NewServerNoErrorCross returns util\.Server which has Validate\(\) but never calls it` `constructor myapp\.NewServerNoErrorCross returns util\.Server which has Validate\(\) but constructor does not return error`
+	return &util.Server{Addr: addr}
+}
+
+// NewServerWithErrorCross returns a cross-package type (util.Server)
+// and already returns error. Should NOT be flagged.
+func NewServerWithErrorCross(addr string) (*util.Server, error) { // want `parameter "addr" of myapp\.NewServerWithErrorCross uses primitive type string` `constructor myapp\.NewServerWithErrorCross returns util\.Server which has Validate\(\) but never calls it`
+	return &util.Server{Addr: addr}, nil
+}

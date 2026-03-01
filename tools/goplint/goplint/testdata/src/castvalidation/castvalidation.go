@@ -3,9 +3,11 @@
 package castvalidation
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
+	"slices"
 	"strings"
 )
 
@@ -34,6 +36,19 @@ func (p PortNumber) Validate() error {
 }
 
 func (p PortNumber) String() string { return fmt.Sprintf("%d", int(p)) }
+
+// ErrorCode is a DDD Value Type that also implements the error interface.
+// Used for errors.Is/errors.As auto-skip tests.
+type ErrorCode int
+
+func (e ErrorCode) Validate() error {
+	if e < 100 || e > 599 {
+		return fmt.Errorf("invalid error code: %d", int(e))
+	}
+	return nil
+}
+
+func (e ErrorCode) Error() string { return fmt.Sprintf("error code %d", int(e)) }
 
 // NoValidate has no Validate method — casts to this should NOT be flagged.
 type NoValidate string
@@ -370,4 +385,45 @@ func StringsEqualFoldAutoSkip(input string) bool { // want `parameter "input" of
 // is not a comparison function — it processes the domain value.
 func StringsReplaceNotSkipped(input string) string { // want `parameter "input" of castvalidation\.StringsReplaceNotSkipped uses primitive type string` `return value of castvalidation\.StringsReplaceNotSkipped uses primitive type string`
 	return strings.ReplaceAll(string(CommandName(input)), "-", "_") // want `type conversion to CommandName from non-constant without Validate\(\) check`
+}
+
+// --- slices.* comparison auto-skip tests ---
+
+// SlicesContainsAutoSkip — should NOT be flagged (slices.Contains is
+// a membership predicate — the cast value is tested, not consumed).
+func SlicesContainsAutoSkip(input string) bool { // want `parameter "input" of castvalidation\.SlicesContainsAutoSkip uses primitive type string`
+	items := []CommandName{CommandName("run"), CommandName("build")}
+	return slices.Contains(items, CommandName(input)) // NOT flagged — comparison
+}
+
+// SlicesIndexAutoSkip — should NOT be flagged (slices.Index is
+// a lookup predicate — the cast value is tested for position, not consumed).
+func SlicesIndexAutoSkip(input string) int { // want `parameter "input" of castvalidation\.SlicesIndexAutoSkip uses primitive type string` `return value of castvalidation\.SlicesIndexAutoSkip uses primitive type int`
+	items := []CommandName{CommandName("run"), CommandName("build")}
+	return slices.Index(items, CommandName(input)) // NOT flagged — comparison
+}
+
+// SlicesSortNotSkipped — SHOULD be flagged because slices.SortFunc
+// is not a comparison function — it processes/mutates the domain values.
+func SlicesSortNotSkipped(input string) { // want `parameter "input" of castvalidation\.SlicesSortNotSkipped uses primitive type string`
+	items := []CommandName{CommandName(input)} // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	slices.SortFunc(items, func(a, b CommandName) int { return 0 })
+	_ = items
+}
+
+// --- errors.Is/errors.As comparison auto-skip tests ---
+
+// ErrorsIsAutoSkip — should NOT be flagged (errors.Is is a type/identity
+// comparison operation — the cast value is used for error matching).
+func ErrorsIsAutoSkip(input int) bool { // want `parameter "input" of castvalidation\.ErrorsIsAutoSkip uses primitive type int`
+	err := errors.New("test")
+	return errors.Is(err, ErrorCode(input)) // NOT flagged — comparison
+}
+
+// ErrorsAsAutoSkip — should NOT be flagged (errors.As is a type-matching
+// comparison operation). The cast ErrorCode(runtimeInt()) appears as an
+// argument to errors.As, which is an auto-skip context.
+func ErrorsAsAutoSkip() bool {
+	err := errors.New("test")
+	return errors.As(err, ErrorCode(runtimeInt())) // NOT flagged — comparison
 }

@@ -169,6 +169,16 @@ func collectEnumCueAnnotations(pass *analysis.Pass) []enumCueAnnotation {
 // and int literal values from switch case clauses. Handles direct literals
 // (case "native":), named constants (case RuntimeNative:), and conversion
 // switches (switch string(v) { ... }).
+//
+// Limitation: collects cases from ALL switch statements in the body, not
+// just the one matching the annotated type's value. If a Validate() method
+// contains multiple switches for different concerns (e.g., validating both
+// an enum field and a range field), literals from all switches are merged.
+// This could cause false enum-cue-extra-go findings for the non-enum switch.
+// Current production types all use single-switch Validate() methods, so this
+// is not an issue today. A future improvement could scope collection to
+// switches whose tag expression references the receiver (e.g., switch t { },
+// switch string(t) { }) by threading the receiver name from the caller.
 func extractSwitchCaseLiterals(pass *analysis.Pass, body *ast.BlockStmt) []string {
 	var literals []string
 	seen := make(map[string]bool)
