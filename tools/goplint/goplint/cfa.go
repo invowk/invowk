@@ -8,6 +8,40 @@ import (
 	gocfg "golang.org/x/tools/go/cfg"
 )
 
+// collectDeferredClosureLits scans a function or closure body for deferred
+// closures: defer func() { ... }(). Returns the set of *ast.FuncLit nodes
+// that are deferred. These closures are guaranteed to execute before the
+// enclosing function returns (Go spec), so Validate() calls inside them
+// validate the outer function's path — unlike goroutine closures which
+// execute concurrently with no ordering guarantee.
+//
+// The scan is shallow: it finds FuncLit nodes that are directly invoked by
+// a DeferStmt. Nested closures inside deferred closures are not collected
+// here — they are handled by their own collectDeferredClosureLits call
+// when inspectClosureCastsCFA processes them.
+func collectDeferredClosureLits(body *ast.BlockStmt) map[*ast.FuncLit]bool {
+	if body == nil {
+		return nil
+	}
+	var result map[*ast.FuncLit]bool
+	ast.Inspect(body, func(n ast.Node) bool {
+		deferStmt, ok := n.(*ast.DeferStmt)
+		if !ok {
+			return true
+		}
+		// defer expr() — the deferred expression is always a CallExpr.
+		// Check if the call's function is a FuncLit: defer func() { ... }()
+		if funcLit, ok := deferStmt.Call.Fun.(*ast.FuncLit); ok {
+			if result == nil {
+				result = make(map[*ast.FuncLit]bool)
+			}
+			result[funcLit] = true
+		}
+		return true
+	})
+	return result
+}
+
 // buildFuncCFG constructs a control-flow graph for a function body using
 // conservative mayReturn (all calls may return). Returns nil if body is nil.
 //
@@ -42,9 +76,11 @@ func findDefiningBlock(g *gocfg.CFG, target ast.Node) (*gocfg.Block, int) {
 
 // nodeSliceContainsValidateCall checks whether any node in the given
 // slice contains a varName.Validate() selector call expression.
-func nodeSliceContainsValidateCall(nodes []ast.Node, varName string) bool {
+// Deferred closures in deferredLits are descended into (their Validate
+// calls count as outer-path validation); other closures are skipped.
+func nodeSliceContainsValidateCall(nodes []ast.Node, varName string, deferredLits map[*ast.FuncLit]bool) bool {
 	for _, node := range nodes {
-		if containsValidateCall(node, varName) {
+		if containsValidateCall(node, varName, deferredLits) {
 			return true
 		}
 	}
@@ -53,20 +89,27 @@ func nodeSliceContainsValidateCall(nodes []ast.Node, varName string) bool {
 
 // containsValidateCall checks whether a single AST node or any of its
 // descendants contains a varName.Validate() call. Closures (FuncLit) are
-// NOT descended into — they are analyzed independently with their own CFGs,
-// and a Validate() call inside a goroutine closure does not guarantee
-// execution before the outer function returns.
-func containsValidateCall(node ast.Node, varName string) bool {
+// NOT descended into by default — they are analyzed independently with
+// their own CFGs, and a Validate() call inside a goroutine closure does
+// not guarantee execution before the outer function returns.
+//
+// Exception: deferred closures (FuncLit nodes in deferredLits) ARE
+// descended into. Go guarantees that deferred functions execute before
+// the enclosing function returns, so a Validate() call inside a deferred
+// closure does validate the outer function's path. This distinguishes
+// defer func() { x.Validate() }() (safe) from go func() { x.Validate() }()
+// (unsafe).
+func containsValidateCall(node ast.Node, varName string, deferredLits map[*ast.FuncLit]bool) bool {
 	found := false
 	ast.Inspect(node, func(n ast.Node) bool {
 		if found {
 			return false
 		}
-		// Do not descend into closures — they have independent
-		// validation scopes. A goroutine's Validate() does not
-		// validate the outer function's path.
-		if _, ok := n.(*ast.FuncLit); ok {
-			return false
+		// Closures: descend into deferred closures (guaranteed
+		// to execute before return) but skip goroutine and
+		// immediate closures (no execution ordering guarantee).
+		if lit, ok := n.(*ast.FuncLit); ok {
+			return deferredLits[lit]
 		}
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
@@ -92,15 +135,19 @@ func containsValidateCall(node ast.Node, varName string) bool {
 }
 
 // blockContainsValidateCall checks all nodes in a CFG block for a
-// varName.Validate() call.
-func blockContainsValidateCall(block *gocfg.Block, varName string) bool {
-	return nodeSliceContainsValidateCall(block.Nodes, varName)
+// varName.Validate() call. Deferred closures in deferredLits are
+// descended into.
+func blockContainsValidateCall(block *gocfg.Block, varName string, deferredLits map[*ast.FuncLit]bool) bool {
+	return nodeSliceContainsValidateCall(block.Nodes, varName, deferredLits)
 }
 
 // hasPathToReturnWithoutValidate performs a depth-first search from the
 // defining block (starting after defIdx) through CFG successors. Returns
 // true if any path from the cast definition to a return block never passes
 // through a Validate() call on varName.
+//
+// Deferred closures in deferredLits are recognized as containing Validate
+// calls when applicable (their execution before return is guaranteed).
 //
 // Algorithm:
 //  1. Check remainder of defBlock.Nodes[defIdx+1:] for Validate call.
@@ -115,10 +162,11 @@ func hasPathToReturnWithoutValidate(
 	defBlock *gocfg.Block,
 	defIdx int,
 	varName string,
+	deferredLits map[*ast.FuncLit]bool,
 ) bool {
 	// Check the remainder of the defining block after the cast.
 	remainder := defBlock.Nodes[defIdx+1:]
-	if nodeSliceContainsValidateCall(remainder, varName) {
+	if nodeSliceContainsValidateCall(remainder, varName, deferredLits) {
 		return false // validated in same block after cast
 	}
 
@@ -131,13 +179,13 @@ func hasPathToReturnWithoutValidate(
 	visited := make(map[int32]bool)
 	visited[defBlock.Index] = true
 
-	return dfsUnvalidatedPath(defBlock.Succs, varName, visited)
+	return dfsUnvalidatedPath(defBlock.Succs, varName, visited, deferredLits)
 }
 
 // dfsUnvalidatedPath recursively checks whether any path through the given
 // successor blocks reaches a return block without encountering a Validate()
-// call on varName.
-func dfsUnvalidatedPath(succs []*gocfg.Block, varName string, visited map[int32]bool) bool {
+// call on varName. Deferred closures in deferredLits are descended into.
+func dfsUnvalidatedPath(succs []*gocfg.Block, varName string, visited map[int32]bool, deferredLits map[*ast.FuncLit]bool) bool {
 	for _, succ := range succs {
 		if visited[succ.Index] {
 			continue
@@ -151,7 +199,7 @@ func dfsUnvalidatedPath(succs []*gocfg.Block, varName string, visited map[int32]
 		}
 
 		// If this block contains Validate(), this path is safe.
-		if blockContainsValidateCall(succ, varName) {
+		if blockContainsValidateCall(succ, varName, deferredLits) {
 			continue
 		}
 
@@ -162,7 +210,7 @@ func dfsUnvalidatedPath(succs []*gocfg.Block, varName string, visited map[int32]
 		}
 
 		// Recurse into successors.
-		if dfsUnvalidatedPath(succ.Succs, varName, visited) {
+		if dfsUnvalidatedPath(succ.Succs, varName, visited, deferredLits) {
 			return true
 		}
 	}
@@ -227,21 +275,113 @@ func isVarUse(node ast.Node, varName string) bool {
 // hasUseBeforeValidateInBlock checks whether, in the nodes of a block
 // starting at startIdx, a "use" of varName appears before a Validate()
 // call. Returns true if the variable is used (as an argument or non-display
-// method receiver) before Validate() is encountered.
+// method receiver) before Validate() is encountered. Deferred closures
+// in deferredLits are recognized when checking for Validate() calls.
 //
 // Algorithm:
 //  1. Scan nodes[startIdx:] in order.
 //  2. If a Validate() call on varName is found first → return false (safe).
 //  3. If a "use" of varName is found first → return true (UBV detected).
 //  4. If neither is found → return false (no use in this block).
-func hasUseBeforeValidateInBlock(nodes []ast.Node, startIdx int, varName string) bool {
+func hasUseBeforeValidateInBlock(nodes []ast.Node, startIdx int, varName string, deferredLits map[*ast.FuncLit]bool) bool {
 	for i := startIdx; i < len(nodes); i++ {
 		node := nodes[i]
-		if containsValidateCall(node, varName) {
+		if containsValidateCall(node, varName, deferredLits) {
 			return false // Validate() seen first — safe
 		}
 		if isVarUse(node, varName) {
 			return true // use before Validate() — flagged
+		}
+	}
+	return false
+}
+
+// hasUseBeforeValidateCrossBlock performs a DFS from the defining block
+// through CFG successors to detect uses of varName that occur before
+// any Validate() call on that path. Unlike hasUseBeforeValidateInBlock
+// which only checks within the defining block, this function checks
+// across block boundaries.
+//
+// The function is only called when hasPathToReturnWithoutValidate returns
+// false (all paths DO validate) — the question is whether any path
+// uses the variable before reaching the Validate() call.
+//
+// Algorithm:
+//  1. Start from defBlock.Succs (the cast's defining block has already
+//     been checked by hasUseBeforeValidateInBlock).
+//  2. For each live, unvisited successor block:
+//     a. Scan nodes in order: if a use is found before Validate → flag.
+//     b. If Validate is found first → prune this path (validated).
+//     c. If neither is found → continue DFS to successors.
+func hasUseBeforeValidateCrossBlock(
+	defBlock *gocfg.Block,
+	defIdx int,
+	varName string,
+	deferredLits map[*ast.FuncLit]bool,
+) bool {
+	// First check remainder of defBlock for use (same-block already
+	// handled) — skip directly to successor blocks.
+	// But we need to check if defBlock remainder has validate, which
+	// would prune all successor paths.
+	remainder := defBlock.Nodes[defIdx+1:]
+	if nodeSliceContainsValidateCall(remainder, varName, deferredLits) {
+		return false // validated in same block — successors are safe
+	}
+
+	if len(defBlock.Succs) == 0 {
+		return false // return block — no successors to check
+	}
+
+	visited := make(map[int32]bool)
+	visited[defBlock.Index] = true
+
+	return dfsUseBeforeValidate(defBlock.Succs, varName, visited, deferredLits)
+}
+
+// dfsUseBeforeValidate recursively checks whether any path through
+// successor blocks contains a "use" of varName before a "Validate" call.
+// Blocks containing Validate() prune their path (downstream is safe).
+// Blocks with no use and no Validate continue the DFS.
+func dfsUseBeforeValidate(
+	succs []*gocfg.Block,
+	varName string,
+	visited map[int32]bool,
+	deferredLits map[*ast.FuncLit]bool,
+) bool {
+	for _, succ := range succs {
+		if visited[succ.Index] {
+			continue
+		}
+		visited[succ.Index] = true
+
+		if !succ.Live {
+			continue
+		}
+
+		// Scan this block's nodes in order: use vs validate.
+		foundUse := false
+		foundValidate := false
+		for _, node := range succ.Nodes {
+			if containsValidateCall(node, varName, deferredLits) {
+				foundValidate = true
+				break // Validate found first in this block — path is pruned
+			}
+			if isVarUse(node, varName) {
+				foundUse = true
+				break // use found before Validate in this block
+			}
+		}
+
+		if foundUse {
+			return true // cross-block UBV detected
+		}
+		if foundValidate {
+			continue // this path is validated — skip successors
+		}
+
+		// Neither use nor validate in this block — continue DFS.
+		if dfsUseBeforeValidate(succ.Succs, varName, visited, deferredLits) {
+			return true
 		}
 	}
 	return false

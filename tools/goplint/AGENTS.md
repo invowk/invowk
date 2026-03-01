@@ -63,6 +63,8 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `wrong-struct-validate-sig` | `--check-struct-validate` or `--check-all` | Struct has `Validate()` but wrong signature |
 | `unvalidated-cast` | `--check-cast-validation` or `--check-all` | Type conversion to DDD type from non-constant without `Validate()` check |
 | `use-before-validate` | `--check-use-before-validate` or `--check-all` | DDD Value Type variable used before Validate() in same basic block (CFA only) |
+| `use-before-validate` | `--check-use-before-validate-cross` | DDD Value Type variable used before Validate() across CFG blocks (CFA only, opt-in) |
+| `missing-constructor-error-return` | `--check-constructor-return-error` or `--check-all` | Constructor for validatable type does not return error |
 | `unused-validate-result` | `--check-validate-usage` or `--check-all` | Validate() called with result completely discarded |
 | `nonzero-value-field` | `--check-nonzero` or `--check-all` | Struct field uses nonzero type as value (should be pointer) |
 | `unused-constructor-error` | `--check-constructor-error-usage` or `--check-all` | Constructor NewXxx() error return assigned to blank identifier |
@@ -75,7 +77,7 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `overdue-review` | `--audit-review-dates` | Exception with `review_after` date that has passed |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
-The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`, and `--check-use-before-validate` in a single invocation. CFA is enabled by default (opt out via `--no-cfa`). Deliberately excludes `--audit-exceptions`, `--audit-review-dates` (config maintenance tools with per-package false positives), and `--check-enum-sync` (requires per-type opt-in directive and CUE schema files).
+The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`, `--check-use-before-validate`, and `--check-constructor-return-error` in a single invocation. CFA is enabled by default (opt out via `--no-cfa`). Deliberately excludes `--audit-exceptions`, `--audit-review-dates` (config maintenance tools with per-package false positives), `--check-enum-sync` (requires per-type opt-in directive and CUE schema files), and `--check-use-before-validate-cross` (opt-in, higher FP surface).
 
 ## Architecture
 
@@ -576,7 +578,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **`findConstructorForStruct` determinism**: Prefers exact match (`"New" + structName`) over prefix matches. Among prefix matches, picks lexicographically first name. Prevents non-deterministic results from Go map iteration order when multiple variant constructors exist.
 - **CFA import alias**: CFA files use `gocfg "golang.org/x/tools/go/cfg"` to avoid collision with the `*ExceptionConfig` parameter commonly named `cfg` in analyzer functions.
 - **CFA compartmentalization**: `cfa*.go` files may import shared helpers from `inspect.go` and `typecheck.go` but NEVER from `analyzer_cast_validation.go`. The reverse is also true. `analyzer.go` is the sole routing point. Within CFA, `cfa_collect.go` is the shared cast-collection layer.
-- **CFA `containsValidateCall` skips closures**: Does NOT descend into `*ast.FuncLit` bodies. A goroutine's `Validate()` does not validate the outer function's path. Accepted trade-off: deferred-closure `Validate()` is also not detected (suppress with `//goplint:ignore`).
+- **CFA `containsValidateCall` and deferred closures**: Does NOT descend into goroutine `*ast.FuncLit` bodies — `go func() { x.Validate() }()` does not validate the outer path. However, deferred closures ARE recognized: `defer func() { x.Validate() }()` counts as validating the outer path because Go guarantees deferred functions execute before return. The `deferredLits map[*ast.FuncLit]bool` parameter enables this distinction.
 - **CFA `if false` handling**: `go/cfg` does NOT perform constant folding. `if false { x.Validate() }` creates a structurally live block. However, the non-false path to return IS detected as unvalidated because the IfDone block has no Validate call.
 - **CFA path semantics**: CFA checks "path-to-return-without-validate," not "use-before-validate." If `x.Validate()` appears anywhere on a path from the cast to a return block, that path is considered validated regardless of whether `x` is used before the Validate call.
 

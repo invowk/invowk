@@ -122,7 +122,7 @@ func f() {
 			t.Fatal("expected at least 2 statements")
 		}
 		stmt := fn.Body.List[1]
-		if containsValidateCall(stmt, "x") {
+		if containsValidateCall(stmt, "x", nil) {
 			return // found, test passes
 		}
 		t.Error("expected to find Validate call on x")
@@ -151,7 +151,7 @@ func f() {
 			continue
 		}
 		stmt := fn.Body.List[1]
-		if containsValidateCall(stmt, "y") {
+		if containsValidateCall(stmt, "y", nil) {
 			t.Error("should not find Validate call on y when only x.Validate() exists")
 		}
 		return

@@ -220,14 +220,41 @@ func GoroutineValidateDoesNotCoverOuter(raw string) { // want `parameter "raw" o
 	useCmd(x)
 }
 
-// DeferredClosureValidate — FLAGGED. Even though defer guarantees execution
-// before return, containsValidateCall does not descend into FuncLit bodies.
-// This is an accepted trade-off: the goroutine false negative (where Validate
-// may never run) is more dangerous than the deferred-closure false positive
-// (where Validate always runs but CFA cannot see it). Suppress with
-// //goplint:ignore if needed.
+// DeferredClosureValidate — NOT flagged. Deferred closures are guaranteed
+// to execute before the enclosing function returns (Go spec), so
+// defer func() { x.Validate() }() validates the outer path. CFA recognizes
+// deferred FuncLit bodies and descends into them when checking for Validate.
 func DeferredClosureValidate(raw string) { // want `parameter "raw" of cfa_castvalidation\.DeferredClosureValidate uses primitive type string`
+	x := CommandName(raw)
+	defer func() { _ = x.Validate() }() //nolint:errcheck
+	useCmd(x)
+}
+
+// DeferredButNotValidating — FLAGGED. The deferred closure exists but does
+// NOT call Validate(). The presence of a defer does not automatically
+// suppress the finding — only a Validate() call inside the deferred closure
+// counts.
+func DeferredButNotValidating(raw string) { // want `parameter "raw" of cfa_castvalidation\.DeferredButNotValidating uses primitive type string`
 	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	defer func() { useCmd(x) }()
+}
+
+// GoAndDeferMixed — FLAGGED. The function has both go func() and
+// defer func(). The goroutine's Validate() does not cover the outer path,
+// and the defer does not call Validate(). Only the deferred closure is
+// recognized; the goroutine closure is still correctly rejected.
+func GoAndDeferMixed(raw string) { // want `parameter "raw" of cfa_castvalidation\.GoAndDeferMixed uses primitive type string`
+	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	go func() { _ = x.Validate() }() //nolint:errcheck
+	defer func() { useCmd(x) }()
+}
+
+// DeferredValidateWithGoRoutine — NOT flagged. The deferred closure calls
+// Validate(), which covers the outer path. The goroutine's Validate() is
+// irrelevant (redundant but harmless).
+func DeferredValidateWithGoRoutine(raw string) { // want `parameter "raw" of cfa_castvalidation\.DeferredValidateWithGoRoutine uses primitive type string`
+	x := CommandName(raw)
+	go func() { _ = x.Validate() }() //nolint:errcheck
 	defer func() { _ = x.Validate() }() //nolint:errcheck
 	useCmd(x)
 }

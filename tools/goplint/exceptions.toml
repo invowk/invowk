@@ -1719,6 +1719,10 @@ pattern = "invowkfile.NewModuleMetadataFromInvowkmod.constructor-validate"
 reason = "non-validating factory for CUE parsing — validation deferred to caller"
 
 [[exceptions]]
+pattern = "invowkfile.NewModuleMetadataFromInvowkmod.constructor-return-error"
+reason = "trusted source conversion factory — input Invowkmod is pre-validated by CUE parser"
+
+[[exceptions]]
 pattern = "discovery.NewDiagnostic.constructor-validate"
 reason = "constructor validates parameters inline via typed Validate() calls"
 

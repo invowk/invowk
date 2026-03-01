@@ -41,6 +41,8 @@ func resetFlags(t *testing.T) {
 	setFlag(t, "check-validate-delegation", "false")
 	setFlag(t, "check-nonzero", "false")
 	setFlag(t, "check-use-before-validate", "false")
+	setFlag(t, "check-constructor-return-error", "false")
+	setFlag(t, "check-use-before-validate-cross", "false")
 	setFlag(t, "no-cfa", "false")
 	setFlag(t, "audit-review-dates", "false")
 	setFlag(t, "check-enum-sync", "false")
@@ -101,6 +103,9 @@ func TestNewRunConfig(t *testing.T) {
 		}
 		if !rc.checkUseBeforeValidate {
 			t.Error("expected checkUseBeforeValidate = true")
+		}
+		if !rc.checkConstructorReturnError {
+			t.Error("expected checkConstructorReturnError = true")
 		}
 	})
 
@@ -450,6 +455,21 @@ func TestCheckConstructorValidates(t *testing.T) {
 	setFlag(t, "check-constructor-validates", "true")
 
 	analysistest.Run(t, testdata, Analyzer, "constructorvalidates")
+}
+
+// TestCheckConstructorReturnError exercises the --check-constructor-return-error
+// mode against the constructorreturn fixture. Verifies that constructors for
+// types with Validate() that do not return error are flagged, while constructors
+// that return error, return interfaces, or construct constant-only types are safe.
+//
+// NOT parallel: shares Analyzer.Flags state.
+func TestCheckConstructorReturnError(t *testing.T) {
+	testdata := analysistest.TestData()
+	t.Cleanup(func() { resetFlags(t) })
+	resetFlags(t)
+	setFlag(t, "check-constructor-return-error", "true")
+
+	analysistest.Run(t, testdata, Analyzer, "constructorreturn")
 }
 
 // TestConstructorValidatesCrossPackage exercises --check-constructor-validates

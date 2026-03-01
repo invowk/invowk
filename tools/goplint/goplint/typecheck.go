@@ -163,6 +163,27 @@ func returnsInterface(pass *analysis.Pass, results *ast.FieldList) bool {
 	return false
 }
 
+// buildValidatableStructs builds a set of type names in the current package
+// that have a Validate() method. Used by both inspectConstructorValidates and
+// inspectConstructorReturnError to identify types whose constructors should
+// enforce validation contracts.
+func buildValidatableStructs(pass *analysis.Pass) map[string]bool {
+	result := make(map[string]bool)
+	for _, obj := range pass.TypesInfo.Defs {
+		if obj == nil {
+			continue
+		}
+		named, ok := obj.Type().(*types.Named)
+		if !ok {
+			continue
+		}
+		if hasValidateMethod(named) {
+			result[obj.Name()] = true
+		}
+	}
+	return result
+}
+
 // isErrorType reports whether t is the built-in error interface.
 func isErrorType(t types.Type) bool {
 	// The error type is a named interface in the universe scope.

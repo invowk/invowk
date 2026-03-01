@@ -1,8 +1,45 @@
 # goplint & Type System Deferred Improvements
 
-> **STATUS: COMPLETED** — all items from the 2026-02-28 goplint precision session.
-> Items marked DONE were completed across `chore/lint-modern-go-enforcement` and
-> `chore/goplint-type-system-followups-v2` branches.
+> **STATUS: COMPLETED** — all items from the 2026-02-28 goplint precision sessions.
+> Items marked DONE were completed across `chore/lint-modern-go-enforcement`,
+> `chore/goplint-type-system-followups-v2`, and precision improvements v3 branches.
+
+## Precision Improvements v3 — DONE
+
+### 5A. Deferred-Closure Validate Recognition — DONE
+
+`defer func() { x.Validate() }()` is no longer a false positive. `containsValidateCall`
+now accepts a `deferredLits map[*ast.FuncLit]bool` parameter and descends into deferred
+closure bodies while still rejecting goroutine closures. Go guarantees deferred functions
+execute before return, so the validation is sound.
+**Files:** `cfa.go`, `cfa_cast_validation.go`, `cfa_closure.go`, `cfa_test.go`,
+`testdata/src/cfa_castvalidation/` (3 new fixture cases).
+
+### 5B. Cross-Block Use-Before-Validate (UBV v2) — DONE
+
+New `--check-use-before-validate-cross` flag (opt-in, NOT in `--check-all`). DFS from
+the defining block through CFG successors detects variables used in successor blocks
+before any Validate() call on that path. Same-block UBV (`--check-use-before-validate`)
+takes priority. New functions: `hasUseBeforeValidateCrossBlock`, `dfsUseBeforeValidate`.
+**Files:** `cfa.go`, `cfa_cast_validation.go`, `cfa_closure.go`, `analyzer.go`,
+`testdata/src/use_before_validate_cross/` (new fixture package, 6 test cases).
+
+### 5C. New Mode: `--check-constructor-return-error` — DONE
+
+Reports constructors for types with `Validate()` that do not return `error`. If Validate()
+can fail, the constructor should surface that error via `(T, error)` return. Exempt:
+constant-only types, interface returns. Included in `--check-all`. One production exception
+added: `NewModuleMetadataFromInvowkmod` (trusted source conversion factory).
+**Files:** `analyzer.go`, `analyzer_structural.go` (new `constructorReturnsError` +
+`inspectConstructorReturnError`), `exceptions.toml`, `testdata/src/constructorreturn/`
+(new fixture package, 7 test cases).
+
+### 5D. Test Fixture Hardening — DONE
+
+Added method-receiver UBV test cases (`MethodReceiverUseBeforeValidate`,
+`GoStringBeforeValidate`, `MethodReceiverValidateFirst`) to verify `isVarUse` correctly
+classifies all four exempt display methods and catches non-display method calls.
+**Files:** `testdata/src/use_before_validate/`.
 
 ## Type System Gaps
 

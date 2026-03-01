@@ -28,6 +28,7 @@ func inspectClosureCastsCFA(
 	excCfg *ExceptionConfig,
 	bl *BaselineConfig,
 	checkUBV bool,
+	checkUBVCross bool,
 ) {
 	if lit.Body == nil {
 		return
@@ -47,9 +48,15 @@ func inspectClosureCastsCFA(
 		pass, lit.Body, parentMap,
 		func(nested *ast.FuncLit, nestedIdx int) {
 			nestedPrefix := closurePrefix + "/" + strconv.Itoa(nestedIdx)
-			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl, checkUBV)
+			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl, checkUBV, checkUBVCross)
 		},
 	)
+
+	// Collect deferred closures lazily — only needed when assigned casts exist.
+	var deferredLits map[*ast.FuncLit]bool
+	if len(assignedCasts) > 0 {
+		deferredLits = collectDeferredClosureLits(lit.Body)
+	}
 
 	// Report assigned casts with unvalidated paths.
 	for _, ac := range assignedCasts {
@@ -67,11 +74,17 @@ func inspectClosureCastsCFA(
 			continue
 		}
 
-		if !hasPathToReturnWithoutValidate(closureCFG, defBlock, defIdx, ac.varName) {
-			// All paths validated. Check for use-before-validate.
-			if checkUBV && hasUseBeforeValidateInBlock(defBlock.Nodes, defIdx+1, ac.varName) {
+		if !hasPathToReturnWithoutValidate(closureCFG, defBlock, defIdx, ac.varName, deferredLits) {
+			// All paths validated. Check for use-before-validate (same-block first, then cross-block).
+			if checkUBV && hasUseBeforeValidateInBlock(defBlock.Nodes, defIdx+1, ac.varName, deferredLits) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.varName, ac.typeName)
 				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", "closure", closurePrefix, qualEnclosingFunc, ac.typeName, "ubv", strconv.Itoa(ac.castIndex))
+				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
+					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+				}
+			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(defBlock, defIdx, ac.varName, deferredLits) {
+				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.varName, ac.typeName)
+				ubvID := StableFindingID(CategoryUseBeforeValidate, "cfa", "closure", closurePrefix, qualEnclosingFunc, ac.typeName, "ubv-xblock", strconv.Itoa(ac.castIndex))
 				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
 					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
 				}

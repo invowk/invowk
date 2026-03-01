@@ -90,20 +90,7 @@ func inspectConstructorValidates(
 	pkgName := packageName(pass.Pkg)
 
 	// Build a set of struct names that have Validate() methods.
-	// We check this using the type checker to find method sets.
-	validatableStructs := make(map[string]bool)
-	for _, obj := range pass.TypesInfo.Defs {
-		if obj == nil {
-			continue
-		}
-		named, ok := obj.Type().(*types.Named)
-		if !ok {
-			continue
-		}
-		if hasValidateMethod(named) {
-			validatableStructs[obj.Name()] = true
-		}
-	}
+	validatableStructs := buildValidatableStructs(pass)
 
 	// Walk all files to find constructor function bodies.
 	for _, file := range pass.Files {

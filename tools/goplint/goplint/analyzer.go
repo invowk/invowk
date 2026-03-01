@@ -59,9 +59,10 @@ const (
 	CategoryOverdueReview              = "overdue-review"
 	CategoryEnumCueMissingGo           = "enum-cue-missing-go"
 	CategoryEnumCueExtraGo             = "enum-cue-extra-go"
-	CategoryUnknownDirective           = "unknown-directive"
-	CategoryUseBeforeValidate          = "use-before-validate"
-	CategorySuggestValidateAll         = "suggest-validate-all"
+	CategoryUnknownDirective             = "unknown-directive"
+	CategoryUseBeforeValidate            = "use-before-validate"
+	CategorySuggestValidateAll           = "suggest-validate-all"
+	CategoryMissingConstructorErrorReturn = "missing-constructor-error-return"
 )
 
 // Flag binding variables for the analyzer's flag set. These are populated
@@ -87,10 +88,12 @@ var (
 	checkValidateDelegation      bool
 	checkNonZero                 bool
 	checkUseBeforeValidate       bool
-	noCFA                        bool
-	auditReviewDates             bool
-	checkEnumSync                bool
-	suggestValidateAll           bool
+	checkConstructorReturnError      bool
+	checkUseBeforeValidateCross     bool
+	noCFA                           bool
+	auditReviewDates                bool
+	checkEnumSync                   bool
+	suggestValidateAll              bool
 )
 
 // Analyzer is the goplint analysis pass. Use it with singlechecker
@@ -141,6 +144,10 @@ func init() {
 		"report exception patterns with review_after dates that have passed")
 	Analyzer.Flags.BoolVar(&checkUseBeforeValidate, "check-use-before-validate", false,
 		"report DDD Value Type variables used before Validate() in the same basic block (CFA only)")
+	Analyzer.Flags.BoolVar(&checkConstructorReturnError, "check-constructor-return-error", false,
+		"report NewXxx() constructors for validatable types that do not return error")
+	Analyzer.Flags.BoolVar(&checkUseBeforeValidateCross, "check-use-before-validate-cross", false,
+		"report DDD Value Type variables used before Validate() across CFG blocks (CFA only, opt-in)")
 	Analyzer.Flags.BoolVar(&noCFA, "no-cfa", false,
 		"disable control-flow analysis and use AST heuristic for cast-validation (CFA is enabled by default)")
 	Analyzer.Flags.BoolVar(&checkEnumSync, "check-enum-sync", false,
@@ -173,10 +180,12 @@ type runConfig struct {
 	checkValidateDelegation      bool
 	checkNonZero                 bool
 	checkUseBeforeValidate       bool
-	noCFA                        bool
-	auditReviewDates             bool
-	checkEnumSync                bool
-	suggestValidateAll           bool
+	checkConstructorReturnError      bool
+	checkUseBeforeValidateCross     bool
+	noCFA                           bool
+	auditReviewDates                bool
+	checkEnumSync                   bool
+	suggestValidateAll              bool
 }
 
 // newRunConfig reads the current flag binding values into a local config
@@ -202,7 +211,9 @@ func newRunConfig() runConfig {
 		checkValidateDelegation:      checkValidateDelegation,
 		checkNonZero:                 checkNonZero,
 		checkUseBeforeValidate:       checkUseBeforeValidate,
-		noCFA:                        noCFA,
+		checkConstructorReturnError:      checkConstructorReturnError,
+		checkUseBeforeValidateCross:     checkUseBeforeValidateCross,
+		noCFA:                           noCFA,
 		auditReviewDates:             auditReviewDates,
 		checkEnumSync:                checkEnumSync,
 		suggestValidateAll:           suggestValidateAll,
@@ -226,6 +237,7 @@ func newRunConfig() runConfig {
 		rc.checkValidateDelegation = true
 		rc.checkNonZero = true
 		rc.checkUseBeforeValidate = true
+		rc.checkConstructorReturnError = true
 	}
 	return rc
 }
@@ -246,7 +258,7 @@ func run(pass *analysis.Pass) (any, error) {
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	// Determine which data needs to be collected based on active modes.
-	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability || rc.checkStructValidate || rc.checkConstructorValidates
+	needConstructors := rc.checkConstructors || rc.checkConstructorSig || rc.checkFuncOptions || rc.checkImmutability || rc.checkStructValidate || rc.checkConstructorValidates || rc.checkConstructorReturnError
 	needStructFields := rc.checkFuncOptions || rc.checkImmutability
 	needOptionTypes := rc.checkFuncOptions
 	needWithFunctions := rc.checkFuncOptions
@@ -266,9 +278,9 @@ func run(pass *analysis.Pass) (any, error) {
 	// constantOnlyTypes tracks type names annotated with //goplint:constant-only.
 	// These types have Validate() but are only ever instantiated from
 	// compile-time constants, so their constructors are intentionally
-	// exempt from --check-constructor-validates.
+	// exempt from --check-constructor-validates and --check-constructor-return-error.
 	var constantOnlyTypes map[string]bool
-	if rc.checkConstructorValidates {
+	if rc.checkConstructorValidates || rc.checkConstructorReturnError {
 		constantOnlyTypes = make(map[string]bool)
 	}
 
@@ -366,7 +378,7 @@ func run(pass *analysis.Pass) (any, error) {
 				if rc.noCFA {
 					inspectUnvalidatedCasts(pass, n, cfg, bl)
 				} else {
-					inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate)
+					inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate, rc.checkUseBeforeValidateCross)
 				}
 			}
 
@@ -408,6 +420,11 @@ func run(pass *analysis.Pass) (any, error) {
 	}
 	if rc.checkConstructorValidates {
 		inspectConstructorValidates(pass, constructorDetails, constantOnlyTypes, cfg, bl)
+	}
+
+	// Constructor return error — constructors for validatable types should return error.
+	if rc.checkConstructorReturnError {
+		inspectConstructorReturnError(pass, constructorDetails, constantOnlyTypes, cfg, bl)
 	}
 
 	// Validate delegation — opt-in via //goplint:validate-all.
@@ -474,6 +491,7 @@ type constructorFuncInfo struct {
 	pos                    token.Pos // position for diagnostics
 	returnTypeName         string    // resolved first non-error return type name (e.g., "Config")
 	returnsInterface       bool      // first non-error return is an interface (skip sig check)
+	returnsError           bool      // last return type is error (e.g., func() (*Foo, error))
 	paramCount             int       // parameter count excluding trailing variadic option
 	hasVariadicOpt         bool      // last param is ...OptionType (func taking *TargetStruct)
 	variadicOptionTypeName string    // variadic option type name (e.g., "ConfigOption")

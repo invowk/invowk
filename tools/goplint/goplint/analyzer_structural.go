@@ -77,10 +77,12 @@ func trackConstructorDetails(pass *analysis.Pass, fn *ast.FuncDecl, seen map[str
 		pos: fn.Name.Pos(),
 	}
 
-	// Resolve return type name and detect interface returns.
+	// Resolve return type name, detect interface returns, and check for
+	// error return (last return type is error).
 	if fn.Type.Results != nil {
 		info.returnTypeName = resolveReturnTypeName(pass, fn.Type.Results)
 		info.returnsInterface = returnsInterface(pass, fn.Type.Results)
+		info.returnsError = constructorReturnsError(pass, fn.Type.Results)
 	}
 
 	// Count parameters and detect variadic option pattern.
@@ -115,6 +117,86 @@ func trackConstructorDetails(pass *analysis.Pass, fn *ast.FuncDecl, seen map[str
 	}
 
 	seen[name] = info
+}
+
+// constructorReturnsError checks if the last return type in a constructor's
+// result list is the error interface. Constructors for validatable types
+// should return (T, error) so Validate() failures can propagate.
+func constructorReturnsError(pass *analysis.Pass, results *ast.FieldList) bool {
+	if results == nil || len(results.List) == 0 {
+		return false
+	}
+	lastField := results.List[len(results.List)-1]
+	resolved := pass.TypesInfo.TypeOf(lastField.Type)
+	if resolved == nil {
+		return false
+	}
+	return isErrorType(resolved)
+}
+
+// inspectConstructorReturnError checks whether NewXxx() constructors for
+// types with Validate() include error in their return signature. If the
+// constructed type has Validate(), the constructor should return (T, error)
+// so validation failures can be surfaced to the caller.
+//
+// Types annotated with //goplint:constant-only are exempt — their values
+// only come from compile-time constants, so Validate() never fails.
+func inspectConstructorReturnError(
+	pass *analysis.Pass,
+	ctors map[string]*constructorFuncInfo,
+	constantOnlyTypes map[string]bool,
+	cfg *ExceptionConfig,
+	bl *BaselineConfig,
+) {
+	pkgName := packageName(pass.Pkg)
+
+	// Build a set of struct names that have Validate() methods.
+	validatableStructs := buildValidatableStructs(pass)
+
+	for name, ctorInfo := range ctors {
+		// Skip constructors returning interfaces.
+		if ctorInfo.returnsInterface {
+			continue
+		}
+
+		returnType := ctorInfo.returnTypeName
+		if returnType == "" {
+			continue
+		}
+
+		// Check if the return type has Validate(). Only same-package
+		// types are checked — cross-package return types would require
+		// the FuncDecl for type resolution, which is not available here.
+		if !validatableStructs[returnType] {
+			continue
+		}
+
+		// Skip types annotated with //goplint:constant-only.
+		if constantOnlyTypes[returnType] {
+			continue
+		}
+
+		// Check if the constructor already returns error.
+		if ctorInfo.returnsError {
+			continue
+		}
+
+		qualName := fmt.Sprintf("%s.%s", pkgName, name)
+		excKey := qualName + ".constructor-return-error"
+		if cfg.isExcepted(excKey) {
+			continue
+		}
+
+		msg := fmt.Sprintf(
+			"constructor %s returns %s.%s which has Validate() but constructor does not return error",
+			qualName, pkgName, returnType)
+		findingID := StableFindingID(CategoryMissingConstructorErrorReturn, qualName, returnType)
+		if bl.ContainsFinding(CategoryMissingConstructorErrorReturn, findingID, msg) {
+			continue
+		}
+
+		reportDiagnostic(pass, ctorInfo.pos, CategoryMissingConstructorErrorReturn, findingID, msg)
+	}
 }
 
 // countParams counts the total number of parameters in a field list,

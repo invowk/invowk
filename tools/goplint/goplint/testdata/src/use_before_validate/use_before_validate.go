@@ -28,6 +28,13 @@ func runtimeString() string { return "test" } // want `return value of use_befor
 
 func useCmd(_ CommandName) {}
 
+// IsBuiltin is a non-display method on CommandName used to test
+// that non-display method receivers are detected as "uses" by UBV.
+func (c CommandName) IsBuiltin() bool { return c == "help" }
+
+// GoString implements fmt.GoStringer (display-only, exempt from UBV).
+func (c CommandName) GoString() string { return "CommandName(" + string(c) + ")" }
+
 // Server is a type with methods for receiver-use testing.
 type Server struct {
 	cmd CommandName
@@ -91,4 +98,33 @@ func UseInFuncArgBeforeValidate(raw string) error { // want `parameter "raw" of 
 	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
 	fmt.Println(x) // passes x as an argument (not x.String())
 	return x.Validate()
+}
+
+// --- Method receiver UBV tests ---
+
+// MethodReceiverUseBeforeValidate — SHOULD be flagged. The variable x
+// is used as a method receiver (x.IsBuiltin()) before Validate().
+// IsBuiltin is not a display-only method (not String/Error/GoString/Validate).
+func MethodReceiverUseBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate\.MethodReceiverUseBeforeValidate uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	_ = x.IsBuiltin()
+	return x.Validate()
+}
+
+// GoStringBeforeValidate — should NOT be flagged. GoString() is
+// display-only (implements fmt.GoStringer) and does not count as a "use."
+func GoStringBeforeValidate(raw string) error { // want `parameter "raw" of use_before_validate\.GoStringBeforeValidate uses primitive type string`
+	x := CommandName(raw)
+	_ = x.GoString()
+	return x.Validate()
+}
+
+// MethodReceiverValidateFirst — should NOT be flagged. Validate() is
+// called before the non-display method.
+func MethodReceiverValidateFirst(raw string) { // want `parameter "raw" of use_before_validate\.MethodReceiverValidateFirst uses primitive type string`
+	x := CommandName(raw)
+	if err := x.Validate(); err != nil {
+		return
+	}
+	_ = x.IsBuiltin()
 }
