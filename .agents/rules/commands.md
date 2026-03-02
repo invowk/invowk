@@ -16,6 +16,7 @@
 | Type check (all JSON) | `make check-types-all-json` |
 | Baseline check | `make check-baseline` |
 | Baseline update | `make update-baseline` |
+| File length check | `make check-file-length` |
 | Agent docs check | `make check-agent-docs` |
 | License check | `make license-check` |
 | Tidy deps | `make tidy` |

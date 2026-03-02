@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -16,26 +17,61 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Re-export deps constants for backward compatibility within cmd package.
 const (
 	// ArgErrMissingRequired indicates missing required arguments.
-	ArgErrMissingRequired ArgErrType = iota
+	ArgErrMissingRequired = deps.ArgErrMissingRequired
 	// ArgErrTooMany indicates too many arguments were provided.
-	ArgErrTooMany
+	ArgErrTooMany = deps.ArgErrTooMany
 	// ArgErrInvalidValue indicates an argument value failed validation.
-	ArgErrInvalidValue
+	ArgErrInvalidValue = deps.ArgErrInvalidValue
 )
 
+// Re-export deps sentinel errors and function aliases for backward compatibility
+// within cmd package. These allow existing cmd-internal code and tests to call
+// the functions without a deps. prefix, preserving pre-extraction call sites.
 var (
 	// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
-	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
-	ErrInvalidArgErrType = errors.New("invalid argument error type") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
+	ErrInvalidArgErrType = deps.ErrInvalidArgErrType //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
 
 	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
-	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
-	ErrInvalidDependencyMessage = errors.New("invalid dependency message")
+	ErrInvalidDependencyMessage = deps.ErrInvalidDependencyMessage
+
+	validateRuntimeDependencies      = deps.ValidateRuntimeDependencies
+	checkCommandDependenciesExist    = deps.CheckCommandDependenciesExist
+	checkHostToolDependencies        = deps.CheckHostToolDependencies
+	checkHostFilepathDependencies    = deps.CheckHostFilepathDependencies
+	checkCapabilityDependencies      = deps.CheckCapabilityDependencies
+	checkHostCustomCheckDependencies = deps.CheckHostCustomCheckDependencies
+	checkEnvVarDependencies          = deps.CheckEnvVarDependencies
+	validateArguments                = deps.ValidateArguments
+	capabilityCheckScript            = deps.CapabilityCheckScript
+	shellEscapeSingleQuote           = deps.ShellEscapeSingleQuote
+	isExecutable                     = deps.IsExecutable
 )
 
+// Re-export deps types for backward compatibility within cmd package.
+// These aliases allow existing cmd-internal code and tests to reference
+// the types without a deps. prefix.
 type (
+	// DependencyMessage is a pre-formatted dependency validation message.
+	DependencyMessage = deps.DependencyMessage
+
+	// InvalidDependencyMessageError is returned when a DependencyMessage value fails validation.
+	InvalidDependencyMessageError = deps.InvalidDependencyMessageError
+
+	// DependencyError represents unsatisfied dependencies.
+	DependencyError = deps.DependencyError
+
+	// ArgErrType represents the type of argument validation error.
+	ArgErrType = deps.ArgErrType
+
+	// InvalidArgErrTypeError is returned when an ArgErrType value is not valid.
+	InvalidArgErrTypeError = deps.InvalidArgErrTypeError
+
+	// ArgumentValidationError represents an argument validation failure.
+	ArgumentValidationError = deps.ArgumentValidationError
+
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
 	// These correspond to persistent and local flags registered on the cmdCmd command.
 	cmdFlagValues struct {
@@ -49,52 +85,6 @@ type (
 		dryRun bool
 		// watch enables watch mode: re-execute command on file changes.
 		watch bool
-	}
-
-	// DependencyMessage is a pre-formatted dependency validation message
-	// used in DependencyError fields. Each message describes a single
-	// unsatisfied dependency (e.g., "  - kubectl - not found in PATH").
-	DependencyMessage string
-
-	// InvalidDependencyMessageError is returned when a DependencyMessage value
-	// fails validation (empty string).
-	InvalidDependencyMessageError struct {
-		Value DependencyMessage
-	}
-
-	// DependencyError represents unsatisfied dependencies.
-	DependencyError struct {
-		CommandName         invowkfile.CommandName
-		MissingTools        []DependencyMessage
-		MissingCommands     []DependencyMessage
-		MissingFilepaths    []DependencyMessage
-		MissingCapabilities []DependencyMessage
-		FailedCustomChecks  []DependencyMessage
-		MissingEnvVars      []DependencyMessage
-	}
-
-	//goplint:constant-only
-	//
-	// ArgErrType represents the type of argument validation error.
-	ArgErrType int
-
-	// InvalidArgErrTypeError is returned when an ArgErrType value is not
-	// one of the defined argument error types.
-	InvalidArgErrTypeError struct {
-		Value ArgErrType
-	}
-
-	// ArgumentValidationError represents an argument validation failure.
-	ArgumentValidationError struct {
-		Type         ArgErrType
-		CommandName  invowkfile.CommandName
-		ArgDefs      []invowkfile.Argument
-		ProvidedArgs []string
-		MinArgs      int
-		MaxArgs      int
-		InvalidArg   invowkfile.ArgumentName
-		InvalidValue string
-		ValueError   error
 	}
 
 	// SourceFilter represents a user-specified source constraint for disambiguation.
@@ -116,61 +106,6 @@ type (
 		Sources     []discovery.SourceID
 	}
 )
-
-// Error implements the error interface.
-func (e *InvalidArgErrTypeError) Error() string {
-	return fmt.Sprintf("invalid argument error type %d (valid: 0=missing_required, 1=too_many, 2=invalid_value)", e.Value)
-}
-
-// Unwrap returns ErrInvalidArgErrType so callers can use errors.Is for programmatic detection.
-func (e *InvalidArgErrTypeError) Unwrap() error { return ErrInvalidArgErrType }
-
-// String returns the human-readable name of the ArgErrType.
-func (t ArgErrType) String() string {
-	switch t {
-	case ArgErrMissingRequired:
-		return "missing_required"
-	case ArgErrTooMany:
-		return "too_many"
-	case ArgErrInvalidValue:
-		return "invalid_value"
-	default:
-		return fmt.Sprintf("unknown(%d)", int(t))
-	}
-}
-
-// Validate returns nil if the ArgErrType is one of the defined argument error types,
-// or a validation error if it is not.
-func (t ArgErrType) Validate() error {
-	switch t {
-	case ArgErrMissingRequired, ArgErrTooMany, ArgErrInvalidValue:
-		return nil
-	default:
-		return &InvalidArgErrTypeError{Value: t}
-	}
-}
-
-// Validate returns nil if the DependencyMessage is non-empty and non-whitespace,
-// or a validation error if it is not.
-func (m DependencyMessage) Validate() error {
-	if strings.TrimSpace(string(m)) == "" {
-		return &InvalidDependencyMessageError{Value: m}
-	}
-	return nil
-}
-
-// String returns the string representation of the DependencyMessage.
-func (m DependencyMessage) String() string {
-	return string(m)
-}
-
-// Error implements the error interface for InvalidDependencyMessageError.
-func (e *InvalidDependencyMessageError) Error() string {
-	return fmt.Sprintf("invalid dependency message: %q", e.Value)
-}
-
-// Unwrap returns ErrInvalidDependencyMessage so callers can use errors.Is for programmatic detection.
-func (e *InvalidDependencyMessageError) Unwrap() error { return ErrInvalidDependencyMessage }
 
 // parsedRuntimeMode parses the --ivk-runtime flag into a typed RuntimeMode.
 // Returns zero value ("") for empty input, which serves as the "no override" sentinel.
@@ -267,23 +202,6 @@ Examples:
 	registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
 
 	return cmdCmd
-}
-
-func (e *DependencyError) Error() string {
-	return fmt.Sprintf("dependencies not satisfied for command '%s'", e.CommandName)
-}
-
-func (e *ArgumentValidationError) Error() string {
-	switch e.Type {
-	case ArgErrMissingRequired:
-		return fmt.Sprintf("missing required arguments for command '%s': expected at least %d, got %d", e.CommandName, e.MinArgs, len(e.ProvidedArgs))
-	case ArgErrTooMany:
-		return fmt.Sprintf("too many arguments for command '%s': expected at most %d, got %d", e.CommandName, e.MaxArgs, len(e.ProvidedArgs))
-	case ArgErrInvalidValue:
-		return fmt.Sprintf("invalid value for argument '%s': %v", e.InvalidArg, e.ValueError)
-	default:
-		return fmt.Sprintf("argument validation failed for command '%s'", e.CommandName)
-	}
 }
 
 func (e *SourceNotFoundError) Error() string {

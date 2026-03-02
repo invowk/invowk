@@ -1,9 +1,16 @@
 # Rust Conversion — Remaining Items (v2)
 
-> **STATUS: PENDING** — identified during the 2026-03-01 TUI implementation session.
-> Current state: ~53K lines, 1022 tests, all files under 1000 lines.
+> **STATUS: ITEMS 1+2 COMPLETE, Batch 3a (virtual) COMPLETE** — updated 2026-03-01.
+> Current state: ~59K lines, 1123 unit tests + 140 CLI integration tests, all files under 1000 lines.
 > Previous items (v1) all complete: TUI standalone components, container dep runner,
 > RuntimeConfig.depends_on, CUE parser module wiring.
+> Item 1 (Interactive PTY): COMPLETE Mar 2026.
+> Item 2 (CLI Integration Tests): Batches 1+2 COMPLETE Mar 2026. Dynamic arg/flag parsing wired.
+>   Batch 3a (virtual core features + deps): COMPLETE Mar 2026 — 16 new test files, 108 passing,
+>   32 ignored (multi-source discovery, runtime override validation, cmd dep checking not yet wired).
+>   Also fixed: CommandName validation now allows spaces (Go parity), id:→module: CUE format consistency.
+>   Remaining: Batch 3b (container, module commands, native) + Batch 4 (uroot, TUI).
+> Item 3 (Minor Cleanup): SharedScrollState/render_header/has_tty already done.
 
 ## 1. Interactive PTY Execution Mode (TUI)
 

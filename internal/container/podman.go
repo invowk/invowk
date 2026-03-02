@@ -48,6 +48,7 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
 	allOpts := []BaseCLIEngineOption{
 		WithName(string(EngineTypePodman)),
+		WithImageExistsSubCmd("exists"),
 		WithVolumeFormatter(selinuxLabelAdder),
 		WithRunArgsTransformer(usernsKeepIDAdder),
 	}
@@ -75,6 +76,7 @@ func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...Base
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
 	allOpts := []BaseCLIEngineOption{
 		WithName(string(EngineTypePodman)),
+		WithImageExistsSubCmd("exists"),
 		WithVolumeFormatter(selinuxLabelAdder),
 		WithRunArgsTransformer(usernsKeepIDAdder),
 	}

@@ -125,6 +125,8 @@ When working in a specific code area, apply these rules and skills:
 | Code Area | Rules | Skills |
 |-----------|-------|--------|
 | `cmd/invowk/` | go-patterns, testing, licensing, commands | cli, d2-diagrams |
+| `internal/app/commandsvc/` | go-patterns, testing, licensing, package-design | cli |
+| `internal/app/deps/` | go-patterns, testing, licensing, package-design | cli |
 | `internal/app/execute/` | go-patterns, testing, licensing, package-design | cli |
 | `internal/container/` | go-patterns, testing, windows, licensing | container |
 | `internal/discovery/` | go-patterns, testing, licensing, package-design | discovery, d2-diagrams |
@@ -169,8 +171,10 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 
 ## Directory Layout
 
-- `cmd/invowk/` - CLI commands using Cobra.
+- `cmd/invowk/` - CLI adapter layer using Cobra. Thin wrappers that parse flags, build requests, call domain services, and render output.
 - `internal/` - Private packages:
+  - `app/commandsvc/` - Command execution service (hexagonal domain layer). Owns the execution pipeline: discovery, validation, SSH lifecycle, runtime dispatch. Returns raw typed errors; CLI adapter applies rendering.
+  - `app/deps/` - Dependency validation domain logic. Two-phase validation: host deps (always) + container deps (container runtime only). Exported types: `DependencyError`, `ArgumentValidationError`.
   - `app/execute/` - Execution orchestration (runtime resolution, execution context construction).
   - `config/` - Configuration management with CUE schema.
   - `container/` - Docker/Podman container engine abstraction.
@@ -188,7 +192,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `pkg/` - Public packages (cueutil, fspath, invowkmod, invowkfile, platform, types).
 - `tests/cli/` - CLI integration tests using testscript (`.txtar` files in `testdata/`).
 - `modules/` - Sample invowk modules for validation and reference.
-- `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation).
+- `scripts/` - Build, install, and release scripts (`install.sh` for Linux/macOS, `install.ps1` for Windows, `enhance-winget-manifest.sh` for WinGet CI automation, `check-file-length.sh` for 1000-line file limit enforcement).
 - `tools/` - Development tools (separate Go modules):
   - `goplint/` - Custom `go/analysis` analyzer for DDD Value Type enforcement. Detects bare primitives in struct fields, function params, and returns. Also checks for missing `Validate`/`String` methods, constructor existence/signatures, functional options patterns, and struct immutability. Run via `make check-types`. Full DDD audit via `make check-types-all`. Baseline regression gate via `make check-baseline`; update after type improvements with `make update-baseline`. Baseline format is v2 (`entries = [{id, message}]`) with legacy `messages = [...]` read fallback.
 - `specs/` - Feature specifications, research, and implementation plans.

@@ -18,7 +18,7 @@ type DockerEngine struct {
 // NewDockerEngine creates a new Docker engine.
 func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
 	path, _ := exec.LookPath("docker")
-	allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker))}
+	allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker)), WithImageExistsSubCmd("inspect")}
 	allOpts = append(allOpts, opts...)
 	// Binary path may be empty if Docker is not installed — validated later via Available().
 	return &DockerEngine{

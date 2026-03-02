@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -149,43 +150,68 @@ func TestRunDisambiguatedCommand_AttachesConfigPathToContext(t *testing.T) {
 func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 	t.Parallel()
 
-	svc := &commandService{
-		config: &fixedConfigProvider{err: errors.New("load failed")},
-		discovery: &lookupDiscoveryService{
+	// The service's discoverCommand delegates config loading to the configFallback
+	// callback. Discovery diagnostics come from the DiscoveryService. This test
+	// verifies that config-load diagnostics (produced by the fallback) are not
+	// duplicated with discovery diagnostics when the service returns both.
+	svc := commandsvc.New(
+		&fixedConfigProvider{err: errors.New("load failed")},
+		&lookupDiscoveryService{
 			lookup: discovery.LookupResult{
 				Command: &discovery.CommandInfo{
 					Name: "build",
 					Command: &invowkfile.Command{
-						Name: "build",
+						Name:            "build",
+						Implementations: buildMinimalImpl(),
 					},
+					Invowkfile: &invowkfile.Invowkfile{},
 				},
 				Diagnostics: []discovery.Diagnostic{
 					testMustDiagnostic(t, discovery.SeverityWarning, discovery.CodeCommandNotFound, "from discovery"),
 				},
 			},
 		},
-		stdout: io.Discard,
-		stderr: io.Discard,
-		ssh:    &sshServerController{},
-	}
+		io.Discard,
+		io.Discard,
+		func() map[string]string { return nil },
+		testConfigFallback,
+	)
 
-	req := ExecuteRequest{
+	req := commandsvc.Request{
 		Name:       "build",
 		ConfigPath: types.FilesystemPath("/tmp/custom.cue"),
 	}
 	ctx := contextWithConfigPath(t.Context(), string(req.ConfigPath))
 
-	_, _, diags, err := svc.discoverCommand(ctx, req)
+	// Execute the full pipeline; the service returns diagnostics from discovery only.
+	// Config diagnostics are emitted separately by the configFallback callback
+	// and should not be mixed into the discovery diagnostics.
+	_, diags, err := svc.Execute(ctx, req)
 	if err != nil {
-		t.Fatalf("discoverCommand() error = %v", err)
+		t.Fatalf("Execute() error = %v", err)
 	}
 
+	// The discovery returns 1 diagnostic; verify no duplication.
 	if len(diags) != 1 {
-		t.Fatalf("discoverCommand() diagnostics count = %d, want 1; diagnostics=%#v", len(diags), diags)
+		t.Fatalf("Execute() diagnostics count = %d, want 1; diagnostics=%#v", len(diags), diags)
 	}
 
 	if diags[0].Code() != discovery.CodeCommandNotFound {
-		t.Fatalf("discoverCommand() diagnostic code = %q, want %q", diags[0].Code(), discovery.CodeCommandNotFound)
+		t.Fatalf("Execute() diagnostic code = %q, want %q", diags[0].Code(), discovery.CodeCommandNotFound)
+	}
+}
+
+// buildMinimalImpl returns a minimal implementation set for all platforms
+// to satisfy runtime resolution in tests.
+func buildMinimalImpl() []invowkfile.Implementation {
+	return []invowkfile.Implementation{
+		{
+			Script:    "echo test",
+			Platforms: invowkfile.AllPlatformConfigs(),
+			Runtimes: []invowkfile.RuntimeConfig{
+				{Name: invowkfile.RuntimeNative},
+			},
+		},
 	}
 }
 

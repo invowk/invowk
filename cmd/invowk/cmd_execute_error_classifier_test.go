@@ -10,13 +10,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/runtime"
 )
 
-func TestClassifyExecutionError(t *testing.T) {
+// TestRenderAndWrapServiceError_ClassifiedError verifies that the CLI adapter
+// correctly renders ClassifiedError variants with appropriate styled messages
+// and issue catalog IDs.
+func TestRenderAndWrapServiceError_ClassifiedError(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -27,72 +31,64 @@ func TestClassifyExecutionError(t *testing.T) {
 		wantInStyle []string
 	}{
 		{
-			name:        "container engine unavailable maps to container issue",
-			err:         &container.EngineNotAvailableError{Engine: "podman", Reason: "not installed"},
+			name: "container engine unavailable maps to container issue",
+			err: &commandsvc.ClassifiedError{
+				Err:     &container.EngineNotAvailableError{Engine: "podman", Reason: "not installed"},
+				IssueID: issue.ContainerEngineNotFoundId,
+				Message: "",
+			},
 			wantIssueID: issue.ContainerEngineNotFoundId,
 			wantInStyle: []string{"Error:", "container engine 'podman' is not available"},
 		},
 		{
-			name:        "runtime unavailable maps to runtime issue",
-			err:         fmt.Errorf("wrapped: %w", runtime.ErrRuntimeNotAvailable),
+			name: "runtime unavailable maps to runtime issue",
+			err: &commandsvc.ClassifiedError{
+				Err:     fmt.Errorf("wrapped: %w", runtime.ErrRuntimeNotAvailable),
+				IssueID: issue.RuntimeNotAvailableId,
+				Message: "",
+			},
 			wantIssueID: issue.RuntimeNotAvailableId,
 			wantInStyle: []string{"runtime not available"},
 		},
 		{
-			name:        "permission denied maps to permission issue",
-			err:         fmt.Errorf("wrapped: %w", os.ErrPermission),
+			name: "permission denied maps to permission issue",
+			err: &commandsvc.ClassifiedError{
+				Err:     fmt.Errorf("wrapped: %w", os.ErrPermission),
+				IssueID: issue.PermissionDeniedId,
+				Message: "",
+			},
 			wantIssueID: issue.PermissionDeniedId,
 			wantInStyle: []string{"permission denied"},
 		},
 		{
-			name: "shell lookup actionable error maps to shell issue",
-			err: issue.NewErrorContext().
-				WithOperation("find shell").
-				WithSuggestion("Install bash").
-				Wrap(errors.New("no shell found in PATH")).
-				BuildError(),
-			wantIssueID: issue.ShellNotFoundId,
-			wantInStyle: []string{"Install bash"},
-		},
-		{
-			name:        "not-registered runtime maps to runtime issue via sentinel wrapping",
-			err:         fmt.Errorf("failed to get runtime: %w", fmt.Errorf("runtime 'container' not registered: %w", runtime.ErrRuntimeNotAvailable)),
-			wantIssueID: issue.RuntimeNotAvailableId,
-			wantInStyle: []string{"not registered"},
-		},
-		{
-			name:        "deadline exceeded maps to script execution with timeout message",
-			err:         context.DeadlineExceeded,
+			name: "deadline exceeded uses timed out hint",
+			err: &commandsvc.ClassifiedError{
+				Err:     context.DeadlineExceeded,
+				IssueID: issue.ScriptExecutionFailedId,
+				Message: "timed out",
+			},
 			wantIssueID: issue.ScriptExecutionFailedId,
 			wantInStyle: []string{"timed out"},
 		},
 		{
-			name:        "context cancelled maps to script execution with cancelled message",
-			err:         context.Canceled,
+			name: "context cancelled uses cancelled hint",
+			err: &commandsvc.ClassifiedError{
+				Err:     context.Canceled,
+				IssueID: issue.ScriptExecutionFailedId,
+				Message: "cancelled",
+			},
 			wantIssueID: issue.ScriptExecutionFailedId,
 			wantInStyle: []string{"cancelled"},
 		},
 		{
-			name:        "wrapped deadline exceeded preserves error chain",
-			err:         fmt.Errorf("dependency 'lint' failed: %w", context.DeadlineExceeded),
-			wantIssueID: issue.ScriptExecutionFailedId,
-			wantInStyle: []string{"timed out", "lint"},
-		},
-		{
-			name:        "unknown error falls back to script execution issue",
-			err:         errors.New("unexpected boom"),
+			name: "unknown error falls back to script execution issue",
+			err: &commandsvc.ClassifiedError{
+				Err:     errors.New("unexpected boom"),
+				IssueID: issue.ScriptExecutionFailedId,
+				Message: "",
+			},
 			wantIssueID: issue.ScriptExecutionFailedId,
 			wantInStyle: []string{"unexpected boom"},
-		},
-		{
-			name: "verbose actionable error includes chain",
-			err: issue.NewErrorContext().
-				WithOperation("find shell").
-				Wrap(errors.New("no shell found in PATH")).
-				BuildError(),
-			verbose:     true,
-			wantIssueID: issue.ShellNotFoundId,
-			wantInStyle: []string{"Error chain:"},
 		},
 	}
 
@@ -100,14 +96,21 @@ func TestClassifyExecutionError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotIssueID, styled := classifyExecutionError(tt.err, tt.verbose)
-			if gotIssueID != tt.wantIssueID {
-				t.Fatalf("classifyExecutionError() issue ID = %v, want %v", gotIssueID, tt.wantIssueID)
+			req := ExecuteRequest{Verbose: tt.verbose}
+			wrapped := renderAndWrapServiceError(tt.err, req)
+
+			svcErr, ok := errors.AsType[*ServiceError](wrapped)
+			if !ok {
+				t.Fatalf("renderAndWrapServiceError() returned %T, want *ServiceError", wrapped)
+			}
+
+			if svcErr.IssueID != tt.wantIssueID {
+				t.Fatalf("ServiceError.IssueID = %v, want %v", svcErr.IssueID, tt.wantIssueID)
 			}
 
 			for _, token := range tt.wantInStyle {
-				if !strings.Contains(strings.ToLower(styled), strings.ToLower(token)) {
-					t.Fatalf("styled message %q does not contain token %q", styled, token)
+				if !strings.Contains(strings.ToLower(svcErr.StyledMessage), strings.ToLower(token)) {
+					t.Fatalf("styled message %q does not contain token %q", svcErr.StyledMessage, token)
 				}
 			}
 		})
@@ -120,19 +123,19 @@ func TestCreateRuntimeRegistryWithDiagnostics(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.ContainerEngine = "not-a-real-engine"
 
-	result := createRuntimeRegistry(cfg, nil)
+	result := commandsvc.CreateRuntimeRegistry(cfg, nil)
 	defer result.Cleanup()
 
 	if result.Registry == nil {
-		t.Fatal("createRuntimeRegistry() returned nil registry")
+		t.Fatal("CreateRuntimeRegistry() returned nil registry")
 	}
 
 	if result.ContainerInitErr == nil {
-		t.Fatal("createRuntimeRegistry() should return container init error for invalid engine")
+		t.Fatal("CreateRuntimeRegistry() should return container init error for invalid engine")
 	}
 
 	if len(result.Diagnostics) == 0 {
-		t.Fatal("createRuntimeRegistry() should return diagnostics for invalid engine")
+		t.Fatal("CreateRuntimeRegistry() should return diagnostics for invalid engine")
 	}
 
 	foundInitDiag := false

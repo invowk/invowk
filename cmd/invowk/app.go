@@ -9,10 +9,15 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
+	"github.com/invowk/invowk/internal/app/deps"
+	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -159,37 +164,153 @@ type (
 	}
 
 	defaultDiagnosticRenderer struct{}
+
+	// cliCommandAdapter wraps commandsvc.Service with CLI rendering.
+	// It translates raw domain errors from the service into styled ServiceErrors
+	// for CLI output, and handles dry-run rendering.
+	cliCommandAdapter struct {
+		svc    *commandsvc.Service
+		stdout io.Writer
+	}
 )
 
 // NewApp creates an App with defaults for omitted dependencies.
-func NewApp(deps Dependencies) (*App, error) {
-	if deps.Stdout == nil {
-		deps.Stdout = os.Stdout
+func NewApp(d Dependencies) (*App, error) {
+	if d.Stdout == nil {
+		d.Stdout = os.Stdout
 	}
-	if deps.Stderr == nil {
-		deps.Stderr = os.Stderr
+	if d.Stderr == nil {
+		d.Stderr = os.Stderr
 	}
-	if deps.Config == nil {
-		deps.Config = config.NewProvider()
+	if d.Config == nil {
+		d.Config = config.NewProvider()
 	}
-	if deps.Discovery == nil {
-		deps.Discovery = &appDiscoveryService{config: deps.Config}
+	if d.Discovery == nil {
+		d.Discovery = &appDiscoveryService{config: d.Config}
 	}
-	if deps.Diagnostics == nil {
-		deps.Diagnostics = &defaultDiagnosticRenderer{}
+	if d.Diagnostics == nil {
+		d.Diagnostics = &defaultDiagnosticRenderer{}
 	}
-	if deps.Commands == nil {
-		deps.Commands = newCommandService(deps.Config, deps.Discovery, deps.Stdout, deps.Stderr)
+	if d.Commands == nil {
+		// Wrap loadConfigWithFallback to satisfy the commandsvc.ConfigFallbackFunc
+		// signature. Both ConfigProvider interfaces are structurally identical
+		// (Load method with same signature), so the cast is type-safe.
+		configFallback := func(ctx context.Context, provider commandsvc.ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
+			return loadConfigWithFallback(ctx, provider, configPath)
+		}
+		svc := commandsvc.New(
+			d.Config,
+			d.Discovery,
+			d.Stdout,
+			d.Stderr,
+			captureUserEnv,
+			configFallback,
+		)
+		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}
 
 	return &App{
-		Config:      deps.Config,
-		Discovery:   deps.Discovery,
-		Commands:    deps.Commands,
-		Diagnostics: deps.Diagnostics,
-		stdout:      deps.Stdout,
-		stderr:      deps.Stderr,
+		Config:      d.Config,
+		Discovery:   d.Discovery,
+		Commands:    d.Commands,
+		Diagnostics: d.Diagnostics,
+		stdout:      d.Stdout,
+		stderr:      d.Stderr,
 	}, nil
+}
+
+// Execute translates an ExecuteRequest into a commandsvc.Request, delegates
+// to the underlying service, and wraps raw domain errors into styled
+// ServiceErrors for CLI rendering. Dry-run results are rendered here.
+func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+	svcReq := toServiceRequest(req)
+	result, diags, err := a.svc.Execute(ctx, svcReq)
+
+	// Handle dry-run rendering: the service returns structured data;
+	// the CLI adapter renders it with lipgloss styles.
+	if result.DryRunData != nil {
+		renderDryRun(
+			a.stdout,
+			req,
+			&discovery.CommandInfo{SourceID: result.DryRunData.SourceID},
+			result.DryRunData.ExecCtx,
+			result.DryRunData.Selection,
+		)
+		return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
+	}
+
+	if err != nil {
+		err = renderAndWrapServiceError(err, req)
+	}
+	return ExecuteResult{ExitCode: result.ExitCode}, diags, err
+}
+
+// toServiceRequest converts the CLI-layer ExecuteRequest to a commandsvc.Request.
+func toServiceRequest(req ExecuteRequest) commandsvc.Request {
+	return commandsvc.Request{
+		Name:            req.Name,
+		Args:            req.Args,
+		Runtime:         req.Runtime,
+		Interactive:     req.Interactive,
+		Verbose:         req.Verbose,
+		FromSource:      req.FromSource,
+		ForceRebuild:    req.ForceRebuild,
+		Workdir:         req.Workdir,
+		EnvFiles:        req.EnvFiles,
+		EnvVars:         req.EnvVars,
+		ConfigPath:      req.ConfigPath,
+		FlagValues:      req.FlagValues,
+		FlagDefs:        req.FlagDefs,
+		ArgDefs:         req.ArgDefs,
+		EnvInheritMode:  req.EnvInheritMode,
+		EnvInheritAllow: req.EnvInheritAllow,
+		EnvInheritDeny:  req.EnvInheritDeny,
+		DryRun:          req.DryRun,
+		UserEnv:         req.UserEnv,
+	}
+}
+
+// renderAndWrapServiceError inspects the raw domain error from the service and
+// applies CLI rendering to produce a styled ServiceError. The error type
+// determines the issue catalog ID and rendering function.
+//
+//plint:render
+func renderAndWrapServiceError(err error, req ExecuteRequest) error {
+	if depErr, ok := errors.AsType[*deps.DependencyError](err); ok {
+		return newServiceError(err, issue.DependenciesNotSatisfiedId, RenderDependencyError(depErr))
+	}
+
+	if argErr, ok := errors.AsType[*deps.ArgumentValidationError](err); ok {
+		return newServiceError(err, issue.InvalidArgumentId, RenderArgumentValidationError(argErr))
+	}
+
+	if notAllowed, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
+		var allowed []string
+		for _, r := range notAllowed.Allowed {
+			allowed = append(allowed, string(r))
+		}
+		return newServiceError(
+			err,
+			issue.InvalidRuntimeModeId,
+			RenderRuntimeNotAllowedError(req.Name, string(req.Runtime), strings.Join(allowed, ", ")),
+		)
+	}
+
+	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
+		// Re-create the styled message using the CLI-layer error formatter.
+		var styledMsg string
+		switch classified.Message {
+		case commandsvc.HintTimedOut:
+			styledMsg = fmt.Sprintf("\n%s command timed out: %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+		case commandsvc.HintCancelled:
+			styledMsg = fmt.Sprintf("\n%s command was cancelled: %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+		default:
+			styledMsg = fmt.Sprintf("\n%s %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+		}
+		return newServiceError(classified.Err, classified.IssueID, styledMsg)
+	}
+
+	return err
 }
 
 // contextWithConfigPath attaches the explicit --ivk-config value and a per-request

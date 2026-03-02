@@ -172,22 +172,20 @@ func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID ContainerID
 }
 
 // ImageExists checks if an image exists.
+// In sandbox mode, delegates to BaseCLIEngine.ImageExistsArgs to select the
+// correct subcommand ("inspect" for Docker, "exists" for Podman) without
+// relying on a fragile engine-name string comparison.
 func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image ImageTag) (bool, error) {
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.ImageExists(ctx, image)
 	}
 
-	// Build image exists check command
-	// Podman: "image exists <image>"
-	// Docker: "image inspect <image>"
-	imageStr := string(image)
-	var checkArgs []string
-	if e.wrapped.Name() == string(EngineTypePodman) {
-		checkArgs = []string{"image", "exists", imageStr}
-	} else {
-		checkArgs = []string{"image", "inspect", imageStr}
+	baseEngine, ok := e.getBaseCLIEngine()
+	if !ok {
+		return e.wrapped.ImageExists(ctx, image)
 	}
 
+	checkArgs := baseEngine.ImageExistsArgs(image)
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), checkArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	e.CustomizeCmd(cmd)
