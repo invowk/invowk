@@ -58,6 +58,8 @@ type (
 		Value SpinnerType
 	}
 
+	//goplint:validate-all
+	//
 	// SpinOptions configures the Spin component.
 	SpinOptions struct {
 		// Title is the text displayed next to the spinner.
@@ -68,6 +70,8 @@ type (
 		Config Config
 	}
 
+	//goplint:validate-all
+	//
 	// SpinCommandOptions configures an embeddable spin component with a command.
 	SpinCommandOptions struct {
 		// Title is the text displayed next to the spinner.

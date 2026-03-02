@@ -13,11 +13,36 @@ import (
 	"github.com/invowk/invowk/pkg/fspath"
 )
 
-// scriptFileExtensions contains extensions that indicate a script file
-var scriptFileExtensions = []string{".sh", ".bash", ".ps1", ".bat", ".cmd", ".py", ".rb", ".pl", ".zsh", ".fish"}
+var (
+	// scriptFileExtensions contains extensions that indicate a script file
+	scriptFileExtensions = []string{".sh", ".bash", ".ps1", ".bat", ".cmd", ".py", ".rb", ".pl", ".zsh", ".fish"}
+
+	// ErrInvalidImplementation is the sentinel error wrapped by InvalidImplementationError.
+	ErrInvalidImplementation = errors.New("invalid implementation")
+
+	// ErrInvalidImplementationMatch is the sentinel error wrapped by InvalidImplementationMatchError.
+	ErrInvalidImplementationMatch = errors.New("invalid implementation match")
+)
 
 type (
+	// InvalidImplementationError is returned when an Implementation has invalid fields.
+	// It wraps ErrInvalidImplementation for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidImplementationError struct {
+		FieldErrors []error
+	}
+
+	// InvalidImplementationMatchError is returned when an ImplementationMatch has invalid fields.
+	// It wraps ErrInvalidImplementationMatch for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidImplementationMatchError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// Implementation represents an implementation with platform and runtime constraints
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	Implementation struct {
 		// Script contains the shell commands to execute OR a path to a script file
 		Script ScriptContent `json:"script"`
@@ -62,6 +87,8 @@ type (
 		Runtime  RuntimeMode
 	}
 
+	//goplint:validate-all
+	//
 	// ImplementationMatch represents a matched implementation for execution.
 	ImplementationMatch struct {
 		Implementation       *Implementation
@@ -91,6 +118,83 @@ func (k PlatformRuntimeKey) Validate() error {
 func (k PlatformRuntimeKey) String() string {
 	return string(k.Platform) + "/" + string(k.Runtime)
 }
+
+// Validate returns nil if the ImplementationMatch has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to Platform.Validate() (nonzero) and Runtime.Validate() (nonzero).
+// Implementation is a pointer — not validated here (caller validates separately).
+func (m ImplementationMatch) Validate() error {
+	var errs []error
+	if err := m.Platform.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Runtime.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidImplementationMatchError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidImplementationMatchError.
+func (e *InvalidImplementationMatchError) Error() string {
+	return fmt.Sprintf("invalid implementation match: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidImplementationMatch for errors.Is() compatibility.
+func (e *InvalidImplementationMatchError) Unwrap() error { return ErrInvalidImplementationMatch }
+
+// Validate returns nil if the Implementation has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to Script.Validate() (zero-valid), RuntimeConfig.Validate() for each runtime,
+// PlatformConfig.Validate() for each platform, and validates optional fields when non-empty/non-nil.
+func (s Implementation) Validate() error {
+	var errs []error
+	if err := s.Script.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	for i := range s.Runtimes {
+		if err := s.Runtimes[i].Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for i := range s.Platforms {
+		if err := s.Platforms[i].Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if s.Env != nil {
+		if err := s.Env.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if s.WorkDir != "" {
+		if err := s.WorkDir.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if s.DependsOn != nil {
+		if err := s.DependsOn.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := s.Timeout.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidImplementationError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidImplementationError.
+func (e *InvalidImplementationError) Error() string {
+	return fmt.Sprintf("invalid implementation: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidImplementation for errors.Is() compatibility.
+func (e *InvalidImplementationError) Unwrap() error { return ErrInvalidImplementation }
 
 // MatchesPlatform returns true if the implementation can run on the given platform.
 func (s *Implementation) MatchesPlatform(platform Platform) bool {

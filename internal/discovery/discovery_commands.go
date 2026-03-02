@@ -30,6 +30,8 @@ type (
 	// like command names, module IDs, or file paths.
 	SourceID string
 
+	//goplint:validate-all
+	//
 	// CommandInfo contains information about a discovered command
 	CommandInfo struct {
 		// Name is the fully qualified command name (may include module prefix and spaces,

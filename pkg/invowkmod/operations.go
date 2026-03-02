@@ -19,6 +19,8 @@ import (
 var moduleNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 
 type (
+	//goplint:validate-all
+	//
 	// CreateOptions contains options for creating a new module.
 	CreateOptions struct {
 		// Name is the module name (e.g., "com.example.mytools")

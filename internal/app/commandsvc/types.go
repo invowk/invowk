@@ -14,6 +14,8 @@ import (
 )
 
 type (
+	//goplint:validate-all
+	//
 	// Request captures all execution inputs as an immutable value.
 	// It mirrors the CLI-layer ExecuteRequest but lives in the service layer
 	// to decouple from Cobra-specific concerns.
@@ -62,6 +64,8 @@ type (
 		UserEnv map[string]string
 	}
 
+	//goplint:validate-all
+	//
 	// Result contains command execution outcomes.
 	Result struct {
 		// ExitCode is the command's exit code (0 = success).
@@ -71,6 +75,8 @@ type (
 		DryRunData *DryRunData
 	}
 
+	//goplint:validate-all
+	//
 	// DryRunData holds the structured data needed for dry-run rendering.
 	// The CLI adapter uses this to render the execution plan without
 	// importing service internals. All fields are plain types to avoid

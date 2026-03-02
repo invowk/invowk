@@ -22,8 +22,13 @@ const (
 	InvowkmodName = "invowkmod"
 )
 
-// ErrInvalidShellPath is the sentinel error wrapped by InvalidShellPathError.
-var ErrInvalidShellPath = errors.New("invalid shell path")
+var (
+	// ErrInvalidShellPath is the sentinel error wrapped by InvalidShellPathError.
+	ErrInvalidShellPath = errors.New("invalid shell path")
+
+	// ErrInvalidInvowkfile is the sentinel error wrapped by InvalidInvowkfileError.
+	ErrInvalidInvowkfile = errors.New("invalid invowkfile")
+)
 
 type (
 	// ShellPath represents a filesystem path to a shell executable.
@@ -41,9 +46,19 @@ type (
 	// Alias for PlatformType for cleaner code.
 	Platform = PlatformType
 
+	// InvalidInvowkfileError is returned when an Invowkfile has invalid fields.
+	// It wraps ErrInvalidInvowkfile for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidInvowkfileError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// Invowkfile represents command definitions from invowkfile.cue.
 	// Module metadata (module name, version, description, requires) is now in Invowkmod.
 	// This separation follows Go's pattern: invowkmod.cue is like go.mod, invowkfile.cue is like .go files.
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	Invowkfile struct {
 		// DefaultShell overrides the default shell for native runtime
 		DefaultShell ShellPath `json:"default_shell,omitempty"`
@@ -115,6 +130,62 @@ func CurrentPlatform() Platform {
 		return PlatformLinux
 	}
 }
+
+// ValidateFields returns nil if all typed fields in the Invowkfile are structurally valid,
+// or an error collecting all field-level validation failures.
+// This is the DDD Validate() equivalent; it cannot be named Validate() because
+// *Invowkfile already has a Validate(opts ...ValidateOption) ValidationErrors method
+// in validation.go that runs the full composite validation pipeline.
+// Delegates to DefaultShell (zero-valid), WorkDir (zero-valid), Env (non-nil),
+// DependsOn (non-nil), each Command, FilePath (non-empty), and ModulePath (non-empty).
+func (inv Invowkfile) ValidateFields() error {
+	var errs []error
+	if err := inv.DefaultShell.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if inv.WorkDir != "" {
+		if err := inv.WorkDir.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if inv.Env != nil {
+		if err := inv.Env.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if inv.DependsOn != nil {
+		if err := inv.DependsOn.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for i := range inv.Commands {
+		if err := inv.Commands[i].Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if inv.FilePath != "" {
+		if err := inv.FilePath.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if inv.ModulePath != "" {
+		if err := inv.ModulePath.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidInvowkfileError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidInvowkfileError.
+func (e *InvalidInvowkfileError) Error() string {
+	return fmt.Sprintf("invalid invowkfile: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidInvowkfile for errors.Is() compatibility.
+func (e *InvalidInvowkfileError) Unwrap() error { return ErrInvalidInvowkfile }
 
 // GetCommand finds a command by its name (supports names with spaces like "test unit")
 func (inv *Invowkfile) GetCommand(name CommandName) *Command {

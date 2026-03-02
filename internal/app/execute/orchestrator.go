@@ -42,6 +42,8 @@ type (
 		Allowed     []invowkfile.RuntimeMode
 	}
 
+	//goplint:validate-all
+	//
 	// BuildExecutionContextOptions configures execution-context construction.
 	//
 	// Required fields: Command, Invowkfile, and Selection must be populated
@@ -227,6 +229,12 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 	}
 	if opts.Invowkfile == nil {
 		return nil, errors.New("BuildExecutionContext: Invowkfile must not be nil")
+	}
+
+	// Validate typed fields (Selection, Workdir, EnvFiles, EnvInheritMode, etc.)
+	// after the nil pointer guards above to produce clear error messages.
+	if err := opts.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid execution context options: %w", err)
 	}
 
 	ctx := opts.Context

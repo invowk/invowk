@@ -25,6 +25,8 @@ type (
 	// Source represents where an invowkfile was found
 	Source int
 
+	//goplint:validate-all
+	//
 	// DiscoveredFile represents a found invowkfile with its source
 	DiscoveredFile struct {
 		// Path is the absolute path to the invowkfile

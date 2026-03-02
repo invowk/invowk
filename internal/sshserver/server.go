@@ -28,6 +28,8 @@ type (
 	// realClock implements Clock using actual system time.
 	realClock struct{}
 
+	//goplint:validate-all
+	//
 	// Token represents an authentication token for container callbacks.
 	Token struct {
 		Value     TokenValue
@@ -83,6 +85,8 @@ type (
 		StartupTimeout time.Duration
 	}
 
+	//goplint:validate-all
+	//
 	// ConnectionInfo contains information needed to connect to the SSH server.
 	ConnectionInfo struct {
 		Host     HostAddress

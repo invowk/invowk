@@ -316,6 +316,11 @@ func runPostTraversalChecks(
 		inspectValidateDelegation(pass, cfg, bl)
 	}
 
+	// Universal validate delegation — checks ALL structs with validatable fields.
+	if rc.checkValidateDelegationAll {
+		inspectValidateDelegationAll(pass, cfg, bl)
+	}
+
 	// Nonzero field checks — cross-package via analysis.Fact.
 	if rc.checkNonZero {
 		inspectNonZero(pass, cfg, bl)

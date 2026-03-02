@@ -32,6 +32,8 @@ type (
 		watch bool
 	}
 
+	//goplint:validate-all
+	//
 	// SourceFilter represents a user-specified source constraint for disambiguation.
 	// Parsed from @source prefix in args or --ivk-from flag.
 	SourceFilter struct {

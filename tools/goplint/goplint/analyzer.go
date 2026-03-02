@@ -63,6 +63,7 @@ const (
 	CategorySuggestValidateAll            = "suggest-validate-all"
 	CategoryMissingConstructorErrorReturn = "missing-constructor-error-return"
 	CategoryRedundantConversion           = "redundant-conversion"
+	CategoryMissingStructValidateFields   = "missing-struct-validate-fields"
 )
 
 // NewAnalyzer constructs an analyzer with isolated flag state.

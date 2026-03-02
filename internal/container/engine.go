@@ -196,6 +196,8 @@ type (
 		ExtraHosts []HostMapping
 	}
 
+	//goplint:validate-all
+	//
 	// RunResult contains the result of running a container
 	RunResult struct {
 		// ContainerID is the container ID

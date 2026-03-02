@@ -2957,4 +2957,408 @@ reason = "DependencyMessage display-text casts from fmt.Sprintf — pre-formatte
 # Annotated types: platform.SandboxType, runtime.InitDiagnosticCode,
 # issue.Id, issue.MarkdownMsg, issue.HttpLink, invowk.ArgErrType,
 # invowkfile.ValidationSeverity, invowkfile.ValidatorName.
+
+# =============================================================================
+# Struct-Validate-Fields Exceptions (--check-validate-delegation-all)
+# =============================================================================
+# These structs intentionally do NOT have Validate() methods despite having
+# validatable fields. Grouped by reason.
+
+# --- Service Objects / Lifecycle State Machines ---
+# Construction guarantees internal consistency; Validate() is not meaningful.
+
+[[exceptions]]
+pattern = "commandsvc.RuntimeRegistryResult.struct-validate-fields"
+reason = "lifecycle DTO; Registry is a service pointer, Diagnostics from runtime"
+
+[[exceptions]]
+pattern = "container.BaseCLIEngine.struct-validate-fields"
+reason = "service object; fields from constructor, binaryPath='' is valid sentinel"
+
+[[exceptions]]
+pattern = "container.SandboxAwareEngine.struct-validate-fields"
+reason = "service decorator wrapping engine; constructor-injected"
+
+[[exceptions]]
+pattern = "provision.LayerProvisioner.struct-validate-fields"
+reason = "service object; constructor-injected, always non-nil from New()"
+
+[[exceptions]]
+pattern = "sshserver.Server.struct-validate-fields"
+reason = "lifecycle state machine; post-construction state (listener, tokens)"
+
+[[exceptions]]
+pattern = "discovery.Discovery.struct-validate-fields"
+reason = "service object with functional options; fields populated incrementally"
+
+[[exceptions]]
+pattern = "discovery.CommandSetResult.struct-validate-fields"
+reason = "result wrapper; Set is service pointer from BuildCommandSet()"
+
+[[exceptions]]
+pattern = "discovery.DiscoveredCommandSet.struct-validate-fields"
+reason = "mutable collector; commands added incrementally during discovery"
+
+[[exceptions]]
+pattern = "runtime.ContainerRuntime.struct-validate-fields"
+reason = "service object; engine reference from constructor"
+
+[[exceptions]]
+pattern = "runtime.NativeRuntime.struct-validate-fields"
+reason = "service object; config reference from constructor"
+
+[[exceptions]]
+pattern = "runtime.BuildRegistryOptions.struct-validate-fields"
+reason = "optional service-dep pointers (SSHServer, Config); nil means unused"
+
+[[exceptions]]
+pattern = "watch.Watcher.struct-validate-fields"
+reason = "service object; post-construction state (baseDir, WatchConfig)"
+
+# --- Internal / Unexported Structs ---
+# Unexported structs used as internal parse-tree or exec-prep state.
+
+[[exceptions]]
+pattern = "invowk.commandGroup.struct-validate-fields"
+reason = "unexported CLI grouping struct; internal to Cobra command tree"
+
+[[exceptions]]
+pattern = "invowkfile.validateOptions.struct-validate-fields"
+reason = "unexported validation config; internal to Validate() pipeline"
+
+[[exceptions]]
+pattern = "runtime.invowkfileContainerConfig.struct-validate-fields"
+reason = "unexported internal parse-tree config extracted from invowkfile"
+
+[[exceptions]]
+pattern = "runtime.containerExecPrep.struct-validate-fields"
+reason = "unexported internal exec-prep state; many fields already excepted"
+
+# --- TUI Display DTOs ---
+# TUI option structs pass fields directly to Charm libraries (bubbletea, huh).
+# Validatable fields are display configuration only; adding Validate() provides
+# no safety benefit and would require boilerplate across 18 option structs.
+
+[[exceptions]]
+pattern = "tui.ChooseStringOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.ChooseOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.MultiChooseOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.ConfirmOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.SpinResult.struct-validate-fields"
+reason = "TUI result DTO; ExitCode is display-only"
+
+[[exceptions]]
+pattern = "tui.ModalSize.struct-validate-fields"
+reason = "TUI sizing DTO; TerminalDimension fields are display config"
+
+[[exceptions]]
+pattern = "tui.FileOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.FilterOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.FormatOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.InputOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.InteractiveOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.InteractiveResult.struct-validate-fields"
+reason = "TUI result DTO; display output only"
+
+[[exceptions]]
+pattern = "tui.TUIComponentMsg.struct-validate-fields"
+reason = "TUI message DTO; ComponentType is display config"
+
+[[exceptions]]
+pattern = "tui.PagerOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.TableColumn.struct-validate-fields"
+reason = "TUI display DTO; TextAlign is display config"
+
+[[exceptions]]
+pattern = "tui.TableOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+[[exceptions]]
+pattern = "tui.Style.struct-validate-fields"
+reason = "TUI styling DTO; lipgloss pass-through fields"
+
+[[exceptions]]
+pattern = "tui.WriteOptions.struct-validate-fields"
+reason = "TUI display DTO; validatable fields are display config"
+
+# --- Other Intentionally Deferred ---
+
+[[exceptions]]
+pattern = "invowkmod.TagInfo.struct-validate-fields"
+reason = "go-git pass-through; Name string already excepted"
+
+[[exceptions]]
+pattern = "invowkmod.GitFetcher.struct-validate-fields"
+reason = "service object; CacheDir from constructor"
+
+[[exceptions]]
+pattern = "invowkmod.LockFile.struct-validate-fields"
+reason = "mutable entity (//goplint:mutable); Modules map mutated by resolver"
+
+[[exceptions]]
+pattern = "invowkmod.UnpackOptions.struct-validate-fields"
+reason = "wire boundary; Source is external path from caller"
+
+[[exceptions]]
+pattern = "invowkmod.VendorOptions.struct-validate-fields"
+reason = "wire boundary; ModuleDir from caller"
+
+[[exceptions]]
+pattern = "invowkmod.Resolver.struct-validate-fields"
+reason = "service object; constructor-injected dependencies"
+
+[[exceptions]]
+pattern = "invowkmod.Constraint.struct-validate-fields"
+reason = "internal parse-tree; Op validated during parse, Original is display-only"
+
+# --- Invowkfile with existing Validate() collision ---
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.struct-validate-fields"
+reason = "has existing Validate(opts ...ValidateOption) ValidationErrors; DDD uses ValidateFields() instead"
+
+# =============================================================================
+# Incomplete Validate Delegation — Intentional Non-Delegation
+# =============================================================================
+# Fields that are intentionally NOT delegated in their parent's Validate()
+# because they are display-only, validated by callers, or structural references.
+
+# --- Invowkfile Validate() is the structural validator, not DDD field validator ---
+# The existing Validate(opts...) method is a full validation pipeline;
+# goplint sees it as Validate() but it doesn't do DDD field delegation.
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.DefaultShell.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.WorkDir.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.Env.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.DependsOn.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.Commands.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.FilePath.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.ModulePath.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
+[[exceptions]]
+pattern = "invowkfile.Invowkfile.Metadata.validate-delegation"
+reason = "existing Validate() is structural pipeline, not DDD field validator"
+
+# --- Implementation internal field ---
+
+[[exceptions]]
+pattern = "invowkfile.Implementation.resolvedScript.validate-delegation"
+reason = "unexported field; populated at runtime by resolve step, not at parse time"
+
+# --- ImplementationMatch nested pointer ---
+
+[[exceptions]]
+pattern = "invowkfile.ImplementationMatch.Implementation.validate-delegation"
+reason = "pointer to selected Implementation; validated separately in match pipeline"
+
+# --- Service/struct references not owned by the validator ---
+
+[[exceptions]]
+pattern = "discovery.CommandInfo.Command.validate-delegation"
+reason = "pointer to parsed invowkfile.Command; validated at parse time"
+
+[[exceptions]]
+pattern = "discovery.DiscoveredFile.Module.validate-delegation"
+reason = "pointer to loaded Module; validated at load time"
+
+[[exceptions]]
+pattern = "discovery.DiscoveredFile.ParentModule.validate-delegation"
+reason = "pointer to parent Module; validated at load time"
+
+[[exceptions]]
+pattern = "discovery.LookupResult.Diagnostics.validate-delegation"
+reason = "diagnostics collected during lookup; each validated at creation"
+
+[[exceptions]]
+pattern = "runtime.ExecutionContext.Command.validate-delegation"
+reason = "pointer to parsed invowkfile.Command; validated at parse time"
+
+[[exceptions]]
+pattern = "runtime.ExecutionContext.SelectedImpl.validate-delegation"
+reason = "pointer to resolved Implementation; validated at resolution"
+
+[[exceptions]]
+pattern = "execute.BuildExecutionContextOptions.Command.validate-delegation"
+reason = "pointer to parsed invowkfile.Command; validated at parse time"
+
+[[exceptions]]
+pattern = "execute.RuntimeSelection.impl.validate-delegation"
+reason = "unexported; resolved Implementation validated at resolution"
+
+[[exceptions]]
+pattern = "commandsvc.Result.DryRunData.validate-delegation"
+reason = "pointer to DryRunData; only populated for dry-run mode, validated separately"
+
+[[exceptions]]
+pattern = "commandsvc.DryRunData.ExecCtx.validate-delegation"
+reason = "pointer to ExecutionContext; validated at construction time"
+
+[[exceptions]]
+pattern = "invowkmod.ResolvedModule.TransitiveDeps.validate-delegation"
+reason = "slice of resolved modules; each validated during resolution"
+
+# --- Missing delegation for Arg/Flag defs in Request structs ---
+
+[[exceptions]]
+pattern = "commandsvc.Request.FlagDefs.validate-delegation"
+reason = "flag definitions from parsed invowkfile; validated at parse time"
+
+[[exceptions]]
+pattern = "commandsvc.Request.ArgDefs.validate-delegation"
+reason = "argument definitions from parsed invowkfile; validated at parse time"
+
+[[exceptions]]
+pattern = "invowk.ExecuteRequest.FlagDefs.validate-delegation"
+reason = "flag definitions from parsed invowkfile; validated at parse time"
+
+[[exceptions]]
+pattern = "invowk.ExecuteRequest.ArgDefs.validate-delegation"
+reason = "argument definitions from parsed invowkfile; validated at parse time"
+
+[[exceptions]]
+pattern = "execute.BuildExecutionContextOptions.ArgDefs.validate-delegation"
+reason = "argument definitions from parsed invowkfile; validated at parse time"
+
+# --- TUI SpinOptions/SpinCommandOptions missing Config delegation ---
+
+[[exceptions]]
+pattern = "tui.SpinOptions.Config.validate-delegation"
+reason = "TUI display config; validated at TUI init, not in option struct"
+
+[[exceptions]]
+pattern = "tui.SpinCommandOptions.Config.validate-delegation"
+reason = "TUI display config; validated at TUI init, not in option struct"
+
+# =============================================================================
+# Missing Constructor Validate / Error Return Exceptions
+# =============================================================================
+# Constructors for result types and execution contexts that don't call
+# Validate() or don't return error — these are factory functions for types
+# whose validity is guaranteed by construction.
+
+[[exceptions]]
+pattern = "runtime.NewErrorResult.constructor-validate"
+reason = "factory function; Result is always valid by construction (exit code from runtime)"
+
+[[exceptions]]
+pattern = "runtime.NewSuccessResult.constructor-validate"
+reason = "factory function; Result with ExitCode(0) is always valid"
+
+[[exceptions]]
+pattern = "runtime.NewExitCodeResult.constructor-validate"
+reason = "factory function; exit code validated at OS boundary"
+
+[[exceptions]]
+pattern = "runtime.NewExecutionContext.constructor-validate"
+reason = "factory function; context built from already-validated invowkfile data"
+
+[[exceptions]]
+pattern = "deps.NewContainerValidationContext.constructor-validate"
+reason = "factory function; returns stub context for dep validation"
+
+[[exceptions]]
+pattern = "invowkfile.NewCommandScope.constructor-validate"
+reason = "factory function; CommandScope populated from validated module data"
+
+[[exceptions]]
+pattern = "invowkmod.NewCommandScope.constructor-validate"
+reason = "factory function; CommandScope populated from validated module data"
+
+[[exceptions]]
+pattern = "runtime.NewErrorResult.constructor-return-error"
+reason = "factory function; always valid by construction"
+
+[[exceptions]]
+pattern = "runtime.NewSuccessResult.constructor-return-error"
+reason = "factory function; always valid by construction"
+
+[[exceptions]]
+pattern = "runtime.NewExitCodeResult.constructor-return-error"
+reason = "factory function; exit code validated at OS boundary"
+
+[[exceptions]]
+pattern = "runtime.NewExecutionContext.constructor-return-error"
+reason = "factory function; context built from already-validated data"
+
+[[exceptions]]
+pattern = "deps.NewContainerValidationContext.constructor-return-error"
+reason = "factory function; returns stub context"
+
+[[exceptions]]
+pattern = "invowkfile.NewCommandScope.constructor-return-error"
+reason = "factory function; populated from validated data"
+
+[[exceptions]]
+pattern = "invowkmod.NewCommandScope.constructor-return-error"
+reason = "factory function; populated from validated data"
+
+# =============================================================================
+# Remaining struct-validate-fields — New Structs Surfaced
+# =============================================================================
+
+[[exceptions]]
+pattern = "invowk.lookupCacheEntry.struct-validate-fields"
+reason = "unexported internal cache entry; populated by discovery"
+
+[[exceptions]]
+pattern = "commandsvc.resolvedDefinitions.struct-validate-fields"
+reason = "unexported internal resolution result; validated during resolution"
+
+[[exceptions]]
+pattern = "runtime.RegistryBuildResult.struct-validate-fields"
+reason = "lifecycle result; Registry is service object, Diagnostics validated at creation"
+
+[[exceptions]]
+pattern = "tui.SpinBuilder.struct-validate-fields"
+reason = "builder pattern; fields validated when Build() is called"
 # =============================================================================

@@ -26,7 +26,7 @@ type Server struct { // want `exported struct checkall\.Server has no NewServer\
 
 // Client has a constructor — not flagged for missing constructor, but
 // flagged for missing Validate() by --check-struct-validate.
-type Client struct { // want `struct checkall\.Client has constructor but no Validate\(\) method`
+type Client struct { // want `struct checkall\.Client has constructor but no Validate\(\) method` `struct checkall\.Client has 1 validatable field\(s\) but no Validate\(\) method`
 	host Mode
 }
 
@@ -210,7 +210,7 @@ func (n NonZeroID) Validate() error {
 func (n NonZeroID) String() string { return fmt.Sprintf("%d", int(n)) }
 
 // Holder uses NonZeroID as a value field (should be *NonZeroID).
-type Holder struct { // want `exported struct checkall\.Holder has no NewHolder\(\) constructor`
+type Holder struct { // want `exported struct checkall\.Holder has no NewHolder\(\) constructor` `struct checkall\.Holder has 1 validatable field\(s\) but no Validate\(\) method`
 	ID NonZeroID // want `struct field checkall\.Holder\.ID uses nonzero type NonZeroID as value`
 }
 

@@ -41,6 +41,7 @@ type BaselineConfig struct {
 	SuggestValidateAll            BaselineCategory `toml:"suggest-validate-all"`
 	MissingConstructorErrorReturn BaselineCategory `toml:"missing-constructor-error-return"`
 	RedundantConversion           BaselineCategory `toml:"redundant-conversion"`
+	MissingStructValidateFields   BaselineCategory `toml:"missing-struct-validate-fields"`
 
 	// lookupByID is an O(1) index keyed by category → finding ID.
 	lookupByID map[string]map[string]bool
@@ -273,6 +274,8 @@ func (b *BaselineConfig) categoryForName(name string) BaselineCategory {
 		return b.MissingConstructorErrorReturn
 	case CategoryRedundantConversion:
 		return b.RedundantConversion
+	case CategoryMissingStructValidateFields:
+		return b.MissingStructValidateFields
 	default:
 		return BaselineCategory{}
 	}

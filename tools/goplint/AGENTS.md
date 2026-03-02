@@ -34,6 +34,7 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Check validate delegation | `make build-goplint && ./bin/goplint -check-validate-delegation -config=tools/goplint/exceptions.toml ./...` |
 | Check nonzero fields | `make build-goplint && ./bin/goplint -check-nonzero -config=tools/goplint/exceptions.toml ./...` |
 | Check redundant conversions | `make build-goplint && ./bin/goplint -check-redundant-conversion -config=tools/goplint/exceptions.toml ./...` |
+| Check validate delegation (all) | `make build-goplint && ./bin/goplint -check-validate-delegation-all -config=tools/goplint/exceptions.toml ./...` |
 | Check enum CUE sync | `make build-goplint && ./bin/goplint -check-enum-sync -config=tools/goplint/exceptions.toml ./...` |
 | CFA cast validation (default) | `make build-goplint && ./bin/goplint -check-cast-validation -config=tools/goplint/exceptions.toml ./...` |
 | Cast validation + no-cfa contract (expected failure) | `make build-goplint && ./bin/goplint -check-cast-validation -no-cfa -config=tools/goplint/exceptions.toml ./...` |
@@ -68,7 +69,8 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `nonzero-value-field` | `--check-nonzero` or `--check-all` | Struct field uses nonzero type as value (should be pointer) |
 | `unused-constructor-error` | `--check-constructor-error-usage` or `--check-all` | Constructor NewXxx() error return assigned to blank identifier |
 | `missing-constructor-validate` | `--check-constructor-validates` or `--check-all` | Constructor returns validatable type but never calls Validate() |
-| `incomplete-validate-delegation` | `--check-validate-delegation` or `--check-all` | Struct with validate-all directive missing field Validate() delegation |
+| `incomplete-validate-delegation` | `--check-validate-delegation` or `--check-validate-delegation-all` or `--check-all` | Struct missing field Validate() delegation |
+| `missing-struct-validate-fields` | `--check-validate-delegation-all` or `--check-all` | Struct with validatable fields but no Validate() method |
 | `wrong-func-option-type` | `--check-func-options` or `--check-all` | WithXxx() parameter type does not match the struct field type |
 | `redundant-conversion` | `--check-redundant-conversion` or `--check-all` | Type conversion with redundant intermediate basic-type hop |
 | `enum-cue-missing-go` | `--check-enum-sync` | CUE disjunction member not in Go Validate() switch |
@@ -77,7 +79,7 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `overdue-review` | `--audit-review-dates` | Exception with `review_after` date that has passed |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
 
-The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`, `--check-use-before-validate`, `--check-constructor-return-error`, and `--check-redundant-conversion` in a single invocation. `--check-all` includes CFA-only checks, so `--no-cfa` is rejected in combination with `--check-all`. Deliberately excludes `--audit-exceptions`, `--audit-review-dates` (config maintenance tools with per-package false positives), `--check-enum-sync` (requires per-type opt-in directive and CUE schema files), `--check-use-before-validate-cross` (not in the flag itself, but explicitly added by `make check-baseline` and `make check-types-all`), and `--suggest-validate-all` (advisory mode).
+The `--check-all` flag enables `--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-validate-delegation-all`, `--check-nonzero`, `--check-use-before-validate`, `--check-constructor-return-error`, and `--check-redundant-conversion` in a single invocation. `--check-all` includes CFA-only checks, so `--no-cfa` is rejected in combination with `--check-all`. Deliberately excludes `--audit-exceptions`, `--audit-review-dates` (config maintenance tools with per-package false positives), `--check-enum-sync` (requires per-type opt-in directive and CUE schema files), `--check-use-before-validate-cross` (not in the flag itself, but explicitly added by `make check-baseline` and `make check-types-all`), and `--suggest-validate-all` (advisory mode).
 
 ## Architecture
 
@@ -94,7 +96,7 @@ tools/goplint/
 │   ├── analyzer_constructor_usage.go # Constructor error usage: blanked error returns on NewXxx()
 │   ├── analyzer_validate_usage.go  # Validate() usage: discarded results
 │   ├── analyzer_constructor_validates.go # constructor body validation: Validate() call check
-│   ├── analyzer_validate_delegation.go  # validate-all delegation completeness
+│   ├── analyzer_validate_delegation.go  # validate-all delegation completeness + universal delegation check
 │   ├── analyzer_nonzero.go          # nonzero analysis: fact export + struct field checking
 │   ├── analyzer_redundant_conversion.go # redundant conversion: NamedType(basic(namedExpr)) detection
 │   ├── analyzer_enum_sync.go       # enum sync: CUE disjunction ↔ Go Validate() switch comparison
@@ -300,7 +302,7 @@ Eighteen additional analysis modes complement the primary primitive detection:
 
 ### `--check-all`
 
-Enables all DDD compliance checks (`--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-nonzero`, `--check-use-before-validate`, `--check-constructor-return-error`, `--check-redundant-conversion`) in a single invocation. `--check-all` includes CFA-only checks, so pairing it with `--no-cfa` is rejected. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions`, `--audit-review-dates` (config maintenance tools with per-package false positives), `--check-enum-sync` (requires per-type opt-in directive and CUE schema files), `--check-use-before-validate-cross` (not in the flag itself, but explicitly added by `make check-baseline` and `make check-types-all`), and `--suggest-validate-all` (advisory mode).
+Enables all DDD compliance checks (`--check-validate`, `--check-stringer`, `--check-constructors`, `--check-constructor-sig`, `--check-func-options`, `--check-immutability`, `--check-struct-validate`, `--check-cast-validation`, `--check-validate-usage`, `--check-constructor-error-usage`, `--check-constructor-validates`, `--check-validate-delegation`, `--check-validate-delegation-all`, `--check-nonzero`, `--check-use-before-validate`, `--check-constructor-return-error`, `--check-redundant-conversion`) in a single invocation. `--check-all` includes CFA-only checks, so pairing it with `--no-cfa` is rejected. This is the recommended flag for comprehensive DDD compliance checks. Deliberately excludes `--audit-exceptions`, `--audit-review-dates` (config maintenance tools with per-package false positives), `--check-enum-sync` (requires per-type opt-in directive and CUE schema files), `--check-use-before-validate-cross` (not in the flag itself, but explicitly added by `make check-baseline` and `make check-types-all`), and `--suggest-validate-all` (advisory mode).
 
 ### `--audit-exceptions`
 
@@ -433,6 +435,30 @@ Reports structs annotated with `//goplint:validate-all` whose `Validate()` metho
 - Delegation via intermediate variable: `field := c.FieldName; field.Validate()` is recognized
 - Anonymous embedded fields: `Name` (embedded type) is tracked as `c.Name.Validate()`
 
+### `--check-validate-delegation-all`
+
+Universal version of `--check-validate-delegation`. Checks ALL structs in included packages for two conditions, without requiring the `//goplint:validate-all` directive:
+
+1. **Missing Validate()**: Struct has validatable fields (types with `Validate()`, slices/maps of such types) but no `Validate()` method at all.
+2. **Incomplete delegation**: Struct has `Validate()` and validatable fields but does not delegate to all of them.
+
+Structs with `//goplint:validate-all` are skipped by this mode (they are handled by `--check-validate-delegation` to avoid duplicate findings). Error-type structs (name ending in "Error" or implementing the `error` interface) are excluded.
+
+**What gets flagged:**
+- Struct with 3 fields whose types have `Validate()` but the struct itself has no `Validate()` → `missing-struct-validate-fields`
+- Struct with `Validate()` that calls `FieldA.Validate()` but not `FieldB.Validate()` → `incomplete-validate-delegation`
+
+**What does NOT get flagged:**
+- Structs with `//goplint:validate-all` directive (handled by opt-in mode)
+- Structs without any validatable fields
+- Error-type structs
+- Fields with `//goplint:no-delegate` directive
+- Complete delegation (all validatable fields delegated)
+
+**Exception keys:**
+- Missing Validate(): `pkg.StructName.struct-validate-fields`
+- Incomplete delegation: `pkg.StructName.FieldName.validate-delegation`
+
 ### `--check-nonzero`
 
 Reports struct fields using nonzero-annotated types as value (non-pointer) fields. Types annotated with `//goplint:nonzero` indicate that their zero value is invalid — struct fields of such types should use `*Type` for optional fields. The annotation is propagated across packages via `analysis.Fact`, enabling cross-package enforcement.
@@ -545,6 +571,7 @@ All supplementary modes respect the TOML exception config:
 - `--check-constructor-error-usage`: excepted via `pkg.FuncName.constructor-error-usage`
 - `--check-constructor-validates`: excepted via `pkg.ConstructorName.constructor-validate`
 - `--check-validate-delegation`: excepted via `pkg.StructName.FieldName.validate-delegation`
+- `--check-validate-delegation-all`: missing Validate() excepted via `pkg.StructName.struct-validate-fields`; incomplete delegation via `pkg.StructName.FieldName.validate-delegation`
 - `--check-nonzero`: excepted via `pkg.StructName.FieldName.nonzero`
 - `--check-redundant-conversion`: excepted via `pkg.FuncName.redundant-conversion`
 - `--check-enum-sync`: excepted via `pkg.TypeName.memberValue.enum-cue-missing-go` or `pkg.TypeName.memberValue.enum-cue-extra-go`
@@ -579,7 +606,7 @@ entries = [
 ]
 ```
 
-Sections: `[primitive]`, `[missing-validate]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-validate-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-validate]`, `[wrong-struct-validate-sig]`, `[unvalidated-cast]`, `[unused-validate-result]`, `[unused-constructor-error]`, `[missing-constructor-validate]`, `[incomplete-validate-delegation]`, `[nonzero-value-field]`, `[redundant-conversion]`. Empty sections are omitted.
+Sections: `[primitive]`, `[missing-validate]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-validate-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-validate]`, `[wrong-struct-validate-sig]`, `[unvalidated-cast]`, `[unused-validate-result]`, `[unused-constructor-error]`, `[missing-constructor-validate]`, `[incomplete-validate-delegation]`, `[nonzero-value-field]`, `[redundant-conversion]`, `[missing-struct-validate-fields]`. Empty sections are omitted.
 
 `messages = [...]` (legacy v1 format) is still parsed for backward compatibility.
 
@@ -649,6 +676,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
   - `TestConstructorValidatesCrossPackage` — cross-package `validates-type` fact propagation
   - `TestCheckNonZero` — `--check-nonzero` mode (nonzero types used as value fields)
   - `TestCheckRedundantConversion` — `--check-redundant-conversion` mode (redundant intermediate basic-type hops)
+  - `TestCheckValidateDelegationAll` — `--check-validate-delegation-all` mode (universal validate delegation check)
   - `TestBaselineSupplementaryCategories` — baseline suppression for supplementary modes (validate, stringer, constructors)
 - **CFA tests** (`cfa_test.go`, `cfa_integration_test.go`): Unit tests for CFG utilities and integration tests for CFA cast validation and closure analysis. Suites are parallelized and use per-test analyzer instances for isolation. Covers:
   - `TestBuildFuncCFG_*` — CFG construction from function bodies

@@ -12,6 +12,8 @@ import (
 var (
 	// ErrInvalidEnvVarName is the sentinel error wrapped by InvalidEnvVarNameError.
 	ErrInvalidEnvVarName = errors.New("invalid environment variable name")
+	// ErrInvalidEnvConfig is the sentinel error wrapped by InvalidEnvConfigError.
+	ErrInvalidEnvConfig = errors.New("invalid env config")
 
 	// envVarNameRegex validates environment variable names
 	envVarNameRegex = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -29,7 +31,17 @@ type (
 		Value EnvVarName
 	}
 
+	// InvalidEnvConfigError is returned when an EnvConfig has invalid fields.
+	// It wraps ErrInvalidEnvConfig for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidEnvConfigError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// EnvConfig holds environment configuration for a command or implementation
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	EnvConfig struct {
 		// Files lists dotenv files to load (optional)
 		// Files are loaded in order; later files override earlier ones.
@@ -64,6 +76,36 @@ func (n EnvVarName) Validate() error {
 
 // String returns the string representation of the EnvVarName.
 func (n EnvVarName) String() string { return string(n) }
+
+// Validate returns nil if the EnvConfig has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to DotenvFilePath.Validate() for each file and EnvVarName.Validate()
+// for each variable key.
+func (e EnvConfig) Validate() error {
+	var errs []error
+	for _, f := range e.Files {
+		if err := f.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for k := range e.Vars {
+		if err := k.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidEnvConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidEnvConfigError.
+func (e *InvalidEnvConfigError) Error() string {
+	return fmt.Sprintf("invalid env config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidEnvConfig for errors.Is() compatibility.
+func (e *InvalidEnvConfigError) Unwrap() error { return ErrInvalidEnvConfig }
 
 // GetFiles returns the files list, or an empty slice if EnvConfig is nil
 func (e *EnvConfig) GetFiles() []DotenvFilePath {

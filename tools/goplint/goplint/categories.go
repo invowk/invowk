@@ -55,6 +55,7 @@ func diagnosticCategoryRegistry() []CategorySpec {
 		{Name: CategorySuggestValidateAll, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs suggesting //goplint:validate-all adoption"},
 		{Name: CategoryMissingConstructorErrorReturn, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructors returning validatable types without an error return"},
 		{Name: CategoryRedundantConversion, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Redundant intermediate type conversions"},
+		{Name: CategoryMissingStructValidateFields, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs with validatable fields but no Validate() method"},
 		{Name: CategoryUnknownDirective, BaselinePolicy: BaselineAlwaysVisible},
 		{Name: CategoryStaleException, BaselinePolicy: BaselineAuditOnly},
 		{Name: CategoryOverdueReview, BaselinePolicy: BaselineAuditOnly},

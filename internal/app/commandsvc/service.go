@@ -58,14 +58,20 @@ func New(
 }
 
 // Execute executes an invowk command through the full orchestration pipeline:
-//  1. Loads config and discovers the target command by name.
-//  2. Validates inputs: flags, arguments, platform compatibility, and runtime compatibility.
-//  3. Manages SSH server lifecycle when the container runtime needs host access.
-//  4. Builds execution context with env var projection (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn).
-//  5. Propagates incoming context for timeout and cancellation signals.
-//  6. Dry-run intercept: if DryRun is set, returns structured data for rendering.
-//  7. Dispatches execution (timeout → dep validation → runtime).
+//  1. Validates the request struct fields.
+//  2. Loads config and discovers the target command by name.
+//  3. Validates inputs: flags, arguments, platform compatibility, and runtime compatibility.
+//  4. Manages SSH server lifecycle when the container runtime needs host access.
+//  5. Builds execution context with env var projection (INVOWK_FLAG_*, INVOWK_ARG_*, ARGn).
+//  6. Propagates incoming context for timeout and cancellation signals.
+//  7. Dry-run intercept: if DryRun is set, returns structured data for rendering.
+//  8. Dispatches execution (timeout → dep validation → runtime).
 func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery.Diagnostic, error) {
+	// Validate typed fields before any downstream work to catch programmatic misuse early.
+	if err := req.Validate(); err != nil {
+		return Result{}, nil, err
+	}
+
 	// Capture the host environment early, before any downstream code could
 	// potentially modify it via os.Setenv. Tests can pre-populate req.UserEnv
 	// to inject a controlled environment.

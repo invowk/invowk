@@ -52,6 +52,8 @@ type (
 		Stderr      io.Writer
 	}
 
+	//goplint:validate-all
+	//
 	// ExecuteRequest captures all CLI execution inputs as an immutable value.
 	// It is the request-scoped data contract between the CLI layer (Cobra handlers)
 	// and the CommandService implementation.
@@ -100,6 +102,8 @@ type (
 		UserEnv map[string]string
 	}
 
+	//goplint:validate-all
+	//
 	// ExecuteResult contains command execution outcomes.
 	ExecuteResult struct {
 		ExitCode types.ExitCode

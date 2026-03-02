@@ -18,6 +18,8 @@ import (
 const LockFileName = "invowkmod.lock.cue"
 
 type (
+	//goplint:validate-all
+	//
 	// ModuleRef represents a module dependency declaration from invowkmod.cue.
 	ModuleRef struct {
 		// GitURL is the Git repository URL (HTTPS or SSH format).
@@ -37,6 +39,8 @@ type (
 		Path SubdirectoryPath
 	}
 
+	//goplint:validate-all
+	//
 	// ResolvedModule represents a fully resolved and cached module.
 	ResolvedModule struct {
 		// ModuleRef is the original requirement that was resolved.
@@ -84,6 +88,8 @@ type (
 		mu sync.Mutex
 	}
 
+	//goplint:validate-all
+	//
 	// RemoveResult contains metadata about a removed module for CLI reporting.
 	RemoveResult struct {
 		// LockKey is the lock file key that was removed.
@@ -92,6 +98,8 @@ type (
 		RemovedEntry LockedModule
 	}
 
+	//goplint:validate-all
+	//
 	// AmbiguousMatch describes a single ambiguous lock file entry.
 	AmbiguousMatch struct {
 		// LockKey is the lock file key.

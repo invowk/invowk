@@ -29,6 +29,8 @@ type (
 		Prune bool
 	}
 
+	//goplint:validate-all
+	//
 	// VendorResult contains the outcome of a VendorModules operation.
 	VendorResult struct {
 		// Vendored lists the modules copied to invowk_modules/.
@@ -39,6 +41,8 @@ type (
 		VendorDir types.FilesystemPath
 	}
 
+	//goplint:validate-all
+	//
 	// VendoredEntry describes a single module copied to the vendor directory.
 	VendoredEntry struct {
 		// Namespace is the module's command namespace (e.g., "tools@1.2.3").

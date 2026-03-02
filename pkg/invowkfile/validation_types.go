@@ -22,6 +22,8 @@ var (
 	ErrInvalidValidationSeverity = errors.New("invalid validation severity")
 	// ErrInvalidValidatorName is returned when a ValidatorName is empty or whitespace-only.
 	ErrInvalidValidatorName = errors.New("invalid validator name")
+	// ErrInvalidValidationContext is the sentinel error wrapped by InvalidValidationContextError.
+	ErrInvalidValidationContext = errors.New("invalid validation context")
 )
 
 type (
@@ -63,6 +65,15 @@ type (
 	// This allows returning multiple validation issues from a single validation pass.
 	ValidationErrors []ValidationError
 
+	// InvalidValidationContextError is returned when a ValidationContext has invalid fields.
+	// It wraps ErrInvalidValidationContext for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidValidationContextError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// ValidationContext provides context for validation operations.
 	// It contains information about the environment and configuration
 	// that validators may need to properly validate an invowkfile.
@@ -105,6 +116,40 @@ type (
 		parts []string
 	}
 )
+
+// Validate returns nil if the ValidationContext has valid fields,
+// or an error collecting field-level validation failures.
+// WorkDir is always validated (zero is valid). Platform and FilePath
+// are validated only when non-zero because their zero values have
+// defaulting semantics (current platform and no file path respectively).
+func (c ValidationContext) Validate() error {
+	var errs []error
+	if err := c.WorkDir.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if c.Platform != "" {
+		if err := c.Platform.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if c.FilePath != "" {
+		if err := c.FilePath.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidValidationContextError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidValidationContextError.
+func (e *InvalidValidationContextError) Error() string {
+	return fmt.Sprintf("invalid validation context: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidValidationContext for errors.Is() compatibility.
+func (e *InvalidValidationContextError) Unwrap() error { return ErrInvalidValidationContext }
 
 // Error implements the error interface for InvalidValidationSeverityError.
 func (e *InvalidValidationSeverityError) Error() string {

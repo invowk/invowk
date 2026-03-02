@@ -37,6 +37,7 @@ type flagState struct {
 	checkConstructorReturnError bool
 	checkUseBeforeValidateCross bool
 	checkRedundantConversion    bool
+	checkValidateDelegationAll  bool
 	noCFA                       bool
 	auditReviewDates            bool
 	checkEnumSync               bool
@@ -353,8 +354,20 @@ func modeFlagSpecs() []modeFlagSpec {
 			},
 		},
 		{
+			flagName:          "check-validate-delegation-all",
+			usage:             "report all structs with validatable fields: missing Validate() or incomplete delegation (no directive required)",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkValidateDelegationAll
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkValidateDelegationAll
+			},
+		},
+		{
 			flagName:          "check-all",
-			usage:             "enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + redundant-conversion + CFA)",
+			usage:             "enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + redundant-conversion + validate-delegation-all + CFA)",
 			defaultValue:      false,
 			includeInCheckAll: false,
 			stateBoolField: func(fs *flagState) *bool {
@@ -437,6 +450,7 @@ type runConfig struct {
 	checkConstructorReturnError bool
 	checkUseBeforeValidateCross bool
 	checkRedundantConversion    bool
+	checkValidateDelegationAll  bool
 	noCFA                       bool
 	auditReviewDates            bool
 	checkEnumSync               bool
