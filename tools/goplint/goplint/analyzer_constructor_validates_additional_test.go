@@ -51,7 +51,6 @@ func TestFactMatchesReturnType(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -172,4 +171,39 @@ func TestInferDirectiveTypePkgPath(t *testing.T) {
 			t.Fatalf("inferDirectiveTypePkgPath(results) = %q, want %q", got, "example.com/remote")
 		}
 	})
+}
+
+func TestConstructorReturnTargetMatcherIgnoresDecoy(t *testing.T) {
+	t.Parallel()
+
+	src := `package testpkg
+type Server struct{}
+func (s *Server) Validate() error { return nil }
+
+func NewServer() (*Server, error) {
+	decoy := &Server{}
+	_ = decoy.Validate()
+	real := &Server{}
+	return real, nil
+}`
+
+	pass, file := buildTypedPassFromSource(t, src)
+	fn := findFuncDecl(t, file, "NewServer")
+	returnType := pass.TypesInfo.TypeOf(fn.Type.Results.List[0].Type)
+	returnTypeKey := typeIdentityKey(returnType)
+	bareReturnIncludesTarget := constructorBareReturnIncludesType(pass, fn, returnTypeKey)
+	returnKeys := collectConstructorReturnTargetKeys(pass, fn, returnTypeKey, bareReturnIncludesTarget)
+	if len(returnKeys) == 0 {
+		t.Fatal("expected return target keys to be collected")
+	}
+
+	matcher := constructorReturnTargetMatcher(returnTypeKey, returnKeys)
+	realIdent := findIdentInFunc(t, fn, "real")
+	if !matcher(pass, realIdent) {
+		t.Fatal("expected matcher to accept returned variable")
+	}
+	decoyIdent := findIdentInFunc(t, fn, "decoy")
+	if matcher(pass, decoyIdent) {
+		t.Fatal("expected matcher to reject decoy variable")
+	}
 }

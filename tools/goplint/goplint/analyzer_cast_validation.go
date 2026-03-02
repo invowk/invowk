@@ -311,7 +311,7 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node,
 	// Chained Validate: DddType(x).Validate() — validated directly on cast result.
 	// The parent of the type conversion CallExpr is the SelectorExpr that
 	// forms the .Validate() method call.
-	if sel, ok := parent.(*ast.SelectorExpr); ok && sel.Sel.Name == "Validate" {
+	if sel, ok := parent.(*ast.SelectorExpr); ok && sel.Sel.Name == "Validate" && selectorIsDirectCallTarget(sel, parentMap) {
 		return true
 	}
 
@@ -322,6 +322,26 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node,
 	}
 
 	return false
+}
+
+func selectorIsDirectCallTarget(sel *ast.SelectorExpr, parentMap map[ast.Node]ast.Node) bool {
+	if sel == nil || parentMap == nil {
+		return false
+	}
+	current := ast.Node(sel)
+	for {
+		parent := parentMap[current]
+		paren, ok := parent.(*ast.ParenExpr)
+		if ok && paren.X == current {
+			current = paren
+			continue
+		}
+		call, ok := parent.(*ast.CallExpr)
+		if !ok {
+			return false
+		}
+		return call.Fun == current
+	}
 }
 
 // isAutoSkipAncestor walks up the parent chain (bounded) looking for an

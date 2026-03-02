@@ -70,7 +70,6 @@ func f(x T, ok bool) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -157,7 +156,6 @@ func f(xs []int) {
 	}
 
 	for _, tc := range checks {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -200,7 +198,6 @@ func TestIsKnownNoReturnFuncTable(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := isKnownNoReturnFunc(tt.pkg, tt.fn); got != tt.want {

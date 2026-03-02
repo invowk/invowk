@@ -166,50 +166,12 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 				return true
 			})
 
-			// Pass 2: Intermediate variable pattern:
+			// Pass 2: Intermediate variable pattern with rebinding awareness:
 			//   field := receiver.Field
 			//   var field = receiver.Field
 			//   field.Validate()
-			fieldAliases := make(map[string]string)
-			ast.Inspect(fn.Body, func(n ast.Node) bool {
-				if recvVarName == "" {
-					return true
-				}
-
-				switch decl := n.(type) {
-				case *ast.AssignStmt:
-					for i, rhs := range decl.Rhs {
-						sel, ok := rhs.(*ast.SelectorExpr)
-						if !ok {
-							continue
-						}
-						ident, ok := sel.X.(*ast.Ident)
-						if !ok || ident.Name != recvVarName {
-							continue
-						}
-						if i < len(decl.Lhs) {
-							if lhsIdent, ok := decl.Lhs[i].(*ast.Ident); ok {
-								fieldAliases[lhsIdent.Name] = sel.Sel.Name
-							}
-						}
-					}
-				case *ast.ValueSpec:
-					for i, rhs := range decl.Values {
-						sel, ok := rhs.(*ast.SelectorExpr)
-						if !ok {
-							continue
-						}
-						ident, ok := sel.X.(*ast.Ident)
-						if !ok || ident.Name != recvVarName {
-							continue
-						}
-						if i < len(decl.Names) {
-							fieldAliases[decl.Names[i].Name] = sel.Sel.Name
-						}
-					}
-				}
-				return true
-			})
+			// Reassignments clear the alias unless they still point to receiver.Field.
+			aliasBindings := collectDelegationAliasBindings(pass, fn.Body, recvVarName)
 			ast.Inspect(fn.Body, func(n ast.Node) bool {
 				callExpr, ok := n.(*ast.CallExpr)
 				if !ok {
@@ -223,9 +185,15 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 				if !ok {
 					return true
 				}
-				if fieldName, ok := fieldAliases[ident.Name]; ok {
-					called[fieldName] = true
+				aliasKey := targetKeyForExpr(pass, ident)
+				if aliasKey == "" {
+					return true
 				}
+				fieldName, ok := latestDelegationAliasFieldBefore(aliasBindings[aliasKey], callExpr.Pos())
+				if !ok {
+					return true
+				}
+				called[fieldName] = true
 				return true
 			})
 
@@ -321,6 +289,91 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 	return called
 }
 
+type delegationAliasBindingEvent struct {
+	pos       token.Pos
+	fieldName string
+}
+
+func collectDelegationAliasBindings(
+	pass *analysis.Pass,
+	body *ast.BlockStmt,
+	recvVarName string,
+) map[string][]delegationAliasBindingEvent {
+	if pass == nil || pass.TypesInfo == nil || body == nil || recvVarName == "" {
+		return nil
+	}
+	bindings := make(map[string][]delegationAliasBindingEvent)
+
+	record := func(lhs ast.Expr, rhs ast.Expr, atPos token.Pos) {
+		lhsIdent, ok := stripParens(lhs).(*ast.Ident)
+		if !ok || lhsIdent.Name == "_" {
+			return
+		}
+		obj := objectForIdent(pass, lhsIdent)
+		if obj == nil {
+			return
+		}
+		if _, isVar := obj.(*types.Var); !isVar {
+			return
+		}
+		lhsKey := objectKey(obj)
+		if lhsKey == "" {
+			return
+		}
+
+		event := delegationAliasBindingEvent{pos: atPos}
+		if rhsSel, ok := stripParens(rhs).(*ast.SelectorExpr); ok {
+			if rhsIdent, idOK := rhsSel.X.(*ast.Ident); idOK && rhsIdent.Name == recvVarName {
+				event.fieldName = rhsSel.Sel.Name
+				bindings[lhsKey] = append(bindings[lhsKey], event)
+				return
+			}
+		}
+
+		if rhsKey := targetKeyForExpr(pass, stripParens(rhs)); rhsKey != "" {
+			if fieldName, aliasOK := latestDelegationAliasFieldBefore(bindings[rhsKey], atPos); aliasOK {
+				event.fieldName = fieldName
+			}
+		}
+		bindings[lhsKey] = append(bindings[lhsKey], event)
+	}
+
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.AssignStmt:
+			for i, rhs := range node.Rhs {
+				if i >= len(node.Lhs) {
+					break
+				}
+				record(node.Lhs[i], rhs, node.Lhs[i].Pos())
+			}
+		case *ast.ValueSpec:
+			for i, rhs := range node.Values {
+				if i >= len(node.Names) {
+					break
+				}
+				record(node.Names[i], rhs, node.Names[i].Pos())
+			}
+		}
+		return true
+	})
+
+	return bindings
+}
+
+func latestDelegationAliasFieldBefore(events []delegationAliasBindingEvent, atPos token.Pos) (string, bool) {
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].pos > atPos {
+			continue
+		}
+		if events[i].fieldName == "" {
+			return "", false
+		}
+		return events[i].fieldName, true
+	}
+	return "", false
+}
+
 // maxHelperMethodDepth bounds recursion in multi-level helper method
 // delegation tracking to prevent pathological cases. Aligned with
 // maxTransitiveDepth in constructor-validates for consistency.
@@ -347,6 +400,7 @@ func findHelperMethodDelegations(
 
 	// Collect receiver.helperMethod() calls.
 	var helperNames []string
+	parentMap := buildParentMap(body)
 	ast.Inspect(body, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
@@ -358,6 +412,9 @@ func findHelperMethodDelegations(
 		}
 		ident, ok := sel.X.(*ast.Ident)
 		if !ok || ident.Name != recvVarName {
+			return true
+		}
+		if isConditionallyEvaluated(call, parentMap) {
 			return true
 		}
 		// Skip "Validate" itself to avoid infinite recursion.
@@ -380,9 +437,13 @@ func findHelperMethodDelegations(
 		}
 
 		// Walk the helper for direct receiver.Field.Validate() patterns.
+		helperParentMap := buildParentMap(helperBody)
 		ast.Inspect(helperBody, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
+				return true
+			}
+			if isConditionallyEvaluated(call, helperParentMap) {
 				return true
 			}
 			sel, ok := call.Fun.(*ast.SelectorExpr)

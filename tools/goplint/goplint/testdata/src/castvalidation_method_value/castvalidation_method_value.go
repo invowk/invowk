@@ -17,6 +17,10 @@ func useCmd(_ CommandName) {}
 
 func alwaysNil() error { return nil }
 
+type validateHolder struct {
+	Validate func() error
+}
+
 // MethodValueValidate should not be flagged: calling a bound method value
 // invokes Validate() on x before use.
 func MethodValueValidate(raw string) { // want `parameter "raw" of castvalidation_method_value\.MethodValueValidate uses primitive type string`
@@ -81,5 +85,36 @@ func MethodExpressionValidate(raw string) { // want `parameter "raw" of castvali
 	if err := validateFn(x); err != nil {
 		return
 	}
+	useCmd(x)
+}
+
+// SelectorStoredMethodValue should be flagged: storing CommandName(raw).Validate
+// captures a method value but does not invoke it.
+func SelectorStoredMethodValue(raw string) { // want `parameter "raw" of castvalidation_method_value\.SelectorStoredMethodValue uses primitive type string`
+	h := validateHolder{}
+	h.Validate = CommandName(raw).Validate // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	_ = h.Validate
+}
+
+// SelectorMethodValueValidate should not be flagged: h.Validate() invokes the
+// method value bound to x.Validate.
+func SelectorMethodValueValidate(raw string) { // want `parameter "raw" of castvalidation_method_value\.SelectorMethodValueValidate uses primitive type string`
+	x := CommandName(raw)
+	h := validateHolder{}
+	h.Validate = x.Validate
+	if err := h.Validate(); err != nil {
+		return
+	}
+	useCmd(x)
+}
+
+// SelectorMethodValueRebound should be flagged: rebinding h.Validate to a
+// non-Validate function must invalidate previous assumptions.
+func SelectorMethodValueRebound(raw string) { // want `parameter "raw" of castvalidation_method_value\.SelectorMethodValueRebound uses primitive type string`
+	x := CommandName(raw) // want `type conversion to CommandName from non-constant without Validate\(\) check`
+	h := validateHolder{}
+	h.Validate = x.Validate
+	h.Validate = alwaysNil
+	_ = h.Validate()
 	useCmd(x)
 }

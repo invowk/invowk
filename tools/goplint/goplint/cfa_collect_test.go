@@ -5,6 +5,7 @@ package goplint
 import (
 	"go/ast"
 	"go/types"
+	"maps"
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
@@ -110,6 +111,52 @@ func use() {
 	})
 }
 
+func TestValidateMethodReceiverForCallSelectorBinding(t *testing.T) {
+	t.Parallel()
+
+	src := `package testpkg
+type Val string
+func (v Val) Validate() error { return nil }
+
+type Holder struct {
+	Validate func() error
+}
+
+func use() {
+	var x Val
+	var h Holder
+	h.Validate = x.Validate
+	_ = h.Validate()
+	h.Validate = nil
+	_ = h.Validate()
+}`
+
+	pass, file := buildTypedPassFromSource(t, src)
+	useFn := findFuncDecl(t, file, "use")
+	bindings := collectValidateMethodValueBindingEvents(pass, useFn.Body)
+
+	calls := findSelectorCallsInFunc(t, useFn, "h", "Validate")
+	if len(calls) != 2 {
+		t.Fatalf("expected exactly 2 h.Validate() calls, got %d", len(calls))
+	}
+	resolved := 0
+	unresolved := 0
+	for _, call := range calls {
+		receiver, ok := validateMethodReceiverForCall(pass, call, bindings)
+		if !ok {
+			unresolved++
+			continue
+		}
+		resolved++
+		if got := types.ExprString(receiver); got != "x" {
+			t.Fatalf("resolved receiver = %q, want %q", got, "x")
+		}
+	}
+	if resolved != 1 || unresolved != 1 {
+		t.Fatalf("expected one resolved and one unresolved selector call, got resolved=%d unresolved=%d", resolved, unresolved)
+	}
+}
+
 func clonePassTypesInfo(pass *analysis.Pass) *analysis.Pass {
 	clone := &analysis.Pass{
 		Fset:      pass.Fset,
@@ -119,24 +166,16 @@ func clonePassTypesInfo(pass *analysis.Pass) *analysis.Pass {
 	}
 
 	clone.TypesInfo.Types = make(map[ast.Expr]types.TypeAndValue, len(pass.TypesInfo.Types))
-	for expr, tv := range pass.TypesInfo.Types {
-		clone.TypesInfo.Types[expr] = tv
-	}
+	maps.Copy(clone.TypesInfo.Types, pass.TypesInfo.Types)
 
 	clone.TypesInfo.Defs = make(map[*ast.Ident]types.Object, len(pass.TypesInfo.Defs))
-	for ident, obj := range pass.TypesInfo.Defs {
-		clone.TypesInfo.Defs[ident] = obj
-	}
+	maps.Copy(clone.TypesInfo.Defs, pass.TypesInfo.Defs)
 
 	clone.TypesInfo.Uses = make(map[*ast.Ident]types.Object, len(pass.TypesInfo.Uses))
-	for ident, obj := range pass.TypesInfo.Uses {
-		clone.TypesInfo.Uses[ident] = obj
-	}
+	maps.Copy(clone.TypesInfo.Uses, pass.TypesInfo.Uses)
 
 	clone.TypesInfo.Selections = make(map[*ast.SelectorExpr]*types.Selection, len(pass.TypesInfo.Selections))
-	for sel, selection := range pass.TypesInfo.Selections {
-		clone.TypesInfo.Selections[sel] = selection
-	}
+	maps.Copy(clone.TypesInfo.Selections, pass.TypesInfo.Selections)
 
 	return clone
 }
@@ -161,4 +200,58 @@ func findSelectorExprInFunc(t *testing.T, fn *ast.FuncDecl, xName, selName strin
 		t.Fatalf("selector %s.%s not found", xName, selName)
 	}
 	return found
+}
+
+func findSelectorCallInFunc(t *testing.T, fn *ast.FuncDecl, xName, selName string, occurrence int) *ast.CallExpr {
+	t.Helper()
+
+	count := 0
+	var found *ast.CallExpr
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		sel, ok := stripParens(call.Fun).(*ast.SelectorExpr)
+		if !ok || sel.Sel.Name != selName {
+			return true
+		}
+		ident, ok := stripParens(sel.X).(*ast.Ident)
+		if !ok || ident.Name != xName {
+			return true
+		}
+		if count == occurrence {
+			found = call
+			return false
+		}
+		count++
+		return true
+	})
+	if found == nil {
+		t.Fatalf("selector call %s.%s occurrence %d not found", xName, selName, occurrence)
+	}
+	return found
+}
+
+func findSelectorCallsInFunc(t *testing.T, fn *ast.FuncDecl, xName, selName string) []*ast.CallExpr {
+	t.Helper()
+
+	var calls []*ast.CallExpr
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		sel, ok := stripParens(call.Fun).(*ast.SelectorExpr)
+		if !ok || sel.Sel.Name != selName {
+			return true
+		}
+		ident, ok := stripParens(sel.X).(*ast.Ident)
+		if !ok || ident.Name != xName {
+			return true
+		}
+		calls = append(calls, call)
+		return true
+	})
+	return calls
 }

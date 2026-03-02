@@ -623,3 +623,27 @@ func NewMixedPathValidated(name string, fast bool) (*MixedPathValidated, error) 
 	}
 	return m, nil
 }
+
+// --- Decoy same-type Validate call must not satisfy constructor-validates ---
+
+type DecoyValidated struct {
+	name string // want `struct field constructorvalidates\.DecoyValidated\.name uses primitive type string`
+}
+
+func (d *DecoyValidated) Validate() error {
+	if d.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+// NewDecoyValidated validates a different instance than the one returned.
+// This must still be flagged.
+func NewDecoyValidated(name string) (*DecoyValidated, error) { // want `parameter "name" of constructorvalidates\.NewDecoyValidated uses primitive type string` `constructor constructorvalidates\.NewDecoyValidated returns constructorvalidates\.DecoyValidated which has Validate\(\) but never calls it`
+	decoy := &DecoyValidated{name: name}
+	if err := decoy.Validate(); err != nil {
+		return nil, err
+	}
+	real := &DecoyValidated{name: name}
+	return real, nil
+}

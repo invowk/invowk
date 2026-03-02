@@ -83,6 +83,10 @@ All new test functions MUST call `t.Parallel()` unless they mutate global/proces
 
 When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too.
 
+Modernize compatibility notes:
+- Do not add `tt := tt` / `tc := tc` loop-variable rebinding before `t.Run(...)`. In Go 1.22+ range variables are per-iteration, and redundant rebinding is flagged by `modernize` (`forvar`).
+- When cloning entire maps in tests, prefer `maps.Copy(dst, src)` instead of manual `for k, v := range src { dst[k] = v }` loops (`mapsloop`).
+
 ### Unsafe Patterns (do NOT parallelize)
 
 Do not add `t.Parallel()` to tests that use any of these:

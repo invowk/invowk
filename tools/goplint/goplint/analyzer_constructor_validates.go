@@ -175,7 +175,6 @@ func inspectConstructorValidates(
 	constantOnlyTypes map[string]bool,
 	cfg *ExceptionConfig,
 	bl *BaselineConfig,
-	noCFA bool,
 ) {
 	pkgName := packageName(pass.Pkg)
 
@@ -245,18 +244,8 @@ func inspectConstructorValidates(
 			}
 
 			// Check whether constructor paths validate the returned type.
-			//
-			// CFA mode (default): evaluate all return paths directly in CFG.
-			// This includes synchronous closures (defer/IIFE) and recognizes
-			// transitive helper calls in the current block.
-			//
-			// AST mode (--no-cfa): use direct/transitive body heuristics.
-			if noCFA {
-				if bodyCallsValidateOnType(pass, fn.Body, returnTypeKey) ||
-					bodyCallsValidateTransitive(pass, fn.Body, returnType, returnTypePkgPath, returnTypeKey, nil, 0) {
-					continue
-				}
-			} else if !constructorHasUnvalidatedReturnPath(pass, fn, returnType, returnTypePkgPath, returnTypeKey) {
+			// CFA mode is required for constructor-validates.
+			if !constructorHasUnvalidatedReturnPath(pass, fn, returnType, returnTypePkgPath, returnTypeKey) {
 				continue
 			}
 
@@ -608,6 +597,8 @@ func constructorHasUnvalidatedReturnPath(
 	syncCalls := collectSynchronousClosureVarCalls(closureCalls)
 	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
 	bareReturnIncludesTarget := constructorBareReturnIncludesType(pass, fn, returnTypeKey)
+	returnTargetKeys := collectConstructorReturnTargetKeys(pass, fn, returnTypeKey, bareReturnIncludesTarget)
+	matcher := constructorReturnTargetMatcher(returnTypeKey, returnTargetKeys)
 
 	// DFS from the entry block (index 0).
 	visited := make(map[int32]bool)
@@ -617,6 +608,7 @@ func constructorHasUnvalidatedReturnPath(
 		returnTypeName,
 		returnTypePkgPath,
 		returnTypeKey,
+		matcher,
 		bareReturnIncludesTarget,
 		visited,
 		syncLits,
@@ -635,13 +627,13 @@ func dfsConstructorUnvalidated(
 	returnTypeName string,
 	returnTypePkgPath string,
 	returnTypeKey string,
+	matcher validateReceiverMatcher,
 	bareReturnIncludesTarget bool,
 	visited map[int32]bool,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
 ) bool {
-	matcher := typeKeyMatcher(returnTypeKey)
 	checker := func(block *gocfg.Block) bool {
 		if blockTerminatesWithoutReturn(pass, block) {
 			return true
@@ -723,6 +715,119 @@ func constructorBareReturnIncludesType(pass *analysis.Pass, fn *ast.FuncDecl, re
 		}
 	}
 	return false
+}
+
+func constructorReturnTargetMatcher(returnTypeKey string, returnTargetKeys map[string]bool) validateReceiverMatcher {
+	return func(pass *analysis.Pass, expr ast.Expr) bool {
+		if pass == nil || pass.TypesInfo == nil || expr == nil {
+			return false
+		}
+		receiverType := pass.TypesInfo.TypeOf(expr)
+		if receiverType == nil || typeIdentityKey(receiverType) != returnTypeKey {
+			return false
+		}
+		if len(returnTargetKeys) == 0 {
+			return true
+		}
+		key := targetKeyForExpr(pass, expr)
+		return key != "" && returnTargetKeys[key]
+	}
+}
+
+func collectConstructorReturnTargetKeys(
+	pass *analysis.Pass,
+	fn *ast.FuncDecl,
+	returnTypeKey string,
+	bareReturnIncludesTarget bool,
+) map[string]bool {
+	if pass == nil || pass.TypesInfo == nil || fn == nil || fn.Body == nil {
+		return nil
+	}
+	keys := make(map[string]bool)
+	edges := make(map[string]map[string]bool)
+
+	if bareReturnIncludesTarget {
+		obj := pass.TypesInfo.Defs[fn.Name]
+		if fnObj, ok := obj.(*types.Func); ok {
+			if sig, sigOK := fnObj.Type().(*types.Signature); sigOK && sig.Results() != nil {
+				for resultVar := range sig.Results().Variables() {
+					if resultVar.Name() == "" {
+						continue
+					}
+					if typeIdentityKey(resultVar.Type()) == returnTypeKey {
+						keys[objectKey(resultVar)] = true
+					}
+				}
+			}
+		}
+	}
+
+	addEdge := func(a, b string) {
+		if !isReferenceTargetKey(a) || !isReferenceTargetKey(b) || a == b {
+			return
+		}
+		if edges[a] == nil {
+			edges[a] = make(map[string]bool)
+		}
+		if edges[b] == nil {
+			edges[b] = make(map[string]bool)
+		}
+		edges[a][b] = true
+		edges[b][a] = true
+	}
+
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.ReturnStmt:
+			for _, expr := range node.Results {
+				if !exprReturnsType(pass, expr, returnTypeKey) {
+					continue
+				}
+				if key := targetKeyForExpr(pass, expr); isReferenceTargetKey(key) {
+					keys[key] = true
+				}
+			}
+		case *ast.AssignStmt:
+			for i, rhs := range node.Rhs {
+				if i >= len(node.Lhs) {
+					break
+				}
+				addEdge(targetKeyForExpr(pass, node.Lhs[i]), targetKeyForExpr(pass, rhs))
+			}
+		case *ast.ValueSpec:
+			for i, rhs := range node.Values {
+				if i >= len(node.Names) {
+					break
+				}
+				addEdge(targetKeyForExpr(pass, node.Names[i]), targetKeyForExpr(pass, rhs))
+			}
+		}
+		return true
+	})
+
+	if len(keys) == 0 {
+		return nil
+	}
+	queue := make([]string, 0, len(keys))
+	for key := range keys {
+		queue = append(queue, key)
+	}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for next := range edges[current] {
+			if keys[next] {
+				continue
+			}
+			keys[next] = true
+			queue = append(queue, next)
+		}
+	}
+	return keys
+}
+
+func isReferenceTargetKey(key string) bool {
+	return key != "" && !strings.HasPrefix(key, "expr:")
 }
 
 func helperBodyAlwaysValidatesType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeKey string) bool {

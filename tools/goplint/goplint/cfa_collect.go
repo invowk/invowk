@@ -311,28 +311,35 @@ func collectValidateMethodValueBindingEvents(pass *analysis.Pass, body *ast.Bloc
 	}
 	bindings := make(map[string][]validateMethodValueBindingEvent)
 
-	recordBinding := func(lhs *ast.Ident, rhs ast.Expr, atPos token.Pos) {
-		if lhs == nil || lhs.Name == "_" {
+	recordBinding := func(lhs ast.Expr, rhs ast.Expr, atPos token.Pos) {
+		if lhs == nil {
 			return
 		}
-		obj := objectForIdent(pass, lhs)
-		if obj == nil {
+		lhsExpr := stripParens(lhs)
+		if ident, ok := lhsExpr.(*ast.Ident); ok {
+			if ident.Name == "_" {
+				return
+			}
+			obj := objectForIdent(pass, ident)
+			if obj == nil {
+				return
+			}
+			if _, isVar := obj.(*types.Var); !isVar {
+				return
+			}
+		}
+		lhsKey := targetKeyForExpr(pass, lhsExpr)
+		if lhsKey == "" {
 			return
 		}
-		if _, isVar := obj.(*types.Var); !isVar {
-			return
-		}
-
 		receiver, isMethodExpr, ok := validateMethodReceiverFromExpr(pass, rhs)
 		if !ok {
-			if rhsIdent, rhsOK := stripParens(rhs).(*ast.Ident); rhsOK {
-				rhsObj := objectForIdent(pass, rhsIdent)
-				if rhsObj != nil {
-					if matched, aliasOK := latestValidateMethodBindingBefore(bindings[objectKey(rhsObj)], atPos); aliasOK {
-						receiver = matched.receiver
-						isMethodExpr = matched.isMethodExpr
-						ok = true
-					}
+			rhsKey := targetKeyForExpr(pass, stripParens(rhs))
+			if rhsKey != "" {
+				if matched, aliasOK := latestValidateMethodBindingBefore(bindings[rhsKey], atPos); aliasOK {
+					receiver = matched.receiver
+					isMethodExpr = matched.isMethodExpr
+					ok = true
 				}
 			}
 		}
@@ -342,7 +349,10 @@ func collectValidateMethodValueBindingEvents(pass *analysis.Pass, body *ast.Bloc
 			event.receiver = receiver
 			event.isMethodExpr = isMethodExpr
 		}
-		bindings[objectKey(obj)] = append(bindings[objectKey(obj)], event)
+		bindings[lhsKey] = append(bindings[lhsKey], event)
+		if fallbackKey := targetKeyForExpr(nil, lhsExpr); fallbackKey != "" && fallbackKey != lhsKey {
+			bindings[fallbackKey] = append(bindings[fallbackKey], event)
+		}
 	}
 
 	ast.Inspect(body, func(n ast.Node) bool {
@@ -352,11 +362,7 @@ func collectValidateMethodValueBindingEvents(pass *analysis.Pass, body *ast.Bloc
 				if i >= len(node.Lhs) {
 					break
 				}
-				lhsIdent, ok := stripParens(node.Lhs[i]).(*ast.Ident)
-				if !ok {
-					continue
-				}
-				recordBinding(lhsIdent, rhs, lhsIdent.Pos())
+				recordBinding(node.Lhs[i], rhs, node.Lhs[i].Pos())
 			}
 		case *ast.ValueSpec:
 			for i, rhs := range node.Values {
@@ -427,15 +433,26 @@ func validateMethodReceiverForCall(
 	if pass == nil || pass.TypesInfo == nil || call == nil || len(bindings) == 0 {
 		return nil, false
 	}
-	funIdent, ok := stripParens(call.Fun).(*ast.Ident)
-	if !ok {
+	funExpr := stripParens(call.Fun)
+	var key string
+	switch fun := funExpr.(type) {
+	case *ast.Ident:
+		key = targetKeyForExpr(pass, fun)
+	case *ast.SelectorExpr:
+		key = targetKeyForExpr(pass, fun)
+	default:
 		return nil, false
 	}
-	obj := objectForIdent(pass, funIdent)
-	if obj == nil {
+	if key == "" {
 		return nil, false
 	}
-	matched, ok := latestValidateMethodBindingBefore(bindings[objectKey(obj)], call.Pos())
+	events := bindings[key]
+	if len(events) == 0 {
+		if fallbackKey := targetKeyForExpr(nil, funExpr); fallbackKey != "" && fallbackKey != key {
+			events = bindings[fallbackKey]
+		}
+	}
+	matched, ok := latestValidateMethodBindingBefore(events, call.Pos())
 	if !ok {
 		return nil, false
 	}

@@ -27,6 +27,8 @@ func isPrimitive(t types.Type) bool {
 		return isPrimitive(t.Elem())
 	case *types.Map:
 		return isPrimitive(t.Key()) || isPrimitive(t.Elem())
+	case *types.TypeParam:
+		return isPrimitiveTypeParam(t)
 	case *types.Named:
 		// Named types are DDD Value Types — never flagged.
 		return false
@@ -36,6 +38,69 @@ func isPrimitive(t types.Type) bool {
 		return isPrimitive(types.Unalias(t))
 	default:
 		// Interfaces, channels, funcs, structs, etc.
+		return false
+	}
+}
+
+func isPrimitiveTypeParam(tp *types.TypeParam) bool {
+	if tp == nil {
+		return false
+	}
+	return primitiveConstraintType(tp.Constraint())
+}
+
+func primitiveConstraintType(t types.Type) bool {
+	if t == nil {
+		return false
+	}
+	t = types.Unalias(t)
+	switch ct := t.(type) {
+	case *types.Basic:
+		return isPrimitiveBasic(ct)
+	case *types.Named:
+		if iface, ok := ct.Underlying().(*types.Interface); ok {
+			return primitiveConstraintType(iface)
+		}
+		return false
+	case *types.Union:
+		if ct.Len() == 0 {
+			return false
+		}
+		for term := range ct.Terms() {
+			if !primitiveConstraintTerm(term) {
+				return false
+			}
+		}
+		return true
+	case *types.Interface:
+		if ct.NumMethods() > 0 || ct.NumEmbeddeds() == 0 {
+			return false
+		}
+		for embedded := range ct.EmbeddedTypes() {
+			if !primitiveConstraintType(embedded) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func primitiveConstraintTerm(term *types.Term) bool {
+	if term == nil {
+		return false
+	}
+	tt := types.Unalias(term.Type())
+	switch t := tt.(type) {
+	case *types.Basic:
+		return isPrimitiveBasic(t)
+	case *types.Named:
+		if !term.Tilde() {
+			return false
+		}
+		return primitiveConstraintType(t.Underlying())
+	default:
 		return false
 	}
 }
@@ -230,6 +295,40 @@ func primitiveMapDetail(t types.Type) (string, bool) {
 		return primitiveTypeName(m.Key()) + " (in map key)", true
 	default:
 		return primitiveTypeName(m.Elem()) + " (in map value)", true
+	}
+}
+
+func primitiveMapDetailWithSkip(t types.Type, cfg *ExceptionConfig) (string, bool) {
+	m, ok := types.Unalias(t).(*types.Map)
+	if !ok {
+		return "", false
+	}
+
+	keyPrim := isPrimitive(m.Key())
+	valPrim := isPrimitive(m.Elem())
+	if !keyPrim && !valPrim {
+		return "", false
+	}
+
+	keyName := primitiveTypeName(m.Key())
+	valName := primitiveTypeName(m.Elem())
+	keySkipped := cfg != nil && cfg.isSkippedType(keyName)
+	valSkipped := cfg != nil && cfg.isSkippedType(valName)
+	keyReport := keyPrim && !keySkipped
+	valReport := valPrim && !valSkipped
+
+	switch {
+	case keyReport && valReport:
+		if keyName == valName {
+			return keyName + " (in map key and value)", true
+		}
+		return keyName + " (in map key), " + valName + " (in map value)", true
+	case keyReport:
+		return keyName + " (in map key)", true
+	case valReport:
+		return valName + " (in map value)", true
+	default:
+		return "", false
 	}
 }
 

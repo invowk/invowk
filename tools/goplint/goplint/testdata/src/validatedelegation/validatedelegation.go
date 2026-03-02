@@ -590,3 +590,42 @@ func (c *PointerIncompleteConfig) Validate() error {
 	// FieldMode.Validate() is missing!
 	return nil
 }
+
+// --- Alias rebinding must not count as delegation for the original field ---
+
+//goplint:validate-all
+type AliasRebindConfig struct { // want `validatedelegation\.AliasRebindConfig\.Validate\(\) does not delegate to field Primary which has Validate\(\)`
+	Primary   Name
+	Secondary Name
+}
+
+func (c *AliasRebindConfig) Validate() error {
+	alias := c.Primary
+	alias = c.Secondary
+	return alias.Validate()
+}
+
+// --- Conditional helper calls do not guarantee delegation on all paths ---
+
+//goplint:validate-all
+type ConditionalHelperConfig struct { // want `validatedelegation\.ConditionalHelperConfig\.Validate\(\) does not delegate to field FieldName which has Validate\(\)` `validatedelegation\.ConditionalHelperConfig\.Validate\(\) does not delegate to field FieldMode which has Validate\(\)`
+	FieldName Name
+	FieldMode Mode
+}
+
+func (c *ConditionalHelperConfig) Validate() error {
+	if c.FieldName != "" {
+		return c.validateMaybe()
+	}
+	return nil
+}
+
+func (c *ConditionalHelperConfig) validateMaybe() error {
+	if err := c.FieldName.Validate(); err != nil {
+		return err
+	}
+	if err := c.FieldMode.Validate(); err != nil {
+		return err
+	}
+	return nil
+}

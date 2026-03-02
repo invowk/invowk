@@ -3,9 +3,12 @@
 package goplint
 
 import (
+	"go/ast"
 	"go/token"
 	"go/types"
 	"testing"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 func TestPrimitiveMapDetail(t *testing.T) {
@@ -71,6 +74,106 @@ func TestPrimitiveMapDetail(t *testing.T) {
 				t.Errorf("primitiveMapDetail(%s) detail = %q, want %q", tt.typ, detail, tt.wantDetail)
 			}
 		})
+	}
+}
+
+func TestPrimitiveMapDetailWithSkip(t *testing.T) {
+	t.Parallel()
+
+	cfg := &ExceptionConfig{
+		Settings: Settings{
+			SkipTypes: []string{"int64", "string"},
+		},
+	}
+
+	named := makeNamedType()
+	tests := []struct {
+		name       string
+		typ        types.Type
+		wantDetail string
+		wantOK     bool
+	}{
+		{
+			name:       "skip map key primitive only",
+			typ:        types.NewMap(types.Typ[types.Int64], named),
+			wantOK:     false,
+			wantDetail: "",
+		},
+		{
+			name:       "skip one side, keep other side",
+			typ:        types.NewMap(types.Typ[types.Int64], types.Typ[types.Int]),
+			wantOK:     true,
+			wantDetail: "int (in map value)",
+		},
+		{
+			name:       "skip both map sides",
+			typ:        types.NewMap(types.Typ[types.Int64], types.Typ[types.String]),
+			wantOK:     false,
+			wantDetail: "",
+		},
+		{
+			name:       "no skip applies",
+			typ:        types.NewMap(types.Typ[types.Int], types.Typ[types.Uint]),
+			wantOK:     true,
+			wantDetail: "int (in map key), uint (in map value)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			detail, ok := primitiveMapDetailWithSkip(tt.typ, cfg)
+			if ok != tt.wantOK {
+				t.Fatalf("primitiveMapDetailWithSkip(%s) ok = %v, want %v", tt.typ, ok, tt.wantOK)
+			}
+			if detail != tt.wantDetail {
+				t.Fatalf("primitiveMapDetailWithSkip(%s) detail = %q, want %q", tt.typ, detail, tt.wantDetail)
+			}
+		})
+	}
+}
+
+func TestIsPrimitiveTypeParamConstraints(t *testing.T) {
+	t.Parallel()
+
+	src := `package testpkg
+type StringLike interface { ~string }
+type NumberLike interface { ~int | ~int64 }
+
+type StrictBox[T StringLike] struct{ Value T }
+type NumericBox[T NumberLike] struct{ Value T }
+type LooseBox[T any] struct{ Value T }
+
+func AcceptStrict[T ~string](v T) {}
+func AcceptLoose[T any](v T) {}
+`
+	pass, file := buildTypedPassFromSource(t, src)
+
+	strictFieldType := findStructFieldTypeExpr(t, pass, file, "StrictBox", "Value")
+	if !isPrimitive(strictFieldType) {
+		t.Fatal("expected constrained ~string type parameter field to be primitive")
+	}
+
+	numericFieldType := findStructFieldTypeExpr(t, pass, file, "NumericBox", "Value")
+	if !isPrimitive(numericFieldType) {
+		t.Fatal("expected constrained union primitive type parameter field to be primitive")
+	}
+
+	looseFieldType := findStructFieldTypeExpr(t, pass, file, "LooseBox", "Value")
+	if isPrimitive(looseFieldType) {
+		t.Fatal("expected unconstrained type parameter field to be non-primitive")
+	}
+
+	strictFn := findFuncDecl(t, file, "AcceptStrict")
+	strictParamType := pass.TypesInfo.TypeOf(strictFn.Type.Params.List[0].Type)
+	if !isPrimitive(strictParamType) {
+		t.Fatal("expected ~string constrained parameter to be primitive")
+	}
+
+	looseFn := findFuncDecl(t, file, "AcceptLoose")
+	looseParamType := pass.TypesInfo.TypeOf(looseFn.Type.Params.List[0].Type)
+	if isPrimitive(looseParamType) {
+		t.Fatal("expected any constrained parameter to be non-primitive")
 	}
 }
 
@@ -225,6 +328,42 @@ func makeAliasType(rhs types.Type) *types.Alias {
 	return types.NewAlias(aliasName, rhs)
 }
 
+func findStructFieldTypeExpr(t *testing.T, pass *analysis.Pass, file *ast.File, structName, fieldName string) types.Type {
+	t.Helper()
+
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.TYPE {
+			continue
+		}
+		for _, spec := range gen.Specs {
+			ts, ok := spec.(*ast.TypeSpec)
+			if !ok || ts.Name.Name != structName {
+				continue
+			}
+			st, ok := ts.Type.(*ast.StructType)
+			if !ok {
+				t.Fatalf("%s is not a struct type", structName)
+			}
+			for _, field := range st.Fields.List {
+				for _, name := range field.Names {
+					if name.Name != fieldName {
+						continue
+					}
+					typ := pass.TypesInfo.TypeOf(field.Type)
+					if typ == nil {
+						t.Fatalf("missing type info for %s.%s", structName, fieldName)
+					}
+					return typ
+				}
+			}
+			t.Fatalf("field %s not found in struct %s", fieldName, structName)
+		}
+	}
+	t.Fatalf("struct %s not found", structName)
+	return nil
+}
+
 func TestIsPrimitiveUnderlying(t *testing.T) {
 	t.Parallel()
 
@@ -346,10 +485,10 @@ func TestIsOptionFuncType(t *testing.T) {
 	targetStruct := makeStruct("Server")
 
 	tests := []struct {
-		name           string
-		typ            types.Type
-		wantTarget     string
-		wantOK         bool
+		name       string
+		typ        types.Type
+		wantTarget string
+		wantOK     bool
 	}{
 		{
 			name: "valid option func(*Server)",

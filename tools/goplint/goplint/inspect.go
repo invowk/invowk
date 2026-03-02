@@ -56,11 +56,8 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 			// For map types, produce a targeted message identifying which
 			// part(s) of the map are primitive instead of showing the full
 			// composite type.
-			typeName := primitiveTypeName(fieldType)
-			if detail, ok := primitiveMapDetail(fieldType); ok {
-				typeName = detail
-			}
-			if cfg.isSkippedType(typeName) {
+			typeName, ok := primitiveFindingTypeName(fieldType, cfg)
+			if !ok {
 				continue
 			}
 
@@ -125,16 +122,17 @@ func inspectFuncDecl(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionConfig
 
 	// Prefix with package name for exception matching.
 	funcName = pkgName + "." + funcName
+	contractMethod := isKnownInterfaceContractMethod(pass, fn)
 
 	// Check parameters — always checked, even with //goplint:render.
-	if fn.Type.Params != nil {
+	if fn.Type.Params != nil && !contractMethod {
 		inspectFieldList(pass, fn.Type.Params, funcName, "parameter", cfg, bl)
 	}
 
 	// Check return types — skip for render functions (display output),
 	// and for well-known interface methods (String, Error, GoString,
 	// MarshalText) whose return types are dictated by the interface contract.
-	if fn.Type.Results != nil && !isRender && !isInterfaceMethodReturn(fn) {
+	if fn.Type.Results != nil && !isRender && !isInterfaceMethodReturn(fn) && !contractMethod {
 		inspectReturnTypes(pass, fn.Type.Results, funcName, cfg, bl)
 	}
 }
@@ -157,11 +155,8 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 			continue
 		}
 
-		typeName := primitiveTypeName(fieldType)
-		if detail, ok := primitiveMapDetail(fieldType); ok {
-			typeName = detail
-		}
-		if cfg.isSkippedType(typeName) {
+		typeName, ok := primitiveFindingTypeName(fieldType, cfg)
+		if !ok {
 			continue
 		}
 
@@ -216,11 +211,8 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 			continue
 		}
 
-		typeName := primitiveTypeName(fieldType)
-		if detail, ok := primitiveMapDetail(fieldType); ok {
-			typeName = detail
-		}
-		if cfg.isSkippedType(typeName) {
+		typeName, ok := primitiveFindingTypeName(fieldType, cfg)
+		if !ok {
 			continue
 		}
 
@@ -269,6 +261,20 @@ func shouldSkipFunc(fn *ast.FuncDecl) bool {
 	default:
 		return false
 	}
+}
+
+func primitiveFindingTypeName(fieldType types.Type, cfg *ExceptionConfig) (string, bool) {
+	if detail, ok := primitiveMapDetailWithSkip(fieldType, cfg); ok {
+		return detail, true
+	}
+	if _, isMap := types.Unalias(fieldType).(*types.Map); isMap {
+		return "", false
+	}
+	typeName := primitiveTypeName(fieldType)
+	if cfg != nil && cfg.isSkippedType(typeName) {
+		return "", false
+	}
+	return typeName, true
 }
 
 // isInterfaceMethodReturn returns true if the function is a method whose
