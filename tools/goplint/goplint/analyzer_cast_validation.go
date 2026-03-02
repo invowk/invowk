@@ -177,7 +177,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		}
 
 		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", ac.typeName)
-		findingID := StableFindingID(
+		findingID := PackageScopedFindingID(pass,
 			CategoryUnvalidatedCast,
 			"ast",
 			qualFuncName,
@@ -201,7 +201,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		}
 
 		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", uc.typeName)
-		findingID := StableFindingID(
+		findingID := PackageScopedFindingID(pass,
 			CategoryUnvalidatedCast,
 			"ast",
 			qualFuncName,

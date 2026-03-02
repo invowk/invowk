@@ -2,7 +2,13 @@
 
 package goplint
 
-import "testing"
+import (
+	"go/token"
+	"strings"
+	"testing"
+
+	"golang.org/x/tools/go/analysis"
+)
 
 func TestStableFindingID(t *testing.T) {
 	t.Parallel()
@@ -72,5 +78,133 @@ func TestFallbackFindingIDForDiagnostic(t *testing.T) {
 	}
 	if id1 == id2 {
 		t.Fatalf("expected different positions to produce different IDs: %q", id1)
+	}
+}
+
+func TestFallbackFindingIDForDiagnostic_EmptyPosUsesFallback(t *testing.T) {
+	t.Parallel()
+
+	category := CategoryUnusedValidateResult
+	message := "Validate() result discarded"
+	got := FallbackFindingIDForDiagnostic(category, "", message)
+	want := FallbackFindingID(category, message)
+	if got != want {
+		t.Fatalf("FallbackFindingIDForDiagnostic(empty pos) = %q, want %q", got, want)
+	}
+}
+
+func TestStablePosKey(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unknown guards", func(t *testing.T) {
+		t.Parallel()
+
+		if got := stablePosKey(nil, token.NoPos); got != "unknown-pos" {
+			t.Fatalf("stablePosKey(nil, NoPos) = %q, want %q", got, "unknown-pos")
+		}
+
+		pass := &analysis.Pass{Fset: token.NewFileSet()}
+		if got := stablePosKey(pass, token.NoPos); got != "unknown-pos" {
+			t.Fatalf("stablePosKey(pass, NoPos) = %q, want %q", got, "unknown-pos")
+		}
+	})
+
+	t.Run("empty filename", func(t *testing.T) {
+		t.Parallel()
+
+		fset := token.NewFileSet()
+		file := fset.AddFile("", -1, 20)
+		pos := file.Pos(1)
+		pass := &analysis.Pass{Fset: fset}
+
+		if got := stablePosKey(pass, pos); got != "unknown-pos" {
+			t.Fatalf("stablePosKey(empty filename) = %q, want %q", got, "unknown-pos")
+		}
+	})
+
+	t.Run("formats base filename line and column", func(t *testing.T) {
+		t.Parallel()
+
+		fset := token.NewFileSet()
+		file := fset.AddFile("/tmp/example/sample.go", -1, 32)
+		pos := file.Pos(5)
+		pass := &analysis.Pass{Fset: fset}
+		got := stablePosKey(pass, pos)
+
+		if !strings.HasPrefix(got, "sample.go:1:") {
+			t.Fatalf("stablePosKey() = %q, want prefix %q", got, "sample.go:1:")
+		}
+	})
+}
+
+func TestDiagnosticURLForFinding_EmptyID(t *testing.T) {
+	t.Parallel()
+
+	if got := DiagnosticURLForFinding(""); got != "" {
+		t.Fatalf("DiagnosticURLForFinding(empty) = %q, want empty", got)
+	}
+}
+
+func TestFindingMetaFromDiagnosticURL(t *testing.T) {
+	t.Parallel()
+
+	id := StableFindingID(CategoryStaleException, "pkg.Type.Field")
+	url := DiagnosticURLForFindingWithMeta(id, map[string]string{
+		"pattern": "pkg.Type.Field",
+		"reason":  "legacy",
+	})
+
+	tests := []struct {
+		name string
+		raw  string
+		key  string
+		want string
+	}{
+		{
+			name: "extracts existing key",
+			raw:  url,
+			key:  "pattern",
+			want: "pkg.Type.Field",
+		},
+		{
+			name: "missing key returns empty",
+			raw:  url,
+			key:  "missing",
+			want: "",
+		},
+		{
+			name: "empty key returns empty",
+			raw:  url,
+			key:  "",
+			want: "",
+		},
+		{
+			name: "non goplint url returns empty",
+			raw:  "https://example.com?id=1",
+			key:  "pattern",
+			want: "",
+		},
+		{
+			name: "no query returns empty",
+			raw:  DiagnosticURLForFinding(id),
+			key:  "pattern",
+			want: "",
+		},
+		{
+			name: "invalid query returns empty",
+			raw:  DiagnosticURLForFinding(id) + "?pattern=%zz",
+			key:  "pattern",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := FindingMetaFromDiagnosticURL(tt.raw, tt.key); got != tt.want {
+				t.Fatalf("FindingMetaFromDiagnosticURL(%q, %q) = %q, want %q", tt.raw, tt.key, got, tt.want)
+			}
+		})
 	}
 }

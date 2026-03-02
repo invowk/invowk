@@ -37,6 +37,21 @@ func StableFindingID(category string, parts ...string) string {
 	return "gpl" + findingIDVersion + "_" + hex.EncodeToString(sum[:])
 }
 
+// PackageScopedFindingID derives a deterministic ID for a finding that must be
+// unique across packages with the same leaf name. This keeps exception keys and
+// human messages package-leaf-friendly while the ID preimage remains package-path
+// precise.
+func PackageScopedFindingID(pass *analysis.Pass, category string, parts ...string) string {
+	pkgPath := ""
+	if pass != nil && pass.Pkg != nil {
+		pkgPath = pass.Pkg.Path()
+	}
+	scopedParts := make([]string, 0, len(parts)+1)
+	scopedParts = append(scopedParts, pkgPath)
+	scopedParts = append(scopedParts, parts...)
+	return StableFindingID(category, scopedParts...)
+}
+
 // FallbackFindingID derives an ID from category + message for diagnostics
 // that do not carry an explicit finding URL (legacy compatibility path).
 func FallbackFindingID(category, message string) string {

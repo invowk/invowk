@@ -773,12 +773,14 @@ func TestUpdateBaselineRoundTripSuppression(t *testing.T) {
 
 		nameID := goplint.StableFindingID(
 			goplint.CategoryPrimitive,
+			"baseline_roundtrip",
 			"struct-field",
 			"baseline_roundtrip.RoundTrip.Name",
 			"string",
 		)
 		ageID := goplint.StableFindingID(
 			goplint.CategoryPrimitive,
+			"baseline_roundtrip",
 			"struct-field",
 			"baseline_roundtrip.RoundTrip.Age",
 			"int",

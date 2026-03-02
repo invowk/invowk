@@ -117,8 +117,8 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 }
 
 func validateRunConfig(rc runConfig) error {
-	if (rc.checkUseBeforeValidate || rc.checkUseBeforeValidateCross) && rc.noCFA {
-		return fmt.Errorf("flags --check-use-before-validate and --check-use-before-validate-cross require CFA; remove --no-cfa")
+	if rc.noCFA && (rc.checkCastValidation || rc.checkUseBeforeValidate || rc.checkUseBeforeValidateCross || rc.checkConstructorValidates) {
+		return fmt.Errorf("flags --check-cast-validation, --check-use-before-validate, --check-use-before-validate-cross, and --check-constructor-validates require CFA; remove --no-cfa")
 	}
 	return nil
 }

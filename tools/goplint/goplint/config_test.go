@@ -208,6 +208,58 @@ reason = "test"
 	}
 }
 
+func TestConfigTemplate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil config returns empty template", func(t *testing.T) {
+		t.Parallel()
+
+		got := configTemplate(nil)
+		if got == nil {
+			t.Fatal("configTemplate(nil) returned nil")
+		}
+		if len(got.Exceptions) != 0 {
+			t.Fatalf("configTemplate(nil) exceptions len = %d, want 0", len(got.Exceptions))
+		}
+		if len(got.Settings.SkipTypes) != 0 || len(got.Settings.ExcludePaths) != 0 || len(got.Settings.IncludePackages) != 0 {
+			t.Fatalf("configTemplate(nil) settings should be empty: %+v", got.Settings)
+		}
+	})
+
+	t.Run("returns clone", func(t *testing.T) {
+		t.Parallel()
+
+		orig := &ExceptionConfig{
+			Settings: Settings{
+				SkipTypes:       []string{"bool"},
+				ExcludePaths:    []string{"specs/"},
+				IncludePackages: []string{"github.com/invowk/invowk"},
+			},
+			Exceptions: []Exception{
+				{Pattern: "pkg.Type.Field", Reason: "test"},
+			},
+		}
+		got := configTemplate(orig)
+		got.Settings.SkipTypes[0] = "mutated"
+		got.Settings.ExcludePaths[0] = "mutated"
+		got.Settings.IncludePackages[0] = "mutated"
+		got.Exceptions[0].Pattern = "mutated"
+
+		if orig.Settings.SkipTypes[0] != "bool" {
+			t.Fatalf("SkipTypes was mutated in original: %q", orig.Settings.SkipTypes[0])
+		}
+		if orig.Settings.ExcludePaths[0] != "specs/" {
+			t.Fatalf("ExcludePaths was mutated in original: %q", orig.Settings.ExcludePaths[0])
+		}
+		if orig.Settings.IncludePackages[0] != "github.com/invowk/invowk" {
+			t.Fatalf("IncludePackages was mutated in original: %q", orig.Settings.IncludePackages[0])
+		}
+		if orig.Exceptions[0].Pattern != "pkg.Type.Field" {
+			t.Fatalf("Exceptions was mutated in original: %q", orig.Exceptions[0].Pattern)
+		}
+	})
+}
+
 func TestShouldAnalyzePackage(t *testing.T) {
 	t.Parallel()
 

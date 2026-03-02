@@ -41,3 +41,12 @@ func MethodValueAliasValidateBeforeUse(raw string) { // want `parameter "raw" of
 	_ = alias()
 	useCmd(x)
 }
+
+// MethodValueDeferredValidate should report UBV: deferred method-value
+// invocation does not validate before use.
+func MethodValueDeferredValidate(raw string) { // want `parameter "raw" of use_before_validate_method_value\.MethodValueDeferredValidate uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	validateFn := x.Validate
+	defer validateFn()
+	useCmd(x)
+}

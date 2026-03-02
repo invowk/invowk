@@ -81,6 +81,17 @@ func trackConstructorDetails(pass *analysis.Pass, fn *ast.FuncDecl, seen map[str
 	// error return (last return type is error).
 	if fn.Type.Results != nil {
 		info.returnTypeName = resolveReturnTypeName(pass, fn.Type.Results)
+		if obj := pass.TypesInfo.Defs[fn.Name]; obj != nil {
+			if sig, ok := obj.Type().(*types.Signature); ok && sig.Results() != nil {
+				for resultVar := range sig.Results().Variables() {
+					if isErrorType(resultVar.Type()) {
+						continue
+					}
+					info.returnTypeKey = typeIdentityKey(resultVar.Type())
+					break
+				}
+			}
+		}
 		info.returnsInterface = returnsInterface(pass, fn.Type.Results)
 		info.returnsError = constructorReturnsError(pass, fn.Type.Results)
 	}
@@ -338,9 +349,14 @@ func collectExportedStructsWithFields(pass *analysis.Pass, node *ast.GenDecl, ou
 			continue
 		}
 
+		typeKey := ""
+		if obj := pass.TypesInfo.Defs[ts.Name]; obj != nil {
+			typeKey = typeIdentityKey(obj.Type())
+		}
 		info := exportedStructInfo{
 			name:    ts.Name.Name,
 			pos:     ts.Name.Pos(),
+			typeKey: typeKey,
 			mutable: hasMutableDirective(node.Doc, ts.Doc),
 		}
 
@@ -448,7 +464,7 @@ func reportMissingFuncOptions(
 		// Fall back to prefix match for existence checks.
 		ctorName := "New" + s.name
 		exactCtor := ctors[ctorName]
-		anyCtor := findConstructorForStruct(s.name, ctors)
+		anyCtor := findConstructorForStruct(s, ctors)
 
 		qualName := fmt.Sprintf("%s.%s", pkgName, s.name)
 		if cfg.isExcepted(qualName + ".func-options") {
@@ -566,7 +582,7 @@ func reportMissingImmutability(pass *analysis.Pass, structs []exportedStructInfo
 	pkgName := packageName(pass.Pkg)
 
 	for _, s := range structs {
-		if findConstructorForStruct(s.name, ctors) == nil {
+		if findConstructorForStruct(s, ctors) == nil {
 			continue // no constructor — exported fields are fine
 		}
 
@@ -613,7 +629,7 @@ func reportMissingStructValidate(
 	pkgName := packageName(pass.Pkg)
 
 	for _, s := range structs {
-		if findConstructorForStruct(s.name, ctors) == nil {
+		if findConstructorForStruct(s, ctors) == nil {
 			continue // no constructor — no obligation
 		}
 

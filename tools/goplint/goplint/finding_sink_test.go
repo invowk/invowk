@@ -90,3 +90,44 @@ func TestWriteFindingToSink_InvalidPathNoPanic(t *testing.T) {
 		t.Fatalf("expected no output file for invalid path, stat err=%v", err)
 	}
 }
+
+func TestEmitFindingsPathFromPass(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil pass", func(t *testing.T) {
+		t.Parallel()
+		if got := emitFindingsPathFromPass(nil); got != "" {
+			t.Fatalf("emitFindingsPathFromPass(nil) = %q, want empty", got)
+		}
+	})
+
+	t.Run("nil analyzer", func(t *testing.T) {
+		t.Parallel()
+		pass := &analysis.Pass{}
+		if got := emitFindingsPathFromPass(pass); got != "" {
+			t.Fatalf("emitFindingsPathFromPass(pass without analyzer) = %q, want empty", got)
+		}
+	})
+
+	t.Run("missing flag", func(t *testing.T) {
+		t.Parallel()
+		pass := &analysis.Pass{Analyzer: &analysis.Analyzer{}}
+		if got := emitFindingsPathFromPass(pass); got != "" {
+			t.Fatalf("emitFindingsPathFromPass(pass missing flag) = %q, want empty", got)
+		}
+	})
+
+	t.Run("returns flag value", func(t *testing.T) {
+		t.Parallel()
+		analyzer := &analysis.Analyzer{}
+		analyzer.Flags.String("emit-findings-jsonl", "", "path to findings sink")
+		const want = "/tmp/findings.jsonl"
+		if err := analyzer.Flags.Set("emit-findings-jsonl", want); err != nil {
+			t.Fatalf("set emit-findings-jsonl: %v", err)
+		}
+		pass := &analysis.Pass{Analyzer: analyzer}
+		if got := emitFindingsPathFromPass(pass); got != want {
+			t.Fatalf("emitFindingsPathFromPass() = %q, want %q", got, want)
+		}
+	})
+}

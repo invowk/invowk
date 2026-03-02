@@ -117,6 +117,7 @@ type namedTypeInfo struct {
 type exportedStructInfo struct {
 	name    string            // unqualified type name (e.g., "Config")
 	pos     token.Pos         // position for diagnostics
+	typeKey string            // package-qualified type identity key
 	fields  []structFieldMeta // field metadata, populated when structural checks are active
 	mutable bool              // has //goplint:mutable directive (immutability exemption)
 }
@@ -135,6 +136,7 @@ type structFieldMeta struct {
 type constructorFuncInfo struct {
 	pos                    token.Pos // position for diagnostics
 	returnTypeName         string    // resolved first non-error return type name (e.g., "Config")
+	returnTypeKey          string    // package-qualified type identity key for first non-error return
 	returnsInterface       bool      // first non-error return is an interface (skip sig check)
 	returnsError           bool      // last return type is error (e.g., func() (*Foo, error))
 	paramCount             int       // parameter count excluding trailing variadic option
@@ -223,9 +225,15 @@ func collectExportedStructs(pass *analysis.Pass, node *ast.GenDecl, out *[]expor
 			continue
 		}
 
+		typeKey := ""
+		if obj := pass.TypesInfo.Defs[ts.Name]; obj != nil {
+			typeKey = typeIdentityKey(obj.Type())
+		}
+
 		*out = append(*out, exportedStructInfo{
-			name: ts.Name.Name,
-			pos:  ts.Name.Pos(),
+			name:    ts.Name.Name,
+			pos:     ts.Name.Pos(),
+			typeKey: typeKey,
 		})
 	}
 }
@@ -400,7 +408,7 @@ func reportMissingStringer(pass *analysis.Pass, namedTypes []namedTypeInfo, meth
 func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo, ctors map[string]*constructorFuncInfo, methods map[string]*methodInfo, cfg *ExceptionConfig, bl *BaselineConfig) {
 	pkgName := packageName(pass.Pkg)
 	for _, s := range structs {
-		if findConstructorForStruct(s.name, ctors) != nil {
+		if findConstructorForStruct(s, ctors) != nil {
 			continue
 		}
 
@@ -435,8 +443,8 @@ func reportMissingConstructors(pass *analysis.Pass, structs []exportedStructInfo
 // Selection is deterministic: exact match ("New" + structName) is preferred,
 // then the lexicographically first prefix match. This avoids non-deterministic
 // results from map iteration order when multiple variant constructors exist.
-func findConstructorForStruct(structName string, ctors map[string]*constructorFuncInfo) *constructorFuncInfo {
-	prefix := "New" + structName
+func findConstructorForStruct(structInfo exportedStructInfo, ctors map[string]*constructorFuncInfo) *constructorFuncInfo {
+	prefix := "New" + structInfo.name
 	exactName := prefix
 
 	var bestName string
@@ -446,7 +454,11 @@ func findConstructorForStruct(structName string, ctors map[string]*constructorFu
 		if !strings.HasPrefix(name, prefix) {
 			continue
 		}
-		if info.returnTypeName != structName && !info.returnsInterface {
+		typeMatch := info.returnTypeName == structInfo.name
+		if structInfo.typeKey != "" && info.returnTypeKey != "" {
+			typeMatch = sameStructTypeIdentity(structInfo.typeKey, info.returnTypeKey)
+		}
+		if !typeMatch && !info.returnsInterface {
 			continue
 		}
 		// Exact match always wins.
@@ -460,6 +472,26 @@ func findConstructorForStruct(structName string, ctors map[string]*constructorFu
 		}
 	}
 	return bestInfo
+}
+
+// sameStructTypeIdentity matches constructor return type keys to exported struct
+// keys, including generic instantiations (e.g. pkg.Box[T] vs pkg.Box).
+func sameStructTypeIdentity(structTypeKey, returnTypeKey string) bool {
+	if structTypeKey == "" || returnTypeKey == "" {
+		return false
+	}
+	if structTypeKey == returnTypeKey {
+		return true
+	}
+	structBase := structTypeKey
+	if idx := strings.Index(structBase, "["); idx >= 0 {
+		structBase = structBase[:idx]
+	}
+	returnBase := returnTypeKey
+	if idx := strings.Index(returnBase, "["); idx >= 0 {
+		returnBase = returnBase[:idx]
+	}
+	return structBase != "" && structBase == returnBase
 }
 
 // reportStaleExceptionsInline reports stale exceptions via pass.Reportf.

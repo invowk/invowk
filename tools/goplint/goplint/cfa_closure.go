@@ -44,7 +44,7 @@ func inspectClosureCastsCFA(
 
 	// Collect casts using the shared CFA collection logic.
 	// Nested closures are analyzed recursively with compound prefixes.
-	assignedCasts, unassignedCasts, closureCalls, methodValueCalls := collectCFACasts(
+	assignedCasts, unassignedCasts, closureCalls, _ := collectCFACasts(
 		pass, lit.Body, parentMap,
 		func(nested *ast.FuncLit, nestedIdx int) {
 			nestedPrefix := closurePrefix + "/" + strconv.Itoa(nestedIdx)
@@ -63,7 +63,7 @@ func inspectClosureCastsCFA(
 	if len(assignedCasts) > 0 {
 		pathSyncLits = collectSynchronousClosureLits(lit.Body)
 		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
-		pathMethodCalls = collectMethodValueValidateCallSet(methodValueCalls)
+		pathMethodCalls = collectMethodValueValidateCalls(pass, lit.Body)
 		if checkUBV || checkUBVCross {
 			ubvSyncLits = collectUBVClosureLits(lit.Body)
 			ubvSyncCalls = collectUBVClosureVarCalls(closureCalls)
@@ -91,7 +91,7 @@ func inspectClosureCastsCFA(
 			// All paths validated. Check for use-before-validate (same-block first, then cross-block).
 			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.target.displayName, ac.typeName)
-				ubvID := StableFindingID(
+				ubvID := PackageScopedFindingID(pass,
 					CategoryUseBeforeValidate,
 					"cfa",
 					"closure",
@@ -107,7 +107,7 @@ func inspectClosureCastsCFA(
 				}
 			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
 				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.target.displayName, ac.typeName)
-				ubvID := StableFindingID(
+				ubvID := PackageScopedFindingID(pass,
 					CategoryUseBeforeValidate,
 					"cfa",
 					"closure",
@@ -126,7 +126,7 @@ func inspectClosureCastsCFA(
 		}
 
 		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", ac.typeName)
-		findingID := StableFindingID(
+		findingID := PackageScopedFindingID(pass,
 			CategoryUnvalidatedCast,
 			"cfa",
 			"closure",
@@ -156,7 +156,7 @@ func inspectClosureCastsCFA(
 		}
 
 		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", uc.typeName)
-		findingID := StableFindingID(
+		findingID := PackageScopedFindingID(pass,
 			CategoryUnvalidatedCast,
 			"cfa",
 			"closure",

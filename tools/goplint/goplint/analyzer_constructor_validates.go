@@ -274,7 +274,7 @@ func inspectConstructorValidates(
 			msg := fmt.Sprintf(
 				"constructor %s returns %s.%s which has Validate() but never calls it",
 				qualName, returnTypePkg, returnType)
-			findingID := StableFindingID(CategoryMissingConstructorValidate, qualName, returnType)
+			findingID := PackageScopedFindingID(pass, CategoryMissingConstructorValidate, qualName, returnType)
 			if bl.ContainsFinding(CategoryMissingConstructorValidate, findingID, msg) {
 				continue
 			}

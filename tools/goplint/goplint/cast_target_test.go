@@ -3,6 +3,7 @@
 package goplint
 
 import (
+	"go/ast"
 	"go/token"
 	"go/types"
 	"testing"
@@ -24,5 +25,18 @@ func TestObjectKeyDeterministic(t *testing.T) {
 	v3 := types.NewVar(token.Pos(43), pkg, "value", types.Typ[types.String])
 	if objectKey(v1) == objectKey(v3) {
 		t.Fatal("expected different declaration positions to produce different object keys")
+	}
+}
+
+func TestExprStringKey(t *testing.T) {
+	t.Parallel()
+
+	if got := exprStringKey(nil); got != "" {
+		t.Fatalf("exprStringKey(nil) = %q, want empty", got)
+	}
+
+	expr := &ast.SelectorExpr{X: ast.NewIdent("cfg"), Sel: ast.NewIdent("Name")}
+	if got := exprStringKey(expr); got != "cfg.Name" {
+		t.Fatalf("exprStringKey(selector) = %q, want %q", got, "cfg.Name")
 	}
 }

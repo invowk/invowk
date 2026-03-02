@@ -21,14 +21,9 @@ func isPrimitive(t types.Type) bool {
 		return isPrimitiveBasic(t)
 	case *types.Pointer:
 		return isPrimitive(t.Elem())
+	case *types.Array:
+		return isPrimitive(t.Elem())
 	case *types.Slice:
-		// []byte is an I/O boundary type, not a domain type.
-		// Unalias the element type first so type aliases to byte
-		// (e.g., type B = byte) are correctly recognized.
-		elem := types.Unalias(t.Elem())
-		if basic, ok := elem.(*types.Basic); ok && basic.Kind() == types.Byte {
-			return false
-		}
 		return isPrimitive(t.Elem())
 	case *types.Map:
 		return isPrimitive(t.Key()) || isPrimitive(t.Elem())
@@ -59,7 +54,15 @@ func isPrimitiveBasic(t *types.Basic) bool {
 		return true
 	case types.Float32, types.Float64:
 		return true
+	case types.Complex64, types.Complex128:
+		return true
+	case types.Uintptr:
+		return true
+	case types.UnsafePointer:
+		return true
 	case types.UntypedInt, types.UntypedFloat:
+		return true
+	case types.UntypedComplex:
 		return true
 	default:
 		return false

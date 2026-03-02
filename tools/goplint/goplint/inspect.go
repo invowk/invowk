@@ -71,7 +71,7 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 				}
 
 				msg := fmt.Sprintf("struct field %s uses primitive type %s", qualName, typeName)
-				findingID := StableFindingID(CategoryPrimitive, "struct-field", qualName, typeName)
+				findingID := PackageScopedFindingID(pass, CategoryPrimitive, "struct-field", qualName, typeName)
 				if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 					continue
 				}
@@ -87,7 +87,7 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 				}
 
 				msg := fmt.Sprintf("struct field %s uses primitive type %s", qualName, typeName)
-				findingID := StableFindingID(CategoryPrimitive, "struct-field", qualName, typeName)
+				findingID := PackageScopedFindingID(pass, CategoryPrimitive, "struct-field", qualName, typeName)
 				if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 					continue
 				}
@@ -172,7 +172,7 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 			}
 
 			msg := fmt.Sprintf("%s %q of %s uses primitive type %s", kind, name.Name, funcName, typeName)
-			findingID := StableFindingID(CategoryPrimitive, kind, funcName, name.Name, typeName)
+			findingID := PackageScopedFindingID(pass, CategoryPrimitive, kind, funcName, name.Name, typeName)
 			if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 				continue
 			}
@@ -188,7 +188,7 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 			}
 
 			msg := fmt.Sprintf("unnamed %s of %s uses primitive type %s", kind, funcName, typeName)
-			findingID := StableFindingID(CategoryPrimitive, "unnamed-"+kind, funcName, strconv.Itoa(fieldIndex), typeName)
+			findingID := PackageScopedFindingID(pass, CategoryPrimitive, "unnamed-"+kind, funcName, strconv.Itoa(fieldIndex), typeName)
 			if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 				continue
 			}
@@ -232,7 +232,7 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 			}
 
 			msg := fmt.Sprintf("return value %q of %s uses primitive type %s", name.Name, funcName, typeName)
-			findingID := StableFindingID(CategoryPrimitive, "named-return", funcName, name.Name, typeName)
+			findingID := PackageScopedFindingID(pass, CategoryPrimitive, "named-return", funcName, name.Name, typeName)
 			if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 				continue
 			}
@@ -248,7 +248,7 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 			}
 
 			msg := fmt.Sprintf("return value of %s uses primitive type %s", funcName, typeName)
-			findingID := StableFindingID(CategoryPrimitive, "return", funcName, strconv.Itoa(i), typeName)
+			findingID := PackageScopedFindingID(pass, CategoryPrimitive, "return", funcName, strconv.Itoa(i), typeName)
 			if bl.ContainsFinding(CategoryPrimitive, findingID, msg) {
 				continue
 			}
@@ -258,20 +258,13 @@ func inspectReturnTypes(pass *analysis.Pass, results *ast.FieldList, funcName st
 	}
 }
 
-// shouldSkipFunc returns true for functions that should not be analyzed:
-// init, main, test functions, and generated code.
+// shouldSkipFunc returns true for functions that should not be analyzed.
+// Test/benchmark/fuzz/example functions are skipped at file traversal level
+// (_test.go files), so function-name prefix checks are intentionally avoided.
 func shouldSkipFunc(fn *ast.FuncDecl) bool {
 	name := fn.Name.Name
 	switch {
 	case name == "init" || name == "main":
-		return true
-	case strings.HasPrefix(name, "Test"):
-		return true
-	case strings.HasPrefix(name, "Benchmark"):
-		return true
-	case strings.HasPrefix(name, "Fuzz"):
-		return true
-	case strings.HasPrefix(name, "Example"):
 		return true
 	default:
 		return false

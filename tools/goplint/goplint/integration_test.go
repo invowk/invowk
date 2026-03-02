@@ -448,9 +448,8 @@ func TestCheckStructValidate(t *testing.T) {
 }
 
 // TestCheckCastValidation exercises the --check-cast-validation mode with
-// --no-cfa against the castvalidation fixture, verifying type conversions
-// from raw primitives to DDD Value Types without Validate() are flagged
-// using the AST name-based heuristic.
+// CFA (default) against the castvalidation fixture, verifying type conversions
+// from raw primitives to DDD Value Types without Validate() are flagged.
 //
 // NOT parallel: shares h.Analyzer.Flags state.
 func TestCheckCastValidation(t *testing.T) {
@@ -460,42 +459,21 @@ func TestCheckCastValidation(t *testing.T) {
 	h := newAnalyzerHarness()
 	resetFlags(t, h)
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
-	setFlag(t, h.Analyzer, "no-cfa", "true")
 
 	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation")
 }
 
-// TestCheckCastValidationNoCFAValidateBeforeCast verifies AST fallback mode
-// does not treat pre-cast Validate() calls as satisfying later casts.
+// TestCheckCastValidationRejectsNoCFA validates the run-config contract:
+// cast-validation requires CFA.
 //
 // NOT parallel: shares h.Analyzer.Flags state.
-func TestCheckCastValidationNoCFAValidateBeforeCast(t *testing.T) {
+func TestCheckCastValidationRejectsNoCFA(t *testing.T) {
 	t.Parallel()
 
-	testdata := analysistest.TestData()
-	h := newAnalyzerHarness()
-	resetFlags(t, h)
-	setFlag(t, h.Analyzer, "check-cast-validation", "true")
-	setFlag(t, h.Analyzer, "no-cfa", "true")
-
-	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation_nocfa_validate_before_cast")
-}
-
-// TestCheckCastValidationNoCFADeadBranchContract documents the intentional
-// AST fallback contract: with --no-cfa, a dead-branch Validate() call counts
-// as present and suppresses cast-validation findings.
-//
-// NOT parallel: shares h.Analyzer.Flags state.
-func TestCheckCastValidationNoCFADeadBranchContract(t *testing.T) {
-	t.Parallel()
-
-	testdata := analysistest.TestData()
-	h := newAnalyzerHarness()
-	resetFlags(t, h)
-	setFlag(t, h.Analyzer, "check-cast-validation", "true")
-	setFlag(t, h.Analyzer, "no-cfa", "true")
-
-	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation_nocfa_dead_branch")
+	rc := runConfig{checkCastValidation: true, noCFA: true}
+	if err := validateRunConfig(rc); err == nil {
+		t.Fatal("expected cast-validation + no-cfa to fail validation")
+	}
 }
 
 // TestBaselineSuppression verifies that the --baseline flag correctly

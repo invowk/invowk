@@ -44,14 +44,19 @@ entries = [
 	}
 }
 
-func TestValidateRunConfigRejectsUBVWithoutCFA(t *testing.T) {
+func TestValidateRunConfigRejectsMissionChecksWithoutCFA(t *testing.T) {
 	t.Parallel()
 
-	rc := runConfig{
-		checkUseBeforeValidate: true,
-		noCFA:                  true,
+	tests := []runConfig{
+		{checkCastValidation: true, noCFA: true},
+		{checkUseBeforeValidate: true, noCFA: true},
+		{checkUseBeforeValidateCross: true, noCFA: true},
+		{checkConstructorValidates: true, noCFA: true},
 	}
-	if err := validateRunConfig(rc); err == nil {
-		t.Fatal("expected UBV + no-cfa combination to fail validation")
+
+	for _, rc := range tests {
+		if err := validateRunConfig(rc); err == nil {
+			t.Fatalf("expected %+v to fail validation", rc)
+		}
 	}
 }

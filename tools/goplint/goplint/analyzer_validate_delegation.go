@@ -110,7 +110,7 @@ func inspectValidateDelegation(pass *analysis.Pass, cfg *ExceptionConfig, bl *Ba
 			msg := fmt.Sprintf(
 				"%s.Validate() does not delegate to field %s which has Validate()",
 				qualName, fieldName)
-			findingID := StableFindingID(CategoryIncompleteValidateDelegation, qualName, fieldName)
+			findingID := PackageScopedFindingID(pass, CategoryIncompleteValidateDelegation, qualName, fieldName)
 			if bl.ContainsFinding(CategoryIncompleteValidateDelegation, findingID, msg) {
 				continue
 			}

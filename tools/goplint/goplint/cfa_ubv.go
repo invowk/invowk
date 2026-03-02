@@ -98,6 +98,26 @@ func isVarUseTargetSeen(
 			}
 			return true
 		}
+		// Alias/copy assignment: y := x, var y = x, dst = f(x), etc.
+		// Any RHS consumption of target before Validate() is a use.
+		if assign, ok := n.(*ast.AssignStmt); ok {
+			for _, rhs := range assign.Rhs {
+				if target.matchesExpr(pass, rhs) || isVarUseTargetSeen(pass, rhs, target, syncLits, syncCalls, methodCalls, seen) {
+					found = true
+					return false
+				}
+			}
+			return true
+		}
+		if valueSpec, ok := n.(*ast.ValueSpec); ok {
+			for _, value := range valueSpec.Values {
+				if target.matchesExpr(pass, value) || isVarUseTargetSeen(pass, value, target, syncLits, syncCalls, methodCalls, seen) {
+					found = true
+					return false
+				}
+			}
+			return true
+		}
 
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
@@ -221,6 +241,11 @@ func isValidateCallNode(
 		if !target.matchesExpr(pass, receiver) {
 			return false
 		}
+		if parent, ok := parentMap[call]; ok {
+			if _, isDefer := parent.(*ast.DeferStmt); isDefer {
+				return false
+			}
+		}
 		return !isConditionallyEvaluated(call, parentMap)
 	}
 	sel, ok := call.Fun.(*ast.SelectorExpr)
@@ -256,6 +281,20 @@ func isUseNode(
 		return target.matchesExpr(pass, node.Index)
 	case *ast.SendStmt:
 		return target.matchesExpr(pass, node.Value)
+	case *ast.AssignStmt:
+		for _, rhs := range node.Rhs {
+			if target.matchesExpr(pass, rhs) || isVarUseTarget(pass, rhs, target, syncLits, syncCalls, methodCalls) {
+				return true
+			}
+		}
+		return false
+	case *ast.ValueSpec:
+		for _, value := range node.Values {
+			if target.matchesExpr(pass, value) || isVarUseTarget(pass, value, target, syncLits, syncCalls, methodCalls) {
+				return true
+			}
+		}
+		return false
 	case *ast.CallExpr:
 		if sel, ok := node.Fun.(*ast.SelectorExpr); ok && target.matchesExpr(pass, sel.X) {
 			switch sel.Sel.Name {

@@ -322,10 +322,10 @@ func ChainedNonValidate(input string) { // want `parameter "input" of castvalida
 
 // --- Closure isolation tests (Issue 6 fix) ---
 
-// CastInsideClosure — closure casts are NOT analyzed (skipped).
+// CastInsideClosure — asynchronous closure casts are still checked.
 func CastInsideClosure(input string) { // want `parameter "input" of castvalidation\.CastInsideClosure uses primitive type string`
 	go func() {
-		name := CommandName(input) // NOT flagged — closure body skipped
+		name := CommandName(input) // want `type conversion to CommandName from non-constant without Validate\(\) check`
 		_ = name
 	}()
 }

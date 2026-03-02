@@ -188,13 +188,15 @@ func TestIsPrimitiveBasic(t *testing.T) {
 		{name: "Byte (uint8 alias)", kind: types.Byte, want: true},
 		{name: "Rune (int32 alias)", kind: types.Rune, want: true},
 
+		// Strict primitive policy additions
+		{name: "Complex64", kind: types.Complex64, want: true},
+		{name: "Complex128", kind: types.Complex128, want: true},
+		{name: "UntypedComplex", kind: types.UntypedComplex, want: true},
+		{name: "Uintptr", kind: types.Uintptr, want: true},
+		{name: "UnsafePointer", kind: types.UnsafePointer, want: true},
+
 		// Default branch — not flagged
-		{name: "Complex64", kind: types.Complex64, want: false},
-		{name: "Complex128", kind: types.Complex128, want: false},
 		{name: "UntypedNil", kind: types.UntypedNil, want: false},
-		{name: "UntypedComplex", kind: types.UntypedComplex, want: false},
-		{name: "Uintptr", kind: types.Uintptr, want: false},
-		{name: "UnsafePointer", kind: types.UnsafePointer, want: false},
 	}
 
 	for _, tt := range tests {
@@ -497,8 +499,13 @@ func TestIsPrimitive(t *testing.T) {
 		// Slice types
 		{name: "slice of string", typ: types.NewSlice(types.Typ[types.String]), want: true},
 		{name: "slice of int", typ: types.NewSlice(types.Typ[types.Int]), want: true},
-		{name: "slice of byte (exempt)", typ: types.NewSlice(types.Typ[types.Byte]), want: false},
+		{name: "slice of byte", typ: types.NewSlice(types.Typ[types.Byte]), want: true},
 		{name: "slice of named", typ: types.NewSlice(named), want: false},
+
+		// Array types
+		{name: "array of string", typ: types.NewArray(types.Typ[types.String], 3), want: true},
+		{name: "array of byte", typ: types.NewArray(types.Typ[types.Byte], 16), want: true},
+		{name: "array of named", typ: types.NewArray(named, 2), want: false},
 
 		// Map types
 		{name: "map[string]string", typ: types.NewMap(types.Typ[types.String], types.Typ[types.String]), want: true},

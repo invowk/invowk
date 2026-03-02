@@ -82,11 +82,10 @@ make update-baseline
 
 - Named types (`type CommandName string`) -- these _are_ the DDD Value Types
 - `bool` -- exempt by design (marginal DDD value)
-- `[]byte` -- I/O boundary type
 - `error` -- interface, not a primitive
 - Interface method signatures
 - `String()`, `Error()`, `GoString()`, `MarshalText()`, `MarshalBinary()`, `MarshalJSON()` return types (interface contracts)
-- Test files (`_test.go`), `init()`, `main()`, `Test*`, `Benchmark*` functions
+- Test files (`_test.go`), `init()`, `main()`
 
 ## Exceptions
 
@@ -285,7 +284,8 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 
 ### CFA Notes
 
-- `--check-cast-validation` uses CFA by default (`--no-cfa` for AST fallback).
+- `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate*` are CFA-only checks.
+- `--no-cfa` with any of those checks is rejected in run-config validation.
 - Auto-skip for index expressions is map-only (map lookups), not slice/array indexing.
 - UBV checks treat immediate IIFEs as synchronous ordering context; deferred `Validate()` does not suppress use-before-validate findings.
 
