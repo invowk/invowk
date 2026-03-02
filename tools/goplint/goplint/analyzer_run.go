@@ -5,6 +5,7 @@ package goplint
 import (
 	"fmt"
 	"go/ast"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -92,6 +93,19 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 		return nil, err
 	}
 
+	// Apply CLI --include-packages override if set.
+	if rc.includePackages != "" {
+		cfg.Settings.IncludePackages = strings.Split(rc.includePackages, ",")
+	}
+
+	// Package filter: if include_packages is configured and this package
+	// doesn't match, run only fact-exporting traversal (for cross-package
+	// resolution) and skip all diagnostic emission.
+	if !cfg.ShouldAnalyzePackage(pass.Pkg.Path()) {
+		runFactExportOnly(pass)
+		return nil, nil
+	}
+
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	needs := deriveRunNeeds(rc)
 	collectors := newRunCollectors(rc, needs)
@@ -121,6 +135,31 @@ func loadRunInputs(state *flagState, rc runConfig) (*ExceptionConfig, *BaselineC
 	}
 
 	return cfg, bl, nil
+}
+
+// runFactExportOnly performs a minimal AST traversal to export cross-package
+// facts (ValidatesTypeFact, NonZeroFact) without emitting any diagnostics.
+// Called for packages excluded by include_packages — their type information
+// is still needed by downstream packages for constructor-validates and
+// nonzero field checking.
+func runFactExportOnly(pass *analysis.Pass) {
+	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+
+	nodeFilter := []ast.Node{
+		(*ast.GenDecl)(nil),
+		(*ast.FuncDecl)(nil),
+	}
+
+	insp.Preorder(nodeFilter, func(n ast.Node) {
+		switch n := n.(type) {
+		case *ast.GenDecl:
+			// Export NonZeroFact for types with //goplint:nonzero directive.
+			exportNonZeroFacts(pass, n)
+		case *ast.FuncDecl:
+			// Export ValidatesTypeFact for functions with //goplint:validates-type directive.
+			exportValidatesTypeFacts(pass, n)
+		}
+	})
 }
 
 func runTraversal(

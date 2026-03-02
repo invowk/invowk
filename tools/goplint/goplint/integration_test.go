@@ -269,6 +269,10 @@ func TestAnalyzerWithRealExceptionsToml(t *testing.T) {
 	testdata := analysistest.TestData()
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "config", filepath.Join(testdata, "..", "..", "exceptions.toml"))
+	// Override include_packages from the real config — test fixtures use
+	// short package paths (e.g., "basic") that don't match the production
+	// prefix "github.com/invowk/invowk".
+	setFlag(t, h.Analyzer, "include-packages", "basic")
 
 	runAnalysisTest(t, testdata, h.Analyzer, "basic")
 }

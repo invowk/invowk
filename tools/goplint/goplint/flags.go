@@ -14,6 +14,7 @@ type flagState struct {
 	configPath                  string
 	baselinePath                string
 	emitFindingsPath            string
+	includePackages             string // comma-separated package prefixes (CLI override)
 	configPathExplicit          bool
 	baselinePathExplicit        bool
 	emitFindingsPathExplicit    bool
@@ -364,6 +365,9 @@ func bindAnalyzerFlags(analyzer *analysis.Analyzer, state *flagState) {
 		explicit: &state.emitFindingsPathExplicit,
 	}, "emit-findings-jsonl", "internal path to write structured findings stream")
 
+	analyzer.Flags.StringVar(&state.includePackages, "include-packages", "",
+		"comma-separated package path prefixes; only emit diagnostics for matching packages (overrides TOML include_packages)")
+
 	for _, spec := range modeFlagSpecs() {
 		analyzer.Flags.BoolVar(spec.stateBoolField(state), spec.flagName, spec.defaultValue, spec.usage)
 	}
@@ -376,6 +380,7 @@ func resetFlagStateDefaults(state *flagState) {
 	state.configPath = ""
 	state.baselinePath = ""
 	state.emitFindingsPath = ""
+	state.includePackages = ""
 	state.configPathExplicit = false
 	state.baselinePathExplicit = false
 	state.emitFindingsPathExplicit = false
@@ -399,6 +404,7 @@ type runConfig struct {
 	baselinePathExplicit        bool
 	emitFindingsPath            string
 	emitFindingsPathExplicit    bool
+	includePackages             string
 	auditExceptions             bool
 	checkAll                    bool
 	checkValidate               bool
@@ -431,6 +437,7 @@ func newRunConfigForState(state *flagState) runConfig {
 		baselinePathExplicit:     state.baselinePathExplicit,
 		emitFindingsPath:         state.emitFindingsPath,
 		emitFindingsPathExplicit: state.emitFindingsPathExplicit,
+		includePackages:          state.includePackages,
 	}
 	for _, spec := range modeFlagSpecs() {
 		*spec.runConfigBoolField(&rc) = *spec.stateBoolField(state)

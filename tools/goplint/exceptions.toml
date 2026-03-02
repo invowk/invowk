@@ -26,6 +26,13 @@ exclude_paths = [
     "internal/testutil/", # Test utilities, not domain types
 ]
 
+# Only emit diagnostics for packages matching these import-path prefixes.
+# Third-party and stdlib packages are analyzed for type/fact resolution
+# but their findings are suppressed.
+include_packages = [
+    "github.com/invowk/invowk",
+]
+
 # =============================================================================
 # Exec / OS Boundary
 # =============================================================================

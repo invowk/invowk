@@ -162,6 +162,7 @@ func TestLoadConfigCached_CloneIsolation(t *testing.T) {
 [settings]
 skip_types = ["bool"]
 exclude_paths = ["specs/"]
+include_packages = ["github.com/invowk/invowk"]
 
 [[exceptions]]
 pattern = "pkg.Type.Field"
@@ -186,6 +187,7 @@ reason = "test"
 
 	first.Settings.SkipTypes[0] = "mutated-skip-type"
 	first.Settings.ExcludePaths[0] = "mutated-path"
+	first.Settings.IncludePackages[0] = "mutated-pkg"
 	first.Exceptions[0].Pattern = "mutated.pattern"
 	first.matchCounts[0] = 42
 
@@ -195,11 +197,125 @@ reason = "test"
 	if second.Settings.ExcludePaths[0] != "specs/" {
 		t.Fatalf("exclude_paths leaked across clones: got %q", second.Settings.ExcludePaths[0])
 	}
+	if second.Settings.IncludePackages[0] != "github.com/invowk/invowk" {
+		t.Fatalf("include_packages leaked across clones: got %q", second.Settings.IncludePackages[0])
+	}
 	if second.Exceptions[0].Pattern != "pkg.Type.Field" {
 		t.Fatalf("exceptions leaked across clones: got %q", second.Exceptions[0].Pattern)
 	}
 	if second.matchCounts[0] != 0 {
 		t.Fatalf("matchCounts leaked across clones: got %d", second.matchCounts[0])
+	}
+}
+
+func TestShouldAnalyzePackage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		includePackages []string
+		pkgPath         string
+		want            bool
+	}{
+		{
+			name:            "empty list allows all",
+			includePackages: nil,
+			pkgPath:         "fmt",
+			want:            true,
+		},
+		{
+			name:            "empty slice allows all",
+			includePackages: []string{},
+			pkgPath:         "github.com/other/pkg",
+			want:            true,
+		},
+		{
+			name:            "exact match",
+			includePackages: []string{"github.com/invowk/invowk"},
+			pkgPath:         "github.com/invowk/invowk",
+			want:            true,
+		},
+		{
+			name:            "prefix match subpackage",
+			includePackages: []string{"github.com/invowk/invowk"},
+			pkgPath:         "github.com/invowk/invowk/internal/config",
+			want:            true,
+		},
+		{
+			name:            "no match stdlib",
+			includePackages: []string{"github.com/invowk/invowk"},
+			pkgPath:         "fmt",
+			want:            false,
+		},
+		{
+			name:            "no match third-party",
+			includePackages: []string{"github.com/invowk/invowk"},
+			pkgPath:         "github.com/spf13/cobra",
+			want:            false,
+		},
+		{
+			name:            "multiple prefixes first matches",
+			includePackages: []string{"github.com/invowk/invowk", "github.com/other/pkg"},
+			pkgPath:         "github.com/invowk/invowk/pkg/types",
+			want:            true,
+		},
+		{
+			name:            "multiple prefixes second matches",
+			includePackages: []string{"github.com/invowk/invowk", "github.com/other/pkg"},
+			pkgPath:         "github.com/other/pkg/sub",
+			want:            true,
+		},
+		{
+			name:            "multiple prefixes none match",
+			includePackages: []string{"github.com/invowk/invowk", "github.com/other/pkg"},
+			pkgPath:         "github.com/unrelated/lib",
+			want:            false,
+		},
+		{
+			name:            "partial prefix does not match",
+			includePackages: []string{"github.com/invowk/invowk"},
+			pkgPath:         "github.com/invowk/invowk-other",
+			want:            true, // HasPrefix matches — "invowk-other" starts with "invowk"
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := &ExceptionConfig{Settings: Settings{IncludePackages: tt.includePackages}}
+			got := cfg.ShouldAnalyzePackage(tt.pkgPath)
+			if got != tt.want {
+				t.Errorf("ShouldAnalyzePackage(%q) = %v, want %v", tt.pkgPath, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadConfig_IncludePackages(t *testing.T) {
+	t.Parallel()
+
+	content := `
+[settings]
+skip_types = ["bool"]
+include_packages = ["github.com/invowk/invowk", "github.com/other/pkg"]
+`
+	path := filepath.Join(t.TempDir(), "include-packages.toml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	cfg, err := loadConfig(path, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Settings.IncludePackages) != 2 {
+		t.Fatalf("expected 2 include_packages, got %d", len(cfg.Settings.IncludePackages))
+	}
+	if cfg.Settings.IncludePackages[0] != "github.com/invowk/invowk" {
+		t.Errorf("expected first prefix %q, got %q", "github.com/invowk/invowk", cfg.Settings.IncludePackages[0])
+	}
+	if cfg.Settings.IncludePackages[1] != "github.com/other/pkg" {
+		t.Errorf("expected second prefix %q, got %q", "github.com/other/pkg", cfg.Settings.IncludePackages[1])
 	}
 }
 

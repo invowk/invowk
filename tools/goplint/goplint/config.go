@@ -43,6 +43,11 @@ type Settings struct {
 	// ExcludePaths lists path substrings that cause files to be skipped.
 	// If any substring matches the file path, the file is excluded.
 	ExcludePaths []string `toml:"exclude_paths"`
+	// IncludePackages restricts diagnostic emission to packages whose
+	// import path starts with one of these prefixes. Empty means no filter
+	// (all packages emit diagnostics). Third-party packages are still
+	// analyzed for fact export but their findings are suppressed.
+	IncludePackages []string `toml:"include_packages"`
 }
 
 // Exception represents a single exception rule for an intentional
@@ -134,8 +139,9 @@ func configTemplate(cfg *ExceptionConfig) *ExceptionConfig {
 	}
 	return &ExceptionConfig{
 		Settings: Settings{
-			SkipTypes:    slices.Clone(cfg.Settings.SkipTypes),
-			ExcludePaths: slices.Clone(cfg.Settings.ExcludePaths),
+			SkipTypes:       slices.Clone(cfg.Settings.SkipTypes),
+			ExcludePaths:    slices.Clone(cfg.Settings.ExcludePaths),
+			IncludePackages: slices.Clone(cfg.Settings.IncludePackages),
 		},
 		Exceptions: slices.Clone(cfg.Exceptions),
 	}
@@ -147,8 +153,9 @@ func cloneExceptionConfig(template *ExceptionConfig) *ExceptionConfig {
 	}
 	clone := &ExceptionConfig{
 		Settings: Settings{
-			SkipTypes:    slices.Clone(template.Settings.SkipTypes),
-			ExcludePaths: slices.Clone(template.Settings.ExcludePaths),
+			SkipTypes:       slices.Clone(template.Settings.SkipTypes),
+			ExcludePaths:    slices.Clone(template.Settings.ExcludePaths),
+			IncludePackages: slices.Clone(template.Settings.IncludePackages),
 		},
 		Exceptions:  slices.Clone(template.Exceptions),
 		matchCounts: make(map[int]int, len(template.Exceptions)),
@@ -200,6 +207,22 @@ func (c *ExceptionConfig) isExcludedPath(filePath string) bool {
 	for _, ep := range c.Settings.ExcludePaths {
 		normalizedExclude := strings.ReplaceAll(filepath.ToSlash(ep), "\\", "/")
 		if strings.Contains(normalizedPath, normalizedExclude) {
+			return true
+		}
+	}
+	return false
+}
+
+// ShouldAnalyzePackage reports whether diagnostics should be emitted for the
+// given package path. Returns true when include_packages is empty (no filter)
+// or when the path matches any prefix in include_packages. Non-matching
+// packages are still analyzed for fact export but their findings are suppressed.
+func (c *ExceptionConfig) ShouldAnalyzePackage(pkgPath string) bool {
+	if len(c.Settings.IncludePackages) == 0 {
+		return true
+	}
+	for _, prefix := range c.Settings.IncludePackages {
+		if strings.HasPrefix(pkgPath, prefix) {
 			return true
 		}
 	}
