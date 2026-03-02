@@ -133,3 +133,53 @@ func CrossBlockDeferredValidateDoesNotSuppress(raw string, cond bool) error { //
 	}
 	return x.Validate()
 }
+
+// --- Loop body cross-block UBV ---
+
+// CrossBlockLoopBodyUse — SHOULD be flagged. The variable x is cast in
+// the main block, used inside a for-range loop body (a successor block),
+// and validated after the loop. The loop body uses x before any
+// Validate() call on that path.
+func CrossBlockLoopBodyUse(raw string, items []int) { // want `parameter "raw" of use_before_validate_cross\.CrossBlockLoopBodyUse uses primitive type string` `parameter "items" of use_before_validate_cross\.CrossBlockLoopBodyUse uses primitive type \[\]int`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) across blocks`
+	for range items {
+		useCmd(x) // use in loop body block — before validate
+	}
+	if err := x.Validate(); err != nil {
+		return
+	}
+}
+
+// --- Select case cross-block UBV ---
+
+// CrossBlockSelectUse — SHOULD be flagged. The variable x is used in
+// select case bodies (successor blocks) before validation.
+func CrossBlockSelectUse(raw string, ch chan int) { // want `parameter "raw" of use_before_validate_cross\.CrossBlockSelectUse uses primitive type string`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) across blocks`
+	select {
+	case <-ch:
+		useCmd(x) // use in select case body — before validate
+	default:
+		useCmd(x)
+	}
+	if err := x.Validate(); err != nil {
+		return
+	}
+}
+
+// --- Switch case cross-block UBV ---
+
+// CrossBlockSwitchBodyUse — SHOULD be flagged. The variable x is used
+// inside switch case bodies (successor blocks) before validation.
+func CrossBlockSwitchBodyUse(raw string, mode int) { // want `parameter "raw" of use_before_validate_cross\.CrossBlockSwitchBodyUse uses primitive type string` `parameter "mode" of use_before_validate_cross\.CrossBlockSwitchBodyUse uses primitive type int`
+	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) across blocks`
+	switch mode {
+	case 1:
+		useCmd(x) // use in switch case body — before validate
+	case 2:
+		useCmd(x)
+	}
+	if err := x.Validate(); err != nil {
+		return
+	}
+}

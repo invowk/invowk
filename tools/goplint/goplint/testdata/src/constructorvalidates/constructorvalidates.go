@@ -272,6 +272,77 @@ func NewPipeline(name string) (*Pipeline, error) { // want `parameter "name" of 
 	return assemblePipeline(name)
 }
 
+// --- Depth boundary: exactly maxTransitiveDepth-1 (5 hops, depth 0→4) ---
+// This chain passes through 5 functions before reaching Validate().
+// The depth guard is `depth >= maxTransitiveDepth` (5), so depths
+// 0, 1, 2, 3, 4 are all accepted. NOT flagged.
+
+type DepthBoundary struct {
+	name string // want `struct field constructorvalidates\.DepthBoundary\.name uses primitive type string`
+}
+
+func (d *DepthBoundary) Validate() error {
+	if d.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+func boundaryL4(d *DepthBoundary) error { return d.Validate() }
+func boundaryL3(d *DepthBoundary) error { return boundaryL4(d) }
+func boundaryL2(d *DepthBoundary) error { return boundaryL3(d) }
+func boundaryL1(d *DepthBoundary) error { return boundaryL2(d) }
+
+func boundaryAssemble(name string) (*DepthBoundary, error) { // want `parameter "name" of constructorvalidates\.boundaryAssemble uses primitive type string`
+	d := &DepthBoundary{name: name}
+	if err := boundaryL1(d); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// NewDepthBoundary delegates through boundaryAssemble → L1 → L2 → L3 → L4 → Validate().
+// NOT flagged — depth 0→1→2→3→4 is within maxTransitiveDepth (5).
+func NewDepthBoundary(name string) (*DepthBoundary, error) { // want `parameter "name" of constructorvalidates\.NewDepthBoundary uses primitive type string`
+	return boundaryAssemble(name)
+}
+
+// --- Depth beyond: exactly maxTransitiveDepth (6 hops, depth 0→5) ---
+// This chain passes through 6 functions before reaching Validate().
+// At depth 5, `depth >= maxTransitiveDepth` (5) stops recursion.
+// SHOULD be flagged because the analyzer cannot see the Validate() call.
+
+type DepthBeyond struct {
+	name string // want `struct field constructorvalidates\.DepthBeyond\.name uses primitive type string`
+}
+
+func (d *DepthBeyond) Validate() error {
+	if d.name == "" {
+		return fmt.Errorf("empty name")
+	}
+	return nil
+}
+
+func beyondL5(d *DepthBeyond) error { return d.Validate() }
+func beyondL4(d *DepthBeyond) error { return beyondL5(d) }
+func beyondL3(d *DepthBeyond) error { return beyondL4(d) }
+func beyondL2(d *DepthBeyond) error { return beyondL3(d) }
+func beyondL1(d *DepthBeyond) error { return beyondL2(d) }
+
+func beyondAssemble(name string) (*DepthBeyond, error) { // want `parameter "name" of constructorvalidates\.beyondAssemble uses primitive type string`
+	d := &DepthBeyond{name: name}
+	if err := beyondL1(d); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// NewDepthBeyond delegates through beyondAssemble → L1 → L2 → L3 → L4 → L5 → Validate().
+// FLAGGED — depth 0→1→2→3→4→5 hits maxTransitiveDepth cutoff at L5.
+func NewDepthBeyond(name string) (*DepthBeyond, error) { // want `parameter "name" of constructorvalidates\.NewDepthBeyond uses primitive type string` `constructor constructorvalidates\.NewDepthBeyond returns constructorvalidates\.DepthBeyond which has Validate\(\) but never calls it`
+	return beyondAssemble(name)
+}
+
 // --- Constant-only type (//goplint:constant-only) — constructor NOT flagged ---
 
 //goplint:constant-only
