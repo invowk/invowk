@@ -5,7 +5,7 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -727,7 +727,7 @@ func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 
 	cmd := testCommandWithScript("env-error", "echo test", invowkfile.RuntimeVirtual)
 
-	mockErr := fmt.Errorf("mock virtual env build failure")
+	mockErr := errors.New("mock virtual env build failure")
 	rt := NewVirtualRuntime(false, WithVirtualEnvBuilder(&MockEnvBuilder{Err: mockErr}))
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 

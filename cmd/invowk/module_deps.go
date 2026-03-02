@@ -43,7 +43,7 @@ Examples:
   invowk module add https://github.com/user/monorepo.git ^1.0.0 --path modules/utils`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runModuleAdd(args, addAlias, addPath)
+			return runModuleAdd(cmd.Context(), args, addAlias, addPath)
 		},
 	}
 
@@ -73,7 +73,9 @@ Examples:
   invowk module remove myalias
   invowk module remove modulename`,
 		Args: cobra.ExactArgs(1),
-		RunE: runModuleRemove,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleRemove(cmd.Context(), args)
+		},
 	}
 }
 
@@ -90,7 +92,9 @@ constraints, downloads the modules, and updates the lock file.
 Examples:
   invowk module sync`,
 		Args: cobra.ExactArgs(0),
-		RunE: runModuleSync,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runModuleSync(cmd.Context())
+		},
 	}
 }
 
@@ -116,7 +120,9 @@ Examples:
   invowk module update myalias
   invowk module update modulename`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: runModuleUpdate,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModuleUpdate(cmd.Context(), args)
+		},
 	}
 }
 
@@ -132,11 +138,13 @@ Shows all resolved modules with their versions, namespaces, and cache paths.
 Examples:
   invowk module deps`,
 		Args: cobra.ExactArgs(0),
-		RunE: runModuleDeps,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runModuleDeps(cmd.Context())
+		},
 	}
 }
 
-func runModuleAdd(args []string, addAlias, addPath string) error {
+func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) error {
 	gitURL := args[0]
 	version := args[1]
 
@@ -159,7 +167,6 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 	fmt.Printf("%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)
 
 	// Add the module (resolves, caches, and updates lock file)
-	ctx := context.Background()
 	resolved, err := resolver.Add(ctx, req)
 	if err != nil {
 		fmt.Printf("%s Failed to add module: %v\n", moduleErrorIcon, err)
@@ -190,7 +197,7 @@ func runModuleAdd(args []string, addAlias, addPath string) error {
 	return nil
 }
 
-func runModuleRemove(cmd *cobra.Command, args []string) error {
+func runModuleRemove(ctx context.Context, args []string) error {
 	identifier := args[0]
 
 	fmt.Println(moduleTitleStyle.Render("Remove Module Dependency"))
@@ -202,9 +209,6 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("%s Removing %s...\n", moduleInfoIcon, identifier)
-
-	// Remove from lock file
-	ctx := context.Background()
 	results, err := resolver.Remove(ctx, identifier)
 	if err != nil {
 		// Format ambiguous matches nicely
@@ -234,7 +238,7 @@ func runModuleRemove(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runModuleSync(cmd *cobra.Command, args []string) error {
+func runModuleSync(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
 
 	// Parse invowkmod.cue to get requirements
@@ -260,7 +264,6 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 	}
 
 	// Sync modules
-	ctx := context.Background()
 	resolved, err := resolver.Sync(ctx, requirements)
 	if err != nil {
 		fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
@@ -280,7 +283,7 @@ func runModuleSync(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runModuleUpdate(cmd *cobra.Command, args []string) error {
+func runModuleUpdate(ctx context.Context, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Update Module Dependencies"))
 
 	// Create module resolver
@@ -298,7 +301,6 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Update modules
-	ctx := context.Background()
 	updated, err := resolver.Update(ctx, identifier)
 	if err != nil {
 		// Format ambiguous matches nicely
@@ -328,7 +330,7 @@ func runModuleUpdate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runModuleDeps(cmd *cobra.Command, args []string) error {
+func runModuleDeps(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Module Dependencies"))
 
 	// Create module resolver
@@ -338,7 +340,6 @@ func runModuleDeps(cmd *cobra.Command, args []string) error {
 	}
 
 	// List modules
-	ctx := context.Background()
 	deps, err := resolver.List(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list module dependencies: %w", err)

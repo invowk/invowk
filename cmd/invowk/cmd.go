@@ -16,25 +16,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	// ArgErrMissingRequired indicates missing required arguments.
-	ArgErrMissingRequired ArgErrType = iota
-	// ArgErrTooMany indicates too many arguments were provided.
-	ArgErrTooMany
-	// ArgErrInvalidValue indicates an argument value failed validation.
-	ArgErrInvalidValue
-)
-
-var (
-	// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
-	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
-	ErrInvalidArgErrType = errors.New("invalid argument error type") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
-
-	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
-	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
-	ErrInvalidDependencyMessage = errors.New("invalid dependency message") //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
-)
-
 type (
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
 	// These correspond to persistent and local flags registered on the cmdCmd command.
@@ -51,52 +32,8 @@ type (
 		watch bool
 	}
 
-	// DependencyMessage is a pre-formatted dependency validation message
-	// used in DependencyError fields. Each message describes a single
-	// unsatisfied dependency (e.g., "  - kubectl - not found in PATH").
-	DependencyMessage string
-
-	// InvalidDependencyMessageError is returned when a DependencyMessage value
-	// fails validation (empty string).
-	InvalidDependencyMessageError struct {
-		Value DependencyMessage
-	}
-
-	// DependencyError represents unsatisfied dependencies.
-	DependencyError struct {
-		CommandName         invowkfile.CommandName
-		MissingTools        []DependencyMessage
-		MissingCommands     []DependencyMessage
-		MissingFilepaths    []DependencyMessage
-		MissingCapabilities []DependencyMessage
-		FailedCustomChecks  []DependencyMessage
-		MissingEnvVars      []DependencyMessage
-	}
-
-	//goplint:constant-only
+	//goplint:validate-all
 	//
-	// ArgErrType represents the type of argument validation error.
-	ArgErrType int
-
-	// InvalidArgErrTypeError is returned when an ArgErrType value is not
-	// one of the defined argument error types.
-	InvalidArgErrTypeError struct {
-		Value ArgErrType
-	}
-
-	// ArgumentValidationError represents an argument validation failure.
-	ArgumentValidationError struct {
-		Type         ArgErrType
-		CommandName  invowkfile.CommandName
-		ArgDefs      []invowkfile.Argument
-		ProvidedArgs []string
-		MinArgs      int
-		MaxArgs      int
-		InvalidArg   invowkfile.ArgumentName
-		InvalidValue string
-		ValueError   error
-	}
-
 	// SourceFilter represents a user-specified source constraint for disambiguation.
 	// Parsed from @source prefix in args or --ivk-from flag.
 	SourceFilter struct {
@@ -116,61 +53,6 @@ type (
 		Sources     []discovery.SourceID
 	}
 )
-
-// Error implements the error interface.
-func (e *InvalidArgErrTypeError) Error() string {
-	return fmt.Sprintf("invalid argument error type %d (valid: 0=missing_required, 1=too_many, 2=invalid_value)", e.Value)
-}
-
-// Unwrap returns ErrInvalidArgErrType so callers can use errors.Is for programmatic detection.
-func (e *InvalidArgErrTypeError) Unwrap() error { return ErrInvalidArgErrType }
-
-// String returns the human-readable name of the ArgErrType.
-func (t ArgErrType) String() string {
-	switch t {
-	case ArgErrMissingRequired:
-		return "missing_required"
-	case ArgErrTooMany:
-		return "too_many"
-	case ArgErrInvalidValue:
-		return "invalid_value"
-	default:
-		return fmt.Sprintf("unknown(%d)", int(t))
-	}
-}
-
-// Validate returns nil if the ArgErrType is one of the defined argument error types,
-// or a validation error if it is not.
-func (t ArgErrType) Validate() error {
-	switch t {
-	case ArgErrMissingRequired, ArgErrTooMany, ArgErrInvalidValue:
-		return nil
-	default:
-		return &InvalidArgErrTypeError{Value: t}
-	}
-}
-
-// Validate returns nil if the DependencyMessage is non-empty and non-whitespace,
-// or a validation error if it is not.
-func (m DependencyMessage) Validate() error {
-	if strings.TrimSpace(string(m)) == "" {
-		return &InvalidDependencyMessageError{Value: m}
-	}
-	return nil
-}
-
-// String returns the string representation of the DependencyMessage.
-func (m DependencyMessage) String() string {
-	return string(m)
-}
-
-// Error implements the error interface for InvalidDependencyMessageError.
-func (e *InvalidDependencyMessageError) Error() string {
-	return fmt.Sprintf("invalid dependency message: %q", e.Value)
-}
-
-// Unwrap returns ErrInvalidDependencyMessage so callers can use errors.Is for programmatic detection.
-func (e *InvalidDependencyMessageError) Unwrap() error { return ErrInvalidDependencyMessage }
 
 // parsedRuntimeMode parses the --ivk-runtime flag into a typed RuntimeMode.
 // Returns zero value ("") for empty input, which serves as the "no override" sentinel.
@@ -217,7 +99,7 @@ Examples:
 
 			// Validate structural command constraints in runtime flow so
 			// dynamic registration failures do not break unrelated commands.
-			if err := validateCommandTree(cmd.Context(), app, rootFlags); err != nil {
+			if err := validateCommandTree(cmd.Context(), app); err != nil {
 				return err
 			}
 
@@ -241,7 +123,7 @@ Examples:
 			// Without explicit source selection, detect ambiguity up front and
 			// show disambiguation guidance.
 			if len(args) > 0 {
-				if ambigCheckErr := checkAmbiguousCommand(cmd.Context(), app, rootFlags, args); ambigCheckErr != nil {
+				if ambigCheckErr := checkAmbiguousCommand(cmd.Context(), app, args); ambigCheckErr != nil {
 					if ambigErr, ok := errors.AsType[*AmbiguousCommandError](ambigCheckErr); ok {
 						fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 						cmd.SilenceErrors = true
@@ -267,23 +149,6 @@ Examples:
 	registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
 
 	return cmdCmd
-}
-
-func (e *DependencyError) Error() string {
-	return fmt.Sprintf("dependencies not satisfied for command '%s'", e.CommandName)
-}
-
-func (e *ArgumentValidationError) Error() string {
-	switch e.Type {
-	case ArgErrMissingRequired:
-		return fmt.Sprintf("missing required arguments for command '%s': expected at least %d, got %d", e.CommandName, e.MinArgs, len(e.ProvidedArgs))
-	case ArgErrTooMany:
-		return fmt.Sprintf("too many arguments for command '%s': expected at most %d, got %d", e.CommandName, e.MaxArgs, len(e.ProvidedArgs))
-	case ArgErrInvalidValue:
-		return fmt.Sprintf("invalid value for argument '%s': %v", e.InvalidArg, e.ValueError)
-	default:
-		return fmt.Sprintf("argument validation failed for command '%s'", e.CommandName)
-	}
 }
 
 func (e *SourceNotFoundError) Error() string {
@@ -332,7 +197,7 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
 // disambiguation (@source / --ivk-from) is specified and no ambiguity is detected.
 func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no command specified")
+		return errors.New("no command specified")
 	}
 
 	// Watch mode intercepts before normal execution.
@@ -430,7 +295,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 // On success, diagnostic rendering is deferred to downstream callers (listCommands,
 // executeRequest) that consume the cached discovery result. On error, diagnostics
 // are rendered here because downstream callers will not execute.
-func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValues) error {
+func validateCommandTree(ctx context.Context, app *App) error {
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(ctx)
 	if err == nil {
 		return nil // diagnostics rendered by downstream callers via the shared cache

@@ -56,8 +56,8 @@ This catalog is generated from repository source and documents current type-syst
 | `ExecutionID` | `primitive-wrapper` | `internal/runtime/runtime.go:273` |
 | `RuntimeType` | `primitive-wrapper` | `internal/runtime/runtime.go:254` |
 | `TUIContext` | `composite-validator` | `internal/runtime/runtime.go:330` |
-| `TUIServerToken` | `primitive-wrapper` | `internal/runtime/tui_types.go:81` |
-| `TUIServerURL` | `primitive-wrapper` | `internal/runtime/tui_types.go:57` |
+| `TUIServerToken` | `primitive-wrapper` | `internal/runtime/tui_types.go:54` |
+| `TUIServerURL` | `primitive-wrapper` | `pkg/types/tui_server_url.go:32` |
 | `Config` | `composite-validator` | `internal/sshserver/server.go:110` |
 | `HostAddress` | `primitive-wrapper` | `internal/sshserver/types.go:67` |
 | `TokenValue` | `primitive-wrapper` | `internal/sshserver/types.go:81` |
@@ -208,8 +208,8 @@ This catalog is generated from repository source and documents current type-syst
 | `TextAlign` | `string` | `internal/tui/text_align.go:25` |
 | `Theme` | `string` | `internal/tui/tui.go:51` |
 | `TokenValue` | `string` | `internal/sshserver/types.go:31` |
-| `TUIServerToken` | `string` | `internal/runtime/tui_types.go:36` |
-| `TUIServerURL` | `string` | `internal/runtime/tui_types.go:25` |
+| `TUIServerToken` | `string` | `internal/runtime/tui_types.go:33` |
+| `TUIServerURL` | `string` | `pkg/types/tui_server_url.go:18` |
 | `ValidationIssueType` | `string` | `pkg/invowkmod/invowkmod.go:132` |
 | `ValidationSeverity` | `int` | `pkg/invowkfile/validation_types.go:28` |
 | `ValidatorName` | `string` | `pkg/invowkfile/validation_types.go:38` |
@@ -222,17 +222,19 @@ This catalog is generated from repository source and documents current type-syst
 | --- | --- | --- |
 | `CommandScope` | `invowkmod.CommandScope` | `pkg/invowkfile/module.go:46` |
 | `DescriptionText` | `types.DescriptionText` | `pkg/invowkfile/description.go:16` |
-| `ExitCode` | `types.ExitCode` | `internal/runtime/exit_code.go:15` |
+| `ExitCode` | `types.ExitCode` | `internal/runtime/result.go:14` |
 | `FilesystemPath` | `types.FilesystemPath` | `pkg/invowkfile/filesystem_path.go:16` |
 | `InvalidDescriptionTextError` | `types.InvalidDescriptionTextError` | `pkg/invowkfile/description.go:19` |
-| `InvalidExitCodeError` | `types.InvalidExitCodeError` | `internal/runtime/exit_code.go:18` |
+| `InvalidExitCodeError` | `types.InvalidExitCodeError` | `internal/runtime/result.go:17` |
 | `InvalidFilesystemPathError` | `types.InvalidFilesystemPathError` | `pkg/invowkfile/filesystem_path.go:19` |
 | `InvalidListenPortError` | `types.InvalidListenPortError` | `internal/sshserver/types.go:50` |
 | `Invowkmod` | `invowkmod.Invowkmod` | `pkg/invowkfile/module.go:42` |
 | `ListenPort` | `types.ListenPort` | `internal/sshserver/types.go:35` |
 | `Module` | `invowkmod.Module` | `pkg/invowkfile/parse.go:25` |
 | `ModuleRequirement` | `invowkmod.ModuleRequirement` | `pkg/invowkfile/module.go:37` |
+| `InvalidTUIServerURLError` | `types.InvalidTUIServerURLError` | `internal/runtime/tui_types.go:28` |
 | `Platform` | `PlatformType` | `pkg/invowkfile/invowkfile.go:40` |
+| `TUIServerURL` | `types.TUIServerURL` | `internal/runtime/tui_types.go:25` |
 
 ## Regeneration
 

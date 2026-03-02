@@ -249,37 +249,37 @@ build-goplint: $(BUILD_DIR)
 .PHONY: check-types
 check-types: build-goplint
 	@echo "Checking primitive type usage..."
-	./$(BUILD_DIR)/goplint -config=tools/goplint/exceptions.toml ./...
+	./$(BUILD_DIR)/goplint -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
 # Run DDD primitive type checking with JSON output (for agent consumption)
 .PHONY: check-types-json
 check-types-json: build-goplint
-	./$(BUILD_DIR)/goplint -json -config=tools/goplint/exceptions.toml ./... 2>/dev/null || true
+	./$(BUILD_DIR)/goplint -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
 
 # Run all DDD checks (primitives + isvalid + stringer + constructors)
 .PHONY: check-types-all
 check-types-all: build-goplint
 	@echo "Checking DDD type compliance (all modes)..."
-	./$(BUILD_DIR)/goplint -check-all -config=tools/goplint/exceptions.toml ./...
+	./$(BUILD_DIR)/goplint -check-all -check-use-before-validate-cross -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
 # Run all DDD checks with JSON output (for agent consumption)
 .PHONY: check-types-all-json
 check-types-all-json: build-goplint
-	./$(BUILD_DIR)/goplint -check-all -json -config=tools/goplint/exceptions.toml ./... 2>/dev/null || true
+	./$(BUILD_DIR)/goplint -check-all -check-use-before-validate-cross -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
 
 # Check for goplint regressions against the committed baseline.
 # Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
 .PHONY: check-baseline
 check-baseline: build-goplint
 	@echo "Checking goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -check-use-before-validate-cross -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
 # Update the goplint baseline from the current codebase state.
 # Run this after type improvements or new exceptions to shrink the baseline.
 .PHONY: update-baseline
 update-baseline: build-goplint
 	@echo "Updating goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -check-use-before-validate-cross -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 	@echo "Baseline updated: tools/goplint/baseline.toml"
 
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)
@@ -290,10 +290,16 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
+
+# Enforce 1000-line file length limit on all Go files (production + test).
+# Test files (_test.go) are included. Warns at 800 lines.
+.PHONY: check-file-length
+check-file-length:
+	./scripts/check-file-length.sh
 
 # Validate AGENTS/rules/skills index sync and canonical path usage.
 .PHONY: check-agent-docs

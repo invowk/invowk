@@ -37,7 +37,7 @@ Examples:
   invowk module create mytools --scripts
   invowk module create mytools --path /path/to/dir --module-id "com.example.tools"`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runModuleCreate(args, createPath, createScripts, createModule, createDescription)
 		},
 	}

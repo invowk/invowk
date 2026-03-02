@@ -2,7 +2,10 @@
 
 package invowkfile
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // validateDependsOn validates all dependency types in a DependsOn struct.
 func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *DependsOn, basePath *FieldPath) []ValidationError {
@@ -168,7 +171,7 @@ func (v *StructureValidator) validateEnvConfig(ctx *ValidationContext, env *EnvC
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     basePath.Copy().EnvVar(keyStr).String(),
-				Message:   "value too long (" + itoa(len(value)) + " chars, max " + itoa(MaxEnvVarValueLength) + ") in invowkfile at " + string(ctx.FilePath),
+				Message:   "value too long (" + strconv.Itoa(len(value)) + " chars, max " + strconv.Itoa(MaxEnvVarValueLength) + ") in invowkfile at " + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}

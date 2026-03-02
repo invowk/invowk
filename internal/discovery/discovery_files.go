@@ -25,6 +25,8 @@ type (
 	// Source represents where an invowkfile was found
 	Source int
 
+	//goplint:validate-all
+	//
 	// DiscoveredFile represents a found invowkfile with its source
 	DiscoveredFile struct {
 		// Path is the absolute path to the invowkfile
@@ -236,7 +238,7 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 
 	for _, entry := range d.cfg.Includes {
 		pathStr := string(entry.Path)
-		includePath := types.FilesystemPath(pathStr) //goplint:ignore -- round-trip from config entry.Path
+		includePath := types.FilesystemPath(pathStr) //goplint:ignore -- cross-type conversion from config.ModuleIncludePath
 		if !invowkmod.IsModule(includePath) {
 			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,

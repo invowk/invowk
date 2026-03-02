@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,6 +19,8 @@ import (
 var moduleNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 
 type (
+	//goplint:validate-all
+	//
 	// CreateOptions contains options for creating a new module.
 	CreateOptions struct {
 		// Name is the module name (e.g., "com.example.mytools")
@@ -87,7 +90,7 @@ func ParseModuleName(folderName string) (ModuleShortName, error) {
 
 	// Must not start with a dot (hidden folder)
 	if strings.HasPrefix(prefix, ".") {
-		return "", fmt.Errorf("module name cannot start with a dot (hidden folders not allowed)")
+		return "", errors.New("module name cannot start with a dot (hidden folders not allowed)")
 	}
 
 	// Validate prefix format
@@ -108,11 +111,11 @@ func ValidateName(name ModuleShortName) error {
 	nameStr := string(name)
 
 	if nameStr == "" {
-		return fmt.Errorf("module name cannot be empty")
+		return errors.New("module name cannot be empty")
 	}
 
 	if strings.HasPrefix(nameStr, ".") {
-		return fmt.Errorf("module name cannot start with a dot")
+		return errors.New("module name cannot start with a dot")
 	}
 
 	if !moduleNameRegex.MatchString(nameStr) {

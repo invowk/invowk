@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	depspkg "github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -17,7 +18,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// T1: validateRuntimeDependencies() early-return guard tests
+// T1: depspkg.ValidateRuntimeDependencies() early-return guard tests
 //
 // These tests verify that validateRuntimeDependencies is a no-op for
 // non-container runtimes and handles nil/empty DependsOn gracefully.
@@ -46,9 +47,9 @@ func TestValidateRuntimeDependencies_NativeRuntime_NoOp(t *testing.T) {
 	}
 
 	// Even though there are deps with a nonexistent tool, native runtime should be a no-op
-	err := validateRuntimeDependencies(cmdInfo, nil, ctx)
+	err := depspkg.ValidateRuntimeDependencies(cmdInfo, nil, ctx)
 	if err != nil {
-		t.Errorf("validateRuntimeDependencies() should be no-op for native runtime, got: %v", err)
+		t.Errorf("depspkg.ValidateRuntimeDependencies() should be no-op for native runtime, got: %v", err)
 	}
 }
 
@@ -73,9 +74,9 @@ func TestValidateRuntimeDependencies_VirtualRuntime_NoOp(t *testing.T) {
 		SelectedRuntime: invowkfile.RuntimeVirtual,
 	}
 
-	err := validateRuntimeDependencies(cmdInfo, nil, ctx)
+	err := depspkg.ValidateRuntimeDependencies(cmdInfo, nil, ctx)
 	if err != nil {
-		t.Errorf("validateRuntimeDependencies() should be no-op for virtual runtime, got: %v", err)
+		t.Errorf("depspkg.ValidateRuntimeDependencies() should be no-op for virtual runtime, got: %v", err)
 	}
 }
 
@@ -97,9 +98,9 @@ func TestValidateRuntimeDependencies_ContainerRuntime_NilRuntimeConfig(t *testin
 	}
 
 	// FindRuntimeConfig returns nil → early return
-	err := validateRuntimeDependencies(cmdInfo, nil, ctx)
+	err := depspkg.ValidateRuntimeDependencies(cmdInfo, nil, ctx)
 	if err != nil {
-		t.Errorf("validateRuntimeDependencies() should return nil when no container RuntimeConfig found, got: %v", err)
+		t.Errorf("depspkg.ValidateRuntimeDependencies() should return nil when no container RuntimeConfig found, got: %v", err)
 	}
 }
 
@@ -123,9 +124,9 @@ func TestValidateRuntimeDependencies_ContainerRuntime_NilDependsOn(t *testing.T)
 		SelectedRuntime: invowkfile.RuntimeContainer,
 	}
 
-	err := validateRuntimeDependencies(cmdInfo, nil, ctx)
+	err := depspkg.ValidateRuntimeDependencies(cmdInfo, nil, ctx)
 	if err != nil {
-		t.Errorf("validateRuntimeDependencies() should return nil when DependsOn is nil, got: %v", err)
+		t.Errorf("depspkg.ValidateRuntimeDependencies() should return nil when DependsOn is nil, got: %v", err)
 	}
 }
 
@@ -149,14 +150,14 @@ func TestValidateRuntimeDependencies_ContainerRuntime_EmptyDependsOn(t *testing.
 		SelectedRuntime: invowkfile.RuntimeContainer,
 	}
 
-	err := validateRuntimeDependencies(cmdInfo, nil, ctx)
+	err := depspkg.ValidateRuntimeDependencies(cmdInfo, nil, ctx)
 	if err != nil {
-		t.Errorf("validateRuntimeDependencies() should return nil for empty DependsOn, got: %v", err)
+		t.Errorf("depspkg.ValidateRuntimeDependencies() should return nil for empty DependsOn, got: %v", err)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// T2: checkHostToolDependencies() tests
+// T2: depspkg.CheckHostToolDependencies() tests
 // ---------------------------------------------------------------------------
 
 func TestCheckHostToolDependencies_NilDeps(t *testing.T) {
@@ -166,9 +167,9 @@ func TestCheckHostToolDependencies_NilDeps(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostToolDependencies(nil, ctx)
+	err := depspkg.CheckHostToolDependencies(nil, ctx)
 	if err != nil {
-		t.Errorf("checkHostToolDependencies() should return nil for nil deps, got: %v", err)
+		t.Errorf("depspkg.CheckHostToolDependencies() should return nil for nil deps, got: %v", err)
 	}
 }
 
@@ -182,9 +183,9 @@ func TestCheckHostToolDependencies_EmptyTools(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostToolDependencies(deps, ctx)
+	err := depspkg.CheckHostToolDependencies(deps, ctx)
 	if err != nil {
-		t.Errorf("checkHostToolDependencies() should return nil for empty tools, got: %v", err)
+		t.Errorf("depspkg.CheckHostToolDependencies() should return nil for empty tools, got: %v", err)
 	}
 }
 
@@ -209,9 +210,9 @@ func TestCheckHostToolDependencies_ExistingTool(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostToolDependencies(deps, ctx)
+	err := depspkg.CheckHostToolDependencies(deps, ctx)
 	if err != nil {
-		t.Errorf("checkHostToolDependencies() should return nil for existing tool %q, got: %v", existingTool, err)
+		t.Errorf("depspkg.CheckHostToolDependencies() should return nil for existing tool %q, got: %v", existingTool, err)
 	}
 }
 
@@ -225,12 +226,12 @@ func TestCheckHostToolDependencies_MissingTool(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostToolDependencies(deps, ctx)
+	err := depspkg.CheckHostToolDependencies(deps, ctx)
 	if err == nil {
-		t.Fatal("checkHostToolDependencies() should return error for missing tool")
+		t.Fatal("depspkg.CheckHostToolDependencies() should return error for missing tool")
 	}
 
-	depErr, ok := errors.AsType[*DependencyError](err)
+	depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 	if !ok {
 		t.Fatalf("expected *DependencyError, got %T", err)
 	}
@@ -266,14 +267,14 @@ func TestCheckHostToolDependencies_AlternativesOR(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostToolDependencies(deps, ctx)
+	err := depspkg.CheckHostToolDependencies(deps, ctx)
 	if err != nil {
-		t.Errorf("checkHostToolDependencies() should pass with one existing alternative, got: %v", err)
+		t.Errorf("depspkg.CheckHostToolDependencies() should pass with one existing alternative, got: %v", err)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// T3: checkHostFilepathDependencies() tests
+// T3: depspkg.CheckHostFilepathDependencies() tests
 // ---------------------------------------------------------------------------
 
 func TestCheckHostFilepathDependencies_NilDeps(t *testing.T) {
@@ -283,9 +284,9 @@ func TestCheckHostFilepathDependencies_NilDeps(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostFilepathDependencies(nil, "/fake/invowkfile.cue", ctx)
+	err := depspkg.CheckHostFilepathDependencies(nil, "/fake/invowkfile.cue", ctx)
 	if err != nil {
-		t.Errorf("checkHostFilepathDependencies() should return nil for nil deps, got: %v", err)
+		t.Errorf("depspkg.CheckHostFilepathDependencies() should return nil for nil deps, got: %v", err)
 	}
 }
 
@@ -305,9 +306,9 @@ func TestCheckHostFilepathDependencies_ExistingPath(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostFilepathDependencies(deps, types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")), ctx)
+	err := depspkg.CheckHostFilepathDependencies(deps, types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")), ctx)
 	if err != nil {
-		t.Errorf("checkHostFilepathDependencies() should return nil for existing file, got: %v", err)
+		t.Errorf("depspkg.CheckHostFilepathDependencies() should return nil for existing file, got: %v", err)
 	}
 }
 
@@ -321,12 +322,12 @@ func TestCheckHostFilepathDependencies_MissingPath(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostFilepathDependencies(deps, "/fake/invowkfile.cue", ctx)
+	err := depspkg.CheckHostFilepathDependencies(deps, "/fake/invowkfile.cue", ctx)
 	if err == nil {
-		t.Fatal("checkHostFilepathDependencies() should return error for missing path")
+		t.Fatal("depspkg.CheckHostFilepathDependencies() should return error for missing path")
 	}
 
-	depErr, ok := errors.AsType[*DependencyError](err)
+	depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 	if !ok {
 		t.Fatalf("expected *DependencyError, got %T", err)
 	}
@@ -350,14 +351,14 @@ func TestCheckHostFilepathDependencies_RelativePath(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkHostFilepathDependencies(deps, types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")), ctx)
+	err := depspkg.CheckHostFilepathDependencies(deps, types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")), ctx)
 	if err != nil {
-		t.Errorf("checkHostFilepathDependencies() should resolve relative paths against invowkfile dir, got: %v", err)
+		t.Errorf("depspkg.CheckHostFilepathDependencies() should resolve relative paths against invowkfile dir, got: %v", err)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// T4: checkHostCustomCheckDependencies() tests
+// T4: depspkg.CheckHostCustomCheckDependencies() tests
 // ---------------------------------------------------------------------------
 
 func TestCheckHostCustomCheckDependencies_NilDeps(t *testing.T) {
@@ -368,9 +369,9 @@ func TestCheckHostCustomCheckDependencies_NilDeps(t *testing.T) {
 		Context: t.Context(),
 	}
 
-	err := checkHostCustomCheckDependencies(nil, ctx)
+	err := depspkg.CheckHostCustomCheckDependencies(nil, ctx)
 	if err != nil {
-		t.Errorf("checkHostCustomCheckDependencies() should return nil for nil deps, got: %v", err)
+		t.Errorf("depspkg.CheckHostCustomCheckDependencies() should return nil for nil deps, got: %v", err)
 	}
 }
 
@@ -385,9 +386,9 @@ func TestCheckHostCustomCheckDependencies_EmptyChecks(t *testing.T) {
 		Context: t.Context(),
 	}
 
-	err := checkHostCustomCheckDependencies(deps, ctx)
+	err := depspkg.CheckHostCustomCheckDependencies(deps, ctx)
 	if err != nil {
-		t.Errorf("checkHostCustomCheckDependencies() should return nil for empty checks, got: %v", err)
+		t.Errorf("depspkg.CheckHostCustomCheckDependencies() should return nil for empty checks, got: %v", err)
 	}
 }
 
@@ -405,9 +406,9 @@ func TestCheckHostCustomCheckDependencies_PassingCheck(t *testing.T) {
 		Context: t.Context(),
 	}
 
-	err := checkHostCustomCheckDependencies(deps, ctx)
+	err := depspkg.CheckHostCustomCheckDependencies(deps, ctx)
 	if err != nil {
-		t.Errorf("checkHostCustomCheckDependencies() should return nil for passing check, got: %v", err)
+		t.Errorf("depspkg.CheckHostCustomCheckDependencies() should return nil for passing check, got: %v", err)
 	}
 }
 
@@ -426,12 +427,12 @@ func TestCheckHostCustomCheckDependencies_FailingCheck(t *testing.T) {
 		Context: t.Context(),
 	}
 
-	err := checkHostCustomCheckDependencies(deps, ctx)
+	err := depspkg.CheckHostCustomCheckDependencies(deps, ctx)
 	if err == nil {
-		t.Fatal("checkHostCustomCheckDependencies() should return error for failing check")
+		t.Fatal("depspkg.CheckHostCustomCheckDependencies() should return error for failing check")
 	}
 
-	depErr, ok := errors.AsType[*DependencyError](err)
+	depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 	if !ok {
 		t.Fatalf("expected *DependencyError, got %T", err)
 	}
@@ -457,14 +458,14 @@ func TestCheckHostCustomCheckDependencies_AlternativesOR(t *testing.T) {
 	}
 
 	// Second alternative passes → dependency satisfied
-	err := checkHostCustomCheckDependencies(deps, ctx)
+	err := depspkg.CheckHostCustomCheckDependencies(deps, ctx)
 	if err != nil {
-		t.Errorf("checkHostCustomCheckDependencies() should pass when any alternative passes, got: %v", err)
+		t.Errorf("depspkg.CheckHostCustomCheckDependencies() should pass when any alternative passes, got: %v", err)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// T5: capabilityCheckScript() tests (pure function, table-driven)
+// T5: depspkg.CapabilityCheckScript() tests (pure function, table-driven)
 // ---------------------------------------------------------------------------
 
 func TestCapabilityCheckScript(t *testing.T) {
@@ -511,18 +512,18 @@ func TestCapabilityCheckScript(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := capabilityCheckScript(tt.capName)
+			result := depspkg.CapabilityCheckScript(tt.capName)
 			if tt.wantEmpty {
 				if result != "" {
-					t.Errorf("capabilityCheckScript(%q) = %q, want empty", tt.capName, result)
+					t.Errorf("depspkg.CapabilityCheckScript(%q) = %q, want empty", tt.capName, result)
 				}
 				return
 			}
 			if result == "" {
-				t.Fatalf("capabilityCheckScript(%q) returned empty, want non-empty script", tt.capName)
+				t.Fatalf("depspkg.CapabilityCheckScript(%q) returned empty, want non-empty script", tt.capName)
 			}
 			if !strings.Contains(result, tt.contains) {
-				t.Errorf("capabilityCheckScript(%q) = %q, want substring %q", tt.capName, result, tt.contains)
+				t.Errorf("depspkg.CapabilityCheckScript(%q) = %q, want substring %q", tt.capName, result, tt.contains)
 			}
 		})
 	}
@@ -549,9 +550,9 @@ func TestShellEscapeSingleQuote(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := shellEscapeSingleQuote(tt.input)
+			got := depspkg.ShellEscapeSingleQuote(tt.input)
 			if got != tt.want {
-				t.Errorf("shellEscapeSingleQuote(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("depspkg.ShellEscapeSingleQuote(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

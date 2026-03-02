@@ -298,7 +298,7 @@ func TestBuildHostEnv(t *testing.T) {
 			name: "inherit allow only includes whitelisted",
 			cfg: envInheritConfig{
 				mode:  invowkfile.EnvInheritAllow,
-				allow: []string{"TEST_HOST_PATH"},
+				allow: []invowkfile.EnvVarName{"TEST_HOST_PATH"},
 			},
 			wantVars: map[string]string{
 				"TEST_HOST_PATH": "/usr/bin",
@@ -309,7 +309,7 @@ func TestBuildHostEnv(t *testing.T) {
 			name: "inherit all with denylist excludes denied",
 			cfg: envInheritConfig{
 				mode: invowkfile.EnvInheritAll,
-				deny: []string{"TEST_SECRET"},
+				deny: []invowkfile.EnvVarName{"TEST_SECRET"},
 			},
 			wantVars: map[string]string{
 				"TEST_HOST_PATH": "/usr/bin",
@@ -321,8 +321,8 @@ func TestBuildHostEnv(t *testing.T) {
 			name: "denylist takes precedence over allowlist",
 			cfg: envInheritConfig{
 				mode:  invowkfile.EnvInheritAllow,
-				allow: []string{"TEST_HOST_PATH", "TEST_SECRET"},
-				deny:  []string{"TEST_SECRET"},
+				allow: []invowkfile.EnvVarName{"TEST_HOST_PATH", "TEST_SECRET"},
+				deny:  []invowkfile.EnvVarName{"TEST_SECRET"},
 			},
 			wantVars: map[string]string{
 				"TEST_HOST_PATH": "/usr/bin",

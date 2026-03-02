@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	depspkg "github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -26,9 +27,9 @@ func TestCheckCapabilityDependencies_NoCapabilities(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkCapabilityDependencies(deps, ctx)
+	err := depspkg.CheckCapabilityDependencies(deps, ctx)
 	if err != nil {
-		t.Errorf("checkCapabilityDependencies() with empty capabilities returned error: %v", err)
+		t.Errorf("depspkg.CheckCapabilityDependencies() with empty capabilities returned error: %v", err)
 	}
 }
 
@@ -39,9 +40,9 @@ func TestCheckCapabilityDependencies_NilDeps(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkCapabilityDependencies(nil, ctx)
+	err := depspkg.CheckCapabilityDependencies(nil, ctx)
 	if err != nil {
-		t.Errorf("checkCapabilityDependencies() with nil deps returned error: %v", err)
+		t.Errorf("depspkg.CheckCapabilityDependencies() with nil deps returned error: %v", err)
 	}
 }
 
@@ -62,12 +63,12 @@ func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test"},
 	}
 
-	err := checkCapabilityDependencies(deps, ctx)
+	err := depspkg.CheckCapabilityDependencies(deps, ctx)
 	// If there's an error, it should only report the capability once
 	if err != nil {
-		depErr, ok := errors.AsType[*DependencyError](err)
+		depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 		if !ok {
-			t.Fatalf("checkCapabilityDependencies() should return *DependencyError, got: %T", err)
+			t.Fatalf("depspkg.CheckCapabilityDependencies() should return *DependencyError, got: %T", err)
 		}
 		// Even with 3 duplicate entries, we should only have 1 error
 		if len(depErr.MissingCapabilities) > 1 {
@@ -80,9 +81,9 @@ func TestCheckCapabilityDependencies_DuplicateSkipped(t *testing.T) {
 func TestDependencyError_WithCapabilities(t *testing.T) {
 	t.Parallel()
 
-	err := &DependencyError{
+	err := &depspkg.DependencyError{
 		CommandName: "test",
-		MissingCapabilities: []DependencyMessage{
+		MissingCapabilities: []depspkg.DependencyMessage{
 			"  - capability \"internet\" not available: no connection",
 		},
 	}
@@ -96,9 +97,9 @@ func TestDependencyError_WithCapabilities(t *testing.T) {
 func TestRenderDependencyError_MissingCapabilities(t *testing.T) {
 	t.Parallel()
 
-	err := &DependencyError{
+	err := &depspkg.DependencyError{
 		CommandName: "deploy",
-		MissingCapabilities: []DependencyMessage{
+		MissingCapabilities: []depspkg.DependencyMessage{
 			"  - capability \"internet\" not available: no connection",
 		},
 	}
@@ -125,18 +126,18 @@ func TestRenderDependencyError_MissingCapabilities(t *testing.T) {
 func TestRenderDependencyError_AllDependencyTypes(t *testing.T) {
 	t.Parallel()
 
-	err := &DependencyError{
+	err := &depspkg.DependencyError{
 		CommandName: "complex-deploy",
-		MissingTools: []DependencyMessage{
+		MissingTools: []depspkg.DependencyMessage{
 			"  - kubectl - not found in PATH",
 		},
-		MissingCommands: []DependencyMessage{
+		MissingCommands: []depspkg.DependencyMessage{
 			"  - build - command not found",
 		},
-		MissingFilepaths: []DependencyMessage{
+		MissingFilepaths: []depspkg.DependencyMessage{
 			"  - config.yaml - file not found",
 		},
-		MissingCapabilities: []DependencyMessage{
+		MissingCapabilities: []depspkg.DependencyMessage{
 			"  - capability \"internet\" not available: no connection",
 		},
 	}
@@ -185,9 +186,9 @@ func TestCheckEnvVarDependencies_ExistingEnvVar(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
-	err := checkEnvVarDependencies(deps, userEnv, ctx)
+	err := depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 	if err != nil {
-		t.Errorf("checkEnvVarDependencies() should pass when env var exists, got: %v", err)
+		t.Errorf("depspkg.CheckEnvVarDependencies() should pass when env var exists, got: %v", err)
 	}
 }
 
@@ -210,14 +211,14 @@ func TestCheckEnvVarDependencies_MissingEnvVar(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
-	err := checkEnvVarDependencies(deps, userEnv, ctx)
+	err := depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 	if err == nil {
-		t.Error("checkEnvVarDependencies() should fail when env var is missing")
+		t.Error("depspkg.CheckEnvVarDependencies() should fail when env var is missing")
 	}
 
-	depErr, ok := errors.AsType[*DependencyError](err)
+	depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 	if !ok {
-		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("depspkg.CheckEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if len(depErr.MissingEnvVars) != 1 {
@@ -250,9 +251,9 @@ func TestCheckEnvVarDependencies_ValidationRegexPass(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
-	err := checkEnvVarDependencies(deps, userEnv, ctx)
+	err := depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 	if err != nil {
-		t.Errorf("checkEnvVarDependencies() should pass when regex matches, got: %v", err)
+		t.Errorf("depspkg.CheckEnvVarDependencies() should pass when regex matches, got: %v", err)
 	}
 }
 
@@ -277,14 +278,14 @@ func TestCheckEnvVarDependencies_ValidationRegexFail(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
-	err := checkEnvVarDependencies(deps, userEnv, ctx)
+	err := depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 	if err == nil {
-		t.Error("checkEnvVarDependencies() should fail when regex doesn't match")
+		t.Error("depspkg.CheckEnvVarDependencies() should fail when regex doesn't match")
 	}
 
-	depErr, ok := errors.AsType[*DependencyError](err)
+	depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 	if !ok {
-		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("depspkg.CheckEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if len(depErr.MissingEnvVars) != 1 {
@@ -319,9 +320,9 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 		"AWS_ACCESS_KEY_ID": "test-access-key-id",
 	}
 
-	err := checkEnvVarDependencies(deps, userEnv, ctx)
+	err := depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 	if err != nil {
-		t.Errorf("checkEnvVarDependencies() should pass when first alternative exists, got: %v", err)
+		t.Errorf("depspkg.CheckEnvVarDependencies() should pass when first alternative exists, got: %v", err)
 	}
 
 	// Test 2: Second alternative exists
@@ -329,22 +330,22 @@ func TestCheckEnvVarDependencies_AlternativesORSemantics(t *testing.T) {
 		"AWS_PROFILE": "dev",
 	}
 
-	err = checkEnvVarDependencies(deps, userEnv, ctx)
+	err = depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 	if err != nil {
-		t.Errorf("checkEnvVarDependencies() should pass when second alternative exists, got: %v", err)
+		t.Errorf("depspkg.CheckEnvVarDependencies() should pass when second alternative exists, got: %v", err)
 	}
 
 	// Test 3: Neither alternative exists
 	userEnv = map[string]string{}
 
-	err = checkEnvVarDependencies(deps, userEnv, ctx)
+	err = depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 	if err == nil {
-		t.Error("checkEnvVarDependencies() should fail when no alternatives exist")
+		t.Error("depspkg.CheckEnvVarDependencies() should fail when no alternatives exist")
 	}
 
-	depErr, ok := errors.AsType[*DependencyError](err)
+	depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 	if !ok {
-		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("depspkg.CheckEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if !strings.Contains(depErr.MissingEnvVars[0].String(), "none of") {
@@ -371,14 +372,14 @@ func TestCheckEnvVarDependencies_EmptyName(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
-	err := checkEnvVarDependencies(deps, userEnv, ctx)
+	err := depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 	if err == nil {
-		t.Error("checkEnvVarDependencies() should fail with empty name")
+		t.Error("depspkg.CheckEnvVarDependencies() should fail with empty name")
 	}
 
-	depErr, ok := errors.AsType[*DependencyError](err)
+	depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 	if !ok {
-		t.Fatalf("checkEnvVarDependencies() should return *DependencyError, got: %T", err)
+		t.Fatalf("depspkg.CheckEnvVarDependencies() should return *DependencyError, got: %T", err)
 	}
 
 	if !strings.Contains(depErr.MissingEnvVars[0].String(), "empty") {
@@ -393,9 +394,9 @@ func TestCheckEnvVarDependencies_NilDeps(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
-	err := checkEnvVarDependencies(nil, map[string]string{}, ctx)
+	err := depspkg.CheckEnvVarDependencies(nil, map[string]string{}, ctx)
 	if err != nil {
-		t.Errorf("checkEnvVarDependencies() should handle nil deps gracefully, got: %v", err)
+		t.Errorf("depspkg.CheckEnvVarDependencies() should handle nil deps gracefully, got: %v", err)
 	}
 }
 
@@ -410,9 +411,9 @@ func TestCheckEnvVarDependencies_EmptyEnvVars(t *testing.T) {
 		Command: &invowkfile.Command{Name: "test-cmd"},
 	}
 
-	err := checkEnvVarDependencies(deps, map[string]string{}, ctx)
+	err := depspkg.CheckEnvVarDependencies(deps, map[string]string{}, ctx)
 	if err != nil {
-		t.Errorf("checkEnvVarDependencies() should handle empty env_vars list gracefully, got: %v", err)
+		t.Errorf("depspkg.CheckEnvVarDependencies() should handle empty env_vars list gracefully, got: %v", err)
 	}
 }
 
@@ -434,7 +435,7 @@ func TestCheckEnvVarDependencies_SetButEmptyValue(t *testing.T) {
 		}
 		userEnv := map[string]string{"EMPTY_VAR": ""}
 
-		err := checkEnvVarDependencies(deps, userEnv, ctx)
+		err := depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 		if err != nil {
 			t.Errorf("empty string should pass existence check, got: %v", err)
 		}
@@ -451,12 +452,12 @@ func TestCheckEnvVarDependencies_SetButEmptyValue(t *testing.T) {
 		}
 		userEnv := map[string]string{"EMPTY_VAR": ""}
 
-		err := checkEnvVarDependencies(deps, userEnv, ctx)
+		err := depspkg.CheckEnvVarDependencies(deps, userEnv, ctx)
 		if err == nil {
 			t.Error("empty string should fail '.+' validation regex")
 		}
 
-		depErr, ok := errors.AsType[*DependencyError](err)
+		depErr, ok := errors.AsType[*depspkg.DependencyError](err)
 		if !ok {
 			t.Fatalf("expected *DependencyError, got: %T", err)
 		}
@@ -472,9 +473,9 @@ func TestCheckEnvVarDependencies_SetButEmptyValue(t *testing.T) {
 func TestDependencyError_WithEnvVars(t *testing.T) {
 	t.Parallel()
 
-	err := &DependencyError{
+	err := &depspkg.DependencyError{
 		CommandName: "test",
-		MissingEnvVars: []DependencyMessage{
+		MissingEnvVars: []depspkg.DependencyMessage{
 			"  - AWS_ACCESS_KEY_ID - not set in environment",
 		},
 	}
@@ -488,9 +489,9 @@ func TestDependencyError_WithEnvVars(t *testing.T) {
 func TestRenderDependencyError_MissingEnvVars(t *testing.T) {
 	t.Parallel()
 
-	err := &DependencyError{
+	err := &depspkg.DependencyError{
 		CommandName: "deploy",
-		MissingEnvVars: []DependencyMessage{
+		MissingEnvVars: []depspkg.DependencyMessage{
 			"  - AWS_ACCESS_KEY_ID - not set in environment",
 		},
 	}
@@ -517,21 +518,21 @@ func TestRenderDependencyError_MissingEnvVars(t *testing.T) {
 func TestRenderDependencyError_AllDependencyTypesIncludingEnvVars(t *testing.T) {
 	t.Parallel()
 
-	err := &DependencyError{
+	err := &depspkg.DependencyError{
 		CommandName: "complex-deploy",
-		MissingTools: []DependencyMessage{
+		MissingTools: []depspkg.DependencyMessage{
 			"  - kubectl - not found in PATH",
 		},
-		MissingCommands: []DependencyMessage{
+		MissingCommands: []depspkg.DependencyMessage{
 			"  - build - command not found",
 		},
-		MissingFilepaths: []DependencyMessage{
+		MissingFilepaths: []depspkg.DependencyMessage{
 			"  - config.yaml - file not found",
 		},
-		MissingCapabilities: []DependencyMessage{
+		MissingCapabilities: []depspkg.DependencyMessage{
 			"  - capability \"internet\" not available: no connection",
 		},
-		MissingEnvVars: []DependencyMessage{
+		MissingEnvVars: []depspkg.DependencyMessage{
 			"  - AWS_ACCESS_KEY_ID - not set in environment",
 		},
 	}

@@ -70,7 +70,7 @@ func (c *teeCommand) Run(ctx context.Context, args []string) (err error) {
 		if openErr != nil {
 			// Close any files already opened before returning
 			for _, opened := range files {
-				_ = opened.Close() //nolint:errcheck // Best-effort cleanup on open failure
+				_ = opened.Close()
 			}
 			return wrapError(c.name, openErr)
 		}

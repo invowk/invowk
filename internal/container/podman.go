@@ -48,6 +48,7 @@ func NewPodmanEngine(opts ...BaseCLIEngineOption) *PodmanEngine {
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
 	allOpts := []BaseCLIEngineOption{
 		WithName(string(EngineTypePodman)),
+		WithImageExistsSubCmd("exists"),
 		WithVolumeFormatter(selinuxLabelAdder),
 		WithRunArgsTransformer(usernsKeepIDAdder),
 	}
@@ -75,6 +76,7 @@ func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...Base
 	usernsKeepIDAdder := makeUsernsKeepIDAdder()
 	allOpts := []BaseCLIEngineOption{
 		WithName(string(EngineTypePodman)),
+		WithImageExistsSubCmd("exists"),
 		WithVolumeFormatter(selinuxLabelAdder),
 		WithRunArgsTransformer(usernsKeepIDAdder),
 	}
@@ -88,11 +90,14 @@ func NewPodmanEngineWithSELinuxCheck(selinuxCheck SELinuxCheckFunc, opts ...Base
 }
 
 // Available checks if Podman is available.
+// Uses an internal timeout to prevent indefinite hangs when the daemon is unresponsive.
 func (e *PodmanEngine) Available() bool {
 	if e.BinaryPath() == "" {
 		return false
 	}
-	cmd := e.CreateCommand(context.Background(), "version", "--format", "{{.Version}}")
+	ctx, cancel := context.WithTimeout(context.Background(), availabilityTimeout)
+	defer cancel()
+	cmd := e.CreateCommand(ctx, "version", "--format", "{{.Version}}")
 	return cmd.Run() == nil
 }
 

@@ -114,7 +114,7 @@ func (o *validateOptions) buildValidationContext(inv *Invowkfile) *ValidationCon
 	}
 
 	return &ValidationContext{
-		WorkDir:    WorkDir(string(o.workDir)), //goplint:ignore -- round-trip from validated FilesystemPath
+		WorkDir:    WorkDir(o.workDir),
 		FS:         filesystem,
 		Platform:   o.platform,
 		StrictMode: o.strictMode,

@@ -200,6 +200,157 @@ func TestListenPort_String(t *testing.T) {
 	}
 }
 
+func TestToken_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		token     Token
+		wantOK    bool
+		wantErr   bool
+		wantCount int
+	}{
+		{
+			"valid token",
+			Token{Value: TokenValue("abc123"), CommandID: "cmd:1"},
+			true, false, 0,
+		},
+		{
+			"empty value",
+			Token{Value: TokenValue(""), CommandID: "cmd:1"},
+			false, true, 1,
+		},
+		{
+			"whitespace-only value",
+			Token{Value: TokenValue("   "), CommandID: "cmd:1"},
+			false, true, 1,
+		},
+		{
+			"zero value struct",
+			Token{},
+			false, true, 1, // Value is empty/invalid
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.token.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("Token.Validate() error = %v, wantOK %v", err, tt.wantOK)
+			}
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("Token.Validate() returned nil, want error")
+				}
+				if !errors.Is(err, ErrInvalidToken) {
+					t.Errorf("error should wrap ErrInvalidToken, got: %v", err)
+				}
+				var tokenErr *InvalidTokenError
+				if !errors.As(err, &tokenErr) {
+					t.Fatalf("error should be *InvalidTokenError, got: %T", err)
+				}
+				if len(tokenErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(tokenErr.FieldErrors), tt.wantCount)
+				}
+			} else if err != nil {
+				t.Errorf("Token.Validate() returned unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestConnectionInfo_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		ci        ConnectionInfo
+		wantOK    bool
+		wantErr   bool
+		wantCount int
+	}{
+		{
+			"all valid",
+			ConnectionInfo{
+				Host:  HostAddress("127.0.0.1"),
+				Port:  ListenPort(2222),
+				Token: TokenValue("abc123"),
+				User:  "invowk",
+			},
+			true, false, 0,
+		},
+		{
+			"invalid host (empty)",
+			ConnectionInfo{
+				Host:  HostAddress(""),
+				Port:  ListenPort(22),
+				Token: TokenValue("abc123"),
+			},
+			false, true, 1,
+		},
+		{
+			"invalid port (negative)",
+			ConnectionInfo{
+				Host:  HostAddress("127.0.0.1"),
+				Port:  ListenPort(-1),
+				Token: TokenValue("abc123"),
+			},
+			false, true, 1,
+		},
+		{
+			"invalid token (empty)",
+			ConnectionInfo{
+				Host:  HostAddress("127.0.0.1"),
+				Port:  ListenPort(22),
+				Token: TokenValue(""),
+			},
+			false, true, 1,
+		},
+		{
+			"multiple invalid fields",
+			ConnectionInfo{
+				Host:  HostAddress(""),
+				Port:  ListenPort(70000),
+				Token: TokenValue("  "),
+			},
+			false, true, 3,
+		},
+		{
+			"zero value struct",
+			ConnectionInfo{},
+			false, true, 2, // Host and Token are empty/invalid; Port 0 is valid
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.ci.Validate()
+			if (err == nil) != tt.wantOK {
+				t.Errorf("ConnectionInfo.Validate() error = %v, wantOK %v", err, tt.wantOK)
+			}
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("ConnectionInfo.Validate() returned nil, want error")
+				}
+				if !errors.Is(err, ErrInvalidConnectionInfo) {
+					t.Errorf("error should wrap ErrInvalidConnectionInfo, got: %v", err)
+				}
+				var ciErr *InvalidConnectionInfoError
+				if !errors.As(err, &ciErr) {
+					t.Fatalf("error should be *InvalidConnectionInfoError, got: %T", err)
+				}
+				if len(ciErr.FieldErrors) != tt.wantCount {
+					t.Errorf("field errors count = %d, want %d", len(ciErr.FieldErrors), tt.wantCount)
+				}
+			} else if err != nil {
+				t.Errorf("ConnectionInfo.Validate() returned unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 func TestSSHConfig_Validate(t *testing.T) {
 	t.Parallel()
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"strconv"
 	"strings"
 )
 
@@ -21,6 +22,8 @@ var (
 	ErrInvalidValidationSeverity = errors.New("invalid validation severity")
 	// ErrInvalidValidatorName is returned when a ValidatorName is empty or whitespace-only.
 	ErrInvalidValidatorName = errors.New("invalid validator name")
+	// ErrInvalidValidationContext is the sentinel error wrapped by InvalidValidationContextError.
+	ErrInvalidValidationContext = errors.New("invalid validation context")
 )
 
 type (
@@ -62,6 +65,15 @@ type (
 	// This allows returning multiple validation issues from a single validation pass.
 	ValidationErrors []ValidationError
 
+	// InvalidValidationContextError is returned when a ValidationContext has invalid fields.
+	// It wraps ErrInvalidValidationContext for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidValidationContextError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// ValidationContext provides context for validation operations.
 	// It contains information about the environment and configuration
 	// that validators may need to properly validate an invowkfile.
@@ -104,6 +116,40 @@ type (
 		parts []string
 	}
 )
+
+// Validate returns nil if the ValidationContext has valid fields,
+// or an error collecting field-level validation failures.
+// WorkDir is always validated (zero is valid). Platform and FilePath
+// are validated only when non-zero because their zero values have
+// defaulting semantics (current platform and no file path respectively).
+func (c ValidationContext) Validate() error {
+	var errs []error
+	if err := c.WorkDir.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if c.Platform != "" {
+		if err := c.Platform.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if c.FilePath != "" {
+		if err := c.FilePath.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidValidationContextError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidValidationContextError.
+func (e *InvalidValidationContextError) Error() string {
+	return fmt.Sprintf("invalid validation context: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidValidationContext for errors.Is() compatibility.
+func (e *InvalidValidationContextError) Unwrap() error { return ErrInvalidValidationContext }
 
 // Error implements the error interface for InvalidValidationSeverityError.
 func (e *InvalidValidationSeverityError) Error() string {
@@ -214,7 +260,7 @@ func (errs ValidationErrors) Error() string {
 		if errorCount == 1 {
 			b.WriteString("1 error")
 		} else {
-			b.WriteString(itoa(errorCount))
+			b.WriteString(strconv.Itoa(errorCount))
 			b.WriteString(" errors")
 		}
 	}
@@ -225,7 +271,7 @@ func (errs ValidationErrors) Error() string {
 		if warningCount == 1 {
 			b.WriteString("1 warning")
 		} else {
-			b.WriteString(itoa(warningCount))
+			b.WriteString(strconv.Itoa(warningCount))
 			b.WriteString(" warnings")
 		}
 	}
@@ -330,13 +376,13 @@ func (p *FieldPath) Command(name CommandName) *FieldPath {
 
 // Implementation adds an implementation context to the path (1-indexed for user display).
 func (p *FieldPath) Implementation(index int) *FieldPath {
-	p.parts = append(p.parts, "implementation #"+itoa(index+1))
+	p.parts = append(p.parts, "implementation #"+strconv.Itoa(index+1))
 	return p
 }
 
 // Runtime adds a runtime context to the path (1-indexed for user display).
 func (p *FieldPath) Runtime(index int) *FieldPath {
-	p.parts = append(p.parts, "runtime #"+itoa(index+1))
+	p.parts = append(p.parts, "runtime #"+strconv.Itoa(index+1))
 	return p
 }
 
@@ -348,7 +394,7 @@ func (p *FieldPath) Flag(name FlagName) *FieldPath {
 
 // FlagIndex adds a flag context by index to the path (1-indexed for user display).
 func (p *FieldPath) FlagIndex(index int) *FieldPath {
-	p.parts = append(p.parts, "flag #"+itoa(index+1))
+	p.parts = append(p.parts, "flag #"+strconv.Itoa(index+1))
 	return p
 }
 
@@ -360,19 +406,19 @@ func (p *FieldPath) Arg(name ArgumentName) *FieldPath {
 
 // ArgIndex adds an argument context by index to the path (1-indexed for user display).
 func (p *FieldPath) ArgIndex(index int) *FieldPath {
-	p.parts = append(p.parts, "argument #"+itoa(index+1))
+	p.parts = append(p.parts, "argument #"+strconv.Itoa(index+1))
 	return p
 }
 
 // Volume adds a volume context to the path (1-indexed for user display).
 func (p *FieldPath) Volume(index int) *FieldPath {
-	p.parts = append(p.parts, "volume #"+itoa(index+1))
+	p.parts = append(p.parts, "volume #"+strconv.Itoa(index+1))
 	return p
 }
 
 // Port adds a port context to the path (1-indexed for user display).
 func (p *FieldPath) Port(index int) *FieldPath {
-	p.parts = append(p.parts, "port #"+itoa(index+1))
+	p.parts = append(p.parts, "port #"+strconv.Itoa(index+1))
 	return p
 }
 
@@ -384,7 +430,7 @@ func (p *FieldPath) Env() *FieldPath {
 
 // EnvFile adds an env.files context to the path (1-indexed for user display).
 func (p *FieldPath) EnvFile(index int) *FieldPath {
-	p.parts = append(p.parts, "env.files["+itoa(index+1)+"]")
+	p.parts = append(p.parts, "env.files["+strconv.Itoa(index+1)+"]")
 	return p
 }
 
@@ -402,31 +448,31 @@ func (p *FieldPath) DependsOn() *FieldPath {
 
 // Tools adds a tools context to the path with indices (1-indexed for user display).
 func (p *FieldPath) Tools(depIndex, altIndex int) *FieldPath {
-	p.parts = append(p.parts, "tools["+itoa(depIndex+1)+"].alternatives["+itoa(altIndex+1)+"]")
+	p.parts = append(p.parts, "tools["+strconv.Itoa(depIndex+1)+"].alternatives["+strconv.Itoa(altIndex+1)+"]")
 	return p
 }
 
 // Commands adds a cmds context to the path with indices (1-indexed for user display).
 func (p *FieldPath) Commands(depIndex, altIndex int) *FieldPath {
-	p.parts = append(p.parts, "cmds["+itoa(depIndex+1)+"].alternatives["+itoa(altIndex+1)+"]")
+	p.parts = append(p.parts, "cmds["+strconv.Itoa(depIndex+1)+"].alternatives["+strconv.Itoa(altIndex+1)+"]")
 	return p
 }
 
 // Filepaths adds a filepaths context to the path (1-indexed for user display).
 func (p *FieldPath) Filepaths(index int) *FieldPath {
-	p.parts = append(p.parts, "filepaths["+itoa(index+1)+"]")
+	p.parts = append(p.parts, "filepaths["+strconv.Itoa(index+1)+"]")
 	return p
 }
 
 // EnvVars adds an env_vars context to the path with indices (1-indexed for user display).
 func (p *FieldPath) EnvVars(depIndex, altIndex int) *FieldPath {
-	p.parts = append(p.parts, "env_vars["+itoa(depIndex+1)+"].alternatives["+itoa(altIndex+1)+"]")
+	p.parts = append(p.parts, "env_vars["+strconv.Itoa(depIndex+1)+"].alternatives["+strconv.Itoa(altIndex+1)+"]")
 	return p
 }
 
 // CustomCheck adds a custom_check context to the path (1-indexed for user display).
 func (p *FieldPath) CustomCheck(checkIndex, altIndex int) *FieldPath {
-	p.parts = append(p.parts, "custom_check #"+itoa(checkIndex+1)+" alternative #"+itoa(altIndex+1))
+	p.parts = append(p.parts, "custom_check #"+strconv.Itoa(checkIndex+1)+" alternative #"+strconv.Itoa(altIndex+1))
 	return p
 }
 
@@ -442,23 +488,4 @@ func (p *FieldPath) Copy() *FieldPath {
 	parts := make([]string, len(p.parts))
 	copy(parts, p.parts)
 	return &FieldPath{parts: parts}
-}
-
-// itoa converts an integer to a string without importing strconv.
-// This is a simple helper to avoid an extra import for basic number formatting.
-func itoa(i int) string {
-	if i == 0 {
-		return "0"
-	}
-	if i < 0 {
-		return "-" + itoa(-i)
-	}
-	var buf [20]byte
-	pos := len(buf)
-	for i > 0 {
-		pos--
-		buf[pos] = byte('0' + i%10)
-		i /= 10
-	}
-	return string(buf[pos:])
 }

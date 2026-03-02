@@ -66,7 +66,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Get the container runtime config
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig == nil {
-		return nil, NewErrorResult(1, fmt.Errorf("runtime config not found for container runtime"))
+		return nil, NewErrorResult(1, errors.New("runtime config not found for container runtime"))
 	}
 	containerCfg := containerConfigFromRuntime(rtConfig)
 	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
@@ -111,7 +111,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	// Prepare volumes
 	volumes := containerCfg.Volumes
 	// Always mount the invowkfile directory
-	volumes = append(volumes, invowkfile.VolumeMountSpec(fmt.Sprintf("%s:/workspace", invowkDir)))
+	volumes = append(volumes, invowkfile.VolumeMountSpec(invowkDir+":/workspace")) //goplint:ignore -- constructed from known-good directory + constant mount target
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
@@ -399,10 +399,10 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 // setupSSHConnection sets up SSH connection for container host access
 func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[string]string) (*sshserver.ConnectionInfo, error) {
 	if r.sshServer == nil {
-		return nil, fmt.Errorf("enable_host_ssh is enabled but SSH server is not configured")
+		return nil, errors.New("enable_host_ssh is enabled but SSH server is not configured")
 	}
 	if !r.sshServer.IsRunning() {
-		return nil, fmt.Errorf("enable_host_ssh is enabled but SSH server is not running")
+		return nil, errors.New("enable_host_ssh is enabled but SSH server is not running")
 	}
 
 	// Generate connection info with a unique token for this command execution.
@@ -413,7 +413,7 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 	if executionID == "" {
 		executionID = ExecutionID(fmt.Sprintf("%d-%d", time.Now().UnixNano(), r.fallbackIDCounter.Add(1)))
 		slog.Warn("ExecutionID not set by caller, using fallback — callers should use Registry.NewExecutionID()",
-			"commandName", ctx.Command.Name, "executionID", executionID)
+			"command_name", ctx.Command.Name, "execution_id", executionID)
 	}
 	commandID := fmt.Sprintf("%s-%s", ctx.Command.Name, executionID)
 	sshConnInfo, err := r.sshServer.GetConnectionInfo(commandID)

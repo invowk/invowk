@@ -58,9 +58,9 @@ enable = [
     # gochecksumtype: Run exhaustiveness checks on Go "sum types".
     "gochecksumtype",
 
-    # zerologlint: Detects the wrong usage of `zerolog` that a user forgets to
-    # dispatch with `Send` or `Msg`.
-    "zerologlint",
+    # sloglint: Validates log/slog function calls — catches mismatched key-value
+    # pairs and enforces key naming conventions.
+    "sloglint",
 
     # asasalint: Check for pass []any as any in variadic func(...any).
     "asasalint",
@@ -130,6 +130,9 @@ enable = [
     # wastedassign: Finds wasted assignment statements.
     "wastedassign",
 
+    # mnd: Detects magic numbers in code. [fast]
+    "mnd",
+
     # gocritic: Provides diagnostics that check for bugs, performance and style
     # issues. [auto-fix]
     "gocritic",
@@ -175,6 +178,37 @@ enable = [
 
     # wrapcheck: Checks that errors returned from external packages are wrapped.
     "wrapcheck",
+
+    # gocheckcompilerdirectives: Validates //go: compiler directives. [fast]
+    "gocheckcompilerdirectives",
+
+    # nolintlint: Validates //nolint directives — catches blanket, stale, or
+    # mistyped suppressions. [fast, auto-fix]
+    "nolintlint",
+
+    # fatcontext: Detects nested context.WithValue calls in loops that create
+    # O(n) lookup chains. [auto-fix]
+    "fatcontext",
+
+    # recvcheck: Checks for consistent receiver types (pointer vs value) on the
+    # same type. [fast]
+    "recvcheck",
+
+    # perfsprint: Detects fmt.Sprintf calls that can be replaced with faster
+    # alternatives like strconv functions. [auto-fix]
+    "perfsprint",
+
+    # depguard: Restricts imports from forbidden packages (codifies project
+    # dependency policies). [fast]
+    "depguard",
+
+    # errchkjson: Checks types passed to json.Marshal for error-free encoding
+    # correctness.
+    "errchkjson",
+
+    # iface: Detects interface pollution — identical, unused, or opaque
+    # interfaces.
+    "iface",
 ]
 
 # =============================================================================
@@ -393,6 +427,27 @@ max-func-lines = 10  # Max function lines with naked returns
 name = "exported"
 severity = "warning"
 
+[[linters.settings.revive.rules]]
+name = "context-as-argument"  # context.Context must be the first parameter
+severity = "warning"
+
+[[linters.settings.revive.rules]]
+name = "context-keys-type"  # Context keys must use unexported types
+severity = "warning"
+
+[[linters.settings.revive.rules]]
+name = "early-return"  # Eliminate unnecessary else after early return [auto-fix]
+severity = "warning"
+
+[[linters.settings.revive.rules]]
+name = "unnecessary-stmt"  # Catch unnecessary break/return statements
+severity = "warning"
+
+[[linters.settings.revive.rules]]
+name = "unused-parameter"  # Detect function/method parameters never used in the body
+severity = "warning"
+arguments = [{allowRegex = "^_"}]  # Exempt _-prefixed params (interface/callback convention)
+
 # -----------------------------------------------------------------------------
 # wrapcheck: Error wrapping enforcement
 # -----------------------------------------------------------------------------
@@ -487,6 +542,7 @@ ignored-numbers = [
     "4",      # Common for IPv4 octets, padding, quad structures
     "5",      # Common for timeouts (5 minutes), short intervals
     "6",      # Hex color length
+    "7",      # UI column widths (file size display)
     "8",      # Byte/octet counts
     "10",     # Base 10 for number parsing
     "12",     # Common for short hashes, git short commits
@@ -501,6 +557,7 @@ ignored-numbers = [
     "512",    # Common path/name length limits
     "4096",   # Common buffer/path length limits
     "65535",  # Max uint16 (port numbers)
+    "1e9",    # Floating-point rounding precision factor (10^9)
 ]
 
 ignored-files = [
@@ -535,6 +592,48 @@ min-occurrences = 5  # Require more occurrences before suggesting constant
 min-len = 6          # Minimum string length to trigger (ignore short strings)
 # Note: Test file exclusion is handled via linters.exclusions.paths
 
+# -----------------------------------------------------------------------------
+# sloglint: Structured logging validation for log/slog
+# -----------------------------------------------------------------------------
+[linters.settings.sloglint]
+kv-only = true            # Enforce key-value pairs (not slog.Attr)
+key-naming-case = "snake"  # Enforce snake_case keys (matches existing usage)
+args-on-sep-lines = false  # Don't require args on separate lines
+
+# -----------------------------------------------------------------------------
+# nolintlint: Validate //nolint directives
+# -----------------------------------------------------------------------------
+[linters.settings.nolintlint]
+require-specific = true  # Require naming the suppressed linter (no blanket //nolint)
+
+# -----------------------------------------------------------------------------
+# depguard: Import deny-list enforcement
+# -----------------------------------------------------------------------------
+# Codifies project policies that were previously documented only in prose.
+[linters.settings.depguard]
+
+[linters.settings.depguard.rules.main]
+files = ["$all", "!$test"]
+list-mode = "lax"
+
+[[linters.settings.depguard.rules.main.deny]]
+pkg = "io/ioutil"
+desc = "deprecated since Go 1.16; use io and os packages"
+
+[linters.settings.depguard.rules.tests]
+files = ["$test"]
+list-mode = "lax"
+
+[[linters.settings.depguard.rules.tests.deny]]
+pkg = "github.com/stretchr/testify"
+desc = "project uses standard testing library"
+
+# -----------------------------------------------------------------------------
+# iface: Interface hygiene
+# -----------------------------------------------------------------------------
+[linters.settings.iface]
+enable = ["identical", "unused"]
+
 # =============================================================================
 # Exclusions Configuration
 # =============================================================================
@@ -566,6 +665,17 @@ path = "_test\\.go$"
 [[linters.exclusions.rules]]
 linters = ["forbidigo"]
 path = "_test\\.go$"
+
+# Don't enforce errchkjson in test files - test data types are controlled
+[[linters.exclusions.rules]]
+linters = ["errchkjson"]
+path = "_test\\.go$"
+
+# Don't enforce errchkjson in HTTP handlers - response writer errors are not
+# recoverable (connection may already be closed)
+[[linters.exclusions.rules]]
+linters = ["errchkjson"]
+path = "internal/tuiserver/server\\.go$"
 
 # =============================================================================
 # Issues Configuration

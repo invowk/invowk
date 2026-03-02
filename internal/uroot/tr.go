@@ -57,7 +57,7 @@ func (c *trCommand) Run(ctx context.Context, args []string) error {
 
 	remaining := fs.Args()
 	if len(remaining) == 0 {
-		return wrapError(c.name, fmt.Errorf("missing operand"))
+		return wrapError(c.name, errors.New("missing operand"))
 	}
 
 	useComplement := *complement || *complementC

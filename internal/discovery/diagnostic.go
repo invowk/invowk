@@ -123,6 +123,8 @@ type (
 		Diagnostics []Diagnostic
 	}
 
+	//goplint:validate-all
+	//
 	// LookupResult bundles a single command lookup result with diagnostics.
 	// Command is nil when the requested command was not found (the diagnostic
 	// list will contain a "command_not_found" entry).
@@ -306,9 +308,10 @@ func (e *InvalidDiagnosticError) Error() string {
 // Unwrap returns ErrInvalidDiagnostic for errors.Is() compatibility.
 func (e *InvalidDiagnosticError) Unwrap() error { return ErrInvalidDiagnostic }
 
-// Validate returns nil if the Diagnostic has valid Severity and Code fields,
+// Validate returns nil if the Diagnostic has valid Severity, Code, and Path fields,
 // or an error wrapping ErrInvalidDiagnostic if any are invalid.
-// Message and Path are display-only fields and are not validated.
+// Path is zero-value-valid (empty means "no path context"); only non-empty paths
+// are validated. Message is display-only and is not validated.
 func (d Diagnostic) Validate() error {
 	var errs []error
 	if err := d.severity.Validate(); err != nil {
@@ -316,6 +319,11 @@ func (d Diagnostic) Validate() error {
 	}
 	if err := d.code.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	if d.path != "" {
+		if err := d.path.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if len(errs) > 0 {
 		return &InvalidDiagnosticError{FieldErrors: errs}

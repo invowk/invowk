@@ -3,18 +3,11 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 )
-
-// ValidateContainerImage validates a container image name format.
-// This function delegates to ContainerImage.Validate() which performs
-// the full validation (empty/whitespace, length, injection chars, format).
-// Kept for backward compatibility — prefer calling image.Validate() directly.
-func ValidateContainerImage(image ContainerImage) error {
-	return image.Validate()
-}
 
 // ValidateVolumeMount validates a container volume mount specification.
 // Valid formats:
@@ -25,17 +18,17 @@ func ValidateContainerImage(image ContainerImage) error {
 //   - named-volume:/container/path
 func ValidateVolumeMount(volume string) error {
 	if volume == "" {
-		return fmt.Errorf("volume mount cannot be empty")
+		return errors.New("volume mount cannot be empty")
 	}
 
 	// [CUE-VALIDATED] Volume length also enforced by CUE schema (#RuntimeConfigContainer.volumes element MaxRunes(4096))
 	if len(volume) > 4096 {
-		return fmt.Errorf("volume mount specification too long")
+		return errors.New("volume mount specification too long")
 	}
 
 	// Check for shell injection characters
 	if strings.ContainsAny(volume, ";&|`$(){}[]<>\\'\"\n\r\t") {
-		return fmt.Errorf("volume mount contains invalid characters")
+		return errors.New("volume mount contains invalid characters")
 	}
 
 	// Split by colon - expect 2 or 3 parts
@@ -61,15 +54,15 @@ func ValidateVolumeMount(volume string) error {
 
 	// Validate host path is not empty
 	if hostPath == "" {
-		return fmt.Errorf("volume mount host path cannot be empty")
+		return errors.New("volume mount host path cannot be empty")
 	}
 
 	// Validate container path
 	if containerPath == "" {
-		return fmt.Errorf("volume mount container path cannot be empty")
+		return errors.New("volume mount container path cannot be empty")
 	}
 	if !strings.HasPrefix(containerPath, "/") {
-		return fmt.Errorf("volume mount container path must be absolute (start with /)")
+		return errors.New("volume mount container path must be absolute (start with /)")
 	}
 
 	// Validate options if present
@@ -143,12 +136,12 @@ func matchesSensitivePattern(path string, patternParts []string) bool {
 //   - hostPort:containerPort/protocol
 func ValidatePortMapping(port string) error {
 	if port == "" {
-		return fmt.Errorf("port mapping cannot be empty")
+		return errors.New("port mapping cannot be empty")
 	}
 
 	// Check for invalid characters
 	if strings.ContainsAny(port, ";&|`$(){}[]<>\\'\"\n\r\t ") {
-		return fmt.Errorf("port mapping contains invalid characters")
+		return errors.New("port mapping contains invalid characters")
 	}
 
 	// Remove protocol suffix if present
@@ -175,7 +168,7 @@ func ValidatePortMapping(port string) error {
 				// Empty host IP is allowed
 				continue
 			}
-			return fmt.Errorf("port mapping has empty port value")
+			return errors.New("port mapping has empty port value")
 		}
 
 		// Check if it's an IP address (first part of 3-part format)
@@ -222,7 +215,7 @@ func validatePortNumber(s string) error {
 		}
 	}
 	if n == 0 {
-		return fmt.Errorf("port number cannot be 0")
+		return errors.New("port number cannot be 0")
 	}
 	return nil
 }

@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 func Create(opts CreateOptions) (string, error) {
 	// Validate module name
 	if opts.Name == "" {
-		return "", fmt.Errorf("module name cannot be empty")
+		return "", errors.New("module name cannot be empty")
 	}
 
 	// Validate the name format

@@ -28,6 +28,8 @@ type (
 	// realClock implements Clock using actual system time.
 	realClock struct{}
 
+	//goplint:validate-all
+	//
 	// Token represents an authentication token for container callbacks.
 	Token struct {
 		Value     TokenValue
@@ -83,6 +85,8 @@ type (
 		StartupTimeout time.Duration
 	}
 
+	//goplint:validate-all
+	//
 	// ConnectionInfo contains information needed to connect to the SSH server.
 	ConnectionInfo struct {
 		Host     HostAddress
@@ -181,7 +185,7 @@ func NewWithClock(cfg Config, clock Clock) (*Server, error) {
 
 // commandMiddleware handles command execution.
 func (s *Server) commandMiddleware() wish.Middleware {
-	return func(next ssh.Handler) ssh.Handler {
+	return func(_ ssh.Handler) ssh.Handler {
 		return func(sess ssh.Session) {
 			cmd := sess.Command()
 
@@ -205,7 +209,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 
 	ptyReq, winCh, isPty := sess.Pty()
 	if isPty {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
+		cmd.Env = append(cmd.Env, "TERM="+ptyReq.Term)
 	}
 
 	// Start the command with a pseudo-terminal

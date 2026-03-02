@@ -5,6 +5,7 @@ package uroot
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -65,7 +66,7 @@ func (c *cutCommand) Run(ctx context.Context, args []string) error {
 
 	// Must specify either -f or -c
 	if *fields == "" && *chars == "" {
-		return wrapError(c.name, fmt.Errorf("you must specify a list of bytes, characters, or fields"))
+		return wrapError(c.name, errors.New("you must specify a list of bytes, characters, or fields"))
 	}
 
 	// Parse field/char specification

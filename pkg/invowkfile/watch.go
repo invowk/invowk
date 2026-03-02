@@ -10,8 +10,12 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 )
 
-// ErrInvalidGlobPattern is the sentinel error wrapped by InvalidGlobPatternError.
-var ErrInvalidGlobPattern = errors.New("invalid glob pattern")
+var (
+	// ErrInvalidGlobPattern is the sentinel error wrapped by InvalidGlobPatternError.
+	ErrInvalidGlobPattern = errors.New("invalid glob pattern")
+	// ErrInvalidWatchConfig is the sentinel error wrapped by InvalidWatchConfigError.
+	ErrInvalidWatchConfig = errors.New("invalid watch config")
+)
 
 type (
 	// GlobPattern represents a file-matching glob pattern (e.g., "**/*.go", "src/**/*.ts").
@@ -25,7 +29,17 @@ type (
 		Reason string
 	}
 
+	// InvalidWatchConfigError is returned when a WatchConfig has invalid fields.
+	// It wraps ErrInvalidWatchConfig for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidWatchConfigError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// WatchConfig defines file-watching behavior for automatic command re-execution.
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	WatchConfig struct {
 		// Patterns lists glob patterns for files to watch.
 		// Supports ** for recursive matching (e.g., "src/**/*.go").
@@ -68,6 +82,39 @@ func (g GlobPattern) Validate() error {
 
 // String returns the string representation of the GlobPattern.
 func (g GlobPattern) String() string { return string(g) }
+
+// Validate returns nil if the WatchConfig has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to GlobPattern.Validate() for Patterns and Ignore,
+// and DurationString.Validate() for Debounce.
+func (w WatchConfig) Validate() error {
+	var errs []error
+	for _, p := range w.Patterns {
+		if err := p.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := w.Debounce.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	for _, ig := range w.Ignore {
+		if err := ig.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidWatchConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidWatchConfigError.
+func (e *InvalidWatchConfigError) Error() string {
+	return fmt.Sprintf("invalid watch config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidWatchConfig for errors.Is() compatibility.
+func (e *InvalidWatchConfigError) Unwrap() error { return ErrInvalidWatchConfig }
 
 // ParseDebounce parses the Debounce field into a time.Duration.
 // Returns (0, nil) when Debounce is empty (caller should apply default).

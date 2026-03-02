@@ -187,7 +187,7 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("failed to create unpack dir: %v", mkdirErr)
 		}
 
-		extractedPath, err := Unpack(UnpackOptions{
+		extractedPath, err := Unpack(t.Context(), UnpackOptions{
 			Source:  zipPath,
 			DestDir: types.FilesystemPath(unpackDir),
 		})
@@ -227,7 +227,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Try to unpack to same directory (module already exists)
-		_, err = Unpack(UnpackOptions{
+		_, err = Unpack(t.Context(), UnpackOptions{
 			Source:    zipPath,
 			DestDir:   types.FilesystemPath(tmpDir),
 			Overwrite: false,
@@ -267,7 +267,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Unpack with overwrite
-		extractedPath, err := Unpack(UnpackOptions{
+		extractedPath, err := Unpack(t.Context(), UnpackOptions{
 			Source:    zipPath,
 			DestDir:   types.FilesystemPath(tmpDir),
 			Overwrite: true,
@@ -285,7 +285,7 @@ func TestUnpack(t *testing.T) {
 	t.Run("unpack fails for empty source", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := Unpack(UnpackOptions{
+		_, err := Unpack(t.Context(), UnpackOptions{
 			Source: "",
 		})
 		if err == nil {
@@ -304,7 +304,7 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("failed to create invalid ZIP: %v", err)
 		}
 
-		_, err := Unpack(UnpackOptions{
+		_, err := Unpack(t.Context(), UnpackOptions{
 			Source:  invalidZip,
 			DestDir: types.FilesystemPath(tmpDir),
 		})
@@ -330,7 +330,7 @@ func TestUnpack(t *testing.T) {
 		_ = zipWriter.Close()             // Test setup; error non-critical
 		_ = zipFile.Close()               // Test setup; error non-critical
 
-		_, err = Unpack(UnpackOptions{
+		_, err = Unpack(t.Context(), UnpackOptions{
 			Source:  zipPath,
 			DestDir: types.FilesystemPath(tmpDir),
 		})
@@ -354,7 +354,7 @@ version: "1.0.0"
 			"../evil.invowkmod/invowkfile.cue": "cmds: []",
 		})
 
-		_, err := Unpack(UnpackOptions{
+		_, err := Unpack(t.Context(), UnpackOptions{
 			Source:  zipPath,
 			DestDir: types.FilesystemPath(tmpDir),
 		})
@@ -378,7 +378,7 @@ version: "1.0.0"
 			"..\\evil.invowkmod\\invowkfile.cue": "cmds: []",
 		})
 
-		_, err := Unpack(UnpackOptions{
+		_, err := Unpack(t.Context(), UnpackOptions{
 			Source:  zipPath,
 			DestDir: types.FilesystemPath(tmpDir),
 		})

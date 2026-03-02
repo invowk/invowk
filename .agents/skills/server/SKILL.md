@@ -295,7 +295,7 @@ func (s *MyServer) Stop() error {
 ```
 
 The serverbase package provides:
-- `TransitionToStarting(ctx)` - Checks context and transitions Created → Starting
+- `TransitionToStarting(ctx)` - Checks context, transitions Created → Starting, derives lifecycle context from `ctx` (cancellation propagates from caller)
 - `TransitionToRunning()` - Marks server ready, closes startedCh
 - `TransitionToStopping()` - Cancels context, transitions to Stopping
 - `TransitionToStopped()` - Final transition to terminal state

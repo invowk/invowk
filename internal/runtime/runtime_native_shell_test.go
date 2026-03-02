@@ -5,7 +5,6 @@ package runtime
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -285,7 +284,7 @@ func TestNativeRuntime_MockEnvBuilder_Error(t *testing.T) {
 
 	cmd := testCommandWithScript("env-error", "echo test", invowkfile.RuntimeNative)
 
-	mockErr := fmt.Errorf("mock env build failure")
+	mockErr := errors.New("mock env build failure")
 	rt := NewNativeRuntime(WithEnvBuilder(&MockEnvBuilder{Err: mockErr}))
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.IO.Stdout = &bytes.Buffer{}
@@ -317,7 +316,7 @@ func TestNativeRuntime_MockEnvBuilder_CaptureError(t *testing.T) {
 
 	cmd := testCommandWithScript("env-error-capture", "echo test", invowkfile.RuntimeNative)
 
-	mockErr := fmt.Errorf("capture env build failure")
+	mockErr := errors.New("capture env build failure")
 	rt := NewNativeRuntime(WithEnvBuilder(&MockEnvBuilder{Err: mockErr}))
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 	ctx.IO.Stdout = &bytes.Buffer{}

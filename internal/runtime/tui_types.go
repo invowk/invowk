@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
-	// ErrInvalidTUIServerURL is the sentinel error wrapped by InvalidTUIServerURLError.
-	ErrInvalidTUIServerURL = errors.New("invalid TUI server URL")
+	// ErrInvalidTUIServerURL is re-exported from pkg/types for backward compatibility.
+	ErrInvalidTUIServerURL = types.ErrInvalidTUIServerURL
 
 	// ErrInvalidTUIServerToken is the sentinel error wrapped by InvalidTUIServerTokenError.
 	ErrInvalidTUIServerToken = errors.New("invalid TUI server token")
@@ -19,16 +21,11 @@ var (
 )
 
 type (
-	// TUIServerURL represents the URL of a TUI server for interactive mode.
-	// The zero value ("") is valid and means no TUI server is configured.
-	// Non-zero values must start with "http://" or "https://".
-	TUIServerURL string
+	// TUIServerURL is re-exported from pkg/types for backward compatibility.
+	TUIServerURL = types.TUIServerURL
 
-	// InvalidTUIServerURLError is returned when a TUIServerURL is non-empty but
-	// does not start with a valid HTTP(S) scheme.
-	InvalidTUIServerURLError struct {
-		Value TUIServerURL
-	}
+	// InvalidTUIServerURLError is re-exported from pkg/types for backward compatibility.
+	InvalidTUIServerURLError = types.InvalidTUIServerURLError
 
 	// TUIServerToken represents an authentication token for the TUI server.
 	// The zero value ("") is valid and means no token is configured.
@@ -48,30 +45,6 @@ type (
 		FieldErrors []error
 	}
 )
-
-// String returns the string representation of the TUIServerURL.
-func (u TUIServerURL) String() string { return string(u) }
-
-// Validate returns nil if the TUIServerURL is valid, or a validation error if not.
-// The zero value ("") is valid. Non-zero values must start with "http://" or "https://".
-func (u TUIServerURL) Validate() error {
-	if u == "" {
-		return nil
-	}
-	s := string(u)
-	if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
-		return &InvalidTUIServerURLError{Value: u}
-	}
-	return nil
-}
-
-// Error implements the error interface for InvalidTUIServerURLError.
-func (e *InvalidTUIServerURLError) Error() string {
-	return fmt.Sprintf("invalid TUI server URL %q: must start with http:// or https://", e.Value)
-}
-
-// Unwrap returns ErrInvalidTUIServerURL for errors.Is() compatibility.
-func (e *InvalidTUIServerURLError) Unwrap() error { return ErrInvalidTUIServerURL }
 
 // String returns the string representation of the TUIServerToken.
 func (t TUIServerToken) String() string { return string(t) }

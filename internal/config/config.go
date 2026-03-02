@@ -5,6 +5,7 @@ package config
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,7 +45,7 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 		if configDir == "" {
 			userProfile := getenv("USERPROFILE")
 			if userProfile == "" {
-				return "", fmt.Errorf("neither APPDATA nor USERPROFILE environment variable is set")
+				return "", errors.New("neither APPDATA nor USERPROFILE environment variable is set")
 			}
 			configDir = filepath.Join(userProfile, "AppData", "Roaming")
 		}

@@ -309,15 +309,3 @@ func TestDefaultValidators(t *testing.T) {
 		t.Error("DefaultValidators() should include StructureValidator")
 	}
 }
-
-func TestNewDefaultValidator(t *testing.T) {
-	t.Parallel()
-
-	cv := NewDefaultValidator()
-	if cv == nil {
-		t.Fatal("NewDefaultValidator() returned nil")
-	}
-	if cv.Count() == 0 {
-		t.Error("NewDefaultValidator() should have at least one validator")
-	}
-}

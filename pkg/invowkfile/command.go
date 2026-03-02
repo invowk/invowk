@@ -26,6 +26,9 @@ var (
 
 	// ErrInvalidCommandCategory is the sentinel error wrapped by InvalidCommandCategoryError.
 	ErrInvalidCommandCategory = errors.New("invalid command category")
+
+	// ErrInvalidCommand is the sentinel error wrapped by InvalidCommandError.
+	ErrInvalidCommand = errors.New("invalid command")
 )
 
 type (
@@ -50,7 +53,17 @@ type (
 		Value CommandCategory
 	}
 
+	// InvalidCommandError is returned when a Command has invalid fields.
+	// It wraps ErrInvalidCommand for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidCommandError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// Command represents a single command that can be executed
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	Command struct {
 		// Name is the command identifier (can include spaces for subcommand-like behavior, e.g., "test unit")
 		Name CommandName `json:"name"`
@@ -138,6 +151,73 @@ func (c CommandCategory) Validate() error {
 
 // String returns the string representation of the CommandCategory.
 func (c CommandCategory) String() string { return string(c) }
+
+// Validate returns nil if the Command has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to Name.Validate() (nonzero), Description (non-empty),
+// Category (zero-valid), each Implementation, Env (non-nil), WorkDir (non-empty),
+// DependsOn (non-nil), each Flag, each Argument, and Watch (non-nil).
+func (c Command) Validate() error {
+	var errs []error
+	if err := c.Name.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if c.Description != "" {
+		if err := c.Description.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := c.Category.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	for i := range c.Implementations {
+		if err := c.Implementations[i].Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if c.Env != nil {
+		if err := c.Env.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if c.WorkDir != "" {
+		if err := c.WorkDir.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if c.DependsOn != nil {
+		if err := c.DependsOn.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, f := range c.Flags {
+		if err := f.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, a := range c.Args {
+		if err := a.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if c.Watch != nil {
+		if err := c.Watch.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidCommandError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidCommandError.
+func (e *InvalidCommandError) Error() string {
+	return fmt.Sprintf("invalid command: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidCommand for errors.Is() compatibility.
+func (e *InvalidCommandError) Unwrap() error { return ErrInvalidCommand }
 
 // GetImplForPlatformRuntime finds the implementation that matches the given platform and runtime.
 func (c *Command) GetImplForPlatformRuntime(platform Platform, runtime RuntimeMode) *Implementation {

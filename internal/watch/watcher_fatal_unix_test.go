@@ -5,6 +5,7 @@
 package watch
 
 import (
+	"errors"
 	"fmt"
 	"syscall"
 	"testing"
@@ -24,7 +25,7 @@ func TestIsFatalFsnotifyError(t *testing.T) {
 		{name: "wrapped ENOSPC is fatal", err: fmt.Errorf("fsnotify: %w", syscall.ENOSPC), want: true},
 		{name: "EPERM is not fatal", err: syscall.EPERM, want: false},
 		{name: "EACCES is not fatal", err: syscall.EACCES, want: false},
-		{name: "generic error is not fatal", err: fmt.Errorf("something went wrong"), want: false},
+		{name: "generic error is not fatal", err: errors.New("something went wrong"), want: false},
 	}
 
 	for _, tt := range tests {

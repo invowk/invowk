@@ -240,7 +240,7 @@ func TestRegistry_Run_CommandError(t *testing.T) {
 	expectedErr := errors.New("[uroot] test: something went wrong")
 	cmd := &mockCommand{
 		name: "test",
-		runFn: func(ctx context.Context, args []string) error {
+		runFn: func(_ context.Context, _ []string) error {
 			return expectedErr
 		},
 	}
@@ -569,7 +569,7 @@ func TestRegistry_Run_NoSilentFallback(t *testing.T) {
 			expectedErr := errors.New(tt.errMsg)
 			cmd := &mockCommand{
 				name: tt.cmdName,
-				runFn: func(ctx context.Context, args []string) error {
+				runFn: func(_ context.Context, _ []string) error {
 					return expectedErr
 				},
 			}
@@ -783,9 +783,9 @@ func TestRegistry_CommandError_NotSwallowed(t *testing.T) {
 
 	cmd := &mockCommand{
 		name: "failcmd",
-		runFn: func(ctx context.Context, args []string) error {
+		runFn: func(_ context.Context, _ []string) error {
 			callCount++
-			return fmt.Errorf("[uroot] failcmd: intentional failure")
+			return errors.New("[uroot] failcmd: intentional failure")
 		},
 	}
 	r.Register(cmd)

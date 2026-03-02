@@ -55,7 +55,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 	spinType, _ := cmd.Flags().GetString("type")
 
 	if len(args) == 0 {
-		return fmt.Errorf("no command specified; use -- to separate spin flags from the command")
+		return errors.New("no command specified; use -- to separate spin flags from the command")
 	}
 
 	// Find the command to run (after --)
@@ -88,7 +88,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 		if parseErr != nil {
 			return parseErr
 		}
-		output, err = tui.SpinWithCommand(tui.SpinOptions{
+		output, err = tui.SpinWithCommand(cmd.Context(), tui.SpinOptions{
 			Title: spinTitle,
 			Type:  parsedType,
 		}, command, cmdArgs...)

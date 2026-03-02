@@ -72,7 +72,7 @@ func TestValidateRegexPattern(t *testing.T) {
 	}
 }
 
-func TestValidateContainerImage(t *testing.T) {
+func TestContainerImage_Validate_SecurityCases(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -108,7 +108,7 @@ func TestValidateContainerImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateContainerImage(ContainerImage(tt.image))
+			err := ContainerImage(tt.image).Validate()
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)

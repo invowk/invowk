@@ -18,7 +18,7 @@ type DockerEngine struct {
 // NewDockerEngine creates a new Docker engine.
 func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
 	path, _ := exec.LookPath("docker")
-	allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker))}
+	allOpts := []BaseCLIEngineOption{WithName(string(EngineTypeDocker)), WithImageExistsSubCmd("inspect")}
 	allOpts = append(allOpts, opts...)
 	// Binary path may be empty if Docker is not installed — validated later via Available().
 	return &DockerEngine{
@@ -27,11 +27,14 @@ func NewDockerEngine(opts ...BaseCLIEngineOption) *DockerEngine {
 }
 
 // Available checks if Docker is available.
+// Uses an internal timeout to prevent indefinite hangs when the daemon is unresponsive.
 func (e *DockerEngine) Available() bool {
 	if e.BinaryPath() == "" {
 		return false
 	}
-	cmd := e.CreateCommand(context.Background(), "version", "--format", "{{.Server.Version}}")
+	ctx, cancel := context.WithTimeout(context.Background(), availabilityTimeout)
+	defer cancel()
+	cmd := e.CreateCommand(ctx, "version", "--format", "{{.Server.Version}}")
 	return cmd.Run() == nil
 }
 

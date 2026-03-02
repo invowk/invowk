@@ -222,7 +222,12 @@ type (
 		CacheDir CacheDirPath `json:"cache_dir" mapstructure:"cache_dir"`
 	}
 
+	//goplint:validate-all
+	//
 	// VirtualShellConfig configures the virtual shell runtime.
+	// Currently contains only bool fields; Validate() exists as scaffolding
+	// so that future typed fields are automatically covered by the
+	// //goplint:validate-all delegation check.
 	VirtualShellConfig struct {
 		// EnableUrootUtils enables u-root utilities in virtual shell
 		EnableUrootUtils bool `json:"enable_uroot_utils" mapstructure:"enable_uroot_utils"`
@@ -240,6 +245,11 @@ type (
 		Interactive bool `json:"interactive" mapstructure:"interactive"`
 	}
 )
+
+// Validate returns nil. VirtualShellConfig currently has only bool fields,
+// which need no validation. This method exists as scaffolding so that adding
+// a typed field triggers a //goplint:validate-all delegation finding.
+func (c VirtualShellConfig) Validate() error { return nil }
 
 // IsModule reports whether this entry points to a module directory (.invowkmod).
 func (e IncludeEntry) IsModule() bool {
@@ -348,8 +358,8 @@ func (e *InvalidContainerConfigError) Unwrap() error { return ErrInvalidContaine
 
 // Validate returns an error if the Config has invalid fields.
 // It delegates to ContainerEngine.Validate(), DefaultRuntime.Validate(),
-// each Includes entry's Validate(), UI.Validate(), and Container.Validate().
-// VirtualShell has only bool fields and needs no validation.
+// each Includes entry's Validate(), VirtualShell.Validate(), UI.Validate(),
+// and Container.Validate().
 func (c Config) Validate() error {
 	var errs []error
 	if err := c.ContainerEngine.Validate(); err != nil {
@@ -362,6 +372,9 @@ func (c Config) Validate() error {
 		if err := entry.Validate(); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if err := c.VirtualShell.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if err := c.UI.Validate(); err != nil {
 		errs = append(errs, err)

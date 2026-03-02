@@ -18,6 +18,8 @@ var (
 	ErrInvalidLockFileVersion = errors.New("invalid lock file version")
 	// ErrInvalidModuleRefKey is returned when a ModuleRefKey value is empty.
 	ErrInvalidModuleRefKey = errors.New("invalid module ref key")
+	// ErrInvalidLockedModule is the sentinel error wrapped by InvalidLockedModuleError.
+	ErrInvalidLockedModule = errors.New("invalid locked module")
 )
 
 type (
@@ -67,6 +69,16 @@ type (
 		Modules map[ModuleRefKey]LockedModule
 	}
 
+	// InvalidLockedModuleError is returned when a LockedModule has invalid fields.
+	// It wraps ErrInvalidLockedModule for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidLockedModuleError struct {
+		ModuleKey   ModuleRefKey
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// LockedModule represents a locked module entry in the lock file.
 	LockedModule struct {
 		// GitURL is the Git repository URL.
@@ -158,6 +170,49 @@ func (e *InvalidModuleRefKeyError) Error() string {
 
 // Unwrap returns ErrInvalidModuleRefKey for errors.Is() compatibility.
 func (e *InvalidModuleRefKeyError) Unwrap() error { return ErrInvalidModuleRefKey }
+
+// Validate returns nil if the LockedModule has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to Validate() on all 7 typed fields.
+func (m LockedModule) Validate() error {
+	var errs []error
+	if err := m.GitURL.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Version.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.ResolvedVersion.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.GitCommit.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Alias.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Path.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Namespace.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidLockedModuleError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidLockedModuleError.
+func (e *InvalidLockedModuleError) Error() string {
+	if e.ModuleKey != "" {
+		return fmt.Sprintf("invalid locked module %q: %d field error(s)", e.ModuleKey, len(e.FieldErrors))
+	}
+	return fmt.Sprintf("invalid locked module: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidLockedModule for errors.Is() compatibility.
+func (e *InvalidLockedModuleError) Unwrap() error { return ErrInvalidLockedModule }
 
 // NewLockFile creates a new empty lock file.
 func NewLockFile() *LockFile {
@@ -332,6 +387,13 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 				if err := currentModuleKey.Validate(); err != nil {
 					return nil, fmt.Errorf("lock file module key: %w", err)
 				}
+				if err := currentModule.Validate(); err != nil {
+					// Attach the module key to the error for debugging context.
+					if lockedErr, ok := errors.AsType[*InvalidLockedModuleError](err); ok {
+						lockedErr.ModuleKey = currentModuleKey
+					}
+					return nil, fmt.Errorf("lock file module %q: %w", currentModuleKey, err)
+				}
 				lock.Modules[currentModuleKey] = currentModule
 				currentModuleKey = ""
 			}
@@ -345,23 +407,19 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 		if braceDepth == 2 && currentModuleKey != "" {
 			switch {
 			case strings.HasPrefix(line, "git_url:"):
-				currentModule.GitURL = GitURL(parseStringValue(line)) //goplint:ignore -- validated at usage site
+				currentModule.GitURL = GitURL(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			case strings.HasPrefix(line, "version:"):
-				currentModule.Version = SemVerConstraint(parseStringValue(line)) //goplint:ignore -- validated at usage site
+				currentModule.Version = SemVerConstraint(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			case strings.HasPrefix(line, "resolved_version:"):
-				currentModule.ResolvedVersion = SemVer(parseStringValue(line)) //goplint:ignore -- validated at usage site
+				currentModule.ResolvedVersion = SemVer(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			case strings.HasPrefix(line, "git_commit:"):
-				currentModule.GitCommit = GitCommit(parseStringValue(line)) //goplint:ignore -- validated at usage site
+				currentModule.GitCommit = GitCommit(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			case strings.HasPrefix(line, "alias:"):
-				currentModule.Alias = ModuleAlias(parseStringValue(line)) //goplint:ignore -- validated at usage site
+				currentModule.Alias = ModuleAlias(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			case strings.HasPrefix(line, "path:"):
-				currentModule.Path = SubdirectoryPath(parseStringValue(line)) //goplint:ignore -- validated at usage site
+				currentModule.Path = SubdirectoryPath(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			case strings.HasPrefix(line, "namespace:"):
-				ns := ModuleNamespace(parseStringValue(line))
-				if err := ns.Validate(); err != nil {
-					return nil, fmt.Errorf("lock file module %q namespace: %w", currentModuleKey, err)
-				}
-				currentModule.Namespace = ns
+				currentModule.Namespace = ModuleNamespace(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			}
 		}
 	}

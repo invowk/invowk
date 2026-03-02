@@ -25,6 +25,9 @@ var (
 	// ErrInvalidArgumentName is the sentinel error wrapped by InvalidArgumentNameError.
 	ErrInvalidArgumentName = errors.New("invalid argument name")
 
+	// ErrInvalidArgument is the sentinel error wrapped by InvalidArgumentError.
+	ErrInvalidArgument = errors.New("invalid argument")
+
 	// argumentNamePattern mirrors the CUE schema constraint: ^[a-zA-Z][a-zA-Z0-9_-]*$
 	argumentNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 )
@@ -53,7 +56,17 @@ type (
 		Reason string
 	}
 
+	// InvalidArgumentError is returned when an Argument has invalid fields.
+	// It wraps ErrInvalidArgument for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidArgumentError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// Argument represents a positional command-line argument for a command
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	Argument struct {
 		// Name is the argument name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)
 		// Used for documentation and environment variable naming (INVOWK_ARG_<NAME>)
@@ -136,6 +149,41 @@ func (a *Argument) GetType() ArgumentType {
 	}
 	return a.Type
 }
+
+// Validate returns nil if the Argument has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to Name.Validate() (nonzero), Description.Validate() (non-empty),
+// Type.Validate() (zero-valid), and Validation.Validate() (zero-valid).
+// DefaultValue is an untyped string — skipped.
+func (a Argument) Validate() error {
+	var errs []error
+	if err := a.Name.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if a.Description != "" {
+		if err := a.Description.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := a.Type.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := a.Validation.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidArgumentError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidArgumentError.
+func (e *InvalidArgumentError) Error() string {
+	return fmt.Sprintf("invalid argument: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidArgument for errors.Is() compatibility.
+func (e *InvalidArgumentError) Unwrap() error { return ErrInvalidArgument }
 
 // ValidateArgumentValue validates an argument value at runtime against type and validation regex.
 // Returns nil if the value is valid, or an error describing the issue.

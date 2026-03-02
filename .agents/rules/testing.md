@@ -62,17 +62,30 @@ for _, tt := range tests {
 }
 ```
 
+## Test Context Usage
+
+**Use `t.Context()` (Go 1.24+) as the default context in tests.** Do NOT use `context.Background()` unless structurally forced (e.g., `TestMain`, package-level variable init).
+
+- `context.WithCancel(t.Context())` — only when the test scenario requires explicit mid-test cancellation (e.g., testing graceful shutdown)
+- `context.WithTimeout(t.Context(), ...)` — only when the test needs a specific deadline as part of the test logic
+- `context.Background()` — only in `TestMain` (`*testing.M` has no `Context()` method) or in `testscript.Env.Defer()` cleanup hooks (no `*testing.T` in scope). Always comment why `context.Background()` is used.
+- Benchmarks: Use `b.Context()`, not `t.Context()`.
+
 ## Test Parallelism
 
 ### Default Rule
 
 All new test functions MUST call `t.Parallel()` unless they mutate global/process-wide state. **`t.Parallel()` must be the first call in the function** — before any `t.Skip()` guards or other setup. The `tparallel` linter enforces this positioning.
 
-**Scoped exception (documented and intentional):** Tests that share process-wide analyzer flag state (for example, `tools/goplint` tests that mutate `Analyzer.Flags`) must remain sequential. In these cases, do not use `t.Parallel()` and add a brief comment explaining the shared-state constraint.
+`tools/goplint` no longer relies on shared process-wide analyzer flag state; its tests use per-test analyzer instances and may run in parallel. Keep bounded concurrency controls where needed (for example, a semaphore around heavy `analysistest` runs) to avoid process exhaustion on constrained runners.
 
 ### Table-Driven Subtests
 
 When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too.
+
+Modernize compatibility notes:
+- Do not add `tt := tt` / `tc := tc` loop-variable rebinding before `t.Run(...)`. In Go 1.22+ range variables are per-iteration, and redundant rebinding is flagged by `modernize` (`forvar`).
+- When cloning entire maps in tests, prefer `maps.Copy(dst, src)` instead of manual `for k, v := range src { dst[k] = v }` loops (`mapsloop`).
 
 ### Unsafe Patterns (do NOT parallelize)
 

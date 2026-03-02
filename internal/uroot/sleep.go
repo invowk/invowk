@@ -4,6 +4,7 @@ package uroot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -37,7 +38,7 @@ func (c *sleepCommand) SupportedFlags() []FlagInfo { return c.flags }
 func (c *sleepCommand) Run(ctx context.Context, args []string) error {
 	posArgs := args[1:]
 	if len(posArgs) == 0 {
-		return wrapError(c.name, fmt.Errorf("missing operand"))
+		return wrapError(c.name, errors.New("missing operand"))
 	}
 
 	duration, err := parseSleepDuration(posArgs[0])

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
@@ -41,6 +42,8 @@ type (
 		Allowed     []invowkfile.RuntimeMode
 	}
 
+	//goplint:validate-all
+	//
 	// BuildExecutionContextOptions configures execution-context construction.
 	//
 	// Required fields: Command, Invowkfile, and Selection must be populated
@@ -72,6 +75,12 @@ type (
 		// Platform is the resolved platform for this execution.
 		// Injected as INVOWK_PLATFORM so scripts can self-introspect the target platform.
 		Platform invowkfile.Platform
+
+		// Context is the caller's context for cancellation and timeout propagation.
+		// When nil, defaults to context.Background(). Callers should set this to
+		// their request-scoped context so that Ctrl+C and deadlines propagate to
+		// the execution runtime.
+		Context context.Context
 	}
 )
 
@@ -111,7 +120,7 @@ func (r RuntimeSelection) Validate() error {
 		errs = append(errs, err)
 	}
 	if r.impl == nil {
-		errs = append(errs, fmt.Errorf("implementation must not be nil"))
+		errs = append(errs, errors.New("implementation must not be nil"))
 	}
 	if len(errs) > 0 {
 		return &InvalidRuntimeSelectionError{FieldErrors: errs}
@@ -216,13 +225,23 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 // INVOWK_ARG_*, ARGn, and ARGC environment variables.
 func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.ExecutionContext, error) {
 	if opts.Command == nil {
-		return nil, fmt.Errorf("BuildExecutionContext: Command must not be nil")
+		return nil, errors.New("BuildExecutionContext: Command must not be nil")
 	}
 	if opts.Invowkfile == nil {
-		return nil, fmt.Errorf("BuildExecutionContext: Invowkfile must not be nil")
+		return nil, errors.New("BuildExecutionContext: Invowkfile must not be nil")
 	}
 
-	execCtx := runtime.NewExecutionContext(context.Background(), opts.Command, opts.Invowkfile)
+	// Validate typed fields (Selection, Workdir, EnvFiles, EnvInheritMode, etc.)
+	// after the nil pointer guards above to produce clear error messages.
+	if err := opts.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid execution context options: %w", err)
+	}
+
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	execCtx := runtime.NewExecutionContext(ctx, opts.Command, opts.Invowkfile)
 
 	execCtx.Verbose = opts.Verbose
 	execCtx.SelectedRuntime = opts.Selection.Mode()
@@ -296,7 +315,7 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 	for i, arg := range opts.Args {
 		execCtx.Env.ExtraEnv[fmt.Sprintf("ARG%d", i+1)] = arg
 	}
-	execCtx.Env.ExtraEnv["ARGC"] = fmt.Sprintf("%d", len(opts.Args))
+	execCtx.Env.ExtraEnv["ARGC"] = strconv.Itoa(len(opts.Args))
 
 	if len(opts.ArgDefs) > 0 {
 		for i, argDef := range opts.ArgDefs {
@@ -308,7 +327,7 @@ func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.Executio
 				if i < len(opts.Args) {
 					variadicValues = opts.Args[i:]
 				}
-				execCtx.Env.ExtraEnv[envName+"_COUNT"] = fmt.Sprintf("%d", len(variadicValues))
+				execCtx.Env.ExtraEnv[envName+"_COUNT"] = strconv.Itoa(len(variadicValues))
 				for j, val := range variadicValues {
 					execCtx.Env.ExtraEnv[fmt.Sprintf("%s_%d", envName, j+1)] = val
 				}

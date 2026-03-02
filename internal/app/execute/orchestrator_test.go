@@ -258,6 +258,48 @@ func TestBuildExecutionContext(t *testing.T) {
 	}
 }
 
+func TestBuildExecutionContext_ContextPropagation(t *testing.T) {
+	t.Parallel()
+
+	cmd := &invowkfile.Command{Name: "test"}
+	inv := &invowkfile.Invowkfile{}
+	sel := RuntimeSelection{mode: invowkfile.RuntimeNative, impl: &invowkfile.Implementation{}}
+
+	t.Run("nil Context defaults to non-nil context", func(t *testing.T) {
+		t.Parallel()
+
+		gotCtx, err := BuildExecutionContext(BuildExecutionContextOptions{
+			Command:    cmd,
+			Invowkfile: inv,
+			Selection:  sel,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotCtx.Context == nil {
+			t.Error("Context should default to non-nil when opts.Context is nil")
+		}
+	})
+
+	t.Run("caller context is propagated", func(t *testing.T) {
+		t.Parallel()
+
+		callerCtx := t.Context()
+		gotCtx, err := BuildExecutionContext(BuildExecutionContextOptions{
+			Command:    cmd,
+			Invowkfile: inv,
+			Selection:  sel,
+			Context:    callerCtx,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotCtx.Context != callerCtx {
+			t.Error("expected caller context to be propagated to ExecutionContext.Context")
+		}
+	})
+}
+
 func TestBuildExecutionContext_MetadataOmittedWhenEmpty(t *testing.T) {
 	t.Parallel()
 

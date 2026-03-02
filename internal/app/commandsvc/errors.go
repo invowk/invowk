@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MPL-2.0
+
+package commandsvc
+
+import (
+	"context"
+	"errors"
+	"os"
+
+	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/internal/runtime"
+)
+
+const (
+	// HintTimedOut is the classification hint for deadline-exceeded errors.
+	HintTimedOut = "timed out"
+	// HintCancelled is the classification hint for context-cancelled errors.
+	HintCancelled = "cancelled"
+)
+
+// classifyExecutionError maps execution/runtime failures to issue catalog IDs and
+// returns a classification hint (e.g., HintTimedOut, HintCancelled). The CLI adapter
+// combines this with styled error formatting.
+//
+// Timeout and cancellation intentionally reuse ScriptExecutionFailedId rather than
+// introducing dedicated issue IDs. The user-facing message already distinguishes
+// these cases, and the issue catalog entry provides generic guidance that applies
+// to all script execution failures.
+func classifyExecutionError(err error) (issueID issue.Id, hint string) {
+	issueID = issue.ScriptExecutionFailedId
+
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return issueID, HintTimedOut
+	case errors.Is(err, context.Canceled):
+		return issueID, HintCancelled
+	case errors.Is(err, container.ErrNoEngineAvailable):
+		issueID = issue.ContainerEngineNotFoundId
+	case errors.Is(err, runtime.ErrRuntimeNotAvailable):
+		issueID = issue.RuntimeNotAvailableId
+	case errors.Is(err, os.ErrPermission):
+		issueID = issue.PermissionDeniedId
+	default:
+		if ae, ok := errors.AsType[*issue.ActionableError](err); ok && ae.Operation() == "find shell" {
+			issueID = issue.ShellNotFoundId
+		}
+	}
+
+	return issueID, ""
+}

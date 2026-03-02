@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -255,7 +256,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 		// Validate container image name format
 		if rt.Image != "" {
-			if err := ValidateContainerImage(rt.Image); err != nil {
+			if err := rt.Image.Validate(); err != nil {
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
@@ -271,7 +272,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   "containerfile path too long (" + itoa(len(rt.Containerfile)) + " chars, max " + itoa(MaxPathLength) + ")",
+					Message:   "containerfile path too long (" + strconv.Itoa(len(rt.Containerfile)) + " chars, max " + strconv.Itoa(MaxPathLength) + ")",
 					Severity:  SeverityError,
 				})
 			}

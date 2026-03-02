@@ -17,6 +17,24 @@ var (
 	ErrInvalidCheckName = errors.New("invalid check name")
 	// ErrInvalidScriptContent is the sentinel error wrapped by InvalidScriptContentError.
 	ErrInvalidScriptContent = errors.New("invalid script content")
+	// ErrInvalidToolDependency is the sentinel error wrapped by InvalidToolDependencyError.
+	ErrInvalidToolDependency = errors.New("invalid tool dependency")
+	// ErrInvalidCommandDependency is the sentinel error wrapped by InvalidCommandDependencyError.
+	ErrInvalidCommandDependency = errors.New("invalid command dependency")
+	// ErrInvalidCapabilityDependency is the sentinel error wrapped by InvalidCapabilityDependencyError.
+	ErrInvalidCapabilityDependency = errors.New("invalid capability dependency")
+	// ErrInvalidEnvVarCheck is the sentinel error wrapped by InvalidEnvVarCheckError.
+	ErrInvalidEnvVarCheck = errors.New("invalid env var check")
+	// ErrInvalidEnvVarDependency is the sentinel error wrapped by InvalidEnvVarDependencyError.
+	ErrInvalidEnvVarDependency = errors.New("invalid env var dependency")
+	// ErrInvalidFilepathDependency is the sentinel error wrapped by InvalidFilepathDependencyError.
+	ErrInvalidFilepathDependency = errors.New("invalid filepath dependency")
+	// ErrInvalidCustomCheck is the sentinel error wrapped by InvalidCustomCheckError.
+	ErrInvalidCustomCheck = errors.New("invalid custom check")
+	// ErrInvalidCustomCheckDependency is the sentinel error wrapped by InvalidCustomCheckDependencyError.
+	ErrInvalidCustomCheckDependency = errors.New("invalid custom check dependency")
+	// ErrInvalidDependsOn is the sentinel error wrapped by InvalidDependsOnError.
+	ErrInvalidDependsOn = errors.New("invalid depends_on")
 )
 
 type (
@@ -51,6 +69,27 @@ type (
 		Value ScriptContent
 	}
 
+	// InvalidToolDependencyError is returned when a ToolDependency has invalid fields.
+	InvalidToolDependencyError struct{ FieldErrors []error }
+	// InvalidCommandDependencyError is returned when a CommandDependency has invalid fields.
+	InvalidCommandDependencyError struct{ FieldErrors []error }
+	// InvalidCapabilityDependencyError is returned when a CapabilityDependency has invalid fields.
+	InvalidCapabilityDependencyError struct{ FieldErrors []error }
+	// InvalidEnvVarCheckError is returned when an EnvVarCheck has invalid fields.
+	InvalidEnvVarCheckError struct{ FieldErrors []error }
+	// InvalidEnvVarDependencyError is returned when an EnvVarDependency has invalid fields.
+	InvalidEnvVarDependencyError struct{ FieldErrors []error }
+	// InvalidFilepathDependencyError is returned when a FilepathDependency has invalid fields.
+	InvalidFilepathDependencyError struct{ FieldErrors []error }
+	// InvalidCustomCheckError is returned when a CustomCheck has invalid fields.
+	InvalidCustomCheckError struct{ FieldErrors []error }
+	// InvalidCustomCheckDependencyError is returned when a CustomCheckDependency has invalid fields.
+	InvalidCustomCheckDependencyError struct{ FieldErrors []error }
+	// InvalidDependsOnError is returned when a DependsOn has invalid fields.
+	InvalidDependsOnError struct{ FieldErrors []error }
+
+	//goplint:validate-all
+	//
 	// ToolDependency represents a tool/binary that must be available in PATH
 	ToolDependency struct {
 		// Alternatives is a list of binary names where any match satisfies the dependency
@@ -59,6 +98,8 @@ type (
 		Alternatives []BinaryName `json:"alternatives"`
 	}
 
+	//goplint:validate-all
+	//
 	// CustomCheck represents a custom validation script to verify system requirements
 	CustomCheck struct {
 		// Name is an identifier for this check (used for error reporting)
@@ -71,9 +112,12 @@ type (
 		ExpectedOutput RegexPattern `json:"expected_output,omitempty"`
 	}
 
+	//goplint:validate-all
+	//
 	// CustomCheckDependency represents a custom check dependency that can be either:
 	// - A single CustomCheck (direct check with name, check_script, etc.)
 	// - An alternatives list of CustomChecks (OR semantics with early return)
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	CustomCheckDependency struct {
 		// Direct check fields (used when this is a single check)
 		// Name is an identifier for this check (used for error reporting)
@@ -91,6 +135,8 @@ type (
 		Alternatives []CustomCheck `json:"alternatives,omitempty"`
 	}
 
+	//goplint:validate-all
+	//
 	// CommandDependency represents another invowk command that must be discoverable.
 	CommandDependency struct {
 		// Alternatives is a list of command names where any match satisfies the dependency.
@@ -99,6 +145,8 @@ type (
 		Alternatives []CommandName `json:"alternatives"`
 	}
 
+	//goplint:validate-all
+	//
 	// CapabilityDependency represents a system capability that must be available
 	CapabilityDependency struct {
 		// Alternatives is a list of capability identifiers where any match satisfies the dependency
@@ -107,6 +155,8 @@ type (
 		Alternatives []CapabilityName `json:"alternatives"`
 	}
 
+	//goplint:validate-all
+	//
 	// EnvVarCheck represents a single environment variable check
 	EnvVarCheck struct {
 		// Name is the environment variable name to check (required, non-empty)
@@ -117,6 +167,8 @@ type (
 		Validation RegexPattern `json:"validation,omitempty"`
 	}
 
+	//goplint:validate-all
+	//
 	// EnvVarDependency represents an environment variable dependency with alternatives
 	EnvVarDependency struct {
 		// Alternatives is a list of env var checks where any match satisfies the dependency
@@ -125,6 +177,8 @@ type (
 		Alternatives []EnvVarCheck `json:"alternatives"`
 	}
 
+	//goplint:validate-all
+	//
 	// FilepathDependency represents a file or directory that must exist
 	FilepathDependency struct {
 		// Alternatives is a list of file or directory paths where any match satisfies the dependency
@@ -140,7 +194,10 @@ type (
 		Executable bool `json:"executable,omitempty"`
 	}
 
+	//goplint:validate-all
+	//
 	// DependsOn defines the dependencies for a command
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	DependsOn struct {
 		// Tools lists binaries that must be available in PATH before running
 		// Uses OR semantics: if any alternative in the list is found, the dependency is satisfied
@@ -283,6 +340,240 @@ func (e *InvalidScriptContentError) Error() string {
 
 // Unwrap returns ErrInvalidScriptContent for errors.Is() compatibility.
 func (e *InvalidScriptContentError) Unwrap() error { return ErrInvalidScriptContent }
+
+// Validate returns nil if the ToolDependency has valid fields.
+func (t ToolDependency) Validate() error {
+	var errs []error
+	for _, b := range t.Alternatives {
+		if err := b.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidToolDependencyError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Validate returns nil if the CommandDependency has valid fields.
+func (c CommandDependency) Validate() error {
+	var errs []error
+	for _, n := range c.Alternatives {
+		if err := n.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidCommandDependencyError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Validate returns nil if the CapabilityDependency has valid fields.
+func (c CapabilityDependency) Validate() error {
+	var errs []error
+	for _, n := range c.Alternatives {
+		if err := n.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidCapabilityDependencyError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Validate returns nil if the EnvVarCheck has valid fields.
+// Delegates to Name.Validate() (nonzero) and Validation.Validate() (zero-valid).
+func (e EnvVarCheck) Validate() error {
+	var errs []error
+	if err := e.Name.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := e.Validation.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidEnvVarCheckError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Validate returns nil if the EnvVarDependency has valid fields.
+func (e EnvVarDependency) Validate() error {
+	var errs []error
+	for _, c := range e.Alternatives {
+		if err := c.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidEnvVarDependencyError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Validate returns nil if the FilepathDependency has valid fields.
+func (f FilepathDependency) Validate() error {
+	var errs []error
+	for _, p := range f.Alternatives {
+		if err := p.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidFilepathDependencyError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Validate returns nil if the CustomCheck has valid fields.
+// Delegates to Name.Validate() (nonzero), CheckScript.Validate() (zero-valid),
+// ExpectedCode.Validate() (when non-nil), and ExpectedOutput.Validate() (zero-valid).
+func (c CustomCheck) Validate() error {
+	var errs []error
+	if err := c.Name.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.CheckScript.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if c.ExpectedCode != nil {
+		if err := c.ExpectedCode.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := c.ExpectedOutput.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidCustomCheckError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Validate returns nil if the CustomCheckDependency has valid fields.
+// When Alternatives is set, delegates to each CustomCheck.Validate().
+// Otherwise, validates the direct check fields.
+func (c CustomCheckDependency) Validate() error {
+	var errs []error
+	if len(c.Alternatives) > 0 {
+		for _, alt := range c.Alternatives {
+			if err := alt.Validate(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	} else {
+		// Direct check mode — validate inline fields.
+		if c.Name != "" {
+			if err := c.Name.Validate(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if err := c.CheckScript.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+		if c.ExpectedCode != nil {
+			if err := c.ExpectedCode.Validate(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if err := c.ExpectedOutput.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidCustomCheckDependencyError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Validate returns nil if the DependsOn has valid fields.
+// Delegates to Validate() on all dependency slices.
+func (d DependsOn) Validate() error {
+	var errs []error
+	for _, t := range d.Tools {
+		if err := t.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, c := range d.Commands {
+		if err := c.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, f := range d.Filepaths {
+		if err := f.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, c := range d.Capabilities {
+		if err := c.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, c := range d.CustomChecks {
+		if err := c.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, e := range d.EnvVars {
+		if err := e.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidDependsOnError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error/Unwrap implementations for dependency error types.
+
+func (e *InvalidToolDependencyError) Error() string {
+	return fmt.Sprintf("invalid tool dependency: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidToolDependencyError) Unwrap() error { return ErrInvalidToolDependency }
+
+func (e *InvalidCommandDependencyError) Error() string {
+	return fmt.Sprintf("invalid command dependency: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidCommandDependencyError) Unwrap() error { return ErrInvalidCommandDependency }
+
+func (e *InvalidCapabilityDependencyError) Error() string {
+	return fmt.Sprintf("invalid capability dependency: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidCapabilityDependencyError) Unwrap() error { return ErrInvalidCapabilityDependency }
+
+func (e *InvalidEnvVarCheckError) Error() string {
+	return fmt.Sprintf("invalid env var check: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidEnvVarCheckError) Unwrap() error { return ErrInvalidEnvVarCheck }
+
+func (e *InvalidEnvVarDependencyError) Error() string {
+	return fmt.Sprintf("invalid env var dependency: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidEnvVarDependencyError) Unwrap() error { return ErrInvalidEnvVarDependency }
+
+func (e *InvalidFilepathDependencyError) Error() string {
+	return fmt.Sprintf("invalid filepath dependency: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidFilepathDependencyError) Unwrap() error { return ErrInvalidFilepathDependency }
+
+func (e *InvalidCustomCheckError) Error() string {
+	return fmt.Sprintf("invalid custom check: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidCustomCheckError) Unwrap() error { return ErrInvalidCustomCheck }
+
+func (e *InvalidCustomCheckDependencyError) Error() string {
+	return fmt.Sprintf("invalid custom check dependency: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidCustomCheckDependencyError) Unwrap() error { return ErrInvalidCustomCheckDependency }
+
+func (e *InvalidDependsOnError) Error() string {
+	return fmt.Sprintf("invalid depends_on: %d field error(s)", len(e.FieldErrors))
+}
+func (e *InvalidDependsOnError) Unwrap() error { return ErrInvalidDependsOn }
 
 // appendFrom appends all dependency slices from src into d. Nil src is a no-op.
 func (d *DependsOn) appendFrom(src *DependsOn) {

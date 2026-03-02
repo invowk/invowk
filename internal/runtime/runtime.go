@@ -113,6 +113,8 @@ type (
 		ServerToken TUIServerToken
 	}
 
+	//goplint:validate-all
+	//
 	// ExecutionContext contains all information needed to execute a command.
 	// It uses composition of focused sub-types (IO, Env, TUI) for better
 	// organization and testability.
@@ -123,6 +125,7 @@ type (
 	// implementation matching SelectedRuntime + current platform. Both are populated
 	// by NewExecutionContext using the command's defaults and can be overridden by
 	// CLI flag processing (e.g., --ivk-runtime flag).
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	ExecutionContext struct {
 		// Command is the command to execute
 		Command *invowkfile.Command
@@ -153,7 +156,10 @@ type (
 		TUI TUIContext
 	}
 
+	//goplint:validate-all
+	//
 	// Result contains the result of a command execution
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	Result struct {
 		// ExitCode is the exit code of the command
 		ExitCode ExitCode
@@ -355,7 +361,8 @@ func (e *InvalidEnvContextError) Unwrap() error { return ErrInvalidEnvContext }
 
 // Validate returns nil if the EnvContext has valid fields, or a validation error if not.
 // It validates InheritModeOverride (when non-empty), each element of
-// InheritAllowOverride and InheritDenyOverride, and Cwd (when non-empty).
+// InheritAllowOverride and InheritDenyOverride, Cwd (when non-empty),
+// and each RuntimeEnvFiles element.
 func (ec EnvContext) Validate() error {
 	var errs []error
 	if ec.InheritModeOverride != "" {
@@ -375,6 +382,11 @@ func (ec EnvContext) Validate() error {
 	}
 	if ec.Cwd != "" {
 		if err := ec.Cwd.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, f := range ec.RuntimeEnvFiles {
+		if err := f.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}

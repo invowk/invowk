@@ -19,6 +19,8 @@ type (
 		Provision(ctx context.Context, baseImage container.ImageTag) (*Result, error)
 	}
 
+	//goplint:validate-all
+	//
 	// Result contains the output of a provisioning operation.
 	Result struct {
 		// ImageTag is the tag of the provisioned image (e.g., "invowk-provisioned:abc123")

@@ -19,6 +19,10 @@ var (
 	ErrInvalidListenPort = types.ErrInvalidListenPort
 	// ErrInvalidSSHConfig is the sentinel error wrapped by InvalidSSHConfigError.
 	ErrInvalidSSHConfig = errors.New("invalid SSH server config")
+	// ErrInvalidToken is the sentinel error wrapped by InvalidTokenError.
+	ErrInvalidToken = errors.New("invalid token")
+	// ErrInvalidConnectionInfo is the sentinel error wrapped by InvalidConnectionInfoError.
+	ErrInvalidConnectionInfo = errors.New("invalid connection info")
 )
 
 type (
@@ -53,6 +57,19 @@ type (
 	// It wraps ErrInvalidSSHConfig for errors.Is() compatibility and collects
 	// field-level validation errors from Host, Port, and DefaultShell.
 	InvalidSSHConfigError struct {
+		FieldErrors []error
+	}
+
+	// InvalidTokenError is returned when a Token has invalid fields.
+	// It wraps ErrInvalidToken for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidTokenError struct {
+		FieldErrors []error
+	}
+
+	// InvalidConnectionInfoError is returned when a ConnectionInfo has invalid fields.
+	// It wraps ErrInvalidConnectionInfo for errors.Is() compatibility.
+	InvalidConnectionInfoError struct {
 		FieldErrors []error
 	}
 )
@@ -108,3 +125,55 @@ func (e *InvalidSSHConfigError) Error() string {
 
 // Unwrap returns ErrInvalidSSHConfig for errors.Is() compatibility.
 func (e *InvalidSSHConfigError) Unwrap() error { return ErrInvalidSSHConfig }
+
+// Validate returns nil if the Token has valid fields, or an error wrapping
+// ErrInvalidToken if the Value field is invalid.
+//
+//goplint:validate-all
+func (t Token) Validate() error {
+	var errs []error
+	if err := t.Value.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidTokenError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidTokenError.
+func (e *InvalidTokenError) Error() string {
+	return fmt.Sprintf("invalid token: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidToken for errors.Is() compatibility.
+func (e *InvalidTokenError) Unwrap() error { return ErrInvalidToken }
+
+// Validate returns nil if the ConnectionInfo has valid fields, or an error
+// wrapping ErrInvalidConnectionInfo if any fields are invalid.
+//
+//goplint:validate-all
+func (ci ConnectionInfo) Validate() error {
+	var errs []error
+	if err := ci.Host.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := ci.Port.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := ci.Token.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidConnectionInfoError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidConnectionInfoError.
+func (e *InvalidConnectionInfoError) Error() string {
+	return fmt.Sprintf("invalid connection info: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidConnectionInfo for errors.Is() compatibility.
+func (e *InvalidConnectionInfoError) Unwrap() error { return ErrInvalidConnectionInfo }

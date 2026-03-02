@@ -50,14 +50,3 @@ func (inv *Invowkfile) Validate(opts ...ValidateOption) ValidationErrors {
 
 	return errors
 }
-
-// ValidateWithContext checks the invowkfile using a pre-built ValidationContext.
-// This is useful when you need more control over the validation context.
-func (inv *Invowkfile) ValidateWithContext(ctx *ValidationContext, validators ...Validator) ValidationErrors {
-	if len(validators) == 0 {
-		validators = DefaultValidators()
-	}
-
-	composite := NewCompositeValidator(validators...)
-	return composite.Validate(ctx, inv)
-}

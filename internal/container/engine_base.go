@@ -10,49 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
-	"strings"
 
-	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
-)
-
-const (
-	// PortProtocolTCP is the TCP transport protocol for port mappings.
-	PortProtocolTCP PortProtocol = "tcp"
-	// PortProtocolUDP is the UDP transport protocol for port mappings.
-	PortProtocolUDP PortProtocol = "udp"
-
-	// SELinuxLabelNone means no SELinux label is applied to volume mounts.
-	SELinuxLabelNone SELinuxLabel = ""
-	// SELinuxLabelShared allows sharing the volume between containers.
-	SELinuxLabelShared SELinuxLabel = "z"
-	// SELinuxLabelPrivate restricts the volume to a single container.
-	SELinuxLabelPrivate SELinuxLabel = "Z"
-)
-
-var (
-	// ErrInvalidPortProtocol is the sentinel error wrapped by InvalidPortProtocolError.
-	ErrInvalidPortProtocol = errors.New("invalid port protocol")
-
-	// ErrInvalidSELinuxLabel is the sentinel error wrapped by InvalidSELinuxLabelError.
-	ErrInvalidSELinuxLabel = errors.New("invalid SELinux label")
-
-	// ErrInvalidNetworkPort is the sentinel error wrapped by InvalidNetworkPortError.
-	ErrInvalidNetworkPort = errors.New("invalid network port")
-
-	// ErrInvalidHostFilesystemPath is the sentinel error wrapped by InvalidHostFilesystemPathError.
-	ErrInvalidHostFilesystemPath = errors.New("invalid host filesystem path")
-
-	// ErrInvalidMountTargetPath is the sentinel error wrapped by InvalidMountTargetPathError.
-	ErrInvalidMountTargetPath = errors.New("invalid container filesystem path")
-
-	// ErrInvalidVolumeMount is the sentinel error wrapped by InvalidVolumeMountError.
-	ErrInvalidVolumeMount = errors.New("invalid volume mount")
-
-	// ErrInvalidPortMapping is the sentinel error wrapped by InvalidPortMappingError.
-	ErrInvalidPortMapping = errors.New("invalid port mapping")
 )
 
 type (
@@ -85,7 +45,9 @@ type (
 	BaseCLIEngine struct {
 		name string // Engine name for error messages (e.g., "docker", "podman")
 		//plint:internal -- resolved at construction via exec.LookPath; not user-configurable
-		binaryPath         HostFilesystemPath
+		binaryPath HostFilesystemPath
+		//plint:internal -- engine-specific CLI subcommand; not a domain value
+		imageExistsSubCmd  string // "exists" for Podman, "inspect" for Docker; defaults to "inspect"
 		execCommand        ExecCommandFunc
 		volumeFormatter    VolumeFormatFunc
 		runArgsTransformer RunArgsTransformer
@@ -128,274 +90,7 @@ type (
 	BaseCLIProvider interface {
 		BaseCLI() *BaseCLIEngine
 	}
-
-	// PortProtocol represents a network transport protocol for port mappings.
-	// The zero value ("") is valid and means "default to tcp".
-	PortProtocol string
-
-	// InvalidPortProtocolError is returned when a PortProtocol is not a recognized protocol.
-	InvalidPortProtocolError struct {
-		Value PortProtocol
-	}
-
-	// SELinuxLabel represents an SELinux volume labeling option.
-	// The zero value ("") means no SELinux label is applied.
-	SELinuxLabel string
-
-	// InvalidSELinuxLabelError is returned when an SELinuxLabel is not a recognized label.
-	InvalidSELinuxLabelError struct {
-		Value SELinuxLabel
-	}
-
-	// NetworkPort represents a TCP/UDP port number for container port mappings.
-	// A valid port must be greater than zero.
-	NetworkPort uint16
-
-	// InvalidNetworkPortError is returned when a NetworkPort value is zero.
-	InvalidNetworkPortError struct {
-		Value NetworkPort
-	}
-
-	// HostFilesystemPath represents a filesystem path on the host for volume mounts.
-	// A valid path must be non-empty and not whitespace-only.
-	HostFilesystemPath string
-
-	// InvalidHostFilesystemPathError is returned when a HostFilesystemPath is empty or whitespace-only.
-	InvalidHostFilesystemPathError struct {
-		Value HostFilesystemPath
-	}
-
-	// MountTargetPath represents a filesystem path inside a container for volume mounts.
-	// A valid path must be non-empty and not whitespace-only.
-	MountTargetPath string
-
-	// InvalidMountTargetPathError is returned when a MountTargetPath is empty or whitespace-only.
-	InvalidMountTargetPathError struct {
-		Value MountTargetPath
-	}
-
-	//goplint:validate-all
-	//
-	// VolumeMount represents a volume mount specification.
-	VolumeMount struct {
-		HostPath      HostFilesystemPath
-		ContainerPath MountTargetPath
-		ReadOnly      bool
-		SELinux       SELinuxLabel
-	}
-
-	//goplint:validate-all
-	//
-	// PortMapping represents a port mapping specification.
-	PortMapping struct {
-		HostPort      NetworkPort
-		ContainerPort NetworkPort
-		Protocol      PortProtocol
-	}
-
-	// InvalidVolumeMountError is returned when a VolumeMount has one or more invalid fields.
-	// It wraps the individual field validation errors for inspection.
-	InvalidVolumeMountError struct {
-		Value     VolumeMount
-		FieldErrs []error
-	}
-
-	// InvalidPortMappingError is returned when a PortMapping has one or more invalid fields.
-	// It wraps the individual field validation errors for inspection.
-	InvalidPortMappingError struct {
-		Value     PortMapping
-		FieldErrs []error
-	}
 )
-
-// Error implements the error interface.
-func (e *InvalidPortProtocolError) Error() string {
-	return fmt.Sprintf("invalid port protocol %q (valid: tcp, udp)", e.Value)
-}
-
-// Unwrap returns ErrInvalidPortProtocol so callers can use errors.Is for programmatic detection.
-func (e *InvalidPortProtocolError) Unwrap() error { return ErrInvalidPortProtocol }
-
-// Validate returns an error if the PortProtocol is not one of the defined protocols.
-// The zero value ("") is valid — it is treated as "tcp" by FormatPortMapping.
-func (p PortProtocol) Validate() error {
-	switch p {
-	case PortProtocolTCP, PortProtocolUDP, "":
-		return nil
-	default:
-		return &InvalidPortProtocolError{Value: p}
-	}
-}
-
-// String returns the string representation of the PortProtocol.
-func (p PortProtocol) String() string { return string(p) }
-
-// Error implements the error interface.
-func (e *InvalidSELinuxLabelError) Error() string {
-	return fmt.Sprintf("invalid SELinux label %q (valid: empty, z, Z)", e.Value)
-}
-
-// Unwrap returns ErrInvalidSELinuxLabel so callers can use errors.Is for programmatic detection.
-func (e *InvalidSELinuxLabelError) Unwrap() error { return ErrInvalidSELinuxLabel }
-
-// Validate returns an error if the SELinuxLabel is not one of the defined labels.
-// The zero value ("") is valid — it means no SELinux label.
-func (s SELinuxLabel) Validate() error {
-	switch s {
-	case SELinuxLabelNone, SELinuxLabelShared, SELinuxLabelPrivate:
-		return nil
-	default:
-		return &InvalidSELinuxLabelError{Value: s}
-	}
-}
-
-// String returns the string representation of the SELinuxLabel.
-func (s SELinuxLabel) String() string { return string(s) }
-
-// String returns the string representation of the NetworkPort.
-func (p NetworkPort) String() string { return fmt.Sprintf("%d", p) }
-
-// Validate returns an error if the NetworkPort is invalid.
-// A valid port must be greater than zero.
-func (p NetworkPort) Validate() error {
-	if p == 0 {
-		return &InvalidNetworkPortError{Value: p}
-	}
-	return nil
-}
-
-// Error implements the error interface for InvalidNetworkPortError.
-func (e *InvalidNetworkPortError) Error() string {
-	return fmt.Sprintf("invalid network port %d: must be greater than zero", e.Value)
-}
-
-// Unwrap returns ErrInvalidNetworkPort for errors.Is() compatibility.
-func (e *InvalidNetworkPortError) Unwrap() error { return ErrInvalidNetworkPort }
-
-// String returns the string representation of the HostFilesystemPath.
-func (p HostFilesystemPath) String() string { return string(p) }
-
-// Validate returns an error if the HostFilesystemPath is invalid.
-// A valid path must be non-empty and not whitespace-only.
-//
-//goplint:nonzero
-func (p HostFilesystemPath) Validate() error {
-	if strings.TrimSpace(string(p)) == "" {
-		return &InvalidHostFilesystemPathError{Value: p}
-	}
-	return nil
-}
-
-// Error implements the error interface for InvalidHostFilesystemPathError.
-func (e *InvalidHostFilesystemPathError) Error() string {
-	return fmt.Sprintf("invalid host filesystem path %q: must be non-empty", e.Value)
-}
-
-// Unwrap returns ErrInvalidHostFilesystemPath for errors.Is() compatibility.
-func (e *InvalidHostFilesystemPathError) Unwrap() error { return ErrInvalidHostFilesystemPath }
-
-// String returns the string representation of the MountTargetPath.
-func (p MountTargetPath) String() string { return string(p) }
-
-// Validate returns an error if the MountTargetPath is invalid.
-// A valid path must be non-empty and not whitespace-only.
-//
-//goplint:nonzero
-func (p MountTargetPath) Validate() error {
-	if strings.TrimSpace(string(p)) == "" {
-		return &InvalidMountTargetPathError{Value: p}
-	}
-	return nil
-}
-
-// Error implements the error interface for InvalidMountTargetPathError.
-func (e *InvalidMountTargetPathError) Error() string {
-	return fmt.Sprintf("invalid container filesystem path %q: must be non-empty", e.Value)
-}
-
-// Unwrap returns ErrInvalidMountTargetPath for errors.Is() compatibility.
-func (e *InvalidMountTargetPathError) Unwrap() error {
-	return ErrInvalidMountTargetPath
-}
-
-// Error implements the error interface for InvalidVolumeMountError.
-func (e *InvalidVolumeMountError) Error() string {
-	return fmt.Sprintf("invalid volume mount %s:%s: %d field error(s)",
-		e.Value.HostPath, e.Value.ContainerPath, len(e.FieldErrs))
-}
-
-// Unwrap returns ErrInvalidVolumeMount for errors.Is() compatibility.
-func (e *InvalidVolumeMountError) Unwrap() error { return ErrInvalidVolumeMount }
-
-// Validate returns an error if any typed field of the VolumeMount is invalid.
-// Validates HostPath, ContainerPath, and SELinux.
-// ReadOnly is a bool and requires no validation.
-func (v VolumeMount) Validate() error {
-	var errs []error
-	if err := v.HostPath.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := v.ContainerPath.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := v.SELinux.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if len(errs) > 0 {
-		return errors.Join(errs...)
-	}
-	return nil
-}
-
-// String returns the volume mount in "host:container[:selinux][:ro]" format.
-func (v VolumeMount) String() string {
-	s := string(v.HostPath) + ":" + string(v.ContainerPath)
-	if v.SELinux != "" {
-		s += ":" + string(v.SELinux)
-	}
-	if v.ReadOnly {
-		s += ":ro"
-	}
-	return s
-}
-
-// Error implements the error interface for InvalidPortMappingError.
-func (e *InvalidPortMappingError) Error() string {
-	return fmt.Sprintf("invalid port mapping %d:%d/%s: %d field error(s)",
-		e.Value.HostPort, e.Value.ContainerPort, e.Value.Protocol, len(e.FieldErrs))
-}
-
-// Unwrap returns ErrInvalidPortMapping for errors.Is() compatibility.
-func (e *InvalidPortMappingError) Unwrap() error { return ErrInvalidPortMapping }
-
-// Validate returns an error if any typed field of the PortMapping is invalid.
-// Validates HostPort, ContainerPort, and Protocol.
-func (p PortMapping) Validate() error {
-	var errs []error
-	if err := p.HostPort.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := p.ContainerPort.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := p.Protocol.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if len(errs) > 0 {
-		return errors.Join(errs...)
-	}
-	return nil
-}
-
-// String returns the port mapping in "host:container/protocol" format.
-// Defaults to "tcp" when the protocol is empty.
-func (p PortMapping) String() string {
-	proto := p.Protocol
-	if proto == "" {
-		proto = PortProtocolTCP
-	}
-	return fmt.Sprintf("%d:%d/%s", p.HostPort, p.ContainerPort, proto)
-}
 
 // --- Option Functions ---
 
@@ -426,6 +121,15 @@ func WithVolumeFormatter(fn VolumeFormatFunc) BaseCLIEngineOption {
 func WithRunArgsTransformer(fn RunArgsTransformer) BaseCLIEngineOption {
 	return func(e *BaseCLIEngine) {
 		e.runArgsTransformer = fn
+	}
+}
+
+// WithImageExistsSubCmd sets the subcommand used for image existence checks.
+// Docker uses "inspect" (returns detailed JSON on success); Podman uses "exists"
+// (returns exit code 0/1, more efficient). Defaults to "inspect" if not set.
+func WithImageExistsSubCmd(subCmd string) BaseCLIEngineOption { //goplint:ignore -- internal CLI subcommand name, not a domain value
+	return func(e *BaseCLIEngine) {
+		e.imageExistsSubCmd = subCmd
 	}
 }
 
@@ -462,8 +166,9 @@ func WithSysctlOverrideActive(active bool) BaseCLIEngineOption {
 // NewBaseCLIEngine creates a new base engine with the given binary path.
 func NewBaseCLIEngine(binaryPath HostFilesystemPath, opts ...BaseCLIEngineOption) *BaseCLIEngine {
 	e := &BaseCLIEngine{
-		binaryPath:  binaryPath,
-		execCommand: exec.CommandContext,
+		binaryPath:        binaryPath,
+		imageExistsSubCmd: "inspect", // Docker-compatible default
+		execCommand:       exec.CommandContext,
 		// Identity functions by default
 		volumeFormatter:    func(v invowkfile.VolumeMountSpec) string { return string(v) },
 		runArgsTransformer: func(args []string) []string { return args },
@@ -627,6 +332,12 @@ func (e *BaseCLIEngine) RemoveImageArgs(image ImageTag, force bool) []string {
 	}
 	args = append(args, string(image))
 	return args
+}
+
+// ImageExistsArgs returns the argument slice for checking image existence.
+// Docker uses "image inspect <image>"; Podman uses "image exists <image>".
+func (e *BaseCLIEngine) ImageExistsArgs(image ImageTag) []string { //goplint:ignore -- raw CLI args for exec.Command
+	return []string{"image", e.imageExistsSubCmd, string(image)}
 }
 
 // --- Command Execution ---
@@ -823,180 +534,4 @@ func (e *BaseCLIEngine) customizeCmd(cmd *exec.Cmd) {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
 	}
-}
-
-// --- Dockerfile Resolution ---
-
-// ResolveDockerfilePath resolves a Dockerfile path relative to the build context.
-// If the path is absolute, it is returned as-is.
-// If the path is relative, it is resolved against the context path.
-// Returns the resolved path or error if path traversal is detected.
-func ResolveDockerfilePath(contextPath, dockerfilePath string) (string, error) {
-	if dockerfilePath == "" {
-		return "", nil
-	}
-
-	if filepath.IsAbs(dockerfilePath) {
-		return dockerfilePath, nil
-	}
-
-	resolved := filepath.Join(contextPath, dockerfilePath)
-
-	// Check for path traversal: the resolved path should be within the context
-	resolvedClean := filepath.Clean(resolved)
-	contextClean := filepath.Clean(contextPath)
-
-	// Ensure resolved path starts with context path
-	if !strings.HasPrefix(resolvedClean, contextClean) {
-		return "", fmt.Errorf("dockerfile path %q escapes context directory %q", dockerfilePath, contextPath)
-	}
-
-	return resolved, nil
-}
-
-// --- Volume Mount Formatting ---
-
-// FormatVolumeMount formats a volume mount as a string for -v flag.
-//
-//plint:render
-func FormatVolumeMount(mount VolumeMount) string {
-	var result strings.Builder
-	result.WriteString(string(mount.HostPath))
-	result.WriteString(":")
-	result.WriteString(string(mount.ContainerPath))
-
-	var options []string
-	if mount.ReadOnly {
-		options = append(options, "ro")
-	}
-	if mount.SELinux != "" {
-		options = append(options, string(mount.SELinux))
-	}
-
-	if len(options) > 0 {
-		result.WriteString(":")
-		result.WriteString(strings.Join(options, ","))
-	}
-
-	return result.String()
-}
-
-// ParseVolumeMount parses a volume string into a VolumeMount struct.
-// Volume format: host_path:container_path[:options]
-// Options can include: ro, rw, z, Z, and others.
-// After parsing, the result is validated via VolumeMount.Validate().
-func ParseVolumeMount(volume string) (VolumeMount, error) {
-	mount := VolumeMount{}
-
-	parts := strings.Split(volume, ":")
-
-	if len(parts) >= 1 {
-		mount.HostPath = HostFilesystemPath(parts[0]) //goplint:ignore -- validated by mount.Validate() below
-	}
-	if len(parts) >= 2 {
-		mount.ContainerPath = MountTargetPath(parts[1]) //goplint:ignore -- validated by mount.Validate() below
-	}
-	if len(parts) >= 3 {
-		options := parts[2]
-		for opt := range strings.SplitSeq(options, ",") {
-			switch opt {
-			case "ro":
-				mount.ReadOnly = true
-			case "z", "Z":
-				mount.SELinux = SELinuxLabel(opt) //goplint:ignore -- validated by mount.Validate() below
-			}
-		}
-	}
-
-	if err := mount.Validate(); err != nil {
-		return mount, err
-	}
-	return mount, nil
-}
-
-// --- Port Mapping Formatting ---
-
-// FormatPortMapping formats a port mapping as a string for -p flag.
-//
-//plint:render
-func FormatPortMapping(mapping PortMapping) string {
-	result := fmt.Sprintf("%d:%d", mapping.HostPort, mapping.ContainerPort)
-	if mapping.Protocol != "" && mapping.Protocol != PortProtocolTCP {
-		result += "/" + string(mapping.Protocol)
-	}
-	return result
-}
-
-// ParsePortMapping parses a port mapping string in "hostPort:containerPort[/protocol]" format
-// into a PortMapping struct. After parsing, the result is validated via PortMapping.Validate().
-func ParsePortMapping(portStr string) (PortMapping, error) {
-	mapping := PortMapping{}
-
-	parts := strings.SplitN(portStr, ":", 2)
-	if len(parts) != 2 {
-		return mapping, fmt.Errorf("invalid port mapping format %q: must contain ':' separator", portStr)
-	}
-
-	hostPort, err := strconv.ParseUint(parts[0], 10, 16)
-	if err != nil {
-		return mapping, fmt.Errorf("invalid host port %q: %w", parts[0], err)
-	}
-	mapping.HostPort = NetworkPort(hostPort) //goplint:ignore -- validated by mapping.Validate() below
-
-	// Split container part on "/" to get port number and optional protocol
-	containerParts := strings.SplitN(parts[1], "/", 2)
-	containerPort, err := strconv.ParseUint(containerParts[0], 10, 16)
-	if err != nil {
-		return mapping, fmt.Errorf("invalid container port %q: %w", containerParts[0], err)
-	}
-	mapping.ContainerPort = NetworkPort(containerPort) //goplint:ignore -- validated by mapping.Validate() below
-
-	if len(containerParts) == 2 {
-		mapping.Protocol = PortProtocol(containerParts[1]) //goplint:ignore -- validated by mapping.Validate() below
-	}
-
-	if err := mapping.Validate(); err != nil {
-		return mapping, err
-	}
-	return mapping, nil
-}
-
-// --- Actionable Error Helpers ---
-
-// buildContainerError creates an actionable error for container build failures.
-func buildContainerError(engine string, opts BuildOptions, cause error) error {
-	ctx := issue.NewErrorContext().
-		WithOperation("build container image")
-
-	// Determine resource (Dockerfile or image tag)
-	switch {
-	case opts.Dockerfile != "":
-		ctx.WithResource(string(opts.Dockerfile))
-	case opts.ContextDir != "":
-		ctx.WithResource(string(opts.ContextDir) + "/Dockerfile")
-	case opts.Tag != "":
-		ctx.WithResource(string(opts.Tag))
-	}
-
-	// Add suggestions based on common build issues
-	ctx.WithSuggestion("Check Dockerfile syntax for errors")
-	ctx.WithSuggestion("Verify the build context path exists and is accessible")
-	ctx.WithSuggestion("Ensure base images are available (try: " + engine + " pull <base-image>)")
-	ctx.WithSuggestion("Run with --ivk-verbose to see full build output")
-
-	return ctx.Wrap(cause).BuildError()
-}
-
-// runContainerError creates an actionable error for container run failures.
-func runContainerError(engine string, opts RunOptions, cause error) error {
-	ctx := issue.NewErrorContext().
-		WithOperation("run container").
-		WithResource(string(opts.Image))
-
-	ctx.WithSuggestion("Verify the image exists (try: " + engine + " images)")
-	ctx.WithSuggestion("Check that volume mount paths exist on the host")
-	ctx.WithSuggestion("Ensure port mappings don't conflict with running services")
-	ctx.WithSuggestion("Run with --ivk-verbose to see full container output")
-
-	return ctx.Wrap(cause).BuildError()
 }

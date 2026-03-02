@@ -5,6 +5,7 @@ package invowkmod
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -136,10 +137,11 @@ func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.Fil
 }
 
 // Unpack extracts a module from a ZIP archive.
+// The context controls cancellation for network-based sources (URL downloads).
 // Returns the path to the extracted module or an error.
-func Unpack(opts UnpackOptions) (extractedPath string, err error) {
+func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err error) {
 	if opts.Source == "" {
-		return "", fmt.Errorf("source cannot be empty")
+		return "", errors.New("source cannot be empty")
 	}
 
 	// Default destination to current directory
@@ -168,7 +170,7 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	if strings.HasPrefix(opts.Source, "http://") || strings.HasPrefix(opts.Source, "https://") {
 		// Download the file
 		var tmpFile string
-		tmpFile, err = downloadFile(opts.Source)
+		tmpFile, err = downloadFile(ctx, opts.Source)
 		if err != nil {
 			return "", fmt.Errorf("failed to download module: %w", err)
 		}
@@ -299,8 +301,9 @@ func Unpack(opts UnpackOptions) (extractedPath string, err error) {
 	return modulePath, nil
 }
 
-// downloadFile downloads a file from a URL and returns the path to the temporary file
-func downloadFile(url string) (tmpPath string, err error) {
+// downloadFile downloads a file from a URL and returns the path to the temporary file.
+// The context controls cancellation and timeout for the HTTP request.
+func downloadFile(ctx context.Context, url string) (tmpPath string, err error) {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "invowk-module-*.zip")
 	if err != nil {
@@ -322,11 +325,11 @@ func downloadFile(url string) (tmpPath string, err error) {
 	}()
 
 	// Download the file
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-	resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL is validated by caller
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to download: %w", err)
 	}

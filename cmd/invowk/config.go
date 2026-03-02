@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/issue"
@@ -15,7 +16,7 @@ import (
 )
 
 // newConfigCommand creates the `invowk config` command tree.
-// Subcommands that read configuration use the App's ConfigProvider.
+// Subcommands that read configuration use the App's config.Provider.
 func newConfigCommand(app *App) *cobra.Command {
 	cfgCmd := &cobra.Command{
 		Use:   "config",
@@ -26,7 +27,7 @@ Configuration is stored in:
   - Linux: ~/.config/invowk/config.cue
   - macOS: ~/Library/Application Support/invowk/config.cue
   - Windows: %APPDATA%\invowk\config.cue`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}
@@ -34,7 +35,7 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "show",
 		Short: "Show current configuration",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return showConfig(cmd.Context(), app)
 		},
 	})
@@ -42,7 +43,7 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "init",
 		Short: "Create default configuration file",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return initConfig()
 		},
 	})
@@ -50,7 +51,7 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "path",
 		Short: "Show configuration file path",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return showConfigPath()
 		},
 	})
@@ -67,7 +68,7 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "dump",
 		Short: "Output raw configuration as CUE",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load(cmd.Context(), config.LoadOptions{})
 			if err != nil {
 				return err
@@ -133,13 +134,13 @@ func showConfig(ctx context.Context, app *App) error {
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("virtual_shell"))
-	fmt.Printf("  enable_uroot_utils: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.VirtualShell.EnableUrootUtils)))
+	fmt.Printf("  enable_uroot_utils: %s\n", valueStyle.Render(strconv.FormatBool(cfg.VirtualShell.EnableUrootUtils)))
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("ui"))
 	fmt.Printf("  color_scheme: %s\n", valueStyle.Render(string(cfg.UI.ColorScheme)))
-	fmt.Printf("  interactive: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.UI.Interactive)))
-	fmt.Printf("  verbose: %s\n", valueStyle.Render(fmt.Sprintf("%v", cfg.UI.Verbose)))
+	fmt.Printf("  interactive: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Interactive)))
+	fmt.Printf("  verbose: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Verbose)))
 
 	return nil
 }

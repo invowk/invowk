@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,15 +21,15 @@ func isSupportedGitURLPrefix(url string) bool {
 // validateModuleRef validates a module requirement.
 func (m *Resolver) validateModuleRef(req ModuleRef) error {
 	if req.GitURL == "" {
-		return fmt.Errorf("git_url is required")
+		return errors.New("git_url is required")
 	}
 
 	if !isSupportedGitURLPrefix(string(req.GitURL)) {
-		return fmt.Errorf("git_url must start with https://, git@, or ssh://")
+		return errors.New("git_url must start with https://, git@, or ssh://")
 	}
 
 	if req.Version == "" {
-		return fmt.Errorf("version is required")
+		return errors.New("version is required")
 	}
 
 	// Validate version constraint format

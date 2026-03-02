@@ -72,7 +72,6 @@ func New() (*Server, error) {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	//nolint:gosec // G102: Binding to 0.0.0.0 required for container runtime access to TUI server
 	var lc net.ListenConfig
 	listener, err := lc.Listen(context.Background(), "tcp", "0.0.0.0:0")
 	if err != nil {
@@ -162,14 +161,14 @@ func (s *Server) Port() types.ListenPort {
 
 // URL returns the full server URL for localhost access (e.g., "http://127.0.0.1:54321").
 // For container access, use URLWithHost() with the appropriate host address.
-func (s *Server) URL() string {
+func (s *Server) URL() types.TUIServerURL {
 	return s.URLWithHost("127.0.0.1")
 }
 
 // URLWithHost returns the full server URL with a custom host (e.g., "http://host.docker.internal:54321").
 // This is useful for containers that need to access the server via a different hostname.
-func (s *Server) URLWithHost(host string) string {
-	return fmt.Sprintf("http://%s:%d", host, s.port)
+func (s *Server) URLWithHost(host string) types.TUIServerURL {
+	return types.TUIServerURL(fmt.Sprintf("http://%s:%d", host, s.port))
 }
 
 // Token returns the authentication token.
@@ -185,7 +184,7 @@ func (s *Server) RequestChannel() <-chan TUIRequest {
 }
 
 // handleHealth responds with 200 OK for health checks.
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
 }

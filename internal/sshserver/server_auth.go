@@ -155,7 +155,7 @@ func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
 
 // publicKeyHandler rejects all public key authentication.
 // We only want token-based authentication.
-func (s *Server) publicKeyHandler(ctx ssh.Context, key ssh.PublicKey) bool {
+func (s *Server) publicKeyHandler(_ ssh.Context, _ ssh.PublicKey) bool {
 	// Reject public key auth - we only accept token-based password auth
 	return false
 }

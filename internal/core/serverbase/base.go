@@ -98,8 +98,10 @@ func (b *Base) TransitionToStarting(ctx context.Context) error {
 		return fmt.Errorf("cannot start server in state %s", currentState)
 	}
 
-	// Create internal context for lifecycle management
-	b.ctx, b.cancel = context.WithCancel(context.Background())
+	// Create internal context as a child of the caller's context so that
+	// parent cancellation (e.g., Ctrl+C) propagates to server goroutines.
+	// Shutdown (Stop) uses its own independent context for graceful cleanup.
+	b.ctx, b.cancel = context.WithCancel(ctx)
 
 	return nil
 }

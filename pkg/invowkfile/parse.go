@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/invowk/invowk/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
@@ -87,11 +88,10 @@ func ParseInvowkmodBytes(data []byte, path FilesystemPath) (*Invowkmod, error) {
 // Returns a Module with Metadata from invowkmod.cue and Commands from invowkfile.cue.
 func ParseModule(modulePath FilesystemPath) (*Module, error) {
 	modulePathStr := string(modulePath)
-	invowkmodPath := filepath.Join(modulePathStr, "invowkmod.cue")
+	invowkmodFSPath := fspath.JoinStr(modulePath, "invowkmod.cue")
 	invowkfilePath := filepath.Join(modulePathStr, "invowkfile.cue")
 
 	// Parse invowkmod.cue (required)
-	invowkmodFSPath := FilesystemPath(invowkmodPath) //goplint:ignore -- derived from validated modulePath
 	meta, err := ParseInvowkmod(invowkmodFSPath)
 	if err != nil {
 		return nil, fmt.Errorf("module at %s: %w", modulePath, err)

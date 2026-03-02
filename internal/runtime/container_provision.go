@@ -5,6 +5,7 @@ package runtime
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -258,10 +259,10 @@ func isAlpineContainerImage(image string) bool {
 // validateSupportedContainerImage enforces the container runtime image policy.
 func validateSupportedContainerImage(image container.ImageTag) error {
 	if isWindowsContainerImage(string(image)) {
-		return fmt.Errorf("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
+		return errors.New("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
 	}
 	if isAlpineContainerImage(string(image)) {
-		return fmt.Errorf("alpine-based container images are not supported; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details")
+		return errors.New("alpine-based container images are not supported; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details")
 	}
 
 	return nil

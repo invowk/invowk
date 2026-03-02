@@ -20,10 +20,7 @@ var (
 	moduleWarningIcon = WarningStyle.Render("!")
 	moduleInfoIcon    = SubtitleStyle.Render("•")
 
-	moduleTitleStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorPrimary).
-				MarginBottom(1)
+	moduleTitleStyle = TitleStyle.MarginBottom(1)
 
 	moduleIssueStyle = lipgloss.NewStyle().
 				Foreground(ColorError).
@@ -79,7 +76,7 @@ Examples:
 Examples:
   invowk module list`,
 		Args: cobra.ExactArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runModuleList(cmd.Context(), app)
 		},
 	})

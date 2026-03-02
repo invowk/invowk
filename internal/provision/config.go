@@ -18,7 +18,8 @@ var ErrInvalidProvisionConfig = errors.New("invalid provision config")
 
 type (
 	// Config holds configuration for auto-provisioning invowk resources into containers.
-	Config struct {
+	Config struct { //nolint:recvcheck // Validate() uses value receiver (DDD immutable validation), Apply() uses pointer receiver (mutation)
+
 		// Enabled controls whether auto-provisioning is active
 		Enabled bool
 

@@ -48,6 +48,12 @@ var (
 	// ErrInvalidContainerImage is the sentinel error wrapped by InvalidContainerImageError.
 	ErrInvalidContainerImage = errors.New("invalid container image")
 
+	// ErrInvalidPlatformConfig is the sentinel error wrapped by InvalidPlatformConfigError.
+	ErrInvalidPlatformConfig = errors.New("invalid platform config")
+
+	// ErrInvalidRuntimeConfig is the sentinel error wrapped by InvalidRuntimeConfigError.
+	ErrInvalidRuntimeConfig = errors.New("invalid runtime config")
+
 	// containerImageRegex validates container image name format.
 	// Format: [registry[:port]/][namespace/]name[:tag][@digest]
 	containerImageRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._:/-]*[a-zA-Z0-9])?(:[a-zA-Z0-9._-]+)?(@sha256:[a-fA-F0-9]{64})?$`)
@@ -117,7 +123,24 @@ type (
 		Value ContainerImage
 	}
 
+	// InvalidPlatformConfigError is returned when a PlatformConfig has invalid fields.
+	// It wraps ErrInvalidPlatformConfig for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidPlatformConfigError struct {
+		FieldErrors []error
+	}
+
+	// InvalidRuntimeConfigError is returned when a RuntimeConfig has invalid fields.
+	// It wraps ErrInvalidRuntimeConfig for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidRuntimeConfigError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// RuntimeConfig represents a runtime configuration with type-specific options
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	RuntimeConfig struct {
 		// Name specifies the runtime type (required)
 		Name RuntimeMode `json:"name"`
@@ -155,6 +178,8 @@ type (
 		Ports []PortMappingSpec `json:"ports,omitempty"`
 	}
 
+	//goplint:validate-all
+	//
 	// PlatformConfig represents a platform configuration
 	PlatformConfig struct {
 		// Name specifies the platform type (required)
@@ -321,6 +346,96 @@ func (i ContainerImage) Validate() error {
 
 // String returns the string representation of the ContainerImage.
 func (i ContainerImage) String() string { return string(i) }
+
+// Validate returns nil if the PlatformConfig has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to Name.Validate() (nonzero).
+func (p PlatformConfig) Validate() error {
+	var errs []error
+	if err := p.Name.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidPlatformConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidPlatformConfigError.
+func (e *InvalidPlatformConfigError) Error() string {
+	return fmt.Sprintf("invalid platform config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidPlatformConfig for errors.Is() compatibility.
+func (e *InvalidPlatformConfigError) Unwrap() error { return ErrInvalidPlatformConfig }
+
+// Validate returns nil if the RuntimeConfig has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to Name.Validate() (nonzero), and validates all
+// zero-value-valid fields only when non-empty/non-nil.
+func (rc RuntimeConfig) Validate() error {
+	var errs []error
+	if err := rc.Name.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if rc.Interpreter != "" {
+		if err := rc.Interpreter.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if rc.EnvInheritMode != "" {
+		if err := rc.EnvInheritMode.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, v := range rc.EnvInheritAllow {
+		if err := v.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, v := range rc.EnvInheritDeny {
+		if err := v.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if rc.DependsOn != nil {
+		if err := rc.DependsOn.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if rc.Containerfile != "" {
+		if err := rc.Containerfile.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if rc.Image != "" {
+		if err := rc.Image.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, v := range rc.Volumes {
+		if err := v.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, p := range rc.Ports {
+		if err := p.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidRuntimeConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidRuntimeConfigError.
+func (e *InvalidRuntimeConfigError) Error() string {
+	return fmt.Sprintf("invalid runtime config: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidRuntimeConfig for errors.Is() compatibility.
+func (e *InvalidRuntimeConfigError) Unwrap() error { return ErrInvalidRuntimeConfig }
 
 // GetEffectiveInterpreter returns the effective interpreter value for a RuntimeConfig.
 // If the Interpreter field is empty, returns "auto" (the default).
@@ -504,17 +619,12 @@ func GetExtensionForInterpreter(interpreter string) string {
 // Returns the parsed ShebangInfo. If Found is false, the caller should use
 // the default shell-based execution.
 func ResolveInterpreter(interpreter InterpreterSpec, scriptContent string) ShebangInfo {
-	// Default to "auto" if empty
-	effectiveInterpreter := string(interpreter)
-	if effectiveInterpreter == "" {
-		effectiveInterpreter = InterpreterAuto
-	}
-
-	// Auto-detect from shebang
-	if effectiveInterpreter == InterpreterAuto {
+	// Empty interpreter defaults to auto-detect from shebang
+	if interpreter == "" || interpreter == InterpreterAuto {
 		return ParseShebang(scriptContent)
 	}
 
-	// Parse explicit interpreter string
-	return ParseInterpreterString(InterpreterSpec(effectiveInterpreter)) //goplint:ignore -- round-trip from validated InterpreterSpec parameter
+	// Parse explicit interpreter string — interpreter is already the typed value,
+	// no intermediate string conversion needed.
+	return ParseInterpreterString(interpreter)
 }

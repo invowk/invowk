@@ -41,6 +41,8 @@ type (
 		Value InitDiagnosticCode
 	}
 
+	//goplint:validate-all
+	//
 	// InitDiagnostic reports non-fatal runtime initialization details.
 	InitDiagnostic struct {
 		Code    InitDiagnosticCode

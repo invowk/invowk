@@ -30,6 +30,9 @@ var (
 	// ErrInvalidFlagShorthand is the sentinel error wrapped by InvalidFlagShorthandError.
 	ErrInvalidFlagShorthand = errors.New("invalid flag shorthand")
 
+	// ErrInvalidFlag is the sentinel error wrapped by InvalidFlagError.
+	ErrInvalidFlag = errors.New("invalid flag")
+
 	// flagNamePattern mirrors the CUE schema constraint: ^[a-zA-Z][a-zA-Z0-9_-]*$
 	flagNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
@@ -72,7 +75,17 @@ type (
 		Value FlagShorthand
 	}
 
+	// InvalidFlagError is returned when a Flag has invalid fields.
+	// It wraps ErrInvalidFlag for errors.Is() compatibility and collects
+	// field-level validation errors.
+	InvalidFlagError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
 	// Flag represents a command-line flag for a command
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
 	Flag struct {
 		// Name is the flag name (POSIX-compliant: starts with a letter, alphanumeric/hyphen/underscore)
 		Name FlagName `json:"name"`
@@ -169,6 +182,45 @@ func (s FlagShorthand) Validate() error {
 
 // String returns the string representation of the FlagShorthand.
 func (s FlagShorthand) String() string { return string(s) }
+
+// Validate returns nil if the Flag has valid fields,
+// or an error collecting all field-level validation failures.
+// Delegates to Name.Validate() (nonzero), Description.Validate() (non-empty),
+// Type.Validate() (zero-valid), Short.Validate() (zero-valid),
+// and Validation.Validate() (zero-valid).
+// DefaultValue is an untyped string — skipped.
+func (f Flag) Validate() error {
+	var errs []error
+	if err := f.Name.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if f.Description != "" {
+		if err := f.Description.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := f.Type.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := f.Short.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := f.Validation.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidFlagError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidFlagError.
+func (e *InvalidFlagError) Error() string {
+	return fmt.Sprintf("invalid flag: %d field error(s)", len(e.FieldErrors))
+}
+
+// Unwrap returns ErrInvalidFlag for errors.Is() compatibility.
+func (e *InvalidFlagError) Unwrap() error { return ErrInvalidFlag }
 
 // GetType returns the effective type of the flag (defaults to "string" if not specified)
 func (f *Flag) GetType() FlagType {

@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -95,7 +97,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 
 						if isAmbiguous {
 							cmdArgs := append(strings.Fields(parentPrefix), args...)
-							if err := checkAmbiguousCommand(ctx, app, rootFlags, cmdArgs); err != nil {
+							if err := checkAmbiguousCommand(ctx, app, cmdArgs); err != nil {
 								if ambigErr, ok := errors.AsType[*AmbiguousCommandError](err); ok {
 									fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 									cmd.SilenceErrors = true
@@ -164,13 +166,13 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 					var boolVal bool
 					boolVal, err = cmd.Flags().GetBool(nameStr)
 					if err == nil {
-						val = fmt.Sprintf("%t", boolVal)
+						val = strconv.FormatBool(boolVal)
 					}
 				case invowkfile.FlagTypeInt:
 					var intVal int
 					intVal, err = cmd.Flags().GetInt(nameStr)
 					if err == nil {
-						val = fmt.Sprintf("%d", intVal)
+						val = strconv.Itoa(intVal)
 					}
 				case invowkfile.FlagTypeFloat:
 					var floatVal float64
@@ -361,7 +363,7 @@ func buildCobraArgsValidator(argDefs []invowkfile.Argument) cobra.PositionalArgs
 	}
 
 	return func(cmd *cobra.Command, args []string) error {
-		return validateArguments(cmd.Name(), args, argDefs)
+		return deps.ValidateArguments(cmd.Name(), args, argDefs)
 	}
 }
 
@@ -441,7 +443,7 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 	if commandSet == nil || len(commandSet.Commands) == 0 {
 		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
 		fmt.Fprint(app.stderr, rendered)
-		return fmt.Errorf("no commands found")
+		return errors.New("no commands found")
 	}
 
 	verbose, _ := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
@@ -508,10 +510,10 @@ func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error
 				}
 				line := fmt.Sprintf("%s%s", indent, nameStyle.Render(string(discovered.SimpleName)))
 				if discovered.Description != "" {
-					line += fmt.Sprintf(" - %s", descStyle.Render(string(discovered.Description)))
+					line += " - " + descStyle.Render(string(discovered.Description))
 				}
 				if discovered.IsAmbiguous {
-					line += fmt.Sprintf(" %s", ambiguousStyle.Render("(@"+string(sourceID)+")"))
+					line += " " + ambiguousStyle.Render("(@"+string(sourceID)+")")
 				}
 				currentPlatform := invowkfile.CurrentPlatform()
 				runtimesStr := discovered.Command.GetRuntimesStringForPlatform(currentPlatform)

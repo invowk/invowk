@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Client provides methods to communicate with the TUI server.
@@ -73,7 +75,7 @@ func (c *Client) Input(opts InputRequest) (string, error) {
 	}
 
 	if resp.Cancelled {
-		return "", fmt.Errorf("user aborted")
+		return "", types.ErrUserCancelled
 	}
 
 	var result InputResult
@@ -93,7 +95,7 @@ func (c *Client) Confirm(opts ConfirmRequest) (bool, error) {
 	}
 
 	if resp.Cancelled {
-		return false, fmt.Errorf("user aborted")
+		return false, types.ErrUserCancelled
 	}
 
 	var result ConfirmResult
@@ -114,7 +116,7 @@ func (c *Client) Choose(opts ChooseRequest) (any, error) {
 	}
 
 	if resp.Cancelled {
-		return nil, fmt.Errorf("user aborted")
+		return nil, types.ErrUserCancelled
 	}
 
 	var result ChooseResult
@@ -186,7 +188,7 @@ func (c *Client) Filter(opts FilterRequest) ([]string, error) {
 	}
 
 	if resp.Cancelled {
-		return nil, fmt.Errorf("user aborted")
+		return nil, types.ErrUserCancelled
 	}
 
 	var result FilterResult
@@ -206,7 +208,7 @@ func (c *Client) File(opts FileRequest) (string, error) {
 	}
 
 	if resp.Cancelled {
-		return "", fmt.Errorf("user aborted")
+		return "", types.ErrUserCancelled
 	}
 
 	var result FileResult
@@ -232,7 +234,7 @@ func (c *Client) TextArea(opts TextAreaRequest) (string, error) {
 	}
 
 	if resp.Cancelled {
-		return "", fmt.Errorf("user aborted")
+		return "", types.ErrUserCancelled
 	}
 
 	var result TextAreaResult
@@ -274,7 +276,7 @@ func (c *Client) Table(opts TableRequest) (*TableResult, error) {
 	}
 
 	if resp.Cancelled {
-		return nil, fmt.Errorf("user aborted")
+		return nil, types.ErrUserCancelled
 	}
 
 	var result TableResult

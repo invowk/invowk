@@ -3,9 +3,7 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -62,25 +60,10 @@ func runTuiFormat(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		content = strings.Join(args, " ")
 	} else {
-		// Check if we have stdin input
-		stat, _ := os.Stdin.Stat()
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			// Read from stdin
-			var sb strings.Builder
-			reader := bufio.NewReader(os.Stdin)
-			for {
-				line, err := reader.ReadString('\n')
-				sb.WriteString(line)
-				if err != nil {
-					if err == io.EOF {
-						break
-					}
-					return fmt.Errorf("error reading stdin: %w", err)
-				}
-			}
-			content = sb.String()
-		} else {
-			return fmt.Errorf("no content provided; provide as arguments or pipe via stdin")
+		var err error
+		content, err = readStdinAll("no content provided; provide as arguments or pipe via stdin")
+		if err != nil {
+			return err
 		}
 	}
 

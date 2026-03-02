@@ -50,7 +50,7 @@ Examples:
 	return cmd
 }
 
-func runTuiWrite(cmd *cobra.Command, args []string) error {
+func runTuiWrite(cmd *cobra.Command, _ []string) error {
 	writeTitle, _ := cmd.Flags().GetString("title")
 	writeDescription, _ := cmd.Flags().GetString("description")
 	writePlaceholder, _ := cmd.Flags().GetString("placeholder")

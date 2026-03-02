@@ -504,14 +504,14 @@ func TestRemoveByNamespace(t *testing.T) {
 		GitURL:          "https://github.com/user/tools.git",
 		Version:         "^1.0.0",
 		ResolvedVersion: "1.2.3",
-		GitCommit:       "abc123",
+		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "tools@1.2.3",
 	}
 	lock.Modules["https://github.com/user/utils.git"] = LockedModule{
 		GitURL:          "https://github.com/user/utils.git",
 		Version:         "^2.0.0",
 		ResolvedVersion: "2.0.0",
-		GitCommit:       "def456",
+		GitCommit:       "def456abc78901234567890123456789abcdef1a",
 		Alias:           "myalias",
 		Namespace:       "myalias",
 	}
@@ -572,7 +572,7 @@ func TestAddWritesLockFile(t *testing.T) {
 				Version: "^1.0.0",
 			},
 			ResolvedVersion: "1.2.3",
-			GitCommit:       "abc123def456",
+			GitCommit:       "abc123def456789012345678901234567890abcd",
 			Namespace:       "tools@1.2.3",
 			ModuleName:      "tools",
 		}
@@ -606,8 +606,8 @@ func TestAddWritesLockFile(t *testing.T) {
 		if entry.ResolvedVersion != "1.2.3" {
 			t.Errorf("ResolvedVersion = %q, want %q", entry.ResolvedVersion, "1.2.3")
 		}
-		if entry.GitCommit != "abc123def456" {
-			t.Errorf("GitCommit = %q, want %q", entry.GitCommit, "abc123def456")
+		if entry.GitCommit != "abc123def456789012345678901234567890abcd" {
+			t.Errorf("GitCommit = %q, want %q", entry.GitCommit, "abc123def456789012345678901234567890abcd")
 		}
 		if entry.Namespace != "tools@1.2.3" {
 			t.Errorf("Namespace = %q, want %q", entry.Namespace, "tools@1.2.3")
@@ -626,7 +626,7 @@ func TestAddWritesLockFile(t *testing.T) {
 			GitURL:          "https://github.com/user/utils.git",
 			Version:         "^2.0.0",
 			ResolvedVersion: "2.1.0",
-			GitCommit:       "existing789",
+			GitCommit:       "eee78901234567890123456789abcdef12345678",
 			Namespace:       "utils@2.1.0",
 		}
 		if err := existing.Save(lockPath); err != nil {
@@ -642,7 +642,7 @@ func TestAddWritesLockFile(t *testing.T) {
 				Path:    "packages/core",
 			},
 			ResolvedVersion: "1.5.0",
-			GitCommit:       "newcommit456",
+			GitCommit:       "aaa456bbb789ccc012ddd345eee678fff901abc2",
 			Namespace:       "mytools",
 			ModuleName:      "tools",
 		}

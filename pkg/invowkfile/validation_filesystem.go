@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,7 @@ import (
 // ValidateFilename checks if a filename is valid across platforms.
 func ValidateFilename(name string) error {
 	if name == "" {
-		return fmt.Errorf("filename cannot be empty")
+		return errors.New("filename cannot be empty")
 	}
 
 	// Check length
@@ -32,7 +33,7 @@ func ValidateFilename(name string) error {
 	// Check for control characters
 	for _, r := range name {
 		if r < 32 {
-			return fmt.Errorf("filename contains control character")
+			return errors.New("filename contains control character")
 		}
 	}
 
@@ -43,7 +44,7 @@ func ValidateFilename(name string) error {
 
 	// Check for names ending with space or period (invalid on Windows)
 	if strings.HasSuffix(name, " ") || strings.HasSuffix(name, ".") {
-		return fmt.Errorf("filename cannot end with space or period")
+		return errors.New("filename cannot end with space or period")
 	}
 
 	return nil
@@ -71,12 +72,12 @@ func ValidateContainerfilePath(containerfile, baseDir string) error {
 
 	// Containerfile path must be relative (use cross-platform check)
 	if isAbsolutePath(containerfile) {
-		return fmt.Errorf("containerfile path must be relative, not absolute")
+		return errors.New("containerfile path must be relative, not absolute")
 	}
 
 	// Check for null bytes (security)
 	if strings.ContainsRune(containerfile, '\x00') {
-		return fmt.Errorf("containerfile path contains null byte")
+		return errors.New("containerfile path contains null byte")
 	}
 
 	// Convert to native path separators and resolve
@@ -105,7 +106,7 @@ func ValidateEnvFilePath(filePath string) error {
 	cleanPath := strings.TrimSuffix(filePath, "?")
 
 	if cleanPath == "" {
-		return fmt.Errorf("env file path cannot be empty")
+		return errors.New("env file path cannot be empty")
 	}
 
 	// Check length limit
@@ -120,7 +121,7 @@ func ValidateEnvFilePath(filePath string) error {
 
 	// Check for null bytes (security)
 	if strings.ContainsRune(cleanPath, '\x00') {
-		return fmt.Errorf("env file path contains null byte")
+		return errors.New("env file path contains null byte")
 	}
 
 	// Check for path traversal sequences
@@ -169,7 +170,7 @@ func ValidateToolName(name BinaryName) error {
 	// Format validation is redundant with CUE but kept as defense-in-depth
 	// for cases where this function is called outside the CUE parse flow.
 	if s == "" {
-		return fmt.Errorf("tool name cannot be empty")
+		return errors.New("tool name cannot be empty")
 	}
 	if !toolNameRegex.MatchString(s) {
 		return fmt.Errorf("tool name '%s' is invalid (must be alphanumeric, can include . _ + -)", s)
@@ -183,7 +184,7 @@ func ValidateToolName(name BinaryName) error {
 func ValidateCommandDependencyName(name CommandName) error {
 	s := string(name)
 	if s == "" {
-		return fmt.Errorf("command name cannot be empty")
+		return errors.New("command name cannot be empty")
 	}
 	// [GO-ONLY] Length limit - not in CUE schema
 	if len(s) > MaxNameLength {

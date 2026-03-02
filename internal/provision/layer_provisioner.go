@@ -96,7 +96,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.Im
 
 // CleanupProvisionedImages removes all cached provisioned images.
 // This can be called periodically to free up disk space.
-func (p *LayerProvisioner) CleanupProvisionedImages(ctx context.Context) error {
+func (p *LayerProvisioner) CleanupProvisionedImages(_ctx context.Context) error {
 	// List all images with the invowk-provisioned prefix
 	// This would require adding a ListImages method to the Engine interface
 	// For now, this is a placeholder
@@ -133,7 +133,7 @@ func (p *LayerProvisioner) buildProvisionedTag(hash string) string {
 	if p.config.TagSuffix != "" {
 		return fmt.Sprintf("invowk-provisioned:%s-%s", hash, p.config.TagSuffix)
 	}
-	return fmt.Sprintf("invowk-provisioned:%s", hash)
+	return "invowk-provisioned:" + hash
 }
 
 // calculateCacheKey generates a unique key based on all provisioned resources.

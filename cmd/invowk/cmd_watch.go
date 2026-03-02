@@ -22,18 +22,18 @@ import (
 // (e.g., Ctrl+C).
 func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no command specified")
+		return errors.New("no command specified")
 	}
 
 	// Dry-run and watch mode are mutually exclusive: watch mode re-executes
 	// on file changes, while dry-run prevents execution entirely.
 	if cmdFlags.dryRun {
-		return fmt.Errorf("--ivk-watch and --ivk-dry-run cannot be used together")
+		return errors.New("--ivk-watch and --ivk-dry-run cannot be used together")
 	}
 
 	// Check for ambiguous commands before proceeding, consistent with normal execution.
 	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
-	if ambErr := checkAmbiguousCommand(ctx, app, rootFlags, args); ambErr != nil {
+	if ambErr := checkAmbiguousCommand(ctx, app, args); ambErr != nil {
 		return ambErr
 	}
 
@@ -101,11 +101,12 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		// ExitError means the command ran to completion — the user may fix their
 		// code and save, so continue watching. Other errors indicate infrastructure
 		// problems that watching cannot fix; abort immediately.
-		if exitErr, ok := errors.AsType[*ExitError](execErr); ok {
-			fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), exitErr.Code)
-		} else {
+		exitErr, ok := errors.AsType[*ExitError](execErr)
+		if !ok {
 			return fmt.Errorf("cannot start watch mode: %w", execErr)
 		}
+
+		fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), exitErr.Code)
 	}
 
 	fmt.Fprintf(app.stdout, "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))

@@ -246,6 +246,53 @@ var currentConfigPath string
 
 ## Context Usage
 
+### Mandatory Propagation Rules
+
+**CRITICAL: Never use `context.Background()` in production code when a caller's context is available.** Use `context.Background()` only at true program entry points (e.g., `main()`, `TestMain()`, package-level init probes) where no parent context exists.
+
+- **Cobra RunE handlers**: Always extract the context at the closure boundary and pass it as the first parameter to the handler function. Do NOT use `context.Background()` inside handler bodies.
+- **Options structs**: When a function accepts an options struct and needs a context, add a `Context context.Context` field with a nil-to-`context.Background()` fallback inside the function. Document the fallback in the field comment.
+- **Server lifecycle**: `TransitionToStarting(ctx)` must derive its internal context from the caller's context (`context.WithCancel(ctx)`), not `context.Background()`. Server `Stop()` methods may use independent `context.WithTimeout(context.Background(), ...)` for graceful shutdown (the caller's context may already be cancelled).
+- **HTTP requests**: Always use `http.NewRequestWithContext(ctx, ...)`, never `context.Background()`.
+- **Subprocess calls**: Always use `exec.CommandContext(ctx, ...)`, never `exec.Command(...)`.
+- **Availability probes**: Functions like `Available()` that run subprocess probes without a caller context should use an internal bounded timeout (`context.WithTimeout(context.Background(), timeout)`), never an unbounded `context.Background()`.
+- **Tests**: Use `t.Context()` (Go 1.24+) as the default. Only use `context.Background()` in `TestMain` (no `*testing.T` available) or package-level variable init. Use `context.WithCancel(t.Context())` only when the test scenario requires explicit mid-test cancellation.
+
+```go
+// GOOD: Cobra handler extracts context at the boundary
+RunE: func(cmd *cobra.Command, args []string) error {
+    return runMyCommand(cmd.Context(), args)
+}
+
+// GOOD: Handler receives context as first parameter
+func runMyCommand(ctx context.Context, args []string) error {
+    result, err := service.Execute(ctx, args[0])
+    // ...
+}
+
+// GOOD: Options struct with Context field and nil fallback
+type BuildOptions struct {
+    // Context controls cancellation. Nil defaults to context.Background().
+    Context context.Context
+}
+
+func Build(opts BuildOptions) error {
+    ctx := opts.Context
+    if ctx == nil {
+        ctx = context.Background()
+    }
+    // ...
+}
+
+// BAD: Using context.Background() when caller context is available
+func runMyCommand(cmd *cobra.Command, args []string) error {
+    ctx := context.Background() // WRONG: use cmd.Context()
+    return service.Execute(ctx, args[0])
+}
+```
+
+### Context Check Pattern
+
 Use `context.Context` for cancellation and timeouts in long-running operations:
 
 ```go
@@ -394,6 +441,7 @@ goplint's `--check-validate-usage` mode enforces this rule: it flags discarded `
 
 ## Common Pitfalls
 
+- **`context.Background()` in handlers** - Never use `context.Background()` inside Cobra RunE handlers or any function that has access to a caller's context. Extract `cmd.Context()` at the Cobra closure boundary and pass it as `ctx context.Context` first parameter. For HTTP downloads, subprocess calls, and server lifecycle, thread the caller's context through the call chain.
 - **Silent close errors** - Use named returns with defer for resource cleanup.
 - **Missing defaults documentation** - Document default values in functional options.
 - **Wrong declaration order** - Follow const → var → type → func, exported before unexported.

@@ -4,10 +4,10 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -238,13 +238,13 @@ func TestArgumentValidationError_Error(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		err      *ArgumentValidationError
+		err      *deps.ArgumentValidationError
 		expected string
 	}{
 		{
 			name: "missing required",
-			err: &ArgumentValidationError{
-				Type:         ArgErrMissingRequired,
+			err: &deps.ArgumentValidationError{
+				Type:         deps.ArgErrMissingRequired,
 				CommandName:  "deploy",
 				MinArgs:      2,
 				ProvidedArgs: []string{"prod"},
@@ -253,8 +253,8 @@ func TestArgumentValidationError_Error(t *testing.T) {
 		},
 		{
 			name: "too many",
-			err: &ArgumentValidationError{
-				Type:         ArgErrTooMany,
+			err: &deps.ArgumentValidationError{
+				Type:         deps.ArgErrTooMany,
 				CommandName:  "deploy",
 				MaxArgs:      2,
 				ProvidedArgs: []string{"prod", "3", "extra"},
@@ -263,12 +263,12 @@ func TestArgumentValidationError_Error(t *testing.T) {
 		},
 		{
 			name: "invalid value",
-			err: &ArgumentValidationError{
-				Type:         ArgErrInvalidValue,
+			err: &deps.ArgumentValidationError{
+				Type:         deps.ArgErrInvalidValue,
 				CommandName:  "deploy",
 				InvalidArg:   "replicas",
 				InvalidValue: "abc",
-				ValueError:   fmt.Errorf("not a valid integer"),
+				ValueError:   errors.New("not a valid integer"),
 			},
 			expected: "invalid value for argument 'replicas': not a valid integer",
 		},
@@ -290,17 +290,17 @@ func TestValidateArguments_NoDefinitions(t *testing.T) {
 	t.Parallel()
 
 	// When no arg definitions exist, any arguments should be allowed (backward compatible)
-	err := validateArguments("test-cmd", []string{"foo", "bar", "baz"}, nil)
+	err := deps.ValidateArguments("test-cmd", []string{"foo", "bar", "baz"}, nil)
 	if err != nil {
 		t.Errorf("Expected nil error when no arg definitions, got: %v", err)
 	}
 
-	err = validateArguments("test-cmd", []string{}, nil)
+	err = deps.ValidateArguments("test-cmd", []string{}, nil)
 	if err != nil {
 		t.Errorf("Expected nil error when no args and no definitions, got: %v", err)
 	}
 
-	err = validateArguments("test-cmd", []string{"anything"}, []invowkfile.Argument{})
+	err = deps.ValidateArguments("test-cmd", []string{"anything"}, []invowkfile.Argument{})
 	if err != nil {
 		t.Errorf("Expected nil error when empty arg definitions, got: %v", err)
 	}
@@ -315,17 +315,17 @@ func TestValidateArguments_MissingRequired(t *testing.T) {
 	}
 
 	// No arguments provided when 2 are required
-	err := validateArguments("deploy", []string{}, argDefs)
+	err := deps.ValidateArguments("deploy", []string{}, argDefs)
 	if err == nil {
 		t.Fatal("Expected error for missing required arguments")
 	}
 
-	argErr, ok := errors.AsType[*ArgumentValidationError](err)
+	argErr, ok := errors.AsType[*deps.ArgumentValidationError](err)
 	if !ok {
 		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
 	}
 
-	if argErr.Type != ArgErrMissingRequired {
+	if argErr.Type != deps.ArgErrMissingRequired {
 		t.Errorf("Expected ArgErrMissingRequired, got: %v", argErr.Type)
 	}
 	if argErr.MinArgs != 2 {
@@ -333,7 +333,7 @@ func TestValidateArguments_MissingRequired(t *testing.T) {
 	}
 
 	// Only 1 argument provided when 2 are required
-	err = validateArguments("deploy", []string{"prod"}, argDefs)
+	err = deps.ValidateArguments("deploy", []string{"prod"}, argDefs)
 	if err == nil {
 		t.Fatal("Expected error for missing required arguments")
 	}
@@ -347,17 +347,17 @@ func TestValidateArguments_TooManyArgs(t *testing.T) {
 	}
 
 	// 3 arguments provided when only 1 is expected
-	err := validateArguments("deploy", []string{"prod", "extra1", "extra2"}, argDefs)
+	err := deps.ValidateArguments("deploy", []string{"prod", "extra1", "extra2"}, argDefs)
 	if err == nil {
 		t.Fatal("Expected error for too many arguments")
 	}
 
-	argErr, ok := errors.AsType[*ArgumentValidationError](err)
+	argErr, ok := errors.AsType[*deps.ArgumentValidationError](err)
 	if !ok {
 		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
 	}
 
-	if argErr.Type != ArgErrTooMany {
+	if argErr.Type != deps.ArgErrTooMany {
 		t.Errorf("Expected ArgErrTooMany, got: %v", argErr.Type)
 	}
 	if argErr.MaxArgs != 1 {
@@ -374,13 +374,13 @@ func TestValidateArguments_VariadicAllowsExtra(t *testing.T) {
 	}
 
 	// Many arguments should be allowed when last arg is variadic
-	err := validateArguments("deploy", []string{"prod", "svc1", "svc2", "svc3", "svc4"}, argDefs)
+	err := deps.ValidateArguments("deploy", []string{"prod", "svc1", "svc2", "svc3", "svc4"}, argDefs)
 	if err != nil {
 		t.Errorf("Expected no error with variadic args, got: %v", err)
 	}
 
 	// Just the required arg should also be valid
-	err = validateArguments("deploy", []string{"prod"}, argDefs)
+	err = deps.ValidateArguments("deploy", []string{"prod"}, argDefs)
 	if err != nil {
 		t.Errorf("Expected no error with just required arg, got: %v", err)
 	}
@@ -394,17 +394,17 @@ func TestValidateArguments_InvalidValue(t *testing.T) {
 	}
 
 	// Invalid integer value
-	err := validateArguments("scale", []string{"not-a-number"}, argDefs)
+	err := deps.ValidateArguments("scale", []string{"not-a-number"}, argDefs)
 	if err == nil {
 		t.Fatal("Expected error for invalid argument value")
 	}
 
-	argErr, ok := errors.AsType[*ArgumentValidationError](err)
+	argErr, ok := errors.AsType[*deps.ArgumentValidationError](err)
 	if !ok {
 		t.Fatalf("Expected ArgumentValidationError, got: %T", err)
 	}
 
-	if argErr.Type != ArgErrInvalidValue {
+	if argErr.Type != deps.ArgErrInvalidValue {
 		t.Errorf("Expected ArgErrInvalidValue, got: %v", argErr.Type)
 	}
 	if argErr.InvalidArg != "replicas" {
@@ -462,9 +462,9 @@ func TestValidateArguments_ValidTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateArguments("test-cmd", tt.args, tt.argDefs)
+			err := deps.ValidateArguments("test-cmd", tt.args, tt.argDefs)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateArguments() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("deps.ValidateArguments() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -479,13 +479,13 @@ func TestValidateArguments_OptionalWithDefault(t *testing.T) {
 	}
 
 	// Just the required argument
-	err := validateArguments("deploy", []string{"prod"}, argDefs)
+	err := deps.ValidateArguments("deploy", []string{"prod"}, argDefs)
 	if err != nil {
 		t.Errorf("Expected no error when optional args have defaults, got: %v", err)
 	}
 
 	// Both arguments provided
-	err = validateArguments("deploy", []string{"prod", "5"}, argDefs)
+	err = deps.ValidateArguments("deploy", []string{"prod", "5"}, argDefs)
 	if err != nil {
 		t.Errorf("Expected no error when all args provided, got: %v", err)
 	}
@@ -494,8 +494,8 @@ func TestValidateArguments_OptionalWithDefault(t *testing.T) {
 func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
 	t.Parallel()
 
-	err := &ArgumentValidationError{
-		Type:        ArgErrMissingRequired,
+	argErr := &deps.ArgumentValidationError{
+		Type:        deps.ArgErrMissingRequired,
 		CommandName: "deploy",
 		ArgDefs: []invowkfile.Argument{
 			{Name: "env", Description: "Target environment", Required: true},
@@ -505,7 +505,7 @@ func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
 		MinArgs:      1,
 	}
 
-	output := RenderArgumentValidationError(err)
+	output := RenderArgumentValidationError(argErr)
 
 	if !strings.Contains(output, "Missing required arguments") {
 		t.Error("Should contain 'Missing required arguments'")
@@ -527,8 +527,8 @@ func TestRenderArgumentValidationError_MissingRequired(t *testing.T) {
 func TestRenderArgumentValidationError_TooMany(t *testing.T) {
 	t.Parallel()
 
-	err := &ArgumentValidationError{
-		Type:        ArgErrTooMany,
+	argErr := &deps.ArgumentValidationError{
+		Type:        deps.ArgErrTooMany,
 		CommandName: "deploy",
 		ArgDefs: []invowkfile.Argument{
 			{Name: "env", Description: "Target environment"},
@@ -537,7 +537,7 @@ func TestRenderArgumentValidationError_TooMany(t *testing.T) {
 		MaxArgs:      1,
 	}
 
-	output := RenderArgumentValidationError(err)
+	output := RenderArgumentValidationError(argErr)
 
 	if !strings.Contains(output, "Too many arguments") {
 		t.Error("Should contain 'Too many arguments'")
@@ -553,15 +553,15 @@ func TestRenderArgumentValidationError_TooMany(t *testing.T) {
 func TestRenderArgumentValidationError_InvalidValue(t *testing.T) {
 	t.Parallel()
 
-	err := &ArgumentValidationError{
-		Type:         ArgErrInvalidValue,
+	argErr := &deps.ArgumentValidationError{
+		Type:         deps.ArgErrInvalidValue,
 		CommandName:  "deploy",
 		InvalidArg:   "replicas",
 		InvalidValue: "abc",
-		ValueError:   fmt.Errorf("must be a valid integer"),
+		ValueError:   errors.New("must be a valid integer"),
 	}
 
-	output := RenderArgumentValidationError(err)
+	output := RenderArgumentValidationError(argErr)
 
 	if !strings.Contains(output, "Invalid argument value") {
 		t.Error("Should contain 'Invalid argument value'")

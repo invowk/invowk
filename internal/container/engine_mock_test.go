@@ -66,13 +66,13 @@ func (m *MockCommandRecorder) CommandFunc(t *testing.T) func(name string, args .
 		// Build a helper process command that will return our configured output
 		cs := []string{"-test.run=TestHelperProcess", "--", name}
 		cs = append(cs, args...)
-		//nolint:gosec // TestHelperProcess is a test-only pattern
+
 		cmd := exec.Command(os.Args[0], cs...) //nolint:noctx // exec.Command used intentionally for test helper
 		cmd.Env = []string{
 			"GO_WANT_HELPER_PROCESS=1",
 			fmt.Sprintf("GO_HELPER_EXIT_CODE=%d", m.ExitCode),
-			fmt.Sprintf("GO_HELPER_STDOUT=%s", m.Stdout),
-			fmt.Sprintf("GO_HELPER_STDERR=%s", m.Stderr),
+			"GO_HELPER_STDOUT=" + m.Stdout,
+			"GO_HELPER_STDERR=" + m.Stderr,
 		}
 
 		// Check if this command should fail
@@ -196,7 +196,7 @@ func (m *MockCommandRecorder) Reset() {
 // TestHelperProcess is used by the mock to simulate command execution.
 // It reads configuration from environment variables and outputs accordingly.
 // This function should not be called directly - it is invoked by the mock.
-func TestHelperProcess(t *testing.T) {
+func TestHelperProcess(_ *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
@@ -33,7 +34,7 @@ func (m *mockDiscoveryService) GetCommand(_ context.Context, _ string) (discover
 }
 
 // TestCreateRuntimeRegistry_SingleContainerInstance verifies the invariant that
-// createRuntimeRegistry creates at most one ContainerRuntime instance. The
+// CreateRuntimeRegistry creates at most one ContainerRuntime instance. The
 // ContainerRuntime.runMu mutex provides intra-process serialization as a fallback
 // when flock-based cross-process locking is unavailable; multiple instances would
 // each have their own mutex, defeating the serialization guarantee.
@@ -41,7 +42,7 @@ func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	result := createRuntimeRegistry(cfg, nil)
+	result := commandsvc.CreateRuntimeRegistry(cfg, nil)
 	defer result.Cleanup()
 
 	// If the container engine is available, verify it's registered exactly once
@@ -58,9 +59,9 @@ func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 		t.Fatalf("expected *runtime.ContainerRuntime, got %T", rt)
 	}
 
-	// Verify that calling createRuntimeRegistry a second time does not share
+	// Verify that calling CreateRuntimeRegistry a second time does not share
 	// state with the first registry (each call creates its own instance).
-	result2 := createRuntimeRegistry(cfg, nil)
+	result2 := commandsvc.CreateRuntimeRegistry(cfg, nil)
 	defer result2.Cleanup()
 
 	rt2, err := result2.Registry.Get(runtime.RuntimeTypeContainer)
@@ -69,7 +70,7 @@ func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 	}
 
 	if rt == rt2 {
-		t.Fatal("two createRuntimeRegistry calls returned the same ContainerRuntime pointer — instances must be independent")
+		t.Fatal("two CreateRuntimeRegistry calls returned the same ContainerRuntime pointer — instances must be independent")
 	}
 }
 
@@ -205,8 +206,6 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 		Diagnostics: &defaultDiagnosticRenderer{},
 		stderr:      &bytes.Buffer{},
 	}
-	rootFlags := &rootFlagValues{}
-
 	tests := []struct {
 		name      string
 		args      []string
@@ -240,7 +239,7 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := checkAmbiguousCommand(t.Context(), app, rootFlags, tt.args)
+			err := checkAmbiguousCommand(t.Context(), app, tt.args)
 
 			if tt.wantErr {
 				if err == nil {
@@ -277,7 +276,7 @@ func TestCheckAmbiguousCommand_DiscoveryError(t *testing.T) {
 		stderr:      &bytes.Buffer{},
 	}
 
-	err := checkAmbiguousCommand(t.Context(), app, &rootFlagValues{}, []string{"deploy"})
+	err := checkAmbiguousCommand(t.Context(), app, []string{"deploy"})
 	if err != nil {
 		t.Fatalf("expected nil (discovery errors swallowed), got: %v", err)
 	}

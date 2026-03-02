@@ -7,6 +7,7 @@ We're on a long multi-step work to completely avoid the use of simple primitive 
 - Mark zero-value-invalid types with `//goplint:nonzero`
 - Mark compile-time-constant-only types with `//goplint:constant-only`
 - Enum types with CUE counterparts MUST have `//goplint:enum-cue=<path>`
+- For generic named types, validate constructor behavior for each meaningful instantiation (`Type[int]`, `Type[string]`, etc.) and add tests per instantiation when semantics differ.
 
 ## Structs
 - Constructor-backed structs should use `NewXxx()` returning `(*T, error)`
@@ -30,20 +31,33 @@ Identify ALL remaining gaps to be worked on and propose a robust plan. All pre-e
 ## Tool Support
 
 Run `make check-types-all-json` for a structured JSON report.
-Key diagnostic categories:
+Prefer stable finding IDs from diagnostic URLs when triaging/regrouping findings instead of message-only matching.
+
+Directive hygiene:
+- Use exact `//nolint:goplint` (or token lists that include `goplint`) only.
+- Near-miss keys (for example `goplintfoo`) are invalid and do not suppress findings.
+
+Cast/validation CFA notes:
+- `unvalidated-cast` and `use-before-validate` account for closure-variable calls at call-site.
+- Direct calls and `defer` calls contribute to validation visibility; `go` calls are asynchronous and do not guarantee same-path validation.
+
+High-signal diagnostic categories:
 - `primitive` — bare primitive in struct field / param / return
 - `missing-validate` / `missing-stringer` — missing methods
 - `missing-constructor` / `wrong-constructor-sig` — constructor issues
 - `missing-immutability` — exported fields on constructor-backed structs
 - `unvalidated-cast` — DDD cast without Validate() check (CFA-enabled)
+- `use-before-validate` — DDD variable used before Validate() (same-block mode in `--check-all`; cross-block is opt-in)
+- `missing-constructor-error-return` — constructor for validatable type does not return `error`
 - `incomplete-validate-delegation` — missing field Validate() calls
 - `nonzero-value-field` — nonzero type used as value (should be *Type)
 - `enum-cue-missing-go` / `enum-cue-extra-go` — CUE/Go enum drift
+- `stale-exception` / `overdue-review` — exception hygiene debt
 
 - `suggest-validate-all` — structs with Validate() + validatable fields but no `//goplint:validate-all`
 - `missing-constructor-validate` — constructors returning validatable types without calling Validate()
 
-See `tools/goplint/CLAUDE.md` for all 24 categories and directives.
+See `tools/goplint/CLAUDE.md` for all 26 categories and directives.
 
 ## Workflow
 1. `make check-baseline` — verify no regressions first
