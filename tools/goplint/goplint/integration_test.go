@@ -799,6 +799,22 @@ func TestCheckNonZero(t *testing.T) {
 	runAnalysisTest(t, testdata, h.Analyzer, "nonzero", "nonzero_consumer")
 }
 
+// TestCheckRedundantConversion exercises the --check-redundant-conversion mode
+// against the redundantconversion fixture, verifying that type conversions with
+// a redundant intermediate basic-type hop (e.g., TokenB(string(tokenA))) are
+// flagged, while valid patterns (direct conversion, literal args, function calls)
+// are not.
+func TestCheckRedundantConversion(t *testing.T) {
+	t.Parallel()
+
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-redundant-conversion", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "redundantconversion")
+}
+
 // TestAuditReviewDates exercises the --audit-review-dates mode against
 // a dedicated fixture with overdue, future, invalid, and blocked_by entries.
 // Verifies that:

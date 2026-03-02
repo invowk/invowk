@@ -62,6 +62,7 @@ const (
 	CategoryUseBeforeValidate             = "use-before-validate"
 	CategorySuggestValidateAll            = "suggest-validate-all"
 	CategoryMissingConstructorErrorReturn = "missing-constructor-error-return"
+	CategoryRedundantConversion           = "redundant-conversion"
 )
 
 // NewAnalyzer constructs an analyzer with isolated flag state.

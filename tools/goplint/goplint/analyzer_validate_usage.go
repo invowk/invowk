@@ -25,21 +25,13 @@ func inspectValidateUsage(pass *analysis.Pass, fn *ast.FuncDecl, cfg *ExceptionC
 	}
 
 	// Build the qualified function name for exception matching.
-	pkgName := packageName(pass.Pkg)
-	funcName := fn.Name.Name
-	if fn.Recv != nil && len(fn.Recv.List) > 0 {
-		recvName := receiverTypeName(fn.Recv.List[0].Type)
-		if recvName != "" {
-			funcName = recvName + "." + funcName
-		}
-	}
-	qualFuncName := pkgName + "." + funcName
+	funcQualName := qualFuncName(pass, fn)
 
 	// Build a parent map for detecting expression statements and blank
 	// assignments containing Validate() calls.
 	parentMap := buildParentMap(fn.Body)
 
-	inspectValidateUsageInBody(pass, fn.Body, parentMap, qualFuncName, cfg, bl)
+	inspectValidateUsageInBody(pass, fn.Body, parentMap, funcQualName, cfg, bl)
 }
 
 // inspectValidateUsageInBody checks a block statement for discarded

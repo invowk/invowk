@@ -252,6 +252,11 @@ func runTraversal(
 				}
 			}
 
+			// Redundant conversion: detect NamedType(basic(namedExpr)) chains.
+			if rc.checkRedundantConversion {
+				inspectRedundantConversions(pass, n, cfg, bl)
+			}
+
 			// Validate usage: detect discarded Validate() results.
 			if rc.checkValidateUsage {
 				inspectValidateUsage(pass, n, cfg, bl)

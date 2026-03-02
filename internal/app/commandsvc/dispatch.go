@@ -238,8 +238,8 @@ func executeInteractive(ctx *runtime.ExecutionContext, cmdName string, interacti
 		tuiServerURL = tuiServer.URL()
 	}
 
-	ctx.TUI.ServerURL = runtime.TUIServerURL(tuiServerURL)                  //goplint:ignore -- from tuiserver.URL(), validated internally
-	ctx.TUI.ServerToken = runtime.TUIServerToken(string(tuiServer.Token())) //goplint:ignore -- from tuiserver.Token(), validated internally
+	ctx.TUI.ServerURL = runtime.TUIServerURL(tuiServerURL) //goplint:ignore -- from tuiserver.URL(), validated internally
+	ctx.TUI.ServerToken = runtime.TUIServerToken(tuiServer.Token())
 
 	prepared, err := interactiveRT.PrepareInteractive(ctx)
 	if err != nil {

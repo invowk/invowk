@@ -32,15 +32,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 	}
 
 	// Build the qualified function name for exception matching.
-	pkgName := packageName(pass.Pkg)
-	funcName := fn.Name.Name
-	if fn.Recv != nil && len(fn.Recv.List) > 0 {
-		recvName := receiverTypeName(fn.Recv.List[0].Type)
-		if recvName != "" {
-			funcName = recvName + "." + funcName
-		}
-	}
-	qualFuncName := pkgName + "." + funcName
+	funcQualName := qualFuncName(pass, fn)
 
 	// Phase 1: Build a parent map for auto-skip context detection.
 	parentMap := buildParentMap(fn.Body)
@@ -171,7 +163,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 			continue
 		}
 
-		excKey := qualFuncName + ".cast-validation"
+		excKey := funcQualName + ".cast-validation"
 		if cfg.isExcepted(excKey) {
 			continue
 		}
@@ -180,7 +172,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		findingID := PackageScopedFindingID(pass,
 			CategoryUnvalidatedCast,
 			"ast",
-			qualFuncName,
+			funcQualName,
 			ac.typeName,
 			"assigned",
 			stablePosKey(pass, ac.pos.Pos()),
@@ -195,7 +187,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 
 	// Unassigned casts: always report (no variable to track).
 	for _, uc := range unassignedCasts {
-		excKey := qualFuncName + ".cast-validation"
+		excKey := funcQualName + ".cast-validation"
 		if cfg.isExcepted(excKey) {
 			continue
 		}
@@ -204,7 +196,7 @@ func inspectUnvalidatedCasts(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Excepti
 		findingID := PackageScopedFindingID(pass,
 			CategoryUnvalidatedCast,
 			"ast",
-			qualFuncName,
+			funcQualName,
 			uc.typeName,
 			"unassigned",
 			stablePosKey(pass, uc.pos.Pos()),

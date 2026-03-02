@@ -54,6 +54,7 @@ func diagnosticCategoryRegistry() []CategorySpec {
 		{Name: CategoryUseBeforeValidate, BaselinePolicy: BaselineSuppressible, BaselineLabel: "DDD Value Type values used before Validate()"},
 		{Name: CategorySuggestValidateAll, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Structs suggesting //goplint:validate-all adoption"},
 		{Name: CategoryMissingConstructorErrorReturn, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Constructors returning validatable types without an error return"},
+		{Name: CategoryRedundantConversion, BaselinePolicy: BaselineSuppressible, BaselineLabel: "Redundant intermediate type conversions"},
 		{Name: CategoryUnknownDirective, BaselinePolicy: BaselineAlwaysVisible},
 		{Name: CategoryStaleException, BaselinePolicy: BaselineAuditOnly},
 		{Name: CategoryOverdueReview, BaselinePolicy: BaselineAuditOnly},

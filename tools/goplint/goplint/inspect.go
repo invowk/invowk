@@ -714,3 +714,18 @@ func packageName(pkg *types.Package) string {
 	}
 	return path
 }
+
+// qualFuncName builds a package-qualified function/method name for exception
+// matching and diagnostic messages. For methods, the format is
+// "pkg.ReceiverType.MethodName"; for functions, "pkg.FuncName".
+func qualFuncName(pass *analysis.Pass, fn *ast.FuncDecl) string {
+	pkgName := packageName(pass.Pkg)
+	funcName := fn.Name.Name
+	if fn.Recv != nil && len(fn.Recv.List) > 0 {
+		recvName := receiverTypeName(fn.Recv.List[0].Type)
+		if recvName != "" {
+			funcName = recvName + "." + funcName
+		}
+	}
+	return pkgName + "." + funcName
+}

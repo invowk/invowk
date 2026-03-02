@@ -233,3 +233,10 @@ func NewPriority(s string) (*Priority, error) { // want `parameter "s" of checka
 	p := Priority(s) // want `type conversion to Priority from non-constant without Validate\(\) check`
 	return &p, nil
 }
+
+// --- Redundant intermediate conversion (--check-redundant-conversion) ---
+
+// redundantConversion performs a type conversion with a redundant string() hop.
+func redundantConversion(m Mode) MissingAll {
+	return MissingAll(string(m)) // want `redundant intermediate conversion to string in MissingAll\(string\(\.\.\.\)\); use MissingAll\(\.\.\.\) directly`
+}

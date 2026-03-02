@@ -36,6 +36,7 @@ type flagState struct {
 	checkUseBeforeValidate      bool
 	checkConstructorReturnError bool
 	checkUseBeforeValidateCross bool
+	checkRedundantConversion    bool
 	noCFA                       bool
 	auditReviewDates            bool
 	checkEnumSync               bool
@@ -340,8 +341,20 @@ func modeFlagSpecs() []modeFlagSpec {
 			},
 		},
 		{
+			flagName:          "check-redundant-conversion",
+			usage:             "report type conversions with redundant intermediate basic-type hop (e.g., T2(string(x)) where T2(x) suffices)",
+			defaultValue:      false,
+			includeInCheckAll: true,
+			stateBoolField: func(fs *flagState) *bool {
+				return &fs.checkRedundantConversion
+			},
+			runConfigBoolField: func(rc *runConfig) *bool {
+				return &rc.checkRedundantConversion
+			},
+		},
+		{
 			flagName:          "check-all",
-			usage:             "enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + CFA)",
+			usage:             "enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + redundant-conversion + CFA)",
 			defaultValue:      false,
 			includeInCheckAll: false,
 			stateBoolField: func(fs *flagState) *bool {
@@ -423,6 +436,7 @@ type runConfig struct {
 	checkUseBeforeValidate      bool
 	checkConstructorReturnError bool
 	checkUseBeforeValidateCross bool
+	checkRedundantConversion    bool
 	noCFA                       bool
 	auditReviewDates            bool
 	checkEnumSync               bool

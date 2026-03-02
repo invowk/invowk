@@ -32,17 +32,9 @@ func inspectConstructorErrorUsage(pass *analysis.Pass, fn *ast.FuncDecl, cfg *Ex
 	}
 
 	// Build the qualified function name for exception matching.
-	pkgName := packageName(pass.Pkg)
-	funcName := fn.Name.Name
-	if fn.Recv != nil && len(fn.Recv.List) > 0 {
-		recvName := receiverTypeName(fn.Recv.List[0].Type)
-		if recvName != "" {
-			funcName = recvName + "." + funcName
-		}
-	}
-	qualFuncName := pkgName + "." + funcName
+	funcQualName := qualFuncName(pass, fn)
 
-	inspectConstructorErrorUsageInBody(pass, fn.Body, qualFuncName, cfg, bl)
+	inspectConstructorErrorUsageInBody(pass, fn.Body, funcQualName, cfg, bl)
 }
 
 // inspectConstructorErrorUsageInBody checks a block statement for constructor
