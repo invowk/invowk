@@ -62,7 +62,7 @@ func TestServerStartStop(t *testing.T) {
 	}
 
 	// Test health endpoint
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL()+"/health", http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, string(server.URL())+"/health", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestServerAuthentication(t *testing.T) {
 	reqBody, _ := json.Marshal(req)
 
 	// Test without auth header
-	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, string(server.URL())+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -227,7 +227,7 @@ func TestServerAuthentication(t *testing.T) {
 	}
 
 	// Test with wrong token
-	httpReq, _ = http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ = http.NewRequestWithContext(t.Context(), http.MethodPost, string(server.URL())+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer wrong-token")
 
@@ -255,7 +255,7 @@ func TestServerMethodNotAllowed(t *testing.T) {
 	defer testutil.MustStop(t, server)
 
 	// Test GET request (should be method not allowed)
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL()+"/tui", http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, string(server.URL())+"/tui", http.NoBody)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestServerUnknownComponent(t *testing.T) {
 	}
 	reqBody, _ := json.Marshal(req)
 
-	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL()+"/tui", bytes.NewReader(reqBody))
+	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, string(server.URL())+"/tui", bytes.NewReader(reqBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+string(server.Token()))
 
@@ -340,7 +340,7 @@ func TestServerInvalidJSON(t *testing.T) {
 	defer testutil.MustStop(t, server)
 
 	// Send invalid JSON
-	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL()+"/tui", bytes.NewReader([]byte("not json")))
+	httpReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, string(server.URL())+"/tui", bytes.NewReader([]byte("not json")))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+string(server.Token()))
 
@@ -415,7 +415,7 @@ func TestClientIsAvailable(t *testing.T) {
 	}
 	defer testutil.MustStop(t, server)
 
-	client = NewClient(server.URL(), server.Token())
+	client = NewClient(string(server.URL()), server.Token())
 	if !client.IsAvailable() {
 		t.Error("Client to running server should be available")
 	}

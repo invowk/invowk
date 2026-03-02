@@ -746,14 +746,14 @@ func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, er
 // This is useful when you only need module identity and dependencies, not commands.
 // Returns ErrInvowkmodNotFound if invowkmod.cue doesn't exist.
 func ParseModuleMetadataOnly(modulePath types.FilesystemPath) (*Invowkmod, error) {
-	invowkmodPath := filepath.Join(string(modulePath), "invowkmod.cue")
-	if _, err := os.Stat(invowkmodPath); err != nil {
+	invowkmodPath := fspath.JoinStr(modulePath, "invowkmod.cue")
+	if _, err := os.Stat(string(invowkmodPath)); err != nil {
 		if os.IsNotExist(err) {
 			return nil, ErrInvowkmodNotFound
 		}
 		return nil, fmt.Errorf("failed to check invowkmod at %s: %w", invowkmodPath, err)
 	}
-	return ParseInvowkmod(types.FilesystemPath(invowkmodPath)) //goplint:ignore -- os.Stat confirmed path exists
+	return ParseInvowkmod(invowkmodPath)
 }
 
 // HasInvowkfile checks if a module directory contains an invowkfile.cue.

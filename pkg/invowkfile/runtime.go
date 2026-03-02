@@ -504,17 +504,12 @@ func GetExtensionForInterpreter(interpreter string) string {
 // Returns the parsed ShebangInfo. If Found is false, the caller should use
 // the default shell-based execution.
 func ResolveInterpreter(interpreter InterpreterSpec, scriptContent string) ShebangInfo {
-	// Default to "auto" if empty
-	effectiveInterpreter := string(interpreter)
-	if effectiveInterpreter == "" {
-		effectiveInterpreter = InterpreterAuto
-	}
-
-	// Auto-detect from shebang
-	if effectiveInterpreter == InterpreterAuto {
+	// Empty interpreter defaults to auto-detect from shebang
+	if interpreter == "" || interpreter == InterpreterAuto {
 		return ParseShebang(scriptContent)
 	}
 
-	// Parse explicit interpreter string
-	return ParseInterpreterString(InterpreterSpec(effectiveInterpreter)) //goplint:ignore -- round-trip from validated InterpreterSpec parameter
+	// Parse explicit interpreter string — interpreter is already the typed value,
+	// no intermediate string conversion needed.
+	return ParseInterpreterString(interpreter)
 }

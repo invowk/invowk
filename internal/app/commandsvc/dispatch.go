@@ -230,7 +230,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, cmdName string, interacti
 	// engine-specific host-reachable address (e.g., "host.docker.internal"
 	// for Docker, or the host gateway IP for Podman) so the containerized
 	// command can call back to the TUI server over the bridge network.
-	var tuiServerURL string
+	var tuiServerURL types.TUIServerURL
 	if containerRT, ok := interactiveRT.(*runtime.ContainerRuntime); ok {
 		hostAddr := containerRT.GetHostAddressForContainer()
 		tuiServerURL = tuiServer.URLWithHost(hostAddr)
@@ -238,7 +238,7 @@ func executeInteractive(ctx *runtime.ExecutionContext, cmdName string, interacti
 		tuiServerURL = tuiServer.URL()
 	}
 
-	ctx.TUI.ServerURL = runtime.TUIServerURL(tuiServerURL) //goplint:ignore -- from tuiserver.URL(), validated internally
+	ctx.TUI.ServerURL = tuiServerURL
 	ctx.TUI.ServerToken = runtime.TUIServerToken(tuiServer.Token())
 
 	prepared, err := interactiveRT.PrepareInteractive(ctx)

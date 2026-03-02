@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
@@ -109,7 +110,7 @@ func CheckHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath ty
 	}
 
 	var filepathErrors []DependencyMessage
-	invowkDir := types.FilesystemPath(filepath.Dir(string(invowkfilePath))) //goplint:ignore -- derived from validated invowkfilePath
+	invowkDir := fspath.Dir(invowkfilePath)
 
 	for _, fp := range deps.Filepaths {
 		if err := ValidateFilepathAlternatives(fp, invowkDir); err != nil {
