@@ -16,7 +16,7 @@ import (
 )
 
 // newConfigCommand creates the `invowk config` command tree.
-// Subcommands that read configuration use the App's ConfigProvider.
+// Subcommands that read configuration use the App's config.Provider.
 func newConfigCommand(app *App) *cobra.Command {
 	cfgCmd := &cobra.Command{
 		Use:   "config",

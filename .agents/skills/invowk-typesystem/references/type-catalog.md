@@ -222,10 +222,10 @@ This catalog is generated from repository source and documents current type-syst
 | --- | --- | --- |
 | `CommandScope` | `invowkmod.CommandScope` | `pkg/invowkfile/module.go:46` |
 | `DescriptionText` | `types.DescriptionText` | `pkg/invowkfile/description.go:16` |
-| `ExitCode` | `types.ExitCode` | `internal/runtime/exit_code.go:15` |
+| `ExitCode` | `types.ExitCode` | `internal/runtime/result.go:14` |
 | `FilesystemPath` | `types.FilesystemPath` | `pkg/invowkfile/filesystem_path.go:16` |
 | `InvalidDescriptionTextError` | `types.InvalidDescriptionTextError` | `pkg/invowkfile/description.go:19` |
-| `InvalidExitCodeError` | `types.InvalidExitCodeError` | `internal/runtime/exit_code.go:18` |
+| `InvalidExitCodeError` | `types.InvalidExitCodeError` | `internal/runtime/result.go:17` |
 | `InvalidFilesystemPathError` | `types.InvalidFilesystemPathError` | `pkg/invowkfile/filesystem_path.go:19` |
 | `InvalidListenPortError` | `types.InvalidListenPortError` | `internal/sshserver/types.go:50` |
 | `Invowkmod` | `invowkmod.Invowkmod` | `pkg/invowkfile/module.go:42` |

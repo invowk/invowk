@@ -157,19 +157,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		ConfigPath:   types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 	}
 
-	result, diags, err := app.Commands.Execute(ctx, req)
-	app.Diagnostics.Render(ctx, diags, app.stderr)
-	if err != nil {
-		if svcErr, ok := errors.AsType[*ServiceError](err); ok {
-			renderServiceError(app.stderr, svcErr)
-		}
-		return err
-	}
-	if result.ExitCode != 0 {
-		return &ExitError{Code: result.ExitCode}
-	}
-
-	return nil
+	return executeRequest(cmd, app, req)
 }
 
 // checkAmbiguousCommand checks if a command name (including nested subcommands) is

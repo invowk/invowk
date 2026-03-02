@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -17,61 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Re-export deps constants for backward compatibility within cmd package.
-const (
-	// ArgErrMissingRequired indicates missing required arguments.
-	ArgErrMissingRequired = deps.ArgErrMissingRequired
-	// ArgErrTooMany indicates too many arguments were provided.
-	ArgErrTooMany = deps.ArgErrTooMany
-	// ArgErrInvalidValue indicates an argument value failed validation.
-	ArgErrInvalidValue = deps.ArgErrInvalidValue
-)
-
-// Re-export deps sentinel errors and function aliases for backward compatibility
-// within cmd package. These allow existing cmd-internal code and tests to call
-// the functions without a deps. prefix, preserving pre-extraction call sites.
-var (
-	// ErrInvalidArgErrType is the sentinel error wrapped by InvalidArgErrTypeError.
-	ErrInvalidArgErrType = deps.ErrInvalidArgErrType //nolint:errname // follows DDD pattern: Err+Invalid+TypeName
-
-	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
-	ErrInvalidDependencyMessage = deps.ErrInvalidDependencyMessage
-
-	validateRuntimeDependencies      = deps.ValidateRuntimeDependencies
-	checkCommandDependenciesExist    = deps.CheckCommandDependenciesExist
-	checkHostToolDependencies        = deps.CheckHostToolDependencies
-	checkHostFilepathDependencies    = deps.CheckHostFilepathDependencies
-	checkCapabilityDependencies      = deps.CheckCapabilityDependencies
-	checkHostCustomCheckDependencies = deps.CheckHostCustomCheckDependencies
-	checkEnvVarDependencies          = deps.CheckEnvVarDependencies
-	validateArguments                = deps.ValidateArguments
-	capabilityCheckScript            = deps.CapabilityCheckScript
-	shellEscapeSingleQuote           = deps.ShellEscapeSingleQuote
-	isExecutable                     = deps.IsExecutable
-)
-
-// Re-export deps types for backward compatibility within cmd package.
-// These aliases allow existing cmd-internal code and tests to reference
-// the types without a deps. prefix.
 type (
-	// DependencyMessage is a pre-formatted dependency validation message.
-	DependencyMessage = deps.DependencyMessage
-
-	// InvalidDependencyMessageError is returned when a DependencyMessage value fails validation.
-	InvalidDependencyMessageError = deps.InvalidDependencyMessageError
-
-	// DependencyError represents unsatisfied dependencies.
-	DependencyError = deps.DependencyError
-
-	// ArgErrType represents the type of argument validation error.
-	ArgErrType = deps.ArgErrType
-
-	// InvalidArgErrTypeError is returned when an ArgErrType value is not valid.
-	InvalidArgErrTypeError = deps.InvalidArgErrTypeError
-
-	// ArgumentValidationError represents an argument validation failure.
-	ArgumentValidationError = deps.ArgumentValidationError
-
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
 	// These correspond to persistent and local flags registered on the cmdCmd command.
 	cmdFlagValues struct {

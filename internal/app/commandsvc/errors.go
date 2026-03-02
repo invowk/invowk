@@ -27,7 +27,7 @@ const (
 // introducing dedicated issue IDs. The user-facing message already distinguishes
 // these cases, and the issue catalog entry provides generic guidance that applies
 // to all script execution failures.
-func classifyExecutionError(err error, _ bool) (issueID issue.Id, hint string) {
+func classifyExecutionError(err error) (issueID issue.Id, hint string) {
 	issueID = issue.ScriptExecutionFailedId
 
 	switch {

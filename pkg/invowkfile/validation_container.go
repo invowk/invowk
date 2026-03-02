@@ -9,14 +9,6 @@ import (
 	"strings"
 )
 
-// ValidateContainerImage validates a container image name format.
-// This function delegates to ContainerImage.Validate() which performs
-// the full validation (empty/whitespace, length, injection chars, format).
-// Kept for backward compatibility — prefer calling image.Validate() directly.
-func ValidateContainerImage(image ContainerImage) error {
-	return image.Validate()
-}
-
 // ValidateVolumeMount validates a container volume mount specification.
 // Valid formats:
 //   - /host/path:/container/path

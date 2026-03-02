@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -362,7 +363,7 @@ func buildCobraArgsValidator(argDefs []invowkfile.Argument) cobra.PositionalArgs
 	}
 
 	return func(cmd *cobra.Command, args []string) error {
-		return validateArguments(cmd.Name(), args, argDefs)
+		return deps.ValidateArguments(cmd.Name(), args, argDefs)
 	}
 }
 

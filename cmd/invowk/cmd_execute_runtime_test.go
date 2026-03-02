@@ -14,7 +14,7 @@ import (
 )
 
 // testConfigFallback wraps loadConfigWithFallback for commandsvc.ConfigFallbackFunc.
-func testConfigFallback(ctx context.Context, provider commandsvc.ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
+func testConfigFallback(ctx context.Context, provider config.Provider, configPath string) (*config.Config, []discovery.Diagnostic) {
 	return loadConfigWithFallback(ctx, provider, configPath)
 }
 

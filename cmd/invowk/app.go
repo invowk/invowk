@@ -32,7 +32,7 @@ type (
 	// the CLI layer — all Cobra command handlers receive an App reference and delegate
 	// business logic through its service interfaces (Commands, Discovery, Config).
 	App struct {
-		Config      ConfigProvider
+		Config      config.Provider
 		Discovery   DiscoveryService
 		Commands    CommandService
 		Diagnostics DiagnosticRenderer
@@ -44,7 +44,7 @@ type (
 	// replaced with production defaults by NewApp. Tests can supply mock implementations
 	// to isolate specific service behavior.
 	Dependencies struct {
-		Config      ConfigProvider
+		Config      config.Provider
 		Discovery   DiscoveryService
 		Commands    CommandService
 		Diagnostics DiagnosticRenderer
@@ -127,18 +127,12 @@ type (
 		Render(ctx context.Context, diags []discovery.Diagnostic, stderr io.Writer)
 	}
 
-	// ConfigProvider loads configuration using explicit options.
-	// This abstraction enables testing with custom config sources or mock implementations.
-	ConfigProvider interface {
-		Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error)
-	}
-
 	// appDiscoveryService implements DiscoveryService with per-request memoization.
 	// On cache miss, it creates a discovery.Discovery instance, runs the operation,
 	// and caches the result. Configuration diagnostics are prepended on every path
 	// since the config may vary by context path.
 	appDiscoveryService struct {
-		config ConfigProvider
+		config config.Provider
 	}
 
 	// lookupCacheEntry holds a memoized GetCommand result and its associated error.
@@ -192,19 +186,13 @@ func NewApp(d Dependencies) (*App, error) {
 		d.Diagnostics = &defaultDiagnosticRenderer{}
 	}
 	if d.Commands == nil {
-		// Wrap loadConfigWithFallback to satisfy the commandsvc.ConfigFallbackFunc
-		// signature. Both ConfigProvider interfaces are structurally identical
-		// (Load method with same signature), so the cast is type-safe.
-		configFallback := func(ctx context.Context, provider commandsvc.ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
-			return loadConfigWithFallback(ctx, provider, configPath)
-		}
 		svc := commandsvc.New(
 			d.Config,
 			d.Discovery,
 			d.Stdout,
 			d.Stderr,
 			captureUserEnv,
-			configFallback,
+			loadConfigWithFallback,
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}
@@ -471,7 +459,7 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 //     in a file the user created should not be silently downgraded to a warning).
 //   - Default path with missing config dir or similar infrastructure error:
 //     SeverityWarning (common on fresh installs, defaults are appropriate).
-func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic) {
+func loadConfigWithFallback(ctx context.Context, provider config.Provider, configPath string) (*config.Config, []discovery.Diagnostic) {
 	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(configPath)})
 	if err == nil {
 		return cfg, nil
@@ -517,6 +505,19 @@ func loadConfigWithFallback(ctx context.Context, provider ConfigProvider, config
 		return config.DefaultConfig(), nil
 	}
 	return config.DefaultConfig(), []discovery.Diagnostic{diag}
+}
+
+// captureUserEnv captures the current environment as a map.
+// This should be called at the start of execution to capture the user's
+// actual environment before invowk sets any command-level env vars.
+func captureUserEnv() map[string]string {
+	env := make(map[string]string)
+	for _, e := range os.Environ() {
+		if key, value, found := strings.Cut(e, "="); found {
+			env[key] = value
+		}
+	}
+	return env
 }
 
 // Render writes structured diagnostics to stderr with lipgloss styling.

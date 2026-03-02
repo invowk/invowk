@@ -6,7 +6,6 @@ import (
 	"context"
 
 	appexec "github.com/invowk/invowk/internal/app/execute"
-	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/runtime"
@@ -95,11 +94,6 @@ type (
 		IssueID issue.Id
 		// Message is a plain-text description of the error (no lipgloss styling).
 		Message string
-	}
-
-	// ConfigProvider loads configuration.
-	ConfigProvider interface {
-		Load(ctx context.Context, opts config.LoadOptions) (*config.Config, error)
 	}
 
 	// CommandDiscovery discovers invowk commands.

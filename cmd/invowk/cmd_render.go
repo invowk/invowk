@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/discovery"
 
 	"charm.land/lipgloss/v2"
@@ -14,11 +15,11 @@ import (
 // RenderArgumentValidationError creates a styled error message for argument validation failures
 //
 //plint:render
-func RenderArgumentValidationError(err *ArgumentValidationError) string {
+func RenderArgumentValidationError(err *deps.ArgumentValidationError) string {
 	var sb strings.Builder
 
 	switch err.Type {
-	case ArgErrMissingRequired:
+	case deps.ArgErrMissingRequired:
 		sb.WriteString(renderHeaderStyle.Render("✗ Missing required arguments!"))
 		sb.WriteString("\n\n")
 		fmt.Fprintf(&sb, "Command %s requires at least %d argument(s), but got %d.\n\n",
@@ -39,7 +40,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 			sb.WriteString(renderValueStyle.Render(fmt.Sprintf("  • %s%s - %s\n", arg.Name, reqStr, arg.Description)))
 		}
 
-	case ArgErrTooMany:
+	case deps.ArgErrTooMany:
 		sb.WriteString(renderHeaderStyle.Render("✗ Too many arguments!"))
 		sb.WriteString("\n\n")
 		fmt.Fprintf(&sb, "Command %s accepts at most %d argument(s), but got %d.\n\n",
@@ -54,7 +55,7 @@ func RenderArgumentValidationError(err *ArgumentValidationError) string {
 		sb.WriteString(renderLabelStyle.Render("Provided:"))
 		sb.WriteString(renderValueStyle.Render(fmt.Sprintf(" %v", err.ProvidedArgs)))
 
-	case ArgErrInvalidValue:
+	case deps.ArgErrInvalidValue:
 		sb.WriteString(renderHeaderStyle.Render("✗ Invalid argument value!"))
 		sb.WriteString("\n\n")
 		fmt.Fprintf(&sb, "Command %s received an invalid value for argument %s.\n\n",
@@ -119,7 +120,7 @@ func RenderArgsSubcommandConflictError(err *discovery.ArgsSubcommandConflictErro
 // RenderDependencyError creates a styled error message for unsatisfied dependencies
 //
 //plint:render
-func RenderDependencyError(err *DependencyError) string {
+func RenderDependencyError(err *deps.DependencyError) string {
 	var sb strings.Builder
 
 	// sectionStyle adds MarginTop for spacing between dependency groups
@@ -129,7 +130,7 @@ func RenderDependencyError(err *DependencyError) string {
 	sb.WriteString("\n\n")
 	fmt.Fprintf(&sb, "Cannot run command %s because some dependencies are missing.\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'"))
 
-	renderSection := func(label string, items []DependencyMessage) {
+	renderSection := func(label string, items []deps.DependencyMessage) {
 		if len(items) == 0 {
 			return
 		}

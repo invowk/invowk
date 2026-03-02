@@ -20,7 +20,7 @@ type (
 	// runtime resolution, SSH lifecycle, execution context construction, and
 	// dispatch. It returns raw typed errors (not styled ServiceErrors).
 	Service struct {
-		config         ConfigProvider
+		config         config.Provider
 		discovery      CommandDiscovery
 		stdout         io.Writer
 		stderr         io.Writer
@@ -31,7 +31,7 @@ type (
 
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
 	// The CLI layer provides the implementation that emits diagnostics.
-	ConfigFallbackFunc func(ctx context.Context, provider ConfigProvider, configPath string) (*config.Config, []discovery.Diagnostic)
+	ConfigFallbackFunc func(ctx context.Context, provider config.Provider, configPath string) (*config.Config, []discovery.Diagnostic)
 )
 
 // New creates a command execution service.
@@ -40,7 +40,7 @@ type (
 // is nil. The configFallback function loads configuration with fallback behavior.
 // Both are provided by the CLI layer to avoid the service importing cmd/.
 func New(
-	configProvider ConfigProvider,
+	configProvider config.Provider,
 	disc CommandDiscovery,
 	stdout, stderr io.Writer,
 	userEnvFunc UserEnvFunc,

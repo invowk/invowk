@@ -16,8 +16,8 @@ import (
 // and deny list.
 type envInheritConfig struct {
 	mode  invowkfile.EnvInheritMode
-	allow []string
-	deny  []string
+	allow []invowkfile.EnvVarName
+	deny  []invowkfile.EnvVarName
 }
 
 // resolveEnvInheritConfig applies the 3-level precedence chain to produce a final
@@ -34,16 +34,10 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invowkfile.EnvIn
 			cfg.mode = rtConfig.EnvInheritMode
 		}
 		if len(rtConfig.EnvInheritAllow) > 0 {
-			cfg.allow = make([]string, len(rtConfig.EnvInheritAllow))
-			for i, name := range rtConfig.EnvInheritAllow {
-				cfg.allow[i] = string(name)
-			}
+			cfg.allow = rtConfig.EnvInheritAllow
 		}
 		if len(rtConfig.EnvInheritDeny) > 0 {
-			cfg.deny = make([]string, len(rtConfig.EnvInheritDeny))
-			for i, name := range rtConfig.EnvInheritDeny {
-				cfg.deny[i] = string(name)
-			}
+			cfg.deny = rtConfig.EnvInheritDeny
 		}
 	}
 
@@ -51,16 +45,10 @@ func resolveEnvInheritConfig(ctx *ExecutionContext, defaultMode invowkfile.EnvIn
 		cfg.mode = ctx.Env.InheritModeOverride
 	}
 	if ctx.Env.InheritAllowOverride != nil {
-		cfg.allow = make([]string, len(ctx.Env.InheritAllowOverride))
-		for i, name := range ctx.Env.InheritAllowOverride {
-			cfg.allow[i] = string(name)
-		}
+		cfg.allow = ctx.Env.InheritAllowOverride
 	}
 	if ctx.Env.InheritDenyOverride != nil {
-		cfg.deny = make([]string, len(ctx.Env.InheritDenyOverride))
-		for i, name := range ctx.Env.InheritDenyOverride {
-			cfg.deny[i] = string(name)
-		}
+		cfg.deny = ctx.Env.InheritDenyOverride
 	}
 
 	return cfg
@@ -81,13 +69,13 @@ func buildHostEnv(cfg envInheritConfig, environ func() []string) map[string]stri
 	allowSet := make(map[string]struct{})
 	if cfg.mode == invowkfile.EnvInheritAllow {
 		for _, name := range cfg.allow {
-			allowSet[name] = struct{}{}
+			allowSet[string(name)] = struct{}{}
 		}
 	}
 
 	denySet := make(map[string]struct{})
 	for _, name := range cfg.deny {
-		denySet[name] = struct{}{}
+		denySet[string(name)] = struct{}{}
 	}
 
 	if environ == nil {

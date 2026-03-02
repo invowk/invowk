@@ -20,10 +20,7 @@ var (
 	moduleWarningIcon = WarningStyle.Render("!")
 	moduleInfoIcon    = SubtitleStyle.Render("•")
 
-	moduleTitleStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorPrimary).
-				MarginBottom(1)
+	moduleTitleStyle = TitleStyle.MarginBottom(1)
 
 	moduleIssueStyle = lipgloss.NewStyle().
 				Foreground(ColorError).

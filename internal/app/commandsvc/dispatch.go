@@ -52,7 +52,7 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	execCtx.ExecutionID = registryResult.Registry.NewExecutionID()
 
 	if registryResult.ContainerInitErr != nil && execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
-		issueID, plainMsg := classifyExecutionError(registryResult.ContainerInitErr, req.Verbose)
+		issueID, plainMsg := classifyExecutionError(registryResult.ContainerInitErr)
 		return Result{}, diags, &ClassifiedError{
 			Err:     registryResult.ContainerInitErr,
 			IssueID: issueID,
@@ -96,7 +96,7 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 		rt, err := registryResult.Registry.GetForContext(execCtx)
 		if err != nil {
 			err = fmt.Errorf("failed to get runtime: %w", err)
-			issueID, plainMsg := classifyExecutionError(err, req.Verbose)
+			issueID, plainMsg := classifyExecutionError(err)
 			return Result{}, diags, &ClassifiedError{
 				Err:     err,
 				IssueID: issueID,
@@ -119,7 +119,7 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	}
 
 	if result.Error != nil {
-		issueID, plainMsg := classifyExecutionError(result.Error, req.Verbose)
+		issueID, plainMsg := classifyExecutionError(result.Error)
 		return Result{}, diags, &ClassifiedError{
 			Err:     result.Error,
 			IssueID: issueID,
