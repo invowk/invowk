@@ -2785,6 +2785,169 @@ pattern = "invowkfile.CapabilityError.Capability.nonzero"
 reason = "error struct carries offending capability for diagnostic output"
 
 # =============================================================================
+# Hexagonal Extraction — commandsvc Package
+# =============================================================================
+# These primitives mirror the cmd/invowk/ CLI-boundary fields from
+# ExecuteRequest which are already excepted. The commandsvc.Request
+# struct is the service-layer mirror of the CLI DTO.
+
+[[exceptions]]
+pattern = "commandsvc.Request.Name"
+reason = "CLI boundary — Cobra command name"
+
+[[exceptions]]
+pattern = "commandsvc.Request.Args"
+reason = "CLI boundary — positional args from Cobra"
+
+[[exceptions]]
+pattern = "commandsvc.Request.EnvVars"
+reason = "CLI boundary — KEY=VALUE pairs from --ivk-env-var flag"
+
+[[exceptions]]
+pattern = "commandsvc.Request.UserEnv"
+reason = "OS boundary — host os.Environ() snapshot"
+
+[[exceptions]]
+pattern = "commandsvc.resolvedDefinitions.flagValues"
+reason = "CLI boundary — flag value map from Cobra parsing"
+
+[[exceptions]]
+pattern = "commandsvc.ClassifiedError.Message"
+reason = "hint string for CLI rendering (typed via HintTimedOut/HintCancelled constants)"
+
+[[exceptions]]
+pattern = "commandsvc.executeInteractive.cmdName"
+reason = "display-only command name passed to TUI"
+
+[[exceptions]]
+pattern = "classifyExecutionError.hint"
+reason = "return hint for CLI adapter rendering"
+
+[[exceptions]]
+pattern = "commandsvc.classifyExecutionError.return.*"
+reason = "return hint for CLI adapter rendering"
+
+[[exceptions]]
+pattern = "commandsvc.Service.loadConfig.configPath"
+reason = "config file path from CLI flag"
+
+[[exceptions]]
+pattern = "commandsvc.*.*.userEnv"
+reason = "OS boundary — host environment snapshot threading"
+
+# =============================================================================
+# Hexagonal Extraction — deps Package
+# =============================================================================
+# These primitives are at exec/OS/CLI boundaries. Functions were moved from
+# cmd/invowk/ where the same primitives were already excepted under different
+# package-qualified names.
+
+[[exceptions]]
+pattern = "deps.*.userEnv"
+reason = "OS boundary — host environment snapshot threading"
+
+[[exceptions]]
+pattern = "deps.ValidateFlagValues.cmdName"
+reason = "display-only in error messages"
+
+[[exceptions]]
+pattern = "deps.ValidateFlagValues.flagValues"
+reason = "CLI boundary — Cobra flag values from parsed input"
+
+[[exceptions]]
+pattern = "deps.ValidateArguments.cmdName"
+reason = "display-only in error messages"
+
+[[exceptions]]
+pattern = "deps.ValidateArguments.providedArgs"
+reason = "CLI boundary — positional args from Cobra"
+
+[[exceptions]]
+pattern = "deps.ValidateCustomCheckOutput.outputStr"
+reason = "exec boundary — shell command output"
+
+[[exceptions]]
+pattern = "deps.CheckCommandDependenciesExist.currentModule"
+reason = "module name from discovery — display/lookup only"
+
+[[exceptions]]
+pattern = "deps.CheckTransientExitCode.label"
+reason = "display-only label for error message"
+
+[[exceptions]]
+pattern = "deps.NewContainerValidationContext.script"
+reason = "exec boundary — shell script content for container exec"
+
+[[exceptions]]
+pattern = "deps.ShellEscapeSingleQuote.*"
+reason = "shell utility — raw string param by design"
+
+[[exceptions]]
+pattern = "deps.ShellEscapeSingleQuote.return.*"
+reason = "shell utility — raw string return by design"
+
+[[exceptions]]
+pattern = "deps.CapabilityCheckScript.return.*"
+reason = "exec boundary — shell script content for container exec"
+
+[[exceptions]]
+pattern = "deps.Is*.path"
+reason = "OS boundary — filesystem path for os.Stat"
+
+# =============================================================================
+# Hexagonal Extraction — Container Engine (imageExists)
+# =============================================================================
+# Internal CLI subcommand plumbing. Inline //goplint:ignore directives do
+# not suppress param/return findings — only struct field findings.
+
+[[exceptions]]
+pattern = "container.BaseCLIEngine.imageExistsSubCmd"
+reason = "engine-internal CLI subcommand name, not a domain value"
+
+[[exceptions]]
+pattern = "container.WithImageExistsSubCmd.subCmd"
+reason = "engine-internal CLI subcommand name, not a domain value"
+
+[[exceptions]]
+pattern = "container.BaseCLIEngine.ImageExistsArgs.return.*"
+reason = "raw CLI args for exec.Command"
+
+# =============================================================================
+# Hexagonal Extraction — Missing Constructor Exceptions
+# =============================================================================
+# DTOs and result structs from commandsvc are constructed inline — no
+# constructor needed. Service has New() but prefix match expects NewService().
+
+[[exceptions]]
+pattern = "commandsvc.Service.constructor"
+reason = "has New() constructor — name does not match NewService prefix convention"
+
+[[exceptions]]
+pattern = "commandsvc.Request.constructor"
+reason = "DTO constructed by toServiceRequest() in cmd adapter"
+
+[[exceptions]]
+pattern = "commandsvc.Result.constructor"
+reason = "result struct returned inline from Execute()"
+
+[[exceptions]]
+pattern = "commandsvc.DryRunData.constructor"
+reason = "internal data carrier constructed inline in service"
+
+[[exceptions]]
+pattern = "commandsvc.RuntimeRegistryResult.constructor"
+reason = "internal result struct from CreateRuntimeRegistry()"
+
+# =============================================================================
+# Hexagonal Extraction — Unvalidated Cast Exceptions
+# =============================================================================
+# DependencyMessage casts from fmt.Sprintf output — pre-formatted display text.
+
+[[exceptions]]
+pattern = "deps.*.cast-validation"
+reason = "DependencyMessage display-text casts from fmt.Sprintf — pre-formatted, not raw input"
+
+# =============================================================================
 # Orphaned Validator Audit — Constant-Only Types
 # =============================================================================
 # All 8 constant-only types now have //goplint:constant-only directives on
