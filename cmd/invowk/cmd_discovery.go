@@ -96,7 +96,7 @@ func registerDiscoveredCommands(ctx context.Context, app *App, rootFlags *rootFl
 
 						if isAmbiguous {
 							cmdArgs := append(strings.Fields(parentPrefix), args...)
-							if err := checkAmbiguousCommand(ctx, app, rootFlags, cmdArgs); err != nil {
+							if err := checkAmbiguousCommand(ctx, app, cmdArgs); err != nil {
 								if ambigErr, ok := errors.AsType[*AmbiguousCommandError](err); ok {
 									fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 									cmd.SilenceErrors = true

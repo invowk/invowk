@@ -31,7 +31,7 @@ Examples:
   invowk module archive ./mytools.invowkmod
   invowk module archive ./mytools.invowkmod --output ./dist/mytools.zip`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runModuleArchive(args, output)
 		},
 	}

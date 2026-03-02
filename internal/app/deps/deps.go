@@ -85,7 +85,7 @@ func ValidateHostDependencies(disc CommandSetProvider, cmdInfo *discovery.Comman
 // the runtime's own environment. Runtime-level depends_on is only supported for the
 // container runtime -- for native/virtual, it's a no-op since CUE schema and structural
 // validation prevent declaring depends_on on those runtime types.
-func ValidateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error {
+func ValidateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error { //nolint:revive // cmdInfo kept for phase symmetry with ValidateHostDependencies
 	selectedRuntime := parentCtx.SelectedRuntime
 
 	// Runtime-level depends_on is only supported for container runtime

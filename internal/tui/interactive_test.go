@@ -425,12 +425,12 @@ func TestInteractiveModel_ConcurrentOutputWrites(t *testing.T) {
 
 	// Simulate concurrent output writes (should be safe due to mutex)
 	done := make(chan bool)
-	for i := range 10 {
-		go func(n int) {
+	for range 10 {
+		go func() {
 			msg := outputMsg{content: "output "}
 			model.Update(msg)
 			done <- true
-		}(i)
+		}()
 	}
 
 	// Wait for all goroutines

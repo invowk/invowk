@@ -192,7 +192,7 @@ func TestProcessFilesOrStdin_FileNotFound(t *testing.T) {
 		strings.NewReader("unused stdin"),
 		t.TempDir(),
 		"testcmd",
-		func(r io.Reader, filename string, index, total int) error {
+		func(_ io.Reader, _ string, _, _ int) error {
 			t.Error("processor should not be called for nonexistent file")
 			return nil
 		},
@@ -225,7 +225,7 @@ func TestProcessFilesOrStdin_ProcessorError(t *testing.T) {
 		strings.NewReader("unused stdin"),
 		tmpDir,
 		"test",
-		func(r io.Reader, filename string, index, total int) error {
+		func(_ io.Reader, _ string, _, _ int) error {
 			return expectedErr
 		},
 	)
@@ -260,7 +260,7 @@ func TestProcessFilesOrStdin_StopsOnFirstError(t *testing.T) {
 		strings.NewReader("unused stdin"),
 		tmpDir,
 		"test",
-		func(r io.Reader, filename string, index, total int) error {
+		func(_ io.Reader, _ string, _, _ int) error {
 			callCount++
 			return expectedErr
 		},
@@ -293,7 +293,7 @@ func TestProcessFilesOrStdin_RelativePath(t *testing.T) {
 		strings.NewReader("unused stdin"),
 		tmpDir, // workDir for resolving relative paths
 		"test",
-		func(r io.Reader, filename string, index, total int) error {
+		func(r io.Reader, _ string, _, _ int) error {
 			data, err := io.ReadAll(r)
 			if err != nil {
 				return err
@@ -329,7 +329,7 @@ func TestProcessFilesOrStdin_AbsolutePath(t *testing.T) {
 		strings.NewReader("unused stdin"),
 		"/some/other/dir", // should be ignored for absolute paths
 		"test",
-		func(r io.Reader, filename string, index, total int) error {
+		func(r io.Reader, _ string, _, _ int) error {
 			data, err := io.ReadAll(r)
 			if err != nil {
 				return err
@@ -356,7 +356,7 @@ func TestProcessFilesOrStdin_StdinProcessorError(t *testing.T) {
 		strings.NewReader("stdin content"),
 		t.TempDir(),
 		"test",
-		func(r io.Reader, filename string, index, total int) error {
+		func(_ io.Reader, _ string, _, _ int) error {
 			return expectedErr
 		},
 	)
@@ -393,7 +393,7 @@ func TestProcessFilesOrStdin_PreservesFilenameArgument(t *testing.T) {
 		strings.NewReader("unused"),
 		tmpDir,
 		"test",
-		func(r io.Reader, filename string, index, total int) error {
+		func(_ io.Reader, filename string, _, _ int) error {
 			gotFilename = filename
 			return nil
 		},

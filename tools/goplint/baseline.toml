@@ -3,4 +3,13 @@
 # goplint baseline — accepted DDD compliance findings
 # Generated: 2026-03-02
 # Regenerate: make update-baseline
-# Total: 0 findings
+# Total: 4 findings
+
+# Bare primitive type usage
+[primitive]
+entries = [
+    { id = "gpl1_0b854342f1376c4b830a090a8a0d3eb8e3f92135b0f12efd0ffdf5cba4815bb6", message = "parameter \"_\" of invowk.runTuiWrite uses primitive type []string" },
+    { id = "gpl1_2ea0308e37c16461d4d6c174df8917bd1bfc59978c282625060a0e2e00ae233e", message = "parameter \"_\" of invowk.runInternalExecVirtual uses primitive type []string" },
+    { id = "gpl1_7f11d878e55550cb4cf1b909b54b55fcccd5a380849e5fc0dd8c004759be279a", message = "parameter \"_\" of invowk.runTuiTable uses primitive type []string" },
+    { id = "gpl1_92d9478cb0beb27f5b10d696a6a99d6abf8671aa122fd9832a53ee9590ba5fc5", message = "parameter \"_\" of invowk.runTuiInput uses primitive type []string" },
+]

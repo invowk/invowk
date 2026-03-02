@@ -117,7 +117,7 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 		}, diags, nil
 	}
 
-	return s.dispatchExecution(ctx, req, execCtx, cmdInfo, cfg, diags)
+	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
 }
 
 // discoverCommand loads configuration and discovers the target command by name.

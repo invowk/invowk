@@ -47,7 +47,7 @@ func newInternalExecVirtualCommand() *cobra.Command {
 // It reads the script from the specified file and executes it using mvdan/sh
 // with stdin/stdout/stderr connected to the process's stdio (which will be
 // attached to a PTY by the parent process).
-func runInternalExecVirtual(cmd *cobra.Command, args []string) error {
+func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
 	scriptFile, _ := cmd.Flags().GetString("script-file")
 	workdir, _ := cmd.Flags().GetString("workdir")
 	envVars, _ := cmd.Flags().GetStringArray("env")

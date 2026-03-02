@@ -152,7 +152,7 @@ Examples:
 
 			// Validate structural command constraints in runtime flow so
 			// dynamic registration failures do not break unrelated commands.
-			if err := validateCommandTree(cmd.Context(), app, rootFlags); err != nil {
+			if err := validateCommandTree(cmd.Context(), app); err != nil {
 				return err
 			}
 
@@ -176,7 +176,7 @@ Examples:
 			// Without explicit source selection, detect ambiguity up front and
 			// show disambiguation guidance.
 			if len(args) > 0 {
-				if ambigCheckErr := checkAmbiguousCommand(cmd.Context(), app, rootFlags, args); ambigCheckErr != nil {
+				if ambigCheckErr := checkAmbiguousCommand(cmd.Context(), app, args); ambigCheckErr != nil {
 					if ambigErr, ok := errors.AsType[*AmbiguousCommandError](ambigCheckErr); ok {
 						fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
 						cmd.SilenceErrors = true
@@ -348,7 +348,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 // On success, diagnostic rendering is deferred to downstream callers (listCommands,
 // executeRequest) that consume the cached discovery result. On error, diagnostics
 // are rendered here because downstream callers will not execute.
-func validateCommandTree(ctx context.Context, app *App, rootFlags *rootFlagValues) error {
+func validateCommandTree(ctx context.Context, app *App) error {
 	result, err := app.Discovery.DiscoverAndValidateCommandSet(ctx)
 	if err == nil {
 		return nil // diagnostics rendered by downstream callers via the shared cache

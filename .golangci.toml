@@ -443,6 +443,11 @@ severity = "warning"
 name = "unnecessary-stmt"  # Catch unnecessary break/return statements
 severity = "warning"
 
+[[linters.settings.revive.rules]]
+name = "unused-parameter"  # Detect function/method parameters never used in the body
+severity = "warning"
+arguments = [{allowRegex = "^_"}]  # Exempt _-prefixed params (interface/callback convention)
+
 # -----------------------------------------------------------------------------
 # wrapcheck: Error wrapping enforcement
 # -----------------------------------------------------------------------------

@@ -52,7 +52,7 @@ Examples:
 	return cmd
 }
 
-func runTuiTable(cmd *cobra.Command, args []string) error {
+func runTuiTable(cmd *cobra.Command, _ []string) error {
 	tableFile, _ := cmd.Flags().GetString("file")
 	tableSeparator, _ := cmd.Flags().GetString("separator")
 	tableColumns, _ := cmd.Flags().GetStringSlice("columns")

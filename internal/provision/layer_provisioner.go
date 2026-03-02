@@ -96,7 +96,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.Im
 
 // CleanupProvisionedImages removes all cached provisioned images.
 // This can be called periodically to free up disk space.
-func (p *LayerProvisioner) CleanupProvisionedImages(ctx context.Context) error {
+func (p *LayerProvisioner) CleanupProvisionedImages(_ctx context.Context) error {
 	// List all images with the invowk-provisioned prefix
 	// This would require adding a ListImages method to the Engine interface
 	// For now, this is a placeholder

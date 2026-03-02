@@ -206,8 +206,6 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 		Diagnostics: &defaultDiagnosticRenderer{},
 		stderr:      &bytes.Buffer{},
 	}
-	rootFlags := &rootFlagValues{}
-
 	tests := []struct {
 		name      string
 		args      []string
@@ -241,7 +239,7 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := checkAmbiguousCommand(t.Context(), app, rootFlags, tt.args)
+			err := checkAmbiguousCommand(t.Context(), app, tt.args)
 
 			if tt.wantErr {
 				if err == nil {
@@ -278,7 +276,7 @@ func TestCheckAmbiguousCommand_DiscoveryError(t *testing.T) {
 		stderr:      &bytes.Buffer{},
 	}
 
-	err := checkAmbiguousCommand(t.Context(), app, &rootFlagValues{}, []string{"deploy"})
+	err := checkAmbiguousCommand(t.Context(), app, []string{"deploy"})
 	if err != nil {
 		t.Fatalf("expected nil (discovery errors swallowed), got: %v", err)
 	}

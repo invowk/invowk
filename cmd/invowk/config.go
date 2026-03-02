@@ -27,7 +27,7 @@ Configuration is stored in:
   - Linux: ~/.config/invowk/config.cue
   - macOS: ~/Library/Application Support/invowk/config.cue
   - Windows: %APPDATA%\invowk\config.cue`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}
@@ -35,7 +35,7 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "show",
 		Short: "Show current configuration",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return showConfig(cmd.Context(), app)
 		},
 	})
@@ -43,7 +43,7 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "init",
 		Short: "Create default configuration file",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return initConfig()
 		},
 	})
@@ -51,7 +51,7 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "path",
 		Short: "Show configuration file path",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return showConfigPath()
 		},
 	})
@@ -68,7 +68,7 @@ Configuration is stored in:
 	cfgCmd.AddCommand(&cobra.Command{
 		Use:   "dump",
 		Short: "Output raw configuration as CUE",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load(cmd.Context(), config.LoadOptions{})
 			if err != nil {
 				return err

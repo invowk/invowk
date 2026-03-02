@@ -3,7 +3,6 @@
 package tui
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -175,7 +174,7 @@ func Write(opts WriteOptions) (string, error) {
 
 	m := finalModel.(*writeModel)
 	if m.cancelled {
-		return "", errors.New("user aborted")
+		return "", ErrCancelled
 	}
 	result, _ := m.Result() //nolint:errcheck // Result() cannot fail after successful Run()
 	return result.(string), nil

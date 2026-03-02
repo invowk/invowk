@@ -181,7 +181,7 @@ func NewWithClock(cfg Config, clock Clock) (*Server, error) {
 
 // commandMiddleware handles command execution.
 func (s *Server) commandMiddleware() wish.Middleware {
-	return func(next ssh.Handler) ssh.Handler {
+	return func(_ ssh.Handler) ssh.Handler {
 		return func(sess ssh.Session) {
 			cmd := sess.Command()
 

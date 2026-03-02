@@ -39,7 +39,7 @@ type RuntimeRegistryResult struct {
 //
 // It returns ClassifiedError for runtime failures and raw typed errors for
 // dependency validation. The CLI adapter handles rendering.
-func (s *Service) dispatchExecution(ctx context.Context, req Request, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (Result, []discovery.Diagnostic, error) {
+func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (Result, []discovery.Diagnostic, error) {
 	registryResult := CreateRuntimeRegistry(cfg, s.ssh.current())
 	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
 		diags = append(diags, registryResult.Diagnostics...)
@@ -106,7 +106,7 @@ func (s *Service) dispatchExecution(ctx context.Context, req Request, execCtx *r
 
 		interactiveRT := runtime.GetInteractiveRuntime(rt)
 		if interactiveRT != nil {
-			result = executeInteractive(execCtx, registryResult.Registry, req.Name, interactiveRT)
+			result = executeInteractive(execCtx, req.Name, interactiveRT)
 		} else {
 			if req.Verbose {
 				fmt.Fprintf(s.stdout, "! Runtime '%s' does not support interactive mode, using standard execution\n",
@@ -194,7 +194,7 @@ func BridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
 // screen buffer. It starts an HTTP-based TUI server for bidirectional component requests
 // between the running command and the terminal UI. For container runtimes, the TUI server
 // URL is rewritten to use the host-reachable address so containers can call back.
-func executeInteractive(ctx *runtime.ExecutionContext, registry *runtime.Registry, cmdName string, interactiveRT runtime.InteractiveRuntime) *runtime.Result {
+func executeInteractive(ctx *runtime.ExecutionContext, cmdName string, interactiveRT runtime.InteractiveRuntime) *runtime.Result {
 	if err := interactiveRT.Validate(ctx); err != nil {
 		return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for validation failure
 	}

@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Const block placed before var/type (decorder: const → var → type → func).
@@ -33,8 +35,8 @@ const (
 // Var block placed after const, before type (decorder: const → var → type → func).
 var (
 	// ErrCancelled is returned when a user cancels a TUI component (e.g., via Ctrl+C or Esc).
-	// Callers can check for this error using errors.Is(err, tui.ErrCancelled).
-	ErrCancelled = errors.New("user cancelled")
+	// Callers can check for this error using errors.Is(err, ErrCancelled).
+	ErrCancelled = types.ErrUserCancelled
 	// errNoCommand is returned when trying to run an interactive session without a command.
 	errNoCommand = errors.New("no command provided")
 	// ErrInvalidTheme is returned when a Theme value is not one of the defined themes.

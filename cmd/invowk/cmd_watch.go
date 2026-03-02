@@ -33,7 +33,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	// Check for ambiguous commands before proceeding, consistent with normal execution.
 	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
-	if ambErr := checkAmbiguousCommand(ctx, app, rootFlags, args); ambErr != nil {
+	if ambErr := checkAmbiguousCommand(ctx, app, args); ambErr != nil {
 		return ambErr
 	}
 

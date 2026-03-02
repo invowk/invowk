@@ -196,7 +196,7 @@ func (m *MockCommandRecorder) Reset() {
 // TestHelperProcess is used by the mock to simulate command execution.
 // It reads configuration from environment variables and outputs accordingly.
 // This function should not be called directly - it is invoked by the mock.
-func TestHelperProcess(t *testing.T) {
+func TestHelperProcess(_ *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}

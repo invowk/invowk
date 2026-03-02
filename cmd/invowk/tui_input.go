@@ -53,7 +53,7 @@ Examples:
 	return cmd
 }
 
-func runTuiInput(cmd *cobra.Command, args []string) error {
+func runTuiInput(cmd *cobra.Command, _ []string) error {
 	inputTitle, _ := cmd.Flags().GetString("title")
 	inputDescription, _ := cmd.Flags().GetString("description")
 	inputPlaceholder, _ := cmd.Flags().GetString("placeholder")

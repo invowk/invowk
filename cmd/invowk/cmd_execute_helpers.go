@@ -176,7 +176,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 // ambiguous across sources. It mirrors Cobra's longest-match resolution for nested
 // command names and returns an AmbiguousCommandError when the resolved name exists
 // in multiple sources, requiring explicit disambiguation via @source or --ivk-from.
-func checkAmbiguousCommand(ctx context.Context, app *App, rootFlags *rootFlagValues, args []string) error {
+func checkAmbiguousCommand(ctx context.Context, app *App, args []string) error {
 	if len(args) == 0 {
 		return nil
 	}

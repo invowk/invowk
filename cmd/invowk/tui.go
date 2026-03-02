@@ -35,7 +35,7 @@ Examples:
   invowk tui confirm "Are you sure?"
   invowk tui spin --title "Working..." -- sleep 2
   echo "Hello World" | invowk tui style --foreground "#FF0000"`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}

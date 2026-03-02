@@ -148,7 +148,7 @@ func ValidateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir ty
 			// Success! This alternative satisfies the dependency
 			return nil
 		} else {
-			allErrors = append(allErrors, fmt.Sprintf("%s: %s", altPath, err.Error()))
+			allErrors = append(allErrors, err.Error())
 		}
 	}
 
@@ -167,10 +167,10 @@ func ValidateSingleFilepath(displayPath, resolvedPath types.FilesystemPath, fp i
 	// Check if path exists
 	info, err := os.Stat(resolvedPathStr)
 	if os.IsNotExist(err) {
-		return errors.New("path does not exist")
+		return fmt.Errorf("%s: path does not exist", displayPath)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot access path: %w", err)
+		return fmt.Errorf("%s: cannot access path: %w", displayPath, err)
 	}
 
 	var permErrors []string
@@ -197,7 +197,7 @@ func ValidateSingleFilepath(displayPath, resolvedPath types.FilesystemPath, fp i
 	}
 
 	if len(permErrors) > 0 {
-		return fmt.Errorf("missing permissions: %s", strings.Join(permErrors, ", "))
+		return fmt.Errorf("%s: missing permissions: %s", displayPath, strings.Join(permErrors, ", "))
 	}
 
 	return nil
