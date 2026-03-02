@@ -1,15 +1,17 @@
 # Rust Conversion — Remaining Items (v2)
 
-> **STATUS: ITEMS 1+2 COMPLETE, Batch 3a (virtual) COMPLETE** — updated 2026-03-01.
-> Current state: ~59K lines, 1123 unit tests + 140 CLI integration tests, all files under 1000 lines.
+> **STATUS: ALL ITEMS COMPLETE** — updated 2026-03-01.
+> Current state: ~59K lines, 1123 unit tests + 223 CLI integration tests (78 ignored), all files under 1000 lines.
 > Previous items (v1) all complete: TUI standalone components, container dep runner,
 > RuntimeConfig.depends_on, CUE parser module wiring.
 > Item 1 (Interactive PTY): COMPLETE Mar 2026.
-> Item 2 (CLI Integration Tests): Batches 1+2 COMPLETE Mar 2026. Dynamic arg/flag parsing wired.
->   Batch 3a (virtual core features + deps): COMPLETE Mar 2026 — 16 new test files, 108 passing,
->   32 ignored (multi-source discovery, runtime override validation, cmd dep checking not yet wired).
->   Also fixed: CommandName validation now allows spaces (Go parity), id:→module: CUE format consistency.
->   Remaining: Batch 3b (container, module commands, native) + Batch 4 (uroot, TUI).
+> Item 2 (CLI Integration Tests): ALL BATCHES COMPLETE Mar 2026. 5 test binaries, 98 test files.
+>   Batch 1-2: Core commands, virtual runtime basics.
+>   Batch 3a: Virtual core features + deps — 16 files, 108 passing.
+>   Batch 3b: Container (8 files), module commands (9 files), native runtime (21 files).
+>   Batch 4: Coreutils/u-root (16 files), TUI non-interactive (1 file).
+>   Guardrails: Mirror coverage + CLI command coverage enforcement (2 files).
+>   Known issues: CUE schema version mismatch (2-seg regex vs 3-seg SemVer), Alpine image rejection not impl, no `tui style` command (merged into `tui format`).
 > Item 3 (Minor Cleanup): SharedScrollState/render_header/has_tty already done.
 
 ## 1. Interactive PTY Execution Mode (TUI)
