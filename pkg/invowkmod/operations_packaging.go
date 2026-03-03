@@ -17,6 +17,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const invalidZIPPathFmt = "invalid path in ZIP: %s"
+
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
 func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.FilesystemPath, err error) {
@@ -182,7 +184,9 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve source path: %w", err)
 		}
-		cleanup = func() {}
+		cleanup = func() {
+			// No-op for local ZIP source.
+		}
 	}
 	defer cleanup()
 
@@ -205,7 +209,7 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 			strings.HasPrefix(cleanPath, "/") ||
 			cleanPath == ".." ||
 			strings.HasPrefix(cleanPath, "../") {
-			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
+			return "", fmt.Errorf(invalidZIPPathFmt, file.Name)
 		}
 
 		// Look for the .invowkmod directory
@@ -246,7 +250,7 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 			strings.HasPrefix(cleanPath, "/") ||
 			cleanPath == ".." ||
 			strings.HasPrefix(cleanPath, "../") {
-			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
+			return "", fmt.Errorf(invalidZIPPathFmt, file.Name)
 		}
 
 		// Skip files not in the module root
@@ -263,7 +267,7 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 			relPath == ".." ||
 			strings.HasPrefix(relPath, ".."+string(filepath.Separator)) ||
 			filepath.IsAbs(relPath) {
-			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
+			return "", fmt.Errorf(invalidZIPPathFmt, file.Name)
 		}
 
 		if file.FileInfo().IsDir() {

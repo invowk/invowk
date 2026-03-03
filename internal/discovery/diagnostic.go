@@ -50,6 +50,9 @@ const (
 	// CodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
 	// Bridged from runtime.CodeContainerRuntimeInitFailed at the CLI layer boundary.
 	CodeContainerRuntimeInitFailed DiagnosticCode = "container_runtime_init_failed"
+
+	// invalidDiagnosticPanicFmt is used for impossible invalid Diagnostic states.
+	invalidDiagnosticPanicFmt = "BUG: invalid diagnostic: %v"
 )
 
 var (
@@ -260,7 +263,7 @@ func validateDiagnosticParams(severity Severity, code DiagnosticCode) error {
 func mustDiagnostic(severity Severity, code DiagnosticCode, message string) Diagnostic {
 	d, err := NewDiagnostic(severity, code, message)
 	if err != nil {
-		panic(fmt.Sprintf("BUG: invalid diagnostic: %v", err))
+		panic(fmt.Sprintf(invalidDiagnosticPanicFmt, err))
 	}
 	return d
 }
@@ -270,7 +273,7 @@ func mustDiagnostic(severity Severity, code DiagnosticCode, message string) Diag
 func mustDiagnosticWithPath(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath) Diagnostic {
 	d, err := NewDiagnosticWithPath(severity, code, message, path)
 	if err != nil {
-		panic(fmt.Sprintf("BUG: invalid diagnostic: %v", err))
+		panic(fmt.Sprintf(invalidDiagnosticPanicFmt, err))
 	}
 	return d
 }
@@ -280,7 +283,7 @@ func mustDiagnosticWithPath(severity Severity, code DiagnosticCode, message stri
 func mustDiagnosticWithCause(severity Severity, code DiagnosticCode, message string, path types.FilesystemPath, cause error) Diagnostic {
 	d, err := NewDiagnosticWithCause(severity, code, message, path, cause)
 	if err != nil {
-		panic(fmt.Sprintf("BUG: invalid diagnostic: %v", err))
+		panic(fmt.Sprintf(invalidDiagnosticPanicFmt, err))
 	}
 	return d
 }

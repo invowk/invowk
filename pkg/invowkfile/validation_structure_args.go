@@ -63,7 +63,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -93,7 +93,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -103,7 +103,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     NewFieldPath().Command(cmd.Name).String(),
-			Message:   "has duplicate argument name '" + arg.Name.String() + "' in invowkfile at " + string(ctx.FilePath),
+			Message:   "has duplicate argument name '" + arg.Name.String() + quotedInvowkfileAtSuffix + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -155,7 +155,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "default_value '" + arg.DefaultValue + "' is not compatible with type '" + string(arg.GetType()) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
+				Message:   "default_value '" + arg.DefaultValue + "' is not compatible with type '" + string(arg.GetType()) + "': " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -167,7 +167,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "has unsafe validation regex '" + string(arg.Validation) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
+				Message:   "has unsafe validation regex '" + string(arg.Validation) + "': " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		} else if arg.DefaultValue != "" {
@@ -176,7 +176,7 @@ func (v *StructureValidator) validateArg(ctx *ValidationContext, cmd *Command, a
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + string(arg.Validation) + "' in invowkfile at " + string(ctx.FilePath),
+					Message:   "default_value '" + arg.DefaultValue + "' does not match validation pattern '" + string(arg.Validation) + quotedInvowkfileAtSuffix + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}

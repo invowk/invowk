@@ -96,7 +96,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.Im
 
 // CleanupProvisionedImages removes all cached provisioned images.
 // This can be called periodically to free up disk space.
-func (p *LayerProvisioner) CleanupProvisionedImages(_ctx context.Context) error {
+func (p *LayerProvisioner) CleanupProvisionedImages(_ context.Context) error {
 	// List all images with the invowk-provisioned prefix
 	// This would require adding a ListImages method to the Engine interface
 	// For now, this is a placeholder
@@ -242,6 +242,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 	// Use a visible directory in user's home that Docker Snap can access
 	// Snap's home interface doesn't expose hidden directories (starting with .)
 	var buildContextParent string
+	var parentCleanup func()
 
 	// Try HOME first, but verify it actually exists (handles cases like testscript
 	// setting HOME=/no-home or misconfigured environments)
@@ -257,8 +258,16 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 		if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 			buildContextParent = filepath.Join(cwd, ".invowk-build")
 		} else {
-			// Last resort: use system temp (may fail with Snap Docker)
-			buildContextParent = filepath.Join(os.TempDir(), "invowk-build")
+			// Last resort: create a random parent in the system temp directory.
+			// This avoids predictable paths in world-writable temp locations.
+			tempParent, tempErr := os.MkdirTemp("", "invowk-build-*")
+			if tempErr != nil {
+				return "", nil, fmt.Errorf("failed to create fallback build context parent directory: %w", tempErr)
+			}
+			buildContextParent = tempParent
+			parentCleanup = func() {
+				_ = os.RemoveAll(tempParent) // Best-effort cleanup of fallback parent dir
+			}
 		}
 	}
 
@@ -274,6 +283,9 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 
 	cleanup = func() {
 		_ = os.RemoveAll(tmpDir) // Cleanup temp dir; error non-critical
+		if parentCleanup != nil {
+			parentCleanup()
+		}
 	}
 
 	// Copy invowk binary

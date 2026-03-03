@@ -3,7 +3,7 @@
 package invowkmod
 
 import (
-	_ "embed"
+	_ "embed" // required for go:embed invowkmod_schema.cue
 	"errors"
 	"fmt"
 	"os"

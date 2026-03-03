@@ -382,10 +382,10 @@ func newTableModelWithStyles(opts TableOptions, forModal bool) *tableModel {
 	if forModal {
 		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
 		base := modalBaseStyle()
-		purple := lipgloss.Color("#7C3AED")
-		lightPurple := lipgloss.Color("#A78BFA")
-		white := lipgloss.Color("#FFFFFF")
-		dimmed := lipgloss.Color("#6B7280")
+		purple := modalColorPrimary
+		lightPurple := modalColorPrimarySoft
+		white := modalColorForeground
+		dimmed := modalColorMuted
 
 		// Header style - explicit background with border bottom
 		s.Header = base.

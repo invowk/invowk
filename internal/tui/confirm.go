@@ -115,11 +115,11 @@ func (m *confirmModel) View() tea.View {
 		base = modalBaseStyle()
 	}
 
-	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
-	activeStyle := base.Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#7C3AED")).Bold(true).Padding(0, 1)
+	titleStyle := base.Bold(true).Foreground(modalColorPrimary)
+	descStyle := base.Foreground(modalColorMuted)
+	activeStyle := base.Foreground(modalColorForeground).Background(modalColorPrimary).Bold(true).Padding(0, 1)
 	inactiveStyle := base.Foreground(lipgloss.Color("#9CA3AF")).Padding(0, 1)
-	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
+	helpStyle := base.Foreground(modalColorMuted)
 
 	affirmative := m.affirmative.String()
 	negative := m.negative.String()

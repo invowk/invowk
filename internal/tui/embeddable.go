@@ -496,7 +496,7 @@ func shouldRestoreModalBackground(params types.DescriptionText) bool {
 func overlayStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7C3AED")).
+		BorderForeground(modalColorPrimary).
 		Padding(1, 2).
 		Background(lipgloss.Color("#1a1a2e"))
 }

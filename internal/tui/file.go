@@ -110,9 +110,9 @@ func (m *fileModel) View() tea.View {
 		base = modalBaseStyle()
 	}
 
-	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
-	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
+	titleStyle := base.Bold(true).Foreground(modalColorPrimary)
+	descStyle := base.Foreground(modalColorMuted)
+	helpStyle := base.Foreground(modalColorMuted)
 
 	lines := make([]string, 0, 4)
 	if m.title != "" {
@@ -322,15 +322,15 @@ func newFilePickerStyles(forModal bool) filepicker.Styles {
 	}
 
 	base := modalBaseStyle()
-	styles.Cursor = base.Foreground(lipgloss.Color("#7C3AED"))
-	styles.DisabledCursor = base.Foreground(lipgloss.Color("#6B7280"))
-	styles.Directory = base.Foreground(lipgloss.Color("#A78BFA"))
-	styles.File = base.Foreground(lipgloss.Color("#FFFFFF"))
-	styles.DisabledFile = base.Foreground(lipgloss.Color("#6B7280"))
-	styles.Permission = base.Foreground(lipgloss.Color("#6B7280"))
-	styles.Selected = base.Foreground(lipgloss.Color("#7C3AED")).Bold(true)
-	styles.DisabledSelected = base.Foreground(lipgloss.Color("#6B7280"))
-	styles.FileSize = base.Foreground(lipgloss.Color("#6B7280")).Width(7).Align(lipgloss.Right)
-	styles.EmptyDirectory = base.Foreground(lipgloss.Color("#6B7280"))
+	styles.Cursor = base.Foreground(modalColorPrimary)
+	styles.DisabledCursor = base.Foreground(modalColorMuted)
+	styles.Directory = base.Foreground(modalColorPrimarySoft)
+	styles.File = base.Foreground(modalColorForeground)
+	styles.DisabledFile = base.Foreground(modalColorMuted)
+	styles.Permission = base.Foreground(modalColorMuted)
+	styles.Selected = base.Foreground(modalColorPrimary).Bold(true)
+	styles.DisabledSelected = base.Foreground(modalColorMuted)
+	styles.FileSize = base.Foreground(modalColorMuted).Width(7).Align(lipgloss.Right)
+	styles.EmptyDirectory = base.Foreground(modalColorMuted)
 	return styles
 }

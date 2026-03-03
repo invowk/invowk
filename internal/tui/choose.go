@@ -142,23 +142,23 @@ func newMultiChooseDelegate(forModal bool, isSelected func(int) bool) multiChoos
 		base := modalBaseStyle()
 
 		// Normal item styles - explicit background on everything
-		d.styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
-		d.styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
+		d.styles.NormalTitle = base.Foreground(modalColorForeground)
+		d.styles.NormalDesc = base.Foreground(modalColorMuted)
 
 		// Selected item - use left border indicator WITH explicit background
 		d.styles.SelectedTitle = base.
-			Foreground(lipgloss.Color("#7C3AED")).
+			Foreground(modalColorPrimary).
 			Bold(true).
 			Padding(0, 0, 0, 1).
 			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("#7C3AED"))
+			BorderForeground(modalColorPrimary)
 		d.styles.SelectedDesc = base.
-			Foreground(lipgloss.Color("#A78BFA")).
+			Foreground(modalColorPrimarySoft).
 			Padding(0, 0, 0, 1)
 
 		// Dimmed styles - explicit backgrounds
-		d.styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
-		d.styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
+		d.styles.DimmedTitle = base.Foreground(modalColorMuted)
+		d.styles.DimmedDesc = base.Foreground(modalColorMuted)
 	} else {
 		// Default styles for non-modal usage
 		d.styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))

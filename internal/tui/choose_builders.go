@@ -210,19 +210,19 @@ func newSingleChooseModel(opts ChooseStringOptions, forModal bool) *chooseModel 
 
 	if forModal {
 		base := modalBaseStyle()
-		delegate.Styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
-		delegate.Styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.NormalTitle = base.Foreground(modalColorForeground)
+		delegate.Styles.NormalDesc = base.Foreground(modalColorMuted)
 		delegate.Styles.SelectedTitle = base.
-			Foreground(lipgloss.Color("#7C3AED")).
+			Foreground(modalColorPrimary).
 			Bold(true).
 			Padding(0, 0, 0, 1).
 			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("#7C3AED"))
+			BorderForeground(modalColorPrimary)
 		delegate.Styles.SelectedDesc = base.
-			Foreground(lipgloss.Color("#A78BFA")).
+			Foreground(modalColorPrimarySoft).
 			Padding(0, 0, 0, 1)
-		delegate.Styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
-		delegate.Styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.DimmedTitle = base.Foreground(modalColorMuted)
+		delegate.Styles.DimmedDesc = base.Foreground(modalColorMuted)
 	} else {
 		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 		delegate.Styles.NormalDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
@@ -247,11 +247,11 @@ func newSingleChooseModel(opts ChooseStringOptions, forModal bool) *chooseModel 
 
 	if forModal {
 		base := modalBaseStyle()
-		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.Title = base.Bold(true).Foreground(modalColorPrimary)
 		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.PaginationStyle = base.Foreground(modalColorMuted)
+		l.Styles.HelpStyle = base.Foreground(modalColorMuted)
+		l.Styles.NoItems = base.Foreground(modalColorMuted)
 	} else {
 		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
@@ -326,11 +326,11 @@ func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *choo
 		// Modal-specific list styles - ALL have EXPLICIT backgrounds
 		base := modalBaseStyle()
 
-		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.Title = base.Bold(true).Foreground(modalColorPrimary)
 		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.PaginationStyle = base.Foreground(modalColorMuted)
+		l.Styles.HelpStyle = base.Foreground(modalColorMuted)
+		l.Styles.NoItems = base.Foreground(modalColorMuted)
 	} else {
 		// Default list styles
 		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))

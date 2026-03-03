@@ -17,6 +17,8 @@ import (
 	"github.com/invowk/invowk/pkg/platform"
 )
 
+const failedBuildEnvironmentFmt = "failed to build environment: %w"
+
 type (
 	// NativeRuntime executes commands using the system's default shell.
 	// Shell and shell arguments are immutable after construction via NewNativeRuntime.
@@ -213,7 +215,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
+		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
 	cmd.Env = EnvToSlice(env)
 
@@ -268,7 +270,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
+		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
 	cmd.Env = EnvToSlice(env)
 
@@ -430,7 +432,7 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build environment: %w", err)
+		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
 	cmd.Env = EnvToSlice(env)
 
@@ -475,7 +477,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 		if cleanup != nil {
 			cleanup()
 		}
-		return nil, fmt.Errorf("failed to build environment: %w", err)
+		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
 	cmd.Env = EnvToSlice(env)
 

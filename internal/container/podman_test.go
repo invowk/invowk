@@ -3,7 +3,10 @@
 package container
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -71,6 +74,47 @@ func TestFindPodmanBinary_ReturnsPath(t *testing.T) {
 	// The returned path should be an absolute path
 	if path[0] != '/' {
 		t.Errorf("expected absolute path, got %q", path)
+	}
+}
+
+func TestFindPodmanBinary_PodmanRemoteOnlyPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping PATH executable simulation on Windows")
+	}
+
+	dir := t.TempDir()
+	remotePath := filepath.Join(dir, "podman-remote")
+	if err := os.WriteFile(remotePath, []byte(""), 0o755); err != nil {
+		t.Fatalf("failed to create podman-remote test binary: %v", err)
+	}
+
+	t.Setenv("PATH", dir)
+	got := findPodmanBinary()
+	if got != remotePath {
+		t.Fatalf("findPodmanBinary() = %q, want %q when only podman-remote is present", got, remotePath)
+	}
+}
+
+func TestFindPodmanBinary_PrefersPodmanOverRemoteInPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping PATH executable simulation on Windows")
+	}
+
+	dir := t.TempDir()
+	podmanPath := filepath.Join(dir, "podman")
+	remotePath := filepath.Join(dir, "podman-remote")
+
+	if err := os.WriteFile(podmanPath, []byte(""), 0o755); err != nil {
+		t.Fatalf("failed to create podman test binary: %v", err)
+	}
+	if err := os.WriteFile(remotePath, []byte(""), 0o755); err != nil {
+		t.Fatalf("failed to create podman-remote test binary: %v", err)
+	}
+
+	t.Setenv("PATH", dir)
+	got := findPodmanBinary()
+	if got != podmanPath {
+		t.Fatalf("findPodmanBinary() = %q, want %q when both binaries are present", got, podmanPath)
 	}
 }
 

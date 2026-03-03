@@ -18,9 +18,12 @@ import (
 )
 
 const (
-	pathTypeUnknown    pathType = iota
-	pathTypeInvowkfile          // invowkfile.cue or directory containing one
-	pathTypeModule              // *.invowkmod directory or invowkmod.cue file
+	pathTypeUnknown    pathType = 0 // unknown path type
+	pathTypeInvowkfile pathType = 1 // invowkfile.cue or directory containing one
+	pathTypeModule     pathType = 2 // *.invowkmod directory or invowkmod.cue file
+
+	invowkfileCueFileName = "invowkfile.cue"
+	failedResolvePathFmt  = "failed to resolve path: %w"
 )
 
 // errInvalidPathType is returned when a pathType value is not one of the defined types.
@@ -194,7 +197,7 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 func runPathValidation(cmd *cobra.Command, targetPath string) error {
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
+		return fmt.Errorf(failedResolvePathFmt, err)
 	}
 
 	pt, resolvedPath := detectPathType(absPath)
@@ -222,7 +225,7 @@ func detectPathType(absPath string) (detected pathType, resolvedPath string) {
 	}
 
 	// File named invowkfile.cue → invowkfile
-	if base == "invowkfile.cue" {
+	if base == invowkfileCueFileName {
 		return pathTypeInvowkfile, absPath
 	}
 
@@ -232,7 +235,7 @@ func detectPathType(absPath string) (detected pathType, resolvedPath string) {
 	}
 
 	// Directory containing invowkfile.cue → invowkfile
-	candidate := filepath.Join(absPath, "invowkfile.cue")
+	candidate := filepath.Join(absPath, invowkfileCueFileName)
 	if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
 		return pathTypeInvowkfile, candidate
 	}
@@ -247,7 +250,7 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 
 	absPath, err := filepath.Abs(invowkfilePath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
+		return fmt.Errorf(failedResolvePathFmt, err)
 	}
 
 	fmt.Fprintln(stdout, moduleTitleStyle.Render("Invowkfile Validation"))
@@ -307,7 +310,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 
 	absPath, err := filepath.Abs(modulePath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
+		return fmt.Errorf(failedResolvePathFmt, err)
 	}
 
 	fmt.Fprintln(stdout, moduleTitleStyle.Render("Module Validation"))

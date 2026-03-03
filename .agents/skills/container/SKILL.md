@@ -152,6 +152,11 @@ if err != nil {
 }
 ```
 
+Important: discovery is based on executable lookup (`exec.LookPath`), not shell parsing.
+Interactive shell aliases/functions (for example `alias podman=podman-remote`) are not
+visible to Invowk's non-interactive process execution. Ensure `podman` or
+`podman-remote` exists as a real executable in `PATH`.
+
 **Automatic Enhancements:**
 
 1. **SELinux Volume Labels**: Automatically adds `:z` labels to volumes on SELinux systems

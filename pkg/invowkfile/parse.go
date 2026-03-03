@@ -3,7 +3,7 @@
 package invowkfile
 
 import (
-	_ "embed"
+	_ "embed" // required for go:embed invowkfile_schema.cue
 	"fmt"
 	"os"
 	"path/filepath"

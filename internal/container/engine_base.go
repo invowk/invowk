@@ -15,6 +15,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const commandFailedFmt = "command %s %v failed: %w"
+
 type (
 	// ExecCommandFunc is the function signature for creating exec.Cmd.
 	// This allows injection of mock implementations for testing.
@@ -348,7 +350,7 @@ func (e *BaseCLIEngine) RunCommand(ctx context.Context, args ...string) ([]byte,
 	cmd := e.CreateCommand(ctx, args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
+		return nil, fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 	return out, nil
 }
@@ -358,7 +360,7 @@ func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) 
 	cmd := e.CreateCommand(ctx, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return out, fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
+		return out, fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 	return out, nil
 }
@@ -367,7 +369,7 @@ func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) 
 func (e *BaseCLIEngine) RunCommandStatus(ctx context.Context, args ...string) error {
 	cmd := e.CreateCommand(ctx, args...)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
+		return fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 	return nil
 }
@@ -379,7 +381,7 @@ func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string
 	cmd.Stdout = &out
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
+		return "", fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 
 	return out.String(), nil

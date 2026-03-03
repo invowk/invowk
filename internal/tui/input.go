@@ -106,9 +106,9 @@ func (m *inputModel) View() tea.View {
 		base = modalBaseStyle()
 	}
 
-	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
-	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
+	titleStyle := base.Bold(true).Foreground(modalColorPrimary)
+	descStyle := base.Foreground(modalColorMuted)
+	helpStyle := base.Foreground(modalColorMuted)
 
 	lines := make([]string, 0, 4)
 	if m.title != "" {
@@ -300,15 +300,15 @@ func newInputStyles(theme Theme, forModal bool) textinput.Styles {
 	styles := textinput.DefaultStyles(isDarkTheme(theme))
 	if forModal {
 		base := modalBaseStyle()
-		styles.Focused.Prompt = base.Foreground(lipgloss.Color("#7C3AED"))
-		styles.Focused.Text = base.Foreground(lipgloss.Color("#FFFFFF"))
-		styles.Focused.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Focused.Suggestion = base.Foreground(lipgloss.Color("#A78BFA"))
-		styles.Blurred.Prompt = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Focused.Prompt = base.Foreground(modalColorPrimary)
+		styles.Focused.Text = base.Foreground(modalColorForeground)
+		styles.Focused.Placeholder = base.Foreground(modalColorMuted)
+		styles.Focused.Suggestion = base.Foreground(modalColorPrimarySoft)
+		styles.Blurred.Prompt = base.Foreground(modalColorMuted)
 		styles.Blurred.Text = base.Foreground(lipgloss.Color("#9CA3AF"))
-		styles.Blurred.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Blurred.Suggestion = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Cursor.Color = lipgloss.Color("#FFFFFF")
+		styles.Blurred.Placeholder = base.Foreground(modalColorMuted)
+		styles.Blurred.Suggestion = base.Foreground(modalColorMuted)
+		styles.Cursor.Color = modalColorForeground
 		return styles
 	}
 

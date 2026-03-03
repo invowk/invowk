@@ -13,6 +13,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const invowkmodCueFileName = "invowkmod.cue"
+
 // Validate performs comprehensive validation of a module at the given path.
 // Returns a ValidationResult with all issues found, or an error if the path
 // cannot be accessed.
@@ -76,7 +78,7 @@ func validateWithMetadata(modulePath types.FilesystemPath) (*ValidationResult, *
 	}
 
 	// Check for invowkmod.cue (required)
-	invowkmodPath := filepath.Join(absPath, "invowkmod.cue")
+	invowkmodPath := filepath.Join(absPath, invowkmodCueFileName)
 	invowkmodInfo, err := os.Stat(invowkmodPath)
 	switch {
 	case err != nil && os.IsNotExist(err):
@@ -94,11 +96,11 @@ func validateWithMetadata(modulePath types.FilesystemPath) (*ValidationResult, *
 			meta, parseErr := ParseInvowkmod(invowkmodFSPath)
 			switch {
 			case parseErr != nil:
-				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
+				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), invowkmodCueFileName)
 			case string(meta.Module) != string(result.ModuleName):
 				result.AddIssue(IssueTypeNaming, fmt.Sprintf(
 					"module field '%s' in invowkmod.cue must match folder name '%s'",
-					meta.Module, result.ModuleName), "invowkmod.cue")
+					meta.Module, result.ModuleName), invowkmodCueFileName)
 			default:
 				parsedMetadata = meta
 			}

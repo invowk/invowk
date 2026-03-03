@@ -28,7 +28,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -38,7 +38,7 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -101,7 +101,7 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
+				Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -300,7 +300,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
+					Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}

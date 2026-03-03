@@ -16,6 +16,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	moduleResolverCreateErrFmt = "failed to create module resolver: %w"
+	invowkmodCueFileName       = "invowkmod.cue"
+)
+
 // newModuleAddCommand creates the `invowk module add` command.
 func newModuleAddCommand() *cobra.Command {
 	var (
@@ -153,7 +158,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	// Create module resolver
 	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
-		return fmt.Errorf("failed to create module resolver: %w", err)
+		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
 
 	// Create requirement
@@ -181,7 +186,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(string(resolved.CachePath)))
 
 	// Auto-edit invowkmod.cue to add the requires entry
-	invowkmodPath := filepath.Join(".", "invowkmod.cue")
+	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
 	if editErr := invowkmod.AddRequirement(types.FilesystemPath(invowkmodPath), req); editErr != nil {
 		if os.IsNotExist(editErr) {
 			fmt.Println()
@@ -205,7 +210,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 	// Create module resolver
 	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
-		return fmt.Errorf("failed to create module resolver: %w", err)
+		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
 
 	fmt.Printf("%s Removing %s...\n", moduleInfoIcon, identifier)
@@ -221,7 +226,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 	}
 
 	// Auto-edit invowkmod.cue to remove the requires entries
-	invowkmodPath := filepath.Join(".", "invowkmod.cue")
+	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
 	for i := range results {
 		if editErr := invowkmod.RemoveRequirement(types.FilesystemPath(invowkmodPath), results[i].RemovedEntry.GitURL, results[i].RemovedEntry.Path); editErr != nil { //goplint:ignore -- relative path from current dir
 			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, editErr)
@@ -242,7 +247,7 @@ func runModuleSync(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
 
 	// Parse invowkmod.cue to get requirements
-	invowkmodulePath := filepath.Join(".", "invowkmod.cue")
+	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
 	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
@@ -260,7 +265,7 @@ func runModuleSync(ctx context.Context) error {
 	// Create module resolver
 	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
-		return fmt.Errorf("failed to create module resolver: %w", err)
+		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
 
 	// Sync modules
@@ -289,7 +294,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	// Create module resolver
 	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
-		return fmt.Errorf("failed to create module resolver: %w", err)
+		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
 
 	var identifier string
@@ -336,7 +341,7 @@ func runModuleDeps(ctx context.Context) error {
 	// Create module resolver
 	resolver, err := invowkmod.NewResolver("", "")
 	if err != nil {
-		return fmt.Errorf("failed to create module resolver: %w", err)
+		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
 
 	// List modules

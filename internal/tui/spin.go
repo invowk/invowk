@@ -259,8 +259,8 @@ func (m *spinModel) View() tea.View {
 	}
 
 	frame := m.frames[m.spinner]
-	spinnerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
-	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
+	spinnerStyle := lipgloss.NewStyle().Foreground(modalColorPrimary)
+	titleStyle := lipgloss.NewStyle().Foreground(modalColorForeground)
 
 	content := spinnerStyle.Render(frame) + " " + titleStyle.Render(m.title)
 
@@ -511,7 +511,7 @@ func runActionSpinner(opts SpinOptions, doneCh <-chan struct{}) error {
 		title: types.DescriptionText(opts.Title), //goplint:ignore -- display text from TUI options
 		spinner: bspinner.New(
 			bspinner.WithSpinner(getSpinnerType(opts.Type)),
-			bspinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))),
+			bspinner.WithStyle(lipgloss.NewStyle().Foreground(modalColorPrimary)),
 		),
 		doneCh: doneCh,
 	}

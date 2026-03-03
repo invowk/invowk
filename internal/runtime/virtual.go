@@ -149,7 +149,7 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
+		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
 
 	// Create the interpreter
@@ -211,7 +211,7 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	workDir := ctx.EffectiveWorkDir()
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
+		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -335,7 +335,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf("failed to build environment: %w", err)
+		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
 
 	// Serialize environment to JSON for passing to subprocess

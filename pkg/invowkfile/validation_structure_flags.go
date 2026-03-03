@@ -7,6 +7,17 @@ import (
 	"strings"
 )
 
+const (
+	reservedFlagEnvFile     = "ivk-env-file"
+	reservedFlagEnvVar      = "ivk-env-var"
+	reservedFlagWorkDir     = "ivk-workdir"
+	reservedFlagRuntime     = "ivk-runtime"
+	reservedFlagFrom        = "ivk-from"
+	reservedFlagVerbose     = "ivk-verbose"
+	reservedFlagConfig      = "ivk-config"
+	reservedFlagInteractive = "ivk-interactive"
+)
+
 var (
 	// flagNameRegex validates POSIX-compliant flag names.
 	flagNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
@@ -26,33 +37,33 @@ var (
 	// at CLI construction time (leaf flags, parent persistent flags, and Cobra/fang built-ins).
 	// All invowk system flags use the "ivk-" prefix except Cobra's "help" and fang's "version".
 	reservedFlagNames = map[string]string{
-		"ivk-env-file":          "ivk-env-file",
-		"ivk-env-var":           "ivk-env-var",
+		reservedFlagEnvFile:     reservedFlagEnvFile,
+		reservedFlagEnvVar:      reservedFlagEnvVar,
 		"ivk-env-inherit-mode":  "ivk-env-inherit-mode",
 		"ivk-env-inherit-allow": "ivk-env-inherit-allow",
 		"ivk-env-inherit-deny":  "ivk-env-inherit-deny",
-		"ivk-workdir":           "ivk-workdir",
-		"ivk-runtime":           "ivk-runtime",
-		"ivk-from":              "ivk-from",
+		reservedFlagWorkDir:     reservedFlagWorkDir,
+		reservedFlagRuntime:     reservedFlagRuntime,
+		reservedFlagFrom:        reservedFlagFrom,
 		"ivk-force-rebuild":     "ivk-force-rebuild",
-		"ivk-verbose":           "ivk-verbose",
-		"ivk-config":            "ivk-config",
-		"ivk-interactive":       "ivk-interactive",
+		reservedFlagVerbose:     reservedFlagVerbose,
+		reservedFlagConfig:      reservedFlagConfig,
+		reservedFlagInteractive: reservedFlagInteractive,
 		"help":                  "help",
 		"version":               "version",
 	}
 
 	// reservedShortAliases maps reserved single-letter short aliases to the long flag they belong to.
 	reservedShortAliases = map[string]string{
-		"e": "ivk-env-file",
-		"E": "ivk-env-var",
-		"w": "ivk-workdir",
+		"e": reservedFlagEnvFile,
+		"E": reservedFlagEnvVar,
+		"w": reservedFlagWorkDir,
 		"h": "help",
-		"r": "ivk-runtime",
-		"v": "ivk-verbose",
-		"i": "ivk-interactive",
-		"c": "ivk-config",
-		"f": "ivk-from",
+		"r": reservedFlagRuntime,
+		"v": reservedFlagVerbose,
+		"i": reservedFlagInteractive,
+		"c": reservedFlagConfig,
+		"f": reservedFlagFrom,
 	}
 )
 
@@ -94,7 +105,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -124,7 +135,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     path.String(),
-			Message:   err.Error() + " in invowkfile at " + string(ctx.FilePath),
+			Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -134,7 +145,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 		errors = append(errors, ValidationError{
 			Validator: v.Name(),
 			Field:     NewFieldPath().Command(cmd.Name).String(),
-			Message:   "has duplicate flag name '" + flag.Name.String() + "' in invowkfile at " + string(ctx.FilePath),
+			Message:   "has duplicate flag name '" + flag.Name.String() + quotedInvowkfileAtSuffix + string(ctx.FilePath),
 			Severity:  SeverityError,
 		})
 	}
@@ -228,7 +239,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     NewFieldPath().Command(cmd.Name).String(),
-				Message:   "has duplicate short alias '" + shortStr + "' in invowkfile at " + string(ctx.FilePath),
+				Message:   "has duplicate short alias '" + shortStr + quotedInvowkfileAtSuffix + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -241,7 +252,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "default_value '" + flag.DefaultValue + "' is not compatible with type '" + string(flag.GetType()) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
+				Message:   "default_value '" + flag.DefaultValue + "' is not compatible with type '" + string(flag.GetType()) + "': " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		}
@@ -253,7 +264,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
-				Message:   "has unsafe validation regex '" + string(flag.Validation) + "': " + err.Error() + " in invowkfile at " + string(ctx.FilePath),
+				Message:   "has unsafe validation regex '" + string(flag.Validation) + "': " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 				Severity:  SeverityError,
 			})
 		} else if flag.DefaultValue != "" {
@@ -262,7 +273,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 				errors = append(errors, ValidationError{
 					Validator: v.Name(),
 					Field:     path.String(),
-					Message:   "default_value '" + flag.DefaultValue + "' does not match validation pattern '" + string(flag.Validation) + "' in invowkfile at " + string(ctx.FilePath),
+					Message:   "default_value '" + flag.DefaultValue + "' does not match validation pattern '" + string(flag.Validation) + quotedInvowkfileAtSuffix + string(ctx.FilePath),
 					Severity:  SeverityError,
 				})
 			}

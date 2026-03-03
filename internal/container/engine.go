@@ -29,6 +29,15 @@ const (
 	// to respond during availability checks. Prevents indefinite hangs when
 	// the engine daemon is unresponsive or starting up.
 	availabilityTimeout = 3 * time.Second
+
+	// engineUnavailablePodmanThenDocker explains Podman-first initialization failures.
+	// Note: shell aliases are not used by binary discovery (exec.LookPath).
+	engineUnavailablePodmanThenDocker = "podman/podman-remote is not installed or not accessible, and docker fallback is also not available; shell aliases are not considered for engine discovery"
+	// engineUnavailableDockerThenPodman explains Docker-first initialization failures.
+	// Note: shell aliases are not used by binary discovery (exec.LookPath).
+	engineUnavailableDockerThenPodman = "docker is not installed or not accessible, and podman/podman-remote fallback is also not available; shell aliases are not considered for engine discovery"
+	// engineUnavailableAutoDetect explains automatic engine detection failures.
+	engineUnavailableAutoDetect = "no container engine (podman, podman-remote, or docker) is available on this system; shell aliases are not considered for engine discovery"
 )
 
 var (
@@ -436,7 +445,7 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 		} else {
 			return nil, &EngineNotAvailableError{
 				Engine: EngineTypePodman,
-				Reason: "podman is not installed or not accessible, and docker fallback is also not available",
+				Reason: engineUnavailablePodmanThenDocker,
 			}
 		}
 
@@ -450,7 +459,7 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 		} else {
 			return nil, &EngineNotAvailableError{
 				Engine: EngineTypeDocker,
-				Reason: "docker is not installed or not accessible, and podman fallback is also not available",
+				Reason: engineUnavailableDockerThenPodman,
 			}
 		}
 
@@ -494,6 +503,6 @@ func AutoDetectEngine() (Engine, error) {
 
 	return nil, &EngineNotAvailableError{
 		Engine: EngineTypeAny,
-		Reason: "no container engine (podman or docker) is available on this system",
+		Reason: engineUnavailableAutoDetect,
 	}
 }

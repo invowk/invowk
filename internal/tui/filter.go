@@ -460,27 +460,27 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		base := modalBaseStyle()
 
 		// Normal item styles - explicit background on everything
-		delegate.Styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
-		delegate.Styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.NormalTitle = base.Foreground(modalColorForeground)
+		delegate.Styles.NormalDesc = base.Foreground(modalColorMuted)
 
 		// Selected item - use left border indicator WITH explicit background
 		delegate.Styles.SelectedTitle = base.
-			Foreground(lipgloss.Color("#7C3AED")).
+			Foreground(modalColorPrimary).
 			Bold(true).
 			Padding(0, 0, 0, 1).
 			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("#7C3AED"))
+			BorderForeground(modalColorPrimary)
 		delegate.Styles.SelectedDesc = base.
-			Foreground(lipgloss.Color("#A78BFA")).
+			Foreground(modalColorPrimarySoft).
 			Padding(0, 0, 0, 1)
 
 		// Dimmed styles - explicit backgrounds
-		delegate.Styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
-		delegate.Styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
+		delegate.Styles.DimmedTitle = base.Foreground(modalColorMuted)
+		delegate.Styles.DimmedDesc = base.Foreground(modalColorMuted)
 
 		// FilterMatch style - used for highlighting matching characters during filtering
 		// MUST have explicit background to prevent color bleeding
-		delegate.Styles.FilterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
+		delegate.Styles.FilterMatch = base.Foreground(modalColorPrimarySoft).Bold(true)
 	} else {
 		// Default styles for non-modal usage
 		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
@@ -510,35 +510,35 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		// This is critical: every single style must have the modal background
 		base := modalBaseStyle()
 
-		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+		l.Styles.Title = base.Bold(true).Foreground(modalColorPrimary)
 		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.PaginationStyle = base.Foreground(modalColorMuted)
+		l.Styles.HelpStyle = base.Foreground(modalColorMuted)
 
 		// Additional styles - ALL have explicit backgrounds
-		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusBar = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusEmpty = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.StatusBarActiveFilter = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.StatusBarFilterCount = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.ActivePaginationDot = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.InactivePaginationDot = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.DividerDot = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.NoItems = base.Foreground(modalColorMuted)
+		l.Styles.StatusBar = base.Foreground(modalColorMuted)
+		l.Styles.StatusEmpty = base.Foreground(modalColorMuted)
+		l.Styles.StatusBarActiveFilter = base.Foreground(modalColorPrimary)
+		l.Styles.StatusBarFilterCount = base.Foreground(modalColorMuted)
+		l.Styles.ActivePaginationDot = base.Foreground(modalColorPrimary)
+		l.Styles.InactivePaginationDot = base.Foreground(modalColorMuted)
+		l.Styles.DividerDot = base.Foreground(modalColorMuted)
 
 		// Additional styles - ALL have explicit backgrounds
-		l.Styles.Spinner = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.DefaultFilterCharacterMatch = base.Foreground(lipgloss.Color("#A78BFA")).Bold(true)
-		l.Styles.ArabicPagination = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.Spinner = base.Foreground(modalColorPrimary)
+		l.Styles.DefaultFilterCharacterMatch = base.Foreground(modalColorPrimarySoft).Bold(true)
+		l.Styles.ArabicPagination = base.Foreground(modalColorMuted)
 
-		l.Styles.Filter.Focused.Prompt = base.Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.Filter.Focused.Text = base.Foreground(lipgloss.Color("#FFFFFF"))
-		l.Styles.Filter.Focused.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.Filter.Focused.Suggestion = base.Foreground(lipgloss.Color("#A78BFA"))
-		l.Styles.Filter.Blurred.Prompt = base.Foreground(lipgloss.Color("#6B7280"))
+		l.Styles.Filter.Focused.Prompt = base.Foreground(modalColorPrimary)
+		l.Styles.Filter.Focused.Text = base.Foreground(modalColorForeground)
+		l.Styles.Filter.Focused.Placeholder = base.Foreground(modalColorMuted)
+		l.Styles.Filter.Focused.Suggestion = base.Foreground(modalColorPrimarySoft)
+		l.Styles.Filter.Blurred.Prompt = base.Foreground(modalColorMuted)
 		l.Styles.Filter.Blurred.Text = base.Foreground(lipgloss.Color("#9CA3AF"))
-		l.Styles.Filter.Blurred.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.Filter.Blurred.Suggestion = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.Filter.Cursor.Color = lipgloss.Color("#FFFFFF")
+		l.Styles.Filter.Blurred.Placeholder = base.Foreground(modalColorMuted)
+		l.Styles.Filter.Blurred.Suggestion = base.Foreground(modalColorMuted)
+		l.Styles.Filter.Cursor.Color = modalColorForeground
 	} else {
 		// Default list styles
 		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))

@@ -107,9 +107,9 @@ func (m *writeModel) View() tea.View {
 		base = modalBaseStyle()
 	}
 
-	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
-	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
+	titleStyle := base.Bold(true).Foreground(modalColorPrimary)
+	descStyle := base.Foreground(modalColorMuted)
+	helpStyle := base.Foreground(modalColorMuted)
 
 	lines := make([]string, 0, 4)
 	if m.title != "" {
@@ -304,22 +304,22 @@ func newWriteStyles(theme Theme, forModal bool) textarea.Styles {
 	if forModal {
 		base := modalBaseStyle()
 		styles.Focused.Base = base
-		styles.Focused.Text = base.Foreground(lipgloss.Color("#FFFFFF"))
-		styles.Focused.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Focused.Text = base.Foreground(modalColorForeground)
+		styles.Focused.Placeholder = base.Foreground(modalColorMuted)
 		styles.Focused.CursorLine = base
-		styles.Focused.CursorLineNumber = base.Foreground(lipgloss.Color("#A78BFA"))
-		styles.Focused.LineNumber = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Focused.Prompt = base.Foreground(lipgloss.Color("#7C3AED"))
-		styles.Focused.EndOfBuffer = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Cursor.Color = lipgloss.Color("#FFFFFF")
+		styles.Focused.CursorLineNumber = base.Foreground(modalColorPrimarySoft)
+		styles.Focused.LineNumber = base.Foreground(modalColorMuted)
+		styles.Focused.Prompt = base.Foreground(modalColorPrimary)
+		styles.Focused.EndOfBuffer = base.Foreground(modalColorMuted)
+		styles.Cursor.Color = modalColorForeground
 		styles.Blurred.Base = base
 		styles.Blurred.Text = base.Foreground(lipgloss.Color("#9CA3AF"))
-		styles.Blurred.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Blurred.Placeholder = base.Foreground(modalColorMuted)
 		styles.Blurred.CursorLine = base
-		styles.Blurred.CursorLineNumber = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Blurred.LineNumber = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Blurred.Prompt = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Blurred.EndOfBuffer = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Blurred.CursorLineNumber = base.Foreground(modalColorMuted)
+		styles.Blurred.LineNumber = base.Foreground(modalColorMuted)
+		styles.Blurred.Prompt = base.Foreground(modalColorMuted)
+		styles.Blurred.EndOfBuffer = base.Foreground(modalColorMuted)
 		return styles
 	}
 

@@ -117,7 +117,7 @@ func (m *interactiveModel) View() tea.View {
 	// Title bar
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7C3AED"))
+		Foreground(modalColorPrimary)
 
 	cmdStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#3B82F6"))
@@ -144,19 +144,19 @@ func (m *interactiveModel) View() tea.View {
 				Render("Failed")
 		}
 		footerContent += lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
+			Foreground(modalColorMuted).
 			Render("  |  arrows: scroll  |  Enter/q: exit")
 	} else {
 		footerContent = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#F59E0B")).
 			Render("Running...")
 		footerContent += lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
+			Foreground(modalColorMuted).
 			Render("  |  Ctrl+\\: force quit")
 	}
 
 	scrollPercent := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(modalColorMuted).
 		Render(fmt.Sprintf("  %3.f%%", m.viewport.ScrollPercent()*100))
 
 	footer := footerContent + scrollPercent
@@ -436,11 +436,11 @@ func (m *interactiveModel) appendCompletionMessage() {
 	}
 
 	separator := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(modalColorMuted).
 		Render(strings.Repeat("-", 50))
 
 	durationStr := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(modalColorMuted).
 		Render(fmt.Sprintf("Duration: %s", m.result.Duration.Round(time.Millisecond)))
 
 	m.content.WriteString("\n\n")
@@ -451,7 +451,7 @@ func (m *interactiveModel) appendCompletionMessage() {
 	m.content.WriteString(durationStr)
 	m.content.WriteString("\n\n")
 	m.content.WriteString(lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#A78BFA")).
+		Foreground(modalColorPrimarySoft).
 		Italic(true).
 		Render("Press Enter to return to terminal..."))
 	m.content.WriteString("\n")
