@@ -10,6 +10,7 @@
 | Test short | `make test-short` |
 | Single test | `go test -v -run TestName ./path/...` |
 | Lint | `make lint` |
+| Local Sonar issues | `SONAR_TOKEN=... make sonar-local` |
 | Type check (DDD) | `make check-types` |
 | Type check (JSON) | `make check-types-json` |
 | Type check (all DDD) | `make check-types-all` |
@@ -112,6 +113,25 @@ Reports are written to `docs/benchmarks/YYYY-MM-DD_HH-mm-ss.md` and include:
 - Startup timing table (`--version`, `--help`, `cmd --help`, `cmd`)
 - Parsed `internal/benchmark` table (`ns/op`, `ms/op`, estimated run/total time, `B/op`, `allocs/op`)
 - Raw benchmark outputs for traceability
+
+## Local SonarQube Analysis
+
+Run a local Sonar analysis and print unresolved issues in terminal:
+
+```bash
+SONAR_TOKEN=your_token make sonar-local
+```
+
+Optional environment overrides:
+
+```bash
+SONAR_HOST_URL=https://sonarcloud.io
+SONAR_ORGANIZATION=invowk
+SONAR_PROJECT_KEY=invowk
+SONAR_BRANCH=<branch-name>
+```
+
+Requires `sonar-scanner`, `golangci-lint`, `curl`, and `jq`.
 
 ## Test Commands
 

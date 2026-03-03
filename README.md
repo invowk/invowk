@@ -2830,6 +2830,27 @@ Regenerate `default.pgo` when:
 - Runtime execution paths materially change
 - Preparing a major release
 
+## Local SonarQube Analysis
+
+Invowk includes a local Sonar workflow that reuses `.golangci.toml` by exporting
+golangci-lint findings as a Checkstyle report and importing them into Sonar
+during scan (`sonar.go.golangci-lint.reportPaths`).
+
+```bash
+# Required: token from SonarQube Cloud
+export SONAR_TOKEN=your_token
+
+# Optional overrides (defaults shown)
+export SONAR_HOST_URL=https://sonarcloud.io
+export SONAR_ORGANIZATION=invowk
+export SONAR_PROJECT_KEY=invowk
+
+# Run local analysis + print unresolved Sonar issues in terminal
+make sonar-local
+```
+
+The command also writes raw issue output to `.sonar/reports/issues.json`.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to participate.

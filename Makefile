@@ -324,10 +324,15 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh
+	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh scripts/sonar-local.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
+
+# Run local SonarQube Cloud analysis and print unresolved issues
+.PHONY: sonar-local
+sonar-local:
+	@./scripts/sonar-local.sh
 
 # Enforce 1000-line file length limit on all Go files (production + test).
 # Test files (_test.go) are included. Warns at 800 lines.
@@ -491,6 +496,7 @@ help:
 	@echo "  lint             Run golangci-lint on root and tools/goplint modules"
 	@echo "  lint-tools-goplint  Run golangci-lint for tools/goplint module"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
+	@echo "  sonar-local      Run local SonarQube analysis and print unresolved issues"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
 	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
@@ -510,6 +516,11 @@ help:
 	@echo "  STARTUP_SAMPLES Number of startup samples for bench-report targets (default: 40)"
 	@echo "  BENCH_COUNT     Go benchmark run count for bench-report targets (default: 5)"
 	@echo "  BENCH_REPORT_OUT_DIR Output directory for bench-report targets (default: docs/benchmarks)"
+	@echo "  SONAR_TOKEN      Sonar token used by make sonar-local (required)"
+	@echo "  SONAR_HOST_URL   Sonar host URL (default: https://sonarcloud.io)"
+	@echo "  SONAR_ORGANIZATION Sonar organization key (default: invowk)"
+	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk)"
+	@echo "  SONAR_BRANCH     Branch for analysis/issues (default: current git branch)"
 	@echo "  YES            Set to 1 to skip confirmation prompts"
 	@echo "  DRY_RUN        Set to 1 to show actions without executing them"
 	@echo ""
