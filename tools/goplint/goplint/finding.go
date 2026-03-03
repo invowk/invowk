@@ -52,24 +52,6 @@ func PackageScopedFindingID(pass *analysis.Pass, category string, parts ...strin
 	return StableFindingID(category, scopedParts...)
 }
 
-// FallbackFindingID derives an ID from category + message for diagnostics
-// that do not carry an explicit finding URL (legacy compatibility path).
-func FallbackFindingID(category, message string) string {
-	return StableFindingID(category, "legacy-message", message)
-}
-
-// FallbackFindingIDForDiagnostic derives an ID from category + diagnostic
-// position + message for analysis outputs that omit explicit finding URLs.
-//
-// The position component keeps repeated same-message diagnostics distinct
-// (for example, multiple discarded Validate() calls in one function).
-func FallbackFindingIDForDiagnostic(category, posn, message string) string {
-	if posn == "" {
-		return FallbackFindingID(category, message)
-	}
-	return StableFindingID(category, "legacy-diagnostic", posn, message)
-}
-
 func stablePosKey(pass *analysis.Pass, pos token.Pos) string {
 	if pass == nil || pass.Fset == nil || !pos.IsValid() {
 		return "unknown-pos"

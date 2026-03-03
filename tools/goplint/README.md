@@ -192,6 +192,8 @@ entries = [
 
 `id` is the stable semantic identity used for suppression; `message` is for human readability.  
 Suppression is strict ID-only. Baselines must use `entries = [...]`; legacy `messages = [...]` sections are rejected during parsing.
+Baseline generation is fail-closed for ID integrity: suppressible diagnostics must
+carry a `goplint://finding/<id>` URL; missing/invalid URLs abort parsing.
 
 ### CI Integration
 

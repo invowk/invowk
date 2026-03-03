@@ -20,7 +20,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -584,8 +583,7 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 	seen := make(map[string]map[string]goplint.BaselineFinding) // category → findingID → finding
 
 	if err := forEachAnalysisResult(data, func(result analysisResult) error {
-		for pkgPath, analyzers := range result {
-			canonicalPkgPath := canonicalPackagePath(pkgPath)
+		for _, analyzers := range result {
 			diags, ok := analyzers["goplint"]
 			if !ok {
 				continue
@@ -602,13 +600,11 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 				}
 				findingID := goplint.FindingIDFromDiagnosticURL(d.URL)
 				if findingID == "" {
-					// Legacy compatibility for diagnostics emitted without URL.
-					// Include position when available to keep repeated same-message
-					// diagnostics distinct.
-					findingID = goplint.FallbackFindingIDForDiagnostic(
+					return fmt.Errorf(
+						"suppressible goplint diagnostic missing or invalid finding URL: category=%q pos=%q url=%q",
 						d.Category,
-						stableDiagnosticPosKey(canonicalPkgPath, d.Posn),
-						d.Message,
+						d.Posn,
+						d.URL,
 					)
 				}
 
@@ -683,42 +679,4 @@ func forEachAnalysisResult(data []byte, fn func(result analysisResult) error) er
 			return err
 		}
 	}
-}
-
-func canonicalPackagePath(pkgPath string) string {
-	if base, _, found := strings.Cut(pkgPath, " ["); found {
-		return base
-	}
-	return pkgPath
-}
-
-// stableDiagnosticPosKey normalizes analysis JSON positions into a
-// machine-independent key:
-//
-//	<pkg-path>:<base-file>:<line>:<col>
-//
-// This avoids embedding absolute filesystem paths in fallback finding IDs.
-func stableDiagnosticPosKey(pkgPath, posn string) string {
-	if posn == "" {
-		return pkgPath
-	}
-
-	colSep := strings.LastIndex(posn, ":")
-	if colSep < 0 {
-		return pkgPath + ":" + posn
-	}
-	col := posn[colSep+1:]
-	rest := posn[:colSep]
-
-	lineSep := strings.LastIndex(rest, ":")
-	if lineSep < 0 {
-		return pkgPath + ":" + posn
-	}
-	line := rest[lineSep+1:]
-	filePath := strings.ReplaceAll(rest[:lineSep], "\\", "/")
-	file := filepath.Base(filePath)
-	if file == "." || file == "" {
-		file = filePath
-	}
-	return strings.Join([]string{pkgPath, file, line, col}, ":")
 }

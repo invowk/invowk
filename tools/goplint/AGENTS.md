@@ -590,6 +590,8 @@ entries = [
 Sections: `[primitive]`, `[missing-validate]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-validate-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-validate]`, `[wrong-struct-validate-sig]`, `[unvalidated-cast]`, `[unused-validate-result]`, `[unused-constructor-error]`, `[missing-constructor-validate]`, `[incomplete-validate-delegation]`, `[nonzero-value-field]`, `[redundant-conversion]`, `[missing-struct-validate-fields]`. Empty sections are omitted.
 
 `messages = [...]` (legacy v1 format) is no longer accepted; baseline files must use `entries = [{id, message}]`.
+Baseline generation is fail-closed for ID integrity: suppressible diagnostics must
+carry a `goplint://finding/<id>` URL; missing/invalid URLs abort parsing.
 
 ### When to update
 

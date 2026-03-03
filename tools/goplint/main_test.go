@@ -726,7 +726,13 @@ func TestGenerateBaseline(t *testing.T) {
 			if _, err := buf.Write(makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 				"example.com/pkg": {
 					"goplint": {
-						{Category: "primitive", Message: "struct field pkg.A.B uses primitive type string"},
+						{
+							Category: "primitive",
+							Message:  "struct field pkg.A.B uses primitive type string",
+							URL: goplint.DiagnosticURLForFinding(
+								goplint.StableFindingID("primitive", "main_test", "empty-stream-check"),
+							),
+						},
 					},
 				},
 			})); err != nil {
