@@ -25,7 +25,7 @@ func constructorHasUnvalidatedReturnPath(
 	returnTypePkgPath string,
 	returnTypeKey string,
 ) bool {
-	outcome, _ := constructorReturnPathOutcome(
+	outcome, _, _ := constructorReturnPathOutcomeWithWitness(
 		pass,
 		fn,
 		returnTypeName,
@@ -50,9 +50,32 @@ func constructorReturnPathOutcome(
 	cfgMaxStates int,
 	cfgMaxDepth int,
 ) (pathOutcome, pathOutcomeReason) {
+	outcome, reason, _ := constructorReturnPathOutcomeWithWitness(
+		pass,
+		fn,
+		returnTypeName,
+		returnTypePkgPath,
+		returnTypeKey,
+		cfgBackend,
+		cfgMaxStates,
+		cfgMaxDepth,
+	)
+	return outcome, reason
+}
+
+func constructorReturnPathOutcomeWithWitness(
+	pass *analysis.Pass,
+	fn *ast.FuncDecl,
+	returnTypeName string,
+	returnTypePkgPath string,
+	returnTypeKey string,
+	cfgBackend string,
+	cfgMaxStates int,
+	cfgMaxDepth int,
+) (pathOutcome, pathOutcomeReason, []int32) {
 	funcCFG := buildFuncCFGForBackend(pass, fn.Body, cfgBackend)
 	if funcCFG == nil || len(funcCFG.Blocks) == 0 {
-		return pathOutcomeSafe, pathOutcomeReasonNone
+		return pathOutcomeSafe, pathOutcomeReasonNone, nil
 	}
 	noReturnAliases := collectNoReturnFuncAliasEvents(pass, fn.Body)
 	parentMap := buildParentMap(fn.Body)
@@ -70,8 +93,8 @@ func constructorReturnPathOutcome(
 	matcher := constructorReturnTargetMatcher(returnTypeKey, returnTargetKeys)
 
 	// DFS from the entry block (index 0).
-	visited := make(map[int32]bool)
-	seenStates := 1
+	visited := make(map[cfgVisitKey]bool)
+	seenStates := 0
 	return dfsConstructorUnvalidatedOutcome(
 		pass,
 		funcCFG.Blocks[0:1],
@@ -81,11 +104,13 @@ func constructorReturnPathOutcome(
 		matcher,
 		bareReturnIncludesTarget,
 		visited,
+		cfgVisitAnyPredecessor,
 		syncLits,
 		syncCalls,
 		methodCalls,
 		noReturnAliases,
 		0,
+		nil,
 		&seenStates,
 		blockVisitBudget{maxStates: cfgMaxStates, maxDepth: cfgMaxDepth},
 	)
@@ -103,13 +128,14 @@ func dfsConstructorUnvalidated(
 	returnTypeKey string,
 	matcher validateReceiverMatcher,
 	bareReturnIncludesTarget bool,
-	visited map[int32]bool,
+	visited map[cfgVisitKey]bool,
+	predecessor int32,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
 ) bool {
-	outcome, _ := dfsConstructorUnvalidatedOutcome(
+	outcome, _, _ := dfsConstructorUnvalidatedOutcome(
 		pass,
 		blocks,
 		returnTypeName,
@@ -118,11 +144,13 @@ func dfsConstructorUnvalidated(
 		matcher,
 		bareReturnIncludesTarget,
 		visited,
+		predecessor,
 		syncLits,
 		syncCalls,
 		methodCalls,
 		noReturnAliases,
 		0,
+		nil,
 		nil,
 		blockVisitBudget{
 			maxStates: defaultCFGMaxStates,
@@ -140,15 +168,17 @@ func dfsConstructorUnvalidatedOutcome(
 	returnTypeKey string,
 	matcher validateReceiverMatcher,
 	bareReturnIncludesTarget bool,
-	visited map[int32]bool,
+	visited map[cfgVisitKey]bool,
+	predecessor int32,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
 	depth int,
+	path []int32,
 	seenStates *int,
 	budget blockVisitBudget,
-) (pathOutcome, pathOutcomeReason) {
+) (pathOutcome, pathOutcomeReason, []int32) {
 	checker := func(block *gocfg.Block) bool {
 		if blockTerminatesWithoutReturn(pass, block, noReturnAliases) {
 			return true
@@ -176,7 +206,16 @@ func dfsConstructorUnvalidatedOutcome(
 		}
 		return false
 	}
-	return dfsUnvalidatedBlocksOutcome(blocks, visited, checker, depth, seenStates, budget)
+	return dfsUnvalidatedBlocksOutcomeWithWitness(
+		blocks,
+		predecessor,
+		visited,
+		checker,
+		depth,
+		path,
+		seenStates,
+		budget,
+	)
 }
 
 func blockReturnsTargetType(pass *analysis.Pass, block *gocfg.Block, returnTypeKey string, bareReturnIncludesTarget bool) bool {
@@ -376,8 +415,7 @@ func helperBodyAlwaysValidatesType(pass *analysis.Pass, body *ast.BlockStmt, ret
 		}
 		return false
 	}
-	visited := make(map[int32]bool)
-	return !dfsUnvalidatedBlocks(cfg.Blocks[0:1], visited, checker)
+	return !dfsUnvalidatedBlocks(cfg.Blocks[0:1], nil, checker)
 }
 
 func exprReturnsType(pass *analysis.Pass, expr ast.Expr, returnTypeKey string) bool {

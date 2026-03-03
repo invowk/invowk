@@ -3,6 +3,7 @@
 package goplint
 
 import (
+	"strings"
 	"sync"
 
 	"golang.org/x/tools/go/analysis"
@@ -19,6 +20,13 @@ const (
 
 	defaultCFGMaxStates = 20_000
 	defaultCFGMaxDepth  = 512
+
+	defaultCFGInconclusivePolicy = "error"
+	cfgInconclusivePolicyError   = "error"
+	cfgInconclusivePolicyWarn    = "warn"
+	cfgInconclusivePolicyOff     = "off"
+
+	defaultCFGWitnessMaxSteps = 12
 )
 
 // flagState contains one analyzer instance's parsed flag values. Keeping this
@@ -32,6 +40,8 @@ type flagState struct {
 	cfgBackend                  string
 	cfgMaxStates                int
 	cfgMaxDepth                 int
+	cfgInconclusivePolicy       string
+	cfgWitnessMaxSteps          int
 	includePackagesExplicit     bool
 	configPathExplicit          bool
 	baselinePathExplicit        bool
@@ -380,6 +390,10 @@ func bindAnalyzerFlags(analyzer *analysis.Analyzer, state *flagState) {
 		"maximum CFG states explored before conservative fallback")
 	analyzer.Flags.IntVar(&state.cfgMaxDepth, "cfg-max-depth", defaultCFGMaxDepth,
 		"maximum CFG traversal depth before conservative fallback")
+	analyzer.Flags.StringVar(&state.cfgInconclusivePolicy, "cfg-inconclusive-policy", defaultCFGInconclusivePolicy,
+		"policy for inconclusive CFA outcomes: error, warn, or off")
+	analyzer.Flags.IntVar(&state.cfgWitnessMaxSteps, "cfg-witness-max-steps", defaultCFGWitnessMaxSteps,
+		"maximum number of CFG witness steps encoded in inconclusive finding metadata")
 
 	for _, spec := range modeFlagSpecs() {
 		analyzer.Flags.BoolVar(spec.stateBoolField(state), spec.flagName, spec.defaultValue, spec.usage)
@@ -398,6 +412,8 @@ func resetFlagStateDefaults(state *flagState) {
 	state.cfgBackend = defaultCFGBackend
 	state.cfgMaxStates = defaultCFGMaxStates
 	state.cfgMaxDepth = defaultCFGMaxDepth
+	state.cfgInconclusivePolicy = defaultCFGInconclusivePolicy
+	state.cfgWitnessMaxSteps = defaultCFGWitnessMaxSteps
 	state.includePackagesExplicit = false
 	state.configPathExplicit = false
 	state.baselinePathExplicit = false
@@ -429,6 +445,8 @@ type runConfig struct {
 	cfgBackend                  string
 	cfgMaxStates                int
 	cfgMaxDepth                 int
+	cfgInconclusivePolicy       string
+	cfgWitnessMaxSteps          int
 	auditExceptions             bool
 	checkAll                    bool
 	checkValidate               bool
@@ -466,6 +484,8 @@ func newRunConfigForState(state *flagState) runConfig {
 		cfgBackend:               state.cfgBackend,
 		cfgMaxStates:             state.cfgMaxStates,
 		cfgMaxDepth:              state.cfgMaxDepth,
+		cfgInconclusivePolicy:    state.cfgInconclusivePolicy,
+		cfgWitnessMaxSteps:       state.cfgWitnessMaxSteps,
 	}
 	for _, spec := range modeFlagSpecs() {
 		*spec.runConfigBoolField(&rc) = *spec.stateBoolField(state)
@@ -510,5 +530,12 @@ func normalizeRunConfig(rc *runConfig) {
 	}
 	if rc.cfgMaxDepth == 0 {
 		rc.cfgMaxDepth = defaultCFGMaxDepth
+	}
+	rc.cfgInconclusivePolicy = strings.TrimSpace(strings.ToLower(rc.cfgInconclusivePolicy))
+	if rc.cfgInconclusivePolicy == "" {
+		rc.cfgInconclusivePolicy = defaultCFGInconclusivePolicy
+	}
+	if rc.cfgWitnessMaxSteps == 0 {
+		rc.cfgWitnessMaxSteps = defaultCFGWitnessMaxSteps
 	}
 }

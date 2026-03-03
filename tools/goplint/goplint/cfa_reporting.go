@@ -55,3 +55,36 @@ func reportFindingWithMetaIfNotBaselined(
 	}
 	reportDiagnosticWithMeta(pass, pos, category, findingID, message, meta)
 }
+
+func reportInconclusiveFindingWithMetaIfNotBaselined(
+	pass *analysis.Pass,
+	bl *BaselineConfig,
+	inconclusivePolicy string,
+	pos token.Pos,
+	category, findingID, message string,
+	meta map[string]string,
+) {
+	if inconclusivePolicy == cfgInconclusivePolicyOff {
+		return
+	}
+	effectiveMeta := copyFindingMeta(meta)
+	if effectiveMeta == nil {
+		effectiveMeta = make(map[string]string)
+	}
+	effectiveMeta["cfg_inconclusive_policy"] = inconclusivePolicy
+	if inconclusivePolicy == cfgInconclusivePolicyWarn {
+		effectiveMeta["cfg_inconclusive_severity"] = "warning"
+	}
+	reportFindingWithMetaIfNotBaselined(pass, bl, pos, category, findingID, message, effectiveMeta)
+}
+
+func copyFindingMeta(meta map[string]string) map[string]string {
+	if len(meta) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(meta))
+	for k, v := range meta {
+		out[k] = v
+	}
+	return out
+}

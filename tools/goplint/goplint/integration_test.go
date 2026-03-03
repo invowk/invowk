@@ -231,6 +231,12 @@ func TestNewRunConfig(t *testing.T) {
 		if rc.cfgMaxDepth != defaultCFGMaxDepth {
 			t.Fatalf("expected cfgMaxDepth default %d, got %d", defaultCFGMaxDepth, rc.cfgMaxDepth)
 		}
+		if rc.cfgInconclusivePolicy != defaultCFGInconclusivePolicy {
+			t.Fatalf("expected cfgInconclusivePolicy default %q, got %q", defaultCFGInconclusivePolicy, rc.cfgInconclusivePolicy)
+		}
+		if rc.cfgWitnessMaxSteps != defaultCFGWitnessMaxSteps {
+			t.Fatalf("expected cfgWitnessMaxSteps default %d, got %d", defaultCFGWitnessMaxSteps, rc.cfgWitnessMaxSteps)
+		}
 	})
 }
 

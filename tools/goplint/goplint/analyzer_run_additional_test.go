@@ -97,6 +97,20 @@ func TestValidateRunConfigRejectsExplicitEmptyPaths(t *testing.T) {
 			},
 			want: "flag --cfg-max-depth must be > 0",
 		},
+		{
+			name: "invalid inconclusive policy",
+			rc: runConfig{
+				cfgInconclusivePolicy: "loud",
+			},
+			want: "flag --cfg-inconclusive-policy must be",
+		},
+		{
+			name: "invalid witness max steps",
+			rc: runConfig{
+				cfgWitnessMaxSteps: -1,
+			},
+			want: "flag --cfg-witness-max-steps must be > 0",
+		},
 	}
 
 	for _, tt := range tests {

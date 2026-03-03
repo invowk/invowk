@@ -21,12 +21,16 @@ type firstArgCallSummary struct {
 type firstArgSummaryEntry struct {
 	summary firstArgCallSummary
 	ok      bool
+	reason  pathOutcomeReason
 }
 
 var firstArgSummaryCache sync.Map // map[string]firstArgSummaryEntry keyed by objectKey(func)
 
 func resetFirstArgSummaryCache() {
-	firstArgSummaryCache = sync.Map{}
+	firstArgSummaryCache.Range(func(key, _ any) bool {
+		firstArgSummaryCache.Delete(key)
+		return true
+	})
 }
 
 func callHasTargetAsFirstArg(pass *analysis.Pass, call *ast.CallExpr, target castTarget) bool {
@@ -53,51 +57,52 @@ func calledFunctionObject(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
 }
 
 func callFirstArgSummary(pass *analysis.Pass, call *ast.CallExpr) (firstArgCallSummary, bool) {
-	return callFirstArgSummaryWithStack(pass, call, nil)
+	summary, ok, _ := callFirstArgSummaryWithStack(pass, call, nil)
+	return summary, ok
 }
 
-func callFirstArgSummaryWithStack(pass *analysis.Pass, call *ast.CallExpr, stack map[string]bool) (firstArgCallSummary, bool) {
+func callFirstArgSummaryWithStack(pass *analysis.Pass, call *ast.CallExpr, stack map[string]bool) (firstArgCallSummary, bool, pathOutcomeReason) {
 	fnObj := calledFunctionObject(pass, call)
 	if fnObj == nil {
-		return firstArgCallSummary{}, false
+		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
 	return firstArgSummaryForFunc(pass, fnObj, stack)
 }
 
-func firstArgSummaryForFunc(pass *analysis.Pass, fnObj *types.Func, stack map[string]bool) (firstArgCallSummary, bool) {
+func firstArgSummaryForFunc(pass *analysis.Pass, fnObj *types.Func, stack map[string]bool) (firstArgCallSummary, bool, pathOutcomeReason) {
 	if fnObj == nil {
-		return firstArgCallSummary{}, false
+		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
 	key := objectKey(fnObj)
 	if key == "" {
-		return firstArgCallSummary{}, false
+		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
 	if cached, ok := firstArgSummaryCache.Load(key); ok {
 		entry := cached.(firstArgSummaryEntry)
-		return entry.summary, entry.ok
+		return entry.summary, entry.ok, entry.reason
 	}
 	if stack == nil {
 		stack = make(map[string]bool)
 	}
 	// Cycles are treated conservatively as unknown: do not claim a guarantee.
 	if stack[key] {
-		return firstArgCallSummary{}, false
+		return firstArgCallSummary{}, false, pathOutcomeReasonRecursionCycle
 	}
 	stack[key] = true
-	summary, ok := deriveFirstArgSummary(pass, fnObj, stack)
+	summary, ok, reason := deriveFirstArgSummary(pass, fnObj, stack)
 	delete(stack, key)
-	firstArgSummaryCache.Store(key, firstArgSummaryEntry{summary: summary, ok: ok})
-	return summary, ok
+	firstArgSummaryCache.Store(key, firstArgSummaryEntry{summary: summary, ok: ok, reason: reason})
+	return summary, ok, reason
 }
 
-func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[string]bool) (firstArgCallSummary, bool) {
+func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[string]bool) (firstArgCallSummary, bool, pathOutcomeReason) {
 	fnDecl := findFuncDeclForObject(pass, fnObj)
 	if fnDecl == nil || fnDecl.Body == nil {
-		return firstArgCallSummary{}, false
+		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
 	target, ok := functionFirstParamTarget(pass, fnDecl)
 	if !ok {
-		return firstArgCallSummary{}, false
+		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
 
 	parentMap := buildParentMap(fnDecl.Body)
@@ -114,11 +119,11 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 	cfg := buildFuncCFGForPass(pass, fnDecl.Body)
 	entry := cfgEntryBlock(cfg)
 	if entry == nil {
-		return firstArgCallSummary{}, false
+		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
 
 	noReturnAliases := collectNoReturnFuncAliasEvents(pass, fnDecl.Body)
-	alwaysValidates := !hasPathToReturnWithoutValidate(
+	validateOutcome, validateReason := hasPathToReturnWithoutValidateOutcome(
 		pass,
 		cfg,
 		entry,
@@ -128,8 +133,15 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 		pathSyncCalls,
 		methodCalls,
 		noReturnAliases,
+		defaultCFGMaxStates,
+		defaultCFGMaxDepth,
 	)
-	escapesBeforeValidate := hasUseBeforeValidateInBlockModeWithSummaryStack(
+	if validateOutcome == pathOutcomeInconclusive {
+		return firstArgCallSummary{}, false, validateReason
+	}
+	alwaysValidates := validateOutcome == pathOutcomeSafe
+
+	inBlockOutcome, inBlockReason := hasUseBeforeValidateInBlockOutcomeModeWithSummaryStack(
 		pass,
 		entry.Nodes,
 		0,
@@ -140,8 +152,12 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 		ubvModeEscape,
 		stack,
 	)
+	if inBlockOutcome == pathOutcomeInconclusive {
+		return firstArgCallSummary{}, false, inBlockReason
+	}
+	escapesBeforeValidate := inBlockOutcome == pathOutcomeUnsafe
 	if !escapesBeforeValidate {
-		outcome, _ := hasUseBeforeValidateCrossBlockModeWithSummaryStack(
+		outcome, reason := hasUseBeforeValidateCrossBlockModeWithSummaryStack(
 			pass,
 			entry,
 			-1,
@@ -154,13 +170,16 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 			defaultCFGMaxDepth,
 			stack,
 		)
-		escapesBeforeValidate = outcome == pathOutcomeUnsafe || outcome == pathOutcomeInconclusive
+		if outcome == pathOutcomeInconclusive {
+			return firstArgCallSummary{}, false, reason
+		}
+		escapesBeforeValidate = outcome == pathOutcomeUnsafe
 	}
 
 	return firstArgCallSummary{
 		AlwaysValidatesFirstArg:         alwaysValidates,
 		ValidatesBeforeEscapeOfFirstArg: alwaysValidates && !escapesBeforeValidate,
-	}, true
+	}, true, pathOutcomeReasonNone
 }
 
 func cfgEntryBlock(cfg *gocfg.CFG) *gocfg.Block {
@@ -184,7 +203,7 @@ func collectFirstArgValidatedCalls(pass *analysis.Pass, body *ast.BlockStmt, sta
 		if !ok || len(call.Args) == 0 {
 			return true
 		}
-		summary, ok := callFirstArgSummaryWithStack(pass, call, stack)
+		summary, ok, _ := callFirstArgSummaryWithStack(pass, call, stack)
 		if !ok || !summary.ValidatesBeforeEscapeOfFirstArg {
 			return true
 		}

@@ -31,6 +31,8 @@ func inspectClosureCastsCFA(
 	cfgBackend string,
 	cfgMaxStates int,
 	cfgMaxDepth int,
+	cfgInconclusivePolicy string,
+	cfgWitnessMaxSteps int,
 ) {
 	if lit.Body == nil {
 		return
@@ -51,7 +53,21 @@ func inspectClosureCastsCFA(
 		pass, lit.Body, parentMap,
 		func(nested *ast.FuncLit, nestedIdx int) {
 			nestedPrefix := closurePrefix + "/" + strconv.Itoa(nestedIdx)
-			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl, checkUBV, ubvMode, cfgBackend, cfgMaxStates, cfgMaxDepth)
+			inspectClosureCastsCFA(
+				pass,
+				nested,
+				qualEnclosingFunc,
+				nestedPrefix,
+				excCfg,
+				bl,
+				checkUBV,
+				ubvMode,
+				cfgBackend,
+				cfgMaxStates,
+				cfgMaxDepth,
+				cfgInconclusivePolicy,
+				cfgWitnessMaxSteps,
+			)
 		},
 	)
 
@@ -93,7 +109,7 @@ func inspectClosureCastsCFA(
 			continue
 		}
 
-		pathOutcome, pathReason := hasPathToReturnWithoutValidateOutcome(
+		pathOutcome, pathReason, pathWitness := hasPathToReturnWithoutValidateOutcomeWithWitness(
 			pass,
 			closureCFG,
 			defBlock,
@@ -110,7 +126,18 @@ func inspectClosureCastsCFA(
 			// All paths validated. Check use-before-validate with
 			// same-block priority, then cross-block.
 			if checkUBV {
-				if hasUseBeforeValidateInBlockMode(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls, ubvMode) {
+				inBlockOutcome, inBlockReason := hasUseBeforeValidateInBlockOutcomeModeWithSummaryStack(
+					pass,
+					defBlock.Nodes,
+					defIdx+1,
+					ac.target,
+					ubvSyncLits,
+					ubvSyncCalls,
+					ubvMethodCalls,
+					ubvMode,
+					nil,
+				)
+				if inBlockOutcome == pathOutcomeUnsafe {
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)
 					ubvID := PackageScopedFindingID(pass,
 						CategoryUseBeforeValidateSameBlock,
@@ -132,7 +159,55 @@ func inspectClosureCastsCFA(
 							10,
 						),
 					})
-				} else if ubvOutcome, ubvReason := hasUseBeforeValidateCrossBlockOutcomeMode(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls, ubvMode, cfgMaxStates, cfgMaxDepth); ubvOutcome == pathOutcomeUnsafe {
+				} else if inBlockOutcome == pathOutcomeInconclusive {
+					ubvMsg := useBeforeValidateInconclusiveMessage(ac.target.displayName, ac.typeName)
+					ubvID := PackageScopedFindingID(pass,
+						CategoryUseBeforeValidateInconclusive,
+						"cfa",
+						"closure",
+						closurePrefix,
+						qualEnclosingFunc,
+						ac.typeName,
+						"ubv-inconclusive",
+						"same-block",
+						stablePosKey(pass, ac.pos.Pos()),
+						ac.target.key(),
+						string(inBlockReason),
+					)
+					meta := cfgOutcomeMetaWithWitness(
+						cfgBackend,
+						cfgMaxStates,
+						cfgMaxDepth,
+						inBlockReason,
+						[]int32{defBlock.Index},
+						cfgWitnessMaxSteps,
+					)
+					meta["ubv_mode"] = ubvMode
+					meta["ubv_scope"] = "same-block"
+					meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
+					meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+					reportInconclusiveFindingWithMetaIfNotBaselined(
+						pass,
+						bl,
+						cfgInconclusivePolicy,
+						ac.pos.Pos(),
+						CategoryUseBeforeValidateInconclusive,
+						ubvID,
+						ubvMsg,
+						meta,
+					)
+				} else if ubvOutcome, ubvReason, ubvWitness := hasUseBeforeValidateCrossBlockOutcomeModeWithWitness(
+					pass,
+					defBlock,
+					defIdx,
+					ac.target,
+					ubvSyncLits,
+					ubvSyncCalls,
+					ubvMethodCalls,
+					ubvMode,
+					cfgMaxStates,
+					cfgMaxDepth,
+				); ubvOutcome == pathOutcomeUnsafe {
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
 					ubvID := PackageScopedFindingID(pass,
 						CategoryUseBeforeValidateCrossBlock,
@@ -145,7 +220,7 @@ func inspectClosureCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateCrossBlock, ubvID, ubvMsg, map[string]string{
+					meta := map[string]string{
 						"ubv_mode":         ubvMode,
 						"ubv_scope":        "cross-block",
 						"witness_cast_pos": stablePosKey(pass, ac.pos.Pos()),
@@ -153,7 +228,9 @@ func inspectClosureCastsCFA(
 							int64(defBlock.Index),
 							10,
 						),
-					})
+					}
+					addCFGWitnessMeta(meta, ubvWitness, cfgWitnessMaxSteps)
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateCrossBlock, ubvID, ubvMsg, meta)
 				} else if ubvOutcome == pathOutcomeInconclusive {
 					ubvMsg := useBeforeValidateInconclusiveMessage(ac.target.displayName, ac.typeName)
 					ubvID := PackageScopedFindingID(pass,
@@ -164,16 +241,26 @@ func inspectClosureCastsCFA(
 						qualEnclosingFunc,
 						ac.typeName,
 						"ubv-inconclusive",
+						"cross-block",
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 						string(ubvReason),
 					)
-					meta := cfgOutcomeMeta(cfgBackend, cfgMaxStates, cfgMaxDepth, ubvReason)
+					meta := cfgOutcomeMetaWithWitness(cfgBackend, cfgMaxStates, cfgMaxDepth, ubvReason, ubvWitness, cfgWitnessMaxSteps)
 					meta["ubv_mode"] = ubvMode
 					meta["ubv_scope"] = "cross-block"
 					meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
 					meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
-					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateInconclusive, ubvID, ubvMsg, meta)
+					reportInconclusiveFindingWithMetaIfNotBaselined(
+						pass,
+						bl,
+						cfgInconclusivePolicy,
+						ac.pos.Pos(),
+						CategoryUseBeforeValidateInconclusive,
+						ubvID,
+						ubvMsg,
+						meta,
+					)
 				}
 			}
 			continue
@@ -193,10 +280,19 @@ func inspectClosureCastsCFA(
 				stablePosKey(pass, ac.pos.Pos()),
 				ac.target.key(),
 			)
-			meta := cfgOutcomeMeta(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason)
+			meta := cfgOutcomeMetaWithWitness(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
 			meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
 			meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
-			reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUnvalidatedCastInconclusive, findingID, msg, meta)
+			reportInconclusiveFindingWithMetaIfNotBaselined(
+				pass,
+				bl,
+				cfgInconclusivePolicy,
+				ac.pos.Pos(),
+				CategoryUnvalidatedCastInconclusive,
+				findingID,
+				msg,
+				meta,
+			)
 			continue
 		}
 

@@ -74,10 +74,11 @@ func EscapeBeforeValidateInHelper(raw string) error { // want `parameter "raw" o
 	return x.Validate()
 }
 
-// RecursiveCycleConservative should be flagged for UBV in escape mode:
-// summary cycles are treated conservatively and do not claim validation.
+// RecursiveCycleConservative should report an inconclusive UBV outcome in
+// escape mode: recursion cycles in interprocedural summaries cannot prove
+// validation-before-escape ordering.
 func RecursiveCycleConservative(raw string) error { // want `parameter "raw" of use_before_validate_escape\.RecursiveCycleConservative uses primitive type string`
-	x := CommandName(raw) // want `variable x of type CommandName used before Validate\(\) in same block`
+	x := CommandName(raw) // want `variable x of type CommandName has inconclusive use-before-validate path analysis`
 	recursiveValidateA(x)
 	return x.Validate()
 }

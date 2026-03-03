@@ -2,7 +2,10 @@
 
 package goplint
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 type pathOutcome int
 
@@ -39,3 +42,34 @@ func cfgOutcomeMeta(
 	return meta
 }
 
+func cfgOutcomeMetaWithWitness(
+	backend string,
+	maxStates int,
+	maxDepth int,
+	reason pathOutcomeReason,
+	witness []int32,
+	maxWitnessSteps int,
+) map[string]string {
+	meta := cfgOutcomeMeta(backend, maxStates, maxDepth, reason)
+	addCFGWitnessMeta(meta, witness, maxWitnessSteps)
+	return meta
+}
+
+func addCFGWitnessMeta(meta map[string]string, witness []int32, maxWitnessSteps int) {
+	if len(meta) == 0 || len(witness) == 0 || maxWitnessSteps == 0 {
+		return
+	}
+	limit := len(witness)
+	if maxWitnessSteps > 0 && limit > maxWitnessSteps {
+		limit = maxWitnessSteps
+	}
+	steps := make([]string, 0, limit)
+	for _, idx := range witness[:limit] {
+		steps = append(steps, strconv.FormatInt(int64(idx), 10))
+	}
+	meta["witness_cfg_path"] = strings.Join(steps, "->")
+	meta["witness_cfg_steps"] = strconv.Itoa(limit)
+	if len(witness) > limit {
+		meta["witness_cfg_truncated"] = "true"
+	}
+}

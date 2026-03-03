@@ -160,6 +160,28 @@ func validateRunConfig(rc runConfig) error {
 	if cfgMaxDepth <= 0 {
 		return fmt.Errorf("flag --cfg-max-depth must be > 0 (got %d)", rc.cfgMaxDepth)
 	}
+	cfgInconclusivePolicy := strings.TrimSpace(strings.ToLower(rc.cfgInconclusivePolicy))
+	if cfgInconclusivePolicy == "" {
+		cfgInconclusivePolicy = defaultCFGInconclusivePolicy
+	}
+	switch cfgInconclusivePolicy {
+	case cfgInconclusivePolicyError, cfgInconclusivePolicyWarn, cfgInconclusivePolicyOff:
+	default:
+		return fmt.Errorf(
+			"flag --cfg-inconclusive-policy must be %q, %q, or %q (got %q)",
+			cfgInconclusivePolicyError,
+			cfgInconclusivePolicyWarn,
+			cfgInconclusivePolicyOff,
+			rc.cfgInconclusivePolicy,
+		)
+	}
+	cfgWitnessMaxSteps := rc.cfgWitnessMaxSteps
+	if cfgWitnessMaxSteps == 0 {
+		cfgWitnessMaxSteps = defaultCFGWitnessMaxSteps
+	}
+	if cfgWitnessMaxSteps <= 0 {
+		return fmt.Errorf("flag --cfg-witness-max-steps must be > 0 (got %d)", rc.cfgWitnessMaxSteps)
+	}
 	return nil
 }
 
@@ -307,7 +329,19 @@ func runTraversal(
 			// Cast validation: detect unvalidated type conversions to DDD types.
 			// Always uses CFA path-reachability analysis.
 			if rc.checkCastValidation {
-				inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate, rc.ubvMode, rc.cfgBackend, rc.cfgMaxStates, rc.cfgMaxDepth)
+				inspectUnvalidatedCastsCFA(
+					pass,
+					n,
+					cfg,
+					bl,
+					rc.checkUseBeforeValidate,
+					rc.ubvMode,
+					rc.cfgBackend,
+					rc.cfgMaxStates,
+					rc.cfgMaxDepth,
+					rc.cfgInconclusivePolicy,
+					rc.cfgWitnessMaxSteps,
+				)
 			}
 
 			// Redundant conversion: detect NamedType(basic(namedExpr)) chains.
@@ -370,6 +404,8 @@ func runPostTraversalChecks(
 			rc.cfgBackend,
 			rc.cfgMaxStates,
 			rc.cfgMaxDepth,
+			rc.cfgInconclusivePolicy,
+			rc.cfgWitnessMaxSteps,
 		)
 	}
 

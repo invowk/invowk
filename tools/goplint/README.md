@@ -259,6 +259,8 @@ Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constr
 | `-cfg-backend` | string | `"ssa"` | Path-analysis backend selector: `ssa` or `ast` |
 | `-cfg-max-states` | int | `20000` | Maximum CFG states explored before conservative fallback |
 | `-cfg-max-depth` | int | `512` | Maximum CFG DFS depth before conservative fallback |
+| `-cfg-inconclusive-policy` | string | `"error"` | Inconclusive CFA policy: `error`, `warn`, or `off` |
+| `-cfg-witness-max-steps` | int | `12` | Maximum CFG witness steps encoded in inconclusive metadata |
 | `-audit-exceptions` | bool | `false` | Report stale exception patterns |
 | `-global` | bool | `false` | Aggregate `-audit-exceptions` globally and fail on globally stale patterns |
 | `-update-baseline` | string | `""` | Generate baseline TOML at the given path |
@@ -293,7 +295,9 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 - `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate` are CFA-only checks.
 - CFA is always enabled for those checks; there is no CFA opt-out flag.
 - `--check-use-before-validate` emits split categories: `use-before-validate-same-block` and `use-before-validate-cross-block`.
-- CFA budget truncation emits inconclusive categories (`unvalidated-cast-inconclusive`, `use-before-validate-inconclusive`, `missing-constructor-validate-inconclusive`) with `cfg_*` metadata.
+- CFA budget truncation and recursion-summary cycles emit inconclusive categories (`unvalidated-cast-inconclusive`, `use-before-validate-inconclusive`, `missing-constructor-validate-inconclusive`) with `cfg_*` metadata.
+- `--cfg-inconclusive-policy` controls inconclusive emission: `error` (default), `warn` (emits with warning metadata), `off` (suppresses inconclusive findings).
+- Inconclusive metadata includes bounded witness path fields (`witness_cfg_path`, `witness_cfg_steps`, `witness_cfg_truncated`) capped by `--cfg-witness-max-steps`.
 - `--ubv-mode=order` uses strict ordering semantics; `--ubv-mode=escape` focuses on values escaping before validation.
 - `--ubv-mode=escape` uses recursion-safe interprocedural first-argument summaries to treat helper calls as validation only when the callee validates before escaping that argument.
 - `--cfg-backend=ssa` uses type-aware no-return pruning; `--cfg-backend=ast` is conservative and treats calls as may-return.

@@ -739,6 +739,13 @@ type blockVisitBudget struct {
 	maxDepth  int
 }
 
+type cfgVisitKey struct {
+	blockIndex       int32
+	predecessorIndex int32
+}
+
+const cfgVisitAnyPredecessor int32 = -1
+
 // hasPathToReturnWithoutValidate performs a depth-first search from the
 // defining block (starting after defIdx) through CFG successors. Returns
 // true if any path from the cast definition to a return block never passes
@@ -766,7 +773,7 @@ func hasPathToReturnWithoutValidate(
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
 ) bool {
-	outcome, _ := hasPathToReturnWithoutValidateOutcome(
+	outcome, _, _ := hasPathToReturnWithoutValidateOutcomeWithWitness(
 		pass,
 		cfg,
 		defBlock,
@@ -795,39 +802,70 @@ func hasPathToReturnWithoutValidateOutcome(
 	maxStates int,
 	maxDepth int,
 ) (pathOutcome, pathOutcomeReason) {
+	outcome, reason, _ := hasPathToReturnWithoutValidateOutcomeWithWitness(
+		pass,
+		nil,
+		defBlock,
+		defIdx,
+		target,
+		syncLits,
+		syncCalls,
+		methodCalls,
+		noReturnAliases,
+		maxStates,
+		maxDepth,
+	)
+	return outcome, reason
+}
+
+func hasPathToReturnWithoutValidateOutcomeWithWitness(
+	pass *analysis.Pass,
+	_ *gocfg.CFG,
+	defBlock *gocfg.Block,
+	defIdx int,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+	noReturnAliases noReturnAliasSet,
+	maxStates int,
+	maxDepth int,
+) (pathOutcome, pathOutcomeReason, []int32) {
 	if defBlock == nil {
-		return pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget
+		return pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, nil
 	}
 
 	// Check the remainder of the defining block after the cast.
 	remainder := defBlock.Nodes[defIdx+1:]
 	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits, syncCalls, methodCalls) {
-		return pathOutcomeSafe, pathOutcomeReasonNone // validated in same block after cast
+		return pathOutcomeSafe, pathOutcomeReasonNone, nil // validated in same block after cast
 	}
 
 	// If no successors, this is a return block — unvalidated path exists.
 	if len(defBlock.Succs) == 0 {
 		if blockTerminatesWithoutReturn(pass, defBlock, noReturnAliases) {
-			return pathOutcomeSafe, pathOutcomeReasonNone
+			return pathOutcomeSafe, pathOutcomeReasonNone, nil
 		}
-		return pathOutcomeUnsafe, pathOutcomeReasonNone
+		return pathOutcomeUnsafe, pathOutcomeReasonNone, []int32{defBlock.Index}
 	}
 
 	// DFS from successors.
-	visited := make(map[int32]bool)
-	visited[defBlock.Index] = true
+	visited := make(map[cfgVisitKey]bool)
+	markCFGVisitState(visited, defBlock.Index, cfgVisitAnyPredecessor)
 	seenStates := 1
 
-	return dfsUnvalidatedPathOutcome(
+	return dfsUnvalidatedPathOutcomeWithWitness(
 		pass,
 		defBlock.Succs,
 		target,
+		defBlock.Index,
 		visited,
 		syncLits,
 		syncCalls,
 		methodCalls,
 		noReturnAliases,
 		0,
+		[]int32{defBlock.Index},
 		&seenStates,
 		blockVisitBudget{maxStates: maxStates, maxDepth: maxDepth},
 	)
@@ -846,16 +884,18 @@ func dfsUnvalidatedPath(
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
 ) bool {
-	outcome, _ := dfsUnvalidatedPathOutcome(
+	outcome, _, _ := dfsUnvalidatedPathOutcomeWithWitness(
 		pass,
 		succs,
 		target,
-		visited,
+		cfgVisitAnyPredecessor,
+		cfgVisitStateFromBlockVisited(visited),
 		syncLits,
 		syncCalls,
 		methodCalls,
 		noReturnAliases,
 		0,
+		nil,
 		nil,
 		blockVisitBudget{maxStates: defaultCFGMaxStates, maxDepth: defaultCFGMaxDepth},
 	)
@@ -875,13 +915,55 @@ func dfsUnvalidatedPathOutcome(
 	seenStates *int,
 	budget blockVisitBudget,
 ) (pathOutcome, pathOutcomeReason) {
+	outcome, reason, _ := dfsUnvalidatedPathOutcomeWithWitness(
+		pass,
+		succs,
+		target,
+		cfgVisitAnyPredecessor,
+		cfgVisitStateFromBlockVisited(visited),
+		syncLits,
+		syncCalls,
+		methodCalls,
+		noReturnAliases,
+		depth,
+		nil,
+		seenStates,
+		budget,
+	)
+	return outcome, reason
+}
+
+func dfsUnvalidatedPathOutcomeWithWitness(
+	pass *analysis.Pass,
+	succs []*gocfg.Block,
+	target castTarget,
+	predecessor int32,
+	visited map[cfgVisitKey]bool,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+	noReturnAliases noReturnAliasSet,
+	depth int,
+	path []int32,
+	seenStates *int,
+	budget blockVisitBudget,
+) (pathOutcome, pathOutcomeReason, []int32) {
 	checker := func(block *gocfg.Block) bool {
 		if blockTerminatesWithoutReturn(pass, block, noReturnAliases) {
 			return true
 		}
 		return blockContainsValidateCall(pass, block, target, syncLits, syncCalls, methodCalls)
 	}
-	return dfsUnvalidatedBlocksOutcome(succs, visited, checker, depth, seenStates, budget)
+	return dfsUnvalidatedBlocksOutcomeWithWitness(
+		succs,
+		predecessor,
+		visited,
+		checker,
+		depth,
+		path,
+		seenStates,
+		budget,
+	)
 }
 
 // dfsUnvalidatedBlocks performs a depth-first search through CFG blocks,
@@ -892,11 +974,13 @@ func dfsUnvalidatedPathOutcome(
 // dfsConstructorUnvalidated). The blockHasValidate predicate abstracts the
 // validate-matching strategy.
 func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHasValidate blockValidateChecker) bool {
-	outcome, _ := dfsUnvalidatedBlocksOutcome(
+	outcome, _, _ := dfsUnvalidatedBlocksOutcomeWithWitness(
 		blocks,
-		visited,
+		cfgVisitAnyPredecessor,
+		cfgVisitStateFromBlockVisited(visited),
 		blockHasValidate,
 		0,
+		nil,
 		nil,
 		blockVisitBudget{
 			maxStates: defaultCFGMaxStates,
@@ -914,18 +998,45 @@ func dfsUnvalidatedBlocksOutcome(
 	seenStates *int,
 	budget blockVisitBudget,
 ) (pathOutcome, pathOutcomeReason) {
+	outcome, reason, _ := dfsUnvalidatedBlocksOutcomeWithWitness(
+		blocks,
+		cfgVisitAnyPredecessor,
+		cfgVisitStateFromBlockVisited(visited),
+		blockHasValidate,
+		depth,
+		nil,
+		seenStates,
+		budget,
+	)
+	return outcome, reason
+}
+
+func dfsUnvalidatedBlocksOutcomeWithWitness(
+	blocks []*gocfg.Block,
+	predecessor int32,
+	visited map[cfgVisitKey]bool,
+	blockHasValidate blockValidateChecker,
+	depth int,
+	path []int32,
+	seenStates *int,
+	budget blockVisitBudget,
+) (pathOutcome, pathOutcomeReason, []int32) {
 	if budget.maxDepth > 0 && depth > budget.maxDepth {
-		return pathOutcomeInconclusive, pathOutcomeReasonDepthBudget
+		return pathOutcomeInconclusive, pathOutcomeReasonDepthBudget, cloneCFGPath(path)
 	}
 	for _, block := range blocks {
-		if visited[block.Index] {
+		if block == nil {
 			continue
 		}
-		visited[block.Index] = true
+		if hasCFGVisitState(visited, block.Index, predecessor) {
+			continue
+		}
+		markCFGVisitState(visited, block.Index, predecessor)
+		nextPath := appendCFGPath(path, block.Index)
 		if seenStates != nil {
 			*seenStates++
 			if budget.maxStates > 0 && *seenStates > budget.maxStates {
-				return pathOutcomeInconclusive, pathOutcomeReasonStateBudget
+				return pathOutcomeInconclusive, pathOutcomeReasonStateBudget, nextPath
 			}
 		}
 
@@ -943,14 +1054,79 @@ func dfsUnvalidatedBlocksOutcome(
 		// If this is a return block (no successors), we have an
 		// unvalidated path.
 		if len(block.Succs) == 0 {
-			return pathOutcomeUnsafe, pathOutcomeReasonNone
+			return pathOutcomeUnsafe, pathOutcomeReasonNone, nextPath
 		}
 
 		// Recurse into successors.
-		outcome, reason := dfsUnvalidatedBlocksOutcome(block.Succs, visited, blockHasValidate, depth+1, seenStates, budget)
+		outcome, reason, witness := dfsUnvalidatedBlocksOutcomeWithWitness(
+			block.Succs,
+			block.Index,
+			visited,
+			blockHasValidate,
+			depth+1,
+			nextPath,
+			seenStates,
+			budget,
+		)
 		if outcome != pathOutcomeSafe {
-			return outcome, reason
+			return outcome, reason, witness
 		}
 	}
-	return pathOutcomeSafe, pathOutcomeReasonNone
+	return pathOutcomeSafe, pathOutcomeReasonNone, nil
+}
+
+func cfgVisitStateFromBlockVisited(visited map[int32]bool) map[cfgVisitKey]bool {
+	out := make(map[cfgVisitKey]bool, len(visited))
+	for blockIndex, seen := range visited {
+		if !seen {
+			continue
+		}
+		out[cfgVisitKey{
+			blockIndex:       blockIndex,
+			predecessorIndex: cfgVisitAnyPredecessor,
+		}] = true
+	}
+	return out
+}
+
+func hasCFGVisitState(visited map[cfgVisitKey]bool, blockIndex int32, predecessorIndex int32) bool {
+	if visited == nil {
+		return false
+	}
+	if visited[cfgVisitKey{
+		blockIndex:       blockIndex,
+		predecessorIndex: predecessorIndex,
+	}] {
+		return true
+	}
+	return visited[cfgVisitKey{
+		blockIndex:       blockIndex,
+		predecessorIndex: cfgVisitAnyPredecessor,
+	}]
+}
+
+func markCFGVisitState(visited map[cfgVisitKey]bool, blockIndex int32, predecessorIndex int32) {
+	if visited == nil {
+		return
+	}
+	visited[cfgVisitKey{
+		blockIndex:       blockIndex,
+		predecessorIndex: predecessorIndex,
+	}] = true
+}
+
+func appendCFGPath(path []int32, blockIndex int32) []int32 {
+	out := make([]int32, len(path)+1)
+	copy(out, path)
+	out[len(path)] = blockIndex
+	return out
+}
+
+func cloneCFGPath(path []int32) []int32 {
+	if len(path) == 0 {
+		return nil
+	}
+	out := make([]int32, len(path))
+	copy(out, path)
+	return out
 }

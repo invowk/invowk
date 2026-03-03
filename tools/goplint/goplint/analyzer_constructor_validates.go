@@ -168,6 +168,8 @@ func inspectConstructorValidates(
 	cfgBackend string,
 	cfgMaxStates int,
 	cfgMaxDepth int,
+	cfgInconclusivePolicy string,
+	cfgWitnessMaxSteps int,
 ) {
 	pkgName := packageName(pass.Pkg)
 
@@ -238,7 +240,7 @@ func inspectConstructorValidates(
 
 			// Check whether constructor paths validate the returned type.
 			// CFA mode is required for constructor-validates.
-			pathOutcome, pathReason := constructorReturnPathOutcome(
+			pathOutcome, pathReason, pathWitness := constructorReturnPathOutcomeWithWitness(
 				pass,
 				fn,
 				returnType,
@@ -273,10 +275,11 @@ func inspectConstructorValidates(
 					"inconclusive",
 					string(pathReason),
 				)
-				meta := cfgOutcomeMeta(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason)
-				reportFindingWithMetaIfNotBaselined(
+				meta := cfgOutcomeMetaWithWitness(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
+				reportInconclusiveFindingWithMetaIfNotBaselined(
 					pass,
 					bl,
+					cfgInconclusivePolicy,
 					fn.Name.Pos(),
 					CategoryMissingConstructorValidateInc,
 					findingID,
