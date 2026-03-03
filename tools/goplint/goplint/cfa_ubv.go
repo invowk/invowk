@@ -621,16 +621,32 @@ func hasUseBeforeValidateCrossBlockModeWithSummaryStackWithWitness(
 		return pathOutcomeSafe, pathOutcomeReasonNone, nil // return block — no successors to check
 	}
 
-	visited := make(map[cfgVisitKey]bool)
-	markCFGVisitState(visited, defBlock.Index, cfgVisitAnyPredecessor)
+	mode := cfgTraversalModeUBVOrder
+	if ubvMode == ubvModeEscape {
+		mode = cfgTraversalModeUBVEscape
+	}
+	starts := make([]*gocfg.Block, 0, len(defBlock.Succs)+1)
+	starts = append(starts, defBlock)
+	starts = append(starts, defBlock.Succs...)
+	ctx := newCFGTraversalContextFromBlocks(
+		mode,
+		target.key(),
+		cfgValidationStateNeedsValidateBeforeUse,
+		starts,
+	)
+	ctx.markVisitState(defBlock.Index, cfgVisitAnyPredecessor)
 	seenStates := 1
+	budget := adaptiveBlockVisitBudgetForBlocks(
+		starts,
+		blockVisitBudget{maxStates: maxStates, maxDepth: maxDepth},
+	)
 
 	return dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 		pass,
 		defBlock.Succs,
 		target,
 		defBlock.Index,
-		visited,
+		ctx,
 		syncLits,
 		syncCalls,
 		methodCalls,
@@ -638,8 +654,8 @@ func hasUseBeforeValidateCrossBlockModeWithSummaryStackWithWitness(
 		0,
 		[]int32{defBlock.Index},
 		&seenStates,
-		maxStates,
-		maxDepth,
+		budget.maxStates,
+		budget.maxDepth,
 		summaryStack,
 	)
 }
@@ -675,12 +691,28 @@ func dfsUseBeforeValidateMode(
 	maxStates int,
 	maxDepth int,
 ) bool {
+	mode := cfgTraversalModeUBVOrder
+	if ubvMode == ubvModeEscape {
+		mode = cfgTraversalModeUBVEscape
+	}
+	ctx := newCFGTraversalContextFromBlocks(
+		mode,
+		target.key(),
+		cfgValidationStateNeedsValidateBeforeUse,
+		succs,
+	)
+	ctx.visited = cfgVisitStateFromBlockVisited(
+		visited,
+		mode,
+		target.key(),
+		cfgValidationStateNeedsValidateBeforeUse,
+	)
 	outcome, _, _ := dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 		pass,
 		succs,
 		target,
 		cfgVisitAnyPredecessor,
-		cfgVisitStateFromBlockVisited(visited),
+		ctx,
 		syncLits,
 		syncCalls,
 		methodCalls,
@@ -710,12 +742,28 @@ func dfsUseBeforeValidateModeWithSummaryStack(
 	maxDepth int,
 	summaryStack map[string]bool,
 ) (pathOutcome, pathOutcomeReason) {
+	mode := cfgTraversalModeUBVOrder
+	if ubvMode == ubvModeEscape {
+		mode = cfgTraversalModeUBVEscape
+	}
+	ctx := newCFGTraversalContextFromBlocks(
+		mode,
+		target.key(),
+		cfgValidationStateNeedsValidateBeforeUse,
+		succs,
+	)
+	ctx.visited = cfgVisitStateFromBlockVisited(
+		visited,
+		mode,
+		target.key(),
+		cfgValidationStateNeedsValidateBeforeUse,
+	)
 	outcome, reason, _ := dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 		pass,
 		succs,
 		target,
 		cfgVisitAnyPredecessor,
-		cfgVisitStateFromBlockVisited(visited),
+		ctx,
 		syncLits,
 		syncCalls,
 		methodCalls,
@@ -735,7 +783,7 @@ func dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 	succs []*gocfg.Block,
 	target castTarget,
 	predecessor int32,
-	visited map[cfgVisitKey]bool,
+	ctx *cfgTraversalContext,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
@@ -755,19 +803,30 @@ func dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 		if succ == nil {
 			continue
 		}
-		if hasCFGVisitState(visited, succ.Index, predecessor) {
+		if entry, ok := ctx.memoLookup(succ.Index, predecessor); ok {
+			if entry.outcome == pathOutcomeSafe {
+				continue
+			}
+			return entry.outcome, entry.reason, mergeCFGWitness(path, entry.witness)
+		}
+		if ctx.shouldSkip(succ.Index, predecessor) {
 			continue
 		}
-		markCFGVisitState(visited, succ.Index, predecessor)
+		ctx.markVisitState(succ.Index, predecessor)
+		activeKey := ctx.pushActive(succ.Index, predecessor)
 		nextPath := appendCFGPath(path, succ.Index)
 		if seenStates != nil {
 			*seenStates++
 			if maxStates > 0 && *seenStates > maxStates {
+				ctx.memoStore(succ.Index, predecessor, pathOutcomeInconclusive, pathOutcomeReasonStateBudget, nextPath)
+				ctx.popActive(activeKey)
 				return pathOutcomeInconclusive, pathOutcomeReasonStateBudget, nextPath
 			}
 		}
 
 		if !succ.Live {
+			ctx.memoStore(succ.Index, predecessor, pathOutcomeSafe, pathOutcomeReasonNone, nil)
+			ctx.popActive(activeKey)
 			continue
 		}
 
@@ -782,6 +841,8 @@ func dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 				}
 				escapeOutcome, escapeReason := isVarEscapeTargetOutcomeWithSummaryStack(pass, node, target, syncLits, syncCalls, methodCalls, ubvMode, summaryStack)
 				if escapeOutcome == pathOutcomeInconclusive {
+					ctx.memoStore(succ.Index, predecessor, pathOutcomeInconclusive, escapeReason, nextPath)
+					ctx.popActive(activeKey)
 					return pathOutcomeInconclusive, escapeReason, nextPath
 				}
 				if escapeOutcome == pathOutcomeUnsafe {
@@ -806,9 +867,13 @@ func dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 		}
 
 		if foundUse {
+			ctx.memoStore(succ.Index, predecessor, pathOutcomeUnsafe, pathOutcomeReasonNone, nextPath)
+			ctx.popActive(activeKey)
 			return pathOutcomeUnsafe, pathOutcomeReasonNone, nextPath // cross-block UBV detected
 		}
 		if foundValidate {
+			ctx.memoStore(succ.Index, predecessor, pathOutcomeSafe, pathOutcomeReasonNone, nil)
+			ctx.popActive(activeKey)
 			continue // this path is validated — skip successors
 		}
 
@@ -818,7 +883,7 @@ func dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 			succ.Succs,
 			target,
 			succ.Index,
-			visited,
+			ctx,
 			syncLits,
 			syncCalls,
 			methodCalls,
@@ -831,8 +896,12 @@ func dfsUseBeforeValidateModeWithSummaryStackWithWitness(
 			summaryStack,
 		)
 		if outcome != pathOutcomeSafe {
+			ctx.memoStore(succ.Index, predecessor, outcome, reason, witness)
+			ctx.popActive(activeKey)
 			return outcome, reason, witness
 		}
+		ctx.memoStore(succ.Index, predecessor, pathOutcomeSafe, pathOutcomeReasonNone, nil)
+		ctx.popActive(activeKey)
 	}
 	return pathOutcomeSafe, pathOutcomeReasonNone, nil
 }
@@ -904,15 +973,18 @@ func callUsesTargetOutcomeWithSummaryStack(
 			return pathOutcomeUnsafe, pathOutcomeReasonNone
 		}
 	}
-	if ubvMode == ubvModeEscape && callHasTargetAsFirstArg(pass, call, target) {
-		summary, ok, summaryReason := callFirstArgSummaryWithStack(pass, call, summaryStack)
-		if ok && summary.ValidatesBeforeEscapeOfFirstArg {
+	if ubvMode == ubvModeEscape {
+		summary, ok, summaryReason := callCalleeSummaryForTargetWithStack(pass, call, target, stackScopeFromMap(summaryStack))
+		if ok && summary.AlwaysValidatesTarget && !summary.EscapesTargetBeforeValidate {
 			return pathOutcomeSafe, pathOutcomeReasonNone
 		}
 		if !ok && (summaryReason == pathOutcomeReasonRecursionCycle ||
 			summaryReason == pathOutcomeReasonStateBudget ||
 			summaryReason == pathOutcomeReasonDepthBudget) {
 			return pathOutcomeInconclusive, summaryReason
+		}
+		if ok && summary.EscapesTargetBeforeValidate {
+			return pathOutcomeUnsafe, pathOutcomeReasonNone
 		}
 	}
 	if callIsNonEscapingBuiltin(call) {

@@ -57,6 +57,10 @@ func inspectUnvalidatedCastsCFA(
 	if funcCFG == nil {
 		return
 	}
+	effectiveBudget := adaptiveBlockVisitBudget(
+		funcCFG,
+		blockVisitBudget{maxStates: cfgMaxStates, maxDepth: cfgMaxDepth},
+	)
 	noReturnAliases := collectNoReturnFuncAliasEvents(pass, fn.Body)
 
 	// Collect casts using the shared CFA collection logic.
@@ -95,7 +99,7 @@ func inspectUnvalidatedCastsCFA(
 		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
 		pathMethodCalls = mergeMethodValueValidateCallSets(
 			collectMethodValueValidateCalls(pass, fn.Body),
-			collectFirstArgValidatedCalls(pass, fn.Body, nil),
+			collectCalleeValidatedCalls(pass, fn.Body, stackScopeFromMap(nil)),
 		)
 		if checkUBV {
 			ubvSyncLits = collectUBVClosureLits(fn.Body)
@@ -135,8 +139,8 @@ func inspectUnvalidatedCastsCFA(
 			pathSyncCalls,
 			pathMethodCalls,
 			noReturnAliases,
-			cfgMaxStates,
-			cfgMaxDepth,
+			effectiveBudget.maxStates,
+			effectiveBudget.maxDepth,
 		)
 		if pathOutcome == pathOutcomeSafe {
 			// All paths DO have validate. Check use-before-validate with
@@ -188,8 +192,8 @@ func inspectUnvalidatedCastsCFA(
 					)
 					meta := cfgOutcomeMetaWithWitness(
 						cfgBackend,
-						cfgMaxStates,
-						cfgMaxDepth,
+						effectiveBudget.maxStates,
+						effectiveBudget.maxDepth,
 						inBlockReason,
 						[]int32{defBlock.Index},
 						cfgWitnessMaxSteps,
@@ -198,6 +202,7 @@ func inspectUnvalidatedCastsCFA(
 					meta["ubv_scope"] = "same-block"
 					meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
 					meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+					addCFGWitnessCallChainMeta(meta, []string{qualFuncName}, cfgWitnessMaxSteps)
 					reportInconclusiveFindingWithMetaIfNotBaselined(
 						pass,
 						bl,
@@ -217,8 +222,8 @@ func inspectUnvalidatedCastsCFA(
 					ubvSyncCalls,
 					ubvMethodCalls,
 					ubvMode,
-					cfgMaxStates,
-					cfgMaxDepth,
+					effectiveBudget.maxStates,
+					effectiveBudget.maxDepth,
 				); ubvOutcome == pathOutcomeUnsafe {
 					// Cross-block UBV: the variable is used in a successor
 					// block before any block on that path calls Validate().
@@ -242,6 +247,7 @@ func inspectUnvalidatedCastsCFA(
 						),
 					}
 					addCFGWitnessMeta(meta, ubvWitness, cfgWitnessMaxSteps)
+					addCFGWitnessCallChainMeta(meta, []string{qualFuncName}, cfgWitnessMaxSteps)
 					reportFindingWithMetaIfNotBaselined(
 						pass,
 						bl,
@@ -264,11 +270,12 @@ func inspectUnvalidatedCastsCFA(
 						ac.target.key(),
 						string(ubvReason),
 					)
-					meta := cfgOutcomeMetaWithWitness(cfgBackend, cfgMaxStates, cfgMaxDepth, ubvReason, ubvWitness, cfgWitnessMaxSteps)
+					meta := cfgOutcomeMetaWithWitness(cfgBackend, effectiveBudget.maxStates, effectiveBudget.maxDepth, ubvReason, ubvWitness, cfgWitnessMaxSteps)
 					meta["ubv_mode"] = ubvMode
 					meta["ubv_scope"] = "cross-block"
 					meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
 					meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+					addCFGWitnessCallChainMeta(meta, []string{qualFuncName}, cfgWitnessMaxSteps)
 					reportInconclusiveFindingWithMetaIfNotBaselined(
 						pass,
 						bl,
@@ -296,9 +303,10 @@ func inspectUnvalidatedCastsCFA(
 				stablePosKey(pass, ac.pos.Pos()),
 				ac.target.key(),
 			)
-			meta := cfgOutcomeMetaWithWitness(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
+			meta := cfgOutcomeMetaWithWitness(cfgBackend, effectiveBudget.maxStates, effectiveBudget.maxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
 			meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
 			meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+			addCFGWitnessCallChainMeta(meta, []string{qualFuncName}, cfgWitnessMaxSteps)
 			reportInconclusiveFindingWithMetaIfNotBaselined(
 				pass,
 				bl,

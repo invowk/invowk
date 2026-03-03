@@ -87,10 +87,41 @@ func TestCFGOutcomeMetaWithWitness(t *testing.T) {
 	if got := meta["witness_cfg_path"]; got != "0->1" {
 		t.Fatalf("witness_cfg_path = %q, want %q", got, "0->1")
 	}
+	if got := meta["cfg_witness_kind"]; got != "cfg-path" {
+		t.Fatalf("cfg_witness_kind = %q, want %q", got, "cfg-path")
+	}
+	if got := meta["cfg_witness_blocks"]; got != "0,1" {
+		t.Fatalf("cfg_witness_blocks = %q, want %q", got, "0,1")
+	}
+	if got := meta["cfg_witness_edges"]; got != "0->1" {
+		t.Fatalf("cfg_witness_edges = %q, want %q", got, "0->1")
+	}
 	if got := meta["witness_cfg_steps"]; got != "2" {
 		t.Fatalf("witness_cfg_steps = %q, want %q", got, "2")
 	}
 	if got := meta["witness_cfg_truncated"]; got != "true" {
 		t.Fatalf("witness_cfg_truncated = %q, want %q", got, "true")
+	}
+	if got := meta["cfg_witness_truncation_cause"]; got != "max-steps" {
+		t.Fatalf("cfg_witness_truncation_cause = %q, want %q", got, "max-steps")
+	}
+}
+
+func TestAddCFGWitnessCallChainMeta(t *testing.T) {
+	t.Parallel()
+
+	meta := map[string]string{
+		"cfg_backend": cfgBackendSSA,
+	}
+	addCFGWitnessCallChainMeta(
+		meta,
+		[]string{"pkg.Func", "pkg.helper", "pkg.deep"},
+		2,
+	)
+	if got := meta["cfg_witness_call_chain"]; got != "pkg.Func -> pkg.helper" {
+		t.Fatalf("cfg_witness_call_chain = %q, want %q", got, "pkg.Func -> pkg.helper")
+	}
+	if got := meta["cfg_witness_truncation_cause"]; got != "max-steps" {
+		t.Fatalf("cfg_witness_truncation_cause = %q, want %q", got, "max-steps")
 	}
 }

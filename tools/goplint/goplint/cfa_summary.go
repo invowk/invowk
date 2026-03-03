@@ -5,30 +5,62 @@ package goplint
 import (
 	"go/ast"
 	"go/types"
+	"strconv"
 	"sync"
 
 	"golang.org/x/tools/go/analysis"
 	gocfg "golang.org/x/tools/go/cfg"
 )
 
-// firstArgCallSummary captures interprocedural call behavior relevant to UBV
-// escape-mode checks.
+type calleeTargetSummary struct {
+	AlwaysValidatesTarget       bool
+	EscapesTargetBeforeValidate bool
+	OutcomeReason               pathOutcomeReason
+}
+
+// firstArgCallSummary is kept for compatibility with existing tests and call
+// sites while the generalized summary model is being adopted end-to-end.
 type firstArgCallSummary struct {
 	AlwaysValidatesFirstArg         bool
 	ValidatesBeforeEscapeOfFirstArg bool
+	OutcomeReason                   pathOutcomeReason
 }
 
-type firstArgSummaryEntry struct {
-	summary firstArgCallSummary
+type calleeSummaryEntry struct {
+	summary calleeTargetSummary
 	ok      bool
 	reason  pathOutcomeReason
 }
 
-var firstArgSummaryCache sync.Map // map[string]firstArgSummaryEntry keyed by objectKey(func)
+type calleeTargetSlotKind string
+
+const (
+	calleeTargetSlotReceiver calleeTargetSlotKind = "receiver"
+	calleeTargetSlotArg      calleeTargetSlotKind = "arg"
+)
+
+type calleeTargetSlot struct {
+	kind     calleeTargetSlotKind
+	argIndex int
+}
+
+func (slot calleeTargetSlot) cacheKey() string {
+	if slot.kind == calleeTargetSlotArg {
+		return string(slot.kind) + ":" + strconv.Itoa(slot.argIndex)
+	}
+	return string(slot.kind)
+}
+
+type calleeCallTarget struct {
+	slot calleeTargetSlot
+	expr ast.Expr
+}
+
+var calleeSummaryCache sync.Map // map[string]calleeSummaryEntry keyed by objectKey(func)+slot
 
 func resetFirstArgSummaryCache() {
-	firstArgSummaryCache.Range(func(key, _ any) bool {
-		firstArgSummaryCache.Delete(key)
+	calleeSummaryCache.Range(func(key, _ any) bool {
+		calleeSummaryCache.Delete(key)
 		return true
 	})
 }
@@ -57,52 +89,179 @@ func calledFunctionObject(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
 }
 
 func callFirstArgSummary(pass *analysis.Pass, call *ast.CallExpr) (firstArgCallSummary, bool) {
-	summary, ok, _ := callFirstArgSummaryWithStack(pass, call, nil)
-	return summary, ok
+	summary, ok, reason := callCalleeSummaryForSlotWithStack(
+		pass,
+		call,
+		calleeTargetSlot{kind: calleeTargetSlotArg, argIndex: 0},
+		stackScopeFromMap(nil),
+	)
+	return firstArgSummaryFromCallee(summary, reason), ok
 }
 
 func callFirstArgSummaryWithStack(pass *analysis.Pass, call *ast.CallExpr, stack map[string]bool) (firstArgCallSummary, bool, pathOutcomeReason) {
-	fnObj := calledFunctionObject(pass, call)
-	if fnObj == nil {
-		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
-	}
-	return firstArgSummaryForFunc(pass, fnObj, stack)
+	summary, ok, reason := callCalleeSummaryForSlotWithStack(
+		pass,
+		call,
+		calleeTargetSlot{kind: calleeTargetSlotArg, argIndex: 0},
+		stackScopeFromMap(stack),
+	)
+	return firstArgSummaryFromCallee(summary, reason), ok, reason
 }
 
 func firstArgSummaryForFunc(pass *analysis.Pass, fnObj *types.Func, stack map[string]bool) (firstArgCallSummary, bool, pathOutcomeReason) {
+	summary, ok, reason := calleeSummaryForFuncSlotWithStack(
+		pass,
+		fnObj,
+		calleeTargetSlot{kind: calleeTargetSlotArg, argIndex: 0},
+		stackScopeFromMap(stack),
+	)
+	return firstArgSummaryFromCallee(summary, reason), ok, reason
+}
+
+type summaryStackScope struct {
+	order []string
+	seen  map[string]bool
+}
+
+func stackScopeFromMap(stack map[string]bool) summaryStackScope {
+	scope := summaryStackScope{
+		order: nil,
+		seen:  make(map[string]bool),
+	}
+	for key, present := range stack {
+		if !present {
+			continue
+		}
+		scope.seen[key] = true
+		scope.order = append(scope.order, key)
+	}
+	return scope
+}
+
+func (scope *summaryStackScope) contains(key string) bool {
+	if scope == nil || scope.seen == nil {
+		return false
+	}
+	return scope.seen[key]
+}
+
+func (scope *summaryStackScope) push(key string) {
+	if scope == nil {
+		return
+	}
+	if scope.seen == nil {
+		scope.seen = make(map[string]bool)
+	}
+	scope.seen[key] = true
+	scope.order = append(scope.order, key)
+}
+
+func (scope *summaryStackScope) pop(key string) {
+	if scope == nil {
+		return
+	}
+	delete(scope.seen, key)
+	if len(scope.order) == 0 {
+		return
+	}
+	for idx := len(scope.order) - 1; idx >= 0; idx-- {
+		if scope.order[idx] != key {
+			continue
+		}
+		scope.order = append(scope.order[:idx], scope.order[idx+1:]...)
+		return
+	}
+}
+
+func firstArgSummaryFromCallee(summary calleeTargetSummary, reason pathOutcomeReason) firstArgCallSummary {
+	return firstArgCallSummary{
+		AlwaysValidatesFirstArg:         summary.AlwaysValidatesTarget,
+		ValidatesBeforeEscapeOfFirstArg: summary.AlwaysValidatesTarget && !summary.EscapesTargetBeforeValidate,
+		OutcomeReason:                   reason,
+	}
+}
+
+func callCalleeSummaryForTargetWithStack(
+	pass *analysis.Pass,
+	call *ast.CallExpr,
+	target castTarget,
+	scope summaryStackScope,
+) (calleeTargetSummary, bool, pathOutcomeReason) {
+	slots := callTargetSlotsMatchingCastTarget(pass, call, target)
+	if len(slots) == 0 {
+		return calleeTargetSummary{}, false, pathOutcomeReasonUnresolvedTarget
+	}
+	best := pathOutcomeReasonUnresolvedTarget
+	for _, candidate := range slots {
+		summary, ok, reason := callCalleeSummaryForSlotWithStack(pass, call, candidate.slot, scope)
+		if ok {
+			return summary, true, reason
+		}
+		if reason == pathOutcomeReasonRecursionCycle {
+			return calleeTargetSummary{}, false, reason
+		}
+		if best == pathOutcomeReasonUnresolvedTarget || best == pathOutcomeReasonNone {
+			best = reason
+		}
+	}
+	return calleeTargetSummary{}, false, best
+}
+
+func callCalleeSummaryForSlotWithStack(
+	pass *analysis.Pass,
+	call *ast.CallExpr,
+	slot calleeTargetSlot,
+	scope summaryStackScope,
+) (calleeTargetSummary, bool, pathOutcomeReason) {
+	fnObj := calledFunctionObject(pass, call)
 	if fnObj == nil {
-		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
+		return calleeTargetSummary{}, false, pathOutcomeReasonUnresolvedTarget
+	}
+	return calleeSummaryForFuncSlotWithStack(pass, fnObj, slot, scope)
+}
+
+func calleeSummaryForFuncSlotWithStack(
+	pass *analysis.Pass,
+	fnObj *types.Func,
+	slot calleeTargetSlot,
+	scope summaryStackScope,
+) (calleeTargetSummary, bool, pathOutcomeReason) {
+	if fnObj == nil {
+		return calleeTargetSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
 	key := objectKey(fnObj)
 	if key == "" {
-		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
+		return calleeTargetSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
-	if cached, ok := firstArgSummaryCache.Load(key); ok {
-		entry := cached.(firstArgSummaryEntry)
+	cacheKey := key + "|" + slot.cacheKey()
+	if cached, ok := calleeSummaryCache.Load(cacheKey); ok {
+		entry := cached.(calleeSummaryEntry)
 		return entry.summary, entry.ok, entry.reason
 	}
-	if stack == nil {
-		stack = make(map[string]bool)
+	if scope.contains(cacheKey) {
+		return calleeTargetSummary{}, false, pathOutcomeReasonRecursionCycle
 	}
-	// Cycles are treated conservatively as unknown: do not claim a guarantee.
-	if stack[key] {
-		return firstArgCallSummary{}, false, pathOutcomeReasonRecursionCycle
-	}
-	stack[key] = true
-	summary, ok, reason := deriveFirstArgSummary(pass, fnObj, stack)
-	delete(stack, key)
-	firstArgSummaryCache.Store(key, firstArgSummaryEntry{summary: summary, ok: ok, reason: reason})
+	scope.push(cacheKey)
+	summary, ok, reason := deriveCalleeSummaryForSlotWithStack(pass, fnObj, slot, scope)
+	scope.pop(cacheKey)
+	summary.OutcomeReason = reason
+	calleeSummaryCache.Store(cacheKey, calleeSummaryEntry{summary: summary, ok: ok, reason: reason})
 	return summary, ok, reason
 }
 
-func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[string]bool) (firstArgCallSummary, bool, pathOutcomeReason) {
+func deriveCalleeSummaryForSlotWithStack(
+	pass *analysis.Pass,
+	fnObj *types.Func,
+	slot calleeTargetSlot,
+	scope summaryStackScope,
+) (calleeTargetSummary, bool, pathOutcomeReason) {
 	fnDecl := findFuncDeclForObject(pass, fnObj)
 	if fnDecl == nil || fnDecl.Body == nil {
-		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
+		return calleeTargetSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
-	target, ok := functionFirstParamTarget(pass, fnDecl)
+	target, ok := functionTargetForSlot(pass, fnDecl, slot)
 	if !ok {
-		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
+		return calleeTargetSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
 
 	parentMap := buildParentMap(fnDecl.Body)
@@ -114,13 +273,17 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 	ubvSyncCalls := collectUBVClosureVarCalls(closureCalls)
 
 	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
-	methodCalls = mergeMethodValueValidateCallSets(methodCalls, collectFirstArgValidatedCalls(pass, fnDecl.Body, stack))
+	methodCalls = mergeMethodValueValidateCallSets(methodCalls, collectCalleeValidatedCalls(pass, fnDecl.Body, scope))
 
 	cfg := buildFuncCFGForPass(pass, fnDecl.Body)
 	entry := cfgEntryBlock(cfg)
 	if entry == nil {
-		return firstArgCallSummary{}, false, pathOutcomeReasonUnresolvedTarget
+		return calleeTargetSummary{}, false, pathOutcomeReasonUnresolvedTarget
 	}
+	budget := adaptiveBlockVisitBudget(
+		cfg,
+		blockVisitBudget{maxStates: defaultCFGMaxStates, maxDepth: defaultCFGMaxDepth},
+	)
 
 	noReturnAliases := collectNoReturnFuncAliasEvents(pass, fnDecl.Body)
 	validateOutcome, validateReason := hasPathToReturnWithoutValidateOutcome(
@@ -133,11 +296,11 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 		pathSyncCalls,
 		methodCalls,
 		noReturnAliases,
-		defaultCFGMaxStates,
-		defaultCFGMaxDepth,
+		budget.maxStates,
+		budget.maxDepth,
 	)
 	if validateOutcome == pathOutcomeInconclusive {
-		return firstArgCallSummary{}, false, validateReason
+		return calleeTargetSummary{}, false, validateReason
 	}
 	alwaysValidates := validateOutcome == pathOutcomeSafe
 
@@ -150,10 +313,10 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 		ubvSyncCalls,
 		methodCalls,
 		ubvModeEscape,
-		stack,
+		scope.seen,
 	)
 	if inBlockOutcome == pathOutcomeInconclusive {
-		return firstArgCallSummary{}, false, inBlockReason
+		return calleeTargetSummary{}, false, inBlockReason
 	}
 	escapesBeforeValidate := inBlockOutcome == pathOutcomeUnsafe
 	if !escapesBeforeValidate {
@@ -166,19 +329,20 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 			ubvSyncCalls,
 			methodCalls,
 			ubvModeEscape,
-			defaultCFGMaxStates,
-			defaultCFGMaxDepth,
-			stack,
+			budget.maxStates,
+			budget.maxDepth,
+			scope.seen,
 		)
 		if outcome == pathOutcomeInconclusive {
-			return firstArgCallSummary{}, false, reason
+			return calleeTargetSummary{}, false, reason
 		}
 		escapesBeforeValidate = outcome == pathOutcomeUnsafe
 	}
 
-	return firstArgCallSummary{
-		AlwaysValidatesFirstArg:         alwaysValidates,
-		ValidatesBeforeEscapeOfFirstArg: alwaysValidates && !escapesBeforeValidate,
+	return calleeTargetSummary{
+		AlwaysValidatesTarget:       alwaysValidates,
+		EscapesTargetBeforeValidate: escapesBeforeValidate,
+		OutcomeReason:               pathOutcomeReasonNone,
 	}, true, pathOutcomeReasonNone
 }
 
@@ -189,30 +353,76 @@ func cfgEntryBlock(cfg *gocfg.CFG) *gocfg.Block {
 	return cfg.Blocks[0]
 }
 
-// collectFirstArgValidatedCalls identifies call sites in body where the callee
-// guarantees that its first argument is validated before any escape/use.
-// Returned entries are represented as call->receiver mappings so existing
-// validate matching can reuse the same method-call path.
-func collectFirstArgValidatedCalls(pass *analysis.Pass, body *ast.BlockStmt, stack map[string]bool) methodValueValidateCallSet {
+func collectCalleeValidatedCalls(pass *analysis.Pass, body *ast.BlockStmt, scope summaryStackScope) methodValueValidateCallSet {
 	if pass == nil || body == nil {
 		return nil
 	}
 	var out methodValueValidateCallSet
 	ast.Inspect(body, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
-		if !ok || len(call.Args) == 0 {
+		if !ok {
 			return true
 		}
-		summary, ok, _ := callFirstArgSummaryWithStack(pass, call, stack)
-		if !ok || !summary.ValidatesBeforeEscapeOfFirstArg {
-			return true
+		for _, candidate := range allCallTargetSlots(call) {
+			summary, ok, _ := callCalleeSummaryForSlotWithStack(pass, call, candidate.slot, scope)
+			if !ok {
+				continue
+			}
+			if !summary.AlwaysValidatesTarget || summary.EscapesTargetBeforeValidate {
+				continue
+			}
+			if out == nil {
+				out = make(methodValueValidateCallSet)
+			}
+			out[call] = candidate.expr
+			break
 		}
-		if out == nil {
-			out = make(methodValueValidateCallSet)
-		}
-		out[call] = call.Args[0]
 		return true
 	})
+	return out
+}
+
+// Compatibility wrapper retained for tests and legacy call sites.
+func collectFirstArgValidatedCalls(pass *analysis.Pass, body *ast.BlockStmt, stack map[string]bool) methodValueValidateCallSet {
+	return collectCalleeValidatedCalls(pass, body, stackScopeFromMap(stack))
+}
+
+func callTargetSlotsMatchingCastTarget(pass *analysis.Pass, call *ast.CallExpr, target castTarget) []calleeCallTarget {
+	if call == nil {
+		return nil
+	}
+	candidates := allCallTargetSlots(call)
+	out := make([]calleeCallTarget, 0, len(candidates))
+	for _, candidate := range candidates {
+		if target.matchesExpr(pass, candidate.expr) {
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
+
+func allCallTargetSlots(call *ast.CallExpr) []calleeCallTarget {
+	if call == nil {
+		return nil
+	}
+	out := make([]calleeCallTarget, 0, len(call.Args)+1)
+	if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
+		out = append(out, calleeCallTarget{
+			slot: calleeTargetSlot{
+				kind: calleeTargetSlotReceiver,
+			},
+			expr: sel.X,
+		})
+	}
+	for idx, arg := range call.Args {
+		out = append(out, calleeCallTarget{
+			slot: calleeTargetSlot{
+				kind:     calleeTargetSlotArg,
+				argIndex: idx,
+			},
+			expr: arg,
+		})
+	}
 	return out
 }
 
@@ -256,4 +466,50 @@ func functionFirstParamTarget(pass *analysis.Pass, fnDecl *ast.FuncDecl) (castTa
 		}
 	}
 	return newCastTargetFromName(first.Names[0].Name), true
+}
+
+func functionTargetForSlot(pass *analysis.Pass, fnDecl *ast.FuncDecl, slot calleeTargetSlot) (castTarget, bool) {
+	if fnDecl == nil {
+		return castTarget{}, false
+	}
+	if slot.kind == calleeTargetSlotReceiver {
+		if fnDecl.Recv == nil || len(fnDecl.Recv.List) == 0 {
+			return castTarget{}, false
+		}
+		recv := fnDecl.Recv.List[0]
+		if len(recv.Names) == 0 {
+			return castTarget{}, false
+		}
+		if pass != nil {
+			if target, ok := castTargetFromExpr(pass, recv.Names[0]); ok {
+				return target, true
+			}
+		}
+		return newCastTargetFromName(recv.Names[0].Name), true
+	}
+	if slot.kind != calleeTargetSlotArg || slot.argIndex < 0 {
+		return castTarget{}, false
+	}
+	if fnDecl.Type == nil || fnDecl.Type.Params == nil || len(fnDecl.Type.Params.List) == 0 {
+		return castTarget{}, false
+	}
+	currentIdx := 0
+	for _, field := range fnDecl.Type.Params.List {
+		if field == nil {
+			continue
+		}
+		for _, name := range field.Names {
+			if currentIdx != slot.argIndex {
+				currentIdx++
+				continue
+			}
+			if pass != nil {
+				if target, ok := castTargetFromExpr(pass, name); ok {
+					return target, true
+				}
+			}
+			return newCastTargetFromName(name.Name), true
+		}
+	}
+	return castTarget{}, false
 }

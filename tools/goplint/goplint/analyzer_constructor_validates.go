@@ -237,6 +237,13 @@ func inspectConstructorValidates(
 			if constantOnlyTypes[returnTypeKey] {
 				continue
 			}
+			effectiveBudget := blockVisitBudget{
+				maxStates: cfgMaxStates,
+				maxDepth:  cfgMaxDepth,
+			}
+			if backendCFG := buildFuncCFGForBackend(pass, fn.Body, cfgBackend); backendCFG != nil {
+				effectiveBudget = adaptiveBlockVisitBudget(backendCFG, effectiveBudget)
+			}
 
 			// Check whether constructor paths validate the returned type.
 			// CFA mode is required for constructor-validates.
@@ -247,8 +254,8 @@ func inspectConstructorValidates(
 				returnTypePkgPath,
 				returnTypeKey,
 				cfgBackend,
-				cfgMaxStates,
-				cfgMaxDepth,
+				effectiveBudget.maxStates,
+				effectiveBudget.maxDepth,
 			)
 			if pathOutcome == pathOutcomeSafe {
 				continue
@@ -275,7 +282,8 @@ func inspectConstructorValidates(
 					"inconclusive",
 					string(pathReason),
 				)
-				meta := cfgOutcomeMetaWithWitness(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
+				meta := cfgOutcomeMetaWithWitness(cfgBackend, effectiveBudget.maxStates, effectiveBudget.maxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
+				addCFGWitnessCallChainMeta(meta, []string{qualName}, cfgWitnessMaxSteps)
 				reportInconclusiveFindingWithMetaIfNotBaselined(
 					pass,
 					bl,

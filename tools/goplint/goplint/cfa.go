@@ -739,13 +739,6 @@ type blockVisitBudget struct {
 	maxDepth  int
 }
 
-type cfgVisitKey struct {
-	blockIndex       int32
-	predecessorIndex int32
-}
-
-const cfgVisitAnyPredecessor int32 = -1
-
 // hasPathToReturnWithoutValidate performs a depth-first search from the
 // defining block (starting after defIdx) through CFG successors. Returns
 // true if any path from the cast definition to a return block never passes
@@ -820,7 +813,7 @@ func hasPathToReturnWithoutValidateOutcome(
 
 func hasPathToReturnWithoutValidateOutcomeWithWitness(
 	pass *analysis.Pass,
-	_ *gocfg.CFG,
+	cfg *gocfg.CFG,
 	defBlock *gocfg.Block,
 	defIdx int,
 	target castTarget,
@@ -849,17 +842,22 @@ func hasPathToReturnWithoutValidateOutcomeWithWitness(
 		return pathOutcomeUnsafe, pathOutcomeReasonNone, []int32{defBlock.Index}
 	}
 
-	// DFS from successors.
-	visited := make(map[cfgVisitKey]bool)
-	markCFGVisitState(visited, defBlock.Index, cfgVisitAnyPredecessor)
+	ctx := newCFGTraversalContext(
+		cfgTraversalModeCastPath,
+		target.key(),
+		cfgValidationStateNeedsValidate,
+		cfg,
+	)
+	ctx.markVisitState(defBlock.Index, cfgVisitAnyPredecessor)
 	seenStates := 1
+	budget := adaptiveBlockVisitBudget(cfg, blockVisitBudget{maxStates: maxStates, maxDepth: maxDepth})
 
 	return dfsUnvalidatedPathOutcomeWithWitness(
 		pass,
 		defBlock.Succs,
 		target,
 		defBlock.Index,
-		visited,
+		ctx,
 		syncLits,
 		syncCalls,
 		methodCalls,
@@ -867,7 +865,7 @@ func hasPathToReturnWithoutValidateOutcomeWithWitness(
 		0,
 		[]int32{defBlock.Index},
 		&seenStates,
-		blockVisitBudget{maxStates: maxStates, maxDepth: maxDepth},
+		budget,
 	)
 }
 
@@ -884,12 +882,24 @@ func dfsUnvalidatedPath(
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
 ) bool {
+	ctx := newCFGTraversalContext(
+		cfgTraversalModeLegacy,
+		"",
+		cfgValidationStateNeedsValidate,
+		nil,
+	)
+	ctx.visited = cfgVisitStateFromBlockVisited(
+		visited,
+		cfgTraversalModeLegacy,
+		"",
+		cfgValidationStateNeedsValidate,
+	)
 	outcome, _, _ := dfsUnvalidatedPathOutcomeWithWitness(
 		pass,
 		succs,
 		target,
 		cfgVisitAnyPredecessor,
-		cfgVisitStateFromBlockVisited(visited),
+		ctx,
 		syncLits,
 		syncCalls,
 		methodCalls,
@@ -915,12 +925,24 @@ func dfsUnvalidatedPathOutcome(
 	seenStates *int,
 	budget blockVisitBudget,
 ) (pathOutcome, pathOutcomeReason) {
+	ctx := newCFGTraversalContext(
+		cfgTraversalModeLegacy,
+		"",
+		cfgValidationStateNeedsValidate,
+		nil,
+	)
+	ctx.visited = cfgVisitStateFromBlockVisited(
+		visited,
+		cfgTraversalModeLegacy,
+		"",
+		cfgValidationStateNeedsValidate,
+	)
 	outcome, reason, _ := dfsUnvalidatedPathOutcomeWithWitness(
 		pass,
 		succs,
 		target,
 		cfgVisitAnyPredecessor,
-		cfgVisitStateFromBlockVisited(visited),
+		ctx,
 		syncLits,
 		syncCalls,
 		methodCalls,
@@ -938,7 +960,7 @@ func dfsUnvalidatedPathOutcomeWithWitness(
 	succs []*gocfg.Block,
 	target castTarget,
 	predecessor int32,
-	visited map[cfgVisitKey]bool,
+	ctx *cfgTraversalContext,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
@@ -957,7 +979,7 @@ func dfsUnvalidatedPathOutcomeWithWitness(
 	return dfsUnvalidatedBlocksOutcomeWithWitness(
 		succs,
 		predecessor,
-		visited,
+		ctx,
 		checker,
 		depth,
 		path,
@@ -974,10 +996,22 @@ func dfsUnvalidatedPathOutcomeWithWitness(
 // dfsConstructorUnvalidated). The blockHasValidate predicate abstracts the
 // validate-matching strategy.
 func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHasValidate blockValidateChecker) bool {
+	ctx := newCFGTraversalContext(
+		cfgTraversalModeLegacy,
+		"",
+		cfgValidationStateNeedsValidate,
+		nil,
+	)
+	ctx.visited = cfgVisitStateFromBlockVisited(
+		visited,
+		cfgTraversalModeLegacy,
+		"",
+		cfgValidationStateNeedsValidate,
+	)
 	outcome, _, _ := dfsUnvalidatedBlocksOutcomeWithWitness(
 		blocks,
 		cfgVisitAnyPredecessor,
-		cfgVisitStateFromBlockVisited(visited),
+		ctx,
 		blockHasValidate,
 		0,
 		nil,
@@ -998,10 +1032,22 @@ func dfsUnvalidatedBlocksOutcome(
 	seenStates *int,
 	budget blockVisitBudget,
 ) (pathOutcome, pathOutcomeReason) {
+	ctx := newCFGTraversalContext(
+		cfgTraversalModeLegacy,
+		"",
+		cfgValidationStateNeedsValidate,
+		nil,
+	)
+	ctx.visited = cfgVisitStateFromBlockVisited(
+		visited,
+		cfgTraversalModeLegacy,
+		"",
+		cfgValidationStateNeedsValidate,
+	)
 	outcome, reason, _ := dfsUnvalidatedBlocksOutcomeWithWitness(
 		blocks,
 		cfgVisitAnyPredecessor,
-		cfgVisitStateFromBlockVisited(visited),
+		ctx,
 		blockHasValidate,
 		depth,
 		nil,
@@ -1014,7 +1060,7 @@ func dfsUnvalidatedBlocksOutcome(
 func dfsUnvalidatedBlocksOutcomeWithWitness(
 	blocks []*gocfg.Block,
 	predecessor int32,
-	visited map[cfgVisitKey]bool,
+	ctx *cfgTraversalContext,
 	blockHasValidate blockValidateChecker,
 	depth int,
 	path []int32,
@@ -1028,14 +1074,23 @@ func dfsUnvalidatedBlocksOutcomeWithWitness(
 		if block == nil {
 			continue
 		}
-		if hasCFGVisitState(visited, block.Index, predecessor) {
+		if entry, ok := ctx.memoLookup(block.Index, predecessor); ok {
+			if entry.outcome == pathOutcomeSafe {
+				continue
+			}
+			return entry.outcome, entry.reason, mergeCFGWitness(path, entry.witness)
+		}
+		if ctx.shouldSkip(block.Index, predecessor) {
 			continue
 		}
-		markCFGVisitState(visited, block.Index, predecessor)
+		ctx.markVisitState(block.Index, predecessor)
+		activeKey := ctx.pushActive(block.Index, predecessor)
 		nextPath := appendCFGPath(path, block.Index)
 		if seenStates != nil {
 			*seenStates++
 			if budget.maxStates > 0 && *seenStates > budget.maxStates {
+				ctx.memoStore(block.Index, predecessor, pathOutcomeInconclusive, pathOutcomeReasonStateBudget, nextPath)
+				ctx.popActive(activeKey)
 				return pathOutcomeInconclusive, pathOutcomeReasonStateBudget, nextPath
 			}
 		}
@@ -1043,17 +1098,23 @@ func dfsUnvalidatedBlocksOutcomeWithWitness(
 		// Skip dead blocks — unreachable code can't constitute a
 		// real execution path.
 		if !block.Live {
+			ctx.memoStore(block.Index, predecessor, pathOutcomeSafe, pathOutcomeReasonNone, nil)
+			ctx.popActive(activeKey)
 			continue
 		}
 
 		// If this block contains Validate(), this path is safe.
 		if blockHasValidate(block) {
+			ctx.memoStore(block.Index, predecessor, pathOutcomeSafe, pathOutcomeReasonNone, nil)
+			ctx.popActive(activeKey)
 			continue
 		}
 
 		// If this is a return block (no successors), we have an
 		// unvalidated path.
 		if len(block.Succs) == 0 {
+			ctx.memoStore(block.Index, predecessor, pathOutcomeUnsafe, pathOutcomeReasonNone, nextPath)
+			ctx.popActive(activeKey)
 			return pathOutcomeUnsafe, pathOutcomeReasonNone, nextPath
 		}
 
@@ -1061,7 +1122,7 @@ func dfsUnvalidatedBlocksOutcomeWithWitness(
 		outcome, reason, witness := dfsUnvalidatedBlocksOutcomeWithWitness(
 			block.Succs,
 			block.Index,
-			visited,
+			ctx,
 			blockHasValidate,
 			depth+1,
 			nextPath,
@@ -1069,50 +1130,14 @@ func dfsUnvalidatedBlocksOutcomeWithWitness(
 			budget,
 		)
 		if outcome != pathOutcomeSafe {
+			ctx.memoStore(block.Index, predecessor, outcome, reason, witness)
+			ctx.popActive(activeKey)
 			return outcome, reason, witness
 		}
+		ctx.memoStore(block.Index, predecessor, pathOutcomeSafe, pathOutcomeReasonNone, nil)
+		ctx.popActive(activeKey)
 	}
 	return pathOutcomeSafe, pathOutcomeReasonNone, nil
-}
-
-func cfgVisitStateFromBlockVisited(visited map[int32]bool) map[cfgVisitKey]bool {
-	out := make(map[cfgVisitKey]bool, len(visited))
-	for blockIndex, seen := range visited {
-		if !seen {
-			continue
-		}
-		out[cfgVisitKey{
-			blockIndex:       blockIndex,
-			predecessorIndex: cfgVisitAnyPredecessor,
-		}] = true
-	}
-	return out
-}
-
-func hasCFGVisitState(visited map[cfgVisitKey]bool, blockIndex int32, predecessorIndex int32) bool {
-	if visited == nil {
-		return false
-	}
-	if visited[cfgVisitKey{
-		blockIndex:       blockIndex,
-		predecessorIndex: predecessorIndex,
-	}] {
-		return true
-	}
-	return visited[cfgVisitKey{
-		blockIndex:       blockIndex,
-		predecessorIndex: cfgVisitAnyPredecessor,
-	}]
-}
-
-func markCFGVisitState(visited map[cfgVisitKey]bool, blockIndex int32, predecessorIndex int32) {
-	if visited == nil {
-		return
-	}
-	visited[cfgVisitKey{
-		blockIndex:       blockIndex,
-		predecessorIndex: predecessorIndex,
-	}] = true
 }
 
 func appendCFGPath(path []int32, blockIndex int32) []int32 {

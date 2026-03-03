@@ -43,6 +43,10 @@ func inspectClosureCastsCFA(
 	if closureCFG == nil {
 		return
 	}
+	effectiveBudget := adaptiveBlockVisitBudget(
+		closureCFG,
+		blockVisitBudget{maxStates: cfgMaxStates, maxDepth: cfgMaxDepth},
+	)
 	noReturnAliases := collectNoReturnFuncAliasEvents(pass, lit.Body)
 
 	parentMap := buildParentMap(lit.Body)
@@ -84,7 +88,7 @@ func inspectClosureCastsCFA(
 		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
 		pathMethodCalls = mergeMethodValueValidateCallSets(
 			collectMethodValueValidateCalls(pass, lit.Body),
-			collectFirstArgValidatedCalls(pass, lit.Body, nil),
+			collectCalleeValidatedCalls(pass, lit.Body, stackScopeFromMap(nil)),
 		)
 		if checkUBV {
 			ubvSyncLits = collectUBVClosureLits(lit.Body)
@@ -119,8 +123,8 @@ func inspectClosureCastsCFA(
 			pathSyncCalls,
 			pathMethodCalls,
 			noReturnAliases,
-			cfgMaxStates,
-			cfgMaxDepth,
+			effectiveBudget.maxStates,
+			effectiveBudget.maxDepth,
 		)
 		if pathOutcome == pathOutcomeSafe {
 			// All paths validated. Check use-before-validate with
@@ -176,8 +180,8 @@ func inspectClosureCastsCFA(
 					)
 					meta := cfgOutcomeMetaWithWitness(
 						cfgBackend,
-						cfgMaxStates,
-						cfgMaxDepth,
+						effectiveBudget.maxStates,
+						effectiveBudget.maxDepth,
 						inBlockReason,
 						[]int32{defBlock.Index},
 						cfgWitnessMaxSteps,
@@ -186,6 +190,7 @@ func inspectClosureCastsCFA(
 					meta["ubv_scope"] = "same-block"
 					meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
 					meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+					addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
 					reportInconclusiveFindingWithMetaIfNotBaselined(
 						pass,
 						bl,
@@ -205,8 +210,8 @@ func inspectClosureCastsCFA(
 					ubvSyncCalls,
 					ubvMethodCalls,
 					ubvMode,
-					cfgMaxStates,
-					cfgMaxDepth,
+					effectiveBudget.maxStates,
+					effectiveBudget.maxDepth,
 				); ubvOutcome == pathOutcomeUnsafe {
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
 					ubvID := PackageScopedFindingID(pass,
@@ -230,6 +235,7 @@ func inspectClosureCastsCFA(
 						),
 					}
 					addCFGWitnessMeta(meta, ubvWitness, cfgWitnessMaxSteps)
+					addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
 					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateCrossBlock, ubvID, ubvMsg, meta)
 				} else if ubvOutcome == pathOutcomeInconclusive {
 					ubvMsg := useBeforeValidateInconclusiveMessage(ac.target.displayName, ac.typeName)
@@ -246,11 +252,12 @@ func inspectClosureCastsCFA(
 						ac.target.key(),
 						string(ubvReason),
 					)
-					meta := cfgOutcomeMetaWithWitness(cfgBackend, cfgMaxStates, cfgMaxDepth, ubvReason, ubvWitness, cfgWitnessMaxSteps)
+					meta := cfgOutcomeMetaWithWitness(cfgBackend, effectiveBudget.maxStates, effectiveBudget.maxDepth, ubvReason, ubvWitness, cfgWitnessMaxSteps)
 					meta["ubv_mode"] = ubvMode
 					meta["ubv_scope"] = "cross-block"
 					meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
 					meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+					addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
 					reportInconclusiveFindingWithMetaIfNotBaselined(
 						pass,
 						bl,
@@ -280,9 +287,10 @@ func inspectClosureCastsCFA(
 				stablePosKey(pass, ac.pos.Pos()),
 				ac.target.key(),
 			)
-			meta := cfgOutcomeMetaWithWitness(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
+			meta := cfgOutcomeMetaWithWitness(cfgBackend, effectiveBudget.maxStates, effectiveBudget.maxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
 			meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
 			meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+			addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
 			reportInconclusiveFindingWithMetaIfNotBaselined(
 				pass,
 				bl,

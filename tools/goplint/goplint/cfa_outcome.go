@@ -67,9 +67,33 @@ func addCFGWitnessMeta(meta map[string]string, witness []int32, maxWitnessSteps 
 	for _, idx := range witness[:limit] {
 		steps = append(steps, strconv.FormatInt(int64(idx), 10))
 	}
+	edges := make([]string, 0, max(0, limit-1))
+	for idx := 0; idx+1 < limit; idx++ {
+		edges = append(edges, steps[idx]+"->"+steps[idx+1])
+	}
+	meta["cfg_witness_kind"] = "cfg-path"
+	meta["cfg_witness_blocks"] = strings.Join(steps, ",")
+	if len(edges) > 0 {
+		meta["cfg_witness_edges"] = strings.Join(edges, ",")
+	}
 	meta["witness_cfg_path"] = strings.Join(steps, "->")
 	meta["witness_cfg_steps"] = strconv.Itoa(limit)
 	if len(witness) > limit {
 		meta["witness_cfg_truncated"] = "true"
+		meta["cfg_witness_truncation_cause"] = "max-steps"
+	}
+}
+
+func addCFGWitnessCallChainMeta(meta map[string]string, callChain []string, maxWitnessSteps int) {
+	if len(meta) == 0 || len(callChain) == 0 {
+		return
+	}
+	limit := len(callChain)
+	if maxWitnessSteps > 0 && limit > maxWitnessSteps {
+		limit = maxWitnessSteps
+	}
+	meta["cfg_witness_call_chain"] = strings.Join(callChain[:limit], " -> ")
+	if len(callChain) > limit {
+		meta["cfg_witness_truncation_cause"] = "max-steps"
 	}
 }

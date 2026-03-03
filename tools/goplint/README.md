@@ -297,7 +297,7 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 - `--check-use-before-validate` emits split categories: `use-before-validate-same-block` and `use-before-validate-cross-block`.
 - CFA budget truncation and recursion-summary cycles emit inconclusive categories (`unvalidated-cast-inconclusive`, `use-before-validate-inconclusive`, `missing-constructor-validate-inconclusive`) with `cfg_*` metadata.
 - `--cfg-inconclusive-policy` controls inconclusive emission: `error` (default), `warn` (emits with warning metadata), `off` (suppresses inconclusive findings).
-- Inconclusive metadata includes bounded witness path fields (`witness_cfg_path`, `witness_cfg_steps`, `witness_cfg_truncated`) capped by `--cfg-witness-max-steps`.
+- Inconclusive metadata includes bounded witness fields (`cfg_witness_kind`, `cfg_witness_blocks`, `cfg_witness_edges`, `cfg_witness_call_chain`, plus compatibility keys `witness_cfg_path`, `witness_cfg_steps`, `witness_cfg_truncated`) capped by `--cfg-witness-max-steps`.
 - `--ubv-mode=order` uses strict ordering semantics; `--ubv-mode=escape` focuses on values escaping before validation.
 - `--ubv-mode=escape` uses recursion-safe interprocedural first-argument summaries to treat helper calls as validation only when the callee validates before escaping that argument.
 - `--cfg-backend=ssa` uses type-aware no-return pruning; `--cfg-backend=ast` is conservative and treats calls as may-return.
@@ -315,6 +315,12 @@ cd tools/goplint && go test -race ./goplint/
 
 # Run a specific test
 cd tools/goplint && go test -v -run TestBaselineSuppression ./goplint/
+
+# Run CFG-heavy benchmarks
+cd tools/goplint && go test -run '^$' -bench '^BenchmarkCFGTraversal' ./goplint
+
+# Check benchmark thresholds
+./tools/goplint/scripts/check-cfg-bench-thresholds.sh
 ```
 
 ## License

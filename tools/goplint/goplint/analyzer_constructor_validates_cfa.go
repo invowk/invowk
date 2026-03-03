@@ -88,13 +88,26 @@ func constructorReturnPathOutcomeWithWitness(
 	syncLits := collectSynchronousClosureLits(fn.Body)
 	syncCalls := collectSynchronousClosureVarCalls(closureCalls)
 	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
+	methodCalls = mergeMethodValueValidateCallSets(
+		methodCalls,
+		collectCalleeValidatedCalls(pass, fn.Body, stackScopeFromMap(nil)),
+	)
 	bareReturnIncludesTarget := constructorBareReturnIncludesType(pass, fn, returnTypeKey)
 	returnTargetKeys := collectConstructorReturnTargetKeys(pass, fn, returnTypeKey, bareReturnIncludesTarget)
 	matcher := constructorReturnTargetMatcher(returnTypeKey, returnTargetKeys)
 
 	// DFS from the entry block (index 0).
-	visited := make(map[cfgVisitKey]bool)
+	ctx := newCFGTraversalContext(
+		cfgTraversalModeConstructorPath,
+		returnTypeKey,
+		cfgValidationStateNeedsValidate,
+		funcCFG,
+	)
 	seenStates := 0
+	budget := adaptiveBlockVisitBudget(
+		funcCFG,
+		blockVisitBudget{maxStates: cfgMaxStates, maxDepth: cfgMaxDepth},
+	)
 	return dfsConstructorUnvalidatedOutcome(
 		pass,
 		funcCFG.Blocks[0:1],
@@ -103,7 +116,7 @@ func constructorReturnPathOutcomeWithWitness(
 		returnTypeKey,
 		matcher,
 		bareReturnIncludesTarget,
-		visited,
+		ctx,
 		cfgVisitAnyPredecessor,
 		syncLits,
 		syncCalls,
@@ -112,7 +125,7 @@ func constructorReturnPathOutcomeWithWitness(
 		0,
 		nil,
 		&seenStates,
-		blockVisitBudget{maxStates: cfgMaxStates, maxDepth: cfgMaxDepth},
+		budget,
 	)
 }
 
@@ -128,7 +141,7 @@ func dfsConstructorUnvalidated(
 	returnTypeKey string,
 	matcher validateReceiverMatcher,
 	bareReturnIncludesTarget bool,
-	visited map[cfgVisitKey]bool,
+	ctx *cfgTraversalContext,
 	predecessor int32,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
@@ -143,7 +156,7 @@ func dfsConstructorUnvalidated(
 		returnTypeKey,
 		matcher,
 		bareReturnIncludesTarget,
-		visited,
+		ctx,
 		predecessor,
 		syncLits,
 		syncCalls,
@@ -168,7 +181,7 @@ func dfsConstructorUnvalidatedOutcome(
 	returnTypeKey string,
 	matcher validateReceiverMatcher,
 	bareReturnIncludesTarget bool,
-	visited map[cfgVisitKey]bool,
+	ctx *cfgTraversalContext,
 	predecessor int32,
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
@@ -179,6 +192,7 @@ func dfsConstructorUnvalidatedOutcome(
 	seenStates *int,
 	budget blockVisitBudget,
 ) (pathOutcome, pathOutcomeReason, []int32) {
+	inconclusiveReason := pathOutcomeReasonNone
 	checker := func(block *gocfg.Block) bool {
 		if blockTerminatesWithoutReturn(pass, block, noReturnAliases) {
 			return true
@@ -193,6 +207,11 @@ func dfsConstructorUnvalidatedOutcome(
 			if containsValidateOnReceiver(pass, node, matcher, syncLits, syncCalls, methodCalls) {
 				return true
 			}
+			if validated, reason := nodeUsesCalleeSummaryForType(pass, node, returnTypeKey); validated {
+				return true
+			} else if reason != pathOutcomeReasonNone {
+				inconclusiveReason = reason
+			}
 			if stmt, ok := node.(ast.Stmt); ok {
 				// Consider transitive helper validation for this statement.
 				// Wrapping in a one-statement block preserves the existing
@@ -206,16 +225,59 @@ func dfsConstructorUnvalidatedOutcome(
 		}
 		return false
 	}
-	return dfsUnvalidatedBlocksOutcomeWithWitness(
+	outcome, reason, witness := dfsUnvalidatedBlocksOutcomeWithWitness(
 		blocks,
 		predecessor,
-		visited,
+		ctx,
 		checker,
 		depth,
 		path,
 		seenStates,
 		budget,
 	)
+	if outcome == pathOutcomeUnsafe && inconclusiveReason != pathOutcomeReasonNone {
+		return pathOutcomeInconclusive, inconclusiveReason, witness
+	}
+	return outcome, reason, witness
+}
+
+func nodeUsesCalleeSummaryForType(pass *analysis.Pass, node ast.Node, returnTypeKey string) (bool, pathOutcomeReason) {
+	if pass == nil || node == nil || returnTypeKey == "" {
+		return false, pathOutcomeReasonNone
+	}
+	bestReason := pathOutcomeReasonNone
+	foundValidated := false
+	ast.Inspect(node, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		for _, candidate := range allCallTargetSlots(call) {
+			if !exprReturnsType(pass, candidate.expr, returnTypeKey) {
+				continue
+			}
+			summary, ok, reason := callCalleeSummaryForSlotWithStack(
+				pass,
+				call,
+				candidate.slot,
+				stackScopeFromMap(nil),
+			)
+			if ok && summary.AlwaysValidatesTarget && !summary.EscapesTargetBeforeValidate {
+				foundValidated = true
+				return false
+			}
+			if !ok && (reason == pathOutcomeReasonRecursionCycle ||
+				reason == pathOutcomeReasonStateBudget ||
+				reason == pathOutcomeReasonDepthBudget) {
+				bestReason = reason
+			}
+		}
+		return true
+	})
+	if foundValidated {
+		return true, pathOutcomeReasonNone
+	}
+	return false, bestReason
 }
 
 func blockReturnsTargetType(pass *analysis.Pass, block *gocfg.Block, returnTypeKey string, bareReturnIncludesTarget bool) bool {
