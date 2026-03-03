@@ -2959,7 +2959,7 @@ reason = "DependencyMessage display-text casts from fmt.Sprintf — pre-formatte
 # invowkfile.ValidationSeverity, invowkfile.ValidatorName.
 
 # =============================================================================
-# Struct-Validate-Fields Exceptions (--check-validate-delegation-all)
+# Struct-Validate-Fields Exceptions (--check-validate-delegation)
 # =============================================================================
 # These structs intentionally do NOT have Validate() methods despite having
 # validatable fields. Grouped by reason.

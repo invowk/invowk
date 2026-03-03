@@ -269,18 +269,18 @@ func TestCheckCastValidationCFANoReturnTerminator(t *testing.T) {
 	runAnalysisTest(t, testdata, h.Analyzer, "cfa_no_return_terminator")
 }
 
-// TestCFAEnabledByDefault verifies that CFA is enabled by default when
-// --check-cast-validation is active.
+// TestCheckAllEnablesCFABackedCastValidation verifies --check-all activates
+// cast validation, which is always CFA-backed.
 //
 // NOT parallel: shares Analyzer.Flags state.
-func TestCFAEnabledByDefault(t *testing.T) {
+func TestCheckAllEnablesCFABackedCastValidation(t *testing.T) {
 	t.Parallel()
 
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-all", "true")
 
 	rc := newRunConfigForState(h.state)
-	if rc.noCFA {
-		t.Error("expected noCFA = false (CFA enabled) when --check-all is set")
+	if !rc.checkCastValidation {
+		t.Error("expected checkCastValidation = true when --check-all is set")
 	}
 }

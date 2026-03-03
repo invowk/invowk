@@ -38,8 +38,6 @@ type flagState struct {
 	checkConstructorReturnError bool
 	checkUseBeforeValidateCross bool
 	checkRedundantConversion    bool
-	checkValidateDelegationAll  bool
-	noCFA                       bool
 	auditReviewDates            bool
 	checkEnumSync               bool
 	suggestValidateAll          bool
@@ -236,7 +234,7 @@ func modeFlagSpecs() []modeFlagSpec {
 		},
 		{
 			flagName:          "check-validate-delegation",
-			usage:             "report structs with //goplint:validate-all whose Validate() misses field delegations",
+			usage:             "report structs with validatable fields that have missing Validate() or incomplete field delegation",
 			defaultValue:      false,
 			includeInCheckAll: true,
 			stateBoolField: func(fs *flagState) *bool {
@@ -307,18 +305,6 @@ func modeFlagSpecs() []modeFlagSpec {
 			},
 		},
 		{
-			flagName:          "no-cfa",
-			usage:             "disable control-flow analysis and use AST heuristic for cast-validation (CFA is enabled by default)",
-			defaultValue:      false,
-			includeInCheckAll: false,
-			stateBoolField: func(fs *flagState) *bool {
-				return &fs.noCFA
-			},
-			runConfigBoolField: func(rc *runConfig) *bool {
-				return &rc.noCFA
-			},
-		},
-		{
 			flagName:          "check-enum-sync",
 			usage:             "report mismatches between Go Validate() switch cases and CUE schema disjunction members (requires //goplint:enum-cue= directive)",
 			defaultValue:      false,
@@ -355,20 +341,8 @@ func modeFlagSpecs() []modeFlagSpec {
 			},
 		},
 		{
-			flagName:          "check-validate-delegation-all",
-			usage:             "report all structs with validatable fields: missing Validate() or incomplete delegation (no directive required)",
-			defaultValue:      false,
-			includeInCheckAll: true,
-			stateBoolField: func(fs *flagState) *bool {
-				return &fs.checkValidateDelegationAll
-			},
-			runConfigBoolField: func(rc *runConfig) *bool {
-				return &rc.checkValidateDelegationAll
-			},
-		},
-		{
 			flagName:          "check-all",
-			usage:             "enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + redundant-conversion + validate-delegation-all + CFA)",
+			usage:             "enable all DDD compliance checks (validate + stringer + constructors + structural + cast-validation + validate-usage + constructor-error-usage + constructor-validates + nonzero + redundant-conversion + universal validate-delegation + CFA)",
 			defaultValue:      false,
 			includeInCheckAll: false,
 			stateBoolField: func(fs *flagState) *bool {
@@ -453,8 +427,6 @@ type runConfig struct {
 	checkConstructorReturnError bool
 	checkUseBeforeValidateCross bool
 	checkRedundantConversion    bool
-	checkValidateDelegationAll  bool
-	noCFA                       bool
 	auditReviewDates            bool
 	checkEnumSync               bool
 	suggestValidateAll          bool
@@ -482,8 +454,7 @@ func newRunConfigForState(state *flagState) runConfig {
 func expandCheckAllModes(rc *runConfig) {
 	// Expand --check-all into individual supplementary checks.
 	// Deliberately excludes --audit-exceptions (config maintenance tool
-	// with per-package false positives). CFA is enabled by default
-	// (opt out via --no-cfa).
+	// with per-package false positives).
 	if !rc.checkAll {
 		return
 	}

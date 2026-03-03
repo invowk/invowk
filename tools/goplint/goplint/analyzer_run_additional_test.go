@@ -45,15 +45,6 @@ func TestLoadRunInputsExplicitMissingBaselinePath(t *testing.T) {
 	}
 }
 
-func TestValidateRunConfigAllowsNoCFAWhenMissionChecksDisabled(t *testing.T) {
-	t.Parallel()
-
-	rc := runConfig{checkValidateUsage: true, noCFA: true}
-	if err := validateRunConfig(rc); err != nil {
-		t.Fatalf("expected no-cfa to be allowed for non-mission check, got %v", err)
-	}
-}
-
 func TestValidateRunConfigRejectsExplicitEmptyPaths(t *testing.T) {
 	t.Parallel()
 

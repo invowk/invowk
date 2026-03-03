@@ -88,7 +88,7 @@ func TestAuditExceptionsMultiPackage(t *testing.T) {
 // DDD compliance checks in a single run: primitive, validate, stringer,
 // constructors, constructor-sig, func-options, immutability, struct-validate,
 // cast-validation, validate-usage, constructor-error-usage,
-// constructor-validates, validate-delegation, validate-delegation-all,
+// constructor-validates, validate-delegation, missing-struct-validate-fields,
 // nonzero, use-before-validate, constructor-return-error, and
 // redundant-conversion. Also explicitly enables --audit-exceptions to verify
 // all diagnostic categories fire together.
@@ -195,19 +195,6 @@ func TestCheckCastValidation(t *testing.T) {
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 
 	runAnalysisTest(t, testdata, h.Analyzer, "castvalidation")
-}
-
-// TestCheckCastValidationRejectsNoCFA validates the run-config contract:
-// cast-validation requires CFA.
-//
-// NOT parallel: shares h.Analyzer.Flags state.
-func TestCheckCastValidationRejectsNoCFA(t *testing.T) {
-	t.Parallel()
-
-	rc := runConfig{checkCastValidation: true, noCFA: true}
-	if err := validateRunConfig(rc); err == nil {
-		t.Fatal("expected cast-validation + no-cfa to fail validation")
-	}
 }
 
 // TestBaselineSuppression verifies that the --baseline flag correctly
@@ -678,23 +665,21 @@ func TestCheckEnumSyncScopedSwitches(t *testing.T) {
 	runAnalysisTest(t, testdata, h.Analyzer, "enumsync_multiswitch_scoped")
 }
 
-// TestCheckValidateDelegationAll exercises the --check-validate-delegation-all
-// mode against the validatedelegationall fixture. Verifies:
+// TestCheckValidateDelegationUniversal exercises the unified
+// --check-validate-delegation mode against the validatedelegationall fixture.
+// Verifies:
 //   - Structs with validatable fields but no Validate() are flagged
 //   - Structs with Validate() but incomplete delegation are flagged
 //   - Error-type structs are excluded
 //   - //goplint:no-delegate fields are respected
 //   - Complete delegation is not flagged
 //   - Structs without validatable fields are not flagged
-//
-// Also enables --check-validate-delegation to verify both modes coexist.
-func TestCheckValidateDelegationAll(t *testing.T) {
+func TestCheckValidateDelegationUniversal(t *testing.T) {
 	t.Parallel()
 
 	testdata := analysistest.TestData()
 	h := newAnalyzerHarness()
 	resetFlags(t, h)
-	setFlag(t, h.Analyzer, "check-validate-delegation-all", "true")
 	setFlag(t, h.Analyzer, "check-validate-delegation", "true")
 
 	runAnalysisTest(t, testdata, h.Analyzer, "validatedelegationall")

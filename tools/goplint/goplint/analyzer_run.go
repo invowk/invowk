@@ -128,9 +128,6 @@ func validateRunConfig(rc runConfig) error {
 	if rc.baselinePathExplicit && strings.TrimSpace(rc.baselinePath) == "" {
 		return errors.New("flag --baseline was provided with an empty path")
 	}
-	if rc.noCFA && (rc.checkCastValidation || rc.checkUseBeforeValidate || rc.checkUseBeforeValidateCross || rc.checkConstructorValidates) {
-		return errors.New("flags --check-cast-validation, --check-use-before-validate, --check-use-before-validate-cross, and --check-constructor-validates require CFA; remove --no-cfa")
-	}
 	return nil
 }
 
@@ -276,14 +273,9 @@ func runTraversal(
 			}
 
 			// Cast validation: detect unvalidated type conversions to DDD types.
-			// CFA (default) uses path-reachability analysis; --no-cfa falls
-			// back to AST name-based heuristic.
+			// Always uses CFA path-reachability analysis.
 			if rc.checkCastValidation {
-				if rc.noCFA {
-					inspectUnvalidatedCasts(pass, n, cfg, bl)
-				} else {
-					inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate, rc.checkUseBeforeValidateCross)
-				}
+				inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate, rc.checkUseBeforeValidateCross)
 			}
 
 			// Redundant conversion: detect NamedType(basic(namedExpr)) chains.
@@ -345,13 +337,10 @@ func runPostTraversalChecks(
 		inspectConstructorReturnError(pass, collectors.constructorDetails, collectors.constantOnlyTypes, cfg, bl)
 	}
 
-	// Validate delegation — opt-in via //goplint:validate-all.
+	// Validate delegation — always evaluates both directive-based and
+	// universal delegation semantics.
 	if rc.checkValidateDelegation {
 		inspectValidateDelegation(pass, cfg, bl)
-	}
-
-	// Universal validate delegation — checks ALL structs with validatable fields.
-	if rc.checkValidateDelegationAll {
 		inspectValidateDelegationAll(pass, cfg, bl)
 	}
 

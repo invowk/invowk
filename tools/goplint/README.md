@@ -285,7 +285,7 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 ### CFA Notes
 
 - `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate*` are CFA-only checks.
-- `--no-cfa` with any of those checks is rejected in run-config validation.
+- CFA is always enabled for those checks; there is no CFA opt-out flag.
 - Auto-skip for index expressions is map-only (map lookups), not slice/array indexing.
 - UBV checks treat immediate IIFEs as synchronous ordering context; deferred `Validate()` does not suppress use-before-validate findings.
 

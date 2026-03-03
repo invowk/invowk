@@ -25,14 +25,6 @@ func TestIncludePackagesFactExportOnly(t *testing.T) {
 		"include_packages_factexport/app")
 }
 
-func TestValidateRunConfigRejectsCastValidationNoCFA(t *testing.T) {
-	t.Parallel()
-
-	if err := validateRunConfig(runConfig{checkCastValidation: true, noCFA: true}); err == nil {
-		t.Fatal("expected check-cast-validation + no-cfa to fail validation")
-	}
-}
-
 func TestCheckConstructorErrorUsageCrossPackageSelector(t *testing.T) {
 	t.Parallel()
 
@@ -57,14 +49,6 @@ func TestCheckConstructorErrorUsageSuppression(t *testing.T) {
 	setFlag(t, h.Analyzer, "baseline", filepath.Join(testdata, "src", "constructorusage_suppressed", "goplint-baseline.toml"))
 
 	runAnalysisTest(t, testdata, h.Analyzer, "constructorusage_suppressed")
-}
-
-func TestValidateRunConfigRejectsConstructorValidatesNoCFA(t *testing.T) {
-	t.Parallel()
-
-	if err := validateRunConfig(runConfig{checkConstructorValidates: true, noCFA: true}); err == nil {
-		t.Fatal("expected check-constructor-validates + no-cfa to fail validation")
-	}
 }
 
 func TestCheckEnumSyncSwitchTagConversion(t *testing.T) {
