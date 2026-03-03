@@ -103,7 +103,9 @@ func inspectClosureCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg, map[string]string{
+						"ubv_scope": "same-block",
+					})
 				} else if hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
 					ubvID := PackageScopedFindingID(pass,
@@ -117,7 +119,9 @@ func inspectClosureCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg, map[string]string{
+						"ubv_scope": "cross-block",
+					})
 				}
 			}
 			continue

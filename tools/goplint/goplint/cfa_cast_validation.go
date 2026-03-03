@@ -117,7 +117,9 @@ func inspectUnvalidatedCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg, map[string]string{
+						"ubv_scope": "same-block",
+					})
 				} else if hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
 					// Cross-block UBV: the variable is used in a successor
 					// block before any block on that path calls Validate().
@@ -131,7 +133,9 @@ func inspectUnvalidatedCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg, map[string]string{
+						"ubv_scope": "cross-block",
+					})
 				}
 			}
 			continue // all paths validated

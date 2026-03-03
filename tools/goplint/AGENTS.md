@@ -570,7 +570,7 @@ make update-baseline   # Regenerate baseline from current state
 
 ### How it works
 
-- **`--baseline=path`**: Analyzer flag. Loaded per-package in `run()`, suppresses findings whose stable `id` matches a baseline entry (with legacy message fallback). Only new findings are reported.
+- **`--baseline=path`**: Analyzer flag. Loaded per-package in `run()`, suppresses findings whose stable `id` matches a baseline entry. Only new findings are reported.
 - **`--update-baseline=path`**: main() flag. Runs self as subprocess and injects `-emit-findings-jsonl=<tmp>` so baseline generation consumes machine-stable finding IDs from a JSONL stream. Uses subprocess because `singlechecker.Main()` calls `os.Exit()` — no post-analysis aggregation is possible within the framework.
 
 ### Baseline TOML format
@@ -589,7 +589,7 @@ entries = [
 
 Sections: `[primitive]`, `[missing-validate]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-validate-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-validate]`, `[wrong-struct-validate-sig]`, `[unvalidated-cast]`, `[unused-validate-result]`, `[unused-constructor-error]`, `[missing-constructor-validate]`, `[incomplete-validate-delegation]`, `[nonzero-value-field]`, `[redundant-conversion]`, `[missing-struct-validate-fields]`. Empty sections are omitted.
 
-`messages = [...]` (legacy v1 format) is still parsed for backward compatibility.
+`messages = [...]` (legacy v1 format) is parsed for migration compatibility but does not participate in message-text suppression.
 
 ### When to update
 

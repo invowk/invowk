@@ -595,9 +595,6 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 		if _, ok := bl.lookupByID[cat]; !ok {
 			t.Errorf("buildLookup() missing ID entry for category %q", cat)
 		}
-		if _, ok := bl.lookupByMessage[cat]; !ok {
-			t.Errorf("buildLookup() missing message entry for category %q", cat)
-		}
 	}
 
 	// Verify no extra entries in lookup beyond our list + zero unexpected.
@@ -610,12 +607,6 @@ func TestBaselineCategoryCompleteness(t *testing.T) {
 			t.Errorf("buildLookup() ID map has unexpected category %q not in baselinedCategories", cat)
 		}
 	}
-	for cat := range bl.lookupByMessage {
-		if !expectedSet[cat] {
-			t.Errorf("buildLookup() message map has unexpected category %q not in baselinedCategories", cat)
-		}
-	}
-
 	// Verify WriteBaseline handles every category by checking that
 	// a baseline with one entry per category round-trips correctly.
 	findings := make(map[string][]BaselineFinding, len(baselinedCategories))

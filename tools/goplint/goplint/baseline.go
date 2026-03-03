@@ -45,8 +45,6 @@ type BaselineConfig struct {
 
 	// lookupByID is an O(1) index keyed by category → finding ID.
 	lookupByID map[string]map[string]bool
-	// lookupByMessage is a legacy O(1) index keyed by category → message.
-	lookupByMessage map[string]map[string]bool
 }
 
 type baselineCacheKey struct {
@@ -123,34 +121,33 @@ func loadBaselineCached(state *flagState, path string, strictMissing bool) (*Bas
 	return entry.config, entry.err
 }
 
-// Contains reports whether a finding with the given category and message
-// is present in the baseline (legacy message-based matching).
+// Contains reports whether a finding with the given category/message is
+// present in the baseline by deriving the legacy-message fallback ID.
+//
+// Production suppression should always use ContainsFinding with the emitted
+// stable finding ID.
 func (b *BaselineConfig) Contains(category, message string) bool {
-	return b.ContainsFinding(category, "", message)
+	if message == "" {
+		return false
+	}
+	return b.ContainsFinding(category, FallbackFindingID(category, message), message)
 }
 
 // ContainsFinding reports whether a finding is present in the baseline.
-// Matching prefers stable finding ID and falls back to message for v1
-// baseline compatibility.
-func (b *BaselineConfig) ContainsFinding(category, findingID, message string) bool {
+// Matching is strict ID-only: message text is informational and never used
+// for suppression.
+func (b *BaselineConfig) ContainsFinding(category, findingID, _ string) bool {
 	if b == nil {
 		return false
 	}
-	if findingID != "" && b.lookupByID != nil {
-		if ids, ok := b.lookupByID[category]; ok && ids[findingID] {
-			return true
-		}
-		// Strict ID matching: when caller provides a finding ID, do not
-		// fall back to message matching, which can over-suppress distinct
-		// findings that share the same text.
+	if findingID == "" {
 		return false
 	}
-	if message != "" && b.lookupByMessage != nil {
-		if msgs, ok := b.lookupByMessage[category]; ok && msgs[message] {
-			return true
-		}
+	if b.lookupByID == nil {
+		return false
 	}
-	return false
+	ids, ok := b.lookupByID[category]
+	return ok && ids[findingID]
 }
 
 // Count returns the total number of baseline entries across all categories.
@@ -160,7 +157,7 @@ func (b *BaselineConfig) Count() int {
 	}
 	total := 0
 	for _, cat := range BaselinedCategoryNames() {
-		total += countCategory(b.categoryForName(cat))
+		total += countCategory(cat, b.categoryForName(cat))
 	}
 	return total
 }
@@ -169,12 +166,10 @@ func (b *BaselineConfig) Count() int {
 func (b *BaselineConfig) buildLookup() {
 	baselinedCats := BaselinedCategoryNames()
 	b.lookupByID = make(map[string]map[string]bool, len(baselinedCats))
-	b.lookupByMessage = make(map[string]map[string]bool, len(baselinedCats))
 
 	for _, cat := range baselinedCats {
-		ids, msgs := categorySets(b.categoryForName(cat))
+		ids := categoryIDSet(cat, b.categoryForName(cat))
 		b.lookupByID[cat] = ids
-		b.lookupByMessage[cat] = msgs
 	}
 }
 
@@ -287,48 +282,48 @@ func emptyBaseline() *BaselineConfig {
 	return b
 }
 
-// countCategory counts unique entries in one baseline category across both
-// v2 entries and legacy v1 messages.
-func countCategory(cat BaselineCategory) int {
+// countCategory counts unique IDs in one baseline category, including
+// deterministic fallback IDs for legacy v1 messages.
+func countCategory(categoryName string, cat BaselineCategory) int {
 	seen := make(map[string]bool, len(cat.Entries)+len(cat.Messages))
 	for _, entry := range cat.Entries {
 		if entry.ID != "" {
-			seen["id:"+entry.ID] = true
+			seen[entry.ID] = true
 			continue
 		}
 		if entry.Message != "" {
-			seen["msg:"+entry.Message] = true
+			seen[FallbackFindingID(categoryName, entry.Message)] = true
 		}
 	}
 	for _, msg := range cat.Messages {
 		if msg == "" {
 			continue
 		}
-		seen["msg:"+msg] = true
+		seen[FallbackFindingID(categoryName, msg)] = true
 	}
 	return len(seen)
 }
 
-// categorySets builds ID and message lookup sets from one category value.
-func categorySets(cat BaselineCategory) (map[string]bool, map[string]bool) {
+// categoryIDSet builds an ID lookup set from one category value.
+func categoryIDSet(categoryName string, cat BaselineCategory) map[string]bool {
 	ids := make(map[string]bool, len(cat.Entries))
-	messages := make(map[string]bool, len(cat.Entries)+len(cat.Messages))
 
 	for _, entry := range cat.Entries {
 		if entry.ID != "" {
 			ids[entry.ID] = true
+			continue
 		}
 		if entry.Message != "" {
-			messages[entry.Message] = true
+			ids[FallbackFindingID(categoryName, entry.Message)] = true
 		}
 	}
 	for _, msg := range cat.Messages {
 		if msg == "" {
 			continue
 		}
-		messages[msg] = true
+		ids[FallbackFindingID(categoryName, msg)] = true
 	}
-	return ids, messages
+	return ids
 }
 
 // normalizeBaselineFindings fills fallback IDs, removes invalid rows,

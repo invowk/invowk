@@ -26,8 +26,18 @@ func reportFindingIfNotBaselined(
 	pos token.Pos,
 	category, findingID, message string,
 ) {
+	reportFindingWithMetaIfNotBaselined(pass, bl, pos, category, findingID, message, nil)
+}
+
+func reportFindingWithMetaIfNotBaselined(
+	pass *analysis.Pass,
+	bl *BaselineConfig,
+	pos token.Pos,
+	category, findingID, message string,
+	meta map[string]string,
+) {
 	if bl.ContainsFinding(category, findingID, message) {
 		return
 	}
-	reportDiagnostic(pass, pos, category, findingID, message)
+	reportDiagnosticWithMeta(pass, pos, category, findingID, message, meta)
 }

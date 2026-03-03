@@ -191,7 +191,7 @@ entries = [
 ```
 
 `id` is the stable semantic identity used for suppression; `message` is for human readability.  
-`messages = [...]` (v1 format) is still accepted for backward compatibility, but ID matching is authoritative when diagnostics provide IDs.
+Suppression is strict ID-only. Legacy `messages = [...]` entries are parsed for migration compatibility but do not drive message-text suppression.
 
 ### CI Integration
 
@@ -235,7 +235,7 @@ Each diagnostic includes a `category` field for filtering:
 }
 ```
 
-`url` encodes the stable finding ID used by baseline v2.
+`url` encodes the stable finding ID used by baseline v2 and may include machine-readable query metadata (for example `ubv_scope=same-block|cross-block`).
 
 Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constructor`, `wrong-constructor-sig`, `wrong-validate-sig`, `wrong-stringer-sig`, `missing-func-options`, `missing-immutability`, `missing-struct-validate`, `wrong-struct-validate-sig`, `unvalidated-cast`, `unused-validate-result`, `unused-constructor-error`, `missing-constructor-validate`, `incomplete-validate-delegation`, `nonzero-value-field`, `stale-exception`, `unknown-directive`.
 
