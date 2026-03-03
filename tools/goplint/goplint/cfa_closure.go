@@ -27,13 +27,17 @@ func inspectClosureCastsCFA(
 	excCfg *ExceptionConfig,
 	bl *BaselineConfig,
 	checkUBV bool,
+	ubvMode string,
+	cfgBackend string,
+	cfgMaxStates int,
+	cfgMaxDepth int,
 ) {
 	if lit.Body == nil {
 		return
 	}
 
 	// Build CFG for this closure's body.
-	closureCFG := buildFuncCFGForPass(pass, lit.Body)
+	closureCFG := buildFuncCFGForBackend(pass, lit.Body, cfgBackend)
 	if closureCFG == nil {
 		return
 	}
@@ -47,7 +51,7 @@ func inspectClosureCastsCFA(
 		pass, lit.Body, parentMap,
 		func(nested *ast.FuncLit, nestedIdx int) {
 			nestedPrefix := closurePrefix + "/" + strconv.Itoa(nestedIdx)
-			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl, checkUBV)
+			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl, checkUBV, ubvMode, cfgBackend, cfgMaxStates, cfgMaxDepth)
 		},
 	)
 
@@ -62,7 +66,10 @@ func inspectClosureCastsCFA(
 	if len(assignedCasts) > 0 {
 		pathSyncLits = collectSynchronousClosureLits(lit.Body)
 		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
-		pathMethodCalls = collectMethodValueValidateCalls(pass, lit.Body)
+		pathMethodCalls = mergeMethodValueValidateCallSets(
+			collectMethodValueValidateCalls(pass, lit.Body),
+			collectFirstArgValidatedCalls(pass, lit.Body, nil),
+		)
 		if checkUBV {
 			ubvSyncLits = collectUBVClosureLits(lit.Body)
 			ubvSyncCalls = collectUBVClosureVarCalls(closureCalls)
@@ -90,10 +97,10 @@ func inspectClosureCastsCFA(
 			// All paths validated. Check use-before-validate with
 			// same-block priority, then cross-block.
 			if checkUBV {
-				if hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
+				if hasUseBeforeValidateInBlockMode(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls, ubvMode) {
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)
 					ubvID := PackageScopedFindingID(pass,
-						CategoryUseBeforeValidate,
+						CategoryUseBeforeValidateSameBlock,
 						"cfa",
 						"closure",
 						closurePrefix,
@@ -103,13 +110,19 @@ func inspectClosureCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg, map[string]string{
-						"ubv_scope": "same-block",
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateSameBlock, ubvID, ubvMsg, map[string]string{
+						"ubv_mode":         ubvMode,
+						"ubv_scope":        "same-block",
+						"witness_cast_pos": stablePosKey(pass, ac.pos.Pos()),
+						"witness_def_block": strconv.FormatInt(
+							int64(defBlock.Index),
+							10,
+						),
 					})
-				} else if hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
+				} else if hasUseBeforeValidateCrossBlockMode(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls, ubvMode, cfgMaxStates, cfgMaxDepth) {
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
 					ubvID := PackageScopedFindingID(pass,
-						CategoryUseBeforeValidate,
+						CategoryUseBeforeValidateCrossBlock,
 						"cfa",
 						"closure",
 						closurePrefix,
@@ -119,8 +132,14 @@ func inspectClosureCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg, map[string]string{
-						"ubv_scope": "cross-block",
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateCrossBlock, ubvID, ubvMsg, map[string]string{
+						"ubv_mode":         ubvMode,
+						"ubv_scope":        "cross-block",
+						"witness_cast_pos": stablePosKey(pass, ac.pos.Pos()),
+						"witness_def_block": strconv.FormatInt(
+							int64(defBlock.Index),
+							10,
+						),
 					})
 				}
 			}

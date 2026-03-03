@@ -128,6 +128,38 @@ func validateRunConfig(rc runConfig) error {
 	if rc.baselinePathExplicit && strings.TrimSpace(rc.baselinePath) == "" {
 		return errors.New("flag --baseline was provided with an empty path")
 	}
+	ubvMode := rc.ubvMode
+	if ubvMode == "" {
+		ubvMode = defaultUBVMode
+	}
+	switch ubvMode {
+	case ubvModeOrder, ubvModeEscape:
+	default:
+		return fmt.Errorf("flag --ubv-mode must be %q or %q (got %q)", ubvModeOrder, ubvModeEscape, rc.ubvMode)
+	}
+	cfgBackend := rc.cfgBackend
+	if cfgBackend == "" {
+		cfgBackend = defaultCFGBackend
+	}
+	switch cfgBackend {
+	case cfgBackendSSA, cfgBackendAST:
+	default:
+		return fmt.Errorf("flag --cfg-backend must be %q or %q (got %q)", cfgBackendSSA, cfgBackendAST, rc.cfgBackend)
+	}
+	cfgMaxStates := rc.cfgMaxStates
+	if cfgMaxStates == 0 {
+		cfgMaxStates = defaultCFGMaxStates
+	}
+	if cfgMaxStates <= 0 {
+		return fmt.Errorf("flag --cfg-max-states must be > 0 (got %d)", rc.cfgMaxStates)
+	}
+	cfgMaxDepth := rc.cfgMaxDepth
+	if cfgMaxDepth == 0 {
+		cfgMaxDepth = defaultCFGMaxDepth
+	}
+	if cfgMaxDepth <= 0 {
+		return fmt.Errorf("flag --cfg-max-depth must be > 0 (got %d)", rc.cfgMaxDepth)
+	}
 	return nil
 }
 
@@ -275,7 +307,7 @@ func runTraversal(
 			// Cast validation: detect unvalidated type conversions to DDD types.
 			// Always uses CFA path-reachability analysis.
 			if rc.checkCastValidation {
-				inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate)
+				inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate, rc.ubvMode, rc.cfgBackend, rc.cfgMaxStates, rc.cfgMaxDepth)
 			}
 
 			// Redundant conversion: detect NamedType(basic(namedExpr)) chains.

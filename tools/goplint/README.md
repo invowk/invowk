@@ -237,9 +237,9 @@ Each diagnostic includes a `category` field for filtering:
 }
 ```
 
-`url` encodes the stable finding ID used by baseline v2 and may include machine-readable query metadata (for example `ubv_scope=same-block|cross-block`).
+`url` encodes the stable finding ID used by baseline v2 and may include machine-readable query metadata (for example `ubv_scope=same-block|cross-block` and witness fields).
 
-Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constructor`, `wrong-constructor-sig`, `wrong-validate-sig`, `wrong-stringer-sig`, `missing-func-options`, `missing-immutability`, `missing-struct-validate`, `wrong-struct-validate-sig`, `unvalidated-cast`, `unused-validate-result`, `unused-constructor-error`, `missing-constructor-validate`, `incomplete-validate-delegation`, `nonzero-value-field`, `stale-exception`, `unknown-directive`.
+Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constructor`, `wrong-constructor-sig`, `wrong-validate-sig`, `wrong-stringer-sig`, `missing-func-options`, `missing-immutability`, `missing-struct-validate`, `wrong-struct-validate-sig`, `unvalidated-cast`, `use-before-validate-same-block`, `use-before-validate-cross-block`, `unused-validate-result`, `unused-constructor-error`, `missing-constructor-validate`, `incomplete-validate-delegation`, `nonzero-value-field`, `stale-exception`, `unknown-directive`.
 
 ## CLI Flags
 
@@ -255,6 +255,10 @@ Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constr
 | `-check-func-options` | bool | `false` | Report missing/incomplete functional options pattern |
 | `-check-immutability` | bool | `false` | Report constructor-backed structs with exported mutable fields |
 | `-check-struct-validate` | bool | `false` | Report constructor-backed structs missing `Validate()` |
+| `-ubv-mode` | string | `"escape"` | UBV semantics mode: `order` or `escape` |
+| `-cfg-backend` | string | `"ssa"` | Path-analysis backend selector: `ssa` or `ast` |
+| `-cfg-max-states` | int | `20000` | Maximum CFG states explored before conservative fallback |
+| `-cfg-max-depth` | int | `512` | Maximum CFG DFS depth before conservative fallback |
 | `-audit-exceptions` | bool | `false` | Report stale exception patterns |
 | `-global` | bool | `false` | Aggregate `-audit-exceptions` globally and fail on globally stale patterns |
 | `-update-baseline` | string | `""` | Generate baseline TOML at the given path |
@@ -288,7 +292,10 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 
 - `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate` are CFA-only checks.
 - CFA is always enabled for those checks; there is no CFA opt-out flag.
-- `--check-use-before-validate` performs full-path ordering checks (same-block and cross-block) under CFA.
+- `--check-use-before-validate` emits split categories: `use-before-validate-same-block` and `use-before-validate-cross-block`.
+- `--ubv-mode=order` uses strict ordering semantics; `--ubv-mode=escape` focuses on values escaping before validation.
+- `--ubv-mode=escape` uses recursion-safe interprocedural first-argument summaries to treat helper calls as validation only when the callee validates before escaping that argument.
+- `--cfg-backend=ssa` uses type-aware no-return pruning; `--cfg-backend=ast` is conservative and treats calls as may-return.
 - Auto-skip for index expressions is map-only (map lookups), not slice/array indexing.
 - UBV checks treat immediate IIFEs as synchronous ordering context; deferred `Validate()` does not suppress use-before-validate findings.
 

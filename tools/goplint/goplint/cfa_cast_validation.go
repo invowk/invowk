@@ -24,6 +24,10 @@ func inspectUnvalidatedCastsCFA(
 	excCfg *ExceptionConfig,
 	bl *BaselineConfig,
 	checkUBV bool,
+	ubvMode string,
+	cfgBackend string,
+	cfgMaxStates int,
+	cfgMaxDepth int,
 ) {
 	if fn.Body == nil {
 		return
@@ -47,7 +51,7 @@ func inspectUnvalidatedCastsCFA(
 	parentMap := buildParentMap(fn.Body)
 
 	// Build the CFG for path-sensitive analysis.
-	funcCFG := buildFuncCFGForPass(pass, fn.Body)
+	funcCFG := buildFuncCFGForBackend(pass, fn.Body, cfgBackend)
 	if funcCFG == nil {
 		return
 	}
@@ -58,7 +62,7 @@ func inspectUnvalidatedCastsCFA(
 	assignedCasts, unassignedCasts, closureCalls, _ := collectCFACasts(
 		pass, fn.Body, parentMap,
 		func(lit *ast.FuncLit, closureIdx int) {
-			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIdx), excCfg, bl, checkUBV)
+			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIdx), excCfg, bl, checkUBV, ubvMode, cfgBackend, cfgMaxStates, cfgMaxDepth)
 		},
 	)
 
@@ -73,7 +77,10 @@ func inspectUnvalidatedCastsCFA(
 	if len(assignedCasts) > 0 {
 		pathSyncLits = collectSynchronousClosureLits(fn.Body)
 		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
-		pathMethodCalls = collectMethodValueValidateCalls(pass, fn.Body)
+		pathMethodCalls = mergeMethodValueValidateCallSets(
+			collectMethodValueValidateCalls(pass, fn.Body),
+			collectFirstArgValidatedCalls(pass, fn.Body, nil),
+		)
 		if checkUBV {
 			ubvSyncLits = collectUBVClosureLits(fn.Body)
 			ubvSyncCalls = collectUBVClosureVarCalls(closureCalls)
@@ -106,10 +113,10 @@ func inspectUnvalidatedCastsCFA(
 			// All paths DO have validate. Check use-before-validate with
 			// same-block priority, then cross-block.
 			if checkUBV {
-				if hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
+				if hasUseBeforeValidateInBlockMode(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls, ubvMode) {
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)
 					ubvID := PackageScopedFindingID(pass,
-						CategoryUseBeforeValidate,
+						CategoryUseBeforeValidateSameBlock,
 						"cfa",
 						qualFuncName,
 						ac.typeName,
@@ -117,15 +124,21 @@ func inspectUnvalidatedCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg, map[string]string{
-						"ubv_scope": "same-block",
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateSameBlock, ubvID, ubvMsg, map[string]string{
+						"ubv_mode":         ubvMode,
+						"ubv_scope":        "same-block",
+						"witness_cast_pos": stablePosKey(pass, ac.pos.Pos()),
+						"witness_def_block": strconv.FormatInt(
+							int64(defBlock.Index),
+							10,
+						),
 					})
-				} else if hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
+				} else if hasUseBeforeValidateCrossBlockMode(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls, ubvMode, cfgMaxStates, cfgMaxDepth) {
 					// Cross-block UBV: the variable is used in a successor
 					// block before any block on that path calls Validate().
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
 					ubvID := PackageScopedFindingID(pass,
-						CategoryUseBeforeValidate,
+						CategoryUseBeforeValidateCrossBlock,
 						"cfa",
 						qualFuncName,
 						ac.typeName,
@@ -133,8 +146,14 @@ func inspectUnvalidatedCastsCFA(
 						stablePosKey(pass, ac.pos.Pos()),
 						ac.target.key(),
 					)
-					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg, map[string]string{
-						"ubv_scope": "cross-block",
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateCrossBlock, ubvID, ubvMsg, map[string]string{
+						"ubv_mode":         ubvMode,
+						"ubv_scope":        "cross-block",
+						"witness_cast_pos": stablePosKey(pass, ac.pos.Pos()),
+						"witness_def_block": strconv.FormatInt(
+							int64(defBlock.Index),
+							10,
+						),
 					})
 				}
 			}

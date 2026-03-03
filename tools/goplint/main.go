@@ -600,12 +600,10 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 				}
 				findingID := goplint.FindingIDFromDiagnosticURL(d.URL)
 				if findingID == "" {
-					return fmt.Errorf(
-						"suppressible goplint diagnostic missing or invalid finding URL: category=%q pos=%q url=%q",
-						d.Category,
-						d.Posn,
-						d.URL,
-					)
+					// go/analysis JSON output does not always include diagnostic URL
+					// fields. Use a deterministic fallback identity for stream-count
+					// parity checks when URL metadata is unavailable.
+					findingID = goplint.StableFindingID(d.Category, d.Posn, d.Message)
 				}
 
 				if seen[d.Category] == nil {

@@ -37,7 +37,8 @@ type BaselineConfig struct {
 	WrongFuncOptionType           BaselineCategory `toml:"wrong-func-option-type"`
 	EnumCueMissingGo              BaselineCategory `toml:"enum-cue-missing-go"`
 	EnumCueExtraGo                BaselineCategory `toml:"enum-cue-extra-go"`
-	UseBeforeValidate             BaselineCategory `toml:"use-before-validate"`
+	UseBeforeValidateSameBlock    BaselineCategory `toml:"use-before-validate-same-block"`
+	UseBeforeValidateCrossBlock   BaselineCategory `toml:"use-before-validate-cross-block"`
 	SuggestValidateAll            BaselineCategory `toml:"suggest-validate-all"`
 	MissingConstructorErrorReturn BaselineCategory `toml:"missing-constructor-error-return"`
 	RedundantConversion           BaselineCategory `toml:"redundant-conversion"`
@@ -250,8 +251,10 @@ func (b *BaselineConfig) categoryForName(name string) BaselineCategory {
 		return b.EnumCueMissingGo
 	case CategoryEnumCueExtraGo:
 		return b.EnumCueExtraGo
-	case CategoryUseBeforeValidate:
-		return b.UseBeforeValidate
+	case CategoryUseBeforeValidateSameBlock:
+		return b.UseBeforeValidateSameBlock
+	case CategoryUseBeforeValidateCrossBlock:
+		return b.UseBeforeValidateCrossBlock
 	case CategorySuggestValidateAll:
 		return b.SuggestValidateAll
 	case CategoryMissingConstructorErrorReturn:

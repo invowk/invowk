@@ -128,6 +128,7 @@ func TestCheckUseBeforeValidateCFA(t *testing.T) {
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+	setFlag(t, h.Analyzer, "ubv-mode", ubvModeOrder)
 
 	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate")
 }
@@ -145,6 +146,7 @@ func TestCheckUseBeforeValidateCrossCFA(t *testing.T) {
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+	setFlag(t, h.Analyzer, "ubv-mode", ubvModeOrder)
 
 	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_cross")
 }
@@ -161,6 +163,7 @@ func TestCheckUseBeforeValidateClosureCFA(t *testing.T) {
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+	setFlag(t, h.Analyzer, "ubv-mode", ubvModeOrder)
 
 	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_closure")
 }
@@ -233,6 +236,7 @@ func TestCheckUseBeforeValidateClosureVarCall(t *testing.T) {
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+	setFlag(t, h.Analyzer, "ubv-mode", ubvModeOrder)
 
 	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_closure_var_call")
 }
@@ -248,6 +252,7 @@ func TestCheckUseBeforeValidateMethodValue(t *testing.T) {
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+	setFlag(t, h.Analyzer, "ubv-mode", ubvModeOrder)
 
 	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_method_value")
 }

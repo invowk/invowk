@@ -8,6 +8,19 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+const (
+	defaultUBVMode = "escape"
+	ubvModeOrder   = "order"
+	ubvModeEscape  = "escape"
+
+	defaultCFGBackend = "ssa"
+	cfgBackendSSA     = "ssa"
+	cfgBackendAST     = "ast"
+
+	defaultCFGMaxStates = 20_000
+	defaultCFGMaxDepth  = 512
+)
+
 // flagState contains one analyzer instance's parsed flag values. Keeping this
 // state instance-local avoids package-global mutable flag coupling.
 type flagState struct {
@@ -15,6 +28,10 @@ type flagState struct {
 	baselinePath                string
 	emitFindingsPath            string
 	includePackages             string // comma-separated package prefixes (CLI override)
+	ubvMode                     string
+	cfgBackend                  string
+	cfgMaxStates                int
+	cfgMaxDepth                 int
 	includePackagesExplicit     bool
 	configPathExplicit          bool
 	baselinePathExplicit        bool
@@ -355,6 +372,14 @@ func bindAnalyzerFlags(analyzer *analysis.Analyzer, state *flagState) {
 
 	analyzer.Flags.Var(&trackedStringFlag{value: &state.includePackages, explicit: &state.includePackagesExplicit}, "include-packages",
 		"comma-separated package path prefixes; only emit diagnostics for matching packages (overrides TOML include_packages)")
+	analyzer.Flags.StringVar(&state.ubvMode, "ubv-mode", defaultUBVMode,
+		"use-before-validate semantics mode: order or escape")
+	analyzer.Flags.StringVar(&state.cfgBackend, "cfg-backend", defaultCFGBackend,
+		"path analysis backend: ssa or ast")
+	analyzer.Flags.IntVar(&state.cfgMaxStates, "cfg-max-states", defaultCFGMaxStates,
+		"maximum CFG states explored before conservative fallback")
+	analyzer.Flags.IntVar(&state.cfgMaxDepth, "cfg-max-depth", defaultCFGMaxDepth,
+		"maximum CFG traversal depth before conservative fallback")
 
 	for _, spec := range modeFlagSpecs() {
 		analyzer.Flags.BoolVar(spec.stateBoolField(state), spec.flagName, spec.defaultValue, spec.usage)
@@ -369,6 +394,10 @@ func resetFlagStateDefaults(state *flagState) {
 	state.baselinePath = ""
 	state.emitFindingsPath = ""
 	state.includePackages = ""
+	state.ubvMode = defaultUBVMode
+	state.cfgBackend = defaultCFGBackend
+	state.cfgMaxStates = defaultCFGMaxStates
+	state.cfgMaxDepth = defaultCFGMaxDepth
 	state.includePackagesExplicit = false
 	state.configPathExplicit = false
 	state.baselinePathExplicit = false
@@ -381,6 +410,7 @@ func resetFlagStateDefaults(state *flagState) {
 	state.overdueReviewMu.Unlock()
 	state.configCache = sync.Map{}
 	state.baselineCache = sync.Map{}
+	resetFirstArgSummaryCache()
 }
 
 // runConfig holds the resolved flag values for a single run() invocation.
@@ -395,6 +425,10 @@ type runConfig struct {
 	emitFindingsPathExplicit    bool
 	includePackages             string
 	includePackagesExplicit     bool
+	ubvMode                     string
+	cfgBackend                  string
+	cfgMaxStates                int
+	cfgMaxDepth                 int
 	auditExceptions             bool
 	checkAll                    bool
 	checkValidate               bool
@@ -428,6 +462,10 @@ func newRunConfigForState(state *flagState) runConfig {
 		emitFindingsPathExplicit: state.emitFindingsPathExplicit,
 		includePackages:          state.includePackages,
 		includePackagesExplicit:  state.includePackagesExplicit,
+		ubvMode:                  state.ubvMode,
+		cfgBackend:               state.cfgBackend,
+		cfgMaxStates:             state.cfgMaxStates,
+		cfgMaxDepth:              state.cfgMaxDepth,
 	}
 	for _, spec := range modeFlagSpecs() {
 		*spec.runConfigBoolField(&rc) = *spec.stateBoolField(state)
@@ -460,5 +498,17 @@ func normalizeRunConfig(rc *runConfig) {
 	// validation so explicit UBV flags are never silently inert.
 	if rc.checkUseBeforeValidate {
 		rc.checkCastValidation = true
+	}
+	if rc.ubvMode == "" {
+		rc.ubvMode = defaultUBVMode
+	}
+	if rc.cfgBackend == "" {
+		rc.cfgBackend = defaultCFGBackend
+	}
+	if rc.cfgMaxStates == 0 {
+		rc.cfgMaxStates = defaultCFGMaxStates
+	}
+	if rc.cfgMaxDepth == 0 {
+		rc.cfgMaxDepth = defaultCFGMaxDepth
 	}
 }

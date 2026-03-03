@@ -69,6 +69,34 @@ func TestValidateRunConfigRejectsExplicitEmptyPaths(t *testing.T) {
 			},
 			want: "flag --baseline was provided with an empty path",
 		},
+		{
+			name: "invalid ubv mode",
+			rc: runConfig{
+				ubvMode: "invalid",
+			},
+			want: "flag --ubv-mode must be",
+		},
+		{
+			name: "invalid cfg backend",
+			rc: runConfig{
+				cfgBackend: "unknown",
+			},
+			want: "flag --cfg-backend must be",
+		},
+		{
+			name: "invalid cfg max states",
+			rc: runConfig{
+				cfgMaxStates: -1,
+			},
+			want: "flag --cfg-max-states must be > 0",
+		},
+		{
+			name: "invalid cfg max depth",
+			rc: runConfig{
+				cfgMaxDepth: -1,
+			},
+			want: "flag --cfg-max-depth must be > 0",
+		},
 	}
 
 	for _, tt := range tests {

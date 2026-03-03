@@ -16,15 +16,20 @@ import (
 // FindingStreamRecord is one JSONL entry in the internal findings stream used
 // by -emit-findings-jsonl / -update-baseline plumbing.
 type FindingStreamRecord struct {
-	Category string `json:"category"`
-	ID       string `json:"id"`
-	Message  string `json:"message"`
-	Posn     string `json:"posn,omitempty"`
+	Category string            `json:"category"`
+	ID       string            `json:"id"`
+	Message  string            `json:"message"`
+	Posn     string            `json:"posn,omitempty"`
+	Meta     map[string]string `json:"meta,omitempty"`
 }
 
 var findingSinkWarnings sync.Map // map[string]*sync.Once
 
 func writeFindingToSink(pass *analysis.Pass, pos token.Pos, category, findingID, message string) {
+	writeFindingToSinkWithMeta(pass, pos, category, findingID, message, nil)
+}
+
+func writeFindingToSinkWithMeta(pass *analysis.Pass, pos token.Pos, category, findingID, message string, meta map[string]string) {
 	if pass == nil {
 		return
 	}
@@ -38,6 +43,7 @@ func writeFindingToSink(pass *analysis.Pass, pos token.Pos, category, findingID,
 		Category: category,
 		ID:       findingID,
 		Message:  message,
+		Meta:     compactFindingMeta(meta),
 	}
 	if pass.Fset != nil && pos.IsValid() {
 		record.Posn = pass.Fset.Position(pos).String()
@@ -66,6 +72,23 @@ func writeFindingToSink(pass *analysis.Pass, pos token.Pos, category, findingID,
 		warnFindingSinkError(os.Stderr, &findingSinkWarnings, path, fmt.Errorf("closing finding stream: %w", err))
 		return
 	}
+}
+
+func compactFindingMeta(meta map[string]string) map[string]string {
+	if len(meta) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(meta))
+	for k, v := range meta {
+		if k == "" || v == "" {
+			continue
+		}
+		out[k] = v
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func warnFindingSinkError(stderr io.Writer, dedupe *sync.Map, path string, err error) {

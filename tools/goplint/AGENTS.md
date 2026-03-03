@@ -60,7 +60,8 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `missing-struct-validate` | `--check-struct-validate` or `--check-all` | Struct with constructor missing `Validate()` method |
 | `wrong-struct-validate-sig` | `--check-struct-validate` or `--check-all` | Struct has `Validate()` but wrong signature |
 | `unvalidated-cast` | `--check-cast-validation` or `--check-all` | Type conversion to DDD type from non-constant without `Validate()` check |
-| `use-before-validate` | `--check-use-before-validate` or `--check-all` | DDD Value Type variable used before Validate() along executable CFG paths (same-block and cross-block, CFA only) |
+| `use-before-validate-same-block` | `--check-use-before-validate` or `--check-all` | DDD Value Type variable used before Validate() in the defining CFG block |
+| `use-before-validate-cross-block` | `--check-use-before-validate` or `--check-all` | DDD Value Type variable used before Validate() across successor CFG blocks |
 | `missing-constructor-error-return` | `--check-constructor-return-error` or `--check-all` | Constructor for validatable type does not return error |
 | `unused-validate-result` | `--check-validate-usage` or `--check-all` | Validate() called with result completely discarded |
 | `nonzero-value-field` | `--check-nonzero` or `--check-all` | Struct field uses nonzero type as value (should be pointer) |
@@ -495,7 +496,7 @@ CFA replaces the AST name-based heuristic in `--check-cast-validation` with CFG 
 
 ### `--check-use-before-validate`
 
-Reports DDD Value Type variables that are used before `Validate()` is called along executable CFG paths. This is a CFA-only check — it requires `--check-cast-validation` to be active and CFA to be enabled (default).
+Reports DDD Value Type variables that are used before `Validate()` is called along executable CFG paths. This is a CFA-only check — it requires `--check-cast-validation` to be active and CFA to be enabled (default). Findings are split by category into same-block and cross-block variants.
 
 **What counts as a "use":**
 - Passing the variable as a function argument: `useFunc(x)`
@@ -507,7 +508,15 @@ Reports DDD Value Type variables that are used before `Validate()` is called alo
 - `x.Validate()` — the validation call itself
 - `x.String()`, `x.Error()`, `x.GoString()` — display-only methods
 
-**Scope:** Full-path CFG ordering. The check reports both same-block and cross-block use-before-validate findings when a value is used before a reachable `Validate()` call on the same execution path.
+**Scope:** Full-path CFG ordering with selectable UBV semantics via `--ubv-mode`:
+- `order`: strict temporal ordering checks.
+- `escape`: prioritizes values that escape before validation and uses recursion-safe interprocedural first-arg summaries to recognize helper calls that validate before escaping.
+
+CFG backend is selectable with `--cfg-backend`:
+- `ssa`: type-aware no-return pruning (default).
+- `ast`: conservative may-return CFG behavior.
+
+The check reports both same-block and cross-block findings when a value is used before a reachable `Validate()` call on the same execution path.
 
 **What gets flagged:**
 - `x := DddType(raw); useFunc(x); x.Validate()` — use precedes validate in same block

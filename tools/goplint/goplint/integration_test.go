@@ -207,10 +207,29 @@ func TestNewRunConfig(t *testing.T) {
 	t.Run("ubv flags auto-enable cast-validation", func(t *testing.T) {
 		resetFlags(t, h)
 		setFlag(t, h.Analyzer, "check-use-before-validate", "true")
+		setFlag(t, h.Analyzer, "ubv-mode", ubvModeOrder)
 
 		rc := newRunConfigForState(h.state)
 		if !rc.checkCastValidation {
 			t.Fatal("expected check-cast-validation to auto-enable with UBV flag")
+		}
+	})
+
+	t.Run("cfg and ubv defaults are normalized", func(t *testing.T) {
+		resetFlags(t, h)
+
+		rc := newRunConfigForState(h.state)
+		if rc.ubvMode != defaultUBVMode {
+			t.Fatalf("expected ubvMode default %q, got %q", defaultUBVMode, rc.ubvMode)
+		}
+		if rc.cfgBackend != defaultCFGBackend {
+			t.Fatalf("expected cfgBackend default %q, got %q", defaultCFGBackend, rc.cfgBackend)
+		}
+		if rc.cfgMaxStates != defaultCFGMaxStates {
+			t.Fatalf("expected cfgMaxStates default %d, got %d", defaultCFGMaxStates, rc.cfgMaxStates)
+		}
+		if rc.cfgMaxDepth != defaultCFGMaxDepth {
+			t.Fatalf("expected cfgMaxDepth default %d, got %d", defaultCFGMaxDepth, rc.cfgMaxDepth)
 		}
 	})
 }

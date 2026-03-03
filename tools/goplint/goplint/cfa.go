@@ -36,6 +36,29 @@ func collectMethodValueValidateCallSet(calls []methodValueValidateCall) methodVa
 	return out
 }
 
+func mergeMethodValueValidateCallSets(sets ...methodValueValidateCallSet) methodValueValidateCallSet {
+	total := 0
+	for _, set := range sets {
+		total += len(set)
+	}
+	if total == 0 {
+		return nil
+	}
+	out := make(methodValueValidateCallSet, total)
+	for _, set := range sets {
+		for call, receiver := range set {
+			if call == nil || receiver == nil {
+				continue
+			}
+			out[call] = receiver
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 // collectDeferredClosureLits scans a function or closure body for deferred
 // closures: defer func() { ... }(). Returns the set of *ast.FuncLit nodes
 // that are deferred. These closures are guaranteed to execute before the

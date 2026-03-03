@@ -54,6 +54,49 @@ func TestWriteFindingToSink_WritesJSONLRecord(t *testing.T) {
 	}
 }
 
+func TestWriteFindingToSinkWithMeta_WritesCompactMeta(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "findings.jsonl")
+	analyzer := NewAnalyzer()
+	if err := analyzer.Flags.Set("emit-findings-jsonl", path); err != nil {
+		t.Fatalf("set emit-findings-jsonl flag: %v", err)
+	}
+
+	fset := token.NewFileSet()
+	file := fset.AddFile("fixture.go", -1, 64)
+	pos := file.Pos(12)
+	pass := &analysis.Pass{
+		Analyzer: analyzer,
+		Fset:     fset,
+	}
+
+	writeFindingToSinkWithMeta(pass, pos, CategoryPrimitive, "id-meta", "msg", map[string]string{
+		"ubv_scope": "same-block",
+		"":          "ignored",
+		"ignored":   "",
+	})
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read findings stream: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 JSONL record, got %d", len(lines))
+	}
+	var record FindingStreamRecord
+	if err := json.Unmarshal([]byte(lines[0]), &record); err != nil {
+		t.Fatalf("decode JSONL record: %v", err)
+	}
+	if got := record.Meta["ubv_scope"]; got != "same-block" {
+		t.Fatalf("record.Meta[ubv_scope] = %q, want same-block", got)
+	}
+	if _, ok := record.Meta["ignored"]; ok {
+		t.Fatal("expected empty-value metadata key to be dropped")
+	}
+}
+
 func TestWriteFindingToSink_NoPathNoWrite(t *testing.T) {
 	t.Parallel()
 

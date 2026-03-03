@@ -145,7 +145,7 @@ func reportDiagnosticWithMeta(
 	category, findingID, message string,
 	meta map[string]string,
 ) {
-	writeFindingToSink(pass, pos, category, findingID, message)
+	writeFindingToSinkWithMeta(pass, pos, category, findingID, message, meta)
 	pass.Report(analysis.Diagnostic{
 		Pos:      pos,
 		Category: category,

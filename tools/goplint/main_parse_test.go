@@ -3,7 +3,6 @@
 package main
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/tools/goplint/goplint"
@@ -97,7 +96,7 @@ func TestParseAnalysisJSON(t *testing.T) {
 						URL:      goplint.DiagnosticURLForFinding("gpl2_cfa_unvalidated"),
 					},
 					{
-						Category: goplint.CategoryUseBeforeValidate,
+						Category: goplint.CategoryUseBeforeValidateSameBlock,
 						Message:  "variable x of type pkg.CommandName used before Validate() in same block",
 						URL:      goplint.DiagnosticURLForFinding("gpl2_cfa_ubv"),
 					},
@@ -112,12 +111,12 @@ func TestParseAnalysisJSON(t *testing.T) {
 		if len(findings[goplint.CategoryUnvalidatedCast]) != 1 {
 			t.Fatalf("expected 1 %s finding, got %d", goplint.CategoryUnvalidatedCast, len(findings[goplint.CategoryUnvalidatedCast]))
 		}
-		if len(findings[goplint.CategoryUseBeforeValidate]) != 1 {
-			t.Fatalf("expected 1 %s finding, got %d", goplint.CategoryUseBeforeValidate, len(findings[goplint.CategoryUseBeforeValidate]))
+		if len(findings[goplint.CategoryUseBeforeValidateSameBlock]) != 1 {
+			t.Fatalf("expected 1 %s finding, got %d", goplint.CategoryUseBeforeValidateSameBlock, len(findings[goplint.CategoryUseBeforeValidateSameBlock]))
 		}
 	})
 
-	t.Run("missing suppressible finding URL returns error", func(t *testing.T) {
+	t.Run("missing suppressible finding URL falls back to deterministic ID", func(t *testing.T) {
 		t.Parallel()
 		const (
 			category = "primitive"
@@ -131,12 +130,17 @@ func TestParseAnalysisJSON(t *testing.T) {
 			},
 		})
 
-		_, err := parseAnalysisJSON(input)
-		if err == nil {
-			t.Fatal("expected error for missing finding URL")
+		findings, err := parseAnalysisJSON(input)
+		if err != nil {
+			t.Fatalf("unexpected error for missing finding URL: %v", err)
 		}
-		if !strings.Contains(err.Error(), "missing or invalid finding URL") {
-			t.Fatalf("expected missing finding URL error, got %v", err)
+		got := findings[category]
+		if len(got) != 1 {
+			t.Fatalf("expected 1 finding, got %d", len(got))
+		}
+		wantID := goplint.StableFindingID(category, "", message)
+		if got[0].ID != wantID {
+			t.Fatalf("expected fallback id %q, got %q", wantID, got[0].ID)
 		}
 	})
 
