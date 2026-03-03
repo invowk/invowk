@@ -274,10 +274,7 @@ func isAutoSkipContext(pass *analysis.Pass, call *ast.CallExpr, parent ast.Node,
 
 	// Map index: m[DddType(s)]
 	if idx, ok := parent.(*ast.IndexExpr); ok && idx.Index == castNode && isMapIndexExpr(pass, idx) {
-		if isMapIndexWriteLHS(idx, parentMap) {
-			return false
-		}
-		return true
+		return !isMapIndexWriteLHS(idx, parentMap)
 	}
 
 	// Comparison: DddType(s) == x or x == DddType(s)

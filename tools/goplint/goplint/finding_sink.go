@@ -48,8 +48,14 @@ func writeFindingToSink(pass *analysis.Pass, pos token.Pos, category, findingID,
 	if err != nil {
 		return
 	}
-	defer func() { _ = file.Close() }()
-	_, _ = file.Write(line)
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			return
+		}
+	}()
+	if _, err := file.Write(line); err != nil {
+		return
+	}
 }
 
 func emitFindingsPathFromPass(pass *analysis.Pass) string {

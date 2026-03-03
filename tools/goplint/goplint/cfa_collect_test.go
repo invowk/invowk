@@ -202,37 +202,6 @@ func findSelectorExprInFunc(t *testing.T, fn *ast.FuncDecl, xName, selName strin
 	return found
 }
 
-func findSelectorCallInFunc(t *testing.T, fn *ast.FuncDecl, xName, selName string, occurrence int) *ast.CallExpr {
-	t.Helper()
-
-	count := 0
-	var found *ast.CallExpr
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		sel, ok := stripParens(call.Fun).(*ast.SelectorExpr)
-		if !ok || sel.Sel.Name != selName {
-			return true
-		}
-		ident, ok := stripParens(sel.X).(*ast.Ident)
-		if !ok || ident.Name != xName {
-			return true
-		}
-		if count == occurrence {
-			found = call
-			return false
-		}
-		count++
-		return true
-	})
-	if found == nil {
-		t.Fatalf("selector call %s.%s occurrence %d not found", xName, selName, occurrence)
-	}
-	return found
-}
-
 func findSelectorCallsInFunc(t *testing.T, fn *ast.FuncDecl, xName, selName string) []*ast.CallExpr {
 	t.Helper()
 

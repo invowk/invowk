@@ -750,7 +750,6 @@ func isErrorStructByAST(pass *analysis.Pass, structName string) bool {
 	return false
 }
 
-
 // resolveNamedType dereferences pointers and aliases to find the underlying
 // *types.Named type. Returns nil if the type is not a named type.
 func resolveNamedType(t types.Type) *types.Named {

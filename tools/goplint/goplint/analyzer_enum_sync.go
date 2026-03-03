@@ -289,6 +289,8 @@ func extractLiteralString(expr ast.Expr) string {
 			return s
 		case token.INT:
 			return e.Value
+		default:
+			return ""
 		}
 	case *ast.ParenExpr:
 		return extractLiteralString(e.X)
@@ -402,7 +404,10 @@ func lookupWithOptional(root cue.Value, path string) (cue.Value, error) {
 		// Fall back to iterating fields with optional flag.
 		trimmed := strings.TrimSuffix(part, "?")
 		found := false
-		iter, _ := current.Fields(cue.Optional(true))
+		iter, err := current.Fields(cue.Optional(true))
+		if err != nil {
+			return cue.Value{}, fmt.Errorf("iterating CUE fields: %w", err)
+		}
 		for iter.Next() {
 			label := iter.Selector().String()
 			label = strings.TrimSuffix(label, "?")

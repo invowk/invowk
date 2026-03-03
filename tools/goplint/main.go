@@ -75,11 +75,15 @@ func dispatchWithDeps(args []string, stderr io.Writer, deps dispatchDeps) (nextA
 	if hasFlagToken(args, "update-baseline") {
 		outputPath := extractUpdateBaselinePath(args)
 		if outputPath == "" {
-			fmt.Fprintln(stderr, "goplint: update-baseline: missing required path value")
+			if err := writeStderrf(stderr, "goplint: update-baseline: missing required path value\n"); err != nil {
+				return nil, 1, true
+			}
 			return nil, 2, true
 		}
 		if err := deps.generateBaseline(outputPath, args); err != nil {
-			fmt.Fprintf(stderr, "goplint: update-baseline: %v\n", err)
+			if writeErr := writeStderrf(stderr, "goplint: update-baseline: %v\n", err); writeErr != nil {
+				return nil, 1, true
+			}
 			return nil, 1, true
 		}
 		return nil, 0, true
@@ -90,7 +94,9 @@ func dispatchWithDeps(args []string, stderr io.Writer, deps dispatchDeps) (nextA
 	if hasFlagToken(args, "global") {
 		if hasFlag(args, "global") {
 			if err := deps.auditExceptionsGlobal(args); err != nil {
-				fmt.Fprintf(stderr, "goplint: audit-exceptions-global: %v\n", err)
+				if writeErr := writeStderrf(stderr, "goplint: audit-exceptions-global: %v\n", err); writeErr != nil {
+					return nil, 1, true
+				}
 				return nil, 1, true
 			}
 			return nil, 0, true
@@ -101,6 +107,11 @@ func dispatchWithDeps(args []string, stderr io.Writer, deps dispatchDeps) (nextA
 	}
 
 	return args, 0, false
+}
+
+func writeStderrf(stderr io.Writer, format string, args ...any) error {
+	_, err := fmt.Fprintf(stderr, format, args...)
+	return err
 }
 
 // extractUpdateBaselinePath scans CLI args for:
@@ -161,7 +172,13 @@ func generateBaselineWithRunner(
 	if err := findingsFile.Close(); err != nil {
 		return fmt.Errorf("closing findings stream temp file: %w", err)
 	}
-	defer func() { _ = os.Remove(findingsPath) }()
+	defer func() {
+		if removeErr := os.Remove(findingsPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			if writeErr := writeStderrf(stderr, "goplint: warning: removing findings stream temp file: %v\n", removeErr); writeErr != nil {
+				return
+			}
+		}
+	}()
 
 	// Build subprocess args: remove -update-baseline, ensure -json is present.
 	subArgs := buildSubprocessArgs(originalArgs)
@@ -208,7 +225,9 @@ func generateBaselineWithRunner(
 	for _, entries := range findings {
 		total += len(entries)
 	}
-	fmt.Fprintf(stderr, "Baseline written: %s (%d findings)\n", outputPath, total)
+	if _, err := fmt.Fprintf(stderr, "Baseline written: %s (%d findings)\n", outputPath, total); err != nil {
+		return fmt.Errorf("writing baseline summary: %w", err)
+	}
 
 	return nil
 }
@@ -295,7 +314,9 @@ func auditExceptionsGlobalWithRunner(originalArgs []string, runCommand commandRu
 		return fmt.Errorf("aggregating global stale exceptions: %w", err)
 	}
 	if totalPackages == 0 {
-		fmt.Fprintf(stderr, "Global audit: no packages analyzed\n")
+		if _, err := fmt.Fprintf(stderr, "Global audit: no packages analyzed\n"); err != nil {
+			return fmt.Errorf("writing global audit summary: %w", err)
+		}
 		return nil
 	}
 
@@ -303,8 +324,10 @@ func auditExceptionsGlobalWithRunner(originalArgs []string, runCommand commandRu
 		fmt.Printf("globally stale exception: pattern %q matched no diagnostics in any package\n", pattern)
 	}
 
-	fmt.Fprintf(stderr, "Global audit: %d/%d stale exception patterns are globally stale (%d packages analyzed)\n",
-		len(stalePatterns), totalPatterns, totalPackages)
+	if _, err := fmt.Fprintf(stderr, "Global audit: %d/%d stale exception patterns are globally stale (%d packages analyzed)\n",
+		len(stalePatterns), totalPatterns, totalPackages); err != nil {
+		return fmt.Errorf("writing global audit summary: %w", err)
+	}
 
 	if len(stalePatterns) > 0 {
 		return fmt.Errorf("%d globally stale exception patterns found", len(stalePatterns))

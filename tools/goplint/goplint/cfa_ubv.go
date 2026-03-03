@@ -315,6 +315,8 @@ func isUseNode(
 			case ubvOrderValidateBeforeUse:
 				validateSeen = true
 				continue
+			case ubvOrderNone:
+				// Continue with additional direct checks below.
 			}
 			if target.matchesExpr(pass, arg) || isVarUseTarget(pass, arg, target, syncLits, syncCalls, methodCalls) {
 				if !validateSeen {
@@ -357,6 +359,8 @@ func hasUseBeforeValidateInBlock(
 			return true
 		case ubvOrderValidateBeforeUse:
 			return false
+		case ubvOrderNone:
+			// Continue scanning subsequent checks in this block.
 		}
 		if isVarUseTarget(pass, node, target, syncLits, syncCalls, methodCalls) {
 			return true // use before Validate() — flagged

@@ -11,8 +11,10 @@ import (
 	gocfg "golang.org/x/tools/go/cfg"
 )
 
-type closureVarCallSet map[*ast.CallExpr]*ast.FuncLit
-type methodValueValidateCallSet map[*ast.CallExpr]ast.Expr
+type (
+	closureVarCallSet          map[*ast.CallExpr]*ast.FuncLit
+	methodValueValidateCallSet map[*ast.CallExpr]ast.Expr
+)
 
 func collectMethodValueValidateCallSet(calls []methodValueValidateCall) methodValueValidateCallSet {
 	if len(calls) == 0 {
@@ -680,4 +682,3 @@ func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHa
 	}
 	return false
 }
-

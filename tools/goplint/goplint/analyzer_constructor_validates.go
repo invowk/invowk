@@ -149,15 +149,6 @@ func matchNamedTypePkgPath(tuple *types.Tuple, typeName, pkgAlias string) string
 	return ""
 }
 
-// constructorValidateInfo records a constructor function and whether
-// its body calls Validate() on the returned value.
-type constructorValidateInfo struct {
-	name           string   // function name (e.g., "NewConfig")
-	pos            ast.Node // position of the function declaration
-	returnTypeName string   // resolved first non-error return type name
-	callsValidate  bool     // body contains a .Validate() selector call
-}
-
 // inspectConstructorValidates checks whether NewXxx() constructors call
 // Validate() on the type they construct. Constructors returning types with
 // a Validate() method should call it before returning to enforce invariants.
@@ -272,25 +263,6 @@ func inspectConstructorValidates(
 	}
 }
 
-// bodyCallsValidateOnType walks a function body looking for a .Validate()
-// selector call where the receiver's type matches the constructor's return type.
-// This avoids the false-negative pattern where cfg.Validate() (on a Config
-// parameter) satisfies the heuristic even though the returned Server is never
-// validated.
-//
-// Accepted patterns:
-//   - Direct: s := &Server{...}; s.Validate()
-//   - Delegated: s, err := helperNewServer(); s.Validate()
-//   - Any .Validate() call on an expression whose resolved type matches returnTypeName
-//
-// Note: this does not handle deferred closures or IIFEs — it is a quick
-// pre-check before CFA. The full path-sensitive analysis in
-// constructorHasUnvalidatedReturnPath handles those cases.
-func bodyCallsValidateOnType(pass *analysis.Pass, body *ast.BlockStmt, returnTypeKey string) bool {
-	methodCalls := collectMethodValueValidateCalls(pass, body)
-	return containsValidateOnReceiver(pass, body, typeKeyMatcher(returnTypeKey), nil, nil, methodCalls)
-}
-
 // methodCallTarget identifies a method call on the constructor's return type
 // for transitive validation tracking.
 type methodCallTarget struct {
@@ -376,7 +348,7 @@ func bodyCallsValidateTransitive(
 			bareFuncCallees = append(bareFuncCallees, fun.Name)
 
 		case *ast.SelectorExpr:
-			// Skip Validate() itself — already handled by bodyCallsValidateOnType.
+			// Skip direct Validate() calls in this transitive helper walk.
 			if fun.Sel.Name == "Validate" {
 				return true
 			}
@@ -385,21 +357,19 @@ func bodyCallsValidateTransitive(
 			// with a validates-type fact.
 			if ident, ok := fun.X.(*ast.Ident); ok {
 				obj := pass.TypesInfo.Uses[ident]
-				if obj != nil {
-					if _, isPkgName := obj.(*types.PkgName); isPkgName {
-						// This is a qualified call: pkg.Func(...)
-						selObj := pass.TypesInfo.Uses[fun.Sel]
-						if selObj != nil {
-							if callee, ok := selObj.(*types.Func); ok {
-								var fact ValidatesTypeFact
-								if pass.ImportObjectFact(callee, &fact) && factMatchesReturnType(fact, returnTypeName, returnTypePkgPath) {
-									crossPkgValidates = true
-									return false
-								}
+				if _, isPkgName := obj.(*types.PkgName); isPkgName {
+					// This is a qualified call: pkg.Func(...)
+					selObj := pass.TypesInfo.Uses[fun.Sel]
+					if selObj != nil {
+						if callee, ok := selObj.(*types.Func); ok {
+							var fact ValidatesTypeFact
+							if pass.ImportObjectFact(callee, &fact) && factMatchesReturnType(fact, returnTypeName, returnTypePkgPath) {
+								crossPkgValidates = true
+								return false
 							}
 						}
-						return true
 					}
+					return true
 				}
 			}
 
