@@ -13,6 +13,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -184,7 +185,7 @@ func generateBaselineWithRunner(
 	subArgs := buildSubprocessArgs(originalArgs)
 	subArgs = slices.Insert(subArgs, 0, "-emit-findings-jsonl="+findingsPath)
 
-	cmd := exec.Command(selfPath, subArgs...)
+	cmd := exec.CommandContext(context.Background(), selfPath, subArgs...)
 	cmd.Stderr = stderr // let warnings/errors pass through
 
 	var stdout bytes.Buffer
@@ -298,7 +299,7 @@ func auditExceptionsGlobalWithRunner(originalArgs []string, runCommand commandRu
 	// Build subprocess args: remove --global, ensure -json and -audit-exceptions.
 	subArgs := buildGlobalAuditArgs(originalArgs)
 
-	cmd := exec.Command(selfPath, subArgs...)
+	cmd := exec.CommandContext(context.Background(), selfPath, subArgs...)
 	cmd.Stderr = stderr
 
 	var stdout bytes.Buffer

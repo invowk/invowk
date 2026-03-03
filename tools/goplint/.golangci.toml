@@ -62,6 +62,18 @@ enable = [
 
     # gocheckcompilerdirectives: Validates //go: compiler directives.
     "gocheckcompilerdirectives",
+
+    # noctx: Detects subprocess and API usage missing context-aware variants.
+    "noctx",
+
+    # nilnil: Detects simultaneous nil error and invalid value returns.
+    "nilnil",
+
+    # nolintlint: Validates //nolint directives.
+    "nolintlint",
+
+    # tparallel: Enforces t.Parallel usage patterns in tests.
+    "tparallel",
 ]
 
 [linters.settings.forbidigo]
@@ -129,6 +141,9 @@ list-mode = "lax"
 pkg = "github.com/stretchr/testify"
 desc = "project uses standard testing library"
 
+[linters.settings.nolintlint]
+require-specific = true
+
 [linters.exclusions]
 generated = "lax"
 
@@ -136,6 +151,11 @@ generated = "lax"
 [[linters.exclusions.rules]]
 linters = ["forbidigo"]
 path = "_test\\.go$"
+
+# go/analysis analyzers intentionally return (nil, nil) when no result export is needed.
+[[linters.exclusions.rules]]
+linters = ["nilnil"]
+path = "goplint/analyzer_run\\.go$"
 
 [issues]
 max-issues-per-linter = 0

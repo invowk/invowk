@@ -531,7 +531,7 @@ func parseDirectiveKeys(text string) (keys []string, unknown []string) {
 
 	// Handle nolint:goplint as a special "ignore" directive.
 	// Match the token exactly in the nolint linter list, so near-misses like
-	// nolint:goplintfoo are not treated as valid suppressions.
+	// "nolint:goplintfoo" are not treated as valid suppressions.
 	if rest, ok := strings.CutPrefix(content, "nolint:"); ok {
 		if sepIdx := strings.Index(rest, " --"); sepIdx >= 0 {
 			rest = rest[:sepIdx]

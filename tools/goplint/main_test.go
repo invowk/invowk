@@ -132,6 +132,8 @@ func TestBuildSubprocessArgs(t *testing.T) {
 }
 
 func TestDispatch(t *testing.T) {
+	t.Parallel()
+
 	t.Run("update-baseline missing path returns usage error", func(t *testing.T) {
 		t.Parallel()
 		var stderr bytes.Buffer
