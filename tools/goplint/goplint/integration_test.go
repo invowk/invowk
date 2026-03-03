@@ -167,6 +167,27 @@ func TestNewRunConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("check-all does NOT enable opt-in and audit modes", func(t *testing.T) {
+		resetFlags(t, h)
+		setFlag(t, h.Analyzer, "check-all", "true")
+
+		rc := newRunConfigForState(h.state)
+		excludedModes := []struct {
+			name string
+			got  bool
+		}{
+			{name: "suggest-validate-all", got: rc.suggestValidateAll},
+			{name: "check-enum-sync", got: rc.checkEnumSync},
+			{name: "audit-exceptions", got: rc.auditExceptions},
+			{name: "audit-review-dates", got: rc.auditReviewDates},
+		}
+		for _, mode := range excludedModes {
+			if mode.got {
+				t.Errorf("expected %s = false under --check-all", mode.name)
+			}
+		}
+	})
+
 	t.Run("individual flags work independently", func(t *testing.T) {
 		resetFlags(t, h)
 		setFlag(t, h.Analyzer, "check-validate", "true")
