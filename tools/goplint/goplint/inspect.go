@@ -383,8 +383,8 @@ func isKnownDirectiveKey(key string) bool {
 }
 
 // hasIgnoreDirective checks whether a field/func has an ignore directive.
-// Recognized forms: //goplint:ignore, //plint:ignore,
-// //nolint:goplint, and combined forms like //goplint:ignore,internal.
+// Recognized forms: `//goplint:ignore`, `//plint:ignore`,
+// `//nolint:goplint`, and combined forms like `//goplint:ignore,internal`.
 func hasIgnoreDirective(doc *ast.CommentGroup, lineComment *ast.CommentGroup) bool {
 	return hasDirectiveKey(doc, lineComment, "ignore")
 }

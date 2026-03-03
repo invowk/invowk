@@ -397,6 +397,20 @@ func TestAggregateGlobalStalePatterns(t *testing.T) {
 		}
 	})
 
+	t.Run("whitespace-only stream returns zero counts", func(t *testing.T) {
+		t.Parallel()
+		patterns, totalPatterns, totalPackages, err := aggregateGlobalStalePatterns([]byte(" \n\t "))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(patterns) != 0 {
+			t.Fatalf("expected no patterns, got %v", patterns)
+		}
+		if totalPatterns != 0 || totalPackages != 0 {
+			t.Fatalf("expected zero counts, got patterns=%d packages=%d", totalPatterns, totalPackages)
+		}
+	})
+
 	t.Run("malformed stream returns decode error", func(t *testing.T) {
 		t.Parallel()
 		_, _, _, err := aggregateGlobalStalePatterns([]byte("{invalid"))

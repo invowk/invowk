@@ -266,11 +266,38 @@ func TestParseAnalysisJSON(t *testing.T) {
 		}
 	})
 
+	t.Run("whitespace-only input returns empty findings", func(t *testing.T) {
+		t.Parallel()
+		findings, err := parseAnalysisJSON([]byte(" \n\t "))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(findings) != 0 {
+			t.Errorf("expected 0 categories, got %d", len(findings))
+		}
+	})
+
 	t.Run("malformed JSON returns error", func(t *testing.T) {
 		t.Parallel()
 		_, err := parseAnalysisJSON([]byte("{invalid json"))
 		if err == nil {
 			t.Fatal("expected error for malformed JSON")
+		}
+	})
+
+	t.Run("truncated object after valid stream returns error", func(t *testing.T) {
+		t.Parallel()
+		good := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
+			"example.com/pkg": {
+				"goplint": {
+					{Category: "primitive", Message: "valid finding"},
+				},
+			},
+		})
+		input := append(append([]byte{}, good...), []byte(`{"example.com/bad":`)...)
+		_, err := parseAnalysisJSON(input)
+		if err == nil {
+			t.Fatal("expected error for truncated JSON stream")
 		}
 	})
 

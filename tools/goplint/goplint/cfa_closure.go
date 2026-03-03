@@ -3,7 +3,6 @@
 package goplint
 
 import (
-	"fmt"
 	"go/ast"
 	"strconv"
 
@@ -90,7 +89,7 @@ func inspectClosureCastsCFA(
 		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls, pathMethodCalls) {
 			// All paths validated. Check for use-before-validate (same-block first, then cross-block).
 			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
-				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() in same block", ac.target.displayName, ac.typeName)
+				ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)
 				ubvID := PackageScopedFindingID(pass,
 					CategoryUseBeforeValidate,
 					"cfa",
@@ -102,11 +101,9 @@ func inspectClosureCastsCFA(
 					stablePosKey(pass, ac.pos.Pos()),
 					ac.target.key(),
 				)
-				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
-					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
-				}
+				reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
 			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
-				ubvMsg := fmt.Sprintf("variable %s of type %s used before Validate() across blocks", ac.target.displayName, ac.typeName)
+				ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
 				ubvID := PackageScopedFindingID(pass,
 					CategoryUseBeforeValidate,
 					"cfa",
@@ -118,14 +115,12 @@ func inspectClosureCastsCFA(
 					stablePosKey(pass, ac.pos.Pos()),
 					ac.target.key(),
 				)
-				if !bl.ContainsFinding(CategoryUseBeforeValidate, ubvID, ubvMsg) {
-					reportDiagnostic(pass, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
-				}
+				reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
 			}
 			continue
 		}
 
-		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", ac.typeName)
+		msg := unvalidatedCastMessage(ac.typeName)
 		findingID := PackageScopedFindingID(pass,
 			CategoryUnvalidatedCast,
 			"cfa",
@@ -137,11 +132,7 @@ func inspectClosureCastsCFA(
 			stablePosKey(pass, ac.pos.Pos()),
 			ac.target.key(),
 		)
-		if bl.ContainsFinding(CategoryUnvalidatedCast, findingID, msg) {
-			continue
-		}
-
-		reportDiagnostic(pass, ac.pos.Pos(), CategoryUnvalidatedCast, findingID, msg)
+		reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUnvalidatedCast, findingID, msg)
 	}
 
 	// Report unassigned casts.
@@ -155,7 +146,7 @@ func inspectClosureCastsCFA(
 			continue
 		}
 
-		msg := fmt.Sprintf("type conversion to %s from non-constant without Validate() check", uc.typeName)
+		msg := unvalidatedCastMessage(uc.typeName)
 		findingID := PackageScopedFindingID(pass,
 			CategoryUnvalidatedCast,
 			"cfa",
@@ -166,10 +157,6 @@ func inspectClosureCastsCFA(
 			"unassigned",
 			stablePosKey(pass, uc.pos.Pos()),
 		)
-		if bl.ContainsFinding(CategoryUnvalidatedCast, findingID, msg) {
-			continue
-		}
-
-		reportDiagnostic(pass, uc.pos.Pos(), CategoryUnvalidatedCast, findingID, msg)
+		reportFindingIfNotBaselined(pass, bl, uc.pos.Pos(), CategoryUnvalidatedCast, findingID, msg)
 	}
 }

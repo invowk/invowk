@@ -3,11 +3,13 @@
 package goplint
 
 import (
+	"bytes"
 	"encoding/json"
 	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
@@ -128,6 +130,39 @@ func TestEmitFindingsPathFromPass(t *testing.T) {
 		pass := &analysis.Pass{Analyzer: analyzer}
 		if got := emitFindingsPathFromPass(pass); got != want {
 			t.Fatalf("emitFindingsPathFromPass() = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestWarnFindingSinkError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("dedupes repeated warnings", func(t *testing.T) {
+		t.Parallel()
+
+		var out bytes.Buffer
+		var seen sync.Map
+		err := os.ErrPermission
+
+		warnFindingSinkError(&out, &seen, "/tmp/findings.jsonl", err)
+		warnFindingSinkError(&out, &seen, "/tmp/findings.jsonl", err)
+
+		if got := strings.Count(out.String(), "findings sink"); got != 1 {
+			t.Fatalf("expected 1 warning, got %d; output=%q", got, out.String())
+		}
+	})
+
+	t.Run("without dedupe map writes every warning", func(t *testing.T) {
+		t.Parallel()
+
+		var out bytes.Buffer
+		err := os.ErrPermission
+
+		warnFindingSinkError(&out, nil, "/tmp/findings.jsonl", err)
+		warnFindingSinkError(&out, nil, "/tmp/findings.jsonl", err)
+
+		if got := strings.Count(out.String(), "findings sink"); got != 2 {
+			t.Fatalf("expected 2 warnings, got %d; output=%q", got, out.String())
 		}
 	})
 }

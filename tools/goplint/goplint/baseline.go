@@ -116,15 +116,11 @@ func loadBaselineCached(state *flagState, path string, strictMissing bool) (*Bas
 		return loadBaseline(path, strictMissing)
 	}
 	key := baselineCacheKey{path: path, strictMissing: strictMissing}
-	if cached, ok := state.baselineCache.Load(key); ok {
-		entry := cached.(*baselineCacheEntry)
-		return entry.config, entry.err
-	}
-
-	cfg, err := loadBaseline(path, strictMissing)
-	entry := &baselineCacheEntry{config: cfg, err: err}
-	state.baselineCache.Store(key, entry)
-	return cfg, err
+	entry := loadCacheEntry(&state.baselineCache, key, func() *baselineCacheEntry {
+		cfg, err := loadBaseline(path, strictMissing)
+		return &baselineCacheEntry{config: cfg, err: err}
+	})
+	return entry.config, entry.err
 }
 
 // Contains reports whether a finding with the given category and message

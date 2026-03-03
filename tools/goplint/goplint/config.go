@@ -113,24 +113,17 @@ func loadConfigCached(state *flagState, path string, strictMissing bool) (*Excep
 		return loadConfig(path, strictMissing)
 	}
 	key := configCacheKey{path: path, strictMissing: strictMissing}
-	if cached, ok := state.configCache.Load(key); ok {
-		entry := cached.(*configCacheEntry)
-		if entry.err != nil {
-			return nil, entry.err
+	entry := loadCacheEntry(&state.configCache, key, func() *configCacheEntry {
+		cfg, err := loadConfig(path, strictMissing)
+		cacheEntry := &configCacheEntry{err: err}
+		if err == nil {
+			cacheEntry.template = configTemplate(cfg)
 		}
-		return cloneExceptionConfig(entry.template), nil
+		return cacheEntry
+	})
+	if entry.err != nil {
+		return nil, entry.err
 	}
-
-	cfg, err := loadConfig(path, strictMissing)
-	entry := &configCacheEntry{err: err}
-	if err == nil {
-		entry.template = configTemplate(cfg)
-	}
-	state.configCache.Store(key, entry)
-	if err != nil {
-		return nil, err
-	}
-
 	return cloneExceptionConfig(entry.template), nil
 }
 

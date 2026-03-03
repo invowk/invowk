@@ -160,16 +160,8 @@ func generateBaselineWithRunner(
 	runCommand commandRunner,
 	stderr io.Writer,
 ) error {
-	if runCommand == nil {
-		runCommand = defaultRunCommand
-	}
 	if stderr == nil {
 		stderr = os.Stderr
-	}
-
-	selfPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("resolving executable path: %w", err)
 	}
 	findingsFile, err := os.CreateTemp("", "goplint-findings-*.jsonl")
 	if err != nil {
@@ -191,14 +183,8 @@ func generateBaselineWithRunner(
 	subArgs := buildSubprocessArgs(originalArgs)
 	subArgs = slices.Insert(subArgs, 0, "-emit-findings-jsonl="+findingsPath)
 
-	cmd := exec.CommandContext(context.Background(), selfPath, subArgs...)
-	cmd.Stderr = stderr // let warnings/errors pass through
-
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	runErr := runCommand(cmd)
-	if err := tolerateAnalyzerExit(runErr, stdout.Bytes()); err != nil {
+	stdout, err := runAnalyzerSubprocess(runCommand, stderr, subArgs)
+	if err != nil {
 		return fmt.Errorf("running analyzer subprocess: %w", err)
 	}
 
@@ -211,7 +197,7 @@ func generateBaselineWithRunner(
 	if err != nil {
 		return fmt.Errorf("parsing analysis output: %w", err)
 	}
-	analysisFindings, err := parseAnalysisJSON(stdout.Bytes())
+	analysisFindings, err := parseAnalysisJSON(stdout)
 	if err != nil {
 		return fmt.Errorf("parsing analyzer json output: %w", err)
 	}
@@ -290,33 +276,19 @@ func auditExceptionsGlobal(originalArgs []string) error {
 }
 
 func auditExceptionsGlobalWithRunner(originalArgs []string, runCommand commandRunner, stderr io.Writer) error {
-	if runCommand == nil {
-		runCommand = defaultRunCommand
-	}
 	if stderr == nil {
 		stderr = os.Stderr
-	}
-
-	selfPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("resolving executable path: %w", err)
 	}
 
 	// Build subprocess args: remove --global, ensure -json and -audit-exceptions.
 	subArgs := buildGlobalAuditArgs(originalArgs)
 
-	cmd := exec.CommandContext(context.Background(), selfPath, subArgs...)
-	cmd.Stderr = stderr
-
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	runErr := runCommand(cmd)
-	if err := tolerateAnalyzerExit(runErr, stdout.Bytes()); err != nil {
+	stdout, err := runAnalyzerSubprocess(runCommand, stderr, subArgs)
+	if err != nil {
 		return fmt.Errorf("running global audit subprocess: %w", err)
 	}
 
-	stalePatterns, totalPatterns, totalPackages, err := aggregateGlobalStalePatterns(stdout.Bytes())
+	stalePatterns, totalPatterns, totalPackages, err := aggregateGlobalStalePatterns(stdout)
 	if err != nil {
 		return fmt.Errorf("aggregating global stale exceptions: %w", err)
 	}
@@ -347,18 +319,11 @@ func auditExceptionsGlobalWithRunner(originalArgs []string, runCommand commandRu
 // packages. Aggregation is package-based (not diagnostic-count based), so
 // duplicate stale diagnostics in one package do not inflate global coverage.
 func aggregateGlobalStalePatterns(data []byte) (stalePatterns []string, totalPatterns, totalPackages int, err error) {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-
 	// pattern -> set(packagePath)
 	patternPackages := make(map[string]map[string]bool)
 	seenPackages := make(map[string]bool)
 
-	for decoder.More() {
-		var result analysisResult
-		if decodeErr := decoder.Decode(&result); decodeErr != nil {
-			return nil, 0, 0, fmt.Errorf("decoding JSON: %w", decodeErr)
-		}
-
+	if err := forEachAnalysisResult(data, func(result analysisResult) error {
 		for pkgPath, analyzers := range result {
 			seenPackages[pkgPath] = true
 			diags, ok := analyzers["goplint"]
@@ -379,6 +344,9 @@ func aggregateGlobalStalePatterns(data []byte) (stalePatterns []string, totalPat
 				patternPackages[pattern][pkgPath] = true
 			}
 		}
+		return nil
+	}); err != nil {
+		return nil, 0, 0, fmt.Errorf("decoding JSON: %w", err)
 	}
 
 	totalPackages = len(seenPackages)
@@ -537,41 +505,26 @@ func parseFindingsJSONL(data []byte) (map[string][]goplint.BaselineFinding, erro
 	}
 
 	seen := make(map[string]map[string]goplint.BaselineFinding)
-	scanner := bytes.NewBuffer(data)
-	for {
-		line, err := scanner.ReadBytes('\n')
-		if err != nil && !errors.Is(err, io.EOF) {
-			return nil, fmt.Errorf("reading findings stream: %w", err)
+	if err := forEachFindingsRecord(data, func(record goplint.FindingStreamRecord) error {
+		if record.Category == "" || record.Message == "" || record.ID == "" {
+			return errors.New("decoding findings record: missing required fields")
 		}
-		line = bytes.TrimSpace(line)
-		if len(line) > 0 {
-			var record goplint.FindingStreamRecord
-			if unmarshalErr := json.Unmarshal(line, &record); unmarshalErr != nil {
-				return nil, fmt.Errorf("decoding findings record: %w", unmarshalErr)
-			}
-			if record.Category == "" || record.Message == "" || record.ID == "" {
-				return nil, errors.New("decoding findings record: missing required fields")
-			}
-			if !goplint.IsKnownDiagnosticCategory(record.Category) {
-				return nil, fmt.Errorf("unknown goplint category %q", record.Category)
-			}
-			if !goplint.IsBaselineSuppressibleCategory(record.Category) {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				continue
-			}
-			if seen[record.Category] == nil {
-				seen[record.Category] = make(map[string]goplint.BaselineFinding)
-			}
-			seen[record.Category][record.ID] = goplint.BaselineFinding{
-				ID:      record.ID,
-				Message: record.Message,
-			}
+		if !goplint.IsKnownDiagnosticCategory(record.Category) {
+			return fmt.Errorf("unknown goplint category %q", record.Category)
 		}
-		if errors.Is(err, io.EOF) {
-			break
+		if !goplint.IsBaselineSuppressibleCategory(record.Category) {
+			return nil
 		}
+		if seen[record.Category] == nil {
+			seen[record.Category] = make(map[string]goplint.BaselineFinding)
+		}
+		seen[record.Category][record.ID] = goplint.BaselineFinding{
+			ID:      record.ID,
+			Message: record.Message,
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	findings := make(map[string][]goplint.BaselineFinding, len(seen))
@@ -583,6 +536,35 @@ func parseFindingsJSONL(data []byte) (map[string][]goplint.BaselineFinding, erro
 		findings[category] = out
 	}
 	return findings, nil
+}
+
+func forEachFindingsRecord(data []byte, fn func(record goplint.FindingStreamRecord) error) error {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return nil
+	}
+
+	scanner := bytes.NewBuffer(data)
+	for {
+		line, err := scanner.ReadBytes('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return fmt.Errorf("reading findings stream: %w", err)
+		}
+		line = bytes.TrimSpace(line)
+		if len(line) > 0 {
+			var record goplint.FindingStreamRecord
+			if unmarshalErr := json.Unmarshal(line, &record); unmarshalErr != nil {
+				return fmt.Errorf("decoding findings record: %w", unmarshalErr)
+			}
+			if fn != nil {
+				if callbackErr := fn(record); callbackErr != nil {
+					return callbackErr
+				}
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+	}
 }
 
 func countBaselineFindings(findings map[string][]goplint.BaselineFinding) int {
@@ -597,20 +579,11 @@ func countBaselineFindings(findings map[string][]goplint.BaselineFinding) int {
 // per package, concatenated) and returns findings grouped by category.
 // Filters out stale-exception diagnostics and deduplicates.
 func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error) {
-	// The -json output is a stream of JSON objects (one per package).
-	// Each object maps package path → analyzer name → diagnostics array.
-	decoder := json.NewDecoder(bytes.NewReader(data))
-
 	// Deduplicate across packages (test variants can produce duplicates).
 	// Keyed by category and stable finding ID.
 	seen := make(map[string]map[string]goplint.BaselineFinding) // category → findingID → finding
 
-	for decoder.More() {
-		var result analysisResult
-		if err := decoder.Decode(&result); err != nil {
-			return nil, fmt.Errorf("decoding JSON object: %w", err)
-		}
-
+	if err := forEachAnalysisResult(data, func(result analysisResult) error {
 		for pkgPath, analyzers := range result {
 			canonicalPkgPath := canonicalPackagePath(pkgPath)
 			diags, ok := analyzers["goplint"]
@@ -622,7 +595,7 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 					continue
 				}
 				if !goplint.IsKnownDiagnosticCategory(d.Category) {
-					return nil, fmt.Errorf("unknown goplint category %q", d.Category)
+					return fmt.Errorf("unknown goplint category %q", d.Category)
 				}
 				if !goplint.IsBaselineSuppressibleCategory(d.Category) {
 					continue
@@ -648,6 +621,9 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 				}
 			}
 		}
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("decoding JSON object: %w", err)
 	}
 
 	// Convert sets to slices. WriteBaseline handles sorting.
@@ -661,6 +637,52 @@ func parseAnalysisJSON(data []byte) (map[string][]goplint.BaselineFinding, error
 	}
 
 	return findings, nil
+}
+
+func runAnalyzerSubprocess(runCommand commandRunner, stderr io.Writer, subArgs []string) ([]byte, error) {
+	if runCommand == nil {
+		runCommand = defaultRunCommand
+	}
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
+	selfPath, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("resolving executable path: %w", err)
+	}
+
+	cmd := exec.CommandContext(context.Background(), selfPath, subArgs...)
+	cmd.Stderr = stderr
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	runErr := runCommand(cmd)
+	if err := tolerateAnalyzerExit(runErr, stdout.Bytes()); err != nil {
+		return nil, err
+	}
+
+	return stdout.Bytes(), nil
+}
+
+func forEachAnalysisResult(data []byte, fn func(result analysisResult) error) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	for {
+		var result analysisResult
+		if err := decoder.Decode(&result); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return fmt.Errorf("decoding analysis stream: %w", err)
+		}
+		if fn == nil {
+			continue
+		}
+		if err := fn(result); err != nil {
+			return err
+		}
+	}
 }
 
 func canonicalPackagePath(pkgPath string) string {
