@@ -25,9 +25,34 @@ func constructorHasUnvalidatedReturnPath(
 	returnTypePkgPath string,
 	returnTypeKey string,
 ) bool {
-	funcCFG := buildFuncCFGForPass(pass, fn.Body)
+	outcome, _ := constructorReturnPathOutcome(
+		pass,
+		fn,
+		returnTypeName,
+		returnTypePkgPath,
+		returnTypeKey,
+		defaultCFGBackend,
+		defaultCFGMaxStates,
+		defaultCFGMaxDepth,
+	)
+	return outcome != pathOutcomeSafe
+}
+
+// constructorReturnPathOutcome checks constructor Validate() coverage and
+// returns a tri-state path outcome.
+func constructorReturnPathOutcome(
+	pass *analysis.Pass,
+	fn *ast.FuncDecl,
+	returnTypeName string,
+	returnTypePkgPath string,
+	returnTypeKey string,
+	cfgBackend string,
+	cfgMaxStates int,
+	cfgMaxDepth int,
+) (pathOutcome, pathOutcomeReason) {
+	funcCFG := buildFuncCFGForBackend(pass, fn.Body, cfgBackend)
 	if funcCFG == nil || len(funcCFG.Blocks) == 0 {
-		return false
+		return pathOutcomeSafe, pathOutcomeReasonNone
 	}
 	noReturnAliases := collectNoReturnFuncAliasEvents(pass, fn.Body)
 	parentMap := buildParentMap(fn.Body)
@@ -46,7 +71,8 @@ func constructorHasUnvalidatedReturnPath(
 
 	// DFS from the entry block (index 0).
 	visited := make(map[int32]bool)
-	return dfsConstructorUnvalidated(
+	seenStates := 1
+	return dfsConstructorUnvalidatedOutcome(
 		pass,
 		funcCFG.Blocks[0:1],
 		returnTypeName,
@@ -59,6 +85,9 @@ func constructorHasUnvalidatedReturnPath(
 		syncCalls,
 		methodCalls,
 		noReturnAliases,
+		0,
+		&seenStates,
+		blockVisitBudget{maxStates: cfgMaxStates, maxDepth: cfgMaxDepth},
 	)
 }
 
@@ -80,6 +109,46 @@ func dfsConstructorUnvalidated(
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
 ) bool {
+	outcome, _ := dfsConstructorUnvalidatedOutcome(
+		pass,
+		blocks,
+		returnTypeName,
+		returnTypePkgPath,
+		returnTypeKey,
+		matcher,
+		bareReturnIncludesTarget,
+		visited,
+		syncLits,
+		syncCalls,
+		methodCalls,
+		noReturnAliases,
+		0,
+		nil,
+		blockVisitBudget{
+			maxStates: defaultCFGMaxStates,
+			maxDepth:  defaultCFGMaxDepth,
+		},
+	)
+	return outcome != pathOutcomeSafe
+}
+
+func dfsConstructorUnvalidatedOutcome(
+	pass *analysis.Pass,
+	blocks []*gocfg.Block,
+	returnTypeName string,
+	returnTypePkgPath string,
+	returnTypeKey string,
+	matcher validateReceiverMatcher,
+	bareReturnIncludesTarget bool,
+	visited map[int32]bool,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+	noReturnAliases noReturnAliasSet,
+	depth int,
+	seenStates *int,
+	budget blockVisitBudget,
+) (pathOutcome, pathOutcomeReason) {
 	checker := func(block *gocfg.Block) bool {
 		if blockTerminatesWithoutReturn(pass, block, noReturnAliases) {
 			return true
@@ -107,7 +176,7 @@ func dfsConstructorUnvalidated(
 		}
 		return false
 	}
-	return dfsUnvalidatedBlocks(blocks, visited, checker)
+	return dfsUnvalidatedBlocksOutcome(blocks, visited, checker, depth, seenStates, budget)
 }
 
 func blockReturnsTargetType(pass *analysis.Pass, block *gocfg.Block, returnTypeKey string, bareReturnIncludesTarget bool) bool {

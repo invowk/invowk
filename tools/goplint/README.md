@@ -179,14 +179,14 @@ make check-baseline
 # Bare primitive type usage
 [primitive]
 entries = [
-    { id = "gpl2_...", message = "struct field pkg.Foo.Bar uses primitive type string" },
-    { id = "gpl2_...", message = "parameter \"name\" of pkg.Func uses primitive type string" },
+    { id = "gpl3_...", message = "struct field pkg.Foo.Bar uses primitive type string" },
+    { id = "gpl3_...", message = "parameter \"name\" of pkg.Func uses primitive type string" },
 ]
 
 # Exported structs missing NewXxx() constructor
 [missing-constructor]
 entries = [
-    { id = "gpl2_...", message = "exported struct pkg.Config has no NewConfig() constructor" },
+    { id = "gpl3_...", message = "exported struct pkg.Config has no NewConfig() constructor" },
 ]
 ```
 
@@ -230,16 +230,16 @@ Each diagnostic includes a `category` field for filtering:
         "posn": "pkg/invowkfile/types.go:42:5",
         "message": "struct field invowkfile.Foo.Bar uses primitive type string",
         "category": "primitive",
-        "url": "goplint://finding/gpl2_..."
+        "url": "goplint://finding/gpl3_..."
       }
     ]
   }
 }
 ```
 
-`url` encodes the stable finding ID used by baseline v2 and may include machine-readable query metadata (for example `ubv_scope=same-block|cross-block` and witness fields).
+`url` encodes the stable finding ID used by baseline suppression and may include machine-readable query metadata (for example `ubv_scope=same-block|cross-block` and witness fields).
 
-Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constructor`, `wrong-constructor-sig`, `wrong-validate-sig`, `wrong-stringer-sig`, `missing-func-options`, `missing-immutability`, `missing-struct-validate`, `wrong-struct-validate-sig`, `unvalidated-cast`, `use-before-validate-same-block`, `use-before-validate-cross-block`, `unused-validate-result`, `unused-constructor-error`, `missing-constructor-validate`, `incomplete-validate-delegation`, `nonzero-value-field`, `stale-exception`, `unknown-directive`.
+Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constructor`, `wrong-constructor-sig`, `missing-func-options`, `missing-immutability`, `wrong-validate-sig`, `wrong-stringer-sig`, `missing-struct-validate`, `wrong-struct-validate-sig`, `unvalidated-cast`, `unvalidated-cast-inconclusive`, `unused-validate-result`, `unused-constructor-error`, `missing-constructor-validate`, `missing-constructor-validate-inconclusive`, `incomplete-validate-delegation`, `nonzero-value-field`, `wrong-func-option-type`, `enum-cue-missing-go`, `enum-cue-extra-go`, `use-before-validate-same-block`, `use-before-validate-cross-block`, `use-before-validate-inconclusive`, `suggest-validate-all`, `missing-constructor-error-return`, `redundant-conversion`, `missing-struct-validate-fields`, `unknown-directive`, `stale-exception`, `overdue-review`.
 
 ## CLI Flags
 
@@ -293,6 +293,7 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 - `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate` are CFA-only checks.
 - CFA is always enabled for those checks; there is no CFA opt-out flag.
 - `--check-use-before-validate` emits split categories: `use-before-validate-same-block` and `use-before-validate-cross-block`.
+- CFA budget truncation emits inconclusive categories (`unvalidated-cast-inconclusive`, `use-before-validate-inconclusive`, `missing-constructor-validate-inconclusive`) with `cfg_*` metadata.
 - `--ubv-mode=order` uses strict ordering semantics; `--ubv-mode=escape` focuses on values escaping before validation.
 - `--ubv-mode=escape` uses recursion-safe interprocedural first-argument summaries to treat helper calls as validation only when the callee validates before escaping that argument.
 - `--cfg-backend=ssa` uses type-aware no-return pruning; `--cfg-backend=ast` is conservative and treats calls as may-return.

@@ -29,9 +29,11 @@ type BaselineConfig struct {
 	MissingStructValidate         BaselineCategory `toml:"missing-struct-validate"`
 	WrongStructValidateSig        BaselineCategory `toml:"wrong-struct-validate-sig"`
 	UnvalidatedCast               BaselineCategory `toml:"unvalidated-cast"`
+	UnvalidatedCastInconclusive   BaselineCategory `toml:"unvalidated-cast-inconclusive"`
 	UnusedValidateResult          BaselineCategory `toml:"unused-validate-result"`
 	UnusedConstructorError        BaselineCategory `toml:"unused-constructor-error"`
 	MissingConstructorValidate    BaselineCategory `toml:"missing-constructor-validate"`
+	MissingConstructorValidateInc BaselineCategory `toml:"missing-constructor-validate-inconclusive"`
 	IncompleteValidateDelegation  BaselineCategory `toml:"incomplete-validate-delegation"`
 	NonZeroValueField             BaselineCategory `toml:"nonzero-value-field"`
 	WrongFuncOptionType           BaselineCategory `toml:"wrong-func-option-type"`
@@ -39,6 +41,7 @@ type BaselineConfig struct {
 	EnumCueExtraGo                BaselineCategory `toml:"enum-cue-extra-go"`
 	UseBeforeValidateSameBlock    BaselineCategory `toml:"use-before-validate-same-block"`
 	UseBeforeValidateCrossBlock   BaselineCategory `toml:"use-before-validate-cross-block"`
+	UseBeforeValidateInconclusive BaselineCategory `toml:"use-before-validate-inconclusive"`
 	SuggestValidateAll            BaselineCategory `toml:"suggest-validate-all"`
 	MissingConstructorErrorReturn BaselineCategory `toml:"missing-constructor-error-return"`
 	RedundantConversion           BaselineCategory `toml:"redundant-conversion"`
@@ -235,12 +238,16 @@ func (b *BaselineConfig) categoryForName(name string) BaselineCategory {
 		return b.WrongStructValidateSig
 	case CategoryUnvalidatedCast:
 		return b.UnvalidatedCast
+	case CategoryUnvalidatedCastInconclusive:
+		return b.UnvalidatedCastInconclusive
 	case CategoryUnusedValidateResult:
 		return b.UnusedValidateResult
 	case CategoryUnusedConstructorError:
 		return b.UnusedConstructorError
 	case CategoryMissingConstructorValidate:
 		return b.MissingConstructorValidate
+	case CategoryMissingConstructorValidateInc:
+		return b.MissingConstructorValidateInc
 	case CategoryIncompleteValidateDelegation:
 		return b.IncompleteValidateDelegation
 	case CategoryNonZeroValueField:
@@ -255,6 +262,8 @@ func (b *BaselineConfig) categoryForName(name string) BaselineCategory {
 		return b.UseBeforeValidateSameBlock
 	case CategoryUseBeforeValidateCrossBlock:
 		return b.UseBeforeValidateCrossBlock
+	case CategoryUseBeforeValidateInconclusive:
+		return b.UseBeforeValidateInconclusive
 	case CategorySuggestValidateAll:
 		return b.SuggestValidateAll
 	case CategoryMissingConstructorErrorReturn:

@@ -60,19 +60,23 @@ Each diagnostic emitted by the analyzer carries a `category` field (visible in `
 | `missing-struct-validate` | `--check-struct-validate` or `--check-all` | Struct with constructor missing `Validate()` method |
 | `wrong-struct-validate-sig` | `--check-struct-validate` or `--check-all` | Struct has `Validate()` but wrong signature |
 | `unvalidated-cast` | `--check-cast-validation` or `--check-all` | Type conversion to DDD type from non-constant without `Validate()` check |
+| `unvalidated-cast-inconclusive` | `--check-cast-validation` or `--check-all` | CFA path exploration truncated before proving cast validation safety |
 | `use-before-validate-same-block` | `--check-use-before-validate` or `--check-all` | DDD Value Type variable used before Validate() in the defining CFG block |
 | `use-before-validate-cross-block` | `--check-use-before-validate` or `--check-all` | DDD Value Type variable used before Validate() across successor CFG blocks |
+| `use-before-validate-inconclusive` | `--check-use-before-validate` or `--check-all` | CFA path exploration truncated before proving UBV safety |
 | `missing-constructor-error-return` | `--check-constructor-return-error` or `--check-all` | Constructor for validatable type does not return error |
 | `unused-validate-result` | `--check-validate-usage` or `--check-all` | Validate() called with result completely discarded |
 | `nonzero-value-field` | `--check-nonzero` or `--check-all` | Struct field uses nonzero type as value (should be pointer) |
 | `unused-constructor-error` | `--check-constructor-error-usage` or `--check-all` | Constructor NewXxx() error return assigned to blank identifier |
 | `missing-constructor-validate` | `--check-constructor-validates` or `--check-all` | Constructor returns validatable type but never calls Validate() |
+| `missing-constructor-validate-inconclusive` | `--check-constructor-validates` or `--check-all` | Constructor CFA path exploration truncated before proving Validate coverage |
 | `incomplete-validate-delegation` | `--check-validate-delegation` or `--check-all` | Struct missing field Validate() delegation |
 | `missing-struct-validate-fields` | `--check-validate-delegation` or `--check-all` | Struct with validatable fields but no Validate() method |
 | `wrong-func-option-type` | `--check-func-options` or `--check-all` | WithXxx() parameter type does not match the struct field type |
 | `redundant-conversion` | `--check-redundant-conversion` or `--check-all` | Type conversion with redundant intermediate basic-type hop |
 | `enum-cue-missing-go` | `--check-enum-sync` | CUE disjunction member not in Go Validate() switch |
 | `enum-cue-extra-go` | `--check-enum-sync` | Go Validate() switch case not in CUE disjunction |
+| `suggest-validate-all` | `--suggest-validate-all` | Advisory: struct may benefit from `//goplint:validate-all` |
 | `stale-exception` | `--audit-exceptions` | TOML exception pattern matched nothing |
 | `overdue-review` | `--audit-review-dates` | Exception with `review_after` date that has passed |
 | `unknown-directive` | (always active) | Unrecognized key in `//goplint:` directive (typo detection) |
@@ -587,16 +591,16 @@ make update-baseline   # Regenerate baseline from current state
 ```toml
 [primitive]
 entries = [
-    { id = "gpl2_...", message = "struct field pkg.Foo.Bar uses primitive type string" },
+    { id = "gpl3_...", message = "struct field pkg.Foo.Bar uses primitive type string" },
 ]
 
 [missing-constructor]
 entries = [
-    { id = "gpl2_...", message = "exported struct pkg.Config has no NewConfig() constructor" },
+    { id = "gpl3_...", message = "exported struct pkg.Config has no NewConfig() constructor" },
 ]
 ```
 
-Sections: `[primitive]`, `[missing-validate]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[wrong-validate-sig]`, `[wrong-stringer-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[missing-struct-validate]`, `[wrong-struct-validate-sig]`, `[unvalidated-cast]`, `[unused-validate-result]`, `[unused-constructor-error]`, `[missing-constructor-validate]`, `[incomplete-validate-delegation]`, `[nonzero-value-field]`, `[redundant-conversion]`, `[missing-struct-validate-fields]`. Empty sections are omitted.
+Sections: `[primitive]`, `[missing-validate]`, `[missing-stringer]`, `[missing-constructor]`, `[wrong-constructor-sig]`, `[missing-func-options]`, `[missing-immutability]`, `[wrong-validate-sig]`, `[wrong-stringer-sig]`, `[missing-struct-validate]`, `[wrong-struct-validate-sig]`, `[unvalidated-cast]`, `[unvalidated-cast-inconclusive]`, `[unused-validate-result]`, `[unused-constructor-error]`, `[missing-constructor-validate]`, `[missing-constructor-validate-inconclusive]`, `[incomplete-validate-delegation]`, `[nonzero-value-field]`, `[wrong-func-option-type]`, `[enum-cue-missing-go]`, `[enum-cue-extra-go]`, `[use-before-validate-same-block]`, `[use-before-validate-cross-block]`, `[use-before-validate-inconclusive]`, `[suggest-validate-all]`, `[missing-constructor-error-return]`, `[redundant-conversion]`, `[missing-struct-validate-fields]`. Empty sections are omitted.
 
 `messages = [...]` (legacy v1 format) is no longer accepted; baseline files must use `entries = [{id, message}]`.
 Baseline generation is fail-closed for ID integrity: suppressible diagnostics must
@@ -644,7 +648,8 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **CFA default contract**: `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate` always run with CFA semantics.
 - **CFA `if false` handling**: `go/cfg` does NOT perform constant folding. `if false { x.Validate() }` creates a structurally live block. However, the non-false path to return IS detected as unvalidated because the IfDone block has no Validate call.
 - **CFA path semantics**: CFA checks "path-to-return-without-validate," not "use-before-validate." If `x.Validate()` appears anywhere on a path from the cast to a return block, that path is considered validated regardless of whether `x` is used before the Validate call.
-- **Constructor-validates CFA**: `--check-constructor-validates` uses CFA to verify ALL return paths pass through `.Validate()` on the return type. Uses `constructorHasUnvalidatedReturnPath` which builds a CFG and DFS-checks from the entry block. Type-identity matching (via `typeIdentityKey`) is used instead of variable-name matching, including generic instantiation awareness. Synchronous closure-var calls are included in path checks, and `//goplint:validates-type=...` facts resolve to the validated type identity (not only helper package identity).
+- **Constructor-validates CFA**: `--check-constructor-validates` uses CFA to verify ALL return paths pass through `.Validate()` on the return type. Uses `constructorReturnPathOutcome`/`constructorHasUnvalidatedReturnPath` over backend-selected CFGs from the entry block. Type-identity matching (via `typeIdentityKey`) is used instead of variable-name matching, including generic instantiation awareness. Synchronous closure-var calls are included in path checks, and `//goplint:validates-type=...` facts resolve to the validated type identity (not only helper package identity).
+- **CFA inconclusive outcomes**: When `--cfg-max-states` or `--cfg-max-depth` is exceeded, CFA reports dedicated `*-inconclusive` categories with `cfg_backend`, budget, and reason metadata instead of silently collapsing into ordinary unsafe findings.
 
 ## Test Architecture
 

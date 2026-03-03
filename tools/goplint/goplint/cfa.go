@@ -733,6 +733,12 @@ func blockTerminatesWithoutReturn(pass *analysis.Pass, block *gocfg.Block, noRet
 // and constructor-validates (type-identity) use cases.
 type blockValidateChecker func(block *gocfg.Block) bool
 
+// blockVisitBudget controls DFS exploration depth/state limits.
+type blockVisitBudget struct {
+	maxStates int
+	maxDepth  int
+}
+
 // hasPathToReturnWithoutValidate performs a depth-first search from the
 // defining block (starting after defIdx) through CFG successors. Returns
 // true if any path from the cast definition to a return block never passes
@@ -751,7 +757,7 @@ type blockValidateChecker func(block *gocfg.Block) bool
 //     return true. Otherwise recurse into its successors.
 func hasPathToReturnWithoutValidate(
 	pass *analysis.Pass,
-	_ *gocfg.CFG,
+	cfg *gocfg.CFG,
 	defBlock *gocfg.Block,
 	defIdx int,
 	target castTarget,
@@ -760,22 +766,71 @@ func hasPathToReturnWithoutValidate(
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
 ) bool {
+	outcome, _ := hasPathToReturnWithoutValidateOutcome(
+		pass,
+		cfg,
+		defBlock,
+		defIdx,
+		target,
+		syncLits,
+		syncCalls,
+		methodCalls,
+		noReturnAliases,
+		defaultCFGMaxStates,
+		defaultCFGMaxDepth,
+	)
+	return outcome != pathOutcomeSafe
+}
+
+func hasPathToReturnWithoutValidateOutcome(
+	pass *analysis.Pass,
+	_ *gocfg.CFG,
+	defBlock *gocfg.Block,
+	defIdx int,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+	noReturnAliases noReturnAliasSet,
+	maxStates int,
+	maxDepth int,
+) (pathOutcome, pathOutcomeReason) {
+	if defBlock == nil {
+		return pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget
+	}
+
 	// Check the remainder of the defining block after the cast.
 	remainder := defBlock.Nodes[defIdx+1:]
 	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits, syncCalls, methodCalls) {
-		return false // validated in same block after cast
+		return pathOutcomeSafe, pathOutcomeReasonNone // validated in same block after cast
 	}
 
 	// If no successors, this is a return block — unvalidated path exists.
 	if len(defBlock.Succs) == 0 {
-		return !blockTerminatesWithoutReturn(pass, defBlock, noReturnAliases)
+		if blockTerminatesWithoutReturn(pass, defBlock, noReturnAliases) {
+			return pathOutcomeSafe, pathOutcomeReasonNone
+		}
+		return pathOutcomeUnsafe, pathOutcomeReasonNone
 	}
 
 	// DFS from successors.
 	visited := make(map[int32]bool)
 	visited[defBlock.Index] = true
+	seenStates := 1
 
-	return dfsUnvalidatedPath(pass, defBlock.Succs, target, visited, syncLits, syncCalls, methodCalls, noReturnAliases)
+	return dfsUnvalidatedPathOutcome(
+		pass,
+		defBlock.Succs,
+		target,
+		visited,
+		syncLits,
+		syncCalls,
+		methodCalls,
+		noReturnAliases,
+		0,
+		&seenStates,
+		blockVisitBudget{maxStates: maxStates, maxDepth: maxDepth},
+	)
 }
 
 // dfsUnvalidatedPath recursively checks whether any path through the given
@@ -791,13 +846,42 @@ func dfsUnvalidatedPath(
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
 ) bool {
+	outcome, _ := dfsUnvalidatedPathOutcome(
+		pass,
+		succs,
+		target,
+		visited,
+		syncLits,
+		syncCalls,
+		methodCalls,
+		noReturnAliases,
+		0,
+		nil,
+		blockVisitBudget{maxStates: defaultCFGMaxStates, maxDepth: defaultCFGMaxDepth},
+	)
+	return outcome != pathOutcomeSafe
+}
+
+func dfsUnvalidatedPathOutcome(
+	pass *analysis.Pass,
+	succs []*gocfg.Block,
+	target castTarget,
+	visited map[int32]bool,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+	noReturnAliases noReturnAliasSet,
+	depth int,
+	seenStates *int,
+	budget blockVisitBudget,
+) (pathOutcome, pathOutcomeReason) {
 	checker := func(block *gocfg.Block) bool {
 		if blockTerminatesWithoutReturn(pass, block, noReturnAliases) {
 			return true
 		}
 		return blockContainsValidateCall(pass, block, target, syncLits, syncCalls, methodCalls)
 	}
-	return dfsUnvalidatedBlocks(succs, visited, checker)
+	return dfsUnvalidatedBlocksOutcome(succs, visited, checker, depth, seenStates, budget)
 }
 
 // dfsUnvalidatedBlocks performs a depth-first search through CFG blocks,
@@ -808,11 +892,42 @@ func dfsUnvalidatedPath(
 // dfsConstructorUnvalidated). The blockHasValidate predicate abstracts the
 // validate-matching strategy.
 func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHasValidate blockValidateChecker) bool {
+	outcome, _ := dfsUnvalidatedBlocksOutcome(
+		blocks,
+		visited,
+		blockHasValidate,
+		0,
+		nil,
+		blockVisitBudget{
+			maxStates: defaultCFGMaxStates,
+			maxDepth:  defaultCFGMaxDepth,
+		},
+	)
+	return outcome != pathOutcomeSafe
+}
+
+func dfsUnvalidatedBlocksOutcome(
+	blocks []*gocfg.Block,
+	visited map[int32]bool,
+	blockHasValidate blockValidateChecker,
+	depth int,
+	seenStates *int,
+	budget blockVisitBudget,
+) (pathOutcome, pathOutcomeReason) {
+	if budget.maxDepth > 0 && depth > budget.maxDepth {
+		return pathOutcomeInconclusive, pathOutcomeReasonDepthBudget
+	}
 	for _, block := range blocks {
 		if visited[block.Index] {
 			continue
 		}
 		visited[block.Index] = true
+		if seenStates != nil {
+			*seenStates++
+			if budget.maxStates > 0 && *seenStates > budget.maxStates {
+				return pathOutcomeInconclusive, pathOutcomeReasonStateBudget
+			}
+		}
 
 		// Skip dead blocks — unreachable code can't constitute a
 		// real execution path.
@@ -828,13 +943,14 @@ func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHa
 		// If this is a return block (no successors), we have an
 		// unvalidated path.
 		if len(block.Succs) == 0 {
-			return true
+			return pathOutcomeUnsafe, pathOutcomeReasonNone
 		}
 
 		// Recurse into successors.
-		if dfsUnvalidatedBlocks(block.Succs, visited, blockHasValidate) {
-			return true
+		outcome, reason := dfsUnvalidatedBlocksOutcome(block.Succs, visited, blockHasValidate, depth+1, seenStates, budget)
+		if outcome != pathOutcomeSafe {
+			return outcome, reason
 		}
 	}
-	return false
+	return pathOutcomeSafe, pathOutcomeReasonNone
 }

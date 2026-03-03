@@ -361,7 +361,16 @@ func runPostTraversalChecks(
 		reportMissingStructValidate(pass, collectors.exportedStructs, collectors.constructorDetails, collectors.methodSeen, cfg, bl)
 	}
 	if rc.checkConstructorValidates {
-		inspectConstructorValidates(pass, collectors.constructorDetails, collectors.constantOnlyTypes, cfg, bl)
+		inspectConstructorValidates(
+			pass,
+			collectors.constructorDetails,
+			collectors.constantOnlyTypes,
+			cfg,
+			bl,
+			rc.cfgBackend,
+			rc.cfgMaxStates,
+			rc.cfgMaxDepth,
+		)
 	}
 
 	// Constructor return error — constructors for validatable types should return error.

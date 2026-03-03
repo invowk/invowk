@@ -327,6 +327,21 @@ func TestCheckConstructorValidates(t *testing.T) {
 	runAnalysisTest(t, testdata, h.Analyzer, "constructorvalidates")
 }
 
+// TestCheckConstructorValidatesInconclusiveStateBudget verifies constructor
+// CFA reports an inconclusive category when exploration truncates via
+// cfg-max-states.
+func TestCheckConstructorValidatesInconclusiveStateBudget(t *testing.T) {
+	t.Parallel()
+
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+	setFlag(t, h.Analyzer, "cfg-max-states", "1")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructorvalidates_inconclusive")
+}
+
 // TestCheckConstructorValidatesMethodValue verifies constructor-validates
 // recognizes Validate() calls made through method values.
 //
@@ -340,6 +355,36 @@ func TestCheckConstructorValidatesMethodValue(t *testing.T) {
 	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
 
 	runAnalysisTest(t, testdata, h.Analyzer, "constructorvalidates_method_value")
+}
+
+// TestCheckConstructorValidatesCFABackendASTConservative verifies the AST
+// backend treats calls conservatively and can report missing Validate() on
+// no-return paths.
+func TestCheckConstructorValidatesCFABackendASTConservative(t *testing.T) {
+	t.Parallel()
+
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+	setFlag(t, h.Analyzer, "cfg-backend", cfgBackendAST)
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructor_backend_ast")
+}
+
+// TestCheckConstructorValidatesCFABackendSSAHandlesNoReturn verifies the SSA
+// backend prunes no-return paths and avoids false positives for constructors
+// that cannot reach a return.
+func TestCheckConstructorValidatesCFABackendSSAHandlesNoReturn(t *testing.T) {
+	t.Parallel()
+
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-constructor-validates", "true")
+	setFlag(t, h.Analyzer, "cfg-backend", cfgBackendSSA)
+
+	runAnalysisTest(t, testdata, h.Analyzer, "constructor_backend_ssa")
 }
 
 // TestCheckConstructorReturnError exercises the --check-constructor-return-error

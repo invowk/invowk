@@ -165,6 +165,9 @@ func inspectConstructorValidates(
 	constantOnlyTypes map[string]bool,
 	cfg *ExceptionConfig,
 	bl *BaselineConfig,
+	cfgBackend string,
+	cfgMaxStates int,
+	cfgMaxDepth int,
 ) {
 	pkgName := packageName(pass.Pkg)
 
@@ -235,7 +238,17 @@ func inspectConstructorValidates(
 
 			// Check whether constructor paths validate the returned type.
 			// CFA mode is required for constructor-validates.
-			if !constructorHasUnvalidatedReturnPath(pass, fn, returnType, returnTypePkgPath, returnTypeKey) {
+			pathOutcome, pathReason := constructorReturnPathOutcome(
+				pass,
+				fn,
+				returnType,
+				returnTypePkgPath,
+				returnTypeKey,
+				cfgBackend,
+				cfgMaxStates,
+				cfgMaxDepth,
+			)
+			if pathOutcome == pathOutcomeSafe {
 				continue
 			}
 
@@ -250,15 +263,34 @@ func inspectConstructorValidates(
 				continue
 			}
 
+			if pathOutcome == pathOutcomeInconclusive {
+				msg := constructorValidateInconclusiveMessage(qualName, returnTypePkg, returnType)
+				findingID := PackageScopedFindingID(
+					pass,
+					CategoryMissingConstructorValidateInc,
+					qualName,
+					returnType,
+					"inconclusive",
+					string(pathReason),
+				)
+				meta := cfgOutcomeMeta(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason)
+				reportFindingWithMetaIfNotBaselined(
+					pass,
+					bl,
+					fn.Name.Pos(),
+					CategoryMissingConstructorValidateInc,
+					findingID,
+					msg,
+					meta,
+				)
+				continue
+			}
+
 			msg := fmt.Sprintf(
 				"constructor %s returns %s.%s which has Validate() but never calls it",
 				qualName, returnTypePkg, returnType)
 			findingID := PackageScopedFindingID(pass, CategoryMissingConstructorValidate, qualName, returnType)
-			if bl.ContainsFinding(CategoryMissingConstructorValidate, findingID, msg) {
-				continue
-			}
-
-			reportDiagnostic(pass, fn.Name.Pos(), CategoryMissingConstructorValidate, findingID, msg)
+			reportFindingIfNotBaselined(pass, bl, fn.Name.Pos(), CategoryMissingConstructorValidate, findingID, msg)
 		}
 	}
 }

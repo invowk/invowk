@@ -141,7 +141,7 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 		stack,
 	)
 	if !escapesBeforeValidate {
-		escapesBeforeValidate = hasUseBeforeValidateCrossBlockModeWithSummaryStack(
+		outcome, _ := hasUseBeforeValidateCrossBlockModeWithSummaryStack(
 			pass,
 			entry,
 			-1,
@@ -154,6 +154,7 @@ func deriveFirstArgSummary(pass *analysis.Pass, fnObj *types.Func, stack map[str
 			defaultCFGMaxDepth,
 			stack,
 		)
+		escapesBeforeValidate = outcome == pathOutcomeUnsafe || outcome == pathOutcomeInconclusive
 	}
 
 	return firstArgCallSummary{

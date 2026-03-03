@@ -18,7 +18,7 @@ import (
 const (
 	// findingIDVersion is part of the canonical ID preimage. Bump only
 	// for intentional, incompatible ID schema changes.
-	findingIDVersion = "2"
+	findingIDVersion = "3"
 
 	// DiagnosticURLPrefix is the prefix used in analysis.Diagnostic.URL to
 	// encode stable finding IDs in -json output.

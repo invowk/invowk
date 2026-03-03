@@ -54,3 +54,14 @@ func TestCheckCastValidationCFABackendSSAHandlesNoReturn(t *testing.T) {
 
 	runAnalysisTest(t, testdata, h.Analyzer, "cfa_no_return_terminator")
 }
+
+func TestCheckCastValidationCFAInconclusiveStateBudget(t *testing.T) {
+	t.Parallel()
+
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	setFlag(t, h.Analyzer, "check-cast-validation", "true")
+	setFlag(t, h.Analyzer, "cfg-max-states", "1")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "cfa_cast_inconclusive")
+}

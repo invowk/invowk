@@ -20,6 +20,20 @@ func unvalidatedCastMessage(typeName string) string {
 	return fmt.Sprintf("type conversion to %s from non-constant without Validate() check", typeName)
 }
 
+func unvalidatedCastInconclusiveMessage(typeName string) string {
+	return fmt.Sprintf("type conversion to %s from non-constant has inconclusive Validate() path analysis", typeName)
+}
+
+func useBeforeValidateInconclusiveMessage(targetName, typeName string) string {
+	return fmt.Sprintf("variable %s of type %s has inconclusive use-before-validate path analysis", targetName, typeName)
+}
+
+func constructorValidateInconclusiveMessage(qualCtorName, returnTypePkg, returnTypeName string) string {
+	return fmt.Sprintf(
+		"constructor %s returns %s.%s with inconclusive Validate() path analysis",
+		qualCtorName, returnTypePkg, returnTypeName)
+}
+
 func reportFindingIfNotBaselined(
 	pass *analysis.Pass,
 	bl *BaselineConfig,

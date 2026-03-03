@@ -467,6 +467,33 @@ func hasUseBeforeValidateCrossBlockMode(
 	maxStates int,
 	maxDepth int,
 ) bool {
+	outcome, _ := hasUseBeforeValidateCrossBlockOutcomeMode(
+		pass,
+		defBlock,
+		defIdx,
+		target,
+		syncLits,
+		syncCalls,
+		methodCalls,
+		ubvMode,
+		maxStates,
+		maxDepth,
+	)
+	return outcome != pathOutcomeSafe
+}
+
+func hasUseBeforeValidateCrossBlockOutcomeMode(
+	pass *analysis.Pass,
+	defBlock *gocfg.Block,
+	defIdx int,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+	ubvMode string,
+	maxStates int,
+	maxDepth int,
+) (pathOutcome, pathOutcomeReason) {
 	return hasUseBeforeValidateCrossBlockModeWithSummaryStack(
 		pass,
 		defBlock,
@@ -494,18 +521,21 @@ func hasUseBeforeValidateCrossBlockModeWithSummaryStack(
 	maxStates int,
 	maxDepth int,
 	summaryStack map[string]bool,
-) bool {
+) (pathOutcome, pathOutcomeReason) {
+	if defBlock == nil {
+		return pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget
+	}
 	// First check remainder of defBlock for use (same-block already
 	// handled) — skip directly to successor blocks.
 	// But we need to check if defBlock remainder has validate, which
 	// would prune all successor paths.
 	remainder := defBlock.Nodes[defIdx+1:]
 	if nodeSliceContainsValidateCall(pass, remainder, target, syncLits, syncCalls, methodCalls) {
-		return false // validated in same block — successors are safe
+		return pathOutcomeSafe, pathOutcomeReasonNone // validated in same block — successors are safe
 	}
 
 	if len(defBlock.Succs) == 0 {
-		return false // return block — no successors to check
+		return pathOutcomeSafe, pathOutcomeReasonNone // return block — no successors to check
 	}
 
 	visited := make(map[int32]bool)
@@ -560,7 +590,7 @@ func dfsUseBeforeValidateMode(
 	maxStates int,
 	maxDepth int,
 ) bool {
-	return dfsUseBeforeValidateModeWithSummaryStack(
+	outcome, _ := dfsUseBeforeValidateModeWithSummaryStack(
 		pass,
 		succs,
 		target,
@@ -575,6 +605,7 @@ func dfsUseBeforeValidateMode(
 		maxDepth,
 		nil,
 	)
+	return outcome != pathOutcomeSafe
 }
 
 func dfsUseBeforeValidateModeWithSummaryStack(
@@ -591,11 +622,11 @@ func dfsUseBeforeValidateModeWithSummaryStack(
 	maxStates int,
 	maxDepth int,
 	summaryStack map[string]bool,
-) bool {
+) (pathOutcome, pathOutcomeReason) {
 	if maxDepth > 0 && depth > maxDepth {
 		// Conservative fallback: treat truncated path exploration as potentially
 		// unsafe to avoid false negatives.
-		return true
+		return pathOutcomeInconclusive, pathOutcomeReasonDepthBudget
 	}
 
 	for _, succ := range succs {
@@ -606,8 +637,7 @@ func dfsUseBeforeValidateModeWithSummaryStack(
 		if seenStates != nil {
 			*seenStates++
 			if maxStates > 0 && *seenStates > maxStates {
-				// Conservative fallback under state budget pressure.
-				return true
+				return pathOutcomeInconclusive, pathOutcomeReasonStateBudget
 			}
 		}
 
@@ -646,18 +676,19 @@ func dfsUseBeforeValidateModeWithSummaryStack(
 		}
 
 		if foundUse {
-			return true // cross-block UBV detected
+			return pathOutcomeUnsafe, pathOutcomeReasonNone // cross-block UBV detected
 		}
 		if foundValidate {
 			continue // this path is validated — skip successors
 		}
 
 		// Neither use nor validate in this block — continue DFS.
-		if dfsUseBeforeValidateModeWithSummaryStack(pass, succ.Succs, target, visited, syncLits, syncCalls, methodCalls, ubvMode, depth+1, seenStates, maxStates, maxDepth, summaryStack) {
-			return true
+		outcome, reason := dfsUseBeforeValidateModeWithSummaryStack(pass, succ.Succs, target, visited, syncLits, syncCalls, methodCalls, ubvMode, depth+1, seenStates, maxStates, maxDepth, summaryStack)
+		if outcome != pathOutcomeSafe {
+			return outcome, reason
 		}
 	}
-	return false
+	return pathOutcomeSafe, pathOutcomeReasonNone
 }
 
 func callIsNonEscapingBuiltin(call *ast.CallExpr) bool {

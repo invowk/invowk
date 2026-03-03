@@ -93,7 +93,20 @@ func inspectClosureCastsCFA(
 			continue
 		}
 
-		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls, pathMethodCalls, noReturnAliases) {
+		pathOutcome, pathReason := hasPathToReturnWithoutValidateOutcome(
+			pass,
+			closureCFG,
+			defBlock,
+			defIdx,
+			ac.target,
+			pathSyncLits,
+			pathSyncCalls,
+			pathMethodCalls,
+			noReturnAliases,
+			cfgMaxStates,
+			cfgMaxDepth,
+		)
+		if pathOutcome == pathOutcomeSafe {
 			// All paths validated. Check use-before-validate with
 			// same-block priority, then cross-block.
 			if checkUBV {
@@ -119,7 +132,7 @@ func inspectClosureCastsCFA(
 							10,
 						),
 					})
-				} else if hasUseBeforeValidateCrossBlockMode(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls, ubvMode, cfgMaxStates, cfgMaxDepth) {
+				} else if ubvOutcome, ubvReason := hasUseBeforeValidateCrossBlockOutcomeMode(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls, ubvMode, cfgMaxStates, cfgMaxDepth); ubvOutcome == pathOutcomeUnsafe {
 					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
 					ubvID := PackageScopedFindingID(pass,
 						CategoryUseBeforeValidateCrossBlock,
@@ -141,8 +154,49 @@ func inspectClosureCastsCFA(
 							10,
 						),
 					})
+				} else if ubvOutcome == pathOutcomeInconclusive {
+					ubvMsg := useBeforeValidateInconclusiveMessage(ac.target.displayName, ac.typeName)
+					ubvID := PackageScopedFindingID(pass,
+						CategoryUseBeforeValidateInconclusive,
+						"cfa",
+						"closure",
+						closurePrefix,
+						qualEnclosingFunc,
+						ac.typeName,
+						"ubv-inconclusive",
+						stablePosKey(pass, ac.pos.Pos()),
+						ac.target.key(),
+						string(ubvReason),
+					)
+					meta := cfgOutcomeMeta(cfgBackend, cfgMaxStates, cfgMaxDepth, ubvReason)
+					meta["ubv_mode"] = ubvMode
+					meta["ubv_scope"] = "cross-block"
+					meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
+					meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateInconclusive, ubvID, ubvMsg, meta)
 				}
 			}
+			continue
+		}
+		if pathOutcome == pathOutcomeInconclusive {
+			msg := unvalidatedCastInconclusiveMessage(ac.typeName)
+			findingID := PackageScopedFindingID(pass,
+				CategoryUnvalidatedCastInconclusive,
+				"cfa",
+				"closure",
+				closurePrefix,
+				qualEnclosingFunc,
+				ac.typeName,
+				"assigned",
+				"inconclusive",
+				string(pathReason),
+				stablePosKey(pass, ac.pos.Pos()),
+				ac.target.key(),
+			)
+			meta := cfgOutcomeMeta(cfgBackend, cfgMaxStates, cfgMaxDepth, pathReason)
+			meta["witness_cast_pos"] = stablePosKey(pass, ac.pos.Pos())
+			meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
+			reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUnvalidatedCastInconclusive, findingID, msg, meta)
 			continue
 		}
 

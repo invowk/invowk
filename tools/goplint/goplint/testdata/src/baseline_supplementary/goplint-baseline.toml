@@ -3,17 +3,17 @@
 
 [missing-validate]
 entries = [
-    { id = "gpl2_1108818b56a2f7019d6a1f5f9f3779a48e9d915b3b04410e48d696d55b1bec66", message = "named type baseline_supplementary.BaselinedType has no Validate() method" },
-    { id = "gpl2_a5a25b9b9fdc0d4d44ee07cb52d6dffa3b189ff9e0a3a3b9228756abcb9ad66d", message = "named type baseline_supplementary.BaselinedStringer has no Validate() method" },
+    { id = "gpl3_607b3b40752bc9bad14cd38a31dc744d5b51eba9ad88bf097dc18624ff2db077", message = "named type baseline_supplementary.BaselinedType has no Validate() method" },
+    { id = "gpl3_f25605ef4716e9988b115f96c14653dad8d7cac2174111c0e244e2a6efc67181", message = "named type baseline_supplementary.BaselinedStringer has no Validate() method" },
 ]
 
 [missing-stringer]
 entries = [
-    { id = "gpl2_a8955bdd1502589014ee0f313a1c6be2df32ff2c10675fb4eae2693a8ac19300", message = "named type baseline_supplementary.BaselinedType has no String() method" },
-    { id = "gpl2_fa553c147a384338ca69775556bb0d88988a53116f3f810deb5e123957080b82", message = "named type baseline_supplementary.BaselinedStringer has no String() method" },
+    { id = "gpl3_22493484e133f11d989cd4ce06cf6d12e3623eece6719867256e994397cf6967", message = "named type baseline_supplementary.BaselinedType has no String() method" },
+    { id = "gpl3_6ae58627fab0bc7aed5b37e2f49542286daf1ccd7ac36cab366d896f19df953b", message = "named type baseline_supplementary.BaselinedStringer has no String() method" },
 ]
 
 [missing-constructor]
 entries = [
-    { id = "gpl2_a00a91c2a6b6e53b453110eac6fd673dc456ef89758a55ddfd513c70f9a3acbb", message = "exported struct baseline_supplementary.BaselinedStruct has no NewBaselinedStruct() constructor" },
+    { id = "gpl3_1ca6e192154f5bb4b360d729b4a450f6e9e9eeff16e24db712c448aa32da0395", message = "exported struct baseline_supplementary.BaselinedStruct has no NewBaselinedStruct() constructor" },
 ]
