@@ -38,6 +38,7 @@ func inspectClosureCastsCFA(
 	if closureCFG == nil {
 		return
 	}
+	noReturnAliases := collectNoReturnFuncAliasEvents(pass, lit.Body)
 
 	parentMap := buildParentMap(lit.Body)
 
@@ -86,7 +87,7 @@ func inspectClosureCastsCFA(
 			continue
 		}
 
-		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls, pathMethodCalls) {
+		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls, pathMethodCalls, noReturnAliases) {
 			// All paths validated. Check for use-before-validate (same-block first, then cross-block).
 			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
 				ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)

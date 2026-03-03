@@ -100,6 +100,11 @@ func loadConfig(path string, strictMissing bool) (*ExceptionConfig, error) {
 	if err := validateExceptionPatterns(cfg.Exceptions); err != nil {
 		return nil, err
 	}
+	normalizedPrefixes, err := normalizeIncludePackagePrefixes(cfg.Settings.IncludePackages)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Settings.IncludePackages = normalizedPrefixes
 
 	cfg.matchCounts = make(map[int]int, len(cfg.Exceptions))
 
@@ -174,11 +179,29 @@ func (c *ExceptionConfig) ShouldAnalyzePackage(pkgPath string) bool {
 		return true
 	}
 	for _, prefix := range c.Settings.IncludePackages {
+		if prefix == "" {
+			continue
+		}
 		if strings.HasPrefix(pkgPath, prefix) {
 			return true
 		}
 	}
 	return false
+}
+
+func normalizeIncludePackagePrefixes(prefixes []string) ([]string, error) {
+	if len(prefixes) == 0 {
+		return nil, nil
+	}
+	normalized := make([]string, 0, len(prefixes))
+	for i, prefix := range prefixes {
+		trimmed := strings.TrimSpace(prefix)
+		if trimmed == "" {
+			return nil, fmt.Errorf("parsing config TOML: settings.include_packages[%d]: empty package prefix", i)
+		}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized, nil
 }
 
 // isExcepted checks whether a qualified name (e.g., "pkg.Type.Field")

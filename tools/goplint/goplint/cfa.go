@@ -14,7 +14,13 @@ import (
 type (
 	closureVarCallSet          map[*ast.CallExpr]*ast.FuncLit
 	methodValueValidateCallSet map[*ast.CallExpr]ast.Expr
+	noReturnAliasSet           map[string][]noReturnFuncAliasEvent
 )
+
+type noReturnFuncAliasEvent struct {
+	pos      token.Pos
+	noReturn bool
+}
 
 func collectMethodValueValidateCallSet(calls []methodValueValidateCall) methodValueValidateCallSet {
 	if len(calls) == 0 {
@@ -207,12 +213,13 @@ func buildFuncCFGForPass(pass *analysis.Pass, body *ast.BlockStmt) *gocfg.CFG {
 	if pass == nil || pass.TypesInfo == nil {
 		return buildFuncCFG(body)
 	}
+	noReturnAliases := collectNoReturnFuncAliasEvents(pass, body)
 	return gocfg.New(body, func(call *ast.CallExpr) bool {
-		return callMayReturn(pass, call)
+		return callMayReturn(pass, call, noReturnAliases)
 	})
 }
 
-func callMayReturn(pass *analysis.Pass, call *ast.CallExpr) bool {
+func callMayReturn(pass *analysis.Pass, call *ast.CallExpr, noReturnAliases noReturnAliasSet) bool {
 	if pass == nil || pass.TypesInfo == nil || call == nil {
 		return true
 	}
@@ -226,11 +233,17 @@ func callMayReturn(pass *analysis.Pass, call *ast.CallExpr) bool {
 		if obj == nil {
 			return true
 		}
-		fn, ok := obj.(*types.Func)
-		if !ok {
-			return true
+		if fn, ok := obj.(*types.Func); ok {
+			return !isKnownNoReturnFunc(fn.Pkg(), fn.Name())
 		}
-		return !isKnownNoReturnFunc(fn.Pkg(), fn.Name())
+		if variable, ok := obj.(*types.Var); ok {
+			key := objectKey(variable)
+			if key == "" {
+				return true
+			}
+			return !latestNoReturnAliasBefore(noReturnAliases[key], call.Pos())
+		}
+		return true
 	case *ast.SelectorExpr:
 		obj := objectForIdent(pass, fun.Sel)
 		if obj == nil {
@@ -244,6 +257,124 @@ func callMayReturn(pass *analysis.Pass, call *ast.CallExpr) bool {
 	default:
 		return true
 	}
+}
+
+func collectNoReturnFuncAliasEvents(pass *analysis.Pass, body *ast.BlockStmt) noReturnAliasSet {
+	if pass == nil || pass.TypesInfo == nil || body == nil {
+		return nil
+	}
+	aliases := make(noReturnAliasSet)
+
+	resolve := func(lhs ast.Expr, rhs ast.Expr, atPos token.Pos) (string, noReturnFuncAliasEvent, bool) {
+		lhsIdent, ok := stripParens(lhs).(*ast.Ident)
+		if !ok || lhsIdent.Name == "_" {
+			return "", noReturnFuncAliasEvent{}, false
+		}
+		obj := objectForIdent(pass, lhsIdent)
+		if obj == nil {
+			return "", noReturnFuncAliasEvent{}, false
+		}
+		variable, ok := obj.(*types.Var)
+		if !ok {
+			return "", noReturnFuncAliasEvent{}, false
+		}
+		key := objectKey(variable)
+		if key == "" {
+			return "", noReturnFuncAliasEvent{}, false
+		}
+		return key, noReturnFuncAliasEvent{
+			pos:      atPos,
+			noReturn: exprIsNoReturnFunc(pass, rhs, aliases, atPos),
+		}, true
+	}
+
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.AssignStmt:
+			type pendingBinding struct {
+				key   string
+				event noReturnFuncAliasEvent
+			}
+			pending := make([]pendingBinding, 0, len(node.Rhs))
+			for i, rhs := range node.Rhs {
+				if i >= len(node.Lhs) {
+					break
+				}
+				key, event, ok := resolve(node.Lhs[i], rhs, node.Lhs[i].Pos())
+				if !ok {
+					continue
+				}
+				pending = append(pending, pendingBinding{key: key, event: event})
+			}
+			for _, entry := range pending {
+				aliases[entry.key] = append(aliases[entry.key], entry.event)
+			}
+		case *ast.ValueSpec:
+			type pendingBinding struct {
+				key   string
+				event noReturnFuncAliasEvent
+			}
+			pending := make([]pendingBinding, 0, len(node.Values))
+			for i, rhs := range node.Values {
+				if i >= len(node.Names) {
+					break
+				}
+				key, event, ok := resolve(node.Names[i], rhs, node.Names[i].Pos())
+				if !ok {
+					continue
+				}
+				pending = append(pending, pendingBinding{key: key, event: event})
+			}
+			for _, entry := range pending {
+				aliases[entry.key] = append(aliases[entry.key], entry.event)
+			}
+		}
+		return true
+	})
+
+	return aliases
+}
+
+func exprIsNoReturnFunc(pass *analysis.Pass, expr ast.Expr, aliases noReturnAliasSet, atPos token.Pos) bool {
+	if pass == nil || pass.TypesInfo == nil || expr == nil {
+		return false
+	}
+	switch e := stripParens(expr).(type) {
+	case *ast.Ident:
+		if e.Name == "panic" {
+			return true
+		}
+		obj := objectForIdent(pass, e)
+		if obj == nil {
+			return false
+		}
+		if fn, ok := obj.(*types.Func); ok {
+			return isKnownNoReturnFunc(fn.Pkg(), fn.Name())
+		}
+		if variable, ok := obj.(*types.Var); ok {
+			key := objectKey(variable)
+			if key == "" {
+				return false
+			}
+			return latestNoReturnAliasBefore(aliases[key], atPos)
+		}
+	case *ast.SelectorExpr:
+		obj := objectForIdent(pass, e.Sel)
+		if fn, ok := obj.(*types.Func); ok {
+			return isKnownNoReturnFunc(fn.Pkg(), fn.Name())
+		}
+	}
+	return false
+}
+
+func latestNoReturnAliasBefore(events []noReturnFuncAliasEvent, atPos token.Pos) bool {
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].pos > atPos {
+			continue
+		}
+		return events[i].noReturn
+	}
+	return false
 }
 
 func isKnownNoReturnFunc(pkg *types.Package, name string) bool {
@@ -552,7 +683,7 @@ func blockContainsValidateCall(
 // known no-return call (for example, panic/os.Exit/log.Fatal). Such blocks do
 // not represent function return paths and must not trigger "missing Validate on
 // path-to-return" diagnostics.
-func blockTerminatesWithoutReturn(pass *analysis.Pass, block *gocfg.Block) bool {
+func blockTerminatesWithoutReturn(pass *analysis.Pass, block *gocfg.Block, noReturnAliases noReturnAliasSet) bool {
 	if block == nil || len(block.Succs) != 0 || len(block.Nodes) == 0 {
 		return false
 	}
@@ -570,7 +701,7 @@ func blockTerminatesWithoutReturn(pass *analysis.Pass, block *gocfg.Block) bool 
 	if !ok {
 		return false
 	}
-	return !callMayReturn(pass, call)
+	return !callMayReturn(pass, call, noReturnAliases)
 }
 
 // blockValidateChecker is a predicate that reports whether a CFG block
@@ -604,6 +735,7 @@ func hasPathToReturnWithoutValidate(
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
+	noReturnAliases noReturnAliasSet,
 ) bool {
 	// Check the remainder of the defining block after the cast.
 	remainder := defBlock.Nodes[defIdx+1:]
@@ -613,14 +745,14 @@ func hasPathToReturnWithoutValidate(
 
 	// If no successors, this is a return block — unvalidated path exists.
 	if len(defBlock.Succs) == 0 {
-		return !blockTerminatesWithoutReturn(pass, defBlock)
+		return !blockTerminatesWithoutReturn(pass, defBlock, noReturnAliases)
 	}
 
 	// DFS from successors.
 	visited := make(map[int32]bool)
 	visited[defBlock.Index] = true
 
-	return dfsUnvalidatedPath(pass, defBlock.Succs, target, visited, syncLits, syncCalls, methodCalls)
+	return dfsUnvalidatedPath(pass, defBlock.Succs, target, visited, syncLits, syncCalls, methodCalls, noReturnAliases)
 }
 
 // dfsUnvalidatedPath recursively checks whether any path through the given
@@ -634,9 +766,10 @@ func dfsUnvalidatedPath(
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
+	noReturnAliases noReturnAliasSet,
 ) bool {
 	checker := func(block *gocfg.Block) bool {
-		if blockTerminatesWithoutReturn(pass, block) {
+		if blockTerminatesWithoutReturn(pass, block, noReturnAliases) {
 			return true
 		}
 		return blockContainsValidateCall(pass, block, target, syncLits, syncCalls, methodCalls)

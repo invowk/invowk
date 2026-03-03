@@ -52,6 +52,7 @@ func inspectUnvalidatedCastsCFA(
 	if funcCFG == nil {
 		return
 	}
+	noReturnAliases := collectNoReturnFuncAliasEvents(pass, fn.Body)
 
 	// Collect casts using the shared CFA collection logic.
 	// Closures are delegated to inspectClosureCastsCFA.
@@ -102,7 +103,7 @@ func inspectUnvalidatedCastsCFA(
 
 		// Check if there's any path from the cast to a return block
 		// that doesn't pass through varName.Validate().
-		if !hasPathToReturnWithoutValidate(pass, funcCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls, pathMethodCalls) {
+		if !hasPathToReturnWithoutValidate(pass, funcCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls, pathMethodCalls, noReturnAliases) {
 			// All paths DO have validate. Check for use-before-validate:
 			// same-block takes priority over cross-block — both cannot fire
 			// on the same cast. --check-all only enables same-block.

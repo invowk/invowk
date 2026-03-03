@@ -53,3 +53,111 @@ func TestValidateRunConfigAllowsNoCFAWhenMissionChecksDisabled(t *testing.T) {
 		t.Fatalf("expected no-cfa to be allowed for non-mission check, got %v", err)
 	}
 }
+
+func TestValidateRunConfigRejectsExplicitEmptyPaths(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		rc   runConfig
+		want string
+	}{
+		{
+			name: "empty explicit config path",
+			rc: runConfig{
+				configPathExplicit: true,
+				configPath:         "",
+			},
+			want: "flag --config was provided with an empty path",
+		},
+		{
+			name: "empty explicit baseline path",
+			rc: runConfig{
+				baselinePathExplicit: true,
+				baselinePath:         "  ",
+			},
+			want: "flag --baseline was provided with an empty path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateRunConfig(tt.rc)
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("validateRunConfig() error = %q, want substring %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
+func TestParseIncludePackagesOverride(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		rc            runConfig
+		want          []string
+		wantHas       bool
+		wantErrSubstr string
+	}{
+		{
+			name: "not explicit",
+			rc:   runConfig{},
+		},
+		{
+			name: "explicit empty clears override",
+			rc: runConfig{
+				includePackagesExplicit: true,
+				includePackages:         "",
+			},
+			want:    []string{},
+			wantHas: true,
+		},
+		{
+			name: "trims entries",
+			rc: runConfig{
+				includePackagesExplicit: true,
+				includePackages:         " pkg/a ,pkg/b ",
+			},
+			want:    []string{"pkg/a", "pkg/b"},
+			wantHas: true,
+		},
+		{
+			name: "rejects empty segment",
+			rc: runConfig{
+				includePackagesExplicit: true,
+				includePackages:         "pkg/a,,pkg/b",
+			},
+			wantErrSubstr: "empty package prefix",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, has, err := parseIncludePackagesOverride(tt.rc)
+			if tt.wantErrSubstr != "" {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				if !strings.Contains(err.Error(), tt.wantErrSubstr) {
+					t.Fatalf("parseIncludePackagesOverride() error = %q, want substring %q", err.Error(), tt.wantErrSubstr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseIncludePackagesOverride() unexpected error: %v", err)
+			}
+			if has != tt.wantHas {
+				t.Fatalf("parseIncludePackagesOverride() has = %v, want %v", has, tt.wantHas)
+			}
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Fatalf("parseIncludePackagesOverride() got=%v want=%v", got, tt.want)
+			}
+		})
+	}
+}

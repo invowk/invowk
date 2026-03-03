@@ -29,6 +29,7 @@ func constructorHasUnvalidatedReturnPath(
 	if funcCFG == nil || len(funcCFG.Blocks) == 0 {
 		return false
 	}
+	noReturnAliases := collectNoReturnFuncAliasEvents(pass, fn.Body)
 	parentMap := buildParentMap(fn.Body)
 	_, _, closureCalls, methodValueCalls := collectCFACasts(
 		pass,
@@ -57,6 +58,7 @@ func constructorHasUnvalidatedReturnPath(
 		syncLits,
 		syncCalls,
 		methodCalls,
+		noReturnAliases,
 	)
 }
 
@@ -76,9 +78,10 @@ func dfsConstructorUnvalidated(
 	syncLits map[*ast.FuncLit]bool,
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
+	noReturnAliases noReturnAliasSet,
 ) bool {
 	checker := func(block *gocfg.Block) bool {
-		if blockTerminatesWithoutReturn(pass, block) {
+		if blockTerminatesWithoutReturn(pass, block, noReturnAliases) {
 			return true
 		}
 		// Return blocks that do not return the constructor target type
@@ -291,9 +294,10 @@ func helperBodyAlwaysValidatesType(pass *analysis.Pass, body *ast.BlockStmt, ret
 	syncLits := collectSynchronousClosureLits(body)
 	syncCalls := collectSynchronousClosureVarCalls(closureCalls)
 	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
+	noReturnAliases := collectNoReturnFuncAliasEvents(pass, body)
 	matcher := typeKeyMatcher(returnTypeKey)
 	checker := func(block *gocfg.Block) bool {
-		if blockTerminatesWithoutReturn(pass, block) {
+		if blockTerminatesWithoutReturn(pass, block, noReturnAliases) {
 			return true
 		}
 		for _, node := range block.Nodes {

@@ -42,9 +42,8 @@ func setFlag(t *testing.T, analyzer *analysis.Analyzer, name, value string) {
 func resetFlags(t *testing.T, h analyzerHarness) {
 	t.Helper()
 	resetFlagStateDefaults(h.state)
-	setFlag(t, h.Analyzer, "config", "")
-	setFlag(t, h.Analyzer, "baseline", "")
-	setFlag(t, h.Analyzer, "emit-findings-jsonl", "")
+	// Keep tracked string flags at defaults without marking them explicit.
+	// resetFlagStateDefaults updates the underlying bound state directly.
 	for _, spec := range modeFlagSpecs() {
 		setFlag(t, h.Analyzer, spec.flagName, strconv.FormatBool(spec.defaultValue))
 	}
@@ -107,7 +106,7 @@ func TestResetFlagsCompleteness(t *testing.T) {
 
 	// Restore defaults and verify all flags are reset.
 	resetFlags(t, h)
-	for _, name := range []string{"config", "baseline"} {
+	for _, name := range []string{"config", "baseline", "include-packages"} {
 		f := h.Analyzer.Flags.Lookup(name)
 		if f == nil {
 			t.Fatalf("missing analyzer flag %q", name)
@@ -207,6 +206,7 @@ func TestTrackedStringFlagsExplicitness(t *testing.T) {
 
 	h.state.configPathExplicit = false
 	h.state.baselinePathExplicit = false
+	h.state.includePackagesExplicit = false
 
 	setFlag(t, h.Analyzer, "config", "")
 	if !h.state.configPathExplicit {
@@ -216,6 +216,11 @@ func TestTrackedStringFlagsExplicitness(t *testing.T) {
 	setFlag(t, h.Analyzer, "baseline", "")
 	if !h.state.baselinePathExplicit {
 		t.Fatal("expected baselinePathExplicit = true after setting --baseline")
+	}
+
+	setFlag(t, h.Analyzer, "include-packages", "")
+	if !h.state.includePackagesExplicit {
+		t.Fatal("expected includePackagesExplicit = true after setting --include-packages")
 	}
 }
 
@@ -238,6 +243,12 @@ func TestNewRunConfigCarriesTrackedStringExplicitness(t *testing.T) {
 	}
 	if !rc.baselinePathExplicit {
 		t.Fatal("expected runConfig.baselinePathExplicit = true after setting --baseline")
+	}
+
+	setFlag(t, h.Analyzer, "include-packages", "")
+	rc = newRunConfigForState(h.state)
+	if !rc.includePackagesExplicit {
+		t.Fatal("expected runConfig.includePackagesExplicit = true after setting --include-packages")
 	}
 }
 

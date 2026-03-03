@@ -97,11 +97,17 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 			if len(fn.Recv.List[0].Names) > 0 {
 				recvVarName = fn.Recv.List[0].Names[0].Name
 			}
+			parentMap := buildParentMap(fn.Body)
 
 			// Pass 1: Direct receiver.Field.Validate() calls.
 			ast.Inspect(fn.Body, func(n ast.Node) bool {
 				call, ok := n.(*ast.CallExpr)
 				if !ok {
+					return true
+				}
+				if isConditionallyEvaluated(call, parentMap) &&
+					!isWithinIfInit(call, parentMap) &&
+					!isNilGuardedValidateCall(pass, call, parentMap) {
 					return true
 				}
 				sel, ok := call.Fun.(*ast.SelectorExpr)
@@ -129,6 +135,11 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 			ast.Inspect(fn.Body, func(n ast.Node) bool {
 				callExpr, ok := n.(*ast.CallExpr)
 				if !ok {
+					return true
+				}
+				if isConditionallyEvaluated(callExpr, parentMap) &&
+					!isWithinIfInit(callExpr, parentMap) &&
+					!isNilGuardedValidateCall(pass, callExpr, parentMap) {
 					return true
 				}
 				selExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
@@ -258,29 +269,28 @@ func collectDelegationAliasBindings(
 	}
 	bindings := make(map[string][]delegationAliasBindingEvent)
 
-	record := func(lhs ast.Expr, rhs ast.Expr, atPos token.Pos) {
+	resolve := func(lhs ast.Expr, rhs ast.Expr, atPos token.Pos) (string, delegationAliasBindingEvent, bool) {
 		lhsIdent, ok := stripParens(lhs).(*ast.Ident)
 		if !ok || lhsIdent.Name == "_" {
-			return
+			return "", delegationAliasBindingEvent{}, false
 		}
 		obj := objectForIdent(pass, lhsIdent)
 		if obj == nil {
-			return
+			return "", delegationAliasBindingEvent{}, false
 		}
 		if _, isVar := obj.(*types.Var); !isVar {
-			return
+			return "", delegationAliasBindingEvent{}, false
 		}
 		lhsKey := objectKey(obj)
 		if lhsKey == "" {
-			return
+			return "", delegationAliasBindingEvent{}, false
 		}
 
 		event := delegationAliasBindingEvent{pos: atPos}
 		if rhsSel, ok := stripParens(rhs).(*ast.SelectorExpr); ok {
 			if rhsIdent, idOK := rhsSel.X.(*ast.Ident); idOK && rhsIdent.Name == recvVarName {
 				event.fieldName = rhsSel.Sel.Name
-				bindings[lhsKey] = append(bindings[lhsKey], event)
-				return
+				return lhsKey, event, true
 			}
 		}
 
@@ -289,25 +299,78 @@ func collectDelegationAliasBindings(
 				event.fieldName = fieldName
 			}
 		}
-		bindings[lhsKey] = append(bindings[lhsKey], event)
+		return lhsKey, event, true
 	}
 
 	ast.Inspect(body, func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.AssignStmt:
+			type pendingBinding struct {
+				key   string
+				event delegationAliasBindingEvent
+			}
+			pending := make([]pendingBinding, 0, len(node.Rhs))
 			for i, rhs := range node.Rhs {
 				if i >= len(node.Lhs) {
 					break
 				}
-				record(node.Lhs[i], rhs, node.Lhs[i].Pos())
+				key, event, ok := resolve(node.Lhs[i], rhs, node.Lhs[i].Pos())
+				if !ok {
+					continue
+				}
+				pending = append(pending, pendingBinding{key: key, event: event})
+			}
+			for _, entry := range pending {
+				bindings[entry.key] = append(bindings[entry.key], entry.event)
 			}
 		case *ast.ValueSpec:
+			type pendingBinding struct {
+				key   string
+				event delegationAliasBindingEvent
+			}
+			pending := make([]pendingBinding, 0, len(node.Values))
 			for i, rhs := range node.Values {
 				if i >= len(node.Names) {
 					break
 				}
-				record(node.Names[i], rhs, node.Names[i].Pos())
+				key, event, ok := resolve(node.Names[i], rhs, node.Names[i].Pos())
+				if !ok {
+					continue
+				}
+				pending = append(pending, pendingBinding{key: key, event: event})
 			}
+			for _, entry := range pending {
+				bindings[entry.key] = append(bindings[entry.key], entry.event)
+			}
+		case *ast.RangeStmt:
+			// Track range value aliases: for _, v := range recv.Field { v.Validate() }.
+			sel, ok := stripParens(node.X).(*ast.SelectorExpr)
+			if !ok {
+				break
+			}
+			recvIdent, ok := stripParens(sel.X).(*ast.Ident)
+			if !ok || recvIdent.Name != recvVarName {
+				break
+			}
+			valueIdent, ok := node.Value.(*ast.Ident)
+			if !ok || valueIdent.Name == "_" {
+				break
+			}
+			obj := objectForIdent(pass, valueIdent)
+			if obj == nil {
+				break
+			}
+			if _, isVar := obj.(*types.Var); !isVar {
+				break
+			}
+			key := objectKey(obj)
+			if key == "" {
+				break
+			}
+			bindings[key] = append(bindings[key], delegationAliasBindingEvent{
+				pos:       valueIdent.Pos(),
+				fieldName: sel.Sel.Name,
+			})
 		}
 		return true
 	})
@@ -326,6 +389,105 @@ func latestDelegationAliasFieldBefore(events []delegationAliasBindingEvent, atPo
 		return events[i].fieldName, true
 	}
 	return "", false
+}
+
+func isNilGuardedValidateCall(
+	pass *analysis.Pass,
+	call *ast.CallExpr,
+	parentMap map[ast.Node]ast.Node,
+) bool {
+	if pass == nil || call == nil || parentMap == nil {
+		return false
+	}
+	sel, ok := stripParens(call.Fun).(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != "Validate" {
+		return false
+	}
+	receiverKey := targetKeyForExpr(pass, sel.X)
+	if receiverKey == "" {
+		return false
+	}
+
+	child := ast.Node(call)
+	for {
+		parent := parentMap[child]
+		if parent == nil {
+			return false
+		}
+		if ifStmt, ok := parent.(*ast.IfStmt); ok {
+			bodyNonNil, elseNonNil, hasGuard := branchNonNilGuardForTarget(pass, ifStmt.Cond, receiverKey)
+			if hasGuard {
+				if bodyNonNil && isDescendantOrSelf(child, ifStmt.Body, parentMap) {
+					return true
+				}
+				if elseNonNil && ifStmt.Else != nil && isDescendantOrSelf(child, ifStmt.Else, parentMap) {
+					return true
+				}
+			}
+		}
+		child = parent
+	}
+}
+
+func branchNonNilGuardForTarget(pass *analysis.Pass, cond ast.Expr, receiverKey string) (bodyNonNil bool, elseNonNil bool, ok bool) {
+	bin, ok := stripParens(cond).(*ast.BinaryExpr)
+	if !ok || (bin.Op != token.NEQ && bin.Op != token.EQL) {
+		return false, false, false
+	}
+	leftNil := isNilIdent(bin.X)
+	rightNil := isNilIdent(bin.Y)
+	if leftNil == rightNil {
+		return false, false, false
+	}
+	targetExpr := bin.X
+	if leftNil {
+		targetExpr = bin.Y
+	}
+	if targetKeyForExpr(pass, targetExpr) != receiverKey {
+		return false, false, false
+	}
+	if bin.Op == token.NEQ {
+		return true, false, true
+	}
+	return false, true, true
+}
+
+func isNilIdent(expr ast.Expr) bool {
+	ident, ok := stripParens(expr).(*ast.Ident)
+	return ok && ident.Name == "nil"
+}
+
+func isDescendantOrSelf(node ast.Node, ancestor ast.Node, parentMap map[ast.Node]ast.Node) bool {
+	if node == nil || ancestor == nil || parentMap == nil {
+		return false
+	}
+	current := node
+	for current != nil {
+		if current == ancestor {
+			return true
+		}
+		current = parentMap[current]
+	}
+	return false
+}
+
+func isWithinIfInit(node ast.Node, parentMap map[ast.Node]ast.Node) bool {
+	if node == nil || parentMap == nil {
+		return false
+	}
+	child := node
+	for {
+		parent := parentMap[child]
+		if parent == nil {
+			return false
+		}
+		if ifStmt, ok := parent.(*ast.IfStmt); ok && ifStmt.Init != nil {
+			if isDescendantOrSelf(child, ifStmt.Init, parentMap) {
+				return true
+			}
+		}
+		child = parent
+	}
 }
 
 // maxHelperMethodDepth bounds recursion in multi-level helper method

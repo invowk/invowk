@@ -4,6 +4,7 @@ package goplint
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"strings"
 
@@ -93,9 +94,13 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 		return nil, err
 	}
 
-	// Apply CLI --include-packages override if set.
-	if rc.includePackages != "" {
-		cfg.Settings.IncludePackages = strings.Split(rc.includePackages, ",")
+	includePackages, hasIncludeOverride, err := parseIncludePackagesOverride(rc)
+	if err != nil {
+		return nil, err
+	}
+	// Apply CLI --include-packages override when explicitly set.
+	if hasIncludeOverride {
+		cfg.Settings.IncludePackages = includePackages
 	}
 
 	// Package filter: if include_packages is configured and this package
@@ -117,10 +122,39 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 }
 
 func validateRunConfig(rc runConfig) error {
+	if rc.configPathExplicit && strings.TrimSpace(rc.configPath) == "" {
+		return errors.New("flag --config was provided with an empty path")
+	}
+	if rc.baselinePathExplicit && strings.TrimSpace(rc.baselinePath) == "" {
+		return errors.New("flag --baseline was provided with an empty path")
+	}
 	if rc.noCFA && (rc.checkCastValidation || rc.checkUseBeforeValidate || rc.checkUseBeforeValidateCross || rc.checkConstructorValidates) {
 		return errors.New("flags --check-cast-validation, --check-use-before-validate, --check-use-before-validate-cross, and --check-constructor-validates require CFA; remove --no-cfa")
 	}
 	return nil
+}
+
+func parseIncludePackagesOverride(rc runConfig) ([]string, bool, error) {
+	if !rc.includePackagesExplicit {
+		return nil, false, nil
+	}
+
+	trimmed := strings.TrimSpace(rc.includePackages)
+	if trimmed == "" {
+		// Explicit empty value clears include_packages filtering.
+		return []string{}, true, nil
+	}
+
+	parts := strings.Split(rc.includePackages, ",")
+	out := make([]string, 0, len(parts))
+	for i, part := range parts {
+		prefix := strings.TrimSpace(part)
+		if prefix == "" {
+			return nil, false, fmt.Errorf("flag --include-packages contains an empty package prefix at position %d", i)
+		}
+		out = append(out, prefix)
+	}
+	return out, true, nil
 }
 
 func loadRunInputs(state *flagState, rc runConfig) (*ExceptionConfig, *BaselineConfig, error) {
