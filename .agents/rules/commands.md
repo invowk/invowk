@@ -22,6 +22,8 @@
 | Tidy deps | `make tidy` |
 | PGO profile | `make pgo-profile` |
 | PGO profile (short) | `make pgo-profile-short` |
+| Benchmark report | `make bench-report` |
+| Benchmark report (full) | `make bench-report-full` |
 | Release tag | `make release VERSION=v0.1.0` |
 | Release bump | `make release-bump TYPE=minor [PRERELEASE=alpha]` |
 | Version docs | `make version-docs VERSION=1.0.0` |
@@ -88,6 +90,21 @@ make pgo-profile-short  # Short profile (skips container benchmarks)
 ```
 
 **When to regenerate:** After major changes to hot paths (CUE parsing, runtime execution, discovery), when adding/changing runtimes, or before a major release.
+
+## Benchmark Reports
+
+Use benchmark reports for readable performance snapshots in terminal and markdown output:
+
+```bash
+make bench-report       # Startup + internal/benchmark report (short mode, no container benchmarks)
+make bench-report-full  # Startup + internal/benchmark report (full mode, includes container benchmarks)
+```
+
+Reports are written to `docs/benchmarks/YYYY-MM-DD_HH-mm-ss.md` and include:
+- Run metadata (commit, branch, platform, Go version, mode)
+- Startup timing table (`--version`, `--help`, `cmd --help`, `cmd`)
+- Parsed `internal/benchmark` table (`ns/op`, `ms/op`, estimated run/total time, `B/op`, `allocs/op`)
+- Raw benchmark outputs for traceability
 
 ## Test Commands
 
@@ -171,6 +188,7 @@ Produces GPG/SSH-signed tags. Use this for stable releases.
    - Build binaries for all target platforms (with UPX compression).
    - Sign checksums with Cosign (keyless).
    - Create a GitHub Release with artifacts.
+   - Attach a generated benchmark report asset (`invowk_<tag>_bench-report.md`).
 
 #### Option 2: Workflow Dispatch (good for pre-releases and quick iteration)
 
@@ -219,6 +237,7 @@ Each release includes:
 - **Archives**: `.tar.gz` for Linux/macOS, `.zip` for Windows.
 - **Checksums**: SHA256 checksums in `checksums.txt`.
 - **Signatures**: Cosign signatures for verification.
+- **Benchmark report**: Generated markdown benchmark snapshot attached as `invowk_<tag>_bench-report.md`.
 
 ### Local Testing
 
@@ -239,6 +258,7 @@ goreleaser release --snapshot --clean
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check |
 | `lint.yml` | Push/PR to main (Go code/lint config changes) | Advisory golangci-lint + **required** goplint baseline gate + advisory overdue review dates audit |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
+| `release-benchmark-asset.yml` | Release published or manual dispatch | Generate `make bench-report` output and attach it as a release asset |
 | `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |
 
 Other workflows: `version-docs.yml` (doc versioning on release), `validate-diagrams.yml` (D2 syntax checks), `deploy-website.yml` (GitHub Pages deployment).

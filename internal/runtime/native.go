@@ -98,6 +98,10 @@ func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 
 // Execute runs a command using the system shell or specified interpreter
 func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
+	if err := validateExecutionContextForRun(ctx, errNativeNoImpl, errNativeNoScript); err != nil {
+		return NewErrorResult(1, err)
+	}
+
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return NewErrorResult(1, err)
@@ -121,6 +125,10 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 
 // ExecuteCapture runs a command and captures its output
 func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
+	if err := validateExecutionContextForRun(ctx, errNativeNoImpl, errNativeNoScript); err != nil {
+		return NewErrorResult(1, err)
+	}
+
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return NewErrorResult(1, err)
@@ -157,6 +165,10 @@ func (r *NativeRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedComm
 // This is useful for interactive mode where the command needs to be run on a PTY.
 // The caller must call the returned cleanup function after execution.
 func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
+	if err := validateExecutionContextForRun(ctx, errNativeNoImpl, errNativeNoScript); err != nil {
+		return nil, err
+	}
+
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return nil, err

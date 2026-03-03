@@ -44,6 +44,10 @@ type containerExecPrep struct {
 // and automatically released if any step fails, so individual error paths don't
 // need manual cleanup calls.
 func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *containerExecPrep, errResult *Result) {
+	if err := validateExecutionContextForRun(ctx, errContainerNoImpl, errContainerNoScript); err != nil {
+		return nil, NewErrorResult(1, err)
+	}
+
 	// Track resources for cleanup-on-error
 	var provisionCleanup func()
 	var sshConnInfo *sshserver.ConnectionInfo

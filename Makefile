@@ -60,6 +60,11 @@ endif
 # Detect gotestsum for enhanced test output and rerun-fails support
 GOTESTSUM := $(shell command -v gotestsum 2>/dev/null)
 
+# Benchmark report defaults (override when needed, e.g. STARTUP_SAMPLES=80 BENCH_COUNT=8)
+STARTUP_SAMPLES ?= 40
+BENCH_COUNT ?= 5
+BENCH_REPORT_OUT_DIR ?= docs/benchmarks
+
 # Default target
 .DEFAULT_GOAL := build
 
@@ -186,6 +191,19 @@ pgo-profile-short:
 	@echo "PGO profile generated: default.pgo"
 	@ls -lh default.pgo | awk '{print "Profile size:", $$5}'
 
+# Run benchmark suite and generate a human-readable markdown report.
+# Default mode is short for reliability on machines without container engines.
+.PHONY: bench-report
+bench-report: build
+	@echo "Running benchmark report (short mode)..."
+	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) ./scripts/bench-report.sh --mode short --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
+
+# Run full benchmark suite (includes container benchmarks) and generate report.
+.PHONY: bench-report-full
+bench-report-full: build
+	@echo "Running benchmark report (full mode)..."
+	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) ./scripts/bench-report.sh --mode full --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
+
 # Clean build artifacts
 .PHONY: clean
 clean:
@@ -290,7 +308,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh
+	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -439,6 +457,8 @@ help:
 	@echo "  test-cli         Run CLI integration tests (testscript)"
 	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
+	@echo "  bench-report     Run startup+Go benchmark report (short mode)"
+	@echo "  bench-report-full Run startup+Go benchmark report (full mode)"
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
 	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2)"
@@ -469,6 +489,9 @@ help:
 	@echo "  TYPE           Bump type for release-bump: major, minor, or patch"
 	@echo "  PRERELEASE     Pre-release label: alpha, beta, or rc (optional)"
 	@echo "  PROMOTE        Set to 1 to allow promoting a prerelease stream to stable"
+	@echo "  STARTUP_SAMPLES Number of startup samples for bench-report targets (default: 40)"
+	@echo "  BENCH_COUNT     Go benchmark run count for bench-report targets (default: 5)"
+	@echo "  BENCH_REPORT_OUT_DIR Output directory for bench-report targets (default: docs/benchmarks)"
 	@echo "  YES            Set to 1 to skip confirmation prompts"
 	@echo "  DRY_RUN        Set to 1 to show actions without executing them"
 	@echo ""

@@ -118,6 +118,10 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 
 // Execute runs a command using the virtual shell
 func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
+	if err := validateExecutionContextForRun(ctx, errVirtualNoImpl, errVirtualNoScript); err != nil {
+		return NewErrorResult(1, err)
+	}
+
 	// Validate interpreter is not set (virtual runtime doesn't support custom interpreters)
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig != nil {
@@ -188,6 +192,10 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 
 // ExecuteCapture runs a command and captures its output
 func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
+	if err := validateExecutionContextForRun(ctx, errVirtualNoImpl, errVirtualNoScript); err != nil {
+		return NewErrorResult(1, err)
+	}
+
 	// Resolve the script content
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
@@ -272,6 +280,10 @@ func (r *VirtualRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedCom
 // attached to a PTY. The subprocess invokes `invowk internal exec-virtual`
 // which executes the virtual shell with PTY stdio.
 func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
+	if err := validateExecutionContextForRun(ctx, errVirtualNoImpl, errVirtualNoScript); err != nil {
+		return nil, err
+	}
+
 	// Validate interpreter is not set (virtual runtime doesn't support custom interpreters)
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig != nil {
