@@ -22,6 +22,8 @@
 | Tidy deps | `make tidy` |
 | PGO profile | `make pgo-profile` |
 | PGO profile (short) | `make pgo-profile-short` |
+| PGO profile (parse/discovery) | `make pgo-profile-parse-discovery` |
+| PGO audit | `make pgo-audit` |
 | Benchmark report | `make bench-report` |
 | Benchmark report (full) | `make bench-report-full` |
 | Release tag | `make release VERSION=v0.1.0` |
@@ -85,9 +87,14 @@ Defaults to `GOAMD64=v3` (Haswell+ CPUs, 2013+). Override with `make build GOAMD
 Go automatically detects `default.pgo` in the main package directory. Profile location: `default.pgo` in the repository root (committed). Benchmark source: `internal/benchmark/benchmark_test.go`.
 
 ```bash
-make pgo-profile        # Full profile (includes container benchmarks)
-make pgo-profile-short  # Short profile (skips container benchmarks)
+make pgo-profile                  # Full profile (includes container benchmarks)
+make pgo-profile-short            # Short profile (skips container benchmarks)
+make pgo-profile-parse-discovery  # Focused profile for parser/discovery hot paths
+make pgo-audit                    # Validate profile freshness + required symbols
 ```
+
+Profile generation targets run benchmark training with `-pgo=off` so the new
+profile is not biased by a previously committed one.
 
 **When to regenerate:** After major changes to hot paths (CUE parsing, runtime execution, discovery), when adding/changing runtimes, or before a major release.
 

@@ -183,6 +183,14 @@ jobs:
             --packages ./tests/cli/... \
             -- -race -timeout 5m
 
+      # Benchmark smoke test (single ubuntu-latest leg only).
+      # Ensures benchmarks stay compilable/runnable in regular CI without
+      # adding heavy benchmark load to every matrix entry.
+      - name: Run benchmark smoke tests
+        if: matrix.runner == 'ubuntu-latest' && matrix.engine == 'docker'
+        shell: bash
+        run: go test ./internal/benchmark -run=^$ -bench=. -benchtime=1x -short -count=1
+
       # Run install script unit tests (pure function tests, no network calls).
       # Only on Linux — the POSIX install script is not applicable on Windows/macOS CI.
       - name: Run install script tests
@@ -297,6 +305,47 @@ jobs:
         if: (matrix.os == 'linux' && matrix.arch == 'amd64') || matrix.os == 'darwin' || matrix.os == 'windows'
         run: ./invowk${{ matrix.os == 'windows' && '.exe' || '' }} --version
         shell: bash
+
+  # PGO profile sanity and freshness checks
+  pgo-sanity:
+    name: PGO Sanity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Audit committed PGO profile
+        run: make pgo-audit
+
+      - name: Require PGO refresh for parser/discovery changes
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+
+          echo "Changed files between base and head:"
+          echo "$changed_files"
+
+          hot_path_pattern='^(pkg/cueutil/|pkg/invowkfile/|pkg/invowkmod/|internal/discovery/)'
+          if echo "$changed_files" | grep -Eq "$hot_path_pattern"; then
+            if ! echo "$changed_files" | grep -Eq '^default\.pgo$'; then
+              echo "::error::Parser/discovery hot paths changed without refreshing default.pgo."
+              echo "::error::Run 'make pgo-profile-parse-discovery' and commit default.pgo."
+              exit 1
+            fi
+          fi
 
   # License header check
   license-check:

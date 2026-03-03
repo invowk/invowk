@@ -164,14 +164,14 @@ else
 	$(GOTEST) -v -race -timeout 5m ./tests/cli/...
 endif
 
-# Generate PGO profile from benchmarks (includes container tests)
-# This produces a CPU profile that Go 1.20+ uses for Profile-Guided Optimization.
-# The profile is stored as default.pgo which Go automatically detects.
+# Generate PGO profile from benchmarks (includes container tests).
+# The benchmark run forces -pgo=off so training data is not biased by an
+# existing profile. The resulting CPU profile is written to default.pgo.
 .PHONY: pgo-profile
 pgo-profile:
 	@echo "Generating PGO profile from benchmarks..."
 	@echo "This may take several minutes..."
-	$(GOTEST) -run=^$$ -bench=. -benchtime=10s -cpuprofile=cpu.prof ./internal/benchmark/
+	$(GOTEST) -pgo=off -run=^$$ -bench=. -benchtime=10s -cpuprofile=cpu.prof ./internal/benchmark/
 	@mv cpu.prof default.pgo
 	@echo ""
 	@echo "PGO profile generated: default.pgo"
@@ -180,16 +180,32 @@ pgo-profile:
 	@echo "To verify PGO is active during builds:"
 	@echo "  GODEBUG=pgoinstall=1 make build 2>&1 | grep -i pgo"
 
-# Generate PGO profile (short mode - no container benchmarks)
+# Generate PGO profile (short mode - no container benchmarks).
 # Faster but may result in less comprehensive optimization.
 .PHONY: pgo-profile-short
 pgo-profile-short:
 	@echo "Generating PGO profile (short mode)..."
-	$(GOTEST) -run=^$$ -bench=. -benchtime=10s -short -cpuprofile=cpu.prof ./internal/benchmark/
+	$(GOTEST) -pgo=off -run=^$$ -bench=. -benchtime=10s -short -cpuprofile=cpu.prof ./internal/benchmark/
 	@mv cpu.prof default.pgo
 	@echo ""
 	@echo "PGO profile generated: default.pgo"
 	@ls -lh default.pgo | awk '{print "Profile size:", $$5}'
+
+# Generate a focused PGO profile for CUE/invowkfile/invowkmod parsing and discovery.
+# This target is intended for hot-path tuning in parser/discovery changes.
+.PHONY: pgo-profile-parse-discovery
+pgo-profile-parse-discovery:
+	@echo "Generating focused PGO profile (parse + discovery)..."
+	$(GOTEST) -pgo=off -run=^$$ -bench='^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$$' -benchtime=10s -cpuprofile=cpu.prof ./internal/benchmark/
+	@mv cpu.prof default.pgo
+	@echo ""
+	@echo "PGO profile generated: default.pgo"
+	@ls -lh default.pgo | awk '{print "Profile size:", $$5}'
+
+# Validate that default.pgo still represents current parser/discovery hot paths.
+.PHONY: pgo-audit
+pgo-audit:
+	./scripts/pgo-audit.sh
 
 # Run benchmark suite and generate a human-readable markdown report.
 # Default mode is short for reliability on machines without container engines.
@@ -308,7 +324,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh
+	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -457,6 +473,8 @@ help:
 	@echo "  test-cli         Run CLI integration tests (testscript)"
 	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
+	@echo "  pgo-profile-parse-discovery Generate focused PGO profile for CUE/discovery hot paths"
+	@echo "  pgo-audit        Validate default.pgo symbol freshness and hot-path coverage"
 	@echo "  bench-report     Run startup+Go benchmark report (short mode)"
 	@echo "  bench-report-full Run startup+Go benchmark report (full mode)"
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"

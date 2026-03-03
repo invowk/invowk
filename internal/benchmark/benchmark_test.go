@@ -4,6 +4,8 @@ package benchmark
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -176,6 +178,32 @@ cmds: [
 	`
 )
 
+func writeBenchmarkFile(b *testing.B, path, content string) {
+	b.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		b.Fatalf("failed to write %s: %v", path, err)
+	}
+}
+
+func createBenchmarkModule(b *testing.B, baseDir, folderName, moduleID string) types.FilesystemPath {
+	b.Helper()
+
+	moduleDir := filepath.Join(baseDir, folderName+invowkmod.ModuleSuffix)
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		b.Fatalf("failed to create module directory %s: %v", moduleDir, err)
+	}
+
+	invowkmodContent := fmt.Sprintf(
+		"module: %q\nversion: \"1.0.0\"\ndescription: \"benchmark module %s\"\n",
+		moduleID,
+		moduleID,
+	)
+	writeBenchmarkFile(b, filepath.Join(moduleDir, "invowkmod.cue"), invowkmodContent)
+	writeBenchmarkFile(b, filepath.Join(moduleDir, "invowkfile.cue"), sampleInvowkfile)
+
+	return types.FilesystemPath(moduleDir)
+}
+
 // setBenchmarkRuntime selects a runtime and matching implementation for the current host platform.
 func setBenchmarkRuntime(b *testing.B, ctx *runtime.ExecutionContext, mode invowkfile.RuntimeMode) {
 	b.Helper()
@@ -241,7 +269,7 @@ func BenchmarkDiscovery(b *testing.B) {
 	}
 
 	// Create a sample module
-	modDir := filepath.Join(tmpDir, "sample.invowkmod")
+	modDir := filepath.Join(tmpDir, "io.invowk.benchmark.invowkmod")
 	if err := os.MkdirAll(modDir, 0o755); err != nil {
 		b.Fatalf("Failed to create module dir: %v", err)
 	}
@@ -283,6 +311,140 @@ func BenchmarkDiscovery(b *testing.B) {
 			if file.Invowkfile == nil {
 				b.Fatalf("discovered file %q has no parsed invowkfile", file.Path)
 			}
+		}
+	}
+}
+
+// BenchmarkDiscoveryIncludesAndAliases benchmarks discovery with configured
+// include entries and alias-based module ID disambiguation.
+func BenchmarkDiscoveryIncludesAndAliases(b *testing.B) {
+	tmpDir := b.TempDir()
+	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
+
+	includeRootAlpha := filepath.Join(tmpDir, "includes-alpha")
+	includeRootBeta := filepath.Join(tmpDir, "includes-beta")
+	if err := os.MkdirAll(includeRootAlpha, 0o755); err != nil {
+		b.Fatalf("failed to create includes-alpha directory: %v", err)
+	}
+	if err := os.MkdirAll(includeRootBeta, 0o755); err != nil {
+		b.Fatalf("failed to create includes-beta directory: %v", err)
+	}
+
+	moduleAPath := createBenchmarkModule(b, includeRootAlpha, "shared", "shared")
+	moduleBPath := createBenchmarkModule(b, includeRootBeta, "shared", "shared")
+
+	cfg := config.DefaultConfig()
+	cfg.Includes = []config.IncludeEntry{
+		{
+			Path:  config.ModuleIncludePath(moduleAPath),
+			Alias: invowkmod.ModuleAlias("alpha"),
+		},
+		{
+			Path:  config.ModuleIncludePath(moduleBPath),
+			Alias: invowkmod.ModuleAlias("beta"),
+		},
+	}
+	disc := discovery.New(cfg, discovery.WithBaseDir(types.FilesystemPath(tmpDir)), discovery.WithCommandsDir(""))
+
+	b.ResetTimer()
+	for b.Loop() {
+		files, err := disc.LoadAll()
+		if err != nil {
+			b.Fatalf("LoadAll failed: %v", err)
+		}
+
+		aliasHits := map[invowkmod.ModuleAlias]bool{
+			"alpha": false,
+			"beta":  false,
+		}
+		for _, file := range files {
+			if file.Module == nil || file.Invowkfile == nil {
+				continue
+			}
+
+			switch invowkmod.ModuleAlias(disc.GetEffectiveModuleID(file)) {
+			case "alpha":
+				aliasHits["alpha"] = true
+			case "beta":
+				aliasHits["beta"] = true
+			}
+		}
+		if !aliasHits["alpha"] || !aliasHits["beta"] {
+			b.Fatalf("expected both aliases to be applied, got alpha=%t beta=%t", aliasHits["alpha"], aliasHits["beta"])
+		}
+	}
+}
+
+// BenchmarkDiscoveryVendoredModules benchmarks one-level vendored module discovery.
+func BenchmarkDiscoveryVendoredModules(b *testing.B) {
+	tmpDir := b.TempDir()
+	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
+
+	parentModulePath := createBenchmarkModule(b, tmpDir, "parent", "parent")
+
+	vendorRoot := filepath.Join(string(parentModulePath), invowkmod.VendoredModulesDir)
+	if err := os.MkdirAll(vendorRoot, 0o755); err != nil {
+		b.Fatalf("failed to create vendored modules directory: %v", err)
+	}
+	vendoredPath := createBenchmarkModule(b, vendorRoot, "child", "child")
+	nestedVendorRoot := filepath.Join(string(vendoredPath), invowkmod.VendoredModulesDir)
+	_ = createBenchmarkModule(b, nestedVendorRoot, "grandchild", "grandchild")
+
+	cfg := config.DefaultConfig()
+	disc := discovery.New(cfg, discovery.WithBaseDir(types.FilesystemPath(tmpDir)), discovery.WithCommandsDir(""))
+
+	b.ResetTimer()
+	for b.Loop() {
+		files, err := disc.LoadAll()
+		if err != nil {
+			b.Fatalf("LoadAll failed: %v", err)
+		}
+
+		var vendoredCount int
+		for _, file := range files {
+			if file.ParentModule != nil {
+				vendoredCount++
+			}
+		}
+		if vendoredCount == 0 {
+			b.Fatal("expected at least one vendored module in discovery results")
+		}
+	}
+}
+
+// BenchmarkDiscoveryModuleCollisionCheck benchmarks collision detection when two
+// modules declare the same module ID and no alias is configured.
+func BenchmarkDiscoveryModuleCollisionCheck(b *testing.B) {
+	tmpDir := b.TempDir()
+	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
+
+	cfg := config.DefaultConfig()
+	includeRootOne := filepath.Join(tmpDir, "include-one")
+	includeRootTwo := filepath.Join(tmpDir, "include-two")
+	if err := os.MkdirAll(includeRootOne, 0o755); err != nil {
+		b.Fatalf("failed to create include-one directory: %v", err)
+	}
+	if err := os.MkdirAll(includeRootTwo, 0o755); err != nil {
+		b.Fatalf("failed to create include-two directory: %v", err)
+	}
+
+	moduleOne := createBenchmarkModule(b, includeRootOne, "shared", "shared")
+	moduleTwo := createBenchmarkModule(b, includeRootTwo, "shared", "shared")
+	cfg.Includes = []config.IncludeEntry{
+		{Path: config.ModuleIncludePath(moduleOne)},
+		{Path: config.ModuleIncludePath(moduleTwo)},
+	}
+	disc := discovery.New(cfg, discovery.WithBaseDir(types.FilesystemPath(tmpDir)), discovery.WithCommandsDir(""))
+
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := disc.LoadAll()
+		if err == nil {
+			b.Fatal("expected module collision error")
+		}
+		var collisionErr *discovery.ModuleCollisionError
+		if !errors.As(err, &collisionErr) {
+			b.Fatalf("expected ModuleCollisionError, got: %v", err)
 		}
 	}
 }

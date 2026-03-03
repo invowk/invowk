@@ -2809,6 +2809,27 @@ invowk/
 **Virtual Shell:**
 - [u-root](https://github.com/u-root/u-root) - Core utilities for virtual shell built-ins (28 utilities: cat, cp, ls, grep, sort, tar, seq, etc.)
 
+## Performance and PGO
+
+Invowk ships with a committed `default.pgo` profile for Go Profile-Guided Optimization.
+Go automatically applies this profile during builds when it is present in the repository root.
+
+```bash
+make pgo-profile                  # Full profile (includes container benchmarks)
+make pgo-profile-short            # Short profile (skips container benchmarks)
+make pgo-profile-parse-discovery  # Focused profile for CUE/invowkfile/invowkmod/discovery hot paths
+make pgo-audit                    # Validate profile freshness + required hot-path symbols
+```
+
+PGO profile generation runs benchmark training with `-pgo=off` to avoid bias from
+a previously committed profile.
+
+Regenerate `default.pgo` when:
+- CUE parsing or schema decode hot paths change (`pkg/cueutil`, `pkg/invowkfile`, `pkg/invowkmod`)
+- Discovery behavior changes (`internal/discovery`)
+- Runtime execution paths materially change
+- Preparing a major release
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to participate.

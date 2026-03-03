@@ -15,6 +15,12 @@ make pgo-profile
 # Short PGO profile (skips container benchmarks)
 make pgo-profile-short
 
+# Focused profile for parser/discovery hot paths
+make pgo-profile-parse-discovery
+
+# Audit profile freshness + required symbols
+make pgo-audit
+
 # Run specific benchmarks
 go test -bench=. -benchmem ./internal/benchmark/...
 
@@ -28,6 +34,15 @@ benchstat old.txt new.txt
 ### Profile Location
 
 `default.pgo` in the repository root (committed). Go 1.20+ automatically detects it.
+
+### CI Benchmark Smoke Coverage
+
+Regular CI executes a benchmark smoke run on a single lane only:
+- Runner: `ubuntu-latest`
+- Engine: `docker`
+- Command: `go test ./internal/benchmark -run=^$ -bench=. -benchtime=1x -short -count=1`
+
+Use this lane to catch benchmark breakages without multiplying benchmark runtime across the full test matrix.
 
 ## Hot Paths
 
@@ -87,6 +102,8 @@ Regenerate the PGO profile when:
 - Discovery traversal algorithm changes
 - Before major releases
 - Performance benchmarks show significant regression
+
+Profile generation should use `-pgo=off` during training (already encoded in Make targets) so the new profile is not biased by the previous committed profile.
 
 ### How to Verify PGO is Active
 
