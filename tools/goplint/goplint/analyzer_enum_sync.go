@@ -49,7 +49,7 @@ func inspectEnumSync(pass *analysis.Pass, cfg *ExceptionConfig, bl *BaselineConf
 		pkgName := packageName(pass.Pkg)
 		for _, ann := range annotations {
 			qualName := pkgName + "." + ann.typeName
-			excKey := fmt.Sprintf("%s.no-schema.enum-cue-missing-go", qualName)
+			excKey := qualName + ".no-schema.enum-cue-missing-go"
 			if cfg.isExcepted(excKey) {
 				continue
 			}
@@ -83,7 +83,7 @@ func inspectEnumSync(pass *analysis.Pass, cfg *ExceptionConfig, bl *BaselineConf
 		// Extract CUE disjunction members from the schema.
 		cueMembers, cueErr := extractCUEDisjunctionMembers(schemaBytes, schemaFilename, ann.cuePath)
 		if cueErr != nil {
-			excKey := fmt.Sprintf("%s.cue-error.enum-cue-missing-go", qualName)
+			excKey := qualName + ".cue-error.enum-cue-missing-go"
 			if cfg.isExcepted(excKey) {
 				continue
 			}

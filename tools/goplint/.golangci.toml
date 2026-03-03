@@ -74,6 +74,27 @@ enable = [
 
     # tparallel: Enforces t.Parallel usage patterns in tests.
     "tparallel",
+
+    # decorder: Enforces declaration ordering consistency.
+    "decorder",
+
+    # funcorder: Enforces exported/unexported function ordering.
+    "funcorder",
+
+    # gocritic: Additional style and performance diagnostics.
+    "gocritic",
+
+    # perfsprint: Detects printf-style formatting that can be simplified.
+    "perfsprint",
+
+    # goconst: Suggests extracting repeated strings to constants.
+    "goconst",
+
+    # revive: Fast style and maintainability linter.
+    "revive",
+
+    # wrapcheck: Requires external errors to be wrapped at boundaries.
+    "wrapcheck",
 ]
 
 [linters.settings.forbidigo]
@@ -144,6 +165,25 @@ desc = "project uses standard testing library"
 [linters.settings.nolintlint]
 require-specific = true
 
+[linters.settings.goconst]
+# Keep this conservative to avoid forcing constants for local test fixtures.
+min-occurrences = 20
+min-len = 8
+
+[linters.settings.wrapcheck]
+ignore-sigs = [
+    ".Errorf(",
+    "errors.New(",
+    ".Join(",
+]
+
+[linters.settings.revive]
+
+[[linters.settings.revive.rules]]
+name = "unused-parameter"
+severity = "warning"
+arguments = [{allowRegex = "^_"}]
+
 [linters.exclusions]
 generated = "lax"
 
@@ -156,6 +196,16 @@ path = "_test\\.go$"
 [[linters.exclusions.rules]]
 linters = ["nilnil"]
 path = "goplint/analyzer_run\\.go$"
+
+# Repeated literal test fixtures are intentional for table readability.
+[[linters.exclusions.rules]]
+linters = ["goconst"]
+path = "_test\\.go$"
+
+# Test doubles frequently return raw external errors for assertion simplicity.
+[[linters.exclusions.rules]]
+linters = ["wrapcheck"]
+path = "_test\\.go$"
 
 [issues]
 max-issues-per-linter = 0

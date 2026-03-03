@@ -48,7 +48,8 @@ func TestParseAnalysisJSON(t *testing.T) {
 		pkg2 := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 			"example.com/pkg [example.com/pkg.test]": {"goplint": {diag}},
 		})
-		combined := append(pkg1, pkg2...)
+		combined := append([]byte{}, pkg1...)
+		combined = append(combined, pkg2...)
 
 		findings, err := parseAnalysisJSON(combined)
 		if err != nil {

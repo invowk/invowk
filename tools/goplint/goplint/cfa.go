@@ -346,7 +346,7 @@ func containsValidateCallTarget(
 // using castTarget.matchesExpr. This bridges the castTarget API into
 // the generic matcher interface.
 func castTargetMatcher(pass *analysis.Pass, target castTarget) validateReceiverMatcher {
-	return func(p *analysis.Pass, expr ast.Expr) bool {
+	return func(_ *analysis.Pass, expr ast.Expr) bool {
 		return target.matchesExpr(pass, expr)
 	}
 }
@@ -597,7 +597,7 @@ type blockValidateChecker func(block *gocfg.Block) bool
 //     return true. Otherwise recurse into its successors.
 func hasPathToReturnWithoutValidate(
 	pass *analysis.Pass,
-	g *gocfg.CFG,
+	_ *gocfg.CFG,
 	defBlock *gocfg.Block,
 	defIdx int,
 	target castTarget,

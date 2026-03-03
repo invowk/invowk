@@ -3,6 +3,7 @@
 package goplint
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -171,6 +172,22 @@ func joinTOMLKeys(keys []toml.Key) string {
 	return strings.Join(parts, ", ")
 }
 
+// ShouldAnalyzePackage reports whether diagnostics should be emitted for the
+// given package path. Returns true when include_packages is empty (no filter)
+// or when the path matches any prefix in include_packages. Non-matching
+// packages are still analyzed for fact export but their findings are suppressed.
+func (c *ExceptionConfig) ShouldAnalyzePackage(pkgPath string) bool {
+	if len(c.Settings.IncludePackages) == 0 {
+		return true
+	}
+	for _, prefix := range c.Settings.IncludePackages {
+		if strings.HasPrefix(pkgPath, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // isExcepted checks whether a qualified name (e.g., "pkg.Type.Field")
 // matches any exception pattern in the config.
 //
@@ -207,22 +224,6 @@ func (c *ExceptionConfig) isExcludedPath(filePath string) bool {
 	for _, ep := range c.Settings.ExcludePaths {
 		normalizedExclude := strings.ReplaceAll(filepath.ToSlash(ep), "\\", "/")
 		if strings.Contains(normalizedPath, normalizedExclude) {
-			return true
-		}
-	}
-	return false
-}
-
-// ShouldAnalyzePackage reports whether diagnostics should be emitted for the
-// given package path. Returns true when include_packages is empty (no filter)
-// or when the path matches any prefix in include_packages. Non-matching
-// packages are still analyzed for fact export but their findings are suppressed.
-func (c *ExceptionConfig) ShouldAnalyzePackage(pkgPath string) bool {
-	if len(c.Settings.IncludePackages) == 0 {
-		return true
-	}
-	for _, prefix := range c.Settings.IncludePackages {
-		if strings.HasPrefix(pkgPath, prefix) {
 			return true
 		}
 	}
@@ -282,7 +283,7 @@ func validateExceptionPatterns(exceptions []Exception) error {
 func validateExceptionPattern(pattern string) error {
 	parts := strings.Split(pattern, ".")
 	if len(parts) == 0 {
-		return fmt.Errorf("must contain at least one segment")
+		return errors.New("must contain at least one segment")
 	}
 	for _, part := range parts {
 		if part == "" {

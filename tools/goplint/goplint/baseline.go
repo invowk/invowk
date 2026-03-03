@@ -221,7 +221,10 @@ func WriteBaseline(path string, findings map[string][]BaselineFinding) error {
 		sb.WriteString("]\n")
 	}
 
-	return os.WriteFile(path, []byte(sb.String()), 0o644)
+	if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
+		return fmt.Errorf("writing baseline file: %w", err)
+	}
+	return nil
 }
 
 func (b *BaselineConfig) categoryForName(name string) BaselineCategory {

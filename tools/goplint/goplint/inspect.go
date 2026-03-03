@@ -78,7 +78,7 @@ func inspectStructFields(pass *analysis.Pass, node *ast.GenDecl, cfg *ExceptionC
 
 			// Anonymous/embedded fields (no names)
 			if len(field.Names) == 0 {
-				qualName := fmt.Sprintf("%s.(embedded)", structName)
+				qualName := structName + ".(embedded)"
 				if cfg.isExcepted(qualName) {
 					continue
 				}
@@ -177,7 +177,7 @@ func inspectFieldList(pass *analysis.Pass, fields *ast.FieldList, funcName, kind
 
 		// Unnamed parameters (e.g., func(string))
 		if len(field.Names) == 0 {
-			qualName := fmt.Sprintf("%s.(unnamed)", funcName)
+			qualName := funcName + ".(unnamed)"
 			if cfg.isExcepted(qualName) {
 				continue
 			}

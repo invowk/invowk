@@ -155,7 +155,7 @@ func TestDispatch(t *testing.T) {
 	t.Run("update-baseline success delegates to handler", func(t *testing.T) {
 		called := false
 		deps := dispatchDeps{
-			generateBaseline: func(outputPath string, originalArgs []string) error {
+			generateBaseline: func(outputPath string, _ []string) error {
 				called = true
 				if outputPath != "out.toml" {
 					t.Fatalf("outputPath = %q, want %q", outputPath, "out.toml")

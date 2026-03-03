@@ -42,7 +42,10 @@ type dispatchDeps struct {
 }
 
 func defaultRunCommand(cmd *exec.Cmd) error {
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("running subprocess: %w", err)
+	}
+	return nil
 }
 
 func main() {
@@ -112,7 +115,10 @@ func dispatchWithDeps(args []string, stderr io.Writer, deps dispatchDeps) (nextA
 
 func writeStderrf(stderr io.Writer, format string, args ...any) error {
 	_, err := fmt.Fprintf(stderr, format, args...)
-	return err
+	if err != nil {
+		return fmt.Errorf("writing stderr output: %w", err)
+	}
+	return nil
 }
 
 // extractUpdateBaselinePath scans CLI args for:
@@ -544,7 +550,7 @@ func parseFindingsJSONL(data []byte) (map[string][]goplint.BaselineFinding, erro
 				return nil, fmt.Errorf("decoding findings record: %w", unmarshalErr)
 			}
 			if record.Category == "" || record.Message == "" || record.ID == "" {
-				return nil, fmt.Errorf("decoding findings record: missing required fields")
+				return nil, errors.New("decoding findings record: missing required fields")
 			}
 			if !goplint.IsKnownDiagnosticCategory(record.Category) {
 				return nil, fmt.Errorf("unknown goplint category %q", record.Category)
