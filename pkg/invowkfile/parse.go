@@ -16,6 +16,8 @@ import (
 var (
 	//go:embed invowkfile_schema.cue
 	invowkfileSchema string
+	// Cache schema bytes once to avoid per-parse string conversion allocations.
+	invowkfileSchemaBytes = []byte(invowkfileSchema)
 
 	// Ensure Invowkfile satisfies the typed module command contract.
 	_ invowkmod.ModuleCommands = (*Invowkfile)(nil)
@@ -40,8 +42,8 @@ func Parse(path FilesystemPath) (*Invowkfile, error) {
 // Uses cueutil.ParseAndDecodeString for the 3-step CUE parsing flow:
 // compile schema → compile user data → validate and decode.
 func ParseBytes(data []byte, path string) (*Invowkfile, error) {
-	result, err := cueutil.ParseAndDecodeString[Invowkfile](
-		invowkfileSchema,
+	result, err := cueutil.ParseAndDecode[Invowkfile](
+		invowkfileSchemaBytes,
 		data,
 		"#Invowkfile",
 		cueutil.WithFilename(path),

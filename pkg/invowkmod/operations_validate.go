@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,15 +17,23 @@ import (
 // Returns a ValidationResult with all issues found, or an error if the path
 // cannot be accessed.
 func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
+	result, _, err := validateWithMetadata(modulePath)
+	return result, err
+}
+
+// validateWithMetadata performs module validation and returns parsed metadata
+// from invowkmod.cue when available. Load() uses this to avoid parsing
+// invowkmod.cue twice on the hot discovery path.
+func validateWithMetadata(modulePath types.FilesystemPath) (*ValidationResult, *Invowkmod, error) {
 	// Convert to absolute path
 	absPath, err := filepath.Abs(string(modulePath))
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
+		return nil, nil, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
 	validatedAbsPath := types.FilesystemPath(absPath)
 	if validateErr := validatedAbsPath.Validate(); validateErr != nil {
-		return nil, fmt.Errorf("module path: %w", validateErr)
+		return nil, nil, fmt.Errorf("module path: %w", validateErr)
 	}
 
 	result := &ValidationResult{
@@ -32,21 +41,22 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 		ModulePath: validatedAbsPath,
 		Issues:     []ValidationIssue{},
 	}
+	var parsedMetadata *Invowkmod
 
 	// Check if path exists
 	info, err := os.Stat(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			result.AddIssue(IssueTypeStructure, "path does not exist", "")
-			return result, nil
+			return result, nil, nil
 		}
-		return nil, fmt.Errorf("failed to stat path: %w", err)
+		return nil, nil, fmt.Errorf("failed to stat path: %w", err)
 	}
 
 	// Check if it's a directory
 	if !info.IsDir() {
 		result.AddIssue(IssueTypeStructure, "path is not a directory", "")
-		return result, nil
+		return result, nil, nil
 	}
 
 	// Validate folder name and extract module name
@@ -82,12 +92,15 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 		// Parse invowkmod.cue and validate module field matches folder name
 		if result.ModuleName != "" {
 			meta, parseErr := ParseInvowkmod(invowkmodFSPath)
-			if parseErr != nil {
+			switch {
+			case parseErr != nil:
 				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
-			} else if string(meta.Module) != string(result.ModuleName) {
+			case string(meta.Module) != string(result.ModuleName):
 				result.AddIssue(IssueTypeNaming, fmt.Sprintf(
 					"module field '%s' in invowkmod.cue must match folder name '%s'",
 					meta.Module, result.ModuleName), "invowkmod.cue")
+			default:
+				parsedMetadata = meta
 			}
 		}
 	}
@@ -165,10 +178,10 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk module directory: %w", err)
+		return nil, nil, fmt.Errorf("failed to walk module directory: %w", err)
 	}
 
-	return result, nil
+	return result, parsedMetadata, nil
 }
 
 // Load loads and validates a module at the given path.
@@ -176,7 +189,7 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 // Note: This loads only metadata (invowkmod.cue), not commands (invowkfile.cue).
 // To load commands as well, use pkg/invowkfile.ParseModule().
 func Load(modulePath types.FilesystemPath) (*Module, error) {
-	result, err := Validate(modulePath)
+	result, metadata, err := validateWithMetadata(modulePath)
 	if err != nil {
 		return nil, err
 	}
@@ -190,13 +203,9 @@ func Load(modulePath types.FilesystemPath) (*Module, error) {
 		return nil, fmt.Errorf("invalid module: %s", strings.Join(msgs, "; "))
 	}
 
-	// Parse the metadata
-	var metadata *Invowkmod
-	if result.InvowkmodPath != "" {
-		metadata, err = ParseInvowkmod(result.InvowkmodPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse module metadata: %w", err)
-		}
+	// Metadata is parsed during validation when invowkmod.cue is valid.
+	if result.InvowkmodPath != "" && metadata == nil {
+		return nil, errors.New("failed to parse module metadata: invowkmod.cue validation did not produce metadata")
 	}
 
 	return &Module{

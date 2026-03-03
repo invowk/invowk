@@ -29,6 +29,7 @@ type (
 
 	lookupDiscoveryService struct {
 		lookup discovery.LookupResult
+		calls  int
 	}
 
 	fixedConfigProvider struct {
@@ -64,6 +65,7 @@ func (s *lookupDiscoveryService) DiscoverAndValidateCommandSet(_ context.Context
 }
 
 func (s *lookupDiscoveryService) GetCommand(_ context.Context, _ string) (discovery.LookupResult, error) {
+	s.calls++
 	return s.lookup, nil
 }
 
@@ -198,6 +200,45 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 
 	if diags[0].Code() != discovery.CodeCommandNotFound {
 		t.Fatalf("Execute() diagnostic code = %q, want %q", diags[0].Code(), discovery.CodeCommandNotFound)
+	}
+}
+
+func TestDiscoverCommand_ResolvedCommandSkipsLookup(t *testing.T) {
+	t.Parallel()
+
+	disc := &lookupDiscoveryService{}
+	svc := commandsvc.New(
+		&fixedConfigProvider{cfg: config.DefaultConfig()},
+		disc,
+		io.Discard,
+		io.Discard,
+		func() map[string]string { return nil },
+		testConfigFallback,
+	)
+
+	resolved := &discovery.CommandInfo{
+		Name:       "build",
+		SimpleName: "build",
+		SourceID:   discovery.SourceIDInvowkfile,
+		Command: &invowkfile.Command{
+			Name:            "build",
+			Implementations: buildMinimalImpl(),
+		},
+		Invowkfile: &invowkfile.Invowkfile{},
+	}
+
+	req := commandsvc.Request{
+		Name:            "build",
+		DryRun:          true,
+		ResolvedCommand: resolved,
+	}
+	ctx := contextWithConfigPath(t.Context(), "")
+
+	if _, _, err := svc.Execute(ctx, req); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if disc.calls != 0 {
+		t.Fatalf("GetCommand() calls = %d, want 0 when ResolvedCommand is provided", disc.calls)
 	}
 }
 

@@ -230,6 +230,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				EnvInheritMode:  parsedEnvInheritMode,
 				EnvInheritAllow: toEnvVarNames(envInheritAllow),
 				EnvInheritDeny:  toEnvVarNames(envInheritDeny),
+				ResolvedCommand: cmdInfo,
 			}
 
 			err = executeRequest(cmd, app, req)

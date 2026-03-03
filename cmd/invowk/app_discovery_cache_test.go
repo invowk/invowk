@@ -12,11 +12,23 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-type staticConfigProvider struct {
-	cfg *config.Config
-}
+type (
+	staticConfigProvider struct {
+		cfg *config.Config
+	}
+
+	countingConfigProvider struct {
+		cfg   *config.Config
+		calls int
+	}
+)
 
 func (p *staticConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*config.Config, error) {
+	return p.cfg, nil
+}
+
+func (p *countingConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*config.Config, error) {
+	p.calls++
 	return p.cfg, nil
 }
 
@@ -203,5 +215,110 @@ func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing
 
 	if first.Command == second.Command {
 		t.Fatal("expected uncached lookups to re-parse and return distinct command pointers")
+	}
+}
+
+// Not parallel: os.Chdir is process-wide.
+func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testing.T) {
+	tmpDir := t.TempDir()
+	invPath := filepath.Join(tmpDir, "invowkfile.cue")
+	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{
+			{
+				Name: "build",
+				Implementations: []invowkfile.Implementation{
+					{
+						Script:    "echo build",
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+						Platforms: invowkfile.AllPlatformConfigs(),
+					},
+				},
+			},
+		},
+	})
+	if err := os.WriteFile(invPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test invowkfile: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to test dir: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+
+	cfgProvider := &countingConfigProvider{cfg: config.DefaultConfig()}
+	svc := &appDiscoveryService{config: cfgProvider}
+	ctx := contextWithConfigPath(t.Context(), "")
+
+	if _, err = svc.DiscoverCommandSet(ctx); err != nil {
+		t.Fatalf("DiscoverCommandSet() error: %v", err)
+	}
+	if _, err = svc.DiscoverAndValidateCommandSet(ctx); err != nil {
+		t.Fatalf("DiscoverAndValidateCommandSet() error: %v", err)
+	}
+	if _, err = svc.GetCommand(ctx, "build"); err != nil {
+		t.Fatalf("GetCommand() error: %v", err)
+	}
+
+	if cfgProvider.calls != 1 {
+		t.Fatalf("config provider Load() calls = %d, want 1", cfgProvider.calls)
+	}
+}
+
+// Not parallel: os.Chdir is process-wide.
+func TestAppDiscoveryService_GetCommand_UsesCachedCommandSetLookup(t *testing.T) {
+	tmpDir := t.TempDir()
+	invPath := filepath.Join(tmpDir, "invowkfile.cue")
+	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{
+			{
+				Name: "build",
+				Implementations: []invowkfile.Implementation{
+					{
+						Script:    "echo build",
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+						Platforms: invowkfile.AllPlatformConfigs(),
+					},
+				},
+			},
+		},
+	})
+	if err := os.WriteFile(invPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test invowkfile: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err = os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to test dir: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+
+	svc := &appDiscoveryService{config: &staticConfigProvider{cfg: config.DefaultConfig()}}
+	ctx := contextWithConfigPath(t.Context(), "")
+
+	commandSetResult, err := svc.DiscoverAndValidateCommandSet(ctx)
+	if err != nil {
+		t.Fatalf("DiscoverAndValidateCommandSet() error: %v", err)
+	}
+	expected := commandSetResult.Set.ByName["build"]
+	if expected == nil {
+		t.Fatal("expected command set to include 'build'")
+	}
+
+	lookupResult, err := svc.GetCommand(ctx, "build")
+	if err != nil {
+		t.Fatalf("GetCommand() error: %v", err)
+	}
+	if lookupResult.Command == nil {
+		t.Fatal("GetCommand() returned nil command")
+	}
+	if lookupResult.Command != expected {
+		t.Fatal("expected GetCommand() to reuse cached command pointer from command set")
 	}
 }

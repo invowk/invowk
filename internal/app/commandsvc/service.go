@@ -137,6 +137,9 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 // registry construction and env builder configuration.
 func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Config, *discovery.CommandInfo, []discovery.Diagnostic, error) {
 	cfg, _ := s.loadConfig(ctx, string(req.ConfigPath))
+	if req.ResolvedCommand != nil {
+		return cfg, req.ResolvedCommand, nil, nil
+	}
 
 	lookup, err := s.discovery.GetCommand(ctx, req.Name)
 	diags := slices.Clone(lookup.Diagnostics)

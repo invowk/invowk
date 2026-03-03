@@ -68,7 +68,8 @@ func (e *InvalidDryRunDataError) Unwrap() error { return ErrInvalidDryRunData }
 // Validate returns nil if the Request has valid fields, or a validation error if not.
 // It validates Runtime (when non-empty), FromSource (when non-empty),
 // Workdir (when non-empty), EnvFiles, ConfigPath (when non-empty),
-// EnvInheritMode (when non-empty), EnvInheritAllow, and EnvInheritDeny.
+// EnvInheritMode (when non-empty), EnvInheritAllow, EnvInheritDeny,
+// and ResolvedCommand (when non-nil).
 func (r Request) Validate() error {
 	var errs []error
 	if r.Runtime != "" {
@@ -108,6 +109,11 @@ func (r Request) Validate() error {
 	}
 	for _, name := range r.EnvInheritDeny {
 		if err := name.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if r.ResolvedCommand != nil {
+		if err := r.ResolvedCommand.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}

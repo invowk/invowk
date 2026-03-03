@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
@@ -145,8 +146,12 @@ Examples:
 	cmdCmd.PersistentFlags().BoolVar(&cmdFlags.dryRun, "ivk-dry-run", false, "print what would be executed without executing")
 	cmdCmd.PersistentFlags().BoolVarP(&cmdFlags.watch, "ivk-watch", "W", false, "watch files for changes and re-execute")
 
-	// Build dynamic command leaves at construction time (instead of package init).
-	registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
+	// Dynamic command leaves are only needed for `invowk cmd ...` flows.
+	// Skipping registration for unrelated invocations (e.g., --version, init)
+	// avoids startup-time discovery scans and CUE parsing.
+	if shouldRegisterDiscoveredCommands(os.Args[1:]) {
+		registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
+	}
 
 	return cmdCmd
 }
@@ -238,6 +243,64 @@ func silenceOnExitError(cmd *cobra.Command, err error) {
 			cmd.SilenceUsage = true
 		}
 	}
+}
+
+// shouldRegisterDiscoveredCommands returns true when CLI argv indicates that
+// the invocation targets the `cmd` subtree (or completion for it). This avoids
+// eager discovery during startup for unrelated commands.
+//
+//goplint:ignore -- parses raw process argv tokens at CLI boundary.
+func shouldRegisterDiscoveredCommands(args []string) bool {
+	primary, rest := firstTopLevelToken(args)
+	switch primary {
+	case "cmd":
+		return true
+	case "__complete", "__completeNoDesc":
+		next, _ := firstTopLevelToken(rest)
+		return next == "cmd"
+	default:
+		return false
+	}
+}
+
+// firstTopLevelToken extracts the first root-level command token from argv,
+// skipping root persistent flags and their values.
+//
+//goplint:ignore -- helper intentionally operates on raw argv token slices.
+func firstTopLevelToken(args []string) (token string, remaining []string) {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			if i+1 < len(args) {
+				return args[i+1], args[i+2:]
+			}
+			return "", nil
+		}
+
+		switch {
+		// Root bool flags (with optional "=value" form).
+		case arg == "--ivk-verbose", arg == "--ivk-interactive", arg == "-v", arg == "-i",
+			strings.HasPrefix(arg, "--ivk-verbose="), strings.HasPrefix(arg, "--ivk-interactive="):
+			continue
+		// Root config flag with separate value.
+		case arg == "--ivk-config", arg == "-c":
+			if i+1 < len(args) {
+				i++
+			}
+			continue
+		// Root config flag with inline value.
+		case strings.HasPrefix(arg, "--ivk-config="), strings.HasPrefix(arg, "-c="),
+			(strings.HasPrefix(arg, "-c") && len(arg) > 2):
+			continue
+		// Any other flag-like token (keep scanning for the command token).
+		case strings.HasPrefix(arg, "-"):
+			continue
+		default:
+			return arg, args[i+1:]
+		}
+	}
+
+	return "", nil
 }
 
 // executeRequest dispatches an ExecuteRequest through the App's CommandService

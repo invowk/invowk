@@ -12,6 +12,9 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+// Cache schema bytes once to avoid per-parse string conversion allocations.
+var invowkmodSchemaBytes = []byte(invowkmodSchema)
+
 // ParseInvowkmod reads and parses module metadata from invowkmod.cue at the given path.
 func ParseInvowkmod(path types.FilesystemPath) (*Invowkmod, error) {
 	data, err := os.ReadFile(string(path))
@@ -26,8 +29,8 @@ func ParseInvowkmod(path types.FilesystemPath) (*Invowkmod, error) {
 // Uses cueutil.ParseAndDecodeString for the 3-step CUE parsing flow:
 // compile schema -> compile user data -> validate and decode.
 func ParseInvowkmodBytes(data []byte, path types.FilesystemPath) (*Invowkmod, error) {
-	result, err := cueutil.ParseAndDecodeString[Invowkmod](
-		invowkmodSchema,
+	result, err := cueutil.ParseAndDecode[Invowkmod](
+		invowkmodSchemaBytes,
 		data,
 		"#Invowkmod",
 		cueutil.WithFilename(string(path)),
