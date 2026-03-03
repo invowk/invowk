@@ -191,7 +191,7 @@ entries = [
 ```
 
 `id` is the stable semantic identity used for suppression; `message` is for human readability.  
-Suppression is strict ID-only. Legacy `messages = [...]` entries are parsed for migration compatibility but do not drive message-text suppression.
+Suppression is strict ID-only. Baselines must use `entries = [...]`; legacy `messages = [...]` sections are rejected during parsing.
 
 ### CI Integration
 

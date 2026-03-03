@@ -65,10 +65,9 @@ type BaselineFinding struct {
 }
 
 // BaselineCategory holds accepted findings for one category.
-// entries is the v2 schema, messages is the v1 compatibility field.
+// entries is the canonical baseline schema.
 type BaselineCategory struct {
-	Entries  []BaselineFinding `toml:"entries"`
-	Messages []string          `toml:"messages"`
+	Entries []BaselineFinding `toml:"entries"`
 }
 
 // loadBaseline reads and parses a baseline TOML file, building an internal
@@ -101,6 +100,9 @@ func loadBaseline(path string, strictMissing bool) (*BaselineConfig, error) {
 	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
 		return nil, fmt.Errorf("parsing baseline TOML: unknown keys: %s", joinTOMLKeys(undecoded))
 	}
+	if err := validateBaselineEntries(&cfg); err != nil {
+		return nil, err
+	}
 
 	cfg.buildLookup()
 
@@ -119,18 +121,6 @@ func loadBaselineCached(state *flagState, path string, strictMissing bool) (*Bas
 		return &baselineCacheEntry{config: cfg, err: err}
 	})
 	return entry.config, entry.err
-}
-
-// Contains reports whether a finding with the given category/message is
-// present in the baseline by deriving the legacy-message fallback ID.
-//
-// Production suppression should always use ContainsFinding with the emitted
-// stable finding ID.
-func (b *BaselineConfig) Contains(category, message string) bool {
-	if message == "" {
-		return false
-	}
-	return b.ContainsFinding(category, FallbackFindingID(category, message), message)
 }
 
 // ContainsFinding reports whether a finding is present in the baseline.
@@ -282,61 +272,37 @@ func emptyBaseline() *BaselineConfig {
 	return b
 }
 
-// countCategory counts unique IDs in one baseline category, including
-// deterministic fallback IDs for legacy v1 messages.
-func countCategory(categoryName string, cat BaselineCategory) int {
-	seen := make(map[string]bool, len(cat.Entries)+len(cat.Messages))
+// countCategory counts unique IDs in one baseline category.
+func countCategory(_ string, cat BaselineCategory) int {
+	seen := make(map[string]bool, len(cat.Entries))
 	for _, entry := range cat.Entries {
 		if entry.ID != "" {
 			seen[entry.ID] = true
-			continue
 		}
-		if entry.Message != "" {
-			seen[FallbackFindingID(categoryName, entry.Message)] = true
-		}
-	}
-	for _, msg := range cat.Messages {
-		if msg == "" {
-			continue
-		}
-		seen[FallbackFindingID(categoryName, msg)] = true
 	}
 	return len(seen)
 }
 
 // categoryIDSet builds an ID lookup set from one category value.
-func categoryIDSet(categoryName string, cat BaselineCategory) map[string]bool {
+func categoryIDSet(_ string, cat BaselineCategory) map[string]bool {
 	ids := make(map[string]bool, len(cat.Entries))
 
 	for _, entry := range cat.Entries {
 		if entry.ID != "" {
 			ids[entry.ID] = true
-			continue
 		}
-		if entry.Message != "" {
-			ids[FallbackFindingID(categoryName, entry.Message)] = true
-		}
-	}
-	for _, msg := range cat.Messages {
-		if msg == "" {
-			continue
-		}
-		ids[FallbackFindingID(categoryName, msg)] = true
 	}
 	return ids
 }
 
-// normalizeBaselineFindings fills fallback IDs, removes invalid rows,
-// deduplicates by ID, and sorts by ID/message for stable diffs.
-func normalizeBaselineFindings(category string, in []BaselineFinding) []BaselineFinding {
+// normalizeBaselineFindings removes invalid rows, deduplicates by ID, and
+// sorts by ID/message for stable diffs.
+func normalizeBaselineFindings(_ string, in []BaselineFinding) []BaselineFinding {
 	byID := make(map[string]BaselineFinding, len(in))
 
 	for _, entry := range in {
-		if entry.Message == "" {
+		if entry.Message == "" || entry.ID == "" {
 			continue
-		}
-		if entry.ID == "" {
-			entry.ID = FallbackFindingID(category, entry.Message)
 		}
 		byID[entry.ID] = entry
 	}
@@ -352,6 +318,24 @@ func normalizeBaselineFindings(category string, in []BaselineFinding) []Baseline
 		return out[i].ID < out[j].ID
 	})
 	return out
+}
+
+func validateBaselineEntries(cfg *BaselineConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	for _, catName := range BaselinedCategoryNames() {
+		cat := cfg.categoryForName(catName)
+		for i, entry := range cat.Entries {
+			if strings.TrimSpace(entry.ID) == "" {
+				return fmt.Errorf("parsing baseline TOML: [%s].entries[%d].id must be non-empty", catName, i)
+			}
+			if strings.TrimSpace(entry.Message) == "" {
+				return fmt.Errorf("parsing baseline TOML: [%s].entries[%d].message must be non-empty", catName, i)
+			}
+		}
+	}
+	return nil
 }
 
 // quote produces a TOML-compatible double-quoted string with proper escaping.
