@@ -132,9 +132,8 @@ func TestCheckUseBeforeValidateCFA(t *testing.T) {
 	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate")
 }
 
-// TestCheckUseBeforeValidateCrossCFA exercises the --check-use-before-validate
-// and --check-use-before-validate-cross modes against the
-// use_before_validate_cross fixture. Verifies that cross-block UBV detection
+// TestCheckUseBeforeValidateCrossCFA exercises --check-use-before-validate
+// against the use_before_validate_cross fixture. Verifies that cross-block UBV detection
 // correctly flags variables used in successor blocks before Validate() is
 // called on any path from the cast, while same-block UBV takes priority.
 //
@@ -146,7 +145,6 @@ func TestCheckUseBeforeValidateCrossCFA(t *testing.T) {
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
-	setFlag(t, h.Analyzer, "check-use-before-validate-cross", "true")
 
 	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_cross")
 }
@@ -163,7 +161,6 @@ func TestCheckUseBeforeValidateClosureCFA(t *testing.T) {
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
-	setFlag(t, h.Analyzer, "check-use-before-validate-cross", "true")
 
 	runAnalysisTest(t, testdata, h.Analyzer, "use_before_validate_closure")
 }

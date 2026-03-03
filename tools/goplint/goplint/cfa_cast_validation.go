@@ -24,7 +24,6 @@ func inspectUnvalidatedCastsCFA(
 	excCfg *ExceptionConfig,
 	bl *BaselineConfig,
 	checkUBV bool,
-	checkUBVCross bool,
 ) {
 	if fn.Body == nil {
 		return
@@ -59,7 +58,7 @@ func inspectUnvalidatedCastsCFA(
 	assignedCasts, unassignedCasts, closureCalls, _ := collectCFACasts(
 		pass, fn.Body, parentMap,
 		func(lit *ast.FuncLit, closureIdx int) {
-			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIdx), excCfg, bl, checkUBV, checkUBVCross)
+			inspectClosureCastsCFA(pass, lit, qualFuncName, strconv.Itoa(closureIdx), excCfg, bl, checkUBV)
 		},
 	)
 
@@ -75,7 +74,7 @@ func inspectUnvalidatedCastsCFA(
 		pathSyncLits = collectSynchronousClosureLits(fn.Body)
 		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
 		pathMethodCalls = collectMethodValueValidateCalls(pass, fn.Body)
-		if checkUBV || checkUBVCross {
+		if checkUBV {
 			ubvSyncLits = collectUBVClosureLits(fn.Body)
 			ubvSyncCalls = collectUBVClosureVarCalls(closureCalls)
 			ubvMethodCalls = pathMethodCalls
@@ -104,35 +103,36 @@ func inspectUnvalidatedCastsCFA(
 		// Check if there's any path from the cast to a return block
 		// that doesn't pass through varName.Validate().
 		if !hasPathToReturnWithoutValidate(pass, funcCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls, pathMethodCalls, noReturnAliases) {
-			// All paths DO have validate. Check for use-before-validate:
-			// same-block takes priority over cross-block — both cannot fire
-			// on the same cast. --check-all only enables same-block.
-			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
-				ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)
-				ubvID := PackageScopedFindingID(pass,
-					CategoryUseBeforeValidate,
-					"cfa",
-					qualFuncName,
-					ac.typeName,
-					"ubv",
-					stablePosKey(pass, ac.pos.Pos()),
-					ac.target.key(),
-				)
-				reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
-			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
-				// Cross-block UBV: the variable is used in a successor
-				// block before any block on that path calls Validate().
-				ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
-				ubvID := PackageScopedFindingID(pass,
-					CategoryUseBeforeValidate,
-					"cfa",
-					qualFuncName,
-					ac.typeName,
-					"ubv-xblock",
-					stablePosKey(pass, ac.pos.Pos()),
-					ac.target.key(),
-				)
-				reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+			// All paths DO have validate. Check use-before-validate with
+			// same-block priority, then cross-block.
+			if checkUBV {
+				if hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
+					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)
+					ubvID := PackageScopedFindingID(pass,
+						CategoryUseBeforeValidate,
+						"cfa",
+						qualFuncName,
+						ac.typeName,
+						"ubv",
+						stablePosKey(pass, ac.pos.Pos()),
+						ac.target.key(),
+					)
+					reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+				} else if hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
+					// Cross-block UBV: the variable is used in a successor
+					// block before any block on that path calls Validate().
+					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
+					ubvID := PackageScopedFindingID(pass,
+						CategoryUseBeforeValidate,
+						"cfa",
+						qualFuncName,
+						ac.typeName,
+						"ubv-xblock",
+						stablePosKey(pass, ac.pos.Pos()),
+						ac.target.key(),
+					)
+					reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+				}
 			}
 			continue // all paths validated
 		}

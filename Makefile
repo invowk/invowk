@@ -294,26 +294,26 @@ check-types-json: build-goplint
 .PHONY: check-types-all
 check-types-all: build-goplint
 	@echo "Checking DDD type compliance (all modes)..."
-	./$(BUILD_DIR)/goplint -check-all -check-use-before-validate-cross -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	./$(BUILD_DIR)/goplint -check-all -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
 # Run all DDD checks with JSON output (for agent consumption)
 .PHONY: check-types-all-json
 check-types-all-json: build-goplint
-	./$(BUILD_DIR)/goplint -check-all -check-use-before-validate-cross -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
+	./$(BUILD_DIR)/goplint -check-all -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
 
 # Check for goplint regressions against the committed baseline.
 # Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
 .PHONY: check-baseline
 check-baseline: build-goplint
 	@echo "Checking goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -check-use-before-validate-cross -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
 # Update the goplint baseline from the current codebase state.
 # Run this after type improvements or new exceptions to shrink the baseline.
 .PHONY: update-baseline
 update-baseline: build-goplint
 	@echo "Updating goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -check-use-before-validate-cross -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 	@echo "Baseline updated: tools/goplint/baseline.toml"
 
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)

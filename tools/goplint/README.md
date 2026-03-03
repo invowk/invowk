@@ -179,14 +179,14 @@ make check-baseline
 # Bare primitive type usage
 [primitive]
 entries = [
-    { id = "gpl1_...", message = "struct field pkg.Foo.Bar uses primitive type string" },
-    { id = "gpl1_...", message = "parameter \"name\" of pkg.Func uses primitive type string" },
+    { id = "gpl2_...", message = "struct field pkg.Foo.Bar uses primitive type string" },
+    { id = "gpl2_...", message = "parameter \"name\" of pkg.Func uses primitive type string" },
 ]
 
 # Exported structs missing NewXxx() constructor
 [missing-constructor]
 entries = [
-    { id = "gpl1_...", message = "exported struct pkg.Config has no NewConfig() constructor" },
+    { id = "gpl2_...", message = "exported struct pkg.Config has no NewConfig() constructor" },
 ]
 ```
 
@@ -228,7 +228,7 @@ Each diagnostic includes a `category` field for filtering:
         "posn": "pkg/invowkfile/types.go:42:5",
         "message": "struct field invowkfile.Foo.Bar uses primitive type string",
         "category": "primitive",
-        "url": "goplint://finding/gpl1_..."
+        "url": "goplint://finding/gpl2_..."
       }
     ]
   }
@@ -284,8 +284,9 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 
 ### CFA Notes
 
-- `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate*` are CFA-only checks.
+- `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate` are CFA-only checks.
 - CFA is always enabled for those checks; there is no CFA opt-out flag.
+- `--check-use-before-validate` performs full-path ordering checks (same-block and cross-block) under CFA.
 - Auto-skip for index expressions is map-only (map lookups), not slice/array indexing.
 - UBV checks treat immediate IIFEs as synchronous ordering context; deferred `Validate()` does not suppress use-before-validate findings.
 

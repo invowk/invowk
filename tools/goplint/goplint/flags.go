@@ -36,7 +36,6 @@ type flagState struct {
 	checkNonZero                bool
 	checkUseBeforeValidate      bool
 	checkConstructorReturnError bool
-	checkUseBeforeValidateCross bool
 	checkRedundantConversion    bool
 	auditReviewDates            bool
 	checkEnumSync               bool
@@ -270,7 +269,7 @@ func modeFlagSpecs() []modeFlagSpec {
 		},
 		{
 			flagName:          "check-use-before-validate",
-			usage:             "report DDD Value Type variables used before Validate() in the same basic block (CFA only)",
+			usage:             "report DDD Value Type variables used before Validate() across execution paths (CFA only)",
 			defaultValue:      false,
 			includeInCheckAll: true,
 			stateBoolField: func(fs *flagState) *bool {
@@ -290,18 +289,6 @@ func modeFlagSpecs() []modeFlagSpec {
 			},
 			runConfigBoolField: func(rc *runConfig) *bool {
 				return &rc.checkConstructorReturnError
-			},
-		},
-		{
-			flagName:          "check-use-before-validate-cross",
-			usage:             "report DDD Value Type variables used before Validate() across CFG blocks (CFA only, opt-in)",
-			defaultValue:      false,
-			includeInCheckAll: false,
-			stateBoolField: func(fs *flagState) *bool {
-				return &fs.checkUseBeforeValidateCross
-			},
-			runConfigBoolField: func(rc *runConfig) *bool {
-				return &rc.checkUseBeforeValidateCross
 			},
 		},
 		{
@@ -425,7 +412,6 @@ type runConfig struct {
 	checkNonZero                bool
 	checkUseBeforeValidate      bool
 	checkConstructorReturnError bool
-	checkUseBeforeValidateCross bool
 	checkRedundantConversion    bool
 	auditReviewDates            bool
 	checkEnumSync               bool
@@ -472,7 +458,7 @@ func normalizeRunConfig(rc *runConfig) {
 	}
 	// UBV checks are CFA-only extensions of cast-validation. Auto-enable cast
 	// validation so explicit UBV flags are never silently inert.
-	if rc.checkUseBeforeValidate || rc.checkUseBeforeValidateCross {
+	if rc.checkUseBeforeValidate {
 		rc.checkCastValidation = true
 	}
 }

@@ -15,7 +15,6 @@ func TestCheckUseBeforeValidateClosureCastCFA(t *testing.T) {
 	h := newAnalyzerHarness()
 	setFlag(t, h.Analyzer, "check-cast-validation", "true")
 	setFlag(t, h.Analyzer, "check-use-before-validate", "true")
-	setFlag(t, h.Analyzer, "check-use-before-validate-cross", "true")
 
 	runAnalysisTest(t, testdata, h.Analyzer, "cfa_closure_ubv")
 }

@@ -50,7 +50,6 @@ func TestValidateRunConfigAllowsMissionChecks(t *testing.T) {
 	tests := []runConfig{
 		{checkCastValidation: true},
 		{checkUseBeforeValidate: true},
-		{checkUseBeforeValidateCross: true},
 		{checkConstructorValidates: true},
 	}
 

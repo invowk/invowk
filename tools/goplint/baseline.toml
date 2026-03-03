@@ -1,31 +1,35 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # goplint baseline — accepted DDD compliance findings
-# Generated: 2026-03-02
+# Generated: 2026-03-03
 # Regenerate: make update-baseline
-# Total: 20 findings
+# Total: 24 findings
 
 # Bare primitive type usage
 [primitive]
 entries = [
-    { id = "gpl1_1b55b142b260c171110ac1db6a4e75879ab57e354de33b5ae2d1eb9834a4d405", message = "parameter \"data\" of invowkmod.ParseInvowkmodBytes uses primitive type []byte" },
-    { id = "gpl1_44235da38ece26027b6b791a867cab2f9afdf1a16b44e19f8e06930d887e5a6f", message = "return value of tui.FuzzyMatch uses primitive type []string" },
-    { id = "gpl1_4b203b91b4e11978e15971347381bad2285c1cd7b5218dff87ecfd9262384619", message = "return value of container.BaseCLIEngine.RunCommandCombined uses primitive type []byte" },
-    { id = "gpl1_507ffd55ac65596de6a72530b84a13b5d9490d91fbe2be3324da37deb8e56fc7", message = "parameter \"data\" of invowkfile.ParseBytes uses primitive type []byte" },
-    { id = "gpl1_51281354f2abee3424274c39144e4f243edb84569e370452404cb2b734d76fe2", message = "parameter \"data\" of invowkfile.ParseInvowkmodBytes uses primitive type []byte" },
-    { id = "gpl1_5901ccfb37a825335f59373f32ecfbe65f871f02bacc655456278688007ec9c7", message = "parameter \"options\" of tui.FuzzyMatch uses primitive type []string" },
-    { id = "gpl1_604ee0f78e629d74167a395e1ac652542b0a47c6bfc2ef1bc123a94d2256ddb3", message = "return value of tui.SpinWithCommand uses primitive type []byte" },
-    { id = "gpl1_6b8b65dae9ae73a9b307901170f5c0c378b0e1e3653114d83ff020de6ec1a0b2", message = "parameter \"data\" of cueutil.CheckFileSize uses primitive type []byte" },
-    { id = "gpl1_770b3f20e07cc0fc917e6cbfd5d1efcbaa2a6722aa899ae9befe9d3ea1cc908d", message = "parameter \"data\" of cueutil.ParseAndDecodeString uses primitive type []byte" },
-    { id = "gpl1_775334409c63244006961f24c85330669ca277442c2d129eac7600e928ef33c7", message = "parameter \"_\" of invowk.runTuiInput uses primitive type []string" },
-    { id = "gpl1_7f9e0bf179507a1ff8b366431a8fa9a0fbf3f4909f4b46f36317e31520b4f9c3", message = "parameter \"_\" of invowk.runTuiTable uses primitive type []string" },
-    { id = "gpl1_a1c0bf12027f5cb621a40d80f8bab3e7c3bd94319a51bfb142e340c0277107bd", message = "parameter \"_\" of invowk.runTuiWrite uses primitive type []string" },
-    { id = "gpl1_af7b6a8b79bd044d0172c5c2835f7125df74d79bdfd3ede0c89d9bb933398a39", message = "parameter \"schema\" of cueutil.ParseAndDecode uses primitive type []byte" },
-    { id = "gpl1_b427b501df0f935ebaa8950ea75b4e0ee80035f098879a78c549b2d3f4a9ed71", message = "parameter \"_\" of invowk.runInternalExecVirtual uses primitive type []string" },
-    { id = "gpl1_b4a81d54bfa2c2b9134c8e9e3bc6a06a864dd5e7dc11983539a83843fdf977b9", message = "parameter \"pattern\" of tui.FuzzyMatchWithScore uses primitive type string" },
-    { id = "gpl1_cc17a8fb6e2ff20e347405188ae394b88f8482ff9477b31f4217d95c71824414", message = "parameter \"pattern\" of tui.FuzzyMatch uses primitive type string" },
-    { id = "gpl1_cd90dcf50b3e190f90f24d4a1934b2beacc2d16daeffba7b190c023aaef3d3c8", message = "parameter \"options\" of tui.FuzzyMatchWithScore uses primitive type []string" },
-    { id = "gpl1_e17c9dc2fb3a8e618f616f6f79a0214c8eaf966e4a11252ed5f8f72413274188", message = "parameter \"content\" of runtime.ParseEnvFile uses primitive type []byte" },
-    { id = "gpl1_fc6efedeec2f0565d5083ad04da6f5356e66cd4045ff57c3ea962a12f42f8d44", message = "return value of container.BaseCLIEngine.RunCommand uses primitive type []byte" },
-    { id = "gpl1_fe637125ce924a8431b805838a71cfe94f3c8b7ce9c0bdf3a72e97d930cdeca9", message = "parameter \"data\" of cueutil.ParseAndDecode uses primitive type []byte" },
+    { id = "gpl2_06ce07f2b1c54f15e1e0ba95d5b958b001c651296d337f51cbfc830a07d75789", message = "parameter \"data\" of cueutil.CheckFileSize uses primitive type []byte" },
+    { id = "gpl2_0ec7a7ba48a9bae36ced5503b87c28bfe86926a7b1f44b83e68840310c6fdb61", message = "parameter \"content\" of runtime.ParseEnvFile uses primitive type []byte" },
+    { id = "gpl2_112d606ab88484876911bc2b36250cafeca1e52ebf7d7628d9b64348af7b3698", message = "return value of container.BaseCLIEngine.RunCommand uses primitive type []byte" },
+    { id = "gpl2_337156f2ff7b7546ee9507eb80c775dec09b0e2bee53475c28a18aaa329ac1d5", message = "parameter \"_\" of invowk.runTuiInput uses primitive type []string" },
+    { id = "gpl2_37ef9e3a3002d39b7560d135c88699db70cb1b63ef6fec3d168f49e16b60e3b5", message = "parameter \"data\" of cueutil.ParseAndDecode uses primitive type []byte" },
+    { id = "gpl2_43c8c04c8b278021dad65a8d5ea7e58563205d1d38ffb12dc0b6dc8f03607cfc", message = "parameter \"data\" of invowkmod.ParseInvowkmodBytes uses primitive type []byte" },
+    { id = "gpl2_4db2b6bb95bdd147bd9378dcaa29b938eae86141803fa607e336a2d0dca33d70", message = "parameter \"options\" of tui.FuzzyMatchWithScore uses primitive type []string" },
+    { id = "gpl2_512713698a2372f67962d5e1799e2019d27e06692337c486e5e91d251c99eeb5", message = "parameter \"data\" of invowkfile.ParseBytes uses primitive type []byte" },
+    { id = "gpl2_585a43df036716610a770cb1e1183f3836575446b187639544d851056ad9cd89", message = "return value of container.BaseCLIEngine.RunCommandCombined uses primitive type []byte" },
+    { id = "gpl2_5f3179c8d94325cc95f71f524accb932c8a392392424f3ae50a99309535be550", message = "return value of invowkfile.buildAlternativesPath uses primitive type string" },
+    { id = "gpl2_7ba80c21adcff543b3835e622c2b4fda2822c03a07ecc0d672f03ccdde322331", message = "parameter \"_\" of invowk.runTuiTable uses primitive type []string" },
+    { id = "gpl2_7c2e40f5973ad230cc360c95992ba600c2d97cffd857563655399b396f6e8727", message = "parameter \"pattern\" of tui.FuzzyMatch uses primitive type string" },
+    { id = "gpl2_8092269c95d156dbbaffcb48b7dc1952ae74d648c8f0709050d25d5f7ca35da1", message = "parameter \"prefix\" of invowkfile.buildAlternativesPath uses primitive type string" },
+    { id = "gpl2_818d557d86a2b2266bcc33c89f32a6dc66f9ca8ca38be44a92811606a98e1656", message = "parameter \"_\" of invowk.runInternalExecVirtual uses primitive type []string" },
+    { id = "gpl2_8328a0aca0a4da3a6696d2109223a851f1039ddab8e97afff8ae478266e88cbd", message = "parameter \"options\" of tui.FuzzyMatch uses primitive type []string" },
+    { id = "gpl2_86958d51e2f78338ce4368bb09cb2296a9df22341d6017d294c736caa6c9ec48", message = "return value of tui.SpinWithCommand uses primitive type []byte" },
+    { id = "gpl2_95e57195dc9d7553436209656a4f202f3331d678f3a044a2ca9c5442919a1b68", message = "return value of tui.FuzzyMatch uses primitive type []string" },
+    { id = "gpl2_a7038546f15576e6040e5efd87e98cdffb4cd50c7ce77d1537ca33fa47252f36", message = "parameter \"schema\" of cueutil.ParseAndDecode uses primitive type []byte" },
+    { id = "gpl2_a8fcb41c4af0d6f541f8805fb0e19407c17c54fe2ce248abfbbfdb441e8b94e4", message = "parameter \"data\" of cueutil.ParseAndDecodeString uses primitive type []byte" },
+    { id = "gpl2_b3ad21fd6e1e73938b2bbc0bcf28643eb8251d3a0cbb3d3413914dd308e92988", message = "parameter \"altIndex\" of invowkfile.buildAlternativesPath uses primitive type int" },
+    { id = "gpl2_d838a17f63f8a27cf295f214cf383a8d57b9045240c58f148c987d44fc0adc85", message = "parameter \"_\" of invowk.runTuiWrite uses primitive type []string" },
+    { id = "gpl2_e0abeaba634cc4ea2b47f6e10c6617958301c700bcacba76ed2cfc6b39aa4571", message = "parameter \"data\" of invowkfile.ParseInvowkmodBytes uses primitive type []byte" },
+    { id = "gpl2_e61e59ff31ff5d7c12960758eec40e5f4ee332ec9a11e625231dfe48a1dddb04", message = "parameter \"pattern\" of tui.FuzzyMatchWithScore uses primitive type string" },
+    { id = "gpl2_ea52ca35b32d594c53af2735ae9c577001dc9e69d4db2e27417578a19a739d65", message = "parameter \"depIndex\" of invowkfile.buildAlternativesPath uses primitive type int" },
 ]

@@ -275,7 +275,7 @@ func runTraversal(
 			// Cast validation: detect unvalidated type conversions to DDD types.
 			// Always uses CFA path-reachability analysis.
 			if rc.checkCastValidation {
-				inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate, rc.checkUseBeforeValidateCross)
+				inspectUnvalidatedCastsCFA(pass, n, cfg, bl, rc.checkUseBeforeValidate)
 			}
 
 			// Redundant conversion: detect NamedType(basic(namedExpr)) chains.

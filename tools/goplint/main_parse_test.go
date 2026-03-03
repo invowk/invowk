@@ -63,7 +63,7 @@ func TestParseAnalysisJSON(t *testing.T) {
 
 	t.Run("uses finding ID from diagnostic URL", func(t *testing.T) {
 		t.Parallel()
-		const findingID = "gpl1_deadbeef"
+		const findingID = "gpl2_deadbeef"
 		input := makeAnalysisJSON(t, map[string]map[string][]analysisDiagnostic{
 			"example.com/pkg": {
 				"goplint": {
@@ -96,12 +96,12 @@ func TestParseAnalysisJSON(t *testing.T) {
 					{
 						Category: goplint.CategoryUnvalidatedCast,
 						Message:  "type conversion to pkg.CommandName from non-constant without Validate() check",
-						URL:      goplint.DiagnosticURLForFinding("gpl1_cfa_unvalidated"),
+						URL:      goplint.DiagnosticURLForFinding("gpl2_cfa_unvalidated"),
 					},
 					{
 						Category: goplint.CategoryUseBeforeValidate,
 						Message:  "variable x of type pkg.CommandName used before Validate() in same block",
-						URL:      goplint.DiagnosticURLForFinding("gpl1_cfa_ubv"),
+						URL:      goplint.DiagnosticURLForFinding("gpl2_cfa_ubv"),
 					},
 				},
 			},

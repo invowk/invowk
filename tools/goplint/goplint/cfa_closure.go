@@ -27,7 +27,6 @@ func inspectClosureCastsCFA(
 	excCfg *ExceptionConfig,
 	bl *BaselineConfig,
 	checkUBV bool,
-	checkUBVCross bool,
 ) {
 	if lit.Body == nil {
 		return
@@ -48,7 +47,7 @@ func inspectClosureCastsCFA(
 		pass, lit.Body, parentMap,
 		func(nested *ast.FuncLit, nestedIdx int) {
 			nestedPrefix := closurePrefix + "/" + strconv.Itoa(nestedIdx)
-			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl, checkUBV, checkUBVCross)
+			inspectClosureCastsCFA(pass, nested, qualEnclosingFunc, nestedPrefix, excCfg, bl, checkUBV)
 		},
 	)
 
@@ -64,7 +63,7 @@ func inspectClosureCastsCFA(
 		pathSyncLits = collectSynchronousClosureLits(lit.Body)
 		pathSyncCalls = collectSynchronousClosureVarCalls(closureCalls)
 		pathMethodCalls = collectMethodValueValidateCalls(pass, lit.Body)
-		if checkUBV || checkUBVCross {
+		if checkUBV {
 			ubvSyncLits = collectUBVClosureLits(lit.Body)
 			ubvSyncCalls = collectUBVClosureVarCalls(closureCalls)
 			ubvMethodCalls = pathMethodCalls
@@ -88,35 +87,38 @@ func inspectClosureCastsCFA(
 		}
 
 		if !hasPathToReturnWithoutValidate(pass, closureCFG, defBlock, defIdx, ac.target, pathSyncLits, pathSyncCalls, pathMethodCalls, noReturnAliases) {
-			// All paths validated. Check for use-before-validate (same-block first, then cross-block).
-			if checkUBV && hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
-				ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)
-				ubvID := PackageScopedFindingID(pass,
-					CategoryUseBeforeValidate,
-					"cfa",
-					"closure",
-					closurePrefix,
-					qualEnclosingFunc,
-					ac.typeName,
-					"ubv",
-					stablePosKey(pass, ac.pos.Pos()),
-					ac.target.key(),
-				)
-				reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
-			} else if checkUBVCross && hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
-				ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
-				ubvID := PackageScopedFindingID(pass,
-					CategoryUseBeforeValidate,
-					"cfa",
-					"closure",
-					closurePrefix,
-					qualEnclosingFunc,
-					ac.typeName,
-					"ubv-xblock",
-					stablePosKey(pass, ac.pos.Pos()),
-					ac.target.key(),
-				)
-				reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+			// All paths validated. Check use-before-validate with
+			// same-block priority, then cross-block.
+			if checkUBV {
+				if hasUseBeforeValidateInBlock(pass, defBlock.Nodes, defIdx+1, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
+					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, false)
+					ubvID := PackageScopedFindingID(pass,
+						CategoryUseBeforeValidate,
+						"cfa",
+						"closure",
+						closurePrefix,
+						qualEnclosingFunc,
+						ac.typeName,
+						"ubv",
+						stablePosKey(pass, ac.pos.Pos()),
+						ac.target.key(),
+					)
+					reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+				} else if hasUseBeforeValidateCrossBlock(pass, defBlock, defIdx, ac.target, ubvSyncLits, ubvSyncCalls, ubvMethodCalls) {
+					ubvMsg := useBeforeValidateMessage(ac.target.displayName, ac.typeName, true)
+					ubvID := PackageScopedFindingID(pass,
+						CategoryUseBeforeValidate,
+						"cfa",
+						"closure",
+						closurePrefix,
+						qualEnclosingFunc,
+						ac.typeName,
+						"ubv-xblock",
+						stablePosKey(pass, ac.pos.Pos()),
+						ac.target.key(),
+					)
+					reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidate, ubvID, ubvMsg)
+				}
 			}
 			continue
 		}
