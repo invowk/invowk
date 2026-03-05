@@ -181,25 +181,26 @@ Acceptance criteria:
 - Runtime compare mode allows `legacy=inconclusive -> ifds=safe` only when equivalent unsafe evidence exists.
 - Forbidden downgrade cases still fail hard.
 
-## Workstream B5: Restore Staged Rollout Contract
+## Workstream B5: Finalize Rollout Contract
 
 Goal:
-- Re-align engine default progression with explicit rollout gates.
+- Keep IFDS as default with explicit rollout safeguards.
 
 Implementation plan:
-1. Temporarily set default back to `legacy` until IFDS distinctness and compatibility are proven.
-2. Keep CI running:
+1. Keep default at `ifds` now that IFDS distinctness and compatibility are proven.
+2. Keep `legacy` as a supported fallback mode.
+3. Pin baseline maintenance targets (`make check-baseline` and `make update-baseline`) to `-cfg-interproc-engine=legacy` for deterministic baseline behavior.
+4. Keep CI running:
    - semantic spec gate;
    - IFDS compatibility gate;
    - benchmark threshold gate.
-3. Define promotion criteria to flip default to `ifds`:
-   - at least one full CI cycle with compare-mode clean results;
+5. Keep compare-mode clean and track post-flip regressions:
    - no benchmark threshold regression;
-   - no baseline churn caused by silent downgrades.
+   - no silent-downgrade findings in compatibility gate.
 
 Acceptance criteria:
 - Default and rollout state are explicitly documented in `tools/goplint/README.md`.
-- Default flip is done only after documented promotion criteria are met.
+- Default flip is complete and all rollout gates remain green.
 
 ## Phase B Verification and Gates
 
@@ -217,7 +218,7 @@ Recommended execution order:
 1. A1 -> A2 -> A3.
 2. B4 (policy consistency) before B1/B2/B3 changes reach default path.
 3. B1 -> B2 -> B3.
-4. B5 rollout transition and default flip decision.
+4. B5 post-flip monitoring and fallback retirement decision.
 
 ## Out of Scope
 

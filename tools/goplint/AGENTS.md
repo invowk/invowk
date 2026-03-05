@@ -582,6 +582,11 @@ make check-baseline    # Compare current state against baseline (CI gate)
 make update-baseline   # Regenerate baseline from current state
 ```
 
+`make check-baseline` and `make update-baseline` pin
+`-cfg-interproc-engine=legacy` to keep baseline suppression deterministic while
+IFDS remains the analyzer default path and compatibility is enforced by
+`make check-ifds-compat`.
+
 ### How it works
 
 - **`--baseline=path`**: Analyzer flag. Loaded per-package in `run()`, suppresses findings whose stable `id` matches a baseline entry. Only new findings are reported.
@@ -633,7 +638,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **Tracked string flag semantics**: `--config`, `--baseline`, and `--include-packages` are bound with explicitness tracking. Explicit empty values for `--config`/`--baseline` are rejected during run-config validation; explicit empty `--include-packages` intentionally clears package-prefix filtering. Comma lists with empty segments (for example `a,,b`) are invalid.
 - **`primitiveTypeName` needs `Unalias` too**: Even after `isPrimitive` correctly detects an alias as primitive, the diagnostic message must show the resolved type (`string`), not the alias name (`MyAlias`). Call `types.Unalias()` before `types.TypeString()`.
 - **Qualified name format**: The analyzer prefixes all names with the package name (`pkg.Type.Field`, `pkg.Func.param`). Exception patterns can be 2-segment (matched after stripping the package prefix) or 3-segment (exact match).
-- **CI baseline + analyzer tests are required**: `goplint-baseline` blocks merges on baseline regressions, and `goplint-tests` blocks merges on analyzer test/race regressions. The `goplint` full DDD scan remains advisory with `continue-on-error: true`. `make check-baseline` runs `-check-all -check-enum-sync`.
+- **CI baseline + analyzer tests are required**: `goplint-baseline` blocks merges on baseline regressions, and `goplint-tests` blocks merges on analyzer test/race regressions. The `goplint` full DDD scan remains advisory with `continue-on-error: true`. `make check-baseline` runs `-check-all -check-enum-sync -cfg-interproc-engine=legacy`.
 - **Per-package execution**: `go/analysis` analyzers run per-package. `--audit-exceptions` reports stale exceptions per-package — an exception that matches in package A but not package B will only be reported as stale during B's analysis. For a global stale audit, run against the full module (`./...`).
 - **`findConstructorForStruct` determinism**: Prefers exact match (`"New" + structName`) over prefix matches. Among prefix matches, picks lexicographically first name. Prevents non-deterministic results from Go map iteration order when multiple variant constructors exist.
 - **CFA import alias**: CFA files use `gocfg "golang.org/x/tools/go/cfg"` to avoid collision with the `*ExceptionConfig` parameter commonly named `cfg` in analyzer functions.

@@ -182,11 +182,12 @@ Introduce an engine selector run control:
 Phase-B rollout behavior:
 
 1. `legacy`:
-   - current default during initial rollout.
+   - fallback engine and baseline compatibility mode.
+   - `make check-baseline`/`make update-baseline` pin `-cfg-interproc-engine=legacy` for deterministic suppression behavior.
 2. `ifds`:
-   - run only the new solver path.
+   - run only the new solver path (current default).
 3. `compare`:
-   - run both engines, compute normalized diff, and fail on forbidden downgrade classes.
+   - run both engines, compute normalized diff, and fail on forbidden downgrade classes (`check-ifds-compat` gate).
 
 Normalization contract for `compare`:
 
@@ -311,14 +312,14 @@ Required matrix invariants:
 
 ## Rollout Sequence
 
-1. Add engine flag and compare-mode plumbing (default `legacy`).
+1. Add engine flag and compare-mode plumbing (`legacy|ifds|compare`).
 2. Land supergraph + IFDS core with cast family only behind `ifds`.
 3. Add IDE edge functions and UBV family adapter.
 4. Add constructor family adapter.
-5. Enable compare mode in CI gate (`check-ifds-compat`) while default remains `legacy`.
+5. Enable compare mode in CI gate (`check-ifds-compat`) and keep it active post-flip.
 6. Close parity/downgrade gaps until compare gate is stable.
-7. Flip default to `ifds` after at least one full CI cycle with clean compare results.
-8. Keep `legacy` as temporary fallback for one release window, then remove if unused.
+7. Flip default to `ifds` after at least one full CI cycle with clean compare results (completed on 2026-03-05).
+8. Keep `legacy` as temporary fallback and baseline compatibility mode until fallback retirement criteria are met.
 
 ## Risks and Mitigations
 
@@ -334,8 +335,8 @@ Risk: false confidence from parity-only checks.
 Risk: metadata/governance regressions break baseline workflows.
 - Mitigation: preserve category names, finding-ID derivation, and required inconclusive metadata contracts.
 
-Risk: rollout instability from immediate default switch.
-- Mitigation: staged flag rollout (`legacy -> compare -> ifds`) with CI enforcement before default flip.
+Risk: rollout regressions after default switch.
+- Mitigation: keep `check-ifds-compat` and benchmark gates active, with `legacy` fallback and legacy-pinned baseline targets until fallback retirement.
 
 ## Commands and Verification Checklist (After Implementation)
 
