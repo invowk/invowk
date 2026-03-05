@@ -18,14 +18,6 @@ type calleeTargetSummary struct {
 	OutcomeReason               pathOutcomeReason
 }
 
-// firstArgCallSummary is kept for compatibility with existing tests and call
-// sites while the generalized summary model is being adopted end-to-end.
-type firstArgCallSummary struct {
-	AlwaysValidatesFirstArg         bool
-	ValidatesBeforeEscapeOfFirstArg bool
-	OutcomeReason                   pathOutcomeReason
-}
-
 type calleeSummaryEntry struct {
 	summary calleeTargetSummary
 	ok      bool
@@ -65,13 +57,6 @@ func resetFirstArgSummaryCache() {
 	})
 }
 
-func callHasTargetAsFirstArg(pass *analysis.Pass, call *ast.CallExpr, target castTarget) bool {
-	if call == nil || len(call.Args) == 0 {
-		return false
-	}
-	return target.matchesExpr(pass, call.Args[0])
-}
-
 func calledFunctionObject(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
 	if pass == nil || pass.TypesInfo == nil || call == nil {
 		return nil
@@ -86,36 +71,6 @@ func calledFunctionObject(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
 	default:
 		return nil
 	}
-}
-
-func callFirstArgSummary(pass *analysis.Pass, call *ast.CallExpr) (firstArgCallSummary, bool) {
-	summary, ok, reason := callCalleeSummaryForSlotWithStack(
-		pass,
-		call,
-		calleeTargetSlot{kind: calleeTargetSlotArg, argIndex: 0},
-		stackScopeFromMap(nil),
-	)
-	return firstArgSummaryFromCallee(summary, reason), ok
-}
-
-func callFirstArgSummaryWithStack(pass *analysis.Pass, call *ast.CallExpr, stack map[string]bool) (firstArgCallSummary, bool, pathOutcomeReason) {
-	summary, ok, reason := callCalleeSummaryForSlotWithStack(
-		pass,
-		call,
-		calleeTargetSlot{kind: calleeTargetSlotArg, argIndex: 0},
-		stackScopeFromMap(stack),
-	)
-	return firstArgSummaryFromCallee(summary, reason), ok, reason
-}
-
-func firstArgSummaryForFunc(pass *analysis.Pass, fnObj *types.Func, stack map[string]bool) (firstArgCallSummary, bool, pathOutcomeReason) {
-	summary, ok, reason := calleeSummaryForFuncSlotWithStack(
-		pass,
-		fnObj,
-		calleeTargetSlot{kind: calleeTargetSlotArg, argIndex: 0},
-		stackScopeFromMap(stack),
-	)
-	return firstArgSummaryFromCallee(summary, reason), ok, reason
 }
 
 type summaryStackScope struct {
@@ -170,14 +125,6 @@ func (scope *summaryStackScope) pop(key string) {
 		}
 		scope.order = append(scope.order[:idx], scope.order[idx+1:]...)
 		return
-	}
-}
-
-func firstArgSummaryFromCallee(summary calleeTargetSummary, reason pathOutcomeReason) firstArgCallSummary {
-	return firstArgCallSummary{
-		AlwaysValidatesFirstArg:         summary.AlwaysValidatesTarget,
-		ValidatesBeforeEscapeOfFirstArg: summary.AlwaysValidatesTarget && !summary.EscapesTargetBeforeValidate,
-		OutcomeReason:                   reason,
 	}
 }
 
@@ -382,11 +329,6 @@ func collectCalleeValidatedCalls(pass *analysis.Pass, body *ast.BlockStmt, scope
 	return out
 }
 
-// Compatibility wrapper retained for tests and legacy call sites.
-func collectFirstArgValidatedCalls(pass *analysis.Pass, body *ast.BlockStmt, stack map[string]bool) methodValueValidateCallSet {
-	return collectCalleeValidatedCalls(pass, body, stackScopeFromMap(stack))
-}
-
 func callTargetSlotsMatchingCastTarget(pass *analysis.Pass, call *ast.CallExpr, target castTarget) []calleeCallTarget {
 	if call == nil {
 		return nil
@@ -450,22 +392,6 @@ func findFuncDeclForObject(pass *analysis.Pass, fnObj *types.Func) *ast.FuncDecl
 		}
 	}
 	return nil
-}
-
-func functionFirstParamTarget(pass *analysis.Pass, fnDecl *ast.FuncDecl) (castTarget, bool) {
-	if fnDecl == nil || fnDecl.Type == nil || fnDecl.Type.Params == nil || len(fnDecl.Type.Params.List) == 0 {
-		return castTarget{}, false
-	}
-	first := fnDecl.Type.Params.List[0]
-	if len(first.Names) == 0 {
-		return castTarget{}, false
-	}
-	if pass != nil {
-		if target, ok := castTargetFromExpr(pass, first.Names[0]); ok {
-			return target, true
-		}
-	}
-	return newCastTargetFromName(first.Names[0].Name), true
 }
 
 func functionTargetForSlot(pass *analysis.Pass, fnDecl *ast.FuncDecl, slot calleeTargetSlot) (castTarget, bool) {

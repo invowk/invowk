@@ -46,8 +46,8 @@ func TestSemanticSpecOracleBehavior(t *testing.T) {
 	}
 
 	for _, oracle := range catalog.OracleMatrix {
-		oracle := oracle
 		t.Run(oracle.Category, func(t *testing.T) {
+			t.Parallel()
 			rule, ok := rulesByCategory[oracle.Category]
 			if !ok {
 				t.Fatalf("rule spec missing for oracle category %q", oracle.Category)

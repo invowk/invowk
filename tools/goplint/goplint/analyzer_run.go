@@ -115,8 +115,12 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 	needs := deriveRunNeeds(rc)
 	collectors := newRunCollectors(rc, needs)
 
-	runTraversal(pass, insp, rc, cfg, bl, needs, &collectors)
-	runPostTraversalChecks(pass, state, rc, cfg, bl, &collectors)
+	if err := runTraversal(pass, insp, rc, cfg, bl, needs, &collectors); err != nil {
+		return nil, err
+	}
+	if err := runPostTraversalChecks(pass, state, rc, cfg, bl, &collectors); err != nil {
+		return nil, err
+	}
 
 	return nil, nil
 }
@@ -145,6 +149,21 @@ func validateRunConfig(rc runConfig) error {
 	case cfgBackendSSA, cfgBackendAST:
 	default:
 		return fmt.Errorf("flag --cfg-backend must be %q or %q (got %q)", cfgBackendSSA, cfgBackendAST, rc.cfgBackend)
+	}
+	cfgInterprocEngine := strings.TrimSpace(strings.ToLower(rc.cfgInterprocEngine))
+	if cfgInterprocEngine == "" {
+		cfgInterprocEngine = defaultCFGInterprocEngine
+	}
+	switch cfgInterprocEngine {
+	case cfgInterprocEngineLegacy, cfgInterprocEngineIFDS, cfgInterprocEngineCompare:
+	default:
+		return fmt.Errorf(
+			"flag --cfg-interproc-engine must be %q, %q, or %q (got %q)",
+			cfgInterprocEngineLegacy,
+			cfgInterprocEngineIFDS,
+			cfgInterprocEngineCompare,
+			rc.cfgInterprocEngine,
+		)
 	}
 	cfgMaxStates := rc.cfgMaxStates
 	if cfgMaxStates == 0 {
@@ -255,13 +274,17 @@ func runTraversal(
 	bl *BaselineConfig,
 	needs runNeeds,
 	collectors *runCollectors,
-) {
+) error {
+	var traverseErr error
 	nodeFilter := []ast.Node{
 		(*ast.GenDecl)(nil),
 		(*ast.FuncDecl)(nil),
 	}
 
 	insp.Preorder(nodeFilter, func(n ast.Node) {
+		if traverseErr != nil {
+			return
+		}
 		// Skip test files entirely — test data legitimately uses primitives.
 		if isTestFile(pass, n.Pos()) {
 			return
@@ -329,7 +352,7 @@ func runTraversal(
 			// Cast validation: detect unvalidated type conversions to DDD types.
 			// Always uses CFA path-reachability analysis.
 			if rc.checkCastValidation {
-				inspectUnvalidatedCastsCFA(
+				if err := inspectUnvalidatedCastsCFA(
 					pass,
 					n,
 					cfg,
@@ -337,11 +360,15 @@ func runTraversal(
 					rc.checkUseBeforeValidate,
 					rc.ubvMode,
 					rc.cfgBackend,
+					rc.cfgInterprocEngine,
 					rc.cfgMaxStates,
 					rc.cfgMaxDepth,
 					rc.cfgInconclusivePolicy,
 					rc.cfgWitnessMaxSteps,
-				)
+				); err != nil {
+					traverseErr = err
+					return
+				}
 			}
 
 			// Redundant conversion: detect NamedType(basic(namedExpr)) chains.
@@ -360,6 +387,7 @@ func runTraversal(
 			}
 		}
 	})
+	return traverseErr
 }
 
 func runPostTraversalChecks(
@@ -369,7 +397,7 @@ func runPostTraversalChecks(
 	cfg *ExceptionConfig,
 	bl *BaselineConfig,
 	collectors *runCollectors,
-) {
+) error {
 	// Post-traversal checks for supplementary modes.
 	if rc.checkValidate {
 		reportMissingValidate(pass, collectors.namedTypes, collectors.methodSeen, cfg, bl)
@@ -395,18 +423,21 @@ func runPostTraversalChecks(
 		reportMissingStructValidate(pass, collectors.exportedStructs, collectors.constructorDetails, collectors.methodSeen, cfg, bl)
 	}
 	if rc.checkConstructorValidates {
-		inspectConstructorValidates(
+		if err := inspectConstructorValidates(
 			pass,
 			collectors.constructorDetails,
 			collectors.constantOnlyTypes,
 			cfg,
 			bl,
 			rc.cfgBackend,
+			rc.cfgInterprocEngine,
 			rc.cfgMaxStates,
 			rc.cfgMaxDepth,
 			rc.cfgInconclusivePolicy,
 			rc.cfgWitnessMaxSteps,
-		)
+		); err != nil {
+			return err
+		}
 	}
 
 	// Constructor return error — constructors for validatable types should return error.
@@ -444,4 +475,5 @@ func runPostTraversalChecks(
 	if rc.checkEnumSync {
 		inspectEnumSync(pass, cfg, bl)
 	}
+	return nil
 }

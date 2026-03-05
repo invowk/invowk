@@ -5,6 +5,7 @@ package goplint
 import (
 	"fmt"
 	"go/token"
+	"maps"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -83,8 +84,6 @@ func copyFindingMeta(meta map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(meta))
-	for k, v := range meta {
-		out[k] = v
-	}
+	maps.Copy(out, meta)
 	return out
 }

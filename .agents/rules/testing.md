@@ -79,6 +79,8 @@ All new test functions MUST call `t.Parallel()` unless they mutate global/proces
 
 `tools/goplint` no longer relies on shared process-wide analyzer flag state; its tests use per-test analyzer instances and may run in parallel. Keep bounded concurrency controls where needed (for example, a semaphore around heavy `analysistest` runs) to avoid process exhaustion on constrained runners.
 
+When a helper acquires a test semaphore, release that token in the same helper call (typically via `defer`). Do not defer release with `t.Cleanup()` when the helper may run multiple times within one test, because tokens stay held until test end and can stall parallel suites.
+
 ### Table-Driven Subtests
 
 When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too.

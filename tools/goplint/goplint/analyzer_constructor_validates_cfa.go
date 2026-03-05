@@ -11,58 +11,6 @@ import (
 	gocfg "golang.org/x/tools/go/cfg"
 )
 
-// constructorHasUnvalidatedReturnPath builds a CFG for the constructor body
-// and checks whether any path from entry to a return block lacks a .Validate()
-// call on the return type. Unlike the cast-validation CFA which starts from a
-// specific cast site, this starts from the function entry (block 0) and checks
-// all return paths.
-//
-// Returns true if any return path lacks Validate() on the return type.
-func constructorHasUnvalidatedReturnPath(
-	pass *analysis.Pass,
-	fn *ast.FuncDecl,
-	returnTypeName string,
-	returnTypePkgPath string,
-	returnTypeKey string,
-) bool {
-	outcome, _, _ := constructorReturnPathOutcomeWithWitness(
-		pass,
-		fn,
-		returnTypeName,
-		returnTypePkgPath,
-		returnTypeKey,
-		defaultCFGBackend,
-		defaultCFGMaxStates,
-		defaultCFGMaxDepth,
-	)
-	return outcome != pathOutcomeSafe
-}
-
-// constructorReturnPathOutcome checks constructor Validate() coverage and
-// returns a tri-state path outcome.
-func constructorReturnPathOutcome(
-	pass *analysis.Pass,
-	fn *ast.FuncDecl,
-	returnTypeName string,
-	returnTypePkgPath string,
-	returnTypeKey string,
-	cfgBackend string,
-	cfgMaxStates int,
-	cfgMaxDepth int,
-) (pathOutcome, pathOutcomeReason) {
-	outcome, reason, _ := constructorReturnPathOutcomeWithWitness(
-		pass,
-		fn,
-		returnTypeName,
-		returnTypePkgPath,
-		returnTypeKey,
-		cfgBackend,
-		cfgMaxStates,
-		cfgMaxDepth,
-	)
-	return outcome, reason
-}
-
 func constructorReturnPathOutcomeWithWitness(
 	pass *analysis.Pass,
 	fn *ast.FuncDecl,
@@ -127,50 +75,6 @@ func constructorReturnPathOutcomeWithWitness(
 		&seenStates,
 		budget,
 	)
-}
-
-// dfsConstructorUnvalidated recursively checks whether any path through the
-// given CFG blocks reaches a return block without encountering a .Validate()
-// call on the constructor's return type. Delegates to the shared
-// dfsUnvalidatedBlocks engine with a type-identity matcher.
-func dfsConstructorUnvalidated(
-	pass *analysis.Pass,
-	blocks []*gocfg.Block,
-	returnTypeName string,
-	returnTypePkgPath string,
-	returnTypeKey string,
-	matcher validateReceiverMatcher,
-	bareReturnIncludesTarget bool,
-	ctx *cfgTraversalContext,
-	predecessor int32,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	noReturnAliases noReturnAliasSet,
-) bool {
-	outcome, _, _ := dfsConstructorUnvalidatedOutcome(
-		pass,
-		blocks,
-		returnTypeName,
-		returnTypePkgPath,
-		returnTypeKey,
-		matcher,
-		bareReturnIncludesTarget,
-		ctx,
-		predecessor,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		noReturnAliases,
-		0,
-		nil,
-		nil,
-		blockVisitBudget{
-			maxStates: defaultCFGMaxStates,
-			maxDepth:  defaultCFGMaxDepth,
-		},
-	)
-	return outcome != pathOutcomeSafe
 }
 
 func dfsConstructorUnvalidatedOutcome(

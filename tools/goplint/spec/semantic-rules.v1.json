@@ -13,8 +13,9 @@
       ],
       "run_controls": [
         "cfg-backend",
-        "cfg-max-states",
-        "cfg-max-depth"
+        "cfg-interproc-engine",
+        "cfg-max-depth",
+        "cfg-max-states"
       ],
       "traversal_mode": "cast-path",
       "state_domain": [
@@ -24,7 +25,19 @@
       "outcome_domain": [
         "unsafe"
       ],
-      "baseline_policy": "suppressible"
+      "baseline_policy": "suppressible",
+      "interproc_engine_modes": [
+        "legacy",
+        "ifds",
+        "compare"
+      ],
+      "fact_families": [
+        "cast-needs-validate"
+      ],
+      "edge_function_tags": [
+        "identity",
+        "needs-to-validated"
+      ]
     },
     {
       "category": "unvalidated-cast-inconclusive",
@@ -38,9 +51,10 @@
       ],
       "run_controls": [
         "cfg-backend",
-        "cfg-max-states",
-        "cfg-max-depth",
         "cfg-inconclusive-policy",
+        "cfg-interproc-engine",
+        "cfg-max-depth",
+        "cfg-max-states",
         "cfg-witness-max-steps"
       ],
       "traversal_mode": "cast-path",
@@ -68,7 +82,19 @@
         "witness_cfg_path",
         "witness_cfg_steps"
       ],
-      "baseline_policy": "suppressible"
+      "baseline_policy": "suppressible",
+      "interproc_engine_modes": [
+        "legacy",
+        "ifds",
+        "compare"
+      ],
+      "fact_families": [
+        "cast-needs-validate"
+      ],
+      "edge_function_tags": [
+        "identity",
+        "needs-to-validated"
+      ]
     },
     {
       "category": "use-before-validate-same-block",
@@ -80,10 +106,11 @@
         "check-use-before-validate"
       ],
       "run_controls": [
-        "ubv-mode",
         "cfg-backend",
+        "cfg-interproc-engine",
+        "cfg-max-depth",
         "cfg-max-states",
-        "cfg-max-depth"
+        "ubv-mode"
       ],
       "traversal_mode": "ubv-same-block",
       "state_domain": [
@@ -94,7 +121,21 @@
       "outcome_domain": [
         "unsafe"
       ],
-      "baseline_policy": "suppressible"
+      "baseline_policy": "suppressible",
+      "interproc_engine_modes": [
+        "legacy",
+        "ifds",
+        "compare"
+      ],
+      "fact_families": [
+        "ubv-needs-validate-before-use"
+      ],
+      "edge_function_tags": [
+        "identity",
+        "needs-to-validated",
+        "needs-to-escaped-before-validate",
+        "needs-to-consumed-before-validate"
+      ]
     },
     {
       "category": "use-before-validate-cross-block",
@@ -106,10 +147,11 @@
         "check-use-before-validate"
       ],
       "run_controls": [
-        "ubv-mode",
         "cfg-backend",
+        "cfg-interproc-engine",
+        "cfg-max-depth",
         "cfg-max-states",
-        "cfg-max-depth"
+        "ubv-mode"
       ],
       "traversal_mode": "ubv-cross-block",
       "state_domain": [
@@ -120,7 +162,21 @@
       "outcome_domain": [
         "unsafe"
       ],
-      "baseline_policy": "suppressible"
+      "baseline_policy": "suppressible",
+      "interproc_engine_modes": [
+        "legacy",
+        "ifds",
+        "compare"
+      ],
+      "fact_families": [
+        "ubv-needs-validate-before-use"
+      ],
+      "edge_function_tags": [
+        "identity",
+        "needs-to-validated",
+        "needs-to-escaped-before-validate",
+        "needs-to-consumed-before-validate"
+      ]
     },
     {
       "category": "use-before-validate-inconclusive",
@@ -132,12 +188,13 @@
         "check-use-before-validate"
       ],
       "run_controls": [
-        "ubv-mode",
         "cfg-backend",
-        "cfg-max-states",
-        "cfg-max-depth",
         "cfg-inconclusive-policy",
-        "cfg-witness-max-steps"
+        "cfg-interproc-engine",
+        "cfg-max-depth",
+        "cfg-max-states",
+        "cfg-witness-max-steps",
+        "ubv-mode"
       ],
       "traversal_mode": "ubv-cross-block",
       "state_domain": [
@@ -165,7 +222,21 @@
         "witness_cfg_path",
         "witness_cfg_steps"
       ],
-      "baseline_policy": "suppressible"
+      "baseline_policy": "suppressible",
+      "interproc_engine_modes": [
+        "legacy",
+        "ifds",
+        "compare"
+      ],
+      "fact_families": [
+        "ubv-needs-validate-before-use"
+      ],
+      "edge_function_tags": [
+        "identity",
+        "needs-to-validated",
+        "needs-to-escaped-before-validate",
+        "needs-to-consumed-before-validate"
+      ]
     },
     {
       "category": "missing-constructor-validate",
@@ -178,8 +249,9 @@
       ],
       "run_controls": [
         "cfg-backend",
-        "cfg-max-states",
-        "cfg-max-depth"
+        "cfg-interproc-engine",
+        "cfg-max-depth",
+        "cfg-max-states"
       ],
       "traversal_mode": "constructor-return-path",
       "state_domain": [
@@ -189,7 +261,19 @@
       "outcome_domain": [
         "unsafe"
       ],
-      "baseline_policy": "suppressible"
+      "baseline_policy": "suppressible",
+      "interproc_engine_modes": [
+        "legacy",
+        "ifds",
+        "compare"
+      ],
+      "fact_families": [
+        "ctor-return-needs-validate"
+      ],
+      "edge_function_tags": [
+        "identity",
+        "needs-to-validated"
+      ]
     },
     {
       "category": "missing-constructor-validate-inconclusive",
@@ -202,9 +286,10 @@
       ],
       "run_controls": [
         "cfg-backend",
-        "cfg-max-states",
-        "cfg-max-depth",
         "cfg-inconclusive-policy",
+        "cfg-interproc-engine",
+        "cfg-max-depth",
+        "cfg-max-states",
         "cfg-witness-max-steps"
       ],
       "traversal_mode": "constructor-return-path",
@@ -232,7 +317,19 @@
         "witness_cfg_path",
         "witness_cfg_steps"
       ],
-      "baseline_policy": "suppressible"
+      "baseline_policy": "suppressible",
+      "interproc_engine_modes": [
+        "legacy",
+        "ifds",
+        "compare"
+      ],
+      "fact_families": [
+        "ctor-return-needs-validate"
+      ],
+      "edge_function_tags": [
+        "identity",
+        "needs-to-validated"
+      ]
     }
   ],
   "oracle_matrix": [

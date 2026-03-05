@@ -30,7 +30,7 @@ func mustLoadSemanticRuleCatalog(t *testing.T) semanticRuleCatalog {
 func collectDiagnosticsForPackages(t *testing.T, analyzer *analysis.Analyzer, pkgs ...string) ([]analysis.Diagnostic, []string, []*analysistest.Result) {
 	t.Helper()
 	analysistestParallelLimiter <- struct{}{}
-	t.Cleanup(func() { <-analysistestParallelLimiter })
+	defer func() { <-analysistestParallelLimiter }()
 
 	collector := &analysisErrorCollector{}
 	testdata := analysistest.TestData()

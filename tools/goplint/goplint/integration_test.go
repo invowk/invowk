@@ -53,7 +53,7 @@ func runAnalysisTest(t *testing.T, testdata string, analyzer *analysis.Analyzer,
 	t.Helper()
 
 	analysistestParallelLimiter <- struct{}{}
-	t.Cleanup(func() { <-analysistestParallelLimiter })
+	defer func() { <-analysistestParallelLimiter }()
 
 	analysistest.Run(t, testdata, analyzer, pkgs...)
 }
@@ -224,6 +224,9 @@ func TestNewRunConfig(t *testing.T) {
 		}
 		if rc.cfgBackend != defaultCFGBackend {
 			t.Fatalf("expected cfgBackend default %q, got %q", defaultCFGBackend, rc.cfgBackend)
+		}
+		if rc.cfgInterprocEngine != defaultCFGInterprocEngine {
+			t.Fatalf("expected cfgInterprocEngine default %q, got %q", defaultCFGInterprocEngine, rc.cfgInterprocEngine)
 		}
 		if rc.cfgMaxStates != defaultCFGMaxStates {
 			t.Fatalf("expected cfgMaxStates default %d, got %d", defaultCFGMaxStates, rc.cfgMaxStates)

@@ -53,10 +53,7 @@ func adaptiveBudgetValue(requested int, sizeFloor int) int {
 	if requested <= 8 {
 		return requested
 	}
-	effective := requested
-	if sizeFloor > effective {
-		effective = sizeFloor
-	}
+	effective := max(requested, sizeFloor)
 	hardCap := requested * maxAdaptiveBudgetMultiplier
 	if effective > hardCap {
 		effective = hardCap

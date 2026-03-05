@@ -43,7 +43,8 @@ make update-baseline
 | `make check-types-json` | Same, JSON output for tooling |
 | `make check-types-all` | All DDD checks: primitives + method + constructor + structural checks |
 | `make check-types-all-json` | Same, JSON output |
-| `make check-semantic-spec` | Phase A semantic contract and oracle checks for CFA-backed categories |
+| `make check-semantic-spec` | Semantic contract and oracle checks for CFA-backed categories |
+| `make check-ifds-compat` | Legacy-vs-IFDS no-silent-downgrade compatibility gate |
 | `make check-baseline` | Regression gate: report only **new** findings vs baseline |
 | `make update-baseline` | Regenerate `baseline.toml` from current codebase state |
 
@@ -258,6 +259,7 @@ Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constr
 | `-check-struct-validate` | bool | `false` | Report constructor-backed structs missing `Validate()` |
 | `-ubv-mode` | string | `"escape"` | UBV semantics mode: `order` or `escape` |
 | `-cfg-backend` | string | `"ssa"` | Path-analysis backend selector: `ssa` or `ast` |
+| `-cfg-interproc-engine` | string | `"legacy"` | Interprocedural engine selector: `legacy`, `ifds`, or `compare` |
 | `-cfg-max-states` | int | `20000` | Maximum CFG states explored before conservative fallback |
 | `-cfg-max-depth` | int | `512` | Maximum CFG DFS depth before conservative fallback |
 | `-cfg-inconclusive-policy` | string | `"error"` | Inconclusive CFA policy: `error`, `warn`, or `off` |
@@ -296,6 +298,8 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 - `--check-cast-validation`, `--check-constructor-validates`, and `--check-use-before-validate` are CFA-only checks.
 - CFA is always enabled for those checks; there is no CFA opt-out flag.
 - `--check-use-before-validate` emits split categories: `use-before-validate-same-block` and `use-before-validate-cross-block`.
+- `--cfg-interproc-engine=legacy|ifds|compare` selects the interprocedural solver path for cast/UBV/constructor-validates checks.
+- `--cfg-interproc-engine=compare` runs legacy and IFDS solvers and fails on forbidden `legacy -> safe` silent downgrades.
 - CFA budget truncation and recursion-summary cycles emit inconclusive categories (`unvalidated-cast-inconclusive`, `use-before-validate-inconclusive`, `missing-constructor-validate-inconclusive`) with `cfg_*` metadata.
 - `--cfg-inconclusive-policy` controls inconclusive emission: `error` (default), `warn` (emits with warning metadata), `off` (suppresses inconclusive findings).
 - Inconclusive metadata includes bounded witness fields (`cfg_witness_kind`, `cfg_witness_blocks`, `cfg_witness_edges`, `cfg_witness_call_chain`, plus compatibility keys `witness_cfg_path`, `witness_cfg_steps`, `witness_cfg_truncated`) capped by `--cfg-witness-max-steps`.

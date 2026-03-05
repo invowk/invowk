@@ -4,6 +4,7 @@ package goplint
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,16 @@ import (
 
 const semanticRulesCatalogVersion = "v1"
 
-var semanticOutcomeDomainAllowed = []string{"safe", "unsafe", "inconclusive"}
+var (
+	semanticOutcomeDomainAllowed   = []string{"safe", "unsafe", "inconclusive"}
+	semanticInterprocEngineAllowed = []string{cfgInterprocEngineLegacy, cfgInterprocEngineIFDS, cfgInterprocEngineCompare}
+	semanticEdgeFunctionTagAllowed = []string{
+		string(ideEdgeFuncIdentity),
+		string(ideEdgeFuncValidate),
+		string(ideEdgeFuncEscape),
+		string(ideEdgeFuncConsume),
+	}
+)
 
 type semanticRuleCatalog struct {
 	Version                string               `json:"version"`
@@ -33,6 +43,9 @@ type semanticRuleSpec struct {
 	TraversalMode              string   `json:"traversal_mode"`
 	StateDomain                []string `json:"state_domain"`
 	OutcomeDomain              []string `json:"outcome_domain"`
+	InterprocEngineModes       []string `json:"interproc_engine_modes,omitempty"`
+	FactFamilies               []string `json:"fact_families,omitempty"`
+	EdgeFunctionTags           []string `json:"edge_function_tags,omitempty"`
 	InconclusiveReasons        []string `json:"inconclusive_reasons,omitempty"`
 	RequiredMetaOnInconclusive []string `json:"required_meta_on_inconclusive,omitempty"`
 	BaselinePolicy             string   `json:"baseline_policy"`
@@ -91,13 +104,16 @@ func loadSemanticRuleSchema() (map[string]any, error) {
 	return payload, nil
 }
 
-func decodeJSONFile(path string, out any) error {
+func decodeJSONFile(path string, out any) (err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("opening file: %w", err)
 	}
 	defer func() {
-		_ = file.Close()
+		closeErr := file.Close()
+		if closeErr != nil && err == nil {
+			err = fmt.Errorf("closing file: %w", closeErr)
+		}
 	}()
 
 	decoder := json.NewDecoder(file)
@@ -107,7 +123,7 @@ func decodeJSONFile(path string, out any) error {
 	}
 	if err := decoder.Decode(new(any)); err != io.EOF {
 		if err == nil {
-			return fmt.Errorf("json document has trailing data")
+			return errors.New("json document has trailing data")
 		}
 		return fmt.Errorf("validating json eof: %w", err)
 	}
@@ -119,7 +135,7 @@ func validateSemanticRuleCatalog(catalog semanticRuleCatalog) error {
 		return fmt.Errorf("semantic rules version must be %q (got %q)", semanticRulesCatalogVersion, catalog.Version)
 	}
 	if len(catalog.Rules) == 0 {
-		return fmt.Errorf("semantic rules catalog must declare at least one rule")
+		return errors.New("semantic rules catalog must declare at least one rule")
 	}
 
 	ruleCategories := make(map[string]struct{}, len(catalog.Rules))
@@ -134,7 +150,7 @@ func validateSemanticRuleCatalog(catalog semanticRuleCatalog) error {
 	}
 
 	if len(catalog.OracleMatrix) == 0 {
-		return fmt.Errorf("semantic rules catalog must include oracle_matrix entries")
+		return errors.New("semantic rules catalog must include oracle_matrix entries")
 	}
 	oracleCategories := map[string]struct{}{}
 	for idx, oracle := range catalog.OracleMatrix {
@@ -151,7 +167,7 @@ func validateSemanticRuleCatalog(catalog semanticRuleCatalog) error {
 	}
 
 	if len(catalog.HistoricalMissFixtures) == 0 {
-		return fmt.Errorf("semantic rules catalog must include historical_miss_fixtures")
+		return errors.New("semantic rules catalog must include historical_miss_fixtures")
 	}
 	seenFixtures := map[string]struct{}{}
 	for idx, fixture := range catalog.HistoricalMissFixtures {
@@ -170,13 +186,13 @@ func validateSemanticRuleCatalog(catalog semanticRuleCatalog) error {
 
 func validateSemanticRuleSpec(rule semanticRuleSpec) error {
 	if strings.TrimSpace(rule.Category) == "" {
-		return fmt.Errorf("category must be non-empty")
+		return errors.New("category must be non-empty")
 	}
 	if strings.TrimSpace(rule.Family) == "" {
-		return fmt.Errorf("family must be non-empty")
+		return errors.New("family must be non-empty")
 	}
 	if strings.TrimSpace(rule.TraversalMode) == "" {
-		return fmt.Errorf("traversal_mode must be non-empty")
+		return errors.New("traversal_mode must be non-empty")
 	}
 	if err := requireUniqueNonEmpty(rule.Entrypoints, "entrypoints"); err != nil {
 		return err
@@ -193,9 +209,47 @@ func validateSemanticRuleSpec(rule semanticRuleSpec) error {
 	if err := requireUniqueNonEmpty(rule.OutcomeDomain, "outcome_domain"); err != nil {
 		return err
 	}
+	requiresInterprocSpec := strings.HasPrefix(rule.Family, "cfa-")
+	if requiresInterprocSpec {
+		if err := requireUniqueNonEmpty(rule.InterprocEngineModes, "interproc_engine_modes"); err != nil {
+			return err
+		}
+		if err := requireUniqueNonEmpty(rule.FactFamilies, "fact_families"); err != nil {
+			return err
+		}
+		if err := requireUniqueNonEmpty(rule.EdgeFunctionTags, "edge_function_tags"); err != nil {
+			return err
+		}
+	} else {
+		if len(rule.InterprocEngineModes) > 0 {
+			if err := requireUniqueNonEmpty(rule.InterprocEngineModes, "interproc_engine_modes"); err != nil {
+				return err
+			}
+		}
+		if len(rule.FactFamilies) > 0 {
+			if err := requireUniqueNonEmpty(rule.FactFamilies, "fact_families"); err != nil {
+				return err
+			}
+		}
+		if len(rule.EdgeFunctionTags) > 0 {
+			if err := requireUniqueNonEmpty(rule.EdgeFunctionTags, "edge_function_tags"); err != nil {
+				return err
+			}
+		}
+	}
 	for _, outcome := range rule.OutcomeDomain {
 		if !slices.Contains(semanticOutcomeDomainAllowed, outcome) {
 			return fmt.Errorf("outcome_domain contains unsupported value %q", outcome)
+		}
+	}
+	for _, engine := range rule.InterprocEngineModes {
+		if !slices.Contains(semanticInterprocEngineAllowed, engine) {
+			return fmt.Errorf("interproc_engine_modes contains unsupported value %q", engine)
+		}
+	}
+	for _, tag := range rule.EdgeFunctionTags {
+		if !slices.Contains(semanticEdgeFunctionTagAllowed, tag) {
+			return fmt.Errorf("edge_function_tags contains unsupported value %q", tag)
 		}
 	}
 	if err := validateSemanticBaselinePolicy(rule.BaselinePolicy); err != nil {
@@ -211,7 +265,7 @@ func validateSemanticRuleSpec(rule semanticRuleSpec) error {
 			return err
 		}
 	} else if len(rule.InconclusiveReasons) > 0 || len(rule.RequiredMetaOnInconclusive) > 0 {
-		return fmt.Errorf("inconclusive fields must be omitted when outcome_domain excludes inconclusive")
+		return errors.New("inconclusive fields must be omitted when outcome_domain excludes inconclusive")
 	}
 
 	return nil
@@ -219,13 +273,13 @@ func validateSemanticRuleSpec(rule semanticRuleSpec) error {
 
 func validateSemanticOracleSpec(spec semanticOracleSpec) error {
 	if strings.TrimSpace(spec.Category) == "" {
-		return fmt.Errorf("category must be non-empty")
+		return errors.New("category must be non-empty")
 	}
 	if len(spec.MustReport) == 0 {
-		return fmt.Errorf("must_report must contain at least one entry")
+		return errors.New("must_report must contain at least one entry")
 	}
 	if len(spec.MustNotReport) == 0 {
-		return fmt.Errorf("must_not_report must contain at least one entry")
+		return errors.New("must_not_report must contain at least one entry")
 	}
 	for _, entry := range spec.MustReport {
 		if err := validateSemanticOracleEntry(entry, "must_report"); err != nil {

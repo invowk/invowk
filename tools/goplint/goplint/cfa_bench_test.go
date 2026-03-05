@@ -139,7 +139,7 @@ func parseBenchCFGBody(tb testing.TB, src string) (*ast.BlockStmt, *gocfg.CFG) {
 		if !ok || fn.Body == nil {
 			continue
 		}
-			return fn.Body, gocfg.New(fn.Body, func(*ast.CallExpr) bool { return true })
+		return fn.Body, gocfg.New(fn.Body, func(*ast.CallExpr) bool { return true })
 	}
 	tb.Fatal("func body not found")
 	return nil, nil

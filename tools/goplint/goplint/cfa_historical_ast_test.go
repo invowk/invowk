@@ -18,7 +18,6 @@ func TestSemanticSpecHistoricalFixturesReplay(t *testing.T) {
 	testdata := analysistest.TestData()
 
 	for _, fixture := range catalog.HistoricalMissFixtures {
-		fixture := fixture
 		t.Run(fixture, func(t *testing.T) {
 			t.Parallel()
 

@@ -166,12 +166,15 @@ func inspectConstructorValidates(
 	cfg *ExceptionConfig,
 	bl *BaselineConfig,
 	cfgBackend string,
+	cfgInterprocEngine string,
 	cfgMaxStates int,
 	cfgMaxDepth int,
 	cfgInconclusivePolicy string,
 	cfgWitnessMaxSteps int,
-) {
+) error {
 	pkgName := packageName(pass.Pkg)
+	solver := newInterprocSolver(pass, cfgBackend, cfgInterprocEngine)
+	compatTracker := newInterprocCompatTracker(cfgInterprocEngine)
 
 	// Build a set of struct names that have Validate() methods.
 	validatableStructs := buildValidatableStructs(pass)
@@ -237,6 +240,18 @@ func inspectConstructorValidates(
 			if constantOnlyTypes[returnTypeKey] {
 				continue
 			}
+
+			// Check for ignore directive on the function.
+			if hasIgnoreDirective(fn.Doc, nil) {
+				continue
+			}
+
+			qualName := fmt.Sprintf("%s.%s", pkgName, name)
+			excKey := qualName + ".constructor-validate"
+			if cfg.isExcepted(excKey) {
+				continue
+			}
+
 			effectiveBudget := blockVisitBudget{
 				maxStates: cfgMaxStates,
 				maxDepth:  cfgMaxDepth,
@@ -247,28 +262,28 @@ func inspectConstructorValidates(
 
 			// Check whether constructor paths validate the returned type.
 			// CFA mode is required for constructor-validates.
-			pathOutcome, pathReason, pathWitness := constructorReturnPathOutcomeWithWitness(
-				pass,
-				fn,
-				returnType,
-				returnTypePkgPath,
-				returnTypeKey,
-				cfgBackend,
-				effectiveBudget.maxStates,
-				effectiveBudget.maxDepth,
+			pathInput := interprocConstructorPathInput{
+				Decl:              fn,
+				ReturnTypeKey:     returnTypeKey,
+				ReturnTypePkgPath: returnTypePkgPath,
+				Constructor:       qualName,
+				ReturnType:        returnType,
+				MaxStates:         effectiveBudget.maxStates,
+				MaxDepth:          effectiveBudget.maxDepth,
+			}
+			pathLegacy := solver.EvaluateConstructorPathLegacy(pathInput)
+			pathResult := solver.EvaluateConstructorPath(pathInput)
+			compatTracker.Check(
+				CategoryMissingConstructorValidate,
+				PackageScopedFindingID(pass, CategoryMissingConstructorValidate, qualName, returnType),
+				pathLegacy,
+				pathResult,
+				false,
 			)
+			pathOutcome := pathResult.toPathOutcome()
+			pathReason := pathResult.Reason
+			pathWitness := pathResult.Witness
 			if pathOutcome == pathOutcomeSafe {
-				continue
-			}
-
-			// Check for ignore directive on the function.
-			if hasIgnoreDirective(fn.Doc, nil) {
-				continue
-			}
-
-			qualName := fmt.Sprintf("%s.%s", pkgName, name)
-			excKey := qualName + ".constructor-validate"
-			if cfg.isExcepted(excKey) {
 				continue
 			}
 
@@ -304,6 +319,8 @@ func inspectConstructorValidates(
 			reportFindingIfNotBaselined(pass, bl, fn.Name.Pos(), CategoryMissingConstructorValidate, findingID, msg)
 		}
 	}
+
+	return compatTracker.Err()
 }
 
 // methodCallTarget identifies a method call on the constructor's return type

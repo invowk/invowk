@@ -89,6 +89,36 @@
               ]
             }
           },
+          "interproc_engine_modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "legacy",
+                "ifds",
+                "compare"
+              ]
+            }
+          },
+          "fact_families": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "edge_function_tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "identity",
+                "needs-to-validated",
+                "needs-to-escaped-before-validate",
+                "needs-to-consumed-before-validate"
+              ]
+            }
+          },
           "inconclusive_reasons": {
             "type": "array",
             "items": {

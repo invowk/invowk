@@ -84,6 +84,13 @@ func TestValidateRunConfigRejectsExplicitEmptyPaths(t *testing.T) {
 			want: "flag --cfg-backend must be",
 		},
 		{
+			name: "invalid cfg interproc engine",
+			rc: runConfig{
+				cfgInterprocEngine: "quantum",
+			},
+			want: "flag --cfg-interproc-engine must be",
+		},
+		{
 			name: "invalid cfg max states",
 			rc: runConfig{
 				cfgMaxStates: -1,

@@ -379,31 +379,6 @@ func hasUseBeforeValidateInBlockMode(
 	return outcome != pathOutcomeSafe
 }
 
-func hasUseBeforeValidateInBlockModeWithSummaryStack(
-	pass *analysis.Pass,
-	nodes []ast.Node,
-	startIdx int,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-	summaryStack map[string]bool,
-) bool {
-	outcome, _ := hasUseBeforeValidateInBlockOutcomeModeWithSummaryStack(
-		pass,
-		nodes,
-		startIdx,
-		target,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		ubvMode,
-		summaryStack,
-	)
-	return outcome != pathOutcomeSafe
-}
-
 func hasUseBeforeValidateInBlockOutcomeModeWithSummaryStack(
 	pass *analysis.Pass,
 	nodes []ast.Node,
@@ -440,100 +415,6 @@ func hasUseBeforeValidateInBlockOutcomeModeWithSummaryStack(
 		}
 	}
 	return pathOutcomeSafe, pathOutcomeReasonNone
-}
-
-// hasUseBeforeValidateCrossBlock performs a DFS from the defining block
-// through CFG successors to detect uses of varName that occur before
-// any Validate() call on that path. Unlike hasUseBeforeValidateInBlock
-// which only checks within the defining block, this function checks
-// across block boundaries.
-//
-// The function is only called when hasPathToReturnWithoutValidate returns
-// false (all paths DO validate) — the question is whether any path
-// uses the variable before reaching the Validate() call.
-//
-// Algorithm:
-//  1. Start from defBlock.Succs (the cast's defining block has already
-//     been checked by hasUseBeforeValidateInBlock).
-//  2. For each live, unvisited successor block:
-//     a. Scan nodes in order: if a use is found before Validate → flag.
-//     b. If Validate is found first → prune this path (validated).
-//     c. If neither is found → continue DFS to successors.
-func hasUseBeforeValidateCrossBlock(
-	pass *analysis.Pass,
-	defBlock *gocfg.Block,
-	defIdx int,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-) bool {
-	return hasUseBeforeValidateCrossBlockMode(
-		pass,
-		defBlock,
-		defIdx,
-		target,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		ubvModeOrder,
-		defaultCFGMaxStates,
-		defaultCFGMaxDepth,
-	)
-}
-
-func hasUseBeforeValidateCrossBlockMode(
-	pass *analysis.Pass,
-	defBlock *gocfg.Block,
-	defIdx int,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-	maxStates int,
-	maxDepth int,
-) bool {
-	outcome, _, _ := hasUseBeforeValidateCrossBlockOutcomeModeWithWitness(
-		pass,
-		defBlock,
-		defIdx,
-		target,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		ubvMode,
-		maxStates,
-		maxDepth,
-	)
-	return outcome != pathOutcomeSafe
-}
-
-func hasUseBeforeValidateCrossBlockOutcomeMode(
-	pass *analysis.Pass,
-	defBlock *gocfg.Block,
-	defIdx int,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-	maxStates int,
-	maxDepth int,
-) (pathOutcome, pathOutcomeReason) {
-	outcome, reason, _ := hasUseBeforeValidateCrossBlockOutcomeModeWithWitness(
-		pass,
-		defBlock,
-		defIdx,
-		target,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		ubvMode,
-		maxStates,
-		maxDepth,
-	)
-	return outcome, reason
 }
 
 func hasUseBeforeValidateCrossBlockOutcomeModeWithWitness(
@@ -658,124 +539,6 @@ func hasUseBeforeValidateCrossBlockModeWithSummaryStackWithWitness(
 		budget.maxDepth,
 		summaryStack,
 	)
-}
-
-// dfsUseBeforeValidate recursively checks whether any path through
-// successor blocks contains a "use" of varName before a "Validate" call.
-// Blocks containing Validate() prune their path (downstream is safe).
-// Blocks with no use and no Validate continue the DFS.
-func dfsUseBeforeValidate(
-	pass *analysis.Pass,
-	succs []*gocfg.Block,
-	target castTarget,
-	visited map[int32]bool,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-) bool {
-	seenStates := len(visited)
-	return dfsUseBeforeValidateMode(pass, succs, target, visited, syncLits, syncCalls, methodCalls, ubvModeOrder, 0, &seenStates, defaultCFGMaxStates, defaultCFGMaxDepth)
-}
-
-func dfsUseBeforeValidateMode(
-	pass *analysis.Pass,
-	succs []*gocfg.Block,
-	target castTarget,
-	visited map[int32]bool,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-	depth int,
-	seenStates *int,
-	maxStates int,
-	maxDepth int,
-) bool {
-	mode := cfgTraversalModeUBVOrder
-	if ubvMode == ubvModeEscape {
-		mode = cfgTraversalModeUBVEscape
-	}
-	ctx := newCFGTraversalContextFromBlocks(
-		mode,
-		target.key(),
-		cfgValidationStateNeedsValidateBeforeUse,
-		succs,
-	)
-	ctx.visited = cfgVisitStateFromBlockVisited(
-		visited,
-		mode,
-		target.key(),
-		cfgValidationStateNeedsValidateBeforeUse,
-	)
-	outcome, _, _ := dfsUseBeforeValidateModeWithSummaryStackWithWitness(
-		pass,
-		succs,
-		target,
-		cfgVisitAnyPredecessor,
-		ctx,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		ubvMode,
-		depth,
-		nil,
-		seenStates,
-		maxStates,
-		maxDepth,
-		nil,
-	)
-	return outcome != pathOutcomeSafe
-}
-
-func dfsUseBeforeValidateModeWithSummaryStack(
-	pass *analysis.Pass,
-	succs []*gocfg.Block,
-	target castTarget,
-	visited map[int32]bool,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-	depth int,
-	seenStates *int,
-	maxStates int,
-	maxDepth int,
-	summaryStack map[string]bool,
-) (pathOutcome, pathOutcomeReason) {
-	mode := cfgTraversalModeUBVOrder
-	if ubvMode == ubvModeEscape {
-		mode = cfgTraversalModeUBVEscape
-	}
-	ctx := newCFGTraversalContextFromBlocks(
-		mode,
-		target.key(),
-		cfgValidationStateNeedsValidateBeforeUse,
-		succs,
-	)
-	ctx.visited = cfgVisitStateFromBlockVisited(
-		visited,
-		mode,
-		target.key(),
-		cfgValidationStateNeedsValidateBeforeUse,
-	)
-	outcome, reason, _ := dfsUseBeforeValidateModeWithSummaryStackWithWitness(
-		pass,
-		succs,
-		target,
-		cfgVisitAnyPredecessor,
-		ctx,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		ubvMode,
-		depth,
-		nil,
-		seenStates,
-		maxStates,
-		maxDepth,
-		summaryStack,
-	)
-	return outcome, reason
 }
 
 func dfsUseBeforeValidateModeWithSummaryStackWithWitness(
@@ -922,33 +685,6 @@ func callIsNonEscapingBuiltin(call *ast.CallExpr) bool {
 	}
 }
 
-func callUsesTarget(
-	pass *analysis.Pass,
-	call *ast.CallExpr,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-) bool {
-	outcome, _ := callUsesTargetOutcomeWithSummaryStack(pass, call, target, syncLits, syncCalls, methodCalls, ubvMode, nil)
-	return outcome != pathOutcomeSafe
-}
-
-func callUsesTargetWithSummaryStack(
-	pass *analysis.Pass,
-	call *ast.CallExpr,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-	summaryStack map[string]bool,
-) bool {
-	outcome, _ := callUsesTargetOutcomeWithSummaryStack(pass, call, target, syncLits, syncCalls, methodCalls, ubvMode, summaryStack)
-	return outcome != pathOutcomeSafe
-}
-
 func callUsesTargetOutcomeWithSummaryStack(
 	pass *analysis.Pass,
 	call *ast.CallExpr,
@@ -996,33 +732,6 @@ func callUsesTargetOutcomeWithSummaryStack(
 		}
 	}
 	return pathOutcomeSafe, pathOutcomeReasonNone
-}
-
-func isVarEscapeTarget(
-	pass *analysis.Pass,
-	node ast.Node,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-) bool {
-	outcome, _ := isVarEscapeTargetOutcomeWithSummaryStack(pass, node, target, syncLits, syncCalls, methodCalls, ubvMode, nil)
-	return outcome != pathOutcomeSafe
-}
-
-func isVarEscapeTargetWithSummaryStack(
-	pass *analysis.Pass,
-	node ast.Node,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	ubvMode string,
-	summaryStack map[string]bool,
-) bool {
-	outcome, _ := isVarEscapeTargetOutcomeWithSummaryStack(pass, node, target, syncLits, syncCalls, methodCalls, ubvMode, summaryStack)
-	return outcome != pathOutcomeSafe
 }
 
 func isVarEscapeTargetOutcomeWithSummaryStack(

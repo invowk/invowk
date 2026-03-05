@@ -306,6 +306,11 @@ check-types-all-json: build-goplint
 check-semantic-spec:
 	./tools/goplint/scripts/check-semantic-spec.sh
 
+# Check no-silent-downgrade compatibility between legacy and IFDS engines.
+.PHONY: check-ifds-compat
+check-ifds-compat:
+	./tools/goplint/scripts/check-ifds-compat.sh
+
 # Check for goplint regressions against the committed baseline.
 # Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
 .PHONY: check-baseline
@@ -501,6 +506,7 @@ help:
 	@echo "  lint             Run golangci-lint on root and tools/goplint modules"
 	@echo "  lint-tools-goplint  Run golangci-lint for tools/goplint module"
 	@echo "  check-semantic-spec Run semantic contract checks for tools/goplint"
+	@echo "  check-ifds-compat Run IFDS compare-mode no-silent-downgrade gate"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  sonar-local      Run local SonarQube analysis and print unresolved issues"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"

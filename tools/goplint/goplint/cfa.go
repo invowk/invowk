@@ -739,49 +739,6 @@ type blockVisitBudget struct {
 	maxDepth  int
 }
 
-// hasPathToReturnWithoutValidate performs a depth-first search from the
-// defining block (starting after defIdx) through CFG successors. Returns
-// true if any path from the cast definition to a return block never passes
-// through a Validate() call on varName.
-//
-// Closures in syncLits are recognized as containing Validate
-// calls when applicable (their execution before return is guaranteed).
-//
-// Algorithm:
-//  1. Check remainder of defBlock.Nodes[defIdx+1:] for Validate call.
-//     If found, all paths through this block are validated → return false.
-//  2. If defBlock has zero successors (return block) and no Validate in
-//     remainder → return true (unvalidated path to return).
-//  3. DFS over successors: for each unvisited live block, if it contains
-//     Validate → prune (validated). If it's a return block (zero succs) →
-//     return true. Otherwise recurse into its successors.
-func hasPathToReturnWithoutValidate(
-	pass *analysis.Pass,
-	cfg *gocfg.CFG,
-	defBlock *gocfg.Block,
-	defIdx int,
-	target castTarget,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	noReturnAliases noReturnAliasSet,
-) bool {
-	outcome, _, _ := hasPathToReturnWithoutValidateOutcomeWithWitness(
-		pass,
-		cfg,
-		defBlock,
-		defIdx,
-		target,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		noReturnAliases,
-		defaultCFGMaxStates,
-		defaultCFGMaxDepth,
-	)
-	return outcome != pathOutcomeSafe
-}
-
 func hasPathToReturnWithoutValidateOutcome(
 	pass *analysis.Pass,
 	_ *gocfg.CFG,
@@ -869,92 +826,6 @@ func hasPathToReturnWithoutValidateOutcomeWithWitness(
 	)
 }
 
-// dfsUnvalidatedPath recursively checks whether any path through the given
-// successor blocks reaches a return block without encountering a Validate()
-// call on varName. Closures in syncLits are descended into.
-func dfsUnvalidatedPath(
-	pass *analysis.Pass,
-	succs []*gocfg.Block,
-	target castTarget,
-	visited map[int32]bool,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	noReturnAliases noReturnAliasSet,
-) bool {
-	ctx := newCFGTraversalContext(
-		cfgTraversalModeLegacy,
-		"",
-		cfgValidationStateNeedsValidate,
-		nil,
-	)
-	ctx.visited = cfgVisitStateFromBlockVisited(
-		visited,
-		cfgTraversalModeLegacy,
-		"",
-		cfgValidationStateNeedsValidate,
-	)
-	outcome, _, _ := dfsUnvalidatedPathOutcomeWithWitness(
-		pass,
-		succs,
-		target,
-		cfgVisitAnyPredecessor,
-		ctx,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		noReturnAliases,
-		0,
-		nil,
-		nil,
-		blockVisitBudget{maxStates: defaultCFGMaxStates, maxDepth: defaultCFGMaxDepth},
-	)
-	return outcome != pathOutcomeSafe
-}
-
-func dfsUnvalidatedPathOutcome(
-	pass *analysis.Pass,
-	succs []*gocfg.Block,
-	target castTarget,
-	visited map[int32]bool,
-	syncLits map[*ast.FuncLit]bool,
-	syncCalls closureVarCallSet,
-	methodCalls methodValueValidateCallSet,
-	noReturnAliases noReturnAliasSet,
-	depth int,
-	seenStates *int,
-	budget blockVisitBudget,
-) (pathOutcome, pathOutcomeReason) {
-	ctx := newCFGTraversalContext(
-		cfgTraversalModeLegacy,
-		"",
-		cfgValidationStateNeedsValidate,
-		nil,
-	)
-	ctx.visited = cfgVisitStateFromBlockVisited(
-		visited,
-		cfgTraversalModeLegacy,
-		"",
-		cfgValidationStateNeedsValidate,
-	)
-	outcome, reason, _ := dfsUnvalidatedPathOutcomeWithWitness(
-		pass,
-		succs,
-		target,
-		cfgVisitAnyPredecessor,
-		ctx,
-		syncLits,
-		syncCalls,
-		methodCalls,
-		noReturnAliases,
-		depth,
-		nil,
-		seenStates,
-		budget,
-	)
-	return outcome, reason
-}
-
 func dfsUnvalidatedPathOutcomeWithWitness(
 	pass *analysis.Pass,
 	succs []*gocfg.Block,
@@ -991,10 +862,8 @@ func dfsUnvalidatedPathOutcomeWithWitness(
 // dfsUnvalidatedBlocks performs a depth-first search through CFG blocks,
 // returning true if any path from the given blocks reaches a return block
 // (zero successors) without passing through a block where blockHasValidate
-// returns true. This is the shared DFS engine used by both cast-validation
-// (via dfsUnvalidatedPath) and constructor-validates (via
-// dfsConstructorUnvalidated). The blockHasValidate predicate abstracts the
-// validate-matching strategy.
+// returns true. The blockHasValidate predicate abstracts the validate-matching
+// strategy.
 func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHasValidate blockValidateChecker) bool {
 	ctx := newCFGTraversalContext(
 		cfgTraversalModeLegacy,
@@ -1022,39 +891,6 @@ func dfsUnvalidatedBlocks(blocks []*gocfg.Block, visited map[int32]bool, blockHa
 		},
 	)
 	return outcome != pathOutcomeSafe
-}
-
-func dfsUnvalidatedBlocksOutcome(
-	blocks []*gocfg.Block,
-	visited map[int32]bool,
-	blockHasValidate blockValidateChecker,
-	depth int,
-	seenStates *int,
-	budget blockVisitBudget,
-) (pathOutcome, pathOutcomeReason) {
-	ctx := newCFGTraversalContext(
-		cfgTraversalModeLegacy,
-		"",
-		cfgValidationStateNeedsValidate,
-		nil,
-	)
-	ctx.visited = cfgVisitStateFromBlockVisited(
-		visited,
-		cfgTraversalModeLegacy,
-		"",
-		cfgValidationStateNeedsValidate,
-	)
-	outcome, reason, _ := dfsUnvalidatedBlocksOutcomeWithWitness(
-		blocks,
-		cfgVisitAnyPredecessor,
-		ctx,
-		blockHasValidate,
-		depth,
-		nil,
-		seenStates,
-		budget,
-	)
-	return outcome, reason
 }
 
 func dfsUnvalidatedBlocksOutcomeWithWitness(

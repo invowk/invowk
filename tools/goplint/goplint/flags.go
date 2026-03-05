@@ -18,6 +18,11 @@ const (
 	cfgBackendSSA     = "ssa"
 	cfgBackendAST     = "ast"
 
+	defaultCFGInterprocEngine = "legacy"
+	cfgInterprocEngineLegacy  = "legacy"
+	cfgInterprocEngineIFDS    = "ifds"
+	cfgInterprocEngineCompare = "compare"
+
 	defaultCFGMaxStates = 20_000
 	defaultCFGMaxDepth  = 512
 
@@ -38,6 +43,7 @@ type flagState struct {
 	includePackages             string // comma-separated package prefixes (CLI override)
 	ubvMode                     string
 	cfgBackend                  string
+	cfgInterprocEngine          string
 	cfgMaxStates                int
 	cfgMaxDepth                 int
 	cfgInconclusivePolicy       string
@@ -386,6 +392,8 @@ func bindAnalyzerFlags(analyzer *analysis.Analyzer, state *flagState) {
 		"use-before-validate semantics mode: order or escape")
 	analyzer.Flags.StringVar(&state.cfgBackend, "cfg-backend", defaultCFGBackend,
 		"path analysis backend: ssa or ast")
+	analyzer.Flags.StringVar(&state.cfgInterprocEngine, "cfg-interproc-engine", defaultCFGInterprocEngine,
+		"interprocedural path engine: legacy, ifds, or compare")
 	analyzer.Flags.IntVar(&state.cfgMaxStates, "cfg-max-states", defaultCFGMaxStates,
 		"maximum CFG states explored before conservative fallback")
 	analyzer.Flags.IntVar(&state.cfgMaxDepth, "cfg-max-depth", defaultCFGMaxDepth,
@@ -410,6 +418,7 @@ func resetFlagStateDefaults(state *flagState) {
 	state.includePackages = ""
 	state.ubvMode = defaultUBVMode
 	state.cfgBackend = defaultCFGBackend
+	state.cfgInterprocEngine = defaultCFGInterprocEngine
 	state.cfgMaxStates = defaultCFGMaxStates
 	state.cfgMaxDepth = defaultCFGMaxDepth
 	state.cfgInconclusivePolicy = defaultCFGInconclusivePolicy
@@ -443,6 +452,7 @@ type runConfig struct {
 	includePackagesExplicit     bool
 	ubvMode                     string
 	cfgBackend                  string
+	cfgInterprocEngine          string
 	cfgMaxStates                int
 	cfgMaxDepth                 int
 	cfgInconclusivePolicy       string
@@ -482,6 +492,7 @@ func newRunConfigForState(state *flagState) runConfig {
 		includePackagesExplicit:  state.includePackagesExplicit,
 		ubvMode:                  state.ubvMode,
 		cfgBackend:               state.cfgBackend,
+		cfgInterprocEngine:       state.cfgInterprocEngine,
 		cfgMaxStates:             state.cfgMaxStates,
 		cfgMaxDepth:              state.cfgMaxDepth,
 		cfgInconclusivePolicy:    state.cfgInconclusivePolicy,
@@ -524,6 +535,10 @@ func normalizeRunConfig(rc *runConfig) {
 	}
 	if rc.cfgBackend == "" {
 		rc.cfgBackend = defaultCFGBackend
+	}
+	rc.cfgInterprocEngine = strings.TrimSpace(strings.ToLower(rc.cfgInterprocEngine))
+	if rc.cfgInterprocEngine == "" {
+		rc.cfgInterprocEngine = defaultCFGInterprocEngine
 	}
 	if rc.cfgMaxStates == 0 {
 		rc.cfgMaxStates = defaultCFGMaxStates
