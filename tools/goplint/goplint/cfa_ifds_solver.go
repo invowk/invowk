@@ -5,6 +5,7 @@ package goplint
 import (
 	"fmt"
 	"go/ast"
+	"sort"
 
 	"golang.org/x/tools/go/analysis"
 	gocfg "golang.org/x/tools/go/cfg"
@@ -89,16 +90,12 @@ type interprocConstructorPathInput struct {
 }
 
 func (s interprocSolver) EvaluateCastPath(input interprocCastPathInput) interprocPathResult {
-	legacy := s.evaluateCastPathLegacy(input)
-	if s.engine != cfgInterprocEngineIFDS && s.engine != cfgInterprocEngineCompare {
-		return legacy
+	switch s.engine {
+	case cfgInterprocEngineIFDS, cfgInterprocEngineCompare:
+		return s.evaluateCastPathIFDS(input)
+	default:
+		return s.evaluateCastPathLegacy(input)
 	}
-	ifds := s.evaluateCastPathIFDS(input)
-	if s.engine == cfgInterprocEngineCompare {
-		// Compare mode reports IFDS semantics while parity checks run in adapters.
-		return ifds
-	}
-	return ifds
 }
 
 func (s interprocSolver) EvaluateCastPathLegacy(input interprocCastPathInput) interprocPathResult {
@@ -110,15 +107,12 @@ func (s interprocSolver) EvaluateCastPathIFDS(input interprocCastPathInput) inte
 }
 
 func (s interprocSolver) EvaluateUBVInBlock(input interprocUBVInBlockInput) interprocPathResult {
-	legacy := s.evaluateUBVInBlockLegacy(input)
-	if s.engine != cfgInterprocEngineIFDS && s.engine != cfgInterprocEngineCompare {
-		return legacy
+	switch s.engine {
+	case cfgInterprocEngineIFDS, cfgInterprocEngineCompare:
+		return s.evaluateUBVInBlockIFDS(input)
+	default:
+		return s.evaluateUBVInBlockLegacy(input)
 	}
-	ifds := s.evaluateUBVInBlockIFDS(input)
-	if s.engine == cfgInterprocEngineCompare {
-		return ifds
-	}
-	return ifds
 }
 
 func (s interprocSolver) EvaluateUBVInBlockLegacy(input interprocUBVInBlockInput) interprocPathResult {
@@ -130,15 +124,12 @@ func (s interprocSolver) EvaluateUBVInBlockIFDS(input interprocUBVInBlockInput) 
 }
 
 func (s interprocSolver) EvaluateUBVCrossBlock(input interprocUBVCrossBlockInput) interprocPathResult {
-	legacy := s.evaluateUBVCrossBlockLegacy(input)
-	if s.engine != cfgInterprocEngineIFDS && s.engine != cfgInterprocEngineCompare {
-		return legacy
+	switch s.engine {
+	case cfgInterprocEngineIFDS, cfgInterprocEngineCompare:
+		return s.evaluateUBVCrossBlockIFDS(input)
+	default:
+		return s.evaluateUBVCrossBlockLegacy(input)
 	}
-	ifds := s.evaluateUBVCrossBlockIFDS(input)
-	if s.engine == cfgInterprocEngineCompare {
-		return ifds
-	}
-	return ifds
 }
 
 func (s interprocSolver) EvaluateUBVCrossBlockLegacy(input interprocUBVCrossBlockInput) interprocPathResult {
@@ -150,15 +141,12 @@ func (s interprocSolver) EvaluateUBVCrossBlockIFDS(input interprocUBVCrossBlockI
 }
 
 func (s interprocSolver) EvaluateConstructorPath(input interprocConstructorPathInput) interprocPathResult {
-	legacy := s.evaluateConstructorPathLegacy(input)
-	if s.engine != cfgInterprocEngineIFDS && s.engine != cfgInterprocEngineCompare {
-		return legacy
+	switch s.engine {
+	case cfgInterprocEngineIFDS, cfgInterprocEngineCompare:
+		return s.evaluateConstructorPathIFDS(input)
+	default:
+		return s.evaluateConstructorPathLegacy(input)
 	}
-	ifds := s.evaluateConstructorPathIFDS(input)
-	if s.engine == cfgInterprocEngineCompare {
-		return ifds
-	}
-	return ifds
 }
 
 func (s interprocSolver) EvaluateConstructorPathLegacy(input interprocConstructorPathInput) interprocPathResult {
@@ -200,8 +188,84 @@ func (s interprocSolver) evaluateCastPathLegacy(input interprocCastPathInput) in
 }
 
 func (s interprocSolver) evaluateCastPathIFDS(input interprocCastPathInput) interprocPathResult {
-	_ = buildInterprocSupergraphForFunc(s.pass, input.Decl, s.backend)
-	return s.evaluateCastPathLegacy(input)
+	fact := ifdsCastNeedsValidateFact{
+		OriginKey: input.OriginKey,
+		TargetKey: input.Target.key(),
+		TypeKey:   input.TypeName,
+	}
+
+	result := interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, nil)
+	if input.DefBlock != nil {
+		var graph interprocSupergraph
+		start := interprocNodeID{}
+		ok := false
+
+		if input.Decl != nil {
+			graph = buildInterprocSupergraphForFunc(s.pass, input.Decl, s.backend)
+			start = interprocNodeID{
+				FuncKey:    interprocFunctionKey(s.pass, input.Decl),
+				BlockIndex: input.DefBlock.Index,
+				NodeIndex:  input.DefIdx,
+				Kind:       interprocNodeKindCFG,
+			}
+			_, ok = graph.Nodes[start.Key()]
+		}
+		if !ok && input.CFG != nil {
+			funcKey := "cfg.cast." + input.OriginKey
+			if funcKey == "cfg.cast." {
+				funcKey = "cfg.cast"
+			}
+			graph = buildInterprocSupergraphFromCFG(input.CFG, funcKey)
+			start = interprocNodeID{
+				FuncKey:    funcKey,
+				BlockIndex: input.DefBlock.Index,
+				NodeIndex:  input.DefIdx,
+				Kind:       interprocNodeKindCFG,
+			}
+			_, ok = graph.Nodes[start.Key()]
+		}
+		if ok {
+			result = runIFDSPropagation(
+				graph,
+				start,
+				input.MaxStates,
+				input.MaxDepth,
+				func(_ interprocNodeID, node ast.Node, state ideValidationState) (ideEdgeFuncTag, pathOutcomeReason) {
+					if state != ideStateNeedsValidate {
+						return ideEdgeFuncIdentity, pathOutcomeReasonNone
+					}
+					if node == nil {
+						return ideEdgeFuncIdentity, pathOutcomeReasonNone
+					}
+					if containsValidateCallTarget(s.pass, node, input.Target, input.SyncLits, input.SyncCalls, input.MethodCalls) {
+						return ideEdgeFuncValidate, pathOutcomeReasonNone
+					}
+					return ideEdgeFuncIdentity, pathOutcomeReasonNone
+				},
+				func(nodeID interprocNodeID, _ ast.Node, state ideValidationState) bool {
+					if state == ideStateValidated {
+						return false
+					}
+					if graph.isTerminalCFGNode(nodeID) {
+						return true
+					}
+					if nodeID.Kind == interprocNodeKindReturn && len(graph.outgoing(nodeID)) == 0 {
+						return true
+					}
+					return false
+				},
+			)
+		}
+	}
+	if result.Class == interprocOutcomeSafe {
+		// Keep IFDS cast mode fail-closed while rollout stays compatibility-gated.
+		result = interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, result.Witness)
+	}
+
+	result.FactFamily = fact.Family()
+	result.FactKey = fact.Key()
+	result.EdgeFunctionTag = edgeTagFromPathResult(result, ubvModeOrder)
+	return result
 }
 
 func (s interprocSolver) evaluateUBVInBlockLegacy(input interprocUBVInBlockInput) interprocPathResult {
@@ -230,7 +294,58 @@ func (s interprocSolver) evaluateUBVInBlockLegacy(input interprocUBVInBlockInput
 }
 
 func (s interprocSolver) evaluateUBVInBlockIFDS(input interprocUBVInBlockInput) interprocPathResult {
-	return s.evaluateUBVInBlockLegacy(input)
+	fact := ifdsUBVNeedsValidateBeforeUseFact{
+		OriginKey: input.OriginKey,
+		TargetKey: input.Target.key(),
+		TypeKey:   input.TypeName,
+		Mode:      input.Mode,
+	}
+
+	state := ideStateNeedsValidate
+	start := input.StartIndex
+	if start < 0 {
+		start = 0
+	}
+	for idx := start; idx < len(input.Nodes); idx++ {
+		tag, reason := ubvNodeEdgeTag(
+			s.pass,
+			input.Nodes[idx],
+			input.Target,
+			input.SyncLits,
+			input.SyncCalls,
+			input.MethodCalls,
+			input.Mode,
+			state,
+		)
+		if reason != pathOutcomeReasonNone {
+			result := interprocPathResultFromOutcome(pathOutcomeInconclusive, reason, nil)
+			result.FactFamily = fact.Family()
+			result.FactKey = fact.Key()
+			result.EdgeFunctionTag = edgeTagFromPathResult(result, input.Mode)
+			return result
+		}
+		state = newIDEEdgeFunc(tag).Apply(state)
+		if state == ideStateEscapedBeforeValidate || state == ideStateConsumedBeforeValidate {
+			result := interprocPathResultFromOutcome(pathOutcomeUnsafe, pathOutcomeReasonNone, nil)
+			result.FactFamily = fact.Family()
+			result.FactKey = fact.Key()
+			result.EdgeFunctionTag = edgeTagFromPathResult(result, input.Mode)
+			return result
+		}
+		if state == ideStateValidated {
+			result := interprocPathResultFromOutcome(pathOutcomeSafe, pathOutcomeReasonNone, nil)
+			result.FactFamily = fact.Family()
+			result.FactKey = fact.Key()
+			result.EdgeFunctionTag = edgeTagFromPathResult(result, input.Mode)
+			return result
+		}
+	}
+
+	result := interprocPathResultFromOutcome(pathOutcomeSafe, pathOutcomeReasonNone, nil)
+	result.FactFamily = fact.Family()
+	result.FactKey = fact.Key()
+	result.EdgeFunctionTag = edgeTagFromPathResult(result, input.Mode)
+	return result
 }
 
 func (s interprocSolver) evaluateUBVCrossBlockLegacy(input interprocUBVCrossBlockInput) interprocPathResult {
@@ -260,7 +375,66 @@ func (s interprocSolver) evaluateUBVCrossBlockLegacy(input interprocUBVCrossBloc
 }
 
 func (s interprocSolver) evaluateUBVCrossBlockIFDS(input interprocUBVCrossBlockInput) interprocPathResult {
-	return s.evaluateUBVCrossBlockLegacy(input)
+	fact := ifdsUBVNeedsValidateBeforeUseFact{
+		OriginKey: input.OriginKey,
+		TargetKey: input.Target.key(),
+		TypeKey:   input.TypeName,
+		Mode:      input.Mode,
+	}
+	if input.DefBlock == nil {
+		result := interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, nil)
+		result.FactFamily = fact.Family()
+		result.FactKey = fact.Key()
+		result.EdgeFunctionTag = edgeTagFromPathResult(result, input.Mode)
+		return result
+	}
+
+	funcKey := "cfg.ubv." + input.OriginKey
+	if funcKey == "cfg.ubv." {
+		funcKey = "cfg.ubv"
+	}
+	graph := buildInterprocSupergraphFromReachableBlocks(input.DefBlock, funcKey)
+	start := interprocNodeID{
+		FuncKey:    funcKey,
+		BlockIndex: input.DefBlock.Index,
+		NodeIndex:  input.DefIdx,
+		Kind:       interprocNodeKindCFG,
+	}
+	if _, ok := graph.Nodes[start.Key()]; !ok {
+		start.NodeIndex = 0
+	}
+	result := runIFDSPropagation(
+		graph,
+		start,
+		input.MaxStates,
+		input.MaxDepth,
+		func(_ interprocNodeID, node ast.Node, state ideValidationState) (ideEdgeFuncTag, pathOutcomeReason) {
+			return ubvNodeEdgeTag(
+				s.pass,
+				node,
+				input.Target,
+				input.SyncLits,
+				input.SyncCalls,
+				input.MethodCalls,
+				input.Mode,
+				state,
+			)
+		},
+		func(nodeID interprocNodeID, _ ast.Node, state ideValidationState) bool {
+			if state != ideStateEscapedBeforeValidate && state != ideStateConsumedBeforeValidate {
+				return false
+			}
+			if graph.isTerminalCFGNode(nodeID) {
+				return true
+			}
+			return nodeID.Kind == interprocNodeKindReturn && len(graph.outgoing(nodeID)) == 0
+		},
+	)
+
+	result.FactFamily = fact.Family()
+	result.FactKey = fact.Key()
+	result.EdgeFunctionTag = edgeTagFromPathResult(result, input.Mode)
+	return result
 }
 
 func (s interprocSolver) evaluateConstructorPathLegacy(input interprocConstructorPathInput) interprocPathResult {
@@ -286,8 +460,368 @@ func (s interprocSolver) evaluateConstructorPathLegacy(input interprocConstructo
 }
 
 func (s interprocSolver) evaluateConstructorPathIFDS(input interprocConstructorPathInput) interprocPathResult {
-	_ = buildInterprocSupergraphForFunc(s.pass, input.Decl, s.backend)
-	return s.evaluateConstructorPathLegacy(input)
+	fact := ifdsCtorReturnNeedsValidateFact{
+		ConstructorKey: input.Constructor,
+		ReturnTypeKey:  input.ReturnTypeKey,
+	}
+	result := interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, nil)
+	if input.Decl == nil || input.Decl.Body == nil {
+		result.FactFamily = fact.Family()
+		result.FactKey = fact.Key()
+		result.EdgeFunctionTag = edgeTagFromPathResult(result, ubvModeOrder)
+		return result
+	}
+
+	parentMap := buildParentMap(input.Decl.Body)
+	_, _, closureCalls, methodValueCalls := collectCFACasts(
+		s.pass,
+		input.Decl.Body,
+		parentMap,
+		func(*ast.FuncLit, int) {},
+	)
+	syncLits := collectSynchronousClosureLits(input.Decl.Body)
+	syncCalls := collectSynchronousClosureVarCalls(closureCalls)
+	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
+	methodCalls = mergeMethodValueValidateCallSets(
+		methodCalls,
+		collectCalleeValidatedCalls(s.pass, input.Decl.Body, stackScopeFromMap(nil)),
+	)
+	bareReturnIncludesTarget := constructorBareReturnIncludesType(s.pass, input.Decl, input.ReturnTypeKey)
+	returnTargetKeys := collectConstructorReturnTargetKeys(s.pass, input.Decl, input.ReturnTypeKey, bareReturnIncludesTarget)
+	matcher := constructorReturnTargetMatcher(input.ReturnTypeKey, returnTargetKeys)
+
+	graph := buildInterprocSupergraphForFunc(s.pass, input.Decl, s.backend)
+	start := interprocNodeID{
+		FuncKey:    interprocFunctionKey(s.pass, input.Decl),
+		BlockIndex: 0,
+		NodeIndex:  0,
+		Kind:       interprocNodeKindCFG,
+	}
+	if _, ok := graph.Nodes[start.Key()]; !ok {
+		for _, nodeID := range graph.Nodes {
+			if nodeID.Kind == interprocNodeKindCFG {
+				start = nodeID
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			result.FactFamily = fact.Family()
+			result.FactKey = fact.Key()
+			result.EdgeFunctionTag = edgeTagFromPathResult(result, ubvModeOrder)
+			return result
+		}
+	}
+
+	result = runIFDSPropagation(
+		graph,
+		start,
+		input.MaxStates,
+		input.MaxDepth,
+		func(_ interprocNodeID, node ast.Node, state ideValidationState) (ideEdgeFuncTag, pathOutcomeReason) {
+			if state != ideStateNeedsValidate {
+				return ideEdgeFuncIdentity, pathOutcomeReasonNone
+			}
+			if node == nil {
+				return ideEdgeFuncIdentity, pathOutcomeReasonNone
+			}
+			if containsValidateOnReceiver(s.pass, node, matcher, syncLits, syncCalls, methodCalls) {
+				return ideEdgeFuncValidate, pathOutcomeReasonNone
+			}
+			if validated, reason := nodeUsesCalleeSummaryForType(s.pass, node, input.ReturnTypeKey); validated {
+				return ideEdgeFuncValidate, pathOutcomeReasonNone
+			} else if reason != pathOutcomeReasonNone {
+				return ideEdgeFuncIdentity, reason
+			}
+			if stmt, ok := node.(ast.Stmt); ok {
+				stmtBody := &ast.BlockStmt{List: []ast.Stmt{stmt}}
+				if bodyCallsValidateTransitive(
+					s.pass,
+					stmtBody,
+					input.ReturnType,
+					input.ReturnTypePkgPath,
+					input.ReturnTypeKey,
+					nil,
+					0,
+				) {
+					return ideEdgeFuncValidate, pathOutcomeReasonNone
+				}
+			}
+			return ideEdgeFuncIdentity, pathOutcomeReasonNone
+		},
+		func(nodeID interprocNodeID, node ast.Node, state ideValidationState) bool {
+			if !graph.isTerminalCFGNode(nodeID) {
+				return false
+			}
+			ret, ok := node.(*ast.ReturnStmt)
+			if !ok {
+				return false
+			}
+			if !returnStmtReturnsType(s.pass, ret, input.ReturnTypeKey, bareReturnIncludesTarget) {
+				return false
+			}
+			return state != ideStateValidated
+		},
+	)
+
+	result.FactFamily = fact.Family()
+	result.FactKey = fact.Key()
+	result.EdgeFunctionTag = edgeTagFromPathResult(result, ubvModeOrder)
+	return result
+}
+
+type interprocNodeTransferFn func(nodeID interprocNodeID, node ast.Node, state ideValidationState) (ideEdgeFuncTag, pathOutcomeReason)
+
+type interprocTerminalUnsafeFn func(nodeID interprocNodeID, node ast.Node, state ideValidationState) bool
+
+type interprocNodeSnapshot struct {
+	state ideValidationState
+	depth int
+	path  []int32
+}
+
+func runIFDSPropagation(
+	graph interprocSupergraph,
+	start interprocNodeID,
+	maxStates int,
+	maxDepth int,
+	transfer interprocNodeTransferFn,
+	terminalUnsafe interprocTerminalUnsafeFn,
+) interprocPathResult {
+	if maxStates <= 0 {
+		maxStates = defaultCFGMaxStates
+	}
+	if maxDepth <= 0 {
+		maxDepth = defaultCFGMaxDepth
+	}
+	if _, ok := graph.Nodes[start.Key()]; !ok {
+		return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, nil)
+	}
+
+	snapshots := map[string]interprocNodeSnapshot{
+		start.Key(): {
+			state: ideStateNeedsValidate,
+			depth: 0,
+			path:  []int32{start.BlockIndex},
+		},
+	}
+	queue := []interprocNodeID{start}
+	explored := 0
+
+	for len(queue) > 0 {
+		nodeID := queue[0]
+		queue = queue[1:]
+		snap, ok := snapshots[nodeID.Key()]
+		if !ok {
+			continue
+		}
+		if snap.depth > maxDepth {
+			return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonDepthBudget, snap.path)
+		}
+
+		node := graph.astNode(nodeID)
+		nodeTag, reason := transfer(nodeID, node, snap.state)
+		if reason != pathOutcomeReasonNone {
+			return interprocPathResultFromOutcome(pathOutcomeInconclusive, reason, snap.path)
+		}
+		nodeState := newIDEEdgeFunc(nodeTag).Apply(snap.state)
+		if terminalUnsafe(nodeID, node, nodeState) {
+			return interprocPathResultFromOutcome(pathOutcomeUnsafe, pathOutcomeReasonNone, snap.path)
+		}
+
+		edges := graph.outgoing(nodeID)
+		for _, edge := range edges {
+			nextPath := appendWitnessBlock(snap.path, edge.To.BlockIndex)
+			if edge.Kind == interprocEdgeCallToReturn && edge.Reason == pathOutcomeReasonUnresolvedTarget {
+				if nodeState == ideStateNeedsValidate || nodeState == ideStateEscapedBeforeValidate || nodeState == ideStateConsumedBeforeValidate {
+					return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, nextPath)
+				}
+			}
+
+			nextState := composeIDEEdgeFuncs(newIDEEdgeFunc(nodeTag), newIDEEdgeFunc(ideEdgeFuncIdentity)).Apply(snap.state)
+			nextDepth := snap.depth + 1
+			if nextDepth > maxDepth {
+				return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonDepthBudget, nextPath)
+			}
+			explored++
+			if explored > maxStates {
+				return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonStateBudget, nextPath)
+			}
+
+			key := edge.To.Key()
+			prev, exists := snapshots[key]
+			if !exists {
+				snapshots[key] = interprocNodeSnapshot{state: nextState, depth: nextDepth, path: nextPath}
+				queue = append(queue, edge.To)
+				continue
+			}
+			joined := joinIDEStates(prev.state, nextState)
+			if joined == prev.state && nextDepth >= prev.depth {
+				continue
+			}
+			updated := prev
+			updated.state = joined
+			if nextDepth < updated.depth || len(updated.path) == 0 {
+				updated.depth = nextDepth
+				updated.path = nextPath
+			}
+			snapshots[key] = updated
+			queue = append(queue, edge.To)
+		}
+	}
+
+	return interprocPathResultFromOutcome(pathOutcomeSafe, pathOutcomeReasonNone, nil)
+}
+
+func ubvNodeEdgeTag(
+	pass *analysis.Pass,
+	node ast.Node,
+	target castTarget,
+	syncLits map[*ast.FuncLit]bool,
+	syncCalls closureVarCallSet,
+	methodCalls methodValueValidateCallSet,
+	mode string,
+	state ideValidationState,
+) (ideEdgeFuncTag, pathOutcomeReason) {
+	if state != ideStateNeedsValidate {
+		return ideEdgeFuncIdentity, pathOutcomeReasonNone
+	}
+	if node == nil {
+		return ideEdgeFuncIdentity, pathOutcomeReasonNone
+	}
+	if containsValidateCallTarget(pass, node, target, syncLits, syncCalls, methodCalls) {
+		return ideEdgeFuncValidate, pathOutcomeReasonNone
+	}
+	if mode == ubvModeEscape {
+		outcome, reason := isVarEscapeTargetOutcomeWithSummaryStack(pass, node, target, syncLits, syncCalls, methodCalls, mode, nil)
+		switch outcome {
+		case pathOutcomeInconclusive:
+			return ideEdgeFuncIdentity, reason
+		case pathOutcomeUnsafe:
+			return ideEdgeFuncEscape, pathOutcomeReasonNone
+		default:
+			return ideEdgeFuncIdentity, pathOutcomeReasonNone
+		}
+	}
+	switch firstUseValidateOrderInNode(pass, node, target, syncLits, syncCalls, methodCalls) {
+	case ubvOrderUseBeforeValidate:
+		return ideEdgeFuncConsume, pathOutcomeReasonNone
+	case ubvOrderValidateBeforeUse:
+		return ideEdgeFuncValidate, pathOutcomeReasonNone
+	}
+	if isVarUseTarget(pass, node, target, syncLits, syncCalls, methodCalls) {
+		return ideEdgeFuncConsume, pathOutcomeReasonNone
+	}
+	return ideEdgeFuncIdentity, pathOutcomeReasonNone
+}
+
+func appendWitnessBlock(path []int32, blockIndex int32) []int32 {
+	if len(path) == 0 {
+		return []int32{blockIndex}
+	}
+	out := cloneCFGPath(path)
+	if out[len(out)-1] == blockIndex {
+		return out
+	}
+	return append(out, blockIndex)
+}
+
+func buildInterprocSupergraphFromCFG(cfg *gocfg.CFG, funcKey string) interprocSupergraph {
+	if cfg == nil {
+		return newInterprocSupergraph()
+	}
+	return buildInterprocSupergraphFromBlocks(cfg.Blocks, funcKey)
+}
+
+func buildInterprocSupergraphFromReachableBlocks(defBlock *gocfg.Block, funcKey string) interprocSupergraph {
+	blocks := collectReachableBlocks(defBlock)
+	return buildInterprocSupergraphFromBlocks(blocks, funcKey)
+}
+
+func buildInterprocSupergraphFromBlocks(blocks []*gocfg.Block, funcKey string) interprocSupergraph {
+	graph := newInterprocSupergraph()
+	if len(blocks) == 0 {
+		return graph
+	}
+
+	blockEntryNode := map[int32]interprocNodeID{}
+	for _, block := range blocks {
+		if block == nil || len(block.Nodes) == 0 {
+			continue
+		}
+		first := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: 0, Kind: interprocNodeKindCFG}
+		blockEntryNode[block.Index] = first
+	}
+
+	for _, block := range blocks {
+		if block == nil || len(block.Nodes) == 0 {
+			continue
+		}
+		for idx := range block.Nodes {
+			nodeID := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx, Kind: interprocNodeKindCFG}
+			graph.addNode(nodeID, block.Nodes[idx])
+			if idx > 0 {
+				prev := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx - 1, Kind: interprocNodeKindCFG}
+				graph.addEdge(interprocEdge{From: prev, To: nodeID, Kind: interprocEdgeIntra})
+			}
+			if !nodeContainsCallExpr(block.Nodes[idx]) {
+				continue
+			}
+			callNode := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx, Kind: interprocNodeKindCall}
+			retNode := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx, Kind: interprocNodeKindReturn}
+			graph.addEdge(interprocEdge{From: nodeID, To: callNode, Kind: interprocEdgeCall})
+			graph.addEdge(interprocEdge{From: callNode, To: retNode, Kind: interprocEdgeCallToReturn, Reason: pathOutcomeReasonUnresolvedTarget})
+			if idx+1 < len(block.Nodes) {
+				next := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx + 1, Kind: interprocNodeKindCFG}
+				graph.addEdge(interprocEdge{From: retNode, To: next, Kind: interprocEdgeReturn})
+			}
+		}
+
+		lastNode := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: len(block.Nodes) - 1, Kind: interprocNodeKindCFG}
+		hasMappedSucc := false
+		for _, succ := range block.Succs {
+			if succ == nil {
+				continue
+			}
+			entry, ok := blockEntryNode[succ.Index]
+			if !ok {
+				continue
+			}
+			hasMappedSucc = true
+			graph.addEdge(interprocEdge{From: lastNode, To: entry, Kind: interprocEdgeIntra})
+		}
+		if !hasMappedSucc {
+			graph.terminalCFGNodes[lastNode.Key()] = true
+		}
+	}
+	return graph
+}
+
+func collectReachableBlocks(start *gocfg.Block) []*gocfg.Block {
+	if start == nil {
+		return nil
+	}
+	seen := map[int32]bool{}
+	queue := []*gocfg.Block{start}
+	blocks := make([]*gocfg.Block, 0)
+	for len(queue) > 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if block == nil || seen[block.Index] {
+			continue
+		}
+		seen[block.Index] = true
+		blocks = append(blocks, block)
+		for _, succ := range block.Succs {
+			if succ != nil && !seen[succ.Index] {
+				queue = append(queue, succ)
+			}
+		}
+	}
+	sort.Slice(blocks, func(i, j int) bool {
+		return blocks[i].Index < blocks[j].Index
+	})
+	return blocks
 }
 
 func edgeTagFromPathResult(result interprocPathResult, ubvMode string) ideEdgeFuncTag {

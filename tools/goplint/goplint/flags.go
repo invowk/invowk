@@ -18,7 +18,7 @@ const (
 	cfgBackendSSA     = "ssa"
 	cfgBackendAST     = "ast"
 
-	defaultCFGInterprocEngine = "ifds"
+	defaultCFGInterprocEngine = "legacy"
 	cfgInterprocEngineLegacy  = "legacy"
 	cfgInterprocEngineIFDS    = "ifds"
 	cfgInterprocEngineCompare = "compare"

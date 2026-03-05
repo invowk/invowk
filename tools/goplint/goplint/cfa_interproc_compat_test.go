@@ -47,6 +47,20 @@ func TestInterprocCompatTrackerErr(t *testing.T) {
 	}
 }
 
+func TestCompareInterprocOutcomeSetsMissingIFDSDefaultsConservative(t *testing.T) {
+	t.Parallel()
+
+	legacy := map[string]interprocOutcomeClass{
+		"compat|id": interprocOutcomeUnsafe,
+	}
+	ifds := map[string]interprocOutcomeClass{}
+
+	violations := compareInterprocOutcomeSets(legacy, ifds, nil)
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations for missing IFDS key treated as inconclusive, got %+v", violations)
+	}
+}
+
 func TestIFDSCompatNoSilentDowngrade(t *testing.T) {
 	t.Parallel()
 

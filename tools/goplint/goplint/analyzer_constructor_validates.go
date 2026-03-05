@@ -175,6 +175,7 @@ func inspectConstructorValidates(
 	pkgName := packageName(pass.Pkg)
 	solver := newInterprocSolver(pass, cfgBackend, cfgInterprocEngine)
 	compatTracker := newInterprocCompatTracker(cfgInterprocEngine)
+	constructorUnsafeByIdentity := make(map[string]bool)
 
 	// Build a set of struct names that have Validate() methods.
 	validatableStructs := buildValidatableStructs(pass)
@@ -273,12 +274,16 @@ func inspectConstructorValidates(
 			}
 			pathLegacy := solver.EvaluateConstructorPathLegacy(pathInput)
 			pathResult := solver.EvaluateConstructorPath(pathInput)
+			identity := qualName + "|" + returnTypeKey
+			if pathResult.Class == interprocOutcomeUnsafe {
+				constructorUnsafeByIdentity[identity] = true
+			}
 			compatTracker.Check(
 				CategoryMissingConstructorValidate,
 				PackageScopedFindingID(pass, CategoryMissingConstructorValidate, qualName, returnType),
 				pathLegacy,
 				pathResult,
-				false,
+				constructorUnsafeByIdentity[identity],
 			)
 			pathOutcome := pathResult.toPathOutcome()
 			pathReason := pathResult.Reason

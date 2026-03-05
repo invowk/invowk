@@ -141,24 +141,19 @@ func inspectClosureCastsCFA(
 		}
 		pathLegacy := solver.EvaluateCastPathLegacy(castInput)
 		pathResult := solver.EvaluateCastPath(castInput)
-		compatTracker.Check(
+		pathFindingID := PackageScopedFindingID(
+			pass,
 			CategoryUnvalidatedCast,
-			PackageScopedFindingID(
-				pass,
-				CategoryUnvalidatedCast,
-				"cfa",
-				"closure",
-				closurePrefix,
-				qualEnclosingFunc,
-				ac.typeName,
-				"assigned",
-				originKey,
-				ac.target.key(),
-			),
-			pathLegacy,
-			pathResult,
-			false,
+			"cfa",
+			"closure",
+			closurePrefix,
+			qualEnclosingFunc,
+			ac.typeName,
+			"assigned",
+			originKey,
+			ac.target.key(),
 		)
+		hasEquivalentUnsafe := pathResult.Class == interprocOutcomeUnsafe
 		pathOutcome := pathResult.toPathOutcome()
 		pathReason := pathResult.Reason
 		pathWitness := pathResult.Witness
@@ -179,23 +174,18 @@ func inspectClosureCastsCFA(
 				}
 				inBlockLegacy := solver.EvaluateUBVInBlockLegacy(inBlockInput)
 				inBlockResult := solver.EvaluateUBVInBlock(inBlockInput)
-				compatTracker.Check(
+				hasEquivalentUnsafe = hasEquivalentUnsafe || inBlockResult.Class == interprocOutcomeUnsafe
+				inBlockFindingID := PackageScopedFindingID(
+					pass,
 					CategoryUseBeforeValidateSameBlock,
-					PackageScopedFindingID(
-						pass,
-						CategoryUseBeforeValidateSameBlock,
-						"cfa",
-						"closure",
-						closurePrefix,
-						qualEnclosingFunc,
-						ac.typeName,
-						"ubv",
-						originKey,
-						ac.target.key(),
-					),
-					inBlockLegacy,
-					inBlockResult,
-					false,
+					"cfa",
+					"closure",
+					closurePrefix,
+					qualEnclosingFunc,
+					ac.typeName,
+					"ubv",
+					originKey,
+					ac.target.key(),
 				)
 				inBlockOutcome := inBlockResult.toPathOutcome()
 				inBlockReason := inBlockResult.Reason
@@ -276,23 +266,25 @@ func inspectClosureCastsCFA(
 					}
 					crossLegacy := solver.EvaluateUBVCrossBlockLegacy(crossInput)
 					crossResult := solver.EvaluateUBVCrossBlock(crossInput)
+					hasEquivalentUnsafe = hasEquivalentUnsafe || crossResult.Class == interprocOutcomeUnsafe
+					crossFindingID := PackageScopedFindingID(
+						pass,
+						CategoryUseBeforeValidateCrossBlock,
+						"cfa",
+						"closure",
+						closurePrefix,
+						qualEnclosingFunc,
+						ac.typeName,
+						"ubv-xblock",
+						originKey,
+						ac.target.key(),
+					)
 					compatTracker.Check(
 						CategoryUseBeforeValidateCrossBlock,
-						PackageScopedFindingID(
-							pass,
-							CategoryUseBeforeValidateCrossBlock,
-							"cfa",
-							"closure",
-							closurePrefix,
-							qualEnclosingFunc,
-							ac.typeName,
-							"ubv-xblock",
-							originKey,
-							ac.target.key(),
-						),
+						crossFindingID,
 						crossLegacy,
 						crossResult,
-						false,
+						hasEquivalentUnsafe,
 					)
 					ubvOutcome := crossResult.toPathOutcome()
 					ubvReason := crossResult.Reason
@@ -355,9 +347,30 @@ func inspectClosureCastsCFA(
 						)
 					}
 				}
+				compatTracker.Check(
+					CategoryUseBeforeValidateSameBlock,
+					inBlockFindingID,
+					inBlockLegacy,
+					inBlockResult,
+					hasEquivalentUnsafe,
+				)
 			}
+			compatTracker.Check(
+				CategoryUnvalidatedCast,
+				pathFindingID,
+				pathLegacy,
+				pathResult,
+				hasEquivalentUnsafe,
+			)
 			continue
 		}
+		compatTracker.Check(
+			CategoryUnvalidatedCast,
+			pathFindingID,
+			pathLegacy,
+			pathResult,
+			hasEquivalentUnsafe,
+		)
 		if pathOutcome == pathOutcomeInconclusive {
 			msg := unvalidatedCastInconclusiveMessage(ac.typeName)
 			findingID := PackageScopedFindingID(pass,

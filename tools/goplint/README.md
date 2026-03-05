@@ -259,7 +259,7 @@ Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constr
 | `-check-struct-validate` | bool | `false` | Report constructor-backed structs missing `Validate()` |
 | `-ubv-mode` | string | `"escape"` | UBV semantics mode: `order` or `escape` |
 | `-cfg-backend` | string | `"ssa"` | Path-analysis backend selector: `ssa` or `ast` |
-| `-cfg-interproc-engine` | string | `"ifds"` | Interprocedural engine selector: `legacy`, `ifds`, or `compare` |
+| `-cfg-interproc-engine` | string | `"legacy"` | Interprocedural engine selector: `legacy`, `ifds`, or `compare` |
 | `-cfg-max-states` | int | `20000` | Maximum CFG states explored before conservative fallback |
 | `-cfg-max-depth` | int | `512` | Maximum CFG DFS depth before conservative fallback |
 | `-cfg-inconclusive-policy` | string | `"error"` | Inconclusive CFA policy: `error`, `warn`, or `off` |
@@ -300,6 +300,7 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 - `--check-use-before-validate` emits split categories: `use-before-validate-same-block` and `use-before-validate-cross-block`.
 - `--cfg-interproc-engine=legacy|ifds|compare` selects the interprocedural solver path for cast/UBV/constructor-validates checks.
 - `--cfg-interproc-engine=compare` runs legacy and IFDS solvers and fails on forbidden `legacy -> safe` silent downgrades.
+- Default rollout remains `legacy` while `compare` compatibility checks and benchmark gates are used as promotion criteria before any default flip to `ifds`.
 - CFA budget truncation and recursion-summary cycles emit inconclusive categories (`unvalidated-cast-inconclusive`, `use-before-validate-inconclusive`, `missing-constructor-validate-inconclusive`) with `cfg_*` metadata.
 - `--cfg-inconclusive-policy` controls inconclusive emission: `error` (default), `warn` (emits with warning metadata), `off` (suppresses inconclusive findings).
 - Inconclusive metadata includes bounded witness fields (`cfg_witness_kind`, `cfg_witness_blocks`, `cfg_witness_edges`, `cfg_witness_call_chain`, plus compatibility keys `witness_cfg_path`, `witness_cfg_steps`, `witness_cfg_truncated`) capped by `--cfg-witness-max-steps`.

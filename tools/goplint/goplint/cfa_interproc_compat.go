@@ -108,7 +108,9 @@ func compareInterprocOutcomeSets(
 		legacyClass := legacy[key]
 		ifdsClass, ok := ifds[key]
 		if !ok {
-			ifdsClass = interprocOutcomeSafe
+			// Missing IFDS category findings can still correspond to inconclusive
+			// outcomes emitted under split categories.
+			ifdsClass = interprocOutcomeInconclusive
 		}
 		_, hasUnsafe := slices.BinarySearch(sortedUnsafe, key)
 		if violation, bad := classifyInterprocDowngrade("compat", key, legacyClass, ifdsClass, hasUnsafe); bad {

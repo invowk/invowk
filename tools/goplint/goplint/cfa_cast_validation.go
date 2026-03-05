@@ -156,22 +156,17 @@ func inspectUnvalidatedCastsCFA(
 		}
 		pathLegacy := solver.EvaluateCastPathLegacy(castInput)
 		pathResult := solver.EvaluateCastPath(castInput)
-		compatTracker.Check(
+		pathFindingID := PackageScopedFindingID(
+			pass,
 			CategoryUnvalidatedCast,
-			PackageScopedFindingID(
-				pass,
-				CategoryUnvalidatedCast,
-				"cfa",
-				qualFuncName,
-				ac.typeName,
-				"assigned",
-				originKey,
-				ac.target.key(),
-			),
-			pathLegacy,
-			pathResult,
-			false,
+			"cfa",
+			qualFuncName,
+			ac.typeName,
+			"assigned",
+			originKey,
+			ac.target.key(),
 		)
+		hasEquivalentUnsafe := pathResult.Class == interprocOutcomeUnsafe
 		pathOutcome := pathResult.toPathOutcome()
 		pathReason := pathResult.Reason
 		pathWitness := pathResult.Witness
@@ -192,21 +187,16 @@ func inspectUnvalidatedCastsCFA(
 				}
 				inBlockLegacy := solver.EvaluateUBVInBlockLegacy(inBlockInput)
 				inBlockResult := solver.EvaluateUBVInBlock(inBlockInput)
-				compatTracker.Check(
+				hasEquivalentUnsafe = hasEquivalentUnsafe || inBlockResult.Class == interprocOutcomeUnsafe
+				inBlockFindingID := PackageScopedFindingID(
+					pass,
 					CategoryUseBeforeValidateSameBlock,
-					PackageScopedFindingID(
-						pass,
-						CategoryUseBeforeValidateSameBlock,
-						"cfa",
-						qualFuncName,
-						ac.typeName,
-						"ubv",
-						originKey,
-						ac.target.key(),
-					),
-					inBlockLegacy,
-					inBlockResult,
-					false,
+					"cfa",
+					qualFuncName,
+					ac.typeName,
+					"ubv",
+					originKey,
+					ac.target.key(),
 				)
 				inBlockOutcome := inBlockResult.toPathOutcome()
 				inBlockReason := inBlockResult.Reason
@@ -283,21 +273,23 @@ func inspectUnvalidatedCastsCFA(
 					}
 					crossLegacy := solver.EvaluateUBVCrossBlockLegacy(crossInput)
 					crossResult := solver.EvaluateUBVCrossBlock(crossInput)
+					hasEquivalentUnsafe = hasEquivalentUnsafe || crossResult.Class == interprocOutcomeUnsafe
+					crossFindingID := PackageScopedFindingID(
+						pass,
+						CategoryUseBeforeValidateCrossBlock,
+						"cfa",
+						qualFuncName,
+						ac.typeName,
+						"ubv-xblock",
+						originKey,
+						ac.target.key(),
+					)
 					compatTracker.Check(
 						CategoryUseBeforeValidateCrossBlock,
-						PackageScopedFindingID(
-							pass,
-							CategoryUseBeforeValidateCrossBlock,
-							"cfa",
-							qualFuncName,
-							ac.typeName,
-							"ubv-xblock",
-							originKey,
-							ac.target.key(),
-						),
+						crossFindingID,
 						crossLegacy,
 						crossResult,
-						false,
+						hasEquivalentUnsafe,
 					)
 					ubvOutcome := crossResult.toPathOutcome()
 					ubvReason := crossResult.Reason
@@ -366,9 +358,30 @@ func inspectUnvalidatedCastsCFA(
 						)
 					}
 				}
+				compatTracker.Check(
+					CategoryUseBeforeValidateSameBlock,
+					inBlockFindingID,
+					inBlockLegacy,
+					inBlockResult,
+					hasEquivalentUnsafe,
+				)
 			}
+			compatTracker.Check(
+				CategoryUnvalidatedCast,
+				pathFindingID,
+				pathLegacy,
+				pathResult,
+				hasEquivalentUnsafe,
+			)
 			continue // all paths validated
 		}
+		compatTracker.Check(
+			CategoryUnvalidatedCast,
+			pathFindingID,
+			pathLegacy,
+			pathResult,
+			hasEquivalentUnsafe,
+		)
 		if pathOutcome == pathOutcomeInconclusive {
 			msg := unvalidatedCastInconclusiveMessage(ac.typeName)
 			findingID := PackageScopedFindingID(pass,
