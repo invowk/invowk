@@ -478,5 +478,95 @@
     "castvalidation_nocfa_suppression",
     "castvalidation_nocfa_validate_before_cast",
     "constructorvalidates_nocfa_ast"
+  ],
+  "historical_miss_oracles": [
+    {
+      "fixture": "castvalidation_nocfa_dead_branch",
+      "category": "unvalidated-cast",
+      "must_report": [
+        {
+          "fixture": "castvalidation_nocfa_dead_branch",
+          "symbol": "DeadBranchValidate"
+        }
+      ]
+    },
+    {
+      "fixture": "castvalidation_nocfa_dotimport_compare",
+      "category": "unvalidated-cast",
+      "must_report": [
+        {
+          "fixture": "castvalidation_nocfa_dotimport_compare",
+          "symbol": "DotImportNonComparatorFinding"
+        }
+      ],
+      "must_not_report": [
+        {
+          "fixture": "castvalidation_nocfa_dotimport_compare",
+          "symbol": "DotImportComparatorNoFinding"
+        }
+      ]
+    },
+    {
+      "fixture": "castvalidation_nocfa_errors_noncomparison",
+      "category": "unvalidated-cast",
+      "must_report": [
+        {
+          "fixture": "castvalidation_nocfa_errors_noncomparison",
+          "symbol": "ErrorsJoinReports"
+        }
+      ],
+      "must_not_report": [
+        {
+          "fixture": "castvalidation_nocfa_errors_noncomparison",
+          "symbol": "ErrorsComparisonNoFinding"
+        }
+      ]
+    },
+    {
+      "fixture": "castvalidation_nocfa_suppression",
+      "category": "unvalidated-cast",
+      "must_report": [
+        {
+          "fixture": "castvalidation_nocfa_suppression",
+          "symbol": "Reported"
+        }
+      ],
+      "must_not_report": [
+        {
+          "fixture": "castvalidation_nocfa_suppression",
+          "symbol": "ConfigSuppressed"
+        }
+      ]
+    },
+    {
+      "fixture": "castvalidation_nocfa_validate_before_cast",
+      "category": "unvalidated-cast",
+      "must_report": [
+        {
+          "fixture": "castvalidation_nocfa_validate_before_cast",
+          "symbol": "ValidateBeforeCast"
+        }
+      ]
+    },
+    {
+      "fixture": "constructorvalidates_nocfa_ast",
+      "category": "missing-constructor-validate",
+      "must_report": [
+        {
+          "fixture": "constructorvalidates_nocfa_ast",
+          "symbol": "NewMissing"
+        }
+      ],
+      "must_not_report": [
+        {
+          "fixture": "constructorvalidates_nocfa_ast",
+          "symbol": "NewDirect"
+        },
+        {
+          "fixture": "constructorvalidates_nocfa_ast",
+          "symbol": "NewTransitive"
+        }
+      ]
+    }
   ]
 }

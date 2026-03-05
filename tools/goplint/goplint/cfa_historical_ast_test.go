@@ -16,15 +16,23 @@ func TestSemanticSpecHistoricalFixturesReplay(t *testing.T) {
 
 	catalog := mustLoadSemanticRuleCatalog(t)
 	testdata := analysistest.TestData()
+	oraclesByFixture := make(map[string]semanticHistoricalMissOracle, len(catalog.HistoricalMissOracles))
+	for _, oracle := range catalog.HistoricalMissOracles {
+		oraclesByFixture[oracle.Fixture] = oracle
+	}
 
 	for _, fixture := range catalog.HistoricalMissFixtures {
 		t.Run(fixture, func(t *testing.T) {
 			t.Parallel()
 
+			oracle, ok := oraclesByFixture[fixture]
+			if !ok {
+				t.Fatalf("fixture %q is missing historical oracle coverage", fixture)
+			}
 			h := newAnalyzerHarness()
 			resetFlags(t, h)
 			configureHistoricalFixtureReplay(t, testdata, h, fixture)
-			assertHistoricalFixtureAnalyzes(t, h.Analyzer, fixture, expectedHistoricalCategoryForFixture(fixture))
+			assertHistoricalFixtureAnalyzes(t, h.Analyzer, fixture, oracle)
 		})
 	}
 }
@@ -48,36 +56,59 @@ func configureHistoricalFixtureReplay(t *testing.T, testdata string, h analyzerH
 	}
 }
 
-func expectedHistoricalCategoryForFixture(fixture string) string {
-	if strings.HasPrefix(fixture, "castvalidation_nocfa_") {
-		return CategoryUnvalidatedCast
-	}
-	if fixture == "constructorvalidates_nocfa_ast" {
-		return CategoryMissingConstructorValidate
-	}
-	return ""
-}
-
-func assertHistoricalFixtureAnalyzes(t *testing.T, analyzer *analysis.Analyzer, fixture, expectedCategory string) {
+func assertHistoricalFixtureAnalyzes(t *testing.T, analyzer *analysis.Analyzer, fixture string, oracle semanticHistoricalMissOracle) {
 	t.Helper()
 
 	diagnostics, _, results := collectDiagnosticsForPackages(t, analyzer, fixture)
+	hits := map[string]int{}
 	for _, result := range results {
 		if result != nil && result.Err != nil {
 			t.Fatalf("fixture %q analysis error: %v", fixture, result.Err)
 		}
-	}
-	if expectedCategory == "" {
-		t.Fatalf("fixture %q has no expected historical category mapping", fixture)
-	}
-	matched := false
-	for _, diag := range diagnostics {
-		if diag.Category == expectedCategory {
-			matched = true
-			break
+		if result == nil || result.Pass == nil {
+			continue
+		}
+		spansByFile := collectFunctionSpans(result.Pass)
+		for _, diag := range result.Diagnostics {
+			if diag.Category != oracle.Category {
+				continue
+			}
+			symbol, ok := symbolNameForDiagnostic(result.Pass.Fset, spansByFile, diag.Pos)
+			if !ok {
+				continue
+			}
+			hits[symbol]++
 		}
 	}
-	if !matched {
-		t.Fatalf("fixture %q produced no diagnostics in expected category %q", fixture, expectedCategory)
+	for _, entry := range oracle.MustReport {
+		if entry.Fixture != fixture {
+			t.Fatalf("historical oracle fixture mismatch: expected %q, got %q", fixture, entry.Fixture)
+		}
+		if hits[entry.Symbol] == 0 {
+			t.Fatalf(
+				"fixture %q category %q: must-report symbol %q not found (hits=%v)",
+				fixture,
+				oracle.Category,
+				entry.Symbol,
+				sortedHitSymbols(hits),
+			)
+		}
+	}
+	for _, entry := range oracle.MustNotReport {
+		if entry.Fixture != fixture {
+			t.Fatalf("historical oracle fixture mismatch: expected %q, got %q", fixture, entry.Fixture)
+		}
+		if hits[entry.Symbol] > 0 {
+			t.Fatalf(
+				"fixture %q category %q: must-not-report symbol %q unexpectedly reported (hits=%v)",
+				fixture,
+				oracle.Category,
+				entry.Symbol,
+				sortedHitSymbols(hits),
+			)
+		}
+	}
+	if len(diagnostics) == 0 {
+		t.Fatalf("fixture %q emitted no diagnostics", fixture)
 	}
 }

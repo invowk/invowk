@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 const semanticRulesCatalogVersion = "v1"
@@ -28,10 +30,11 @@ var (
 )
 
 type semanticRuleCatalog struct {
-	Version                string               `json:"version"`
-	Rules                  []semanticRuleSpec   `json:"rules"`
-	OracleMatrix           []semanticOracleSpec `json:"oracle_matrix"`
-	HistoricalMissFixtures []string             `json:"historical_miss_fixtures"`
+	Version                string                         `json:"version"`
+	Rules                  []semanticRuleSpec             `json:"rules"`
+	OracleMatrix           []semanticOracleSpec           `json:"oracle_matrix"`
+	HistoricalMissFixtures []string                       `json:"historical_miss_fixtures"`
+	HistoricalMissOracles  []semanticHistoricalMissOracle `json:"historical_miss_oracles"`
 }
 
 type semanticRuleSpec struct {
@@ -62,6 +65,13 @@ type semanticOracleEntry struct {
 	Symbol  string `json:"symbol"`
 }
 
+type semanticHistoricalMissOracle struct {
+	Fixture       string                `json:"fixture"`
+	Category      string                `json:"category"`
+	MustReport    []semanticOracleEntry `json:"must_report"`
+	MustNotReport []semanticOracleEntry `json:"must_not_report,omitempty"`
+}
+
 func semanticRulesCatalogPath() string {
 	return filepath.Join(goplintModuleRootPath(), "spec", "semantic-rules.v1.json")
 }
@@ -85,6 +95,10 @@ func goplintPackageRootPath() string {
 
 func loadSemanticRuleCatalog() (semanticRuleCatalog, error) {
 	path := semanticRulesCatalogPath()
+	schemaPath := semanticRulesSchemaPath()
+	if err := validateSemanticRuleCatalogAgainstSchema(path, schemaPath); err != nil {
+		return semanticRuleCatalog{}, err
+	}
 	catalog := semanticRuleCatalog{}
 	if err := decodeJSONFile(path, &catalog); err != nil {
 		return semanticRuleCatalog{}, fmt.Errorf("loading semantic rules catalog %q: %w", path, err)
@@ -128,6 +142,54 @@ func decodeJSONFile(path string, out any) (err error) {
 		return fmt.Errorf("validating json eof: %w", err)
 	}
 	return nil
+}
+
+func validateSemanticRuleCatalogAgainstSchema(catalogPath, schemaPath string) error {
+	compiler := jsonschema.NewCompiler()
+
+	schemaDoc := map[string]any{}
+	if err := decodeJSONFile(schemaPath, &schemaDoc); err != nil {
+		return fmt.Errorf("loading semantic rules schema %q for validation: %w", schemaPath, err)
+	}
+
+	// Keep schema reference stable and independent from local filesystem paths.
+	const schemaURL = "https://github.com/invowk/invowk/tools/goplint/spec/schema/semantic-rules.schema.json"
+	if err := compiler.AddResource(schemaURL, schemaDoc); err != nil {
+		return fmt.Errorf("registering semantic rules schema resource: %w", err)
+	}
+	schema, err := compiler.Compile(schemaURL)
+	if err != nil {
+		return fmt.Errorf("compiling semantic rules schema %q: %w", schemaPath, err)
+	}
+
+	catalogDoc := map[string]any{}
+	if err := decodeJSONFile(catalogPath, &catalogDoc); err != nil {
+		return fmt.Errorf("loading semantic rules catalog %q for schema validation: %w", catalogPath, err)
+	}
+	if err := schema.Validate(catalogDoc); err != nil {
+		return fmt.Errorf("semantic rules catalog %q does not match schema %q: %s", catalogPath, schemaPath, formatSemanticSchemaValidationErr(err))
+	}
+	return nil
+}
+
+func formatSemanticSchemaValidationErr(err error) string {
+	var validationErr *jsonschema.ValidationError
+	if !errors.As(err, &validationErr) {
+		return err.Error()
+	}
+	output := validationErr.BasicOutput()
+	if output == nil {
+		return validationErr.Error()
+	}
+	keywordLocation := strings.TrimSpace(output.KeywordLocation)
+	if keywordLocation == "" {
+		keywordLocation = "/"
+	}
+	instanceLocation := strings.TrimSpace(output.InstanceLocation)
+	if instanceLocation == "" {
+		instanceLocation = "/"
+	}
+	return fmt.Sprintf("%s (keyword=%s instance=%s)", validationErr.Error(), keywordLocation, instanceLocation)
 }
 
 func validateSemanticRuleCatalog(catalog semanticRuleCatalog) error {
@@ -179,6 +241,29 @@ func validateSemanticRuleCatalog(catalog semanticRuleCatalog) error {
 			return fmt.Errorf("duplicate historical_miss_fixtures entry %q", trimmed)
 		}
 		seenFixtures[trimmed] = struct{}{}
+	}
+
+	if len(catalog.HistoricalMissOracles) == 0 {
+		return errors.New("semantic rules catalog must include historical_miss_oracles")
+	}
+	seenHistoricalOracles := map[string]struct{}{}
+	for idx, oracle := range catalog.HistoricalMissOracles {
+		if err := validateSemanticHistoricalMissOracle(oracle); err != nil {
+			return fmt.Errorf("invalid historical_miss_oracles[%d]: %w", idx, err)
+		}
+		fixture := strings.TrimSpace(oracle.Fixture)
+		if _, ok := seenFixtures[fixture]; !ok {
+			return fmt.Errorf("historical_miss_oracles fixture %q is not listed in historical_miss_fixtures", fixture)
+		}
+		if _, exists := seenHistoricalOracles[fixture]; exists {
+			return fmt.Errorf("duplicate historical_miss_oracles fixture %q", fixture)
+		}
+		seenHistoricalOracles[fixture] = struct{}{}
+	}
+	for fixture := range seenFixtures {
+		if _, ok := seenHistoricalOracles[fixture]; !ok {
+			return fmt.Errorf("historical_miss_fixtures entry %q is missing historical_miss_oracles coverage", fixture)
+		}
 	}
 
 	return nil
@@ -300,6 +385,32 @@ func validateSemanticOracleEntry(entry semanticOracleEntry, fieldName string) er
 	}
 	if strings.TrimSpace(entry.Symbol) == "" {
 		return fmt.Errorf("%s symbol must be non-empty", fieldName)
+	}
+	return nil
+}
+
+func validateSemanticHistoricalMissOracle(oracle semanticHistoricalMissOracle) error {
+	if strings.TrimSpace(oracle.Fixture) == "" {
+		return errors.New("fixture must be non-empty")
+	}
+	if strings.TrimSpace(oracle.Category) == "" {
+		return errors.New("category must be non-empty")
+	}
+	if !IsKnownDiagnosticCategory(oracle.Category) {
+		return fmt.Errorf("category %q is not known in diagnostic registry", oracle.Category)
+	}
+	if len(oracle.MustReport) == 0 {
+		return errors.New("must_report must contain at least one entry")
+	}
+	for _, entry := range oracle.MustReport {
+		if err := validateSemanticOracleEntry(entry, "must_report"); err != nil {
+			return err
+		}
+	}
+	for _, entry := range oracle.MustNotReport {
+		if err := validateSemanticOracleEntry(entry, "must_not_report"); err != nil {
+			return err
+		}
 	}
 	return nil
 }

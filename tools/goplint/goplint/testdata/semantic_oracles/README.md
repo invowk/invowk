@@ -66,6 +66,9 @@ Conventions:
 
 ## Historical Miss Fixtures (replay required)
 
+- Historical replay expectations are defined in `semantic-rules.v1.json` under
+  `historical_miss_oracles` and are enforced with symbol-level checks
+  (`must_report`/`must_not_report`) in addition to category-level checks.
 - `castvalidation_nocfa_dead_branch`
 - `castvalidation_nocfa_dotimport_compare`
 - `castvalidation_nocfa_errors_noncomparison`
