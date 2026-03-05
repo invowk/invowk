@@ -120,7 +120,7 @@ func collectCompatibilityOutcomes(
 	configureSemanticOracleRun(t, h.Analyzer, rule, category, fixture)
 	setFlag(t, h.Analyzer, "cfg-interproc-engine", engine)
 
-	diagnostics, _, results := collectDiagnosticsForPackages(t, h.Analyzer, fixture)
+	diagnostics, _, results := collectDiagnosticsForPackagesRespectCurrentEngine(t, h.Analyzer, fixture)
 	for _, result := range results {
 		if result != nil && result.Err != nil {
 			t.Fatalf("analysis result error: %v", result.Err)

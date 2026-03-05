@@ -52,6 +52,10 @@ func resetFlags(t *testing.T, h analyzerHarness) {
 func runAnalysisTest(t *testing.T, testdata string, analyzer *analysis.Analyzer, pkgs ...string) {
 	t.Helper()
 
+	// Keep fixture expectations stable across default-engine rollouts.
+	// IFDS/compare behavior is covered by dedicated compatibility tests.
+	setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineLegacy)
+
 	analysistestParallelLimiter <- struct{}{}
 	defer func() { <-analysistestParallelLimiter }()
 
