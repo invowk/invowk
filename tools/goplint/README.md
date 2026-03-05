@@ -259,7 +259,7 @@ Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constr
 | `-check-struct-validate` | bool | `false` | Report constructor-backed structs missing `Validate()` |
 | `-ubv-mode` | string | `"escape"` | UBV semantics mode: `order` or `escape` |
 | `-cfg-backend` | string | `"ssa"` | Path-analysis backend selector: `ssa` or `ast` |
-| `-cfg-interproc-engine` | string | `"legacy"` | Interprocedural engine selector: `legacy`, `ifds`, or `compare` |
+| `-cfg-interproc-engine` | string | `"ifds"` | Interprocedural engine selector: `legacy`, `ifds`, or `compare` |
 | `-cfg-max-states` | int | `20000` | Maximum CFG states explored before conservative fallback |
 | `-cfg-max-depth` | int | `512` | Maximum CFG DFS depth before conservative fallback |
 | `-cfg-inconclusive-policy` | string | `"error"` | Inconclusive CFA policy: `error`, `warn`, or `off` |
@@ -336,7 +336,9 @@ cd tools/goplint && go test -run '^$' -bench '^BenchmarkCFGTraversal' ./goplint
 - `docs/goplint/current-techniques-and-semantics.md`
 - `docs/goplint/state-of-the-art-soundness-roadmap.md`
 - `docs/goplint/phase-a-implementation-plan.md`
+- `docs/goplint/phase-b-implementation-plan.md`
 - `docs/goplint/semantic-rule-spec-phase-a.md`
+- `docs/goplint/semantic-rule-spec-phase-b.md`
 
 ## License
 
