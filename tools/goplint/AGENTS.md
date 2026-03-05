@@ -15,6 +15,7 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | Run (JSON for agents) | `make check-types-json` |
 | **Run all DDD checks** | **`make check-types-all`** |
 | **Run all DDD checks (JSON)** | **`make check-types-all-json`** |
+| **Check Phase A semantic contracts** | **`make check-semantic-spec`** |
 | **Check baseline (regression gate)** | **`make check-baseline`** |
 | **Update baseline** | **`make update-baseline`** |
 | Run tests | `cd tools/goplint && go test ./goplint/` |
@@ -651,6 +652,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **CFA path semantics**: CFA checks "path-to-return-without-validate," not "use-before-validate." If `x.Validate()` appears anywhere on a path from the cast to a return block, that path is considered validated regardless of whether `x` is used before the Validate call.
 - **Constructor-validates CFA**: `--check-constructor-validates` uses CFA to verify ALL return paths pass through `.Validate()` on the return type. Uses `constructorReturnPathOutcome`/`constructorHasUnvalidatedReturnPath` over backend-selected CFGs from the entry block. Type-identity matching (via `typeIdentityKey`) is used instead of variable-name matching, including generic instantiation awareness. Synchronous closure-var calls are included in path checks, and `//goplint:validates-type=...` facts resolve to the validated type identity (not only helper package identity).
 - **CFA inconclusive outcomes**: When `--cfg-max-states`/`--cfg-max-depth` budgets truncate exploration OR interprocedural UBV summaries hit recursion cycles, CFA reports dedicated `*-inconclusive` categories with `cfg_backend`, budget, reason, and bounded witness metadata (`cfg_witness_kind`, `cfg_witness_blocks`, `cfg_witness_edges`, `cfg_witness_call_chain`, with legacy `witness_cfg_*` compatibility keys). Emission is controlled by `--cfg-inconclusive-policy` (`error|warn|off`) and witness size by `--cfg-witness-max-steps`.
+- **Phase A oracle contract is behavioral**: Keep `tools/goplint/spec/semantic-rules.v1.json` synchronized with `semantic_spec_oracle_test.go`. `must_report` and `must_not_report` entries must be proven by analyzer output at symbol level, not only by fixture/symbol existence checks.
 
 ## Test Architecture
 
@@ -691,4 +693,5 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
   - `TestCheckUseBeforeValidateCFA` — use-before-validate detection against `use_before_validate` fixture
   - `TestCheckUseBeforeValidateMethodValue` — UBV ordering with method-value Validate calls
   - `TestCheckAllEnablesCFABackedCastValidation` — verifies `--check-all` enables CFA-backed cast validation
+- **Semantic contract tests** (`semantic_spec_*.go`, `cfa_historical_ast_test.go`): Validates Phase A catalog/schema consistency, run-control compatibility, inconclusive metadata contracts, oracle behavior (`must_report`/`must_not_report`), and historical miss replay driven by `historical_miss_fixtures`.
 - **CFG benchmarks** (`cfa_bench_test.go`): Traversal benchmarks for CFG-heavy cast/UBV paths. Guardrail command: `./tools/goplint/scripts/check-cfg-bench-thresholds.sh` with thresholds in `tools/goplint/bench/thresholds.toml`.

@@ -43,6 +43,7 @@ make update-baseline
 | `make check-types-json` | Same, JSON output for tooling |
 | `make check-types-all` | All DDD checks: primitives + method + constructor + structural checks |
 | `make check-types-all-json` | Same, JSON output |
+| `make check-semantic-spec` | Phase A semantic contract and oracle checks for CFA-backed categories |
 | `make check-baseline` | Regression gate: report only **new** findings vs baseline |
 | `make update-baseline` | Regenerate `baseline.toml` from current codebase state |
 
@@ -321,7 +322,17 @@ cd tools/goplint && go test -run '^$' -bench '^BenchmarkCFGTraversal' ./goplint
 
 # Check benchmark thresholds
 ./tools/goplint/scripts/check-cfg-bench-thresholds.sh
+
+# Check Phase A semantic contracts
+./tools/goplint/scripts/check-semantic-spec.sh
 ```
+
+## Soundness Docs
+
+- `docs/goplint/current-techniques-and-semantics.md`
+- `docs/goplint/state-of-the-art-soundness-roadmap.md`
+- `docs/goplint/phase-a-implementation-plan.md`
+- `docs/goplint/semantic-rule-spec-phase-a.md`
 
 ## License
 

@@ -301,6 +301,11 @@ check-types-all: build-goplint
 check-types-all-json: build-goplint
 	./$(BUILD_DIR)/goplint -check-all -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
 
+# Check semantic spec contracts for CFA-backed goplint categories.
+.PHONY: check-semantic-spec
+check-semantic-spec:
+	./tools/goplint/scripts/check-semantic-spec.sh
+
 # Check for goplint regressions against the committed baseline.
 # Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
 .PHONY: check-baseline
@@ -495,6 +500,7 @@ help:
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run golangci-lint on root and tools/goplint modules"
 	@echo "  lint-tools-goplint  Run golangci-lint for tools/goplint module"
+	@echo "  check-semantic-spec Run semantic contract checks for tools/goplint"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  sonar-local      Run local SonarQube analysis and print unresolved issues"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
