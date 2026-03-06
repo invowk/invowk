@@ -16,12 +16,14 @@ git config --global commit.gpgsign true
 # Squash merge a feature branch into main
 git checkout main
 git merge --squash feature-branch
-git commit -S -m "feat(scope): summary
+git commit -S -F - <<'EOF'
+feat(scope): summary
 
 - Bullet points describing changes
 - ...
 
-Co-authored-by: Name <email>"
+Co-authored-by: Name <email>
+EOF
 ```
 
 **Why squash merge:**
@@ -40,6 +42,9 @@ All commits should include a detailed description of what changed. Use a short C
 
 - Subject: `type(scope): summary` (keep concise, <= 72 chars).
 - Body: 3-6 bullets describing what was changed (and why if helpful).
+- When scripting a multi-line body, use literal newlines via `git commit -F -`,
+  a message file, or repeated `-m` flags; never embed escaped `\n` sequences and
+  expect Git to render them as real line breaks.
 - Call out user-facing behavior/schema changes and migrations.
 - Preserve existing trailers and keep trailers in canonical git format (`Key: Value`) at the end of the message.
 - Avoid vague messages like "misc" or "wip".
