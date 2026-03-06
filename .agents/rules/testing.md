@@ -236,6 +236,26 @@ Place this **after** `t.Parallel()` and any `testing.Short()` skip, but **before
 - Validation-only tests that don't start containers (e.g., `Validate()`, type assertions)
 - Error-path tests that fail before container operations (e.g., missing SSH server)
 
+**Layer 5: Go Integration Test Bounded Context (CRITICAL)**
+
+All Go container integration tests in `internal/runtime/` that call `Execute()` or
+`ExecuteCapture()` MUST use `testutil.ContainerTestContext` instead of bare `t.Context()`.
+Bare `t.Context()` has no deadline — if the container daemon hangs, the subprocess runs
+indefinitely until the binary-level timeout kills everything.
+
+```go
+ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+execCtx := NewExecutionContext(ctx, cmd, inv)
+result := rt.Execute(execCtx)
+```
+
+`DefaultContainerTestTimeout` is 5 minutes. The deadline propagates through
+`exec.CommandContext` to SIGKILL the subprocess when exceeded, producing a clean
+`context deadline exceeded` test failure instead of a 30-minute binary panic.
+
+**When NOT to use:** Tests that only call `Validate()` or perform type assertions
+(no container daemon interaction).
+
 **When to adjust timeouts:**
 - If tests consistently need more than 3 minutes (e.g., large image pulls), increase `containerTestTimeout`
 - The 15m CI timeout should always exceed the sum of all sequential container test deadlines

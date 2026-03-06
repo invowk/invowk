@@ -124,7 +124,8 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 
 	// Create runtime WITHOUT SSH server
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+	execCtx := NewExecutionContext(ctx, cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -183,7 +184,8 @@ RUN echo "Built from Containerfile" > /built.txt
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+	execCtx := NewExecutionContext(ctx, cmd, inv)
 
 	execCtx.Verbose = true
 

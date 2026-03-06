@@ -162,6 +162,9 @@ jobs:
           gotestsum \
             --format testdox \
             --junitfile runtime-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report runtime-rerun-report.txt \
             --packages ./internal/runtime \
             -- -race -timeout 30m -parallel 1
 
@@ -174,6 +177,9 @@ jobs:
           gotestsum \
             --format testdox \
             --junitfile cli-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report cli-rerun-report.txt \
             --packages ./tests/cli/... \
             -- -race -timeout 15m
 
@@ -246,6 +252,7 @@ jobs:
             runtime-test-results.xml
             cli-test-results.xml
             rerun-report.txt
+            runtime-rerun-report.txt
             cli-rerun-report.txt
           if-no-files-found: ignore
           retention-days: 30
@@ -267,7 +274,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for report in rerun-report.txt cli-rerun-report.txt; do
+          for report in rerun-report.txt runtime-rerun-report.txt cli-rerun-report.txt; do
             if [ -s "$report" ]; then
               echo "::warning::Flaky tests detected (rerun report: $report):"
               while IFS= read -r line; do
