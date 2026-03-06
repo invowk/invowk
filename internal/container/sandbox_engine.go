@@ -105,6 +105,7 @@ func (e *SandboxAwareEngine) Build(ctx context.Context, opts BuildOptions) error
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), buildArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
@@ -128,6 +129,7 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), baseArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
 	cmd.Stdin = opts.Stdin
 	cmd.Stdout = opts.Stdout

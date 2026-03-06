@@ -10,12 +10,21 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
 
-const commandFailedFmt = "command %s %v failed: %w"
+const (
+	commandFailedFmt = "command %s %v failed: %w"
+
+	// cmdWaitDelay bounds how long cmd.Run waits for I/O pipes to close after
+	// context cancellation kills the container engine process. Without this,
+	// container child processes (the actual container) can keep pipes open
+	// indefinitely, blocking cmd.Run far past the context deadline.
+	cmdWaitDelay = 10 * time.Second
+)
 
 type (
 	// ExecCommandFunc is the function signature for creating exec.Cmd.
@@ -392,6 +401,7 @@ func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string
 // Engine-level overrides (env vars, extra files) are applied automatically.
 func (e *BaseCLIEngine) CreateCommand(ctx context.Context, args ...string) *exec.Cmd {
 	cmd := e.execCommand(ctx, string(e.binaryPath), args...)
+	cmd.WaitDelay = cmdWaitDelay
 	e.customizeCmd(cmd)
 	return cmd
 }
