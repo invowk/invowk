@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -286,12 +287,12 @@ func newDependencyExecutionContext() *runtimepkg.ExecutionContext {
 func shellExitError(t *testing.T) error {
 	t.Helper()
 
-	var cmd *exec.Cmd
+	script := "exit 1"
 	if goruntime.GOOS == "windows" {
-		cmd = exec.CommandContext(t.Context(), "cmd", "/c", "exit", "/b", "1")
-	} else {
-		cmd = exec.CommandContext(t.Context(), "sh", "-c", "exit 1")
+		script = "exit /b 1"
 	}
+	shellPath, shellArgs := testutil.FixedShellCommand(script)
+	cmd := exec.CommandContext(t.Context(), shellPath, shellArgs...)
 	err := cmd.Run()
 	if err == nil {
 		t.Fatalf("expected non-zero exit error")

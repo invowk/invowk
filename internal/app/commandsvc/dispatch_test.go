@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -58,7 +60,8 @@ func (s *stubInteractiveRuntime) PrepareInteractive(*runtimepkg.ExecutionContext
 	if s.prepared != nil {
 		return s.prepared, nil
 	}
-	return &runtimepkg.PreparedCommand{Cmd: exec.CommandContext(context.Background(), "sh", "-c", "exit 0")}, nil
+	shellPath, shellArgs := testutil.FixedShellCommand("exit 0")
+	return &runtimepkg.PreparedCommand{Cmd: exec.CommandContext(context.Background(), shellPath, shellArgs...)}, nil
 }
 
 func TestDispatchExecution_Success(t *testing.T) {
@@ -66,7 +69,7 @@ func TestDispatchExecution_Success(t *testing.T) {
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	svc := &Service{stdout: stdout, stderr: stderr, ssh: &sshServerController{}}
-	cmdInfo, execCtx, execStdout := commandInfoAndContext("echo hello")
+	cmdInfo, execCtx, execStdout := commandInfoAndContext(t, "echo hello")
 
 	result, diags, err := svc.dispatchExecution(
 		Request{Name: "build", UserEnv: map[string]string{}},
@@ -96,7 +99,7 @@ func TestDispatchExecution_DependencyError(t *testing.T) {
 	t.Parallel()
 
 	svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}, ssh: &sshServerController{}}
-	cmdInfo, execCtx, _ := commandInfoAndContext("echo hello")
+	cmdInfo, execCtx, _ := commandInfoAndContext(t, "echo hello")
 	cmdInfo.Invowkfile.DependsOn = &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING"}}}},
 	}
@@ -315,7 +318,9 @@ func TestNewClassifiedExecutionError(t *testing.T) {
 	}
 }
 
-func commandInfoAndContext(script string) (*discovery.CommandInfo, *runtimepkg.ExecutionContext, *bytes.Buffer) {
+func commandInfoAndContext(t testing.TB, script string) (*discovery.CommandInfo, *runtimepkg.ExecutionContext, *bytes.Buffer) {
+	t.Helper()
+
 	cmd := &invowkfile.Command{
 		Name: "build",
 		Implementations: []invowkfile.Implementation{{
@@ -324,7 +329,7 @@ func commandInfoAndContext(script string) (*discovery.CommandInfo, *runtimepkg.E
 			Platforms: invowkfile.AllPlatformConfigs(),
 		}},
 	}
-	inv := &invowkfile.Invowkfile{FilePath: "/tmp/invowkfile.cue"}
+	inv := &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))}
 	ioCtx, execStdout, _ := runtimepkg.CaptureIO()
 	return &discovery.CommandInfo{
 			Name:       "build",
@@ -334,7 +339,7 @@ func commandInfoAndContext(script string) (*discovery.CommandInfo, *runtimepkg.E
 		}, &runtimepkg.ExecutionContext{
 			Command:         cmd,
 			Invowkfile:      inv,
-			Context:         context.Background(),
+			Context:         t.Context(),
 			SelectedRuntime: invowkfile.RuntimeVirtual,
 			SelectedImpl:    &cmd.Implementations[0],
 			IO:              ioCtx,

@@ -28,6 +28,10 @@ For host-path validation tests that depend on `filepath.IsAbs`, treat absolutene
 - Keep explicit negative cases for relative and dot-relative inputs.
 - Do not assume Unix-style `/...` paths are valid on Windows.
 
+For tests that spawn shell commands via `exec.CommandContext`, prefer a fixed shell path helper over PATH lookup:
+- Use `/bin/sh` on Unix and `%SystemRoot%\\System32\\cmd.exe` on Windows (or a shared helper that resolves those locations).
+- This avoids Windows temp/path drift and prevents Sonar `go:S4036` hotspots on test-only shell invocations.
+
 For repo-relative typed path validators (for example `SubdirectoryPath`-style values), treat validation as cross-platform:
 - Normalize paths in implementation before checks (`filepath.ToSlash` + slash-based clean).
 - Include Unix absolute, Windows drive absolute, UNC/rooted, and slash/backslash traversal vectors in one test matrix.
