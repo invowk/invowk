@@ -208,13 +208,13 @@ func TestContextHelpersAndCacheValidation(t *testing.T) {
 	if cache == nil {
 		t.Fatal("discoveryCacheFromContext() = nil")
 	}
-	if got := contextWithDiscoveryRequestCache(ctx); got != ctx {
+	if contextWithDiscoveryRequestCache(ctx) != ctx {
 		t.Fatal("contextWithDiscoveryRequestCache() should reuse existing cache")
 	}
 
 	cache.cfg = &config.Config{DefaultRuntime: config.RuntimeMode("bogus")}
 	cache.cfgDiags = []discovery.Diagnostic{{}}
-	if err := cache.Validate(); err == nil {
+	if cache.Validate() == nil {
 		t.Fatal("Validate() returned nil, want joined error")
 	}
 }

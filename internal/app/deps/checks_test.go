@@ -125,7 +125,7 @@ func TestContainerEnvVarValidation(t *testing.T) {
 	}
 	registry.Register(runtimepkg.RuntimeTypeContainer, stub)
 
-	if err := validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "", Validation: "^.+$"}, stub, ctx); err == nil {
+	if validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "", Validation: "^.+$"}, stub, ctx) == nil {
 		t.Fatal("expected empty name error")
 	}
 
@@ -177,7 +177,7 @@ func TestContainerCapabilityValidation(t *testing.T) {
 	}
 	registry.Register(runtimepkg.RuntimeTypeContainer, stub)
 
-	if err := validateContainerCapability(invowkfile.CapabilityName("bogus"), stub, ctx); err == nil {
+	if validateContainerCapability(invowkfile.CapabilityName("bogus"), stub, ctx) == nil {
 		t.Fatal("expected unknown capability error")
 	}
 	if err := validateContainerCapability(invowkfile.CapabilityContainers, stub, ctx); err != nil {

@@ -57,7 +57,7 @@ func TestTypesValidateErrorsAndHelpers(t *testing.T) {
 	data := DryRunData{
 		SourceID: discovery.SourceID("bad source"),
 	}
-	if err := data.Validate(); err == nil {
+	if data.Validate() == nil {
 		t.Fatal("expected DryRunData validation error")
 	}
 }
