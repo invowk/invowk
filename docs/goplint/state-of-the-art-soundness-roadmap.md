@@ -125,6 +125,7 @@ Deliverables (completed):
 - Custom `ssaAnalyzer` prerequisite with `GlobalDebug` mode for `DebugRef` instructions.
 - Conservative alias exclusion on reassignment (variable with multiple SSA values excluded).
 - Test fixtures for copy alias, multi-hop alias, reassignment breakage, partial-branch alias.
+- Dedicated verification gate: `make check-cfg-alias` runs the real binary against the curated alias fixture with `-cfg-alias-mode=off` and `-cfg-alias-mode=ssa`, proving copy/multi-hop improvement while keeping the mode opt-in and preserving negative controls.
 
 What it fixes: `y := x; y.Validate()` now discharges `x`'s cast-validation requirement.
 What remains out of scope: pointer field aliasing, cross-function alias propagation.

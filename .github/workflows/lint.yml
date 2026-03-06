@@ -164,6 +164,10 @@ jobs:
         run: |
           ./tools/goplint/scripts/check-cfg-refinement.sh
 
+      - name: Check Phase D alias mode
+        run: |
+          make check-cfg-alias
+
       - name: Check CFG benchmark thresholds
         run: |
           ./tools/goplint/scripts/check-cfg-bench-thresholds.sh

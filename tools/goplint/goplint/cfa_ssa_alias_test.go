@@ -3,7 +3,7 @@
 package goplint
 
 import (
-	"go/types"
+	"go/ast"
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
@@ -24,8 +24,7 @@ func TestSSABuilderProducesDebugRefs(t *testing.T) {
 		Run: func(pass *analysis.Pass) (any, error) {
 			res := buildSSAForPass(pass)
 			if res == nil || res.Pkg == nil {
-				// Standard library package or build failure — skip.
-				return nil, nil //nolint:nilnil // probe analyzer has no meaningful result
+				t.Fatal("buildSSAForPass() returned nil for probe fixture")
 			}
 
 			var foundDebugRef bool
@@ -60,57 +59,11 @@ func TestSSABuilderProducesDebugRefs(t *testing.T) {
 func TestComputeMustAliasKeys_CopyAlias(t *testing.T) {
 	t.Parallel()
 
-	testdata := analysistest.TestData()
-
-	probeAnalyzer := &analysis.Analyzer{
-		Name: "aliasprobe",
-		Doc:  "probe alias computation",
-		Run: func(pass *analysis.Pass) (any, error) {
-			res := buildSSAForPass(pass)
-			if res == nil || res.Pkg == nil {
-				return nil, nil //nolint:nilnil // probe analyzer has no meaningful result
-			}
-
-			fn := findMemberFunc(res.Pkg, "CopyAlias")
-			if fn == nil {
-				return nil, nil //nolint:nilnil // not the probe package
-			}
-
-			castValue := findFirstCastInFunc(fn)
-			if castValue == nil {
-				t.Error("no ChangeType/Convert found")
-				return nil, nil //nolint:nilnil // probe analyzer has no meaningful result
-			}
-
-			aliases := computeMustAliasKeysFromValue(fn, castValue)
-			if len(aliases) < 2 {
-				t.Errorf("expected alias set to contain x and y, got %d entries", len(aliases))
-			}
-
-			var foundX, foundY bool
-			for key := range aliases {
-				if aliasTestContains(key, ":x:") {
-					foundX = true
-				}
-				if aliasTestContains(key, ":y:") {
-					foundY = true
-				}
-			}
-			if !foundX {
-				t.Error("alias set missing key for variable x")
-			}
-			if !foundY {
-				t.Error("alias set missing key for variable y")
-			}
-
-			return nil, nil //nolint:nilnil // probe analyzer has no meaningful result
-		},
-	}
-
-	analysistestParallelLimiter <- struct{}{}
-	defer func() { <-analysistestParallelLimiter }()
-
-	analysistest.Run(t, testdata, probeAnalyzer, "cfa_ssa_alias_probe")
+	runAliasProbeAnalysis(t, "copyaliasprobe", func(pass *analysis.Pass, res *ssaResult) {
+		ssaFn, cast := probeAssignedCast(t, pass, res, "CopyAlias")
+		aliases := computeMustAliasKeys(ssaFn, cast.pos)
+		assertAliasContains(t, aliases, "x", "y")
+	})
 }
 
 // TestComputeMustAliasKeys_Reassignment verifies that y := x; y = other
@@ -118,35 +71,81 @@ func TestComputeMustAliasKeys_CopyAlias(t *testing.T) {
 func TestComputeMustAliasKeys_Reassignment(t *testing.T) {
 	t.Parallel()
 
-	testdata := analysistest.TestData()
+	runAliasProbeAnalysis(t, "reassignprobe", func(pass *analysis.Pass, res *ssaResult) {
+		ssaFn, cast := probeAssignedCast(t, pass, res, "ReassignedAlias")
+		aliases := computeMustAliasKeys(ssaFn, cast.pos)
+		assertAliasContains(t, aliases, "x")
+		assertAliasNotContains(t, aliases, "y")
+	})
+}
 
+// TestComputeMustAliasKeys_NestedCallPrefersCast verifies that nested helper
+// calls inside the cast argument do not displace the actual conversion result.
+func TestComputeMustAliasKeys_NestedCallPrefersCast(t *testing.T) {
+	t.Parallel()
+
+	runAliasProbeAnalysis(t, "nestedcallprobe", func(pass *analysis.Pass, res *ssaResult) {
+		ssaFn, cast := probeAssignedCast(t, pass, res, "NestedCallAlias")
+		aliases := computeMustAliasKeys(ssaFn, cast.pos)
+		assertAliasContains(t, aliases, "x", "y")
+	})
+}
+
+// TestComputeMustAliasKeys_OverflowReturnsNil verifies that very large alias
+// fanout disables alias tracking conservatively.
+func TestComputeMustAliasKeys_OverflowReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	runAliasProbeAnalysis(t, "overflowprobe", func(pass *analysis.Pass, res *ssaResult) {
+		ssaFn, cast := probeAssignedCast(t, pass, res, "OverflowAlias")
+		if aliases := computeMustAliasKeys(ssaFn, cast.pos); aliases != nil {
+			t.Fatalf("expected nil alias set once fanout exceeds %d, got %d entries", maxAliasSetSize, len(aliases))
+		}
+	})
+}
+
+// TestMatchesExprWithAliasSet verifies that alias-enriched cast targets match
+// alias receivers while reassigned aliases stay excluded.
+func TestMatchesExprWithAliasSet(t *testing.T) {
+	t.Parallel()
+
+	runAliasProbeAnalysis(t, "matchesexprprobe", func(pass *analysis.Pass, res *ssaResult) {
+		copySSAFn, copyCast := probeAssignedCast(t, pass, res, "CopyAlias")
+		copyTarget := enrichTargetWithSSAAlias(copySSAFn, copyCast)
+		if len(copyTarget.aliasKeys) == 0 {
+			t.Fatal("expected alias-enriched target for CopyAlias")
+		}
+		copyReceiver := findValidateReceiverInFunc(t, findProbeFuncDecl(t, pass, "CopyAlias"))
+		if !copyTarget.matchesExpr(pass, copyReceiver) {
+			t.Fatal("expected alias-enriched target to match y.Validate receiver")
+		}
+
+		reassignSSAFn, reassignCast := probeAssignedCast(t, pass, res, "ReassignedAlias")
+		reassignTarget := enrichTargetWithSSAAlias(reassignSSAFn, reassignCast)
+		reassignReceiver := findValidateReceiverInFunc(t, findProbeFuncDecl(t, pass, "ReassignedAlias"))
+		if reassignTarget.matchesExpr(pass, reassignReceiver) {
+			t.Fatal("expected reassigned alias receiver to stay excluded")
+		}
+	})
+}
+
+func runAliasProbeAnalysis(
+	t *testing.T,
+	name string,
+	check func(pass *analysis.Pass, res *ssaResult),
+) {
+	t.Helper()
+
+	testdata := analysistest.TestData()
 	probeAnalyzer := &analysis.Analyzer{
-		Name: "reassignprobe",
-		Doc:  "probe reassignment exclusion",
+		Name: name,
+		Doc:  "probe phase d alias behavior",
 		Run: func(pass *analysis.Pass) (any, error) {
 			res := buildSSAForPass(pass)
 			if res == nil || res.Pkg == nil {
-				return nil, nil //nolint:nilnil // probe analyzer has no meaningful result
+				t.Fatal("buildSSAForPass() returned nil for probe fixture")
 			}
-
-			fn := findMemberFunc(res.Pkg, "ReassignedAlias")
-			if fn == nil {
-				return nil, nil //nolint:nilnil // not the probe package
-			}
-
-			castValue := findFirstCastInFunc(fn)
-			if castValue == nil {
-				t.Error("no ChangeType/Convert found")
-				return nil, nil //nolint:nilnil // probe analyzer has no meaningful result
-			}
-
-			aliases := computeMustAliasKeysFromValue(fn, castValue)
-			for key := range aliases {
-				if aliasTestContains(key, ":y:") {
-					t.Errorf("alias set should not contain y (reassigned), found: %s", key)
-				}
-			}
-
+			check(pass, res)
 			return nil, nil //nolint:nilnil // probe analyzer has no meaningful result
 		},
 	}
@@ -155,78 +154,6 @@ func TestComputeMustAliasKeys_Reassignment(t *testing.T) {
 	defer func() { <-analysistestParallelLimiter }()
 
 	analysistest.Run(t, testdata, probeAnalyzer, "cfa_ssa_alias_probe")
-}
-
-// TestMatchesExprWithAliasSet verifies that castTarget stores and exposes
-// the alias set correctly.
-func TestMatchesExprWithAliasSet(t *testing.T) {
-	t.Parallel()
-
-	target := castTarget{
-		displayName: "x",
-		targetKey:   "obj:var:pkg:x:100",
-		aliasKeys: ssaAliasSet{
-			"obj:var:pkg:y:200": true,
-		},
-	}
-
-	if len(target.aliasKeys) != 1 {
-		t.Errorf("expected 1 alias key, got %d", len(target.aliasKeys))
-	}
-	if !target.aliasKeys["obj:var:pkg:y:200"] {
-		t.Error("expected alias key for y to be present")
-	}
-
-	noAlias := castTarget{
-		displayName: "x",
-		targetKey:   "obj:var:pkg:x:100",
-	}
-	if noAlias.aliasKeys != nil {
-		t.Error("expected nil aliasKeys for target without aliases")
-	}
-}
-
-// computeMustAliasKeysFromValue is a test helper that runs the core alias
-// computation directly from an SSA value (bypasses AST position matching).
-func computeMustAliasKeysFromValue(ssaFn *ssa.Function, castValue ssa.Value) ssaAliasSet {
-	type objInfo struct {
-		key         string
-		valueCount  int
-		aliasesCast bool
-	}
-	objMap := make(map[types.Object]*objInfo)
-
-	for _, block := range ssaFn.Blocks {
-		for _, instr := range block.Instrs {
-			dbg, ok := instr.(*ssa.DebugRef)
-			if !ok || dbg.IsAddr {
-				continue
-			}
-			obj := dbg.Object()
-			if obj == nil {
-				continue
-			}
-			info, exists := objMap[obj]
-			if !exists {
-				info = &objInfo{key: objectKey(obj)}
-				objMap[obj] = info
-			}
-			if dbg.X == castValue {
-				info.aliasesCast = true
-			} else {
-				info.valueCount++
-			}
-		}
-	}
-
-	result := make(ssaAliasSet)
-	for _, info := range objMap {
-		if !info.aliasesCast || info.valueCount > 0 || info.key == "" {
-			continue
-		}
-		result[info.key] = true
-	}
-	return result
 }
 
 func findMemberFunc(pkg *ssa.Package, name string) *ssa.Function {
@@ -239,20 +166,97 @@ func findMemberFunc(pkg *ssa.Package, name string) *ssa.Function {
 	return nil
 }
 
-func findFirstCastInFunc(fn *ssa.Function) ssa.Value {
-	for _, block := range fn.Blocks {
-		for _, instr := range block.Instrs {
-			val, ok := instr.(ssa.Value)
-			if !ok {
-				continue
-			}
-			switch val.(type) {
-			case *ssa.ChangeType, *ssa.Convert:
-				return val
+func probeAssignedCast(
+	t *testing.T,
+	pass *analysis.Pass,
+	res *ssaResult,
+	funcName string,
+) (*ssa.Function, cfaAssignedCast) {
+	t.Helper()
+
+	fn := findMemberFunc(res.Pkg, funcName)
+	if fn == nil {
+		t.Fatalf("missing SSA function %q", funcName)
+	}
+	fnDecl := findProbeFuncDecl(t, pass, funcName)
+	parentMap := buildParentMap(fnDecl.Body)
+	assignedCasts, _, _, _ := collectCFACasts(
+		pass,
+		fnDecl.Body,
+		parentMap,
+		func(_ *ast.FuncLit, _ int) {},
+	)
+	if len(assignedCasts) == 0 {
+		t.Fatalf("expected at least 1 assigned cast in %s", funcName)
+	}
+	return fn, assignedCasts[0]
+}
+
+func findProbeFuncDecl(t *testing.T, pass *analysis.Pass, name string) *ast.FuncDecl {
+	t.Helper()
+
+	for _, file := range pass.Files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if ok && fn.Name != nil && fn.Name.Name == name {
+				return fn
 			}
 		}
 	}
+	t.Fatalf("missing probe func decl %q", name)
 	return nil
+}
+
+func findValidateReceiverInFunc(t *testing.T, fn *ast.FuncDecl) ast.Expr {
+	t.Helper()
+
+	var receiver ast.Expr
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || sel.Sel.Name != "Validate" {
+			return true
+		}
+		receiver = sel.X
+		return false
+	})
+	if receiver == nil {
+		t.Fatalf("missing Validate() call in %s", fn.Name.Name)
+	}
+	return receiver
+}
+
+func assertAliasContains(t *testing.T, aliases ssaAliasSet, names ...string) {
+	t.Helper()
+
+	if len(aliases) == 0 {
+		t.Fatal("expected non-empty alias set")
+	}
+	for _, name := range names {
+		found := false
+		for key := range aliases {
+			if aliasTestContains(key, ":"+name+":") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("alias set missing %q: %#v", name, aliases)
+		}
+	}
+}
+
+func assertAliasNotContains(t *testing.T, aliases ssaAliasSet, name string) {
+	t.Helper()
+
+	for key := range aliases {
+		if aliasTestContains(key, ":"+name+":") {
+			t.Fatalf("alias set unexpectedly contained %q: %#v", name, aliases)
+		}
+	}
 }
 
 func aliasTestContains(s, sub string) bool {

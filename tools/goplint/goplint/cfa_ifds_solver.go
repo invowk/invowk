@@ -275,12 +275,11 @@ func (s interprocSolver) evaluateCastPathIFDS(input interprocCastPathInput) inte
 					}
 					return false
 				},
+				func(interprocNodeID, ast.Node, ideValidationState) bool {
+					return false
+				},
 			)
 		}
-	}
-	if result.Class == interprocOutcomeSafe && !input.AllowSafe {
-		// Keep IFDS cast mode fail-closed while rollout stays compatibility-gated.
-		result = interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, result.Witness)
 	}
 
 	result.FactFamily = fact.Family()
@@ -464,6 +463,12 @@ func (s interprocSolver) evaluateUBVCrossBlockIFDS(input interprocUBVCrossBlockI
 			}
 			return nodeID.Kind == interprocNodeKindReturn && len(graph.outgoing(nodeID)) == 0
 		},
+		func(_ interprocNodeID, node ast.Node, state ideValidationState) bool {
+			if state != ideStateNeedsValidate && state != ideStateEscapedBeforeValidate && state != ideStateConsumedBeforeValidate {
+				return false
+			}
+			return nodeHasTargetRelevantUnresolvedCall(s.pass, node, input.Target)
+		},
 	)
 
 	result.FactFamily = fact.Family()
@@ -605,6 +610,12 @@ func (s interprocSolver) evaluateConstructorPathIFDS(input interprocConstructorP
 			}
 			return state != ideStateValidated
 		},
+		func(_ interprocNodeID, node ast.Node, state ideValidationState) bool {
+			if state != ideStateNeedsValidate {
+				return false
+			}
+			return nodeHasTypeRelevantUnresolvedCall(s.pass, node, input.ReturnTypeKey)
+		},
 	)
 
 	result.FactFamily = fact.Family()
@@ -618,12 +629,82 @@ type interprocNodeTransferFn func(nodeID interprocNodeID, node ast.Node, state i
 
 type interprocTerminalUnsafeFn func(nodeID interprocNodeID, node ast.Node, state ideValidationState) bool
 
+type interprocUnresolvedCallFn func(nodeID interprocNodeID, node ast.Node, state ideValidationState) bool
+
 type interprocWitnessHashFunc func(path []int32, trigger string) string
 
 type interprocNodeSnapshot struct {
 	state ideValidationState
 	depth int
 	path  []int32
+}
+
+func callTargetSlotsMatchingType(
+	pass *analysis.Pass,
+	call *ast.CallExpr,
+	returnTypeKey string,
+) []calleeCallTarget {
+	if pass == nil || call == nil || returnTypeKey == "" {
+		return nil
+	}
+	candidates := allCallTargetSlots(call)
+	out := make([]calleeCallTarget, 0, len(candidates))
+	for _, candidate := range candidates {
+		exprType := pass.TypesInfo.TypeOf(candidate.expr)
+		if exprType == nil {
+			continue
+		}
+		if typeIdentityKey(exprType) == returnTypeKey {
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
+
+func nodeHasTargetRelevantUnresolvedCall(
+	pass *analysis.Pass,
+	node ast.Node,
+	target castTarget,
+) bool {
+	if pass == nil || node == nil {
+		return true
+	}
+	relevant := false
+	ast.Inspect(node, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if len(callTargetSlotsMatchingCastTarget(pass, call, target)) > 0 {
+			relevant = true
+			return false
+		}
+		return true
+	})
+	return relevant
+}
+
+func nodeHasTypeRelevantUnresolvedCall(
+	pass *analysis.Pass,
+	node ast.Node,
+	returnTypeKey string,
+) bool {
+	if pass == nil || node == nil {
+		return true
+	}
+	relevant := false
+	ast.Inspect(node, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if len(callTargetSlotsMatchingType(pass, call, returnTypeKey)) > 0 {
+			relevant = true
+			return false
+		}
+		return true
+	})
+	return relevant
 }
 
 func runIFDSPropagation(
@@ -636,6 +717,7 @@ func runIFDSPropagation(
 	witnessHash interprocWitnessHashFunc,
 	transfer interprocNodeTransferFn,
 	terminalUnsafe interprocTerminalUnsafeFn,
+	unresolvedCallRelevant interprocUnresolvedCallFn,
 ) interprocPathResult {
 	if maxStates <= 0 {
 		maxStates = defaultCFGMaxStates
@@ -692,6 +774,18 @@ func runIFDSPropagation(
 			nextPath := appendWitnessBlock(snap.path, edge.To.BlockIndex)
 			if edge.Kind == interprocEdgeCallToReturn && edge.Reason == pathOutcomeReasonUnresolvedTarget {
 				if nodeState == ideStateNeedsValidate || nodeState == ideStateEscapedBeforeValidate || nodeState == ideStateConsumedBeforeValidate {
+					originNode := node
+					if originNode == nil {
+						originNode = graph.astNode(interprocNodeID{
+							FuncKey:    edge.From.FuncKey,
+							BlockIndex: edge.From.BlockIndex,
+							NodeIndex:  edge.From.NodeIndex,
+							Kind:       interprocNodeKindCFG,
+						})
+					}
+					if unresolvedCallRelevant != nil && !unresolvedCallRelevant(nodeID, originNode, nodeState) {
+						continue
+					}
 					if witnessIsDischarged(witnessHash, nextPath, string(pathOutcomeReasonUnresolvedTarget), dischargedWitnesses) {
 						continue
 					}

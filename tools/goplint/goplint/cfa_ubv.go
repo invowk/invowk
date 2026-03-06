@@ -137,7 +137,7 @@ func isVarUseTargetSeen(
 		if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
 			if target.matchesExpr(pass, sel.X) {
 				switch sel.Sel.Name {
-				case "Validate", "String", "Error", "GoString":
+				case validateMethodName, "String", "Error", "GoString":
 					return true // display-only or validation — not a use
 				default:
 					found = true
@@ -298,7 +298,7 @@ func isUseNode(
 	case *ast.CallExpr:
 		if sel, ok := node.Fun.(*ast.SelectorExpr); ok && target.matchesExpr(pass, sel.X) {
 			switch sel.Sel.Name {
-			case "Validate", "String", "Error", "GoString":
+			case validateMethodName, "String", "Error", "GoString":
 				return false
 			default:
 				return true
@@ -703,7 +703,7 @@ func callUsesTargetOutcomeWithSummaryStack(
 	}
 	if sel, ok := call.Fun.(*ast.SelectorExpr); ok && target.matchesExpr(pass, sel.X) {
 		switch sel.Sel.Name {
-		case "Validate", "String", "Error", "GoString":
+		case validateMethodName, "String", "Error", "GoString":
 			return pathOutcomeSafe, pathOutcomeReasonNone
 		default:
 			return pathOutcomeUnsafe, pathOutcomeReasonNone

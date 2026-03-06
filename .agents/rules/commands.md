@@ -18,6 +18,7 @@
 | Semantic spec check | `make check-semantic-spec` |
 | IFDS compatibility check | `make check-ifds-compat` |
 | Phase C refinement check | `make check-cfg-refinement` |
+| Phase D alias check | `make check-cfg-alias` |
 | Baseline check | `make check-baseline` |
 | Baseline update | `make update-baseline` |
 | File length check | `make check-file-length` |

@@ -304,7 +304,7 @@ func sample(raw string) {
 		}
 	})
 
-	t.Run("cfg-only helper calls can be resolved under phase c", func(t *testing.T) {
+	t.Run("cfg-only helper calls stay safe without phase c reruns", func(t *testing.T) {
 		t.Parallel()
 
 		base := runPhaseCPackage(t, "cfa_phasec_cfg_resolution", func(analyzer *analysis.Analyzer) {
@@ -322,19 +322,24 @@ func sample(raw string) {
 			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOnce)
 		})
 
-		if got := countDiagnosticCategory(base.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 1 {
-			t.Fatalf("expected unresolved cfg helper fixture to start inconclusive, got %d", got)
+		if got := countDiagnosticCategory(base.Diagnostics, CategoryUnvalidatedCast); got != 0 {
+			t.Fatalf("expected cfg helper fixture to stay safe without cast findings, got %d", got)
+		}
+		if got := countDiagnosticCategory(base.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 0 {
+			t.Fatalf("expected cfg helper fixture to avoid inconclusive cast findings, got %d", got)
+		}
+		if got := countDiagnosticCategory(refined.Diagnostics, CategoryUnvalidatedCast); got != 0 {
+			t.Fatalf("expected refined cfg helper fixture to remain safe, got %d", got)
 		}
 		if got := countDiagnosticCategory(refined.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 0 {
-			t.Fatalf("expected refined cfg helper fixture to clear inconclusive cast findings, got %d", got)
+			t.Fatalf("expected refined cfg helper fixture to remain free of inconclusive cast findings, got %d", got)
 		}
-		trace := findFirstTraceRecord(refined.Records)
-		if trace == nil || trace.Message != cfgRefinementStatusProvenSafe {
-			t.Fatalf("expected proven-safe refinement trace, got %+v", trace)
+		if trace := findFirstTraceRecord(refined.Records); trace != nil {
+			t.Fatalf("expected no refinement trace for already-safe cfg helper fixture, got %+v", trace)
 		}
 	})
 
-	t.Run("recursion-cycle refinement upgrades ubv escape fixtures", func(t *testing.T) {
+	t.Run("recursion-cycle ubv fixture stays conservative without cast inconclusives", func(t *testing.T) {
 		t.Parallel()
 
 		base := runPhaseCPackage(t, "cfa_phasec_recursion_cycle", func(analyzer *analysis.Analyzer) {
@@ -358,14 +363,21 @@ func sample(raw string) {
 			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOnce)
 		})
 
-		if got := countDiagnosticCategory(base.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 1 {
-			t.Fatalf("expected recursion-cycle fixture to start at cast inconclusive, got %d", got)
+		if got := countDiagnosticCategory(base.Diagnostics, CategoryUnvalidatedCast); got != 1 {
+			t.Fatalf("expected recursion-cycle fixture to stay conservatively unsafe, got %d", got)
 		}
-		if got := countDiagnosticCategory(refined.Diagnostics, CategoryUseBeforeValidateSameBlock); got != 1 {
-			t.Fatalf("expected recursion-cycle fixture to refine to same-block UBV, got %d", got)
+		if got := countDiagnosticCategory(base.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 0 {
+			t.Fatalf("expected recursion-cycle fixture to avoid cast inconclusive findings, got %d", got)
+		}
+		if got := countDiagnosticCategory(refined.Diagnostics, CategoryUnvalidatedCast); got != 1 {
+			t.Fatalf("expected recursion-cycle fixture to remain conservatively unsafe under refinement, got %d", got)
 		}
 		if got := countDiagnosticCategory(refined.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 0 {
-			t.Fatalf("expected recursion-cycle cast inconclusive findings to clear under refinement, got %d", got)
+			t.Fatalf("expected recursion-cycle fixture to remain free of cast inconclusive findings, got %d", got)
+		}
+		trace := findFirstTraceRecord(refined.Records)
+		if trace == nil || trace.Message != cfgRefinementStatusUnsafe {
+			t.Fatalf("expected unsafe refinement trace for already-conservative recursion-cycle fixture, got %+v", trace)
 		}
 	})
 
@@ -525,6 +537,7 @@ func sample(raw string) {
 					func(nodeID interprocNodeID, _ ast.Node, state ideValidationState) bool {
 						return nodeID.Key() == terminal.Key() && state == ideStateNeedsValidate
 					},
+					nil,
 				)
 				if unsafe.Class != interprocOutcomeUnsafe {
 					t.Fatalf("unsafe.Class = %q, want %q", unsafe.Class, interprocOutcomeUnsafe)
@@ -549,6 +562,7 @@ func sample(raw string) {
 					func(nodeID interprocNodeID, _ ast.Node, state ideValidationState) bool {
 						return nodeID.Key() == terminal.Key() && state == ideStateNeedsValidate
 					},
+					nil,
 				)
 				if safe.Class != interprocOutcomeSafe {
 					t.Fatalf("safe.Class = %q, want %q", safe.Class, interprocOutcomeSafe)

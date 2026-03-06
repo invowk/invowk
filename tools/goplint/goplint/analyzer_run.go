@@ -114,8 +114,14 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	needs := deriveRunNeeds(rc)
 	collectors := newRunCollectors(rc, needs)
+	var ssaRes *ssaResult
+	if rc.checkCastValidation && rc.cfgAliasMode == cfgAliasModeSSA {
+		// Build SSA at most once per package analysis when Phase D alias
+		// tracking is active so every function and closure shares the same view.
+		ssaRes = buildSSAForPass(pass)
+	}
 
-	if err := runTraversal(pass, insp, rc, cfg, bl, needs, &collectors); err != nil {
+	if err := runTraversal(pass, insp, rc, cfg, bl, needs, &collectors, ssaRes); err != nil {
 		return nil, err
 	}
 	if err := runPostTraversalChecks(pass, state, rc, cfg, bl, &collectors); err != nil {
@@ -260,6 +266,20 @@ func validateRunConfig(rc runConfig) error {
 			rc.cfgFeasibilityTimeoutMS,
 		)
 	}
+	cfgAliasMode := strings.TrimSpace(strings.ToLower(rc.cfgAliasMode))
+	if cfgAliasMode == "" {
+		cfgAliasMode = defaultCFGAliasMode
+	}
+	switch cfgAliasMode {
+	case cfgAliasModeOff, cfgAliasModeSSA:
+	default:
+		return fmt.Errorf(
+			"flag --cfg-alias-mode must be %q or %q (got %q)",
+			cfgAliasModeOff,
+			cfgAliasModeSSA,
+			rc.cfgAliasMode,
+		)
+	}
 	phaseCEnabled := cfgFeasibilityEngine != cfgFeasibilityEngineOff || cfgRefinementMode != cfgRefinementModeOff
 	if phaseCEnabled {
 		if cfgInterprocEngine != cfgInterprocEngineIFDS {
@@ -346,6 +366,7 @@ func runTraversal(
 	bl *BaselineConfig,
 	needs runNeeds,
 	collectors *runCollectors,
+	ssaRes *ssaResult,
 ) error {
 	var traverseErr error
 	nodeFilter := []ast.Node{
@@ -439,6 +460,7 @@ func runTraversal(
 					rc.cfgWitnessMaxSteps,
 					newCFGPhaseCOptions(rc),
 					rc.cfgAliasMode,
+					ssaRes,
 				); err != nil {
 					traverseErr = err
 					return

@@ -123,8 +123,12 @@ func computeMustAliasKeys(
 // findSSACastValue locates the SSA value produced by a type conversion
 // at the given AST node position. SSA and AST use different position
 // anchors for type conversions: AST CallExpr.Pos() is the type name
-// start, while SSA ChangeType.Pos() is the Lparen. We match any SSA
-// value whose position falls within [castNode.Pos(), castNode.End()).
+// start, while SSA ChangeType/Convert.Pos() usually points at the Lparen.
+//
+// We deliberately prefer the earliest conversion instruction in the node span.
+// Nested helper calls inside the cast argument (for example,
+// T(strings.TrimSpace(raw))) also produce in-range SSA values, but they are not
+// the cast result and must not drive alias inference.
 func findSSACastValue(ssaFn *ssa.Function, castNode ast.Node) ssa.Value {
 	if ssaFn == nil || castNode == nil {
 		return nil
@@ -135,6 +139,8 @@ func findSSACastValue(ssaFn *ssa.Function, castNode ast.Node) ssa.Value {
 		return nil
 	}
 
+	var best ssa.Value
+	var bestPos token.Pos
 	for _, block := range ssaFn.Blocks {
 		for _, instr := range block.Instrs {
 			val, ok := instr.(ssa.Value)
@@ -146,12 +152,15 @@ func findSSACastValue(ssaFn *ssa.Function, castNode ast.Node) ssa.Value {
 				continue
 			}
 			switch val.(type) {
-			case *ssa.ChangeType, *ssa.Convert, *ssa.Call:
-				return val
+			case *ssa.ChangeType, *ssa.Convert:
+				if best == nil || valPos < bestPos {
+					best = val
+					bestPos = valPos
+				}
 			}
 		}
 	}
-	return nil
+	return best
 }
 
 // enrichAssignedCastsWithSSA attaches SSA-derived alias sets to all assigned

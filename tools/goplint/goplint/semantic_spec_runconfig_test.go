@@ -77,3 +77,25 @@ func TestSemanticSpecCFARulesRequirePhaseCControls(t *testing.T) {
 		}
 	}
 }
+
+func TestSemanticSpecAliasSensitiveRulesRequireAliasControl(t *testing.T) {
+	t.Parallel()
+
+	catalog := mustLoadSemanticRuleCatalog(t)
+	requiredCategories := map[string]bool{
+		CategoryUnvalidatedCast:               true,
+		CategoryUnvalidatedCastInconclusive:   true,
+		CategoryUseBeforeValidateSameBlock:    true,
+		CategoryUseBeforeValidateCrossBlock:   true,
+		CategoryUseBeforeValidateInconclusive: true,
+	}
+
+	for _, rule := range catalog.Rules {
+		if !requiredCategories[rule.Category] {
+			continue
+		}
+		if !slices.Contains(rule.RunControls, "cfg-alias-mode") {
+			t.Fatalf("alias-sensitive rule %q must include cfg-alias-mode run control", rule.Category)
+		}
+	}
+}

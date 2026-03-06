@@ -33,6 +33,7 @@ func inspectUnvalidatedCastsCFA(
 	cfgWitnessMaxSteps int,
 	phaseC cfgPhaseCOptions,
 	cfgAliasMode string,
+	ssaRes *ssaResult,
 ) error {
 	if fn.Body == nil {
 		return nil
@@ -95,6 +96,7 @@ func inspectUnvalidatedCastsCFA(
 				cfgWitnessMaxSteps,
 				phaseC,
 				cfgAliasMode,
+				ssaRes,
 			)
 		},
 	)
@@ -104,7 +106,7 @@ func inspectUnvalidatedCastsCFA(
 
 	// Enrich cast targets with SSA-derived alias sets when alias mode is active.
 	if cfgAliasMode == cfgAliasModeSSA {
-		enrichAssignedCastsWithSSA(pass, buildSSAForPass(pass), fn, assignedCasts)
+		enrichAssignedCastsWithSSA(pass, ssaRes, fn, assignedCasts)
 	}
 
 	// Collect closure classifications lazily — only needed when assigned casts exist.

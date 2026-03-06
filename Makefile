@@ -316,6 +316,11 @@ check-ifds-compat:
 check-cfg-refinement:
 	./tools/goplint/scripts/check-cfg-refinement.sh
 
+# Check Phase D alias-mode precision stays opt-in and improves curated fixtures.
+.PHONY: check-cfg-alias
+check-cfg-alias: build-goplint
+	./tools/goplint/scripts/check-cfg-alias.sh
+
 # Check for goplint regressions against the committed baseline.
 # Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
 .PHONY: check-baseline
@@ -339,7 +344,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh scripts/sonar-local.sh
+	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -513,6 +518,7 @@ help:
 	@echo "  check-semantic-spec Run semantic contract checks for tools/goplint"
 	@echo "  check-ifds-compat Run IFDS compare-mode no-silent-downgrade gate"
 	@echo "  check-cfg-refinement Run Phase C refinement gate for tools/goplint"
+	@echo "  check-cfg-alias  Run Phase D alias gate for opt-in SSA alias verification"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  sonar-local      Run local SonarQube analysis and print unresolved issues"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"

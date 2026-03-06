@@ -18,6 +18,7 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | **Check Phase A semantic contracts** | **`make check-semantic-spec`** |
 | **Check IFDS compatibility** | **`make check-ifds-compat`** |
 | **Check Phase C refinement** | **`make check-cfg-refinement`** |
+| **Check Phase D alias mode** | **`make check-cfg-alias`** |
 | **Check baseline (regression gate)** | **`make check-baseline`** |
 | **Update baseline** | **`make update-baseline`** |
 | Run tests | `cd tools/goplint && go test ./goplint/` |
@@ -587,8 +588,9 @@ make update-baseline   # Regenerate baseline from current state
 `make check-baseline` and `make update-baseline` pin
 `-cfg-interproc-engine=legacy` to keep baseline suppression deterministic while
 IFDS remains the analyzer default path and compatibility is enforced by
-`make check-ifds-compat` plus the Phase C refinement gate
-`make check-cfg-refinement`.
+`make check-ifds-compat`, the Phase C refinement gate
+`make check-cfg-refinement`, and the Phase D alias gate
+`make check-cfg-alias`.
 
 ### How it works
 
@@ -624,7 +626,7 @@ Run `make update-baseline` after:
 
 ### CI integration
 
-The `goplint-baseline` and `goplint-tests` jobs in `lint.yml` are required checks. `goplint-baseline` runs `make check-baseline` (regression gate), while `goplint-tests` runs nested-module analyzer tests (`go test -race -count=1 ./...` and repeat runs) to catch tool-only regressions.
+The `goplint-baseline` and `goplint-tests` jobs in `lint.yml` are required checks. `goplint-baseline` runs `make check-baseline` (regression gate), while `goplint-tests` runs nested-module analyzer tests (`go test -race -count=1 ./...` and repeat runs) plus the semantic/IFDS/Phase C/Phase D script gates to catch tool-only regressions.
 
 ### Pre-commit hook
 
@@ -645,7 +647,7 @@ The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-
 - **Per-package execution**: `go/analysis` analyzers run per-package. `--audit-exceptions` reports stale exceptions per-package — an exception that matches in package A but not package B will only be reported as stale during B's analysis. For a global stale audit, run against the full module (`./...`).
 - **`findConstructorForStruct` determinism**: Prefers exact match (`"New" + structName`) over prefix matches. Among prefix matches, picks lexicographically first name. Prevents non-deterministic results from Go map iteration order when multiple variant constructors exist.
 - **CFA import alias**: CFA files use `gocfg "golang.org/x/tools/go/cfg"` to avoid collision with the `*ExceptionConfig` parameter commonly named `cfg` in analyzer functions.
-- **`--cfg-alias-mode=ssa` (Phase D)**: Opt-in SSA-based must-alias tracking. Enriches `castTarget.matchesExpr` so `y := x; y.Validate()` discharges `x`'s validation requirement. SSA is built on-demand via `buildSSAForPass()` (NOT a `Requires` prerequisite — adding to `Requires` causes `failed prerequisites` for stdlib imports in the `go/analysis` framework). NOT included in `--check-all`. The `"ssa"` here refers to `go/ssa` SSA form, distinct from `--cfg-backend=ssa` which means "type-aware `go/cfg` CFG."
+- **`--cfg-alias-mode=ssa` (Phase D)**: Opt-in SSA-based must-alias tracking. Enriches `castTarget.matchesExpr` so `y := x; y.Validate()` discharges `x`'s validation requirement. SSA is built on-demand via `buildSSAForPass()` (NOT a `Requires` prerequisite — adding to `Requires` causes `failed prerequisites` for stdlib imports in the `go/analysis` framework). NOT included in `--check-all`. The `"ssa"` here refers to `go/ssa` SSA form, distinct from `--cfg-backend=ssa` which means "type-aware `go/cfg` CFG." `make check-cfg-alias` is the dedicated proof gate: it compares the curated alias fixture under `off` vs `ssa`, requires copy/multi-hop alias improvement only under `ssa`, and keeps the no-alias/reassignment/partial-branch controls failing in both modes.
 - **`go/cfg` builder callback**: `gocfg.New(body, mayReturn)` requires a non-nil `mayReturn` callback if the body can contain bare call-expression statements (`consume(x)`). Passing `nil` can panic during CFG construction when the builder evaluates call return behavior.
 - **CFA compartmentalization**: `cfa*.go` files may import shared helpers from `inspect.go` and `typecheck.go` but NEVER from `analyzer_cast_validation.go`. The reverse is also true. `analyzer.go` is the sole routing point. Within CFA, `cfa_collect.go` is the shared cast-collection layer.
 - **CFA synchronous closure tracking (`syncLits`)**: Outer-path validation checks descend into deferred closures (`defer func() { x.Validate() }()`) and immediate IIFEs (`func() { x.Validate() }()`), because both execute before function return. Goroutine closures remain excluded (`go func() { x.Validate() }()`), since they execute concurrently with no return-order guarantee.

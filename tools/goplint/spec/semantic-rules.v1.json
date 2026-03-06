@@ -12,6 +12,7 @@
         "check-cast-validation"
       ],
       "run_controls": [
+        "cfg-alias-mode",
         "cfg-backend",
         "cfg-interproc-engine",
         "cfg-feasibility-engine",
@@ -66,6 +67,7 @@
         "check-cast-validation"
       ],
       "run_controls": [
+        "cfg-alias-mode",
         "cfg-backend",
         "cfg-inconclusive-policy",
         "cfg-interproc-engine",
@@ -139,6 +141,7 @@
         "check-use-before-validate"
       ],
       "run_controls": [
+        "cfg-alias-mode",
         "cfg-backend",
         "cfg-interproc-engine",
         "cfg-feasibility-engine",
@@ -196,6 +199,7 @@
         "check-use-before-validate"
       ],
       "run_controls": [
+        "cfg-alias-mode",
         "cfg-backend",
         "cfg-interproc-engine",
         "cfg-feasibility-engine",
@@ -253,6 +257,7 @@
         "check-use-before-validate"
       ],
       "run_controls": [
+        "cfg-alias-mode",
         "cfg-backend",
         "cfg-inconclusive-policy",
         "cfg-interproc-engine",

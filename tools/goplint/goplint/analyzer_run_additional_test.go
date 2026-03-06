@@ -154,6 +154,13 @@ func TestValidateRunConfigRejectsExplicitEmptyPaths(t *testing.T) {
 			want: "flag --cfg-feasibility-timeout-ms must be > 0",
 		},
 		{
+			name: "invalid alias mode",
+			rc: runConfig{
+				cfgAliasMode: "mystery",
+			},
+			want: "flag --cfg-alias-mode must be",
+		},
+		{
 			name: "phase c requires ifds engine",
 			rc: runConfig{
 				cfgInterprocEngine:   cfgInterprocEngineLegacy,

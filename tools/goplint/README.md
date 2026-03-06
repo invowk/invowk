@@ -46,6 +46,7 @@ make update-baseline
 | `make check-semantic-spec` | Semantic contract and oracle checks for CFA-backed categories |
 | `make check-ifds-compat` | Legacy-vs-IFDS no-silent-downgrade compatibility gate |
 | `make check-cfg-refinement` | Phase C refinement gate: soundness, provenance, determinism |
+| `make check-cfg-alias` | Phase D alias gate: prove SSA alias mode improves curated fixtures while remaining opt-in |
 | `make check-baseline` | Regression gate: report only **new** findings vs baseline |
 | `make update-baseline` | Regenerate `baseline.toml` from current codebase state |
 
@@ -166,7 +167,8 @@ The baseline prevents DDD compliance regressions. A committed `baseline.toml` re
 
 `make check-baseline` and `make update-baseline` pin `-cfg-interproc-engine=legacy`
 to keep baseline suppression deterministic while IFDS default rollout is guarded by
-`make check-ifds-compat`.
+`make check-ifds-compat`, Phase C precision by `make check-cfg-refinement`, and
+Phase D alias precision by `make check-cfg-alias`.
 
 ### Workflow
 
@@ -204,7 +206,7 @@ carry a `goplint://finding/<id>` URL; missing/invalid URLs abort parsing.
 
 ### CI Integration
 
-The `goplint-baseline` job in `.github/workflows/lint.yml` runs `make check-baseline` on every PR as a required regression gate.
+The `goplint-baseline` and `goplint-tests` jobs in `.github/workflows/lint.yml` are required checks. `goplint-baseline` runs `make check-baseline` on every PR as the regression gate, while `goplint-tests` runs nested-module analyzer tests plus the semantic/IFDS/Phase C/Phase D script gates, including `make check-cfg-alias`.
 
 ### Pre-commit Hook
 
@@ -319,6 +321,8 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 - Inconclusive metadata includes bounded witness fields (`cfg_witness_kind`, `cfg_witness_blocks`, `cfg_witness_edges`, `cfg_witness_call_chain`, plus compatibility keys `witness_cfg_path`, `witness_cfg_steps`, `witness_cfg_truncated`) capped by `--cfg-witness-max-steps`.
 - Refined findings add feasibility/refinement metadata (`cfg_feasibility_engine`, `cfg_feasibility_result`, `cfg_refinement_status`, `cfg_refinement_iterations`, `cfg_refinement_trigger`, `cfg_refinement_witness_hash`).
 - `-emit-findings-jsonl` now also writes `kind=refinement-trace` records for Phase C-evaluated non-safe witnesses so gates can audit refined and retained outcomes that did not become user-facing findings.
+- `--cfg-alias-mode=ssa` is Phase D's opt-in SSA must-alias upgrade. It stays out of `--check-all`; `make check-cfg-alias` proves the curated alias-fixture delta by keeping alias mode `off` as the control run and requiring only the `ssa` run to discharge the copy/multi-hop alias cases.
+- IFDS unresolved-call handling is target-relevant: unknown helper calls only keep a finding inconclusive when the unresolved call could operate on the tracked cast/return target, so unrelated helpers like `filepath.Join`, `len`, or `copy` do not poison otherwise validated paths.
 - `--ubv-mode=order` uses strict ordering semantics; `--ubv-mode=escape` focuses on values escaping before validation.
 - `--ubv-mode=escape` uses recursion-safe interprocedural first-argument summaries to treat helper calls as validation only when the callee validates before escaping that argument.
 - `--cfg-backend=ssa` uses type-aware no-return pruning; `--cfg-backend=ast` is conservative and treats calls as may-return.
@@ -345,6 +349,9 @@ cd tools/goplint && go test -run '^$' -bench '^BenchmarkCFGTraversal' ./goplint
 
 # Check Phase A semantic contracts
 ./tools/goplint/scripts/check-semantic-spec.sh
+
+# Check Phase D alias opt-in behavior
+./tools/goplint/scripts/check-cfg-alias.sh
 ```
 
 ## Soundness Docs
