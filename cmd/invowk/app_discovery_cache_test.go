@@ -32,8 +32,11 @@ func (p *countingConfigProvider) Load(_ context.Context, _ config.LoadOptions) (
 	return p.cfg, nil
 }
 
-// Not parallel: os.Chdir is process-wide.
-func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T) {
+// setupDiscoveryCacheTestDir creates a temp directory with a minimal invowkfile
+// containing a single "build" command, then chdirs into it. The working directory
+// is restored via t.Cleanup. Not parallel-safe: os.Chdir is process-wide.
+func setupDiscoveryCacheTestDir(t *testing.T) {
+	t.Helper()
 	tmpDir := t.TempDir()
 	invPath := filepath.Join(tmpDir, "invowkfile.cue")
 	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
@@ -61,7 +64,12 @@ func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T)
 	if err = os.Chdir(tmpDir); err != nil {
 		t.Fatalf("failed to chdir to test dir: %v", err)
 	}
-	defer func() { _ = os.Chdir(oldWD) }()
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+}
+
+// Not parallel: os.Chdir is process-wide.
+func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T) {
+	setupDiscoveryCacheTestDir(t)
 
 	svc := &appDiscoveryService{
 		config: &staticConfigProvider{cfg: config.DefaultConfig()},
@@ -98,34 +106,7 @@ func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T)
 // listing path (DiscoverCommandSet) doesn't see tree validation errors as
 // discovery failures.
 func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *testing.T) {
-	tmpDir := t.TempDir()
-	invPath := filepath.Join(tmpDir, "invowkfile.cue")
-	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
-		Commands: []invowkfile.Command{
-			{
-				Name: "build",
-				Implementations: []invowkfile.Implementation{
-					{
-						Script:    "echo build",
-						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-						Platforms: invowkfile.AllPlatformConfigs(),
-					},
-				},
-			},
-		},
-	})
-	if err := os.WriteFile(invPath, []byte(content), 0o644); err != nil {
-		t.Fatalf("failed to write test invowkfile: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	if err = os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to chdir to test dir: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWD) }()
+	setupDiscoveryCacheTestDir(t)
 
 	svc := &appDiscoveryService{
 		config: &staticConfigProvider{cfg: config.DefaultConfig()},
@@ -160,34 +141,7 @@ func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *te
 
 // Not parallel: os.Chdir is process-wide.
 func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing.T) {
-	tmpDir := t.TempDir()
-	invPath := filepath.Join(tmpDir, "invowkfile.cue")
-	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
-		Commands: []invowkfile.Command{
-			{
-				Name: "build",
-				Implementations: []invowkfile.Implementation{
-					{
-						Script:    "echo build",
-						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-						Platforms: invowkfile.AllPlatformConfigs(),
-					},
-				},
-			},
-		},
-	})
-	if err := os.WriteFile(invPath, []byte(content), 0o644); err != nil {
-		t.Fatalf("failed to write test invowkfile: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	if err = os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to chdir to test dir: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWD) }()
+	setupDiscoveryCacheTestDir(t)
 
 	svc := &appDiscoveryService{
 		config: &staticConfigProvider{cfg: config.DefaultConfig()},
@@ -220,46 +174,19 @@ func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing
 
 // Not parallel: os.Chdir is process-wide.
 func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testing.T) {
-	tmpDir := t.TempDir()
-	invPath := filepath.Join(tmpDir, "invowkfile.cue")
-	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
-		Commands: []invowkfile.Command{
-			{
-				Name: "build",
-				Implementations: []invowkfile.Implementation{
-					{
-						Script:    "echo build",
-						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-						Platforms: invowkfile.AllPlatformConfigs(),
-					},
-				},
-			},
-		},
-	})
-	if err := os.WriteFile(invPath, []byte(content), 0o644); err != nil {
-		t.Fatalf("failed to write test invowkfile: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	if err = os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to chdir to test dir: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWD) }()
+	setupDiscoveryCacheTestDir(t)
 
 	cfgProvider := &countingConfigProvider{cfg: config.DefaultConfig()}
 	svc := &appDiscoveryService{config: cfgProvider}
 	ctx := contextWithConfigPath(t.Context(), "")
 
-	if _, err = svc.DiscoverCommandSet(ctx); err != nil {
+	if _, err := svc.DiscoverCommandSet(ctx); err != nil {
 		t.Fatalf("DiscoverCommandSet() error: %v", err)
 	}
-	if _, err = svc.DiscoverAndValidateCommandSet(ctx); err != nil {
+	if _, err := svc.DiscoverAndValidateCommandSet(ctx); err != nil {
 		t.Fatalf("DiscoverAndValidateCommandSet() error: %v", err)
 	}
-	if _, err = svc.GetCommand(ctx, "build"); err != nil {
+	if _, err := svc.GetCommand(ctx, "build"); err != nil {
 		t.Fatalf("GetCommand() error: %v", err)
 	}
 
@@ -270,34 +197,7 @@ func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testin
 
 // Not parallel: os.Chdir is process-wide.
 func TestAppDiscoveryService_GetCommand_UsesCachedCommandSetLookup(t *testing.T) {
-	tmpDir := t.TempDir()
-	invPath := filepath.Join(tmpDir, "invowkfile.cue")
-	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
-		Commands: []invowkfile.Command{
-			{
-				Name: "build",
-				Implementations: []invowkfile.Implementation{
-					{
-						Script:    "echo build",
-						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-						Platforms: invowkfile.AllPlatformConfigs(),
-					},
-				},
-			},
-		},
-	})
-	if err := os.WriteFile(invPath, []byte(content), 0o644); err != nil {
-		t.Fatalf("failed to write test invowkfile: %v", err)
-	}
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	if err = os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to chdir to test dir: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWD) }()
+	setupDiscoveryCacheTestDir(t)
 
 	svc := &appDiscoveryService{config: &staticConfigProvider{cfg: config.DefaultConfig()}}
 	ctx := contextWithConfigPath(t.Context(), "")
