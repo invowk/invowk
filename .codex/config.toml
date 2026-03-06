@@ -5,3 +5,5 @@ multi_agent = true
 memories = true
 codex_git_commit = true
 default_mode_request_user_input = true
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
