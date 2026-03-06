@@ -208,16 +208,16 @@ carry a `goplint://finding/<id>` URL; missing/invalid URLs abort parsing.
 
 The `goplint-baseline` and `goplint-tests` jobs in `.github/workflows/lint.yml` are required checks. `goplint-baseline` runs `make check-baseline` on every PR as the regression gate, while `goplint-tests` runs nested-module analyzer tests plus the semantic/IFDS/Phase C/Phase D script gates, including `make check-cfg-alias`.
 
-### Pre-commit Hook
+### Pre-commit Hooks
 
-An advisory pre-commit hook is configured in `.pre-commit-config.yaml`:
+Blocking local pre-commit hooks are configured in `.pre-commit-config.yaml`:
 
 ```bash
 # Install hooks
 make install-hooks
 
-# The hook runs automatically on commit when Go files change
-# It warns but does not block commits
+# The hooks run automatically on commit for goplint-relevant changes
+# They enforce both the legacy baseline gate and the semantic/IFDS/Phase C/Phase D behavior gates
 ```
 
 ## JSON Output

@@ -72,7 +72,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: tools/goplint/go.mod
           cache: true
 
       - name: golangci-lint
@@ -103,10 +103,10 @@ jobs:
       - name: Run goplint (advisory)
         run: |
           set +e
-          ./bin/goplint -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+          ./bin/goplint -check-all -check-enum-sync -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "::warning::goplint full scan reports known rollout findings; use goplint (baseline) for regression gating."
+            echo "::warning::goplint full scan found findings outside the legacy-pinned baseline regression gate; review the advisory output."
           fi
 
   goplint-baseline:
@@ -119,7 +119,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: tools/goplint/go.mod
           cache: true
 
       - name: Build goplint
@@ -184,7 +184,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: tools/goplint/go.mod
           cache: true
 
       - name: Build goplint

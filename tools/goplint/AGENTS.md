@@ -630,7 +630,7 @@ The `goplint-baseline` and `goplint-tests` jobs in `lint.yml` are required check
 
 ### Pre-commit hook
 
-The `goplint-baseline` local hook in `.pre-commit-config.yaml` runs `make check-baseline` advisory (always exits 0). Install with `make install-hooks`.
+The local hooks in `.pre-commit-config.yaml` now block on both `make check-baseline` and the semantic/IFDS/Phase C/Phase D behavior gates (`check-semantic-spec`, `check-ifds-compat`, `check-cfg-refinement`, `check-cfg-alias`) for goplint-relevant changes. Install with `make install-hooks`.
 
 ## Gotchas
 

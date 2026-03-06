@@ -23,6 +23,15 @@ repos:
         entry: "bash -c 'make check-baseline 2>&1'"
         language: system
         pass_filenames: false
-        types: [go]
+        files: '^(cmd/|internal/|pkg/|tools/goplint/|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/lint\.yml$)'
+        always_run: true
+        verbose: true
+
+      - id: goplint-behavior
+        name: goplint behavior gates
+        entry: "bash -c './tools/goplint/scripts/check-semantic-spec.sh && ./tools/goplint/scripts/check-ifds-compat.sh && ./tools/goplint/scripts/check-cfg-refinement.sh && make check-cfg-alias 2>&1'"
+        language: system
+        pass_filenames: false
+        files: '^(cmd/|internal/|pkg/|tools/goplint/|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/lint\.yml$)'
         always_run: true
         verbose: true
