@@ -2833,8 +2833,9 @@ Regenerate `default.pgo` when:
 ## Local SonarQube Analysis
 
 Invowk includes a local Sonar workflow that reuses `.golangci.toml` by exporting
-golangci-lint findings as a Checkstyle report and importing them into Sonar
-during scan (`sonar.go.golangci-lint.reportPaths`).
+golangci-lint findings as a Checkstyle report, generating a Go coverage profile,
+and importing both into Sonar during scan (`sonar.go.golangci-lint.reportPaths`
+and `sonar.go.coverage.reportPaths`).
 
 ```bash
 # Required: token from SonarQube Cloud
@@ -2849,10 +2850,13 @@ export SONAR_PROJECT_KEY=invowk
 make sonar-local
 ```
 
-The command also writes raw issue output to `.sonar/reports/issues.json`.
+The command also writes raw issue output to `.sonar/reports/issues.json`, the
+coverage profile to `.sonar/reports/coverage.out`, and fails if the Sonar
+quality gate is red for the analyzed branch.
 
 When pre-commit hooks are installed, the local `sonar-local` hook runs this
-same command for Sonar-relevant changes and blocks the commit on failures.
+same command for Sonar-relevant changes and blocks the commit on lint, coverage,
+or quality-gate failures.
 The CI job is prepared in `.github/workflows/lint.yml` but stays disabled until
 the repository variable `ENABLE_SONAR_LINT` is set to `true`.
 

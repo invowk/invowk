@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 // Package cfa_ssa_alias_probe provides simple fixtures for SSA alias
 // unit tests. Used by probe analyzers that inspect SSA output directly.
 package cfa_ssa_alias_probe

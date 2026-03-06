@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 // Package cfa_ssa_alias tests SSA-based must-alias tracking for cast validation.
 // With --cfg-alias-mode=ssa, validating a copy-alias of a cast target
 // should discharge the cast's validation requirement.

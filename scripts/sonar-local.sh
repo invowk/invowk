@@ -15,8 +15,10 @@ SONAR_PAGE_SIZE="${SONAR_PAGE_SIZE:-500}"
 
 REPORT_DIR=".sonar/reports"
 CHECKSTYLE_REPORT="$REPORT_DIR/golangci-checkstyle.xml"
+COVERAGE_REPORT="$REPORT_DIR/coverage.out"
 SCANNER_LOG="$REPORT_DIR/sonar-scanner.log"
 CE_TASK_JSON="$REPORT_DIR/ce-task.json"
+QUALITY_GATE_JSON="$REPORT_DIR/quality-gate.json"
 ISSUES_NDJSON="$REPORT_DIR/issues.ndjson"
 ISSUES_JSON="$REPORT_DIR/issues.json"
 
@@ -59,6 +61,7 @@ run_sonar_scanner() {
 		"-Dsonar.organization=${SONAR_ORGANIZATION}"
 		"-Dsonar.projectKey=${SONAR_PROJECT_KEY}"
 		"-Dsonar.go.golangci-lint.reportPaths=${CHECKSTYLE_REPORT}"
+		"-Dsonar.go.coverage.reportPaths=${COVERAGE_REPORT}"
 	)
 
 	if [[ -n "$branch" ]]; then
@@ -66,6 +69,15 @@ run_sonar_scanner() {
 	fi
 
 	SONAR_TOKEN="$SONAR_TOKEN" sonar-scanner "${args[@]}" 2>&1 | tee "$SCANNER_LOG"
+}
+
+generate_go_coverage_report() {
+	info "Generating Go coverage report for Sonar"
+	go test \
+		-covermode=atomic \
+		-coverpkg=./cmd/...,./internal/...,./pkg/... \
+		-coverprofile "$COVERAGE_REPORT" \
+		./cmd/... ./internal/... ./pkg/...
 }
 
 wait_for_compute_engine_task() {
@@ -154,6 +166,45 @@ fetch_unresolved_issues() {
 	jq -s '.' "$ISSUES_NDJSON" >"$ISSUES_JSON"
 }
 
+check_quality_gate() {
+	local branch="$1"
+	local response gate_status failing_summary
+	local -a curl_args
+
+	curl_args=(
+		-fsS
+		-u "${SONAR_TOKEN}:"
+		--get "${SONAR_HOST_URL%/}/api/qualitygates/project_status"
+		--data-urlencode "projectKey=${SONAR_PROJECT_KEY}"
+	)
+	if [[ -n "$branch" ]]; then
+		curl_args+=(--data-urlencode "branch=${branch}")
+	fi
+
+	response="$(curl "${curl_args[@]}")"
+	printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
+	gate_status="$(jq -r '.projectStatus.status // ""' <<<"$response")"
+
+	if [[ "$gate_status" == "OK" ]]; then
+		echo "Sonar quality gate: OK"
+		return 0
+	fi
+
+	failing_summary="$(
+		jq -r '
+			.projectStatus.conditions[]
+			| select(.status == "ERROR")
+			| "\(.metricKey)=\(.actualValue // "-") (threshold \(.errorThreshold // "-"))"
+		' <<<"$response"
+	)"
+
+	if [[ -n "$failing_summary" ]]; then
+		fail "Sonar quality gate failed: ${failing_summary//$'\n'/; }"
+	fi
+
+	fail "Sonar quality gate failed with status: ${gate_status:-<empty>}"
+}
+
 print_issue_table() {
 	local issue_count="$1"
 	local table_rows
@@ -201,6 +252,7 @@ main() {
 	require_cmd sonar-scanner
 	require_cmd curl
 	require_cmd jq
+	require_cmd go
 
 	if [[ -z "${SONAR_TOKEN:-}" ]]; then
 		fail "SONAR_TOKEN is required"
@@ -211,7 +263,7 @@ main() {
 	fi
 
 	mkdir -p "$REPORT_DIR"
-	rm -f "$CHECKSTYLE_REPORT" "$SCANNER_LOG" "$CE_TASK_JSON" "$ISSUES_NDJSON" "$ISSUES_JSON"
+	rm -f "$CHECKSTYLE_REPORT" "$COVERAGE_REPORT" "$SCANNER_LOG" "$CE_TASK_JSON" "$QUALITY_GATE_JSON" "$ISSUES_NDJSON" "$ISSUES_JSON"
 
 	branch="$SONAR_BRANCH"
 	if [[ -z "$branch" ]]; then
@@ -220,6 +272,8 @@ main() {
 
 	info "Generating golangci-lint checkstyle report from .golangci.toml"
 	golangci-lint run --config .golangci.toml --output.checkstyle.path "$CHECKSTYLE_REPORT" ./...
+
+	generate_go_coverage_report
 
 	if [[ -n "$branch" ]]; then
 		info "Running sonar-scanner for branch '$branch'"
@@ -253,6 +307,9 @@ main() {
 
 	info "Waiting for Sonar compute engine to finish analysis"
 	wait_for_compute_engine_task "$ce_task_url"
+
+	info "Checking Sonar quality gate"
+	check_quality_gate "$branch"
 
 	info "Fetching unresolved Sonar issues"
 	fetch_unresolved_issues "$branch"

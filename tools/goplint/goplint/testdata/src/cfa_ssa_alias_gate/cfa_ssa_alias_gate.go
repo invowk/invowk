@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 // Package cfa_ssa_alias_gate provides alias-sensitive CFA fixtures for the
 // dedicated Phase D gate tests. It intentionally omits analysistest `want`
 // comments because the gate compares diagnostics across alias modes directly.
