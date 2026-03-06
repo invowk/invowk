@@ -17,6 +17,7 @@ import (
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/invowkfile"
 
 	"github.com/rogpeppe/go-internal/testscript"
 )
@@ -52,6 +53,10 @@ func currentContainerHarness() containerSuiteHarness {
 	return containerHarness()
 }
 
+func containerCLISuiteSupportedHost(host invowkfile.PlatformType) bool {
+	return host == invowkfile.PlatformLinux
+}
+
 func resolveContainerSuiteHarness() containerSuiteHarness {
 	preferred := container.EngineType(config.DefaultConfig().ContainerEngine)
 	statuses := map[container.EngineType]engineProbeStatus{
@@ -59,11 +64,28 @@ func resolveContainerSuiteHarness() containerSuiteHarness {
 		container.EngineTypeDocker: probeEngineStatus(container.EngineTypeDocker),
 	}
 
-	return decideContainerSuiteHarness(
+	return decideContainerSuiteHarnessForHost(
+		invowkfile.CurrentPlatform(),
 		strings.TrimSpace(os.Getenv("INVOWK_TEST_CONTAINER_ENGINE")),
 		preferred,
 		statuses,
 	)
+}
+
+func decideContainerSuiteHarnessForHost(
+	host invowkfile.PlatformType,
+	explicit string,
+	preferred container.EngineType,
+	statuses map[container.EngineType]engineProbeStatus,
+) containerSuiteHarness {
+	if !containerCLISuiteSupportedHost(host) {
+		return containerSuiteHarness{
+			status: containerHarnessStatusSkip,
+			reason: "container CLI suite requires a Linux host for Linux container runtime coverage",
+		}
+	}
+
+	return decideContainerSuiteHarness(explicit, preferred, statuses)
 }
 
 func decideContainerSuiteHarness(

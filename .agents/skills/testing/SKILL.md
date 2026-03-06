@@ -32,6 +32,10 @@ For tests that spawn shell commands via `exec.CommandContext`, prefer a fixed sh
 - Use `/bin/sh` on Unix and `%SystemRoot%\\System32\\cmd.exe` on Windows (or a shared helper that resolves those locations).
 - This avoids Windows temp/path drift and prevents Sonar `go:S4036` hotspots on test-only shell invocations.
 
+For `make sonar-local` coverage failures, prioritize tests that exercise low-coverage production files under `cmd/`, `internal/`, and `pkg/`:
+- Adding more coverage under `tests/cli` or other test-only files often does not move Sonar's source coverage gate enough.
+- Favor focused unit tests for real helper/control-flow branches in the production package before broadening E2E coverage.
+
 For repo-relative typed path validators (for example `SubdirectoryPath`-style values), treat validation as cross-platform:
 - Normalize paths in implementation before checks (`filepath.ToSlash` + slash-based clean).
 - Include Unix absolute, Windows drive absolute, UNC/rooted, and slash/backslash traversal vectors in one test matrix.
