@@ -227,6 +227,8 @@ defer func() { <-sem }()
 
 Place this **after** `t.Parallel()` and any `testing.Short()` skip, but **before** any container operations. The semaphore is a `sync.OnceValue` singleton — each test binary gets its own instance. Default capacity is `min(GOMAXPROCS, 2)`, overridable via `INVOWK_TEST_CONTAINER_PARALLEL` env var (set to `"2"` in CI).
 
+**Note:** The `internal/runtime` container tests do NOT use `AcquireContainerSuiteLock` — the semaphore alone provides concurrency control. The suite lock is only used in `tests/cli` container tests for cross-process serialization during `make test` (where `internal/runtime` and `tests/cli` binaries may run concurrently). Do not add suite locks to `internal/runtime` tests — they make everything sequential and are redundant with the semaphore for single-process execution.
+
 **When to use the semaphore:**
 - Integration tests that run real container operations (Execute, ExecuteCapture, Build)
 - CLI testscript tests that invoke container commands
@@ -250,8 +252,10 @@ result := rt.Execute(execCtx)
 ```
 
 `DefaultContainerTestTimeout` is 5 minutes. The deadline propagates through
-`exec.CommandContext` to SIGKILL the subprocess when exceeded, producing a clean
-`context deadline exceeded` test failure instead of a 30-minute binary panic.
+`exec.CommandContext` to SIGKILL the subprocess when exceeded. The container engine
+sets `cmd.WaitDelay = 10s` to forcefully close I/O pipes if container child processes
+keep them open after the process is killed, producing a clean test failure instead of
+a 30-minute binary panic.
 
 **When NOT to use:** Tests that only call `Validate()` or perform type assertions
 (no container daemon interaction).

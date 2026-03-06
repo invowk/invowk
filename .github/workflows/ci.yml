@@ -157,7 +157,7 @@ jobs:
         if: matrix.test-mode == 'full'
         shell: bash
         env:
-          INVOWK_TEST_CONTAINER_PARALLEL: "1"
+          INVOWK_TEST_CONTAINER_PARALLEL: "2"
         run: |
           gotestsum \
             --format testdox \
@@ -166,7 +166,7 @@ jobs:
             --rerun-fails-max-failures 5 \
             --rerun-fails-report runtime-rerun-report.txt \
             --packages ./internal/runtime \
-            -- -race -timeout 30m -parallel 1
+            -- -race -timeout 15m
 
       - name: Run CLI integration tests (full)
         if: matrix.test-mode == 'full'

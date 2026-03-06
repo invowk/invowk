@@ -364,6 +364,10 @@ func TestBaseCLIEngine_CreateCommand(t *testing.T) {
 	if !slices.Contains(cmd.Args, "version") {
 		t.Errorf("CreateCommand args should contain 'version', got: %v", cmd.Args)
 	}
+
+	if cmd.WaitDelay != cmdWaitDelay {
+		t.Errorf("CreateCommand WaitDelay = %v, want %v", cmd.WaitDelay, cmdWaitDelay)
+	}
 }
 
 // Test that build args include build args properly
