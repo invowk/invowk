@@ -152,6 +152,18 @@ jobs:
           cd tools/goplint
           go test -count=3 ./...
 
+      - name: Check semantic spec contracts
+        run: |
+          ./tools/goplint/scripts/check-semantic-spec.sh
+
+      - name: Check IFDS compatibility
+        run: |
+          ./tools/goplint/scripts/check-ifds-compat.sh
+
+      - name: Check Phase C refinement
+        run: |
+          ./tools/goplint/scripts/check-cfg-refinement.sh
+
       - name: Check CFG benchmark thresholds
         run: |
           ./tools/goplint/scripts/check-cfg-bench-thresholds.sh

@@ -5,6 +5,7 @@ package goplint
 import (
 	"flag"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -49,6 +50,30 @@ func TestSemanticSpecInconclusiveRulesRequirePolicyControls(t *testing.T) {
 		}
 		if !slices.Contains(rule.RunControls, "cfg-witness-max-steps") {
 			t.Fatalf("inconclusive rule %q must include cfg-witness-max-steps run control", rule.Category)
+		}
+	}
+}
+
+func TestSemanticSpecCFARulesRequirePhaseCControls(t *testing.T) {
+	t.Parallel()
+
+	catalog := mustLoadSemanticRuleCatalog(t)
+	requiredControls := []string{
+		"cfg-feasibility-engine",
+		"cfg-refinement-mode",
+		"cfg-refinement-max-iterations",
+		"cfg-feasibility-max-queries",
+		"cfg-feasibility-timeout-ms",
+	}
+
+	for _, rule := range catalog.Rules {
+		if !strings.HasPrefix(rule.Family, "cfa-") {
+			continue
+		}
+		for _, control := range requiredControls {
+			if !slices.Contains(rule.RunControls, control) {
+				t.Fatalf("CFA rule %q must include Phase C run control %q", rule.Category, control)
+			}
 		}
 	}
 }

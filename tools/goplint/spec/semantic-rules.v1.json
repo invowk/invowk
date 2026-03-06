@@ -14,6 +14,11 @@
       "run_controls": [
         "cfg-backend",
         "cfg-interproc-engine",
+        "cfg-feasibility-engine",
+        "cfg-refinement-mode",
+        "cfg-refinement-max-iterations",
+        "cfg-feasibility-max-queries",
+        "cfg-feasibility-timeout-ms",
         "cfg-max-depth",
         "cfg-max-states"
       ],
@@ -24,6 +29,17 @@
       ],
       "outcome_domain": [
         "unsafe"
+      ],
+      "refinement_statuses": [
+        "unsafe"
+      ],
+      "required_meta_on_refinement": [
+        "cfg_feasibility_engine",
+        "cfg_feasibility_result",
+        "cfg_refinement_status",
+        "cfg_refinement_iterations",
+        "cfg_refinement_trigger",
+        "cfg_refinement_witness_hash"
       ],
       "baseline_policy": "suppressible",
       "interproc_engine_modes": [
@@ -53,6 +69,11 @@
         "cfg-backend",
         "cfg-inconclusive-policy",
         "cfg-interproc-engine",
+        "cfg-feasibility-engine",
+        "cfg-refinement-mode",
+        "cfg-refinement-max-iterations",
+        "cfg-feasibility-max-queries",
+        "cfg-feasibility-timeout-ms",
         "cfg-max-depth",
         "cfg-max-states",
         "cfg-witness-max-steps"
@@ -82,6 +103,18 @@
         "witness_cfg_path",
         "witness_cfg_steps"
       ],
+      "refinement_statuses": [
+        "inconclusive-refined",
+        "inconclusive-unrefined"
+      ],
+      "required_meta_on_refinement": [
+        "cfg_feasibility_engine",
+        "cfg_feasibility_result",
+        "cfg_refinement_status",
+        "cfg_refinement_iterations",
+        "cfg_refinement_trigger",
+        "cfg_refinement_witness_hash"
+      ],
       "baseline_policy": "suppressible",
       "interproc_engine_modes": [
         "legacy",
@@ -108,6 +141,11 @@
       "run_controls": [
         "cfg-backend",
         "cfg-interproc-engine",
+        "cfg-feasibility-engine",
+        "cfg-refinement-mode",
+        "cfg-refinement-max-iterations",
+        "cfg-feasibility-max-queries",
+        "cfg-feasibility-timeout-ms",
         "cfg-max-depth",
         "cfg-max-states",
         "ubv-mode"
@@ -120,6 +158,17 @@
       ],
       "outcome_domain": [
         "unsafe"
+      ],
+      "refinement_statuses": [
+        "unsafe"
+      ],
+      "required_meta_on_refinement": [
+        "cfg_feasibility_engine",
+        "cfg_feasibility_result",
+        "cfg_refinement_status",
+        "cfg_refinement_iterations",
+        "cfg_refinement_trigger",
+        "cfg_refinement_witness_hash"
       ],
       "baseline_policy": "suppressible",
       "interproc_engine_modes": [
@@ -149,6 +198,11 @@
       "run_controls": [
         "cfg-backend",
         "cfg-interproc-engine",
+        "cfg-feasibility-engine",
+        "cfg-refinement-mode",
+        "cfg-refinement-max-iterations",
+        "cfg-feasibility-max-queries",
+        "cfg-feasibility-timeout-ms",
         "cfg-max-depth",
         "cfg-max-states",
         "ubv-mode"
@@ -161,6 +215,17 @@
       ],
       "outcome_domain": [
         "unsafe"
+      ],
+      "refinement_statuses": [
+        "unsafe"
+      ],
+      "required_meta_on_refinement": [
+        "cfg_feasibility_engine",
+        "cfg_feasibility_result",
+        "cfg_refinement_status",
+        "cfg_refinement_iterations",
+        "cfg_refinement_trigger",
+        "cfg_refinement_witness_hash"
       ],
       "baseline_policy": "suppressible",
       "interproc_engine_modes": [
@@ -191,6 +256,11 @@
         "cfg-backend",
         "cfg-inconclusive-policy",
         "cfg-interproc-engine",
+        "cfg-feasibility-engine",
+        "cfg-refinement-mode",
+        "cfg-refinement-max-iterations",
+        "cfg-feasibility-max-queries",
+        "cfg-feasibility-timeout-ms",
         "cfg-max-depth",
         "cfg-max-states",
         "cfg-witness-max-steps",
@@ -222,6 +292,18 @@
         "witness_cfg_path",
         "witness_cfg_steps"
       ],
+      "refinement_statuses": [
+        "inconclusive-refined",
+        "inconclusive-unrefined"
+      ],
+      "required_meta_on_refinement": [
+        "cfg_feasibility_engine",
+        "cfg_feasibility_result",
+        "cfg_refinement_status",
+        "cfg_refinement_iterations",
+        "cfg_refinement_trigger",
+        "cfg_refinement_witness_hash"
+      ],
       "baseline_policy": "suppressible",
       "interproc_engine_modes": [
         "legacy",
@@ -250,6 +332,11 @@
       "run_controls": [
         "cfg-backend",
         "cfg-interproc-engine",
+        "cfg-feasibility-engine",
+        "cfg-refinement-mode",
+        "cfg-refinement-max-iterations",
+        "cfg-feasibility-max-queries",
+        "cfg-feasibility-timeout-ms",
         "cfg-max-depth",
         "cfg-max-states"
       ],
@@ -260,6 +347,17 @@
       ],
       "outcome_domain": [
         "unsafe"
+      ],
+      "refinement_statuses": [
+        "unsafe"
+      ],
+      "required_meta_on_refinement": [
+        "cfg_feasibility_engine",
+        "cfg_feasibility_result",
+        "cfg_refinement_status",
+        "cfg_refinement_iterations",
+        "cfg_refinement_trigger",
+        "cfg_refinement_witness_hash"
       ],
       "baseline_policy": "suppressible",
       "interproc_engine_modes": [
@@ -288,6 +386,11 @@
         "cfg-backend",
         "cfg-inconclusive-policy",
         "cfg-interproc-engine",
+        "cfg-feasibility-engine",
+        "cfg-refinement-mode",
+        "cfg-refinement-max-iterations",
+        "cfg-feasibility-max-queries",
+        "cfg-feasibility-timeout-ms",
         "cfg-max-depth",
         "cfg-max-states",
         "cfg-witness-max-steps"
@@ -316,6 +419,18 @@
         "cfg_witness_blocks",
         "witness_cfg_path",
         "witness_cfg_steps"
+      ],
+      "refinement_statuses": [
+        "inconclusive-refined",
+        "inconclusive-unrefined"
+      ],
+      "required_meta_on_refinement": [
+        "cfg_feasibility_engine",
+        "cfg_feasibility_result",
+        "cfg_refinement_status",
+        "cfg_refinement_iterations",
+        "cfg_refinement_trigger",
+        "cfg_refinement_witness_hash"
       ],
       "baseline_policy": "suppressible",
       "interproc_engine_modes": [

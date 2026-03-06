@@ -244,6 +244,21 @@ func TestNewRunConfig(t *testing.T) {
 		if rc.cfgWitnessMaxSteps != defaultCFGWitnessMaxSteps {
 			t.Fatalf("expected cfgWitnessMaxSteps default %d, got %d", defaultCFGWitnessMaxSteps, rc.cfgWitnessMaxSteps)
 		}
+		if rc.cfgFeasibilityEngine != defaultCFGFeasibilityEngine {
+			t.Fatalf("expected cfgFeasibilityEngine default %q, got %q", defaultCFGFeasibilityEngine, rc.cfgFeasibilityEngine)
+		}
+		if rc.cfgRefinementMode != defaultCFGRefinementMode {
+			t.Fatalf("expected cfgRefinementMode default %q, got %q", defaultCFGRefinementMode, rc.cfgRefinementMode)
+		}
+		if rc.cfgRefinementMaxIterations != defaultCFGRefinementMaxIterations {
+			t.Fatalf("expected cfgRefinementMaxIterations default %d, got %d", defaultCFGRefinementMaxIterations, rc.cfgRefinementMaxIterations)
+		}
+		if rc.cfgFeasibilityMaxQueries != defaultCFGFeasibilityMaxQueries {
+			t.Fatalf("expected cfgFeasibilityMaxQueries default %d, got %d", defaultCFGFeasibilityMaxQueries, rc.cfgFeasibilityMaxQueries)
+		}
+		if rc.cfgFeasibilityTimeoutMS != defaultCFGFeasibilityTimeoutMS {
+			t.Fatalf("expected cfgFeasibilityTimeoutMS default %d, got %d", defaultCFGFeasibilityTimeoutMS, rc.cfgFeasibilityTimeoutMS)
+		}
 	})
 }
 

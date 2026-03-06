@@ -201,6 +201,78 @@ func validateRunConfig(rc runConfig) error {
 	if cfgWitnessMaxSteps <= 0 {
 		return fmt.Errorf("flag --cfg-witness-max-steps must be > 0 (got %d)", rc.cfgWitnessMaxSteps)
 	}
+	cfgFeasibilityEngine := strings.TrimSpace(strings.ToLower(rc.cfgFeasibilityEngine))
+	if cfgFeasibilityEngine == "" {
+		cfgFeasibilityEngine = defaultCFGFeasibilityEngine
+	}
+	switch cfgFeasibilityEngine {
+	case cfgFeasibilityEngineOff, cfgFeasibilityEngineSMT:
+	default:
+		return fmt.Errorf(
+			"flag --cfg-feasibility-engine must be %q or %q (got %q)",
+			cfgFeasibilityEngineOff,
+			cfgFeasibilityEngineSMT,
+			rc.cfgFeasibilityEngine,
+		)
+	}
+	cfgRefinementMode := strings.TrimSpace(strings.ToLower(rc.cfgRefinementMode))
+	if cfgRefinementMode == "" {
+		cfgRefinementMode = defaultCFGRefinementMode
+	}
+	switch cfgRefinementMode {
+	case cfgRefinementModeOff, cfgRefinementModeOnce, cfgRefinementModeCEGAR:
+	default:
+		return fmt.Errorf(
+			"flag --cfg-refinement-mode must be %q, %q, or %q (got %q)",
+			cfgRefinementModeOff,
+			cfgRefinementModeOnce,
+			cfgRefinementModeCEGAR,
+			rc.cfgRefinementMode,
+		)
+	}
+	cfgRefinementMaxIterations := rc.cfgRefinementMaxIterations
+	if cfgRefinementMaxIterations == 0 {
+		cfgRefinementMaxIterations = defaultCFGRefinementMaxIterations
+	}
+	if cfgRefinementMaxIterations <= 0 {
+		return fmt.Errorf(
+			"flag --cfg-refinement-max-iterations must be > 0 (got %d)",
+			rc.cfgRefinementMaxIterations,
+		)
+	}
+	cfgFeasibilityMaxQueries := rc.cfgFeasibilityMaxQueries
+	if cfgFeasibilityMaxQueries == 0 {
+		cfgFeasibilityMaxQueries = defaultCFGFeasibilityMaxQueries
+	}
+	if cfgFeasibilityMaxQueries <= 0 {
+		return fmt.Errorf(
+			"flag --cfg-feasibility-max-queries must be > 0 (got %d)",
+			rc.cfgFeasibilityMaxQueries,
+		)
+	}
+	cfgFeasibilityTimeoutMS := rc.cfgFeasibilityTimeoutMS
+	if cfgFeasibilityTimeoutMS == 0 {
+		cfgFeasibilityTimeoutMS = defaultCFGFeasibilityTimeoutMS
+	}
+	if cfgFeasibilityTimeoutMS <= 0 {
+		return fmt.Errorf(
+			"flag --cfg-feasibility-timeout-ms must be > 0 (got %d)",
+			rc.cfgFeasibilityTimeoutMS,
+		)
+	}
+	phaseCEnabled := cfgFeasibilityEngine != cfgFeasibilityEngineOff || cfgRefinementMode != cfgRefinementModeOff
+	if phaseCEnabled {
+		if cfgInterprocEngine != cfgInterprocEngineIFDS {
+			return fmt.Errorf(
+				"phase c flags require --cfg-interproc-engine=%q (got %q)",
+				cfgInterprocEngineIFDS,
+				cfgInterprocEngine,
+			)
+		}
+		if cfgFeasibilityEngine == cfgFeasibilityEngineOff || cfgRefinementMode == cfgRefinementModeOff {
+			return errors.New("phase c requires either off/off or smt with once/cegar refinement")
+		}
+	}
 	return nil
 }
 
@@ -365,6 +437,7 @@ func runTraversal(
 					rc.cfgMaxDepth,
 					rc.cfgInconclusivePolicy,
 					rc.cfgWitnessMaxSteps,
+					newCFGPhaseCOptions(rc),
 				); err != nil {
 					traverseErr = err
 					return
@@ -435,6 +508,7 @@ func runPostTraversalChecks(
 			rc.cfgMaxDepth,
 			rc.cfgInconclusivePolicy,
 			rc.cfgWitnessMaxSteps,
+			newCFGPhaseCOptions(rc),
 		); err != nil {
 			return err
 		}

@@ -311,6 +311,11 @@ check-semantic-spec:
 check-ifds-compat:
 	./tools/goplint/scripts/check-ifds-compat.sh
 
+# Check Phase C refinement soundness, provenance, and determinism.
+.PHONY: check-cfg-refinement
+check-cfg-refinement:
+	./tools/goplint/scripts/check-cfg-refinement.sh
+
 # Check for goplint regressions against the committed baseline.
 # Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
 .PHONY: check-baseline
@@ -507,6 +512,7 @@ help:
 	@echo "  lint-tools-goplint  Run golangci-lint for tools/goplint module"
 	@echo "  check-semantic-spec Run semantic contract checks for tools/goplint"
 	@echo "  check-ifds-compat Run IFDS compare-mode no-silent-downgrade gate"
+	@echo "  check-cfg-refinement Run Phase C refinement gate for tools/goplint"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
 	@echo "  sonar-local      Run local SonarQube analysis and print unresolved issues"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"

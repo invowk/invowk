@@ -505,6 +505,9 @@ func parseFindingsJSONL(data []byte) (map[string][]goplint.BaselineFinding, erro
 
 	seen := make(map[string]map[string]goplint.BaselineFinding)
 	if err := forEachFindingsRecord(data, func(record goplint.FindingStreamRecord) error {
+		if record.Kind != "" && record.Kind != "finding" {
+			return nil
+		}
 		if record.Category == "" || record.Message == "" || record.ID == "" {
 			return errors.New("decoding findings record: missing required fields")
 		}

@@ -125,8 +125,10 @@ This provides operational correctness controls beyond pure analysis precision.
 - Summary analysis focuses on receiver/argument target slots relevant to current protocols.
 - It is not a full general-purpose interprocedural dataflow solver.
 
-3. Path feasibility is structural, not constraint-complete.
-- CFG/control context reasoning exists, but there is no SMT-backed feasibility discharge.
+3. Path feasibility remains bounded and intentionally incomplete.
+- Default CFA reasoning is still structural.
+- Opt-in Phase C adds bounded SMT-backed witness discharge plus localized refinement, but only for a narrow supported predicate vocabulary.
+- Unsupported predicates, solver failures, and timeouts degrade to `unknown`, never optimistic `safe`.
 
 4. Suppression is policy-powerful.
 - Exceptions and baseline entries are operationally necessary, but can hide real issues if overused.

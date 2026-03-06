@@ -139,6 +139,25 @@
               "minLength": 1
             }
           },
+          "refinement_statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "unsafe",
+                "inconclusive-refined",
+                "inconclusive-unrefined",
+                "proven-safe"
+              ]
+            }
+          },
+          "required_meta_on_refinement": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "baseline_policy": {
             "type": "string",
             "enum": [

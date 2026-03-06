@@ -118,6 +118,68 @@ func TestValidateRunConfigRejectsExplicitEmptyPaths(t *testing.T) {
 			},
 			want: "flag --cfg-witness-max-steps must be > 0",
 		},
+		{
+			name: "invalid feasibility engine",
+			rc: runConfig{
+				cfgFeasibilityEngine: "magic",
+			},
+			want: "flag --cfg-feasibility-engine must be",
+		},
+		{
+			name: "invalid refinement mode",
+			rc: runConfig{
+				cfgRefinementMode: "forever",
+			},
+			want: "flag --cfg-refinement-mode must be",
+		},
+		{
+			name: "invalid refinement max iterations",
+			rc: runConfig{
+				cfgRefinementMaxIterations: -1,
+			},
+			want: "flag --cfg-refinement-max-iterations must be > 0",
+		},
+		{
+			name: "invalid feasibility max queries",
+			rc: runConfig{
+				cfgFeasibilityMaxQueries: -1,
+			},
+			want: "flag --cfg-feasibility-max-queries must be > 0",
+		},
+		{
+			name: "invalid feasibility timeout",
+			rc: runConfig{
+				cfgFeasibilityTimeoutMS: -1,
+			},
+			want: "flag --cfg-feasibility-timeout-ms must be > 0",
+		},
+		{
+			name: "phase c requires ifds engine",
+			rc: runConfig{
+				cfgInterprocEngine:   cfgInterprocEngineLegacy,
+				cfgFeasibilityEngine: cfgFeasibilityEngineSMT,
+				cfgRefinementMode:    cfgRefinementModeOnce,
+			},
+			want: "phase c flags require --cfg-interproc-engine=\"ifds\"",
+		},
+		{
+			name: "phase c rejects feasibility without refinement",
+			rc: runConfig{
+				cfgInterprocEngine:   cfgInterprocEngineIFDS,
+				cfgFeasibilityEngine: cfgFeasibilityEngineSMT,
+				cfgRefinementMode:    cfgRefinementModeOff,
+			},
+			want: "phase c requires either off/off or smt with once/cegar refinement",
+		},
+		{
+			name: "phase c rejects refinement without feasibility",
+			rc: runConfig{
+				cfgInterprocEngine:   cfgInterprocEngineIFDS,
+				cfgFeasibilityEngine: cfgFeasibilityEngineOff,
+				cfgRefinementMode:    cfgRefinementModeCEGAR,
+			},
+			want: "phase c requires either off/off or smt with once/cegar refinement",
+		},
 	}
 
 	for _, tt := range tests {

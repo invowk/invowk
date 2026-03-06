@@ -32,6 +32,19 @@ const (
 	cfgInconclusivePolicyOff     = "off"
 
 	defaultCFGWitnessMaxSteps = 12
+
+	defaultCFGFeasibilityEngine = "off"
+	cfgFeasibilityEngineOff     = "off"
+	cfgFeasibilityEngineSMT     = "smt"
+
+	defaultCFGRefinementMode = "off"
+	cfgRefinementModeOff     = "off"
+	cfgRefinementModeOnce    = "once"
+	cfgRefinementModeCEGAR   = "cegar"
+
+	defaultCFGRefinementMaxIterations = 3
+	defaultCFGFeasibilityMaxQueries   = 16
+	defaultCFGFeasibilityTimeoutMS    = 200
 )
 
 // flagState contains one analyzer instance's parsed flag values. Keeping this
@@ -48,6 +61,11 @@ type flagState struct {
 	cfgMaxDepth                 int
 	cfgInconclusivePolicy       string
 	cfgWitnessMaxSteps          int
+	cfgFeasibilityEngine        string
+	cfgRefinementMode           string
+	cfgRefinementMaxIterations  int
+	cfgFeasibilityMaxQueries    int
+	cfgFeasibilityTimeoutMS     int
 	includePackagesExplicit     bool
 	configPathExplicit          bool
 	baselinePathExplicit        bool
@@ -402,6 +420,16 @@ func bindAnalyzerFlags(analyzer *analysis.Analyzer, state *flagState) {
 		"policy for inconclusive CFA outcomes: error, warn, or off")
 	analyzer.Flags.IntVar(&state.cfgWitnessMaxSteps, "cfg-witness-max-steps", defaultCFGWitnessMaxSteps,
 		"maximum number of CFG witness steps encoded in inconclusive finding metadata")
+	analyzer.Flags.StringVar(&state.cfgFeasibilityEngine, "cfg-feasibility-engine", defaultCFGFeasibilityEngine,
+		"Phase C feasibility engine: off or smt")
+	analyzer.Flags.StringVar(&state.cfgRefinementMode, "cfg-refinement-mode", defaultCFGRefinementMode,
+		"Phase C refinement mode: off, once, or cegar")
+	analyzer.Flags.IntVar(&state.cfgRefinementMaxIterations, "cfg-refinement-max-iterations", defaultCFGRefinementMaxIterations,
+		"maximum Phase C refinement iterations for one witness")
+	analyzer.Flags.IntVar(&state.cfgFeasibilityMaxQueries, "cfg-feasibility-max-queries", defaultCFGFeasibilityMaxQueries,
+		"maximum Phase C feasibility queries per witness")
+	analyzer.Flags.IntVar(&state.cfgFeasibilityTimeoutMS, "cfg-feasibility-timeout-ms", defaultCFGFeasibilityTimeoutMS,
+		"maximum Phase C feasibility query time in milliseconds")
 
 	for _, spec := range modeFlagSpecs() {
 		analyzer.Flags.BoolVar(spec.stateBoolField(state), spec.flagName, spec.defaultValue, spec.usage)
@@ -423,6 +451,11 @@ func resetFlagStateDefaults(state *flagState) {
 	state.cfgMaxDepth = defaultCFGMaxDepth
 	state.cfgInconclusivePolicy = defaultCFGInconclusivePolicy
 	state.cfgWitnessMaxSteps = defaultCFGWitnessMaxSteps
+	state.cfgFeasibilityEngine = defaultCFGFeasibilityEngine
+	state.cfgRefinementMode = defaultCFGRefinementMode
+	state.cfgRefinementMaxIterations = defaultCFGRefinementMaxIterations
+	state.cfgFeasibilityMaxQueries = defaultCFGFeasibilityMaxQueries
+	state.cfgFeasibilityTimeoutMS = defaultCFGFeasibilityTimeoutMS
 	state.includePackagesExplicit = false
 	state.configPathExplicit = false
 	state.baselinePathExplicit = false
@@ -457,6 +490,11 @@ type runConfig struct {
 	cfgMaxDepth                 int
 	cfgInconclusivePolicy       string
 	cfgWitnessMaxSteps          int
+	cfgFeasibilityEngine        string
+	cfgRefinementMode           string
+	cfgRefinementMaxIterations  int
+	cfgFeasibilityMaxQueries    int
+	cfgFeasibilityTimeoutMS     int
 	auditExceptions             bool
 	checkAll                    bool
 	checkValidate               bool
@@ -482,21 +520,26 @@ type runConfig struct {
 
 func newRunConfigForState(state *flagState) runConfig {
 	rc := runConfig{
-		configPath:               state.configPath,
-		configPathExplicit:       state.configPathExplicit,
-		baselinePath:             state.baselinePath,
-		baselinePathExplicit:     state.baselinePathExplicit,
-		emitFindingsPath:         state.emitFindingsPath,
-		emitFindingsPathExplicit: state.emitFindingsPathExplicit,
-		includePackages:          state.includePackages,
-		includePackagesExplicit:  state.includePackagesExplicit,
-		ubvMode:                  state.ubvMode,
-		cfgBackend:               state.cfgBackend,
-		cfgInterprocEngine:       state.cfgInterprocEngine,
-		cfgMaxStates:             state.cfgMaxStates,
-		cfgMaxDepth:              state.cfgMaxDepth,
-		cfgInconclusivePolicy:    state.cfgInconclusivePolicy,
-		cfgWitnessMaxSteps:       state.cfgWitnessMaxSteps,
+		configPath:                 state.configPath,
+		configPathExplicit:         state.configPathExplicit,
+		baselinePath:               state.baselinePath,
+		baselinePathExplicit:       state.baselinePathExplicit,
+		emitFindingsPath:           state.emitFindingsPath,
+		emitFindingsPathExplicit:   state.emitFindingsPathExplicit,
+		includePackages:            state.includePackages,
+		includePackagesExplicit:    state.includePackagesExplicit,
+		ubvMode:                    state.ubvMode,
+		cfgBackend:                 state.cfgBackend,
+		cfgInterprocEngine:         state.cfgInterprocEngine,
+		cfgMaxStates:               state.cfgMaxStates,
+		cfgMaxDepth:                state.cfgMaxDepth,
+		cfgInconclusivePolicy:      state.cfgInconclusivePolicy,
+		cfgWitnessMaxSteps:         state.cfgWitnessMaxSteps,
+		cfgFeasibilityEngine:       state.cfgFeasibilityEngine,
+		cfgRefinementMode:          state.cfgRefinementMode,
+		cfgRefinementMaxIterations: state.cfgRefinementMaxIterations,
+		cfgFeasibilityMaxQueries:   state.cfgFeasibilityMaxQueries,
+		cfgFeasibilityTimeoutMS:    state.cfgFeasibilityTimeoutMS,
 	}
 	for _, spec := range modeFlagSpecs() {
 		*spec.runConfigBoolField(&rc) = *spec.stateBoolField(state)
@@ -552,5 +595,22 @@ func normalizeRunConfig(rc *runConfig) {
 	}
 	if rc.cfgWitnessMaxSteps == 0 {
 		rc.cfgWitnessMaxSteps = defaultCFGWitnessMaxSteps
+	}
+	rc.cfgFeasibilityEngine = strings.TrimSpace(strings.ToLower(rc.cfgFeasibilityEngine))
+	if rc.cfgFeasibilityEngine == "" {
+		rc.cfgFeasibilityEngine = defaultCFGFeasibilityEngine
+	}
+	rc.cfgRefinementMode = strings.TrimSpace(strings.ToLower(rc.cfgRefinementMode))
+	if rc.cfgRefinementMode == "" {
+		rc.cfgRefinementMode = defaultCFGRefinementMode
+	}
+	if rc.cfgRefinementMaxIterations == 0 {
+		rc.cfgRefinementMaxIterations = defaultCFGRefinementMaxIterations
+	}
+	if rc.cfgFeasibilityMaxQueries == 0 {
+		rc.cfgFeasibilityMaxQueries = defaultCFGFeasibilityMaxQueries
+	}
+	if rc.cfgFeasibilityTimeoutMS == 0 {
+		rc.cfgFeasibilityTimeoutMS = defaultCFGFeasibilityTimeoutMS
 	}
 }

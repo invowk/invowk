@@ -16,9 +16,10 @@ import (
 // FindingStreamRecord is one JSONL entry in the internal findings stream used
 // by -emit-findings-jsonl / -update-baseline plumbing.
 type FindingStreamRecord struct {
-	Category string            `json:"category"`
-	ID       string            `json:"id"`
-	Message  string            `json:"message"`
+	Kind     string            `json:"kind,omitempty"`
+	Category string            `json:"category,omitempty"`
+	ID       string            `json:"id,omitempty"`
+	Message  string            `json:"message,omitempty"`
 	Posn     string            `json:"posn,omitempty"`
 	Meta     map[string]string `json:"meta,omitempty"`
 }
@@ -49,6 +50,10 @@ func writeFindingToSinkWithMeta(pass *analysis.Pass, pos token.Pos, category, fi
 		record.Posn = pass.Fset.Position(pos).String()
 	}
 
+	writeFindingStreamRecord(path, record)
+}
+
+func writeFindingStreamRecord(path string, record FindingStreamRecord) {
 	line, err := json.Marshal(record)
 	if err != nil {
 		warnFindingSinkError(os.Stderr, &findingSinkWarnings, path, fmt.Errorf("encoding finding stream record: %w", err))

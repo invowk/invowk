@@ -27,6 +27,12 @@ var (
 		string(ideEdgeFuncEscape),
 		string(ideEdgeFuncConsume),
 	}
+	semanticRefinementStatusAllowed = []string{
+		cfgRefinementStatusUnsafe,
+		cfgRefinementStatusInconclusiveRefined,
+		cfgRefinementStatusInconclusiveRaw,
+		cfgRefinementStatusProvenSafe,
+	}
 )
 
 type semanticRuleCatalog struct {
@@ -51,6 +57,8 @@ type semanticRuleSpec struct {
 	EdgeFunctionTags           []string `json:"edge_function_tags,omitempty"`
 	InconclusiveReasons        []string `json:"inconclusive_reasons,omitempty"`
 	RequiredMetaOnInconclusive []string `json:"required_meta_on_inconclusive,omitempty"`
+	RefinementStatuses         []string `json:"refinement_statuses,omitempty"`
+	RequiredMetaOnRefinement   []string `json:"required_meta_on_refinement,omitempty"`
 	BaselinePolicy             string   `json:"baseline_policy"`
 }
 
@@ -173,8 +181,8 @@ func validateSemanticRuleCatalogAgainstSchema(catalogPath, schemaPath string) er
 }
 
 func formatSemanticSchemaValidationErr(err error) string {
-	var validationErr *jsonschema.ValidationError
-	if !errors.As(err, &validationErr) {
+	validationErr, ok := errors.AsType[*jsonschema.ValidationError](err)
+	if !ok {
 		return err.Error()
 	}
 	output := validationErr.BasicOutput()
@@ -337,6 +345,11 @@ func validateSemanticRuleSpec(rule semanticRuleSpec) error {
 			return fmt.Errorf("edge_function_tags contains unsupported value %q", tag)
 		}
 	}
+	for _, status := range rule.RefinementStatuses {
+		if !slices.Contains(semanticRefinementStatusAllowed, status) {
+			return fmt.Errorf("refinement_statuses contains unsupported value %q", status)
+		}
+	}
 	if err := validateSemanticBaselinePolicy(rule.BaselinePolicy); err != nil {
 		return err
 	}
@@ -351,6 +364,15 @@ func validateSemanticRuleSpec(rule semanticRuleSpec) error {
 		}
 	} else if len(rule.InconclusiveReasons) > 0 || len(rule.RequiredMetaOnInconclusive) > 0 {
 		return errors.New("inconclusive fields must be omitted when outcome_domain excludes inconclusive")
+	}
+	hasRefinementSpec := len(rule.RefinementStatuses) > 0 || len(rule.RequiredMetaOnRefinement) > 0
+	if hasRefinementSpec {
+		if err := requireUniqueNonEmpty(rule.RefinementStatuses, "refinement_statuses"); err != nil {
+			return err
+		}
+		if err := requireUniqueNonEmpty(rule.RequiredMetaOnRefinement, "required_meta_on_refinement"); err != nil {
+			return err
+		}
 	}
 
 	return nil

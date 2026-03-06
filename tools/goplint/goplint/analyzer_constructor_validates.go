@@ -171,10 +171,12 @@ func inspectConstructorValidates(
 	cfgMaxDepth int,
 	cfgInconclusivePolicy string,
 	cfgWitnessMaxSteps int,
+	phaseC cfgPhaseCOptions,
 ) error {
 	pkgName := packageName(pass.Pkg)
 	solver := newInterprocSolver(pass, cfgBackend, cfgInterprocEngine)
 	compatTracker := newInterprocCompatTracker(cfgInterprocEngine)
+	refiner := newCFGRefinementController(phaseC)
 	constructorUnsafeByIdentity := make(map[string]bool)
 
 	// Build a set of struct names that have Validate() methods.
@@ -271,6 +273,7 @@ func inspectConstructorValidates(
 				ReturnType:        returnType,
 				MaxStates:         effectiveBudget.maxStates,
 				MaxDepth:          effectiveBudget.maxDepth,
+				CallChain:         []string{qualName},
 			}
 			pathLegacy := solver.EvaluateConstructorPathLegacy(pathInput)
 			pathResult := solver.EvaluateConstructorPath(pathInput)
@@ -285,6 +288,27 @@ func inspectConstructorValidates(
 				pathResult,
 				constructorUnsafeByIdentity[identity],
 			)
+			pathResult = refiner.Refine(cfgRefinementRequest{
+				Pass:      pass,
+				Position:  fn.Name.Pos(),
+				CFG:       buildFuncCFGForBackend(pass, fn.Body, cfgBackend),
+				Result:    pathResult,
+				Category:  CategoryMissingConstructorValidate,
+				FindingID: PackageScopedFindingID(pass, CategoryMissingConstructorValidate, qualName, returnType),
+				CallChain: []string{qualName},
+				Rerun: func(override cfgRefinementOverride) interprocPathResult {
+					next := pathInput
+					if override.MaxStates > 0 {
+						next.MaxStates = override.MaxStates
+					}
+					if override.MaxDepth > 0 {
+						next.MaxDepth = override.MaxDepth
+					}
+					next.DischargedWitnesses = override.DischargedWitnesses
+					return solver.EvaluateConstructorPath(next)
+				},
+			})
+			writeRefinementTraceToSink(pass, fn.Name.Pos(), pathResult)
 			pathOutcome := pathResult.toPathOutcome()
 			pathReason := pathResult.Reason
 			pathWitness := pathResult.Witness
@@ -304,6 +328,7 @@ func inspectConstructorValidates(
 				)
 				meta := cfgOutcomeMetaWithWitness(cfgBackend, effectiveBudget.maxStates, effectiveBudget.maxDepth, pathReason, pathWitness, cfgWitnessMaxSteps)
 				addCFGWitnessCallChainMeta(meta, []string{qualName}, cfgWitnessMaxSteps)
+				meta = appendPhaseCMeta(meta, pathResult)
 				reportInconclusiveFindingWithMetaIfNotBaselined(
 					pass,
 					bl,
@@ -321,7 +346,13 @@ func inspectConstructorValidates(
 				"constructor %s returns %s.%s which has Validate() but never calls it",
 				qualName, returnTypePkg, returnType)
 			findingID := PackageScopedFindingID(pass, CategoryMissingConstructorValidate, qualName, returnType)
-			reportFindingIfNotBaselined(pass, bl, fn.Name.Pos(), CategoryMissingConstructorValidate, findingID, msg)
+			var meta map[string]string
+			if pathResult.PhaseC.Enabled {
+				meta = appendPhaseCMeta(nil, pathResult)
+				addCFGWitnessMeta(meta, pathWitness, cfgWitnessMaxSteps)
+				addCFGWitnessCallChainMeta(meta, []string{qualName}, cfgWitnessMaxSteps)
+			}
+			reportFindingWithMetaIfNotBaselined(pass, bl, fn.Name.Pos(), CategoryMissingConstructorValidate, findingID, msg, meta)
 		}
 	}
 

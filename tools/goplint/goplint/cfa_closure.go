@@ -34,6 +34,7 @@ func inspectClosureCastsCFA(
 	cfgMaxDepth int,
 	cfgInconclusivePolicy string,
 	cfgWitnessMaxSteps int,
+	phaseC cfgPhaseCOptions,
 ) error {
 	if lit.Body == nil {
 		return nil
@@ -46,6 +47,7 @@ func inspectClosureCastsCFA(
 	}
 	solver := newInterprocSolver(pass, cfgBackend, cfgInterprocEngine)
 	compatTracker := newInterprocCompatTracker(cfgInterprocEngine)
+	refiner := newCFGRefinementController(phaseC)
 	effectiveBudget := adaptiveBlockVisitBudget(
 		closureCFG,
 		blockVisitBudget{maxStates: cfgMaxStates, maxDepth: cfgMaxDepth},
@@ -79,6 +81,7 @@ func inspectClosureCastsCFA(
 				cfgMaxDepth,
 				cfgInconclusivePolicy,
 				cfgWitnessMaxSteps,
+				phaseC,
 			)
 		},
 	)
@@ -125,6 +128,14 @@ func inspectClosureCastsCFA(
 		}
 
 		originKey := stablePosKey(pass, ac.pos.Pos())
+		callChain := []string{qualEnclosingFunc, "closure:" + closurePrefix}
+		pathAnchors := map[string]string{
+			"witness_cast_pos": originKey,
+			"witness_def_block": strconv.FormatInt(
+				int64(defBlock.Index),
+				10,
+			),
+		}
 		castInput := interprocCastPathInput{
 			CFG:             closureCFG,
 			DefBlock:        defBlock,
@@ -138,6 +149,8 @@ func inspectClosureCastsCFA(
 			NoReturnAliases: noReturnAliases,
 			MaxStates:       effectiveBudget.maxStates,
 			MaxDepth:        effectiveBudget.maxDepth,
+			CallChain:       callChain,
+			AllowSafe:       phaseC.AllowsSafeResult(),
 		}
 		pathLegacy := solver.EvaluateCastPathLegacy(castInput)
 		pathResult := solver.EvaluateCastPath(castInput)
@@ -153,6 +166,30 @@ func inspectClosureCastsCFA(
 			originKey,
 			ac.target.key(),
 		)
+		pathResult = refiner.Refine(cfgRefinementRequest{
+			Pass:          pass,
+			Position:      ac.pos.Pos(),
+			CFG:           closureCFG,
+			Result:        pathResult,
+			Category:      CategoryUnvalidatedCast,
+			FindingID:     pathFindingID,
+			CallChain:     callChain,
+			OriginAnchors: pathAnchors,
+			SyntheticPath: []int32{defBlock.Index},
+			Rerun: func(override cfgRefinementOverride) interprocPathResult {
+				next := castInput
+				if override.MaxStates > 0 {
+					next.MaxStates = override.MaxStates
+				}
+				if override.MaxDepth > 0 {
+					next.MaxDepth = override.MaxDepth
+				}
+				next.DischargedWitnesses = override.DischargedWitnesses
+				next.AllowSafe = override.AllowSafe
+				return solver.EvaluateCastPath(next)
+			},
+		})
+		writeRefinementTraceToSink(pass, ac.pos.Pos(), pathResult)
 		hasEquivalentUnsafe := pathResult.Class == interprocOutcomeUnsafe
 		pathOutcome := pathResult.toPathOutcome()
 		pathReason := pathResult.Reason
@@ -162,15 +199,17 @@ func inspectClosureCastsCFA(
 			// same-block priority, then cross-block.
 			if checkUBV {
 				inBlockInput := interprocUBVInBlockInput{
-					Target:      ac.target,
-					Nodes:       defBlock.Nodes,
-					StartIndex:  defIdx + 1,
-					Mode:        ubvMode,
-					OriginKey:   originKey,
-					TypeName:    ac.typeName,
-					SyncLits:    ubvSyncLits,
-					SyncCalls:   ubvSyncCalls,
-					MethodCalls: ubvMethodCalls,
+					Target:        ac.target,
+					Nodes:         defBlock.Nodes,
+					StartIndex:    defIdx + 1,
+					Mode:          ubvMode,
+					OriginKey:     originKey,
+					TypeName:      ac.typeName,
+					SyncLits:      ubvSyncLits,
+					SyncCalls:     ubvSyncCalls,
+					MethodCalls:   ubvMethodCalls,
+					DefBlockIndex: defBlock.Index,
+					CallChain:     callChain,
 				}
 				inBlockLegacy := solver.EvaluateUBVInBlockLegacy(inBlockInput)
 				inBlockResult := solver.EvaluateUBVInBlock(inBlockInput)
@@ -187,6 +226,22 @@ func inspectClosureCastsCFA(
 					originKey,
 					ac.target.key(),
 				)
+				inBlockResult = refiner.Refine(cfgRefinementRequest{
+					Pass:          pass,
+					Position:      ac.pos.Pos(),
+					CFG:           closureCFG,
+					Result:        inBlockResult,
+					Category:      CategoryUseBeforeValidateSameBlock,
+					FindingID:     inBlockFindingID,
+					CallChain:     callChain,
+					OriginAnchors: pathAnchors,
+					SyntheticPath: []int32{defBlock.Index},
+					Rerun: func(_ cfgRefinementOverride) interprocPathResult {
+						next := inBlockInput
+						return solver.EvaluateUBVInBlock(next)
+					},
+				})
+				writeRefinementTraceToSink(pass, ac.pos.Pos(), inBlockResult)
 				inBlockOutcome := inBlockResult.toPathOutcome()
 				inBlockReason := inBlockResult.Reason
 				switch inBlockOutcome {
@@ -203,7 +258,7 @@ func inspectClosureCastsCFA(
 						originKey,
 						ac.target.key(),
 					)
-					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateSameBlock, ubvID, ubvMsg, map[string]string{
+					meta := appendPhaseCMeta(map[string]string{
 						"ubv_mode":         ubvMode,
 						"ubv_scope":        "same-block",
 						"witness_cast_pos": originKey,
@@ -211,7 +266,8 @@ func inspectClosureCastsCFA(
 							int64(defBlock.Index),
 							10,
 						),
-					})
+					}, inBlockResult)
+					reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateSameBlock, ubvID, ubvMsg, meta)
 				case pathOutcomeInconclusive:
 					ubvMsg := useBeforeValidateInconclusiveMessage(ac.target.displayName, ac.typeName)
 					ubvID := PackageScopedFindingID(pass,
@@ -240,6 +296,7 @@ func inspectClosureCastsCFA(
 					meta["witness_cast_pos"] = originKey
 					meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
 					addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
+					meta = appendPhaseCMeta(meta, inBlockResult)
 					reportInconclusiveFindingWithMetaIfNotBaselined(
 						pass,
 						bl,
@@ -263,6 +320,7 @@ func inspectClosureCastsCFA(
 						MethodCalls: ubvMethodCalls,
 						MaxStates:   effectiveBudget.maxStates,
 						MaxDepth:    effectiveBudget.maxDepth,
+						CallChain:   callChain,
 					}
 					crossLegacy := solver.EvaluateUBVCrossBlockLegacy(crossInput)
 					crossResult := solver.EvaluateUBVCrossBlock(crossInput)
@@ -279,6 +337,29 @@ func inspectClosureCastsCFA(
 						originKey,
 						ac.target.key(),
 					)
+					crossResult = refiner.Refine(cfgRefinementRequest{
+						Pass:          pass,
+						Position:      ac.pos.Pos(),
+						CFG:           closureCFG,
+						Result:        crossResult,
+						Category:      CategoryUseBeforeValidateCrossBlock,
+						FindingID:     crossFindingID,
+						CallChain:     callChain,
+						OriginAnchors: pathAnchors,
+						SyntheticPath: []int32{defBlock.Index},
+						Rerun: func(override cfgRefinementOverride) interprocPathResult {
+							next := crossInput
+							if override.MaxStates > 0 {
+								next.MaxStates = override.MaxStates
+							}
+							if override.MaxDepth > 0 {
+								next.MaxDepth = override.MaxDepth
+							}
+							next.DischargedWitnesses = override.DischargedWitnesses
+							return solver.EvaluateUBVCrossBlock(next)
+						},
+					})
+					writeRefinementTraceToSink(pass, ac.pos.Pos(), crossResult)
 					compatTracker.Check(
 						CategoryUseBeforeValidateCrossBlock,
 						crossFindingID,
@@ -313,6 +394,7 @@ func inspectClosureCastsCFA(
 						}
 						addCFGWitnessMeta(meta, ubvWitness, cfgWitnessMaxSteps)
 						addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
+						meta = appendPhaseCMeta(meta, crossResult)
 						reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUseBeforeValidateCrossBlock, ubvID, ubvMsg, meta)
 					} else if ubvOutcome == pathOutcomeInconclusive {
 						ubvMsg := useBeforeValidateInconclusiveMessage(ac.target.displayName, ac.typeName)
@@ -335,6 +417,7 @@ func inspectClosureCastsCFA(
 						meta["witness_cast_pos"] = originKey
 						meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
 						addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
+						meta = appendPhaseCMeta(meta, crossResult)
 						reportInconclusiveFindingWithMetaIfNotBaselined(
 							pass,
 							bl,
@@ -390,6 +473,7 @@ func inspectClosureCastsCFA(
 			meta["witness_cast_pos"] = originKey
 			meta["witness_def_block"] = strconv.FormatInt(int64(defBlock.Index), 10)
 			addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
+			meta = appendPhaseCMeta(meta, pathResult)
 			reportInconclusiveFindingWithMetaIfNotBaselined(
 				pass,
 				bl,
@@ -415,7 +499,13 @@ func inspectClosureCastsCFA(
 			originKey,
 			ac.target.key(),
 		)
-		reportFindingIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUnvalidatedCast, findingID, msg)
+		var meta map[string]string
+		if pathResult.PhaseC.Enabled {
+			meta = appendPhaseCMeta(copyFindingMeta(pathAnchors), pathResult)
+			addCFGWitnessMeta(meta, pathWitness, cfgWitnessMaxSteps)
+			addCFGWitnessCallChainMeta(meta, []string{qualEnclosingFunc, "closure:" + closurePrefix}, cfgWitnessMaxSteps)
+		}
+		reportFindingWithMetaIfNotBaselined(pass, bl, ac.pos.Pos(), CategoryUnvalidatedCast, findingID, msg, meta)
 	}
 
 	// Report unassigned casts.

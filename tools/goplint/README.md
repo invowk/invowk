@@ -45,6 +45,7 @@ make update-baseline
 | `make check-types-all-json` | Same, JSON output |
 | `make check-semantic-spec` | Semantic contract and oracle checks for CFA-backed categories |
 | `make check-ifds-compat` | Legacy-vs-IFDS no-silent-downgrade compatibility gate |
+| `make check-cfg-refinement` | Phase C refinement gate: soundness, provenance, determinism |
 | `make check-baseline` | Regression gate: report only **new** findings vs baseline |
 | `make update-baseline` | Regenerate `baseline.toml` from current codebase state |
 
@@ -264,6 +265,11 @@ Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constr
 | `-ubv-mode` | string | `"escape"` | UBV semantics mode: `order` or `escape` |
 | `-cfg-backend` | string | `"ssa"` | Path-analysis backend selector: `ssa` or `ast` |
 | `-cfg-interproc-engine` | string | `"ifds"` | Interprocedural engine selector: `legacy`, `ifds`, or `compare` |
+| `-cfg-feasibility-engine` | string | `"off"` | Phase C feasibility engine: `off` or `smt` |
+| `-cfg-refinement-mode` | string | `"off"` | Phase C refinement mode: `off`, `once`, or `cegar` |
+| `-cfg-refinement-max-iterations` | int | `3` | Maximum Phase C refinement iterations for one witness |
+| `-cfg-feasibility-max-queries` | int | `16` | Maximum Phase C feasibility queries per witness |
+| `-cfg-feasibility-timeout-ms` | int | `200` | Maximum Phase C feasibility query time in milliseconds |
 | `-cfg-max-states` | int | `20000` | Maximum CFG states explored before conservative fallback |
 | `-cfg-max-depth` | int | `512` | Maximum CFG DFS depth before conservative fallback |
 | `-cfg-inconclusive-policy` | string | `"error"` | Inconclusive CFA policy: `error`, `warn`, or `off` |
@@ -305,9 +311,13 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 - `--cfg-interproc-engine=legacy|ifds|compare` selects the interprocedural solver path for cast/UBV/constructor-validates checks.
 - `--cfg-interproc-engine=compare` runs legacy and IFDS solvers and fails on forbidden `legacy -> safe` silent downgrades.
 - Default rollout is now `ifds`; keep `compare` compatibility checks and benchmark gates active for regression monitoring.
+- Phase C is opt-in and IFDS-only: `--cfg-feasibility-engine=smt` must be paired with `--cfg-refinement-mode=once|cegar`.
+- Phase C uses a narrow predicate vocabulary. `sat` keeps the witness live, `unsat` can discharge the current witness, and unsupported or timed-out queries degrade to `unknown`, never `safe`.
 - CFA budget truncation and recursion-summary cycles emit inconclusive categories (`unvalidated-cast-inconclusive`, `use-before-validate-inconclusive`, `missing-constructor-validate-inconclusive`) with `cfg_*` metadata.
 - `--cfg-inconclusive-policy` controls inconclusive emission: `error` (default), `warn` (emits with warning metadata), `off` (suppresses inconclusive findings).
 - Inconclusive metadata includes bounded witness fields (`cfg_witness_kind`, `cfg_witness_blocks`, `cfg_witness_edges`, `cfg_witness_call_chain`, plus compatibility keys `witness_cfg_path`, `witness_cfg_steps`, `witness_cfg_truncated`) capped by `--cfg-witness-max-steps`.
+- Refined findings add feasibility/refinement metadata (`cfg_feasibility_engine`, `cfg_feasibility_result`, `cfg_refinement_status`, `cfg_refinement_iterations`, `cfg_refinement_trigger`, `cfg_refinement_witness_hash`).
+- `-emit-findings-jsonl` now also writes `kind=refinement-trace` records for discharged or refined witnesses so gates can audit outcomes that did not become user-facing findings.
 - `--ubv-mode=order` uses strict ordering semantics; `--ubv-mode=escape` focuses on values escaping before validation.
 - `--ubv-mode=escape` uses recursion-safe interprocedural first-argument summaries to treat helper calls as validation only when the callee validates before escaping that argument.
 - `--cfg-backend=ssa` uses type-aware no-return pruning; `--cfg-backend=ast` is conservative and treats calls as may-return.

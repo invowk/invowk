@@ -16,6 +16,8 @@ Replaces the manual full-codebase scan that agents performed via `/improve-type-
 | **Run all DDD checks** | **`make check-types-all`** |
 | **Run all DDD checks (JSON)** | **`make check-types-all-json`** |
 | **Check Phase A semantic contracts** | **`make check-semantic-spec`** |
+| **Check IFDS compatibility** | **`make check-ifds-compat`** |
+| **Check Phase C refinement** | **`make check-cfg-refinement`** |
 | **Check baseline (regression gate)** | **`make check-baseline`** |
 | **Update baseline** | **`make update-baseline`** |
 | Run tests | `cd tools/goplint && go test ./goplint/` |
@@ -585,7 +587,8 @@ make update-baseline   # Regenerate baseline from current state
 `make check-baseline` and `make update-baseline` pin
 `-cfg-interproc-engine=legacy` to keep baseline suppression deterministic while
 IFDS remains the analyzer default path and compatibility is enforced by
-`make check-ifds-compat`.
+`make check-ifds-compat` plus the Phase C refinement gate
+`make check-cfg-refinement`.
 
 ### How it works
 

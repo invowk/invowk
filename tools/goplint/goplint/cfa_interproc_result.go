@@ -14,9 +14,12 @@ type interprocPathResult struct {
 	Class           interprocOutcomeClass
 	Reason          pathOutcomeReason
 	Witness         []int32
+	WitnessHash     string
 	FactFamily      ifdsFactFamily
 	FactKey         string
 	EdgeFunctionTag ideEdgeFuncTag
+	WitnessRecord   cfgWitnessRecord
+	PhaseC          cfgPhaseCResult
 }
 
 func interprocPathResultFromOutcome(
