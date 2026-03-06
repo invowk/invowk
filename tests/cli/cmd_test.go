@@ -6,9 +6,9 @@
 // output capture, replacing the flaky VHS-based tests.
 //
 // Container tests are separated into TestContainerCLI (cmd_container_test.go)
-// and run in parallel. Transient rootless Podman errors are handled by
-// run-level retry in the container runtime. See
-// .claude/docs/podman-parallel-tests.md for details.
+// and pinned to a single verified engine for deterministic execution. The
+// runtime retry logic still protects individual container runs, but the test
+// harness no longer treats "any healthy engine" as sufficient.
 package cli
 
 import (
@@ -22,18 +22,10 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/pkg/platform"
 
 	"github.com/rogpeppe/go-internal/testscript"
-)
-
-const (
-	// maxRetries is the number of attempts for the container smoke test.
-	// Retry handles transient OCI errors on rootless Podman.
-	maxRetries = 3
 )
 
 var (
@@ -41,62 +33,7 @@ var (
 	binaryPath string
 	// projectRoot is the path to the invowk project root.
 	projectRoot string
-	// containerAvailable checks if a functional container runtime (Docker or Podman) is available.
-	// This goes beyond just checking for the binary - it verifies the runtime can actually run
-	// Linux containers by performing a smoke test with retry logic.
-	//
-	// The retry handles transient OCI runtime errors that occur on rootless Podman when
-	// multiple containers start simultaneously (ping_group_range race condition).
-	containerAvailable = func() bool {
-		engine, err := container.AutoDetectEngine()
-		if err != nil {
-			return false
-		}
-		if !engine.Available() {
-			return false
-		}
-
-		// Smoke test with retry: actually run a minimal container.
-		// This catches scenarios where the CLI responds but Linux containers can't run:
-		// - Windows Docker Desktop in Windows container mode
-		// - Docker daemon not actually running
-		// - Permission issues
-		//
-		// Retry logic handles transient OCI errors on rootless Podman.
-		for attempt := range maxRetries {
-			// Intentional: package-level probe has no *testing.T to derive context from.
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			result, err := engine.Run(ctx, container.RunOptions{
-				Image:   "debian:stable-slim",
-				Command: []string{"echo", "ok"},
-				Remove:  true,
-			})
-			cancel()
-
-			if err == nil && result.ExitCode == 0 {
-				return true
-			}
-
-			// Check if this is a transient OCI error worth retrying
-			if !isTransientOCIError(err) {
-				return false
-			}
-
-			// Exponential backoff: 500ms, 1s, 1.5s
-			if attempt < maxRetries-1 {
-				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-			}
-		}
-		return false
-	}()
 )
-
-// isTransientOCIError checks if an error is a transient container engine error
-// that can be retried. Delegates to the shared classifier in the container package
-// which covers rootless Podman races, exit code 125, network errors, and more.
-func isTransientOCIError(err error) bool {
-	return container.IsTransientError(err)
-}
 
 // commonSetup provides the shared testscript setup function for all CLI tests.
 // This is used by both TestCLI and TestContainerCLI to ensure consistent environment.
@@ -148,9 +85,11 @@ func commonSetup(env *testscript.Env) error {
 func commonCondition(cond string) (bool, error) {
 	switch cond {
 	case "container-available":
-		// "container-available" returns true if a functional container runtime is available
-		// Use [!container-available] to skip tests when no container runtime works
-		return containerAvailable, nil
+		// "container-available" means the test suite resolved a specific healthy
+		// engine for container CLI execution. It intentionally does not mean
+		// "some engine works" — the suite must run on the same pinned engine
+		// that invowk will use via its test-scoped config.
+		return currentContainerHarness().status == containerHarnessStatusReady, nil
 	case "in-sandbox":
 		// "in-sandbox" returns true if running inside a Flatpak or Snap sandbox
 		// Use [in-sandbox] to skip tests that require host filesystem permissions
@@ -195,8 +134,7 @@ func TestMain(m *testing.M) {
 	}
 	binaryPath = filepath.Join(binDir, binaryName)
 
-	// Build invowk
-	// Intentional: TestMain has no *testing.T/*testing.B, so t.Context()/b.Context() are unavailable.
+	// Build invowk.
 	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", binaryPath, ".")
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout

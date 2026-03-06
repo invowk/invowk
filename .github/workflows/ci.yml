@@ -134,23 +134,36 @@ jobs:
         if: matrix.engine != '' && startsWith(matrix.runner, 'ubuntu')
         run: ${{ matrix.engine }} pull debian:stable-slim
 
-      # Run full tests (includes integration tests with containers)
-      # gotestsum wraps go test with --rerun-fails for transient infrastructure failures.
-      # Explicit 15m timeout allows enough time for container operations (image pulls, startup).
-      - name: Run tests (full)
+      # Run full tests except CLI integration tests.
+      # CLI is split out below so the container CLI suite is no longer hidden
+      # behind generic rerun-fails behavior.
+      - name: Run tests (full, non-CLI)
         if: matrix.test-mode == 'full'
         shell: bash
         env:
           INVOWK_TEST_CONTAINER_PARALLEL: "2"
         run: |
+          PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$' | tr '\n' ' ')"
           gotestsum \
             --format testdox \
             --junitfile test-results.xml \
             --rerun-fails \
             --rerun-fails-max-failures 5 \
             --rerun-fails-report rerun-report.txt \
-            --packages ./... \
+            --packages "$PACKAGES" \
             -- -race -timeout 15m -coverprofile=coverage.out
+
+      - name: Run CLI integration tests (full)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_ENGINE: ${{ matrix.engine }}
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --packages ./tests/cli/... \
+            -- -race -timeout 15m
 
       # Run short tests (unit tests only, no container dependencies)
       # Uses bash shell to avoid PowerShell parsing issues on Windows

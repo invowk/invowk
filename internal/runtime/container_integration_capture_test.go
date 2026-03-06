@@ -18,6 +18,8 @@ func TestContainerRuntime_ExecuteCapture(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
+	t.Cleanup(releaseSuiteLock)
 
 	// Check if we can run containers using our own engine detection
 	engine, err := container.AutoDetectEngine()

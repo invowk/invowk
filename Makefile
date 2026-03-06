@@ -121,11 +121,15 @@ endif
 test:
 	@echo "Running tests..."
 ifdef GOTESTSUM
-	@echo "  (using gotestsum)"
-	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 --packages ./... -- -v
+	@echo "  (using gotestsum for non-CLI packages, deterministic CLI split)"
+	@PACKAGES="$$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$$' | tr '\n' ' ')"; \
+	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 --packages "$$PACKAGES" -- -v
+	@$(MAKE) test-cli
 else
 	@echo "  (gotestsum not found, using go test)"
-	$(GOTEST) -v ./...
+	@PACKAGES="$$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$$' | tr '\n' ' ')"; \
+	$(GOTEST) -v $$PACKAGES
+	@$(MAKE) test-cli
 endif
 
 # Run tests (short mode, skip integration tests)
@@ -157,11 +161,11 @@ endif
 test-cli:
 	@echo "Running CLI integration tests..."
 ifdef GOTESTSUM
-	@echo "  (using gotestsum)"
-	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 3 --packages ./tests/cli/... -- -v -race -timeout 5m
+	@echo "  (using gotestsum without rerun-fails for deterministic CLI execution)"
+	gotestsum --format testdox --packages ./tests/cli/... -- -v -race -timeout 15m
 else
 	@echo "  (gotestsum not found, using go test)"
-	$(GOTEST) -v -race -timeout 5m ./tests/cli/...
+	$(GOTEST) -v -race -timeout 15m ./tests/cli/...
 endif
 
 # Generate PGO profile from benchmarks (includes container tests).

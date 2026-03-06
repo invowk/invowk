@@ -103,6 +103,8 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
+	t.Cleanup(releaseSuiteLock)
 
 	_, inv := setupTestInvowkfile(t)
 
@@ -148,6 +150,8 @@ func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
+	t.Cleanup(releaseSuiteLock)
 
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}

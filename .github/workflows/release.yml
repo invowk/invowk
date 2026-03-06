@@ -162,20 +162,34 @@ jobs:
         if: matrix.engine != '' && startsWith(matrix.runner, 'ubuntu')
         run: ${{ matrix.engine }} pull debian:stable-slim
 
-      # Run tests with gotestsum (rerun transient failures, produce JUnit XML)
-      - name: Run tests (full)
+      # Run tests with gotestsum (rerun transient failures for non-CLI packages only).
+      # CLI is split out below so the container CLI suite runs deterministically.
+      - name: Run tests (full, non-CLI)
         if: matrix.test-mode == 'full'
         shell: bash
         env:
           INVOWK_TEST_CONTAINER_PARALLEL: "2"
         run: |
+          PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$' | tr '\n' ' ')"
           gotestsum \
             --format testdox \
             --junitfile test-results.xml \
             --rerun-fails \
             --rerun-fails-max-failures 5 \
             --rerun-fails-report rerun-report.txt \
-            --packages ./... \
+            --packages "$PACKAGES" \
+            -- -race -timeout 15m
+
+      - name: Run CLI integration tests (full)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_ENGINE: ${{ matrix.engine }}
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --packages ./tests/cli/... \
             -- -race -timeout 15m
 
       - name: Run tests (short)

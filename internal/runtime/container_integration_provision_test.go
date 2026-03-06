@@ -20,6 +20,8 @@ func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
+	t.Cleanup(releaseSuiteLock)
 
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}
@@ -76,6 +78,8 @@ func TestContainerRuntime_ProvisioningLayer_ScriptFileExecution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
+	t.Cleanup(releaseSuiteLock)
 
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}
@@ -134,6 +138,8 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
+	t.Cleanup(releaseSuiteLock)
 
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}
@@ -195,6 +201,8 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
+	t.Cleanup(releaseSuiteLock)
 
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}
