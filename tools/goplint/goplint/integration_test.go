@@ -54,7 +54,11 @@ func runAnalysisTest(t *testing.T, testdata string, analyzer *analysis.Analyzer,
 
 	// Keep fixture expectations stable across default-engine rollouts.
 	// IFDS/compare behavior is covered by dedicated compatibility tests.
+	// Phase C/D behavior is covered by dedicated gate tests.
 	setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineLegacy)
+	setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineOff)
+	setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOff)
+	setFlag(t, analyzer, "cfg-alias-mode", cfgAliasModeOff)
 
 	analysistestParallelLimiter <- struct{}{}
 	defer func() { <-analysistestParallelLimiter }()

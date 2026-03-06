@@ -270,6 +270,7 @@ Categories: `primitive`, `missing-validate`, `missing-stringer`, `missing-constr
 | `-cfg-refinement-max-iterations` | int | `3` | Maximum Phase C refinement iterations for one witness |
 | `-cfg-feasibility-max-queries` | int | `16` | Maximum Phase C feasibility queries per witness |
 | `-cfg-feasibility-timeout-ms` | int | `200` | Maximum Phase C feasibility query time in milliseconds |
+| `-cfg-alias-mode` | string | `"off"` | Phase D alias tracking: `off` or `ssa` (SSA-based must-alias enrichment) |
 | `-cfg-max-states` | int | `20000` | Maximum CFG states explored before conservative fallback |
 | `-cfg-max-depth` | int | `512` | Maximum CFG DFS depth before conservative fallback |
 | `-cfg-inconclusive-policy` | string | `"error"` | Inconclusive CFA policy: `error`, `warn`, or `off` |

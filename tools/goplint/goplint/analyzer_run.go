@@ -438,6 +438,7 @@ func runTraversal(
 					rc.cfgInconclusivePolicy,
 					rc.cfgWitnessMaxSteps,
 					newCFGPhaseCOptions(rc),
+					rc.cfgAliasMode,
 				); err != nil {
 					traverseErr = err
 					return

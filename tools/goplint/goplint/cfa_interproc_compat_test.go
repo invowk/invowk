@@ -119,6 +119,11 @@ func collectCompatibilityOutcomes(
 	resetFlags(t, h)
 	configureSemanticOracleRun(t, h.Analyzer, rule, category, fixture)
 	setFlag(t, h.Analyzer, "cfg-interproc-engine", engine)
+	// Phase C/D are tested by dedicated gate tests; disable here to
+	// isolate the interprocedural engine comparison.
+	setFlag(t, h.Analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineOff)
+	setFlag(t, h.Analyzer, "cfg-refinement-mode", cfgRefinementModeOff)
+	setFlag(t, h.Analyzer, "cfg-alias-mode", cfgAliasModeOff)
 
 	diagnostics, _, results := collectDiagnosticsForPackagesRespectCurrentEngine(t, h.Analyzer, fixture)
 	for _, result := range results {

@@ -116,9 +116,28 @@ Acceptance criteria:
 
 ## Phase D: Precision Domains and Alias Upgrade
 
-Deliverables:
-- Configurable alias analysis tiers.
-- Optional relational domains for guard-heavy paths.
+### Phase D.1: SSA-Based Must-Alias Tracking (implemented)
+
+Status: Implemented as `--cfg-alias-mode=ssa` (opt-in).
+
+Deliverables (completed):
+- SSA-derived must-alias enrichment of `castTarget.matchesExpr`.
+- Custom `ssaAnalyzer` prerequisite with `GlobalDebug` mode for `DebugRef` instructions.
+- Conservative alias exclusion on reassignment (variable with multiple SSA values excluded).
+- Test fixtures for copy alias, multi-hop alias, reassignment breakage, partial-branch alias.
+
+What it fixes: `y := x; y.Validate()` now discharges `x`'s cast-validation requirement.
+What remains out of scope: pointer field aliasing, cross-function alias propagation.
+
+### Phase D.2+: Remaining Items (conditional, data-driven)
+
+Stop condition: The following techniques should be adopted only when the measurement
+dashboard shows a sustained category of false negatives or persistent inconclusives
+attributable to the specific precision gap — not as a scheduled next step.
+
+Deliverables (conditional):
+- Configurable alias analysis tiers (Steensgaard/Andersen) — only if SSA must-alias proves insufficient.
+- Optional relational domains for guard-heavy paths — only if numeric guard inconclusives are observed.
 - Cost controls and benchmark gates.
 
 Acceptance criteria:

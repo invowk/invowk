@@ -45,6 +45,10 @@ const (
 	defaultCFGRefinementMaxIterations = 3
 	defaultCFGFeasibilityMaxQueries   = 16
 	defaultCFGFeasibilityTimeoutMS    = 200
+
+	defaultCFGAliasMode = "off"
+	cfgAliasModeOff     = "off"
+	cfgAliasModeSSA     = "ssa"
 )
 
 // flagState contains one analyzer instance's parsed flag values. Keeping this
@@ -66,6 +70,7 @@ type flagState struct {
 	cfgRefinementMaxIterations  int
 	cfgFeasibilityMaxQueries    int
 	cfgFeasibilityTimeoutMS     int
+	cfgAliasMode                string
 	includePackagesExplicit     bool
 	configPathExplicit          bool
 	baselinePathExplicit        bool
@@ -430,6 +435,8 @@ func bindAnalyzerFlags(analyzer *analysis.Analyzer, state *flagState) {
 		"maximum Phase C feasibility queries per witness")
 	analyzer.Flags.IntVar(&state.cfgFeasibilityTimeoutMS, "cfg-feasibility-timeout-ms", defaultCFGFeasibilityTimeoutMS,
 		"maximum Phase C feasibility query time in milliseconds")
+	analyzer.Flags.StringVar(&state.cfgAliasMode, "cfg-alias-mode", defaultCFGAliasMode,
+		"Phase D alias tracking: off or ssa (SSA-based must-alias enrichment)")
 
 	for _, spec := range modeFlagSpecs() {
 		analyzer.Flags.BoolVar(spec.stateBoolField(state), spec.flagName, spec.defaultValue, spec.usage)
@@ -456,6 +463,7 @@ func resetFlagStateDefaults(state *flagState) {
 	state.cfgRefinementMaxIterations = defaultCFGRefinementMaxIterations
 	state.cfgFeasibilityMaxQueries = defaultCFGFeasibilityMaxQueries
 	state.cfgFeasibilityTimeoutMS = defaultCFGFeasibilityTimeoutMS
+	state.cfgAliasMode = defaultCFGAliasMode
 	state.includePackagesExplicit = false
 	state.configPathExplicit = false
 	state.baselinePathExplicit = false
@@ -495,6 +503,7 @@ type runConfig struct {
 	cfgRefinementMaxIterations  int
 	cfgFeasibilityMaxQueries    int
 	cfgFeasibilityTimeoutMS     int
+	cfgAliasMode                string
 	auditExceptions             bool
 	checkAll                    bool
 	checkValidate               bool
@@ -540,6 +549,7 @@ func newRunConfigForState(state *flagState) runConfig {
 		cfgRefinementMaxIterations: state.cfgRefinementMaxIterations,
 		cfgFeasibilityMaxQueries:   state.cfgFeasibilityMaxQueries,
 		cfgFeasibilityTimeoutMS:    state.cfgFeasibilityTimeoutMS,
+		cfgAliasMode:               state.cfgAliasMode,
 	}
 	for _, spec := range modeFlagSpecs() {
 		*spec.runConfigBoolField(&rc) = *spec.stateBoolField(state)
@@ -562,6 +572,9 @@ func expandCheckAllModes(rc *runConfig) {
 		}
 		*spec.runConfigBoolField(rc) = true
 	}
+	// Phase D SSA alias tracking is NOT auto-enabled by --check-all.
+	// It requires explicit --cfg-alias-mode=ssa because the on-demand
+	// SSA builder may recover from panics on standard library packages.
 }
 
 func normalizeRunConfig(rc *runConfig) {
@@ -612,5 +625,9 @@ func normalizeRunConfig(rc *runConfig) {
 	}
 	if rc.cfgFeasibilityTimeoutMS == 0 {
 		rc.cfgFeasibilityTimeoutMS = defaultCFGFeasibilityTimeoutMS
+	}
+	rc.cfgAliasMode = strings.TrimSpace(strings.ToLower(rc.cfgAliasMode))
+	if rc.cfgAliasMode == "" {
+		rc.cfgAliasMode = defaultCFGAliasMode
 	}
 }

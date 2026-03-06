@@ -35,6 +35,7 @@ func inspectClosureCastsCFA(
 	cfgInconclusivePolicy string,
 	cfgWitnessMaxSteps int,
 	phaseC cfgPhaseCOptions,
+	cfgAliasMode string,
 ) error {
 	if lit.Body == nil {
 		return nil
@@ -82,11 +83,17 @@ func inspectClosureCastsCFA(
 				cfgInconclusivePolicy,
 				cfgWitnessMaxSteps,
 				phaseC,
+				cfgAliasMode,
 			)
 		},
 	)
 	if nestedErr != nil {
 		return nestedErr
+	}
+
+	// Enrich cast targets with SSA-derived alias sets when alias mode is active.
+	if cfgAliasMode == cfgAliasModeSSA {
+		enrichAssignedCastsWithSSAClosure(buildSSAForPass(pass), lit, assignedCasts)
 	}
 
 	// Collect closure classifications lazily — only needed when assigned casts exist.

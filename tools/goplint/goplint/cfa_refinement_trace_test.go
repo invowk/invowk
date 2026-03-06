@@ -118,6 +118,8 @@ func TestPhaseCRefinementGate(t *testing.T) {
 			setFlag(t, analyzer, "check-cast-validation", "true")
 			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
 			setFlag(t, analyzer, "cfg-max-states", "1")
+			setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineOff)
+			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOff)
 		})
 		castRefined := runPhaseCPackage(t, "cfa_cast_inconclusive", func(analyzer *analysis.Analyzer) {
 			setFlag(t, analyzer, "check-cast-validation", "true")
@@ -130,6 +132,8 @@ func TestPhaseCRefinementGate(t *testing.T) {
 			setFlag(t, analyzer, "check-constructor-validates", "true")
 			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
 			setFlag(t, analyzer, "cfg-max-states", "1")
+			setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineOff)
+			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOff)
 		})
 		constructorRefined := runPhaseCPackage(t, "constructorvalidates_inconclusive", func(analyzer *analysis.Analyzer) {
 			setFlag(t, analyzer, "check-constructor-validates", "true")
@@ -307,6 +311,8 @@ func sample(raw string) {
 			setFlag(t, analyzer, "check-cast-validation", "true")
 			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
 			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+			setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineOff)
+			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOff)
 		})
 		refined := runPhaseCPackage(t, "cfa_phasec_cfg_resolution", func(analyzer *analysis.Analyzer) {
 			setFlag(t, analyzer, "check-cast-validation", "true")
@@ -338,6 +344,8 @@ func sample(raw string) {
 			setFlag(t, analyzer, "cfg-backend", cfgBackendSSA)
 			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
 			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+			setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineOff)
+			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOff)
 		})
 		refined := runPhaseCPackage(t, "cfa_phasec_recursion_cycle", func(analyzer *analysis.Analyzer) {
 			setFlag(t, analyzer, "check-cast-validation", "true")
@@ -368,6 +376,8 @@ func sample(raw string) {
 			setFlag(t, analyzer, "check-constructor-validates", "true")
 			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
 			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+			setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineOff)
+			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOff)
 		})
 		refined := runPhaseCPackage(t, "cfa_phasec_constructor_cycle", func(analyzer *analysis.Analyzer) {
 			setFlag(t, analyzer, "check-constructor-validates", "true")
