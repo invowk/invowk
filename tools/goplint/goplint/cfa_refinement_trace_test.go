@@ -201,6 +201,193 @@ func sample(raw string) {
 		}
 	})
 
+	t.Run("unknown feasibility keeps inconclusive witnesses non-safe", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := mustBuildTestCFG(t, `package p
+import "strings"
+func sample(raw string) {
+	if strings.HasPrefix(raw, "prod") {
+		return
+	}
+}
+`)
+		path := witnessPathFromChoices(t, cfg, true)
+		controller := newCFGRefinementController(cfgPhaseCOptions{
+			FeasibilityEngine:     cfgFeasibilityEngineSMT,
+			RefinementMode:        cfgRefinementModeOnce,
+			FeasibilityMaxQueries: 4,
+			FeasibilityTimeout:    50 * time.Millisecond,
+		})
+
+		called := false
+		result := controller.Refine(cfgRefinementRequest{
+			CFG: cfg,
+			Result: interprocPathResult{
+				Class:   interprocOutcomeInconclusive,
+				Reason:  pathOutcomeReasonStateBudget,
+				Witness: path,
+			},
+			Category:  CategoryUnvalidatedCastInconclusive,
+			FindingID: "id-inconclusive-unknown",
+			CallChain: []string{"pkg.sample"},
+			Rerun: func(cfgRefinementOverride) interprocPathResult {
+				called = true
+				return interprocPathResult{Class: interprocOutcomeSafe}
+			},
+		})
+
+		if !called {
+			t.Fatal("expected unknown feasibility result to attempt a bounded inconclusive rerun")
+		}
+		if result.Class != interprocOutcomeInconclusive {
+			t.Fatalf("result.Class = %q, want %q", result.Class, interprocOutcomeInconclusive)
+		}
+		if result.PhaseC.FeasibilityResult != cfgFeasibilityResultUnknown {
+			t.Fatalf("result.PhaseC.FeasibilityResult = %q, want %q", result.PhaseC.FeasibilityResult, cfgFeasibilityResultUnknown)
+		}
+		if result.PhaseC.RefinementStatus != cfgRefinementStatusInconclusiveRefined {
+			t.Fatalf("result.PhaseC.RefinementStatus = %q, want %q", result.PhaseC.RefinementStatus, cfgRefinementStatusInconclusiveRefined)
+		}
+	})
+
+	t.Run("unresolved targets can use bounded target-resolution rerun", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := mustBuildTestCFG(t, `package p
+func sample(raw string) {
+	if raw == "" {
+		return
+	}
+}
+`)
+		path := witnessPathFromChoices(t, cfg, true)
+		controller := newCFGRefinementController(cfgPhaseCOptions{
+			FeasibilityEngine:     cfgFeasibilityEngineSMT,
+			RefinementMode:        cfgRefinementModeOnce,
+			FeasibilityMaxQueries: 4,
+			FeasibilityTimeout:    50 * time.Millisecond,
+		})
+
+		called := false
+		result := controller.Refine(cfgRefinementRequest{
+			CFG: cfg,
+			Result: interprocPathResult{
+				Class:   interprocOutcomeInconclusive,
+				Reason:  pathOutcomeReasonUnresolvedTarget,
+				Witness: path,
+			},
+			Category:  CategoryUnvalidatedCastInconclusive,
+			FindingID: "id-unresolved",
+			CallChain: []string{"pkg.sample"},
+			Rerun: func(cfgRefinementOverride) interprocPathResult {
+				called = true
+				return interprocPathResult{Class: interprocOutcomeSafe}
+			},
+		})
+
+		if !called {
+			t.Fatal("expected unresolved-target result to trigger a bounded rerun")
+		}
+		if result.Class != interprocOutcomeSafe {
+			t.Fatalf("result.Class = %q, want %q", result.Class, interprocOutcomeSafe)
+		}
+		if result.PhaseC.RefinementStatus != cfgRefinementStatusProvenSafe {
+			t.Fatalf("result.PhaseC.RefinementStatus = %q, want %q", result.PhaseC.RefinementStatus, cfgRefinementStatusProvenSafe)
+		}
+		if result.PhaseC.RefinementIterations != 1 {
+			t.Fatalf("result.PhaseC.RefinementIterations = %d, want 1", result.PhaseC.RefinementIterations)
+		}
+	})
+
+	t.Run("cfg-only helper calls can be resolved under phase c", func(t *testing.T) {
+		t.Parallel()
+
+		base := runPhaseCPackage(t, "cfa_phasec_cfg_resolution", func(analyzer *analysis.Analyzer) {
+			setFlag(t, analyzer, "check-cast-validation", "true")
+			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
+			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+		})
+		refined := runPhaseCPackage(t, "cfa_phasec_cfg_resolution", func(analyzer *analysis.Analyzer) {
+			setFlag(t, analyzer, "check-cast-validation", "true")
+			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
+			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+			setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineSMT)
+			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOnce)
+		})
+
+		if got := countDiagnosticCategory(base.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 1 {
+			t.Fatalf("expected unresolved cfg helper fixture to start inconclusive, got %d", got)
+		}
+		if got := countDiagnosticCategory(refined.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 0 {
+			t.Fatalf("expected refined cfg helper fixture to clear inconclusive cast findings, got %d", got)
+		}
+		trace := findFirstTraceRecord(refined.Records)
+		if trace == nil || trace.Message != cfgRefinementStatusProvenSafe {
+			t.Fatalf("expected proven-safe refinement trace, got %+v", trace)
+		}
+	})
+
+	t.Run("recursion-cycle refinement upgrades ubv escape fixtures", func(t *testing.T) {
+		t.Parallel()
+
+		base := runPhaseCPackage(t, "cfa_phasec_recursion_cycle", func(analyzer *analysis.Analyzer) {
+			setFlag(t, analyzer, "check-cast-validation", "true")
+			setFlag(t, analyzer, "check-use-before-validate", "true")
+			setFlag(t, analyzer, "ubv-mode", ubvModeEscape)
+			setFlag(t, analyzer, "cfg-backend", cfgBackendSSA)
+			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
+			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+		})
+		refined := runPhaseCPackage(t, "cfa_phasec_recursion_cycle", func(analyzer *analysis.Analyzer) {
+			setFlag(t, analyzer, "check-cast-validation", "true")
+			setFlag(t, analyzer, "check-use-before-validate", "true")
+			setFlag(t, analyzer, "ubv-mode", ubvModeEscape)
+			setFlag(t, analyzer, "cfg-backend", cfgBackendSSA)
+			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
+			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+			setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineSMT)
+			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOnce)
+		})
+
+		if got := countDiagnosticCategory(base.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 1 {
+			t.Fatalf("expected recursion-cycle fixture to start at cast inconclusive, got %d", got)
+		}
+		if got := countDiagnosticCategory(refined.Diagnostics, CategoryUseBeforeValidateSameBlock); got != 1 {
+			t.Fatalf("expected recursion-cycle fixture to refine to same-block UBV, got %d", got)
+		}
+		if got := countDiagnosticCategory(refined.Diagnostics, CategoryUnvalidatedCastInconclusive); got != 0 {
+			t.Fatalf("expected recursion-cycle cast inconclusive findings to clear under refinement, got %d", got)
+		}
+	})
+
+	t.Run("recursion-cycle refinement upgrades constructor fixtures", func(t *testing.T) {
+		t.Parallel()
+
+		base := runPhaseCPackage(t, "cfa_phasec_constructor_cycle", func(analyzer *analysis.Analyzer) {
+			setFlag(t, analyzer, "check-constructor-validates", "true")
+			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
+			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+		})
+		refined := runPhaseCPackage(t, "cfa_phasec_constructor_cycle", func(analyzer *analysis.Analyzer) {
+			setFlag(t, analyzer, "check-constructor-validates", "true")
+			setFlag(t, analyzer, "cfg-interproc-engine", cfgInterprocEngineIFDS)
+			setFlag(t, analyzer, "cfg-inconclusive-policy", cfgInconclusivePolicyError)
+			setFlag(t, analyzer, "cfg-feasibility-engine", cfgFeasibilityEngineSMT)
+			setFlag(t, analyzer, "cfg-refinement-mode", cfgRefinementModeOnce)
+		})
+
+		if got := countDiagnosticCategory(base.Diagnostics, CategoryMissingConstructorValidateInc); got != 1 {
+			t.Fatalf("expected constructor recursion fixture to start inconclusive, got %d", got)
+		}
+		if got := countDiagnosticCategory(refined.Diagnostics, CategoryMissingConstructorValidate); got != 1 {
+			t.Fatalf("expected constructor recursion fixture to refine to unsafe finding, got %d", got)
+		}
+		if got := countDiagnosticCategory(refined.Diagnostics, CategoryMissingConstructorValidateInc); got != 0 {
+			t.Fatalf("expected constructor recursion inconclusive findings to clear under refinement, got %d", got)
+		}
+	})
+
 	t.Run("unsat witness can discharge to proven-safe", func(t *testing.T) {
 		t.Parallel()
 
@@ -510,23 +697,6 @@ func findFirstTraceRecord(records []FindingStreamRecord) *FindingStreamRecord {
 		}
 	}
 	return nil
-}
-
-func countTraceRecords(records []FindingStreamRecord, category, message string) int {
-	count := 0
-	for _, record := range records {
-		if record.Kind != findingStreamKindRefinementTrace {
-			continue
-		}
-		if category != "" && record.Category != category {
-			continue
-		}
-		if message != "" && record.Message != message {
-			continue
-		}
-		count++
-	}
-	return count
 }
 
 func newUnsafeInterprocTestGraph() (interprocSupergraph, interprocNodeID, interprocNodeID) {

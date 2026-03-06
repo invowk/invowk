@@ -58,8 +58,9 @@ adding metadata:
 - `cfg_refinement_witness_hash`
 
 The internal findings stream also emits `kind=refinement-trace` JSONL records
-for discharged or refined witnesses so gates can audit outcome changes even when
-no new user-facing diagnostic is emitted.
+for Phase C-evaluated non-safe witnesses, including refined and retained
+unrefined outcomes, so gates can audit outcome changes even when no new
+user-facing diagnostic is emitted.
 
 ## Contract Invariants
 

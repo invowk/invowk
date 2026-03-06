@@ -4,6 +4,7 @@ package goplint
 
 import (
 	"go/token"
+	"maps"
 
 	"golang.org/x/tools/go/analysis"
 	gocfg "golang.org/x/tools/go/cfg"
@@ -14,6 +15,16 @@ type cfgRefinementOverride struct {
 	MaxDepth            int
 	DischargedWitnesses map[string]bool
 	AllowSafe           bool
+	ResolveTargets      bool
+	RefineRecursion     bool
+}
+
+func (o cfgRefinementOverride) hasConcreteAction() bool {
+	return o.MaxStates > 0 ||
+		o.MaxDepth > 0 ||
+		len(o.DischargedWitnesses) > 0 ||
+		o.ResolveTargets ||
+		o.RefineRecursion
 }
 
 type cfgRefinementRequest struct {
@@ -80,9 +91,6 @@ func (c cfgRefinementController) Refine(request cfgRefinementRequest) interprocP
 		if !shouldAttemptRefinement(result, verdict) {
 			break
 		}
-		if dischargeHash == "" || !c.cache.record(dischargeHash) {
-			break
-		}
 		if verdict == cfgFeasibilityResultUNSAT {
 			discharged[dischargeHash] = true
 		}
@@ -91,10 +99,21 @@ func (c cfgRefinementController) Refine(request cfgRefinementRequest) interprocP
 			MaxDepth:            refinementMaxDepthForTrigger(result.Reason),
 			DischargedWitnesses: discharged,
 			AllowSafe:           c.options.AllowsSafeResult(),
+			ResolveTargets:      result.Reason == pathOutcomeReasonUnresolvedTarget,
+			RefineRecursion:     result.Reason == pathOutcomeReasonRecursionCycle,
+		}
+		if !override.hasConcreteAction() {
+			break
+		}
+		if dischargeHash == "" || !c.cache.record(dischargeHash) {
+			break
 		}
 		next := request.Rerun(override)
 		iterations++
 		if next.Class == interprocOutcomeSafe {
+			if verdict == cfgFeasibilityResultUnknown {
+				break
+			}
 			next.PhaseC = cfgPhaseCResult{
 				Enabled:              true,
 				FeasibilityEngine:    c.options.FeasibilityEngine,
@@ -126,6 +145,8 @@ func (c cfgRefinementController) Refine(request cfgRefinementRequest) interprocP
 	switch result.Class {
 	case interprocOutcomeSafe:
 		status = cfgRefinementStatusProvenSafe
+	case interprocOutcomeUnsafe:
+		status = cfgRefinementStatusUnsafe
 	case interprocOutcomeInconclusive:
 		if iterations > 0 {
 			status = cfgRefinementStatusInconclusiveRefined
@@ -204,4 +225,37 @@ func refinementMaxDepthForTrigger(reason pathOutcomeReason) int {
 	default:
 		return 0
 	}
+}
+
+const summaryStackOptionRecursionFallback = "__goplint:phasec:recursion-fallback"
+
+func summaryStackWithRecursionFallback(base map[string]bool) map[string]bool {
+	if len(base) == 0 {
+		return map[string]bool{summaryStackOptionRecursionFallback: true}
+	}
+	out := make(map[string]bool, len(base)+1)
+	maps.Copy(out, base)
+	out[summaryStackOptionRecursionFallback] = true
+	return out
+}
+
+func summaryStackHasRecursionFallback(stack map[string]bool) bool {
+	return stack != nil && stack[summaryStackOptionRecursionFallback]
+}
+
+func mergeResolvedTargetRefinement(
+	current interprocPathResult,
+	fallback interprocPathResult,
+) interprocPathResult {
+	switch fallback.Class {
+	case interprocOutcomeUnsafe:
+		return fallback
+	case interprocOutcomeSafe:
+		return fallback
+	case interprocOutcomeInconclusive:
+		if fallback.Reason != pathOutcomeReasonUnresolvedTarget {
+			return fallback
+		}
+	}
+	return current
 }

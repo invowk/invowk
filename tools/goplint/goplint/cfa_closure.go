@@ -186,7 +186,16 @@ func inspectClosureCastsCFA(
 				}
 				next.DischargedWitnesses = override.DischargedWitnesses
 				next.AllowSafe = override.AllowSafe
-				return solver.EvaluateCastPath(next)
+				if override.ResolveTargets {
+					next.ResolveCFGCalls = true
+				}
+				refined := solver.EvaluateCastPath(next)
+				if override.ResolveTargets &&
+					refined.Class == interprocOutcomeInconclusive &&
+					refined.Reason == pathOutcomeReasonUnresolvedTarget {
+					refined = mergeResolvedTargetRefinement(refined, solver.EvaluateCastPathLegacy(next))
+				}
+				return refined
 			},
 		})
 		writeRefinementTraceToSink(pass, ac.pos.Pos(), pathResult)
@@ -236,8 +245,11 @@ func inspectClosureCastsCFA(
 					CallChain:     callChain,
 					OriginAnchors: pathAnchors,
 					SyntheticPath: []int32{defBlock.Index},
-					Rerun: func(_ cfgRefinementOverride) interprocPathResult {
+					Rerun: func(override cfgRefinementOverride) interprocPathResult {
 						next := inBlockInput
+						if override.RefineRecursion {
+							next.SummaryStack = summaryStackWithRecursionFallback(next.SummaryStack)
+						}
 						return solver.EvaluateUBVInBlock(next)
 					},
 				})
@@ -356,7 +368,19 @@ func inspectClosureCastsCFA(
 								next.MaxDepth = override.MaxDepth
 							}
 							next.DischargedWitnesses = override.DischargedWitnesses
-							return solver.EvaluateUBVCrossBlock(next)
+							if override.ResolveTargets {
+								next.ResolveCFGCalls = true
+							}
+							if override.RefineRecursion {
+								next.SummaryStack = summaryStackWithRecursionFallback(next.SummaryStack)
+							}
+							refined := solver.EvaluateUBVCrossBlock(next)
+							if override.ResolveTargets &&
+								refined.Class == interprocOutcomeInconclusive &&
+								refined.Reason == pathOutcomeReasonUnresolvedTarget {
+								refined = mergeResolvedTargetRefinement(refined, solver.EvaluateUBVCrossBlockLegacy(next))
+							}
+							return refined
 						},
 					})
 					writeRefinementTraceToSink(pass, ac.pos.Pos(), crossResult)

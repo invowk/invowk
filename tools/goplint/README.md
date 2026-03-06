@@ -317,7 +317,7 @@ The tool is a **separate Go module** to avoid adding `golang.org/x/tools` and `g
 - `--cfg-inconclusive-policy` controls inconclusive emission: `error` (default), `warn` (emits with warning metadata), `off` (suppresses inconclusive findings).
 - Inconclusive metadata includes bounded witness fields (`cfg_witness_kind`, `cfg_witness_blocks`, `cfg_witness_edges`, `cfg_witness_call_chain`, plus compatibility keys `witness_cfg_path`, `witness_cfg_steps`, `witness_cfg_truncated`) capped by `--cfg-witness-max-steps`.
 - Refined findings add feasibility/refinement metadata (`cfg_feasibility_engine`, `cfg_feasibility_result`, `cfg_refinement_status`, `cfg_refinement_iterations`, `cfg_refinement_trigger`, `cfg_refinement_witness_hash`).
-- `-emit-findings-jsonl` now also writes `kind=refinement-trace` records for discharged or refined witnesses so gates can audit outcomes that did not become user-facing findings.
+- `-emit-findings-jsonl` now also writes `kind=refinement-trace` records for Phase C-evaluated non-safe witnesses so gates can audit refined and retained outcomes that did not become user-facing findings.
 - `--ubv-mode=order` uses strict ordering semantics; `--ubv-mode=escape` focuses on values escaping before validation.
 - `--ubv-mode=escape` uses recursion-safe interprocedural first-argument summaries to treat helper calls as validation only when the callee validates before escaping that argument.
 - `--cfg-backend=ssa` uses type-aware no-return pruning; `--cfg-backend=ast` is conservative and treats calls as may-return.

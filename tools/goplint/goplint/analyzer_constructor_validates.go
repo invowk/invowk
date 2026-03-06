@@ -305,7 +305,16 @@ func inspectConstructorValidates(
 						next.MaxDepth = override.MaxDepth
 					}
 					next.DischargedWitnesses = override.DischargedWitnesses
-					return solver.EvaluateConstructorPath(next)
+					if override.RefineRecursion {
+						next.SummaryStack = summaryStackWithRecursionFallback(next.SummaryStack)
+					}
+					refined := solver.EvaluateConstructorPath(next)
+					if override.ResolveTargets &&
+						refined.Class == interprocOutcomeInconclusive &&
+						refined.Reason == pathOutcomeReasonUnresolvedTarget {
+						refined = mergeResolvedTargetRefinement(refined, solver.EvaluateConstructorPathLegacy(next))
+					}
+					return refined
 				},
 			})
 			writeRefinementTraceToSink(pass, fn.Name.Pos(), pathResult)

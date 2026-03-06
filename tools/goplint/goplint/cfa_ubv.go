@@ -714,6 +714,9 @@ func callUsesTargetOutcomeWithSummaryStack(
 		if ok && summary.AlwaysValidatesTarget && !summary.EscapesTargetBeforeValidate {
 			return pathOutcomeSafe, pathOutcomeReasonNone
 		}
+		if !ok && summaryReason == pathOutcomeReasonRecursionCycle && summaryStackHasRecursionFallback(summaryStack) {
+			goto directFallback
+		}
 		if !ok && (summaryReason == pathOutcomeReasonRecursionCycle ||
 			summaryReason == pathOutcomeReasonStateBudget ||
 			summaryReason == pathOutcomeReasonDepthBudget) {
@@ -723,6 +726,7 @@ func callUsesTargetOutcomeWithSummaryStack(
 			return pathOutcomeUnsafe, pathOutcomeReasonNone
 		}
 	}
+directFallback:
 	if callIsNonEscapingBuiltin(call) {
 		return pathOutcomeSafe, pathOutcomeReasonNone
 	}

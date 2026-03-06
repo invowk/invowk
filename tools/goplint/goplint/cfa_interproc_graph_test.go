@@ -107,3 +107,54 @@ func entry(v string) {
 		}
 	}
 }
+
+func TestBuildInterprocSupergraphFromCFGWithResolutionLinksResolvedCallee(t *testing.T) {
+	t.Parallel()
+
+	const src = `package testpkg
+
+func helper(v string) {
+	_ = v
+}
+
+func entry(v string) {
+	helper(v)
+}
+`
+	pass, file := buildTypedPassFromSource(t, src)
+	entry := findFuncDecl(t, file, "entry")
+	helper := findFuncDecl(t, file, "helper")
+	cfg := buildFuncCFGForBackend(pass, entry.Body, cfgBackendSSA)
+	if cfg == nil {
+		t.Fatal("expected entry CFG")
+	}
+
+	entryKey := "cfg.entry"
+	graph := buildInterprocSupergraphFromCFGWithResolution(pass, cfg, entryKey, cfgBackendSSA)
+	helperKey := interprocFunctionKey(pass, helper)
+
+	callSite := interprocNodeID{
+		FuncKey:    entryKey,
+		BlockIndex: 0,
+		NodeIndex:  0,
+		Kind:       interprocNodeKindCall,
+	}
+	calleeEntry := interprocNodeID{
+		FuncKey:    helperKey,
+		BlockIndex: 0,
+		NodeIndex:  0,
+		Kind:       interprocNodeKindCFG,
+	}
+	foundResolvedEdge := false
+	for _, edge := range graph.outgoing(callSite) {
+		if edge.Kind == interprocEdgeCall && edge.To.Key() == calleeEntry.Key() {
+			foundResolvedEdge = true
+		}
+		if edge.Kind == interprocEdgeCallToReturn {
+			t.Fatal("did not expect unresolved fallback edge for cfg graph with resolvable helper")
+		}
+	}
+	if !foundResolvedEdge {
+		t.Fatalf("expected resolved call edge from %q to %q", callSite.Key(), calleeEntry.Key())
+	}
+}

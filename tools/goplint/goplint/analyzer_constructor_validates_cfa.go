@@ -20,6 +20,7 @@ func constructorReturnPathOutcomeWithWitness(
 	cfgBackend string,
 	cfgMaxStates int,
 	cfgMaxDepth int,
+	summaryStack map[string]bool,
 ) (pathOutcome, pathOutcomeReason, []int32) {
 	funcCFG := buildFuncCFGForBackend(pass, fn.Body, cfgBackend)
 	if funcCFG == nil || len(funcCFG.Blocks) == 0 {
@@ -38,7 +39,7 @@ func constructorReturnPathOutcomeWithWitness(
 	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
 	methodCalls = mergeMethodValueValidateCallSets(
 		methodCalls,
-		collectCalleeValidatedCalls(pass, fn.Body, stackScopeFromMap(nil)),
+		collectCalleeValidatedCalls(pass, fn.Body, stackScopeFromMap(summaryStack)),
 	)
 	bareReturnIncludesTarget := constructorBareReturnIncludesType(pass, fn, returnTypeKey)
 	returnTargetKeys := collectConstructorReturnTargetKeys(pass, fn, returnTypeKey, bareReturnIncludesTarget)
@@ -70,6 +71,7 @@ func constructorReturnPathOutcomeWithWitness(
 		syncCalls,
 		methodCalls,
 		noReturnAliases,
+		summaryStack,
 		0,
 		nil,
 		&seenStates,
@@ -91,6 +93,7 @@ func dfsConstructorUnvalidatedOutcome(
 	syncCalls closureVarCallSet,
 	methodCalls methodValueValidateCallSet,
 	noReturnAliases noReturnAliasSet,
+	summaryStack map[string]bool,
 	depth int,
 	path []int32,
 	seenStates *int,
@@ -111,7 +114,7 @@ func dfsConstructorUnvalidatedOutcome(
 			if containsValidateOnReceiver(pass, node, matcher, syncLits, syncCalls, methodCalls) {
 				return true
 			}
-			if validated, reason := nodeUsesCalleeSummaryForType(pass, node, returnTypeKey); validated {
+			if validated, reason := nodeUsesCalleeSummaryForType(pass, node, returnTypeKey, summaryStack); validated {
 				return true
 			} else if reason != pathOutcomeReasonNone {
 				inconclusiveReason = reason
@@ -145,12 +148,18 @@ func dfsConstructorUnvalidatedOutcome(
 	return outcome, reason, witness
 }
 
-func nodeUsesCalleeSummaryForType(pass *analysis.Pass, node ast.Node, returnTypeKey string) (bool, pathOutcomeReason) {
+func nodeUsesCalleeSummaryForType(
+	pass *analysis.Pass,
+	node ast.Node,
+	returnTypeKey string,
+	summaryStack map[string]bool,
+) (bool, pathOutcomeReason) {
 	if pass == nil || node == nil || returnTypeKey == "" {
 		return false, pathOutcomeReasonNone
 	}
 	bestReason := pathOutcomeReasonNone
 	foundValidated := false
+	scope := stackScopeFromMap(summaryStack)
 	ast.Inspect(node, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
@@ -164,11 +173,14 @@ func nodeUsesCalleeSummaryForType(pass *analysis.Pass, node ast.Node, returnType
 				pass,
 				call,
 				candidate.slot,
-				stackScopeFromMap(nil),
+				scope,
 			)
 			if ok && summary.AlwaysValidatesTarget && !summary.EscapesTargetBeforeValidate {
 				foundValidated = true
 				return false
+			}
+			if !ok && reason == pathOutcomeReasonRecursionCycle && summaryStackHasRecursionFallback(summaryStack) {
+				continue
 			}
 			if !ok && (reason == pathOutcomeReasonRecursionCycle ||
 				reason == pathOutcomeReasonStateBudget ||

@@ -5,7 +5,6 @@ package goplint
 import (
 	"fmt"
 	"go/ast"
-	"sort"
 
 	"golang.org/x/tools/go/analysis"
 	gocfg "golang.org/x/tools/go/cfg"
@@ -54,6 +53,7 @@ type interprocCastPathInput struct {
 	CallChain           []string
 	DischargedWitnesses map[string]bool
 	AllowSafe           bool
+	ResolveCFGCalls     bool
 }
 
 type interprocUBVInBlockInput struct {
@@ -68,6 +68,7 @@ type interprocUBVInBlockInput struct {
 	MethodCalls   methodValueValidateCallSet
 	DefBlockIndex int32
 	CallChain     []string
+	SummaryStack  map[string]bool
 }
 
 type interprocUBVCrossBlockInput struct {
@@ -84,6 +85,8 @@ type interprocUBVCrossBlockInput struct {
 	MaxDepth            int
 	CallChain           []string
 	DischargedWitnesses map[string]bool
+	ResolveCFGCalls     bool
+	SummaryStack        map[string]bool
 }
 
 type interprocConstructorPathInput struct {
@@ -96,6 +99,7 @@ type interprocConstructorPathInput struct {
 	MaxDepth            int
 	CallChain           []string
 	DischargedWitnesses map[string]bool
+	SummaryStack        map[string]bool
 }
 
 func (s interprocSolver) EvaluateCastPath(input interprocCastPathInput) interprocPathResult {
@@ -225,7 +229,11 @@ func (s interprocSolver) evaluateCastPathIFDS(input interprocCastPathInput) inte
 			if funcKey == "cfg.cast." {
 				funcKey = "cfg.cast"
 			}
-			graph = buildInterprocSupergraphFromCFG(input.CFG, funcKey)
+			if input.ResolveCFGCalls {
+				graph = buildInterprocSupergraphFromCFGWithResolution(s.pass, input.CFG, funcKey, s.backend)
+			} else {
+				graph = buildInterprocSupergraphFromCFG(input.CFG, funcKey)
+			}
 			start = interprocNodeID{
 				FuncKey:    funcKey,
 				BlockIndex: input.DefBlock.Index,
@@ -292,7 +300,7 @@ func (s interprocSolver) evaluateUBVInBlockLegacy(input interprocUBVInBlockInput
 		input.SyncCalls,
 		input.MethodCalls,
 		input.Mode,
-		nil,
+		input.SummaryStack,
 	)
 	result := interprocPathResultFromOutcome(outcome, reason, []int32{input.DefBlockIndex})
 	fact := ifdsUBVNeedsValidateBeforeUseFact{
@@ -328,6 +336,7 @@ func (s interprocSolver) evaluateUBVInBlockIFDS(input interprocUBVInBlockInput) 
 			input.MethodCalls,
 			input.Mode,
 			state,
+			input.SummaryStack,
 		)
 		if reason != pathOutcomeReasonNone {
 			result := interprocPathResultFromOutcome(pathOutcomeInconclusive, reason, []int32{input.DefBlockIndex})
@@ -365,7 +374,7 @@ func (s interprocSolver) evaluateUBVInBlockIFDS(input interprocUBVInBlockInput) 
 }
 
 func (s interprocSolver) evaluateUBVCrossBlockLegacy(input interprocUBVCrossBlockInput) interprocPathResult {
-	outcome, reason, witness := hasUseBeforeValidateCrossBlockOutcomeModeWithWitness(
+	outcome, reason, witness := hasUseBeforeValidateCrossBlockModeWithSummaryStackWithWitness(
 		s.pass,
 		input.DefBlock,
 		input.DefIdx,
@@ -376,6 +385,7 @@ func (s interprocSolver) evaluateUBVCrossBlockLegacy(input interprocUBVCrossBloc
 		input.Mode,
 		input.MaxStates,
 		input.MaxDepth,
+		input.SummaryStack,
 	)
 	result := interprocPathResultFromOutcome(outcome, reason, witness)
 	fact := ifdsUBVNeedsValidateBeforeUseFact{
@@ -412,6 +422,9 @@ func (s interprocSolver) evaluateUBVCrossBlockIFDS(input interprocUBVCrossBlockI
 		funcKey = "cfg.ubv"
 	}
 	graph := buildInterprocSupergraphFromReachableBlocks(input.DefBlock, funcKey)
+	if input.ResolveCFGCalls {
+		graph = buildInterprocSupergraphFromReachableBlocksWithResolution(s.pass, input.DefBlock, funcKey, s.backend)
+	}
 	start := interprocNodeID{
 		FuncKey:    funcKey,
 		BlockIndex: input.DefBlock.Index,
@@ -439,6 +452,7 @@ func (s interprocSolver) evaluateUBVCrossBlockIFDS(input interprocUBVCrossBlockI
 				input.MethodCalls,
 				input.Mode,
 				state,
+				input.SummaryStack,
 			)
 		},
 		func(nodeID interprocNodeID, _ ast.Node, state ideValidationState) bool {
@@ -469,6 +483,7 @@ func (s interprocSolver) evaluateConstructorPathLegacy(input interprocConstructo
 		s.backend,
 		input.MaxStates,
 		input.MaxDepth,
+		input.SummaryStack,
 	)
 	result := interprocPathResultFromOutcome(outcome, reason, witness)
 	fact := ifdsCtorReturnNeedsValidateFact{
@@ -508,7 +523,7 @@ func (s interprocSolver) evaluateConstructorPathIFDS(input interprocConstructorP
 	methodCalls := collectMethodValueValidateCallSet(methodValueCalls)
 	methodCalls = mergeMethodValueValidateCallSets(
 		methodCalls,
-		collectCalleeValidatedCalls(s.pass, input.Decl.Body, stackScopeFromMap(nil)),
+		collectCalleeValidatedCalls(s.pass, input.Decl.Body, stackScopeFromMap(input.SummaryStack)),
 	)
 	bareReturnIncludesTarget := constructorBareReturnIncludesType(s.pass, input.Decl, input.ReturnTypeKey)
 	returnTargetKeys := collectConstructorReturnTargetKeys(s.pass, input.Decl, input.ReturnTypeKey, bareReturnIncludesTarget)
@@ -556,7 +571,7 @@ func (s interprocSolver) evaluateConstructorPathIFDS(input interprocConstructorP
 			if containsValidateOnReceiver(s.pass, node, matcher, syncLits, syncCalls, methodCalls) {
 				return ideEdgeFuncValidate, pathOutcomeReasonNone
 			}
-			if validated, reason := nodeUsesCalleeSummaryForType(s.pass, node, input.ReturnTypeKey); validated {
+			if validated, reason := nodeUsesCalleeSummaryForType(s.pass, node, input.ReturnTypeKey, input.SummaryStack); validated {
 				return ideEdgeFuncValidate, pathOutcomeReasonNone
 			} else if reason != pathOutcomeReasonNone {
 				return ideEdgeFuncIdentity, reason
@@ -616,7 +631,7 @@ func runIFDSPropagation(
 	start interprocNodeID,
 	maxStates int,
 	maxDepth int,
-	callChain []string,
+	_ []string,
 	dischargedWitnesses map[string]bool,
 	witnessHash interprocWitnessHashFunc,
 	transfer interprocNodeTransferFn,
@@ -766,6 +781,7 @@ func ubvNodeEdgeTag(
 	methodCalls methodValueValidateCallSet,
 	mode string,
 	state ideValidationState,
+	summaryStack map[string]bool,
 ) (ideEdgeFuncTag, pathOutcomeReason) {
 	if state != ideStateNeedsValidate {
 		return ideEdgeFuncIdentity, pathOutcomeReasonNone
@@ -777,7 +793,7 @@ func ubvNodeEdgeTag(
 		return ideEdgeFuncValidate, pathOutcomeReasonNone
 	}
 	if mode == ubvModeEscape {
-		outcome, reason := isVarEscapeTargetOutcomeWithSummaryStack(pass, node, target, syncLits, syncCalls, methodCalls, mode, nil)
+		outcome, reason := isVarEscapeTargetOutcomeWithSummaryStack(pass, node, target, syncLits, syncCalls, methodCalls, mode, summaryStack)
 		switch outcome {
 		case pathOutcomeInconclusive:
 			return ideEdgeFuncIdentity, reason
@@ -810,104 +826,6 @@ func appendWitnessBlock(path []int32, blockIndex int32) []int32 {
 		return out
 	}
 	return append(out, blockIndex)
-}
-
-func buildInterprocSupergraphFromCFG(cfg *gocfg.CFG, funcKey string) interprocSupergraph {
-	if cfg == nil {
-		return newInterprocSupergraph()
-	}
-	return buildInterprocSupergraphFromBlocks(cfg.Blocks, funcKey)
-}
-
-func buildInterprocSupergraphFromReachableBlocks(defBlock *gocfg.Block, funcKey string) interprocSupergraph {
-	blocks := collectReachableBlocks(defBlock)
-	return buildInterprocSupergraphFromBlocks(blocks, funcKey)
-}
-
-func buildInterprocSupergraphFromBlocks(blocks []*gocfg.Block, funcKey string) interprocSupergraph {
-	graph := newInterprocSupergraph()
-	if len(blocks) == 0 {
-		return graph
-	}
-
-	blockEntryNode := map[int32]interprocNodeID{}
-	for _, block := range blocks {
-		if block == nil || len(block.Nodes) == 0 {
-			continue
-		}
-		first := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: 0, Kind: interprocNodeKindCFG}
-		blockEntryNode[block.Index] = first
-	}
-
-	for _, block := range blocks {
-		if block == nil || len(block.Nodes) == 0 {
-			continue
-		}
-		for idx := range block.Nodes {
-			nodeID := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx, Kind: interprocNodeKindCFG}
-			graph.addNode(nodeID, block.Nodes[idx])
-			if idx > 0 {
-				prev := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx - 1, Kind: interprocNodeKindCFG}
-				graph.addEdge(interprocEdge{From: prev, To: nodeID, Kind: interprocEdgeIntra})
-			}
-			if !nodeContainsCallExpr(block.Nodes[idx]) {
-				continue
-			}
-			callNode := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx, Kind: interprocNodeKindCall}
-			retNode := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx, Kind: interprocNodeKindReturn}
-			graph.addEdge(interprocEdge{From: nodeID, To: callNode, Kind: interprocEdgeCall})
-			graph.addEdge(interprocEdge{From: callNode, To: retNode, Kind: interprocEdgeCallToReturn, Reason: pathOutcomeReasonUnresolvedTarget})
-			if idx+1 < len(block.Nodes) {
-				next := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: idx + 1, Kind: interprocNodeKindCFG}
-				graph.addEdge(interprocEdge{From: retNode, To: next, Kind: interprocEdgeReturn})
-			}
-		}
-
-		lastNode := interprocNodeID{FuncKey: funcKey, BlockIndex: block.Index, NodeIndex: len(block.Nodes) - 1, Kind: interprocNodeKindCFG}
-		hasMappedSucc := false
-		for _, succ := range block.Succs {
-			if succ == nil {
-				continue
-			}
-			entry, ok := blockEntryNode[succ.Index]
-			if !ok {
-				continue
-			}
-			hasMappedSucc = true
-			graph.addEdge(interprocEdge{From: lastNode, To: entry, Kind: interprocEdgeIntra})
-		}
-		if !hasMappedSucc {
-			graph.terminalCFGNodes[lastNode.Key()] = true
-		}
-	}
-	return graph
-}
-
-func collectReachableBlocks(start *gocfg.Block) []*gocfg.Block {
-	if start == nil {
-		return nil
-	}
-	seen := map[int32]bool{}
-	queue := []*gocfg.Block{start}
-	blocks := make([]*gocfg.Block, 0)
-	for len(queue) > 0 {
-		block := queue[0]
-		queue = queue[1:]
-		if block == nil || seen[block.Index] {
-			continue
-		}
-		seen[block.Index] = true
-		blocks = append(blocks, block)
-		for _, succ := range block.Succs {
-			if succ != nil && !seen[succ.Index] {
-				queue = append(queue, succ)
-			}
-		}
-	}
-	sort.Slice(blocks, func(i, j int) bool {
-		return blocks[i].Index < blocks[j].Index
-	})
-	return blocks
 }
 
 func edgeTagFromPathResult(result interprocPathResult, ubvMode string) ideEdgeFuncTag {
