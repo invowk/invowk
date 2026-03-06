@@ -4,6 +4,7 @@ package goplint
 
 import (
 	"encoding/json"
+	"go/ast"
 	"go/token"
 	"os"
 	"path/filepath"
@@ -250,6 +251,115 @@ func sample(raw string) {
 		}
 	})
 
+	t.Run("already safe results skip phase c provenance", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := mustBuildTestCFG(t, `package p
+func sample(raw string) {
+	if raw == "" {
+		return
+	}
+}
+`)
+		controller := newCFGRefinementController(cfgPhaseCOptions{
+			FeasibilityEngine:     cfgFeasibilityEngineSMT,
+			RefinementMode:        cfgRefinementModeOnce,
+			FeasibilityMaxQueries: 4,
+			FeasibilityTimeout:    50 * time.Millisecond,
+		})
+
+		called := false
+		result := controller.Refine(cfgRefinementRequest{
+			CFG:       cfg,
+			Result:    interprocPathResult{Class: interprocOutcomeSafe, Witness: []int32{0}},
+			Category:  CategoryUnvalidatedCast,
+			FindingID: "id-safe",
+			CallChain: []string{"pkg.sample"},
+			Rerun: func(cfgRefinementOverride) interprocPathResult {
+				called = true
+				return interprocPathResult{Class: interprocOutcomeUnsafe}
+			},
+		})
+
+		if called {
+			t.Fatal("expected safe result to skip phase c rerun")
+		}
+		if result.Class != interprocOutcomeSafe {
+			t.Fatalf("result.Class = %q, want %q", result.Class, interprocOutcomeSafe)
+		}
+		if result.PhaseC.Enabled {
+			t.Fatal("expected safe result to avoid phase c provenance when no witness was refined")
+		}
+	})
+
+	t.Run("discharged solver hashes are honored for cast and ubv propagation", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name       string
+			factFamily ifdsFactFamily
+			factKey    string
+			ubvMode    string
+		}{
+			{name: "cast", factFamily: ifdsFactFamilyCastNeedsValidate, factKey: "cast|origin|target|type", ubvMode: ubvModeOrder},
+			{name: "ubv-order", factFamily: ifdsFactFamilyUBVNeedsValidateBefore, factKey: "ubv|origin|target|type|order", ubvMode: ubvModeOrder},
+			{name: "ubv-escape", factFamily: ifdsFactFamilyUBVNeedsValidateBefore, factKey: "ubv|origin|target|type|escape", ubvMode: ubvModeEscape},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				graph, start, terminal := newUnsafeInterprocTestGraph()
+				callChain := []string{"pkg.sample"}
+				hashFunc := newInterprocWitnessHashFunc(callChain, tt.factFamily, tt.factKey, tt.ubvMode)
+
+				unsafe := runIFDSPropagation(
+					graph,
+					start,
+					4,
+					4,
+					callChain,
+					nil,
+					hashFunc,
+					func(interprocNodeID, ast.Node, ideValidationState) (ideEdgeFuncTag, pathOutcomeReason) {
+						return ideEdgeFuncIdentity, pathOutcomeReasonNone
+					},
+					func(nodeID interprocNodeID, _ ast.Node, state ideValidationState) bool {
+						return nodeID.Key() == terminal.Key() && state == ideStateNeedsValidate
+					},
+				)
+				if unsafe.Class != interprocOutcomeUnsafe {
+					t.Fatalf("unsafe.Class = %q, want %q", unsafe.Class, interprocOutcomeUnsafe)
+				}
+
+				dischargeHash := hashFunc(unsafe.Witness, cfgRefinementTriggerUnsafeCandidate)
+				if dischargeHash == "" {
+					t.Fatal("expected discharge hash for unsafe witness")
+				}
+
+				safe := runIFDSPropagation(
+					graph,
+					start,
+					4,
+					4,
+					callChain,
+					map[string]bool{dischargeHash: true},
+					hashFunc,
+					func(interprocNodeID, ast.Node, ideValidationState) (ideEdgeFuncTag, pathOutcomeReason) {
+						return ideEdgeFuncIdentity, pathOutcomeReasonNone
+					},
+					func(nodeID interprocNodeID, _ ast.Node, state ideValidationState) bool {
+						return nodeID.Key() == terminal.Key() && state == ideStateNeedsValidate
+					},
+				)
+				if safe.Class != interprocOutcomeSafe {
+					t.Fatalf("safe.Class = %q, want %q", safe.Class, interprocOutcomeSafe)
+				}
+			})
+		}
+	})
+
 	t.Run("explanation artifacts stay complete", func(t *testing.T) {
 		t.Parallel()
 
@@ -362,6 +472,9 @@ func mustReadFindingStreamRecords(t *testing.T, path string) []FindingStreamReco
 
 	data, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		t.Fatalf("read findings stream %q: %v", path, err)
 	}
 	trimmed := strings.TrimSpace(string(data))
@@ -397,4 +510,32 @@ func findFirstTraceRecord(records []FindingStreamRecord) *FindingStreamRecord {
 		}
 	}
 	return nil
+}
+
+func countTraceRecords(records []FindingStreamRecord, category, message string) int {
+	count := 0
+	for _, record := range records {
+		if record.Kind != findingStreamKindRefinementTrace {
+			continue
+		}
+		if category != "" && record.Category != category {
+			continue
+		}
+		if message != "" && record.Message != message {
+			continue
+		}
+		count++
+	}
+	return count
+}
+
+func newUnsafeInterprocTestGraph() (interprocSupergraph, interprocNodeID, interprocNodeID) {
+	graph := newInterprocSupergraph()
+	start := interprocNodeID{FuncKey: "pkg.sample", BlockIndex: 0, NodeIndex: 0, Kind: interprocNodeKindCFG}
+	terminal := interprocNodeID{FuncKey: "pkg.sample", BlockIndex: 1, NodeIndex: 0, Kind: interprocNodeKindCFG}
+	graph.addNode(start, nil)
+	graph.addNode(terminal, nil)
+	graph.addEdge(interprocEdge{From: start, To: terminal, Kind: interprocEdgeIntra})
+	graph.terminalCFGNodes[terminal.Key()] = true
+	return graph, start, terminal
 }

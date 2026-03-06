@@ -46,6 +46,11 @@ func (c cfgRefinementController) Refine(request cfgRefinementRequest) interprocP
 	if !c.options.Enabled() {
 		return result
 	}
+	if result.Class == interprocOutcomeSafe {
+		// Phase C refines candidate violating witnesses. When IFDS already
+		// proved the slice safe, there is no witness to discharge or trace.
+		return result
+	}
 
 	record := buildCFGWitnessRecord(
 		request.Category,
@@ -67,6 +72,7 @@ func (c cfgRefinementController) Refine(request cfgRefinementRequest) interprocP
 	iterations := 0
 	queries := 0
 	discharged := map[string]bool{}
+	dischargeHash := phaseCDischargeHash(result, record)
 	verdict, reason := c.checkFeasibility(backend, request.Pass, request.Position, request.CFG, record)
 	queries++
 
@@ -74,11 +80,11 @@ func (c cfgRefinementController) Refine(request cfgRefinementRequest) interprocP
 		if !shouldAttemptRefinement(result, verdict) {
 			break
 		}
-		if record.WitnessHash == "" || !c.cache.record(record.WitnessHash) {
+		if dischargeHash == "" || !c.cache.record(dischargeHash) {
 			break
 		}
 		if verdict == cfgFeasibilityResultUNSAT {
-			discharged[record.WitnessHash] = true
+			discharged[dischargeHash] = true
 		}
 		override := cfgRefinementOverride{
 			MaxStates:           refinementMaxStatesForTrigger(result.Reason),
@@ -111,12 +117,16 @@ func (c cfgRefinementController) Refine(request cfgRefinementRequest) interprocP
 			request.CallChain,
 			request.SyntheticPath,
 		)
+		dischargeHash = phaseCDischargeHash(result, record)
 		verdict, reason = c.checkFeasibility(backend, request.Pass, request.Position, request.CFG, record)
 		queries++
 	}
 
 	status := cfgRefinementStatusUnsafe
-	if result.Class == interprocOutcomeInconclusive {
+	switch result.Class {
+	case interprocOutcomeSafe:
+		status = cfgRefinementStatusProvenSafe
+	case interprocOutcomeInconclusive:
 		if iterations > 0 {
 			status = cfgRefinementStatusInconclusiveRefined
 		} else {
@@ -135,6 +145,13 @@ func (c cfgRefinementController) Refine(request cfgRefinementRequest) interprocP
 	}
 	result.WitnessRecord = record
 	return result
+}
+
+func phaseCDischargeHash(result interprocPathResult, record cfgWitnessRecord) string {
+	if result.WitnessHash != "" {
+		return result.WitnessHash
+	}
+	return record.WitnessHash
 }
 
 func shouldAttemptRefinement(result interprocPathResult, verdict string) bool {

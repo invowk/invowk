@@ -179,19 +179,42 @@ func setInterprocWitnessHash(result *interprocPathResult, callChain []string, sy
 		return
 	}
 	path := effectiveWitnessPath(result.Witness, syntheticPath)
+	result.WitnessHash = computeInterprocWitnessHash(*result, callChain, path)
+}
+
+func computeInterprocWitnessHash(result interprocPathResult, callChain []string, path []int32) string {
 	if len(path) == 0 {
-		result.WitnessHash = ""
-		return
+		return ""
 	}
 	record := cfgWitnessRecord{
 		FactFamily:    string(result.FactFamily),
 		FactKey:       result.FactKey,
 		EdgeTag:       string(result.EdgeFunctionTag),
-		CFGPath:       path,
+		CFGPath:       cloneCFGPath(path),
 		CallChain:     cloneCallChain(callChain),
-		TriggerReason: refinementTriggerForResult(*result),
+		TriggerReason: refinementTriggerForResult(result),
 	}
-	result.WitnessHash = computeCFGWitnessHash(record)
+	return computeCFGWitnessHash(record)
+}
+
+func interprocPathResultForDischargeTrigger(
+	factFamily ifdsFactFamily,
+	factKey string,
+	ubvMode string,
+	trigger string,
+) interprocPathResult {
+	result := interprocPathResult{
+		FactFamily: factFamily,
+		FactKey:    factKey,
+	}
+	if trigger == cfgRefinementTriggerUnsafeCandidate {
+		result.Class = interprocOutcomeUnsafe
+	} else {
+		result.Class = interprocOutcomeInconclusive
+		result.Reason = pathOutcomeReason(trigger)
+	}
+	result.EdgeFunctionTag = edgeTagFromPathResult(result, ubvMode)
+	return result
 }
 
 func appendPhaseCMeta(meta map[string]string, result interprocPathResult) map[string]string {

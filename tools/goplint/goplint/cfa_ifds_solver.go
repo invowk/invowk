@@ -242,6 +242,7 @@ func (s interprocSolver) evaluateCastPathIFDS(input interprocCastPathInput) inte
 				input.MaxDepth,
 				input.CallChain,
 				input.DischargedWitnesses,
+				newInterprocWitnessHashFunc(input.CallChain, fact.Family(), fact.Key(), ubvModeOrder),
 				func(_ interprocNodeID, node ast.Node, state ideValidationState) (ideEdgeFuncTag, pathOutcomeReason) {
 					if state != ideStateNeedsValidate {
 						return ideEdgeFuncIdentity, pathOutcomeReasonNone
@@ -427,6 +428,7 @@ func (s interprocSolver) evaluateUBVCrossBlockIFDS(input interprocUBVCrossBlockI
 		input.MaxDepth,
 		input.CallChain,
 		input.DischargedWitnesses,
+		newInterprocWitnessHashFunc(input.CallChain, fact.Family(), fact.Key(), input.Mode),
 		func(_ interprocNodeID, node ast.Node, state ideValidationState) (ideEdgeFuncTag, pathOutcomeReason) {
 			return ubvNodeEdgeTag(
 				s.pass,
@@ -543,6 +545,7 @@ func (s interprocSolver) evaluateConstructorPathIFDS(input interprocConstructorP
 		input.MaxDepth,
 		input.CallChain,
 		input.DischargedWitnesses,
+		newInterprocWitnessHashFunc(input.CallChain, fact.Family(), fact.Key(), ubvModeOrder),
 		func(_ interprocNodeID, node ast.Node, state ideValidationState) (ideEdgeFuncTag, pathOutcomeReason) {
 			if state != ideStateNeedsValidate {
 				return ideEdgeFuncIdentity, pathOutcomeReasonNone
@@ -600,6 +603,8 @@ type interprocNodeTransferFn func(nodeID interprocNodeID, node ast.Node, state i
 
 type interprocTerminalUnsafeFn func(nodeID interprocNodeID, node ast.Node, state ideValidationState) bool
 
+type interprocWitnessHashFunc func(path []int32, trigger string) string
+
 type interprocNodeSnapshot struct {
 	state ideValidationState
 	depth int
@@ -613,6 +618,7 @@ func runIFDSPropagation(
 	maxDepth int,
 	callChain []string,
 	dischargedWitnesses map[string]bool,
+	witnessHash interprocWitnessHashFunc,
 	transfer interprocNodeTransferFn,
 	terminalUnsafe interprocTerminalUnsafeFn,
 ) interprocPathResult {
@@ -644,7 +650,7 @@ func runIFDSPropagation(
 			continue
 		}
 		if snap.depth > maxDepth {
-			if witnessIsDischarged(snap.path, callChain, string(pathOutcomeReasonDepthBudget), dischargedWitnesses) {
+			if witnessIsDischarged(witnessHash, snap.path, string(pathOutcomeReasonDepthBudget), dischargedWitnesses) {
 				continue
 			}
 			return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonDepthBudget, snap.path)
@@ -653,14 +659,14 @@ func runIFDSPropagation(
 		node := graph.astNode(nodeID)
 		nodeTag, reason := transfer(nodeID, node, snap.state)
 		if reason != pathOutcomeReasonNone {
-			if witnessIsDischarged(snap.path, callChain, string(reason), dischargedWitnesses) {
+			if witnessIsDischarged(witnessHash, snap.path, string(reason), dischargedWitnesses) {
 				continue
 			}
 			return interprocPathResultFromOutcome(pathOutcomeInconclusive, reason, snap.path)
 		}
 		nodeState := newIDEEdgeFunc(nodeTag).Apply(snap.state)
 		if terminalUnsafe(nodeID, node, nodeState) {
-			if witnessIsDischarged(snap.path, callChain, cfgRefinementTriggerUnsafeCandidate, dischargedWitnesses) {
+			if witnessIsDischarged(witnessHash, snap.path, cfgRefinementTriggerUnsafeCandidate, dischargedWitnesses) {
 				continue
 			}
 			return interprocPathResultFromOutcome(pathOutcomeUnsafe, pathOutcomeReasonNone, snap.path)
@@ -671,7 +677,7 @@ func runIFDSPropagation(
 			nextPath := appendWitnessBlock(snap.path, edge.To.BlockIndex)
 			if edge.Kind == interprocEdgeCallToReturn && edge.Reason == pathOutcomeReasonUnresolvedTarget {
 				if nodeState == ideStateNeedsValidate || nodeState == ideStateEscapedBeforeValidate || nodeState == ideStateConsumedBeforeValidate {
-					if witnessIsDischarged(nextPath, callChain, string(pathOutcomeReasonUnresolvedTarget), dischargedWitnesses) {
+					if witnessIsDischarged(witnessHash, nextPath, string(pathOutcomeReasonUnresolvedTarget), dischargedWitnesses) {
 						continue
 					}
 					return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonUnresolvedTarget, nextPath)
@@ -681,14 +687,14 @@ func runIFDSPropagation(
 			nextState := composeIDEEdgeFuncs(newIDEEdgeFunc(nodeTag), newIDEEdgeFunc(ideEdgeFuncIdentity)).Apply(snap.state)
 			nextDepth := snap.depth + 1
 			if nextDepth > maxDepth {
-				if witnessIsDischarged(nextPath, callChain, string(pathOutcomeReasonDepthBudget), dischargedWitnesses) {
+				if witnessIsDischarged(witnessHash, nextPath, string(pathOutcomeReasonDepthBudget), dischargedWitnesses) {
 					continue
 				}
 				return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonDepthBudget, nextPath)
 			}
 			explored++
 			if explored > maxStates {
-				if witnessIsDischarged(nextPath, callChain, string(pathOutcomeReasonStateBudget), dischargedWitnesses) {
+				if witnessIsDischarged(witnessHash, nextPath, string(pathOutcomeReasonStateBudget), dischargedWitnesses) {
 					continue
 				}
 				return interprocPathResultFromOutcome(pathOutcomeInconclusive, pathOutcomeReasonStateBudget, nextPath)
@@ -719,16 +725,28 @@ func runIFDSPropagation(
 	return interprocPathResultFromOutcome(pathOutcomeSafe, pathOutcomeReasonNone, nil)
 }
 
-func witnessIsDischarged(path []int32, callChain []string, trigger string, dischargedWitnesses map[string]bool) bool {
-	if len(dischargedWitnesses) == 0 || len(path) == 0 {
+func newInterprocWitnessHashFunc(
+	callChain []string,
+	factFamily ifdsFactFamily,
+	factKey string,
+	ubvMode string,
+) interprocWitnessHashFunc {
+	return func(path []int32, trigger string) string {
+		result := interprocPathResultForDischargeTrigger(factFamily, factKey, ubvMode, trigger)
+		return computeInterprocWitnessHash(result, callChain, path)
+	}
+}
+
+func witnessIsDischarged(
+	witnessHash interprocWitnessHashFunc,
+	path []int32,
+	trigger string,
+	dischargedWitnesses map[string]bool,
+) bool {
+	if len(dischargedWitnesses) == 0 || len(path) == 0 || witnessHash == nil {
 		return false
 	}
-	record := cfgWitnessRecord{
-		CFGPath:       cloneCFGPath(path),
-		CallChain:     cloneCallChain(callChain),
-		TriggerReason: trigger,
-	}
-	hash := computeCFGWitnessHash(record)
+	hash := witnessHash(path, trigger)
 	return hash != "" && dischargedWitnesses[hash]
 }
 
