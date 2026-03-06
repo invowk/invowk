@@ -457,31 +457,11 @@ func (c CustomCheck) Validate() error {
 // Otherwise, validates the direct check fields.
 func (c CustomCheckDependency) Validate() error {
 	var errs []error
-	if len(c.Alternatives) > 0 {
-		for _, alt := range c.Alternatives {
-			if err := alt.Validate(); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	} else {
-		// Direct check mode — validate inline fields.
-		if c.Name != "" {
-			if err := c.Name.Validate(); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		if err := c.CheckScript.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-		if c.ExpectedCode != nil {
-			if err := c.ExpectedCode.Validate(); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		if err := c.ExpectedOutput.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	appendFieldError(&errs, c.CheckScript.Validate())
+	appendFieldError(&errs, c.ExpectedOutput.Validate())
+	appendEachValidation(&errs, c.Alternatives)
+	appendOptionalValidation(&errs, c.Name, len(c.Alternatives) == 0 && c.Name != "")
+	appendOptionalValidation(&errs, c.ExpectedCode, len(c.Alternatives) == 0 && c.ExpectedCode != nil)
 	if len(errs) > 0 {
 		return &InvalidCustomCheckDependencyError{FieldErrors: errs}
 	}
@@ -492,36 +472,12 @@ func (c CustomCheckDependency) Validate() error {
 // Delegates to Validate() on all dependency slices.
 func (d DependsOn) Validate() error {
 	var errs []error
-	for _, t := range d.Tools {
-		if err := t.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, c := range d.Commands {
-		if err := c.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, f := range d.Filepaths {
-		if err := f.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, c := range d.Capabilities {
-		if err := c.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, c := range d.CustomChecks {
-		if err := c.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, e := range d.EnvVars {
-		if err := e.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	appendEachValidation(&errs, d.Tools)
+	appendEachValidation(&errs, d.Commands)
+	appendEachValidation(&errs, d.Filepaths)
+	appendEachValidation(&errs, d.Capabilities)
+	appendEachValidation(&errs, d.CustomChecks)
+	appendEachValidation(&errs, d.EnvVars)
 	if len(errs) > 0 {
 		return &InvalidDependsOnError{FieldErrors: errs}
 	}

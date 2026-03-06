@@ -58,48 +58,17 @@ func ValidateFilepathInContainer(fp invowkfile.FilepathDependency, rt runtime.Ru
 	var allErrors []string
 
 	for _, altPath := range fp.Alternatives {
-		altPathStr := string(altPath)
-		// Shell-safe single-quote escaping for paths
-		escapedPath := ShellEscapeSingleQuote(altPathStr)
-
-		var checks []string
-		checks = append(checks, fmt.Sprintf("test -e '%s'", escapedPath))
-
-		if fp.Readable {
-			checks = append(checks, fmt.Sprintf("test -r '%s'", escapedPath))
-		}
-		if fp.Writable {
-			checks = append(checks, fmt.Sprintf("test -w '%s'", escapedPath))
-		}
-		if fp.Executable {
-			checks = append(checks, fmt.Sprintf("test -x '%s'", escapedPath))
-		}
-
-		checkScript := strings.Join(checks, " && ")
-
-		validationCtx, _, stderr := NewContainerValidationContext(ctx, checkScript)
-
-		result := rt.Execute(validationCtx)
-		if result.Error != nil {
-			return fmt.Errorf("  • container validation failed for path %s: %w", altPath, result.Error)
-		}
-		if err := CheckTransientExitCode(result, altPathStr); err != nil {
+		detail, err := validateContainerFilepathAlternative(string(altPath), fp, rt, ctx)
+		if err != nil {
 			return err
 		}
-		if result.ExitCode == 0 {
+		if detail == "" {
 			return nil
-		}
-		detail := "not found or permission denied in container"
-		if stderrStr := strings.TrimSpace(stderr.String()); stderrStr != "" {
-			detail = stderrStr
 		}
 		allErrors = append(allErrors, fmt.Sprintf("%s: %s", altPath, detail))
 	}
 
-	if len(fp.Alternatives) == 1 {
-		return fmt.Errorf("  • %s", allErrors[0])
-	}
-	return fmt.Errorf("  • none of the alternatives satisfied the requirements in container:\n      - %s", strings.Join(allErrors, "\n      - "))
+	return formatContainerFilepathError(fp.Alternatives, allErrors)
 }
 
 // CheckHostFilepathDependencies verifies all required files/directories exist on the HOST filesystem.
@@ -139,12 +108,7 @@ func ValidateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir ty
 
 	for _, altPath := range fp.Alternatives {
 		altPathStr := string(altPath)
-		// Resolve path relative to invowkfile if not absolute
-		resolvedPath := altPathStr
-		if !filepath.IsAbs(resolvedPath) {
-			resolvedPath = filepath.Join(string(invowkDir), resolvedPath)
-		}
-
+		resolvedPath := resolveHostFilepathAlternative(invowkDir, altPathStr)
 		if err := ValidateSingleFilepath(types.FilesystemPath(altPathStr), types.FilesystemPath(resolvedPath), fp); err == nil { //goplint:ignore -- path from CUE alternatives list
 			// Success! This alternative satisfies the dependency
 			return nil
@@ -153,11 +117,7 @@ func ValidateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir ty
 		}
 	}
 
-	// None of the alternatives satisfied the requirements
-	if len(fp.Alternatives) == 1 {
-		return fmt.Errorf("  • %s", allErrors[0])
-	}
-	return fmt.Errorf("  • none of the alternatives satisfied the requirements:\n      - %s", strings.Join(allErrors, "\n      - "))
+	return formatHostFilepathError(fp.Alternatives, allErrors)
 }
 
 // ValidateSingleFilepath checks if a single filepath exists and has the required permissions.
@@ -259,48 +219,125 @@ func IsWritable(path string, info os.FileInfo) bool {
 // user specifically has execute permission.
 func IsExecutable(path string, info os.FileInfo) bool {
 	if goruntime.GOOS == platform.Windows {
-		// Directories on Windows: executable means traversable (accessible).
-		if info.IsDir() {
-			f, err := os.Open(path)
-			if err != nil {
-				return false
-			}
-			_ = f.Close() // Traversability probe; close error non-critical
-			return true
-		}
-
-		// Files on Windows: check extension (PATHEXT convention) AND readability.
-		ext := strings.ToLower(filepath.Ext(path))
-		execExts := []string{".exe", ".cmd", ".bat", ".com", ".ps1"}
-		hasExecExt := slices.Contains(execExts, ext)
-		if !hasExecExt {
-			pathext := os.Getenv("PATHEXT")
-			if pathext != "" {
-				for pathExt := range strings.SplitSeq(strings.ToLower(pathext), ";") {
-					if pathExt == "" {
-						continue
-					}
-					if pathExt == ext {
-						hasExecExt = true
-						break
-					}
-				}
-			}
-		}
-		if !hasExecExt {
-			return false
-		}
-
-		// Best-effort accessibility check: a file denied by ACLs will fail here
-		f, err := os.OpenFile(path, os.O_RDONLY, 0)
-		if err != nil {
-			return false
-		}
-		_ = f.Close() // Executability probe; close error non-critical
-		return true
+		return isExecutableOnWindows(path, info)
 	}
 
 	// On Unix-like systems, check execute permission bit
 	mode := info.Mode()
 	return mode&0o111 != 0
+}
+
+//goplint:ignore -- helper evaluates transient container path strings from dependency alternatives.
+func validateContainerFilepathAlternative(altPath string, fp invowkfile.FilepathDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) (string, error) {
+	checkScript := buildContainerFilepathCheckScript(fp, altPath)
+	validationCtx, _, stderr := NewContainerValidationContext(ctx, checkScript)
+
+	result := rt.Execute(validationCtx)
+	if result.Error != nil {
+		return "", fmt.Errorf("  • container validation failed for path %s: %w", altPath, result.Error)
+	}
+	if err := CheckTransientExitCode(result, altPath); err != nil {
+		return "", err
+	}
+	if result.ExitCode == 0 {
+		return "", nil
+	}
+
+	detail := "not found or permission denied in container"
+	if stderrStr := strings.TrimSpace(stderr.String()); stderrStr != "" {
+		detail = stderrStr
+	}
+	return detail, nil
+}
+
+//goplint:ignore -- helper builds a shell probe from transient dependency path strings.
+func buildContainerFilepathCheckScript(fp invowkfile.FilepathDependency, altPath string) string {
+	escapedPath := ShellEscapeSingleQuote(altPath)
+	checks := []string{fmt.Sprintf("test -e '%s'", escapedPath)}
+	if fp.Readable {
+		checks = append(checks, fmt.Sprintf("test -r '%s'", escapedPath))
+	}
+	if fp.Writable {
+		checks = append(checks, fmt.Sprintf("test -w '%s'", escapedPath))
+	}
+	if fp.Executable {
+		checks = append(checks, fmt.Sprintf("test -x '%s'", escapedPath))
+	}
+	return strings.Join(checks, " && ")
+}
+
+//goplint:ignore -- helper formats transient aggregated filepath probe output.
+func formatContainerFilepathError(alternatives []invowkfile.FilesystemPath, allErrors []string) error {
+	if len(alternatives) == 1 {
+		return fmt.Errorf("  • %s", allErrors[0])
+	}
+	return fmt.Errorf("  • none of the alternatives satisfied the requirements in container:\n      - %s", strings.Join(allErrors, "\n      - "))
+}
+
+//goplint:ignore -- helper resolves transient dependency path strings against a validated base dir.
+func resolveHostFilepathAlternative(invowkDir types.FilesystemPath, altPath string) string {
+	if filepath.IsAbs(altPath) {
+		return altPath
+	}
+	return filepath.Join(string(invowkDir), altPath)
+}
+
+//goplint:ignore -- helper formats transient aggregated filepath probe output.
+func formatHostFilepathError(alternatives []invowkfile.FilesystemPath, allErrors []string) error {
+	if len(alternatives) == 1 {
+		return fmt.Errorf("  • %s", allErrors[0])
+	}
+	return fmt.Errorf("  • none of the alternatives satisfied the requirements:\n      - %s", strings.Join(allErrors, "\n      - "))
+}
+
+//goplint:ignore -- helper inspects OS-native path strings returned by os/filepath.
+func isExecutableOnWindows(path string, info os.FileInfo) bool {
+	if info.IsDir() {
+		return canOpenPath(path)
+	}
+	if !windowsPathHasExecutableExtension(path) {
+		return false
+	}
+	return canOpenReadOnly(path)
+}
+
+//goplint:ignore -- helper inspects OS-native path strings returned by os/filepath.
+func windowsPathHasExecutableExtension(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	execExts := []string{".exe", ".cmd", ".bat", ".com", ".ps1"}
+	if slices.Contains(execExts, ext) {
+		return true
+	}
+
+	pathext := os.Getenv("PATHEXT")
+	if pathext == "" {
+		return false
+	}
+
+	for pathExt := range strings.SplitSeq(strings.ToLower(pathext), ";") {
+		if pathExt != "" && pathExt == ext {
+			return true
+		}
+	}
+	return false
+}
+
+//goplint:ignore -- helper probes OS-native path strings returned by os/filepath.
+func canOpenPath(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	_ = f.Close() // Probe only; close error non-critical
+	return true
+}
+
+//goplint:ignore -- helper probes OS-native path strings returned by os/filepath.
+func canOpenReadOnly(path string) bool {
+	f, err := os.OpenFile(path, os.O_RDONLY, 0)
+	if err != nil {
+		return false
+	}
+	_ = f.Close() // Probe only; close error non-critical
+	return true
 }

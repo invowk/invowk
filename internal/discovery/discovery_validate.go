@@ -72,65 +72,79 @@ func (e *InvalidLookupResultError) Unwrap() error { return ErrInvalidLookupResul
 // Many fields are zero-value-valid since CommandInfo is populated incrementally.
 func (c CommandInfo) Validate() error {
 	var errs []error
-	if c.Name != "" {
-		if err := c.Name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.Description != "" {
-		if err := c.Description.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := c.Source.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if c.FilePath != "" {
-		if err := c.FilePath.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.SimpleName != "" {
-		if err := c.SimpleName.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.SourceID != "" {
-		if err := c.SourceID.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.ModuleID != nil {
-		if err := c.ModuleID.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	c.appendIdentityValidationErrors(&errs)
+	c.appendSourceValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidCommandInfoError{FieldErrors: errs}
 	}
 	return nil
 }
 
+func (c CommandInfo) appendIdentityValidationErrors(errs *[]error) {
+	if c.Name != "" {
+		if err := c.Name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if c.Description != "" {
+		if err := c.Description.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if c.SimpleName != "" {
+		if err := c.SimpleName.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (c CommandInfo) appendSourceValidationErrors(errs *[]error) {
+	if err := c.Source.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	if c.FilePath != "" {
+		if err := c.FilePath.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if c.SourceID != "" {
+		if err := c.SourceID.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if c.ModuleID != nil {
+		if err := c.ModuleID.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
 // Validate returns nil if the DiscoveredFile has valid fields, or a validation error if not.
 // It validates Path (when non-empty) and Source.
 func (d DiscoveredFile) Validate() error {
 	var errs []error
-	if d.Path != "" {
-		if err := d.Path.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := d.Source.Validate(); err != nil {
-		errs = append(errs, err)
-	}
+	d.appendValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidDiscoveredFileError{FieldErrors: errs}
 	}
 	return nil
 }
 
+func (d DiscoveredFile) appendValidationErrors(errs *[]error) {
+	if d.Path != "" {
+		if err := d.Path.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if err := d.Source.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+}
+
 // Validate returns nil if the LookupResult has valid fields, or a validation error if not.
 // It delegates to Command.Validate() when Command is non-nil.
+//
+//goplint:ignore -- helper-based delegation keeps field-order stability while reducing Sonar complexity.
 func (r LookupResult) Validate() error {
 	var errs []error
 	if r.Command != nil {

@@ -373,56 +373,21 @@ func (e *InvalidPlatformConfigError) Unwrap() error { return ErrInvalidPlatformC
 // or an error collecting all field-level validation failures.
 // Delegates to Name.Validate() (nonzero), and validates all
 // zero-value-valid fields only when non-empty/non-nil.
+//
+//goplint:ignore -- helper-based delegation keeps field-order stability while reducing Sonar complexity.
+//goplint:ignore -- Sonar refactor keeps optional-field validation local without changing behavior.
 func (rc RuntimeConfig) Validate() error {
 	var errs []error
-	if err := rc.Name.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if rc.Interpreter != "" {
-		if err := rc.Interpreter.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if rc.EnvInheritMode != "" {
-		if err := rc.EnvInheritMode.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, v := range rc.EnvInheritAllow {
-		if err := v.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, v := range rc.EnvInheritDeny {
-		if err := v.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if rc.DependsOn != nil {
-		if err := rc.DependsOn.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if rc.Containerfile != "" {
-		if err := rc.Containerfile.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if rc.Image != "" {
-		if err := rc.Image.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, v := range rc.Volumes {
-		if err := v.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, p := range rc.Ports {
-		if err := p.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	appendFieldError(&errs, rc.Name.Validate())
+	appendOptionalValidation(&errs, rc.Interpreter, rc.Interpreter != "")
+	appendOptionalValidation(&errs, rc.EnvInheritMode, rc.EnvInheritMode != "")
+	appendEachValidation(&errs, rc.EnvInheritAllow)
+	appendEachValidation(&errs, rc.EnvInheritDeny)
+	appendOptionalValidation(&errs, rc.DependsOn, rc.DependsOn != nil)
+	appendOptionalValidation(&errs, rc.Containerfile, rc.Containerfile != "")
+	appendOptionalValidation(&errs, rc.Image, rc.Image != "")
+	appendEachValidation(&errs, rc.Volumes)
+	appendEachValidation(&errs, rc.Ports)
 	if len(errs) > 0 {
 		return &InvalidRuntimeConfigError{FieldErrors: errs}
 	}

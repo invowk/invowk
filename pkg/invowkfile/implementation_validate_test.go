@@ -13,7 +13,7 @@ func TestImplementationMatch_Validate_ZeroValue(t *testing.T) {
 	t.Parallel()
 	// Zero-value ImplementationMatch has empty Platform and Runtime — should fail.
 	m := ImplementationMatch{}
-	if err := m.Validate(); err == nil {
+	if m.Validate() == nil {
 		t.Fatal("ImplementationMatch{}.Validate() should fail (empty Platform and Runtime)")
 	}
 }

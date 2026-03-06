@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
@@ -41,9 +40,7 @@ type RuntimeRegistryResult struct {
 // dependency validation. The CLI adapter handles rendering.
 func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (Result, []discovery.Diagnostic, error) {
 	registryResult := CreateRuntimeRegistry(cfg, s.ssh.current())
-	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
-		diags = append(diags, registryResult.Diagnostics...)
-	}
+	diags = appendRuntimeRegistryDiagnostics(diags, req, execCtx, registryResult)
 	defer registryResult.Cleanup()
 
 	// Assign a unique execution ID now that the registry is available.
@@ -51,83 +48,99 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	// the registry (which owns the monotonic counter) is created at this point.
 	execCtx.ExecutionID = registryResult.Registry.NewExecutionID()
 
-	if registryResult.ContainerInitErr != nil && execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
-		issueID, plainMsg := classifyExecutionError(registryResult.ContainerInitErr)
-		return Result{}, diags, &ClassifiedError{
-			Err:     registryResult.ContainerInitErr,
-			IssueID: issueID,
-			Message: plainMsg,
-		}
+	if err := failFastContainerInit(registryResult.ContainerInitErr, execCtx.SelectedRuntime); err != nil {
+		return Result{}, diags, err
 	}
 
-	// Validate timeout early so an invalid timeout (e.g., "not-a-duration")
-	// fails fast before dependency validation or execution.
-	var timeoutDuration time.Duration
-	if execCtx.SelectedImpl != nil {
-		var parseErr error
-		timeoutDuration, parseErr = execCtx.SelectedImpl.ParseTimeout()
-		if parseErr != nil {
-			return Result{}, diags, parseErr
-		}
+	cancel, err := applyExecutionTimeout(execCtx)
+	if err != nil {
+		return Result{}, diags, err
 	}
-
-	// Apply execution timeout. Duration was already validated above
-	// (fail-fast on invalid strings). Cancel is deferred to release timer resources.
-	if timeoutDuration > 0 {
-		var cancel context.CancelFunc
-		execCtx.Context, cancel = context.WithTimeout(execCtx.Context, timeoutDuration)
-		defer cancel()
-	}
+	defer cancel()
 
 	// Dependency validation needs the registry to check runtime-aware dependencies.
-	if err := s.validateDeps(cmdInfo, execCtx, registryResult.Registry, req.UserEnv); err != nil {
+	if validateErr := s.validateDeps(cmdInfo, execCtx, registryResult.Registry, req.UserEnv); validateErr != nil {
 		// Return the raw error (e.g., *DependencyError); the CLI adapter wraps it.
-		return Result{}, diags, err
+		return Result{}, diags, validateErr
 	}
 
 	if req.Verbose {
 		fmt.Fprintf(s.stdout, "-> Running '%s'...\n", req.Name)
 	}
 
-	var result *runtime.Result
-	if req.Interactive {
-		// Interactive mode is opportunistic and falls back to standard execution
-		// when the selected runtime does not implement interactive support.
-		rt, err := registryResult.Registry.GetForContext(execCtx)
-		if err != nil {
-			err = fmt.Errorf("failed to get runtime: %w", err)
-			issueID, plainMsg := classifyExecutionError(err)
-			return Result{}, diags, &ClassifiedError{
-				Err:     err,
-				IssueID: issueID,
-				Message: plainMsg,
-			}
-		}
-
-		interactiveRT := runtime.GetInteractiveRuntime(rt)
-		if interactiveRT != nil {
-			result = executeInteractive(execCtx, req.Name, interactiveRT)
-		} else {
-			if req.Verbose {
-				fmt.Fprintf(s.stdout, "! Runtime '%s' does not support interactive mode, using standard execution\n",
-					rt.Name())
-			}
-			result = registryResult.Registry.Execute(execCtx)
-		}
-	} else {
-		result = registryResult.Registry.Execute(execCtx)
+	result, err := s.executeWithRequestedMode(req, execCtx, registryResult.Registry)
+	if err != nil {
+		return Result{}, diags, err
 	}
 
 	if result.Error != nil {
-		issueID, plainMsg := classifyExecutionError(result.Error)
-		return Result{}, diags, &ClassifiedError{
-			Err:     result.Error,
-			IssueID: issueID,
-			Message: plainMsg,
-		}
+		return Result{}, diags, newClassifiedExecutionError(result.Error)
 	}
 
 	return Result{ExitCode: result.ExitCode}, diags, nil
+}
+
+func appendRuntimeRegistryDiagnostics(diags []discovery.Diagnostic, req Request, execCtx *runtime.ExecutionContext, registryResult RuntimeRegistryResult) []discovery.Diagnostic {
+	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
+		diags = append(diags, registryResult.Diagnostics...)
+	}
+	return diags
+}
+
+func failFastContainerInit(containerInitErr error, selectedRuntime invowkfile.RuntimeMode) error {
+	if containerInitErr == nil || selectedRuntime != invowkfile.RuntimeContainer {
+		return nil
+	}
+	return newClassifiedExecutionError(containerInitErr)
+}
+
+func applyExecutionTimeout(execCtx *runtime.ExecutionContext) (context.CancelFunc, error) {
+	noOpCancel := func() {}
+	if execCtx.SelectedImpl == nil {
+		return noOpCancel, nil
+	}
+
+	timeoutDuration, err := execCtx.SelectedImpl.ParseTimeout()
+	if err != nil {
+		return nil, err
+	}
+	if timeoutDuration <= 0 {
+		return noOpCancel, nil
+	}
+
+	ctx, cancel := context.WithTimeout(execCtx.Context, timeoutDuration)
+	execCtx.Context = ctx
+	return cancel, nil
+}
+
+func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.ExecutionContext, registry *runtime.Registry) (*runtime.Result, error) {
+	if !req.Interactive {
+		return registry.Execute(execCtx), nil
+	}
+
+	rt, err := registry.GetForContext(execCtx)
+	if err != nil {
+		return nil, newClassifiedExecutionError(fmt.Errorf("failed to get runtime: %w", err))
+	}
+
+	interactiveRT := runtime.GetInteractiveRuntime(rt)
+	if interactiveRT != nil {
+		return executeInteractive(execCtx, req.Name, interactiveRT), nil
+	}
+
+	if req.Verbose {
+		fmt.Fprintf(s.stdout, "! Runtime '%s' does not support interactive mode, using standard execution\n", rt.Name())
+	}
+	return registry.Execute(execCtx), nil
+}
+
+func newClassifiedExecutionError(err error) *ClassifiedError {
+	issueID, plainMsg := classifyExecutionError(err)
+	return &ClassifiedError{
+		Err:     err,
+		IssueID: issueID,
+		Message: plainMsg,
+	}
 }
 
 // CreateRuntimeRegistry creates and populates the runtime registry.

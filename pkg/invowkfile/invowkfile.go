@@ -140,39 +140,9 @@ func CurrentPlatform() Platform {
 // DependsOn (non-nil), each Command, FilePath (non-empty), and ModulePath (non-empty).
 func (inv Invowkfile) ValidateFields() error {
 	var errs []error
-	if err := inv.DefaultShell.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if inv.WorkDir != "" {
-		if err := inv.WorkDir.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if inv.Env != nil {
-		if err := inv.Env.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if inv.DependsOn != nil {
-		if err := inv.DependsOn.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for i := range inv.Commands {
-		if err := inv.Commands[i].Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if inv.FilePath != "" {
-		if err := inv.FilePath.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if inv.ModulePath != "" {
-		if err := inv.ModulePath.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	inv.appendBaseValidationErrors(&errs)
+	inv.appendCommandValidationErrors(&errs)
+	inv.appendPathValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidInvowkfileError{FieldErrors: errs}
 	}
@@ -311,4 +281,46 @@ func (inv *Invowkfile) FlattenCommands() map[CommandName]*Command {
 // Delegates to DependsOn.IsEmpty() to stay in sync if new dependency types are added.
 func (inv *Invowkfile) HasRootLevelDependencies() bool {
 	return inv.DependsOn != nil && !inv.DependsOn.IsEmpty()
+}
+
+func (inv Invowkfile) appendBaseValidationErrors(errs *[]error) {
+	if err := inv.DefaultShell.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	if inv.WorkDir != "" {
+		if err := inv.WorkDir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if inv.Env != nil {
+		if err := inv.Env.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if inv.DependsOn != nil {
+		if err := inv.DependsOn.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (inv Invowkfile) appendCommandValidationErrors(errs *[]error) {
+	for i := range inv.Commands {
+		if err := inv.Commands[i].Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (inv Invowkfile) appendPathValidationErrors(errs *[]error) {
+	if inv.FilePath != "" {
+		if err := inv.FilePath.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if inv.ModulePath != "" {
+		if err := inv.ModulePath.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }

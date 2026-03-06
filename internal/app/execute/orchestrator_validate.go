@@ -35,46 +35,58 @@ func (e *InvalidBuildExecutionContextOptionsError) Unwrap() error {
 // and Platform (when non-empty).
 func (o BuildExecutionContextOptions) Validate() error {
 	var errs []error
-	if err := o.Selection.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if o.Workdir != "" {
-		if err := o.Workdir.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, f := range o.EnvFiles {
-		if err := f.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if o.EnvInheritMode != "" {
-		if err := o.EnvInheritMode.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range o.EnvInheritAllow {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range o.EnvInheritDeny {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if o.SourceID != "" {
-		if err := o.SourceID.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if o.Platform != "" {
-		if err := o.Platform.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	o.appendSelectionValidationErrors(&errs)
+	o.appendEnvValidationErrors(&errs)
+	o.appendMetadataValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidBuildExecutionContextOptionsError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (o BuildExecutionContextOptions) appendSelectionValidationErrors(errs *[]error) {
+	if err := o.Selection.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	if o.Workdir != "" {
+		if err := o.Workdir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (o BuildExecutionContextOptions) appendEnvValidationErrors(errs *[]error) {
+	for _, f := range o.EnvFiles {
+		if err := f.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if o.EnvInheritMode != "" {
+		if err := o.EnvInheritMode.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range o.EnvInheritAllow {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range o.EnvInheritDeny {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (o BuildExecutionContextOptions) appendMetadataValidationErrors(errs *[]error) {
+	if o.SourceID != "" {
+		if err := o.SourceID.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if o.Platform != "" {
+		if err := o.Platform.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }

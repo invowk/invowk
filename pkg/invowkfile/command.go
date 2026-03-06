@@ -159,52 +159,16 @@ func (c CommandCategory) String() string { return string(c) }
 // DependsOn (non-nil), each Flag, each Argument, and Watch (non-nil).
 func (c Command) Validate() error {
 	var errs []error
-	if err := c.Name.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if c.Description != "" {
-		if err := c.Description.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := c.Category.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	for i := range c.Implementations {
-		if err := c.Implementations[i].Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.Env != nil {
-		if err := c.Env.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.WorkDir != "" {
-		if err := c.WorkDir.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.DependsOn != nil {
-		if err := c.DependsOn.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, f := range c.Flags {
-		if err := f.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, a := range c.Args {
-		if err := a.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.Watch != nil {
-		if err := c.Watch.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	appendFieldError(&errs, c.Name.Validate())
+	appendOptionalValidation(&errs, c.Description, c.Description != "")
+	appendFieldError(&errs, c.Category.Validate())
+	appendEachValidation(&errs, c.Implementations)
+	appendOptionalValidation(&errs, c.Env, c.Env != nil)
+	appendOptionalValidation(&errs, c.WorkDir, c.WorkDir != "")
+	appendOptionalValidation(&errs, c.DependsOn, c.DependsOn != nil)
+	appendEachValidation(&errs, c.Flags)
+	appendEachValidation(&errs, c.Args)
+	appendOptionalValidation(&errs, c.Watch, c.Watch != nil)
 	if len(errs) > 0 {
 		return &InvalidCommandError{FieldErrors: errs}
 	}

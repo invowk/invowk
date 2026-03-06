@@ -365,35 +365,43 @@ func (e *InvalidEnvContextError) Unwrap() error { return ErrInvalidEnvContext }
 // and each RuntimeEnvFiles element.
 func (ec EnvContext) Validate() error {
 	var errs []error
-	if ec.InheritModeOverride != "" {
-		if err := ec.InheritModeOverride.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range ec.InheritAllowOverride {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range ec.InheritDenyOverride {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if ec.Cwd != "" {
-		if err := ec.Cwd.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, f := range ec.RuntimeEnvFiles {
-		if err := f.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	ec.appendInheritValidationErrors(&errs)
+	ec.appendPathValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidEnvContextError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (ec EnvContext) appendInheritValidationErrors(errs *[]error) {
+	if ec.InheritModeOverride != "" {
+		if err := ec.InheritModeOverride.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range ec.InheritAllowOverride {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range ec.InheritDenyOverride {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (ec EnvContext) appendPathValidationErrors(errs *[]error) {
+	if ec.Cwd != "" {
+		if err := ec.Cwd.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, f := range ec.RuntimeEnvFiles {
+		if err := f.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 // NewExecutionContext creates a new execution context with the provided Go context.

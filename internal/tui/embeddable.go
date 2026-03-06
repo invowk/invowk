@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -329,7 +330,7 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		if err := json.Unmarshal(options, &opts); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal spin options: %w", err)
 		}
-		model := NewSpinModel(opts)
+		model := NewSpinModel(context.Background(), opts)
 		model.SetSize(width, height)
 		return model, nil
 

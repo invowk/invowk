@@ -109,3 +109,14 @@ func TestCheckValidateDelegationEmbeddedImportedPointer(t *testing.T) {
 		"validatedelegation_embedded_imported_pointer/dep",
 		"validatedelegation_embedded_imported_pointer")
 }
+
+func TestCheckValidateDelegationHelperFunction(t *testing.T) {
+	t.Parallel()
+
+	testdata := analysistest.TestData()
+	h := newAnalyzerHarness()
+	resetFlags(t, h)
+	setFlag(t, h.Analyzer, "check-validate-delegation", "true")
+
+	runAnalysisTest(t, testdata, h.Analyzer, "validatedelegation_helper_function")
+}

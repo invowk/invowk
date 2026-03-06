@@ -249,7 +249,7 @@ func isValidateCallNode(
 		return !isConditionallyEvaluated(call, parentMap)
 	}
 	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "Validate" {
+	if !ok || sel.Sel.Name != validateMethodName {
 		return false
 	}
 	if !target.matchesExpr(pass, sel.X) {

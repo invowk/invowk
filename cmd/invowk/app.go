@@ -23,6 +23,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const serviceErrorLabel = "Error:"
+
 type (
 	configPathContextKey            struct{}
 	discoveryRequestCacheContextKey struct{}
@@ -301,13 +303,14 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
 		// Re-create the styled message using the CLI-layer error formatter.
 		var styledMsg string
+		styledLabel := ErrorStyle.Render(serviceErrorLabel)
 		switch classified.Message {
 		case commandsvc.HintTimedOut:
-			styledMsg = fmt.Sprintf("\n%s command timed out: %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+			styledMsg = fmt.Sprintf("\n%s command timed out: %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		case commandsvc.HintCancelled:
-			styledMsg = fmt.Sprintf("\n%s command was cancelled: %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+			styledMsg = fmt.Sprintf("\n%s command was cancelled: %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		default:
-			styledMsg = fmt.Sprintf("\n%s %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+			styledMsg = fmt.Sprintf("\n%s %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		}
 		return newServiceError(classified.Err, classified.IssueID, styledMsg)
 	}

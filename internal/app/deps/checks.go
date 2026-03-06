@@ -177,65 +177,12 @@ func CheckEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 		return nil
 	}
 
-	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	rt, err := requireContainerRuntime(registry, "env var validation")
 	if err != nil {
-		return errors.New("container runtime not available for env var validation")
+		return err
 	}
 
-	var envVarErrors []DependencyMessage
-
-	for _, envVar := range deps.EnvVars {
-		found, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
-			name := strings.TrimSpace(string(alt.Name))
-			if name == "" {
-				return errors.New("  • (empty) - environment variable name cannot be empty")
-			}
-
-			// Defense-in-depth: validate env var name before shell interpolation
-			if err := invowkfile.ValidateEnvVarName(name); err != nil {
-				return fmt.Errorf("  • %s - %w", name, err)
-			}
-
-			// Check if env var is set inside container: test -n "${VAR+x}"
-			checkScript := fmt.Sprintf("test -n \"${%s+x}\"", name)
-
-			// If validation pattern specified, also check value
-			if alt.Validation != "" {
-				escapedValidation := ShellEscapeSingleQuote(string(alt.Validation))
-				checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, escapedValidation)
-			}
-
-			validationCtx, _, _ := NewContainerValidationContext(ctx, checkScript)
-
-			result := rt.Execute(validationCtx)
-			if result.Error != nil {
-				return fmt.Errorf("container validation failed for env var %s: %w", name, result.Error)
-			}
-			if err := CheckTransientExitCode(result, name); err != nil {
-				return err
-			}
-			if result.ExitCode == 0 {
-				return nil
-			}
-			if alt.Validation != "" {
-				return fmt.Errorf("  • %s - not set or value does not match pattern '%s' in container", name, alt.Validation.String())
-			}
-			return fmt.Errorf("  • %s - not set in container environment", name)
-		})
-
-		if !found && lastErr != nil {
-			if len(envVar.Alternatives) == 1 {
-				envVarErrors = append(envVarErrors, DependencyMessage(lastErr.Error()))
-			} else {
-				names := make([]string, len(envVar.Alternatives))
-				for i, alt := range envVar.Alternatives {
-					names[i] = strings.TrimSpace(string(alt.Name))
-				}
-				envVarErrors = append(envVarErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found or passed validation in container", strings.Join(names, ", "))))
-			}
-		}
-	}
-
+	envVarErrors := collectContainerEnvVarErrors(deps.EnvVars, rt, ctx)
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
 			CommandName:    ctx.Command.Name,
@@ -253,48 +200,12 @@ func CheckCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry
 		return nil
 	}
 
-	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	rt, err := requireContainerRuntime(registry, "capability validation")
 	if err != nil {
-		return errors.New("container runtime not available for capability validation")
+		return err
 	}
 
-	var capabilityErrors []DependencyMessage
-
-	for _, capDep := range deps.Capabilities {
-		found, lastErr := EvaluateAlternatives(capDep.Alternatives, func(alt invowkfile.CapabilityName) error {
-			checkScript := CapabilityCheckScript(alt)
-			if checkScript == "" {
-				return fmt.Errorf("%s - unknown capability", string(alt))
-			}
-
-			validationCtx, _, _ := NewContainerValidationContext(ctx, checkScript)
-
-			result := rt.Execute(validationCtx)
-			if result.Error != nil {
-				return fmt.Errorf("container validation failed for capability %s: %w", string(alt), result.Error)
-			}
-			if err := CheckTransientExitCode(result, string(alt)); err != nil {
-				return err
-			}
-			if result.ExitCode == 0 {
-				return nil
-			}
-			return fmt.Errorf("%s - not available in container", string(alt))
-		})
-
-		if !found && lastErr != nil {
-			if len(capDep.Alternatives) == 1 {
-				capabilityErrors = append(capabilityErrors, DependencyMessage("  • "+lastErr.Error()))
-			} else {
-				alts := make([]string, len(capDep.Alternatives))
-				for i, alt := range capDep.Alternatives {
-					alts[i] = string(alt)
-				}
-				capabilityErrors = append(capabilityErrors, DependencyMessage(fmt.Sprintf("  • none of capabilities [%s] satisfied in container", strings.Join(alts, ", "))))
-			}
-		}
-	}
-
+	capabilityErrors := collectContainerCapabilityErrors(deps.Capabilities, rt, ctx)
 	if len(capabilityErrors) > 0 {
 		return &DependencyError{
 			CommandName:         ctx.Command.Name,
@@ -330,58 +241,12 @@ func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 		return nil
 	}
 
-	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	rt, err := requireContainerRuntime(registry, "command dependency validation")
 	if err != nil {
-		return errors.New("container runtime not available for command dependency validation")
+		return err
 	}
 
-	var commandErrors []DependencyMessage
-
-	for _, dep := range deps.Commands {
-		var alternatives []string
-		for _, alt := range dep.Alternatives {
-			trimmed := strings.TrimSpace(string(alt))
-			if trimmed != "" {
-				alternatives = append(alternatives, trimmed)
-			}
-		}
-		if len(alternatives) == 0 {
-			continue
-		}
-
-		found, lastErr := EvaluateAlternatives(alternatives, func(alt string) error {
-			// Shell-safe single-quote escaping for command name
-			escapedAlt := ShellEscapeSingleQuote(alt)
-			checkScript := fmt.Sprintf("invowk internal check-cmd '%s'", escapedAlt)
-
-			validationCtx, _, stderr := NewContainerValidationContext(ctx, checkScript)
-
-			result := rt.Execute(validationCtx)
-			if result.Error != nil {
-				stderrStr := strings.TrimSpace(stderr.String())
-				if stderrStr != "" {
-					return fmt.Errorf("container validation failed for command %s: %w (%s)", alt, result.Error, stderrStr)
-				}
-				return fmt.Errorf("container validation failed for command %s: %w", alt, result.Error)
-			}
-			if err := CheckTransientExitCode(result, alt); err != nil {
-				return err
-			}
-			if result.ExitCode == 0 {
-				return nil
-			}
-			return fmt.Errorf("command %s not found in container", alt)
-		})
-
-		if !found && lastErr != nil {
-			if len(alternatives) == 1 {
-				commandErrors = append(commandErrors, DependencyMessage(fmt.Sprintf("  • %s - command not found in container", alternatives[0])))
-			} else {
-				commandErrors = append(commandErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found in container", strings.Join(alternatives, ", "))))
-			}
-		}
-	}
-
+	commandErrors := collectContainerCommandErrors(deps.Commands, rt, ctx)
 	if len(commandErrors) > 0 {
 		return &DependencyError{
 			CommandName:     ctx.Command.Name,
@@ -403,40 +268,10 @@ func CheckCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.Execut
 
 	var capabilityErrors []DependencyMessage
 
-	// Track seen capability sets to avoid duplicate network probes.
-	// Capabilities like "internet" and "local-area-network" involve network I/O,
-	// so skipping duplicates is a meaningful performance optimization.
-	// Other dependency types (tools, filepaths, etc.) are cheap to re-check.
-	seen := make(map[string]bool)
-
-	for _, capDep := range deps.Capabilities {
-		// Create a unique key for this set of alternatives
-		key := strings.Join(func() []string {
-			s := make([]string, len(capDep.Alternatives))
-			for i, alt := range capDep.Alternatives {
-				s[i] = string(alt)
-			}
-			return s
-		}(), ",")
-
-		// Skip duplicates
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-
+	for _, capDep := range uniqueCapabilityDependencies(deps.Capabilities) {
 		found, lastErr := EvaluateAlternatives(capDep.Alternatives, invowkfile.CheckCapability)
-
 		if !found && lastErr != nil {
-			if len(capDep.Alternatives) == 1 {
-				capabilityErrors = append(capabilityErrors, DependencyMessage("  • "+lastErr.Error()))
-			} else {
-				alts := make([]string, len(capDep.Alternatives))
-				for i, alt := range capDep.Alternatives {
-					alts[i] = string(alt)
-				}
-				capabilityErrors = append(capabilityErrors, DependencyMessage(fmt.Sprintf("  • none of capabilities [%s] satisfied", strings.Join(alts, ", "))))
-			}
+			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, false, lastErr))
 		}
 	}
 
@@ -460,51 +295,7 @@ func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 		return nil
 	}
 
-	var envVarErrors []DependencyMessage
-
-	for _, envVar := range deps.EnvVars {
-		found, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
-			// Trim whitespace from name as per schema
-			name := strings.TrimSpace(string(alt.Name))
-			if name == "" {
-				return errors.New("  • (empty) - environment variable name cannot be empty")
-			}
-
-			// Check if env var exists
-			value, exists := userEnv[name]
-			if !exists {
-				return fmt.Errorf("  • %s - not set in environment", name)
-			}
-
-			// If validation pattern is specified, validate the value
-			if alt.Validation != "" {
-				matched, err := regexp.MatchString(string(alt.Validation), value)
-				if err != nil {
-					return fmt.Errorf("  • %s - invalid validation regex '%s': %w", name, alt.Validation.String(), err)
-				}
-				if !matched {
-					return fmt.Errorf("  • %s - value '%s' does not match required pattern '%s'", name, value, alt.Validation.String())
-				}
-			}
-
-			// Env var exists and passes validation (if any)
-			return nil
-		})
-
-		if !found && lastErr != nil {
-			if len(envVar.Alternatives) == 1 {
-				envVarErrors = append(envVarErrors, DependencyMessage(lastErr.Error()))
-			} else {
-				// Collect all alternative names for the error message
-				names := make([]string, len(envVar.Alternatives))
-				for i, alt := range envVar.Alternatives {
-					names[i] = strings.TrimSpace(string(alt.Name))
-				}
-				envVarErrors = append(envVarErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found or passed validation", strings.Join(names, ", "))))
-			}
-		}
-	}
-
+	envVarErrors := collectHostEnvVarErrors(deps.EnvVars, userEnv)
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
 			CommandName:    ctx.Command.Name,
@@ -513,4 +304,223 @@ func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 	}
 
 	return nil
+}
+
+//goplint:ignore -- helper formats internal dependency-check labels.
+func requireContainerRuntime(registry *runtime.Registry, label string) (runtime.Runtime, error) {
+	rt, err := registry.Get(runtime.RuntimeTypeContainer)
+	if err != nil {
+		return nil, errors.New("container runtime not available for " + label)
+	}
+	return rt, nil
+}
+
+func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) []DependencyMessage {
+	var envVarErrors []DependencyMessage
+	for _, envVar := range envVars {
+		found, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
+			return validateContainerEnvVar(alt, rt, ctx)
+		})
+		if !found && lastErr != nil {
+			envVarErrors = append(envVarErrors, formatEnvVarAlternatives(envVar.Alternatives, true, lastErr))
+		}
+	}
+	return envVarErrors
+}
+
+func validateContainerEnvVar(alt invowkfile.EnvVarCheck, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
+	name := strings.TrimSpace(string(alt.Name))
+	if name == "" {
+		return errors.New("  • (empty) - environment variable name cannot be empty")
+	}
+	if err := invowkfile.ValidateEnvVarName(name); err != nil {
+		return fmt.Errorf("  • %s - %w", name, err)
+	}
+
+	checkScript := fmt.Sprintf("test -n \"${%s+x}\"", name)
+	if alt.Validation != "" {
+		escapedValidation := ShellEscapeSingleQuote(string(alt.Validation))
+		checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, escapedValidation)
+	}
+
+	validationCtx, _, _ := NewContainerValidationContext(ctx, checkScript)
+	result := rt.Execute(validationCtx)
+	if result.Error != nil {
+		return fmt.Errorf("container validation failed for env var %s: %w", name, result.Error)
+	}
+	if err := CheckTransientExitCode(result, name); err != nil {
+		return err
+	}
+	if result.ExitCode == 0 {
+		return nil
+	}
+	if alt.Validation != "" {
+		return fmt.Errorf("  • %s - not set or value does not match pattern '%s' in container", name, alt.Validation.String())
+	}
+	return fmt.Errorf("  • %s - not set in container environment", name)
+}
+
+func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) []DependencyMessage {
+	var capabilityErrors []DependencyMessage
+	for _, capDep := range capabilities {
+		found, lastErr := EvaluateAlternatives(capDep.Alternatives, func(alt invowkfile.CapabilityName) error {
+			return validateContainerCapability(alt, rt, ctx)
+		})
+		if !found && lastErr != nil {
+			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, true, lastErr))
+		}
+	}
+	return capabilityErrors
+}
+
+func validateContainerCapability(alt invowkfile.CapabilityName, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
+	checkScript := CapabilityCheckScript(alt)
+	if checkScript == "" {
+		return fmt.Errorf("%s - unknown capability", string(alt))
+	}
+
+	validationCtx, _, _ := NewContainerValidationContext(ctx, checkScript)
+	result := rt.Execute(validationCtx)
+	if result.Error != nil {
+		return fmt.Errorf("container validation failed for capability %s: %w", string(alt), result.Error)
+	}
+	if err := CheckTransientExitCode(result, string(alt)); err != nil {
+		return err
+	}
+	if result.ExitCode == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s - not available in container", string(alt))
+}
+
+func collectContainerCommandErrors(commands []invowkfile.CommandDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) []DependencyMessage {
+	var commandErrors []DependencyMessage
+	for _, dep := range commands {
+		alternatives := normalizedCommandAlternatives(dep)
+		if len(alternatives) == 0 {
+			continue
+		}
+
+		found, lastErr := EvaluateAlternatives(alternatives, func(alt string) error {
+			return validateContainerCommand(alt, rt, ctx)
+		})
+		if !found && lastErr != nil {
+			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, true))
+		}
+	}
+	return commandErrors
+}
+
+//goplint:ignore -- helper executes discovered command names as container lookup probes.
+func validateContainerCommand(alt string, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
+	checkScript := fmt.Sprintf("invowk internal check-cmd '%s'", ShellEscapeSingleQuote(alt))
+	validationCtx, _, stderr := NewContainerValidationContext(ctx, checkScript)
+
+	result := rt.Execute(validationCtx)
+	if result.Error != nil {
+		stderrStr := strings.TrimSpace(stderr.String())
+		if stderrStr != "" {
+			return fmt.Errorf("container validation failed for command %s: %w (%s)", alt, result.Error, stderrStr)
+		}
+		return fmt.Errorf("container validation failed for command %s: %w", alt, result.Error)
+	}
+	if err := CheckTransientExitCode(result, alt); err != nil {
+		return err
+	}
+	if result.ExitCode == 0 {
+		return nil
+	}
+	return fmt.Errorf("command %s not found in container", alt)
+}
+
+func uniqueCapabilityDependencies(capabilities []invowkfile.CapabilityDependency) []invowkfile.CapabilityDependency {
+	seen := make(map[string]bool)
+	var unique []invowkfile.CapabilityDependency
+	for _, capDep := range capabilities {
+		key := capabilityDependencyKey(capDep)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		unique = append(unique, capDep)
+	}
+	return unique
+}
+
+//goplint:ignore -- helper reduces capability alternatives to a dedupe key.
+func capabilityDependencyKey(capDep invowkfile.CapabilityDependency) string {
+	alts := make([]string, len(capDep.Alternatives))
+	for i, alt := range capDep.Alternatives {
+		alts[i] = string(alt)
+	}
+	return strings.Join(alts, ",")
+}
+
+func formatCapabilityAlternatives(alternatives []invowkfile.CapabilityName, inContainer bool, lastErr error) DependencyMessage {
+	if len(alternatives) == 1 {
+		return DependencyMessage("  • " + lastErr.Error())
+	}
+
+	alts := make([]string, len(alternatives))
+	for i, alt := range alternatives {
+		alts[i] = string(alt)
+	}
+	message := "  • none of capabilities [%s] satisfied"
+	if inContainer {
+		message = "  • none of capabilities [%s] satisfied in container"
+	}
+	return DependencyMessage(fmt.Sprintf(message, strings.Join(alts, ", ")))
+}
+
+func collectHostEnvVarErrors(envVars []invowkfile.EnvVarDependency, userEnv map[string]string) []DependencyMessage {
+	var envVarErrors []DependencyMessage
+	for _, envVar := range envVars {
+		found, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
+			return validateHostEnvVar(alt, userEnv)
+		})
+		if !found && lastErr != nil {
+			envVarErrors = append(envVarErrors, formatEnvVarAlternatives(envVar.Alternatives, false, lastErr))
+		}
+	}
+	return envVarErrors
+}
+
+func validateHostEnvVar(alt invowkfile.EnvVarCheck, userEnv map[string]string) error {
+	name := strings.TrimSpace(string(alt.Name))
+	if name == "" {
+		return errors.New("  • (empty) - environment variable name cannot be empty")
+	}
+
+	value, exists := userEnv[name]
+	if !exists {
+		return fmt.Errorf("  • %s - not set in environment", name)
+	}
+	if alt.Validation == "" {
+		return nil
+	}
+
+	matched, err := regexp.MatchString(string(alt.Validation), value)
+	if err != nil {
+		return fmt.Errorf("  • %s - invalid validation regex '%s': %w", name, alt.Validation.String(), err)
+	}
+	if !matched {
+		return fmt.Errorf("  • %s - value '%s' does not match required pattern '%s'", name, value, alt.Validation.String())
+	}
+	return nil
+}
+
+func formatEnvVarAlternatives(alternatives []invowkfile.EnvVarCheck, inContainer bool, lastErr error) DependencyMessage {
+	if len(alternatives) == 1 {
+		return DependencyMessage(lastErr.Error())
+	}
+
+	names := make([]string, len(alternatives))
+	for i, alt := range alternatives {
+		names[i] = strings.TrimSpace(string(alt.Name))
+	}
+	message := "  • none of [%s] found or passed validation"
+	if inContainer {
+		message = "  • none of [%s] found or passed validation in container"
+	}
+	return DependencyMessage(fmt.Sprintf(message, strings.Join(names, ", ")))
 }

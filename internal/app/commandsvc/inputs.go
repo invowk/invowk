@@ -77,7 +77,7 @@ func (s *Service) ensureSSHIfNeeded(ctx context.Context, resolved appexec.Runtim
 // flags and arguments into environment variables following the INVOWK_FLAG_*,
 // INVOWK_ARG_*, ARGn, and ARGC conventions.
 func (s *Service) buildExecContext(ctx context.Context, req Request, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions, resolved appexec.RuntimeSelection) (*runtime.ExecutionContext, error) {
-	return appexec.BuildExecutionContext(appexec.BuildExecutionContextOptions{
+	return appexec.BuildExecutionContext(ctx, appexec.BuildExecutionContextOptions{
 		Command:         cmdInfo.Command,
 		Invowkfile:      cmdInfo.Invowkfile,
 		Selection:       resolved,
@@ -94,7 +94,6 @@ func (s *Service) buildExecContext(ctx context.Context, req Request, cmdInfo *di
 		EnvInheritDeny:  req.EnvInheritDeny,
 		SourceID:        cmdInfo.SourceID,
 		Platform:        invowkfile.CurrentPlatform(),
-		Context:         ctx,
 	})
 }
 

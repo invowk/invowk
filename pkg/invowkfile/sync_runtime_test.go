@@ -88,7 +88,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("513-char image should fail validation, but passed")
 	}
 }
@@ -124,7 +124,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("1025-char native interpreter should fail validation, but passed")
 	}
 
@@ -152,7 +152,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalidContainer); err == nil {
+	if validateCUE(t, invalidContainer) == nil {
 		t.Errorf("1025-char container interpreter should fail validation, but passed")
 	}
 }
@@ -175,7 +175,7 @@ cmds: [{
 		files: [""]
 	}
 }]`
-	if err := validateCUE(t, invalidEmpty); err == nil {
+	if validateCUE(t, invalidEmpty) == nil {
 		t.Errorf("empty env file path should fail validation, but passed")
 	}
 
@@ -211,7 +211,7 @@ cmds: [{
 		files: ["` + path4097 + `"]
 	}
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("4097-char env file path should fail validation, but passed")
 	}
 }
@@ -255,7 +255,7 @@ cmds: [{
 		}
 	}
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("env var key '123bad' should fail validation, but passed")
 	}
 }
@@ -300,7 +300,7 @@ cmds: [{
 		}
 	}
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("32769-char env var value should fail validation, but passed")
 	}
 }
@@ -320,7 +320,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalidEmpty); err == nil {
+	if validateCUE(t, invalidEmpty) == nil {
 		t.Errorf("empty volume string should fail validation, but passed")
 	}
 
@@ -349,7 +349,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("4097-char volume string should fail validation, but passed")
 	}
 }
@@ -369,7 +369,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalidEmpty); err == nil {
+	if validateCUE(t, invalidEmpty) == nil {
 		t.Errorf("empty port string should fail validation, but passed")
 	}
 
@@ -398,7 +398,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("257-char port string should fail validation, but passed")
 	}
 }
@@ -445,7 +445,7 @@ cmds: [{
 		}]
 	}
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("257-char custom check name should fail validation, but passed")
 	}
 }
@@ -494,7 +494,7 @@ cmds: [{
 		}]
 	}
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("1001-char expected_output should fail validation, but passed")
 	}
 }
@@ -516,7 +516,7 @@ cmds: [{
 }]
 default_shell: " "
 `
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("whitespace-only default_shell should fail validation, but passed")
 	}
 
@@ -552,7 +552,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("empty image string should fail validation, but passed")
 	}
 }

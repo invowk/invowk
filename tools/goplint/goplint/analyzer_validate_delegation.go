@@ -107,7 +107,7 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 				}
 				if isConditionallyEvaluated(call, parentMap) &&
 					!isWithinIfInit(call, parentMap) &&
-					!isNilGuardedValidateCall(pass, call, parentMap) {
+					!isGuardedValidateCall(pass, call, parentMap) {
 					return true
 				}
 				sel, ok := call.Fun.(*ast.SelectorExpr)
@@ -139,7 +139,7 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 				}
 				if isConditionallyEvaluated(callExpr, parentMap) &&
 					!isWithinIfInit(callExpr, parentMap) &&
-					!isNilGuardedValidateCall(pass, callExpr, parentMap) {
+					!isGuardedValidateCall(pass, callExpr, parentMap) {
 					return true
 				}
 				selExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
@@ -247,6 +247,7 @@ func findDelegatedFields(pass *analysis.Pass, typeName string) map[string]bool {
 			// method's body for direct field delegations.
 			if recvVarName != "" {
 				findHelperMethodDelegations(pass, fn.Body, typeName, recvVarName, nil, 0, called)
+				findHelperFunctionDelegations(pass, fn.Body, recvVarName, aliasBindings, parentMap, called)
 			}
 		}
 	}
@@ -391,7 +392,7 @@ func latestDelegationAliasFieldBefore(events []delegationAliasBindingEvent, atPo
 	return "", false
 }
 
-func isNilGuardedValidateCall(
+func isGuardedValidateCall(
 	pass *analysis.Pass,
 	call *ast.CallExpr,
 	parentMap map[ast.Node]ast.Node,
@@ -415,12 +416,12 @@ func isNilGuardedValidateCall(
 			return false
 		}
 		if ifStmt, ok := parent.(*ast.IfStmt); ok {
-			bodyNonNil, elseNonNil, hasGuard := branchNonNilGuardForTarget(pass, ifStmt.Cond, receiverKey)
+			bodyNonZero, elseNonZero, hasGuard := branchValueGuardForTarget(pass, ifStmt.Cond, receiverKey)
 			if hasGuard {
-				if bodyNonNil && isDescendantOrSelf(child, ifStmt.Body, parentMap) {
+				if bodyNonZero && isDescendantOrSelf(child, ifStmt.Body, parentMap) {
 					return true
 				}
-				if elseNonNil && ifStmt.Else != nil && isDescendantOrSelf(child, ifStmt.Else, parentMap) {
+				if elseNonZero && ifStmt.Else != nil && isDescendantOrSelf(child, ifStmt.Else, parentMap) {
 					return true
 				}
 			}
@@ -429,18 +430,18 @@ func isNilGuardedValidateCall(
 	}
 }
 
-func branchNonNilGuardForTarget(pass *analysis.Pass, cond ast.Expr, receiverKey string) (bodyNonNil bool, elseNonNil bool, ok bool) {
+func branchValueGuardForTarget(pass *analysis.Pass, cond ast.Expr, receiverKey string) (bodyNonZero bool, elseNonZero bool, ok bool) {
 	bin, ok := stripParens(cond).(*ast.BinaryExpr)
 	if !ok || (bin.Op != token.NEQ && bin.Op != token.EQL) {
 		return false, false, false
 	}
-	leftNil := isNilIdent(bin.X)
-	rightNil := isNilIdent(bin.Y)
-	if leftNil == rightNil {
+	leftZero := isZeroValueExpr(bin.X)
+	rightZero := isZeroValueExpr(bin.Y)
+	if leftZero == rightZero {
 		return false, false, false
 	}
 	targetExpr := bin.X
-	if leftNil {
+	if leftZero {
 		targetExpr = bin.Y
 	}
 	if targetKeyForExpr(pass, targetExpr) != receiverKey {
@@ -450,6 +451,25 @@ func branchNonNilGuardForTarget(pass *analysis.Pass, cond ast.Expr, receiverKey 
 		return true, false, true
 	}
 	return false, true, true
+}
+
+func isZeroValueExpr(expr ast.Expr) bool {
+	expr = stripParens(expr)
+	if isNilIdent(expr) {
+		return true
+	}
+	if lit, ok := expr.(*ast.BasicLit); ok {
+		switch lit.Kind {
+		case token.STRING:
+			return lit.Value == `""`
+		case token.INT, token.FLOAT:
+			return lit.Value == "0" || lit.Value == "0.0"
+		default:
+			return false
+		}
+	}
+	ident, ok := expr.(*ast.Ident)
+	return ok && ident.Name == "false"
 }
 
 func isNilIdent(expr ast.Expr) bool {
@@ -555,11 +575,68 @@ func findHelperMethodDelegations(
 		// Walk the helper for direct receiver.Field.Validate() patterns.
 		helperParentMap := buildParentMap(helperBody)
 		ast.Inspect(helperBody, func(n ast.Node) bool {
+			rangeStmt, ok := n.(*ast.RangeStmt)
+			if ok {
+				sel, ok := rangeStmt.X.(*ast.SelectorExpr)
+				if !ok || helperRecvVar == "" {
+					return true
+				}
+				ident, ok := sel.X.(*ast.Ident)
+				if !ok || ident.Name != helperRecvVar {
+					return true
+				}
+
+				fieldName := sel.Sel.Name
+				valueVar := ""
+				if vi, ok := rangeStmt.Value.(*ast.Ident); ok {
+					valueVar = vi.Name
+				}
+				keyVar := ""
+				if ki, ok := rangeStmt.Key.(*ast.Ident); ok {
+					keyVar = ki.Name
+				}
+
+				ast.Inspect(rangeStmt.Body, func(inner ast.Node) bool {
+					call, ok := inner.(*ast.CallExpr)
+					if !ok {
+						return true
+					}
+					sel, ok := call.Fun.(*ast.SelectorExpr)
+					if !ok || sel.Sel.Name != "Validate" {
+						return true
+					}
+
+					if valueVar != "" {
+						if vi, ok := sel.X.(*ast.Ident); ok && vi.Name == valueVar {
+							out[fieldName] = true
+							return true
+						}
+					}
+					if keyVar != "" {
+						if indexExpr, ok := sel.X.(*ast.IndexExpr); ok {
+							if innerSel, ok := indexExpr.X.(*ast.SelectorExpr); ok {
+								if innerIdent, ok := innerSel.X.(*ast.Ident); ok &&
+									innerIdent.Name == helperRecvVar &&
+									innerSel.Sel.Name == fieldName {
+									if ki, ok := indexExpr.Index.(*ast.Ident); ok && ki.Name == keyVar {
+										out[fieldName] = true
+									}
+								}
+							}
+						}
+					}
+					return true
+				})
+				return true
+			}
+
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
 				return true
 			}
-			if isConditionallyEvaluated(call, helperParentMap) {
+			if isConditionallyEvaluated(call, helperParentMap) &&
+				!isWithinIfInit(call, helperParentMap) &&
+				!isGuardedValidateCall(pass, call, helperParentMap) {
 				return true
 			}
 			sel, ok := call.Fun.(*ast.SelectorExpr)
@@ -584,6 +661,178 @@ func findHelperMethodDelegations(
 	}
 }
 
+func findHelperFunctionDelegations(
+	pass *analysis.Pass,
+	body *ast.BlockStmt,
+	recvVarName string,
+	aliasBindings map[string][]delegationAliasBindingEvent,
+	parentMap map[ast.Node]ast.Node,
+	out map[string]bool,
+) {
+	if pass == nil || pass.TypesInfo == nil || body == nil || recvVarName == "" {
+		return
+	}
+
+	ast.Inspect(body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if isConditionallyEvaluated(call, parentMap) && !isWithinIfInit(call, parentMap) {
+			return true
+		}
+
+		helperName := calledFunctionName(call.Fun)
+		if helperName == "" {
+			return true
+		}
+
+		helperBody, paramNames := findFunctionBody(pass, helperName)
+		if helperBody == nil {
+			return true
+		}
+
+		delegatedParams := collectDelegatedHelperParams(helperBody, paramNames)
+		for _, paramIndex := range delegatedParams {
+			if paramIndex >= len(call.Args) {
+				continue
+			}
+			fieldName, ok := delegatedFieldNameForArg(pass, call.Args[paramIndex], recvVarName, aliasBindings, call.Pos())
+			if ok {
+				out[fieldName] = true
+			}
+		}
+		return true
+	})
+}
+
+func calledFunctionName(expr ast.Expr) string {
+	switch node := stripParens(expr).(type) {
+	case *ast.Ident:
+		return node.Name
+	case *ast.IndexExpr:
+		if ident, ok := stripParens(node.X).(*ast.Ident); ok {
+			return ident.Name
+		}
+	case *ast.IndexListExpr:
+		if ident, ok := stripParens(node.X).(*ast.Ident); ok {
+			return ident.Name
+		}
+	}
+	return ""
+}
+
+func collectDelegatedHelperParams(body *ast.BlockStmt, paramNames []string) []int {
+	if body == nil || len(paramNames) == 0 {
+		return nil
+	}
+
+	paramIndexes := make(map[string]int, len(paramNames))
+	for i, name := range paramNames {
+		paramIndexes[name] = i
+	}
+
+	delegated := make(map[int]bool)
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.CallExpr:
+			sel, ok := node.Fun.(*ast.SelectorExpr)
+			if !ok || sel.Sel.Name != "Validate" {
+				return true
+			}
+			if ident, ok := stripParens(sel.X).(*ast.Ident); ok {
+				if index, ok := paramIndexes[ident.Name]; ok {
+					delegated[index] = true
+				}
+			}
+			if indexExpr, ok := stripParens(sel.X).(*ast.IndexExpr); ok {
+				if ident, ok := stripParens(indexExpr.X).(*ast.Ident); ok {
+					if index, ok := paramIndexes[ident.Name]; ok {
+						delegated[index] = true
+					}
+				}
+			}
+		case *ast.RangeStmt:
+			rangeIdent, ok := stripParens(node.X).(*ast.Ident)
+			if !ok {
+				return true
+			}
+			paramIndex, ok := paramIndexes[rangeIdent.Name]
+			if !ok {
+				return true
+			}
+
+			valueVar := ""
+			if ident, ok := node.Value.(*ast.Ident); ok {
+				valueVar = ident.Name
+			}
+			keyVar := ""
+			if ident, ok := node.Key.(*ast.Ident); ok {
+				keyVar = ident.Name
+			}
+
+			ast.Inspect(node.Body, func(inner ast.Node) bool {
+				call, ok := inner.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				sel, ok := call.Fun.(*ast.SelectorExpr)
+				if !ok || sel.Sel.Name != "Validate" {
+					return true
+				}
+				if valueVar != "" {
+					if ident, ok := stripParens(sel.X).(*ast.Ident); ok && ident.Name == valueVar {
+						delegated[paramIndex] = true
+					}
+				}
+				if keyVar != "" {
+					if indexExpr, ok := stripParens(sel.X).(*ast.IndexExpr); ok {
+						if ident, ok := stripParens(indexExpr.X).(*ast.Ident); ok && ident.Name == rangeIdent.Name {
+							if keyIdent, ok := stripParens(indexExpr.Index).(*ast.Ident); ok && keyIdent.Name == keyVar {
+								delegated[paramIndex] = true
+							}
+						}
+					}
+				}
+				return true
+			})
+		}
+		return true
+	})
+
+	var result []int
+	for i := range len(paramNames) {
+		if delegated[i] {
+			result = append(result, i)
+		}
+	}
+	return result
+}
+
+func delegatedFieldNameForArg(
+	pass *analysis.Pass,
+	arg ast.Expr,
+	recvVarName string,
+	aliasBindings map[string][]delegationAliasBindingEvent,
+	atPos token.Pos,
+) (string, bool) {
+	if recvVarName == "" {
+		return "", false
+	}
+
+	if sel, ok := stripParens(arg).(*ast.SelectorExpr); ok {
+		if ident, ok := stripParens(sel.X).(*ast.Ident); ok && ident.Name == recvVarName {
+			return sel.Sel.Name, true
+		}
+	}
+
+	aliasKey := targetKeyForExpr(pass, stripParens(arg))
+	if aliasKey == "" {
+		return "", false
+	}
+	return latestDelegationAliasFieldBefore(aliasBindings[aliasKey], atPos)
+}
+
 // findMethodBody searches the package for a method with the given receiver
 // type and name. Returns the body and the receiver variable name.
 func findMethodBody(pass *analysis.Pass, typeName, methodName string) (*ast.BlockStmt, string) {
@@ -605,6 +854,33 @@ func findMethodBody(pass *analysis.Pass, typeName, methodName string) (*ast.Bloc
 		}
 	}
 	return nil, ""
+}
+
+func findFunctionBody(pass *analysis.Pass, funcName string) (*ast.BlockStmt, []string) {
+	for _, file := range pass.Files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil || fn.Body == nil || fn.Name.Name != funcName {
+				continue
+			}
+			return fn.Body, functionParamNames(fn.Type.Params)
+		}
+	}
+	return nil, nil
+}
+
+func functionParamNames(fields *ast.FieldList) []string {
+	if fields == nil {
+		return nil
+	}
+
+	var names []string
+	for _, field := range fields.List {
+		for _, name := range field.Names {
+			names = append(names, name.Name)
+		}
+	}
+	return names
 }
 
 // embeddedFieldTypeName extracts the type name from an anonymous embedded

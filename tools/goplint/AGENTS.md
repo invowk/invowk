@@ -444,6 +444,9 @@ Validatable fields include direct types with `Validate()`, embedded fields, and 
 - Complete delegation (all validatable fields delegated)
 - Delegation via intermediate variable: `field := c.FieldName; field.Validate()`
 - Anonymous embedded fields delegated as `c.Name.Validate()`
+- Delegation via receiver helper methods, including range-loop delegation inside the helper body
+- Delegation via same-package helper functions such as `appendOptionalValidation(...)` / `appendEachValidation(...)` when the helper body actually calls `Validate()` on the forwarded field or collection elements
+- Direct or helper-method delegation guarded by `field != nil` or zero-value checks such as `field != ""`, `field != 0`, or `field != false` when those guards make the `Validate()` call unconditional for the non-zero case
 
 **Exception keys:**
 - Missing Validate(): `pkg.StructName.struct-validate-fields`
