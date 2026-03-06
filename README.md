@@ -2851,6 +2851,11 @@ make sonar-local
 
 The command also writes raw issue output to `.sonar/reports/issues.json`.
 
+When pre-commit hooks are installed, the local `sonar-local` hook runs this
+same command for Sonar-relevant changes and blocks the commit on failures.
+The CI job is prepared in `.github/workflows/lint.yml` but stays disabled until
+the repository variable `ENABLE_SONAR_LINT` is set to `true`.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to participate.

@@ -137,6 +137,10 @@ SONAR_BRANCH=<branch-name>
 
 Requires `sonar-scanner`, `golangci-lint`, `curl`, and `jq`.
 
+With pre-commit hooks installed, this Sonar command is also enforced locally for
+Sonar-relevant changes. The CI job is staged in `lint.yml` behind the
+`ENABLE_SONAR_LINT=true` repository variable so it can be enabled when desired.
+
 ## Test Commands
 
 ```bash

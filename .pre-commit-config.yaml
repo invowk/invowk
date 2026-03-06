@@ -35,3 +35,12 @@ repos:
         files: '^(cmd/|internal/|pkg/|tools/goplint/|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/lint\.yml$)'
         always_run: true
         verbose: true
+
+      - id: sonar-local
+        name: sonar-local
+        entry: "bash -c 'make sonar-local 2>&1'"
+        language: system
+        pass_filenames: false
+        files: '^(cmd/|internal/|pkg/|tests/|\.golangci\.toml$|sonar-project\.properties$|scripts/sonar-local\.sh$|Makefile$|\.pre-commit-config\.yaml$|\.github/workflows/lint\.yml$)'
+        always_run: true
+        verbose: true
