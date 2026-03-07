@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -206,9 +208,9 @@ func (m LockedModule) Validate() error {
 // Error implements the error interface for InvalidLockedModuleError.
 func (e *InvalidLockedModuleError) Error() string {
 	if e.ModuleKey != "" {
-		return fmt.Sprintf("invalid locked module %q: %d field error(s)", e.ModuleKey, len(e.FieldErrors))
+		return types.FormatFieldErrors(fmt.Sprintf("locked module %q", e.ModuleKey), e.FieldErrors)
 	}
-	return fmt.Sprintf("invalid locked module: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("locked module", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidLockedModule for errors.Is() compatibility.

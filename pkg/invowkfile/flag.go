@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"regexp"
 	"unicode/utf8"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -216,7 +218,7 @@ func (f Flag) Validate() error {
 
 // Error implements the error interface for InvalidFlagError.
 func (e *InvalidFlagError) Error() string {
-	return fmt.Sprintf("invalid flag: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("flag", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidFlag for errors.Is() compatibility.

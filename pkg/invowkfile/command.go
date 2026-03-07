@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // commandNameMaxRunes is the maximum length for a command name, matching
@@ -177,7 +179,7 @@ func (c Command) Validate() error {
 
 // Error implements the error interface for InvalidCommandError.
 func (e *InvalidCommandError) Error() string {
-	return fmt.Sprintf("invalid command: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("command", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidCommand for errors.Is() compatibility.

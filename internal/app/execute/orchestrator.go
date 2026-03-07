@@ -14,6 +14,7 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	platmeta "github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ErrInvalidRuntimeSelection is the sentinel error wrapped by InvalidRuntimeSelectionError.
@@ -124,7 +125,7 @@ func (r RuntimeSelection) Validate() error {
 
 // Error implements the error interface for InvalidRuntimeSelectionError.
 func (e *InvalidRuntimeSelectionError) Error() string {
-	return fmt.Sprintf("invalid runtime selection: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("runtime selection", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidRuntimeSelection for errors.Is() compatibility.

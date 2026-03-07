@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/pkg/fspath"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -139,7 +140,7 @@ func (m ImplementationMatch) Validate() error {
 
 // Error implements the error interface for InvalidImplementationMatchError.
 func (e *InvalidImplementationMatchError) Error() string {
-	return fmt.Sprintf("invalid implementation match: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("implementation match", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidImplementationMatch for errors.Is() compatibility.
@@ -169,7 +170,7 @@ func (s Implementation) Validate() error {
 
 // Error implements the error interface for InvalidImplementationError.
 func (e *InvalidImplementationError) Error() string {
-	return fmt.Sprintf("invalid implementation: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("implementation", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidImplementation for errors.Is() compatibility.

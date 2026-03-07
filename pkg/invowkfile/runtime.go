@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -363,7 +365,7 @@ func (p PlatformConfig) Validate() error {
 
 // Error implements the error interface for InvalidPlatformConfigError.
 func (e *InvalidPlatformConfigError) Error() string {
-	return fmt.Sprintf("invalid platform config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("platform config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidPlatformConfig for errors.Is() compatibility.
@@ -396,7 +398,7 @@ func (rc RuntimeConfig) Validate() error {
 
 // Error implements the error interface for InvalidRuntimeConfigError.
 func (e *InvalidRuntimeConfigError) Error() string {
-	return fmt.Sprintf("invalid runtime config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("runtime config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidRuntimeConfig for errors.Is() compatibility.

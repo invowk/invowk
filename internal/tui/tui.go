@@ -157,7 +157,7 @@ func (t Theme) Validate() error {
 
 // Error implements the error interface for InvalidTUIConfigError.
 func (e *InvalidTUIConfigError) Error() string {
-	return fmt.Sprintf("invalid TUI config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("TUI config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidTUIConfig for errors.Is() compatibility.

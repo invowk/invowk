@@ -8,6 +8,8 @@ import (
 	"io/fs"
 	"strconv"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -147,7 +149,7 @@ func (c ValidationContext) Validate() error {
 
 // Error implements the error interface for InvalidValidationContextError.
 func (e *InvalidValidationContextError) Error() string {
-	return fmt.Sprintf("invalid validation context: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("validation context", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidValidationContext for errors.Is() compatibility.

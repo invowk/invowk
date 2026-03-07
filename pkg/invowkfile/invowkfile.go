@@ -12,6 +12,7 @@ import (
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -151,7 +152,7 @@ func (inv Invowkfile) ValidateFields() error {
 
 // Error implements the error interface for InvalidInvowkfileError.
 func (e *InvalidInvowkfileError) Error() string {
-	return fmt.Sprintf("invalid invowkfile: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("invowkfile", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidInvowkfile for errors.Is() compatibility.

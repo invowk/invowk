@@ -487,47 +487,47 @@ func (d DependsOn) Validate() error {
 // Error/Unwrap implementations for dependency error types.
 
 func (e *InvalidToolDependencyError) Error() string {
-	return fmt.Sprintf("invalid tool dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("tool dependency", e.FieldErrors)
 }
 func (e *InvalidToolDependencyError) Unwrap() error { return ErrInvalidToolDependency }
 
 func (e *InvalidCommandDependencyError) Error() string {
-	return fmt.Sprintf("invalid command dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("command dependency", e.FieldErrors)
 }
 func (e *InvalidCommandDependencyError) Unwrap() error { return ErrInvalidCommandDependency }
 
 func (e *InvalidCapabilityDependencyError) Error() string {
-	return fmt.Sprintf("invalid capability dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("capability dependency", e.FieldErrors)
 }
 func (e *InvalidCapabilityDependencyError) Unwrap() error { return ErrInvalidCapabilityDependency }
 
 func (e *InvalidEnvVarCheckError) Error() string {
-	return fmt.Sprintf("invalid env var check: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("env var check", e.FieldErrors)
 }
 func (e *InvalidEnvVarCheckError) Unwrap() error { return ErrInvalidEnvVarCheck }
 
 func (e *InvalidEnvVarDependencyError) Error() string {
-	return fmt.Sprintf("invalid env var dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("env var dependency", e.FieldErrors)
 }
 func (e *InvalidEnvVarDependencyError) Unwrap() error { return ErrInvalidEnvVarDependency }
 
 func (e *InvalidFilepathDependencyError) Error() string {
-	return fmt.Sprintf("invalid filepath dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("filepath dependency", e.FieldErrors)
 }
 func (e *InvalidFilepathDependencyError) Unwrap() error { return ErrInvalidFilepathDependency }
 
 func (e *InvalidCustomCheckError) Error() string {
-	return fmt.Sprintf("invalid custom check: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("custom check", e.FieldErrors)
 }
 func (e *InvalidCustomCheckError) Unwrap() error { return ErrInvalidCustomCheck }
 
 func (e *InvalidCustomCheckDependencyError) Error() string {
-	return fmt.Sprintf("invalid custom check dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("custom check dependency", e.FieldErrors)
 }
 func (e *InvalidCustomCheckDependencyError) Unwrap() error { return ErrInvalidCustomCheckDependency }
 
 func (e *InvalidDependsOnError) Error() string {
-	return fmt.Sprintf("invalid depends_on: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("depends_on", e.FieldErrors)
 }
 func (e *InvalidDependsOnError) Unwrap() error { return ErrInvalidDependsOn }
 

@@ -305,7 +305,7 @@ func (d Diagnostic) Cause() error { return d.cause }
 
 // Error implements the error interface for InvalidDiagnosticError.
 func (e *InvalidDiagnosticError) Error() string {
-	return fmt.Sprintf("invalid diagnostic: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("diagnostic", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidDiagnostic for errors.Is() compatibility.

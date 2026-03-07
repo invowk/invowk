@@ -334,7 +334,7 @@ func (e *InvalidHostMappingError) Unwrap() error { return ErrInvalidHostMapping 
 
 // Error implements the error interface for InvalidBuildOptionsError.
 func (e *InvalidBuildOptionsError) Error() string {
-	return fmt.Sprintf("invalid build options: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("build options", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidBuildOptions for errors.Is() compatibility.
@@ -366,7 +366,7 @@ func (o BuildOptions) Validate() error {
 
 // Error implements the error interface for InvalidRunOptionsError.
 func (e *InvalidRunOptionsError) Error() string {
-	return fmt.Sprintf("invalid run options: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("run options", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidRunOptions for errors.Is() compatibility.
