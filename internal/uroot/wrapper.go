@@ -29,7 +29,7 @@ func (w *baseWrapper) SupportedFlags() []FlagInfo {
 // as commands handling POSIX flag preprocessing internally via unixflag.ArgsToGoArgs
 // in their RunContext method. Registry.Run() skips centralized preprocessing for
 // these commands to avoid double-splitting (e.g., --recursive → -r -e -c -u ...).
-func (w *baseWrapper) nativePreprocessor() {}
+func (w *baseWrapper) nativePreprocessor() { /* marker method — see doc comment */ }
 
 // configureCommand configures a u-root core.Command with the handler context.
 // This is the common setup for all pkg/core wrapper commands.

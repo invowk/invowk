@@ -32,6 +32,7 @@ const DEFAULT_EXCEPTIONS_FILE = path.join(WEBSITE_DIR, 'docs-parity-exceptions.j
 
 const SNIPPET_ID_REGEX = /<Snippet\b[^>]*\bid=(["'])([^"']+)\1/g;
 const DIAGRAM_ID_REGEX = /<Diagram\b[^>]*\bid=(["'])([^"']+)\1/g;
+const strCompare = (a, b) => a.localeCompare(b);
 
 function usage() {
   console.error(`Usage: node scripts/validate-docs-parity.mjs [options]
@@ -151,7 +152,7 @@ function listAvailableLocales() {
     .readdirSync(I18N_DIR, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .sort();
+    .sort(strCompare);
 }
 
 function normalizeException(raw) {
@@ -248,7 +249,7 @@ function compareTree({ locale, version, sourceDir, localeDir, findings }) {
   const sourceFiles = new Set(sourceMap.keys());
   const localeFiles = new Set(localeMap.keys());
 
-  for (const rel of setDifference(sourceFiles, localeFiles).sort()) {
+  for (const rel of setDifference(sourceFiles, localeFiles).sort(strCompare)) {
     findings.push({
       locale,
       version,
@@ -259,7 +260,7 @@ function compareTree({ locale, version, sourceDir, localeDir, findings }) {
     });
   }
 
-  for (const rel of setDifference(localeFiles, sourceFiles).sort()) {
+  for (const rel of setDifference(localeFiles, sourceFiles).sort(strCompare)) {
     findings.push({
       locale,
       version,
@@ -270,7 +271,7 @@ function compareTree({ locale, version, sourceDir, localeDir, findings }) {
     });
   }
 
-  for (const rel of [...sourceFiles].sort()) {
+  for (const rel of [...sourceFiles].sort(strCompare)) {
     if (!localeFiles.has(rel)) {
       continue;
     }
@@ -278,10 +279,10 @@ function compareTree({ locale, version, sourceDir, localeDir, findings }) {
     const sourceIds = sourceMap.get(rel);
     const localeIds = localeMap.get(rel);
 
-    const missingSnippetIds = setDifference(sourceIds.snippets, localeIds.snippets).sort();
-    const extraSnippetIds = setDifference(localeIds.snippets, sourceIds.snippets).sort();
-    const missingDiagramIds = setDifference(sourceIds.diagrams, localeIds.diagrams).sort();
-    const extraDiagramIds = setDifference(localeIds.diagrams, sourceIds.diagrams).sort();
+    const missingSnippetIds = setDifference(sourceIds.snippets, localeIds.snippets).sort(strCompare);
+    const extraSnippetIds = setDifference(localeIds.snippets, sourceIds.snippets).sort(strCompare);
+    const missingDiagramIds = setDifference(sourceIds.diagrams, localeIds.diagrams).sort(strCompare);
+    const extraDiagramIds = setDifference(localeIds.diagrams, sourceIds.diagrams).sort(strCompare);
 
     for (const id of missingSnippetIds) {
       findings.push({
@@ -331,7 +332,7 @@ function main() {
   const availableLocales = listAvailableLocales();
   const selectedLocales = allLocales || locales.length === 0
     ? availableLocales
-    : [...new Set(locales)].sort();
+    : [...new Set(locales)].sort(strCompare);
   const versions = fs.existsSync(VERSIONS_FILE)
     ? JSON.parse(fs.readFileSync(VERSIONS_FILE, 'utf8'))
     : [];

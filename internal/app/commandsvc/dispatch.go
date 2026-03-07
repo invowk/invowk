@@ -95,7 +95,7 @@ func failFastContainerInit(containerInitErr error, selectedRuntime invowkfile.Ru
 }
 
 func applyExecutionTimeout(execCtx *runtime.ExecutionContext) (context.CancelFunc, error) {
-	noOpCancel := func() {}
+	noOpCancel := func() { /* no timeout to cancel */ }
 	if execCtx.SelectedImpl == nil {
 		return noOpCancel, nil
 	}

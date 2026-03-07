@@ -51,14 +51,12 @@ on:
       - published
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pull-requests: read
-
 jobs:
   agent-docs:
     name: agent docs integrity
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # Advisory first: switch to required after one clean cycle.
     continue-on-error: true
     steps:
@@ -71,6 +69,9 @@ jobs:
   golangci-lint:
     name: golangci-lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     # Advisory only - lint issues don't block PRs
     continue-on-error: true
     steps:
@@ -93,6 +94,8 @@ jobs:
   goplint:
     name: goplint (advisory full scan)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # Advisory only during rollout - does not block PRs
     continue-on-error: true
     steps:
@@ -120,6 +123,8 @@ jobs:
   goplint-baseline:
     name: goplint (baseline)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -140,6 +145,8 @@ jobs:
   goplint-tests:
     name: goplint tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -183,6 +190,8 @@ jobs:
   goplint-review-dates:
     name: goplint (overdue reviews)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # Advisory only - surfaces overdue exception review dates
     continue-on-error: true
     steps:
@@ -211,6 +220,8 @@ jobs:
     name: sonar-local
     if: ${{ vars.ENABLE_SONAR_LINT == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -254,6 +265,8 @@ jobs:
   file-length:
     name: file length gate (1000 lines)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6

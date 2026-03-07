@@ -224,7 +224,7 @@ func resolveUnpackSource(ctx context.Context, source string) (zipPath string, cl
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to resolve source path: %w", err)
 	}
-	return zipPath, func() {}, nil
+	return zipPath, func() { /* source is user-provided path — no cleanup needed */ }, nil
 }
 
 //goplint:ignore -- unpack helpers operate on transient ZIP member path strings.
@@ -283,26 +283,32 @@ func extractModuleFiles(files []*zip.File, moduleRoot, absDestDir string) error 
 		if cleanPath != moduleRoot && !strings.HasPrefix(cleanPath, moduleRoot+"/") {
 			continue
 		}
-
-		destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
-		if err := validateDestinationPath(absDestDir, destPath, invalidZIPPathFmt, file.Name); err != nil {
+		if err := extractSingleEntry(file, cleanPath, absDestDir); err != nil {
 			return err
 		}
+	}
+	return nil
+}
 
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, file.Mode()); err != nil {
-				return fmt.Errorf("failed to create directory: %w", err)
-			}
-			continue
-		}
+//goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
+func extractSingleEntry(file *zip.File, cleanPath, absDestDir string) error {
+	destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
+	if err := validateDestinationPath(absDestDir, destPath, invalidZIPPathFmt, file.Name); err != nil {
+		return err
+	}
 
-		parentDir := filepath.Dir(destPath)
-		if err := os.MkdirAll(parentDir, 0o755); err != nil {
-			return fmt.Errorf("failed to create parent directory: %w", err)
+	if file.FileInfo().IsDir() {
+		if err := os.MkdirAll(destPath, file.Mode()); err != nil {
+			return fmt.Errorf("failed to create directory: %w", err)
 		}
-		if err := extractFile(file, destPath); err != nil {
-			return fmt.Errorf("failed to extract %s: %w", file.Name, err)
-		}
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+		return fmt.Errorf("failed to create parent directory: %w", err)
+	}
+	if err := extractFile(file, destPath); err != nil {
+		return fmt.Errorf("failed to extract %s: %w", file.Name, err)
 	}
 	return nil
 }

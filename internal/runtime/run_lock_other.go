@@ -22,4 +22,4 @@ func acquireRunLock() (*runLock, error) {
 type runLock struct{}
 
 // Release is a no-op on non-Linux platforms.
-func (l *runLock) Release() {}
+func (l *runLock) Release() { /* no-op on non-Linux — see acquireRunLock doc */ }
