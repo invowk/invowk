@@ -11,7 +11,7 @@ func TestFlag_Validate_ZeroValue(t *testing.T) {
 	t.Parallel()
 	// Zero-value Flag has empty Name which is nonzero-required — should fail.
 	f := Flag{}
-	if err := f.Validate(); err == nil {
+	if f.Validate() == nil {
 		t.Fatal("Flag{}.Validate() should fail (empty Name is nonzero-required)")
 	}
 }

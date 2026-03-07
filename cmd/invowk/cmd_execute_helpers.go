@@ -146,15 +146,16 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	verbose, interactive := resolveUIFlags(ctx, app, cmd, rootFlags)
 	// Delegate final execution to CommandService with explicit per-request flags.
 	req := ExecuteRequest{
-		Name:         string(targetCmd.Name),
-		Args:         cmdArgs,
-		Runtime:      parsedRuntime,
-		Interactive:  interactive,
-		Verbose:      verbose,
-		FromSource:   discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
-		ForceRebuild: cmdFlags.forceRebuild,
-		DryRun:       cmdFlags.dryRun,
-		ConfigPath:   types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+		Name:            string(targetCmd.Name),
+		Args:            cmdArgs,
+		Runtime:         parsedRuntime,
+		Interactive:     interactive,
+		Verbose:         verbose,
+		FromSource:      discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+		ForceRebuild:    cmdFlags.forceRebuild,
+		DryRun:          cmdFlags.dryRun,
+		ConfigPath:      types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+		ResolvedCommand: targetCmd,
 	}
 
 	return executeRequest(cmd, app, req)

@@ -391,7 +391,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 }
 
 // List returns all currently resolved modules from the lock file.
-func (m *Resolver) List(_ctx context.Context) ([]*ResolvedModule, error) {
+func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

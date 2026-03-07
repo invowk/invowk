@@ -11,7 +11,7 @@ func TestArgument_Validate_ZeroValue(t *testing.T) {
 	t.Parallel()
 	// Zero-value Argument has empty Name which is nonzero-required — should fail.
 	a := Argument{}
-	if err := a.Validate(); err == nil {
+	if a.Validate() == nil {
 		t.Fatal("Argument{}.Validate() should fail (empty Name is nonzero-required)")
 	}
 }

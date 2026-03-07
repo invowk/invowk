@@ -4,6 +4,8 @@ package benchmark
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -40,17 +42,18 @@ cmds: [
 			{name: "target", description: "Build target", required: true},
 		]
 	},
-	{
-		name: "test unit"
-		description: "Run unit tests"
-		implementations: [
-			{
-				script: "echo testing..."
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			},
-		]
-		depends_on: {
-			tools: [{alternatives: ["go"]}]
+		{
+			name: "test unit"
+			description: "Run unit tests"
+			implementations: [
+				{
+					script: "echo testing..."
+					runtimes: [{name: "native"}, {name: "virtual"}]
+					platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+				},
+			]
+			depends_on: {
+				tools: [{alternatives: ["go"]}]
 		}
 	},
 	{
@@ -86,17 +89,18 @@ cmds: [
 			{name: "dry-run", description: "Perform dry run", type: "bool", default_value: "false"},
 		]
 	},
-	{
-		name: "clean"
-		description: "Clean build artifacts"
-		implementations: [
-			{
-				script: "echo cleaning..."
-				runtimes: [{name: "native"}, {name: "virtual"}]
-			},
-		]
-	},
-]
+		{
+			name: "clean"
+			description: "Clean build artifacts"
+			implementations: [
+				{
+					script: "echo cleaning..."
+					runtimes: [{name: "native"}, {name: "virtual"}]
+					platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+				},
+			]
+		},
+	]
 
 env: {
 	vars: {
@@ -123,56 +127,94 @@ cmds: [
 	{
 		name: "cmd1"
 		description: "Command 1"
-		implementations: [{script: "echo 1", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo 1", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd2"
 		description: "Command 2"
-		implementations: [{script: "echo 2", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo 2", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd3"
 		description: "Command 3"
-		implementations: [{script: "echo 3", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo 3", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd4"
 		description: "Command 4"
-		implementations: [{script: "echo 4", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo 4", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd5"
 		description: "Command 5"
-		implementations: [{script: "echo 5", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo 5", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd6"
 		description: "Command 6"
-		implementations: [{script: "echo 6", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo 6", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd7"
 		description: "Command 7"
-		implementations: [{script: "echo 7", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo 7", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "cmd8"
 		description: "Command 8"
-		implementations: [{script: "echo 8", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo 8", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "nested cmd1"
 		description: "Nested command 1"
-		implementations: [{script: "echo nested1", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo nested1", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 	{
 		name: "nested cmd2"
 		description: "Nested command 2"
-		implementations: [{script: "echo nested2", runtimes: [{name: "native"}]}]
+		implementations: [{script: "echo nested2", runtimes: [{name: "native"}], platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]}]
 	},
 ]
-`
+	`
 )
+
+func writeBenchmarkFile(b *testing.B, path, content string) {
+	b.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		b.Fatalf("failed to write %s: %v", path, err)
+	}
+}
+
+func createBenchmarkModule(b *testing.B, baseDir, folderName, moduleID string) types.FilesystemPath {
+	b.Helper()
+
+	moduleDir := filepath.Join(baseDir, folderName+invowkmod.ModuleSuffix)
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		b.Fatalf("failed to create module directory %s: %v", moduleDir, err)
+	}
+
+	invowkmodContent := fmt.Sprintf(
+		"module: %q\nversion: \"1.0.0\"\ndescription: \"benchmark module %s\"\n",
+		moduleID,
+		moduleID,
+	)
+	writeBenchmarkFile(b, filepath.Join(moduleDir, "invowkmod.cue"), invowkmodContent)
+	writeBenchmarkFile(b, filepath.Join(moduleDir, "invowkfile.cue"), sampleInvowkfile)
+
+	return types.FilesystemPath(moduleDir)
+}
+
+// setBenchmarkRuntime selects a runtime and matching implementation for the current host platform.
+func setBenchmarkRuntime(b *testing.B, ctx *runtime.ExecutionContext, mode invowkfile.RuntimeMode) {
+	b.Helper()
+
+	platform := invowkfile.CurrentPlatform()
+	ctx.SelectedRuntime = mode
+	ctx.SelectedImpl = ctx.Command.GetImplForPlatformRuntime(platform, mode)
+	if ctx.SelectedImpl == nil {
+		b.Fatalf("no implementation available for runtime %q on platform %q", mode, platform)
+	}
+}
 
 // BenchmarkCUEParsing benchmarks CUE schema compilation and validation.
 // This exercises the hot path in pkg/cueutil/parse.go.
@@ -227,7 +269,7 @@ func BenchmarkDiscovery(b *testing.B) {
 	}
 
 	// Create a sample module
-	modDir := filepath.Join(tmpDir, "sample.invowkmod")
+	modDir := filepath.Join(tmpDir, "io.invowk.benchmark.invowkmod")
 	if err := os.MkdirAll(modDir, 0o755); err != nil {
 		b.Fatalf("Failed to create module dir: %v", err)
 	}
@@ -255,9 +297,154 @@ func BenchmarkDiscovery(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		_, err := disc.LoadAll()
+		files, err := disc.LoadAll()
 		if err != nil {
 			b.Fatalf("LoadAll failed: %v", err)
+		}
+		if len(files) == 0 {
+			b.Fatal("LoadAll returned no discovered files")
+		}
+		for _, file := range files {
+			if file.Error != nil {
+				b.Fatalf("discovered file contains parse error: %v", file.Error)
+			}
+			if file.Invowkfile == nil {
+				b.Fatalf("discovered file %q has no parsed invowkfile", file.Path)
+			}
+		}
+	}
+}
+
+// BenchmarkDiscoveryIncludesAndAliases benchmarks discovery with configured
+// include entries and alias-based module ID disambiguation.
+func BenchmarkDiscoveryIncludesAndAliases(b *testing.B) {
+	tmpDir := b.TempDir()
+	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
+
+	includeRootAlpha := filepath.Join(tmpDir, "includes-alpha")
+	includeRootBeta := filepath.Join(tmpDir, "includes-beta")
+	if err := os.MkdirAll(includeRootAlpha, 0o755); err != nil {
+		b.Fatalf("failed to create includes-alpha directory: %v", err)
+	}
+	if err := os.MkdirAll(includeRootBeta, 0o755); err != nil {
+		b.Fatalf("failed to create includes-beta directory: %v", err)
+	}
+
+	moduleAPath := createBenchmarkModule(b, includeRootAlpha, "shared", "shared")
+	moduleBPath := createBenchmarkModule(b, includeRootBeta, "shared", "shared")
+
+	cfg := config.DefaultConfig()
+	cfg.Includes = []config.IncludeEntry{
+		{
+			Path:  config.ModuleIncludePath(moduleAPath),
+			Alias: invowkmod.ModuleAlias("alpha"),
+		},
+		{
+			Path:  config.ModuleIncludePath(moduleBPath),
+			Alias: invowkmod.ModuleAlias("beta"),
+		},
+	}
+	disc := discovery.New(cfg, discovery.WithBaseDir(types.FilesystemPath(tmpDir)), discovery.WithCommandsDir(""))
+
+	b.ResetTimer()
+	for b.Loop() {
+		files, err := disc.LoadAll()
+		if err != nil {
+			b.Fatalf("LoadAll failed: %v", err)
+		}
+
+		aliasHits := map[invowkmod.ModuleAlias]bool{
+			"alpha": false,
+			"beta":  false,
+		}
+		for _, file := range files {
+			if file.Module == nil || file.Invowkfile == nil {
+				continue
+			}
+
+			switch invowkmod.ModuleAlias(disc.GetEffectiveModuleID(file)) {
+			case "alpha":
+				aliasHits["alpha"] = true
+			case "beta":
+				aliasHits["beta"] = true
+			}
+		}
+		if !aliasHits["alpha"] || !aliasHits["beta"] {
+			b.Fatalf("expected both aliases to be applied, got alpha=%t beta=%t", aliasHits["alpha"], aliasHits["beta"])
+		}
+	}
+}
+
+// BenchmarkDiscoveryVendoredModules benchmarks one-level vendored module discovery.
+func BenchmarkDiscoveryVendoredModules(b *testing.B) {
+	tmpDir := b.TempDir()
+	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
+
+	parentModulePath := createBenchmarkModule(b, tmpDir, "parent", "parent")
+
+	vendorRoot := filepath.Join(string(parentModulePath), invowkmod.VendoredModulesDir)
+	if err := os.MkdirAll(vendorRoot, 0o755); err != nil {
+		b.Fatalf("failed to create vendored modules directory: %v", err)
+	}
+	vendoredPath := createBenchmarkModule(b, vendorRoot, "child", "child")
+	nestedVendorRoot := filepath.Join(string(vendoredPath), invowkmod.VendoredModulesDir)
+	_ = createBenchmarkModule(b, nestedVendorRoot, "grandchild", "grandchild")
+
+	cfg := config.DefaultConfig()
+	disc := discovery.New(cfg, discovery.WithBaseDir(types.FilesystemPath(tmpDir)), discovery.WithCommandsDir(""))
+
+	b.ResetTimer()
+	for b.Loop() {
+		files, err := disc.LoadAll()
+		if err != nil {
+			b.Fatalf("LoadAll failed: %v", err)
+		}
+
+		var vendoredCount int
+		for _, file := range files {
+			if file.ParentModule != nil {
+				vendoredCount++
+			}
+		}
+		if vendoredCount == 0 {
+			b.Fatal("expected at least one vendored module in discovery results")
+		}
+	}
+}
+
+// BenchmarkDiscoveryModuleCollisionCheck benchmarks collision detection when two
+// modules declare the same module ID and no alias is configured.
+func BenchmarkDiscoveryModuleCollisionCheck(b *testing.B) {
+	tmpDir := b.TempDir()
+	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
+
+	cfg := config.DefaultConfig()
+	includeRootOne := filepath.Join(tmpDir, "include-one")
+	includeRootTwo := filepath.Join(tmpDir, "include-two")
+	if err := os.MkdirAll(includeRootOne, 0o755); err != nil {
+		b.Fatalf("failed to create include-one directory: %v", err)
+	}
+	if err := os.MkdirAll(includeRootTwo, 0o755); err != nil {
+		b.Fatalf("failed to create include-two directory: %v", err)
+	}
+
+	moduleOne := createBenchmarkModule(b, includeRootOne, "shared", "shared")
+	moduleTwo := createBenchmarkModule(b, includeRootTwo, "shared", "shared")
+	cfg.Includes = []config.IncludeEntry{
+		{Path: config.ModuleIncludePath(moduleOne)},
+		{Path: config.ModuleIncludePath(moduleTwo)},
+	}
+	disc := discovery.New(cfg, discovery.WithBaseDir(types.FilesystemPath(tmpDir)), discovery.WithCommandsDir(""))
+
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := disc.LoadAll()
+		if err == nil {
+			b.Fatal("expected module collision error")
+		}
+		var collisionErr *discovery.ModuleCollisionError
+		if !errors.As(err, &collisionErr) {
+			b.Fatalf("expected ModuleCollisionError, got: %v", err)
 		}
 	}
 }
@@ -281,6 +468,7 @@ func BenchmarkRuntimeNative(b *testing.B) {
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeNative},
 						},
+						Platforms: invowkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -289,6 +477,7 @@ func BenchmarkRuntimeNative(b *testing.B) {
 
 	cmd := inv.GetCommand("test")
 	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
+	setBenchmarkRuntime(b, ctx, invowkfile.RuntimeNative)
 
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
@@ -325,6 +514,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeVirtual},
 						},
+						Platforms: invowkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -334,7 +524,7 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 	cmd := inv.GetCommand("test")
 	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
-	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+	setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtual)
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
@@ -382,6 +572,7 @@ fi
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeVirtual},
 						},
+						Platforms: invowkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -391,7 +582,7 @@ fi
 	cmd := inv.GetCommand("complex")
 	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
-	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+	setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtual)
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
@@ -416,11 +607,7 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 		b.Skip("skipping container benchmark in short mode")
 	}
 
-	// Check if container engine is available
 	cfg := config.DefaultConfig()
-	if cfg.ContainerEngine == "" {
-		b.Skip("no container engine available")
-	}
 
 	tmpDir := b.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
@@ -440,6 +627,7 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 								Image: "debian:stable-slim",
 							},
 						},
+						Platforms: invowkfile.AllPlatformConfigs(),
 					},
 				},
 			},
@@ -449,7 +637,7 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 	cmd := inv.GetCommand("container-test")
 	ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
-	ctx.SelectedRuntime = invowkfile.RuntimeContainer
+	setBenchmarkRuntime(b, ctx, invowkfile.RuntimeContainer)
 	ctx.IO = runtime.IOContext{
 		Stdout: io.Discard,
 		Stderr: io.Discard,
@@ -458,7 +646,13 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 
 	rt, err := runtime.NewContainerRuntime(cfg)
 	if err != nil {
-		b.Fatalf("NewContainerRuntime failed: %v", err)
+		b.Skipf("skipping container benchmark: %v", err)
+	}
+	b.Cleanup(func() {
+		_ = rt.Close()
+	})
+	if !rt.Available() {
+		b.Skip("skipping container benchmark: container runtime is unavailable")
 	}
 
 	b.ResetTimer()
@@ -485,6 +679,7 @@ cmds: [
 			{
 				script: "echo hello"
 				runtimes: [{name: "virtual"}]
+				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 			},
 		]
 	},
@@ -532,7 +727,7 @@ cmds: [
 		// Execution phase
 		ctx := runtime.NewExecutionContext(b.Context(), cmd, inv)
 
-		ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+		setBenchmarkRuntime(b, ctx, invowkfile.RuntimeVirtual)
 		ctx.IO = runtime.IOContext{
 			Stdout: io.Discard,
 			Stderr: io.Discard,
@@ -597,6 +792,7 @@ func BenchmarkEnvBuilding(b *testing.B) {
 						Runtimes: []invowkfile.RuntimeConfig{
 							{Name: invowkfile.RuntimeNative},
 						},
+						Platforms: invowkfile.AllPlatformConfigs(),
 						Env: &invowkfile.EnvConfig{
 							Vars: map[invowkfile.EnvVarName]string{
 								"IMPL_VAR1": "impl_value1",

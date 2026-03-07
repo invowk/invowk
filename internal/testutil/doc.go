@@ -5,6 +5,6 @@
 //
 // Common helpers include environment variable management (MustSetenv, MustUnsetenv),
 // directory operations (MustChdir, MustMkdirAll), resource cleanup (MustClose,
-// MustStop, DeferClose, DeferStop), and container test concurrency limiting
-// (ContainerSemaphore).
+// MustStop, DeferClose, DeferStop), container test concurrency limiting
+// (ContainerSemaphore), and bounded container test contexts (ContainerTestContext).
 package testutil

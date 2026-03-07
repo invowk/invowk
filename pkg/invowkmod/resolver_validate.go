@@ -4,7 +4,8 @@ package invowkmod
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -50,7 +51,7 @@ type (
 
 // Error implements the error interface for InvalidModuleRefError.
 func (e *InvalidModuleRefError) Error() string {
-	return fmt.Sprintf("invalid module ref: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("module ref", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidModuleRef for errors.Is() compatibility.
@@ -89,7 +90,7 @@ func (r ModuleRef) Validate() error {
 
 // Error implements the error interface for InvalidResolvedModuleError.
 func (e *InvalidResolvedModuleError) Error() string {
-	return fmt.Sprintf("invalid resolved module: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("resolved module", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidResolvedModule for errors.Is() compatibility.
@@ -142,7 +143,7 @@ func (r ResolvedModule) Validate() error {
 
 // Error implements the error interface for InvalidAmbiguousMatchError.
 func (e *InvalidAmbiguousMatchError) Error() string {
-	return fmt.Sprintf("invalid ambiguous match: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("ambiguous match", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidAmbiguousMatch for errors.Is() compatibility.
@@ -177,7 +178,7 @@ func (m AmbiguousMatch) Validate() error {
 
 // Error implements the error interface for InvalidRemoveResultError.
 func (e *InvalidRemoveResultError) Error() string {
-	return fmt.Sprintf("invalid remove result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("remove result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidRemoveResult for errors.Is() compatibility.

@@ -79,6 +79,14 @@ Discovery → Validation → Command Registration
          └── SourceOrder: sorted sources
 ```
 
+### Startup Gate (Important)
+
+Dynamic registration must stay **lazy** for startup-sensitive paths.
+
+- Register discovered commands only when argv targets the `cmd` subtree (or completion requests for it).
+- Do **not** trigger discovery registration for unrelated root paths like `--version` or `--help`.
+- This keeps non-`cmd` startup latency low while preserving full `invowk cmd` behavior.
+
 ### Transparent Namespace
 
 Unambiguous commands are registered under their `SimpleName`:
@@ -146,8 +154,8 @@ The execution is decomposed into a pipeline of focused methods on `commandsvc.Se
 ```
 commandService.Execute(ctx, req)
     │
-    ├── discoverCommand()       ← Loads config, routes through DiscoveryService (uses per-request cache)
-    │   └── s.discovery.GetCommand(ctx, name)
+    ├── discoverCommand()       ← Uses req.ResolvedCommand when provided by CLI/disambiguation path;
+    │                              otherwise loads config and calls s.discovery.GetCommand(ctx, name)
     │
     ├── resolveDefinitions()    ← Resolves flag/arg defs with fallbacks
     │
@@ -426,3 +434,4 @@ files, err := disc.DiscoverAll()  // or disc.LoadAll() to also parse
 | Wrong flag priority | Config overrides CLI flag | Check precedence logic |
 | New flag missing from one ExecuteRequest site | Flag silently ignored for some paths | Wire in ALL 3 sites: `runCommand`, `buildLeafCommand`, `runDisambiguatedCommand` |
 | `context.Background()` in Cobra RunE handler | Ctrl+C / timeout not propagated | Extract `cmd.Context()` at closure boundary, pass as `ctx context.Context` first param to handler function |
+| Unconditional discovered-command registration in root init | `invowk --version` / `--help` startup regresses toward discovery cost | Gate registration by argv so only `cmd` (and its completion paths) trigger registration |

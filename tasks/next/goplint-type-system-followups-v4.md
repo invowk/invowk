@@ -1,6 +1,6 @@
 # goplint & Type System Follow-Up Improvements (v4)
 
-> **STATUS: PENDING** — planned 2026-03-01.
+> **STATUS: COMPLETED** — implemented across follow-up hardening commits (2026-03-03).
 > Follows from `goplint-type-system-followups.md` (v3, COMPLETED).
 
 ## Context
@@ -30,7 +30,7 @@ comparison contexts, but their `bytes` package mirrors are not. Casts inside
 
 ---
 
-### 2. `--check-all` Exclusion Tests (test gap, low complexity)
+### 2. `--check-all` Exclusion Tests (test gap, low complexity) — DONE
 
 **Problem**: Existing tests verify `auditExceptions` and `suggestValidateAll` exclusion
 separately, but `checkUseBeforeValidateCross`, `checkEnumSync`, and `auditReviewDates`
@@ -38,10 +38,11 @@ exclusions have no explicit tests.
 
 **Changes**:
 - `integration_test.go`:
-  - Consolidate the two existing exclusion subtests into a single
-    `"check-all does NOT enable opt-in and audit modes"` subtest asserting ALL
-    five excluded modes: `suggestValidateAll`, `checkUseBeforeValidateCross`,
-    `checkEnumSync`, `auditExceptions`, `auditReviewDates`
+  - Added `"check-all does NOT enable opt-in and audit modes"` subtest asserting
+    excluded modes remain disabled under `--check-all`.
+  - Current excluded set is four modes (`suggestValidateAll`, `checkEnumSync`,
+    `auditExceptions`, `auditReviewDates`) because
+    `checkUseBeforeValidateCross` was removed in the full-path UBV unification.
 
 ---
 

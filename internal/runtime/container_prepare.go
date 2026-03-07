@@ -30,6 +30,10 @@ func (r *ContainerRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedC
 // be attached to a PTY by the caller. This enables the interactive mode
 // TUI overlay pattern where the parent process manages the PTY.
 func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
+	if err := validateExecutionContextForRun(ctx, errContainerNoImpl, errContainerNoScript); err != nil {
+		return nil, err
+	}
+
 	// Get the container runtime config
 	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
 	if rtConfig == nil {

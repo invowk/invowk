@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,92 +13,145 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const invowkmodCueFileName = "invowkmod.cue"
+
 // Validate performs comprehensive validation of a module at the given path.
 // Returns a ValidationResult with all issues found, or an error if the path
 // cannot be accessed.
 func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
-	// Convert to absolute path
+	result, _, err := validateWithMetadata(modulePath)
+	return result, err
+}
+
+// validateWithMetadata performs module validation and returns parsed metadata
+// from invowkmod.cue when available. Load() uses this to avoid parsing
+// invowkmod.cue twice on the hot discovery path.
+func validateWithMetadata(modulePath types.FilesystemPath) (*ValidationResult, *Invowkmod, error) {
+	validatedAbsPath, err := resolveValidatedModulePath(modulePath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	result := newValidationResult(validatedAbsPath)
+	absPath := string(validatedAbsPath)
+
+	canContinue, err := ensureModuleDirectory(result, absPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !canContinue {
+		return result, nil, nil
+	}
+
+	populateModuleName(result, absPath)
+	parsedMetadata := validateInvowkmodFile(result, absPath)
+	validateOptionalInvowkfile(result, absPath)
+
+	if err := scanModuleTree(result, absPath); err != nil {
+		return nil, nil, err
+	}
+
+	return result, parsedMetadata, nil
+}
+
+func resolveValidatedModulePath(modulePath types.FilesystemPath) (types.FilesystemPath, error) {
 	absPath, err := filepath.Abs(string(modulePath))
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
+		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
 	validatedAbsPath := types.FilesystemPath(absPath)
 	if validateErr := validatedAbsPath.Validate(); validateErr != nil {
-		return nil, fmt.Errorf("module path: %w", validateErr)
+		return "", fmt.Errorf("module path: %w", validateErr)
 	}
 
-	result := &ValidationResult{
+	return validatedAbsPath, nil
+}
+
+func newValidationResult(modulePath types.FilesystemPath) *ValidationResult {
+	return &ValidationResult{
 		Valid:      true,
-		ModulePath: validatedAbsPath,
+		ModulePath: modulePath,
 		Issues:     []ValidationIssue{},
 	}
+}
 
-	// Check if path exists
+//goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
+func ensureModuleDirectory(result *ValidationResult, absPath string) (bool, error) {
 	info, err := os.Stat(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			result.AddIssue(IssueTypeStructure, "path does not exist", "")
-			return result, nil
+			return false, nil
 		}
-		return nil, fmt.Errorf("failed to stat path: %w", err)
+		return false, fmt.Errorf("failed to stat path: %w", err)
 	}
-
-	// Check if it's a directory
 	if !info.IsDir() {
 		result.AddIssue(IssueTypeStructure, "path is not a directory", "")
-		return result, nil
+		return false, nil
 	}
+	return true, nil
+}
 
-	// Validate folder name and extract module name
-	base := filepath.Base(absPath)
-	moduleName, err := ParseModuleName(base)
+//goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
+func populateModuleName(result *ValidationResult, absPath string) {
+	moduleName, err := ParseModuleName(filepath.Base(absPath))
 	if err != nil {
 		result.AddIssue(IssueTypeNaming, err.Error(), "")
-	} else {
-		result.ModuleName = moduleName
-
-		// Check for reserved module name "invowkfile" (FR-015)
-		// This name is reserved for the canonical namespace system where @invowkfile
-		// refers to the root invowkfile.cue source
-		if string(moduleName) == "invowkfile" {
-			result.AddIssue(IssueTypeNaming, "module name 'invowkfile' is reserved for the root invowkfile source", "")
-		}
+		return
 	}
 
-	// Check for invowkmod.cue (required)
-	invowkmodPath := filepath.Join(absPath, "invowkmod.cue")
+	result.ModuleName = moduleName
+	if string(moduleName) == "invowkfile" {
+		result.AddIssue(IssueTypeNaming, "module name 'invowkfile' is reserved for the root invowkfile source", "")
+	}
+}
+
+//goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
+func validateInvowkmodFile(result *ValidationResult, absPath string) *Invowkmod {
+	invowkmodPath := filepath.Join(absPath, invowkmodCueFileName)
 	invowkmodInfo, err := os.Stat(invowkmodPath)
 	switch {
 	case err != nil && os.IsNotExist(err):
 		result.AddIssue(IssueTypeStructure, "missing required invowkmod.cue", "")
+		return nil
 	case err != nil:
 		result.AddIssue(IssueTypeStructure, fmt.Sprintf("cannot access invowkmod.cue: %v", err), "")
+		return nil
 	case invowkmodInfo.IsDir():
 		result.AddIssue(IssueTypeStructure, "invowkmod.cue must be a file, not a directory", "")
-	default:
-		invowkmodFSPath := types.FilesystemPath(invowkmodPath) //goplint:ignore -- derived from validated absPath
-		result.InvowkmodPath = invowkmodFSPath
-
-		// Parse invowkmod.cue and validate module field matches folder name
-		if result.ModuleName != "" {
-			meta, parseErr := ParseInvowkmod(invowkmodFSPath)
-			if parseErr != nil {
-				result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), "invowkmod.cue")
-			} else if string(meta.Module) != string(result.ModuleName) {
-				result.AddIssue(IssueTypeNaming, fmt.Sprintf(
-					"module field '%s' in invowkmod.cue must match folder name '%s'",
-					meta.Module, result.ModuleName), "invowkmod.cue")
-			}
-		}
+		return nil
 	}
 
-	// Check for invowkfile.cue (optional - may be a library-only module)
+	invowkmodFSPath := types.FilesystemPath(invowkmodPath) //goplint:ignore -- derived from validated absPath
+	result.InvowkmodPath = invowkmodFSPath
+	if result.ModuleName == "" {
+		return nil
+	}
+
+	meta, parseErr := ParseInvowkmod(invowkmodFSPath)
+	switch {
+	case parseErr != nil:
+		result.AddIssue(IssueTypeInvowkmod, fmt.Sprintf("failed to parse invowkmod.cue: %v", parseErr), invowkmodCueFileName)
+		return nil
+	case string(meta.Module) != string(result.ModuleName):
+		result.AddIssue(
+			IssueTypeNaming,
+			fmt.Sprintf("module field '%s' in invowkmod.cue must match folder name '%s'", meta.Module, result.ModuleName),
+			invowkmodCueFileName,
+		)
+		return nil
+	default:
+		return meta
+	}
+}
+
+//goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
+func validateOptionalInvowkfile(result *ValidationResult, absPath string) {
 	invowkfilePath := filepath.Join(absPath, "invowkfile.cue")
 	invowkfileInfo, err := os.Stat(invowkfilePath)
 	switch {
 	case err != nil && os.IsNotExist(err):
-		// Library-only module - no commands
 		result.IsLibraryOnly = true
 	case err != nil:
 		result.AddIssue(IssueTypeStructure, fmt.Sprintf("cannot access invowkfile.cue: %v", err), "")
@@ -106,69 +160,72 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 	default:
 		result.InvowkfilePath = types.FilesystemPath(invowkfilePath) //goplint:ignore -- derived from validated absPath
 	}
+}
 
-	// Check for nested modules and symlinks (security)
-	err = filepath.WalkDir(absPath, func(path string, d os.DirEntry, walkErr error) error {
+//goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
+func scanModuleTree(result *ValidationResult, absPath string) error {
+	if err := filepath.WalkDir(absPath, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil //nolint:nilerr // Intentionally skip errors to continue walking
 		}
+		return inspectModuleEntry(result, absPath, path, d)
+	}); err != nil {
+		return fmt.Errorf("failed to walk module directory: %w", err)
+	}
+	return nil
+}
 
-		// Skip the root directory itself
-		if path == absPath {
-			return nil
-		}
-
-		// Skip the vendored modules directory (invowk_modules/) - nested modules are allowed there
-		if d.IsDir() && d.Name() == VendoredModulesDir {
-			return filepath.SkipDir
-		}
-
-		// Check for symlinks (security issue - could point outside module)
-		if d.Type()&os.ModeSymlink != 0 {
-			relPath, _ := filepath.Rel(absPath, path)
-			// Check if symlink points outside the module
-			linkTarget, readErr := os.Readlink(path)
-			if readErr != nil {
-				result.AddIssue(IssueTypeSecurity, "cannot read symlink target", relPath)
-			} else {
-				// Resolve the symlink target relative to its location
-				var resolvedTarget string
-				if filepath.IsAbs(linkTarget) {
-					resolvedTarget = linkTarget
-				} else {
-					resolvedTarget = filepath.Join(filepath.Dir(path), linkTarget)
-				}
-				// Clean and resolve to check if it escapes
-				resolvedTarget = filepath.Clean(resolvedTarget)
-				relToRoot, relErr := filepath.Rel(absPath, resolvedTarget)
-				if relErr != nil || strings.HasPrefix(relToRoot, "..") {
-					result.AddIssue(IssueTypeSecurity, fmt.Sprintf("symlink points outside module directory (target: %s)", linkTarget), relPath)
-				} else {
-					// Even internal symlinks are a potential security concern during archive extraction
-					result.AddIssue(IssueTypeSecurity, "symlinks are not allowed in modules (security risk during extraction)", relPath)
-				}
-			}
-		}
-
-		// Check if any other subdirectory is a module
-		if d.IsDir() && strings.HasSuffix(d.Name(), ModuleSuffix) {
-			relPath, _ := filepath.Rel(absPath, path)
-			result.AddIssue(IssueTypeStructure, "nested modules are not allowed (except in invowk_modules/)", relPath)
-		}
-
-		// Check for Windows reserved filenames (cross-platform compatibility)
-		if platform.IsWindowsReservedName(d.Name()) {
-			relPath, _ := filepath.Rel(absPath, path)
-			result.AddIssue(IssueTypeCompatibility, fmt.Sprintf("filename '%s' is reserved on Windows", d.Name()), relPath)
-		}
-
+//goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
+func inspectModuleEntry(result *ValidationResult, absPath, entryPath string, entry os.DirEntry) error {
+	if entryPath == absPath {
 		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to walk module directory: %w", err)
+	}
+	if entry.IsDir() && entry.Name() == VendoredModulesDir {
+		return filepath.SkipDir
+	}
+	if entry.Type()&os.ModeSymlink != 0 {
+		recordSymlinkIssue(result, absPath, entryPath)
+	}
+	if entry.IsDir() && strings.HasSuffix(entry.Name(), ModuleSuffix) {
+		recordModuleTreeIssue(result, absPath, entryPath, IssueTypeStructure, "nested modules are not allowed (except in invowk_modules/)")
+	}
+	if platform.IsWindowsReservedName(entry.Name()) {
+		recordModuleTreeIssue(result, absPath, entryPath, IssueTypeCompatibility, fmt.Sprintf("filename '%s' is reserved on Windows", entry.Name()))
+	}
+	return nil
+}
+
+//goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
+func recordSymlinkIssue(result *ValidationResult, absPath, entryPath string) {
+	relPath, _ := filepath.Rel(absPath, entryPath)
+	linkTarget, readErr := os.Readlink(entryPath)
+	if readErr != nil {
+		result.AddIssue(IssueTypeSecurity, "cannot read symlink target", relPath)
+		return
 	}
 
-	return result, nil
+	resolvedTarget := resolveModuleSymlinkTarget(entryPath, linkTarget)
+	relToRoot, relErr := filepath.Rel(absPath, resolvedTarget)
+	if relErr != nil || strings.HasPrefix(relToRoot, "..") {
+		result.AddIssue(IssueTypeSecurity, fmt.Sprintf("symlink points outside module directory (target: %s)", linkTarget), relPath)
+		return
+	}
+
+	result.AddIssue(IssueTypeSecurity, "symlinks are not allowed in modules (security risk during extraction)", relPath)
+}
+
+//goplint:ignore -- validation helpers operate on OS-native symlink targets from the filesystem.
+func resolveModuleSymlinkTarget(entryPath, linkTarget string) string {
+	if filepath.IsAbs(linkTarget) {
+		return linkTarget
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(entryPath), linkTarget))
+}
+
+//goplint:ignore -- validation helpers operate on OS-native paths derived from validated module roots.
+func recordModuleTreeIssue(result *ValidationResult, absPath, entryPath string, issueType ValidationIssueType, message string) {
+	relPath, _ := filepath.Rel(absPath, entryPath)
+	result.AddIssue(issueType, message, relPath)
 }
 
 // Load loads and validates a module at the given path.
@@ -176,7 +233,7 @@ func Validate(modulePath types.FilesystemPath) (*ValidationResult, error) {
 // Note: This loads only metadata (invowkmod.cue), not commands (invowkfile.cue).
 // To load commands as well, use pkg/invowkfile.ParseModule().
 func Load(modulePath types.FilesystemPath) (*Module, error) {
-	result, err := Validate(modulePath)
+	result, metadata, err := validateWithMetadata(modulePath)
 	if err != nil {
 		return nil, err
 	}
@@ -190,13 +247,9 @@ func Load(modulePath types.FilesystemPath) (*Module, error) {
 		return nil, fmt.Errorf("invalid module: %s", strings.Join(msgs, "; "))
 	}
 
-	// Parse the metadata
-	var metadata *Invowkmod
-	if result.InvowkmodPath != "" {
-		metadata, err = ParseInvowkmod(result.InvowkmodPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse module metadata: %w", err)
-		}
+	// Metadata is parsed during validation when invowkmod.cue is valid.
+	if result.InvowkmodPath != "" && metadata == nil {
+		return nil, errors.New("failed to parse module metadata: invowkmod.cue validation did not produce metadata")
 	}
 
 	return &Module{

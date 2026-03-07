@@ -20,7 +20,6 @@ func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
-
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}
 	defer func() { <-sem }()
@@ -51,7 +50,8 @@ func TestContainerRuntime_ProvisioningLayer_InvowkfileAccess(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+	execCtx := NewExecutionContext(ctx, cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -76,7 +76,6 @@ func TestContainerRuntime_ProvisioningLayer_ScriptFileExecution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
-
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}
 	defer func() { <-sem }()
@@ -109,7 +108,8 @@ echo "Script executed from /workspace"
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+	execCtx := NewExecutionContext(ctx, cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -134,7 +134,6 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
-
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}
 	defer func() { <-sem }()
@@ -170,7 +169,8 @@ func TestContainerRuntime_ProvisioningLayer_NestedDirectories(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+	execCtx := NewExecutionContext(ctx, cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout
@@ -195,7 +195,6 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
-
 	sem := testutil.ContainerSemaphore()
 	sem <- struct{}{}
 	defer func() { <-sem }()
@@ -217,7 +216,8 @@ func TestContainerRuntime_ProvisioningLayer_WorkspaceIsCwd(t *testing.T) {
 	}
 
 	rt := createContainerRuntime(t)
-	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+	execCtx := NewExecutionContext(ctx, cmd, inv)
 
 	var stdout, stderr bytes.Buffer
 	execCtx.IO.Stdout = &stdout

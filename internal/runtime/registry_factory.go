@@ -96,7 +96,9 @@ func BuildRegistry(opts BuildRegistryOptions) RegistryBuildResult {
 
 	result := RegistryBuildResult{
 		Registry: NewRegistry(),
-		Cleanup:  func() {},
+		Cleanup: func() {
+			// No-op when container runtime is unavailable.
+		},
 	}
 
 	result.Registry.Register(RuntimeTypeNative, NewNativeRuntime())

@@ -86,15 +86,16 @@ the user command's output.
 
 The package-level `execCommand` variable in `internal/container/engine.go` was moved to test-only scope in `engine_mock_test.go`. This removed the forced sequential execution of container unit tests, enabling safe `t.Parallel()` across all mock tests.
 
-### Layer 3: Parallel Test Execution
+### Layer 3: Engine-Pinned CLI Suite + Selective Parallelism
 
-All container tests now run in parallel:
+The definitive harness keeps most container testing parallel, but it stops treating
+the `tests/cli` container suite as a generic parallel workload:
 
-1. **Unit tests** (`internal/container/`): All mock tests use `t.Parallel()` with instance-injected `NewMockCommandRecorder()`.
-2. **Integration tests** (`internal/runtime/`): All container integration tests use `t.Parallel()` with independent resources (`t.TempDir()`, unique runtime instances).
-3. **CLI tests** (`tests/cli/`): `TestContainerCLI` runs `container_*.txtar` tests in parallel with per-test deadlines and cleanup handlers.
-4. **Non-container tests** (`tests/cli/`): `TestCLI` runs all other tests in parallel.
-5. **Smoke test retry**: The container availability check includes retry logic with exponential backoff.
+1. **Unit tests** (`internal/container/`): remain parallel with mock isolation.
+2. **Integration tests** (`internal/runtime/`): remain parallel inside each package, but real-container suites acquire a suite-scoped cross-process lock before running.
+3. **CLI tests** (`tests/cli/`): `TestContainerCLI` resolves one concrete healthy engine, writes a test-scoped config that pins invowk to that engine, acquires the suite lock, and runs `container_*.txtar` serially.
+4. **Non-container tests** (`tests/cli/`): `TestCLI` remains parallel and unchanged.
+5. **Smoke test retry**: availability probing remains bounded and retry-aware, but no longer decides the suite based on “any healthy engine.”
 
 ### Layer 4: Test-Level Concurrency Limiting
 
@@ -132,7 +133,7 @@ the number of concurrent container operations to a safe level.
 # Run all tests - all container tests run in parallel
 make test
 
-# Run only container CLI tests (parallel)
+# Run only container CLI tests (deterministic, serialized within the suite)
 go test -v -run "TestContainerCLI" ./tests/cli/...
 
 # Run only non-container CLI tests (parallel)

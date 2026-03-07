@@ -95,10 +95,10 @@ func (e *PodmanEngine) Available() bool {
 	if e.BinaryPath() == "" {
 		return false
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), availabilityTimeout)
-	defer cancel()
-	cmd := e.CreateCommand(ctx, "version", "--format", "{{.Version}}")
-	return cmd.Run() == nil
+	return probeEngineAvailability(func(ctx context.Context) error {
+		cmd := e.CreateCommand(ctx, "version", "--format", "{{.Version}}")
+		return cmd.Run()
+	})
 }
 
 // Version returns the Podman version.

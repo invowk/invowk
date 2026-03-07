@@ -13,10 +13,14 @@ on:
       - 'go.mod'
       - 'go.sum'
       - '.golangci.toml'
+      - 'sonar-project.properties'
+      - '.pre-commit-config.yaml'
+      - 'Makefile'
       - 'AGENTS.md'
       - '.agents/**'
       - 'scripts/check-agent-docs.sh'
       - 'scripts/check-file-length.sh'
+      - 'scripts/sonar-local.sh'
       - '.github/workflows/lint.yml'
       - 'tools/goplint/**'
   pull_request:
@@ -31,10 +35,14 @@ on:
       - 'go.mod'
       - 'go.sum'
       - '.golangci.toml'
+      - 'sonar-project.properties'
+      - '.pre-commit-config.yaml'
+      - 'Makefile'
       - 'AGENTS.md'
       - '.agents/**'
       - 'scripts/check-agent-docs.sh'
       - 'scripts/check-file-length.sh'
+      - 'scripts/sonar-local.sh'
       - '.github/workflows/lint.yml'
       - 'tools/goplint/**'
   # Release validation must always run in full, regardless of changed paths.
@@ -103,10 +111,10 @@ jobs:
       - name: Run goplint (advisory)
         run: |
           set +e
-          ./bin/goplint -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+          ./bin/goplint -check-all -check-enum-sync -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "::warning::goplint full scan reports known rollout findings; use goplint (baseline) for regression gating."
+            echo "::warning::goplint full scan found findings outside the legacy-pinned baseline regression gate; review the advisory output."
           fi
 
   goplint-baseline:
@@ -119,7 +127,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: tools/goplint/go.mod
           cache: true
 
       - name: Build goplint
@@ -152,6 +160,26 @@ jobs:
           cd tools/goplint
           go test -count=3 ./...
 
+      - name: Check semantic spec contracts
+        run: |
+          ./tools/goplint/scripts/check-semantic-spec.sh
+
+      - name: Check IFDS compatibility
+        run: |
+          ./tools/goplint/scripts/check-ifds-compat.sh
+
+      - name: Check Phase C refinement
+        run: |
+          ./tools/goplint/scripts/check-cfg-refinement.sh
+
+      - name: Check Phase D alias mode
+        run: |
+          make check-cfg-alias
+
+      - name: Check CFG benchmark thresholds
+        run: |
+          ./tools/goplint/scripts/check-cfg-bench-thresholds.sh
+
   goplint-review-dates:
     name: goplint (overdue reviews)
     runs-on: ubuntu-latest
@@ -164,7 +192,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: tools/goplint/go.mod
           cache: true
 
       - name: Build goplint
@@ -178,6 +206,50 @@ jobs:
           if [ "$status" -ne 0 ]; then
             echo "::warning::goplint found exceptions with overdue review_after dates; check tools/goplint/exceptions.toml."
           fi
+
+  sonar-local:
+    name: sonar-local
+    if: ${{ vars.ENABLE_SONAR_LINT == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install SonarScanner CLI
+        run: |
+          set -euo pipefail
+          if command -v sonar-scanner >/dev/null 2>&1; then
+            sonar-scanner --version
+            exit 0
+          fi
+          scanner_version="8.0.1.6346"
+          scanner_root="$RUNNER_TEMP/sonar-scanner-${scanner_version}-linux-x64"
+          curl -fsSL -o "$RUNNER_TEMP/sonar-scanner.zip" \
+            "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-${scanner_version}-linux-x64.zip"
+          unzip -q "$RUNNER_TEMP/sonar-scanner.zip" -d "$RUNNER_TEMP"
+          echo "$scanner_root/bin" >> "$GITHUB_PATH"
+          "$scanner_root/bin/sonar-scanner" --version
+
+      - name: Run SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          make sonar-local
 
   file-length:
     name: file length gate (1000 lines)

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -277,7 +278,7 @@ func (e IncludeEntry) Validate() error {
 
 // Error implements the error interface for InvalidIncludeEntryError.
 func (e *InvalidIncludeEntryError) Error() string {
-	return fmt.Sprintf("invalid include entry: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("include entry", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidIncludeEntry for errors.Is() compatibility.
@@ -298,7 +299,7 @@ func (c UIConfig) Validate() error {
 
 // Error implements the error interface for InvalidUIConfigError.
 func (e *InvalidUIConfigError) Error() string {
-	return fmt.Sprintf("invalid UI config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("UI config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidUIConfig for errors.Is() compatibility.
@@ -329,7 +330,7 @@ func (c AutoProvisionConfig) Validate() error {
 
 // Error implements the error interface for InvalidAutoProvisionConfigError.
 func (e *InvalidAutoProvisionConfigError) Error() string {
-	return fmt.Sprintf("invalid auto-provision config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("auto-provision config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidAutoProvisionConfig for errors.Is() compatibility.
@@ -350,7 +351,7 @@ func (c ContainerConfig) Validate() error {
 
 // Error implements the error interface for InvalidContainerConfigError.
 func (e *InvalidContainerConfigError) Error() string {
-	return fmt.Sprintf("invalid container config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("container config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidContainerConfig for errors.Is() compatibility.
@@ -390,7 +391,7 @@ func (c Config) Validate() error {
 
 // Error implements the error interface for InvalidConfigError.
 func (e *InvalidConfigError) Error() string {
-	return fmt.Sprintf("invalid config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidConfig for errors.Is() compatibility.

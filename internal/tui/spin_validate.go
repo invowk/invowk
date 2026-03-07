@@ -4,7 +4,8 @@ package tui
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -33,7 +34,7 @@ type (
 
 // Error implements the error interface for InvalidSpinOptionsError.
 func (e *InvalidSpinOptionsError) Error() string {
-	return fmt.Sprintf("invalid spin options: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("spin options", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidSpinOptions for errors.Is() compatibility.
@@ -41,7 +42,7 @@ func (e *InvalidSpinOptionsError) Unwrap() error { return ErrInvalidSpinOptions 
 
 // Error implements the error interface for InvalidSpinCommandOptionsError.
 func (e *InvalidSpinCommandOptionsError) Error() string {
-	return fmt.Sprintf("invalid spin command options: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("spin command options", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidSpinCommandOptions for errors.Is() compatibility.

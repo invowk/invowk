@@ -457,31 +457,11 @@ func (c CustomCheck) Validate() error {
 // Otherwise, validates the direct check fields.
 func (c CustomCheckDependency) Validate() error {
 	var errs []error
-	if len(c.Alternatives) > 0 {
-		for _, alt := range c.Alternatives {
-			if err := alt.Validate(); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	} else {
-		// Direct check mode — validate inline fields.
-		if c.Name != "" {
-			if err := c.Name.Validate(); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		if err := c.CheckScript.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-		if c.ExpectedCode != nil {
-			if err := c.ExpectedCode.Validate(); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		if err := c.ExpectedOutput.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	appendFieldError(&errs, c.CheckScript.Validate())
+	appendFieldError(&errs, c.ExpectedOutput.Validate())
+	appendEachValidation(&errs, c.Alternatives)
+	appendOptionalValidation(&errs, c.Name, len(c.Alternatives) == 0 && c.Name != "")
+	appendOptionalValidation(&errs, c.ExpectedCode, len(c.Alternatives) == 0 && c.ExpectedCode != nil)
 	if len(errs) > 0 {
 		return &InvalidCustomCheckDependencyError{FieldErrors: errs}
 	}
@@ -492,36 +472,12 @@ func (c CustomCheckDependency) Validate() error {
 // Delegates to Validate() on all dependency slices.
 func (d DependsOn) Validate() error {
 	var errs []error
-	for _, t := range d.Tools {
-		if err := t.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, c := range d.Commands {
-		if err := c.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, f := range d.Filepaths {
-		if err := f.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, c := range d.Capabilities {
-		if err := c.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, c := range d.CustomChecks {
-		if err := c.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, e := range d.EnvVars {
-		if err := e.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	appendEachValidation(&errs, d.Tools)
+	appendEachValidation(&errs, d.Commands)
+	appendEachValidation(&errs, d.Filepaths)
+	appendEachValidation(&errs, d.Capabilities)
+	appendEachValidation(&errs, d.CustomChecks)
+	appendEachValidation(&errs, d.EnvVars)
 	if len(errs) > 0 {
 		return &InvalidDependsOnError{FieldErrors: errs}
 	}
@@ -531,47 +487,47 @@ func (d DependsOn) Validate() error {
 // Error/Unwrap implementations for dependency error types.
 
 func (e *InvalidToolDependencyError) Error() string {
-	return fmt.Sprintf("invalid tool dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("tool dependency", e.FieldErrors)
 }
 func (e *InvalidToolDependencyError) Unwrap() error { return ErrInvalidToolDependency }
 
 func (e *InvalidCommandDependencyError) Error() string {
-	return fmt.Sprintf("invalid command dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("command dependency", e.FieldErrors)
 }
 func (e *InvalidCommandDependencyError) Unwrap() error { return ErrInvalidCommandDependency }
 
 func (e *InvalidCapabilityDependencyError) Error() string {
-	return fmt.Sprintf("invalid capability dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("capability dependency", e.FieldErrors)
 }
 func (e *InvalidCapabilityDependencyError) Unwrap() error { return ErrInvalidCapabilityDependency }
 
 func (e *InvalidEnvVarCheckError) Error() string {
-	return fmt.Sprintf("invalid env var check: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("env var check", e.FieldErrors)
 }
 func (e *InvalidEnvVarCheckError) Unwrap() error { return ErrInvalidEnvVarCheck }
 
 func (e *InvalidEnvVarDependencyError) Error() string {
-	return fmt.Sprintf("invalid env var dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("env var dependency", e.FieldErrors)
 }
 func (e *InvalidEnvVarDependencyError) Unwrap() error { return ErrInvalidEnvVarDependency }
 
 func (e *InvalidFilepathDependencyError) Error() string {
-	return fmt.Sprintf("invalid filepath dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("filepath dependency", e.FieldErrors)
 }
 func (e *InvalidFilepathDependencyError) Unwrap() error { return ErrInvalidFilepathDependency }
 
 func (e *InvalidCustomCheckError) Error() string {
-	return fmt.Sprintf("invalid custom check: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("custom check", e.FieldErrors)
 }
 func (e *InvalidCustomCheckError) Unwrap() error { return ErrInvalidCustomCheck }
 
 func (e *InvalidCustomCheckDependencyError) Error() string {
-	return fmt.Sprintf("invalid custom check dependency: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("custom check dependency", e.FieldErrors)
 }
 func (e *InvalidCustomCheckDependencyError) Unwrap() error { return ErrInvalidCustomCheckDependency }
 
 func (e *InvalidDependsOnError) Error() string {
-	return fmt.Sprintf("invalid depends_on: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("depends_on", e.FieldErrors)
 }
 func (e *InvalidDependsOnError) Unwrap() error { return ErrInvalidDependsOn }
 

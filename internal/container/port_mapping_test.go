@@ -301,10 +301,23 @@ func TestParsePortMapping(t *testing.T) {
 func TestInvalidPortMappingError(t *testing.T) {
 	t.Parallel()
 
-	fieldErrs := []error{
-		&InvalidNetworkPortError{Value: 0},
-		&InvalidNetworkPortError{Value: 0},
+	portErr := &InvalidNetworkPortError{Value: 0}
+	if portErr.Error() == "" {
+		t.Error("InvalidNetworkPortError.Error() returned empty string")
 	}
+	if !errors.Is(portErr, ErrInvalidNetworkPort) {
+		t.Error("InvalidNetworkPortError should wrap ErrInvalidNetworkPort")
+	}
+
+	protoErr := &InvalidPortProtocolError{Value: "invalid"}
+	if protoErr.Error() == "" {
+		t.Error("InvalidPortProtocolError.Error() returned empty string")
+	}
+	if !errors.Is(protoErr, ErrInvalidPortProtocol) {
+		t.Error("InvalidPortProtocolError should wrap ErrInvalidPortProtocol")
+	}
+
+	fieldErrs := []error{portErr, portErr}
 	err := &InvalidPortMappingError{
 		Value:     PortMapping{HostPort: 0, ContainerPort: 0, Protocol: PortProtocolTCP},
 		FieldErrs: fieldErrs,

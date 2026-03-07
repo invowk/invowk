@@ -93,8 +93,8 @@ func findModuleInDir(dir string) (moduleDir string, moduleName ModuleShortName, 
 
 	// First, look for .invowkmod directories
 	for _, entry := range entries {
-		if entry.IsDir() && strings.HasSuffix(entry.Name(), ".invowkmod") {
-			moduleName = ModuleShortName(strings.TrimSuffix(entry.Name(), ".invowkmod"))
+		if entry.IsDir() && strings.HasSuffix(entry.Name(), ModuleSuffix) {
+			moduleName = ModuleShortName(strings.TrimSuffix(entry.Name(), ModuleSuffix))
 			return filepath.Join(dir, entry.Name()), moduleName, nil
 		}
 	}
@@ -105,7 +105,7 @@ func findModuleInDir(dir string) (moduleDir string, moduleName ModuleShortName, 
 	if _, err := os.Stat(invowkmodPath); err == nil {
 		// Extract module name from directory (for .invowkmod repos)
 		dirName := filepath.Base(dir)
-		if name, found := strings.CutSuffix(dirName, ".invowkmod"); found {
+		if name, found := strings.CutSuffix(dirName, ModuleSuffix); found {
 			moduleName = ModuleShortName(name)
 		} else {
 			// Fall back to parsing invowkmod.cue to get the module name

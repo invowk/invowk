@@ -132,7 +132,7 @@ func TestIssue_ExtLinks(t *testing.T) {
 func TestIssue_Render(t *testing.T) {
 	t.Parallel()
 
-	mockRender := func(in string, _ string) (string, error) {
+	mockRender := func(in, _ string) (string, error) {
 		return in, nil
 	}
 
@@ -232,7 +232,7 @@ func TestValues(t *testing.T) {
 func TestIssue_Render_WithLinks(t *testing.T) {
 	t.Parallel()
 
-	mockRender := func(in string, _ string) (string, error) {
+	mockRender := func(in, _ string) (string, error) {
 		return in, nil
 	}
 
@@ -258,7 +258,7 @@ func TestIssue_Render_WithLinks(t *testing.T) {
 func TestIssue_Render_NoLinks(t *testing.T) {
 	t.Parallel()
 
-	mockRender := func(in string, _ string) (string, error) {
+	mockRender := func(in, _ string) (string, error) {
 		return in, nil
 	}
 
@@ -314,7 +314,7 @@ func TestAllIssuesHaveContent(t *testing.T) {
 func TestAllIssuesAreRenderable(t *testing.T) {
 	t.Parallel()
 
-	mockRender := func(in string, _ string) (string, error) {
+	mockRender := func(in, _ string) (string, error) {
 		return in, nil
 	}
 

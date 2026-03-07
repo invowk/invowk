@@ -10,9 +10,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
+)
+
+const (
+	commandFailedFmt = "command %s %v failed: %w"
+
+	// cmdWaitDelay bounds how long cmd.Run waits for I/O pipes to close after
+	// context cancellation kills the container engine process. Without this,
+	// container child processes (the actual container) can keep pipes open
+	// indefinitely, blocking cmd.Run far past the context deadline.
+	cmdWaitDelay = 10 * time.Second
 )
 
 type (
@@ -348,7 +359,7 @@ func (e *BaseCLIEngine) RunCommand(ctx context.Context, args ...string) ([]byte,
 	cmd := e.CreateCommand(ctx, args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
+		return nil, fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 	return out, nil
 }
@@ -358,7 +369,7 @@ func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) 
 	cmd := e.CreateCommand(ctx, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return out, fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
+		return out, fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 	return out, nil
 }
@@ -367,7 +378,7 @@ func (e *BaseCLIEngine) RunCommandCombined(ctx context.Context, args ...string) 
 func (e *BaseCLIEngine) RunCommandStatus(ctx context.Context, args ...string) error {
 	cmd := e.CreateCommand(ctx, args...)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
+		return fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 	return nil
 }
@@ -379,7 +390,7 @@ func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string
 	cmd.Stdout = &out
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("command %s %v failed: %w", string(e.binaryPath), args, err)
+		return "", fmt.Errorf(commandFailedFmt, string(e.binaryPath), args, err)
 	}
 
 	return out.String(), nil
@@ -390,6 +401,7 @@ func (e *BaseCLIEngine) RunCommandWithOutput(ctx context.Context, args ...string
 // Engine-level overrides (env vars, extra files) are applied automatically.
 func (e *BaseCLIEngine) CreateCommand(ctx context.Context, args ...string) *exec.Cmd {
 	cmd := e.execCommand(ctx, string(e.binaryPath), args...)
+	cmd.WaitDelay = cmdWaitDelay
 	e.customizeCmd(cmd)
 	return cmd
 }
@@ -436,6 +448,29 @@ func (e *BaseCLIEngine) Build(ctx context.Context, opts BuildOptions) error {
 	return nil
 }
 
+// runResultFromExecError extracts exit code from a command execution error
+// into a RunResult. For exec.ExitError, the exit code is validated. For other
+// errors, exit code defaults to 1. The errContext labels validation error messages
+// (e.g., "container run", "sandbox run").
+//
+//goplint:ignore -- errContext is a format label for error messages, not a domain type.
+func runResultFromExecError(err error, errContext string) (*RunResult, error) {
+	result := &RunResult{}
+	if err != nil {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if validateErr := exitCode.Validate(); validateErr != nil {
+				return nil, fmt.Errorf("%s exit code: %w", errContext, validateErr)
+			}
+			result.ExitCode = exitCode
+		} else {
+			result.ExitCode = 1
+			result.Error = err
+		}
+	}
+	return result, nil
+}
+
 // Run runs a command in a container and returns the result.
 // A non-zero exit code is captured in RunResult.ExitCode (not returned as error).
 // Only infrastructure failures (binary not found, etc.) set RunResult.Error.
@@ -452,23 +487,7 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
 
-	err := cmd.Run()
-
-	result := &RunResult{}
-	if err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			exitCode := types.ExitCode(exitErr.ExitCode())
-			if validateErr := exitCode.Validate(); validateErr != nil {
-				return nil, fmt.Errorf("container run exit code: %w", validateErr)
-			}
-			result.ExitCode = exitCode
-		} else {
-			result.ExitCode = 1
-			result.Error = err
-		}
-	}
-
-	return result, nil
+	return runResultFromExecError(cmd.Run(), "container run")
 }
 
 // Exec runs a command in a running container.
@@ -480,22 +499,11 @@ func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, comma
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
 
-	err := cmd.Run()
-
-	result := &RunResult{ContainerID: containerID}
+	result, err := runResultFromExecError(cmd.Run(), "container exec")
 	if err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			exitCode := types.ExitCode(exitErr.ExitCode())
-			if validateErr := exitCode.Validate(); validateErr != nil {
-				return nil, fmt.Errorf("container exec exit code: %w", validateErr)
-			}
-			result.ExitCode = exitCode
-		} else {
-			result.ExitCode = 1
-			result.Error = err
-		}
+		return nil, err
 	}
-
+	result.ContainerID = containerID
 	return result, nil
 }
 

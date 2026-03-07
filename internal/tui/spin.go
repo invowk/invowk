@@ -73,6 +73,7 @@ type (
 	//goplint:validate-all
 	//
 	// SpinCommandOptions configures an embeddable spin component with a command.
+	// Request-scoped cancellation is passed to NewSpinModel instead of being stored here.
 	SpinCommandOptions struct {
 		// Title is the text displayed next to the spinner.
 		Title string
@@ -82,18 +83,12 @@ type (
 		Type SpinnerType
 		// Config holds common TUI configuration.
 		Config Config
-		// Context controls cancellation for the spawned subprocess.
-		// When nil, defaults to context.Background().
-		// Excluded from JSON: this struct doubles as the wire format for TUI
-		// server RPC (embeddable.go), where context is not serializable.
-		Context context.Context `json:"-"`
 	}
 
 	// spinModel implements EmbeddableComponent for spinner with command execution.
 	spinModel struct {
-		ctx     context.Context
 		title   string
-		command []string
+		run     tea.Cmd
 		done    bool
 		result  SpinResult
 		width   TerminalDimension
@@ -199,8 +194,7 @@ func SpinnerTypeNames() []string {
 }
 
 // NewSpinModel creates an embeddable spinner component.
-func NewSpinModel(opts SpinCommandOptions) *spinModel {
-	ctx := opts.Context
+func NewSpinModel(ctx context.Context, opts SpinCommandOptions) *spinModel {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -208,24 +202,25 @@ func NewSpinModel(opts SpinCommandOptions) *spinModel {
 	if len(opts.Command) == 0 {
 		// No command - return immediately done
 		return &spinModel{
-			ctx:  ctx,
 			done: true,
 		}
 	}
 
 	return &spinModel{
-		ctx:     ctx,
-		title:   opts.Title,
-		command: opts.Command,
-		frames:  []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		title:  opts.Title,
+		run:    newSpinCommandCmd(ctx, opts.Command),
+		frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
 	}
 }
 
 // Init implements tea.Model.
 func (m *spinModel) Init() tea.Cmd {
+	if m.run == nil {
+		return nil
+	}
 	// Start the command and spinner tick
 	return tea.Batch(
-		m.runCommand(),
+		m.run,
 		m.tick(),
 	)
 }
@@ -259,8 +254,8 @@ func (m *spinModel) View() tea.View {
 	}
 
 	frame := m.frames[m.spinner]
-	spinnerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
-	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
+	spinnerStyle := lipgloss.NewStyle().Foreground(modalColorPrimary)
+	titleStyle := lipgloss.NewStyle().Foreground(modalColorForeground)
 
 	content := spinnerStyle.Render(frame) + " " + titleStyle.Render(m.title)
 
@@ -292,14 +287,16 @@ func (m *spinModel) SetSize(width, height TerminalDimension) {
 	m.height = height
 }
 
-// runCommand starts the command execution and returns the result.
-func (m *spinModel) runCommand() tea.Cmd {
+// newSpinCommandCmd starts the command execution and returns the result.
+//
+//goplint:ignore -- helper executes raw command argv captured at the TUI boundary.
+func newSpinCommandCmd(ctx context.Context, command []string) tea.Cmd {
 	return func() tea.Msg {
-		if len(m.command) == 0 {
+		if len(command) == 0 {
 			return spinnerDoneMsg{result: SpinResult{}}
 		}
 
-		cmd := exec.CommandContext(m.ctx, m.command[0], m.command[1:]...)
+		cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 		output, err := cmd.CombinedOutput()
 
 		result := SpinResult{
@@ -511,7 +508,7 @@ func runActionSpinner(opts SpinOptions, doneCh <-chan struct{}) error {
 		title: types.DescriptionText(opts.Title), //goplint:ignore -- display text from TUI options
 		spinner: bspinner.New(
 			bspinner.WithSpinner(getSpinnerType(opts.Type)),
-			bspinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))),
+			bspinner.WithStyle(lipgloss.NewStyle().Foreground(modalColorPrimary)),
 		),
 		doneCh: doneCh,
 	}

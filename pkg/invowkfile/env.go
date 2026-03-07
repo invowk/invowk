@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -101,7 +103,7 @@ func (e EnvConfig) Validate() error {
 
 // Error implements the error interface for InvalidEnvConfigError.
 func (e *InvalidEnvConfigError) Error() string {
-	return fmt.Sprintf("invalid env config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("env config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidEnvConfig for errors.Is() compatibility.

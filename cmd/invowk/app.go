@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+const serviceErrorLabel = "Error:"
 
 type (
 	configPathContextKey            struct{}
@@ -96,6 +99,10 @@ type (
 		EnvInheritDeny []invowkfile.EnvVarName
 		// DryRun enables dry-run mode: prints what would be executed without executing.
 		DryRun bool
+		// ResolvedCommand carries a pre-resolved command when the CLI path already
+		// discovered it (dynamic leaf/disambiguated execution). When set, the service
+		// skips a redundant lookup discovery pass.
+		ResolvedCommand *discovery.CommandInfo
 		// UserEnv captures the host environment at execution entry, before invowk
 		// injects command-level env vars. When nil, Execute() populates it eagerly
 		// via captureUserEnv(). Tests can set this to inject a controlled env.
@@ -149,6 +156,10 @@ type (
 	// context to avoid repeated filesystem scans/parsing during one invocation.
 	discoveryRequestCache struct {
 		mu sync.Mutex
+
+		hasConfig bool
+		cfg       *config.Config
+		cfgDiags  []discovery.Diagnostic
 
 		hasCommandSet bool
 		commandSet    discovery.CommandSetResult
@@ -258,6 +269,7 @@ func toServiceRequest(req ExecuteRequest) commandsvc.Request {
 		EnvInheritAllow: req.EnvInheritAllow,
 		EnvInheritDeny:  req.EnvInheritDeny,
 		DryRun:          req.DryRun,
+		ResolvedCommand: req.ResolvedCommand,
 		UserEnv:         req.UserEnv,
 	}
 }
@@ -291,13 +303,14 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
 		// Re-create the styled message using the CLI-layer error formatter.
 		var styledMsg string
+		styledLabel := ErrorStyle.Render(serviceErrorLabel)
 		switch classified.Message {
 		case commandsvc.HintTimedOut:
-			styledMsg = fmt.Sprintf("\n%s command timed out: %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+			styledMsg = fmt.Sprintf("\n%s command timed out: %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		case commandsvc.HintCancelled:
-			styledMsg = fmt.Sprintf("\n%s command was cancelled: %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+			styledMsg = fmt.Sprintf("\n%s command was cancelled: %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		default:
-			styledMsg = fmt.Sprintf("\n%s %s\n", ErrorStyle.Render("Error:"), formatErrorForDisplay(classified.Err, req.Verbose))
+			styledMsg = fmt.Sprintf("\n%s %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		}
 		return newServiceError(classified.Err, classified.IssueID, styledMsg)
 	}
@@ -341,6 +354,27 @@ func discoveryCacheFromContext(ctx context.Context) *discoveryRequestCache {
 		return cache
 	}
 	return nil
+}
+
+// Validate verifies cached typed values when present.
+func (c *discoveryRequestCache) Validate() error {
+	if c == nil {
+		return nil
+	}
+
+	var errs []error
+	if c.cfg != nil {
+		if err := c.cfg.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, diag := range c.cfgDiags {
+		if err := diag.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 // prependDiags returns a new slice with prefix diagnostics before existing ones.
@@ -434,6 +468,12 @@ func (s *appDiscoveryService) GetCommand(ctx context.Context, name string) (disc
 			cache.mu.Unlock()
 			return prependLookupDiagnostics(entry.result, cfgDiags), entry.err
 		}
+		if cache.hasCommandSet && cache.commandSetErr == nil && cache.commandSet.Set != nil {
+			result, err := lookupFromCommandSet(cache.commandSet, invowkfile.CommandName(name)) //goplint:ignore -- CLI lookup input, validated in helper
+			cache.lookups[name] = lookupCacheEntry{result: result, err: err}
+			cache.mu.Unlock()
+			return prependLookupDiagnostics(result, cfgDiags), err
+		}
 		cache.mu.Unlock()
 	}
 
@@ -451,7 +491,29 @@ func (s *appDiscoveryService) GetCommand(ctx context.Context, name string) (disc
 // discovery operational with defaults and emits a warning diagnostic for the CLI.
 func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, []discovery.Diagnostic) {
 	configPath := configPathFromContext(ctx)
-	return loadConfigWithFallback(ctx, s.config, configPath)
+	if cache := discoveryCacheFromContext(ctx); cache != nil {
+		cache.mu.Lock()
+		if cache.hasConfig {
+			cfg := cache.cfg
+			diags := slices.Clone(cache.cfgDiags)
+			cache.mu.Unlock()
+			return cfg, diags
+		}
+		cache.mu.Unlock()
+	}
+
+	cfg, diags := loadConfigWithFallback(ctx, s.config, configPath)
+	if cache := discoveryCacheFromContext(ctx); cache != nil {
+		cache.mu.Lock()
+		if !cache.hasConfig {
+			cache.hasConfig = true
+			cache.cfg = cfg
+			cache.cfgDiags = slices.Clone(diags)
+		}
+		cache.mu.Unlock()
+	}
+
+	return cfg, diags
 }
 
 // loadConfigWithFallback loads configuration via the provider. On failure it
@@ -522,6 +584,34 @@ func captureUserEnv() map[string]string {
 		}
 	}
 	return env
+}
+
+// lookupFromCommandSet resolves a command lookup against an already-discovered
+// command set, matching discovery.GetCommand behavior without repeating scans.
+func lookupFromCommandSet(commandSetResult discovery.CommandSetResult, cmdName invowkfile.CommandName) (discovery.LookupResult, error) {
+	if err := cmdName.Validate(); err != nil {
+		return discovery.LookupResult{}, fmt.Errorf("invalid command name: %w", err)
+	}
+
+	diagnostics := slices.Clone(commandSetResult.Diagnostics)
+	if cmd, ok := commandSetResult.Set.ByName[cmdName]; ok {
+		return discovery.LookupResult{
+			Command:     cmd,
+			Diagnostics: diagnostics,
+		}, nil
+	}
+
+	notFound, err := discovery.NewDiagnostic(
+		discovery.SeverityError,
+		discovery.CodeCommandNotFound,
+		fmt.Sprintf("command '%s' not found", cmdName),
+	)
+	if err != nil {
+		return discovery.LookupResult{}, fmt.Errorf("create command-not-found diagnostic: %w", err)
+	}
+
+	diagnostics = append(diagnostics, notFound)
+	return discovery.LookupResult{Diagnostics: diagnostics}, nil
 }
 
 // Render writes structured diagnostics to stderr with lipgloss styling.

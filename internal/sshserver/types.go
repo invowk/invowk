@@ -120,7 +120,7 @@ func (e *InvalidTokenValueError) Unwrap() error { return ErrInvalidTokenValue }
 
 // Error implements the error interface for InvalidSSHConfigError.
 func (e *InvalidSSHConfigError) Error() string {
-	return fmt.Sprintf("invalid SSH server config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("SSH server config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidSSHConfig for errors.Is() compatibility.
@@ -143,7 +143,7 @@ func (t Token) Validate() error {
 
 // Error implements the error interface for InvalidTokenError.
 func (e *InvalidTokenError) Error() string {
-	return fmt.Sprintf("invalid token: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("token", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidToken for errors.Is() compatibility.
@@ -172,7 +172,7 @@ func (ci ConnectionInfo) Validate() error {
 
 // Error implements the error interface for InvalidConnectionInfoError.
 func (e *InvalidConnectionInfoError) Error() string {
-	return fmt.Sprintf("invalid connection info: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("connection info", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidConnectionInfo for errors.Is() compatibility.

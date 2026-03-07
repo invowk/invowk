@@ -4,7 +4,6 @@ package tui
 
 import (
 	"charm.land/bubbles/v2/list"
-	"charm.land/lipgloss/v2"
 )
 
 // NewChoose creates a new ChooseBuilder with default options.
@@ -207,57 +206,14 @@ func newSingleChooseModel(opts ChooseStringOptions, forModal bool) *chooseModel 
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = false
 	delegate.SetSpacing(0)
-
-	if forModal {
-		base := modalBaseStyle()
-		delegate.Styles.NormalTitle = base.Foreground(lipgloss.Color("#FFFFFF"))
-		delegate.Styles.NormalDesc = base.Foreground(lipgloss.Color("#6B7280"))
-		delegate.Styles.SelectedTitle = base.
-			Foreground(lipgloss.Color("#7C3AED")).
-			Bold(true).
-			Padding(0, 0, 0, 1).
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("#7C3AED"))
-		delegate.Styles.SelectedDesc = base.
-			Foreground(lipgloss.Color("#A78BFA")).
-			Padding(0, 0, 0, 1)
-		delegate.Styles.DimmedTitle = base.Foreground(lipgloss.Color("#6B7280"))
-		delegate.Styles.DimmedDesc = base.Foreground(lipgloss.Color("#6B7280"))
-	} else {
-		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-		delegate.Styles.NormalDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("212")).
-			Bold(true).
-			Padding(0, 0, 0, 1).
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("212"))
-		delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("212")).
-			Padding(0, 0, 0, 1)
-		delegate.Styles.DimmedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		delegate.Styles.DimmedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	}
+	applyDelegateStyles(&delegate, forModal)
 
 	l := list.New(items, delegate, width, height)
 	l.Title = opts.Title
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
-
-	if forModal {
-		base := modalBaseStyle()
-		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
-	} else {
-		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
-		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	}
+	applyListStyles(&l, forModal)
 
 	return &chooseModel{
 		list:      l,
@@ -321,23 +277,7 @@ func newMultiChooseModelWithTheme(opts ChooseStringOptions, forModal bool) *choo
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false) // Disable filtering for choose (use filter.go for that)
 	l.SetShowHelp(false)
-
-	if forModal {
-		// Modal-specific list styles - ALL have EXPLICIT backgrounds
-		base := modalBaseStyle()
-
-		l.Styles.Title = base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.HelpStyle = base.Foreground(lipgloss.Color("#6B7280"))
-		l.Styles.NoItems = base.Foreground(lipgloss.Color("#6B7280"))
-	} else {
-		// Default list styles
-		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
-		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	}
+	applyListStyles(&l, forModal)
 
 	return &chooseModel{
 		list:        l,

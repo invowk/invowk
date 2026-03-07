@@ -4,7 +4,8 @@ package commandsvc
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -43,7 +44,7 @@ type (
 
 // Error implements the error interface for InvalidRequestError.
 func (e *InvalidRequestError) Error() string {
-	return fmt.Sprintf("invalid request: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("request", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidRequest for errors.Is() compatibility.
@@ -51,7 +52,7 @@ func (e *InvalidRequestError) Unwrap() error { return ErrInvalidRequest }
 
 // Error implements the error interface for InvalidResultError.
 func (e *InvalidResultError) Error() string {
-	return fmt.Sprintf("invalid commandsvc result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("commandsvc result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidCommandsvcResult for errors.Is() compatibility.
@@ -59,7 +60,7 @@ func (e *InvalidResultError) Unwrap() error { return ErrInvalidCommandsvcResult 
 
 // Error implements the error interface for InvalidDryRunDataError.
 func (e *InvalidDryRunDataError) Error() string {
-	return fmt.Sprintf("invalid dry run data: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("dry run data", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidDryRunData for errors.Is() compatibility.
@@ -68,53 +69,71 @@ func (e *InvalidDryRunDataError) Unwrap() error { return ErrInvalidDryRunData }
 // Validate returns nil if the Request has valid fields, or a validation error if not.
 // It validates Runtime (when non-empty), FromSource (when non-empty),
 // Workdir (when non-empty), EnvFiles, ConfigPath (when non-empty),
-// EnvInheritMode (when non-empty), EnvInheritAllow, and EnvInheritDeny.
+// EnvInheritMode (when non-empty), EnvInheritAllow, EnvInheritDeny,
+// and ResolvedCommand (when non-nil).
 func (r Request) Validate() error {
 	var errs []error
-	if r.Runtime != "" {
-		if err := r.Runtime.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.FromSource != "" {
-		if err := r.FromSource.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.Workdir != "" {
-		if err := r.Workdir.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, f := range r.EnvFiles {
-		if err := f.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.ConfigPath != "" {
-		if err := r.ConfigPath.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.EnvInheritMode != "" {
-		if err := r.EnvInheritMode.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range r.EnvInheritAllow {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range r.EnvInheritDeny {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	r.appendLocationValidationErrors(&errs)
+	r.appendEnvValidationErrors(&errs)
+	r.appendResolvedCommandValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidRequestError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (r Request) appendLocationValidationErrors(errs *[]error) {
+	if r.Runtime != "" {
+		if err := r.Runtime.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if r.FromSource != "" {
+		if err := r.FromSource.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if r.Workdir != "" {
+		if err := r.Workdir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if r.ConfigPath != "" {
+		if err := r.ConfigPath.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (r Request) appendEnvValidationErrors(errs *[]error) {
+	for _, f := range r.EnvFiles {
+		if err := f.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if r.EnvInheritMode != "" {
+		if err := r.EnvInheritMode.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range r.EnvInheritAllow {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range r.EnvInheritDeny {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (r Request) appendResolvedCommandValidationErrors(errs *[]error) {
+	if r.ResolvedCommand != nil {
+		if err := r.ResolvedCommand.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 // Validate returns nil if the Result has valid fields, or a validation error if not.
@@ -128,15 +147,25 @@ func (r Result) Validate() error {
 
 // Validate returns nil if the DryRunData has valid fields, or a validation error if not.
 // It validates SourceID (when non-empty) and delegates to Selection.Validate().
+//
+//goplint:ignore -- helper-based delegation keeps field-order stability while reducing Sonar complexity.
 func (d DryRunData) Validate() error {
 	var errs []error
-	if d.SourceID != "" {
-		if err := d.SourceID.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := d.Selection.Validate(); err != nil {
-		errs = append(errs, err)
+	for _, validate := range []func(){
+		func() {
+			if d.SourceID != "" {
+				if err := d.SourceID.Validate(); err != nil {
+					errs = append(errs, err)
+				}
+			}
+		},
+		func() {
+			if err := d.Selection.Validate(); err != nil {
+				errs = append(errs, err)
+			}
+		},
+	} {
+		validate()
 	}
 	if len(errs) > 0 {
 		return &InvalidDryRunDataError{FieldErrors: errs}

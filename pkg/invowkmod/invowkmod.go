@@ -3,7 +3,7 @@
 package invowkmod
 
 import (
-	_ "embed"
+	_ "embed" // required for go:embed invowkmod_schema.cue
 	"errors"
 	"fmt"
 	"os"
@@ -342,7 +342,7 @@ func (m Invowkmod) Validate() error {
 
 // Error implements the error interface for InvalidInvowkmodError.
 func (e *InvalidInvowkmodError) Error() string {
-	return fmt.Sprintf("invalid invowkmod: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("invowkmod", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidInvowkmod for errors.Is() compatibility.
@@ -657,7 +657,7 @@ func (m *Module) checkSymlinkSafety(path string) error {
 
 // Error implements the error interface for InvalidModuleError.
 func (e *InvalidModuleError) Error() string {
-	return fmt.Sprintf("invalid module: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("module", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidModule for errors.Is() compatibility.

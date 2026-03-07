@@ -4,7 +4,8 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -43,7 +44,7 @@ type (
 
 // Error implements the error interface for InvalidExecuteRequestError.
 func (e *InvalidExecuteRequestError) Error() string {
-	return fmt.Sprintf("invalid execute request: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("execute request", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidExecuteRequest for errors.Is() compatibility.
@@ -51,7 +52,7 @@ func (e *InvalidExecuteRequestError) Unwrap() error { return ErrInvalidExecuteRe
 
 // Error implements the error interface for InvalidExecuteResultError.
 func (e *InvalidExecuteResultError) Error() string {
-	return fmt.Sprintf("invalid execute result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("execute result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidExecuteResult for errors.Is() compatibility.
@@ -59,7 +60,7 @@ func (e *InvalidExecuteResultError) Unwrap() error { return ErrInvalidExecuteRes
 
 // Error implements the error interface for InvalidSourceFilterError.
 func (e *InvalidSourceFilterError) Error() string {
-	return fmt.Sprintf("invalid source filter: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("source filter", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidSourceFilter for errors.Is() compatibility.
@@ -68,53 +69,70 @@ func (e *InvalidSourceFilterError) Unwrap() error { return ErrInvalidSourceFilte
 // Validate returns nil if the ExecuteRequest has valid fields, or a validation error if not.
 // It validates Runtime (when non-empty), FromSource (when non-empty), Workdir (when non-empty),
 // EnvFiles, ConfigPath (when non-empty), EnvInheritMode (when non-empty), EnvInheritAllow,
-// and EnvInheritDeny.
+// EnvInheritDeny, and ResolvedCommand (when non-nil).
 func (r ExecuteRequest) Validate() error {
 	var errs []error
-	if r.Runtime != "" {
-		if err := r.Runtime.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.FromSource != "" {
-		if err := r.FromSource.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.Workdir != "" {
-		if err := r.Workdir.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, f := range r.EnvFiles {
-		if err := f.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.ConfigPath != "" {
-		if err := r.ConfigPath.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.EnvInheritMode != "" {
-		if err := r.EnvInheritMode.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range r.EnvInheritAllow {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range r.EnvInheritDeny {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	r.appendLocationValidationErrors(&errs)
+	r.appendEnvValidationErrors(&errs)
+	r.appendResolvedCommandValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidExecuteRequestError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (r ExecuteRequest) appendLocationValidationErrors(errs *[]error) {
+	if r.Runtime != "" {
+		if err := r.Runtime.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if r.FromSource != "" {
+		if err := r.FromSource.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if r.Workdir != "" {
+		if err := r.Workdir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if r.ConfigPath != "" {
+		if err := r.ConfigPath.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (r ExecuteRequest) appendEnvValidationErrors(errs *[]error) {
+	for _, f := range r.EnvFiles {
+		if err := f.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if r.EnvInheritMode != "" {
+		if err := r.EnvInheritMode.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range r.EnvInheritAllow {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range r.EnvInheritDeny {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (r ExecuteRequest) appendResolvedCommandValidationErrors(errs *[]error) {
+	if r.ResolvedCommand != nil {
+		if err := r.ResolvedCommand.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 // Validate returns nil if the ExecuteResult has valid fields, or a validation error if not.

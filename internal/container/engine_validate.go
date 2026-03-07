@@ -4,7 +4,8 @@ package container
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ErrInvalidRunResult is the sentinel error wrapped by InvalidRunResultError.
@@ -19,7 +20,7 @@ type InvalidRunResultError struct {
 
 // Error implements the error interface for InvalidRunResultError.
 func (e *InvalidRunResultError) Error() string {
-	return fmt.Sprintf("invalid run result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("run result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidRunResult for errors.Is() compatibility.

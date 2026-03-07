@@ -3,8 +3,6 @@
 package tui
 
 import (
-	"strings"
-
 	"github.com/invowk/invowk/pkg/types"
 
 	"charm.land/bubbles/v2/filepicker"
@@ -101,37 +99,11 @@ func (m *fileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m *fileModel) View() tea.View {
-	if m.done {
-		return tea.NewView("")
-	}
-
-	var base lipgloss.Style
-	if m.forModal {
-		base = modalBaseStyle()
-	}
-
-	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
-	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
-
-	lines := make([]string, 0, 4)
-	if m.title != "" {
-		lines = append(lines, titleStyle.Render(m.title.String()))
-	}
-	if m.description != "" {
-		lines = append(lines, descStyle.Render(m.description.String()))
-	}
-	lines = append(lines,
-		m.picker.View(),
-		helpStyle.Render("enter select • esc cancel"),
-	)
-
-	view := strings.Join(lines, "\n")
-	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
-	}
-
-	return tea.NewView(view)
+	return renderComponentView(componentViewParams{
+		done: m.done, forModal: m.forModal, title: m.title,
+		description: m.description, width: m.width,
+		componentView: m.picker.View(), helpText: "enter select • esc cancel",
+	})
 }
 
 // IsDone implements EmbeddableComponent.
@@ -322,15 +294,15 @@ func newFilePickerStyles(forModal bool) filepicker.Styles {
 	}
 
 	base := modalBaseStyle()
-	styles.Cursor = base.Foreground(lipgloss.Color("#7C3AED"))
-	styles.DisabledCursor = base.Foreground(lipgloss.Color("#6B7280"))
-	styles.Directory = base.Foreground(lipgloss.Color("#A78BFA"))
-	styles.File = base.Foreground(lipgloss.Color("#FFFFFF"))
-	styles.DisabledFile = base.Foreground(lipgloss.Color("#6B7280"))
-	styles.Permission = base.Foreground(lipgloss.Color("#6B7280"))
-	styles.Selected = base.Foreground(lipgloss.Color("#7C3AED")).Bold(true)
-	styles.DisabledSelected = base.Foreground(lipgloss.Color("#6B7280"))
-	styles.FileSize = base.Foreground(lipgloss.Color("#6B7280")).Width(7).Align(lipgloss.Right)
-	styles.EmptyDirectory = base.Foreground(lipgloss.Color("#6B7280"))
+	styles.Cursor = base.Foreground(modalColorPrimary)
+	styles.DisabledCursor = base.Foreground(modalColorMuted)
+	styles.Directory = base.Foreground(modalColorPrimarySoft)
+	styles.File = base.Foreground(modalColorForeground)
+	styles.DisabledFile = base.Foreground(modalColorMuted)
+	styles.Permission = base.Foreground(modalColorMuted)
+	styles.Selected = base.Foreground(modalColorPrimary).Bold(true)
+	styles.DisabledSelected = base.Foreground(modalColorMuted)
+	styles.FileSize = base.Foreground(modalColorMuted).Width(7).Align(lipgloss.Right)
+	styles.EmptyDirectory = base.Foreground(modalColorMuted)
 	return styles
 }

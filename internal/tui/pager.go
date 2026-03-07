@@ -98,10 +98,10 @@ func (m *pagerModel) View() tea.View {
 		base := modalBaseStyle()
 		titleStyle = base.
 			Bold(true).
-			Foreground(lipgloss.Color("#7C3AED")).
+			Foreground(modalColorPrimary).
 			Padding(0, 1)
 		footerStyle = base.
-			Foreground(lipgloss.Color("#6B7280"))
+			Foreground(modalColorMuted)
 	} else {
 		// Default styles
 		titleStyle = lipgloss.NewStyle().

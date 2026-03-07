@@ -3,8 +3,6 @@
 package tui
 
 import (
-	"strings"
-
 	"github.com/invowk/invowk/pkg/types"
 
 	"charm.land/bubbles/v2/textinput"
@@ -97,37 +95,11 @@ func (m *inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m *inputModel) View() tea.View {
-	if m.done {
-		return tea.NewView("")
-	}
-
-	var base lipgloss.Style
-	if m.forModal {
-		base = modalBaseStyle()
-	}
-
-	titleStyle := base.Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	descStyle := base.Foreground(lipgloss.Color("#6B7280"))
-	helpStyle := base.Foreground(lipgloss.Color("#6B7280"))
-
-	lines := make([]string, 0, 4)
-	if m.title != "" {
-		lines = append(lines, titleStyle.Render(m.title.String()))
-	}
-	if m.description != "" {
-		lines = append(lines, descStyle.Render(m.description.String()))
-	}
-	lines = append(lines,
-		m.input.View(),
-		helpStyle.Render("enter submit • esc cancel"),
-	)
-
-	view := strings.Join(lines, "\n")
-	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
-	}
-
-	return tea.NewView(view)
+	return renderComponentView(componentViewParams{
+		done: m.done, forModal: m.forModal, title: m.title,
+		description: m.description, width: m.width,
+		componentView: m.input.View(), helpText: "enter submit • esc cancel",
+	})
 }
 
 // IsDone implements EmbeddableComponent.
@@ -300,15 +272,15 @@ func newInputStyles(theme Theme, forModal bool) textinput.Styles {
 	styles := textinput.DefaultStyles(isDarkTheme(theme))
 	if forModal {
 		base := modalBaseStyle()
-		styles.Focused.Prompt = base.Foreground(lipgloss.Color("#7C3AED"))
-		styles.Focused.Text = base.Foreground(lipgloss.Color("#FFFFFF"))
-		styles.Focused.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Focused.Suggestion = base.Foreground(lipgloss.Color("#A78BFA"))
-		styles.Blurred.Prompt = base.Foreground(lipgloss.Color("#6B7280"))
+		styles.Focused.Prompt = base.Foreground(modalColorPrimary)
+		styles.Focused.Text = base.Foreground(modalColorForeground)
+		styles.Focused.Placeholder = base.Foreground(modalColorMuted)
+		styles.Focused.Suggestion = base.Foreground(modalColorPrimarySoft)
+		styles.Blurred.Prompt = base.Foreground(modalColorMuted)
 		styles.Blurred.Text = base.Foreground(lipgloss.Color("#9CA3AF"))
-		styles.Blurred.Placeholder = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Blurred.Suggestion = base.Foreground(lipgloss.Color("#6B7280"))
-		styles.Cursor.Color = lipgloss.Color("#FFFFFF")
+		styles.Blurred.Placeholder = base.Foreground(modalColorMuted)
+		styles.Blurred.Suggestion = base.Foreground(modalColorMuted)
+		styles.Cursor.Color = modalColorForeground
 		return styles
 	}
 

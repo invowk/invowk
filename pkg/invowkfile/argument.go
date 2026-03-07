@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"regexp"
 	"unicode/utf8"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -179,7 +181,7 @@ func (a Argument) Validate() error {
 
 // Error implements the error interface for InvalidArgumentError.
 func (e *InvalidArgumentError) Error() string {
-	return fmt.Sprintf("invalid argument: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("argument", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidArgument for errors.Is() compatibility.

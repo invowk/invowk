@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const invalidTimeIntervalFmt = "invalid time interval %q"
+
 // sleepCommand implements the sleep utility.
 // It pauses execution for a specified duration with context cancellation support.
 type sleepCommand struct {
@@ -61,7 +63,7 @@ func (c *sleepCommand) Run(ctx context.Context, args []string) error {
 // Formats: "5" or "5s" (seconds), "5m" (minutes), "5h" (hours).
 func parseSleepDuration(s string) (time.Duration, error) {
 	if s == "" {
-		return 0, fmt.Errorf("invalid time interval %q", s)
+		return 0, fmt.Errorf(invalidTimeIntervalFmt, s)
 	}
 
 	// Check for suffix
@@ -70,26 +72,26 @@ func parseSleepDuration(s string) (time.Duration, error) {
 	case "s":
 		val, err := strconv.ParseFloat(s[:len(s)-1], 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid time interval %q", s)
+			return 0, fmt.Errorf(invalidTimeIntervalFmt, s)
 		}
 		return time.Duration(val * float64(time.Second)), nil
 	case "m":
 		val, err := strconv.ParseFloat(s[:len(s)-1], 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid time interval %q", s)
+			return 0, fmt.Errorf(invalidTimeIntervalFmt, s)
 		}
 		return time.Duration(val * float64(time.Minute)), nil
 	case "h":
 		val, err := strconv.ParseFloat(s[:len(s)-1], 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid time interval %q", s)
+			return 0, fmt.Errorf(invalidTimeIntervalFmt, s)
 		}
 		return time.Duration(val * float64(time.Hour)), nil
 	default:
 		// Plain number treated as seconds
 		val, err := strconv.ParseFloat(s, 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid time interval %q", s)
+			return 0, fmt.Errorf(invalidTimeIntervalFmt, s)
 		}
 		return time.Duration(val * float64(time.Second)), nil
 	}

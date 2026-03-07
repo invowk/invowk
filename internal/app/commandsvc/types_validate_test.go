@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -42,6 +43,13 @@ func TestRequest_Validate(t *testing.T) {
 			name: "invalid env inherit mode",
 			req: Request{
 				EnvInheritMode: invowkfile.EnvInheritMode("bogus"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid resolved command",
+			req: Request{
+				ResolvedCommand: &discovery.CommandInfo{Source: discovery.Source(99)},
 			},
 			wantErr: true,
 		},

@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -71,7 +70,7 @@ func (e *InvalidTUIServerTokenError) Unwrap() error { return ErrInvalidTUIServer
 
 // Error implements the error interface for InvalidTUIContextError.
 func (e *InvalidTUIContextError) Error() string {
-	return fmt.Sprintf("invalid TUI context: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("TUI context", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidTUIContext for errors.Is() compatibility.

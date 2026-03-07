@@ -20,7 +20,7 @@ func TestNewSpinModel(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 
 	if model == nil {
 		t.Fatal("expected non-nil model")
@@ -42,7 +42,7 @@ func TestNewSpinModel_EmptyCommand(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 
 	if model == nil {
 		t.Fatal("expected non-nil model")
@@ -62,7 +62,7 @@ func TestSpinModel_SetSize(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 	model.SetSize(80, 24)
 
 	if model.width != 80 {
@@ -82,7 +82,7 @@ func TestSpinModel_ViewWhenDone(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 	model.done = true
 
 	view := model.View().Content
@@ -101,7 +101,7 @@ func TestSpinModel_ViewWithWidth(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 	model.SetSize(40, 10)
 
 	view := model.View().Content
@@ -121,7 +121,7 @@ func TestSpinModel_Cancelled(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 
 	// Spinner doesn't have a cancel concept in the same way
 	if model.Cancelled() {
@@ -138,7 +138,7 @@ func TestSpinModel_Result(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 	model.done = true
 	model.result = SpinResult{
 		Stdout:   "test output",
@@ -172,7 +172,7 @@ func TestSpinModel_UpdateTickMsg(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 	initialSpinner := model.spinner
 
 	// Simulate tick message
@@ -195,7 +195,7 @@ func TestSpinModel_UpdateDoneMsg(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 
 	// Simulate done message
 	msg := spinnerDoneMsg{
@@ -224,7 +224,7 @@ func TestSpinModel_UpdateCtrlC(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 
 	// Simulate Ctrl+C key press
 	keyMsg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
@@ -245,7 +245,7 @@ func TestSpinModel_Init(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 	cmd := model.Init()
 
 	// Init should return a batch command (tick + run)
@@ -263,7 +263,7 @@ func TestSpinModel_Frames(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 
 	// Should have multiple frames
 	if len(model.frames) == 0 {
@@ -634,7 +634,7 @@ func TestSpinModel_TickWhenDone(t *testing.T) {
 		Config:  DefaultConfig(),
 	}
 
-	model := NewSpinModel(opts)
+	model := NewSpinModel(t.Context(), opts)
 	model.done = true
 
 	// Tick when done should not advance spinner

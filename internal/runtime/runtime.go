@@ -17,6 +17,7 @@ import (
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Runtime type constants for different execution environments.
@@ -353,7 +354,7 @@ func (t TUIContext) Validate() error {
 
 // Error implements the error interface for InvalidEnvContextError.
 func (e *InvalidEnvContextError) Error() string {
-	return fmt.Sprintf("invalid env context: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("env context", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidEnvContext for errors.Is() compatibility.
@@ -365,35 +366,43 @@ func (e *InvalidEnvContextError) Unwrap() error { return ErrInvalidEnvContext }
 // and each RuntimeEnvFiles element.
 func (ec EnvContext) Validate() error {
 	var errs []error
-	if ec.InheritModeOverride != "" {
-		if err := ec.InheritModeOverride.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range ec.InheritAllowOverride {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, name := range ec.InheritDenyOverride {
-		if err := name.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if ec.Cwd != "" {
-		if err := ec.Cwd.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, f := range ec.RuntimeEnvFiles {
-		if err := f.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	ec.appendInheritValidationErrors(&errs)
+	ec.appendPathValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidEnvContextError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (ec EnvContext) appendInheritValidationErrors(errs *[]error) {
+	if ec.InheritModeOverride != "" {
+		if err := ec.InheritModeOverride.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range ec.InheritAllowOverride {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, name := range ec.InheritDenyOverride {
+		if err := name.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (ec EnvContext) appendPathValidationErrors(errs *[]error) {
+	if ec.Cwd != "" {
+		if err := ec.Cwd.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, f := range ec.RuntimeEnvFiles {
+		if err := f.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 // NewExecutionContext creates a new execution context with the provided Go context.
@@ -492,13 +501,13 @@ func (r *Registry) GetForContext(ctx *ExecutionContext) (Runtime, error) {
 
 // Available returns all available runtimes
 func (r *Registry) Available() []RuntimeType {
-	var types []RuntimeType
+	var available []RuntimeType
 	for typ, rt := range r.runtimes {
 		if rt.Available() {
-			types = append(types, typ)
+			available = append(available, typ)
 		}
 	}
-	return types
+	return available
 }
 
 // Execute runs a command using the appropriate runtime from the execution context

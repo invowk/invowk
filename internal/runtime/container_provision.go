@@ -39,6 +39,9 @@ const (
 	// baseRunBackoff is the initial backoff duration between run retries.
 	// Uses exponential backoff: 1s, 2s, 4s, 8s (total max ~15s).
 	baseRunBackoff = 1 * time.Second
+
+	containerWorkspaceRoot   = "/workspace"
+	containerWorkspacePrefix = containerWorkspaceRoot + "/"
 )
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
@@ -302,7 +305,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 			relPath = filepath.Base(string(scriptPath))
 		}
 		// Use forward slashes for container path
-		containerPath := "/workspace/" + filepath.ToSlash(relPath)
+		containerPath := containerWorkspacePrefix + filepath.ToSlash(relPath)
 		cmd = append(cmd, containerPath)
 	} else {
 		// Inline script: create temp file in workspace directory
@@ -330,7 +333,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 		tempFilePath = tempF.Name()
 
 		// Get the filename for container path
-		containerPath := "/workspace/" + filepath.Base(tempF.Name())
+		containerPath := containerWorkspacePrefix + filepath.Base(tempF.Name())
 		cmd = append(cmd, containerPath)
 	}
 
@@ -350,7 +353,7 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 
 	// If no workdir was specified at any level, default to /workspace
 	if string(effectiveWorkDir) == invowkDir {
-		return "/workspace"
+		return containerWorkspaceRoot
 	}
 
 	// If it's an absolute path, use it directly in the container
@@ -359,12 +362,12 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 		relPath, err := filepath.Rel(invowkDir, string(effectiveWorkDir))
 		if err == nil && !strings.HasPrefix(relPath, "..") {
 			// Path is within invowkfile dir - map to /workspace
-			return "/workspace/" + filepath.ToSlash(relPath)
+			return containerWorkspacePrefix + filepath.ToSlash(relPath)
 		}
 		// Path is outside invowkfile dir - use as-is (must exist in container or be a mounted path)
 		return string(effectiveWorkDir)
 	}
 
 	// Relative path - join with /workspace
-	return "/workspace/" + filepath.ToSlash(string(effectiveWorkDir))
+	return containerWorkspacePrefix + filepath.ToSlash(string(effectiveWorkDir))
 }

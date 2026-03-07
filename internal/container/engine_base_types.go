@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -237,8 +239,7 @@ func (e *InvalidMountTargetPathError) Unwrap() error {
 
 // Error implements the error interface for InvalidVolumeMountError.
 func (e *InvalidVolumeMountError) Error() string {
-	return fmt.Sprintf("invalid volume mount %s:%s: %d field error(s)",
-		e.Value.HostPath, e.Value.ContainerPath, len(e.FieldErrs))
+	return types.FormatFieldErrors(fmt.Sprintf("volume mount %s:%s", e.Value.HostPath, e.Value.ContainerPath), e.FieldErrs)
 }
 
 // Unwrap returns ErrInvalidVolumeMount for errors.Is() compatibility.
@@ -278,8 +279,7 @@ func (v VolumeMount) String() string {
 
 // Error implements the error interface for InvalidPortMappingError.
 func (e *InvalidPortMappingError) Error() string {
-	return fmt.Sprintf("invalid port mapping %d:%d/%s: %d field error(s)",
-		e.Value.HostPort, e.Value.ContainerPort, e.Value.Protocol, len(e.FieldErrs))
+	return types.FormatFieldErrors(fmt.Sprintf("port mapping %d:%d/%s", e.Value.HostPort, e.Value.ContainerPort, e.Value.Protocol), e.FieldErrs)
 }
 
 // Unwrap returns ErrInvalidPortMapping for errors.Is() compatibility.

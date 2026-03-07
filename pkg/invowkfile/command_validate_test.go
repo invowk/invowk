@@ -11,7 +11,7 @@ func TestCommand_Validate_ZeroValue(t *testing.T) {
 	t.Parallel()
 	// Zero-value Command has empty Name which is nonzero-required — should fail.
 	c := Command{}
-	if err := c.Validate(); err == nil {
+	if c.Validate() == nil {
 		t.Fatal("Command{}.Validate() should fail (empty Name is nonzero-required)")
 	}
 }

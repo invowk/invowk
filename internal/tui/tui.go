@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -112,6 +114,19 @@ type (
 		// Align sets text alignment (left, center, right).
 		Align TextAlign
 	}
+
+	// componentViewParams holds the variable parts of the standard TUI component View()
+	// layout shared by input, write, and file components.
+	//goplint:ignore -- transient rendering params; not a domain type.
+	componentViewParams struct {
+		done          bool
+		forModal      bool
+		title         types.DescriptionText
+		description   types.DescriptionText
+		width         TerminalDimension
+		componentView string //goplint:ignore -- raw bubbletea View() output
+		helpText      string //goplint:ignore -- display-only help label
+	}
 )
 
 // Error implements the error interface for InvalidThemeError.
@@ -142,7 +157,7 @@ func (t Theme) Validate() error {
 
 // Error implements the error interface for InvalidTUIConfigError.
 func (e *InvalidTUIConfigError) Error() string {
-	return fmt.Sprintf("invalid TUI config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("TUI config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidTUIConfig for errors.Is() compatibility.
@@ -271,6 +286,42 @@ func (s Style) Apply(text string) string {
 // This is the foundation for ALL modal styles to prevent color bleeding.
 func modalBaseStyle() lipgloss.Style {
 	return lipgloss.NewStyle().Background(modalBgColor)
+}
+
+// renderComponentView renders the standard title/description/component/help layout
+// used by input, write, and file TUI components. Returns empty view if done.
+func renderComponentView(p componentViewParams) tea.View {
+	if p.done {
+		return tea.NewView("")
+	}
+
+	var base lipgloss.Style
+	if p.forModal {
+		base = modalBaseStyle()
+	}
+
+	titleStyle := base.Bold(true).Foreground(modalColorPrimary)
+	descStyle := base.Foreground(modalColorMuted)
+	helpStyle := base.Foreground(modalColorMuted)
+
+	lines := make([]string, 0, 4)
+	if p.title != "" {
+		lines = append(lines, titleStyle.Render(p.title.String()))
+	}
+	if p.description != "" {
+		lines = append(lines, descStyle.Render(p.description.String()))
+	}
+	lines = append(lines,
+		p.componentView,
+		helpStyle.Render(p.helpText),
+	)
+
+	view := strings.Join(lines, "\n")
+	if p.width > 0 {
+		view = lipgloss.NewStyle().MaxWidth(int(p.width)).Render(view)
+	}
+
+	return tea.NewView(view)
 }
 
 // isDarkTheme returns whether the given theme should use dark-oriented defaults.

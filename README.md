@@ -2809,6 +2809,57 @@ invowk/
 **Virtual Shell:**
 - [u-root](https://github.com/u-root/u-root) - Core utilities for virtual shell built-ins (28 utilities: cat, cp, ls, grep, sort, tar, seq, etc.)
 
+## Performance and PGO
+
+Invowk ships with a committed `default.pgo` profile for Go Profile-Guided Optimization.
+Go automatically applies this profile during builds when it is present in the repository root.
+
+```bash
+make pgo-profile                  # Full profile (includes container benchmarks)
+make pgo-profile-short            # Short profile (skips container benchmarks)
+make pgo-profile-parse-discovery  # Focused profile for CUE/invowkfile/invowkmod/discovery hot paths
+make pgo-audit                    # Validate profile freshness + required hot-path symbols
+```
+
+PGO profile generation runs benchmark training with `-pgo=off` to avoid bias from
+a previously committed profile.
+
+Regenerate `default.pgo` when:
+- CUE parsing or schema decode hot paths change (`pkg/cueutil`, `pkg/invowkfile`, `pkg/invowkmod`)
+- Discovery behavior changes (`internal/discovery`)
+- Runtime execution paths materially change
+- Preparing a major release
+
+## Local SonarQube Analysis
+
+Invowk includes a local Sonar workflow that reuses `.golangci.toml` by exporting
+golangci-lint findings as a Checkstyle report, generating a Go coverage profile,
+and importing both into Sonar during scan (`sonar.go.golangci-lint.reportPaths`
+and `sonar.go.coverage.reportPaths`).
+
+```bash
+# Required: token from SonarQube Cloud
+export SONAR_TOKEN=your_token
+
+# Optional overrides (defaults shown)
+export SONAR_HOST_URL=https://sonarcloud.io
+export SONAR_ORGANIZATION=invowk
+export SONAR_PROJECT_KEY=invowk
+
+# Run local analysis + print unresolved Sonar issues in terminal
+make sonar-local
+```
+
+The command also writes raw issue output to `.sonar/reports/issues.json`, the
+coverage profile to `.sonar/reports/coverage.out`, and fails if the Sonar
+quality gate is red for the analyzed branch.
+
+When pre-commit hooks are installed, the local `sonar-local` hook runs this
+same command for Sonar-relevant changes and blocks the commit on lint, coverage,
+or quality-gate failures.
+The CI job is prepared in `.github/workflows/lint.yml` but stays disabled until
+the repository variable `ENABLE_SONAR_LINT` is set to `true`.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to participate.

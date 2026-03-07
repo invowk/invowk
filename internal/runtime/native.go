@@ -17,6 +17,8 @@ import (
 	"github.com/invowk/invowk/pkg/platform"
 )
 
+const failedBuildEnvironmentFmt = "failed to build environment: %w"
+
 type (
 	// NativeRuntime executes commands using the system's default shell.
 	// Shell and shell arguments are immutable after construction via NewNativeRuntime.
@@ -98,6 +100,10 @@ func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 
 // Execute runs a command using the system shell or specified interpreter
 func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
+	if err := validateExecutionContextForRun(ctx, errNativeNoImpl, errNativeNoScript); err != nil {
+		return NewErrorResult(1, err)
+	}
+
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return NewErrorResult(1, err)
@@ -121,6 +127,10 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 
 // ExecuteCapture runs a command and captures its output
 func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
+	if err := validateExecutionContextForRun(ctx, errNativeNoImpl, errNativeNoScript); err != nil {
+		return NewErrorResult(1, err)
+	}
+
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return NewErrorResult(1, err)
@@ -157,6 +167,10 @@ func (r *NativeRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedComm
 // This is useful for interactive mode where the command needs to be run on a PTY.
 // The caller must call the returned cleanup function after execution.
 func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
+	if err := validateExecutionContextForRun(ctx, errNativeNoImpl, errNativeNoScript); err != nil {
+		return nil, err
+	}
+
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
 		return nil, err
@@ -189,21 +203,9 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
-	// Set working directory with validation
-	workDir := ctx.EffectiveWorkDir()
-	if workDir != "" {
-		if err = validateWorkDir(workDir); err != nil {
-			return NewErrorResult(1, fmt.Errorf("invalid working directory: %w", err))
-		}
-		cmd.Dir = workDir
+	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
+		return NewErrorResult(1, err)
 	}
-
-	// Build environment
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
-	}
-	cmd.Env = EnvToSlice(env)
 
 	// Set I/O based on output mode
 	cmd.Stdout = output.stdout
@@ -244,21 +246,9 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
 
-	// Set working directory with validation
-	workDir := ctx.EffectiveWorkDir()
-	if workDir != "" {
-		if err = validateWorkDir(workDir); err != nil {
-			return NewErrorResult(1, fmt.Errorf("invalid working directory: %w", err))
-		}
-		cmd.Dir = workDir
+	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
+		return NewErrorResult(1, err)
 	}
-
-	// Build environment
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
-	}
-	cmd.Env = EnvToSlice(env)
 
 	// Set I/O based on output mode
 	cmd.Stdout = output.stdout
@@ -411,16 +401,9 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
-	workDir := ctx.EffectiveWorkDir()
-	if workDir != "" {
-		cmd.Dir = workDir
+	if err := r.configureCommandDirAndEnv(cmd, ctx); err != nil {
+		return nil, err
 	}
-
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build environment: %w", err)
-	}
-	cmd.Env = EnvToSlice(env)
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: nil}, nil
 }
@@ -453,19 +436,12 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
 
-	workDir := ctx.EffectiveWorkDir()
-	if workDir != "" {
-		cmd.Dir = workDir
-	}
-
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
+	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
 		if cleanup != nil {
 			cleanup()
 		}
-		return nil, fmt.Errorf("failed to build environment: %w", err)
+		return nil, err
 	}
-	cmd.Env = EnvToSlice(env)
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
 }

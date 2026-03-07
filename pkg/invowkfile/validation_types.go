@@ -8,13 +8,17 @@ import (
 	"io/fs"
 	"strconv"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
 	// SeverityError indicates a validation failure that prevents execution.
-	SeverityError ValidationSeverity = iota
+	SeverityError ValidationSeverity = 0
 	// SeverityWarning indicates a potential issue that doesn't prevent execution.
-	SeverityWarning
+	SeverityWarning ValidationSeverity = 1
+	// alternativesPathSegment is the shared dependency path segment for alternatives collections.
+	alternativesPathSegment = "].alternatives["
 )
 
 var (
@@ -145,7 +149,7 @@ func (c ValidationContext) Validate() error {
 
 // Error implements the error interface for InvalidValidationContextError.
 func (e *InvalidValidationContextError) Error() string {
-	return fmt.Sprintf("invalid validation context: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("validation context", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidValidationContext for errors.Is() compatibility.
@@ -448,13 +452,13 @@ func (p *FieldPath) DependsOn() *FieldPath {
 
 // Tools adds a tools context to the path with indices (1-indexed for user display).
 func (p *FieldPath) Tools(depIndex, altIndex int) *FieldPath {
-	p.parts = append(p.parts, "tools["+strconv.Itoa(depIndex+1)+"].alternatives["+strconv.Itoa(altIndex+1)+"]")
+	p.parts = append(p.parts, buildAlternativesPath("tools", depIndex, altIndex))
 	return p
 }
 
 // Commands adds a cmds context to the path with indices (1-indexed for user display).
 func (p *FieldPath) Commands(depIndex, altIndex int) *FieldPath {
-	p.parts = append(p.parts, "cmds["+strconv.Itoa(depIndex+1)+"].alternatives["+strconv.Itoa(altIndex+1)+"]")
+	p.parts = append(p.parts, buildAlternativesPath("cmds", depIndex, altIndex))
 	return p
 }
 
@@ -466,8 +470,12 @@ func (p *FieldPath) Filepaths(index int) *FieldPath {
 
 // EnvVars adds an env_vars context to the path with indices (1-indexed for user display).
 func (p *FieldPath) EnvVars(depIndex, altIndex int) *FieldPath {
-	p.parts = append(p.parts, "env_vars["+strconv.Itoa(depIndex+1)+"].alternatives["+strconv.Itoa(altIndex+1)+"]")
+	p.parts = append(p.parts, buildAlternativesPath("env_vars", depIndex, altIndex))
 	return p
+}
+
+func buildAlternativesPath(prefix string, depIndex, altIndex int) string {
+	return prefix + "[" + strconv.Itoa(depIndex+1) + alternativesPathSegment + strconv.Itoa(altIndex+1) + "]"
 }
 
 // CustomCheck adds a custom_check context to the path (1-indexed for user display).

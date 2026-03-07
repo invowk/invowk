@@ -60,6 +60,11 @@ endif
 # Detect gotestsum for enhanced test output and rerun-fails support
 GOTESTSUM := $(shell command -v gotestsum 2>/dev/null)
 
+# Benchmark report defaults (override when needed, e.g. STARTUP_SAMPLES=80 BENCH_COUNT=8)
+STARTUP_SAMPLES ?= 40
+BENCH_COUNT ?= 5
+BENCH_REPORT_OUT_DIR ?= docs/benchmarks
+
 # Default target
 .DEFAULT_GOAL := build
 
@@ -116,11 +121,15 @@ endif
 test:
 	@echo "Running tests..."
 ifdef GOTESTSUM
-	@echo "  (using gotestsum)"
-	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 --packages ./... -- -v
+	@echo "  (using gotestsum for non-CLI packages, deterministic CLI split)"
+	@PACKAGES="$$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$$' | tr '\n' ' ')"; \
+	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 5 --packages "$$PACKAGES" -- -v
+	@$(MAKE) test-cli
 else
 	@echo "  (gotestsum not found, using go test)"
-	$(GOTEST) -v ./...
+	@PACKAGES="$$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$$' | tr '\n' ' ')"; \
+	$(GOTEST) -v $$PACKAGES
+	@$(MAKE) test-cli
 endif
 
 # Run tests (short mode, skip integration tests)
@@ -152,21 +161,21 @@ endif
 test-cli:
 	@echo "Running CLI integration tests..."
 ifdef GOTESTSUM
-	@echo "  (using gotestsum)"
-	gotestsum --format testdox --rerun-fails --rerun-fails-max-failures 3 --packages ./tests/cli/... -- -v -race -timeout 5m
+	@echo "  (using gotestsum without rerun-fails for deterministic CLI execution)"
+	gotestsum --format testdox --packages ./tests/cli/... -- -v -race -timeout 15m
 else
 	@echo "  (gotestsum not found, using go test)"
-	$(GOTEST) -v -race -timeout 5m ./tests/cli/...
+	$(GOTEST) -v -race -timeout 15m ./tests/cli/...
 endif
 
-# Generate PGO profile from benchmarks (includes container tests)
-# This produces a CPU profile that Go 1.20+ uses for Profile-Guided Optimization.
-# The profile is stored as default.pgo which Go automatically detects.
+# Generate PGO profile from benchmarks (includes container tests).
+# The benchmark run forces -pgo=off so training data is not biased by an
+# existing profile. The resulting CPU profile is written to default.pgo.
 .PHONY: pgo-profile
 pgo-profile:
 	@echo "Generating PGO profile from benchmarks..."
 	@echo "This may take several minutes..."
-	$(GOTEST) -run=^$$ -bench=. -benchtime=10s -cpuprofile=cpu.prof ./internal/benchmark/
+	$(GOTEST) -pgo=off -run=^$$ -bench=. -benchtime=10s -cpuprofile=cpu.prof ./internal/benchmark/
 	@mv cpu.prof default.pgo
 	@echo ""
 	@echo "PGO profile generated: default.pgo"
@@ -175,16 +184,45 @@ pgo-profile:
 	@echo "To verify PGO is active during builds:"
 	@echo "  GODEBUG=pgoinstall=1 make build 2>&1 | grep -i pgo"
 
-# Generate PGO profile (short mode - no container benchmarks)
+# Generate PGO profile (short mode - no container benchmarks).
 # Faster but may result in less comprehensive optimization.
 .PHONY: pgo-profile-short
 pgo-profile-short:
 	@echo "Generating PGO profile (short mode)..."
-	$(GOTEST) -run=^$$ -bench=. -benchtime=10s -short -cpuprofile=cpu.prof ./internal/benchmark/
+	$(GOTEST) -pgo=off -run=^$$ -bench=. -benchtime=10s -short -cpuprofile=cpu.prof ./internal/benchmark/
 	@mv cpu.prof default.pgo
 	@echo ""
 	@echo "PGO profile generated: default.pgo"
 	@ls -lh default.pgo | awk '{print "Profile size:", $$5}'
+
+# Generate a focused PGO profile for CUE/invowkfile/invowkmod parsing and discovery.
+# This target is intended for hot-path tuning in parser/discovery changes.
+.PHONY: pgo-profile-parse-discovery
+pgo-profile-parse-discovery:
+	@echo "Generating focused PGO profile (parse + discovery)..."
+	$(GOTEST) -pgo=off -run=^$$ -bench='^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$$' -benchtime=10s -cpuprofile=cpu.prof ./internal/benchmark/
+	@mv cpu.prof default.pgo
+	@echo ""
+	@echo "PGO profile generated: default.pgo"
+	@ls -lh default.pgo | awk '{print "Profile size:", $$5}'
+
+# Validate that default.pgo still represents current parser/discovery hot paths.
+.PHONY: pgo-audit
+pgo-audit:
+	./scripts/pgo-audit.sh
+
+# Run benchmark suite and generate a human-readable markdown report.
+# Default mode is short for reliability on machines without container engines.
+.PHONY: bench-report
+bench-report: build
+	@echo "Running benchmark report (short mode)..."
+	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) ./scripts/bench-report.sh --mode short --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
+
+# Run full benchmark suite (includes container benchmarks) and generate report.
+.PHONY: bench-report-full
+bench-report-full: build
+	@echo "Running benchmark report (full mode)..."
+	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) ./scripts/bench-report.sh --mode full --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
 
 # Clean build artifacts
 .PHONY: clean
@@ -260,26 +298,46 @@ check-types-json: build-goplint
 .PHONY: check-types-all
 check-types-all: build-goplint
 	@echo "Checking DDD type compliance (all modes)..."
-	./$(BUILD_DIR)/goplint -check-all -check-use-before-validate-cross -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	./$(BUILD_DIR)/goplint -check-all -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
 # Run all DDD checks with JSON output (for agent consumption)
 .PHONY: check-types-all-json
 check-types-all-json: build-goplint
-	./$(BUILD_DIR)/goplint -check-all -check-use-before-validate-cross -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
+	./$(BUILD_DIR)/goplint -check-all -json -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/... 2>/dev/null || true
+
+# Check semantic spec contracts for CFA-backed goplint categories.
+.PHONY: check-semantic-spec
+check-semantic-spec:
+	./tools/goplint/scripts/check-semantic-spec.sh
+
+# Check no-silent-downgrade compatibility between legacy and IFDS engines.
+.PHONY: check-ifds-compat
+check-ifds-compat:
+	./tools/goplint/scripts/check-ifds-compat.sh
+
+# Check Phase C refinement soundness, provenance, and determinism.
+.PHONY: check-cfg-refinement
+check-cfg-refinement:
+	./tools/goplint/scripts/check-cfg-refinement.sh
+
+# Check Phase D alias-mode precision stays opt-in and improves curated fixtures.
+.PHONY: check-cfg-alias
+check-cfg-alias: build-goplint
+	./tools/goplint/scripts/check-cfg-alias.sh
 
 # Check for goplint regressions against the committed baseline.
 # Reports only NEW findings not present in baseline.toml. Exit code 0 = clean.
 .PHONY: check-baseline
 check-baseline: build-goplint
 	@echo "Checking goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -check-use-before-validate-cross -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -cfg-interproc-engine=legacy -baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 
 # Update the goplint baseline from the current codebase state.
 # Run this after type improvements or new exceptions to shrink the baseline.
 .PHONY: update-baseline
 update-baseline: build-goplint
 	@echo "Updating goplint baseline..."
-	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -check-use-before-validate-cross -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -cfg-interproc-engine=legacy -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 	@echo "Baseline updated: tools/goplint/baseline.toml"
 
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)
@@ -290,10 +348,15 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh
+	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
+
+# Run local SonarQube Cloud analysis and print unresolved issues
+.PHONY: sonar-local
+sonar-local:
+	@./scripts/sonar-local.sh
 
 # Enforce 1000-line file length limit on all Go files (production + test).
 # Test files (_test.go) are included. Warns at 800 lines.
@@ -439,6 +502,10 @@ help:
 	@echo "  test-cli         Run CLI integration tests (testscript)"
 	@echo "  pgo-profile      Generate PGO profile from benchmarks (full)"
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
+	@echo "  pgo-profile-parse-discovery Generate focused PGO profile for CUE/discovery hot paths"
+	@echo "  pgo-audit        Validate default.pgo symbol freshness and hot-path coverage"
+	@echo "  bench-report     Run startup+Go benchmark report (short mode)"
+	@echo "  bench-report-full Run startup+Go benchmark report (full mode)"
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
 	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2)"
@@ -452,7 +519,12 @@ help:
 	@echo "  license-check    Verify SPDX headers in all Go files"
 	@echo "  lint             Run golangci-lint on root and tools/goplint modules"
 	@echo "  lint-tools-goplint  Run golangci-lint for tools/goplint module"
+	@echo "  check-semantic-spec Run semantic contract checks for tools/goplint"
+	@echo "  check-ifds-compat Run IFDS compare-mode no-silent-downgrade gate"
+	@echo "  check-cfg-refinement Run Phase C refinement gate for tools/goplint"
+	@echo "  check-cfg-alias  Run Phase D alias gate for opt-in SSA alias verification"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
+	@echo "  sonar-local      Run local SonarQube analysis and print unresolved issues"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
 	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
@@ -469,6 +541,14 @@ help:
 	@echo "  TYPE           Bump type for release-bump: major, minor, or patch"
 	@echo "  PRERELEASE     Pre-release label: alpha, beta, or rc (optional)"
 	@echo "  PROMOTE        Set to 1 to allow promoting a prerelease stream to stable"
+	@echo "  STARTUP_SAMPLES Number of startup samples for bench-report targets (default: 40)"
+	@echo "  BENCH_COUNT     Go benchmark run count for bench-report targets (default: 5)"
+	@echo "  BENCH_REPORT_OUT_DIR Output directory for bench-report targets (default: docs/benchmarks)"
+	@echo "  SONAR_TOKEN      Sonar token used by make sonar-local (required)"
+	@echo "  SONAR_HOST_URL   Sonar host URL (default: https://sonarcloud.io)"
+	@echo "  SONAR_ORGANIZATION Sonar organization key (default: invowk)"
+	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk)"
+	@echo "  SONAR_BRANCH     Branch for analysis/issues (default: current git branch)"
 	@echo "  YES            Set to 1 to skip confirmation prompts"
 	@echo "  DRY_RUN        Set to 1 to show actions without executing them"
 	@echo ""

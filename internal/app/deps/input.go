@@ -51,11 +51,16 @@ func ValidateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 		return nil // No argument definitions, allow any args (backward compatible)
 	}
 
-	// Count required args and check for variadic
-	minArgs := 0
-	maxArgs := len(argDefs)
-	hasVariadic := false
+	minArgs, maxArgs, hasVariadic := summarizeArgDefs(argDefs)
+	if err := validateArgumentCount(cmdName, providedArgs, argDefs, minArgs, maxArgs, hasVariadic); err != nil {
+		return err
+	}
+	return validateArgumentValues(cmdName, providedArgs, argDefs)
+}
 
+//goplint:ignore -- argument-validation helpers intentionally operate on raw argv counts and slices.
+func summarizeArgDefs(argDefs []invowkfile.Argument) (minArgs, maxArgs int, hasVariadic bool) {
+	maxArgs = len(argDefs)
 	for _, arg := range argDefs {
 		if arg.Required {
 			minArgs++
@@ -64,71 +69,69 @@ func ValidateArguments(cmdName string, providedArgs []string, argDefs []invowkfi
 			hasVariadic = true
 		}
 	}
+	return minArgs, maxArgs, hasVariadic
+}
 
-	// Check minimum args
+//goplint:ignore -- argument-validation helpers intentionally operate on raw argv counts and slices.
+func validateArgumentCount(cmdName string, providedArgs []string, argDefs []invowkfile.Argument, minArgs, maxArgs int, hasVariadic bool) error {
 	if len(providedArgs) < minArgs {
-		return &ArgumentValidationError{
-			Type:         ArgErrMissingRequired,
-			CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
-			ArgDefs:      argDefs,
-			ProvidedArgs: providedArgs,
-			MinArgs:      minArgs,
-			MaxArgs:      maxArgs,
-		}
+		return newArgumentCountError(ArgErrMissingRequired, cmdName, providedArgs, argDefs, minArgs, maxArgs)
 	}
-
-	// Check maximum args (only if not variadic)
 	if !hasVariadic && len(providedArgs) > maxArgs {
-		return &ArgumentValidationError{
-			Type:         ArgErrTooMany,
-			CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
-			ArgDefs:      argDefs,
-			ProvidedArgs: providedArgs,
-			MinArgs:      minArgs,
-			MaxArgs:      maxArgs,
-		}
+		return newArgumentCountError(ArgErrTooMany, cmdName, providedArgs, argDefs, minArgs, maxArgs)
 	}
+	return nil
+}
 
-	// Validate each provided argument
+//goplint:ignore -- argument-validation helpers intentionally operate on raw argv slices.
+func validateArgumentValues(cmdName string, providedArgs []string, argDefs []invowkfile.Argument) error {
 	for i, argValue := range providedArgs {
 		if i >= len(argDefs) {
-			// Extra args go to the last (variadic) argument - already validated to have one
 			break
 		}
 
 		argDef := argDefs[i]
-
-		// For variadic args, validate all remaining values
 		if argDef.Variadic {
-			for j := i; j < len(providedArgs); j++ {
-				if err := argDef.ValidateArgumentValue(providedArgs[j]); err != nil {
-					return &ArgumentValidationError{
-						Type:         ArgErrInvalidValue,
-						CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
-						ArgDefs:      argDefs,
-						ProvidedArgs: providedArgs,
-						InvalidArg:   argDef.Name,
-						InvalidValue: providedArgs[j],
-						ValueError:   err,
-					}
-				}
-			}
-			break
+			return validateVariadicArgumentValues(cmdName, providedArgs, argDefs, i, argDef)
 		}
-
-		// Validate non-variadic argument
 		if err := argDef.ValidateArgumentValue(argValue); err != nil {
-			return &ArgumentValidationError{
-				Type:         ArgErrInvalidValue,
-				CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
-				ArgDefs:      argDefs,
-				ProvidedArgs: providedArgs,
-				InvalidArg:   argDef.Name,
-				InvalidValue: argValue,
-				ValueError:   err,
-			}
+			return newArgumentValueError(cmdName, providedArgs, argDefs, argDef.Name, argValue, err)
 		}
 	}
-
 	return nil
+}
+
+//goplint:ignore -- argument-validation helpers intentionally operate on raw argv slices and indices.
+func validateVariadicArgumentValues(cmdName string, providedArgs []string, argDefs []invowkfile.Argument, start int, argDef invowkfile.Argument) error {
+	for i := start; i < len(providedArgs); i++ {
+		if err := argDef.ValidateArgumentValue(providedArgs[i]); err != nil {
+			return newArgumentValueError(cmdName, providedArgs, argDefs, argDef.Name, providedArgs[i], err)
+		}
+	}
+	return nil
+}
+
+//goplint:ignore -- argument-validation helpers intentionally operate on raw argv counts and slices.
+func newArgumentCountError(kind ArgErrType, cmdName string, providedArgs []string, argDefs []invowkfile.Argument, minArgs, maxArgs int) error {
+	return &ArgumentValidationError{
+		Type:         kind,
+		CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
+		ArgDefs:      argDefs,
+		ProvidedArgs: providedArgs,
+		MinArgs:      minArgs,
+		MaxArgs:      maxArgs,
+	}
+}
+
+//goplint:ignore -- argument-validation helpers intentionally operate on raw argv values.
+func newArgumentValueError(cmdName string, providedArgs []string, argDefs []invowkfile.Argument, argName invowkfile.ArgumentName, value string, valueErr error) error {
+	return &ArgumentValidationError{
+		Type:         ArgErrInvalidValue,
+		CommandName:  invowkfile.CommandName(cmdName), //goplint:ignore -- display value in error type
+		ArgDefs:      argDefs,
+		ProvidedArgs: providedArgs,
+		InvalidArg:   argName,
+		InvalidValue: value,
+		ValueError:   valueErr,
+	}
 }

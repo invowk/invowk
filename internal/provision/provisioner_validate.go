@@ -4,7 +4,8 @@ package provision
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ErrInvalidResult is the sentinel error wrapped by InvalidResultError.
@@ -19,7 +20,7 @@ type InvalidResultError struct {
 
 // Error implements the error interface for InvalidResultError.
 func (e *InvalidResultError) Error() string {
-	return fmt.Sprintf("invalid provision result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("provision result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidResult for errors.Is() compatibility.

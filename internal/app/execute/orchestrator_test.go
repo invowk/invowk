@@ -3,6 +3,7 @@
 package execute
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -244,7 +245,8 @@ func TestBuildExecutionContext(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotCtx, err := BuildExecutionContext(tt.opts)
+			var nilCtx context.Context
+			gotCtx, err := BuildExecutionContext(nilCtx, tt.opts)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -268,7 +270,8 @@ func TestBuildExecutionContext_ContextPropagation(t *testing.T) {
 	t.Run("nil Context defaults to non-nil context", func(t *testing.T) {
 		t.Parallel()
 
-		gotCtx, err := BuildExecutionContext(BuildExecutionContextOptions{
+		var nilCtx context.Context
+		gotCtx, err := BuildExecutionContext(nilCtx, BuildExecutionContextOptions{
 			Command:    cmd,
 			Invowkfile: inv,
 			Selection:  sel,
@@ -277,7 +280,7 @@ func TestBuildExecutionContext_ContextPropagation(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if gotCtx.Context == nil {
-			t.Error("Context should default to non-nil when opts.Context is nil")
+			t.Error("Context should default to non-nil when BuildExecutionContext context is nil")
 		}
 	})
 
@@ -285,11 +288,10 @@ func TestBuildExecutionContext_ContextPropagation(t *testing.T) {
 		t.Parallel()
 
 		callerCtx := t.Context()
-		gotCtx, err := BuildExecutionContext(BuildExecutionContextOptions{
+		gotCtx, err := BuildExecutionContext(callerCtx, BuildExecutionContextOptions{
 			Command:    cmd,
 			Invowkfile: inv,
 			Selection:  sel,
-			Context:    callerCtx,
 		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -307,7 +309,8 @@ func TestBuildExecutionContext_MetadataOmittedWhenEmpty(t *testing.T) {
 	inv := &invowkfile.Invowkfile{}
 	sel := RuntimeSelection{mode: invowkfile.RuntimeNative, impl: &invowkfile.Implementation{}}
 
-	gotCtx, err := BuildExecutionContext(BuildExecutionContextOptions{
+	var nilCtx context.Context
+	gotCtx, err := BuildExecutionContext(nilCtx, BuildExecutionContextOptions{
 		Command:    cmd,
 		Invowkfile: inv,
 		Selection:  sel,
@@ -392,7 +395,8 @@ func TestBuildExecutionContext_InheritanceValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := BuildExecutionContext(tt.opts)
+			var nilCtx context.Context
+			_, err := BuildExecutionContext(nilCtx, tt.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildExecutionContext() error = %v, wantErr %v", err, tt.wantErr)
 			}

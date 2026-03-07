@@ -141,60 +141,21 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 		return nil
 	}
 
-	discoverCtx := context.Background()
-	if ctx != nil && ctx.Context != nil {
-		discoverCtx = ctx.Context
-	}
-
-	commandSetResult, err := disc.DiscoverCommandSet(discoverCtx)
+	available, err := discoverAvailableCommands(disc, ctx)
 	if err != nil {
-		return fmt.Errorf("failed to discover commands for dependency validation: %w", err)
-	}
-
-	availableCommands := commandSetResult.Set.Commands
-
-	available := make(map[invowkfile.CommandName]struct{}, len(availableCommands))
-	for _, cmd := range availableCommands {
-		available[cmd.Name] = struct{}{}
+		return err
 	}
 
 	var commandErrors []DependencyMessage
 
 	for _, dep := range deps.Commands {
-		var alternatives []string
-		for _, alt := range dep.Alternatives {
-			trimmed := strings.TrimSpace(string(alt))
-			if trimmed == "" {
-				continue
-			}
-			alternatives = append(alternatives, trimmed)
-		}
+		alternatives := normalizedCommandAlternatives(dep)
 		if len(alternatives) == 0 {
 			continue
 		}
 
-		// OR semantics: any alternative being discoverable satisfies this dependency.
-		found := false
-		for _, alt := range alternatives {
-			if _, ok := available[invowkfile.CommandName(alt)]; ok { //goplint:ignore -- map key lookup only
-				found = true
-				break
-			}
-
-			// Also allow referencing commands from the current invowkfile without a module prefix.
-			qualified := invowkfile.CommandName(currentModule + " " + alt) //goplint:ignore -- map key lookup only
-			if _, ok := available[qualified]; ok {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			if len(alternatives) == 1 {
-				commandErrors = append(commandErrors, DependencyMessage(fmt.Sprintf("  • %s - command not found", alternatives[0])))
-			} else {
-				commandErrors = append(commandErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found", strings.Join(alternatives, ", "))))
-			}
+		if !commandAlternativeExists(available, currentModule, alternatives) {
+			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, false))
 		}
 	}
 
@@ -206,4 +167,66 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 	}
 
 	return nil
+}
+
+func discoverAvailableCommands(disc CommandSetProvider, ctx *runtime.ExecutionContext) (map[invowkfile.CommandName]struct{}, error) {
+	discoverCtx := context.Background()
+	if ctx != nil && ctx.Context != nil {
+		discoverCtx = ctx.Context
+	}
+
+	commandSetResult, err := disc.DiscoverCommandSet(discoverCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover commands for dependency validation: %w", err)
+	}
+
+	available := make(map[invowkfile.CommandName]struct{}, len(commandSetResult.Set.Commands))
+	for _, cmd := range commandSetResult.Set.Commands {
+		available[cmd.Name] = struct{}{}
+	}
+	return available, nil
+}
+
+//goplint:ignore -- helper normalizes discovered command names for dependency checks.
+func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []string {
+	var alternatives []string
+	for _, alt := range dep.Alternatives {
+		trimmed := strings.TrimSpace(string(alt))
+		if trimmed != "" {
+			alternatives = append(alternatives, trimmed)
+		}
+	}
+	return alternatives
+}
+
+//goplint:ignore -- helper probes normalized command alternatives against discovery output.
+func commandAlternativeExists(available map[invowkfile.CommandName]struct{}, currentModule string, alternatives []string) bool {
+	for _, alt := range alternatives {
+		if _, ok := available[invowkfile.CommandName(alt)]; ok { //goplint:ignore -- map key lookup only
+			return true
+		}
+
+		qualified := invowkfile.CommandName(currentModule + " " + alt) //goplint:ignore -- map key lookup only
+		if _, ok := available[qualified]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+//goplint:ignore -- helper formats normalized command-alternative display strings.
+func formatMissingCommandDependency(alternatives []string, inContainer bool) DependencyMessage {
+	if len(alternatives) == 1 {
+		suffix := "command not found"
+		if inContainer {
+			suffix = "command not found in container"
+		}
+		return DependencyMessage(fmt.Sprintf("  • %s - %s", alternatives[0], suffix))
+	}
+
+	message := "  • none of [%s] found"
+	if inContainer {
+		message = "  • none of [%s] found in container"
+	}
+	return DependencyMessage(fmt.Sprintf(message, strings.Join(alternatives, ", ")))
 }

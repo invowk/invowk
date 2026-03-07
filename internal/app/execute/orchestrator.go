@@ -14,6 +14,7 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	platmeta "github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ErrInvalidRuntimeSelection is the sentinel error wrapped by InvalidRuntimeSelectionError.
@@ -75,12 +76,6 @@ type (
 		// Platform is the resolved platform for this execution.
 		// Injected as INVOWK_PLATFORM so scripts can self-introspect the target platform.
 		Platform invowkfile.Platform
-
-		// Context is the caller's context for cancellation and timeout propagation.
-		// When nil, defaults to context.Background(). Callers should set this to
-		// their request-scoped context so that Ctrl+C and deadlines propagate to
-		// the execution runtime.
-		Context context.Context
 	}
 )
 
@@ -130,7 +125,7 @@ func (r RuntimeSelection) Validate() error {
 
 // Error implements the error interface for InvalidRuntimeSelectionError.
 func (e *InvalidRuntimeSelectionError) Error() string {
-	return fmt.Sprintf("invalid runtime selection: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("runtime selection", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidRuntimeSelection for errors.Is() compatibility.
@@ -220,10 +215,12 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 }
 
 // BuildExecutionContext converts options into a runtime.ExecutionContext.
+// The ctx parameter controls cancellation and timeout propagation; when nil,
+// it defaults to context.Background().
 // It validates env inheritance overrides (mode, allow, deny) and returns an error
 // for invalid values. Flags and arguments are projected into INVOWK_FLAG_*,
 // INVOWK_ARG_*, ARGn, and ARGC environment variables.
-func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.ExecutionContext, error) {
+func BuildExecutionContext(ctx context.Context, opts BuildExecutionContextOptions) (*runtime.ExecutionContext, error) {
 	if opts.Command == nil {
 		return nil, errors.New("BuildExecutionContext: Command must not be nil")
 	}
@@ -237,7 +234,6 @@ func BuildExecutionContext(opts BuildExecutionContextOptions) (*runtime.Executio
 		return nil, fmt.Errorf("invalid execution context options: %w", err)
 	}
 
-	ctx := opts.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}

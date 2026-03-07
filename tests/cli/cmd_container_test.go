@@ -3,9 +3,7 @@
 package cli
 
 import (
-	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -28,11 +26,14 @@ const (
 	containerNamePrefix = "invowk-test-"
 )
 
-// containerSetup extends commonSetup with container-specific cleanup.
-// It registers a deferred cleanup function that removes any orphaned containers
-// if the test times out or fails unexpectedly.
+// containerSetup extends commonSetup with container-specific cleanup and
+// engine pinning. Every container txtar uses the exact same verified engine
+// via a test-scoped config file.
 func containerSetup(env *testscript.Env) error {
 	if err := commonSetup(env); err != nil {
+		return err
+	}
+	if err := ensureContainerSuiteConfig(env); err != nil {
 		return err
 	}
 
@@ -44,71 +45,29 @@ func containerSetup(env *testscript.Env) error {
 	// Register cleanup to run after test completes (pass, fail, or timeout).
 	// This prevents resource leaks when tests hang and are terminated by the deadline.
 	env.Defer(func() {
-		cleanupTestContainers(containerPrefix)
+		cleanupTestContainersForHarness(containerPrefix, currentContainerHarness())
 	})
 
 	return nil
 }
 
-// cleanupTestContainers removes any containers with the given name prefix.
-// This handles cleanup after test timeout or unexpected failure, preventing resource leaks.
-//
-// The function tries both Docker and Podman since we don't know which engine
-// was used to create the containers. All errors are silently ignored since
-// cleanup is best-effort and should not fail tests.
-func cleanupTestContainers(prefix string) {
-	// Try both Docker and Podman - we don't know which engine was used
-	engines := []string{"docker", "podman"}
-
-	for _, engine := range engines {
-		enginePath, err := exec.LookPath(engine)
-		if err != nil {
-			continue // Engine not found, try next
-		}
-
-		// List containers matching the prefix (including stopped containers)
-		// Intentional: helper runs outside test function scope; no t.Context() available.
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		listCmd := exec.CommandContext(ctx, enginePath, "ps", "-a", "-q",
-			"--filter", "name="+prefix)
-		output, err := listCmd.Output()
-		cancel()
-
-		if err != nil || len(output) == 0 {
-			continue // No containers found or error, try next engine
-		}
-
-		// Remove found containers (force remove to handle running containers)
-		for containerID := range strings.FieldsSeq(strings.TrimSpace(string(output))) {
-			// Intentional: keep cleanup independent from test-scoped cancellation.
-			rmCtx, rmCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			rmCmd := exec.CommandContext(rmCtx, enginePath, "rm", "-f", containerID)
-			_ = rmCmd.Run() // Best effort - ignore errors
-			rmCancel()
-		}
-
-		return // Only use one engine (the one that found containers)
-	}
-}
-
-// TestContainerCLI runs container-related testscript tests in parallel.
-//
-// Container tests are separated from TestCLI for organizational purposes.
-// Transient rootless Podman errors (ping_group_range race, exit code 125,
-// overlay mount races) are handled by run-level retry in the container
-// runtime (runWithRetry in internal/runtime/container_exec.go), enabling
-// safe parallel execution.
-//
-// See .claude/docs/podman-parallel-tests.md for details on the underlying issue.
+// TestContainerCLI runs container-related testscript tests using a single
+// pinned engine under a suite-scoped cross-process lock. This intentionally
+// trades some throughput for deterministic behavior in full-suite runs.
 func TestContainerCLI(t *testing.T) {
-	t.Parallel()
-
 	if testing.Short() {
 		t.Skip("skipping container tests in short mode")
 	}
+	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
+	defer releaseSuiteLock()
 
-	if !containerAvailable {
-		t.Skip("skipping: no functional container runtime available")
+	harness := currentContainerHarness()
+	switch harness.status {
+	case containerHarnessStatusSkip:
+		t.Skipf("skipping: %s", harness.reason)
+	case containerHarnessStatusFail:
+		t.Fatalf("container CLI infrastructure unavailable: %s", harness.reason)
+	case containerHarnessStatusReady:
 	}
 
 	// Find all container test files
@@ -129,22 +88,11 @@ func TestContainerCLI(t *testing.T) {
 		t.Skip("no container tests found")
 	}
 
-	// Run each container test in parallel. Transient rootless Podman errors
-	// (ping_group_range race, exit code 125) are absorbed by run-level retry
-	// in the container runtime, making parallel execution safe.
+	// Run each container test serially within the suite. This avoids testscript-
+	// level build/run contention while the rest of the repo can stay parallel.
 	for _, testFile := range containerTests {
 		testName := strings.TrimSuffix(filepath.Base(testFile), ".txtar")
 		t.Run(testName, func(t *testing.T) {
-			t.Parallel()
-
-			// Acquire a slot from the process-wide container semaphore to limit
-			// concurrent container operations. This prevents Podman resource
-			// exhaustion on constrained CI runners where too many concurrent
-			// operations cause indefinite hangs.
-			sem := testutil.ContainerSemaphore()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
 			// Set a per-test deadline to prevent indefinite hangs.
 			// Container operations (image pulls, startup, network issues) can hang forever
 			// without an explicit timeout. This ensures tests fail fast with a clear error.
@@ -154,7 +102,7 @@ func TestContainerCLI(t *testing.T) {
 				Files:           []string{testFile},
 				Setup:           containerSetup,
 				Condition:       commonCondition,
-				ContinueOnError: true,
+				ContinueOnError: false,
 				Deadline:        deadline,
 			})
 		})

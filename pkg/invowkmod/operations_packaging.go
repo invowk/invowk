@@ -17,6 +17,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const invalidZIPPathFmt = "invalid path in ZIP: %s"
+
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
 func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.FilesystemPath, err error) {
@@ -144,49 +146,17 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 		return "", errors.New("source cannot be empty")
 	}
 
-	// Default destination to current directory
-	destDir := string(opts.DestDir)
-	if destDir == "" {
-		destDir, err = os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("failed to get current directory: %w", err)
-		}
-	}
-
-	// Resolve absolute destination path
-	absDestDir, err := filepath.Abs(destDir)
+	absDestDir, err := resolveUnpackDestination(opts.DestDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve destination directory: %w", err)
+		return "", err
 	}
 
-	// Ensure destination exists
-	if err = os.MkdirAll(absDestDir, 0o755); err != nil {
-		return "", fmt.Errorf("failed to create destination directory: %w", err)
-	}
-
-	// Check if source is a URL
-	var zipPath string
-	var cleanup func()
-	if strings.HasPrefix(opts.Source, "http://") || strings.HasPrefix(opts.Source, "https://") {
-		// Download the file
-		var tmpFile string
-		tmpFile, err = downloadFile(ctx, opts.Source)
-		if err != nil {
-			return "", fmt.Errorf("failed to download module: %w", err)
-		}
-		zipPath = tmpFile
-		cleanup = func() { _ = os.Remove(tmpFile) } // Best-effort cleanup of temp file
-	} else {
-		// Local file
-		zipPath, err = filepath.Abs(opts.Source)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve source path: %w", err)
-		}
-		cleanup = func() {}
+	zipPath, cleanup, err := resolveUnpackSource(ctx, opts.Source)
+	if err != nil {
+		return "", err
 	}
 	defer cleanup()
 
-	// Open the ZIP file
 	zipReader, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to open ZIP file: %w", err)
@@ -197,108 +167,168 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 		}
 	}()
 
-	// Find the module root directory in the ZIP
-	var moduleRoot string
-	for _, file := range zipReader.File {
-		cleanPath := path.Clean(strings.ReplaceAll(file.Name, "\\", "/"))
-		if cleanPath == "." || cleanPath == "" ||
-			strings.HasPrefix(cleanPath, "/") ||
-			cleanPath == ".." ||
-			strings.HasPrefix(cleanPath, "../") {
-			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
-		}
-
-		// Look for the .invowkmod directory
-		parts := strings.Split(cleanPath, "/")
-		if len(parts) > 0 && strings.HasSuffix(parts[0], ModuleSuffix) {
-			moduleRoot = parts[0]
-			break
-		}
-	}
-
-	if moduleRoot == "" {
-		return "", fmt.Errorf("no valid module found in ZIP (expected directory ending with %s)", ModuleSuffix)
-	}
-
-	// Check if module already exists
-	modulePath := filepath.Join(absDestDir, filepath.FromSlash(moduleRoot))
-	moduleRelPath, relErr := filepath.Rel(absDestDir, modulePath)
-	if relErr != nil ||
-		moduleRelPath == ".." ||
-		strings.HasPrefix(moduleRelPath, ".."+string(filepath.Separator)) ||
-		filepath.IsAbs(moduleRelPath) {
-		return "", fmt.Errorf("invalid module root in ZIP: %s", moduleRoot)
-	}
-	if _, statErr := os.Stat(modulePath); statErr == nil {
-		if !opts.Overwrite {
-			return "", fmt.Errorf("module already exists at %s (use overwrite option to replace)", modulePath)
-		}
-		// Remove existing module
-		if err = os.RemoveAll(modulePath); err != nil {
-			return "", fmt.Errorf("failed to remove existing module: %w", err)
-		}
-	}
-
-	// Extract files
-	for _, file := range zipReader.File {
-		cleanPath := path.Clean(strings.ReplaceAll(file.Name, "\\", "/"))
-		if cleanPath == "." || cleanPath == "" ||
-			strings.HasPrefix(cleanPath, "/") ||
-			cleanPath == ".." ||
-			strings.HasPrefix(cleanPath, "../") {
-			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
-		}
-
-		// Skip files not in the module root
-		if cleanPath != moduleRoot && !strings.HasPrefix(cleanPath, moduleRoot+"/") {
-			continue
-		}
-
-		// Construct destination path
-		destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
-
-		// Validate path doesn't escape destination (security check)
-		relPath, relErr := filepath.Rel(absDestDir, destPath)
-		if relErr != nil ||
-			relPath == ".." ||
-			strings.HasPrefix(relPath, ".."+string(filepath.Separator)) ||
-			filepath.IsAbs(relPath) {
-			return "", fmt.Errorf("invalid path in ZIP: %s", file.Name)
-		}
-
-		if file.FileInfo().IsDir() {
-			// Create directory
-			if mkdirErr := os.MkdirAll(destPath, file.Mode()); mkdirErr != nil {
-				return "", fmt.Errorf("failed to create directory: %w", mkdirErr)
-			}
-			continue
-		}
-
-		// Create parent directory if needed
-		parentDir := filepath.Dir(destPath)
-		if mkdirErr := os.MkdirAll(parentDir, 0o755); mkdirErr != nil {
-			return "", fmt.Errorf("failed to create parent directory: %w", mkdirErr)
-		}
-
-		// Extract file
-		if extractErr := extractFile(file, destPath); extractErr != nil {
-			return "", fmt.Errorf("failed to extract %s: %w", file.Name, extractErr)
-		}
-	}
-
-	// Validate the extracted module
-	modLoadPath := types.FilesystemPath(modulePath)
-	if validateErr := modLoadPath.Validate(); validateErr != nil {
-		return "", fmt.Errorf("extracted module path: %w", validateErr)
-	}
-	_, err = Load(modLoadPath)
+	moduleRoot, err := findModuleRoot(zipReader.File)
 	if err != nil {
-		// Clean up on validation failure (best-effort)
+		return "", err
+	}
+
+	modulePath, err := prepareModuleDestination(absDestDir, moduleRoot, opts.Overwrite)
+	if err != nil {
+		return "", err
+	}
+
+	if err := extractModuleFiles(zipReader.File, moduleRoot, absDestDir); err != nil {
+		return "", err
+	}
+
+	if err := validateExtractedModule(modulePath); err != nil {
 		_ = os.RemoveAll(modulePath)
 		return "", fmt.Errorf("extracted module is invalid: %w", err)
 	}
 
 	return modulePath, nil
+}
+
+//goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
+func resolveUnpackDestination(destDir types.FilesystemPath) (string, error) {
+	destination := string(destDir)
+	if destination == "" {
+		var err error
+		destination, err = os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current directory: %w", err)
+		}
+	}
+
+	absDestDir, err := filepath.Abs(destination)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve destination directory: %w", err)
+	}
+	if err := os.MkdirAll(absDestDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create destination directory: %w", err)
+	}
+	return absDestDir, nil
+}
+
+//goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
+func resolveUnpackSource(ctx context.Context, source string) (zipPath string, cleanup func(), err error) {
+	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
+		zipPath, err = downloadFile(ctx, source)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to download module: %w", err)
+		}
+		return zipPath, func() { _ = os.Remove(zipPath) }, nil
+	}
+
+	zipPath, err = filepath.Abs(source)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to resolve source path: %w", err)
+	}
+	return zipPath, func() {}, nil
+}
+
+//goplint:ignore -- unpack helpers operate on transient ZIP member path strings.
+func normalizeZIPPath(name string) (string, error) {
+	cleanPath := path.Clean(strings.ReplaceAll(name, "\\", "/"))
+	if cleanPath == "." || cleanPath == "" ||
+		strings.HasPrefix(cleanPath, "/") ||
+		cleanPath == ".." ||
+		strings.HasPrefix(cleanPath, "../") {
+		return "", fmt.Errorf(invalidZIPPathFmt, name)
+	}
+	return cleanPath, nil
+}
+
+//goplint:ignore -- unpack helpers operate on transient ZIP member path strings.
+func findModuleRoot(files []*zip.File) (string, error) {
+	for _, file := range files {
+		cleanPath, err := normalizeZIPPath(file.Name)
+		if err != nil {
+			return "", err
+		}
+		parts := strings.Split(cleanPath, "/")
+		if len(parts) > 0 && strings.HasSuffix(parts[0], ModuleSuffix) {
+			return parts[0], nil
+		}
+	}
+	return "", fmt.Errorf("no valid module found in ZIP (expected directory ending with %s)", ModuleSuffix)
+}
+
+//goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
+func prepareModuleDestination(absDestDir, moduleRoot string, overwrite bool) (string, error) {
+	modulePath := filepath.Join(absDestDir, filepath.FromSlash(moduleRoot))
+	if err := validateDestinationPath(absDestDir, modulePath, "invalid module root in ZIP: %s", moduleRoot); err != nil {
+		return "", err
+	}
+
+	if _, statErr := os.Stat(modulePath); statErr == nil {
+		if !overwrite {
+			return "", fmt.Errorf("module already exists at %s (use overwrite option to replace)", modulePath)
+		}
+		if err := os.RemoveAll(modulePath); err != nil {
+			return "", fmt.Errorf("failed to remove existing module: %w", err)
+		}
+	}
+
+	return modulePath, nil
+}
+
+//goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
+func extractModuleFiles(files []*zip.File, moduleRoot, absDestDir string) error {
+	for _, file := range files {
+		cleanPath, err := normalizeZIPPath(file.Name)
+		if err != nil {
+			return err
+		}
+		if cleanPath != moduleRoot && !strings.HasPrefix(cleanPath, moduleRoot+"/") {
+			continue
+		}
+
+		destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
+		if err := validateDestinationPath(absDestDir, destPath, invalidZIPPathFmt, file.Name); err != nil {
+			return err
+		}
+
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(destPath, file.Mode()); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+			continue
+		}
+
+		parentDir := filepath.Dir(destPath)
+		if err := os.MkdirAll(parentDir, 0o755); err != nil {
+			return fmt.Errorf("failed to create parent directory: %w", err)
+		}
+		if err := extractFile(file, destPath); err != nil {
+			return fmt.Errorf("failed to extract %s: %w", file.Name, err)
+		}
+	}
+	return nil
+}
+
+//goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
+func validateDestinationPath(root, candidate, format, value string) error {
+	relPath, err := filepath.Rel(root, candidate)
+	if err != nil ||
+		relPath == ".." ||
+		strings.HasPrefix(relPath, ".."+string(filepath.Separator)) ||
+		filepath.IsAbs(relPath) {
+		return fmt.Errorf(format, value)
+	}
+	return nil
+}
+
+//goplint:ignore -- unpack helpers operate on transient OS-native module paths.
+func validateExtractedModule(modulePath string) error {
+	modLoadPath := types.FilesystemPath(modulePath)
+	if err := modLoadPath.Validate(); err != nil {
+		return fmt.Errorf("extracted module path: %w", err)
+	}
+	if _, err := Load(modLoadPath); err != nil {
+		return err
+	}
+	return nil
 }
 
 // downloadFile downloads a file from a URL and returns the path to the temporary file.

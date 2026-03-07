@@ -12,6 +12,10 @@ internal/runtime/id_ed25519.pub
 *.test
 *.out
 
+# Sonar local analysis artifacts
+.scannerwork/
+.sonar/reports/
+
 # PGO temporary profiles (keep committed default.pgo)
 cpu.prof
 mem.prof

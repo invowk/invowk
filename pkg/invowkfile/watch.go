@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -110,7 +112,7 @@ func (w WatchConfig) Validate() error {
 
 // Error implements the error interface for InvalidWatchConfigError.
 func (e *InvalidWatchConfigError) Error() string {
-	return fmt.Sprintf("invalid watch config: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("watch config", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidWatchConfig for errors.Is() compatibility.

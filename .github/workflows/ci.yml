@@ -134,10 +134,26 @@ jobs:
         if: matrix.engine != '' && startsWith(matrix.runner, 'ubuntu')
         run: ${{ matrix.engine }} pull debian:stable-slim
 
-      # Run full tests (includes integration tests with containers)
-      # gotestsum wraps go test with --rerun-fails for transient infrastructure failures.
-      # Explicit 15m timeout allows enough time for container operations (image pulls, startup).
-      - name: Run tests (full)
+      # Run full tests except CLI integration tests.
+      # CLI is split out below so the container CLI suite is no longer hidden
+      # behind generic rerun-fails behavior.
+      - name: Run tests (full, non-CLI)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_PARALLEL: "2"
+        run: |
+          PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/tests/cli$' | grep -v '^github.com/invowk/invowk/internal/runtime$' | tr '\n' ' ')"
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report rerun-report.txt \
+            --packages "$PACKAGES" \
+            -- -race -timeout 15m -coverprofile=coverage.out
+
+      - name: Run internal/runtime tests (full)
         if: matrix.test-mode == 'full'
         shell: bash
         env:
@@ -145,12 +161,27 @@ jobs:
         run: |
           gotestsum \
             --format testdox \
-            --junitfile test-results.xml \
+            --junitfile runtime-test-results.xml \
             --rerun-fails \
             --rerun-fails-max-failures 5 \
-            --rerun-fails-report rerun-report.txt \
-            --packages ./... \
-            -- -race -timeout 15m -coverprofile=coverage.out
+            --rerun-fails-report runtime-rerun-report.txt \
+            --packages ./internal/runtime \
+            -- -race -timeout 15m
+
+      - name: Run CLI integration tests (full)
+        if: matrix.test-mode == 'full'
+        shell: bash
+        env:
+          INVOWK_TEST_CONTAINER_ENGINE: ${{ matrix.engine }}
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile cli-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 5 \
+            --rerun-fails-report cli-rerun-report.txt \
+            --packages ./tests/cli/... \
+            -- -race -timeout 15m
 
       # Run short tests (unit tests only, no container dependencies)
       # Uses bash shell to avoid PowerShell parsing issues on Windows
@@ -183,6 +214,14 @@ jobs:
             --packages ./tests/cli/... \
             -- -race -timeout 5m
 
+      # Benchmark smoke test (single ubuntu-latest leg only).
+      # Ensures benchmarks stay compilable/runnable in regular CI without
+      # adding heavy benchmark load to every matrix entry.
+      - name: Run benchmark smoke tests
+        if: matrix.runner == 'ubuntu-latest' && matrix.engine == 'docker'
+        shell: bash
+        run: go test ./internal/benchmark -run=^$ -bench=. -benchtime=1x -short -count=1
+
       # Run install script unit tests (pure function tests, no network calls).
       # Only on Linux — the POSIX install script is not applicable on Windows/macOS CI.
       - name: Run install script tests
@@ -210,8 +249,10 @@ jobs:
           name: test-results-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
           path: |
             test-results.xml
+            runtime-test-results.xml
             cli-test-results.xml
             rerun-report.txt
+            runtime-rerun-report.txt
             cli-rerun-report.txt
           if-no-files-found: ignore
           retention-days: 30
@@ -222,7 +263,7 @@ jobs:
         uses: mikepenz/action-junit-report@v6
         with:
           report_paths: '*.xml'
-          check_name: Tests (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
+          check_name: JUnit Report (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
           fail_on_failure: true
           check_retries: true
           flaky_summary: true
@@ -233,7 +274,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for report in rerun-report.txt cli-rerun-report.txt; do
+          for report in rerun-report.txt runtime-rerun-report.txt cli-rerun-report.txt; do
             if [ -s "$report" ]; then
               echo "::warning::Flaky tests detected (rerun report: $report):"
               while IFS= read -r line; do
@@ -297,6 +338,47 @@ jobs:
         if: (matrix.os == 'linux' && matrix.arch == 'amd64') || matrix.os == 'darwin' || matrix.os == 'windows'
         run: ./invowk${{ matrix.os == 'windows' && '.exe' || '' }} --version
         shell: bash
+
+  # PGO profile sanity and freshness checks
+  pgo-sanity:
+    name: PGO Sanity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Audit committed PGO profile
+        run: make pgo-audit
+
+      - name: Require PGO refresh for parser/discovery changes
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+
+          echo "Changed files between base and head:"
+          echo "$changed_files"
+
+          hot_path_pattern='^(pkg/cueutil/|pkg/invowkfile/|pkg/invowkmod/|internal/discovery/)'
+          if echo "$changed_files" | grep -Eq "$hot_path_pattern"; then
+            if ! echo "$changed_files" | grep -Eq '^default\.pgo$'; then
+              echo "::error::Parser/discovery hot paths changed without refreshing default.pgo."
+              echo "::error::Run 'make pgo-profile-parse-discovery' and commit default.pgo."
+              exit 1
+            fi
+          fi
 
   # License header check
   license-check:

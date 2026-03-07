@@ -75,24 +75,8 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if ec, ok := updatedModel.(EmbeddableComponent); ok {
 			m.activeComponent = ec
 		}
-
-		// Check if the component is done
-		if m.activeComponent.IsDone() {
-			// Component is done - send our own completion message
-			// and ignore any command from the component (like tea.Quit)
-			// to prevent the interactive program from quitting prematurely
-			result, err := m.activeComponent.Result()
-			cancelled := m.activeComponent.Cancelled()
-			cmds = append(cmds, func() tea.Msg {
-				return tuiComponentDoneMsg{
-					result:    result,
-					err:       err,
-					cancelled: cancelled,
-				}
-			})
-		} else if cmd != nil {
-			// Only add the component's command if it's not done
-			cmds = append(cmds, cmd)
+		if doneCmd := m.componentDoneCmd(cmd); doneCmd != nil {
+			cmds = append(cmds, doneCmd)
 		}
 	}
 
@@ -117,7 +101,7 @@ func (m *interactiveModel) View() tea.View {
 	// Title bar
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7C3AED"))
+		Foreground(modalColorPrimary)
 
 	cmdStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#3B82F6"))
@@ -144,19 +128,19 @@ func (m *interactiveModel) View() tea.View {
 				Render("Failed")
 		}
 		footerContent += lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
+			Foreground(modalColorMuted).
 			Render("  |  arrows: scroll  |  Enter/q: exit")
 	} else {
 		footerContent = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#F59E0B")).
 			Render("Running...")
 		footerContent += lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
+			Foreground(modalColorMuted).
 			Render("  |  Ctrl+\\: force quit")
 	}
 
 	scrollPercent := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(modalColorMuted).
 		Render(fmt.Sprintf("  %3.f%%", m.viewport.ScrollPercent()*100))
 
 	footer := footerContent + scrollPercent
@@ -213,32 +197,12 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	case stateTUI:
 		// When displaying a TUI component, delegate to the component
 		if m.activeComponent != nil {
-			var cmds []tea.Cmd
 			updatedModel, cmd := m.activeComponent.Update(msg)
 			if ec, ok := updatedModel.(EmbeddableComponent); ok {
 				m.activeComponent = ec
 			}
-
-			// Check if the component is done
-			if m.activeComponent.IsDone() {
-				// Component is done - send our own completion message
-				// and ignore any command from the component (like tea.Quit)
-				// to prevent the interactive program from quitting prematurely
-				result, err := m.activeComponent.Result()
-				cancelled := m.activeComponent.Cancelled()
-				cmds = append(cmds, func() tea.Msg {
-					return tuiComponentDoneMsg{
-						result:    result,
-						err:       err,
-						cancelled: cancelled,
-					}
-				})
-			} else if cmd != nil {
-				// Only add the component's command if it's not done
-				cmds = append(cmds, cmd)
-			}
-
-			return m, tea.Batch(cmds...)
+			doneCmd := m.componentDoneCmd(cmd)
+			return m, doneCmd
 		}
 	}
 
@@ -312,6 +276,30 @@ func (m *interactiveModel) handleTUIComponentDone(msg tuiComponentDoneMsg) (tea.
 	m.state = stateExecuting
 
 	return m, nil
+}
+
+// componentDoneCmd checks if the active component is done and returns either a
+// tuiComponentDoneMsg command (to prevent tea.Quit from propagating) or the
+// original cmd if the component is still active. Returns nil if neither applies.
+func (m *interactiveModel) componentDoneCmd(cmd tea.Cmd) tea.Cmd {
+	if m.activeComponent.IsDone() {
+		// Component is done - send our own completion message
+		// and ignore any command from the component (like tea.Quit)
+		// to prevent the interactive program from quitting prematurely
+		result, err := m.activeComponent.Result()
+		cancelled := m.activeComponent.Cancelled()
+		return func() tea.Msg {
+			return tuiComponentDoneMsg{
+				result:    result,
+				err:       err,
+				cancelled: cancelled,
+			}
+		}
+	}
+	if cmd != nil {
+		return cmd
+	}
+	return nil
 }
 
 // forwardKeyToPty forwards keyboard input to the PTY.
@@ -436,11 +424,11 @@ func (m *interactiveModel) appendCompletionMessage() {
 	}
 
 	separator := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(modalColorMuted).
 		Render(strings.Repeat("-", 50))
 
 	durationStr := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
+		Foreground(modalColorMuted).
 		Render(fmt.Sprintf("Duration: %s", m.result.Duration.Round(time.Millisecond)))
 
 	m.content.WriteString("\n\n")
@@ -451,7 +439,7 @@ func (m *interactiveModel) appendCompletionMessage() {
 	m.content.WriteString(durationStr)
 	m.content.WriteString("\n\n")
 	m.content.WriteString(lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#A78BFA")).
+		Foreground(modalColorPrimarySoft).
 		Italic(true).
 		Render("Press Enter to return to terminal..."))
 	m.content.WriteString("\n")

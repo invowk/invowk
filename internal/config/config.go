@@ -4,7 +4,7 @@ package config
 
 import (
 	"context"
-	_ "embed"
+	_ "embed" // required for go:embed config_schema.cue
 	"errors"
 	"fmt"
 	"os"

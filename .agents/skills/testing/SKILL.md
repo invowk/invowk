@@ -20,12 +20,21 @@ Use this skill when:
 - Use this skill for implementation tactics and component-specific guidance.
 - If this skill conflicts with the testing rule, follow the rule.
 - `tools/goplint` tests are parallel-safe after analyzer-state de-globalization; use per-test analyzers and bounded `analysistest` concurrency where necessary.
+- Release any `analysistest` semaphore token in the same helper call (use `defer` in the helper); avoid `t.Cleanup` token release for multiply-invoked helpers, which can serialize or stall parallel tests.
 - Keep `modernize` clean in test code: avoid legacy loop-variable rebinding (`tt := tt` / `tc := tc`) and use `maps.Copy` for full-map clone loops.
 
 For host-path validation tests that depend on `filepath.IsAbs`, treat absoluteness as OS-native:
 - Generate valid absolute fixtures with `t.TempDir()` + `filepath.Join(...)`.
 - Keep explicit negative cases for relative and dot-relative inputs.
 - Do not assume Unix-style `/...` paths are valid on Windows.
+
+For tests that spawn shell commands via `exec.CommandContext`, prefer a fixed shell path helper over PATH lookup:
+- Use `/bin/sh` on Unix and `%SystemRoot%\\System32\\cmd.exe` on Windows (or a shared helper that resolves those locations).
+- This avoids Windows temp/path drift and prevents Sonar `go:S4036` hotspots on test-only shell invocations.
+
+For `make sonar-local` coverage failures, prioritize tests that exercise low-coverage production files under `cmd/`, `internal/`, and `pkg/`:
+- Adding more coverage under `tests/cli` or other test-only files often does not move Sonar's source coverage gate enough.
+- Favor focused unit tests for real helper/control-flow branches in the production package before broadening E2E coverage.
 
 For repo-relative typed path validators (for example `SubdirectoryPath`-style values), treat validation as cross-platform:
 - Normalize paths in implementation before checks (`filepath.ToSlash` + slash-based clean).

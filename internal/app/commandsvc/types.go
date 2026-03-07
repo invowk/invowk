@@ -58,6 +58,10 @@ type (
 		EnvInheritDeny []invowkfile.EnvVarName
 		// DryRun enables dry-run mode: returns execution plan without executing.
 		DryRun bool
+		// ResolvedCommand carries a pre-resolved command when the caller already
+		// performed discovery (for example, dynamic Cobra leaf execution). When set,
+		// Execute() can skip GetCommand discovery.
+		ResolvedCommand *discovery.CommandInfo
 		// UserEnv captures the host environment at execution entry, before invowk
 		// injects command-level env vars. When nil, Execute() populates it eagerly
 		// via the UserEnvProvider callback. Tests can set this to inject a controlled env.

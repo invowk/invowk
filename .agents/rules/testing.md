@@ -79,6 +79,8 @@ All new test functions MUST call `t.Parallel()` unless they mutate global/proces
 
 `tools/goplint` no longer relies on shared process-wide analyzer flag state; its tests use per-test analyzer instances and may run in parallel. Keep bounded concurrency controls where needed (for example, a semaphore around heavy `analysistest` runs) to avoid process exhaustion on constrained runners.
 
+When a helper acquires a test semaphore, release that token in the same helper call (typically via `defer`). Do not defer release with `t.Cleanup()` when the helper may run multiple times within one test, because tokens stay held until test end and can stall parallel suites.
+
 ### Table-Driven Subtests
 
 When a parent test calls `t.Parallel()`, **ALL** subtests inside `t.Run()` must also call `t.Parallel()`. This is enforced by the `tparallel` linter. If even one subtest cannot be parallelized, remove `t.Parallel()` from the parent too.
@@ -225,6 +227,8 @@ defer func() { <-sem }()
 
 Place this **after** `t.Parallel()` and any `testing.Short()` skip, but **before** any container operations. The semaphore is a `sync.OnceValue` singleton — each test binary gets its own instance. Default capacity is `min(GOMAXPROCS, 2)`, overridable via `INVOWK_TEST_CONTAINER_PARALLEL` env var (set to `"2"` in CI).
 
+**Note:** The `internal/runtime` container tests do NOT use `AcquireContainerSuiteLock` — the semaphore alone provides concurrency control. The suite lock is only used in `tests/cli` container tests for cross-process serialization during `make test` (where `internal/runtime` and `tests/cli` binaries may run concurrently). Do not add suite locks to `internal/runtime` tests — they make everything sequential and are redundant with the semaphore for single-process execution.
+
 **When to use the semaphore:**
 - Integration tests that run real container operations (Execute, ExecuteCapture, Build)
 - CLI testscript tests that invoke container commands
@@ -233,6 +237,28 @@ Place this **after** `t.Parallel()` and any `testing.Short()` skip, but **before
 - Unit tests with mocked container engines
 - Validation-only tests that don't start containers (e.g., `Validate()`, type assertions)
 - Error-path tests that fail before container operations (e.g., missing SSH server)
+
+**Layer 5: Go Integration Test Bounded Context (CRITICAL)**
+
+All Go container integration tests in `internal/runtime/` that call `Execute()` or
+`ExecuteCapture()` MUST use `testutil.ContainerTestContext` instead of bare `t.Context()`.
+Bare `t.Context()` has no deadline — if the container daemon hangs, the subprocess runs
+indefinitely until the binary-level timeout kills everything.
+
+```go
+ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
+execCtx := NewExecutionContext(ctx, cmd, inv)
+result := rt.Execute(execCtx)
+```
+
+`DefaultContainerTestTimeout` is 5 minutes. The deadline propagates through
+`exec.CommandContext` to SIGKILL the subprocess when exceeded. The container engine
+sets `cmd.WaitDelay = 10s` to forcefully close I/O pipes if container child processes
+keep them open after the process is killed, producing a clean test failure instead of
+a 30-minute binary panic.
+
+**When NOT to use:** Tests that only call `Validate()` or perform type assertions
+(no container daemon interaction).
 
 **When to adjust timeouts:**
 - If tests consistently need more than 3 minutes (e.g., large image pulls), increase `containerTestTimeout`

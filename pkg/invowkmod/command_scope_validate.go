@@ -4,7 +4,8 @@ package invowkmod
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ErrInvalidCommandScope is the sentinel error wrapped by InvalidCommandScopeError.
@@ -21,7 +22,7 @@ type (
 
 // Error implements the error interface for InvalidCommandScopeError.
 func (e *InvalidCommandScopeError) Error() string {
-	return fmt.Sprintf("invalid command scope: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("command scope", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidCommandScope for errors.Is() compatibility.

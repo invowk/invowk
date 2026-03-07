@@ -13,7 +13,7 @@ func TestPlatformConfig_Validate_ZeroValue(t *testing.T) {
 	t.Parallel()
 	// Zero-value PlatformConfig has empty Name — should fail.
 	pc := PlatformConfig{}
-	if err := pc.Validate(); err == nil {
+	if pc.Validate() == nil {
 		t.Fatal("PlatformConfig{}.Validate() should fail (empty Name)")
 	}
 }
@@ -78,7 +78,7 @@ func TestRuntimeConfig_Validate_ZeroValue(t *testing.T) {
 	t.Parallel()
 	// Zero-value RuntimeConfig has empty Name — should fail.
 	rc := RuntimeConfig{}
-	if err := rc.Validate(); err == nil {
+	if rc.Validate() == nil {
 		t.Fatal("RuntimeConfig{}.Validate() should fail (empty Name)")
 	}
 }

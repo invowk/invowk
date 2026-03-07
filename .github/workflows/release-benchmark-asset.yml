@@ -1,0 +1,128 @@
+name: Release Benchmark Asset
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach benchmark report to (e.g., v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-bench-report-${{ github.event.release.tag_name || github.event.inputs.tag || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  attach-benchmark-report:
+    name: Attach Benchmark Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Determine tag
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          DISPATCH_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TAG="$DISPATCH_TAG"
+          else
+            TAG="$RELEASE_TAG"
+          fi
+
+          if [[ -z "$TAG" ]]; then
+            echo "::error::Could not determine release tag"
+            exit 1
+          fi
+
+          echo "name=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
+
+      - name: Checkout tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.tag.outputs.name }}
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify gh CLI
+        run: gh --version
+
+      - name: Verify release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json name --jq '.name' >/dev/null
+
+      - name: Generate benchmark report
+        env:
+          STARTUP_SAMPLES: "40"
+          BENCH_COUNT: "5"
+          BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
+        run: |
+          set -euo pipefail
+
+          rm -rf "$BENCH_REPORT_OUT_DIR"
+          mkdir -p "$BENCH_REPORT_OUT_DIR"
+          make bench-report
+
+      - name: Resolve generated report
+        id: report
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
+          OUT_DIR: ${{ runner.temp }}/release-benchmarks
+        run: |
+          set -euo pipefail
+
+          mapfile -t reports < <(find "$OUT_DIR" -maxdepth 1 -type f -name '*.md' | sort)
+          count="${#reports[@]}"
+          if [[ "$count" -ne 1 ]]; then
+            echo "::error::Expected exactly 1 benchmark report in '$OUT_DIR', found $count"
+            if [[ "$count" -gt 0 ]]; then
+              printf 'Found files:\n%s\n' "${reports[@]}"
+            fi
+            exit 1
+          fi
+
+          report_path="${reports[0]}"
+          asset_name="invowk_${TAG}_bench-report.md"
+
+          echo "path=$report_path" >> "$GITHUB_OUTPUT"
+          echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"
+          echo "Report path: $report_path"
+          echo "Asset name: $asset_name"
+
+      - name: Upload benchmark report asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+          REPORT_PATH: ${{ steps.report.outputs.path }}
+          ASSET_NAME: ${{ steps.report.outputs.asset_name }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "${REPORT_PATH}#${ASSET_NAME}" --clobber
+
+      - name: Verify uploaded asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+          ASSET_NAME: ${{ steps.report.outputs.asset_name }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$ASSET_NAME" >/dev/null
+          echo "Verified release asset '$ASSET_NAME' on tag '$TAG'."

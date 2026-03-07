@@ -10,6 +10,8 @@ disable-model-invocation: true
 - Run lints and fix any errors: `make lint`
 - Check license: `make license-check`
 - If not in a feature/fix branch already, create one and switch to it
-- Commit with conventional commit message
+- Commit with a conventional commit message; for multi-line bodies prefer
+  `git commit -F -` or a message file instead of escaped `\n` in a single `-m`
+  string
 - Push branch
 - Create PR with description referencing the issue
