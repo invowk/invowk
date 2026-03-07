@@ -4,13 +4,10 @@ package container
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 	"os/exec"
 
 	"github.com/invowk/invowk/pkg/platform"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 // SandboxAwareEngine wraps a container Engine to handle execution from within
@@ -135,23 +132,7 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
 
-	err := cmd.Run()
-
-	result := &RunResult{}
-	if err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			exitCode := types.ExitCode(exitErr.ExitCode())
-			if validateErr := exitCode.Validate(); validateErr != nil {
-				return nil, fmt.Errorf("sandbox run exit code: %w", validateErr)
-			}
-			result.ExitCode = exitCode
-		} else {
-			result.ExitCode = 1
-			result.Error = err
-		}
-	}
-
-	return result, nil
+	return runResultFromExecError(cmd.Run(), "sandbox run")
 }
 
 // Remove removes a container.

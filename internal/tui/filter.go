@@ -453,49 +453,10 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 	}
 
 	delegate := list.NewDefaultDelegate()
-
+	applyDelegateStyles(&delegate, forModal)
 	if forModal {
-		// Modal-specific styles: ALL have EXPLICIT backgrounds to prevent color bleeding
-		// Terminal "transparent" doesn't exist - no background = terminal default shows through
-		base := modalBaseStyle()
-
-		// Normal item styles - explicit background on everything
-		delegate.Styles.NormalTitle = base.Foreground(modalColorForeground)
-		delegate.Styles.NormalDesc = base.Foreground(modalColorMuted)
-
-		// Selected item - use left border indicator WITH explicit background
-		delegate.Styles.SelectedTitle = base.
-			Foreground(modalColorPrimary).
-			Bold(true).
-			Padding(0, 0, 0, 1).
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(modalColorPrimary)
-		delegate.Styles.SelectedDesc = base.
-			Foreground(modalColorPrimarySoft).
-			Padding(0, 0, 0, 1)
-
-		// Dimmed styles - explicit backgrounds
-		delegate.Styles.DimmedTitle = base.Foreground(modalColorMuted)
-		delegate.Styles.DimmedDesc = base.Foreground(modalColorMuted)
-
-		// FilterMatch style - used for highlighting matching characters during filtering
-		// MUST have explicit background to prevent color bleeding
-		delegate.Styles.FilterMatch = base.Foreground(modalColorPrimarySoft).Bold(true)
-	} else {
-		// Default styles for non-modal usage
-		delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-		delegate.Styles.NormalDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("212")).
-			Bold(true).
-			Padding(0, 0, 0, 1).
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("212"))
-		delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("212")).
-			Padding(0, 0, 0, 1)
-		delegate.Styles.DimmedTitle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		delegate.Styles.DimmedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		// FilterMatch is filter-specific (not shared with choose)
+		delegate.Styles.FilterMatch = modalBaseStyle().Foreground(modalColorPrimarySoft).Bold(true)
 	}
 	delegate.ShowDescription = false
 	delegate.SetSpacing(0)
@@ -504,19 +465,11 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 	l.Title = opts.Title
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
+	applyListStyles(&l, forModal)
 
 	if forModal {
-		// Modal-specific list styles - ALL have EXPLICIT backgrounds
-		// This is critical: every single style must have the modal background
+		// Filter-specific modal styles beyond the shared set
 		base := modalBaseStyle()
-
-		l.Styles.Title = base.Bold(true).Foreground(modalColorPrimary)
-		l.Styles.TitleBar = base.Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = base.Foreground(modalColorMuted)
-		l.Styles.HelpStyle = base.Foreground(modalColorMuted)
-
-		// Additional styles - ALL have explicit backgrounds
-		l.Styles.NoItems = base.Foreground(modalColorMuted)
 		l.Styles.StatusBar = base.Foreground(modalColorMuted)
 		l.Styles.StatusEmpty = base.Foreground(modalColorMuted)
 		l.Styles.StatusBarActiveFilter = base.Foreground(modalColorPrimary)
@@ -524,8 +477,6 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		l.Styles.ActivePaginationDot = base.Foreground(modalColorPrimary)
 		l.Styles.InactivePaginationDot = base.Foreground(modalColorMuted)
 		l.Styles.DividerDot = base.Foreground(modalColorMuted)
-
-		// Additional styles - ALL have explicit backgrounds
 		l.Styles.Spinner = base.Foreground(modalColorPrimary)
 		l.Styles.DefaultFilterCharacterMatch = base.Foreground(modalColorPrimarySoft).Bold(true)
 		l.Styles.ArabicPagination = base.Foreground(modalColorMuted)
@@ -540,11 +491,6 @@ func newFilterModelWithStyles(opts FilterOptions, forModal bool) *filterModel {
 		l.Styles.Filter.Blurred.Suggestion = base.Foreground(modalColorMuted)
 		l.Styles.Filter.Cursor.Color = modalColorForeground
 	} else {
-		// Default list styles
-		l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
-		l.Styles.TitleBar = lipgloss.NewStyle().Padding(0, 0, 1, 0)
-		l.Styles.PaginationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		l.Styles.HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 		l.Styles.Filter.Focused.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
 		l.Styles.Filter.Blurred.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 		l.Styles.Filter.Cursor.Color = lipgloss.Color("212")

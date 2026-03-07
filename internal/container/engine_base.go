@@ -448,6 +448,29 @@ func (e *BaseCLIEngine) Build(ctx context.Context, opts BuildOptions) error {
 	return nil
 }
 
+// runResultFromExecError extracts exit code from a command execution error
+// into a RunResult. For exec.ExitError, the exit code is validated. For other
+// errors, exit code defaults to 1. The errContext labels validation error messages
+// (e.g., "container run", "sandbox run").
+//
+//goplint:ignore -- errContext is a format label for error messages, not a domain type.
+func runResultFromExecError(err error, errContext string) (*RunResult, error) {
+	result := &RunResult{}
+	if err != nil {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+			exitCode := types.ExitCode(exitErr.ExitCode())
+			if validateErr := exitCode.Validate(); validateErr != nil {
+				return nil, fmt.Errorf("%s exit code: %w", errContext, validateErr)
+			}
+			result.ExitCode = exitCode
+		} else {
+			result.ExitCode = 1
+			result.Error = err
+		}
+	}
+	return result, nil
+}
+
 // Run runs a command in a container and returns the result.
 // A non-zero exit code is captured in RunResult.ExitCode (not returned as error).
 // Only infrastructure failures (binary not found, etc.) set RunResult.Error.
@@ -464,23 +487,7 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
 
-	err := cmd.Run()
-
-	result := &RunResult{}
-	if err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			exitCode := types.ExitCode(exitErr.ExitCode())
-			if validateErr := exitCode.Validate(); validateErr != nil {
-				return nil, fmt.Errorf("container run exit code: %w", validateErr)
-			}
-			result.ExitCode = exitCode
-		} else {
-			result.ExitCode = 1
-			result.Error = err
-		}
-	}
-
-	return result, nil
+	return runResultFromExecError(cmd.Run(), "container run")
 }
 
 // Exec runs a command in a running container.
@@ -492,22 +499,11 @@ func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, comma
 	cmd.Stdout = opts.Stdout
 	cmd.Stderr = opts.Stderr
 
-	err := cmd.Run()
-
-	result := &RunResult{ContainerID: containerID}
+	result, err := runResultFromExecError(cmd.Run(), "container exec")
 	if err != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			exitCode := types.ExitCode(exitErr.ExitCode())
-			if validateErr := exitCode.Validate(); validateErr != nil {
-				return nil, fmt.Errorf("container exec exit code: %w", validateErr)
-			}
-			result.ExitCode = exitCode
-		} else {
-			result.ExitCode = 1
-			result.Error = err
-		}
+		return nil, err
 	}
-
+	result.ContainerID = containerID
 	return result, nil
 }
 

@@ -75,24 +75,8 @@ func (m *interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if ec, ok := updatedModel.(EmbeddableComponent); ok {
 			m.activeComponent = ec
 		}
-
-		// Check if the component is done
-		if m.activeComponent.IsDone() {
-			// Component is done - send our own completion message
-			// and ignore any command from the component (like tea.Quit)
-			// to prevent the interactive program from quitting prematurely
-			result, err := m.activeComponent.Result()
-			cancelled := m.activeComponent.Cancelled()
-			cmds = append(cmds, func() tea.Msg {
-				return tuiComponentDoneMsg{
-					result:    result,
-					err:       err,
-					cancelled: cancelled,
-				}
-			})
-		} else if cmd != nil {
-			// Only add the component's command if it's not done
-			cmds = append(cmds, cmd)
+		if doneCmd := m.componentDoneCmd(cmd); doneCmd != nil {
+			cmds = append(cmds, doneCmd)
 		}
 	}
 
@@ -213,32 +197,12 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	case stateTUI:
 		// When displaying a TUI component, delegate to the component
 		if m.activeComponent != nil {
-			var cmds []tea.Cmd
 			updatedModel, cmd := m.activeComponent.Update(msg)
 			if ec, ok := updatedModel.(EmbeddableComponent); ok {
 				m.activeComponent = ec
 			}
-
-			// Check if the component is done
-			if m.activeComponent.IsDone() {
-				// Component is done - send our own completion message
-				// and ignore any command from the component (like tea.Quit)
-				// to prevent the interactive program from quitting prematurely
-				result, err := m.activeComponent.Result()
-				cancelled := m.activeComponent.Cancelled()
-				cmds = append(cmds, func() tea.Msg {
-					return tuiComponentDoneMsg{
-						result:    result,
-						err:       err,
-						cancelled: cancelled,
-					}
-				})
-			} else if cmd != nil {
-				// Only add the component's command if it's not done
-				cmds = append(cmds, cmd)
-			}
-
-			return m, tea.Batch(cmds...)
+			doneCmd := m.componentDoneCmd(cmd)
+			return m, doneCmd
 		}
 	}
 
@@ -312,6 +276,30 @@ func (m *interactiveModel) handleTUIComponentDone(msg tuiComponentDoneMsg) (tea.
 	m.state = stateExecuting
 
 	return m, nil
+}
+
+// componentDoneCmd checks if the active component is done and returns either a
+// tuiComponentDoneMsg command (to prevent tea.Quit from propagating) or the
+// original cmd if the component is still active. Returns nil if neither applies.
+func (m *interactiveModel) componentDoneCmd(cmd tea.Cmd) tea.Cmd {
+	if m.activeComponent.IsDone() {
+		// Component is done - send our own completion message
+		// and ignore any command from the component (like tea.Quit)
+		// to prevent the interactive program from quitting prematurely
+		result, err := m.activeComponent.Result()
+		cancelled := m.activeComponent.Cancelled()
+		return func() tea.Msg {
+			return tuiComponentDoneMsg{
+				result:    result,
+				err:       err,
+				cancelled: cancelled,
+			}
+		}
+	}
+	if cmd != nil {
+		return cmd
+	}
+	return nil
 }
 
 // forwardKeyToPty forwards keyboard input to the PTY.

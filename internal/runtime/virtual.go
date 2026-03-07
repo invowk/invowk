@@ -35,6 +35,15 @@ type (
 
 	// VirtualRuntimeOption configures a VirtualRuntime.
 	VirtualRuntimeOption func(*VirtualRuntime)
+
+	// virtualPreparedExec holds a parsed program and runner ready for execution.
+	// This bundles the result of script resolution, parsing, env building, and
+	// runner creation shared between Execute and ExecuteCapture.
+	virtualPreparedExec struct {
+		prog    *syntax.File
+		runner  *interp.Runner
+		execCtx context.Context
+	}
 )
 
 // WithVirtualEnvBuilder sets the environment builder for the virtual runtime.
@@ -130,56 +139,12 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 		}
 	}
 
-	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
-	if err != nil {
-		return NewErrorResult(1, err)
+	prepared, errResult := r.prepareVirtualExec(ctx, interp.StdIO(ctx.IO.Stdin, ctx.IO.Stdout, ctx.IO.Stderr))
+	if errResult != nil {
+		return errResult
 	}
 
-	// Parse the script
-	parser := syntax.NewParser()
-	prog, err := parser.Parse(strings.NewReader(script), "script")
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
-	}
-
-	// Determine working directory
-	workDir := ctx.EffectiveWorkDir()
-
-	// Build environment
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
-	}
-
-	// Create the interpreter
-	opts := []interp.RunnerOption{
-		interp.Dir(workDir),
-		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
-		interp.StdIO(ctx.IO.Stdin, ctx.IO.Stdout, ctx.IO.Stderr),
-		interp.ExecHandlers(r.execHandler),
-	}
-
-	// Add positional parameters for shell access ($1, $2, etc.)
-	// Prepend "--" to signal end of options; without this, args like "-v" or "--env=staging"
-	// are incorrectly interpreted as shell options by interp.Params()
-	if len(ctx.PositionalArgs) > 0 {
-		params := append([]string{"--"}, ctx.PositionalArgs...)
-		opts = append(opts, interp.Params(params...))
-	}
-
-	runner, err := interp.New(opts...)
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
-	}
-
-	// Execute
-	execCtx := ctx.Context
-	if execCtx == nil {
-		execCtx = context.Background()
-	}
-
-	err = runner.Run(execCtx, prog)
+	err := prepared.runner.Run(prepared.execCtx, prepared.prog)
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			return NewExitCodeResult(ExitCode(exitStatus))
@@ -196,58 +161,16 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		return NewErrorResult(1, err)
 	}
 
-	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
-	if err != nil {
-		return NewErrorResult(1, err)
-	}
-
-	parser := syntax.NewParser()
-	prog, err := parser.Parse(strings.NewReader(script), "script")
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
-	}
-
-	workDir := ctx.EffectiveWorkDir()
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
-	}
-
 	var stdout, stderr bytes.Buffer
 
-	opts := []interp.RunnerOption{
-		interp.Dir(workDir),
-		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
-		interp.StdIO(nil, &stdout, &stderr),
-		interp.ExecHandlers(r.execHandler),
+	prepared, errResult := r.prepareVirtualExec(ctx, interp.StdIO(nil, &stdout, &stderr))
+	if errResult != nil {
+		return errResult
 	}
 
-	// Add positional parameters for shell access ($1, $2, etc.)
-	// Prepend "--" to signal end of options; without this, args like "-v" or "--env=staging"
-	// are incorrectly interpreted as shell options by interp.Params()
-	if len(ctx.PositionalArgs) > 0 {
-		params := append([]string{"--"}, ctx.PositionalArgs...)
-		opts = append(opts, interp.Params(params...))
-	}
+	result := &Result{}
 
-	runner, err := interp.New(opts...)
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
-	}
-
-	execCtx := ctx.Context
-	if execCtx == nil {
-		execCtx = context.Background()
-	}
-
-	// Keep as struct literal: Output/ErrOutput fields are set
-	result := &Result{
-		Output:    stdout.String(),
-		ErrOutput: stderr.String(),
-	}
-
-	err = runner.Run(execCtx, prog)
+	err := prepared.runner.Run(prepared.execCtx, prepared.prog)
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			result.ExitCode = ExitCode(exitStatus)
@@ -370,6 +293,53 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
+}
+
+// prepareVirtualExec resolves script, parses it, builds environment, and creates
+// an interpreter runner. The stdIO option determines whether output is streamed
+// or captured. Returns an error Result on failure.
+func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.RunnerOption) (*virtualPreparedExec, *Result) {
+	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	if err != nil {
+		return nil, NewErrorResult(1, err)
+	}
+
+	prog, err := syntax.NewParser().Parse(strings.NewReader(script), "script")
+	if err != nil {
+		return nil, NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
+	}
+
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
+	if err != nil {
+		return nil, NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
+	}
+
+	opts := []interp.RunnerOption{
+		interp.Dir(ctx.EffectiveWorkDir()),
+		interp.Env(expand.ListEnviron(EnvToSlice(env)...)),
+		stdIO,
+		interp.ExecHandlers(r.execHandler),
+	}
+
+	// Add positional parameters for shell access ($1, $2, etc.)
+	// Prepend "--" to signal end of options; without this, args like "-v" or "--env=staging"
+	// are incorrectly interpreted as shell options by interp.Params()
+	if len(ctx.PositionalArgs) > 0 {
+		params := append([]string{"--"}, ctx.PositionalArgs...)
+		opts = append(opts, interp.Params(params...))
+	}
+
+	runner, err := interp.New(opts...)
+	if err != nil {
+		return nil, NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
+	}
+
+	execCtx := ctx.Context
+	if execCtx == nil {
+		execCtx = context.Background()
+	}
+
+	return &virtualPreparedExec{prog: prog, runner: runner, execCtx: execCtx}, nil
 }
 
 // execHandler handles external command execution

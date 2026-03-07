@@ -203,21 +203,9 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
-	// Set working directory with validation
-	workDir := ctx.EffectiveWorkDir()
-	if workDir != "" {
-		if err = validateWorkDir(workDir); err != nil {
-			return NewErrorResult(1, fmt.Errorf("invalid working directory: %w", err))
-		}
-		cmd.Dir = workDir
+	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
+		return NewErrorResult(1, err)
 	}
-
-	// Build environment
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
-	}
-	cmd.Env = EnvToSlice(env)
 
 	// Set I/O based on output mode
 	cmd.Stdout = output.stdout
@@ -258,21 +246,9 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
 
-	// Set working directory with validation
-	workDir := ctx.EffectiveWorkDir()
-	if workDir != "" {
-		if err = validateWorkDir(workDir); err != nil {
-			return NewErrorResult(1, fmt.Errorf("invalid working directory: %w", err))
-		}
-		cmd.Dir = workDir
+	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
+		return NewErrorResult(1, err)
 	}
-
-	// Build environment
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		return NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
-	}
-	cmd.Env = EnvToSlice(env)
 
 	// Set I/O based on output mode
 	cmd.Stdout = output.stdout
@@ -425,16 +401,9 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
 
-	workDir := ctx.EffectiveWorkDir()
-	if workDir != "" {
-		cmd.Dir = workDir
+	if err := r.configureCommandDirAndEnv(cmd, ctx); err != nil {
+		return nil, err
 	}
-
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
-		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
-	}
-	cmd.Env = EnvToSlice(env)
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: nil}, nil
 }
@@ -467,19 +436,12 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
 
-	workDir := ctx.EffectiveWorkDir()
-	if workDir != "" {
-		cmd.Dir = workDir
-	}
-
-	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
-	if err != nil {
+	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
 		if cleanup != nil {
 			cleanup()
 		}
-		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
+		return nil, err
 	}
-	cmd.Env = EnvToSlice(env)
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
 }

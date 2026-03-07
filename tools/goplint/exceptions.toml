@@ -3178,6 +3178,10 @@ reason = "service object; post-construction state (baseDir, WatchConfig)"
 # Unexported structs used as internal parse-tree or exec-prep state.
 
 [[exceptions]]
+pattern = "tui.componentViewParams.struct-validate-fields"
+reason = "transient rendering params for View(); not a domain type"
+
+[[exceptions]]
 pattern = "invowk.commandGroup.struct-validate-fields"
 reason = "unexported CLI grouping struct; internal to Cobra command tree"
 

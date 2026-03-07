@@ -5,8 +5,11 @@ package runtime
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
+
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // Type definitions (grouped for decorder compliance)
@@ -83,4 +86,25 @@ func extractExitCode(err error, captured *capturedOutput) *Result {
 	result.ExitCode = 1
 	result.Error = err
 	return result
+}
+
+// configureCommandDirAndEnv validates the working directory, builds the
+// environment, and applies both to the exec.Cmd. Returns error if working
+// directory validation or environment building fails.
+func (r *NativeRuntime) configureCommandDirAndEnv(cmd *exec.Cmd, ctx *ExecutionContext) error {
+	workDir := ctx.EffectiveWorkDir()
+	if workDir != "" {
+		if err := validateWorkDir(workDir); err != nil {
+			return fmt.Errorf("invalid working directory: %w", err)
+		}
+		cmd.Dir = workDir
+	}
+
+	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
+	if err != nil {
+		return fmt.Errorf(failedBuildEnvironmentFmt, err)
+	}
+	cmd.Env = EnvToSlice(env)
+
+	return nil
 }

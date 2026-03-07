@@ -61,39 +61,9 @@ func ValidateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
 func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
-	if deps == nil || len(deps.CustomChecks) == 0 {
-		return nil
-	}
-
-	var checkErrors []DependencyMessage
-
-	for _, checkDep := range deps.CustomChecks {
-		checks := checkDep.GetChecks()
-		found, lastErr := EvaluateAlternatives(checks, func(check invowkfile.CustomCheck) error {
-			return validateCustomCheckInContainer(check, registry, ctx)
-		})
-
-		if !found && lastErr != nil {
-			if len(checks) == 1 {
-				checkErrors = append(checkErrors, DependencyMessage(lastErr.Error()))
-			} else {
-				names := make([]string, len(checks))
-				for i, c := range checks {
-					names[i] = string(c.Name)
-				}
-				checkErrors = append(checkErrors, DependencyMessage(fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", "))))
-			}
-		}
-	}
-
-	if len(checkErrors) > 0 {
-		return &DependencyError{
-			CommandName:        ctx.Command.Name,
-			FailedCustomChecks: checkErrors,
-		}
-	}
-
-	return nil
+	return evaluateCustomChecks(deps, ctx, func(check invowkfile.CustomCheck) error {
+		return validateCustomCheckInContainer(check, registry, ctx)
+	})
 }
 
 // validateCustomCheckNative runs a custom check script using the native shell.
@@ -137,6 +107,17 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 // Host-level custom checks always run in the native shell, regardless of the selected runtime,
 // ensuring host-side prerequisites are validated in a consistent, predictable environment.
 func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+	return evaluateCustomChecks(deps, ctx, validateCustomCheckNative)
+}
+
+// evaluateCustomChecks runs custom check dependencies through the provided validator
+// and returns a DependencyError if any fail. Each CustomCheckDependency supports
+// alternatives with OR semantics (first passing check satisfies the dependency).
+func evaluateCustomChecks(
+	deps *invowkfile.DependsOn,
+	ctx *runtime.ExecutionContext,
+	validator func(invowkfile.CustomCheck) error,
+) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
 	}
@@ -145,7 +126,7 @@ func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.E
 
 	for _, checkDep := range deps.CustomChecks {
 		checks := checkDep.GetChecks()
-		found, lastErr := EvaluateAlternatives(checks, validateCustomCheckNative)
+		found, lastErr := EvaluateAlternatives(checks, validator)
 
 		if !found && lastErr != nil {
 			if len(checks) == 1 {

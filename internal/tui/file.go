@@ -3,8 +3,6 @@
 package tui
 
 import (
-	"strings"
-
 	"github.com/invowk/invowk/pkg/types"
 
 	"charm.land/bubbles/v2/filepicker"
@@ -101,37 +99,11 @@ func (m *fileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m *fileModel) View() tea.View {
-	if m.done {
-		return tea.NewView("")
-	}
-
-	var base lipgloss.Style
-	if m.forModal {
-		base = modalBaseStyle()
-	}
-
-	titleStyle := base.Bold(true).Foreground(modalColorPrimary)
-	descStyle := base.Foreground(modalColorMuted)
-	helpStyle := base.Foreground(modalColorMuted)
-
-	lines := make([]string, 0, 4)
-	if m.title != "" {
-		lines = append(lines, titleStyle.Render(m.title.String()))
-	}
-	if m.description != "" {
-		lines = append(lines, descStyle.Render(m.description.String()))
-	}
-	lines = append(lines,
-		m.picker.View(),
-		helpStyle.Render("enter select • esc cancel"),
-	)
-
-	view := strings.Join(lines, "\n")
-	if m.width > 0 {
-		view = lipgloss.NewStyle().MaxWidth(int(m.width)).Render(view)
-	}
-
-	return tea.NewView(view)
+	return renderComponentView(componentViewParams{
+		done: m.done, forModal: m.forModal, title: m.title,
+		description: m.description, width: m.width,
+		componentView: m.picker.View(), helpText: "enter select • esc cancel",
+	})
 }
 
 // IsDone implements EmbeddableComponent.
