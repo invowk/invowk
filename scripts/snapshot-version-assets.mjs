@@ -199,7 +199,7 @@ function writeVersionSnippets(version, snippetIds, allSnippets) {
       existingKeys.add(m[1]);
     }
 
-    const newIds = [...snippetIds].filter((id) => !existingKeys.has(id)).sort();
+    const newIds = [...snippetIds].filter((id) => !existingKeys.has(id)).sort((a, b) => a.localeCompare(b));
     if (newIds.length === 0) {
       console.log(`  No new snippet entries needed for v${version}.`);
       return;
@@ -235,7 +235,7 @@ function writeVersionSnippets(version, snippetIds, allSnippets) {
   }
 
   const snippetEntries = [...snippetIds]
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map((id) => {
       const s = allSnippets[id];
       return `  '${id}': {\n    language: '${s.language}',\n    code: \`${escapeForTemplateLiteral(s.code)}\`,\n  },`;
@@ -276,7 +276,7 @@ function writeVersionDiagrams(version, diagramIds, pathMap) {
   const missing = [];
   const entries = [];
 
-  for (const id of [...diagramIds].sort()) {
+  for (const id of [...diagramIds].sort((a, b) => a.localeCompare(b))) {
     const originalPath = pathMap[id];
     if (!originalPath) {
       // In update mode, if this diagram ID is already in the existing snapshot
