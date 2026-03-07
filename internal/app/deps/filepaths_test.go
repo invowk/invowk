@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -371,7 +373,13 @@ func TestIsReadableWritableExecutable(t *testing.T) {
 
 	t.Run("IsExecutable on executable file", func(t *testing.T) {
 		t.Parallel()
-		execFile := filepath.Join(t.TempDir(), "exec.sh")
+		// On Windows, executability is determined by file extension (PATHEXT),
+		// not Unix permission bits. Use .bat so the test passes cross-platform.
+		execName := "exec.sh"
+		if goruntime.GOOS == platform.Windows {
+			execName = "exec.bat"
+		}
+		execFile := filepath.Join(t.TempDir(), execName)
 		if writeErr := os.WriteFile(execFile, []byte("#!/bin/sh"), 0o755); writeErr != nil {
 			t.Fatalf("WriteFile: %v", writeErr)
 		}

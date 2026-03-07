@@ -4,7 +4,8 @@ package execute
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ErrInvalidBuildExecutionContextOptions is the sentinel error wrapped by
@@ -20,7 +21,7 @@ type InvalidBuildExecutionContextOptionsError struct {
 
 // Error implements the error interface for InvalidBuildExecutionContextOptionsError.
 func (e *InvalidBuildExecutionContextOptionsError) Error() string {
-	return fmt.Sprintf("invalid build execution context options: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("build execution context options", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidBuildExecutionContextOptions for errors.Is() compatibility.

@@ -4,7 +4,8 @@ package invowkmod
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -32,7 +33,7 @@ type (
 
 // Error implements the error interface for InvalidVendoredEntryError.
 func (e *InvalidVendoredEntryError) Error() string {
-	return fmt.Sprintf("invalid vendored entry: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("vendored entry", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidVendoredEntry for errors.Is() compatibility.
@@ -67,7 +68,7 @@ func (v VendoredEntry) Validate() error {
 
 // Error implements the error interface for InvalidVendorResultError.
 func (e *InvalidVendorResultError) Error() string {
-	return fmt.Sprintf("invalid vendor result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("vendor result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidVendorResult for errors.Is() compatibility.

@@ -4,7 +4,8 @@ package commandsvc
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -43,7 +44,7 @@ type (
 
 // Error implements the error interface for InvalidRequestError.
 func (e *InvalidRequestError) Error() string {
-	return fmt.Sprintf("invalid request: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("request", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidRequest for errors.Is() compatibility.
@@ -51,7 +52,7 @@ func (e *InvalidRequestError) Unwrap() error { return ErrInvalidRequest }
 
 // Error implements the error interface for InvalidResultError.
 func (e *InvalidResultError) Error() string {
-	return fmt.Sprintf("invalid commandsvc result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("commandsvc result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidCommandsvcResult for errors.Is() compatibility.
@@ -59,7 +60,7 @@ func (e *InvalidResultError) Unwrap() error { return ErrInvalidCommandsvcResult 
 
 // Error implements the error interface for InvalidDryRunDataError.
 func (e *InvalidDryRunDataError) Error() string {
-	return fmt.Sprintf("invalid dry run data: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("dry run data", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidDryRunData for errors.Is() compatibility.

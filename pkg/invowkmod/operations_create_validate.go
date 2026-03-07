@@ -4,7 +4,8 @@ package invowkmod
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ErrInvalidCreateOptions is the sentinel error wrapped by InvalidCreateOptionsError.
@@ -21,7 +22,7 @@ type (
 
 // Error implements the error interface for InvalidCreateOptionsError.
 func (e *InvalidCreateOptionsError) Error() string {
-	return fmt.Sprintf("invalid create options: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("create options", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidCreateOptions for errors.Is() compatibility.

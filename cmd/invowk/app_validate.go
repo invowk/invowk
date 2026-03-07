@@ -4,7 +4,8 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -43,7 +44,7 @@ type (
 
 // Error implements the error interface for InvalidExecuteRequestError.
 func (e *InvalidExecuteRequestError) Error() string {
-	return fmt.Sprintf("invalid execute request: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("execute request", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidExecuteRequest for errors.Is() compatibility.
@@ -51,7 +52,7 @@ func (e *InvalidExecuteRequestError) Unwrap() error { return ErrInvalidExecuteRe
 
 // Error implements the error interface for InvalidExecuteResultError.
 func (e *InvalidExecuteResultError) Error() string {
-	return fmt.Sprintf("invalid execute result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("execute result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidExecuteResult for errors.Is() compatibility.
@@ -59,7 +60,7 @@ func (e *InvalidExecuteResultError) Unwrap() error { return ErrInvalidExecuteRes
 
 // Error implements the error interface for InvalidSourceFilterError.
 func (e *InvalidSourceFilterError) Error() string {
-	return fmt.Sprintf("invalid source filter: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("source filter", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidSourceFilter for errors.Is() compatibility.

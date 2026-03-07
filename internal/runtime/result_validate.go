@@ -4,7 +4,8 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -43,7 +44,7 @@ type (
 
 // Error implements the error interface for InvalidResultError.
 func (e *InvalidResultError) Error() string {
-	return fmt.Sprintf("invalid result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidResult for errors.Is() compatibility.
@@ -51,7 +52,7 @@ func (e *InvalidResultError) Unwrap() error { return ErrInvalidResult }
 
 // Error implements the error interface for InvalidInitDiagnosticError.
 func (e *InvalidInitDiagnosticError) Error() string {
-	return fmt.Sprintf("invalid init diagnostic: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("init diagnostic", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidInitDiagnostic for errors.Is() compatibility.
@@ -59,7 +60,7 @@ func (e *InvalidInitDiagnosticError) Unwrap() error { return ErrInvalidInitDiagn
 
 // Error implements the error interface for InvalidExecutionContextError.
 func (e *InvalidExecutionContextError) Error() string {
-	return fmt.Sprintf("invalid execution context: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("execution context", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidExecutionContext for errors.Is() compatibility.

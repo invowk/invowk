@@ -4,7 +4,8 @@ package discovery
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
@@ -43,7 +44,7 @@ type (
 
 // Error implements the error interface for InvalidCommandInfoError.
 func (e *InvalidCommandInfoError) Error() string {
-	return fmt.Sprintf("invalid command info: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("command info", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidCommandInfo for errors.Is() compatibility.
@@ -51,7 +52,7 @@ func (e *InvalidCommandInfoError) Unwrap() error { return ErrInvalidCommandInfo 
 
 // Error implements the error interface for InvalidDiscoveredFileError.
 func (e *InvalidDiscoveredFileError) Error() string {
-	return fmt.Sprintf("invalid discovered file: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("discovered file", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidDiscoveredFile for errors.Is() compatibility.
@@ -59,7 +60,7 @@ func (e *InvalidDiscoveredFileError) Unwrap() error { return ErrInvalidDiscovere
 
 // Error implements the error interface for InvalidLookupResultError.
 func (e *InvalidLookupResultError) Error() string {
-	return fmt.Sprintf("invalid lookup result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("lookup result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidLookupResult for errors.Is() compatibility.

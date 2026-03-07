@@ -2,11 +2,11 @@
 
 package invowkmod
 
-import "fmt"
+import "github.com/invowk/invowk/pkg/types"
 
 // Error implements the error interface for InvalidValidationIssueError.
 func (e *InvalidValidationIssueError) Error() string {
-	return fmt.Sprintf("invalid validation issue: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("validation issue", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidValidationIssue for errors.Is() compatibility.
@@ -24,7 +24,7 @@ func (v ValidationIssue) Validate() error {
 
 // Error implements the error interface for InvalidValidationResultError.
 func (e *InvalidValidationResultError) Error() string {
-	return fmt.Sprintf("invalid validation result: %d field error(s)", len(e.FieldErrors))
+	return types.FormatFieldErrors("validation result", e.FieldErrors)
 }
 
 // Unwrap returns ErrInvalidValidationResult for errors.Is() compatibility.
