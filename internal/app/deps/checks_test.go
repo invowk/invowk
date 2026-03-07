@@ -3,7 +3,6 @@
 package deps
 
 import (
-	"context"
 	"errors"
 	"io"
 	"os/exec"
@@ -14,12 +13,13 @@ import (
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 	t.Parallel()
 
-	ctx := newDependencyExecutionContext()
+	ctx := newDependencyExecutionContext(t)
 	registry := runtimepkg.NewRegistry()
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
@@ -74,7 +74,7 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 func TestValidateCustomCheckInContainer(t *testing.T) {
 	t.Parallel()
 
-	ctx := newDependencyExecutionContext()
+	ctx := newDependencyExecutionContext(t)
 	check := invowkfile.CustomCheck{Name: "demo", CheckScript: "echo ok", ExpectedOutput: "^ok$"}
 
 	err := validateCustomCheckInContainer(check, runtimepkg.NewRegistry(), ctx)
@@ -107,7 +107,7 @@ func TestValidateCustomCheckInContainer(t *testing.T) {
 func TestContainerEnvVarValidation(t *testing.T) {
 	t.Parallel()
 
-	ctx := newDependencyExecutionContext()
+	ctx := newDependencyExecutionContext(t)
 	registry := runtimepkg.NewRegistry()
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
@@ -166,7 +166,7 @@ func TestContainerEnvVarValidation(t *testing.T) {
 func TestContainerCapabilityValidation(t *testing.T) {
 	t.Parallel()
 
-	ctx := newDependencyExecutionContext()
+	ctx := newDependencyExecutionContext(t)
 	registry := runtimepkg.NewRegistry()
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
@@ -211,7 +211,7 @@ func TestContainerCapabilityValidation(t *testing.T) {
 func TestContainerCommandValidation(t *testing.T) {
 	t.Parallel()
 
-	ctx := newDependencyExecutionContext()
+	ctx := newDependencyExecutionContext(t)
 	var seenScripts []string
 	registry := runtimepkg.NewRegistry()
 	stub := &filepathStubRuntime{
@@ -277,10 +277,139 @@ func TestRequireContainerRuntime(t *testing.T) {
 	}
 }
 
-func newDependencyExecutionContext() *runtimepkg.ExecutionContext {
+func TestValidateCustomCheckOutput(t *testing.T) {
+	t.Parallel()
+
+	expectedZero := types.ExitCode(0)
+	expectedTwo := types.ExitCode(2)
+	exitErr := shellExitError(t)
+
+	tests := []struct {
+		name    string
+		check   invowkfile.CustomCheck
+		output  string
+		execErr error
+		wantErr string // empty = expect nil
+	}{
+		{
+			name:  "success with zero exit code and no pattern",
+			check: invowkfile.CustomCheck{Name: "demo"},
+		},
+		{
+			name:    "exit code mismatch",
+			check:   invowkfile.CustomCheck{Name: "demo", ExpectedCode: &expectedZero},
+			execErr: exitErr,
+			wantErr: "returned exit code",
+		},
+		{
+			name:    "expected non-zero exit code matches",
+			check:   invowkfile.CustomCheck{Name: "demo", ExpectedCode: &expectedTwo},
+			execErr: exitErr, // exit code 1 != expected 2
+			wantErr: "returned exit code",
+		},
+		{
+			name:   "output matches regex pattern",
+			check:  invowkfile.CustomCheck{Name: "demo", ExpectedOutput: "^ok$"},
+			output: "ok",
+		},
+		{
+			name:    "output does not match regex pattern",
+			check:   invowkfile.CustomCheck{Name: "demo", ExpectedOutput: "^ok$"},
+			output:  "fail",
+			wantErr: "does not match pattern",
+		},
+		{
+			name:    "invalid regex pattern",
+			check:   invowkfile.CustomCheck{Name: "demo", ExpectedOutput: "[invalid"},
+			output:  "anything",
+			wantErr: "invalid regex pattern",
+		},
+		{
+			name:    "non-ExitError defaults to exit code 1",
+			check:   invowkfile.CustomCheck{Name: "demo"},
+			execErr: errors.New("generic failure"),
+			wantErr: "returned exit code",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateCustomCheckOutput(tt.check, tt.output, tt.execErr)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("ValidateCustomCheckOutput() = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("ValidateCustomCheckOutput() = nil, want error containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("ValidateCustomCheckOutput() = %v, want error containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCheckHostCustomCheckDependencies(t *testing.T) {
+	t.Parallel()
+
+	ctx := newDependencyExecutionContext(t)
+
+	t.Run("nil deps returns nil", func(t *testing.T) {
+		t.Parallel()
+		if err := CheckHostCustomCheckDependencies(nil, ctx); err != nil {
+			t.Fatalf("err = %v", err)
+		}
+	})
+
+	t.Run("empty custom checks returns nil", func(t *testing.T) {
+		t.Parallel()
+		if err := CheckHostCustomCheckDependencies(&invowkfile.DependsOn{}, ctx); err != nil {
+			t.Fatalf("err = %v", err)
+		}
+	})
+
+	t.Run("passing check succeeds", func(t *testing.T) {
+		t.Parallel()
+		deps := &invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{{
+				Alternatives: []invowkfile.CustomCheck{
+					{Name: "echo", CheckScript: "echo ok"},
+				},
+			}},
+		}
+		if err := CheckHostCustomCheckDependencies(deps, ctx); err != nil {
+			t.Fatalf("err = %v", err)
+		}
+	})
+
+	t.Run("failing check returns dependency error", func(t *testing.T) {
+		t.Parallel()
+		deps := &invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{{
+				Alternatives: []invowkfile.CustomCheck{
+					{Name: "fail", CheckScript: "exit 1"},
+				},
+			}},
+		}
+		err := CheckHostCustomCheckDependencies(deps, ctx)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+		}
+	})
+}
+
+func newDependencyExecutionContext(t *testing.T) *runtimepkg.ExecutionContext {
+	t.Helper()
 	return &runtimepkg.ExecutionContext{
 		Command: &invowkfile.Command{Name: "build"},
-		Context: context.Background(),
+		Context: t.Context(),
 	}
 }
 

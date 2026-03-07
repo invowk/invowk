@@ -40,9 +40,8 @@ type (
 	// This bundles the result of script resolution, parsing, env building, and
 	// runner creation shared between Execute and ExecuteCapture.
 	virtualPreparedExec struct {
-		prog    *syntax.File
-		runner  *interp.Runner
-		execCtx context.Context
+		prog   *syntax.File
+		runner *interp.Runner
 	}
 )
 
@@ -139,12 +138,12 @@ func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 		}
 	}
 
-	prepared, errResult := r.prepareVirtualExec(ctx, interp.StdIO(ctx.IO.Stdin, ctx.IO.Stdout, ctx.IO.Stderr))
+	prepared, execCtx, errResult := r.prepareVirtualExec(ctx, interp.StdIO(ctx.IO.Stdin, ctx.IO.Stdout, ctx.IO.Stderr))
 	if errResult != nil {
 		return errResult
 	}
 
-	err := prepared.runner.Run(prepared.execCtx, prepared.prog)
+	err := prepared.runner.Run(execCtx, prepared.prog)
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			return NewExitCodeResult(ExitCode(exitStatus))
@@ -163,14 +162,14 @@ func (r *VirtualRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	var stdout, stderr bytes.Buffer
 
-	prepared, errResult := r.prepareVirtualExec(ctx, interp.StdIO(nil, &stdout, &stderr))
+	prepared, execCtx, errResult := r.prepareVirtualExec(ctx, interp.StdIO(nil, &stdout, &stderr))
 	if errResult != nil {
 		return errResult
 	}
 
 	result := &Result{}
 
-	err := prepared.runner.Run(prepared.execCtx, prepared.prog)
+	err := prepared.runner.Run(execCtx, prepared.prog)
 	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			result.ExitCode = ExitCode(exitStatus)
@@ -298,20 +297,20 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 // prepareVirtualExec resolves script, parses it, builds environment, and creates
 // an interpreter runner. The stdIO option determines whether output is streamed
 // or captured. Returns an error Result on failure.
-func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.RunnerOption) (*virtualPreparedExec, *Result) {
+func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.RunnerOption) (*virtualPreparedExec, context.Context, *Result) {
 	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
 	if err != nil {
-		return nil, NewErrorResult(1, err)
+		return nil, nil, NewErrorResult(1, err)
 	}
 
 	prog, err := syntax.NewParser().Parse(strings.NewReader(script), "script")
 	if err != nil {
-		return nil, NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
+		return nil, nil, NewErrorResult(1, fmt.Errorf("failed to parse script: %w", err))
 	}
 
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
 	if err != nil {
-		return nil, NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
+		return nil, nil, NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
 
 	opts := []interp.RunnerOption{
@@ -331,7 +330,7 @@ func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.
 
 	runner, err := interp.New(opts...)
 	if err != nil {
-		return nil, NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
+		return nil, nil, NewErrorResult(1, fmt.Errorf("failed to create interpreter: %w", err))
 	}
 
 	execCtx := ctx.Context
@@ -339,7 +338,7 @@ func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.
 		execCtx = context.Background()
 	}
 
-	return &virtualPreparedExec{prog: prog, runner: runner, execCtx: execCtx}, nil
+	return &virtualPreparedExec{prog: prog, runner: runner}, execCtx, nil
 }
 
 // execHandler handles external command execution
