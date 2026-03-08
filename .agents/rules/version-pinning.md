@@ -19,9 +19,16 @@ build configuration.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
   - `golangci-lint`: `v2.10.1` (via golangci-lint-action `version` input)
+  - `govulncheck`: `v1.1.4`
   - `cosign`: `v2.6.1` (via `cosign-release` input in `.github/workflows/release.yml`)
   - UPX: `5.1.0`
   - D2: `v0.7.1`
+
+### MCP Servers (`.mcp.json`)
+- MUST pin to an exact version: `@upstash/context7-mcp@X.Y.Z` (never `@latest`).
+- **Current pinned versions:**
+  - `@upstash/context7-mcp`: `2.1.3`
+  - `@modelcontextprotocol/server-github`: `2025.4.8`
 
 ### GitHub Actions
 - Pin to major version tags (e.g., `@v6`). Dependabot manages minor/patch bumps weekly.

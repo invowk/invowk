@@ -57,8 +57,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    # Advisory first: switch to required after one clean cycle.
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -72,8 +70,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    # Advisory only - lint issues don't block PRs
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6

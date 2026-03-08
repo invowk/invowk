@@ -48,6 +48,11 @@
           },
           {
             "type": "command",
+            "command": "has_gomod=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in */go.mod) has_gomod=true; break;; esac; done; if $has_gomod; then go mod tidy 2>/dev/null; fi; true",
+            "timeout": 30000
+          },
+          {
+            "type": "command",
             "command": "has_website=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in */website/*) has_website=true; break;; esac; done; if $has_website; then cd website 2>/dev/null && npm run build --silent 2>&1 | tail -5; fi; true",
             "timeout": 120000
           }

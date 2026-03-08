@@ -67,6 +67,7 @@ Agents are specialized reviewers and generators that can be spawned as subagents
 - [`.agents/agents/doc-updater.md`](.agents/agents/doc-updater.md) - Documentation sync: code→doc sync map, MDX snippets, i18n mirrors, diagram updates.
 - [`.agents/agents/performance-analyzer.md`](.agents/agents/performance-analyzer.md) - Benchmark-aware reviewer: CUE hot path, discovery traversal, PGO profile maintenance.
 - [`.agents/agents/security-reviewer.md`](.agents/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
+- [`.agents/agents/ci-readiness.md`](.agents/agents/ci-readiness.md) - CI-readiness verifier: runs pre-completion checklist gates in parallel before commits/PRs.
 - [`.agents/agents/test-writer.md`](.agents/agents/test-writer.md) - Testscript generator: virtual/native txtar pairs, platform-split CUE, exemption rules.
 
 ### Commands
