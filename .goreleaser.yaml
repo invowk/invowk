@@ -93,6 +93,8 @@ release:
   # PATCH requests that set both prerelease=true and make_latest=true.
   make_latest: "{{ if .Prerelease }}false{{ else }}true{{ end }}"
   mode: replace
+  extra_files:
+    - glob: dist/invowk_*_bench-report.md
   header: |
     ## invowk {{ .Version }}
   footer: |

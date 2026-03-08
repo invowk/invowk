@@ -354,6 +354,29 @@ jobs:
           app-id: ${{ secrets.DOCS_APP_ID }}
           private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
 
+      # Generate benchmark report to include as a release asset.
+      # Runs before GoReleaser so the file exists when extra_files is processed.
+      # The report is written to a well-known path that .goreleaser.yaml references.
+      - name: Generate benchmark report
+        if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
+          BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
+        run: |
+          set -euo pipefail
+          mkdir -p "$BENCH_REPORT_OUT_DIR"
+          make bench-report
+
+          # Copy report to well-known path for GoReleaser extra_files
+          REPORT=$(find "$BENCH_REPORT_OUT_DIR" -maxdepth 1 -name '*.md' -type f | head -1)
+          if [[ -z "$REPORT" ]]; then
+            echo "::warning::Benchmark report not generated — skipping asset"
+            touch dist/bench-report.md
+          else
+            mkdir -p dist
+            cp "$REPORT" "dist/invowk_${TAG}_bench-report.md"
+          fi
+
       # Run GoReleaser (publish)
       - name: Run GoReleaser
         if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"

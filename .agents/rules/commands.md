@@ -293,7 +293,7 @@ goreleaser release --snapshot --clean
 | `ci.yml` | Push/PR to main (Go code/build changes) | Run tests, build verification, license check, govulncheck |
 | `lint.yml` | Push/PR to main (Go code/lint config changes) | **Required** golangci-lint + agent docs integrity + goplint baseline gate + advisory goplint full scan + advisory overdue review dates audit |
 | `release.yml` | Tag push (v*) or manual dispatch | Validate, test, then build and publish release |
-| `release-benchmark-asset.yml` | Release published or manual dispatch | Generate `make bench-report` output and attach it as a release asset |
+| `release-benchmark-asset.yml` | Manual dispatch only | Fallback: attach `make bench-report` output to an existing (non-immutable) release |
 | `pgo-benchstat.yml` | Weekly schedule + manual dispatch | Compare `pgo=off` vs `pgo=on` with `benchstat` and upload raw/report artifacts |
 | `test-website.yml` | PR to main (website/diagram/script changes) | Validate version assets + build website |
 

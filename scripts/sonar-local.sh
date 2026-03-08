@@ -167,21 +167,20 @@ fetch_unresolved_issues() {
 }
 
 check_quality_gate() {
-	local branch="$1"
+	local analysis_id="$1"
 	local attempt=0
-	local max_attempts=15
+	local max_attempts=$(( SONAR_TIMEOUT_SECONDS / SONAR_POLL_INTERVAL_SECONDS ))
 	local response gate_status failing_summary
 	local -a curl_args
 
+	# Use analysisId for deterministic lookup of THIS specific analysis's gate,
+	# avoiding ambiguity when multiple analyses queue up for the same branch.
 	curl_args=(
 		-fsS
 		-u "${SONAR_TOKEN}:"
 		--get "${SONAR_HOST_URL%/}/api/qualitygates/project_status"
-		--data-urlencode "projectKey=${SONAR_PROJECT_KEY}"
+		--data-urlencode "analysisId=${analysis_id}"
 	)
-	if [[ -n "$branch" ]]; then
-		curl_args+=(--data-urlencode "branch=${branch}")
-	fi
 
 	# Quality gate computation is asynchronous relative to CE task completion.
 	# Poll until the gate status is available (not NONE) or timeout.
@@ -273,7 +272,8 @@ main() {
 	require_cmd go
 
 	if [[ -z "${SONAR_TOKEN:-}" ]]; then
-		fail "SONAR_TOKEN is required"
+		echo "SONAR_TOKEN not set — skipping Sonar analysis"
+		exit 0
 	fi
 
 	if (( SONAR_PAGE_SIZE <= 0 )); then
@@ -326,8 +326,14 @@ main() {
 	info "Waiting for Sonar compute engine to finish analysis"
 	wait_for_compute_engine_task "$ce_task_url"
 
+	local analysis_id
+	analysis_id="$(jq -r '.task.analysisId // ""' "$CE_TASK_JSON")"
+	if [[ -z "$analysis_id" ]]; then
+		fail "Could not extract analysisId from compute engine task response"
+	fi
+
 	info "Checking Sonar quality gate"
-	check_quality_gate "$branch"
+	check_quality_gate "$analysis_id"
 
 	info "Fetching unresolved Sonar issues"
 	fetch_unresolved_issues "$branch"

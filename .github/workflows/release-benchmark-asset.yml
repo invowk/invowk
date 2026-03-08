@@ -1,8 +1,9 @@
 name: Release Benchmark Asset
 
+# Benchmark reports are normally generated inline by the release workflow and
+# included via GoReleaser extra_files. This workflow serves as a manual fallback
+# for attaching a report to an existing (non-immutable) release retroactively.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -14,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-bench-report-${{ github.event.release.tag_name || github.event.inputs.tag || github.run_id }}
+  group: release-bench-report-${{ github.event.inputs.tag || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -26,25 +27,17 @@ jobs:
       - name: Determine tag
         id: tag
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
           DISPATCH_TAG: ${{ github.event.inputs.tag }}
         run: |
           set -euo pipefail
 
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            TAG="$DISPATCH_TAG"
-          else
-            TAG="$RELEASE_TAG"
-          fi
-
-          if [[ -z "$TAG" ]]; then
+          if [[ -z "$DISPATCH_TAG" ]]; then
             echo "::error::Could not determine release tag"
             exit 1
           fi
 
-          echo "name=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag: $TAG"
+          echo "name=$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $DISPATCH_TAG"
 
       - name: Checkout tag
         uses: actions/checkout@v6
