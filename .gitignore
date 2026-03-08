@@ -31,5 +31,8 @@ mem.prof
 .DS_Store
 Thumbs.db
 
+# Claude Code local overrides (personal, not shared)
+.claude.local.md
+
 # VHS test output (generated files, not golden files)
 vhs/output/
