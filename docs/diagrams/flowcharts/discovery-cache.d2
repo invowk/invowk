@@ -59,6 +59,11 @@ cache: discoveryRequestCache {
     fill: transparent
   }
 
+  cfg: cfg slot\n(hasConfig bool) {
+    shape: cylinder
+    style.fill: "#C8E6C9"
+  }
+
   commandSet: commandSet slot\n(hasCommandSet bool) {
     shape: cylinder
     style.fill: "#C8E6C9"
@@ -102,6 +107,18 @@ operations: Cached Operations (appDiscoveryService) {
 }
 
 # Operation -> Cache slot connections
+
+operations.DiscoverCommandSet -> cache.cfg: "loadConfig()\nread/write" {
+  style.stroke: "#7B1FA2"
+}
+
+operations.DiscoverAndValidateCommandSet -> cache.cfg: "loadConfig()\nread/write" {
+  style.stroke: "#7B1FA2"
+}
+
+operations.GetCommand -> cache.cfg: "loadConfig()\nread/write" {
+  style.stroke: "#7B1FA2"
+}
 
 operations.DiscoverCommandSet -> cache.commandSet: read/write {
   style.stroke: "#388E3C"
