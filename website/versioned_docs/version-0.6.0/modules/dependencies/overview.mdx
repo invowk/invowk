@@ -1,0 +1,81 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Module Dependencies Overview
+
+:::warning Alpha — Module Dependencies May Change
+Module dependencies are still being refined. While we aim for backwards compatibility, **breaking changes may occur** before the 1.0 release. Lock files keep builds reproducible, but resolution behavior may evolve.
+:::
+
+Module dependencies let a module pull in commands from other modules hosted in Git repositories. Dependencies are declared in `invowkmod.cue` under `requires` and resolved into `invowkmod.lock.cue`.
+
+## What are Module Dependencies?
+
+Module dependencies are external modules that your module depends on. They are:
+
+- **Hosted in Git repositories** (GitHub, GitLab, Bitbucket, etc.)
+- **Versioned with semantic versioning** (tags like `v1.2.3` or `1.2.3`)
+- **Cached locally** for offline use and performance
+- **Namespaced** by module ID or alias to prevent collisions
+
+## Quick Start
+
+### 1. (Optional) Resolve a Dependency
+
+`invowk module add` resolves a dependency, updates `invowkmod.lock.cue`, and auto-edits `invowkmod.cue` to add the `requires` entry when the file exists:
+
+<Snippet id="modules/dependencies/quick-add" />
+
+### 2. Declare in `invowkmod.cue`
+
+<Snippet id="modules/dependencies/quick-invowkmod" />
+
+### 3. Sync Dependencies
+
+<Snippet id="modules/dependencies/quick-sync" />
+
+### 4. Verify Resolved Dependencies
+
+<Snippet id="modules/dependencies/quick-deps" />
+
+## Namespaces and Aliases
+
+When a dependency module is installed in a discovery path, run its commands with the module ID (or alias if you set one):
+
+<Snippet id="modules/dependencies/namespace-usage" />
+
+## How It Works
+
+1. **Declaration**: Dependencies are listed in `invowkmod.cue` under `requires`
+2. **Resolution**: `invowk module sync` resolves version constraints to concrete versions
+3. **Download**: Modules are cloned from Git and cached locally
+4. **Lock file**: Resolved versions are written to `invowkmod.lock.cue`
+5. **Discovery**: Commands are available via the module namespace when the dependency is installed
+
+:::note Direct Dependencies Only
+Commands in a module can only call commands from:
+1. The same module
+2. Globally installed modules (your discovery paths)
+3. Modules declared directly in that module's `requires` list
+
+Transitive dependencies are resolved and cached, but their commands are not in scope unless they are also listed directly.
+:::
+
+## Module Cache
+
+Module dependencies are cached in `~/.invowk/modules/` by default:
+
+<Snippet id="modules/dependencies/cache-structure" />
+
+Override the cache location:
+
+<Snippet id="modules/dependencies/cache-env" />
+
+## Next Steps
+
+- [Declaring Dependencies](./declaring-dependencies) - Learn the `requires` syntax
+- [CLI Commands](./cli-commands) - Module dependency management commands
+- [Lock File](./lock-file) - Understanding the lock file format

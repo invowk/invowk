@@ -1,0 +1,56 @@
+---
+sidebar_position: 1
+---
+
+# Visão Geral da Arquitetura
+
+Esta seção contém diagramas do modelo C4 e documentação arquitetural suplementar para o Invowk. Esses diagramas ajudam desenvolvedores a entender a estrutura do sistema, fluxos de execução e decisões de design.
+
+## Visão Geral dos Diagramas
+
+| Diagrama | Tipo | Propósito |
+|----------|------|-----------|
+| [C4 Contexto (C1)](./c4-context) | Modelo C4 | Limites do sistema, usuários, sistemas externos |
+| [C4 Container (C2)](./c4-container) | Modelo C4 | Componentes internos e armazenamentos de dados |
+| [Execução de Comandos](./execution-flow) | Sequência | Fluxo temporal do CLI até a execução |
+| [Seleção de Runtime](./runtime-selection) | Fluxograma | Árvore de decisão para escolha do runtime |
+| [Precedência de Descoberta](./discovery) | Fluxograma | Como comandos são encontrados e conflitos resolvidos |
+
+## Ordem de Leitura
+
+Para novatos na base de código:
+
+1. **Comece com [C4 Contexto](./c4-context)** - Entenda o que é o Invowk e com o que ele interage
+2. **Então [C4 Container](./c4-container)** - Veja os principais componentes internos
+3. **Leia [Execução de Comandos](./execution-flow)** - Siga a jornada principal do usuário
+4. **Consulte outros conforme necessário** - Seleção de runtime e descoberta para debugging ou extensões
+
+## Tecnologia dos Diagramas
+
+Todos os diagramas usam sintaxe [Mermaid](https://mermaid.js.org/). Mermaid é uma ferramenta de diagramação baseada em JavaScript que renderiza diagramas a partir de definições de texto, tornando-os fáceis de versionar e manter.
+
+### Editando Diagramas
+
+O [Mermaid Live Editor](https://mermaid.live/) é útil para testar alterações antes de commitar.
+
+## Contexto do Modelo C4
+
+O [modelo C4](https://c4model.com/) fornece uma forma hierárquica de descrever arquitetura de software:
+
+| Nível | Nome | Descrição |
+|-------|------|-----------|
+| C1 | Contexto | Sistema como caixa preta com atores externos |
+| C2 | Container | Principais unidades implantáveis/executáveis |
+| C3 | Componente | Módulos internos dentro dos containers |
+| C4 | Código | Detalhes em nível de classe/código |
+
+Para o Invowk (um único binário CLI), C1 e C2 são mais valiosos. C3 mostraria pacotes Go internos, que são melhor documentados no código.
+
+## Mantendo Diagramas Atualizados
+
+Ao fazer mudanças arquiteturais significativas:
+
+1. **Verifique se diagramas precisam de atualização** - Novos componentes, relacionamentos alterados, funcionalidades removidas
+2. **Atualize o(s) diagrama(s) relevante(s)** - Mantenha as mudanças focadas
+3. **Verifique a renderização** - Teste no Mermaid Live Editor ou na prévia do website
+4. **Atualize tabelas e texto** - Diagramas sozinhos podem não capturar todo o contexto

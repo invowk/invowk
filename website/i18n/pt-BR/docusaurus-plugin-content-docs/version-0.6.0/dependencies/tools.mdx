@@ -1,0 +1,107 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Dependências de Ferramentas
+
+Dependências de ferramentas verificam se os binários necessários estão disponíveis no PATH antes que seu comando seja executado.
+
+## Uso Básico
+
+<Snippet id="dependencies/tools-basic" />
+
+Se `go` não for encontrado no PATH, o comando falha com um erro claro:
+
+<Snippet id="dependencies/with-check" />
+
+## Alternativas (Semântica OU)
+
+Especifique múltiplas alternativas quando qualquer ferramenta funcionar:
+
+<Snippet id="dependencies/tools-alternatives" />
+
+O Invowk™ verifica as alternativas em ordem e para na primeira correspondência. Isso é útil para:
+- Ferramentas com alternativas compatíveis (docker/podman)
+- Preferências de editor (nvim/vim/vi)
+- Variantes de versão (python3/python)
+
+## Múltiplos Requisitos de Ferramentas
+
+Cada entrada em `tools` é um requisito E:
+
+<Snippet id="dependencies/tools-multiple-and" />
+
+Todos os três devem ser satisfeitos (embora alternativas dentro de cada um sejam OU).
+
+## Exemplos do Mundo Real
+
+### Projeto Go
+
+<Snippet id="dependencies/tools-go-project" />
+
+### Projeto Node.js
+
+<Snippet id="dependencies/tools-nodejs-project" />
+
+### Deploy Kubernetes
+
+<Snippet id="dependencies/tools-kubernetes-deploy" />
+
+### Projeto Python
+
+<Snippet id="dependencies/tools-python-project" />
+
+## Validação Consciente do Runtime
+
+Verificações de ferramentas são validadas de acordo com o runtime:
+
+### Runtime Native
+
+Ferramentas são verificadas no sistema host:
+
+<Snippet id="dependencies/tools-runtime-native" />
+
+### Runtime Virtual
+
+Ferramentas são verificadas no ambiente do shell virtual:
+
+<Snippet id="dependencies/tools-runtime-virtual" />
+
+### Runtime Container
+
+Ferramentas são verificadas **dentro do container**:
+
+<Snippet id="dependencies/tools-runtime-container" />
+
+Isso é especialmente útil porque:
+- O host não precisa ter Go instalado
+- Você está validando o ambiente de execução real
+- Você detecta ferramentas faltando em imagens de container personalizadas
+
+## Padrões Comuns
+
+### Verificar Antes de Chamada Externa
+
+<Snippet id="dependencies/tools-external-call" />
+
+### Ferramentas de Banco de Dados
+
+<Snippet id="dependencies/tools-database" />
+
+### Multiplataforma
+
+<Snippet id="dependencies/tools-cross-platform" />
+
+## Melhores Práticas
+
+1. **Use alternativas para ferramentas compatíveis**: `{alternatives: ["podman", "docker"]}`
+2. **Ordene alternativas por preferência**: A primeira alternativa é verificada primeiro
+3. **Mantenha listas de ferramentas mínimas**: Requer apenas o que é realmente usado
+4. **Considere o contexto do runtime**: Ferramentas de container são verificadas dentro de containers
+
+## Próximos Passos
+
+- [Filepaths](./filepaths) - Verificar arquivos necessários
+- [Commands](./commands) - Depender de outros comandos Invowk

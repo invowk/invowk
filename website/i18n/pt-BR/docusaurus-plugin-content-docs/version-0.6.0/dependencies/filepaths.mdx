@@ -1,0 +1,142 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Dependências de Caminho de Arquivo
+
+Dependências de caminho de arquivo verificam se arquivos ou diretórios necessários existem antes que seu comando seja executado. Você também pode verificar permissões específicas.
+
+## Uso Básico
+
+<Snippet id="dependencies/filepaths-basic" />
+
+Se o arquivo não existir:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Files:
+  • go.mod - file not found
+
+Ensure the required files exist and try again.
+```
+
+## Alternativas (Semântica OU)
+
+Especifique múltiplas alternativas quando qualquer caminho funcionar:
+
+<Snippet id="dependencies/filepaths-options" />
+
+O Invowk™ verifica as alternativas em ordem e para na primeira correspondência.
+
+## Tipos de Caminho
+
+### Caminhos Relativos
+
+Relativo à localização do invowkfile:
+
+<Snippet id="dependencies/filepaths-relative" />
+
+### Caminhos Absolutos
+
+Caminhos completos do sistema:
+
+<Snippet id="dependencies/filepaths-absolute" />
+
+### Variáveis de Ambiente em Caminhos
+
+Expanda variáveis de ambiente:
+
+<Snippet id="dependencies/filepaths-envvars" />
+
+## Verificações de Permissão
+
+Verifique permissões específicas de arquivo:
+
+### Legível
+
+<Snippet id="dependencies/filepaths-readable" />
+
+### Gravável
+
+<Snippet id="dependencies/filepaths-writable" />
+
+### Executável
+
+<Snippet id="dependencies/filepaths-executable" />
+
+### Permissões Combinadas
+
+<Snippet id="dependencies/filepaths-combined-permissions" />
+
+## Diretórios vs Arquivos
+
+Verificações de caminho funcionam tanto para arquivos quanto para diretórios:
+
+<Snippet id="dependencies/filepaths-dirs-vs-files" />
+
+## Exemplos do Mundo Real
+
+### Projeto Go
+
+<Snippet id="dependencies/filepaths-go-project" />
+
+### Projeto Node.js
+
+<Snippet id="dependencies/filepaths-nodejs-project" />
+
+### Docker Build
+
+<Snippet id="dependencies/filepaths-docker-build" />
+
+### Arquivos de Configuração
+
+<Snippet id="dependencies/filepaths-config-files" />
+
+## Contexto de Container
+
+Para runtime container, verificações de caminho são validadas **dentro do container**:
+
+<Snippet id="dependencies/filepaths-container" />
+
+## Caminhos Específicos de Plataforma
+
+Use múltiplas implementações para caminhos específicos de plataforma:
+
+<Snippet id="dependencies/filepaths-platform" />
+
+## Mensagens de Erro
+
+Mensagens de erro claras para arquivos faltando:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Files:
+  • go.mod - file not found
+  • node_modules - directory not found
+
+Permission Issues:
+  • ./scripts/deploy.sh - not executable
+  • ./output - not writable
+
+Ensure the required files exist with proper permissions and try again.
+```
+
+## Melhores Práticas
+
+1. **Use alternativas para arquivos de config**: `{alternatives: ["config.yaml", "config.json"]}`
+2. **Verifique permissões quando necessário**: Especialmente para scripts e diretórios de saída
+3. **Considere diferenças de plataforma**: Use variáveis de ambiente ou múltiplas implementações
+4. **Verifique dependências primeiro**: Verifique `node_modules` antes de executar scripts npm
+
+## Próximos Passos
+
+- [Commands](./commands) - Depender de outros comandos Invowk
+- [Environment Variables](./env-vars) - Verificar variáveis de ambiente requeridas
