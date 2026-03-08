@@ -19,6 +19,8 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
 ### Workflow Orchestration
 
+**CRITICAL:** All Plans and non-trivial work must be tracked using the Tasks tool (`TaskCreate`, `TaskUpdate`). Create tasks at the start of a plan or work session, update status as items progress (`in_progress`, `completed`), and clean up stale tasks.
+
 **CRITICAL:** Whenever possible and appropriate, multiple Tasks, Teammates, and Subagents must be used.
 
 **CRITICAL:** Teammates must always require plan approval before they make any changes.
@@ -65,6 +67,7 @@ Agents are specialized reviewers and generators that can be spawned as subagents
 - [`.agents/agents/doc-updater.md`](.agents/agents/doc-updater.md) - Documentation sync: code→doc sync map, MDX snippets, i18n mirrors, diagram updates.
 - [`.agents/agents/performance-analyzer.md`](.agents/agents/performance-analyzer.md) - Benchmark-aware reviewer: CUE hot path, discovery traversal, PGO profile maintenance.
 - [`.agents/agents/security-reviewer.md`](.agents/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
+- [`.agents/agents/ci-readiness.md`](.agents/agents/ci-readiness.md) - CI-readiness verifier: runs pre-completion checklist gates in parallel before commits/PRs.
 - [`.agents/agents/test-writer.md`](.agents/agents/test-writer.md) - Testscript generator: virtual/native txtar pairs, platform-split CUE, exemption rules.
 
 ### Commands
@@ -150,6 +153,17 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/types/` | go-patterns, testing, licensing, package-design | invowk-typesystem |
 | `tests/cli/` | testing | testing, cli, invowk-schema |
 | `tools/goplint/` | go-patterns, testing, licensing | — |
+
+## Quick Commands
+
+| Task | Command |
+|------|---------|
+| Build | `make build` |
+| Test (full) | `make test` |
+| Lint | `make lint` |
+| Tidy | `make tidy` |
+
+See [commands reference](.agents/rules/commands.md) for the complete list.
 
 ## Architecture Overview
 

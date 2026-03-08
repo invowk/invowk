@@ -396,6 +396,30 @@ jobs:
       - name: Check SPDX headers
         run: make license-check
 
+  # Vulnerability scanning (checks Go vulnerability database)
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          govulncheck -version
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
   # GoReleaser dry-run (validates configuration)
   goreleaser-check:
     name: GoReleaser Check
