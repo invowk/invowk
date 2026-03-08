@@ -168,6 +168,8 @@ fetch_unresolved_issues() {
 
 check_quality_gate() {
 	local branch="$1"
+	local attempt=0
+	local max_attempts=15
 	local response gate_status failing_summary
 	local -a curl_args
 
@@ -181,28 +183,44 @@ check_quality_gate() {
 		curl_args+=(--data-urlencode "branch=${branch}")
 	fi
 
-	response="$(curl "${curl_args[@]}")"
-	printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
-	gate_status="$(jq -r '.projectStatus.status // ""' <<<"$response")"
+	# Quality gate computation is asynchronous relative to CE task completion.
+	# Poll until the gate status is available (not NONE) or timeout.
+	while (( attempt < max_attempts )); do
+		response="$(curl "${curl_args[@]}")"
+		gate_status="$(jq -r '.projectStatus.status // ""' <<<"$response")"
 
-	if [[ "$gate_status" == "OK" ]]; then
-		echo "Sonar quality gate: OK"
-		return 0
-	fi
+		case "$gate_status" in
+		OK)
+			printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
+			echo "Sonar quality gate: OK"
+			return 0
+			;;
+		ERROR)
+			printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
+			failing_summary="$(
+				jq -r '
+					.projectStatus.conditions[]
+					| select(.status == "ERROR")
+					| "\(.metricKey)=\(.actualValue // "-") (threshold \(.errorThreshold // "-"))"
+				' <<<"$response"
+			)"
+			if [[ -n "$failing_summary" ]]; then
+				fail "Sonar quality gate failed: ${failing_summary//$'\n'/; }"
+			fi
+			fail "Sonar quality gate failed with status: ERROR"
+			;;
+		NONE|"")
+			sleep "$SONAR_POLL_INTERVAL_SECONDS"
+			;;
+		*)
+			fail "Unexpected quality gate status: ${gate_status}"
+			;;
+		esac
 
-	failing_summary="$(
-		jq -r '
-			.projectStatus.conditions[]
-			| select(.status == "ERROR")
-			| "\(.metricKey)=\(.actualValue // "-") (threshold \(.errorThreshold // "-"))"
-		' <<<"$response"
-	)"
+		attempt=$((attempt + 1))
+	done
 
-	if [[ -n "$failing_summary" ]]; then
-		fail "Sonar quality gate failed: ${failing_summary//$'\n'/; }"
-	fi
-
-	fail "Sonar quality gate failed with status: ${gate_status:-<empty>}"
+	fail "Timed out waiting for Sonar quality gate ($(( max_attempts * SONAR_POLL_INTERVAL_SECONDS ))s)"
 }
 
 print_issue_table() {
