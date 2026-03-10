@@ -230,12 +230,6 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.10.1
-          install-only: true
-
       - name: Cache SonarScanner CLI
         uses: actions/cache@v4
         with:

@@ -60,9 +60,12 @@ run_sonar_scanner() {
 		"-Dsonar.host.url=${SONAR_HOST_URL}"
 		"-Dsonar.organization=${SONAR_ORGANIZATION}"
 		"-Dsonar.projectKey=${SONAR_PROJECT_KEY}"
-		"-Dsonar.go.golangci-lint.reportPaths=${CHECKSTYLE_REPORT}"
 		"-Dsonar.go.coverage.reportPaths=${COVERAGE_REPORT}"
 	)
+
+	if [[ -f "$CHECKSTYLE_REPORT" ]]; then
+		args+=("-Dsonar.go.golangci-lint.reportPaths=${CHECKSTYLE_REPORT}")
+	fi
 
 	if [[ -n "$branch" ]]; then
 		args+=("-Dsonar.branch.name=${branch}")
@@ -265,7 +268,6 @@ print_issue_table() {
 main() {
 	local branch dashboard_url ce_task_url default_dashboard_url issue_count
 
-	require_cmd golangci-lint
 	require_cmd sonar-scanner
 	require_cmd curl
 	require_cmd jq
@@ -288,8 +290,12 @@ main() {
 		branch="$(get_current_branch)"
 	fi
 
-	info "Generating golangci-lint checkstyle report from .golangci.toml"
-	golangci-lint run --config .golangci.toml --output.checkstyle.path "$CHECKSTYLE_REPORT" ./...
+	if command -v golangci-lint >/dev/null 2>&1; then
+		info "Generating golangci-lint checkstyle report from .golangci.toml"
+		golangci-lint run --config .golangci.toml --output.checkstyle.path "$CHECKSTYLE_REPORT" ./...
+	else
+		info "golangci-lint not found — skipping checkstyle report (Sonar will use its own Go rules only)"
+	fi
 
 	generate_go_coverage_report
 
