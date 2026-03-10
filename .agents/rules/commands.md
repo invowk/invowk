@@ -135,11 +135,12 @@ SONAR_PROJECT_KEY=invowk_invowk
 SONAR_BRANCH=<branch-name>
 ```
 
-Requires `sonar-scanner`, `golangci-lint`, `curl`, and `jq`.
+Requires `sonar-scanner`, `curl`, `jq`, and `go`. `golangci-lint` is optional —
+if available, its checkstyle report is imported into Sonar for richer findings.
 
 With pre-commit hooks installed, this Sonar command is also enforced locally for
-Sonar-relevant changes. The CI job is staged in `lint.yml` behind the
-`ENABLE_SONAR_LINT=true` repository variable so it can be enabled when desired.
+Sonar-relevant changes. In CI, SonarCloud automatic analysis (GitHub App) handles
+analysis via `.sonarcloud.properties` — the `sonar-local` CI job has been removed.
 
 ## Test Commands
 

@@ -24,7 +24,7 @@ Before considering work complete, follow this sequence. If any step produces cod
 7. **Baseline check passes**: `make check-baseline` - Verify no new goplint findings introduced. Note: baseline scoped to production packages (`./cmd/... ./internal/... ./pkg/...`). *(Pre-commit hook.)*
 8. **New goplint findings triaged with the user**: Every newly surfaced goplint violation must be evaluated carefully to decide whether the right fix belongs in Invowk production code or in goplint itself, regardless of the original task scope. If both are plausible, stop and ask the user to choose the final direction before closing the work.
 9. **File length check**: `make check-file-length` - All Go files (production + test) must be under 1000 lines.
-10. **Sonar issues resolved**: Run `SONAR_TOKEN=... make sonar-local` and review all unresolved issues. Fix real bugs and vulnerabilities. For false positives, add suppressions in `sonar-project.properties` (multicriteria IDs must be gapless). *(Pre-commit hook when `SONAR_TOKEN` is set.)*
+10. **Sonar issues resolved**: Run `SONAR_TOKEN=... make sonar-local` and review all unresolved issues. Fix real bugs and vulnerabilities. For false positives, add suppressions in `sonar-project.properties` and `.sonarcloud.properties` (multicriteria IDs must be gapless). CI analysis is handled by SonarCloud automatic analysis (GitHub App). *(Pre-commit hook when `SONAR_TOKEN` is set.)*
 
 ### Documentation & Housekeeping
 
@@ -48,7 +48,7 @@ The following items are also enforced by pre-commit hooks (`.pre-commit-config.y
 | `golangci-lint` | 4 (Linting) | `golangci-lint run --config=.golangci.toml ./...` |
 | `goplint-baseline` | 7 (Baseline) | `make check-baseline` |
 | `goplint-behavior` | — | Semantic-spec, IFDS, Phase C/D gates (not explicitly in checklist) |
-| `sonar-local` | 10 (Sonar) | Requires `SONAR_TOKEN`; scoped to production code changes |
+| `sonar-local` | 10 (Sonar) | Requires `SONAR_TOKEN`; local pre-commit only (CI uses SonarCloud automatic analysis) |
 
 Items NOT covered by any hook (manual discipline required): `make test`, `make tidy`, `make test-cli`, `make check-file-length`, `make check-agent-docs`, documentation/diagram/module validation, `/simplify`, and `/learn`.
 
