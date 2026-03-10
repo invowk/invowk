@@ -131,7 +131,7 @@ Optional environment overrides:
 ```bash
 SONAR_HOST_URL=https://sonarcloud.io
 SONAR_ORGANIZATION=invowk
-SONAR_PROJECT_KEY=invowk
+SONAR_PROJECT_KEY=invowk_invowk
 SONAR_BRANCH=<branch-name>
 ```
 

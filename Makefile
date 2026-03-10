@@ -547,7 +547,7 @@ help:
 	@echo "  SONAR_TOKEN      Sonar token used by make sonar-local (required)"
 	@echo "  SONAR_HOST_URL   Sonar host URL (default: https://sonarcloud.io)"
 	@echo "  SONAR_ORGANIZATION Sonar organization key (default: invowk)"
-	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk)"
+	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk_invowk)"
 	@echo "  SONAR_BRANCH     Branch for analysis/issues (default: current git branch)"
 	@echo "  YES            Set to 1 to skip confirmation prompts"
 	@echo "  DRY_RUN        Set to 1 to show actions without executing them"

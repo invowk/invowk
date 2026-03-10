@@ -2844,7 +2844,7 @@ export SONAR_TOKEN=your_token
 # Optional overrides (defaults shown)
 export SONAR_HOST_URL=https://sonarcloud.io
 export SONAR_ORGANIZATION=invowk
-export SONAR_PROJECT_KEY=invowk
+export SONAR_PROJECT_KEY=invowk_invowk
 
 # Run local analysis + print unresolved Sonar issues in terminal
 make sonar-local
