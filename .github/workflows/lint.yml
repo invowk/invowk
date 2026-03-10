@@ -55,6 +55,7 @@ jobs:
   agent-docs:
     name: agent docs integrity
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -67,6 +68,7 @@ jobs:
   golangci-lint:
     name: golangci-lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: read
@@ -90,6 +92,7 @@ jobs:
   goplint:
     name: goplint (advisory full scan)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     # Advisory only during rollout - does not block PRs
@@ -119,6 +122,7 @@ jobs:
   goplint-baseline:
     name: goplint (baseline)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -141,6 +145,7 @@ jobs:
   goplint-tests:
     name: goplint tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -186,6 +191,7 @@ jobs:
   goplint-review-dates:
     name: goplint (overdue reviews)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     # Advisory only - surfaces overdue exception review dates
@@ -215,6 +221,7 @@ jobs:
   file-length:
     name: file length gate (1000 lines)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
