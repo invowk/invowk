@@ -102,7 +102,7 @@ Key rules:
 | **virtual shell** | `virtual_shell.txtar` | Tests virtual-shell-specific features |
 | **container** | `container_*.txtar` | Linux-only by design |
 | **CUE validation** | `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` | Schema parsing, not runtime behavior |
-| **discovery/ambiguity** | `virtual_ambiguity.txtar`, `virtual_disambiguation.txtar`, `virtual_multi_source.txtar` | Command resolution logic, not shell execution |
+| **discovery/diagnostics** | `virtual_diagnostics_footer.txtar` | Diagnostics footer formatting, not shell execution |
 | **dogfooding** | `dogfooding_invowkfile.txtar` | Already exercises native runtime |
 | **built-in commands** | `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar` | Built-in Cobra handlers, not user-defined runtimes |
 

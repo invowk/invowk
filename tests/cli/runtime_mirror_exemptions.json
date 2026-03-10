@@ -3,12 +3,13 @@
     "virtual_shell.txtar": "virtual-shell-specific behavior",
     "virtual_edge_cases.txtar": "CUE validation coverage only",
     "virtual_args_subcommand_conflict.txtar": "CUE validation coverage only",
-    "virtual_ambiguity.txtar": "discovery and ambiguity diagnostics",
-    "virtual_disambiguation.txtar": "discovery and ambiguity diagnostics",
-    "virtual_multi_source.txtar": "discovery and ambiguity diagnostics",
     "virtual_diagnostics_footer.txtar": "discovery diagnostics formatting"
   },
   "prefix": {
     "virtual_uroot_": "u-root commands are virtual-runtime built-ins"
+  },
+  "command_path_exempt": {
+    "virtual_isolation.txtar": "command names include runtime name by design",
+    "virtual_runtime_override.txtar": "tests cross-runtime override with different command targets"
   }
 }
