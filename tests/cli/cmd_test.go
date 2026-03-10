@@ -71,6 +71,18 @@ func commonSetup(env *testscript.Env) error {
 	testSuffix := generateTestSuffix(env.WorkDir)
 	env.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
 
+	// Set GOCOVERDIR for coverage instrumentation (Go 1.20+).
+	// When the binary is built with -cover, it writes coverage data to this directory.
+	// Each test gets its own subdirectory under a shared GOCOVERDIR root.
+	// Reuses testSuffix (already computed above) to avoid redundant SHA-256.
+	if coverDir := os.Getenv("GOCOVERDIR"); coverDir != "" {
+		testCoverDir := filepath.Join(coverDir, testSuffix)
+		if err := os.MkdirAll(testCoverDir, 0o755); err != nil {
+			return fmt.Errorf("failed to create coverage directory: %w", err)
+		}
+		env.Setenv("GOCOVERDIR", testCoverDir)
+	}
+
 	// IMPORTANT: Do NOT set env.Cd here. Each test file controls its own working
 	// directory. Tests that need the project root should use 'cd $PROJECT_ROOT'.
 	// Setting env.Cd = projectRoot globally caused container tests with embedded
@@ -134,8 +146,16 @@ func TestMain(m *testing.M) {
 	}
 	binaryPath = filepath.Join(binDir, binaryName)
 
-	// Build invowk.
-	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", binaryPath, ".")
+	// Build invowk. When GOCOVERDIR is set (e.g. via make test-cli-cover),
+	// build with -cover so the binary emits coverage data to that directory.
+	// Without GOCOVERDIR, build normally to avoid the Go runtime's
+	// "warning: GOCOVERDIR not set" stderr noise that breaks ! stderr assertions.
+	buildArgs := []string{"build"}
+	if os.Getenv("GOCOVERDIR") != "" {
+		buildArgs = append(buildArgs, "-cover")
+	}
+	buildArgs = append(buildArgs, "-o", binaryPath, ".")
+	cmd := exec.CommandContext(context.Background(), "go", buildArgs...)
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
