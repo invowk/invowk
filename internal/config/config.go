@@ -29,6 +29,8 @@ const (
 	ConfigFileName = "config"
 	// ConfigFileExt is the config file extension.
 	ConfigFileExt = "cue"
+
+	errMsgHomeDir = "failed to get home directory: %w"
 )
 
 //go:embed config_schema.cue
@@ -52,7 +54,7 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 	case "darwin":
 		home, err := userHomeDir()
 		if err != nil {
-			return "", fmt.Errorf("failed to get home directory: %w", err)
+			return "", fmt.Errorf(errMsgHomeDir, err)
 		}
 		configDir = filepath.Join(home, "Library", "Application Support")
 	default: // Linux and others
@@ -60,7 +62,7 @@ func configDirFrom(goos string, getenv func(string) string, userHomeDir func() (
 		if configDir == "" {
 			home, err := userHomeDir()
 			if err != nil {
-				return "", fmt.Errorf("failed to get home directory: %w", err)
+				return "", fmt.Errorf(errMsgHomeDir, err)
 			}
 			configDir = filepath.Join(home, ".config")
 		}
@@ -87,7 +89,7 @@ func ConfigDir() (types.FilesystemPath, error) {
 func CommandsDir() (types.FilesystemPath, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
+		return "", fmt.Errorf(errMsgHomeDir, err)
 	}
 	cmdsDir := types.FilesystemPath(filepath.Join(home, ".invowk", "cmds"))
 	if err := cmdsDir.Validate(); err != nil {

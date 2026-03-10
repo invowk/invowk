@@ -24,6 +24,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const errMsgListRemoteRefs = "failed to list remote refs: %w"
+
 type (
 	// GitFetcher handles Git operations for module fetching.
 	// Fields are unexported for immutability; use CacheDir() accessor.
@@ -65,7 +67,7 @@ func (f *GitFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer,
 		Auth: f.auth,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list remote refs: %w", err)
+		return nil, fmt.Errorf(errMsgListRemoteRefs, err)
 	}
 
 	// Filter for version tags
@@ -128,7 +130,7 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL GitURL, tagName
 		Auth: f.auth,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to list remote refs: %w", err)
+		return "", fmt.Errorf(errMsgListRemoteRefs, err)
 	}
 
 	// Try both with and without "v" prefix
@@ -249,7 +251,7 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]
 		Auth: f.auth,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list remote refs: %w", err)
+		return nil, fmt.Errorf(errMsgListRemoteRefs, err)
 	}
 
 	var tags []TagInfo
