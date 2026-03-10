@@ -2830,35 +2830,29 @@ Regenerate `default.pgo` when:
 - Runtime execution paths materially change
 - Preparing a major release
 
-## Local SonarQube Analysis
+## Local SonarCloud Status Check
 
-Invowk includes a local Sonar workflow that reuses `.golangci.toml` by exporting
-golangci-lint findings as a Checkstyle report, generating a Go coverage profile,
-and importing both into Sonar during scan (`sonar.go.golangci-lint.reportPaths`
-and `sonar.go.coverage.reportPaths`).
+Invowk includes a local Sonar workflow that fetches quality gate status and
+unresolved issues from SonarCloud via REST API, using results from SonarCloud's
+Automatic Analysis (GitHub App).
 
 ```bash
-# Required: token from SonarQube Cloud
+# Fetch quality gate + unresolved issues (no auth needed for public projects)
+make sonar-local
+
+# Optional: set token for private projects or higher rate limits
 export SONAR_TOKEN=your_token
 
 # Optional overrides (defaults shown)
 export SONAR_HOST_URL=https://sonarcloud.io
-export SONAR_ORGANIZATION=invowk
 export SONAR_PROJECT_KEY=invowk_invowk
-
-# Run local analysis + print unresolved Sonar issues in terminal
-make sonar-local
 ```
 
-The command also writes raw issue output to `.sonar/reports/issues.json`, the
-coverage profile to `.sonar/reports/coverage.out`, and fails if the Sonar
-quality gate is red for the analyzed branch.
+The command writes reports to `.sonar/reports/` (quality-gate.json, issues.json)
+and fails if the Sonar quality gate is red for the analyzed branch.
 
-When pre-commit hooks are installed, the local `sonar-local` hook runs this
-same command for Sonar-relevant changes and blocks the commit on lint, coverage,
-or quality-gate failures.
-The CI job is prepared in `.github/workflows/lint.yml` but stays disabled until
-the repository variable `ENABLE_SONAR_LINT` is set to `true`.
+When pre-commit hooks are installed, the `sonar-local` hook runs on changes to
+Sonar configuration files and blocks the commit on quality gate failures.
 
 ## Contributing
 

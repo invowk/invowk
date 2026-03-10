@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MPL-2.0
+
+# Fetch SonarCloud quality gate status and unresolved issues via REST API.
+#
+# Uses results from SonarCloud's Automatic Analysis — no local scanner.
+#
+# Requires: curl, jq
+# Environment:
+#   SONAR_TOKEN       (optional — enables auth for higher rate limits / private projects)
+#   SONAR_HOST_URL    (default: https://sonarcloud.io)
+#   SONAR_PROJECT_KEY (default: invowk_invowk)
+#   SONAR_BRANCH      (default: current git branch)
+#   SONAR_PAGE_SIZE   (default: 500)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 SONAR_HOST_URL="${SONAR_HOST_URL:-https://sonarcloud.io}"
-SONAR_ORGANIZATION="${SONAR_ORGANIZATION:-invowk}"
 SONAR_PROJECT_KEY="${SONAR_PROJECT_KEY:-invowk_invowk}"
 SONAR_BRANCH="${SONAR_BRANCH:-}"
-SONAR_TIMEOUT_SECONDS="${SONAR_TIMEOUT_SECONDS:-180}"
-SONAR_POLL_INTERVAL_SECONDS="${SONAR_POLL_INTERVAL_SECONDS:-2}"
 SONAR_PAGE_SIZE="${SONAR_PAGE_SIZE:-500}"
 
 REPORT_DIR=".sonar/reports"
-CHECKSTYLE_REPORT="$REPORT_DIR/golangci-checkstyle.xml"
-COVERAGE_REPORT="$REPORT_DIR/coverage.out"
-SCANNER_LOG="$REPORT_DIR/sonar-scanner.log"
-CE_TASK_JSON="$REPORT_DIR/ce-task.json"
 QUALITY_GATE_JSON="$REPORT_DIR/quality-gate.json"
-ISSUES_NDJSON="$REPORT_DIR/issues.ndjson"
 ISSUES_JSON="$REPORT_DIR/issues.json"
 
 fail() {
@@ -36,12 +40,6 @@ require_cmd() {
 	command -v "$cmd" >/dev/null 2>&1 || fail "Required command not found: $cmd"
 }
 
-read_task_value() {
-	local key="$1"
-	local file="$2"
-	grep -E "^${key}=" "$file" | sed -E "s/^${key}=//" | head -n1 || true
-}
-
 get_current_branch() {
 	local branch
 	branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
@@ -52,77 +50,60 @@ get_current_branch() {
 	echo "$branch"
 }
 
-run_sonar_scanner() {
+# Wraps curl with optional Bearer auth.
+# SonarCloud accepts unauthenticated requests for public projects.
+# When SONAR_TOKEN is set, uses it for higher rate limits and private project access.
+sonar_curl() {
+	local -a args=(-fsS)
+	if [[ -n "${SONAR_TOKEN:-}" ]]; then
+		args+=(-H "Authorization: Bearer ${SONAR_TOKEN}")
+	fi
+	curl "${args[@]}" "$@"
+}
+
+check_quality_gate() {
 	local branch="$1"
-	local -a args
+	local response gate_status failing_summary
+	local -a curl_args
 
-	args=(
-		"-Dsonar.host.url=${SONAR_HOST_URL}"
-		"-Dsonar.organization=${SONAR_ORGANIZATION}"
-		"-Dsonar.projectKey=${SONAR_PROJECT_KEY}"
-		"-Dsonar.go.coverage.reportPaths=${COVERAGE_REPORT}"
+	curl_args=(
+		--get "${SONAR_HOST_URL%/}/api/qualitygates/project_status"
+		--data-urlencode "projectKey=${SONAR_PROJECT_KEY}"
 	)
-
-	if [[ -f "$CHECKSTYLE_REPORT" ]]; then
-		args+=("-Dsonar.go.golangci-lint.reportPaths=${CHECKSTYLE_REPORT}")
-	fi
-
 	if [[ -n "$branch" ]]; then
-		args+=("-Dsonar.branch.name=${branch}")
+		curl_args+=(--data-urlencode "branch=${branch}")
 	fi
 
-	SONAR_TOKEN="$SONAR_TOKEN" sonar-scanner "${args[@]}" 2>&1 | tee "$SCANNER_LOG"
-}
+	response="$(sonar_curl "${curl_args[@]}")"
+	gate_status="$(jq -r '.projectStatus.status // ""' <<<"$response")"
 
-generate_go_coverage_report() {
-	info "Generating Go coverage report for Sonar"
-	go test \
-		-covermode=atomic \
-		-coverpkg=./cmd/...,./internal/...,./pkg/... \
-		-coverprofile "$COVERAGE_REPORT" \
-		./cmd/... ./internal/... ./pkg/...
-}
-
-wait_for_compute_engine_task() {
-	local ce_task_url="$1"
-	local attempt=0
-	local max_attempts
-	local response status error_message
-
-	if (( SONAR_POLL_INTERVAL_SECONDS <= 0 )); then
-		fail "SONAR_POLL_INTERVAL_SECONDS must be > 0"
-	fi
-
-	max_attempts=$((SONAR_TIMEOUT_SECONDS / SONAR_POLL_INTERVAL_SECONDS))
-	if (( max_attempts < 1 )); then
-		max_attempts=1
-	fi
-
-	while (( attempt < max_attempts )); do
-		response="$(curl -fsS -u "${SONAR_TOKEN}:" "$ce_task_url")"
-		status="$(jq -r '.task.status // ""' <<<"$response")"
-
-		case "$status" in
-		SUCCESS)
-			printf '%s\n' "$response" >"$CE_TASK_JSON"
-			return 0
-			;;
-		PENDING | IN_PROGRESS)
-			sleep "$SONAR_POLL_INTERVAL_SECONDS"
-			;;
-		FAILED | CANCELED)
-			error_message="$(jq -r '.task.errorMessage // "unknown compute-engine error"' <<<"$response")"
-			fail "Sonar compute engine task ${status}: ${error_message}"
-			;;
-		*)
-			fail "Unexpected Sonar compute engine task status: ${status:-<empty>}"
-			;;
-		esac
-
-		attempt=$((attempt + 1))
-	done
-
-	fail "Timed out waiting for Sonar compute engine task (${SONAR_TIMEOUT_SECONDS}s)"
+	case "$gate_status" in
+	OK)
+		printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
+		echo "Sonar quality gate: OK"
+		;;
+	NONE | "")
+		printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
+		echo "Sonar quality gate: no data available (analysis may be pending)"
+		;;
+	ERROR)
+		printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
+		failing_summary="$(
+			jq -r '
+				.projectStatus.conditions[]
+				| select(.status == "ERROR")
+				| "\(.metricKey)=\(.actualValue // "-") (threshold \(.errorThreshold // "-"))"
+			' <<<"$response"
+		)"
+		if [[ -n "$failing_summary" ]]; then
+			fail "Sonar quality gate failed: ${failing_summary//$'\n'/; }"
+		fi
+		fail "Sonar quality gate failed with status: ERROR"
+		;;
+	*)
+		fail "Unexpected quality gate status: ${gate_status}"
+		;;
+	esac
 }
 
 fetch_unresolved_issues() {
@@ -132,14 +113,11 @@ fetch_unresolved_issues() {
 	local page_count=0
 	local retrieved=0
 	local response
+	local all_issues="[]"
 	local -a curl_args
-
-	: >"$ISSUES_NDJSON"
 
 	while :; do
 		curl_args=(
-			-fsS
-			-u "${SONAR_TOKEN}:"
 			--get "${SONAR_HOST_URL%/}/api/issues/search"
 			--data-urlencode "componentKeys=${SONAR_PROJECT_KEY}"
 			--data-urlencode "resolved=false"
@@ -150,12 +128,13 @@ fetch_unresolved_issues() {
 			curl_args+=(--data-urlencode "branch=${branch}")
 		fi
 
-		response="$(curl "${curl_args[@]}")"
+		response="$(sonar_curl "${curl_args[@]}")"
 		if (( page == 1 )); then
 			total="$(jq -r '.paging.total // .total // 0' <<<"$response")"
 		fi
 
-		jq -c '.issues[]?' <<<"$response" >>"$ISSUES_NDJSON"
+		# Merge this page's issues into the accumulated array.
+		all_issues="$(jq -s '.[0] + [.[1].issues[]?]' <<<"${all_issues}"$'\n'"${response}")"
 		page_count="$(jq -r '.issues | length' <<<"$response")"
 		retrieved=$((retrieved + page_count))
 
@@ -166,63 +145,7 @@ fetch_unresolved_issues() {
 		page=$((page + 1))
 	done
 
-	jq -s '.' "$ISSUES_NDJSON" >"$ISSUES_JSON"
-}
-
-check_quality_gate() {
-	local analysis_id="$1"
-	local attempt=0
-	local max_attempts=$(( SONAR_TIMEOUT_SECONDS / SONAR_POLL_INTERVAL_SECONDS ))
-	local response gate_status failing_summary
-	local -a curl_args
-
-	# Use analysisId for deterministic lookup of THIS specific analysis's gate,
-	# avoiding ambiguity when multiple analyses queue up for the same branch.
-	curl_args=(
-		-fsS
-		-u "${SONAR_TOKEN}:"
-		--get "${SONAR_HOST_URL%/}/api/qualitygates/project_status"
-		--data-urlencode "analysisId=${analysis_id}"
-	)
-
-	# Quality gate computation is asynchronous relative to CE task completion.
-	# Poll until the gate status is available (not NONE) or timeout.
-	while (( attempt < max_attempts )); do
-		response="$(curl "${curl_args[@]}")"
-		gate_status="$(jq -r '.projectStatus.status // ""' <<<"$response")"
-
-		case "$gate_status" in
-		OK)
-			printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
-			echo "Sonar quality gate: OK"
-			return 0
-			;;
-		ERROR)
-			printf '%s\n' "$response" >"$QUALITY_GATE_JSON"
-			failing_summary="$(
-				jq -r '
-					.projectStatus.conditions[]
-					| select(.status == "ERROR")
-					| "\(.metricKey)=\(.actualValue // "-") (threshold \(.errorThreshold // "-"))"
-				' <<<"$response"
-			)"
-			if [[ -n "$failing_summary" ]]; then
-				fail "Sonar quality gate failed: ${failing_summary//$'\n'/; }"
-			fi
-			fail "Sonar quality gate failed with status: ERROR"
-			;;
-		NONE|"")
-			sleep "$SONAR_POLL_INTERVAL_SECONDS"
-			;;
-		*)
-			fail "Unexpected quality gate status: ${gate_status}"
-			;;
-		esac
-
-		attempt=$((attempt + 1))
-	done
-
-	fail "Timed out waiting for Sonar quality gate ($(( max_attempts * SONAR_POLL_INTERVAL_SECONDS ))s)"
+	printf '%s\n' "$all_issues" >"$ISSUES_JSON"
 }
 
 print_issue_table() {
@@ -235,7 +158,7 @@ print_issue_table() {
 	fi
 
 	printf '%s\n' ""
-	printf '%s\n' "SEVERITY\tTYPE\tRULE\tFILE:LINE\tMESSAGE"
+	printf '%s\n' "SEVERITY	TYPE	RULE	FILE:LINE	MESSAGE"
 	table_rows="$(
 		jq -r '
 			.[] |
@@ -266,85 +189,35 @@ print_issue_table() {
 }
 
 main() {
-	local branch dashboard_url ce_task_url default_dashboard_url issue_count
-
-	require_cmd sonar-scanner
 	require_cmd curl
 	require_cmd jq
-	require_cmd go
-
-	if [[ -z "${SONAR_TOKEN:-}" ]]; then
-		echo "SONAR_TOKEN not set — skipping Sonar analysis"
-		exit 0
-	fi
 
 	if (( SONAR_PAGE_SIZE <= 0 )); then
 		fail "SONAR_PAGE_SIZE must be > 0"
 	fi
 
 	mkdir -p "$REPORT_DIR"
-	rm -f "$CHECKSTYLE_REPORT" "$COVERAGE_REPORT" "$SCANNER_LOG" "$CE_TASK_JSON" "$QUALITY_GATE_JSON" "$ISSUES_NDJSON" "$ISSUES_JSON"
+	rm -f "$QUALITY_GATE_JSON" "$ISSUES_JSON"
 
-	branch="$SONAR_BRANCH"
+	local branch="$SONAR_BRANCH"
 	if [[ -z "$branch" ]]; then
 		branch="$(get_current_branch)"
 	fi
 
-	if command -v golangci-lint >/dev/null 2>&1; then
-		info "Generating golangci-lint checkstyle report from .golangci.toml"
-		golangci-lint run --config .golangci.toml --output.checkstyle.path "$CHECKSTYLE_REPORT" ./...
-	else
-		info "golangci-lint not found — skipping checkstyle report (Sonar will use its own Go rules only)"
-	fi
-
-	generate_go_coverage_report
-
+	local dashboard_url="${SONAR_HOST_URL%/}/dashboard?id=${SONAR_PROJECT_KEY}"
 	if [[ -n "$branch" ]]; then
-		info "Running sonar-scanner for branch '$branch'"
-	else
-		info "Running sonar-scanner for default branch context"
+		dashboard_url+="&branch=${branch}"
 	fi
-	if ! run_sonar_scanner "$branch"; then
-		if [[ -n "$branch" ]] && grep -Eiq 'branch|edition|not authorized|unknown parameter' "$SCANNER_LOG"; then
-			info "Branch analysis is unavailable. Retrying without branch parameter."
-			branch=""
-			run_sonar_scanner "$branch"
-		else
-			fail "sonar-scanner failed. See $SCANNER_LOG"
-		fi
-	fi
-
-	if [[ ! -f ".scannerwork/report-task.txt" ]]; then
-		fail "Missing .scannerwork/report-task.txt after sonar-scanner run"
-	fi
-
-	ce_task_url="$(read_task_value "ceTaskUrl" ".scannerwork/report-task.txt")"
-	dashboard_url="$(read_task_value "dashboardUrl" ".scannerwork/report-task.txt")"
-	[[ -n "$ce_task_url" ]] || fail "Could not read ceTaskUrl from .scannerwork/report-task.txt"
-
-	default_dashboard_url="${SONAR_HOST_URL%/}/dashboard?id=${SONAR_PROJECT_KEY}"
-	if [[ -n "$dashboard_url" ]]; then
-		echo "Sonar dashboard: $dashboard_url"
-	else
-		echo "Sonar dashboard: $default_dashboard_url"
-	fi
-
-	info "Waiting for Sonar compute engine to finish analysis"
-	wait_for_compute_engine_task "$ce_task_url"
-
-	local analysis_id
-	analysis_id="$(jq -r '.task.analysisId // ""' "$CE_TASK_JSON")"
-	if [[ -z "$analysis_id" ]]; then
-		fail "Could not extract analysisId from compute engine task response"
-	fi
+	echo "Sonar dashboard: $dashboard_url"
 
 	info "Checking Sonar quality gate"
-	check_quality_gate "$analysis_id"
+	check_quality_gate "$branch"
 
 	info "Fetching unresolved Sonar issues"
 	fetch_unresolved_issues "$branch"
-	issue_count="$(jq -r 'length' "$ISSUES_JSON")"
 
+	local issue_count
+	issue_count="$(jq -r 'length' "$ISSUES_JSON")"
 	echo "Unresolved Sonar issues: $issue_count"
 	echo "Issues JSON report: $ISSUES_JSON"
 	print_issue_table "$issue_count"

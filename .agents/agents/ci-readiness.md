@@ -29,7 +29,7 @@ Run these checks and collect all failures before reporting. Do NOT stop at the f
 
 ### Phase 4: Advisory (non-blocking, report as warnings)
 
-9. **Sonar issues**: `SONAR_TOKEN=... make sonar-local` (only if SONAR_TOKEN is available)
+9. **Sonar issues**: `make sonar-local` (API-only check, no token required for public projects)
 10. **Sample modules**: `go run . validate modules/*.invowkmod` (if module-related changes)
 
 ## Output Format
@@ -47,7 +47,7 @@ Report results as a table:
 | 6 | check-baseline         | ✅ PASS |                            |
 | 7 | test                   | ✅ PASS |                            |
 | 8 | test-cli               | ⏭ SKIP | No CLI changes detected    |
-| 9 | sonar-local            | ⚠ WARN | SONAR_TOKEN not set        |
+| 9 | sonar-local            | ✅ PASS |                            |
 |10 | validate modules       | ⏭ SKIP | No module changes          |
 ```
 

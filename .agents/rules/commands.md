@@ -11,7 +11,7 @@
 | Single test | `go test -v -run TestName ./path/...` |
 | Test CLI with coverage | `make test-cli-cover` |
 | Lint | `make lint` |
-| Local Sonar issues | `SONAR_TOKEN=... make sonar-local` |
+| Local Sonar issues | `make sonar-local` |
 | Type check (DDD) | `make check-types` |
 | Type check (JSON) | `make check-types-json` |
 | Type check (all DDD) | `make check-types-all` |
@@ -119,29 +119,29 @@ Reports are written to `docs/benchmarks/YYYY-MM-DD_HH-mm-ss.md` and include:
 - Parsed `internal/benchmark` table (`ns/op`, `ms/op`, estimated run/total time, `B/op`, `allocs/op`)
 - Raw benchmark outputs for traceability
 
-## Local SonarQube Analysis
+## Local SonarCloud Status Check
 
-Run a local Sonar analysis and print unresolved issues in terminal:
+Fetch the quality gate status and unresolved issues from SonarCloud via REST API:
 
 ```bash
-SONAR_TOKEN=your_token make sonar-local
+make sonar-local
 ```
 
 Optional environment overrides:
 
 ```bash
+SONAR_TOKEN=your_token           # Optional — enables auth for private projects / higher rate limits
 SONAR_HOST_URL=https://sonarcloud.io
-SONAR_ORGANIZATION=invowk
 SONAR_PROJECT_KEY=invowk_invowk
 SONAR_BRANCH=<branch-name>
 ```
 
-Requires `sonar-scanner`, `curl`, `jq`, and `go`. `golangci-lint` is optional —
-if available, its checkstyle report is imported into Sonar for richer findings.
+Requires `curl` and `jq`. This is an API-only check — it reads results from
+SonarCloud's Automatic Analysis (GitHub App) rather than running a local scan.
+Reports are saved to `.sonar/reports/` (quality-gate.json, issues.json).
 
-With pre-commit hooks installed, this Sonar command is also enforced locally for
-Sonar-relevant changes. In CI, SonarCloud automatic analysis (GitHub App) handles
-analysis via `.sonarcloud.properties` — the `sonar-local` CI job has been removed.
+With pre-commit hooks installed, the `sonar-local` hook runs on changes to
+Sonar configuration files and blocks the commit on quality gate failures.
 
 ## Test Commands
 

@@ -374,7 +374,7 @@ else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
 
-# Run local SonarQube Cloud analysis and print unresolved issues
+# Fetch SonarCloud quality gate status and unresolved issues via REST API
 .PHONY: sonar-local
 sonar-local:
 	@./scripts/sonar-local.sh
@@ -545,7 +545,7 @@ help:
 	@echo "  check-cfg-refinement Run Phase C refinement gate for tools/goplint"
 	@echo "  check-cfg-alias  Run Phase D alias gate for opt-in SSA alias verification"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
-	@echo "  sonar-local      Run local SonarQube analysis and print unresolved issues"
+	@echo "  sonar-local      Fetch SonarCloud quality gate and unresolved issues (API-only)"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
 	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"
@@ -565,11 +565,10 @@ help:
 	@echo "  STARTUP_SAMPLES Number of startup samples for bench-report targets (default: 40)"
 	@echo "  BENCH_COUNT     Go benchmark run count for bench-report targets (default: 5)"
 	@echo "  BENCH_REPORT_OUT_DIR Output directory for bench-report targets (default: docs/benchmarks)"
-	@echo "  SONAR_TOKEN      Sonar token used by make sonar-local (required)"
+	@echo "  SONAR_TOKEN      SonarCloud token for sonar-local (optional, for private projects)"
 	@echo "  SONAR_HOST_URL   Sonar host URL (default: https://sonarcloud.io)"
-	@echo "  SONAR_ORGANIZATION Sonar organization key (default: invowk)"
 	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk_invowk)"
-	@echo "  SONAR_BRANCH     Branch for analysis/issues (default: current git branch)"
+	@echo "  SONAR_BRANCH     Branch for quality gate/issues (default: current git branch)"
 	@echo "  YES            Set to 1 to skip confirmation prompts"
 	@echo "  DRY_RUN        Set to 1 to show actions without executing them"
 	@echo ""
