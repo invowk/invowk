@@ -257,7 +257,7 @@ jobs:
             rm "$RUNNER_TEMP/sonar-scanner.zip"
           fi
           echo "$scanner_root/bin" >> "$GITHUB_PATH"
-          sonar-scanner --version
+          "$scanner_root/bin/sonar-scanner" --version
 
       - name: Run SonarCloud analysis
         env:
