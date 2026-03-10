@@ -245,8 +245,8 @@ jobs:
           fi
           scanner_version="8.0.1.6346"
           scanner_root="$RUNNER_TEMP/sonar-scanner-${scanner_version}-linux-x64"
-          curl -fsSL -o "$RUNNER_TEMP/sonar-scanner.zip" \
-            "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-${scanner_version}-linux-x64.zip"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/sonar-scanner.zip" \
+            "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${scanner_version}-linux-x64.zip"
           unzip -q "$RUNNER_TEMP/sonar-scanner.zip" -d "$RUNNER_TEMP"
           echo "$scanner_root/bin" >> "$GITHUB_PATH"
           "$scanner_root/bin/sonar-scanner" --version
