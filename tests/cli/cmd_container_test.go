@@ -3,7 +3,10 @@
 package cli
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,6 +27,12 @@ const (
 	// containerNamePrefix is the prefix used for test container names.
 	// This allows cleanup functions to identify and remove orphaned test containers.
 	containerNamePrefix = "invowk-test-"
+
+	// containerHealthProbeTimeout bounds the per-test engine health re-check.
+	// The harness probe runs once at init (sync.OnceValue), but the engine can
+	// degrade mid-suite (e.g., Podman daemon stuck in cgroup operations).
+	// A short re-check before each test catches this early.
+	containerHealthProbeTimeout = 10 * time.Second
 )
 
 // containerSetup extends commonSetup with container-specific cleanup and
@@ -34,6 +43,14 @@ func containerSetup(env *testscript.Env) error {
 		return err
 	}
 	if err := ensureContainerSuiteConfig(env); err != nil {
+		return err
+	}
+
+	// Quick health re-check: verify the engine is still responsive before
+	// starting an expensive container test. The harness probe ran once at init,
+	// but Podman can degrade mid-suite (cgroup deadlock, conmon zombie, etc.).
+	// Failing fast here avoids waiting for the full 3-minute testscript deadline.
+	if err := probeEngineHealthBeforeTest(); err != nil {
 		return err
 	}
 
@@ -48,6 +65,26 @@ func containerSetup(env *testscript.Env) error {
 		cleanupTestContainersForHarness(containerPrefix, currentContainerHarness())
 	})
 
+	return nil
+}
+
+// probeEngineHealthBeforeTest runs a lightweight "version" check against
+// the resolved container engine. If the engine is unresponsive (e.g., Podman
+// daemon stuck after a previous test), this fails fast with a clear message
+// rather than letting the testscript deadline expire after 3 minutes.
+func probeEngineHealthBeforeTest() error {
+	harness := currentContainerHarness()
+	if harness.status != containerHarnessStatusReady || harness.binaryPath == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), containerHealthProbeTimeout)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, harness.binaryPath, "version").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("container engine health re-check failed (engine may be unresponsive): %w\noutput: %s", err, out)
+	}
 	return nil
 }
 

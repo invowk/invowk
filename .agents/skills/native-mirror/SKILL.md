@@ -22,21 +22,20 @@ Invoke this skill (`/native-mirror`) when:
 
 Before generating a mirror, verify the virtual test is NOT exempt:
 
+> **Source of truth**: The machine-enforced exemption list is in
+> `tests/cli/runtime_mirror_exemptions.json`. This SKILL.md list is a human
+> reference and must stay in sync. `TestVirtualRuntimeMirrorCoverage` enforces
+> the JSON entries; stale entries cause test failures.
+
 **Exempt categories** (do NOT create native mirrors):
 - `virtual_uroot_*.txtar` — u-root commands are virtual shell built-ins
 - `virtual_shell.txtar` — Tests virtual-shell-specific features
-- `container_*.txtar` — Linux-only container runtime
 - `virtual_edge_cases.txtar` — CUE schema validation, not runtime behavior
 - `virtual_args_subcommand_conflict.txtar` — CUE schema validation
-- `virtual_vendored_execution.txtar` — Discovery/module resolution
-- `virtual_multi_source_full.txtar` — Discovery precedence across all sources
 - `virtual_diagnostics_footer.txtar` — Diagnostics footer output
-- `dogfooding_invowkfile.txtar` — Already exercises native runtime
-- `config_*.txtar` — Built-in CLI commands (Cobra handlers, not user-defined runtimes)
-- `module_*.txtar` — Built-in CLI commands (Cobra handlers, not user-defined runtimes)
-- `completion.txtar` — Built-in CLI command (shell completion generation)
-- `tui_format.txtar`, `tui_style.txtar` — Built-in CLI commands (non-interactive TUI utilities)
-- `init_*.txtar` — Built-in CLI command (project initialization)
+- `container_*.txtar` — Linux-only container runtime (outside `virtual_*` scope)
+- `dogfooding_invowkfile.txtar` — Already exercises native runtime (outside `virtual_*` scope)
+- `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_format.txtar`, `tui_style.txtar`, `init_*.txtar` — Built-in CLI commands, outside `virtual_*` scope
 
 If the test is exempt, report it and stop.
 

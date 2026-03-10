@@ -586,8 +586,10 @@ When writing native test mirrors for Windows, use these translations:
 | `native_runtime_override.txtar` | native | Native mirror of virtual_runtime_override.txtar | Inline CUE, platform-split |
 | `virtual_verbose.txtar` | virtual | Verbose output mode | Inline CUE, all platforms |
 | `native_verbose.txtar` | native | Native mirror of virtual_verbose.txtar | Inline CUE, platform-split |
-| `virtual_multi_source_full.txtar` | virtual | Full multi-source discovery precedence (exempt) | Inline CUE, all platforms |
-| `virtual_vendored_execution.txtar` | virtual | Vendored module execution (exempt) | Inline CUE, all platforms |
+| `virtual_multi_source_full.txtar` | virtual | Full multi-source discovery precedence | Inline CUE, all platforms |
+| `native_multi_source_full.txtar` | native | Native mirror of virtual_multi_source_full.txtar | Inline CUE, platform-split |
+| `virtual_vendored_execution.txtar` | virtual | Vendored module execution | Inline CUE, all platforms |
+| `native_vendored_execution.txtar` | native | Native mirror of virtual_vendored_execution.txtar | Inline CUE, platform-split |
 | `virtual_diagnostics_footer.txtar` | virtual | Diagnostics footer on cmd listing (exempt) | Broken module + verbose/non-verbose |
 | `virtual_uroot_base64.txtar` | virtual | U-root base64 utility (exempt) | Inline CUE, all platforms |
 | `virtual_uroot_basename_dirname.txtar` | virtual | U-root basename/dirname utilities (exempt) | Inline CUE, all platforms |
@@ -626,7 +628,6 @@ Add CLI tests when:
 - `virtual_shell.txtar` — tests virtual shell-specific behavior
 - `container_*.txtar` — Linux-only container runtime
 - `virtual_edge_cases.txtar`, `virtual_args_subcommand_conflict.txtar` — CUE schema validation
-- `virtual_vendored_execution.txtar`, `virtual_multi_source_full.txtar` — discovery/module resolution
 - `virtual_diagnostics_footer.txtar` — diagnostics footer output
 - `dogfooding_invowkfile.txtar` — already exercises native runtime
 

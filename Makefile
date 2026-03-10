@@ -162,10 +162,10 @@ test-cli:
 	@echo "Running CLI integration tests..."
 ifdef GOTESTSUM
 	@echo "  (using gotestsum without rerun-fails for deterministic CLI execution)"
-	gotestsum --format testdox --packages ./tests/cli/... -- -v -race -timeout 15m
+	gotestsum --format testdox --packages ./tests/cli/... -- -v -race -timeout 10m
 else
 	@echo "  (gotestsum not found, using go test)"
-	$(GOTEST) -v -race -timeout 15m ./tests/cli/...
+	$(GOTEST) -v -race -timeout 10m ./tests/cli/...
 endif
 
 # Run CLI integration tests with coverage collection.
@@ -176,7 +176,7 @@ test-cli-cover:
 	@echo "Running CLI integration tests with coverage..."
 	@COVDIR=$$(mktemp -d); \
 	echo "  Coverage dir: $$COVDIR"; \
-	GOCOVERDIR="$$COVDIR" $(GOTEST) -v -race -timeout 15m ./tests/cli/...; \
+	GOCOVERDIR="$$COVDIR" $(GOTEST) -v -race -timeout 10m ./tests/cli/...; \
 	TEST_EXIT=$$?; \
 	echo "  Merging coverage data..."; \
 	COVDIRS=$$(find "$$COVDIR" -name 'covcounters.*' -printf '%h\n' 2>/dev/null | sort -u | paste -sd, -); \
