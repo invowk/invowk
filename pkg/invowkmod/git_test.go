@@ -88,7 +88,15 @@ func newTestGitRepo(t *testing.T, versions, extraTags []string) GitURL {
 		}
 	}
 
-	return GitURL("file://" + dir)
+	// Normalize to a valid file:// URL on all platforms.
+	// On Windows t.TempDir() returns "C:\Users\...", which must become
+	// "file:///C:/Users/..." (three slashes, forward slashes per RFC 8089).
+	urlPath := filepath.ToSlash(dir)
+	if !strings.HasPrefix(urlPath, "/") {
+		urlPath = "/" + urlPath
+	}
+
+	return GitURL("file://" + urlPath)
 }
 
 func newTestFetcher(t *testing.T) *GitFetcher {

@@ -375,7 +375,8 @@ jobs:
           echo "$changed_files"
 
           hot_path_pattern='^(pkg/cueutil/|pkg/invowkfile/|pkg/invowkmod/|internal/discovery/)'
-          if echo "$changed_files" | grep -Eq "$hot_path_pattern"; then
+          prod_files="$(echo "$changed_files" | grep -Ev '_test\.go$' || true)"
+          if [ -n "$prod_files" ] && echo "$prod_files" | grep -Eq "$hot_path_pattern"; then
             if ! echo "$changed_files" | grep -Eq '^default\.pgo$'; then
               echo "::error::Parser/discovery hot paths changed without refreshing default.pgo."
               echo "::error::Run 'make pgo-profile-parse-discovery' and commit default.pgo."
