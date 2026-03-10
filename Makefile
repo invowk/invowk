@@ -168,6 +168,27 @@ else
 	$(GOTEST) -v -race -timeout 15m ./tests/cli/...
 endif
 
+# Run CLI integration tests with coverage collection.
+# Builds invowk with -cover instrumentation and merges coverage data into cli-coverage.out.
+# Usage: make test-cli-cover
+.PHONY: test-cli-cover
+test-cli-cover:
+	@echo "Running CLI integration tests with coverage..."
+	@COVDIR=$$(mktemp -d); \
+	echo "  Coverage dir: $$COVDIR"; \
+	GOCOVERDIR="$$COVDIR" $(GOTEST) -v -race -timeout 15m ./tests/cli/...; \
+	TEST_EXIT=$$?; \
+	echo "  Merging coverage data..."; \
+	COVDIRS=$$(find "$$COVDIR" -name 'covcounters.*' -printf '%h\n' 2>/dev/null | sort -u | paste -sd, -); \
+	if [ -n "$$COVDIRS" ]; then \
+		$(GOCMD) tool covdata textfmt -i="$$COVDIRS" -o=cli-coverage.out; \
+		echo "  CLI coverage profile: cli-coverage.out"; \
+	else \
+		echo "  (no coverage data collected)"; \
+	fi; \
+	rm -rf "$$COVDIR"; \
+	exit $$TEST_EXIT
+
 # Generate PGO profile from benchmarks (includes container tests).
 # The benchmark run forces -pgo=off so training data is not biased by an
 # existing profile. The resulting CPU profile is written to default.pgo.
@@ -229,7 +250,7 @@ bench-report-full: build
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(BUILD_DIR)
-	rm -f $(BINARY_NAME) $(BINARY_UPX)
+	rm -f $(BINARY_NAME) $(BINARY_UPX) cli-coverage.out
 	@echo "Clean complete."
 
 # Install to GOPATH/bin

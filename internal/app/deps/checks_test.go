@@ -428,3 +428,164 @@ func shellExitError(t *testing.T) error {
 	}
 	return err
 }
+
+func TestCapabilityCheckScript(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		cap          invowkfile.CapabilityName
+		wantNonEmpty bool
+	}{
+		{"internet", invowkfile.CapabilityInternet, true},
+		{"containers", invowkfile.CapabilityContainers, true},
+		{"lan", invowkfile.CapabilityLocalAreaNetwork, true},
+		{"tty", invowkfile.CapabilityTTY, true},
+		{"unknown", invowkfile.CapabilityName("bogus"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := CapabilityCheckScript(tt.cap)
+			if tt.wantNonEmpty && got == "" {
+				t.Fatalf("CapabilityCheckScript(%q) = empty, want non-empty script", tt.cap)
+			}
+			if !tt.wantNonEmpty && got != "" {
+				t.Fatalf("CapabilityCheckScript(%q) = %q, want empty string", tt.cap, got)
+			}
+		})
+	}
+}
+
+func TestShellEscapeSingleQuote(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"empty string", "", ""},
+		{"no quotes", "hello world", "hello world"},
+		{"single quote", "it's", `it'\''s`},
+		{"multiple quotes", "a'b'c", `a'\''b'\''c`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := ShellEscapeSingleQuote(tt.input)
+			if got != tt.want {
+				t.Fatalf("ShellEscapeSingleQuote(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckEnvVarDependencies(t *testing.T) {
+	t.Parallel()
+
+	ctx := newDependencyExecutionContext(t)
+
+	t.Run("nil deps", func(t *testing.T) {
+		t.Parallel()
+		if err := CheckEnvVarDependencies(nil, nil, ctx); err != nil {
+			t.Fatalf("CheckEnvVarDependencies() = %v, want nil", err)
+		}
+	})
+
+	t.Run("empty env vars", func(t *testing.T) {
+		t.Parallel()
+		deps := &invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{}}
+		if err := CheckEnvVarDependencies(deps, nil, ctx); err != nil {
+			t.Fatalf("CheckEnvVarDependencies() = %v, want nil", err)
+		}
+	})
+
+	t.Run("existing var", func(t *testing.T) {
+		t.Parallel()
+		deps := &invowkfile.DependsOn{
+			EnvVars: []invowkfile.EnvVarDependency{
+				{Alternatives: []invowkfile.EnvVarCheck{{Name: "HOME"}}},
+			},
+		}
+		userEnv := map[string]string{"HOME": "/home/user"}
+		if err := CheckEnvVarDependencies(deps, userEnv, ctx); err != nil {
+			t.Fatalf("CheckEnvVarDependencies() = %v, want nil", err)
+		}
+	})
+
+	t.Run("missing var", func(t *testing.T) {
+		t.Parallel()
+		deps := &invowkfile.DependsOn{
+			EnvVars: []invowkfile.EnvVarDependency{
+				{Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING_VAR"}}},
+			},
+		}
+		userEnv := map[string]string{}
+		err := CheckEnvVarDependencies(deps, userEnv, ctx)
+		if err == nil {
+			t.Fatal("CheckEnvVarDependencies() = nil, want error")
+		}
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+		}
+		if len(depErr.MissingEnvVars) == 0 {
+			t.Fatal("depErr.MissingEnvVars is empty, want at least one entry")
+		}
+	})
+
+	t.Run("regex match", func(t *testing.T) {
+		t.Parallel()
+		deps := &invowkfile.DependsOn{
+			EnvVars: []invowkfile.EnvVarDependency{
+				{Alternatives: []invowkfile.EnvVarCheck{{Name: "PORT", Validation: "^[0-9]+$"}}},
+			},
+		}
+		userEnv := map[string]string{"PORT": "8080"}
+		if err := CheckEnvVarDependencies(deps, userEnv, ctx); err != nil {
+			t.Fatalf("CheckEnvVarDependencies() = %v, want nil", err)
+		}
+	})
+
+	t.Run("regex fail", func(t *testing.T) {
+		t.Parallel()
+		deps := &invowkfile.DependsOn{
+			EnvVars: []invowkfile.EnvVarDependency{
+				{Alternatives: []invowkfile.EnvVarCheck{{Name: "PORT", Validation: "^[0-9]+$"}}},
+			},
+		}
+		userEnv := map[string]string{"PORT": "not-a-number"}
+		err := CheckEnvVarDependencies(deps, userEnv, ctx)
+		if err == nil {
+			t.Fatal("CheckEnvVarDependencies() = nil, want error")
+		}
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+		}
+	})
+}
+
+func TestCheckCapabilityDependencies(t *testing.T) {
+	t.Parallel()
+
+	ctx := newDependencyExecutionContext(t)
+
+	t.Run("nil deps", func(t *testing.T) {
+		t.Parallel()
+		if err := CheckCapabilityDependencies(nil, ctx); err != nil {
+			t.Fatalf("CheckCapabilityDependencies() = %v, want nil", err)
+		}
+	})
+
+	t.Run("empty capabilities", func(t *testing.T) {
+		t.Parallel()
+		deps := &invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{}}
+		if err := CheckCapabilityDependencies(deps, ctx); err != nil {
+			t.Fatalf("CheckCapabilityDependencies() = %v, want nil", err)
+		}
+	})
+}

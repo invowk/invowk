@@ -9,6 +9,7 @@
 | Test all | `make test` |
 | Test short | `make test-short` |
 | Single test | `go test -v -run TestName ./path/...` |
+| Test CLI with coverage | `make test-cli-cover` |
 | Lint | `make lint` |
 | Local Sonar issues | `SONAR_TOKEN=... make sonar-local` |
 | Type check (DDD) | `make check-types` |
@@ -157,6 +158,9 @@ make test-integration
 
 # Run CLI integration tests (testscript-based)
 make test-cli
+
+# Run CLI integration tests with coverage (produces cli-coverage.out)
+make test-cli-cover
 
 # Run a single test by name
 go test -v -run TestFunctionName ./path/to/package/...
