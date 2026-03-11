@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: MPL-2.0
+
+package cmd
+
+import (
+	"errors"
+	"io"
+	"strings"
+	"testing"
+
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/pkg/invowkfile"
+
+	"github.com/spf13/cobra"
+)
+
+// newWatchTestCmd creates a minimal *cobra.Command with a config-path-enhanced context
+// suitable for calling runWatchMode.
+func newWatchTestCmd(t *testing.T) *cobra.Command {
+	t.Helper()
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(contextWithConfigPath(t.Context(), ""))
+	return cmd
+}
+
+// newWatchTestApp creates an App with the given discovery service and discarded I/O.
+func newWatchTestApp(disc DiscoveryService) *App {
+	return &App{
+		Discovery:   disc,
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stdout:      io.Discard,
+		stderr:      io.Discard,
+	}
+}
+
+// emptyCommandSet returns an initialized (but empty) CommandSetResult.
+// Without this, checkAmbiguousCommand panics on nil map access.
+func emptyCommandSet() discovery.CommandSetResult {
+	return discovery.CommandSetResult{Set: discovery.NewDiscoveredCommandSet()}
+}
+
+func TestRunWatchMode_NoCommand(t *testing.T) {
+	t.Parallel()
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		newWatchTestApp(&stubDiscoveryService{}),
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		nil, // no args
+	)
+	if err == nil || err.Error() != "no command specified" {
+		t.Fatalf("error = %v, want %q", err, "no command specified")
+	}
+}
+
+func TestRunWatchMode_DryRunConflict(t *testing.T) {
+	t.Parallel()
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		newWatchTestApp(&stubDiscoveryService{}),
+		&rootFlagValues{},
+		&cmdFlagValues{dryRun: true},
+		[]string{"build"},
+	)
+	if err == nil || !strings.Contains(err.Error(), "--ivk-watch and --ivk-dry-run cannot be used together") {
+		t.Fatalf("error = %v, want dry-run conflict", err)
+	}
+}
+
+func TestRunWatchMode_CommandNotFound(t *testing.T) {
+	t.Parallel()
+
+	disc := &stubDiscoveryService{
+		commandSet: emptyCommandSet(),
+	}
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		newWatchTestApp(disc),
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"nonexistent"},
+	)
+	if err == nil || !strings.Contains(err.Error(), "command 'nonexistent' not found") {
+		t.Fatalf("error = %v, want command not found", err)
+	}
+}
+
+func TestRunWatchMode_GetCommandError(t *testing.T) {
+	t.Parallel()
+
+	disc := &stubDiscoveryService{
+		commandSet: emptyCommandSet(),
+		lookupErr:  errors.New("discovery exploded"),
+	}
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		newWatchTestApp(disc),
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"build"},
+	)
+	if err == nil || !strings.Contains(err.Error(), "discovery exploded") {
+		t.Fatalf("error = %v, want propagated discovery error", err)
+	}
+}
+
+func TestRunWatchMode_InvalidDebounce(t *testing.T) {
+	t.Parallel()
+
+	disc := &stubDiscoveryService{
+		commandSet: emptyCommandSet(),
+		lookup: discovery.LookupResult{
+			Command: &discovery.CommandInfo{
+				Name: "build",
+				Command: &invowkfile.Command{
+					Name: "build",
+					Watch: &invowkfile.WatchConfig{
+						Patterns: []invowkfile.GlobPattern{"**/*"},
+						Debounce: "not-a-duration",
+					},
+					Implementations: []invowkfile.Implementation{{
+						Script:    "echo hello",
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+						Platforms: invowkfile.AllPlatformConfigs(),
+					}},
+				},
+				SourceID: discovery.SourceIDInvowkfile,
+			},
+		},
+	}
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		newWatchTestApp(disc),
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"build"},
+	)
+	if err == nil || !strings.Contains(err.Error(), "invalid watch debounce") {
+		t.Fatalf("error = %v, want invalid debounce error", err)
+	}
+}
+
+func TestRunWatchMode_AmbiguousCommand(t *testing.T) {
+	t.Parallel()
+
+	// Build a command set where "deploy" exists in two sources.
+	set := discovery.NewDiscoveredCommandSet()
+	set.BySimpleName["deploy"] = []*discovery.CommandInfo{
+		{SimpleName: "deploy", SourceID: discovery.SourceIDInvowkfile},
+		{SimpleName: "deploy", SourceID: "mymodule"},
+	}
+	set.AmbiguousNames["deploy"] = true
+	set.BySource[discovery.SourceIDInvowkfile] = []*discovery.CommandInfo{
+		{SimpleName: "deploy", SourceID: discovery.SourceIDInvowkfile},
+	}
+	set.BySource["mymodule"] = []*discovery.CommandInfo{
+		{SimpleName: "deploy", SourceID: "mymodule"},
+	}
+	set.SourceOrder = []discovery.SourceID{discovery.SourceIDInvowkfile, "mymodule"}
+
+	disc := &stubDiscoveryService{
+		commandSet: discovery.CommandSetResult{Set: set},
+	}
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		newWatchTestApp(disc),
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"deploy"},
+	)
+	var ambigErr *AmbiguousCommandError
+	if !errors.As(err, &ambigErr) {
+		t.Fatalf("error = %v (%T), want *AmbiguousCommandError", err, err)
+	}
+	if string(ambigErr.CommandName) != "deploy" {
+		t.Fatalf("AmbiguousCommandError.CommandName = %q, want %q", ambigErr.CommandName, "deploy")
+	}
+}
