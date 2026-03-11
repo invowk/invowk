@@ -25,6 +25,7 @@ const (
 	invowkfileCueFileName = "invowkfile.cue"
 	failedResolvePathFmt  = "failed to resolve path: %w"
 	validateIssueLineFmt  = "%s %s %s\n"
+	validateIssuePathFmt  = "%s %s %s %s\n"
 	validatePathLineFmt   = "%s Path: %s\n"
 )
 
@@ -369,7 +370,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 		issueNum := fmt.Sprintf("%d.", i+1)
 		issueType := moduleIssueTypeStyle.Render(fmt.Sprintf("[%s]", iss.Type))
 		if iss.Path != "" {
-			fmt.Fprintf(stderr, "%s %s %s %s\n", moduleIssueStyle.Render(issueNum), issueType, modulePathStyle.Render(iss.Path), iss.Message)
+			fmt.Fprintf(stderr, validateIssuePathFmt, moduleIssueStyle.Render(issueNum), issueType, modulePathStyle.Render(iss.Path), iss.Message)
 		} else {
 			fmt.Fprintf(stderr, validateIssueLineFmt, moduleIssueStyle.Render(issueNum), issueType, iss.Message)
 		}

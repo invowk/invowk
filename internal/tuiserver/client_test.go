@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/types"
@@ -32,8 +33,8 @@ func startTestServer(t *testing.T) (*Server, *Client) {
 }
 
 // respondWith spawns a goroutine that reads one TUIRequest from the server's
-// request channel and sends the given response. It returns a channel for
-// capturing async errors during request consumption.
+// request channel and sends the given response. It always signals completion
+// on the returned channel: nil on success, non-nil if the channel closed.
 func respondWith(t *testing.T, server *Server, resp Response) <-chan error {
 	t.Helper()
 
@@ -45,6 +46,7 @@ func respondWith(t *testing.T, server *Server, resp Response) <-chan error {
 			return
 		}
 		req.ResponseCh <- resp
+		errCh <- nil
 	}()
 	return errCh
 }
@@ -60,15 +62,37 @@ func mustMarshalResult(t *testing.T, v any) json.RawMessage {
 	return data
 }
 
-// assertNoAsyncError checks that no error was sent on the async error channel.
+// assertNoAsyncError waits for the respondWith goroutine to complete and
+// verifies it did not encounter an error.
 func assertNoAsyncError(t *testing.T, errCh <-chan error) {
 	t.Helper()
 
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+
 	select {
 	case err := <-errCh:
-		t.Fatalf("async server error: %v", err)
-	default:
+		if err != nil {
+			t.Fatalf("async server error: %v", err)
+		}
+	case <-timer.C:
+		t.Fatal("timed out waiting for respondWith goroutine to complete")
 	}
+}
+
+// assertCancelled verifies that a client method returns ErrUserCancelled when
+// the server responds with Cancelled: true. This is the shared cancellation
+// contract test — all interactive TUI components must respect this contract.
+func assertCancelled(t *testing.T, server *Server, callClient func() error) {
+	t.Helper()
+
+	errCh := respondWith(t, server, Response{Cancelled: true})
+
+	err := callClient()
+	if !errors.Is(err, types.ErrUserCancelled) {
+		t.Fatalf("error = %v, want ErrUserCancelled", err)
+	}
+	assertNoAsyncError(t, errCh)
 }
 
 //nolint:tparallel // Subtests share server's RequestChannel and must run sequentially.
@@ -93,13 +117,10 @@ func TestClient_Input(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.Input(InputRequest{Title: "test"})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("Input() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.Input(InputRequest{Title: "test"})
+			return err
+		})
 	})
 }
 
@@ -140,13 +161,10 @@ func TestClient_Confirm(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.Confirm(ConfirmRequest{Title: "proceed?"})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("Confirm() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.Confirm(ConfirmRequest{Title: "proceed?"})
+			return err
+		})
 	})
 }
 
@@ -172,13 +190,10 @@ func TestClient_Choose(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.Choose(ChooseRequest{Options: []string{"a"}})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("Choose() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.Choose(ChooseRequest{Options: []string{"a"}})
+			return err
+		})
 	})
 }
 
@@ -220,13 +235,10 @@ func TestClient_ChooseSingle(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.ChooseSingle(ChooseRequest{Options: []string{"a"}})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("ChooseSingle() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.ChooseSingle(ChooseRequest{Options: []string{"a"}})
+			return err
+		})
 	})
 }
 
@@ -267,13 +279,10 @@ func TestClient_ChooseMultiple(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.ChooseMultiple(ChooseRequest{Options: []string{"a"}})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("ChooseMultiple() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.ChooseMultiple(ChooseRequest{Options: []string{"a"}})
+			return err
+		})
 	})
 }
 
@@ -299,13 +308,10 @@ func TestClient_Filter(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.Filter(FilterRequest{Options: []string{"a"}})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("Filter() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.Filter(FilterRequest{Options: []string{"a"}})
+			return err
+		})
 	})
 }
 
@@ -331,13 +337,10 @@ func TestClient_File(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.File(FileRequest{Title: "pick file"})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("File() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.File(FileRequest{Title: "pick file"})
+			return err
+		})
 	})
 }
 
@@ -379,13 +382,10 @@ func TestClient_TextArea(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.TextArea(TextAreaRequest{Title: "editor"})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("TextArea() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.TextArea(TextAreaRequest{Title: "editor"})
+			return err
+		})
 	})
 }
 
@@ -458,13 +458,10 @@ func TestClient_Table(t *testing.T) {
 	})
 
 	t.Run("cancelled", func(t *testing.T) {
-		errCh := respondWith(t, server, Response{Cancelled: true})
-
-		_, err := client.Table(TableRequest{Columns: []string{"a"}, Rows: [][]string{{"1"}}})
-		if !errors.Is(err, types.ErrUserCancelled) {
-			t.Fatalf("Table() error = %v, want ErrUserCancelled", err)
-		}
-		assertNoAsyncError(t, errCh)
+		assertCancelled(t, server, func() error {
+			_, err := client.Table(TableRequest{Columns: []string{"a"}, Rows: [][]string{{"1"}}})
+			return err
+		})
 	})
 }
 
