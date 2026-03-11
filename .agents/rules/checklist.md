@@ -48,9 +48,12 @@ The following items are also enforced by pre-commit hooks (`.pre-commit-config.y
 | `golangci-lint` | 4 (Linting) | `golangci-lint run --config=.golangci.toml ./...` |
 | `goplint-baseline` | 7 (Baseline) | `make check-baseline` |
 | `goplint-behavior` | — | Semantic-spec, IFDS, Phase C/D gates (not explicitly in checklist) |
+| `pgo-staleness` | — | Advisory only (exit 0); warns when hot-path files staged without `default.pgo` |
 | `sonar-local` | 10 (Sonar) | API-only check; `SONAR_TOKEN` optional (public projects work without auth) |
 
 Items NOT covered by any hook (manual discipline required): `make test`, `make tidy`, `make test-cli`, `make check-file-length`, `make check-agent-docs`, documentation/diagram/module validation, `/simplify`, and `/learn`.
+
+**CI auto-fix:** The `pgo-sanity` CI job auto-regenerates `default.pgo` and pushes a fix commit when hot-path files change without a profile update. This is the safety net — prefer local regeneration with `make pgo-profile-parse-discovery` when the pre-commit hook warns.
 
 ## Why Full Test Suite?
 

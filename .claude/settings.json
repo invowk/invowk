@@ -48,6 +48,11 @@
           },
           {
             "type": "command",
+            "command": "has_hotpath=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in */pkg/cueutil/*.go|*/pkg/invowkfile/*.go|*/pkg/invowkmod/*.go|*/internal/discovery/*.go) case \"$f\" in *_test.go) ;; *) has_hotpath=true; break;; esac;; esac; done; if $has_hotpath; then echo 'PGO hot-path file changed. Before committing, run: make pgo-profile-parse-discovery && git add default.pgo'; fi; true",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
             "command": "has_gomod=false; for f in $CLAUDE_FILE_PATHS; do case \"$f\" in */go.mod) has_gomod=true; break;; esac; done; if $has_gomod; then go mod tidy 2>/dev/null; fi; true",
             "timeout": 30000
           },
