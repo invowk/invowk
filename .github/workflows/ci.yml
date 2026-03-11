@@ -343,8 +343,13 @@ jobs:
         shell: bash
 
   # PGO profile sanity and freshness checks.
-  # On PRs: auto-regenerates default.pgo and pushes a fix commit when hot-path
-  # files changed without a profile update. On push/release: audit-only.
+  # On same-repo PRs: auto-regenerates default.pgo and pushes a fix commit when
+  # hot-path files changed without a profile update.
+  # On fork PRs: warns but cannot auto-fix (GITHUB_TOKEN is read-only for forks).
+  # On push/release: audit-only.
+  # Note: The auto-pushed commit uses GITHUB_TOKEN, so it will NOT re-trigger CI
+  # (GitHub's anti-recursion protection). This is acceptable because pgo-audit
+  # already validated the profile format in this same job run.
   pgo-sanity:
     name: PGO Sanity
     runs-on: ubuntu-latest
@@ -374,6 +379,8 @@ jobs:
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
@@ -386,8 +393,14 @@ jobs:
           prod_files="$(echo "$changed_files" | grep -Ev '_test\.go$' || true)"
           if [ -n "$prod_files" ] && echo "$prod_files" | grep -Eq "$hot_path_pattern"; then
             if ! echo "$changed_files" | grep -Eq '^default\.pgo$'; then
-              echo "::warning::Hot-path files changed without PGO refresh — auto-regenerating."
-              echo "needs_refresh=true" >> "$GITHUB_OUTPUT"
+              if [ "$PR_HEAD_REPO" = "$BASE_REPO" ]; then
+                echo "::warning::Hot-path files changed without PGO refresh — auto-regenerating."
+                echo "needs_refresh=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "::error::Hot-path files changed without PGO refresh."
+                echo "::error::Fork PRs cannot be auto-fixed. Run 'make pgo-profile-parse-discovery' and commit default.pgo."
+                exit 1
+              fi
             else
               echo "PGO profile already updated in this PR."
               echo "needs_refresh=false" >> "$GITHUB_OUTPUT"
@@ -401,6 +414,9 @@ jobs:
         if: steps.pgo-check.outputs.needs_refresh == 'true'
         run: make pgo-profile-parse-discovery
 
+      # The bot commit is unsigned (no GPG key on CI runners). This is acceptable
+      # because it targets PR branches, not main. Main requires squash merge with
+      # a signed commit from the developer.
       - name: Commit and push PGO profile
         if: steps.pgo-check.outputs.needs_refresh == 'true'
         shell: bash
@@ -411,6 +427,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add default.pgo
           git commit -m "chore(pgo): auto-regenerate profile for hot-path changes"
+          git pull --rebase
           git push
 
   # License header check
