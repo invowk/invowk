@@ -72,7 +72,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload benchmark comparison artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: pgo-benchstat-${{ github.run_id }}
           path: artifacts/pgo-benchstat/
