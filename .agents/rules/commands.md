@@ -104,6 +104,8 @@ profile is not biased by a previously committed one.
 
 **When to regenerate:** After major changes to hot paths (CUE parsing, runtime execution, discovery), when adding/changing runtimes, or before a major release.
 
+**Automation:** Three layers prevent stale profiles: (1) Claude Code PostToolUse hook warns when editing hot-path files, (2) pre-commit `pgo-staleness` hook warns when hot-path files are staged without `default.pgo`, (3) CI `pgo-sanity` job auto-regenerates and pushes a fix commit to the PR branch. Prefer local regeneration when warned.
+
 ## Benchmark Reports
 
 Use benchmark reports for readable performance snapshots in terminal and markdown output:
