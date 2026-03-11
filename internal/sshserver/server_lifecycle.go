@@ -46,7 +46,7 @@ func (s *Server) Start(ctx context.Context) error {
 	defer startupCancel()
 
 	// Initialize listener
-	addr := fmt.Sprintf("%s:%d", string(s.cfg.Host), int(s.cfg.Port))
+	addr := net.JoinHostPort(string(s.cfg.Host), s.cfg.Port.String())
 	var lc net.ListenConfig
 	listener, err := lc.Listen(startupCtx, "tcp", addr)
 	if err != nil {
@@ -238,7 +238,7 @@ func (s *Server) Port() ListenPort {
 		return 0 // Invalid port string
 	}
 	lp := ListenPort(port)
-	if err := lp.Validate(); err != nil {
+	if lp.Validate() != nil {
 		return 0 // Port out of valid range
 	}
 	return lp

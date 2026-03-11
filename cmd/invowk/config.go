@@ -15,6 +15,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	configFieldFmt  = "%s: %s\n"
+	configFileLabel = "Config file"
+)
+
 // newConfigCommand creates the `invowk config` command tree.
 // Subcommands that read configuration use the App's config.Provider.
 func newConfigCommand(app *App) *cobra.Command {
@@ -105,18 +110,18 @@ func showConfig(ctx context.Context, app *App) error {
 	if dirErr == nil {
 		cfgPath := string(cfgDir) + "/config.cue"
 		if info, err := os.Stat(cfgPath); err == nil && !info.IsDir() {
-			fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), cfgPath)
+			fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), cfgPath)
 		} else {
-			fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), SubtitleStyle.Render("(using defaults)"))
+			fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), SubtitleStyle.Render("(using defaults)"))
 		}
 	} else {
-		fmt.Printf("%s: %s\n", keyStyle.Render("Config file"), SubtitleStyle.Render("(using defaults)"))
+		fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), SubtitleStyle.Render("(using defaults)"))
 	}
 	fmt.Println()
 
 	// Show values
-	fmt.Printf("%s: %s\n", keyStyle.Render("container_engine"), valueStyle.Render(string(cfg.ContainerEngine)))
-	fmt.Printf("%s: %s\n", keyStyle.Render("default_runtime"), valueStyle.Render(string(cfg.DefaultRuntime)))
+	fmt.Printf(configFieldFmt, keyStyle.Render("container_engine"), valueStyle.Render(string(cfg.ContainerEngine)))
+	fmt.Printf(configFieldFmt, keyStyle.Render("default_runtime"), valueStyle.Render(string(cfg.DefaultRuntime)))
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("includes"))

@@ -13,9 +13,14 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// LockFileName is the name of the lock file.
-// The lock file pairs naturally with invowkmod.cue (like go.sum pairs with go.mod).
-const LockFileName = "invowkmod.lock.cue"
+const (
+	// LockFileName is the name of the lock file.
+	// The lock file pairs naturally with invowkmod.cue (like go.sum pairs with go.mod).
+	LockFileName = "invowkmod.lock.cue"
+
+	errFmtLoadLockFile = "failed to load lock file: %w"
+	errFmtSaveLockFile = "failed to save lock file: %w"
+)
 
 type (
 	//goplint:validate-all
@@ -233,11 +238,11 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load lock file: %w", err)
+		return nil, fmt.Errorf(errFmtLoadLockFile, err)
 	}
 	lock.AddModule(resolved)
 	if err := lock.Save(lockPath); err != nil {
-		return nil, fmt.Errorf("failed to save lock file: %w", err)
+		return nil, fmt.Errorf(errFmtSaveLockFile, err)
 	}
 
 	return resolved, nil
@@ -253,7 +258,7 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load lock file: %w", err)
+		return nil, fmt.Errorf(errFmtLoadLockFile, err)
 	}
 
 	// Resolve identifier to lock file keys
@@ -275,7 +280,7 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 
 	// Save updated lock file
 	if err := lock.Save(lockPath); err != nil {
-		return nil, fmt.Errorf("failed to save lock file: %w", err)
+		return nil, fmt.Errorf(errFmtSaveLockFile, err)
 	}
 
 	return results, nil
@@ -292,7 +297,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load lock file: %w", err)
+		return nil, fmt.Errorf(errFmtLoadLockFile, err)
 	}
 
 	// Determine which keys to update
@@ -343,7 +348,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 
 	// Save updated lock file
 	if err := lock.Save(lockPath); err != nil {
-		return nil, fmt.Errorf("failed to save lock file: %w", err)
+		return nil, fmt.Errorf(errFmtSaveLockFile, err)
 	}
 
 	return updated, nil
@@ -384,7 +389,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	if err := lock.Save(lockPath); err != nil {
-		return nil, fmt.Errorf("failed to save lock file: %w", err)
+		return nil, fmt.Errorf(errFmtSaveLockFile, err)
 	}
 
 	return resolved, nil
@@ -401,7 +406,7 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to load lock file: %w", err)
+		return nil, fmt.Errorf(errFmtLoadLockFile, err)
 	}
 
 	var modules []*ResolvedModule

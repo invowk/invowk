@@ -274,7 +274,7 @@ func TestModuleNameLengthConstraint(t *testing.T) {
 	// 257 characters should fail
 	name257 := strings.Repeat("a", 257)
 	invalid := "module: \"" + name257 + "\"\nversion: \"1.0.0\""
-	if err := validateCUEInvowkmod(t, invalid); err == nil {
+	if validateCUEInvowkmod(t, invalid) == nil {
 		t.Errorf("257-char module name should fail validation, but passed")
 	}
 }
@@ -299,7 +299,7 @@ func TestVersionLengthConstraint(t *testing.T) {
 	git_url: "https://github.com/user/test.invowkmod.git"
 	version: "` + version65 + `"
 }`
-	if err := validateCUEModuleRequirement(t, invalid); err == nil {
+	if validateCUEModuleRequirement(t, invalid) == nil {
 		t.Errorf("65-char version should fail validation, but passed")
 	}
 }
@@ -326,7 +326,7 @@ func TestAliasLengthConstraint(t *testing.T) {
 	version: "^1.0.0"
 	alias: "` + alias257 + `"
 }`
-	if err := validateCUEModuleRequirement(t, invalid); err == nil {
+	if validateCUEModuleRequirement(t, invalid) == nil {
 		t.Errorf("257-char alias should fail validation, but passed")
 	}
 }

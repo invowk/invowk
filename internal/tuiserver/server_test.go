@@ -140,7 +140,7 @@ func TestStopWithoutStart(t *testing.T) {
 
 	// Stop without Start should be safe
 	if stopErr := server.Stop(); stopErr != nil {
-		t.Errorf("Stop without Start should not error, got: %v", err)
+		t.Errorf("Stop without Start should not error, got: %v", stopErr)
 	}
 
 	// State should be Stopped

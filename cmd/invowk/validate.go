@@ -24,6 +24,8 @@ const (
 
 	invowkfileCueFileName = "invowkfile.cue"
 	failedResolvePathFmt  = "failed to resolve path: %w"
+	validateIssueLineFmt  = "%s %s %s\n"
+	validatePathLineFmt   = "%s Path: %s\n"
 )
 
 // errInvalidPathType is returned when a pathType value is not one of the defined types.
@@ -126,7 +128,7 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 		cwd = "(unable to determine working directory)"
 	}
 	fmt.Fprintln(stdout, moduleTitleStyle.Render("Workspace Validation"))
-	fmt.Fprintf(stdout, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(cwd))
+	fmt.Fprintf(stdout, validatePathLineFmt, moduleInfoIcon, modulePathStyle.Render(cwd))
 	fmt.Fprintln(stdout)
 
 	if err != nil && result.Set == nil {
@@ -159,10 +161,10 @@ func runWorkspaceValidation(cmd *cobra.Command, app *App) error {
 			issueNum := fmt.Sprintf("  %d.", i+1)
 			codeTag := moduleIssueTypeStyle.Render(fmt.Sprintf("[%s]", diag.Code()))
 			if diag.Path() != "" {
-				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, modulePathStyle.Render(string(diag.Path())))
+				fmt.Fprintf(stderr, validateIssueLineFmt, issueNum, codeTag, modulePathStyle.Render(string(diag.Path())))
 				fmt.Fprintf(stderr, "     %s\n", diag.Message())
 			} else {
-				fmt.Fprintf(stderr, "%s %s %s\n", issueNum, codeTag, diag.Message())
+				fmt.Fprintf(stderr, validateIssueLineFmt, issueNum, codeTag, diag.Message())
 			}
 		}
 		hasIssues = true
@@ -254,7 +256,7 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 	}
 
 	fmt.Fprintln(stdout, moduleTitleStyle.Render("Invowkfile Validation"))
-	fmt.Fprintf(stdout, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
+	fmt.Fprintf(stdout, validatePathLineFmt, moduleInfoIcon, modulePathStyle.Render(absPath))
 	fmt.Fprintln(stdout)
 
 	// Parse the invowkfile (CUE schema + structural validation).
@@ -314,7 +316,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 	}
 
 	fmt.Fprintln(stdout, moduleTitleStyle.Render("Module Validation"))
-	fmt.Fprintf(stdout, "%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(absPath))
+	fmt.Fprintf(stdout, validatePathLineFmt, moduleInfoIcon, modulePathStyle.Render(absPath))
 
 	result, err := invowkmod.Validate(types.FilesystemPath(modulePath))
 	if err != nil {
@@ -369,7 +371,7 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 		if iss.Path != "" {
 			fmt.Fprintf(stderr, "%s %s %s %s\n", moduleIssueStyle.Render(issueNum), issueType, modulePathStyle.Render(iss.Path), iss.Message)
 		} else {
-			fmt.Fprintf(stderr, "%s %s %s\n", moduleIssueStyle.Render(issueNum), issueType, iss.Message)
+			fmt.Fprintf(stderr, validateIssueLineFmt, moduleIssueStyle.Render(issueNum), issueType, iss.Message)
 		}
 	}
 

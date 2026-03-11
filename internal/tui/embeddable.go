@@ -228,24 +228,22 @@ func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight T
 		height := availableContentHeight // Use all available
 		return ModalSize{Width: width, Height: height}
 
-	case ComponentTypeWrite, ComponentTypeTextArea:
-		// Text editing: moderate size
-		width := min(availableContentWidth, maxWidth)
-		height := min(availableContentHeight, 8)
-		return ModalSize{Width: width, Height: height}
-
 	case ComponentTypeSpin:
 		// Spinner: compact, just shows status
 		width := min(availableContentWidth, 50)
 		height := min(availableContentHeight, 2)
 		return ModalSize{Width: width, Height: height}
 
+	case ComponentTypeWrite, ComponentTypeTextArea:
+		// Text editing: moderate size — handled after switch (shared with default)
 	default:
-		// Unknown: use reasonable defaults
-		width := min(availableContentWidth, maxWidth)
-		height := min(availableContentHeight, 8)
-		return ModalSize{Width: width, Height: height}
+		// Unknown types: handled after switch
 	}
+
+	// Text editing and unknown component types: moderate defaults
+	width := min(availableContentWidth, maxWidth)
+	height := min(availableContentHeight, 8)
+	return ModalSize{Width: width, Height: height}
 }
 
 // CreateEmbeddableComponent creates an embeddable component from a component type and options.
@@ -596,7 +594,7 @@ func getANSISuffix(s string, skipWidth int) string {
 func padLineToWidth(line string, width int) string {
 	lineWidth := lipgloss.Width(line)
 	if lineWidth >= width {
-		return line + "\x1b[0m"
+		return line + ansiReset
 	}
-	return line + "\x1b[0m" + strings.Repeat(" ", width-lineWidth)
+	return line + ansiReset + strings.Repeat(" ", width-lineWidth)
 }

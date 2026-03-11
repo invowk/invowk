@@ -148,7 +148,7 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 
 	// Validate env inherit mode
 	if rt.EnvInheritMode != "" {
-		if err := rt.EnvInheritMode.Validate(); err != nil {
+		if rt.EnvInheritMode.Validate() != nil {
 			errors = append(errors, ValidationError{
 				Validator: v.Name(),
 				Field:     path.String(),
