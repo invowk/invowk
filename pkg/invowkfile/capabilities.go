@@ -148,7 +148,7 @@ func checkLocalAreaNetwork() error {
 // It uses DNS lookup to avoid transferring actual data over the network.
 func checkInternet() error {
 	// First check if we have LAN - no point checking internet without it
-	if err := checkLocalAreaNetwork(); err != nil {
+	if checkLocalAreaNetwork() != nil {
 		return &CapabilityError{
 			Capability: CapabilityInternet,
 			Message:    "no local network available",

@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+const (
+	cueCloseList          = "\t\t]\n"
+	cueAlternativesPrefix = "\t{alternatives: ["
+)
+
 // GenerateCUE generates CUE text from an Invowkfile struct.
 // This is useful for creating invowkfile.cue files programmatically.
 //
@@ -101,7 +106,7 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 	for i := range cmd.Implementations {
 		generateImplementation(sb, &cmd.Implementations[i])
 	}
-	sb.WriteString("\t\t]\n")
+	sb.WriteString(cueCloseList)
 
 	// Command-level env
 	generateEnvBlock(sb, cmd.Env, "\t\t")
@@ -124,7 +129,7 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 			}
 			sb.WriteString("},\n")
 		}
-		sb.WriteString("\t\t]\n")
+		sb.WriteString(cueCloseList)
 	}
 
 	// Generate watch config
@@ -180,7 +185,7 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 			}
 			sb.WriteString("},\n")
 		}
-		sb.WriteString("\t\t]\n")
+		sb.WriteString(cueCloseList)
 	}
 
 	sb.WriteString("\t},\n")
@@ -328,7 +333,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 	if len(deps.Tools) > 0 {
 		sb.WriteString(indent + "tools: [\n")
 		for _, tool := range deps.Tools {
-			sb.WriteString(indent + "\t{alternatives: [")
+			sb.WriteString(indent + cueAlternativesPrefix)
 			for i, alt := range tool.Alternatives {
 				if i > 0 {
 					sb.WriteString(", ")
@@ -343,7 +348,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 	if len(deps.Commands) > 0 {
 		sb.WriteString(indent + "cmds: [\n")
 		for _, dep := range deps.Commands {
-			sb.WriteString(indent + "\t{alternatives: [")
+			sb.WriteString(indent + cueAlternativesPrefix)
 			for i, alt := range dep.Alternatives {
 				if i > 0 {
 					sb.WriteString(", ")
@@ -358,7 +363,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 	if len(deps.Filepaths) > 0 {
 		sb.WriteString(indent + "filepaths: [\n")
 		for _, fp := range deps.Filepaths {
-			sb.WriteString(indent + "\t{alternatives: [")
+			sb.WriteString(indent + cueAlternativesPrefix)
 			for i, alt := range fp.Alternatives {
 				if i > 0 {
 					sb.WriteString(", ")
@@ -383,7 +388,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 	if len(deps.Capabilities) > 0 {
 		sb.WriteString(indent + "capabilities: [\n")
 		for _, capDep := range deps.Capabilities {
-			sb.WriteString(indent + "\t{alternatives: [")
+			sb.WriteString(indent + cueAlternativesPrefix)
 			for i, alt := range capDep.Alternatives {
 				if i > 0 {
 					sb.WriteString(", ")
@@ -399,7 +404,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 		sb.WriteString(indent + "custom_checks: [\n")
 		for _, check := range deps.CustomChecks {
 			if check.IsAlternatives() {
-				sb.WriteString(indent + "\t{alternatives: [\n")
+				sb.WriteString(indent + cueAlternativesPrefix + "\n")
 				for _, alt := range check.Alternatives {
 					sb.WriteString(indent + "\t\t{")
 					fmt.Fprintf(sb, "name: %q, check_script: %q", alt.Name, alt.CheckScript)
@@ -430,7 +435,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 	if len(deps.EnvVars) > 0 {
 		sb.WriteString(indent + "env_vars: [\n")
 		for _, envVar := range deps.EnvVars {
-			sb.WriteString(indent + "\t{alternatives: [")
+			sb.WriteString(indent + cueAlternativesPrefix)
 			for i, alt := range envVar.Alternatives {
 				if i > 0 {
 					sb.WriteString(", ")

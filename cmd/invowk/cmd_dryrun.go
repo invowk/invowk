@@ -15,6 +15,8 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+const dryRunFieldFmt = "  %s %s\n"
+
 // renderDryRun prints the resolved execution context without executing.
 // It shows the command name, source, runtime, platform, working directory,
 // script content, and environment variables — everything a user needs to
@@ -24,13 +26,13 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 	fmt.Fprintln(w)
 
 	// Command metadata.
-	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Command:"), req.Name)
-	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Source:"), cmdInfo.SourceID)
-	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Runtime:"), string(resolved.Mode()))
-	fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Platform:"), string(invowkfile.CurrentPlatform()))
+	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Command:"), req.Name)
+	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Source:"), cmdInfo.SourceID)
+	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Runtime:"), string(resolved.Mode()))
+	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Platform:"), string(invowkfile.CurrentPlatform()))
 
 	if execCtx.WorkDir != "" {
-		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("WorkDir:"), execCtx.WorkDir)
+		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("WorkDir:"), execCtx.WorkDir)
 	}
 
 	if resolved.Impl() == nil {
@@ -39,7 +41,7 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 	}
 
 	if resolved.Impl().Timeout != "" {
-		fmt.Fprintf(w, "  %s %s\n", VerboseHighlightStyle.Render("Timeout:"), resolved.Impl().Timeout)
+		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Timeout:"), resolved.Impl().Timeout)
 	}
 
 	// Script content.

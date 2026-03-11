@@ -12,6 +12,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	helloDescription   = "Print a greeting"
+	nameArgDescription = "Who to greet"
+)
+
 // newInitCommand creates the `invowk init` command.
 func newInitCommand() *cobra.Command {
 	var (
@@ -89,7 +94,7 @@ func generateInvowkfile(template string) string {
 			Commands: []invowkfile.Command{
 				{
 					Name:        "hello",
-					Description: "Print a greeting",
+					Description: helloDescription,
 					Implementations: []invowkfile.Implementation{
 						{
 							Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
@@ -98,7 +103,7 @@ func generateInvowkfile(template string) string {
 						},
 					},
 					Args: []invowkfile.Argument{
-						{Name: "name", Description: "Who to greet", DefaultValue: "World"},
+						{Name: "name", Description: nameArgDescription, DefaultValue: "World"},
 					},
 				},
 			},
@@ -114,7 +119,7 @@ func generateInvowkfile(template string) string {
 			Commands: []invowkfile.Command{
 				{
 					Name:        "hello",
-					Description: "Print a greeting",
+					Description: helloDescription,
 					Implementations: []invowkfile.Implementation{
 						{
 							Script:    `echo "Hello, World!"`,
@@ -137,7 +142,7 @@ func generateInvowkfile(template string) string {
 						{Name: "title", Description: "Honorific or greeting style", DefaultValue: "Dear"},
 					},
 					Args: []invowkfile.Argument{
-						{Name: "name", Description: "Who to greet", Required: true},
+						{Name: "name", Description: nameArgDescription, Required: true},
 					},
 					Env: &invowkfile.EnvConfig{
 						Vars: map[invowkfile.EnvVarName]string{
@@ -191,7 +196,7 @@ func generateInvowkfile(template string) string {
 func helloCommand(unixPlatforms, linuxOnly []invowkfile.PlatformConfig) invowkfile.Command {
 	return invowkfile.Command{
 		Name:        "hello",
-		Description: "Print a greeting",
+		Description: helloDescription,
 		Implementations: []invowkfile.Implementation{
 			{
 				Script:    `echo "Hello, $INVOWK_ARG_NAME!"`,
@@ -215,7 +220,7 @@ func helloCommand(unixPlatforms, linuxOnly []invowkfile.PlatformConfig) invowkfi
 			},
 		},
 		Args: []invowkfile.Argument{
-			{Name: "name", Description: "Who to greet", DefaultValue: "World"},
+			{Name: "name", Description: nameArgDescription, DefaultValue: "World"},
 		},
 	}
 }

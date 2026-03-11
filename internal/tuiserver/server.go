@@ -168,7 +168,7 @@ func (s *Server) URL() types.TUIServerURL {
 // URLWithHost returns the full server URL with a custom host (e.g., "http://host.docker.internal:54321").
 // This is useful for containers that need to access the server via a different hostname.
 func (s *Server) URLWithHost(host string) types.TUIServerURL {
-	return types.TUIServerURL(fmt.Sprintf("http://%s:%d", host, s.port))
+	return types.TUIServerURL("http://" + net.JoinHostPort(host, s.port.String()))
 }
 
 // Token returns the authentication token.

@@ -209,6 +209,26 @@ enable = [
     # iface: Detects interface pollution — identical, unused, or opaque
     # interfaces.
     "iface",
+
+    # nilnesserr: Detects `if err != nil` checks that return a different nil
+    # error value instead of the checked error.
+    "nilnesserr",
+
+    # misspell: Finds commonly misspelled English words in comments and
+    # identifiers. [fast, auto-fix]
+    "misspell",
+
+    # nosprintfhostport: Detects fmt.Sprintf host:port construction that breaks
+    # with IPv6 — use net.JoinHostPort instead.
+    "nosprintfhostport",
+
+    # dupword: Finds duplicate adjacent words in comments and strings (e.g.,
+    # "the the"). [fast, auto-fix]
+    "dupword",
+
+    # makezero: Detects append to slices initialized with non-zero length, which
+    # can silently overwrite or skip elements.
+    "makezero",
 ]
 
 # =============================================================================
@@ -676,6 +696,18 @@ path = "_test\\.go$"
 [[linters.exclusions.rules]]
 linters = ["errchkjson"]
 path = "internal/tuiserver/server\\.go$"
+
+# Don't enforce dupword in test files - test data for utilities like uniq
+# intentionally contains repeated words
+[[linters.exclusions.rules]]
+linters = ["dupword"]
+path = "_test\\.go$"
+
+# Don't enforce makezero in test files - slice re-initialization patterns in
+# test helpers are false positives
+[[linters.exclusions.rules]]
+linters = ["makezero"]
+path = "_test\\.go$"
 
 # =============================================================================
 # Issues Configuration

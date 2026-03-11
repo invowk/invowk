@@ -152,7 +152,7 @@ func SpawnArgsFor(st SandboxType) []string {
 func detectSandboxFrom(lookupEnv func(string) string, statFile func(string) error) SandboxType {
 	// Check for Flatpak sandbox first (takes precedence).
 	// The /.flatpak-info file is always present inside Flatpak sandboxes.
-	if err := statFile("/.flatpak-info"); err == nil {
+	if statFile("/.flatpak-info") == nil {
 		return SandboxFlatpak
 	}
 

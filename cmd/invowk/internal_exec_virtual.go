@@ -18,6 +18,8 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 )
 
+const flagScriptFile = "script-file"
+
 // newInternalExecVirtualCommand creates the `invowk internal exec-virtual` command.
 // This is an internal command used for interactive mode, where the parent
 // process needs to attach the execution to a PTY.
@@ -32,13 +34,13 @@ func newInternalExecVirtualCommand() *cobra.Command {
 		RunE:   runInternalExecVirtual,
 	}
 
-	cmd.Flags().String("script-file", "", "path to script file to execute")
+	cmd.Flags().String(flagScriptFile, "", "path to script file to execute")
 	cmd.Flags().String("workdir", "", "working directory for execution")
 	cmd.Flags().StringArray("env", nil, "environment variables (KEY=VALUE format)")
 	cmd.Flags().StringArray("args", nil, "positional arguments for the script")
 	cmd.Flags().String("env-json", "", "environment variables as JSON object")
 
-	_ = cmd.MarkFlagRequired("script-file")
+	_ = cmd.MarkFlagRequired(flagScriptFile)
 
 	return cmd
 }
@@ -48,7 +50,7 @@ func newInternalExecVirtualCommand() *cobra.Command {
 // with stdin/stdout/stderr connected to the process's stdio (which will be
 // attached to a PTY by the parent process).
 func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
-	scriptFile, _ := cmd.Flags().GetString("script-file")
+	scriptFile, _ := cmd.Flags().GetString(flagScriptFile)
 	workdir, _ := cmd.Flags().GetString("workdir")
 	envVars, _ := cmd.Flags().GetStringArray("env")
 	posArgs, _ := cmd.Flags().GetStringArray("args")

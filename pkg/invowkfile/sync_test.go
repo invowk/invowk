@@ -330,7 +330,7 @@ cmds: [{
 		default_value: "` + val4097 + `"
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("4097-char flag default_value should fail validation, but passed")
 	}
 
@@ -368,7 +368,7 @@ cmds: [{
 		default_value: "` + val4097 + `"
 	}]
 }]`
-	if err := validateCUE(t, invalidArg); err == nil {
+	if validateCUE(t, invalidArg) == nil {
 		t.Errorf("4097-char argument default_value should fail validation, but passed")
 	}
 }
@@ -460,7 +460,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("257-char command name should fail validation, but passed")
 	}
 }
@@ -497,7 +497,7 @@ cmds: [{
 		platforms: [{name: "linux"}]
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("10241-char description should fail validation, but passed")
 	}
 }
@@ -542,7 +542,7 @@ cmds: [{
 		validation: "` + validation1001 + `"
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("1001-char argument validation should fail validation, but passed")
 	}
 }
@@ -587,7 +587,7 @@ cmds: [{
 		validation: "` + validation1001 + `"
 	}]
 }]`
-	if err := validateCUE(t, invalid); err == nil {
+	if validateCUE(t, invalid) == nil {
 		t.Errorf("1001-char flag validation should fail validation, but passed")
 	}
 }

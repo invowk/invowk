@@ -306,7 +306,7 @@ func newSpinCommandCmd(ctx context.Context, command []string) tea.Cmd {
 		if err != nil {
 			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 				exitCode := types.ExitCode(exitErr.ExitCode())
-				if err := exitCode.Validate(); err != nil {
+				if exitCode.Validate() != nil {
 					result.ExitCode = 1
 				} else {
 					result.ExitCode = exitCode

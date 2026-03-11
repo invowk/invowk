@@ -513,7 +513,7 @@ func TestServerWaitAfterFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	if err := srv.Start(ctx); err == nil {
+	if srv.Start(ctx) == nil {
 		testutil.MustStop(t, srv)
 		t.Fatal("Start with cancelled context should return error")
 	}

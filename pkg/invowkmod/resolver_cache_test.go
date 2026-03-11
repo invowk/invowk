@@ -270,7 +270,7 @@ func TestResolver_cacheModule(t *testing.T) {
 		srcDir := filepath.Join(t.TempDir(), "nonexistent")
 		dstDir := filepath.Join(t.TempDir(), "dst")
 
-		if cacheErr := resolver.cacheModule(srcDir, dstDir); cacheErr == nil {
+		if resolver.cacheModule(srcDir, dstDir) == nil {
 			t.Fatal("expected error for nonexistent source, got nil")
 		}
 	})

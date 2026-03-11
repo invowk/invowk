@@ -17,7 +17,7 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 
 	// Validate env inherit mode and env var names
 	if rt.EnvInheritMode != "" {
-		if err := rt.EnvInheritMode.Validate(); err != nil {
+		if rt.EnvInheritMode.Validate() != nil {
 			return fmt.Errorf("command '%s' implementation #%d: env_inherit_mode must be one of: none, allow, all", cmdName, implIndex)
 		}
 	}
