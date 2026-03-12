@@ -17,12 +17,16 @@ on:
       - published
   workflow_dispatch:
 
-permissions:
-  contents: read
+concurrency:
+  group: test-website-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: website
@@ -33,7 +37,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: website/package-lock.json
 

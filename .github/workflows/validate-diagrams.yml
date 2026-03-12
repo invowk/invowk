@@ -23,12 +23,16 @@ on:
     types:
       - published
 
-permissions:
-  contents: read
+concurrency:
+  group: validate-diagrams-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6

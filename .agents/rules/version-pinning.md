@@ -18,16 +18,16 @@ build configuration.
 - When upgrading, update the version in ALL workflow files that reference it.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
-  - `golangci-lint`: `v2.10.1` (via golangci-lint-action `version` input)
+  - `golangci-lint`: `v2.11.3` (via golangci-lint-action `version` input)
   - `govulncheck`: `v1.1.4`
-  - `cosign`: `v2.6.1` (via `cosign-release` input in `.github/workflows/release.yml`)
-  - UPX: `5.1.0`
+  - `cosign`: `v3.0.5` (via `cosign-release` input in `.github/workflows/release.yml`)
+  - UPX: `5.1.1`
   - D2: `v0.7.1`
 
 ### MCP Servers (`.mcp.json`)
 - MUST pin to an exact version: `@upstash/context7-mcp@X.Y.Z` (never `@latest`).
 - **Current pinned versions:**
-  - `@upstash/context7-mcp`: `2.1.3`
+  - `@upstash/context7-mcp`: `2.1.4`
   - `@modelcontextprotocol/server-github`: `2025.4.8`
 
 ### GitHub Actions

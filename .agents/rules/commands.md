@@ -44,7 +44,7 @@
 
 - **Go 1.26+** - Required for building.
 - **Make** - Build automation.
-- **Node.js 20+** - For website development (optional).
+- **Node.js 22+** - For website development (optional).
 - **Docker or Podman** - For container runtime tests (optional).
 - **UPX** - For compressed builds (optional).
 - **gotestsum** - Enhanced test runner with `--rerun-fails` support (optional locally, used in CI). Install: `go install gotest.tools/gotestsum@v1.13.0`.

@@ -34,6 +34,9 @@ This skill operates under `.agents/rules/version-pinning.md`. Key constraints:
 | `gotestsum` | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
 | `GoReleaser` | `.github/workflows/ci.yml` (`version` input), `.github/workflows/release.yml` (two `goreleaser-action` steps) |
 | `Node.js` | `.github/workflows/deploy-website.yml`, `.github/workflows/test-website.yml`, `.github/workflows/version-docs.yml` |
+| `cosign` | `sigstore/cosign-installer` action version + `cosign-release` input in `.github/workflows/release.yml` (installer v4+ required for cosign v3+) |
+| `actions/checkout` | ALL 11 workflow files must use the same major version |
+| `actions/upload-artifact` | `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.github/workflows/pgo-benchstat.yml` |
 | Sonar suppressions | `sonar-project.properties`, `.sonarcloud.properties` (not version, but integrity) |
 
 ## Workflow
@@ -90,7 +93,10 @@ Before checking for updates, verify existing versions are consistent across sync
 2. **gotestsum**: Version in `ci.yml` must match `release.yml`.
 3. **GoReleaser version input**: Must match across `ci.yml` and `release.yml` (the latter has two goreleaser-action steps).
 4. **Node.js**: `node-version` must match across `deploy-website.yml`, `test-website.yml`, `version-docs.yml`.
-5. **version-pinning.md accuracy**: Compare every "Current pinned versions" entry against actual workflow files. Flag any drift.
+5. **actions/checkout**: Must be the same major version across ALL 11 workflow files. Check every `uses: actions/checkout@` reference.
+6. **actions/upload-artifact**: Must match across `ci.yml`, `release.yml`, `pgo-benchstat.yml`.
+7. **cosign coupling**: `sigstore/cosign-installer` action version must be compatible with the `cosign-release` tool pin (installer `@v4+` is required for cosign v3+; installer `@v3` cannot install cosign v3+).
+8. **version-pinning.md accuracy**: Compare every "Current pinned versions" entry against actual workflow files. Flag any drift.
 
 Report all inconsistencies as **SYNC DRIFT** findings before proceeding.
 
@@ -153,6 +159,14 @@ gh api repos/anthropics/claude-code-action/releases/latest --jq '.tag_name'
 
 Only flag findings where the **major version** changed. Minor/patch within the same major are handled by Dependabot.
 
+**Note**: `golangci-lint-action`'s `version` input pins the **tool binary**, not the action itself. Check the tool version separately:
+
+```bash
+gh api repos/golangci/golangci-lint/releases/latest --jq '.tag_name'
+```
+
+Compare against the `version:` input in `lint.yml` and the `rev:` in `.pre-commit-config.yaml`.
+
 #### 3d: MCP Servers (npm packages)
 
 ```bash
@@ -202,12 +216,16 @@ For Medium/High risk items, use WebFetch to read the release notes or CHANGELOG 
 While reviewing workflow files, check for these optimization opportunities:
 
 1. **Caching**: Are all `setup-go` steps using `cache: true`? npm caching configured?
-2. **Concurrency groups**: Are long-running workflows using `concurrency` to cancel stale runs?
-3. **Timeout guards**: Do ALL jobs have explicit `timeout-minutes`?
-4. **Permissions**: Are all jobs using least-privilege, job-level permissions?
+2. **Concurrency groups**: Are ALL PR-triggered and push-triggered workflows using `concurrency` to cancel stale runs? The established policy is:
+   - `cancel-in-progress: true` for test/validation/lint workflows (safe to cancel stale runs)
+   - `cancel-in-progress: false` for release, deploy, and versioning workflows (must complete)
+   - Group key pattern: `<workflow-name>-${{ github.ref }}` — this ensures PR runs (`refs/pull/N/merge`), push-to-main runs (`refs/heads/main`), and release runs (`refs/tags/v*`) are isolated and cannot cancel each other
+3. **Timeout guards**: Do ALL jobs in ALL workflows have explicit `timeout-minutes`? Without it, hung jobs burn up to GitHub's 6-hour default. Reference values: test: 30, build: 10, lint: 5-15, release: 30, benchmarks: 45, claude: 60, website: 5-15.
+4. **Permissions**: Are ALL permissions at **job-level**, not workflow-level? (SonarCloud S8233 requires least-privilege at job scope.) Check every workflow for top-level `permissions:` blocks and flag them for migration to individual jobs.
 5. **Matrix deduplication**: Any redundant matrix entries?
 6. **New action features**: Have `actions/setup-go`, `golangci-lint-action`, or `goreleaser-action` added useful new inputs since the current pin?
 7. **Runner images**: Are `ubuntu-latest`, `macos-15`, `windows-latest` still current recommended images?
+8. **Concurrency group naming consistency**: Are all groups following the same `<name>-${{ github.ref }}` pattern? Flag outliers (e.g., redundant `${{ github.workflow }}` segments).
 
 ### Step 6: Generate Report
 
@@ -288,10 +306,21 @@ After all edits, re-read all modified files to verify sync pair consistency.
 ### Step 9: Verify Updates
 
 ```bash
-# Validate YAML syntax of modified workflows
-for f in .github/workflows/*.yml; do
-  python3 -c "import yaml; yaml.safe_load(open('$f'))" 2>&1 || echo "INVALID: $f"
-done
+# Validate YAML syntax of modified workflows (try python3 yaml, fall back to yq or grep-based verification)
+if python3 -c "import yaml" 2>/dev/null; then
+  for f in .github/workflows/*.yml; do
+    python3 -c "import yaml; yaml.safe_load(open('$f'))" 2>&1 || echo "INVALID: $f"
+  done
+elif command -v yq >/dev/null 2>&1; then
+  for f in .github/workflows/*.yml; do
+    yq '.' "$f" >/dev/null 2>&1 || echo "INVALID: $f"
+  done
+else
+  echo "No YAML validator available; verify edits via grep-based spot checks instead"
+  # Verify key version pins are present in modified files
+  grep -rn 'actions/checkout@' .github/workflows/ | sort
+  grep -rn 'upload-artifact@' .github/workflows/ | sort
+fi
 
 # Validate JSON syntax of .mcp.json (if modified)
 python3 -c "import json; json.load(open('.mcp.json'))" 2>&1 || echo "INVALID: .mcp.json"
@@ -301,6 +330,8 @@ make check-agent-docs
 ```
 
 If any validation fails, fix the issue before proceeding.
+
+**Website build verification**: If Node.js version changed, also run `cd website && npm run build` to verify Docusaurus compatibility with the new Node.js version.
 
 ### Step 10: Summary and Next Steps
 

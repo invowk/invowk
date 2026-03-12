@@ -851,7 +851,7 @@ func TestNoGlobalConfigAccess(t *testing.T) {
 				return nil
 			}
 
-			content, readErr := os.ReadFile(path)
+			content, readErr := os.ReadFile(path) //nolint:gosec // G122 — test walks project source tree; no symlink TOCTOU risk
 			if readErr != nil {
 				t.Errorf("failed to read %s: %v", path, readErr)
 				return nil
