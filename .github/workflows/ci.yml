@@ -347,8 +347,8 @@ jobs:
         shell: bash
 
   # PGO profile sanity and freshness checks.
-  # On same-repo PRs: auto-regenerates default.pgo and pushes a fix commit when
-  # hot-path files changed without a profile update.
+  # On same-repo PRs: auto-regenerates default.pgo and pushes a verified fix
+  # commit via the GitHub GraphQL API (createCommitOnBranch).
   # On fork PRs: warns but cannot auto-fix (GITHUB_TOKEN is read-only for forks).
   # On push/release: audit-only.
   # Note: The auto-pushed commit uses GITHUB_TOKEN, so it will NOT re-trigger CI
@@ -418,21 +418,60 @@ jobs:
         if: steps.pgo-check.outputs.needs_refresh == 'true'
         run: make pgo-profile-parse-discovery
 
-      # The bot commit is unsigned (no GPG key on CI runners). This is acceptable
-      # because it targets PR branches, not main. Main requires squash merge with
-      # a signed commit from the developer.
-      - name: Commit and push PGO profile
+      # Create a verified commit via the GitHub GraphQL API.
+      # Direct git commits on CI runners are unsigned and blocked by the
+      # required_signatures ruleset. The GraphQL createCommitOnBranch mutation
+      # produces GitHub-signed commits that satisfy the ruleset.
+      # Uses GITHUB_TOKEN (not an app token) to preserve anti-recursion:
+      # the commit will NOT re-trigger CI workflows.
+      - name: Commit PGO profile (verified)
         if: steps.pgo-check.outputs.needs_refresh == 'true'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.head_ref }}
         run: |
           set -euo pipefail
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add default.pgo
-          git commit -m "chore(pgo): auto-regenerate profile for hot-path changes"
-          git pull --rebase
-          git push
+          HEAD_SHA=$(git rev-parse HEAD)
+
+          # Base64-encode the regenerated PGO profile.
+          B64_FILE=$(mktemp)
+          base64 -w 0 < default.pgo > "$B64_FILE"
+
+          QUERY='
+            mutation ($input: CreateCommitOnBranchInput!) {
+              createCommitOnBranch(input: $input) {
+                commit { oid url }
+              }
+            }'
+
+          RESULT=$(jq -n \
+            --arg query "$QUERY" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg branch "$HEAD_BRANCH" \
+            --arg headline "chore(pgo): auto-regenerate profile for hot-path changes" \
+            --arg oid "$HEAD_SHA" \
+            --rawfile contents "$B64_FILE" \
+            '{
+              query: $query,
+              variables: {
+                input: {
+                  branch: {
+                    repositoryNameWithOwner: $repo,
+                    branchName: $branch
+                  },
+                  message: { headline: $headline },
+                  fileChanges: {
+                    additions: [{path: "default.pgo", contents: $contents}]
+                  },
+                  expectedHeadOid: $oid
+                }
+              }
+            }' | gh api graphql --input -)
+
+          rm -f "$B64_FILE"
+          echo "$RESULT" | jq -r '.data.createCommitOnBranch.commit | "Created verified commit \(.oid)\n\(.url)"'
 
   # License header check
   license-check:
