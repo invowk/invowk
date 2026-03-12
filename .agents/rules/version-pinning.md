@@ -34,6 +34,8 @@ build configuration.
 - Pin to major version tags (e.g., `@v6`). Dependabot manages minor/patch bumps weekly.
 - All workflows MUST use the same major version for a given action (no stale pins like `@v4`
   when others use `@v6`).
+- **Exception**: `sigstore/cosign-installer` is pinned to `@v4.1.0` (exact version) because
+  the floating `@v4` major tag has not been published yet. Switch to `@v4` when available.
 
 ### Container Images
 - Production/CI base images: `debian:stable-slim` (rolling tag — intentional exception for

@@ -94,7 +94,7 @@ release:
   make_latest: "{{ if .Prerelease }}false{{ else }}true{{ end }}"
   mode: replace
   extra_files:
-    - glob: dist/invowk_*_bench-report.md
+    - glob: release-assets/invowk_*_bench-report.md
   header: |
     ## invowk {{ .Version }}
   footer: |
