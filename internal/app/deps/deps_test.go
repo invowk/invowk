@@ -127,6 +127,124 @@ func TestDiscoverAvailableCommands(t *testing.T) {
 	})
 }
 
+func TestValidateDependencies(t *testing.T) {
+	t.Parallel()
+
+	disc := &stubCommandSetProvider{
+		result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}},
+	}
+
+	t.Run("no deps passes both phases", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &invowkfile.Command{
+			Name:            "build",
+			Implementations: []invowkfile.Implementation{{Script: "echo hello"}},
+		}
+		cmdInfo := &discovery.CommandInfo{
+			Name:       cmd.Name,
+			Command:    cmd,
+			Invowkfile: &invowkfile.Invowkfile{},
+		}
+		execCtx := &runtimepkg.ExecutionContext{
+			Command:         cmd,
+			Context:         t.Context(),
+			SelectedRuntime: invowkfile.RuntimeVirtual,
+			SelectedImpl:    &cmd.Implementations[0],
+		}
+
+		if err := ValidateDependencies(disc, cmdInfo, runtimepkg.NewRegistry(), execCtx, nil); err != nil {
+			t.Fatalf("ValidateDependencies() = %v", err)
+		}
+	})
+
+	t.Run("host failure short-circuits before runtime phase", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &invowkfile.Command{
+			Name: "deploy",
+			DependsOn: &invowkfile.DependsOn{
+				Tools: []invowkfile.ToolDependency{
+					{Alternatives: []invowkfile.BinaryName{"___nonexistent_tool_for_test___"}},
+				},
+			},
+			Implementations: []invowkfile.Implementation{{
+				Script: "echo deploy",
+				Runtimes: []invowkfile.RuntimeConfig{
+					{
+						Name: invowkfile.RuntimeContainer,
+						DependsOn: &invowkfile.DependsOn{
+							Tools: []invowkfile.ToolDependency{
+								{Alternatives: []invowkfile.BinaryName{"also-missing"}},
+							},
+						},
+					},
+				},
+			}},
+		}
+		cmdInfo := &discovery.CommandInfo{
+			Name:       cmd.Name,
+			Command:    cmd,
+			Invowkfile: &invowkfile.Invowkfile{},
+		}
+		execCtx := &runtimepkg.ExecutionContext{
+			Command:         cmd,
+			Context:         t.Context(),
+			SelectedRuntime: invowkfile.RuntimeContainer,
+			SelectedImpl:    &cmd.Implementations[0],
+		}
+
+		err := ValidateDependencies(disc, cmdInfo, runtimepkg.NewRegistry(), execCtx, nil)
+		if err == nil {
+			t.Fatal("expected host dependency error")
+		}
+
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("expected *DependencyError, got %T", err)
+		}
+		if len(depErr.MissingTools) != 1 {
+			t.Fatalf("expected exactly 1 MissingTools (host only, phase 2 skipped), got %d", len(depErr.MissingTools))
+		}
+	})
+
+	t.Run("non-container runtime skips phase 2", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &invowkfile.Command{
+			Name: "lint",
+			Implementations: []invowkfile.Implementation{{
+				Script: "echo lint",
+				Runtimes: []invowkfile.RuntimeConfig{
+					{
+						Name: invowkfile.RuntimeContainer,
+						DependsOn: &invowkfile.DependsOn{
+							Tools: []invowkfile.ToolDependency{
+								{Alternatives: []invowkfile.BinaryName{"container-only-tool"}},
+							},
+						},
+					},
+				},
+			}},
+		}
+		cmdInfo := &discovery.CommandInfo{
+			Name:       cmd.Name,
+			Command:    cmd,
+			Invowkfile: &invowkfile.Invowkfile{},
+		}
+		execCtx := &runtimepkg.ExecutionContext{
+			Command:         cmd,
+			Context:         t.Context(),
+			SelectedRuntime: invowkfile.RuntimeVirtual,
+			SelectedImpl:    &cmd.Implementations[0],
+		}
+
+		if err := ValidateDependencies(disc, cmdInfo, runtimepkg.NewRegistry(), execCtx, nil); err != nil {
+			t.Fatalf("ValidateDependencies() = %v, expected nil (phase 2 skipped for non-container)", err)
+		}
+	})
+}
+
 func TestValidateRuntimeDependencies(t *testing.T) {
 	t.Parallel()
 

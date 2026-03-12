@@ -58,7 +58,7 @@ func TestSSHServerController(t *testing.T) {
 
 		ctrl.stop()
 
-		if srv := ctrl.current(); srv != nil {
+		if ctrl.current() != nil {
 			t.Fatal("current() != nil after stop()")
 		}
 	})
@@ -68,7 +68,7 @@ func TestSSHServerController(t *testing.T) {
 		// Must not panic.
 		ctrl.stop()
 
-		if srv := ctrl.current(); srv != nil {
+		if ctrl.current() != nil {
 			t.Fatal("current() != nil on never-started controller")
 		}
 	})
@@ -141,7 +141,7 @@ func TestSSHServerController(t *testing.T) {
 			t.Fatal("ensure() with cancelled context should return error")
 		}
 
-		if srv := ctrl.current(); srv != nil {
+		if ctrl.current() != nil {
 			t.Fatal("current() != nil after failed ensure()")
 		}
 	})
