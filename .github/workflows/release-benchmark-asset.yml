@@ -11,9 +11,6 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-
 concurrency:
   group: release-bench-report-${{ github.event.inputs.tag || github.run_id }}
   cancel-in-progress: false
@@ -23,6 +20,8 @@ jobs:
     name: Attach Benchmark Report
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - name: Determine tag
         id: tag

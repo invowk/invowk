@@ -6,9 +6,6 @@ on:
     - cron: '0 7 * * 1'
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 concurrency:
   group: pgo-benchstat-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -18,6 +15,8 @@ jobs:
     name: Compare PGO On/Off
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -72,7 +71,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload benchmark comparison artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: pgo-benchstat-${{ github.run_id }}
           path: artifacts/pgo-benchstat/

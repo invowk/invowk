@@ -249,7 +249,7 @@ jobs:
       # Upload test results for debugging and flake tracking
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-test-results-${{ matrix.os }}-${{ matrix.engine || 'unit' }}
           path: |
@@ -335,7 +335,7 @@ jobs:
       # Install UPX for binary compression (pinned to avoid apt repo drift)
       - name: Install UPX
         run: |
-          UPX_VERSION="5.1.0"
+          UPX_VERSION="5.1.1"
           curl -fsSL "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz" -o /tmp/upx.tar.xz
           tar -xJf /tmp/upx.tar.xz -C /tmp
           sudo install -m 755 "/tmp/upx-${UPX_VERSION}-amd64_linux/upx" /usr/local/bin/upx
@@ -344,9 +344,9 @@ jobs:
 
       # Install Cosign for signing
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4
         with:
-          cosign-release: v2.6.1
+          cosign-release: v3.0.5
 
       # Use a GitHub App token so the release event triggers version-docs.yml.
       # Releases created with GITHUB_TOKEN do NOT trigger other workflows.

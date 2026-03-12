@@ -51,6 +51,10 @@ on:
       - published
   workflow_dispatch:
 
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   agent-docs:
     name: agent docs integrity
@@ -85,7 +89,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.10.1
+          version: v2.11.3
           # Run full-codebase lint (not just new issues) so CI matches local `make lint`
           only-new-issues: false
 

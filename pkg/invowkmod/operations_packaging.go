@@ -90,7 +90,7 @@ func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.Fil
 		}
 
 		// Read file contents
-		fileData, readErr := os.ReadFile(path)
+		fileData, readErr := os.ReadFile(path) //nolint:gosec // G122 — caller-controlled module dir; WalkDir does not follow symlinks
 		if readErr != nil {
 			return fmt.Errorf("failed to read file %s: %w", path, readErr)
 		}

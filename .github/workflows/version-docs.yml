@@ -10,9 +10,6 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-
 # Serialize versioning runs to prevent race conditions on versions.json
 concurrency:
   group: version-docs
@@ -22,6 +19,9 @@ jobs:
   version-docs:
     name: Version Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - name: Determine tag
         id: tag
@@ -63,7 +63,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: website/package-lock.json
 
