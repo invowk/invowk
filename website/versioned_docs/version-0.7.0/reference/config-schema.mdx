@@ -1,0 +1,297 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Configuration Schema Reference
+
+:::warning Alpha — Configuration Options May Change
+The configuration schema is still being refined. Options **may be added, renamed, or removed** between releases as we finalize the feature set.
+:::
+
+Complete reference for the Invowk™ configuration file schema.
+
+## Overview
+
+The configuration file uses [CUE](https://cuelang.org/) format and is located at:
+
+| Platform | Location |
+|----------|----------|
+| Linux    | `~/.config/invowk/config.cue` |
+| macOS    | `~/Library/Application Support/invowk/config.cue` |
+| Windows  | `%APPDATA%\invowk\config.cue` |
+
+Configuration files are validated as closed structs, so unknown fields cause a validation error.
+
+## Schema Definition
+
+<Snippet id="reference/config/schema-definition" />
+
+## Config
+
+The root configuration object.
+
+<Snippet id="reference/config/config-structure" />
+
+### container_engine
+
+**Type:** `"podman" | "docker"`  
+**Required:** No  
+**Default:** `"podman"`
+
+Specifies which container runtime to use for container-based command execution.
+
+<Snippet id="reference/config/container-engine-example" />
+
+If the preferred engine is not available, Invowk falls back to the other engine when container runtime is needed.
+
+### includes
+
+**Type:** `[...#IncludeEntry]`
+**Required:** No
+**Default:** `[]`
+
+Additional modules to include in command discovery. Each entry specifies a path to an `*.invowkmod` directory with an optional `alias` for collision disambiguation.
+
+<Snippet id="reference/config/includes-example" />
+
+**Path requirements:**
+- Paths must be absolute and end with `.invowkmod`
+- Non-existent paths are silently ignored
+- Duplicate paths are rejected
+
+**Alias rules:**
+- Aliases are optional, for collision disambiguation
+- Each alias must be unique across all includes entries
+- Aliases override the module's declared identifier for collision resolution
+
+**Discovery priority (highest to lowest):**
+1. Current directory invowkfile
+2. Local modules (`*.invowkmod` in current directory)
+3. Configured `includes` (in order) — explicit includes outrank the user directory
+4. `~/.invowk/cmds` (modules only, non-recursive)
+
+### default_runtime
+
+**Type:** `"native" | "virtual" | "container"`  
+**Required:** No  
+**Default:** `"native"`
+
+Sets the global default runtime mode for commands that don't specify a preferred runtime.
+
+<Snippet id="reference/config/default-runtime-example" />
+
+| Value | Description |
+|-------|-------------|
+| `"native"` | Execute using the system's native shell |
+| `"virtual"` | Execute using Invowk's built-in shell interpreter |
+| `"container"` | Execute inside a container |
+
+### virtual_shell
+
+**Type:** `#VirtualShellConfig`  
+**Required:** No  
+**Default:** `{enable_uroot_utils: true}`
+
+Configuration for the virtual shell runtime.
+
+<Snippet id="reference/config/virtual-shell-example" />
+
+### ui
+
+**Type:** `#UIConfig`  
+**Required:** No  
+**Default:** `{color_scheme: "auto", verbose: false, interactive: false}`
+
+User interface configuration.
+
+<Snippet id="reference/config/ui-example" />
+
+### container
+
+**Type:** `#ContainerConfig`  
+**Required:** No  
+**Default:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
+
+Container runtime configuration.
+
+<Snippet id="reference/config/container-example" />
+
+---
+
+## VirtualShellConfig
+
+Configuration for the virtual shell runtime (mvdan/sh).
+
+<Snippet id="reference/config/virtual-shell-config-structure" />
+
+### enable_uroot_utils
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `true`
+
+Enables u-root utilities in the virtual shell environment. When enabled, provides additional commands beyond basic shell builtins.
+
+<Snippet id="reference/config/enable-uroot-utils-example" />
+
+**Available utilities when enabled (28 total):**
+- Upstream wrappers (12): `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
+- Custom implementations (16): `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
+
+---
+
+## UIConfig
+
+User interface configuration.
+
+<Snippet id="reference/config/ui-config-structure" />
+
+### color_scheme
+
+**Type:** `"auto" | "dark" | "light"`  
+**Required:** No  
+**Default:** `"auto"`
+
+Sets the color scheme for terminal output.
+
+<Snippet id="reference/config/color-scheme-example" />
+
+| Value | Description |
+|-------|-------------|
+| `"auto"` | Detect from terminal (respects `COLORTERM`, `TERM`, etc.) |
+| `"dark"` | Colors optimized for dark terminals |
+| `"light"` | Colors optimized for light terminals |
+
+### verbose
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `false`
+
+Enables verbose output by default for all commands.
+
+<Snippet id="reference/config/verbose-example" />
+
+Equivalent to always passing `--ivk-verbose` on the command line.
+
+### interactive
+
+**Type:** `bool`  
+**Required:** No  
+**Default:** `false`
+
+Enables interactive mode by default (alternate screen buffer with PTY).
+
+<Snippet id="reference/config/interactive-example" />
+
+---
+
+## ContainerConfig
+
+Configuration for container runtime behavior.
+
+<Snippet id="reference/config/container-config-structure" />
+
+### auto_provision
+
+**Type:** `#AutoProvisionConfig`
+**Required:** No
+**Default:** `{enabled: true, strict: false, inherit_includes: true}`
+
+Controls automatic provisioning of invowk resources into containers.
+
+<Snippet id="reference/config/auto-provision-example" />
+
+With auto-provisioning enabled, Invowk builds a cached, derived image by attaching a small provisioned layer on top of your base image. This runs for every container execution (interactive or not); if provisioning fails, Invowk warns and uses the base image.
+
+---
+
+## AutoProvisionConfig
+
+Auto-provisioning configuration for container images.
+
+<Snippet id="reference/config/auto-provision-config-structure" />
+
+### enabled
+
+**Type:** `bool`
+**Required:** No
+**Default:** `true`
+
+Enables auto-provisioning of the invowk binary and modules into containers.
+
+### strict
+
+**Type:** `bool`
+**Required:** No
+**Default:** `false`
+
+Makes provisioning failure a hard error instead of falling back to the unprovisioned base image. When `false` (the default), provisioning failure logs a warning and continues with the base image.
+
+### binary_path
+
+**Type:** `string`  
+**Required:** No  
+**Default:** *(empty; uses the running invowk binary)*
+
+Overrides the path to the invowk binary to provision.
+
+### includes
+
+**Type:** `[...#IncludeEntry]`
+**Required:** No
+**Default:** `[]`
+
+Additional modules to provision into containers. Uses the same `#IncludeEntry` format as root `includes` (each entry has a `path` ending with `.invowkmod` and an optional `alias`).
+
+### inherit_includes
+
+**Type:** `bool`
+**Required:** No
+**Default:** `true`
+
+When `true`, the root-level `includes` entries are automatically inherited by auto-provisioning. Set to `false` to provision only the modules explicitly listed in `container.auto_provision.includes`.
+
+### cache_dir
+
+**Type:** `string`  
+**Required:** No  
+**Default:** `~/.cache/invowk/provision`
+
+Overrides the cache directory for provisioned image metadata.
+
+---
+
+## Complete Example
+
+A fully documented configuration file:
+
+<Snippet id="reference/config/complete-example" />
+
+---
+
+## Minimal Configuration
+
+If you're happy with defaults, a minimal config might be:
+
+<Snippet id="reference/config/minimal-example" />
+
+Or even an empty file (all defaults):
+
+<Snippet id="reference/config/empty-example" />
+
+---
+
+## Validation
+
+You can validate your configuration file using CUE:
+
+<Snippet id="reference/config/cue-validate" />
+
+Or check it with Invowk:
+
+<Snippet id="reference/config/invowk-validate" />
+
+If there are any errors, Invowk will report them when loading the configuration.

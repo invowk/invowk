@@ -1,0 +1,143 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Flags and Arguments Overview
+
+Commands can accept user input through **flags** (named options) and **arguments** (positional values). Both are passed to your scripts as environment variables.
+
+## Quick Comparison
+
+| Feature | Flags | Arguments |
+|---------|-------|-----------|
+| Syntax | `--name=value` or `--name value` | Positional: `value1 value2` |
+| Order | Any order | Must follow position order |
+| Boolean | Supported (`--verbose`) | Not supported |
+| Named access | `INVOWK_FLAG_NAME` | `INVOWK_ARG_NAME` |
+| Multiple values | No | Yes (variadic) |
+
+## Example Command
+
+<Snippet id="flags-args/overview-example-command" />
+
+Usage:
+
+<Snippet id="flags-args/overview-usage" />
+
+## Flags
+
+Flags are named options with `--name=value` syntax:
+
+<Snippet id="flags-args/overview-flags-example" />
+
+<Snippet id="flags-args/overview-flags-usage" />
+
+Key features:
+- Support short aliases (`-v` for `--verbose`)
+- Typed values (string, bool, int, float)
+- Optional or required
+- Default values
+- Regex validation
+
+See [Flags](./flags) for details.
+
+## Arguments
+
+Arguments are positional values after the command name:
+
+<Snippet id="flags-args/overview-args-example" />
+
+<Snippet id="flags-args/overview-args-usage" />
+
+Key features:
+- Position-based (order matters)
+- Required or optional
+- Default values
+- Last argument can be variadic (accept multiple values)
+- Typed values (string, int, float - but not bool)
+
+See [Positional Arguments](./positional-arguments) for details.
+
+## Environment Variable Access
+
+Both flags and arguments are available as environment variables:
+
+### Flag Variables
+
+Prefix: `INVOWK_FLAG_`
+
+| Flag Name | Environment Variable |
+|-----------|---------------------|
+| `verbose` | `INVOWK_FLAG_VERBOSE` |
+| `dry-run` | `INVOWK_FLAG_DRY_RUN` |
+| `output-file` | `INVOWK_FLAG_OUTPUT_FILE` |
+
+### Argument Variables
+
+Prefix: `INVOWK_ARG_`
+
+| Argument Name | Environment Variable |
+|---------------|---------------------|
+| `environment` | `INVOWK_ARG_ENVIRONMENT` |
+| `file-path` | `INVOWK_ARG_FILE_PATH` |
+
+### Variadic Arguments
+
+Additional variables for multiple values:
+
+| Variable | Description |
+|----------|-------------|
+| `INVOWK_ARG_FILES` | Space-separated values |
+| `INVOWK_ARG_FILES_COUNT` | Number of values |
+| `INVOWK_ARG_FILES_1` | First value |
+| `INVOWK_ARG_FILES_2` | Second value |
+
+## Shell Positional Parameters
+
+Arguments are also available as shell positional parameters:
+
+<Snippet id="flags-args/overview-shell-positional" />
+
+## Mixing Flags and Arguments
+
+Flags can appear anywhere on the command line:
+
+<Snippet id="flags-args/overview-mixing" />
+
+## Reserved Flags
+
+Some flag names are reserved by Invowk™:
+
+- `ivk-env-file` / `-e` - Load environment from file
+- `ivk-env-var` / `-E` - Set environment variable
+- `ivk-env-inherit-mode` - Inherit host environment variables
+- `ivk-env-inherit-allow` - Allowlist host env vars to inherit
+- `ivk-env-inherit-deny` - Denylist host env vars to inherit
+- `ivk-workdir` / `-w` - Override working directory
+- `ivk-runtime` / `-r` - Override runtime
+- `ivk-from` / `-f` - Source to run command from
+- `ivk-force-rebuild` - Force container rebuild
+- `ivk-dry-run` - Print execution plan without running
+- `ivk-watch` / `-W` - Watch mode: re-execute on file changes
+- `ivk-verbose` / `-v` - Enable verbose output
+- `ivk-config` / `-c` - Config file path
+- `ivk-interactive` / `-i` - Run in interactive mode
+- `help` / `-h` - Show help
+- `version` - Show version information
+
+Additionally, the `ivk-`, `invowk-`, and `i-` prefixes are reserved for system flags. Don't use these prefixes or names for your flags.
+
+## Help Output
+
+Flags and arguments appear in command help:
+
+<Snippet id="flags-args/overview-help" />
+
+<Snippet id="flags-args/overview-help-output" />
+
+## Next Steps
+
+- [Flags](./flags) - Named options with `--flag=value` syntax
+- [Positional Arguments](./positional-arguments) - Value-based input

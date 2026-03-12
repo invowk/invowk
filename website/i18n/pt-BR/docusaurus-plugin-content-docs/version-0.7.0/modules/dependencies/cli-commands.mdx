@@ -1,0 +1,199 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Comandos CLI de Dependências de Módulos
+
+O Invowk fornece um conjunto de comandos `invowk module` para gerenciar dependências declaradas em `invowkmod.cue`.
+
+## Visão Geral dos Comandos
+
+| Comando | Descrição |
+|---------|-----------|
+| `invowk module add` | Adiciona uma dependência de módulo (resolve, faz cache e atualiza lock file e `invowkmod.cue`) |
+| `invowk module remove` | Remove uma dependência de módulo (atualiza lock file e `invowkmod.cue`) |
+| `invowk module deps` | Lista dependências resolvidas |
+| `invowk module sync` | Resolve dependências de `invowkmod.cue` |
+| `invowk module update` | Atualiza dependências para as versões mais recentes compatíveis |
+| `invowk module vendor` | Faz vendor das dependências em `invowk_modules/` |
+
+## invowk module add
+
+Resolve uma dependência, faz cache, atualiza o lock file e autoedita `invowkmod.cue` para adicionar a entrada em `requires`.
+
+### Uso
+
+<Snippet id="modules/dependencies/cli/add-usage" />
+
+### Argumentos
+
+| Argumento | Descrição |
+|-----------|-----------|
+| `git-url` | URL do repositório Git (HTTPS ou SSH) |
+| `version` | Restrição de versão semântica |
+
+### Flags
+
+| Flag | Descrição |
+|------|-----------|
+| `--alias <name>` | Namespace personalizado para a dependência |
+| `--path <path>` | Subdiretório dentro do repositório |
+
+### Exemplos
+
+<Snippet id="modules/dependencies/cli/add-examples" />
+
+### Saída
+
+<Snippet id="modules/dependencies/cli/add-output" />
+
+:::note
+`invowk module add` realiza três ações automaticamente:
+1. Resolve e faz cache do módulo
+2. Atualiza o lock file
+3. Autoedita `invowkmod.cue` para adicionar a entrada em `requires` (se o arquivo existir)
+:::
+
+## invowk module remove
+
+Remove uma dependência de módulo do lock file e de `invowkmod.cue`.
+
+### Uso
+
+<Snippet id="modules/dependencies/cli/remove-usage" />
+
+### Argumentos
+
+| Argumento | Descrição |
+|-----------|-----------|
+| `identifier` | Identificador do módulo: URL Git, alias, nome do módulo ou chave completa (`modulename@version`) |
+
+### Exemplos
+
+<Snippet id="modules/dependencies/cli/remove-example" />
+
+### Saída
+
+<Snippet id="modules/dependencies/cli/remove-output" />
+
+:::note
+`invowk module remove` realiza duas ações automaticamente:
+1. Remove o módulo do lock file
+2. Autoedita `invowkmod.cue` para remover a entrada correspondente em `requires`
+
+Arquivos de cache não são deletados.
+:::
+
+## invowk module deps
+
+Lista todas as dependências resolvidas no lock file.
+
+### Uso
+
+<Snippet id="modules/dependencies/cli/deps-usage" />
+
+### Saída
+
+<Snippet id="modules/dependencies/cli/deps-output" />
+
+### Sem Dependências
+
+<Snippet id="modules/dependencies/cli/deps-empty" />
+
+## invowk module sync
+
+Sincroniza todas as dependências declaradas em `invowkmod.cue`. Lê o campo `requires`, resolve restrições de versão, baixa módulos e atualiza o lock file.
+
+### Uso
+
+<Snippet id="modules/dependencies/cli/sync-usage" />
+
+### Saída
+
+<Snippet id="modules/dependencies/cli/sync-output" />
+
+### Sem Requirements
+
+<Snippet id="modules/dependencies/cli/sync-empty" />
+
+## invowk module update
+
+Atualiza dependências para as versões mais recentes compatíveis com as restrições declaradas.
+
+### Uso
+
+<Snippet id="modules/dependencies/cli/update-usage" />
+
+### Argumentos
+
+| Argumento | Descrição |
+|-----------|-----------|
+| `identifier` | (Opcional) Dependência específica para atualizar: URL Git, alias, nome do módulo ou chave completa (`modulename@version`) |
+
+### Exemplos
+
+<Snippet id="modules/dependencies/cli/update-examples" />
+
+### Saída
+
+<Snippet id="modules/dependencies/cli/update-output" />
+
+### Sem Atualizações
+
+<Snippet id="modules/dependencies/cli/update-empty" />
+
+## invowk module vendor
+
+Faz vendor das dependências no diretório `invowk_modules/` para uso offline e distribuição.
+
+### Uso
+
+<Snippet id="modules/dependencies/cli/vendor-usage" />
+
+### Saída
+
+<Snippet id="modules/dependencies/cli/vendor-output" />
+
+:::note
+`invowk module vendor` resolve as dependências e as copia para `invowk_modules/`. Se `invowkmod.lock.cue` existir, o vendor usa por padrão as versões travadas. Use `--update` para forçar nova resolução e `--prune` para remover módulos vendorizados obsoletos.
+:::
+
+## Workflows Comuns
+
+### Configuração Inicial
+
+<Snippet id="modules/dependencies/cli/workflow-init" />
+
+### Clone Novo
+
+<Snippet id="modules/dependencies/cli/workflow-fresh" />
+
+### Atualizações Regulares
+
+<Snippet id="modules/dependencies/cli/workflow-update" />
+
+### Troubleshooting
+
+<Snippet id="modules/dependencies/cli/workflow-troubleshoot" />
+
+## Variáveis de Ambiente
+
+| Variável | Descrição |
+|----------|-----------|
+| `INVOWK_MODULES_PATH` | Sobrescreve o diretório de cache de módulos |
+| `GITHUB_TOKEN` | Autenticação GitHub |
+| `GITLAB_TOKEN` | Autenticação GitLab |
+| `GIT_TOKEN` | Autenticação Git genérica |
+
+## Códigos de Saída
+
+| Código | Significado |
+|--------|-------------|
+| 0 | Sucesso |
+| 1 | Erro geral |
+| 1 | Módulo não encontrado (para remove) |
+| 1 | Nenhum invowkmod.cue encontrado (para sync) |
+| 1 | Falha na resolução de versão |
+| 1 | Falha ao clonar/buscar Git |

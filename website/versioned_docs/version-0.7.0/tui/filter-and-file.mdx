@@ -1,0 +1,123 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Filter and File
+
+Search and file selection components.
+
+## Filter
+
+Fuzzy filter through a list of options.
+
+### Basic Usage
+
+<Snippet id="tui/filter-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Filter prompt |
+| `--placeholder` | Search placeholder |
+| `--width` | Filter width |
+| `--height` | List height |
+| `--limit` | Max selections (default: 1) |
+| `--no-limit` | Unlimited selections |
+| `--reverse` | Display list in reverse order |
+| `--fuzzy` | Enable fuzzy matching |
+
+### Examples
+
+<Snippet id="tui/filter-examples" />
+
+### Real-World Examples
+
+#### Select Git Branch
+
+<Snippet id="tui/filter-git-branch" />
+
+#### Select Docker Container
+
+<Snippet id="tui/filter-docker-container" />
+
+#### Select Process to Kill
+
+<Snippet id="tui/filter-kill-process" />
+
+#### Filter Commands
+
+<Snippet id="tui/filter-commands" />
+
+---
+
+## File
+
+File and directory picker with navigation.
+
+### Basic Usage
+
+<Snippet id="tui/file-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Title displayed above the picker |
+| `--description` | Description below the title |
+| `--directory` | Only show directories |
+| `--file` | Show files (default: true) |
+| `--hidden` | Show hidden files |
+| `--allowed` | Filter by extensions |
+| `--height` | Picker height |
+
+### Examples
+
+<Snippet id="tui/file-examples" />
+
+### Navigation
+
+In the file picker:
+- **Up/Down**: Navigate
+- **Enter**: Select file or enter directory
+- **Backspace**: Go to parent directory
+- **Esc/Ctrl+C**: Cancel
+
+### Real-World Examples
+
+#### Select Config File
+
+<Snippet id="tui/file-config" />
+
+#### Select Project Directory
+
+<Snippet id="tui/file-project-dir" />
+
+#### Select Script to Run
+
+<Snippet id="tui/file-script-run" />
+
+#### Select Log File
+
+<Snippet id="tui/file-log" />
+
+### In Scripts
+
+<Snippet id="tui/file-script" />
+
+## Combined Patterns
+
+### Search Then Edit
+
+<Snippet id="tui/filter-file-search-edit" />
+
+### Directory Then File
+
+<Snippet id="tui/filter-file-dir-then-file" />
+
+## Next Steps
+
+- [Table and Spin](./table-and-spin) - Data display and spinners
+- [Overview](./overview) - All TUI components

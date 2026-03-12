@@ -1,0 +1,81 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Dependências de Módulos
+
+:::warning Alpha — Dependências de Módulos Podem Mudar
+Dependências de módulos ainda estão sendo refinadas. Embora nosso objetivo seja manter compatibilidade retroativa, **mudanças incompatíveis podem ocorrer** antes do release 1.0. Arquivos de lock mantêm builds reprodutíveis, mas o comportamento de resolução pode evoluir.
+:::
+
+Dependências de módulos permitem que um módulo use comandos de outros módulos hospedados em repositórios Git. Dependências são declaradas em `invowkmod.cue` em `requires` e resolvidas em `invowkmod.lock.cue`.
+
+## O que são Dependências de Módulos?
+
+Dependências de módulos são módulos externos dos quais seu módulo depende. Elas são:
+
+- **Hospedadas em repositórios Git** (GitHub, GitLab, Bitbucket, etc.)
+- **Versionadas com semver** (tags como `v1.2.3` ou `1.2.3`)
+- **Cacheadas localmente** para uso offline e performance
+- **Namespaced** por ID do módulo ou alias para evitar colisões
+
+## Início Rápido
+
+### 1. (Opcional) Resolver uma Dependência
+
+`invowk module add` resolve uma dependência, atualiza `invowkmod.lock.cue` e autoedita `invowkmod.cue` para adicionar a entrada em `requires` quando o arquivo existir:
+
+<Snippet id="modules/dependencies/quick-add" />
+
+### 2. Declarar em `invowkmod.cue`
+
+<Snippet id="modules/dependencies/quick-invowkmod" />
+
+### 3. Sincronizar Dependências
+
+<Snippet id="modules/dependencies/quick-sync" />
+
+### 4. Verificar Dependências Resolvidas
+
+<Snippet id="modules/dependencies/quick-deps" />
+
+## Namespaces e Aliases
+
+Quando um módulo de dependência está instalado em um caminho de descoberta, execute seus comandos com o ID do módulo (ou o alias, se você definiu):
+
+<Snippet id="modules/dependencies/namespace-usage" />
+
+## Como Funciona
+
+1. **Declaração**: Dependências são listadas em `invowkmod.cue` em `requires`
+2. **Resolução**: `invowk module sync` resolve restrições de versão para versões concretas
+3. **Download**: Módulos são clonados do Git e cacheados localmente
+4. **Lock file**: Versões resolvidas são gravadas em `invowkmod.lock.cue`
+5. **Descoberta**: Comandos ficam disponíveis via namespace quando a dependência é instalada
+
+:::note Somente Dependências Diretas
+Comandos em um módulo só podem chamar comandos de:
+1. O mesmo módulo
+2. Módulos instalados globalmente (seus caminhos de descoberta)
+3. Módulos declarados diretamente na lista `requires` desse módulo
+
+Dependências transitivas são resolvidas e cacheadas, mas seus comandos não ficam no escopo a menos que também estejam listadas diretamente.
+:::
+
+## Cache de Módulos
+
+Dependências de módulos são cacheadas em `~/.invowk/modules/` por padrão:
+
+<Snippet id="modules/dependencies/cache-structure" />
+
+Sobrescreva a localização do cache:
+
+<Snippet id="modules/dependencies/cache-env" />
+
+## Próximos Passos
+
+- [Declarando Dependências](./declaring-dependencies) - Aprenda a sintaxe de `requires`
+- [Comandos CLI](./cli-commands) - Comandos para gerenciamento de dependências
+- [Arquivo de Lock](./lock-file) - Entenda o formato do lock file

@@ -1,0 +1,75 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Início Rápido
+
+Vamos executar seu primeiro comando Invowk™ em menos de 2 minutos. Sério, pegue um café antes se quiser - você terá tempo de sobra.
+
+## Crie Seu Primeiro Invowkfile
+
+Navegue até qualquer diretório de projeto e inicialize um invowkfile:
+
+<Snippet id="quickstart/init" />
+
+Isso cria um `invowkfile.cue` com um comando `hello` que funciona nos três runtimes (native, virtual e container). Vamos dar uma olhada:
+
+<Snippet id="quickstart/default-invowkfile" />
+
+O template padrão inclui um único comando `hello` com quatro implementações: native (Unix e Windows), virtual (multiplataforma) e container. Cada implementação declara quais plataformas ela suporta.
+
+## Listar Comandos Disponíveis
+
+Veja quais comandos estão disponíveis:
+
+<Snippet id="cli/list-commands" />
+
+Você verá algo como:
+
+<Snippet id="quickstart/list-output" />
+
+A listagem mostra o nome do comando, descrição, runtimes permitidos (padrão marcado com `*`) e plataformas suportadas.
+
+## Executar um Comando
+
+Agora vamos executar um:
+
+<Snippet id="quickstart/run-hello" />
+
+Saída:
+
+<Snippet id="quickstart/hello-output" />
+
+É isso! Você acabou de executar seu primeiro comando Invowk.
+
+## Passar um Argumento
+
+O comando `hello` aceita um argumento opcional `name` (padrão "World"). Tente passar seu nome:
+
+<Snippet id="quickstart/info-command" />
+
+Saída:
+
+<Snippet id="quickstart/run-info" />
+
+Argumentos são expostos como variáveis de ambiente `INVOWK_ARG_<NOME>`, tornando-os acessíveis de qualquer runtime.
+
+## Experimente o Runtime Virtual
+
+Um dos superpoderes do Invowk é o **runtime virtual** - um interpretador de shell integrado que funciona da mesma forma em todas as plataformas:
+
+<Snippet id="quickstart/virtual-runtime" />
+
+O runtime virtual usa o interpretador [mvdan/sh](https://github.com/mvdan/sh), proporcionando comportamento consistente de shell POSIX em todas as plataformas - sem necessidade de implementações separadas para Unix e Windows.
+
+## Próximos Passos
+
+Você acabou de arranhar a superfície! Vá para [Seu Primeiro Invowkfile](./your-first-invowkfile) para aprender como criar comandos mais poderosos com:
+
+- Múltiplas opções de runtime (native, virtual, container)
+- Dependências que são validadas antes da execução
+- Flags e argumentos de comando
+- Variáveis de ambiente
+- E muito mais!

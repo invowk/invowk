@@ -1,0 +1,135 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Visão Geral de Dependências
+
+Dependências permitem que você declare o que seu comando precisa antes de executar. O Invowk™ valida todas as dependências antecipadamente e fornece mensagens de erro claras quando algo está faltando.
+
+## Por Que Declarar Dependências?
+
+Sem verificações de dependência:
+
+<Snippet id="dependencies/without-check" />
+
+Com verificações de dependência:
+
+<Snippet id="dependencies/with-check" />
+
+Muito melhor! Você sabe exatamente o que está errado antes de qualquer coisa executar.
+
+## Tipos de Dependência
+
+O Invowk suporta seis tipos de dependências:
+
+| Tipo | Verifica |
+|------|----------|
+| [tools](./tools) | Binários no PATH |
+| [filepaths](./filepaths) | Arquivos ou diretórios |
+| [cmds](./commands) | Outros comandos Invowk |
+| [capabilities](./capabilities) | Capacidades do sistema |
+| [env_vars](./env-vars) | Variáveis de ambiente |
+| [custom_checks](./custom-checks) | Scripts de validação personalizados |
+
+## Sintaxe Básica
+
+Dependências são declaradas no bloco `depends_on`:
+
+<Snippet id="dependencies/basic-syntax" />
+
+## O Padrão de Alternativas
+
+Toda dependência usa uma lista `alternatives` com **semântica OU**:
+
+<Snippet id="dependencies/alternatives-pattern" />
+
+Se **qualquer** alternativa for encontrada, a dependência é satisfeita. O Invowk usa retorno antecipado - ele para de verificar assim que uma corresponde.
+
+## Ordem de Validação
+
+Dependências são validadas nesta ordem:
+
+1. **env_vars** - Variáveis de ambiente (verificadas primeiro!)
+2. **tools** - Binários no PATH
+3. **filepaths** - Arquivos e diretórios
+4. **capabilities** - Capacidades do sistema
+5. **custom_checks** - Scripts de validação personalizados
+6. **cmds** - Outros comandos Invowk
+
+Variáveis de ambiente são validadas primeiro, antes do Invowk definir qualquer ambiente no nível do comando. Isso garante que você está verificando o ambiente real do usuário.
+
+## Níveis de Escopo
+
+Dependências podem ser declaradas em três níveis:
+
+### Nível Raiz (Global)
+
+Aplica-se a todos os comandos no invowkfile:
+
+<Snippet id="dependencies/scope-root" />
+
+### Nível de Comando
+
+Aplica-se a um comando específico:
+
+<Snippet id="dependencies/scope-command" />
+
+### Nível de Implementação
+
+Aplica-se a uma implementação específica:
+
+<Snippet id="dependencies/scope-implementation" />
+
+### Herança de Escopo
+
+Dependências são **combinadas** entre níveis:
+
+<Snippet id="dependencies/scope-inheritance" />
+
+## Validação Consciente do Runtime
+
+Dependências declaradas no nível raiz, comando ou implementação são **sempre validadas no sistema host**, independentemente do runtime selecionado. Isso garante que pré-requisitos do host (como um engine de container) sejam verificados antes do início da execução.
+
+Para validar dependências **dentro do ambiente do container**, use `depends_on` dentro de um bloco de runtime container:
+
+<Snippet id="dependencies/overview-runtime-aware" />
+
+### Dependências do Runtime Container
+
+O bloco `depends_on` dentro da configuração de um runtime **container** valida contra o ambiente do container. Isso está disponível apenas para o runtime container — os runtimes native e virtual não suportam `depends_on` no nível de runtime.
+
+| Escopo | Validado Contra |
+|--------|-----------------|
+| `depends_on` de Raiz / Comando / Implementação | Sempre o sistema **host** |
+| `depends_on` do runtime container | O **ambiente do container** |
+
+Essa separação permite expressar requisitos tanto do host quanto do container:
+
+<Snippet id="dependencies/overview-runtime-level" />
+
+Apenas o `depends_on` do runtime **selecionado** é validado. Se um comando tem múltiplos runtimes listados, as deps dos runtimes não selecionados são ignoradas.
+
+## Mensagens de Erro
+
+Quando dependências não são satisfeitas, o Invowk mostra um erro útil:
+
+<Snippet id="dependencies/error-output" />
+
+## Exemplo Completo
+
+Aqui está um comando com múltiplos tipos de dependência:
+
+<Snippet id="dependencies/complete-example" />
+
+## Próximos Passos
+
+Aprenda sobre cada tipo de dependência em detalhes:
+
+- [Tools](./tools) - Verificar binários no PATH
+- [Filepaths](./filepaths) - Verificar arquivos e diretórios
+- [Commands](./commands) - Use `cmds` para exigir que outros comandos estejam disponíveis
+- [Capabilities](./capabilities) - Verificar capacidades do sistema
+- [Variáveis de Ambiente](./env-vars) - Verificar variáveis de ambiente
+- [Verificações Personalizadas](./custom-checks) - Escrever scripts de validação personalizados

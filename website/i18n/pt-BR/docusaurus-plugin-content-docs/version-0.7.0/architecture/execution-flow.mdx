@@ -1,0 +1,108 @@
+---
+sidebar_position: 4
+---
+
+import Diagram from '@site/src/components/Diagram';
+
+# Diagrama de Sequência de Execução de Comandos
+
+Este diagrama mostra o fluxo temporal desde a invocação do CLI através da descoberta, seleção de runtime e execução. Entender este fluxo ajuda com debugging e extensão do Invowk.
+
+## Fluxo Principal de Execução
+
+<Diagram id="architecture/execution-main" />
+
+## Fluxo do Runtime Container (Detalhado)
+
+Quando o runtime container é selecionado, etapas adicionais ocorrem:
+
+<Diagram id="architecture/execution-container" />
+
+## Fluxo do Runtime Virtual
+
+O runtime virtual usa o interpretador mvdan/sh embutido:
+
+<Diagram id="architecture/execution-virtual" />
+
+## Descrições das Fases
+
+### 1. Fase de Inicialização
+
+| Etapa | Componente | Ação |
+|-------|------------|------|
+| 1 | CLI | Receber comando do usuário |
+| 2-4 | Config + CUE | Carregar e fazer parsing de `~/.config/invowk/config.cue` |
+
+**Decisões-chave tomadas:**
+- Preferência de engine de container (docker vs podman)
+- Search paths para invowkfiles/módulos
+- Runtime padrão se não especificado
+
+### 2. Fase de Descoberta
+
+| Etapa | Componente | Ação |
+|-------|------------|------|
+| 5 | Discovery | Iniciar descoberta de comandos |
+| 6-7 | CUE Parser | Fazer parsing de todos os arquivos `invowkfile.cue` |
+| 8-9 | Discovery | Escanear diretórios `*.invowkmod` e `invowk_modules/` vendorizados |
+| 10 | Discovery | Construir árvore unificada de comandos |
+
+**Ordem de precedência (maior para menor):**
+1. `invowkfile.cue` do diretório atual
+2. `*.invowkmod` do diretório atual
+3. Includes configurados
+4. Diretório de comandos do usuário `~/.invowk/cmds/` (apenas módulos, não recursivo)
+
+### 3. Fase de Resolução
+
+| Etapa | Componente | Ação |
+|-------|------------|------|
+| 11 | CLI | Corresponder nome do comando aos comandos descobertos |
+| 12 | CLI | Selecionar implementação específica da plataforma |
+| 13-14 | Registry | Obter instância apropriada do runtime |
+| 15-16 | Runtime | Validar contexto de execução |
+
+**Correspondência de plataforma:**
+- Verificar `platforms: [{name: "linux"}]`, `[{name: "macos"}]`, `[{name: "windows"}]`
+- Erro se nenhuma implementação corresponder à plataforma atual
+
+### 4. Fase de Execução
+
+| Etapa | Componente | Ação |
+|-------|------------|------|
+| 17 | Runtime | Iniciar execução |
+| 18-19 | Runtime Selecionado | Executar o script/comando real |
+| 20 | Runtime | Retornar resultado |
+| 21 | CLI | Saída para usuário |
+
+**Comportamento específico do runtime:**
+- **Native**: Spawns processo do shell do host
+- **Virtual**: Interpreta via mvdan/sh
+- **Container**: Provisiona imagem, executa container
+
+## Pontos de Tratamento de Erros
+
+<Diagram id="architecture/execution-errors" />
+
+## Considerações de Performance
+
+| Fase | Duração Típica | Otimização |
+|------|----------------|------------|
+| Inicialização | < 10ms | Config em cache após primeiro carregamento |
+| Descoberta | 10-100ms | Cache por requisição elimina varreduras duplicadas do sistema de arquivos |
+| Resolução | < 1ms | Lookup simples |
+| Execução | Variável | Depende do comando |
+
+**Otimizações principais:**
+- **Cache de descoberta por requisição**: Um `discoveryRequestCache` anexado ao contexto da requisição memoriza resultados de `DiscoverCommandSet`, `DiscoverAndValidateCommandSet` e `GetCommand`. A cross-population garante que uma chamada `DiscoverAndValidateCommandSet` também satisfaz lookups downstream de `DiscoverCommandSet`, eliminando travessias redundantes do sistema de arquivos dentro de uma única invocação CLI.
+
+**Gargalos a observar:**
+- Muitos módulos nos search paths → descoberta mais lenta
+- Invowkfiles grandes → parsing mais lento
+- Pulls de imagem de container → pode levar minutos
+
+## Diagramas Relacionados
+
+- [Diagrama C4 de Container](./c4-container) - Relacionamentos entre componentes
+- [Fluxograma de Seleção de Runtime](./runtime-selection) - Como runtimes são escolhidos
+- [Fluxograma de Precedência de Descoberta](./discovery) - Como comandos são descobertos
