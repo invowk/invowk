@@ -64,7 +64,6 @@ Agents are specialized reviewers and generators that can be spawned as subagents
 
 - [`.agents/agents/code-reviewer.md`](.agents/agents/code-reviewer.md) - Go code review: decorder, sentinel errors, wrapcheck, SPDX headers, guardrail compliance.
 - [`.agents/agents/cue-schema-agent.md`](.agents/agents/cue-schema-agent.md) - CUE schema specialist: 3-step parse flow, sync tests, validation matrix.
-- [`.agents/agents/doc-updater.md`](.agents/agents/doc-updater.md) - Documentation sync: code→doc sync map, MDX snippets, i18n mirrors, diagram updates.
 - [`.agents/agents/performance-analyzer.md`](.agents/agents/performance-analyzer.md) - Benchmark-aware reviewer: CUE hot path, discovery traversal, PGO profile maintenance.
 - [`.agents/agents/security-reviewer.md`](.agents/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
 - [`.agents/agents/ci-readiness.md`](.agents/agents/ci-readiness.md) - CI-readiness verifier: runs pre-completion checklist gates in parallel before commits/PRs.
@@ -96,7 +95,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/cue/`](.agents/skills/cue/) - CUE schema parsing, 3-step parse flow, validation matrix, schema sync tests.
 - [`.agents/skills/d2-diagrams/`](.agents/skills/d2-diagrams/) - Agent-optimized D2 diagram generation with TALA layout, validation pipeline, deterministic output. **DEFAULT for new diagrams.**
 - [`.agents/skills/discovery/`](.agents/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
-- [`.agents/skills/docs/`](.agents/skills/docs/) - Documentation workflow and Docusaurus website development.
+- [`.agents/skills/docs/`](.agents/skills/docs/) - Documentation editing workflow: Docusaurus, MDX snippets, i18n, versioning. For review/audit, use `/review-docs`.
 - [`.agents/skills/review-docs/`](.agents/skills/review-docs/) - User-invokable (`/review-docs`). Documentation review and audit: README, website docs, snippets, CUE drift, i18n parity, diagrams, container policy.
 - [`.agents/skills/invowk-schema/`](.agents/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
 - [`.agents/skills/invowk-typesystem/`](.agents/skills/invowk-typesystem/) - Invowk value-type system guidance: Validate() contracts, primitive wrappers, aliases/re-exports, and catalog maintenance.

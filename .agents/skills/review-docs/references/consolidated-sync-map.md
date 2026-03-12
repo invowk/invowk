@@ -1,8 +1,7 @@
 # Consolidated Documentation Sync Map
 
-This is the canonical superset sync map for documentation review. It merges the maps
-from `.agents/skills/docs/SKILL.md` (13 rows) and `.agents/agents/doc-updater.md` (10 rows),
-adding the 3 rows missing from the doc-updater and consolidating diagram triggers.
+This is the canonical sync map for all documentation work (review and editing).
+The `/docs` skill and `/review-docs` skill both reference this file.
 
 ## Code → Website Docs Map
 

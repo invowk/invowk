@@ -222,6 +222,5 @@ Read these when working on the corresponding review surface:
 
 | Skill | When to Use |
 |---|---|
-| `/docs` | After review identifies issues — for editing documentation, creating pages, updating snippets |
+| `/docs` | After review identifies issues — for editing documentation, syncing docs after code changes, creating pages, updating snippets |
 | `/d2-diagrams` | For diagram creation, editing, rendering, and D2-specific readability review |
-| `doc-updater` agent | For automated documentation sync after code changes (spawn as subagent) |
