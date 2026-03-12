@@ -226,6 +226,7 @@ While reviewing workflow files, check for these optimization opportunities:
 6. **New action features**: Have `actions/setup-go`, `golangci-lint-action`, or `goreleaser-action` added useful new inputs since the current pin?
 7. **Runner images**: Are `ubuntu-latest`, `macos-15`, `windows-latest` still current recommended images?
 8. **Concurrency group naming consistency**: Are all groups following the same `<name>-${{ github.ref }}` pattern? Flag outliers (e.g., redundant `${{ github.workflow }}` segments).
+9. **Bot commit signing**: Are ALL workflow jobs that create commits using the GitHub GraphQL `createCommitOnBranch` API? Direct `git commit` + `git push` on CI runners produces **unsigned** commits that are blocked by the `required_signatures` ruleset. See the "Verified Bot Commits" section below for the required pattern.
 
 ### Step 6: Generate Report
 
@@ -273,6 +274,13 @@ Present findings as a structured report:
 
 ### CI Optimizations
 - (bulleted list of findings, or "No optimizations identified.")
+
+### Bot Commit Signing
+| Workflow | Job | Mechanism | Verified? | Issue |
+|----------|-----|-----------|-----------|-------|
+| ... | ... | ... | ... | ... |
+
+(or "All bot commits use GraphQL API — no unsigned commits.")
 
 ### Documentation Updates Required
 After applying updates, these files need version bumps:
@@ -350,6 +358,79 @@ Output a summary of changes:
 - [ ] If gotestsum was updated: run `make test` locally to verify compatibility
 - [ ] If Node.js version changed: run `cd website && npm run build` to verify
 ```
+
+## Verified Bot Commits
+
+**CRITICAL: All CI-created commits MUST be signed.** The `required_signatures` ruleset on `main` blocks PRs containing unsigned commits. Direct `git commit` + `git push` on CI runners produces unsigned commits because runners have no GPG/SSH signing key.
+
+### Required Pattern: GraphQL `createCommitOnBranch`
+
+Use the GitHub GraphQL `createCommitOnBranch` mutation instead of direct git commands. API-created commits are automatically signed by GitHub.
+
+**Token choice:**
+- Use `GITHUB_TOKEN` (`${{ github.token }}`) when the commit should NOT trigger downstream workflows (anti-recursion). This is the default for auto-fix jobs like `pgo-sanity`.
+- Use a GitHub App token (`actions/create-github-app-token`) when the commit MUST trigger downstream workflows (e.g., `version-docs.yml` needs to trigger `deploy-website.yml`).
+
+**Current inventory of commit-creating jobs:**
+
+| Workflow | Job | Mechanism | Token | Verified? |
+|----------|-----|-----------|-------|-----------|
+| `ci.yml` | `pgo-sanity` | GraphQL `createCommitOnBranch` | `GITHUB_TOKEN` | Yes |
+| `version-docs.yml` | `version-docs` | GraphQL `createCommitOnBranch` | GitHub App token | Yes |
+| `release.yml` | `release` | `git tag` + `git push` (lightweight tag, not a commit) | `GITHUB_TOKEN` | N/A |
+
+**When adding a new workflow that creates commits**, always use the GraphQL pattern. The `pgo-sanity` job in `ci.yml` is the simplest reference for single-file commits; `version-docs.yml` shows the multi-file pattern with `ARG_MAX` protection.
+
+### Quick Reference: Single-File Verified Commit
+
+```yaml
+- name: Commit file (verified)
+  env:
+    GH_TOKEN: ${{ github.token }}
+    HEAD_BRANCH: ${{ github.head_ref }}  # PR head branch name
+  run: |
+    set -euo pipefail
+    HEAD_SHA=$(git rev-parse HEAD)
+    B64_FILE=$(mktemp)
+    base64 -w 0 < path/to/file > "$B64_FILE"
+    QUERY='
+      mutation ($input: CreateCommitOnBranchInput!) {
+        createCommitOnBranch(input: $input) {
+          commit { oid url }
+        }
+      }'
+    RESULT=$(jq -n \
+      --arg query "$QUERY" \
+      --arg repo "$GITHUB_REPOSITORY" \
+      --arg branch "$HEAD_BRANCH" \
+      --arg headline "chore: commit message" \
+      --arg oid "$HEAD_SHA" \
+      --rawfile contents "$B64_FILE" \
+      '{
+        query: $query,
+        variables: {
+          input: {
+            branch: {
+              repositoryNameWithOwner: $repo,
+              branchName: $branch
+            },
+            message: { headline: $headline },
+            fileChanges: {
+              additions: [{path: "path/to/file", contents: $contents}]
+            },
+            expectedHeadOid: $oid
+          }
+        }
+      }' | gh api graphql --input -)
+    rm -f "$B64_FILE"
+    echo "$RESULT" | jq -r '.data.createCommitOnBranch.commit | "Created verified commit \(.oid)\n\(.url)"'
+```
+
+**Key details:**
+- `expectedHeadOid` provides optimistic concurrency (replaces `git pull --rebase`)
+- `--rawfile` avoids `ARG_MAX` / `MAX_ARG_STRLEN` limits for large files
+- `base64 -w 0` produces single-line output (required by the API)
+- For multi-file commits, see `version-docs.yml` which iterates staged files into `additions`/`deletions` arrays
 
 ## Dependabot Overlap
 
