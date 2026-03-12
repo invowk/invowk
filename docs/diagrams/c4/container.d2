@@ -96,6 +96,18 @@ invowk_cli: Invowk CLI {
       |
     }
 
+    command_svc: Command Service {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        8-step execution pipeline: validate, discover, resolve,
+        ensure SSH, build context, dry-run, dispatch
+      |
+    }
+
     discovery: Discovery Engine {
       style: {
         fill: "#438DD5"
@@ -355,14 +367,19 @@ invowk_cli.entry_core.cmd -> invowk_cli.entry_core.watch_engine: "Delegates watc
   style.stroke-dash: 3
 }
 
-# Command to Runtime fan-out
-invowk_cli.entry_core.cmd -> invowk_cli.runtimes.runtime_native: Executes {
+# Command to Command Service
+invowk_cli.entry_core.cmd -> invowk_cli.entry_core.command_svc: Delegates {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.cmd -> invowk_cli.runtimes.runtime_virtual: Executes {
+
+# Command Service to Runtime fan-out
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_native: Dispatches {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.cmd -> invowk_cli.runtimes.runtime_container: Executes {
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_virtual: Dispatches {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_container: Dispatches {
   style.stroke: "#707070"
 }
 
@@ -379,7 +396,7 @@ invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.container_en
 invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.provision: Provisions {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.cmd -> invowk_cli.container_infra.ssh_server: "Manages lifecycle" {
+invowk_cli.entry_core.command_svc -> invowk_cli.container_infra.ssh_server: "Manages lifecycle" {
   style.stroke: "#707070"
 }
 invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.ssh_server: "Uses reference" {

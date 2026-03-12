@@ -44,7 +44,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 |------|-----------|--------|
 | 5 | Discovery | Start command discovery |
 | 6-7 | CUE Parser | Parse all `invowkfile.cue` files |
-| 8-9 | CUE Parser | Parse all `*.invowkmod` directories |
+| 8-9 | Discovery | Scan `*.invowkmod` directories and vendored `invowk_modules/` |
 | 10 | Discovery | Build unified command tree |
 
 **Precedence order (highest to lowest):**
@@ -63,7 +63,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 | 15-16 | Runtime | Validate execution context |
 
 **Platform matching:**
-- Check for `platforms: ["linux"]`, `["macos"]`, `["windows"]`
+- Check for `platforms: [{name: "linux"}]`, `[{name: "macos"}]`, `[{name: "windows"}]`
 - Error if no implementation matches the current platform
 
 ### 4. Execution Phase
@@ -71,7 +71,7 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 | Step | Component | Action |
 |------|-----------|--------|
 | 17 | Runtime | Begin execution |
-| 18-19 | Executor | Run the actual script/command |
+| 18-19 | Selected Runtime | Run the actual script/command |
 | 20 | Runtime | Return result |
 | 21 | CLI | Output to user |
 

@@ -1019,7 +1019,7 @@ cmds: [
 
 | Property | Required | Description |
 |----------|----------|-------------|
-| `name` | Yes | Argument name (lowercase letters, numbers, hyphens only) |
+| `name` | Yes | Argument name (starts with a letter, then letters, digits, underscores, or hyphens) |
 | `description` | Yes | Description shown in help text |
 | `required` | No | If `true`, the argument must be provided (cannot have `default_value`) |
 | `default_value` | No | Default value if argument is not provided |
@@ -2364,7 +2364,7 @@ container: {
     binary_path: "/usr/local/bin/invowk"  // Override path to invowk binary to provision (optional)
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
-    cache_dir: "~/.cache/invowk/provision" // Cache directory for provisioned image metadata (optional)
+    // cache_dir: ""  // Cache directory for provisioned image metadata (empty = auto-detect, optional)
   }
 }
 
@@ -2743,20 +2743,27 @@ invowk/
 ├── main.go                     # Entry point
 ├── cmd/invowk/                 # CLI commands (Cobra command tree)
 │   ├── root.go                 # Root command and global flags
+│   ├── app.go                  # CLI adapter: bridges CommandService to Cobra
 │   ├── cmd.go                  # cmd subcommand (command execution)
 │   ├── cmd_discovery.go        # Dynamic command registration and discovery
-│   ├── cmd_execute.go          # Command execution pipeline
+│   ├── cmd_dryrun.go           # Dry-run output rendering
 │   ├── cmd_execute_helpers.go  # Execution helpers (runtime registry, disambiguation)
-│   ├── cmd_execute_error_classifier.go  # Error-to-issue-ID mapping
+│   ├── cmd_render.go           # Command output rendering
+│   ├── cmd_watch.go            # File-watching mode (--ivk-watch)
 │   ├── service_error.go        # ServiceError type and rendering
 │   ├── module.go               # module subcommand tree
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
+│   ├── validate.go             # validate command
 │   ├── completion.go           # Shell completion generation
 │   ├── tui.go                  # tui parent command
 │   ├── tui_*.go                # TUI subcommands (input, write, choose, confirm, filter, file, table, spin, pager, format, style)
 │   └── internal.go             # Hidden internal commands
 ├── internal/
+│   ├── app/                    # Hexagonal domain layer
+│   │   ├── commandsvc/         # Command execution service (discovery, validation, dispatch)
+│   │   ├── deps/               # Dependency validation domain logic
+│   │   └── execute/            # Execution orchestration (runtime resolution, context construction)
 │   ├── benchmark/              # Benchmarks for PGO profile generation
 │   ├── config/                 # Configuration management with CUE schema
 │   ├── container/              # Container engine abstraction (Docker, Podman, sandbox)
@@ -2769,12 +2776,15 @@ invowk/
 │   ├── testutil/               # Test utilities
 │   ├── tui/                    # TUI component library and interactive execution
 │   ├── tuiserver/              # TUI server for interactive sessions
-│   └── uroot/                  # u-root utilities for virtual shell built-ins
+│   ├── uroot/                  # u-root utilities for virtual shell built-ins
+│   └── watch/                  # File-watching with debounced re-execution
 ├── pkg/
 │   ├── cueutil/                # Shared CUE parsing utilities
+│   ├── fspath/                 # Filesystem path wrappers (typed paths)
 │   ├── invowkmod/              # Module validation and structure
 │   ├── invowkfile/             # Invowkfile parsing and validation
-│   └── platform/               # Cross-platform utilities
+│   ├── platform/               # Cross-platform utilities
+│   └── types/                  # DDD value-type catalog (shared typed primitives)
 ├── tests/cli/                  # CLI integration tests (testscript .txtar files)
 ├── modules/                    # Sample invowk modules for validation
 ├── scripts/                    # Build, install, and release scripts
@@ -2793,10 +2803,10 @@ invowk/
 - [Fang](https://github.com/charmbracelet/fang) - Signal handling and graceful shutdown
 
 **TUI & Styling:**
-- [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
+- [Lip Gloss](https://charm.land/lipgloss) - Terminal styling
 - [Glamour](https://github.com/charmbracelet/glamour) - Markdown rendering
-- [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
-- [Bubbletea](https://github.com/charmbracelet/bubbletea) - TUI framework
+- [Bubbles](https://charm.land/bubbles) - TUI components
+- [Bubbletea](https://charm.land/bubbletea) - TUI framework
 
 **SSH & PTY:**
 - [Wish](https://github.com/charmbracelet/wish) - SSH server framework (for host SSH access from containers)

@@ -872,7 +872,7 @@ modules: {
         git_url:          "https://github.com/example/common.invowkmod.git"
         version:          "^1.0.0"
         resolved_version: "1.2.3"
-        git_commit:       "abc123def4567890"
+        git_commit:       "abc123def456789012345678901234567890abcd"
         alias:            "common"
         namespace:        "common"
     }

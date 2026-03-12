@@ -44,7 +44,7 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 |-------|------------|------|
 | 5 | Discovery | Iniciar descoberta de comandos |
 | 6-7 | CUE Parser | Fazer parsing de todos os arquivos `invowkfile.cue` |
-| 8-9 | CUE Parser | Fazer parsing de todos os diretórios `*.invowkmod` |
+| 8-9 | Discovery | Escanear diretórios `*.invowkmod` e `invowk_modules/` vendorizados |
 | 10 | Discovery | Construir árvore unificada de comandos |
 
 **Ordem de precedência (maior para menor):**
@@ -63,7 +63,7 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 | 15-16 | Runtime | Validar contexto de execução |
 
 **Correspondência de plataforma:**
-- Verificar `platforms: ["linux"]`, `["macos"]`, `["windows"]`
+- Verificar `platforms: [{name: "linux"}]`, `[{name: "macos"}]`, `[{name: "windows"}]`
 - Erro se nenhuma implementação corresponder à plataforma atual
 
 ### 4. Fase de Execução
@@ -71,7 +71,7 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 | Etapa | Componente | Ação |
 |-------|------------|------|
 | 17 | Runtime | Iniciar execução |
-| 18-19 | Executor | Executar o script/comando real |
+| 18-19 | Runtime Selecionado | Executar o script/comando real |
 | 20 | Runtime | Retornar resultado |
 | 21 | CLI | Saída para usuário |
 

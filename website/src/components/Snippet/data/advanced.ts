@@ -112,7 +112,6 @@ cmds: [
             print(f"Python {sys.version_info.major}.{sys.version_info.minor}")
             """
         runtimes: [{
-        platforms: [{name: "linux"}, {name: "macos"}]
             name: "native"
             interpreter: "python3"  // Explicit
         }]
@@ -133,7 +132,6 @@ cmds: [
                 time.sleep(1)
             """
         runtimes: [{
-        platforms: [{name: "linux"}, {name: "macos"}]
             name: "native"
             interpreter: "python3 -u"  // Unbuffered output
         }]
@@ -165,7 +163,6 @@ interpreter: "node --max-old-space-size=4096"`,
             print(f"Running in container at {os.getcwd()}")
             """
         runtimes: [{
-        platforms: [{name: "linux"}, {name: "macos"}]
             name: "container"
             image: "python:3-slim"
         }]
@@ -184,7 +181,6 @@ interpreter: "node --max-old-space-size=4096"`,
             console.log('Node version:', process.version)
             """
         runtimes: [{
-        platforms: [{name: "linux"}, {name: "macos"}]
             name: "container"
             image: "node:20-slim"
             interpreter: "node"
@@ -229,7 +225,6 @@ interpreter: "node --max-old-space-size=4096"`,
     implementations: [{
         script: "print('hello')"
         runtimes: [{
-        platforms: [{name: "linux"}, {name: "macos"}]
             name: "virtual"
             interpreter: "python3"  // CUE validation error: field not allowed
         }]
