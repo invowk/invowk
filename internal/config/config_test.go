@@ -813,6 +813,130 @@ func TestLoad_CustomPath_InvalidCUE_ReturnsError(t *testing.T) {
 	}
 }
 
+// GenerateCUE tests — direct coverage of conditional rendering branches
+
+func TestGenerateCUE_DefaultConfig(t *testing.T) {
+	t.Parallel()
+	output := GenerateCUE(DefaultConfig())
+
+	for _, want := range []string{"container_engine:", "default_runtime:", "virtual_shell:", "ui:", "container:"} {
+		if !strings.Contains(output, want) {
+			t.Errorf("GenerateCUE(defaults) missing %q", want)
+		}
+	}
+	// Default config has no includes — top-level "includes:" section should be absent.
+	// The auto_provision section has "inherit_includes:" which is a different field.
+	if strings.Contains(output, "\nincludes:") {
+		t.Error("GenerateCUE(defaults) should not contain top-level 'includes:' when Includes is empty")
+	}
+	// Default config has empty BinaryPath and CacheDir — these conditional fields should be omitted.
+	if strings.Contains(output, "binary_path:") {
+		t.Error("GenerateCUE(defaults) should omit binary_path when empty")
+	}
+	if strings.Contains(output, "cache_dir:") {
+		t.Error("GenerateCUE(defaults) should omit cache_dir when empty")
+	}
+}
+
+func TestGenerateCUE_IncludesWithAndWithoutAliases(t *testing.T) {
+	t.Parallel()
+	cfg := DefaultConfig()
+	cfg.Includes = []IncludeEntry{
+		{Path: "/abs/path/one.invowkmod", Alias: "one"},
+		{Path: "/abs/path/two.invowkmod"},
+	}
+	output := GenerateCUE(cfg)
+
+	if !strings.Contains(output, `alias: "one"`) {
+		t.Error("GenerateCUE should render alias when set")
+	}
+	if !strings.Contains(output, `path: "/abs/path/two.invowkmod"`) {
+		t.Error("GenerateCUE should render path without alias")
+	}
+	// Entry without alias should NOT have an alias field
+	for line := range strings.SplitSeq(output, "\n") {
+		if strings.Contains(line, "two.invowkmod") && strings.Contains(line, "alias:") {
+			t.Error("entry without alias should not render alias field")
+		}
+	}
+}
+
+func TestGenerateCUE_ConditionalBinaryPathAndCacheDir(t *testing.T) {
+	t.Parallel()
+	cfg := DefaultConfig()
+	cfg.Container.AutoProvision.BinaryPath = "/usr/local/bin/invowk"
+	cfg.Container.AutoProvision.CacheDir = "/tmp/invowk-cache"
+	cfg.Container.AutoProvision.Includes = []IncludeEntry{
+		{Path: "/abs/modules/one.invowkmod", Alias: "prov-one"},
+	}
+	output := GenerateCUE(cfg)
+
+	if !strings.Contains(output, `binary_path: "/usr/local/bin/invowk"`) {
+		t.Error("GenerateCUE should render binary_path when non-empty")
+	}
+	if !strings.Contains(output, `cache_dir: "/tmp/invowk-cache"`) {
+		t.Error("GenerateCUE should render cache_dir when non-empty")
+	}
+	if !strings.Contains(output, `alias: "prov-one"`) {
+		t.Error("GenerateCUE should render auto_provision includes with alias")
+	}
+}
+
+func TestGenerateCUE_Roundtrip(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{
+		ContainerEngine: ContainerEngineDocker,
+		DefaultRuntime:  "virtual",
+		VirtualShell:    VirtualShellConfig{EnableUrootUtils: false},
+		UI:              UIConfig{ColorScheme: "dark", Verbose: true, Interactive: true},
+		Container: ContainerConfig{
+			AutoProvision: AutoProvisionConfig{
+				Enabled:         false,
+				InheritIncludes: false,
+			},
+		},
+	}
+
+	cueContent := GenerateCUE(cfg)
+
+	// Write to temp file, reload, and verify fields match
+	tmpDir := t.TempDir()
+	cfgDir := filepath.Join(tmpDir, AppName)
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	cfgPath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(cueContent), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	loaded, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
+	if err != nil {
+		t.Fatalf("loadWithOptions() roundtrip error: %v", err)
+	}
+	if loaded.ContainerEngine != cfg.ContainerEngine {
+		t.Errorf("roundtrip ContainerEngine = %s, want %s", loaded.ContainerEngine, cfg.ContainerEngine)
+	}
+	if loaded.DefaultRuntime != cfg.DefaultRuntime {
+		t.Errorf("roundtrip DefaultRuntime = %s, want %s", loaded.DefaultRuntime, cfg.DefaultRuntime)
+	}
+	if loaded.UI.ColorScheme != cfg.UI.ColorScheme {
+		t.Errorf("roundtrip UI.ColorScheme = %s, want %s", loaded.UI.ColorScheme, cfg.UI.ColorScheme)
+	}
+	if loaded.UI.Verbose != cfg.UI.Verbose {
+		t.Errorf("roundtrip UI.Verbose = %v, want %v", loaded.UI.Verbose, cfg.UI.Verbose)
+	}
+	if loaded.VirtualShell.EnableUrootUtils != cfg.VirtualShell.EnableUrootUtils {
+		t.Errorf("roundtrip EnableUrootUtils = %v, want %v", loaded.VirtualShell.EnableUrootUtils, cfg.VirtualShell.EnableUrootUtils)
+	}
+	if loaded.UI.Interactive != cfg.UI.Interactive {
+		t.Errorf("roundtrip UI.Interactive = %v, want %v", loaded.UI.Interactive, cfg.UI.Interactive)
+	}
+	if loaded.Container.AutoProvision.Enabled != cfg.Container.AutoProvision.Enabled {
+		t.Errorf("roundtrip AutoProvision.Enabled = %v, want %v", loaded.Container.AutoProvision.Enabled, cfg.Container.AutoProvision.Enabled)
+	}
+}
+
 // TestNoGlobalConfigAccess guards against re-introduction of global config
 // accessors in production code paths. The config package has no global mutable
 // state; this test ensures the pattern is not reintroduced.
