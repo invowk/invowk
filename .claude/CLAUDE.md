@@ -77,7 +77,7 @@ Commands are user-invokable slash commands (e.g., `/review-docs`) that execute m
 
 - [`.agents/commands/fix-it.md`](.agents/commands/fix-it.md) - Analyze issues and propose robust fix plan with prevention strategy.
 - [`.agents/commands/fix-it-simple.md`](.agents/commands/fix-it-simple.md) - Analyze issues and propose concise fix with prevention.
-- [`.agents/commands/improve-type-system.md`](.agents/commands/improve-type-system.md) - Identify next type definitions/structs to convert to DDD Value Types with Validate().
+- [`.agents/commands/improve-type-system.md`](.agents/commands/improve-type-system.md) - Four-phase DDD Value Type conversion: assess goplint findings, plan conversions by impact, execute via invowk-typesystem skill, verify baseline.
 - [`.agents/commands/review-docs.md`](.agents/commands/review-docs.md) - Review README and website docs for accuracy against current architecture and behaviors.
 - [`.agents/commands/review-rules.md`](.agents/commands/review-rules.md) - Review rules files for contradictions, ambiguities, incoherence, or excessive noise.
 - [`.agents/commands/review-tests.md`](.agents/commands/review-tests.md) - Review test suite for semantic comprehensiveness, signal-to-noise, and E2E coverage.
