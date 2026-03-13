@@ -35,14 +35,25 @@ Parse the JSON output. Group findings by category and package. The most actionab
 | `incomplete-validate-delegation` | Struct Validate() skips validatable field | Add field.Validate() call |
 | `nonzero-value-field` | `//goplint:nonzero` type as non-pointer field | Use `*Type` or ensure construction guarantees |
 
-### 1.3 Cross-reference coverage
+### 1.3 Audit stale exceptions
+
+```bash
+./bin/goplint -audit-exceptions -global -check-all -check-enum-sync \
+  -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+```
+
+**CRITICAL: Always use `--global` and `--check-all --check-enum-sync` together.** Without `--global`, the audit runs per-package and reports false positives (a pattern matching in package A appears "stale" when analyzing package B). Without `--check-all`, supplementary-mode patterns (`*.constructor`, `*.struct-validate`, `*.validate-delegation`, `*.cast-validation`, etc.) appear stale because their findings are never generated. Both flags are required for accurate results.
+
+If stale exceptions are found, offer to clean them up as part of this session.
+
+### 1.4 Cross-reference coverage
 
 - Read `type-catalog.md` → current typed counts (primitive-wrappers, composites, aliases)
 - Read `baseline.toml` → accepted debt count and categories
 - Check overdue review dates: `make check-types-all-json 2>/dev/null | jq '[.[] | select(.category == "overdue-review")]'`
 - Read `exceptions.toml` header counts per reason category
 
-### 1.4 Produce assessment summary
+### 1.5 Produce assessment summary
 
 Present this to the user before proceeding:
 
@@ -165,7 +176,13 @@ Use `pkg/fspath/` wrappers (`JoinStr`, `Dir`, `Abs`, `Clean`, `FromSlash`, `IsAb
      .agents/skills/invowk-typesystem/references/type-catalog.md
    ```
 6. `make check-file-length` — all Go files under 1000 lines
-7. Report session metrics to the user:
+7. Audit stale exceptions (always global):
+   ```bash
+   ./bin/goplint -audit-exceptions -global -check-all -check-enum-sync \
+     -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
+   ```
+   Remove any newly stale entries (type conversions often orphan exception patterns).
+8. Report session metrics to the user:
 
 ```
 | Metric                 | Value |
