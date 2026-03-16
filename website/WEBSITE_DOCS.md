@@ -84,6 +84,7 @@ The sidebar is manually configured in `website/sidebars.ts`. Current sections:
 | TUI Components | `tui/` |
 | Configuration | `configuration/` |
 | Reference | `reference/` |
+| Architecture | `architecture/` |
 
 ## Versioning Policy
 

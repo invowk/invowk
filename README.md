@@ -2062,7 +2062,7 @@ version: "1.0"
 generated: "2025-01-12T10:30:00Z"
 
 modules: {
-	"github.com/user/common-tools": {
+	"https://github.com/user/common-tools.invowkmod.git": {
 		git_url:          "https://github.com/user/common-tools.invowkmod.git"
 		version:          "^1.0.0"
 		resolved_version: "1.2.3"
