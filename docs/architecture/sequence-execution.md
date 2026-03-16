@@ -53,8 +53,8 @@ Vendored modules are scanned one level deep per discovered module. Nested vendor
 
 | Step | Component | Action |
 |------|-----------|--------|
-| 11 | CLI | Match command name to discovered commands |
-| 12 | CLI | Select platform-specific implementation |
+| 11 | Command Service | Match command name to discovered commands |
+| 12 | Command Service | Select platform-specific implementation |
 | 13-14 | Registry | Get appropriate runtime instance |
 | 15-16 | Runtime | Validate execution context |
 

@@ -838,6 +838,7 @@ env: {
 
 // Implementation: specific to this runtime
 implementations: [{
+    script: "npm run build"
     runtimes: [{name: "container", image: "node:20"}]
     platforms: [{name: "linux"}]
     env: {

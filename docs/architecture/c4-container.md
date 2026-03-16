@@ -20,11 +20,12 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
+| **Command Service** | Go | Hexagonal domain service (`internal/app/commandsvc/`) orchestrating command execution. Receives requests from CLI, coordinates discovery, validation, SSH lifecycle, and runtime dispatch. Returns typed results/errors; CLI adapter applies rendering. |
 | **Discovery Engine** | Go | Finds `invowkfile.cue` and `*.invowkmod` directories with precedence ordering. Builds unified command tree. |
 | **Configuration Manager** | Go/Viper+CUE | Loads config from `~/.config/invowk/config.cue`. Validates against CUE schema. |
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |
-| **Module Resolver** | Go | Resolves Git-based dependencies. Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. |
-| **Watch Engine** | Go/fsnotify | Monitors file system for changes. Debounces change events and triggers command re-execution for `--ivk-watch` mode. |
+| **Module Resolver** | Go | Orchestrates Git-based module dependency resolution (via `pkg/invowkmod`). Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. CLI subcommands (`module deps`, `module sync`, `module update`) drive resolution. |
+| **Watch Engine** | Go | Monitors file system for changes. Debounces change events and triggers command re-execution for `--ivk-watch` mode. |
 
 ### Runtimes
 
@@ -62,12 +63,13 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 ### Command Execution Flow
 
 1. User invokes `invowk cmd <name>`
-2. **CLI Commands** receives request
-3. **Discovery Engine** finds all available commands
-4. **CUE Parser** parses `invowkfile.cue` and module files
-5. Command is matched, runtime is selected
-6. Appropriate **Runtime** executes the command
-7. For containers: **Image Provisioner** prepares the environment
+2. **CLI Commands** receives request, builds a service request
+3. **Command Service** orchestrates the execution pipeline
+4. **Discovery Engine** finds all available commands
+5. **CUE Parser** parses `invowkfile.cue` and module files
+6. **Command Service** matches command, selects runtime, validates dependencies
+7. Appropriate **Runtime** executes the command
+8. For containers: **Image Provisioner** prepares the environment
 
 ### Configuration Loading
 

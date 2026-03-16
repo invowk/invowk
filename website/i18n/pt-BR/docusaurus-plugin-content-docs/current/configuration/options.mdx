@@ -40,6 +40,7 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `
 
 **Requisitos de caminho:**
 - Deve ser absoluto (ex: `/home/user/modules/tools.invowkmod`)
+- No Windows, use um caminho absoluto Windows (ex: `C:\Users\alice\modules\tools.invowkmod` ou um caminho UNC)
 - Deve terminar com `.invowkmod`
 - Caminhos duplicados são rejeitados
 
@@ -194,7 +195,7 @@ Quando `true`, falhas de auto-provisionamento são tratadas como erros fatais ao
 #### container.auto_provision.cache_dir
 
 **Tipo:** `string`  
-**Padrão:** `~/.cache/invowk/provision`
+**Padrão:** *(vazio — usa o padrão específico da plataforma, tipicamente `~/.cache/invowk/provision`)*
 
 Sobrescreve o diretório de cache para metadados de imagens provisionadas.
 

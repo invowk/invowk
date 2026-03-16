@@ -573,15 +573,23 @@ implementations: [{
     language: 'cue',
     code: `{
     name: "build"
-    implementations: [{
-        script: "go build ./..."
-        runtimes: [
-            {name: "native"},  // Default
-            {name: "virtual"}, // Alternative
-            {name: "container", image: "golang:1.26"}  // Reproducible
-        ]
-        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-    }]
+    implementations: [
+        {
+            script: "go build ./..."
+            runtimes: [
+                {name: "native"},  // Default
+                {name: "virtual"}, // Alternative
+            ]
+            platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+        },
+        {
+            script: "go build ./..."
+            runtimes: [
+                {name: "container", image: "golang:1.26"}  // Reproducible
+            ]
+            platforms: [{name: "linux"}]  // Container runtime is Linux-only
+        },
+    ]
 }`,
   },
 
@@ -712,7 +720,7 @@ WORKDIR /workspace`,
                 "\${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache Go dependencies
             ]
         }]
-        platforms: [{name: "linux"}, {name: "macos"}]
+        platforms: [{name: "linux"}]
     }]
 }`,
   },

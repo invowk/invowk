@@ -1296,7 +1296,7 @@ When a command's script invokes another invowk command (e.g., `invowk cmd other-
 **Isolated Variables (NOT inherited by child commands):**
 - `INVOWK_ARG_*` - Argument values
 - `INVOWK_FLAG_*` - Flag values
-- `ARGC`, `ARG1`, `ARG2`, etc. - Legacy positional argument variables
+- `ARGC`, `ARG1`, `ARG2`, etc. - Positional argument shorthand variables (injected alongside `INVOWK_ARG_*`)
 
 This isolation prevents the parent command's arguments and flags from accidentally leaking into child commands, which could cause unexpected behavior.
 
