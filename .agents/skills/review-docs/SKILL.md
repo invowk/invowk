@@ -103,6 +103,34 @@ Quick Start, or getting-started sections.
 
 ---
 
+## Consistency Principles
+
+These principles ensure that running the review multiple times produces the same results.
+They apply to both the coordinator and all subagents.
+
+1. **Checklist-driven review** — Each subagent follows its surface's checklist from
+   `references/surface-checklists.md`. Every checklist item gets a status (PASS/FAIL/N-A).
+   This is the primary review activity — open-ended exploration is secondary and optional.
+
+2. **Pre-assigned severity** — Each checklist item has a severity level defined in
+   `surface-checklists.md`. Subagents use that severity, not their own judgment. The reason:
+   subjective severity classification is the second-largest source of run-to-run variance
+   (after scope sampling). Fixing severity at definition time eliminates this.
+
+3. **Deterministic file traversal** — Each checklist enumerates the exact files to review.
+   Subagents check all listed files, not a sample. For surfaces with many files (S2, S3),
+   the checklist specifies which files to examine.
+
+4. **Structured context passing** — The coordinator passes programmatic check results to
+   subagents using the Context Block format defined below, not free-form prose. This ensures
+   every subagent receives identical context in an identical format.
+
+5. **Complete reporting** — Every checklist item must appear in the subagent's output. Items
+   that pass are reported as PASS with brief evidence. Items that cannot be checked are N/A
+   with an explanation. The coordinator verifies completeness during merge.
+
+---
+
 ## Orchestration Strategy
 
 ### Step 1: Run Programmatic Checks
@@ -124,78 +152,81 @@ make check-agent-docs
 cd website && npm run build
 ```
 
-Record any failures as findings before proceeding to manual review.
+Record results in the **Context Block** format:
 
-### Step 2: Spawn Parallel Subagents
+```
+PROGRAMMATIC CHECK RESULTS
+==========================
+docs:parity        : PASS | FAIL (detail)
+container-grep     : PASS | FAIL (files: ...)
+diagram-readability: PASS | FAIL (detail)
+d2-validate        : PASS | FAIL (files: ...)
+check-agent-docs   : PASS | FAIL (detail)
+website-build      : PASS | FAIL (detail)
+==========================
+```
 
-Assign non-overlapping surface groups to up to 4 subagents. Pass Step 1 programmatic check
-results to each subagent so they do not repeat automated checks.
+### Step 2: Spawn 8 Parallel Subagents
 
-| Subagent | Surfaces | References to Read | Focus |
-|---|---|---|---|
-| **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md` | Read each README section vs its source of truth. Check CUE field names, CLI output, feature descriptions. |
-| **SA-2: Website + Snippets + Config** | S2, S3, S7 | `consolidated-sync-map.md`, `cue-drift-patterns.md`, `intentional-simplifications.md` | Read website docs vs Go code and CUE schemas. Check snippet data for CUE drift. Verify config defaults match `DefaultConfig()`. Check dual-prefix config snippets. |
-| **SA-3: Diagrams** | S5 | `consolidated-sync-map.md` (diagram section) | Read D2 sources and architecture docs vs current code structure. Verify nodes/labels match package names. Use `/d2-diagrams` skill for readability review. |
-| **SA-4: i18n + Container Policy** | S4, S6 | `intentional-simplifications.md` | Structural parity via `docs:parity` results. Check for stale pt-BR prose using git log dates. Verify container image policy across all doc surfaces using grep results from Step 1. |
+Spawn one subagent per surface. Each subagent receives:
+1. The Context Block from Step 1
+2. Its assigned surface checklist section from `references/surface-checklists.md`
+3. The structured output format from `references/structured-output-format.md`
 
-Each subagent should:
-1. Read `references/intentional-simplifications.md` and their listed reference files
-2. Follow the per-surface review procedure (below)
-3. Produce findings in the structured format from `references/structured-output-format.md`
+| Subagent | Surface | References to Read | Focus |
+|----------|---------|-------------------|-------|
+| **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S1 | Walk 22-section sync map, verify each section against its source of truth |
+| **SA-2: Website Docs** | S2 | `consolidated-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S2 | Verify MDX pages against Go code and CUE schemas using the code→docs map |
+| **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 6 CUE drift patterns to all 11 snippet data files systematically |
+| **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity` results, detect stale prose via git dates |
+| **SA-5: Architecture Diagrams** | S5 | `consolidated-sync-map.md` (diagram section), `surface-checklists.md` §S5 | D2 node/label accuracy vs current package names and code structure |
+| **SA-6: Container Image Policy** | S6 | `surface-checklists.md` §S6 | Deep scan beyond Step 1 grep — CUE runtime fields, Dockerfiles in examples |
+| **SA-7: DefaultConfig() vs Docs** | S7 | `consolidated-sync-map.md`, `surface-checklists.md` §S7 | Field-by-field comparison of DefaultConfig() output vs 4 doc pages + snippets |
+| **SA-8: Homepage & Terminal Demo** | S8 | `intentional-simplifications.md`, `surface-checklists.md` §S8 | Verify simplifications are valid and syntax is not actively misleading |
+
+#### Subagent Prompt Template
+
+Use this template when spawning each subagent. Consistent prompting is important because
+variation in how the task is described to subagents is a source of run-to-run inconsistency.
+
+```
+You are reviewing documentation surface S{N}: {Surface Name} for the invowk project.
+
+## Your Task
+Follow the checklist in `references/surface-checklists.md` §S{N} item by item. For each
+checklist item, report PASS, FAIL, or N/A with evidence. Then generate findings for
+all FAIL items using the format in `references/structured-output-format.md`.
+
+## Reference Files to Read
+{list of reference files from the table above}
+
+## Programmatic Check Results (from coordinator)
+{paste the Context Block here}
+
+## Per-Item Procedure
+For each checklist item:
+1. Read the source of truth file specified in the checklist
+2. Read the documentation target file
+3. Compare — does the doc accurately reflect the source of truth?
+4. Check `references/intentional-simplifications.md` — is a mismatch deliberate?
+5. Record status: PASS (with evidence), FAIL (generate finding), or N/A (with reason)
+
+## Output
+1. Checklist Status table (every item, no omissions)
+2. Findings list (one entry per FAIL item, using the checklist's pre-assigned severity)
+```
 
 ### Step 3: Merge and Report
 
 The coordinator:
-1. Collects findings from all subagents
-2. Deduplicates by (file, line/snippet ID)
-3. Cross-checks against `references/intentional-simplifications.md`
-4. Sorts by severity (ERROR first)
-5. Produces the final report (see `references/structured-output-format.md`)
-
----
-
-## Review Methodology
-
-### Per-Surface Procedure
-
-For each documentation surface:
-
-1. **Run programmatic checks** — fail-fast on mechanical errors
-2. **Read source of truth** — the schema file, Go code, or CLI behavior that defines correctness
-3. **Read the documentation** — the file being reviewed
-4. **Compare** — does the doc accurately reflect the source of truth?
-5. **Check intentional simplifications** — is the mismatch deliberate? (check the registry)
-6. **Record finding** — use the structured format with appropriate severity
-
-### What to Look For
-
-**Factual accuracy** (→ ERROR):
-- CUE field names that don't match the schema
-- CLI flags or commands that have been renamed/removed
-- Default values that have changed
-- Feature descriptions that contradict current behavior
-- Invalid CUE syntax in examples (e.g., missing required `platforms` in full implementation blocks)
-- Prohibited container images
-
-**Completeness** (→ WARNING):
-- New features or config options not documented
-- Schema fields added but not reflected in reference docs
-- Runtime behavior changes not reflected in runtime-modes docs
-- New TUI components or flags not in the TUI docs
-- Missing i18n mirrors for recently added pages
-
-**Style and clarity** (→ INFO):
-- Outdated terminology
-- Confusing phrasing that could mislead
-- Missing admonitions for important caveats
-
-**Intentional omissions** (→ SKIP):
-- Simplified examples in getting-started/quickstart
-- Homepage terminal demo
-- One-feature-per-example pattern in core-concepts
-
-Severity levels (ERROR/WARNING/INFO/SKIP) are defined in `references/structured-output-format.md`.
-The "What to Look For" categories above map to these severities.
+1. **Verifies completeness** — Each subagent reported on all checklist items for its surface
+2. **Collects** findings from SA-1 through SA-8
+3. **Deduplicates** by (file, line/snippet ID) — keep higher severity on conflicts
+4. **Cross-checks** against `references/intentional-simplifications.md`
+5. **Sorts** by severity (ERROR first), then by surface
+6. **Assigns** sequential IDs (RD-001, RD-002, ...) to the merged list
+7. **Merges** checklist tables into a unified Checklist Completion summary
+8. **Produces** the final report (see `references/structured-output-format.md`)
 
 ---
 
@@ -203,6 +234,8 @@ The "What to Look For" categories above map to these severities.
 
 Read these when working on the corresponding review surface:
 
+- **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
+  enumerated verification items (88 total across 8 surfaces). This is the primary review driver.
 - **[references/consolidated-sync-map.md](references/consolidated-sync-map.md)** — Superset
   code → docs mapping (website + diagrams + drift-prone areas)
 - **[references/readme-sync-map.md](references/readme-sync-map.md)** — README section →
@@ -212,7 +245,7 @@ Read these when working on the corresponding review surface:
 - **[references/intentional-simplifications.md](references/intentional-simplifications.md)** —
   Registry of known intentional omissions (do NOT flag as errors)
 - **[references/structured-output-format.md](references/structured-output-format.md)** —
-  Finding report template, severity definitions, merge procedure
+  Finding report template, checklist status format, severity definitions, merge procedure
 - **[references/verification-commands.md](references/verification-commands.md)** — Full
   command reference with expected output and failure triage
 

@@ -12,6 +12,30 @@ deduplication across subagents and prioritized triage.
 - Programmatic checks: [PASS/FAIL for each automated check]
 ```
 
+## Checklist Status (per-subagent output)
+
+Each subagent produces a checklist status table BEFORE listing findings. Every item from
+`surface-checklists.md` for the assigned surface must appear — no item may be omitted.
+
+```
+## Checklist Status — S{N}: {Surface Name}
+
+| Check ID | Status | Evidence |
+|----------|--------|----------|
+| S1-C01   | PASS   | Field names match (verified against invowkfile_schema.cue L45-L120) |
+| S1-C02   | FAIL   | `custom` dependency type missing from README L486 |
+| S1-C03   | N/A    | invowk init --help not available in this environment |
+| ...      | ...    | ... |
+```
+
+**Status values**:
+- **PASS** — Check verified, documentation is accurate. Include brief evidence (file + line or observation).
+- **FAIL** — Documentation does not match source of truth. A finding entry is required below.
+- **N/A** — Check could not be performed (e.g., command not available, file not found). Explain why.
+
+Findings are generated FROM failed checklist items. Every finding must trace back to a specific
+check ID. Do not generate findings that are not associated with a checklist item.
+
 ## Finding Entry Template
 
 Each finding is one row. Use this format:
@@ -19,8 +43,9 @@ Each finding is one row. Use this format:
 | Field | Description |
 |---|---|
 | **ID** | `RD-{NNN}` — sequential within the report |
-| **Surface** | One of: README, Website, Snippet, i18n, Diagram, ContainerPolicy, Config |
-| **Severity** | ERROR / WARNING / INFO / SKIP |
+| **Check ID** | The checklist item that produced this finding (e.g., `S1-C04`) |
+| **Surface** | One of: README, Website, Snippet, i18n, Diagram, ContainerPolicy, Config, Homepage |
+| **Severity** | ERROR / WARNING / INFO / SKIP — use the pre-assigned severity from the checklist |
 | **File** | Path relative to repo root |
 | **Line(s)** | Line number(s) or snippet ID |
 | **Source of Truth** | The authoritative file/function that defines correct behavior |
@@ -29,6 +54,10 @@ Each finding is one row. Use this format:
 | **Rationale** | Why this is a finding (one sentence) |
 
 ### Severity Definitions
+
+Severity is pre-assigned per checklist item in `surface-checklists.md`. Use the checklist's
+severity — do not override it based on subjective judgment. The definitions below explain
+what each level means:
 
 | Severity | Criteria | Action Required |
 |---|---|---|
@@ -51,6 +80,19 @@ End the report with aggregate counts:
 | INFO | N |
 | SKIP | N |
 
+### Checklist Completion
+
+| Surface | Total Items | PASS | FAIL | N/A |
+|---|---|---|---|---|
+| S1: README | 22 | ... | ... | ... |
+| S2: Website | 13 | ... | ... | ... |
+| S3: Snippet | 18 | ... | ... | ... |
+| S4: i18n | 6 | ... | ... | ... |
+| S5: Diagram | 11 | ... | ... | ... |
+| S6: ContainerPolicy | 6 | ... | ... | ... |
+| S7: Config | 7 | ... | ... | ... |
+| S8: Homepage | 5 | ... | ... | ... |
+
 ### Breakdown by Surface
 
 | Surface | ERROR | WARNING | INFO | SKIP |
@@ -62,6 +104,7 @@ End the report with aggregate counts:
 | Diagram | ... | ... | ... | ... |
 | ContainerPolicy | ... | ... | ... | ... |
 | Config | ... | ... | ... | ... |
+| Homepage | ... | ... | ... | ... |
 
 ### Priority Fix List
 [ERRORs first, then WARNINGs, with file paths for quick navigation]
@@ -69,13 +112,17 @@ End the report with aggregate counts:
 
 ## Merge Procedure (for coordinator)
 
-When merging findings from multiple subagents:
+When merging findings from the 8 surface-dedicated subagents (SA-1 through SA-8):
 
-1. **Collect** all findings from SA-1 through SA-4.
-2. **Deduplicate** by (file, line/snippet ID) — if two subagents found the same issue, keep
-   the one with higher severity and more detail.
-3. **Cross-check** against `references/intentional-simplifications.md` — downgrade any finding
+1. **Verify completeness** — Each subagent must have reported on ALL checklist items for its
+   surface. Flag any missing items (the subagent may need to re-run or explain the gap).
+2. **Collect** all findings from SA-1 through SA-8.
+3. **Deduplicate** by (file, line/snippet ID) — if two subagents found the same issue (possible
+   for cross-cutting concerns), keep the one with higher severity and more detail.
+4. **Cross-check** against `references/intentional-simplifications.md` — downgrade any finding
    that matches the registry to SKIP.
-4. **Sort** by severity (ERROR → WARNING → INFO → SKIP), then by surface.
-5. **Assign sequential IDs** (RD-001, RD-002, ...) to the merged list.
-6. **Produce** the summary table and priority fix list.
+5. **Sort** by severity (ERROR → WARNING → INFO → SKIP), then by surface.
+6. **Assign sequential IDs** (RD-001, RD-002, ...) to the merged list.
+7. **Merge checklist tables** — Combine the per-subagent checklist tables into the unified
+   Checklist Completion summary.
+8. **Produce** the summary table, checklist completion, and priority fix list.
