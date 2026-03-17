@@ -1970,7 +1970,7 @@ When invowk discovers a module, it:
 - Validates the module structure and naming
 - Loads `invowkfile.cue` from within the module (if present)
 - Resolves script paths relative to the module root
-- Makes all commands available with their module prefix
+- Makes all commands available (use `@source` prefix or `--ivk-from` for disambiguation)
 
 Commands from modules appear in `invowk cmd` with the source indicated as "module".
 

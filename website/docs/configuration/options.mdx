@@ -52,7 +52,7 @@ Additional modules to include in command discovery. Each entry is an `#IncludeEn
 1. Current directory invowkfile (always searched first, highest priority)
 2. Local modules (`*.invowkmod` in current directory)
 3. Each entry in `includes` in order
-4. `~/.invowk/cmds` (always included)
+4. `~/.invowk/cmds/` (modules only, non-recursive)
 
 When multiple includes define commands with the same name, they become ambiguous. Use `@source` prefix or `--ivk-from` flag to disambiguate.
 
