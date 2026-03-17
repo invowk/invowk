@@ -35,7 +35,7 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 
 **Decisões-chave tomadas:**
 - Preferência de engine de container (docker vs podman)
-- Search paths para invowkfiles/módulos
+- Includes configurados para invowkfiles/módulos
 - Runtime padrão se não especificado
 
 ### 2. Fase de Descoberta
@@ -80,6 +80,32 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 - **Virtual**: Interpreta via mvdan/sh
 - **Container**: Provisiona imagem, executa container
 
+### 5. Interceptação Dry-Run
+
+Quando `--ivk-dry-run` é passado, o pipeline é interrompido após a resolução:
+
+| Etapa | Componente | Ação |
+|-------|------------|------|
+| 1 | CLI | Detectar flag `--ivk-dry-run` |
+| 2 | CLI | Executar descoberta + resolução normalmente (etapas 1-16) |
+| 3 | CLI | Imprimir plano de execução resolvido (Comando, Fonte, Runtime, Plataforma, WorkDir, Timeout, Script, Ambiente) |
+| 4 | CLI | Sair com código 0 (validação de dependências é ignorada) |
+
+### 6. Loop do Modo Watch
+
+Quando `--ivk-watch` é passado, a execução é envolvida em um loop de watch:
+
+| Etapa | Componente | Ação |
+|-------|------------|------|
+| 1 | CLI | Detectar flag `--ivk-watch` (mutuamente exclusivo com `--ivk-dry-run`) |
+| 2 | CLI | Executar comando inicial normalmente |
+| 3 | Watch Engine | Configurar watchers de arquivo a partir de `watch.patterns` (ou fallback `**/*`) |
+| 4 | Watch Engine | Aguardar mudanças em arquivos, debounce (padrão 500ms) |
+| 5 | CLI | Re-executar comando |
+| 6 | Watch Engine | Repetir a partir da etapa 4 até Ctrl+C |
+
+**Tratamento de erros:** Códigos de saída diferentes de zero do comando continuam o loop de watch. Erros de infraestrutura (não `ExitError`) abortam o loop após 3 falhas consecutivas.
+
 ## Pontos de Tratamento de Erros
 
 <Diagram id="architecture/execution-errors" />
@@ -97,7 +123,7 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 - **Cache de descoberta por requisição**: Um `discoveryRequestCache` anexado ao contexto da requisição memoriza resultados de `DiscoverCommandSet`, `DiscoverAndValidateCommandSet` e `GetCommand`. A cross-population garante que uma chamada `DiscoverAndValidateCommandSet` também satisfaz lookups downstream de `DiscoverCommandSet`, eliminando travessias redundantes do sistema de arquivos dentro de uma única invocação CLI.
 
 **Gargalos a observar:**
-- Muitos módulos nos search paths → descoberta mais lenta
+- Muitos módulos nos includes configurados → descoberta mais lenta
 - Invowkfiles grandes → parsing mais lento
 - Pulls de imagem de container → pode levar minutos
 

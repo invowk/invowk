@@ -70,22 +70,39 @@ A lista de comandos mostra runtimes disponíveis com um asterisco marcando o pad
 
 ## Fluxo de Seleção de Runtime
 
+O runtime é resolvido usando um modelo de precedência de 3 níveis:
+
+1. **Flag CLI** (`--ivk-runtime`) — Sobrescrita rígida. Erro se o runtime especificado não for compatível com o comando na plataforma atual.
+2. **Runtime padrão do config** (`default_runtime` no config) — Sobrescrita flexível. Se o runtime padrão do config for compatível com o comando, é usado. Caso contrário, passa silenciosamente para o Nível 3.
+3. **Padrão por comando** — Primeiro runtime da primeira implementação correspondente para a plataforma atual.
+
 ```
                     ┌──────────────────┐
                     │  invowk cmd run  │
                     └────────┬─────────┘
                              │
-                    ┌────────▼─────────┐
-                    │ flag --ivk-runtime?  │
-                    └────────┬─────────┘
+                  ┌──────────▼───────────┐
+                  │ Nível 1: flag        │
+                  │ --ivk-runtime?       │
+                  └──────────┬───────────┘
                              │
               ┌──────────────┴──────────────┐
               │ Sim                         │ Não
               ▼                             ▼
-    ┌─────────────────────┐    ┌─────────────────────┐
-    │ Usar runtime        │    │ Usar primeiro       │
-    │ especificado        │    │ runtime (padrão)    │
-    └─────────────────────┘    └─────────────────────┘
+    ┌─────────────────────┐      ┌──────────────────────┐
+    │ Usar runtime        │      │ Nível 2: config      │
+    │ especificado (erro  │      │ default_runtime      │
+    │ se incompatível)    │      │ definido?            │
+    └─────────────────────┘      └──────────┬───────────┘
+                                            │
+                                ┌───────────┴────────────┐
+                                │ Sim & compatível       │ Não / incompatível
+                                ▼                        ▼
+                     ┌─────────────────────┐   ┌─────────────────────┐
+                     │ Usar runtime padrão │   │ Nível 3: padrão por │
+                     │ do config           │   │ comando (primeiro   │
+                     └─────────────────────┘   │ runtime compatível) │
+                                               └─────────────────────┘
 ```
 
 ## Validação de Dependências

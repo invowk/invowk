@@ -45,10 +45,9 @@ Restrição de versão semântica. O repositório precisa ter tags Git que corre
 
 #### Formatos de Tag de Versão
 
-O Invowk aceita tags com ou sem o prefixo `v`:
+O Invowk resolve automaticamente tags Git com ou sem o prefixo `v` — tanto tags `v1.2.3` quanto `1.2.3` são encontradas durante a busca.
 
-- `v1.2.3` e `1.2.3` são válidos
-- Na resolução, ambos os formatos são tentados automaticamente
+No entanto, o valor da restrição `version` no `invowkmod.cue` **não** deve incluir o prefixo `v`. Escreva `version: "^1.2.3"`, não `version: "^v1.2.3"`.
 
 <Snippet id="modules/dependencies/version-example" />
 

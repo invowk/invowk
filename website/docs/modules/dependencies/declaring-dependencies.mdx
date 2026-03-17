@@ -45,10 +45,9 @@ Semantic version constraint. The repository must have Git tags matching the cons
 
 #### Version Tag Formats
 
-Invowk accepts tags with or without the `v` prefix:
+Invowk automatically resolves Git tags with or without the `v` prefix — both `v1.2.3` and `1.2.3` tags are matched when fetching.
 
-- `v1.2.3` and `1.2.3` are both valid
-- When resolving, both formats are tried automatically
+However, the `version` constraint value in `invowkmod.cue` must **not** include the `v` prefix. Write `version: "^1.2.3"`, not `version: "^v1.2.3"`.
 
 <Snippet id="modules/dependencies/version-example" />
 

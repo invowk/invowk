@@ -2066,7 +2066,7 @@ modules: {
 		git_url:          "https://github.com/user/common-tools.invowkmod.git"
 		version:          "^1.0.0"
 		resolved_version: "1.2.3"
-		git_commit:       "abc123def456..."
+		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "common-tools@1.2.3"
 	}
 }

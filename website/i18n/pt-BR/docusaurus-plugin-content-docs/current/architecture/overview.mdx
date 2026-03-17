@@ -12,6 +12,8 @@ Esta seção contém diagramas do modelo C4 e documentação arquitetural suplem
 |----------|------|-----------|
 | [C4 Contexto (C1)](./c4-context) | Modelo C4 | Limites do sistema, usuários, sistemas externos |
 | [C4 Container (C2)](./c4-container) | Modelo C4 | Componentes internos e armazenamentos de dados |
+| [C4 Componente: Runtime (C3)](./c4-component-runtime) | Modelo C4 | Estrutura interna do pacote runtime |
+| [C4 Componente: Container (C3)](./c4-component-container) | Modelo C4 | Estrutura interna do pacote container |
 | [Execução de Comandos](./execution-flow) | Sequência | Fluxo temporal do CLI até a execução |
 | [Seleção de Runtime](./runtime-selection) | Fluxograma | Árvore de decisão para escolha do runtime |
 | [Precedência de Descoberta](./discovery) | Fluxograma | Como comandos são encontrados e conflitos resolvidos |
@@ -20,18 +22,19 @@ Esta seção contém diagramas do modelo C4 e documentação arquitetural suplem
 
 Para novatos na base de código:
 
-1. **Comece com [C4 Contexto](./c4-context)** - Entenda o que é o Invowk e com o que ele interage
-2. **Então [C4 Container](./c4-container)** - Veja os principais componentes internos
-3. **Leia [Execução de Comandos](./execution-flow)** - Siga a jornada principal do usuário
-4. **Consulte outros conforme necessário** - Seleção de runtime e descoberta para debugging ou extensões
+1. **Comece com [C4 Contexto](./c4-context)** — Entenda o que é o Invowk e com o que ele interage
+2. **Então [C4 Container](./c4-container)** — Veja os principais componentes internos
+3. **Opcionalmente explore [Componentes de Runtime](./c4-component-runtime) ou [Componentes de Container](./c4-component-container)** — Aprofunde-se em pacotes com estrutura interna complexa
+4. **Leia [Execução de Comandos](./execution-flow)** — Siga a jornada principal do usuário
+5. **Consulte outros conforme necessário** — Seleção de runtime e descoberta para debugging ou extensões
 
 ## Tecnologia dos Diagramas
 
-Todos os diagramas usam sintaxe [Mermaid](https://mermaid.js.org/). Mermaid é uma ferramenta de diagramação baseada em JavaScript que renderiza diagramas a partir de definições de texto, tornando-os fáceis de versionar e manter.
+Todos os diagramas usam sintaxe [D2](https://d2lang.com/). D2 é uma linguagem moderna de diagramação que compila definições de texto em SVG, tornando-os fáceis de versionar e manter.
 
 ### Editando Diagramas
 
-O [Mermaid Live Editor](https://mermaid.live/) é útil para testar alterações antes de commitar.
+O [D2 Playground](https://play.d2lang.com/) é útil para testar alterações antes de commitar. Localmente, execute `make render-diagrams` para regenerar os renders SVG a partir dos fontes D2.
 
 ## Contexto do Modelo C4
 
@@ -44,13 +47,13 @@ O [modelo C4](https://c4model.com/) fornece uma forma hierárquica de descrever 
 | C3 | Componente | Módulos internos dentro dos containers |
 | C4 | Código | Detalhes em nível de classe/código |
 
-Para o Invowk (um único binário CLI), C1 e C2 são mais valiosos. C3 mostraria pacotes Go internos, que são melhor documentados no código.
+Para o Invowk (um único binário CLI), C1 e C2 são mais valiosos. Diagramas C3 (Componente) são fornecidos seletivamente para pacotes cuja estrutura interna é genuinamente complexa — especificamente `internal/runtime/` (segregação de interfaces, padrão registry, 3 implementações) e `internal/container/` (composição via embedding, padrão decorator, opções funcionais). Outros pacotes têm estrutura simples o suficiente para que a documentação no código seja suficiente.
 
 ## Mantendo Diagramas Atualizados
 
 Ao fazer mudanças arquiteturais significativas:
 
-1. **Verifique se diagramas precisam de atualização** - Novos componentes, relacionamentos alterados, funcionalidades removidas
-2. **Atualize o(s) diagrama(s) relevante(s)** - Mantenha as mudanças focadas
-3. **Verifique a renderização** - Teste no Mermaid Live Editor ou na prévia do website
-4. **Atualize tabelas e texto** - Diagramas sozinhos podem não capturar todo o contexto
+1. **Verifique se diagramas precisam de atualização** — Novos componentes, relacionamentos alterados, funcionalidades removidas
+2. **Atualize o(s) diagrama(s) relevante(s)** — Mantenha as mudanças focadas
+3. **Verifique a renderização** — Execute `make render-diagrams` ou teste no [D2 Playground](https://play.d2lang.com/)
+4. **Atualize tabelas e texto** — Diagramas sozinhos podem não capturar todo o contexto
