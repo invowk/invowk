@@ -2499,6 +2499,25 @@ invowk cmd dev --ivk-watch
 invowk cmd dev -W
 ```
 
+Configure watched files in your invowkfile:
+
+```cue
+cmds: [{
+    name: "dev"
+    implementations: [{
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+        script: "npm run dev"
+    }]
+    watch: {
+        patterns: ["src/**/*.go", "*.ts"]
+        debounce: "1s"
+        clear_screen: true
+        ignore: ["dist/**"]
+    }
+}]
+```
+
 ## Interactive TUI Components
 
 invowk includes a set of interactive terminal UI components inspired by [gum](https://github.com/charmbracelet/gum). These can be used in shell scripts to create interactive prompts, selections, and styled output.

@@ -90,11 +90,9 @@ Configures the virtual shell runtime behavior.
 
 Enables [u-root](https://github.com/u-root/u-root) utilities in the virtual shell. When enabled, 28 additional POSIX-compliant commands become available:
 
-**File Operations (14):** `base64`, `cat`, `cp`, `find`, `gzip`, `ln`, `ls`, `mkdir`, `mktemp`, `mv`, `realpath`, `rm`, `tar`, `touch`
+**Upstream wrappers (12):** `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
 
-**Text Processing (10):** `basename`, `cut`, `dirname`, `grep`, `head`, `sort`, `tail`, `tr`, `uniq`, `wc`
-
-**Other Utilities (4):** `seq`, `shasum`, `sleep`, `tee`
+**Custom implementations (16):** `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
 
 This makes the virtual shell self-contained, allowing scripts to execute common file, text, and utility operations without requiring external binaries on the host system.
 

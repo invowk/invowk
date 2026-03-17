@@ -14,6 +14,7 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 | `website/docs/core-concepts/*.mdx` | One feature per example | Clarity over completeness; each page focuses on one concept |
 | `docs/architecture/*.md` | May lag behind minor internal refactors | Architecture docs cover major patterns and relationships, not every internal change |
 | `website/docs/architecture/*.mdx` | Website architecture pages may summarize | Readable overview; D2 diagrams carry the detail |
+| `README.md` Invowkfile Format section | Omits `category` command field | Progressive disclosure; optional cosmetic field documented in website schema reference |
 
 ## Progressive Disclosure Rule
 

@@ -90,11 +90,9 @@ Configura o comportamento do virtual shell runtime.
 
 Habilita utilitários [u-root](https://github.com/u-root/u-root) no virtual shell. Quando habilitado, 28 comandos adicionais compatíveis com POSIX ficam disponíveis:
 
-**Operações de Arquivo (14):** `base64`, `cat`, `cp`, `find`, `gzip`, `ln`, `ls`, `mkdir`, `mktemp`, `mv`, `realpath`, `rm`, `tar`, `touch`
+**Wrappers upstream (12):** `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
 
-**Processamento de Texto (10):** `basename`, `cut`, `dirname`, `grep`, `head`, `sort`, `tail`, `tr`, `uniq`, `wc`
-
-**Outros Utilitários (4):** `seq`, `shasum`, `sleep`, `tee`
+**Implementações customizadas (16):** `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
 
 Isso torna o virtual shell autocontido, permitindo que scripts executem operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host.
 
