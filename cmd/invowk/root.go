@@ -42,7 +42,7 @@ func NewRootCommand(app *App) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "invowk",
 		Short: "A dynamically extensible command runner",
-		Long: TitleStyle.Render("invowk") + SubtitleStyle.Render(" - A dynamically extensible command runner") + `
+		Long: TitleStyle.Render("invowk") + SubtitleStyle.Render(" - A dynamically extensible command runner, licensed under MPL-2.0 <https://mozilla.org/MPL/2.0/>") + `
 
 invowk is a powerful command runner similar to 'just' that supports
 multiple execution runtimes: native shell, virtual shell (mvdan/sh),
@@ -111,14 +111,14 @@ func Execute() {
 //plint:render
 func getVersionString(version, commit, buildDate string) string {
 	if version != "dev" {
-		return fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildDate)
+		return fmt.Sprintf("%s (commit: %s, built: %s)\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>", version, commit, buildDate)
 	}
 
 	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
-		return info.Main.Version
+		return info.Main.Version + "\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>"
 	}
 
-	return "dev (built from source)"
+	return "dev (built from source)\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>"
 }
 
 // formatErrorForDisplay formats an error for user display.

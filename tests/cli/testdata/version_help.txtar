@@ -1,15 +1,17 @@
 # Test: invowk --version and invowk --help output
 # These are the first commands new users run — verify they produce sensible output.
 
-# Test 1: --version outputs a version string
+# Test 1: --version outputs a version string and license
 exec invowk --version
 stdout 'invowk version'
+stdout 'License MPL-2.0: Mozilla Public License 2.0'
 ! stderr .
 
-# Test 2: --help outputs usage information
+# Test 2: --help outputs usage information and license
 exec invowk --help
 stdout 'invowk'
 stdout 'command runner'
+stdout 'licensed under MPL-2.0'
 ! stderr .
 
 # Test 3: invowk cmd --help shows cmd-specific help

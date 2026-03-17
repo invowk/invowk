@@ -11,7 +11,7 @@ func TestGetVersionString(t *testing.T) {
 		t.Parallel()
 
 		got := getVersionString("v1.2.3", "abc1234", "2025-06-15T10:00:00Z")
-		want := "v1.2.3 (commit: abc1234, built: 2025-06-15T10:00:00Z)"
+		want := "v1.2.3 (commit: abc1234, built: 2025-06-15T10:00:00Z)\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>"
 		if got != want {
 			t.Errorf("getVersionString() = %q, want %q", got, want)
 		}
@@ -23,7 +23,7 @@ func TestGetVersionString(t *testing.T) {
 		// In test binaries, debug.ReadBuildInfo() returns Main.Version == "(devel)",
 		// so the function should fall through to the final fallback.
 		got := getVersionString("dev", "unknown", "unknown")
-		want := "dev (built from source)"
+		want := "dev (built from source)\nLicense MPL-2.0: Mozilla Public License 2.0 <https://mozilla.org/MPL/2.0/>"
 		if got != want {
 			t.Errorf("getVersionString() = %q, want %q", got, want)
 		}
