@@ -1248,7 +1248,7 @@ Install the missing tools and try again.`,
     name: "build"
     implementations: [{
         script: "npm run build"
-        runtimes: [{name: "container", image: "node:20"}]
+        runtimes: [{name: "container", image: "node:22-slim"}]
         platforms: [{name: "linux"}]
         depends_on: {
             custom_checks: [

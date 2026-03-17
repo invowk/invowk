@@ -499,7 +499,7 @@ virtual_shell: {
     code: `// env belongs on the implementation, not on the runtime
 implementations: [{
     script: "node index.js"
-    runtimes: [{name: "container", image: "node:20"}]
+    runtimes: [{name: "container", image: "node:22-slim"}]
     platforms: [{name: "linux"}]
     env: {
         vars: {
@@ -637,7 +637,7 @@ WORKDIR /workspace`,
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "node:20"
+    image: "node:22-slim"
     ports: [
         "3000:3000",      // Host:Container
         "8080:80"         // Map container port 80 to host port 8080
@@ -741,7 +741,7 @@ WORKDIR /workspace`,
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "golang:1.26"
+    image: "debian:stable-slim"
     volumes: [
         "./data:/data",           // Relative path
         "/tmp:/tmp:ro",           // Absolute path, read-only
@@ -799,12 +799,12 @@ WORKDIR /workspace`,
     name: "build"
     depends_on: {
         tools: [
-            // Checked inside the container, not on host
+            // Always checked on the host, regardless of runtime
             {alternatives: ["go"]},
             {alternatives: ["make"]}
         ]
         filepaths: [
-            // Paths relative to container's /workspace
+            // Paths checked on the host filesystem
             {alternatives: ["go.mod"]}
         ]
     }
@@ -853,7 +853,7 @@ container_engine: "podman"  // or "docker"`,
         script: "npm run build"
         runtimes: [{
             name: "container"
-            image: "node:20"
+            image: "node:22-slim"
         }]
     }]
 }`,

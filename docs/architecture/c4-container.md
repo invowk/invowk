@@ -14,7 +14,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
-| **CLI Commands** | Go/Cobra | Entry points for all user interactions: `cmd`, `init`, `config`, `module`, `tui`, `completion` subcommands |
+| **CLI Commands** | Go/Cobra | Entry points for all user interactions: `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion` subcommands |
 
 ### Core Engine
 

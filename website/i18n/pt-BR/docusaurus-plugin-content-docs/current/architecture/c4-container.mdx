@@ -22,16 +22,18 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
-| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `completion` |
+| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion` |
 
 ### Motor Principal
 
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
+| **Command Service** | Go | Serviço de domínio hexagonal (`internal/app/commandsvc/`) que orquestra a execução de comandos. Recebe requisições da CLI, coordena descoberta, validação, ciclo de vida SSH e despacho de runtime. Retorna resultados/erros tipados; adaptador CLI aplica renderização. |
 | **Discovery Engine** | Go | Encontra diretórios `invowkfile.cue` e `*.invowkmod` com ordenação por precedência. Constrói árvore unificada de comandos. |
 | **Configuration Manager** | Go/Viper+CUE | Carrega config de `~/.config/invowk/config.cue`. Valida contra schema CUE. |
 | **CUE Parser** | Go/cuelang | Implementa parsing em 3 etapas: compilar schema → unificar com dados → decodificar para structs Go. Fornece mensagens de erro ricas. |
 | **Module Resolver** | Go | Resolve dependências baseadas em Git. Gerencia cache em `~/.invowk/modules/`. Lida com lock files para reprodutibilidade. |
+| **Watch Engine** | Go | Monitora o sistema de arquivos para mudanças. Aplica debounce nos eventos de mudança e dispara re-execução de comandos para o modo `--ivk-watch`. |
 
 ### Runtimes
 
@@ -69,12 +71,13 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 ### Fluxo de Execução de Comandos
 
 1. Usuário invoca `invowk cmd <nome>`
-2. **CLI Commands** recebe requisição
-3. **Discovery Engine** encontra todos os comandos disponíveis
-4. **CUE Parser** faz parsing de `invowkfile.cue` e arquivos de módulos
-5. Comando é correspondido, runtime é selecionado
-6. **Runtime** apropriado executa o comando
-7. Para containers: **Image Provisioner** prepara o ambiente
+2. **CLI Commands** recebe requisição, constrói uma requisição de serviço
+3. **Command Service** orquestra o pipeline de execução
+4. **Discovery Engine** encontra todos os comandos disponíveis
+5. **CUE Parser** faz parsing de `invowkfile.cue` e arquivos de módulos
+6. **Command Service** faz correspondência do comando, seleciona runtime, valida dependências
+7. **Runtime** apropriado executa o comando
+8. Para containers: **Image Provisioner** prepara o ambiente
 
 ### Carregamento de Configuração
 

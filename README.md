@@ -1718,7 +1718,7 @@ A module is a directory with the `.invowkmod` suffix that contains:
 - Required `invowkmod.cue` at the root (module metadata and dependencies)
 - Optional `invowkfile.cue` at the root (command definitions)
 - Optional script files referenced by command implementations
-- No nested modules (modules cannot contain other modules)
+- No nested modules (modules cannot contain other modules, except vendored modules in the `invowk_modules/` subdirectory)
 
 `invowkfile.cue` is optional for library-only modules that exist to declare dependencies.
 
@@ -2808,6 +2808,7 @@ invowk/
 ├── modules/                    # Sample invowk modules for validation
 ├── scripts/                    # Build, install, and release scripts
 ├── specs/                      # Feature specifications and research
+├── tasks/                      # Pending analysis documents and planning notes
 ├── docs/                       # Architecture diagrams and design docs
 └── website/                    # Docusaurus documentation site
 ```

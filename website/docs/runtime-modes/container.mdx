@@ -53,7 +53,7 @@ You must specify either an `image` or a `containerfile` - they're mutually exclu
 Common images:
 - `debian:stable-slim` - Minimal Debian (recommended base image)
 - `golang:1.26` - Go development
-- `node:20` - Node.js development
+- `node:22-slim` - Node.js development
 - `python:3-slim` - Python development
 
 ### Custom Containerfile
@@ -242,7 +242,7 @@ The first run pulls the image. Subsequent runs are faster:
 ```bash
 # Pre-pull images
 docker pull golang:1.26
-docker pull node:20
+docker pull node:22-slim
 ```
 
 ### Permission Issues

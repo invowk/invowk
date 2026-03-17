@@ -182,7 +182,7 @@ interpreter: "node --max-old-space-size=4096"`,
             """
         runtimes: [{
             name: "container"
-            image: "node:20-slim"
+            image: "node:22-slim"
             interpreter: "node"
         }]
         platforms: [{name: "linux"}]
@@ -389,7 +389,7 @@ cmds: [
             pwd  # /workspace/frontend
             npm run build
             """
-        runtimes: [{name: "container", image: "node:20"}]
+        runtimes: [{name: "container", image: "node:22-slim"}]
         platforms: [{name: "linux"}]
     }]
 }`,
