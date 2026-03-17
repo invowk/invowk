@@ -27,17 +27,5 @@ func newShasumCommand() *shasumCommand {
 
 // Run executes the shasum command.
 func (c *shasumCommand) Run(ctx context.Context, args []string) error {
-	cmd := shasum.New()
-	configureCommand(ctx, cmd)
-
-	// args[0] is the command name, args[1:] are the actual arguments
-	var cmdArgs []string
-	if len(args) > 1 {
-		cmdArgs = args[1:]
-	}
-
-	if err := cmd.RunContext(ctx, cmdArgs...); err != nil {
-		return wrapError(c.name, err)
-	}
-	return nil
+	return c.runUpstream(ctx, shasum.New(), args)
 }

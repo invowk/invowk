@@ -40,6 +40,25 @@ func configureCommand(ctx context.Context, cmd core.Command) {
 	cmd.SetLookupEnv(hc.LookupEnv)
 }
 
+// runUpstream is the common execution body for all upstream u-root wrappers.
+// It configures the command with the handler context, strips the command name
+// from args[0] (per the Command.Run contract), executes via RunContext, and
+// wraps any error with the [uroot] prefix.
+func (w *baseWrapper) runUpstream(ctx context.Context, cmd core.Command, args []string) error {
+	configureCommand(ctx, cmd)
+
+	if len(args) > 1 {
+		args = args[1:]
+	} else {
+		args = nil
+	}
+
+	if err := cmd.RunContext(ctx, args...); err != nil {
+		return wrapError(w.name, err)
+	}
+	return nil
+}
+
 // wrapError wraps an error with the [uroot] prefix format.
 // The [uroot] prefix identifies errors from virtual shell built-in utilities,
 // distinguishing them from host shell errors and system-level failures in

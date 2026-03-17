@@ -31,17 +31,5 @@ func newLsCommand() *lsCommand {
 
 // Run executes the ls command.
 func (c *lsCommand) Run(ctx context.Context, args []string) error {
-	cmd := ls.New()
-	configureCommand(ctx, cmd)
-
-	// args[0] is the command name, args[1:] are the actual arguments
-	var cmdArgs []string
-	if len(args) > 1 {
-		cmdArgs = args[1:]
-	}
-
-	if err := cmd.RunContext(ctx, cmdArgs...); err != nil {
-		return wrapError(c.name, err)
-	}
-	return nil
+	return c.runUpstream(ctx, ls.New(), args)
 }

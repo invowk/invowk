@@ -33,17 +33,5 @@ func newCpCommand() *cpCommand {
 // Note: This uses u-root's streaming implementation which uses io.Copy internally,
 // ensuring constant memory usage regardless of file size.
 func (c *cpCommand) Run(ctx context.Context, args []string) error {
-	cmd := cp.New()
-	configureCommand(ctx, cmd)
-
-	// args[0] is the command name, args[1:] are the actual arguments
-	var cmdArgs []string
-	if len(args) > 1 {
-		cmdArgs = args[1:]
-	}
-
-	if err := cmd.RunContext(ctx, cmdArgs...); err != nil {
-		return wrapError(c.name, err)
-	}
-	return nil
+	return c.runUpstream(ctx, cp.New(), args)
 }
