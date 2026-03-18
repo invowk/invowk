@@ -1,0 +1,204 @@
+---
+sidebar_position: 2
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Opções de Configuração
+
+Esta página documenta todas as opções de configuração disponíveis para o Invowk™.
+
+## Schema de Configuração
+
+O arquivo de configuração usa o formato CUE e segue este schema:
+
+<Snippet id="config/schema" />
+
+Campos desconhecidos são rejeitados, então mantenha o arquivo de configuração limitado às opções do schema.
+
+## Referência de Opções
+
+### container_engine
+
+**Tipo:** `"podman" | "docker"`  
+**Padrão:** `"podman"`
+
+Especifica qual container runtime usar para execução de comandos baseada em container.
+
+<Snippet id="config/container-engine" />
+
+Se a engine preferida não estiver disponível, o Invowk faz fallback para a outra quando o runtime container é necessário.
+
+### includes
+
+**Tipo:** `[...#IncludeEntry]`
+**Padrão:** `[]`
+
+Módulos adicionais para incluir na descoberta de comandos. Cada entrada é um `#IncludeEntry` com `path` obrigatório (deve terminar com `.invowkmod`) e `alias` opcional.
+
+<Snippet id="config/includes" />
+
+**Requisitos de caminho:**
+- Deve ser absoluto (ex: `/home/user/modules/tools.invowkmod`)
+- No Windows, use um caminho absoluto Windows (ex: `C:\Users\alice\modules\tools.invowkmod` ou um caminho UNC)
+- Deve terminar com `.invowkmod`
+- Caminhos duplicados são rejeitados
+
+**Regras de alias:**
+- Opcional, para desambiguação de colisões
+- Deve ser único entre todas as entradas includes
+
+**Ordem de Descoberta:**
+1. invowkfile do diretório atual (sempre buscado primeiro, maior prioridade)
+2. Módulos locais (`*.invowkmod` no diretório atual)
+3. Cada entrada em `includes` em ordem
+4. `~/.invowk/cmds/` (apenas módulos, não recursivo)
+
+Quando múltiplos includes definem comandos com o mesmo nome, eles se tornam ambíguos. Use o prefixo `@source` ou a flag `--ivk-from` para desambiguar.
+
+### default_runtime
+
+**Tipo:** `"native" | "virtual" | "container"`  
+**Padrão:** `"native"`
+
+Define o modo de runtime padrão global para comandos que não especificam um runtime.
+
+<Snippet id="config/default-runtime" />
+
+**Opções de Runtime:**
+- `"native"` - Executar usando o shell nativo do sistema (bash, zsh, PowerShell, etc.)
+- `"virtual"` - Executar usando o interpretador de shell embutido do Invowk (mvdan/sh)
+- `"container"` - Executar dentro de um container (requer Docker ou Podman)
+
+:::note
+Comandos podem sobrescrever este padrão especificando seu próprio runtime no campo `implementations`.
+:::
+
+### virtual_shell
+
+**Tipo:** `#VirtualShellConfig`
+**Padrão:** `{enable_uroot_utils: true}`
+
+Configura o comportamento do virtual shell runtime.
+
+<Snippet id="config/virtual-shell" />
+
+#### virtual_shell.enable_uroot_utils
+
+**Tipo:** `bool`  
+**Padrão:** `true`
+
+Habilita utilitários [u-root](https://github.com/u-root/u-root) no virtual shell. Quando habilitado, 28 comandos adicionais compatíveis com POSIX ficam disponíveis:
+
+**Wrappers upstream (12):** `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
+
+**Implementações customizadas (16):** `basename`, `cut`, `dirname`, `grep`, `head`, `ln`, `mktemp`, `realpath`, `seq`, `sleep`, `sort`, `tail`, `tee`, `tr`, `uniq`, `wc`
+
+Isso torna o virtual shell autocontido, permitindo que scripts executem operações comuns de arquivo, texto e utilitários sem exigir binários externos no sistema host.
+
+:::tip
+Os utilitários u-root são habilitados por padrão. Defina como `false` apenas se você precisar forçar scripts a usar binários do sistema ou reduzir o tamanho do binário.
+:::
+
+### ui
+
+**Tipo:** `#UIConfig`
+**Padrão:** `{color_scheme: "auto", verbose: false, interactive: false}`
+
+Configura as preferências de interface do usuário.
+
+<Snippet id="config/ui" />
+
+#### ui.color_scheme
+
+**Tipo:** `"auto" | "dark" | "light"`  
+**Padrão:** `"auto"`
+
+Define o esquema de cores para a saída do Invowk.
+
+<Snippet id="config/ui-color-scheme" />
+
+**Opções:**
+- `"auto"` - Detectar das configurações do terminal (respeita `COLORTERM`, `TERM`, etc.)
+- `"dark"` - Usar cores otimizadas para terminais escuros
+- `"light"` - Usar cores otimizadas para terminais claros
+
+#### ui.verbose
+
+**Tipo:** `bool`  
+**Padrão:** `false`
+
+Habilita saída verbose por padrão. Quando habilitado, Invowk imprime informações adicionais sobre descoberta de comandos, validação de dependências e execução.
+
+<Snippet id="config/ui-verbose" />
+
+Isso é equivalente a sempre passar `--ivk-verbose` na linha de comando.
+
+#### ui.interactive
+
+**Tipo:** `bool`  
+**Padrão:** `false`
+
+Habilita o modo interativo por padrão. Quando habilitado, os comandos são executados em um buffer de tela alternativo com suporte completo a PTY, permitindo que programas interativos como prompts de senha, confirmações e outras interações baseadas em stdin funcionem corretamente.
+
+<Snippet id="config/ui-interactive" />
+
+Isso é equivalente a sempre passar `--ivk-interactive` na linha de comando.
+
+### container
+
+**Tipo:** `#ContainerConfig`
+**Padrão:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
+
+Configura o comportamento do runtime container.
+
+<Snippet id="config/container-auto-provision" />
+
+#### container.auto_provision.enabled
+
+**Tipo:** `bool`  
+**Padrão:** `true`
+
+Habilita o provisionamento automático do binário do invowk e módulos dentro dos containers.
+Quando habilitado, o Invowk cria uma imagem derivada em cache para cada execução de container, anexando uma pequena camada de provisionamento sobre a imagem base. Se o provisionamento falhar, o Invowk avisa e usa a imagem base.
+
+#### container.auto_provision.binary_path
+
+**Tipo:** `string`  
+**Padrão:** *(vazio; usa o binário do invowk em execução)*
+
+Sobrescreve o caminho do binário do invowk para provisionar.
+
+#### container.auto_provision.includes
+
+**Tipo:** `[...#IncludeEntry]`
+**Padrão:** `[]`
+
+Módulos adicionais para provisionar dentro dos containers. Usa o mesmo formato `#IncludeEntry` do `includes` raiz (cada entrada tem um `path` terminando com `.invowkmod` e um `alias` opcional).
+
+#### container.auto_provision.inherit_includes
+
+**Tipo:** `bool`
+**Padrão:** `true`
+
+Quando `true`, as entradas de `includes` do nível raiz são automaticamente herdadas pelo auto-provisionamento. Defina como `false` para provisionar apenas os módulos listados explicitamente em `container.auto_provision.includes`.
+
+#### container.auto_provision.strict
+
+**Tipo:** `bool`
+**Padrão:** `false`
+
+Quando `true`, falhas de auto-provisionamento são tratadas como erros fatais ao invés de avisos. Por padrão, se o provisionamento falhar, o Invowk exibe um aviso e executa a imagem base. Com `strict: true`, o comando falha imediatamente em caso de falha de provisionamento.
+
+#### container.auto_provision.cache_dir
+
+**Tipo:** `string`  
+**Padrão:** *(vazio — usa o padrão específico da plataforma, tipicamente `~/.cache/invowk/provision`)*
+
+Sobrescreve o diretório de cache para metadados de imagens provisionadas.
+
+## Exemplo Completo
+
+Aqui está um arquivo de configuração completo com todas as opções:
+
+<Snippet id="config/complete-example" />

@@ -1,0 +1,206 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Virtual
+
+O runtime **virtual** usa o interpretador de shell POSIX-compatível integrado do Invowk™ (powered by [mvdan/sh](https://github.com/mvdan/sh)). Ele fornece comportamento de shell consistente em todas as plataformas sem exigir um shell externo.
+
+## Como Funciona
+
+Quando você executa um comando com o runtime virtual, o Invowk:
+
+1. Faz o parse do script usando o parser de shell integrado
+2. Executa-o em um ambiente embarcado tipo POSIX
+3. Fornece utilitários core (echo, test, etc.) integrados
+
+## Uso Básico
+
+<Snippet id="runtime-modes/virtual-basic" />
+
+<Snippet id="runtime-modes/virtual-run" />
+
+## Consistência Multiplataforma
+
+O runtime virtual se comporta de forma idêntica no Linux, macOS e Windows:
+
+<Snippet id="runtime-modes/virtual-cross-platform" />
+
+Chega de "funciona na minha máquina" para scripts shell!
+
+## Utilitários Integrados
+
+O shell virtual inclui utilitários POSIX core:
+
+| Utilitário | Descrição |
+|------------|-----------|
+| `echo` | Imprimir texto |
+| `printf` | Saída formatada |
+| `test` / `[` | Condicionais |
+| `true` / `false` | Sair com 0/1 |
+| `pwd` | Imprimir diretório de trabalho |
+| `cd` | Mudar diretório |
+| `read` | Ler entrada |
+| `export` | Definir variáveis de ambiente |
+
+### Utilitários Estendidos (u-root)
+
+Quando habilitado na configuração (padrão: `true`), 28 utilitários adicionais compatíveis com POSIX da biblioteca [u-root](https://github.com/u-root/u-root) ficam disponíveis. Isso inclui 12 wrappers upstream do u-root e 16 implementações customizadas.
+
+<Snippet id="runtime-modes/virtual-uroot-config" />
+
+#### Operações de Arquivo (14 utilitários)
+
+| Utilitário | Descrição | Flags Comuns |
+|------------|-----------|--------------|
+| `base64` | Codificar/decodificar base64 | `-d` (decodificar) |
+| `cat` | Concatenar e exibir arquivos | `-u` (ignorado, compatibilidade) |
+| `cp` | Copiar arquivos e diretórios | `-r` (recursivo), `-f` (forçar) |
+| `find` | Buscar arquivos em uma hierarquia de diretórios | `-name` (padrão), `-type` (f, d, l) |
+| `gzip` | Comprimir ou expandir arquivos | `-d` (descomprimir), `-c` (stdout), `-f` (forçar) |
+| `ln` | Criar links físicos ou simbólicos | `-s` (simbólico), `-f` (forçar) |
+| `ls` | Listar conteúdo de diretórios | `-l` (longo), `-a` (todos), `-R` (recursivo) |
+| `mkdir` | Criar diretórios | `-p` (criar pais) |
+| `mktemp` | Criar arquivos ou diretórios temporários | `-d` (diretório), `-p` (diretório prefixo) |
+| `mv` | Mover ou renomear arquivos | `-f` (forçar), `-n` (não sobrescrever) |
+| `realpath` | Resolver nomes de caminho absolutos | *(nenhum)* |
+| `rm` | Remover arquivos e diretórios | `-r` (recursivo), `-f` (forçar) |
+| `tar` | Arquivar arquivos | `-c` (criar), `-x` (extrair), `-f` (arquivo) |
+| `touch` | Criar ou atualizar timestamps de arquivos | `-c` (não criar) |
+
+#### Processamento de Texto (10 utilitários)
+
+| Utilitário | Descrição | Flags Comuns |
+|------------|-----------|--------------|
+| `basename` | Remover diretório e sufixo de nomes de arquivo | *(nenhum)* |
+| `cut` | Selecionar porções de linhas | `-d` (delimitador), `-f` (campos) |
+| `dirname` | Remover último componente de nomes de arquivo | *(nenhum)* |
+| `grep` | Buscar padrões | `-i` (ignorar maiúsculas), `-v` (inverter), `-n` (números de linha) |
+| `head` | Exibir primeiras N linhas | `-n <num>` (padrão 10) |
+| `sort` | Ordenar linhas | `-r` (reverso), `-n` (numérico), `-u` (único) |
+| `tail` | Exibir últimas N linhas | `-n <num>` (padrão 10) |
+| `tr` | Traduzir caracteres | `SET1 SET2` (mapeamento de caracteres) |
+| `uniq` | Filtrar linhas duplicadas adjacentes | `-c` (contar), `-d` (somente duplicatas) |
+| `wc` | Contar linhas, palavras, bytes | `-l` (linhas), `-w` (palavras), `-c` (bytes) |
+
+#### Outros Utilitários (4 utilitários)
+
+| Utilitário | Descrição | Flags Comuns |
+|------------|-----------|--------------|
+| `seq` | Gerar sequências numéricas | `-s` (separador), `-w` (largura igual) |
+| `shasum` | Calcular message digests SHA | `-a` (algoritmo: 1, 256, 512) |
+| `sleep` | Pausar por um tempo especificado | *(nenhum -- recebe argumento de duração)* |
+| `tee` | Duplicar entrada padrão para arquivos | `-a` (append) |
+
+:::note
+Estes utilitários implementam comportamento POSIX. Flags específicas do GNU (como `--color`, `--time-style`) são silenciosamente ignoradas para compatibilidade.
+:::
+
+#### Identificação de Erros
+
+Erros dos utilitários u-root são prefixados com `[uroot]` para fácil identificação:
+
+```
+[uroot] cp: /source/file: no such file or directory
+[uroot] rm: /protected: permission denied
+```
+
+#### Sem Fallback Silencioso
+
+Se um comando u-root falha, ele retorna um erro imediatamente. O sistema **não** faz fallback para binários do host, garantindo que bugs sejam detectados em vez de mascarados.
+
+## Recursos do Shell POSIX
+
+O shell virtual suporta construções POSIX padrão:
+
+### Variáveis
+
+<Snippet id="runtime-modes/virtual-variables" />
+
+### Condicionais
+
+<Snippet id="runtime-modes/virtual-conditionals" />
+
+### Loops
+
+<Snippet id="runtime-modes/virtual-loops" />
+
+### Funções
+
+<Snippet id="runtime-modes/virtual-functions" />
+
+### Subshells e Substituição de Comandos
+
+<Snippet id="runtime-modes/virtual-subshells" />
+
+## Chamando Comandos Externos
+
+O shell virtual pode chamar comandos externos instalados no seu sistema:
+
+<Snippet id="runtime-modes/virtual-external-commands" />
+
+Comandos externos são encontrados usando o PATH do sistema.
+
+## Variáveis de Ambiente
+
+Variáveis de ambiente funcionam da mesma forma que no native:
+
+<Snippet id="runtime-modes/virtual-env-vars" />
+
+## Flags e Argumentos
+
+Acesse flags e argumentos da mesma forma:
+
+<Snippet id="runtime-modes/virtual-args" />
+
+## Limitações
+
+### Sem Suporte a Interpretadores
+
+O runtime virtual **não pode** usar interpretadores não-shell:
+
+<Snippet id="runtime-modes/virtual-no-interpreter" />
+
+Para Python, Ruby ou outros interpretadores, use o runtime native ou container.
+
+### Recursos Específicos do Bash
+
+Alguns recursos específicos do bash não estão disponíveis:
+
+<Snippet id="runtime-modes/virtual-bash-limitations" />
+
+Mantenha construções POSIX-compatíveis para o runtime virtual.
+
+## Validação de Dependências
+
+Dependências são validadas contra as capacidades do shell virtual:
+
+<Snippet id="runtime-modes/virtual-deps" />
+
+## Vantagens
+
+- **Consistência**: Mesmo comportamento no Linux, macOS e Windows
+- **Sem dependência de shell**: Funciona mesmo se o shell do sistema não estiver disponível
+- **Portabilidade**: Scripts funcionam em todas as plataformas
+- **Utilitários integrados**: Utilitários core sempre disponíveis
+- **Startup mais rápido**: Sem processo de shell para iniciar
+
+## Quando Usar Virtual
+
+- **Scripts multiplataforma**: Quando o mesmo script deve funcionar em todos os lugares
+- **Pipelines CI/CD**: Comportamento consistente entre agentes de build
+- **Scripts shell simples**: Quando você não precisa de recursos específicos do bash
+- **Ambientes embarcados**: Quando shells externos não estão disponíveis
+
+## Configuração
+
+Configure o shell virtual no seu arquivo de configuração do Invowk:
+
+<Snippet id="runtime-modes/virtual-config" />
+
+## Próximos Passos
+
+- [Runtime Native](./native) - Para acesso completo ao shell
+- [Runtime Container](./container) - Para execução isolada

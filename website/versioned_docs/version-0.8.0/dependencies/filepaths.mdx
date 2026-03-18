@@ -1,0 +1,142 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Filepath Dependencies
+
+Filepath dependencies verify that required files or directories exist before your command runs. You can also check for specific permissions.
+
+## Basic Usage
+
+<Snippet id="dependencies/filepaths-basic" />
+
+If the file doesn't exist:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Files:
+  • go.mod - file not found
+
+Ensure the required files exist and try again.
+```
+
+## Alternatives (OR Semantics)
+
+Specify multiple alternatives when any path will work:
+
+<Snippet id="dependencies/filepaths-options" />
+
+Invowk™ checks alternatives in order and stops at the first match.
+
+## Path Types
+
+### Relative Paths
+
+Relative to the invowkfile location:
+
+<Snippet id="dependencies/filepaths-relative" />
+
+### Absolute Paths
+
+Full system paths:
+
+<Snippet id="dependencies/filepaths-absolute" />
+
+### Environment Variables in Paths
+
+Expand environment variables:
+
+<Snippet id="dependencies/filepaths-envvars" />
+
+## Permission Checks
+
+Check for specific file permissions:
+
+### Readable
+
+<Snippet id="dependencies/filepaths-readable" />
+
+### Writable
+
+<Snippet id="dependencies/filepaths-writable" />
+
+### Executable
+
+<Snippet id="dependencies/filepaths-executable" />
+
+### Combined Permissions
+
+<Snippet id="dependencies/filepaths-combined-permissions" />
+
+## Directories vs Files
+
+Filepath checks work for both files and directories:
+
+<Snippet id="dependencies/filepaths-dirs-vs-files" />
+
+## Real-World Examples
+
+### Go Project
+
+<Snippet id="dependencies/filepaths-go-project" />
+
+### Node.js Project
+
+<Snippet id="dependencies/filepaths-nodejs-project" />
+
+### Docker Build
+
+<Snippet id="dependencies/filepaths-docker-build" />
+
+### Configuration Files
+
+<Snippet id="dependencies/filepaths-config-files" />
+
+## Container Context
+
+For container runtime, filepath checks are validated **inside the container**:
+
+<Snippet id="dependencies/filepaths-container" />
+
+## Platform-Specific Paths
+
+Use multiple implementations for platform-specific paths:
+
+<Snippet id="dependencies/filepaths-platform" />
+
+## Error Messages
+
+Clear error messages for missing files:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Missing Files:
+  • go.mod - file not found
+  • node_modules - directory not found
+
+Permission Issues:
+  • ./scripts/deploy.sh - not executable
+  • ./output - not writable
+
+Ensure the required files exist with proper permissions and try again.
+```
+
+## Best Practices
+
+1. **Use alternatives for config files**: `{alternatives: ["config.yaml", "config.json"]}`
+2. **Check permissions when needed**: Especially for scripts and output directories
+3. **Consider platform differences**: Use environment variables or multiple implementations
+4. **Check dependencies first**: Verify `node_modules` before running npm scripts
+
+## Next Steps
+
+- [Commands](./commands) - Depend on other Invowk commands
+- [Environment Variables](./env-vars) - Check for required env vars

@@ -1,0 +1,101 @@
+---
+sidebar_position: 7
+---
+
+import Diagram from '@site/src/components/Diagram';
+import Snippet from '@site/src/components/Snippet';
+
+# Runtime Selection Flowchart
+
+This diagram documents the decision tree for selecting which runtime executes a command. Understanding this helps users choose the right runtime for their use case.
+
+## Decision Flowchart
+
+<Diagram id="architecture/runtime-decision" />
+
+## Platform Selection Details
+
+<Diagram id="architecture/runtime-platform" />
+
+### Platform Values
+
+| Platform Value | Matches On |
+|---------------|------------|
+| `"linux"` | Linux systems |
+| `"macos"` | macOS systems |
+| `"windows"` | Windows systems |
+
+:::note
+At least one platform must be specified per implementation. There is no "all platforms" shorthand — list each target platform explicitly.
+:::
+
+### Example Command Definition
+
+<Snippet id="architecture/runtime-selection-cross-platform" />
+
+## Runtime Comparison
+
+| Aspect | Native | Virtual | Container |
+|--------|--------|---------|-----------|
+| **Speed** | Fastest | Fast | Slower (overhead) |
+| **Isolation** | None | Process | Full |
+| **Portability** | Platform-dependent | High | Highest |
+| **Shell features** | Full host shell | POSIX subset | Full (in container) |
+| **Dependencies** | Host shell | None | Docker/Podman |
+| **Best for** | Simple scripts | Cross-platform | Complex environments |
+
+## Runtime Availability Checks
+
+### Native Runtime
+
+<Diagram id="architecture/runtime-native-check" />
+
+### Virtual Runtime
+
+<Diagram id="architecture/runtime-virtual-check" />
+
+The virtual runtime is always available because it's embedded in the Invowk binary.
+
+### Container Runtime
+
+<Diagram id="architecture/runtime-container-check" />
+
+## Container Provisioning Details
+
+When the container runtime is selected, Invowk creates an ephemeral image layer:
+
+<Diagram id="architecture/runtime-provision" />
+
+### Why Ephemeral Layers?
+
+1. **No image pollution**: Base images stay clean
+2. **Fast iteration**: No full rebuild needed
+3. **Portable**: Commands work with any compatible base image
+4. **Secure**: Invowk binary is injected, not installed in image
+
+## SSH Server for Callbacks
+
+When `enable_host_ssh: true` is set, Invowk starts a temporary SSH server:
+
+<Diagram id="architecture/runtime-ssh" />
+
+**Use cases:**
+- Accessing host secrets
+- Running host-only commands
+- File synchronization
+
+## Decision Guidelines
+
+| Use Case | Recommended Runtime | Why |
+|----------|-------------------|-----|
+| Quick scripts | `native` | Fastest, no overhead |
+| Cross-platform commands | `virtual` | Works everywhere |
+| CI/CD pipelines | `container` | Reproducible |
+| Commands needing specific tools | `container` | Isolated dependencies |
+| Interactive TUI | `native` or `virtual` | Better terminal support |
+
+## Related Diagrams
+
+- [Command Execution Sequence](./execution-flow) - Full execution flow
+- [C4 Container Diagram](./c4-container) - Runtime component relationships
+- [Discovery Precedence Flowchart](./discovery) - How commands are found

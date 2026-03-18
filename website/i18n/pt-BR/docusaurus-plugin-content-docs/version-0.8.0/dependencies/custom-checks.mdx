@@ -1,0 +1,130 @@
+---
+sidebar_position: 7
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Dependências de Verificações Personalizadas
+
+Verificações personalizadas permitem que você escreva scripts de validação para requisitos que não se encaixam nos tipos de dependência embutidos. Verifique versões de ferramentas, validade de configuração ou qualquer outro requisito personalizado.
+
+## Uso Básico
+
+<Snippet id="dependencies/custom-checks" />
+
+Se a verificação falhar:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Failed Custom Checks:
+  • go-version - check script returned non-zero exit code
+
+Ensure all requirements are met and try again.
+```
+
+## Propriedades da Verificação
+
+| Propriedade | Obrigatória | Descrição |
+|-------------|-------------|-----------|
+| `name` | Sim | Identificador para mensagens de erro |
+| `check_script` | Sim | Script a executar (usando o shell do runtime selecionado) |
+| `expected_code` | Não | Código de saída esperado (padrão: 0) |
+| `expected_output` | Não | Padrão regex para corresponder à saída |
+
+:::info Execução Consciente do Runtime
+Scripts de verificação personalizados são executados usando o shell do runtime: o shell do host para runtime native, o interpretador sh embutido para runtime virtual, ou o shell do container para runtime container. Escreva seu `check_script` de acordo — por exemplo, uma verificação native pode depender de ferramentas específicas do host, enquanto uma verificação container só enxerga o que está dentro do container.
+:::
+
+## Validação de Código de Saída
+
+Por padrão, uma verificação passa se o script sair com código 0:
+
+<Snippet id="dependencies/custom-checks-exit-code-default" />
+
+Espere um código de saída diferente:
+
+<Snippet id="dependencies/custom-checks-exit-code-custom" />
+
+## Validação de Saída
+
+Verifique se a saída corresponde a um padrão:
+
+<Snippet id="dependencies/custom-checks-output-validation" />
+
+Ambas as condições devem passar quando usadas juntas:
+
+<Snippet id="dependencies/custom-checks-output-and-exit-code" />
+
+## Alternativas (Semântica OU)
+
+Forneça verificações alternativas:
+
+<Snippet id="dependencies/custom-checks-alternatives" />
+
+A dependência é satisfeita se **qualquer** alternativa passar.
+
+## Exemplos do Mundo Real
+
+### Verificação de Versão de Ferramenta
+
+<Snippet id="dependencies/custom-checks-example-tool-version" />
+
+### Verificação de Docker Rodando
+
+<Snippet id="dependencies/custom-checks-example-docker-running" />
+
+### Verificação de Status do Git
+
+<Snippet id="dependencies/custom-checks-example-git-status" />
+
+### Validação de Configuração
+
+<Snippet id="dependencies/custom-checks-example-config-validation" />
+
+### Verificação de Memória/Recursos
+
+<Snippet id="dependencies/custom-checks-example-memory-resource" />
+
+### Contexto do Kubernetes
+
+<Snippet id="dependencies/custom-checks-example-kubernetes" />
+
+### Múltiplas Opções de Versão
+
+<Snippet id="dependencies/custom-checks-example-multiple-versions" />
+
+## Contexto de Container
+
+Para runtime container, verificações personalizadas rodam **dentro do container**:
+
+<Snippet id="dependencies/custom-checks-container-context" />
+
+## Dicas de Script
+
+### Mantenha Scripts Simples
+
+<Snippet id="dependencies/custom-checks-tip-keep-simple" />
+
+### Use Códigos de Saída Apropriados
+
+<Snippet id="dependencies/custom-checks-tip-exit-codes" />
+
+### Trate Comandos Faltando
+
+<Snippet id="dependencies/custom-checks-tip-handle-missing" />
+
+## Melhores Práticas
+
+1. **Nomeie verificações claramente**: Use nomes descritivos para mensagens de erro
+2. **Mantenha scripts simples**: Uma verificação, um propósito
+3. **Use códigos de saída**: Retorne 0 para sucesso, não-zero para falha
+4. **Adicione validação de saída**: Quando o formato da versão importa
+5. **Considere alternativas**: Ofereça múltiplas configurações válidas
+
+## Próximos Passos
+
+- [Overview](./overview) - Retornar à visão geral de dependências
+- [Flags and Arguments](../flags-and-arguments/overview) - Aceitar entrada do usuário

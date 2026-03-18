@@ -1,0 +1,100 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Interpretadores
+
+Por padrão, o Invowk™ executa scripts usando um shell. Mas você pode usar outros interpretadores como Python, Ruby, Node.js ou qualquer executável que possa rodar scripts.
+
+## Auto-Detecção a partir do Shebang
+
+Quando um script começa com um shebang (`#!`), o Invowk automaticamente usa esse interpretador:
+
+<Snippet id="advanced/interpreter-shebang" />
+
+Padrões comuns de shebang:
+
+| Shebang | Interpretador |
+|---------|---------------|
+| `#!/usr/bin/env python3` | Python 3 (portável) |
+| `#!/usr/bin/env node` | Node.js |
+| `#!/usr/bin/env ruby` | Ruby |
+| `#!/usr/bin/env perl` | Perl |
+| `#!/bin/bash` | Bash (caminho direto) |
+
+## Interpretador Explícito
+
+Especifique um interpretador diretamente na configuração do runtime:
+
+<Snippet id="advanced/interpreter-explicit" />
+
+O interpretador explícito tem precedência sobre a detecção de shebang.
+
+## Interpretador com Argumentos
+
+Passe argumentos para o interpretador:
+
+<Snippet id="advanced/interpreter-args" />
+
+Mais exemplos:
+
+<Snippet id="advanced/interpreter-more-args" />
+
+## Interpretadores em Containers
+
+Interpretadores funcionam em containers também:
+
+<Snippet id="advanced/interpreter-container-shebang" />
+
+Ou com interpretador explícito:
+
+<Snippet id="advanced/interpreter-container-explicit" />
+
+## Acessando Argumentos
+
+Argumentos funcionam da mesma forma com qualquer interpretador:
+
+<Snippet id="advanced/interpreter-args-access" />
+
+## Interpretadores Suportados
+
+Qualquer executável no PATH pode ser usado:
+
+- **Python**: `python3`, `python`
+- **JavaScript**: `node`, `deno`, `bun`
+- **Ruby**: `ruby`
+- **Perl**: `perl`
+- **PHP**: `php`
+- **Lua**: `lua`
+- **R**: `Rscript`
+- **Shell**: `bash`, `sh`, `zsh`, `fish`
+- **Personalizado**: Qualquer executável
+
+## Limitação do Runtime Virtual
+
+O campo `interpreter` **não é suportado** com o runtime virtual:
+
+<Snippet id="advanced/interpreter-virtual-error" />
+
+O runtime virtual usa o interpretador mvdan/sh embutido e não pode executar Python, Ruby ou outros interpretadores. Use runtime native ou container em vez disso.
+
+## Comportamento de Fallback
+
+Quando não há shebang e nenhum interpretador explícito:
+
+- **Runtime native**: Usa o shell padrão do sistema
+- **Runtime container**: Usa `/bin/sh -c`
+
+## Melhores Práticas
+
+1. **Use shebang para portabilidade**: Scripts funcionam standalone também
+2. **Use `/usr/bin/env`**: Mais portável que caminhos diretos
+3. **Interpretador explícito para scripts sem shebang**: Quando você não quer uma linha de shebang
+4. **Combine imagem do container**: Garanta que o interpretador existe na imagem
+
+## Próximos Passos
+
+- [Diretório de Trabalho](./workdir) - Controlar local de execução
+- [Específico de Plataforma](./platform-specific) - Implementações por plataforma
