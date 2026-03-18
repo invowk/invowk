@@ -42,8 +42,8 @@ build configuration.
   automatic security patches). Document this exception where the image is referenced.
 - **`debian:stable-slim` is the ONLY Debian/base image allowed in ALL documentation examples,
   CUE snippets, and tests.** No `ubuntu:*`, no `debian:bookworm`, no other base images.
-  Language-specific images (e.g., `golang:1.26`, `python:3-slim`) are allowed when
-  demonstrating language-specific runtimes, but must use stable tags (never `latest`).
+  Language-specific images (e.g., `golang:1.26`, `python:3-slim`, `node:22-slim`) are allowed
+  when demonstrating language-specific runtimes, but must use stable tags (never `latest`).
 - NEVER use Alpine or Windows container images (see `AGENTS.md` "Container Runtime Limitations").
 
 ### GoReleaser

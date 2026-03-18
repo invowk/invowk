@@ -471,27 +471,15 @@ virtual_shell: {
     name: "build"
     implementations: [
         {
-            script: "go build -o /workspace/bin/app ./..."
+            script: "echo 'Hello from container' && ls /workspace"
             runtimes: [{
                 name: "container"
-                image: "golang:1.26"
+                image: "debian:stable-slim"
             }]
             platforms: [{name: "linux"}]
         }
     ]
 }`,
-  },
-
-  'runtime-modes/container-volumes': {
-    language: 'cue',
-    code: `runtimes: [{
-    name: "container"
-    image: "golang:1.26"
-    volumes: [
-        "./src:/workspace/src",
-        "./data:/data:ro"
-    ]
-}]`,
   },
 
   'runtime-modes/container-env': {

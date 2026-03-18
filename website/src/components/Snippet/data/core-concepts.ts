@@ -755,7 +755,7 @@ platforms: [{name: "linux"}, {name: "macos"}]
 // Container with options
 runtimes: [{
     name: "container"
-    image: "golang:1.26"
+    image: "debian:stable-slim"
     volumes: ["./:/app"]
 }]
 platforms: [{name: "linux"}]`,

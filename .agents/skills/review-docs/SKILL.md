@@ -80,7 +80,7 @@ structure? Delegate detailed D2 review (formatting, readability rules, rendering
 
 ALL container examples across all documentation surfaces must use `debian:stable-slim`.
 No `ubuntu:*`, no Alpine, no Windows containers. Language-specific images (`golang:1.26`,
-`python:3-slim`) are allowed only in language-specific runtime demonstrations.
+`python:3-slim`, `node:22-slim`) are allowed only in language-specific runtime demonstrations.
 
 ### S7: DefaultConfig() vs Docs
 
