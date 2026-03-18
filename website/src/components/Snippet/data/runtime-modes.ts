@@ -733,7 +733,7 @@ WORKDIR /workspace`,
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "golang:1.26"
+    image: "debian:stable-slim"
 }]`,
   },
 

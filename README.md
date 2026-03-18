@@ -368,7 +368,7 @@ invowk cmd test --ivk-workdir=./packages/frontend
 
 ## Module Metadata (invowkmod.cue)
 
-Modules (directories ending in `.invowkmod`) use a separate metadata file named `invowkmod.cue`. It defines the module identifier, optional description, and dependencies.
+Modules (directories ending in `.invowkmod`) use a separate metadata file named `invowkmod.cue`. It defines the module identifier, version, optional description, and dependencies.
 
 ```cue
 module: "mymodule"
@@ -377,6 +377,8 @@ description: "Reusable build tools"
 ```
 
 ### Module Field Format
+
+**`module`** (mandatory) — The module identifier:
 
 ```cue
 module: "mymodule"           // Simple module name
@@ -392,6 +394,19 @@ module: "my.nested.module"   // Nested module using dot notation (RDNS style)
 **Valid examples:** `mymodule`, `my.module`, `my.nested.module`, `Module1`, `a.b.c`
 
 **Invalid examples:** `.module`, `module.`, `my..module`, `my-module`, `my_module`, `1module`
+
+**`version`** (mandatory) — The module version using semantic versioning:
+
+```cue
+version: "1.0.0"
+version: "2.1.0-alpha.1"
+```
+
+**Validation rules:**
+- Must follow semver format: `MAJOR.MINOR.PATCH` with optional pre-release label
+- No `v` prefix (use `"1.0.0"`, not `"v1.0.0"`)
+- No build metadata
+- No leading zeros on numeric segments
 
 ### How Multi-Source Discovery Works
 
@@ -2224,11 +2239,11 @@ cmds: [
 		name: "build"
 		implementations: [
 			{
-				script: "make build"
+				script: "echo 'Running inside container'"
 				// Container config is specified in the runtime
 				runtimes: [{
 					name: "container",
-					image: "golang:1.26",
+					image: "debian:stable-slim",
 					volumes: ["./data:/data"],
 					ports: ["8080:8080"],
 				}]
@@ -2809,6 +2824,8 @@ invowk/
 ├── scripts/                    # Build, install, and release scripts
 ├── specs/                      # Feature specifications and research
 ├── tasks/                      # Pending analysis documents and planning notes
+├── tools/                      # Development tools (separate Go modules)
+│   └── goplint/                # Custom go/analysis analyzer for DDD value type enforcement
 ├── docs/                       # Architecture diagrams and design docs
 └── website/                    # Docusaurus documentation site
 ```
@@ -2823,10 +2840,10 @@ invowk/
 - [Fang](https://github.com/charmbracelet/fang) - Signal handling and graceful shutdown
 
 **TUI & Styling:**
-- [Lip Gloss](https://charm.land/lipgloss) - Terminal styling
+- [Lip Gloss](https://charm.land/lipgloss/v2) - Terminal styling
 - [Glamour](https://github.com/charmbracelet/glamour) - Markdown rendering
-- [Bubbles](https://charm.land/bubbles) - TUI components
-- [Bubbletea](https://charm.land/bubbletea) - TUI framework
+- [Bubbles](https://charm.land/bubbles/v2) - TUI components
+- [Bubbletea](https://charm.land/bubbletea/v2) - TUI framework
 
 **SSH & PTY:**
 - [Wish](https://github.com/charmbracelet/wish) - SSH server framework (for host SSH access from containers)

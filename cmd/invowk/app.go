@@ -320,8 +320,9 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 
 // contextWithConfigPath attaches the explicit --ivk-config value and a per-request
 // discovery cache to the context. The RunE handler calls this once; all downstream
-// callees (validateCommandTree, checkAmbiguousCommand, listCommands, executeRequest,
-// and commandService.discoverCommand via DiscoveryService) share the same cache.
+// callees (runWorkspaceValidation, registerDiscoveredCommands, checkAmbiguousCommand,
+// listCommands, executeRequest, runDisambiguatedCommand, and runWatchMode) share the
+// same cache.
 func contextWithConfigPath(ctx context.Context, configPath string) context.Context {
 	ctx = contextWithDiscoveryRequestCache(ctx)
 	return context.WithValue(ctx, configPathContextKey{}, configPath)

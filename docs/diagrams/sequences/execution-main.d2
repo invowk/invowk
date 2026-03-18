@@ -1,9 +1,9 @@
 # Main Execution Sequence Diagram
 #
 # Shows the high-level flow of command execution from user request
-# through the 8-step commandService.Execute pipeline.
+# through the CLI adapter and the 8-step commandsvc.Service.Execute pipeline.
 #
-# Source: internal/app/commandsvc/service.go (Service.Execute pipeline)
+# Source: cmd/invowk/app.go (CLI adapter), internal/app/commandsvc/service.go (Service.Execute)
 
 vars: {
   d2-config: {
@@ -19,7 +19,8 @@ shape: sequence_diagram
 
 # Participants
 User
-CLI: CLI (CommandService)
+CLI: CLI Adapter (cmd/invowk/)
+SVC: Command Service (commandsvc/)
 Config: Configuration
 Disc: Discovery Engine
 CUE: CUE Parser
@@ -28,47 +29,51 @@ Runtime: Selected Runtime
 
 # Entry point
 User -> CLI: "invowk cmd <name> [args...]"
+CLI -> SVC: "Execute(ctx, request)"
 
 # Step 1: discoverCommand
-CLI -> Config: Load configuration
+SVC -> Config: Load configuration
 Config -> CUE: Parse config.cue
 CUE -> Config: Config struct
-Config -> CLI: Configuration loaded
-CLI -> Disc: "discoverCommand(ctx, req)"
+Config -> SVC: Configuration loaded
+SVC -> Disc: "discoverCommand(ctx, req)"
 Disc -> CUE: Parse invowkfile.cue files
 CUE -> Disc: Invowkfile structs
 Disc -> CUE: Parse *.invowkmod directories
 CUE -> Disc: Module structs
-Disc -> CLI: "CommandInfo + Diagnostics"
+Disc -> SVC: "CommandInfo + Diagnostics"
 
 # Step 2: resolveDefinitions
-CLI -> CLI: "resolveDefinitions(req, cmd)\nMerge flag/arg defaults"
+SVC -> SVC: "resolveDefinitions(req, cmd)\nMerge flag/arg defaults"
 
 # Step 3: validateInputs
-CLI -> CLI: "validateInputs(req, cmd, defs)\nCheck flags, args, platform"
+SVC -> SVC: "validateInputs(req, cmd, defs)\nCheck flags, args, platform"
 
 # Step 4: resolveRuntime
-CLI -> CLI: "resolveRuntime(req, cmd, cfg)\n3-tier: CLI flag > config > command default"
+SVC -> SVC: "resolveRuntime(req, cmd, cfg)\n3-tier: CLI flag > config > command default"
 
 # Step 5: ensureSSHIfNeeded
-CLI -> CLI: "ensureSSHIfNeeded(ctx, req, resolved)\nStart SSH server if container + host access"
+SVC -> SVC: "ensureSSHIfNeeded(ctx, req, resolved)\nStart SSH server if container + host access"
 
 # Step 6: buildExecContext
-CLI -> CLI: "buildExecContext(req, cmd, defs, resolved)\nProject env vars (INVOWK_FLAG_*, INVOWK_ARG_*)"
+SVC -> SVC: "buildExecContext(req, cmd, defs, resolved)\nProject env vars (INVOWK_FLAG_*, INVOWK_ARG_*)"
 
 # Dry-run intercept (between buildExecContext and dispatchExecution)
-CLI -> CLI: "checkDryRun\nIf --ivk-dry-run: render plan → exit 0\n(skips dispatchExecution entirely)"
+SVC -> CLI: "If --ivk-dry-run: return dry-run data"
+CLI -> CLI: "Render dry-run plan → exit 0\n(skips dispatchExecution entirely)"
 
 # Step 7: dispatchExecution
-CLI -> Registry: "createRuntimeRegistry(cfg)"
-Registry -> CLI: "Registry + Cleanup"
-CLI -> Registry: "Get(runtimeMode)"
-Registry -> CLI: Runtime instance
-CLI -> Runtime: Execute(context)
+SVC -> Registry: "createRuntimeRegistry(cfg)"
+Registry -> SVC: "Registry + Cleanup"
+SVC -> Registry: "Get(runtimeMode)"
+Registry -> SVC: Runtime instance
+SVC -> Runtime: Execute(context)
 Runtime -> Runtime: Run script/command
-Runtime -> CLI: Result
+Runtime -> SVC: Result
 
 # Return result
+SVC -> CLI: "Result + Diagnostics"
+CLI -> CLI: "renderAndWrapServiceError()\nApply lipgloss styling"
 CLI -> User: Output + Exit code
 
 # Watch mode (when --ivk-watch, wraps entire pipeline)

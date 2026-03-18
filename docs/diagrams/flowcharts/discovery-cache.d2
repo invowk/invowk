@@ -3,7 +3,7 @@
 # Shows how the discoveryRequestCache in cmd/invowk/app.go memoizes
 # discovery results within a single CLI invocation. The cache is
 # attached to the request context by contextWithConfigPath() and
-# shared across five callers that would otherwise trigger redundant
+# shared across seven callers that would otherwise trigger redundant
 # filesystem scans.
 #
 # Key detail: DiscoverAndValidateCommandSet cross-populates the
@@ -172,7 +172,7 @@ operations.GetCommand -> CacheMiss: on miss {
 }
 
 # ==============================================================================
-# Five Callers (share the cache through context)
+# Seven Callers (share the cache through context)
 # ==============================================================================
 
 callers: Callers (share cache via context) {
@@ -182,7 +182,11 @@ callers: Callers (share cache via context) {
     fill: transparent
   }
 
-  validateCommandTree: validateCommandTree() {
+  validateCommandTree: runWorkspaceValidation() {
+    style.fill: "#BBDEFB"
+  }
+
+  registerDiscoveredCommands: registerDiscoveredCommands() {
     style.fill: "#BBDEFB"
   }
 
@@ -198,7 +202,11 @@ callers: Callers (share cache via context) {
     style.fill: "#BBDEFB"
   }
 
-  discoverCommand: commandService.\ndiscoverCommand() {
+  runDisambiguatedCommand: runDisambiguatedCommand() {
+    style.fill: "#BBDEFB"
+  }
+
+  runWatchMode: runWatchMode() {
     style.fill: "#BBDEFB"
   }
 }
@@ -206,6 +214,10 @@ callers: Callers (share cache via context) {
 # Caller -> Operation connections
 
 callers.validateCommandTree -> operations.DiscoverAndValidateCommandSet: {
+  style.stroke: "#1565C0"
+}
+
+callers.registerDiscoveredCommands -> operations.DiscoverAndValidateCommandSet: {
   style.stroke: "#1565C0"
 }
 
@@ -221,7 +233,11 @@ callers.executeRequest -> operations.DiscoverAndValidateCommandSet: {
   style.stroke: "#1565C0"
 }
 
-callers.discoverCommand -> operations.GetCommand: {
+callers.runDisambiguatedCommand -> operations.DiscoverCommandSet: {
+  style.stroke: "#1565C0"
+}
+
+callers.runWatchMode -> operations.GetCommand: {
   style.stroke: "#1565C0"
 }
 
@@ -229,7 +245,7 @@ callers.discoverCommand -> operations.GetCommand: {
 # Typical flow annotation
 # ==============================================================================
 
-Flow: Typical flow:\nvalidateCommandTree() populates validatedSet +\ncross-populates commandSet.\nDownstream listCommands() / checkAmbiguousCommand()\nget cache hits (no second filesystem scan). {
+Flow: Typical flow:\nrunWorkspaceValidation() populates validatedSet +\ncross-populates commandSet.\nDownstream listCommands() / checkAmbiguousCommand()\nget cache hits (no second filesystem scan). {
   shape: page
   style.fill: "#FFF3E0"
   style.font-size: 13
