@@ -230,7 +230,7 @@ Produces GPG/SSH-signed tags. Use this for stable releases.
    - Build binaries for all target platforms (with UPX compression).
    - Sign checksums with Cosign (keyless).
    - Create a GitHub Release with artifacts.
-   - Attach a generated benchmark report asset (`invowk_<tag>_bench-report.md`).
+   - Attach a generated benchmark report asset (`invowk_<version>_bench-report.md`).
 
 #### Option 2: Workflow Dispatch (good for pre-releases and quick iteration)
 
@@ -279,7 +279,7 @@ Each release includes:
 - **Archives**: `.tar.gz` for Linux/macOS, `.zip` for Windows.
 - **Checksums**: SHA256 checksums in `checksums.txt`.
 - **Signatures**: Cosign signatures for verification.
-- **Benchmark report**: Generated markdown benchmark snapshot attached as `invowk_<tag>_bench-report.md`.
+- **Benchmark report**: Generated markdown benchmark snapshot attached as `invowk_<version>_bench-report.md`.
 
 ### Local Testing
 

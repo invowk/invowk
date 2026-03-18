@@ -92,7 +92,8 @@ jobs:
           fi
 
           report_path="${reports[0]}"
-          asset_name="invowk_${TAG}_bench-report.md"
+          VERSION="${TAG#v}"
+          asset_name="invowk_${VERSION}_bench-report.md"
 
           echo "path=$report_path" >> "$GITHUB_OUTPUT"
           echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"

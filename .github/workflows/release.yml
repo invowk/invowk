@@ -379,8 +379,9 @@ jobs:
           fi
           rm -rf release-assets
           mkdir -p release-assets
-          cp "$REPORT" "release-assets/invowk_${TAG}_bench-report.md"
-          echo "Benchmark report staged: release-assets/invowk_${TAG}_bench-report.md"
+          VERSION="${TAG#v}"
+          cp "$REPORT" "release-assets/invowk_${VERSION}_bench-report.md"
+          echo "Benchmark report staged: release-assets/invowk_${VERSION}_bench-report.md"
 
       # Run GoReleaser (publish)
       - name: Run GoReleaser
