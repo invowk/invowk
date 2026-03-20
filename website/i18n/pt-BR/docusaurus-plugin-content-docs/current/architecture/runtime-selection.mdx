@@ -44,6 +44,18 @@ Pelo menos uma plataforma deve ser especificada por implementação. Não há at
 | **Dependências** | Shell do host | Nenhuma | Docker/Podman |
 | **Melhor para** | Scripts simples | Multiplataforma | Ambientes complexos |
 
+## Precedência de Resolução de Runtime
+
+O modo de runtime é resolvido nesta ordem:
+
+1. **Override `--ivk-runtime` do CLI** — falha direta se incompatível com a implementação selecionada
+2. **`default_runtime` da configuração** — usado apenas quando compatível com a implementação
+3. **Runtime padrão do comando** — o runtime especificado na implementação da plataforma selecionada
+
+:::warning
+Não há fallback implícito de `native → virtual` quando o native não está disponível. Se o runtime native é solicitado mas não pode executar (ex.: nenhum shell encontrado), o comando falha em vez de trocar silenciosamente para virtual.
+:::
+
 ## Verificações de Disponibilidade de Runtime
 
 ### Runtime Native

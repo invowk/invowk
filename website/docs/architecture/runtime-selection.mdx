@@ -44,6 +44,18 @@ At least one platform must be specified per implementation. There is no "all pla
 | **Dependencies** | Host shell | None | Docker/Podman |
 | **Best for** | Simple scripts | Cross-platform | Complex environments |
 
+## Runtime Resolution Precedence
+
+Runtime mode is resolved in this order:
+
+1. **`--ivk-runtime` CLI override** — hard fail if incompatible with the selected implementation
+2. **`default_runtime` from config** — used only when compatible with the implementation
+3. **Command default runtime** — the runtime specified in the selected platform implementation
+
+:::warning
+There is no implicit `native → virtual` fallback when native is unavailable. If the native runtime is requested but cannot run (e.g., no shell found), the command fails rather than silently switching to virtual.
+:::
+
 ## Runtime Availability Checks
 
 ### Native Runtime

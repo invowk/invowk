@@ -27,7 +27,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Shell Completion**: Full tab completion support for bash, zsh, fish, and PowerShell
 
-- **Beautiful CLI**: Styled output using [Cobra](https://github.com/spf13/cobra) with [Lip Gloss](https://github.com/charmbracelet/lipgloss) styling
+- **Beautiful CLI**: Styled output using [Cobra](https://github.com/spf13/cobra) with [Lip Gloss](https://charm.land/lipgloss) styling
 
 - **Interactive TUI Components**: Built-in gum-like terminal UI components for creating interactive shell scripts (input, write, choose, confirm, filter, file, table, spin, pager, format, style)
 
