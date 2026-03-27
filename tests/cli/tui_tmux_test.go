@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+// tmuxWaitTimeout is the default timeout for tmux waitFor polls.
+// 10s gives CI runners headroom under load (previously 5s caused flakes on ubuntu-24.04).
+const tmuxWaitTimeout = 10 * time.Second
+
 // tmuxSession wraps a tmux session for TUI testing.
 // Each test gets a unique session name to avoid conflicts in parallel execution.
 type tmuxSession struct {
@@ -108,7 +112,7 @@ func TestTUI_Confirm(t *testing.T) {
 		s.sendKeys(binaryPath+" tui confirm 'Proceed?' && echo INVOWK_CONFIRMED || echo INVOWK_REJECTED", "Enter")
 
 		// Wait for TUI to fully render (help text only appears after TUI init)
-		if !s.waitFor("enter submit", 5*time.Second) {
+		if !s.waitFor("enter submit", tmuxWaitTimeout) {
 			t.Fatal("TUI did not render within timeout")
 		}
 
@@ -117,7 +121,7 @@ func TestTUI_Confirm(t *testing.T) {
 		s.sendKeys("n")
 
 		// Wait for the rejection marker
-		if !s.waitFor("INVOWK_REJECTED", 5*time.Second) {
+		if !s.waitFor("INVOWK_REJECTED", tmuxWaitTimeout) {
 			t.Fatal("command did not exit within timeout")
 		}
 
@@ -136,7 +140,7 @@ func TestTUI_Confirm(t *testing.T) {
 		s.sendKeys(binaryPath+" tui confirm 'Proceed?' && echo INVOWK_CONFIRMED || echo INVOWK_REJECTED", "Enter")
 
 		// Wait for TUI to fully render
-		if !s.waitFor("enter submit", 5*time.Second) {
+		if !s.waitFor("enter submit", tmuxWaitTimeout) {
 			t.Fatal("TUI did not render within timeout")
 		}
 
@@ -145,7 +149,7 @@ func TestTUI_Confirm(t *testing.T) {
 		s.sendKeys("y")
 
 		// Wait for the confirmation marker
-		if !s.waitFor("INVOWK_CONFIRMED", 5*time.Second) {
+		if !s.waitFor("INVOWK_CONFIRMED", tmuxWaitTimeout) {
 			t.Fatal("command did not exit within timeout")
 		}
 
@@ -172,7 +176,7 @@ func TestTUI_Choose(t *testing.T) {
 		s.sendKeys(binaryPath+" tui choose 'Apple' 'Banana' 'Cherry'; echo INVOWK_EXIT:$?", "Enter")
 
 		// Wait for TUI to render
-		if !s.waitFor("Apple", 5*time.Second) {
+		if !s.waitFor("Apple", tmuxWaitTimeout) {
 			t.Fatal("TUI did not render within timeout")
 		}
 
@@ -191,7 +195,7 @@ func TestTUI_Choose(t *testing.T) {
 		s.sendKeys("Enter")
 
 		// Wait for command to finish — "Banana" should be printed to stdout
-		if !s.waitFor("INVOWK_EXIT:", 5*time.Second) {
+		if !s.waitFor("INVOWK_EXIT:", tmuxWaitTimeout) {
 			t.Fatal("command did not exit within timeout")
 		}
 
@@ -218,7 +222,7 @@ func TestTUI_Input(t *testing.T) {
 		s.sendKeys(binaryPath+" tui input --header 'Enter name:'; echo INVOWK_EXIT:$?", "Enter")
 
 		// Wait for TUI to render
-		if !s.waitFor("name", 5*time.Second) {
+		if !s.waitFor("name", tmuxWaitTimeout) {
 			t.Fatal("TUI did not render within timeout")
 		}
 
@@ -232,7 +236,7 @@ func TestTUI_Input(t *testing.T) {
 		s.sendKeys("Enter")
 
 		// Wait for command to finish — "Hello World" should be printed to stdout
-		if !s.waitFor("INVOWK_EXIT:", 5*time.Second) {
+		if !s.waitFor("INVOWK_EXIT:", tmuxWaitTimeout) {
 			t.Fatal("command did not exit within timeout")
 		}
 
@@ -254,7 +258,7 @@ func TestTUI_Write(t *testing.T) {
 		s := newTmuxSession(t, "write-submit")
 		s.sendKeys(binaryPath+" tui write --title 'Enter notes'; echo INVOWK_EXIT:$?", "Enter")
 
-		if !s.waitFor("ctrl+d submit", 5*time.Second) {
+		if !s.waitFor("ctrl+d submit", tmuxWaitTimeout) {
 			t.Fatal("write TUI did not render within timeout")
 		}
 
@@ -263,7 +267,7 @@ func TestTUI_Write(t *testing.T) {
 		s.sendKeys("Line 2")
 		s.sendKeys("C-d")
 
-		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
 			t.Fatal("write command did not exit within timeout")
 		}
 
@@ -286,13 +290,13 @@ func TestTUI_Filter(t *testing.T) {
 		s.sendKeys("export INVOWK_FILTER_ONE=alpha_opt INVOWK_FILTER_TWO=beta_opt INVOWK_FILTER_THREE=gamma_opt", "Enter")
 		s.sendKeys(binaryPath+" tui filter \"$INVOWK_FILTER_ONE\" \"$INVOWK_FILTER_TWO\" \"$INVOWK_FILTER_THREE\"; echo INVOWK_EXIT:$?", "Enter")
 
-		if !s.waitFor("alpha_opt", 5*time.Second) {
+		if !s.waitFor("alpha_opt", tmuxWaitTimeout) {
 			t.Fatal("filter TUI did not render within timeout")
 		}
 
 		s.sendKeys("Escape")
 
-		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
 			t.Fatal("filter command did not exit within timeout")
 		}
 	})
@@ -315,13 +319,13 @@ func TestTUI_File(t *testing.T) {
 		command := fmt.Sprintf("%s tui file --allowed .txt %s && echo INVOWK_FILE_SELECTED || echo INVOWK_FILE_ABORTED", binaryPath, shellQuote(tmpDir))
 		s.sendKeys(command, "Enter")
 
-		if !s.waitFor("enter select", 5*time.Second) {
+		if !s.waitFor("enter select", tmuxWaitTimeout) {
 			t.Fatal("file picker did not render within timeout")
 		}
 
 		s.sendKeys("Escape")
 
-		if !s.waitFor("INVOWK_FILE_ABORTED", 5*time.Second) {
+		if !s.waitFor("INVOWK_FILE_ABORTED", tmuxWaitTimeout) {
 			t.Fatal("file picker command did not abort within timeout")
 		}
 
@@ -354,7 +358,7 @@ func TestTUI_Table(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 		s.sendKeys("Escape")
 
-		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
 			t.Fatal("table command did not exit within timeout")
 		}
 	})
@@ -373,7 +377,7 @@ func TestTUI_Spin(t *testing.T) {
 		s.sendKeys("export INVOWK_SPIN_MARKER="+spinMarker, "Enter")
 		s.sendKeys(binaryPath+" tui spin --title 'Running...' -- sh -c \"echo $INVOWK_SPIN_MARKER\"; echo INVOWK_EXIT:$?", "Enter")
 
-		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
 			t.Fatal("spin command did not exit within timeout")
 		}
 
@@ -405,13 +409,13 @@ func TestTUI_Pager(t *testing.T) {
 		command := fmt.Sprintf("%s tui pager %s; echo INVOWK_EXIT:$?", binaryPath, shellQuote(pagerPath))
 		s.sendKeys(command, "Enter")
 
-		if !s.waitFor("Line 01", 5*time.Second) {
+		if !s.waitFor("Line 01", tmuxWaitTimeout) {
 			t.Fatal("pager did not render within timeout")
 		}
 
 		s.sendKeys("q")
 
-		if !s.waitFor("INVOWK_EXIT:0", 5*time.Second) {
+		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {
 			t.Fatal("pager command did not exit within timeout")
 		}
 
