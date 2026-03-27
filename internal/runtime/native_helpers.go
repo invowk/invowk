@@ -88,6 +88,20 @@ func extractExitCode(err error, captured *capturedOutput) *Result {
 	return result
 }
 
+// promoteContextError surfaces context deadline/cancellation errors that would
+// otherwise be silently dropped. On Windows, TerminateProcess sets exit code 1
+// (a valid code), so extractExitCode returns result.Error == nil even when the
+// context has expired. Without promotion, the timeout/cancellation is never
+// classified by the error handler and no diagnostic is shown to the user.
+func promoteContextError(ctx *ExecutionContext, result *Result) {
+	if result.Error != nil {
+		return
+	}
+	if ctxErr := ctx.Context.Err(); ctxErr != nil {
+		result.Error = ctxErr
+	}
+}
+
 // configureCommandDirAndEnv validates the working directory, builds the
 // environment, and applies both to the exec.Cmd. Returns error if working
 // directory validation or environment building fails.

@@ -9,7 +9,7 @@ stderr '(?i)timed out|exit code|execution failed'
 
 # Test 2: command with generous timeout completes normally
 exec invowk cmd fast
-stdout '^done$'
+stdout '^done\r?$'
 ! stderr .
 
 -- invowkfile.cue --

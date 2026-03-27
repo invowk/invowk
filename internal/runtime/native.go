@@ -214,7 +214,9 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 
 	// Execute and extract result
 	err = cmd.Run()
-	return extractExitCode(err, captured)
+	result := extractExitCode(err, captured)
+	promoteContextError(ctx, result)
+	return result
 }
 
 // executeInterpreterCommon is the unified interpreter execution function that handles
@@ -257,7 +259,9 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 
 	// Execute and extract result
 	err = cmd.Run()
-	return extractExitCode(err, captured)
+	result := extractExitCode(err, captured)
+	promoteContextError(ctx, result)
+	return result
 }
 
 // createTempScript creates a temporary file with the script content

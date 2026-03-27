@@ -197,7 +197,7 @@ jobs:
             --rerun-fails-max-failures 3 \
             --rerun-fails-report rerun-report.txt \
             --packages ./... \
-            -- -race -short -coverprofile=coverage.out
+            -- -race -short -v -coverprofile=coverage.out
 
       # Run CLI integration tests on Windows/macOS
       # CLI tests use testscript with inline CUE and virtual runtime for cross-platform support.
