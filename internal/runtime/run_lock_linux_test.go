@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestAcquireRunLock_CreatesFile(t *testing.T) {
@@ -55,15 +57,13 @@ func TestAcquireRunLock_BlocksConcurrent(t *testing.T) {
 		lockB.Release()
 	}()
 
-	// Wait for goroutine B to start, then give it time to reach the
-	// blocking flock() call. The short sleep is still needed because
-	// acquireRunLockAt blocks atomically — there is no "attempted but
-	// waiting" signal — but we now know the goroutine has started.
+	// Wait for goroutine B to start, then verify it cannot acquire the lock
+	// while A holds it. AssertNeverTrue polls repeatedly instead of using a
+	// fixed sleep, making the assertion robust under CI load.
 	<-started
-	time.Sleep(50 * time.Millisecond)
-	if acquired.Load() {
-		t.Fatal("goroutine B acquired the lock while A still held it")
-	}
+	testutil.AssertNeverTrue(t, 100*time.Millisecond, 10*time.Millisecond,
+		"goroutine B acquired the lock while A still held it",
+		acquired.Load)
 
 	// Release A — B should now acquire.
 	lockA.Release()

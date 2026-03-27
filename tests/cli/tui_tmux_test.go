@@ -17,6 +17,12 @@ import (
 // 10s gives CI runners headroom under load (previously 5s caused flakes on ubuntu-24.04).
 const tmuxWaitTimeout = 10 * time.Second
 
+// tuiInputSettleDelay is a small pause after waitFor succeeds and before
+// sendKeys. Tmux rendering is asynchronous — even after content is visible in
+// the pane, the TUI process may not yet be ready to accept input. This delay
+// is a pragmatic minimum; increasing it reduces flakiness on slow CI runners.
+const tuiInputSettleDelay = 50 * time.Millisecond
+
 // tmuxSession wraps a tmux session for TUI testing.
 // Each test gets a unique session name to avoid conflicts in parallel execution.
 type tmuxSession struct {
@@ -117,7 +123,7 @@ func TestTUI_Confirm(t *testing.T) {
 		}
 
 		// Use "n" shortcut key to select No and submit (exit 1)
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("n")
 
 		// Wait for the rejection marker
@@ -145,7 +151,7 @@ func TestTUI_Confirm(t *testing.T) {
 		}
 
 		// Use "y" shortcut key to select Yes and submit (exit 0)
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("y")
 
 		// Wait for the confirmation marker
@@ -181,9 +187,9 @@ func TestTUI_Choose(t *testing.T) {
 		}
 
 		// Navigate down to Banana
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Down")
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(tuiInputSettleDelay)
 
 		// Verify Banana is visible in the TUI
 		output := s.capturePlain()
@@ -226,11 +232,11 @@ func TestTUI_Input(t *testing.T) {
 			t.Fatal("TUI did not render within timeout")
 		}
 
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(tuiInputSettleDelay)
 
 		// Type some text
 		s.sendKeys("Hello World")
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(tuiInputSettleDelay)
 
 		// Submit
 		s.sendKeys("Enter")
@@ -355,7 +361,12 @@ func TestTUI_Table(t *testing.T) {
 		command := fmt.Sprintf("%s tui table --file %s --selectable; echo INVOWK_EXIT:$?", binaryPath, shellQuote(csvPath))
 		s.sendKeys(command, "Enter")
 
-		time.Sleep(500 * time.Millisecond)
+		// Wait for the table header to render before interacting.
+		if !s.waitFor("name", 5*time.Second) {
+			t.Log("table header 'name' not found in pane, pane content:\n" + s.capturePlain())
+			t.Fatal("table TUI did not render within timeout")
+		}
+		time.Sleep(tuiInputSettleDelay)
 		s.sendKeys("Escape")
 
 		if !s.waitFor("INVOWK_EXIT:0", tmuxWaitTimeout) {

@@ -55,25 +55,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Ubuntu 24.04 with Docker
-          - os: ubuntu-24.04
-            runner: ubuntu-24.04
-            engine: docker
-            test-mode: full
-
-          # Ubuntu 24.04 with Podman
-          - os: ubuntu-24.04
-            runner: ubuntu-24.04
-            engine: podman
-            test-mode: full
-
-          # Ubuntu latest with Docker
+          # Ubuntu with Docker (ubuntu-latest = ubuntu-24.04 as of 2026-03)
           - os: ubuntu-latest
             runner: ubuntu-latest
             engine: docker
             test-mode: full
 
-          # Ubuntu latest with Podman
+          # Ubuntu with Podman
           - os: ubuntu-latest
             runner: ubuntu-latest
             engine: podman
@@ -101,29 +89,52 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Cache gotestsum
+        id: cache-gotestsum
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gotestsum${{ matrix.os == 'windows' && '.exe' || '' }}
+          key: gotestsum-${{ runner.os }}-v1.13.0
+
       - name: Install gotestsum
-        run: |
-          go install gotest.tools/gotestsum@v1.13.0
-          gotestsum --version
+        if: steps.cache-gotestsum.outputs.cache-hit != 'true'
+        run: go install gotest.tools/gotestsum@v1.13.0
+
+      - name: Verify gotestsum
+        run: gotestsum --version
 
       # Engine isolation: mask the non-tested engine so AutoDetectEngine() picks
       # the correct one. Ubuntu runners have both Docker and Podman installed.
+      # Fail-loud: verify the masked engine is no longer discoverable.
       - name: Mask Docker for Podman tests
         if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
-        run: sudo mv /usr/bin/docker /usr/bin/docker.disabled || true
+        run: |
+          if [ -x /usr/bin/docker ]; then
+            sudo mv /usr/bin/docker /usr/bin/docker.disabled
+          fi
+          if command -v docker &>/dev/null; then
+            echo "::error::Docker is still on PATH after masking"
+            exit 1
+          fi
 
       - name: Mask Podman for Docker tests
         if: matrix.engine == 'docker' && startsWith(matrix.runner, 'ubuntu')
-        run: sudo mv /usr/bin/podman /usr/bin/podman.disabled || true
+        run: |
+          if [ -x /usr/bin/podman ]; then
+            sudo mv /usr/bin/podman /usr/bin/podman.disabled
+          fi
+          if command -v podman &>/dev/null; then
+            echo "::error::Podman is still on PATH after masking"
+            exit 1
+          fi
 
-      # Podman setup for Ubuntu
+      # Podman setup for Ubuntu — fail-loud to surface daemon issues immediately.
       - name: Setup Podman (Ubuntu)
         if: matrix.engine == 'podman' && startsWith(matrix.runner, 'ubuntu')
         run: |
-          # Podman is pre-installed on Ubuntu runners, just verify it works
           podman --version
-          # Start podman system service for API compatibility
-          systemctl --user start podman.socket || true
+          systemctl --user start podman.socket
+          systemctl --user is-active podman.socket
 
       # Docker setup verification for Ubuntu
       - name: Verify Docker (Ubuntu)
@@ -181,15 +192,46 @@ jobs:
           gotestsum \
             --format testdox \
             --junitfile cli-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report cli-rerun-report.txt \
             --packages ./tests/cli/... \
             -- -race -timeout 10m
 
       # Run short tests (unit tests only, no container dependencies).
-      # Explicit -timeout 20m overrides Go's 10m default to accommodate internal/tui
-      # (281 tests) which with race detector + GOMAXPROCS(1) on Windows takes ~17m
-      # on slow CI runners. Job-level timeout-minutes: 30 provides the safety net.
+      # On Windows: split TUI from non-TUI to avoid -race 10x memory overhead
+      # on 288 TUI tests. testmain_windows_test.go pre-warms lipgloss and sets
+      # GOMAXPROCS(1) for TUI tests, but -race still causes excessive memory use.
+      - name: Run tests (short, non-TUI)
+        if: matrix.test-mode == 'short' && matrix.os == 'windows'
+        shell: bash
+        run: |
+          PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/internal/tui$' | grep -v '^github.com/invowk/invowk/tests/cli' | tr '\n' ' ')"
+          gotestsum \
+            --format testdox \
+            --junitfile test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report rerun-report.txt \
+            --packages "$PACKAGES" \
+            -- -race -short -v -timeout 20m -coverprofile=coverage.out
+
+      - name: Run TUI tests (short, no race detector)
+        if: matrix.test-mode == 'short' && matrix.os == 'windows'
+        shell: bash
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile tui-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report tui-rerun-report.txt \
+            --packages ./internal/tui/... \
+            -- -short -v -timeout 10m
+
+      # macOS: run all packages together with explicit timeout for timer coalescing.
       - name: Run tests (short)
-        if: matrix.test-mode == 'short'
+        if: matrix.test-mode == 'short' && matrix.os == 'macos'
         shell: bash
         run: |
           gotestsum \
@@ -245,7 +287,7 @@ jobs:
         run: ./scripts/test_install.ps1
 
       - name: Merge coverage profiles
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.runner == 'ubuntu-latest' && matrix.engine == 'docker'
         run: |
           # Both profiles use the same -covermode (from go test defaults), so
           # raw concat is safe after stripping the duplicate mode: header line.
@@ -263,9 +305,11 @@ jobs:
             test-results.xml
             runtime-test-results.xml
             cli-test-results.xml
+            tui-test-results.xml
             rerun-report.txt
             runtime-rerun-report.txt
             cli-rerun-report.txt
+            tui-rerun-report.txt
           if-no-files-found: ignore
           retention-days: 30
 
@@ -286,7 +330,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for report in rerun-report.txt runtime-rerun-report.txt cli-rerun-report.txt; do
+          for report in rerun-report.txt runtime-rerun-report.txt cli-rerun-report.txt tui-rerun-report.txt; do
             if [ -s "$report" ]; then
               echo "::warning::Flaky tests detected (rerun report: $report):"
               while IFS= read -r line; do

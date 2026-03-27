@@ -16,6 +16,7 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 
+	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -77,9 +78,9 @@ func TestWatcherDebounce(t *testing.T) {
 			t.Fatalf("write %s: %v", name, err)
 		}
 		// Small pause so events arrive as separate fsnotify events rather
-		// than being batched by the OS. Still well within the debounce
-		// window.
-		time.Sleep(10 * time.Millisecond)
+		// than being batched by the OS. 20ms accounts for macOS kqueue
+		// coalescing while staying well within the debounce window.
+		time.Sleep(20 * time.Millisecond)
 	}
 
 	// Wait for the debounced callback to fire.
@@ -90,9 +91,15 @@ func TestWatcherDebounce(t *testing.T) {
 	}
 
 	// Negative-condition check: verify no spurious callbacks fire after the
-	// initial debounced callback. Sleep long enough for a full debounce cycle
+	// initial debounced callback. Poll long enough for a full debounce cycle
 	// to confirm the callback count stays at 1.
-	time.Sleep(200 * time.Millisecond)
+	testutil.AssertNeverTrue(t, 300*time.Millisecond, 10*time.Millisecond,
+		"spurious callback fired after initial debounced callback",
+		func() bool {
+			mu.Lock()
+			defer mu.Unlock()
+			return calls > 1
+		})
 
 	cancel()
 	if err := <-errCh; err != nil {
@@ -203,8 +210,12 @@ func TestWatcherContextCancel(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- w.Run(ctx) }()
 
-	// Give the event loop time to start.
-	time.Sleep(50 * time.Millisecond)
+	// Wait for the event loop to be ready before cancelling.
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
 
 	cancel()
 
@@ -269,6 +280,7 @@ func TestWatcherSkipIfBusy(t *testing.T) {
 
 	// Callback blocks for 300ms, debounce is 50ms.
 	// Second file write should be skipped because the first callback is still running.
+	firstCallStarted := make(chan struct{})
 	firstCallDone := make(chan struct{})
 	stderrBuf := &bytes.Buffer{}
 
@@ -284,6 +296,7 @@ func TestWatcherSkipIfBusy(t *testing.T) {
 			mu.Unlock()
 
 			if callNum == 1 {
+				close(firstCallStarted)
 				time.Sleep(300 * time.Millisecond)
 				close(firstCallDone)
 			}
@@ -305,8 +318,12 @@ func TestWatcherSkipIfBusy(t *testing.T) {
 		t.Fatalf("write first.txt: %v", err)
 	}
 
-	// Wait for the debounce to fire and callback to start.
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the first callback to start (event-based, no timing assumption).
+	select {
+	case <-firstCallStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first callback to start")
+	}
 
 	// Write second file while callback is still busy — should be skipped.
 	if err := os.WriteFile(filepath.Join(dir, "second.txt"), []byte("2"), 0o644); err != nil {
@@ -320,22 +337,19 @@ func TestWatcherSkipIfBusy(t *testing.T) {
 		t.Fatal("timed out waiting for first callback")
 	}
 
-	// Allow time for the second debounce cycle to complete (or be skipped).
-	time.Sleep(200 * time.Millisecond)
+	// Wait long enough for the second debounce cycle to complete (or be skipped).
+	// Use AssertNeverTrue to verify no more than 2 callbacks fire.
+	testutil.AssertNeverTrue(t, 300*time.Millisecond, 10*time.Millisecond,
+		"more than 2 callback invocations detected",
+		func() bool {
+			mu.Lock()
+			defer mu.Unlock()
+			return calls > 2
+		})
 
 	cancel()
 	if err := <-errCh; err != nil {
 		t.Fatalf("Run() error: %v", err)
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	// The second fire() should have been skipped due to the busy guard.
-	// We accept 1 call (strict skip) or 2 calls (if timing allows the second
-	// debounce to fire after the first callback completes), but never concurrent.
-	if calls > 2 {
-		t.Errorf("expected at most 2 callback invocations, got %d", calls)
 	}
 
 	// Verify the skip message appeared in stderr.
@@ -448,8 +462,12 @@ func TestWatcherDoubleRunError(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- w.Run(ctx) }()
 
-	// Give the event loop time to start.
-	time.Sleep(50 * time.Millisecond)
+	// Wait for the event loop to be ready before testing double-run.
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
 
 	// Second call to Run should return an error immediately.
 	err = w.Run(ctx)

@@ -98,15 +98,17 @@ type (
 	// resources and should be called if Run will not be called (e.g., the
 	// caller encounters an error between New and Run).
 	Watcher struct {
-		cfg      Config
-		fsw      *fsnotify.Watcher
-		ignores  []invowkfile.GlobPattern
-		stdout   io.Writer
-		stderr   io.Writer
-		debounce time.Duration
-		baseDir  string // Resolved absolute path; string because it comes from filepath.Abs
-		started  atomic.Bool
-		closed   atomic.Bool
+		cfg       Config
+		fsw       *fsnotify.Watcher
+		ignores   []invowkfile.GlobPattern
+		stdout    io.Writer
+		stderr    io.Writer
+		debounce  time.Duration
+		baseDir   string // Resolved absolute path; string because it comes from filepath.Abs
+		started   atomic.Bool
+		closed    atomic.Bool
+		ready     chan struct{} // closed once the event loop enters its first select
+		readyOnce sync.Once
 	}
 
 	// InvalidWatchConfigError is returned when a Config has one or more
@@ -229,6 +231,7 @@ func New(cfg Config) (*Watcher, error) {
 		stderr:   stderr,
 		debounce: debounce,
 		baseDir:  absBase,
+		ready:    make(chan struct{}),
 	}
 
 	if err := w.addDirectories(); err != nil {
@@ -251,6 +254,11 @@ func (w *Watcher) Close() error {
 	}
 	return w.fsw.Close()
 }
+
+// Ready returns a channel that is closed once the event loop has entered
+// its first select iteration. Tests can wait on this to avoid timing-based
+// synchronization when they need the watcher to be processing events.
+func (w *Watcher) Ready() <-chan struct{} { return w.ready }
 
 // Run blocks until ctx is cancelled, processing filesystem events and
 // dispatching debounced callbacks. It returns nil on clean context
@@ -368,6 +376,10 @@ func (w *Watcher) Run(ctx context.Context) error {
 	}()
 
 	for {
+		// Signal that the event loop is ready to receive events. Tests can
+		// wait on Ready() instead of using time.Sleep to avoid races.
+		w.readyOnce.Do(func() { close(w.ready) })
+
 		select {
 		case <-ctx.Done():
 			return nil
