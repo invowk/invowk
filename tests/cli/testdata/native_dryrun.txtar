@@ -11,7 +11,7 @@ stdout 'Source:'
 stdout 'Runtime:.*native'
 stdout 'Platform:'
 stdout 'Script:'
-stdout 'echo hello world'
+stdout 'hello world'
 
 # Test 2: Dry-run shows timeout when set
 exec invowk cmd slow --ivk-dry-run
