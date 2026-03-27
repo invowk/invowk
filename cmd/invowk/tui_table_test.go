@@ -99,8 +99,7 @@ func TestLoadTableRowsFromFileAndSplitHeaders(t *testing.T) {
 }
 
 func TestLoadTableRowsFromStdin(t *testing.T) {
-	t.Parallel()
-
+	// No t.Parallel(): withPipeStdin replaces os.Stdin (process-wide).
 	restore := withPipeStdin(t, "name|age\nAlice|30\nBob|25\n")
 	defer restore()
 
@@ -224,8 +223,7 @@ func TestRunTuiTableSelectablePrintsSelectedRow(t *testing.T) {
 }
 
 func TestRunTuiTableNoData(t *testing.T) {
-	t.Parallel()
-
+	// No t.Parallel(): withPipeStdin replaces os.Stdin (process-wide).
 	restore := withPipeStdin(t, "")
 	defer restore()
 

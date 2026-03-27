@@ -101,7 +101,10 @@ func (b *Base) TransitionToStarting(ctx context.Context) error {
 	// Create internal context as a child of the caller's context so that
 	// parent cancellation (e.g., Ctrl+C) propagates to server goroutines.
 	// Shutdown (Stop) uses its own independent context for graceful cleanup.
+	// stateMu protects ctx/cancel fields against concurrent TransitionToStopping.
+	b.stateMu.Lock()
 	b.ctx, b.cancel = context.WithCancel(ctx)
+	b.stateMu.Unlock()
 
 	return nil
 }
@@ -159,9 +162,13 @@ func (b *Base) TransitionToStopping() bool {
 			if !b.state.CompareAndSwap(int32(currentState), int32(StateStopping)) {
 				continue // State changed, retry
 			}
-			// Cancel context to signal goroutines
-			if b.cancel != nil {
-				b.cancel()
+			// Cancel context to signal goroutines.
+			// stateMu protects cancel field against concurrent TransitionToStarting.
+			b.stateMu.Lock()
+			cancel := b.cancel
+			b.stateMu.Unlock()
+			if cancel != nil {
+				cancel()
 			}
 			return true
 		default:

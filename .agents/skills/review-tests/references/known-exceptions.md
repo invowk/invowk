@@ -12,6 +12,7 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 | Tests using `os.Chdir`, `os.Setenv`, `t.Setenv` | No `t.Parallel()` | Process-wide side effects; parallel execution causes race conditions |
 | Tests using `testutil.MustSetenv()`, `testutil.MustChdir()` | No `t.Parallel()` | Wrappers for process-wide state mutation |
 | Tests using `SetHomeDir` or similar process-wide overrides | No `t.Parallel()` | Modifies process-level configuration directory |
+| Tests using `withPipeStdin()` or replacing `os.Stdin` | No `t.Parallel()` | `os.Stdin` is process-wide; concurrent replacement causes data races |
 | CUE `cue.Value` / `*cue.Context` subtests | Serial subtests (no `t.Parallel()` on subtests) | CUE values and contexts are NOT thread-safe; `Unify()` and `CompileString()` mutate internal state. Use `//nolint:tparallel` when parent calls `t.Parallel()` but subtests must be serial |
 | SSH server controller tests (`internal/sshserver/`) | No `t.Parallel()` on parent or subtests | `wish` library writes host keys to `.ssh/` in working directory; parallel tests in the same package collide |
 | TUI client tests (`internal/tuiserver/client_test.go`) | Sequential subtests | Share request/response channels via `server.RequestChannel()`; parallel subtests would race on the channel |

@@ -95,6 +95,7 @@ Do not add `t.Parallel()` to tests that use any of these:
 - `os.Chdir`, `os.Setenv`, or `t.Setenv` (process-wide side effects)
 - Global state mutators: `testutil.MustSetenv()`, `testutil.MustChdir()`
 - `SetHomeDir` or similar process-wide overrides
+- `withPipeStdin()` or any `os.Stdin` replacement (process-wide file descriptor)
 
 ### Critical Footgun: TempDir Lifetime with Parallel Subtests
 

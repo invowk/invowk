@@ -45,7 +45,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 |---|---|---|---|
 | T2-C01 | All top-level `Test*` functions call `t.Parallel()` as first statement (unless in `known-exceptions.md`) | All test files | ERROR |
 | T2-C02 | All table-driven subtests inside parallel parents also call `t.Parallel()` | Tests with `t.Run()` inside parallel parents | ERROR |
-| T2-C03 | No `t.Parallel()` in tests that use `os.Chdir`, `os.Setenv`, `t.Setenv`, `SetHomeDir`, `MustSetenv`, `MustChdir` | Tests mutating global state | ERROR |
+| T2-C03 | No `t.Parallel()` in tests that use `os.Chdir`, `os.Setenv`, `t.Setenv`, `SetHomeDir`, `MustSetenv`, `MustChdir`, `withPipeStdin`, or any `os.Stdin` replacement | Tests mutating global state | ERROR |
 | T2-C04 | No `tt := tt` or `tc := tc` loop-variable rebinding (Go 1.22+ per-iteration semantics) | All table-driven tests | WARNING |
 | T2-C05 | `t.Context()` used as default context in test functions (not `context.Background()`) | All test functions | WARNING |
 | T2-C06 | `context.Background()` only used in `TestMain`, package-level init, or `env.Defer()` callbacks — with comment explaining why | All test files | WARNING |
