@@ -34,6 +34,12 @@ const (
 )
 
 var (
+	// ErrNestedQuantifiers is returned when a regex pattern contains nested quantifiers
+	// that may cause catastrophic backtracking (ReDoS). Callers of ValidateRegexPattern
+	// can match this sentinel directly; the CUE parsing layer flattens it into a
+	// ValidationError.Message string (so errors.Is does not work after CUE parsing).
+	ErrNestedQuantifiers = errors.New("nested quantifiers")
+
 	// toolNameRegex validates tool/binary names for security.
 	// Tool names must start with alphanumeric and can include . _ + -
 	toolNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._+-]*$`)
@@ -41,10 +47,6 @@ var (
 	// cmdDependencyNameRegex validates command dependency names.
 	// Command names must start with a letter, can include letters, digits, underscores, hyphens, and spaces.
 	cmdDependencyNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_ -]*$`)
-
-	// ErrNestedQuantifiers is returned when a regex pattern contains nested quantifiers
-	// that may cause catastrophic backtracking (ReDoS).
-	ErrNestedQuantifiers = errors.New("nested quantifiers")
 )
 
 // ValidateRegexPattern validates a user-provided regex pattern for safety and complexity.

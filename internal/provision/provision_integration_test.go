@@ -78,6 +78,17 @@ func testTagSuffix(t *testing.T) string {
 	return hex.EncodeToString(h[:6])
 }
 
+// newTestProvisionConfig returns a base Config for integration tests.
+func newTestProvisionConfig(binaryPath, suffix string) *Config {
+	return &Config{
+		Enabled:          true,
+		InvowkBinaryPath: types.FilesystemPath(binaryPath),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
+		TagSuffix:        suffix,
+	}
+}
+
 // cleanupProvisionedImage removes the provisioned image after the test.
 func cleanupProvisionedImage(t *testing.T, engine container.Engine, tag container.ImageTag) {
 	t.Helper()
@@ -94,13 +105,7 @@ func testCacheMissBuildsImage(t *testing.T, engine container.Engine) {
 	binaryPath := filepath.Join(tmpDir, "invowk")
 	suffix := testTagSuffix(t)
 
-	cfg := &Config{
-		Enabled:          true,
-		InvowkBinaryPath: types.FilesystemPath(binaryPath),
-		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		TagSuffix:        suffix,
-	}
+	cfg := newTestProvisionConfig(binaryPath, suffix)
 
 	provisioner, provErr := NewLayerProvisioner(engine, cfg)
 	if provErr != nil {
@@ -143,13 +148,7 @@ func testCacheHitSkipsBuild(t *testing.T, engine container.Engine) {
 	binaryPath := filepath.Join(tmpDir, "invowk")
 	suffix := testTagSuffix(t)
 
-	cfg := &Config{
-		Enabled:          true,
-		InvowkBinaryPath: types.FilesystemPath(binaryPath),
-		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		TagSuffix:        suffix,
-	}
+	cfg := newTestProvisionConfig(binaryPath, suffix)
 
 	provisioner, provErr := NewLayerProvisioner(engine, cfg)
 	if provErr != nil {
@@ -191,13 +190,7 @@ func testForceRebuildRebuildsExistingImage(t *testing.T, engine container.Engine
 	suffix := testTagSuffix(t)
 
 	// First, provision normally to populate the cache
-	cfg := &Config{
-		Enabled:          true,
-		InvowkBinaryPath: types.FilesystemPath(binaryPath),
-		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		TagSuffix:        suffix,
-	}
+	cfg := newTestProvisionConfig(binaryPath, suffix)
 
 	provisioner, provErr := NewLayerProvisioner(engine, cfg)
 	if provErr != nil {
@@ -215,14 +208,8 @@ func testForceRebuildRebuildsExistingImage(t *testing.T, engine container.Engine
 	}
 
 	// Now provision with ForceRebuild enabled
-	cfgForce := &Config{
-		Enabled:          true,
-		ForceRebuild:     true,
-		InvowkBinaryPath: types.FilesystemPath(binaryPath),
-		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		TagSuffix:        suffix,
-	}
+	cfgForce := newTestProvisionConfig(binaryPath, suffix)
+	cfgForce.ForceRebuild = true
 
 	provisionerForce, provForceErr := NewLayerProvisioner(engine, cfgForce)
 	if provForceErr != nil {
@@ -259,13 +246,7 @@ func testIsImageProvisionedTrueAfterProvision(t *testing.T, engine container.Eng
 	binaryPath := filepath.Join(tmpDir, "invowk")
 	suffix := testTagSuffix(t)
 
-	cfg := &Config{
-		Enabled:          true,
-		InvowkBinaryPath: types.FilesystemPath(binaryPath),
-		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
-		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
-		TagSuffix:        suffix,
-	}
+	cfg := newTestProvisionConfig(binaryPath, suffix)
 
 	provisioner, provErr := NewLayerProvisioner(engine, cfg)
 	if provErr != nil {
