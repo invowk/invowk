@@ -184,20 +184,48 @@ jobs:
             --packages ./tests/cli/... \
             -- -race -timeout 10m
 
-      # Run short tests (unit tests only, no container dependencies)
-      # Uses bash shell to avoid PowerShell parsing issues on Windows
-      - name: Run tests (short)
+      # Run short tests excluding internal/tui (unit tests only, no container dependencies).
+      # internal/tui runs separately below with its own timeout because its 288 tests
+      # with the race detector exceed Go's default 10m per-package timeout on Windows.
+      - name: Run tests (short, non-TUI)
         if: matrix.test-mode == 'short'
         shell: bash
         run: |
+          PACKAGES=$(go list ./... | grep -v 'github.com/invowk/invowk/internal/tui$' | tr '\n' ' ')
           gotestsum \
             --format testdox \
             --junitfile test-results.xml \
             --rerun-fails \
             --rerun-fails-max-failures 3 \
             --rerun-fails-report rerun-report.txt \
-            --packages ./... \
-            -- -race -short -v -coverprofile=coverage.out
+            --packages $PACKAGES \
+            -- -race -short -v -timeout 15m -coverprofile=coverage.out
+
+      # Run TUI tests separately with a dedicated timeout.
+      # internal/tui has 288 test functions (7900+ lines) and the race detector
+      # adds ~5-10x overhead on Windows' slower synchronization primitives,
+      # causing it to exceed Go's default 10m per-package timeout.
+      - name: Run TUI tests (short)
+        if: matrix.test-mode == 'short'
+        shell: bash
+        run: |
+          gotestsum \
+            --format testdox \
+            --junitfile tui-test-results.xml \
+            --rerun-fails \
+            --rerun-fails-max-failures 3 \
+            --rerun-fails-report tui-rerun-report.txt \
+            --packages ./internal/tui \
+            -- -race -short -v -timeout 15m -coverprofile=tui-coverage.out
+
+      # Merge TUI coverage into main coverage profile (short mode only).
+      - name: Merge short-mode coverage profiles
+        if: matrix.test-mode == 'short'
+        shell: bash
+        run: |
+          if [ -f tui-coverage.out ]; then
+            tail -n +2 tui-coverage.out >> coverage.out
+          fi
 
       # Run CLI integration tests on Windows/macOS
       # CLI tests use testscript with inline CUE and virtual runtime for cross-platform support.
@@ -260,9 +288,11 @@ jobs:
           path: |
             test-results.xml
             runtime-test-results.xml
+            tui-test-results.xml
             cli-test-results.xml
             rerun-report.txt
             runtime-rerun-report.txt
+            tui-rerun-report.txt
             cli-rerun-report.txt
           if-no-files-found: ignore
           retention-days: 30
