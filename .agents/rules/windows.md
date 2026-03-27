@@ -229,3 +229,10 @@ go test -v -run TestCLI/native_simple ./tests/cli/...
 - [ ] Using `path.Join()` or string concat with `/` for joining
 - [ ] NOT using `filepath.IsAbs()` to check container paths
 - [ ] Tests skip or adapt for Windows where needed
+
+## Related Skills
+
+| Skill | When to Consult |
+|---|---|
+| `windows-testing` | Windows OS primitives that affect test behavior: process lifecycle, signal handling, timer resolution, file system pitfalls, race detector overhead |
+| `go-testing` | Cross-platform Go test toolchain: flags, execution model, race detector, coverage |

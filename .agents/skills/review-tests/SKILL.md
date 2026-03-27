@@ -177,6 +177,14 @@ For each checklist item:
 2. Apply the check criteria (consult `references/pattern-catalog.md` for detailed patterns)
 3. For semantic checks: assess whether the test exercises meaningful behavioral contracts
 4. Check `references/known-exceptions.md` — is a deviation intentional?
+
+### Platform-Specific Analysis
+
+For findings that may be platform-specific, consult the relevant platform skill:
+- Windows failures: `windows-testing` (process lifecycle, file system, timers)
+- macOS failures: `macos-testing` (APFS, kqueue, timer coalescing)
+- Linux/container failures: `linux-testing` (inotify, cgroups, container timeouts)
+- Cross-platform test toolchain: `go-testing` (race detector, flags, vet)
 5. Record status: PASS (with evidence), FAIL (generate finding), or N/A (with reason)
 
 ## Semantic Analysis (in addition to checklist)
@@ -234,6 +242,10 @@ Read these when working on the corresponding review surface:
 | Skill | When to Use |
 |---|---|
 | `/testing` | After review identifies issues — for writing new tests, fixing test patterns, setting up testscript |
+| `/go-testing` | For deep Go test toolchain knowledge — flags, race detector, vet analyzers, context/parallelism decision frameworks |
+| `/windows-testing` | When review surfaces Windows-specific failures — process lifecycle, file system, timer resolution |
+| `/macos-testing` | When review surfaces macOS-specific failures — APFS, kqueue, timer coalescing, /tmp symlink |
+| `/linux-testing` | When review surfaces Linux/container failures — inotify limits, container timeout strategy, cgroups |
 | `test-writer` agent | For generating new testscript virtual/native `.txtar` pairs |
 | `/native-mirror` | For creating native runtime mirrors from virtual tests |
 | `/tmux-testing` | For TUI e2e test development |

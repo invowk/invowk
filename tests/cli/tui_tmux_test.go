@@ -13,15 +13,17 @@ import (
 	"time"
 )
 
-// tmuxWaitTimeout is the default timeout for tmux waitFor polls.
-// 10s gives CI runners headroom under load (previously 5s caused flakes on ubuntu-24.04).
-const tmuxWaitTimeout = 10 * time.Second
+const (
+	// tmuxWaitTimeout is the default timeout for tmux waitFor polls.
+	// 10s gives CI runners headroom under load (previously 5s caused flakes on ubuntu-24.04).
+	tmuxWaitTimeout = 10 * time.Second
 
-// tuiInputSettleDelay is a small pause after waitFor succeeds and before
-// sendKeys. Tmux rendering is asynchronous — even after content is visible in
-// the pane, the TUI process may not yet be ready to accept input. This delay
-// is a pragmatic minimum; increasing it reduces flakiness on slow CI runners.
-const tuiInputSettleDelay = 50 * time.Millisecond
+	// tuiInputSettleDelay is a small pause after waitFor succeeds and before
+	// sendKeys. Tmux rendering is asynchronous — even after content is visible in
+	// the pane, the TUI process may not yet be ready to accept input. This delay
+	// is a pragmatic minimum; increasing it reduces flakiness on slow CI runners.
+	tuiInputSettleDelay = 50 * time.Millisecond
+)
 
 // tmuxSession wraps a tmux session for TUI testing.
 // Each test gets a unique session name to avoid conflicts in parallel execution.
