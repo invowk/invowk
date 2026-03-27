@@ -170,7 +170,7 @@ jobs:
             --rerun-fails-max-failures 5 \
             --rerun-fails-report runtime-rerun-report.txt \
             --packages ./internal/runtime \
-            -- -race -timeout 15m
+            -- -race -timeout 15m -coverprofile=runtime-coverage.out
 
       - name: Run CLI integration tests (full)
         if: matrix.test-mode == 'full'

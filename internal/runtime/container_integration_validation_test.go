@@ -104,6 +104,10 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	sem := testutil.ContainerSemaphore()
+	sem <- struct{}{}
+	defer func() { <-sem }()
+
 	_, inv := setupTestInvowkfile(t)
 
 	cmd := &invowkfile.Command{

@@ -16,6 +16,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	// errWatchDryRunConflict is returned when --ivk-watch and --ivk-dry-run are both set.
+	errWatchDryRunConflict = errors.New("--ivk-watch and --ivk-dry-run cannot be used together")
+	// errInvalidWatchDebounce is returned when the watch debounce duration cannot be parsed.
+	errInvalidWatchDebounce = errors.New("invalid watch debounce")
+)
+
+// WatchCommandNotFoundError is returned when the specified command is not found during watch mode setup.
+type WatchCommandNotFoundError struct {
+	Name string
+}
+
+// Error implements the error interface.
+func (e *WatchCommandNotFoundError) Error() string {
+	return fmt.Sprintf("command '%s' not found", e.Name)
+}
+
 // runWatchMode sets up file watching and re-executes the command on file changes.
 // It discovers the command to get its WatchConfig, executes it once immediately,
 // then starts the watcher loop. The watcher blocks until the context is cancelled
@@ -28,7 +45,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// Dry-run and watch mode are mutually exclusive: watch mode re-executes
 	// on file changes, while dry-run prevents execution entirely.
 	if cmdFlags.dryRun {
-		return errors.New("--ivk-watch and --ivk-dry-run cannot be used together")
+		return errWatchDryRunConflict
 	}
 
 	// Check for ambiguous commands before proceeding, consistent with normal execution.
@@ -44,7 +61,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		return err
 	}
 	if result.Command == nil {
-		return fmt.Errorf("command '%s' not found", args[0])
+		return &WatchCommandNotFoundError{Name: args[0]}
 	}
 
 	cmdInfo := result.Command
@@ -62,7 +79,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		if watchCfg.Debounce != "" {
 			d, parseErr := watchCfg.ParseDebounce()
 			if parseErr != nil {
-				return fmt.Errorf("invalid watch debounce: %w", parseErr)
+				return fmt.Errorf("%w: %w", errInvalidWatchDebounce, parseErr)
 			}
 			debounce = d
 		}

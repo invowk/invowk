@@ -65,8 +65,8 @@ func TestRunWatchMode_DryRunConflict(t *testing.T) {
 		&cmdFlagValues{dryRun: true},
 		[]string{"build"},
 	)
-	if err == nil || !strings.Contains(err.Error(), "--ivk-watch and --ivk-dry-run cannot be used together") {
-		t.Fatalf("error = %v, want dry-run conflict", err)
+	if !errors.Is(err, errWatchDryRunConflict) {
+		t.Fatalf("error = %v, want errWatchDryRunConflict", err)
 	}
 }
 
@@ -84,8 +84,12 @@ func TestRunWatchMode_CommandNotFound(t *testing.T) {
 		&cmdFlagValues{},
 		[]string{"nonexistent"},
 	)
-	if err == nil || !strings.Contains(err.Error(), "command 'nonexistent' not found") {
-		t.Fatalf("error = %v, want command not found", err)
+	var cmdNotFound *WatchCommandNotFoundError
+	if !errors.As(err, &cmdNotFound) {
+		t.Fatalf("error = %v (%T), want *WatchCommandNotFoundError", err, err)
+	}
+	if cmdNotFound.Name != "nonexistent" {
+		t.Fatalf("WatchCommandNotFoundError.Name = %q, want %q", cmdNotFound.Name, "nonexistent")
 	}
 }
 
@@ -141,8 +145,8 @@ func TestRunWatchMode_InvalidDebounce(t *testing.T) {
 		&cmdFlagValues{},
 		[]string{"build"},
 	)
-	if err == nil || !strings.Contains(err.Error(), "invalid watch debounce") {
-		t.Fatalf("error = %v, want invalid debounce error", err)
+	if !errors.Is(err, errInvalidWatchDebounce) {
+		t.Fatalf("error = %v, want errInvalidWatchDebounce", err)
 	}
 }
 

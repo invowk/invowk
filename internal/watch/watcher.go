@@ -44,6 +44,9 @@ var (
 
 	// ErrInvalidWatchConfig is the sentinel error wrapped by InvalidWatchConfigError.
 	ErrInvalidWatchConfig = errors.New("invalid watch config")
+
+	// ErrRunCalledMoreThanOnce is returned when Watcher.Run is called a second time.
+	ErrRunCalledMoreThanOnce = errors.New("watch: Run called more than once")
 )
 
 type (
@@ -255,7 +258,7 @@ func (w *Watcher) Close() error {
 // called exactly once; a second call returns an error immediately.
 func (w *Watcher) Run(ctx context.Context) error {
 	if !w.started.CompareAndSwap(false, true) {
-		return errors.New("watch: Run called more than once")
+		return ErrRunCalledMoreThanOnce
 	}
 	// Mark as closed so a subsequent Close() is a no-op — Run owns
 	// the fsnotify lifecycle from this point via its defer block.

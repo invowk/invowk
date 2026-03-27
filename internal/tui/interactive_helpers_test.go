@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/internal/tuiserver"
@@ -154,13 +155,14 @@ func TestConvertToProtocolResult(t *testing.T) {
 
 	t.Run("file with string", func(t *testing.T) {
 		t.Parallel()
-		result := convertToProtocolResult(ComponentTypeFile, "/tmp/test.txt")
+		filePath := filepath.Join(t.TempDir(), "test.txt")
+		result := convertToProtocolResult(ComponentTypeFile, filePath)
 		fr, ok := result.(tuiserver.FileResult)
 		if !ok {
 			t.Fatalf("result type = %T, want tuiserver.FileResult", result)
 		}
-		if fr.Path != "/tmp/test.txt" {
-			t.Errorf("Path = %q, want %q", fr.Path, "/tmp/test.txt")
+		if fr.Path != filePath {
+			t.Errorf("Path = %q, want %q", fr.Path, filePath)
 		}
 	})
 

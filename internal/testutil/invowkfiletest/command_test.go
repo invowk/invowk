@@ -3,6 +3,7 @@
 package invowkfiletest
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -174,10 +175,11 @@ func TestNewTestCommand_WithEnv(t *testing.T) {
 func TestNewTestCommand_WithWorkDir(t *testing.T) {
 	t.Parallel()
 
-	cmd := NewTestCommand("test", WithWorkDir("/tmp/work"))
+	workDir := filepath.Join(t.TempDir(), "work")
+	cmd := NewTestCommand("test", WithWorkDir(workDir))
 
-	if cmd.WorkDir != "/tmp/work" {
-		t.Errorf("WorkDir = %q, want %q", cmd.WorkDir, "/tmp/work")
+	if cmd.WorkDir != invowkfile.WorkDir(workDir) {
+		t.Errorf("WorkDir = %q, want %q", cmd.WorkDir, workDir)
 	}
 }
 
@@ -244,6 +246,7 @@ func TestNewTestCommand_WithMultipleFlags(t *testing.T) {
 func TestNewTestCommand_WithArg(t *testing.T) {
 	t.Parallel()
 
+	destDefault := t.TempDir()
 	cmd := NewTestCommand("copy",
 		WithArg("source",
 			ArgRequired(),
@@ -252,7 +255,7 @@ func TestNewTestCommand_WithArg(t *testing.T) {
 			ArgValidation("^[a-z]+$"),
 		),
 		WithArg("dest",
-			ArgDefault("/tmp"),
+			ArgDefault(destDefault),
 			ArgDescription("Destination"),
 		))
 
@@ -281,8 +284,8 @@ func TestNewTestCommand_WithArg(t *testing.T) {
 	if arg1.Name != "dest" {
 		t.Errorf("Args[1].Name = %q, want %q", arg1.Name, "dest")
 	}
-	if arg1.DefaultValue != "/tmp" {
-		t.Errorf("Args[1].DefaultValue = %q, want %q", arg1.DefaultValue, "/tmp")
+	if arg1.DefaultValue != destDefault {
+		t.Errorf("Args[1].DefaultValue = %q, want %q", arg1.DefaultValue, destDefault)
 	}
 }
 
