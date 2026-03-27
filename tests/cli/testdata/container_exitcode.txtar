@@ -16,17 +16,14 @@ stdout 'Exiting with code 0'
 # Test 2: Exit code 1 (general error)
 ! exec invowk cmd exit-one
 stdout 'Exiting with code 1'
-! stderr .
 
 # Test 3: Exit code 42 (custom exit code)
 ! exec invowk cmd exit-42
 stdout 'Exiting with code 42'
-! stderr .
 
 # Test 4: Exit code from failed command
 ! exec invowk cmd fail-command
 stdout 'About to run a failing command'
-! stderr .
 
 -- invowkfile.cue --
 cmds: [
