@@ -14,6 +14,8 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestCommand_CanRunOnCurrentHost(t *testing.T) {
+	t.Parallel()
+
 	currentOS := invowkfile.CurrentPlatform()
 
 	tests := []struct {
@@ -63,6 +65,7 @@ func TestCommand_CanRunOnCurrentHost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := tt.cmd.CanRunOnCurrentHost()
 			if result != tt.expected {
 				t.Errorf("CanRunOnCurrentHost() = %v, want %v", result, tt.expected)
@@ -72,6 +75,8 @@ func TestCommand_CanRunOnCurrentHost(t *testing.T) {
 }
 
 func TestCommand_GetPlatformsString(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		cmd      *invowkfile.Command
@@ -119,6 +124,7 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := tt.cmd.GetPlatformsString()
 			if result != tt.expected {
 				t.Errorf("GetPlatformsString() = %q, want %q", result, tt.expected)
@@ -128,6 +134,8 @@ func TestCommand_GetPlatformsString(t *testing.T) {
 }
 
 func TestCurrentPlatform(t *testing.T) {
+	t.Parallel()
+
 	// Just verify it returns one of the expected values
 	currentOS := invowkfile.CurrentPlatform()
 	validOSes := map[invowkfile.PlatformType]bool{
@@ -142,6 +150,8 @@ func TestCurrentPlatform(t *testing.T) {
 }
 
 func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
+	t.Parallel()
+
 	currentPlatform := invowkfile.CurrentPlatform()
 
 	tests := []struct {
@@ -181,6 +191,7 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := tt.cmd.GetDefaultRuntimeForPlatform(currentPlatform)
 			if result != tt.expected {
 				t.Errorf("GetDefaultRuntimeForPlatform() = %v, want %v", result, tt.expected)
@@ -190,6 +201,8 @@ func TestCommand_GetDefaultRuntimeForPlatform(t *testing.T) {
 }
 
 func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
+	t.Parallel()
+
 	currentPlatform := invowkfile.CurrentPlatform()
 
 	cmd := &invowkfile.Command{
@@ -210,6 +223,7 @@ func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(string(tt.runtime), func(t *testing.T) {
+			t.Parallel()
 			result := cmd.IsRuntimeAllowedForPlatform(currentPlatform, tt.runtime)
 			if result != tt.expected {
 				t.Errorf("IsRuntimeAllowedForPlatform(%v) = %v, want %v", tt.runtime, result, tt.expected)
@@ -219,6 +233,8 @@ func TestCommand_IsRuntimeAllowedForPlatform(t *testing.T) {
 }
 
 func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
+	t.Parallel()
+
 	currentPlatform := invowkfile.CurrentPlatform()
 
 	tests := []struct {
@@ -258,6 +274,7 @@ func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := tt.cmd.GetRuntimesStringForPlatform(currentPlatform)
 			if result != tt.expected {
 				t.Errorf("GetRuntimesStringForPlatform() = %q, want %q", result, tt.expected)
@@ -267,6 +284,8 @@ func TestCommand_GetRuntimesStringForPlatform(t *testing.T) {
 }
 
 func TestRenderRuntimeNotAllowedError(t *testing.T) {
+	t.Parallel()
+
 	output := RenderRuntimeNotAllowedError("build", "container", "native, virtual")
 
 	if !strings.Contains(output, "Runtime not allowed") {

@@ -37,11 +37,7 @@ cmds: [
 ]
 `
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
@@ -103,11 +99,7 @@ cmds: [
 ]
 `
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
@@ -166,11 +158,7 @@ cmds: [
 ]
 `
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
@@ -389,11 +377,7 @@ cmds: [
 	}
 ]
 `
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
@@ -731,11 +715,7 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 	}
 
 	// Verify the generated CUE is parseable
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	if writeErr := os.WriteFile(invowkfilePath, []byte(result), 0o644); writeErr != nil {

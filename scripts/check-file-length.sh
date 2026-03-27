@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # Enforces a 1000-line limit on all Go source files (production and test).
-# Warns at 800 lines. Exempts testdata/ and vendor/ directories.
+# Warns at 950 lines. Exempts testdata/ and vendor/ directories.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 LIMIT=1000
-WARN_AT=800
+WARN_AT=900
 errors=0
 warnings=0
 

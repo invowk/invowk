@@ -53,6 +53,11 @@ cmds: [
 				runtimes:  [{name: "native"}]
 				platforms: [{name: "linux"}, {name: "macos"}]
 			},
+			{
+				script:    "Write-Output 'RUNTIME=native'"
+				runtimes:  [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
 		]
 	},
 	{

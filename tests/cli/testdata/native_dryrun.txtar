@@ -15,6 +15,7 @@ stdout 'Script:'
 # Test 2: Dry-run shows timeout when set
 exec invowk cmd slow --ivk-dry-run
 stdout 'Timeout:.*30s'
+stdout 'Script:'
 
 # Test 3: Dry-run shows environment variables
 exec invowk cmd hello --ivk-dry-run

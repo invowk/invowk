@@ -4,6 +4,7 @@ package tui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -431,5 +432,47 @@ func TestInputBuilder_DefaultValues(t *testing.T) {
 	// Password should default to false
 	if builder.opts.Password {
 		t.Error("expected password to default to false")
+	}
+}
+
+// TestInputModel_UnicodeAndLongInputs is a crash-guard test: Init() and View()
+// must not panic when the initial value contains non-ASCII or long content.
+func TestInputModel_UnicodeAndLongInputs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "CJK characters", value: "你好世界"},
+		{name: "emoji", value: "Hello 🌍🚀✨"},
+		{name: "combining marks", value: "e\u0301 a\u0300 u\u0308"},
+		{name: "mixed-width", value: "ABCｄｅｆ全角半角"},
+		{name: "RTL characters", value: "مرحبا بالعالم"},
+		{name: "very long input", value: strings.Repeat("a", 1000)},
+		{name: "long unicode", value: strings.Repeat("日", 500)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			opts := InputOptions{
+				Title:  "Test",
+				Value:  tt.value,
+				Config: DefaultConfig(),
+			}
+
+			model := NewInputModel(opts)
+			if model == nil {
+				t.Fatal("expected non-nil model")
+			}
+
+			_ = model.Init()
+			view := model.View().Content
+			if view == "" {
+				t.Error("expected non-empty view")
+			}
+		})
 	}
 }

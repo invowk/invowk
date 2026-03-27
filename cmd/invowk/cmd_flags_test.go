@@ -38,6 +38,8 @@ func TestCaptureUserEnv(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFlagNameToEnvVar(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    invowkfile.FlagName
@@ -87,6 +89,7 @@ func TestFlagNameToEnvVar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := invowkfile.FlagNameToEnvVar(tt.input)
 			if result != tt.expected {
 				t.Errorf("invowkfile.FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)
@@ -96,6 +99,8 @@ func TestFlagNameToEnvVar(t *testing.T) {
 }
 
 func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
+	t.Parallel()
+
 	// This test verifies that flag values are correctly converted to environment variables
 	// We'll test the FlagNameToEnvVar conversion more extensively since
 	// the actual runCommandWithFlags requires a full invowkfile setup
@@ -123,6 +128,8 @@ func TestRunCommandWithFlags_FlagsInjectedAsEnvVars(t *testing.T) {
 }
 
 func TestFlagNameToEnvVar_EdgeCases(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    invowkfile.FlagName
@@ -152,6 +159,7 @@ func TestFlagNameToEnvVar_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := invowkfile.FlagNameToEnvVar(tt.input)
 			if result != tt.expected {
 				t.Errorf("invowkfile.FlagNameToEnvVar(%q) = %q, want %q", tt.input, result, tt.expected)

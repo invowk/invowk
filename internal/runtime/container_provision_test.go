@@ -18,6 +18,8 @@ import (
 
 // TestContainerRuntime_SetProvisionConfig tests updating provision config.
 func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt, err := NewContainerRuntimeWithEngine(engine)
 	if err != nil {
@@ -46,6 +48,8 @@ func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
 
 // TestContainerRuntime_SetProvisionConfig_Nil tests that nil config is handled.
 func TestContainerRuntime_SetProvisionConfig_Nil(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt, err := NewContainerRuntimeWithEngine(engine)
 	if err != nil {
@@ -66,6 +70,8 @@ func TestContainerRuntime_SetProvisionConfig_Nil(t *testing.T) {
 
 // TestContainerRuntime_SupportsInteractive tests that container runtime supports interactive mode.
 func TestContainerRuntime_SupportsInteractive(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt, err := NewContainerRuntimeWithEngine(engine)
 	if err != nil {
@@ -79,6 +85,8 @@ func TestContainerRuntime_SupportsInteractive(t *testing.T) {
 
 // TestDefaultProvisionConfig_Defaults tests the default provisioning configuration values.
 func TestDefaultProvisionConfig_Defaults(t *testing.T) {
+	t.Parallel()
+
 	cfg := provision.DefaultConfig()
 
 	if cfg == nil {
@@ -99,6 +107,8 @@ func TestDefaultProvisionConfig_Defaults(t *testing.T) {
 
 // TestContainerRuntime_generateImageTag tests the image tag generation.
 func TestContainerRuntime_generateImageTag(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt, err := NewContainerRuntimeWithEngine(engine)
 	if err != nil {

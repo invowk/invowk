@@ -10,11 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 func TestNativeRuntime_InterpreterShebangDetection(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -24,11 +25,7 @@ func TestNativeRuntime_InterpreterShebangDetection(t *testing.T) {
 		t.Skip("python3 not available, skipping test")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -60,6 +57,8 @@ print("Hello from Python")`
 }
 
 func TestNativeRuntime_ExplicitInterpreter(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -69,11 +68,7 @@ func TestNativeRuntime_ExplicitInterpreter(t *testing.T) {
 		t.Skip("python3 not available, skipping test")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -105,6 +100,8 @@ print(f"Python version: {sys.version_info.major}.{sys.version_info.minor}")`
 }
 
 func TestNativeRuntime_InterpreterWithArgs(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -114,11 +111,7 @@ func TestNativeRuntime_InterpreterWithArgs(t *testing.T) {
 		t.Skip("python3 not available, skipping test")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -152,6 +145,8 @@ print(f"arg1={sys.argv[1] if len(sys.argv) > 1 else 'none'}")`
 }
 
 func TestNativeRuntime_InterpreterScriptFile(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -161,11 +156,7 @@ func TestNativeRuntime_InterpreterScriptFile(t *testing.T) {
 		t.Skip("python3 not available, skipping test")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	// Create a Python script file
 	scriptContent := `#!/usr/bin/env python3
@@ -202,15 +193,13 @@ print("Hello from Python file")
 }
 
 func TestNativeRuntime_InterpreterNotFound(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -242,6 +231,8 @@ func TestNativeRuntime_InterpreterNotFound(t *testing.T) {
 }
 
 func TestNativeRuntime_InterpreterCapture(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -251,11 +242,7 @@ func TestNativeRuntime_InterpreterCapture(t *testing.T) {
 		t.Skip("python3 not available, skipping test")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -287,15 +274,13 @@ print("stderr output", file=sys.stderr)`
 }
 
 func TestNativeRuntime_PrepareCommand(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -353,6 +338,8 @@ func TestNativeRuntime_PrepareCommand(t *testing.T) {
 }
 
 func TestNativeRuntime_PrepareCommandWithInterpreter(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -362,11 +349,7 @@ func TestNativeRuntime_PrepareCommandWithInterpreter(t *testing.T) {
 		t.Skip("python3 not available, skipping test")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{

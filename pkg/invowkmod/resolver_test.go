@@ -14,6 +14,8 @@ import (
 )
 
 func TestModuleRefKey(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		req      ModuleRef
@@ -40,6 +42,8 @@ func TestModuleRefKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.req.Key()
 			if result != tt.expected {
 				t.Errorf("Key() = %q, want %q", result, tt.expected)
@@ -49,6 +53,8 @@ func TestModuleRefKey(t *testing.T) {
 }
 
 func TestModuleRefString(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		req      ModuleRef
@@ -84,6 +90,8 @@ func TestModuleRefString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := tt.req.String()
 			for _, c := range tt.contains {
 				if !strings.Contains(result, c) {
@@ -132,7 +140,11 @@ func TestGetDefaultCacheDir(t *testing.T) {
 }
 
 func TestNewResolver(t *testing.T) {
+	t.Parallel()
+
 	t.Run("with valid directories", func(t *testing.T) {
+		t.Parallel()
+
 		workDir := t.TempDir()
 		cacheDir := t.TempDir()
 
@@ -152,6 +164,8 @@ func TestNewResolver(t *testing.T) {
 	})
 
 	t.Run("with empty working dir", func(t *testing.T) {
+		t.Parallel()
+
 		cacheDir := t.TempDir()
 
 		mgr, err := NewResolver("", types.FilesystemPath(cacheDir))
@@ -165,6 +179,8 @@ func TestNewResolver(t *testing.T) {
 }
 
 func TestComputeNamespace(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		moduleName ModuleShortName
@@ -197,6 +213,8 @@ func TestComputeNamespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := computeNamespace(tt.moduleName, tt.version, tt.alias)
 			if result != tt.expected {
 				t.Errorf("computeNamespace() = %q, want %q", result, tt.expected)
@@ -206,6 +224,8 @@ func TestComputeNamespace(t *testing.T) {
 }
 
 func TestExtractModuleName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		key      ModuleRefKey
@@ -235,6 +255,8 @@ func TestExtractModuleName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := extractModuleName(tt.key)
 			if result != tt.expected {
 				t.Errorf("extractModuleName() = %q, want %q", result, tt.expected)
@@ -244,6 +266,8 @@ func TestExtractModuleName(t *testing.T) {
 }
 
 func TestExtractModuleFromInvowkmod(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		content  string
@@ -271,6 +295,8 @@ cmds: []`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := extractModuleFromInvowkmod(tt.content)
 			if result != tt.expected {
 				t.Errorf("extractModuleFromInvowkmod() = %q, want %q", result, tt.expected)
@@ -280,6 +306,8 @@ cmds: []`,
 }
 
 func TestCopyDir(t *testing.T) {
+	t.Parallel()
+
 	srcDir := t.TempDir()
 	dstDir := filepath.Join(t.TempDir(), "dest")
 

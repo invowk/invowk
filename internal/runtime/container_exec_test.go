@@ -5,6 +5,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -390,8 +391,8 @@ func TestRunWithRetry_ContextCancelled(t *testing.T) {
 	if err == nil {
 		t.Fatal("runWithRetry() should return error when context is cancelled")
 	}
-	if !strings.Contains(err.Error(), "context cancelled") {
-		t.Errorf("error should mention context cancellation, got: %v", err)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("error should wrap context.Canceled, got: %v", err)
 	}
 }
 

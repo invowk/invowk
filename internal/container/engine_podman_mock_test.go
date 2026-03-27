@@ -406,12 +406,12 @@ func TestPodmanEngine_RemoveImage_Arguments(t *testing.T) {
 func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 	t.Parallel()
 
-	recorder := NewMockCommandRecorder()
-	engine := newTestPodmanEngine(t, recorder)
-	ctx := t.Context()
-
 	t.Run("basic exec", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := t.Context()
 
 		result, err := engine.Exec(ctx, "container123", []string{"ls", "-la"}, RunOptions{})
 		if err != nil {
@@ -431,7 +431,11 @@ func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 	})
 
 	t.Run("with interactive and tty", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := t.Context()
 
 		_, err := engine.Exec(ctx, "container456", []string{"bash"}, RunOptions{
 			Interactive: true,
@@ -448,7 +452,11 @@ func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 	})
 
 	t.Run("with workdir and env", func(t *testing.T) {
-		recorder.Reset()
+		t.Parallel()
+
+		recorder := NewMockCommandRecorder()
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := t.Context()
 
 		_, err := engine.Exec(ctx, "container789", []string{"./build.sh"}, RunOptions{
 			WorkDir: "/app",
@@ -477,14 +485,14 @@ func TestPodmanEngine_Exec_Arguments(t *testing.T) {
 	t.Run("exit code capture", func(t *testing.T) {
 		t.Parallel()
 
-		// Use a fresh recorder with non-zero exit code
-		recorderWithExit := NewMockCommandRecorder()
-		recorderWithExit.Stderr = "command failed"
-		recorderWithExit.ExitCode = 42
-		engineWithExit := newTestPodmanEngine(t, recorderWithExit)
+		recorder := NewMockCommandRecorder()
+		recorder.Stderr = "command failed"
+		recorder.ExitCode = 42
+		engine := newTestPodmanEngine(t, recorder)
+		ctx := t.Context()
 
-		result, err := engineWithExit.Exec(ctx, "failing-container", []string{"false"}, RunOptions{})
-		// Exec returns nil error but captures exit code in result
+		// Exec() returns nil error for non-zero exit codes; exit code is in result.ExitCode.
+		result, err := engine.Exec(ctx, "failing-container", []string{"false"}, RunOptions{})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

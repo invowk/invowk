@@ -15,6 +15,8 @@ import (
 )
 
 func TestNativeRuntime_InlineScript(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -78,6 +80,8 @@ func TestNativeRuntime_InlineScriptSmoke(t *testing.T) {
 }
 
 func TestNativeRuntime_MultiLineScript(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -116,6 +120,8 @@ echo "Line 3"`
 }
 
 func TestNativeRuntime_ScriptFile(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -158,6 +164,8 @@ echo "Hello from script file"
 }
 
 func TestNativeRuntime_PositionalArgs(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -200,6 +208,8 @@ func TestNativeRuntime_PositionalArgs(t *testing.T) {
 }
 
 func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -236,6 +246,8 @@ func TestNativeRuntime_PositionalArgs_Empty(t *testing.T) {
 }
 
 func TestNativeRuntime_PositionalArgs_SpecialChars(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -413,6 +425,8 @@ echo "ARG1=${ARG1:-unset}"`
 }
 
 func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -461,6 +475,8 @@ func TestNativeRuntime_InvalidWorkingDirectory(t *testing.T) {
 }
 
 func TestNativeRuntime_ExitCode(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -486,6 +502,8 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd := testCommandWithScript("exit-test", tt.script, invowkfile.RuntimeNative)
 			rt := NewNativeRuntime()
 			ctx := NewExecutionContext(t.Context(), cmd, inv)
@@ -502,6 +520,8 @@ func TestNativeRuntime_ExitCode(t *testing.T) {
 
 // TestNativeRuntime_createTempScript tests temporary script file creation.
 func TestNativeRuntime_createTempScript(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping test that writes to filesystem in short mode")
 	}
@@ -548,6 +568,8 @@ func TestNativeRuntime_createTempScript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			path, err := rt.createTempScript(tt.content, tt.interpreter)
 			if err != nil {
 				t.Fatalf("createTempScript() error: %v", err)

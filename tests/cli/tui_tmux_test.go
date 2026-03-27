@@ -79,7 +79,7 @@ func requireTmux(t *testing.T) {
 	t.Helper()
 
 	if testing.Short() {
-		t.Skip("skipping TUI tmux test in short mode")
+		t.Skip("skipping integration test in short mode")
 	}
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not available")

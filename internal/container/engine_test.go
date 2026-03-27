@@ -282,7 +282,9 @@ func TestSELinuxLabel_String(t *testing.T) {
 }
 
 // Integration tests - only run if container engine is available
-func TestDockerEngine_Integration(t *testing.T) {
+func TestDockerEngine_Integration(t *testing.T) { //nolint:tparallel // subtests share engine state
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -327,7 +329,9 @@ func TestEngineType_String(t *testing.T) {
 	}
 }
 
-func TestPodmanEngine_Integration(t *testing.T) {
+func TestPodmanEngine_Integration(t *testing.T) { //nolint:tparallel // subtests share engine state
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}

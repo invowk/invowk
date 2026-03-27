@@ -142,6 +142,8 @@ func (m *MockEngine) BuildRunArgs(opts container.RunOptions) []string {
 
 // TestNewContainerRuntimeWithEngine tests the constructor with a mock engine.
 func TestNewContainerRuntimeWithEngine(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt, err := NewContainerRuntimeWithEngine(engine)
 	if err != nil {
@@ -161,6 +163,8 @@ func TestNewContainerRuntimeWithEngine(t *testing.T) {
 
 // TestContainerRuntime_Name tests that Name() returns "container".
 func TestContainerRuntime_Name(t *testing.T) {
+	t.Parallel()
+
 	engine := NewMockEngine()
 	rt, err := NewContainerRuntimeWithEngine(engine)
 	if err != nil {
@@ -174,6 +178,8 @@ func TestContainerRuntime_Name(t *testing.T) {
 
 // TestContainerRuntime_Available tests that Available() delegates to the engine.
 func TestContainerRuntime_Available(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name            string
 		engineAvailable bool
@@ -193,6 +199,8 @@ func TestContainerRuntime_Available(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			engine := NewMockEngine().WithAvailable(tt.engineAvailable)
 			rt, err := NewContainerRuntimeWithEngine(engine)
 			if err != nil {
@@ -208,6 +216,8 @@ func TestContainerRuntime_Available(t *testing.T) {
 
 // TestContainerRuntime_Available_NilEngine tests Available() with nil engine.
 func TestContainerRuntime_Available_NilEngine(t *testing.T) {
+	t.Parallel()
+
 	rt := &ContainerRuntime{engine: nil}
 
 	if got := rt.Available(); got != false {
@@ -217,6 +227,8 @@ func TestContainerRuntime_Available_NilEngine(t *testing.T) {
 
 // TestContainerRuntime_Validate_Unit tests the validation logic (unit tests without containers).
 func TestContainerRuntime_Validate_Unit(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
@@ -290,6 +302,8 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			engine := NewMockEngine()
 			rt, err := NewContainerRuntimeWithEngine(engine)
 			if err != nil {
@@ -321,6 +335,8 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 
 // TestContainerRuntime_Validate_WithContainerfile tests validation with Containerfile present.
 func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
@@ -358,6 +374,8 @@ func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
 
 // TestContainerRuntime_Validate_WithDockerfile tests validation with Dockerfile present.
 func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
@@ -395,6 +413,8 @@ func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
 
 // TestIsWindowsContainerImage tests detection of Windows container images.
 func TestIsWindowsContainerImage(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		image string
 		want  bool
@@ -421,6 +441,8 @@ func TestIsWindowsContainerImage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.image, func(t *testing.T) {
+			t.Parallel()
+
 			got := isWindowsContainerImage(tt.image)
 			if got != tt.want {
 				t.Errorf("isWindowsContainerImage(%q) = %v, want %v", tt.image, got, tt.want)
@@ -430,6 +452,8 @@ func TestIsWindowsContainerImage(t *testing.T) {
 }
 
 func TestIsAlpineContainerImage(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		image string
 		want  bool
@@ -456,6 +480,8 @@ func TestIsAlpineContainerImage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.image, func(t *testing.T) {
+			t.Parallel()
+
 			got := isAlpineContainerImage(tt.image)
 			if got != tt.want {
 				t.Errorf("isAlpineContainerImage(%q) = %v, want %v", tt.image, got, tt.want)
@@ -465,6 +491,8 @@ func TestIsAlpineContainerImage(t *testing.T) {
 }
 
 func TestValidateSupportedContainerImage(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		image    container.ImageTag
@@ -492,6 +520,8 @@ func TestValidateSupportedContainerImage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateSupportedContainerImage(tt.image)
 			if tt.wantErr {
 				if err == nil {
@@ -512,6 +542,8 @@ func TestValidateSupportedContainerImage(t *testing.T) {
 
 // TestGetContainerWorkDir tests the working directory resolution for containers.
 func TestGetContainerWorkDir(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	invowkDir := tmpDir
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
@@ -553,6 +585,8 @@ func TestGetContainerWorkDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd := &invowkfile.Command{
 				Name:    "workdir-test",
 				WorkDir: invowkfile.WorkDir(tt.cmdWorkDir),
@@ -588,7 +622,11 @@ func TestGetContainerWorkDir(t *testing.T) {
 
 // TestContainerConfigFromRuntime tests the helper that extracts container config.
 func TestContainerConfigFromRuntime(t *testing.T) {
+	t.Parallel()
+
 	t.Run("nil runtime config", func(t *testing.T) {
+		t.Parallel()
+
 		cfg := containerConfigFromRuntime(nil)
 		if cfg.Image != "" || cfg.Containerfile != "" {
 			t.Error("containerConfigFromRuntime(nil) should return empty config")
@@ -596,6 +634,8 @@ func TestContainerConfigFromRuntime(t *testing.T) {
 	})
 
 	t.Run("with all fields", func(t *testing.T) {
+		t.Parallel()
+
 		rtConfig := &invowkfile.RuntimeConfig{
 			Name:          invowkfile.RuntimeContainer,
 			Image:         "debian:stable-slim",

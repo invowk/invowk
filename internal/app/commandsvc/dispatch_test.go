@@ -53,7 +53,7 @@ func (s *stubRuntime) Validate(*runtimepkg.ExecutionContext) error { return s.va
 
 func (s *stubInteractiveRuntime) SupportsInteractive() bool { return s.supports }
 
-func (s *stubInteractiveRuntime) PrepareInteractive(*runtimepkg.ExecutionContext) (*runtimepkg.PreparedCommand, error) {
+func (s *stubInteractiveRuntime) PrepareInteractive(execCtx *runtimepkg.ExecutionContext) (*runtimepkg.PreparedCommand, error) {
 	if s.prepareErr != nil {
 		return nil, s.prepareErr
 	}
@@ -61,7 +61,7 @@ func (s *stubInteractiveRuntime) PrepareInteractive(*runtimepkg.ExecutionContext
 		return s.prepared, nil
 	}
 	shellPath, shellArgs := testutil.FixedShellCommand("exit 0")
-	return &runtimepkg.PreparedCommand{Cmd: exec.CommandContext(context.Background(), shellPath, shellArgs...)}, nil
+	return &runtimepkg.PreparedCommand{Cmd: exec.CommandContext(execCtx.Context, shellPath, shellArgs...)}, nil
 }
 
 func TestDispatchExecution_Success(t *testing.T) {

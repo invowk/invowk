@@ -3,7 +3,6 @@
 package provision
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -192,10 +191,9 @@ func TestWithTagSuffixOption(t *testing.T) {
 }
 
 func TestDefaultConfigReadsTagSuffixFromEnv(t *testing.T) {
-	// Set the environment variable
+	// t.Setenv modifies the process environment; this test must not be parallel.
 	const testSuffix = "env-test-suffix"
-	os.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
-	defer os.Unsetenv("INVOWK_PROVISION_TAG_SUFFIX")
+	t.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
 
 	cfg := DefaultConfig()
 

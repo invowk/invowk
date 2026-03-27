@@ -39,6 +39,8 @@ func testCommandWithInterpreter(name, script, interpreter string, runtime invowk
 }
 
 func TestRuntime_ScriptNotFound(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -49,6 +51,8 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	cmd := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeNative)
 
 	t.Run("native runtime", func(t *testing.T) {
+		t.Parallel()
+
 		rt := NewNativeRuntime()
 		ctx := NewExecutionContext(t.Context(), cmd, inv)
 		ctx.IO.Stdout = &bytes.Buffer{}
@@ -61,6 +65,8 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 	})
 
 	t.Run("virtual runtime", func(t *testing.T) {
+		t.Parallel()
+
 		cmdVirtual := testCommandWithScript("missing", "./nonexistent.sh", invowkfile.RuntimeVirtual)
 		rt := NewVirtualRuntime(false)
 		ctx := NewExecutionContext(t.Context(), cmdVirtual, inv)
@@ -76,6 +82,8 @@ func TestRuntime_ScriptNotFound(t *testing.T) {
 }
 
 func TestRuntime_EnvironmentVariables(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -124,6 +132,8 @@ func TestRuntime_EnvironmentVariables(t *testing.T) {
 }
 
 func TestFilterInvowkEnvVars(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		environ []string
@@ -188,6 +198,8 @@ func TestFilterInvowkEnvVars(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := FilterInvowkEnvVars(tt.environ)
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("FilterInvowkEnvVars() = %v, want %v", got, tt.want)
@@ -197,6 +209,8 @@ func TestFilterInvowkEnvVars(t *testing.T) {
 }
 
 func TestShouldFilterEnvVar(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		envVar string
 		want   bool
@@ -246,6 +260,8 @@ func TestShouldFilterEnvVar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.envVar, func(t *testing.T) {
+			t.Parallel()
+
 			got := shouldFilterEnvVar(tt.envVar)
 			if got != tt.want {
 				t.Errorf("shouldFilterEnvVar(%q) = %v, want %v", tt.envVar, got, tt.want)

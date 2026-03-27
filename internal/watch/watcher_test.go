@@ -88,7 +88,9 @@ func TestWatcherDebounce(t *testing.T) {
 		t.Fatal("timed out waiting for callback")
 	}
 
-	// Allow a brief settle for any additional spurious callbacks.
+	// Sleep: settle time to check negative condition (no spurious callbacks).
+	// The debounce window is shorter than this pause, so any extra callbacks
+	// would have fired by now. No channel-based alternative for "nothing happened."
 	time.Sleep(200 * time.Millisecond)
 
 	cancel()

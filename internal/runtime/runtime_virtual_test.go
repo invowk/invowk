@@ -17,11 +17,9 @@ import (
 )
 
 func TestVirtualRuntime_InlineScript(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -50,11 +48,9 @@ func TestVirtualRuntime_InlineScript(t *testing.T) {
 }
 
 func TestVirtualRuntime_MultiLineScript(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -87,11 +83,9 @@ echo "Done"`
 }
 
 func TestVirtualRuntime_ScriptFile(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	// Create a script file (using POSIX-compatible syntax for virtual shell)
 	scriptContent := `echo "Hello from virtual script file"
@@ -128,11 +122,9 @@ func TestVirtualRuntime_ScriptFile(t *testing.T) {
 }
 
 func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -146,18 +138,16 @@ func TestVirtualRuntime_Validate_ScriptSyntaxError(t *testing.T) {
 	rt := NewVirtualRuntime(false)
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
-	err = rt.Validate(ctx)
+	err := rt.Validate(ctx)
 	if err == nil {
 		t.Error("Validate() expected error for invalid syntax, got nil")
 	}
 }
 
 func TestVirtualRuntime_PositionalArgs(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -196,11 +186,9 @@ func TestVirtualRuntime_PositionalArgs(t *testing.T) {
 }
 
 func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -233,11 +221,9 @@ func TestVirtualRuntime_PositionalArgs_ArgCount(t *testing.T) {
 }
 
 func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -270,11 +256,7 @@ func TestVirtualRuntime_PositionalArgs_Empty(t *testing.T) {
 }
 
 func TestVirtualRuntime_EnvIsolation(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -328,11 +310,9 @@ echo "ARG1=${ARG1:-unset}"`
 }
 
 func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -348,7 +328,7 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
 	// Test Validate method
-	err = rt.Validate(ctx)
+	err := rt.Validate(ctx)
 	if err == nil {
 		t.Error("Validate() expected error for interpreter with virtual runtime")
 	}
@@ -371,11 +351,9 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 }
 
 func TestVirtualRuntime_ContextCancellation(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -412,11 +390,9 @@ func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 }
 
 func TestVirtualRuntime_ExitCode(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { testutil.MustRemoveAll(t, tmpDir) }()
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	inv := &invowkfile.Invowkfile{
@@ -437,6 +413,8 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd := testCommandWithScript("exit-test", tt.script, invowkfile.RuntimeVirtual)
 			rt := NewVirtualRuntime(false)
 			ctx := NewExecutionContext(t.Context(), cmd, inv)
@@ -458,6 +436,8 @@ func TestVirtualRuntime_ExitCode(t *testing.T) {
 
 // TestVirtualRuntime_Name tests the Name method.
 func TestVirtualRuntime_Name(t *testing.T) {
+	t.Parallel()
+
 	rt := NewVirtualRuntime(false)
 	if got := rt.Name(); got != "virtual" {
 		t.Errorf("Name() = %q, want %q", got, "virtual")
@@ -466,6 +446,8 @@ func TestVirtualRuntime_Name(t *testing.T) {
 
 // TestVirtualRuntime_Available tests the Available method.
 func TestVirtualRuntime_Available(t *testing.T) {
+	t.Parallel()
+
 	rt := NewVirtualRuntime(false)
 	if !rt.Available() {
 		t.Error("Available() = false, want true (virtual runtime is always available)")
@@ -474,6 +456,8 @@ func TestVirtualRuntime_Available(t *testing.T) {
 
 // TestVirtualRuntime_SupportsInteractive tests the SupportsInteractive method.
 func TestVirtualRuntime_SupportsInteractive(t *testing.T) {
+	t.Parallel()
+
 	rt := NewVirtualRuntime(false)
 	if !rt.SupportsInteractive() {
 		t.Error("SupportsInteractive() = false, want true")
@@ -482,6 +466,8 @@ func TestVirtualRuntime_SupportsInteractive(t *testing.T) {
 
 // TestVirtualRuntime_Validate_EmptyScript tests validation for an empty script.
 func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -506,6 +492,8 @@ func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
 
 // TestVirtualRuntime_Validate_NilImpl tests validation for nil implementation.
 func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -532,6 +520,8 @@ func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
 
 // TestExecutionContext_EffectiveWorkDir_Virtual tests working directory resolution via ExecutionContext.
 func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -582,6 +572,8 @@ func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if tt.skipOnWindows && goruntime.GOOS == "windows" {
 				t.Skip("skipping: Unix-style absolute paths are not meaningful on Windows")
 			}
@@ -617,6 +609,8 @@ func TestExecutionContext_EffectiveWorkDir_Virtual(t *testing.T) {
 
 // TestVirtualRuntime_NewVirtualRuntime tests constructor options.
 func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		enableUroot bool
@@ -636,6 +630,8 @@ func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			rt := NewVirtualRuntime(tt.enableUroot)
 			if rt.UrootUtilsEnabled() != tt.wantUroot {
 				t.Errorf("NewVirtualRuntime(%v).UrootUtilsEnabled() = %v, want %v",
@@ -649,6 +645,8 @@ func TestVirtualRuntime_NewVirtualRuntime(t *testing.T) {
 // starting with "-" or "--" are correctly passed as $1, $2, etc. and NOT interpreted
 // as shell options by interp.Params(). This exercises the "--" prefix guard in virtual.go.
 func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))}
 
@@ -665,6 +663,8 @@ func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			cmd := testCommandWithScript("dash-args", tt.script, invowkfile.RuntimeVirtual)
 			rt := NewVirtualRuntime(false)
 			ctx := NewExecutionContext(t.Context(), cmd, inv)
@@ -689,6 +689,8 @@ func TestVirtualRuntime_PositionalArgs_DashPrefix(t *testing.T) {
 // TestVirtualRuntime_ExecuteCapture tests that ExecuteCapture correctly captures
 // stdout and stderr into separate Result fields.
 func TestVirtualRuntime_ExecuteCapture(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
@@ -720,6 +722,8 @@ echo "captured stderr" >&2`
 // TestVirtualRuntime_MockEnvBuilder_Error tests that the virtual runtime correctly
 // propagates errors from the EnvBuilder during execution.
 func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
@@ -750,6 +754,8 @@ func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 // script terminates execution immediately when a command fails, and the exit code
 // is propagated correctly through the interp.ExitStatus error type.
 func TestVirtualRuntime_SetE_StopsOnError(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),

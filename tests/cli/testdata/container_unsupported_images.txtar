@@ -24,7 +24,7 @@ cmds: [
 			{
 				script: "echo unreachable"
 				runtimes: [{name: "container", image: "mcr.microsoft.com/windows/servercore:ltsc2022"}]
-				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -34,7 +34,7 @@ cmds: [
 			{
 				script: "echo unreachable"
 				runtimes: [{name: "container", image: "alpine:latest"}]
-				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}

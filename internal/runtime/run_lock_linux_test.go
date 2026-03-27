@@ -52,7 +52,9 @@ func TestAcquireRunLock_BlocksConcurrent(t *testing.T) {
 		lockB.Release()
 	}()
 
-	// Give goroutine B time to attempt the lock. It should be blocked.
+	// Sleep: goroutine B needs time to reach the blocking flock() call.
+	// No channel-based alternative exists because acquireRunLockAt blocks
+	// atomically — there is no "attempted but waiting" signal.
 	time.Sleep(100 * time.Millisecond)
 	if acquired.Load() {
 		t.Fatal("goroutine B acquired the lock while A still held it")

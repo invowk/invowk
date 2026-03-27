@@ -24,6 +24,8 @@ func (e *simpleError) Error() string {
 }
 
 func TestServerStartStop(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -92,6 +94,8 @@ func TestServerStartStop(t *testing.T) {
 }
 
 func TestServerDoubleStart(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -111,6 +115,8 @@ func TestServerDoubleStart(t *testing.T) {
 }
 
 func TestServerDoubleStop(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -133,6 +139,8 @@ func TestServerDoubleStop(t *testing.T) {
 }
 
 func TestStopWithoutStart(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -150,6 +158,8 @@ func TestStopWithoutStart(t *testing.T) {
 }
 
 func TestServerStartWithCancelledContext(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -172,6 +182,8 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 }
 
 func TestServerStateString(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		state    serverbase.State
 		expected string
@@ -193,6 +205,8 @@ func TestServerStateString(t *testing.T) {
 }
 
 func TestServerAuthentication(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -243,6 +257,8 @@ func TestServerAuthentication(t *testing.T) {
 }
 
 func TestServerMethodNotAllowed(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -271,6 +287,8 @@ func TestServerMethodNotAllowed(t *testing.T) {
 }
 
 func TestServerUnknownComponent(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -328,6 +346,8 @@ func TestServerUnknownComponent(t *testing.T) {
 }
 
 func TestServerInvalidJSON(t *testing.T) {
+	t.Parallel()
+
 	server, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -391,6 +411,8 @@ func TestClientFromEnv(t *testing.T) {
 }
 
 func TestClientIsAvailable(t *testing.T) {
+	t.Parallel()
+
 	// Test with nil client
 	var nilClient *Client
 	if nilClient.IsAvailable() {
@@ -422,6 +444,8 @@ func TestClientIsAvailable(t *testing.T) {
 }
 
 func TestIsUserCancelledError(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input    error
 		expected bool

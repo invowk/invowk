@@ -9,7 +9,7 @@ paths:
 
 ## Test File Size Limits
 
-**Test files MUST NOT exceed 800 lines.** Large monolithic test files are difficult to navigate and maintain. When a test file approaches this limit, split it by logical concern.
+**Test files MUST NOT exceed 1000 lines** (enforced by `make check-file-length`). Large monolithic test files are difficult to navigate and maintain. When a test file approaches this limit, split it by logical concern.
 
 **Naming convention for split files:** `<package>_<concern>_test.go` (e.g., `invowkfile_parsing_test.go`, `invowkfile_deps_test.go`). Each file should cover a single logical area.
 
@@ -542,7 +542,7 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Testscript condition silently ignored | `[windows]`, `[linux]`, `[darwin]` are built-in testscript conditions (via `imports.KnownOS`). Do NOT use `[GOOS:windows]` — it is NOT built-in and falls through to `commonCondition()`, which now returns an error for unknown conditions. The `commonCondition` fail-loud default catches typos immediately |
 | SHA hash mismatches in txtar on Windows | Git `core.autocrlf=true` converts `\n` → `\r\n` in txtar fixtures, changing checksums. The `.gitattributes` file forces `*.txtar text eol=lf` project-wide |
 | Issue templates contain stale guidance | `TestIssueTemplates_NoStaleGuidance` (`internal/issue/issue_test.go`) scans all embedded `.md` templates for stale tokens like `"invowk fix"` and `"apk add --no-cache"`. When updating issue templates, avoid Alpine-specific commands and deprecated CLI subcommands |
-| Duplicate `Test*` declarations after file split | When splitting test files to stay under 800 lines, delete moved functions from the source file and clean up orphaned imports. Run `go build` before `make test` to catch duplicates early. See go-patterns.md "File Splitting Protocol" |
+| Duplicate `Test*` declarations after file split | When splitting test files to stay under 1000 lines, delete moved functions from the source file and clean up orphaned imports. Run `go build` before `make test` to catch duplicates early. See go-patterns.md "File Splitting Protocol" |
 | New built-in command missing txtar test | `TestBuiltinCommandTxtarCoverage` (`cmd/invowk/coverage_test.go`) fails when a non-hidden, runnable, leaf built-in command has no txtar test. Add a `.txtar` file in `tests/cli/testdata/` with `exec invowk <command>` |
 | Removing shared test helper breaks other test files | In Go, all `_test.go` files in the same package share a namespace. Removing a helper (e.g., `containsString` from `dotenv_test.go`) that is also called by `container_test.go` or `env_test.go` causes compile errors. Always grep the ENTIRE package for the function name before deleting it |
 | Txtar workspace contamination from broken fixtures | ALL file entries in a `.txtar` archive are created under `$WORK`. If one test creates a broken fixture (e.g., `badmod.invowkmod/`) at `$WORK` root, other tests running `exec invowk validate` or `exec invowk cmd` at `$WORK` will pick up the broken files through discovery. Isolate tests that need a clean workspace into subdirectories (e.g., `cd $WORK/clean_workspace`) |

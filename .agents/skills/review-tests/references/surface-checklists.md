@@ -17,7 +17,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | ID | Check | File Scope | Severity |
 |---|---|---|---|
 | T1-C01 | All `*_test.go` files have `// SPDX-License-Identifier: MPL-2.0` as first line | All test files | ERROR |
-| T1-C02 | No test file exceeds 800 lines (project rule) | All test files | WARNING |
+| T1-C02 | No test file exceeds 900 lines (approaching 1000-line hard limit) | All test files | WARNING |
 | T1-C03 | No test file exceeds 1000 lines (hard limit from `check-file-length`) | All test files | ERROR |
 | T1-C04 | Split files follow `<package>_<concern>_test.go` naming convention | Files in packages with multiple `_test.go` files | INFO |
 | T1-C05 | Test file imports follow 3-group ordering (stdlib, external, internal) | All test files | INFO |

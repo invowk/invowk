@@ -18,7 +18,11 @@ import (
 
 // TestNativeRuntime_getShell tests shell detection.
 func TestNativeRuntime_getShell(t *testing.T) {
+	t.Parallel()
+
 	t.Run("uses custom shell when set", func(t *testing.T) {
+		t.Parallel()
+
 		rt := NewNativeRuntime(WithShell("/custom/shell"))
 		shell, err := rt.getShell()
 		if err != nil {
@@ -30,6 +34,8 @@ func TestNativeRuntime_getShell(t *testing.T) {
 	})
 
 	t.Run("uses default shell when not set", func(t *testing.T) {
+		t.Parallel()
+
 		rt := NewNativeRuntime()
 		shell, err := rt.getShell()
 		if err != nil {
@@ -238,6 +244,8 @@ func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
 // TestNativeRuntime_ExecuteCapture_Shell tests that ExecuteCapture correctly captures
 // stdout and stderr separately in shell mode.
 func TestNativeRuntime_ExecuteCapture_Shell(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -273,6 +281,8 @@ echo "captured stderr" >&2`
 // TestNativeRuntime_MockEnvBuilder_Error tests that the native runtime correctly
 // propagates errors from the EnvBuilder during shell execution.
 func TestNativeRuntime_MockEnvBuilder_Error(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -305,6 +315,8 @@ func TestNativeRuntime_MockEnvBuilder_Error(t *testing.T) {
 // TestNativeRuntime_MockEnvBuilder_CaptureError tests that ExecuteCapture correctly
 // propagates errors from the EnvBuilder.
 func TestNativeRuntime_MockEnvBuilder_CaptureError(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}

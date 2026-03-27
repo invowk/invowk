@@ -14,6 +14,8 @@ import (
 )
 
 func TestReadTableConfig(t *testing.T) {
+	t.Parallel()
+
 	cmd := newTUITableCommand()
 	if err := cmd.Flags().Set("file", "data.csv"); err != nil {
 		t.Fatalf("Set(file): %v", err)
@@ -60,6 +62,8 @@ func TestReadTableConfig(t *testing.T) {
 }
 
 func TestLoadTableRowsFromFileAndSplitHeaders(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	csvPath := filepath.Join(tmpDir, "data.csv")
 	if err := os.WriteFile(csvPath, []byte("name,age\nAlice,30\nBob,25\n"), 0o600); err != nil {
@@ -95,6 +99,8 @@ func TestLoadTableRowsFromFileAndSplitHeaders(t *testing.T) {
 }
 
 func TestLoadTableRowsFromStdin(t *testing.T) {
+	t.Parallel()
+
 	restore := withPipeStdin(t, "name|age\nAlice|30\nBob|25\n")
 	defer restore()
 
@@ -111,6 +117,8 @@ func TestLoadTableRowsFromStdin(t *testing.T) {
 }
 
 func TestRenderTUITableDirectWithNoRows(t *testing.T) {
+	t.Parallel()
+
 	idx, row, err := renderTUITableDirect(
 		tableConfig{separator: tableSeparator(",")},
 		[]string{"name", "age"},
@@ -128,6 +136,8 @@ func TestRenderTUITableDirectWithNoRows(t *testing.T) {
 }
 
 func TestRenderTUITableWithClient(t *testing.T) {
+	t.Parallel()
+
 	server, requests, asyncErrs := startTableTestServer(t, tuiserver.TableResult{
 		SelectedIndex: 1,
 		SelectedRow:   []string{"Bob", "25"},
@@ -214,6 +224,8 @@ func TestRunTuiTableSelectablePrintsSelectedRow(t *testing.T) {
 }
 
 func TestRunTuiTableNoData(t *testing.T) {
+	t.Parallel()
+
 	restore := withPipeStdin(t, "")
 	defer restore()
 

@@ -48,7 +48,7 @@ cmds: [
 					image: "debian:stable-slim"
 					enable_host_ssh: true
 				}]
-				platforms: [{name: "linux"}, {name: "macos"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	},
@@ -89,7 +89,7 @@ cmds: [
 					image: "debian:stable-slim"
 					enable_host_ssh: true
 				}]
-				platforms: [{name: "linux"}, {name: "macos"}]
+				platforms: [{name: "linux"}]
 			}
 		]
 	}

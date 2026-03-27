@@ -142,12 +142,9 @@ func TestResolveScript_Inline(t *testing.T) {
 }
 
 func TestResolveScript_FromFile(t *testing.T) {
-	// Create a temporary directory
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	// Create a test script file
 	scriptContent := "#!/bin/bash\necho 'Hello from script file!'"
@@ -160,6 +157,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	t.Run("resolve script from file", func(t *testing.T) {
+		t.Parallel()
+
 		s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScript(FilesystemPath(invowkfilePath))
 		if err != nil {
@@ -172,6 +171,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("resolve script with absolute path", func(t *testing.T) {
+		t.Parallel()
+
 		s := &Implementation{Script: ScriptContent(scriptPath), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		result, err := s.ResolveScript(FilesystemPath(invowkfilePath))
 		if err != nil {
@@ -184,6 +185,8 @@ func TestResolveScript_FromFile(t *testing.T) {
 	})
 
 	t.Run("error on missing script file", func(t *testing.T) {
+		t.Parallel()
+
 		s := &Implementation{Script: "./nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 		_, err := s.ResolveScript(FilesystemPath(invowkfilePath))
 		if err == nil {
