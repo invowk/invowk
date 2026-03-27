@@ -191,14 +191,14 @@ jobs:
         if: matrix.test-mode == 'short'
         shell: bash
         run: |
-          PACKAGES=$(go list ./... | grep -v 'github.com/invowk/invowk/internal/tui$' | tr '\n' ' ')
+          PACKAGES="$(go list ./... | tr -d '\r' | grep -v 'github.com/invowk/invowk/internal/tui$' | tr '\n' ' ')"
           gotestsum \
             --format testdox \
             --junitfile test-results.xml \
             --rerun-fails \
             --rerun-fails-max-failures 3 \
             --rerun-fails-report rerun-report.txt \
-            --packages $PACKAGES \
+            --packages "$PACKAGES" \
             -- -race -short -v -timeout 15m -coverprofile=coverage.out
 
       # Run TUI tests separately with a dedicated timeout.
