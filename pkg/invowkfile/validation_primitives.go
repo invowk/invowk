@@ -41,6 +41,10 @@ var (
 	// cmdDependencyNameRegex validates command dependency names.
 	// Command names must start with a letter, can include letters, digits, underscores, hyphens, and spaces.
 	cmdDependencyNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_ -]*$`)
+
+	// ErrNestedQuantifiers is returned when a regex pattern contains nested quantifiers
+	// that may cause catastrophic backtracking (ReDoS).
+	ErrNestedQuantifiers = errors.New("nested quantifiers")
 )
 
 // ValidateRegexPattern validates a user-provided regex pattern for safety and complexity.
@@ -101,7 +105,7 @@ func checkDangerousPatterns(pattern string) error {
 	// Simple heuristic: look for quantifier immediately after a group that contains a quantifier
 	nestedQuantifierPattern := regexp.MustCompile(`\([^)]*[+*][^)]*\)[+*?]|\([^)]*[+*][^)]*\)\{`)
 	if nestedQuantifierPattern.MatchString(pattern) {
-		return errors.New("regex pattern contains nested quantifiers which may cause performance issues")
+		return fmt.Errorf("%w: regex pattern may cause performance issues", ErrNestedQuantifiers)
 	}
 
 	// Check for repetition on alternation with overlapping patterns

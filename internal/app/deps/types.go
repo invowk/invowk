@@ -29,6 +29,10 @@ var (
 	// ErrInvalidDependencyMessage is the sentinel error wrapped by InvalidDependencyMessageError.
 	// The name follows the DDD Validate() pattern: Err + Invalid + <TypeName>.
 	ErrInvalidDependencyMessage = errors.New("invalid dependency message")
+
+	// ErrContainerRuntimeNotAvailable is returned when a container runtime is required
+	// but not registered in the runtime registry (e.g., no Docker/Podman available).
+	ErrContainerRuntimeNotAvailable = errors.New("container runtime not available")
 )
 
 type (

@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -697,8 +698,8 @@ func TestVendorModules_SameBasenameFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("VendorModules() should fail when two modules resolve to the same directory name")
 	}
-	if !strings.Contains(err.Error(), "vendor conflict") {
-		t.Errorf("error should mention 'vendor conflict', got: %v", err)
+	if !errors.Is(err, ErrVendorConflict) {
+		t.Errorf("error should wrap ErrVendorConflict, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "dep.invowkmod") {
 		t.Errorf("error should mention the conflicting directory name, got: %v", err)

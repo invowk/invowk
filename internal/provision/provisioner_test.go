@@ -67,12 +67,6 @@ func (m *mockEngine) RemoveImage(_ context.Context, _ container.ImageTag, _ bool
 	return nil
 }
 
-// Note: These tests use mock container engines exclusively. Real-container provision
-// integration tests are deferred pending container semaphore infrastructure in the
-// provision package. Container integration coverage is provided by internal/runtime
-// container tests and tests/cli container testscripts, which exercise the full
-// provisioning pipeline end-to-end.
-
 // --- Provision Tests ---
 
 func TestLayerProvisioner_Provision_Disabled(t *testing.T) {

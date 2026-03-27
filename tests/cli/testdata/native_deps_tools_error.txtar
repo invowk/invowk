@@ -5,12 +5,14 @@ cd $WORK
 
 # Test 1: Missing a single tool should produce error
 ! exec invowk cmd 'deps tool missing'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Missing Tools'
 stderr 'nonexistent-tool-xyz-99999'
 
 # Test 2: Missing one of multiple required tools should fail (only missing tool in error)
 ! exec invowk cmd 'deps tools partial-missing'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Missing Tools'
 stderr 'nonexistent-tool-abc-88888'

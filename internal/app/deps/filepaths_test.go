@@ -50,8 +50,8 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
 		}
 		err := CheckFilepathDependenciesInContainer(deps, runtimepkg.NewRegistry(), execCtx)
-		if err == nil || !strings.Contains(err.Error(), "container runtime not available for filepath validation") {
-			t.Fatalf("err = %v", err)
+		if err == nil || !errors.Is(err, ErrContainerRuntimeNotAvailable) {
+			t.Fatalf("err = %v, want wrapping ErrContainerRuntimeNotAvailable", err)
 		}
 	})
 

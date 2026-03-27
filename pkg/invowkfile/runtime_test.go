@@ -4,7 +4,6 @@ package invowkfile
 
 import (
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -113,8 +112,8 @@ func TestParseRuntimeMode(t *testing.T) {
 				t.Errorf("ParseRuntimeMode(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 			if tt.wantErr && err != nil {
-				if !strings.Contains(err.Error(), "native, virtual, container") {
-					t.Errorf("error message should list valid modes, got: %v", err)
+				if !errors.Is(err, ErrInvalidRuntimeMode) {
+					t.Errorf("error should wrap ErrInvalidRuntimeMode, got: %v", err)
 				}
 			}
 		})
@@ -263,8 +262,8 @@ func TestParseEnvInheritMode(t *testing.T) {
 				t.Errorf("ParseEnvInheritMode(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 			if tt.wantErr && err != nil {
-				if !strings.Contains(err.Error(), "none, allow, all") {
-					t.Errorf("error message should list valid modes, got: %v", err)
+				if !errors.Is(err, ErrInvalidEnvInheritMode) {
+					t.Errorf("error should wrap ErrInvalidEnvInheritMode, got: %v", err)
 				}
 			}
 		})

@@ -27,7 +27,7 @@ func CheckFilepathDependenciesInContainer(deps *invowkfile.DependsOn, registry *
 
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return errors.New("container runtime not available for filepath validation")
+		return fmt.Errorf("%w for filepath validation", ErrContainerRuntimeNotAvailable)
 	}
 
 	var filepathErrors []DependencyMessage

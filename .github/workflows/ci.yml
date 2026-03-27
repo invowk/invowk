@@ -192,9 +192,6 @@ jobs:
           gotestsum \
             --format testdox \
             --junitfile cli-test-results.xml \
-            --rerun-fails \
-            --rerun-fails-max-failures 3 \
-            --rerun-fails-report cli-rerun-report.txt \
             --packages ./tests/cli/... \
             -- -race -timeout 10m
 
@@ -253,9 +250,6 @@ jobs:
           gotestsum \
             --format testdox \
             --junitfile cli-test-results.xml \
-            --rerun-fails \
-            --rerun-fails-max-failures 3 \
-            --rerun-fails-report cli-rerun-report.txt \
             --packages ./tests/cli/... \
             -- -race -timeout 5m
 

@@ -104,9 +104,7 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	sem := testutil.ContainerSemaphore()
-	sem <- struct{}{}
-	defer func() { <-sem }()
+	testutil.AcquireContainerSemaphore(t)
 
 	_, inv := setupTestInvowkfile(t)
 
@@ -154,9 +152,7 @@ func TestContainerRuntime_BuildFromContainerfile(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	sem := testutil.ContainerSemaphore()
-	sem <- struct{}{}
-	defer func() { <-sem }()
+	testutil.AcquireContainerSemaphore(t)
 
 	tmpDir, inv := setupTestInvowkfile(t)
 

@@ -62,6 +62,21 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 |---|---|---|
 | `TestCLI` in `tests/cli/cli_test.go` | Runs in short mode (`testing.Short()` not checked for gating) | Individual txtar tests handle their own skipping via built-in testscript conditions (`[windows]`, `[!container-available]`, etc.). The TestCLI harness intentionally does not gate on short mode because per-test conditions provide finer-grained control than a blanket integration skip |
 
+### TUI Test Coverage Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `internal/tui/choose_builders.go` | No dedicated `choose_builders_test.go` | All 29 exported methods are fully covered by `choose_test.go` (`TestChooseBuilder_FluentAPI`, `TestMultiChooseBuilder_FluentAPI`, `TestChooseStringBuilder_FluentAPI`, etc.) |
+| `internal/tui/list_styles.go` | No dedicated `list_styles_test.go` | Both functions are unexported; tested indirectly via choose/filter model tests. Direct tests would be circular (asserting color hex == same hex) |
+| `internal/tui/theme_colors.go` | No dedicated `theme_colors_test.go` | All 4 symbols are unexported constants; tested indirectly via `modalBaseStyle()` in `embeddable_test.go`. Direct tests would be trivially circular |
+| `internal/tui/interactive_unix.go`, `interactive_windows.go` | No test files | Thin syscall wrappers (`unix.IoctlGetWinsize` / Windows API); impractical to unit test without mocking the terminal |
+
+### CI Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| Windows TUI tests in `ci.yml` | No `-race` flag | 288 TUI tests with race detector cause excessive memory and timeouts on Windows CI runners. TUI is race-checked on Linux (full mode) and macOS (short mode), limiting the gap to Windows-specific race conditions in TUI code only |
+
 ### Platform Skip Exceptions
 
 | Location | What Is Different | Rationale |

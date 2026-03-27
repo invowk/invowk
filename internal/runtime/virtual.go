@@ -94,10 +94,10 @@ func (r *VirtualRuntime) Available() bool {
 // Validate checks if a command can be executed
 func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
-		return errors.New("no script selected for execution")
+		return errVirtualNoImpl
 	}
 	if ctx.SelectedImpl.Script == "" {
-		return errors.New("script has no content to execute")
+		return errVirtualNoScript
 	}
 
 	// Check if interpreter is configured (not allowed for virtual runtime)

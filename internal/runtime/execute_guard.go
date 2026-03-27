@@ -14,12 +14,14 @@ const (
 )
 
 var (
-	errNativeNoImpl      = errors.New(nativeNoImplErrMsg)
-	errNativeNoScript    = errors.New(nativeNoScriptErrMsg)
-	errVirtualNoImpl     = errors.New(virtualNoImplErrMsg)
-	errVirtualNoScript   = errors.New(virtualNoScriptErrMsg)
-	errContainerNoImpl   = errors.New(containerNoImplErrMsg)
-	errContainerNoScript = errors.New(containerNoScriptErrMsg)
+	errNilExecutionContext = errors.New("execution context is required")
+	errNoInvowkfile        = errors.New("execution context has no invowkfile")
+	errNativeNoImpl        = errors.New(nativeNoImplErrMsg)
+	errNativeNoScript      = errors.New(nativeNoScriptErrMsg)
+	errVirtualNoImpl       = errors.New(virtualNoImplErrMsg)
+	errVirtualNoScript     = errors.New(virtualNoScriptErrMsg)
+	errContainerNoImpl     = errors.New(containerNoImplErrMsg)
+	errContainerNoScript   = errors.New(containerNoScriptErrMsg)
 )
 
 // validateExecutionContextForRun performs lightweight precondition checks shared by
@@ -27,10 +29,10 @@ var (
 // invalid contexts in tests or benchmarks and returns actionable errors instead.
 func validateExecutionContextForRun(ctx *ExecutionContext, noImplErr, noScriptErr error) error {
 	if ctx == nil {
-		return errors.New("execution context is required")
+		return errNilExecutionContext
 	}
 	if ctx.Invowkfile == nil {
-		return errors.New("execution context has no invowkfile")
+		return errNoInvowkfile
 	}
 	if ctx.SelectedImpl == nil {
 		return noImplErr

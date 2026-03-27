@@ -5,6 +5,7 @@ package testutil
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -133,4 +134,36 @@ func DeferStop(t testing.TB, s Stopper) func() {
 			t.Logf("warning: stop returned error: %v", err)
 		}
 	}
+}
+
+// ContainerSafeTempDir creates a temporary directory under ~/invowk-test/ that
+// is accessible to Docker installed via Snap. Docker Snap cannot access /tmp or
+// hidden directories due to its home interface limitations. The per-test subdirectory
+// is cleaned up via t.Cleanup; the parent ~/invowk-test/ is removed (non-recursively)
+// when empty.
+func ContainerSafeTempDir(t testing.TB, prefix string) string {
+	t.Helper()
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("Failed to get home directory: %v", err)
+	}
+
+	baseTmpDir := filepath.Join(homeDir, "invowk-test")
+	if mkdirErr := os.MkdirAll(baseTmpDir, 0o755); mkdirErr != nil {
+		t.Fatalf("Failed to create base temp dir: %v", mkdirErr)
+	}
+
+	tmpDir, err := os.MkdirTemp(baseTmpDir, prefix+"-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+
+	t.Cleanup(func() {
+		MustRemoveAll(t, tmpDir)
+		// Remove parent when empty (best-effort, fails silently if other tests still use it)
+		_ = os.Remove(baseTmpDir)
+	})
+
+	return tmpDir
 }

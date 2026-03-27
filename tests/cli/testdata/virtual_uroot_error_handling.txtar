@@ -5,14 +5,17 @@ cd $WORK
 
 # Test 1: seq with missing operand should fail
 ! exec invowk cmd 'uroot seq error'
+! stdout .
 stderr '\[uroot\] seq:'
 
 # Test 2: ln with missing file operand should fail
 ! exec invowk cmd 'uroot ln error'
+! stdout .
 stderr '\[uroot\] ln:'
 
 # Test 3: seq with invalid number should fail
 ! exec invowk cmd 'uroot seq invalid'
+! stdout .
 stderr '\[uroot\] seq:'
 stderr 'invalid floating point argument'
 

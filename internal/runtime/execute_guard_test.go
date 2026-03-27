@@ -3,8 +3,8 @@
 package runtime
 
 import (
+	"errors"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -14,34 +14,34 @@ func TestValidateExecutionContextForRun(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		ctx          *ExecutionContext
-		noImplErr    error
-		noScriptErr  error
-		wantContains string
+		name        string
+		ctx         *ExecutionContext
+		noImplErr   error
+		noScriptErr error
+		wantErr     error
 	}{
 		{
-			name:         "nil context",
-			ctx:          nil,
-			noImplErr:    errNativeNoImpl,
-			noScriptErr:  errNativeNoScript,
-			wantContains: "execution context is required",
+			name:        "nil context",
+			ctx:         nil,
+			noImplErr:   errNativeNoImpl,
+			noScriptErr: errNativeNoScript,
+			wantErr:     errNilExecutionContext,
 		},
 		{
-			name:         "missing invowkfile",
-			ctx:          &ExecutionContext{},
-			noImplErr:    errNativeNoImpl,
-			noScriptErr:  errNativeNoScript,
-			wantContains: "execution context has no invowkfile",
+			name:        "missing invowkfile",
+			ctx:         &ExecutionContext{},
+			noImplErr:   errNativeNoImpl,
+			noScriptErr: errNativeNoScript,
+			wantErr:     errNoInvowkfile,
 		},
 		{
 			name: "missing implementation",
 			ctx: &ExecutionContext{
 				Invowkfile: &invowkfile.Invowkfile{},
 			},
-			noImplErr:    errContainerNoImpl,
-			noScriptErr:  errContainerNoScript,
-			wantContains: containerNoImplErrMsg,
+			noImplErr:   errContainerNoImpl,
+			noScriptErr: errContainerNoScript,
+			wantErr:     errContainerNoImpl,
 		},
 		{
 			name: "missing script content",
@@ -49,9 +49,9 @@ func TestValidateExecutionContextForRun(t *testing.T) {
 				Invowkfile:   &invowkfile.Invowkfile{},
 				SelectedImpl: &invowkfile.Implementation{},
 			},
-			noImplErr:    errNativeNoImpl,
-			noScriptErr:  errNativeNoScript,
-			wantContains: nativeNoScriptErrMsg,
+			noImplErr:   errNativeNoImpl,
+			noScriptErr: errNativeNoScript,
+			wantErr:     errNativeNoScript,
 		},
 		{
 			name: "valid context",
@@ -69,17 +69,17 @@ func TestValidateExecutionContextForRun(t *testing.T) {
 			t.Parallel()
 
 			err := validateExecutionContextForRun(tt.ctx, tt.noImplErr, tt.noScriptErr)
-			if tt.wantContains == "" {
+			if tt.wantErr == nil {
 				if err != nil {
 					t.Fatalf("validateExecutionContextForRun() unexpected error: %v", err)
 				}
 				return
 			}
 			if err == nil {
-				t.Fatalf("validateExecutionContextForRun() returned nil, want error containing %q", tt.wantContains)
+				t.Fatalf("validateExecutionContextForRun() returned nil, want %v", tt.wantErr)
 			}
-			if !strings.Contains(err.Error(), tt.wantContains) {
-				t.Fatalf("validateExecutionContextForRun() error = %q, want containing %q", err.Error(), tt.wantContains)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("validateExecutionContextForRun() error = %v, want %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -92,8 +92,8 @@ func TestRuntimeExecuteGuards_NoPanics(t *testing.T) {
 		t.Parallel()
 		rt := NewNativeRuntime()
 		result := rt.Execute(nil)
-		if result.Error == nil || !strings.Contains(result.Error.Error(), "execution context is required") {
-			t.Fatalf("Execute(nil) error = %v, want context guard error", result.Error)
+		if result.Error == nil || !errors.Is(result.Error, errNilExecutionContext) {
+			t.Fatalf("Execute(nil) error = %v, want %v", result.Error, errNilExecutionContext)
 		}
 	})
 
@@ -103,8 +103,8 @@ func TestRuntimeExecuteGuards_NoPanics(t *testing.T) {
 		ctx.SelectedImpl = nil
 		rt := NewNativeRuntime()
 		result := rt.Execute(ctx)
-		if result.Error == nil || !strings.Contains(result.Error.Error(), nativeNoImplErrMsg) {
-			t.Fatalf("Execute() error = %v, want containing %q", result.Error, nativeNoImplErrMsg)
+		if result.Error == nil || !errors.Is(result.Error, errNativeNoImpl) {
+			t.Fatalf("Execute() error = %v, want %v", result.Error, errNativeNoImpl)
 		}
 	})
 
@@ -114,8 +114,8 @@ func TestRuntimeExecuteGuards_NoPanics(t *testing.T) {
 		ctx.SelectedImpl = nil
 		rt := NewVirtualRuntime(true)
 		result := rt.Execute(ctx)
-		if result.Error == nil || !strings.Contains(result.Error.Error(), virtualNoImplErrMsg) {
-			t.Fatalf("Execute() error = %v, want containing %q", result.Error, virtualNoImplErrMsg)
+		if result.Error == nil || !errors.Is(result.Error, errVirtualNoImpl) {
+			t.Fatalf("Execute() error = %v, want %v", result.Error, errVirtualNoImpl)
 		}
 	})
 
@@ -125,8 +125,8 @@ func TestRuntimeExecuteGuards_NoPanics(t *testing.T) {
 		ctx.SelectedImpl = nil
 		rt := &ContainerRuntime{}
 		result := rt.Execute(ctx)
-		if result.Error == nil || !strings.Contains(result.Error.Error(), containerNoImplErrMsg) {
-			t.Fatalf("Execute() error = %v, want containing %q", result.Error, containerNoImplErrMsg)
+		if result.Error == nil || !errors.Is(result.Error, errContainerNoImpl) {
+			t.Fatalf("Execute() error = %v, want %v", result.Error, errContainerNoImpl)
 		}
 	})
 }

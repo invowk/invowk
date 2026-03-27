@@ -78,8 +78,8 @@ func TestValidateCustomCheckInContainer(t *testing.T) {
 	check := invowkfile.CustomCheck{Name: "demo", CheckScript: "echo ok", ExpectedOutput: "^ok$"}
 
 	err := validateCustomCheckInContainer(check, runtimepkg.NewRegistry(), ctx)
-	if err == nil || !strings.Contains(err.Error(), "container runtime not available") {
-		t.Fatalf("err = %v", err)
+	if err == nil || !errors.Is(err, ErrContainerRuntimeNotAvailable) {
+		t.Fatalf("err = %v, want wrapping ErrContainerRuntimeNotAvailable", err)
 	}
 
 	registry := runtimepkg.NewRegistry()
@@ -272,8 +272,8 @@ func TestRequireContainerRuntime(t *testing.T) {
 	t.Parallel()
 
 	_, err := requireContainerRuntime(runtimepkg.NewRegistry(), "demo")
-	if err == nil || !strings.Contains(err.Error(), "container runtime not available for demo") {
-		t.Fatalf("err = %v", err)
+	if err == nil || !errors.Is(err, ErrContainerRuntimeNotAvailable) {
+		t.Fatalf("err = %v, want wrapping ErrContainerRuntimeNotAvailable", err)
 	}
 }
 

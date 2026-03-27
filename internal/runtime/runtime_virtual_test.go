@@ -485,8 +485,8 @@ func TestVirtualRuntime_Validate_EmptyScript(t *testing.T) {
 	if err == nil {
 		t.Error("Validate() expected error for empty script, got nil")
 	}
-	if err != nil && !strings.Contains(err.Error(), "no content to execute") {
-		t.Errorf("Validate() error = %q, want error containing 'no content to execute'", err)
+	if err != nil && !errors.Is(err, errVirtualNoScript) {
+		t.Errorf("Validate() error = %v, want %v", err, errVirtualNoScript)
 	}
 }
 
@@ -513,8 +513,8 @@ func TestVirtualRuntime_Validate_NilImpl(t *testing.T) {
 	if err == nil {
 		t.Error("Validate() expected error for nil implementation, got nil")
 	}
-	if err != nil && !strings.Contains(err.Error(), "no script selected") {
-		t.Errorf("Validate() error = %q, want error containing 'no script selected'", err)
+	if err != nil && !errors.Is(err, errVirtualNoImpl) {
+		t.Errorf("Validate() error = %v, want %v", err, errVirtualNoImpl)
 	}
 }
 

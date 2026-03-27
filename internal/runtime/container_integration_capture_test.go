@@ -30,30 +30,22 @@ func TestContainerRuntime_ExecuteCapture(t *testing.T) {
 
 	t.Run("BasicCapture", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerExecuteCaptureBasic(t)
 	})
 	t.Run("CaptureWithExitCode", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerExecuteCaptureExitCode(t)
 	})
 	t.Run("CaptureStderr", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerExecuteCaptureStderr(t)
 	})
 	t.Run("CaptureWithEnvVars", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerExecuteCaptureEnvVars(t)
 	})
 }

@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -424,8 +425,8 @@ func TestGitFetcher_ValidateAuth(t *testing.T) {
 		if err == nil {
 			t.Fatal("ValidateAuth() for SSH URL with no auth should return error, got nil")
 		}
-		if !strings.Contains(err.Error(), "SSH") {
-			t.Errorf("error should mention SSH, got: %v", err)
+		if !errors.Is(err, ErrSSHKeyNotFound) {
+			t.Errorf("error should wrap ErrSSHKeyNotFound, got: %v", err)
 		}
 	})
 
@@ -435,8 +436,8 @@ func TestGitFetcher_ValidateAuth(t *testing.T) {
 		if err == nil {
 			t.Fatal("ValidateAuth() for ssh:// URL with no auth should return error, got nil")
 		}
-		if !strings.Contains(err.Error(), "SSH") {
-			t.Errorf("error should mention SSH, got: %v", err)
+		if !errors.Is(err, ErrSSHKeyNotFound) {
+			t.Errorf("error should wrap ErrSSHKeyNotFound, got: %v", err)
 		}
 	})
 }

@@ -81,7 +81,7 @@ func validateCustomCheckNative(check invowkfile.CustomCheck) error {
 func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return fmt.Errorf("  • %s - container runtime not available", check.Name)
+		return fmt.Errorf("  • %s - %w", check.Name, ErrContainerRuntimeNotAvailable)
 	}
 
 	validationCtx, stdout, stderr := NewContainerValidationContext(ctx, string(check.CheckScript))
@@ -291,7 +291,7 @@ func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 func requireContainerRuntime(registry *runtime.Registry, label string) (runtime.Runtime, error) {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return nil, errors.New("container runtime not available for " + label)
+		return nil, fmt.Errorf("%w for %s", ErrContainerRuntimeNotAvailable, label)
 	}
 	return rt, nil
 }
