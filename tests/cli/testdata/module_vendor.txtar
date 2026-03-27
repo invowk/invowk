@@ -55,6 +55,7 @@ exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
 # Test 9: --update forces re-resolution (fails in offline test — verifies flag wiring)
 ! exec invowk module vendor --update ./depmod.invowkmod
 stdout 'Re-resolving all dependencies'
+stderr '(?i)failed to resolve dependencies'
 
 # Test 10: --update --prune combined flags on no-deps module
 exec invowk module vendor --update --prune ./vendormod.invowkmod

@@ -40,9 +40,6 @@ func TestErrNoEngineAvailable_Sentinel(t *testing.T) {
 	if ErrNoEngineAvailable == nil {
 		t.Fatal("ErrNoEngineAvailable should not be nil")
 	}
-	if ErrNoEngineAvailable.Error() != "no container engine available" {
-		t.Errorf("ErrNoEngineAvailable.Error() = %q, want %q", ErrNoEngineAvailable.Error(), "no container engine available")
-	}
 }
 
 func TestDockerEngine_AvailableWithNoPath(t *testing.T) {

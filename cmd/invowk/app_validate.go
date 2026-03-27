@@ -17,6 +17,9 @@ var (
 
 	// ErrInvalidSourceFilter is the sentinel error wrapped by InvalidSourceFilterError.
 	ErrInvalidSourceFilter = errors.New("invalid source filter")
+
+	// errNoCommandSpecified is returned when a command verb is required but none was provided.
+	errNoCommandSpecified = errors.New("no command specified")
 )
 
 type (

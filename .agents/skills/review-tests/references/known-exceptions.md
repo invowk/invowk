@@ -55,6 +55,12 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 
 See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemption list.
 
+### Integration Test Gating Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `TestCLI` in `tests/cli/cli_test.go` | Runs in short mode (`testing.Short()` not checked for gating) | Individual txtar tests handle their own skipping via built-in testscript conditions (`[windows]`, `[!container-available]`, etc.). The TestCLI harness intentionally does not gate on short mode because per-test conditions provide finer-grained control than a blanket integration skip |
+
 ### Platform Skip Exceptions
 
 | Location | What Is Different | Rationale |

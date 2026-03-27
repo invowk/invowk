@@ -3,8 +3,6 @@
 # Note: default config has default_runtime: "native", so without --ivk-runtime,
 # a multi-runtime command selects native (tier 2: config default).
 
-[windows] skip 'native runtime not available on Windows; soft fallback changes expected output'
-
 cd $WORK
 
 # Test 1: without override, multi-runtime command uses config default (native)

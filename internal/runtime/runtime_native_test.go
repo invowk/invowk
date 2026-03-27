@@ -523,7 +523,7 @@ func TestNativeRuntime_createTempScript(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
-		t.Skip("skipping test that writes to filesystem in short mode")
+		t.Skip("skipping integration test in short mode")
 	}
 
 	rt := NewNativeRuntime()

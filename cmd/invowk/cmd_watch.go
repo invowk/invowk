@@ -22,7 +22,7 @@ import (
 // (e.g., Ctrl+C).
 func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
-		return errors.New("no command specified")
+		return errNoCommandSpecified
 	}
 
 	// Dry-run and watch mode are mutually exclusive: watch mode re-executes

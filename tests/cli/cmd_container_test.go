@@ -78,6 +78,7 @@ func probeEngineHealthBeforeTest() error {
 		return nil
 	}
 
+	// context.Background(): no *testing.T in testscript.Env.Setup scope
 	ctx, cancel := context.WithTimeout(context.Background(), containerHealthProbeTimeout)
 	defer cancel()
 
@@ -91,9 +92,11 @@ func probeEngineHealthBeforeTest() error {
 // TestContainerCLI runs container-related testscript tests using a single
 // pinned engine under a suite-scoped cross-process lock. This intentionally
 // trades some throughput for deterministic behavior in full-suite runs.
-func TestContainerCLI(t *testing.T) {
+func TestContainerCLI(t *testing.T) { //nolint:tparallel // subtests are intentionally serial (shared suite lock + single container engine)
+	t.Parallel()
+
 	if testing.Short() {
-		t.Skip("skipping container tests in short mode")
+		t.Skip("skipping integration test in short mode")
 	}
 	releaseSuiteLock := testutil.AcquireContainerSuiteLock(t)
 	defer releaseSuiteLock()

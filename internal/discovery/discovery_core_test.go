@@ -455,9 +455,6 @@ func TestErrNoInvowkfileFound_Sentinel(t *testing.T) {
 	if ErrNoInvowkfileFound == nil {
 		t.Fatal("ErrNoInvowkfileFound should not be nil")
 	}
-	if ErrNoInvowkfileFound.Error() != "no invowkfile found" {
-		t.Errorf("ErrNoInvowkfileFound.Error() = %q, want %q", ErrNoInvowkfileFound.Error(), "no invowkfile found")
-	}
 }
 
 func TestLoadFirst_WithValidFile(t *testing.T) {

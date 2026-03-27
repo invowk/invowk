@@ -11,7 +11,7 @@ func TestCheckCapability_LocalAreaNetwork(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
-		t.Skip("skipping network capability test in short mode")
+		t.Skip("skipping integration test in short mode")
 	}
 
 	// This test assumes the test machine has network connectivity
@@ -31,7 +31,7 @@ func TestCheckCapability_Internet(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
-		t.Skip("skipping network capability test in short mode")
+		t.Skip("skipping integration test in short mode")
 	}
 
 	// This test assumes the test machine has internet connectivity
@@ -51,7 +51,7 @@ func TestCheckCapability_Containers(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
-		t.Skip("skipping container capability test in short mode")
+		t.Skip("skipping integration test in short mode")
 	}
 
 	err := CheckCapability(CapabilityContainers)
@@ -200,7 +200,7 @@ func TestCheckLocalAreaNetwork_ReturnsCapabilityError(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
-		t.Skip("skipping network capability test in short mode")
+		t.Skip("skipping integration test in short mode")
 	}
 
 	// Call the internal function to test its behavior
@@ -221,7 +221,7 @@ func TestCheckInternet_ReturnsCapabilityError(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
-		t.Skip("skipping network capability test in short mode")
+		t.Skip("skipping integration test in short mode")
 	}
 
 	// Call the internal function to test its behavior

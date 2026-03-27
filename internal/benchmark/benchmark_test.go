@@ -452,6 +452,10 @@ func BenchmarkDiscoveryModuleCollisionCheck(b *testing.B) {
 // BenchmarkRuntimeNative benchmarks native shell execution.
 // This exercises the hot path in internal/runtime/native.go.
 func BenchmarkRuntimeNative(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
+
 	tmpDir := b.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -499,6 +503,10 @@ func BenchmarkRuntimeNative(b *testing.B) {
 // BenchmarkRuntimeVirtual benchmarks mvdan/sh virtual shell execution.
 // This exercises the hot path in internal/runtime/virtual.go.
 func BenchmarkRuntimeVirtual(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
+
 	tmpDir := b.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -544,6 +552,10 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 
 // BenchmarkRuntimeVirtualComplex benchmarks virtual shell with more complex scripts.
 func BenchmarkRuntimeVirtualComplex(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
+
 	tmpDir := b.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -667,6 +679,10 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 // BenchmarkFullPipeline benchmarks the end-to-end command execution pipeline.
 // This exercises discovery, parsing, and execution together.
 func BenchmarkFullPipeline(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
+
 	tmpDir := b.TempDir()
 
 	// Create invowkfile.cue

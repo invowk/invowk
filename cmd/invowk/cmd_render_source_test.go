@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
-
-	"github.com/spf13/cobra"
 )
 
 // ---------------------------------------------------------------------------

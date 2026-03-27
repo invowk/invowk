@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
-
-	"github.com/spf13/cobra"
 )
 
 // newWatchTestCmd creates a minimal *cobra.Command with a config-path-enhanced context
@@ -50,8 +50,8 @@ func TestRunWatchMode_NoCommand(t *testing.T) {
 		&cmdFlagValues{},
 		nil, // no args
 	)
-	if err == nil || err.Error() != "no command specified" {
-		t.Fatalf("error = %v, want %q", err, "no command specified")
+	if !errors.Is(err, errNoCommandSpecified) {
+		t.Fatalf("error = %v, want errNoCommandSpecified", err)
 	}
 }
 

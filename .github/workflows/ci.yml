@@ -242,6 +242,15 @@ jobs:
         shell: powershell
         run: ./scripts/test_install.ps1
 
+      - name: Merge coverage profiles
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Both profiles use the same -covermode (from go test defaults), so
+          # raw concat is safe after stripping the duplicate mode: header line.
+          if [ -f runtime-coverage.out ]; then
+            tail -n +2 runtime-coverage.out >> coverage.out
+          fi
+
       # Upload test results (JUnit XML + rerun reports) for debugging and flake tracking
       - name: Upload test results
         if: always()

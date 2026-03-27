@@ -88,9 +88,9 @@ func TestWatcherDebounce(t *testing.T) {
 		t.Fatal("timed out waiting for callback")
 	}
 
-	// Sleep: settle time to check negative condition (no spurious callbacks).
-	// The debounce window is shorter than this pause, so any extra callbacks
-	// would have fired by now. No channel-based alternative for "nothing happened."
+	// Negative-condition check: verify no spurious callbacks fire after the
+	// initial debounced callback. Sleep long enough for a full debounce cycle
+	// to confirm the callback count stays at 1.
 	time.Sleep(200 * time.Millisecond)
 
 	cancel()
@@ -149,8 +149,13 @@ func TestWatcherIgnorePatterns(t *testing.T) {
 		t.Fatalf("write debug.log: %v", err)
 	}
 
-	// Wait long enough for a debounce cycle to complete.
-	time.Sleep(200 * time.Millisecond)
+	// Verify the ignored file does not trigger a callback within a debounce cycle.
+	select {
+	case changed := <-callbackFired:
+		t.Fatalf("ignored file triggered callback: %v", changed)
+	case <-time.After(200 * time.Millisecond):
+		// No callback — expected for ignored file.
+	}
 
 	// Write a non-ignored file — SHOULD trigger callback.
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0o644); err != nil {
@@ -496,8 +501,13 @@ func TestWatcherPatternFiltering(t *testing.T) {
 		t.Fatalf("write data.txt: %v", err)
 	}
 
-	// Wait for a debounce cycle to ensure the .txt write does not fire.
-	time.Sleep(200 * time.Millisecond)
+	// Verify the non-matching file does not trigger a callback within a debounce cycle.
+	select {
+	case changed := <-callbackFired:
+		t.Fatalf("non-matching file triggered callback: %v", changed)
+	case <-time.After(200 * time.Millisecond):
+		// No callback — expected for non-matching file.
+	}
 
 	// Write a matching .go file.
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0o644); err != nil {
