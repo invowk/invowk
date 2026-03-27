@@ -201,8 +201,8 @@ func TestContainerFilepathHelpers(t *testing.T) {
 	}
 
 	singleErr := formatContainerFilepathError([]invowkfile.FilesystemPath{"/tmp"}, []string{"missing permissions"})
-	if singleErr.Error() != "  • missing permissions" {
-		t.Fatalf("singleErr = %q", singleErr.Error())
+	if !strings.Contains(singleErr.Error(), "missing permissions") {
+		t.Fatalf("singleErr = %q, want containing 'missing permissions'", singleErr.Error())
 	}
 
 	multiErr := formatContainerFilepathError(

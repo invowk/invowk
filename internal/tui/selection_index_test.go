@@ -4,6 +4,7 @@ package tui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -75,8 +76,8 @@ func TestInvalidSelectionIndexError(t *testing.T) {
 	t.Parallel()
 
 	err := &InvalidSelectionIndexError{Value: -1}
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
+	if !strings.Contains(err.Error(), "-1") {
+		t.Errorf("Error() = %q, want containing input value", err.Error())
 	}
 	if !errors.Is(err, ErrInvalidSelectionIndex) {
 		t.Error("expected error to wrap ErrInvalidSelectionIndex")

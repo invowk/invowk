@@ -4,6 +4,7 @@ package container
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -206,8 +207,8 @@ func TestInvalidVolumeMountError(t *testing.T) {
 		FieldErrs: fieldErrs,
 	}
 
-	if err.Error() == "" {
-		t.Error("InvalidVolumeMountError.Error() returned empty string")
+	if !strings.Contains(err.Error(), "invalid") {
+		t.Errorf("InvalidVolumeMountError.Error() = %q, want containing 'invalid'", err.Error())
 	}
 	if !errors.Is(err, ErrInvalidVolumeMount) {
 		t.Error("InvalidVolumeMountError should wrap ErrInvalidVolumeMount")

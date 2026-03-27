@@ -4,6 +4,7 @@ package types
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -83,8 +84,8 @@ func TestInvalidTUIServerURLError(t *testing.T) {
 	t.Parallel()
 
 	err := &InvalidTUIServerURLError{Value: "ftp://bad"}
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
+	if !strings.Contains(err.Error(), "ftp://bad") {
+		t.Errorf("Error() = %q, want containing input value", err.Error())
 	}
 	var typedErr *InvalidTUIServerURLError
 	if !errors.As(err, &typedErr) {

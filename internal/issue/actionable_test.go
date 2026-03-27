@@ -262,8 +262,10 @@ func TestErrorContext_Build(t *testing.T) {
 				if len(err.suggestions) != 2 {
 					t.Errorf("Suggestions count = %d, want 2", len(err.suggestions))
 				}
-				if err.cause == nil || err.cause.Error() != "parse error" {
-					t.Errorf("Cause = %v", err.cause)
+				if err.cause == nil {
+					t.Error("expected non-nil cause")
+				} else if !strings.Contains(err.cause.Error(), "parse error") {
+					t.Errorf("Cause.Error() = %q, want containing 'parse error'", err.cause.Error())
 				}
 			},
 		},
