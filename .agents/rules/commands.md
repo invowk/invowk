@@ -206,6 +206,7 @@ gotestsum \
 - `--rerun-fails-report FILE`: Log which tests needed reruns (flake signal).
 - `--junitfile FILE`: JUnit XML for GitHub Actions test reporting.
 - `--format testdox`: Human-readable output (test names as sentences).
+- `-v` (on the `go test` side): **Required** when using `--rerun-fails` with parallel subtests. Without `-v`, `gotestsum` doesn't receive per-subtest PASS/FAIL lines and may misreport parent test status (false FAILs when all subtests pass).
 
 ## Releasing
 

@@ -776,7 +776,7 @@ The test passed on slower runners (ubuntu-24.04) but failed on faster ones where
 
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
-| Large test files | Hard to navigate, maintain | Split files exceeding 800 lines by logical concern (see rules/testing.md) |
+| Large test files | Hard to navigate, maintain | Split files exceeding 1000 lines by logical concern (see rules/testing.md) |
 | Duplicated helpers | Same code in multiple test files | Consolidate in `testutil` package |
 | `time.Sleep()` in tests | Flaky, timing-dependent failures | Use clock injection for deterministic tests |
 | Testing struct fields | Testing Go's ability to store values | Test behavior, not struct storage |

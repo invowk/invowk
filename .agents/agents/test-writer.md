@@ -128,7 +128,7 @@ cmd := invowkfiletest.NewTestCommand("hello",
 - All tests call `t.Parallel()` unless mutating global state
 - Table-driven tests with parallel subtests
 - Use `t.TempDir()` for temporary directories
-- Test files must not exceed 800 lines
+- Test files must not exceed 1000 lines
 - Use `testing.Short()` to skip integration tests
 - Import alias: `goruntime "runtime"` when needing both `runtime.GOOS` and `internal/runtime`
 

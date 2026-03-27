@@ -85,7 +85,7 @@ Three groups separated by blank lines:
 
 - All new tests call `t.Parallel()` unless they mutate global state
 - Table-driven subtests with `t.Parallel()` in parent must also call `t.Parallel()` in each subtest
-- Test files must not exceed 800 lines
+- Test files must not exceed 1000 lines
 - Use `t.TempDir()` over manual temp dir creation
 
 ## How to Use

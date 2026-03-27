@@ -113,7 +113,7 @@ go test -v -run TestVirtualNativeCommandPathAlignment ./tests/cli/...
 
 # Sequential (comprehensive)
 make test-short
-find cmd/ internal/ pkg/ tests/ tools/ -name '*_test.go' -exec wc -l {} + | awk '$1 > 800 { print }'
+find cmd/ internal/ pkg/ tests/ tools/ -name '*_test.go' -exec wc -l {} + | awk '$1 > 900 { print }'
 ```
 
 Record results in the **Context Block** format:
@@ -130,7 +130,7 @@ txtar-coverage      : PASS | FAIL (detail)
 mirror-coverage     : PASS | FAIL (detail)
 mirror-alignment    : PASS | FAIL (detail)
 test-short          : PASS | FAIL (detail)
-800-line-files      : PASS | FAIL (files: ...)
+approaching-limit-files : PASS | FAIL (files: ...)
 ==========================
 ```
 

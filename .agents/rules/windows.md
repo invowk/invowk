@@ -190,7 +190,8 @@ Native runtime tests (`native_*.txtar`) include PowerShell implementations for W
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
 | Using `$VAR` instead of `$env:VAR` | Empty value; PowerShell treats `$VAR` as PS variable | Always use `$env:VAR` for environment variables |
-| `\r\n` line endings in output | Extra blank lines or assertion mismatches | Testscript normalizes line endings; no action needed |
+| `\r\n` line endings in **string** assertions | Extra blank lines or assertion mismatches | Testscript normalizes for substring `stdout`/`stderr` matching; no action needed |
+| `\r\n` line endings in **regex** assertions | `stdout '^done$'` fails because `$` matches before `\n` but not before `\r` in `\r\n` | Use `\r?$` instead of `$` in anchored regex assertions: `stdout '^done\r?$'` |
 | Using bash comparison syntax (`=`, `!=`) | PowerShell parse error | Use `-eq`, `-ne`, `-lt`, `-gt`, `-like`, `-match` |
 | Using `echo` for reliable output | Inconsistent behavior across PS versions | Use `Write-Output` for string output |
 | Relying on `set -e` behavior | PowerShell does not support `set -e` | Use `$ErrorActionPreference = 'Stop'` at script start |
@@ -214,6 +215,7 @@ go test -v -run TestCLI/native_simple ./tests/cli/...
 | Hardcoded `/` in test expectations | Tests fail on Windows | Use `filepath.Join()` for host paths |
 | Forgetting `filepath.ToSlash()` | Container receives Windows-style paths | Always convert before passing to container |
 | Testing Unix absolute paths on Windows | Test fails or has wrong behavior | Add `skipOnWindows: true` (see `testing.md`) |
+| `TerminateProcess` exit code masks context timeout | On Windows, `exec.CommandContext` kills via `TerminateProcess(pid, 1)` — exit code 1 is valid, so `extractExitCode` returns `result.Error == nil` and the timeout is silently dropped | `promoteContextError()` in `internal/runtime/native_helpers.go` checks `ctx.Context.Err()` after `extractExitCode` and promotes it when `result.Error == nil` |
 
 ## Quick Reference
 

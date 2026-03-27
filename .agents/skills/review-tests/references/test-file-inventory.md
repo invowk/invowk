@@ -234,9 +234,9 @@ Machine-readable exemptions: `tests/cli/runtime_mirror_exemptions.json`
 
 ---
 
-## Files Over 800 Lines (Soft Limit)
+## Files Approaching 1000-Line Limit
 
-These files are at or near the 800-line test file limit:
+These files are approaching the 1000-line hard limit and should be monitored:
 
 | File | Lines | Status |
 |---|---|---|

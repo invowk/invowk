@@ -74,10 +74,10 @@ What it checks: Basic compilation and all unit tests (skips integration tests).
 Expected: Exit 0, all tests pass.
 Failure triage: Fix failing tests. Common issues: missing imports after refactor, stale test expectations.
 
-## 10. 800-Line Soft Limit (PC-10)
+## 10. Approaching 1000-Line Limit (PC-10)
 
-Command: `find cmd/ internal/ pkg/ tests/ tools/ -name '*_test.go' -exec wc -l {} + | awk '$1 > 800 { print }'`
-What it checks: Test files exceeding 800-line soft limit (project convention from testing rules).
+Command: `find cmd/ internal/ pkg/ tests/ tools/ -name '*_test.go' -exec wc -l {} + | awk '$1 > 900 { print }'`
+What it checks: Test files approaching the 1000-line hard limit (900+ lines signals need to plan a split).
 Expected: No matches (or only files recently split that are in progress).
 Failure triage: Split by concern using `<package>_<concern>_test.go` naming. Follow File Splitting Protocol: create new, delete from source, clean imports, `go build` before `make test`.
 
@@ -97,6 +97,6 @@ txtar-coverage      : PASS | FAIL (detail)
 mirror-coverage     : PASS | FAIL (detail)
 mirror-alignment    : PASS | FAIL (detail)
 test-short          : PASS | FAIL (detail)
-800-line-files      : PASS | FAIL (files: ...)
+approaching-limit-files : PASS | FAIL (files: ...)
 ==========================
 ```
