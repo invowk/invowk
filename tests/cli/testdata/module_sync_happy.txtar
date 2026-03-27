@@ -1,0 +1,27 @@
+# Test: invowk module sync happy path (no network)
+# Verifies that sync works when invowkmod.cue exists but has no requires field.
+# This is the only network-free sync happy path: it should report no dependencies
+# and exit successfully without attempting any git operations.
+
+cd $WORK
+
+# Test 1: sync with valid invowkmod.cue but no requires field
+exec invowk module sync
+stdout '(?i)no requires|sync'
+
+-- invowkmod.cue --
+module: "io.invowk.test.sync"
+version: "1.0.0"
+description: "Test module for sync happy path"
+
+-- invowkfile.cue --
+cmds: [{
+	name: "hello"
+	description: "Test command"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "virtual"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+

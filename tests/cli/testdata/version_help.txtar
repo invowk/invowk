@@ -19,3 +19,13 @@ exec invowk cmd --help
 stdout 'invowk cmd'
 stdout 'Execute commands'
 ! stderr .
+
+# Test 4: hidden internal commands do not appear in --help output
+exec invowk --help
+! stdout 'internal'
+! stderr .
+
+# Test 5: invowk internal check-cmd works but is hidden
+# (verifies internal commands are callable even though hidden from help)
+! exec invowk internal check-cmd nonexistent-cmd-xyz
+# Exit code 1 = command not found (proves the subcommand is reachable)

@@ -3,7 +3,7 @@
 package invowkfile
 
 import (
-	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -235,11 +235,7 @@ func TestParseShebang(t *testing.T) {
 					t.Errorf("ParseShebang() Interpreter = %q, want %q", result.Interpreter, tt.expected.Interpreter)
 				}
 
-				if !reflect.DeepEqual(result.Args, tt.expected.Args) {
-					// Handle nil vs empty slice
-					if len(result.Args) == 0 && len(tt.expected.Args) == 0 {
-						return
-					}
+				if !slices.Equal(result.Args, tt.expected.Args) {
 					t.Errorf("ParseShebang() Args = %v, want %v", result.Args, tt.expected.Args)
 				}
 			}
@@ -382,11 +378,7 @@ func TestParseInterpreterString(t *testing.T) {
 					t.Errorf("ParseInterpreterString(%q) Interpreter = %q, want %q", tt.spec, result.Interpreter, tt.expected.Interpreter)
 				}
 
-				if !reflect.DeepEqual(result.Args, tt.expected.Args) {
-					// Handle nil vs empty slice
-					if len(result.Args) == 0 && len(tt.expected.Args) == 0 {
-						return
-					}
+				if !slices.Equal(result.Args, tt.expected.Args) {
 					t.Errorf("ParseInterpreterString(%q) Args = %v, want %v", tt.spec, result.Args, tt.expected.Args)
 				}
 			}
@@ -598,11 +590,7 @@ func TestResolveInterpreter(t *testing.T) {
 					t.Errorf("ResolveInterpreter(%q, ...) Interpreter = %q, want %q", tt.interpreter, result.Interpreter, tt.expected.Interpreter)
 				}
 
-				if !reflect.DeepEqual(result.Args, tt.expected.Args) {
-					// Handle nil vs empty slice
-					if len(result.Args) == 0 && len(tt.expected.Args) == 0 {
-						return
-					}
+				if !slices.Equal(result.Args, tt.expected.Args) {
 					t.Errorf("ResolveInterpreter(%q, ...) Args = %v, want %v", tt.interpreter, result.Args, tt.expected.Args)
 				}
 			}

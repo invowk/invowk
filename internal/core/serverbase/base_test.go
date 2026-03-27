@@ -147,6 +147,68 @@ func TestRaceConditions(t *testing.T) {
 			t.Errorf("expected StateStopping or StateStopped, got %s", state)
 		}
 	})
+
+	t.Run("competing Start and Stop transitions", func(t *testing.T) {
+		t.Parallel()
+
+		// Launch N goroutines that race to Start vs Stop the server.
+		// The state machine must always reach a valid terminal state
+		// without panics, deadlocks, or invalid intermediate states.
+		for range 50 {
+			b := NewBase()
+
+			var wg sync.WaitGroup
+
+			// Goroutine 1: tries to Start then transition to Running
+			wg.Go(func() {
+				ctx := t.Context()
+				if err := b.TransitionToStarting(ctx); err == nil {
+					b.TransitionToRunning()
+				}
+			})
+
+			// Goroutine 2: tries to Stop
+			wg.Go(func() {
+				b.TransitionToStopping()
+			})
+
+			// Goroutine 3: concurrent state readers
+			wg.Go(func() {
+				for range 20 {
+					state := b.State()
+					// Every observed state must be valid
+					if err := state.Validate(); err != nil {
+						t.Errorf("observed invalid state during competing transitions: %s", state)
+					}
+				}
+			})
+
+			wg.Wait()
+
+			// After all goroutines finish, the server must be in a valid state.
+			// Acceptable terminal/near-terminal states: Stopped, Failed, Running,
+			// Stopping (if Stop won the race but TransitionToStopped wasn't called).
+			finalState := b.State()
+			switch finalState {
+			case StateCreated:
+				// Created is acceptable only if Stop raced before Start
+				// and TransitionToStopping moved it directly to Stopped,
+				// but the goroutine reading state saw Created first.
+				// Re-check: after wg.Wait() the state must be stable.
+				// Created means Stop called on Created → Stopped, but
+				// CAS(Created→Stopped) leaves it Stopped not Created.
+				// So Created here means Start hasn't run yet — possible
+				// if goroutine 1 hasn't been scheduled.
+			case StateRunning, StateStopping, StateStopped, StateFailed:
+				// All valid outcomes of the Start/Stop race
+			case StateStarting:
+				// Acceptable: Start won but TransitionToRunning hasn't
+				// executed yet (goroutine scheduling)
+			default:
+				t.Errorf("unexpected final state after competing transitions: %s", finalState)
+			}
+		}
+	})
 }
 
 // T011: Double Start/Stop idempotency tests

@@ -196,6 +196,9 @@ func TestTarCommand_Run_NonexistentArchive(t *testing.T) {
 
 func TestTarCommand_Run_CreateMode_KnownBug(t *testing.T) {
 	t.Parallel()
+	// Upstream bug: https://github.com/u-root/u-root/issues/3072
+	// u-root's tar create mode uses filepath.Rel incorrectly, producing
+	// malformed archive entries. Revisit when the upstream fix is released.
 	t.Skip("upstream u-root tar has filepath.Rel bug in create mode — revisit when fixed")
 
 	tmpDir := t.TempDir()

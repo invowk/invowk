@@ -12,17 +12,17 @@ stdout 'vendored-cmd'
 
 # Test 2: Execute command from main invowkfile
 exec invowk cmd local-cmd
-stdout 'from invowkfile'
+stdout '^from invowkfile$'
 ! stderr .
 
 # Test 3: Execute command from local module
 exec invowk cmd mod-cmd
-stdout 'from local module'
+stdout '^from local module$'
 ! stderr .
 
 # Test 4: Execute command from vendored module
 exec invowk cmd vendored-cmd
-stdout 'from vendored module'
+stdout '^from vendored module$'
 ! stderr .
 
 -- invowkfile.cue --

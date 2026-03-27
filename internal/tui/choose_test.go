@@ -4,7 +4,7 @@ package tui
 
 import (
 	"errors"
-	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -413,7 +413,7 @@ func TestSelectedIndicesFromOptions(t *testing.T) {
 	got := selectedIndicesFromOptions(options)
 	want := []SelectionIndex{1, 2}
 
-	if !reflect.DeepEqual(got, want) {
+	if !slices.Equal(got, want) {
 		t.Errorf("expected selected indices %v, got %v", want, got)
 	}
 }
@@ -430,7 +430,7 @@ func TestSelectedValuesByIndex_PreservesDuplicateTitles(t *testing.T) {
 	got := selectedValuesByIndex(options, []SelectionIndex{1, 2})
 	want := []string{"second", "third"}
 
-	if !reflect.DeepEqual(got, want) {
+	if !slices.Equal(got, want) {
 		t.Errorf("expected values %v, got %v", want, got)
 	}
 }

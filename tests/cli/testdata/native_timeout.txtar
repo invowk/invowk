@@ -1,0 +1,53 @@
+# Test: Timeout enforcement kills slow commands (native runtime)
+# Mirrors virtual_timeout.txtar with platform-split native implementations.
+
+cd $WORK
+
+# Test 1: command with 1s timeout and a long sleep is killed
+! exec invowk cmd slow
+stderr '(?i)timed out|exit code|execution failed'
+
+# Test 2: command with generous timeout completes normally
+exec invowk cmd fast
+stdout '^done$'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "slow"
+		description: "Command that exceeds its timeout"
+		implementations: [
+			{
+				script:   "sleep 60"
+				timeout:  "1s"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:   "Start-Sleep -Seconds 60"
+				timeout:  "1s"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+	{
+		name:        "fast"
+		description: "Command that completes within its timeout"
+		implementations: [
+			{
+				script:   "echo done"
+				timeout:  "30s"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script:   "Write-Output done"
+				timeout:  "30s"
+				runtimes: [{name: "native"}]
+				platforms: [{name: "windows"}]
+			},
+		]
+	},
+]

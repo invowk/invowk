@@ -1,0 +1,38 @@
+# Test: Timeout enforcement kills slow commands
+# Verifies that the timeout field in implementations actually terminates
+# a long-running script and produces a timeout error.
+
+cd $WORK
+
+# Test 1: command with 1s timeout and a 60s sleep is killed
+! exec invowk cmd slow
+stderr '(?i)timed out'
+
+# Test 2: command with generous timeout completes normally
+exec invowk cmd fast
+stdout '^done$'
+! stderr .
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name:        "slow"
+		description: "Command that exceeds its timeout"
+		implementations: [{
+			script:   "sleep 60"
+			timeout:  "1s"
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+	{
+		name:        "fast"
+		description: "Command that completes within its timeout"
+		implementations: [{
+			script:   "echo done"
+			timeout:  "30s"
+			runtimes: [{name: "virtual"}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
