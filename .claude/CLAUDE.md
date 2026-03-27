@@ -97,6 +97,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/discovery/`](.agents/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
 - [`.agents/skills/docs/`](.agents/skills/docs/) - Documentation editing workflow: Docusaurus, MDX snippets, i18n, versioning. For review/audit, use `/review-docs`.
 - [`.agents/skills/review-docs/`](.agents/skills/review-docs/) - User-invokable (`/review-docs`). Documentation review and audit: README, website docs, snippets, CUE drift, i18n parity, diagrams, container policy.
+- [`.agents/skills/review-tests/`](.agents/skills/review-tests/) - User-invokable (`/review-tests`). Test suite review and audit: structural hygiene, parallelism, assertions, integration gating, testscript quality, mirrors, coverage guardrails, domain testing.
 - [`.agents/skills/invowk-schema/`](.agents/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
 - [`.agents/skills/invowk-typesystem/`](.agents/skills/invowk-typesystem/) - Invowk value-type system guidance: Validate() contracts, primitive wrappers, aliases/re-exports, and catalog maintenance.
 - [`.agents/skills/native-mirror/`](.agents/skills/native-mirror/) - User-invokable (`/native-mirror`). Generate native_*.txtar mirrors from virtual tests with platform-split CUE.

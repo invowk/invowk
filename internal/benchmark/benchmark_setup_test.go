@@ -72,7 +72,8 @@ func TestCreateBenchmarkModule(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// Use a testing.B shim is not possible, so replicate the helper logic directly.
+	// The benchmark helper createBenchmarkModule takes *testing.B, so its logic
+	// is replicated here for *testing.T.
 	folderName := "testmod"
 	moduleID := "io.invowk.testmod"
 	moduleDir := filepath.Join(tmpDir, folderName+invowkmod.ModuleSuffix)
