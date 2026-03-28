@@ -287,16 +287,24 @@ accommodations:
 
 1. **Short mode only**: Windows CI runs `-short`, skipping container
    integration tests (container runtime is Linux-only by design).
-2. **`-timeout 20m`**: Overrides Go's default 10m timeout. The `internal/tui`
-   package has 281+ tests that with `-race` + `GOMAXPROCS(1)` take ~17m on
-   slow CI runners.
+2. **Two Windows test steps**: Non-TUI runs with `-race -timeout 20m`
+   (excludes `internal/tui`). TUI runs separately with `-timeout 15m`
+   and **no `-race`** (330+ TUI tests with the race detector's 10x memory
+   overhead cause excessive memory/timeouts on `windows-latest` runners).
 3. **No container engine**: The `engine: ""` matrix value means no Docker or
    Podman is available. Container tests auto-skip via `[!container-available]`
    guards in testscript.
-4. **Race detector**: Always enabled (`-race`). Combined with `GOMAXPROCS(1)`
-   from the TUI `TestMain`, this serializes the TUI package tests.
+4. **Race detector**: Enabled on non-TUI Windows tests. Omitted for TUI
+   (documented in `known-exceptions.md`). TUI is race-checked on Linux
+   (full mode) and macOS (short mode).
 5. **Job timeout**: `timeout-minutes: 30` at the job level provides the
    safety net if the Go-level timeout fails to fire.
+6. **TUI timeout includes compilation**: On Windows, `-timeout` starts at
+   `go test` invocation including binary compilation. Defender scanning
+   and NTFS overhead make compilation slow. Adding new TUI tests can push
+   the total over the timeout — when the binary is killed, ALL remaining
+   tests report as `(unknown)`. Always verify the Windows TUI step timeout
+   after adding test functions.
 
 **Why not split TUI tests**: Running `./internal/tui` alone on Windows causes
 instant failures (0.5s, 368 unknowns). Tests only pass when bundled in the
