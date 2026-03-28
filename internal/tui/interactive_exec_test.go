@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os/exec"
 	"testing"
+	"time"
 )
 
 func TestRunInteractiveCmd_NilCommand(t *testing.T) {
@@ -31,24 +32,24 @@ func TestRunInteractiveCmd_NilCommand(t *testing.T) {
 func TestRunInteractiveCmd_PTYCreationFailure(t *testing.T) {
 	t.Parallel()
 
-	// Provide a command but with a real context to exercise the code path
-	// where PTY creation or command start may fail. RunInteractiveCmd requires
-	// a real PTY, so we verify it returns a wrapped error rather than panicking
-	// when invoked in a non-terminal environment.
-	cmd := exec.CommandContext(t.Context(), "echo", "test")
+	// Use a short timeout: on Linux CI, xpty.NewPty() fails immediately (no terminal).
+	// On Windows CI, ConPTY is always available — PTY creation succeeds but
+	// tea.Program.Run() blocks waiting for terminal input that never comes.
+	// The 10-second deadline prevents this from consuming the full test timeout.
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
 
-	result, err := RunInteractiveCmd(t.Context(), InteractiveOptions{}, cmd)
-	// In a CI/non-TTY environment, PTY creation or Bubble Tea may fail.
-	// The key assertion is that the function returns a meaningful error
-	// and does not panic.
+	cmd := exec.CommandContext(ctx, "echo", "test")
+
+	result, err := RunInteractiveCmd(ctx, InteractiveOptions{}, cmd)
+	// In a CI/non-TTY environment, PTY creation, Bubble Tea, or the context
+	// deadline will produce an error. The key assertion is no panic.
 	if err != nil {
-		// Verify the error is wrapped with context
 		errMsg := err.Error()
 		if errMsg == "" {
 			t.Error("expected non-empty error message")
 		}
 	}
-	// If it somehow succeeds (e.g., in a terminal), the result should be non-nil
 	if err == nil && result == nil {
 		t.Error("expected non-nil result when no error is returned")
 	}
@@ -61,13 +62,12 @@ func TestRunInteractiveCmd_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	cmd := exec.CommandContext(ctx, "sleep", "10")
+	cmd := exec.CommandContext(ctx, "echo", "done")
 
 	result, err := RunInteractiveCmd(ctx, InteractiveOptions{}, cmd)
 	// The function should not panic with a cancelled context.
 	// It may fail at PTY creation, command start, or TUI run.
 	if err != nil {
-		// Error is expected; just verify it's meaningful
 		if err.Error() == "" {
 			t.Error("expected non-empty error message")
 		}

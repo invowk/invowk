@@ -224,7 +224,7 @@ jobs:
             --rerun-fails-max-failures 3 \
             --rerun-fails-report tui-rerun-report.txt \
             --packages ./internal/tui/... \
-            -- -short -v -timeout 15m
+            -- -short -v -timeout 10m
 
       # macOS: run all packages together with explicit timeout for timer coalescing.
       - name: Run tests (short)
