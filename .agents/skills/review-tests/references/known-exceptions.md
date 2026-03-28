@@ -78,12 +78,6 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 | `internal/tui/theme_colors.go` | No dedicated `theme_colors_test.go` | All 4 symbols are unexported constants; tested indirectly via `modalBaseStyle()` in `embeddable_test.go`. Direct tests would be trivially circular |
 | `internal/tui/interactive_unix.go`, `interactive_windows.go` | No test files | Thin syscall wrappers (`unix.IoctlGetWinsize` / Windows API); impractical to unit test without mocking the terminal |
 
-### CI Exceptions
-
-| Location | What Is Different | Rationale |
-|---|---|---|
-| Windows TUI tests in `ci.yml` | No `-race` flag | The race detector's 10x memory overhead causes excessive memory use and timeouts when running all 390+ TUI tests on Windows CI runners (`windows-latest`). TUI is race-checked on Linux (full mode) and macOS (short mode), limiting the gap to Windows-specific race conditions in TUI code only. The Charm rendering path (lipgloss `Style.Render()`, bubbletea `Model.View()`) is fully thread-safe — `GOMAXPROCS(1)` in `testmain_windows_race_test.go` exists solely as a memory budget workaround for local `-race` runs |
-
 ### Platform Skip Exceptions
 
 | Location | What Is Different | Rationale |

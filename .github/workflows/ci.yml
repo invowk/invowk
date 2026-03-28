@@ -196,39 +196,9 @@ jobs:
             -- -race -timeout 10m
 
       # Run short tests (unit tests only, no container dependencies).
-      # On Windows: split TUI from non-TUI to avoid -race 10x memory overhead
-      # on 288 TUI tests. testmain_windows_test.go pre-warms lipgloss and sets
-      # GOMAXPROCS(1) for TUI tests, but -race still causes excessive memory use.
-      - name: Run tests (short, non-TUI)
-        if: matrix.test-mode == 'short' && matrix.os == 'windows'
-        shell: bash
-        run: |
-          PACKAGES="$(go list ./... | grep -v '^github.com/invowk/invowk/internal/tui$' | grep -v '^github.com/invowk/invowk/tests/cli' | tr '\n' ' ')"
-          gotestsum \
-            --format testdox \
-            --junitfile test-results.xml \
-            --rerun-fails \
-            --rerun-fails-max-failures 3 \
-            --rerun-fails-report rerun-report.txt \
-            --packages "$PACKAGES" \
-            -- -race -short -v -timeout 20m -coverprofile=coverage.out
-
-      - name: Run TUI tests (short, no race detector)
-        if: matrix.test-mode == 'short' && matrix.os == 'windows'
-        shell: bash
-        run: |
-          gotestsum \
-            --format testdox \
-            --junitfile tui-test-results.xml \
-            --rerun-fails \
-            --rerun-fails-max-failures 3 \
-            --rerun-fails-report tui-rerun-report.txt \
-            --packages ./internal/tui/... \
-            -- -short -v -timeout 10m
-
-      # macOS: run all packages together with explicit timeout for timer coalescing.
+      # Uses bash shell to avoid PowerShell parsing issues on Windows.
       - name: Run tests (short)
-        if: matrix.test-mode == 'short' && matrix.os == 'macos'
+        if: matrix.test-mode == 'short'
         shell: bash
         run: |
           gotestsum \
@@ -299,11 +269,9 @@ jobs:
             test-results.xml
             runtime-test-results.xml
             cli-test-results.xml
-            tui-test-results.xml
             rerun-report.txt
             runtime-rerun-report.txt
             cli-rerun-report.txt
-            tui-rerun-report.txt
           if-no-files-found: ignore
           retention-days: 30
 
@@ -324,7 +292,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for report in rerun-report.txt runtime-rerun-report.txt cli-rerun-report.txt tui-rerun-report.txt; do
+          for report in rerun-report.txt runtime-rerun-report.txt cli-rerun-report.txt; do
             if [ -s "$report" ]; then
               echo "::warning::Flaky tests detected (rerun report: $report):"
               while IFS= read -r line; do
