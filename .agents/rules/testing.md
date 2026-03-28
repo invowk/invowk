@@ -549,3 +549,16 @@ defer func() { testutil.MustRemoveAll(t, path) }()
 | Txtar workspace contamination from broken fixtures | ALL file entries in a `.txtar` archive are created under `$WORK`. If one test creates a broken fixture (e.g., `badmod.invowkmod/`) at `$WORK` root, other tests running `exec invowk validate` or `exec invowk cmd` at `$WORK` will pick up the broken files through discovery. Isolate tests that need a clean workspace into subdirectories (e.g., `cd $WORK/clean_workspace`) |
 | Testscript `stdout`/`stderr` assertions use Go regex | Patterns in `stdout 'foo(s) bar'` interpret `(s)` as a capture group, not a literal `(s)`. Use simpler patterns like `stdout 'discovered'` or escape parentheses `\(s\)`. Particularly tricky with pluralization patterns like `"N source(s)"` |
 | CLI handler error tests only check one output channel | CLI handlers (e.g., `runModuleRemove`) print styled progress to **stdout** (`fmt.Printf` with icons) AND return errors to Cobra which renders to **stderr**. Test BOTH channels: `stdout 'Failed to remove'` verifies the handler's formatting, `stderr '[Nn]o module found'` verifies Cobra's error rendering. A bug in either path would be missed if only one channel is checked |
+
+## Related Skills
+
+For deep OS-level knowledge beyond this rule:
+
+| Skill | When to Consult |
+|---|---|
+| `go-testing` | Go test execution model, all flags, race detector, vet analyzers, benchmark/fuzz APIs |
+| `windows-testing` | Windows process lifecycle, TerminateProcess, NTFS pitfalls, timer resolution |
+| `macos-testing` | APFS case-insensitivity, kqueue coalescing, timer coalescing, /tmp symlink |
+| `linux-testing` | Container test infrastructure, inotify limits, cgroups/namespaces, OOM killer |
+| `testing` | Invowk-specific test patterns, testscript, TUI testing, container runtime testing |
+| `review-tests` | Test suite audit with 102-item checklist across 8 surfaces |

@@ -5,12 +5,14 @@ cd $WORK
 
 # Test 1: Custom check with wrong exit code
 ! exec invowk cmd 'deps check fail-code'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Failed Custom Checks'
 stderr 'exit code'
 
 # Test 2: Custom check with output that does not match pattern
 ! exec invowk cmd 'deps check fail-output'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Failed Custom Checks'
 stderr 'does not match'

@@ -5,10 +5,12 @@ cd $WORK
 
 # Test 1: --ivk-watch with non-existent command fails cleanly
 ! exec invowk cmd nonexistent --ivk-watch
+! stdout .
 stderr '(?i)not found'
 
 # Test 2: --ivk-watch and --ivk-dry-run are mutually exclusive
 ! exec invowk cmd hello --ivk-watch --ivk-dry-run
+! stdout .
 stderr '(?i)--ivk-watch and --ivk-dry-run cannot be used together'
 
 -- invowkfile.cue --

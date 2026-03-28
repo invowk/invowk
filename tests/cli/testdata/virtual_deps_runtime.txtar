@@ -6,6 +6,7 @@ cd $WORK
 
 # Test 1: virtual runtime with depends_on should be rejected at parse time
 ! exec invowk cmd 'runtime deps invalid'
+! stdout .
 stderr 'depends_on'
 
 -- invowkfile.cue --

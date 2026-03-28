@@ -202,7 +202,7 @@ func ParseSourceFilter(args []string, fromFlag string) (*SourceFilter, []string,
 // disambiguation (@source / --ivk-from) is specified and no ambiguity is detected.
 func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) error {
 	if len(args) == 0 {
-		return errors.New("no command specified")
+		return errNoCommandSpecified
 	}
 
 	// Watch mode intercepts before normal execution.

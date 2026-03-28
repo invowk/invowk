@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -228,8 +229,8 @@ func TestRunTuiTableNoData(t *testing.T) {
 	defer restore()
 
 	err := runTuiTable(newTUITableCommand(), nil)
-	if err == nil || err.Error() != "no data to display" {
-		t.Fatalf("runTuiTable() error = %v, want no data to display", err)
+	if !errors.Is(err, errNoDataToDisplay) {
+		t.Fatalf("runTuiTable() error = %v, want errNoDataToDisplay", err)
 	}
 }
 

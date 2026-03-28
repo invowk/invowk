@@ -4,6 +4,7 @@ package tui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -76,8 +77,8 @@ func TestInvalidTerminalDimensionError(t *testing.T) {
 	t.Parallel()
 
 	err := &InvalidTerminalDimensionError{Value: -5}
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
+	if !strings.Contains(err.Error(), "-5") {
+		t.Errorf("Error() = %q, want containing input value", err.Error())
 	}
 	if !errors.Is(err, ErrInvalidTerminalDimension) {
 		t.Error("expected error to wrap ErrInvalidTerminalDimension")

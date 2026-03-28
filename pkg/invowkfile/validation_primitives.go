@@ -34,6 +34,12 @@ const (
 )
 
 var (
+	// ErrNestedQuantifiers is returned when a regex pattern contains nested quantifiers
+	// that may cause catastrophic backtracking (ReDoS). Callers of ValidateRegexPattern
+	// can match this sentinel directly; the CUE parsing layer flattens it into a
+	// ValidationError.Message string (so errors.Is does not work after CUE parsing).
+	ErrNestedQuantifiers = errors.New("nested quantifiers")
+
 	// toolNameRegex validates tool/binary names for security.
 	// Tool names must start with alphanumeric and can include . _ + -
 	toolNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._+-]*$`)
@@ -101,7 +107,7 @@ func checkDangerousPatterns(pattern string) error {
 	// Simple heuristic: look for quantifier immediately after a group that contains a quantifier
 	nestedQuantifierPattern := regexp.MustCompile(`\([^)]*[+*][^)]*\)[+*?]|\([^)]*[+*][^)]*\)\{`)
 	if nestedQuantifierPattern.MatchString(pattern) {
-		return errors.New("regex pattern contains nested quantifiers which may cause performance issues")
+		return fmt.Errorf("%w: regex pattern may cause performance issues", ErrNestedQuantifiers)
 	}
 
 	// Check for repetition on alternation with overlapping patterns

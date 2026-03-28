@@ -411,8 +411,12 @@ func TestValidateVariadicArgumentValues(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for invalid variadic value")
 		}
-		if !strings.Contains(err.Error(), "files") {
-			t.Errorf("error = %v, want mention of arg name 'files'", err)
+		argErr, ok := errors.AsType[*ArgumentValidationError](err)
+		if !ok {
+			t.Fatalf("expected *ArgumentValidationError, got %T: %v", err, err)
+		}
+		if argErr.InvalidArg != "files" {
+			t.Errorf("InvalidArg = %q, want %q", argErr.InvalidArg, "files")
 		}
 	})
 

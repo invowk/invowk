@@ -105,11 +105,7 @@ cmds: [
 	}
 ]
 `
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
@@ -176,11 +172,7 @@ cmds: [
 	}
 ]
 `
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
@@ -329,6 +321,9 @@ depends_on: {
 	if err == nil {
 		t.Errorf("Parse() should reject dangerous expected_output regex pattern")
 	}
+	// NOTE: errors.Is(err, ErrNestedQuantifiers) is not feasible here because
+	// the sentinel is flattened into a ValidationError.Message string during parsing.
+	// Structural validation errors do not wrap the original error.
 	if err != nil && !strings.Contains(err.Error(), "nested quantifiers") {
 		t.Errorf("Expected error about nested quantifiers, got: %v", err)
 	}

@@ -37,58 +37,42 @@ func TestContainerRuntime_Integration(t *testing.T) {
 
 	t.Run("BasicExecution", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerBasicExecution(t)
 	})
 	t.Run("EnvironmentVariables", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerEnvironmentVariables(t)
 	})
 	t.Run("MultiLineScript", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerMultiLineScript(t)
 	})
 	t.Run("WorkingDirectory", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerWorkingDirectory(t)
 	})
 	t.Run("VolumeMounts", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerVolumeMounts(t)
 	})
 	t.Run("ExitCode", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerExitCode(t)
 	})
 	t.Run("PositionalArgs", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerPositionalArgs(t)
 	})
 	t.Run("EnableHostSSH_EnvVarsProvided", func(t *testing.T) {
 		t.Parallel()
-		sem := testutil.ContainerSemaphore()
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		testutil.AcquireContainerSemaphore(t)
 		testContainerEnableHostSSHEnvVars(t)
 	})
 }
@@ -472,34 +456,11 @@ func testContainerEnableHostSSHEnvVars(t *testing.T) {
 
 // Helper functions
 
-// setupTestInvowkfile creates a temporary directory and invowkfile for testing.
-// It uses a non-hidden directory under $HOME/invowk-test/ because Docker installed via snap
-// cannot access hidden directories (those starting with '.') due to snap's home interface limitations.
+// setupTestInvowkfile creates a snap-safe temp directory and invowkfile for testing.
 func setupTestInvowkfile(t *testing.T) (string, *invowkfile.Invowkfile) {
 	t.Helper()
 
-	// Create base directory for tests in user's home (not hidden - no leading dot)
-	// Docker snap's home interface only allows access to non-hidden files/directories
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
-
-	baseTmpDir := filepath.Join(homeDir, "invowk-test")
-	if mkdirErr := os.MkdirAll(baseTmpDir, 0o755); mkdirErr != nil {
-		t.Fatalf("Failed to create base temp dir: %v", mkdirErr)
-	}
-
-	tmpDir, err := os.MkdirTemp(baseTmpDir, "container-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-
-	// Register cleanup to remove the temp dir after test
-	t.Cleanup(func() {
-		testutil.MustRemoveAll(t, tmpDir)
-	})
-
+	tmpDir := testutil.ContainerSafeTempDir(t, "container-test")
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
 	inv := &invowkfile.Invowkfile{

@@ -14,6 +14,7 @@ stdout 'Title'
 
 # Test 3: Unknown format type returns error
 ! exec invowk tui format --type invalid 'text'
+! stdout .
 stderr 'Unknown format type'
 
 -- markdown_input.txt --

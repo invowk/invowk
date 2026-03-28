@@ -16,6 +16,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// errNoDataToDisplay is returned when a table command has no rows to render.
+var errNoDataToDisplay = errors.New("no data to display")
+
 type (
 	tableConfig struct {
 		file       tableFile      //goplint:ignore -- transient CLI flag value bundle for table rendering.
@@ -86,7 +89,7 @@ func runTuiTable(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	if len(rows) == 0 {
-		return errors.New("no data to display")
+		return errNoDataToDisplay
 	}
 
 	headers, rows := splitHeadersAndData(rows, cfg.columns)

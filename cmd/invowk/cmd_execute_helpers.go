@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -78,7 +77,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	cmd.SetContext(ctx)
 
 	if len(args) == 0 {
-		return errors.New("no command specified")
+		return errNoCommandSpecified
 	}
 
 	commandSetResult, err := app.Discovery.DiscoverCommandSet(ctx)

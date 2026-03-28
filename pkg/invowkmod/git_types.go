@@ -14,6 +14,8 @@ var (
 	ErrInvalidGitURL = errors.New("invalid git URL")
 	// ErrInvalidGitCommit is the sentinel error wrapped by InvalidGitCommitError.
 	ErrInvalidGitCommit = errors.New("invalid git commit")
+	// ErrSSHKeyNotFound is returned when an SSH URL is used but no SSH key is configured.
+	ErrSSHKeyNotFound = errors.New("SSH key not found")
 
 	// gitCommitPattern validates a 40-character lowercase hex SHA.
 	gitCommitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)

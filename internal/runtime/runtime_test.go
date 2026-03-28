@@ -632,15 +632,12 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 	}
 }
 
-// TestErrRuntimeNotAvailable_Sentinel verifies the sentinel error value.
+// TestErrRuntimeNotAvailable_Sentinel verifies the sentinel error is initialized.
 func TestErrRuntimeNotAvailable_Sentinel(t *testing.T) {
 	t.Parallel()
 
 	if ErrRuntimeNotAvailable == nil {
 		t.Fatal("ErrRuntimeNotAvailable should not be nil")
-	}
-	if ErrRuntimeNotAvailable.Error() != "runtime not available" {
-		t.Errorf("ErrRuntimeNotAvailable.Error() = %q, want %q", ErrRuntimeNotAvailable.Error(), "runtime not available")
 	}
 }
 

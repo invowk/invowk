@@ -219,6 +219,9 @@ func setBenchmarkRuntime(b *testing.B, ctx *runtime.ExecutionContext, mode invow
 // BenchmarkCUEParsing benchmarks CUE schema compilation and validation.
 // This exercises the hot path in pkg/cueutil/parse.go.
 func BenchmarkCUEParsing(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	data := []byte(sampleInvowkfile)
 
 	b.ResetTimer()
@@ -232,6 +235,9 @@ func BenchmarkCUEParsing(b *testing.B) {
 
 // BenchmarkCUEParsingComplex benchmarks parsing a larger invowkfile.
 func BenchmarkCUEParsingComplex(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	data := []byte(complexInvowkfile)
 
 	b.ResetTimer()
@@ -245,6 +251,9 @@ func BenchmarkCUEParsingComplex(b *testing.B) {
 
 // BenchmarkInvowkmodParsing benchmarks module metadata parsing.
 func BenchmarkInvowkmodParsing(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	data := []byte(sampleInvowkmod)
 
 	b.ResetTimer()
@@ -259,6 +268,9 @@ func BenchmarkInvowkmodParsing(b *testing.B) {
 // BenchmarkDiscovery benchmarks module and command discovery.
 // This exercises the hot path in internal/discovery/.
 func BenchmarkDiscovery(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	// Create a temp directory structure for discovery
 	tmpDir := b.TempDir()
 
@@ -318,6 +330,9 @@ func BenchmarkDiscovery(b *testing.B) {
 // BenchmarkDiscoveryIncludesAndAliases benchmarks discovery with configured
 // include entries and alias-based module ID disambiguation.
 func BenchmarkDiscoveryIncludesAndAliases(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	tmpDir := b.TempDir()
 	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
 
@@ -377,6 +392,9 @@ func BenchmarkDiscoveryIncludesAndAliases(b *testing.B) {
 
 // BenchmarkDiscoveryVendoredModules benchmarks one-level vendored module discovery.
 func BenchmarkDiscoveryVendoredModules(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	tmpDir := b.TempDir()
 	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
 
@@ -415,6 +433,9 @@ func BenchmarkDiscoveryVendoredModules(b *testing.B) {
 // BenchmarkDiscoveryModuleCollisionCheck benchmarks collision detection when two
 // modules declare the same module ID and no alias is configured.
 func BenchmarkDiscoveryModuleCollisionCheck(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	tmpDir := b.TempDir()
 	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
 
@@ -452,6 +473,10 @@ func BenchmarkDiscoveryModuleCollisionCheck(b *testing.B) {
 // BenchmarkRuntimeNative benchmarks native shell execution.
 // This exercises the hot path in internal/runtime/native.go.
 func BenchmarkRuntimeNative(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
+
 	tmpDir := b.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -499,6 +524,10 @@ func BenchmarkRuntimeNative(b *testing.B) {
 // BenchmarkRuntimeVirtual benchmarks mvdan/sh virtual shell execution.
 // This exercises the hot path in internal/runtime/virtual.go.
 func BenchmarkRuntimeVirtual(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
+
 	tmpDir := b.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -544,6 +573,10 @@ func BenchmarkRuntimeVirtual(b *testing.B) {
 
 // BenchmarkRuntimeVirtualComplex benchmarks virtual shell with more complex scripts.
 func BenchmarkRuntimeVirtualComplex(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
+
 	tmpDir := b.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -667,6 +700,10 @@ func BenchmarkRuntimeContainer(b *testing.B) {
 // BenchmarkFullPipeline benchmarks the end-to-end command execution pipeline.
 // This exercises discovery, parsing, and execution together.
 func BenchmarkFullPipeline(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
+
 	tmpDir := b.TempDir()
 
 	// Create invowkfile.cue
@@ -743,6 +780,9 @@ cmds: [
 
 // BenchmarkCommandLookup benchmarks command lookup by name.
 func BenchmarkCommandLookup(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	// Parse the complex invowkfile once
 	data := []byte(complexInvowkfile)
 	inv, err := invowkfile.ParseBytes(data, "complex.cue")
@@ -765,6 +805,9 @@ func BenchmarkCommandLookup(b *testing.B) {
 
 // BenchmarkEnvBuilding benchmarks environment variable building.
 func BenchmarkEnvBuilding(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	tmpDir := b.TempDir()
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 
@@ -820,6 +863,9 @@ func BenchmarkEnvBuilding(b *testing.B) {
 
 // BenchmarkModuleValidation benchmarks module validation.
 func BenchmarkModuleValidation(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping benchmark in short mode")
+	}
 	// Create a complete module structure
 	// Note: The module name in invowkmod.cue must match the folder name (minus .invowkmod suffix)
 	tmpDir := b.TempDir()

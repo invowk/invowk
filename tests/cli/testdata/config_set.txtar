@@ -39,22 +39,27 @@ stdout 'Set virtual_shell.enable_uroot_utils = false'
 
 # Test 8: Invalid key returns error
 ! exec invowk config set nonexistent_key value
+! stdout .
 stderr 'Unknown configuration key'
 
 # Test 9: Invalid container_engine value
 ! exec invowk config set container_engine invalid
+! stdout .
 stderr '(?i)invalid container engine'
 
 # Test 10: Invalid default_runtime value
 ! exec invowk config set default_runtime invalid
+! stdout .
 stderr '(?i)invalid runtime mode'
 
 # Test 11: config set requires exactly 2 args (0 given)
 ! exec invowk config set
+! stdout .
 stderr 'Accepts 2 arg'
 
 # Test 12: config set requires exactly 2 args (1 given)
 ! exec invowk config set container_engine
+! stdout .
 stderr 'Accepts 2 arg'
 
 # Test 13: Verify all persisted values via config dump

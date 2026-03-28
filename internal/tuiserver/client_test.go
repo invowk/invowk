@@ -5,6 +5,7 @@ package tuiserver
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -322,16 +323,17 @@ func TestClient_File(t *testing.T) {
 	server, client := startTestServer(t)
 
 	t.Run("success", func(t *testing.T) {
+		filePath := filepath.Join(t.TempDir(), "file.txt")
 		errCh := respondWith(t, server, Response{
-			Result: mustMarshalResult(t, FileResult{Path: "/tmp/file.txt"}),
+			Result: mustMarshalResult(t, FileResult{Path: filePath}),
 		})
 
 		path, err := client.File(FileRequest{Title: "pick file"})
 		if err != nil {
 			t.Fatalf("File() error = %v", err)
 		}
-		if path != "/tmp/file.txt" {
-			t.Fatalf("File() = %q, want %q", path, "/tmp/file.txt")
+		if path != filePath {
+			t.Fatalf("File() = %q, want %q", path, filePath)
 		}
 		assertNoAsyncError(t, errCh)
 	})

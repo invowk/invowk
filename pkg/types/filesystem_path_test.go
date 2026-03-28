@@ -21,6 +21,8 @@ func TestFilesystemPath_Validate(t *testing.T) {
 		{"windows style", FilesystemPath("C:\\Program Files\\app.exe"), true, false},
 		{"path with spaces", FilesystemPath("/path/to/my file.txt"), true, false},
 		{"dot path", FilesystemPath("."), true, false},
+		{"UNC path", FilesystemPath(`\\server\share`), true, false},
+		{"extended-length UNC path", FilesystemPath(`\\?\C:\path`), true, false},
 		{"empty is invalid", FilesystemPath(""), false, true},
 		{"whitespace only is invalid", FilesystemPath("   "), false, true},
 		{"tab only is invalid", FilesystemPath("\t"), false, true},

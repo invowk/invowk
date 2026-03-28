@@ -4,6 +4,7 @@ package tuiserver
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -75,8 +76,8 @@ func TestInvalidAuthTokenError(t *testing.T) {
 	t.Parallel()
 
 	err := &InvalidAuthTokenError{Value: ""}
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
+	if !strings.Contains(err.Error(), "invalid") {
+		t.Errorf("Error() = %q, want containing 'invalid'", err.Error())
 	}
 	if !errors.Is(err, ErrInvalidAuthToken) {
 		t.Error("expected error to wrap ErrInvalidAuthToken")

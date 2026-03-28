@@ -30,6 +30,7 @@ stdout 'Executable check passed'
 # Test 5: deps file not-executable - file exists but lacks execute permission
 # data.txt has no execute bit (Unix) and no executable extension (Windows)
 ! exec invowk cmd 'deps file not-executable'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'execute'
 

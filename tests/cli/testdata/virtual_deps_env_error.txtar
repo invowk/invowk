@@ -5,6 +5,7 @@ cd $WORK
 
 # Test 1: Missing env var should produce error
 ! exec invowk cmd 'deps env missing'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Missing or Invalid Environment Variables'
 stderr 'INVOWK_TEST_NONEXISTENT_VAR'
@@ -12,6 +13,7 @@ stderr 'INVOWK_TEST_NONEXISTENT_VAR'
 # Test 2: env var with validation regex that fails
 env INVOWK_TEST_BAD_VERSION=not-a-version
 ! exec invowk cmd 'deps env bad-pattern'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'does not match'
 

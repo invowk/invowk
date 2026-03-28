@@ -3,10 +3,12 @@
 package container
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -430,9 +432,9 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for failed build")
 		}
-		// Build now returns an actionable error with "failed to build container image" operation
-		if !strings.Contains(err.Error(), "failed to build container image") {
-			t.Errorf("expected 'failed to build container image' error, got: %v", err)
+		// Build returns an actionable error — verify via type assertion (same pattern as engine_base_options_test.go)
+		if _, ok := errors.AsType[*issue.ActionableError](err); !ok {
+			t.Errorf("expected *issue.ActionableError, got %T: %v", err, err)
 		}
 	})
 
