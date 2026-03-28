@@ -25,6 +25,7 @@ stdout 'INVOWK_RUNTIME=native'
 
 # Test 4: --ivk-watch and --ivk-dry-run are mutually exclusive
 ! exec invowk cmd hello --ivk-watch --ivk-dry-run
+! stdout .
 stderr '(?i)--ivk-watch and --ivk-dry-run cannot be used together'
 
 -- invowkfile.cue --

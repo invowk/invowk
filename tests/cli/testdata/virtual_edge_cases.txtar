@@ -25,20 +25,24 @@ cd $WORK/typo_test
 
 # Test 2: Typo in @source prefix shows helpful error with suggestions
 ! exec invowk cmd @fooo deploy
+! stdout .
 stderr 'not found'
 stderr 'Available sources'
 
 # Test 3: Typo in --ivk-from flag shows helpful error
 ! exec invowk cmd --ivk-from ivkfil deploy
+! stdout .
 stderr 'not found'
 stderr 'Available sources'
 
 # Test 4: Non-existent source with similar name
 ! exec invowk cmd @ba deploy
+! stdout .
 stderr 'not found'
 
 # Test 5: Explicit source that doesn't contain the requested command
 ! exec invowk cmd @foo hello
+! stdout .
 stderr 'not found in source'
 
 # =============================================================================

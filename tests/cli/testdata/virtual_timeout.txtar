@@ -6,6 +6,7 @@ cd $WORK
 
 # Test 1: command with 1s timeout and a 60s sleep is killed
 ! exec invowk cmd slow
+! stdout .
 stderr '(?i)timed out'
 
 # Test 2: command with generous timeout completes normally

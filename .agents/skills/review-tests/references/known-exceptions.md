@@ -42,6 +42,13 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 | Error-path tests that fail before container operations | No `ContainerSemaphore()` | Execution never reaches container operations (e.g., missing SSH server) |
 | `internal/runtime` container tests | No `AcquireContainerSuiteLock` | Semaphore alone provides concurrency control; suite lock is only for `tests/cli` cross-process serialization |
 
+### Hardcoded Path Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `internal/app/deps/filepaths_test.go` | Hardcoded `/tmp`, `/var/tmp` in container filepath fixtures | Container runtime is Linux-only by design; these are container-internal paths, not host paths. Tests have `runtime.GOOS` guards |
+| `internal/uroot/dirname_test.go` | Hardcoded Unix paths (`/foo/bar`, `/a/b/c/d`) | u-root implements POSIX `path.Dir` (not `filepath.Dir`); runs exclusively in the virtual shell with POSIX semantics on all platforms |
+
 ### Mirror Exemptions
 
 | Category | Files | Rationale |
@@ -75,7 +82,7 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 
 | Location | What Is Different | Rationale |
 |---|---|---|
-| Windows TUI tests in `ci.yml` | No `-race` flag | 288 TUI tests with race detector cause excessive memory and timeouts on Windows CI runners. TUI is race-checked on Linux (full mode) and macOS (short mode), limiting the gap to Windows-specific race conditions in TUI code only |
+| Windows TUI tests in `ci.yml` | No `-race` flag | The race detector's 10x memory overhead causes excessive memory use and timeouts when running all 288+ TUI tests on Windows CI runners (`windows-latest`). TUI is race-checked on Linux (full mode) and macOS (short mode), limiting the gap to Windows-specific race conditions in TUI code only. This is a hard infrastructure constraint — splitting into batches was evaluated but adds CI complexity and fragile test-name coupling without guaranteed memory savings on GitHub-hosted runners |
 
 ### Platform Skip Exceptions
 

@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -610,5 +611,48 @@ func TestTableOptions_Fields(t *testing.T) {
 	}
 	if !opts.Config.Accessible {
 		t.Error("expected accessible to be true")
+	}
+}
+
+// TestTableModel_UnicodeAndLongInputs is a crash-guard test: Init() and View()
+// must not panic when the title, columns, or rows contain non-ASCII or long content.
+func TestTableModel_UnicodeAndLongInputs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "CJK characters", value: "你好世界\n第二行"},
+		{name: "emoji", value: "Hello 🌍🚀✨\nLine 2"},
+		{name: "combining marks", value: "e\u0301 a\u0300 u\u0308"},
+		{name: "mixed-width", value: "ABCｄｅｆ全角半角"},
+		{name: "RTL characters", value: "مرحبا بالعالم"},
+		{name: "very long line", value: strings.Repeat("a", 1000)},
+		{name: "many lines", value: strings.Repeat("line\n", 100)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			opts := TableOptions{
+				Title:   tt.value,
+				Columns: []TableColumn{{Title: tt.value}},
+				Rows:    [][]string{{tt.value}},
+				Config:  DefaultConfig(),
+			}
+
+			model := NewTableModel(opts)
+			if model == nil {
+				t.Fatal("expected non-nil model")
+			}
+
+			_ = model.Init()
+			view := model.View().Content
+			if view == "" {
+				t.Error("expected non-empty view")
+			}
+		})
 	}
 }

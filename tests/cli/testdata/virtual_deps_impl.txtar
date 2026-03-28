@@ -10,6 +10,7 @@ stdout 'implementation deps passed'
 
 # Test 2: Implementation-level tool dep unsatisfied
 ! exec invowk cmd 'impl deps missing'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Missing Tools'
 stderr 'nonexistent-impl-tool-xyz'

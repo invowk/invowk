@@ -5,6 +5,7 @@ cd $WORK
 
 # Test 1: command with 1s timeout and a long sleep is killed
 ! exec invowk cmd slow
+! stdout .
 # Native shell timeout surfaces differently per platform: "timed out", "exit code", or "execution failed"
 stderr '(?i)timed out|exit code|execution failed'
 

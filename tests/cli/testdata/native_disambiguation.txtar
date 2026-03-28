@@ -52,10 +52,12 @@ stdout 'Building from foo!'
 
 # Test 10: Invalid source should show helpful error
 ! exec invowk cmd @nonexistent deploy
+! stdout .
 stderr 'Source.*nonexistent.*not found'
 
 # Test 11: Invalid source with --ivk-from should show helpful error
 ! exec invowk cmd --ivk-from badmodule deploy
+! stdout .
 stderr 'Source.*badmodule.*not found'
 
 # Test 12: Attempting ambiguous command without disambiguation should fail with suggestions

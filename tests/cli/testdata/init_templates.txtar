@@ -14,6 +14,7 @@ stdout 'Hello, World!'
 
 # Test 3: Without --force, init errors on existing file
 ! exec invowk init
+! stdout .
 stderr 'already exists'
 stderr 'Use --force to overwrite'
 
@@ -30,6 +31,7 @@ exists my_commands.cue
 
 # Test 6: Invalid template name returns an error
 ! exec invowk init --force -t nonexistent
+! stdout .
 stderr '[Uu]nknown template'
 
 # Test 7: Full template generates a valid invowkfile with subcommands
