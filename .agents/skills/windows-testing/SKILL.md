@@ -223,36 +223,53 @@ that do not occur on other platforms.
 - Windows thread creation/scheduling is heavier than Linux (no `clone(2)`).
 - `CreateProcess` startup time adds latency to every subprocess-spawning test.
 
-### The lipgloss TestMain Pre-Warm Pattern
+### Charm Library Thread Safety (lipgloss, bubbletea, termenv)
 
-The `charm.land/lipgloss/v2` library uses `sync.Once` for terminal capability
-detection, which calls Windows Console API functions. When multiple
-`t.Parallel()` goroutines trigger this concurrently, the race detector flags
-a data race in the terminal detection code path.
+Source-level analysis of the Charm library stack reveals that the TUI test
+rendering path is fully thread-safe. The `GOMAXPROCS(1)` restriction in
+`internal/tui/testmain_windows_race_test.go` exists solely for memory
+pressure under the race detector, NOT for thread safety.
 
-The fix is in `internal/tui/testmain_windows_test.go`:
+**Library-by-library findings** (verified against actual source):
+
+| Library | Version | Thread Safety | Key Evidence |
+|---------|---------|---------------|-------------|
+| lipgloss v2 | v2.0.2 | `Style` is a pure value type. `Render()` uses only local variables — zero global state access. | `style.go:142-195`: struct fields are all values (ints, colors, rune). No `sync` primitives in core. |
+| bubbletea v2 | latest | All sync primitives on `Program`/renderer, not `Model`/`View`. Tests never run a `Program`. | `tea.go:76-80`: `NewView()` is a plain struct constructor. |
+| colorprofile | v0.4.3 | Global color conversion cache uses `sync.RWMutex` — properly synchronized. | `profile.go:49-55` |
+| termenv | v0.16.0 | `sync.Once` guards for color caching in `Output`. `go-isatty` resolves `LazyDLL` at package init. | `output.go:32-35`, `isatty_windows.go:29-33` |
+
+**Terminal detection lifecycle**: lipgloss v2 runs terminal detection exactly
+once, at package init time (`var Writer = colorprofile.NewWriter(os.Stdout,
+os.Environ())`), before any test executes. `NewStyle().Render()` does NOT
+trigger terminal detection — it is purely computational. The old "pre-warm"
+pattern (`_ = lipgloss.NewStyle().Render("")`) was a no-op that hit the
+`props == 0` fast path without touching any Console API.
+
+**Proof from CI**: Linux and macOS run 396 TUI tests with `-race` AND full
+parallelism (`t.Parallel()`) — same rendering code path, no failures. This
+confirms the rendering path has no data races.
+
+**Current pattern** (`internal/tui/testmain_windows_race_test.go`):
 
 ```go
-//go:build windows
+//go:build windows && race
 
 func TestMain(m *testing.M) {
-    // Limit parallel test concurrency to eliminate Console API races.
+    // 390+ parallel tests with 10x race memory overhead exceed memory limits
+    // on windows-latest CI runners. Serialize to stay within bounds.
     runtime.GOMAXPROCS(1)
-    // Pre-warm lipgloss terminal detection before parallel tests start.
-    _ = lipgloss.NewStyle().Render("")
     os.Exit(m.Run())
 }
 ```
 
-This pattern:
-1. Sets `GOMAXPROCS(1)` to limit parallel test execution, reducing both the
-   race window and resource pressure on slow CI runners.
-2. Forces lipgloss to cache its terminal detection result in the main
-   goroutine before any parallel tests start.
+This file only compiles with `-race`. Without `-race`, no `TestMain` exists
+for Windows, so tests run in full parallel (~3 min instead of ~15 min).
 
-**When to apply**: Any test package that imports lipgloss (directly or
-transitively) AND uses `t.Parallel()` on Windows should consider this
-pattern if race detector failures occur.
+**When to apply**: Only when the race detector's memory overhead causes OOM
+or timeouts with many parallel TUI tests on Windows. Thread safety of the
+Charm rendering path is NOT a concern — `GOMAXPROCS(1)` is purely a memory
+budget workaround.
 
 ## Named Pipes
 

@@ -217,6 +217,9 @@ Use `t.Parallel()` by default. Only omit it when the test touches shared mutable
 | Shared channel (e.g., `RequestChannel()`) | **NO** | Multiplexed reads/sends race | Serial subtests; `//nolint:tparallel` |
 | `exec.Command` with inherited env | DEPENDS | Safe if no `t.Setenv`; process gets snapshot | — |
 | HTTP test server (`httptest.NewServer`) | YES | Each call creates independent server | — |
+| lipgloss `Style` / `Render()` | YES | Pure value type; zero global state in rendering path. Terminal detection runs once at package init. | — |
+| bubbletea `Model.Init()` / `View()` | YES | No shared state outside `Program`. Tests don't run `Program`. | — |
+| colorprofile color conversion | YES | Global cache protected by `sync.RWMutex` | — |
 
 ### Go 1.22+ Loop Variable Rule
 
