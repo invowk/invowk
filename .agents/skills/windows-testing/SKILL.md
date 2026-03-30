@@ -286,18 +286,23 @@ reliably unblock when:
 This means any Bubble Tea program connected to a ConPTY in headless CI will
 **block indefinitely** waiting for keyboard input that never arrives.
 
-### Why `tea.WithContext(ctx)` Doesn't Fully Help
+### Why `tea.WithContext(ctx)` Doesn't Help on Windows
 
 `tea.WithContext(ctx)` works by sending a kill signal through the message
-channel when the context expires. However:
+channel when the context expires. On Windows with ConPTY, this is insufficient
+for **both** context timing scenarios:
 
-- **Pre-cancelled context**: Works. Bubble Tea checks context before starting
-  the input reader goroutine and returns `ErrProgramKilled` immediately.
-- **Active context that expires later**: Does NOT reliably work. The ConPTY
-  input reader goroutine is already blocked in `ReadConsoleInput`. The kill
-  signal is sent to the message channel, but the main event loop may be waiting
-  for the input reader goroutine to yield. The program hangs until the Go test
-  binary timeout kills the entire process.
+- **Pre-cancelled context**: **NOT reliably immediate.** There is a race between
+  Bubble Tea checking `ctx.Done()` in its startup path and the ConPTY subsystem
+  spawning the `ReadConsoleInput` goroutine. If ConPTY init wins the race, the
+  goroutine enters the blocking kernel syscall before the cancellation is
+  processed. This is non-deterministic — the same test can pass in one CI run
+  and hang in the next.
+- **Active context that expires later**: Does NOT work. The ConPTY input reader
+  goroutine is already blocked in `ReadConsoleInput`. The kill signal is sent to
+  the message channel, but the main event loop may be waiting for the input
+  reader goroutine to yield. The program hangs until the Go test binary timeout
+  kills the entire process.
 
 ### Impact on Test Suites
 
@@ -309,20 +314,27 @@ test results.
 
 ### Mitigation
 
-Skip PTY-dependent tests on Windows when they exercise the
-`xpty.NewPty()` → `tea.Program.Run()` path:
+Skip **ALL** tests on Windows that call `RunInteractiveCmd()` or start a
+`tea.Program` connected to a ConPTY — regardless of context state:
 
 ```go
 if goruntime.GOOS == "windows" {
-    t.Skip("skipping: ConPTY always succeeds in headless CI; tea.Program.Run() blocks on CONIN$ even with WithContext")
+    t.Skip("skipping: ConPTY blocks on CONIN$ in headless CI; neither WithContext nor pre-cancellation reliably prevents the hang")
 }
 ```
 
-Tests that only exercise the model layer (`model.Update()`, `model.View()`)
-without starting a `tea.Program` are safe and do not need Windows skips.
+**Safe on Windows** (no skip needed):
+- Tests that exercise the model layer directly (`model.Update()`, `model.View()`)
+- Tests that use `NewInteractive().Command(cmd)` without calling `.Run()`
+- Tests that call `RunInteractiveCmd` indirectly via mocks
 
-The production code should still use `tea.WithContext(ctx)` — it handles the
-pre-cancelled context case and is the correct pattern for non-ConPTY terminals.
+**Unsafe on Windows** (must skip):
+- Any test that calls `RunInteractiveCmd()` directly
+- Any test that creates a `tea.NewProgram` with ConPTY I/O
+- Even with `tea.WithContext(ctx)` and a pre-cancelled context
+
+The production code should still use `tea.WithContext(ctx)` — it is the correct
+pattern for real terminals and handles non-ConPTY cancellation on all platforms.
 
 ## Named Pipes
 
