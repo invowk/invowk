@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	goruntime "runtime"
 	"testing"
 	"time"
 )
@@ -32,10 +33,11 @@ func TestRunInteractiveCmd_NilCommand(t *testing.T) {
 func TestRunInteractiveCmd_PTYCreationFailure(t *testing.T) {
 	t.Parallel()
 
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: Windows ConPTY always succeeds in headless CI; tea.Program.Run() blocks on CONIN$ even with WithContext")
+	}
+
 	// Use a short timeout: on Linux CI, xpty.NewPty() fails immediately (no terminal).
-	// On Windows CI, ConPTY is always available — PTY creation succeeds but
-	// tea.Program.Run() blocks waiting for terminal input that never comes.
-	// The 10-second deadline prevents this from consuming the full test timeout.
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 

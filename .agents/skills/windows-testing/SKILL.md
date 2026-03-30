@@ -250,26 +250,79 @@ pattern (`_ = lipgloss.NewStyle().Render("")`) was a no-op that hit the
 parallelism (`t.Parallel()`) — same rendering code path, no failures. This
 confirms the rendering path has no data races.
 
-**Current pattern** (`internal/tui/testmain_windows_race_test.go`):
+**Current approach**: No `TestMain` or `GOMAXPROCS` restriction exists for
+Windows TUI tests. All TUI tests run with `-race` and full parallelism on
+`windows-latest`. If memory pressure under the race detector becomes a
+problem in the future, a build-tagged `TestMain` with `GOMAXPROCS(1)` can
+be reintroduced (the rendering path is confirmed thread-safe; the
+restriction would be purely a memory budget workaround).
+
+## ConPTY (Windows Pseudo-Console)
+
+Windows ConPTY (`CreatePseudoConsole`) is a kernel-level pseudo-terminal API
+available since Windows 10 1809. Unlike Unix PTYs, ConPTY is **always available
+in headless environments** (CI runners, SSH sessions, containers). This creates
+a platform-specific divergence that is invisible during local development.
+
+### The Headless CI Problem
+
+On Linux/macOS CI (headless), PTY creation via `xpty.NewPty()` **fails
+immediately** because there is no terminal device. Code that calls
+`tea.NewProgram(m).Run()` after PTY creation never executes — the function
+returns early with a PTY error.
+
+On Windows CI (headless), `xpty.NewPty()` calls `NewConPty()` which uses the
+ConPTY API. This **succeeds unconditionally**, even without a physical terminal.
+The PTY is backed by `CONIN$`/`CONOUT$` console handles. After PTY creation,
+`tea.NewProgram(m).Run()` enters its event loop and calls `ReadConsoleInput` on
+the ConPTY input handle.
+
+`ReadConsoleInput` is a **blocking Windows kernel syscall** that does not
+reliably unblock when:
+- The console handle is closed from another goroutine
+- A context is cancelled via `tea.WithContext(ctx)`
+- The Go runtime attempts to interrupt it
+
+This means any Bubble Tea program connected to a ConPTY in headless CI will
+**block indefinitely** waiting for keyboard input that never arrives.
+
+### Why `tea.WithContext(ctx)` Doesn't Fully Help
+
+`tea.WithContext(ctx)` works by sending a kill signal through the message
+channel when the context expires. However:
+
+- **Pre-cancelled context**: Works. Bubble Tea checks context before starting
+  the input reader goroutine and returns `ErrProgramKilled` immediately.
+- **Active context that expires later**: Does NOT reliably work. The ConPTY
+  input reader goroutine is already blocked in `ReadConsoleInput`. The kill
+  signal is sent to the message channel, but the main event loop may be waiting
+  for the input reader goroutine to yield. The program hangs until the Go test
+  binary timeout kills the entire process.
+
+### Impact on Test Suites
+
+When a test calling `RunInteractiveCmd()` or `tea.Program.Run()` hangs on
+Windows ConPTY, the Go `-timeout` flag eventually kills the test binary. This
+produces a **timeout cascade**: every test in the package that hadn't completed
+is reported as `(unknown)` by gotestsum. A single hanging test can mask 400+
+test results.
+
+### Mitigation
+
+Skip PTY-dependent tests on Windows when they exercise the
+`xpty.NewPty()` → `tea.Program.Run()` path:
 
 ```go
-//go:build windows && race
-
-func TestMain(m *testing.M) {
-    // 390+ parallel tests with 10x race memory overhead exceed memory limits
-    // on windows-latest CI runners. Serialize to stay within bounds.
-    runtime.GOMAXPROCS(1)
-    os.Exit(m.Run())
+if goruntime.GOOS == "windows" {
+    t.Skip("skipping: ConPTY always succeeds in headless CI; tea.Program.Run() blocks on CONIN$ even with WithContext")
 }
 ```
 
-This file only compiles with `-race`. Without `-race`, no `TestMain` exists
-for Windows, so tests run in full parallel (~3 min instead of ~15 min).
+Tests that only exercise the model layer (`model.Update()`, `model.View()`)
+without starting a `tea.Program` are safe and do not need Windows skips.
 
-**When to apply**: Only when the race detector's memory overhead causes OOM
-or timeouts with many parallel TUI tests on Windows. Thread safety of the
-Charm rendering path is NOT a concern — `GOMAXPROCS(1)` is purely a memory
-budget workaround.
+The production code should still use `tea.WithContext(ctx)` — it handles the
+pre-cancelled context case and is the correct pattern for non-ConPTY terminals.
 
 ## Named Pipes
 
@@ -304,28 +357,21 @@ accommodations:
 
 1. **Short mode only**: Windows CI runs `-short`, skipping container
    integration tests (container runtime is Linux-only by design).
-2. **Two Windows test steps**: Non-TUI runs with `-race -timeout 20m`
-   (excludes `internal/tui`). TUI runs separately with `-timeout 15m`
-   and **no `-race`** (330+ TUI tests with the race detector's 10x memory
-   overhead cause excessive memory/timeouts on `windows-latest` runners).
+2. **Single unified test step**: All packages (including `internal/tui`) run
+   in one `gotestsum --packages ./... -- -race -short -v` invocation with
+   Go's default 10-minute per-binary timeout.
 3. **No container engine**: The `engine: ""` matrix value means no Docker or
    Podman is available. Container tests auto-skip via `[!container-available]`
    guards in testscript.
-4. **Race detector**: Enabled on non-TUI Windows tests. Omitted for TUI
-   (documented in `known-exceptions.md`). TUI is race-checked on Linux
-   (full mode) and macOS (short mode).
+4. **Race detector**: Enabled for all packages including TUI. TUI is also
+   race-checked on Linux (full mode) and macOS (short mode).
 5. **Job timeout**: `timeout-minutes: 30` at the job level provides the
    safety net if the Go-level timeout fails to fire.
-6. **TUI timeout includes compilation**: On Windows, `-timeout` starts at
-   `go test` invocation including binary compilation. Defender scanning
-   and NTFS overhead make compilation slow. Adding new TUI tests can push
-   the total over the timeout — when the binary is killed, ALL remaining
-   tests report as `(unknown)`. Always verify the Windows TUI step timeout
-   after adding test functions.
-
-**Why not split TUI tests**: Running `./internal/tui` alone on Windows causes
-instant failures (0.5s, 368 unknowns). Tests only pass when bundled in the
-full `./...` package list. Do NOT split TUI into a separate gotestsum step.
+6. **ConPTY test skips**: Tests that exercise the `xpty.NewPty()` →
+   `tea.Program.Run()` path must be skipped on Windows. ConPTY always
+   succeeds in headless CI, and the Bubble Tea event loop blocks
+   indefinitely on `ReadConsoleInput`. A single hanging test cascades
+   to all remaining TUI tests as `(unknown)`. See the ConPTY section above.
 
 ## PowerShell Testing
 
@@ -378,11 +424,12 @@ Without this, all Windows tests share the real `%APPDATA%\invowk` config
 directory, causing cross-test contamination (one test's `config init` affects
 another).
 
-### testmain_windows_test.go
+### ConPTY Test Skips
 
-The `internal/tui/testmain_windows_test.go` file uses a build-tagged
-`TestMain` to pre-warm lipgloss and limit `GOMAXPROCS`. See the Race Detector
-section above for the full explanation.
+The `internal/tui/interactive_exec_test.go` file skips
+`TestRunInteractiveCmd_PTYCreationFailure` on Windows because ConPTY always
+succeeds in headless CI and `tea.Program.Run()` blocks on `ReadConsoleInput`.
+See the ConPTY section above for the full explanation.
 
 ## Common Windows Test Failure Matrix
 
@@ -394,6 +441,7 @@ When a test fails only on Windows, use this matrix to diagnose the cause:
 | `ERROR_SHARING_VIOLATION` on temp files | Windows Defender scanning or open file handle | Use `t.TempDir()`, add retry logic, close handles before cleanup |
 | `ACCESS_DENIED` on newly created file | Defender real-time scan locking the file | Add small delay or retry; avoid immediate open-after-create |
 | Test timeout on CI but passes locally | Race detector overhead (5-10x) + 15.6ms timer | Increase `-timeout`, check `GOMAXPROCS`, use `-short` |
+| Bubble Tea test hangs, 400+ `(unknown)` cascade | ConPTY `ReadConsoleInput` blocks in headless CI | Skip PTY-dependent tests on Windows (see ConPTY section) |
 | lipgloss race detector crash | Concurrent Console API access | Add `TestMain` pre-warm pattern |
 | Regex assertion fails for line match | CRLF line endings from PowerShell | Use `\r?$` instead of `$` in anchored assertions |
 | `filepath.IsAbs("/app")` returns false | `/app` is not absolute on Windows | Use `t.TempDir()` + `filepath.Join()` for host paths |
