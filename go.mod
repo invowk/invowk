@@ -3,7 +3,7 @@ module github.com/invowk/invowk
 go 1.26
 
 require (
-	charm.land/bubbles/v2 v2.0.0
+	charm.land/bubbles/v2 v2.1.0
 	charm.land/bubbletea/v2 v2.0.2
 	charm.land/lipgloss/v2 v2.0.2
 	cuelang.org/go v0.16.0
@@ -17,7 +17,7 @@ require (
 	github.com/charmbracelet/x/xpty v0.1.3
 	github.com/creack/pty v1.1.24
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-git/go-git/v5 v5.17.0
+	github.com/go-git/go-git/v5 v5.17.1
 	github.com/muesli/reflow v0.3.0
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/sahilm/fuzzy v0.1.1
