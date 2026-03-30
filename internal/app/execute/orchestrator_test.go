@@ -569,10 +569,14 @@ func TestInvalidRuntimeSelectionError_ErrorAndUnwrap(t *testing.T) {
 		errors.New("mode error"),
 		errors.New("impl error"),
 	}
+	var target *InvalidRuntimeSelectionError
 	err := &InvalidRuntimeSelectionError{FieldErrors: fieldErrs}
 
-	if !strings.Contains(err.Error(), "2 field error(s)") {
-		t.Errorf("Error() = %q, want to contain '2 field error(s)'", err.Error())
+	if !errors.As(err, &target) {
+		t.Fatal("errors.As should match *InvalidRuntimeSelectionError")
+	}
+	if len(target.FieldErrors) != 2 {
+		t.Errorf("FieldErrors count = %d, want 2", len(target.FieldErrors))
 	}
 	if !errors.Is(err, ErrInvalidRuntimeSelection) {
 		t.Error("Unwrap() should return ErrInvalidRuntimeSelection")

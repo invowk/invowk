@@ -113,8 +113,8 @@ func TestValidateFilepathInContainer(t *testing.T) {
 		t.Parallel()
 
 		err := ValidateFilepathInContainer(invowkfile.FilepathDependency{}, &filepathStubRuntime{}, execCtx)
-		if err == nil || !strings.Contains(err.Error(), "at least one path must be provided in alternatives") {
-			t.Fatalf("err = %v", err)
+		if !errors.Is(err, ErrNoPathAlternatives) {
+			t.Fatalf("err = %v, want wrapping ErrNoPathAlternatives", err)
 		}
 	})
 
@@ -163,8 +163,8 @@ func TestValidateFilepathInContainer(t *testing.T) {
 			},
 			execCtx,
 		)
-		if err == nil || !strings.Contains(err.Error(), "container engine failure") {
-			t.Fatalf("err = %v", err)
+		if !errors.Is(err, ErrContainerEngineFailure) {
+			t.Fatalf("err = %v, want wrapping ErrContainerEngineFailure", err)
 		}
 	})
 
@@ -180,8 +180,8 @@ func TestValidateFilepathInContainer(t *testing.T) {
 			},
 			execCtx,
 		)
-		if err == nil || !strings.Contains(err.Error(), "container validation failed") {
-			t.Fatalf("err = %v", err)
+		if !errors.Is(err, ErrContainerValidationFailed) {
+			t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
 		}
 	})
 }
@@ -259,8 +259,8 @@ func TestValidateFilepathAlternatives(t *testing.T) {
 		t.Parallel()
 		fp := invowkfile.FilepathDependency{}
 		err := ValidateFilepathAlternatives(fp, invowkDir)
-		if err == nil || !strings.Contains(err.Error(), "at least one path") {
-			t.Fatalf("err = %v", err)
+		if !errors.Is(err, ErrNoPathAlternatives) {
+			t.Fatalf("err = %v, want wrapping ErrNoPathAlternatives", err)
 		}
 	})
 }

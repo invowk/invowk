@@ -193,7 +193,7 @@ jobs:
             --format testdox \
             --junitfile cli-test-results.xml \
             --packages ./tests/cli/... \
-            -- -race -timeout 10m
+            -- -race -timeout 10m -coverprofile=cli-coverage.out
 
       # Run short tests (unit tests only, no container dependencies).
       # Uses bash shell to avoid PowerShell parsing issues on Windows.
@@ -221,7 +221,7 @@ jobs:
             --format testdox \
             --junitfile cli-test-results.xml \
             --packages ./tests/cli/... \
-            -- -race -timeout 5m
+            -- -race -timeout 5m -coverprofile=cli-coverage.out
 
       # Benchmark smoke test (single ubuntu-latest leg only).
       # Ensures benchmarks stay compilable/runnable in regular CI without
@@ -253,10 +253,13 @@ jobs:
       - name: Merge coverage profiles
         if: matrix.runner == 'ubuntu-latest' && matrix.engine == 'docker'
         run: |
-          # Both profiles use the same -covermode (from go test defaults), so
+          # All profiles use the same -covermode (from go test defaults), so
           # raw concat is safe after stripping the duplicate mode: header line.
           if [ -f runtime-coverage.out ]; then
             tail -n +2 runtime-coverage.out >> coverage.out
+          fi
+          if [ -f cli-coverage.out ]; then
+            tail -n +2 cli-coverage.out >> coverage.out
           fi
 
       # Upload test results (JUnit XML + rerun reports) for debugging and flake tracking

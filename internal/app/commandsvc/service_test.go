@@ -11,6 +11,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
+	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -124,14 +125,11 @@ func TestResolveDefinitionsAndLoadConfig(t *testing.T) {
 }
 
 func commandsvcTestCommandInfo(name string) *discovery.CommandInfo {
-	cmd := &invowkfile.Command{
-		Name: invowkfile.CommandName(name),
-		Implementations: []invowkfile.Implementation{{
-			Script:    "echo hello",
-			Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-			Platforms: invowkfile.AllPlatformConfigs(),
-		}},
-	}
+	cmd := invowkfiletest.NewTestCommand(name,
+		invowkfiletest.WithScript("echo hello"),
+		invowkfiletest.WithRuntime(invowkfile.RuntimeVirtual),
+		invowkfiletest.WithAllPlatforms(),
+	)
 	inv := &invowkfile.Invowkfile{FilePath: "/tmp/invowkfile.cue"}
 	return &discovery.CommandInfo{
 		Name:       cmd.Name,

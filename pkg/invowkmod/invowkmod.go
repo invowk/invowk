@@ -78,6 +78,10 @@ var (
 	// ErrInvalidValidationResult is the sentinel error wrapped by InvalidValidationResultError.
 	ErrInvalidValidationResult = errors.New("invalid validation result")
 
+	// ErrModuleAlreadyExists is returned when a module creation, import, or edit
+	// operation encounters a module or requirement that already exists at the target.
+	ErrModuleAlreadyExists = errors.New("module already exists")
+
 	// moduleIDPattern validates the ModuleID format: starts with a letter, alphanumeric segments
 	// separated by dots. This mirrors the CUE schema constraint in invowkmod_schema.cue.
 	moduleIDPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)

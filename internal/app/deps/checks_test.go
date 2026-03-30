@@ -99,8 +99,8 @@ func TestValidateCustomCheckInContainer(t *testing.T) {
 		},
 	})
 	err = validateCustomCheckInContainer(check, registry, ctx)
-	if err == nil || !strings.Contains(err.Error(), "container validation failed") {
-		t.Fatalf("err = %v", err)
+	if !errors.Is(err, ErrContainerValidationFailed) {
+		t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
 	}
 }
 
@@ -140,8 +140,8 @@ func TestContainerEnvVarValidation(t *testing.T) {
 	}
 
 	err = validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "TRANSIENT"}, stub, ctx)
-	if err == nil || !strings.Contains(err.Error(), "container engine failure") {
-		t.Fatalf("err = %v", err)
+	if !errors.Is(err, ErrContainerEngineFailure) {
+		t.Fatalf("err = %v, want wrapping ErrContainerEngineFailure", err)
 	}
 
 	errorsList := collectContainerEnvVarErrors(
@@ -241,8 +241,8 @@ func TestContainerCommandValidation(t *testing.T) {
 	}
 
 	err = validateContainerCommand("broken", stub, ctx)
-	if err == nil || !strings.Contains(err.Error(), "container validation failed for command broken") {
-		t.Fatalf("err = %v", err)
+	if !errors.Is(err, ErrContainerValidationFailed) {
+		t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
 	}
 
 	errorsList := collectContainerCommandErrors(

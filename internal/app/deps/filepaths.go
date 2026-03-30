@@ -3,7 +3,6 @@
 package deps
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -52,7 +51,7 @@ func CheckFilepathDependenciesInContainer(deps *invowkfile.DependsOn, registry *
 // The runtime is passed directly (hoisted by caller) to avoid redundant registry lookups.
 func ValidateFilepathInContainer(fp invowkfile.FilepathDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
 	if len(fp.Alternatives) == 0 {
-		return errors.New("  • (no paths specified) - at least one path must be provided in alternatives")
+		return fmt.Errorf("  • (no paths specified) - %w", ErrNoPathAlternatives)
 	}
 
 	var allErrors []string
@@ -101,7 +100,7 @@ func CheckHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath ty
 // Returns nil (success) if any alternative satisfies all requirements.
 func ValidateFilepathAlternatives(fp invowkfile.FilepathDependency, invowkDir types.FilesystemPath) error {
 	if len(fp.Alternatives) == 0 {
-		return errors.New("  • (no paths specified) - at least one path must be provided in alternatives")
+		return fmt.Errorf("  • (no paths specified) - %w", ErrNoPathAlternatives)
 	}
 
 	var allErrors []string
@@ -234,7 +233,7 @@ func validateContainerFilepathAlternative(altPath string, fp invowkfile.Filepath
 
 	result := rt.Execute(validationCtx)
 	if result.Error != nil {
-		return "", fmt.Errorf("  • container validation failed for path %s: %w", altPath, result.Error)
+		return "", fmt.Errorf("  • %w for path %s: %w", ErrContainerValidationFailed, altPath, result.Error)
 	}
 	if err := CheckTransientExitCode(result, altPath); err != nil {
 		return "", err

@@ -94,6 +94,15 @@ func WithRuntimes(rs ...invowkfile.RuntimeMode) CommandOption {
 	}
 }
 
+// WithInterpreter sets the interpreter spec on the first runtime of the first implementation.
+func WithInterpreter(interpreter string) CommandOption {
+	return func(c *invowkfile.Command) {
+		if len(c.Implementations) > 0 && len(c.Implementations[0].Runtimes) > 0 {
+			c.Implementations[0].Runtimes[0].Interpreter = invowkfile.InterpreterSpec(interpreter)
+		}
+	}
+}
+
 // WithRuntimeConfig sets a runtime config on the first implementation.
 // Use this for container runtimes that need additional configuration.
 func WithRuntimeConfig(rc invowkfile.RuntimeConfig) CommandOption {
@@ -110,6 +119,16 @@ func WithPlatform(p invowkfile.Platform) CommandOption {
 		if len(c.Implementations) > 0 {
 			c.Implementations[0].Platforms = append(c.Implementations[0].Platforms,
 				invowkfile.PlatformConfig{Name: p})
+		}
+	}
+}
+
+// WithAllPlatforms sets all supported platform constraints on the first implementation.
+// This is a convenience wrapper around invowkfile.AllPlatformConfigs() for cross-platform CI.
+func WithAllPlatforms() CommandOption {
+	return func(c *invowkfile.Command) {
+		if len(c.Implementations) > 0 {
+			c.Implementations[0].Platforms = invowkfile.AllPlatformConfigs()
 		}
 	}
 }

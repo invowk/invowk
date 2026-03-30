@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -17,6 +18,7 @@ func TestValidateRegexPattern(t *testing.T) {
 		pattern     string
 		shouldError bool
 		errorMsg    string
+		sentinel    error // optional: when set, errors.Is is checked alongside the string match
 	}{
 		// Valid patterns
 		{name: "empty pattern", pattern: "", shouldError: false},
@@ -28,11 +30,11 @@ func TestValidateRegexPattern(t *testing.T) {
 		{name: "non-overlapping alternation", pattern: "(cat|dog)+", shouldError: false},
 
 		// Dangerous patterns - nested quantifiers
-		{name: "nested plus", pattern: "(a+)+", shouldError: true, errorMsg: "nested quantifiers"},
-		{name: "nested star", pattern: "(a*)*", shouldError: true, errorMsg: "nested quantifiers"},
-		{name: "nested plus-star", pattern: "(a+)*", shouldError: true, errorMsg: "nested quantifiers"},
-		{name: "nested word plus", pattern: `(\w+)+`, shouldError: true, errorMsg: "nested quantifiers"},
-		{name: "nested dot plus", pattern: "(.+)+", shouldError: true, errorMsg: "nested quantifiers"},
+		{name: "nested plus", pattern: "(a+)+", shouldError: true, errorMsg: "nested quantifiers", sentinel: ErrNestedQuantifiers},
+		{name: "nested star", pattern: "(a*)*", shouldError: true, errorMsg: "nested quantifiers", sentinel: ErrNestedQuantifiers},
+		{name: "nested plus-star", pattern: "(a+)*", shouldError: true, errorMsg: "nested quantifiers", sentinel: ErrNestedQuantifiers},
+		{name: "nested word plus", pattern: `(\w+)+`, shouldError: true, errorMsg: "nested quantifiers", sentinel: ErrNestedQuantifiers},
+		{name: "nested dot plus", pattern: "(.+)+", shouldError: true, errorMsg: "nested quantifiers", sentinel: ErrNestedQuantifiers},
 
 		// Dangerous patterns - overlapping alternation
 		{name: "overlapping alternation prefix", pattern: "(a|aa)+", shouldError: true, errorMsg: "overlapping"},
@@ -63,10 +65,11 @@ func TestValidateRegexPattern(t *testing.T) {
 				} else if !strings.Contains(err.Error(), tt.errorMsg) {
 					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
 				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
+				if tt.sentinel != nil && !errors.Is(err, tt.sentinel) {
+					t.Errorf("errors.Is(%v, %v) = false, want true", err, tt.sentinel)
 				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
 			}
 		})
 	}

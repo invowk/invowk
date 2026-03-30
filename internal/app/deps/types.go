@@ -33,6 +33,20 @@ var (
 	// ErrContainerRuntimeNotAvailable is returned when a container runtime is required
 	// but not registered in the runtime registry (e.g., no Docker/Podman available).
 	ErrContainerRuntimeNotAvailable = errors.New("container runtime not available")
+
+	// ErrNoPathAlternatives is returned when a filepath dependency has an empty
+	// alternatives list. Both host and container filepath validators use this sentinel.
+	ErrNoPathAlternatives = errors.New("at least one path must be provided in alternatives")
+
+	// ErrContainerEngineFailure is returned when a container validation probe exits
+	// with a transient exit code (125/126), indicating the container engine itself
+	// failed rather than the check script.
+	ErrContainerEngineFailure = errors.New("container engine failure")
+
+	// ErrContainerValidationFailed is returned when a container validation probe fails
+	// due to an infrastructure error (non-ExitError), as opposed to a domain-level check
+	// failure indicated by exit code.
+	ErrContainerValidationFailed = errors.New("container validation failed")
 )
 
 type (

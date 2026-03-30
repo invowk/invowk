@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -494,22 +495,22 @@ func TestValidateSupportedContainerImage(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		image    container.ImageTag
-		wantErr  bool
-		contains string
+		name       string
+		image      container.ImageTag
+		wantErr    bool
+		wantTarget error
 	}{
 		{
-			name:     "windows image rejected",
-			image:    container.ImageTag("mcr.microsoft.com/windows/servercore:ltsc2022"),
-			wantErr:  true,
-			contains: "windows container images are not supported",
+			name:       "windows image rejected",
+			image:      container.ImageTag("mcr.microsoft.com/windows/servercore:ltsc2022"),
+			wantErr:    true,
+			wantTarget: ErrWindowsContainerImage,
 		},
 		{
-			name:     "alpine image rejected",
-			image:    container.ImageTag("alpine:latest"),
-			wantErr:  true,
-			contains: "alpine-based container images are not supported",
+			name:       "alpine image rejected",
+			image:      container.ImageTag("alpine:latest"),
+			wantErr:    true,
+			wantTarget: ErrAlpineContainerImage,
 		},
 		{
 			name:    "debian image allowed",
@@ -527,8 +528,8 @@ func TestValidateSupportedContainerImage(t *testing.T) {
 				if err == nil {
 					t.Fatalf("validateSupportedContainerImage(%q) expected error, got nil", tt.image)
 				}
-				if tt.contains != "" && !strings.Contains(err.Error(), tt.contains) {
-					t.Fatalf("validateSupportedContainerImage(%q) error = %q, want to contain %q", tt.image, err.Error(), tt.contains)
+				if tt.wantTarget != nil && !errors.Is(err, tt.wantTarget) {
+					t.Fatalf("validateSupportedContainerImage(%q) error = %q, want errors.Is(%v)", tt.image, err.Error(), tt.wantTarget)
 				}
 				return
 			}

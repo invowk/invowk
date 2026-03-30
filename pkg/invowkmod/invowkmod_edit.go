@@ -39,7 +39,7 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 				if req.Path != "" {
 					identifier += "#" + string(req.Path)
 				}
-				return fmt.Errorf("requirement already exists: %s", identifier)
+				return fmt.Errorf("%w: requirement %s", ErrModuleAlreadyExists, identifier)
 			}
 		}
 	}

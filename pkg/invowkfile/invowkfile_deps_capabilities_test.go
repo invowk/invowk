@@ -73,6 +73,11 @@ cmds: [
 	if len(cap1.Alternatives) == 0 || cap1.Alternatives[0] != CapabilityInternet {
 		t.Errorf("Second capability alternatives = %v, want [%s]", cap1.Alternatives, CapabilityInternet)
 	}
+
+	// Verify the parsed result is also semantically valid
+	if errs := inv.Validate(); errs.HasErrors() {
+		t.Errorf("parsed invowkfile failed validation: %v", errs)
+	}
 }
 
 func TestParseDependsOn_WithContainerAndTTYCapabilities(t *testing.T) {
@@ -133,6 +138,11 @@ cmds: [
 	if len(cap1.Alternatives) == 0 || cap1.Alternatives[0] != CapabilityTTY {
 		t.Errorf("Second capability alternatives = %v, want [%s]", cap1.Alternatives, CapabilityTTY)
 	}
+
+	// Verify the parsed result is also semantically valid
+	if errs := inv.Validate(); errs.HasErrors() {
+		t.Errorf("parsed invowkfile failed validation: %v", errs)
+	}
 }
 
 func TestParseDependsOn_CapabilitiesAtImplementationLevel(t *testing.T) {
@@ -190,6 +200,11 @@ cmds: [
 
 	if len(impl.DependsOn.Capabilities[0].Alternatives) == 0 || impl.DependsOn.Capabilities[0].Alternatives[0] != CapabilityInternet {
 		t.Errorf("Capability alternatives = %v, want [%s]", impl.DependsOn.Capabilities[0].Alternatives, CapabilityInternet)
+	}
+
+	// Verify the parsed result is also semantically valid
+	if errs := inv.Validate(); errs.HasErrors() {
+		t.Errorf("parsed invowkfile failed validation: %v", errs)
 	}
 }
 
@@ -423,6 +438,11 @@ cmds: [
 	}
 	if parsed.DependsOn.EnvVars[0].Alternatives[0].Name != "HOME" {
 		t.Errorf("EnvVar alternative name = %q, want %q", parsed.DependsOn.EnvVars[0].Alternatives[0].Name, "HOME")
+	}
+
+	// Verify the parsed result is also semantically valid
+	if errs := parsed.Validate(); errs.HasErrors() {
+		t.Errorf("parsed invowkfile failed validation: %v", errs)
 	}
 }
 
@@ -742,5 +762,10 @@ func TestGenerateCUE_WithRootLevelDependsOn(t *testing.T) {
 	}
 	if len(parsed.DependsOn.EnvVars) != 1 {
 		t.Errorf("Expected 1 env_var dependency, got %d", len(parsed.DependsOn.EnvVars))
+	}
+
+	// Verify the re-parsed result is also semantically valid
+	if errs := parsed.Validate(); errs.HasErrors() {
+		t.Errorf("re-parsed invowkfile failed validation: %v", errs)
 	}
 }

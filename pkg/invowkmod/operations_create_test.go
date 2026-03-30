@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,7 +213,7 @@ func TestCreate_ExistingModule(t *testing.T) {
 	if err == nil {
 		t.Error("Create() expected error for existing module, got nil")
 	}
-	if !strings.Contains(err.Error(), "already exists") {
-		t.Errorf("expected 'already exists' error, got: %v", err)
+	if !errors.Is(err, ErrModuleAlreadyExists) {
+		t.Errorf("expected ErrModuleAlreadyExists, got: %v", err)
 	}
 }

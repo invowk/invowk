@@ -75,7 +75,7 @@ func CollectToolErrors(tools []invowkfile.ToolDependency, check func(invowkfile.
 // and before interpreting result.ExitCode for domain-specific failures.
 func CheckTransientExitCode(result *runtime.Result, label string) error {
 	if result.ExitCode.IsTransient() {
-		return fmt.Errorf("  • %s - container engine failure (exit code %s)", label, result.ExitCode)
+		return fmt.Errorf("  • %s - %w (exit code %s)", label, ErrContainerEngineFailure, result.ExitCode)
 	}
 	return nil
 }

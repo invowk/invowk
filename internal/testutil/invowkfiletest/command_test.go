@@ -152,6 +152,40 @@ func TestNewTestCommand_WithPlatforms(t *testing.T) {
 	}
 }
 
+func TestNewTestCommand_WithAllPlatforms(t *testing.T) {
+	t.Parallel()
+
+	cmd := NewTestCommand("test", WithAllPlatforms())
+
+	allPlatforms := invowkfile.AllPlatformConfigs()
+	if len(cmd.Implementations[0].Platforms) != len(allPlatforms) {
+		t.Fatalf("len(Platforms) = %d, want %d", len(cmd.Implementations[0].Platforms), len(allPlatforms))
+	}
+
+	for i, p := range allPlatforms {
+		if cmd.Implementations[0].Platforms[i].Name != p.Name {
+			t.Errorf("Platforms[%d] = %v, want %v", i, cmd.Implementations[0].Platforms[i].Name, p.Name)
+		}
+	}
+}
+
+func TestNewTestCommand_WithInterpreter(t *testing.T) {
+	t.Parallel()
+
+	cmd := NewTestCommand("test",
+		WithRuntime(invowkfile.RuntimeNative),
+		WithInterpreter("python3"),
+	)
+
+	if len(cmd.Implementations[0].Runtimes) != 1 {
+		t.Fatalf("len(Runtimes) = %d, want 1", len(cmd.Implementations[0].Runtimes))
+	}
+
+	if cmd.Implementations[0].Runtimes[0].Interpreter != "python3" {
+		t.Errorf("Interpreter = %q, want %q", cmd.Implementations[0].Runtimes[0].Interpreter, "python3")
+	}
+}
+
 func TestNewTestCommand_WithEnv(t *testing.T) {
 	t.Parallel()
 

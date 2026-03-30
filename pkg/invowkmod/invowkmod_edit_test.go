@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -126,8 +127,8 @@ requires: [
 		if err == nil {
 			t.Fatal("expected duplicate error, got nil")
 		}
-		if !strings.Contains(err.Error(), "already exists") {
-			t.Errorf("error should mention 'already exists', got: %v", err)
+		if !errors.Is(err, ErrModuleAlreadyExists) {
+			t.Errorf("expected ErrModuleAlreadyExists, got: %v", err)
 		}
 	})
 

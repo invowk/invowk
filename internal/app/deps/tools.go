@@ -69,7 +69,7 @@ func ValidateToolInContainer(toolName invowkfile.BinaryName, rt runtime.Runtime,
 
 	result := rt.Execute(validationCtx)
 	if result.Error != nil {
-		return fmt.Errorf("  • %s - container validation failed: %w", toolName, result.Error)
+		return fmt.Errorf("  • %s - %w: %w", toolName, ErrContainerValidationFailed, result.Error)
 	}
 	if err := CheckTransientExitCode(result, toolNameStr); err != nil {
 		return err

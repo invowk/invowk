@@ -92,7 +92,7 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 	// failed, no check ever ran, so we must not fall through to exit code comparison.
 	if result.Error != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](result.Error); !ok || exitErr == nil {
-			return fmt.Errorf("  • %s - container validation failed: %w", check.Name, result.Error)
+			return fmt.Errorf("  • %s - %w: %w", check.Name, ErrContainerValidationFailed, result.Error)
 		}
 	}
 	if err := CheckTransientExitCode(result, string(check.Name)); err != nil {
@@ -327,7 +327,7 @@ func validateContainerEnvVar(alt invowkfile.EnvVarCheck, rt runtime.Runtime, ctx
 	validationCtx, _, _ := NewContainerValidationContext(ctx, checkScript)
 	result := rt.Execute(validationCtx)
 	if result.Error != nil {
-		return fmt.Errorf("container validation failed for env var %s: %w", name, result.Error)
+		return fmt.Errorf("%w for env var %s: %w", ErrContainerValidationFailed, name, result.Error)
 	}
 	if err := CheckTransientExitCode(result, name); err != nil {
 		return err
@@ -363,7 +363,7 @@ func validateContainerCapability(alt invowkfile.CapabilityName, rt runtime.Runti
 	validationCtx, _, _ := NewContainerValidationContext(ctx, checkScript)
 	result := rt.Execute(validationCtx)
 	if result.Error != nil {
-		return fmt.Errorf("container validation failed for capability %s: %w", string(alt), result.Error)
+		return fmt.Errorf("%w for capability %s: %w", ErrContainerValidationFailed, string(alt), result.Error)
 	}
 	if err := CheckTransientExitCode(result, string(alt)); err != nil {
 		return err
@@ -401,9 +401,9 @@ func validateContainerCommand(alt string, rt runtime.Runtime, ctx *runtime.Execu
 	if result.Error != nil {
 		stderrStr := strings.TrimSpace(stderr.String())
 		if stderrStr != "" {
-			return fmt.Errorf("container validation failed for command %s: %w (%s)", alt, result.Error, stderrStr)
+			return fmt.Errorf("%w for command %s: %w (%s)", ErrContainerValidationFailed, alt, result.Error, stderrStr)
 		}
-		return fmt.Errorf("container validation failed for command %s: %w", alt, result.Error)
+		return fmt.Errorf("%w for command %s: %w", ErrContainerValidationFailed, alt, result.Error)
 	}
 	if err := CheckTransientExitCode(result, alt); err != nil {
 		return err

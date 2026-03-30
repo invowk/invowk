@@ -44,7 +44,7 @@ func Create(opts CreateOptions) (string, error) {
 
 	// Check if module already exists
 	if _, err := os.Stat(modulePath); err == nil {
-		return "", fmt.Errorf("module already exists at %s", modulePath)
+		return "", fmt.Errorf("%w at %s", ErrModuleAlreadyExists, modulePath)
 	}
 
 	if err := os.MkdirAll(modulePath, 0o755); err != nil {

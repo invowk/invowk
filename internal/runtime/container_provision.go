@@ -44,9 +44,19 @@ const (
 	containerWorkspacePrefix = containerWorkspaceRoot + "/"
 )
 
-// errStrictModeProvisioning is returned when container provisioning fails
-// and strict mode is enabled, preventing fallback to the base image.
-var errStrictModeProvisioning = errors.New("container provisioning failed (strict mode enabled)")
+var (
+	// errStrictModeProvisioning is returned when container provisioning fails
+	// and strict mode is enabled, preventing fallback to the base image.
+	errStrictModeProvisioning = errors.New("container provisioning failed (strict mode enabled)")
+
+	// ErrWindowsContainerImage is returned when a Windows container image is used.
+	// The container runtime only supports Linux containers.
+	ErrWindowsContainerImage = errors.New("windows container images are not supported")
+
+	// ErrAlpineContainerImage is returned when an Alpine-based container image is used.
+	// Alpine images are intentionally unsupported due to musl compatibility issues.
+	ErrAlpineContainerImage = errors.New("alpine-based container images are not supported")
+)
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
 // with invowk resources (binary, modules, etc.). This enables nested invowk commands
@@ -267,10 +277,10 @@ func isAlpineContainerImage(image string) bool {
 // validateSupportedContainerImage enforces the container runtime image policy.
 func validateSupportedContainerImage(image container.ImageTag) error {
 	if isWindowsContainerImage(string(image)) {
-		return errors.New("windows container images are not supported; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details")
+		return fmt.Errorf("%w; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details", ErrWindowsContainerImage)
 	}
 	if isAlpineContainerImage(string(image)) {
-		return errors.New("alpine-based container images are not supported; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details")
+		return fmt.Errorf("%w; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details", ErrAlpineContainerImage)
 	}
 
 	return nil

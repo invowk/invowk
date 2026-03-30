@@ -9,33 +9,31 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // testCommandWithScript creates a Command with a single script for testing.
 // This helper is shared across test files in the runtime package.
-func testCommandWithScript(name, script string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
-	return &invowkfile.Command{
-		Name: invowkfile.CommandName(name),
-		Implementations: []invowkfile.Implementation{
-			{Script: invowkfile.ScriptContent(script), Runtimes: []invowkfile.RuntimeConfig{{Name: runtime}}, Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}}},
-		},
-	}
+// Delegates to invowkfiletest.NewTestCommand for consistent test command construction.
+func testCommandWithScript(name, script string, rt invowkfile.RuntimeMode) *invowkfile.Command {
+	return invowkfiletest.NewTestCommand(name,
+		invowkfiletest.WithScript(script),
+		invowkfiletest.WithRuntime(rt),
+		invowkfiletest.WithAllPlatforms(),
+	)
 }
 
 // testCommandWithInterpreter creates a Command with a script and explicit interpreter.
 // This helper is shared across test files in the runtime package.
-func testCommandWithInterpreter(name, script, interpreter string, runtime invowkfile.RuntimeMode) *invowkfile.Command {
-	return &invowkfile.Command{
-		Name: invowkfile.CommandName(name),
-		Implementations: []invowkfile.Implementation{
-			{
-				Script:    invowkfile.ScriptContent(script),
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: runtime, Interpreter: invowkfile.InterpreterSpec(interpreter)}},
-				Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}, {Name: invowkfile.PlatformMac}, {Name: invowkfile.PlatformWindows}},
-			},
-		},
-	}
+// Delegates to invowkfiletest.NewTestCommand for consistent test command construction.
+func testCommandWithInterpreter(name, script, interpreter string, rt invowkfile.RuntimeMode) *invowkfile.Command {
+	return invowkfiletest.NewTestCommand(name,
+		invowkfiletest.WithScript(script),
+		invowkfiletest.WithRuntime(rt),
+		invowkfiletest.WithInterpreter(interpreter),
+		invowkfiletest.WithAllPlatforms(),
+	)
 }
 
 func TestRuntime_ScriptNotFound(t *testing.T) {

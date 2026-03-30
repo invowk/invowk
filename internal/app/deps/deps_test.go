@@ -10,6 +10,7 @@ import (
 
 	"github.com/invowk/invowk/internal/discovery"
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -137,10 +138,7 @@ func TestValidateDependencies(t *testing.T) {
 	t.Run("no deps passes both phases", func(t *testing.T) {
 		t.Parallel()
 
-		cmd := &invowkfile.Command{
-			Name:            "build",
-			Implementations: []invowkfile.Implementation{{Script: "echo hello"}},
-		}
+		cmd := invowkfiletest.NewTestCommand("build", invowkfiletest.WithScript("echo hello"))
 		cmdInfo := &discovery.CommandInfo{
 			Name:       cmd.Name,
 			Command:    cmd,

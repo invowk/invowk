@@ -18,6 +18,7 @@ import (
 	"github.com/invowk/invowk/internal/issue"
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -321,14 +322,11 @@ func TestNewClassifiedExecutionError(t *testing.T) {
 func commandInfoAndContext(t testing.TB, script string) (*discovery.CommandInfo, *runtimepkg.ExecutionContext, *bytes.Buffer) {
 	t.Helper()
 
-	cmd := &invowkfile.Command{
-		Name: "build",
-		Implementations: []invowkfile.Implementation{{
-			Script:    invowkfile.ScriptContent(script),
-			Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
-			Platforms: invowkfile.AllPlatformConfigs(),
-		}},
-	}
+	cmd := invowkfiletest.NewTestCommand("build",
+		invowkfiletest.WithScript(script),
+		invowkfiletest.WithRuntime(invowkfile.RuntimeVirtual),
+		invowkfiletest.WithAllPlatforms(),
+	)
 	inv := &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))}
 	ioCtx, execStdout, _ := runtimepkg.CaptureIO()
 	return &discovery.CommandInfo{

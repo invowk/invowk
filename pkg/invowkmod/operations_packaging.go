@@ -17,7 +17,9 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-const invalidZIPPathFmt = "invalid path in ZIP: %s"
+// ErrInvalidZIPPath is returned when a ZIP archive entry has an unsafe path
+// (e.g., path traversal, absolute path, or empty path).
+var ErrInvalidZIPPath = errors.New("invalid path in ZIP")
 
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
@@ -234,7 +236,7 @@ func normalizeZIPPath(name string) (string, error) {
 		strings.HasPrefix(cleanPath, "/") ||
 		cleanPath == ".." ||
 		strings.HasPrefix(cleanPath, "../") {
-		return "", fmt.Errorf(invalidZIPPathFmt, name)
+		return "", fmt.Errorf("%w: %s", ErrInvalidZIPPath, name)
 	}
 	return cleanPath, nil
 }
@@ -257,13 +259,13 @@ func findModuleRoot(files []*zip.File) (string, error) {
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
 func prepareModuleDestination(absDestDir, moduleRoot string, overwrite bool) (string, error) {
 	modulePath := filepath.Join(absDestDir, filepath.FromSlash(moduleRoot))
-	if err := validateDestinationPath(absDestDir, modulePath, "invalid module root in ZIP: %s", moduleRoot); err != nil {
+	if err := validateDestinationPath(absDestDir, modulePath, moduleRoot); err != nil {
 		return "", err
 	}
 
 	if _, statErr := os.Stat(modulePath); statErr == nil {
 		if !overwrite {
-			return "", fmt.Errorf("module already exists at %s (use overwrite option to replace)", modulePath)
+			return "", fmt.Errorf("%w at %s (use overwrite option to replace)", ErrModuleAlreadyExists, modulePath)
 		}
 		if err := os.RemoveAll(modulePath); err != nil {
 			return "", fmt.Errorf("failed to remove existing module: %w", err)
@@ -293,7 +295,7 @@ func extractModuleFiles(files []*zip.File, moduleRoot, absDestDir string) error 
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
 func extractSingleEntry(file *zip.File, cleanPath, absDestDir string) error {
 	destPath := filepath.Join(absDestDir, filepath.FromSlash(cleanPath))
-	if err := validateDestinationPath(absDestDir, destPath, invalidZIPPathFmt, file.Name); err != nil {
+	if err := validateDestinationPath(absDestDir, destPath, file.Name); err != nil {
 		return err
 	}
 
@@ -314,13 +316,13 @@ func extractSingleEntry(file *zip.File, cleanPath, absDestDir string) error {
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
-func validateDestinationPath(root, candidate, format, value string) error {
+func validateDestinationPath(root, candidate, value string) error {
 	relPath, err := filepath.Rel(root, candidate)
 	if err != nil ||
 		relPath == ".." ||
 		strings.HasPrefix(relPath, ".."+string(filepath.Separator)) ||
 		filepath.IsAbs(relPath) {
-		return fmt.Errorf(format, value)
+		return fmt.Errorf("%w: %s", ErrInvalidZIPPath, value)
 	}
 	return nil
 }

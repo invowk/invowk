@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"archive/zip"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -235,8 +236,8 @@ func TestUnpack(t *testing.T) {
 		if err == nil {
 			t.Error("Unpack() expected error for existing module, got nil")
 		}
-		if !strings.Contains(err.Error(), "already exists") {
-			t.Errorf("expected 'already exists' error, got: %v", err)
+		if !errors.Is(err, ErrModuleAlreadyExists) {
+			t.Errorf("expected ErrModuleAlreadyExists, got: %v", err)
 		}
 	})
 
@@ -361,8 +362,8 @@ version: "1.0.0"
 		if err == nil {
 			t.Fatal("Unpack() expected error for traversal archive path, got nil")
 		}
-		if !strings.Contains(err.Error(), "invalid path in ZIP") {
-			t.Errorf("expected invalid path error, got: %v", err)
+		if !errors.Is(err, ErrInvalidZIPPath) {
+			t.Errorf("expected ErrInvalidZIPPath, got: %v", err)
 		}
 	})
 
@@ -385,8 +386,8 @@ version: "1.0.0"
 		if err == nil {
 			t.Fatal("Unpack() expected error for traversal archive path, got nil")
 		}
-		if !strings.Contains(err.Error(), "invalid path in ZIP") {
-			t.Errorf("expected invalid path error, got: %v", err)
+		if !errors.Is(err, ErrInvalidZIPPath) {
+			t.Errorf("expected ErrInvalidZIPPath, got: %v", err)
 		}
 	})
 }
