@@ -454,3 +454,9 @@ goplint's `--check-validate-usage` mode enforces this rule: it flags discarded `
 - **`modernize` linter `stringsseq`** - `strings.Split(s, sep)` in range loops should use `strings.SplitSeq(s, sep)` (Go 1.26+). Returns an iterator instead of allocating a slice — more efficient when you only need to iterate.
 - **`predeclared`/`gocritic builtinShadow`** - Parameter and variable names must not shadow Go built-in identifiers (`cap`, `len`, `new`, `make`, `close`, `copy`, `delete`, `append`, `real`, `imag`, `complex`, `panic`, `recover`, `print`, `println`). Both the `predeclared` and `gocritic/builtinShadow` linters flag this. Use descriptive names instead (e.g., `capName` instead of `cap`).
 - **`decorder` vs `revive` const blocks** - `decorder` requires a single `const()` block per file. `revive` requires each exported constant to have its own `// ConstName ...` doc comment (or a block-level comment starting with the first constant's name). Solution: keep one `const()` block with individual `//` comments per exported constant. Do NOT split into multiple `const()` blocks to satisfy `revive`.
+
+## Related Skills
+
+| Skill | When to Consult |
+|---|---|
+| `go-testing` | Go test execution model, all test flags, race detector internals, vet analyzers, context/parallelism decision frameworks |

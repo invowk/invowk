@@ -5,6 +5,7 @@ cd $WORK
 
 # Test 1: Missing command dependency should fail
 ! exec invowk cmd 'deps cmd missing-ref'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Missing Commands'
 stderr 'nonexistent-build-cmd'

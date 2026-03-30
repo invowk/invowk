@@ -105,6 +105,11 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/server/`](.agents/skills/server/) - Server state machine pattern for SSH and TUI servers.
 - [`.agents/skills/shell/`](.agents/skills/shell/) - Shell runtime rules for mvdan/sh virtual shell.
 - [`.agents/skills/testing/`](.agents/skills/testing/) - Testing patterns, testscript CLI tests, race conditions, TUI/container testing.
+- [`.agents/skills/go-testing/`](.agents/skills/go-testing/) - Go 1.22+ test execution model, all flags, race detector, vet analyzers, context/parallelism decision frameworks, benchmark/fuzz APIs, coverage. Primary testing entry point referencing platform skills.
+- [`.agents/skills/windows-testing/`](.agents/skills/windows-testing/) - Windows OS primitives for testing: process lifecycle (TerminateProcess, no fork), file system (NTFS, MAX_PATH, sharing violations), timer resolution (15.6ms), race detector overhead.
+- [`.agents/skills/macos-testing/`](.agents/skills/macos-testing/) - macOS OS primitives for testing: APFS case-insensitivity, kqueue coalescing, timer coalescing, /tmp symlink, file descriptor limits, ARM64 specifics.
+- [`.agents/skills/linux-testing/`](.agents/skills/linux-testing/) - Linux OS primitives for testing: container test infrastructure, inotify limits, cgroups/namespaces, OOM killer, process groups, signal handling.
+- [`.agents/skills/fixer/`](.agents/skills/fixer/) - User-invokable (`/fixer`). Platform-aware bug diagnosis and fix workflow with parallel subagents. Auto-triggers on bug fixing, test failures, CI failures, flaky tests, race conditions. Routes to platform skills for OS-specific diagnosis.
 - [`.agents/skills/tmux-testing/`](.agents/skills/tmux-testing/) - tmux-based TUI testing for fast, CI-friendly text and ANSI verification.
 - [`.agents/skills/tui-testing/`](.agents/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
 - [`.agents/skills/uroot/`](.agents/skills/uroot/) - u-root utility implementation patterns.
@@ -133,14 +138,14 @@ When working in a specific code area, apply these rules and skills:
 | `internal/app/commandsvc/` | go-patterns, testing, licensing, package-design | cli |
 | `internal/app/deps/` | go-patterns, testing, licensing, package-design | cli |
 | `internal/app/execute/` | go-patterns, testing, licensing, package-design | cli |
-| `internal/container/` | go-patterns, testing, windows, licensing | container |
+| `internal/container/` | go-patterns, testing, windows, licensing | container, linux-testing |
 | `internal/discovery/` | go-patterns, testing, licensing, package-design | discovery, d2-diagrams |
-| `internal/runtime/` | go-patterns, testing, windows, licensing | shell (for virtual runtime), d2-diagrams |
+| `internal/runtime/` | go-patterns, testing, windows, licensing | shell (for virtual runtime), d2-diagrams, go-testing |
 | `internal/config/` | go-patterns, testing, cue-patterns, licensing | cue |
 | `pkg/cueutil/` | go-patterns, testing, cue-patterns, licensing | cue |
 | `internal/sshserver/` | go-patterns, testing, licensing | server |
 | `internal/tuiserver/` | go-patterns, testing, licensing | server |
-| `internal/tui/` | go-patterns, testing, licensing | testing, tui-testing, tmux-testing |
+| `internal/tui/` | go-patterns, testing, licensing | testing, tui-testing, tmux-testing, windows-testing |
 | `internal/issue/` | go-patterns, testing, licensing | — |
 | `internal/provision/` | go-patterns, testing, windows, licensing | container |
 | `pkg/invowkfile/` | go-patterns, testing, cue-patterns, licensing, package-design | cue, invowk-schema |
@@ -150,11 +155,11 @@ When working in a specific code area, apply these rules and skills:
 | `internal/uroot/` | go-patterns, testing, licensing | uroot |
 | `internal/core/serverbase/` | go-patterns, testing, licensing | server |
 | `internal/benchmark/` | go-patterns, testing, licensing, commands | — |
-| `internal/watch/` | go-patterns, testing, licensing | — |
-| `pkg/platform/` | go-patterns, testing, windows, licensing | — |
+| `internal/watch/` | go-patterns, testing, licensing | macos-testing, linux-testing |
+| `pkg/platform/` | go-patterns, testing, windows, licensing | windows-testing |
 | `pkg/types/` | go-patterns, testing, licensing, package-design | invowk-typesystem |
-| `tests/cli/` | testing | testing, cli, invowk-schema |
-| `tools/goplint/` | go-patterns, testing, licensing | — |
+| `tests/cli/` | testing | testing, cli, invowk-schema, go-testing |
+| `tools/goplint/` | go-patterns, testing, licensing | go-testing |
 
 ## Quick Commands
 

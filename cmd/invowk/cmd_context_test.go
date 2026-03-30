@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -89,9 +90,10 @@ func TestExecuteRequest_AttachesConfigPathToContext(t *testing.T) {
 		stderr:      io.Discard,
 	}
 
+	customCuePath := filepath.Join(t.TempDir(), "custom.cue")
 	req := ExecuteRequest{
 		Name:       "build",
-		ConfigPath: types.FilesystemPath("/tmp/custom.cue"),
+		ConfigPath: types.FilesystemPath(customCuePath),
 	}
 	cmd := &cobra.Command{}
 
@@ -118,7 +120,7 @@ func TestRunDisambiguatedCommand_AttachesConfigPathToContext(t *testing.T) {
 
 	disc := &recordingDiscoveryService{result: discovery.CommandSetResult{Set: set}}
 	commands := &recordingCommandService{}
-	rootFlags := &rootFlagValues{configPath: "/tmp/custom.cue"}
+	rootFlags := &rootFlagValues{configPath: filepath.Join(t.TempDir(), "custom.cue")}
 
 	app := &App{
 		Config:      &fixedConfigProvider{cfg: config.DefaultConfig()},
@@ -179,9 +181,10 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 		testConfigFallback,
 	)
 
+	customCuePath2 := filepath.Join(t.TempDir(), "custom.cue")
 	req := commandsvc.Request{
 		Name:       "build",
-		ConfigPath: types.FilesystemPath("/tmp/custom.cue"),
+		ConfigPath: types.FilesystemPath(customCuePath2),
 	}
 	ctx := contextWithConfigPath(t.Context(), string(req.ConfigPath))
 

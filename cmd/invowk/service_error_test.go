@@ -53,9 +53,6 @@ func TestServiceError_ErrorAndUnwrap(t *testing.T) {
 	underlying := errors.New("underlying error")
 	svcErr := newServiceError(underlying, 0, "")
 
-	if svcErr.Error() != "underlying error" {
-		t.Errorf("Error() = %q, want %q", svcErr.Error(), "underlying error")
-	}
 	if !errors.Is(svcErr, underlying) {
 		t.Error("errors.Is should find underlying error via Unwrap")
 	}

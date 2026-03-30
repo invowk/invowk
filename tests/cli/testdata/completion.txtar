@@ -21,8 +21,10 @@ stdout 'Register-ArgumentCompleter'
 
 # Test 5: No args returns error about accepting 1 arg
 ! exec invowk completion
+! stdout .
 stderr 'Accepts 1 arg'
 
 # Test 6: Invalid shell type returns error
 ! exec invowk completion invalid
+! stdout .
 stderr 'Invalid argument'

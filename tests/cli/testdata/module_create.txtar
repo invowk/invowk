@@ -25,6 +25,7 @@ exists com.example.utils.invowkmod/scripts
 
 # Test 4: Invalid module name (starts with a dot)
 ! exec invowk module create .badname
+! stdout .
 stderr 'cannot start with a dot'
 
 # Test 5: Create with custom path and description

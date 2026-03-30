@@ -6,10 +6,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
-	commandsvc "github.com/invowk/invowk/internal/app/commandsvc"
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/app/deps"
 	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/config"
@@ -116,10 +117,11 @@ func TestCLICommandAdapterExecute_CommandNotFoundWrapsServiceError(t *testing.T)
 func TestLoadConfigWithFallback(t *testing.T) {
 	t.Parallel()
 
+	customPath := filepath.Join(t.TempDir(), "custom.cue")
 	explicitCfg, explicitDiags := loadConfigWithFallback(
 		t.Context(),
 		&errorConfigProvider{err: errors.New("parse failure")},
-		"/tmp/custom.cue",
+		customPath,
 	)
 	if explicitCfg == nil {
 		t.Fatal("explicitCfg = nil")
@@ -130,8 +132,8 @@ func TestLoadConfigWithFallback(t *testing.T) {
 	if explicitDiags[0].Severity() != discovery.SeverityError {
 		t.Fatalf("explicit severity = %s, want error", explicitDiags[0].Severity())
 	}
-	if explicitDiags[0].Path() != "/tmp/custom.cue" {
-		t.Fatalf("explicit path = %q, want /tmp/custom.cue", explicitDiags[0].Path())
+	if string(explicitDiags[0].Path()) != customPath {
+		t.Fatalf("explicit path = %q, want %q", explicitDiags[0].Path(), customPath)
 	}
 
 	defaultCfg, defaultDiags := loadConfigWithFallback(
@@ -200,9 +202,10 @@ func TestLoadConfigWithFallback_DefaultNotExistWarning(t *testing.T) {
 func TestContextHelpersAndCacheValidation(t *testing.T) {
 	t.Parallel()
 
-	ctx := contextWithConfigPath(t.Context(), "/tmp/invowk.cue")
-	if got := configPathFromContext(ctx); got != "/tmp/invowk.cue" {
-		t.Fatalf("configPathFromContext() = %q, want /tmp/invowk.cue", got)
+	invowkPath := filepath.Join(t.TempDir(), "invowk.cue")
+	ctx := contextWithConfigPath(t.Context(), invowkPath)
+	if got := configPathFromContext(ctx); got != invowkPath {
+		t.Fatalf("configPathFromContext() = %q, want %q", got, invowkPath)
 	}
 	cache := discoveryCacheFromContext(ctx)
 	if cache == nil {

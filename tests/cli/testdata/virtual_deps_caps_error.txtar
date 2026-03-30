@@ -5,6 +5,7 @@ cd $WORK
 
 # Test 1: tty capability fails in non-interactive testscript
 ! exec invowk cmd 'deps cap tty'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Missing Capabilities'
 stderr 'tty'

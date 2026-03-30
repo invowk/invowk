@@ -19,6 +19,8 @@ func TestFilesystemPath_Validate(t *testing.T) {
 		{"absolute path", FilesystemPath("/usr/bin/bash"), true, false},
 		{"relative path", FilesystemPath("run.sh"), true, false},
 		{"windows style", FilesystemPath("C:\\Program Files\\app.exe"), true, false},
+		{"UNC path", FilesystemPath(`\\server\share`), true, false},
+		{"extended-length UNC path", FilesystemPath(`\\?\C:\path`), true, false},
 		{"empty is invalid", FilesystemPath(""), false, true},
 		{"whitespace only is invalid", FilesystemPath("   "), false, true},
 		{"tab only is invalid", FilesystemPath("\t"), false, true},

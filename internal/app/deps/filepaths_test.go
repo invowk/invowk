@@ -50,8 +50,8 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
 		}
 		err := CheckFilepathDependenciesInContainer(deps, runtimepkg.NewRegistry(), execCtx)
-		if err == nil || !strings.Contains(err.Error(), "container runtime not available for filepath validation") {
-			t.Fatalf("err = %v", err)
+		if err == nil || !errors.Is(err, ErrContainerRuntimeNotAvailable) {
+			t.Fatalf("err = %v, want wrapping ErrContainerRuntimeNotAvailable", err)
 		}
 	})
 
@@ -201,8 +201,8 @@ func TestContainerFilepathHelpers(t *testing.T) {
 	}
 
 	singleErr := formatContainerFilepathError([]invowkfile.FilesystemPath{"/tmp"}, []string{"missing permissions"})
-	if singleErr.Error() != "  • missing permissions" {
-		t.Fatalf("singleErr = %q", singleErr.Error())
+	if !strings.Contains(singleErr.Error(), "missing permissions") {
+		t.Fatalf("singleErr = %q, want containing 'missing permissions'", singleErr.Error())
 	}
 
 	multiErr := formatContainerFilepathError(

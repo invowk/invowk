@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"testing"
 )
 
 // ContainerSemaphore returns a process-wide buffered channel that limits concurrent
@@ -24,6 +25,16 @@ var ContainerSemaphore = sync.OnceValue(func() chan struct{} {
 	n := containerParallelism()
 	return make(chan struct{}, n)
 })
+
+// AcquireContainerSemaphore acquires a slot from the process-wide container
+// semaphore and registers t.Cleanup to release it when the test finishes.
+// Place this call after t.Parallel() and testing.Short() skip, before container ops.
+func AcquireContainerSemaphore(t testing.TB) {
+	t.Helper()
+	sem := ContainerSemaphore()
+	sem <- struct{}{}
+	t.Cleanup(func() { <-sem })
+}
 
 // containerParallelism returns the number of concurrent container operations allowed.
 // It checks INVOWK_TEST_CONTAINER_PARALLEL first, then falls back to min(GOMAXPROCS, 2).

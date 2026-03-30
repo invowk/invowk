@@ -22,3 +22,4 @@ stderr 'Accepts 1 arg'
 # Test 5: module remove with identifier that does not match anything in empty lock
 ! exec invowk module remove nonexistent
 stdout 'Removing nonexistent'
+stderr '(?i)no module found'

@@ -10,10 +10,12 @@ cd $WORK
 
 # Windows images are not supported by the container runtime.
 ! exec invowk cmd windows-image
+! stdout .
 stderr 'windows container images are not supported'
 
 # Alpine images are intentionally unsupported for reliability reasons.
 ! exec invowk cmd alpine-image
+! stdout .
 stderr 'alpine-based container images are not supported'
 
 -- invowkfile.cue --

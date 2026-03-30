@@ -4,6 +4,7 @@ package types
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -80,8 +81,8 @@ func TestInvalidListenPortError(t *testing.T) {
 	t.Parallel()
 
 	err := &InvalidListenPortError{Value: -5}
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
+	if !strings.Contains(err.Error(), "-5") {
+		t.Errorf("Error() = %q, want containing input value", err.Error())
 	}
 	if !errors.Is(err, ErrInvalidListenPort) {
 		t.Error("expected error to wrap ErrInvalidListenPort")

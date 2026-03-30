@@ -45,7 +45,9 @@ func RunInteractiveCmd(ctx context.Context, opts InteractiveOptions, cmd *exec.C
 	m := newInteractiveModel(opts, pty)
 
 	// Create the Bubble Tea program; alt screen and mouse mode are declared in View().
-	p := tea.NewProgram(m)
+	// WithContext ensures p.Run() exits when the caller's context is cancelled
+	// (e.g., timeout, Ctrl+C at the parent level, SSH session disconnect).
+	p := tea.NewProgram(m, tea.WithContext(ctx))
 
 	// Notify the caller that the program is ready.
 	// This allows them to access the program for terminal control.

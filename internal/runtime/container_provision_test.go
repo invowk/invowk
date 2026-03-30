@@ -228,8 +228,8 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	if err == nil {
 		t.Fatal("ensureProvisionedImage() with strict=true should return error on provisioning failure")
 	}
-	if !strings.Contains(err.Error(), "strict mode enabled") {
-		t.Errorf("error should mention strict mode, got: %v", err)
+	if !errors.Is(err, errStrictModeProvisioning) {
+		t.Errorf("error should wrap errStrictModeProvisioning, got: %v", err)
 	}
 }
 

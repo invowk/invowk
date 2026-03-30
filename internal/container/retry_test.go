@@ -9,54 +9,80 @@ import (
 	"time"
 )
 
-func TestRetryWithBackoff_SucceedsFirstAttempt(t *testing.T) {
-	t.Parallel()
-	calls := 0
-	err := RetryWithBackoff(t.Context(), 3, 10*time.Millisecond, func(_ int) (bool, error) {
-		calls++
-		return false, nil
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if calls != 1 {
-		t.Fatalf("expected 1 call, got %d", calls)
-	}
-}
+// errAlwaysTransient is a test-local sentinel for retry exhaustion assertions.
+var errAlwaysTransient = errors.New("always transient")
 
-func TestRetryWithBackoff_RetriesThenSucceeds(t *testing.T) {
+func TestRetryWithBackoff(t *testing.T) {
 	t.Parallel()
-	calls := 0
-	err := RetryWithBackoff(t.Context(), 5, 10*time.Millisecond, func(attempt int) (bool, error) {
-		calls++
-		if attempt < 2 {
-			return true, errors.New("transient")
-		}
-		return false, nil
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if calls != 3 {
-		t.Fatalf("expected 3 calls, got %d", calls)
-	}
-}
 
-func TestRetryWithBackoff_ExhaustsRetries(t *testing.T) {
-	t.Parallel()
-	calls := 0
-	err := RetryWithBackoff(t.Context(), 3, 10*time.Millisecond, func(_ int) (bool, error) {
-		calls++
-		return true, errors.New("always transient")
-	})
-	if err == nil {
-		t.Fatal("expected error")
+	tests := []struct {
+		name      string
+		maxRetry  int
+		fn        func(int) (bool, error)
+		wantErr   error
+		wantCalls int
+	}{
+		{
+			name:     "SucceedsFirstAttempt",
+			maxRetry: 3,
+			fn: func(_ int) (bool, error) {
+				return false, nil
+			},
+			wantErr:   nil,
+			wantCalls: 1,
+		},
+		{
+			name:     "RetriesThenSucceeds",
+			maxRetry: 5,
+			fn: func(attempt int) (bool, error) {
+				if attempt < 2 {
+					return true, errors.New("transient")
+				}
+				return false, nil
+			},
+			wantErr:   nil,
+			wantCalls: 3,
+		},
+		{
+			name:     "ExhaustsRetries",
+			maxRetry: 3,
+			fn: func(_ int) (bool, error) {
+				return true, errAlwaysTransient
+			},
+			wantErr:   errAlwaysTransient,
+			wantCalls: 3,
+		},
+		{
+			name:     "NonTransientExitsImmediately",
+			maxRetry: 5,
+			fn: func(_ int) (bool, error) {
+				return false, errAlwaysTransient
+			},
+			wantErr:   errAlwaysTransient,
+			wantCalls: 1,
+		},
 	}
-	if err.Error() != "always transient" {
-		t.Fatalf("expected last error, got: %v", err)
-	}
-	if calls != 3 {
-		t.Fatalf("expected 3 calls, got %d", calls)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			calls := 0
+			wrapped := func(attempt int) (bool, error) {
+				calls++
+				return tt.fn(attempt)
+			}
+			err := RetryWithBackoff(t.Context(), tt.maxRetry, 10*time.Millisecond, wrapped)
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("expected %v, got: %v", tt.wantErr, err)
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if calls != tt.wantCalls {
+				t.Fatalf("expected %d call(s), got %d", tt.wantCalls, calls)
+			}
+		})
 	}
 }
 
@@ -75,22 +101,6 @@ func TestRetryWithBackoff_ContextCancelledBetweenRetries(t *testing.T) {
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got: %v", err)
-	}
-	if calls != 1 {
-		t.Fatalf("expected 1 call, got %d", calls)
-	}
-}
-
-func TestRetryWithBackoff_NonTransientExitsImmediately(t *testing.T) {
-	t.Parallel()
-	calls := 0
-	permanentErr := errors.New("permanent")
-	err := RetryWithBackoff(t.Context(), 5, 10*time.Millisecond, func(_ int) (bool, error) {
-		calls++
-		return false, permanentErr
-	})
-	if !errors.Is(err, permanentErr) {
-		t.Fatalf("expected permanent error, got: %v", err)
 	}
 	if calls != 1 {
 		t.Fatalf("expected 1 call, got %d", calls)

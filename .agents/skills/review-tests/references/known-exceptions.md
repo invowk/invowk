@@ -15,6 +15,7 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 | Tests using `withPipeStdin()` or replacing `os.Stdin` | No `t.Parallel()` | `os.Stdin` is process-wide; concurrent replacement causes data races |
 | CUE `cue.Value` / `*cue.Context` subtests | Serial subtests (no `t.Parallel()` on subtests) | CUE values and contexts are NOT thread-safe; `Unify()` and `CompileString()` mutate internal state. Use `//nolint:tparallel` when parent calls `t.Parallel()` but subtests must be serial |
 | SSH server controller tests (`internal/sshserver/`) | No `t.Parallel()` on parent or subtests | `wish` library writes host keys to `.ssh/` in working directory; parallel tests in the same package collide |
+| SSH server controller test (`internal/app/commandsvc/ssh_test.go`) | No `t.Parallel()` on parent or subtests | `wish` library writes host keys (`id_ed25519`) relative to CWD; parallel tests collide on the same key file |
 | TUI client tests (`internal/tuiserver/client_test.go`) | Sequential subtests | Share request/response channels via `server.RequestChannel()`; parallel subtests would race on the channel |
 
 ### Context Exceptions
@@ -41,6 +42,13 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 | Error-path tests that fail before container operations | No `ContainerSemaphore()` | Execution never reaches container operations (e.g., missing SSH server) |
 | `internal/runtime` container tests | No `AcquireContainerSuiteLock` | Semaphore alone provides concurrency control; suite lock is only for `tests/cli` cross-process serialization |
 
+### Hardcoded Path Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `internal/app/deps/filepaths_test.go` | Hardcoded `/tmp`, `/var/tmp` in container filepath fixtures | Container runtime is Linux-only by design; these are container-internal paths, not host paths. Tests have `runtime.GOOS` guards |
+| `internal/uroot/dirname_test.go` | Hardcoded Unix paths (`/foo/bar`, `/a/b/c/d`) | u-root implements POSIX `path.Dir` (not `filepath.Dir`); runs exclusively in the virtual shell with POSIX semantics on all platforms |
+
 ### Mirror Exemptions
 
 | Category | Files | Rationale |
@@ -54,6 +62,21 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 | Built-in commands | `config_*.txtar`, `module_*.txtar`, `completion.txtar`, `tui_*.txtar`, `init_*.txtar`, `validate.txtar` | Built-in Cobra commands exercise CLI handlers directly, not user-defined command runtimes |
 
 See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemption list.
+
+### Integration Test Gating Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `TestCLI` in `tests/cli/cli_test.go` | Runs in short mode (`testing.Short()` not checked for gating) | Individual txtar tests handle their own skipping via built-in testscript conditions (`[windows]`, `[!container-available]`, etc.). The TestCLI harness intentionally does not gate on short mode because per-test conditions provide finer-grained control than a blanket integration skip |
+
+### TUI Test Coverage Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `internal/tui/choose_builders.go` | No dedicated `choose_builders_test.go` | All 29 exported methods are fully covered by `choose_test.go` (`TestChooseBuilder_FluentAPI`, `TestMultiChooseBuilder_FluentAPI`, `TestChooseStringBuilder_FluentAPI`, etc.) |
+| `internal/tui/list_styles.go` | No dedicated `list_styles_test.go` | Both functions are unexported; tested indirectly via choose/filter model tests. Direct tests would be circular (asserting color hex == same hex) |
+| `internal/tui/theme_colors.go` | No dedicated `theme_colors_test.go` | All 4 symbols are unexported constants; tested indirectly via `modalBaseStyle()` in `embeddable_test.go`. Direct tests would be trivially circular |
+| `internal/tui/interactive_unix.go`, `interactive_windows.go` | No test files | Thin syscall wrappers (`unix.IoctlGetWinsize` / Windows API); impractical to unit test without mocking the terminal |
 
 ### Platform Skip Exceptions
 

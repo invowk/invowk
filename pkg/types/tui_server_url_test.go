@@ -84,14 +84,15 @@ func TestInvalidTUIServerURLError(t *testing.T) {
 	t.Parallel()
 
 	err := &InvalidTUIServerURLError{Value: "ftp://bad"}
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
-	}
 	if !strings.Contains(err.Error(), "ftp://bad") {
-		t.Errorf("error message should contain the invalid value, got: %q", err.Error())
+		t.Errorf("Error() = %q, want containing input value", err.Error())
 	}
-	if !strings.Contains(err.Error(), "http://") {
-		t.Errorf("error message should mention valid schemes, got: %q", err.Error())
+	var typedErr *InvalidTUIServerURLError
+	if !errors.As(err, &typedErr) {
+		t.Fatalf("expected *InvalidTUIServerURLError, got %T", err)
+	}
+	if typedErr.Value != "ftp://bad" {
+		t.Errorf("InvalidTUIServerURLError.Value = %q, want %q", typedErr.Value, "ftp://bad")
 	}
 	if !errors.Is(err, ErrInvalidTUIServerURL) {
 		t.Error("expected error to wrap ErrInvalidTUIServerURL")

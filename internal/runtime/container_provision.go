@@ -44,6 +44,10 @@ const (
 	containerWorkspacePrefix = containerWorkspaceRoot + "/"
 )
 
+// errStrictModeProvisioning is returned when container provisioning fails
+// and strict mode is enabled, preventing fallback to the base image.
+var errStrictModeProvisioning = errors.New("container provisioning failed (strict mode enabled)")
+
 // ensureProvisionedImage ensures the container image exists and is provisioned
 // with invowk resources (binary, modules, etc.). This enables nested invowk commands
 // inside containers.
@@ -72,7 +76,8 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 	result, err := r.provisioner.Provision(ctx.Context, container.ImageTag(baseImage))
 	if err != nil {
 		if r.provisioner.Config().Strict {
-			return "", nil, fmt.Errorf("container provisioning failed (strict mode enabled): %w", err)
+			// Multi-wrap (Go 1.20+): callers can match either sentinel via errors.Is
+			return "", nil, fmt.Errorf("%w: %w", errStrictModeProvisioning, err)
 		}
 		_, _ = fmt.Fprintf(ctx.IO.Stderr,
 			"WARNING: Container provisioning failed: %v\n"+

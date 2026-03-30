@@ -287,12 +287,7 @@ cmds: [
 ]
 `
 
-	// Create a temporary file
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	if writeErr := os.WriteFile(invowkfilePath, []byte(cueContent), 0o644); writeErr != nil {
@@ -356,11 +351,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			tmpDir, err := os.MkdirTemp("", "invowkfile-containerfile-test-*")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer func() { _ = os.RemoveAll(tmpDir) }()
+			tmpDir := t.TempDir()
 
 			// Create invowkfile.cue with container runtime using the test containerfile path
 			cueContent := `cmds: [
@@ -412,12 +403,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 func TestScriptCaching(t *testing.T) {
 	t.Parallel()
 
-	// Create a temporary directory
-	tmpDir, err := os.MkdirTemp("", "invowk-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }() // Cleanup temp dir; error non-critical
+	tmpDir := t.TempDir()
 
 	// Create a test script file
 	scriptPath := filepath.Join(tmpDir, "test.sh")

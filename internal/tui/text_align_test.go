@@ -4,6 +4,7 @@ package tui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -92,8 +93,8 @@ func TestInvalidTextAlignError(t *testing.T) {
 	t.Parallel()
 
 	err := &InvalidTextAlignError{Value: "bad"}
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
+	if !strings.Contains(err.Error(), "bad") {
+		t.Errorf("Error() = %q, want containing input value", err.Error())
 	}
 	if !errors.Is(err, ErrInvalidTextAlign) {
 		t.Error("expected error to wrap ErrInvalidTextAlign")

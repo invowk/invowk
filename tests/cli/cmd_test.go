@@ -1,14 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package cli contains CLI integration tests using testscript.
-//
-// These tests verify invowk command-line behavior with deterministic
-// output capture, replacing the flaky VHS-based tests.
-//
-// Container tests are separated into TestContainerCLI (cmd_container_test.go)
-// and pinned to a single verified engine for deterministic execution. The
-// runtime retry logic still protects individual container runs, but the test
-// harness no longer treats "any healthy engine" as sufficient.
 package cli
 
 import (
@@ -23,9 +14,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/pkg/platform"
-
 	"github.com/rogpeppe/go-internal/testscript"
+
+	"github.com/invowk/invowk/pkg/platform"
 )
 
 var (
@@ -155,6 +146,7 @@ func TestMain(m *testing.M) {
 		buildArgs = append(buildArgs, "-cover")
 	}
 	buildArgs = append(buildArgs, "-o", binaryPath, ".")
+	// context.Background(): *testing.M has no Context() method
 	cmd := exec.CommandContext(context.Background(), "go", buildArgs...)
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
@@ -181,6 +173,8 @@ func generateTestSuffix(workDir string) string {
 // TestContainerCLI to avoid rootless Podman race conditions. See
 // .claude/docs/podman-parallel-tests.md for details.
 func TestCLI(t *testing.T) {
+	t.Parallel()
+
 	// Find all non-container test files
 	testdataDir := "testdata"
 	entries, err := os.ReadDir(testdataDir)

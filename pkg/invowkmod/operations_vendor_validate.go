@@ -13,6 +13,8 @@ var (
 	ErrInvalidVendoredEntry = errors.New("invalid vendored entry")
 	// ErrInvalidVendorResult is the sentinel error wrapped by InvalidVendorResultError.
 	ErrInvalidVendorResult = errors.New("invalid vendor result")
+	// ErrVendorConflict is returned when multiple modules resolve to the same vendor directory name.
+	ErrVendorConflict = errors.New("vendor conflict")
 )
 
 type (

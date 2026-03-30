@@ -3,7 +3,6 @@
 package deps
 
 import (
-	"errors"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -26,7 +25,7 @@ func CheckToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runt
 
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return errors.New("container runtime not available for tool validation")
+		return fmt.Errorf("%w for tool validation", ErrContainerRuntimeNotAvailable)
 	}
 
 	toolErrors := CollectToolErrors(deps.Tools, func(alt invowkfile.BinaryName) error {

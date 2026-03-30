@@ -4,6 +4,7 @@ package container
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -302,16 +303,16 @@ func TestInvalidPortMappingError(t *testing.T) {
 	t.Parallel()
 
 	portErr := &InvalidNetworkPortError{Value: 0}
-	if portErr.Error() == "" {
-		t.Error("InvalidNetworkPortError.Error() returned empty string")
+	if !strings.Contains(portErr.Error(), "0") {
+		t.Errorf("InvalidNetworkPortError.Error() = %q, want containing input value", portErr.Error())
 	}
 	if !errors.Is(portErr, ErrInvalidNetworkPort) {
 		t.Error("InvalidNetworkPortError should wrap ErrInvalidNetworkPort")
 	}
 
 	protoErr := &InvalidPortProtocolError{Value: "invalid"}
-	if protoErr.Error() == "" {
-		t.Error("InvalidPortProtocolError.Error() returned empty string")
+	if !strings.Contains(protoErr.Error(), "invalid") {
+		t.Errorf("InvalidPortProtocolError.Error() = %q, want containing input value", protoErr.Error())
 	}
 	if !errors.Is(protoErr, ErrInvalidPortProtocol) {
 		t.Error("InvalidPortProtocolError should wrap ErrInvalidPortProtocol")
@@ -323,8 +324,8 @@ func TestInvalidPortMappingError(t *testing.T) {
 		FieldErrs: fieldErrs,
 	}
 
-	if err.Error() == "" {
-		t.Error("InvalidPortMappingError.Error() returned empty string")
+	if !strings.Contains(err.Error(), "invalid") {
+		t.Errorf("InvalidPortMappingError.Error() = %q, want containing 'invalid'", err.Error())
 	}
 	if !errors.Is(err, ErrInvalidPortMapping) {
 		t.Error("InvalidPortMappingError should wrap ErrInvalidPortMapping")

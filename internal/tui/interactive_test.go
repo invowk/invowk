@@ -4,6 +4,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -300,14 +301,11 @@ func TestInteractiveBuilder_Run_NoCommand(t *testing.T) {
 
 	result, err := builder.Run()
 
-	if err == nil {
-		t.Error("expected error when no command is provided")
+	if !errors.Is(err, errNoCommand) {
+		t.Errorf("expected errNoCommand, got %v", err)
 	}
 	if result != nil {
 		t.Error("expected nil result when error occurs")
-	}
-	if err.Error() != "no command provided" {
-		t.Errorf("expected error message 'no command provided', got %q", err.Error())
 	}
 }
 

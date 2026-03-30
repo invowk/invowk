@@ -11,6 +11,7 @@ stdout 'hello from root deps test'
 # Test 2: Root-level missing tool should prevent ANY command from running
 cd $WORK/broken
 ! exec invowk cmd 'hello'
+! stdout .
 stderr '(?i)dependencies not satisfied'
 stderr 'Missing Tools'
 stderr 'nonexistent-root-tool-xyz'

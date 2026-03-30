@@ -15,7 +15,7 @@ func TestNewFileModel(t *testing.T) {
 	opts := FileOptions{
 		Title:             "Select a file",
 		Description:       "Choose a configuration file",
-		CurrentDirectory:  "/tmp",
+		CurrentDirectory:  t.TempDir(),
 		AllowedExtensions: []string{".json", ".yaml"},
 		ShowHidden:        true,
 		ShowSize:          true,
@@ -203,10 +203,12 @@ func TestNewFileModelForModal(t *testing.T) {
 func TestFileBuilder_FluentAPI(t *testing.T) {
 	t.Parallel()
 
+	testDir := t.TempDir()
+
 	builder := NewFile().
 		Title("Choose File").
 		Description("Select a configuration file").
-		CurrentDirectory("/home/user").
+		CurrentDirectory(testDir).
 		AllowedExtensions(".json", ".yaml", ".toml").
 		ShowHidden(true).
 		ShowSize(true).
@@ -223,8 +225,8 @@ func TestFileBuilder_FluentAPI(t *testing.T) {
 	if builder.opts.Description != "Select a configuration file" {
 		t.Errorf("expected description, got %q", builder.opts.Description)
 	}
-	if builder.opts.CurrentDirectory != "/home/user" {
-		t.Errorf("expected directory '/home/user', got %q", builder.opts.CurrentDirectory)
+	if builder.opts.CurrentDirectory != testDir {
+		t.Errorf("expected directory %q, got %q", testDir, builder.opts.CurrentDirectory)
 	}
 	if len(builder.opts.AllowedExtensions) != 3 {
 		t.Errorf("expected 3 extensions, got %d", len(builder.opts.AllowedExtensions))
