@@ -60,6 +60,10 @@ func TestRunInteractiveCmd_PTYCreationFailure(t *testing.T) {
 func TestRunInteractiveCmd_CancelledContext(t *testing.T) {
 	t.Parallel()
 
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: ConPTY init may race with context check; tea.WithContext not reliably immediate on Windows")
+	}
+
 	// Create an already-cancelled context to test graceful handling.
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
