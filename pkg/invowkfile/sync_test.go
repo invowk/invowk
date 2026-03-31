@@ -5,12 +5,13 @@ package invowkfile
 import (
 	"fmt"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+
+	"github.com/invowk/invowk/internal/testutil/schematest"
 )
 
 // behavioralSyncCase defines a single input for behavioral equivalence testing.
@@ -22,128 +23,7 @@ type behavioralSyncCase struct {
 	divergeNote string // non-empty = expected CUE/Go divergence, skip agreement check
 }
 
-// extractCUEFields extracts all field names from a CUE struct definition.
-// It returns a map of field names to whether the field is optional.
-// Nested struct fields are not included; only top-level fields of the given definition.
-func extractCUEFields(t *testing.T, val cue.Value) map[string]bool {
-	t.Helper()
-
-	fields := make(map[string]bool)
-
-	// Iterate over the struct fields
-	iter, err := val.Fields(cue.Definitions(false), cue.Optional(true))
-	if err != nil {
-		t.Fatalf("failed to iterate CUE fields: %v", err)
-	}
-
-	for iter.Next() {
-		sel := iter.Selector()
-		// Skip hidden fields (start with _) and definitions (start with #)
-		labelType := sel.LabelType()
-		if labelType.IsHidden() || sel.IsDefinition() {
-			continue
-		}
-
-		// Skip fields that are explicitly set to bottom (_|_) - these are error constraints
-		// used to explicitly forbid certain field names (e.g., module, version in Invowkfile).
-		// We detect these by checking if the error message contains "explicit error (_|_ literal)".
-		// This distinguishes between:
-		// - "explicitly _|_" (module?: _|_) → skip, not a real field
-		// - "constraint evaluation error" (containerfile with strings.HasPrefix) → include, valid field
-		fieldValue := iter.Value()
-		if fieldValue.Kind() == cue.BottomKind && fieldValue.Err() != nil {
-			errMsg := fieldValue.Err().Error()
-			if strings.Contains(errMsg, "explicit error (_|_ literal)") {
-				continue
-			}
-		}
-
-		// The selector string may include the "?" suffix for optional fields
-		// We need to strip it to get the actual field name
-		fieldName := sel.String()
-		fieldName = strings.TrimSuffix(fieldName, "?")
-		isOptional := iter.IsOptional()
-		fields[fieldName] = isOptional
-	}
-
-	return fields
-}
-
-// extractGoJSONTags extracts all JSON field names from a Go struct using reflection.
-// It returns a map of JSON tag names to whether the field has "omitempty".
-// Fields with json:"-" are excluded.
-// Embedded structs are not expanded; only direct fields are returned.
-func extractGoJSONTags(t *testing.T, typ reflect.Type) map[string]bool {
-	t.Helper()
-
-	// Dereference pointer types
-	for typ.Kind() == reflect.Pointer {
-		typ = typ.Elem()
-	}
-
-	if typ.Kind() != reflect.Struct {
-		t.Fatalf("expected struct type, got %s", typ.Kind())
-	}
-
-	fields := make(map[string]bool)
-
-	for field := range typ.Fields() {
-		// Skip unexported fields
-		if !field.IsExported() {
-			continue
-		}
-
-		tag := field.Tag.Get("json")
-		if tag == "" || tag == "-" {
-			// No json tag or explicitly excluded
-			continue
-		}
-
-		// Parse the tag: "name,omitempty" or just "name"
-		parts := strings.Split(tag, ",")
-		name := parts[0]
-		if name == "" || name == "-" {
-			continue
-		}
-
-		hasOmitempty := slices.Contains(parts[1:], "omitempty")
-
-		fields[name] = hasOmitempty
-	}
-
-	return fields
-}
-
-// assertFieldsSync verifies that CUE schema fields and Go struct JSON tags are in sync.
-// It checks:
-// 1. Every CUE field has a corresponding Go JSON tag
-// 2. Every Go JSON tag has a corresponding CUE field
-// 3. Optional/omitempty alignment (warning only, not a failure)
-func assertFieldsSync(t *testing.T, structName string, cueFields, goFields map[string]bool) {
-	t.Helper()
-
-	// Check CUE fields exist in Go struct
-	for field, isOptional := range cueFields {
-		hasOmitempty, exists := goFields[field]
-		if !exists {
-			t.Errorf("[%s] CUE field %q not found in Go struct (missing JSON tag)", structName, field)
-			continue
-		}
-		// Warn about optional/omitempty mismatch (not a hard failure)
-		if isOptional && !hasOmitempty {
-			t.Logf("[%s] Note: CUE field %q is optional but Go field lacks omitempty tag", structName, field)
-		}
-	}
-
-	// Check Go fields exist in CUE schema
-	for field := range goFields {
-		if _, exists := cueFields[field]; !exists {
-			t.Errorf("[%s] Go JSON tag %q not found in CUE schema (missing CUE field)", structName, field)
-		}
-	}
-}
-
-// getCUESchema compiles the embedded CUE schema and returns the context and compiled value.
+// getCUESchema compiles the embedded invowkfile CUE schema and returns the context and compiled value.
 func getCUESchema(t *testing.T) (cue.Value, *cue.Context) {
 	t.Helper()
 
@@ -156,18 +36,6 @@ func getCUESchema(t *testing.T) (cue.Value, *cue.Context) {
 	return schema, ctx
 }
 
-// lookupDefinition looks up a CUE definition by path (e.g., "#Invowkfile").
-func lookupDefinition(t *testing.T, schema cue.Value, defPath string) cue.Value {
-	t.Helper()
-
-	def := schema.LookupPath(cue.ParsePath(defPath))
-	if def.Err() != nil {
-		t.Fatalf("failed to lookup CUE definition %s: %v", defPath, def.Err())
-	}
-
-	return def
-}
-
 // TestSyncHelpersSmoke verifies the sync test helpers work correctly.
 // This is a smoke test - the actual sync tests for each struct are below.
 func TestSyncHelpersSmoke(t *testing.T) {
@@ -175,35 +43,28 @@ func TestSyncHelpersSmoke(t *testing.T) {
 
 	schema, _ := getCUESchema(t)
 
-	// Test lookupDefinition
-	invowkfileDef := lookupDefinition(t, schema, "#Invowkfile")
+	invowkfileDef := schematest.LookupDefinition(t, schema, "#Invowkfile")
 	if invowkfileDef.Err() != nil {
 		t.Errorf("failed to lookup #Invowkfile: %v", invowkfileDef.Err())
 	}
 
-	// Test extractCUEFields on #Invowkfile
-	cueFields := extractCUEFields(t, invowkfileDef)
+	cueFields := schematest.ExtractCUEFields(t, invowkfileDef)
 	if len(cueFields) == 0 {
-		t.Errorf("extractCUEFields returned no fields for #Invowkfile")
+		t.Errorf("ExtractCUEFields returned no fields for #Invowkfile")
 	}
-	// Verify known field exists
 	if _, ok := cueFields["cmds"]; !ok {
 		t.Errorf("expected 'cmds' field in #Invowkfile CUE definition")
 	}
 
-	// Test extractGoJSONTags on Invowkfile struct
-	goFields := extractGoJSONTags(t, reflect.TypeFor[Invowkfile]())
+	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[Invowkfile]())
 	if len(goFields) == 0 {
-		t.Errorf("extractGoJSONTags returned no fields for Invowkfile")
+		t.Errorf("ExtractGoJSONTags returned no fields for Invowkfile")
 	}
-	// Verify known field exists
 	if _, ok := goFields["cmds"]; !ok {
 		t.Errorf("expected 'cmds' JSON tag in Invowkfile struct")
 	}
 
-	// Test assertFieldsSync doesn't panic (actual sync tests are below)
-	// We just verify the helper runs without crashing
-	assertFieldsSync(t, "Invowkfile-smoke", cueFields, goFields)
+	schematest.AssertFieldsSync(t, "Invowkfile-smoke", cueFields, goFields)
 }
 
 // =============================================================================
@@ -244,9 +105,9 @@ func TestSchemaSync(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.cueDef, func(t *testing.T) {
 			t.Parallel()
-			cueFields := extractCUEFields(t, lookupDefinition(t, schema, tc.cueDef))
-			goFields := extractGoJSONTags(t, tc.goType)
-			assertFieldsSync(t, tc.cueDef, cueFields, goFields)
+			cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, tc.cueDef))
+			goFields := schematest.ExtractGoJSONTags(t, tc.goType)
+			schematest.AssertFieldsSync(t, tc.cueDef, cueFields, goFields)
 		})
 	}
 }
@@ -601,34 +462,6 @@ cmds: [{
 // cannot detect — for example, a regex difference of one character between
 // CUE and Go would pass both test suites independently.
 
-// lookupCUEFieldConstraint extracts the constraint value for a specific field
-// within a CUE struct definition. Unlike LookupPath, this handles optional
-// fields by iterating with cue.Optional(true).
-func lookupCUEFieldConstraint(t *testing.T, schema cue.Value, parentPath, fieldName string) cue.Value {
-	t.Helper()
-
-	parent := schema.LookupPath(cue.ParsePath(parentPath))
-	if parent.Err() != nil {
-		t.Fatalf("CUE parent %s not found: %v", parentPath, parent.Err())
-	}
-
-	iter, err := parent.Fields(cue.Optional(true))
-	if err != nil {
-		t.Fatalf("failed to iterate fields of %s: %v", parentPath, err)
-	}
-
-	for iter.Next() {
-		sel := iter.Selector()
-		name := strings.TrimSuffix(sel.String(), "?")
-		if name == fieldName {
-			return iter.Value()
-		}
-	}
-
-	t.Fatalf("CUE field %s not found in %s", fieldName, parentPath)
-	return cue.Value{} // unreachable
-}
-
 // subtestLabel returns a truncated, human-readable label for subtest names.
 func subtestLabel(input string) string {
 	if len(input) > 30 {
@@ -668,6 +501,7 @@ func assertBehavioralSync(t *testing.T, tc behavioralSyncCase, goErr, cueErr err
 // Subtests run serially: CUE Value.Unify() and Context.CompileString() mutate
 // internal state and are not safe for concurrent use. Parent tests already run
 // in parallel, so test-function-level parallelism is preserved.
+
 // cueExprForScalar formats a test input as a quoted CUE string literal.
 func cueExprForScalar(input string) string { return fmt.Sprintf("%q", input) }
 
@@ -706,7 +540,7 @@ func runBehavioralSyncField(
 ) {
 	t.Helper()
 
-	constraint := lookupCUEFieldConstraint(t, schema, parentPath, fieldName)
+	constraint := schematest.LookupCUEFieldConstraint(t, schema, parentPath, fieldName)
 	runBehavioralSyncCore(t, ctx, constraint, goValidate, cueExprForScalar, cases)
 }
 
@@ -722,7 +556,7 @@ func runBehavioralSyncListElement(
 ) {
 	t.Helper()
 
-	constraint := lookupCUEFieldConstraint(t, schema, parentPath, fieldName)
+	constraint := schematest.LookupCUEFieldConstraint(t, schema, parentPath, fieldName)
 	runBehavioralSyncCore(t, ctx, constraint, goValidate, cueExprForListElement, cases)
 }
 

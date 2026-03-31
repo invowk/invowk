@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/internal/testutil/schematest"
 )
 
 // =============================================================================
@@ -24,9 +26,9 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 	schema, _ := getCUESchema(t)
 
 	// Extract fields from each runtime type variant
-	nativeFields := extractCUEFields(t, lookupDefinition(t, schema, "#RuntimeConfigNative"))
-	virtualFields := extractCUEFields(t, lookupDefinition(t, schema, "#RuntimeConfigVirtual"))
-	containerFields := extractCUEFields(t, lookupDefinition(t, schema, "#RuntimeConfigContainer"))
+	nativeFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigNative"))
+	virtualFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigVirtual"))
+	containerFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#RuntimeConfigContainer"))
 
 	// Merge all CUE fields (the Go struct has the union of all fields)
 	// We can't use maps.Copy because we need custom merge logic that OR's the optional flags
@@ -48,9 +50,9 @@ func TestRuntimeConfigSchemaSync(t *testing.T) {
 		}
 	}
 
-	goFields := extractGoJSONTags(t, reflect.TypeFor[RuntimeConfig]())
+	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[RuntimeConfig]())
 
-	assertFieldsSync(t, "RuntimeConfig", allCUEFields, goFields)
+	schematest.AssertFieldsSync(t, "RuntimeConfig", allCUEFields, goFields)
 }
 
 // =============================================================================
