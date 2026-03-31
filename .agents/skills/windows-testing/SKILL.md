@@ -31,6 +31,8 @@ diagnose and prevent Windows-specific test failures.
 
 Do NOT duplicate content from rules; cross-reference instead.
 
+**Pre-write guardrails**: Before writing any test code, follow `.agents/skills/testing/SKILL.md` § "Pre-Write Checklist".
+
 ## Process Lifecycle
 
 Windows does not have `fork()`. All process creation goes through the
@@ -464,6 +466,7 @@ When a test fails only on Windows, use this matrix to diagnose the cause:
 | Test subprocess orphaned after kill | No Job Object grouping | Use `CREATE_NEW_PROCESS_GROUP` in `SysProcAttr` |
 | Named pipe `net.Listen("unix",...)` fails | AF_UNIX not available on older Windows | Use `net.Listen("tcp", "127.0.0.1:0")` |
 | SHA hash mismatch in txtar fixtures | Git `core.autocrlf` converting `\n` to `\r\n` | Ensure `.gitattributes` has `*.txtar text eol=lf` |
+| `%q`-formatted path assertion mismatch | `%q` escapes `\` to `\\` on Windows paths; raw `filepath.Join` result won't match | Use `fmt.Sprintf("key: %q", path)` in assertions matching `%q`-rendered output |
 
 ## Related Skills
 

@@ -3,6 +3,7 @@
 package config
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -54,7 +55,7 @@ func TestGenerateCUE_IncludesWithAndWithoutAliases(t *testing.T) {
 	if !strings.Contains(output, `alias: "one"`) {
 		t.Error("GenerateCUE should render alias when set")
 	}
-	if !strings.Contains(output, `path: "`+pathTwo+`"`) {
+	if !strings.Contains(output, fmt.Sprintf("path: %q", pathTwo)) {
 		t.Error("GenerateCUE should render path without alias")
 	}
 	// Entry without alias should NOT have an alias field
@@ -80,10 +81,10 @@ func TestGenerateCUE_ConditionalBinaryPathAndCacheDir(t *testing.T) {
 	}
 	output := GenerateCUE(cfg)
 
-	if !strings.Contains(output, `binary_path: "`+binaryPath+`"`) {
+	if !strings.Contains(output, fmt.Sprintf("binary_path: %q", binaryPath)) {
 		t.Error("GenerateCUE should render binary_path when non-empty")
 	}
-	if !strings.Contains(output, `cache_dir: "`+cacheDir+`"`) {
+	if !strings.Contains(output, fmt.Sprintf("cache_dir: %q", cacheDir)) {
 		t.Error("GenerateCUE should render cache_dir when non-empty")
 	}
 	if !strings.Contains(output, `alias: "prov-one"`) {
