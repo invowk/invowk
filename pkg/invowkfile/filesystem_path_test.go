@@ -53,8 +53,8 @@ func TestFilesystemPath_Validate(t *testing.T) {
 
 func TestFilesystemPath_String(t *testing.T) {
 	t.Parallel()
-	p := FilesystemPath("/usr/bin/bash")
-	if p.String() != "/usr/bin/bash" {
-		t.Errorf("FilesystemPath.String() = %q, want %q", p.String(), "/usr/bin/bash")
+	p := FilesystemPath("scripts/run.sh")
+	if p.String() != "scripts/run.sh" {
+		t.Errorf("FilesystemPath.String() = %q, want %q", p.String(), "scripts/run.sh")
 	}
 }

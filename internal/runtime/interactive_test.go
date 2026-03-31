@@ -126,7 +126,7 @@ cmds: [{
 
 	// Verify prepared command
 	if prepared.Cmd == nil {
-		t.Error("PrepareInteractive returned nil Cmd")
+		t.Fatal("PrepareInteractive returned nil Cmd")
 	}
 
 	// Cleanup
@@ -178,7 +178,7 @@ cmds: [{
 
 	// Verify prepared command
 	if prepared.Cmd == nil {
-		t.Error("PrepareInteractive returned nil Cmd")
+		t.Fatal("PrepareInteractive returned nil Cmd")
 	}
 
 	// Verify the command invokes invowk internal exec-virtual

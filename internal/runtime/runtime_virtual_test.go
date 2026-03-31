@@ -335,9 +335,6 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	if !errors.Is(err, invowkfile.ErrInterpreterNotAllowed) {
 		t.Errorf("Validate() error = %q, want sentinel %q", err, invowkfile.ErrInterpreterNotAllowed)
 	}
-	if !strings.Contains(err.Error(), "interpreter not allowed for virtual runtime") {
-		t.Errorf("Validate() error = %q, want error containing 'interpreter not allowed for virtual runtime'", err)
-	}
 
 	// Test Execute method (as a safety net)
 	var stdout bytes.Buffer

@@ -14,17 +14,31 @@ cmds: [
 	{
 		name:        "runtime deps invalid"
 		description: "Command with depends_on inside native runtime block (invalid)"
-		implementations: [{
-			script: "echo 'should not reach here'"
-			runtimes: [{
-				name: "native"
-				depends_on: {
-					tools: [
-						{alternatives: ["sh"]},
-					]
-				}
-			}]
-			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-		}]
+		implementations: [
+			{
+				script: "echo 'should not reach here'"
+				runtimes: [{
+					name: "native"
+					depends_on: {
+						tools: [
+							{alternatives: ["sh"]},
+						]
+					}
+				}]
+				platforms: [{name: "linux"}, {name: "macos"}]
+			},
+			{
+				script: "Write-Output 'should not reach here'"
+				runtimes: [{
+					name: "native"
+					depends_on: {
+						tools: [
+							{alternatives: ["sh"]},
+						]
+					}
+				}]
+				platforms: [{name: "windows"}]
+			},
+		]
 	},
 ]

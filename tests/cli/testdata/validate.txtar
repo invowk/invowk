@@ -33,6 +33,7 @@ stderr 'path does not exist'
 # Test 5: Unknown path type
 # The error is rendered by fang's DefaultErrorHandler via stderr.
 ! exec invowk validate ./random.txt
+! stdout .
 stderr 'determine file type'
 
 # Test 6: Workspace validation (clean workspace with valid invowkfile)
