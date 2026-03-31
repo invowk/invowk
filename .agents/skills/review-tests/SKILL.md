@@ -21,6 +21,7 @@ all `.txtar` files in `tests/cli/testdata/`; CI workflows; SonarCloud configurat
 - Write new tests (use the `test-writer` agent)
 - Review production code quality (use code-review agents)
 - Flag intentional exceptions as errors (check `references/known-exceptions.md`)
+- Flag accepted patterns as errors (check `references/accepted-patterns.md`)
 
 ---
 
@@ -154,13 +155,13 @@ Spawn one subagent per surface. Each subagent receives:
 | Subagent | Surface | References to Read | Focus |
 |----------|---------|-------------------|-------|
 | **SA-1: Structural Hygiene** | SS1 | `test-file-inventory.md`, `surface-checklists.md` §SS1 | File size, headers, naming, imports, helpers |
-| **SA-2: Parallelism & Context** | SS2 | `pattern-catalog.md`, `known-exceptions.md`, `surface-checklists.md` §SS2 | t.Parallel() rules, t.Context(), unsafe patterns |
-| **SA-3: Test Patterns** | SS3 | `pattern-catalog.md`, `known-exceptions.md`, `surface-checklists.md` §SS3 | Table-driven tests, assertions, behavioral contracts |
+| **SA-2: Parallelism & Context** | SS2 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS2 | t.Parallel() rules, t.Context(), unsafe patterns |
+| **SA-3: Test Patterns** | SS3 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS3 | Table-driven tests, assertions, behavioral contracts |
 | **SA-4: Integration Gating** | SS4 | `pattern-catalog.md`, `surface-checklists.md` §SS4 | testing.Short(), container timeouts, CI config |
 | **SA-5: Testscript Quality** | SS5 | `test-file-inventory.md`, `pattern-catalog.md`, `surface-checklists.md` §SS5 | CUE correctness, skip guards, workspace isolation |
-| **SA-6: Mirrors & Platform** | SS6 | `test-file-inventory.md`, `known-exceptions.md`, `surface-checklists.md` §SS6 | Mirror completeness, platform-split CUE, alignment |
+| **SA-6: Mirrors & Platform** | SS6 | `test-file-inventory.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS6 | Mirror completeness, platform-split CUE, alignment |
 | **SA-7: Coverage & Guardrails** | SS7 | `coverage-expectations.md`, `surface-checklists.md` §SS7 | Guardrail tests, exemptions, SonarCloud, helpers |
-| **SA-8: TUI & Domain** | SS8 | `pattern-catalog.md`, `known-exceptions.md`, `surface-checklists.md` §SS8 | TUI models, container mocks, goplint, servers |
+| **SA-8: TUI & Domain** | SS8 | `pattern-catalog.md`, `known-exceptions.md`, `accepted-patterns.md`, `surface-checklists.md` §SS8 | TUI models, container mocks, goplint, servers |
 
 #### Subagent Prompt Template
 
@@ -186,7 +187,9 @@ For each checklist item:
 1. Read the test file(s) specified in the checklist's File Scope column
 2. Apply the check criteria (consult `references/pattern-catalog.md` for detailed patterns)
 3. For semantic checks: assess whether the test exercises meaningful behavioral contracts
-4. Check `references/known-exceptions.md` — is a deviation intentional?
+4. Check `references/known-exceptions.md` — is a deviation a permanent exception?
+   Check `references/accepted-patterns.md` — is a deviation an accepted pattern?
+   If the deviation matches either registry, mark as SKIP (not FAIL).
 
 ### Platform-Specific Analysis
 
@@ -218,11 +221,15 @@ The coordinator:
 1. **Verifies completeness** — Each subagent reported on all checklist items for its surface
 2. **Collects** findings from SA-1 through SA-8
 3. **Deduplicates** by (file, test function/line) — keep higher severity on conflicts
-4. **Cross-checks** against `references/known-exceptions.md`
-5. **Sorts** by severity (ERROR first), then by surface
-6. **Assigns** sequential IDs (RT-001, RT-002, ...) to the merged list
-7. **Merges** checklist tables into a unified Checklist Completion summary
-8. **Produces** the final report (see `references/structured-output-format.md`)
+4. **Cross-checks** against `references/known-exceptions.md` (permanent exceptions)
+5. **Cross-checks** against `references/accepted-patterns.md` (conditionally-accepted patterns)
+6. **Runs reconsideration protocol** — evaluates accepted patterns for cadence review and
+   trigger evaluation (see `references/accepted-patterns.md` § "Reconsideration Protocol")
+7. **Sorts** by severity (ERROR first), then by surface
+8. **Assigns** sequential IDs (RT-001, RT-002, ...) to the merged list
+9. **Merges** checklist tables into a unified Checklist Completion summary
+10. **Produces** the final report with Patterns for Reconsideration appendix
+    (see `references/structured-output-format.md`)
 
 ---
 
@@ -275,7 +282,10 @@ Read these when working on the corresponding review surface:
 - **[references/coverage-expectations.md](references/coverage-expectations.md)** — SonarCloud
   gates, guardrail test inventory, CI coverage configuration, per-package expectations.
 - **[references/known-exceptions.md](references/known-exceptions.md)** — Registry of
-  intentional pattern deviations (do NOT flag as errors).
+  permanent, intentional pattern deviations (do NOT flag as errors).
+- **[references/accepted-patterns.md](references/accepted-patterns.md)** — Registry of
+  conditionally-accepted patterns with reconsideration triggers and confidence levels.
+  Patterns here are SKIP during review but periodically re-evaluated.
 - **[references/structured-output-format.md](references/structured-output-format.md)** —
   Finding report template, checklist status format, severity definitions, merge procedure.
 - **[references/verification-commands.md](references/verification-commands.md)** — Full

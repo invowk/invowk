@@ -73,7 +73,7 @@ RT-042
 | **ERROR** | Would cause test failures, race conditions, flaky CI, or false sense of safety | Must fix before merge |
 | **WARNING** | Suboptimal but not broken: missing parallelism, stale patterns, incomplete coverage | Should fix soon |
 | **INFO** | Style improvement, minor hygiene, non-blocking suggestion | Fix when convenient |
-| **SKIP** | Intentional deviation documented in `known-exceptions.md` | No action needed |
+| **SKIP** | Intentional deviation documented in `known-exceptions.md` or `accepted-patterns.md` | No action needed (accepted patterns are periodically reconsidered) |
 
 ## Semantic Analysis Findings
 
@@ -121,13 +121,39 @@ End the report with aggregate counts:
 Top 10 findings by severity (ERROR first, then WARNING), with file paths and
 fix hints for immediate action.
 
+### Patterns for Reconsideration
+
+Appended when `references/accepted-patterns.md` has entries due for review or with
+triggered reconsideration conditions. This section is informational -- it does not
+create findings, but surfaces patterns the team should consciously re-evaluate.
+
+```
+PATTERNS FOR RECONSIDERATION
+==============================
+[None this round / list of entries with trigger or cadence status]
+==============================
+```
+
+Each entry includes: pattern description, current confidence level, trigger status
+or cadence note, and recommended action (re-evaluate, promote, demote, or remove).
+
 ## Merge Procedure (for coordinator)
 
 1. Verify completeness (all checklist items reported by every subagent)
 2. Collect findings from SA-1 through SA-8
 3. Deduplicate by (file, test function/line) -- keep higher severity
-4. Cross-check against `known-exceptions.md`
-5. Sort by severity (ERROR first), then by surface
-6. Assign sequential IDs (RT-001, RT-002, ...)
-7. Merge checklist tables into unified completion summary
-8. Produce summary, checklist completion, and priority fix list
+4. Cross-check against `known-exceptions.md` (permanent exceptions)
+5. Cross-check against `accepted-patterns.md` (conditionally-accepted patterns)
+6. Run accepted-patterns reconsideration protocol:
+   a. For each registry entry, check if review cadence has elapsed
+   b. Evaluate reconsideration triggers against current codebase state
+   c. Flag entries due for review or with triggered conditions
+   d. Update Last Reviewed dates for entries that pass review
+   e. Promote eligible entries (EXPERIMENTAL -> PROVISIONAL -> SETTLED)
+   f. Demote entries whose triggers fired (any level -> EXPERIMENTAL)
+   g. Remove entries for patterns no longer present in codebase
+7. Sort by severity (ERROR first), then by surface
+8. Assign sequential IDs (RT-001, RT-002, ...)
+9. Merge checklist tables into unified completion summary
+10. Produce summary, checklist completion, priority fix list, and
+    Patterns for Reconsideration appendix

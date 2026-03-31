@@ -1,7 +1,13 @@
 # Known Test Pattern Exceptions Registry
 
-Items listed here are DELIBERATELY different from standard test patterns.
+Items listed here are DELIBERATELY different from standard test patterns and represent
+**permanent, structural exceptions** whose justifications are unlikely to change.
 Do NOT flag these as errors during review. Mark findings against these as severity **SKIP**.
+
+> **See also**: [`accepted-patterns.md`](accepted-patterns.md) for conditionally-accepted
+> patterns that carry reconsideration triggers. Use this registry for permanent exceptions;
+> use `accepted-patterns.md` for patterns whose justification depends on current constraints
+> (Go version, library behavior, codebase structure) that may evolve.
 
 ## Registry
 
@@ -150,7 +156,17 @@ A deviation from standard patterns becomes a real finding when:
 
 When a review finding is determined to be an intentional exception:
 
-1. Add a row to the appropriate section of the Registry table above.
-2. Describe what is different (be specific about the pattern deviation).
-3. Explain why it is intentional (the technical or design reason).
-4. Mark the original finding as severity **SKIP** with a reference to this entry.
+1. **Decide which registry to use.** If the justification is structural and unlikely to change
+   (e.g., "CUE is not thread-safe", "process-wide side effect"), add it here. If the
+   justification depends on current constraints that may evolve (e.g., Go version, library
+   API availability, current codebase structure), add it to [`accepted-patterns.md`](accepted-patterns.md)
+   instead. When in doubt, default to `accepted-patterns.md` -- it is safer to accept
+   provisionally than to prematurely make an exception permanent.
+2. Add a row to the appropriate section of the Registry table above.
+3. Describe what is different (be specific about the pattern deviation).
+4. Explain why it is intentional (the technical or design reason).
+5. Mark the original finding as severity **SKIP** with a reference to this entry.
+
+**Graduation from `accepted-patterns.md`**: SETTLED patterns that have been stable for 12+
+audit rounds and whose reconsideration triggers are structurally unlikely may be moved here
+as permanent exceptions. See `accepted-patterns.md` § "Graduation and Demotion".
