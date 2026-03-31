@@ -61,6 +61,7 @@ stderr 'Source.*badmodule.*not found'
 
 # Test 12: Attempting ambiguous command without disambiguation should fail with suggestions
 ! exec invowk cmd deploy
+! stdout .
 stderr 'ambiguous'
 stderr '@invowkfile'
 stderr '@foo'
@@ -91,6 +92,7 @@ stdout 'Deploying to staging from bar!'
 
 # Test 17: Attempting ambiguous subcommand without disambiguation should fail
 ! exec invowk cmd deploy staging
+! stdout .
 stderr 'ambiguous'
 stderr '@invowkfile'
 stderr '@bar'

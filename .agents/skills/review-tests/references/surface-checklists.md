@@ -24,7 +24,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T1-C06 | No duplicate `Test*` function names across files in same package | All test files per package | ERROR |
 | T1-C07 | No `*_test.go` file has a duplicate `// Package` doc comment (only one per package, usually in `doc.go`) | All test files | WARNING |
 | T1-C08 | Test helpers in `*_test.go` are marked with `t.Helper()` | All test files | WARNING |
-| T1-C09 | Test function names use `TestTypeName_Method` or `TestFunctionName` convention | All test files | INFO |
+| T1-C09 | Test function names use `TestTypeName_Method` or `TestFunctionName` convention. Note: "And" joining aspects of a single scenario (e.g., `_UnicodeAndLongInputs`, `_ErrorAndUnwrap`, `_MixedXAndY`) is idiomatic — see `known-exceptions.md` § Test Naming Exceptions. Only flag "And" joining genuinely unrelated test subjects. | All test files | INFO |
 | T1-C10 | No orphaned test helper files (helpers used in 0 test functions) | All test files | INFO |
 | T1-C11 | `internal/testutil/` exported functions are documented with doc comments | `internal/testutil/` | WARNING |
 | T1-C12 | `internal/testutil/invowkfiletest/` exported functions are documented with doc comments | `internal/testutil/invowkfiletest/` | WARNING |
@@ -178,9 +178,9 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T7-C03 | No stale entries in `builtinTxtarCoverageExemptions` (commands that no longer exist) | `cmd/invowk/coverage_test.go` | ERROR |
 | T7-C04 | No unnecessary entries in `builtinTxtarCoverageExemptions` (commands now covered by txtar) | `cmd/invowk/coverage_test.go` | WARNING |
 | T7-C05 | `tests/cli/tui_tmux_test.go` covers all 9 TUI commands (input, choose, confirm, write, filter, file, table, spin, pager) | `tests/cli/tui_tmux_test.go` | ERROR |
-| T7-C06 | CI runs with `-coverprofile=coverage.out` for SonarCloud gate | `.github/workflows/ci.yml` | WARNING |
+| T7-C06 | CI runs with `-coverprofile=coverage.out` and uploads as artifact. Note: SonarCloud uses automatic analysis (GitHub App) and cannot consume CI artifacts — this is intentional (see `known-exceptions.md` § SonarCloud Configuration Exceptions). | `.github/workflows/ci.yml` | WARNING |
 | T7-C07 | CI runs with `-race` flag on all platforms | `.github/workflows/ci.yml` | WARNING |
-| T7-C08 | SonarCloud `sonar.test.inclusions` covers all test file locations | `sonar-project.properties` | WARNING |
+| T7-C08 | SonarCloud `sonar.test.inclusions` covers all test file locations in `sonar.tests`. Note: `tools/goplint/` is intentionally excluded (see `known-exceptions.md` § SonarCloud Configuration Exceptions). | `sonar-project.properties` | WARNING |
 | T7-C09 | Test helpers in `internal/testutil/` are not duplicated in individual package test files | `internal/testutil/` vs all test files | WARNING |
 | T7-C10 | `invowkfiletest` helpers are used by multi-package consumers (not just one file) | `internal/testutil/invowkfiletest/` | INFO |
 | T7-C11 | Issue template guardrail test (`TestIssueTemplates_NoStaleGuidance`) is current and not bypassed | `internal/issue/issue_test.go` | INFO |

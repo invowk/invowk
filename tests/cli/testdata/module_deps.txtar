@@ -11,4 +11,5 @@ stdout 'invowk module add'
 
 # Test 2: module deps rejects positional arguments
 ! exec invowk module deps unexpected
+! stdout .
 stderr 'Accepts 0 arg'

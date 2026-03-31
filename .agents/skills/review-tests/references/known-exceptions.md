@@ -106,6 +106,21 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 | `internal/watch/watcher_test.go:83` | `time.Sleep(20ms)` between writes | Forces separate fsnotify events; macOS kqueue coalesces rapid writes into one event. |
 | `internal/watch/watcher_test.go:300` | `time.Sleep(300ms)` in callback | Simulates a slow callback to test serialization behavior (debounce guard). |
 
+### SonarCloud Configuration Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `sonar-project.properties` | `sonar.go.coverageReportPaths` is intentionally omitted | SonarCloud is installed as a GitHub App using automatic analysis. The App runs its own analysis on PR events — it cannot access CI-generated artifacts like `coverage.out`. Coverage is collected by CI and uploaded as a GitHub Actions artifact for manual inspection, but not fed to SonarCloud. This is documented in `sonar-project.properties` lines 9-11. |
+| `sonar-project.properties` | `sonar.tests` omits `tools/` directory | `tools/goplint/` is a separate development tool with its own Go module and quality governance via `lint.yml`. It is explicitly excluded from SonarCloud analysis via `sonar.exclusions=...tools/goplint/**`. The omission from `sonar.tests` is consistent with the exclusion. |
+
+### Test Naming Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `TestFoo_UnicodeAndLongInputs` (8 TUI test files) | "And" in test name | "And" describes two aspects of a single concern (edge-case input handling), not unrelated subjects. Idiomatic Go test naming for multi-faceted scenarios. |
+| `TestFoo_ErrorAndUnwrap` (2 files) | "And" in test name | Tests `Error()` and `Unwrap()` on the same error type — a single concern (error interface compliance). |
+| `TestFoo_MixedXAndY` / `_BothXAndY` / `_WithXAndY` (~25 files) | "And" in test name | "And" describes the test fixture or scenario inputs (e.g., "both tools and commands present"), not unrelated test subjects. |
+
 ### Platform Skip Exceptions
 
 | Location | What Is Different | Rationale |

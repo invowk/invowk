@@ -5,18 +5,22 @@ cd $WORK
 
 # Test 1: module add with wrong number of args (needs exactly 2)
 ! exec invowk module add
+! stdout .
 stderr 'Accepts 2 arg'
 
 # Test 2: module add with only 1 arg (needs exactly 2)
 ! exec invowk module add https://github.com/user/mod.git
+! stdout .
 stderr 'Accepts 2 arg'
 
 # Test 3: module remove with no args (needs exactly 1)
 ! exec invowk module remove
+! stdout .
 stderr 'Accepts 1 arg'
 
 # Test 4: module remove with too many args
 ! exec invowk module remove foo bar
+! stdout .
 stderr 'Accepts 1 arg'
 
 # Test 5: module remove with identifier that does not match anything in empty lock

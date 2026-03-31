@@ -22,4 +22,5 @@ stdout 'Found 2 module'
 
 # Test 4: module list rejects positional arguments
 ! exec invowk module list unexpected
+! stdout .
 stderr 'Accepts 0 arg'

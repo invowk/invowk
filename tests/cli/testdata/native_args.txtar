@@ -12,6 +12,7 @@ stdout 'Hello, Alice!'
 
 # Test 2: args simple - missing required argument (should fail)
 ! exec invowk cmd 'args simple'
+! stdout .
 stderr 'Missing required arguments'
 stderr 'args simple'
 stderr 'name'
@@ -40,6 +41,7 @@ stdout 'INVOWK_ARG_SCALE.*1.5'
 
 # Test 6: args typed - with invalid type (should fail)
 ! exec invowk cmd 'args typed' not-a-number 600 1.5
+! stdout .
 stderr 'Invalid argument value'
 stderr 'width'
 
@@ -53,12 +55,14 @@ stdout 'INVOWK_ARG_VERSION.*1.2.3'
 
 # Test 8: args validated - with invalid env value (should fail)
 ! exec invowk cmd 'args validated' invalid-env 1.0.0
+! stdout .
 stderr 'Invalid argument value'
 stderr 'env'
 
 # Test 9: args validated - with invalid version format (should fail)
 # 'v1.0.0' is invalid because the pattern requires X.Y.Z without the 'v' prefix
 ! exec invowk cmd 'args validated' dev v1.0.0
+! stdout .
 stderr 'Invalid argument value'
 stderr 'version'
 

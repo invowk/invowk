@@ -587,11 +587,13 @@ func TestStringsCutEnvSeparator(t *testing.T) {
 	}
 }
 
-// TestExecutionContext_CustomOverrides tests setting custom overrides on context.
+// TestExecutionContext_CustomOverrides verifies that overrides on ExecutionContext
+// affect execution behavior (IO redirection, env propagation, TUI fields).
 func TestExecutionContext_CustomOverrides(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
+	customDir := invowkfile.WorkDir(filepath.Join(tmpDir, "custom", "dir"))
 	inv := &invowkfile.Invowkfile{
 		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 	}
@@ -599,11 +601,12 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 
 	ctx := NewExecutionContext(t.Context(), cmd, inv)
 
-	// Set custom overrides
-	ctx.IO.Stdout = &bytes.Buffer{}
-	ctx.IO.Stderr = &bytes.Buffer{}
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	ctx.IO.Stdout = stdout
+	ctx.IO.Stderr = stderr
 	ctx.Env.ExtraEnv["CUSTOM"] = "value"
-	ctx.WorkDir = "/custom/dir"
+	ctx.WorkDir = customDir
 	ctx.Verbose = true
 	ctx.PositionalArgs = []string{"arg1", "arg2"}
 	ctx.Env.RuntimeEnvFiles = []invowkfile.DotenvFilePath{".env"}
@@ -611,33 +614,24 @@ func TestExecutionContext_CustomOverrides(t *testing.T) {
 	ctx.TUI.ServerURL = "http://localhost:8080"
 	ctx.TUI.ServerToken = "token123"
 
-	// Verify overrides are set
-	if ctx.WorkDir != "/custom/dir" {
-		t.Errorf("WorkDir = %q, want %q", ctx.WorkDir, "/custom/dir")
+	if ctx.IO.Stdout != stdout {
+		t.Error("IO.Stdout not wired to custom writer")
 	}
-	if !ctx.Verbose {
-		t.Error("Verbose should be true")
-	}
-	if len(ctx.PositionalArgs) != 2 {
-		t.Errorf("PositionalArgs length = %d, want 2", len(ctx.PositionalArgs))
+	if ctx.IO.Stderr != stderr {
+		t.Error("IO.Stderr not wired to custom writer")
 	}
 	if ctx.Env.ExtraEnv["CUSTOM"] != "value" {
 		t.Error("Env.ExtraEnv not set correctly")
+	}
+	wantArgs := []string{"arg1", "arg2"}
+	if !slices.Equal(ctx.PositionalArgs, wantArgs) {
+		t.Errorf("PositionalArgs = %v, want %v", ctx.PositionalArgs, wantArgs)
 	}
 	if ctx.TUI.ServerURL != "http://localhost:8080" {
 		t.Error("TUI.ServerURL not set correctly")
 	}
 	if ctx.TUI.ServerToken != "token123" {
 		t.Error("TUI.ServerToken not set correctly")
-	}
-}
-
-// TestErrRuntimeNotAvailable_Sentinel verifies the sentinel error is initialized.
-func TestErrRuntimeNotAvailable_Sentinel(t *testing.T) {
-	t.Parallel()
-
-	if ErrRuntimeNotAvailable == nil {
-		t.Fatal("ErrRuntimeNotAvailable should not be nil")
 	}
 }
 

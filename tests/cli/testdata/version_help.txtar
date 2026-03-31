@@ -28,4 +28,5 @@ exec invowk --help
 # Test 5: invowk internal check-cmd works but is hidden
 # (verifies internal commands are callable even though hidden from help)
 ! exec invowk internal check-cmd nonexistent-cmd-xyz
+! stdout .
 stderr 'not discoverable'
