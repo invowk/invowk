@@ -2,10 +2,15 @@
 
 package cmd
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestShouldRegisterDiscoveredCommands(t *testing.T) {
 	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name string
@@ -29,12 +34,12 @@ func TestShouldRegisterDiscoveredCommands(t *testing.T) {
 		},
 		{
 			name: "cmd with long config flag",
-			args: []string{"--ivk-config", "/tmp/config.cue", "cmd", "build"},
+			args: []string{"--ivk-config", filepath.Join(tmpDir, "config.cue"), "cmd", "build"},
 			want: true,
 		},
 		{
 			name: "cmd with short config flag",
-			args: []string{"-c", "/tmp/config.cue", "cmd", "build"},
+			args: []string{"-c", filepath.Join(tmpDir, "config.cue"), "cmd", "build"},
 			want: true,
 		},
 		{

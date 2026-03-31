@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -11,6 +12,8 @@ import (
 
 func TestVendoredEntry_Validate(t *testing.T) {
 	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name      string
@@ -23,8 +26,8 @@ func TestVendoredEntry_Validate(t *testing.T) {
 			"valid complete entry",
 			VendoredEntry{
 				Namespace:  ModuleNamespace("tools@1.2.3"),
-				SourcePath: types.FilesystemPath("/home/user/.invowk/cache/tools"),
-				VendorPath: types.FilesystemPath("/home/user/project/invowk_modules/tools"),
+				SourcePath: types.FilesystemPath(filepath.Join(tmpDir, "cache", "tools")),
+				VendorPath: types.FilesystemPath(filepath.Join(tmpDir, "project", "invowk_modules", "tools")),
 			},
 			true, false, 0,
 		},
@@ -43,8 +46,8 @@ func TestVendoredEntry_Validate(t *testing.T) {
 		{
 			"valid with only paths",
 			VendoredEntry{
-				SourcePath: types.FilesystemPath("/some/source"),
-				VendorPath: types.FilesystemPath("/some/vendor"),
+				SourcePath: types.FilesystemPath(filepath.Join(tmpDir, "source")),
+				VendorPath: types.FilesystemPath(filepath.Join(tmpDir, "vendor")),
 			},
 			true, false, 0,
 		},
@@ -81,6 +84,8 @@ func TestVendoredEntry_Validate(t *testing.T) {
 func TestVendorResult_Validate(t *testing.T) {
 	t.Parallel()
 
+	tmpDir := t.TempDir()
+
 	tests := []struct {
 		name      string
 		result    VendorResult
@@ -91,12 +96,12 @@ func TestVendorResult_Validate(t *testing.T) {
 		{
 			"valid complete result",
 			VendorResult{
-				VendorDir: types.FilesystemPath("/home/user/project/invowk_modules"),
+				VendorDir: types.FilesystemPath(filepath.Join(tmpDir, "project", "invowk_modules")),
 				Vendored: []VendoredEntry{
 					{
 						Namespace:  ModuleNamespace("tools@1.2.3"),
-						SourcePath: types.FilesystemPath("/cache/tools"),
-						VendorPath: types.FilesystemPath("/vendor/tools"),
+						SourcePath: types.FilesystemPath(filepath.Join(tmpDir, "cache", "tools")),
+						VendorPath: types.FilesystemPath(filepath.Join(tmpDir, "vendor", "tools")),
 					},
 				},
 				Pruned: []string{"old-module"},
@@ -111,7 +116,7 @@ func TestVendorResult_Validate(t *testing.T) {
 		{
 			"valid with empty vendored list",
 			VendorResult{
-				VendorDir: types.FilesystemPath("/some/dir"),
+				VendorDir: types.FilesystemPath(filepath.Join(tmpDir, "some-dir")),
 				Vendored:  []VendoredEntry{},
 			},
 			true, false, 0,
@@ -119,7 +124,7 @@ func TestVendorResult_Validate(t *testing.T) {
 		{
 			"invalid vendored entry in slice",
 			VendorResult{
-				VendorDir: types.FilesystemPath("/some/dir"),
+				VendorDir: types.FilesystemPath(filepath.Join(tmpDir, "some-dir")),
 				Vendored: []VendoredEntry{
 					{Namespace: ModuleNamespace("")}, // empty namespace is invalid for non-zero values
 				},
@@ -130,7 +135,7 @@ func TestVendorResult_Validate(t *testing.T) {
 		{
 			"valid result with multiple entries",
 			VendorResult{
-				VendorDir: types.FilesystemPath("/home/user/project/invowk_modules"),
+				VendorDir: types.FilesystemPath(filepath.Join(tmpDir, "project", "invowk_modules")),
 				Vendored: []VendoredEntry{
 					{Namespace: ModuleNamespace("tools@1.0.0")},
 					{Namespace: ModuleNamespace("utils@2.0.0")},

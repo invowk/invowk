@@ -3,12 +3,19 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
+
+// ErrWorkDirNotDirectory is returned when the specified work directory path exists
+// but is not a directory (e.g., it is a regular file). Callers can use errors.Is
+// to detect this condition programmatically.
+var ErrWorkDirNotDirectory = errors.New("work directory is not a directory")
 
 // envInheritConfig is the resolved environment inheritance configuration after
 // applying the 3-level precedence chain: default mode → runtime config overrides
@@ -112,17 +119,17 @@ func validateWorkDir(dir string) error {
 
 	info, err := os.Stat(dir)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("directory does not exist: %s", dir)
 		}
-		if os.IsPermission(err) {
+		if errors.Is(err, fs.ErrPermission) {
 			return fmt.Errorf("permission denied: %s", dir)
 		}
 		return fmt.Errorf("cannot access directory: %w", err)
 	}
 
 	if !info.IsDir() {
-		return fmt.Errorf("not a directory: %s", dir)
+		return fmt.Errorf("%w: %s", ErrWorkDirNotDirectory, dir)
 	}
 
 	return nil

@@ -29,6 +29,9 @@ func TestValidateFlagValues(t *testing.T) {
 		if err == nil {
 			t.Fatal("ValidateFlagValues() = nil, want error")
 		}
+		if !errors.Is(err, ErrFlagValidationFailed) {
+			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
+		}
 		if !strings.Contains(err.Error(), "required flag '--name'") {
 			t.Fatalf("error = %v, want error containing %q", err, "required flag '--name'")
 		}
@@ -42,6 +45,9 @@ func TestValidateFlagValues(t *testing.T) {
 		err := ValidateFlagValues("build", map[invowkfile.FlagName]string{"name": ""}, defs)
 		if err == nil {
 			t.Fatal("ValidateFlagValues() = nil, want error")
+		}
+		if !errors.Is(err, ErrFlagValidationFailed) {
+			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
 		}
 		if !strings.Contains(err.Error(), "required flag") {
 			t.Fatalf("error = %v, want error containing %q", err, "required flag")
@@ -77,6 +83,9 @@ func TestValidateFlagValues(t *testing.T) {
 		if err == nil {
 			t.Fatal("ValidateFlagValues() = nil, want error")
 		}
+		if !errors.Is(err, ErrFlagValidationFailed) {
+			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
+		}
 		if !strings.Contains(err.Error(), "port") {
 			t.Fatalf("error = %v, want error mentioning flag name", err)
 		}
@@ -91,6 +100,9 @@ func TestValidateFlagValues(t *testing.T) {
 		err := ValidateFlagValues("build", map[invowkfile.FlagName]string{}, defs)
 		if err == nil {
 			t.Fatal("ValidateFlagValues() = nil, want error")
+		}
+		if !errors.Is(err, ErrFlagValidationFailed) {
+			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
 		}
 		if !strings.Contains(err.Error(), "--first") || !strings.Contains(err.Error(), "--second") {
 			t.Fatalf("error = %v, want error containing both flag names", err)

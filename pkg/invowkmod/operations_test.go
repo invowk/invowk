@@ -435,7 +435,7 @@ func TestModule_ValidateScriptPath(t *testing.T) {
 	t.Parallel()
 
 	module := &Module{
-		Path: "/home/user/mycommands.invowkmod",
+		Path: types.FilesystemPath(filepath.Join(t.TempDir(), "mycommands.invowkmod")),
 	}
 
 	tests := []struct {

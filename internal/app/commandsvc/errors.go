@@ -19,6 +19,14 @@ const (
 	HintCancelled = "cancelled"
 )
 
+var (
+	// ErrUnsupportedPlatform is returned when a command does not support the current host platform.
+	ErrUnsupportedPlatform = errors.New("unsupported platform")
+
+	// ErrRuntimeResolution is returned when the runtime for a command cannot be resolved.
+	ErrRuntimeResolution = errors.New("runtime resolution failed")
+)
+
 // classifyExecutionError maps execution/runtime failures to issue catalog IDs and
 // returns a classification hint (e.g., HintTimedOut, HintCancelled). The CLI adapter
 // combines this with styled error formatting.

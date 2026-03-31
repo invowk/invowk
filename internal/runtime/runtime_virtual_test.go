@@ -330,10 +330,13 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	// Test Validate method
 	err := rt.Validate(ctx)
 	if err == nil {
-		t.Error("Validate() expected error for interpreter with virtual runtime")
+		t.Fatal("Validate() expected error for interpreter with virtual runtime")
 	}
-	if err != nil && !strings.Contains(err.Error(), "interpreter field is not allowed for virtual runtime") {
-		t.Errorf("Validate() error = %q, want error containing 'interpreter field is not allowed for virtual runtime'", err)
+	if !errors.Is(err, invowkfile.ErrInterpreterNotAllowed) {
+		t.Errorf("Validate() error = %q, want sentinel %q", err, invowkfile.ErrInterpreterNotAllowed)
+	}
+	if !strings.Contains(err.Error(), "interpreter not allowed for virtual runtime") {
+		t.Errorf("Validate() error = %q, want error containing 'interpreter not allowed for virtual runtime'", err)
 	}
 
 	// Test Execute method (as a safety net)

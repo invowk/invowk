@@ -177,7 +177,7 @@ func discoverAvailableCommands(disc CommandSetProvider, ctx *runtime.ExecutionCo
 
 	commandSetResult, err := disc.DiscoverCommandSet(discoverCtx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to discover commands for dependency validation: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrDependencyDiscoveryFailed, err)
 	}
 
 	available := make(map[invowkfile.CommandName]struct{}, len(commandSetResult.Set.Commands))

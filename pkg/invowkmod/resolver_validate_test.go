@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -119,6 +120,8 @@ func TestModuleRef_Validate(t *testing.T) {
 func TestResolvedModule_Validate(t *testing.T) {
 	t.Parallel()
 
+	tmpDir := t.TempDir()
+
 	tests := []struct {
 		name      string
 		resolved  ResolvedModule
@@ -135,7 +138,7 @@ func TestResolvedModule_Validate(t *testing.T) {
 				},
 				ResolvedVersion: "1.2.3",
 				GitCommit:       "abc123def456789012345678901234567890abcd",
-				CachePath:       types.FilesystemPath("/home/user/.invowk/modules/repo"),
+				CachePath:       types.FilesystemPath(filepath.Join(tmpDir, "modules", "repo")),
 				Namespace:       "repo@1.2.3",
 				ModuleName:      "repo",
 				ModuleID:        "io.example.repo",

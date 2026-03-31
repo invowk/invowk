@@ -286,8 +286,11 @@ func TestValidateSingleFilepath(t *testing.T) {
 		t.Parallel()
 		missing := filepath.Join(tmpDir, "missing.txt")
 		err := ValidateSingleFilepath(types.FilesystemPath(missing), types.FilesystemPath(missing), invowkfile.FilepathDependency{})
-		if err == nil || !strings.Contains(err.Error(), "does not exist") {
-			t.Fatalf("err = %v", err)
+		if err == nil {
+			t.Fatal("ValidateSingleFilepath() = nil, want error")
+		}
+		if !errors.Is(err, ErrPathNotExists) {
+			t.Fatalf("errors.Is(err, ErrPathNotExists) = false for %v", err)
 		}
 	})
 

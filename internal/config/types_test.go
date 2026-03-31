@@ -4,6 +4,7 @@ package config
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -123,13 +124,16 @@ func TestColorScheme_Validate(t *testing.T) {
 func TestModuleIncludePath_Validate(t *testing.T) {
 	t.Parallel()
 
+	tmpDir := t.TempDir()
+	absModPath := filepath.Join(tmpDir, "modules", "my.invowkmod")
+
 	tests := []struct {
 		name    string
 		path    ModuleIncludePath
 		want    bool
 		wantErr bool
 	}{
-		{"absolute path", ModuleIncludePath("/home/user/modules/my.invowkmod"), true, false},
+		{"absolute path", ModuleIncludePath(absModPath), true, false},
 		{"relative path", ModuleIncludePath("modules/my.invowkmod"), true, false},
 		{"single char", ModuleIncludePath("/"), true, false},
 		{"empty is invalid", ModuleIncludePath(""), false, true},
@@ -164,9 +168,11 @@ func TestModuleIncludePath_Validate(t *testing.T) {
 
 func TestModuleIncludePath_String(t *testing.T) {
 	t.Parallel()
-	p := ModuleIncludePath("/home/user/modules/my.invowkmod")
-	if p.String() != "/home/user/modules/my.invowkmod" {
-		t.Errorf("ModuleIncludePath.String() = %q, want %q", p.String(), "/home/user/modules/my.invowkmod")
+	tmpDir := t.TempDir()
+	absModPath := filepath.Join(tmpDir, "modules", "my.invowkmod")
+	p := ModuleIncludePath(absModPath)
+	if p.String() != absModPath {
+		t.Errorf("ModuleIncludePath.String() = %q, want %q", p.String(), absModPath)
 	}
 }
 
@@ -180,7 +186,7 @@ func TestBinaryFilePath_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"empty is valid (auto-detect)", BinaryFilePath(""), true, false},
-		{"absolute path", BinaryFilePath("/usr/local/bin/invowk"), true, false},
+		{"absolute path", BinaryFilePath(filepath.Join(t.TempDir(), "bin", "invowk")), true, false},
 		{"relative path", BinaryFilePath("bin/invowk"), true, false},
 		{"single char", BinaryFilePath("/"), true, false},
 		{"whitespace only is invalid", BinaryFilePath("   "), false, true},
@@ -214,9 +220,11 @@ func TestBinaryFilePath_Validate(t *testing.T) {
 
 func TestBinaryFilePath_String(t *testing.T) {
 	t.Parallel()
-	p := BinaryFilePath("/usr/local/bin/invowk")
-	if p.String() != "/usr/local/bin/invowk" {
-		t.Errorf("BinaryFilePath.String() = %q, want %q", p.String(), "/usr/local/bin/invowk")
+	tmpDir := t.TempDir()
+	absBinPath := filepath.Join(tmpDir, "bin", "invowk")
+	p := BinaryFilePath(absBinPath)
+	if p.String() != absBinPath {
+		t.Errorf("BinaryFilePath.String() = %q, want %q", p.String(), absBinPath)
 	}
 }
 
@@ -230,7 +238,7 @@ func TestCacheDirPath_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"empty is valid (default cache)", CacheDirPath(""), true, false},
-		{"absolute path", CacheDirPath("/var/cache/invowk"), true, false},
+		{"absolute path", CacheDirPath(filepath.Join(t.TempDir(), "cache", "invowk")), true, false},
 		{"relative path", CacheDirPath(".cache/invowk"), true, false},
 		{"single char", CacheDirPath("/"), true, false},
 		{"whitespace only is invalid", CacheDirPath("   "), false, true},
@@ -264,9 +272,11 @@ func TestCacheDirPath_Validate(t *testing.T) {
 
 func TestCacheDirPath_String(t *testing.T) {
 	t.Parallel()
-	p := CacheDirPath("/var/cache/invowk")
-	if p.String() != "/var/cache/invowk" {
-		t.Errorf("CacheDirPath.String() = %q, want %q", p.String(), "/var/cache/invowk")
+	tmpDir := t.TempDir()
+	absCachePath := filepath.Join(tmpDir, "cache", "invowk")
+	p := CacheDirPath(absCachePath)
+	if p.String() != absCachePath {
+		t.Errorf("CacheDirPath.String() = %q, want %q", p.String(), absCachePath)
 	}
 }
 
@@ -297,6 +307,9 @@ func TestColorScheme_String(t *testing.T) {
 func TestIncludeEntry_Validate(t *testing.T) {
 	t.Parallel()
 
+	tmpDir := t.TempDir()
+	absModPath := filepath.Join(tmpDir, "modules", "my.invowkmod")
+
 	tests := []struct {
 		name      string
 		entry     IncludeEntry
@@ -307,7 +320,7 @@ func TestIncludeEntry_Validate(t *testing.T) {
 		{
 			"all valid",
 			IncludeEntry{
-				Path:  ModuleIncludePath("/home/user/modules/my.invowkmod"),
+				Path:  ModuleIncludePath(absModPath),
 				Alias: invowkmod.ModuleAlias("mytools"),
 			},
 			true, false, 0,
@@ -315,7 +328,7 @@ func TestIncludeEntry_Validate(t *testing.T) {
 		{
 			"valid path, empty alias (zero value alias is valid)",
 			IncludeEntry{
-				Path:  ModuleIncludePath("/home/user/modules/my.invowkmod"),
+				Path:  ModuleIncludePath(absModPath),
 				Alias: invowkmod.ModuleAlias(""),
 			},
 			true, false, 0,
@@ -331,7 +344,7 @@ func TestIncludeEntry_Validate(t *testing.T) {
 		{
 			"invalid alias (whitespace-only)",
 			IncludeEntry{
-				Path:  ModuleIncludePath("/home/user/modules/my.invowkmod"),
+				Path:  ModuleIncludePath(absModPath),
 				Alias: invowkmod.ModuleAlias("   "),
 			},
 			false, true, 1,
@@ -463,9 +476,9 @@ func TestAutoProvisionConfig_Validate(t *testing.T) {
 		{
 			"valid with explicit paths",
 			AutoProvisionConfig{
-				BinaryPath: "/usr/bin/invowk",
-				Includes:   []IncludeEntry{{Path: "/home/user/my.invowkmod"}},
-				CacheDir:   "/tmp/cache",
+				BinaryPath: BinaryFilePath(filepath.Join(t.TempDir(), "bin", "invowk")),
+				Includes:   []IncludeEntry{{Path: ModuleIncludePath(filepath.Join(t.TempDir(), "my.invowkmod"))}},
+				CacheDir:   CacheDirPath(filepath.Join(t.TempDir(), "cache")),
 			},
 			true, false, 0,
 		},

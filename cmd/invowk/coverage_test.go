@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
+	goruntime "runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -81,10 +81,10 @@ func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 	}
 
 	// Locate the testdata directory relative to this test file.
-	// This follows the same runtime.Caller pattern as TestNoGlobalConfigAccess.
-	_, thisFile, _, ok := runtime.Caller(0)
+	// This follows the same goruntime.Caller pattern as TestNoGlobalConfigAccess.
+	_, thisFile, _, ok := goruntime.Caller(0)
 	if !ok {
-		t.Fatal("unable to determine test file path via runtime.Caller")
+		t.Fatal("unable to determine test file path via goruntime.Caller")
 	}
 	// cmd/invowk/coverage_test.go → cmd/invowk/ → cmd/ → project root
 	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
@@ -126,9 +126,9 @@ func TestBuiltinCommandTxtarCoverage(t *testing.T) {
 func TestTUIExemptionTmuxCoverage(t *testing.T) {
 	t.Parallel()
 
-	_, thisFile, _, ok := runtime.Caller(0)
+	_, thisFile, _, ok := goruntime.Caller(0)
 	if !ok {
-		t.Fatal("unable to determine test file path via runtime.Caller")
+		t.Fatal("unable to determine test file path via goruntime.Caller")
 	}
 	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
 	tmuxTestPath := filepath.Join(projectRoot, "tests", "cli", "tui_tmux_test.go")

@@ -122,8 +122,11 @@ func TestDiscoverAvailableCommands(t *testing.T) {
 
 		disc := &stubCommandSetProvider{err: errors.New("boom")}
 		_, err := discoverAvailableCommands(disc, nil)
-		if err == nil || !strings.Contains(err.Error(), "failed to discover commands for dependency validation") {
-			t.Fatalf("err = %v", err)
+		if err == nil {
+			t.Fatal("discoverAvailableCommands() = nil, want error")
+		}
+		if !errors.Is(err, ErrDependencyDiscoveryFailed) {
+			t.Fatalf("errors.Is(err, ErrDependencyDiscoveryFailed) = false for %v", err)
 		}
 	})
 }

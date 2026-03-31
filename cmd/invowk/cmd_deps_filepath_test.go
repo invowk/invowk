@@ -25,7 +25,8 @@ func TestCheckFilepathDependencies_NoFilepaths(t *testing.T) {
 
 	cmd := invowkfiletest.NewTestCommand("test", invowkfiletest.WithScript("echo hello"))
 
-	err := deps.CheckHostFilepathDependencies(cmd.DependsOn, "/tmp/invowkfile.cue", &runtime.ExecutionContext{Command: cmd})
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))
+	err := deps.CheckHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("deps.CheckHostFilepathDependencies() should return nil for command with no dependencies, got: %v", err)
 	}
@@ -38,7 +39,8 @@ func TestCheckFilepathDependencies_EmptyDependsOn(t *testing.T) {
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithDependsOn(&invowkfile.DependsOn{}))
 
-	err := deps.CheckHostFilepathDependencies(cmd.DependsOn, "/tmp/invowkfile.cue", &runtime.ExecutionContext{Command: cmd})
+	invowkfilePath := invowkfile.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))
+	err := deps.CheckHostFilepathDependencies(cmd.DependsOn, invowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("deps.CheckHostFilepathDependencies() should return nil for empty depends_on, got: %v", err)
 	}
@@ -115,7 +117,8 @@ func TestCheckFilepathDependencies_AbsolutePath(t *testing.T) {
 		}))
 
 	// Invowkfile in different directory
-	err := deps.CheckHostFilepathDependencies(cmd.DependsOn, "/some/other/invowkfile.cue", &runtime.ExecutionContext{Command: cmd})
+	otherInvowkfilePath := invowkfile.FilesystemPath(filepath.Join(t.TempDir(), "other", "invowkfile.cue"))
+	err := deps.CheckHostFilepathDependencies(cmd.DependsOn, otherInvowkfilePath, &runtime.ExecutionContext{Command: cmd})
 	if err != nil {
 		t.Errorf("deps.CheckHostFilepathDependencies() should handle absolute paths, got: %v", err)
 	}

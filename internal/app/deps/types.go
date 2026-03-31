@@ -47,6 +47,18 @@ var (
 	// due to an infrastructure error (non-ExitError), as opposed to a domain-level check
 	// failure indicated by exit code.
 	ErrContainerValidationFailed = errors.New("container validation failed")
+
+	// ErrFlagValidationFailed is returned when one or more flag values fail validation
+	// (missing required flags or values not matching type/regex constraints).
+	ErrFlagValidationFailed = errors.New("flag validation failed")
+
+	// ErrPathNotExists is returned when a required filepath does not exist
+	// on the host filesystem.
+	ErrPathNotExists = errors.New("path does not exist")
+
+	// ErrDependencyDiscoveryFailed is returned when the discovery pipeline fails
+	// while resolving command dependencies for validation.
+	ErrDependencyDiscoveryFailed = errors.New("failed to discover commands for dependency validation")
 )
 
 type (

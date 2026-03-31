@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,9 @@ import (
 
 	"github.com/invowk/invowk/pkg/types"
 )
+
+// ErrTUIServerResponse is returned when the TUI server responds with an error message.
+var ErrTUIServerResponse = errors.New("TUI server error")
 
 // Client provides methods to communicate with the TUI server.
 // It is used by child processes to delegate TUI rendering to the parent.
@@ -337,7 +341,7 @@ func (c *Client) sendRequest(component Component, options any) (result *Response
 	}
 
 	if resp.Error != "" {
-		return nil, fmt.Errorf("TUI error: %s", resp.Error)
+		return nil, fmt.Errorf("%w: %s", ErrTUIServerResponse, resp.Error)
 	}
 
 	return &resp, nil

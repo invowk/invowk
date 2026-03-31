@@ -57,7 +57,7 @@ func TestCLICommandAdapterExecute_DryRun(t *testing.T) {
 	var stdout bytes.Buffer
 	app, err := NewApp(Dependencies{
 		Config:    &staticConfigProvider{cfg: config.DefaultConfig()},
-		Discovery: &stubDiscoveryService{lookup: discovery.LookupResult{Command: testCommandInfo("build", "echo hello")}},
+		Discovery: &stubDiscoveryService{lookup: discovery.LookupResult{Command: testCommandInfo(t, "build", "echo hello")}},
 		Stdout:    &stdout,
 		Stderr:    &bytes.Buffer{},
 	})
@@ -226,7 +226,7 @@ func TestLookupFromCommandSetAndDiagnosticRenderer(t *testing.T) {
 	t.Parallel()
 
 	set := discovery.NewDiscoveredCommandSet()
-	cmdInfo := testCommandInfo("build", "echo hello")
+	cmdInfo := testCommandInfo(t, "build", "echo hello")
 	set.Add(cmdInfo)
 
 	result, err := lookupFromCommandSet(discovery.CommandSetResult{Set: set}, "build")
@@ -253,7 +253,8 @@ func TestLookupFromCommandSetAndDiagnosticRenderer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDiagnostic(warn): %v", err)
 	}
-	pathDiag, err := discovery.NewDiagnosticWithPath(discovery.SeverityError, discovery.CodeCommandNotFound, "missing", "/tmp/invowkfile.cue")
+	diagPath := types.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))
+	pathDiag, err := discovery.NewDiagnosticWithPath(discovery.SeverityError, discovery.CodeCommandNotFound, "missing", diagPath)
 	if err != nil {
 		t.Fatalf("NewDiagnosticWithPath(error): %v", err)
 	}
@@ -261,7 +262,7 @@ func TestLookupFromCommandSetAndDiagnosticRenderer(t *testing.T) {
 	var stderr bytes.Buffer
 	(&defaultDiagnosticRenderer{}).Render(t.Context(), []discovery.Diagnostic{warnDiag, pathDiag}, &stderr)
 	rendered := stderr.String()
-	for _, token := range []string{"warn", "missing", "/tmp/invowkfile.cue"} {
+	for _, token := range []string{"warn", "missing", string(diagPath)} {
 		if !strings.Contains(rendered, token) {
 			t.Fatalf("rendered diagnostics missing %q:\n%s", token, rendered)
 		}
@@ -314,7 +315,8 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 	}
 }
 
-func testCommandInfo(name, script string) *discovery.CommandInfo {
+func testCommandInfo(t *testing.T, name, script string) *discovery.CommandInfo {
+	t.Helper()
 	cmd := &invowkfile.Command{
 		Name:        invowkfile.CommandName(name),
 		Description: "test command",
@@ -324,7 +326,7 @@ func testCommandInfo(name, script string) *discovery.CommandInfo {
 			Platforms: invowkfile.AllPlatformConfigs(),
 		}},
 	}
-	inv := &invowkfile.Invowkfile{FilePath: "/tmp/invowkfile.cue"}
+	inv := &invowkfile.Invowkfile{FilePath: types.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))}
 	return &discovery.CommandInfo{
 		Name:        cmd.Name,
 		Description: cmd.Description,

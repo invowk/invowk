@@ -30,7 +30,7 @@ func (s *Service) validateInputs(req Request, cmdInfo *discovery.CommandInfo, de
 	currentPlatform := invowkfile.CurrentPlatform()
 	if !cmdInfo.Command.CanRunOnCurrentHost() {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
-		return fmt.Errorf("command '%s' does not support platform '%s' (supported: %s)", req.Name, currentPlatform, supportedPlatforms)
+		return fmt.Errorf("%w: command '%s' does not support platform '%s' (supported: %s)", ErrUnsupportedPlatform, req.Name, currentPlatform, supportedPlatforms)
 	}
 
 	return nil
@@ -52,7 +52,7 @@ func (s *Service) resolveRuntime(req Request, cmdInfo *discovery.CommandInfo, cf
 		if _, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok { //nolint:errcheck // type match only; error is re-returned
 			return appexec.RuntimeSelection{}, err
 		}
-		return appexec.RuntimeSelection{}, fmt.Errorf("resolve runtime for '%s': %w", req.Name, err)
+		return appexec.RuntimeSelection{}, fmt.Errorf("%w: resolve runtime for '%s': %w", ErrRuntimeResolution, req.Name, err)
 	}
 
 	return selection, nil

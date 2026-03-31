@@ -4,6 +4,7 @@ package config
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -20,10 +21,11 @@ func TestLoadOptions_Validate_AllEmpty(t *testing.T) {
 
 func TestLoadOptions_Validate_AllValid(t *testing.T) {
 	t.Parallel()
+	tmpDir := t.TempDir()
 	opts := LoadOptions{
-		ConfigFilePath: "/tmp/config.cue",
-		ConfigDirPath:  "/tmp/config",
-		BaseDir:        "/tmp/base",
+		ConfigFilePath: types.FilesystemPath(filepath.Join(tmpDir, "config.cue")),
+		ConfigDirPath:  types.FilesystemPath(filepath.Join(tmpDir, "config")),
+		BaseDir:        types.FilesystemPath(filepath.Join(tmpDir, "base")),
 	}
 	err := opts.Validate()
 	if err != nil {
@@ -103,7 +105,7 @@ func TestLoadOptions_Validate_MixedEmptyAndInvalid(t *testing.T) {
 	opts := LoadOptions{
 		ConfigFilePath: "",
 		ConfigDirPath:  types.FilesystemPath("   "),
-		BaseDir:        "/valid/path",
+		BaseDir:        types.FilesystemPath(filepath.Join(t.TempDir(), "valid")),
 	}
 	err := opts.Validate()
 	if err == nil {

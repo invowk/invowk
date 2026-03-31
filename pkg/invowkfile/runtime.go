@@ -56,6 +56,12 @@ var (
 	// ErrInvalidRuntimeConfig is the sentinel error wrapped by InvalidRuntimeConfigError.
 	ErrInvalidRuntimeConfig = errors.New("invalid runtime config")
 
+	// ErrInterpreterNotAllowed is returned when an interpreter is specified for a
+	// runtime that does not support custom interpreters (e.g., the virtual runtime
+	// uses mvdan/sh exclusively). Callers can use errors.Is to detect this condition
+	// programmatically.
+	ErrInterpreterNotAllowed = errors.New("interpreter not allowed for virtual runtime")
+
 	// containerImageRegex validates container image name format.
 	// Format: [registry[:port]/][namespace/]name[:tag][@digest]
 	containerImageRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._:/-]*[a-zA-Z0-9])?(:[a-zA-Z0-9._-]+)?(@sha256:[a-fA-F0-9]{64})?$`)
@@ -427,7 +433,7 @@ func (rc *RuntimeConfig) ResolveInterpreterFromScript(scriptContent string) Sheb
 // for the runtime type. Returns an error if interpreter is set for virtual runtime.
 func (rc *RuntimeConfig) ValidateInterpreterForRuntime() error {
 	if rc.Name == RuntimeVirtual && rc.Interpreter != "" {
-		return fmt.Errorf("interpreter field is not allowed for virtual runtime (got %q); virtual runtime uses mvdan/sh and cannot execute custom interpreters", rc.Interpreter)
+		return fmt.Errorf("%w (got %q); virtual runtime uses mvdan/sh and cannot execute custom interpreters", ErrInterpreterNotAllowed, rc.Interpreter)
 	}
 	return nil
 }

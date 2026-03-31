@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -11,6 +12,8 @@ import (
 
 func TestCreateOptions_Validate(t *testing.T) {
 	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name      string
@@ -23,7 +26,7 @@ func TestCreateOptions_Validate(t *testing.T) {
 			"valid complete options",
 			CreateOptions{
 				Name:        ModuleShortName("mymodule"),
-				ParentDir:   types.FilesystemPath("/home/user/projects"),
+				ParentDir:   types.FilesystemPath(filepath.Join(tmpDir, "projects")),
 				Module:      ModuleID("io.example.mymodule"),
 				Description: types.DescriptionText("A test module"),
 			},
@@ -45,7 +48,7 @@ func TestCreateOptions_Validate(t *testing.T) {
 			"valid with empty optional fields",
 			CreateOptions{
 				Name:      ModuleShortName("mymodule"),
-				ParentDir: types.FilesystemPath("/some/dir"),
+				ParentDir: types.FilesystemPath(filepath.Join(tmpDir, "some-dir")),
 			},
 			true, false, 0,
 		},

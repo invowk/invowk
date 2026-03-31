@@ -7,7 +7,6 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -475,11 +474,8 @@ func TestClient_ServerError(t *testing.T) {
 	errCh := respondWith(t, server, Response{Error: "something broke"})
 
 	_, err := client.Input(InputRequest{Title: "test"})
-	if err == nil {
-		t.Fatal("expected error from server error response")
-	}
-	if !strings.Contains(err.Error(), "TUI error: something broke") {
-		t.Fatalf("error = %q, want containing %q", err.Error(), "TUI error: something broke")
+	if !errors.Is(err, ErrTUIServerResponse) {
+		t.Fatalf("errors.Is(ErrTUIServerResponse) = false for %v", err)
 	}
 	assertNoAsyncError(t, errCh)
 }

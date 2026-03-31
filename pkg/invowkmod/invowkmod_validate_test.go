@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -90,6 +91,8 @@ func TestValidationIssue_Validate(t *testing.T) {
 func TestValidationResult_Validate(t *testing.T) {
 	t.Parallel()
 
+	tmpDir := t.TempDir()
+
 	tests := []struct {
 		name      string
 		result    ValidationResult
@@ -101,10 +104,10 @@ func TestValidationResult_Validate(t *testing.T) {
 			"valid complete result",
 			ValidationResult{
 				Valid:          true,
-				ModulePath:     types.FilesystemPath("/home/user/module.invowkmod"),
+				ModulePath:     types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod")),
 				ModuleName:     ModuleShortName("mymodule"),
-				InvowkmodPath:  types.FilesystemPath("/home/user/module.invowkmod/invowkmod.cue"),
-				InvowkfilePath: types.FilesystemPath("/home/user/module.invowkmod/invowkfile.cue"),
+				InvowkmodPath:  types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod", "invowkmod.cue")),
+				InvowkfilePath: types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod", "invowkfile.cue")),
 				Issues: []ValidationIssue{
 					{Type: IssueTypeStructure, Message: "test"},
 				},
@@ -120,7 +123,7 @@ func TestValidationResult_Validate(t *testing.T) {
 			"valid with empty optional paths",
 			ValidationResult{
 				Valid:      true,
-				ModulePath: types.FilesystemPath("/some/path"),
+				ModulePath: types.FilesystemPath(filepath.Join(tmpDir, "some-path")),
 			},
 			true, false, 0,
 		},

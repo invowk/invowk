@@ -4,6 +4,7 @@ package watch
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -12,6 +13,8 @@ import (
 
 func TestConfigValidate(t *testing.T) {
 	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name     string
@@ -29,7 +32,7 @@ func TestConfigValidate(t *testing.T) {
 			cfg: Config{
 				Patterns: []invowkfile.GlobPattern{"**/*.go", "**/*.cue"},
 				Ignore:   []invowkfile.GlobPattern{"**/.git/**"},
-				BaseDir:  "/home/user/project",
+				BaseDir:  types.FilesystemPath(filepath.Join(tmpDir, "project")),
 			},
 			wantOK: true,
 		},

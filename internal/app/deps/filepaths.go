@@ -127,7 +127,7 @@ func ValidateSingleFilepath(displayPath, resolvedPath types.FilesystemPath, fp i
 	// Check if path exists
 	info, err := os.Stat(resolvedPathStr)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("%s: path does not exist", displayPath)
+		return fmt.Errorf("%s: %w", displayPath, ErrPathNotExists)
 	}
 	if err != nil {
 		return fmt.Errorf("%s: cannot access path: %w", displayPath, err)

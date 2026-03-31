@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,10 +93,11 @@ func TestValidateWorkDir(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		dir       string
-		wantErr   bool
-		errSubstr string
+		name         string
+		dir          string
+		wantErr      bool
+		wantSentinel error  // sentinel for errors.Is check (preferred)
+		errSubstr    string // substring for format verification
 	}{
 		{
 			name:    "empty string is valid (uses current dir)",
@@ -114,10 +116,11 @@ func TestValidateWorkDir(t *testing.T) {
 			errSubstr: "does not exist",
 		},
 		{
-			name:      "file instead of directory",
-			dir:       testFile,
-			wantErr:   true,
-			errSubstr: "not a directory",
+			name:         "file instead of directory",
+			dir:          testFile,
+			wantErr:      true,
+			wantSentinel: ErrWorkDirNotDirectory,
+			errSubstr:    "not a directory",
 		},
 	}
 
@@ -126,16 +129,15 @@ func TestValidateWorkDir(t *testing.T) {
 			t.Parallel()
 
 			err := validateWorkDir(tt.dir)
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("validateWorkDir(%q) expected error, got nil", tt.dir)
-				} else if tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr) {
-					t.Errorf("validateWorkDir(%q) error = %q, want error containing %q", tt.dir, err.Error(), tt.errSubstr)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("validateWorkDir(%q) unexpected error: %v", tt.dir, err)
-				}
+			switch {
+			case tt.wantErr && err == nil:
+				t.Errorf("validateWorkDir(%q) expected error, got nil", tt.dir)
+			case tt.wantErr && tt.wantSentinel != nil && !errors.Is(err, tt.wantSentinel):
+				t.Errorf("validateWorkDir(%q) error = %q, want sentinel %q", tt.dir, err.Error(), tt.wantSentinel)
+			case tt.wantErr && tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr):
+				t.Errorf("validateWorkDir(%q) error = %q, want error containing %q", tt.dir, err.Error(), tt.errSubstr)
+			case !tt.wantErr && err != nil:
+				t.Errorf("validateWorkDir(%q) unexpected error: %v", tt.dir, err)
 			}
 		})
 	}

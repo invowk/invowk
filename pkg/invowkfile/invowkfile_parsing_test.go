@@ -63,17 +63,10 @@ func TestIsScriptFile(t *testing.T) {
 func TestGetScriptFilePath(t *testing.T) {
 	t.Parallel()
 
-	// Use platform-native paths for testing
-	var invowkfilePath, baseDir, absScriptPath string
-	if runtime.GOOS == "windows" {
-		invowkfilePath = `C:\Users\user\project\invowkfile.cue`
-		baseDir = `C:\Users\user\project`
-		absScriptPath = `C:\scripts\build.sh`
-	} else {
-		invowkfilePath = "/home/user/project/invowkfile.cue"
-		baseDir = "/home/user/project"
-		absScriptPath = "/usr/local/bin/script.sh"
-	}
+	// Use platform-native paths for testing via t.TempDir()
+	baseDir := t.TempDir()
+	invowkfilePath := filepath.Join(baseDir, "invowkfile.cue")
+	absScriptPath := filepath.Join(t.TempDir(), "bin", "script.sh")
 
 	tests := []struct {
 		name           string
@@ -110,6 +103,8 @@ func TestGetScriptFilePath(t *testing.T) {
 func TestResolveScript_Inline(t *testing.T) {
 	t.Parallel()
 
+	fakeInvowkfilePath := FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))
+
 	tests := []struct {
 		name     string
 		script   string
@@ -129,7 +124,7 @@ func TestResolveScript_Inline(t *testing.T) {
 			t.Parallel()
 
 			s := &Implementation{Script: ScriptContent(tt.script), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-			result, err := s.ResolveScript(FilesystemPath("/fake/path/invowkfile.cue"))
+			result, err := s.ResolveScript(fakeInvowkfilePath)
 			if err != nil {
 				t.Errorf("ResolveScript() error = %v", err)
 				return

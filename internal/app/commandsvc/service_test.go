@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
@@ -13,6 +14,7 @@ import (
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -49,7 +51,7 @@ func TestServiceDiscoverCommand(t *testing.T) {
 		configFallback: configFallback,
 	}
 
-	cmdInfo := commandsvcTestCommandInfo("build")
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
 	foundCfg, foundCmd, diags, err := service.discoverCommand(t.Context(), Request{
 		Name:            "build",
 		ResolvedCommand: cmdInfo,
@@ -102,7 +104,7 @@ func TestResolveDefinitionsAndLoadConfig(t *testing.T) {
 	}
 
 	flagName := invowkfile.FlagName("mode")
-	cmdInfo := commandsvcTestCommandInfo("build")
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
 	cmdInfo.Command.Flags = []invowkfile.Flag{{
 		Name:         flagName,
 		Type:         invowkfile.FlagTypeString,
@@ -124,13 +126,14 @@ func TestResolveDefinitionsAndLoadConfig(t *testing.T) {
 	}
 }
 
-func commandsvcTestCommandInfo(name string) *discovery.CommandInfo {
+func commandsvcTestCommandInfo(t testing.TB, name string) *discovery.CommandInfo {
+	t.Helper()
 	cmd := invowkfiletest.NewTestCommand(name,
 		invowkfiletest.WithScript("echo hello"),
 		invowkfiletest.WithRuntime(invowkfile.RuntimeVirtual),
 		invowkfiletest.WithAllPlatforms(),
 	)
-	inv := &invowkfile.Invowkfile{FilePath: "/tmp/invowkfile.cue"}
+	inv := &invowkfile.Invowkfile{FilePath: types.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue"))}
 	return &discovery.CommandInfo{
 		Name:       cmd.Name,
 		Command:    cmd,

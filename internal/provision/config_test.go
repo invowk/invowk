@@ -4,6 +4,7 @@ package provision
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/internal/container"
@@ -12,6 +13,8 @@ import (
 
 func TestConfigValidate(t *testing.T) {
 	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name     string
@@ -27,12 +30,12 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "all valid paths",
 			cfg: Config{
-				InvowkBinaryPath: "/usr/local/bin/invowk",
-				InvowkfilePath:   "/home/user/project/invowkfile.cue",
-				BinaryMountPath:  "/invowk/bin",
-				ModulesMountPath: "/invowk/modules",
-				CacheDir:         "/home/user/.cache/invowk/provision",
-				ModulesPaths:     []types.FilesystemPath{"/home/user/.config/invowk/commands"},
+				InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "bin", "invowk")),
+				InvowkfilePath:   types.FilesystemPath(filepath.Join(tmpDir, "project", "invowkfile.cue")),
+				BinaryMountPath:  "/invowk/bin",     // container-internal path
+				ModulesMountPath: "/invowk/modules", // container-internal path
+				CacheDir:         types.FilesystemPath(filepath.Join(tmpDir, "cache", "provision")),
+				ModulesPaths:     []types.FilesystemPath{types.FilesystemPath(filepath.Join(tmpDir, "config", "commands"))},
 			},
 			wantOK: true,
 		},
@@ -43,7 +46,7 @@ func TestConfigValidate(t *testing.T) {
 				Strict:           true,
 				ForceRebuild:     true,
 				TagSuffix:        "test-suffix-123",
-				InvowkBinaryPath: "/usr/local/bin/invowk",
+				InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "bin", "invowk")),
 			},
 			wantOK: true,
 		},
@@ -66,7 +69,7 @@ func TestConfigValidate(t *testing.T) {
 		{
 			name: "single invalid field: whitespace-only ModulesPaths element",
 			cfg: Config{
-				ModulesPaths: []types.FilesystemPath{"/valid/path", "   "},
+				ModulesPaths: []types.FilesystemPath{types.FilesystemPath(filepath.Join(tmpDir, "valid-path")), "   "},
 			},
 			wantOK:   false,
 			wantErrs: true,

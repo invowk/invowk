@@ -659,7 +659,7 @@ func TestModuleID_String(t *testing.T) {
 func TestPathHelpers(t *testing.T) {
 	t.Parallel()
 
-	moduleDir := types.FilesystemPath("/some/path/mymodule.invowkmod")
+	moduleDir := types.FilesystemPath(filepath.Join(t.TempDir(), "mymodule.invowkmod"))
 
 	invowkfilePath := InvowkfilePath(moduleDir)
 	if string(invowkfilePath) != filepath.Join(string(moduleDir), "invowkfile.cue") {
@@ -674,6 +674,8 @@ func TestPathHelpers(t *testing.T) {
 
 func TestInvowkmod_Validate(t *testing.T) {
 	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name      string
@@ -691,7 +693,7 @@ func TestInvowkmod_Validate(t *testing.T) {
 				Requires: []ModuleRequirement{
 					{GitURL: GitURL("https://github.com/example/utils.git"), Version: SemVerConstraint("^1.0.0")},
 				},
-				FilePath: types.FilesystemPath("/home/user/modules/sample.invowkmod/invowkmod.cue"),
+				FilePath: types.FilesystemPath(filepath.Join(tmpDir, "sample.invowkmod", "invowkmod.cue")),
 			},
 			true, false, 0,
 		},

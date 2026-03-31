@@ -40,17 +40,21 @@ func TestGenerateCUE_DefaultConfig(t *testing.T) {
 
 func TestGenerateCUE_IncludesWithAndWithoutAliases(t *testing.T) {
 	t.Parallel()
+	tmpDir := t.TempDir()
+	pathOne := filepath.Join(tmpDir, "path", "one.invowkmod")
+	pathTwo := filepath.Join(tmpDir, "path", "two.invowkmod")
+
 	cfg := DefaultConfig()
 	cfg.Includes = []IncludeEntry{
-		{Path: "/abs/path/one.invowkmod", Alias: "one"},
-		{Path: "/abs/path/two.invowkmod"},
+		{Path: ModuleIncludePath(pathOne), Alias: "one"},
+		{Path: ModuleIncludePath(pathTwo)},
 	}
 	output := GenerateCUE(cfg)
 
 	if !strings.Contains(output, `alias: "one"`) {
 		t.Error("GenerateCUE should render alias when set")
 	}
-	if !strings.Contains(output, `path: "/abs/path/two.invowkmod"`) {
+	if !strings.Contains(output, `path: "`+pathTwo+`"`) {
 		t.Error("GenerateCUE should render path without alias")
 	}
 	// Entry without alias should NOT have an alias field
@@ -63,18 +67,23 @@ func TestGenerateCUE_IncludesWithAndWithoutAliases(t *testing.T) {
 
 func TestGenerateCUE_ConditionalBinaryPathAndCacheDir(t *testing.T) {
 	t.Parallel()
+	tmpDir := t.TempDir()
+	binaryPath := filepath.Join(tmpDir, "bin", "invowk")
+	cacheDir := filepath.Join(tmpDir, "invowk-cache")
+	modPath := filepath.Join(tmpDir, "modules", "one.invowkmod")
+
 	cfg := DefaultConfig()
-	cfg.Container.AutoProvision.BinaryPath = "/usr/local/bin/invowk"
-	cfg.Container.AutoProvision.CacheDir = "/tmp/invowk-cache"
+	cfg.Container.AutoProvision.BinaryPath = BinaryFilePath(binaryPath)
+	cfg.Container.AutoProvision.CacheDir = CacheDirPath(cacheDir)
 	cfg.Container.AutoProvision.Includes = []IncludeEntry{
-		{Path: "/abs/modules/one.invowkmod", Alias: "prov-one"},
+		{Path: ModuleIncludePath(modPath), Alias: "prov-one"},
 	}
 	output := GenerateCUE(cfg)
 
-	if !strings.Contains(output, `binary_path: "/usr/local/bin/invowk"`) {
+	if !strings.Contains(output, `binary_path: "`+binaryPath+`"`) {
 		t.Error("GenerateCUE should render binary_path when non-empty")
 	}
-	if !strings.Contains(output, `cache_dir: "/tmp/invowk-cache"`) {
+	if !strings.Contains(output, `cache_dir: "`+cacheDir+`"`) {
 		t.Error("GenerateCUE should render cache_dir when non-empty")
 	}
 	if !strings.Contains(output, `alias: "prov-one"`) {

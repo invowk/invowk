@@ -291,10 +291,11 @@ func TestFileBuilder_Model(t *testing.T) {
 func TestFileOptions_Fields(t *testing.T) {
 	t.Parallel()
 
+	tmpDir := t.TempDir()
 	opts := FileOptions{
 		Title:             "File Picker",
 		Description:       "Pick a file",
-		CurrentDirectory:  "/var/log",
+		CurrentDirectory:  tmpDir,
 		AllowedExtensions: []string{".log", ".txt"},
 		ShowHidden:        true,
 		ShowSize:          true,
@@ -314,8 +315,8 @@ func TestFileOptions_Fields(t *testing.T) {
 	if opts.Description != "Pick a file" {
 		t.Errorf("expected description 'Pick a file', got %q", opts.Description)
 	}
-	if opts.CurrentDirectory != "/var/log" {
-		t.Errorf("expected directory '/var/log', got %q", opts.CurrentDirectory)
+	if opts.CurrentDirectory != tmpDir {
+		t.Errorf("expected directory %q, got %q", tmpDir, opts.CurrentDirectory)
 	}
 	if len(opts.AllowedExtensions) != 2 {
 		t.Errorf("expected 2 extensions, got %d", len(opts.AllowedExtensions))

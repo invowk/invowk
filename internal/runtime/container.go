@@ -24,8 +24,14 @@ const (
 	hostGatewayMapping     = "host.docker.internal:host-gateway"
 )
 
-// Compile-time interface checks
+// ErrContainerBuildConfig is returned when a container runtime command specifies neither
+// a container image nor a Containerfile/Dockerfile, and no default Containerfile exists
+// in the invowkfile directory. Callers can use errors.Is to detect this condition
+// programmatically without relying on message substring matching.
 var (
+	ErrContainerBuildConfig = errors.New("invalid container build configuration")
+
+	// Compile-time interface checks.
 	_ Runtime            = (*ContainerRuntime)(nil)
 	_ CapturingRuntime   = (*ContainerRuntime)(nil)
 	_ InteractiveRuntime = (*ContainerRuntime)(nil)
@@ -181,7 +187,7 @@ func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 		dockerfilePath := filepath.Join(invowkDir, "Dockerfile")
 		if _, err := os.Stat(containerfilePath); err != nil {
 			if _, err := os.Stat(dockerfilePath); err != nil {
-				return fmt.Errorf("container runtime requires a Containerfile or Dockerfile at %s, or an image specified in the runtime config", invowkDir)
+				return fmt.Errorf("%w: container runtime requires a Containerfile or Dockerfile at %s, or an image specified in the runtime config", ErrContainerBuildConfig, invowkDir)
 			}
 		}
 	}

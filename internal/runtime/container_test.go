@@ -297,8 +297,9 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			errMsg:  "Containerfile or Dockerfile",
+			wantErr:      true,
+			wantSentinel: ErrContainerBuildConfig,
+			errMsg:       "Containerfile or Dockerfile",
 		},
 	}
 

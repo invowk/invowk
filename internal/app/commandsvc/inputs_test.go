@@ -4,7 +4,6 @@ package commandsvc
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/deps"
@@ -18,7 +17,7 @@ func TestValidateInputs(t *testing.T) {
 	t.Parallel()
 
 	service := &Service{}
-	cmdInfo := commandsvcTestCommandInfo("build")
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
 
 	t.Run("invalid flag value", func(t *testing.T) {
 		t.Parallel()
@@ -57,11 +56,11 @@ func TestValidateInputs(t *testing.T) {
 	t.Run("unsupported platform", func(t *testing.T) {
 		t.Parallel()
 
-		cmdInfo := commandsvcTestCommandInfo("build")
+		cmdInfo := commandsvcTestCommandInfo(t, "build")
 		cmdInfo.Command.Implementations[0].Platforms = []invowkfile.PlatformConfig{{Name: unsupportedPlatform()}}
 		err := service.validateInputs(Request{Name: "build"}, cmdInfo, resolvedDefinitions{})
-		if err == nil || !strings.Contains(err.Error(), "does not support platform") {
-			t.Fatalf("err = %v", err)
+		if !errors.Is(err, ErrUnsupportedPlatform) {
+			t.Fatalf("errors.Is(ErrUnsupportedPlatform) = false for %v", err)
 		}
 	})
 }
@@ -70,7 +69,7 @@ func TestResolveRuntime(t *testing.T) {
 	t.Parallel()
 
 	service := &Service{}
-	cmdInfo := commandsvcTestCommandInfo("build")
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
 
 	selection, err := service.resolveRuntime(Request{Name: "build"}, cmdInfo, config.DefaultConfig())
 	if err != nil {
@@ -93,8 +92,8 @@ func TestResolveRuntime(t *testing.T) {
 	badCfg := config.DefaultConfig()
 	badCfg.DefaultRuntime = config.RuntimeMode("bogus")
 	_, err = service.resolveRuntime(Request{Name: "build"}, cmdInfo, badCfg)
-	if err == nil || !strings.Contains(err.Error(), "resolve runtime for 'build'") {
-		t.Fatalf("err = %v", err)
+	if !errors.Is(err, ErrRuntimeResolution) {
+		t.Fatalf("errors.Is(ErrRuntimeResolution) = false for %v", err)
 	}
 }
 
@@ -111,7 +110,7 @@ func TestBuildExecContextAndValidateDeps(t *testing.T) {
 	t.Parallel()
 
 	service := &Service{discovery: &stubCommandDiscovery{}}
-	cmdInfo := commandsvcTestCommandInfo("build")
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
 	flagName := invowkfile.FlagName("mode")
 
 	execCtx, err := service.buildExecContext(

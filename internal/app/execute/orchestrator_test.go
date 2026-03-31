@@ -5,6 +5,7 @@ package execute
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -138,6 +139,7 @@ func TestResolveRuntime(t *testing.T) {
 func TestBuildExecutionContext(t *testing.T) {
 	t.Parallel()
 
+	tmpDir := t.TempDir()
 	cmd := &invowkfile.Command{Name: "test"}
 	inv := &invowkfile.Invowkfile{}
 	sel := RuntimeSelection{mode: invowkfile.RuntimeNative, impl: &invowkfile.Implementation{}}
@@ -202,12 +204,12 @@ func TestBuildExecutionContext(t *testing.T) {
 				Invowkfile: inv,
 				Selection:  sel,
 				FlagValues: map[invowkfile.FlagName]string{
-					"output-file": "/tmp/out",
+					"output-file": filepath.Join(tmpDir, "out"),
 					"verbose":     "true",
 				},
 			},
 			want: map[string]string{
-				"INVOWK_FLAG_OUTPUT_FILE": "/tmp/out",
+				"INVOWK_FLAG_OUTPUT_FILE": filepath.Join(tmpDir, "out"),
 				"INVOWK_FLAG_VERBOSE":     "true",
 			},
 		},

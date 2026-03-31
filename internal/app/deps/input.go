@@ -38,7 +38,7 @@ func ValidateFlagValues(cmdName string, flagValues map[invowkfile.FlagName]strin
 	}
 
 	if len(validationErrs) > 0 {
-		return fmt.Errorf("flag validation failed for command '%s':\n  %s", cmdName, strings.Join(validationErrs, "\n  "))
+		return fmt.Errorf("%w for command '%s':\n  %s", ErrFlagValidationFailed, cmdName, strings.Join(validationErrs, "\n  "))
 	}
 
 	return nil

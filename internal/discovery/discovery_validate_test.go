@@ -4,6 +4,7 @@ package discovery
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -13,6 +14,8 @@ import (
 
 func TestCommandInfo_Validate(t *testing.T) {
 	t.Parallel()
+
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name    string
@@ -54,7 +57,7 @@ func TestCommandInfo_Validate(t *testing.T) {
 			name: "valid with file path",
 			cmd: CommandInfo{
 				Source:   SourceCurrentDir,
-				FilePath: types.FilesystemPath("/tmp/invowkfile.cue"),
+				FilePath: types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 			},
 			wantErr: false,
 		},
@@ -96,6 +99,8 @@ func TestCommandInfo_Validate_ErrorTypes(t *testing.T) {
 func TestDiscoveredFile_Validate(t *testing.T) {
 	t.Parallel()
 
+	tmpDir := t.TempDir()
+
 	tests := []struct {
 		name    string
 		file    DiscoveredFile
@@ -109,7 +114,7 @@ func TestDiscoveredFile_Validate(t *testing.T) {
 		{
 			name: "valid with path and source",
 			file: DiscoveredFile{
-				Path:   types.FilesystemPath("/tmp/invowkfile.cue"),
+				Path:   types.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
 				Source: SourceCurrentDir,
 			},
 			wantErr: false,
@@ -117,7 +122,7 @@ func TestDiscoveredFile_Validate(t *testing.T) {
 		{
 			name: "valid module source",
 			file: DiscoveredFile{
-				Path:   types.FilesystemPath("/tmp/foo.invowkmod/invowkfile.cue"),
+				Path:   types.FilesystemPath(filepath.Join(tmpDir, "foo.invowkmod", "invowkfile.cue")),
 				Source: SourceModule,
 			},
 			wantErr: false,
