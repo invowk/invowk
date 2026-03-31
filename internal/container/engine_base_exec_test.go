@@ -3,6 +3,8 @@
 package container
 
 import (
+	"errors"
+	"os/exec"
 	"slices"
 	"strings"
 	"testing"
@@ -38,11 +40,9 @@ func TestBaseCLIEngine_RunCommandStatus(t *testing.T) {
 			t.Fatal("expected error for non-zero exit code")
 		}
 
-		if !strings.Contains(err.Error(), "failed") {
-			t.Errorf("error should indicate failure, got: %v", err)
-		}
-		if !strings.Contains(err.Error(), "docker") {
-			t.Errorf("error should contain binary name, got: %v", err)
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})
 }
@@ -84,8 +84,9 @@ func TestBaseCLIEngine_RunCommandWithOutput(t *testing.T) {
 			t.Errorf("expected empty output on error, got %q", out)
 		}
 
-		if !strings.Contains(err.Error(), "failed") {
-			t.Errorf("error should indicate failure, got: %v", err)
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})
 }

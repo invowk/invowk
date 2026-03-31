@@ -13,6 +13,17 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+var (
+	// ErrGitURLRequired is returned when a module ref is missing the git_url field.
+	ErrGitURLRequired = errors.New("git_url is required")
+
+	// ErrUnsupportedGitURLScheme is returned when a git_url uses an unsupported scheme.
+	ErrUnsupportedGitURLScheme = errors.New("git_url must start with https://, git@, or ssh://")
+
+	// ErrVersionRequired is returned when a module ref is missing the version field.
+	ErrVersionRequired = errors.New("version is required")
+)
+
 // isSupportedGitURLPrefix returns true when the URL uses a supported Git scheme.
 func isSupportedGitURLPrefix(url string) bool {
 	return strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "git@") || strings.HasPrefix(url, "ssh://")
@@ -21,15 +32,15 @@ func isSupportedGitURLPrefix(url string) bool {
 // validateModuleRef validates a module requirement.
 func (m *Resolver) validateModuleRef(req ModuleRef) error {
 	if req.GitURL == "" {
-		return errors.New("git_url is required")
+		return ErrGitURLRequired
 	}
 
 	if !isSupportedGitURLPrefix(string(req.GitURL)) {
-		return errors.New("git_url must start with https://, git@, or ssh://")
+		return ErrUnsupportedGitURLScheme
 	}
 
 	if req.Version == "" {
-		return errors.New("version is required")
+		return ErrVersionRequired
 	}
 
 	// Validate version constraint format

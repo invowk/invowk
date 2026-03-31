@@ -161,10 +161,10 @@ func (r *ContainerRuntime) Available() bool {
 // Validate checks if a command can be executed
 func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
-		return errors.New("no implementation selected for execution")
+		return errContainerNoImpl
 	}
 	if ctx.SelectedImpl.Script == "" {
-		return errors.New("implementation has no script to execute")
+		return errContainerNoScript
 	}
 
 	// Get the container runtime config

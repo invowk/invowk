@@ -4,12 +4,16 @@ package uroot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/u-root/u-root/pkg/uroot/unixflag"
 )
+
+// ErrCommandNotFound indicates that a u-root command name is not registered.
+var ErrCommandNotFound = errors.New("command not found")
 
 // Registry manages the mapping of command names to their u-root implementations.
 // It is safe for concurrent use.
@@ -76,7 +80,7 @@ func (r *Registry) Names() []string {
 func (r *Registry) Run(ctx context.Context, name string, args []string) error {
 	cmd, ok := r.Lookup(name)
 	if !ok {
-		return fmt.Errorf("[uroot] %s: command not found", name)
+		return fmt.Errorf("[uroot] %s: %w", name, ErrCommandNotFound)
 	}
 
 	// Preprocess combined short flags for custom implementations only.

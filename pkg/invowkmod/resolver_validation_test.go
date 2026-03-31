@@ -3,9 +3,9 @@
 package invowkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -20,10 +20,10 @@ func TestValidateModuleRef(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		req     ModuleRef
-		wantErr bool
-		wantMsg string
+		name         string
+		req          ModuleRef
+		wantErr      bool
+		wantSentinel error
 	}{
 		{
 			name: "https URL",
@@ -52,8 +52,8 @@ func TestValidateModuleRef(t *testing.T) {
 				GitURL:  "http://github.com/user/repo.git",
 				Version: "^1.0.0",
 			},
-			wantErr: true,
-			wantMsg: "git_url must start with https://, git@, or ssh://",
+			wantErr:      true,
+			wantSentinel: ErrUnsupportedGitURLScheme,
 		},
 	}
 
@@ -66,8 +66,8 @@ func TestValidateModuleRef(t *testing.T) {
 				if err == nil {
 					t.Fatal("validateModuleRef() expected error, got nil")
 				}
-				if !strings.Contains(err.Error(), tt.wantMsg) {
-					t.Fatalf("validateModuleRef() error = %q, want containing %q", err.Error(), tt.wantMsg)
+				if !errors.Is(err, tt.wantSentinel) {
+					t.Fatalf("validateModuleRef() error = %q, want wrapping %v", err.Error(), tt.wantSentinel)
 				}
 				return
 			}

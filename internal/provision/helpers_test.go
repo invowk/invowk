@@ -3,6 +3,8 @@
 package provision
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -365,8 +367,8 @@ func TestCopyFile_SourceNotFound(t *testing.T) {
 		t.Fatal("expected error when source file does not exist")
 	}
 
-	if !strings.Contains(err.Error(), "failed to open source file") {
-		t.Errorf("expected 'failed to open source file' in error, got: %v", err)
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("expected error wrapping fs.ErrNotExist, got: %v", err)
 	}
 }
 
@@ -409,8 +411,8 @@ func TestCopyDir_SourceNotFound(t *testing.T) {
 		t.Fatal("expected error when source directory does not exist")
 	}
 
-	if !strings.Contains(err.Error(), "failed to stat source directory") {
-		t.Errorf("expected 'failed to stat source directory' in error, got: %v", err)
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("expected error wrapping fs.ErrNotExist, got: %v", err)
 	}
 }
 

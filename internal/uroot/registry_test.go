@@ -225,11 +225,11 @@ func TestRegistry_Run_NotFound(t *testing.T) {
 	if err == nil {
 		t.Error("Run should return error for unregistered command")
 	}
+	if !errors.Is(err, ErrCommandNotFound) {
+		t.Errorf("error should wrap ErrCommandNotFound, got: %v", err)
+	}
 	if !strings.Contains(err.Error(), "[uroot]") {
 		t.Errorf("error should contain [uroot] prefix: %v", err)
-	}
-	if !strings.Contains(err.Error(), "command not found") {
-		t.Errorf("error should indicate command not found: %v", err)
 	}
 }
 

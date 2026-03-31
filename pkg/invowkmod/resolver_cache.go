@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,6 +19,10 @@ const (
 	// DefaultModulesDir is the default subdirectory within ~/.invowk for module cache.
 	DefaultModulesDir = "modules"
 )
+
+// ErrModuleNotFoundInDir is returned when a directory does not contain
+// a .invowkmod subdirectory or an invowkmod.cue file.
+var ErrModuleNotFoundInDir = errors.New("no module found")
 
 // GetDefaultCacheDir returns the default module cache directory.
 // It checks INVOWK_MODULES_PATH environment variable first, then falls back to ~/.invowk/modules.
@@ -114,7 +119,7 @@ func findModuleInDir(dir string) (moduleDir string, moduleName ModuleShortName, 
 		return dir, moduleName, nil
 	}
 
-	return "", "", fmt.Errorf("no module found in %s (expected .invowkmod directory or invowkmod.cue)", dir)
+	return "", "", fmt.Errorf("%w in %s (expected .invowkmod directory or invowkmod.cue)", ErrModuleNotFoundInDir, dir)
 }
 
 // copyDir recursively copies a directory, skipping symlinks for security.

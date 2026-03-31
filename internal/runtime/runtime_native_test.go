@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -612,10 +613,10 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		cmd     *invowkfile.Command
-		wantErr bool
-		errMsg  string
+		name         string
+		cmd          *invowkfile.Command
+		wantErr      bool
+		wantSentinel error // sentinel for errors.Is check
 	}{
 		{
 			name:    "valid script",
@@ -627,8 +628,8 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 			cmd: &invowkfile.Command{
 				Name: "nil-impl",
 			},
-			wantErr: true,
-			errMsg:  "no script selected",
+			wantErr:      true,
+			wantSentinel: errNativeNoImpl,
 		},
 		{
 			name: "empty script",
@@ -642,8 +643,8 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			errMsg:  "no content",
+			wantErr:      true,
+			wantSentinel: errNativeNoScript,
 		},
 	}
 
@@ -663,8 +664,8 @@ func TestNativeRuntime_Validate_Unit(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Validate() expected error, got nil")
-				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("Validate() error = %q, want error containing %q", err.Error(), tt.errMsg)
+				} else if tt.wantSentinel != nil && !errors.Is(err, tt.wantSentinel) {
+					t.Errorf("Validate() error = %v, want sentinel %v", err, tt.wantSentinel)
 				}
 			} else {
 				if err != nil {

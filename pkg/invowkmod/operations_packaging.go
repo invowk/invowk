@@ -17,9 +17,15 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// ErrInvalidZIPPath is returned when a ZIP archive entry has an unsafe path
-// (e.g., path traversal, absolute path, or empty path).
-var ErrInvalidZIPPath = errors.New("invalid path in ZIP")
+var (
+	// ErrInvalidZIPPath is returned when a ZIP archive entry has an unsafe path
+	// (e.g., path traversal, absolute path, or empty path).
+	ErrInvalidZIPPath = errors.New("invalid path in ZIP")
+
+	// ErrNoValidModuleInZIP is returned when a ZIP archive does not contain
+	// a directory ending with .invowkmod.
+	ErrNoValidModuleInZIP = errors.New("no valid module found in ZIP")
+)
 
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
@@ -253,7 +259,7 @@ func findModuleRoot(files []*zip.File) (string, error) {
 			return parts[0], nil
 		}
 	}
-	return "", fmt.Errorf("no valid module found in ZIP (expected directory ending with %s)", ModuleSuffix)
+	return "", fmt.Errorf("%w (expected directory ending with %s)", ErrNoValidModuleInZIP, ModuleSuffix)
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.

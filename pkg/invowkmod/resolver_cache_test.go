@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -164,8 +165,8 @@ func TestFindModuleInDir(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty directory, got nil")
 		}
-		if !strings.Contains(err.Error(), "no module found") {
-			t.Errorf("error = %q, want containing %q", err.Error(), "no module found")
+		if !errors.Is(err, ErrModuleNotFoundInDir) {
+			t.Errorf("error should wrap ErrModuleNotFoundInDir, got: %v", err)
 		}
 	})
 

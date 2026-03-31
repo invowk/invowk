@@ -236,10 +236,11 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		cmd     *invowkfile.Command
-		wantErr bool
-		errMsg  string
+		name         string
+		cmd          *invowkfile.Command
+		wantErr      bool
+		wantSentinel error  // sentinel for errors.Is check (preferred)
+		errMsg       string // substring for format verification (when no sentinel exists)
 	}{
 		{
 			name: "valid with image",
@@ -266,8 +267,8 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			errMsg:  "no implementation selected",
+			wantErr:      true,
+			wantSentinel: errContainerNoImpl,
 		},
 		{
 			name: "empty script",
@@ -281,8 +282,8 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
-			errMsg:  "no script",
+			wantErr:      true,
+			wantSentinel: errContainerNoScript,
 		},
 		{
 			name: "missing image and containerfile",
@@ -319,16 +320,15 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 
 			err = rt.Validate(ctx)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Error("Validate() expected error, got nil")
-				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("Validate() error = %q, want error containing %q", err.Error(), tt.errMsg)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Validate() unexpected error: %v", err)
-				}
+			switch {
+			case tt.wantErr && err == nil:
+				t.Error("Validate() expected error, got nil")
+			case tt.wantErr && tt.wantSentinel != nil && !errors.Is(err, tt.wantSentinel):
+				t.Errorf("Validate() error = %q, want sentinel %q", err.Error(), tt.wantSentinel)
+			case tt.wantErr && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg):
+				t.Errorf("Validate() error = %q, want error containing %q", err.Error(), tt.errMsg)
+			case !tt.wantErr && err != nil:
+				t.Errorf("Validate() unexpected error: %v", err)
 			}
 		})
 	}

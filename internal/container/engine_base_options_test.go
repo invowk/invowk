@@ -264,9 +264,10 @@ func TestBaseCLIEngine_RunCommandCombined(t *testing.T) {
 			t.Errorf("expected output to contain 'error details here', got %q", string(out))
 		}
 
-		// Error should contain context
-		if !strings.Contains(err.Error(), "failed") {
-			t.Errorf("error should indicate failure, got: %v", err)
+		// Error should wrap the underlying exec error.
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})
 }

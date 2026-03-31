@@ -90,10 +90,10 @@ func (r *NativeRuntime) Available() bool {
 // Validate checks if a command can be executed
 func (r *NativeRuntime) Validate(ctx *ExecutionContext) error {
 	if ctx.SelectedImpl == nil {
-		return errors.New("no script selected for execution")
+		return errNativeNoImpl
 	}
 	if ctx.SelectedImpl.Script == "" {
-		return errors.New("script has no content to execute")
+		return errNativeNoScript
 	}
 	return nil
 }

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil"
@@ -338,8 +337,8 @@ func TestUnpack(t *testing.T) {
 		if err == nil {
 			t.Error("Unpack() expected error for ZIP without module, got nil")
 		}
-		if !strings.Contains(err.Error(), "no valid module found") {
-			t.Errorf("expected 'no valid module found' error, got: %v", err)
+		if !errors.Is(err, ErrNoValidModuleInZIP) {
+			t.Errorf("expected ErrNoValidModuleInZIP, got: %v", err)
 		}
 	})
 

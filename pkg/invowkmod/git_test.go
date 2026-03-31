@@ -213,8 +213,8 @@ func TestGitFetcher_GetCommitForTag_NotFound(t *testing.T) {
 		t.Fatal("GetCommitForTag() expected error for nonexistent tag, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error message should mention 'not found', got: %v", err)
+	if !errors.Is(err, ErrTagNotFound) {
+		t.Errorf("error should wrap ErrTagNotFound, got: %v", err)
 	}
 }
 
@@ -331,8 +331,8 @@ func TestGitFetcher_Fetch_NonexistentTag(t *testing.T) {
 		t.Fatal("Fetch() expected error for nonexistent tag, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "checkout") || !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention checkout failure and not found, got: %v", err)
+	if !errors.Is(err, ErrTagNotFound) {
+		t.Errorf("error should wrap ErrTagNotFound, got: %v", err)
 	}
 }
 
@@ -384,8 +384,8 @@ func TestGitFetcher_CloneShallow_NonexistentTag(t *testing.T) {
 		t.Fatal("CloneShallow() expected error for nonexistent tag, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "failed to clone") {
-		t.Errorf("error should mention clone failure, got: %v", err)
+	if !errors.Is(err, ErrCloneFailed) {
+		t.Errorf("error should wrap ErrCloneFailed, got: %v", err)
 	}
 }
 

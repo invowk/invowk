@@ -4,6 +4,7 @@ package container
 
 import (
 	"errors"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -491,8 +492,9 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for failed remove")
 		}
-		if !strings.Contains(err.Error(), "failed") {
-			t.Errorf("error should indicate failure, got: %v", err)
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})
 
@@ -508,8 +510,9 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for failed image removal")
 		}
-		if !strings.Contains(err.Error(), "failed") {
-			t.Errorf("error should indicate failure, got: %v", err)
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})
 
@@ -525,8 +528,9 @@ func TestDockerEngine_ErrorPaths(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error when daemon not available")
 		}
-		if !strings.Contains(err.Error(), "failed to get docker version") {
-			t.Errorf("error should indicate version failure, got: %v", err)
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Errorf("error should wrap *exec.ExitError, got: %T", err)
 		}
 	})
 

@@ -4,7 +4,6 @@ package tui
 
 import (
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -79,10 +78,7 @@ func TestInvalidColorSpecError(t *testing.T) {
 	t.Parallel()
 
 	err := &InvalidColorSpecError{Value: "  "}
-	if !strings.Contains(err.Error(), "invalid") {
-		t.Errorf("Error() = %q, want containing 'invalid'", err.Error())
-	}
 	if !errors.Is(err, ErrInvalidColorSpec) {
-		t.Error("expected error to wrap ErrInvalidColorSpec")
+		t.Errorf("expected ErrInvalidColorSpec, got: %v", err)
 	}
 }

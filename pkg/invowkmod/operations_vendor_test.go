@@ -566,8 +566,8 @@ func TestVendorModules_InvalidCachePath(t *testing.T) {
 	if err == nil {
 		t.Fatal("VendorModules() should error with nonexistent cache path")
 	}
-	if !strings.Contains(err.Error(), "failed to locate module") {
-		t.Errorf("error should mention module location failure, got: %v", err)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("error should wrap os.ErrNotExist, got: %v", err)
 	}
 }
 

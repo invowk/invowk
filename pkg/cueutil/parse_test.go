@@ -3,6 +3,7 @@
 package cueutil
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -312,8 +313,8 @@ enabled: true
 		if err == nil {
 			t.Error("expected error for oversized file")
 		}
-		if !strings.Contains(err.Error(), "exceeds maximum") {
-			t.Errorf("error should mention size limit, got: %v", err)
+		if !errors.Is(err, ErrFileSizeExceeded) {
+			t.Errorf("error should wrap ErrFileSizeExceeded, got: %v", err)
 		}
 	})
 

@@ -16,6 +16,10 @@ var (
 	ErrInvalidGitCommit = errors.New("invalid git commit")
 	// ErrSSHKeyNotFound is returned when an SSH URL is used but no SSH key is configured.
 	ErrSSHKeyNotFound = errors.New("SSH key not found")
+	// ErrTagNotFound is returned when a Git tag does not exist in a repository.
+	ErrTagNotFound = errors.New("tag not found")
+	// ErrCloneFailed is returned when a Git clone operation fails for all attempted tag variants.
+	ErrCloneFailed = errors.New("failed to clone")
 
 	// gitCommitPattern validates a 40-character lowercase hex SHA.
 	gitCommitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)

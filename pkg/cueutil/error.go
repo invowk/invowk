@@ -3,6 +3,7 @@
 package cueutil
 
 import (
+	goerrors "errors"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,9 @@ import (
 
 	"github.com/invowk/invowk/pkg/types"
 )
+
+// ErrFileSizeExceeded is returned when file data exceeds the configured maximum size.
+var ErrFileSizeExceeded = goerrors.New("file size exceeds maximum")
 
 // ValidationError represents a CUE validation error with context.
 type ValidationError struct {
@@ -134,8 +138,8 @@ func formatPath(path []string) string {
 // reading the full file (e.g., when streaming).
 func CheckFileSize(data []byte, maxSize int64, filename string) error {
 	if int64(len(data)) > maxSize {
-		return fmt.Errorf("%s: file size %d bytes exceeds maximum %d bytes",
-			filename, len(data), maxSize)
+		return fmt.Errorf("%s: %w: %d bytes exceeds %d bytes",
+			filename, ErrFileSizeExceeded, len(data), maxSize)
 	}
 	return nil
 }

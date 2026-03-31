@@ -152,7 +152,7 @@ func (f *GitFetcher) GetCommitForTag(ctx context.Context, gitURL GitURL, tagName
 		}
 	}
 
-	return "", fmt.Errorf("tag %q not found", tagName)
+	return "", fmt.Errorf("%w: %q", ErrTagNotFound, tagName)
 }
 
 // CloneShallow performs a shallow clone of a repository at a specific tag.
@@ -204,7 +204,7 @@ func (f *GitFetcher) CloneShallow(ctx context.Context, gitURL GitURL, version Se
 		return commit, nil
 	}
 
-	return "", fmt.Errorf("failed to clone at version %s: %w", version, lastErr)
+	return "", fmt.Errorf("%w at version %s: %w", ErrCloneFailed, version, lastErr)
 }
 
 // IsPrivateRepo checks if a repository requires authentication.
@@ -402,7 +402,7 @@ func (f *GitFetcher) checkout(repo *git.Repository, version SemVer) (GitCommit, 
 	// Try to find the tag
 	tagRef, err := f.findTag(repo, version)
 	if err != nil {
-		return "", fmt.Errorf("tag not found: %w", err)
+		return "", err
 	}
 
 	// Checkout the tag
@@ -449,7 +449,7 @@ func (f *GitFetcher) findTag(repo *git.Repository, version SemVer) (plumbing.Has
 		}
 	}
 
-	return plumbing.ZeroHash, fmt.Errorf("tag %q not found", version)
+	return plumbing.ZeroHash, fmt.Errorf("%w: %q", ErrTagNotFound, version)
 }
 
 // getRepoCachePath generates a cache path for a repository.

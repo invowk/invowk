@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,10 +24,10 @@ func TestContainerRuntime_Validate(t *testing.T) {
 	_, inv := setupTestInvowkfile(t)
 
 	tests := []struct {
-		name        string
-		cmd         *invowkfile.Command
-		expectError bool
-		errorMatch  string
+		name         string
+		cmd          *invowkfile.Command
+		expectError  bool
+		wantSentinel error // sentinel for errors.Is check
 	}{
 		{
 			name: "valid container config with image",
@@ -51,8 +52,8 @@ func TestContainerRuntime_Validate(t *testing.T) {
 				Name:            "test",
 				Implementations: []invowkfile.Implementation{},
 			},
-			expectError: true,
-			errorMatch:  "no implementation selected",
+			expectError:  true,
+			wantSentinel: errContainerNoImpl,
 		},
 		{
 			name: "empty script",
@@ -69,8 +70,8 @@ func TestContainerRuntime_Validate(t *testing.T) {
 					},
 				},
 			},
-			expectError: true,
-			errorMatch:  "no script",
+			expectError:  true,
+			wantSentinel: errContainerNoScript,
 		},
 	}
 
@@ -85,8 +86,8 @@ func TestContainerRuntime_Validate(t *testing.T) {
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Validate() expected error, got nil")
-				} else if tt.errorMatch != "" && !strings.Contains(err.Error(), tt.errorMatch) {
-					t.Errorf("Validate() error = %q, want to contain %q", err.Error(), tt.errorMatch)
+				} else if tt.wantSentinel != nil && !errors.Is(err, tt.wantSentinel) {
+					t.Errorf("Validate() error = %q, want sentinel %q", err.Error(), tt.wantSentinel)
 				}
 			} else {
 				if err != nil {

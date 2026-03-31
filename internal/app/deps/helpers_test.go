@@ -122,14 +122,13 @@ func TestCheckTransientExitCode(t *testing.T) {
 		name     string
 		exitCode types.ExitCode
 		wantErr  bool
-		wantMsg  string
 	}{
-		{"zero is not transient", 0, false, ""},
-		{"one is not transient", 1, false, ""},
-		{"125 is transient", 125, true, "container engine failure"},
-		{"126 is transient", 126, true, "container engine failure"},
-		{"127 is not transient", 127, false, ""},
-		{"255 is not transient", 255, false, ""},
+		{"zero is not transient", 0, false},
+		{"one is not transient", 1, false},
+		{"125 is transient", 125, true},
+		{"126 is transient", 126, true},
+		{"127 is not transient", 127, false},
+		{"255 is not transient", 255, false},
 	}
 
 	for _, tt := range tests {
@@ -141,8 +140,8 @@ func TestCheckTransientExitCode(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckTransientExitCode(exitCode=%d) error = %v, wantErr %v", tt.exitCode, err, tt.wantErr)
 			}
-			if tt.wantErr && !strings.Contains(err.Error(), tt.wantMsg) {
-				t.Errorf("error message = %q, want substring %q", err.Error(), tt.wantMsg)
+			if tt.wantErr && !errors.Is(err, ErrContainerEngineFailure) {
+				t.Errorf("errors.Is(err, ErrContainerEngineFailure) = false for %v", err)
 			}
 			if tt.wantErr && !strings.Contains(err.Error(), "test-check") {
 				t.Errorf("error message should include label 'test-check', got %q", err.Error())
