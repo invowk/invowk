@@ -139,10 +139,10 @@ func TestContainerRuntime_EnableHostSSH_NoServer(t *testing.T) {
 		t.Error("Execute() expected non-zero exit code when SSH server is not configured")
 	}
 	if result.Error == nil {
-		t.Error("Execute() expected error when SSH server is not configured")
+		t.Fatal("Execute() expected error when SSH server is not configured")
 	}
-	if result.Error != nil && !strings.Contains(result.Error.Error(), "enable_host_ssh") {
-		t.Errorf("Execute() error should mention enable_host_ssh, got: %v", result.Error)
+	if !errors.Is(result.Error, errSSHServerNotConfigured) {
+		t.Errorf("Execute() error should be errSSHServerNotConfigured, got: %v", result.Error)
 	}
 }
 

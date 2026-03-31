@@ -403,10 +403,10 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 // setupSSHConnection sets up SSH connection for container host access
 func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[string]string) (*sshserver.ConnectionInfo, error) {
 	if r.sshServer == nil {
-		return nil, errors.New("enable_host_ssh is enabled but SSH server is not configured")
+		return nil, errSSHServerNotConfigured
 	}
 	if !r.sshServer.IsRunning() {
-		return nil, errors.New("enable_host_ssh is enabled but SSH server is not running")
+		return nil, errSSHServerNotRunning
 	}
 
 	// Generate connection info with a unique token for this command execution.

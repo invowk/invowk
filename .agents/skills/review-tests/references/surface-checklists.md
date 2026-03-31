@@ -70,9 +70,9 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 |---|---|---|---|
 | T3-C01 | Functions with 3+ test cases use table-driven test pattern (`tests := []struct{...}`) | All test files | WARNING |
 | T3-C02 | No `reflect.DeepEqual` on typed slices — use `slices.Equal` instead | All test files | WARNING |
-| T3-C03 | No `time.Sleep()` in test assertions (use clock injection or channels) | All test files | ERROR |
+| T3-C03 | No `time.Sleep()` in test assertions — classify per `pattern-catalog.md` § "time.Sleep Classification" before reporting. Sleeps for event separation, latency simulation, or poll-helper testing are KEEP. | All test files | ERROR |
 | T3-C04 | No hardcoded Unix paths (`/foo/bar`) in assertions without `skipOnWindows` or `filepath.Join()` | All test files | WARNING |
-| T3-C05 | Error assertions use `errors.Is` or `errors.As`, not string matching on `err.Error()` | Tests checking errors | WARNING |
+| T3-C05 | Error assertions use `errors.Is`/`errors.As` where a sentinel exists in the error chain. Classify each occurrence per `pattern-catalog.md` § "Error Assertion Classification" — only CONVERTIBLE cases are findings. ValidationErrors flattening, Error() format tests, CUE library errors, and supplementary checks are KEEP (not findings). | Tests checking errors | WARNING |
 | T3-C06 | Tests verify behavioral contracts, not struct field storage (no trivial constant == literal tests) | All test files | WARNING |
 | T3-C07 | No `Validate()` call results discarded (`_ = x.Validate()` or bare `x.Validate()`) | All test files | WARNING |
 | T3-C08 | `goruntime` import alias used when both `runtime` package and `runtime.GOOS` needed | `internal/runtime/*_test.go`, `cmd/invowk/*_test.go` | INFO |
@@ -132,7 +132,7 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | T5-C10 | Virtual runtime tests declare all platforms: `[{name: "linux"}, {name: "macos"}, {name: "windows"}]` | `virtual_*.txtar` | WARNING |
 | T5-C11 | Container txtar files use `platforms: [{name: "linux"}]` only (not macos/windows) | `container_*.txtar` | ERROR |
 | T5-C12 | No workspace contamination: tests needing broken fixtures isolate into subdirectories | Txtar files creating invalid fixtures | WARNING |
-| T5-C13 | CLI error tests check both stdout (handler formatting) and stderr (Cobra error rendering) | Error-path txtar files | WARNING |
+| T5-C13 | CLI error tests check both stdout (handler formatting) and stderr (Cobra error rendering). Exception: exit-code propagation tests where the primary assertion is the exit code itself and invowk does not render to stderr — see `known-exceptions.md` Container Exit-Code Stderr Exceptions. Container stderr may include incidental noise (shell prompt `#`), making `! stderr .` fragile. | Error-path txtar files | WARNING |
 | T5-C14 | No placeholder environment variables set in setup (only production-used vars) | `tests/cli/*_test.go` Setup functions | INFO |
 | T5-C15 | Txtar files use LF line endings (enforced by `.gitattributes` `*.txtar text eol=lf`) | All txtar files | WARNING |
 

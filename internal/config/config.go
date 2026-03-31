@@ -317,7 +317,7 @@ func validateIncludes(fieldName string, includes []IncludeEntry) error {
 
 		// Check path is absolute (CUE regex cannot enforce cross-platform absolute paths)
 		if !filepath.IsAbs(pathStr) {
-			return fmt.Errorf("%s[%d]: path %q must be absolute", fieldName, i, entry.Path)
+			return fmt.Errorf("%s[%d]: path %q must be absolute: %w", fieldName, i, entry.Path, ErrInvalidIncludeEntry)
 		}
 
 		// Check path uniqueness (normalized to handle trailing slashes and redundant separators)

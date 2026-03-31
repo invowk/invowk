@@ -12,14 +12,14 @@ Consolidated testing patterns for subagent reference (SA-2, SA-3, SA-4, SA-8).
 | **`testing.Short()` gating** | Required for any test needing external resources (container engine, network). Message: `"skipping integration test in short mode"`. | `if testing.Short() { t.Skip("skipping integration test in short mode") }` |
 | **`t.Helper()`** | Required in all test helper functions. | `func assertNoError(t *testing.T, err error) { t.Helper(); ... }` |
 | **`t.TempDir()`** | Preferred over `os.MkdirTemp` + manual cleanup. Lifecycle managed by testing framework. | `dir := t.TempDir()` |
-| **Error assertions** | Use `errors.Is`/`errors.As` on sentinel errors and typed error structs, not string matching on `err.Error()`. | `if !errors.Is(err, ErrNotFound) { t.Errorf(...) }` |
+| **Error assertions** | Use `errors.Is`/`errors.As` when a sentinel error or typed error wrapper exists in the error chain. String matching on `err.Error()` is acceptable in specific cases — see § "Error Assertion Classification" below. | `if !errors.Is(err, ErrNotFound) { t.Errorf(...) }` |
 | **Import alias** | When both `runtime.GOOS` and internal `runtime` package are needed. | `goruntime "runtime"` |
 
 ## 2. Anti-Patterns
 
 | Anti-Pattern | Why It's Bad | Fix |
 |--------------|--------------|-----|
-| **`time.Sleep()` in tests** | Creates flaky tests dependent on system load. | Channel synchronization, `testutil.NewFakeClock()` with `Advance()`. |
+| **`time.Sleep()` in assertion logic** | Creates flaky tests dependent on system load. Classify per § "time.Sleep Classification" — event separation, latency simulation, and poll-helper sleeps are KEEP. | Channel synchronization, `testutil.NewFakeClock()` with `Advance()`. |
 | **`reflect.DeepEqual` on typed slices** | Not type-safe. | `slices.Equal`. |
 | **Hardcoded Unix paths** (`/foo/bar`) in assertions | Fails on Windows. | `filepath.Join()` or `skipOnWindows`. |
 | **Shared `MockCommandRecorder` across parallel subtests** | Race condition. | Per-test recorder instance. |
@@ -29,6 +29,50 @@ Consolidated testing patterns for subagent reference (SA-2, SA-3, SA-4, SA-8).
 | **`tt := tt` loop-variable rebinding** | Redundant in Go 1.22+, flagged by `modernize`. | Remove. |
 | **Circular/trivial tests** | Testing constant == literal, zero-value == zero. | Test behavioral contracts instead. |
 | **Discarding `Validate()` return** | `_ = x.Validate()` or bare `x.Validate()`. | Always check and propagate error. |
+
+## 2b. Error Assertion Classification
+
+When evaluating `strings.Contains(err.Error(), ...)` or `err.Error() ==` patterns (T3-C05),
+subagents MUST classify each occurrence before reporting it as a finding. Only occurrences
+in the CONVERTIBLE category are genuine findings.
+
+### CONVERTIBLE (report as WARNING)
+
+The error is produced by invowk-owned code AND a sentinel error exists (or could be
+created) that is wrapped with `%w` in the error chain:
+
+```go
+// Production: fmt.Errorf("failed to read file: %w", os.ErrNotExist)
+// Test can use: errors.Is(err, os.ErrNotExist)
+```
+
+### KEEP — not a finding (do NOT report)
+
+| Category | Why String Matching Is Correct | Example |
+|---|---|---|
+| **ValidationErrors flattening** | `invowkfile.ValidationErrors` flattens sentinel errors into `ValidationError.Message` strings during CUE parsing. `errors.Is()` cannot reach the original sentinel through the error chain. | `pkg/invowkfile/validation_test.go`, `invowkfile_flags_required_test.go` |
+| **Error() format tests** | The test is verifying the `Error()` method output of a typed error. The string IS the contract being tested. | `cmd_deps_caps_env_test.go` testing `DependencyError.Error()` format |
+| **DDD Invalid*Error rendering** | Tests check that `Invalid*Error.Error()` includes the bad value (e.g., "-5", "bad"). These verify error message quality, not error identity. | `tui_border_style_test.go`, `tui_selection_index_test.go` |
+| **CUE library errors** | Errors from `cuelang.org/go` (e.g., "field not allowed", "conflict") have no sentinel API. String matching is the only option. | `invowkfile_schema_test.go` |
+| **Supplementary checks** | The test already uses `errors.Is()` for the primary assertion. The `strings.Contains` is an additional check verifying the error message includes a specific value (e.g., flag name, file path). | `internal/app/deps/input_test.go` checks `errors.Is(err, ErrFlagValidationFailed)` then also checks flag name appears |
+| **External/OS errors** | Errors from `os`, `strconv`, `exec.LookPath`, or other stdlib packages without sentinel wrapping. | `runtime_native_interpreter_test.go` checking "not found" from LookPath |
+| **Inline fmt.Errorf without sentinel** | Production code uses `fmt.Errorf("descriptive message: %v", val)` without `%w` wrapping a sentinel. Creating a sentinel would be a production code change beyond the test scope. | `internal/config/config_test.go` checking Windows env var names |
+| **Non-empty error check** | Tests checking `err.Error() == ""` or `err.Error() != ""` — verifying the error has a message, not the content. | `internal/tui/tui_interactive_exec_test.go` |
+
+**Decision rule**: Before flagging a `strings.Contains(err.Error(), ...)`, trace the error
+to its production source. If the production code returns `fmt.Errorf("...: %w", sentinel)`
+where `sentinel` is a `var Err* = errors.New(...)`, it's CONVERTIBLE. Everything else is KEEP.
+
+### time.Sleep Classification
+
+When evaluating `time.Sleep` in tests (T3-C03), classify each occurrence:
+
+| Category | Verdict | Example |
+|---|---|---|
+| **Sleep in assertion logic** (waiting for a condition to become true) | ERROR — use channels/polling | `time.Sleep(100*ms); if !ready { t.Error(...) }` |
+| **Sleep for event separation** (forcing distinct filesystem events) | KEEP — fsnotify/kqueue coalescing workaround | `time.Sleep(20*ms)` between file writes in watcher tests |
+| **Sleep to simulate latency** (testing timeout/debounce/serialization behavior) | KEEP — simulates real-world timing | `time.Sleep(300*ms)` in slow-callback test |
+| **Sleep in poll helper test** (testing the polling utility itself) | KEEP — the helper's own test must exercise timing | `time.Sleep(50*ms)` in goroutine for `PollUntil` test |
 
 ## 3. Container Test Patterns
 
@@ -99,8 +143,8 @@ Additional container patterns:
 ### Assertion Patterns
 
 - `stdout`/`stderr` patterns are Go regex -- escape parentheses: `\(s\)` not `(s)`.
-- CLI error tests must check BOTH stdout (styled handler output) AND stderr (Cobra error rendering).
-- `! stderr .` on happy-path tests to verify no error output.
+- CLI error tests must check BOTH stdout (styled handler output) AND stderr (Cobra error rendering). Exception: exit-code propagation tests and container error-path tests where invowk does not render to stderr and container stderr may include incidental noise (shell prompt `#`). See `known-exceptions.md` § "Container Exit-Code Stderr Exceptions".
+- `! stderr .` on happy-path tests to verify no error output. Do NOT use `! stderr .` on container error-path tests — container stderr noise makes this fragile.
 - No placeholder env vars in setup (only production-used vars).
 
 ### Line Endings

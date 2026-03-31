@@ -80,6 +80,32 @@ See `tests/cli/runtime_mirror_exemptions.json` for the machine-readable exemptio
 | `internal/tui/theme_colors.go` | No dedicated `theme_colors_test.go` | All 4 symbols are unexported constants; tested indirectly via `modalBaseStyle()` in `embeddable_test.go`. Direct tests would be trivially circular |
 | `internal/tui/interactive_unix.go`, `interactive_windows.go` | No test files | Thin syscall wrappers (`unix.IoctlGetWinsize` / Windows API); impractical to unit test without mocking the terminal |
 
+### Error String Matching Exceptions
+
+| Category | Scope | Rationale |
+|---|---|---|
+| `ValidationErrors` flattening | ~40 occurrences in `pkg/invowkfile/` | `invowkfile.ValidationErrors` flattens sentinel errors into `ValidationError.Message` strings during CUE parsing. `errors.Is()` cannot reach the original sentinel through the error chain. Explicitly noted in `invowkfile_deps_custom_test.go:327`. |
+| `Error()` format tests | ~15 occurrences across `cmd/`, `internal/`, `pkg/` | Tests verifying the output of typed error `Error()` methods (e.g., `DependencyError.Error()`, `CapabilityError.Error()`). The string IS the contract. |
+| DDD `Invalid*Error` rendering | `internal/tui/`, `internal/tuiserver/`, `pkg/types/` | Tests that `Invalid*Error.Error()` includes the bad input value (e.g., "-5", "bad"). Verifies error message quality. |
+| CUE library errors | `pkg/invowkfile/invowkfile_schema_test.go`, `pkg/cueutil/` | Errors from `cuelang.org/go` (e.g., "field not allowed", "conflict") have no sentinel API. |
+| Supplementary checks | `internal/app/deps/`, `internal/uroot/`, `tools/goplint/` | Tests that already use `errors.Is()` for the primary assertion; `strings.Contains` verifies additional message content (e.g., flag name, file path, prefix). |
+| External/OS errors | `internal/runtime/`, `internal/config/` | Errors from `os`, `strconv`, `exec.LookPath` without sentinel wrapping. |
+| Non-empty error checks | `internal/tui/`, `internal/config/` | Tests checking `err.Error() == ""` or `err.Error() != ""` — verifying message exists, not content. |
+
+### Container Exit-Code Stderr Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `container_exitcode.txtar` | No `stderr` assertions on `! exec` blocks | Exit-code propagation tests verify that non-zero exit codes pass through invowk. The scripts exit intentionally (e.g., `exit 42`); invowk does not render errors to stderr for propagated exit codes. Container stderr may include incidental noise (shell prompt `#`), making `! stderr .` fragile. |
+
+### time.Sleep Exceptions
+
+| Location | What Is Different | Rationale |
+|---|---|---|
+| `internal/testutil/poll_test.go` | `time.Sleep(50ms)` in goroutine | Tests the `PollUntil` polling helper itself; the goroutine simulates delayed readiness. |
+| `internal/watch/watcher_test.go:83` | `time.Sleep(20ms)` between writes | Forces separate fsnotify events; macOS kqueue coalesces rapid writes into one event. |
+| `internal/watch/watcher_test.go:300` | `time.Sleep(300ms)` in callback | Simulates a slow callback to test serialization behavior (debounce guard). |
+
 ### Platform Skip Exceptions
 
 | Location | What Is Different | Rationale |

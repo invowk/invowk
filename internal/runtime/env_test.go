@@ -737,8 +737,8 @@ func TestBuildRuntimeEnv_EnvFileNotFound(t *testing.T) {
 	if err == nil {
 		t.Error("NewDefaultEnvBuilder().Build() should error for missing required env file")
 	}
-	if !strings.Contains(err.Error(), "nonexistent.env") {
-		t.Errorf("error should mention the missing file, got: %v", err)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("error should wrap os.ErrNotExist, got: %v", err)
 	}
 }
 

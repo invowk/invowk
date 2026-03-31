@@ -61,6 +61,37 @@ func (e *EngineNotAvailableError) Error() string {
 }
 ```
 
+### Sentinel Error Declaration Pattern
+
+**All sentinel errors MUST back their message with a named constant.** Do not use inline string literals in `errors.New()`. This ensures error messages are a single source of truth, referenceable in tests and consistent across related error families.
+
+```go
+// CORRECT: constant-backed sentinels
+const (
+    notFoundErrMsg   = "resource not found"
+    notAllowedErrMsg = "operation not allowed"
+)
+
+var (
+    ErrNotFound   = errors.New(notFoundErrMsg)
+    ErrNotAllowed = errors.New(notAllowedErrMsg)
+)
+
+// WRONG: inline string literals
+var (
+    ErrNotFound   = errors.New("resource not found")
+    ErrNotAllowed = errors.New("operation not allowed")
+)
+```
+
+**Why:**
+- Constants are the single source of truth for error message text.
+- Tests can reference the constant for format verification without importing the sentinel itself.
+- Related error families (e.g., native/virtual/container variants sharing the same message) stay in sync when one constant feeds multiple sentinels.
+- The constant name documents intent (e.g., `sshServerNotConfiguredErrMsg`) even when reading the `const` block alone.
+
+**Naming convention:** `<camelCaseDescription>ErrMsg` (e.g., `nilExecutionContextErrMsg`, `containerNoImplErrMsg`).
+
 ### Defer Close Pattern with Named Returns
 
 When functions open resources that need closing, use **named return values** to aggregate close errors. This ensures close errors are never silently ignored.

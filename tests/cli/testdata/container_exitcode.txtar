@@ -1,5 +1,9 @@
 # Test: Exit code propagation
 # Tests that non-zero exit codes from container commands propagate through CLI
+# Note: stderr assertions are intentionally omitted — these tests verify exit code
+# propagation, not error rendering. Container stderr may include incidental noise
+# (shell prompt '#') that makes assertions fragile. Invowk does not render to stderr
+# for propagated non-zero exit codes.
 
 # Skip if no functional container runtime is available
 [!container-available] skip 'no functional container runtime available'

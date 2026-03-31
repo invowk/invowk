@@ -36,8 +36,8 @@ Failure triage: Check each match. If it's inside a Test* function, it should use
 
 Command: `grep -rn 'time\.Sleep' --include='*_test.go' cmd/ internal/ pkg/`
 What it checks: Usage of time.Sleep in test files.
-Expected: Zero matches. Use clock injection or channel synchronization.
-Failure triage: Replace with testutil.NewFakeClock + Advance(), or channel-based synchronization.
+Expected: Only matches classified as KEEP per `pattern-catalog.md` § "time.Sleep Classification" (event separation, latency simulation, poll-helper testing). See `known-exceptions.md` § "time.Sleep Exceptions" for the current registry.
+Failure triage: Classify each match. Sleeps in assertion logic (waiting for a condition) are ERROR — replace with channels/polling. Sleeps for event separation (fsnotify coalescing), latency simulation (debounce/serialization testing), or poll-helper self-tests are legitimate and should be added to `known-exceptions.md` if not already listed.
 
 ## 5. Linting (PC-05)
 
@@ -85,8 +85,8 @@ Failure triage: Split by concern using `<package>_<concern>_test.go` naming. Fol
 
 Command: `grep -rn 'strings\.Contains(.*\.Error()' --include='*_test.go' cmd/ internal/ pkg/`
 What it checks: Usage of `strings.Contains(err.Error(), ...)` for error assertions. Should use `errors.Is` / `errors.As` for sentinel errors or typed error assertions.
-Expected: Only matches where no sentinel exists (CUE engine messages, stdlib errors) or where the check is content-verification alongside an `errors.Is` (verifying a specific value appears in the message). Consult `known-exceptions.md`.
-Failure triage: Replace with `errors.Is(err, ErrFoo)` for sentinel errors, `errors.As(err, &target)` for typed errors. String matching is acceptable ONLY for unstructured third-party error text (CUE engine messages, `strconv` errors) with a comment explaining why.
+Expected: Most matches will be KEEP (not findings). Classify each occurrence per `pattern-catalog.md` § "Error Assertion Classification". Only report CONVERTIBLE cases where a sentinel error exists in the error chain via `%w` wrapping. Consult `known-exceptions.md` § "Error String Matching Exceptions" for the full registry of legitimate patterns.
+Failure triage: For CONVERTIBLE cases, replace with `errors.Is(err, ErrFoo)` or `errors.As(err, &target)`. For KEEP cases (ValidationErrors flattening, Error() format tests, CUE library errors, supplementary checks alongside errors.Is, external/OS errors), leave as-is — string matching is correct. The key decision rule: trace the error to its production source. If `fmt.Errorf("...: %w", sentinel)` wraps a sentinel, it's CONVERTIBLE. Everything else is KEEP.
 
 ## 12. Missing Error-Path txtar Assertion (PC-12)
 

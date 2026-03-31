@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -656,8 +657,8 @@ func TestValidateIncludes_OSNativeAbsolutePathSemantics(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected Unix-style absolute path %q to be rejected on Windows", unixStyleAbsolute)
 		}
-		if !strings.Contains(err.Error(), "must be absolute") {
-			t.Fatalf("expected absolute-path validation error, got: %v", err)
+		if !errors.Is(err, ErrInvalidIncludeEntry) {
+			t.Fatalf("expected ErrInvalidIncludeEntry, got: %v", err)
 		}
 		return
 	}
