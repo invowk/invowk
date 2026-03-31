@@ -219,6 +219,21 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - `specs/` - Feature specifications, research, and implementation plans.
 - `tasks/` - Pending analysis documents and planning notes (e.g., `tasks/next/` for items awaiting decision).
 
+## Virtual Runtime Security Model
+
+**The virtual shell runtime is NOT a security sandbox.** It is a portable shell interpreter (mvdan/sh) augmented with 28 u-root built-in utilities. This is a critical distinction:
+
+- **Commands not provided by built-ins are resolved from the host `PATH`** and executed as native processes with full host access via `interp.DefaultExecHandler`.
+- **The host's environment variables are inherited by default** (`env_inherit_mode: "all"`), including `PATH`.
+- **mvdan/sh has no sandbox API** — the only restriction mechanism is the `ExecHandlers` middleware chain, which invowk uses additively (intercept known commands), not restrictively (block unknown commands).
+- **The "No Silent Fallback" guarantee** only applies to u-root built-in errors — if a command is NOT a built-in, it unconditionally falls through to host execution.
+
+**When writing documentation, examples, or discussing runtimes:**
+- Never describe the virtual runtime as "sandboxed" or "isolated".
+- Clarify that "no shell dependency" means the interpreter is built-in, not that external commands are unavailable.
+- For execution isolation, always point users to the **container** runtime.
+- The `CommandScope.CanCall()` visibility enforcement is defined and tested but **not yet wired into the runtime execution path**.
+
 ## Container Runtime Limitations
 
 **The container runtime ONLY supports Linux containers.** This is a fundamental design limitation:

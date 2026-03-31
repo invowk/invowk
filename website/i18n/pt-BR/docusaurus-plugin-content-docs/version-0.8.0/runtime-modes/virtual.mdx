@@ -141,6 +141,12 @@ O shell virtual pode chamar comandos externos instalados no seu sistema:
 
 <Snippet id="runtime-modes/virtual-external-commands" />
 
+:::caution Não é um Sandbox
+O runtime virtual **não é um sandbox de segurança**. Ele é um interpretador de shell portável com utilitários integrados. Qualquer comando não fornecido pelos built-ins (ex.: `git`, `curl`, `python`, `node`) é resolvido a partir do `PATH` do sistema host e executado como um processo nativo com acesso completo ao host. Por padrão, as variáveis de ambiente do host também são herdadas (`env_inherit_mode: "all"`).
+
+Se você precisa de isolamento de execução, use o runtime **container**.
+:::
+
 Comandos externos são encontrados usando o PATH do sistema.
 
 ## Variáveis de Ambiente
@@ -182,7 +188,7 @@ Dependências são validadas contra as capacidades do shell virtual:
 ## Vantagens
 
 - **Consistência**: Mesmo comportamento no Linux, macOS e Windows
-- **Sem dependência de shell**: Funciona mesmo se o shell do sistema não estiver disponível
+- **Sem dependência de shell**: Funciona mesmo se o shell do sistema não estiver disponível (o interpretador é integrado, mas comandos externos ainda requerem binários do host)
 - **Portabilidade**: Scripts funcionam em todas as plataformas
 - **Utilitários integrados**: Utilitários core sempre disponíveis
 - **Startup mais rápido**: Sem processo de shell para iniciar

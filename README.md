@@ -6,7 +6,7 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Three Runtime Modes**:
   - **native**: Execute commands using the system's default shell (bash, sh, powershell, etc.)
-  - **virtual**: Execute commands using the built-in [mvdan/sh](https://github.com/mvdan/sh) interpreter with 28 [u-root](https://github.com/u-root/u-root) utilities (cat, cp, ls, grep, sort, seq, tar, etc.)
+  - **virtual**: Execute commands using the built-in [mvdan/sh](https://github.com/mvdan/sh) interpreter with 28 [u-root](https://github.com/u-root/u-root) utilities (cat, cp, ls, grep, sort, seq, tar, etc.). Note: the virtual shell is **not a sandbox** — commands not provided by the built-ins are resolved from the host system's PATH
   - **container**: Execute commands inside a disposable Docker/Podman container
 
 - **CUE Configuration**: Define commands in `invowkfile.cue` files using [CUE](https://cuelang.org/) - a powerful configuration language with validation

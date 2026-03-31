@@ -141,6 +141,12 @@ The virtual shell can call external commands installed on your system:
 
 <Snippet id="runtime-modes/virtual-external-commands" />
 
+:::caution Not a Sandbox
+The virtual runtime is **not a security sandbox**. It is a portable shell interpreter augmented with built-in utilities. Any command not provided by the built-ins (e.g., `git`, `curl`, `python`, `node`) is resolved from the host system's `PATH` and executed as a native process with full host access. By default, the host's environment variables are also inherited (`env_inherit_mode: "all"`).
+
+If you need execution isolation, use the **container** runtime instead.
+:::
+
 External commands are found using the system's PATH.
 
 ## Environment Variables
@@ -182,7 +188,7 @@ Dependencies are validated against the virtual shell's capabilities:
 ## Advantages
 
 - **Consistency**: Same behavior on Linux, macOS, and Windows
-- **No shell dependency**: Works even if system shell is unavailable
+- **No shell dependency**: Works even if system shell is unavailable (the interpreter is built-in, but external commands still require host binaries)
 - **Portability**: Scripts work across all platforms
 - **Built-in utilities**: Core utilities always available
 - **Faster startup**: No shell process to spawn

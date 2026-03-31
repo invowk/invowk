@@ -37,8 +37,12 @@ Use **native** quando você quiser:
 Use **virtual** quando você quiser:
 - Comportamento consistente entre plataformas
 - Scripts POSIX-compatíveis que funcionam em qualquer lugar
-- Sem dependência de shell externo
+- Sem dependência de shell externo (o interpretador é integrado, mas scripts ainda podem chamar binários do host via PATH)
 - Debug mais simples de scripts shell
+
+:::caution
+O runtime virtual **não é um sandbox**. Comandos não fornecidos pelos utilitários integrados são resolvidos a partir do PATH do host e executados como processos nativos. Para isolamento de execução, use o runtime **container**.
+:::
 
 <Snippet id="runtime-modes/virtual-basic" />
 

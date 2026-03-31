@@ -37,8 +37,12 @@ Use **native** when you want:
 Use **virtual** when you want:
 - Consistent behavior across platforms
 - POSIX-compatible scripts that work everywhere
-- No external shell dependency
+- No external shell dependency (the interpreter is built-in, but scripts can still call host binaries via PATH)
 - Simpler debugging of shell scripts
+
+:::caution
+The virtual runtime is **not a sandbox**. Commands not provided by the built-in utilities are resolved from the host's PATH and run as native processes. For execution isolation, use the **container** runtime.
+:::
 
 <Snippet id="runtime-modes/virtual-basic" />
 
