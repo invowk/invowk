@@ -23,6 +23,8 @@ func TestFilesystemPath_Validate(t *testing.T) {
 		{"dot path", FilesystemPath("."), true, false},
 		{"UNC path", FilesystemPath(`\\server\share`), true, false},
 		{"extended-length UNC path", FilesystemPath(`\\?\C:\path`), true, false},
+		{"traversal with slash", FilesystemPath("a/../../escape"), true, false},
+		{"traversal with backslash", FilesystemPath(`a\..\..\escape`), true, false},
 		{"empty is invalid", FilesystemPath(""), false, true},
 		{"whitespace only is invalid", FilesystemPath("   "), false, true},
 		{"tab only is invalid", FilesystemPath("\t"), false, true},

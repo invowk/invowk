@@ -6,6 +6,7 @@ cd $WORK
 
 # Running invowk cmd should fail because of the conflict
 ! exec invowk cmd deploy prod
+! stdout .
 stderr 'Invalid command structure'
 stderr 'deploy'
 stderr 'args'
