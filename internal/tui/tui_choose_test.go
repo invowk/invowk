@@ -381,26 +381,6 @@ func TestChooseStringBuilder_Model(t *testing.T) {
 	}
 }
 
-func TestOption_Fields(t *testing.T) {
-	t.Parallel()
-
-	opt := Option[int]{
-		Title:    "Number One",
-		Value:    1,
-		Selected: true,
-	}
-
-	if opt.Title != "Number One" {
-		t.Errorf("expected title 'Number One', got %q", opt.Title)
-	}
-	if opt.Value != 1 {
-		t.Errorf("expected value 1, got %d", opt.Value)
-	}
-	if !opt.Selected {
-		t.Error("expected Selected to be true")
-	}
-}
-
 func TestSelectedIndicesFromOptions(t *testing.T) {
 	t.Parallel()
 

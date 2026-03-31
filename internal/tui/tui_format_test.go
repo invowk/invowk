@@ -298,44 +298,6 @@ func TestFormatType_Constants(t *testing.T) {
 	}
 }
 
-func TestFormatOptions_Fields(t *testing.T) {
-	t.Parallel()
-
-	opts := FormatOptions{
-		Content:      "test content",
-		Type:         FormatCode,
-		Language:     "go",
-		GlamourTheme: "dark",
-		Width:        100,
-		Config: Config{
-			Theme:      ThemeCharm,
-			Accessible: true,
-		},
-	}
-
-	if opts.Content != "test content" {
-		t.Errorf("expected content 'test content', got %q", opts.Content)
-	}
-	if opts.Type != FormatCode {
-		t.Errorf("expected type FormatCode, got %q", opts.Type)
-	}
-	if opts.Language != "go" {
-		t.Errorf("expected language 'go', got %q", opts.Language)
-	}
-	if opts.GlamourTheme != "dark" {
-		t.Errorf("expected glamour theme 'dark', got %q", opts.GlamourTheme)
-	}
-	if opts.Width != 100 {
-		t.Errorf("expected width 100, got %d", opts.Width)
-	}
-	if opts.Config.Theme != ThemeCharm {
-		t.Errorf("expected theme ThemeCharm, got %v", opts.Config.Theme)
-	}
-	if !opts.Config.Accessible {
-		t.Error("expected accessible to be true")
-	}
-}
-
 func TestFormatCode_EmptyLanguage(t *testing.T) {
 	t.Parallel()
 

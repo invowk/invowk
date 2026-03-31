@@ -748,8 +748,8 @@ func TestVirtualRuntime_MockEnvBuilder_Error(t *testing.T) {
 	if result.Error == nil {
 		t.Fatal("Execute() should return error when EnvBuilder fails")
 	}
-	if !strings.Contains(result.Error.Error(), "mock virtual env build failure") {
-		t.Errorf("Execute() error = %q, want to contain 'mock virtual env build failure'", result.Error)
+	if !errors.Is(result.Error, mockErr) {
+		t.Errorf("Execute() error = %v, want wrapped %v", result.Error, mockErr)
 	}
 }
 

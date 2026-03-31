@@ -9,7 +9,6 @@
     "virtual_uroot_": "u-root commands are virtual-runtime built-ins"
   },
   "command_path_exempt": {
-    "virtual_isolation.txtar": "command names include runtime name by design",
     "virtual_runtime_override.txtar": "tests cross-runtime override with different command targets"
   }
 }

@@ -307,8 +307,8 @@ func TestNativeRuntime_MockEnvBuilder_Error(t *testing.T) {
 	if result.Error == nil {
 		t.Fatal("Execute() should return error when EnvBuilder fails")
 	}
-	if !strings.Contains(result.Error.Error(), "mock env build failure") {
-		t.Errorf("Execute() error = %q, want to contain 'mock env build failure'", result.Error)
+	if !errors.Is(result.Error, mockErr) {
+		t.Errorf("Execute() error = %v, want wrapped %v", result.Error, mockErr)
 	}
 }
 
@@ -341,7 +341,7 @@ func TestNativeRuntime_MockEnvBuilder_CaptureError(t *testing.T) {
 	if result.Error == nil {
 		t.Fatal("ExecuteCapture() should return error when EnvBuilder fails")
 	}
-	if !strings.Contains(result.Error.Error(), "capture env build failure") {
-		t.Errorf("ExecuteCapture() error = %q, want to contain 'capture env build failure'", result.Error)
+	if !errors.Is(result.Error, mockErr) {
+		t.Errorf("ExecuteCapture() error = %v, want wrapped %v", result.Error, mockErr)
 	}
 }

@@ -17,6 +17,7 @@ stdout 'Path:'
 
 # Test 2: Import fails when source does not exist
 ! exec invowk module import ./nonexistent.zip
+stdout 'Import Module'
 stderr 'import module'
 
 # Test 3: Use the 'mod' alias for import

@@ -331,60 +331,6 @@ func TestInputBuilder_Model(t *testing.T) {
 	}
 }
 
-func TestInputOptions_Fields(t *testing.T) {
-	t.Parallel()
-
-	opts := InputOptions{
-		Title:       "Email",
-		Description: "Your email address",
-		Placeholder: "user@example.com",
-		Value:       "test@test.com",
-		CharLimit:   100,
-		Width:       60,
-		Password:    false,
-		Prompt:      "→ ",
-		Config: Config{
-			Theme:      ThemeCatppuccin,
-			Accessible: true,
-			Width:      80,
-		},
-	}
-
-	if opts.Title != "Email" {
-		t.Errorf("expected title 'Email', got %q", opts.Title)
-	}
-	if opts.Description != "Your email address" {
-		t.Errorf("expected description 'Your email address', got %q", opts.Description)
-	}
-	if opts.Placeholder != "user@example.com" {
-		t.Errorf("expected placeholder 'user@example.com', got %q", opts.Placeholder)
-	}
-	if opts.Value != "test@test.com" {
-		t.Errorf("expected value 'test@test.com', got %q", opts.Value)
-	}
-	if opts.CharLimit != 100 {
-		t.Errorf("expected char limit 100, got %d", opts.CharLimit)
-	}
-	if opts.Width != 60 {
-		t.Errorf("expected width 60, got %d", opts.Width)
-	}
-	if opts.Password {
-		t.Error("expected password to be false")
-	}
-	if opts.Prompt != "→ " {
-		t.Errorf("expected prompt '→ ', got %q", opts.Prompt)
-	}
-	if opts.Config.Theme != ThemeCatppuccin {
-		t.Errorf("expected theme ThemeCatppuccin, got %v", opts.Config.Theme)
-	}
-	if !opts.Config.Accessible {
-		t.Error("expected accessible to be true")
-	}
-	if opts.Config.Width != 80 {
-		t.Errorf("expected config width 80, got %d", opts.Config.Width)
-	}
-}
-
 func TestNewInputModel_WithInitialValue(t *testing.T) {
 	t.Parallel()
 

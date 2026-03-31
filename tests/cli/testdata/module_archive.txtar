@@ -18,6 +18,7 @@ exists dist/custom.zip
 
 # Test 3: Archive a non-existent module (should fail)
 ! exec invowk module archive ./nonexistent.invowkmod
+stdout 'Archive Module'
 stderr 'archive module'
 
 -- archmod.invowkmod/invowkmod.cue --

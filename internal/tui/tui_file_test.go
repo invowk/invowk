@@ -288,65 +288,6 @@ func TestFileBuilder_Model(t *testing.T) {
 	}
 }
 
-func TestFileOptions_Fields(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	opts := FileOptions{
-		Title:             "File Picker",
-		Description:       "Pick a file",
-		CurrentDirectory:  tmpDir,
-		AllowedExtensions: []string{".log", ".txt"},
-		ShowHidden:        true,
-		ShowSize:          true,
-		ShowPermissions:   false,
-		Height:            18,
-		FileAllowed:       true,
-		DirAllowed:        true,
-		Config: Config{
-			Theme:      ThemeDracula,
-			Accessible: true,
-		},
-	}
-
-	if opts.Title != "File Picker" {
-		t.Errorf("expected title 'File Picker', got %q", opts.Title)
-	}
-	if opts.Description != "Pick a file" {
-		t.Errorf("expected description 'Pick a file', got %q", opts.Description)
-	}
-	if opts.CurrentDirectory != tmpDir {
-		t.Errorf("expected directory %q, got %q", tmpDir, opts.CurrentDirectory)
-	}
-	if len(opts.AllowedExtensions) != 2 {
-		t.Errorf("expected 2 extensions, got %d", len(opts.AllowedExtensions))
-	}
-	if !opts.ShowHidden {
-		t.Error("expected show hidden to be true")
-	}
-	if !opts.ShowSize {
-		t.Error("expected show size to be true")
-	}
-	if opts.ShowPermissions {
-		t.Error("expected show permissions to be false")
-	}
-	if opts.Height != 18 {
-		t.Errorf("expected height 18, got %d", opts.Height)
-	}
-	if !opts.FileAllowed {
-		t.Error("expected file allowed to be true")
-	}
-	if !opts.DirAllowed {
-		t.Error("expected dir allowed to be true")
-	}
-	if opts.Config.Theme != ThemeDracula {
-		t.Errorf("expected theme ThemeDracula, got %v", opts.Config.Theme)
-	}
-	if !opts.Config.Accessible {
-		t.Error("expected accessible to be true")
-	}
-}
-
 func TestNewFileModel_DirOnly(t *testing.T) {
 	t.Parallel()
 

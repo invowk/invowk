@@ -330,43 +330,6 @@ func TestInteractiveBuilder_Chaining(t *testing.T) {
 	}
 }
 
-func TestInteractiveResult_Fields(t *testing.T) {
-	t.Parallel()
-
-	result := InteractiveResult{
-		ExitCode: 42,
-		Duration: 5 * time.Second,
-		Error:    nil,
-	}
-
-	if result.ExitCode != 42 {
-		t.Errorf("expected exit code 42, got %d", result.ExitCode)
-	}
-	if result.Duration != 5*time.Second {
-		t.Errorf("expected duration 5s, got %v", result.Duration)
-	}
-	if result.Error != nil {
-		t.Errorf("expected nil error, got %v", result.Error)
-	}
-}
-
-func TestInteractiveOptions_Fields(t *testing.T) {
-	t.Parallel()
-
-	opts := InteractiveOptions{
-		Title:       "My Title",
-		CommandName: "my-cmd",
-		Config:      DefaultConfig(),
-	}
-
-	if opts.Title != "My Title" {
-		t.Errorf("expected title 'My Title', got %q", opts.Title)
-	}
-	if opts.CommandName != "my-cmd" {
-		t.Errorf("expected command name 'my-cmd', got %q", opts.CommandName)
-	}
-}
-
 func TestExecutionState_Constants(t *testing.T) {
 	t.Parallel()
 

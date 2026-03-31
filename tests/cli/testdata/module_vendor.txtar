@@ -10,6 +10,7 @@ stdout 'No dependencies declared'
 
 # Test 2: Vendor without a module path and no invowkmod.cue in current dir (should fail)
 ! exec invowk module vendor
+stdout 'Vendor Module Dependencies'
 stderr 'invowkmod.cue'
 
 # Test 3: --update flag accepted with no-deps module
@@ -22,10 +23,12 @@ stdout 'No dependencies declared'
 
 # Test 5: Non-existent module path
 ! exec invowk module vendor ./does-not-exist.invowkmod
+stdout 'Vendor Module Dependencies'
 stderr 'invowkmod.cue'
 
 # Test 6: Plain directory (not a module) — missing invowkmod.cue
 ! exec invowk module vendor ./plaindir
+stdout 'Vendor Module Dependencies'
 stderr 'module directory'
 stderr 'invowkmod.cue'
 

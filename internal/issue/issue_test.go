@@ -279,26 +279,6 @@ func TestIssue_Render_NoLinks(t *testing.T) {
 	}
 }
 
-func TestMarkdownMsg_Type(t *testing.T) {
-	t.Parallel()
-
-	msg := MarkdownMsg("# Hello\n\nWorld")
-
-	if string(msg) != "# Hello\n\nWorld" {
-		t.Errorf("MarkdownMsg string conversion failed")
-	}
-}
-
-func TestHttpLink_Type(t *testing.T) {
-	t.Parallel()
-
-	link := HttpLink("https://example.com")
-
-	if string(link) != "https://example.com" {
-		t.Errorf("HttpLink string conversion failed")
-	}
-}
-
 func TestAllIssuesHaveContent(t *testing.T) {
 	t.Parallel()
 
@@ -361,6 +341,10 @@ func TestIssuesMapCompleteness(t *testing.T) {
 	}
 }
 
+// TestIssueTemplates_NoStaleGuidance verifies that embedded issue templates do not
+// contain stale guidance tokens. "invowk fix" refers to a removed CLI subcommand;
+// "apk add --no-cache" is Alpine-specific and was replaced by distribution-agnostic
+// guidance. Add new tokens here when deprecated advice is retired from templates.
 func TestIssueTemplates_NoStaleGuidance(t *testing.T) {
 	t.Parallel()
 

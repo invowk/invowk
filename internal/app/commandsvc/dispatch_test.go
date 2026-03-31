@@ -254,9 +254,10 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 	t.Run("interactive runtime validation error surfaces in result", func(t *testing.T) {
 		t.Parallel()
 
+		wantErr := errors.New("invalid interactive context")
 		registry := runtimepkg.NewRegistry()
 		rt := &stubInteractiveRuntime{
-			stubRuntime: stubRuntime{name: "interactive", validateErr: errors.New("invalid interactive context")},
+			stubRuntime: stubRuntime{name: "interactive", validateErr: wantErr},
 			supports:    true,
 		}
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
@@ -270,19 +271,20 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("executeWithRequestedMode() error = %v", err)
 		}
-		if result.Error == nil || !strings.Contains(result.Error.Error(), "invalid interactive context") {
-			t.Fatalf("result.Error = %v", result.Error)
+		if !errors.Is(result.Error, wantErr) {
+			t.Fatalf("result.Error = %v, want wrapped %v", result.Error, wantErr)
 		}
 	})
 
 	t.Run("interactive runtime prepare error surfaces in result", func(t *testing.T) {
 		t.Parallel()
 
+		wantErr := errors.New("prepare failed")
 		registry := runtimepkg.NewRegistry()
 		rt := &stubInteractiveRuntime{
 			stubRuntime: stubRuntime{name: "interactive"},
 			supports:    true,
-			prepareErr:  errors.New("prepare failed"),
+			prepareErr:  wantErr,
 		}
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
@@ -299,8 +301,8 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("executeWithRequestedMode() error = %v", err)
 		}
-		if result.Error == nil || !strings.Contains(result.Error.Error(), "failed to prepare command") {
-			t.Fatalf("result.Error = %v", result.Error)
+		if !errors.Is(result.Error, wantErr) {
+			t.Fatalf("result.Error = %v, want wrapped %v", result.Error, wantErr)
 		}
 	})
 }

@@ -4,30 +4,30 @@
 cd $WORK
 
 # Test 1: isolation native - demonstrates env var isolation in native runtime
-exec invowk cmd 'isolation native'
-stdout '=== Native Runtime Isolation Demo ==='
-stdout 'Parent values \(native runtime\):'
+exec invowk cmd 'isolation demo'
+stdout '=== Runtime Isolation Demo ==='
+stdout 'Parent values:'
 stdout 'INVOWK_ARG_DATA'
 stdout 'INVOWK_FLAG_MODE'
-stdout 'The isolation mechanism works identically in native runtime'
+stdout 'The isolation mechanism works identically across runtimes'
 stdout 'INVOWK_ARG_\* and INVOWK_FLAG_\* variables are filtered'
 ! stderr .
 
 -- invowkfile.cue --
 cmds: [
 	{
-		name:        "isolation native"
-		description: "Environment isolation demo using native shell runtime"
+		name:        "isolation demo"
+		description: "Environment isolation demo"
 		implementations: [
 			{
 				script: #"""
-					echo "=== Native Runtime Isolation Demo ==="
+					echo "=== Runtime Isolation Demo ==="
 					echo ""
-					echo "Parent values (native runtime):"
+					echo "Parent values:"
 					echo "  INVOWK_ARG_DATA = '$INVOWK_ARG_DATA'"
 					echo "  INVOWK_FLAG_MODE = '$INVOWK_FLAG_MODE'"
 					echo ""
-					echo "The isolation mechanism works identically in native runtime."
+					echo "The isolation mechanism works identically across runtimes."
 					echo "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
 					echo "inherited environment before each command execution."
 					echo ""
@@ -39,13 +39,13 @@ cmds: [
 			},
 			{
 				script: #"""
-					Write-Output "=== Native Runtime Isolation Demo ==="
+					Write-Output "=== Runtime Isolation Demo ==="
 					Write-Output ""
-					Write-Output "Parent values (native runtime):"
+					Write-Output "Parent values:"
 					Write-Output "  INVOWK_ARG_DATA = '$($env:INVOWK_ARG_DATA)'"
 					Write-Output "  INVOWK_FLAG_MODE = '$($env:INVOWK_FLAG_MODE)'"
 					Write-Output ""
-					Write-Output "The isolation mechanism works identically in native runtime."
+					Write-Output "The isolation mechanism works identically across runtimes."
 					Write-Output "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
 					Write-Output "inherited environment before each command execution."
 					Write-Output ""
@@ -57,10 +57,10 @@ cmds: [
 			},
 		]
 		args: [
-			{name: "data", description: "Some data value", default_value: "native-data"},
+			{name: "data", description: "Some data value", default_value: "demo-data"},
 		]
 		flags: [
-			{name: "mode", description: "Operation mode", default_value: "native-mode"},
+			{name: "mode", description: "Operation mode", default_value: "demo-mode"},
 		]
 	},
 ]

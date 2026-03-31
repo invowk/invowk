@@ -5,7 +5,6 @@ package cmd
 import (
 	"errors"
 	"io"
-	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -96,9 +95,10 @@ func TestRunWatchMode_CommandNotFound(t *testing.T) {
 func TestRunWatchMode_GetCommandError(t *testing.T) {
 	t.Parallel()
 
+	wantErr := errors.New("discovery exploded")
 	disc := &stubDiscoveryService{
 		commandSet: emptyCommandSet(),
-		lookupErr:  errors.New("discovery exploded"),
+		lookupErr:  wantErr,
 	}
 
 	err := runWatchMode(
@@ -108,8 +108,8 @@ func TestRunWatchMode_GetCommandError(t *testing.T) {
 		&cmdFlagValues{},
 		[]string{"build"},
 	)
-	if err == nil || !strings.Contains(err.Error(), "discovery exploded") {
-		t.Fatalf("error = %v, want propagated discovery error", err)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("error = %v, want wrapped %v", err, wantErr)
 	}
 }
 

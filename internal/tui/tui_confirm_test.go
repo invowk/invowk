@@ -264,41 +264,6 @@ func TestConfirmBuilder_Model(t *testing.T) {
 	}
 }
 
-func TestConfirmOptions_Fields(t *testing.T) {
-	t.Parallel()
-
-	opts := ConfirmOptions{
-		Title:       "Are you sure?",
-		Description: "Please confirm",
-		Affirmative: "OK",
-		Negative:    "Back",
-		Default:     true,
-		Config: Config{
-			Theme:      ThemeDracula,
-			Accessible: false,
-		},
-	}
-
-	if opts.Title != "Are you sure?" {
-		t.Errorf("expected title 'Are you sure?', got %q", opts.Title)
-	}
-	if opts.Description != "Please confirm" {
-		t.Errorf("expected description 'Please confirm', got %q", opts.Description)
-	}
-	if opts.Affirmative != "OK" {
-		t.Errorf("expected affirmative 'OK', got %q", opts.Affirmative)
-	}
-	if opts.Negative != "Back" {
-		t.Errorf("expected negative 'Back', got %q", opts.Negative)
-	}
-	if !opts.Default {
-		t.Error("expected default to be true")
-	}
-	if opts.Config.Theme != ThemeDracula {
-		t.Errorf("expected theme ThemeDracula, got %v", opts.Config.Theme)
-	}
-}
-
 // TestConfirmModel_UnicodeAndLongInputs is a crash-guard test: Init() and View()
 // must not panic when the title or description contains non-ASCII or long content.
 func TestConfirmModel_UnicodeAndLongInputs(t *testing.T) {

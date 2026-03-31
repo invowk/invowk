@@ -26,6 +26,7 @@ stderr 'CUE schema validation failed'
 
 # Test 4: Validate a nonexistent module (should fail)
 ! exec invowk validate ./nonexistent.invowkmod
+stdout 'Module Validation'
 stderr 'Module validation failed'
 stderr 'path does not exist'
 
@@ -48,6 +49,7 @@ stdout 'Invowkfile is valid'
 
 # Test 8: Module with broken invowkfile (deep validation catches it)
 ! exec invowk validate ./badmod.invowkmod
+stdout 'Module Validation'
 stderr 'Module validation failed'
 stderr 'invowkfile'
 
@@ -81,6 +83,7 @@ stdout 'Invowkfile parses successfully'
 
 # Test 12: Module missing invowkmod.cue (structural failure)
 ! exec invowk validate ./nomodcue.invowkmod
+stdout 'Module Validation'
 stderr 'Module validation failed'
 stderr 'missing required invowkmod.cue'
 

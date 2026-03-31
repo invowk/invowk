@@ -5,6 +5,7 @@ cd $WORK
 
 # Test 1: module sync without invowkmod.cue fails
 ! exec invowk module sync
+stdout 'Sync Module Dependencies'
 stderr 'parse invowkmod.cue'
 
 # Test 2: module update with no lock file and no modules reports nothing to update

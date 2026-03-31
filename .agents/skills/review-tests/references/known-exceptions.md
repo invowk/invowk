@@ -17,6 +17,7 @@ Do NOT flag these as errors during review. Mark findings against these as severi
 | SSH server controller tests (`internal/sshserver/`) | No `t.Parallel()` on parent or subtests | `wish` library writes host keys to `.ssh/` in working directory; parallel tests in the same package collide |
 | SSH server controller test (`internal/app/commandsvc/ssh_test.go`) | No `t.Parallel()` on parent or subtests | `wish` library writes host keys (`id_ed25519`) relative to CWD; parallel tests collide on the same key file |
 | TUI client tests (`internal/tuiserver/client_test.go`) | Sequential subtests | Share request/response channels via `server.RequestChannel()`; parallel subtests would race on the channel |
+| Mock exec command tests (`internal/container/engine_mock_test.go`) | No `t.Parallel()` | `withMockExecCommand` replaces the package-level `execCommand` variable, which is process-wide for the test binary |
 
 ### Context Exceptions
 

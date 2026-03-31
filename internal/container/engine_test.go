@@ -5,6 +5,8 @@ package container
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/internal/testutil"
 )
 
 func TestEngineNotAvailableError_Error(t *testing.T) {
@@ -291,6 +293,8 @@ func TestDockerEngine_Integration(t *testing.T) { //nolint:tparallel // subtests
 		t.Skip("Docker is not available, skipping integration tests")
 	}
 
+	testutil.AcquireContainerSemaphore(t)
+
 	ctx := t.Context()
 
 	t.Run("Version", func(t *testing.T) {
@@ -337,6 +341,8 @@ func TestPodmanEngine_Integration(t *testing.T) { //nolint:tparallel // subtests
 	if !engine.Available() {
 		t.Skip("Podman is not available, skipping integration tests")
 	}
+
+	testutil.AcquireContainerSemaphore(t)
 
 	ctx := t.Context()
 

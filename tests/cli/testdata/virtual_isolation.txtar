@@ -4,29 +4,29 @@
 cd $WORK
 
 # Test 1: isolation virtual - demonstrates env var isolation in virtual runtime
-exec invowk cmd 'isolation virtual'
-stdout '=== Virtual Runtime Isolation Demo ==='
-stdout 'Parent values \(virtual runtime\):'
+exec invowk cmd 'isolation demo'
+stdout '=== Runtime Isolation Demo ==='
+stdout 'Parent values:'
 stdout 'INVOWK_ARG_DATA'
 stdout 'INVOWK_FLAG_MODE'
-stdout 'The isolation mechanism works identically in virtual runtime'
+stdout 'The isolation mechanism works identically across runtimes'
 stdout 'INVOWK_ARG_\* and INVOWK_FLAG_\* variables are filtered'
 ! stderr .
 
 -- invowkfile.cue --
 cmds: [
 	{
-		name:        "isolation virtual"
-		description: "Environment isolation demo using virtual shell runtime"
+		name:        "isolation demo"
+		description: "Environment isolation demo"
 		implementations: [{
 			script: #"""
-				echo "=== Virtual Runtime Isolation Demo ==="
+				echo "=== Runtime Isolation Demo ==="
 				echo ""
-				echo "Parent values (virtual runtime):"
+				echo "Parent values:"
 				echo "  INVOWK_ARG_DATA = '$INVOWK_ARG_DATA'"
 				echo "  INVOWK_FLAG_MODE = '$INVOWK_FLAG_MODE'"
 				echo ""
-				echo "The isolation mechanism works identically in virtual runtime."
+				echo "The isolation mechanism works identically across runtimes."
 				echo "INVOWK_ARG_* and INVOWK_FLAG_* variables are filtered from the"
 				echo "inherited environment before each command execution."
 				echo ""
@@ -37,10 +37,10 @@ cmds: [
 			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 		}]
 		args: [
-			{name: "data", description: "Some data value", default_value: "virtual-data"},
+			{name: "data", description: "Some data value", default_value: "demo-data"},
 		]
 		flags: [
-			{name: "mode", description: "Operation mode", default_value: "virtual-mode"},
+			{name: "mode", description: "Operation mode", default_value: "demo-mode"},
 		]
 	},
 ]

@@ -396,48 +396,6 @@ func TestPagerBuilder_DefaultValues(t *testing.T) {
 	}
 }
 
-func TestPagerOptions_Fields(t *testing.T) {
-	t.Parallel()
-
-	opts := PagerOptions{
-		Content:         "Multi\nLine\nContent",
-		Title:           "Pager Title",
-		Height:          25,
-		Width:           90,
-		ShowLineNumbers: true,
-		SoftWrap:        true,
-		Config: Config{
-			Theme:      ThemeCatppuccin,
-			Accessible: true,
-		},
-	}
-
-	if opts.Content != "Multi\nLine\nContent" {
-		t.Errorf("expected content, got %q", opts.Content)
-	}
-	if opts.Title != "Pager Title" {
-		t.Errorf("expected title 'Pager Title', got %q", opts.Title)
-	}
-	if opts.Height != 25 {
-		t.Errorf("expected height 25, got %d", opts.Height)
-	}
-	if opts.Width != 90 {
-		t.Errorf("expected width 90, got %d", opts.Width)
-	}
-	if !opts.ShowLineNumbers {
-		t.Error("expected show line numbers to be true")
-	}
-	if !opts.SoftWrap {
-		t.Error("expected soft wrap to be true")
-	}
-	if opts.Config.Theme != ThemeCatppuccin {
-		t.Errorf("expected theme ThemeCatppuccin, got %v", opts.Config.Theme)
-	}
-	if !opts.Config.Accessible {
-		t.Error("expected accessible to be true")
-	}
-}
-
 func TestPagerModel_ReadyState(t *testing.T) {
 	t.Parallel()
 

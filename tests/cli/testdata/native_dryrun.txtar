@@ -11,6 +11,8 @@ stdout 'Source:'
 stdout 'Runtime:.*native'
 stdout 'Platform:'
 stdout 'Script:'
+# Note: assertion is 'hello world' not 'echo hello world' because the script
+# differs by platform (echo on Linux/macOS, Write-Output on Windows).
 stdout 'hello world'
 
 # Test 2: Dry-run shows timeout when set
