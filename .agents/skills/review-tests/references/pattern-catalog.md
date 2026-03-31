@@ -122,3 +122,56 @@ Additional container patterns:
 10. **Unguarded `XDG_CONFIG_HOME`** -- Detect: tests relying on XDG fallback without `unset XDG_CONFIG_HOME`.
 11. **Txtar workspace contamination** -- Detect: broken fixture files at `$WORK` root affecting other tests.
 12. **Container daemon stall** -- Detect: container test without bounded `ContainerTestContext()` or `Deadline`.
+
+## 6. Lint Directive Patterns
+
+### nolintlint Directive Lifecycle
+
+The `nolintlint` linter (enabled in `.golangci.toml` with `require-specific = true`) validates
+all `//nolint:` directives. This is the most common source of "fix creates new problem" failures:
+the test logic is correct, but CI goes red because of a stale lint suppression.
+
+**Lifecycle rules:**
+
+| Rule | What Happens If Violated |
+|------|--------------------------|
+| Always name the linter: `//nolint:tparallel` not `//nolint` | `nolintlint` reports "should mention specific linter" |
+| Remove directive when the underlying issue is fixed | `nolintlint` reports "directive is unused" (stale suppression) |
+| Add justification comment: `//nolint:tparallel // CUE not thread-safe` | Required by project convention |
+| Directive must be on the correct line | Misplaced directives suppress nothing and become stale |
+
+**Common failure pattern**: A fix removes the code that triggered a linter warning but leaves
+the `//nolint:` directive in place. The next `make lint` run fails with `nolintlint` reporting
+the directive as unused/stale. Detection: `grep -rn '//nolint:' --include='*_test.go'` in
+recently modified files, then verify each directive is still needed with `make lint`.
+
+**When adding `//nolint:`**: Run `make lint` without it first. Only add if lint fails.
+**When removing code near `//nolint:`**: Run `make lint` after removal to confirm directive is still needed.
+
+### t.Helper() Semantics
+
+`t.Helper()` marks the calling function as a test helper. When a helper's assertion fails,
+Go reports the caller's file:line rather than the helper's. Missing `t.Helper()` causes
+confusing failure output — the CI log points to the wrong file and line.
+
+**When to add `t.Helper()`:**
+- Any function accepting `*testing.T` (or `testing.TB`) that calls `t.Error`, `t.Fatal`,
+  `t.Errorf`, `t.Fatalf`, or other assertion helpers
+- Nested helpers: if helper A calls helper B which calls `t.Fatal`, BOTH A and B need
+  `t.Helper()` for the stack trace to correctly point to the test call site
+- Detection: `grep -rn 'func.*\*testing\.T' --include='*_test.go'` then check each
+  unexported function for `t.Helper()` presence
+
+**When NOT to add `t.Helper()`:**
+- Functions passed directly to `t.Run()` as subtests — these ARE the test, not helpers.
+  Adding `t.Helper()` would hide the actual failure line.
+- Functions that only use `t.Log` or `t.Skip` (no failure reporting)
+- Functions that return errors to the caller instead of calling `t.Error`/`t.Fatal`
+
+### t.Fatal vs t.Error Before Dereferences
+
+Use `t.Fatalf` (not `t.Errorf`) when the next line would dereference the result. `t.Errorf`
+continues execution, causing a nil-pointer panic that masks the actual test failure.
+
+Detection: look for patterns where `t.Error`/`t.Errorf` checks a nil value and the next
+statement dereferences it (e.g., `result.Foo` after `if result == nil { t.Error(...) }`).

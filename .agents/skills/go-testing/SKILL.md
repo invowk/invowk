@@ -273,6 +273,12 @@ Cross-ref: `.agents/skills/review-tests/references/known-exceptions.md` for legi
 | `t.Log(args...)` / `t.Logf(fmt, ...)` | Log (shown only on failure or with `-v`) |
 | `t.Helper()` | Mark as helper (skip in failure stack trace) |
 
+**`t.Helper()` rule**: Call `t.Helper()` as the first statement in any function that
+accepts `*testing.T` and calls assertion methods (`t.Error`, `t.Fatal`, etc.). This
+includes transitively — if helper A calls helper B which calls `t.Fatal`, both A and B
+need `t.Helper()`. Functions passed to `t.Run()` as subtests do NOT need `t.Helper()`.
+See `review-tests/references/pattern-catalog.md` § "t.Helper() Semantics".
+
 **Critical**: `t.Fatal` / `t.FailNow` inside a goroutine will panic — they call
 `runtime.Goexit()` which only exits the current goroutine, not the test. Use
 `t.Error` + return in goroutines, or communicate failures via channels.
@@ -297,6 +303,19 @@ Key analyzers affecting test code (full catalog: `references/go-vet-analyzers.md
 | `loopclosure` | Closure captures loop variable | Mitigated in Go 1.22+; still relevant for `go` statements |
 | `waitgroup` | `sync.WaitGroup.Add` called inside goroutine | Common test synchronization bug |
 | `printf` | Format string mismatches | Catches `t.Errorf`/`t.Fatalf` format bugs |
+
+## nolintlint Directive Lifecycle
+
+The project enables `nolintlint` with `require-specific = true`. Every `//nolint:` directive
+must name the suppressed linter and include a justification comment. Stale directives (where
+the suppressed issue no longer exists) cause lint failures — this is the most common "fix
+creates new problem" pattern in this codebase.
+
+**Key rule**: When removing or moving code near a `//nolint:` directive, always run
+`make lint` afterward to verify the directive is still needed.
+
+See `review-tests/references/pattern-catalog.md` § "nolintlint Directive Lifecycle"
+for the full lifecycle rules and common failure patterns.
 
 ## Build Tags for Tests
 

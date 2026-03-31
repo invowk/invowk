@@ -297,6 +297,20 @@ Every fix should include at least one prevention measure:
 | CI configuration | Timeout/resource issues | Adjust `-timeout`, `-parallel`, semaphore |
 | Documentation | Subtle gotcha | Add entry to platform skill Failure Matrix |
 
+### 4. Test-Writing Guardrails
+
+When the fix involves writing or modifying test code, apply the testing skill's
+Pre-Write Checklist (`.agents/skills/testing/SKILL.md` § "Pre-Write Checklist")
+before committing. The most common "fix creates new problem" patterns are:
+
+| Mistake | Consequence | Prevention |
+|---------|-------------|------------|
+| Adding `t.Parallel()` without checking safety | Data races, crashes, multi-round follow-up | Consult `go-testing` § Parallelism Decision Framework BEFORE adding |
+| Leaving stale `//nolint:` after removing suppressed code | `nolintlint` CI failure | Run `make lint` after any code removal near `//nolint` directives |
+| New test helper without `t.Helper()` | Confusing failure locations in CI output | First statement in any helper that calls `t.Error`/`t.Fatal` |
+| `t.Errorf` before nil dereference | Panic in test binary | Use `t.Fatalf` when next line dereferences the result |
+| Orphaned imports after moving tests | Compilation failure | Run `go build ./path/...` after moving test functions |
+
 ---
 
 ## Phase 4: Apply & Verify

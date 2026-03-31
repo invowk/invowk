@@ -31,6 +31,7 @@ failures, and write correct platform-specific test code.
 6. `references/process-namespaces.md` -- cgroups and namespace isolation for container understanding.
 7. `references/filesystem-inotify.md` -- inotify API, watch limits, error handling.
 8. `.agents/skills/testing/SKILL.md` -- invowk-specific test patterns, testscript, TUI/container.
+9. `.agents/skills/testing/SKILL.md` § "Pre-Write Checklist" -- mandatory guardrails before writing any test code.
 
 If this skill conflicts with a rule, follow the rule.
 

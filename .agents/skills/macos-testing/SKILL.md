@@ -28,6 +28,7 @@ dedicated macOS rule exists in `.agents/rules/`; this skill fills that gap.
 3. `.agents/skills/go-testing/SKILL.md` -- Go testing toolchain knowledge, decision frameworks.
 4. This skill -- macOS OS primitives affecting test behavior.
 5. `.agents/skills/testing/SKILL.md` -- invowk-specific test patterns, testscript, TUI/container.
+6. `.agents/skills/testing/SKILL.md` § "Pre-Write Checklist" -- mandatory guardrails before writing any test code.
 
 If this skill conflicts with a rule, follow the rule.
 

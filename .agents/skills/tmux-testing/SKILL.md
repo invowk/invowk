@@ -13,6 +13,8 @@ Use this skill when:
 - Deterministic testing of keyboard navigation and state transitions
 - Analyzing TUI output programmatically via ANSI escape codes
 
+**Pre-write guardrails**: Before writing any `*_test.go` code, follow `.agents/skills/testing/SKILL.md` § "Pre-Write Checklist" (covers `t.Helper()`, import cleanup, `//nolint` lifecycle, `t.Parallel()` safety).
+
 ---
 
 ## Workflow Overview

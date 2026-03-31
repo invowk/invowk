@@ -81,6 +81,34 @@ What it checks: Test files approaching the 1000-line hard limit (900+ lines sign
 Expected: No matches (or only files recently split that are in progress).
 Failure triage: Split by concern using `<package>_<concern>_test.go` naming. Follow File Splitting Protocol: create new, delete from source, clean imports, `go build` before `make test`.
 
+## 11. Error String Matching (PC-11)
+
+Command: `grep -rn 'strings\.Contains(.*\.Error()' --include='*_test.go' cmd/ internal/ pkg/`
+What it checks: Usage of `strings.Contains(err.Error(), ...)` for error assertions. Should use `errors.Is` / `errors.As` for sentinel errors or typed error assertions.
+Expected: Only matches where no sentinel exists (CUE engine messages, stdlib errors) or where the check is content-verification alongside an `errors.Is` (verifying a specific value appears in the message). Consult `known-exceptions.md`.
+Failure triage: Replace with `errors.Is(err, ErrFoo)` for sentinel errors, `errors.As(err, &target)` for typed errors. String matching is acceptable ONLY for unstructured third-party error text (CUE engine messages, `strconv` errors) with a comment explaining why.
+
+## 12. Missing Error-Path txtar Assertion (PC-12)
+
+Command: `grep -B0 -A1 '! exec' tests/cli/testdata/*.txtar | grep -B1 '^--$' | grep '! exec'`
+What it checks: Error-path txtar tests (`! exec ...`) that lack any stdout/stderr assertion on the next line. Error tests should assert BOTH output channels.
+Expected: Zero matches. Every `! exec` should be followed by `stdout`, `stderr`, `! stdout .`, or `! stderr .`.
+Failure triage: Add `! stdout .` and/or `stderr 'expected text'` after `! exec` lines. See `pattern-catalog.md` § 4 for the dual-channel error assertion pattern.
+
+## 13. Non-Platform-Split Native CUE (PC-13)
+
+Command: `for f in tests/cli/testdata/native_*.txtar; do if ! grep -q 'platforms:.*windows' "$f" 2>/dev/null; then echo "$f: missing Windows platform block"; fi; done`
+What it checks: Native txtar implementations must use platform-split CUE with separate Linux/macOS and Windows implementation blocks.
+Expected: Zero output. Every `native_*.txtar` must have at least one `platforms: [{name: "windows"}]` block.
+Failure triage: Split the single implementation into two: `[{name: "linux"}, {name: "macos"}]` with bash script, and `[{name: "windows"}]` with PowerShell script. Use `Write-Output` and `$env:VAR` in the Windows block.
+
+## 14. Hardcoded Unix Absolute Paths in Test Assertions (PC-14)
+
+Command: `grep -rn '"/usr/\|"/tmp/\|"/etc/\|"/home/\|"/bin/' --include='*_test.go' cmd/ internal/ pkg/`
+What it checks: Hardcoded Unix absolute paths in test assertions and fixtures. These are cross-platform blind spots.
+Expected: Only matches listed in `known-exceptions.md` Hardcoded Path Exceptions (container-internal paths in `filepaths_test.go`, POSIX-only `dirname_test.go`).
+Failure triage: Replace with `filepath.Join(t.TempDir(), ...)` for fixture paths, or add `skipOnWindows` with documented reason.
+
 ## Context Block Format
 
 Record all results in this format and pass verbatim to all 8 subagents:
@@ -88,15 +116,19 @@ Record all results in this format and pass verbatim to all 8 subagents:
 ```
 PROGRAMMATIC CHECK RESULTS
 ==========================
-file-length         : PASS | FAIL (files: ...)
-license-check       : PASS | FAIL (files: ...)
-context-background  : PASS | FAIL (count: N, files: ...)
-time-sleep          : PASS | FAIL (count: N, files: ...)
-lint                : PASS | FAIL (detail)
-txtar-coverage      : PASS | FAIL (detail)
-mirror-coverage     : PASS | FAIL (detail)
-mirror-alignment    : PASS | FAIL (detail)
-test-short          : PASS | FAIL (detail)
+file-length           : PASS | FAIL (files: ...)
+license-check         : PASS | FAIL (files: ...)
+context-background    : PASS | FAIL (count: N, files: ...)
+time-sleep            : PASS | FAIL (count: N, files: ...)
+err-string-matching   : PASS | FAIL (count: N, files: ...)
+hardcoded-unix-paths  : PASS | FAIL (count: N, files: ...)
+txtar-error-assertion : PASS | FAIL (files: ...)
+native-platform-split : PASS | FAIL (files: ...)
+lint                  : PASS | FAIL (detail)
+txtar-coverage        : PASS | FAIL (detail)
+mirror-coverage       : PASS | FAIL (detail)
+mirror-alignment      : PASS | FAIL (detail)
+test-short            : PASS | FAIL (detail)
 approaching-limit-files : PASS | FAIL (files: ...)
 ==========================
 ```

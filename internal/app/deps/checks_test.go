@@ -135,8 +135,8 @@ func TestContainerEnvVarValidation(t *testing.T) {
 	}
 
 	err := validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "MISSING"}, stub, ctx)
-	if err == nil || !strings.Contains(err.Error(), "not set in container environment") {
-		t.Fatalf("err = %v", err)
+	if !errors.Is(err, ErrContainerEnvVarNotSet) {
+		t.Fatalf("err = %v, want wrapping ErrContainerEnvVarNotSet", err)
 	}
 
 	err = validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "TRANSIENT"}, stub, ctx)
@@ -236,8 +236,8 @@ func TestContainerCommandValidation(t *testing.T) {
 	}
 
 	err := validateContainerCommand("missing", stub, ctx)
-	if err == nil || !strings.Contains(err.Error(), "command missing not found in container") {
-		t.Fatalf("err = %v", err)
+	if !errors.Is(err, ErrContainerCommandNotFound) {
+		t.Fatalf("err = %v, want wrapping ErrContainerCommandNotFound", err)
 	}
 
 	err = validateContainerCommand("broken", stub, ctx)

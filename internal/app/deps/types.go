@@ -52,6 +52,14 @@ var (
 	// (missing required flags or values not matching type/regex constraints).
 	ErrFlagValidationFailed = errors.New("flag validation failed")
 
+	// ErrContainerEnvVarNotSet is returned when a required environment variable
+	// is not set inside the container environment.
+	ErrContainerEnvVarNotSet = errors.New("not set in container environment")
+
+	// ErrContainerCommandNotFound is returned when a required command
+	// is not found inside the container.
+	ErrContainerCommandNotFound = errors.New("not found in container")
+
 	// ErrPathNotExists is returned when a required filepath does not exist
 	// on the host filesystem.
 	ErrPathNotExists = errors.New("path does not exist")

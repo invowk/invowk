@@ -338,7 +338,7 @@ func validateContainerEnvVar(alt invowkfile.EnvVarCheck, rt runtime.Runtime, ctx
 	if alt.Validation != "" {
 		return fmt.Errorf("  • %s - not set or value does not match pattern '%s' in container", name, alt.Validation.String())
 	}
-	return fmt.Errorf("  • %s - not set in container environment", name)
+	return fmt.Errorf("  • %s - %w", name, ErrContainerEnvVarNotSet)
 }
 
 func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) []DependencyMessage {
@@ -411,7 +411,7 @@ func validateContainerCommand(alt string, rt runtime.Runtime, ctx *runtime.Execu
 	if result.ExitCode == 0 {
 		return nil
 	}
-	return fmt.Errorf("command %s not found in container", alt)
+	return fmt.Errorf("command %s %w", alt, ErrContainerCommandNotFound)
 }
 
 func uniqueCapabilityDependencies(capabilities []invowkfile.CapabilityDependency) []invowkfile.CapabilityDependency {

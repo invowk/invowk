@@ -104,6 +104,12 @@ make check-file-length
 make license-check
 grep -rn 'context\.Background()' --include='*_test.go' cmd/ internal/ pkg/
 grep -rn 'time\.Sleep' --include='*_test.go' cmd/ internal/ pkg/
+grep -rn 'strings\.Contains(.*\.Error()' --include='*_test.go' cmd/ internal/ pkg/
+grep -rn '"/usr/\|"/tmp/\|"/etc/\|"/home/\|"/bin/' --include='*_test.go' cmd/ internal/ pkg/
+
+# Parallel group 1b (txtar-specific)
+grep -B0 -A1 '! exec' tests/cli/testdata/*.txtar | grep -B1 '^--$' | grep '! exec'
+for f in tests/cli/testdata/native_*.txtar; do if ! grep -q 'platforms:.*windows' "$f" 2>/dev/null; then echo "$f: missing Windows platform block"; fi; done
 
 # Parallel group 2 (targeted test runs)
 make lint
@@ -121,15 +127,19 @@ Record results in the **Context Block** format:
 ```
 PROGRAMMATIC CHECK RESULTS
 ==========================
-file-length         : PASS | FAIL (files: ...)
-license-check       : PASS | FAIL (files: ...)
-context-background  : PASS | FAIL (count: N, files: ...)
-time-sleep          : PASS | FAIL (count: N, files: ...)
-lint                : PASS | FAIL (detail)
-txtar-coverage      : PASS | FAIL (detail)
-mirror-coverage     : PASS | FAIL (detail)
-mirror-alignment    : PASS | FAIL (detail)
-test-short          : PASS | FAIL (detail)
+file-length           : PASS | FAIL (files: ...)
+license-check         : PASS | FAIL (files: ...)
+context-background    : PASS | FAIL (count: N, files: ...)
+time-sleep            : PASS | FAIL (count: N, files: ...)
+err-string-matching   : PASS | FAIL (count: N, files: ...)
+hardcoded-unix-paths  : PASS | FAIL (count: N, files: ...)
+txtar-error-assertion : PASS | FAIL (files: ...)
+native-platform-split : PASS | FAIL (files: ...)
+lint                  : PASS | FAIL (detail)
+txtar-coverage        : PASS | FAIL (detail)
+mirror-coverage       : PASS | FAIL (detail)
+mirror-alignment      : PASS | FAIL (detail)
+test-short            : PASS | FAIL (detail)
 approaching-limit-files : PASS | FAIL (files: ...)
 ==========================
 ```
@@ -213,6 +223,42 @@ The coordinator:
 6. **Assigns** sequential IDs (RT-001, RT-002, ...) to the merged list
 7. **Merges** checklist tables into a unified Checklist Completion summary
 8. **Produces** the final report (see `references/structured-output-format.md`)
+
+---
+
+## Recurrence Prevention
+
+When the same checklist item fails in 3+ consecutive audit rounds despite being "fixed",
+the finding must be promoted to a programmatic check. This closes the loop and prevents
+subagent sampling from missing known patterns.
+
+### Promotion Criteria
+
+A finding is eligible for promotion when ALL of these hold:
+1. The same checklist item ID (e.g., T3-C05) appears as FAIL in 3+ consecutive rounds
+2. The pattern can be detected by a grep, find, or single-command check
+3. The check has a near-zero false-positive rate (< 5% with `known-exceptions.md` filtering)
+
+### Promotion Workflow
+
+1. **Document the pattern**: Add a grep/find command to `references/verification-commands.md`
+   as a new PC-NN entry (follow the existing format)
+2. **Add to Step 1**: Add the command to the appropriate parallel group in this file
+3. **Update Context Block**: Add a new result row to both the Step 1 Context Block here
+   and the template in `verification-commands.md`
+4. **Add to pattern-catalog.md**: If the pattern needs subagent explanation, add an entry
+5. **Update this table**: Record the promotion below
+
+### Currently Promoted Patterns
+
+| Checklist Item | Programmatic Check | Round Promoted | Description |
+|---|---|---|---|
+| T2-C05 / T2-C06 | PC-03 | Original | `context.Background()` in test functions |
+| T3-C03 | PC-04 | Original | `time.Sleep` in tests |
+| T3-C05 | PC-11 | Round 8 | `strings.Contains(err.Error())` patterns |
+| T5-C13 | PC-12 | Round 8 | Missing txtar error-path assertions |
+| T6-C06 | PC-13 | Round 8 | Non-platform-split native CUE |
+| T3-C10 | PC-14 | Round 8 | Hardcoded Unix absolute paths |
 
 ---
 

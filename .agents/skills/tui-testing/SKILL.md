@@ -13,6 +13,8 @@ Use this skill when:
 - Debugging TUI issues that require visual inspection
 - Creating reproducible test cases for TUI bugs
 
+**Pre-write guardrails**: Before writing any `*_test.go` code, follow `.agents/skills/testing/SKILL.md` § "Pre-Write Checklist" (covers `t.Helper()`, import cleanup, `//nolint` lifecycle, `t.Parallel()` safety).
+
 ---
 
 ## Workflow Overview

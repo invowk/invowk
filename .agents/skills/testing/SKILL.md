@@ -23,6 +23,68 @@ Use this skill when:
 - Release any `analysistest` semaphore token in the same helper call (use `defer` in the helper); avoid `t.Cleanup` token release for multiply-invoked helpers, which can serialize or stall parallel tests.
 - Keep `modernize` clean in test code: avoid legacy loop-variable rebinding (`tt := tt` / `tc := tc`) and use `maps.Copy` for full-map clone loops.
 
+---
+
+## Pre-Write Checklist
+
+**Before writing or modifying any test code**, verify these five items. These are the most
+common sources of CI breakage when editing tests — each one has caused multiple rounds of
+follow-up fixes in the project's history.
+
+### 1. nolintlint Directive Lifecycle
+
+If you add, move, or remove code near a `//nolint:` directive:
+- **Adding**: Run `make lint` without the directive first. Only add it if lint fails.
+  Always name the specific linter (`//nolint:tparallel`, not `//nolint`).
+  Always add a comment explaining why (`// CUE not thread-safe`).
+- **Removing code**: Check whether nearby `//nolint:` directives are now stale.
+  Run `make lint` after removal — `nolintlint` will flag unused directives.
+- **Moving code**: The directive must travel with the code it suppresses. A misplaced
+  directive on the wrong line suppresses nothing and becomes a stale lint error.
+
+### 2. t.Helper() on New Helpers
+
+Any new function that accepts `*testing.T` and calls `t.Error`, `t.Fatal`, or other
+assertion helpers must call `t.Helper()` as its first statement. Without it, failure
+messages report the wrong file:line. This includes transitively — if helper A calls
+helper B which calls `t.Fatal`, both A and B need `t.Helper()`.
+
+**Exception**: Functions passed directly to `t.Run()` as subtests are NOT helpers — they
+ARE the test. Adding `t.Helper()` to a subtest function hides the actual failure line.
+
+### 3. Import Cleanup After Edits
+
+After moving test functions between files or deleting tests:
+- Remove unused imports from the source file (especially `"errors"`, `"fmt"`,
+  `"strings"` that were only used by moved/deleted code).
+- Run `go build ./path/to/package/...` before `make test` to catch import errors early.
+  This is faster and gives clearer error messages than `go test`.
+
+### 4. t.Parallel() Safety Verification
+
+Before adding `t.Parallel()` to any test function:
+- Check the Resource Safety Matrix in `go-testing` SKILL.md
+- Verify the test does NOT use: `os.Chdir`, `os.Setenv`, `t.Setenv`, `SetHomeDir`,
+  `MustSetenv`, `MustChdir`, `withPipeStdin`, or shared CUE contexts
+- If adding `t.Parallel()` to a parent, ALL subtests must also call `t.Parallel()`.
+  If even one subtest cannot be parallelized, the parent cannot be either.
+- Check `review-tests/references/known-exceptions.md` for documented exceptions.
+
+### 5. t.Fatal vs t.Error Before Derefs
+
+Use `t.Fatalf` (not `t.Errorf`) when the next line would dereference the result:
+```go
+// WRONG: t.Errorf continues; next line panics on nil
+if err != nil { t.Errorf("unexpected: %v", err) }
+result.Bar() // PANIC if err was non-nil
+
+// CORRECT: t.Fatalf stops the test
+if err != nil { t.Fatalf("unexpected: %v", err) }
+result.Bar() // safe — only reached if err == nil
+```
+
+---
+
 For host-path validation tests that depend on `filepath.IsAbs`, treat absoluteness as OS-native:
 - Generate valid absolute fixtures with `t.TempDir()` + `filepath.Join(...)`.
 - Keep explicit negative cases for relative and dot-relative inputs.
