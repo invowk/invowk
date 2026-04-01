@@ -410,10 +410,11 @@ func TestNewRuntimeSelection(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		mode    invowkfile.RuntimeMode
-		impl    *invowkfile.Implementation
-		wantErr string
+		name         string
+		mode         invowkfile.RuntimeMode
+		impl         *invowkfile.Implementation
+		wantErr      string
+		wantSentinel error
 	}{
 		{
 			name: "Valid mode and non-nil impl",
@@ -427,16 +428,16 @@ func TestNewRuntimeSelection(t *testing.T) {
 			wantErr: "implementation must not be nil",
 		},
 		{
-			name:    "Invalid mode returns error",
-			mode:    invowkfile.RuntimeMode("bogus"),
-			impl:    &invowkfile.Implementation{},
-			wantErr: "invalid runtime mode",
+			name:         "Invalid mode returns error",
+			mode:         invowkfile.RuntimeMode("bogus"),
+			impl:         &invowkfile.Implementation{},
+			wantSentinel: invowkfile.ErrInvalidRuntimeMode,
 		},
 		{
-			name:    "Empty mode returns error",
-			mode:    invowkfile.RuntimeMode(""),
-			impl:    &invowkfile.Implementation{},
-			wantErr: "invalid runtime mode",
+			name:         "Empty mode returns error",
+			mode:         invowkfile.RuntimeMode(""),
+			impl:         &invowkfile.Implementation{},
+			wantSentinel: invowkfile.ErrInvalidRuntimeMode,
 		},
 	}
 
@@ -445,6 +446,15 @@ func TestNewRuntimeSelection(t *testing.T) {
 			t.Parallel()
 
 			got, err := NewRuntimeSelection(tt.mode, tt.impl)
+			if tt.wantSentinel != nil {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !errors.Is(err, tt.wantSentinel) {
+					t.Errorf("error %q does not wrap %v", err, tt.wantSentinel)
+				}
+				return
+			}
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatal("expected error, got nil")
