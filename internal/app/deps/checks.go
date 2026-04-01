@@ -81,7 +81,7 @@ func validateCustomCheckNative(check invowkfile.CustomCheck) error {
 func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
 	if err != nil {
-		return fmt.Errorf("  • %s - %w", check.Name, ErrContainerRuntimeNotAvailable)
+		return depBulletErr(string(check.Name), ErrContainerRuntimeNotAvailable)
 	}
 
 	validationCtx, stdout, stderr := NewContainerValidationContext(ctx, string(check.CheckScript))
@@ -287,6 +287,14 @@ func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 	return nil
 }
 
+// depBulletErr formats a dependency error with the standard bullet-point prefix.
+// Used across dependency validators to produce consistently styled error messages.
+//
+//goplint:ignore -- accepts raw string from multiple typed sources (CustomCheckName, EnvVarName).
+func depBulletErr(name string, err error) error {
+	return fmt.Errorf("  • %s - %w", name, err)
+}
+
 //goplint:ignore -- helper formats internal dependency-check labels.
 func requireContainerRuntime(registry *runtime.Registry, label string) (runtime.Runtime, error) {
 	rt, err := registry.Get(runtime.RuntimeTypeContainer)
@@ -315,7 +323,7 @@ func validateContainerEnvVar(alt invowkfile.EnvVarCheck, rt runtime.Runtime, ctx
 		return errors.New("  • (empty) - environment variable name cannot be empty")
 	}
 	if err := invowkfile.ValidateEnvVarName(name); err != nil {
-		return fmt.Errorf("  • %s - %w", name, err)
+		return depBulletErr(name, err)
 	}
 
 	checkScript := fmt.Sprintf("test -n \"${%s+x}\"", name)
@@ -338,7 +346,7 @@ func validateContainerEnvVar(alt invowkfile.EnvVarCheck, rt runtime.Runtime, ctx
 	if alt.Validation != "" {
 		return fmt.Errorf("  • %s - not set or value does not match pattern '%s' in container", name, alt.Validation.String())
 	}
-	return fmt.Errorf("  • %s - %w", name, ErrContainerEnvVarNotSet)
+	return depBulletErr(name, ErrContainerEnvVarNotSet)
 }
 
 func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) []DependencyMessage {
