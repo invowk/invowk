@@ -61,10 +61,12 @@ O Invowk usa um **modelo de dependências explícitas**, similar ao Go modules: 
 - `invowk module sync` falha com erros acionáveis se dependências transitivas estiverem faltando.
 - `invowk module tidy` adiciona automaticamente dependências transitivas faltantes ao seu `invowkmod.cue`.
 
-Comandos em um módulo só podem chamar comandos de:
+Ao declarar `depends_on.cmds`, comandos em um módulo só podem referenciar comandos de:
 1. O mesmo módulo
 2. Módulos instalados globalmente (seus caminhos de descoberta)
 3. Módulos declarados diretamente na lista `requires` desse módulo
+
+Este escopo é aplicado em tempo de validação (durante `invowk module sync` e antes da execução de comandos). Não intercepta chamadas de subprocesso em tempo de execução dentro de scripts.
 :::
 
 ## Cache de Módulos

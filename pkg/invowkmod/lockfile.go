@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -138,10 +139,14 @@ func (n ModuleNamespace) String() string { return string(n) }
 // String returns the string representation of the LockFileVersion.
 func (v LockFileVersion) String() string { return string(v) }
 
-// Validate returns nil if the LockFileVersion is valid (non-empty),
-// or an error describing the validation failure.
+// Validate returns nil if the LockFileVersion is a known format version,
+// or an error if it is empty or unrecognized. The known versions allowlist
+// is maintained in lockfile_parser.go alongside the parser registry.
 func (v LockFileVersion) Validate() error {
 	if v == "" {
+		return &InvalidLockFileVersionError{Value: v}
+	}
+	if !IsKnownLockFileVersion(v) {
 		return &InvalidLockFileVersionError{Value: v}
 	}
 	return nil
@@ -149,7 +154,14 @@ func (v LockFileVersion) Validate() error {
 
 // Error implements the error interface for InvalidLockFileVersionError.
 func (e *InvalidLockFileVersionError) Error() string {
-	return fmt.Sprintf("invalid lock file version %q: must be non-empty", e.Value)
+	if e.Value == "" {
+		return "invalid lock file version: must be non-empty"
+	}
+	known := make([]string, len(knownLockFileVersions))
+	for i, v := range knownLockFileVersions {
+		known[i] = string(v)
+	}
+	return fmt.Sprintf("invalid lock file version %q: must be one of [%s]", e.Value, strings.Join(known, ", "))
 }
 
 // Unwrap returns ErrInvalidLockFileVersion for errors.Is() compatibility.
@@ -242,11 +254,11 @@ func LoadLockFile(path string) (*LockFile, error) {
 		return nil, fmt.Errorf("failed to read lock file: %w", err)
 	}
 
-	return parseLockFileCUE(string(data))
+	return parseLockFile(string(data))
 }
 
 // Save writes the lock file to disk in CUE format.
-// Uses atomicWriteFile (temp file + rename) for crash safety.
+// Uses fspath.AtomicWriteFile (temp file + rename) for crash safety.
 func (l *LockFile) Save(path string) error {
 	content := l.toCUE()
 
@@ -255,7 +267,7 @@ func (l *LockFile) Save(path string) error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	return atomicWriteFile(path, []byte(content))
+	return fspath.AtomicWriteFile(path, []byte(content), fspath.DefaultFilePerm)
 }
 
 // AddModule adds a resolved module to the lock file.
@@ -322,113 +334,6 @@ func (l *LockFile) toCUE() string {
 	sb.WriteString("}\n")
 
 	return sb.String()
-}
-
-// parseLockFileCUE parses a CUE-format lock file.
-// This is a simplified parser for the lock file format.
-func parseLockFileCUE(content string) (*LockFile, error) {
-	lock := NewLockFile()
-
-	// Parse line by line (simplified parser)
-	lines := strings.Split(content, "\n")
-	var currentModuleKey ModuleRefKey
-	var currentModule LockedModule
-	inModules := false
-	braceDepth := 0
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-
-		// Skip comments and empty lines
-		if strings.HasPrefix(line, "//") || line == "" {
-			continue
-		}
-
-		// Top-level fields are parsed only outside the modules block.
-		// Without this guard, module-level `version:` fields would be consumed
-		// by the top-level parser (the field names collide).
-		if !inModules {
-			// Parse version
-			if strings.HasPrefix(line, "version:") {
-				lock.Version = LockFileVersion(parseStringValue(line))
-				if err := lock.Version.Validate(); err != nil {
-					return nil, fmt.Errorf("lock file version: %w", err)
-				}
-				continue
-			}
-
-			// Parse generated timestamp
-			if strings.HasPrefix(line, "generated:") {
-				if t, err := time.Parse(time.RFC3339, parseStringValue(line)); err == nil {
-					lock.Generated = t
-				}
-				continue
-			}
-		}
-
-		// Track modules block — fall through to process any { on this line
-		if strings.HasPrefix(line, "modules:") {
-			inModules = true
-		}
-
-		if !inModules {
-			continue
-		}
-
-		// Track brace depth
-		if strings.Contains(line, "{") {
-			braceDepth++
-			// Check if this is a new module entry
-			if braceDepth == 2 && strings.Contains(line, ":") {
-				currentModuleKey = parseModuleKey(line)
-				currentModule = LockedModule{}
-			}
-		}
-		if strings.Contains(line, "}") {
-			if braceDepth == 2 && currentModuleKey != "" {
-				if err := currentModuleKey.Validate(); err != nil {
-					return nil, fmt.Errorf("lock file module key: %w", err)
-				}
-				if err := currentModule.Validate(); err != nil {
-					// Attach the module key to the error for debugging context.
-					if lockedErr, ok := errors.AsType[*InvalidLockedModuleError](err); ok {
-						lockedErr.ModuleKey = currentModuleKey
-					}
-					return nil, fmt.Errorf("lock file module %q: %w", currentModuleKey, err)
-				}
-				lock.Modules[currentModuleKey] = currentModule
-				currentModuleKey = ""
-			}
-			braceDepth--
-			if braceDepth == 0 {
-				inModules = false
-			}
-		}
-
-		// Parse module fields — field-level casts are validated by struct-level checks.
-		if braceDepth == 2 && currentModuleKey != "" {
-			switch {
-			case strings.HasPrefix(line, "git_url:"):
-				currentModule.GitURL = GitURL(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "version:"):
-				currentModule.Version = SemVerConstraint(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "resolved_version:"):
-				currentModule.ResolvedVersion = SemVer(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "git_commit:"):
-				currentModule.GitCommit = GitCommit(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "alias:"):
-				currentModule.Alias = ModuleAlias(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "path:"):
-				currentModule.Path = SubdirectoryPath(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "namespace:"):
-				currentModule.Namespace = ModuleNamespace(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "content_hash:"):
-				currentModule.ContentHash = ContentHash(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			}
-		}
-	}
-
-	return lock, nil
 }
 
 // parseStringValue extracts a quoted string value from a CUE line.

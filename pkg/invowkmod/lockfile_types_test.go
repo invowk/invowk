@@ -16,10 +16,12 @@ func TestLockFileVersion_Validate(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		{"standard version", LockFileVersion("1.0"), true, false},
-		{"semver version", LockFileVersion("2.1.0"), true, false},
-		{"single digit", LockFileVersion("1"), true, false},
-		{"arbitrary string", LockFileVersion("v1-beta"), true, false},
+		{"v1.0 known", LockFileVersion("1.0"), true, false},
+		{"v2.0 known", LockFileVersion("2.0"), true, false},
+		{"semver rejected", LockFileVersion("2.1.0"), false, true},
+		{"single digit rejected", LockFileVersion("1"), false, true},
+		{"arbitrary string rejected", LockFileVersion("v1-beta"), false, true},
+		{"future version rejected", LockFileVersion("99.0"), false, true},
 		{"empty is invalid", LockFileVersion(""), false, true},
 	}
 

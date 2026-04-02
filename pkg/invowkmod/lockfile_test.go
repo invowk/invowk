@@ -3,6 +3,7 @@
 package invowkmod
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -319,9 +320,9 @@ modules: {
 		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
-		lf, err := parseLockFileCUE(content)
+		lf, err := parseLockFile(content)
 		if err != nil {
-			t.Fatalf("parseLockFileCUE() error: %v", err)
+			t.Fatalf("parseLockFile() error: %v", err)
 		}
 		if lf.Version != "2.0" {
 			t.Errorf("Version = %q, want %q", lf.Version, "2.0")
@@ -361,9 +362,9 @@ modules: {
 		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
-		lf, err := parseLockFileCUE(content)
+		lf, err := parseLockFile(content)
 		if err != nil {
-			t.Fatalf("parseLockFileCUE() error: %v", err)
+			t.Fatalf("parseLockFile() error: %v", err)
 		}
 
 		key := ModuleRefKey("https://github.com/org/repo.git#sub")
@@ -386,9 +387,9 @@ modules: {
 generated: "2025-01-15T10:30:00Z"
 
 modules: {}`
-		lf, err := parseLockFileCUE(content)
+		lf, err := parseLockFile(content)
 		if err != nil {
-			t.Fatalf("parseLockFileCUE() error: %v", err)
+			t.Fatalf("parseLockFile() error: %v", err)
 		}
 		if len(lf.Modules) != 0 {
 			t.Errorf("expected 0 modules, got %d", len(lf.Modules))
@@ -404,9 +405,9 @@ version: "2.0"
 generated: "2025-01-15T10:30:00Z"
 
 modules: {}`
-		lf, err := parseLockFileCUE(content)
+		lf, err := parseLockFile(content)
 		if err != nil {
-			t.Fatalf("parseLockFileCUE() error: %v", err)
+			t.Fatalf("parseLockFile() error: %v", err)
 		}
 		if lf.Version != "2.0" {
 			t.Errorf("Version = %q", lf.Version)
@@ -430,9 +431,9 @@ modules: {
 		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
-		lf, err := parseLockFileCUE(content)
+		lf, err := parseLockFile(content)
 		if err != nil {
-			t.Fatalf("parseLockFileCUE() error: %v", err)
+			t.Fatalf("parseLockFile() error: %v", err)
 		}
 		if lf.Version != "2.0" {
 			t.Errorf("top-level Version = %q, want %q (module version field leaked)", lf.Version, "2.0")
@@ -443,15 +444,58 @@ modules: {
 		}
 	})
 
-	t.Run("invalid_version", func(t *testing.T) {
+	t.Run("invalid_version_empty", func(t *testing.T) {
 		t.Parallel()
 
 		content := `version: ""
 generated: "2025-01-15T10:30:00Z"
 modules: {}`
-		_, err := parseLockFileCUE(content)
+		_, err := parseLockFile(content)
 		if err == nil {
 			t.Fatal("expected error for empty version, got nil")
+		}
+	})
+
+	t.Run("unknown_version_rejected", func(t *testing.T) {
+		t.Parallel()
+
+		content := `version: "99.0"
+generated: "2025-01-15T10:30:00Z"
+modules: {}`
+		_, err := parseLockFile(content)
+		if err == nil {
+			t.Fatal("expected error for unknown version, got nil")
+		}
+		if !errors.Is(err, ErrUnknownLockFileVersion) {
+			t.Errorf("expected ErrUnknownLockFileVersion, got: %v", err)
+		}
+	})
+
+	t.Run("v1_lock_file_accepted", func(t *testing.T) {
+		t.Parallel()
+
+		content := `version: "1.0"
+generated: "2025-01-15T10:30:00Z"
+
+modules: {
+	"https://github.com/user/repo.git": {
+		git_url:          "https://github.com/user/repo.git"
+		version:          "^1.0.0"
+		resolved_version: "1.2.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "repo@1.2.0"
+		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	}
+}`
+		lf, err := parseLockFile(content)
+		if err != nil {
+			t.Fatalf("parseLockFile() error: %v", err)
+		}
+		if lf.Version != "1.0" {
+			t.Errorf("Version = %q, want %q", lf.Version, "1.0")
+		}
+		if len(lf.Modules) != 1 {
+			t.Errorf("expected 1 module, got %d", len(lf.Modules))
 		}
 	})
 }
@@ -642,9 +686,9 @@ func TestParseLockFileCUE_RoundTrip(t *testing.T) {
 	}
 
 	cue := original.toCUE()
-	parsed, err := parseLockFileCUE(cue)
+	parsed, err := parseLockFile(cue)
 	if err != nil {
-		t.Fatalf("parseLockFileCUE() error: %v", err)
+		t.Fatalf("parseLockFile() error: %v", err)
 	}
 
 	if parsed.Version != original.Version {

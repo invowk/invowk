@@ -58,7 +58,7 @@ Review checklist:
 - [ ] `parseLockFileCUE()` handles malformed entries without panicking (crafted brace nesting, unclosed quotes)
 - [ ] No TOCTOU gap between hash verification and module loading (hash check → use)
 - [ ] Lock file size bounded before parsing (prevent DoS via crafted large files)
-- [ ] `atomicWriteFile()` used for all lock file writes (crash safety)
+- [ ] `fspath.AtomicWriteFile()` used for all lock file writes (crash safety, unpredictable temp names)
 
 ### 3. Module Provisioning and Vendoring
 

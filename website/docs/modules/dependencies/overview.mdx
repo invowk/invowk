@@ -61,10 +61,12 @@ Invowk uses an **explicit-only dependency model**, similar to Go modules: every 
 - `invowk module sync` fails with actionable errors if transitive dependencies are missing.
 - `invowk module tidy` auto-adds missing transitive dependencies to your `invowkmod.cue`.
 
-Commands in a module can only call commands from:
+When declaring `depends_on.cmds`, commands in a module can only reference commands from:
 1. The same module
 2. Globally installed modules (your discovery paths)
 3. Modules declared directly in that module's `requires` list
+
+This scope is enforced at validation time (during `invowk module sync` and before command execution). It does not intercept runtime subprocess calls within scripts.
 :::
 
 ## Module Cache

@@ -183,11 +183,21 @@ func copyDir(src, dst string) error {
 	return nil
 }
 
-// copyFile copies a single file.
+// copyFile copies a single regular file. Uses os.Lstat to avoid following
+// symlinks — a defense-in-depth layer independent of the caller's symlink
+// check in copyDir. This eliminates the TOCTOU window between the directory
+// entry check and the file read. Content hash verification provides a
+// second layer: if a file is replaced between copy and hash computation,
+// the mismatch is detected.
 func copyFile(src, dst string) error {
-	srcInfo, err := os.Stat(src)
+	srcInfo, err := os.Lstat(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("lstat %s: %w", src, err)
+	}
+	// Skip non-regular files (symlinks, devices, etc.) — each layer
+	// validates its own invariants rather than trusting the caller.
+	if !srcInfo.Mode().IsRegular() {
+		return nil
 	}
 
 	data, err := os.ReadFile(src)

@@ -10,7 +10,7 @@ Invowk is a dynamically extensible command runner (similar to `just`, `task`, an
 
   Invowk uses the **explicit-only dependency model** (like Go modules): every module in the dependency tree must be declared in the root `invowkmod.cue`. Transitive dependencies are NOT resolved automatically — if module A requires module B, and B requires C, then C must also be declared in the root `invowkmod.cue`. The `invowk module tidy` command auto-adds missing transitive deps, and `invowk module sync` fails with actionable errors if any are missing. The lock file (v2.0) includes SHA-256 content hashes for tamper detection.
 
-  The `CommandScope.CanCall()` visibility enforcement is **wired into the runtime execution path** via `CheckCommandDependenciesExist()` in `internal/app/deps/deps.go`. Commands from a module can only call commands from the same module, globally installed modules (`~/.invowk/cmds`), or first-level dependencies declared in `invowkmod.cue:requires`.
+  The `CommandScope.CanCall()` visibility enforcement is a **static analysis gate** applied at `depends_on.cmds` declaration validation time via `CheckCommandDependenciesExist()` in `internal/app/deps/deps.go`. It verifies that declared command dependencies are within scope (same module, globally installed modules at `~/.invowk/cmds`, or first-level dependencies in `invowkmod.cue:requires`). This is NOT a runtime subprocess interceptor — if a module script dynamically invokes `invowk cmd <command>`, the scope check is not triggered. For execution isolation, use the container runtime.
 
 ## Rules for Agents (Critical)
 
@@ -237,7 +237,7 @@ invowkfile.cue -> CUE Parser -> pkg/invowkfile -> Runtime Selection -> Execution
 - Never describe the virtual runtime as "sandboxed" or "isolated".
 - Clarify that "no shell dependency" means the interpreter is built-in, not that external commands are unavailable.
 - For execution isolation, always point users to the **container** runtime.
-- The `CommandScope.CanCall()` visibility enforcement is **wired into the runtime execution path** via `CheckCommandDependenciesExist()` in the deps validation layer. Commands from a module can only call commands from the same module, global modules, or direct dependencies.
+- The `CommandScope.CanCall()` visibility enforcement is a **static analysis gate** at `depends_on.cmds` declaration validation time via `CheckCommandDependenciesExist()` in the deps validation layer. It validates declared inter-module command references but does NOT intercept runtime subprocess calls. Commands from a module's `depends_on.cmds` can only reference the same module, global modules, or direct dependencies.
 
 ## Container Runtime Limitations
 
