@@ -14,6 +14,11 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const (
+	// scriptPathTraversalErrMsg backs ErrScriptPathTraversal.
+	scriptPathTraversalErrMsg = "script path escapes module boundary"
+)
+
 var (
 	// scriptFileExtensions contains extensions that indicate a script file
 	scriptFileExtensions = []string{".sh", ".bash", ".ps1", ".bat", ".cmd", ".py", ".rb", ".pl", ".zsh", ".fish"}
@@ -23,6 +28,10 @@ var (
 
 	// ErrInvalidImplementationMatch is the sentinel error wrapped by InvalidImplementationMatchError.
 	ErrInvalidImplementationMatch = errors.New("invalid implementation match")
+
+	// ErrScriptPathTraversal is returned when a module script path resolves
+	// outside the module boundary (e.g., "../../etc/passwd"). See SC-01.
+	ErrScriptPathTraversal = errors.New(scriptPathTraversalErrMsg)
 )
 
 type (
@@ -353,6 +362,15 @@ func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath File
 
 	if s.IsScriptFile() {
 		scriptPath := s.GetScriptFilePathWithModule(invowkfilePath, modulePath)
+
+		// Security: When resolving in a module context, validate that the script
+		// path stays within the module boundary to prevent path traversal (SC-01).
+		if modulePath != "" {
+			if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
+				return "", err
+			}
+		}
+
 		content, err := os.ReadFile(string(scriptPath))
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -392,6 +410,14 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 
 	if s.IsScriptFile() {
 		scriptPath := s.GetScriptFilePathWithModule(invowkfilePath, modulePath)
+
+		// Security: containment check for module contexts (SC-01).
+		if modulePath != "" {
+			if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
+				return "", err
+			}
+		}
+
 		content, err := readFile(string(scriptPath))
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -401,6 +427,21 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 
 	// Inline script - use directly
 	return script, nil
+}
+
+// validateScriptPathContainment ensures a resolved script path stays within
+// the module boundary. Prevents path traversal attacks where a module's
+// invowkfile.cue specifies paths like "../../etc/passwd" (SC-01).
+func validateScriptPathContainment(scriptPath, modulePath FilesystemPath) error {
+	relPath, err := filepath.Rel(string(modulePath), string(scriptPath))
+	if err != nil {
+		return fmt.Errorf("%w: failed to resolve path relative to module: %w", ErrScriptPathTraversal, err)
+	}
+	if strings.HasPrefix(relPath, "..") {
+		return fmt.Errorf("%w: '%s' resolves outside module '%s'",
+			ErrScriptPathTraversal, scriptPath, modulePath)
+	}
+	return nil
 }
 
 // ParseTimeout parses the Timeout field into a time.Duration.

@@ -10,14 +10,14 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:308` | Open |
+| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:308` | Partial |
 | SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:345` | By-design (documented) |
 | SC-03 | InvowkDir R/W volume mount to container | Medium | `internal/runtime/container_exec.go:118` | By-design |
 | SC-04 | SSH token exposed in container env | Medium | `internal/runtime/container_exec.go` | Partial (scoped lifetime) |
-| SC-05 | Provision `CopyDir` follows symlinks | High | `internal/provision/helpers.go:123` | Open |
+| SC-05 | Provision `CopyDir` follows symlinks | High | `internal/provision/helpers.go:123` | Partial |
 | SC-06 | `--ivk-env-var` highest-priority override | Low | `internal/runtime/env_builder.go` | By-design |
-| SC-07 | `check_script` arbitrary host shell execution | High | `cmd/invowk/cmd_validate_checks.go` | Open |
-| SC-08 | Arbitrary interpreter paths (no allowlist) | Medium | `pkg/invowkfile/implementation.go` | Open |
+| SC-07 | `check_script` arbitrary host shell execution | High | `internal/app/deps/checks.go:71` | Partial |
+| SC-08 | Arbitrary interpreter paths (no allowlist) | Medium | `pkg/invowkfile/runtime.go:452-488, pkg/invowkfile/implementation.go` | Open |
 | SC-09 | Root invowkfile commands bypass scope | Low | `internal/app/deps/deps.go:199` | By-design |
 | SC-10 | Global modules trusted without integrity check | Medium | `internal/discovery/discovery_files.go:122` | Open |
 

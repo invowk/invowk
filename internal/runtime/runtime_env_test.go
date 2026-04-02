@@ -178,6 +178,11 @@ func TestFilterInvowkEnvVars(t *testing.T) {
 			want:    []string{"PATH=/usr/bin", "HOME=/home", "USER=test"},
 		},
 		{
+			name:    "filter INVOWK_SSH_ vars (SC-04)",
+			environ: []string{"PATH=/usr/bin", "INVOWK_SSH_TOKEN=secret", "INVOWK_SSH_HOST=10.0.0.1", "INVOWK_SSH_PORT=2222", "HOME=/home/user"},
+			want:    []string{"PATH=/usr/bin", "HOME=/home/user"},
+		},
+		{
 			name:    "malformed env var kept",
 			environ: []string{"PATH=/usr/bin", "MALFORMED", "HOME=/home/user"},
 			want:    []string{"PATH=/usr/bin", "MALFORMED", "HOME=/home/user"},
@@ -239,6 +244,14 @@ func TestShouldFilterEnvVar(t *testing.T) {
 		{"ARG10", true},
 		{"ARG999", true},
 		{"ARG0", true},
+
+		// INVOWK_SSH_* cases (SC-04: prevent SSH credential leakage)
+		{"INVOWK_SSH_TOKEN", true},
+		{"INVOWK_SSH_HOST", true},
+		{"INVOWK_SSH_PORT", true},
+		{"INVOWK_SSH_USER", true},
+		{"INVOWK_SSH_ENABLED", true},
+		{"INVOWK_SSH_", true},
 
 		// Should NOT be filtered
 		{"PATH", false},

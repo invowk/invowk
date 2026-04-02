@@ -5,6 +5,7 @@ package invowkmod
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -98,7 +99,21 @@ func parseLockFile(content string) (*LockFile, error) {
 		}
 	}
 
-	return parser.Parse(content)
+	lock, err := parser.Parse(content)
+	if err != nil {
+		return nil, err
+	}
+
+	// Emit deprecation warning for v1 lock files. v1 lacks content_hash
+	// fields, so tamper detection is not available. A downgrade from v2→v1
+	// silently disables hash enforcement (supply-chain risk).
+	if lock.Version == LockFileVersionV1 {
+		slog.Warn("lock file uses deprecated v1.0 format without content hashes; "+
+			"run 'invowk module sync' to upgrade to v2.0 for tamper detection",
+			"version", string(lock.Version))
+	}
+
+	return lock, nil
 }
 
 // extractLockFileVersion reads the version field from lock file content

@@ -89,18 +89,27 @@ func DiscoverModules(paths []types.FilesystemPath) []string {
 	return modules
 }
 
-// CopyFile copies a file from src to dst.
+// CopyFile copies a regular file from src to dst. Uses os.Lstat as a
+// defense-in-depth layer to skip non-regular files (symlinks, devices),
+// preventing TOCTOU races between the caller's directory-level check and
+// the actual file read (SC-05). This mirrors the safe pattern in
+// pkg/invowkmod/resolver_cache.go:copyFile.
 func CopyFile(src, dst string) (err error) {
+	// Defense-in-depth: Lstat to detect symlinks without following them.
+	// Each layer validates its own invariants rather than trusting the caller.
+	srcInfo, err := os.Lstat(src)
+	if err != nil {
+		return fmt.Errorf("failed to lstat source file: %w", err)
+	}
+	if !srcInfo.Mode().IsRegular() {
+		return nil // Skip symlinks, devices, etc.
+	}
+
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
 	defer func() { _ = srcFile.Close() }() // Read-only file; close error non-critical
-
-	srcInfo, err := srcFile.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to stat source file: %w", err)
-	}
 
 	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
@@ -138,6 +147,13 @@ func CopyDir(src, dst string) error {
 	for _, entry := range entries {
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
+
+		// Skip symlinks to prevent directory traversal attacks during
+		// container provisioning (SC-05). Matches the safe pattern in
+		// pkg/invowkmod/resolver_cache.go:copyDir.
+		if entry.Type()&os.ModeSymlink != 0 {
+			continue
+		}
 
 		if entry.IsDir() {
 			if err := CopyDir(srcPath, dstPath); err != nil {

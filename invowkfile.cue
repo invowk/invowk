@@ -639,7 +639,9 @@ cmds: [
 					echo "  Token: (hidden for security)"
 					echo ""
 					echo "To connect to host from container, use:"
-					echo "  sshpass -p \$INVOWK_SSH_TOKEN ssh -o StrictHostKeyChecking=no \\"
+					echo "  # Note: -p exposes the token in ps output; use -e (reads SSHPASS env var) instead"
+					echo "  export SSHPASS=\$INVOWK_SSH_TOKEN"
+					echo "  sshpass -e ssh -o StrictHostKeyChecking=no \\"
 					echo "    \$INVOWK_SSH_USER@\$INVOWK_SSH_HOST -p \$INVOWK_SSH_PORT 'command'"
 					"""#
 				runtimes: [{
@@ -1790,6 +1792,7 @@ cmds: [
 					echo "Individual file arguments:"
 					i=1
 					while [ $i -le ${INVOWK_ARG_FILES_COUNT:-0} ]; do
+					    # Safe: variable name constructed from integer counter $i, not user input
 					    eval "file=\$INVOWK_ARG_FILES_$i"
 					    echo "  INVOWK_ARG_FILES_$i = '$file'"
 					    i=$((i + 1))
@@ -2216,7 +2219,7 @@ cmds: [
 					echo "All required environment variables are set:"
 					echo "  HOME = '$HOME'"
 					echo "  USER = '$USER'"
-					echo "  PATH = '$PATH' (truncated)"
+					echo "  PATH = '${PATH%%:*}...' (truncated)"
 					echo ""
 					echo "Each entry in env_vars is validated independently."
 					echo "All entries must be satisfied for the command to run."
@@ -2290,7 +2293,7 @@ cmds: [
 					echo "=== Container Env Var Dependencies Demo ==="
 					echo ""
 					echo "Environment variables checked INSIDE the container:"
-					echo "  PATH = '$PATH'"
+					echo "  PATH = '${PATH%%:*}...'"
 					echo "  HOME = '$HOME'"
 					echo ""
 					echo "Implementation-level env_vars dependencies are validated"
