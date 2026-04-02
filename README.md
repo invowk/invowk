@@ -2025,6 +2025,8 @@ The repository must contain a module (either a `.invowkmod` directory or an `inv
 
 Commands in a module can only call commands from direct dependencies or globally installed modules (transitive dependencies are not available).
 
+> **Explicit-Only Dependency Model**: Every module in the dependency tree must be declared in the root `invowkmod.cue`. Transitive dependencies are NOT resolved automatically — if module A requires module B, and B requires C, then C must also be declared in the root `invowkmod.cue`. Use `invowk module tidy` to auto-add missing transitive deps, or `invowk module sync` to detect missing ones with actionable error messages.
+
 ### Version Constraints
 
 | Format | Description | Example |
@@ -2053,7 +2055,11 @@ invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path p
 invowk module deps
 
 # Sync dependencies from invowkmod.cue (resolve and download)
+# Fails with actionable errors if transitive deps are missing
 invowk module sync
+
+# Auto-add missing transitive dependencies to invowkmod.cue
+invowk module tidy
 
 # Update all dependencies to latest matching versions
 invowk module update

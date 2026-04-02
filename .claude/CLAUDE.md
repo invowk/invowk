@@ -69,6 +69,7 @@ Agents are specialized reviewers and generators that can be spawned as subagents
 - [`.agents/agents/performance-analyzer.md`](.agents/agents/performance-analyzer.md) - Benchmark-aware reviewer: CUE hot path, discovery traversal, PGO profile maintenance.
 - [`.agents/agents/security-reviewer.md`](.agents/agents/security-reviewer.md) - Security reviewer: SSH auth, container injection, gosec exclusions, env var handling.
 - [`.agents/agents/ci-readiness.md`](.agents/agents/ci-readiness.md) - CI-readiness verifier: runs pre-completion checklist gates in parallel before commits/PRs.
+- [`.agents/agents/supply-chain-reviewer.md`](.agents/agents/supply-chain-reviewer.md) - Supply-chain security: module system threat model, script path traversal, lock file integrity, symlink abuse, trust boundaries.
 - [`.agents/agents/test-writer.md`](.agents/agents/test-writer.md) - Testscript generator: virtual/native txtar pairs, platform-split CUE, exemption rules.
 
 ### Commands
@@ -120,6 +121,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/changelog/`](.agents/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
 - [`.agents/skills/ci-update/`](.agents/skills/ci-update/) - User-invokable (`/ci-update`). Audit and update CI workflow versions, tool installs, MCP servers, and pre-commit hooks with sync pair validation.
 - [`.agents/skills/dep-audit/`](.agents/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.
+- [`.agents/skills/module-security/`](.agents/skills/module-security/) - Module system security auditing, supply-chain attack prevention, and `invowk module audit` subcommand architecture.
 - [`.agents/skills/speckit.specify/`](.agents/skills/speckit.specify/) - **User-only** (`/speckit.specify`). Create or update feature specification from natural language description. **Never auto-invoke.**
 - [`.agents/skills/speckit.clarify/`](.agents/skills/speckit.clarify/) - **User-only** (`/speckit.clarify`). Identify underspecified areas in feature spec via targeted clarification questions. **Never auto-invoke.**
 - [`.agents/skills/speckit.plan/`](.agents/skills/speckit.plan/) - **User-only** (`/speckit.plan`). Generate implementation plan from feature specification. **Never auto-invoke.**

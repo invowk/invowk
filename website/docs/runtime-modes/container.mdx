@@ -11,7 +11,7 @@ import Snippet from '@site/src/components/Snippet';
 The container runtime **only supports Debian-based Linux container images** (e.g., `debian:stable-slim`).
 
 **NOT supported:**
-- **Alpine-based images** — musl-based environments have subtle behavioral differences that reduce runtime reliability. Only images with exact name `alpine` or ending with `/alpine` (after stripping tags/digests) are rejected. Images like `go-alpine-builder` or `myorg/alpine-tools` are NOT rejected.
+- **Alpine-based images** — musl-based environments have subtle behavioral differences that reduce runtime reliability
 - **Windows container images** (`mcr.microsoft.com/windows/*`) — No POSIX shell available
 
 **Platform requirements:**
@@ -20,6 +20,12 @@ The container runtime **only supports Debian-based Linux container images** (e.g
 - **Windows**: Requires Docker Desktop with WSL2 backend in Linux containers mode
 
 Scripts are executed using `/bin/sh` inside the container, which requires a standard POSIX-compatible shell environment.
+
+:::
+
+:::info Alpine Detection Scope
+
+Invowk rejects images with exact name `alpine` or ending with `/alpine` (after stripping tags and digests). Images with "alpine" elsewhere in the name (e.g., `go-alpine-builder` or `myorg/alpine-tools`) are **not** automatically rejected. Avoid all musl-based images regardless of naming — the policy is about runtime reliability, not just image name matching.
 
 :::
 
