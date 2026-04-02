@@ -2828,6 +2828,8 @@ invowk/
 ├── tools/                      # Development tools (separate Go modules)
 │   └── goplint/                # Custom go/analysis analyzer for DDD value type enforcement
 ├── docs/                       # Architecture diagrams and design docs
+├── examples/                   # Example invowkfiles and modules
+├── Dockerfile                  # Container image for development
 └── website/                    # Docusaurus documentation site
 ```
 

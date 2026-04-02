@@ -342,12 +342,12 @@ invowk cmd build --ivk-runtime container`,
 }`,
   },
 
-  'reference/config/container-engine-example': {
+  'reference/config/container-engine': {
     language: 'cue',
     code: `container_engine: "podman"`,
   },
 
-  'reference/config/includes-example': {
+  'reference/config/includes': {
     language: 'cue',
     code: `includes: [
     {path: "/home/user/.invowk/modules/tools.invowkmod"},
@@ -356,19 +356,19 @@ invowk cmd build --ivk-runtime container`,
 ]`,
   },
 
-  'reference/config/default-runtime-example': {
+  'reference/config/default-runtime': {
     language: 'cue',
     code: `default_runtime: "native"`,
   },
 
-  'reference/config/virtual-shell-example': {
+  'reference/config/virtual-shell': {
     language: 'cue',
     code: `virtual_shell: {
     enable_uroot_utils: true
 }`,
   },
 
-  'reference/config/ui-example': {
+  'reference/config/ui': {
     language: 'cue',
     code: `ui: {
     color_scheme: "dark"
@@ -377,7 +377,7 @@ invowk cmd build --ivk-runtime container`,
 }`,
   },
 
-  'reference/config/container-example': {
+  'reference/config/container': {
     language: 'cue',
     code: `container: {
     auto_provision: {
@@ -393,7 +393,7 @@ invowk cmd build --ivk-runtime container`,
 }`,
   },
 
-  'reference/config/enable-uroot-utils-example': {
+  'reference/config/enable-uroot-utils': {
     language: 'cue',
     code: `virtual_shell: {
     enable_uroot_utils: true
@@ -428,7 +428,7 @@ invowk cmd build --ivk-runtime container`,
 }`,
   },
 
-  'reference/config/auto-provision-example': {
+  'reference/config/container-auto-provision': {
     language: 'cue',
     code: `container: {
     auto_provision: {
@@ -443,21 +443,21 @@ invowk cmd build --ivk-runtime container`,
 }`,
   },
 
-  'reference/config/color-scheme-example': {
+  'reference/config/ui-color-scheme': {
     language: 'cue',
     code: `ui: {
     color_scheme: "auto"
 }`,
   },
 
-  'reference/config/verbose-example': {
+  'reference/config/ui-verbose': {
     language: 'cue',
     code: `ui: {
     verbose: true
 }`,
   },
 
-  'reference/config/interactive-example': {
+  'reference/config/ui-interactive': {
     language: 'cue',
     code: `ui: {
     interactive: true
