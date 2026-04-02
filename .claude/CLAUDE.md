@@ -163,6 +163,7 @@ When working in a specific code area, apply these rules and skills:
 | `pkg/platform/` | go-patterns, testing, windows, licensing | windows-testing |
 | `pkg/types/` | go-patterns, testing, licensing, package-design | invowk-typesystem |
 | `tests/cli/` | testing | testing, cli, invowk-schema, go-testing |
+| `internal/audit/` | go-patterns, testing, licensing, package-design | module-security |
 | `tools/goplint/` | go-patterns, testing, licensing | go-testing |
 
 ## Quick Commands
