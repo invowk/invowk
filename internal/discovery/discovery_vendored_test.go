@@ -409,7 +409,7 @@ func TestDiscoverAll_VendoredScanFailed(t *testing.T) {
 
 	// Create invowk_modules/ and make it unreadable
 	vendorDir := filepath.Join(parentDir, invowkmod.VendoredModulesDir)
-	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+	if err := os.MkdirAll(vendorDir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Chmod(vendorDir, 0o000); err != nil {
@@ -417,7 +417,7 @@ func TestDiscoverAll_VendoredScanFailed(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		// Restore permissions so t.TempDir() cleanup can remove it
-		_ = os.Chmod(vendorDir, 0o755)
+		_ = os.Chmod(vendorDir, 0o750)
 	})
 
 	cfg := config.DefaultConfig()
