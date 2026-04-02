@@ -145,6 +145,7 @@ func RenderDependencyError(err *deps.DependencyError) string {
 
 	renderSection("Missing Tools:", err.MissingTools)
 	renderSection("Missing Commands:", err.MissingCommands)
+	renderSection("Forbidden Commands (not a direct dependency):", err.ForbiddenCommands)
 	renderSection("Missing or Inaccessible Files:", err.MissingFilepaths)
 	renderSection("Missing Capabilities:", err.MissingCapabilities)
 	renderSection("Failed Custom Checks:", err.FailedCustomChecks)

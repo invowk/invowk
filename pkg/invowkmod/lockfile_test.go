@@ -10,13 +10,20 @@ import (
 	"time"
 )
 
+const (
+	// testContentHash is a valid ContentHash used in test fixtures.
+	testContentHash = ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	// testContentHash2 is a second valid ContentHash for multi-module test fixtures.
+	testContentHash2 = ContentHash("sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2")
+)
+
 func TestNewLockFile(t *testing.T) {
 	t.Parallel()
 
 	lf := NewLockFile()
 
-	if lf.Version != "1.0" {
-		t.Errorf("Version = %q, want %q", lf.Version, "1.0")
+	if lf.Version != "2.0" {
+		t.Errorf("Version = %q, want %q", lf.Version, "2.0")
 	}
 	if lf.Modules == nil {
 		t.Fatal("Modules map is nil, want initialized")
@@ -44,6 +51,7 @@ func TestLockFile_AddModule(t *testing.T) {
 			ResolvedVersion: "1.2.0",
 			GitCommit:       "abc123def456789012345678901234567890abcd",
 			Namespace:       "repo@1.2.0",
+			ContentHash:     testContentHash,
 		}
 		lf.AddModule(resolved)
 
@@ -80,6 +88,7 @@ func TestLockFile_AddModule(t *testing.T) {
 			ResolvedVersion: "2.1.0",
 			GitCommit:       "def456789012345678901234567890abcdef0123",
 			Namespace:       "tools",
+			ContentHash:     testContentHash,
 		}
 		lf.AddModule(resolved)
 
@@ -112,12 +121,14 @@ func TestLockFile_AddModule(t *testing.T) {
 			ResolvedVersion: "1.0.0",
 			GitCommit:       "0000000000000000000000000000000000000001",
 			Namespace:       "repo@1.0.0",
+			ContentHash:     testContentHash,
 		})
 		lf.AddModule(&ResolvedModule{
 			ModuleRef:       ref,
 			ResolvedVersion: "1.1.0",
 			GitCommit:       "0000000000000000000000000000000000000002",
 			Namespace:       "repo@1.1.0",
+			ContentHash:     testContentHash2,
 		})
 
 		if len(lf.Modules) != 1 {
@@ -147,6 +158,7 @@ func TestLockFile_HasModule(t *testing.T) {
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "repo@1.0.0",
+		ContentHash:     testContentHash,
 	}
 
 	if !lf.HasModule(key) {
@@ -168,6 +180,7 @@ func TestLockFile_GetModule(t *testing.T) {
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "repo@1.0.0",
+		ContentHash:     testContentHash,
 	}
 
 	mod, ok := lf.GetModule(key)
@@ -191,7 +204,7 @@ func TestLockFile_toCUE(t *testing.T) {
 		t.Parallel()
 
 		lf := &LockFile{
-			Version:   "1.0",
+			Version:   "2.0",
 			Generated: time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 			Modules:   make(map[ModuleRefKey]LockedModule),
 		}
@@ -203,7 +216,7 @@ func TestLockFile_toCUE(t *testing.T) {
 		if !strings.Contains(got, "// DO NOT EDIT MANUALLY") {
 			t.Error("missing DO NOT EDIT comment")
 		}
-		if !strings.Contains(got, `version: "1.0"`) {
+		if !strings.Contains(got, `version: "2.0"`) {
 			t.Error("missing version field")
 		}
 		if !strings.Contains(got, "modules: {}") {
@@ -215,7 +228,7 @@ func TestLockFile_toCUE(t *testing.T) {
 		t.Parallel()
 
 		lf := &LockFile{
-			Version:   "1.0",
+			Version:   "2.0",
 			Generated: time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 			Modules: map[ModuleRefKey]LockedModule{
 				"https://github.com/user/repo.git": {
@@ -224,6 +237,7 @@ func TestLockFile_toCUE(t *testing.T) {
 					ResolvedVersion: "1.2.0",
 					GitCommit:       "abc123def456789012345678901234567890abcd",
 					Namespace:       "repo@1.2.0",
+					ContentHash:     testContentHash,
 				},
 			},
 		}
@@ -241,6 +255,9 @@ func TestLockFile_toCUE(t *testing.T) {
 		if !strings.Contains(got, `namespace:`) {
 			t.Error("missing namespace field")
 		}
+		if !strings.Contains(got, `content_hash:`) {
+			t.Error("missing content_hash field")
+		}
 		// Optional fields should NOT be rendered when empty
 		if strings.Contains(got, "alias:") {
 			t.Error("alias should not be rendered when empty")
@@ -254,7 +271,7 @@ func TestLockFile_toCUE(t *testing.T) {
 		t.Parallel()
 
 		lf := &LockFile{
-			Version:   "1.0",
+			Version:   "2.0",
 			Generated: time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 			Modules: map[ModuleRefKey]LockedModule{
 				"https://github.com/org/repo.git#sub": {
@@ -265,6 +282,7 @@ func TestLockFile_toCUE(t *testing.T) {
 					Alias:           "myalias",
 					Path:            "sub",
 					Namespace:       "myalias",
+					ContentHash:     testContentHash,
 				},
 			},
 		}
@@ -288,7 +306,7 @@ func TestParseLockFileCUE(t *testing.T) {
 		content := `// invowkmod.lock.cue
 // DO NOT EDIT MANUALLY
 
-version: "1.0"
+version: "2.0"
 generated: "2025-01-15T10:30:00Z"
 
 modules: {
@@ -298,14 +316,15 @@ modules: {
 		resolved_version: "1.2.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "repo@1.2.0"
+		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
 		lf, err := parseLockFileCUE(content)
 		if err != nil {
 			t.Fatalf("parseLockFileCUE() error: %v", err)
 		}
-		if lf.Version != "1.0" {
-			t.Errorf("Version = %q, want %q", lf.Version, "1.0")
+		if lf.Version != "2.0" {
+			t.Errorf("Version = %q, want %q", lf.Version, "2.0")
 		}
 		if len(lf.Modules) != 1 {
 			t.Fatalf("expected 1 module, got %d", len(lf.Modules))
@@ -327,7 +346,7 @@ modules: {
 	t.Run("with_optional_fields", func(t *testing.T) {
 		t.Parallel()
 
-		content := `version: "1.0"
+		content := `version: "2.0"
 generated: "2025-01-15T10:30:00Z"
 
 modules: {
@@ -339,6 +358,7 @@ modules: {
 		alias:            "tools"
 		path:             "sub"
 		namespace:        "tools"
+		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
 		lf, err := parseLockFileCUE(content)
@@ -362,7 +382,7 @@ modules: {
 	t.Run("empty_modules", func(t *testing.T) {
 		t.Parallel()
 
-		content := `version: "1.0"
+		content := `version: "2.0"
 generated: "2025-01-15T10:30:00Z"
 
 modules: {}`
@@ -379,7 +399,7 @@ modules: {}`
 		t.Parallel()
 
 		content := `// This is a comment
-version: "1.0"
+version: "2.0"
 // Another comment
 generated: "2025-01-15T10:30:00Z"
 
@@ -388,7 +408,7 @@ modules: {}`
 		if err != nil {
 			t.Fatalf("parseLockFileCUE() error: %v", err)
 		}
-		if lf.Version != "1.0" {
+		if lf.Version != "2.0" {
 			t.Errorf("Version = %q", lf.Version)
 		}
 	})
@@ -397,7 +417,7 @@ modules: {}`
 		t.Parallel()
 
 		// The module-level "version:" field must NOT overwrite the top-level "version:".
-		content := `version: "1.0"
+		content := `version: "2.0"
 generated: "2025-01-15T10:30:00Z"
 
 modules: {
@@ -407,14 +427,15 @@ modules: {
 		resolved_version: "1.2.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "repo@1.2.0"
+		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
 		lf, err := parseLockFileCUE(content)
 		if err != nil {
 			t.Fatalf("parseLockFileCUE() error: %v", err)
 		}
-		if lf.Version != "1.0" {
-			t.Errorf("top-level Version = %q, want %q (module version field leaked)", lf.Version, "1.0")
+		if lf.Version != "2.0" {
+			t.Errorf("top-level Version = %q, want %q (module version field leaked)", lf.Version, "2.0")
 		}
 		mod := lf.Modules[ModuleRefKey("https://github.com/user/repo.git")]
 		if mod.Version != "^1.0.0" {
@@ -495,7 +516,7 @@ func TestLoadLockFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("LoadLockFile() error: %v", err)
 		}
-		if lf.Version != "1.0" {
+		if lf.Version != "2.0" {
 			t.Errorf("Version = %q, want fresh lock file", lf.Version)
 		}
 		if len(lf.Modules) != 0 {
@@ -510,7 +531,7 @@ func TestLoadLockFile(t *testing.T) {
 		path := filepath.Join(dir, LockFileName)
 
 		lf := &LockFile{
-			Version:   "1.0",
+			Version:   "2.0",
 			Generated: time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 			Modules: map[ModuleRefKey]LockedModule{
 				"https://github.com/user/repo.git": {
@@ -519,6 +540,7 @@ func TestLoadLockFile(t *testing.T) {
 					ResolvedVersion: "1.2.0",
 					GitCommit:       "abc123def456789012345678901234567890abcd",
 					Namespace:       "repo@1.2.0",
+					ContentHash:     testContentHash,
 				},
 			},
 		}
@@ -530,7 +552,7 @@ func TestLoadLockFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("LoadLockFile() error: %v", err)
 		}
-		if loaded.Version != "1.0" {
+		if loaded.Version != "2.0" {
 			t.Errorf("Version = %q", loaded.Version)
 		}
 		if len(loaded.Modules) != 1 {
@@ -569,7 +591,7 @@ func TestLockFile_Save(t *testing.T) {
 		path := filepath.Join(dir, LockFileName)
 
 		lf := &LockFile{
-			Version:   "1.0",
+			Version:   "2.0",
 			Generated: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
 			Modules:   make(map[ModuleRefKey]LockedModule),
 		}
@@ -582,7 +604,7 @@ func TestLockFile_Save(t *testing.T) {
 			t.Fatalf("ReadFile() error: %v", err)
 		}
 		content := string(data)
-		if !strings.Contains(content, `version: "1.0"`) {
+		if !strings.Contains(content, `version: "2.0"`) {
 			t.Error("saved file missing version field")
 		}
 		if !strings.Contains(content, "modules: {}") {
@@ -595,7 +617,7 @@ func TestParseLockFileCUE_RoundTrip(t *testing.T) {
 	t.Parallel()
 
 	original := &LockFile{
-		Version:   "1.0",
+		Version:   "2.0",
 		Generated: time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 		Modules: map[ModuleRefKey]LockedModule{
 			"https://github.com/user/repo.git": {
@@ -604,6 +626,7 @@ func TestParseLockFileCUE_RoundTrip(t *testing.T) {
 				ResolvedVersion: "1.2.0",
 				GitCommit:       "abc123def456789012345678901234567890abcd",
 				Namespace:       "repo@1.2.0",
+				ContentHash:     testContentHash,
 			},
 			"https://github.com/org/mono.git#tools": {
 				GitURL:          "https://github.com/org/mono.git",
@@ -613,6 +636,7 @@ func TestParseLockFileCUE_RoundTrip(t *testing.T) {
 				Alias:           "tools",
 				Path:            "tools",
 				Namespace:       "tools",
+				ContentHash:     testContentHash2,
 			},
 		},
 	}
@@ -656,6 +680,9 @@ func TestParseLockFileCUE_RoundTrip(t *testing.T) {
 		}
 		if parsedMod.Namespace != origMod.Namespace {
 			t.Errorf("[%s] Namespace = %q, want %q", key, parsedMod.Namespace, origMod.Namespace)
+		}
+		if parsedMod.ContentHash != origMod.ContentHash {
+			t.Errorf("[%s] ContentHash = %q, want %q", key, parsedMod.ContentHash, origMod.ContentHash)
 		}
 	}
 }

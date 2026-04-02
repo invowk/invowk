@@ -70,20 +70,38 @@ func (m *Resolver) getCachePath(gitURL, version, subPath string) string {
 	return filepath.Join(parts...)
 }
 
-// cacheModule copies a module to the cache directory.
-func (m *Resolver) cacheModule(srcDir, dstDir string) error {
+// cacheModule copies a module to the cache directory and returns its content hash.
+// If the destination already exists and expectedHash is non-empty, the cached content
+// is verified against the expected hash. A ContentHashMismatchError is returned on mismatch.
+func (m *Resolver) cacheModule(srcDir, dstDir string, expectedHash ContentHash) (ContentHash, error) {
 	// Check if already cached
 	if _, err := os.Stat(dstDir); err == nil {
-		return nil // Already cached
+		// Compute hash of existing cached module.
+		actualHash, hashErr := computeModuleHash(dstDir)
+		if hashErr != nil {
+			return "", fmt.Errorf("failed to hash cached module: %w", hashErr)
+		}
+		if expectedHash != "" && actualHash != expectedHash {
+			return "", &ContentHashMismatchError{
+				Expected: expectedHash,
+				Actual:   actualHash,
+			}
+		}
+		return actualHash, nil
 	}
 
 	// Create parent directories
 	if err := os.MkdirAll(filepath.Dir(dstDir), 0o755); err != nil {
-		return fmt.Errorf("failed to create cache directory: %w", err)
+		return "", fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	// Copy the module directory
-	return copyDir(srcDir, dstDir)
+	if err := copyDir(srcDir, dstDir); err != nil {
+		return "", err
+	}
+
+	// Compute hash of newly cached module.
+	return computeModuleHash(dstDir)
 }
 
 // findModuleInDir finds a .invowkmod directory or invowkmod.cue in the given directory.

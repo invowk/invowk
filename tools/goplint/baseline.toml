@@ -1,12 +1,35 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # goplint baseline — accepted DDD compliance findings
-# Generated: 2026-03-27
+# Generated: 2026-04-02
 # Regenerate: make update-baseline
-# Total: 1 findings
+# Total: 9 findings
 
 # Bare primitive type usage
 [primitive]
 entries = [
+    { id = "gpl3_15d3d1108b3b3ac5f3da86a640926e08a2e06ff7a4921c74beba8818f4178842", message = "parameter \"path\" of invowkmod.hashFileContent uses primitive type string" },
+    { id = "gpl3_33578fc7f2771e2cd951fa15fc7f5e7f27cb906416193ca42c103de9bb85a580", message = "return value of invowkmod.MissingTransitiveDepDiagnostic.CUESnippet uses primitive type string" },
+    { id = "gpl3_3bb9172b8b9ef51049feb322eeb73cd900ef9f8d0d2108cd0ebabbf104d57014", message = "parameter \"dir\" of invowkmod.computeModuleHash uses primitive type string" },
     { id = "gpl3_5d23fc2f41c96e8c6bc7ec3034ed4a7f5688a227b7b988df2275eab0186a728a", message = "struct field invowk.WatchCommandNotFoundError.Name uses primitive type string" },
+    { id = "gpl3_c6cac3380992a229f34a4dfced9e33d6fe7c908011340b3e756c308ba370a850", message = "parameter \"alternatives\" of deps.findMatchingCommand uses primitive type []string" },
+    { id = "gpl3_ddd45af0808507d5b0598ca185359611f1d8d213ddd32fd894ddf57cd5b295c7", message = "parameter \"currentModule\" of deps.findMatchingCommand uses primitive type string" },
+]
+
+# Type conversions to DDD types without Validate() check
+[unvalidated-cast]
+entries = [
+    { id = "gpl3_534da255eb5964438ca982d0ed3aba99248e40051bec2eedcf84c7a5b1264da8", message = "type conversion to ContentHash from non-constant without Validate() check" },
+]
+
+# Structs with validate-all missing field Validate() delegation
+[incomplete-validate-delegation]
+entries = [
+    { id = "gpl3_c0cc9c6d427e807951630bd49cb7dd52a30ba0f234ecaffe9b74357434421932", message = "invowkmod.ResolvedModule.Validate() does not delegate to field ContentHash which has Validate()" },
+]
+
+# Structs with validatable fields but no Validate() method
+[missing-struct-validate-fields]
+entries = [
+    { id = "gpl3_e57c01e11504ff4c373f14ff44a86c1385292e32e4a2b7837c088165eee461b9", message = "struct invowkmod.MissingTransitiveDepDiagnostic has 3 validatable field(s) but no Validate() method" },
 ]

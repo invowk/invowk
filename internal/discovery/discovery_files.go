@@ -43,6 +43,10 @@ type (
 		// module inside another module's invowk_modules/ directory.
 		// nil for non-vendored files.
 		ParentModule *invowkmod.Module
+		// IsGlobalModule is true when this file was discovered from the user
+		// commands directory (~/.invowk/cmds). Global module commands are always
+		// accessible by any module's CommandScope.
+		IsGlobalModule bool
 	}
 )
 
@@ -110,9 +114,18 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	files, diagnostics = d.appendModulesWithVendored(files, diagnostics, includeFiles, includeDiags)
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive) (+ their vendored dependencies)
+	// Mark all user-dir modules as global — their commands are accessible by any module's CommandScope.
 	if d.commandsDir != "" {
 		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
+		for i := range userModuleFiles {
+			userModuleFiles[i].IsGlobalModule = true
+		}
+		beforeLen := len(files)
 		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
+		// Propagate IsGlobalModule to vendored children appended by appendModulesWithVendored.
+		for i := beforeLen; i < len(files); i++ {
+			files[i].IsGlobalModule = true
+		}
 	}
 
 	return files, diagnostics, nil

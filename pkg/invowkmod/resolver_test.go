@@ -384,29 +384,43 @@ func TestIsGitURL(t *testing.T) {
 func TestResolveIdentifier(t *testing.T) {
 	t.Parallel()
 
+	testHash := ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+
 	modules := map[ModuleRefKey]LockedModule{
 		"https://github.com/user/tools.git": {
-			GitURL:    "https://github.com/user/tools.git",
-			Version:   "^1.0.0",
-			Namespace: "tools@1.2.3",
+			GitURL:          "https://github.com/user/tools.git",
+			Version:         "^1.0.0",
+			ResolvedVersion: "1.2.3",
+			GitCommit:       "abc123def456789012345678901234567890abcd",
+			Namespace:       "tools@1.2.3",
+			ContentHash:     testHash,
 		},
 		"https://github.com/user/utils.git": {
-			GitURL:    "https://github.com/user/utils.git",
-			Version:   "^2.0.0",
-			Namespace: "myalias",
-			Alias:     "myalias",
+			GitURL:          "https://github.com/user/utils.git",
+			Version:         "^2.0.0",
+			ResolvedVersion: "2.0.0",
+			GitCommit:       "def456abc78901234567890123456789abcdef1a",
+			Namespace:       "myalias",
+			Alias:           "myalias",
+			ContentHash:     testHash,
 		},
 		"https://github.com/user/monorepo.git#packages/a": {
-			GitURL:    "https://github.com/user/monorepo.git",
-			Version:   "^1.0.0",
-			Namespace: "pkga@1.0.0",
-			Path:      "packages/a",
+			GitURL:          "https://github.com/user/monorepo.git",
+			Version:         "^1.0.0",
+			ResolvedVersion: "1.0.0",
+			GitCommit:       "aaa456bbb789ccc012ddd345eee678fff901abc2",
+			Namespace:       "pkga@1.0.0",
+			Path:            "packages/a",
+			ContentHash:     testHash,
 		},
 		"https://github.com/user/monorepo.git#packages/b": {
-			GitURL:    "https://github.com/user/monorepo.git",
-			Version:   "^1.0.0",
-			Namespace: "pkgb@1.0.0",
-			Path:      "packages/b",
+			GitURL:          "https://github.com/user/monorepo.git",
+			Version:         "^1.0.0",
+			ResolvedVersion: "1.0.0",
+			GitCommit:       "bbb456ccc789ddd012eee345fff678aaa901bcd3",
+			Namespace:       "pkgb@1.0.0",
+			Path:            "packages/b",
+			ContentHash:     testHash,
 		},
 	}
 
@@ -491,15 +505,25 @@ func TestResolveIdentifier(t *testing.T) {
 func TestResolveIdentifierAmbiguous(t *testing.T) {
 	t.Parallel()
 
+	testHash := ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+
 	// Two modules with same namespace prefix
 	modules := map[ModuleRefKey]LockedModule{
 		"https://github.com/orgA/tools.git": {
-			GitURL:    "https://github.com/orgA/tools.git",
-			Namespace: "tools@1.0.0",
+			GitURL:          "https://github.com/orgA/tools.git",
+			Version:         "^1.0.0",
+			ResolvedVersion: "1.0.0",
+			GitCommit:       "abc123def456789012345678901234567890abcd",
+			Namespace:       "tools@1.0.0",
+			ContentHash:     testHash,
 		},
 		"https://github.com/orgB/tools.git": {
-			GitURL:    "https://github.com/orgB/tools.git",
-			Namespace: "tools@2.0.0",
+			GitURL:          "https://github.com/orgB/tools.git",
+			Version:         "^2.0.0",
+			ResolvedVersion: "2.0.0",
+			GitCommit:       "def456abc78901234567890123456789abcdef1a",
+			Namespace:       "tools@2.0.0",
+			ContentHash:     testHash,
 		},
 	}
 
@@ -528,12 +552,14 @@ func TestRemoveByNamespace(t *testing.T) {
 
 	// Write a lock file with known entries
 	lock := NewLockFile()
+	rTestHash := ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 	lock.Modules["https://github.com/user/tools.git"] = LockedModule{
 		GitURL:          "https://github.com/user/tools.git",
 		Version:         "^1.0.0",
 		ResolvedVersion: "1.2.3",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "tools@1.2.3",
+		ContentHash:     rTestHash,
 	}
 	lock.Modules["https://github.com/user/utils.git"] = LockedModule{
 		GitURL:          "https://github.com/user/utils.git",
@@ -542,6 +568,7 @@ func TestRemoveByNamespace(t *testing.T) {
 		GitCommit:       "def456abc78901234567890123456789abcdef1a",
 		Alias:           "myalias",
 		Namespace:       "myalias",
+		ContentHash:     rTestHash,
 	}
 
 	lockPath := filepath.Join(workDir, LockFileName)
@@ -594,6 +621,7 @@ func TestAddWritesLockFile(t *testing.T) {
 		// Simulate the lock-file-write path that Add() executes after resolution.
 		// Add() calls resolveOne() (which requires real Git), then persists via
 		// LoadLockFile → AddModule → Save. We test this persistence path directly.
+		addTestHash := ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 		resolved := &ResolvedModule{
 			ModuleRef: ModuleRef{
 				GitURL:  "https://github.com/user/tools.git",
@@ -603,6 +631,7 @@ func TestAddWritesLockFile(t *testing.T) {
 			GitCommit:       "abc123def456789012345678901234567890abcd",
 			Namespace:       "tools@1.2.3",
 			ModuleName:      "tools",
+			ContentHash:     addTestHash,
 		}
 
 		lock, err := LoadLockFile(lockPath)
@@ -650,18 +679,21 @@ func TestAddWritesLockFile(t *testing.T) {
 
 		// Pre-populate lock file with an existing entry
 		existing := NewLockFile()
+		appendTestHash := ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 		existing.Modules["https://github.com/user/utils.git"] = LockedModule{
 			GitURL:          "https://github.com/user/utils.git",
 			Version:         "^2.0.0",
 			ResolvedVersion: "2.1.0",
 			GitCommit:       "eee78901234567890123456789abcdef12345678",
 			Namespace:       "utils@2.1.0",
+			ContentHash:     appendTestHash,
 		}
 		if err := existing.Save(lockPath); err != nil {
 			t.Fatalf("failed to save existing lock file: %v", err)
 		}
 
 		// Now simulate Add() writing a second module
+		appendTestHash2 := ContentHash("sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2")
 		resolved := &ResolvedModule{
 			ModuleRef: ModuleRef{
 				GitURL:  "https://github.com/user/tools.git",
@@ -673,6 +705,7 @@ func TestAddWritesLockFile(t *testing.T) {
 			GitCommit:       "aaa456bbb789ccc012ddd345eee678fff901abc2",
 			Namespace:       "mytools",
 			ModuleName:      "tools",
+			ContentHash:     appendTestHash2,
 		}
 
 		lock, err := LoadLockFile(lockPath)

@@ -71,8 +71,12 @@ type (
 		// ModuleID is the module identifier from the module's invowkmod.cue.
 		ModuleID ModuleID
 
-		// TransitiveDeps are dependencies declared by this module (for recursive resolution).
+		// TransitiveDeps are dependencies declared by this module (for validation of
+		// explicit-only dependency model — transitive deps must be declared in root invowkmod.cue).
 		TransitiveDeps []ModuleRef
+
+		// ContentHash is the SHA-256 content hash of the cached module tree.
+		ContentHash ContentHash
 	}
 
 	// Resolver handles module operations including resolution, caching, and synchronization.
@@ -229,7 +233,7 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	}
 
 	// Resolve the module
-	resolved, err := m.resolveOne(ctx, req, make(map[ModuleRefKey]bool))
+	resolved, err := m.resolveOne(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
 	}
@@ -314,7 +318,6 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	}
 
 	var updated []*ResolvedModule
-	visited := make(map[ModuleRefKey]bool)
 
 	for _, key := range keysToUpdate {
 		entry := lock.Modules[key]
@@ -327,7 +330,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 			Path:    entry.Path,
 		}
 
-		resolved, err := m.resolveOne(ctx, req, visited)
+		resolved, err := m.resolveOne(ctx, req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update %s: %w", key, err)
 		}
@@ -341,6 +344,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 			Alias:           resolved.ModuleRef.Alias,
 			Path:            resolved.ModuleRef.Path,
 			Namespace:       resolved.Namespace,
+			ContentHash:     resolved.ContentHash,
 		}
 
 		updated = append(updated, resolved)
@@ -363,15 +367,21 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 		return nil, nil
 	}
 
-	// Build dependency graph and resolve all modules
+	// Resolve only direct dependencies (no transitive recursion).
 	resolved, err := m.resolveAll(ctx, requirements)
 	if err != nil {
 		return nil, err
 	}
 
+	// Validate that all transitive deps are explicitly declared in root requirements.
+	// If any are missing, return an actionable error suggesting `invowk module tidy`.
+	if diags := checkMissingTransitiveDeps(requirements, resolved); len(diags) > 0 {
+		return nil, &MissingTransitiveDepError{Diagnostics: diags}
+	}
+
 	// Save lock file
 	lock := &LockFile{
-		Version: "1.0",
+		Version: "2.0",
 		Modules: make(map[ModuleRefKey]LockedModule),
 	}
 
@@ -384,6 +394,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 			Alias:           mod.ModuleRef.Alias,
 			Path:            mod.ModuleRef.Path,
 			Namespace:       mod.Namespace,
+			ContentHash:     mod.ContentHash,
 		}
 	}
 
@@ -410,7 +421,8 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 	}
 
 	var modules []*ResolvedModule
-	for key, entry := range lock.Modules {
+	for key := range lock.Modules {
+		entry := lock.Modules[key]
 		modules = append(modules, &ResolvedModule{
 			ModuleRef: ModuleRef{
 				GitURL:  entry.GitURL,
@@ -466,7 +478,8 @@ func resolveIdentifier(identifier string, modules map[ModuleRefKey]LockedModule)
 
 	// Namespace match: exact and prefix (bare name without @version)
 	var exactMatches, prefixMatches []ModuleRefKey
-	for key, entry := range modules {
+	for key := range modules {
+		entry := modules[key]
 		if string(entry.Namespace) == identifier {
 			exactMatches = append(exactMatches, key)
 		} else if strings.HasPrefix(string(entry.Namespace), identifier+"@") {

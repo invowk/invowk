@@ -103,6 +103,10 @@ type (
 
 		// Namespace is the computed namespace for commands.
 		Namespace ModuleNamespace
+
+		// ContentHash is the SHA-256 content hash of the cached module tree.
+		// Used for tamper detection of vendored/cached modules.
+		ContentHash ContentHash
 	}
 )
 
@@ -199,6 +203,9 @@ func (m LockedModule) Validate() error {
 	if err := m.Namespace.Validate(); err != nil {
 		errs = append(errs, err)
 	}
+	if err := m.ContentHash.Validate(); err != nil {
+		errs = append(errs, err)
+	}
 	if len(errs) > 0 {
 		return &InvalidLockedModuleError{FieldErrors: errs}
 	}
@@ -219,7 +226,7 @@ func (e *InvalidLockedModuleError) Unwrap() error { return ErrInvalidLockedModul
 // NewLockFile creates a new empty lock file.
 func NewLockFile() *LockFile {
 	return &LockFile{
-		Version:   "1.0",
+		Version:   "2.0",
 		Generated: time.Now(),
 		Modules:   make(map[ModuleRefKey]LockedModule),
 	}
@@ -239,6 +246,7 @@ func LoadLockFile(path string) (*LockFile, error) {
 }
 
 // Save writes the lock file to disk in CUE format.
+// Uses atomicWriteFile (temp file + rename) for crash safety.
 func (l *LockFile) Save(path string) error {
 	content := l.toCUE()
 
@@ -247,18 +255,7 @@ func (l *LockFile) Save(path string) error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Write atomically using temp file + rename
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("failed to write lock file: %w", err)
-	}
-
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath) // Best-effort cleanup of temp file
-		return fmt.Errorf("failed to rename lock file: %w", err)
-	}
-
-	return nil
+	return atomicWriteFile(path, []byte(content))
 }
 
 // AddModule adds a resolved module to the lock file.
@@ -271,6 +268,7 @@ func (l *LockFile) AddModule(resolved *ResolvedModule) {
 		Alias:           resolved.ModuleRef.Alias,
 		Path:            resolved.ModuleRef.Path,
 		Namespace:       resolved.Namespace,
+		ContentHash:     resolved.ContentHash,
 	}
 }
 
@@ -304,7 +302,8 @@ func (l *LockFile) toCUE() string {
 	}
 
 	sb.WriteString("modules: {\n")
-	for key, mod := range l.Modules {
+	for key := range l.Modules {
+		mod := l.Modules[key]
 		fmt.Fprintf(&sb, "\t%q: {\n", key)
 		fmt.Fprintf(&sb, "\t\tgit_url:          %q\n", mod.GitURL)
 		fmt.Fprintf(&sb, "\t\tversion:          %q\n", mod.Version)
@@ -317,6 +316,7 @@ func (l *LockFile) toCUE() string {
 			fmt.Fprintf(&sb, "\t\tpath:             %q\n", mod.Path)
 		}
 		fmt.Fprintf(&sb, "\t\tnamespace:        %q\n", mod.Namespace)
+		fmt.Fprintf(&sb, "\t\tcontent_hash:     %q\n", mod.ContentHash)
 		sb.WriteString("\t}\n")
 	}
 	sb.WriteString("}\n")
@@ -422,6 +422,8 @@ func parseLockFileCUE(content string) (*LockFile, error) {
 				currentModule.Path = SubdirectoryPath(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			case strings.HasPrefix(line, "namespace:"):
 				currentModule.Namespace = ModuleNamespace(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
+			case strings.HasPrefix(line, "content_hash:"):
+				currentModule.ContentHash = ContentHash(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			}
 		}
 	}

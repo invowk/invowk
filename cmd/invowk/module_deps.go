@@ -94,6 +94,11 @@ func newModuleSyncCommand() *cobra.Command {
 This reads the 'requires' field from invowkmod.cue, resolves all version
 constraints, downloads the modules, and updates the lock file.
 
+Invowk uses the explicit-only dependency model (like Go modules): every module
+in the dependency tree must be declared in YOUR invowkmod.cue. If a module you
+depend on requires another module, sync will fail with an actionable error
+listing the missing declarations. Run 'invowk module tidy' to auto-add them.
+
 Examples:
   invowk module sync`,
 		Args: cobra.ExactArgs(0),

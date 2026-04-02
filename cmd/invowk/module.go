@@ -90,6 +90,7 @@ Examples:
 	modCmd.AddCommand(newModuleSyncCommand())
 	modCmd.AddCommand(newModuleUpdateCommand())
 	modCmd.AddCommand(newModuleDepsCommand())
+	modCmd.AddCommand(newModuleTidyCommand())
 
 	return modCmd
 }

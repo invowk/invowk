@@ -60,6 +60,10 @@ type (
 		// IsAmbiguous is true if SimpleName conflicts with another command
 		// from a different source
 		IsAmbiguous bool
+		// IsGlobalModule is true when this command comes from a module discovered
+		// in the user commands directory (~/.invowk/cmds). Global module commands
+		// are always accessible by any module's CommandScope.
+		IsGlobalModule bool
 	}
 
 	//goplint:mutable
@@ -254,15 +258,16 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			}
 
 			commandSet.Add(&CommandInfo{
-				Name:        fullName, // Full name for Cobra registration (may be prefixed)
-				Description: cmd.Description,
-				Source:      file.Source,
-				FilePath:    file.Path,
-				Command:     cmd,
-				Invowkfile:  file.Invowkfile,
-				SimpleName:  simpleName, // Simple name for conflict detection
-				SourceID:    sourceID,
-				ModuleID:    moduleID,
+				Name:           fullName, // Full name for Cobra registration (may be prefixed)
+				Description:    cmd.Description,
+				Source:         file.Source,
+				FilePath:       file.Path,
+				Command:        cmd,
+				Invowkfile:     file.Invowkfile,
+				SimpleName:     simpleName, // Simple name for conflict detection
+				SourceID:       sourceID,
+				ModuleID:       moduleID,
+				IsGlobalModule: file.IsGlobalModule,
 			})
 		}
 	}
