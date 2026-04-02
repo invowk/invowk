@@ -2073,7 +2073,7 @@ Module resolution creates an `invowkmod.lock.cue` file that records the exact ve
 // invowkmod.lock.cue - Auto-generated lock file
 // DO NOT EDIT MANUALLY
 
-version: "1.0"
+version: "2.0"
 generated: "2025-01-12T10:30:00Z"
 
 modules: {
@@ -2083,6 +2083,7 @@ modules: {
 		resolved_version: "1.2.3"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "common-tools@1.2.3"
+		content_hash:     "sha256:a1b2c3d4e5f6..."
 	}
 }
 ```

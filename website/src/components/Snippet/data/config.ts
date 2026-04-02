@@ -114,6 +114,11 @@ ui: {
 container: {
     auto_provision: {
         enabled: true
+        strict: false
+        binary_path: ""
+        includes: []
+        inherit_includes: true
+        cache_dir: ""
     }
 }`,
   },

@@ -864,7 +864,7 @@ export GIT_TOKEN=your-token`,
 
   'modules/dependencies/lockfile-example': {
     language: 'cue',
-    code: `version: "1.0"
+    code: `version: "2.0"
 generated: "2025-01-10T12:34:56Z"
 
 modules: {
@@ -875,6 +875,7 @@ modules: {
         git_commit:       "abc123def456789012345678901234567890abcd"
         alias:            "common"
         namespace:        "common"
+        content_hash:     "sha256:a1b2c3d4e5f6..."
     }
 }`,
   },

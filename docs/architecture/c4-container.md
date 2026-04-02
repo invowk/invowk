@@ -81,7 +81,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 
 1. **Discovery Engine** finds module requirements
 2. **Module Resolver** checks cache, fetches from Git if needed
-3. Dependencies are resolved transitively
+3. Dependencies use the explicit-only model (every transitive dep must be declared in root `invowkmod.cue`)
 4. Commands from required modules become available
 
 ## Design Rationale

@@ -18,7 +18,7 @@ Ele é gerado automaticamente por `invowk module sync` e `invowk module update`.
 
 | Campo | Descrição |
 |-------|-----------|
-| `version` | Versão do formato do lock file |
+| `version` | Versão do formato do lock file (atual: `"2.0"`) |
 | `generated` | Timestamp de criação do lock file |
 | `modules` | Mapa de chaves de módulo para entradas travadas |
 
@@ -35,6 +35,7 @@ Cada entrada em `modules` contém:
 | `alias` | Alias de namespace (se definido) |
 | `path` | Caminho de subdiretório (se definido) |
 | `namespace` | Namespace calculado para comandos |
+| `content_hash` | Hash SHA-256 do conteúdo da árvore do módulo em cache (detecção de adulteração) |
 
 ## Chaves de Módulo
 
@@ -45,7 +46,7 @@ A chave no mapa `modules` é derivada da URL Git e do caminho opcional:
 ## Notas de Uso
 
 - Commite `invowkmod.lock.cue` no controle de versão para builds reprodutíveis.
-- `invowk module add` **não** grava o lock file; use `invowk module sync`.
+- `invowk module add` grava o lock file automaticamente (não é necessário executar `invowk module sync` depois).
 
 ## Workflows Comuns
 

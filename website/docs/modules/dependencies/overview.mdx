@@ -55,13 +55,16 @@ When a dependency module is installed in a discovery path, run its commands with
 4. **Lock file**: Resolved versions are written to `invowkmod.lock.cue`
 5. **Discovery**: Commands are available via the module namespace when the dependency is installed
 
-:::note Direct Dependencies Only
+:::note Explicit-Only Dependencies (Go-Style)
+Invowk uses an **explicit-only dependency model**, similar to Go modules: every module in the dependency tree must be declared in your root `invowkmod.cue`. If module A requires module B, and B requires C, then C must also be declared in your `invowkmod.cue`.
+
+- `invowk module sync` fails with actionable errors if transitive dependencies are missing.
+- `invowk module tidy` auto-adds missing transitive dependencies to your `invowkmod.cue`.
+
 Commands in a module can only call commands from:
 1. The same module
 2. Globally installed modules (your discovery paths)
 3. Modules declared directly in that module's `requires` list
-
-Transitive dependencies are resolved and cached, but their commands are not in scope unless they are also listed directly.
 :::
 
 ## Module Cache
