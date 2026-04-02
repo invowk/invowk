@@ -131,7 +131,8 @@ func computeModuleHash(dir string) (ContentHash, error) {
 	}
 
 	sum := hasher.Sum(nil)
-	return ContentHash(contentHashPrefix + hex.EncodeToString(sum)), nil
+	hash := ContentHash(contentHashPrefix + hex.EncodeToString(sum)) //goplint:ignore -- constructed from sha256 output, format is guaranteed valid
+	return hash, nil
 }
 
 // hashFileContent streams a file's content into the hasher.

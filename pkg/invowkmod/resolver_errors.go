@@ -36,6 +36,25 @@ type (
 	}
 )
 
+// Validate returns nil if the diagnostic has valid fields, or an error
+// collecting all field-level validation failures.
+func (d MissingTransitiveDepDiagnostic) Validate() error {
+	var errs []error
+	if err := d.RequiringModule.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := d.RequiringURL.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := d.MissingRef.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid missing transitive dep diagnostic: %d field error(s): %w", len(errs), errors.Join(errs...))
+	}
+	return nil
+}
+
 // CUESnippet produces a ready-to-paste CUE entry for the missing dependency.
 // Delegates to formatRequiresEntry() to keep the format synchronized with
 // what AddRequirement() writes to invowkmod.cue.
