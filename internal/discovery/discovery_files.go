@@ -115,17 +115,13 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive) (+ their vendored dependencies)
 	// Mark all user-dir modules as global — their commands are accessible by any module's CommandScope.
+	// Vendored children inherit IsGlobalModule inside appendModulesWithVendored.
 	if d.commandsDir != "" {
 		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
 		for i := range userModuleFiles {
 			userModuleFiles[i].IsGlobalModule = true
 		}
-		beforeLen := len(files)
 		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
-		// Propagate IsGlobalModule to vendored children appended by appendModulesWithVendored.
-		for i := beforeLen; i < len(files); i++ {
-			files[i].IsGlobalModule = true
-		}
 	}
 
 	return files, diagnostics, nil
@@ -379,6 +375,10 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 // each discovered module, scans its invowk_modules/ directory for vendored
 // dependencies. This DRYs the pattern used at all 3 module discovery sites
 // (local modules, includes, user-dir).
+//
+// Vendored children inherit IsGlobalModule from their parent so that scope
+// enforcement treats globally-installed vendored commands identically to their
+// parent module's commands.
 func (d *Discovery) appendModulesWithVendored(
 	files []*DiscoveredFile,
 	diagnostics []Diagnostic,
@@ -393,6 +393,12 @@ func (d *Discovery) appendModulesWithVendored(
 		// Scan vendored modules owned by this module
 		if mf.Module != nil {
 			vendoredFiles, vendoredDiags := d.discoverVendoredModulesWithDiagnostics(mf.Module)
+			// Inherit IsGlobalModule from the parent module.
+			if mf.IsGlobalModule {
+				for _, vf := range vendoredFiles {
+					vf.IsGlobalModule = true
+				}
+			}
 			files = append(files, vendoredFiles...)
 			diagnostics = append(diagnostics, vendoredDiags...)
 		}
