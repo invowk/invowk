@@ -3,16 +3,23 @@
 package invowkmod
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+// maxLockFileSize is the maximum allowed lock file size (5 MiB).
+// Matches the CUE file size guard in cueutil.CheckFileSize. Prevents DoS
+// via crafted multi-GB lock files that would exhaust process memory (M-01).
+const maxLockFileSize = 5 * 1024 * 1024
 
 var (
 	// ErrInvalidModuleNamespace is returned when a ModuleNamespace value is empty.
@@ -273,12 +280,22 @@ func (l *LockFile) RequireV2() error {
 }
 
 // LoadLockFile loads a lock file from the given path.
+// Returns a new empty lock file if the path does not exist.
+// Rejects files exceeding maxLockFileSize to prevent DoS (M-01).
 func LoadLockFile(path string) (*LockFile, error) {
-	data, err := os.ReadFile(path)
+	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return NewLockFile(), nil
 		}
+		return nil, fmt.Errorf("failed to stat lock file: %w", err)
+	}
+	if info.Size() > maxLockFileSize {
+		return nil, fmt.Errorf("lock file exceeds maximum size (%d bytes > %d bytes)", info.Size(), maxLockFileSize)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read lock file: %w", err)
 	}
 
@@ -342,7 +359,16 @@ func (l *LockFile) toCUE() string {
 	}
 
 	sb.WriteString("modules: {\n")
+	// Sort keys for deterministic output — prevents spurious VCS diffs when
+	// the lock file is regenerated with identical logical content (L-03).
+	keys := make([]ModuleRefKey, 0, len(l.Modules))
 	for key := range l.Modules {
+		keys = append(keys, key)
+	}
+	slices.SortFunc(keys, func(a, b ModuleRefKey) int {
+		return cmp.Compare(string(a), string(b))
+	})
+	for _, key := range keys {
 		mod := l.Modules[key]
 		fmt.Fprintf(&sb, "\t%q: {\n", key)
 		fmt.Fprintf(&sb, "\t\tgit_url:          %q\n", mod.GitURL)

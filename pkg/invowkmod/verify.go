@@ -21,6 +21,13 @@ type lockHashEntry struct {
 // of vendored module content (e.g., via malicious commits or CI artifact cache
 // poisoning) before the modules are loaded for execution.
 //
+// Security boundary (L-02): This is a point-in-time integrity check, not a
+// runtime enforcement gate. There is a TOCTOU gap between this verification
+// and the actual module loading for execution — an attacker with filesystem
+// write access could modify module files after verification passes. For
+// stronger guarantees, combine with read-only filesystem mounts or container
+// execution where the module tree is copied into an immutable layer.
+//
 // Returns nil if all hashes match, no vendored modules exist, or no lock file
 // exists. Returns a ContentHashMismatchError on the first mismatched module.
 func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
@@ -40,13 +47,17 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 	}
 
 	// Build a lookup from module ID to lock entry for matching vendored modules.
+	// The namespace format is "<module_id>@<version>" or an alias — extract
+	// the module ID by stripping the version suffix so lookups by ModuleID
+	// actually match (CT-03: fixes silent verification bypass).
 	hashByID := make(map[ModuleID]lockHashEntry, len(lock.Modules))
 	for key := range lock.Modules {
 		mod := lock.Modules[key]
 		if mod.ContentHash == "" {
 			continue
 		}
-		hashByID[ModuleID(mod.Namespace)] = lockHashEntry{
+		moduleID := extractModuleIDFromNamespace(mod.Namespace)
+		hashByID[moduleID] = lockHashEntry{
 			key:  key,
 			hash: mod.ContentHash,
 		}
@@ -100,26 +111,20 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 	return nil
 }
 
-// findLockEntryForModule matches a vendored module to its lock file entry.
-// Tries namespace match first, then falls back to module ID matching.
-func findLockEntryForModule(m *Module, hashByID map[ModuleID]lockHashEntry, lock *LockFile) (lockHashEntry, bool) {
-	// Match by module ID in the hashByID map (keyed by namespace).
-	if entry, ok := hashByID[m.Metadata.Module]; ok {
-		return entry, true
-	}
+// findLockEntryForModule matches a vendored module to its lock file entry
+// using the module ID extracted from the namespace (CT-03).
+func findLockEntryForModule(m *Module, hashByID map[ModuleID]lockHashEntry, _ *LockFile) (lockHashEntry, bool) {
+	entry, ok := hashByID[m.Metadata.Module]
+	return entry, ok
+}
 
-	// Fallback: match by scanning lock entries for matching module ID.
-	for key := range lock.Modules {
-		mod := lock.Modules[key]
-		if mod.ContentHash == "" {
-			continue
-		}
-		// The lock entry's namespace may be "name@version" or an alias.
-		// Check if the vendored module's ID matches via the lock entry's git URL pattern.
-		if mod.Namespace != "" && ModuleID(mod.Namespace) == m.Metadata.Module {
-			return lockHashEntry{key: key, hash: mod.ContentHash}, true
-		}
+// extractModuleIDFromNamespace extracts the module ID from a namespace string.
+// Namespace format is "<module_id>@<version>" or an alias. If no "@" separator
+// is found, the entire namespace is returned as the module ID.
+func extractModuleIDFromNamespace(ns ModuleNamespace) ModuleID {
+	nsStr := string(ns)
+	if moduleID, _, found := strings.Cut(nsStr, "@"); found {
+		return ModuleID(moduleID) //goplint:ignore -- extracted from validated ModuleNamespace
 	}
-
-	return lockHashEntry{}, false
+	return ModuleID(nsStr) //goplint:ignore -- identity conversion from validated ModuleNamespace
 }

@@ -136,7 +136,20 @@ func computeModuleHash(dir string) (ContentHash, error) {
 }
 
 // hashFileContent streams a file's content into the hasher.
+// Uses Lstat before Open and fstat after Open to close the TOCTOU window
+// between the WalkDir entry check and the actual file read (L-01). This
+// prevents a symlink race where a regular file is swapped for a symlink
+// after the walk reports it as regular but before the Open call resolves it.
 func hashFileContent(hasher io.Writer, path string) (err error) {
+	// Defense-in-depth: Lstat confirms the path is still a regular file.
+	info, lstatErr := os.Lstat(path)
+	if lstatErr != nil {
+		return fmt.Errorf("lstat %s: %w", path, lstatErr)
+	}
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -146,6 +159,16 @@ func hashFileContent(hasher io.Writer, path string) (err error) {
 			err = closeErr
 		}
 	}()
+
+	// Final check: verify the opened fd is still a regular file (closes
+	// the remaining Lstat-to-Open TOCTOU window).
+	fInfo, statErr := f.Stat()
+	if statErr != nil {
+		return fmt.Errorf("fstat %s: %w", path, statErr)
+	}
+	if !fInfo.Mode().IsRegular() {
+		return nil
+	}
 
 	_, err = io.Copy(hasher, f)
 	return err

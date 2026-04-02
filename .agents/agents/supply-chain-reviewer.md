@@ -13,13 +13,13 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 | SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:308` | Partial |
 | SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:345` | By-design (documented) |
 | SC-03 | InvowkDir R/W volume mount to container | Medium | `internal/runtime/container_exec.go:118` | By-design |
-| SC-04 | SSH token exposed in container env | Medium | `internal/runtime/container_exec.go` | Partial (scoped lifetime) |
-| SC-05 | Provision `CopyDir` follows symlinks | High | `internal/provision/helpers.go:123` | Partial |
+| SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial (scoped lifetime + FilterInvowkEnvVars) |
+| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156` | Mitigated |
 | SC-06 | `--ivk-env-var` highest-priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | `check_script` arbitrary host shell execution | High | `internal/app/deps/checks.go:71` | Partial |
-| SC-08 | Arbitrary interpreter paths (no allowlist) | Medium | `pkg/invowkfile/runtime.go:452-488, pkg/invowkfile/implementation.go` | Open |
+| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452-488` | Mitigated (allowlist in Validate) |
 | SC-09 | Root invowkfile commands bypass scope | Low | `internal/app/deps/deps.go:199` | By-design |
-| SC-10 | Global modules trusted without integrity check | Medium | `internal/discovery/discovery_files.go:122` | Open |
+| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-124` | Partial (shadowing detection) |
 
 **Status legend:**
 - **Open** — No mitigation in place; needs a code fix or explicit risk acceptance

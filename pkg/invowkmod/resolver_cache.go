@@ -5,6 +5,7 @@ package invowkmod
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,6 +55,11 @@ func GetDefaultCacheDirWith(getenv func(string) string) (types.FilesystemPath, e
 }
 
 // getCachePath returns the cache path for a module.
+//
+// Known limitation (L-07): URLs differing only by scheme (e.g., https://github.com/user/repo
+// and git@github.com:user/repo) normalize to the same cache path. The content hash check
+// provides a backstop when a prior lock file exists, but on first sync (no baseline) a
+// stale cached copy from a different scheme could be reused undetected.
 func (m *Resolver) getCachePath(gitURL, version, subPath string) string {
 	// Convert git URL to path-safe format
 	// e.g., "https://github.com/user/repo.git" -> "github.com/user/repo"
@@ -88,6 +94,14 @@ func (m *Resolver) cacheModule(srcDir, dstDir string, expectedHash ContentHash) 
 			}
 		}
 		return actualHash, nil
+	}
+
+	// L-05: When no expected hash exists (first sync or lock file deleted), warn that
+	// there is no integrity baseline to compare against. A pre-populated cache directory
+	// created by an attacker would not be detected until the next sync with a valid lock file.
+	if expectedHash == "" {
+		slog.Warn("caching module without integrity baseline (first sync)",
+			"dst", dstDir)
 	}
 
 	// Create parent directories

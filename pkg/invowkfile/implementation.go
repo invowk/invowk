@@ -314,6 +314,12 @@ func (s *Implementation) GetScriptFilePath(invowkfilePath FilesystemPath) Filesy
 // The modulePath parameter specifies the module root directory for module-relative paths.
 // When modulePath is non-empty, script paths are expected to use forward slashes for
 // cross-platform compatibility and are resolved relative to the module root.
+//
+// Security: This method performs path resolution only — it does NOT validate that the
+// resolved path stays within the module boundary. Callers performing file I/O in module
+// contexts MUST use ResolveScriptWithModule or ResolveScriptWithFSAndModule, which apply
+// validateScriptPathContainment (SC-01). Direct use of this method for file reads without
+// a subsequent containment check is a security risk.
 func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath FilesystemPath) FilesystemPath {
 	if !s.IsScriptFile() {
 		return ""

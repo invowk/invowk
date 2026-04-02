@@ -264,19 +264,20 @@ Validator checks their accuracy at the start of every audit.
 | SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go:363-444` | Partial |
 | SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:344-355` | By-design |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container_exec.go:118` | By-design |
-| SC-04 | SSH token in container env | Medium | `internal/runtime/container_exec.go:438, runtime.go:571-575` | Partial |
+| SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial |
 | SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156` | Mitigated |
 | SC-06 | `--ivk-env-var` priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | `check_script` host shell execution | High | `internal/app/deps/checks.go:70-72` | Partial |
-| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/runtime.go:452, pkg/invowkfile/implementation.go` | Open |
+| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452` | Mitigated (allowlist in Validate) |
 | SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go:199-201` | By-design |
-| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-124` | Open |
+| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-124` | Partial |
 
 **Status legend:** Open (no mitigation), Partial (gaps remain), Mitigated (fixed, residual gap only), By-design (intentional, document only)
 
 **2026-04-02 audit notes:**
 - SC-05 upgraded to Mitigated: both `CopyDir` implementations (`resolver_cache.go:copyDir` and `provision/helpers.go:CopyDir`) now skip symlinks. Residual: `os.Stat` on the `src` dir argument itself follows symlinks.
-- SC-10: `detectModuleShadowing()` warning added in `discovery_files.go` for local-vs-global collisions.
+- SC-10 upgraded to Partial: `detectModuleShadowing()` warning added in `discovery_files.go` for local-vs-global collisions. No cryptographic integrity verification — shadowing detection is warning-level only.
+- SC-08 upgraded to Mitigated: `InterpreterSpec.Validate()` now enforces an allowlist of known safe interpreters and rejects shell metacharacters. Bare `env` requires full path (`/usr/bin/env` or `/bin/env`).
 
 ---
 
