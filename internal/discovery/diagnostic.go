@@ -50,6 +50,11 @@ const (
 	// CodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
 	// Bridged from runtime.CodeContainerRuntimeInitFailed at the CLI layer boundary.
 	CodeContainerRuntimeInitFailed DiagnosticCode = "container_runtime_init_failed"
+	// CodeModuleShadowsGlobal indicates a local module has the same ID as a
+	// globally installed module, causing the local to take precedence. This is
+	// safe (local doesn't gain global trust) but may indicate typosquatting or
+	// accidental namespace collision.
+	CodeModuleShadowsGlobal DiagnosticCode = "module_shadows_global"
 
 	// invalidDiagnosticPanicFmt is used for impossible invalid Diagnostic states.
 	invalidDiagnosticPanicFmt = "BUG: invalid diagnostic: %v"
@@ -205,7 +210,8 @@ func (dc DiagnosticCode) Validate() error {
 		CodeModuleScanFailed, CodeReservedModuleNameSkipped, CodeModuleLoadSkipped,
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
-		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed:
+		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed,
+		CodeModuleShadowsGlobal:
 		return nil
 	default:
 		return &InvalidDiagnosticCodeError{Value: dc}

@@ -54,7 +54,9 @@ func (m *Resolver) Tidy(ctx context.Context, requirements []ModuleRef) ([]Module
 	}
 
 	// Resolve only the direct deps (no transitive recursion).
-	resolved, err := m.resolveAll(ctx, requirements)
+	// Tidy adds missing transitive deps — pass existing lock hashes for cache integrity.
+	knownHashes := m.loadExistingLockHashes()
+	resolved, err := m.resolveAll(ctx, requirements, knownHashes)
 	if err != nil {
 		return nil, err
 	}

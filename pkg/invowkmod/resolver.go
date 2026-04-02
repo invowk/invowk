@@ -232,8 +232,11 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 		return nil, fmt.Errorf("invalid requirement: %w", err)
 	}
 
+	// Load existing lock file hashes for cache tamper detection.
+	knownHashes := m.loadExistingLockHashes()
+
 	// Resolve the module
-	resolved, err := m.resolveOne(ctx, req)
+	resolved, err := m.resolveOne(ctx, req, knownHashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
 	}
@@ -243,6 +246,10 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+	}
+	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
+	if v2Err := lock.RequireV2(); v2Err != nil {
+		return nil, v2Err
 	}
 	lock.AddModule(resolved)
 	if err := lock.Save(lockPath); err != nil {
@@ -263,6 +270,10 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+	}
+	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
+	if v2Err := lock.RequireV2(); v2Err != nil {
+		return nil, v2Err
 	}
 
 	// Resolve identifier to lock file keys
@@ -303,6 +314,10 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	if err != nil {
 		return nil, fmt.Errorf(errFmtLoadLockFile, err)
 	}
+	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
+	if v2Err := lock.RequireV2(); v2Err != nil {
+		return nil, v2Err
+	}
 
 	// Determine which keys to update
 	var keysToUpdate []ModuleRefKey
@@ -330,7 +345,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 			Path:    entry.Path,
 		}
 
-		resolved, err := m.resolveOne(ctx, req)
+		resolved, err := m.resolveOne(ctx, req, lock.ContentHashes())
 		if err != nil {
 			return nil, fmt.Errorf("failed to update %s: %w", key, err)
 		}
@@ -367,8 +382,13 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 		return nil, nil
 	}
 
+	// Load existing lock file hashes for cache tamper detection.
+	// When re-syncing, cached modules are verified against the prior
+	// lock file's content hashes to detect tampering of the local cache.
+	knownHashes := m.loadExistingLockHashes()
+
 	// Resolve only direct dependencies (no transitive recursion).
-	resolved, err := m.resolveAll(ctx, requirements)
+	resolved, err := m.resolveAll(ctx, requirements, knownHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -445,6 +465,19 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 // This is used for command discovery when a lock file already exists.
 func (m *Resolver) LoadFromLock(ctx context.Context) ([]*ResolvedModule, error) {
 	return m.List(ctx)
+}
+
+// loadExistingLockHashes loads content hashes from the existing lock file
+// for cache tamper detection. Returns nil if no lock file exists or cannot
+// be read (best-effort: a missing lock file simply means no prior hashes
+// to verify against).
+func (m *Resolver) loadExistingLockHashes() map[ModuleRefKey]ContentHash {
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
+	lock, err := LoadLockFile(lockPath)
+	if err != nil {
+		return nil
+	}
+	return lock.ContentHashes()
 }
 
 // isGitURL returns true if s looks like a Git URL.

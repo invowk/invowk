@@ -103,6 +103,24 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 			return nil, fmt.Errorf("failed to copy module to %s: %w", destPath, err)
 		}
 
+		// Verify content hash after copying for tamper detection.
+		// If the resolved module has a content hash (from the lock file), the
+		// vendored copy must match. This detects cache tampering between
+		// sync/add and vendor operations.
+		if mod.ContentHash != "" {
+			actualHash, hashErr := computeModuleHash(destPath)
+			if hashErr != nil {
+				return nil, fmt.Errorf("failed to verify vendored module hash at %s: %w", destPath, hashErr)
+			}
+			if actualHash != mod.ContentHash {
+				return nil, &ContentHashMismatchError{
+					ModuleKey: mod.ModuleRef.Key(),
+					Expected:  mod.ContentHash,
+					Actual:    actualHash,
+				}
+			}
+		}
+
 		srcPath := types.FilesystemPath(moduleDir) //goplint:ignore -- OS-resolved path from resolver
 		dstPath := types.FilesystemPath(destPath)  //goplint:ignore -- filepath.Join from validated components
 		result.Vendored = append(result.Vendored, VendoredEntry{

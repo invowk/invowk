@@ -124,6 +124,12 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
 	}
 
+	// Check for local modules that shadow global modules (SC-10 defense-in-depth).
+	// A local module with the same ModuleID as a globally installed module wins
+	// via discovery precedence, which is the safe direction (local doesn't gain
+	// global trust). Warn to detect potential namespace collisions or typosquatting.
+	diagnostics = append(diagnostics, d.detectModuleShadowing(files)...)
+
 	return files, diagnostics, nil
 }
 
@@ -405,6 +411,42 @@ func (d *Discovery) appendModulesWithVendored(
 	}
 
 	return files, diagnostics
+}
+
+// detectModuleShadowing checks for local/include modules that have the same
+// ModuleID as a globally installed module. Returns warnings for each collision.
+func (d *Discovery) detectModuleShadowing(files []*DiscoveredFile) []Diagnostic {
+	// Collect global module IDs.
+	globalIDs := make(map[invowkmod.ModuleID]types.FilesystemPath)
+	for _, f := range files {
+		if f.IsGlobalModule && f.Module != nil {
+			globalIDs[f.Module.Metadata.Module] = f.Path
+		}
+	}
+
+	if len(globalIDs) == 0 {
+		return nil
+	}
+
+	var diagnostics []Diagnostic
+	for _, f := range files {
+		if f.IsGlobalModule || f.Module == nil {
+			continue
+		}
+		if globalPath, shadows := globalIDs[f.Module.Metadata.Module]; shadows {
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
+				SeverityWarning,
+				CodeModuleShadowsGlobal,
+				fmt.Sprintf(
+					"local module '%s' at %s shadows global module at %s — local takes precedence",
+					f.Module.Metadata.Module, f.Path, globalPath,
+				),
+				f.Path,
+			))
+		}
+	}
+
+	return diagnostics
 }
 
 // getModuleShortName extracts the short name from a module path.

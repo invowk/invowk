@@ -68,7 +68,11 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 //
 // The visited map deduplicates diamond dependencies — when two direct requirements
 // point to the same module (by Key()), it is resolved only once.
-func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]*ResolvedModule, error) {
+//
+// knownHashes provides content hashes from the existing lock file for cache tamper
+// detection. When a module is already cached, its hash is verified against the
+// known hash before reuse. Pass nil when no prior lock file exists.
+func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef, knownHashes map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error) {
 	var resolved []*ResolvedModule
 	visited := make(map[ModuleRefKey]bool)
 
@@ -87,7 +91,7 @@ func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]
 			continue
 		}
 
-		mod, err := m.resolveOne(ctx, req)
+		mod, err := m.resolveOne(ctx, req, knownHashes)
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +104,13 @@ func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]
 }
 
 // resolveOne resolves a single module requirement.
-func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef) (*ResolvedModule, error) {
+//
+// knownHashes provides content hashes from the existing lock file for cache
+// tamper detection. When a cached module exists, its hash is verified against
+// the known hash before reuse. This prevents an attacker with write access to
+// the module cache from silently replacing module content. Pass nil when no
+// prior lock file exists.
+func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes map[ModuleRefKey]ContentHash) (*ResolvedModule, error) {
 	// Get available versions from Git
 	versions, err := m.fetcher.ListVersions(ctx, req.GitURL)
 	if err != nil {
@@ -138,9 +148,17 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef) (*ResolvedModu
 	// Compute namespace
 	namespace := computeNamespace(moduleName, string(resolvedVersion), req.Alias)
 
+	// Look up known hash from the prior lock file for cache tamper detection.
+	// If the module is already cached, cacheModule verifies the cached content
+	// matches this hash before reuse.
+	var expectedHash ContentHash
+	if knownHashes != nil {
+		expectedHash = knownHashes[req.Key()]
+	}
+
 	// Cache the module in the versioned directory and compute content hash.
 	cachePath := m.getCachePath(string(req.GitURL), string(resolvedVersion), string(req.Path))
-	contentHash, err := m.cacheModule(moduleDir, cachePath, "")
+	contentHash, err := m.cacheModule(moduleDir, cachePath, expectedHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to cache module: %w", err)
 	}

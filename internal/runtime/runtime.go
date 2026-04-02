@@ -574,6 +574,14 @@ func shouldFilterEnvVar(name string) bool {
 		return true
 	}
 
+	// Filter TUI server credentials to prevent token leakage to module
+	// scripts. INVOWK_TUI_TOKEN and INVOWK_TUI_ADDR are injected by the
+	// app layer for trusted invowk sub-invocations only — module scripts
+	// should not inherit them (supply-chain defense-in-depth).
+	if strings.HasPrefix(name, "INVOWK_TUI_") {
+		return true
+	}
+
 	// Filter metadata env vars to prevent leakage between nested invocations.
 	// Each invocation gets fresh metadata from its own execution context.
 	// All four vars are unconditionally filtered here, even though EnvVarSource

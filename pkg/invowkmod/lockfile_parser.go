@@ -16,13 +16,20 @@ const (
 	// LockFileVersionV2 is the current lock file format version (adds content_hash).
 	LockFileVersionV2 LockFileVersion = "2.0"
 
-	unknownLockFileVersionErrMsg = "unknown lock file version"
+	unknownLockFileVersionErrMsg    = "unknown lock file version"
+	lockFileV1UpgradeRequiredErrMsg = "lock file uses deprecated v1.0 format"
 )
 
 var (
 	// ErrUnknownLockFileVersion is returned when a lock file declares a version
 	// that has no registered parser. Callers can use errors.Is() for programmatic detection.
 	ErrUnknownLockFileVersion = errors.New(unknownLockFileVersionErrMsg)
+
+	// ErrLockFileV1UpgradeRequired is returned when Add, Remove, or Update
+	// encounters a v1.0 lock file that must be upgraded to v2.0 first.
+	// v1.0 lacks content hashes, so modifying it without upgrading would
+	// silently disable tamper detection (supply-chain risk).
+	ErrLockFileV1UpgradeRequired = errors.New(lockFileV1UpgradeRequiredErrMsg)
 
 	// knownLockFileVersions is the ordered list of recognized lock file format versions.
 	// Used for validation, error messages, and parser registration.

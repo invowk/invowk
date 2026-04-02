@@ -638,8 +638,9 @@ cmds: [
 					echo "  User:  $INVOWK_SSH_USER"
 					echo "  Token: (hidden for security)"
 					echo ""
-					echo "To connect to host from container, use:"
-					echo "  # Note: -p exposes the token in ps output; use -e (reads SSHPASS env var) instead"
+					echo "To connect to host from container, use sshpass with -e (env-based):"
+					echo "  # SECURITY: Never use -p (exposes token in ps output)."
+					echo "  # Never echo or log \$INVOWK_SSH_TOKEN."
 					echo "  export SSHPASS=\$INVOWK_SSH_TOKEN"
 					echo "  sshpass -e ssh -o StrictHostKeyChecking=no \\"
 					echo "    \$INVOWK_SSH_USER@\$INVOWK_SSH_HOST -p \$INVOWK_SSH_PORT 'command'"
@@ -1789,11 +1790,12 @@ cmds: [
 					echo "  INVOWK_ARG_FILES = '$INVOWK_ARG_FILES' (space-joined)"
 					echo "  INVOWK_ARG_FILES_COUNT = '$INVOWK_ARG_FILES_COUNT'"
 					echo ""
-					echo "Individual file arguments:"
+					echo "Individual file arguments (via positional parameters):"
+					# Use set -- to load variadic args into positional parameters,
+					# avoiding eval for safe iteration (SC audit L-1).
+					set -- $INVOWK_ARG_FILES
 					i=1
-					while [ $i -le ${INVOWK_ARG_FILES_COUNT:-0} ]; do
-					    # Safe: variable name constructed from integer counter $i, not user input
-					    eval "file=\$INVOWK_ARG_FILES_$i"
+					for file in "$@"; do
 					    echo "  INVOWK_ARG_FILES_$i = '$file'"
 					    i=$((i + 1))
 					done
@@ -3329,6 +3331,12 @@ cmds: [
 					case "$action" in
 					    "Save to file")
 					        filename=$(invowk tui input --title "Enter filename" --placeholder "note.txt")
+					        # Sanitize: strip path components to prevent traversal (SC audit L-2)
+					        filename=$(basename -- "$filename")
+					        if [ -z "$filename" ]; then
+					            echo "Invalid filename."
+					            exit 1
+					        fi
 					        echo "$note" > "/tmp/$filename"
 					        echo "Saved to /tmp/$filename"
 					        ;;

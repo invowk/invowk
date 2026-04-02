@@ -49,16 +49,16 @@ Check each of the 10 attack surfaces below. For each one:
 
 | ID | Surface | Key File(s) | Expected Status |
 |----|---------|-------------|-----------------|
-| SC-01 | Script path traversal | pkg/invowkfile/implementation.go:308 | Partial |
-| SC-02 | Virtual shell host PATH fallback | internal/runtime/virtual.go:345 | By-design |
+| SC-01 | Script path traversal | pkg/invowkfile/implementation.go:363-444 | Partial |
+| SC-02 | Virtual shell host PATH fallback | internal/runtime/virtual.go:344-355 | By-design |
 | SC-03 | InvowkDir R/W volume mount | internal/runtime/container_exec.go:118 | By-design |
-| SC-04 | SSH token in container env | internal/runtime/container_exec.go | Partial |
-| SC-05 | Provision CopyDir follows symlinks | internal/provision/helpers.go:123 | Partial |
+| SC-04 | SSH token in container env | internal/runtime/container_exec.go:438, runtime.go:571-575 | Partial |
+| SC-05 | Provision CopyDir symlink handling | internal/provision/helpers.go:132-156 | Mitigated |
 | SC-06 | --ivk-env-var priority override | internal/runtime/env_builder.go | By-design |
-| SC-07 | check_script host shell execution | internal/app/deps/checks.go:71 | Partial |
-| SC-08 | Arbitrary interpreter paths | pkg/invowkfile/runtime.go:452-488, pkg/invowkfile/implementation.go | Open |
-| SC-09 | Root invowkfile scope bypass | internal/app/deps/deps.go:199 | By-design |
-| SC-10 | Global module trust (no integrity) | internal/discovery/discovery_files.go:122 | Open |
+| SC-07 | check_script host shell execution | internal/app/deps/checks.go:70-72 | Partial |
+| SC-08 | Arbitrary interpreter paths | pkg/invowkfile/runtime.go:452, pkg/invowkfile/implementation.go | Open |
+| SC-09 | Root invowkfile scope bypass | internal/app/deps/deps.go:199-201 | By-design |
+| SC-10 | Global module trust (no integrity) | internal/discovery/discovery_files.go:119-124 | Open |
 
 ## Output Format (one entry per surface)
 

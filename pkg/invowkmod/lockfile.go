@@ -244,6 +244,34 @@ func NewLockFile() *LockFile {
 	}
 }
 
+// ContentHashes returns a map of module ref keys to their content hashes.
+// Used for cache tamper detection when re-resolving modules against a
+// previously synced lock file. Entries without a content hash (e.g., v1.0
+// lock file entries) are omitted.
+func (l *LockFile) ContentHashes() map[ModuleRefKey]ContentHash {
+	hashes := make(map[ModuleRefKey]ContentHash, len(l.Modules))
+	for key := range l.Modules {
+		if h := l.Modules[key].ContentHash; h != "" {
+			hashes[key] = h
+		}
+	}
+	return hashes
+}
+
+// RequireV2 returns ErrLockFileV1UpgradeRequired if this lock file uses the
+// deprecated v1.0 format. v1.0 lacks content hashes, so mutating operations
+// (Add, Remove, Update) must not proceed without an upgrade to v2.0 first.
+// Returns nil for v2.0 lock files and for newly created (empty) lock files.
+func (l *LockFile) RequireV2() error {
+	if l.Version == LockFileVersionV1 {
+		return fmt.Errorf(
+			"%w: run 'invowk module sync' to upgrade to v2.0 for tamper detection",
+			ErrLockFileV1UpgradeRequired,
+		)
+	}
+	return nil
+}
+
 // LoadLockFile loads a lock file from the given path.
 func LoadLockFile(path string) (*LockFile, error) {
 	data, err := os.ReadFile(path)
