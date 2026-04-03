@@ -56,7 +56,7 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 		if mod.ContentHash == "" {
 			continue
 		}
-		moduleID := extractModuleIDFromNamespace(mod.Namespace)
+		moduleID := ExtractModuleIDFromNamespace(mod.Namespace)
 		hashByID[moduleID] = lockHashEntry{
 			key:  key,
 			hash: mod.ContentHash,
@@ -118,10 +118,10 @@ func findLockEntryForModule(m *Module, hashByID map[ModuleID]lockHashEntry, _ *L
 	return entry, ok
 }
 
-// extractModuleIDFromNamespace extracts the module ID from a namespace string.
+// ExtractModuleIDFromNamespace extracts the module ID from a namespace string.
 // Namespace format is "<module_id>@<version>" or an alias. If no "@" separator
 // is found, the entire namespace is returned as the module ID.
-func extractModuleIDFromNamespace(ns ModuleNamespace) ModuleID {
+func ExtractModuleIDFromNamespace(ns ModuleNamespace) ModuleID {
 	nsStr := string(ns)
 	if moduleID, _, found := strings.Cut(nsStr, "@"); found {
 		return ModuleID(moduleID) //goplint:ignore -- extracted from validated ModuleNamespace

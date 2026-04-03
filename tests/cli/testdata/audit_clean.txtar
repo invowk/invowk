@@ -1,0 +1,25 @@
+# Test: invowk audit (clean project)
+# Verifies exit code 0 and clean output for a project with no findings.
+
+cd $WORK
+
+# Test 1: Clean invowkfile with safe inline script
+exec invowk audit
+stdout 'Security Audit'
+stdout 'No findings at or above low severity'
+
+# Test 2: Clean audit with explicit path
+exec invowk audit .
+stdout 'Security Audit'
+stdout 'No findings'
+
+-- invowkfile.cue --
+cmds: [{
+    name: "hello"
+    description: "A safe command"
+    implementations: [{
+        script: "echo hello"
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]

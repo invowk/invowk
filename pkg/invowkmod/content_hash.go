@@ -83,6 +83,13 @@ func (h ContentHash) Validate() error {
 // String returns the string representation of the ContentHash.
 func (h ContentHash) String() string { return string(h) }
 
+// ComputeModuleHash computes a deterministic SHA-256 hash of a module directory tree.
+// This is the exported accessor for computeModuleHash, enabling use by the
+// audit scanner (internal/audit/) which cannot access unexported functions.
+func ComputeModuleHash(dir string) (ContentHash, error) {
+	return computeModuleHash(dir)
+}
+
 // computeModuleHash computes a deterministic SHA-256 hash of a module directory tree.
 // Files are walked in sorted lexicographic order by their relative path to ensure
 // reproducibility across platforms. Each file contributes its relative path (as bytes)

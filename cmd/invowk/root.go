@@ -73,6 +73,7 @@ be organized hierarchically with support for dependencies.
 	rootCmd.AddCommand(newTUICommand())
 	rootCmd.AddCommand(newModuleCommand(app))
 	rootCmd.AddCommand(newValidateCommand(app))
+	rootCmd.AddCommand(newAuditCommand(app))
 	rootCmd.AddCommand(newInternalCommand())
 
 	return rootCmd

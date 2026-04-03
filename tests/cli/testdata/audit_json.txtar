@@ -1,0 +1,21 @@
+# Test: invowk audit --format json
+# Verifies JSON output is well-formed.
+
+cd $WORK
+
+# Test 1: JSON output for clean project
+exec invowk audit --format json
+stdout '"findings"'
+stdout '"summary"'
+stdout '"total"'
+
+-- invowkfile.cue --
+cmds: [{
+    name: "safe"
+    description: "Safe command"
+    implementations: [{
+        script: "echo ok"
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]
