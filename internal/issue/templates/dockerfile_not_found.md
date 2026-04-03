@@ -21,6 +21,6 @@ container: {
 - Or use a pre-built image:
 ~~~cue
 container: {
-  image: "ubuntu:22.04"
+  image: "debian:stable-slim"
 }
 ~~~

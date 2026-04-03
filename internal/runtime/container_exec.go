@@ -425,7 +425,12 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 		return nil, fmt.Errorf("failed to generate SSH credentials: %w", err)
 	}
 
-	// Add SSH connection info to environment
+	// Add SSH connection info to environment (SC-04 / L-10).
+	// INVOWK_SSH_TOKEN is intentionally visible to the direct container script —
+	// the SSH feature requires it for authentication. Defense-in-depth:
+	// FilterInvowkEnvVars strips INVOWK_SSH_* from any nested invowk invocations,
+	// preventing propagation to child processes. Token lifetime is scoped to this
+	// execution via RevokeToken in the cleanup path.
 	// Use hostDockerInternal for Docker or hostContainersInternal for Podman
 	hostAddr := hostDockerInternal
 	if r.engine.Name() == "podman" {

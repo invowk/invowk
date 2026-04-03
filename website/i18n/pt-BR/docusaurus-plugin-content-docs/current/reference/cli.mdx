@@ -269,6 +269,14 @@ Atualizar dependências de módulo para as versões mais recentes compatíveis.
 
 <Snippet id="reference/cli/module-update-syntax" />
 
+#### invowk module tidy
+
+Adicionar dependências transitivas faltantes ao `invowkmod.cue`. O Invowk usa um modelo de dependências explícitas (como Go modules): todo módulo na árvore de dependências deve ser declarado no `invowkmod.cue` raiz. Este comando verifica os módulos resolvidos e adiciona automaticamente os requisitos transitivos faltantes.
+
+```bash
+invowk module tidy
+```
+
 #### invowk module deps
 
 Listar dependências de módulo resolvidas.

@@ -23,6 +23,15 @@ type (
 	//  9. RuntimeEnvFiles (--ivk-env-file flag)
 	//  10. RuntimeEnvVars (--ivk-env-var flag) - HIGHEST priority
 	//
+	// SECURITY: The native and virtual runtimes default to EnvInheritAll
+	// (the full host environment), which is the same default as make/just/task.
+	// This means host credentials (AWS_SECRET_ACCESS_KEY, GITHUB_TOKEN, etc.)
+	// are forwarded to scripts unless the command explicitly sets
+	// env_inherit_mode to "allow" or "none". Module authors distributing
+	// community modules should use "allow" with explicit allow-lists to
+	// minimize the supply-chain attack surface.
+	// The container runtime defaults to EnvInheritNone (safe default).
+	//
 	// This interface enables:
 	//   - Testability: runtimes can be tested with mock env builders
 	//   - Flexibility: alternative env building strategies for specific use cases

@@ -135,6 +135,11 @@ func (r ResolvedModule) Validate() error {
 			errs = append(errs, err)
 		}
 	}
+	if r.ContentHash != "" {
+		if err := r.ContentHash.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	if len(errs) > 0 {
 		return &InvalidResolvedModuleError{FieldErrors: errs}
 	}

@@ -93,6 +93,71 @@ func TestDiscoverAll_FindsModulesInUserDir(t *testing.T) {
 	}
 }
 
+func TestDiscoverAll_UserDirModulesAreGlobal(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// User-dir module should have IsGlobalModule=true.
+	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
+	moduleDir := filepath.Join(userCmdsDir, "global.invowkmod")
+	createTestModule(t, moduleDir, "global", "global-cmd")
+
+	workDir := filepath.Join(tmpDir, "work")
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
+		t.Fatalf("failed to create work dir: %v", err)
+	}
+
+	cfg := config.DefaultConfig()
+	d := newTestDiscovery(t, cfg, tmpDir,
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
+	)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	for _, f := range files {
+		if f.Source == SourceModule && f.Module != nil && f.Module.Name() == "global" {
+			if !f.IsGlobalModule {
+				t.Error("user-dir module should have IsGlobalModule=true")
+			}
+			return
+		}
+	}
+	t.Error("DiscoverAll() did not find global module")
+}
+
+func TestDiscoverAll_LocalModulesAreNotGlobal(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Local module (in baseDir) should have IsGlobalModule=false.
+	moduleDir := filepath.Join(tmpDir, "local.invowkmod")
+	createTestModule(t, moduleDir, "local", "local-cmd")
+
+	cfg := config.DefaultConfig()
+	d := newTestDiscovery(t, cfg, tmpDir)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() returned error: %v", err)
+	}
+
+	for _, f := range files {
+		if f.Source == SourceModule && f.Module != nil && f.Module.Name() == "local" {
+			if f.IsGlobalModule {
+				t.Error("local module should have IsGlobalModule=false")
+			}
+			return
+		}
+	}
+	t.Error("DiscoverAll() did not find local module")
+}
+
 func TestDiscoverAll_FindsModulesInConfigPath(t *testing.T) {
 	t.Parallel()
 

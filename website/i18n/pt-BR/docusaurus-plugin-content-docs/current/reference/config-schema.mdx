@@ -42,7 +42,7 @@ O objeto de configuração raiz.
 
 Especifica qual container runtime usar para execução de comandos baseada em container.
 
-<Snippet id="reference/config/container-engine-example" />
+<Snippet id="reference/config/container-engine" />
 
 Se a engine preferida não estiver disponível, o Invowk faz fallback para a outra quando o runtime container é necessário.
 
@@ -54,7 +54,7 @@ Se a engine preferida não estiver disponível, o Invowk faz fallback para a out
 
 Módulos adicionais para incluir na descoberta de comandos. Cada entrada especifica um caminho para um diretório `*.invowkmod` com um `alias` opcional para desambiguação de colisões.
 
-<Snippet id="reference/config/includes-example" />
+<Snippet id="reference/config/includes" />
 
 **Requisitos de caminho:**
 - Caminhos devem ser absolutos e terminar com `.invowkmod`
@@ -79,7 +79,7 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada especif
 
 Define o modo de runtime padrão global para comandos que não especificam um runtime preferido.
 
-<Snippet id="reference/config/default-runtime-example" />
+<Snippet id="reference/config/default-runtime" />
 
 | Valor | Descrição |
 |-------|-----------|
@@ -95,7 +95,7 @@ Define o modo de runtime padrão global para comandos que não especificam um ru
 
 Configuração para o virtual shell runtime.
 
-<Snippet id="reference/config/virtual-shell-example" />
+<Snippet id="reference/config/virtual-shell" />
 
 ### ui
 
@@ -105,7 +105,7 @@ Configuração para o virtual shell runtime.
 
 Configuração de interface do usuário.
 
-<Snippet id="reference/config/ui-example" />
+<Snippet id="reference/config/ui" />
 
 ### container
 
@@ -115,7 +115,7 @@ Configuração de interface do usuário.
 
 Configuração para o runtime container.
 
-<Snippet id="reference/config/container-example" />
+<Snippet id="reference/config/container" />
 
 ---
 
@@ -133,7 +133,7 @@ Configuração para o virtual shell runtime (mvdan/sh).
 
 Habilita utilitários u-root no ambiente virtual shell. Quando habilitado, fornece comandos adicionais além dos builtins básicos de shell.
 
-<Snippet id="reference/config/enable-uroot-utils-example" />
+<Snippet id="reference/config/enable-uroot-utils" />
 
 **Utilitários disponíveis quando habilitado (28 no total):**
 - Wrappers upstream (12): `base64`, `cat`, `cp`, `find`, `gzip`, `ls`, `mkdir`, `mv`, `rm`, `shasum`, `tar`, `touch`
@@ -155,7 +155,7 @@ Configuração de interface do usuário.
 
 Define o esquema de cores para saída de terminal.
 
-<Snippet id="reference/config/color-scheme-example" />
+<Snippet id="reference/config/ui-color-scheme" />
 
 | Valor | Descrição |
 |-------|-----------|
@@ -171,7 +171,7 @@ Define o esquema de cores para saída de terminal.
 
 Habilita saída verbose por padrão para todos os comandos.
 
-<Snippet id="reference/config/verbose-example" />
+<Snippet id="reference/config/ui-verbose" />
 
 Equivalente a sempre passar `--ivk-verbose` na linha de comando.
 
@@ -183,7 +183,7 @@ Equivalente a sempre passar `--ivk-verbose` na linha de comando.
 
 Habilita o modo interativo por padrão (buffer de tela alternativo com PTY).
 
-<Snippet id="reference/config/interactive-example" />
+<Snippet id="reference/config/ui-interactive" />
 
 ---
 
@@ -201,7 +201,7 @@ Configuração para comportamento do runtime container.
 
 Controla o provisionamento automático de recursos do invowk dentro de containers.
 
-<Snippet id="reference/config/auto-provision-example" />
+<Snippet id="reference/config/container-auto-provision" />
 
 Com o auto-provisionamento habilitado, o Invowk cria uma imagem derivada em cache ao anexar uma pequena camada de provisionamento sobre a imagem base. Isso ocorre em toda execução de container (interativa ou não); se o provisionamento falhar, o Invowk avisa e usa a imagem base.
 

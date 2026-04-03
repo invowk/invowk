@@ -927,7 +927,7 @@ containerfile: "./docker/Dockerfile.build"`,
   'reference/invowkfile/tool-dependency-structure': {
     language: 'cue',
     code: `#ToolDependency: {
-    alternatives: [...string]  // At least one - tool names
+    alternatives: [...string] & [_, ...]  // At least one - tool names
 }`,
   },
 
@@ -944,14 +944,14 @@ containerfile: "./docker/Dockerfile.build"`,
   'reference/invowkfile/command-dependency-structure': {
     language: 'cue',
     code: `#CommandDependency: {
-    alternatives: [...string]  // Command names
+    alternatives: [...string] & [_, ...]  // Command names
 }`,
   },
 
   'reference/invowkfile/filepath-dependency-structure': {
     language: 'cue',
     code: `#FilepathDependency: {
-    alternatives: [...string]  // File/directory paths
+    alternatives: [...string] & [_, ...]  // File/directory paths
     readable?:    bool
     writable?:    bool
     executable?:  bool
@@ -961,14 +961,14 @@ containerfile: "./docker/Dockerfile.build"`,
   'reference/invowkfile/capability-dependency-structure': {
     language: 'cue',
     code: `#CapabilityDependency: {
-    alternatives: [...("local-area-network" | "internet" | "containers" | "tty")]
+    alternatives: [...("local-area-network" | "internet" | "containers" | "tty")] & [_, ...]
 }`,
   },
 
   'reference/invowkfile/env-var-dependency-structure': {
     language: 'cue',
     code: `#EnvVarDependency: {
-    alternatives: [...#EnvVarCheck]
+    alternatives: [...#EnvVarCheck] & [_, ...]
 }
 
 #EnvVarCheck: {
@@ -989,7 +989,7 @@ containerfile: "./docker/Dockerfile.build"`,
 }
 
 #CustomCheckAlternatives: {
-    alternatives: [...#CustomCheck]
+    alternatives: [...#CustomCheck] & [_, ...]
 }`,
   },
 

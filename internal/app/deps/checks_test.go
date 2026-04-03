@@ -3,11 +3,13 @@
 package deps
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os/exec"
 	goruntime "runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
@@ -480,6 +482,118 @@ func TestShellEscapeSingleQuote(t *testing.T) {
 				t.Fatalf("ShellEscapeSingleQuote(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestValidateCustomCheckNative_ContextCancellation verifies that
+// validateCustomCheckNative respects the Go context for cancellation (SC-07).
+// When passed an already-cancelled context, the check should return quickly
+// with a context error rather than waiting for the script to complete.
+func TestValidateCustomCheckNative_ContextCancellation(t *testing.T) {
+	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: native shell check uses 'sh -c' which is not available on Windows")
+	}
+
+	// Create an already-cancelled context.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	// Use a long-running check script that would hang without cancellation.
+	check := invowkfile.CustomCheck{
+		Name:        "slow-check",
+		CheckScript: "sleep 60",
+	}
+
+	err := validateCustomCheckNative(ctx, check)
+	if err == nil {
+		t.Fatal("expected error from cancelled context, got nil")
+	}
+
+	// The error should originate from context cancellation, not from a timeout.
+	// exec.CommandContext returns an exit error when the context is cancelled.
+	// We check that the script did not complete normally (exit code 0).
+	if strings.Contains(err.Error(), "returned exit code 0") {
+		t.Error("expected context cancellation error, but check passed with exit code 0")
+	}
+}
+
+// TestEvaluateCustomChecks_PropagatesContext verifies that evaluateCustomChecks
+// extracts the Go context from ExecutionContext and passes it to the validator (SC-07).
+func TestEvaluateCustomChecks_PropagatesContext(t *testing.T) {
+	t.Parallel()
+
+	// Create a cancelled context to verify propagation.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	execCtx := &runtimepkg.ExecutionContext{
+		Command: &invowkfile.Command{Name: "test"},
+		Context: ctx,
+	}
+
+	deps := &invowkfile.DependsOn{
+		CustomChecks: []invowkfile.CustomCheckDependency{{
+			Alternatives: []invowkfile.CustomCheck{
+				{Name: "check-ctx", CheckScript: "true"},
+			},
+		}},
+	}
+
+	var receivedCtx atomic.Pointer[context.Context]
+	validator := func(goCtx context.Context, _ invowkfile.CustomCheck) error {
+		receivedCtx.Store(&goCtx)
+		return nil
+	}
+
+	_ = evaluateCustomChecks(deps, execCtx, validator)
+
+	got := receivedCtx.Load()
+	if got == nil {
+		t.Fatal("validator did not receive a context")
+	}
+
+	// The context passed to the validator should be cancelled
+	// because we cancelled it above.
+	if (*got).Err() == nil {
+		t.Error("expected cancelled context to be propagated, but context.Err() is nil")
+	}
+}
+
+// TestEvaluateCustomChecks_NilContextFallback verifies that evaluateCustomChecks
+// falls back to context.Background() when ExecutionContext.Context is nil.
+func TestEvaluateCustomChecks_NilContextFallback(t *testing.T) {
+	t.Parallel()
+
+	execCtx := &runtimepkg.ExecutionContext{
+		Command: &invowkfile.Command{Name: "test"},
+		Context: nil, // nil context
+	}
+
+	deps := &invowkfile.DependsOn{
+		CustomChecks: []invowkfile.CustomCheckDependency{{
+			Alternatives: []invowkfile.CustomCheck{
+				{Name: "check", CheckScript: "true"},
+			},
+		}},
+	}
+
+	var receivedCtx atomic.Pointer[context.Context]
+	validator := func(goCtx context.Context, _ invowkfile.CustomCheck) error {
+		receivedCtx.Store(&goCtx)
+		return nil
+	}
+
+	_ = evaluateCustomChecks(deps, execCtx, validator)
+
+	got := receivedCtx.Load()
+	if got == nil {
+		t.Fatal("validator did not receive a context")
+	}
+	// Should not be cancelled (context.Background() has no cancellation).
+	if (*got).Err() != nil {
+		t.Errorf("expected non-cancelled fallback context, got err: %v", (*got).Err())
 	}
 }
 

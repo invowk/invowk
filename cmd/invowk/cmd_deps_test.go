@@ -237,7 +237,11 @@ func TestCheckCommandDependenciesExist_SatisfiedByLocalUnqualifiedName(t *testin
 		discovery.WithCommandsDir(types.FilesystemPath(filepath.Join(tmpDir, ".invowk", "cmds"))),
 	)}
 
-	if err := depspkg.CheckCommandDependenciesExist(disc, deps, "", ctx); err != nil {
+	if err := depspkg.CheckCommandDependenciesExist(disc, deps, &discovery.CommandInfo{
+		Name:       "deploy",
+		Command:    ctx.Command,
+		Invowkfile: &invowkfile.Invowkfile{},
+	}, ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
@@ -294,7 +298,11 @@ version: "1.0.0"
 		discovery.WithCommandsDir(types.FilesystemPath(userCmdsDir)),
 	)}
 
-	if err := depspkg.CheckCommandDependenciesExist(disc, deps, "", ctx); err != nil {
+	if err := depspkg.CheckCommandDependenciesExist(disc, deps, &discovery.CommandInfo{
+		Name:       "deploy",
+		Command:    ctx.Command,
+		Invowkfile: &invowkfile.Invowkfile{},
+	}, ctx); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
@@ -325,7 +333,11 @@ func TestCheckCommandDependenciesExist_MissingCommand(t *testing.T) {
 		discovery.WithCommandsDir(types.FilesystemPath(filepath.Join(tmpDir, ".invowk", "cmds"))),
 	)}
 
-	err := depspkg.CheckCommandDependenciesExist(disc, deps, "", ctx)
+	err := depspkg.CheckCommandDependenciesExist(disc, deps, &discovery.CommandInfo{
+		Name:       "deploy",
+		Command:    ctx.Command,
+		Invowkfile: &invowkfile.Invowkfile{},
+	}, ctx)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

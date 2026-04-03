@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -65,7 +66,7 @@ func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
 		lines = append(lines, "]", "")
 	}
 
-	return atomicWriteFile(string(invowkmodPath), []byte(strings.Join(lines, "\n")))
+	return fspath.AtomicWriteFile(string(invowkmodPath), []byte(strings.Join(lines, "\n")), fspath.DefaultFilePerm)
 }
 
 // RemoveRequirement removes a module requirement matching gitURL and subPath
@@ -133,7 +134,7 @@ func RemoveRequirement(invowkmodPath types.FilesystemPath, gitURL GitURL, subPat
 		lines = newLines
 	}
 
-	return atomicWriteFile(pathStr, []byte(strings.Join(lines, "\n")))
+	return fspath.AtomicWriteFile(pathStr, []byte(strings.Join(lines, "\n")), fspath.DefaultFilePerm)
 }
 
 // findRequiresBlock locates the requires block boundaries in the file lines.
@@ -228,18 +229,4 @@ func formatRequiresEntry(req ModuleRef) []string {
 	}
 	lines = append(lines, "\t},")
 	return lines
-}
-
-// atomicWriteFile writes data to a file atomically using temp file + rename.
-// Same pattern as lockfile.go Save method.
-func atomicWriteFile(path string, data []byte) error {
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
-		return fmt.Errorf("failed to write temporary file: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath) // Best-effort cleanup
-		return fmt.Errorf("failed to rename temporary file: %w", err)
-	}
-	return nil
 }

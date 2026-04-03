@@ -55,7 +55,7 @@ There is no implicit `native -> virtual` fallback when native is unavailable.
 | Aspect | Native | Virtual | Container |
 |--------|--------|---------|-----------|
 | **Speed** | Fastest | Fast | Slower (overhead) |
-| **Isolation** | None | Process | Full |
+| **Isolation** | None | None (not a sandbox) | Full |
 | **Portability** | Platform-dependent | High | Highest |
 | **Shell features** | Full host shell | POSIX subset | Full (in container) |
 | **Dependencies** | Host shell | None | Docker/Podman |

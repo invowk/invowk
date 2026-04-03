@@ -58,73 +58,59 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 	return nil
 }
 
-// resolveAll resolves all requirements including transitive dependencies.
+// resolveAll resolves all explicitly declared requirements without transitive recursion.
 //
-// It uses a dual-map pattern for traversal control:
-//   - visited: marks modules that have been fully resolved, preventing reprocessing.
-//   - inProgress: marks modules currently on the resolution call stack, detecting
-//     cycles within the current dependency path. An entry is added when resolution
-//     begins and removed (via defer) when it completes, so only ancestors in the
-//     current chain are flagged.
-func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef) ([]*ResolvedModule, error) {
+// This implements the Go-style explicit-only dependency model: only modules listed
+// in the root invowkmod.cue are resolved. Transitive dependencies declared by resolved
+// modules are loaded (via loadTransitiveDeps) for validation purposes but are NOT
+// recursively resolved. The caller (Sync) validates that all transitive deps are
+// explicitly declared in the root requirements.
+//
+// The visited map deduplicates diamond dependencies — when two direct requirements
+// point to the same module (by Key()), it is resolved only once.
+//
+// knownHashes provides content hashes from the existing lock file for cache tamper
+// detection. When a module is already cached, its hash is verified against the
+// known hash before reuse. Pass nil when no prior lock file exists.
+func (m *Resolver) resolveAll(ctx context.Context, requirements []ModuleRef, knownHashes map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error) {
 	var resolved []*ResolvedModule
 	visited := make(map[ModuleRefKey]bool)
-	inProgress := make(map[ModuleRefKey]bool) // cycle detection within current resolution path
 
-	var resolve func(req ModuleRef) error
-	resolve = func(req ModuleRef) error {
-		// Check for context cancellation
+	for _, req := range requirements {
+		// Check for context cancellation between modules.
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil, fmt.Errorf("resolving module dependencies: %w", ctx.Err())
 		default:
 		}
 
 		key := req.Key()
 
-		// Check for circular dependency
-		if inProgress[key] {
-			return fmt.Errorf("circular dependency detected: %s", key)
-		}
-
-		// Skip if already resolved
+		// Skip duplicate requirements (diamond deps in direct requirements).
 		if visited[key] {
-			return nil
+			continue
 		}
 
-		inProgress[key] = true
-		defer func() { delete(inProgress, key) }()
-
-		// Resolve this module
-		mod, err := m.resolveOne(ctx, req, visited)
+		mod, err := m.resolveOne(ctx, req, knownHashes)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		visited[key] = true
 		resolved = append(resolved, mod)
-
-		// Resolve transitive dependencies
-		for _, dep := range mod.TransitiveDeps {
-			if err := resolve(dep); err != nil {
-				return fmt.Errorf("transitive dependency %s: %w", dep.Key(), err)
-			}
-		}
-
-		return nil
-	}
-
-	for _, req := range requirements {
-		if err := resolve(req); err != nil {
-			return nil, err
-		}
 	}
 
 	return resolved, nil
 }
 
 // resolveOne resolves a single module requirement.
-func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRefKey]bool) (*ResolvedModule, error) {
+//
+// knownHashes provides content hashes from the existing lock file for cache
+// tamper detection. When a cached module exists, its hash is verified against
+// the known hash before reuse. This prevents an attacker with write access to
+// the module cache from silently replacing module content. Pass nil when no
+// prior lock file exists.
+func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes map[ModuleRefKey]ContentHash) (*ResolvedModule, error) {
 	// Get available versions from Git
 	versions, err := m.fetcher.ListVersions(ctx, req.GitURL)
 	if err != nil {
@@ -162,13 +148,24 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRe
 	// Compute namespace
 	namespace := computeNamespace(moduleName, string(resolvedVersion), req.Alias)
 
-	// Cache the module in the versioned directory
+	// Look up known hash from the prior lock file for cache tamper detection.
+	// If the module is already cached, cacheModule verifies the cached content
+	// matches this hash before reuse.
+	var expectedHash ContentHash
+	if knownHashes != nil {
+		expectedHash = knownHashes[req.Key()]
+	}
+
+	// Cache the module in the versioned directory and compute content hash.
 	cachePath := m.getCachePath(string(req.GitURL), string(resolvedVersion), string(req.Path))
-	if err = m.cacheModule(moduleDir, cachePath); err != nil {
+	contentHash, err := m.cacheModule(moduleDir, cachePath, expectedHash)
+	if err != nil {
 		return nil, fmt.Errorf("failed to cache module: %w", err)
 	}
 
-	// Load transitive dependencies from the module's invowkmod.cue
+	// Load transitive dependencies from the module's invowkmod.cue.
+	// These are NOT resolved recursively — they are used for validation only
+	// (checkMissingTransitiveDeps verifies they are declared in the root invowkmod.cue).
 	transitiveDeps, moduleID, err := m.loadTransitiveDeps(cachePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load transitive dependencies: %w", err)
@@ -183,6 +180,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, _ map[ModuleRe
 		ModuleName:      moduleName,
 		ModuleID:        moduleID,
 		TransitiveDeps:  transitiveDeps,
+		ContentHash:     contentHash,
 	}, nil
 }
 

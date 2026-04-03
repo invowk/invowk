@@ -55,13 +55,18 @@ Quando um módulo de dependência está instalado em um caminho de descoberta, e
 4. **Lock file**: Versões resolvidas são gravadas em `invowkmod.lock.cue`
 5. **Descoberta**: Comandos ficam disponíveis via namespace quando a dependência é instalada
 
-:::note Somente Dependências Diretas
-Comandos em um módulo só podem chamar comandos de:
+:::note Dependências Explícitas (Estilo Go)
+O Invowk usa um **modelo de dependências explícitas**, similar ao Go modules: todo módulo na árvore de dependências deve ser declarado no `invowkmod.cue` raiz. Se o módulo A requer o módulo B, e B requer C, então C também deve ser declarado no seu `invowkmod.cue`.
+
+- `invowk module sync` falha com erros acionáveis se dependências transitivas estiverem faltando.
+- `invowk module tidy` adiciona automaticamente dependências transitivas faltantes ao seu `invowkmod.cue`.
+
+Ao declarar `depends_on.cmds`, comandos em um módulo só podem referenciar comandos de:
 1. O mesmo módulo
 2. Módulos instalados globalmente (seus caminhos de descoberta)
 3. Módulos declarados diretamente na lista `requires` desse módulo
 
-Dependências transitivas são resolvidas e cacheadas, mas seus comandos não ficam no escopo a menos que também estejam listadas diretamente.
+Este escopo é aplicado em tempo de validação (durante `invowk module sync` e antes da execução de comandos). Não intercepta chamadas de subprocesso em tempo de execução dentro de scripts.
 :::
 
 ## Cache de Módulos

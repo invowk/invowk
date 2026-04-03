@@ -34,6 +34,24 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		Context: t.Context(),
 	}
 
+	// Root invowkfile cmdInfo — no module metadata, no scope enforcement.
+	rootCmdInfo := &discovery.CommandInfo{
+		Name:       invowkfile.CommandName("build"),
+		Command:    &invowkfile.Command{Name: "build"},
+		Invowkfile: &invowkfile.Invowkfile{},
+	}
+
+	// Module cmdInfo with module "mod" — for qualified name lookup.
+	modMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+		Module:  "mod",
+		Version: "1.0.0",
+	})
+	modCmdInfo := &discovery.CommandInfo{
+		Name:       invowkfile.CommandName("build"),
+		Command:    &invowkfile.Command{Name: "build"},
+		Invowkfile: &invowkfile.Invowkfile{Metadata: modMeta},
+	}
+
 	t.Run("accepts exact and module-qualified alternatives", func(t *testing.T) {
 		t.Parallel()
 
@@ -53,7 +71,8 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			},
 		}
 
-		if err := CheckCommandDependenciesExist(disc, deps, "mod", ctx); err != nil {
+		// Module cmdInfo: "build" matches via qualified form "mod build".
+		if err := CheckCommandDependenciesExist(disc, deps, modCmdInfo, ctx); err != nil {
 			t.Fatalf("CheckCommandDependenciesExist() = %v", err)
 		}
 	})
@@ -70,7 +89,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			},
 		}
 
-		err := CheckCommandDependenciesExist(disc, deps, "mod", ctx)
+		err := CheckCommandDependenciesExist(disc, deps, rootCmdInfo, ctx)
 		if err == nil {
 			t.Fatal("expected dependency error")
 		}
@@ -112,7 +131,7 @@ func TestDiscoverAvailableCommands(t *testing.T) {
 		if err != nil {
 			t.Fatalf("discoverAvailableCommands() = %v", err)
 		}
-		if _, ok := available[invowkfile.CommandName("deploy")]; !ok {
+		if available[invowkfile.CommandName("deploy")] == nil {
 			t.Fatalf("available missing deploy: %v", available)
 		}
 	})

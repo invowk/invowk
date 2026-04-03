@@ -49,11 +49,11 @@ Review checklist:
 - Defense layers:
   1. CUE schema constrains field formats at parse time (regex patterns, enum values)
   2. Go validation before interpolation (e.g., `toolNamePattern`, `invowkfile.ValidateEnvVarName()`)
-  3. `shellEscapeSingleQuote()` helper escapes `'` as `'\''` for safe single-quote interpolation
-- The `shellEscapeSingleQuote()` function in `cmd_validate_checks.go` is the canonical helper — all container validators must use it for string interpolation
+  3. `ShellEscapeSingleQuote()` helper escapes `'` as `'\''` for safe single-quote interpolation
+- The `ShellEscapeSingleQuote()` function in `internal/app/deps/helpers.go` is the canonical helper — all container validators must use it for string interpolation
 
 Review checklist:
-- [ ] All user-provided strings escaped via `shellEscapeSingleQuote()` before shell interpolation
+- [ ] All user-provided strings escaped via `ShellEscapeSingleQuote()` before shell interpolation
 - [ ] Regex pre-validation patterns reject shell metacharacters (defense-in-depth)
 - [ ] `result.Error` checked before `result.ExitCode` (prevents false-positive validation when container engine fails)
 - [ ] No `fmt.Sprintf` with `%s` or `%q` directly into shell strings without escaping

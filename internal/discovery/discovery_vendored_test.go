@@ -409,7 +409,7 @@ func TestDiscoverAll_VendoredScanFailed(t *testing.T) {
 
 	// Create invowk_modules/ and make it unreadable
 	vendorDir := filepath.Join(parentDir, invowkmod.VendoredModulesDir)
-	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+	if err := os.MkdirAll(vendorDir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Chmod(vendorDir, 0o000); err != nil {
@@ -417,7 +417,7 @@ func TestDiscoverAll_VendoredScanFailed(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		// Restore permissions so t.TempDir() cleanup can remove it
-		_ = os.Chmod(vendorDir, 0o755)
+		_ = os.Chmod(vendorDir, 0o750)
 	})
 
 	cfg := config.DefaultConfig()
@@ -499,5 +499,95 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 	errMsg := collisionErr.Error()
 	if !strings.Contains(errMsg, "vendored in parent") {
 		t.Errorf("collision error should mention 'vendored in parent', got: %s", errMsg)
+	}
+}
+
+func TestDiscoverAll_VendoredInGlobalModuleInheritsIsGlobalModule(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create a global module in user-dir with a vendored dependency.
+	userCmdsDir := filepath.Join(tmpDir, ".invowk", "cmds")
+	parentDir := filepath.Join(userCmdsDir, "globalparent.invowkmod")
+	createTestModule(t, parentDir, "globalparent", "parent-cmd")
+	createVendoredModule(t, parentDir, "vendored.invowkmod", "vendored", "vendored-cmd")
+
+	workDir := filepath.Join(tmpDir, "work")
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
+		t.Fatalf("failed to create work dir: %v", err)
+	}
+
+	cfg := config.DefaultConfig()
+	d := newTestDiscovery(t, cfg, tmpDir,
+		WithBaseDir(types.FilesystemPath(workDir)),
+		WithCommandsDir(types.FilesystemPath(userCmdsDir)),
+	)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() error: %v", err)
+	}
+
+	var foundParent, foundVendored bool
+	for _, f := range files {
+		if f.Module == nil {
+			continue
+		}
+		if f.Module.Name() == "globalparent" {
+			foundParent = true
+			if !f.IsGlobalModule {
+				t.Error("global parent module should have IsGlobalModule=true")
+			}
+		}
+		if f.Module.Name() == "vendored" {
+			foundVendored = true
+			if !f.IsGlobalModule {
+				t.Error("vendored child of global module should inherit IsGlobalModule=true")
+			}
+		}
+	}
+
+	if !foundParent {
+		t.Error("did not find global parent module")
+	}
+	if !foundVendored {
+		t.Error("did not find vendored module inside global parent")
+	}
+}
+
+func TestDiscoverAll_VendoredInLocalModuleNotGlobal(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create a local module (not in user-dir) with a vendored dependency.
+	parentDir := filepath.Join(tmpDir, "localparent.invowkmod")
+	createTestModule(t, parentDir, "localparent", "parent-cmd")
+	createVendoredModule(t, parentDir, "localchild.invowkmod", "localchild", "child-cmd")
+
+	cfg := config.DefaultConfig()
+	d := newTestDiscovery(t, cfg, tmpDir)
+
+	files, err := d.DiscoverAll()
+	if err != nil {
+		t.Fatalf("DiscoverAll() error: %v", err)
+	}
+
+	found := false
+	for _, f := range files {
+		if f.Module == nil {
+			continue
+		}
+		// Vendored module name comes from the folder name, not the module: field in invowkmod.cue.
+		if f.Module.Name() == "localchild" && f.ParentModule != nil {
+			found = true
+			if f.IsGlobalModule {
+				t.Error("vendored child of local module should NOT have IsGlobalModule=true")
+			}
+		}
+	}
+	if !found {
+		t.Error("did not find vendored module inside local parent")
 	}
 }

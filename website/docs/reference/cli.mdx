@@ -269,6 +269,14 @@ Update module dependencies to latest matching versions.
 
 <Snippet id="reference/cli/module-update-syntax" />
 
+#### invowk module tidy
+
+Add missing transitive dependencies to `invowkmod.cue`. Invowk uses an explicit-only dependency model (like Go modules): every module in the dependency tree must be declared in your root `invowkmod.cue`. This command scans resolved modules and auto-adds any missing transitive requirements.
+
+```bash
+invowk module tidy
+```
+
 #### invowk module deps
 
 List resolved module dependencies.

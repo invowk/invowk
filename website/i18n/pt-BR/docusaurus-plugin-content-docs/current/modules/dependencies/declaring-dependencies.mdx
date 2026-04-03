@@ -93,7 +93,12 @@ Para repositórios HTTPS privados, defina variáveis de ambiente:
 
 ## Dependências Transitivas
 
-Dependências podem declarar suas próprias dependências. Quando você sincroniza, o invowk resolve toda a árvore e registra no lock file:
+O Invowk usa um **modelo de dependências explícitas** (como Go modules): todo módulo na árvore de dependências deve ser declarado no `invowkmod.cue` raiz. Se o módulo A requer o módulo B, e B requer C, então C também deve ser declarado no seu `invowkmod.cue`.
+
+- `invowk module sync` falhará com erros acionáveis listando dependências transitivas faltantes.
+- `invowk module tidy` verifica os módulos resolvidos e adiciona automaticamente dependências transitivas faltantes ao seu `invowkmod.cue`.
+
+Quando você sincroniza, o invowk resolve toda a árvore e registra no lock file:
 
 <Snippet id="modules/dependencies/transitive-tree" />
 

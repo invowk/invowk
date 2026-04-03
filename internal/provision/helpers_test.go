@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -486,5 +487,110 @@ func TestDiscoverModules_MultiplePaths(t *testing.T) {
 	}
 	if !found2 {
 		t.Error("expected to find mod2.invowkmod")
+	}
+}
+
+// TestCopyDir_SkipsSymlinks verifies that CopyDir skips symlinks during
+// directory copy, preventing directory traversal attacks during container
+// provisioning (SC-05).
+func TestCopyDir_SkipsSymlinks(t *testing.T) {
+	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: symlink behavior differs on Windows")
+	}
+
+	srcDir := t.TempDir()
+
+	// Create a regular file that should be copied.
+	regularFile := filepath.Join(srcDir, "regular.txt")
+	if err := os.WriteFile(regularFile, []byte("regular content"), 0o644); err != nil {
+		t.Fatalf("failed to write regular file: %v", err)
+	}
+
+	// Create a symlink that should be skipped.
+	symlinkPath := filepath.Join(srcDir, "dangerous_link")
+	if err := os.Symlink("/etc/passwd", symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	// Create a subdirectory with another regular file.
+	subDir := filepath.Join(srcDir, "subdir")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("nested content"), 0o644); err != nil {
+		t.Fatalf("failed to write nested file: %v", err)
+	}
+
+	// Create a symlink inside the subdirectory.
+	nestedSymlink := filepath.Join(subDir, "nested_link")
+	if err := os.Symlink("/etc/shadow", nestedSymlink); err != nil {
+		t.Fatalf("failed to create nested symlink: %v", err)
+	}
+
+	dstDir := filepath.Join(t.TempDir(), "dest")
+
+	if err := CopyDir(srcDir, dstDir); err != nil {
+		t.Fatalf("CopyDir failed: %v", err)
+	}
+
+	// Regular file should be copied.
+	if _, err := os.Stat(filepath.Join(dstDir, "regular.txt")); os.IsNotExist(err) {
+		t.Error("expected regular.txt to be copied")
+	}
+
+	// Nested regular file should be copied.
+	if _, err := os.Stat(filepath.Join(dstDir, "subdir", "nested.txt")); os.IsNotExist(err) {
+		t.Error("expected subdir/nested.txt to be copied")
+	}
+
+	// Symlink should NOT be copied.
+	if _, err := os.Lstat(filepath.Join(dstDir, "dangerous_link")); !os.IsNotExist(err) {
+		t.Error("expected symlink 'dangerous_link' to be skipped, but it exists in destination")
+	}
+
+	// Nested symlink should NOT be copied.
+	if _, err := os.Lstat(filepath.Join(dstDir, "subdir", "nested_link")); !os.IsNotExist(err) {
+		t.Error("expected nested symlink 'nested_link' to be skipped, but it exists in destination")
+	}
+}
+
+// TestCopyFile_SkipsSymlinks verifies that CopyFile skips non-regular files
+// (symlinks, devices) as a defense-in-depth layer (SC-05). When called on
+// a symlink, it returns nil (skipped) and does NOT create the destination.
+func TestCopyFile_SkipsSymlinks(t *testing.T) {
+	t.Parallel()
+
+	if goruntime.GOOS == "windows" {
+		t.Skip("skipping: symlink behavior differs on Windows")
+	}
+
+	srcDir := t.TempDir()
+
+	// Create a regular file to be the symlink target.
+	targetFile := filepath.Join(srcDir, "target.txt")
+	if err := os.WriteFile(targetFile, []byte("target content"), 0o644); err != nil {
+		t.Fatalf("failed to write target file: %v", err)
+	}
+
+	// Create a symlink pointing to the target.
+	symlinkPath := filepath.Join(srcDir, "link.txt")
+	if err := os.Symlink(targetFile, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	dstDir := t.TempDir()
+	dstFile := filepath.Join(dstDir, "link_copy.txt")
+
+	// CopyFile on a symlink should return nil (silently skip).
+	err := CopyFile(symlinkPath, dstFile)
+	if err != nil {
+		t.Fatalf("CopyFile on symlink returned error: %v (expected nil skip)", err)
+	}
+
+	// Destination file should NOT exist.
+	if _, err := os.Stat(dstFile); !os.IsNotExist(err) {
+		t.Error("expected destination to not exist after CopyFile skipped the symlink")
 	}
 }

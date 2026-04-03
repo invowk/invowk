@@ -2025,6 +2025,8 @@ The repository must contain a module (either a `.invowkmod` directory or an `inv
 
 Commands in a module can only call commands from direct dependencies or globally installed modules (transitive dependencies are not available).
 
+> **Explicit-Only Dependency Model**: Every module in the dependency tree must be declared in the root `invowkmod.cue`. Transitive dependencies are NOT resolved automatically — if module A requires module B, and B requires C, then C must also be declared in the root `invowkmod.cue`. Use `invowk module tidy` to auto-add missing transitive deps, or `invowk module sync` to detect missing ones with actionable error messages.
+
 ### Version Constraints
 
 | Format | Description | Example |
@@ -2053,7 +2055,11 @@ invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path p
 invowk module deps
 
 # Sync dependencies from invowkmod.cue (resolve and download)
+# Fails with actionable errors if transitive deps are missing
 invowk module sync
+
+# Auto-add missing transitive dependencies to invowkmod.cue
+invowk module tidy
 
 # Update all dependencies to latest matching versions
 invowk module update
@@ -2073,7 +2079,7 @@ Module resolution creates an `invowkmod.lock.cue` file that records the exact ve
 // invowkmod.lock.cue - Auto-generated lock file
 // DO NOT EDIT MANUALLY
 
-version: "1.0"
+version: "2.0"
 generated: "2025-01-12T10:30:00Z"
 
 modules: {
@@ -2083,6 +2089,7 @@ modules: {
 		resolved_version: "1.2.3"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "common-tools@1.2.3"
+		content_hash:     "sha256:a1b2c3d4e5f6..."
 	}
 }
 ```
@@ -2827,6 +2834,8 @@ invowk/
 ├── tools/                      # Development tools (separate Go modules)
 │   └── goplint/                # Custom go/analysis analyzer for DDD value type enforcement
 ├── docs/                       # Architecture diagrams and design docs
+├── examples/                   # Example invowkfiles and modules
+├── Dockerfile                  # Container image for development
 └── website/                    # Docusaurus documentation site
 ```
 

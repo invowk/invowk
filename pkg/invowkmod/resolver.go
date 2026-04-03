@@ -71,8 +71,12 @@ type (
 		// ModuleID is the module identifier from the module's invowkmod.cue.
 		ModuleID ModuleID
 
-		// TransitiveDeps are dependencies declared by this module (for recursive resolution).
+		// TransitiveDeps are dependencies declared by this module (for validation of
+		// explicit-only dependency model — transitive deps must be declared in root invowkmod.cue).
 		TransitiveDeps []ModuleRef
+
+		// ContentHash is the SHA-256 content hash of the cached module tree.
+		ContentHash ContentHash
 	}
 
 	// Resolver handles module operations including resolution, caching, and synchronization.
@@ -228,8 +232,11 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 		return nil, fmt.Errorf("invalid requirement: %w", err)
 	}
 
+	// Load existing lock file hashes for cache tamper detection.
+	knownHashes := m.loadExistingLockHashes()
+
 	// Resolve the module
-	resolved, err := m.resolveOne(ctx, req, make(map[ModuleRefKey]bool))
+	resolved, err := m.resolveOne(ctx, req, knownHashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
 	}
@@ -239,6 +246,10 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+	}
+	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
+	if v2Err := lock.RequireV2(); v2Err != nil {
+		return nil, v2Err
 	}
 	lock.AddModule(resolved)
 	if err := lock.Save(lockPath); err != nil {
@@ -259,6 +270,10 @@ func (m *Resolver) Remove(_ context.Context, identifier string) ([]RemoveResult,
 	lock, err := LoadLockFile(lockPath)
 	if err != nil {
 		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+	}
+	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
+	if v2Err := lock.RequireV2(); v2Err != nil {
+		return nil, v2Err
 	}
 
 	// Resolve identifier to lock file keys
@@ -299,6 +314,10 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	if err != nil {
 		return nil, fmt.Errorf(errFmtLoadLockFile, err)
 	}
+	// Reject v1.0 lock files — require upgrade to v2.0 for tamper detection.
+	if v2Err := lock.RequireV2(); v2Err != nil {
+		return nil, v2Err
+	}
 
 	// Determine which keys to update
 	var keysToUpdate []ModuleRefKey
@@ -314,7 +333,6 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 	}
 
 	var updated []*ResolvedModule
-	visited := make(map[ModuleRefKey]bool)
 
 	for _, key := range keysToUpdate {
 		entry := lock.Modules[key]
@@ -327,7 +345,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 			Path:    entry.Path,
 		}
 
-		resolved, err := m.resolveOne(ctx, req, visited)
+		resolved, err := m.resolveOne(ctx, req, lock.ContentHashes())
 		if err != nil {
 			return nil, fmt.Errorf("failed to update %s: %w", key, err)
 		}
@@ -341,6 +359,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 			Alias:           resolved.ModuleRef.Alias,
 			Path:            resolved.ModuleRef.Path,
 			Namespace:       resolved.Namespace,
+			ContentHash:     resolved.ContentHash,
 		}
 
 		updated = append(updated, resolved)
@@ -363,15 +382,26 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 		return nil, nil
 	}
 
-	// Build dependency graph and resolve all modules
-	resolved, err := m.resolveAll(ctx, requirements)
+	// Load existing lock file hashes for cache tamper detection.
+	// When re-syncing, cached modules are verified against the prior
+	// lock file's content hashes to detect tampering of the local cache.
+	knownHashes := m.loadExistingLockHashes()
+
+	// Resolve only direct dependencies (no transitive recursion).
+	resolved, err := m.resolveAll(ctx, requirements, knownHashes)
 	if err != nil {
 		return nil, err
 	}
 
+	// Validate that all transitive deps are explicitly declared in root requirements.
+	// If any are missing, return an actionable error suggesting `invowk module tidy`.
+	if diags := checkMissingTransitiveDeps(requirements, resolved); len(diags) > 0 {
+		return nil, &MissingTransitiveDepError{Diagnostics: diags}
+	}
+
 	// Save lock file
 	lock := &LockFile{
-		Version: "1.0",
+		Version: "2.0",
 		Modules: make(map[ModuleRefKey]LockedModule),
 	}
 
@@ -384,6 +414,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 			Alias:           mod.ModuleRef.Alias,
 			Path:            mod.ModuleRef.Path,
 			Namespace:       mod.Namespace,
+			ContentHash:     mod.ContentHash,
 		}
 	}
 
@@ -410,7 +441,8 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 	}
 
 	var modules []*ResolvedModule
-	for key, entry := range lock.Modules {
+	for key := range lock.Modules {
+		entry := lock.Modules[key]
 		modules = append(modules, &ResolvedModule{
 			ModuleRef: ModuleRef{
 				GitURL:  entry.GitURL,
@@ -433,6 +465,19 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 // This is used for command discovery when a lock file already exists.
 func (m *Resolver) LoadFromLock(ctx context.Context) ([]*ResolvedModule, error) {
 	return m.List(ctx)
+}
+
+// loadExistingLockHashes loads content hashes from the existing lock file
+// for cache tamper detection. Returns nil if no lock file exists or cannot
+// be read (best-effort: a missing lock file simply means no prior hashes
+// to verify against).
+func (m *Resolver) loadExistingLockHashes() map[ModuleRefKey]ContentHash {
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
+	lock, err := LoadLockFile(lockPath)
+	if err != nil {
+		return nil
+	}
+	return lock.ContentHashes()
 }
 
 // isGitURL returns true if s looks like a Git URL.
@@ -466,7 +511,8 @@ func resolveIdentifier(identifier string, modules map[ModuleRefKey]LockedModule)
 
 	// Namespace match: exact and prefix (bare name without @version)
 	var exactMatches, prefixMatches []ModuleRefKey
-	for key, entry := range modules {
+	for key := range modules {
+		entry := modules[key]
 		if string(entry.Namespace) == identifier {
 			exactMatches = append(exactMatches, key)
 		} else if strings.HasPrefix(string(entry.Namespace), identifier+"@") {

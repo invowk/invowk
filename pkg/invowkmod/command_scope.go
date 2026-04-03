@@ -16,6 +16,13 @@ import (
 // CommandScope holds the commands visible to a module, populated post-construction
 // via AddDirectDep(). Commands CANNOT call transitive dependencies.
 //
+// SCOPE ENFORCEMENT BOUNDARY: CanCall() is a static analysis gate enforced at
+// depends_on.cmds declaration validation time (via CheckCommandDependenciesExist),
+// NOT a runtime subprocess interceptor. If a module script dynamically invokes
+// `invowk cmd <forbidden-command>`, the scope check is not triggered because
+// the subprocess spawns a new CLI process outside the validation pipeline.
+// For execution isolation, use the container runtime.
+//
 //goplint:mutable
 //goplint:validate-all
 //nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)

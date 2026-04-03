@@ -1,0 +1,26 @@
+# Test: invowk module tidy (no network)
+# Verifies tidy works when invowkmod.cue exists but has no requires field.
+# This is the only network-free tidy happy path: it should report nothing to tidy
+# and exit successfully without attempting any git operations.
+
+cd $WORK
+
+# Test 1: tidy with valid invowkmod.cue but no requires field
+exec invowk module tidy
+stdout '(?i)no requires|nothing to tidy'
+
+-- invowkmod.cue --
+module: "io.invowk.test.tidy"
+version: "1.0.0"
+description: "Test module for tidy happy path"
+
+-- invowkfile.cue --
+cmds: [{
+	name: "hello"
+	description: "Test command"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{name: "virtual"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]

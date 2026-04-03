@@ -43,6 +43,10 @@ type (
 		// module inside another module's invowk_modules/ directory.
 		// nil for non-vendored files.
 		ParentModule *invowkmod.Module
+		// IsGlobalModule is true when this file was discovered from the user
+		// commands directory (~/.invowk/cmds). Global module commands are always
+		// accessible by any module's CommandScope.
+		IsGlobalModule bool
 	}
 )
 
@@ -110,10 +114,21 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	files, diagnostics = d.appendModulesWithVendored(files, diagnostics, includeFiles, includeDiags)
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive) (+ their vendored dependencies)
+	// Mark all user-dir modules as global — their commands are accessible by any module's CommandScope.
+	// Vendored children inherit IsGlobalModule inside appendModulesWithVendored.
 	if d.commandsDir != "" {
 		userModuleFiles, userModuleDiags := d.discoverModulesInDirWithDiagnostics(d.commandsDir)
+		for i := range userModuleFiles {
+			userModuleFiles[i].IsGlobalModule = true
+		}
 		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
 	}
+
+	// Check for local modules that shadow global modules (SC-10 defense-in-depth).
+	// A local module with the same ModuleID as a globally installed module wins
+	// via discovery precedence, which is the safe direction (local doesn't gain
+	// global trust). Warn to detect potential namespace collisions or typosquatting.
+	diagnostics = append(diagnostics, d.detectModuleShadowing(files)...)
 
 	return files, diagnostics, nil
 }
@@ -366,6 +381,10 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 // each discovered module, scans its invowk_modules/ directory for vendored
 // dependencies. This DRYs the pattern used at all 3 module discovery sites
 // (local modules, includes, user-dir).
+//
+// Vendored children inherit IsGlobalModule from their parent so that scope
+// enforcement treats globally-installed vendored commands identically to their
+// parent module's commands.
 func (d *Discovery) appendModulesWithVendored(
 	files []*DiscoveredFile,
 	diagnostics []Diagnostic,
@@ -380,12 +399,54 @@ func (d *Discovery) appendModulesWithVendored(
 		// Scan vendored modules owned by this module
 		if mf.Module != nil {
 			vendoredFiles, vendoredDiags := d.discoverVendoredModulesWithDiagnostics(mf.Module)
+			// Inherit IsGlobalModule from the parent module.
+			if mf.IsGlobalModule {
+				for _, vf := range vendoredFiles {
+					vf.IsGlobalModule = true
+				}
+			}
 			files = append(files, vendoredFiles...)
 			diagnostics = append(diagnostics, vendoredDiags...)
 		}
 	}
 
 	return files, diagnostics
+}
+
+// detectModuleShadowing checks for local/include modules that have the same
+// ModuleID as a globally installed module. Returns warnings for each collision.
+func (d *Discovery) detectModuleShadowing(files []*DiscoveredFile) []Diagnostic {
+	// Collect global module IDs.
+	globalIDs := make(map[invowkmod.ModuleID]types.FilesystemPath)
+	for _, f := range files {
+		if f.IsGlobalModule && f.Module != nil {
+			globalIDs[f.Module.Metadata.Module] = f.Path
+		}
+	}
+
+	if len(globalIDs) == 0 {
+		return nil
+	}
+
+	var diagnostics []Diagnostic
+	for _, f := range files {
+		if f.IsGlobalModule || f.Module == nil {
+			continue
+		}
+		if globalPath, shadows := globalIDs[f.Module.Metadata.Module]; shadows {
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
+				SeverityWarning,
+				CodeModuleShadowsGlobal,
+				fmt.Sprintf(
+					"local module '%s' at %s shadows global module at %s — local takes precedence",
+					f.Module.Metadata.Module, f.Path, globalPath,
+				),
+				f.Path,
+			))
+		}
+	}
+
+	return diagnostics
 }
 
 // getModuleShortName extracts the short name from a module path.

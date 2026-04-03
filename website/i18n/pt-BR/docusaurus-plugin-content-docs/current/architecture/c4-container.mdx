@@ -89,7 +89,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 1. **Discovery Engine** encontra requisitos de módulos
 2. **Module Resolver** verifica cache, busca do Git se necessário
-3. Dependências são resolvidas transitivamente
+3. Dependências usam o modelo explícito (toda dep transitiva deve ser declarada no `invowkmod.cue` raiz)
 4. Comandos de módulos requeridos se tornam disponíveis
 
 ## Fundamentos de Design

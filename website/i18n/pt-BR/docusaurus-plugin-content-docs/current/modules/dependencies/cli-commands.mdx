@@ -17,6 +17,7 @@ O Invowk fornece um conjunto de comandos `invowk module` para gerenciar dependê
 | `invowk module deps` | Lista dependências resolvidas |
 | `invowk module sync` | Resolve dependências de `invowkmod.cue` |
 | `invowk module update` | Atualiza dependências para as versões mais recentes compatíveis |
+| `invowk module tidy` | Adiciona dependências transitivas faltantes ao `invowkmod.cue` |
 | `invowk module vendor` | Faz vendor das dependências em `invowk_modules/` |
 
 ## invowk module add
@@ -143,6 +144,37 @@ Atualiza dependências para as versões mais recentes compatíveis com as restri
 ### Sem Atualizações
 
 <Snippet id="modules/dependencies/cli/update-empty" />
+
+## invowk module tidy
+
+Verifica todas as dependências resolvidas e adiciona requisitos transitivos faltantes ao seu `invowkmod.cue`. Implementa o modelo de dependências explícitas: todo módulo na árvore de dependências deve aparecer no seu `invowkmod.cue`.
+
+### Uso
+
+```bash
+invowk module tidy
+```
+
+### O Que Ele Faz
+
+1. Analisa seu `invowkmod.cue` para obter os requisitos declarados
+2. Resolve cada dependência e inspeciona seus próprios `requires`
+3. Identifica dependências transitivas não declaradas no seu `invowkmod.cue`
+4. Adiciona automaticamente as entradas faltantes ao `invowkmod.cue`
+
+Após executar `tidy`, execute `invowk module sync` para atualizar o lock file.
+
+### Saída
+
+```
+Tidy Module Dependencies
+ℹ Found 3 requirement(s) in invowkmod.cue
+ℹ Resolving dependencies to find missing transitive requirements...
+✓ Added https://github.com/example/utils.invowkmod.git (^1.0.0)
+
+✓ Added 1 missing transitive dependency(ies) to invowkmod.cue
+ℹ Run invowk module sync to update the lock file
+```
 
 ## invowk module vendor
 

@@ -96,6 +96,9 @@ type (
 		MissingCapabilities []DependencyMessage
 		FailedCustomChecks  []DependencyMessage
 		MissingEnvVars      []DependencyMessage
+		// ForbiddenCommands are commands that exist in discovery but are in a module
+		// outside the caller's CommandScope (not a direct dependency).
+		ForbiddenCommands []DependencyMessage
 	}
 
 	//goplint:constant-only

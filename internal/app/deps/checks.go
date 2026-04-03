@@ -61,14 +61,15 @@ func ValidateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
 func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
-	return evaluateCustomChecks(deps, ctx, func(check invowkfile.CustomCheck) error {
+	return evaluateCustomChecks(deps, ctx, func(_ context.Context, check invowkfile.CustomCheck) error {
 		return validateCustomCheckInContainer(check, registry, ctx)
 	})
 }
 
 // validateCustomCheckNative runs a custom check script using the native shell.
-func validateCustomCheckNative(check invowkfile.CustomCheck) error {
-	cmd := exec.CommandContext(context.Background(), "sh", "-c", string(check.CheckScript))
+// Uses the provided context for cancellation and timeout propagation (SC-07).
+func validateCustomCheckNative(ctx context.Context, check invowkfile.CustomCheck) error {
+	cmd := exec.CommandContext(ctx, "sh", "-c", string(check.CheckScript))
 	output, err := cmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))
 
@@ -113,20 +114,30 @@ func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.E
 // evaluateCustomChecks runs custom check dependencies through the provided validator
 // and returns a DependencyError if any fail. Each CustomCheckDependency supports
 // alternatives with OR semantics (first passing check satisfies the dependency).
+// The validator receives the Go context from ExecutionContext for cancellation/timeout.
 func evaluateCustomChecks(
 	deps *invowkfile.DependsOn,
 	ctx *runtime.ExecutionContext,
-	validator func(invowkfile.CustomCheck) error,
+	validator func(context.Context, invowkfile.CustomCheck) error,
 ) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
+	}
+
+	// Extract the Go context for cancellation/timeout propagation.
+	// Nil fallback to context.Background() for backwards compatibility.
+	goCtx := ctx.Context
+	if goCtx == nil {
+		goCtx = context.Background()
 	}
 
 	var checkErrors []DependencyMessage
 
 	for _, checkDep := range deps.CustomChecks {
 		checks := checkDep.GetChecks()
-		found, lastErr := EvaluateAlternatives(checks, validator)
+		found, lastErr := EvaluateAlternatives(checks, func(check invowkfile.CustomCheck) error {
+			return validator(goCtx, check)
+		})
 
 		if !found && lastErr != nil {
 			if len(checks) == 1 {

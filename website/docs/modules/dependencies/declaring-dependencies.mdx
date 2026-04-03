@@ -93,7 +93,12 @@ For private HTTPS repositories, set environment variables:
 
 ## Transitive Dependencies
 
-Dependencies can declare their own dependencies. When you sync, invowk resolves the full dependency tree and records it in the lock file:
+Invowk uses an **explicit-only dependency model** (like Go modules): every module in the dependency tree must be declared in your root `invowkmod.cue`. If module A requires module B, and B requires C, then C must also be declared in your `invowkmod.cue`.
+
+- `invowk module sync` will fail with actionable errors listing any missing transitive dependencies.
+- `invowk module tidy` scans resolved modules and auto-adds missing transitive dependencies to your `invowkmod.cue`.
+
+When you sync, invowk resolves the full dependency tree and records it in the lock file:
 
 <Snippet id="modules/dependencies/transitive-tree" />
 
