@@ -193,6 +193,20 @@ func (d *Discovery) discoverModulesInDirWithDiagnostics(dir types.FilesystemPath
 	}
 
 	for _, entry := range entries {
+		// Skip symlinks to prevent boundary escape attacks. Defense-in-depth:
+		// IsModule also rejects symlinks via os.Lstat, but filtering here
+		// avoids unnecessary Lstat calls and provides diagnostic visibility.
+		if entry.Type()&os.ModeSymlink != 0 {
+			if strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
+				diagnostics = append(diagnostics, mustDiagnosticWithPath(
+					SeverityWarning,
+					CodeModuleSymlinkSkipped,
+					fmt.Sprintf("skipping symlinked module directory %s — symlink modules are not supported", entry.Name()),
+					types.FilesystemPath(filepath.Join(absDir, entry.Name())),
+				))
+			}
+			continue
+		}
 		if !entry.IsDir() {
 			continue
 		}
@@ -322,6 +336,18 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 	}
 
 	for _, entry := range entries {
+		// Skip symlinks in vendored modules (same defense as discoverModulesInDirWithDiagnostics).
+		if entry.Type()&os.ModeSymlink != 0 {
+			if strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
+				diagnostics = append(diagnostics, mustDiagnosticWithPath(
+					SeverityWarning,
+					CodeVendoredSymlinkSkipped,
+					fmt.Sprintf("skipping symlinked vendored module %s in %s", entry.Name(), parentModule.Name()),
+					types.FilesystemPath(filepath.Join(vendorDirStr, entry.Name())),
+				))
+			}
+			continue
+		}
 		if !entry.IsDir() {
 			continue
 		}

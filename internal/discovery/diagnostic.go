@@ -55,6 +55,13 @@ const (
 	// safe (local doesn't gain global trust) but may indicate typosquatting or
 	// accidental namespace collision.
 	CodeModuleShadowsGlobal DiagnosticCode = "module_shadows_global"
+	// CodeModuleSymlinkSkipped indicates a symlinked .invowkmod directory was
+	// skipped during module discovery. Symlink modules are not supported to
+	// prevent boundary escape attacks.
+	CodeModuleSymlinkSkipped DiagnosticCode = "module_symlink_skipped"
+	// CodeVendoredSymlinkSkipped indicates a symlinked .invowkmod directory was
+	// skipped during vendored module discovery.
+	CodeVendoredSymlinkSkipped DiagnosticCode = "vendored_symlink_skipped"
 
 	// invalidDiagnosticPanicFmt is used for impossible invalid Diagnostic states.
 	invalidDiagnosticPanicFmt = "BUG: invalid diagnostic: %v"
@@ -211,7 +218,7 @@ func (dc DiagnosticCode) Validate() error {
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
 		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed,
-		CodeModuleShadowsGlobal:
+		CodeModuleShadowsGlobal, CodeModuleSymlinkSkipped, CodeVendoredSymlinkSkipped:
 		return nil
 	default:
 		return &InvalidDiagnosticCodeError{Value: dc}

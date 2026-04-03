@@ -46,6 +46,10 @@ type (
 		VendoredModules []*invowkmod.Module
 		SurfaceID       string
 		IsGlobal        bool
+		// InvowkfileParseErr is non-nil when the invowkfile exists on disk but
+		// failed to parse. Checkers can inspect this to flag modules with
+		// corrupted or malformed invowkfiles that would otherwise go undetected.
+		InvowkfileParseErr error
 	}
 
 	// ScriptRef is a reference to a script within the scan context, annotated with
@@ -147,12 +151,15 @@ func (sc *ScanContext) loadSingleModule(absPath string) error {
 		SurfaceID: string(mod.Metadata.Module),
 	}
 
-	// Load invowkfile if present.
+	// Load invowkfile if present. Parse errors are captured rather than
+	// discarded so that checkers can flag modules with corrupted invowkfiles.
 	invPath := filepath.Join(absPath, "invowkfile.cue")
 	if _, statErr := os.Stat(invPath); statErr == nil {
 		inv, parseErr := invowkfile.Parse(invowkfile.FilesystemPath(invPath))
 		if parseErr == nil {
 			sm.Invowkfile = inv
+		} else {
+			sm.InvowkfileParseErr = parseErr
 		}
 	}
 

@@ -189,7 +189,13 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, error) {
 	// Find invowkmod.cue in the module (contains module metadata and requires)
 	invowkmodPath := filepath.Join(cachePath, "invowkmod.cue")
-	if _, err := os.Stat(invowkmodPath); err != nil {
+	if _, statErr := os.Stat(invowkmodPath); statErr != nil {
+		// Only fall through to directory scan for missing files. Permission errors
+		// and other I/O failures are returned as hard errors to avoid silently
+		// skipping modules that exist but are unreadable.
+		if !os.IsNotExist(statErr) {
+			return nil, "", fmt.Errorf("checking invowkmod path %s: %w", invowkmodPath, statErr)
+		}
 		// Try finding .invowkmod directory
 		entries, err := os.ReadDir(cachePath)
 		if err != nil {

@@ -12,8 +12,10 @@ import (
 
 const (
 	moduleMetadataCheckerName = "module-metadata"
-	// maxDependencyDepth is the threshold for flagging deep dependency chains.
-	maxDependencyDepth = 5
+	// maxDependencyFanOut is the threshold for flagging wide dependency fan-out.
+	// This measures the number of direct dependencies a single module declares,
+	// NOT the graph depth of transitive dependency chains.
+	maxDependencyFanOut = 5
 	// typosquatLevenshteinThreshold flags module IDs within this edit distance.
 	typosquatLevenshteinThreshold = 3
 )
@@ -51,8 +53,9 @@ func (c *ModuleMetadataChecker) Check(ctx context.Context, sc *ScanContext) ([]F
 		default:
 		}
 
+		findings = append(findings, c.checkInvowkfileParseFailure(mod)...)
 		findings = append(findings, c.checkGlobalTrust(mod)...)
-		findings = append(findings, c.checkDependencyDepth(mod)...)
+		findings = append(findings, c.checkDependencyFanOut(mod)...)
 		findings = append(findings, c.checkTyposquatting(mod, moduleIDs)...)
 		findings = append(findings, c.checkVersionPinning(mod)...)
 		findings = append(findings, c.checkUndeclaredTransitive(mod)...)
@@ -78,13 +81,34 @@ func (c *ModuleMetadataChecker) checkGlobalTrust(mod *ScannedModule) []Finding {
 	}}
 }
 
-func (c *ModuleMetadataChecker) checkDependencyDepth(mod *ScannedModule) []Finding {
+// checkInvowkfileParseFailure flags modules where the invowkfile exists on disk
+// but failed to parse. A corrupt or malformed invowkfile means script-based
+// checkers (content analysis, env scanning, network detection) cannot inspect
+// the module's commands, creating a blind spot in the audit.
+func (c *ModuleMetadataChecker) checkInvowkfileParseFailure(mod *ScannedModule) []Finding {
+	if mod.InvowkfileParseErr == nil {
+		return nil
+	}
+
+	return []Finding{{
+		Severity:       SeverityMedium,
+		Category:       CategoryTrust,
+		SurfaceID:      mod.SurfaceID,
+		CheckerName:    moduleMetadataCheckerName,
+		FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkfile.cue")), //goplint:ignore -- filepath.Join from validated module path
+		Title:          "Module invowkfile failed to parse",
+		Description:    fmt.Sprintf("Invowkfile exists but could not be parsed: %v — script content cannot be audited", mod.InvowkfileParseErr),
+		Recommendation: "Inspect the invowkfile for syntax errors or deliberate corruption; a module with an unparseable invowkfile evades content-based security checks",
+	}}
+}
+
+func (c *ModuleMetadataChecker) checkDependencyFanOut(mod *ScannedModule) []Finding {
 	if mod.Module == nil || mod.Module.Metadata == nil {
 		return nil
 	}
 
 	requires := mod.Module.Metadata.Requires
-	if len(requires) <= maxDependencyDepth {
+	if len(requires) <= maxDependencyFanOut {
 		return nil
 	}
 
@@ -94,8 +118,8 @@ func (c *ModuleMetadataChecker) checkDependencyDepth(mod *ScannedModule) []Findi
 		SurfaceID:      mod.SurfaceID,
 		CheckerName:    moduleMetadataCheckerName,
 		FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkmod.cue")),
-		Title:          "Deep dependency chain",
-		Description:    fmt.Sprintf("Module has %d direct dependencies (threshold: %d) — increases supply-chain attack surface", len(requires), maxDependencyDepth),
+		Title:          "Wide dependency fan-out",
+		Description:    fmt.Sprintf("Module has %d direct dependencies (threshold: %d) — wide fan-out increases supply-chain attack surface", len(requires), maxDependencyFanOut),
 		Recommendation: "Review whether all dependencies are necessary; consider consolidating or inlining rarely-used modules",
 	}}
 }

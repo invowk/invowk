@@ -53,6 +53,7 @@ func TestDiagnosticCode_Validate(t *testing.T) {
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
 		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed,
+		CodeModuleShadowsGlobal, CodeModuleSymlinkSkipped, CodeVendoredSymlinkSkipped,
 	}
 
 	for _, code := range validCodes {

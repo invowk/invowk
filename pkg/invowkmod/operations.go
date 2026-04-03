@@ -64,9 +64,15 @@ func IsModule(path types.FilesystemPath) bool {
 		return false
 	}
 
-	// Check if it's a directory
-	info, err := os.Stat(pathStr)
+	// Check if it's a real directory (not a symlink). os.Lstat does NOT follow
+	// symlinks, preventing symlinked directories from passing module discovery.
+	info, err := os.Lstat(pathStr)
 	if err != nil {
+		return false
+	}
+
+	// Reject symlinks: a symlink to a directory should not be treated as a module.
+	if info.Mode()&os.ModeSymlink != 0 {
 		return false
 	}
 
