@@ -638,12 +638,16 @@ cmds: [
 					echo "  User:  $INVOWK_SSH_USER"
 					echo "  Token: (hidden for security)"
 					echo ""
-					echo "To connect to host from container, use sshpass with -e (env-based):"
-					echo "  # SECURITY: Never use -p (exposes token in ps output)."
-					echo "  # Never echo or log \$INVOWK_SSH_TOKEN."
-					echo "  export SSHPASS=\$INVOWK_SSH_TOKEN"
-					echo "  sshpass -e ssh -o StrictHostKeyChecking=no \\"
-					echo "    \$INVOWK_SSH_USER@\$INVOWK_SSH_HOST -p \$INVOWK_SSH_PORT 'command'"
+					# Usage instructions are literal text — not executed.
+					# Variables above ARE expanded to show runtime-injected values.
+					cat <<-'USAGE'
+					To connect to host from container, use sshpass with -e (env-based):
+					  # SECURITY: Never use -p (exposes token in ps output).
+					  # Never echo or log $INVOWK_SSH_TOKEN.
+					  export SSHPASS=$INVOWK_SSH_TOKEN
+					  sshpass -e ssh -o StrictHostKeyChecking=no \
+					    $INVOWK_SSH_USER@$INVOWK_SSH_HOST -p $INVOWK_SSH_PORT 'command'
+					USAGE
 					"""#
 				runtimes: [{
 					name:            "container"
@@ -1793,7 +1797,9 @@ cmds: [
 					echo "Individual file arguments (via positional parameters):"
 					# Use set -- to load variadic args into positional parameters,
 					# avoiding eval for safe iteration (SC audit L-1).
+					set -f  # Disable glob expansion for user-supplied filenames
 					set -- $INVOWK_ARG_FILES
+					set +f
 					i=1
 					for file in "$@"; do
 					    echo "  INVOWK_ARG_FILES_$i = '$file'"
@@ -3333,10 +3339,13 @@ cmds: [
 					        filename=$(invowk tui input --title "Enter filename" --placeholder "note.txt")
 					        # Sanitize: strip path components to prevent traversal (SC audit L-2)
 					        filename=$(basename -- "$filename")
-					        if [ -z "$filename" ]; then
-					            echo "Invalid filename."
-					            exit 1
-					        fi
+					        # Restrict to safe characters (alphanumeric, dash, underscore, dot)
+					        case "$filename" in
+					            *[!a-zA-Z0-9._-]* | "")
+					                echo "Invalid filename: only alphanumeric, dash, underscore, and dot allowed."
+					                exit 1
+					                ;;
+					        esac
 					        echo "$note" > "/tmp/$filename"
 					        echo "Saved to /tmp/$filename"
 					        ;;

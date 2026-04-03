@@ -10,16 +10,16 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:308` | Partial |
+| SC-01 | Script path traversal (absolute + `../`) | High | `pkg/invowkfile/implementation.go:363-451` | Mitigated |
 | SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:345` | By-design (documented) |
 | SC-03 | InvowkDir R/W volume mount to container | Medium | `internal/runtime/container_exec.go:118` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial (scoped lifetime + FilterInvowkEnvVars) |
 | SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156` | Mitigated |
 | SC-06 | `--ivk-env-var` highest-priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | `check_script` arbitrary host shell execution | High | `internal/app/deps/checks.go:71` | Partial |
-| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452-488` | Mitigated (allowlist in Validate) |
+| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452-488` | Mitigated (allowlist in Validate; residual: `filepath.Base` bypass for absolute paths) |
 | SC-09 | Root invowkfile commands bypass scope | Low | `internal/app/deps/deps.go:199` | By-design |
-| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-124` | Partial (shadowing detection) |
+| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-131` | Partial (shadowing detection) |
 
 **Status legend:**
 - **Open** — No mitigation in place; needs a code fix or explicit risk acceptance
@@ -32,17 +32,15 @@ The module system has 10 identified attack surfaces. Each review should evaluate
 
 **Files:** `pkg/invowkfile/implementation.go` (lines 266–329)
 
-The `IsScriptFile()` heuristic accepts `../`-prefixed and absolute paths as file references. `GetScriptFilePathWithModule()` resolves these paths using `filepath.Join` without a `filepath.Rel` bounds check, unlike `ValidateContainerfilePath()` and `ValidateEnvFilePath()` which both enforce directory containment.
-
-This means a module's `invowkfile.cue` can reference and execute scripts from anywhere on the host filesystem — a direct supply-chain risk when consuming third-party modules.
+`ResolveScriptWithModule()` and `ResolveScriptWithFSAndModule()` now call `validateScriptPathContainment()` (lines 438–451) which uses `filepath.Rel` + `strings.HasPrefix("..")` to block traversal in module contexts. Root invowkfile scripts (where `modulePath == ""`) intentionally bypass containment — the user controls the root invowkfile.
 
 Review checklist:
-- [ ] Script path resolution bounded to module directory (or invowkfile directory for root)
-- [ ] `filepath.Rel` containment check applied (matching containerfile/env file validation)
-- [ ] Absolute paths in script fields rejected for module commands (root invowkfile may allow them)
-- [ ] `../` traversal in script fields validated against module boundary
+- [x] Script path resolution bounded to module directory via `validateScriptPathContainment`
+- [x] `filepath.Rel` containment check applied (matching containerfile/env file validation)
+- [x] `../` traversal in script fields validated against module boundary
 - [ ] Script content read with size guard (matching 5MB CUE guard in `cueutil.CheckFileSize`)
-- [ ] `ResolveScript()` / `ResolveScriptWithModule()` validate resolved path before `os.ReadFile`
+- [ ] Interpreter path validation uses full-path check, not just basename (`filepath.Base` bypass: `/tmp/python3` passes basename check against allowlist — SC-08 residual)
+- [ ] Root invowkfile no-containment documented in `ResolveScript()` doc comment
 
 ### 2. Lock File Integrity
 

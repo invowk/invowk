@@ -1,16 +1,19 @@
 ---
 name: module-security
 description: >-
-  Module system security auditing, supply-chain attack prevention, and the
-  `invowk module audit` subcommand. Spawns up to 9 parallel subagents across
-  4 phases: context gathering (2), deterministic scanning (5), correlation &
-  deep review (2), and report assembly. Use when reviewing module code for
-  vulnerabilities, implementing security scanning, working on supply-chain
-  hardening, or when any changes touch module discovery, vendoring, lock files,
-  script resolution, or command scope enforcement. Also use when a user asks
-  about module security, trust boundaries, or how to verify third-party modules.
-  Even for quick security questions about the module system, use this skill —
-  it ensures consistent threat model awareness across conversations.
+  Module system security auditing, supply-chain attack prevention, the
+  `invowk audit` subcommand, and code quality review of the audit scanner
+  implementation in `internal/audit/`. Spawns up to 10 parallel subagents
+  across 4 phases: context gathering (2), deterministic scanning (5),
+  correlation & deep review (2), and report assembly. Use when reviewing
+  module code for vulnerabilities, implementing security scanning, working on
+  supply-chain hardening, or when any changes touch module discovery, vendoring,
+  lock files, script resolution, or command scope enforcement. Also use when
+  reviewing or improving the `internal/audit/` Go code for correctness,
+  performance, or security — load `references/implementation-review.md` for
+  the full review checklist. Even for quick security questions about the module
+  system, use this skill — it ensures consistent threat model awareness across
+  conversations.
 ---
 
 # Module Security
@@ -38,8 +41,8 @@ findings that are correlated in a later phase.
 | `internal/runtime/virtual.go` | Host PATH fallback behavior |
 | `internal/app/deps/` | Command scope enforcement |
 | `internal/discovery/` | Global module trust, `IsGlobalModule` propagation |
-| `internal/audit/` | Audit scanner package (to be created) |
-| `cmd/invowk/module_audit.go` | CLI command (to be created) |
+| `internal/audit/` | Audit scanner package (14 production files, ~1,893 lines) |
+| `cmd/invowk/audit.go` | Top-level CLI command (registered in `root.go`) |
 
 ## Workflow Overview
 
@@ -261,7 +264,7 @@ Validator checks their accuracy at the start of every audit.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go:363-444` | Partial |
+| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go:363-451` | Mitigated |
 | SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:344-355` | By-design |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container_exec.go:118` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial |
@@ -270,36 +273,42 @@ Validator checks their accuracy at the start of every audit.
 | SC-07 | `check_script` host shell execution | High | `internal/app/deps/checks.go:70-72` | Partial |
 | SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452` | Mitigated (allowlist in Validate) |
 | SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go:199-201` | By-design |
-| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-124` | Partial |
+| SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-131` | Partial |
 
 **Status legend:** Open (no mitigation), Partial (gaps remain), Mitigated (fixed, residual gap only), By-design (intentional, document only)
 
 **2026-04-02 audit notes:**
+- SC-01 upgraded to Mitigated: `validateScriptPathContainment()` now implemented in `implementation.go:438-451`, called from both `ResolveScriptWithModule` and `ResolveScriptWithFSAndModule`. Uses `filepath.Rel` + `strings.HasPrefix("..")`. Residual: root invowkfile scripts bypass containment when `modulePath == ""` (by design — user controls root invowkfile).
 - SC-05 upgraded to Mitigated: both `CopyDir` implementations (`resolver_cache.go:copyDir` and `provision/helpers.go:CopyDir`) now skip symlinks. Residual: `os.Stat` on the `src` dir argument itself follows symlinks.
 - SC-10 upgraded to Partial: `detectModuleShadowing()` warning added in `discovery_files.go` for local-vs-global collisions. No cryptographic integrity verification — shadowing detection is warning-level only.
-- SC-08 upgraded to Mitigated: `InterpreterSpec.Validate()` now enforces an allowlist of known safe interpreters and rejects shell metacharacters. Bare `env` requires full path (`/usr/bin/env` or `/bin/env`).
+- SC-08 upgraded to Mitigated: `InterpreterSpec.Validate()` now enforces an allowlist of known safe interpreters and rejects shell metacharacters. Bare `env` requires full path (`/usr/bin/env` or `/bin/env`). Residual: absolute paths to allowlisted interpreters in attacker-controlled directories (e.g., `/tmp/python3`) pass the `filepath.Base` check, since only the base name is validated against the allowlist.
 
 ---
 
-## `invowk module audit` Subcommand Architecture
+## `invowk audit` Subcommand Architecture
 
-Implementation guidance for the CLI command. Read `references/check-catalog.md`
-for the full check specifications that map to `internal/audit/checks_*.go` files.
+Implementation reference for the top-level audit command. Read
+`references/check-catalog.md` for check specifications that map to
+`internal/audit/checks_*.go`. For code quality review guidance, load
+`references/implementation-review.md`.
 
-### CLI Layer: `cmd/invowk/module_audit.go`
+### CLI Layer: `cmd/invowk/audit.go`
 
 ```go
-func newModuleAuditCommand(app *App) *cobra.Command {
+func newAuditCommand(app *App) *cobra.Command {
     var (
-        format      string // "text" or "json"
-        minSeverity string // "low", "medium", "high", "critical"
+        format        string
+        minSeverity   string
         includeGlobal bool
     )
     cmd := &cobra.Command{
         Use:   "audit [path]",
-        Short: "Scan modules for security risks",
-        Long: `Analyze module trees for supply-chain vulnerabilities, script injection,
-path traversal, suspicious patterns, and lock file integrity issues.
+        Short: "Scan for security risks",
+        Long: `Analyze invowkfiles and modules for supply-chain vulnerabilities, script
+injection, path traversal, suspicious patterns, and lock file integrity issues.
+
+The audit scans standalone invowkfiles, local modules, vendored dependencies,
+and optionally global modules in ~/.invowk/cmds/.
 
 Exit codes:
   0  No findings at or above the severity threshold
@@ -309,39 +318,42 @@ Exit codes:
         RunE: func(cmd *cobra.Command, args []string) error {
             auditPath := "."
             if len(args) > 0 { auditPath = args[0] }
-            return runModuleAudit(cmd.Context(), app, auditPath, format, minSeverity, includeGlobal)
+            return runAudit(cmd, app, auditPath, format, minSeverity, includeGlobal)
         },
     }
-    cmd.Flags().StringVar(&format, "format", "text", "Output format: text, json")
-    cmd.Flags().StringVar(&minSeverity, "severity", "low", "Minimum severity: low, medium, high, critical")
-    cmd.Flags().BoolVar(&includeGlobal, "include-global", false, "Include ~/.invowk/cmds/ in scan")
+    cmd.Flags().StringVar(&format, "format", "text", "output format: text, json")
+    cmd.Flags().StringVar(&minSeverity, "severity", "low", "minimum severity: info, low, medium, high, critical")
+    cmd.Flags().BoolVar(&includeGlobal, "include-global", false, "include ~/.invowk/cmds/ in scan")
     return cmd
 }
 ```
 
-**Exit codes:** 0 = clean, 1 = findings (`FindingsError`), 2 = scan error.
-**Registration:** `modCmd.AddCommand(newModuleAuditCommand(app))` in `module.go`.
+**Exit codes:** 0 = clean, 1 = findings, 2 = scan error (via `ExitError` with typed codes).
+**Registration:** `rootCmd.AddCommand(newAuditCommand(app))` in `root.go`.
 
 ### Domain Layer: `internal/audit/`
 
 | File | Purpose |
 |------|---------|
 | `doc.go` | Package comment + SPDX header |
-| `scanner.go` | `Scanner` struct, `Scan()`, check orchestration |
-| `findings.go` | `Finding`, `Severity`, `Category` types |
-| `report.go` | `Report` type, filtering, sorting, deduplication |
-| `checks_lockfile.go` | Lock file integrity (hash, version, orphans) |
-| `checks_script.go` | Script path traversal + content analysis |
-| `checks_network.go` | Network access detection |
-| `checks_env.go` | Env var risk analysis |
-| `checks_symlink.go` | Symlink detection and boundary checking |
-| `checks_module.go` | Module metadata (deps, collisions, trust) |
-| `correlate.go` | Finding correlation rules (compound threats) |
+| `severity.go` | `Severity` iota enum, `ParseSeverity()`, JSON marshaling, `InvalidSeverityError` |
+| `types.go` | `Category`, `Finding`, `Report` types, filtering, sorting, counting |
+| `errors.go` | Sentinels (`ErrScanContextBuild`, `ErrCheckerFailed`, `ErrNoScanTargets`), typed wrappers |
+| `checker.go` | `Checker` interface (`Name`, `Category`, `Check`) |
+| `scan_context.go` | `ScanContext`, `BuildScanContext`, `ScannedModule`, `ScriptRef`, discovery integration |
+| `scanner.go` | `Scanner` struct, `Scan()`, concurrent `runCheckers`, functional options |
+| `correlator.go` | `Correlator`, `CorrelationRule`, named rules + severity escalation |
+| `checks_lockfile.go` | Lock file integrity (hash, version, orphans, size guard) |
+| `checks_script.go` | Script path traversal + content analysis (remote exec, obfuscation) |
+| `checks_network.go` | Network access, reverse shells, DNS exfiltration, encoded URLs |
+| `checks_env.go` | Env var risk, credential extraction, `env_inherit_mode` |
+| `checks_symlink.go` | Symlink detection, boundary checking, chain depth |
+| `checks_module.go` | Module metadata (deps, typosquatting, global trust, version pinning) |
 
 ### Core Types
 
 ```go
-type Severity int
+type Severity int  // severity.go — ordered for < / > comparison
 const (
     SeverityInfo Severity = iota
     SeverityLow
@@ -350,7 +362,7 @@ const (
     SeverityCritical
 )
 
-type Category string
+type Category string  // types.go
 const (
     CategoryIntegrity    Category = "integrity"
     CategoryPathTraversal Category = "path-traversal"
@@ -360,15 +372,24 @@ const (
     CategoryObfuscation  Category = "obfuscation"
 )
 
+// Checker interface — all 6 checkers implement this
+type Checker interface {
+    Name() string
+    Category() Category
+    Check(ctx context.Context, sc *ScanContext) ([]Finding, error)
+}
+
 type Finding struct {
     Severity       Severity
     Category       Category
-    SurfaceID      string   // SC-01..SC-10 (if applicable)
-    FilePath       string
+    SurfaceID      string          // SC-01..SC-10 (if applicable)
+    CheckerName    string          // producing checker's Name()
+    FilePath       types.FilesystemPath
     Line           int
     Title          string
     Description    string
     Recommendation string
+    EscalatedFrom  []string        // compound findings only
 }
 ```
 
@@ -400,13 +421,29 @@ When reviewing module-related changes, the skill adapts the 4-phase workflow:
 
 | Pitfall | Fix |
 |---------|-----|
-| `CopyDir` in `internal/provision/helpers.go` follows symlinks | Add `d.Type()&os.ModeSymlink` check (match `resolver_cache.go`) |
-| Script path accepts absolute paths in module context | Add `filepath.Rel` bounds check in `GetScriptFilePathWithModule` |
-| Lock file parsed without size guard | Add size check before `parseLockFileCUE` (match 5MB CUE guard) |
-| Audit scanner reads script without size limit | Apply `os.Stat` size check before `os.ReadFile` |
-| `computeModuleHash` is unexported | Add exported accessor in `pkg/invowkmod/` |
+| `CopyDir` in `internal/provision/helpers.go` follows symlinks | Both `CopyDir` impls now skip symlinks (SC-05 Mitigated); residual: `os.Stat` on `src` dir argument itself follows symlinks |
+| Script path accepts absolute paths in module context | `ScriptChecker` now detects this (SeverityHigh); `GetScriptFilePathWithModule` still allows it at parse time |
 | New `checks_*.go` missing SPDX header | `// SPDX-License-Identifier: MPL-2.0` as first line |
-| `module audit` not registered | `modCmd.AddCommand(newModuleAuditCommand(app))` |
+| `loadSingleModule` silently swallows invowkfile parse errors | Line 155: `if parseErr == nil` discards parse failures — intended (module without invowkfile) but consider logging |
+| `loadDirectoryTree` silently skips invalid modules | Line 219: `continue` on `loadSingleModule` error loses the error — add structured warning to report |
+| `ScanContext` methods expose mutable slices | `Modules()` / `Invowkfiles()` return slice headers — callers can `append` and corrupt shared state (low risk since checkers are well-behaved, but violates immutability contract) |
+| Levenshtein runs O(n²) on module list | Acceptable for small module sets; for >100 modules consider short-circuiting or length pre-filter |
+
+## Audit Implementation Review
+
+**When to load:** Any code changes to `internal/audit/` or `cmd/invowk/audit.go`
+— for correctness, performance, or security review of the scanner implementation itself.
+
+Read **[references/implementation-review.md](references/implementation-review.md)** for:
+- Per-checker correctness checklist (regex accuracy, false positive/negative analysis)
+- Concurrency safety review (goroutine fan-out, `ScanContext` immutability contract)
+- Performance considerations (regex compilation, Levenshtein, `ScanContext` building)
+- Scanner self-defense (crafted input, DoS protection, TOCTOU windows)
+- CLI rendering review (`cmd/invowk/audit.go` exit codes, JSON schema)
+- Test coverage gap analysis (10 test files, ~1,369 lines)
+
+This reference is only loaded when reviewing or modifying the audit Go code — the
+agent-orchestrated security audit workflow above does not need it.
 
 ## Reference Files
 
@@ -417,6 +454,10 @@ When reviewing module-related changes, the skill adapts the 4-phase workflow:
 - **[references/subagent-prompts.md](references/subagent-prompts.md)** —
   Complete prompt templates for all 10 subagents across 4 phases. Adapt these
   to the specific audit context before spawning.
+- **[references/implementation-review.md](references/implementation-review.md)** —
+  Correctness, performance, and security review checklist for the compiled
+  `internal/audit/` Go scanner and `cmd/invowk/audit.go` CLI layer. Load when
+  reviewing or improving the audit code itself (not for running audits).
 
 ## Related Skills
 

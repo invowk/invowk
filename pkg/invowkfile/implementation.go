@@ -347,6 +347,11 @@ func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath 
 // If Implementation is a file path, it reads the file content.
 // If Implementation is inline content (including multi-line), it returns it directly.
 // The invowkfilePath parameter is used to resolve relative paths.
+//
+// Security: this method delegates to ResolveScriptWithModule with an empty modulePath,
+// which means NO path containment check is applied. It is only safe for trusted
+// (user-controlled) invowkfiles — not for third-party modules. Module contexts
+// must use ResolveScriptWithModule with a non-empty modulePath.
 func (s *Implementation) ResolveScript(invowkfilePath FilesystemPath) (string, error) {
 	return s.ResolveScriptWithModule(invowkfilePath, "")
 }

@@ -5,11 +5,9 @@
 module: "io.invowk.sample"
 version: "1.0.0"
 description: "Sample invowk module with a simple cross-platform greeting command"
+license: "MPL-2.0"
+repository: "https://github.com/invowk/invowk"
 
-// Uncomment to add dependencies:
-// requires: [
-//     {
-//         git_url: "https://github.com/example/utils.invowkmod.git"
-//         version: "^1.0.0"
-//     },
-// ]
+// No external dependencies. To add one, declare a requires block:
+//   requires: [{git_url: "https://github.com/org/name.invowkmod.git", version: "^1.0.0"}]
+// Then run: invowk module sync

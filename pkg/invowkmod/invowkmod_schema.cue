@@ -56,6 +56,18 @@ import "strings"
 	// Maximum 10KB to prevent abuse
 	description?: string & strings.MaxRunes(10240)
 
+	// author identifies the module author or maintainer (optional)
+	// Free-form text, typically "Name <email>" or organization name
+	author?: string & strings.MaxRunes(256)
+
+	// license specifies the module license using an SPDX identifier (optional)
+	// Examples: "MIT", "Apache-2.0", "MPL-2.0"
+	license?: string & strings.MaxRunes(128)
+
+	// repository is the canonical source URL for this module (optional)
+	// Typically a Git repository URL (e.g., "https://github.com/org/name.invowkmod")
+	repository?: string & strings.MaxRunes(2048)
+
 	// requires declares dependencies on other modules from Git repositories (optional)
 	// Dependencies are resolved at module level
 	// All required modules are loaded and their commands made available

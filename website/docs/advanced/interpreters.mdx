@@ -60,17 +60,19 @@ Arguments work the same with any interpreter:
 
 ## Supported Interpreters
 
-Any executable in PATH can be used:
+Invowk validates interpreter names against an allowlist for security ([SC-08](https://github.com/invowk/invowk)). The following interpreters are accepted:
 
-- **Python**: `python3`, `python`
+- **Shell**: `sh`, `bash`, `zsh`, `fish`, `dash`, `ksh`, `mksh`
+- **Python**: `python3`, `python`, `python2`
 - **JavaScript**: `node`, `deno`, `bun`
 - **Ruby**: `ruby`
 - **Perl**: `perl`
 - **PHP**: `php`
 - **Lua**: `lua`
 - **R**: `Rscript`
-- **Shell**: `bash`, `sh`, `zsh`, `fish`
-- **Custom**: Any executable
+- **Windows**: `pwsh`, `powershell`, `cmd`
+
+Interpreters not in this list are rejected with an `UnsafeInterpreterSpecError`. Shell metacharacters (`;|&` etc.) in interpreter specs are also rejected. When using `/usr/bin/env`, the actual interpreter (second argument) is validated against the same allowlist.
 
 ## Virtual Runtime Limitation
 

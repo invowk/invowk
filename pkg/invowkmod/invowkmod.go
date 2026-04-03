@@ -265,6 +265,12 @@ type (
 		Version SemVer `json:"version"`
 		// Description provides a summary of this module's purpose (optional).
 		Description types.DescriptionText `json:"description,omitempty"`
+		// Author identifies the module author or maintainer (optional).
+		Author string `json:"author,omitempty"`
+		// License specifies the module license using an SPDX identifier (optional).
+		License string `json:"license,omitempty"`
+		// Repository is the canonical source URL for this module (optional).
+		Repository string `json:"repository,omitempty"`
 		// Requires declares dependencies on other modules from Git repositories (optional).
 		// Dependencies are resolved at module level.
 		// All required modules are loaded and their commands made available.
@@ -315,6 +321,8 @@ func (m ModuleID) String() string { return string(m) }
 // It delegates to Module.Validate(), Version.Validate(), and each
 // Requires entry's Validate(). Description and FilePath are validated
 // only when non-empty (their zero values are valid).
+// Author, License, and Repository are not validated at the Go layer —
+// their constraints (MaxRunes) are enforced by the CUE schema at parse time.
 func (m Invowkmod) Validate() error {
 	var errs []error
 	if err := m.Module.Validate(); err != nil {
