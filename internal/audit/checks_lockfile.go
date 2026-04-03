@@ -6,11 +6,10 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -53,12 +52,28 @@ func (c *LockFileChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding
 					Category:       CategoryIntegrity,
 					SurfaceID:      mod.SurfaceID,
 					CheckerName:    lockFileCheckerName,
-					FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkmod.cue")), //goplint:ignore -- filepath.Join from validated module path
+					FilePath:       fspath.JoinStr(mod.Path, "invowkmod.cue"),
 					Title:          "Module has dependencies but no lock file",
 					Description:    fmt.Sprintf("Module declares %d dependencies in requires but has no lock file — dependency integrity cannot be verified", len(mod.Module.Metadata.Requires)),
 					Recommendation: "Run 'invowk module sync' to generate a lock file with SHA-256 content hashes",
 				})
 			}
+
+			// Flag modules with vendored content but no lock file — manually placed
+			// or stale vendored modules bypass integrity verification entirely.
+			if len(mod.VendoredModules) > 0 {
+				findings = append(findings, Finding{
+					Severity:       SeverityMedium,
+					Category:       CategoryIntegrity,
+					SurfaceID:      mod.SurfaceID,
+					CheckerName:    lockFileCheckerName,
+					FilePath:       fspath.JoinStr(mod.Path, "invowk_modules"),
+					Title:          "Vendored modules present without lock file",
+					Description:    fmt.Sprintf("Module has %d vendored modules in invowk_modules/ but no lock file — content hashes cannot be verified, allowing undetected tampering", len(mod.VendoredModules)),
+					Recommendation: "Run 'invowk module sync' to generate a lock file, or remove stale vendored modules",
+				})
+			}
+
 			continue
 		}
 
@@ -192,7 +207,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
 				CheckerName:    lockFileCheckerName,
-				FilePath:       types.FilesystemPath(string(vendored.Path)),
+				FilePath:       vendored.Path,
 				Title:          "Module content hash mismatch",
 				Description:    fmt.Sprintf("Vendored module %q has hash %s but lock file expects %s — module may have been tampered with", matchedKey, actualHash, expectedHash),
 				Recommendation: "Re-vendor with 'invowk module sync' and verify the module source has not been compromised",
@@ -260,7 +275,7 @@ func (c *LockFileChecker) checkMissingEntries(mod *ScannedModule) []Finding {
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
 				CheckerName:    lockFileCheckerName,
-				FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkmod.cue")),
+				FilePath:       fspath.JoinStr(mod.Path, "invowkmod.cue"),
 				Title:          "Required module has no lock file entry",
 				Description:    fmt.Sprintf("Required dependency %q has no corresponding entry in the lock file", reqKey),
 				Recommendation: "Run 'invowk module sync' to resolve and lock all dependencies",

@@ -95,6 +95,8 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 	diagnostics := make([]Diagnostic, 0, len(d.initDiagnostics))
 	diagnostics = append(diagnostics, d.initDiagnostics...)
 
+	var verifyErr error
+
 	// 1. Current directory (highest precedence)
 	// Skip current-dir discovery when baseDir is empty (e.g., os.Getwd() failed
 	// because the working directory was deleted). This prevents filepath.Abs("")
@@ -106,12 +108,18 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 
 		// 2. Modules in current directory (+ their vendored dependencies)
 		moduleFiles, moduleDiags := d.discoverModulesInDirWithDiagnostics(d.baseDir)
-		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags)
+		files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, moduleFiles, moduleDiags)
+		if verifyErr != nil {
+			return nil, diagnostics, verifyErr
+		}
 	}
 
 	// 3. Configured includes (explicit module paths from config) (+ their vendored dependencies)
 	includeFiles, includeDiags := d.loadIncludesWithDiagnostics()
-	files, diagnostics = d.appendModulesWithVendored(files, diagnostics, includeFiles, includeDiags)
+	files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, includeFiles, includeDiags)
+	if verifyErr != nil {
+		return nil, diagnostics, verifyErr
+	}
 
 	// 4. User commands directory (~/.invowk/cmds — modules only, non-recursive) (+ their vendored dependencies)
 	// Mark all user-dir modules as global — their commands are accessible by any module's CommandScope.
@@ -121,7 +129,10 @@ func (d *Discovery) discoverAllWithDiagnostics() ([]*DiscoveredFile, []Diagnosti
 		for i := range userModuleFiles {
 			userModuleFiles[i].IsGlobalModule = true
 		}
-		files, diagnostics = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
+		files, diagnostics, verifyErr = d.appendModulesWithVendored(files, diagnostics, userModuleFiles, userModuleDiags)
+		if verifyErr != nil {
+			return nil, diagnostics, verifyErr
+		}
 	}
 
 	// Check for local modules that shadow global modules (SC-10 defense-in-depth).
@@ -404,9 +415,13 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 }
 
 // appendModulesWithVendored appends the module files and diagnostics, then for
-// each discovered module, scans its invowk_modules/ directory for vendored
-// dependencies. This DRYs the pattern used at all 3 module discovery sites
-// (local modules, includes, user-dir).
+// each discovered module, verifies vendored dependency integrity and scans its
+// invowk_modules/ directory. This DRYs the pattern used at all 3 module
+// discovery sites (local modules, includes, user-dir).
+//
+// Hash verification (SC-10 defense) runs before vendored module discovery so
+// that tampered modules are never loaded into the command tree. Returns a hard
+// error on hash mismatch — callers must abort discovery.
 //
 // Vendored children inherit IsGlobalModule from their parent so that scope
 // enforcement treats globally-installed vendored commands identically to their
@@ -416,7 +431,7 @@ func (d *Discovery) appendModulesWithVendored(
 	diagnostics []Diagnostic,
 	moduleFiles []*DiscoveredFile,
 	moduleDiags []Diagnostic,
-) ([]*DiscoveredFile, []Diagnostic) {
+) ([]*DiscoveredFile, []Diagnostic, error) {
 	diagnostics = append(diagnostics, moduleDiags...)
 
 	for _, mf := range moduleFiles {
@@ -424,6 +439,13 @@ func (d *Discovery) appendModulesWithVendored(
 
 		// Scan vendored modules owned by this module
 		if mf.Module != nil {
+			// Verify vendored module content hashes against the lock file before
+			// loading any vendored code. A mismatch indicates tampering (e.g.,
+			// malicious commits, CI cache poisoning) and must abort discovery.
+			if err := invowkmod.VerifyVendoredModuleHashes(mf.Module.Path); err != nil {
+				return files, diagnostics, fmt.Errorf("vendored module integrity check failed for %s: %w", mf.Module.Name(), err)
+			}
+
 			vendoredFiles, vendoredDiags := d.discoverVendoredModulesWithDiagnostics(mf.Module)
 			// Inherit IsGlobalModule from the parent module.
 			if mf.IsGlobalModule {
@@ -436,7 +458,7 @@ func (d *Discovery) appendModulesWithVendored(
 		}
 	}
 
-	return files, diagnostics
+	return files, diagnostics, nil
 }
 
 // detectModuleShadowing checks for local/include modules that have the same

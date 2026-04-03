@@ -264,24 +264,31 @@ Validator checks their accuracy at the start of every audit.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
-| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go:363-451` | Mitigated |
-| SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:344-355` | By-design |
+| SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go:364-456` | Mitigated |
+| SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:344-357` | By-design |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container_exec.go:118` | By-design |
-| SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:438, runtime.go:540-584` | Partial |
-| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:132-156` | Mitigated |
+| SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:443, runtime.go:573-575` | Partial |
+| SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:131-170` | Mitigated |
 | SC-06 | `--ivk-env-var` priority override | Low | `internal/runtime/env_builder.go` | By-design |
 | SC-07 | `check_script` host shell execution | High | `internal/app/deps/checks.go:70-72` | Partial |
-| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:452` | Mitigated (allowlist in Validate) |
+| SC-08 | Arbitrary interpreter paths | Medium | `pkg/invowkfile/interpreter_spec.go, runtime.go:435-438` | Mitigated (allowlist in Validate) |
 | SC-09 | Root invowkfile scope bypass | Low | `internal/app/deps/deps.go:199-201` | By-design |
 | SC-10 | Global module trust (no integrity) | Medium | `internal/discovery/discovery_files.go:119-131` | Partial |
 
 **Status legend:** Open (no mitigation), Partial (gaps remain), Mitigated (fixed, residual gap only), By-design (intentional, document only)
 
 **2026-04-02 audit notes:**
-- SC-01 upgraded to Mitigated: `validateScriptPathContainment()` now implemented in `implementation.go:438-451`, called from both `ResolveScriptWithModule` and `ResolveScriptWithFSAndModule`. Uses `filepath.Rel` + `strings.HasPrefix("..")`. Residual: root invowkfile scripts bypass containment when `modulePath == ""` (by design — user controls root invowkfile).
+- SC-01 upgraded to Mitigated: `validateScriptPathContainment()` now implemented in `implementation.go:446-456`, called from both `ResolveScriptWithModule` and `ResolveScriptWithFSAndModule`. Uses `filepath.Rel` + `strings.HasPrefix("..")`. Residual: root invowkfile scripts bypass containment when `modulePath == ""` (by design — user controls root invowkfile).
 - SC-05 upgraded to Mitigated: both `CopyDir` implementations (`resolver_cache.go:copyDir` and `provision/helpers.go:CopyDir`) now skip symlinks. Residual: `os.Stat` on the `src` dir argument itself follows symlinks.
 - SC-10 upgraded to Partial: `detectModuleShadowing()` warning added in `discovery_files.go` for local-vs-global collisions. No cryptographic integrity verification — shadowing detection is warning-level only.
 - SC-08 upgraded to Mitigated: `InterpreterSpec.Validate()` now enforces an allowlist of known safe interpreters and rejects shell metacharacters. Bare `env` requires full path (`/usr/bin/env` or `/bin/env`). Residual: absolute paths to allowlisted interpreters in attacker-controlled directories (e.g., `/tmp/python3`) pass the `filepath.Base` check, since only the base name is validated against the allowlist.
+
+**2026-04-03 audit notes:**
+- SC-06 edge case: `--ivk-env-var` can override security-relevant variables set by modules themselves (e.g., `INVOWK_SSH_ENABLED`), not only host credentials flowing into scripts. The env_builder docstring warns about host credentials but not about module-set variable overrides.
+- SC-08 edge case: The allowlist check uses `filepath.Base()` on the interpreter path, so `/tmp/python3` would pass validation if `python3` is in the allowlist. Only the base name is validated — directory components are not checked. Low residual risk since the attacker-placed binary must be named identically to an allowlisted interpreter.
+- SC-10 edge case: `detectModuleShadowing` only checks `IsGlobalModule` vs non-global. No detection of two global modules with the same ID (e.g., via different includes). The shadowing warning is diagnostic-only with no `--strict-module-trust` flag to promote it to a fatal error.
+- SC-10 improvement: `VerifyVendoredModuleHashes` is now wired into the discovery execution path via `appendModulesWithVendored`, providing automatic tamper detection before vendored modules are loaded. Hash mismatches abort discovery with a hard error.
+- Audit scanner improvement: `LockFileChecker` now detects vendored modules present without a lock file, even when `requires` is empty. Closes gap where manually placed `invowk_modules/` content bypassed integrity enforcement.
 
 ---
 
