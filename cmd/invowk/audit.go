@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,6 +86,14 @@ func newAuditCommand(app *App) *cobra.Command {
 		format        string
 		minSeverity   string
 		includeGlobal bool
+
+		// LLM flags.
+		enableLLM      bool
+		llmURL         string
+		llmModel       string
+		llmAPIKey      string
+		llmTimeout     time.Duration
+		llmConcurrency int
 	)
 
 	cmd := &cobra.Command{
@@ -95,6 +105,10 @@ injection, path traversal, suspicious patterns, and lock file integrity issues.
 The audit scans standalone invowkfiles, local modules, vendored dependencies,
 and optionally global modules in ~/.invowk/cmds/.
 
+Use --llm to enable LLM-powered security analysis via any OpenAI-compatible
+API (Ollama, LM Studio, llamafile, etc.). This sends script content to the
+configured LLM server for deeper semantic analysis beyond regex patterns.
+
 Exit codes:
   0  No findings at or above the severity threshold
   1  Findings detected
@@ -105,7 +119,17 @@ Exit codes:
 			if len(args) > 0 {
 				auditPath = args[0]
 			}
-			return runAudit(cmd, app, auditPath, format, minSeverity, includeGlobal)
+
+			// Resolve LLM flags with env var fallbacks.
+			llmOpts := resolveLLMFlags(cmd, audit.LLMClientConfig{
+				BaseURL:     llmURL,
+				Model:       llmModel,
+				APIKey:      llmAPIKey,
+				Timeout:     llmTimeout,
+				Concurrency: llmConcurrency,
+			})
+
+			return runAudit(cmd, app, auditPath, format, minSeverity, includeGlobal, enableLLM, llmOpts)
 		},
 	}
 
@@ -113,10 +137,23 @@ Exit codes:
 	cmd.Flags().StringVar(&minSeverity, "severity", "low", "minimum severity: info, low, medium, high, critical")
 	cmd.Flags().BoolVar(&includeGlobal, "include-global", false, "include ~/.invowk/cmds/ in scan")
 
+	// LLM flags.
+	cmd.Flags().BoolVar(&enableLLM, "llm", false, "enable LLM-powered security analysis")
+	cmd.Flags().StringVar(&llmURL, "llm-url", audit.DefaultLLMBaseURL, "OpenAI-compatible API base URL")
+	cmd.Flags().StringVar(&llmModel, "llm-model", audit.DefaultLLMModel, "LLM model name")
+	cmd.Flags().StringVar(&llmAPIKey, "llm-api-key", "", "API key (empty for local servers)")
+	cmd.Flags().DurationVar(&llmTimeout, "llm-timeout", audit.DefaultLLMTimeout, "per-request timeout")
+	cmd.Flags().IntVar(&llmConcurrency, "llm-concurrency", audit.DefaultLLMConcurrency, "max parallel LLM requests")
+
 	return cmd
 }
 
-func runAudit(cmd *cobra.Command, app *App, auditPath, format, minSeverity string, includeGlobal bool) error {
+func runAudit(
+	cmd *cobra.Command, app *App,
+	auditPath, format, minSeverity string,
+	includeGlobal, enableLLM bool,
+	llmOpts audit.LLMClientConfig,
+) error {
 	ctx := cmd.Context()
 	w := cmd.OutOrStdout()
 
@@ -127,8 +164,19 @@ func runAudit(cmd *cobra.Command, app *App, auditPath, format, minSeverity strin
 		return &ExitError{Code: auditExitError, Err: err}
 	}
 
-	// Create scanner.
-	scanner := audit.NewScanner(app.Config)
+	// Create scanner with optional LLM checker.
+	var scannerOpts []audit.ScannerOption
+	if enableLLM {
+		llmClient, llmErr := audit.NewLLMClient(llmOpts)
+		if llmErr != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "LLM configuration error: %v\n", llmErr)
+			return &ExitError{Code: auditExitError, Err: llmErr}
+		}
+		scannerOpts = append(scannerOpts, audit.WithChecker(
+			audit.NewLLMChecker(llmClient, llmOpts.Concurrency),
+		))
+	}
+	scanner := audit.NewScanner(app.Config, scannerOpts...)
 
 	// Run scan.
 	report, scanErr := scanner.Scan(ctx, types.FilesystemPath(auditPath), includeGlobal) //goplint:ignore -- CLI arg path from Cobra, validated by filepath.Abs in BuildScanContext
@@ -320,6 +368,42 @@ func severityIcon(s audit.Severity) string {
 	default:
 		return " "
 	}
+}
+
+// resolveLLMFlags applies env var fallbacks for LLM flags. Cobra flags take
+// precedence; env vars only apply when the flag was not explicitly set.
+func resolveLLMFlags(cmd *cobra.Command, cfg audit.LLMClientConfig) audit.LLMClientConfig {
+	if !cmd.Flags().Changed("llm-url") {
+		if envURL := os.Getenv("INVOWK_LLM_URL"); envURL != "" {
+			cfg.BaseURL = envURL
+		}
+	}
+	if !cmd.Flags().Changed("llm-model") {
+		if envModel := os.Getenv("INVOWK_LLM_MODEL"); envModel != "" {
+			cfg.Model = envModel
+		}
+	}
+	if !cmd.Flags().Changed("llm-api-key") {
+		if envKey := os.Getenv("INVOWK_LLM_API_KEY"); envKey != "" {
+			cfg.APIKey = envKey
+		}
+	}
+	if !cmd.Flags().Changed("llm-timeout") {
+		if envTimeout := os.Getenv("INVOWK_LLM_TIMEOUT"); envTimeout != "" {
+			if d, err := time.ParseDuration(envTimeout); err == nil {
+				cfg.Timeout = d
+			}
+		}
+	}
+	if !cmd.Flags().Changed("llm-concurrency") {
+		if envConc := os.Getenv("INVOWK_LLM_CONCURRENCY"); envConc != "" {
+			if n, err := strconv.Atoi(envConc); err == nil {
+				cfg.Concurrency = n
+			}
+		}
+	}
+
+	return cfg
 }
 
 func formatDuration(d time.Duration) string {

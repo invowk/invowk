@@ -19,6 +19,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-git/go-git/v5 v5.17.2
 	github.com/muesli/reflow v0.3.0
+	github.com/openai/openai-go v1.12.0
 	github.com/rogpeppe/go-internal v1.14.1
 	github.com/sahilm/fuzzy v0.1.1
 	github.com/spf13/cobra v1.10.2
@@ -103,6 +104,10 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
