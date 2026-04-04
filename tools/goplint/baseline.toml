@@ -3,7 +3,7 @@
 # goplint baseline — accepted DDD compliance findings
 # Generated: 2026-04-04
 # Regenerate: make update-baseline
-# Total: 137 findings
+# Total: 139 findings
 
 # Bare primitive type usage
 [primitive]
@@ -69,6 +69,7 @@ entries = [
     { id = "gpl3_9b820fc58651374e999c8ffdb24e9960551ea82e9255bb997ee479844231d1d1", message = "return value of audit.ModuleMetadataChecker.Name uses primitive type string" },
     { id = "gpl3_9bc16fb4a7deeec4c377676622eafdaf3d926c3476301563538c98f9680b1d18", message = "return value of audit.ScanContext.Diagnostics uses primitive type []string" },
     { id = "gpl3_9eb1e9a3b627ddb7f8310cd69e9cf159efabdb0fc9bc26da5e0d6e36603ce4df", message = "parameter \"absPath\" of audit.ScanContext.loadSingleModule uses primitive type string" },
+    { id = "gpl3_9f0bd782ebeb79490880572a2ed6fe71958d149f4dde9a8cddb1b36a7ef523cc", message = "parameter \"target\" of audit.isWithinBoundary uses primitive type string" },
     { id = "gpl3_a7e9a3191f084f1df87d4694c79b096ba8e8a5f84e43347e35f30466a6106110", message = "struct field invowk.auditJSONFinding.Recommendation uses primitive type string" },
     { id = "gpl3_adacca27e9c6b5a382d94c3d0399a5be18ea8af567d73ea7b0d5fbaae7aa7e37", message = "struct field invowk.auditJSONSummary.Medium uses primitive type int" },
     { id = "gpl3_ae548ac0760cc94e3655e7ba410db43b31e34a9dffb4d84260ecdc607198bcda", message = "struct field invowk.auditJSONFinding.EscalatedFrom uses primitive type []string" },
@@ -97,6 +98,7 @@ entries = [
     { id = "gpl3_e8e0ac251dde7af24021b41c7e2b8f98fd9b088ab70c455a196511036e97b017", message = "parameter \"absPath\" of audit.ScanContext.loadStandaloneInvowkfile uses primitive type string" },
     { id = "gpl3_ec67569a8dccc204cb1f287562e0367ae3470ac41633976d53b9181d6606b3c0", message = "struct field audit.ScriptRef.ImplIndex uses primitive type int" },
     { id = "gpl3_f263861fd87a7d7896319fd9735fb9bedc12d59712cd46e21aa2b59db73a268b", message = "struct field audit.CorrelationRule.RequiredCheckers uses primitive type [2]string" },
+    { id = "gpl3_f4cbdf5905d5deeface28678471428748be12e52417484e94cd85b3ee7e30cdd", message = "parameter \"base\" of audit.isWithinBoundary uses primitive type string" },
     { id = "gpl3_fa1786118606fd66c2c5734d5b47cd75fe6bfec09d5b0942ad6eaa33b3ed6c36", message = "struct field audit.CheckerFailedError.CheckerName uses primitive type string" },
     { id = "gpl3_fb9e4ccf2911e5298443c986da730411de5232a75a6104ccee1ebefe8e0344a7", message = "return value of invowk.formatDuration uses primitive type string" },
 ]
@@ -136,13 +138,12 @@ entries = [
 [unvalidated-cast]
 entries = [
     { id = "gpl3_0b87af8fefe0d2678c1184735e2869d830b613ea6d6286932f269c2b614bb164", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
-    { id = "gpl3_0c93be0a931e6b5bbdb44e8112aa2bca4e8ad3f85e2b7f0fb215424f952f39b5", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
+    { id = "gpl3_13a61a24ac3262a0ff675eb829722942b269f66d369d7513367a30c00db6b71a", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_15a4c1d16e56c81355fc4a0d662454103131aa5a53aca66c3a718478e77849ff", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_18edc0f96bb80959207ebd4914408ecf3689cda22452f5bfd48509680d46b4ad", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
-    { id = "gpl3_1fcd30b025c8fdaecde0163824b595b3ca7dc037ec48028abc49fda73b1c6484", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_2c7dd210f68f9db4f75c42ba5bcedbe87df25119574920053910c194742b5d22", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_2cff32bb849b90c1fe11d5b227b315447674511ec021bf3c04062c998921f075", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
-    { id = "gpl3_625716284421d00a8c915b8f249007061847a9ef89a375f0d4e5b01a74288c18", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
+    { id = "gpl3_3cd04810039a3f0b844bd1017215c81c51d2ee971a191ba2a7a2e267523ac4d2", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_665227ed2cb872ed1a42f1e4c1ac4bfd5bc22b4dec39a2f91ecfd060d3959115", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_6db15abe71d953093236561725660c416bb5a75c3bcc0fd194613536eac57783", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_79f9e426ad27cf8fe676d7d781c51f3c32c8cc13e847725664d89c37f4277c98", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
@@ -152,11 +153,12 @@ entries = [
     { id = "gpl3_a0f7dc63ffb619d23a9690ca74587b819a888d8b93b579be9b5fb4f929e6b4c9", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_a26bb7268616477dcec5efb166c3f5ef382f20ee754b9947add1e57c1a3b5fd6", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_a9848e3de7eca983459507fd5a0de05356b92da862d1e31a59b77721dfd76725", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
-    { id = "gpl3_ab63bd07efcd43eabfbd292df0b47ade420622ef2d5bb880ee8c36e5657e729b", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
+    { id = "gpl3_ad2eea390cb55ae36127bf16bcbf8fbfd5e0693eced02e7a06dba032c5978575", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_b9d196f7b95dd392e616f17153561c486bd05f34dde77f8fcd26b66c52130a17", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
-    { id = "gpl3_cf12153466fc3b6473061e7ef39f9851c469579a008894a5763454e891568c42", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
+    { id = "gpl3_d547547af61ea73fe8336b25d9d057b38b831c64b2ced793a4b6588da6e3081b", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_e058365873261a1ccd5ad2728617eee2616b3b80e7ffcdbd72ce776e9af75ccc", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
     { id = "gpl3_ede9ddc53bb7be344e985db39e841873c1f4eee10965747c9e8318dbebaa8625", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
+    { id = "gpl3_ef4e11ad8a37c225dd7f8a69f8a420d72e9026581247b74b13d5db1fea7331da", message = "type conversion to types.FilesystemPath from non-constant without Validate() check" },
 ]
 
 # Constructor calls with error return assigned to blank identifier

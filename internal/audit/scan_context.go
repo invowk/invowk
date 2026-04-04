@@ -441,18 +441,28 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, filePath, m
 // Returns empty string if the file cannot be read (checkers handle empty gracefully).
 func readScriptFileContent(scriptPath, modulePath string) string {
 	resolved := strings.TrimSpace(scriptPath)
-	if modulePath != "" && !strings.HasPrefix(resolved, "/") {
+	if modulePath != "" && !filepath.IsAbs(resolved) {
 		resolved = filepath.Join(modulePath, resolved)
 	}
 
-	info, err := os.Stat(resolved)
-	if err != nil || info.Size() > maxScriptFileSize {
+	// Defense-in-depth: verify the resolved path stays within the module
+	// boundary. The invowkfile parser's script path containment check (SC-01)
+	// blocks traversal paths at parse time, but the audit scanner should not
+	// rely on upstream validation alone.
+	if modulePath != "" && !isWithinBoundary(modulePath, resolved) {
 		return ""
 	}
 
 	data, err := os.ReadFile(resolved)
-	if err != nil {
+	if err != nil || len(data) > maxScriptFileSize {
 		return ""
 	}
 	return string(data)
+}
+
+// isWithinBoundary checks whether target resolves to a path within the base
+// directory. Used by multiple checkers for module boundary enforcement.
+func isWithinBoundary(base, target string) bool {
+	rel, err := filepath.Rel(base, target)
+	return err == nil && !strings.HasPrefix(rel, "..")
 }

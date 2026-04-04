@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -140,8 +139,7 @@ func (c *SymlinkChecker) checkSymlinkTarget(path, modPath, surfaceID string) []F
 	target = filepath.Clean(target)
 
 	// Check if target is outside module boundary.
-	rel, err := filepath.Rel(modPath, target)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	if !isWithinBoundary(modPath, target) {
 		return []Finding{{
 			Severity:       SeverityCritical,
 			Category:       CategoryPathTraversal,

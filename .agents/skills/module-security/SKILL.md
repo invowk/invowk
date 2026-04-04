@@ -3,25 +3,30 @@ name: module-security
 description: >-
   Module system security auditing, supply-chain attack prevention, the
   `invowk audit` subcommand, and code quality review of the audit scanner
-  implementation in `internal/audit/`. Spawns up to 10 parallel subagents
-  across 4 phases: context gathering (2), deterministic scanning (5),
-  correlation & deep review (2), and report assembly. Use when reviewing
-  module code for vulnerabilities, implementing security scanning, working on
-  supply-chain hardening, or when any changes touch module discovery, vendoring,
-  lock files, script resolution, or command scope enforcement. Also use when
-  reviewing or improving the `internal/audit/` Go code for correctness,
-  performance, or security — load `references/implementation-review.md` for
-  the full review checklist. Even for quick security questions about the module
-  system, use this skill — it ensures consistent threat model awareness across
-  conversations.
+  implementation in `internal/audit/`. Deterministic scanning backbone:
+  always runs `invowk audit --format json` first (compiled Go scanner with
+  regex patterns, severity classifications, structured output), then applies
+  interpretive analysis only for things the tool cannot decide — threat model
+  drift, supply-chain code review of diffs, documentation consistency. Use
+  when reviewing module code for vulnerabilities, implementing security
+  scanning, working on supply-chain hardening, or when any changes touch
+  module discovery, vendoring, lock files, script resolution, or command
+  scope enforcement. Also use when reviewing or improving the
+  `internal/audit/` Go code for correctness, performance, or security —
+  load `references/implementation-review.md` for the full review checklist.
+  Even for quick security questions about the module system, use this skill
+  — it ensures consistent threat model awareness across conversations.
 ---
 
 # Module Security
 
 Security auditing and supply-chain attack prevention for invowk's module system.
-This skill orchestrates parallel subagents for thorough, deterministic security
-analysis — each subagent loads only the context it needs and produces structured
-findings that are correlated in a later phase.
+
+**Design principle: tool-first, LLM-second.** The compiled Go scanner
+(`invowk audit`) is the deterministic backbone — it produces identical output
+for identical input every time. LLM analysis is reserved for genuinely
+interpretive tasks that a regex scanner cannot do. This eliminates the variance
+that comes from asking LLMs to pattern-match code.
 
 ## Normative Quick Rules
 
@@ -44,187 +49,329 @@ findings that are correlated in a later phase.
 | `internal/audit/` | Audit scanner package (14 production files, ~1,893 lines) |
 | `cmd/invowk/audit.go` | Top-level CLI command (registered in `root.go`) |
 
+---
+
 ## Workflow Overview
 
 ```
 Input (audit request, code review, security scan)
     │
     ▼
-Phase 1: Context Gathering ──────── 2 parallel subagents
-    │   ├── Threat Model Validator
-    │   └── Module Tree Scanner
+Phase 1: Deterministic Scan ────── run `invowk audit --format json`
+    │   (compiled Go scanner, ~40ms, structured JSON output)
     │
     ▼
-Phase 2: Deterministic Scans ────── up to 5 parallel subagents
-    │   ├── Lock File Integrity Scanner
-    │   ├── Script Path & Content Analyzer
-    │   ├── Symlink Detector
-    │   ├── Network/Env Exfiltration Scanner
-    │   └── Module Metadata Analyzer
+Phase 2: Classify & Triage ────── main agent, no subagents
+    │   (parse JSON, classify findings, identify false positives)
     │
     ▼
-Phase 3: Correlation & Deep Review ── up to 3 parallel subagents
-    │   ├── Finding Correlator (always)
+Phase 3: Interpretive Review ──── 1-3 subagents (only when needed)
+    │   ├── Threat Model Drift Checker (always, 1 agent)
     │   ├── Supply-Chain Reviewer (code changes only)
-    │   └── Documentation Drift Checker (when threat model drifted)
+    │   └── Documentation Drift Checker (when drift detected)
     │
     ▼
 Phase 4: Report Assembly ──────── main agent synthesizes
 ```
 
-**Total subagent capacity:** up to 10 parallel subagents across 4 phases.
+**Key difference from subjective scanning:** Phases 1-2 are fully deterministic.
+Phase 3 only runs interpretive analysis for tasks the Go scanner cannot do.
+This reduces subagent count from 10 to at most 3, and eliminates the primary
+source of non-determinism (LLMs doing pattern matching).
 
 ---
 
-## Phase 1: Context Gathering
+## Phase 1: Deterministic Scan
 
-**Always runs.** Both subagents launch in parallel at the start of every audit.
-Their outputs are required by Phase 2 — wait for both to complete before proceeding.
+**Always runs first. This is the single source of truth for findings.**
 
-### Subagent 1: Threat Model Validator
+### Step 1: Build the binary (if needed)
 
-Verifies the 10 attack surfaces (SC-01..SC-10) are still accurate — file paths
-exist, line numbers match, status reflects current code.
+If no built `invowk` binary is available in PATH, build it:
 
-**Prompt template:** `references/subagent-prompts.md` § "Threat Model Validator"
-
-**Why this is a subagent:** The validator reads 10+ files across the codebase.
-Running it in the main context would consume significant tokens on file content
-that only matters for validation, not for the rest of the audit.
-
-### Subagent 2: Module Tree Scanner
-
-Discovers all modules, parses metadata, and produces a structured inventory.
-
-**Prompt template:** `references/subagent-prompts.md` § "Module Tree Scanner"
-
-**Why this is a subagent:** Module discovery requires recursive directory walking
-and CUE parsing. The structured output feeds every Phase 2 scanner without
-requiring them to re-discover modules independently.
-
-### Phase 1 Output
-
-The main agent receives:
-1. **Threat model validation report** — SC-01..SC-10 status (confirmed / drifted)
-2. **Module inventory** — structured list of all modules, scripts, lock files
-
-If the Threat Model Validator reports status changes, flag them for the Phase 3
-Documentation Drift Checker.
-
----
-
-## Phase 2: Deterministic Scans
-
-**Always runs.** All 5 subagents launch in parallel, each receiving the Module
-Tree Scanner output from Phase 1. Each subagent reads only its section of
-`references/check-catalog.md` to minimize context usage.
-
-### Subagent Dispatch Table
-
-| # | Subagent | Check Catalog Section | Input | Produces |
-|---|----------|----------------------|-------|----------|
-| 1 | Lock File Integrity Scanner | § Lock File Integrity | Module inventory | Hash mismatches, orphans, missing entries, version issues |
-| 2 | Script Path & Content Analyzer | § Script Path & Content | Module inventory + script files | Path traversal, obfuscation, remote execution, large files |
-| 3 | Symlink Detector | § Symlink Detection | Module inventory (paths only) | Symlinks, boundary escapes, dangling links, chains |
-| 4 | Network/Env Exfiltration Scanner | § Network + § Env | Module inventory + script content | Network commands, encoded URLs, DNS exfil, sensitive vars |
-| 5 | Module Metadata Analyzer | § Module Metadata | Module inventory | Dep depth, typosquatting, global trust, undeclared transitive |
-
-**Prompt templates:** `references/subagent-prompts.md` § "Phase 2: Deterministic Scans"
-
-### Finding Output Format
-
-All Phase 2 subagents use the same structured output format:
-
-```
-- **Module**: {module_id}
-- **File**: {path}:{line}
-- **Check**: {check_name}
-- **Severity**: {Info|Low|Medium|High|Critical}
-- **Title**: {one-line description}
-- **Detail**: {explanation}
-- **Recommendation**: {fix preserving functionality}
-- **Correlation tag**: {tag for Phase 3 cross-checks}  (Network/Env scanner only)
+```bash
+go build -o /tmp/invowk-audit-bin .
 ```
 
-### When to Skip Scanners
+### Step 2: Run the scanner
 
-Not every audit needs all 5 scanners. Skip when:
+Run the compiled scanner against the target path. Always use JSON format and
+`--severity info` to capture all findings (filtering happens in Phase 2):
 
-| Scanner | Skip When |
-|---------|-----------|
-| Lock File Integrity | No modules have lock files |
-| Script Path & Content | No script-file references (all inline scripts) |
-| Symlink Detector | Quick audit of a single known-safe module |
-| Network/Env Exfiltration | Script content already reviewed manually |
-| Module Metadata | Single module with no dependencies |
+```bash
+invowk audit --format json --severity info {scan_path} 2>/dev/null
+```
 
-When in doubt, run all 5 — the overhead is minimal since they run in parallel.
+For broader scans that include global modules:
+
+```bash
+invowk audit --format json --severity info --include-global {scan_path} 2>/dev/null
+```
+
+**Exit codes:** 0 = no findings, 1 = findings detected, 2 = scan error.
+
+### Step 3: Parse the JSON output
+
+The scanner produces structured JSON with this schema:
+
+```json
+{
+  "findings": [
+    {
+      "severity": "critical|high|medium|low|info",
+      "category": "integrity|path-traversal|exfiltration|execution|trust|obfuscation",
+      "surface_id": "file path or SC-ID",
+      "checker_name": "producing checker name",
+      "file_path": "affected file",
+      "line": 0,
+      "title": "one-line description",
+      "description": "detailed explanation",
+      "recommendation": "fix suggestion",
+      "escalated_from": ["original finding titles (compound findings only)"]
+    }
+  ],
+  "compound_threats": [...],
+  "summary": {
+    "total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0,
+    "modules_scanned": 0, "invowkfiles_scanned": 0, "scripts_scanned": 0,
+    "duration_ms": 0
+  }
+}
+```
+
+### What Phase 1 covers (no LLM needed)
+
+The Go scanner already handles all of these deterministically:
+
+| Checker | What It Does | Source |
+|---------|-------------|--------|
+| LockFileChecker | Hash mismatches, orphans, missing entries, version, size | `checks_lockfile.go` |
+| ScriptChecker | Path traversal, remote exec, obfuscation, file size | `checks_script.go` |
+| NetworkChecker | Reverse shells, DNS exfil, encoded URLs, network commands | `checks_network.go` |
+| EnvChecker | Sensitive vars, env_inherit_mode, token extraction | `checks_env.go` |
+| SymlinkChecker | Symlinks, boundary escapes, dangling, chains | `checks_symlink.go` |
+| ModuleMetadataChecker | Dep depth, typosquatting, global trust, version pinning | `checks_module.go` |
+| Correlator | Compound threat escalation (5 named rules + severity rules) | `correlator.go` |
 
 ---
 
-## Phase 3: Correlation & Deep Review
+## Phase 2: Classify & Triage
 
-Runs after Phase 2 completes. Subagent count varies by context (1–3).
+**Main agent work. No subagents.** Parse the Phase 1 JSON and classify each
+finding into one of three buckets:
 
-### Subagent 6: Finding Correlator (always)
+### Bucket 1: Confirmed findings (report as-is)
 
-Reads all Phase 2 outputs and applies correlation rules to detect compound
-threats that individual scanners cannot see.
+Findings that reflect real security concerns for the specific scan target.
+Include these verbatim in the final report.
 
-**Key correlations:**
+**Examples:**
+- `curl|bash` in a module script → real remote code execution risk
+- Symlink pointing outside module boundary → real escape vector
+- Lock file hash mismatch → real tamper indicator
+- Reverse shell pattern → always a confirmed finding
 
-| Rule | Inputs | Escalation |
-|------|--------|-----------|
-| Credential exfiltration | env_sensitive + network in same module | Medium → Critical |
-| Path + symlink escape | path traversal + external symlink target | High → Critical |
-| Obfuscated exfiltration | obfuscation + encoded URL | High → Critical |
-| Trust chain weakness | deep deps + missing lock entries | Medium → High |
-| Interpreter + traversal | unusual interpreter + path traversal | Medium → Critical |
+### Bucket 2: Expected/by-design findings (suppress with explanation)
 
-**Escalation rules:**
-- Medium + Medium in same module → High
-- High + any in same module → Critical
-- 3+ categories in one module → always Critical
+Findings that the Go scanner correctly flags but that are expected for this
+specific project context. Suppress these from the report but list them in a
+"Suppressed (by-design)" section with justification.
 
-**Prompt template:** `references/subagent-prompts.md` § "Finding Correlator"
+**Classification is deterministic.** Apply these rules in order — the FIRST
+matching rule wins. Do not use judgment; follow the table exactly.
 
-### Subagent 7: Supply-Chain Reviewer (code changes only)
+| Rule # | Condition | Classification | Rationale |
+|--------|-----------|---------------|-----------|
+| R1 | Finding is in a **module** (not root invowkfile) | **Confirmed** | Modules are the supply-chain surface |
+| R2 | Finding title is **"Reverse shell pattern detected"** | **Confirmed** | Always report regardless of location |
+| R3 | Finding title is **"Script downloads and executes remote code"** | **Confirmed** | Always report regardless of location |
+| R4 | Finding title is **"Module content hash mismatch"** | **Confirmed** | Tamper indicator, always report |
+| R5 | Finding title is **"Symlink points outside module boundary"** | **Confirmed** | Escape vector, always report |
+| R6 | Finding has `escalated_from` field (compound threat) AND all constituent findings are suppressed by R7-R10 | **Suppressed** | Compound escalation of by-design constituents |
+| R7 | Finding is on root invowkfile AND title is **"Command uses default env inheritance (all host variables)"** | **Suppressed** | Root invowkfile is user-controlled, env inheritance is the default |
+| R8 | Finding is on root invowkfile AND title is **"Script accesses sensitive environment variable"** | **Suppressed** | SSH/container commands intentionally forward credentials |
+| R9 | Finding is on root invowkfile AND title is **"Possible DNS exfiltration pattern"** | **Suppressed** | container env command legitimately uses DNS |
+| R10 | Finding is on root invowkfile AND title is **"Potential credential exfiltration"** AND has `escalated_from` containing only suppressed constituent titles | **Suppressed** | Correlator artifact from by-design constituents |
+| R11 | Finding is on root invowkfile AND title is **"High-severity finding combined with other issues"** AND all `escalated_from` entries are suppressed | **Suppressed** | Generic escalation of by-design constituents |
+| R12 | Any other finding | **Confirmed** | Default: report it |
+
+**Key principle:** Compound/escalated findings (those with `escalated_from`)
+inherit the classification of their constituents. If ALL constituents are
+suppressed, the compound finding is also suppressed. If ANY constituent is
+confirmed, the compound finding is confirmed.
+
+### Bucket 3: Scanner gaps (flag for Phase 3 investigation)
+
+Areas the Go scanner cannot cover that need interpretive review:
+
+| Gap | Why Scanner Can't Cover It | Phase 3 Handler |
+|-----|---------------------------|-----------------|
+| Threat model line numbers drifted | Scanner checks content, not SKILL.md accuracy | Threat Model Drift Checker |
+| New attack surface not in SC-01..SC-10 | Scanner only checks known patterns | Threat Model Drift Checker |
+| Code change introduces regression in mitigation | Scanner checks current state, not diffs | Supply-Chain Reviewer |
+| Documentation references stale security status | Scanner doesn't read docs | Documentation Drift Checker |
+
+---
+
+## Phase 3: Interpretive Review
+
+**Runs only for gaps identified in Phase 2.** Maximum 3 subagents, each doing
+work that genuinely requires reading comprehension and contextual judgment.
+
+### Subagent A: Threat Model Drift Checker (always runs, 1 agent)
+
+Verifies the 10 attack surfaces (SC-01..SC-10) against current code. Unlike
+the old approach that asked an LLM to "assess status", this checker uses
+concrete verification steps.
+
+**Prompt template:**
+
+```
+You are verifying the module security threat model for invowk.
+Your job is to run CONCRETE CHECKS — not to assess or interpret.
+
+For each attack surface below, run the specific verification command
+and report ONLY what the command output shows.
+
+## Verification Steps (run each command, report output)
+
+SC-01 Script path traversal:
+  grep -n "validateScriptPathContainment" pkg/invowkfile/implementation.go
+  → If function exists: CONFIRMED (Mitigated)
+  → If not found: DRIFTED (mitigation may have been removed)
+
+SC-02 Virtual shell host PATH fallback:
+  grep -n "interp.ExecHandlers\|execHandler" internal/runtime/virtual.go
+  → If present: CONFIRMED (By-design, host fallback active via next() chain)
+  → If not found: DRIFTED (execution model changed)
+
+SC-03 InvowkDir R/W volume mount:
+  grep -n "invowkDir" internal/runtime/container_exec.go
+  → If present: CONFIRMED (By-design)
+  → If not found: DRIFTED
+
+SC-04 SSH token in container env:
+  grep -n "SSH_AUTH_SOCK\|INVOWK_SSH" internal/runtime/container_exec.go
+  → Report count and line numbers. Status: Partial if found
+
+SC-05 Provision CopyDir symlink handling:
+  grep -n "os.ModeSymlink\|SkipSymlink\|symlink" internal/provision/helpers.go
+  → If skip logic exists: CONFIRMED (Mitigated)
+  → If follows symlinks: DRIFTED (regression)
+
+SC-06 --ivk-env-var priority override:
+  grep -n "ivk-env-var\|IvkEnvVar" internal/runtime/env_builder.go
+  → If present: CONFIRMED (By-design)
+
+SC-07 check_script host shell execution:
+  grep -n "exec.Command\|os/exec" internal/app/deps/checks.go
+  → If present: CONFIRMED (Partial — host exec still used)
+  → If removed: status changed
+
+SC-08 Arbitrary interpreter paths:
+  grep -n "allowedInterpreters\|Validate" pkg/invowkfile/interpreter_spec.go
+  → If allowlist exists: CONFIRMED (Mitigated)
+  → If no allowlist: DRIFTED (regression)
+
+SC-09 Root invowkfile scope bypass:
+  grep -n "CanCall\|CommandScope" internal/app/deps/deps.go
+  → If scope check exists: CONFIRMED (By-design)
+
+SC-10 Global module trust:
+  grep -n "IsGlobalModule\|detectModuleShadowing\|VerifyVendoredModuleHashes" internal/discovery/discovery_files.go
+  → Report which functions exist. Status: Partial if shadowing detection present
+
+## Output Format (EXACTLY this format, one line per surface)
+
+SC-01: CONFIRMED (Mitigated) — validateScriptPathContainment at line 446
+SC-02: CONFIRMED (By-design) — interp.ExecHandlers(r.execHandler) at line 320
+...
+
+## Rules
+- Do NOT add subjective commentary or "new findings"
+- Do NOT assess code quality or suggest improvements
+- Report ONLY what the grep commands show
+- If a grep returns no results, report "NOT FOUND" — that IS the finding
+```
+
+### Subagent B: Supply-Chain Reviewer (only for code changes)
 
 **When:** Only when the audit is triggered by code changes (PRs, diffs) that
-touch module system files listed in the Scope table above.
+touch module system files listed in the Scope table.
 
-Spawns the existing `supply-chain-reviewer` agent (`.agents/agents/supply-chain-reviewer.md`)
-with the diff and relevant Phase 2 findings as additional context.
+Spawns the existing `supply-chain-reviewer` agent
+(`.agents/agents/supply-chain-reviewer.md`) with the diff and Phase 1 findings
+as context.
 
-**Prompt template:** `references/subagent-prompts.md` § "Supply-Chain Reviewer"
+**Prompt template:**
 
-### Subagent 8: Documentation Drift Checker (optional)
+```
+You are the supply-chain security reviewer for a code change touching
+the invowk module system.
 
-**When:** Only if Phase 1's Threat Model Validator found discrepancies (status
-changes, line number shifts, missing files).
+## Deterministic Scan Results (from `invowk audit`)
+{paste Phase 1 JSON summary — just summary + findings at medium+}
 
-Checks all documentation surfaces for stale security references.
+## Diff to Review
+{paste git diff or list of changed files}
 
-**Prompt template:** `references/subagent-prompts.md` § "Documentation Drift Checker"
+## Your Task
+Focus ONLY on these questions:
+1. Does this diff regress any existing mitigation? (map to SC-01..SC-10)
+2. Does this diff introduce a new attack surface not covered by the scanner?
+3. Does this diff change trust boundaries (who can invoke what)?
+
+## Rules
+- Do NOT re-scan for patterns the Go scanner already checks
+  (regex patterns, env vars, network commands — those are in Phase 1)
+- Do NOT report findings already present in the Phase 1 output
+- ONLY report genuinely new risks that the compiled scanner cannot detect
+- If nothing new: report "No additional supply-chain risks beyond scanner findings"
+```
+
+### Subagent C: Documentation Drift Checker (only when drift detected)
+
+**When:** Only if Subagent A found any DRIFTED status.
+
+```
+You are checking for documentation drift in invowk's module security docs.
+
+## Drifted Surfaces (from Subagent A)
+{paste only the DRIFTED lines}
+
+## Your Task
+For each drifted surface, check if these documents reference the old status:
+1. `.agents/agents/supply-chain-reviewer.md`
+2. `.agents/skills/module-security/SKILL.md` § "Known Attack Surfaces"
+3. `CLAUDE.md` § "Virtual Runtime Security Model"
+
+## Output Format (one entry per stale reference)
+- **File**: {path}
+- **Line**: {number}
+- **Current text**: {what it says}
+- **Should be**: {what it should say based on Subagent A findings}
+
+If no documents reference stale status: "No documentation drift detected."
+```
 
 ---
 
 ## Phase 4: Report Assembly
 
-The main agent synthesizes all subagent outputs into the final report.
-No subagents — this is the orchestrator's responsibility.
+The main agent synthesizes all outputs into the final report. No subagents.
 
 ### Report Structure
 
 ```
 Module Security Audit — {scan_path}
-Scanned: {N} modules, {N} scripts ({duration})
+Scanner: invowk audit v{version} (deterministic, {duration}ms)
+Scanned: {N} modules, {N} invowkfiles, {N} scripts
 
 ▲ CRITICAL ({count})
-  {SC-ID}  {title}
-           File: {path}:{line}
-           {detail}
-           Fix: {recommendation}
+  {title}
+         File: {path}:{line}
+         {description}
+         Fix: {recommendation}
 
 ● HIGH ({count})
   ...
@@ -232,40 +379,57 @@ Scanned: {N} modules, {N} scripts ({duration})
 ◆ MEDIUM ({count})
   ...
 
-○ LOW ({count})
-  ...
-
-ℹ INFO ({count})
-  ...
-
-═══ Compound Threats ═══
-  {correlation findings from Phase 3}
+═══ Suppressed (by-design) ═══
+  {count} findings suppressed — see breakdown:
+  - {N}× "Command uses default env inheritance" (root invowkfile, Info)
+  - {N}× "Script accesses sensitive env variable" (SSH commands, Medium)
+  Justification: Root invowkfile commands are user-controlled; credential
+  forwarding in SSH/container commands is documented and intentional.
 
 ═══ Threat Model Status ═══
-  {SC-01..SC-10 validation summary from Phase 1}
+  SC-01: CONFIRMED (Mitigated) — validateScriptPathContainment at line 446
+  SC-02: CONFIRMED (By-design) — interp.ExecHandlers(r.execHandler) at line 320
+  ...
 
-Summary: {critical} critical, {high} high, {medium} medium, {low} low, {info} info
+═══ Supply-Chain Review ═══ (if applicable)
+  {Subagent B output}
+
+Summary: {critical} critical, {high} high, {medium} medium
+         {suppressed} suppressed (by-design)
+         All 10 attack surfaces: {confirmed}/{total} confirmed
 ```
 
-### Deduplication
+### Deduplication Rules
 
-Phase 3 correlations may produce findings that overlap with Phase 2 individual
-findings. When assembling:
-1. Keep the correlated finding (higher severity) as the primary entry
-2. Remove the individual findings that were consumed by the correlation
-3. Add a note: "Escalated from: {original finding titles}"
+1. Phase 1 findings are the source of truth — never duplicate them
+2. Phase 3 subagents must only add NEW information not in Phase 1
+3. If a supply-chain reviewer finding matches a Phase 1 finding, keep Phase 1's
+   version (it has structured fields) and append the reviewer's commentary
+
+### Determinism Contract
+
+Running this workflow twice on the same codebase at the same commit MUST produce:
+- **Identical** Phase 1 output (same JSON, same findings, same counts)
+- **Identical** Phase 2 classification (same suppress/confirm/flag decisions)
+- **Nearly identical** Phase 3 output (subagent analysis may vary slightly in
+  phrasing but NOT in which surfaces are CONFIRMED vs DRIFTED, because the
+  verification uses grep commands with concrete expected output)
+
+If a run produces different findings from a previous run on the same commit,
+the problem is in Phase 3 subagent analysis. The fix is to make the subagent
+prompt more concrete (add specific grep patterns), not to add more subagents.
 
 ---
 
 ## Known Attack Surfaces
 
-These 10 surfaces represent the current threat model. The Phase 1 Threat Model
-Validator checks their accuracy at the start of every audit.
+These 10 surfaces represent the current threat model. The Phase 3 Threat Model
+Drift Checker verifies their accuracy via grep commands at every audit.
 
 | ID | Surface | Severity | Key File(s) | Status |
 |----|---------|----------|-------------|--------|
 | SC-01 | Script path traversal | High | `pkg/invowkfile/implementation.go:364-456` | Mitigated |
-| SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:344-357` | By-design |
+| SC-02 | Virtual shell host PATH fallback | Medium | `internal/runtime/virtual.go:320,345-357` | By-design |
 | SC-03 | InvowkDir R/W volume mount | Medium | `internal/runtime/container_exec.go:118` | By-design |
 | SC-04 | SSH token and TUI credentials in container/virtual env | Medium | `internal/runtime/container_exec.go:443, runtime.go:573-575` | Partial |
 | SC-05 | Provision `CopyDir` symlink handling | Medium | `internal/provision/helpers.go:131-170` | Mitigated |
@@ -404,23 +568,24 @@ type Finding struct {
 
 ## Security Review Workflow (for Code Changes)
 
-When reviewing module-related changes, the skill adapts the 4-phase workflow:
+When reviewing module-related changes, adapt the workflow:
 
-1. **Phase 1** — Threat Model Validator + Module Tree Scanner (parallel)
-2. **Phase 2** — Run relevant scanners based on changed files (skip unrelated)
-3. **Phase 3** — Finding Correlator + Supply-Chain Reviewer with diff (parallel)
-4. **Phase 4** — Report with recommendations
+1. **Phase 1** — Run `invowk audit --format json --severity info .`
+2. **Phase 2** — Classify findings; identify which are new vs pre-existing
+   (compare against a baseline run or previous audit output if available)
+3. **Phase 3** — Threat Model Drift Checker (always) + Supply-Chain Reviewer
+   with the diff (code changes only)
+4. **Phase 4** — Report focusing on NEW findings introduced by the change
 
-**File → Scanner mapping** for targeted Phase 2:
+**File → Relevant SC-IDs** for targeted Phase 3 review:
 
-| Changed File | Scanners to Run |
-|-------------|----------------|
-| `pkg/invowkmod/lockfile.go`, `content_hash.go` | Lock File Integrity |
-| `pkg/invowkfile/implementation.go`, `pkg/invowkfile/runtime.go` | Script Path & Content |
-| `internal/provision/helpers.go` | Symlink Detector |
-| `internal/runtime/virtual.go`, `container_exec.go` | Network/Env Exfiltration |
-| `internal/discovery/`, `internal/app/deps/` | Module Metadata |
-| Multiple areas | All 5 scanners |
+| Changed File | SC-IDs to Verify |
+|-------------|------------------|
+| `pkg/invowkmod/lockfile.go`, `content_hash.go` | SC-10 (integrity) |
+| `pkg/invowkfile/implementation.go`, `runtime.go` | SC-01 (path traversal), SC-08 (interpreters) |
+| `internal/provision/helpers.go` | SC-05 (symlinks) |
+| `internal/runtime/virtual.go`, `container_exec.go` | SC-02, SC-03, SC-04 (runtime surfaces) |
+| `internal/discovery/`, `internal/app/deps/` | SC-09, SC-10 (scope, trust) |
 
 ---
 
@@ -456,11 +621,11 @@ agent-orchestrated security audit workflow above does not need it.
 
 - **[references/check-catalog.md](references/check-catalog.md)** —
   Full check specifications for each scanner subagent. Includes regex patterns,
-  severity classifications, and implementation notes. Subagents read only their
-  relevant section to minimize context usage.
+  severity classifications, and implementation notes. Reference for understanding
+  what the Go scanner checks and how to extend it.
 - **[references/subagent-prompts.md](references/subagent-prompts.md)** —
-  Complete prompt templates for all 10 subagents across 4 phases. Adapt these
-  to the specific audit context before spawning.
+  Prompt templates for Phase 3 interpretive subagents. These are concrete,
+  grep-based verification prompts — not open-ended assessment requests.
 - **[references/implementation-review.md](references/implementation-review.md)** —
   Correctness, performance, and security review checklist for the compiled
   `internal/audit/` Go scanner and `cmd/invowk/audit.go` CLI layer. Load when
