@@ -16,6 +16,12 @@ type (
 		// RequiredCheckers lists the two checker names that must both have
 		// findings in the same surface for this rule to fire.
 		RequiredCheckers [2]string
+		// RequiredCategories optionally restricts matching to findings that
+		// have both the checker name AND the specific category. When non-empty,
+		// each element pairs with the same-index RequiredCheckers entry. This
+		// enables rules that correlate two different categories from the same
+		// checker (e.g., script+execution vs script+path-traversal).
+		RequiredCategories [2]Category
 		// ResultSeverity is the severity assigned to the compound finding.
 		ResultSeverity Severity
 		// ResultCategory is the category assigned to the compound finding.
@@ -34,9 +40,17 @@ type (
 	}
 )
 
-// NewCorrelator creates a Correlator with the given rules.
-func NewCorrelator(rules []CorrelationRule) *Correlator {
-	return &Correlator{rules: rules}
+// NewCorrelator creates a Correlator with the given rules. It validates that
+// same-checker rules (RequiredCheckers[0] == RequiredCheckers[1]) always have
+// RequiredCategories set to prevent degenerate self-correlation.
+func NewCorrelator(rules []CorrelationRule) (*Correlator, error) {
+	for i := range rules {
+		r := &rules[i]
+		if r.RequiredCheckers[0] == r.RequiredCheckers[1] && (r.RequiredCategories[0] == "" || r.RequiredCategories[1] == "") {
+			return nil, fmt.Errorf("correlation rule %q has same checker on both sides without RequiredCategories", r.Name)
+		}
+	}
+	return &Correlator{rules: rules}, nil
 }
 
 // Correlate examines findings grouped by surface ID and produces compound
@@ -71,19 +85,32 @@ func (c *Correlator) Correlate(findings []Finding) []Finding {
 func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding {
 	var result []Finding
 
-	// Build checker presence map for this surface.
+	// Build checker presence map and checker+category presence map for this surface.
 	checkers := make(map[string]bool)
+	checkerCategories := make(map[string]map[Category]bool)
 	for i := range findings {
-		checkers[findings[i].CheckerName] = true
+		name := findings[i].CheckerName
+		checkers[name] = true
+		if checkerCategories[name] == nil {
+			checkerCategories[name] = make(map[Category]bool)
+		}
+		checkerCategories[name][findings[i].Category] = true
 	}
 
-	for _, rule := range c.rules {
+	for ri := range c.rules {
+		rule := &c.rules[ri]
 		if !checkers[rule.RequiredCheckers[0]] || !checkers[rule.RequiredCheckers[1]] {
 			continue
 		}
-		// Both required checkers different? Skip self-correlation.
-		if rule.RequiredCheckers[0] == rule.RequiredCheckers[1] {
-			continue
+
+		// When RequiredCategories is set, require the checker+category combination
+		// rather than just the checker name. This supports same-checker rules that
+		// correlate two different categories (e.g., script+execution vs script+path-traversal).
+		if rule.RequiredCategories[0] != "" {
+			if !checkerCategories[rule.RequiredCheckers[0]][rule.RequiredCategories[0]] ||
+				!checkerCategories[rule.RequiredCheckers[1]][rule.RequiredCategories[1]] {
+				continue
+			}
 		}
 
 		// Collect the titles of findings from the two required checkers.
@@ -125,7 +152,9 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 		case SeverityHigh:
 			highCount++
 		case SeverityCritical:
-			// Already critical — no need to escalate.
+			// If any individual finding is already Critical, escalation adds no
+			// new severity information. The compound-threat context is still
+			// visible through individual findings.
 			return nil
 		}
 	}
@@ -176,6 +205,7 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 }
 
 // DefaultRules returns the 5 named correlation rules from the threat model.
+// Four cross-checker rules plus one same-checker category-pair rule.
 func DefaultRules() []CorrelationRule {
 	return []CorrelationRule{
 		{
@@ -213,6 +243,16 @@ func DefaultRules() []CorrelationRule {
 			ResultCategory:       CategoryTrust,
 			ResultTitle:          "Trust chain weakness — deep deps with missing integrity",
 			ResultRecommendation: "Run 'invowk module sync' to update lock file hashes; review dependency chain depth",
+		},
+		{
+			Name:                 "interpreter-traversal",
+			Description:          "Unusual interpreter combined with path traversal in the same module",
+			RequiredCheckers:     [2]string{scriptCheckerName, scriptCheckerName},
+			RequiredCategories:   [2]Category{CategoryExecution, CategoryPathTraversal},
+			ResultSeverity:       SeverityCritical,
+			ResultCategory:       CategoryExecution,
+			ResultTitle:          "Unusual interpreter with path traversal",
+			ResultRecommendation: "Audit the interpreter configuration and verify script paths stay within module boundary",
 		},
 	}
 }

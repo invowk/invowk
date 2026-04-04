@@ -20,6 +20,20 @@ const (
 	typosquatLevenshteinThreshold = 3
 )
 
+// unpinnedVersions is the set of version constraints considered effectively
+// unpinned — they accept any version and provide no supply-chain protection.
+var unpinnedVersions = map[string]bool{
+	"":          true,
+	"*":         true,
+	">=0.0.0":   true,
+	">0":        true,
+	">=0":       true,
+	">0.0.0":    true,
+	">=0.0.0-0": true,
+	"*.*":       true,
+	"*.*.*":     true,
+}
+
 // ModuleMetadataChecker analyzes module dependency chains, namespace collisions,
 // global module trust, undeclared transitive dependencies, and version pinning.
 // Only operates on modules (standalone invowkfiles have no module metadata).
@@ -72,7 +86,7 @@ func (c *ModuleMetadataChecker) checkGlobalTrust(mod *ScannedModule) []Finding {
 	return []Finding{{
 		Severity:       SeverityInfo,
 		Category:       CategoryTrust,
-		SurfaceID:      "SC-10",
+		SurfaceID:      mod.SurfaceID,
 		CheckerName:    moduleMetadataCheckerName,
 		FilePath:       mod.Path,
 		Title:          "Global module has no content hash verification",
@@ -136,6 +150,12 @@ func (c *ModuleMetadataChecker) checkTyposquatting(mod *ScannedModule, allIDs []
 		if thisID == otherID {
 			continue
 		}
+		// Only emit the finding when thisID < otherID (lexicographic ordering)
+		// to break symmetry — without this guard, each similar pair produces
+		// two symmetric findings (A→B and B→A).
+		if thisID > otherID {
+			continue
+		}
 		dist := levenshtein(thisID, otherID)
 		if dist > 0 && dist <= typosquatLevenshteinThreshold {
 			findings = append(findings, Finding{
@@ -162,7 +182,7 @@ func (c *ModuleMetadataChecker) checkVersionPinning(mod *ScannedModule) []Findin
 	var findings []Finding
 	for _, req := range mod.Module.Metadata.Requires {
 		version := string(req.Version)
-		if version == "" || version == "*" || version == ">=0.0.0" {
+		if unpinnedVersions[version] {
 			findings = append(findings, Finding{
 				Severity:       SeverityLow,
 				Category:       CategoryTrust,
@@ -184,7 +204,8 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 		return nil
 	}
 
-	// Build set of declared dependencies.
+	// Build set of declared dependency Git URLs for transitive-dep detection
+	// and for matching vendored modules by URL.
 	declared := make(map[string]bool)
 	for _, req := range mod.Module.Metadata.Requires {
 		declared[string(req.GitURL)] = true
@@ -209,6 +230,34 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 					Recommendation: "Run 'invowk module tidy' to add missing transitive dependencies",
 				})
 			}
+		}
+	}
+
+	// Second scan: verify each vendored module itself is declared in requires.
+	// Match by alias (the canonical module name) or by Git URL equality.
+	for _, vendored := range mod.VendoredModules {
+		if vendored.Metadata == nil {
+			continue
+		}
+		vendoredID := string(vendored.Metadata.Module)
+		found := false
+		for _, req := range mod.Module.Metadata.Requires {
+			if string(req.Alias) == vendoredID || string(req.GitURL) == vendoredID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			findings = append(findings, Finding{
+				Severity:       SeverityMedium,
+				Category:       CategoryTrust,
+				SurfaceID:      mod.SurfaceID,
+				CheckerName:    moduleMetadataCheckerName,
+				FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkmod.cue")),
+				Title:          "Vendored module not declared in requires",
+				Description:    fmt.Sprintf("Vendored module %q exists in invowk_modules/ but has no matching entry in requires — it may have been manually placed or left from a removed dependency", vendoredID),
+				Recommendation: "Either add the module to requires in invowkmod.cue or remove it from invowk_modules/",
+			})
 		}
 	}
 

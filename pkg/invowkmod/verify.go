@@ -64,6 +64,9 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 	}
 
 	// If the lock file has no content hashes (v1.0 or empty), skip verification.
+	// Security note: v1.0 lock files provide no tamper detection — the
+	// LockFileChecker emits a SeverityMedium finding for v1.0 deprecation,
+	// but discovery proceeds without hash verification for these modules.
 	if len(hashByID) == 0 {
 		return nil
 	}

@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -100,9 +99,19 @@ func (c *SymlinkChecker) scanDir(ctx context.Context, modPath, surfaceID string)
 		return nil
 	})
 
-	if err != nil && !errors.Is(err, context.Canceled) {
-		// Walk error is not critical — return partial findings.
-		_ = err
+	if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		// Walk error is not critical — emit a diagnostic finding so incomplete
+		// scans are visible, then return partial findings.
+		findings = append(findings, Finding{
+			Severity:       SeverityLow,
+			Category:       CategoryPathTraversal,
+			SurfaceID:      surfaceID,
+			CheckerName:    symlinkCheckerName,
+			FilePath:       types.FilesystemPath(modPath),
+			Title:          "Module directory walk incomplete",
+			Description:    fmt.Sprintf("Walk error during symlink scan: %v — some entries may not have been checked", err),
+			Recommendation: "Verify directory permissions; re-run the audit after fixing access issues",
+		})
 	}
 
 	return findings
@@ -111,7 +120,16 @@ func (c *SymlinkChecker) scanDir(ctx context.Context, modPath, surfaceID string)
 func (c *SymlinkChecker) checkSymlinkTarget(path, modPath, surfaceID string) []Finding {
 	target, err := os.Readlink(path)
 	if err != nil {
-		return nil
+		return []Finding{{
+			Severity:       SeverityMedium,
+			Category:       CategoryPathTraversal,
+			SurfaceID:      surfaceID,
+			CheckerName:    symlinkCheckerName,
+			FilePath:       types.FilesystemPath(path),
+			Title:          "Symlink target could not be read — boundary check bypassed",
+			Description:    fmt.Sprintf("Failed to read symlink target: %v — the boundary escape check cannot run, so the symlink's safety is unknown", err),
+			Recommendation: "Verify file permissions and symlink integrity; an unreadable symlink may mask a boundary escape",
+		}}
 	}
 
 	// Resolve to absolute path for boundary check.
@@ -121,8 +139,7 @@ func (c *SymlinkChecker) checkSymlinkTarget(path, modPath, surfaceID string) []F
 	target = filepath.Clean(target)
 
 	// Check if target is outside module boundary.
-	rel, err := filepath.Rel(modPath, target)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	if !isWithinBoundary(modPath, target) {
 		return []Finding{{
 			Severity:       SeverityCritical,
 			Category:       CategoryPathTraversal,
@@ -136,7 +153,7 @@ func (c *SymlinkChecker) checkSymlinkTarget(path, modPath, surfaceID string) []F
 	}
 
 	// Check for dangling symlink.
-	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(path); errors.Is(statErr, fs.ErrNotExist) {
 		return []Finding{{
 			Severity:       SeverityLow,
 			Category:       CategoryPathTraversal,
@@ -154,7 +171,10 @@ func (c *SymlinkChecker) checkSymlinkTarget(path, modPath, surfaceID string) []F
 
 func (c *SymlinkChecker) checkSymlinkChain(path, surfaceID string) []Finding {
 	current := path
-	for range maxSymlinkChainDepth {
+	// Follow up to maxSymlinkChainDepth-1 hops: the initial path (already a
+	// confirmed symlink) counts as hop 1, so we follow maxSymlinkChainDepth-1
+	// additional hops to fire the finding at exactly maxSymlinkChainDepth total.
+	for range maxSymlinkChainDepth - 1 {
 		target, err := os.Readlink(current)
 		if err != nil {
 			return nil // Not a symlink — chain ends.
@@ -182,7 +202,7 @@ func (c *SymlinkChecker) checkSymlinkChain(path, surfaceID string) []Finding {
 		CheckerName:    symlinkCheckerName,
 		FilePath:       types.FilesystemPath(path),
 		Title:          "Symlink chain detected",
-		Description:    fmt.Sprintf("Symlink chain exceeds %d links — may obscure the final target", maxSymlinkChainDepth),
+		Description:    fmt.Sprintf("Symlink chain reaches %d links — may obscure the final target", maxSymlinkChainDepth),
 		Recommendation: "Replace the symlink chain with a direct reference to the target file",
 	}}
 }

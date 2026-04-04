@@ -336,26 +336,11 @@ func TestCalculateDirHash_EmptyDir(t *testing.T) {
 func TestCalculateDirHash_NonExistentDir(t *testing.T) {
 	t.Parallel()
 
-	// filepath.Walk silently skips the non-existent root (callback returns nil
-	// on error), so CalculateDirHash returns the hash of an empty entry list.
-	hash, err := CalculateDirHash("/nonexistent/directory/path")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Should still produce a non-empty hash (hash of empty input)
-	if hash == "" {
-		t.Error("expected non-empty hash even for non-existent directory")
-	}
-
-	// Hash should match the empty directory hash (same empty entry list)
-	emptyDirHash, err := CalculateDirHash(t.TempDir())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if hash != emptyDirHash {
-		t.Errorf("non-existent dir hash should match empty dir hash, got %q vs %q", hash, emptyDirHash)
+	// CalculateDirHash now uses os.Lstat as a defense-in-depth guard (SC-05),
+	// so a non-existent path returns an error instead of silently hashing empty.
+	_, err := CalculateDirHash("/nonexistent/directory/path")
+	if err == nil {
+		t.Fatal("expected error for non-existent directory")
 	}
 }
 
