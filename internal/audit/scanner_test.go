@@ -40,7 +40,7 @@ func TestScanner_RunCheckersCollectsFindings(t *testing.T) {
 				findings: []Finding{{Severity: SeverityLow, Title: "finding2"}},
 			},
 		},
-		correlator: NewCorrelator(nil),
+		correlator: mustNewCorrelator(t, nil),
 	}
 
 	sc := &ScanContext{
@@ -75,7 +75,7 @@ func TestScanner_RunCheckersPartialOnError(t *testing.T) {
 				err:  errors.New("checker error"),
 			},
 		},
-		correlator: NewCorrelator(nil),
+		correlator: mustNewCorrelator(t, nil),
 	}
 
 	sc := &ScanContext{
@@ -109,7 +109,7 @@ func TestScanner_RunCheckersContextCancellation(t *testing.T) {
 		checkers: []Checker{
 			&mockChecker{name: "never-runs", category: CategoryExecution},
 		},
-		correlator: NewCorrelator(nil),
+		correlator: mustNewCorrelator(t, nil),
 	}
 
 	sc := &ScanContext{}

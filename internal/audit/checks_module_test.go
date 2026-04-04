@@ -3,6 +3,8 @@
 package audit
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -33,12 +35,12 @@ func TestModuleMetadataChecker_GlobalTrust(t *testing.T) {
 
 	hasGlobalTrust := false
 	for _, f := range findings {
-		if f.SurfaceID == "SC-10" {
+		if f.SurfaceID == "global-module" && f.Title == "Global module has no content hash verification" {
 			hasGlobalTrust = true
 		}
 	}
 	if !hasGlobalTrust {
-		t.Error("expected global trust finding (SC-10)")
+		t.Error("expected global trust finding with module's own SurfaceID")
 	}
 }
 
@@ -114,6 +116,81 @@ func TestModuleMetadataChecker_Typosquatting(t *testing.T) {
 	}
 	if !hasTyposquat {
 		t.Error("expected typosquatting finding for similar module IDs")
+	}
+}
+
+func TestModuleMetadataChecker_InvowkfileParseFailure(t *testing.T) {
+	t.Parallel()
+
+	sc := &ScanContext{
+		modules: []*ScannedModule{{
+			Path:               types.FilesystemPath("/test/mod.invowkmod"),
+			SurfaceID:          "testmod",
+			InvowkfileParseErr: errors.New("test error"),
+			Module: &invowkmod.Module{
+				Metadata: &invowkmod.Invowkmod{
+					Module: "testmod",
+				},
+			},
+		}},
+	}
+
+	checker := NewModuleMetadataChecker()
+	findings, err := checker.Check(t.Context(), sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hasParseFailure := false
+	for _, f := range findings {
+		if f.Severity == SeverityMedium && f.Title == "Module invowkfile failed to parse" {
+			hasParseFailure = true
+		}
+	}
+	if !hasParseFailure {
+		t.Error("expected Medium finding for invowkfile parse failure")
+	}
+}
+
+func TestModuleMetadataChecker_DependencyFanOut(t *testing.T) {
+	t.Parallel()
+
+	// Create 6 dependencies (exceeds maxDependencyFanOut of 5).
+	var requires []invowkmod.ModuleRequirement
+	for i := range 6 {
+		requires = append(requires, invowkmod.ModuleRequirement{
+			GitURL:  invowkmod.GitURL(fmt.Sprintf("https://example.com/dep%d.invowkmod.git", i)),
+			Version: "^1.0.0",
+		})
+	}
+
+	sc := &ScanContext{
+		modules: []*ScannedModule{{
+			Path:      types.FilesystemPath("/test/mod.invowkmod"),
+			SurfaceID: "testmod",
+			Module: &invowkmod.Module{
+				Metadata: &invowkmod.Invowkmod{
+					Module:   "testmod",
+					Requires: requires,
+				},
+			},
+		}},
+	}
+
+	checker := NewModuleMetadataChecker()
+	findings, err := checker.Check(t.Context(), sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hasFanOut := false
+	for _, f := range findings {
+		if f.Severity == SeverityMedium && f.Title == "Wide dependency fan-out" {
+			hasFanOut = true
+		}
+	}
+	if !hasFanOut {
+		t.Error("expected Medium finding for dependency fan-out exceeding threshold")
 	}
 }
 

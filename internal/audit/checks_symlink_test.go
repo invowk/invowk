@@ -3,6 +3,7 @@
 package audit
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -154,6 +155,103 @@ func TestSymlinkChecker_DanglingSymlink(t *testing.T) {
 	if !hasDangling {
 		t.Error("expected dangling symlink finding")
 	}
+}
+
+func TestSymlinkChecker_SymlinkChain(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink tests require Unix")
+	}
+
+	t.Run("long_chain_fires", func(t *testing.T) {
+		t.Parallel()
+
+		// Create a chain of 11 symlinks (exceeds maxSymlinkChainDepth of 10).
+		modDir := t.TempDir()
+		target := filepath.Join(modDir, "real.txt")
+		if err := os.WriteFile(target, []byte("content"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Build the chain: link0 -> link1 -> ... -> link10 -> real.txt
+		// Start from the end so each link points to the next.
+		prev := target
+		for i := 10; i >= 0; i-- {
+			link := filepath.Join(modDir, fmt.Sprintf("link%d", i))
+			if err := os.Symlink(prev, link); err != nil {
+				t.Fatal(err)
+			}
+			prev = link
+		}
+
+		sc := &ScanContext{
+			modules: []*ScannedModule{{
+				Path:      types.FilesystemPath(modDir),
+				SurfaceID: "testmod",
+				Module: &invowkmod.Module{
+					Metadata: &invowkmod.Invowkmod{},
+				},
+			}},
+		}
+
+		checker := NewSymlinkChecker()
+		findings, err := checker.Check(t.Context(), sc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		hasChain := false
+		for _, f := range findings {
+			if f.Title == "Symlink chain detected" {
+				hasChain = true
+			}
+		}
+		if !hasChain {
+			t.Error("expected symlink chain finding for 11-link chain")
+		}
+	})
+
+	t.Run("short_chain_does_not_fire", func(t *testing.T) {
+		t.Parallel()
+
+		// Create a chain of 5 symlinks (under maxSymlinkChainDepth of 10).
+		modDir := t.TempDir()
+		target := filepath.Join(modDir, "real.txt")
+		if err := os.WriteFile(target, []byte("content"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		prev := target
+		for i := 4; i >= 0; i-- {
+			link := filepath.Join(modDir, fmt.Sprintf("link%d", i))
+			if err := os.Symlink(prev, link); err != nil {
+				t.Fatal(err)
+			}
+			prev = link
+		}
+
+		sc := &ScanContext{
+			modules: []*ScannedModule{{
+				Path:      types.FilesystemPath(modDir),
+				SurfaceID: "testmod",
+				Module: &invowkmod.Module{
+					Metadata: &invowkmod.Invowkmod{},
+				},
+			}},
+		}
+
+		checker := NewSymlinkChecker()
+		findings, err := checker.Check(t.Context(), sc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, f := range findings {
+			if f.Title == "Symlink chain detected" {
+				t.Error("unexpected symlink chain finding for 5-link chain")
+			}
+		}
+	})
 }
 
 func TestSymlinkChecker_NoSymlinks(t *testing.T) {

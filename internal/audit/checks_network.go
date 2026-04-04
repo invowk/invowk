@@ -14,21 +14,24 @@ const (
 
 // Regex patterns for network access and exfiltration detection.
 var (
-	// Network commands (Medium).
+	// Network commands (Medium): common download and network tools.
+	// Note: "fetch" is excluded to avoid false positives from "git fetch".
 	networkCommandPattern = regexp.MustCompile(
-		`\b(curl|wget|nc|ncat|socat)\b`)
+		`\b(curl|wget|aria2c|nc|ncat|socat)\b`)
 
-	// DNS exfiltration (High).
+	// DNS exfiltration (High): DNS commands with variable interpolation or
+	// backtick subshell expansion (both are common exfiltration techniques).
 	dnsExfilPattern = regexp.MustCompile(
-		`(dig|nslookup|host)\s+.*\$[{(]?[A-Z_]`)
+		"(dig|nslookup|host)\\s+.*(\\$[{(]?[A-Za-z_]|`[^`]+`)")
 
 	// Reverse shell patterns (Critical).
 	reverseShellBashPattern = regexp.MustCompile(
-		`bash\s+-i\s+>&\s*/dev/tcp/`)
+		`bash\s+-i\s*>&\s*/dev/tcp/`)
 	reverseShellNcPattern = regexp.MustCompile(
-		`\bnc\b.*-e\s*/bin/(ba)?sh`)
+		`\b(nc|ncat)\b.*-[ec]\s*/bin/(ba)?sh`)
+	// (?s) enables dot-matches-newline for multi-line python -c payloads.
 	reverseShellPythonPattern = regexp.MustCompile(
-		`python[23]?\s+-c\s+.*socket.*connect`)
+		`(?s)python[23]?\s+-c\s+.*socket.*connect`)
 
 	// Encoded URL indicators (High).
 	base64HTTPPattern = regexp.MustCompile(`aHR0c`) // base64 of "http"
@@ -51,25 +54,27 @@ func (c *NetworkChecker) Category() Category { return CategoryExfiltration }
 func (c *NetworkChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding, error) {
 	var findings []Finding
 
-	for _, ref := range sc.AllScripts() {
+	allScripts := sc.AllScripts()
+	for i := range allScripts {
 		select {
 		case <-ctx.Done():
 			return findings, fmt.Errorf("network checker cancelled: %w", ctx.Err())
 		default:
 		}
 
-		content := string(ref.Script)
+		ref := &allScripts[i]
+		content := ref.Content()
 		if content == "" {
 			continue
 		}
 
-		reverseShellFindings := c.checkReverseShell(ref, content)
+		reverseShellFindings := c.checkReverseShell(*ref, content)
 		findings = append(findings, reverseShellFindings...)
-		findings = append(findings, c.checkDNSExfiltration(ref, content)...)
-		findings = append(findings, c.checkEncodedURLs(ref, content)...)
+		findings = append(findings, c.checkDNSExfiltration(*ref, content)...)
+		findings = append(findings, c.checkEncodedURLs(*ref, content)...)
 		// Skip generic network command finding when a more specific reverse shell was found.
 		if len(reverseShellFindings) == 0 {
-			findings = append(findings, c.checkNetworkCommands(ref, content)...)
+			findings = append(findings, c.checkNetworkCommands(*ref, content)...)
 		}
 	}
 
@@ -152,7 +157,7 @@ func (c *NetworkChecker) checkNetworkCommands(ref ScriptRef, content string) []F
 		CheckerName:    networkCheckerName,
 		FilePath:       ref.FilePath,
 		Title:          "Script uses network access command",
-		Description:    fmt.Sprintf("Command %q uses curl, wget, nc, or similar network tools", ref.CommandName),
+		Description:    fmt.Sprintf("Command %q uses a network access tool (curl, wget, aria2c, nc, ncat, socat)", ref.CommandName),
 		Recommendation: "Verify that network access is expected for this command's purpose",
 	}}
 }

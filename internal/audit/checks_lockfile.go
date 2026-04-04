@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/fspath"
@@ -41,6 +42,22 @@ func (c *LockFileChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding
 		case <-ctx.Done():
 			return findings, fmt.Errorf("lockfile checker cancelled: %w", ctx.Err())
 		default:
+		}
+
+		// Flag lock files that exist on disk but failed to parse — they would
+		// otherwise appear as absent, masking an integrity issue.
+		if mod.LockFileParseErr != nil {
+			findings = append(findings, Finding{
+				Severity:       SeverityMedium,
+				Category:       CategoryIntegrity,
+				SurfaceID:      mod.SurfaceID,
+				CheckerName:    lockFileCheckerName,
+				FilePath:       mod.LockPath,
+				Title:          "Lock file present but unparseable",
+				Description:    fmt.Sprintf("Lock file exists but failed to parse: %v", mod.LockFileParseErr),
+				Recommendation: "Regenerate the lock file with 'invowk module sync'; inspect for corruption if the error persists",
+			})
+			continue // Do not run integrity checks against a corrupt lock file.
 		}
 
 		if mod.LockFile == nil {
@@ -93,12 +110,22 @@ func (c *LockFileChecker) checkSize(mod *ScannedModule) []Finding {
 	}
 	info, err := os.Stat(string(mod.LockPath))
 	if err != nil {
-		return nil
+		return []Finding{{
+			Severity:       SeverityLow,
+			Category:       CategoryIntegrity,
+			SurfaceID:      mod.SurfaceID,
+			CheckerName:    lockFileCheckerName,
+			FilePath:       mod.LockPath,
+			Title:          "Lock file size could not be verified",
+			Description:    fmt.Sprintf("Failed to stat lock file %s: %v — size guard bypassed", mod.LockPath, err),
+			Recommendation: "Verify file permissions; re-run the audit after fixing access issues",
+		}}
 	}
 	if info.Size() > maxLockFileSize {
 		return []Finding{{
 			Severity:       SeverityMedium,
 			Category:       CategoryIntegrity,
+			SurfaceID:      mod.SurfaceID,
 			CheckerName:    lockFileCheckerName,
 			FilePath:       mod.LockPath,
 			Title:          "Lock file exceeds size limit",
@@ -124,7 +151,8 @@ func (c *LockFileChecker) checkVersion(mod *ScannedModule) []Finding {
 		}}
 	}
 	if version == invowkmod.LockFileVersionV1 {
-		return []Finding{{
+		var findings []Finding
+		findings = append(findings, Finding{
 			Severity:       SeverityMedium,
 			Category:       CategoryIntegrity,
 			SurfaceID:      mod.SurfaceID,
@@ -133,7 +161,21 @@ func (c *LockFileChecker) checkVersion(mod *ScannedModule) []Finding {
 			Title:          "Lock file uses v1.0 format without content hashes",
 			Description:    "Version 1.0 lock files do not include content hashes for tamper detection — upgrade by running 'invowk module sync'",
 			Recommendation: "Run 'invowk module sync' to upgrade to v2.0 format with SHA-256 content hashes",
-		}}
+		})
+		// Escalate when vendored modules exist: V1 provides zero hash verification.
+		if len(mod.VendoredModules) > 0 {
+			findings = append(findings, Finding{
+				Severity:       SeverityHigh,
+				Category:       CategoryIntegrity,
+				SurfaceID:      mod.SurfaceID,
+				CheckerName:    lockFileCheckerName,
+				FilePath:       mod.LockPath,
+				Title:          "Vendored modules cannot be verified — V1 lock file has no content hashes",
+				Description:    fmt.Sprintf("%d vendored module(s) have no tamper detection because the V1.0 lock file lacks content hashes", len(mod.VendoredModules)),
+				Recommendation: "Run 'invowk module sync' to upgrade to v2.0 format with SHA-256 content hashes",
+			})
+		}
+		return findings
 	}
 	return nil
 }
@@ -189,6 +231,17 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 		vendoredID := string(vendored.Metadata.Module)
 		entries := lockByID[vendoredID]
 		if len(entries) == 0 {
+			// Vendored module has no matching lock entry — flag it (M3).
+			findings = append(findings, Finding{
+				Severity:       SeverityMedium,
+				Category:       CategoryIntegrity,
+				SurfaceID:      mod.SurfaceID,
+				CheckerName:    lockFileCheckerName,
+				FilePath:       vendored.Path,
+				Title:          "Vendored module has no lock file entry",
+				Description:    fmt.Sprintf("Vendored module %q exists in invowk_modules/ but has no corresponding lock file entry — its content cannot be hash-verified", vendoredID),
+				Recommendation: "Run 'invowk module sync' to add the module to the lock file, or remove it from invowk_modules/",
+			})
 			continue
 		}
 
@@ -198,6 +251,16 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 
 		actualHash, err := invowkmod.ComputeModuleHash(string(vendored.Path))
 		if err != nil {
+			findings = append(findings, Finding{
+				Severity:       SeverityHigh,
+				Category:       CategoryIntegrity,
+				SurfaceID:      mod.SurfaceID,
+				CheckerName:    lockFileCheckerName,
+				FilePath:       vendored.Path,
+				Title:          "Vendored module hash could not be computed",
+				Description:    fmt.Sprintf("Hash computation failed for vendored module %q: %v — integrity verification incomplete", vendoredID, err),
+				Recommendation: "Verify directory permissions and contents; a module that cannot be hashed may be tampered with",
+			})
 			continue
 		}
 
@@ -227,21 +290,40 @@ func (c *LockFileChecker) checkOrphanedEntries(mod *ScannedModule) []Finding {
 		vendoredIDs[string(v.Metadata.Module)] = true
 	}
 
+	const maxOrphanFindings = 10
+	orphanCount := 0
 	for key := range mod.LockFile.Modules {
 		lockMod := mod.LockFile.Modules[key]
 		nsID := string(invowkmod.ExtractModuleIDFromNamespace(lockMod.Namespace))
 		if !vendoredIDs[nsID] {
-			findings = append(findings, Finding{
-				Severity:       SeverityLow,
-				Category:       CategoryIntegrity,
-				SurfaceID:      mod.SurfaceID,
-				CheckerName:    lockFileCheckerName,
-				FilePath:       mod.LockPath,
-				Title:          "Orphaned lock file entry",
-				Description:    fmt.Sprintf("Lock file contains entry %q which is not present in vendored modules", key),
-				Recommendation: "Run 'invowk module tidy' to remove stale lock file entries",
-			})
+			orphanCount++
+			if orphanCount <= maxOrphanFindings {
+				findings = append(findings, Finding{
+					Severity:       SeverityLow,
+					Category:       CategoryIntegrity,
+					SurfaceID:      mod.SurfaceID,
+					CheckerName:    lockFileCheckerName,
+					FilePath:       mod.LockPath,
+					Title:          "Orphaned lock file entry",
+					Description:    fmt.Sprintf("Lock file contains entry %q which is not present in vendored modules", key),
+					Recommendation: "Run 'invowk module tidy' to remove stale lock file entries",
+				})
+			}
 		}
+	}
+
+	// Collapse excessive orphan findings into a summary.
+	if orphanCount > maxOrphanFindings {
+		findings = append(findings, Finding{
+			Severity:       SeverityLow,
+			Category:       CategoryIntegrity,
+			SurfaceID:      mod.SurfaceID,
+			CheckerName:    lockFileCheckerName,
+			FilePath:       mod.LockPath,
+			Title:          "Additional orphaned lock file entries",
+			Description:    fmt.Sprintf("%d additional orphaned entries not shown (total: %d)", orphanCount-maxOrphanFindings, orphanCount),
+			Recommendation: "Run 'invowk module tidy' to remove all stale lock file entries",
+		})
 	}
 
 	return findings
@@ -254,22 +336,23 @@ func (c *LockFileChecker) checkMissingEntries(mod *ScannedModule) []Finding {
 		return nil
 	}
 
-	// Check that each required module has a lock file entry.
+	// Build an index of lock file keys for O(1) lookup.
+	lockKeys := make(map[string]bool, len(mod.LockFile.Modules))
+	for key := range mod.LockFile.Modules {
+		lockKeys[string(key)] = true
+	}
+
+	// Check that each required module has an exact lock file entry.
+	// Normalize path separators to forward slashes for cross-platform consistency —
+	// lock files always use forward slashes, but SubdirectoryPath may contain
+	// native backslashes on Windows (H4 fix).
 	for _, req := range mod.Module.Metadata.Requires {
 		reqKey := string(req.GitURL)
 		if req.Path != "" {
-			reqKey += "#" + string(req.Path)
+			reqKey += "#" + filepath.ToSlash(string(req.Path))
 		}
 
-		found := false
-		for key := range mod.LockFile.Modules {
-			if strings.Contains(string(key), string(req.GitURL)) {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+		if !lockKeys[reqKey] {
 			findings = append(findings, Finding{
 				Severity:       SeverityMedium,
 				Category:       CategoryIntegrity,

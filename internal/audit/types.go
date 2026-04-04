@@ -3,10 +3,10 @@
 package audit
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"time"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -22,6 +22,9 @@ const (
 	severityCriticalStr = "critical"
 
 	invalidCategoryErrMsg = "invalid category"
+
+	// Category constants are declared here for grouping with Severity constants;
+	// the Category type is defined below in the type() block.
 
 	// CategoryIntegrity covers lock file hash mismatches, version issues, and tamper detection.
 	CategoryIntegrity Category = "integrity"
@@ -81,6 +84,9 @@ type (
 		Findings []Finding `json:"findings"`
 		// Correlated contains compound findings from the correlator.
 		Correlated []Finding `json:"compound_threats,omitempty"`
+		// Diagnostics contains non-fatal warnings from context building
+		// (e.g., modules that failed to load, parse errors, discovery issues).
+		Diagnostics []string `json:"diagnostics,omitempty"`
 		// ScanDuration is how long the scan took.
 		ScanDuration time.Duration `json:"-"`
 		// ModuleCount is the number of modules scanned.
@@ -120,11 +126,17 @@ func (r *Report) AllFindings() []Finding {
 	all := make([]Finding, 0, len(r.Findings)+len(r.Correlated))
 	all = append(all, r.Findings...)
 	all = append(all, r.Correlated...)
-	sort.Slice(all, func(i, j int) bool {
-		if all[i].Severity != all[j].Severity {
-			return all[i].Severity > all[j].Severity
+	slices.SortFunc(all, func(a, b Finding) int {
+		if c := cmp.Compare(b.Severity, a.Severity); c != 0 { // descending severity
+			return c
 		}
-		return all[i].FilePath < all[j].FilePath
+		if c := cmp.Compare(string(a.FilePath), string(b.FilePath)); c != 0 { // ascending path
+			return c
+		}
+		if c := cmp.Compare(a.CheckerName, b.CheckerName); c != 0 { // ascending checker
+			return c
+		}
+		return cmp.Compare(a.Title, b.Title) // title as final tiebreaker for determinism
 	})
 	return all
 }
@@ -181,6 +193,19 @@ func (r *Report) HasFindings(minSev Severity) bool {
 		}
 	}
 	return false
+}
+
+// FilterCorrelatedBySeverity returns correlated findings at or above the given
+// minimum severity. Used by render functions that need correlated findings
+// separate from individual findings (e.g., JSON output with distinct arrays).
+func (r *Report) FilterCorrelatedBySeverity(minSev Severity) []Finding {
+	var filtered []Finding
+	for i := range r.Correlated {
+		if r.Correlated[i].Severity >= minSev {
+			filtered = append(filtered, r.Correlated[i])
+		}
+	}
+	return filtered
 }
 
 // DurationMillis returns the scan duration in milliseconds for JSON output.

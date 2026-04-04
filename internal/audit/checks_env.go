@@ -17,15 +17,27 @@ const (
 // Patterns for sensitive environment variable detection.
 var (
 	// Credential variables (Medium, escalated to High when correlated with network).
+	// Includes invowk-specific runtime secrets (INVOWK_SSH_TOKEN, INVOWK_TUI_*).
 	sensitiveVarPattern = regexp.MustCompile(
-		`\$(AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|GITHUB_TOKEN|GH_TOKEN|` +
-			`SSH_AUTH_SOCK|GPG_AGENT_INFO|DATABASE_URL|REDIS_URL|MONGODB_URI)`)
+		`\$(AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|AWS_SESSION_TOKEN|` +
+			`GITHUB_TOKEN|GH_TOKEN|SSH_AUTH_SOCK|GPG_AGENT_INFO|` +
+			`DATABASE_URL|REDIS_URL|MONGODB_URI|VAULT_TOKEN|VAULT_ADDR|` +
+			`DOCKER_PASSWORD|NPM_TOKEN|PYPI_TOKEN|` +
+			`AZURE_CLIENT_SECRET|AZURE_TENANT_ID|` +
+			`GOOGLE_APPLICATION_CREDENTIALS|GCP_SERVICE_ACCOUNT_KEY|` +
+			`INVOWK_SSH_TOKEN|INVOWK_TUI_TOKEN|INVOWK_TUI_ADDR)`)
 	genericSecretPattern = regexp.MustCompile(
 		`\$\{?(API_KEY|SECRET_KEY|PRIVATE_KEY|ACCESS_TOKEN|AUTH_TOKEN|PASSWORD)\}?`)
 
-	// Token extraction to files or pipes (High).
+	// Token extraction to files or pipes (High): detects credential-to-sink
+	// patterns using both generic and named credential variables. Kept in sync
+	// with sensitiveVarPattern for any newly added credential names.
 	tokenExtractionPattern = regexp.MustCompile(
-		`\$(API_KEY|SECRET_KEY|TOKEN|PASSWORD|ACCESS_TOKEN)[^|>]*[|>]`)
+		`\$(AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|GH_TOKEN|` +
+			`VAULT_TOKEN|DOCKER_PASSWORD|NPM_TOKEN|PYPI_TOKEN|` +
+			`AZURE_CLIENT_SECRET|GCP_SERVICE_ACCOUNT_KEY|` +
+			`INVOWK_SSH_TOKEN|INVOWK_TUI_TOKEN|` +
+			`API_KEY|SECRET_KEY|TOKEN|PASSWORD|ACCESS_TOKEN)[^|>]*[|>]`)
 )
 
 // EnvChecker scans environment configurations and script content for sensitive
@@ -57,7 +69,7 @@ func (c *EnvChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding, err
 		findings = append(findings, c.checkEnvInheritMode(allScripts[i])...)
 
 		// Scan script content for sensitive variable access.
-		content := string(allScripts[i].Script)
+		content := allScripts[i].Content()
 		if content != "" {
 			findings = append(findings, c.checkSensitiveVars(allScripts[i], content)...)
 			findings = append(findings, c.checkTokenExtraction(allScripts[i], content)...)
@@ -71,7 +83,9 @@ func (c *EnvChecker) checkEnvInheritMode(ref ScriptRef) []Finding {
 	var findings []Finding
 
 	for i := range ref.Runtimes {
-		if ref.Runtimes[i].EnvInheritMode == invowkfile.EnvInheritAll {
+		rt := &ref.Runtimes[i]
+
+		if rt.EnvInheritMode == invowkfile.EnvInheritAll {
 			findings = append(findings, Finding{
 				Severity:       SeverityLow,
 				Category:       CategoryExfiltration,
@@ -79,8 +93,23 @@ func (c *EnvChecker) checkEnvInheritMode(ref ScriptRef) []Finding {
 				CheckerName:    envCheckerName,
 				FilePath:       ref.FilePath,
 				Title:          "Command inherits all host environment variables",
-				Description:    fmt.Sprintf("Command %q runtime %q uses env_inherit_mode: \"all\" — all host env vars including credentials are visible", ref.CommandName, ref.Runtimes[i].Name),
+				Description:    fmt.Sprintf("Command %q runtime %q uses env_inherit_mode: \"all\" — all host env vars including credentials are visible", ref.CommandName, rt.Name),
 				Recommendation: "Use env_inherit_mode: \"allow\" with an explicit allowlist, or env_inherit_mode: \"none\"",
+			})
+		} else if rt.EnvInheritMode == "" && (rt.Name == invowkfile.RuntimeNative || rt.Name == invowkfile.RuntimeVirtual) {
+			// Native and virtual runtimes default to EnvInheritAll when
+			// env_inherit_mode is unset — flag the implicit inheritance.
+			// Container runtimes are excluded: they follow a different env
+			// path through buildContainerEnvMap with INVOWK_* filtering.
+			findings = append(findings, Finding{
+				Severity:       SeverityInfo,
+				Category:       CategoryExfiltration,
+				SurfaceID:      ref.SurfaceID,
+				CheckerName:    envCheckerName,
+				FilePath:       ref.FilePath,
+				Title:          "Command uses default env inheritance (all host variables)",
+				Description:    fmt.Sprintf("Command %q runtime %q has no explicit env_inherit_mode — defaults to inheriting all host environment variables", ref.CommandName, rt.Name),
+				Recommendation: "Set env_inherit_mode explicitly to document the intent: \"all\", \"allow\", or \"none\"",
 			})
 		}
 	}

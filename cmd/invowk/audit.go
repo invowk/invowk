@@ -148,8 +148,11 @@ func runAudit(cmd *cobra.Command, app *App, auditPath, format, minSeverity strin
 		if err := renderAuditJSON(w, report, minSev); err != nil {
 			return &ExitError{Code: auditExitError, Err: err}
 		}
-	default:
+	case "text":
 		renderAuditText(w, report, auditPath, minSev)
+	default:
+		fmt.Fprintf(cmd.ErrOrStderr(), "Error: unknown output format %q (must be \"text\" or \"json\")\n", format)
+		return &ExitError{Code: auditExitError}
 	}
 
 	// Determine exit code based on filtered findings.
@@ -209,17 +212,18 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 		}
 	}
 
-	// Compound threats section.
-	if len(report.Correlated) > 0 {
+	// Compound threats section (filtered by minimum severity).
+	filteredCorrelated := report.FilterCorrelatedBySeverity(minSev)
+	if len(filteredCorrelated) > 0 {
 		fmt.Fprintln(w, auditSeparatorStyle.Render("═══ Compound Threats ═══"))
-		for i := range report.Correlated {
-			icon := severityIcon(report.Correlated[i].Severity)
-			fmt.Fprintf(w, "  %s %s\n", icon, report.Correlated[i].Title)
-			if report.Correlated[i].Description != "" {
-				fmt.Fprintln(w, auditFindingDetailStyle.Render(report.Correlated[i].Description))
+		for i := range filteredCorrelated {
+			icon := severityIcon(filteredCorrelated[i].Severity)
+			fmt.Fprintf(w, "  %s %s\n", icon, filteredCorrelated[i].Title)
+			if filteredCorrelated[i].Description != "" {
+				fmt.Fprintln(w, auditFindingDetailStyle.Render(filteredCorrelated[i].Description))
 			}
-			if len(report.Correlated[i].EscalatedFrom) > 0 {
-				fmt.Fprintln(w, auditFindingDetailStyle.Render("Escalated from: "+strings.Join(report.Correlated[i].EscalatedFrom, ", ")))
+			if len(filteredCorrelated[i].EscalatedFrom) > 0 {
+				fmt.Fprintln(w, auditFindingDetailStyle.Render("Escalated from: "+strings.Join(filteredCorrelated[i].EscalatedFrom, ", ")))
 			}
 			fmt.Fprintln(w)
 		}
@@ -235,13 +239,26 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 
 func renderAuditJSON(w io.Writer, report *audit.Report, minSev audit.Severity) error {
 	filtered := report.FilterBySeverity(minSev)
-	counts := report.CountBySeverity()
+
+	// Apply the same severity filter to correlated findings so the JSON
+	// total is consistent with the displayed findings.
+	filteredCorrelated := report.FilterCorrelatedBySeverity(minSev)
+
+	// Count only filtered findings so the severity breakdown matches the
+	// findings and compound_threats arrays in the output (M16 fix).
+	counts := make(map[audit.Severity]int)
+	for i := range filtered {
+		counts[filtered[i].Severity]++
+	}
+	for i := range filteredCorrelated {
+		counts[filteredCorrelated[i].Severity]++
+	}
 
 	output := auditJSONOutput{
 		Findings:        convertFindings(filtered),
-		CompoundThreats: convertFindings(report.Correlated),
+		CompoundThreats: convertFindings(filteredCorrelated),
 		Summary: auditJSONSummary{
-			Total:              len(filtered) + len(report.Correlated),
+			Total:              len(filtered) + len(filteredCorrelated),
 			Critical:           counts[audit.SeverityCritical],
 			High:               counts[audit.SeverityHigh],
 			Medium:             counts[audit.SeverityMedium],

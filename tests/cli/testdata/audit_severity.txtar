@@ -1,5 +1,8 @@
 # Test: invowk audit --severity filtering
 # Verifies that --severity flag filters findings below threshold.
+#
+# This test uses env_inherit_mode: "none" to avoid implicit env inheritance
+# findings that would correlate with network access and escalate to Critical.
 
 cd $WORK
 
@@ -14,7 +17,7 @@ cmds: [{
     description: "Fetch data"
     implementations: [{
         script: "wget https://example.com/data.json"
-        runtimes: [{name: "virtual"}]
+        runtimes: [{name: "virtual", env_inherit_mode: "none"}]
         platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
     }]
 }]

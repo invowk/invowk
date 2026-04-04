@@ -29,10 +29,13 @@ type (
 
 // NewScanner creates a Scanner with default checkers and correlator.
 // Use options to customize which checkers run or to inject a custom correlator.
+// DefaultRules() are validated at compile-test time, so the error is not
+// expected at runtime; a nil correlator disables compound threat detection.
 func NewScanner(cfg config.Provider, opts ...ScannerOption) *Scanner {
+	cor, _ := NewCorrelator(DefaultRules()) //nolint:errcheck // DefaultRules are compile-time constants; validated by tests
 	s := &Scanner{
 		checkers:   DefaultCheckers(),
-		correlator: NewCorrelator(DefaultRules()),
+		correlator: cor,
 		config:     cfg,
 	}
 	for _, opt := range opts {
@@ -92,15 +95,19 @@ func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGl
 	// Run checkers concurrently.
 	findings, checkerErrors := s.runCheckers(ctx, sc)
 
-	// Apply correlation.
-	correlated := s.correlator.Correlate(findings)
+	// Apply correlation (nil correlator means DefaultRules() failed; skip).
+	var correlated []Finding
+	if s.correlator != nil {
+		correlated = s.correlator.Correlate(findings)
+	}
 
 	report := &Report{
 		Findings:        findings,
 		Correlated:      correlated,
+		Diagnostics:     sc.Diagnostics(),
 		ScanDuration:    time.Since(start),
-		ModuleCount:     len(sc.modules),
-		InvowkfileCount: len(sc.invowkfiles),
+		ModuleCount:     len(sc.Modules()),
+		InvowkfileCount: len(sc.Invowkfiles()),
 		ScriptCount:     sc.ScriptCount(),
 	}
 

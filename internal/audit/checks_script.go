@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -20,17 +21,22 @@ const (
 
 // Regex patterns for script content scanning.
 var (
-	// Remote execution patterns (Critical).
+	// Remote execution patterns (Critical): download-and-pipe-to-interpreter.
+	// Also matches process substitution: bash <(curl ...).
 	remoteExecPattern = regexp.MustCompile(
-		`(curl|wget|fetch)\s+[^\|]*\|\s*(sh|bash|zsh|python|perl|ruby)`)
-	remoteExecSilentPattern = regexp.MustCompile(
-		`(curl|wget)\s+.*-[sS].*\|\s*(sh|bash)`)
+		`(curl|wget|fetch)\s+[^\|]*\|\s*(sh|bash|zsh|ash|dash|python[23]?|perl|ruby|node(js)?|php|pwsh|powershell)`)
+	processSubstitutionPattern = regexp.MustCompile(
+		`\b(sh|bash|zsh|ash|dash|python[23]?|perl|ruby|node(js)?|php|pwsh|powershell)\s+<\(\s*(curl|wget|fetch)`)
+	// Download-then-execute pattern (Critical): download to file then run.
+	// Matches &&, ;, and newline separators. Also matches wget --output-document.
+	downloadExecPattern = regexp.MustCompile(
+		`(curl|wget|fetch)\s+.*(-[oO]\s+\S+|--output-document[= ]\S+).*([;&]\s*|&&\s*)(sh|bash|chmod\s+\+x)`)
 
 	// Obfuscation patterns (High).
 	base64DecodePattern = regexp.MustCompile(`base64\s+(-d|--decode)`)
-	evalPattern         = regexp.MustCompile(`\beval\b\s+[$"']`)
-	base64SubshPattern  = regexp.MustCompile(`\$\(.*base64`)
-	encodedPipePattern  = regexp.MustCompile(`echo\s+[A-Za-z0-9+/=]{20,}\s*\|\s*base64`)
+	evalPattern         = regexp.MustCompile("\\beval\\b\\s*[$\"'`]")
+	base64SubshPattern  = regexp.MustCompile("(\\$\\(|`).*?base64")
+	encodedPipePattern  = regexp.MustCompile(`echo\s+["']?[A-Za-z0-9+/=]{20,}["']?\s*\|\s*base64`)
 
 	// Hex encoding patterns (High).
 	hexSequencePattern = regexp.MustCompile(`\\x[0-9a-fA-F]{2}.*\\x[0-9a-fA-F]{2}.*\\x[0-9a-fA-F]{2}`)
@@ -56,25 +62,29 @@ func (c *ScriptChecker) Category() Category { return CategoryExecution }
 func (c *ScriptChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding, error) {
 	var findings []Finding
 
-	for _, ref := range sc.AllScripts() {
+	allScripts := sc.AllScripts()
+	for i := range allScripts {
 		select {
 		case <-ctx.Done():
 			return findings, fmt.Errorf("script checker cancelled: %w", ctx.Err())
 		default:
 		}
 
-		findings = append(findings, c.checkScriptPath(ref)...)
+		ref := &allScripts[i]
+		findings = append(findings, c.checkScriptPath(*ref)...)
 
 		// For file-based scripts, check file size and read content.
 		if ref.IsFile {
-			findings = append(findings, c.checkScriptFileSize(ref)...)
+			findings = append(findings, c.checkScriptFileSize(*ref)...)
 		}
 
 		// Analyze script content (both inline and file-based).
-		content := string(ref.Script)
+		// Content() returns the actual script body — for file-based scripts
+		// this is the file contents read during context building (not the path).
+		content := ref.Content()
 		if content != "" {
-			findings = append(findings, c.checkRemoteExecution(ref, content)...)
-			findings = append(findings, c.checkObfuscation(ref, content)...)
+			findings = append(findings, c.checkRemoteExecution(*ref, content)...)
+			findings = append(findings, c.checkObfuscation(*ref, content)...)
 		}
 	}
 
@@ -128,9 +138,9 @@ func (c *ScriptChecker) checkScriptFileSize(ref ScriptRef) []Finding {
 	}
 
 	// Resolve script file path relative to module.
-	scriptPath := string(ref.Script)
+	scriptPath := strings.TrimSpace(string(ref.Script))
 	if !strings.HasPrefix(scriptPath, "/") {
-		scriptPath = string(ref.ModulePath) + "/" + strings.TrimSpace(scriptPath)
+		scriptPath = filepath.Join(string(ref.ModulePath), scriptPath)
 	}
 
 	info, err := os.Stat(scriptPath)
@@ -155,7 +165,7 @@ func (c *ScriptChecker) checkScriptFileSize(ref ScriptRef) []Finding {
 func (c *ScriptChecker) checkRemoteExecution(ref ScriptRef, content string) []Finding {
 	var findings []Finding
 
-	if remoteExecPattern.MatchString(content) || remoteExecSilentPattern.MatchString(content) {
+	if remoteExecPattern.MatchString(content) || downloadExecPattern.MatchString(content) || processSubstitutionPattern.MatchString(content) {
 		findings = append(findings, Finding{
 			Severity:       SeverityCritical,
 			Category:       CategoryExecution,
@@ -163,7 +173,7 @@ func (c *ScriptChecker) checkRemoteExecution(ref ScriptRef, content string) []Fi
 			CheckerName:    scriptCheckerName,
 			FilePath:       ref.FilePath,
 			Title:          "Script downloads and executes remote code",
-			Description:    fmt.Sprintf("Command %q contains a curl/wget pipe to shell pattern — this downloads and executes arbitrary remote code", ref.CommandName),
+			Description:    fmt.Sprintf("Command %q contains a remote code download and execution pattern (pipe, process substitution, or download-then-execute)", ref.CommandName),
 			Recommendation: "Download to a temporary file, verify its checksum, then execute",
 		})
 	}

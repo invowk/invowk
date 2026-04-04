@@ -2,14 +2,22 @@
 
 package audit
 
-import (
-	"testing"
-)
+import "testing"
+
+// mustNewCorrelator creates a Correlator or fails the test.
+func mustNewCorrelator(t *testing.T, rules []CorrelationRule) *Correlator {
+	t.Helper()
+	c, err := NewCorrelator(rules)
+	if err != nil {
+		t.Fatalf("NewCorrelator: %v", err)
+	}
+	return c
+}
 
 func TestCorrelator_NoFindings(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(DefaultRules())
+	c := mustNewCorrelator(t, DefaultRules())
 	result := c.Correlate(nil)
 	if len(result) != 0 {
 		t.Errorf("Correlate(nil) len = %d, want 0", len(result))
@@ -19,7 +27,7 @@ func TestCorrelator_NoFindings(t *testing.T) {
 func TestCorrelator_SingleFindingNoCorrelation(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(DefaultRules())
+	c := mustNewCorrelator(t, DefaultRules())
 	findings := []Finding{
 		{Severity: SeverityMedium, Category: CategoryExfiltration, SurfaceID: "mod1"},
 	}
@@ -32,7 +40,7 @@ func TestCorrelator_SingleFindingNoCorrelation(t *testing.T) {
 func TestCorrelator_ObfuscatedExfiltration(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(DefaultRules())
+	c := mustNewCorrelator(t, DefaultRules())
 	findings := []Finding{
 		{Severity: SeverityHigh, Category: CategoryObfuscation, SurfaceID: "mod1", CheckerName: scriptCheckerName, Title: "obfuscation"},
 		{Severity: SeverityHigh, Category: CategoryExfiltration, SurfaceID: "mod1", CheckerName: networkCheckerName, Title: "network"},
@@ -57,7 +65,7 @@ func TestCorrelator_ObfuscatedExfiltration(t *testing.T) {
 func TestCorrelator_TrustChainWeakness(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(DefaultRules())
+	c := mustNewCorrelator(t, DefaultRules())
 	findings := []Finding{
 		{Severity: SeverityMedium, Category: CategoryTrust, SurfaceID: "mod1", CheckerName: moduleMetadataCheckerName, Title: "deep deps"},
 		{Severity: SeverityMedium, Category: CategoryIntegrity, SurfaceID: "mod1", CheckerName: lockFileCheckerName, Title: "missing hash"},
@@ -81,7 +89,7 @@ func TestCorrelator_TrustChainWeakness(t *testing.T) {
 func TestCorrelator_MediumMediumEscalation(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(nil) // No named rules, only escalation.
+	c := mustNewCorrelator(t, nil) // No named rules, only escalation.
 	findings := []Finding{
 		{Severity: SeverityMedium, Category: CategoryExfiltration, SurfaceID: "mod1"},
 		{Severity: SeverityMedium, Category: CategoryExfiltration, SurfaceID: "mod1"},
@@ -105,7 +113,7 @@ func TestCorrelator_MediumMediumEscalation(t *testing.T) {
 func TestCorrelator_HighPlusAnyEscalation(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(nil)
+	c := mustNewCorrelator(t, nil)
 	findings := []Finding{
 		{Severity: SeverityHigh, Category: CategoryExecution, SurfaceID: "mod1"},
 		{Severity: SeverityLow, Category: CategoryTrust, SurfaceID: "mod1"},
@@ -129,7 +137,7 @@ func TestCorrelator_HighPlusAnyEscalation(t *testing.T) {
 func TestCorrelator_ThreeCategoriesEscalation(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(nil)
+	c := mustNewCorrelator(t, nil)
 	findings := []Finding{
 		{Severity: SeverityMedium, Category: CategoryExfiltration, SurfaceID: "mod1"},
 		{Severity: SeverityLow, Category: CategoryTrust, SurfaceID: "mod1"},
@@ -154,7 +162,7 @@ func TestCorrelator_ThreeCategoriesEscalation(t *testing.T) {
 func TestCorrelator_DifferentSurfaces(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(DefaultRules())
+	c := mustNewCorrelator(t, DefaultRules())
 	findings := []Finding{
 		{Severity: SeverityHigh, Category: CategoryObfuscation, SurfaceID: "mod1", CheckerName: scriptCheckerName},
 		{Severity: SeverityHigh, Category: CategoryExfiltration, SurfaceID: "mod2", CheckerName: networkCheckerName},
@@ -172,7 +180,7 @@ func TestCorrelator_DifferentSurfaces(t *testing.T) {
 func TestCorrelator_CriticalNotEscalated(t *testing.T) {
 	t.Parallel()
 
-	c := NewCorrelator(nil)
+	c := mustNewCorrelator(t, nil)
 	findings := []Finding{
 		{Severity: SeverityCritical, Category: CategoryExecution, SurfaceID: "mod1"},
 		{Severity: SeverityMedium, Category: CategoryTrust, SurfaceID: "mod1"},

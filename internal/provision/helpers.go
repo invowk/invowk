@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -33,16 +34,35 @@ func CalculateFileHash(path string) (string, error) {
 
 // CalculateDirHash calculates a hash of a directory's contents.
 // It includes file names, sizes, and modification times for efficiency.
+// Returns an error if dirPath itself is a symlink (SC-05 defense-in-depth).
 func CalculateDirHash(dirPath string) (string, error) {
+	// Check if dirPath itself is a symlink — a symlink-to-directory would
+	// produce an empty or incorrect hash because WalkDir uses Lstat on the
+	// root and reports it as non-directory (SC-05 residual fix).
+	rootInfo, err := os.Lstat(dirPath)
+	if err != nil {
+		return "", fmt.Errorf("lstat %s: %w", dirPath, err)
+	}
+	if rootInfo.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("CalculateDirHash: %q is a symbolic link, not a directory", dirPath)
+	}
+
 	h := sha256.New()
 
 	var entries []string
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	// Use WalkDir and skip symlinks to ensure the hash is computed only over
+	// files that CopyDir would actually copy (SC-05 consistency).
+	err = filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil //nolint:nilerr // Intentionally skip inaccessible files to continue walking
 		}
-		if info.IsDir() {
-			return nil
+		if d.IsDir() || !d.Type().IsRegular() {
+			return nil // Skip directories and symlinks/devices.
+		}
+
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return nil //nolint:nilerr // Skip unreadable entries.
 		}
 
 		relPath, _ := filepath.Rel(dirPath, path)
@@ -51,7 +71,7 @@ func CalculateDirHash(dirPath string) (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("walking directory %s: %w", dirPath, err)
 	}
 
 	// Sort for consistent ordering
@@ -70,11 +90,18 @@ func DiscoverModules(paths []types.FilesystemPath) []string {
 	seen := make(map[string]bool)
 
 	for _, basePath := range paths {
-		_ = filepath.Walk(string(basePath), func(path string, info os.FileInfo, err error) error { // Walk never returns error with this callback
+		// Use WalkDir and skip symlinked directories to prevent a symlink named
+		// *.invowkmod from being discovered as a module (SC-05 consistency).
+		_ = filepath.WalkDir(string(basePath), func(path string, d fs.DirEntry, err error) error { //nolint:errcheck // Walk callback returns nil for all errors to continue walking
 			if err != nil {
 				return nil //nolint:nilerr // Intentionally skip errors to continue walking
 			}
-			if info.IsDir() && strings.HasSuffix(info.Name(), ".invowkmod") {
+			// Skip non-directory entries, including symlinks-to-dirs which
+			// WalkDir reports with d.IsDir()=false (SC-05 consistency).
+			if !d.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(d.Name(), ".invowkmod") {
 				absPath, _ := filepath.Abs(path)
 				if !seen[absPath] {
 					seen[absPath] = true

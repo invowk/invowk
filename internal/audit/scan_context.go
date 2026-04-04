@@ -25,6 +25,10 @@ type (
 		invowkfiles []*ScannedInvowkfile
 		modules     []*ScannedModule
 		scripts     []ScriptRef
+		// diagnostics collects non-fatal warnings from loading (e.g., modules
+		// that failed to load, discovery errors). Surfaced in the audit report
+		// so incomplete scans are visible to operators.
+		diagnostics []string
 	}
 
 	// ScannedInvowkfile wraps a standalone invowkfile (not inside a module) with
@@ -33,6 +37,9 @@ type (
 		Path       types.FilesystemPath
 		Invowkfile *invowkfile.Invowkfile
 		SurfaceID  string
+		// ParseErr is non-nil when the invowkfile exists on disk but failed to
+		// parse. Checkers can inspect this to flag corrupted standalone invowkfiles.
+		ParseErr error
 	}
 
 	// ScannedModule wraps a discovered module with all its artifacts:
@@ -50,6 +57,10 @@ type (
 		// failed to parse. Checkers can inspect this to flag modules with
 		// corrupted or malformed invowkfiles that would otherwise go undetected.
 		InvowkfileParseErr error
+		// LockFileParseErr is non-nil when the lock file exists on disk but
+		// failed to load/parse. Checkers can inspect this to flag modules with
+		// corrupted lock files that would appear as "absent" without this field.
+		LockFileParseErr error
 	}
 
 	// ScriptRef is a reference to a script within the scan context, annotated with
@@ -63,24 +74,51 @@ type (
 		Script      invowkfile.ScriptContent
 		IsFile      bool
 		Runtimes    []invowkfile.RuntimeConfig
+		// resolvedContent holds the actual script body for content analysis.
+		// For inline scripts this equals string(Script). For file-based scripts
+		// this holds the file contents (read during context building, capped at
+		// maxScriptFileSize bytes). Empty when the file could not be read.
+		// Access via Content() method.
+		resolvedContent string
 	}
 )
+
+// Content returns the resolved script body for content analysis. For inline
+// scripts this is the script text; for file-based scripts this is the file
+// contents read during context building. Empty when the file could not be read.
+func (r ScriptRef) Content() string { return r.resolvedContent }
 
 // RootPath returns the scan root directory.
 func (sc *ScanContext) RootPath() types.FilesystemPath { return sc.rootPath }
 
-// Invowkfiles returns standalone invowkfiles (not inside modules).
-func (sc *ScanContext) Invowkfiles() []*ScannedInvowkfile { return sc.invowkfiles }
+// Invowkfiles returns a copy of the standalone invowkfiles slice.
+// The returned slice is safe to iterate without risk of concurrent mutation.
+// The pointed-to ScannedInvowkfile structs are shared and must not be modified.
+func (sc *ScanContext) Invowkfiles() []*ScannedInvowkfile {
+	return append([]*ScannedInvowkfile(nil), sc.invowkfiles...)
+}
 
-// Modules returns all discovered modules.
-func (sc *ScanContext) Modules() []*ScannedModule { return sc.modules }
+// Modules returns a copy of the discovered modules slice.
+// The returned slice is safe to iterate without risk of concurrent mutation.
+// The pointed-to ScannedModule structs are shared and must not be modified.
+func (sc *ScanContext) Modules() []*ScannedModule {
+	return append([]*ScannedModule(nil), sc.modules...)
+}
 
-// AllScripts returns the pre-computed list of all script references across all
-// invowkfiles (standalone + module). Safe for concurrent use by multiple checkers.
-func (sc *ScanContext) AllScripts() []ScriptRef { return sc.scripts }
+// AllScripts returns a copy of the pre-computed script references.
+// Safe for concurrent use by multiple checkers.
+func (sc *ScanContext) AllScripts() []ScriptRef {
+	return append([]ScriptRef(nil), sc.scripts...)
+}
 
 // ScriptCount returns the total number of scripts across all surfaces.
 func (sc *ScanContext) ScriptCount() int { return len(sc.scripts) }
+
+// Diagnostics returns non-fatal warnings collected during context building
+// (e.g., modules that failed to load, discovery errors, parse failures).
+func (sc *ScanContext) Diagnostics() []string {
+	return append([]string(nil), sc.diagnostics...)
+}
 
 // BuildScanContext discovers and loads all invowkfiles and modules at the given
 // path, producing an immutable snapshot for checkers to analyze.
@@ -99,14 +137,14 @@ func BuildScanContext(scanPath types.FilesystemPath, cfg *config.Config, include
 		rootPath: types.FilesystemPath(absPath),
 	}
 
-	pathStr := string(scanPath)
-
+	// filepath.Abs removes trailing separators and resolves "." components;
+	// suffix checks on the raw scanPath would fail for paths like "./foo.invowkmod/".
 	switch {
-	case strings.HasSuffix(pathStr, ".cue"):
+	case strings.HasSuffix(absPath, ".cue"):
 		if err := sc.loadStandaloneInvowkfile(absPath); err != nil {
 			return nil, &ScanContextBuildError{Path: scanPath, Err: err}
 		}
-	case strings.HasSuffix(pathStr, invowkmod.ModuleSuffix):
+	case strings.HasSuffix(absPath, invowkmod.ModuleSuffix):
 		if err := sc.loadSingleModule(absPath); err != nil {
 			return nil, &ScanContextBuildError{Path: scanPath, Err: err}
 		}
@@ -127,15 +165,20 @@ func BuildScanContext(scanPath types.FilesystemPath, cfg *config.Config, include
 }
 
 func (sc *ScanContext) loadStandaloneInvowkfile(absPath string) error {
-	inv, err := invowkfile.Parse(invowkfile.FilesystemPath(absPath))
-	if err != nil {
-		return fmt.Errorf("parsing invowkfile %s: %w", absPath, err)
+	inv, parseErr := invowkfile.Parse(invowkfile.FilesystemPath(absPath))
+	si := &ScannedInvowkfile{
+		Path:      types.FilesystemPath(absPath),
+		SurfaceID: absPath,
 	}
-	sc.invowkfiles = append(sc.invowkfiles, &ScannedInvowkfile{
-		Path:       types.FilesystemPath(absPath),
-		Invowkfile: inv,
-		SurfaceID:  absPath,
-	})
+	if parseErr == nil {
+		si.Invowkfile = inv
+	} else {
+		// Capture parse errors rather than hard-failing — consistent with the
+		// directory-tree path so checkers can flag corrupted standalone invowkfiles.
+		si.ParseErr = parseErr
+		sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("invowkfile parse error: %s: %v", absPath, parseErr))
+	}
+	sc.invowkfiles = append(sc.invowkfiles, si)
 	return nil
 }
 
@@ -145,10 +188,17 @@ func (sc *ScanContext) loadSingleModule(absPath string) error {
 		return fmt.Errorf("loading module %s: %w", absPath, err)
 	}
 
+	// Use module ID as surface identifier when metadata is available.
+	// Fall back to path when Metadata is nil (defense against future Load() changes).
+	surfaceID := absPath
+	if mod.Metadata != nil {
+		surfaceID = string(mod.Metadata.Module)
+	}
+
 	sm := &ScannedModule{
 		Path:      types.FilesystemPath(absPath),
 		Module:    mod,
-		SurfaceID: string(mod.Metadata.Module),
+		SurfaceID: surfaceID,
 	}
 
 	// Load invowkfile if present. Parse errors are captured rather than
@@ -163,18 +213,24 @@ func (sc *ScanContext) loadSingleModule(absPath string) error {
 		}
 	}
 
-	// Load lock file if present.
+	// Load lock file if present. Parse errors are captured rather than
+	// discarded so checkers can flag corrupt lock files that would otherwise
+	// appear as absent.
 	lockPath := filepath.Join(absPath, invowkmod.LockFileName)
 	if _, statErr := os.Stat(lockPath); statErr == nil {
 		lock, loadErr := invowkmod.LoadLockFile(lockPath)
 		if loadErr == nil {
 			sm.LockFile = lock
-			sm.LockPath = types.FilesystemPath(lockPath) //goplint:ignore -- filepath.Join from validated module path
+		} else {
+			sm.LockFileParseErr = loadErr
 		}
+		sm.LockPath = types.FilesystemPath(lockPath) //goplint:ignore -- filepath.Join from validated module path
 	}
 
-	// Scan vendored modules.
-	sm.VendoredModules = loadVendoredModules(absPath)
+	// Scan vendored modules (diagnostics propagated for failed loads).
+	var vendorDiags []string
+	sm.VendoredModules, vendorDiags = loadVendoredModules(absPath)
+	sc.diagnostics = append(sc.diagnostics, vendorDiags...)
 
 	sc.modules = append(sc.modules, sm)
 	return nil
@@ -182,17 +238,23 @@ func (sc *ScanContext) loadSingleModule(absPath string) error {
 
 func (sc *ScanContext) loadDirectoryTree(absPath string, cfg *config.Config, includeGlobal bool) error {
 	// Try direct invowkfile.cue detection first (simplest case).
+	// Parse errors are captured in ParseErr so checkers can flag corrupted
+	// invowkfiles that would otherwise be silently excluded from the scan.
 	invPath := filepath.Join(absPath, "invowkfile.cue")
 	_, invCueErr := os.Stat(invPath)
 	if invCueErr == nil {
 		inv, parseErr := invowkfile.Parse(invowkfile.FilesystemPath(invPath))
-		if parseErr == nil {
-			sc.invowkfiles = append(sc.invowkfiles, &ScannedInvowkfile{
-				Path:       types.FilesystemPath(invPath),
-				Invowkfile: inv,
-				SurfaceID:  invPath,
-			})
+		si := &ScannedInvowkfile{
+			Path:      types.FilesystemPath(invPath),
+			SurfaceID: invPath,
 		}
+		if parseErr == nil {
+			si.Invowkfile = inv
+		} else {
+			si.ParseErr = parseErr
+			sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("invowkfile parse error: %s: %v", invPath, parseErr))
+		}
+		sc.invowkfiles = append(sc.invowkfiles, si)
 	}
 
 	// Fall back to extensionless "invowkfile" variant when .cue is absent.
@@ -200,13 +262,17 @@ func (sc *ScanContext) loadDirectoryTree(absPath string, cfg *config.Config, inc
 		invPathNoExt := filepath.Join(absPath, "invowkfile")
 		if _, statErr := os.Stat(invPathNoExt); statErr == nil {
 			inv, parseErr := invowkfile.Parse(invowkfile.FilesystemPath(invPathNoExt))
-			if parseErr == nil {
-				sc.invowkfiles = append(sc.invowkfiles, &ScannedInvowkfile{
-					Path:       types.FilesystemPath(invPathNoExt),
-					Invowkfile: inv,
-					SurfaceID:  invPathNoExt,
-				})
+			si := &ScannedInvowkfile{
+				Path:      types.FilesystemPath(invPathNoExt),
+				SurfaceID: invPathNoExt,
 			}
+			if parseErr == nil {
+				si.Invowkfile = inv
+			} else {
+				si.ParseErr = parseErr
+				sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("invowkfile parse error: %s: %v", invPathNoExt, parseErr))
+			}
+			sc.invowkfiles = append(sc.invowkfiles, si)
 		}
 	}
 
@@ -222,7 +288,8 @@ func (sc *ScanContext) loadDirectoryTree(absPath string, cfg *config.Config, inc
 		}
 		modPath := filepath.Join(absPath, entry.Name())
 		if loadErr := sc.loadSingleModule(modPath); loadErr != nil {
-			continue // Skip invalid modules.
+			sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("skipped invalid module %s: %v", entry.Name(), loadErr))
+			continue
 		}
 	}
 
@@ -237,7 +304,10 @@ func (sc *ScanContext) loadDirectoryTree(absPath string, cfg *config.Config, inc
 
 		disc := discovery.New(cfg, opts...)
 		files, discErr := disc.DiscoverAll()
-		if discErr == nil {
+		if discErr != nil {
+			sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("discovery error (partial results): %v", discErr))
+		}
+		if files != nil {
 			sc.mergeDiscoveryResults(files)
 		}
 	}
@@ -265,10 +335,17 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 			}
 			seenModules[modPath] = true
 
+			// Use module ID when metadata is available, fall back to path
+			// to avoid nil-dereference when discovery returns partial results.
+			discSurfaceID := string(f.Module.Path)
+			if f.Module.Metadata != nil {
+				discSurfaceID = string(f.Module.Metadata.Module)
+			}
+
 			sm := &ScannedModule{
 				Path:      f.Module.Path,
 				Module:    f.Module,
-				SurfaceID: string(f.Module.Metadata.Module),
+				SurfaceID: discSurfaceID,
 				IsGlobal:  f.IsGlobalModule,
 			}
 			if f.Invowkfile != nil {
@@ -286,14 +363,14 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 }
 
 // loadVendoredModules scans the invowk_modules/ directory for vendored deps.
-func loadVendoredModules(modulePath string) []*invowkmod.Module {
+// Returns the loaded modules and any diagnostics for modules that failed to load.
+func loadVendoredModules(modulePath string) (modules []*invowkmod.Module, diagnostics []string) {
 	vendorDir := filepath.Join(modulePath, "invowk_modules")
 	entries, err := os.ReadDir(vendorDir)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
-	var modules []*invowkmod.Module
 	for _, entry := range entries {
 		if !entry.IsDir() || !strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
 			continue
@@ -301,17 +378,21 @@ func loadVendoredModules(modulePath string) []*invowkmod.Module {
 		modPath := filepath.Join(vendorDir, entry.Name())
 		mod, loadErr := invowkmod.Load(types.FilesystemPath(modPath))
 		if loadErr != nil {
+			diagnostics = append(diagnostics, fmt.Sprintf("skipped vendored module %s: %v", entry.Name(), loadErr))
 			continue
 		}
 		modules = append(modules, mod)
 	}
-	return modules
+	return modules, diagnostics
 }
 
 // buildScriptRefs pre-computes all script references from invowkfiles and modules.
 func buildScriptRefs(invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) []ScriptRef {
 	var refs []ScriptRef
 	for _, sf := range invowkfiles {
+		if sf.Invowkfile == nil {
+			continue // Parse-failed invowkfiles have no scripts to analyze.
+		}
 		refs = appendScriptsFromInvowkfile(refs, sf.SurfaceID, sf.Path, "", sf.Invowkfile)
 	}
 	for _, sm := range modules {
@@ -328,17 +409,50 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, filePath, m
 		cmd := &inv.Commands[ci]
 		for i := range cmd.Implementations {
 			impl := &cmd.Implementations[i]
-			refs = append(refs, ScriptRef{
+			isFile := impl.IsScriptFile()
+			ref := ScriptRef{
 				SurfaceID:   surfaceID,
 				FilePath:    filePath,
 				ModulePath:  modulePath,
 				CommandName: cmd.Name,
 				ImplIndex:   i,
 				Script:      impl.Script,
-				IsFile:      impl.IsScriptFile(),
+				IsFile:      isFile,
 				Runtimes:    impl.Runtimes,
-			})
+			}
+
+			// Resolve actual script content for content-analysis checkers.
+			// For inline scripts, Script already holds the content. For file-based
+			// scripts, read the file (capped at maxScriptFileSize) so that
+			// content-analysis checkers can inspect the real script body.
+			if isFile {
+				ref.resolvedContent = readScriptFileContent(string(impl.Script), string(modulePath))
+			} else {
+				ref.resolvedContent = string(impl.Script)
+			}
+
+			refs = append(refs, ref)
 		}
 	}
 	return refs
+}
+
+// readScriptFileContent reads a file-based script's contents for content analysis.
+// Returns empty string if the file cannot be read (checkers handle empty gracefully).
+func readScriptFileContent(scriptPath, modulePath string) string {
+	resolved := strings.TrimSpace(scriptPath)
+	if modulePath != "" && !strings.HasPrefix(resolved, "/") {
+		resolved = filepath.Join(modulePath, resolved)
+	}
+
+	info, err := os.Stat(resolved)
+	if err != nil || info.Size() > maxScriptFileSize {
+		return ""
+	}
+
+	data, err := os.ReadFile(resolved)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }

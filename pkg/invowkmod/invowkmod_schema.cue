@@ -66,7 +66,8 @@ import "strings"
 
 	// repository is the canonical source URL for this module (optional)
 	// Typically a Git repository URL (e.g., "https://github.com/org/name.invowkmod")
-	repository?: string & strings.MaxRunes(2048)
+	// Only https://, git@, and ssh:// schemes are accepted to prevent URL injection
+	repository?: string & =~"^(https://|git@|ssh://)" & strings.MaxRunes(2048)
 
 	// requires declares dependencies on other modules from Git repositories (optional)
 	// Dependencies are resolved at module level
