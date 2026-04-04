@@ -41,6 +41,27 @@ Module version in semver format (e.g., `"1.0.0"`, `"2.1.0-beta.1"`).
 
 A short summary of the module's purpose.
 
+### author
+
+**Type:** `string`
+**Required:** No
+
+Module author or maintainer (free-form text, typically "Name \<email\>" or organization name).
+
+### license
+
+**Type:** `string`
+**Required:** No
+
+Module license using an SPDX identifier (e.g., `"MIT"`, `"Apache-2.0"`, `"MPL-2.0"`).
+
+### repository
+
+**Type:** `string` (pattern: `^(https://|git@|ssh://)`)
+**Required:** No
+
+Canonical source URL for this module. Only `https://`, `git@`, and `ssh://` schemes are accepted.
+
 ### requires
 
 **Type:** `[...#ModuleRequirement]`

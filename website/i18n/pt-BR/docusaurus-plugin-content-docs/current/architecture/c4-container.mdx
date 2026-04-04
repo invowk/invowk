@@ -22,7 +22,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
-| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion` |
+| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion`, `audit` |
 
 ### Motor Principal
 
@@ -34,6 +34,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | **CUE Parser** | Go/cuelang | Implementa parsing em 3 etapas: compilar schema → unificar com dados → decodificar para structs Go. Fornece mensagens de erro ricas. |
 | **Module Resolver** | Go | Resolve dependências baseadas em Git. Gerencia cache em `~/.invowk/modules/`. Lida com lock files para reprodutibilidade. |
 | **Watch Engine** | Go | Monitora o sistema de arquivos para mudanças. Aplica debounce nos eventos de mudança e dispara re-execução de comandos para o modo `--ivk-watch`. |
+| **Audit Scanner** | Go | Varredura de segurança do sistema de módulos (`internal/audit/`). Detecta riscos de supply-chain, travessia de caminho, abuso de symlink e injeção de variáveis de ambiente. Suporta flag `--llm` para análise com LLM. |
 
 ### Runtimes
 

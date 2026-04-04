@@ -1124,6 +1124,9 @@ invowk cmd`,
     module:       string               // Required - module identifier
     version:      string               // Required - semver version (e.g., "1.0.0")
     description?: string               // Optional - module description
+    author?:      string               // Optional - author or maintainer
+    license?:     string               // Optional - SPDX license identifier
+    repository?:  string               // Optional - canonical source URL
     requires?:    [...#ModuleRequirement] // Optional - dependencies
 }`,
   },

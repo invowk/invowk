@@ -2383,7 +2383,7 @@ container: {
   auto_provision: {
     enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
     strict: false                         // Hard error on provisioning failure instead of warning (default: false)
-    binary_path: "/usr/local/bin/invowk"  // Override path to invowk binary to provision (optional)
+    binary_path: ""                       // Path to invowk binary to provision (default: auto-detect via os.Executable())
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
     // cache_dir: ""  // Cache directory for provisioned image metadata (empty = auto-detect, optional)
@@ -3006,6 +3006,7 @@ invowk/
 │   └── goplint/                # Custom go/analysis analyzer for DDD value type enforcement
 ├── docs/                       # Architecture diagrams and design docs
 ├── examples/                   # Example invowkfiles and modules
+├── vhs/                        # VHS tape files for terminal demo recordings
 ├── Dockerfile                  # Container image for development
 └── website/                    # Docusaurus documentation site
 ```
@@ -3032,6 +3033,12 @@ invowk/
 
 **Module Dependencies:**
 - [go-git](https://github.com/go-git/go-git) - Git operations for remote module resolution
+
+**File Watching:**
+- [fsnotify](https://github.com/fsnotify/fsnotify) - Cross-platform file system notifications for `--ivk-watch` mode
+
+**Security:**
+- [openai-go](https://github.com/openai/openai-go) - OpenAI API client for `invowk audit --llm` LLM-powered analysis
 
 **Virtual Shell:**
 - [u-root](https://github.com/u-root/u-root) - Core utilities for virtual shell built-ins (28 utilities: cat, cp, ls, grep, sort, tar, seq, etc.)

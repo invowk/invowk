@@ -41,6 +41,27 @@ Versão do módulo em formato semver (ex: `"1.0.0"`, `"2.1.0-beta.1"`).
 
 Um resumo curto do propósito do módulo.
 
+### author
+
+**Tipo:** `string`
+**Obrigatório:** Não
+
+Autor ou mantenedor do módulo (texto livre, tipicamente "Nome \<email\>" ou nome da organização).
+
+### license
+
+**Tipo:** `string`
+**Obrigatório:** Não
+
+Licença do módulo usando um identificador SPDX (ex: `"MIT"`, `"Apache-2.0"`, `"MPL-2.0"`).
+
+### repository
+
+**Tipo:** `string` (padrão: `^(https://|git@|ssh://)`)
+**Obrigatório:** Não
+
+URL canônica de origem deste módulo. Apenas esquemas `https://`, `git@` e `ssh://` são aceitos.
+
 ### requires
 
 **Tipo:** `[...#ModuleRequirement]`

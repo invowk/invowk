@@ -14,7 +14,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
-| **CLI Commands** | Go/Cobra | Entry points for all user interactions: `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion` subcommands |
+| **CLI Commands** | Go/Cobra | Entry points for all user interactions: `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion`, `audit` subcommands |
 
 ### Core Engine
 
@@ -26,6 +26,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |
 | **Module Resolver** | Go | Orchestrates Git-based module dependency resolution (via `pkg/invowkmod`). Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. CLI subcommands (`module deps`, `module sync`, `module update`) drive resolution. |
 | **Watch Engine** | Go | Monitors file system for changes. Debounces change events and triggers command re-execution for `--ivk-watch` mode. |
+| **Audit Scanner** | Go | Security scanning of module system (`internal/audit/`). Detects supply-chain risks, path traversal, symlink abuse, and environment variable injection. Supports `--llm` flag for LLM-powered analysis. |
 
 ### Runtimes
 

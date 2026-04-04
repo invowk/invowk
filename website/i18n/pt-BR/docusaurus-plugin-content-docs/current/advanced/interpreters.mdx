@@ -60,17 +60,19 @@ Argumentos funcionam da mesma forma com qualquer interpretador:
 
 ## Interpretadores Suportados
 
-Qualquer executável no PATH pode ser usado:
+O Invowk valida nomes de interpretadores contra uma lista de permissão por segurança ([SC-08](https://github.com/invowk/invowk)). Os seguintes interpretadores são aceitos:
 
-- **Python**: `python3`, `python`
+- **Shell**: `sh`, `bash`, `zsh`, `fish`, `dash`, `ksh`, `mksh`
+- **Python**: `python3`, `python`, `python2`
 - **JavaScript**: `node`, `deno`, `bun`
 - **Ruby**: `ruby`
 - **Perl**: `perl`
 - **PHP**: `php`
 - **Lua**: `lua`
 - **R**: `Rscript`
-- **Shell**: `bash`, `sh`, `zsh`, `fish`
-- **Personalizado**: Qualquer executável
+- **Windows**: `pwsh`, `powershell`, `cmd`
+
+Interpretadores que não estão nesta lista são rejeitados com um `UnsafeInterpreterSpecError`. Metacaracteres de shell (`;|&` etc.) nas especificações de interpretador também são rejeitados. Ao usar `/usr/bin/env`, o interpretador real (segundo argumento) é validado contra a mesma lista de permissão.
 
 ## Limitação do Runtime Virtual
 
