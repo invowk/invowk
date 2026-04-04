@@ -540,6 +540,35 @@ and command tree checks.
 
 ---
 
+### invowk audit
+
+Scan for security risks in invowkfiles, modules, and scripts. See the [Security Auditing](../security/audit) guide for full documentation.
+
+<Snippet id="reference/cli/audit-syntax" />
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `text` | Output format: `text`, `json` |
+| `--severity` | `low` | Minimum severity: `info`, `low`, `medium`, `high`, `critical` |
+| `--include-global` | `false` | Include `~/.invowk/cmds/` in scan |
+| `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
+| `--llm` | `false` | Enable LLM with manual URL/key config |
+| `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |
+| `--llm-model` | `qwen2.5-coder:7b` | LLM model name |
+| `--llm-api-key` | *(empty)* | API key (empty for local servers) |
+| `--llm-timeout` | `2m` | Per-request timeout |
+| `--llm-concurrency` | `2` | Max parallel LLM requests |
+
+**Exit codes:** `0` = clean, `1` = findings detected, `2` = scan error.
+
+**Examples:**
+
+<Snippet id="reference/cli/audit-examples" />
+
+---
+
 ### invowk completion
 
 Generate shell completion scripts.

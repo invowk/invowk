@@ -24,5 +24,7 @@
 //   - scanner.go       Scanner orchestrator: context build, checker dispatch, correlation
 //   - correlator.go    Compound threat detection and severity escalation
 //   - errors.go        Sentinel errors and typed error structs
+//   - llm_client.go    LLM client wrapper for OpenAI-compatible chat completions API
+//   - llm_prompt.go    System prompt, response schema, and finding conversion
 //   - checks_*.go      Individual checker implementations (one per security category)
 package audit
