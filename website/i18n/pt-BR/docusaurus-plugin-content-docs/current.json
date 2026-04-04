@@ -39,6 +39,10 @@
     "message": "Componentes TUI",
     "description": "The label for category 'TUI Components' in sidebar 'docsSidebar'"
   },
+  "sidebar.docsSidebar.category.Security": {
+    "message": "Segurança",
+    "description": "The label for category 'Security' in sidebar 'docsSidebar'"
+  },
   "sidebar.docsSidebar.category.Configuration": {
     "message": "Configuração",
     "description": "The label for category 'Configuration' in sidebar 'docsSidebar'"
