@@ -39,8 +39,19 @@ const (
 	defaultGeminiModel = "gemini-2.5-flash"
 )
 
-// ErrLLMProviderNotFound is the sentinel for when no LLM provider can be detected.
-var ErrLLMProviderNotFound = errors.New(llmProviderNotFoundErrMsg)
+var (
+	_ llmCompleter = (*CLICompleter)(nil) // compile-time interface assertion
+
+	// ErrLLMProviderNotFound is the sentinel for when no LLM provider can be detected.
+	ErrLLMProviderNotFound = errors.New(llmProviderNotFoundErrMsg)
+
+	// cloudProviders defines the cloud provider configurations in detection order.
+	cloudProviders = map[string]cloudProvider{
+		ProviderClaude: {envVars: []string{"ANTHROPIC_API_KEY"}, baseURL: anthropicBaseURL, defaultModel: defaultClaudeModel, name: ProviderClaude, cliTool: "claude"},
+		ProviderCodex:  {envVars: []string{"OPENAI_API_KEY"}, baseURL: openaiBaseURL, defaultModel: defaultOpenAIModel, name: ProviderCodex, cliTool: "codex"},
+		ProviderGemini: {envVars: []string{"GEMINI_API_KEY", "GOOGLE_API_KEY"}, baseURL: geminiBaseURL, defaultModel: defaultGeminiModel, name: ProviderGemini, cliTool: "gemini"},
+	}
+)
 
 type (
 	// LLMProviderNotFoundError is returned when auto-detection finds no provider.
@@ -61,6 +72,29 @@ type (
 	CLICompleter struct {
 		tool  string
 		model string
+		// runCmd executes a command and returns its stdout. When nil,
+		// defaults to exec.CommandContext(...).Output() in Complete().
+		runCmd func(ctx context.Context, name string, args ...string) ([]byte, error)
+	}
+
+	// providerDeps holds injectable infrastructure dependencies for provider
+	// detection. Production code uses defaultProviderDeps(); tests inject
+	// stubs to isolate behavior from the host environment.
+	providerDeps struct {
+		getenv   func(string) string
+		lookPath func(string) (string, error)
+		httpDo   func(*http.Request) (*http.Response, error)
+	}
+
+	// cloudProvider bundles the fixed configuration for a cloud LLM provider.
+	// Each provider has one or more env var names, a base URL, a default model,
+	// a display name, and a CLI tool name for fallback.
+	cloudProvider struct {
+		envVars      []string
+		baseURL      string
+		defaultModel string
+		name         string
+		cliTool      string
 	}
 )
 
@@ -86,6 +120,15 @@ func ValidProviders() []string {
 	return []string{ProviderAuto, ProviderClaude, ProviderCodex, ProviderGemini, ProviderOllama}
 }
 
+// defaultProviderDeps returns the production infrastructure dependencies.
+func defaultProviderDeps() providerDeps {
+	return providerDeps{
+		getenv:   os.Getenv,
+		lookPath: exec.LookPath,
+		httpDo:   http.DefaultClient.Do,
+	}
+}
+
 // DetectProvider resolves an LLM provider by name. When name is "auto", it
 // probes providers in local-first order: Ollama, then cloud env vars
 // (Anthropic, OpenAI, Google), then CLI tools (claude, codex, gemini).
@@ -93,69 +136,65 @@ func ValidProviders() []string {
 // The modelOverride parameter, when non-empty, replaces the provider's
 // default model selection.
 func DetectProvider(ctx context.Context, name, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
+	return detectProviderWith(ctx, defaultProviderDeps(), name, modelOverride, timeout)
+}
+
+// detectProviderWith is the injectable core of DetectProvider.
+func detectProviderWith(ctx context.Context, deps providerDeps, name, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
 	if name != ProviderAuto {
-		return detectSpecificProvider(ctx, name, modelOverride, timeout)
+		return detectSpecificProvider(ctx, deps, name, modelOverride, timeout)
 	}
-	return detectAutoProvider(ctx, modelOverride, timeout)
+	return detectAutoProvider(ctx, deps, modelOverride, timeout)
 }
 
 // detectAutoProvider probes all providers in local-first order.
-func detectAutoProvider(ctx context.Context, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
+func detectAutoProvider(ctx context.Context, deps providerDeps, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
 	var tried []string
 
 	// 1. Local Ollama (free, private).
-	if result, err := tryOllama(ctx, modelOverride, timeout); err == nil {
+	if result, err := tryOllama(ctx, deps, modelOverride, timeout); err == nil {
 		return result, nil
 	}
 	tried = append(tried, "ollama (localhost:11434)")
 
 	// 2. Cloud env vars (no subprocess overhead).
-	if result, err := tryEnvVar("ANTHROPIC_API_KEY", anthropicBaseURL, defaultClaudeModel, ProviderClaude, modelOverride, timeout); err == nil {
-		return result, nil
+	for _, name := range []string{ProviderClaude, ProviderCodex, ProviderGemini} {
+		spec := cloudProviders[name]
+		for _, envVar := range spec.envVars {
+			if result, err := tryEnvVar(deps, spec, envVar, modelOverride, timeout); err == nil {
+				return result, nil
+			}
+			tried = append(tried, envVar)
+		}
 	}
-	tried = append(tried, "ANTHROPIC_API_KEY")
-
-	if result, err := tryEnvVar("OPENAI_API_KEY", openaiBaseURL, defaultOpenAIModel, ProviderCodex, modelOverride, timeout); err == nil {
-		return result, nil
-	}
-	tried = append(tried, "OPENAI_API_KEY")
-
-	if result, err := tryGeminiEnvVar(modelOverride, timeout); err == nil {
-		return result, nil
-	}
-	tried = append(tried, "GEMINI_API_KEY/GOOGLE_API_KEY")
 
 	// 3. CLI tools (handles OAuth, keychain, ADC).
-	for _, tool := range []string{"claude", "codex", "gemini"} {
-		if result, err := tryCLITool(tool, modelOverride); err == nil {
+	for _, name := range []string{ProviderClaude, ProviderCodex, ProviderGemini} {
+		spec := cloudProviders[name]
+		if result, err := tryCLITool(deps, spec.cliTool, modelOverride); err == nil {
 			return result, nil
 		}
-		tried = append(tried, tool+" CLI")
+		tried = append(tried, spec.cliTool+" CLI")
 	}
 
 	return nil, &LLMProviderNotFoundError{Tried: tried}
 }
 
 // detectSpecificProvider resolves a named provider.
-func detectSpecificProvider(ctx context.Context, name, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
-	switch name {
-	case ProviderOllama:
-		return tryOllama(ctx, modelOverride, timeout)
-	case ProviderClaude:
-		return detectClaude(modelOverride, timeout)
-	case ProviderCodex:
-		return detectCodex(modelOverride, timeout)
-	case ProviderGemini:
-		return detectGemini(modelOverride, timeout)
-	default:
-		return nil, &LLMClientConfigInvalidError{
-			Reason: fmt.Sprintf("unknown provider %q; valid: %s", name, strings.Join(ValidProviders(), ", ")),
-		}
+func detectSpecificProvider(ctx context.Context, deps providerDeps, name, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
+	if name == ProviderOllama {
+		return tryOllama(ctx, deps, modelOverride, timeout)
+	}
+	if spec, ok := cloudProviders[name]; ok {
+		return detectCloudProvider(deps, spec, modelOverride, timeout)
+	}
+	return nil, &LLMClientConfigInvalidError{
+		Reason: fmt.Sprintf("unknown provider %q; valid: %s", name, strings.Join(ValidProviders(), ", ")),
 	}
 }
 
-// tryOllama probes the local Ollama server.
-func tryOllama(ctx context.Context, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
+// tryOllama probes the local Ollama server using the injected HTTP client.
+func tryOllama(ctx context.Context, deps providerDeps, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
 	probeCtx, cancel := context.WithTimeout(ctx, ollamaProbeTimeout)
 	defer cancel()
 
@@ -164,7 +203,7 @@ func tryOllama(ctx context.Context, modelOverride string, timeout time.Duration)
 		return nil, fmt.Errorf("creating ollama probe request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := deps.httpDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("probing ollama: %w", err)
 	}
@@ -192,19 +231,19 @@ func tryOllama(ctx context.Context, modelOverride string, timeout time.Duration)
 }
 
 // tryEnvVar checks for an API key env var and creates an HTTP completer.
-func tryEnvVar(envVar, baseURL, defaultModel, providerName, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
-	apiKey := os.Getenv(envVar)
+func tryEnvVar(deps providerDeps, spec cloudProvider, envVar, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
+	apiKey := deps.getenv(envVar)
 	if apiKey == "" {
 		return nil, fmt.Errorf("%s not set", envVar)
 	}
 
-	model := defaultModel
+	model := spec.defaultModel
 	if modelOverride != "" {
 		model = modelOverride
 	}
 
 	client, err := NewLLMClient(LLMClientConfig{
-		BaseURL: baseURL,
+		BaseURL: spec.baseURL,
 		Model:   model,
 		APIKey:  apiKey,
 		Timeout: timeout,
@@ -213,46 +252,22 @@ func tryEnvVar(envVar, baseURL, defaultModel, providerName, modelOverride string
 		return nil, err
 	}
 
-	return &ProviderResult{completer: client, name: providerName, model: model}, nil
+	return &ProviderResult{completer: client, name: spec.name, model: model}, nil
 }
 
-// tryGeminiEnvVar checks both GEMINI_API_KEY and GOOGLE_API_KEY.
-func tryGeminiEnvVar(modelOverride string, timeout time.Duration) (*ProviderResult, error) {
-	for _, envVar := range []string{"GEMINI_API_KEY", "GOOGLE_API_KEY"} {
-		if result, err := tryEnvVar(envVar, geminiBaseURL, defaultGeminiModel, ProviderGemini, modelOverride, timeout); err == nil {
+// detectCloudProvider tries env vars first, then falls back to the CLI tool.
+func detectCloudProvider(deps providerDeps, spec cloudProvider, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
+	for _, envVar := range spec.envVars {
+		if result, err := tryEnvVar(deps, spec, envVar, modelOverride, timeout); err == nil {
 			return result, nil
 		}
 	}
-	return nil, errors.New("no Gemini API key found")
-}
-
-// detectClaude tries env var first, then the claude CLI.
-func detectClaude(modelOverride string, timeout time.Duration) (*ProviderResult, error) {
-	if result, err := tryEnvVar("ANTHROPIC_API_KEY", anthropicBaseURL, defaultClaudeModel, ProviderClaude, modelOverride, timeout); err == nil {
-		return result, nil
-	}
-	return tryCLITool("claude", modelOverride)
-}
-
-// detectCodex tries env var first, then the codex CLI.
-func detectCodex(modelOverride string, timeout time.Duration) (*ProviderResult, error) {
-	if result, err := tryEnvVar("OPENAI_API_KEY", openaiBaseURL, defaultOpenAIModel, ProviderCodex, modelOverride, timeout); err == nil {
-		return result, nil
-	}
-	return tryCLITool("codex", modelOverride)
-}
-
-// detectGemini tries env vars first, then the gemini CLI.
-func detectGemini(modelOverride string, timeout time.Duration) (*ProviderResult, error) {
-	if result, err := tryGeminiEnvVar(modelOverride, timeout); err == nil {
-		return result, nil
-	}
-	return tryCLITool("gemini", modelOverride)
+	return tryCLITool(deps, spec.cliTool, modelOverride)
 }
 
 // tryCLITool checks if a CLI tool is in PATH and returns a CLI completer.
-func tryCLITool(tool, modelOverride string) (*ProviderResult, error) {
-	if _, err := exec.LookPath(tool); err != nil {
+func tryCLITool(deps providerDeps, tool, modelOverride string) (*ProviderResult, error) {
+	if _, err := deps.lookPath(tool); err != nil {
 		return nil, fmt.Errorf("%s not found in PATH", tool)
 	}
 
@@ -293,6 +308,11 @@ func NewCLICompleter(tool, model string) *CLICompleter {
 }
 
 // Complete sends a prompt to the CLI tool and returns the response text.
+// CLI tools accept a single prompt string, so the system and user prompts
+// are concatenated with a blank line separator. This loses the role-based
+// separation that HTTP-based completers (LLMClient) maintain via separate
+// chat messages.
+//
 // Each tool has different flags and output formats:
 //   - claude: -p --output-format json --bare -> {"type":"result","result":"..."}
 //   - codex: exec --json -m <model> -> JSONL with item.completed events
@@ -305,8 +325,12 @@ func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt st
 		return "", err
 	}
 
-	cmd := exec.CommandContext(ctx, c.tool, args...)
-	output, err := cmd.Output()
+	run := c.runCmd
+	if run == nil {
+		run = defaultRunCmd
+	}
+
+	output, err := run(ctx, c.tool, args...)
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			return "", fmt.Errorf("%s CLI failed (exit %d): %s", c.tool, exitErr.ExitCode(), string(exitErr.Stderr))
@@ -315,6 +339,15 @@ func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt st
 	}
 
 	return c.parseOutput(string(output))
+}
+
+// defaultRunCmd is the production implementation that shells out via exec.
+func defaultRunCmd(ctx context.Context, name string, args ...string) ([]byte, error) {
+	out, err := exec.CommandContext(ctx, name, args...).Output()
+	if err != nil {
+		return nil, err //nolint:wrapcheck // caller wraps with tool-specific context
+	}
+	return out, nil
 }
 
 // buildArgs constructs the command-line arguments for the tool.

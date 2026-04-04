@@ -38,8 +38,10 @@ const (
 	maxErrorResponseLen = 200
 )
 
-// Sentinel errors for LLM operations.
 var (
+	_ llmCompleter  = (*LLMClient)(nil) // compile-time interface assertion
+	_ ModelVerifier = (*LLMClient)(nil) // compile-time interface assertion
+
 	// ErrLLMClientConfigInvalid is the sentinel for invalid client configuration.
 	ErrLLMClientConfigInvalid = errors.New(llmClientConfigInvalidErrMsg)
 	// ErrLLMRequestFailed is the sentinel for general LLM request failures.
@@ -73,6 +75,14 @@ type (
 	// Production code uses *LLMClient; tests inject a mock.
 	llmCompleter interface {
 		Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error)
+	}
+
+	// ModelVerifier is an optional capability for completers that support
+	// pre-flight model validation via API model listing. HTTP-based
+	// completers (LLMClient) implement this; CLI-based completers do not
+	// because CLI tools have no model-listing endpoint.
+	ModelVerifier interface {
+		VerifyModel(ctx context.Context) error
 	}
 
 	// LLMClientConfig holds the configuration for creating an LLMClient.

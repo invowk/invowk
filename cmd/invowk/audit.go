@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -128,6 +129,17 @@ Exit codes:
 				return &ExitError{
 					Code: auditExitError,
 					Err:  errors.New("--llm and --llm-provider are mutually exclusive"),
+				}
+			}
+
+			// Validate provider name at the CLI boundary.
+			if llmProvider != "" {
+				validProviders := audit.ValidProviders()
+				if !slices.Contains(validProviders, llmProvider) {
+					return &ExitError{
+						Code: auditExitError,
+						Err:  fmt.Errorf("invalid --llm-provider %q; valid: %s", llmProvider, strings.Join(validProviders, ", ")),
+					}
 				}
 			}
 
@@ -443,6 +455,16 @@ func buildProviderChecker(ctx context.Context, cmd *cobra.Command, provider stri
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", err)
 		return nil, &ExitError{Code: auditExitError, Err: err}
+	}
+
+	// Verify model availability when the provider supports it.
+	// HTTP-based completers (Ollama, cloud env vars) support model listing;
+	// CLI-based completers (claude, codex, gemini) do not.
+	if verifier, ok := result.Completer().(audit.ModelVerifier); ok {
+		if verifyErr := verifier.VerifyModel(ctx); verifyErr != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", verifyErr)
+			return nil, &ExitError{Code: auditExitError, Err: verifyErr}
+		}
 	}
 
 	fmt.Fprintf(cmd.ErrOrStderr(), "Using LLM provider: %s (model: %s)\n", result.Name(), result.Model())
