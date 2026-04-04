@@ -23,6 +23,7 @@ const (
 	llmMalformedResponseErrMsg       = "LLM returned malformed response"
 	llmEmptyResponseErrMsg           = "LLM returned empty response"
 	llmResponseContentFilteredErrMsg = "LLM response was filtered"
+	llmModelNotFoundErrMsg           = "LLM model not found"
 
 	// DefaultLLMBaseURL is the default Ollama OpenAI-compatible endpoint.
 	DefaultLLMBaseURL = "http://localhost:11434/v1"
@@ -51,6 +52,20 @@ var (
 	ErrLLMEmptyResponse = errors.New(llmEmptyResponseErrMsg)
 	// ErrLLMResponseContentFiltered is the sentinel for content-filtered responses.
 	ErrLLMResponseContentFiltered = errors.New(llmResponseContentFilteredErrMsg)
+	// ErrLLMModelNotFound is the sentinel for when the configured model is not available.
+	ErrLLMModelNotFound = errors.New(llmModelNotFoundErrMsg)
+
+	// codeModelPatterns are substrings that identify code-focused models,
+	// ordered by preference. Uses pattern matching rather than exact names
+	// so new model versions are automatically detected.
+	codeModelPatterns = []string{
+		"qwen2.5-coder",
+		"deepseek-coder",
+		"codellama",
+		"codegemma",
+		"starcoder",
+		"codestral",
+	}
 )
 
 type (
@@ -102,6 +117,15 @@ type (
 		RawResponse string
 		Err         error
 	}
+
+	// LLMModelNotFoundError is returned when the configured model is not
+	// available on the server. It includes available models and suggestions
+	// for code-focused alternatives.
+	LLMModelNotFoundError struct {
+		Model      string
+		Available  []string
+		Suggestion string
+	}
 )
 
 // Error implements the error interface.
@@ -139,6 +163,28 @@ func (e *LLMMalformedResponseError) Error() string {
 
 // Unwrap returns the sentinel for errors.Is chains.
 func (e *LLMMalformedResponseError) Unwrap() error { return ErrLLMMalformedResponse }
+
+// Error implements the error interface.
+func (e *LLMModelNotFoundError) Error() string {
+	msg := fmt.Sprintf("%s: %q is not available on the server", llmModelNotFoundErrMsg, e.Model)
+	if e.Suggestion != "" {
+		msg += "; try: " + e.Suggestion
+	}
+	if len(e.Available) > 0 {
+		// Show up to 10 available models to avoid flooding the terminal.
+		shown := e.Available
+		suffix := ""
+		if len(shown) > 10 {
+			shown = shown[:10]
+			suffix = fmt.Sprintf(" (and %d more)", len(e.Available)-10)
+		}
+		msg += fmt.Sprintf("\navailable models: %s%s", strings.Join(shown, ", "), suffix)
+	}
+	return msg
+}
+
+// Unwrap returns the sentinel for errors.Is chains.
+func (e *LLMModelNotFoundError) Unwrap() error { return ErrLLMModelNotFound }
 
 // Validate checks that all required fields are present and valid.
 func (c *LLMClientConfig) Validate() error {
@@ -238,6 +284,64 @@ func (c *LLMClient) Complete(ctx context.Context, systemPrompt, userPrompt strin
 	}
 
 	return content, nil
+}
+
+// VerifyModel checks that the configured model is available on the server by
+// querying GET /v1/models. Returns nil if the model exists, or a descriptive
+// LLMModelNotFoundError with available models and suggestions if not.
+// Server connectivity errors are returned directly for consistent handling.
+func (c *LLMClient) VerifyModel(ctx context.Context) error {
+	page, err := c.client.Models.List(ctx)
+	if err != nil {
+		return c.classifyError(err)
+	}
+
+	available := make([]string, 0, len(page.Data))
+	for i := range page.Data {
+		available = append(available, page.Data[i].ID)
+		if page.Data[i].ID == c.model {
+			return nil
+		}
+	}
+
+	// Also check for prefix matches — Ollama returns model IDs like
+	// "qwen2.5-coder:7b" but users might specify "qwen2.5-coder:7b-q4_0".
+	for _, name := range available {
+		if strings.HasPrefix(name, c.model) || strings.HasPrefix(c.model, name) {
+			return nil
+		}
+	}
+
+	return &LLMModelNotFoundError{
+		Model:      c.model,
+		Available:  available,
+		Suggestion: suggestCodeModel(available),
+	}
+}
+
+// suggestCodeModel returns the best code-focused model from the available list,
+// or an install hint if none are found. Uses pattern matching on model names
+// to dynamically detect code-focused models regardless of version/quantization.
+func suggestCodeModel(available []string) string {
+	// For each pattern (in preference order), find the largest matching model.
+	for _, pattern := range codeModelPatterns {
+		var best string
+		for _, avail := range available {
+			if strings.Contains(strings.ToLower(avail), pattern) {
+				// Prefer models with more characters in the name — a rough
+				// heuristic that favors larger variants (32b > 14b > 7b)
+				// without parsing version numbers.
+				if best == "" || len(avail) > len(best) {
+					best = avail
+				}
+			}
+		}
+		if best != "" {
+			return best
+		}
+	}
+
+	return "ollama pull qwen2.5-coder:7b"
 }
 
 // classifyError maps SDK and network errors to typed audit errors.

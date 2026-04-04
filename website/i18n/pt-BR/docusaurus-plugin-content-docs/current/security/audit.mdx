@@ -213,6 +213,21 @@ invowk audit --llm
 | `qwen2.5-coder:32b` | 24 GB | Excelente | Nível GPT-4o para código |
 | `deepseek-coder:33b` | 24 GB | Excelente | Melhor para raciocínio chain-of-thought |
 
+### Auto-Detecção de Modelo
+
+Quando `--llm` está habilitado, o invowk verifica se o modelo configurado está disponível no servidor antes de escanear. Se o modelo não for encontrado, ele mostra:
+
+- A lista de modelos disponíveis no servidor
+- Uma sugestão do melhor modelo focado em código (detectado dinamicamente por correspondência de padrões)
+
+```
+$ invowk audit --llm --llm-model modelo-inexistente
+LLM model not found: "modelo-inexistente" is not available on the server; try: qwen2.5-coder:14b
+available models: llama3:8b, qwen2.5-coder:14b, mistral:7b
+```
+
+A detecção reconhece famílias de modelos focados em código (`qwen2.5-coder`, `deepseek-coder`, `codellama`, `codegemma`, `starcoder`, `codestral`) independente da versão ou variante de quantização.
+
 ### Exemplos
 
 <Snippet id="security/audit-llm-examples" />
@@ -220,7 +235,8 @@ invowk audit --llm
 ### Como Funciona
 
 O checker LLM:
-1. **Filtra** scripts: exclui referências somente-arquivo e scripts vazios
+1. **Verifica** se o modelo configurado existe no servidor (com sugestões se não)
+2. **Filtra** scripts: exclui referências somente-arquivo e scripts vazios
 2. **Agrupa** scripts por contagem de caracteres (~6000 chars) e quantidade (máx 5 por lote)
 3. **Envia** cada lote ao LLM com um prompt de sistema de analista de segurança
 4. **Parseia** achados JSON estruturados da resposta

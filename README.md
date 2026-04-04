@@ -2893,6 +2893,8 @@ invowk audit --llm --format json
 | `qwen2.5-coder:32b` | 24 GB | Best (GPT-4o level for code) |
 | `deepseek-coder:33b` | 24 GB | Excellent for chain-of-thought reasoning |
 
+**Model auto-detection:** When `--llm` is enabled, invowk verifies the configured model is available on the server before scanning. If the model is not found, it shows the available models and suggests the best code-focused alternative (detected by pattern matching — `qwen2.5-coder`, `deepseek-coder`, `codellama`, etc.).
+
 LLM findings flow through the same pipeline as built-in checker findings: they are filtered by `--severity`, rendered in text/JSON format, and cross-referenced by the correlator for compound threat detection.
 
 ### CI Integration

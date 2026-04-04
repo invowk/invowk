@@ -172,6 +172,13 @@ func runAudit(
 			fmt.Fprintf(cmd.ErrOrStderr(), "LLM configuration error: %v\n", llmErr)
 			return &ExitError{Code: auditExitError, Err: llmErr}
 		}
+
+		// Verify the configured model is available before scanning.
+		if verifyErr := llmClient.VerifyModel(ctx); verifyErr != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", verifyErr)
+			return &ExitError{Code: auditExitError, Err: verifyErr}
+		}
+
 		scannerOpts = append(scannerOpts, audit.WithChecker(
 			audit.NewLLMChecker(llmClient, llmOpts.Concurrency),
 		))
