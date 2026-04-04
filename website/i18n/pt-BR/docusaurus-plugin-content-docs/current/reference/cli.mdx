@@ -553,7 +553,8 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 | `--format` | `text` | Formato de saída: `text`, `json` |
 | `--severity` | `low` | Severidade mínima: `info`, `low`, `medium`, `high`, `critical` |
 | `--include-global` | `false` | Incluir `~/.invowk/cmds/` no scan |
-| `--llm` | `false` | Habilitar análise de segurança com LLM |
+| `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
+| `--llm` | `false` | Habilitar LLM com configuração manual de URL/chave |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
 | `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo LLM |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |

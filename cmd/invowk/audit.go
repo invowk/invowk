@@ -3,7 +3,9 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -89,6 +91,7 @@ func newAuditCommand(app *App) *cobra.Command {
 
 		// LLM flags.
 		enableLLM      bool
+		llmProvider    string
 		llmURL         string
 		llmModel       string
 		llmAPIKey      string
@@ -105,9 +108,9 @@ injection, path traversal, suspicious patterns, and lock file integrity issues.
 The audit scans standalone invowkfiles, local modules, vendored dependencies,
 and optionally global modules in ~/.invowk/cmds/.
 
-Use --llm to enable LLM-powered security analysis via any OpenAI-compatible
-API (Ollama, LM Studio, llamafile, etc.). This sends script content to the
-configured LLM server for deeper semantic analysis beyond regex patterns.
+Use --llm-provider to enable LLM-powered security analysis. Providers:
+auto (detect best available), claude, codex, gemini, ollama.
+Use --llm for manual configuration via --llm-url and --llm-api-key.
 
 Exit codes:
   0  No findings at or above the severity threshold
@@ -120,6 +123,14 @@ Exit codes:
 				auditPath = args[0]
 			}
 
+			// Validate mutual exclusion of --llm and --llm-provider.
+			if enableLLM && llmProvider != "" {
+				return &ExitError{
+					Code: auditExitError,
+					Err:  errors.New("--llm and --llm-provider are mutually exclusive"),
+				}
+			}
+
 			// Resolve LLM flags with env var fallbacks.
 			llmOpts := resolveLLMFlags(cmd, audit.LLMClientConfig{
 				BaseURL:     llmURL,
@@ -129,7 +140,7 @@ Exit codes:
 				Concurrency: llmConcurrency,
 			})
 
-			return runAudit(cmd, app, auditPath, format, minSeverity, includeGlobal, enableLLM, llmOpts)
+			return runAudit(cmd, app, auditPath, format, minSeverity, includeGlobal, enableLLM, llmProvider, llmOpts)
 		},
 	}
 
@@ -138,7 +149,8 @@ Exit codes:
 	cmd.Flags().BoolVar(&includeGlobal, "include-global", false, "include ~/.invowk/cmds/ in scan")
 
 	// LLM flags.
-	cmd.Flags().BoolVar(&enableLLM, "llm", false, "enable LLM-powered security analysis")
+	cmd.Flags().StringVar(&llmProvider, "llm-provider", "", "auto-detect or use specific provider: auto, claude, codex, gemini, ollama")
+	cmd.Flags().BoolVar(&enableLLM, "llm", false, "enable LLM with manual --llm-url/--llm-api-key config")
 	cmd.Flags().StringVar(&llmURL, "llm-url", audit.DefaultLLMBaseURL, "OpenAI-compatible API base URL")
 	cmd.Flags().StringVar(&llmModel, "llm-model", audit.DefaultLLMModel, "LLM model name")
 	cmd.Flags().StringVar(&llmAPIKey, "llm-api-key", "", "API key (empty for local servers)")
@@ -152,6 +164,7 @@ func runAudit(
 	cmd *cobra.Command, app *App,
 	auditPath, format, minSeverity string,
 	includeGlobal, enableLLM bool,
+	llmProvider string,
 	llmOpts audit.LLMClientConfig,
 ) error {
 	ctx := cmd.Context()
@@ -166,22 +179,23 @@ func runAudit(
 
 	// Create scanner with optional LLM checker.
 	var scannerOpts []audit.ScannerOption
-	if enableLLM {
-		llmClient, llmErr := audit.NewLLMClient(llmOpts)
-		if llmErr != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "LLM configuration error: %v\n", llmErr)
-			return &ExitError{Code: auditExitError, Err: llmErr}
-		}
 
-		// Verify the configured model is available before scanning.
-		if verifyErr := llmClient.VerifyModel(ctx); verifyErr != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", verifyErr)
-			return &ExitError{Code: auditExitError, Err: verifyErr}
+	switch {
+	case llmProvider != "":
+		// Auto-detect or use specific provider.
+		checker, checkerErr := buildProviderChecker(ctx, cmd, llmProvider, llmOpts)
+		if checkerErr != nil {
+			return checkerErr
 		}
+		scannerOpts = append(scannerOpts, audit.WithChecker(checker))
 
-		scannerOpts = append(scannerOpts, audit.WithChecker(
-			audit.NewLLMChecker(llmClient, llmOpts.Concurrency),
-		))
+	case enableLLM:
+		// Manual --llm configuration.
+		checker, checkerErr := buildManualChecker(ctx, cmd, llmOpts)
+		if checkerErr != nil {
+			return checkerErr
+		}
+		scannerOpts = append(scannerOpts, audit.WithChecker(checker))
 	}
 	scanner := audit.NewScanner(app.Config, scannerOpts...)
 
@@ -411,6 +425,50 @@ func resolveLLMFlags(cmd *cobra.Command, cfg audit.LLMClientConfig) audit.LLMCli
 	}
 
 	return cfg
+}
+
+// buildProviderChecker creates an LLM checker via auto-detection or a named provider.
+func buildProviderChecker(ctx context.Context, cmd *cobra.Command, provider string, llmOpts audit.LLMClientConfig) (*audit.LLMChecker, *ExitError) {
+	modelOverride := ""
+	if cmd.Flags().Changed("llm-model") {
+		modelOverride = llmOpts.Model
+	}
+
+	timeout := llmOpts.Timeout
+	if timeout == 0 {
+		timeout = audit.DefaultLLMTimeout
+	}
+
+	result, err := audit.DetectProvider(ctx, provider, modelOverride, timeout)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", err)
+		return nil, &ExitError{Code: auditExitError, Err: err}
+	}
+
+	fmt.Fprintf(cmd.ErrOrStderr(), "Using LLM provider: %s (model: %s)\n", result.Name(), result.Model())
+
+	concurrency := llmOpts.Concurrency
+	if concurrency == 0 {
+		concurrency = audit.DefaultLLMConcurrency
+	}
+
+	return audit.NewLLMChecker(result.Completer(), concurrency), nil
+}
+
+// buildManualChecker creates an LLM checker from manual --llm configuration.
+func buildManualChecker(ctx context.Context, cmd *cobra.Command, llmOpts audit.LLMClientConfig) (*audit.LLMChecker, *ExitError) {
+	llmClient, llmErr := audit.NewLLMClient(llmOpts)
+	if llmErr != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "LLM configuration error: %v\n", llmErr)
+		return nil, &ExitError{Code: auditExitError, Err: llmErr}
+	}
+
+	if verifyErr := llmClient.VerifyModel(ctx); verifyErr != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", verifyErr)
+		return nil, &ExitError{Code: auditExitError, Err: verifyErr}
+	}
+
+	return audit.NewLLMChecker(llmClient, llmOpts.Concurrency), nil
 }
 
 func formatDuration(d time.Duration) string {

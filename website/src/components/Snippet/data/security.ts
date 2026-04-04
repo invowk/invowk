@@ -25,20 +25,23 @@ invowk audit --include-global`,
 
   'security/audit-llm-examples': {
     language: 'bash',
-    code: `# Basic LLM audit (requires Ollama running locally)
+    code: `# Auto-detect best available provider (local Ollama first, then cloud)
+invowk audit --llm-provider auto
+
+# Use a specific provider (works with OAuth — no API key needed)
+invowk audit --llm-provider claude
+invowk audit --llm-provider codex
+invowk audit --llm-provider gemini
+
+# Override model within a provider
+invowk audit --llm-provider claude --llm-model claude-opus-4-6
+
+# Manual configuration (Ollama, LM Studio, or any OpenAI-compatible server)
 invowk audit --llm
-
-# Use a larger model for better analysis
-invowk audit --llm --llm-model qwen2.5-coder:32b
-
-# Use LM Studio instead of Ollama
 invowk audit --llm --llm-url http://localhost:1234/v1
 
-# Use a cloud provider
-invowk audit --llm --llm-url https://api.openai.com/v1 --llm-api-key sk-...
-
-# Combined: LLM + high severity + JSON
-invowk audit --llm --severity high --format json`,
+# Combined: provider + high severity + JSON
+invowk audit --llm-provider auto --severity high --format json`,
   },
 
   'security/audit-json-example': {
@@ -82,10 +85,13 @@ invowk audit --format json --severity high
 # Include global modules in scan
 invowk audit --include-global
 
-# LLM-powered analysis
-invowk audit --llm
+# Auto-detect LLM provider
+invowk audit --llm-provider auto
 
-# LLM with custom model and server
-invowk audit --llm --llm-model qwen2.5-coder:32b --llm-url http://localhost:1234/v1`,
+# Use specific provider (Claude Code, Codex CLI, Gemini CLI)
+invowk audit --llm-provider claude
+
+# Manual LLM with custom server
+invowk audit --llm --llm-url http://localhost:1234/v1`,
   },
 } as const;

@@ -553,7 +553,8 @@ Scan for security risks in invowkfiles, modules, and scripts. See the [Security 
 | `--format` | `text` | Output format: `text`, `json` |
 | `--severity` | `low` | Minimum severity: `info`, `low`, `medium`, `high`, `critical` |
 | `--include-global` | `false` | Include `~/.invowk/cmds/` in scan |
-| `--llm` | `false` | Enable LLM-powered security analysis |
+| `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
+| `--llm` | `false` | Enable LLM with manual URL/key config |
 | `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |
 | `--llm-model` | `qwen2.5-coder:7b` | LLM model name |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |

@@ -2848,32 +2848,36 @@ Additional automatic escalation rules:
 For deeper semantic analysis beyond regex patterns, enable LLM-powered auditing via the `--llm` flag. This sends script content to a local or remote LLM through any OpenAI-compatible API for reasoning about novel attack vectors, subtle logic flaws, and context-dependent security issues.
 
 ```bash
-# Basic LLM audit (requires Ollama running locally)
+# Auto-detect best available provider (local Ollama first, then cloud)
+invowk audit --llm-provider auto
+
+# Use a specific provider (works with OAuth — no API key needed)
+invowk audit --llm-provider claude
+invowk audit --llm-provider codex
+invowk audit --llm-provider gemini
+
+# Override model within a provider
+invowk audit --llm-provider claude --llm-model claude-opus-4-6
+
+# Manual configuration (Ollama, LM Studio, or any OpenAI-compatible server)
 invowk audit --llm
-
-# Use a larger model for better analysis
-invowk audit --llm --llm-model qwen2.5-coder:32b
-
-# Use LM Studio instead of Ollama
 invowk audit --llm --llm-url http://localhost:1234/v1
-
-# Use a cloud provider with API key
 invowk audit --llm --llm-url https://api.openai.com/v1 --llm-api-key sk-...
-
-# JSON output with LLM findings included
-invowk audit --llm --format json
 ```
 
 **LLM Flags:**
 
-| Flag | Default | Env Override | Description |
-|------|---------|-------------|-------------|
-| `--llm` | `false` | &mdash; | Enable LLM-powered security analysis |
-| `--llm-url` | `http://localhost:11434/v1` | `INVOWK_LLM_URL` | OpenAI-compatible API base URL |
-| `--llm-model` | `qwen2.5-coder:7b` | `INVOWK_LLM_MODEL` | Model name |
-| `--llm-api-key` | (empty) | `INVOWK_LLM_API_KEY` | API key (empty for local servers) |
-| `--llm-timeout` | `2m` | `INVOWK_LLM_TIMEOUT` | Per-request timeout |
-| `--llm-concurrency` | `2` | `INVOWK_LLM_CONCURRENCY` | Max parallel LLM requests |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--llm-provider` | | Auto-detect or use specific provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
+| `--llm` | `false` | Enable LLM with manual `--llm-url`/`--llm-api-key` config |
+| `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL (env: `INVOWK_LLM_URL`) |
+| `--llm-model` | (per provider) | Model name override (env: `INVOWK_LLM_MODEL`) |
+| `--llm-api-key` | (empty) | API key (env: `INVOWK_LLM_API_KEY`) |
+| `--llm-timeout` | `2m` | Per-request timeout (env: `INVOWK_LLM_TIMEOUT`) |
+| `--llm-concurrency` | `2` | Max parallel LLM requests (env: `INVOWK_LLM_CONCURRENCY`) |
+
+`--llm-provider` seamlessly integrates with Claude Code, Codex CLI, and Gemini CLI — if you're already logged in via OAuth, it just works. No API keys needed.
 
 **Compatible LLM servers:**
 
