@@ -94,4 +94,4 @@ invowk audit --llm-provider claude
 # Manual LLM with custom server
 invowk audit --llm --llm-url http://localhost:1234/v1`,
   },
-} as const;
+} satisfies Record<string, Snippet>;
