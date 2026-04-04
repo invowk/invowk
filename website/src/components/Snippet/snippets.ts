@@ -18,6 +18,7 @@ import { advancedSnippets } from './data/advanced';
 import { modulesSnippets } from './data/modules';
 import { tuiSnippets } from './data/tui';
 import { configSnippets } from './data/config';
+import { securitySnippets } from './data/security';
 
 export interface Snippet {
   /** The programming language for syntax highlighting */
@@ -41,6 +42,7 @@ export const snippets = {
   ...modulesSnippets,
   ...tuiSnippets,
   ...configSnippets,
+  ...securitySnippets,
 } as const;
 
 // Type-safe snippet IDs

@@ -2777,6 +2777,169 @@ cmds: [
 ]
 ```
 
+## Security Auditing
+
+Invowk includes a built-in security scanner that analyzes invowkfiles, modules, vendored dependencies, and script content for supply-chain vulnerabilities, script injection, path traversal, suspicious patterns, and lock file integrity issues.
+
+### Basic Usage
+
+```bash
+# Scan current directory
+invowk audit
+
+# Scan a specific path
+invowk audit ./my-project
+
+# Scan a single module
+invowk audit ./tools.invowkmod
+
+# Scan a single invowkfile
+invowk audit ./invowkfile.cue
+
+# Include global modules (~/.invowk/cmds/)
+invowk audit --include-global
+
+# JSON output for CI integration
+invowk audit --format json
+
+# Only show high and critical findings
+invowk audit --severity high
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | No findings at or above the severity threshold |
+| `1` | Findings detected |
+| `2` | Scan error (e.g., path not found, parse failure) |
+
+### What Gets Scanned
+
+The audit scanner runs 6 built-in security checkers concurrently:
+
+| Checker | Category | What It Detects |
+|---------|----------|-----------------|
+| **Script** | execution, path-traversal, obfuscation | Remote code execution (`curl \| bash`), path traversal (`../`), base64 obfuscation, eval patterns, hex sequences |
+| **Network** | exfiltration | Reverse shells, DNS exfiltration, encoded URLs, suspicious network commands |
+| **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
+| **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous versions, tamper detection |
+| **Symlink** | path-traversal | Symlinks pointing outside module boundaries, symlink chains, dangling symlinks |
+| **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, global module trust |
+
+### Compound Threat Detection
+
+After individual checkers run, the **correlator** cross-references findings from different checkers within the same attack surface. When multiple security concerns appear together, they indicate coordinated threats:
+
+| Compound Threat | Trigger | Escalated Severity |
+|----------------|---------|-------------------|
+| Credential exfiltration | env access + network access | Critical |
+| Path + symlink escape | path traversal + external symlink | Critical |
+| Obfuscated exfiltration | obfuscation + network access | Critical |
+| Trust chain weakness | metadata issues + lock file issues | High |
+
+Additional automatic escalation rules:
+- 3+ distinct security categories in the same surface &rarr; **Critical**
+- High + any other finding in the same surface &rarr; **Critical**
+- 2+ Medium findings in the same surface &rarr; **High**
+
+### LLM-Powered Analysis
+
+For deeper semantic analysis beyond regex patterns, enable LLM-powered auditing via the `--llm` flag. This sends script content to a local or remote LLM through any OpenAI-compatible API for reasoning about novel attack vectors, subtle logic flaws, and context-dependent security issues.
+
+```bash
+# Basic LLM audit (requires Ollama running locally)
+invowk audit --llm
+
+# Use a larger model for better analysis
+invowk audit --llm --llm-model qwen2.5-coder:32b
+
+# Use LM Studio instead of Ollama
+invowk audit --llm --llm-url http://localhost:1234/v1
+
+# Use a cloud provider with API key
+invowk audit --llm --llm-url https://api.openai.com/v1 --llm-api-key sk-...
+
+# JSON output with LLM findings included
+invowk audit --llm --format json
+```
+
+**LLM Flags:**
+
+| Flag | Default | Env Override | Description |
+|------|---------|-------------|-------------|
+| `--llm` | `false` | &mdash; | Enable LLM-powered security analysis |
+| `--llm-url` | `http://localhost:11434/v1` | `INVOWK_LLM_URL` | OpenAI-compatible API base URL |
+| `--llm-model` | `qwen2.5-coder:7b` | `INVOWK_LLM_MODEL` | Model name |
+| `--llm-api-key` | (empty) | `INVOWK_LLM_API_KEY` | API key (empty for local servers) |
+| `--llm-timeout` | `2m` | `INVOWK_LLM_TIMEOUT` | Per-request timeout |
+| `--llm-concurrency` | `2` | `INVOWK_LLM_CONCURRENCY` | Max parallel LLM requests |
+
+**Compatible LLM servers:**
+
+| Server | Default Port | Install |
+|--------|-------------|---------|
+| [Ollama](https://ollama.com) | 11434 | `curl -fsSL https://ollama.com/install.sh \| sh && ollama pull qwen2.5-coder:7b` |
+| [LM Studio](https://lmstudio.ai) | 1234 | Download from website, load a model |
+| [llamafile](https://github.com/mozilla-ai/llamafile) | 8080 | Download single executable, run |
+| [vLLM](https://docs.vllm.ai) | 8000 | `pip install vllm` |
+
+**Recommended models for security analysis:**
+
+| Model | RAM Required | Quality |
+|-------|-------------|---------|
+| `qwen2.5-coder:7b` | 8 GB | Good (default) |
+| `qwen2.5-coder:14b` | 16 GB | Better |
+| `qwen2.5-coder:32b` | 24 GB | Best (GPT-4o level for code) |
+| `deepseek-coder:33b` | 24 GB | Excellent for chain-of-thought reasoning |
+
+LLM findings flow through the same pipeline as built-in checker findings: they are filtered by `--severity`, rendered in text/JSON format, and cross-referenced by the correlator for compound threat detection.
+
+### CI Integration
+
+```bash
+# Fail CI if any high/critical findings
+invowk audit --severity high --format json
+
+# Include LLM analysis in CI (requires LLM server accessible from CI runner)
+invowk audit --llm --severity high --format json
+
+# Parse JSON output in scripts
+invowk audit --format json | jq '.summary'
+```
+
+The JSON output structure:
+
+```json
+{
+  "findings": [
+    {
+      "severity": "high",
+      "category": "execution",
+      "surface_id": "tools.invowkmod",
+      "file_path": "tools.invowkmod/invowkfile.cue",
+      "line": 15,
+      "title": "Remote code execution via piped download",
+      "description": "Script downloads and executes remote code without verification",
+      "recommendation": "Pin the URL and verify checksums before execution"
+    }
+  ],
+  "compound_threats": [],
+  "summary": {
+    "total": 1,
+    "critical": 0,
+    "high": 1,
+    "medium": 0,
+    "low": 0,
+    "info": 0,
+    "modules_scanned": 2,
+    "invowkfiles_scanned": 1,
+    "scripts_scanned": 5,
+    "duration_ms": 42
+  }
+}
+```
+
 ## Project Structure
 
 ```
@@ -2796,6 +2959,7 @@ invowk/
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
 │   ├── validate.go             # validate command
+│   ├── audit.go                # audit command (security scanning + LLM analysis)
 │   ├── completion.go           # Shell completion generation
 │   ├── tui.go                  # tui parent command
 │   ├── tui_*.go                # TUI subcommands (input, write, choose, confirm, filter, file, table, spin, pager, format, style)
@@ -2810,6 +2974,7 @@ invowk/
 │   ├── container/              # Container engine abstraction (Docker, Podman, sandbox)
 │   ├── core/serverbase/        # Shared server state machine base
 │   ├── discovery/              # Invowkfile and module discovery
+│   ├── audit/                  # Security scanning (6 checkers + LLM + correlator)
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
 │   ├── runtime/                # Runtime implementations (native, virtual, container)
