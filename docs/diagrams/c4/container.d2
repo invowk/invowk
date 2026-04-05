@@ -163,6 +163,18 @@ invowk_cli: Invowk CLI {
         File-watching with debounced re-execution for --ivk-watch mode
       |
     }
+
+    audit_scanner: Audit Scanner {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Security scanning of module system. Detects supply-chain risks,
+        path traversal, symlink abuse, env var injection. Supports --llm.
+      |
+    }
   }
 
   # --------------------------------------------------------------------------
@@ -361,11 +373,22 @@ invowk_cli.entry_core.module_resolver -> git: "Fetches\n[Git]" {
 invowk_cli.entry_core.module_resolver -> cache: Caches {
   style.stroke: "#707070"
 }
+invowk_cli.entry_core.audit_scanner -> modules: Scans {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.audit_scanner -> invowkfiles: Scans {
+  style.stroke: "#707070"
+}
 
 # Command to Watch Engine
 invowk_cli.entry_core.cmd -> invowk_cli.entry_core.watch_engine: "Delegates watch\n[--ivk-watch]" {
   style.stroke: "#707070"
   style.stroke-dash: 3
+}
+
+# Command to Audit Scanner
+invowk_cli.entry_core.cmd -> invowk_cli.entry_core.audit_scanner: "Scans modules\n[invowk audit]" {
+  style.stroke: "#707070"
 }
 
 # Command to Command Service
