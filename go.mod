@@ -6,7 +6,7 @@ require (
 	charm.land/bubbles/v2 v2.1.0
 	charm.land/bubbletea/v2 v2.0.2
 	charm.land/lipgloss/v2 v2.0.2
-	cuelang.org/go v0.16.0
+	cuelang.org/go v0.16.1
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/charmbracelet/fang v1.0.0
 	github.com/charmbracelet/glamour v1.0.0
@@ -25,9 +25,9 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/u-root/u-root v0.16.0
-	golang.org/x/sys v0.42.0
-	golang.org/x/term v0.41.0
-	mvdan.cc/sh/v3 v3.13.0
+	golang.org/x/sys v0.43.0
+	golang.org/x/term v0.42.0
+	mvdan.cc/sh/v3 v3.13.1
 )
 
 require (
