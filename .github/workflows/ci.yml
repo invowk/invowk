@@ -91,7 +91,7 @@ jobs:
 
       - name: Cache gotestsum
         id: cache-gotestsum
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/go/bin/gotestsum${{ matrix.os == 'windows' && '.exe' || '' }}
           key: gotestsum-${{ runner.os }}-v1.13.0

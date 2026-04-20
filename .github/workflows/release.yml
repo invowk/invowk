@@ -351,7 +351,7 @@ jobs:
 
       # Install Cosign for signing
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.1.0
+        uses: sigstore/cosign-installer@v4.1.1
         with:
           cosign-release: v3.0.5
 
