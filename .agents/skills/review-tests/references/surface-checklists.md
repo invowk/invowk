@@ -96,13 +96,13 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 | ID | Check | File Scope | Severity |
 |---|---|---|---|
 | T4-C01 | All tests requiring external resources (container engine, network) check `testing.Short()` | Integration test files | ERROR |
-| T4-C02 | Container tests use all 5 timeout layers (per-test deadline, cleanup, CI timeout, semaphore, bounded context) | `tests/cli/container_test.go`, `internal/runtime/container*_test.go` | WARNING |
-| T4-C03 | Container test `Setup` sets `HOME` to `env.WorkDir` (not `/no-home`) | `tests/cli/container_test.go` | ERROR |
-| T4-C04 | Container availability check runs actual smoke test (`debian:stable-slim` pull + `echo ok`), not just CLI version probe | `tests/cli/helpers_test.go` | WARNING |
-| T4-C05 | Container cleanup uses `env.Defer()` (not `t.Cleanup()` in testscript context) | `tests/cli/container_test.go` | WARNING |
+| T4-C02 | Container tests use all 5 timeout layers (per-test deadline, cleanup, CI timeout, semaphore, bounded context) | `tests/cli/cmd_container_test.go`, `tests/cli/container_harness.go`, `internal/runtime/container*_test.go` | WARNING |
+| T4-C03 | Container test `Setup` sets `HOME` to `env.WorkDir` (not `/no-home`) | `tests/cli/cmd_test.go`, `tests/cli/cmd_container_test.go` | ERROR |
+| T4-C04 | Container availability check runs actual smoke test (`debian:stable-slim` pull + `echo ok`), not just CLI version probe | `tests/cli/container_harness.go` | WARNING |
+| T4-C05 | Container cleanup uses `env.Defer()` (not `t.Cleanup()` in testscript context) | `tests/cli/cmd_container_test.go` | WARNING |
 | T4-C06 | `testing.Short()` skip message follows convention: `"skipping integration test in short mode"` | Integration test files | INFO |
 | T4-C07 | No `AcquireContainerSuiteLock` in `internal/runtime` tests (semaphore alone suffices) | `internal/runtime/container*_test.go` | ERROR |
-| T4-C08 | Windows testscript setup sets `APPDATA` and `USERPROFILE` to test-scoped paths | `tests/cli/helpers_test.go` | WARNING |
+| T4-C08 | Windows testscript setup sets `APPDATA` and `USERPROFILE` to test-scoped paths | `tests/cli/cmd_test.go` | WARNING |
 | T4-C09 | Container image used in tests is `debian:stable-slim` (unless testing language-specific runtime) | All container test files | WARNING |
 | T4-C10 | CI workflow `ci.yml` runs separate test steps for non-CLI, internal/runtime, and CLI | `.github/workflows/ci.yml` | INFO |
 | T4-C11 | CI workflow uses `-race` flag for all test runs | `.github/workflows/ci.yml` | WARNING |

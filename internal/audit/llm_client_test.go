@@ -309,9 +309,9 @@ func TestLLMClient_Complete_ServerError(t *testing.T) {
 func TestLLMClient_Complete_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		// Simulate slow server that never responds.
-		time.Sleep(10 * time.Second)
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		// Simulate a slow server without sleeping; cancellation closes the request context.
+		<-r.Context().Done()
 	}))
 	defer srv.Close()
 
