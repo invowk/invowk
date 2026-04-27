@@ -190,7 +190,7 @@ CLI adapter tests. Key files:
 | `container_dockerfile.txtar` | 55 |
 | `container_unsupported_images.txtar` | 41 |
 
-#### Built-in Command Tests (24 files)
+#### Built-in Command Tests (29 files)
 
 | File | Lines | Category |
 |---|---|---|
@@ -209,9 +209,14 @@ CLI adapter tests. Key files:
 | `version_help.txtar` | 31 | Version/help |
 | `completion.txtar` | 28 | Shell completion |
 | `module_sync_happy.txtar` | 27 | Module operations |
+| `module_tidy.txtar` | 26 | Module operations |
 | `config_init.txtar` | 26 | Configuration |
 | `module_list.txtar` | 25 | Module operations |
 | `module_add_remove.txtar` | 24 | Module operations |
+| `audit_clean.txtar` | 25 | Audit |
+| `audit_severity.txtar` | 23 | Audit |
+| `audit_findings.txtar` | 22 | Audit |
+| `audit_json.txtar` | 21 | Audit |
 | `config_path.txtar` | 24 | Configuration |
 | `tui_format.txtar` | 22 | TUI formatting |
 | `module_sync_update.txtar` | 21 | Module operations |

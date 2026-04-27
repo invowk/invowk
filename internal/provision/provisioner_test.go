@@ -303,7 +303,7 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 	}
 
 	// Different base image should produce different tag
-	tag3, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("ubuntu:22.04"))
+	tag3, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("registry.example.com/base/app:22.04"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -461,7 +461,7 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("ubuntu:22.04"))
+		key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("registry.example.com/base/app:22.04"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

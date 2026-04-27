@@ -94,7 +94,7 @@ func TestContainerImage_Validate_SecurityCases(t *testing.T) {
 		{name: "full path", image: "gcr.io/project/image:v1.0", shouldError: false},
 		{name: "with digest", image: "nginx@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", shouldError: false},
 		{name: "debian stable-slim", image: "debian:stable-slim", shouldError: false},
-		{name: "ubuntu version", image: "ubuntu:22.04", shouldError: false},
+		{name: "registry version tag", image: "registry.example.com/team/app:22.04", shouldError: false},
 		{name: "private registry", image: "my-registry.example.com:5000/my-image:tag", shouldError: false},
 
 		// Invalid images

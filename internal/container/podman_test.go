@@ -72,7 +72,7 @@ func TestFindPodmanBinary_ReturnsPath(t *testing.T) {
 	}
 
 	// The returned path should be an absolute path
-	if path[0] != '/' {
+	if !filepath.IsAbs(path) {
 		t.Errorf("expected absolute path, got %q", path)
 	}
 }

@@ -69,7 +69,7 @@ func TestImageTag_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"simple tag", ImageTag("debian:stable-slim"), true, false},
-		{"latest tag", ImageTag("ubuntu:latest"), true, false},
+		{"latest tag", ImageTag("registry.example.com/app:latest"), true, false},
 		{"registry with port", ImageTag("registry.example.com:5000/myimage:v1"), true, false},
 		{"no tag", ImageTag("debian"), true, false},
 		{"empty is invalid", ImageTag(""), false, true},

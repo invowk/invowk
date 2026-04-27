@@ -433,7 +433,7 @@ func TestIsWindowsContainerImage(t *testing.T) {
 		// Linux images (should NOT match)
 		{"debian:stable-slim", false},
 		{"alpine:latest", false},
-		{"ubuntu:22.04", false},
+		{"registry.example.com/team/app:22.04", false},
 		{"python:3.11-slim", false},
 		{"mcr.microsoft.com/dotnet/runtime:7.0", false}, // Linux .NET image
 		{"mcr.microsoft.com/azure-cli:latest", false},   // Linux Azure CLI
@@ -475,7 +475,7 @@ func TestIsAlpineContainerImage(t *testing.T) {
 
 		// Negative: unrelated images.
 		{"debian:stable-slim", false},
-		{"ubuntu:22.04", false},
+		{"registry.example.com/team/app:22.04", false},
 		{"mcr.microsoft.com/windows/servercore:ltsc2022", false},
 		{"", false},
 	}
