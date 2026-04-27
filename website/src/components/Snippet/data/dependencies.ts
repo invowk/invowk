@@ -487,7 +487,7 @@ Install the missing tools and try again.`,
     code: `{
     name: "build"
     depends_on: {
-        tools: [{alternatives: ["go"]}]  // Checked in virtual shell
+        tools: [{alternatives: ["go"]}]  // Checked on the host
     }
     implementations: [{
         script: "go build ./..."
@@ -503,12 +503,15 @@ Install the missing tools and try again.`,
     name: "build"
     implementations: [{
         script: "go build ./..."
-        runtimes: [{name: "container", image: "golang:1.26"}]
+        runtimes: [{
+            name: "container"
+            image: "golang:1.26"
+            depends_on: {
+                // This checks for 'go' INSIDE the container
+                tools: [{alternatives: ["go"]}]
+            }
+        }]
         platforms: [{name: "linux"}]
-        depends_on: {
-            // This checks for 'go' INSIDE the container
-            tools: [{alternatives: ["go"]}]
-        }
     }]
 }`,
   },
@@ -1248,18 +1251,21 @@ Install the missing tools and try again.`,
     name: "build"
     implementations: [{
         script: "npm run build"
-        runtimes: [{name: "container", image: "node:22-slim"}]
+        runtimes: [{
+            name: "container"
+            image: "node:22-slim"
+            depends_on: {
+                custom_checks: [
+                    {
+                        name: "node-version"
+                        // This runs INSIDE the container
+                        check_script: "node --version"
+                        expected_output: "^v20\."
+                    }
+                ]
+            }
+        }]
         platforms: [{name: "linux"}]
-        depends_on: {
-            custom_checks: [
-                {
-                    name: "node-version"
-                    // This runs INSIDE the container
-                    check_script: "node --version"
-                    expected_output: "^v20\."
-                }
-            ]
-        }
     }]
 }`,
   },
@@ -1480,16 +1486,19 @@ check_script: """
     name: "build"
     implementations: [{
         script: "go build ./..."
-        runtimes: [{name: "container", image: "golang:1.26"}]
+        runtimes: [{
+            name: "container"
+            image: "golang:1.26"
+            depends_on: {
+                filepaths: [
+                    // These are checked INSIDE the container
+                    // /workspace is where your project is mounted
+                    {alternatives: ["/workspace/go.mod"]},
+                    {alternatives: ["/workspace/go.sum"]},
+                ]
+            }
+        }]
         platforms: [{name: "linux"}]
-        depends_on: {
-            filepaths: [
-                // These are checked INSIDE the container
-                // /workspace is where your project is mounted
-                {alternatives: ["/workspace/go.mod"]},
-                {alternatives: ["/workspace/go.sum"]},
-            ]
-        }
     }]
 }`,
   },

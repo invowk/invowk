@@ -30,12 +30,12 @@ Ensure all requirements are met and try again.
 | Property | Required | Description |
 |----------|----------|-------------|
 | `name` | Yes | Identifier for error messages |
-| `check_script` | Yes | Script to execute (using the selected runtime's shell) |
+| `check_script` | Yes | Script to execute for the check |
 | `expected_code` | No | Expected exit code (default: 0) |
 | `expected_output` | No | Regex pattern to match output |
 
-:::info Runtime-Aware Execution
-Custom check scripts are executed using the runtime's shell: the host shell for native runtime, the built-in sh interpreter for virtual runtime, or the container's shell for container runtime. Write your `check_script` accordingly — for example, a native check can rely on host-specific tools, while a container check only sees what's inside the container.
+:::info Host and Container Execution
+Root, command, and implementation-level custom checks always run on the host. To run a custom check inside a container image, put `depends_on` inside the selected container runtime block.
 :::
 
 ## Exit Code Validation
@@ -98,7 +98,7 @@ The dependency is satisfied if **any** alternative passes.
 
 ## Container Context
 
-For container runtime, custom checks run **inside the container**:
+Runtime-level custom checks inside a container runtime block run **inside the container**:
 
 <Snippet id="dependencies/custom-checks-container-context" />
 

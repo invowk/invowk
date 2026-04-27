@@ -382,14 +382,14 @@ cmds: [
   'advanced/workdir-container-subdir': {
     language: 'cue',
     code: `{
-    name: "build frontend"
+    name: "build package"
     workdir: "./frontend"
     implementations: [{
         script: """
             pwd  # /workspace/frontend
-            npm run build
+            ./build.sh
             """
-        runtimes: [{name: "container", image: "node:22-slim"}]
+        runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
 }`,

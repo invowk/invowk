@@ -294,22 +294,22 @@ cmds: [
         description: "Print a greeting"
         implementations: [
             {
-                script: "echo "Hello, $INVOWK_ARG_NAME!""
+                script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
                 runtimes: [{name: "native"}]
                 platforms: [{name: "linux"}, {name: "macos"}]
             },
             {
-                script: "Write-Output "Hello, $($env:INVOWK_ARG_NAME)!""
+                script: "Write-Output \\"Hello, $($env:INVOWK_ARG_NAME)!\\""
                 runtimes: [{name: "native"}]
                 platforms: [{name: "windows"}]
             },
             {
-                script: "echo "Hello, $INVOWK_ARG_NAME!""
+                script: "echo \\"Hello, $INVOWK_ARG_NAME!\\""
                 runtimes: [{name: "virtual"}]
                 platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
             },
             {
-                script: "echo "Hello from container, $INVOWK_ARG_NAME!""
+                script: "echo \\"Hello from container, $INVOWK_ARG_NAME!\\""
                 runtimes: [{name: "container", image: "debian:stable-slim"}]
                 platforms: [{name: "linux"}]
             },

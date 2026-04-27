@@ -53,9 +53,9 @@ Todos os três devem ser satisfeitos (embora alternativas dentro de cada um seja
 
 <Snippet id="dependencies/tools-python-project" />
 
-## Validação Consciente do Runtime
+## Validação no Host e no Container
 
-Verificações de ferramentas são validadas de acordo com o runtime:
+Verificações de ferramentas no nível raiz, de comando e de implementação são sempre validadas no host. Para validar ferramentas dentro de uma imagem de container, coloque `depends_on` dentro do bloco do runtime container selecionado.
 
 ### Runtime Native
 
@@ -65,13 +65,13 @@ Ferramentas são verificadas no sistema host:
 
 ### Runtime Virtual
 
-Ferramentas são verificadas no ambiente do shell virtual:
+Ferramentas no nível de implementação ainda são verificadas no host antes do runtime virtual iniciar:
 
 <Snippet id="dependencies/tools-runtime-virtual" />
 
 ### Runtime Container
 
-Ferramentas são verificadas **dentro do container**:
+Verificações de ferramentas no nível do runtime container são verificadas **dentro do container**:
 
 <Snippet id="dependencies/tools-runtime-container" />
 

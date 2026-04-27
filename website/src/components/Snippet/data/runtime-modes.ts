@@ -612,11 +612,12 @@ From invowkfile:
 
   'runtime-modes/containerfile-example': {
     language: 'dockerfile',
-    code: `FROM golang:1.26
+    code: `FROM debian:stable-slim
 
-RUN apt-get update && apt-get install -y 
-    make 
-    git
+RUN apt-get update && apt-get install -y \\
+    ca-certificates \\
+    git \\
+    make
 
 WORKDIR /workspace`,
   },
@@ -625,7 +626,7 @@ WORKDIR /workspace`,
     language: 'cue',
     code: `runtimes: [{
     name: "container"
-    image: "node:22-slim"
+    image: "debian:stable-slim"
     ports: [
         "3000:3000",      // Host:Container
         "8080:80"         // Map container port 80 to host port 8080
@@ -834,14 +835,14 @@ container_engine: "podman"  // or "docker"`,
   'runtime-modes/container-workdir-override': {
     language: 'cue',
     code: `{
-    name: "build frontend"
+    name: "build package"
     workdir: "./frontend"  // Mounted and used as workdir
     implementations: [{
         platforms: [{name: "linux"}]
-        script: "npm run build"
+        script: "./build.sh"
         runtimes: [{
             name: "container"
-            image: "node:22-slim"
+            image: "debian:stable-slim"
         }]
     }]
 }`,

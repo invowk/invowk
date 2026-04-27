@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.
 This downloads the latest release, verifies its SHA256 checksum, and installs to `~/.local/bin`. Customize with environment variables:
 
 ```bash
-INSTALL_DIR=/usr/local/bin INVOWK_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/invowk/invowk/main/scripts/install.sh | INSTALL_DIR=/usr/local/bin INVOWK_VERSION=v1.0.0 sh
 ```
 
 ### PowerShell (Windows)
@@ -63,7 +63,7 @@ $env:INSTALL_DIR='C:\tools\invowk'; $env:INVOWK_VERSION='v1.0.0'; irm https://ra
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew install invowk/tap/invowk
+brew install --cask invowk/tap/invowk
 ```
 
 ### WinGet (Windows)
@@ -368,12 +368,15 @@ invowk cmd test --ivk-workdir=./packages/frontend
 
 ## Module Metadata (invowkmod.cue)
 
-Modules (directories ending in `.invowkmod`) use a separate metadata file named `invowkmod.cue`. It defines the module identifier, version, optional description, and dependencies.
+Modules (directories ending in `.invowkmod`) use a separate metadata file named `invowkmod.cue`. It defines the module identifier, version, optional descriptive metadata, and dependencies.
 
 ```cue
 module: "mymodule"
 version: "1.0.0"
 description: "Reusable build tools"
+author: "Acme Build Team <build@example.com>"
+license: "MPL-2.0"
+repository: "https://github.com/acme/mymodule.invowkmod"
 ```
 
 ### Module Field Format
@@ -407,6 +410,20 @@ version: "2.1.0-alpha.1"
 - No `v` prefix (use `"1.0.0"`, not `"v1.0.0"`)
 - No build metadata
 - No leading zeros on numeric segments
+
+**Optional metadata fields:**
+
+```cue
+description: "Reusable build tools"
+author: "Acme Build Team <build@example.com>"
+license: "MPL-2.0"
+repository: "https://github.com/acme/mymodule.invowkmod"
+```
+
+- `description` summarizes the module's purpose.
+- `author` identifies the maintainer or organization.
+- `license` should use an SPDX identifier such as `MIT`, `Apache-2.0`, or `MPL-2.0`.
+- `repository` must use an accepted Git URL scheme: `https://`, `git@`, or `ssh://`.
 
 ### How Multi-Source Discovery Works
 
@@ -1319,7 +1336,7 @@ This isolation prevents the parent command's arguments and flags from accidental
 - Variables defined in the `env` construct of a command or implementation
 - Any other environment variables in the process environment
 
-This follows standard UNIX semantics where child processes inherit their parent's environment. If you define `env: { MY_VAR: "value" }` in a command and that command calls another invowk command, the child will see `MY_VAR` in its environment. This is intentional and allows commands to set up environment context for nested invocations.
+This follows standard UNIX semantics where child processes inherit their parent's environment. If you define `env: {vars: {MY_VAR: "value"}}` in a command and that command calls another invowk command, the child will see `MY_VAR` in its environment. This is intentional and allows commands to set up environment context for nested invocations.
 
 **Example:**
 
@@ -1568,7 +1585,7 @@ Recognized script extensions: `.sh`, `.bash`, `.ps1`, `.bat`, `.cmd`, `.py`, `.r
 
 ## Interpreter Support
 
-By default, invowk executes scripts using a shell (`/bin/sh` for native, the container's default shell for containers). However, you can run scripts with other interpreters like Python, Ruby, Node.js, Perl, etc.
+By default, invowk executes scripts using a shell. The native runtime uses `$SHELL` on Unix-like systems, then falls back to `bash` and then `sh`; on Windows it tries PowerShell before `cmd`. Container runtime scripts use the container's configured shell. You can also run scripts with other interpreters like Python, Ruby, Node.js, Perl, etc.
 
 ### Auto-Detection from Shebang (Default)
 
@@ -3012,6 +3029,8 @@ invowk/
 ```
 
 ## Dependencies
+
+Invowk requires Go 1.26+. Exact direct and transitive dependency versions are pinned in [`go.mod`](go.mod); the list below calls out the main direct dependencies by role.
 
 **Core:**
 - [Cobra](https://github.com/spf13/cobra) - CLI framework

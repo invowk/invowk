@@ -99,7 +99,7 @@ Filepath checks work for both files and directories:
 
 ## Container Context
 
-For container runtime, filepath checks are validated **inside the container**:
+Root, command, and implementation-level filepath checks are always validated on the host. To validate paths inside a container image, put `depends_on` inside the selected container runtime block:
 
 <Snippet id="dependencies/filepaths-container" />
 

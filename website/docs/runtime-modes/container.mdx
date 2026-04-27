@@ -56,11 +56,8 @@ You must specify either an `image` or a `containerfile` - they're mutually exclu
 
 <Snippet id="runtime-modes/container-prebuilt-image" />
 
-Common images:
-- `debian:stable-slim` - Minimal Debian (recommended base image)
-- `golang:1.26` - Go development
-- `node:22-slim` - Node.js development
-- `python:3-slim` - Python development
+Recommended generic image:
+- `debian:stable-slim` - Minimal Debian base for portable container examples
 
 ### Custom Containerfile
 
@@ -246,9 +243,8 @@ docker images | grep golang
 The first run pulls the image. Subsequent runs are faster:
 
 ```bash
-# Pre-pull images
-docker pull golang:1.26
-docker pull node:22-slim
+# Pre-pull the recommended generic image
+docker pull debian:stable-slim
 ```
 
 ### Permission Issues

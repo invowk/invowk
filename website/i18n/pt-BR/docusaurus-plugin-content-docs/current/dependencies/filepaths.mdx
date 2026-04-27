@@ -99,7 +99,7 @@ Verificações de caminho funcionam tanto para arquivos quanto para diretórios:
 
 ## Contexto de Container
 
-Para runtime container, verificações de caminho são validadas **dentro do container**:
+Verificações de caminho no nível raiz, de comando e de implementação são sempre validadas no host. Para validar caminhos dentro de uma imagem de container, coloque `depends_on` dentro do bloco do runtime container selecionado:
 
 <Snippet id="dependencies/filepaths-container" />
 

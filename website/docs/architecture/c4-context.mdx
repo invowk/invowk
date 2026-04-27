@@ -28,6 +28,7 @@ This diagram shows Invowk from the highest level - the system boundaries, users,
 | **Git Repositories** | Source for remote module dependencies. Enables sharing and versioning of command modules. | Git protocol (HTTPS/SSH) |
 | **Host Shell** | Native command execution. Uses `bash`/`sh` on Unix, `PowerShell` on Windows. | Process exec/spawn |
 | **Filesystem** | Storage for configuration, invowkfiles, modules, and scripts. | File I/O |
+| **Optional LLM Providers** | LLM-powered `invowk audit` analysis via Claude, Codex/OpenAI, Gemini, or local Ollama. | OpenAI-compatible HTTP APIs / local CLIs |
 
 ## Key Boundaries
 

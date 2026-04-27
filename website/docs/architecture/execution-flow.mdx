@@ -78,7 +78,8 @@ The virtual runtime uses the embedded mvdan/sh interpreter:
 **Runtime-specific behavior:**
 - **Native**: Spawns host shell process
 - **Virtual**: Interprets via mvdan/sh
-- **Container**: Provisions image, runs container
+- **Container**: Provisions image, runs container with transient retry handling
+- **SSH/TUI lifecycle**: Managed by command orchestration (CommandService), not by the runtime implementation itself
 
 ### 5. Dry-Run Intercept
 

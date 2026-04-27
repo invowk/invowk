@@ -30,12 +30,12 @@ Ensure all requirements are met and try again.
 | Propriedade | Obrigatória | Descrição |
 |-------------|-------------|-----------|
 | `name` | Sim | Identificador para mensagens de erro |
-| `check_script` | Sim | Script a executar (usando o shell do runtime selecionado) |
+| `check_script` | Sim | Script a executar para a verificação |
 | `expected_code` | Não | Código de saída esperado (padrão: 0) |
 | `expected_output` | Não | Padrão regex para corresponder à saída |
 
-:::info Execução Consciente do Runtime
-Scripts de verificação personalizados são executados usando o shell do runtime: o shell do host para runtime native, o interpretador sh embutido para runtime virtual, ou o shell do container para runtime container. Escreva seu `check_script` de acordo — por exemplo, uma verificação native pode depender de ferramentas específicas do host, enquanto uma verificação container só enxerga o que está dentro do container.
+:::info Execução no Host e no Container
+Verificações personalizadas no nível raiz, de comando e de implementação sempre rodam no host. Para executar uma verificação personalizada dentro de uma imagem de container, coloque `depends_on` dentro do bloco do runtime container selecionado.
 :::
 
 ## Validação de Código de Saída
@@ -98,7 +98,7 @@ A dependência é satisfeita se **qualquer** alternativa passar.
 
 ## Contexto de Container
 
-Para runtime container, verificações personalizadas rodam **dentro do container**:
+Verificações personalizadas no nível do runtime container rodam **dentro do container**:
 
 <Snippet id="dependencies/custom-checks-container-context" />
 

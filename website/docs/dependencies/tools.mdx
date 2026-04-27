@@ -53,9 +53,9 @@ All three must be satisfied (though alternatives within each are OR).
 
 <Snippet id="dependencies/tools-python-project" />
 
-## Runtime-Aware Validation
+## Host and Container Validation
 
-Tool checks are validated according to the runtime:
+Root, command, and implementation-level tool checks are always validated on the host. To validate tools inside a container image, put `depends_on` inside the selected container runtime block.
 
 ### Native Runtime
 
@@ -65,13 +65,13 @@ Tools are checked on the host system:
 
 ### Virtual Runtime
 
-Tools are checked in the virtual shell environment:
+Implementation-level tools are still checked on the host before the virtual runtime starts:
 
 <Snippet id="dependencies/tools-runtime-virtual" />
 
 ### Container Runtime
 
-Tools are checked **inside the container**:
+Runtime-level tool checks inside a container runtime block are checked **inside the container**:
 
 <Snippet id="dependencies/tools-runtime-container" />
 
