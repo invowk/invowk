@@ -25,8 +25,9 @@ From `sonar-project.properties`:
 | e2 | `go:S1192` | `**/*_test.go` | Test files repeat string literals in assertions/fixtures |
 | e3 | `godre:S8196` | `**/*.go` | Domain interfaces use descriptive names, not `-er` suffix |
 | e4 | `godre:S8242` | `**/*.go` | Context in struct is intentional lifecycle ownership |
-| e5 | `go:S1192` | `pkg/cueutil/error.go` | Generic format string not worth extracting |
-| e6 | `go:S3776` | `**/*.go` | Cognitive complexity inherent to validation/TUI/container/resolution |
+| e5 | `go:S3776` | `**/*.go` | Cognitive complexity inherent to validation/TUI/container/resolution |
+| e6 | `go:S2612` | `**/*_test.go` | Test fixtures use broad temp-file permissions intentionally |
+| e7 | `go:S1313` | `**/*_test.go` | Test fixtures use RFC 1918 IPs without network connections |
 
 IDs must be gapless (`e1, e2, e3, ...`). Adding a new suppression requires using the next ID.
 

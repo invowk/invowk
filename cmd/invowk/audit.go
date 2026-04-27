@@ -25,6 +25,7 @@ const (
 	auditExitClean    types.ExitCode = 0
 	auditExitFindings types.ExitCode = 1
 	auditExitError    types.ExitCode = 2
+	auditFlagLLMModel                = "llm-model"
 
 	// auditFindingDetailPadding is the left padding for finding detail lines,
 	// aligned with the indented finding title.
@@ -81,7 +82,24 @@ type (
 		ScriptsScanned     int   `json:"scripts_scanned"`
 		DurationMS         int64 `json:"duration_ms"`
 	}
+
+	auditRunOptions struct {
+		path          string //goplint:ignore -- transient CLI argument validated by BuildScanContext.
+		format        string //goplint:ignore -- transient CLI flag validated by runAudit.
+		minSeverity   string //goplint:ignore -- transient CLI flag validated by audit.ParseSeverity.
+		includeGlobal bool
+		enableLLM     bool
+		llmProvider   string //goplint:ignore -- transient CLI flag validated against audit.ValidProviders.
+		llmOpts       audit.LLMClientConfig
+	}
 )
+
+func (opts auditRunOptions) Validate() error {
+	if !opts.enableLLM && opts.llmProvider == "" {
+		return nil
+	}
+	return opts.llmOpts.Validate()
+}
 
 // newAuditCommand creates the top-level `invowk audit` command.
 func newAuditCommand(app *App) *cobra.Command {
@@ -152,7 +170,15 @@ Exit codes:
 				Concurrency: llmConcurrency,
 			})
 
-			return runAudit(cmd, app, auditPath, format, minSeverity, includeGlobal, enableLLM, llmProvider, llmOpts)
+			return runAudit(cmd, app, auditRunOptions{
+				path:          auditPath,
+				format:        format,
+				minSeverity:   minSeverity,
+				includeGlobal: includeGlobal,
+				enableLLM:     enableLLM,
+				llmProvider:   llmProvider,
+				llmOpts:       llmOpts,
+			})
 		},
 	}
 
@@ -164,7 +190,7 @@ Exit codes:
 	cmd.Flags().StringVar(&llmProvider, "llm-provider", "", "auto-detect or use specific provider: auto, claude, codex, gemini, ollama")
 	cmd.Flags().BoolVar(&enableLLM, "llm", false, "enable LLM with manual --llm-url/--llm-api-key config")
 	cmd.Flags().StringVar(&llmURL, "llm-url", audit.DefaultLLMBaseURL, "OpenAI-compatible API base URL")
-	cmd.Flags().StringVar(&llmModel, "llm-model", audit.DefaultLLMModel, "LLM model name")
+	cmd.Flags().StringVar(&llmModel, auditFlagLLMModel, audit.DefaultLLMModel, "LLM model name")
 	cmd.Flags().StringVar(&llmAPIKey, "llm-api-key", "", "API key (empty for local servers)")
 	cmd.Flags().DurationVar(&llmTimeout, "llm-timeout", audit.DefaultLLMTimeout, "per-request timeout")
 	cmd.Flags().IntVar(&llmConcurrency, "llm-concurrency", audit.DefaultLLMConcurrency, "max parallel LLM requests")
@@ -172,18 +198,17 @@ Exit codes:
 	return cmd
 }
 
-func runAudit(
-	cmd *cobra.Command, app *App,
-	auditPath, format, minSeverity string,
-	includeGlobal, enableLLM bool,
-	llmProvider string,
-	llmOpts audit.LLMClientConfig,
-) error {
+func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 	ctx := cmd.Context()
 	w := cmd.OutOrStdout()
 
+	if err := opts.Validate(); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
+		return &ExitError{Code: auditExitError, Err: err}
+	}
+
 	// Parse minimum severity.
-	minSev, err := audit.ParseSeverity(minSeverity)
+	minSev, err := audit.ParseSeverity(opts.minSeverity)
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "invalid severity: %v\n", err)
 		return &ExitError{Code: auditExitError, Err: err}
@@ -193,17 +218,17 @@ func runAudit(
 	var scannerOpts []audit.ScannerOption
 
 	switch {
-	case llmProvider != "":
+	case opts.llmProvider != "":
 		// Auto-detect or use specific provider.
-		checker, checkerErr := buildProviderChecker(ctx, cmd, llmProvider, llmOpts)
+		checker, checkerErr := buildProviderChecker(ctx, cmd, opts.llmProvider, opts.llmOpts)
 		if checkerErr != nil {
 			return checkerErr
 		}
 		scannerOpts = append(scannerOpts, audit.WithChecker(checker))
 
-	case enableLLM:
+	case opts.enableLLM:
 		// Manual --llm configuration.
-		checker, checkerErr := buildManualChecker(ctx, cmd, llmOpts)
+		checker, checkerErr := buildManualChecker(ctx, cmd, opts.llmOpts)
 		if checkerErr != nil {
 			return checkerErr
 		}
@@ -212,7 +237,7 @@ func runAudit(
 	scanner := audit.NewScanner(app.Config, scannerOpts...)
 
 	// Run scan.
-	report, scanErr := scanner.Scan(ctx, types.FilesystemPath(auditPath), includeGlobal) //goplint:ignore -- CLI arg path from Cobra, validated by filepath.Abs in BuildScanContext
+	report, scanErr := scanner.Scan(ctx, types.FilesystemPath(opts.path), opts.includeGlobal) //goplint:ignore -- CLI arg path from Cobra, validated by filepath.Abs in BuildScanContext
 	if scanErr != nil && report == nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "scan error: %v\n", scanErr)
 		return &ExitError{Code: auditExitError, Err: scanErr}
@@ -224,15 +249,15 @@ func runAudit(
 	}
 
 	// Render output.
-	switch strings.ToLower(format) {
+	switch strings.ToLower(opts.format) {
 	case "json":
 		if err := renderAuditJSON(w, report, minSev); err != nil {
 			return &ExitError{Code: auditExitError, Err: err}
 		}
 	case "text":
-		renderAuditText(w, report, auditPath, minSev)
+		renderAuditText(w, report, opts.path, minSev)
 	default:
-		fmt.Fprintf(cmd.ErrOrStderr(), "Error: unknown output format %q (must be \"text\" or \"json\")\n", format)
+		fmt.Fprintf(cmd.ErrOrStderr(), "Error: unknown output format %q (must be \"text\" or \"json\")\n", opts.format)
 		return &ExitError{Code: auditExitError}
 	}
 
@@ -411,7 +436,7 @@ func resolveLLMFlags(cmd *cobra.Command, cfg audit.LLMClientConfig) audit.LLMCli
 			cfg.BaseURL = envURL
 		}
 	}
-	if !cmd.Flags().Changed("llm-model") {
+	if !cmd.Flags().Changed(auditFlagLLMModel) {
 		if envModel := os.Getenv("INVOWK_LLM_MODEL"); envModel != "" {
 			cfg.Model = envModel
 		}
@@ -442,7 +467,7 @@ func resolveLLMFlags(cmd *cobra.Command, cfg audit.LLMClientConfig) audit.LLMCli
 // buildProviderChecker creates an LLM checker via auto-detection or a named provider.
 func buildProviderChecker(ctx context.Context, cmd *cobra.Command, provider string, llmOpts audit.LLMClientConfig) (*audit.LLMChecker, *ExitError) {
 	modelOverride := ""
-	if cmd.Flags().Changed("llm-model") {
+	if cmd.Flags().Changed(auditFlagLLMModel) {
 		modelOverride = llmOpts.Model
 	}
 

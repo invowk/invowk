@@ -5,13 +5,13 @@ package audit
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
-	"github.com/invowk/invowk/pkg/types"
+	"github.com/invowk/invowk/pkg/fspath"
 )
 
 const (
 	moduleMetadataCheckerName = "module-metadata"
+	moduleMetadataFileName    = "invowkmod.cue"
 	// maxDependencyFanOut is the threshold for flagging wide dependency fan-out.
 	// This measures the number of direct dependencies a single module declares,
 	// NOT the graph depth of transitive dependency chains.
@@ -109,7 +109,7 @@ func (c *ModuleMetadataChecker) checkInvowkfileParseFailure(mod *ScannedModule) 
 		Category:       CategoryTrust,
 		SurfaceID:      mod.SurfaceID,
 		CheckerName:    moduleMetadataCheckerName,
-		FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkfile.cue")), //goplint:ignore -- filepath.Join from validated module path
+		FilePath:       fspath.JoinStr(mod.Path, invowkfileCUEFileName),
 		Title:          "Module invowkfile failed to parse",
 		Description:    fmt.Sprintf("Invowkfile exists but could not be parsed: %v — script content cannot be audited", mod.InvowkfileParseErr),
 		Recommendation: "Inspect the invowkfile for syntax errors or deliberate corruption; a module with an unparseable invowkfile evades content-based security checks",
@@ -131,7 +131,7 @@ func (c *ModuleMetadataChecker) checkDependencyFanOut(mod *ScannedModule) []Find
 		Category:       CategoryTrust,
 		SurfaceID:      mod.SurfaceID,
 		CheckerName:    moduleMetadataCheckerName,
-		FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkmod.cue")),
+		FilePath:       fspath.JoinStr(mod.Path, moduleMetadataFileName),
 		Title:          "Wide dependency fan-out",
 		Description:    fmt.Sprintf("Module has %d direct dependencies (threshold: %d) — wide fan-out increases supply-chain attack surface", len(requires), maxDependencyFanOut),
 		Recommendation: "Review whether all dependencies are necessary; consider consolidating or inlining rarely-used modules",
@@ -188,7 +188,7 @@ func (c *ModuleMetadataChecker) checkVersionPinning(mod *ScannedModule) []Findin
 				Category:       CategoryTrust,
 				SurfaceID:      mod.SurfaceID,
 				CheckerName:    moduleMetadataCheckerName,
-				FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkmod.cue")),
+				FilePath:       fspath.JoinStr(mod.Path, moduleMetadataFileName),
 				Title:          "Module dependency has no version constraint",
 				Description:    fmt.Sprintf("Dependency %q uses version constraint %q — any version will be accepted", req.GitURL, version),
 				Recommendation: "Pin to a specific version range (e.g., ^1.0.0 or ~2.0.0)",
@@ -224,8 +224,8 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 					Category:       CategoryTrust,
 					SurfaceID:      mod.SurfaceID,
 					CheckerName:    moduleMetadataCheckerName,
-					FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkmod.cue")),
-					Title:          "Transitive dependency not declared in root invowkmod.cue",
+					FilePath:       fspath.JoinStr(mod.Path, moduleMetadataFileName),
+					Title:          "Transitive dependency not declared in root " + moduleMetadataFileName,
 					Description:    fmt.Sprintf("Module %q requires %q which is not declared in the root requires — violates explicit-only dep model", vendored.Metadata.Module, transReq.GitURL),
 					Recommendation: "Run 'invowk module tidy' to add missing transitive dependencies",
 				})
@@ -253,10 +253,10 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 				Category:       CategoryTrust,
 				SurfaceID:      mod.SurfaceID,
 				CheckerName:    moduleMetadataCheckerName,
-				FilePath:       types.FilesystemPath(filepath.Join(string(mod.Path), "invowkmod.cue")),
+				FilePath:       fspath.JoinStr(mod.Path, moduleMetadataFileName),
 				Title:          "Vendored module not declared in requires",
 				Description:    fmt.Sprintf("Vendored module %q exists in invowk_modules/ but has no matching entry in requires — it may have been manually placed or left from a removed dependency", vendoredID),
-				Recommendation: "Either add the module to requires in invowkmod.cue or remove it from invowk_modules/",
+				Recommendation: "Either add the module to requires in " + moduleMetadataFileName + " or remove it from invowk_modules/",
 			})
 		}
 	}

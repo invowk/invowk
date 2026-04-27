@@ -168,14 +168,14 @@ func buildFinding(lf *llmFinding, ref *ScriptRef) (Finding, bool) {
 		return Finding{}, false
 	}
 
-	cat := Category(lf.Category)
-	if catErr := cat.Validate(); catErr != nil {
+	category := Category(lf.Category)
+	if category.Validate() != nil {
 		return Finding{}, false
 	}
 
 	return Finding{
 		Severity:       sev,
-		Category:       cat,
+		Category:       category,
 		SurfaceID:      ref.SurfaceID,
 		CheckerName:    llmCheckerName,
 		FilePath:       ref.FilePath,

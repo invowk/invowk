@@ -18,6 +18,7 @@ const (
 
 	unknownLockFileVersionErrMsg    = "unknown lock file version"
 	lockFileV1UpgradeRequiredErrMsg = "lock file uses deprecated v1.0 format"
+	lockFileVersionFieldPrefix      = "version:"
 )
 
 var (
@@ -132,7 +133,7 @@ func extractLockFileVersion(content string) LockFileVersion {
 		if strings.HasPrefix(trimmed, "//") || trimmed == "" {
 			continue
 		}
-		if strings.HasPrefix(trimmed, "version:") {
+		if strings.HasPrefix(trimmed, lockFileVersionFieldPrefix) {
 			return LockFileVersion(parseStringValue(trimmed)) //goplint:ignore -- validated by parseLockFile dispatcher
 		}
 		// version: must be the first non-comment, non-empty field.
@@ -170,7 +171,7 @@ func (p *lockFileParserV1V2) Parse(content string) (*LockFile, error) {
 		// Without this guard, module-level `version:` fields would be consumed
 		// by the top-level parser (the field names collide).
 		if !inModules {
-			if strings.HasPrefix(line, "version:") {
+			if strings.HasPrefix(line, lockFileVersionFieldPrefix) {
 				lock.Version = LockFileVersion(parseStringValue(line))
 				if err := lock.Version.Validate(); err != nil {
 					return nil, fmt.Errorf("lock file version: %w", err)
@@ -225,7 +226,7 @@ func (p *lockFileParserV1V2) Parse(content string) (*LockFile, error) {
 			switch {
 			case strings.HasPrefix(line, "git_url:"):
 				currentModule.GitURL = GitURL(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "version:"):
+			case strings.HasPrefix(line, lockFileVersionFieldPrefix):
 				currentModule.Version = SemVerConstraint(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
 			case strings.HasPrefix(line, "resolved_version:"):
 				currentModule.ResolvedVersion = SemVer(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()

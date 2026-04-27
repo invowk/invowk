@@ -12,6 +12,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const pathMessageFormat = "%s: %s"
+
 // ErrFileSizeExceeded is returned when file data exceeds the configured maximum size.
 var ErrFileSizeExceeded = goerrors.New("file size exceeds maximum")
 
@@ -35,7 +37,7 @@ func (e *ValidationError) Error() string {
 	if e.CUEPath != "" {
 		return fmt.Sprintf("%s: %s: %s", e.FilePath, e.CUEPath, e.Message)
 	}
-	return fmt.Sprintf("%s: %s", e.FilePath, e.Message)
+	return fmt.Sprintf(pathMessageFormat, e.FilePath, e.Message)
 }
 
 // Unwrap returns nil (ValidationError is a leaf error).
@@ -81,14 +83,14 @@ func FormatError(err error, filePath string) error {
 		}
 
 		if pathStr != "" {
-			lines = append(lines, fmt.Sprintf("%s: %s", pathStr, msg))
+			lines = append(lines, fmt.Sprintf(pathMessageFormat, pathStr, msg))
 		} else {
 			lines = append(lines, msg)
 		}
 	}
 
 	if len(lines) == 1 {
-		return fmt.Errorf("%s: %s", filePath, lines[0])
+		return fmt.Errorf(pathMessageFormat, filePath, lines[0])
 	}
 	return fmt.Errorf("%s: validation failed:\n  %s", filePath, strings.Join(lines, "\n  "))
 }
