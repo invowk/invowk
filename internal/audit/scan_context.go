@@ -18,6 +18,7 @@ import (
 
 const (
 	invowkfileCUEFileName     = "invowkfile.cue"
+	invowkfileNoExtFileName   = "invowkfile"
 	invowkfileParseDiagFormat = "invowkfile parse error: %s: %v"
 )
 
@@ -243,46 +244,49 @@ func (sc *ScanContext) loadSingleModule(absPath types.FilesystemPath) error {
 }
 
 func (sc *ScanContext) loadDirectoryTree(absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) error {
-	// Try direct invowkfile.cue detection first (simplest case).
-	// Parse errors are captured in ParseErr so checkers can flag corrupted
-	// invowkfiles that would otherwise be silently excluded from the scan.
+	sc.loadDirectoryInvowkfile(absPath)
+	if err := sc.loadDirectoryModules(absPath); err != nil {
+		return err
+	}
+	sc.loadDiscoveryResults(absPath, cfg, includeGlobal)
+	return nil
+}
+
+func (sc *ScanContext) loadDirectoryInvowkfile(absPath types.FilesystemPath) {
 	invPath := fspath.JoinStr(absPath, invowkfileCUEFileName)
 	_, invCueErr := os.Stat(string(invPath))
 	if invCueErr == nil {
-		inv, parseErr := invowkfile.Parse(invPath)
-		si := &ScannedInvowkfile{
-			Path:      invPath,
-			SurfaceID: string(invPath),
-		}
-		if parseErr == nil {
-			si.Invowkfile = inv
-		} else {
-			si.ParseErr = parseErr
-			sc.diagnostics = append(sc.diagnostics, fmt.Sprintf(invowkfileParseDiagFormat, invPath, parseErr))
-		}
-		sc.invowkfiles = append(sc.invowkfiles, si)
+		sc.appendParsedInvowkfile(invPath)
+		return
 	}
 
 	// Fall back to extensionless "invowkfile" variant when .cue is absent.
-	if os.IsNotExist(invCueErr) {
-		invPathNoExt := fspath.JoinStr(absPath, "invowkfile")
-		if _, statErr := os.Stat(string(invPathNoExt)); statErr == nil {
-			inv, parseErr := invowkfile.Parse(invPathNoExt)
-			si := &ScannedInvowkfile{
-				Path:      invPathNoExt,
-				SurfaceID: string(invPathNoExt),
-			}
-			if parseErr == nil {
-				si.Invowkfile = inv
-			} else {
-				si.ParseErr = parseErr
-				sc.diagnostics = append(sc.diagnostics, fmt.Sprintf(invowkfileParseDiagFormat, invPathNoExt, parseErr))
-			}
-			sc.invowkfiles = append(sc.invowkfiles, si)
-		}
+	if !os.IsNotExist(invCueErr) {
+		return
 	}
 
-	// Scan for module directories.
+	invPathNoExt := fspath.JoinStr(absPath, invowkfileNoExtFileName)
+	if _, statErr := os.Stat(string(invPathNoExt)); statErr == nil {
+		sc.appendParsedInvowkfile(invPathNoExt)
+	}
+}
+
+func (sc *ScanContext) appendParsedInvowkfile(path types.FilesystemPath) {
+	inv, parseErr := invowkfile.Parse(path)
+	si := &ScannedInvowkfile{
+		Path:      path,
+		SurfaceID: string(path),
+	}
+	if parseErr == nil {
+		si.Invowkfile = inv
+	} else {
+		si.ParseErr = parseErr
+		sc.diagnostics = append(sc.diagnostics, fmt.Sprintf(invowkfileParseDiagFormat, path, parseErr))
+	}
+	sc.invowkfiles = append(sc.invowkfiles, si)
+}
+
+func (sc *ScanContext) loadDirectoryModules(absPath types.FilesystemPath) error {
 	entries, err := os.ReadDir(string(absPath))
 	if err != nil {
 		return fmt.Errorf("reading directory: %w", err)
@@ -299,26 +303,29 @@ func (sc *ScanContext) loadDirectoryTree(absPath types.FilesystemPath, cfg *conf
 		}
 	}
 
-	// Use full discovery for additional sources (includes, global modules).
-	if cfg != nil {
-		opts := []discovery.Option{
-			discovery.WithBaseDir(absPath),
-		}
-		if !includeGlobal {
-			opts = append(opts, discovery.WithCommandsDir(""))
-		}
+	return nil
+}
 
-		disc := discovery.New(cfg, opts...)
-		files, discErr := disc.DiscoverAll()
-		if discErr != nil {
-			sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("discovery error (partial results): %v", discErr))
-		}
-		if files != nil {
-			sc.mergeDiscoveryResults(files)
-		}
+func (sc *ScanContext) loadDiscoveryResults(absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) {
+	if cfg == nil {
+		return
 	}
 
-	return nil
+	opts := []discovery.Option{
+		discovery.WithBaseDir(absPath),
+	}
+	if !includeGlobal {
+		opts = append(opts, discovery.WithCommandsDir(""))
+	}
+
+	disc := discovery.New(cfg, opts...)
+	files, discErr := disc.DiscoverAll()
+	if discErr != nil {
+		sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("discovery error (partial results): %v", discErr))
+	}
+	if files != nil {
+		sc.mergeDiscoveryResults(files)
+	}
 }
 
 // mergeDiscoveryResults adds newly-discovered files that weren't already found
