@@ -43,6 +43,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Fall back to direct module fetches on transient Go proxy failures.
+  GOPROXY: "https://proxy.golang.org|direct"
+
 jobs:
   test:
     name: Test (${{ matrix.os }}${{ matrix.engine && format(' / {0}', matrix.engine) || '' }})
@@ -88,6 +92,19 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
 
       - name: Cache gotestsum
         id: cache-gotestsum
@@ -350,6 +367,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
       - name: Build
         env:
           GOOS: ${{ matrix.os }}
@@ -389,6 +419,19 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
 
       - name: Audit committed PGO profile
         run: make pgo-audit
@@ -521,6 +564,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
       - name: Install govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
@@ -547,6 +603,19 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
 
       - name: Check GoReleaser config
         uses: goreleaser/goreleaser-action@v7
