@@ -18,23 +18,23 @@ build configuration.
 - When upgrading, update the version in ALL workflow files that reference it.
 - **Current pinned versions:**
   - `gotestsum`: `v1.13.0`
-  - `golangci-lint`: `v2.11.3` (via golangci-lint-action `version` input)
-  - `govulncheck`: `v1.1.4`
-  - `cosign`: `v3.0.5` (via `cosign-release` input in `.github/workflows/release.yml`)
+  - `golangci-lint`: `v2.11.4` (via golangci-lint-action `version` input)
+  - `govulncheck`: `v1.3.0`
+  - `cosign`: `v3.0.6` (via `cosign-release` input in `.github/workflows/release.yml`)
   - UPX: `5.1.1`
   - D2: `v0.7.1`
 
 ### MCP Servers (`.mcp.json`)
 - MUST pin to an exact version: `@upstash/context7-mcp@X.Y.Z` (never `@latest`).
 - **Current pinned versions:**
-  - `@upstash/context7-mcp`: `2.1.4`
+  - `@upstash/context7-mcp`: `2.2.0`
   - `@modelcontextprotocol/server-github`: `2025.4.8`
 
 ### GitHub Actions
 - Pin to major version tags (e.g., `@v6`). Dependabot manages minor/patch bumps weekly.
 - All workflows MUST use the same major version for a given action (no stale pins like `@v4`
   when others use `@v6`).
-- **Exception**: `sigstore/cosign-installer` is pinned to `@v4.1.0` (exact version) because
+- **Exception**: `sigstore/cosign-installer` is pinned to `@v4.1.1` (exact version) because
   the floating `@v4` major tag has not been published yet. Switch to `@v4` when available.
 
 ### Container Images
@@ -47,7 +47,7 @@ build configuration.
 - NEVER use Alpine or Windows container images (see `AGENTS.md` "Container Runtime Limitations").
 
 ### GoReleaser
-- Pin via semver range in the goreleaser-action `version` input (current track: `~> v2.14`).
+- Pin via semver range in the goreleaser-action `version` input (current track: `~> v2.15`).
 
 ### npm Dependencies (website)
 - Pinned via `package-lock.json`. Core Docusaurus packages use exact versions;

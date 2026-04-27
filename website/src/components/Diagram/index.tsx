@@ -123,6 +123,3 @@ export default function Diagram({ id, alt }: DiagramProps): React.ReactElement {
     </div>
   );
 }
-
-// Re-export types for convenience
-export type { DiagramId };

@@ -523,7 +523,7 @@ jobs:
 
       - name: Install govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
           govulncheck -version
 
       - name: Run govulncheck
@@ -551,5 +551,5 @@ jobs:
       - name: Check GoReleaser config
         uses: goreleaser/goreleaser-action@v7
         with:
-          version: "~> v2.14"
+          version: "~> v2.15"
           args: check
