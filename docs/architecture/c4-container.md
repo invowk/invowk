@@ -21,6 +21,8 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
 | **Command Service** | Go | Hexagonal domain service (`internal/app/commandsvc/`) orchestrating command execution. Receives requests from CLI, coordinates discovery, validation, SSH lifecycle, and runtime dispatch. Returns typed results/errors; CLI adapter applies rendering. |
+| **Dependency Validator** | Go | Dependency validation domain (`internal/app/deps/`). Checks root, command, and implementation dependencies on the host, plus selected container runtime dependencies inside the container. |
+| **Execution Orchestrator** | Go | Runtime selection and execution context construction (`internal/app/execute/`). Chooses the selected runtime and dispatches to runtime implementations. |
 | **Discovery Engine** | Go | Finds `invowkfile.cue` and `*.invowkmod` directories with precedence ordering. Builds unified command tree. |
 | **Configuration Manager** | Go/Viper+CUE | Loads config from `~/.config/invowk/config.cue`. Validates against CUE schema. |
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |

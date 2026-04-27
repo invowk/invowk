@@ -90,10 +90,10 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 ### Resolução de Módulos
 
-1. **Discovery Engine** encontra requisitos de módulos
-2. **Module Resolver** verifica cache, busca do Git se necessário
+1. **Discovery Engine** lê apenas caminhos de módulos locais, irmãos, configurados e vendorizados
+2. **Module Resolver** é usado por comandos de módulo como `invowk module sync` para verificar o cache, buscar do Git quando necessário e atualizar o lock file
 3. Dependências usam o modelo explícito (toda dep transitiva deve ser declarada no `invowkmod.cue` raiz)
-4. Comandos de módulos requeridos se tornam disponíveis
+4. Comandos de módulos sincronizados e descobertos se tornam disponíveis
 
 ## Fundamentos de Design
 
