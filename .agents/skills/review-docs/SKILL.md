@@ -173,6 +173,14 @@ Spawn one subagent per surface. Each subagent receives:
 2. Its assigned surface checklist section from `references/surface-checklists.md`
 3. The structured output format from `references/structured-output-format.md`
 
+**Codex CLI only**: Codex CLI currently supports at most 6 live subagents. When running
+under Codex CLI, spawn subagents in deterministic order (SA-1, SA-2, ...) up to the
+available live-subagent limit, then keep the remaining assigned surfaces pending. As each
+subagent completes and a slot becomes available, launch the next pending surface with the
+same prompt template and references below. The coordinator may run programmatic checks,
+manage the pending queue, verify completeness, and merge reports; it must not perform
+checklist review work assigned to any pending subagent.
+
 | Subagent | Surface | References to Read | Focus |
 |----------|---------|-------------------|-------|
 | **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S1 | Walk 22-section sync map, verify each section against its source of truth |

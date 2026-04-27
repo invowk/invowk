@@ -1,21 +1,12 @@
 ---
 name: module-security
 description: >-
-  Module system security auditing, supply-chain attack prevention, the
-  `invowk audit` subcommand, and code quality review of the audit scanner
-  implementation in `internal/audit/`. Deterministic scanning backbone:
-  always runs `invowk audit --format json` first (compiled Go scanner with
-  regex patterns, severity classifications, structured output), then applies
-  interpretive analysis only for things the tool cannot decide — threat model
-  drift, supply-chain code review of diffs, documentation consistency. Use
-  when reviewing module code for vulnerabilities, implementing security
-  scanning, working on supply-chain hardening, or when any changes touch
-  module discovery, vendoring, lock files, script resolution, or command
-  scope enforcement. Also use when reviewing or improving the
-  `internal/audit/` Go code for correctness, performance, or security —
-  load `references/implementation-review.md` for the full review checklist.
-  Even for quick security questions about the module system, use this skill
-  — it ensures consistent threat model awareness across conversations.
+  Module system security auditing and supply-chain hardening for invowk.
+  Use when reviewing module vulnerabilities, implementing `invowk audit`,
+  improving `internal/audit/`, or changing module discovery, vendoring, lock
+  files, script resolution, command scope enforcement, or related docs. Runs
+  `invowk audit --format json` first, then adds interpretive review only for
+  threat model drift, supply-chain code review, or documentation consistency.
 ---
 
 # Module Security
