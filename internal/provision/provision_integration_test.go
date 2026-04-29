@@ -113,7 +113,7 @@ func testCacheMissBuildsImage(t *testing.T, engine container.Engine) {
 	}
 
 	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
-	result, err := provisioner.Provision(ctx, container.ImageTag("debian:stable-slim"))
+	result, err := provisioner.Provision(ctx, Request{BaseImage: container.ImageTag("debian:stable-slim")})
 	if err != nil {
 		t.Fatalf("Provision() unexpected error: %v", err)
 	}
@@ -158,7 +158,7 @@ func testCacheHitSkipsBuild(t *testing.T, engine container.Engine) {
 	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
 
 	// First call: builds the image (cache miss)
-	result1, err := provisioner.Provision(ctx, container.ImageTag("debian:stable-slim"))
+	result1, err := provisioner.Provision(ctx, Request{BaseImage: container.ImageTag("debian:stable-slim")})
 	if err != nil {
 		t.Fatalf("Provision() first call unexpected error: %v", err)
 	}
@@ -168,7 +168,7 @@ func testCacheHitSkipsBuild(t *testing.T, engine container.Engine) {
 	}
 
 	// Second call: should reuse the cached image (cache hit)
-	result2, err := provisioner.Provision(ctx, container.ImageTag("debian:stable-slim"))
+	result2, err := provisioner.Provision(ctx, Request{BaseImage: container.ImageTag("debian:stable-slim")})
 	if err != nil {
 		t.Fatalf("Provision() second call unexpected error: %v", err)
 	}
@@ -198,7 +198,7 @@ func testForceRebuildRebuildsExistingImage(t *testing.T, engine container.Engine
 	}
 
 	ctx := testutil.ContainerTestContext(t, testutil.DefaultContainerTestTimeout)
-	result1, err := provisioner.Provision(ctx, container.ImageTag("debian:stable-slim"))
+	result1, err := provisioner.Provision(ctx, Request{BaseImage: container.ImageTag("debian:stable-slim")})
 	if err != nil {
 		t.Fatalf("Provision() initial call unexpected error: %v", err)
 	}
@@ -216,7 +216,7 @@ func testForceRebuildRebuildsExistingImage(t *testing.T, engine container.Engine
 		t.Fatalf("NewLayerProvisioner(force) unexpected error: %v", provForceErr)
 	}
 
-	result2, err := provisionerForce.Provision(ctx, container.ImageTag("debian:stable-slim"))
+	result2, err := provisionerForce.Provision(ctx, Request{BaseImage: container.ImageTag("debian:stable-slim")})
 	if err != nil {
 		t.Fatalf("Provision(ForceRebuild) unexpected error: %v", err)
 	}
@@ -267,7 +267,7 @@ func testIsImageProvisionedTrueAfterProvision(t *testing.T, engine container.Eng
 	}
 
 	// Provision the image
-	result, provisionErr := provisioner.Provision(ctx, container.ImageTag("debian:stable-slim"))
+	result, provisionErr := provisioner.Provision(ctx, Request{BaseImage: container.ImageTag("debian:stable-slim")})
 	if provisionErr != nil {
 		t.Fatalf("Provision() unexpected error: %v", provisionErr)
 	}

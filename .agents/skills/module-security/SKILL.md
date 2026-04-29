@@ -111,6 +111,7 @@ The scanner produces structured JSON with this schema:
     {
       "severity": "critical|high|medium|low|info",
       "category": "integrity|path-traversal|exfiltration|execution|trust|obfuscation",
+      "code": "stable machine-readable finding code",
       "surface_id": "file path or SC-ID",
       "checker_name": "producing checker name",
       "file_path": "affected file",
@@ -118,7 +119,8 @@ The scanner produces structured JSON with this schema:
       "title": "one-line description",
       "description": "detailed explanation",
       "recommendation": "fix suggestion",
-      "escalated_from": ["original finding titles (compound findings only)"]
+      "escalated_from": ["original finding titles (compound findings only)"],
+      "escalated_from_codes": ["original finding codes (compound findings only)"]
     }
   ],
   "compound_threats": [...],
@@ -174,10 +176,10 @@ matching rule wins. Do not use judgment; follow the table exactly.
 | Rule # | Condition | Classification | Rationale |
 |--------|-----------|---------------|-----------|
 | R1 | Finding is in a **module** (not root invowkfile) | **Confirmed** | Modules are the supply-chain surface |
-| R2 | Finding title is **"Reverse shell pattern detected"** | **Confirmed** | Always report regardless of location |
-| R3 | Finding title is **"Script downloads and executes remote code"** | **Confirmed** | Always report regardless of location |
-| R4 | Finding title is **"Module content hash mismatch"** | **Confirmed** | Tamper indicator, always report |
-| R5 | Finding title is **"Symlink points outside module boundary"** | **Confirmed** | Escape vector, always report |
+| R2 | Finding code is **`network-execution-reverse-shell-pattern-detected`** | **Confirmed** | Always report regardless of location |
+| R3 | Finding code is **`script-execution-script-downloads-and-executes-remote-code`** | **Confirmed** | Always report regardless of location |
+| R4 | Finding code is **`lockfile-integrity-module-content-hash-mismatch`** | **Confirmed** | Tamper indicator, always report |
+| R5 | Finding code is **`symlink-path-traversal-symlink-points-outside-module-boundary`** | **Confirmed** | Escape vector, always report |
 | R6 | Finding has `escalated_from` field (compound threat) AND all constituent findings are suppressed by R7-R10 | **Suppressed** | Compound escalation of by-design constituents |
 | R7 | Finding is on root invowkfile AND title is **"Command uses default env inheritance (all host variables)"** | **Suppressed** | Root invowkfile is user-controlled, env inheritance is the default |
 | R8 | Finding is on root invowkfile AND title is **"Script accesses sensitive environment variable"** | **Suppressed** | SSH/container commands intentionally forward credentials |

@@ -3,11 +3,57 @@
 package container
 
 import (
+	"context"
 	"errors"
+	"os/exec"
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil"
 )
+
+type (
+	fakeDiscovery struct {
+		podman Engine
+		docker Engine
+	}
+
+	fakeDiscoveryEngine struct {
+		name      string
+		available bool
+	}
+)
+
+func (d fakeDiscovery) NewPodman() Engine { return d.podman }
+
+func (d fakeDiscovery) NewDocker() Engine { return d.docker }
+
+func (e fakeDiscoveryEngine) Name() string { return e.name }
+
+func (e fakeDiscoveryEngine) Available() bool { return e.available }
+
+func (e fakeDiscoveryEngine) Version(context.Context) (string, error) { return "test", nil }
+
+func (e fakeDiscoveryEngine) Build(context.Context, BuildOptions) error { return nil }
+
+func (e fakeDiscoveryEngine) Run(context.Context, RunOptions) (*RunResult, error) {
+	return &RunResult{}, nil
+}
+
+func (e fakeDiscoveryEngine) Remove(context.Context, ContainerID, bool) error { return nil }
+
+func (e fakeDiscoveryEngine) ImageExists(context.Context, ImageTag) (bool, error) {
+	return false, nil
+}
+
+func (e fakeDiscoveryEngine) RemoveImage(context.Context, ImageTag, bool) error { return nil }
+
+func (e fakeDiscoveryEngine) BinaryPath() string { return "/bin/" + e.name }
+
+func (e fakeDiscoveryEngine) BuildRunArgs(RunOptions) []string { return []string{"run"} }
+
+func (e fakeDiscoveryEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
+	return exec.CommandContext(ctx, e.BinaryPath(), e.BuildRunArgs(opts)...)
+}
 
 func TestEngineNotAvailableError_Error(t *testing.T) {
 	t.Parallel()
@@ -165,6 +211,36 @@ func TestAutoDetectEngine(t *testing.T) {
 	// If we got an engine, it should be either podman or docker
 	if engine.Name() != "podman" && engine.Name() != "docker" {
 		t.Errorf("expected podman or docker engine, got %s", engine.Name())
+	}
+}
+
+func TestNewEngineWithDiscoveryUsesFallbackOrder(t *testing.T) {
+	t.Parallel()
+
+	engine, err := newEngineWithDiscovery(EngineTypePodman, fakeDiscovery{
+		podman: fakeDiscoveryEngine{name: "podman", available: false},
+		docker: fakeDiscoveryEngine{name: "docker", available: true},
+	})
+	if err != nil {
+		t.Fatalf("newEngineWithDiscovery() = %v", err)
+	}
+	if engine.Name() != "docker" {
+		t.Fatalf("engine.Name() = %q, want docker", engine.Name())
+	}
+}
+
+func TestAutoDetectEngineWithDiscoveryPodmanFirst(t *testing.T) {
+	t.Parallel()
+
+	engine, err := autoDetectEngineWithDiscovery(fakeDiscovery{
+		podman: fakeDiscoveryEngine{name: "podman", available: true},
+		docker: fakeDiscoveryEngine{name: "docker", available: true},
+	})
+	if err != nil {
+		t.Fatalf("autoDetectEngineWithDiscovery() = %v", err)
+	}
+	if engine.Name() != "podman" {
+		t.Fatalf("engine.Name() = %q, want podman", engine.Name())
 	}
 }
 

@@ -108,7 +108,12 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 // Host-level custom checks always run in the native shell, regardless of the selected runtime,
 // ensuring host-side prerequisites are validated in a consistent, predictable environment.
 func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
-	return evaluateCustomChecks(deps, ctx, validateCustomCheckNative)
+	return CheckHostCustomCheckDependenciesWithProbe(deps, ctx, newDefaultHostProbe())
+}
+
+// CheckHostCustomCheckDependenciesWithProbe validates host custom checks through an injectable probe.
+func CheckHostCustomCheckDependenciesWithProbe(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext, probe HostProbe) error {
+	return evaluateCustomChecks(deps, ctx, probe.RunCustomCheck)
 }
 
 // evaluateCustomChecks runs custom check dependencies through the provided validator

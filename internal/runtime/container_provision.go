@@ -73,17 +73,18 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 		return baseImage, nil, nil, nil
 	}
 
-	// Update provisioner config with current invowkfile path and ForceRebuild
-	provCfg := r.provisionConfig
-	provCfg.InvowkfilePath = ctx.Invowkfile.FilePath
-	provCfg.ForceRebuild = ctx.ForceRebuild
-
 	// Provision the image with invowk resources
 	if ctx.Verbose {
 		_, _ = fmt.Fprintf(ctx.IO.Stdout, "Provisioning container with invowk resources...\n") // Verbose output; error non-critical
 	}
 
-	result, err := r.provisioner.Provision(ctx.Context, container.ImageTag(baseImage))
+	result, err := r.provisioner.Provision(ctx.Context, provision.Request{
+		BaseImage:      container.ImageTag(baseImage),
+		InvowkfilePath: ctx.Invowkfile.FilePath,
+		ForceRebuild:   ctx.ForceRebuild,
+		Stdout:         ctx.IO.Stderr,
+		Stderr:         ctx.IO.Stderr,
+	})
 	if err != nil {
 		if r.provisionConfig.Strict {
 			// Multi-wrap (Go 1.20+): callers can match either sentinel via errors.Is

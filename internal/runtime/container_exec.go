@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/container"
-	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -31,7 +30,7 @@ type containerExecPrep struct {
 	volumes        []invowkfile.VolumeMountSpec
 	ports          []invowkfile.PortMappingSpec
 	extraHosts     []container.HostMapping
-	sshConnInfo    *sshserver.ConnectionInfo
+	sshConnInfo    *HostCallbackConnectionInfo
 	tempScriptPath types.FilesystemPath
 	cleanup        func() // Combined cleanup for provisioning and temp files
 }
@@ -51,7 +50,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 
 	// Track resources for cleanup-on-error
 	var provisionCleanup func()
-	var sshConnInfo *sshserver.ConnectionInfo
+	var sshConnInfo *HostCallbackConnectionInfo
 	var tempScriptPath types.FilesystemPath
 
 	defer func() {
@@ -403,7 +402,7 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 }
 
 // setupSSHConnection sets up SSH connection for container host access
-func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[string]string) (*sshserver.ConnectionInfo, error) {
+func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[string]string) (*HostCallbackConnectionInfo, error) {
 	if r.hostCallbacks == nil {
 		return nil, errSSHServerNotConfigured
 	}
@@ -421,10 +420,16 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 		slog.Warn("ExecutionID not set by caller, using fallback — callers should use Registry.NewExecutionID()",
 			"command_name", ctx.Command.Name, "execution_id", executionID)
 	}
-	commandID := fmt.Sprintf("%s-%s", ctx.Command.Name, executionID)
+	commandID := HostCallbackCommandID(fmt.Sprintf("%s-%s", ctx.Command.Name, executionID))
+	if err := commandID.Validate(); err != nil {
+		return nil, err
+	}
 	sshConnInfo, err := r.hostCallbacks.GetConnectionInfo(commandID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate SSH credentials: %w", err)
+	}
+	if err := sshConnInfo.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid SSH credentials: %w", err)
 	}
 
 	// Add SSH connection info to environment (SC-04 / L-10).
@@ -441,8 +446,8 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 
 	env["INVOWK_SSH_HOST"] = hostAddr
 	env["INVOWK_SSH_PORT"] = sshConnInfo.Port.String()
-	env["INVOWK_SSH_USER"] = sshConnInfo.User
-	env["INVOWK_SSH_TOKEN"] = string(sshConnInfo.Token)
+	env["INVOWK_SSH_USER"] = sshConnInfo.User.String()
+	env["INVOWK_SSH_TOKEN"] = sshConnInfo.Token.String()
 	env["INVOWK_SSH_ENABLED"] = "true"
 
 	return sshConnInfo, nil

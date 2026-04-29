@@ -7,10 +7,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Compile-time interface check
@@ -58,19 +60,29 @@ func (p *LayerProvisioner) Config() *Config {
 	return p.config
 }
 
+func writerOrDefault(w, fallback io.Writer) io.Writer {
+	if w != nil {
+		return w
+	}
+	return fallback
+}
+
 // Provision creates or retrieves a cached provisioned image based on the
 // given base image. The returned Result contains the image tag
 // to use and any cleanup functions.
-func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.ImageTag) (*Result, error) {
+func (p *LayerProvisioner) Provision(ctx context.Context, req Request) (*Result, error) {
+	if req.BaseImage == "" {
+		req.BaseImage = "debian:stable-slim"
+	}
 	if !p.config.Enabled {
 		return &Result{
-			ImageTag: baseImage,
+			ImageTag: req.BaseImage,
 			EnvVars:  make(map[string]string),
 		}, nil
 	}
 
 	// Calculate cache key
-	cacheKey, err := p.calculateCacheKey(ctx, baseImage)
+	cacheKey, err := p.calculateCacheKey(ctx, req.BaseImage, req.InvowkfilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate cache key: %w", err)
 	}
@@ -81,7 +93,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.Im
 	}
 
 	// Check if cached image exists (skip if ForceRebuild is set)
-	if !p.config.ForceRebuild {
+	if !req.ForceRebuild && !p.config.ForceRebuild {
 		exists, _ := p.engine.ImageExists(ctx, provisionedTag) //nolint:errcheck // Error treated as "not found"
 		if exists {
 			return &Result{
@@ -92,7 +104,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.Im
 	}
 
 	// Build the provisioned image
-	warnings, err := p.buildProvisionedImage(ctx, baseImage, provisionedTag)
+	warnings, err := p.buildProvisionedImage(ctx, req, provisionedTag)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build provisioned image: %w", err)
 	}
@@ -116,7 +128,7 @@ func (p *LayerProvisioner) CleanupProvisionedImages(_ context.Context) error {
 // GetProvisionedImageTag returns the tag that would be used for a provisioned
 // image without actually building it. Useful for checking if an image is cached.
 func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage container.ImageTag) (string, error) {
-	cacheKey, err := p.calculateCacheKey(ctx, baseImage)
+	cacheKey, err := p.calculateCacheKey(ctx, baseImage, p.config.InvowkfilePath)
 	if err != nil {
 		return "", err
 	}
@@ -147,7 +159,7 @@ func (p *LayerProvisioner) buildProvisionedTag(hash string) string {
 }
 
 // calculateCacheKey generates a unique key based on all provisioned resources.
-func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag) (string, error) {
+func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag, invowkfilePath types.FilesystemPath) (string, error) {
 	h := sha256.New()
 
 	// Include base image identifier
@@ -181,8 +193,11 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage cont
 	}
 
 	// Include invowkfile directory hash if set
-	if p.config.InvowkfilePath != "" {
-		invowkfileDir := filepath.Dir(string(p.config.InvowkfilePath))
+	if invowkfilePath == "" {
+		invowkfilePath = p.config.InvowkfilePath
+	}
+	if invowkfilePath != "" {
+		invowkfileDir := filepath.Dir(string(invowkfilePath))
 		dirHash, err := CalculateDirHash(invowkfileDir)
 		if err == nil {
 			h.Write([]byte("invowkfile:" + dirHash))
@@ -200,9 +215,9 @@ func (p *LayerProvisioner) getImageIdentifier(_ context.Context, image container
 }
 
 // buildProvisionedImage creates the ephemeral image layer.
-func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage, tag container.ImageTag) ([]Warning, error) {
+func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, req Request, tag container.ImageTag) ([]Warning, error) {
 	// Create temporary build context
-	buildCtx, warnings, cleanup, err := p.prepareBuildContext(baseImage)
+	buildCtx, warnings, cleanup, err := p.prepareBuildContext(req.BaseImage)
 	if err != nil {
 		return nil, err
 	}
@@ -228,8 +243,8 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 		ContextDir: ctxDir,
 		Dockerfile: "Dockerfile",
 		Tag:        tag,
-		Stdout:     os.Stderr, // Show build progress on stderr
-		Stderr:     os.Stderr,
+		Stdout:     writerOrDefault(req.Stdout, os.Stderr),
+		Stderr:     writerOrDefault(req.Stderr, os.Stderr),
 	}
 
 	if err := p.engine.Build(ctx, buildOpts); err != nil {

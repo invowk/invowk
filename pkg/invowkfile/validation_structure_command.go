@@ -182,6 +182,15 @@ func (v *StructureValidator) validateRuntimeConfig(ctx *ValidationContext, inv *
 		}
 	}
 
+	if rt.Name == RuntimeVirtual && rt.Interpreter != "" {
+		errors = append(errors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.String(),
+			Message:   rt.ValidateInterpreterForRuntime().Error(),
+			Severity:  SeverityError,
+		})
+	}
+
 	// Container-specific fields validation
 	if rt.Name != RuntimeContainer {
 		// depends_on is only valid for container runtime (defense-in-depth; CUE schema is primary enforcement)

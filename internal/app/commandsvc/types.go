@@ -4,13 +4,28 @@ package commandsvc
 
 import (
 	"context"
+	"errors"
 
 	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/discovery"
-	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
+)
+
+const (
+	// ErrorKindCommandNotFound means the requested command or source was not found.
+	ErrorKindCommandNotFound ErrorKind = "command_not_found"
+	// ErrorKindScriptExecutionFailed means script execution failed for a generic reason.
+	ErrorKindScriptExecutionFailed ErrorKind = "script_execution_failed"
+	// ErrorKindContainerEngineNotFound means the selected container engine is unavailable.
+	ErrorKindContainerEngineNotFound ErrorKind = "container_engine_not_found"
+	// ErrorKindRuntimeNotAvailable means the selected runtime is unavailable.
+	ErrorKindRuntimeNotAvailable ErrorKind = "runtime_not_available"
+	// ErrorKindPermissionDenied means execution failed due to host permission denial.
+	ErrorKindPermissionDenied ErrorKind = "permission_denied"
+	// ErrorKindShellNotFound means a configured shell executable could not be found.
+	ErrorKindShellNotFound ErrorKind = "shell_not_found"
 )
 
 type (
@@ -94,17 +109,23 @@ type (
 		ExecCtx *runtime.ExecutionContext
 	}
 
-	// ClassifiedError is a typed error that carries an issue catalog ID and
-	// a plain-text (unstyled) message. The CLI adapter wraps this into a
-	// ServiceError with styled rendering.
+	// ClassifiedError is a typed error that carries a service-owned error kind
+	// and a plain-text (unstyled) message. The CLI adapter maps Kind to the
+	// presentation catalog and wraps this into a ServiceError with styled rendering.
 	ClassifiedError struct {
 		// Err is the underlying error.
 		Err error
-		// IssueID is the issue catalog ID for rendering help text.
-		IssueID issue.Id
+		// Kind classifies the domain failure without selecting presentation content.
+		Kind ErrorKind
 		// Message is a plain-text description of the error (no lipgloss styling).
 		Message string
 	}
+
+	//goplint:constant-only
+	//
+	// ErrorKind classifies command-service errors without depending on the CLI
+	// issue catalog.
+	ErrorKind string
 
 	// CommandDiscovery discovers invowk commands.
 	CommandDiscovery interface {
@@ -130,3 +151,21 @@ func (e *ClassifiedError) Error() string { return e.Err.Error() }
 
 // Unwrap returns the underlying error for errors.Is/As chains.
 func (e *ClassifiedError) Unwrap() error { return e.Err }
+
+// String returns the string representation of the error kind.
+func (k ErrorKind) String() string { return string(k) }
+
+// Validate returns nil when the error kind is one of the service-defined categories.
+func (k ErrorKind) Validate() error {
+	switch k {
+	case ErrorKindCommandNotFound,
+		ErrorKindScriptExecutionFailed,
+		ErrorKindContainerEngineNotFound,
+		ErrorKindRuntimeNotAvailable,
+		ErrorKindPermissionDenied,
+		ErrorKindShellNotFound:
+		return nil
+	default:
+		return errors.New("invalid command service error kind")
+	}
+}

@@ -149,6 +149,32 @@ func TestCalculateDirHash(t *testing.T) {
 	}
 }
 
+func TestCalculateDirHash_ChangesWhenFileContentsChange(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "file.txt")
+	if err := os.WriteFile(filePath, []byte("first"), 0o644); err != nil {
+		t.Fatalf("write first content: %v", err)
+	}
+	hash1, err := CalculateDirHash(tmpDir)
+	if err != nil {
+		t.Fatalf("CalculateDirHash(first) = %v", err)
+	}
+
+	if writeErr := os.WriteFile(filePath, []byte("second"), 0o644); writeErr != nil {
+		t.Fatalf("write second content: %v", writeErr)
+	}
+	hash2, err := CalculateDirHash(tmpDir)
+	if err != nil {
+		t.Fatalf("CalculateDirHash(second) = %v", err)
+	}
+
+	if hash1 == hash2 {
+		t.Fatal("directory hash did not change after file content changed")
+	}
+}
+
 func TestDiscoverModules(t *testing.T) {
 	t.Parallel()
 

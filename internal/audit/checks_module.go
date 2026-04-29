@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/invowk/invowk/pkg/fspath"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 const (
@@ -204,11 +205,10 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 		return nil
 	}
 
-	// Build set of declared dependency Git URLs for transitive-dep detection
-	// and for matching vendored modules by URL.
-	declared := make(map[string]bool)
+	// Build set of declared dependency keys for transitive-dep detection.
+	declared := make(map[invowkmod.ModuleRefKey]bool)
 	for _, req := range mod.Module.Metadata.Requires {
-		declared[string(req.GitURL)] = true
+		declared[invowkmod.ModuleRef(req).Key()] = true
 	}
 
 	// Check each vendored module's own requires for undeclared transitive deps.
@@ -218,7 +218,7 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 			continue
 		}
 		for _, transReq := range vendored.Metadata.Requires {
-			if !declared[string(transReq.GitURL)] {
+			if !declared[invowkmod.ModuleRef(transReq).Key()] {
 				findings = append(findings, Finding{
 					Severity:       SeverityMedium,
 					Category:       CategoryTrust,
@@ -234,15 +234,15 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 	}
 
 	// Second scan: verify each vendored module itself is declared in requires.
-	// Match by alias (the canonical module name) or by Git URL equality.
+	// Match through the same source identity helper used by command scope wiring.
 	for _, vendored := range mod.VendoredModules {
 		if vendored.Metadata == nil {
 			continue
 		}
-		vendoredID := string(vendored.Metadata.Module)
+		vendoredID := invowkmod.ModuleSourceID(vendored.Metadata.Module) //goplint:ignore -- module metadata is already parsed and validated
 		found := false
 		for _, req := range mod.Module.Metadata.Requires {
-			if string(req.Alias) == vendoredID || string(req.GitURL) == vendoredID {
+			if invowkmod.ModuleRef(req).MatchesSourceID(vendoredID) {
 				found = true
 				break
 			}
@@ -255,7 +255,7 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 				CheckerName:    moduleMetadataCheckerName,
 				FilePath:       fspath.JoinStr(mod.Path, moduleMetadataFileName),
 				Title:          "Vendored module not declared in requires",
-				Description:    fmt.Sprintf("Vendored module %q exists in invowk_modules/ but has no matching entry in requires — it may have been manually placed or left from a removed dependency", vendoredID),
+				Description:    fmt.Sprintf("Vendored module %q exists in invowk_modules/ but has no matching entry in requires — it may have been manually placed or left from a removed dependency", vendoredID.String()),
 				Recommendation: "Either add the module to requires in " + moduleMetadataFileName + " or remove it from invowk_modules/",
 			})
 		}

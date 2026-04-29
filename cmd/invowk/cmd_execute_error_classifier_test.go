@@ -34,9 +34,8 @@ func TestRenderAndWrapServiceError_ClassifiedError(t *testing.T) {
 		{
 			name: "container engine unavailable maps to container issue",
 			err: &commandsvc.ClassifiedError{
-				Err:     &container.EngineNotAvailableError{Engine: "podman", Reason: "not installed"},
-				IssueID: issue.ContainerEngineNotFoundId,
-				Message: "",
+				Err:  &container.EngineNotAvailableError{Engine: "podman", Reason: "not installed"},
+				Kind: commandsvc.ErrorKindContainerEngineNotFound,
 			},
 			wantIssueID: issue.ContainerEngineNotFoundId,
 			wantInStyle: []string{"Error:", "container engine 'podman' is not available"},
@@ -44,9 +43,8 @@ func TestRenderAndWrapServiceError_ClassifiedError(t *testing.T) {
 		{
 			name: "runtime unavailable maps to runtime issue",
 			err: &commandsvc.ClassifiedError{
-				Err:     fmt.Errorf("wrapped: %w", runtime.ErrRuntimeNotAvailable),
-				IssueID: issue.RuntimeNotAvailableId,
-				Message: "",
+				Err:  fmt.Errorf("wrapped: %w", runtime.ErrRuntimeNotAvailable),
+				Kind: commandsvc.ErrorKindRuntimeNotAvailable,
 			},
 			wantIssueID: issue.RuntimeNotAvailableId,
 			wantInStyle: []string{"runtime not available"},
@@ -54,9 +52,8 @@ func TestRenderAndWrapServiceError_ClassifiedError(t *testing.T) {
 		{
 			name: "permission denied maps to permission issue",
 			err: &commandsvc.ClassifiedError{
-				Err:     fmt.Errorf("wrapped: %w", os.ErrPermission),
-				IssueID: issue.PermissionDeniedId,
-				Message: "",
+				Err:  fmt.Errorf("wrapped: %w", os.ErrPermission),
+				Kind: commandsvc.ErrorKindPermissionDenied,
 			},
 			wantIssueID: issue.PermissionDeniedId,
 			wantInStyle: []string{"permission denied"},
@@ -65,7 +62,7 @@ func TestRenderAndWrapServiceError_ClassifiedError(t *testing.T) {
 			name: "deadline exceeded uses timed out hint",
 			err: &commandsvc.ClassifiedError{
 				Err:     context.DeadlineExceeded,
-				IssueID: issue.ScriptExecutionFailedId,
+				Kind:    commandsvc.ErrorKindScriptExecutionFailed,
 				Message: "timed out",
 			},
 			wantIssueID: issue.ScriptExecutionFailedId,
@@ -75,7 +72,7 @@ func TestRenderAndWrapServiceError_ClassifiedError(t *testing.T) {
 			name: "context cancelled uses cancelled hint",
 			err: &commandsvc.ClassifiedError{
 				Err:     context.Canceled,
-				IssueID: issue.ScriptExecutionFailedId,
+				Kind:    commandsvc.ErrorKindScriptExecutionFailed,
 				Message: "cancelled",
 			},
 			wantIssueID: issue.ScriptExecutionFailedId,
@@ -84,9 +81,8 @@ func TestRenderAndWrapServiceError_ClassifiedError(t *testing.T) {
 		{
 			name: "unknown error falls back to script execution issue",
 			err: &commandsvc.ClassifiedError{
-				Err:     errors.New("unexpected boom"),
-				IssueID: issue.ScriptExecutionFailedId,
-				Message: "",
+				Err:  errors.New("unexpected boom"),
+				Kind: commandsvc.ErrorKindScriptExecutionFailed,
 			},
 			wantIssueID: issue.ScriptExecutionFailedId,
 			wantInStyle: []string{"unexpected boom"},

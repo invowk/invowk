@@ -4,10 +4,8 @@ package invowkfile
 
 import (
 	"errors"
-	"fmt"
 	"path/filepath"
 	goruntime "runtime"
-	"strings"
 
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -25,7 +23,7 @@ const (
 
 var (
 	// ErrInvalidShellPath is the sentinel error wrapped by InvalidShellPathError.
-	ErrInvalidShellPath = errors.New("invalid shell path")
+	ErrInvalidShellPath = types.ErrInvalidShellPath
 
 	// ErrInvalidInvowkfile is the sentinel error wrapped by InvalidInvowkfileError.
 	ErrInvalidInvowkfile = errors.New("invalid invowkfile")
@@ -33,15 +31,10 @@ var (
 
 type (
 	// ShellPath represents a filesystem path to a shell executable.
-	// The zero value ("") is valid and means "use system default shell".
-	// Non-zero values must not be whitespace-only.
-	ShellPath string
+	ShellPath = types.ShellPath
 
 	// InvalidShellPathError is returned when a ShellPath value is whitespace-only.
-	// It wraps ErrInvalidShellPath for errors.Is() compatibility.
-	InvalidShellPathError struct {
-		Value ShellPath
-	}
+	InvalidShellPathError = types.InvalidShellPathError
 
 	// Platform represents a target platform.
 	// Alias for PlatformType for cleaner code.
@@ -92,30 +85,6 @@ type (
 		Metadata *ModuleMetadata `json:"-"`
 	}
 )
-
-// Error implements the error interface for InvalidShellPathError.
-func (e *InvalidShellPathError) Error() string {
-	return fmt.Sprintf("invalid shell path %q (must not be whitespace-only)", e.Value)
-}
-
-// Unwrap returns ErrInvalidShellPath for errors.Is() compatibility.
-func (e *InvalidShellPathError) Unwrap() error { return ErrInvalidShellPath }
-
-// Validate returns nil if the ShellPath is valid, or a validation error if not.
-// The zero value ("") is valid — it means "use system default shell".
-// Non-zero values must not be whitespace-only.
-func (s ShellPath) Validate() error {
-	if s == "" {
-		return nil
-	}
-	if strings.TrimSpace(string(s)) == "" {
-		return &InvalidShellPathError{Value: s}
-	}
-	return nil
-}
-
-// String returns the string representation of the ShellPath.
-func (s ShellPath) String() string { return string(s) }
 
 // CurrentPlatform returns the current operating system as Platform.
 func CurrentPlatform() Platform {

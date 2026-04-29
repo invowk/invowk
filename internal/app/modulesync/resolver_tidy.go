@@ -6,6 +6,8 @@ import (
 	"context"
 )
 
+type resolveAllFunc func(context.Context, []ModuleRef, map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error)
+
 // checkMissingTransitiveDeps compares each resolved module's TransitiveDeps
 // against the root requirements. Returns diagnostics for any transitive deps
 // that are not explicitly declared in the root invowkmod.cue.
@@ -53,23 +55,44 @@ func (m *Resolver) Tidy(ctx context.Context, requirements []ModuleRef) ([]Module
 		return nil, nil
 	}
 
-	// Resolve only the direct deps (no transitive recursion).
-	// Tidy adds missing transitive deps — pass existing lock hashes for cache integrity.
+	// Tidy expands the explicit-only graph to a fixed point. Sync remains
+	// fail-fast, but tidy should be the one-shot repair operation users expect.
 	knownHashes := m.loadExistingLockHashes()
-	resolved, err := m.resolveAll(ctx, requirements, knownHashes)
-	if err != nil {
-		return nil, err
+	return tidyToFixedPoint(ctx, requirements, knownHashes, m.resolveAll)
+}
+
+func tidyToFixedPoint(ctx context.Context, requirements []ModuleRef, knownHashes map[ModuleRefKey]ContentHash, resolveAll resolveAllFunc) ([]ModuleRef, error) {
+	current := append([]ModuleRef(nil), requirements...)
+	known := make(map[ModuleRefKey]bool, len(current))
+	for _, req := range current {
+		known[req.Key()] = true
 	}
 
-	diags := checkMissingTransitiveDeps(requirements, resolved)
-	if len(diags) == 0 {
-		return nil, nil
-	}
+	var missing []ModuleRef
+	for {
+		resolved, err := resolveAll(ctx, current, knownHashes)
+		if err != nil {
+			return nil, err
+		}
 
-	missing := make([]ModuleRef, 0, len(diags))
-	for _, d := range diags {
-		missing = append(missing, d.MissingRef)
-	}
+		diags := checkMissingTransitiveDeps(current, resolved)
+		if len(diags) == 0 {
+			return missing, nil
+		}
 
-	return missing, nil
+		added := false
+		for _, d := range diags {
+			key := d.MissingRef.Key()
+			if known[key] {
+				continue
+			}
+			known[key] = true
+			current = append(current, d.MissingRef)
+			missing = append(missing, d.MissingRef)
+			added = true
+		}
+		if !added {
+			return missing, nil
+		}
+	}
 }

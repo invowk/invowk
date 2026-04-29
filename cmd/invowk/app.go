@@ -262,10 +262,29 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 		default:
 			styledMsg = fmt.Sprintf("\n%s %s\n", styledLabel, formatErrorForDisplay(classified.Err, req.Verbose))
 		}
-		return newServiceError(classified.Err, classified.IssueID, styledMsg)
+		return newServiceError(classified.Err, issueIDForServiceErrorKind(classified.Kind), styledMsg)
 	}
 
 	return err
+}
+
+func issueIDForServiceErrorKind(kind commandsvc.ErrorKind) issue.Id {
+	switch kind {
+	case commandsvc.ErrorKindCommandNotFound:
+		return issue.CommandNotFoundId
+	case commandsvc.ErrorKindContainerEngineNotFound:
+		return issue.ContainerEngineNotFoundId
+	case commandsvc.ErrorKindRuntimeNotAvailable:
+		return issue.RuntimeNotAvailableId
+	case commandsvc.ErrorKindPermissionDenied:
+		return issue.PermissionDeniedId
+	case commandsvc.ErrorKindShellNotFound:
+		return issue.ShellNotFoundId
+	case commandsvc.ErrorKindScriptExecutionFailed:
+		return issue.ScriptExecutionFailedId
+	default:
+		return issue.ScriptExecutionFailedId
+	}
 }
 
 // contextWithConfigPath attaches the explicit --ivk-config value and a per-request

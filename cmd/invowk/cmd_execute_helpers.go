@@ -65,7 +65,8 @@ func toDotenvFilePaths(paths []string) []invowkfile.DotenvFilePath {
 }
 
 // runDisambiguatedCommand executes a command from a specific source.
-// It validates that the source exists and that the command is available in that source.
+// The command service validates source existence for normal execution; watch mode
+// performs local validation because it needs the resolved command before starting.
 // This is used when @source prefix or --ivk-from flag is provided.
 //
 // For subcommands (e.g., "deploy staging"), this function attempts to match the longest
@@ -78,6 +79,28 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 
 	if len(args) == 0 {
 		return errNoCommandSpecified
+	}
+
+	if !cmdFlags.watch {
+		parsedRuntime, err := cmdFlags.parsedRuntimeMode()
+		if err != nil {
+			return err
+		}
+
+		verbose, interactive := resolveUIFlags(ctx, app, cmd, rootFlags)
+		req := ExecuteRequest{
+			Name:         args[0],
+			Args:         args[1:],
+			Runtime:      parsedRuntime,
+			Interactive:  interactive,
+			Verbose:      verbose,
+			FromSource:   filter.SourceID,
+			ForceRebuild: cmdFlags.forceRebuild,
+			DryRun:       cmdFlags.dryRun,
+			ConfigPath:   types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+		}
+
+		return executeRequest(cmd, app, req)
 	}
 
 	commandSetResult, err := app.Discovery.DiscoverCommandSet(ctx)

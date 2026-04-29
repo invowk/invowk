@@ -3,6 +3,7 @@
 package modulesync
 
 import (
+	"context"
 	"testing"
 )
 
@@ -145,5 +146,50 @@ func TestCheckMissingTransitiveDeps_Deduplication(t *testing.T) {
 	}
 	if diags[0].MissingRef.GitURL != "https://github.com/org/D.git" {
 		t.Errorf("missing URL = %q, want D.git", diags[0].MissingRef.GitURL)
+	}
+}
+
+func TestTidyToFixedPointAddsNestedTransitiveDepsOnce(t *testing.T) {
+	t.Parallel()
+
+	refA := ModuleRef{GitURL: "https://github.com/org/A.git", Version: "^1.0.0"}
+	refB := ModuleRef{GitURL: "https://github.com/org/B.git", Version: "^1.0.0"}
+	refC := ModuleRef{GitURL: "https://github.com/org/C.git", Version: "^1.0.0"}
+	refD := ModuleRef{GitURL: "https://github.com/org/D.git", Version: "^1.0.0"}
+
+	graph := map[ModuleRefKey][]ModuleRef{
+		refA.Key(): {refB, refC},
+		refB.Key(): {refD},
+		refC.Key(): {refD},
+	}
+	resolveCalls := 0
+	resolveAll := func(_ context.Context, requirements []ModuleRef, _ map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error) {
+		resolveCalls++
+		resolved := make([]*ResolvedModule, 0, len(requirements))
+		for _, req := range requirements {
+			resolved = append(resolved, &ResolvedModule{
+				ModuleRef:      req,
+				ModuleID:       ModuleID(req.Key()),
+				TransitiveDeps: graph[req.Key()],
+			})
+		}
+		return resolved, nil
+	}
+
+	missing, err := tidyToFixedPoint(t.Context(), []ModuleRef{refA}, nil, resolveAll)
+	if err != nil {
+		t.Fatalf("tidyToFixedPoint() = %v", err)
+	}
+	if resolveCalls != 3 {
+		t.Fatalf("resolveCalls = %d, want 3", resolveCalls)
+	}
+	if len(missing) != 3 {
+		t.Fatalf("len(missing) = %d, want 3: %v", len(missing), missing)
+	}
+	want := []ModuleRef{refB, refC, refD}
+	for i := range want {
+		if missing[i].Key() != want[i].Key() {
+			t.Fatalf("missing[%d] = %s, want %s", i, missing[i].Key(), want[i].Key())
+		}
 	}
 }

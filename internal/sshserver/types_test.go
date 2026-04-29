@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestHostAddress_Validate(t *testing.T) {
@@ -366,7 +366,7 @@ func TestSSHConfig_Validate(t *testing.T) {
 			Config{
 				Host:         HostAddress("127.0.0.1"),
 				Port:         ListenPort(2222),
-				DefaultShell: invowkfile.ShellPath("/bin/sh"),
+				DefaultShell: types.ShellPath("/bin/sh"),
 			},
 			true, false, 0,
 		},
@@ -375,7 +375,7 @@ func TestSSHConfig_Validate(t *testing.T) {
 			Config{
 				Host:         HostAddress("localhost"),
 				Port:         ListenPort(0),
-				DefaultShell: invowkfile.ShellPath("/bin/bash"),
+				DefaultShell: types.ShellPath("/bin/bash"),
 			},
 			true, false, 0,
 		},
@@ -384,7 +384,7 @@ func TestSSHConfig_Validate(t *testing.T) {
 			Config{
 				Host:         HostAddress(""),
 				Port:         ListenPort(22),
-				DefaultShell: invowkfile.ShellPath("/bin/sh"),
+				DefaultShell: types.ShellPath("/bin/sh"),
 			},
 			false, true, 1,
 		},
@@ -393,7 +393,7 @@ func TestSSHConfig_Validate(t *testing.T) {
 			Config{
 				Host:         HostAddress("127.0.0.1"),
 				Port:         ListenPort(-1),
-				DefaultShell: invowkfile.ShellPath("/bin/sh"),
+				DefaultShell: types.ShellPath("/bin/sh"),
 			},
 			false, true, 1,
 		},
@@ -402,7 +402,7 @@ func TestSSHConfig_Validate(t *testing.T) {
 			Config{
 				Host:         HostAddress("127.0.0.1"),
 				Port:         ListenPort(22),
-				DefaultShell: invowkfile.ShellPath("   "),
+				DefaultShell: types.ShellPath("   "),
 			},
 			false, true, 1,
 		},
@@ -411,7 +411,7 @@ func TestSSHConfig_Validate(t *testing.T) {
 			Config{
 				Host:         HostAddress(""),
 				Port:         ListenPort(70000),
-				DefaultShell: invowkfile.ShellPath("  "),
+				DefaultShell: types.ShellPath("  "),
 			},
 			false, true, 3,
 		},

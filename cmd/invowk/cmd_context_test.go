@@ -142,10 +142,6 @@ func TestRunDisambiguatedCommand_AttachesConfigPathToContext(t *testing.T) {
 		t.Fatalf("runDisambiguatedCommand() error = %v", err)
 	}
 
-	if disc.lastConfigPath != rootFlags.configPath {
-		t.Fatalf("discovery context config path = %q, want %q", disc.lastConfigPath, rootFlags.configPath)
-	}
-
 	if commands.lastConfigPath != rootFlags.configPath {
 		t.Fatalf("execute context config path = %q, want %q", commands.lastConfigPath, rootFlags.configPath)
 	}

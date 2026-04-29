@@ -5,7 +5,6 @@ package deps
 import (
 	"context"
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -51,6 +50,14 @@ func ValidateHostDependencies(disc CommandSetProvider, cmdInfo *discovery.Comman
 
 // ValidateHostDependenciesWithCapabilityChecker validates host dependencies with an injectable capability checker.
 func ValidateHostDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker) error {
+	return ValidateHostDependenciesWithHostProbe(disc, cmdInfo, parentCtx, userEnv, hostCapabilityChecker, nil)
+}
+
+// ValidateHostDependenciesWithHostProbe validates host dependencies with injectable host-device probes.
+func ValidateHostDependenciesWithHostProbe(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe) error {
+	if hostProbe == nil {
+		hostProbe = newDefaultHostProbe()
+	}
 	mergedDeps := invowkfile.MergeDependsOnAll(cmdInfo.Invowkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 	if mergedDeps == nil {
 		return nil
@@ -65,12 +72,12 @@ func ValidateHostDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdI
 	}
 
 	// Tools: always host PATH
-	if err := CheckHostToolDependencies(mergedDeps, parentCtx); err != nil {
+	if err := CheckHostToolDependenciesWithProbe(mergedDeps, parentCtx, hostProbe); err != nil {
 		return err
 	}
 
 	// Filepaths: always host filesystem
-	if err := CheckHostFilepathDependencies(mergedDeps, invowkfilePath, parentCtx); err != nil {
+	if err := CheckHostFilepathDependenciesWithProbe(mergedDeps, invowkfilePath, parentCtx, hostProbe); err != nil {
 		return err
 	}
 
@@ -80,7 +87,7 @@ func ValidateHostDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdI
 	}
 
 	// Custom checks: always native shell on host
-	if err := CheckHostCustomCheckDependencies(mergedDeps, parentCtx); err != nil {
+	if err := CheckHostCustomCheckDependenciesWithProbe(mergedDeps, parentCtx, hostProbe); err != nil {
 		return err
 	}
 
@@ -254,22 +261,7 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 }
 
 func requirementMatchesSource(req invowkmod.ModuleRequirement, sourceID discovery.SourceID) bool {
-	if req.Alias != "" {
-		return string(req.Alias) == string(sourceID)
-	}
-	return moduleSourceFromGitURL(req.GitURL) == sourceID
-}
-
-func moduleSourceFromGitURL(gitURL invowkmod.GitURL) discovery.SourceID {
-	urlPath := string(gitURL)
-	if _, after, found := strings.Cut(urlPath, "://"); found {
-		urlPath = after
-	}
-	if before, after, found := strings.Cut(urlPath, ":"); found && !strings.Contains(before, "/") {
-		urlPath = after
-	}
-	base := path.Base(urlPath)
-	return discovery.SourceID(strings.TrimSuffix(base, ".git")) //goplint:ignore -- source ID derived from validated module Git URL.
+	return invowkmod.ModuleRef(req).MatchesSourceID(invowkmod.ModuleSourceID(sourceID)) //goplint:ignore -- SourceID already validated by discovery package
 }
 
 func discoverAvailableCommands(disc CommandSetProvider, ctx *runtime.ExecutionContext) (map[invowkfile.CommandName]*discovery.CommandInfo, error) {

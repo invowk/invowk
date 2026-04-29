@@ -18,11 +18,15 @@ import (
 )
 
 type fakeProvisioner struct {
-	result *provision.Result
-	err    error
+	result  *provision.Result
+	err     error
+	request *provision.Request
 }
 
-func (p fakeProvisioner) Provision(_ context.Context, _ container.ImageTag) (*provision.Result, error) {
+func (p fakeProvisioner) Provision(_ context.Context, req provision.Request) (*provision.Result, error) {
+	if p.request != nil {
+		*p.request = req
+	}
 	return p.result, p.err
 }
 
@@ -364,5 +368,72 @@ func TestPrepareCommandIncludesProvisionedEnvVars(t *testing.T) {
 	}
 	if env["INVOWK_MODULE_PATH"] != "/invowk/modules" {
 		t.Errorf("INVOWK_MODULE_PATH = %q, want /invowk/modules", env["INVOWK_MODULE_PATH"])
+	}
+}
+
+func TestEnsureProvisionedImagePassesRequestWithoutMutatingConfig(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	invPath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
+	inv := &invowkfile.Invowkfile{FilePath: invPath}
+	cmd := &invowkfile.Command{
+		Name: "request-test",
+		Implementations: []invowkfile.Implementation{{
+			Script:    "echo hello",
+			Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+			Platforms: invowkfile.AllPlatformConfigs(),
+		}},
+	}
+
+	var gotReq provision.Request
+	provCfg := &provision.Config{
+		Enabled:          true,
+		InvowkfilePath:   types.FilesystemPath(filepath.Join(tmpDir, "old-invowkfile.cue")),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
+	}
+	rt, err := NewContainerRuntimeWithEngine(
+		NewMockEngine(),
+		WithContainerProvisioner(
+			fakeProvisioner{
+				result: &provision.Result{
+					ImageTag: container.ImageTag("invowk-provisioned:test"),
+					EnvVars:  map[string]string{},
+				},
+				request: &gotReq,
+			},
+			provCfg,
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+	}
+
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	execCtx.ForceRebuild = true
+	var stdout, stderr bytes.Buffer
+	execCtx.IO.Stdout = &stdout
+	execCtx.IO.Stderr = &stderr
+
+	_, _, cleanup, err := rt.ensureProvisionedImage(execCtx, invowkfileContainerConfig{Image: "debian:stable-slim"}, tmpDir)
+	if err != nil {
+		t.Fatalf("ensureProvisionedImage() = %v", err)
+	}
+	if cleanup != nil {
+		cleanup()
+	}
+
+	if gotReq.InvowkfilePath != invPath {
+		t.Fatalf("request InvowkfilePath = %q, want %q", gotReq.InvowkfilePath, invPath)
+	}
+	if !gotReq.ForceRebuild {
+		t.Fatal("request ForceRebuild = false, want true")
+	}
+	if gotReq.Stdout != &stderr || gotReq.Stderr != &stderr {
+		t.Fatal("request writers should be routed to execution stderr")
+	}
+	if provCfg.InvowkfilePath == invPath {
+		t.Fatal("provision config was mutated with execution invowkfile path")
 	}
 }

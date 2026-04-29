@@ -396,10 +396,50 @@ func (rc RuntimeConfig) Validate() error {
 	appendOptionalValidation(&errs, rc.Image, rc.Image != "")
 	appendEachValidation(&errs, rc.Volumes)
 	appendEachValidation(&errs, rc.Ports)
+	appendRuntimeConfigInvariantErrors(&errs, rc)
 	if len(errs) > 0 {
 		return &InvalidRuntimeConfigError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func appendRuntimeConfigInvariantErrors(errs *[]error, rc RuntimeConfig) {
+	if rc.Name == RuntimeVirtual && rc.Interpreter != "" {
+		*errs = append(*errs, rc.ValidateInterpreterForRuntime())
+	}
+
+	if rc.Name != RuntimeContainer {
+		appendNonContainerRuntimeFieldErrors(errs, rc)
+		return
+	}
+
+	if rc.Containerfile != "" && rc.Image != "" {
+		*errs = append(*errs, errors.New("containerfile and image are mutually exclusive"))
+	}
+	if rc.Containerfile == "" && rc.Image == "" {
+		*errs = append(*errs, errors.New("container runtime requires either containerfile or image"))
+	}
+}
+
+func appendNonContainerRuntimeFieldErrors(errs *[]error, rc RuntimeConfig) {
+	if rc.DependsOn != nil {
+		*errs = append(*errs, errors.New("depends_on is only valid for container runtime"))
+	}
+	if rc.EnableHostSSH {
+		*errs = append(*errs, errors.New("enable_host_ssh is only valid for container runtime"))
+	}
+	if rc.Containerfile != "" {
+		*errs = append(*errs, errors.New("containerfile is only valid for container runtime"))
+	}
+	if rc.Image != "" {
+		*errs = append(*errs, errors.New("image is only valid for container runtime"))
+	}
+	if len(rc.Volumes) > 0 {
+		*errs = append(*errs, errors.New("volumes is only valid for container runtime"))
+	}
+	if len(rc.Ports) > 0 {
+		*errs = append(*errs, errors.New("ports is only valid for container runtime"))
+	}
 }
 
 // Error implements the error interface for InvalidRuntimeConfigError.

@@ -3,7 +3,9 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
+	slashpath "path"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -102,6 +104,9 @@ type (
 		// Matches contains all matching entries.
 		Matches []AmbiguousMatch
 	}
+
+	// ModuleSourceID identifies the source namespace used for module commands.
+	ModuleSourceID string
 )
 
 // Error implements the error interface for AmbiguousIdentifierError.
@@ -115,12 +120,34 @@ func (e *AmbiguousIdentifierError) Error() string {
 	return sb.String()
 }
 
+// String returns the string representation of the module source ID.
+func (id ModuleSourceID) String() string { return string(id) }
+
+// Validate returns nil if the module source ID is non-empty.
+func (id ModuleSourceID) Validate() error {
+	if strings.TrimSpace(string(id)) == "" {
+		return errors.New("module source ID must not be empty")
+	}
+	return nil
+}
+
 // Key returns a unique key for this requirement based on GitURL and Path.
 func (r ModuleRef) Key() ModuleRefKey {
 	if r.Path != "" {
 		return ModuleRefKey(fmt.Sprintf("%s#%s", r.GitURL, string(r.Path)))
 	}
 	return ModuleRefKey(r.GitURL)
+}
+
+// MatchesSourceID reports whether this requirement can publish commands under sourceID.
+func (r ModuleRef) MatchesSourceID(sourceID ModuleSourceID) bool {
+	if r.Alias != "" {
+		return string(r.Alias) == sourceID.String()
+	}
+	if r.Path != "" && slashpath.Base(string(r.Path)) == sourceID.String() {
+		return true
+	}
+	return moduleSourceFromGitURL(r.GitURL) == sourceID
 }
 
 // String returns a human-readable representation of the requirement.
@@ -134,4 +161,20 @@ func (r ModuleRef) String() string {
 		s += " (alias: " + string(r.Alias) + ")"
 	}
 	return s
+}
+
+func moduleSourceFromGitURL(gitURL GitURL) ModuleSourceID {
+	urlPath := string(gitURL)
+	if _, after, found := strings.Cut(urlPath, "://"); found {
+		urlPath = after
+	}
+	if before, after, found := strings.Cut(urlPath, ":"); found && !strings.Contains(before, "/") {
+		urlPath = after
+	}
+	base := slashpath.Base(urlPath)
+	sourceID := ModuleSourceID(strings.TrimSuffix(base, ".git"))
+	if err := sourceID.Validate(); err != nil {
+		return ""
+	}
+	return sourceID
 }

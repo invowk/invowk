@@ -13,18 +13,42 @@ import (
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
-type stubCommandSetProvider struct {
-	result discovery.CommandSetResult
-	err    error
-}
+type (
+	stubCommandSetProvider struct {
+		result discovery.CommandSetResult
+		err    error
+	}
+
+	recordingHostProbe struct {
+		tools     []invowkfile.BinaryName
+		filepaths []types.FilesystemPath
+		checks    []invowkfile.CheckName
+	}
+)
 
 func (s *stubCommandSetProvider) DiscoverCommandSet(context.Context) (discovery.CommandSetResult, error) {
 	if s.err != nil {
 		return discovery.CommandSetResult{}, s.err
 	}
 	return s.result, nil
+}
+
+func (p *recordingHostProbe) CheckTool(tool invowkfile.BinaryName) error {
+	p.tools = append(p.tools, tool)
+	return nil
+}
+
+func (p *recordingHostProbe) CheckFilepath(_, resolvedPath types.FilesystemPath, _ invowkfile.FilepathDependency) error {
+	p.filepaths = append(p.filepaths, resolvedPath)
+	return nil
+}
+
+func (p *recordingHostProbe) RunCustomCheck(_ context.Context, check invowkfile.CustomCheck) error {
+	p.checks = append(p.checks, check.Name)
+	return nil
 }
 
 func TestCheckCommandDependenciesExist(t *testing.T) {
@@ -346,6 +370,63 @@ func TestValidateDependencies(t *testing.T) {
 			t.Fatalf("len(MissingCapabilities) = %d, want 1", len(depErr.MissingCapabilities))
 		}
 	})
+}
+
+func TestValidateHostDependenciesWithHostProbeUsesInjectedProbe(t *testing.T) {
+	t.Parallel()
+
+	cmd := &invowkfile.Command{
+		Name: "build",
+		DependsOn: &invowkfile.DependsOn{
+			Tools: []invowkfile.ToolDependency{{
+				Alternatives: []invowkfile.BinaryName{"tool-a"},
+			}},
+			Filepaths: []invowkfile.FilepathDependency{{
+				Alternatives: []invowkfile.FilesystemPath{"data/input.txt"},
+				Readable:     true,
+			}},
+			CustomChecks: []invowkfile.CustomCheckDependency{{
+				Name:        "custom",
+				CheckScript: "exit 0",
+			}},
+		},
+		Implementations: []invowkfile.Implementation{{
+			Script:   "echo ok",
+			Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+		}},
+	}
+	cmdInfo := &discovery.CommandInfo{
+		Name:       cmd.Name,
+		Command:    cmd,
+		Invowkfile: &invowkfile.Invowkfile{FilePath: types.FilesystemPath("/tmp/work/invowkfile.cue")},
+	}
+	execCtx := &runtimepkg.ExecutionContext{
+		Command:      cmd,
+		Context:      t.Context(),
+		SelectedImpl: &cmd.Implementations[0],
+	}
+	probe := &recordingHostProbe{}
+
+	err := ValidateHostDependenciesWithHostProbe(
+		&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
+		cmdInfo,
+		execCtx,
+		map[string]string{},
+		nil,
+		probe,
+	)
+	if err != nil {
+		t.Fatalf("ValidateHostDependenciesWithHostProbe() = %v", err)
+	}
+	if len(probe.tools) != 1 || probe.tools[0] != "tool-a" {
+		t.Fatalf("probe tools = %v, want [tool-a]", probe.tools)
+	}
+	if len(probe.filepaths) != 1 || probe.filepaths[0] != "/tmp/work/data/input.txt" {
+		t.Fatalf("probe filepaths = %v, want resolved path", probe.filepaths)
+	}
+	if len(probe.checks) != 1 || probe.checks[0] != "custom" {
+		t.Fatalf("probe checks = %v, want [custom]", probe.checks)
+	}
 }
 
 func TestValidateRuntimeDependencies(t *testing.T) {

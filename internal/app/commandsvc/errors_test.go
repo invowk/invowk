@@ -8,9 +8,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/invowk/invowk/internal/issue"
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 )
+
+type testOperationError struct {
+	err       error
+	operation string
+}
 
 func TestClassifyExecutionError(t *testing.T) {
 	t.Parallel()
@@ -18,55 +22,64 @@ func TestClassifyExecutionError(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
-		wantID   issue.Id
+		wantKind ErrorKind
 		wantHint string
 	}{
 		{
 			name:     "deadline exceeded",
 			err:      context.DeadlineExceeded,
-			wantID:   issue.ScriptExecutionFailedId,
+			wantKind: ErrorKindScriptExecutionFailed,
 			wantHint: HintTimedOut,
 		},
 		{
 			name:     "cancelled",
 			err:      context.Canceled,
-			wantID:   issue.ScriptExecutionFailedId,
+			wantKind: ErrorKindScriptExecutionFailed,
 			wantHint: HintCancelled,
 		},
 		{
-			name:   "no engine available",
-			err:    runtimepkg.ErrContainerEngineUnavailable,
-			wantID: issue.ContainerEngineNotFoundId,
+			name:     "no engine available",
+			err:      runtimepkg.ErrContainerEngineUnavailable,
+			wantKind: ErrorKindContainerEngineNotFound,
 		},
 		{
-			name:   "runtime not available",
-			err:    runtimepkg.ErrRuntimeNotAvailable,
-			wantID: issue.RuntimeNotAvailableId,
+			name:     "runtime not available",
+			err:      runtimepkg.ErrRuntimeNotAvailable,
+			wantKind: ErrorKindRuntimeNotAvailable,
 		},
 		{
-			name:   "permission denied",
-			err:    os.ErrPermission,
-			wantID: issue.PermissionDeniedId,
+			name:     "permission denied",
+			err:      os.ErrPermission,
+			wantKind: ErrorKindPermissionDenied,
 		},
 		{
-			name:   "actionable find shell",
-			err:    issue.NewErrorContext().WithOperation("find shell").Wrap(errors.New("missing")).Build(),
-			wantID: issue.ShellNotFoundId,
+			name: "actionable find shell",
+			err: testOperationError{
+				err:       errors.New("missing"),
+				operation: "find shell",
+			},
+			wantKind: ErrorKindShellNotFound,
 		},
 		{
-			name:   "default fallback",
-			err:    errors.New("boom"),
-			wantID: issue.ScriptExecutionFailedId,
+			name:     "default fallback",
+			err:      errors.New("boom"),
+			wantKind: ErrorKindScriptExecutionFailed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			gotID, gotHint := classifyExecutionError(tt.err)
-			if gotID != tt.wantID || gotHint != tt.wantHint {
-				t.Fatalf("classifyExecutionError() = (%v, %q), want (%v, %q)", gotID, gotHint, tt.wantID, tt.wantHint)
+			gotKind, gotHint := classifyExecutionError(tt.err)
+			if gotKind != tt.wantKind || gotHint != tt.wantHint {
+				t.Fatalf("classifyExecutionError() = (%v, %q), want (%v, %q)", gotKind, gotHint, tt.wantKind, tt.wantHint)
 			}
 		})
 	}
 }
+
+func (e testOperationError) Error() string { return e.err.Error() }
+
+func (e testOperationError) Unwrap() error { return e.err }
+
+func (e testOperationError) Operation() string { return e.operation }

@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -103,6 +104,91 @@ func TestRuntimeConfig_Validate_ValidContainer(t *testing.T) {
 	if err := rc.Validate(); err != nil {
 		t.Fatalf("valid container RuntimeConfig.Validate() returned error: %v", err)
 	}
+}
+
+func TestRuntimeConfig_Validate_RuntimeSpecificInvariants(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		config  RuntimeConfig
+		wantErr string
+	}{
+		{
+			name: "native rejects depends_on",
+			config: RuntimeConfig{
+				Name:      RuntimeNative,
+				DependsOn: &DependsOn{},
+			},
+			wantErr: "depends_on is only valid for container runtime",
+		},
+		{
+			name: "native rejects container fields",
+			config: RuntimeConfig{
+				Name:           RuntimeNative,
+				EnableHostSSH:  true,
+				Containerfile:  "Containerfile",
+				Image:          "debian:stable-slim",
+				Volumes:        []VolumeMountSpec{"./data:/data"},
+				Ports:          []PortMappingSpec{"8080:80"},
+				EnvInheritMode: EnvInheritAll,
+			},
+			wantErr: "enable_host_ssh is only valid for container runtime",
+		},
+		{
+			name: "virtual rejects interpreter",
+			config: RuntimeConfig{
+				Name:        RuntimeVirtual,
+				Interpreter: "python3",
+			},
+			wantErr: ErrInterpreterNotAllowed.Error(),
+		},
+		{
+			name: "container requires image or containerfile",
+			config: RuntimeConfig{
+				Name: RuntimeContainer,
+			},
+			wantErr: "container runtime requires either containerfile or image",
+		},
+		{
+			name: "container rejects both image and containerfile",
+			config: RuntimeConfig{
+				Name:          RuntimeContainer,
+				Containerfile: "Containerfile",
+				Image:         "debian:stable-slim",
+			},
+			wantErr: "containerfile and image are mutually exclusive",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.config.Validate()
+			if err == nil {
+				t.Fatal("RuntimeConfig.Validate() returned nil, want error")
+			}
+			if !errors.Is(err, ErrInvalidRuntimeConfig) {
+				t.Fatalf("error should wrap ErrInvalidRuntimeConfig, got: %v", err)
+			}
+			var rcErr *InvalidRuntimeConfigError
+			if !errors.As(err, &rcErr) {
+				t.Fatalf("error should be *InvalidRuntimeConfigError, got %T", err)
+			}
+			if !fieldErrorsContain(rcErr.FieldErrors, tt.wantErr) {
+				t.Fatalf("field errors %v do not contain %q", rcErr.FieldErrors, tt.wantErr)
+			}
+		})
+	}
+}
+
+func fieldErrorsContain(errs []error, want string) bool {
+	for _, err := range errs {
+		if strings.Contains(err.Error(), want) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestRuntimeConfig_Validate_InvalidName(t *testing.T) {

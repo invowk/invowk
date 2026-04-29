@@ -17,6 +17,10 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+type testSSHHostCallbacks struct {
+	server *sshserver.Server
+}
+
 // TestContainerRuntime_Integration tests the container runtime with real containers.
 // These tests require Docker or Podman to be available.
 func TestContainerRuntime_Integration(t *testing.T) {
@@ -500,8 +504,49 @@ func createContainerRuntimeWithSSHServer(t *testing.T) *ContainerRuntime {
 		t.Skipf("skipping test: failed to create SSH server: %v", err)
 	}
 
-	rt.SetSSHServer(srv)
+	rt.SetHostCallbacks(testSSHHostCallbacks{server: srv})
 	return rt
+}
+
+func (h testSSHHostCallbacks) IsRunning() bool {
+	return h.server != nil && h.server.IsRunning()
+}
+
+func (h testSSHHostCallbacks) GetConnectionInfo(commandID HostCallbackCommandID) (*HostCallbackConnectionInfo, error) {
+	info, err := h.server.GetConnectionInfo(commandID.String())
+	if err != nil {
+		return nil, err
+	}
+	host := HostCallbackHost(info.Host.String())
+	if err := host.Validate(); err != nil {
+		return nil, err
+	}
+	token := HostCallbackToken(info.Token.String())
+	if err := token.Validate(); err != nil {
+		return nil, err
+	}
+	user := HostCallbackUser(info.User)
+	if err := user.Validate(); err != nil {
+		return nil, err
+	}
+	connInfo := &HostCallbackConnectionInfo{
+		Host:  host,
+		Port:  info.Port,
+		Token: token,
+		User:  user,
+	}
+	if err := connInfo.Validate(); err != nil {
+		return nil, err
+	}
+	return connInfo, nil
+}
+
+func (h testSSHHostCallbacks) RevokeToken(token HostCallbackToken) {
+	sshToken := sshserver.TokenValue(token.String())
+	if err := sshToken.Validate(); err != nil {
+		return
+	}
+	h.server.RevokeToken(sshToken)
 }
 
 // createTestSSHServer creates a test SSH server

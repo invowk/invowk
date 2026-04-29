@@ -4,8 +4,11 @@ package provision
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -24,7 +27,21 @@ type (
 		// Provision adds invowk resources (binary, modules) to a base image.
 		// Returns provisioned image tag and cleanup function.
 		// The cleanup function removes temporary build resources (not the cached image).
-		Provision(ctx context.Context, baseImage container.ImageTag) (*Result, error)
+		Provision(ctx context.Context, req Request) (*Result, error)
+	}
+
+	// Request contains execution-scoped provisioning inputs.
+	Request struct {
+		// BaseImage is the image to layer invowk resources onto.
+		BaseImage container.ImageTag
+		// InvowkfilePath is the current invowkfile path for module discovery.
+		InvowkfilePath types.FilesystemPath
+		// ForceRebuild bypasses the provisioned-image cache.
+		ForceRebuild bool
+		// Stdout receives build output.
+		Stdout io.Writer
+		// Stderr receives build errors/progress.
+		Stderr io.Writer
 	}
 
 	//goplint:validate-all
@@ -47,3 +64,19 @@ type (
 		Warnings []Warning
 	}
 )
+
+// Validate returns nil when request value fields are valid.
+func (r Request) Validate() error {
+	var errs []error
+	if r.BaseImage != "" {
+		if err := r.BaseImage.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if r.InvowkfilePath != "" {
+		if err := r.InvowkfilePath.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}

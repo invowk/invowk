@@ -226,6 +226,13 @@ type (
 		Engine EngineType
 		Reason string
 	}
+
+	engineDiscovery interface {
+		NewPodman() Engine
+		NewDocker() Engine
+	}
+
+	defaultEngineDiscovery struct{}
 )
 
 func (e *EngineNotAvailableError) Error() string {
@@ -432,6 +439,10 @@ func (et EngineType) Validate() error {
 // The returned engine is automatically wrapped with sandbox awareness
 // when running inside Flatpak or Snap sandboxes.
 func NewEngine(preferredType EngineType) (Engine, error) {
+	return newEngineWithDiscovery(preferredType, defaultEngineDiscovery{})
+}
+
+func newEngineWithDiscovery(preferredType EngineType, discovery engineDiscovery) (Engine, error) {
 	if err := preferredType.Validate(); err != nil {
 		return nil, err
 	}
@@ -440,10 +451,10 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 
 	switch preferredType {
 	case EngineTypePodman:
-		podman := NewPodmanEngine()
+		podman := discovery.NewPodman()
 		if podman.Available() {
 			engine = podman
-		} else if docker := NewDockerEngine(); docker.Available() {
+		} else if docker := discovery.NewDocker(); docker.Available() {
 			// Fall back to Docker
 			engine = docker
 		} else {
@@ -454,10 +465,10 @@ func NewEngine(preferredType EngineType) (Engine, error) {
 		}
 
 	case EngineTypeDocker:
-		docker := NewDockerEngine()
+		docker := discovery.NewDocker()
 		if docker.Available() {
 			engine = docker
-		} else if podman := NewPodmanEngine(); podman.Available() {
+		} else if podman := discovery.NewPodman(); podman.Available() {
 			// Fall back to Podman
 			engine = podman
 		} else {
@@ -493,14 +504,18 @@ func CloseEngine(engine Engine) error {
 // The returned engine is automatically wrapped with sandbox awareness
 // when running inside Flatpak or Snap sandboxes.
 func AutoDetectEngine() (Engine, error) {
+	return autoDetectEngineWithDiscovery(defaultEngineDiscovery{})
+}
+
+func autoDetectEngineWithDiscovery(discovery engineDiscovery) (Engine, error) {
 	// Try Podman first (more commonly available in rootless setups)
-	podman := NewPodmanEngine()
+	podman := discovery.NewPodman()
 	if podman.Available() {
 		return NewSandboxAwareEngine(podman), nil
 	}
 
 	// Try Docker
-	docker := NewDockerEngine()
+	docker := discovery.NewDocker()
 	if docker.Available() {
 		return NewSandboxAwareEngine(docker), nil
 	}
@@ -509,4 +524,12 @@ func AutoDetectEngine() (Engine, error) {
 		Engine: EngineTypeAny,
 		Reason: engineUnavailableAutoDetect,
 	}
+}
+
+func (defaultEngineDiscovery) NewPodman() Engine {
+	return NewPodmanEngine()
+}
+
+func (defaultEngineDiscovery) NewDocker() Engine {
+	return NewDockerEngine()
 }

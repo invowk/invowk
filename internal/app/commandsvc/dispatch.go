@@ -132,10 +132,10 @@ func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.Executi
 }
 
 func newClassifiedExecutionError(err error) *ClassifiedError {
-	issueID, plainMsg := classifyExecutionError(err)
+	kind, plainMsg := classifyExecutionError(err)
 	return &ClassifiedError{
 		Err:     err,
-		IssueID: issueID,
+		Kind:    kind,
 		Message: plainMsg,
 	}
 }

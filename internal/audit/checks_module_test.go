@@ -223,6 +223,79 @@ func TestModuleMetadataChecker_Clean(t *testing.T) {
 	}
 }
 
+func TestModuleMetadataChecker_ExplicitDepsUseModuleRefKey(t *testing.T) {
+	t.Parallel()
+
+	sharedURL := invowkmod.GitURL("https://example.com/mono.git")
+	sc := &ScanContext{
+		modules: []*ScannedModule{{
+			Path:      types.FilesystemPath("/test/root.invowkmod"),
+			SurfaceID: "root",
+			Module: &invowkmod.Module{
+				Metadata: &invowkmod.Invowkmod{
+					Module: "root",
+					Requires: []invowkmod.ModuleRequirement{
+						{GitURL: sharedURL, Path: "modules/A", Version: "^1.0.0"},
+						{GitURL: sharedURL, Path: "modules/B", Version: "^1.0.0"},
+					},
+				},
+			},
+			VendoredModules: []*invowkmod.Module{{
+				Metadata: &invowkmod.Invowkmod{
+					Module: "A",
+					Requires: []invowkmod.ModuleRequirement{
+						{GitURL: sharedURL, Path: "modules/B", Version: "^1.0.0"},
+					},
+				},
+			}},
+		}},
+	}
+
+	findings, err := NewModuleMetadataChecker().Check(t.Context(), sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range findings {
+		if f.Title == "Transitive dependency not declared in root invowkmod.cue" {
+			t.Fatalf("declared monorepo path dependency reported as missing: %#v", f)
+		}
+	}
+}
+
+func TestModuleMetadataChecker_VendoredDeclarationMatchesPathSource(t *testing.T) {
+	t.Parallel()
+
+	sc := &ScanContext{
+		modules: []*ScannedModule{{
+			Path:      types.FilesystemPath("/test/root.invowkmod"),
+			SurfaceID: "root",
+			Module: &invowkmod.Module{
+				Metadata: &invowkmod.Invowkmod{
+					Module: "root",
+					Requires: []invowkmod.ModuleRequirement{{
+						GitURL:  "https://example.com/mono.git",
+						Path:    "modules/tools",
+						Version: "^1.0.0",
+					}},
+				},
+			},
+			VendoredModules: []*invowkmod.Module{{
+				Metadata: &invowkmod.Invowkmod{Module: "tools"},
+			}},
+		}},
+	}
+
+	findings, err := NewModuleMetadataChecker().Check(t.Context(), sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range findings {
+		if f.Title == "Vendored module not declared in requires" {
+			t.Fatalf("vendored module matched by requirement path was reported undeclared: %#v", f)
+		}
+	}
+}
+
 func TestLevenshtein(t *testing.T) {
 	t.Parallel()
 

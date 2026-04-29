@@ -40,9 +40,10 @@ import "strings"
 })
 
 // IncludeEntry specifies a module to include in command discovery.
-// The path must end with ".invowkmod".
+// The path must be a non-empty filesystem path string ending with ".invowkmod";
+// Go validation enforces OS-native absoluteness.
 #IncludeEntry: close({
-	// path is the absolute filesystem path to a *.invowkmod directory.
+	// path is a filesystem path to a *.invowkmod directory.
 	path: string & !="" & strings.MaxRunes(4096) & =~"\\.invowkmod$"
 
 	// alias optionally overrides the module identifier for collision disambiguation.

@@ -12,15 +12,21 @@ import (
 	"github.com/invowk/invowk/internal/sshserver"
 )
 
-// HostAccess provides goroutine-safe SSH server lifecycle management scoped to
-// command execution. It lazily starts the SSH server on first demand and stops
-// it when the owning command execution completes.
-//
-//goplint:ignore -- infrastructure adapter has no domain invariants; zero value is valid.
-type HostAccess struct {
-	mu       sync.Mutex
-	instance *sshserver.Server
-}
+type (
+	// HostAccess provides goroutine-safe SSH server lifecycle management scoped to
+	// command execution. It lazily starts the SSH server on first demand and stops
+	// it when the owning command execution completes.
+	//
+	//goplint:ignore -- infrastructure adapter has no domain invariants; zero value is valid.
+	HostAccess struct {
+		mu       sync.Mutex
+		instance *sshserver.Server
+	}
+
+	sshHostCallbackServer struct {
+		server *sshserver.Server
+	}
+)
 
 // NewHostAccess creates an SSH-backed host-access adapter.
 func NewHostAccess() (*HostAccess, error) {
@@ -90,5 +96,50 @@ func (h *HostAccess) SSHServer() runtime.HostCallbackServer {
 	if h.instance == nil {
 		return nil
 	}
-	return h.instance
+	return sshHostCallbackServer{server: h.instance}
+}
+
+func (s sshHostCallbackServer) IsRunning() bool {
+	return s.server != nil && s.server.IsRunning()
+}
+
+func (s sshHostCallbackServer) GetConnectionInfo(commandID runtime.HostCallbackCommandID) (*runtime.HostCallbackConnectionInfo, error) {
+	info, err := s.server.GetConnectionInfo(commandID.String())
+	if err != nil {
+		return nil, err
+	}
+	host := runtime.HostCallbackHost(info.Host.String())
+	if err := host.Validate(); err != nil {
+		return nil, err
+	}
+	token := runtime.HostCallbackToken(info.Token.String())
+	if err := token.Validate(); err != nil {
+		return nil, err
+	}
+	port := info.Port
+	if err := port.Validate(); err != nil {
+		return nil, err
+	}
+	user := runtime.HostCallbackUser(info.User)
+	if err := user.Validate(); err != nil {
+		return nil, err
+	}
+	connInfo := &runtime.HostCallbackConnectionInfo{
+		Host:  host,
+		Port:  port,
+		Token: token,
+		User:  user,
+	}
+	if err := connInfo.Validate(); err != nil {
+		return nil, err
+	}
+	return connInfo, nil
+}
+
+func (s sshHostCallbackServer) RevokeToken(token runtime.HostCallbackToken) {
+	sshToken := sshserver.TokenValue(token.String())
+	if err := sshToken.Validate(); err != nil {
+		return
+	}
+	s.server.RevokeToken(sshToken)
 }

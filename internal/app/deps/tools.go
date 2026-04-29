@@ -84,11 +84,16 @@ func ValidateToolInContainer(toolName invowkfile.BinaryName, rt runtime.Runtime,
 // CheckHostToolDependencies verifies all required tools are available against the HOST PATH.
 // Always uses native validation regardless of selected runtime.
 func CheckHostToolDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+	return CheckHostToolDependenciesWithProbe(deps, ctx, newDefaultHostProbe())
+}
+
+// CheckHostToolDependenciesWithProbe verifies host tool dependencies through an injectable probe.
+func CheckHostToolDependenciesWithProbe(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext, probe HostProbe) error {
 	if deps == nil || len(deps.Tools) == 0 {
 		return nil
 	}
 
-	toolErrors := CollectToolErrors(deps.Tools, ValidateToolNative)
+	toolErrors := CollectToolErrors(deps.Tools, probe.CheckTool)
 
 	if len(toolErrors) > 0 {
 		return &DependencyError{

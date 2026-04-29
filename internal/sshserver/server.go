@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/core/serverbase"
-	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/ssh"
@@ -80,7 +80,7 @@ type (
 		// ShutdownTimeout is the timeout for graceful shutdown (default: 10s)
 		ShutdownTimeout time.Duration
 		// DefaultShell is the shell to use (default: /bin/sh)
-		DefaultShell invowkfile.ShellPath
+		DefaultShell types.ShellPath
 		// StartupTimeout is the max time to wait for server to be ready (default: 5s)
 		StartupTimeout time.Duration
 	}
@@ -104,7 +104,7 @@ func DefaultConfig() Config {
 		Port:            ListenPort(0),
 		TokenTTL:        time.Hour,
 		ShutdownTimeout: 10 * time.Second,
-		DefaultShell:    invowkfile.ShellPath("/bin/sh"),
+		DefaultShell:    types.ShellPath("/bin/sh"),
 		StartupTimeout:  5 * time.Second,
 	}
 }
@@ -157,7 +157,7 @@ func NewWithClock(cfg Config, clock Clock) (*Server, error) {
 		cfg.ShutdownTimeout = 10 * time.Second
 	}
 	if cfg.DefaultShell == "" {
-		cfg.DefaultShell = invowkfile.ShellPath("/bin/sh")
+		cfg.DefaultShell = types.ShellPath("/bin/sh")
 	}
 	if cfg.StartupTimeout == 0 {
 		cfg.StartupTimeout = 5 * time.Second

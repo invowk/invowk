@@ -15,7 +15,6 @@ import (
 	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
-	"github.com/invowk/invowk/internal/issue"
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
@@ -365,12 +364,12 @@ func TestNewClassifiedExecutionError(t *testing.T) {
 	t.Parallel()
 
 	timedOut := newClassifiedExecutionError(context.DeadlineExceeded)
-	if timedOut.IssueID != issue.ScriptExecutionFailedId || timedOut.Message != HintTimedOut {
+	if timedOut.Kind != ErrorKindScriptExecutionFailed || timedOut.Message != HintTimedOut {
 		t.Fatalf("timedOut = %#v", timedOut)
 	}
 
 	cancelled := newClassifiedExecutionError(context.Canceled)
-	if cancelled.IssueID != issue.ScriptExecutionFailedId || cancelled.Message != HintCancelled {
+	if cancelled.Kind != ErrorKindScriptExecutionFailed || cancelled.Message != HintCancelled {
 		t.Fatalf("cancelled = %#v", cancelled)
 	}
 }

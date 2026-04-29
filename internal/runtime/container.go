@@ -13,7 +13,6 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
-	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -167,11 +166,6 @@ func (r *ContainerRuntime) SetProvisionConfig(cfg *provision.Config) error {
 // SetHostCallbacks sets the host callback server for container access to host services.
 func (r *ContainerRuntime) SetHostCallbacks(server HostCallbackServer) {
 	r.hostCallbacks = server
-}
-
-// SetSSHServer sets the SSH server for host access from containers.
-func (r *ContainerRuntime) SetSSHServer(srv *sshserver.Server) {
-	r.SetHostCallbacks(srv)
 }
 
 // Name returns the runtime name

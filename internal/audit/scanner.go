@@ -94,11 +94,13 @@ func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGl
 
 	// Run checkers concurrently.
 	findings, checkerErrors := s.runCheckers(ctx, sc)
+	ensureFindingCodes(findings)
 
 	// Apply correlation (nil correlator means DefaultRules() failed; skip).
 	var correlated []Finding
 	if s.correlator != nil {
 		correlated = s.correlator.Correlate(findings)
+		ensureFindingCodes(correlated)
 	}
 
 	report := &Report{
@@ -162,6 +164,14 @@ func (s *Scanner) runCheckers(ctx context.Context, sc *ScanContext) ([]Finding, 
 	}
 
 	return allFindings, errs
+}
+
+func ensureFindingCodes(findings []Finding) {
+	for i := range findings {
+		if findings[i].Code == "" {
+			findings[i].Code = findings[i].CodeOrDefault()
+		}
+	}
 }
 
 // DefaultCheckers returns the full set of built-in security checkers.

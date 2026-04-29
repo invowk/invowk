@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 
-	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/runtime"
 )
 
@@ -30,33 +29,38 @@ var (
 	ErrRuntimeResolution = errors.New("runtime resolution failed")
 )
 
-// classifyExecutionError maps execution/runtime failures to issue catalog IDs and
-// returns a classification hint (e.g., HintTimedOut, HintCancelled). The CLI adapter
-// combines this with styled error formatting.
+type operationError interface {
+	error
+	Operation() string
+}
+
+// classifyExecutionError maps execution/runtime failures to service-owned error
+// kinds and returns a classification hint (e.g., HintTimedOut, HintCancelled).
+// The CLI adapter maps the kind to presentation content.
 //
 // Timeout and cancellation intentionally reuse ScriptExecutionFailedId rather than
 // introducing dedicated issue IDs. The user-facing message already distinguishes
 // these cases, and the issue catalog entry provides generic guidance that applies
 // to all script execution failures.
-func classifyExecutionError(err error) (issueID issue.Id, hint string) {
-	issueID = issue.ScriptExecutionFailedId
+func classifyExecutionError(err error) (kind ErrorKind, hint string) {
+	kind = ErrorKindScriptExecutionFailed
 
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		return issueID, HintTimedOut
+		return kind, HintTimedOut
 	case errors.Is(err, context.Canceled):
-		return issueID, HintCancelled
+		return kind, HintCancelled
 	case errors.Is(err, runtime.ErrContainerEngineUnavailable):
-		issueID = issue.ContainerEngineNotFoundId
+		kind = ErrorKindContainerEngineNotFound
 	case errors.Is(err, runtime.ErrRuntimeNotAvailable):
-		issueID = issue.RuntimeNotAvailableId
+		kind = ErrorKindRuntimeNotAvailable
 	case errors.Is(err, os.ErrPermission):
-		issueID = issue.PermissionDeniedId
+		kind = ErrorKindPermissionDenied
 	default:
-		if ae, ok := errors.AsType[*issue.ActionableError](err); ok && ae.Operation() == "find shell" {
-			issueID = issue.ShellNotFoundId
+		if opErr, ok := errors.AsType[operationError](err); ok && opErr.Operation() == "find shell" {
+			kind = ErrorKindShellNotFound
 		}
 	}
 
-	return issueID, ""
+	return kind, ""
 }

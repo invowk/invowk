@@ -15,6 +15,7 @@ import (
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const failedBuildEnvironmentFmt = "failed to build environment: %w"
@@ -24,7 +25,7 @@ type (
 	// Shell and shell arguments are immutable after construction via NewNativeRuntime.
 	NativeRuntime struct {
 		// shell overrides the default shell
-		shell invowkfile.ShellPath
+		shell types.ShellPath
 		// shellArgs are arguments passed to the shell before the script
 		shellArgs []string
 		// envBuilder builds environment variables for execution
@@ -37,7 +38,7 @@ type (
 
 // WithShell sets the shell path for the native runtime.
 // If not set, the runtime auto-detects the shell from the environment.
-func WithShell(shell invowkfile.ShellPath) NativeRuntimeOption {
+func WithShell(shell types.ShellPath) NativeRuntimeOption {
 	return func(r *NativeRuntime) {
 		r.shell = shell
 	}
@@ -71,7 +72,7 @@ func NewNativeRuntime(opts ...NativeRuntimeOption) *NativeRuntime {
 }
 
 // Shell returns the configured shell path.
-func (r *NativeRuntime) Shell() invowkfile.ShellPath { return r.shell }
+func (r *NativeRuntime) Shell() types.ShellPath { return r.shell }
 
 // ShellArgs returns the configured shell arguments.
 func (r *NativeRuntime) ShellArgs() []string { return r.shellArgs }

@@ -299,7 +299,11 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		t.Fatalf("runtime branch returned %T issue %v", wrapped, svcErr.IssueID)
 	}
 
-	classified := &commandsvc.ClassifiedError{Err: context.DeadlineExceeded, IssueID: issue.ScriptExecutionFailedId, Message: commandsvc.HintTimedOut}
+	classified := &commandsvc.ClassifiedError{
+		Err:     context.DeadlineExceeded,
+		Kind:    commandsvc.ErrorKindScriptExecutionFailed,
+		Message: commandsvc.HintTimedOut,
+	}
 	wrapped = renderAndWrapServiceError(classified, ExecuteRequest{Name: "build"})
 	if !errors.As(wrapped, &svcErr) || !strings.Contains(svcErr.StyledMessage, "timed out") {
 		t.Fatalf("classified branch returned %#v", svcErr)

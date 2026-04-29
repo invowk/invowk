@@ -10,7 +10,6 @@ import (
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
-	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
@@ -76,8 +75,8 @@ func TestServiceDiscoverCommand(t *testing.T) {
 	if !errors.As(err, &classified) {
 		t.Fatalf("errors.As(*ClassifiedError) = false for %T", err)
 	}
-	if classified.IssueID != issue.CommandNotFoundId {
-		t.Fatalf("classified.IssueID = %v, want %v", classified.IssueID, issue.CommandNotFoundId)
+	if classified.Kind != ErrorKindCommandNotFound {
+		t.Fatalf("classified.Kind = %v, want %v", classified.Kind, ErrorKindCommandNotFound)
 	}
 
 	diag, diagErr := discovery.NewDiagnostic(discovery.SeverityWarning, discovery.CodeConfigLoadFailed, "warn")

@@ -60,6 +60,35 @@ func TestScanner_RunCheckersCollectsFindings(t *testing.T) {
 	}
 }
 
+func TestEnsureFindingCodesFillsLegacyFindings(t *testing.T) {
+	t.Parallel()
+
+	findings := []Finding{
+		{
+			Severity:    SeverityCritical,
+			Category:    CategoryExecution,
+			CheckerName: networkCheckerName,
+			Title:       "Reverse shell pattern detected",
+		},
+		{
+			Code:        "explicit-code",
+			Severity:    SeverityHigh,
+			Category:    CategoryIntegrity,
+			CheckerName: lockFileCheckerName,
+			Title:       "Module content hash mismatch",
+		},
+	}
+
+	ensureFindingCodes(findings)
+
+	if findings[0].Code != "network-execution-reverse-shell-pattern-detected" {
+		t.Fatalf("derived code = %q", findings[0].Code)
+	}
+	if findings[1].Code != "explicit-code" {
+		t.Fatalf("explicit code overwritten: %q", findings[1].Code)
+	}
+}
+
 func TestScanner_RunCheckersPartialOnError(t *testing.T) {
 	t.Parallel()
 

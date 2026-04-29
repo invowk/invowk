@@ -32,8 +32,9 @@ func CalculateFileHash(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// CalculateDirHash calculates a hash of a directory's contents.
-// It includes file names, sizes, and modification times for efficiency.
+// CalculateDirHash calculates a hash of a directory's copied contents.
+// It includes normalized relative file names and file bytes, matching CopyDir's
+// regular-file-only boundary.
 // Returns an error if dirPath itself is a symlink (SC-05 defense-in-depth).
 func CalculateDirHash(dirPath string) (string, error) {
 	// Check if dirPath itself is a symlink — a symlink-to-directory would
@@ -46,6 +47,15 @@ func CalculateDirHash(dirPath string) (string, error) {
 	if rootInfo.Mode()&os.ModeSymlink != 0 {
 		return "", fmt.Errorf("CalculateDirHash: %q is a symbolic link, not a directory", dirPath)
 	}
+	root, err := os.OpenRoot(dirPath)
+	if err != nil {
+		return "", fmt.Errorf("open root %s: %w", dirPath, err)
+	}
+	defer func() {
+		if closeErr := root.Close(); closeErr != nil {
+			return
+		}
+	}() // Read-only root handle; close error non-critical
 
 	h := sha256.New()
 
@@ -60,13 +70,24 @@ func CalculateDirHash(dirPath string) (string, error) {
 			return nil // Skip directories and symlinks/devices.
 		}
 
-		info, infoErr := d.Info()
-		if infoErr != nil {
+		if _, infoErr := d.Info(); infoErr != nil {
 			return nil //nolint:nilerr // Skip unreadable entries.
 		}
 
 		relPath, _ := filepath.Rel(dirPath, path)
-		entry := fmt.Sprintf("%s:%d:%d", relPath, info.Size(), info.ModTime().Unix())
+		contentFile, openErr := root.Open(relPath)
+		if openErr != nil {
+			return nil //nolint:nilerr // Skip unreadable entries consistently with CopyDir.
+		}
+		content, readErr := io.ReadAll(contentFile)
+		closeErr := contentFile.Close()
+		if readErr != nil {
+			return nil //nolint:nilerr // Skip unreadable entries consistently with CopyDir.
+		}
+		if closeErr != nil {
+			return nil //nolint:nilerr // Skip entries whose content handle failed to close.
+		}
+		entry := relPath + "\x00" + string(content)
 		entries = append(entries, entry)
 		return nil
 	})

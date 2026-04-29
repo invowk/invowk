@@ -12,7 +12,7 @@ import (
 
 	"github.com/invowk/invowk/internal/core/serverbase"
 	"github.com/invowk/invowk/internal/testutil"
-	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // mustNew is a test helper that creates a Server and fails the test on error.
@@ -541,7 +541,7 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Errorf("ShutdownTimeout = %v, want %v", cfg.ShutdownTimeout, 10*time.Second)
 	}
-	if cfg.DefaultShell != invowkfile.ShellPath("/bin/sh") {
+	if cfg.DefaultShell != types.ShellPath("/bin/sh") {
 		t.Errorf("DefaultShell = %q, want %q", cfg.DefaultShell, "/bin/sh")
 	}
 	if cfg.StartupTimeout != 5*time.Second {

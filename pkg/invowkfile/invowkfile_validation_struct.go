@@ -36,7 +36,13 @@ func validateRuntimeConfig(rt *RuntimeConfig, cmdName string, implIndex int) err
 	// CUE uses discriminated unions (#RuntimeConfigNative | #RuntimeConfigVirtual | #RuntimeConfigContainer)
 	// which handle field presence at the type level. This Go validation provides clearer error messages
 	// and catches any edge cases where the CUE type system might be bypassed.
+	if rt.Name == RuntimeVirtual && rt.Interpreter != "" {
+		return fmt.Errorf("command '%s' implementation #%d: %w", cmdName, implIndex, rt.ValidateInterpreterForRuntime())
+	}
 	if rt.Name != RuntimeContainer {
+		if rt.DependsOn != nil {
+			return fmt.Errorf("command '%s' implementation #%d: depends_on is only valid for container runtime", cmdName, implIndex)
+		}
 		if rt.EnableHostSSH {
 			return fmt.Errorf("command '%s' implementation #%d: enable_host_ssh is only valid for container runtime", cmdName, implIndex)
 		}
