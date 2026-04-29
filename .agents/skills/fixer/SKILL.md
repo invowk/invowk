@@ -24,7 +24,7 @@ analysis, applies fixes, and prevents recurrence through tests and guards.
 
 1. `.agents/rules/checklist.md` — mandatory verification after any fix.
 2. `.agents/rules/testing.md` — test policy for new/modified tests.
-3. `.agents/rules/go-patterns.md` — code quality for production fixes.
+3. `.agents/skills/go/SKILL.md` — code quality for production fixes.
 4. This skill — diagnosis workflow, subagent orchestration, platform routing.
 
 ## When This Skill Activates
@@ -196,7 +196,7 @@ You are tracing the execution path of a failing test in the invowk Go project.
 ## Consult these skills as needed
 - `.agents/rules/testing.md` for test policy
 - `.agents/skills/go-testing/SKILL.md` for parallelism/context patterns
-- `.agents/rules/go-patterns.md` for code quality patterns
+- `.agents/skills/go/SKILL.md` for code quality patterns
 
 ## Output Format
 - **Test**: {file:line}
@@ -369,7 +369,7 @@ For rapid diagnosis, map the failure type to the right investigation path:
 | Race detector report | Read the two conflicting goroutine stacks | `go-testing` (race-detector-guide.md) |
 | Timeout (exit code 1) | Check `-timeout` value and test duration | `go-testing` (test-flags-matrix.md) |
 | Timeout (exit code 137) | OOM killer — check memory pressure | `linux-testing` (OOM Killer section) |
-| Panic / nil pointer | Read stack trace, trace nil source | `go-patterns` |
+| Panic / nil pointer | Read stack trace, trace nil source | `go` |
 | Flaky (passes sometimes) | Check for timing, concurrency, or platform issues | platform skills + `go-testing` |
 
 ### CI-Specific Failures
@@ -380,7 +380,7 @@ For rapid diagnosis, map the failure type to the right investigation path:
 | macOS-only failure | Check kqueue, timer coalescing, /tmp symlink | `macos-testing` |
 | Container test hang | Check WaitDelay, ContainerTestContext | `linux-testing` |
 | All tests `(unknown)` | Binary killed — timeout or OOM | `go-testing` + `linux-testing` |
-| Lint failure | Read linter output, check `.golangci.toml` | `go-patterns` |
+| Lint failure | Read linter output, check `.golangci.toml` | `go` |
 | Baseline regression | Run `make check-types-json`, triage findings | CLAUDE.md § goplint |
 
 ### Build Failures

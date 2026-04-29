@@ -1,0 +1,4 @@
+interface:
+  display_name: "Go"
+  short_description: "Go coding conventions and lint guardrails for Invowk."
+  default_prompt: "Use the Go skill when editing, reviewing, or refactoring Go code in Invowk."

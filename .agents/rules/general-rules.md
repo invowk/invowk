@@ -25,7 +25,7 @@
 
 ## Comments
 
-- Follow the Semantic Commenting rules in `go-patterns.md` § "Semantic Commenting (CRITICAL)".
+- Follow the semantic commenting rules in `.agents/skills/go/SKILL.md` when editing Go code.
 - **Preserve comments during refactors**: When moving or splitting code across files, carry semantic comments to their new locations. Adapt comments to reflect the new architecture — do not copy stale references to removed patterns or globals.
 
 ## Tests

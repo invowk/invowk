@@ -24,7 +24,7 @@ failures, and write correct platform-specific test code.
 ## Normative Precedence
 
 1. `.agents/rules/testing.md` -- authoritative test policy (organization, parallelism, container timeout strategy).
-2. `.agents/rules/go-patterns.md` -- context propagation, code style.
+2. `.agents/skills/go/SKILL.md` -- context propagation, code style.
 3. `.agents/skills/go-testing/SKILL.md` -- Go testing toolchain knowledge, decision frameworks.
 4. This skill -- Linux OS primitives and the container test infrastructure.
 5. `references/container-testing-deep.md` -- comprehensive container test infrastructure deep dive.

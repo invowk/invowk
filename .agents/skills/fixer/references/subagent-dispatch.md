@@ -252,7 +252,7 @@ You are reviewing a proposed fix in the invowk Go project.
 Review the fix against project conventions:
 1. Read `.agents/agents/code-reviewer.md` for the full review checklist
 2. Check: decorder compliance, sentinel errors, wrapcheck, SPDX headers
-3. Check: naming conventions match `.agents/rules/go-patterns.md`
+3. Check: naming conventions match `.agents/skills/go/SKILL.md`
 4. Check: test changes follow `.agents/rules/testing.md`
 5. Flag anything that would fail `make lint` or `make check-baseline`
 

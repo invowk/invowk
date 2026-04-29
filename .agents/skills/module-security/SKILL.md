@@ -21,7 +21,7 @@ that comes from asking LLMs to pattern-match code.
 
 ## Normative Quick Rules
 
-- `.agents/rules/go-patterns.md` — error handling, context propagation, declaration ordering
+- `.agents/skills/go/SKILL.md` — error handling, context propagation, declaration ordering
 - `.agents/rules/testing.md` — test coverage, testscript patterns
 - `.agents/rules/licensing.md` — SPDX headers on all new Go files
 - `.agents/rules/package-design.md` — package boundaries for `internal/audit/`

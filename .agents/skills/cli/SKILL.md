@@ -21,7 +21,7 @@ Use this skill when working on:
 
 - `.agents/rules/commands.md` is the source of truth for hidden internal command policy.
 - `.agents/rules/testing.md` is the source of truth for CLI test coverage and mirror expectations.
-- `.agents/rules/go-patterns.md` is the source of truth for Go comments, ordering, and error-handling conventions.
+- `.agents/skills/go/SKILL.md` is the source of truth for Go comments, ordering, and error-handling conventions.
 - This skill documents CLI architecture and implementation details; if this file conflicts with a rule, the rule wins.
 
 ---

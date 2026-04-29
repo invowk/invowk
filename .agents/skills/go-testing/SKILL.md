@@ -22,11 +22,11 @@ affect test behavior, consult the platform skills listed below.
 ## Normative Precedence
 
 1. `.agents/rules/testing.md` — authoritative test policy (organization, parallelism rules, cross-platform patterns).
-2. `.agents/rules/go-patterns.md` — authoritative context propagation and code style.
+2. `.agents/skills/go/SKILL.md` — authoritative context propagation and code style.
 3. This skill — Go testing toolchain knowledge, decision frameworks, reference material.
 4. `.agents/skills/testing/SKILL.md` — invowk-specific test patterns, testscript, TUI/container testing.
 
-Do NOT duplicate content from rules; cross-reference instead.
+Do NOT duplicate content from rules or the Go skill; cross-reference instead.
 
 ## Platform Skill Router
 
@@ -191,7 +191,7 @@ func TestMain(m *testing.M) {
 }
 ```
 
-Cross-ref: `.agents/rules/go-patterns.md` § "Context Usage" for production context rules.
+Cross-ref: `.agents/skills/go/SKILL.md` § "Context And Processes" for production context rules.
 Cross-ref: `.agents/rules/testing.md` § "Test Context Usage" for test-specific policy.
 
 ## Parallelism Decision Framework

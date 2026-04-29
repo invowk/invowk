@@ -24,7 +24,7 @@ dedicated macOS rule exists in `.agents/rules/`; this skill fills that gap.
 ## Normative Precedence
 
 1. `.agents/rules/testing.md` -- authoritative test policy.
-2. `.agents/rules/go-patterns.md` -- context propagation, code style.
+2. `.agents/skills/go/SKILL.md` -- context propagation, code style.
 3. `.agents/skills/go-testing/SKILL.md` -- Go testing toolchain knowledge, decision frameworks.
 4. This skill -- macOS OS primitives affecting test behavior.
 5. `.agents/skills/testing/SKILL.md` -- invowk-specific test patterns, testscript, TUI/container.
