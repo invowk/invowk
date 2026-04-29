@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
@@ -439,6 +440,32 @@ func NewExecutionContext(ctx context.Context, cmd *invowkfile.Command, inv *invo
 // This centralizes workdir resolution that was previously duplicated across runtimes.
 func (ctx *ExecutionContext) EffectiveWorkDir() string {
 	return string(ctx.Invowkfile.GetEffectiveWorkDir(ctx.Command, ctx.SelectedImpl, ctx.WorkDir))
+}
+
+// ResolveSelectedScript returns the selected implementation script using the
+// invowkfile's module boundary when present.
+//
+//goplint:ignore -- runtime APIs consume script bodies as strings for shell/interpreter calls.
+func (ctx *ExecutionContext) ResolveSelectedScript() (string, error) {
+	return ctx.SelectedImpl.ResolveScriptWithModule(ctx.Invowkfile.FilePath, ctx.Invowkfile.ModulePath)
+}
+
+// SelectedScriptFilePath returns the selected implementation's script path using
+// the invowkfile's module boundary when present.
+func (ctx *ExecutionContext) SelectedScriptFilePath() invowkfile.FilesystemPath {
+	return ctx.SelectedImpl.GetScriptFilePathWithModule(ctx.Invowkfile.FilePath, ctx.Invowkfile.ModulePath)
+}
+
+// AddTUIEnv applies configured delegated-TUI connection variables to env.
+//
+//goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
+func (ctx *ExecutionContext) AddTUIEnv(env map[string]string) {
+	if ctx.TUI.ServerURL != "" {
+		env[tuiwire.EnvTUIAddr] = string(ctx.TUI.ServerURL)
+	}
+	if ctx.TUI.ServerToken != "" {
+		env[tuiwire.EnvTUIToken] = string(ctx.TUI.ServerToken)
+	}
 }
 
 // Success returns true if the command executed successfully

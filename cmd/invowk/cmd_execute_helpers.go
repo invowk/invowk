@@ -4,9 +4,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
-	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -65,14 +63,12 @@ func toDotenvFilePaths(paths []string) []invowkfile.DotenvFilePath {
 }
 
 // runDisambiguatedCommand executes a command from a specific source.
-// The command service validates source existence for normal execution; watch mode
-// performs local validation because it needs the resolved command before starting.
+// The command service validates source existence and resolves longest command
+// matches for both normal execution and watch mode.
 // This is used when @source prefix or --ivk-from flag is provided.
 //
-// For subcommands (e.g., "deploy staging"), this function attempts to match the longest
-// possible command name by progressively joining args. For example, with args ["deploy", "staging"],
-// it first tries "deploy staging", then falls back to "deploy" if no match is found.
-// Remaining tokens after the match are passed as positional arguments.
+// For subcommands (e.g., "deploy staging"), the command service resolves the
+// longest possible command name and returns any remaining positional arguments.
 func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, filter *SourceFilter, args []string) error {
 	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
 	cmd.SetContext(ctx)
@@ -103,84 +99,19 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 		return executeRequest(cmd, app, req)
 	}
 
-	commandSetResult, err := app.Discovery.DiscoverCommandSet(ctx)
-	if err != nil {
-		return err
-	}
-	app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
-
-	commandSet := commandSetResult.Set
-	// Validate that the requested source exists before attempting command lookup.
-	if !slices.Contains(commandSet.SourceOrder, filter.SourceID) {
-		err := &SourceNotFoundError{Source: filter.SourceID, AvailableSources: commandSet.SourceOrder}
-		fmt.Fprint(app.stderr, RenderSourceNotFoundError(err))
-		return err
-	}
-
-	cmdsInSource := commandSet.BySource[filter.SourceID]
-	var targetCmd *discovery.CommandInfo
-	matchLen := 0
-	// Greedy lookup: try longest command prefix first to support nested commands
-	// such as `deploy staging` without treating `staging` as an argument.
-	for i := len(args); i > 0; i-- {
-		candidateName := strings.Join(args[:i], " ")
-		for _, discovered := range cmdsInSource {
-			if string(discovered.SimpleName) == candidateName {
-				targetCmd = discovered
-				matchLen = i
-				break
-			}
-		}
-		if targetCmd != nil {
-			break
-		}
-	}
-
-	cmdArgs := []string(nil)
-	if matchLen < len(args) {
-		// Remaining positional tokens are passed as command arguments.
-		cmdArgs = args[matchLen:]
-	}
-
-	displayCmdName := strings.Join(args, " ")
-	if targetCmd == nil {
-		fmt.Fprintf(app.stderr, "\n%s Command '%s' not found in source '%s'\n\n", ErrorStyle.Render("✗"), displayCmdName, filter.SourceID)
-		if len(cmdsInSource) > 0 {
-			fmt.Fprintf(app.stderr, "Available commands in %s:\n", formatSourceDisplayName(filter.SourceID))
-			for _, discovered := range cmdsInSource {
-				fmt.Fprintf(app.stderr, "  %s\n", string(discovered.SimpleName))
-			}
-			fmt.Fprintln(app.stderr)
-		}
-		return fmt.Errorf("command '%s' not found in source '%s'", displayCmdName, filter.SourceID)
-	}
-
-	// Watch mode intercepts before normal execution.
-	if cmdFlags.watch {
-		return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{string(targetCmd.Name)}, cmdArgs...))
-	}
-
-	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
-	if err != nil {
-		return err
-	}
-
-	verbose, interactive := resolveUIFlags(ctx, app, cmd, rootFlags)
-	// Delegate final execution to CommandService with explicit per-request flags.
 	req := ExecuteRequest{
-		Name:            string(targetCmd.Name),
-		Args:            cmdArgs,
-		Runtime:         parsedRuntime,
-		Interactive:     interactive,
-		Verbose:         verbose,
-		FromSource:      discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
-		ForceRebuild:    cmdFlags.forceRebuild,
-		DryRun:          cmdFlags.dryRun,
-		ConfigPath:      types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
-		ResolvedCommand: targetCmd,
+		Name:       args[0],
+		Args:       args[1:],
+		FromSource: filter.SourceID,
+		ConfigPath: types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+	}
+	_, resolvedReq, diags, err := app.Commands.ResolveFromSource(ctx, req)
+	app.Diagnostics.Render(ctx, diags, app.stderr)
+	if err != nil {
+		return renderAndWrapServiceError(err, req)
 	}
 
-	return executeRequest(cmd, app, req)
+	return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{resolvedReq.Name}, resolvedReq.Args...))
 }
 
 // checkAmbiguousCommand checks if a command name (including nested subcommands) is

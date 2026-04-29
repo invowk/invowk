@@ -3,6 +3,7 @@
 package commandsvc
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -11,7 +12,12 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
+
+type recordingDependencyHostProbe struct {
+	tools []invowkfile.BinaryName
+}
 
 func TestValidateInputs(t *testing.T) {
 	t.Parallel()
@@ -151,6 +157,39 @@ func TestBuildExecContextAndValidateDeps(t *testing.T) {
 	}
 }
 
+func TestValidateDepsUsesInjectedHostProbe(t *testing.T) {
+	t.Parallel()
+
+	probe := &recordingDependencyHostProbe{}
+	service := &Service{
+		discovery: &stubCommandDiscovery{},
+		hostProbe: probe,
+	}
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
+	cmdInfo.Command.DependsOn = &invowkfile.DependsOn{
+		Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"tool-from-probe"}}},
+	}
+	execCtx, err := service.buildExecContext(
+		t.Context(),
+		Request{Name: "build"},
+		cmdInfo,
+		resolvedDefinitions{},
+		mustResolveRuntime(t, cmdInfo.Command),
+	)
+	if err != nil {
+		t.Fatalf("buildExecContext() = %v", err)
+	}
+
+	registry := runtimepkg.NewRegistry()
+	registry.Register(runtimepkg.RuntimeTypeVirtual, &stubRuntime{name: "virtual"})
+	if err := service.validateDeps(cmdInfo, execCtx, registry, map[string]string{}); err != nil {
+		t.Fatalf("validateDeps() = %v", err)
+	}
+	if len(probe.tools) != 1 || probe.tools[0] != "tool-from-probe" {
+		t.Fatalf("probe.tools = %v, want [tool-from-probe]", probe.tools)
+	}
+}
+
 func unsupportedPlatform() invowkfile.PlatformType {
 	switch invowkfile.CurrentPlatform() {
 	case invowkfile.PlatformLinux:
@@ -170,4 +209,17 @@ func mustResolveRuntime(t *testing.T, cmd *invowkfile.Command) appexec.RuntimeSe
 		t.Fatalf("ResolveRuntime() = %v", err)
 	}
 	return selection
+}
+
+func (p *recordingDependencyHostProbe) CheckTool(tool invowkfile.BinaryName) error {
+	p.tools = append(p.tools, tool)
+	return nil
+}
+
+func (*recordingDependencyHostProbe) CheckFilepath(types.FilesystemPath, types.FilesystemPath, invowkfile.FilepathDependency) error {
+	return nil
+}
+
+func (*recordingDependencyHostProbe) RunCustomCheck(context.Context, invowkfile.CustomCheck) error {
+	return nil
 }

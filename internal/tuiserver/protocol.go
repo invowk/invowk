@@ -4,9 +4,8 @@ package tuiserver
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -14,37 +13,34 @@ import (
 const (
 	// EnvTUIAddr is the environment variable containing the TUI server address.
 	// Example: "http://127.0.0.1:54321"
-	EnvTUIAddr = "INVOWK_TUI_ADDR"
+	EnvTUIAddr = tuiwire.EnvTUIAddr
 
 	// EnvTUIToken is the environment variable containing the authentication token.
-	//nolint:gosec // G101: This is an env var name, not a hardcoded credential
-	EnvTUIToken = "INVOWK_TUI_TOKEN"
+	EnvTUIToken = tuiwire.EnvTUIToken
 
 	// TUI component type constants for the protocol.
-	ComponentInput    Component = "input"
-	ComponentConfirm  Component = "confirm"
-	ComponentChoose   Component = "choose"
-	ComponentFilter   Component = "filter"
-	ComponentFile     Component = "file"
-	ComponentWrite    Component = "write"
-	ComponentTextArea Component = "textarea"
-	ComponentSpin     Component = "spin"
-	ComponentPager    Component = "pager"
-	ComponentTable    Component = "table"
+	ComponentInput    Component = tuiwire.ComponentInput
+	ComponentConfirm  Component = tuiwire.ComponentConfirm
+	ComponentChoose   Component = tuiwire.ComponentChoose
+	ComponentFilter   Component = tuiwire.ComponentFilter
+	ComponentFile     Component = tuiwire.ComponentFile
+	ComponentWrite    Component = tuiwire.ComponentWrite
+	ComponentTextArea Component = tuiwire.ComponentTextArea
+	ComponentSpin     Component = tuiwire.ComponentSpin
+	ComponentPager    Component = tuiwire.ComponentPager
+	ComponentTable    Component = tuiwire.ComponentTable
 )
 
 // ErrInvalidComponent is returned when a Component value is not one of the defined types.
-var ErrInvalidComponent = errors.New("invalid component")
+var ErrInvalidComponent = tuiwire.ErrInvalidComponent
 
 type (
 	// Component represents a TUI component type.
-	Component string
+	Component = tuiwire.Component
 
 	// InvalidComponentError is returned when a Component value is not recognized.
 	// It wraps ErrInvalidComponent for errors.Is() compatibility.
-	InvalidComponentError struct {
-		Value Component
-	}
+	InvalidComponentError = tuiwire.InvalidComponentError
 
 	// Request is the common wrapper for all TUI requests.
 	Request struct {
@@ -238,29 +234,3 @@ type (
 		SelectedIndex int      `json:"selected_index"`
 	}
 )
-
-// Error implements the error interface for InvalidComponentError.
-func (e *InvalidComponentError) Error() string {
-	return fmt.Sprintf("invalid component %q (valid: input, confirm, choose, filter, file, write, textarea, spin, pager, table)", e.Value)
-}
-
-// Unwrap returns the sentinel error for errors.Is() compatibility.
-func (e *InvalidComponentError) Unwrap() error {
-	return ErrInvalidComponent
-}
-
-// Validate returns nil if the Component is one of the defined component types,
-// or an error wrapping ErrInvalidComponent if it is not.
-func (c Component) Validate() error {
-	switch c {
-	case ComponentInput, ComponentConfirm, ComponentChoose, ComponentFilter,
-		ComponentFile, ComponentWrite, ComponentTextArea, ComponentSpin,
-		ComponentPager, ComponentTable:
-		return nil
-	default:
-		return &InvalidComponentError{Value: c}
-	}
-}
-
-// String returns the string representation of the Component.
-func (c Component) String() string { return string(c) }

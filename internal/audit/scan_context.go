@@ -203,39 +203,48 @@ func (sc *ScanContext) loadStandaloneInvowkfile(absPath types.FilesystemPath) er
 }
 
 func (sc *ScanContext) loadSingleModule(absPath types.FilesystemPath) error {
-	mod, err := invowkmod.Load(absPath)
+	sm, err := sc.loadScannedModule(absPath, nil, nil, false)
 	if err != nil {
-		return fmt.Errorf("loading module %s: %w", absPath, err)
+		return err
+	}
+	sc.modules = append(sc.modules, sm)
+	return nil
+}
+
+func (sc *ScanContext) loadScannedModule(absPath types.FilesystemPath, mod *invowkmod.Module, inv *invowkfile.Invowkfile, isGlobal bool) (*ScannedModule, error) {
+	var err error
+	if mod == nil {
+		mod, err = invowkmod.Load(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("loading module %s: %w", absPath, err)
+		}
 	}
 
-	// Use module ID as surface identifier when metadata is available.
-	// Fall back to path when Metadata is nil (defense against future Load() changes).
 	surfaceID := string(absPath)
 	if mod.Metadata != nil {
 		surfaceID = string(mod.Metadata.Module)
 	}
 
 	sm := &ScannedModule{
-		Path:      absPath,
-		Module:    mod,
-		SurfaceID: surfaceID,
+		Path:       absPath,
+		Module:     mod,
+		Invowkfile: inv,
+		SurfaceID:  surfaceID,
+		IsGlobal:   isGlobal,
 	}
 
-	// Load invowkfile if present. Parse errors are captured rather than
-	// discarded so that checkers can flag modules with corrupted invowkfiles.
 	invPath := fspath.JoinStr(absPath, invowkfileCUEFileName)
-	if _, statErr := os.Stat(string(invPath)); statErr == nil {
-		inv, parseErr := invowkfile.Parse(invPath)
-		if parseErr == nil {
-			sm.Invowkfile = inv
-		} else {
-			sm.InvowkfileParseErr = parseErr
+	if sm.Invowkfile == nil {
+		if _, statErr := os.Stat(string(invPath)); statErr == nil {
+			parsed, parseErr := invowkfile.Parse(invPath)
+			if parseErr == nil {
+				sm.Invowkfile = parsed
+			} else {
+				sm.InvowkfileParseErr = parseErr
+			}
 		}
 	}
 
-	// Load lock file if present. Parse errors are captured rather than
-	// discarded so checkers can flag corrupt lock files that would otherwise
-	// appear as absent.
 	lockPath := fspath.JoinStr(absPath, invowkmod.LockFileName)
 	if _, statErr := os.Stat(string(lockPath)); statErr == nil {
 		lock, loadErr := invowkmod.LoadLockFile(string(lockPath))
@@ -247,13 +256,11 @@ func (sc *ScanContext) loadSingleModule(absPath types.FilesystemPath) error {
 		sm.LockPath = lockPath
 	}
 
-	// Scan vendored modules (diagnostics propagated for failed loads).
 	var vendorDiags []Diagnostic
 	sm.VendoredModules, vendorDiags = loadVendoredModules(absPath)
 	sc.diagnostics = append(sc.diagnostics, vendorDiags...)
 
-	sc.modules = append(sc.modules, sm)
-	return nil
+	return sm, nil
 }
 
 func (sc *ScanContext) loadDirectoryTree(absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) error {
@@ -326,6 +333,7 @@ func (sc *ScanContext) loadDiscoveryResults(absPath types.FilesystemPath, cfg *c
 
 	opts := []discovery.Option{
 		discovery.WithBaseDir(absPath),
+		discovery.WithVendoredIntegrityVerification(false),
 	}
 	if !includeGlobal {
 		opts = append(opts, discovery.WithCommandsDir(""))
@@ -368,14 +376,13 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 				discSurfaceID = string(f.Module.Metadata.Module)
 			}
 
-			sm := &ScannedModule{
-				Path:      f.Module.Path,
-				Module:    f.Module,
-				SurfaceID: discSurfaceID,
-				IsGlobal:  f.IsGlobalModule,
+			sm, err := sc.loadScannedModule(f.Module.Path, f.Module, f.Invowkfile, f.IsGlobalModule)
+			if err != nil {
+				sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", f.Module.Name(), err), f.Module.Path)
+				continue
 			}
-			if f.Invowkfile != nil {
-				sm.Invowkfile = f.Invowkfile
+			if sm.SurfaceID == string(f.Module.Path) {
+				sm.SurfaceID = discSurfaceID
 			}
 			sc.modules = append(sc.modules, sm)
 		} else if f.Invowkfile != nil && !seenInvowkfiles[string(f.Path)] {

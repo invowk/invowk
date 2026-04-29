@@ -110,7 +110,7 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return err
 	}
@@ -215,7 +215,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	// Resolve the script content
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return nil, err
 	}
@@ -259,6 +259,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
 		return nil, fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
+	ctx.AddTUIEnv(env)
 
 	// Serialize environment to JSON for passing to subprocess
 	envJSON, err := json.Marshal(env)
@@ -282,7 +283,8 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 
 	cmd := exec.CommandContext(ctx.Context, invowkPath, args...)
 
-	// Subprocess inherits filtered environment (TUI server vars will be added by caller)
+	// Subprocess inherits filtered environment; script-visible TUI vars are passed
+	// through the serialized environment above.
 	cmd.Env = FilterInvowkEnvVars(os.Environ())
 
 	// Track temp file for cleanup
@@ -298,7 +300,7 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 // an interpreter runner. The stdIO option determines whether output is streamed
 // or captured. Returns an error Result on failure.
 func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.RunnerOption) (*virtualPreparedExec, context.Context, *Result) {
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return nil, nil, NewErrorResult(1, err)
 	}
@@ -312,6 +314,7 @@ func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.
 	if err != nil {
 		return nil, nil, NewErrorResult(1, fmt.Errorf(failedBuildEnvironmentFmt, err))
 	}
+	ctx.AddTUIEnv(env)
 
 	opts := []interp.RunnerOption{
 		interp.Dir(ctx.EffectiveWorkDir()),

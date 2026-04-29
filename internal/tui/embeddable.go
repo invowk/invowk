@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/types"
 
 	tea "charm.land/bubbletea/v2"
@@ -34,25 +35,25 @@ const (
 	modalOverheadHeight = modalBorderHeight + modalPaddingHeight // 4
 
 	// ComponentTypeInput represents the text input component.
-	ComponentTypeInput ComponentType = "input"
+	ComponentTypeInput ComponentType = ComponentType(tuiwire.ComponentInput)
 	// ComponentTypeConfirm represents the yes/no confirmation component.
-	ComponentTypeConfirm ComponentType = "confirm"
+	ComponentTypeConfirm ComponentType = ComponentType(tuiwire.ComponentConfirm)
 	// ComponentTypeChoose represents the single/multi-select component.
-	ComponentTypeChoose ComponentType = "choose"
+	ComponentTypeChoose ComponentType = ComponentType(tuiwire.ComponentChoose)
 	// ComponentTypeFilter represents the filterable list component.
-	ComponentTypeFilter ComponentType = "filter"
+	ComponentTypeFilter ComponentType = ComponentType(tuiwire.ComponentFilter)
 	// ComponentTypeFile represents the file picker component.
-	ComponentTypeFile ComponentType = "file"
+	ComponentTypeFile ComponentType = ComponentType(tuiwire.ComponentFile)
 	// ComponentTypeWrite represents the styled text output component.
-	ComponentTypeWrite ComponentType = "write"
+	ComponentTypeWrite ComponentType = ComponentType(tuiwire.ComponentWrite)
 	// ComponentTypeTextArea represents the multi-line text input component.
-	ComponentTypeTextArea ComponentType = "textarea"
+	ComponentTypeTextArea ComponentType = ComponentType(tuiwire.ComponentTextArea)
 	// ComponentTypeSpin represents the spinner/loading component.
-	ComponentTypeSpin ComponentType = "spin"
+	ComponentTypeSpin ComponentType = ComponentType(tuiwire.ComponentSpin)
 	// ComponentTypePager represents the scrollable text viewer component.
-	ComponentTypePager ComponentType = "pager"
+	ComponentTypePager ComponentType = ComponentType(tuiwire.ComponentPager)
 	// ComponentTypeTable represents the table selection component.
-	ComponentTypeTable ComponentType = "table"
+	ComponentTypeTable ComponentType = ComponentType(tuiwire.ComponentTable)
 )
 
 // Modal ANSI variables: modal overlays render on a styled background, but child

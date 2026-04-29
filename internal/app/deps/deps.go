@@ -32,8 +32,14 @@ func ValidateDependencies(disc CommandSetProvider, cmdInfo *discovery.CommandInf
 
 // ValidateDependenciesWithCapabilityChecker validates dependencies with an injectable host capability checker.
 func ValidateDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker) error {
+	return ValidateDependenciesWithHostProbe(disc, cmdInfo, registry, parentCtx, userEnv, hostCapabilityChecker, nil)
+}
+
+// ValidateDependenciesWithHostProbe validates dependencies with injectable
+// host-device probes for application-service tests and adapters.
+func ValidateDependenciesWithHostProbe(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe) error {
 	// Phase 1: Host dependencies (root + cmd + impl, always validated on host)
-	if err := ValidateHostDependenciesWithCapabilityChecker(disc, cmdInfo, parentCtx, userEnv, hostCapabilityChecker); err != nil {
+	if err := ValidateHostDependenciesWithHostProbe(disc, cmdInfo, parentCtx, userEnv, hostCapabilityChecker, hostProbe); err != nil {
 		return err
 	}
 

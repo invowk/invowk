@@ -83,11 +83,6 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 		defer prepared.Cleanup()
 	}
 
-	prepared.Cmd.Env = append(prepared.Cmd.Env,
-		fmt.Sprintf("%s=%s", tuiserver.EnvTUIAddr, tuiServerURL),
-		fmt.Sprintf("%s=%s", tuiserver.EnvTUIToken, tuiServer.Token()),
-	)
-
 	interactiveResult, err := tui.RunInteractiveCmd(
 		goCtx,
 		tui.InteractiveOptions{

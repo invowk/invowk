@@ -15,11 +15,19 @@ import (
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+type fakeWatcherBackend struct {
+	events chan fsnotify.Event
+	errors chan error
+	added  []string
+	closed bool
+}
 
 // isIgnoredByDefaults reports whether rel matches any of the default ignore
 // patterns. Test-only helper that avoids needing a full Watcher instance.
@@ -31,6 +39,90 @@ func isIgnoredByDefaults(rel string) bool {
 		}
 	}
 	return false
+}
+
+func TestWatcherBackendFiltersAndDebouncesEvents(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	backend := newFakeWatcherBackend()
+	done := make(chan []string, 1)
+	w, err := newWithBackend(Config{
+		BaseDir:  types.FilesystemPath(dir),
+		Patterns: []invowkfile.GlobPattern{"**/*.go"},
+		Debounce: 10 * time.Millisecond,
+		Stdout:   &bytes.Buffer{},
+		Stderr:   &bytes.Buffer{},
+		OnChange: func(_ context.Context, changed []string) error {
+			done <- slices.Clone(changed)
+			return nil
+		},
+	}, backend, types.FilesystemPath(dir))
+	if err != nil {
+		t.Fatalf("newWithBackend() = %v", err)
+	}
+	if !slices.Contains(backend.added, dir) {
+		t.Fatalf("backend.added = %v, want base dir %q", backend.added, dir)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- w.Run(ctx) }()
+
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
+
+	backend.events <- fsnotify.Event{Name: filepath.Join(dir, "notes.txt"), Op: fsnotify.Write}
+	backend.events <- fsnotify.Event{Name: filepath.Join(dir, "main.go"), Op: fsnotify.Write}
+
+	var changed []string
+	select {
+	case changed = <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for callback")
+	}
+	if !slices.Equal(changed, []string{"main.go"}) {
+		t.Fatalf("changed = %v, want [main.go]", changed)
+	}
+
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if !backend.closed {
+		t.Fatal("backend was not closed")
+	}
+}
+
+func newFakeWatcherBackend() *fakeWatcherBackend {
+	return &fakeWatcherBackend{
+		events: make(chan fsnotify.Event, 4),
+		errors: make(chan error, 1),
+	}
+}
+
+func (b *fakeWatcherBackend) Add(path string) error {
+	b.added = append(b.added, path)
+	return nil
+}
+
+func (b *fakeWatcherBackend) Close() error {
+	b.closed = true
+	close(b.events)
+	close(b.errors)
+	return nil
+}
+
+func (b *fakeWatcherBackend) Events() <-chan fsnotify.Event {
+	return b.events
+}
+
+func (b *fakeWatcherBackend) Errors() <-chan error {
+	return b.errors
 }
 
 // TestWatcherDebounce verifies that multiple rapid filesystem events are

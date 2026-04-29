@@ -140,6 +140,11 @@ func (d DiscoveredFile) appendValidationErrors(errs *[]error) {
 	if err := d.Source.Validate(); err != nil {
 		*errs = append(*errs, err)
 	}
+	if d.CommandNamespace != "" {
+		if err := d.CommandNamespace.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 // Validate returns nil if the LookupResult has valid fields, or a validation error if not.

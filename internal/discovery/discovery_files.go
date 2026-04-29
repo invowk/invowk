@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -43,6 +44,9 @@ type (
 		// module inside another module's invowk_modules/ directory.
 		// nil for non-vendored files.
 		ParentModule *invowkmod.Module
+		// CommandNamespace overrides the command source namespace for vendored
+		// modules when the parent lock file records an alias.
+		CommandNamespace invowkmod.ModuleNamespace
 		// IsGlobalModule is true when this file was discovered from the user
 		// commands directory (~/.invowk/cmds). Global module commands are always
 		// accessible by any module's CommandScope.
@@ -404,14 +408,38 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 		}
 
 		files = append(files, &DiscoveredFile{
-			Path:         m.InvowkfilePath(),
-			Source:       SourceModule,
-			Module:       m,
-			ParentModule: parentModule,
+			Path:             m.InvowkfilePath(),
+			Source:           SourceModule,
+			Module:           m,
+			ParentModule:     parentModule,
+			CommandNamespace: vendoredCommandNamespace(parentModule, m),
 		})
 	}
 
 	return files, diagnostics
+}
+
+func vendoredCommandNamespace(parentModule, childModule *invowkmod.Module) invowkmod.ModuleNamespace {
+	if parentModule == nil || childModule == nil || childModule.Metadata == nil {
+		return ""
+	}
+
+	lockPath := fspath.JoinStr(parentModule.Path, invowkmod.LockFileName)
+	lock, err := invowkmod.LoadLockFile(string(lockPath))
+	if err != nil {
+		return ""
+	}
+
+	for key := range lock.Modules {
+		locked := lock.Modules[key]
+		if locked.Alias == "" {
+			continue
+		}
+		if locked.IdentityModuleID() == childModule.Metadata.Module {
+			return invowkmod.ModuleNamespace(locked.Alias)
+		}
+	}
+	return ""
 }
 
 // appendModulesWithVendored appends the module files and diagnostics, then for
@@ -438,14 +466,16 @@ func (d *Discovery) appendModulesWithVendored(
 		files = append(files, mf)
 
 		// Scan vendored modules owned by this module
-		if mf.Module != nil {
+		if mf.Module != nil && d.verifyVendoredIntegrity {
 			// Verify vendored module content hashes against the lock file before
 			// loading any vendored code. A mismatch indicates tampering (e.g.,
 			// malicious commits, CI cache poisoning) and must abort discovery.
 			if err := invowkmod.VerifyVendoredModuleHashes(mf.Module.Path); err != nil {
 				return files, diagnostics, fmt.Errorf("vendored module integrity check failed for %s: %w", mf.Module.Name(), err)
 			}
+		}
 
+		if mf.Module != nil {
 			vendoredFiles, vendoredDiags := d.discoverVendoredModulesWithDiagnostics(mf.Module)
 			// Inherit IsGlobalModule from the parent module.
 			if mf.IsGlobalModule {

@@ -7,12 +7,14 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -353,6 +355,8 @@ func TestPrepareCommandIncludesProvisionedEnvVars(t *testing.T) {
 	}
 
 	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	execCtx.TUI.ServerURL = "http://127.0.0.1:12345"
+	execCtx.TUI.ServerToken = "secret-token"
 	prepared, err := rt.PrepareCommand(execCtx)
 	if err != nil {
 		t.Fatalf("PrepareCommand() error = %v", err)
@@ -368,6 +372,15 @@ func TestPrepareCommandIncludesProvisionedEnvVars(t *testing.T) {
 	}
 	if env["INVOWK_MODULE_PATH"] != "/invowk/modules" {
 		t.Errorf("INVOWK_MODULE_PATH = %q, want /invowk/modules", env["INVOWK_MODULE_PATH"])
+	}
+	if env[tuiwire.EnvTUIAddr] != "http://127.0.0.1:12345" {
+		t.Errorf("%s = %q, want TUI server URL", tuiwire.EnvTUIAddr, env[tuiwire.EnvTUIAddr])
+	}
+	if env[tuiwire.EnvTUIToken] != "secret-token" {
+		t.Errorf("%s = %q, want TUI token", tuiwire.EnvTUIToken, env[tuiwire.EnvTUIToken])
+	}
+	if !slices.Contains(engine.PrepareRunCalls[0].ExtraHosts, container.HostMapping(hostGatewayMapping)) {
+		t.Errorf("ExtraHosts = %v, want %q", engine.PrepareRunCalls[0].ExtraHosts, hostGatewayMapping)
 	}
 }
 

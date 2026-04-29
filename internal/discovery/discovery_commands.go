@@ -237,7 +237,10 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 			// aliases affect collision handling and command publishing equally.
 			modID := d.GetEffectiveModuleID(file)
 			sourceID = SourceID(modID)
-			if alias := d.getAliasForModulePath(file.Module.Path); alias == "" {
+			if file.CommandNamespace != "" {
+				sourceID = SourceID(file.CommandNamespace)
+				modID = invowkmod.ModuleID(file.CommandNamespace)
+			} else if alias := d.getAliasForModulePath(file.Module.Path); alias == "" {
 				sourceID = SourceID(getModuleShortName(file.Module.Path))
 			}
 			moduleID = &modID

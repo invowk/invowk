@@ -99,7 +99,7 @@ type (
 	// caller encounters an error between New and Run).
 	Watcher struct {
 		cfg       Config
-		fsw       *fsnotify.Watcher
+		backend   watcherBackend
 		ignores   []invowkfile.GlobPattern
 		stdout    io.Writer
 		stderr    io.Writer
@@ -115,6 +115,17 @@ type (
 	// invalid typed fields. FieldErrors contains the per-field validation errors.
 	InvalidWatchConfigError struct {
 		FieldErrors []error
+	}
+
+	watcherBackend interface {
+		Add(string) error
+		Close() error
+		Events() <-chan fsnotify.Event
+		Errors() <-chan error
+	}
+
+	fsnotifyBackend struct {
+		watcher *fsnotify.Watcher
 	}
 )
 
@@ -175,21 +186,6 @@ func New(cfg Config) (*Watcher, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-
-	baseDirStr := string(cfg.BaseDir)
-	if baseDirStr == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("watch: determine working directory: %w", err)
-		}
-		baseDirStr = wd
-	}
-
-	absBase, err := filepath.Abs(baseDirStr)
-	if err != nil {
-		return nil, fmt.Errorf("watch: resolve base directory: %w", err)
-	}
-
 	// Validate all patterns eagerly so invalid globs fail at construction
 	// time rather than silently failing to match at runtime.
 	if patErr := validatePatterns(cfg.Patterns, "watch"); patErr != nil {
@@ -202,6 +198,42 @@ func New(cfg Config) (*Watcher, error) {
 	fsw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("watch: create fsnotify watcher: %w", err)
+	}
+	w, err := newWithBackend(cfg, fsnotifyBackend{watcher: fsw}, cfg.BaseDir)
+	if err != nil {
+		if closeErr := fsw.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "watch: close after init failure: %v\n", closeErr)
+		}
+		return nil, err
+	}
+	return w, nil
+}
+
+func newWithBackend(cfg Config, backend watcherBackend, baseDir types.FilesystemPath) (*Watcher, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	if backend == nil {
+		return nil, errors.New("watch: backend must not be nil")
+	}
+	baseDirStr := string(baseDir)
+	if baseDirStr == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("watch: determine working directory: %w", err)
+		}
+		baseDirStr = wd
+	}
+	absBase, err := filepath.Abs(baseDirStr)
+	if err != nil {
+		return nil, fmt.Errorf("watch: resolve base directory: %w", err)
+	}
+
+	if patErr := validatePatterns(cfg.Patterns, "watch"); patErr != nil {
+		return nil, patErr
+	}
+	if patErr := validatePatterns(cfg.Ignore, "ignore"); patErr != nil {
+		return nil, patErr
 	}
 
 	debounce := cfg.Debounce
@@ -225,7 +257,7 @@ func New(cfg Config) (*Watcher, error) {
 
 	w := &Watcher{
 		cfg:      cfg,
-		fsw:      fsw,
+		backend:  backend,
 		ignores:  ignores,
 		stdout:   stdout,
 		stderr:   stderr,
@@ -235,7 +267,7 @@ func New(cfg Config) (*Watcher, error) {
 	}
 
 	if err := w.addDirectories(); err != nil {
-		if closeErr := fsw.Close(); closeErr != nil {
+		if closeErr := backend.Close(); closeErr != nil {
 			fmt.Fprintf(stderr, "watch: close after init failure: %v\n", closeErr)
 		}
 		return nil, err
@@ -252,7 +284,7 @@ func (w *Watcher) Close() error {
 	if !w.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	return w.fsw.Close()
+	return w.backend.Close()
 }
 
 // Ready returns a channel that is closed once the event loop has entered
@@ -370,7 +402,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 		// Wait for any in-flight fire() goroutine to finish before closing
 		// fsnotify. Without this, OnChange could race with resource cleanup.
 		wg.Wait()
-		if closeErr := w.fsw.Close(); closeErr != nil {
+		if closeErr := w.backend.Close(); closeErr != nil {
 			fmt.Fprintf(w.stderr, "watch: close fsnotify: %v\n", closeErr)
 		}
 	}()
@@ -384,7 +416,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 
-		case evt, ok := <-w.fsw.Events:
+		case evt, ok := <-w.backend.Events():
 			if !ok {
 				return errors.New("watch: fsnotify event channel closed unexpectedly")
 			}
@@ -423,7 +455,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 			}
 			mu.Unlock()
 
-		case err, ok := <-w.fsw.Errors:
+		case err, ok := <-w.backend.Errors():
 			if !ok {
 				return errors.New("watch: fsnotify error channel closed unexpectedly")
 			}
@@ -472,7 +504,7 @@ func (w *Watcher) addDirectories() error {
 			return filepath.SkipDir
 		}
 
-		if addErr := w.fsw.Add(path); addErr != nil {
+		if addErr := w.backend.Add(path); addErr != nil {
 			return fmt.Errorf("watch: add directory %q: %w", path, addErr)
 		}
 		return nil
@@ -506,9 +538,29 @@ func (w *Watcher) maybeAddDir(path string) {
 		return
 	}
 
-	if addErr := w.fsw.Add(path); addErr != nil {
+	if addErr := w.backend.Add(path); addErr != nil {
 		fmt.Fprintf(w.stderr, "watch: add new directory %q: %v\n", path, addErr)
 	}
+}
+
+//goplint:ignore -- fsnotify adapter mirrors fsnotify.Watcher.Add signature.
+func (b fsnotifyBackend) Add(path string) error {
+	if err := b.watcher.Add(path); err != nil {
+		return fmt.Errorf("fsnotify add %q: %w", path, err)
+	}
+	return nil
+}
+
+func (b fsnotifyBackend) Close() error {
+	return b.watcher.Close()
+}
+
+func (b fsnotifyBackend) Events() <-chan fsnotify.Event {
+	return b.watcher.Events
+}
+
+func (b fsnotifyBackend) Errors() <-chan error {
+	return b.watcher.Errors
 }
 
 // isIgnored returns true if the given path (relative to BaseDir) matches any

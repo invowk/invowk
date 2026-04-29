@@ -5,6 +5,8 @@ package tui
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/internal/tuiserver"
 )
 
 func TestComponentType_Validate(t *testing.T) {
@@ -80,5 +82,34 @@ func TestComponentType_String_FmtStringer(t *testing.T) {
 	got := ComponentTypeInput.String()
 	if got != "input" {
 		t.Errorf("ComponentTypeInput.String() = %q, want %q", got, "input")
+	}
+}
+
+func TestComponentTypeMatchesServerProtocol(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		client ComponentType
+		server tuiserver.Component
+	}{
+		{"input", ComponentTypeInput, tuiserver.ComponentInput},
+		{"confirm", ComponentTypeConfirm, tuiserver.ComponentConfirm},
+		{"choose", ComponentTypeChoose, tuiserver.ComponentChoose},
+		{"filter", ComponentTypeFilter, tuiserver.ComponentFilter},
+		{"file", ComponentTypeFile, tuiserver.ComponentFile},
+		{"write", ComponentTypeWrite, tuiserver.ComponentWrite},
+		{"textarea", ComponentTypeTextArea, tuiserver.ComponentTextArea},
+		{"spin", ComponentTypeSpin, tuiserver.ComponentSpin},
+		{"pager", ComponentTypePager, tuiserver.ComponentPager},
+		{"table", ComponentTypeTable, tuiserver.ComponentTable},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if string(tt.client) != string(tt.server) {
+				t.Fatalf("client component = %q, server component = %q", tt.client, tt.server)
+			}
+		})
 	}
 }

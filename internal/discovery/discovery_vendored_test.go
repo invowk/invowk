@@ -113,6 +113,50 @@ func TestDiscoverAll_VendoredModulesOrderedAfterParent(t *testing.T) {
 	}
 }
 
+func TestDiscoverCommandSet_UsesVendoredAliasNamespaceFromLockFile(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	parentDir := filepath.Join(tmpDir, "io.example.parent.invowkmod")
+	createTestModule(t, parentDir, "io.example.parent", "parent-cmd")
+	vendoredDir := createVendoredModule(t, parentDir, "io.example.vendored.invowkmod", "io.example.vendored", "run")
+	hash, err := invowkmod.ComputeModuleHash(vendoredDir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash() = %v", err)
+	}
+	lock := invowkmod.NewLockFile()
+	lock.Modules["https://example.com/vendored.git"] = invowkmod.LockedModule{
+		GitURL:          "https://example.com/vendored.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.0.0",
+		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+		Alias:           "tools",
+		Namespace:       "tools",
+		ModuleID:        "io.example.vendored",
+		ContentHash:     hash,
+	}
+	if saveErr := lock.Save(filepath.Join(parentDir, invowkmod.LockFileName)); saveErr != nil {
+		t.Fatalf("lock.Save() = %v", saveErr)
+	}
+
+	d := newTestDiscovery(t, config.DefaultConfig(), tmpDir)
+	result, err := d.DiscoverCommandSet(t.Context())
+	if err != nil {
+		t.Fatalf("DiscoverCommandSet() = %v", err)
+	}
+
+	cmd := result.Set.ByName["tools run"]
+	if cmd == nil {
+		t.Fatalf("ByName missing aliased vendored command; sources: %v", result.Set.SourceOrder)
+	}
+	if cmd.SourceID != "tools" {
+		t.Fatalf("SourceID = %q, want tools", cmd.SourceID)
+	}
+	if cmd.ModuleID == nil || *cmd.ModuleID != "tools" {
+		t.Fatalf("ModuleID = %v, want tools", cmd.ModuleID)
+	}
+}
+
 func TestDiscoverAll_FindsVendoredModulesInIncludes(t *testing.T) {
 	t.Parallel()
 

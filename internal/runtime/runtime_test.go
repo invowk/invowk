@@ -665,3 +665,28 @@ func TestRegistry_Execute_UnavailableRuntimeWraps(t *testing.T) {
 		t.Errorf("Execute() error should wrap ErrRuntimeNotAvailable, got: %v", result.Error)
 	}
 }
+
+func TestExecutionContextResolveSelectedScriptHonorsModuleBoundary(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	moduleDir := filepath.Join(tmpDir, "example.invowkmod")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("mkdir module: %v", err)
+	}
+	outsideScript := filepath.Join(tmpDir, "outside.sh")
+	if err := os.WriteFile(outsideScript, []byte("echo outside"), 0o644); err != nil {
+		t.Fatalf("write outside script: %v", err)
+	}
+	inv := &invowkfile.Invowkfile{
+		FilePath:   invowkfile.FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue")),
+		ModulePath: invowkfile.FilesystemPath(moduleDir),
+	}
+	cmd := testCommandWithScript("test", "../outside.sh", invowkfile.RuntimeNative)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+
+	_, err := ctx.ResolveSelectedScript()
+	if !errors.Is(err, invowkfile.ErrScriptPathTraversal) {
+		t.Fatalf("ResolveSelectedScript() error = %v, want ErrScriptPathTraversal", err)
+	}
+}

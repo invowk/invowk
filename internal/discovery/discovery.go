@@ -54,7 +54,8 @@ type (
 		//plint:internal -- distinguishes "not set" from "explicitly set to empty"
 		commandsDirSet bool
 		//plint:internal -- errors from New() constructor surfaced as diagnostics
-		initDiagnostics []Diagnostic
+		initDiagnostics         []Diagnostic
+		verifyVendoredIntegrity bool
 	}
 
 	// Option configures a Discovery instance via the functional options pattern.
@@ -96,13 +97,21 @@ func WithCommandsDir(dir types.FilesystemPath) Option {
 	}
 }
 
+// WithVendoredIntegrityVerification configures whether discovery aborts on
+// vendored module hash mismatches before loading vendored command definitions.
+func WithVendoredIntegrityVerification(enabled bool) Option {
+	return func(d *Discovery) {
+		d.verifyVendoredIntegrity = enabled
+	}
+}
+
 // New creates a new Discovery instance. Without options, baseDir defaults to
 // os.Getwd() and commandsDir defaults to config.CommandsDir(), preserving
 // backward compatibility for all existing callers. If os.Getwd() fails
 // (e.g., deleted working directory), baseDir is empty and current-dir
 // discovery is effectively skipped.
 func New(cfg *config.Config, opts ...Option) *Discovery {
-	d := &Discovery{cfg: cfg}
+	d := &Discovery{cfg: cfg, verifyVendoredIntegrity: true}
 	for _, opt := range opts {
 		opt(d)
 	}

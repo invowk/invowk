@@ -316,7 +316,7 @@ func (r *ContainerRuntime) buildInterpreterCommand(ctx *ExecutionContext, script
 
 	if ctx.SelectedImpl.IsScriptFile() {
 		// File script: use the relative path within /workspace
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
+		scriptPath := ctx.SelectedScriptFilePath()
 		// Convert host path to container path (relative to /workspace)
 		relPath, err := filepath.Rel(invowkDir, string(scriptPath))
 		if err != nil {

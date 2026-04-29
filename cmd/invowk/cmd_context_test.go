@@ -20,7 +20,9 @@ import (
 
 type (
 	recordingCommandService struct {
-		lastConfigPath string
+		lastConfigPath         string
+		resolveFromSourceCalls int
+		lastResolveRequest     ExecuteRequest
 	}
 
 	recordingDiscoveryService struct {
@@ -42,6 +44,13 @@ type (
 func (s *recordingCommandService) Execute(ctx context.Context, _ ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	s.lastConfigPath = configPathFromContext(ctx)
 	return ExecuteResult{}, nil, nil
+}
+
+func (s *recordingCommandService) ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	s.lastConfigPath = configPathFromContext(ctx)
+	s.resolveFromSourceCalls++
+	s.lastResolveRequest = req
+	return req.ResolvedCommand, req, nil, nil
 }
 
 func (s *recordingDiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
@@ -144,6 +153,46 @@ func TestRunDisambiguatedCommand_AttachesConfigPathToContext(t *testing.T) {
 
 	if commands.lastConfigPath != rootFlags.configPath {
 		t.Fatalf("execute context config path = %q, want %q", commands.lastConfigPath, rootFlags.configPath)
+	}
+}
+
+func TestRunDisambiguatedCommand_WatchResolvesSourceThroughCommandService(t *testing.T) {
+	t.Parallel()
+
+	commands := &recordingCommandService{}
+	rootFlags := &rootFlagValues{configPath: filepath.Join(t.TempDir(), "custom.cue")}
+	app := &App{
+		Config:      &fixedConfigProvider{cfg: config.DefaultConfig()},
+		Commands:    commands,
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stderr:      io.Discard,
+	}
+
+	err := runDisambiguatedCommand(
+		&cobra.Command{},
+		app,
+		rootFlags,
+		&cmdFlagValues{watch: true, dryRun: true},
+		&SourceFilter{SourceID: "tools"},
+		[]string{"deploy", "staging", "prod"},
+	)
+	if !errors.Is(err, errWatchDryRunConflict) {
+		t.Fatalf("runDisambiguatedCommand() error = %v, want errWatchDryRunConflict", err)
+	}
+	if commands.resolveFromSourceCalls != 1 {
+		t.Fatalf("ResolveFromSource calls = %d, want 1", commands.resolveFromSourceCalls)
+	}
+	if commands.lastConfigPath != rootFlags.configPath {
+		t.Fatalf("resolve context config path = %q, want %q", commands.lastConfigPath, rootFlags.configPath)
+	}
+	if commands.lastResolveRequest.FromSource != "tools" {
+		t.Fatalf("FromSource = %q, want tools", commands.lastResolveRequest.FromSource)
+	}
+	if commands.lastResolveRequest.Name != "deploy" {
+		t.Fatalf("Name = %q, want deploy", commands.lastResolveRequest.Name)
+	}
+	if len(commands.lastResolveRequest.Args) != 2 || commands.lastResolveRequest.Args[0] != "staging" || commands.lastResolveRequest.Args[1] != "prod" {
+		t.Fatalf("Args = %v, want [staging prod]", commands.lastResolveRequest.Args)
 	}
 }
 

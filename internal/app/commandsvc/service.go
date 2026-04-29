@@ -28,6 +28,7 @@ type (
 		interactive       InteractiveExecutor
 		observer          ExecutionObserver
 		capabilityChecker deps.CapabilityChecker
+		hostProbe         deps.HostProbe
 		userEnvFunc       UserEnvFunc
 		configFallback    ConfigFallbackFunc
 	}
@@ -48,7 +49,7 @@ func New(
 	userEnvFunc UserEnvFunc,
 	configFallback ConfigFallbackFunc,
 ) *Service {
-	return NewWithPorts(configProvider, disc, userEnvFunc, configFallback, nil, nil, nil, nil)
+	return NewWithPorts(configProvider, disc, userEnvFunc, configFallback, nil, nil, nil, nil, nil)
 }
 
 // NewWithPorts creates a command execution service with explicit infrastructure
@@ -62,6 +63,7 @@ func NewWithPorts(
 	registryFactory RuntimeRegistryFactory,
 	interactive InteractiveExecutor,
 	observer ExecutionObserver,
+	hostProbe deps.HostProbe,
 ) *Service {
 	svc := &Service{
 		config:          configProvider,
@@ -84,6 +86,9 @@ func NewWithPorts(
 	}
 	if observer != nil {
 		svc.observer = observer
+	}
+	if hostProbe != nil {
+		svc.hostProbe = hostProbe
 	}
 	return svc
 }
@@ -157,6 +162,12 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 	}
 
 	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
+}
+
+// ResolveFromSource resolves a source-filtered command request without executing it.
+func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+	_, cmdInfo, resolvedReq, diags, err := s.discoverCommandFromSource(ctx, nil, req)
+	return cmdInfo, resolvedReq, diags, err
 }
 
 // discoverCommand loads configuration and discovers the target command by name.

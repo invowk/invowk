@@ -105,7 +105,7 @@ func (r *NativeRuntime) Execute(ctx *ExecutionContext) *Result {
 		return NewErrorResult(1, err)
 	}
 
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return NewErrorResult(1, err)
 	}
@@ -132,7 +132,7 @@ func (r *NativeRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		return NewErrorResult(1, err)
 	}
 
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return NewErrorResult(1, err)
 	}
@@ -172,7 +172,7 @@ func (r *NativeRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand,
 		return nil, err
 	}
 
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	// Handle file vs inline script
 	var tempFile string
 	if ctx.SelectedImpl.IsScriptFile() {
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
+		scriptPath := ctx.SelectedScriptFilePath()
 		cmdArgs = append(cmdArgs, string(scriptPath))
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)
@@ -426,7 +426,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 	var tempFile string
 	var cleanup func()
 	if ctx.SelectedImpl.IsScriptFile() {
-		scriptPath := ctx.SelectedImpl.GetScriptFilePath(ctx.Invowkfile.FilePath)
+		scriptPath := ctx.SelectedScriptFilePath()
 		cmdArgs = append(cmdArgs, string(scriptPath))
 	} else {
 		tempFile, err = r.createTempScript(script, interp.Interpreter)

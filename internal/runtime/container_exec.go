@@ -19,21 +19,27 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// containerExecPrep holds all prepared data needed to run a container command.
-// This struct is returned by prepareContainerExecution and used by both
-// Execute and ExecuteCapture to avoid code duplication.
-type containerExecPrep struct {
-	image          container.ImageTag
-	shellCmd       []string
-	workDir        container.MountTargetPath
-	env            map[string]string
-	volumes        []invowkfile.VolumeMountSpec
-	ports          []invowkfile.PortMappingSpec
-	extraHosts     []container.HostMapping
-	sshConnInfo    *HostCallbackConnectionInfo
-	tempScriptPath types.FilesystemPath
-	cleanup        func() // Combined cleanup for provisioning and temp files
-}
+type (
+	// containerExecPrep holds all prepared data needed to run a container command.
+	// This struct is returned by prepareContainerExecution and used by both
+	// Execute and ExecuteCapture to avoid code duplication.
+	containerExecPrep struct {
+		image          container.ImageTag
+		shellCmd       []string
+		workDir        container.MountTargetPath
+		env            map[string]string
+		volumes        []invowkfile.VolumeMountSpec
+		ports          []invowkfile.PortMappingSpec
+		extraHosts     []container.HostMapping
+		sshConnInfo    *HostCallbackConnectionInfo
+		tempScriptPath types.FilesystemPath
+		cleanup        func() // Combined cleanup for provisioning and temp files
+	}
+
+	containerExecOptions struct {
+		interactiveTUI bool
+	}
+)
 
 // prepareContainerExecution performs all common setup for container execution.
 // It resolves configuration, prepares the image, builds environment, sets up
@@ -43,7 +49,7 @@ type containerExecPrep struct {
 // Uses a deferred cleanup-on-error pattern: all acquired resources are tracked
 // and automatically released if any step fails, so individual error paths don't
 // need manual cleanup calls.
-func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *containerExecPrep, errResult *Result) {
+func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts containerExecOptions) (_ *containerExecPrep, errResult *Result) {
 	if err := validateExecutionContextForRun(ctx, errContainerNoImpl, errContainerNoScript); err != nil {
 		return nil, NewErrorResult(1, err)
 	}
@@ -83,7 +89,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	}
 
 	// Resolve the script content (from file or inline)
-	script, err := ctx.SelectedImpl.ResolveScript(ctx.Invowkfile.FilePath)
+	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return nil, NewErrorResult(1, err)
 	}
@@ -101,6 +107,9 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 		return nil, NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
 	maps.Copy(env, provisionEnv)
+	if opts.interactiveTUI {
+		ctx.AddTUIEnv(env)
+	}
 
 	// Check if host SSH is enabled for this runtime
 	hostSSHEnabled := ctx.SelectedImpl.GetHostSSHForRuntime(ctx.SelectedRuntime)
@@ -153,7 +162,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 
 	// Build extra hosts for SSH server access
 	var extraHosts []container.HostMapping
-	if hostSSHEnabled && sshConnInfo != nil {
+	if (hostSSHEnabled && sshConnInfo != nil) || (opts.interactiveTUI && ctx.TUI.ServerURL != "") {
 		// Add host gateway for accessing host from container
 		extraHosts = append(extraHosts, container.HostMapping(hostGatewayMapping))
 	}
@@ -324,7 +333,7 @@ func IsTransientExitCode(code int) bool {
 //  3. Result mapping — translates the container engine result into a
 //     runtime [Result] with the exit code and any error from the run.
 func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
-	prep, errResult := r.prepareContainerExecution(ctx)
+	prep, errResult := r.prepareContainerExecution(ctx, containerExecOptions{})
 	if errResult != nil {
 		return errResult
 	}
@@ -358,7 +367,7 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 // This implements the CapturingRuntime interface, enabling container-based
 // dependency validation through custom checks that need to capture output.
 func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
-	prep, errResult := r.prepareContainerExecution(ctx)
+	prep, errResult := r.prepareContainerExecution(ctx, containerExecOptions{})
 	if errResult != nil {
 		return errResult
 	}

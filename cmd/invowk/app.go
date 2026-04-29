@@ -72,6 +72,7 @@ type (
 	// are returned as structured data for the CLI layer to render.
 	CommandService interface {
 		Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error)
+		ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error)
 	}
 
 	// DiscoveryService discovers invowk commands and diagnostics.
@@ -177,6 +178,7 @@ func NewApp(d Dependencies) (*App, error) {
 			registryFactory,
 			interactiveExecutor,
 			&cliExecutionObserver{stdout: d.Stdout},
+			nil,
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}
@@ -222,6 +224,11 @@ func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (Ex
 		err = renderAndWrapServiceError(err, req)
 	}
 	return ExecuteResult{ExitCode: result.ExitCode}, diags, err
+}
+
+// ResolveFromSource delegates source-filtered command selection to the command service.
+func (a *cliCommandAdapter) ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	return a.svc.ResolveFromSource(ctx, req)
 }
 
 // renderAndWrapServiceError inspects the raw domain error from the service and

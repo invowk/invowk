@@ -118,6 +118,7 @@ func (r *NativeRuntime) configureCommandDirAndEnv(cmd *exec.Cmd, ctx *ExecutionC
 	if err != nil {
 		return fmt.Errorf(failedBuildEnvironmentFmt, err)
 	}
+	ctx.AddTUIEnv(env)
 	cmd.Env = EnvToSlice(env)
 
 	return nil
