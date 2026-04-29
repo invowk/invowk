@@ -33,14 +33,22 @@ const (
 //
 // This checker is opt-in: it is NOT included in DefaultCheckers() and must
 // be explicitly added via WithChecker(NewLLMChecker(...)).
-type LLMChecker struct {
-	completer   llmCompleter
-	concurrency int
-}
+type (
+	LLMChecker struct {
+		completer   LLMCompleter
+		concurrency int
+	}
+
+	// LLMCompleter abstracts the LLM chat completion call for testability.
+	// Production adapters live outside the audit domain package.
+	LLMCompleter interface {
+		Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error)
+	}
+)
 
 // NewLLMChecker creates an LLMChecker with the given completer and concurrency.
 // The concurrency parameter controls the maximum number of parallel LLM requests.
-func NewLLMChecker(completer llmCompleter, concurrency int) *LLMChecker {
+func NewLLMChecker(completer LLMCompleter, concurrency int) *LLMChecker {
 	if concurrency <= 0 {
 		concurrency = DefaultLLMConcurrency
 	}

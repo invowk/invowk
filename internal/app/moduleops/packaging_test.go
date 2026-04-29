@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package moduleops
 
 import (
 	"archive/zip"
@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -73,13 +74,13 @@ func TestArchive(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create a module first
-		modulePath, err := Create(CreateOptions{
+		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
 			Name:             "mytools",
 			ParentDir:        types.FilesystemPath(tmpDir),
 			CreateScriptsDir: true,
 		})
 		if err != nil {
-			t.Fatalf("Create() failed: %v", err)
+			t.Fatalf("invowkmod.Create() failed: %v", err)
 		}
 
 		// Add a script file
@@ -114,12 +115,12 @@ func TestArchive(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create a module
-		modulePath, err := Create(CreateOptions{
+		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
 			Name:      "com.example.tools",
 			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
-			t.Fatalf("Create() failed: %v", err)
+			t.Fatalf("invowkmod.Create() failed: %v", err)
 		}
 
 		// Change to temp dir to test default output
@@ -164,12 +165,12 @@ func TestUnpack(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
-		modulePath, err := Create(CreateOptions{
+		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
 			Name:      "mytools",
 			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
-			t.Fatalf("Create() failed: %v", err)
+			t.Fatalf("invowkmod.Create() failed: %v", err)
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
@@ -196,7 +197,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Verify extracted module is valid
-		b, err := Load(types.FilesystemPath(extractedPath))
+		b, err := invowkmod.Load(types.FilesystemPath(extractedPath))
 		if err != nil {
 			t.Fatalf("extracted module is invalid: %v", err)
 		}
@@ -212,12 +213,12 @@ func TestUnpack(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
-		modulePath, err := Create(CreateOptions{
+		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
 			Name:      "mytools",
 			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
-			t.Fatalf("Create() failed: %v", err)
+			t.Fatalf("invowkmod.Create() failed: %v", err)
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
@@ -235,8 +236,8 @@ func TestUnpack(t *testing.T) {
 		if err == nil {
 			t.Error("Unpack() expected error for existing module, got nil")
 		}
-		if !errors.Is(err, ErrModuleAlreadyExists) {
-			t.Errorf("expected ErrModuleAlreadyExists, got: %v", err)
+		if !errors.Is(err, invowkmod.ErrModuleAlreadyExists) {
+			t.Errorf("expected invowkmod.ErrModuleAlreadyExists, got: %v", err)
 		}
 	})
 
@@ -246,12 +247,12 @@ func TestUnpack(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
-		modulePath, err := Create(CreateOptions{
+		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
 			Name:      "mytools",
 			ParentDir: types.FilesystemPath(tmpDir),
 		})
 		if err != nil {
-			t.Fatalf("Create() failed: %v", err)
+			t.Fatalf("invowkmod.Create() failed: %v", err)
 		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")

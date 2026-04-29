@@ -4,6 +4,7 @@ package provision
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -623,11 +624,14 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	defer cleanup()
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
 
 	// Verify build context directory exists
 	if _, statErr := os.Stat(buildCtx); os.IsNotExist(statErr) {
@@ -673,11 +677,14 @@ func TestLayerProvisioner_PrepareBuildContext_NoBinary(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	defer cleanup()
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
 
 	// Should still create the build context (with Dockerfile and modules dir)
 	if _, statErr := os.Stat(buildCtx); os.IsNotExist(statErr) {
@@ -725,9 +732,12 @@ func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	buildCtx, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
 	}
 
 	// Verify build context exists before cleanup
@@ -741,6 +751,48 @@ func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
 	// Verify build context is removed after cleanup
 	if _, err := os.Stat(buildCtx); !os.IsNotExist(err) {
 		t.Error("build context should be removed after cleanup")
+	}
+}
+
+func TestLayerProvisioner_PrepareBuildContext_ModuleCopyWarnings(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	modulesDir := filepath.Join(tmpDir, "modules")
+	modPath := filepath.Join(modulesDir, "broken.invowkmod")
+	if err := os.MkdirAll(modPath, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
+	}
+
+	cfg := &Config{
+		Enabled:          true,
+		ModulesPaths:     []types.FilesystemPath{types.FilesystemPath(modulesDir)},
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
+	}
+
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
+	provisioner.copyDir = func(_, _ string) error {
+		return errors.New("copy failed")
+	}
+
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer cleanup()
+	if buildCtx == "" {
+		t.Fatal("expected build context to be created despite module copy warning")
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %d: %v", len(warnings), warnings)
+	}
+	warning := warnings[0].Message.String()
+	if !strings.Contains(warning, "failed to copy module broken.invowkmod") || !strings.Contains(warning, "copy failed") {
+		t.Fatalf("warning = %q, want module name and copy error", warning)
 	}
 }
 

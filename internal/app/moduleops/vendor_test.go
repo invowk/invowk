@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package moduleops
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -130,11 +131,11 @@ func TestListVendoredModules(t *testing.T) {
 		}
 
 		// Check module names
-		names := make(map[ModuleID]bool)
+		names := make(map[invowkmod.ModuleID]bool)
 		for _, p := range modules {
 			names[p.Name()] = true
 		}
-		if !names[ModuleID("vendor1")] || !names[ModuleID("vendor2")] {
+		if !names[invowkmod.ModuleID("vendor1")] || !names[invowkmod.ModuleID("vendor2")] {
 			t.Errorf("ListVendoredModules() missing expected modules, got: %v", names)
 		}
 	})
@@ -191,7 +192,7 @@ func TestValidate_AllowsNestedModulesInVendoredDir(t *testing.T) {
 	}
 	createValidModuleForPackaging(t, vendoredDir, "vendored.invowkmod", "vendored")
 
-	result, err := Validate(types.FilesystemPath(modulePath))
+	result, err := invowkmod.Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -213,7 +214,7 @@ func TestValidate_StillRejectsNestedModulesOutsideVendoredDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Validate(types.FilesystemPath(modulePath))
+	result, err := invowkmod.Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -258,7 +259,7 @@ func TestValidate_DetectsSymlinks(t *testing.T) {
 		t.Fatalf("Failed to create symlink: %v", err)
 	}
 
-	result, err := Validate(types.FilesystemPath(modulePath))
+	result, err := invowkmod.Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -292,7 +293,7 @@ func TestValidate_DetectsWindowsReservedFilenames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Validate(types.FilesystemPath(modulePath))
+	result, err := invowkmod.Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -339,7 +340,7 @@ func TestValidate_RejectsAllSymlinks(t *testing.T) {
 		t.Fatalf("Failed to create symlink: %v", err)
 	}
 
-	result, err := Validate(types.FilesystemPath(modulePath))
+	result, err := invowkmod.Validate(types.FilesystemPath(modulePath))
 	if err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
 	}
@@ -364,7 +365,7 @@ func TestValidate_RejectsAllSymlinks(t *testing.T) {
 
 // createCacheModule sets up a synthetic cache directory containing a .invowkmod module,
 // simulating what the Resolver produces after fetching and caching a Git dependency.
-// Returns the cache directory path (to use as ResolvedModule.CachePath).
+// Returns the cache directory path (to use as invowkmod.ResolvedModule.CachePath).
 func createCacheModule(t *testing.T, parentDir, folderName, moduleID string) string {
 	t.Helper()
 	cacheDir := filepath.Join(parentDir, "cache-"+moduleID)
@@ -387,7 +388,7 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*ResolvedModule{
+		Modules: []*invowkmod.ResolvedModule{
 			{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
 			{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
 		},
@@ -401,7 +402,7 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 	}
 
 	// Verify modules exist in invowk_modules/ with correct fields
-	entryByNamespace := make(map[ModuleNamespace]VendoredEntry)
+	entryByNamespace := make(map[invowkmod.ModuleNamespace]VendoredEntry)
 	for _, entry := range result.Vendored {
 		entryByNamespace[entry.Namespace] = entry
 		if _, err := os.Stat(string(entry.VendorPath)); err != nil {
@@ -414,8 +415,8 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 		}
 	}
 
-	// Verify Namespace fields match what was passed in ResolvedModule
-	for _, ns := range []ModuleNamespace{"dep1@1.0.0", "dep2@2.0.0"} {
+	// Verify Namespace fields match what was passed in invowkmod.ResolvedModule
+	for _, ns := range []invowkmod.ModuleNamespace{"dep1@1.0.0", "dep2@2.0.0"} {
 		if _, ok := entryByNamespace[ns]; !ok {
 			t.Errorf("expected vendored entry with Namespace %q, not found", ns)
 		}
@@ -450,7 +451,7 @@ func TestVendorModules_OverwritesExisting(t *testing.T) {
 	// Vendor once
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
+		Modules:    []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
 	})
 	if err != nil {
 		t.Fatalf("first VendorModules() error: %v", err)
@@ -466,7 +467,7 @@ func TestVendorModules_OverwritesExisting(t *testing.T) {
 	// Vendor again — should overwrite, removing the stale marker
 	_, err = VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
+		Modules:    []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
 	})
 	if err != nil {
 		t.Fatalf("second VendorModules() error: %v", err)
@@ -488,7 +489,7 @@ func TestVendorModules_Prune(t *testing.T) {
 	// Vendor both modules initially
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*ResolvedModule{
+		Modules: []*invowkmod.ResolvedModule{
 			{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
 			{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
 		},
@@ -500,7 +501,7 @@ func TestVendorModules_Prune(t *testing.T) {
 	// Now vendor only dep1 with prune — dep2 should be removed
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
+		Modules:    []*invowkmod.ResolvedModule{{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"}},
 		Prune:      true,
 	})
 	if err != nil {
@@ -535,7 +536,7 @@ func TestVendorModules_EmptyModulesList(t *testing.T) {
 
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*ResolvedModule{},
+		Modules:    []*invowkmod.ResolvedModule{},
 	})
 	if err != nil {
 		t.Fatalf("VendorModules() error: %v", err)
@@ -559,7 +560,7 @@ func TestVendorModules_InvalidCachePath(t *testing.T) {
 
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*ResolvedModule{
+		Modules: []*invowkmod.ResolvedModule{
 			{CachePath: types.FilesystemPath(filepath.Join(tmpDir, "nonexistent-cache")), Namespace: "bad@1.0.0"},
 		},
 	})
@@ -690,7 +691,7 @@ func TestVendorModules_SameBasenameFails(t *testing.T) {
 
 	_, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules: []*ResolvedModule{
+		Modules: []*invowkmod.ResolvedModule{
 			{CachePath: types.FilesystemPath(cache1), Namespace: "dep-alpha@1.0.0"},
 			{CachePath: types.FilesystemPath(cache2), Namespace: "dep-beta@2.0.0"},
 		},
@@ -714,7 +715,7 @@ func TestVendorModules_PruneNoOp(t *testing.T) {
 	cache1 := createCacheModule(t, tmpDir, "dep1.invowkmod", "dep1")
 	cache2 := createCacheModule(t, tmpDir, "dep2.invowkmod", "dep2")
 
-	modules := []*ResolvedModule{
+	modules := []*invowkmod.ResolvedModule{
 		{CachePath: types.FilesystemPath(cache1), Namespace: "dep1@1.0.0"},
 		{CachePath: types.FilesystemPath(cache2), Namespace: "dep2@2.0.0"},
 	}
@@ -760,7 +761,7 @@ func TestVendorModules_PruneNoVendorDir(t *testing.T) {
 	// Prune with empty modules list on a fresh module (no vendor dir yet)
 	result, err := VendorModules(VendorOptions{
 		ModulePath: types.FilesystemPath(modulePath),
-		Modules:    []*ResolvedModule{},
+		Modules:    []*invowkmod.ResolvedModule{},
 		Prune:      true,
 	})
 	if err != nil {

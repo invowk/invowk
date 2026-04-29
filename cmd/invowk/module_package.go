@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/invowk/invowk/internal/app/moduleops"
 	"github.com/invowk/invowk/internal/app/modulesync"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -119,7 +120,7 @@ func runModuleArchive(args []string, output string) error {
 	fmt.Println(moduleTitleStyle.Render("Archive Module"))
 
 	// Archive the module
-	zipPath, err := invowkmod.Archive(types.FilesystemPath(modulePath), types.FilesystemPath(output))
+	zipPath, err := moduleops.Archive(types.FilesystemPath(modulePath), types.FilesystemPath(output))
 	if err != nil {
 		return fmt.Errorf("failed to archive module: %w", err)
 	}
@@ -154,13 +155,13 @@ func runModuleImport(ctx context.Context, args []string, importPath string, impo
 	}
 
 	// Import the module
-	opts := invowkmod.UnpackOptions{
+	opts := moduleops.UnpackOptions{
 		Source:    source,
 		DestDir:   destDir,
 		Overwrite: importOverwrite,
 	}
 
-	modulePath, err := invowkmod.Unpack(ctx, opts)
+	modulePath, err := moduleops.Unpack(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to import module: %w", err)
 	}
@@ -252,7 +253,7 @@ func runModuleVendor(ctx context.Context, args []string, vendorUpdate, vendorPru
 	}
 
 	// Copy resolved modules into invowk_modules/
-	result, err := invowkmod.VendorModules(invowkmod.VendorOptions{
+	result, err := moduleops.VendorModules(moduleops.VendorOptions{
 		ModulePath: absModPath,
 		Modules:    resolved,
 		Prune:      vendorPrune,

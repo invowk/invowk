@@ -142,7 +142,7 @@ func TestLLMChecker_Check_ServerError(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockCompleter{
-		err: &LLMServerUnavailableError{URL: "http://localhost:11434/v1", Err: errors.New("connection refused")},
+		err: fmt.Errorf("%w: connection refused", ErrLLMRequestFailed),
 	}
 	checker := NewLLMChecker(mock, 1)
 

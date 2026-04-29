@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package audit
+package auditllm
 
 import (
 	"context"
@@ -14,16 +14,14 @@ import (
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/packages/param"
+
+	"github.com/invowk/invowk/internal/audit"
 )
 
 const (
-	llmClientConfigInvalidErrMsg     = "invalid LLM client config"
-	llmRequestFailedErrMsg           = "LLM request failed"
-	llmServerUnavailableErrMsg       = "LLM server unavailable"
-	llmMalformedResponseErrMsg       = "LLM returned malformed response"
-	llmEmptyResponseErrMsg           = "LLM returned empty response"
-	llmResponseContentFilteredErrMsg = "LLM response was filtered"
-	llmModelNotFoundErrMsg           = "LLM model not found"
+	llmClientConfigInvalidErrMsg = "invalid LLM client config"
+	llmServerUnavailableErrMsg   = "LLM server unavailable"
+	llmModelNotFoundErrMsg       = "LLM model not found"
 
 	// DefaultLLMBaseURL is the default Ollama OpenAI-compatible endpoint.
 	DefaultLLMBaseURL = "http://localhost:11434/v1"
@@ -32,28 +30,17 @@ const (
 	// DefaultLLMTimeout is generous to accommodate slow inference on CPU.
 	DefaultLLMTimeout = 2 * time.Minute
 	// DefaultLLMConcurrency limits parallel LLM requests.
-	DefaultLLMConcurrency = 2
-
-	// maxErrorResponseLen is the truncation limit for raw LLM responses in error messages.
-	maxErrorResponseLen = 200
+	DefaultLLMConcurrency = audit.DefaultLLMConcurrency
 )
 
 var (
-	_ llmCompleter  = (*LLMClient)(nil) // compile-time interface assertion
-	_ ModelVerifier = (*LLMClient)(nil) // compile-time interface assertion
+	_ audit.LLMCompleter = (*LLMClient)(nil) // compile-time interface assertion
+	_ ModelVerifier      = (*LLMClient)(nil) // compile-time interface assertion
 
 	// ErrLLMClientConfigInvalid is the sentinel for invalid client configuration.
 	ErrLLMClientConfigInvalid = errors.New(llmClientConfigInvalidErrMsg)
-	// ErrLLMRequestFailed is the sentinel for general LLM request failures.
-	ErrLLMRequestFailed = errors.New(llmRequestFailedErrMsg)
 	// ErrLLMServerUnavailable is the sentinel for unreachable LLM servers.
 	ErrLLMServerUnavailable = errors.New(llmServerUnavailableErrMsg)
-	// ErrLLMMalformedResponse is the sentinel for unparseable LLM responses.
-	ErrLLMMalformedResponse = errors.New(llmMalformedResponseErrMsg)
-	// ErrLLMEmptyResponse is the sentinel for empty LLM responses.
-	ErrLLMEmptyResponse = errors.New(llmEmptyResponseErrMsg)
-	// ErrLLMResponseContentFiltered is the sentinel for content-filtered responses.
-	ErrLLMResponseContentFiltered = errors.New(llmResponseContentFilteredErrMsg)
 	// ErrLLMModelNotFound is the sentinel for when the configured model is not available.
 	ErrLLMModelNotFound = errors.New(llmModelNotFoundErrMsg)
 
@@ -71,12 +58,6 @@ var (
 )
 
 type (
-	// llmCompleter abstracts the LLM chat completion call for testability.
-	// Production code uses *LLMClient; tests inject a mock.
-	llmCompleter interface {
-		Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error)
-	}
-
 	// ModelVerifier is an optional capability for completers that support
 	// pre-flight model validation via API model listing. HTTP-based
 	// completers (LLMClient) implement this; CLI-based completers do not
@@ -122,12 +103,6 @@ type (
 		Err error
 	}
 
-	// LLMMalformedResponseError is returned when the LLM response cannot be parsed.
-	LLMMalformedResponseError struct {
-		RawResponse string
-		Err         error
-	}
-
 	// LLMModelNotFoundError is returned when the configured model is not
 	// available on the server. It includes available models and suggestions
 	// for code-focused alternatives.
@@ -148,11 +123,11 @@ func (e *LLMClientConfigInvalidError) Unwrap() error { return ErrLLMClientConfig
 
 // Error implements the error interface.
 func (e *LLMRequestError) Error() string {
-	return fmt.Sprintf("%s (status %d): %s", llmRequestFailedErrMsg, e.StatusCode, e.Body)
+	return fmt.Sprintf("%s (status %d): %s", audit.ErrLLMRequestFailed, e.StatusCode, e.Body)
 }
 
 // Unwrap returns the sentinel for errors.Is chains.
-func (e *LLMRequestError) Unwrap() error { return ErrLLMRequestFailed }
+func (e *LLMRequestError) Unwrap() error { return audit.ErrLLMRequestFailed }
 
 // Error implements the error interface.
 func (e *LLMServerUnavailableError) Error() string {
@@ -161,18 +136,6 @@ func (e *LLMServerUnavailableError) Error() string {
 
 // Unwrap returns the sentinel for errors.Is chains.
 func (e *LLMServerUnavailableError) Unwrap() error { return ErrLLMServerUnavailable }
-
-// Error implements the error interface.
-func (e *LLMMalformedResponseError) Error() string {
-	raw := e.RawResponse
-	if len(raw) > maxErrorResponseLen {
-		raw = raw[:maxErrorResponseLen] + "..."
-	}
-	return fmt.Sprintf("%s: %v (response: %q)", llmMalformedResponseErrMsg, e.Err, raw)
-}
-
-// Unwrap returns the sentinel for errors.Is chains.
-func (e *LLMMalformedResponseError) Unwrap() error { return ErrLLMMalformedResponse }
 
 // Error implements the error interface.
 func (e *LLMModelNotFoundError) Error() string {
@@ -278,19 +241,19 @@ func (c *LLMClient) Complete(ctx context.Context, systemPrompt, userPrompt strin
 	}
 
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("%w: no choices in response", ErrLLMEmptyResponse)
+		return "", fmt.Errorf("%w: no choices in response", audit.ErrLLMEmptyResponse)
 	}
 
 	choice := resp.Choices[0]
 
 	// Check for content filtering.
 	if choice.FinishReason == "content_filter" {
-		return "", fmt.Errorf("%w: model refused to analyze content", ErrLLMResponseContentFiltered)
+		return "", fmt.Errorf("%w: model refused to analyze content", audit.ErrLLMResponseContentFiltered)
 	}
 
 	content := strings.TrimSpace(choice.Message.Content)
 	if content == "" {
-		return "", fmt.Errorf("%w: empty content in response", ErrLLMEmptyResponse)
+		return "", fmt.Errorf("%w: empty content in response", audit.ErrLLMEmptyResponse)
 	}
 
 	return content, nil
@@ -375,5 +338,5 @@ func (c *LLMClient) classifyError(err error) error {
 		return err
 	}
 
-	return fmt.Errorf("%w: %w", ErrLLMRequestFailed, err)
+	return fmt.Errorf("%w: %w", audit.ErrLLMRequestFailed, err)
 }

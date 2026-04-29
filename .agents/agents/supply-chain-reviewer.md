@@ -60,7 +60,7 @@ Review checklist:
 
 ### 3. Module Provisioning and Vendoring
 
-**Files:** `pkg/invowkmod/operations_vendor.go`, `pkg/invowkmod/resolver_cache.go` (line 144), `internal/provision/helpers.go` (line 123)
+**Files:** `internal/app/moduleops/vendor.go`, `pkg/invowkmod/resolver_cache.go` (line 144), `internal/provision/helpers.go` (line 123)
 
 Two different `copyDir` implementations exist with **different symlink handling**:
 - `pkg/invowkmod/resolver_cache.go:copyDir` — **skips symlinks** (lines 164–170, safe)
@@ -73,9 +73,9 @@ Review checklist:
 - [ ] Vendored module directory names validated (cannot escape `invowk_modules/`)
 - [ ] Module cache directory permissions restrictive (`0o700` or `0o755`)
 - [ ] ZIP archive extraction validates paths via `normalizeZIPPath()` + `validateDestinationPath()`
-- [ ] `VendorModules()` confirms destination is inside the target module directory
+- [ ] `moduleops.VendorModules()` confirms destination is inside the target module directory
 - [ ] Nested vendoring explicitly rejected (single-level `invowk_modules/` only)
-- [ ] `Archive()` excludes symlinks from ZIP creation
+- [ ] `moduleops.Archive()` excludes symlinks from ZIP creation
 
 ### 4. Container and SSH Token Exposure
 

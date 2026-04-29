@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package audit
+package auditllm
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/invowk/invowk/internal/audit"
 )
 
 func TestLLMClientConfig_Validate(t *testing.T) {
@@ -182,8 +184,8 @@ func TestLLMClient_Complete_EmptyChoices(t *testing.T) {
 	}
 
 	_, err = client.Complete(t.Context(), "sys", "user")
-	if !errors.Is(err, ErrLLMEmptyResponse) {
-		t.Errorf("expected ErrLLMEmptyResponse, got %v", err)
+	if !errors.Is(err, audit.ErrLLMEmptyResponse) {
+		t.Errorf("expected audit.ErrLLMEmptyResponse, got %v", err)
 	}
 }
 
@@ -222,8 +224,8 @@ func TestLLMClient_Complete_EmptyContent(t *testing.T) {
 	}
 
 	_, err = client.Complete(t.Context(), "sys", "user")
-	if !errors.Is(err, ErrLLMEmptyResponse) {
-		t.Errorf("expected ErrLLMEmptyResponse, got %v", err)
+	if !errors.Is(err, audit.ErrLLMEmptyResponse) {
+		t.Errorf("expected audit.ErrLLMEmptyResponse, got %v", err)
 	}
 }
 
@@ -262,8 +264,8 @@ func TestLLMClient_Complete_ContentFiltered(t *testing.T) {
 	}
 
 	_, err = client.Complete(t.Context(), "sys", "user")
-	if !errors.Is(err, ErrLLMResponseContentFiltered) {
-		t.Errorf("expected ErrLLMResponseContentFiltered, got %v", err)
+	if !errors.Is(err, audit.ErrLLMResponseContentFiltered) {
+		t.Errorf("expected audit.ErrLLMResponseContentFiltered, got %v", err)
 	}
 }
 
@@ -293,8 +295,8 @@ func TestLLMClient_Complete_ServerError(t *testing.T) {
 	}
 
 	_, err = client.Complete(t.Context(), "sys", "user")
-	if !errors.Is(err, ErrLLMRequestFailed) {
-		t.Errorf("expected ErrLLMRequestFailed, got %v", err)
+	if !errors.Is(err, audit.ErrLLMRequestFailed) {
+		t.Errorf("expected audit.ErrLLMRequestFailed, got %v", err)
 	}
 
 	var reqErr *LLMRequestError
@@ -636,8 +638,8 @@ func TestLLMClient_VerifyModel_ServerError(t *testing.T) {
 	if verifyErr == nil {
 		t.Fatal("VerifyModel should fail for server error")
 	}
-	if !errors.Is(verifyErr, ErrLLMRequestFailed) {
-		t.Errorf("expected ErrLLMRequestFailed, got %v", verifyErr)
+	if !errors.Is(verifyErr, audit.ErrLLMRequestFailed) {
+		t.Errorf("expected audit.ErrLLMRequestFailed, got %v", verifyErr)
 	}
 }
 

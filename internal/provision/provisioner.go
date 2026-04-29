@@ -9,6 +9,14 @@ import (
 )
 
 type (
+	// WarningMessage is a user-facing provisioning warning.
+	WarningMessage string
+
+	// Warning describes a non-fatal provisioning issue.
+	Warning struct {
+		Message WarningMessage
+	}
+
 	// Provisioner prepares container images with invowk resources.
 	// Implementations should cache provisioned images based on content hashes
 	// to enable fast reuse when resources haven't changed.
@@ -34,5 +42,8 @@ type (
 		// EnvVars are environment variables to set in the container.
 		// These configure the invowk binary and module paths inside the container.
 		EnvVars map[string]string
+
+		// Warnings are non-fatal provisioning diagnostics for the runtime adapter to render.
+		Warnings []Warning
 	}
 )

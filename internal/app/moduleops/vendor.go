@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package moduleops
 
 import (
 	"fmt"
@@ -8,8 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/invowk/invowk/pkg/fspath"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
+)
+
+const (
+	// VendoredModulesDir is the directory name for vendored module dependencies.
+	VendoredModulesDir = invowkmod.VendoredModulesDir
 )
 
 type (
@@ -24,7 +29,7 @@ type (
 		// ModulePath is the absolute path to the module being vendored.
 		ModulePath types.FilesystemPath
 		// Modules are the resolved modules to copy into invowk_modules/.
-		Modules []*ResolvedModule
+		Modules []*invowkmod.ResolvedModule
 		// Prune removes vendored modules not present in the Modules list.
 		Prune bool
 	}
@@ -46,7 +51,7 @@ type (
 	// VendoredEntry describes a single module copied to the vendor directory.
 	VendoredEntry struct {
 		// Namespace is the module's command namespace (e.g., "tools@1.2.3").
-		Namespace ModuleNamespace
+		Namespace invowkmod.ModuleNamespace
 		// SourcePath is the cache path the module was copied from.
 		SourcePath types.FilesystemPath
 		// VendorPath is the destination path in invowk_modules/.
@@ -82,11 +87,12 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 
 	for _, mod := range opts.Modules {
 		// Locate the .invowkmod directory within the cache path.
-		moduleDir, _, err := findModuleInDir(string(mod.CachePath))
+		moduleDirPath, _, err := invowkmod.LocateModuleInDir(mod.CachePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to locate module in cache path %s: %w", mod.CachePath, err)
 		}
 
+		moduleDir := string(moduleDirPath)
 		dirBase := filepath.Base(moduleDir)
 		if expectedDirs[dirBase] {
 			return nil, fmt.Errorf("%w: multiple modules resolve to the same directory name %q", ErrVendorConflict, dirBase)
@@ -99,7 +105,8 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 			return nil, fmt.Errorf("failed to remove existing vendored module at %s: %w", destPath, err)
 		}
 
-		if err := copyDir(moduleDir, destPath); err != nil {
+		dstPath := types.FilesystemPath(destPath) //goplint:ignore -- filepath.Join from validated vendor directory and cache basename
+		if err := invowkmod.CopyModuleDir(moduleDirPath, dstPath); err != nil {
 			return nil, fmt.Errorf("failed to copy module to %s: %w", destPath, err)
 		}
 
@@ -108,12 +115,12 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 		// vendored copy must match. This detects cache tampering between
 		// sync/add and vendor operations.
 		if mod.ContentHash != "" {
-			actualHash, hashErr := computeModuleHash(destPath)
+			actualHash, hashErr := invowkmod.ComputeModuleHash(destPath)
 			if hashErr != nil {
 				return nil, fmt.Errorf("failed to verify vendored module hash at %s: %w", destPath, hashErr)
 			}
 			if actualHash != mod.ContentHash {
-				return nil, &ContentHashMismatchError{
+				return nil, &invowkmod.ContentHashMismatchError{
 					ModuleKey: mod.ModuleRef.Key(),
 					Expected:  mod.ContentHash,
 					Actual:    actualHash,
@@ -122,7 +129,6 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 		}
 
 		srcPath := types.FilesystemPath(moduleDir) //goplint:ignore -- OS-resolved path from resolver
-		dstPath := types.FilesystemPath(destPath)  //goplint:ignore -- filepath.Join from validated components
 		result.Vendored = append(result.Vendored, VendoredEntry{
 			Namespace:  mod.Namespace,
 			SourcePath: srcPath,
@@ -145,7 +151,7 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 // GetVendoredModulesDir returns the path to the vendored modules directory for a given module.
 // Returns the path whether or not the directory exists.
 func GetVendoredModulesDir(modulePath types.FilesystemPath) types.FilesystemPath {
-	return fspath.JoinStr(modulePath, VendoredModulesDir)
+	return invowkmod.GetVendoredModulesDir(modulePath)
 }
 
 // HasVendoredModules checks if a module has vendored dependencies.
@@ -160,7 +166,7 @@ func HasVendoredModules(modulePath types.FilesystemPath) bool {
 
 // ListVendoredModules returns a list of vendored modules in the given module directory.
 // Returns nil if no invowk_modules/ directory exists or it's empty.
-func ListVendoredModules(modulePath types.FilesystemPath) ([]*Module, error) {
+func ListVendoredModules(modulePath types.FilesystemPath) ([]*invowkmod.Module, error) {
 	vendorDir := GetVendoredModulesDir(modulePath)
 	vendorDirStr := string(vendorDir)
 
@@ -182,7 +188,7 @@ func ListVendoredModules(modulePath types.FilesystemPath) ([]*Module, error) {
 		return nil, &moduleError{op: "read vendor directory", err: err}
 	}
 
-	var modules []*Module
+	var modules []*invowkmod.Module
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -191,12 +197,12 @@ func ListVendoredModules(modulePath types.FilesystemPath) ([]*Module, error) {
 		// Check if it's a module
 		entryPath := filepath.Join(vendorDirStr, entry.Name())
 		vendoredPath := types.FilesystemPath(entryPath) //goplint:ignore -- filepath.Join from OS-listed entry
-		if !IsModule(vendoredPath) {
+		if !invowkmod.IsModule(vendoredPath) {
 			continue
 		}
 
 		// Load the module
-		m, err := Load(vendoredPath)
+		m, err := invowkmod.Load(vendoredPath)
 		if err != nil {
 			// Skip invalid modules
 			continue
@@ -220,7 +226,7 @@ func pruneVendorDir(vendorDir string, expectedDirs map[string]bool) ([]string, e
 		if !entry.IsDir() {
 			continue
 		}
-		if !strings.HasSuffix(entry.Name(), ModuleSuffix) {
+		if !strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
 			continue
 		}
 		if expectedDirs[entry.Name()] {

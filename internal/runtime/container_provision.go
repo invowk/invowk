@@ -96,6 +96,9 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 				"  To fail on provisioning errors, set: container.auto_provision.strict = true\n", err)
 		return baseImage, nil, nil
 	}
+	for _, warning := range result.Warnings {
+		_, _ = fmt.Fprintf(ctx.IO.Stderr, "WARNING: %s\n", warning.Message.String())
+	}
 
 	return string(result.ImageTag), result.Cleanup, nil
 }

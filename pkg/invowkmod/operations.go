@@ -34,16 +34,6 @@ type (
 		// CreateScriptsDir creates a scripts/ subdirectory if true
 		CreateScriptsDir bool
 	}
-
-	// UnpackOptions contains options for unpacking a module.
-	UnpackOptions struct {
-		// Source is the path to the ZIP file or URL; intentionally untyped (mixed path/URL).
-		Source string
-		// DestDir is the destination directory (defaults to current directory)
-		DestDir types.FilesystemPath
-		// Overwrite allows overwriting an existing module
-		Overwrite bool
-	}
 )
 
 // IsModule checks if the given path is a valid invowk module directory.

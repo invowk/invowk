@@ -119,7 +119,7 @@ Invowk already has a partial version of this philosophy built in — but it's in
 
 - **`CommandScope.CanCall()` enforces 1-level visibility**: The rule "commands from module A can only call commands from module A's direct dependencies, not transitive ones" is already coded in `pkg/invowkmod/command_scope.go`. Only direct deps from `requires` are added to the `DirectDeps` map. This means even if transitive modules are resolved, their commands are invisible to the root module at the visibility level.
 
-- **Vendoring is already flat**: `VendorModules()` in `pkg/invowkmod/operations_vendor.go` copies resolved modules into a single `invowk_modules/` directory, not nested. The on-disk layout is already flat even though the resolution was recursive.
+- **Vendoring is already flat**: `moduleops.VendorModules()` in `internal/app/moduleops/vendor.go` copies resolved modules into a single `invowk_modules/` directory, not nested. The on-disk layout is already flat even though the resolution was recursive.
 
 **What contradicts this direction:**
 

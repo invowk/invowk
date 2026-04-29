@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package audit
+package auditllm
 
 import (
 	"context"
@@ -13,7 +13,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/invowk/invowk/internal/audit"
 )
+
+type providerTestCompleter struct {
+	response string
+}
 
 // failDeps returns providerDeps where all infrastructure lookups fail.
 // Useful as a baseline for tests that need only specific overrides.
@@ -23,6 +29,10 @@ func failDeps() providerDeps {
 		lookPath: func(name string) (string, error) { return "", fmt.Errorf("%s not found", name) },
 		httpDo:   func(_ *http.Request) (*http.Response, error) { return nil, errors.New("connection refused") },
 	}
+}
+
+func (c *providerTestCompleter) Complete(_ context.Context, _, _ string) (string, error) {
+	return c.response, nil
 }
 
 // ollamaModelServer returns an httptest.Server that mimics the Ollama
@@ -270,7 +280,7 @@ func TestProviderResult_Accessors(t *testing.T) {
 	t.Parallel()
 
 	result := &ProviderResult{
-		completer: &mockCompleter{response: "test"},
+		completer: &providerTestCompleter{response: "test"},
 		name:      "test-provider",
 		model:     "test-model",
 	}
@@ -521,16 +531,16 @@ func TestParseClaudeOutput(t *testing.T) {
 		t.Parallel()
 		raw := `{"type":"result","result":"","session_id":"abc-123"}`
 		_, err := parseClaudeOutput(raw)
-		if !errors.Is(err, ErrLLMEmptyResponse) {
-			t.Errorf("expected ErrLLMEmptyResponse, got %v", err)
+		if !errors.Is(err, audit.ErrLLMEmptyResponse) {
+			t.Errorf("expected audit.ErrLLMEmptyResponse, got %v", err)
 		}
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
 		t.Parallel()
 		_, err := parseClaudeOutput("not json")
-		if !errors.Is(err, ErrLLMMalformedResponse) {
-			t.Errorf("expected ErrLLMMalformedResponse, got %v", err)
+		if !errors.Is(err, audit.ErrLLMMalformedResponse) {
+			t.Errorf("expected audit.ErrLLMMalformedResponse, got %v", err)
 		}
 	})
 }
@@ -559,8 +569,8 @@ func TestParseCodexOutput(t *testing.T) {
 		raw := `{"type":"thread.started","thread_id":"abc"}
 {"type":"turn.completed"}`
 		_, err := parseCodexOutput(raw)
-		if !errors.Is(err, ErrLLMMalformedResponse) {
-			t.Errorf("expected ErrLLMMalformedResponse, got %v", err)
+		if !errors.Is(err, audit.ErrLLMMalformedResponse) {
+			t.Errorf("expected audit.ErrLLMMalformedResponse, got %v", err)
 		}
 	})
 }
@@ -584,16 +594,16 @@ func TestParseGeminiOutput(t *testing.T) {
 		t.Parallel()
 		raw := `{"response":"","stats":{}}`
 		_, err := parseGeminiOutput(raw)
-		if !errors.Is(err, ErrLLMEmptyResponse) {
-			t.Errorf("expected ErrLLMEmptyResponse, got %v", err)
+		if !errors.Is(err, audit.ErrLLMEmptyResponse) {
+			t.Errorf("expected audit.ErrLLMEmptyResponse, got %v", err)
 		}
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
 		t.Parallel()
 		_, err := parseGeminiOutput("garbage")
-		if !errors.Is(err, ErrLLMMalformedResponse) {
-			t.Errorf("expected ErrLLMMalformedResponse, got %v", err)
+		if !errors.Is(err, audit.ErrLLMMalformedResponse) {
+			t.Errorf("expected audit.ErrLLMMalformedResponse, got %v", err)
 		}
 	})
 }

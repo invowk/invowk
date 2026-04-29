@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package audit
+package auditllm
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/invowk/invowk/internal/audit"
 )
 
 const (
@@ -40,7 +42,7 @@ const (
 )
 
 var (
-	_ llmCompleter = (*CLICompleter)(nil) // compile-time interface assertion
+	_ audit.LLMCompleter = (*CLICompleter)(nil) // compile-time interface assertion
 
 	// ErrLLMProviderNotFound is the sentinel for when no LLM provider can be detected.
 	ErrLLMProviderNotFound = errors.New(llmProviderNotFoundErrMsg)
@@ -61,7 +63,7 @@ type (
 
 	// ProviderResult holds a detected provider's configuration.
 	ProviderResult struct {
-		completer llmCompleter
+		completer audit.LLMCompleter
 		name      string
 		model     string
 	}
@@ -98,8 +100,8 @@ type (
 	}
 )
 
-// Completer returns the llmCompleter for this provider.
-func (r *ProviderResult) Completer() llmCompleter { return r.completer }
+// Completer returns the LLM completer for this provider.
+func (r *ProviderResult) Completer() audit.LLMCompleter { return r.completer }
 
 // Name returns the provider name (e.g., "claude", "ollama").
 func (r *ProviderResult) Name() string { return r.name }
@@ -390,10 +392,10 @@ func parseClaudeOutput(raw string) (string, error) {
 		Result string `json:"result"`
 	}
 	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
-		return "", &LLMMalformedResponseError{RawResponse: raw, Err: fmt.Errorf("parsing claude output: %w", err)}
+		return "", &audit.LLMMalformedResponseError{RawResponse: raw, Err: fmt.Errorf("parsing claude output: %w", err)}
 	}
 	if resp.Result == "" {
-		return "", fmt.Errorf("%w: empty result from claude CLI", ErrLLMEmptyResponse)
+		return "", fmt.Errorf("%w: empty result from claude CLI", audit.ErrLLMEmptyResponse)
 	}
 	return resp.Result, nil
 }
@@ -422,7 +424,7 @@ func parseCodexOutput(raw string) (string, error) {
 		}
 	}
 	if lastMessage == "" {
-		return "", &LLMMalformedResponseError{RawResponse: raw, Err: errors.New("no agent_message found in codex output")}
+		return "", &audit.LLMMalformedResponseError{RawResponse: raw, Err: errors.New("no agent_message found in codex output")}
 	}
 	return lastMessage, nil
 }
@@ -434,10 +436,10 @@ func parseGeminiOutput(raw string) (string, error) {
 		Response string `json:"response"`
 	}
 	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
-		return "", &LLMMalformedResponseError{RawResponse: raw, Err: fmt.Errorf("parsing gemini output: %w", err)}
+		return "", &audit.LLMMalformedResponseError{RawResponse: raw, Err: fmt.Errorf("parsing gemini output: %w", err)}
 	}
 	if resp.Response == "" {
-		return "", fmt.Errorf("%w: empty response from gemini CLI", ErrLLMEmptyResponse)
+		return "", fmt.Errorf("%w: empty response from gemini CLI", audit.ErrLLMEmptyResponse)
 	}
 	return resp.Response, nil
 }

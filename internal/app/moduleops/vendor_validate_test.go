@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package moduleops
 
 import (
 	"errors"
 	"path/filepath"
 	"testing"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -25,7 +26,7 @@ func TestVendoredEntry_Validate(t *testing.T) {
 		{
 			"valid complete entry",
 			VendoredEntry{
-				Namespace:  ModuleNamespace("tools@1.2.3"),
+				Namespace:  invowkmod.ModuleNamespace("tools@1.2.3"),
 				SourcePath: types.FilesystemPath(filepath.Join(tmpDir, "cache", "tools")),
 				VendorPath: types.FilesystemPath(filepath.Join(tmpDir, "project", "invowk_modules", "tools")),
 			},
@@ -39,7 +40,7 @@ func TestVendoredEntry_Validate(t *testing.T) {
 		{
 			"valid with only namespace",
 			VendoredEntry{
-				Namespace: ModuleNamespace("mytools"),
+				Namespace: invowkmod.ModuleNamespace("mytools"),
 			},
 			true, false, 0,
 		},
@@ -99,7 +100,7 @@ func TestVendorResult_Validate(t *testing.T) {
 				VendorDir: types.FilesystemPath(filepath.Join(tmpDir, "project", "invowk_modules")),
 				Vendored: []VendoredEntry{
 					{
-						Namespace:  ModuleNamespace("tools@1.2.3"),
+						Namespace:  invowkmod.ModuleNamespace("tools@1.2.3"),
 						SourcePath: types.FilesystemPath(filepath.Join(tmpDir, "cache", "tools")),
 						VendorPath: types.FilesystemPath(filepath.Join(tmpDir, "vendor", "tools")),
 					},
@@ -126,10 +127,10 @@ func TestVendorResult_Validate(t *testing.T) {
 			VendorResult{
 				VendorDir: types.FilesystemPath(filepath.Join(tmpDir, "some-dir")),
 				Vendored: []VendoredEntry{
-					{Namespace: ModuleNamespace("")}, // empty namespace is invalid for non-zero values
+					{Namespace: invowkmod.ModuleNamespace("")}, // empty namespace is invalid for non-zero values
 				},
 			},
-			// ModuleNamespace("") is zero-value-valid in VendoredEntry, so this should be valid
+			// invowkmod.ModuleNamespace("") is zero-value-valid in VendoredEntry, so this should be valid
 			true, false, 0,
 		},
 		{
@@ -137,8 +138,8 @@ func TestVendorResult_Validate(t *testing.T) {
 			VendorResult{
 				VendorDir: types.FilesystemPath(filepath.Join(tmpDir, "project", "invowk_modules")),
 				Vendored: []VendoredEntry{
-					{Namespace: ModuleNamespace("tools@1.0.0")},
-					{Namespace: ModuleNamespace("utils@2.0.0")},
+					{Namespace: invowkmod.ModuleNamespace("tools@1.0.0")},
+					{Namespace: invowkmod.ModuleNamespace("utils@2.0.0")},
 				},
 			},
 			true, false, 0,

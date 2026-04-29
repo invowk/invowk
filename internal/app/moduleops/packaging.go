@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package moduleops
 
 import (
 	"archive/zip"
@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -27,11 +28,23 @@ var (
 	ErrNoValidModuleInZIP = errors.New("no valid module found in ZIP")
 )
 
+type (
+	// UnpackOptions contains options for unpacking a module.
+	UnpackOptions struct {
+		// Source is the path to the ZIP file or URL; intentionally untyped (mixed path/URL).
+		Source string
+		// DestDir is the destination directory (defaults to current directory)
+		DestDir types.FilesystemPath
+		// Overwrite allows overwriting an existing module
+		Overwrite bool
+	}
+)
+
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
 func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.FilesystemPath, err error) {
 	// Load and validate the module first
-	m, err := Load(modulePath)
+	m, err := invowkmod.Load(modulePath)
 	if err != nil {
 		return "", fmt.Errorf("invalid module: %w", err)
 	}
@@ -39,7 +52,7 @@ func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.Fil
 	// Determine output path
 	outputStr := string(outputPath)
 	if outputStr == "" {
-		outputStr = string(m.Name()) + ModuleSuffix + ".zip"
+		outputStr = string(m.Name()) + invowkmod.ModuleSuffix + ".zip"
 	}
 
 	// Resolve absolute output path
@@ -255,11 +268,11 @@ func findModuleRoot(files []*zip.File) (string, error) {
 			return "", err
 		}
 		parts := strings.Split(cleanPath, "/")
-		if len(parts) > 0 && strings.HasSuffix(parts[0], ModuleSuffix) {
+		if len(parts) > 0 && strings.HasSuffix(parts[0], invowkmod.ModuleSuffix) {
 			return parts[0], nil
 		}
 	}
-	return "", fmt.Errorf("%w (expected directory ending with %s)", ErrNoValidModuleInZIP, ModuleSuffix)
+	return "", fmt.Errorf("%w (expected directory ending with %s)", ErrNoValidModuleInZIP, invowkmod.ModuleSuffix)
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
@@ -271,7 +284,7 @@ func prepareModuleDestination(absDestDir, moduleRoot string, overwrite bool) (st
 
 	if _, statErr := os.Stat(modulePath); statErr == nil {
 		if !overwrite {
-			return "", fmt.Errorf("%w at %s (use overwrite option to replace)", ErrModuleAlreadyExists, modulePath)
+			return "", fmt.Errorf("%w at %s (use overwrite option to replace)", invowkmod.ErrModuleAlreadyExists, modulePath)
 		}
 		if err := os.RemoveAll(modulePath); err != nil {
 			return "", fmt.Errorf("failed to remove existing module: %w", err)
@@ -339,7 +352,7 @@ func validateExtractedModule(modulePath string) error {
 	if err := modLoadPath.Validate(); err != nil {
 		return fmt.Errorf("extracted module path: %w", err)
 	}
-	if _, err := Load(modLoadPath); err != nil {
+	if _, err := invowkmod.Load(modLoadPath); err != nil {
 		return err
 	}
 	return nil

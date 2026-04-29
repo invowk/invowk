@@ -26,8 +26,9 @@ var _ Provisioner = (*LayerProvisioner)(nil)
 //
 // This allows fast reuse when resources haven't changed.
 type LayerProvisioner struct {
-	engine container.Engine
-	config *Config
+	engine  container.Engine
+	config  *Config
+	copyDir func(src, dst string) error
 }
 
 // NewLayerProvisioner creates a new LayerProvisioner.
@@ -68,8 +69,8 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.Im
 	}
 
 	provisionedTag := container.ImageTag(p.buildProvisionedTag(cacheKey[:12]))
-	if err := provisionedTag.Validate(); err != nil {
-		return nil, fmt.Errorf("provisioned image tag: %w", err)
+	if validateErr := provisionedTag.Validate(); validateErr != nil {
+		return nil, fmt.Errorf("provisioned image tag: %w", validateErr)
 	}
 
 	// Check if cached image exists (skip if ForceRebuild is set)
@@ -84,13 +85,15 @@ func (p *LayerProvisioner) Provision(ctx context.Context, baseImage container.Im
 	}
 
 	// Build the provisioned image
-	if err := p.buildProvisionedImage(ctx, baseImage, provisionedTag); err != nil {
+	warnings, err := p.buildProvisionedImage(ctx, baseImage, provisionedTag)
+	if err != nil {
 		return nil, fmt.Errorf("failed to build provisioned image: %w", err)
 	}
 
 	return &Result{
 		ImageTag: provisionedTag,
 		EnvVars:  p.buildEnvVars(),
+		Warnings: warnings,
 	}, nil
 }
 
@@ -190,29 +193,29 @@ func (p *LayerProvisioner) getImageIdentifier(_ context.Context, image container
 }
 
 // buildProvisionedImage creates the ephemeral image layer.
-func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage, tag container.ImageTag) error {
+func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage, tag container.ImageTag) ([]Warning, error) {
 	// Create temporary build context
-	buildCtx, cleanup, err := p.prepareBuildContext(baseImage)
+	buildCtx, warnings, cleanup, err := p.prepareBuildContext(baseImage)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer cleanup()
 
 	// Verify the build context exists and is accessible
 	if _, err := os.Stat(buildCtx); os.IsNotExist(err) {
-		return fmt.Errorf("build context directory does not exist: %s", buildCtx)
+		return nil, fmt.Errorf("build context directory does not exist: %s", buildCtx)
 	}
 
 	// Verify Dockerfile exists
 	dockerfilePath := filepath.Join(buildCtx, "Dockerfile")
 	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
-		return fmt.Errorf("dockerfile not found in build context: %s", dockerfilePath)
+		return nil, fmt.Errorf("dockerfile not found in build context: %s", dockerfilePath)
 	}
 
 	// Build the image
 	ctxDir := container.HostFilesystemPath(buildCtx)
 	if err := ctxDir.Validate(); err != nil {
-		return fmt.Errorf("build context directory: %w", err)
+		return nil, fmt.Errorf("build context directory: %w", err)
 	}
 	buildOpts := container.BuildOptions{
 		ContextDir: ctxDir,
@@ -223,10 +226,10 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 	}
 
 	if err := p.engine.Build(ctx, buildOpts); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return warnings, nil
 }
 
 // prepareBuildContext creates a temporary directory with all resources
@@ -238,7 +241,7 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, baseImage,
 // - CAN access visible directories in $HOME like ~/invowk-build
 //
 // We use a visible directory in the user's home as the build context location.
-func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (buildContextDir string, cleanup func(), err error) {
+func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (buildContextDir string, warnings []Warning, cleanup func(), err error) {
 	// Use a visible directory in user's home that Docker Snap can access
 	// Snap's home interface doesn't expose hidden directories (starting with .)
 	var buildContextParent string
@@ -262,7 +265,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 			// This avoids predictable paths in world-writable temp locations.
 			tempParent, tempErr := os.MkdirTemp("", "invowk-build-*")
 			if tempErr != nil {
-				return "", nil, fmt.Errorf("failed to create fallback build context parent directory: %w", tempErr)
+				return "", nil, nil, fmt.Errorf("failed to create fallback build context parent directory: %w", tempErr)
 			}
 			buildContextParent = tempParent
 			parentCleanup = func() {
@@ -273,12 +276,12 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 
 	// Ensure the parent directory exists
 	if mkdirErr := os.MkdirAll(buildContextParent, 0o755); mkdirErr != nil {
-		return "", nil, fmt.Errorf("failed to create build context parent directory: %w", mkdirErr)
+		return "", nil, nil, fmt.Errorf("failed to create build context parent directory: %w", mkdirErr)
 	}
 
 	tmpDir, err := os.MkdirTemp(buildContextParent, "ctx-*")
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create temp directory: %w", err)
+		return "", nil, nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
 
 	cleanup = func() {
@@ -293,7 +296,7 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 		binaryDst := filepath.Join(tmpDir, "invowk")
 		if err := CopyFile(string(p.config.InvowkBinaryPath), binaryDst); err != nil {
 			cleanup()
-			return "", nil, fmt.Errorf("failed to copy invowk binary: %w", err)
+			return "", nil, nil, fmt.Errorf("failed to copy invowk binary: %w", err)
 		}
 		// Ensure binary is executable
 		_ = os.Chmod(binaryDst, 0o755) // Best-effort; execution may still work
@@ -303,16 +306,21 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 	modulesDir := filepath.Join(tmpDir, "modules")
 	if err := os.MkdirAll(modulesDir, 0o755); err != nil {
 		cleanup()
-		return "", nil, fmt.Errorf("failed to create modules directory: %w", err)
+		return "", nil, nil, fmt.Errorf("failed to create modules directory: %w", err)
 	}
 
+	copyDir := p.copyDir
+	if copyDir == nil {
+		copyDir = CopyDir
+	}
 	modules := DiscoverModules(p.config.ModulesPaths)
 	for _, modulePath := range modules {
 		moduleName := filepath.Base(modulePath)
 		moduleDst := filepath.Join(modulesDir, moduleName)
-		if err := CopyDir(modulePath, moduleDst); err != nil {
-			// Log warning but continue - don't fail the whole provision for one module
-			fmt.Fprintf(os.Stderr, "Warning: failed to copy module %s: %v\n", moduleName, err)
+		if err := copyDir(modulePath, moduleDst); err != nil {
+			warnings = append(warnings, Warning{
+				Message: WarningMessage(fmt.Sprintf("failed to copy module %s: %v", moduleName, err)),
+			})
 			continue
 		}
 	}
@@ -322,8 +330,8 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
 	if err := os.WriteFile(dockerfilePath, []byte(dockerfile), 0o644); err != nil {
 		cleanup()
-		return "", nil, fmt.Errorf("failed to write Dockerfile: %w", err)
+		return "", nil, nil, fmt.Errorf("failed to write Dockerfile: %w", err)
 	}
 
-	return tmpDir, cleanup, nil
+	return tmpDir, warnings, cleanup, nil
 }
