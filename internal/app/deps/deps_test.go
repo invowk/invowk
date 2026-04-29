@@ -5,6 +5,7 @@ package deps
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -375,6 +376,9 @@ func TestValidateDependencies(t *testing.T) {
 func TestValidateHostDependenciesWithHostProbeUsesInjectedProbe(t *testing.T) {
 	t.Parallel()
 
+	invowkfilePath := filepath.Join(t.TempDir(), "work", "invowkfile.cue")
+	expectedFilepath := filepath.Join(filepath.Dir(invowkfilePath), "data", "input.txt")
+
 	cmd := &invowkfile.Command{
 		Name: "build",
 		DependsOn: &invowkfile.DependsOn{
@@ -398,7 +402,7 @@ func TestValidateHostDependenciesWithHostProbeUsesInjectedProbe(t *testing.T) {
 	cmdInfo := &discovery.CommandInfo{
 		Name:       cmd.Name,
 		Command:    cmd,
-		Invowkfile: &invowkfile.Invowkfile{FilePath: types.FilesystemPath("/tmp/work/invowkfile.cue")},
+		Invowkfile: &invowkfile.Invowkfile{FilePath: types.FilesystemPath(invowkfilePath)},
 	}
 	execCtx := &runtimepkg.ExecutionContext{
 		Command:      cmd,
@@ -421,7 +425,7 @@ func TestValidateHostDependenciesWithHostProbeUsesInjectedProbe(t *testing.T) {
 	if len(probe.tools) != 1 || probe.tools[0] != "tool-a" {
 		t.Fatalf("probe tools = %v, want [tool-a]", probe.tools)
 	}
-	if len(probe.filepaths) != 1 || probe.filepaths[0] != "/tmp/work/data/input.txt" {
+	if len(probe.filepaths) != 1 || probe.filepaths[0] != types.FilesystemPath(expectedFilepath) {
 		t.Fatalf("probe filepaths = %v, want resolved path", probe.filepaths)
 	}
 	if len(probe.checks) != 1 || probe.checks[0] != "custom" {

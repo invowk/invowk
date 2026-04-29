@@ -5,6 +5,7 @@ package sshserver
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"sync"
@@ -274,6 +275,9 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 func isClosedConnError(err error) bool {
 	if err == nil {
 		return false
+	}
+	if errors.Is(err, net.ErrClosed) || errors.Is(err, ssh.ErrServerClosed) {
+		return true
 	}
 	if opErr, ok := errors.AsType[*netOpError](err); ok {
 		return opErr.Err.Error() == "use of closed network connection"

@@ -127,20 +127,28 @@ func (s *Server) doStop() error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
 	defer shutdownCancel()
 
-	var shutdownErr error
 	s.srvMu.Lock()
-	if s.srv != nil {
-		shutdownErr = s.srv.Shutdown(shutdownCtx)
+	srv := s.srv
+	listener := s.listener
+	s.srv = nil
+	s.listener = nil
+	s.srvMu.Unlock()
+
+	// Close the listener before graceful SSH shutdown so a blocked Accept
+	// exits promptly on every platform, including Windows race-test runners.
+	if listener != nil {
+		_ = listener.Close() //nolint:errcheck // Best-effort cleanup during shutdown.
+	}
+
+	var shutdownErr error
+	if srv != nil {
+		shutdownErr = srv.Shutdown(shutdownCtx)
 		if shutdownErr != nil && !isClosedConnError(shutdownErr) {
 			s.logger.Error("shutdown error", "error", shutdownErr)
 		} else {
 			shutdownErr = nil
 		}
 	}
-	if s.listener != nil {
-		_ = s.listener.Close() //nolint:errcheck // Best-effort cleanup during shutdown
-	}
-	s.srvMu.Unlock()
 
 	// Wait for all goroutines to exit
 	s.WaitForShutdown()

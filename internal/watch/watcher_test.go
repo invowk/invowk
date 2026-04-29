@@ -47,6 +47,7 @@ func TestWatcherDebounce(t *testing.T) {
 	)
 
 	done := make(chan struct{})
+	var doneOnce sync.Once
 
 	w, err := New(Config{
 		BaseDir:  types.FilesystemPath(dir),
@@ -58,7 +59,7 @@ func TestWatcherDebounce(t *testing.T) {
 			defer mu.Unlock()
 			calls++
 			collected = append(collected, changed...)
-			close(done)
+			doneOnce.Do(func() { close(done) })
 			return nil
 		},
 	})
@@ -71,6 +72,12 @@ func TestWatcherDebounce(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- w.Run(ctx) }()
+
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
 
 	// Write three files in rapid succession — well within the debounce window.
 	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
@@ -313,6 +320,12 @@ func TestWatcherSkipIfBusy(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- w.Run(ctx) }()
 
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
+
 	// Write first file — triggers first callback (blocks for 300ms).
 	if err := os.WriteFile(filepath.Join(dir, "first.txt"), []byte("1"), 0o644); err != nil {
 		t.Fatalf("write first.txt: %v", err)
@@ -370,6 +383,7 @@ func TestWatcherClearScreen(t *testing.T) {
 	dir := t.TempDir()
 
 	done := make(chan struct{})
+	var doneOnce sync.Once
 	stdoutBuf := &bytes.Buffer{}
 
 	w, err := New(Config{
@@ -379,7 +393,7 @@ func TestWatcherClearScreen(t *testing.T) {
 		Stdout:      stdoutBuf,
 		Stderr:      &bytes.Buffer{},
 		OnChange: func(_ context.Context, _ []string) error {
-			close(done)
+			doneOnce.Do(func() { close(done) })
 			return nil
 		},
 	})
@@ -392,6 +406,12 @@ func TestWatcherClearScreen(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- w.Run(ctx) }()
+
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
 
 	if err := os.WriteFile(filepath.Join(dir, "file.go"), []byte("x"), 0o644); err != nil {
 		t.Fatalf("write file.go: %v", err)
