@@ -399,7 +399,7 @@ func TestClient_Spin(t *testing.T) {
 		Result: mustMarshalResult(t, SpinResult{Stdout: "output", ExitCode: 0}),
 	})
 
-	result, err := client.Spin(SpinRequest{Title: "loading", Command: []string{"echo", "hi"}})
+	result, err := client.Spin(SpinRequest{Title: "loading"})
 	if err != nil {
 		t.Fatalf("Spin() error = %v", err)
 	}

@@ -207,18 +207,8 @@ func TestContextHelpersAndCacheValidation(t *testing.T) {
 	if got := configPathFromContext(ctx); got != invowkPath {
 		t.Fatalf("configPathFromContext() = %q, want %q", got, invowkPath)
 	}
-	cache := discoveryCacheFromContext(ctx)
-	if cache == nil {
-		t.Fatal("discoveryCacheFromContext() = nil")
-	}
 	if contextWithDiscoveryRequestCache(ctx) != ctx {
 		t.Fatal("contextWithDiscoveryRequestCache() should reuse existing cache")
-	}
-
-	cache.cfg = &config.Config{DefaultRuntime: config.RuntimeMode("bogus")}
-	cache.cfgDiags = []discovery.Diagnostic{{}}
-	if cache.Validate() == nil {
-		t.Fatal("Validate() returned nil, want joined error")
 	}
 }
 

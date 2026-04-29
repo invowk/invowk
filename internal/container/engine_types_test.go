@@ -5,8 +5,6 @@ package container
 import (
 	"errors"
 	"testing"
-
-	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 func TestContainerID_Validate(t *testing.T) {
@@ -476,8 +474,8 @@ func TestRunOptions_Validate(t *testing.T) {
 				WorkDir:    "/app",
 				Name:       "my-container",
 				ExtraHosts: []HostMapping{"host.docker.internal:host-gateway"},
-				Volumes:    []invowkfile.VolumeMountSpec{"/host:/container"},
-				Ports:      []invowkfile.PortMappingSpec{"8080:80"},
+				Volumes:    []VolumeMountSpec{"/host:/container"},
+				Ports:      []PortMappingSpec{"8080:80"},
 			},
 			true, false, 0,
 		},
@@ -524,7 +522,7 @@ func TestRunOptions_Validate(t *testing.T) {
 			"invalid volume spec",
 			RunOptions{
 				Image:   "debian:stable-slim",
-				Volumes: []invowkfile.VolumeMountSpec{""},
+				Volumes: []VolumeMountSpec{""},
 			},
 			false, true, 1,
 		},
@@ -532,7 +530,7 @@ func TestRunOptions_Validate(t *testing.T) {
 			"invalid port spec",
 			RunOptions{
 				Image: "debian:stable-slim",
-				Ports: []invowkfile.PortMappingSpec{""},
+				Ports: []PortMappingSpec{""},
 			},
 			false, true, 1,
 		},
@@ -543,8 +541,8 @@ func TestRunOptions_Validate(t *testing.T) {
 				WorkDir:    "\t",
 				Name:       "   ",
 				ExtraHosts: []HostMapping{""},
-				Volumes:    []invowkfile.VolumeMountSpec{""},
-				Ports:      []invowkfile.PortMappingSpec{""},
+				Volumes:    []VolumeMountSpec{""},
+				Ports:      []PortMappingSpec{""},
 			},
 			false, true, 6,
 		},

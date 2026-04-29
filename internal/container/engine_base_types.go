@@ -79,6 +79,9 @@ type (
 	// A valid path must be non-empty and not whitespace-only.
 	HostFilesystemPath string
 
+	// VolumeMountSpec is the raw volume mount argument accepted by Docker/Podman.
+	VolumeMountSpec string
+
 	// InvalidHostFilesystemPathError is returned when a HostFilesystemPath is empty or whitespace-only.
 	InvalidHostFilesystemPathError struct {
 		Value HostFilesystemPath
@@ -87,6 +90,9 @@ type (
 	// MountTargetPath represents a filesystem path inside a container for volume mounts.
 	// A valid path must be non-empty and not whitespace-only.
 	MountTargetPath string
+
+	// PortMappingSpec is the raw port mapping argument accepted by Docker/Podman.
+	PortMappingSpec string
 
 	// InvalidMountTargetPathError is returned when a MountTargetPath is empty or whitespace-only.
 	InvalidMountTargetPathError struct {
@@ -213,6 +219,19 @@ func (e *InvalidHostFilesystemPathError) Error() string {
 // Unwrap returns ErrInvalidHostFilesystemPath for errors.Is() compatibility.
 func (e *InvalidHostFilesystemPathError) Unwrap() error { return ErrInvalidHostFilesystemPath }
 
+// String returns the string representation of the VolumeMountSpec.
+func (s VolumeMountSpec) String() string { return string(s) }
+
+// Validate returns an error if the VolumeMountSpec is empty.
+//
+//goplint:nonzero
+func (s VolumeMountSpec) Validate() error {
+	if strings.TrimSpace(string(s)) == "" {
+		return &InvalidVolumeMountError{Value: VolumeMount{HostPath: HostFilesystemPath(s)}}
+	}
+	return nil
+}
+
 // String returns the string representation of the MountTargetPath.
 func (p MountTargetPath) String() string { return string(p) }
 
@@ -235,6 +254,19 @@ func (e *InvalidMountTargetPathError) Error() string {
 // Unwrap returns ErrInvalidMountTargetPath for errors.Is() compatibility.
 func (e *InvalidMountTargetPathError) Unwrap() error {
 	return ErrInvalidMountTargetPath
+}
+
+// String returns the string representation of the PortMappingSpec.
+func (s PortMappingSpec) String() string { return string(s) }
+
+// Validate returns an error if the PortMappingSpec is empty.
+//
+//goplint:nonzero
+func (s PortMappingSpec) Validate() error {
+	if strings.TrimSpace(string(s)) == "" {
+		return &InvalidPortMappingError{Value: PortMapping{}}
+	}
+	return nil
 }
 
 // Error implements the error interface for InvalidVolumeMountError.

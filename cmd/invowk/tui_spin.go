@@ -68,31 +68,21 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
-		result, clientErr := client.SpinContext(cmd.Context(), tuiserver.SpinRequest{
+		if _, clientErr := client.SpinContext(cmd.Context(), tuiserver.SpinRequest{
 			Title:   spinTitle,
 			Spinner: spinType,
-			Command: args, // Full command including args
-		})
-		if clientErr != nil {
+		}); clientErr != nil {
 			return clientErr
 		}
-		output = []byte(result.Stdout)
-		exitCode = result.ExitCode
-		if exitCode != 0 {
-			// Create a synthetic error for non-zero exit
-			err = fmt.Errorf("command exited with code %d", exitCode)
-		}
-	} else {
-		// Render TUI directly
-		parsedType, parseErr := tui.ParseSpinnerType(spinType)
-		if parseErr != nil {
-			return parseErr
-		}
-		output, err = tui.SpinWithCommand(cmd.Context(), tui.SpinOptions{
-			Title: spinTitle,
-			Type:  parsedType,
-		}, command, cmdArgs...)
 	}
+	parsedType, parseErr := tui.ParseSpinnerType(spinType)
+	if parseErr != nil {
+		return parseErr
+	}
+	output, err = tui.SpinWithCommand(cmd.Context(), tui.SpinOptions{
+		Title: spinTitle,
+		Type:  parsedType,
+	}, command, cmdArgs...)
 
 	// Print the command output
 	if len(output) > 0 {

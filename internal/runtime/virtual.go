@@ -43,6 +43,21 @@ type (
 		prog   *syntax.File
 		runner *interp.Runner
 	}
+
+	// VirtualScriptOptions configures direct virtual shell execution for the
+	// internal interactive subprocess wrapper.
+	//goplint:ignore -- subprocess adapter DTO carries shell script text, argv, and env strings across the CLI boundary.
+	VirtualScriptOptions struct {
+		Script      string
+		ScriptName  string
+		WorkDir     string
+		Env         []string
+		Args        []string
+		EnableUroot bool
+		Stdin       *os.File
+		Stdout      *os.File
+		Stderr      *os.File
+	}
 )
 
 // WithVirtualEnvBuilder sets the environment builder for the virtual runtime.
@@ -258,6 +273,9 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		"--workdir", workDir,
 		"--env-json", string(envJSON),
 	}
+	if r.enableUrootUtils {
+		args = append(args, "--enable-uroot")
+	}
 
 	// Add positional arguments
 	for _, arg := range ctx.PositionalArgs {
@@ -277,6 +295,42 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 	}
 
 	return &PreparedCommand{Cmd: cmd, Cleanup: cleanup}, nil
+}
+
+// RunVirtualScript executes a virtual shell script with the same u-root command
+// handling semantics used by VirtualRuntime. It is used by the internal CLI
+// subprocess wrapper for interactive PTY execution.
+func RunVirtualScript(ctx context.Context, opts VirtualScriptOptions) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	prog, err := syntax.NewParser().Parse(strings.NewReader(opts.Script), opts.ScriptName)
+	if err != nil {
+		return fmt.Errorf("parse virtual script: %w", err)
+	}
+
+	rt := NewVirtualRuntime(opts.EnableUroot)
+	runnerOpts := []interp.RunnerOption{
+		interp.StdIO(opts.Stdin, opts.Stdout, opts.Stderr),
+		interp.Env(expand.ListEnviron(opts.Env...)),
+		interp.ExecHandlers(rt.execHandler),
+	}
+	if opts.WorkDir != "" {
+		runnerOpts = append(runnerOpts, interp.Dir(opts.WorkDir))
+	}
+	if len(opts.Args) > 0 {
+		params := append([]string{"--"}, opts.Args...)
+		runnerOpts = append(runnerOpts, interp.Params(params...))
+	}
+
+	runner, err := interp.New(runnerOpts...)
+	if err != nil {
+		return fmt.Errorf("create virtual interpreter: %w", err)
+	}
+	if err := runner.Run(ctx, prog); err != nil {
+		return fmt.Errorf("run virtual script: %w", err)
+	}
+	return nil
 }
 
 // prepareVirtualExec resolves script, parses it, builds environment, and creates

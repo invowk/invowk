@@ -35,6 +35,8 @@ var (
 	ErrInvalidCustomCheckDependency = errors.New("invalid custom check dependency")
 	// ErrInvalidDependsOn is the sentinel error wrapped by InvalidDependsOnError.
 	ErrInvalidDependsOn = errors.New("invalid depends_on")
+	// ErrMissingDependencyAlternatives is returned when an OR dependency has no alternatives.
+	ErrMissingDependencyAlternatives = errors.New("dependency alternatives must contain at least one item")
 )
 
 type (
@@ -344,6 +346,9 @@ func (e *InvalidScriptContentError) Unwrap() error { return ErrInvalidScriptCont
 // Validate returns nil if the ToolDependency has valid fields.
 func (t ToolDependency) Validate() error {
 	var errs []error
+	if len(t.Alternatives) == 0 {
+		errs = append(errs, ErrMissingDependencyAlternatives)
+	}
 	for _, b := range t.Alternatives {
 		if err := b.Validate(); err != nil {
 			errs = append(errs, err)
@@ -358,6 +363,9 @@ func (t ToolDependency) Validate() error {
 // Validate returns nil if the CommandDependency has valid fields.
 func (c CommandDependency) Validate() error {
 	var errs []error
+	if len(c.Alternatives) == 0 {
+		errs = append(errs, ErrMissingDependencyAlternatives)
+	}
 	for _, n := range c.Alternatives {
 		if err := n.Validate(); err != nil {
 			errs = append(errs, err)
@@ -372,6 +380,9 @@ func (c CommandDependency) Validate() error {
 // Validate returns nil if the CapabilityDependency has valid fields.
 func (c CapabilityDependency) Validate() error {
 	var errs []error
+	if len(c.Alternatives) == 0 {
+		errs = append(errs, ErrMissingDependencyAlternatives)
+	}
 	for _, n := range c.Alternatives {
 		if err := n.Validate(); err != nil {
 			errs = append(errs, err)
@@ -402,6 +413,9 @@ func (e EnvVarCheck) Validate() error {
 // Validate returns nil if the EnvVarDependency has valid fields.
 func (e EnvVarDependency) Validate() error {
 	var errs []error
+	if len(e.Alternatives) == 0 {
+		errs = append(errs, ErrMissingDependencyAlternatives)
+	}
 	for _, c := range e.Alternatives {
 		if err := c.Validate(); err != nil {
 			errs = append(errs, err)
@@ -416,6 +430,9 @@ func (e EnvVarDependency) Validate() error {
 // Validate returns nil if the FilepathDependency has valid fields.
 func (f FilepathDependency) Validate() error {
 	var errs []error
+	if len(f.Alternatives) == 0 {
+		errs = append(errs, ErrMissingDependencyAlternatives)
+	}
 	for _, p := range f.Alternatives {
 		if err := p.Validate(); err != nil {
 			errs = append(errs, err)
@@ -457,6 +474,9 @@ func (c CustomCheck) Validate() error {
 // Otherwise, validates the direct check fields.
 func (c CustomCheckDependency) Validate() error {
 	var errs []error
+	if len(c.Alternatives) == 0 && c.Name == "" && c.CheckScript == "" {
+		errs = append(errs, ErrMissingDependencyAlternatives)
+	}
 	appendFieldError(&errs, c.CheckScript.Validate())
 	appendFieldError(&errs, c.ExpectedOutput.Validate())
 	appendEachValidation(&errs, c.Alternatives)
@@ -489,17 +509,26 @@ func (d DependsOn) Validate() error {
 func (e *InvalidToolDependencyError) Error() string {
 	return types.FormatFieldErrors("tool dependency", e.FieldErrors)
 }
-func (e *InvalidToolDependencyError) Unwrap() error { return ErrInvalidToolDependency }
+
+func (e *InvalidToolDependencyError) Unwrap() error {
+	return errors.Join(ErrInvalidToolDependency, errors.Join(e.FieldErrors...))
+}
 
 func (e *InvalidCommandDependencyError) Error() string {
 	return types.FormatFieldErrors("command dependency", e.FieldErrors)
 }
-func (e *InvalidCommandDependencyError) Unwrap() error { return ErrInvalidCommandDependency }
+
+func (e *InvalidCommandDependencyError) Unwrap() error {
+	return errors.Join(ErrInvalidCommandDependency, errors.Join(e.FieldErrors...))
+}
 
 func (e *InvalidCapabilityDependencyError) Error() string {
 	return types.FormatFieldErrors("capability dependency", e.FieldErrors)
 }
-func (e *InvalidCapabilityDependencyError) Unwrap() error { return ErrInvalidCapabilityDependency }
+
+func (e *InvalidCapabilityDependencyError) Unwrap() error {
+	return errors.Join(ErrInvalidCapabilityDependency, errors.Join(e.FieldErrors...))
+}
 
 func (e *InvalidEnvVarCheckError) Error() string {
 	return types.FormatFieldErrors("env var check", e.FieldErrors)
@@ -509,12 +538,18 @@ func (e *InvalidEnvVarCheckError) Unwrap() error { return ErrInvalidEnvVarCheck 
 func (e *InvalidEnvVarDependencyError) Error() string {
 	return types.FormatFieldErrors("env var dependency", e.FieldErrors)
 }
-func (e *InvalidEnvVarDependencyError) Unwrap() error { return ErrInvalidEnvVarDependency }
+
+func (e *InvalidEnvVarDependencyError) Unwrap() error {
+	return errors.Join(ErrInvalidEnvVarDependency, errors.Join(e.FieldErrors...))
+}
 
 func (e *InvalidFilepathDependencyError) Error() string {
 	return types.FormatFieldErrors("filepath dependency", e.FieldErrors)
 }
-func (e *InvalidFilepathDependencyError) Unwrap() error { return ErrInvalidFilepathDependency }
+
+func (e *InvalidFilepathDependencyError) Unwrap() error {
+	return errors.Join(ErrInvalidFilepathDependency, errors.Join(e.FieldErrors...))
+}
 
 func (e *InvalidCustomCheckError) Error() string {
 	return types.FormatFieldErrors("custom check", e.FieldErrors)
@@ -524,7 +559,10 @@ func (e *InvalidCustomCheckError) Unwrap() error { return ErrInvalidCustomCheck 
 func (e *InvalidCustomCheckDependencyError) Error() string {
 	return types.FormatFieldErrors("custom check dependency", e.FieldErrors)
 }
-func (e *InvalidCustomCheckDependencyError) Unwrap() error { return ErrInvalidCustomCheckDependency }
+
+func (e *InvalidCustomCheckDependencyError) Unwrap() error {
+	return errors.Join(ErrInvalidCustomCheckDependency, errors.Join(e.FieldErrors...))
+}
 
 func (e *InvalidDependsOnError) Error() string {
 	return types.FormatFieldErrors("depends_on", e.FieldErrors)

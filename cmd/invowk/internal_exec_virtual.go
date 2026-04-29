@@ -8,14 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
+	ivkruntime "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
-	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
-	"mvdan.cc/sh/v3/syntax"
 )
 
 const flagScriptFile = "script-file"
@@ -39,6 +37,7 @@ func newInternalExecVirtualCommand() *cobra.Command {
 	cmd.Flags().StringArray("env", nil, "environment variables (KEY=VALUE format)")
 	cmd.Flags().StringArray("args", nil, "positional arguments for the script")
 	cmd.Flags().String("env-json", "", "environment variables as JSON object")
+	cmd.Flags().Bool("enable-uroot", false, "enable u-root utilities")
 
 	_ = cmd.MarkFlagRequired(flagScriptFile)
 
@@ -55,21 +54,12 @@ func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
 	envVars, _ := cmd.Flags().GetStringArray("env")
 	posArgs, _ := cmd.Flags().GetStringArray("args")
 	envJSON, _ := cmd.Flags().GetString("env-json")
+	enableUroot, _ := cmd.Flags().GetBool("enable-uroot")
 
 	// Read script content from file
 	scriptContent, err := os.ReadFile(scriptFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading script file: %v\n", err)
-		cmd.SilenceErrors = true
-		cmd.SilenceUsage = true
-		return &ExitError{Code: 1}
-	}
-
-	// Parse the script
-	parser := syntax.NewParser()
-	prog, err := parser.Parse(strings.NewReader(string(scriptContent)), scriptFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing script: %v\n", err)
 		cmd.SilenceErrors = true
 		cmd.SilenceUsage = true
 		return &ExitError{Code: 1}
@@ -84,37 +74,20 @@ func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
 		return &ExitError{Code: 1}
 	}
 
-	// Create interpreter options
-	opts := []interp.RunnerOption{
-		interp.StdIO(os.Stdin, os.Stdout, os.Stderr),
-		interp.Env(expand.ListEnviron(env...)),
-	}
-
-	// Set working directory if specified
-	if workdir != "" {
-		opts = append(opts, interp.Dir(workdir))
-	}
-
-	// Add positional parameters for shell access ($1, $2, etc.)
-	// Prepend "--" to signal end of options; without this, args like "-v" or "--env=staging"
-	// are incorrectly interpreted as shell options by interp.Params()
-	if len(posArgs) > 0 {
-		params := append([]string{"--"}, posArgs...)
-		opts = append(opts, interp.Params(params...))
-	}
-
-	// Create the interpreter
-	runner, err := interp.New(opts...)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating interpreter: %v\n", err)
-		cmd.SilenceErrors = true
-		cmd.SilenceUsage = true
-		return &ExitError{Code: 1}
-	}
-
 	// Execute the script
 	ctx := context.Background()
-	if err := runner.Run(ctx, prog); err != nil {
+	err = ivkruntime.RunVirtualScript(ctx, ivkruntime.VirtualScriptOptions{
+		Script:      string(scriptContent),
+		ScriptName:  scriptFile,
+		WorkDir:     workdir,
+		Env:         env,
+		Args:        posArgs,
+		EnableUroot: enableUroot,
+		Stdin:       os.Stdin,
+		Stdout:      os.Stdout,
+		Stderr:      os.Stderr,
+	})
+	if err != nil {
 		if exitStatus, ok := errors.AsType[interp.ExitStatus](err); ok {
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true

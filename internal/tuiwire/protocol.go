@@ -200,9 +200,8 @@ type (
 
 	// SpinRequest contains options for the spin component.
 	SpinRequest struct {
-		Title   string   `json:"title,omitempty"`
-		Spinner string   `json:"spinner,omitempty"`
-		Command []string `json:"command,omitempty"`
+		Title   string `json:"title,omitempty"`
+		Spinner string `json:"spinner,omitempty"`
 	}
 
 	// SpinResult contains the result of a spin operation.

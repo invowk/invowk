@@ -15,6 +15,14 @@ import (
 )
 
 type (
+	// moduleFetcher is the source-repository conversation required by Resolver.
+	// GitFetcher is the production adapter; tests can inject deterministic fakes
+	// without reaching the network or a real Git remote.
+	moduleFetcher interface {
+		ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer, error)
+		Fetch(ctx context.Context, gitURL GitURL, version SemVer) (types.FilesystemPath, GitCommit, error)
+	}
+
 	// Resolver handles module operations including resolution, caching, and synchronization.
 	Resolver struct {
 		// cacheDir is the root directory for module cache.
@@ -23,8 +31,8 @@ type (
 		// workingDir is the directory containing invowkmod.cue (for relative path resolution).
 		workingDir types.FilesystemPath
 
-		// fetcher handles Git operations.
-		fetcher *GitFetcher
+		// fetcher handles source repository operations.
+		fetcher moduleFetcher
 
 		// semver handles version constraint resolution.
 		semver *SemverResolver
@@ -39,6 +47,14 @@ type (
 // workingDir is the directory containing invowkmod.cue (typically current working directory).
 // cacheDir can be empty to use the default (~/.invowk/modules or $INVOWK_MODULES_PATH).
 func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
+	return newResolver(workingDir, cacheDir, nil)
+}
+
+func newResolverWithFetcher(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher) (*Resolver, error) {
+	return newResolver(workingDir, cacheDir, fetcher)
+}
+
+func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher) (*Resolver, error) {
 	wd := string(workingDir)
 	if wd == "" {
 		var err error
@@ -81,12 +97,16 @@ func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
 		return nil, fmt.Errorf("working directory: %w", err)
 	}
 
-	return &Resolver{
+	resolver := &Resolver{
 		cacheDir:   absCachePath,
 		workingDir: absWorkingPath,
 		fetcher:    NewGitFetcher(absCachePath),
 		semver:     invowkmod.NewSemverResolver(),
-	}, nil
+	}
+	if fetcher != nil {
+		resolver.fetcher = fetcher
+	}
+	return resolver, nil
 }
 
 // CacheDir returns the root directory for the module cache.
@@ -106,7 +126,10 @@ func (m *Resolver) Add(ctx context.Context, req ModuleRef) (*ResolvedModule, err
 	}
 
 	// Load existing lock file hashes for cache tamper detection.
-	knownHashes := m.loadExistingLockHashes()
+	knownHashes, err := m.loadExistingLockHashes()
+	if err != nil {
+		return nil, err
+	}
 
 	// Resolve the module
 	resolved, err := m.resolveOne(ctx, req, knownHashes)
@@ -259,7 +282,10 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 	// Load existing lock file hashes for cache tamper detection.
 	// When re-syncing, cached modules are verified against the prior
 	// lock file's content hashes to detect tampering of the local cache.
-	knownHashes := m.loadExistingLockHashes()
+	knownHashes, err := m.loadExistingLockHashes()
+	if err != nil {
+		return nil, err
+	}
 
 	// Resolve only direct dependencies (no transitive recursion).
 	resolved, err := m.resolveAll(ctx, requirements, knownHashes)
@@ -365,17 +391,20 @@ func (m *Resolver) resolvedModuleFromLockEntry(key ModuleRefKey, entry LockedMod
 	}
 }
 
-// loadExistingLockHashes loads content hashes from the existing lock file
-// for cache tamper detection. Returns nil if no lock file exists or cannot
-// be read (best-effort: a missing lock file simply means no prior hashes
-// to verify against).
-func (m *Resolver) loadExistingLockHashes() map[ModuleRefKey]ContentHash {
+// loadExistingLockHashes loads content hashes from the existing lock file for
+// cache tamper detection. A missing lock file means no prior hashes exist; an
+// unreadable or invalid lock file is an integrity failure and must not silently
+// downgrade cache verification.
+func (m *Resolver) loadExistingLockHashes() (map[ModuleRefKey]ContentHash, error) {
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
 	lock, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return map[ModuleRefKey]ContentHash{}, nil
+		}
+		return nil, fmt.Errorf(errFmtLoadLockFile, err)
 	}
-	return lock.ContentHashes()
+	return lock.ContentHashes(), nil
 }
 
 // isGitURL returns true if s looks like a Git URL.

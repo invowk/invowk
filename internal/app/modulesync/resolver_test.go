@@ -3,6 +3,7 @@
 package modulesync
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,6 +14,23 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+type fakeModuleFetcher struct {
+	repoPath     types.FilesystemPath
+	listVersions []SemVer
+	listCalls    int
+	fetchCalls   int
+}
+
+func (f *fakeModuleFetcher) ListVersions(_ context.Context, _ GitURL) ([]SemVer, error) {
+	f.listCalls++
+	return f.listVersions, nil
+}
+
+func (f *fakeModuleFetcher) Fetch(_ context.Context, _ GitURL, _ SemVer) (types.FilesystemPath, GitCommit, error) {
+	f.fetchCalls++
+	return f.repoPath, GitCommit("abc123def456789012345678901234567890abcd"), nil
+}
 
 func TestModuleRefKey(t *testing.T) {
 	t.Parallel()
@@ -681,6 +699,71 @@ modules: {
 	}
 	if !errors.Is(err, invowkmod.ErrLockFileV1UpgradeRequired) {
 		t.Fatalf("LoadFromLock() error = %v, want ErrLockFileV1UpgradeRequired", err)
+	}
+}
+
+func TestSyncRejectsInvalidExistingLockBeforeFetching(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	cacheDir := t.TempDir()
+	lockPath := filepath.Join(workDir, LockFileName)
+	if err := os.WriteFile(lockPath, []byte("not: [valid"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	fetcher := &fakeModuleFetcher{listVersions: []SemVer{"1.2.3"}}
+	resolver, err := newResolverWithFetcher(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir), fetcher)
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+	_, err = resolver.Sync(t.Context(), []ModuleRef{{
+		GitURL:  "https://github.com/user/tools.git",
+		Version: "^1.0.0",
+	}})
+	if err == nil {
+		t.Fatal("Sync() error = nil, want invalid lock file error")
+	}
+	if fetcher.listCalls != 0 || fetcher.fetchCalls != 0 {
+		t.Fatalf("fetcher calls = list:%d fetch:%d, want zero", fetcher.listCalls, fetcher.fetchCalls)
+	}
+}
+
+func TestSyncUsesInjectedFetcher(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	cacheDir := t.TempDir()
+	repoDir := t.TempDir()
+	moduleDir := filepath.Join(repoDir, "tools.invowkmod")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(`module: "io.example.tools"
+version: "1.2.3"`), 0o644); err != nil {
+		t.Fatalf("WriteFile(invowkmod.cue) error = %v", err)
+	}
+
+	fetcher := &fakeModuleFetcher{
+		repoPath:     types.FilesystemPath(repoDir),
+		listVersions: []SemVer{"1.2.3"},
+	}
+	resolver, err := newResolverWithFetcher(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir), fetcher)
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+	resolved, err := resolver.Sync(t.Context(), []ModuleRef{{
+		GitURL:  "https://github.com/user/tools.git",
+		Version: "^1.0.0",
+	}})
+	if err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("Sync() resolved %d modules, want 1", len(resolved))
+	}
+	if fetcher.listCalls != 1 || fetcher.fetchCalls != 1 {
+		t.Fatalf("fetcher calls = list:%d fetch:%d, want 1 each", fetcher.listCalls, fetcher.fetchCalls)
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -277,17 +276,16 @@ func runInvowkfilePathValidation(cmd *cobra.Command, invowkfilePath string) erro
 	fmt.Fprintf(stdout, "%s Structural validation passed\n", moduleSuccessIcon)
 
 	// Command tree validation (leaf-only args constraint).
-	var commands []*discovery.CommandInfo
+	var commands []invowkfile.CommandTreeEntry
 	for name, cmdDef := range inv.FlattenCommands() {
-		commands = append(commands, &discovery.CommandInfo{
-			Name:       name,
-			FilePath:   invowkfile.FilesystemPath(invowkfilePath),
-			Command:    cmdDef,
-			Invowkfile: inv,
+		commands = append(commands, invowkfile.CommandTreeEntry{
+			Name:     name,
+			FilePath: invowkfile.FilesystemPath(invowkfilePath),
+			Command:  cmdDef,
 		})
 	}
 
-	if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
+	if treeErr := invowkfile.ValidateCommandTree(commands); treeErr != nil {
 		fmt.Fprintf(stderr, "%s Command tree validation failed\n", moduleErrorIcon)
 		fmt.Fprintln(stderr)
 		fmt.Fprintf(stderr, "  %s\n", treeErr)
@@ -334,16 +332,15 @@ func runModulePathValidation(cmd *cobra.Command, modulePath string) error {
 		if invErr != nil {
 			result.AddIssue(invowkmod.IssueTypeInvowkfile, invErr.Error(), "invowkfile.cue")
 		} else if inv != nil {
-			var commands []*discovery.CommandInfo
+			var commands []invowkfile.CommandTreeEntry
 			for name, cmdDef := range inv.FlattenCommands() {
-				commands = append(commands, &discovery.CommandInfo{
-					Name:       name,
-					FilePath:   result.InvowkfilePath,
-					Command:    cmdDef,
-					Invowkfile: inv,
+				commands = append(commands, invowkfile.CommandTreeEntry{
+					Name:     name,
+					FilePath: result.InvowkfilePath,
+					Command:  cmdDef,
 				})
 			}
-			if treeErr := discovery.ValidateCommandTree(commands); treeErr != nil {
+			if treeErr := invowkfile.ValidateCommandTree(commands); treeErr != nil {
 				result.AddIssue(invowkmod.IssueTypeCommandTree, treeErr.Error(), string(result.InvowkfilePath))
 			}
 		}

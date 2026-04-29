@@ -26,7 +26,10 @@ func (m *Resolver) Tidy(ctx context.Context, requirements []ModuleRef) ([]Module
 
 	// Tidy expands the explicit-only graph to a fixed point. Sync remains
 	// fail-fast, but tidy should be the one-shot repair operation users expect.
-	knownHashes := m.loadExistingLockHashes()
+	knownHashes, err := m.loadExistingLockHashes()
+	if err != nil {
+		return nil, err
+	}
 	return tidyToFixedPoint(ctx, requirements, knownHashes, m.resolveAll)
 }
 

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -71,9 +72,7 @@ func setupDiscoveryCacheTestDir(t *testing.T) {
 func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T) {
 	setupDiscoveryCacheTestDir(t)
 
-	svc := &appDiscoveryService{
-		config: &staticConfigProvider{cfg: config.DefaultConfig()},
-	}
+	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
 
 	ctx := contextWithConfigPath(t.Context(), "")
 
@@ -108,9 +107,7 @@ func TestAppDiscoveryService_RequestScopedCache_ReusesLookupResult(t *testing.T)
 func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *testing.T) {
 	setupDiscoveryCacheTestDir(t)
 
-	svc := &appDiscoveryService{
-		config: &staticConfigProvider{cfg: config.DefaultConfig()},
-	}
+	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
 
 	ctx := contextWithConfigPath(t.Context(), "")
 
@@ -143,13 +140,11 @@ func TestAppDiscoveryService_CrossPopulate_ValidatedSetPopulatesCommandSet(t *te
 func TestAppDiscoveryService_WithoutCacheContext_DoesNotMemoizeLookup(t *testing.T) {
 	setupDiscoveryCacheTestDir(t)
 
-	svc := &appDiscoveryService{
-		config: &staticConfigProvider{cfg: config.DefaultConfig()},
-	}
+	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
 
-	// Directly set config path in context to bypass contextWithConfigPath(), which
-	// attaches request cache.
-	ctx := context.WithValue(t.Context(), configPathContextKey{}, "")
+	// Use a plain context to bypass contextWithConfigPath(), which attaches the
+	// request-scoped discovery cache.
+	ctx := t.Context()
 
 	first, err := svc.GetCommand(ctx, "build")
 	if err != nil {
@@ -177,7 +172,7 @@ func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testin
 	setupDiscoveryCacheTestDir(t)
 
 	cfgProvider := &countingConfigProvider{cfg: config.DefaultConfig()}
-	svc := &appDiscoveryService{config: cfgProvider}
+	svc := commandadapters.NewDiscoveryService(cfgProvider)
 	ctx := contextWithConfigPath(t.Context(), "")
 
 	if _, err := svc.DiscoverCommandSet(ctx); err != nil {
@@ -199,7 +194,7 @@ func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testin
 func TestAppDiscoveryService_GetCommand_UsesCachedCommandSetLookup(t *testing.T) {
 	setupDiscoveryCacheTestDir(t)
 
-	svc := &appDiscoveryService{config: &staticConfigProvider{cfg: config.DefaultConfig()}}
+	svc := commandadapters.NewDiscoveryService(&staticConfigProvider{cfg: config.DefaultConfig()})
 	ctx := contextWithConfigPath(t.Context(), "")
 
 	commandSetResult, err := svc.DiscoverAndValidateCommandSet(ctx)

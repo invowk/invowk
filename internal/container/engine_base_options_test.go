@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/issue"
-	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // T031: BaseCLIEngine WithExecCommand option tests
@@ -47,7 +46,7 @@ func TestBaseCLIEngine_WithExecCommand(t *testing.T) {
 func TestBaseCLIEngine_WithVolumeFormatter(t *testing.T) {
 	t.Parallel()
 
-	formatter := func(v invowkfile.VolumeMountSpec) string {
+	formatter := func(v VolumeMountSpec) string {
 		return string(v) + ":z" // Simulate SELinux label addition
 	}
 
@@ -55,7 +54,7 @@ func TestBaseCLIEngine_WithVolumeFormatter(t *testing.T) {
 
 	args := engine.RunArgs(RunOptions{
 		Image:   "debian:stable-slim",
-		Volumes: []invowkfile.VolumeMountSpec{"/host:/container"},
+		Volumes: []VolumeMountSpec{"/host:/container"},
 	})
 
 	// Check that volume has the formatted value
@@ -92,7 +91,7 @@ func TestBaseCLIEngine_DefaultOptions(t *testing.T) {
 	}
 
 	// Test default volume formatter is identity (returns string representation)
-	input := invowkfile.VolumeMountSpec("/host:/container")
+	input := VolumeMountSpec("/host:/container")
 	if got := engine.volumeFormatter(input); got != string(input) {
 		t.Errorf("default volumeFormatter(%q) = %q, want %q", input, got, string(input))
 	}

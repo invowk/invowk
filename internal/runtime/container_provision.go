@@ -326,9 +326,25 @@ func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContaine
 	return invowkfileContainerConfig{
 		Containerfile: container.HostFilesystemPath(rt.Containerfile),
 		Image:         container.ImageTag(rt.Image),
-		Volumes:       rt.Volumes,
-		Ports:         rt.Ports,
+		Volumes:       containerVolumeSpecs(rt.Volumes),
+		Ports:         containerPortSpecs(rt.Ports),
 	}
+}
+
+func containerVolumeSpecs(specs []invowkfile.VolumeMountSpec) []container.VolumeMountSpec {
+	volumes := make([]container.VolumeMountSpec, 0, len(specs))
+	for _, spec := range specs {
+		volumes = append(volumes, container.VolumeMountSpec(spec))
+	}
+	return volumes
+}
+
+func containerPortSpecs(specs []invowkfile.PortMappingSpec) []container.PortMappingSpec {
+	ports := make([]container.PortMappingSpec, 0, len(specs))
+	for _, spec := range specs {
+		ports = append(ports, container.PortMappingSpec(spec))
+	}
+	return ports
 }
 
 // buildInterpreterCommand builds the command array for interpreter-based execution.

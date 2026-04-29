@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/issue"
-	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // =============================================================================
@@ -114,8 +113,8 @@ func TestPodmanEngine_Run_Arguments(t *testing.T) {
 			Interactive: true,
 			TTY:         true,
 			Env:         map[string]string{"VAR": "value"},
-			Volumes:     []invowkfile.VolumeMountSpec{"/src:/src"},
-			Ports:       []invowkfile.PortMappingSpec{"8080:80"},
+			Volumes:     []VolumeMountSpec{"/src:/src"},
+			Ports:       []PortMappingSpec{"8080:80"},
 			ExtraHosts:  []HostMapping{"host.containers.internal:host-gateway"},
 		}
 
@@ -663,7 +662,7 @@ func TestPodmanEngine_SELinuxVolumeLabeling(t *testing.T) {
 
 			opts := RunOptions{
 				Image:   "debian:stable-slim",
-				Volumes: []invowkfile.VolumeMountSpec{invowkfile.VolumeMountSpec(tt.volume)},
+				Volumes: []VolumeMountSpec{VolumeMountSpec(tt.volume)},
 			}
 
 			_, err := engine.Run(ctx, opts)
@@ -685,7 +684,7 @@ func TestAddSELinuxLabelWithCheck_EdgeCases(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		volume       invowkfile.VolumeMountSpec
+		volume       VolumeMountSpec
 		selinuxCheck SELinuxCheckFunc
 		expected     string
 	}{
@@ -755,7 +754,7 @@ func TestMakeSELinuxLabelAdder(t *testing.T) {
 		t.Parallel()
 
 		formatter := makeSELinuxLabelAdder(func() bool { return true })
-		result := formatter(invowkfile.VolumeMountSpec("/host:/container"))
+		result := formatter(VolumeMountSpec("/host:/container"))
 		if result != "/host:/container:z" {
 			t.Errorf("formatter returned %q, want %q", result, "/host:/container:z")
 		}
@@ -765,7 +764,7 @@ func TestMakeSELinuxLabelAdder(t *testing.T) {
 		t.Parallel()
 
 		formatter := makeSELinuxLabelAdder(func() bool { return false })
-		result := formatter(invowkfile.VolumeMountSpec("/host:/container"))
+		result := formatter(VolumeMountSpec("/host:/container"))
 		if result != "/host:/container" {
 			t.Errorf("formatter returned %q, want %q", result, "/host:/container")
 		}

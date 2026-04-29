@@ -10,7 +10,6 @@ import (
 	"os"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/app/commandsvc"
@@ -26,9 +25,6 @@ import (
 const serviceErrorLabel = "Error:"
 
 type (
-	configPathContextKey            struct{}
-	discoveryRequestCacheContextKey struct{}
-
 	//goplint:mutable
 	//
 	// App wires CLI services and shared dependencies. It is the composition root for
@@ -93,40 +89,6 @@ type (
 		Render(ctx context.Context, diags []discovery.Diagnostic, stderr io.Writer)
 	}
 
-	// appDiscoveryService implements DiscoveryService with per-request memoization.
-	// On cache miss, it creates a discovery.Discovery instance, runs the operation,
-	// and caches the result. Configuration diagnostics are prepended on every path
-	// since the config may vary by context path.
-	appDiscoveryService struct {
-		config config.Provider
-	}
-
-	// lookupCacheEntry holds a memoized GetCommand result and its associated error.
-	lookupCacheEntry struct {
-		result discovery.LookupResult
-		err    error
-	}
-
-	// discoveryRequestCache stores discovery results for a single command/request
-	// context to avoid repeated filesystem scans/parsing during one invocation.
-	discoveryRequestCache struct {
-		mu sync.Mutex
-
-		hasConfig bool
-		cfg       *config.Config
-		cfgDiags  []discovery.Diagnostic
-
-		hasCommandSet bool
-		commandSet    discovery.CommandSetResult
-		commandSetErr error
-
-		hasValidatedSet bool
-		validatedSet    discovery.CommandSetResult
-		validatedSetErr error
-
-		lookups map[string]lookupCacheEntry
-	}
-
 	defaultDiagnosticRenderer struct{}
 
 	// cliCommandAdapter wraps commandsvc.Service with CLI rendering.
@@ -154,7 +116,7 @@ func NewApp(d Dependencies) (*App, error) {
 		d.Config = config.NewProvider()
 	}
 	if d.Discovery == nil {
-		d.Discovery = &appDiscoveryService{config: d.Config}
+		d.Discovery = commandadapters.NewDiscoveryService(d.Config)
 	}
 	if d.Diagnostics == nil {
 		d.Diagnostics = &defaultDiagnosticRenderer{}
@@ -321,197 +283,17 @@ func issueIDForServiceErrorKind(kind commandsvc.ErrorKind) issue.Id {
 // listCommands, executeRequest, runDisambiguatedCommand, and runWatchMode) share the
 // same cache.
 func contextWithConfigPath(ctx context.Context, configPath string) context.Context {
-	ctx = contextWithDiscoveryRequestCache(ctx)
-	return context.WithValue(ctx, configPathContextKey{}, configPath)
+	return commandadapters.ContextWithConfigPath(ctx, configPath)
 }
 
 // configPathFromContext extracts the explicit config path from context.
 func configPathFromContext(ctx context.Context) string {
-	if v, ok := ctx.Value(configPathContextKey{}).(string); ok {
-		return v
-	}
-
-	return ""
+	return commandadapters.ConfigPathFromContext(ctx)
 }
 
 // contextWithDiscoveryRequestCache attaches a per-request discovery cache.
 func contextWithDiscoveryRequestCache(ctx context.Context) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if _, ok := ctx.Value(discoveryRequestCacheContextKey{}).(*discoveryRequestCache); ok {
-		return ctx
-	}
-	return context.WithValue(ctx, discoveryRequestCacheContextKey{}, &discoveryRequestCache{
-		lookups: make(map[string]lookupCacheEntry),
-	})
-}
-
-func discoveryCacheFromContext(ctx context.Context) *discoveryRequestCache {
-	if cache, ok := ctx.Value(discoveryRequestCacheContextKey{}).(*discoveryRequestCache); ok {
-		return cache
-	}
-	return nil
-}
-
-// Validate verifies cached typed values when present.
-func (c *discoveryRequestCache) Validate() error {
-	if c == nil {
-		return nil
-	}
-
-	var errs []error
-	if c.cfg != nil {
-		if err := c.cfg.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, diag := range c.cfgDiags {
-		if err := diag.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	return errors.Join(errs...)
-}
-
-// prependDiags returns a new slice with prefix diagnostics before existing ones.
-func prependDiags(existing, prefix []discovery.Diagnostic) []discovery.Diagnostic {
-	if len(prefix) == 0 {
-		return existing
-	}
-	return append(append(make([]discovery.Diagnostic, 0, len(prefix)+len(existing)), prefix...), existing...)
-}
-
-func prependCommandSetDiagnostics(result discovery.CommandSetResult, cfgDiags []discovery.Diagnostic) discovery.CommandSetResult {
-	result.Diagnostics = prependDiags(result.Diagnostics, cfgDiags)
-	return result
-}
-
-func prependLookupDiagnostics(result discovery.LookupResult, cfgDiags []discovery.Diagnostic) discovery.LookupResult {
-	result.Diagnostics = prependDiags(result.Diagnostics, cfgDiags)
-	return result
-}
-
-// DiscoverCommandSet discovers commands and prepends configuration diagnostics.
-// Results are memoized within the request context when available.
-func (s *appDiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
-	cfg, cfgDiags := s.loadConfig(ctx)
-	if cache := discoveryCacheFromContext(ctx); cache != nil {
-		cache.mu.Lock()
-		if cache.hasCommandSet {
-			result := cache.commandSet
-			err := cache.commandSetErr
-			cache.mu.Unlock()
-			return prependCommandSetDiagnostics(result, cfgDiags), err
-		}
-		cache.mu.Unlock()
-	}
-
-	result, err := discovery.New(cfg).DiscoverCommandSet(ctx)
-	if cache := discoveryCacheFromContext(ctx); cache != nil {
-		cache.mu.Lock()
-		cache.hasCommandSet = true
-		cache.commandSet = result
-		cache.commandSetErr = err
-		cache.mu.Unlock()
-	}
-
-	return prependCommandSetDiagnostics(result, cfgDiags), err
-}
-
-// DiscoverAndValidateCommandSet discovers commands, validates the command tree,
-// and prepends configuration diagnostics.
-func (s *appDiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
-	cfg, cfgDiags := s.loadConfig(ctx)
-	if cache := discoveryCacheFromContext(ctx); cache != nil {
-		cache.mu.Lock()
-		if cache.hasValidatedSet {
-			result := cache.validatedSet
-			err := cache.validatedSetErr
-			cache.mu.Unlock()
-			return prependCommandSetDiagnostics(result, cfgDiags), err
-		}
-		cache.mu.Unlock()
-	}
-
-	result, err := discovery.New(cfg).DiscoverAndValidateCommandSet(ctx)
-	if cache := discoveryCacheFromContext(ctx); cache != nil {
-		cache.mu.Lock()
-		cache.hasValidatedSet = true
-		cache.validatedSet = result
-		cache.validatedSetErr = err
-		// Cross-populate: the validated set can satisfy DiscoverCommandSet() calls,
-		// avoiding a redundant discovery pass. Only populate when discovery succeeded
-		// (result.Set != nil); tree validation errors are orthogonal to discovery,
-		// so commandSetErr stays nil. When discovery itself fails, result.Set is nil
-		// and we must not cache a zero-value result that would mask the real error.
-		if !cache.hasCommandSet && result.Set != nil {
-			cache.hasCommandSet = true
-			cache.commandSet = result
-			cache.commandSetErr = nil
-		}
-		cache.mu.Unlock()
-	}
-
-	return prependCommandSetDiagnostics(result, cfgDiags), err
-}
-
-// GetCommand looks up a command by name and prepends configuration diagnostics.
-func (s *appDiscoveryService) GetCommand(ctx context.Context, name string) (discovery.LookupResult, error) {
-	cfg, cfgDiags := s.loadConfig(ctx)
-	if cache := discoveryCacheFromContext(ctx); cache != nil {
-		cache.mu.Lock()
-		if entry, ok := cache.lookups[name]; ok {
-			cache.mu.Unlock()
-			return prependLookupDiagnostics(entry.result, cfgDiags), entry.err
-		}
-		if cache.hasCommandSet && cache.commandSetErr == nil && cache.commandSet.Set != nil {
-			result, err := lookupFromCommandSet(cache.commandSet, invowkfile.CommandName(name)) //goplint:ignore -- CLI lookup input, validated in helper
-			cache.lookups[name] = lookupCacheEntry{result: result, err: err}
-			cache.mu.Unlock()
-			return prependLookupDiagnostics(result, cfgDiags), err
-		}
-		cache.mu.Unlock()
-	}
-
-	result, err := discovery.New(cfg).GetCommand(ctx, name)
-	if cache := discoveryCacheFromContext(ctx); cache != nil {
-		cache.mu.Lock()
-		cache.lookups[name] = lookupCacheEntry{result: result, err: err}
-		cache.mu.Unlock()
-	}
-
-	return prependLookupDiagnostics(result, cfgDiags), err
-}
-
-// loadConfig returns configuration for discovery calls. On load failure, it keeps
-// discovery operational with defaults and emits a warning diagnostic for the CLI.
-func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, []discovery.Diagnostic) {
-	configPath := configPathFromContext(ctx)
-	if cache := discoveryCacheFromContext(ctx); cache != nil {
-		cache.mu.Lock()
-		if cache.hasConfig {
-			cfg := cache.cfg
-			diags := slices.Clone(cache.cfgDiags)
-			cache.mu.Unlock()
-			return cfg, diags
-		}
-		cache.mu.Unlock()
-	}
-
-	cfg, diags := commandsvc.LoadConfigWithFallback(ctx, s.config, configPath)
-	if cache := discoveryCacheFromContext(ctx); cache != nil {
-		cache.mu.Lock()
-		if !cache.hasConfig {
-			cache.hasConfig = true
-			cache.cfg = cfg
-			cache.cfgDiags = slices.Clone(diags)
-		}
-		cache.mu.Unlock()
-	}
-
-	return cfg, diags
+	return commandadapters.ContextWithDiscoveryRequestCache(ctx)
 }
 
 // captureUserEnv captures the current environment as a map.

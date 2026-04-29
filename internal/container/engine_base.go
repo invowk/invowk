@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -35,7 +34,7 @@ type (
 	// Podman uses this to add SELinux labels (:z/:Z) which are required in
 	// SELinux-enforcing environments for proper volume isolation — without them,
 	// container processes cannot access bind-mounted host paths.
-	VolumeFormatFunc func(volume invowkfile.VolumeMountSpec) string
+	VolumeFormatFunc func(volume VolumeMountSpec) string
 
 	// SELinuxCheckFunc is a function that checks if SELinux is enabled.
 	// This allows injection of mock implementations for testing.
@@ -181,7 +180,7 @@ func NewBaseCLIEngine(binaryPath HostFilesystemPath, opts ...BaseCLIEngineOption
 		imageExistsSubCmd: "inspect", // Docker-compatible default
 		execCommand:       exec.CommandContext,
 		// Identity functions by default
-		volumeFormatter:    func(v invowkfile.VolumeMountSpec) string { return string(v) },
+		volumeFormatter:    func(v VolumeMountSpec) string { return string(v) },
 		runArgsTransformer: func(args []string) []string { return args },
 	}
 	for _, opt := range opts {

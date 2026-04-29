@@ -28,8 +28,8 @@ type (
 		shellCmd       []string
 		workDir        container.MountTargetPath
 		env            map[string]string
-		volumes        []invowkfile.VolumeMountSpec
-		ports          []invowkfile.PortMappingSpec
+		volumes        []container.VolumeMountSpec
+		ports          []container.PortMappingSpec
 		extraHosts     []container.HostMapping
 		sshConnInfo    *HostCallbackConnectionInfo
 		tempScriptPath types.FilesystemPath
@@ -125,7 +125,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	// Prepare volumes
 	volumes := containerCfg.Volumes
 	// Always mount the invowkfile directory
-	volumes = append(volumes, invowkfile.VolumeMountSpec(invowkDir+":/workspace")) //goplint:ignore -- constructed from known-good directory + constant mount target
+	volumes = append(volumes, container.VolumeMountSpec(invowkDir+":/workspace")) //goplint:ignore -- constructed from known-good directory + constant mount target
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)

@@ -318,11 +318,14 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		return model, nil
 
 	case ComponentTypeSpin:
-		var opts SpinCommandOptions
+		var opts SpinOptions
 		if err := json.Unmarshal(options, &opts); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal spin options: %w", err)
 		}
-		model := NewSpinModel(context.Background(), opts)
+		model := NewSpinModel(context.Background(), SpinCommandOptions{
+			Title: opts.Title,
+			Type:  opts.Type,
+		})
 		model.SetSize(width, height)
 		return model, nil
 

@@ -255,6 +255,39 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 	}
 }
 
+func TestDependencyValidators_EmptyAlternativesInvalid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		err      error
+		sentinel error
+	}{
+		{"tool", ToolDependency{}.Validate(), ErrInvalidToolDependency},
+		{"command", CommandDependency{}.Validate(), ErrInvalidCommandDependency},
+		{"capability", CapabilityDependency{}.Validate(), ErrInvalidCapabilityDependency},
+		{"env var", EnvVarDependency{}.Validate(), ErrInvalidEnvVarDependency},
+		{"filepath", FilepathDependency{}.Validate(), ErrInvalidFilepathDependency},
+		{"custom check alternative shape", CustomCheckDependency{}.Validate(), ErrInvalidCustomCheckDependency},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if tt.err == nil {
+				t.Fatal("Validate() returned nil, want error")
+			}
+			if !errors.Is(tt.err, tt.sentinel) {
+				t.Fatalf("errors.Is(%v, %v) = false", tt.err, tt.sentinel)
+			}
+			if !errors.Is(tt.err, ErrMissingDependencyAlternatives) {
+				t.Fatalf("errors.Is(%v, ErrMissingDependencyAlternatives) = false", tt.err)
+			}
+		})
+	}
+}
+
 func TestDependencyErrorStringsAndUnwrap(t *testing.T) {
 	t.Parallel()
 

@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -40,6 +41,30 @@ func TestComponentType_Validate(t *testing.T) {
 				t.Errorf("error should wrap ErrInvalidComponentType, got: %v", err)
 			}
 		})
+	}
+}
+
+func TestCreateEmbeddableComponent_SpinIsRenderOnly(t *testing.T) {
+	t.Parallel()
+
+	options, err := json.Marshal(map[string]any{
+		"title":   "loading",
+		"command": []string{"should-not-run"},
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	component, err := CreateEmbeddableComponent(ComponentTypeSpin, options, 80, 24)
+	if err != nil {
+		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
+	}
+	model, ok := component.(*spinModel)
+	if !ok {
+		t.Fatalf("component type = %T, want *spinModel", component)
+	}
+	if !model.done || model.run != nil {
+		t.Fatal("delegated spin component should be render-only and must not carry a command")
 	}
 }
 

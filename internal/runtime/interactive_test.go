@@ -5,6 +5,7 @@ package runtime
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
@@ -192,6 +193,35 @@ cmds: [{
 	// Cleanup (removes temp script file)
 	if prepared.Cleanup != nil {
 		prepared.Cleanup()
+	}
+}
+
+func TestVirtualRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
+	t.Parallel()
+
+	inv := &invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{{
+			Name: "list",
+			Implementations: []invowkfile.Implementation{{
+				Script:    "ls",
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			}},
+		}},
+	}
+	ctx := NewExecutionContext(t.Context(), &inv.Commands[0], inv)
+	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
+	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
+
+	rt := NewVirtualRuntime(true)
+	prepared, err := rt.PrepareInteractive(ctx)
+	if err != nil {
+		t.Fatalf("PrepareInteractive() error = %v", err)
+	}
+	t.Cleanup(prepared.Cleanup)
+
+	if !slices.Contains(prepared.Cmd.Args, "--enable-uroot") {
+		t.Fatalf("prepared args = %v, want --enable-uroot", prepared.Cmd.Args)
 	}
 }
 

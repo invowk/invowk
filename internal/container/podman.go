@@ -9,8 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // podmanBinaryNames lists Podman binary names to try in order of preference.
@@ -150,7 +148,7 @@ func isSELinuxPresent() bool {
 // The selinuxCheck function is called to determine if SELinux labeling should be applied.
 // This factory pattern allows injection of custom SELinux check functions for testing.
 func makeSELinuxLabelAdder(selinuxCheck SELinuxCheckFunc) VolumeFormatFunc {
-	return func(volume invowkfile.VolumeMountSpec) string {
+	return func(volume VolumeMountSpec) string {
 		return addSELinuxLabelWithCheck(volume, selinuxCheck)
 	}
 }
@@ -158,7 +156,7 @@ func makeSELinuxLabelAdder(selinuxCheck SELinuxCheckFunc) VolumeFormatFunc {
 // addSELinuxLabelWithCheck adds the :z label to a volume mount if SELinux is enabled
 // and the volume doesn't already have an SELinux label (:z or :Z).
 // The selinuxCheck function is called to determine if SELinux labeling should be applied.
-func addSELinuxLabelWithCheck(volume invowkfile.VolumeMountSpec, selinuxCheck SELinuxCheckFunc) string {
+func addSELinuxLabelWithCheck(volume VolumeMountSpec, selinuxCheck SELinuxCheckFunc) string {
 	volumeStr := string(volume)
 
 	if !selinuxCheck() {

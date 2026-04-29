@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
 )
 
@@ -341,7 +340,7 @@ func TestSandboxAwareEngine_ComplexRunOptions(t *testing.T) {
 		Image:       "debian:stable-slim",
 		Command:     []string{"bash", "-c", "echo hello"},
 		WorkDir:     "/workspace",
-		Volumes:     []invowkfile.VolumeMountSpec{"/home/user/project:/workspace:z"},
+		Volumes:     []VolumeMountSpec{"/home/user/project:/workspace:z"},
 		Env:         map[string]string{"FOO": "bar"},
 		Remove:      true,
 		Interactive: true,
