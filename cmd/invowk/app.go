@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"slices"
 	"strings"
@@ -173,7 +172,7 @@ func NewApp(d Dependencies) (*App, error) {
 			d.Config,
 			d.Discovery,
 			captureUserEnv,
-			loadConfigWithFallback,
+			commandsvc.LoadConfigWithFallback,
 			hostAccess,
 			registryFactory,
 			interactiveExecutor,
@@ -454,7 +453,7 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 		cache.mu.Unlock()
 	}
 
-	cfg, diags := loadConfigWithFallback(ctx, s.config, configPath)
+	cfg, diags := commandsvc.LoadConfigWithFallback(ctx, s.config, configPath)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		if !cache.hasConfig {
@@ -466,63 +465,6 @@ func (s *appDiscoveryService) loadConfig(ctx context.Context) (*config.Config, [
 	}
 
 	return cfg, diags
-}
-
-// loadConfigWithFallback loads configuration via the provider. On failure it
-// returns defaults with a diagnostic so callers stay operational.
-//
-// Diagnostic severity depends on the failure mode:
-//   - Explicit --ivk-config path: always SeverityError (user-specified file must work).
-//   - Default path with existing but malformed file: SeverityError (syntax errors
-//     in a file the user created should not be silently downgraded to a warning).
-//   - Default path with missing config dir or similar infrastructure error:
-//     SeverityWarning (common on fresh installs, defaults are appropriate).
-func loadConfigWithFallback(ctx context.Context, provider config.Provider, configPath string) (*config.Config, []discovery.Diagnostic) {
-	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(configPath)})
-	if err == nil {
-		return cfg, nil
-	}
-
-	// When the user explicitly specified a config path, do not silently fall back
-	// to defaults — surface the error as a diagnostic so downstream callers can
-	// decide whether to abort.
-	if configPath != "" {
-		diag, diagErr := discovery.NewDiagnosticWithCause(
-			discovery.SeverityError,
-			discovery.CodeConfigLoadFailed,
-			fmt.Sprintf("failed to load config from %s: %v", configPath, err),
-			types.FilesystemPath(configPath),
-			err,
-		)
-		if diagErr != nil {
-			slog.Error("BUG: failed to create config-load diagnostic", "error", diagErr)
-			return config.DefaultConfig(), nil
-		}
-		return config.DefaultConfig(), []discovery.Diagnostic{diag}
-	}
-
-	// Default config path: differentiate "file exists but is broken" (syntax error,
-	// schema violation) from "cannot determine config dir" (missing HOME, etc.).
-	// The config loader only returns errors for existing files; missing files silently
-	// return defaults. So if we got an error here, a config file likely exists but
-	// is malformed — use SeverityError to surface it clearly.
-	severity := discovery.SeverityError
-	if errors.Is(err, os.ErrNotExist) {
-		severity = discovery.SeverityWarning
-	}
-
-	diag, diagErr := discovery.NewDiagnosticWithCause(
-		severity,
-		discovery.CodeConfigLoadFailed,
-		fmt.Sprintf("failed to load config, using defaults: %v", err),
-		"",
-		err,
-	)
-	if diagErr != nil {
-		slog.Error("BUG: failed to create config-load diagnostic", "error", diagErr)
-		return config.DefaultConfig(), nil
-	}
-	return config.DefaultConfig(), []discovery.Diagnostic{diag}
 }
 
 // captureUserEnv captures the current environment as a map.

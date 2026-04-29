@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -99,11 +100,11 @@ type (
 	}
 
 	// ModuleIncludePath represents an absolute filesystem path to a *.invowkmod directory.
-	// A valid path must be non-empty and not whitespace-only.
+	// A valid path must be non-empty, absolute, and end with .invowkmod.
 	ModuleIncludePath string
 
 	// InvalidModuleIncludePathError is returned when a ModuleIncludePath value is
-	// empty or whitespace-only. It wraps ErrInvalidModuleIncludePath for errors.Is().
+	// not an absolute *.invowkmod path. It wraps ErrInvalidModuleIncludePath for errors.Is().
 	InvalidModuleIncludePathError struct {
 		Value ModuleIncludePath
 	}
@@ -401,9 +402,13 @@ func (e *InvalidConfigError) Unwrap() error { return ErrInvalidConfig }
 func (p ModuleIncludePath) String() string { return string(p) }
 
 // Validate returns an error if the ModuleIncludePath is invalid.
-// A valid path must be non-empty and not whitespace-only.
+// A valid path must be absolute and point at a *.invowkmod directory.
 func (p ModuleIncludePath) Validate() error {
-	if strings.TrimSpace(string(p)) == "" {
+	pathStr := string(p)
+	if strings.TrimSpace(pathStr) == "" {
+		return &InvalidModuleIncludePathError{Value: p}
+	}
+	if !filepath.IsAbs(pathStr) || !strings.HasSuffix(pathStr, moduleSuffix) {
 		return &InvalidModuleIncludePathError{Value: p}
 	}
 	return nil
@@ -411,7 +416,7 @@ func (p ModuleIncludePath) Validate() error {
 
 // Error implements the error interface for InvalidModuleIncludePathError.
 func (e *InvalidModuleIncludePathError) Error() string {
-	return fmt.Sprintf("invalid module include path %q: must be non-empty", e.Value)
+	return fmt.Sprintf("invalid module include path %q: must be an absolute *.invowkmod path", e.Value)
 }
 
 // Unwrap returns ErrInvalidModuleIncludePath for errors.Is() compatibility.

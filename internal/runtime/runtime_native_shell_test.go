@@ -229,15 +229,12 @@ func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
 		t.Fatal("shellNotFoundError should return *issue.ActionableError")
 	}
 
-	// Test verbose format includes suggestions
-	formatted := ae.Format(false)
-	if !strings.Contains(formatted, "find shell") {
-		t.Errorf("formatted error should contain operation, got: %s", formatted)
+	if !strings.Contains(ae.Error(), "find shell") {
+		t.Errorf("error should contain operation, got: %s", ae.Error())
 	}
 
-	// Test that suggestions are included
-	if !strings.Contains(formatted, "•") {
-		t.Errorf("formatted error should contain bullet points for suggestions, got: %s", formatted)
+	if len(ae.Suggestions()) == 0 {
+		t.Fatal("expected suggestions")
 	}
 }
 

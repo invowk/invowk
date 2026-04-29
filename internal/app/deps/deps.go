@@ -5,6 +5,7 @@ package deps
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -219,21 +220,40 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 	// Build scope from direct requirements (seeds DirectDeps with aliases).
 	scope := invowkmod.NewCommandScope(moduleID, globalIDs, cmdInfo.Invowkfile.Metadata.Requires())
 
-	// Wire resolved RDNS module IDs for alias-based direct deps.
-	// NewCommandScope seeds DirectDeps with alias strings; this pass adds the
-	// actual ModuleID so CanCall matches against either form.
+	// Wire resolved RDNS module IDs for direct deps. Alias requirements match the
+	// source namespace, while non-aliased requirements match the repository short
+	// name used by discovery for the module source.
 	for _, cmd := range available {
 		if cmd.ModuleID == nil || scope.DirectDeps[*cmd.ModuleID] {
 			continue
 		}
 		for _, req := range cmdInfo.Invowkfile.Metadata.Requires() {
-			if req.Alias != "" && string(req.Alias) == string(cmd.SourceID) {
+			if requirementMatchesSource(req, cmd.SourceID) {
 				scope.AddDirectDep(*cmd.ModuleID)
 			}
 		}
 	}
 
 	return scope
+}
+
+func requirementMatchesSource(req invowkmod.ModuleRequirement, sourceID discovery.SourceID) bool {
+	if req.Alias != "" {
+		return string(req.Alias) == string(sourceID)
+	}
+	return moduleSourceFromGitURL(req.GitURL) == sourceID
+}
+
+func moduleSourceFromGitURL(gitURL invowkmod.GitURL) discovery.SourceID {
+	urlPath := string(gitURL)
+	if _, after, found := strings.Cut(urlPath, "://"); found {
+		urlPath = after
+	}
+	if before, after, found := strings.Cut(urlPath, ":"); found && !strings.Contains(before, "/") {
+		urlPath = after
+	}
+	base := path.Base(urlPath)
+	return discovery.SourceID(strings.TrimSuffix(base, ".git")) //goplint:ignore -- source ID derived from validated module Git URL.
 }
 
 func discoverAvailableCommands(disc CommandSetProvider, ctx *runtime.ExecutionContext) (map[invowkfile.CommandName]*discovery.CommandInfo, error) {

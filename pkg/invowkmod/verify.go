@@ -47,16 +47,15 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 	}
 
 	// Build a lookup from module ID to lock entry for matching vendored modules.
-	// The namespace format is "<module_id>@<version>" or an alias — extract
-	// the module ID by stripping the version suffix so lookups by ModuleID
-	// actually match (CT-03: fixes silent verification bypass).
+	// New lock files persist the resolved ModuleID directly. Older lock files are
+	// matched by namespace as a compatibility fallback, which is lossy for aliases.
 	hashByID := make(map[ModuleID]lockHashEntry, len(lock.Modules))
 	for key := range lock.Modules {
 		mod := lock.Modules[key]
 		if mod.ContentHash == "" {
 			continue
 		}
-		moduleID := ExtractModuleIDFromNamespace(mod.Namespace)
+		moduleID := mod.IdentityModuleID()
 		hashByID[moduleID] = lockHashEntry{
 			key:  key,
 			hash: mod.ContentHash,
@@ -115,10 +114,20 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 }
 
 // findLockEntryForModule matches a vendored module to its lock file entry
-// using the module ID extracted from the namespace (CT-03).
+// using the resolved module ID.
 func findLockEntryForModule(m *Module, hashByID map[ModuleID]lockHashEntry, _ *LockFile) (lockHashEntry, bool) {
 	entry, ok := hashByID[m.Metadata.Module]
 	return entry, ok
+}
+
+// IdentityModuleID returns the stable module identity for hash verification.
+// It prefers the lock file's persisted ModuleID and falls back to the historical
+// namespace-derived identity for older lock files.
+func (m LockedModule) IdentityModuleID() ModuleID {
+	if m.ModuleID != "" {
+		return m.ModuleID
+	}
+	return ExtractModuleIDFromNamespace(m.Namespace)
 }
 
 // ExtractModuleIDFromNamespace extracts the module ID from a namespace string.

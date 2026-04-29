@@ -3,8 +3,6 @@
 package issue
 
 import (
-	"errors"
-	"fmt"
 	"slices"
 	"strings"
 )
@@ -129,45 +127,6 @@ func (e *ActionableError) Error() string {
 // Unwrap returns the underlying cause error for use with errors.Is/As.
 func (e *ActionableError) Unwrap() error {
 	return e.cause
-}
-
-// Format returns a formatted error message with optional verbosity.
-//
-// When verbose is false:
-//
-//	failed to <operation>: <resource>: <cause message>
-//	  • <suggestion 1>
-//	  • <suggestion 2>
-//
-// When verbose is true, additionally includes the full error chain.
-func (e *ActionableError) Format(verbose bool) string {
-	var msg strings.Builder
-
-	// Write the main error message
-	msg.WriteString(e.Error())
-
-	// Add suggestions if present
-	if len(e.suggestions) > 0 {
-		msg.WriteString("\n")
-		for _, suggestion := range e.suggestions {
-			msg.WriteString("\n  • ")
-			msg.WriteString(suggestion)
-		}
-	}
-
-	// In verbose mode, include the full error chain
-	if verbose && e.cause != nil {
-		msg.WriteString("\n\nError chain:")
-		err := e.cause
-		depth := 1
-		for err != nil {
-			fmt.Fprintf(&msg, "\n  %d. %s", depth, err.Error())
-			err = errors.Unwrap(err)
-			depth++
-		}
-	}
-
-	return msg.String()
 }
 
 // HasSuggestions returns true if the error has any suggestions.

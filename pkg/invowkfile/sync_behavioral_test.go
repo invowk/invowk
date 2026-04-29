@@ -172,7 +172,7 @@ func TestBehavioralSync_FlagShorthand(t *testing.T) {
 }
 
 // TestBehavioralSync_WorkDir verifies Go WorkDir.Validate() agrees with
-// CUE #Command.workdir constraint (strings.MaxRunes(4096), optional field).
+// CUE #Command.workdir constraint (#NonWhitespaceString & strings.MaxRunes(4096), optional field).
 func TestBehavioralSync_WorkDir(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
@@ -183,9 +183,9 @@ func TestBehavioralSync_WorkDir(t *testing.T) {
 			{"./build", true, true, ""},
 			{"/absolute/path", true, true, ""},
 			{"relative", true, true, ""},
-			// Go accepts "" (inherit parent workdir), CUE accepts "" (optional, no !="" constraint)
-			{"", true, true, ""},
-			{"   ", false, true, "Go rejects whitespace-only; CUE accepts any string"},
+			// Go accepts "" (inherit parent workdir), CUE rejects "" when the optional field is present.
+			{"", true, false, "Go zero-value means inherit parent workdir; CUE uses field optionality"},
+			{"   ", false, false, ""},
 		},
 	)
 }

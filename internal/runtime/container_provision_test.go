@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,15 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+type fakeProvisioner struct {
+	result *provision.Result
+	err    error
+}
+
+func (p fakeProvisioner) Provision(_ context.Context, _ container.ImageTag) (*provision.Result, error) {
+	return p.result, p.err
+}
 
 // TestContainerRuntime_SetProvisionConfig tests updating provision config.
 func TestContainerRuntime_SetProvisionConfig(t *testing.T) {
@@ -223,7 +233,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
 	cfg := invowkfileContainerConfig{Image: container.ImageTag("debian:stable-slim")}
-	_, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
+	_, _, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 
 	if err == nil {
 		t.Fatal("ensureProvisionedImage() with strict=true should return error on provisioning failure")
@@ -279,7 +289,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
 	cfg := invowkfileContainerConfig{Image: container.ImageTag("debian:stable-slim")}
-	imageName, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
+	imageName, _, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 	if err != nil {
 		t.Fatalf("ensureProvisionedImage() with strict=false should not return error, got: %v", err)
 	}
@@ -297,5 +307,62 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	}
 	if !strings.Contains(stderrOutput, "Nested invowk commands") {
 		t.Error("stderr should explain consequences (nested invowk commands won't work)")
+	}
+}
+
+func TestPrepareCommandIncludesProvisionedEnvVars(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	cmd := &invowkfile.Command{
+		Name: "env-test",
+		Implementations: []invowkfile.Implementation{
+			{
+				Script:    "echo hello",
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			},
+		},
+	}
+
+	engine := NewMockEngine()
+	rt, err := NewContainerRuntimeWithEngine(
+		engine,
+		WithContainerProvisioner(
+			fakeProvisioner{
+				result: &provision.Result{
+					ImageTag: container.ImageTag("invowk-provisioned:test"),
+					EnvVars: map[string]string{
+						"INVOWK_BIN":         "/invowk/bin/invowk",
+						"INVOWK_MODULE_PATH": "/invowk/modules",
+					},
+				},
+			},
+			&provision.Config{Enabled: true},
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+	}
+
+	execCtx := NewExecutionContext(t.Context(), cmd, inv)
+	prepared, err := rt.PrepareCommand(execCtx)
+	if err != nil {
+		t.Fatalf("PrepareCommand() error = %v", err)
+	}
+	prepared.Cleanup()
+
+	if len(engine.PrepareRunCalls) != 1 {
+		t.Fatalf("PrepareRunCommand calls = %d, want 1", len(engine.PrepareRunCalls))
+	}
+	env := engine.PrepareRunCalls[0].Env
+	if env["INVOWK_BIN"] != "/invowk/bin/invowk" {
+		t.Errorf("INVOWK_BIN = %q, want /invowk/bin/invowk", env["INVOWK_BIN"])
+	}
+	if env["INVOWK_MODULE_PATH"] != "/invowk/modules" {
+		t.Errorf("INVOWK_MODULE_PATH = %q, want /invowk/modules", env["INVOWK_MODULE_PATH"])
 	}
 }

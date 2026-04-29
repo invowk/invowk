@@ -54,6 +54,10 @@ func (m *mockEngine) BuildRunArgs(_ RunOptions) []string {
 	return []string{"run", "--rm", "debian:stable-slim", "echo", "hello"}
 }
 
+func (m *mockEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
+	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...)
+}
+
 func (m *mockEngine) Build(_ context.Context, _ BuildOptions) error {
 	return nil
 }

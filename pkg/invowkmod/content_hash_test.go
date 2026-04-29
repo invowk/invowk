@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestContentHashValidate(t *testing.T) {
@@ -231,6 +233,49 @@ func TestComputeModuleHash_ContentChanges(t *testing.T) {
 
 	if hash1 == hash2 {
 		t.Error("hashes should differ after content change")
+	}
+}
+
+func TestVerifyVendoredModuleHashesUsesModuleIDForAliasedModules(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	vendorDir := filepath.Join(root, VendoredModulesDir)
+	moduleDir := filepath.Join(vendorDir, "io.example.dep"+ModuleSuffix)
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("failed to create vendored module: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(`module: "io.example.dep"
+version: "1.0.0"
+`), 0o644); err != nil {
+		t.Fatalf("failed to write invowkmod.cue: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte("cmds: []\n"), 0o644); err != nil {
+		t.Fatalf("failed to write invowkfile.cue: %v", err)
+	}
+
+	hash, err := computeModuleHash(moduleDir)
+	if err != nil {
+		t.Fatalf("computeModuleHash() error = %v", err)
+	}
+
+	lock := NewLockFile()
+	lock.Modules["https://github.com/example/dep.invowkmod.git"] = LockedModule{
+		GitURL:          "https://github.com/example/dep.invowkmod.git",
+		Version:         "1.0.0",
+		ResolvedVersion: "1.0.0",
+		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+		Alias:           "tools",
+		Namespace:       "tools",
+		ModuleID:        "io.example.dep",
+		ContentHash:     hash,
+	}
+	if err := lock.Save(filepath.Join(root, LockFileName)); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	if err := VerifyVendoredModuleHashes(types.FilesystemPath(root)); err != nil {
+		t.Fatalf("VerifyVendoredModuleHashes() error = %v", err)
 	}
 }
 

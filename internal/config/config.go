@@ -298,8 +298,7 @@ func loadCUEIntoViper(v *viper.Viper, path string) error {
 	return nil
 }
 
-// validateIncludes checks include entries for constraints that CUE cannot express:
-//   - all paths must be absolute (CUE regex cannot enforce cross-platform absolute paths)
+// validateIncludes checks include collection constraints:
 //   - all paths must be unique (normalized via filepath.Clean)
 //   - all non-empty aliases must be globally unique across entries
 //   - when two or more entries share the same filesystem short name (e.g., "foo.invowkmod"),
@@ -313,12 +312,10 @@ func validateIncludes(fieldName string, includes []IncludeEntry) error {
 	shortNames := make(map[string][]int)   // short name -> indices of entries with that name
 
 	for i, entry := range includes {
-		pathStr := string(entry.Path)
-
-		// Check path is absolute (CUE regex cannot enforce cross-platform absolute paths)
-		if !filepath.IsAbs(pathStr) {
-			return fmt.Errorf("%s[%d]: path %q must be absolute: %w", fieldName, i, entry.Path, ErrInvalidIncludeEntry)
+		if err := entry.Validate(); err != nil {
+			return fmt.Errorf("%s[%d]: %w", fieldName, i, err)
 		}
+		pathStr := string(entry.Path)
 
 		// Check path uniqueness (normalized to handle trailing slashes and redundant separators)
 		cleanPath := filepath.Clean(pathStr)

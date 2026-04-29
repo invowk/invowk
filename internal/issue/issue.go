@@ -278,23 +278,6 @@ func (i *Issue) ExtLinks() []HttpLink {
 	return slices.Clone(i.extLinks)
 }
 
-// RenderWith renders the issue message using the provided render function.
-// This allows tests to inject a mock renderer without mutating package-level state.
-func (i *Issue) RenderWith(renderFn func(string, string) (string, error), stylePath string) (string, error) {
-	var extraMd strings.Builder
-	if len(i.docLinks) > 0 || len(i.extLinks) > 0 {
-		extraMd.WriteString("\n\n")
-		extraMd.WriteString("## See also: ")
-		for _, link := range i.docLinks {
-			extraMd.WriteString("- [" + string(link) + "]")
-		}
-		for _, link := range i.extLinks {
-			extraMd.WriteString("- [" + string(link) + "]")
-		}
-	}
-	return renderFn(string(i.mdMsg)+extraMd.String(), stylePath)
-}
-
 // Values returns all registered issues.
 func Values() []*Issue {
 	return slices.Collect(maps.Values(issues))

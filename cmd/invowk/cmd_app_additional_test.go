@@ -118,7 +118,7 @@ func TestLoadConfigWithFallback(t *testing.T) {
 	t.Parallel()
 
 	customPath := filepath.Join(t.TempDir(), "custom.cue")
-	explicitCfg, explicitDiags := loadConfigWithFallback(
+	explicitCfg, explicitDiags := commandsvc.LoadConfigWithFallback(
 		t.Context(),
 		&errorConfigProvider{err: errors.New("parse failure")},
 		customPath,
@@ -136,7 +136,7 @@ func TestLoadConfigWithFallback(t *testing.T) {
 		t.Fatalf("explicit path = %q, want %q", explicitDiags[0].Path(), customPath)
 	}
 
-	defaultCfg, defaultDiags := loadConfigWithFallback(
+	defaultCfg, defaultDiags := commandsvc.LoadConfigWithFallback(
 		t.Context(),
 		&errorConfigProvider{err: errors.New("syntax error")},
 		"",
@@ -148,7 +148,7 @@ func TestLoadConfigWithFallback(t *testing.T) {
 		t.Fatalf("defaultDiags = %v", defaultDiags)
 	}
 
-	warnCfg, warnDiags := loadConfigWithFallback(
+	warnCfg, warnDiags := commandsvc.LoadConfigWithFallback(
 		t.Context(),
 		&errorConfigProvider{err: errors.New("wrapped: " + types.FilesystemPath("").String())},
 		"",
@@ -158,7 +158,7 @@ func TestLoadConfigWithFallback(t *testing.T) {
 	}
 	_ = warnDiags
 
-	notExistCfg, notExistDiags := loadConfigWithFallback(
+	notExistCfg, notExistDiags := commandsvc.LoadConfigWithFallback(
 		t.Context(),
 		&errorConfigProvider{err: types.ErrUserCancelled},
 		"",
@@ -172,13 +172,13 @@ func TestLoadConfigWithFallback(t *testing.T) {
 func TestLoadConfigWithFallback_NotExistWarning(t *testing.T) {
 	t.Parallel()
 
-	cfg, diags := loadConfigWithFallback(t.Context(), &errorConfigProvider{err: errors.New("wrapper: " + context.Canceled.Error())}, "")
+	cfg, diags := commandsvc.LoadConfigWithFallback(t.Context(), &errorConfigProvider{err: errors.New("wrapper: " + context.Canceled.Error())}, "")
 	if cfg == nil {
 		t.Fatal("cfg = nil")
 	}
 	_ = diags
 
-	cfg, diags = loadConfigWithFallback(t.Context(), &errorConfigProvider{err: errors.New("wrapper")}, "")
+	cfg, diags = commandsvc.LoadConfigWithFallback(t.Context(), &errorConfigProvider{err: errors.New("wrapper")}, "")
 	if cfg == nil {
 		t.Fatal("cfg = nil")
 	}
@@ -190,7 +190,7 @@ func TestLoadConfigWithFallback_NotExistWarning(t *testing.T) {
 func TestLoadConfigWithFallback_DefaultNotExistWarning(t *testing.T) {
 	t.Parallel()
 
-	cfg, diags := loadConfigWithFallback(t.Context(), &errorConfigProvider{err: context.Canceled}, "")
+	cfg, diags := commandsvc.LoadConfigWithFallback(t.Context(), &errorConfigProvider{err: context.Canceled}, "")
 	if cfg == nil {
 		t.Fatal("cfg = nil")
 	}

@@ -526,6 +526,11 @@ func (e *BaseCLIEngine) BuildRunArgs(opts RunOptions) []string {
 	return e.RunArgs(opts)
 }
 
+// PrepareRunCommand creates a configured command for a container run.
+func (e *BaseCLIEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
+	return e.CreateCommand(ctx, e.BuildRunArgs(opts)...)
+}
+
 // InspectImage returns information about an image.
 func (e *BaseCLIEngine) InspectImage(ctx context.Context, image ImageTag) (string, error) {
 	return e.RunCommandWithOutput(ctx, "image", "inspect", string(image))

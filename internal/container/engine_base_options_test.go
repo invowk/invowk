@@ -109,7 +109,7 @@ func TestBuildContainerError(t *testing.T) {
 		engine         string
 		opts           BuildOptions
 		errorContains  []string // Must be in .Error()
-		formatContains []string // Must be in .Format()
+		formatContains []string // Must be in suggestions
 	}{
 		{
 			name:   "with dockerfile",
@@ -174,10 +174,10 @@ func TestBuildContainerError(t *testing.T) {
 
 			// Check formatted output for suggestions (requires type assertion)
 			if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
-				formatted := ae.Format(false)
+				suggestions := strings.Join(ae.Suggestions(), "\n")
 				for _, exp := range tt.formatContains {
-					if !strings.Contains(formatted, exp) {
-						t.Errorf("formatted error should contain %q, got: %s", exp, formatted)
+					if !strings.Contains(suggestions, exp) {
+						t.Errorf("suggestions should contain %q, got: %s", exp, suggestions)
 					}
 				}
 			} else if len(tt.formatContains) > 0 {
@@ -212,9 +212,9 @@ func TestRunContainerError(t *testing.T) {
 
 	// Check formatted output for suggestions
 	if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
-		formatted := ae.Format(false)
-		if !strings.Contains(formatted, "docker images") {
-			t.Errorf("formatted error should contain suggestion, got: %s", formatted)
+		suggestions := strings.Join(ae.Suggestions(), "\n")
+		if !strings.Contains(suggestions, "docker images") {
+			t.Errorf("suggestions should contain expected text, got: %s", suggestions)
 		}
 	} else {
 		t.Error("expected ActionableError")

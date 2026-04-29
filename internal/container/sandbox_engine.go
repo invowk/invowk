@@ -83,6 +83,16 @@ func (e *SandboxAwareEngine) BuildRunArgs(opts RunOptions) []string {
 	return e.wrapArgs(baseArgs)
 }
 
+// PrepareRunCommand creates a configured command for a container run.
+func (e *SandboxAwareEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
+	baseArgs := e.wrapped.BuildRunArgs(opts)
+	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), baseArgs)
+	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
+	e.CustomizeCmd(cmd)
+	return cmd
+}
+
 // Build builds an image from a Dockerfile.
 // In sandbox mode, the build command is executed via the host spawn mechanism.
 func (e *SandboxAwareEngine) Build(ctx context.Context, opts BuildOptions) error {

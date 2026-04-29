@@ -129,33 +129,6 @@ func TestIssue_ExtLinks(t *testing.T) {
 	}
 }
 
-func TestIssue_Render(t *testing.T) {
-	t.Parallel()
-
-	mockRender := func(in, _ string) (string, error) {
-		return in, nil
-	}
-
-	issue := Get(InvowkfileNotFoundId)
-	if issue == nil {
-		t.Fatal("Get(InvowkfileNotFoundId) returned nil")
-	}
-
-	rendered, err := issue.RenderWith(mockRender, "")
-	if err != nil {
-		t.Fatalf("RenderWith() returned error: %v", err)
-	}
-
-	if rendered == "" {
-		t.Error("RenderWith() returned empty string")
-	}
-
-	// The rendered output should contain the content
-	if !strings.Contains(rendered, "invowkfile") {
-		t.Error("RenderWith() output should contain 'invowkfile'")
-	}
-}
-
 func TestGet(t *testing.T) {
 	t.Parallel()
 
@@ -229,56 +202,6 @@ func TestValues(t *testing.T) {
 	}
 }
 
-func TestIssue_Render_WithLinks(t *testing.T) {
-	t.Parallel()
-
-	mockRender := func(in, _ string) (string, error) {
-		return in, nil
-	}
-
-	// Create a test issue with links to verify the rendering logic
-	testIssue := &Issue{
-		id:       Id(9999),
-		mdMsg:    "# Test Issue\n\nThis is a test.",
-		docLinks: []HttpLink{"https://docs.example.com"},
-		extLinks: []HttpLink{"https://external.example.com"},
-	}
-
-	rendered, err := testIssue.RenderWith(mockRender, "")
-	if err != nil {
-		t.Fatalf("RenderWith() returned error: %v", err)
-	}
-
-	// The rendered output should include the "See also" section
-	if !strings.Contains(rendered, "See also") {
-		t.Error("RenderWith() with links should contain 'See also'")
-	}
-}
-
-func TestIssue_Render_NoLinks(t *testing.T) {
-	t.Parallel()
-
-	mockRender := func(in, _ string) (string, error) {
-		return in, nil
-	}
-
-	// Create a test issue without links
-	testIssue := &Issue{
-		id:    Id(9998),
-		mdMsg: "# Test Issue\n\nNo links here.",
-	}
-
-	rendered, err := testIssue.RenderWith(mockRender, "")
-	if err != nil {
-		t.Fatalf("RenderWith() returned error: %v", err)
-	}
-
-	// Should render without the "See also" section
-	if strings.Contains(rendered, "See also") {
-		t.Error("RenderWith() without links should not contain 'See also'")
-	}
-}
-
 func TestAllIssuesHaveContent(t *testing.T) {
 	t.Parallel()
 
@@ -287,26 +210,6 @@ func TestAllIssuesHaveContent(t *testing.T) {
 	for _, issue := range issues {
 		if issue.MarkdownMsg() == "" {
 			t.Errorf("Issue %d has empty MarkdownMsg", issue.Id())
-		}
-	}
-}
-
-func TestAllIssuesAreRenderable(t *testing.T) {
-	t.Parallel()
-
-	mockRender := func(in, _ string) (string, error) {
-		return in, nil
-	}
-
-	issues := Values()
-
-	for _, issue := range issues {
-		rendered, err := issue.RenderWith(mockRender, "")
-		if err != nil {
-			t.Errorf("Issue %d failed to render: %v", issue.Id(), err)
-		}
-		if rendered == "" {
-			t.Errorf("Issue %d rendered to empty string", issue.Id())
 		}
 	}
 }

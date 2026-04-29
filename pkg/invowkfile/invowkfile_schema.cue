@@ -26,6 +26,9 @@ import "strings"
 // Shared by #Implementation.timeout and #WatchConfig.debounce.
 #DurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(32)
 
+// NonWhitespaceString is non-empty and contains at least one non-whitespace rune.
+#NonWhitespaceString: string & =~"\\S"
+
 // EnvConfig defines environment configuration for a command or implementation
 #EnvConfig: close({
 	// files lists dotenv files to load (optional)
@@ -102,12 +105,12 @@ import "strings"
 	// Mutually exclusive with 'image'
 	// Path must be relative (not start with /) and cannot contain path traversal (..)
 	// Note: Additional path security validation is performed in Go (see validation_filesystem.go)
-	containerfile?: string & strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\."
+	containerfile?: #NonWhitespaceString & strings.MaxRunes(4096) & =~"^[^/]" & !~"\\.\\."
 
 	// image specifies a pre-built container image to use (optional)
 	// Mutually exclusive with 'containerfile'
 	// Example: "debian:stable-slim", "golang:1.26", "python:3-slim"
-	image?: string & !="" & strings.MaxRunes(512)
+	image?: #NonWhitespaceString & strings.MaxRunes(512)
 
 	// volumes specifies volume mounts in "host:container" format (optional)
 	// Example: ["./data:/data", "/tmp:/tmp:ro"]
@@ -158,7 +161,7 @@ import "strings"
 	// Overrides both root-level and command-level workdir settings.
 	// Can be absolute or relative to the invowkfile location.
 	// Paths should use forward slashes for cross-platform compatibility.
-	workdir?: string & strings.MaxRunes(4096)
+	workdir?: #NonWhitespaceString & strings.MaxRunes(4096)
 
 	// depends_on specifies dependencies validated against the HOST system (optional).
 	// Regardless of the selected runtime, these are always checked on the host.
@@ -186,11 +189,11 @@ import "strings"
 #CustomCheck: close({
 	// name is an identifier for this check (required)
 	// Used for error reporting and identification
-	name: string & !="" & strings.MaxRunes(256)
+	name: #NonWhitespaceString & strings.MaxRunes(256)
 
 	// check_script is the script to execute for validation (required)
 	// The script is executed using the runtime's shell
-	check_script: string & !="" & strings.MaxRunes(10485760)
+	check_script: #NonWhitespaceString & strings.MaxRunes(10485760)
 
 	// expected_code is the expected exit code from check_script (optional, default: 0)
 	// Must be in valid exit code range (0-255)
@@ -438,7 +441,7 @@ import "strings"
 	// Overrides root-level workdir but can be overridden by implementation-level workdir.
 	// Can be absolute or relative to the invowkfile location.
 	// Paths should use forward slashes for cross-platform compatibility.
-	workdir?: string & strings.MaxRunes(4096)
+	workdir?: #NonWhitespaceString & strings.MaxRunes(4096)
 
 	// depends_on specifies dependencies validated against the HOST system (optional).
 	// Regardless of the selected runtime, these are always checked on the host.

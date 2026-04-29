@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/issue"
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 )
@@ -36,7 +35,7 @@ func TestClassifyExecutionError(t *testing.T) {
 		},
 		{
 			name:   "no engine available",
-			err:    container.ErrNoEngineAvailable,
+			err:    runtimepkg.ErrContainerEngineUnavailable,
 			wantID: issue.ContainerEngineNotFoundId,
 		},
 		{

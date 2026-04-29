@@ -54,11 +54,12 @@ type (
 	// causing transient "OCI runtime" errors. See container_exec.go for
 	// the retry and serialization logic.
 	ContainerRuntime struct {
-		engine      container.Engine
-		sshServer   *sshserver.Server
-		provisioner *provision.LayerProvisioner
-		cfg         *config.Config
-		envBuilder  EnvBuilder
+		engine          container.Engine
+		sshServer       *sshserver.Server
+		provisioner     provision.Provisioner
+		provisionConfig *provision.Config
+		cfg             *config.Config
+		envBuilder      EnvBuilder
 		//plint:internal -- fallback mutex for non-Linux flock; see runWithRetry()
 		runMu sync.Mutex
 		//plint:internal -- fallback ID counter for missing ExecutionID; see newExecutionID()
@@ -85,11 +86,22 @@ func WithContainerEnvBuilder(b EnvBuilder) ContainerRuntimeOption {
 	}
 }
 
+// WithContainerProvisioner sets the provisioning port for tests and custom adapters.
+func WithContainerProvisioner(p provision.Provisioner, cfg *provision.Config) ContainerRuntimeOption {
+	return func(r *ContainerRuntime) {
+		r.provisioner = p
+		r.provisionConfig = cfg
+	}
+}
+
 // NewContainerRuntime creates a new container runtime with optional configuration.
 func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*ContainerRuntime, error) {
 	engineType := container.EngineType(cfg.ContainerEngine)
 	engine, err := container.NewEngine(engineType)
 	if err != nil {
+		if errors.Is(err, container.ErrNoEngineAvailable) {
+			return nil, fmt.Errorf("%w: %w", ErrContainerEngineUnavailable, err)
+		}
 		return nil, err
 	}
 
@@ -101,10 +113,11 @@ func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*C
 	}
 
 	r := &ContainerRuntime{
-		engine:      engine,
-		provisioner: provisioner,
-		cfg:         cfg,
-		envBuilder:  NewDefaultEnvBuilder(),
+		engine:          engine,
+		provisioner:     provisioner,
+		provisionConfig: provisionCfg,
+		cfg:             cfg,
+		envBuilder:      NewDefaultEnvBuilder(),
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -120,9 +133,10 @@ func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRun
 		return nil, fmt.Errorf("create provisioner: %w", err)
 	}
 	r := &ContainerRuntime{
-		engine:      engine,
-		provisioner: provisioner,
-		envBuilder:  NewDefaultEnvBuilder(),
+		engine:          engine,
+		provisioner:     provisioner,
+		provisionConfig: provisionCfg,
+		envBuilder:      NewDefaultEnvBuilder(),
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -145,6 +159,7 @@ func (r *ContainerRuntime) SetProvisionConfig(cfg *provision.Config) error {
 			return fmt.Errorf("update provisioner: %w", err)
 		}
 		r.provisioner = provisioner
+		r.provisionConfig = cfg
 	}
 	return nil
 }

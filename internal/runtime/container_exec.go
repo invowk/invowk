@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"time"
@@ -89,7 +90,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	}
 
 	// Determine the image to use (with provisioning if enabled)
-	image, pCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
+	image, provisionEnv, pCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
 		return nil, NewErrorResult(1, fmt.Errorf("failed to prepare container image: %w", err))
 	}
@@ -100,6 +101,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 	if err != nil {
 		return nil, NewErrorResult(1, fmt.Errorf("failed to build environment: %w", err))
 	}
+	maps.Copy(env, provisionEnv)
 
 	// Check if host SSH is enabled for this runtime
 	hostSSHEnabled := ctx.SelectedImpl.GetHostSSHForRuntime(ctx.SelectedRuntime)

@@ -91,6 +91,24 @@ func TestServerStartStop(t *testing.T) {
 	if server.IsRunning() {
 		t.Error("Server should not be running after Stop()")
 	}
+
+	select {
+	case _, ok := <-server.RequestChannel():
+		if ok {
+			t.Fatal("RequestChannel still open after Stop()")
+		}
+	default:
+		t.Fatal("RequestChannel should be closed after Stop()")
+	}
+
+	select {
+	case _, ok := <-server.Err():
+		if ok {
+			t.Fatal("Err channel still open after Stop()")
+		}
+	default:
+		t.Fatal("Err channel should be closed after Stop()")
+	}
 }
 
 func TestServerDoubleStart(t *testing.T) {
@@ -154,6 +172,15 @@ func TestStopWithoutStart(t *testing.T) {
 	// State should be Stopped
 	if server.State() != serverbase.StateStopped {
 		t.Errorf("State should be Stopped, got %s", server.State())
+	}
+
+	select {
+	case _, ok := <-server.RequestChannel():
+		if ok {
+			t.Fatal("RequestChannel still open after Stop() without Start()")
+		}
+	default:
+		t.Fatal("RequestChannel should be closed after Stop() without Start()")
 	}
 }
 

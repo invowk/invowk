@@ -3,12 +3,9 @@
 package tui
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/invowk/invowk/internal/tuiserver"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -219,9 +216,7 @@ func (m *interactiveModel) handleTUIComponentRequest(msg TUIComponentMsg) (tea.M
 	if err != nil {
 		// Send error response back to the server
 		go func() {
-			msg.ResponseCh <- tuiserver.Response{
-				Error: fmt.Sprintf("failed to create component: %v", err),
-			}
+			msg.ResponseCh <- ComponentResponse{Err: fmt.Errorf("failed to create component: %w", err)}
 		}()
 		return m, nil
 	}
@@ -242,25 +237,14 @@ func (m *interactiveModel) handleTUIComponentDone(msg tuiComponentDoneMsg) (tea.
 		return m, nil
 	}
 
-	// Build the response
-	var response tuiserver.Response
-
+	response := ComponentResponse{}
 	switch {
 	case msg.cancelled:
 		response.Cancelled = true
 	case msg.err != nil:
-		response.Error = msg.err.Error()
+		response.Err = msg.err
 	default:
-		// Convert the raw result to a protocol-compliant struct
-		protocolResult := convertToProtocolResult(m.activeComponentType, msg.result)
-
-		// Marshal the protocol result to JSON
-		resultJSON, err := json.Marshal(protocolResult)
-		if err != nil {
-			response.Error = fmt.Sprintf("failed to marshal result: %v", err)
-		} else {
-			response.Result = resultJSON
-		}
+		response.Result = msg.result
 	}
 
 	// Send the response in a goroutine to avoid blocking

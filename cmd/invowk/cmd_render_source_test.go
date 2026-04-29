@@ -6,10 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -209,50 +208,31 @@ func TestFormatSourceDisplayName(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// buildCobraArgsValidator tests
+// Dynamic command argument routing tests
 // ---------------------------------------------------------------------------
 
-func TestBuildCobraArgsValidator_NoArgs(t *testing.T) {
+func TestBuildLeafCommandAcceptsArbitraryArgs(t *testing.T) {
 	t.Parallel()
 
-	validator := buildCobraArgsValidator(nil)
-	dummyCmd := &cobra.Command{Use: "test-cmd"}
-
-	// With no arg definitions, any number of arguments should be accepted
-	if err := validator(dummyCmd, []string{"anything", "goes"}); err != nil {
-		t.Errorf("buildCobraArgsValidator(nil) should accept any args, got error: %v", err)
+	cmdInfo := &discovery.CommandInfo{
+		Name:        "deploy",
+		SimpleName:  "deploy",
+		SourceID:    discovery.SourceIDInvowkfile,
+		FilePath:    types.FilesystemPath("invowkfile.cue"),
+		Description: "Deploy",
+		Command: &invowkfile.Command{
+			Name: "deploy",
+			Args: []invowkfile.Argument{
+				{Name: "env", Description: "Target environment", Required: true},
+			},
+		},
 	}
-	if err := validator(dummyCmd, []string{}); err != nil {
-		t.Errorf("buildCobraArgsValidator(nil) should accept empty args, got error: %v", err)
+	leaf := buildLeafCommand(nil, nil, nil, cmdInfo, "deploy")
+
+	if err := leaf.Args(leaf, []string{}); err != nil {
+		t.Errorf("leaf command should defer required argument validation to the app service, got: %v", err)
 	}
-}
-
-func TestBuildCobraArgsValidator_WithArgs_Valid(t *testing.T) {
-	t.Parallel()
-
-	argDefs := []invowkfile.Argument{
-		{Name: "env", Description: "Target environment", Required: true},
-	}
-
-	validator := buildCobraArgsValidator(argDefs)
-	dummyCmd := &cobra.Command{Use: "deploy"}
-
-	if err := validator(dummyCmd, []string{"production"}); err != nil {
-		t.Errorf("buildCobraArgsValidator(argDefs) should accept valid args, got error: %v", err)
-	}
-}
-
-func TestBuildCobraArgsValidator_WithArgs_MissingRequired(t *testing.T) {
-	t.Parallel()
-
-	argDefs := []invowkfile.Argument{
-		{Name: "env", Description: "Target environment", Required: true},
-	}
-
-	validator := buildCobraArgsValidator(argDefs)
-	dummyCmd := &cobra.Command{Use: "deploy"}
-
-	if err := validator(dummyCmd, []string{}); err == nil {
-		t.Error("buildCobraArgsValidator(argDefs) should reject missing required args")
+	if err := leaf.Args(leaf, []string{"production", "extra"}); err != nil {
+		t.Errorf("leaf command should accept arbitrary args for service validation, got: %v", err)
 	}
 }

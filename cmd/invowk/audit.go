@@ -59,16 +59,22 @@ type (
 		Summary         auditJSONSummary   `json:"summary"`
 	}
 
+	//goplint:constant-only
+	//
+	// auditCheckerName is a JSON DTO string for checker provenance.
+	auditCheckerName string
+
 	auditJSONFinding struct {
-		Severity       string   `json:"severity"`
-		Category       string   `json:"category"`
-		SurfaceID      string   `json:"surface_id,omitempty"`
-		FilePath       string   `json:"file_path,omitempty"`
-		Line           int      `json:"line,omitempty"`
-		Title          string   `json:"title"`
-		Description    string   `json:"description"`
-		Recommendation string   `json:"recommendation"`
-		EscalatedFrom  []string `json:"escalated_from,omitempty"`
+		Severity       string           `json:"severity"`
+		Category       string           `json:"category"`
+		SurfaceID      string           `json:"surface_id,omitempty"`
+		CheckerName    auditCheckerName `json:"checker_name"`
+		FilePath       string           `json:"file_path,omitempty"`
+		Line           int              `json:"line,omitempty"`
+		Title          string           `json:"title"`
+		Description    string           `json:"description"`
+		Recommendation string           `json:"recommendation"`
+		EscalatedFrom  []string         `json:"escalated_from,omitempty"`
 	}
 
 	auditJSONSummary struct {
@@ -94,6 +100,28 @@ type (
 		llmOpts       auditllm.LLMClientConfig
 	}
 )
+
+func (n auditCheckerName) String() string { return string(n) }
+
+func (n auditCheckerName) Validate() error { return nil }
+
+func (o auditJSONOutput) Validate() error {
+	for i := range o.Findings {
+		if err := o.Findings[i].Validate(); err != nil {
+			return err
+		}
+	}
+	for i := range o.CompoundThreats {
+		if err := o.CompoundThreats[i].Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f auditJSONFinding) Validate() error {
+	return f.CheckerName.Validate()
+}
 
 func (opts auditRunOptions) Validate() error {
 	if !opts.enableLLM && opts.llmProvider == "" {
@@ -393,6 +421,7 @@ func convertFindings(findings []audit.Finding) []auditJSONFinding {
 			Severity:       findings[i].Severity.String(),
 			Category:       findings[i].Category.String(),
 			SurfaceID:      findings[i].SurfaceID,
+			CheckerName:    auditCheckerName(findings[i].CheckerName), //goplint:ignore -- checker names are internal scanner identifiers.
 			FilePath:       string(findings[i].FilePath),
 			Line:           findings[i].Line,
 			Title:          findings[i].Title,

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/invowk/invowk/internal/tuiserver"
-
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -129,7 +127,7 @@ func TestInteractiveModel_HandleTUIComponentRequest_InvalidOptions(t *testing.T)
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 	model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
-	responseCh := make(chan tuiserver.Response, 1)
+	responseCh := make(chan ComponentResponse, 1)
 	msg := TUIComponentMsg{
 		Component:  ComponentType("nonexistent-component"),
 		Options:    json.RawMessage(`{}`),
@@ -149,7 +147,7 @@ func TestInteractiveModel_HandleTUIComponentRequest_InvalidOptions(t *testing.T)
 
 	// Verify the error response was sent.
 	resp := <-responseCh
-	if resp.Error == "" {
+	if resp.Err == nil {
 		t.Error("expected non-empty error in response for unknown component type")
 	}
 }
@@ -160,7 +158,7 @@ func TestInteractiveModel_HandleTUIComponentRequest_ValidDispatch(t *testing.T) 
 	model := newInteractiveModel(InteractiveOptions{}, nil)
 	model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
-	responseCh := make(chan tuiserver.Response, 1)
+	responseCh := make(chan ComponentResponse, 1)
 	msg := TUIComponentMsg{
 		Component:  ComponentTypeConfirm,
 		Options:    json.RawMessage(`{"title":"Proceed?","affirmative":"Yes","negative":"No"}`),

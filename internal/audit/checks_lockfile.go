@@ -197,8 +197,8 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 	lockByID := make(map[string][]lockEntry)
 	for key, hash := range hashes {
 		lockMod := mod.LockFile.Modules[key]
-		nsID := string(invowkmod.ExtractModuleIDFromNamespace(lockMod.Namespace))
-		lockByID[nsID] = append(lockByID[nsID], lockEntry{key: key, hash: hash})
+		moduleID := string(lockMod.IdentityModuleID())
+		lockByID[moduleID] = append(lockByID[moduleID], lockEntry{key: key, hash: hash})
 	}
 
 	// Flag ambiguous lock entries (multiple entries for same module ID).
@@ -294,8 +294,8 @@ func (c *LockFileChecker) checkOrphanedEntries(mod *ScannedModule) []Finding {
 	orphanCount := 0
 	for key := range mod.LockFile.Modules {
 		lockMod := mod.LockFile.Modules[key]
-		nsID := string(invowkmod.ExtractModuleIDFromNamespace(lockMod.Namespace))
-		if !vendoredIDs[nsID] {
+		moduleID := string(lockMod.IdentityModuleID())
+		if !vendoredIDs[moduleID] {
 			orphanCount++
 			if orphanCount <= maxOrphanFindings {
 				findings = append(findings, Finding{

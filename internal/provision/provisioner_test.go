@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -41,6 +42,9 @@ func (m *mockEngine) Name() string                                 { return "moc
 func (m *mockEngine) Available() bool                              { return true }
 func (m *mockEngine) BinaryPath() string                           { return "/usr/bin/mock" }
 func (m *mockEngine) BuildRunArgs(_ container.RunOptions) []string { return []string{"run"} }
+func (m *mockEngine) PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd {
+	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...)
+}
 
 func (m *mockEngine) Version(_ context.Context) (string, error) {
 	return "mock-1.0.0", nil

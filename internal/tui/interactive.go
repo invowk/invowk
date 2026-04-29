@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/invowk/invowk/internal/tuiserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 
@@ -76,7 +75,15 @@ type (
 		// Options contains the component-specific options as raw JSON.
 		Options json.RawMessage
 		// ResponseCh is where the result should be sent when the component completes.
-		ResponseCh chan<- tuiserver.Response
+		ResponseCh chan<- ComponentResponse
+	}
+
+	// ComponentResponse is the terminal renderer's local result for an
+	// embedded component request. Transport adapters decide how to encode it.
+	ComponentResponse struct {
+		Result    any
+		Err       error
+		Cancelled bool
 	}
 
 	// tuiComponentDoneMsg is sent when an embedded TUI component completes.
@@ -103,7 +110,7 @@ type (
 		// TUI component overlay fields
 		activeComponent     EmbeddableComponent
 		activeComponentType ComponentType
-		componentDoneCh     chan<- tuiserver.Response
+		componentDoneCh     chan<- ComponentResponse
 	}
 
 	// InteractiveBuilder provides a fluent API for building interactive execution.

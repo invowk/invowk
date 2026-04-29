@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -238,7 +237,7 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 			silenceOnExitError(cmd, err)
 			return err
 		},
-		Args: buildCobraArgsValidator(cmdArgs),
+		Args: cobra.ArbitraryArgs,
 	}
 
 	// Reserved runtime flags are injected for every discovered leaf.
@@ -356,17 +355,6 @@ func buildArgsDocumentation(args []invowkfile.Argument) string {
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-// buildCobraArgsValidator creates a Cobra Args validator function for argument definitions.
-func buildCobraArgsValidator(argDefs []invowkfile.Argument) cobra.PositionalArgs {
-	if len(argDefs) == 0 {
-		return cobra.ArbitraryArgs
-	}
-
-	return func(cmd *cobra.Command, args []string) error {
-		return deps.ValidateArguments(cmd.Name(), args, argDefs)
-	}
 }
 
 // completeCommands provides shell completion for the `invowk cmd` command.

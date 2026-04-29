@@ -32,6 +32,9 @@ var (
 	// Callers can check for this error using errors.Is(err, ErrRuntimeNotAvailable).
 	ErrRuntimeNotAvailable = errors.New("runtime not available")
 
+	// ErrContainerEngineUnavailable is returned when no supported container engine is available.
+	ErrContainerEngineUnavailable = errors.New("container engine unavailable")
+
 	// ErrInvalidRuntimeType is returned when a RuntimeType value is not one of the defined runtime types.
 	ErrInvalidRuntimeType = errors.New("invalid runtime type")
 

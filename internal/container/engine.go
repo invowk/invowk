@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -149,6 +150,9 @@ type (
 		// Returns the full argument slice including 'run' and all options.
 		// This is used for interactive mode where the command needs to be attached to a PTY.
 		BuildRunArgs(opts RunOptions) []string
+
+		// PrepareRunCommand creates a configured command for a container run.
+		PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd
 	}
 
 	//goplint:validate-all

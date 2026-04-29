@@ -112,6 +112,9 @@ type (
 		// Namespace is the computed namespace for commands.
 		Namespace ModuleNamespace
 
+		// ModuleID is the resolved module identifier from invowkmod.cue.
+		ModuleID ModuleID
+
 		// ContentHash is the SHA-256 content hash of the cached module tree.
 		// Used for tamper detection of vendored/cached modules.
 		ContentHash ContentHash
@@ -198,7 +201,7 @@ func (e *InvalidModuleRefKeyError) Unwrap() error { return ErrInvalidModuleRefKe
 
 // Validate returns nil if the LockedModule has valid fields,
 // or an error collecting all field-level validation failures.
-// Delegates to Validate() on all 7 typed fields.
+// Delegates to Validate() on all typed fields.
 func (m LockedModule) Validate() error {
 	var errs []error
 	if err := m.GitURL.Validate(); err != nil {
@@ -221,6 +224,11 @@ func (m LockedModule) Validate() error {
 	}
 	if err := m.Namespace.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	if m.ModuleID != "" {
+		if err := m.ModuleID.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if err := m.ContentHash.Validate(); err != nil {
 		errs = append(errs, err)
@@ -325,6 +333,7 @@ func (l *LockFile) AddModule(resolved *ResolvedModule) {
 		Alias:           resolved.ModuleRef.Alias,
 		Path:            resolved.ModuleRef.Path,
 		Namespace:       resolved.Namespace,
+		ModuleID:        resolved.ModuleID,
 		ContentHash:     resolved.ContentHash,
 	}
 }
@@ -382,6 +391,9 @@ func (l *LockFile) toCUE() string {
 			fmt.Fprintf(&sb, "\t\tpath:             %q\n", mod.Path)
 		}
 		fmt.Fprintf(&sb, "\t\tnamespace:        %q\n", mod.Namespace)
+		if mod.ModuleID != "" {
+			fmt.Fprintf(&sb, "\t\tmodule_id:        %q\n", mod.ModuleID)
+		}
 		fmt.Fprintf(&sb, "\t\tcontent_hash:     %q\n", mod.ContentHash)
 		sb.WriteString("\t}\n")
 	}

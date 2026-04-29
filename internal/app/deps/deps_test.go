@@ -12,6 +12,7 @@ import (
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/testutil/invowkfiletest"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 type stubCommandSetProvider struct {
@@ -103,6 +104,44 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 		if !strings.Contains(depErr.MissingCommands[0].String(), "none of [missing, other] found") {
 			t.Fatalf("depErr.MissingCommands[0] = %q", depErr.MissingCommands[0])
+		}
+	})
+
+	t.Run("allows non-aliased direct dependency module id", func(t *testing.T) {
+		t.Parallel()
+
+		depID := invowkmod.ModuleID("io.example.dep")
+		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+			Module:  "io.example.caller",
+			Version: "1.0.0",
+			Requires: []invowkmod.ModuleRequirement{{
+				GitURL:  "https://github.com/example/dep.git",
+				Version: "^1.0.0",
+			}},
+		})
+		callerInfo := &discovery.CommandInfo{
+			Name:       invowkfile.CommandName("build"),
+			Command:    &invowkfile.Command{Name: "build"},
+			Invowkfile: &invowkfile.Invowkfile{Metadata: callerMeta},
+		}
+		commandSet := &discovery.DiscoveredCommandSet{
+			Commands: []*discovery.CommandInfo{{
+				Name:     invowkfile.CommandName("io.example.dep test"),
+				SourceID: discovery.SourceID("dep"),
+				ModuleID: &depID,
+			}},
+		}
+		disc := &stubCommandSetProvider{
+			result: discovery.CommandSetResult{Set: commandSet},
+		}
+		deps := &invowkfile.DependsOn{
+			Commands: []invowkfile.CommandDependency{
+				{Alternatives: []invowkfile.CommandName{"io.example.dep test"}},
+			},
+		}
+
+		if err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx); err != nil {
+			t.Fatalf("CheckCommandDependenciesExist() = %v", err)
 		}
 	})
 }

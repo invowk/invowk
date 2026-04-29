@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -30,8 +31,9 @@ type MockEngine struct {
 	version     string
 
 	// Call recording
-	RunCalls   []container.RunOptions
-	BuildCalls []container.BuildOptions
+	RunCalls        []container.RunOptions
+	BuildCalls      []container.BuildOptions
+	PrepareRunCalls []container.RunOptions
 }
 
 // NewMockEngine creates a MockEngine with sensible defaults.
@@ -137,6 +139,13 @@ func (m *MockEngine) BuildRunArgs(opts container.RunOptions) []string {
 	args = append(args, string(opts.Image))
 	args = append(args, opts.Command...)
 	return args
+}
+
+func (m *MockEngine) PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd {
+	m.mu.Lock()
+	m.PrepareRunCalls = append(m.PrepareRunCalls, opts)
+	m.mu.Unlock()
+	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...)
 }
 
 // --- Tests ---

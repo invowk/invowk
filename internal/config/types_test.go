@@ -134,8 +134,8 @@ func TestModuleIncludePath_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"absolute path", ModuleIncludePath(absModPath), true, false},
-		{"relative path", ModuleIncludePath("modules/my.invowkmod"), true, false},
-		{"single char", ModuleIncludePath("/"), true, false},
+		{"relative path", ModuleIncludePath("modules/my.invowkmod"), false, true},
+		{"absolute non-module path", ModuleIncludePath("/"), false, true},
 		{"empty is invalid", ModuleIncludePath(""), false, true},
 		{"whitespace only is invalid", ModuleIncludePath("   "), false, true},
 		{"tab only is invalid", ModuleIncludePath("\t"), false, true},

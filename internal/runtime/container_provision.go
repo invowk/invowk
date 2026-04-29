@@ -61,20 +61,20 @@ var (
 // ensureProvisionedImage ensures the container image exists and is provisioned
 // with invowk resources (binary, modules, etc.). This enables nested invowk commands
 // inside containers.
-func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invowkfileContainerConfig, invowkDir string) (imageName string, cleanup func(), err error) {
+func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invowkfileContainerConfig, invowkDir string) (imageName string, envVars map[string]string, cleanup func(), err error) {
 	// First, ensure the base image exists
 	baseImage, err := r.ensureImage(ctx, cfg, invowkDir)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	// If provisioning is disabled, return the base image
-	if r.provisioner == nil || !r.provisioner.Config().Enabled {
-		return baseImage, nil, nil
+	if r.provisioner == nil || r.provisionConfig == nil || !r.provisionConfig.Enabled {
+		return baseImage, nil, nil, nil
 	}
 
 	// Update provisioner config with current invowkfile path and ForceRebuild
-	provCfg := r.provisioner.Config()
+	provCfg := r.provisionConfig
 	provCfg.InvowkfilePath = ctx.Invowkfile.FilePath
 	provCfg.ForceRebuild = ctx.ForceRebuild
 
@@ -85,22 +85,22 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 
 	result, err := r.provisioner.Provision(ctx.Context, container.ImageTag(baseImage))
 	if err != nil {
-		if r.provisioner.Config().Strict {
+		if r.provisionConfig.Strict {
 			// Multi-wrap (Go 1.20+): callers can match either sentinel via errors.Is
-			return "", nil, fmt.Errorf("%w: %w", errStrictModeProvisioning, err)
+			return "", nil, nil, fmt.Errorf("%w: %w", errStrictModeProvisioning, err)
 		}
 		_, _ = fmt.Fprintf(ctx.IO.Stderr,
 			"WARNING: Container provisioning failed: %v\n"+
 				"  The container will run WITHOUT invowk resources (binary, modules).\n"+
 				"  Nested invowk commands inside the container will not work.\n"+
 				"  To fail on provisioning errors, set: container.auto_provision.strict = true\n", err)
-		return baseImage, nil, nil
+		return baseImage, nil, nil, nil
 	}
 	for _, warning := range result.Warnings {
 		_, _ = fmt.Fprintf(ctx.IO.Stderr, "WARNING: %s\n", warning.Message.String())
 	}
 
-	return string(result.ImageTag), result.Cleanup, nil
+	return string(result.ImageTag), result.EnvVars, result.Cleanup, nil
 }
 
 // ensureImage ensures the container image exists, building if necessary

@@ -5,8 +5,8 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/container"
@@ -56,7 +56,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	}
 
 	// Determine the image to use (with provisioning if enabled)
-	image, provisionCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
+	image, provisionEnv, provisionCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare container image: %w", err)
 	}
@@ -69,6 +69,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		}
 		return nil, fmt.Errorf("failed to build environment: %w", err)
 	}
+	maps.Copy(env, provisionEnv)
 
 	// Check if host SSH is enabled for this runtime
 	hostSSHEnabled := ctx.SelectedImpl.GetHostSSHForRuntime(ctx.SelectedRuntime)
@@ -168,16 +169,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		ExtraHosts:  extraHosts,
 	}
 
-	// Build the docker/podman run command arguments
-	args := r.engine.BuildRunArgs(runOpts)
-
-	// Create the exec.Cmd
-	cmd := exec.CommandContext(ctx.Context, r.engine.BinaryPath(), args...)
-
-	// Apply engine-level command customization (e.g., CONTAINERS_CONF_OVERRIDE for Podman).
-	if customizer, ok := r.engine.(container.CmdCustomizer); ok {
-		customizer.CustomizeCmd(cmd)
-	}
+	cmd := r.engine.PrepareRunCommand(ctx.Context, runOpts)
 
 	// Prepare cleanup function
 	cleanup := func() {

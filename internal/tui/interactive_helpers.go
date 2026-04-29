@@ -6,8 +6,6 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/invowk/invowk/internal/tuiserver"
-
 	"github.com/charmbracelet/x/xpty"
 )
 
@@ -43,76 +41,6 @@ func newInteractiveModel(opts InteractiveOptions, pty xpty.Pty) *interactiveMode
 		cmdName: string(opts.CommandName),
 		state:   stateExecuting,
 		pty:     pty,
-	}
-}
-
-// convertToProtocolResult converts a raw component result to a protocol-compliant struct.
-// The tuiserver client expects specific JSON structures for each component type.
-func convertToProtocolResult(componentType ComponentType, result any) any {
-	switch componentType {
-	case ComponentTypeInput, ComponentTypeTextArea, ComponentTypeWrite:
-		// Input, TextArea, and Write return a string
-		if s, ok := result.(string); ok {
-			return tuiserver.InputResult{Value: s}
-		}
-		return tuiserver.InputResult{}
-
-	case ComponentTypeConfirm:
-		// Confirm returns a bool
-		if b, ok := result.(bool); ok {
-			return tuiserver.ConfirmResult{Confirmed: b}
-		}
-		return tuiserver.ConfirmResult{}
-
-	case ComponentTypeChoose:
-		// Choose returns []string
-		if selected, ok := result.([]string); ok {
-			return tuiserver.ChooseResult{Selected: selected}
-		}
-		return tuiserver.ChooseResult{Selected: []string{}}
-
-	case ComponentTypeFilter:
-		// Filter returns []string
-		if selected, ok := result.([]string); ok {
-			return tuiserver.FilterResult{Selected: selected}
-		}
-		return tuiserver.FilterResult{Selected: []string{}}
-
-	case ComponentTypeFile:
-		// File returns a string path
-		if path, ok := result.(string); ok {
-			return tuiserver.FileResult{Path: path}
-		}
-		return tuiserver.FileResult{}
-
-	case ComponentTypeTable:
-		// Table returns TableSelectionResult
-		if tableResult, ok := result.(TableSelectionResult); ok {
-			return tuiserver.TableResult{
-				SelectedRow:   tableResult.SelectedRow,
-				SelectedIndex: tableResult.SelectedIndex,
-			}
-		}
-		return tuiserver.TableResult{SelectedIndex: -1}
-
-	case ComponentTypePager:
-		// Pager has no result
-		return tuiserver.PagerResult{}
-
-	case ComponentTypeSpin:
-		// Spin returns SpinResult
-		if spinResult, ok := result.(SpinResult); ok {
-			return tuiserver.SpinResult{
-				Stdout:   spinResult.Stdout,
-				Stderr:   spinResult.Stderr,
-				ExitCode: spinResult.ExitCode,
-			}
-		}
-		return tuiserver.SpinResult{}
-
-	default:
-		// Unknown component type, return as-is
-		return result
 	}
 }
 

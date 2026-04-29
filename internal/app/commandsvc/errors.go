@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 
-	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/runtime"
 )
@@ -47,7 +46,7 @@ func classifyExecutionError(err error) (issueID issue.Id, hint string) {
 		return issueID, HintTimedOut
 	case errors.Is(err, context.Canceled):
 		return issueID, HintCancelled
-	case errors.Is(err, container.ErrNoEngineAvailable):
+	case errors.Is(err, runtime.ErrContainerEngineUnavailable):
 		issueID = issue.ContainerEngineNotFoundId
 	case errors.Is(err, runtime.ErrRuntimeNotAvailable):
 		issueID = issue.RuntimeNotAvailableId

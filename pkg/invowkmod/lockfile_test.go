@@ -60,6 +60,7 @@ func TestLockFile_AddModule(t *testing.T) {
 			},
 			ResolvedVersion: "1.2.0",
 			GitCommit:       "abc123def456789012345678901234567890abcd",
+			ModuleID:        "io.example.repo",
 			Namespace:       "repo@1.2.0",
 			ContentHash:     testContentHash,
 		}
@@ -82,6 +83,9 @@ func TestLockFile_AddModule(t *testing.T) {
 		if mod.GitCommit != "abc123def456789012345678901234567890abcd" {
 			t.Errorf("GitCommit = %q", mod.GitCommit)
 		}
+		if mod.ModuleID != "io.example.repo" {
+			t.Errorf("ModuleID = %q, want %q", mod.ModuleID, "io.example.repo")
+		}
 	})
 
 	t.Run("with_optional_fields", func(t *testing.T) {
@@ -97,6 +101,7 @@ func TestLockFile_AddModule(t *testing.T) {
 			},
 			ResolvedVersion: "2.1.0",
 			GitCommit:       "def456789012345678901234567890abcdef0123",
+			ModuleID:        "io.example.tools",
 			Namespace:       "tools",
 			ContentHash:     testContentHash,
 		}
@@ -291,6 +296,7 @@ func TestLockFile_toCUE(t *testing.T) {
 					GitCommit:       "abc123def456789012345678901234567890abcd",
 					Alias:           "myalias",
 					Path:            "sub",
+					ModuleID:        "io.example.tools",
 					Namespace:       "myalias",
 					ContentHash:     testContentHash,
 				},
@@ -303,6 +309,9 @@ func TestLockFile_toCUE(t *testing.T) {
 		}
 		if !strings.Contains(got, `path:`) {
 			t.Error("path should be rendered when non-empty")
+		}
+		if !strings.Contains(got, `module_id:`) {
+			t.Error("module_id should be rendered when non-empty")
 		}
 	})
 }
@@ -367,6 +376,7 @@ modules: {
 		git_commit:       "def456789012345678901234567890abcdef0123"
 		alias:            "tools"
 		path:             "sub"
+		module_id:        "io.example.tools"
 		namespace:        "tools"
 		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
@@ -386,6 +396,9 @@ modules: {
 		}
 		if mod.Path != "sub" {
 			t.Errorf("Path = %q", mod.Path)
+		}
+		if mod.ModuleID != "io.example.tools" {
+			t.Errorf("ModuleID = %q", mod.ModuleID)
 		}
 	})
 

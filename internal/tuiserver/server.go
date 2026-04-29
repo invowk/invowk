@@ -50,8 +50,10 @@ type (
 		token      AuthToken
 
 		// Shutdown coordination (TUI-specific: used to signal HTTP handlers)
-		shutdownCh   chan struct{}
-		shutdownOnce sync.Once
+		shutdownCh       chan struct{}
+		shutdownOnce     sync.Once
+		requestCloseOnce sync.Once
+		errCloseOnce     sync.Once
 
 		// Request handling - mu protects concurrent access during TUI rendering.
 		// Only one TUI component can be rendered at a time.
@@ -63,7 +65,7 @@ type (
 	}
 )
 
-// New creates a new TUI server listening on a random port on all interfaces.
+// New creates a new TUI server.
 // The server uses token-based authentication for security.
 // The server is not started until Start() is called.
 func New() (*Server, error) {
@@ -72,19 +74,8 @@ func New() (*Server, error) {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	var lc net.ListenConfig
-	listener, err := lc.Listen(context.Background(), "tcp", "0.0.0.0:0")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create listener: %w", err)
-	}
-
-	// Extract the port from the listener address
-	tcpAddr := listener.Addr().(*net.TCPAddr)
-
 	s := &Server{
 		Base:       serverbase.NewBase(),
-		listener:   listener,
-		port:       types.ListenPort(tcpAddr.Port),
 		token:      AuthToken(token),
 		shutdownCh: make(chan struct{}),
 		requestCh:  make(chan TUIRequest),
@@ -110,6 +101,17 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", "0.0.0.0:0")
+	if err != nil {
+		startErr := fmt.Errorf("failed to create listener: %w", err)
+		s.TransitionToFailed(startErr)
+		return startErr
+	}
+	s.listener = listener
+	tcpAddr := listener.Addr().(*net.TCPAddr)
+	s.port = types.ListenPort(tcpAddr.Port)
+
 	// Start serving in background
 	s.AddGoroutine()
 	go func() {
@@ -125,6 +127,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.WaitForReady(ctx); err != nil {
 		s.TransitionToFailed(err)
 		_ = s.httpServer.Close() // Best-effort cleanup on error
+		_ = s.listener.Close()   // Best-effort cleanup on error
 		return err
 	}
 
@@ -138,7 +141,11 @@ func (s *Server) Stop() error {
 
 	if !s.TransitionToStopping() {
 		// Already stopped/stopping, or never started - clean up listener
-		_ = s.listener.Close() // Best-effort cleanup; server already stopping
+		if s.listener != nil {
+			_ = s.listener.Close() // Best-effort cleanup; server already stopping
+		}
+		s.closeRequestChannel()
+		s.closeErrChannel()
 		return nil
 	}
 
@@ -150,6 +157,8 @@ func (s *Server) Stop() error {
 	// Wait for serve goroutine to finish
 	s.WaitForShutdown()
 	s.TransitionToStopped()
+	s.closeRequestChannel()
+	s.closeErrChannel()
 
 	return err
 }
@@ -181,6 +190,18 @@ func (s *Server) Token() AuthToken {
 // the requested components as overlays.
 func (s *Server) RequestChannel() <-chan TUIRequest {
 	return s.requestCh
+}
+
+func (s *Server) closeRequestChannel() {
+	s.requestCloseOnce.Do(func() {
+		close(s.requestCh)
+	})
+}
+
+func (s *Server) closeErrChannel() {
+	s.errCloseOnce.Do(func() {
+		s.CloseErrChannel()
+	})
 }
 
 // handleHealth responds with 200 OK for health checks.

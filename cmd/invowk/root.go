@@ -127,7 +127,7 @@ func getVersionString(version, commit, buildDate string) string {
 //plint:render
 func formatErrorForDisplay(err error, verboseMode bool) string {
 	if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
-		return ae.Format(verboseMode)
+		return formatActionableError(ae, verboseMode).String()
 	}
 
 	return err.Error()

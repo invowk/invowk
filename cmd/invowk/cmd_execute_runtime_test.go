@@ -12,9 +12,9 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// testConfigFallback wraps loadConfigWithFallback for commandsvc.ConfigFallbackFunc.
+// testConfigFallback wraps the application-service fallback for commandsvc.ConfigFallbackFunc.
 func testConfigFallback(ctx context.Context, provider config.Provider, configPath string) (*config.Config, []discovery.Diagnostic) {
-	return loadConfigWithFallback(ctx, provider, configPath)
+	return commandsvc.LoadConfigWithFallback(ctx, provider, configPath)
 }
 
 // buildDualRuntimeCommand creates a command with both native and virtual runtimes

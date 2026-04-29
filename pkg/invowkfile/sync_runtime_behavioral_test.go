@@ -91,8 +91,7 @@ func TestBehavioralSync_ContainerImage(t *testing.T) {
 			{"myregistry.io/myimage:latest", true, true, ""},
 			// Go accepts "" (containerfile will be used), CUE rejects "" (!="")
 			{"", true, false, "Go zero-value means no image; CUE uses field optionality with !=\"\""},
-			// Whitespace-only: Go rejects (TrimSpace check), CUE accepts (!="" passes for whitespace)
-			{"   ", false, true, "Go checks TrimSpace; CUE !=\"\" only rejects literal empty string"},
+			{"   ", false, false, ""},
 			{strings.Repeat("a", 512), true, true, ""},
 			// Both Go and CUE reject >512 chars. Go Validate() now includes length,
 			// injection, and format checks (merged from ValidateContainerImage).
@@ -295,7 +294,7 @@ func TestBehavioralSync_CheckName(t *testing.T) {
 			{"validate", true, true, ""},
 			{"a", true, true, ""},
 			{"", false, false, ""},
-			{"   ", false, true, "Go rejects whitespace-only; CUE !=\"\" only rejects literal empty"},
+			{"   ", false, false, ""},
 		},
 	)
 }
@@ -314,7 +313,7 @@ func TestBehavioralSync_ScriptContent(t *testing.T) {
 			{"a", true, true, ""},
 			// Go accepts "" (zero=valid for ScriptContent), CUE rejects "" (!="")
 			{"", true, false, "Go zero-value is valid (no script); CUE !=\"\" rejects empty"},
-			{"   ", false, true, "Go rejects whitespace-only; CUE !=\"\" only rejects literal empty"},
+			{"   ", false, false, ""},
 		},
 	)
 }
@@ -333,7 +332,7 @@ func TestBehavioralSync_ContainerfilePath(t *testing.T) {
 			{"my.Dockerfile", true, true, ""},
 			// Go accepts "" (no containerfile), CUE rejects as optional field
 			{"", true, false, "Go zero-value means no containerfile; CUE uses field optionality"},
-			{"   ", false, true, "Go rejects whitespace-only; CUE regex accepts non-slash start"},
+			{"   ", false, false, ""},
 		},
 	)
 }
