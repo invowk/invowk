@@ -2,8 +2,10 @@
 #
 # Top-down flow:
 # 1) resolve runtime (override > config default > command default)
-# 2) dispatch to selected runtime path
-# 3) execute or fail with actionable runtime errors
+# 2) build execution context and apply dry-run gate
+# 3) ensure host access only after dry-run
+# 4) dispatch to selected runtime path
+# 5) execute or fail with actionable runtime errors
 #
 # Source: docs/architecture/flowchart-runtime-selection.md
 
@@ -74,24 +76,38 @@ ConfigAllowed -> UseConfigDefault: Yes
 ConfigAllowed -> UseCommandDefault: No
 
 # ------------------------------------------------------------------------------
-# SSH lifecycle (CommandService responsibility, before dispatch)
+# Execution context, dry-run gate, and host-access lifecycle
 # ------------------------------------------------------------------------------
 
-SSHNeeded: enable_host_ssh = true? {
+BuildContext: Build execution context {
+  style.fill: "#BBDEFB"
+}
+DryRun: --ivk-dry-run? {
   shape: diamond
   style.fill: "#FFF3E0"
 }
-EnsureSSH: CommandService starts SSH server {
+DryRunResult: Return dry-run plan\n(no host access/runtime setup) {
+  shape: oval
+  style.fill: "#E8F5E9"
+}
+HostAccessNeeded: enable_host_ssh = true? {
+  shape: diamond
+  style.fill: "#FFF3E0"
+}
+EnsureHostAccess: HostAccess adapter starts SSH server {
   style.fill: "#BBDEFB"
 }
 
-UseOverride -> SSHNeeded
-UseConfigDefault -> SSHNeeded
-UseCommandDefault -> SSHNeeded
+UseOverride -> BuildContext
+UseConfigDefault -> BuildContext
+UseCommandDefault -> BuildContext
 
-SSHNeeded -> EnsureSSH: Yes
-SSHNeeded -> Dispatch: No
-EnsureSSH -> Dispatch
+BuildContext -> DryRun
+DryRun -> DryRunResult: Yes
+DryRun -> HostAccessNeeded: No
+HostAccessNeeded -> EnsureHostAccess: Yes
+HostAccessNeeded -> Dispatch: No
+EnsureHostAccess -> Dispatch
 
 Dispatch: Dispatch by selected runtime {
   shape: diamond

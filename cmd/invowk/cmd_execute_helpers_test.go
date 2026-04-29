@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/invowk/invowk/internal/app/commandsvc"
+	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
@@ -42,7 +42,7 @@ func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	result := commandsvc.CreateRuntimeRegistry(cfg, nil)
+	result := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t))
 	defer result.Cleanup()
 
 	// If the container engine is available, verify it's registered exactly once
@@ -61,7 +61,7 @@ func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 
 	// Verify that calling CreateRuntimeRegistry a second time does not share
 	// state with the first registry (each call creates its own instance).
-	result2 := commandsvc.CreateRuntimeRegistry(cfg, nil)
+	result2 := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t))
 	defer result2.Cleanup()
 
 	rt2, err := result2.Registry.Get(runtime.RuntimeTypeContainer)
@@ -72,6 +72,16 @@ func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 	if rt == rt2 {
 		t.Fatal("two CreateRuntimeRegistry calls returned the same ContainerRuntime pointer — instances must be independent")
 	}
+}
+
+func newTestHostAccess(t testing.TB) *commandadapters.HostAccess {
+	t.Helper()
+
+	hostAccess, err := commandadapters.NewHostAccess()
+	if err != nil {
+		t.Fatalf("NewHostAccess() error = %v", err)
+	}
+	return hostAccess
 }
 
 // TestParseEnvVarFlags verifies parsing of KEY=VALUE strings into a map,

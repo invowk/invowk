@@ -100,7 +100,7 @@ func TestResolveRuntime(t *testing.T) {
 func TestEnsureSSHIfNeeded(t *testing.T) {
 	t.Parallel()
 
-	service := &Service{ssh: &sshServerController{}}
+	service := &Service{hostAccess: noopHostAccess{}}
 	if err := service.ensureSSHIfNeeded(t.Context(), appexec.RuntimeSelection{}); err != nil {
 		t.Fatalf("ensureSSHIfNeeded(no host ssh) = %v", err)
 	}

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
@@ -123,7 +124,7 @@ func TestCreateRuntimeRegistryWithDiagnostics(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.ContainerEngine = "not-a-real-engine"
 
-	result := commandsvc.CreateRuntimeRegistry(cfg, nil)
+	result := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t))
 	defer result.Cleanup()
 
 	if result.Registry == nil {

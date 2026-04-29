@@ -480,6 +480,39 @@ modules: {}`
 		}
 	})
 
+	t.Run("malformed_cue_rejected", func(t *testing.T) {
+		t.Parallel()
+
+		content := `version: "2.0"
+generated: "2025-01-15T10:30:00Z"
+modules: {
+	"https://github.com/user/repo.git": {
+		git_url: "https://github.com/user/repo.git"
+`
+		_, err := parseLockFile(content)
+		if err == nil {
+			t.Fatal("expected error for malformed lock file CUE, got nil")
+		}
+		if !strings.Contains(err.Error(), "parse lock file CUE") {
+			t.Fatalf("error = %v, want CUE parse failure", err)
+		}
+	})
+
+	t.Run("invalid_generated_timestamp_rejected", func(t *testing.T) {
+		t.Parallel()
+
+		content := `version: "2.0"
+generated: "not-rfc3339"
+modules: {}`
+		_, err := parseLockFile(content)
+		if err == nil {
+			t.Fatal("expected error for invalid generated timestamp, got nil")
+		}
+		if !strings.Contains(err.Error(), "lock file generated") {
+			t.Fatalf("error = %v, want generated timestamp failure", err)
+		}
+	})
+
 	t.Run("v1_lock_file_accepted", func(t *testing.T) {
 		t.Parallel()
 

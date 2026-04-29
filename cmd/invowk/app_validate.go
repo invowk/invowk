@@ -5,12 +5,13 @@ package cmd
 import (
 	"errors"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
 	// ErrInvalidExecuteRequest is the sentinel error wrapped by InvalidExecuteRequestError.
-	ErrInvalidExecuteRequest = errors.New("invalid execute request")
+	ErrInvalidExecuteRequest = commandsvc.ErrInvalidRequest
 
 	// ErrInvalidExecuteResult is the sentinel error wrapped by InvalidExecuteResultError.
 	ErrInvalidExecuteResult = errors.New("invalid execute result")
@@ -23,12 +24,8 @@ var (
 )
 
 type (
-	// InvalidExecuteRequestError is returned when an ExecuteRequest has invalid fields.
-	// It wraps ErrInvalidExecuteRequest for errors.Is() compatibility and collects
-	// field-level validation errors.
-	InvalidExecuteRequestError struct {
-		FieldErrors []error
-	}
+	// InvalidExecuteRequestError is the CLI alias for commandsvc request validation errors.
+	InvalidExecuteRequestError = commandsvc.InvalidRequestError
 
 	// InvalidExecuteResultError is returned when an ExecuteResult has invalid fields.
 	// It wraps ErrInvalidExecuteResult for errors.Is() compatibility and collects
@@ -45,14 +42,6 @@ type (
 	}
 )
 
-// Error implements the error interface for InvalidExecuteRequestError.
-func (e *InvalidExecuteRequestError) Error() string {
-	return types.FormatFieldErrors("execute request", e.FieldErrors)
-}
-
-// Unwrap returns ErrInvalidExecuteRequest for errors.Is() compatibility.
-func (e *InvalidExecuteRequestError) Unwrap() error { return ErrInvalidExecuteRequest }
-
 // Error implements the error interface for InvalidExecuteResultError.
 func (e *InvalidExecuteResultError) Error() string {
 	return types.FormatFieldErrors("execute result", e.FieldErrors)
@@ -68,75 +57,6 @@ func (e *InvalidSourceFilterError) Error() string {
 
 // Unwrap returns ErrInvalidSourceFilter for errors.Is() compatibility.
 func (e *InvalidSourceFilterError) Unwrap() error { return ErrInvalidSourceFilter }
-
-// Validate returns nil if the ExecuteRequest has valid fields, or a validation error if not.
-// It validates Runtime (when non-empty), FromSource (when non-empty), Workdir (when non-empty),
-// EnvFiles, ConfigPath (when non-empty), EnvInheritMode (when non-empty), EnvInheritAllow,
-// EnvInheritDeny, and ResolvedCommand (when non-nil).
-func (r ExecuteRequest) Validate() error {
-	var errs []error
-	r.appendLocationValidationErrors(&errs)
-	r.appendEnvValidationErrors(&errs)
-	r.appendResolvedCommandValidationErrors(&errs)
-	if len(errs) > 0 {
-		return &InvalidExecuteRequestError{FieldErrors: errs}
-	}
-	return nil
-}
-
-func (r ExecuteRequest) appendLocationValidationErrors(errs *[]error) {
-	if r.Runtime != "" {
-		if err := r.Runtime.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-	if r.FromSource != "" {
-		if err := r.FromSource.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-	if r.Workdir != "" {
-		if err := r.Workdir.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-	if r.ConfigPath != "" {
-		if err := r.ConfigPath.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-}
-
-func (r ExecuteRequest) appendEnvValidationErrors(errs *[]error) {
-	for _, f := range r.EnvFiles {
-		if err := f.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-	if r.EnvInheritMode != "" {
-		if err := r.EnvInheritMode.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-	for _, name := range r.EnvInheritAllow {
-		if err := name.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-	for _, name := range r.EnvInheritDeny {
-		if err := name.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-}
-
-func (r ExecuteRequest) appendResolvedCommandValidationErrors(errs *[]error) {
-	if r.ResolvedCommand != nil {
-		if err := r.ResolvedCommand.Validate(); err != nil {
-			*errs = append(*errs, err)
-		}
-	}
-}
 
 // Validate returns nil if the ExecuteResult has valid fields, or a validation error if not.
 // It delegates to ExitCode.Validate().

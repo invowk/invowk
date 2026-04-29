@@ -26,6 +26,11 @@ type (
 	staticCommandsvcConfigProvider struct {
 		cfg *config.Config
 	}
+
+	recordingHostAccess struct {
+		ensureCalls int
+		running     bool
+	}
 )
 
 func (s *stubCommandDiscovery) DiscoverCommandSet(context.Context) (discovery.CommandSetResult, error) {
@@ -124,6 +129,68 @@ func TestResolveDefinitionsAndLoadConfig(t *testing.T) {
 	if loaded != cfg || len(diags) != 0 || calls != 1 {
 		t.Fatalf("loadConfig() = (%v, %v), calls=%d", loaded, diags, calls)
 	}
+}
+
+func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.DefaultConfig()
+	hostAccess := &recordingHostAccess{}
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
+	cmdInfo.Command.Implementations[0].Runtimes = []invowkfile.RuntimeConfig{{
+		Name:          invowkfile.RuntimeContainer,
+		Image:         "debian:stable-slim",
+		EnableHostSSH: true,
+	}}
+
+	service := &Service{
+		config:          &staticCommandsvcConfigProvider{cfg: cfg},
+		discovery:       &stubCommandDiscovery{lookup: discovery.LookupResult{Command: cmdInfo}},
+		stdout:          io.Discard,
+		stderr:          io.Discard,
+		hostAccess:      hostAccess,
+		registryFactory: defaultRuntimeRegistryFactory{},
+		interactive:     defaultInteractiveExecutor{},
+		userEnvFunc:     func() map[string]string { return map[string]string{} },
+		configFallback: func(context.Context, config.Provider, string) (*config.Config, []discovery.Diagnostic) {
+			return cfg, nil
+		},
+	}
+
+	result, diags, err := service.Execute(t.Context(), Request{
+		Name:    "build",
+		DryRun:  true,
+		Runtime: invowkfile.RuntimeContainer,
+	})
+	if err != nil {
+		t.Fatalf("Execute(dry-run) error = %v", err)
+	}
+	if len(diags) != 0 {
+		t.Fatalf("Execute(dry-run) diagnostics = %v, want none", diags)
+	}
+	if result.DryRunData == nil {
+		t.Fatal("Execute(dry-run) did not return DryRunData")
+	}
+	if hostAccess.ensureCalls != 0 {
+		t.Fatalf("HostAccess.Ensure called %d times for dry-run, want 0", hostAccess.ensureCalls)
+	}
+	if hostAccess.running {
+		t.Fatal("HostAccess left running after dry-run")
+	}
+}
+
+func (h *recordingHostAccess) Ensure(context.Context) error {
+	h.ensureCalls++
+	h.running = true
+	return nil
+}
+
+func (h *recordingHostAccess) Running() bool {
+	return h.running
+}
+
+func (h *recordingHostAccess) Stop() {
+	h.running = false
 }
 
 func commandsvcTestCommandInfo(t testing.TB, name string) *discovery.CommandInfo {

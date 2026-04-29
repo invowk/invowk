@@ -103,9 +103,20 @@ invowk_cli: Invowk CLI {
       }
       tooltip: |md
         **Go**
-        8-step execution pipeline: discover, resolve definitions,
-        validate inputs, resolve runtime, ensure SSH, build context,
-        dry-run check, dispatch
+        Execution pipeline: discover, resolve definitions, validate inputs,
+        resolve runtime, build context, dry-run gate, host-access port, dispatch
+      |
+    }
+
+    command_adapters: Command Adapters {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Infrastructure adapters implementing commandsvc ports:
+        host access, runtime registry construction, and interactive execution
       |
     }
 
@@ -423,6 +434,9 @@ invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.dependency_validator:
 invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.execution_orch: "Selects runtime" {
   style.stroke: "#707070"
 }
+invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.command_adapters: "Calls ports\n[HostAccess/Registry/Interactive]" {
+  style.stroke: "#707070"
+}
 
 # Execution Orchestrator to Runtime fan-out
 invowk_cli.entry_core.execution_orch -> invowk_cli.runtimes.runtime_native: Dispatches {
@@ -448,8 +462,15 @@ invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.container_en
 invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.provision: Provisions {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.command_svc -> invowk_cli.container_infra.ssh_server: "Manages lifecycle" {
+invowk_cli.entry_core.command_adapters -> invowk_cli.container_infra.ssh_server: "Manages host access\n[SSH]" {
   style.stroke: "#707070"
+}
+invowk_cli.entry_core.command_adapters -> invowk_cli.container_infra.tui_server: "Runs interactive TUI\n[HTTP]" {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.command_adapters -> invowk_cli.runtimes.runtime_container: "Builds registry\nwith SSH reference" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
 }
 invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.ssh_server: "Uses reference" {
   style.stroke: "#707070"

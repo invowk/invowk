@@ -131,7 +131,7 @@ runtime_pkg: internal/runtime {
     tooltip: |md
       **Struct**
       Executes inside Docker/Podman containers.
-      Uses container engine, provisioner, SSH server,
+      Uses container engine, provisioner, optional SSH server reference,
       config, and env builder.
     |
   }
@@ -503,7 +503,7 @@ runtime_pkg.container_rt -> container_engine: "runs containers\nvia Engine" {
 runtime_pkg.container_rt -> provisioner: "provisions\nephemeral layers" {
   style.stroke: "#707070"
 }
-runtime_pkg.container_rt -> ssh_server: "starts for\nhost callbacks" {
+runtime_pkg.container_rt -> ssh_server: "uses optional\nhost callbacks" {
   style.stroke: "#707070"
 }
 runtime_pkg.container_rt -> config_pkg: reads config {

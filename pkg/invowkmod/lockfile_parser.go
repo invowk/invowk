@@ -6,8 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
+
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 )
 
 const (
@@ -18,7 +22,6 @@ const (
 
 	unknownLockFileVersionErrMsg    = "unknown lock file version"
 	lockFileV1UpgradeRequiredErrMsg = "lock file uses deprecated v1.0 format"
-	lockFileVersionFieldPrefix      = "version:"
 )
 
 var (
@@ -33,14 +36,8 @@ var (
 	ErrLockFileV1UpgradeRequired = errors.New(lockFileV1UpgradeRequiredErrMsg)
 
 	// knownLockFileVersions is the ordered list of recognized lock file format versions.
-	// Used for validation, error messages, and parser registration.
+	// Used for validation and error messages.
 	knownLockFileVersions = []LockFileVersion{LockFileVersionV1, LockFileVersionV2}
-
-	// lockFileParsers maps known versions to their parser implementations.
-	lockFileParsers = map[LockFileVersion]LockFileParser{
-		LockFileVersionV1: &lockFileParserV1V2{version: LockFileVersionV1, requireContentHash: false},
-		LockFileVersionV2: &lockFileParserV1V2{version: LockFileVersionV2, requireContentHash: true},
-	}
 )
 
 type (
@@ -51,25 +48,27 @@ type (
 		Known   []LockFileVersion
 	}
 
-	// LockFileParser parses lock file content for a specific format version.
-	// Each version has its own implementation, enabling format evolution without
-	// modifying existing parsers. The dispatcher extracts the version field first,
-	// then delegates to the matching parser.
-	LockFileParser interface {
-		// ParseVersion returns the lock file format version this parser handles.
-		ParseVersion() LockFileVersion
-		// Parse parses the lock file content and returns a LockFile.
-		Parse(content string) (*LockFile, error)
+	lockFileCUE struct {
+		Version   LockFileVersion     `json:"version"`
+		Generated lockFileGeneratedAt `json:"generated"`
+		Modules   lockFileModules     `json:"modules"`
 	}
 
-	// lockFileParserV1V2 handles both v1.0 and v2.0 lock file formats.
-	// The two formats share the same line-by-line CUE parser; the only difference
-	// is that v2.0 requires the content_hash field while v1.0 does not (it was
-	// introduced in v2.0). The requireContentHash flag controls validation.
-	lockFileParserV1V2 struct {
-		version            LockFileVersion
-		requireContentHash bool
+	lockFileModules map[ModuleRefKey]lockedModuleCUE
+
+	lockedModuleCUE struct {
+		GitURL          GitURL           `json:"git_url"`
+		Version         SemVerConstraint `json:"version"`
+		ResolvedVersion SemVer           `json:"resolved_version"`
+		GitCommit       GitCommit        `json:"git_commit"`
+		Alias           ModuleAlias      `json:"alias"`
+		Path            SubdirectoryPath `json:"path"`
+		Namespace       ModuleNamespace  `json:"namespace"`
+		ContentHash     ContentHash      `json:"content_hash"`
 	}
+
+	lockFileGeneratedAt string
+	lockFileCUEContent  string
 )
 
 // Error implements the error interface.
@@ -84,37 +83,59 @@ func (e *UnknownLockFileVersionError) Error() string {
 // Unwrap returns ErrUnknownLockFileVersion for errors.Is() compatibility.
 func (e *UnknownLockFileVersionError) Unwrap() error { return ErrUnknownLockFileVersion }
 
-// IsKnownLockFileVersion reports whether the given version has a registered parser.
+// IsKnownLockFileVersion reports whether the given version is supported.
 func IsKnownLockFileVersion(v LockFileVersion) bool {
-	_, ok := lockFileParsers[v]
-	return ok
+	return slices.Contains(knownLockFileVersions, v)
 }
 
-// parseLockFile extracts the version from the content, selects the matching
-// parser, and delegates parsing. Unknown versions fail with an actionable error
-// listing the known versions.
+// parseLockFile parses invowkmod.lock.cue with the CUE parser/evaluator and
+// then maps the decoded data into domain value types. CUE owns syntax,
+// balancing, and concrete-value validation; domain validation owns lock-format
+// versions and module field semantics.
 func parseLockFile(content string) (*LockFile, error) {
-	version := extractLockFileVersion(content)
+	decoded, err := decodeLockFileCUE(lockFileCUEContent(content))
+	if err != nil {
+		return nil, err
+	}
+
+	version := decoded.Version
 	if version == "" {
 		return nil, &InvalidLockFileVersionError{Value: ""}
 	}
-
-	parser, ok := lockFileParsers[version]
-	if !ok {
+	if !IsKnownLockFileVersion(version) {
 		return nil, &UnknownLockFileVersionError{
 			Version: version,
 			Known:   knownLockFileVersions,
 		}
 	}
 
-	lock, err := parser.Parse(content)
+	if strings.TrimSpace(decoded.Generated.String()) == "" {
+		return nil, errors.New("lock file generated: must be non-empty")
+	}
+	generated, err := time.Parse(time.RFC3339, decoded.Generated.String())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("lock file generated: %w", err)
 	}
 
-	// Emit deprecation warning for v1 lock files. v1 lacks content_hash
-	// fields, so tamper detection is not available. A downgrade from v2→v1
-	// silently disables hash enforcement (supply-chain risk).
+	lock := &LockFile{
+		Version:   version,
+		Generated: generated,
+		Modules:   make(map[ModuleRefKey]LockedModule, len(decoded.Modules)),
+	}
+	requireContentHash := version == LockFileVersionV2
+	for key := range decoded.Modules {
+		if err := key.Validate(); err != nil {
+			return nil, fmt.Errorf("lock file module key: %w", err)
+		}
+
+		decodedModule := decoded.Modules[key]
+		mod := lockedModuleFromCUE(decodedModule)
+		if err := validateLockedModuleForVersion(key, mod, requireContentHash); err != nil {
+			return nil, err
+		}
+		lock.Modules[key] = mod
+	}
+
 	if lock.Version == LockFileVersionV1 {
 		slog.Warn("lock file uses deprecated v1.0 format without content hashes; "+
 			"run 'invowk module sync' to upgrade to v2.0 for tamper detection",
@@ -124,134 +145,114 @@ func parseLockFile(content string) (*LockFile, error) {
 	return lock, nil
 }
 
-// extractLockFileVersion reads the version field from lock file content
-// without fully parsing it. This lightweight pre-parse avoids committing
-// to a parser before the version is known.
-func extractLockFileVersion(content string) LockFileVersion {
-	for line := range strings.SplitSeq(content, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "//") || trimmed == "" {
-			continue
-		}
-		if strings.HasPrefix(trimmed, lockFileVersionFieldPrefix) {
-			return LockFileVersion(parseStringValue(trimmed)) //goplint:ignore -- validated by parseLockFile dispatcher
-		}
-		// version: must be the first non-comment, non-empty field.
-		// If we hit a different field first, the file has no version.
-		if strings.Contains(trimmed, ":") {
-			return ""
-		}
+func decodeLockFileCUE(content lockFileCUEContent) (lockFileCUE, error) {
+	ctx := cuecontext.New()
+	value := ctx.CompileString(content.String(), cue.Filename(LockFileName))
+	if err := value.Err(); err != nil {
+		return lockFileCUE{}, fmt.Errorf("parse lock file CUE: %w", err)
 	}
-	return ""
-}
-
-// ParseVersion returns the version this parser handles.
-func (p *lockFileParserV1V2) ParseVersion() LockFileVersion {
-	return p.version
-}
-
-// Parse parses v1.0 or v2.0 lock file content.
-func (p *lockFileParserV1V2) Parse(content string) (*LockFile, error) {
-	lock := NewLockFile()
-
-	lines := strings.Split(content, "\n")
-	var currentModuleKey ModuleRefKey
-	var currentModule LockedModule
-	inModules := false
-	braceDepth := 0
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-
-		if strings.HasPrefix(line, "//") || line == "" {
-			continue
-		}
-
-		// Top-level fields are parsed only outside the modules block.
-		// Without this guard, module-level `version:` fields would be consumed
-		// by the top-level parser (the field names collide).
-		if !inModules {
-			if strings.HasPrefix(line, lockFileVersionFieldPrefix) {
-				lock.Version = LockFileVersion(parseStringValue(line))
-				if err := lock.Version.Validate(); err != nil {
-					return nil, fmt.Errorf("lock file version: %w", err)
-				}
-				continue
-			}
-
-			if strings.HasPrefix(line, "generated:") {
-				if t, err := time.Parse(time.RFC3339, parseStringValue(line)); err == nil {
-					lock.Generated = t
-				}
-				continue
-			}
-		}
-
-		// Track modules block — fall through to process any { on this line
-		if strings.HasPrefix(line, "modules:") {
-			inModules = true
-		}
-
-		if !inModules {
-			continue
-		}
-
-		// Track brace depth
-		if strings.Contains(line, "{") {
-			braceDepth++
-			if braceDepth == 2 && strings.Contains(line, ":") {
-				currentModuleKey = parseModuleKey(line)
-				currentModule = LockedModule{}
-			}
-		}
-		if strings.Contains(line, "}") {
-			if braceDepth == 2 && currentModuleKey != "" {
-				if err := currentModuleKey.Validate(); err != nil {
-					return nil, fmt.Errorf("lock file module key: %w", err)
-				}
-				if err := p.validateModule(currentModuleKey, currentModule); err != nil {
-					return nil, err
-				}
-				lock.Modules[currentModuleKey] = currentModule
-				currentModuleKey = ""
-			}
-			braceDepth--
-			if braceDepth == 0 {
-				inModules = false
-			}
-		}
-
-		// Parse module fields — field-level casts are validated by struct-level checks.
-		if braceDepth == 2 && currentModuleKey != "" {
-			switch {
-			case strings.HasPrefix(line, "git_url:"):
-				currentModule.GitURL = GitURL(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, lockFileVersionFieldPrefix):
-				currentModule.Version = SemVerConstraint(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "resolved_version:"):
-				currentModule.ResolvedVersion = SemVer(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "git_commit:"):
-				currentModule.GitCommit = GitCommit(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "alias:"):
-				currentModule.Alias = ModuleAlias(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "path:"):
-				currentModule.Path = SubdirectoryPath(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "namespace:"):
-				currentModule.Namespace = ModuleNamespace(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			case strings.HasPrefix(line, "content_hash:"):
-				currentModule.ContentHash = ContentHash(parseStringValue(line)) //goplint:ignore -- validated by LockedModule.Validate()
-			}
-		}
+	if err := value.Validate(cue.Concrete(true)); err != nil {
+		return lockFileCUE{}, fmt.Errorf("validate lock file CUE: %w", err)
 	}
 
-	return lock, nil
+	var decoded lockFileCUE
+	if err := value.Decode(&decoded); err != nil {
+		return lockFileCUE{}, fmt.Errorf("decode lock file CUE: %w", err)
+	}
+	if decoded.Modules == nil {
+		decoded.Modules = lockFileModules{}
+	}
+	return decoded, nil
 }
 
-// validateModule validates a parsed LockedModule, respecting version-specific
-// field requirements. Delegates to LockedModule.Validate() as the single source
-// of truth. For v1.0 lock files (which predate content_hash), ContentHash
-// errors are filtered out.
-func (p *lockFileParserV1V2) validateModule(key ModuleRefKey, mod LockedModule) error {
+func lockedModuleFromCUE(module lockedModuleCUE) LockedModule {
+	return LockedModule(module)
+}
+
+func (g lockFileGeneratedAt) String() string { return string(g) }
+
+func (g lockFileGeneratedAt) Validate() error {
+	if strings.TrimSpace(g.String()) == "" {
+		return errors.New("lock file generated: must be non-empty")
+	}
+	if _, err := time.Parse(time.RFC3339, g.String()); err != nil {
+		return fmt.Errorf("lock file generated: %w", err)
+	}
+	return nil
+}
+
+func (c lockFileCUEContent) String() string { return string(c) }
+
+func (c lockFileCUEContent) Validate() error {
+	if strings.TrimSpace(c.String()) == "" {
+		return errors.New("lock file content: must be non-empty")
+	}
+	return nil
+}
+
+func (l lockFileCUE) Validate() error {
+	if err := l.Version.Validate(); err != nil {
+		return err
+	}
+	if err := l.Generated.Validate(); err != nil {
+		return err
+	}
+	if err := l.Modules.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m lockFileModules) Validate() error {
+	for key := range m {
+		if err := key.Validate(); err != nil {
+			return err
+		}
+		mod := m[key]
+		if err := mod.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m lockedModuleCUE) Validate() error {
+	var errs []error
+	if err := m.GitURL.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Version.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.ResolvedVersion.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.GitCommit.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Alias.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Path.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.Namespace.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := m.ContentHash.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidLockedModuleError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// validateLockedModuleForVersion validates a parsed LockedModule, respecting
+// version-specific field requirements. Delegates to LockedModule.Validate() as
+// the single source of truth. For v1.0 lock files, ContentHash errors are
+// filtered out because the field predates v2.0.
+func validateLockedModuleForVersion(key ModuleRefKey, mod LockedModule, requireContentHash bool) error {
 	err := mod.Validate()
 	if err == nil {
 		return nil
@@ -265,7 +266,7 @@ func (p *lockFileParserV1V2) validateModule(key ModuleRefKey, mod LockedModule) 
 	lockedErr.ModuleKey = key
 
 	// v1.0: filter out ContentHash errors (field not present in v1.0 format).
-	if !p.requireContentHash {
+	if !requireContentHash {
 		filtered := lockedErr.FieldErrors[:0]
 		for _, fieldErr := range lockedErr.FieldErrors {
 			if !errors.Is(fieldErr, ErrInvalidContentHash) {

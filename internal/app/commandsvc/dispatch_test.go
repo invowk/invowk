@@ -36,6 +36,11 @@ type (
 		prepareErr error
 		prepared   *runtimepkg.PreparedCommand
 	}
+
+	stubInteractiveExecutor struct {
+		result *runtimepkg.Result
+		called int
+	}
 )
 
 func (s *stubRuntime) Name() string { return s.name }
@@ -65,11 +70,31 @@ func (s *stubInteractiveRuntime) PrepareInteractive(execCtx *runtimepkg.Executio
 	return &runtimepkg.PreparedCommand{Cmd: exec.CommandContext(execCtx.Context, shellPath, shellArgs...)}, nil
 }
 
+func (s *stubInteractiveExecutor) Execute(execCtx *runtimepkg.ExecutionContext, _ invowkfile.CommandName, interactiveRT runtimepkg.InteractiveRuntime) *runtimepkg.Result {
+	s.called++
+	if s.result != nil {
+		return s.result
+	}
+	if err := interactiveRT.Validate(execCtx); err != nil {
+		return &runtimepkg.Result{ExitCode: 1, Error: err}
+	}
+	if _, err := interactiveRT.PrepareInteractive(execCtx); err != nil {
+		return &runtimepkg.Result{ExitCode: 1, Error: err}
+	}
+	return &runtimepkg.Result{ExitCode: 0}
+}
+
 func TestDispatchExecution_Success(t *testing.T) {
 	t.Parallel()
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	svc := &Service{stdout: stdout, stderr: stderr, ssh: &sshServerController{}}
+	svc := &Service{
+		stdout:          stdout,
+		stderr:          stderr,
+		hostAccess:      noopHostAccess{},
+		registryFactory: defaultRuntimeRegistryFactory{},
+		interactive:     defaultInteractiveExecutor{},
+	}
 	cmdInfo, execCtx, execStdout := commandInfoAndContext(t, "echo hello")
 
 	result, diags, err := svc.dispatchExecution(
@@ -99,7 +124,13 @@ func TestDispatchExecution_Success(t *testing.T) {
 func TestDispatchExecution_DependencyError(t *testing.T) {
 	t.Parallel()
 
-	svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}, ssh: &sshServerController{}}
+	svc := &Service{
+		stdout:          &bytes.Buffer{},
+		stderr:          &bytes.Buffer{},
+		hostAccess:      noopHostAccess{},
+		registryFactory: defaultRuntimeRegistryFactory{},
+		interactive:     defaultInteractiveExecutor{},
+	}
 	cmdInfo, execCtx, _ := commandInfoAndContext(t, "echo hello")
 	cmdInfo.Invowkfile.DependsOn = &invowkfile.DependsOn{
 		EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING"}}}},
@@ -262,7 +293,8 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		}
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
-		svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}}
+		executor := &stubInteractiveExecutor{}
+		svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}, interactive: executor}
 		result, err := svc.executeWithRequestedMode(
 			Request{Interactive: true},
 			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual, Context: t.Context()},
@@ -273,6 +305,9 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		}
 		if !errors.Is(result.Error, wantErr) {
 			t.Fatalf("result.Error = %v, want wrapped %v", result.Error, wantErr)
+		}
+		if executor.called != 1 {
+			t.Fatalf("interactive executor called %d times, want 1", executor.called)
 		}
 	})
 
@@ -288,7 +323,8 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		}
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
-		svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}}
+		executor := &stubInteractiveExecutor{}
+		svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}, interactive: executor}
 		result, err := svc.executeWithRequestedMode(
 			Request{Interactive: true},
 			&runtimepkg.ExecutionContext{
@@ -303,6 +339,9 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		}
 		if !errors.Is(result.Error, wantErr) {
 			t.Fatalf("result.Error = %v, want wrapped %v", result.Error, wantErr)
+		}
+		if executor.called != 1 {
+			t.Fatalf("interactive executor called %d times, want 1", executor.called)
 		}
 	})
 }

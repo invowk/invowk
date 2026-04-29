@@ -10,13 +10,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
-	"github.com/invowk/invowk/internal/sshserver"
-	"github.com/invowk/invowk/internal/tui"
-	"github.com/invowk/invowk/internal/tuiserver"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/types"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // RuntimeRegistryResult bundles the runtime registry with its cleanup function,
@@ -34,12 +28,12 @@ type RuntimeRegistryResult struct {
 //  2. Validates timeout string (fail-fast on invalid values).
 //  3. Wraps context with timeout.
 //  4. Validates dependencies (tools, cmds, filepaths, capabilities, custom checks, env vars).
-//  5. Dispatches to interactive mode (alternate screen + TUI server) or standard execution.
+//  5. Dispatches to interactive mode through an adapter port or standard execution.
 //
 // It returns ClassifiedError for runtime failures and raw typed errors for
 // dependency validation. The CLI adapter handles rendering.
 func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (Result, []discovery.Diagnostic, error) {
-	registryResult := CreateRuntimeRegistry(cfg, s.ssh.current())
+	registryResult := s.registryFactory.Create(cfg, s.hostAccess)
 	diags = appendRuntimeRegistryDiagnostics(diags, req, execCtx, registryResult)
 	defer registryResult.Cleanup()
 
@@ -125,7 +119,8 @@ func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.Executi
 
 	interactiveRT := runtime.GetInteractiveRuntime(rt)
 	if interactiveRT != nil {
-		return executeInteractive(execCtx, req.Name, interactiveRT), nil
+		cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- request name was resolved through discovery
+		return s.interactive.Execute(execCtx, cmdName, interactiveRT), nil
 	}
 
 	if req.Verbose {
@@ -143,34 +138,11 @@ func newClassifiedExecutionError(err error) *ClassifiedError {
 	}
 }
 
-// CreateRuntimeRegistry creates and populates the runtime registry.
-// Native and virtual runtimes are always registered because they execute in-process.
-// The container runtime is conditionally registered based on engine availability
-// (Docker or Podman). When an SSH server is active for host access, it is forwarded
-// to the container runtime so containers can reach back into the host.
-//
-// INVARIANT: This function creates exactly one ContainerRuntime instance per call.
-// The ContainerRuntime.runMu mutex provides intra-process serialization as a fallback
-// when flock-based cross-process locking is unavailable (non-Linux platforms).
-// Creating multiple ContainerRuntime instances would give each its own mutex,
-// defeating the serialization and reintroducing the ping_group_range race.
-// See TestCreateRuntimeRegistry_SingleContainerInstance for the enforcement test.
-//
-// The returned result includes the runtime registry, cleanup function, and
-// non-fatal diagnostics produced during runtime initialization.
-func CreateRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) RuntimeRegistryResult {
-	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{
-		Config:    cfg,
-		SSHServer: sshServer,
-	})
-
-	result := RuntimeRegistryResult{
-		Registry:         built.Registry,
-		Cleanup:          built.Cleanup,
-		ContainerInitErr: built.ContainerInitErr,
-	}
-
-	for _, diag := range built.Diagnostics {
+// BridgeRuntimeDiagnostics converts runtime-layer initialization diagnostics
+// into discovery diagnostics for the CLI-facing diagnostic renderer.
+func BridgeRuntimeDiagnostics(diags []runtime.InitDiagnostic) []discovery.Diagnostic {
+	result := make([]discovery.Diagnostic, 0, len(diags))
+	for _, diag := range diags {
 		d, err := discovery.NewDiagnosticWithCause(
 			discovery.SeverityWarning,
 			discovery.DiagnosticCode(diag.Code),
@@ -183,109 +155,8 @@ func CreateRuntimeRegistry(cfg *config.Config, sshServer *sshserver.Server) Runt
 				"code", diag.Code, "error", err)
 			continue
 		}
-		result.Diagnostics = append(result.Diagnostics, d)
+		result = append(result, d)
 	}
 
 	return result
-}
-
-// BridgeTUIRequests bridges TUI component requests from the HTTP-based TUI server
-// to the Bubble Tea event loop. It runs as a goroutine that reads from the server's
-// request channel until closed, converting each HTTP request into a tea.Msg for
-// the interactive model to handle.
-func BridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
-	for req := range server.RequestChannel() {
-		program.Send(tui.TUIComponentMsg{
-			Component:  tui.ComponentType(req.Component),
-			Options:    req.Options,
-			ResponseCh: req.ResponseCh,
-		})
-	}
-}
-
-// executeInteractive runs a command in interactive mode using Bubble Tea's alternate
-// screen buffer. It starts an HTTP-based TUI server for bidirectional component requests
-// between the running command and the terminal UI. For container runtimes, the TUI server
-// URL is rewritten to use the host-reachable address so containers can call back.
-func executeInteractive(ctx *runtime.ExecutionContext, cmdName string, interactiveRT runtime.InteractiveRuntime) *runtime.Result {
-	if err := interactiveRT.Validate(ctx); err != nil {
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for validation failure
-	}
-
-	tuiServer, err := tuiserver.New()
-	if err != nil {
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("failed to create TUI server: %w", err)} //goplint:ignore -- literal exit code for server creation failure
-	}
-
-	// Resolve the Go context once for reuse by both the TUI server and
-	// the interactive command. Parent cancellation (e.g., Ctrl+C) propagates
-	// to server goroutines and the subprocess. The nil guard is defensive —
-	// BuildExecutionContext guarantees non-nil, but executeInteractive is a
-	// package-level function that could be called from other paths.
-	goCtx := ctx.Context
-	if goCtx == nil {
-		goCtx = context.Background()
-	}
-
-	if err = tuiServer.Start(goCtx); err != nil {
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("failed to start TUI server: %w", err)} //goplint:ignore -- literal exit code for server start failure
-	}
-	defer func() {
-		if stopErr := tuiServer.Stop(); stopErr != nil {
-			slog.Debug("TUI server stop failed during cleanup", "error", stopErr)
-		}
-	}()
-
-	// Rewrite the TUI server URL for container runtimes. The TUI server
-	// listens on the host's localhost, but a container's network namespace
-	// isolates it from the host — "localhost" inside the container refers to
-	// the container itself, not the host. We replace localhost with the
-	// engine-specific host-reachable address (e.g., "host.docker.internal"
-	// for Docker, or the host gateway IP for Podman) so the containerized
-	// command can call back to the TUI server over the bridge network.
-	var tuiServerURL types.TUIServerURL
-	if containerRT, ok := interactiveRT.(*runtime.ContainerRuntime); ok {
-		hostAddr := containerRT.GetHostAddressForContainer()
-		tuiServerURL = tuiServer.URLWithHost(hostAddr)
-	} else {
-		tuiServerURL = tuiServer.URL()
-	}
-
-	ctx.TUI.ServerURL = tuiServerURL
-	ctx.TUI.ServerToken = runtime.TUIServerToken(tuiServer.Token())
-
-	prepared, err := interactiveRT.PrepareInteractive(ctx)
-	if err != nil {
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("failed to prepare command: %w", err)} //goplint:ignore -- literal exit code for prepare failure
-	}
-
-	if prepared.Cleanup != nil {
-		defer prepared.Cleanup()
-	}
-
-	prepared.Cmd.Env = append(prepared.Cmd.Env,
-		// Native/virtual runtimes read TUI server coordinates from process env.
-		fmt.Sprintf("%s=%s", tuiserver.EnvTUIAddr, tuiServerURL),
-		fmt.Sprintf("%s=%s", tuiserver.EnvTUIToken, tuiServer.Token()),
-	)
-
-	interactiveResult, err := tui.RunInteractiveCmd(
-		goCtx,
-		tui.InteractiveOptions{
-			Title:       "Running Command",
-			CommandName: invowkfile.CommandName(cmdName), //goplint:ignore -- from Cobra command name, validated by discovery
-			OnProgramReady: func(p *tea.Program) {
-				go BridgeTUIRequests(tuiServer, p)
-			},
-		},
-		prepared.Cmd,
-	)
-	if err != nil {
-		return &runtime.Result{ExitCode: types.ExitCode(1), Error: fmt.Errorf("interactive execution failed: %w", err)} //goplint:ignore -- literal exit code for interactive failure
-	}
-
-	return &runtime.Result{
-		ExitCode: interactiveResult.ExitCode,
-		Error:    interactiveResult.Error,
-	}
 }

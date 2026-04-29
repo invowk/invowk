@@ -20,6 +20,10 @@ const (
 )
 
 var (
+	// ErrInteractiveExecutorNotConfigured is returned when interactive mode is
+	// requested without injecting a terminal adapter into the service.
+	ErrInteractiveExecutorNotConfigured = errors.New("interactive executor not configured")
+
 	// ErrUnsupportedPlatform is returned when a command does not support the current host platform.
 	ErrUnsupportedPlatform = errors.New("unsupported platform")
 

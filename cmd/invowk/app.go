@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/app/deps"
 	appexec "github.com/invowk/invowk/internal/app/execute"
@@ -55,59 +56,10 @@ type (
 		Stderr      io.Writer
 	}
 
-	//goplint:validate-all
-	//
-	// ExecuteRequest captures all CLI execution inputs as an immutable value.
-	// It is the request-scoped data contract between the CLI layer (Cobra handlers)
-	// and the CommandService implementation.
-	ExecuteRequest struct {
-		// Name is the fully-qualified command name (e.g., "io.invowk.sample build").
-		Name string
-		// Args are positional arguments to pass to the command script ($1, $2, etc.).
-		Args []string
-		// Runtime is the --ivk-runtime override (e.g., RuntimeContainer, RuntimeVirtual).
-		// Zero value ("") means no override.
-		Runtime invowkfile.RuntimeMode
-		// Interactive enables alternate screen buffer with TUI server.
-		Interactive bool
-		// Verbose enables verbose diagnostic output.
-		Verbose bool
-		// FromSource is the --ivk-from flag value for source disambiguation.
-		FromSource discovery.SourceID
-		// ForceRebuild forces container image rebuilds, bypassing cache.
-		ForceRebuild bool
-		// Workdir overrides the working directory for the command.
-		Workdir invowkfile.WorkDir
-		// EnvFiles are dotenv file paths from --ivk-env-file flags.
-		EnvFiles []invowkfile.DotenvFilePath
-		// EnvVars are KEY=VALUE pairs from --ivk-env-var flags (highest env priority).
-		EnvVars map[string]string
-		// ConfigPath is the explicit --ivk-config flag value.
-		ConfigPath types.FilesystemPath
-		// FlagValues are parsed flag values from Cobra state (key: flag name).
-		FlagValues map[invowkfile.FlagName]string
-		// FlagDefs are the command's flag definitions from the invowkfile.
-		FlagDefs []invowkfile.Flag
-		// ArgDefs are the command's argument definitions from the invowkfile.
-		ArgDefs []invowkfile.Argument
-		// EnvInheritMode overrides the runtime config env inherit mode.
-		// Zero value ("") means no override.
-		EnvInheritMode invowkfile.EnvInheritMode
-		// EnvInheritAllow overrides the runtime config env allowlist.
-		EnvInheritAllow []invowkfile.EnvVarName
-		// EnvInheritDeny overrides the runtime config env denylist.
-		EnvInheritDeny []invowkfile.EnvVarName
-		// DryRun enables dry-run mode: prints what would be executed without executing.
-		DryRun bool
-		// ResolvedCommand carries a pre-resolved command when the CLI path already
-		// discovered it (dynamic leaf/disambiguated execution). When set, the service
-		// skips a redundant lookup discovery pass.
-		ResolvedCommand *discovery.CommandInfo
-		// UserEnv captures the host environment at execution entry, before invowk
-		// injects command-level env vars. When nil, Execute() populates it eagerly
-		// via captureUserEnv(). Tests can set this to inject a controlled env.
-		UserEnv map[string]string
-	}
+	// ExecuteRequest is the CLI-facing alias for the command service request.
+	// Cobra handlers construct it, while commandsvc owns validation and execution
+	// semantics so the data contract has one source of truth.
+	ExecuteRequest = commandsvc.Request
 
 	//goplint:validate-all
 	//
@@ -201,13 +153,28 @@ func NewApp(d Dependencies) (*App, error) {
 		d.Diagnostics = &defaultDiagnosticRenderer{}
 	}
 	if d.Commands == nil {
-		svc := commandsvc.New(
+		hostAccess, err := commandadapters.NewHostAccess()
+		if err != nil {
+			return nil, err
+		}
+		registryFactory, err := commandadapters.NewRuntimeRegistryFactory()
+		if err != nil {
+			return nil, err
+		}
+		interactiveExecutor, err := commandadapters.NewInteractiveExecutor()
+		if err != nil {
+			return nil, err
+		}
+		svc := commandsvc.NewWithPorts(
 			d.Config,
 			d.Discovery,
 			d.Stdout,
 			d.Stderr,
 			captureUserEnv,
 			loadConfigWithFallback,
+			hostAccess,
+			registryFactory,
+			interactiveExecutor,
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}
@@ -226,8 +193,7 @@ func NewApp(d Dependencies) (*App, error) {
 // to the underlying service, and wraps raw domain errors into styled
 // ServiceErrors for CLI rendering. Dry-run results are rendered here.
 func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
-	svcReq := toServiceRequest(req)
-	result, diags, err := a.svc.Execute(ctx, svcReq)
+	result, diags, err := a.svc.Execute(ctx, req)
 
 	// Handle dry-run rendering: the service returns structured data;
 	// the CLI adapter renders it with lipgloss styles.
@@ -246,32 +212,6 @@ func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (Ex
 		err = renderAndWrapServiceError(err, req)
 	}
 	return ExecuteResult{ExitCode: result.ExitCode}, diags, err
-}
-
-// toServiceRequest converts the CLI-layer ExecuteRequest to a commandsvc.Request.
-func toServiceRequest(req ExecuteRequest) commandsvc.Request {
-	return commandsvc.Request{
-		Name:            req.Name,
-		Args:            req.Args,
-		Runtime:         req.Runtime,
-		Interactive:     req.Interactive,
-		Verbose:         req.Verbose,
-		FromSource:      req.FromSource,
-		ForceRebuild:    req.ForceRebuild,
-		Workdir:         req.Workdir,
-		EnvFiles:        req.EnvFiles,
-		EnvVars:         req.EnvVars,
-		ConfigPath:      req.ConfigPath,
-		FlagValues:      req.FlagValues,
-		FlagDefs:        req.FlagDefs,
-		ArgDefs:         req.ArgDefs,
-		EnvInheritMode:  req.EnvInheritMode,
-		EnvInheritAllow: req.EnvInheritAllow,
-		EnvInheritDeny:  req.EnvInheritDeny,
-		DryRun:          req.DryRun,
-		ResolvedCommand: req.ResolvedCommand,
-		UserEnv:         req.UserEnv,
-	}
 }
 
 // renderAndWrapServiceError inspects the raw domain error from the service and

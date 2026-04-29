@@ -1,13 +1,14 @@
 # Container Runtime Execution Sequence Diagram
 #
 # Detailed flow for container runtime execution including:
-# - CommandService orchestration (SSH/TUI lifecycle)
+# - CommandService orchestration through host access, registry, and interactive ports
 # - Image validation and base image resolution
 # - Ephemeral layer provisioning (separate from base image)
 # - Execution with retry
 # - Cleanup
 #
-# Source: internal/runtime/container_exec.go, container_provision.go
+# Source: internal/app/commandsvc, internal/app/commandadapters,
+# internal/runtime/container_exec.go, container_provision.go
 
 vars: {
   d2-config: {
@@ -22,7 +23,10 @@ title: |md
 shape: sequence_diagram
 
 # Participants
-CLI: CLI (CommandService)
+SVC: Command Service
+HostAccess: Host Access Adapter
+RegistryFactory: Runtime Registry Factory
+Interactive: Interactive Adapter
 SSH: SSH Server
 TUI: TUI Server
 ContainerRT: Container Runtime
@@ -30,26 +34,51 @@ Engine: Engine Abstraction
 Provision: Layer Provisioner
 Container: Docker/Podman
 
-# 0a. One-time init during registry creation
-CLI -> ContainerRT: SetSSHServer(reference) {
+# 0. Commandsvc reaches this point only after runtime resolution, context build,
+# and the dry-run gate. Dry-run returns before host access, registry setup, or containers.
+SVC -> SVC: "Resolve runtime + build execution context"
+SVC -> SVC: "If --ivk-dry-run: return plan\n(no host access, registry, or container side effects)" {
   style.stroke-dash: 3
   style.font-color: "#666666"
 }
 
-# 0b. Per-execution orchestration
-CLI -> CLI: Resolve runtime + validate dependencies
+# 0a. Host access is a port. The default adapter owns the SSH server lifecycle.
+SVC -> HostAccess: "Ensure(ctx)\nif enable_host_ssh"
+HostAccess -> SSH: Start (if needed)
+SSH -> HostAccess: Ready
+HostAccess -> SVC: Ready / no-op
 
-# SSH lifecycle is owned by CommandService (only if enable_host_ssh is true)
-CLI -> SSH: Ensure running (if needed)
-SSH -> CLI: Ready
-
-# TUI lifecycle is owned by interactive orchestration (optional)
-CLI -> TUI: Start (interactive only)
-TUI -> CLI: URL + token
-CLI -> ContainerRT: Inject INVOWK_TUI_* env (interactive only)
+# 0b. Registry construction is a port. The adapter forwards the active SSH reference.
+SVC -> RegistryFactory: "Create(cfg, hostAccess)"
+RegistryFactory -> HostAccess: "SSHServer()\nif active"
+HostAccess -> RegistryFactory: SSH reference
+RegistryFactory -> ContainerRT: SetSSHServer(reference) {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+RegistryFactory -> SVC: Runtime registry + cleanup
+SVC -> SVC: Validate dependencies with selected runtime
 
 # 1. Preparation Phase
-CLI -> ContainerRT: Execute(context)
+SVC -> ContainerRT: "Execute(context)\nstandard mode"
+
+# Interactive orchestration is a separate port and injects TUI env only for attached runs.
+SVC -> Interactive: "Execute(context, runtime)\ninteractive mode only" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+Interactive -> TUI: Start {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+TUI -> Interactive: URL + token {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+Interactive -> ContainerRT: "PrepareInteractive(context with INVOWK_TUI_*)" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
 
 # 1a. Image validation (rejects Alpine/Windows before any work)
 ContainerRT -> ContainerRT: validateSupportedContainerImage()
@@ -71,7 +100,7 @@ Container -> Engine: Image built
 Provision -> ContainerRT: Provisioned image tag
 
 # 2. Runtime setup
-ContainerRT -> ContainerRT: Build env + INVOWK_SSH_* (if enabled)
+ContainerRT -> ContainerRT: "Build env + INVOWK_SSH_*\nif host access reference is active"
 
 # 3. Execution Phase
 ContainerRT -> Engine: Run container (with transient retry)
@@ -84,6 +113,10 @@ Engine -> ContainerRT: Result
 ContainerRT -> ContainerRT: Cleanup runtime resources
 
 # Return
-ContainerRT -> CLI: Result
-CLI -> TUI: Stop (interactive only)
-CLI -> SSH: Stop (if started)
+ContainerRT -> SVC: Result
+Interactive -> TUI: Stop (interactive only) {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+SVC -> HostAccess: Stop (if this execution started it)
+HostAccess -> SSH: Stop

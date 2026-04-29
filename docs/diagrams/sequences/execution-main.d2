@@ -1,7 +1,7 @@
 # Main Execution Sequence Diagram
 #
 # Shows the high-level flow of command execution from user request
-# through the CLI adapter and the 8-step commandsvc.Service.Execute pipeline.
+# through the CLI adapter and the host-access-safe commandsvc.Service.Execute pipeline.
 #
 # Source: cmd/invowk/app.go (CLI adapter), internal/app/commandsvc/service.go (Service.Execute)
 
@@ -24,7 +24,10 @@ SVC: Command Service (commandsvc/)
 Config: Configuration
 Disc: Discovery Engine
 CUE: CUE Parser
+HostAccess: Host Access Adapter
+RegistryFactory: Runtime Registry Factory
 Registry: Runtime Registry
+Interactive: Interactive Adapter
 Runtime: Selected Runtime
 
 # Entry point
@@ -52,22 +55,34 @@ SVC -> SVC: "validateInputs(req, cmd, defs)\nCheck flags, args, platform"
 # Step 4: resolveRuntime
 SVC -> SVC: "resolveRuntime(req, cmd, cfg)\n3-tier: CLI flag > config > command default"
 
-# Step 5: ensureSSHIfNeeded
-SVC -> SVC: "ensureSSHIfNeeded(ctx, req, resolved)\nStart SSH server if container + host access"
-
-# Step 6: buildExecContext
+# Step 5: buildExecContext
 SVC -> SVC: "buildExecContext(req, cmd, defs, resolved)\nProject env vars (INVOWK_FLAG_*, INVOWK_ARG_*)"
 
-# Dry-run intercept (between buildExecContext and dispatchExecution)
+# Dry-run intercept (before host access, registry setup, dependency checks, or containers)
 SVC -> CLI: "If --ivk-dry-run: return dry-run data"
-CLI -> CLI: "Render dry-run plan → exit 0\n(skips dispatchExecution entirely)"
+CLI -> CLI: "Render dry-run plan -> exit 0\n(no host access or runtime side effects)"
 
-# Step 7: dispatchExecution
-SVC -> Registry: "createRuntimeRegistry(cfg)"
-Registry -> SVC: "Registry + Cleanup"
+# Step 6: ensureHostAccessIfNeeded
+SVC -> HostAccess: "Ensure(ctx)\nif selected container runtime enables host access"
+HostAccess -> SVC: Ready / no-op
+
+# Step 7: dispatchExecution through ports
+SVC -> RegistryFactory: "Create(cfg, hostAccess)"
+RegistryFactory -> Registry: "Build registry\nforward SSH reference if active"
+Registry -> RegistryFactory: "Registry + Cleanup + Diagnostics"
+RegistryFactory -> SVC: Runtime registry result
+SVC -> Registry: "Validate dependencies\nwith selected runtime"
 SVC -> Registry: "Get(runtimeMode)"
 Registry -> SVC: Runtime instance
-SVC -> Runtime: Execute(context)
+SVC -> Interactive: "Execute(...)\ninteractive mode only" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+Interactive -> Runtime: "PrepareInteractive + run attached command" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+SVC -> Runtime: "Execute(context)\nstandard mode"
 Runtime -> Runtime: Run script/command
 Runtime -> SVC: Result
 

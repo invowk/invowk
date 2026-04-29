@@ -66,7 +66,7 @@ func (s *Service) ensureSSHIfNeeded(ctx context.Context, resolved appexec.Runtim
 		return nil
 	}
 
-	if err := s.ssh.ensure(ctx); err != nil {
+	if err := s.hostAccess.Ensure(ctx); err != nil {
 		return fmt.Errorf("failed to start SSH server for host access: %w", err)
 	}
 	return nil
