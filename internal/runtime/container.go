@@ -55,7 +55,7 @@ type (
 	// the retry and serialization logic.
 	ContainerRuntime struct {
 		engine          container.Engine
-		sshServer       *sshserver.Server
+		hostCallbacks   HostCallbackServer
 		provisioner     provision.Provisioner
 		provisionConfig *provision.Config
 		cfg             *config.Config
@@ -164,9 +164,14 @@ func (r *ContainerRuntime) SetProvisionConfig(cfg *provision.Config) error {
 	return nil
 }
 
-// SetSSHServer sets the SSH server for host access from containers
+// SetHostCallbacks sets the host callback server for container access to host services.
+func (r *ContainerRuntime) SetHostCallbacks(server HostCallbackServer) {
+	r.hostCallbacks = server
+}
+
+// SetSSHServer sets the SSH server for host access from containers.
 func (r *ContainerRuntime) SetSSHServer(srv *sshserver.Server) {
-	r.sshServer = srv
+	r.SetHostCallbacks(srv)
 }
 
 // Name returns the runtime name

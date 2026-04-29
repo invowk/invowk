@@ -6,7 +6,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
@@ -19,14 +21,15 @@ type (
 	// runtime resolution, host-access lifecycle, execution context construction,
 	// and dispatch. It returns raw typed errors (not styled ServiceErrors).
 	Service struct {
-		config          config.Provider
-		discovery       CommandDiscovery
-		hostAccess      HostAccess
-		registryFactory RuntimeRegistryFactory
-		interactive     InteractiveExecutor
-		observer        ExecutionObserver
-		userEnvFunc     UserEnvFunc
-		configFallback  ConfigFallbackFunc
+		config            config.Provider
+		discovery         CommandDiscovery
+		hostAccess        HostAccess
+		registryFactory   RuntimeRegistryFactory
+		interactive       InteractiveExecutor
+		observer          ExecutionObserver
+		capabilityChecker deps.CapabilityChecker
+		userEnvFunc       UserEnvFunc
+		configFallback    ConfigFallbackFunc
 	}
 
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
@@ -107,7 +110,7 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 		req.UserEnv = s.userEnvFunc()
 	}
 
-	cfg, cmdInfo, diags, err := s.discoverCommand(ctx, req)
+	cfg, cmdInfo, req, diags, err := s.discoverCommand(ctx, req)
 	if err != nil {
 		return Result{}, diags, err
 	}
@@ -165,27 +168,76 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 // checkAmbiguousCommand, and this method — avoiding duplicate filesystem scans.
 // Config is loaded separately because downstream callers need it for runtime
 // registry construction and env builder configuration.
-func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Config, *discovery.CommandInfo, []discovery.Diagnostic, error) {
+func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
 	cfg, _ := s.loadConfig(ctx, string(req.ConfigPath))
 	if req.ResolvedCommand != nil {
-		return cfg, req.ResolvedCommand, nil, nil
+		return cfg, req.ResolvedCommand, req, nil, nil
+	}
+
+	if req.FromSource != "" {
+		return s.discoverCommandFromSource(ctx, cfg, req)
 	}
 
 	lookup, err := s.discovery.GetCommand(ctx, req.Name)
 	diags := slices.Clone(lookup.Diagnostics)
 	if err != nil {
-		return nil, nil, diags, err
+		return nil, nil, req, diags, err
 	}
 
 	if lookup.Command == nil {
-		return nil, nil, diags, &ClassifiedError{
+		return nil, nil, req, diags, &ClassifiedError{
 			Err:     fmt.Errorf("command '%s' not found", req.Name),
 			IssueID: issue.CommandNotFoundId,
 			Message: "",
 		}
 	}
 
-	return cfg, lookup.Command, diags, nil
+	return cfg, lookup.Command, req, diags, nil
+}
+
+func (s *Service) discoverCommandFromSource(ctx context.Context, cfg *config.Config, req Request) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+	result, err := s.discovery.DiscoverCommandSet(ctx)
+	if err != nil {
+		return nil, nil, req, nil, err
+	}
+	diags := slices.Clone(result.Diagnostics)
+	if result.Set == nil || !slices.Contains(result.Set.SourceOrder, req.FromSource) {
+		return nil, nil, req, diags, &ClassifiedError{
+			Err:     fmt.Errorf("source '%s' not found", req.FromSource),
+			IssueID: issue.CommandNotFoundId,
+			Message: "",
+		}
+	}
+
+	tokens := strings.Fields(req.Name)
+	tokens = append(tokens, req.Args...)
+	var target *discovery.CommandInfo
+	matchLen := 0
+	for i := len(tokens); i > 0; i-- {
+		candidate := strings.Join(tokens[:i], " ")
+		for _, cmd := range result.Set.BySource[req.FromSource] {
+			if string(cmd.SimpleName) == candidate || string(cmd.Name) == candidate {
+				target = cmd
+				matchLen = i
+				break
+			}
+		}
+		if target != nil {
+			break
+		}
+	}
+	if target == nil {
+		return nil, nil, req, diags, &ClassifiedError{
+			Err:     fmt.Errorf("command '%s' not found in source '%s'", req.Name, req.FromSource),
+			IssueID: issue.CommandNotFoundId,
+			Message: "",
+		}
+	}
+
+	req.Name = string(target.Name)
+	req.Args = slices.Clone(tokens[matchLen:])
+	req.ResolvedCommand = target
+	return cfg, target, req, diags, nil
 }
 
 // resolveDefinitions resolves flag/arg definitions and flag values by applying

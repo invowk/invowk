@@ -68,7 +68,7 @@ func runTuiInput(cmd *cobra.Command, _ []string) error {
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
-		result, err = client.Input(tuiserver.InputRequest{
+		result, err = client.InputContext(cmd.Context(), tuiserver.InputRequest{
 			Title:       inputTitle,
 			Description: inputDescription,
 			Placeholder: inputPlaceholder,

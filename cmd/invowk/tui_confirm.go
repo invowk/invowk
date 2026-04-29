@@ -63,7 +63,7 @@ func runTuiConfirm(cmd *cobra.Command, args []string) error {
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
-		confirmed, err = client.Confirm(tuiserver.ConfirmRequest{
+		confirmed, err = client.ConfirmContext(cmd.Context(), tuiserver.ConfirmRequest{
 			Title:       title,
 			Affirmative: confirmAffirmative,
 			Negative:    confirmNegative,

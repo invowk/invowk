@@ -79,7 +79,7 @@ func runTuiFile(cmd *cobra.Command, args []string) error {
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
-		result, err = client.File(tuiserver.FileRequest{
+		result, err = client.FileContext(cmd.Context(), tuiserver.FileRequest{
 			Title:       fileTitle,
 			Description: fileDescription,
 			Path:        startPath,

@@ -60,7 +60,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 				_ = os.Remove(string(tempScriptPath))
 			}
 			if sshConnInfo != nil {
-				r.sshServer.RevokeToken(sshConnInfo.Token)
+				r.hostCallbacks.RevokeToken(sshConnInfo.Token)
 			}
 			if provisionCleanup != nil {
 				provisionCleanup()
@@ -165,7 +165,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext) (_ *
 			_ = os.Remove(string(tempScriptPath)) // Cleanup temp file; error non-critical
 		}
 		if sshConnInfo != nil {
-			r.sshServer.RevokeToken(sshConnInfo.Token)
+			r.hostCallbacks.RevokeToken(sshConnInfo.Token)
 		}
 		if provisionCleanup != nil {
 			provisionCleanup()
@@ -404,10 +404,10 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 // setupSSHConnection sets up SSH connection for container host access
 func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[string]string) (*sshserver.ConnectionInfo, error) {
-	if r.sshServer == nil {
+	if r.hostCallbacks == nil {
 		return nil, errSSHServerNotConfigured
 	}
-	if !r.sshServer.IsRunning() {
+	if !r.hostCallbacks.IsRunning() {
 		return nil, errSSHServerNotRunning
 	}
 
@@ -422,7 +422,7 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 			"command_name", ctx.Command.Name, "execution_id", executionID)
 	}
 	commandID := fmt.Sprintf("%s-%s", ctx.Command.Name, executionID)
-	sshConnInfo, err := r.sshServer.GetConnectionInfo(commandID)
+	sshConnInfo, err := r.hostCallbacks.GetConnectionInfo(commandID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate SSH credentials: %w", err)
 	}

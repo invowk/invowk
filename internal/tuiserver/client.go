@@ -53,11 +53,19 @@ func NewClient(addr string, token AuthToken) *Client {
 
 // IsAvailable checks if the TUI server is available.
 func (c *Client) IsAvailable() bool {
+	return c.IsAvailableContext(context.Background())
+}
+
+// IsAvailableContext checks if the TUI server is available with caller cancellation.
+func (c *Client) IsAvailableContext(ctx context.Context) bool {
 	if c == nil {
 		return false
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, c.addr+"/health", http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.addr+"/health", http.NoBody)
 	if err != nil {
 		return false
 	}
@@ -73,7 +81,12 @@ func (c *Client) IsAvailable() bool {
 // Input sends an input prompt request to the TUI server.
 // Returns the entered text or an error.
 func (c *Client) Input(opts InputRequest) (string, error) {
-	resp, err := c.sendRequest(ComponentInput, opts)
+	return c.InputContext(context.Background(), opts)
+}
+
+// InputContext sends an input prompt request with caller cancellation.
+func (c *Client) InputContext(ctx context.Context, opts InputRequest) (string, error) {
+	resp, err := c.sendRequestContext(ctx, ComponentInput, opts)
 	if err != nil {
 		return "", err
 	}
@@ -93,7 +106,12 @@ func (c *Client) Input(opts InputRequest) (string, error) {
 // Confirm sends a confirm prompt request to the TUI server.
 // Returns true if confirmed, false if not.
 func (c *Client) Confirm(opts ConfirmRequest) (bool, error) {
-	resp, err := c.sendRequest(ComponentConfirm, opts)
+	return c.ConfirmContext(context.Background(), opts)
+}
+
+// ConfirmContext sends a confirm prompt request with caller cancellation.
+func (c *Client) ConfirmContext(ctx context.Context, opts ConfirmRequest) (bool, error) {
+	resp, err := c.sendRequestContext(ctx, ComponentConfirm, opts)
 	if err != nil {
 		return false, err
 	}
@@ -114,7 +132,12 @@ func (c *Client) Confirm(opts ConfirmRequest) (bool, error) {
 // For single-select (limit <= 1), returns the selected option as a string.
 // For multi-select (limit > 1 or no_limit), returns a slice of strings.
 func (c *Client) Choose(opts ChooseRequest) (any, error) {
-	resp, err := c.sendRequest(ComponentChoose, opts)
+	return c.ChooseContext(context.Background(), opts)
+}
+
+// ChooseContext sends a choose prompt request with caller cancellation.
+func (c *Client) ChooseContext(ctx context.Context, opts ChooseRequest) (any, error) {
+	resp, err := c.sendRequestContext(ctx, ComponentChoose, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -134,10 +157,15 @@ func (c *Client) Choose(opts ChooseRequest) (any, error) {
 // ChooseSingle is a convenience method for single-select choose.
 // Returns the selected option as a string.
 func (c *Client) ChooseSingle(opts ChooseRequest) (string, error) {
+	return c.ChooseSingleContext(context.Background(), opts)
+}
+
+// ChooseSingleContext is a convenience method for single-select choose with caller cancellation.
+func (c *Client) ChooseSingleContext(ctx context.Context, opts ChooseRequest) (string, error) {
 	opts.Limit = 1
 	opts.NoLimit = false
 
-	result, err := c.Choose(opts)
+	result, err := c.ChooseContext(ctx, opts)
 	if err != nil {
 		return "", err
 	}
@@ -161,7 +189,12 @@ func (c *Client) ChooseSingle(opts ChooseRequest) (string, error) {
 // ChooseMultiple is a convenience method for multi-select choose.
 // Returns the selected options as a slice of strings.
 func (c *Client) ChooseMultiple(opts ChooseRequest) ([]string, error) {
-	result, err := c.Choose(opts)
+	return c.ChooseMultipleContext(context.Background(), opts)
+}
+
+// ChooseMultipleContext is a convenience method for multi-select choose with caller cancellation.
+func (c *Client) ChooseMultipleContext(ctx context.Context, opts ChooseRequest) ([]string, error) {
+	result, err := c.ChooseContext(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +219,12 @@ func (c *Client) ChooseMultiple(opts ChooseRequest) ([]string, error) {
 // Filter sends a filter prompt request to the TUI server.
 // Returns the selected options.
 func (c *Client) Filter(opts FilterRequest) ([]string, error) {
-	resp, err := c.sendRequest(ComponentFilter, opts)
+	return c.FilterContext(context.Background(), opts)
+}
+
+// FilterContext sends a filter prompt request with caller cancellation.
+func (c *Client) FilterContext(ctx context.Context, opts FilterRequest) ([]string, error) {
+	resp, err := c.sendRequestContext(ctx, ComponentFilter, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +244,12 @@ func (c *Client) Filter(opts FilterRequest) ([]string, error) {
 // File sends a file picker request to the TUI server.
 // Returns the selected file path.
 func (c *Client) File(opts FileRequest) (string, error) {
-	resp, err := c.sendRequest(ComponentFile, opts)
+	return c.FileContext(context.Background(), opts)
+}
+
+// FileContext sends a file picker request with caller cancellation.
+func (c *Client) FileContext(ctx context.Context, opts FileRequest) (string, error) {
+	resp, err := c.sendRequestContext(ctx, ComponentFile, opts)
 	if err != nil {
 		return "", err
 	}
@@ -225,14 +268,24 @@ func (c *Client) File(opts FileRequest) (string, error) {
 
 // Write sends a styled text output request to the TUI server.
 func (c *Client) Write(opts WriteRequest) error {
-	_, err := c.sendRequest(ComponentWrite, opts)
+	return c.WriteContext(context.Background(), opts)
+}
+
+// WriteContext sends a styled text output request with caller cancellation.
+func (c *Client) WriteContext(ctx context.Context, opts WriteRequest) error {
+	_, err := c.sendRequestContext(ctx, ComponentWrite, opts)
 	return err
 }
 
 // TextArea sends a multi-line text input request to the TUI server.
 // Returns the entered text or an error.
 func (c *Client) TextArea(opts TextAreaRequest) (string, error) {
-	resp, err := c.sendRequest(ComponentTextArea, opts)
+	return c.TextAreaContext(context.Background(), opts)
+}
+
+// TextAreaContext sends a multi-line text input request with caller cancellation.
+func (c *Client) TextAreaContext(ctx context.Context, opts TextAreaRequest) (string, error) {
+	resp, err := c.sendRequestContext(ctx, ComponentTextArea, opts)
 	if err != nil {
 		return "", err
 	}
@@ -252,7 +305,12 @@ func (c *Client) TextArea(opts TextAreaRequest) (string, error) {
 // Spin sends a spinner request to the TUI server.
 // Returns the command output and exit code.
 func (c *Client) Spin(opts SpinRequest) (*SpinResult, error) {
-	resp, err := c.sendRequest(ComponentSpin, opts)
+	return c.SpinContext(context.Background(), opts)
+}
+
+// SpinContext sends a spinner request with caller cancellation.
+func (c *Client) SpinContext(ctx context.Context, opts SpinRequest) (*SpinResult, error) {
+	resp, err := c.sendRequestContext(ctx, ComponentSpin, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -267,14 +325,24 @@ func (c *Client) Spin(opts SpinRequest) (*SpinResult, error) {
 
 // Pager sends a pager request to the TUI server.
 func (c *Client) Pager(opts PagerRequest) error {
-	_, err := c.sendRequest(ComponentPager, opts)
+	return c.PagerContext(context.Background(), opts)
+}
+
+// PagerContext sends a pager request with caller cancellation.
+func (c *Client) PagerContext(ctx context.Context, opts PagerRequest) error {
+	_, err := c.sendRequestContext(ctx, ComponentPager, opts)
 	return err
 }
 
 // Table sends a table request to the TUI server.
 // Returns the selected row and index.
 func (c *Client) Table(opts TableRequest) (*TableResult, error) {
-	resp, err := c.sendRequest(ComponentTable, opts)
+	return c.TableContext(context.Background(), opts)
+}
+
+// TableContext sends a table request with caller cancellation.
+func (c *Client) TableContext(ctx context.Context, opts TableRequest) (*TableResult, error) {
+	resp, err := c.sendRequestContext(ctx, ComponentTable, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -291,8 +359,11 @@ func (c *Client) Table(opts TableRequest) (*TableResult, error) {
 	return &result, nil
 }
 
-// sendRequest sends a TUI request to the server and returns the response.
-func (c *Client) sendRequest(component Component, options any) (result *Response, err error) {
+// sendRequestContext sends a TUI request to the server and returns the response.
+func (c *Client) sendRequestContext(ctx context.Context, component Component, options any) (result *Response, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	optionsJSON, err := json.Marshal(options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal options: %w", err)
@@ -308,7 +379,7 @@ func (c *Client) sendRequest(component Component, options any) (result *Response
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.addr+"/tui", bytes.NewReader(reqBody))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.addr+"/tui", bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}

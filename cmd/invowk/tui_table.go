@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -93,7 +94,7 @@ func runTuiTable(cmd *cobra.Command, _ []string) error {
 	}
 
 	headers, rows := splitHeadersAndData(rows, cfg.columns)
-	selectedIdx, selectedRow, err := renderTableSelection(cfg, headers, rows)
+	selectedIdx, selectedRow, err := renderTableSelection(cmd.Context(), cfg, headers, rows)
 	if err != nil {
 		return err
 	}
@@ -213,20 +214,20 @@ func splitHeadersAndData(rows [][]string, override tableColumns) (headers []stri
 }
 
 //goplint:ignore -- CLI table helpers operate on transient display rows.
-func renderTableSelection(cfg tableConfig, headers []string, rows [][]string) (selectedIdx int, selectedRow []string, err error) {
+func renderTableSelection(ctx context.Context, cfg tableConfig, headers []string, rows [][]string) (selectedIdx int, selectedRow []string, err error) {
 	if client := tuiserver.NewClientFromEnv(); client != nil {
-		return renderTUITableWithClient(cfg, headers, rows, client)
+		return renderTUITableWithClient(ctx, cfg, headers, rows, client)
 	}
 	return renderTUITableDirect(cfg, headers, rows)
 }
 
 //goplint:ignore -- CLI table helpers operate on transient display rows.
-func renderTUITableWithClient(cfg tableConfig, headers []string, rows [][]string, client *tuiserver.Client) (selectedIdx int, selectedRow []string, err error) {
+func renderTUITableWithClient(ctx context.Context, cfg tableConfig, headers []string, rows [][]string, client *tuiserver.Client) (selectedIdx int, selectedRow []string, err error) {
 	border := "normal"
 	if !cfg.selectable {
 		border = "none"
 	}
-	result, err := client.Table(tuiserver.TableRequest{
+	result, err := client.TableContext(ctx, tuiserver.TableRequest{
 		Columns:   headers,
 		Rows:      rows,
 		Widths:    []int(cfg.widths),

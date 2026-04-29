@@ -25,15 +25,22 @@ var _ Provisioner = (*LayerProvisioner)(nil)
 // - modules directory hash
 //
 // This allows fast reuse when resources haven't changed.
-type LayerProvisioner struct {
-	engine  container.Engine
-	config  *Config
-	copyDir func(src, dst string) error
-}
+type (
+	imageBuilder interface {
+		ImageExists(context.Context, container.ImageTag) (bool, error)
+		Build(context.Context, container.BuildOptions) error
+	}
+
+	LayerProvisioner struct {
+		engine  imageBuilder
+		config  *Config
+		copyDir func(src, dst string) error
+	}
+)
 
 // NewLayerProvisioner creates a new LayerProvisioner.
 // It validates the Config if provided; nil defaults to DefaultConfig().
-func NewLayerProvisioner(engine container.Engine, cfg *Config) (*LayerProvisioner, error) {
+func NewLayerProvisioner(engine imageBuilder, cfg *Config) (*LayerProvisioner, error) {
 	if cfg == nil {
 		cfg = DefaultConfig()
 	}

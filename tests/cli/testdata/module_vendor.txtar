@@ -106,7 +106,7 @@ cmds: []
 // invowkmod.lock.cue - Auto-generated lock file for module dependencies
 // DO NOT EDIT MANUALLY
 
-version: "1.0"
+version: "2.0"
 generated: "2025-01-01T00:00:00Z"
 
 modules: {
@@ -116,6 +116,7 @@ modules: {
 		resolved_version: "1.0.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "dep@1.0.0"
+		content_hash:     "sha256:b9cd452f25142af660ad9199ef5180efc597e9a11b540eab0cc8e907844a5098"
 	}
 }
 

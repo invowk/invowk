@@ -115,21 +115,25 @@ func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding 
 
 		// Collect the titles of findings from the two required checkers.
 		var escalatedFrom []string
+		var escalatedFromCodes []FindingCode
 		for i := range findings {
 			if findings[i].CheckerName == rule.RequiredCheckers[0] || findings[i].CheckerName == rule.RequiredCheckers[1] {
 				escalatedFrom = append(escalatedFrom, findings[i].Title)
+				escalatedFromCodes = append(escalatedFromCodes, findings[i].CodeOrDefault())
 			}
 		}
 
 		result = append(result, Finding{
-			Severity:       rule.ResultSeverity,
-			Category:       rule.ResultCategory,
-			SurfaceID:      surfaceID,
-			CheckerName:    "correlator",
-			Title:          rule.ResultTitle,
-			Description:    rule.Description,
-			Recommendation: rule.ResultRecommendation,
-			EscalatedFrom:  escalatedFrom,
+			Code:               FindingCode("correlator-" + rule.Name), //goplint:ignore -- rule names are package-defined constants.
+			Severity:           rule.ResultSeverity,
+			Category:           rule.ResultCategory,
+			SurfaceID:          surfaceID,
+			CheckerName:        "correlator",
+			Title:              rule.ResultTitle,
+			Description:        rule.Description,
+			Recommendation:     rule.ResultRecommendation,
+			EscalatedFrom:      escalatedFrom,
+			EscalatedFromCodes: escalatedFromCodes,
 		})
 	}
 
@@ -162,6 +166,7 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 	// Rule: 3+ distinct categories → Critical.
 	if len(categories) >= 3 {
 		result = append(result, Finding{
+			Code:           "correlator-multiple-categories",
 			Severity:       SeverityCritical,
 			Category:       CategoryTrust,
 			SurfaceID:      surfaceID,
@@ -176,6 +181,7 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 	// Rule: High + any → Critical.
 	if highCount > 0 && len(findings) > 1 {
 		result = append(result, Finding{
+			Code:           "correlator-high-plus-other",
 			Severity:       SeverityCritical,
 			Category:       CategoryTrust,
 			SurfaceID:      surfaceID,
@@ -190,6 +196,7 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 	// Rule: Medium + Medium → High.
 	if mediumCount >= 2 {
 		result = append(result, Finding{
+			Code:           "correlator-medium-plus-medium",
 			Severity:       SeverityHigh,
 			Category:       CategoryTrust,
 			SurfaceID:      surfaceID,

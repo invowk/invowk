@@ -97,7 +97,7 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
-		results, err = client.Filter(tuiserver.FilterRequest{
+		results, err = client.FilterContext(cmd.Context(), tuiserver.FilterRequest{
 			Title:       filterTitle,
 			Placeholder: filterPlaceholder,
 			Options:     options,

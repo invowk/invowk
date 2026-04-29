@@ -302,6 +302,50 @@ func TestValidateDependencies(t *testing.T) {
 			t.Fatalf("ValidateDependencies() = %v, expected nil (phase 2 skipped for non-container)", err)
 		}
 	})
+
+	t.Run("host capability checker is injectable", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &invowkfile.Command{
+			Name: "net",
+			DependsOn: &invowkfile.DependsOn{
+				Capabilities: []invowkfile.CapabilityDependency{
+					{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityInternet}},
+				},
+			},
+			Implementations: []invowkfile.Implementation{{
+				Script:   "echo net",
+				Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+			}},
+		}
+		cmdInfo := &discovery.CommandInfo{
+			Name:       cmd.Name,
+			Command:    cmd,
+			Invowkfile: &invowkfile.Invowkfile{},
+		}
+		execCtx := &runtimepkg.ExecutionContext{
+			Command:         cmd,
+			Context:         t.Context(),
+			SelectedRuntime: invowkfile.RuntimeVirtual,
+			SelectedImpl:    &cmd.Implementations[0],
+		}
+
+		err := ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, runtimepkg.NewRegistry(), execCtx, nil,
+			fakeCapabilityChecker{
+				invowkfile.CapabilityInternet: errors.New("offline"),
+			},
+		)
+		if err == nil {
+			t.Fatal("expected injected capability checker error")
+		}
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+		}
+		if len(depErr.MissingCapabilities) != 1 {
+			t.Fatalf("len(MissingCapabilities) = %d, want 1", len(depErr.MissingCapabilities))
+		}
+	})
 }
 
 func TestValidateRuntimeDependencies(t *testing.T) {

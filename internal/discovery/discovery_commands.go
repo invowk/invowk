@@ -233,9 +233,13 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		isModule := file.Module != nil
 		switch {
 		case isModule:
-			// From a module - use short name from folder
-			sourceID = SourceID(getModuleShortName(file.Module.Path))
-			modID := file.Module.Name()
+			// From a module - use the effective module namespace so configured
+			// aliases affect collision handling and command publishing equally.
+			modID := d.GetEffectiveModuleID(file)
+			sourceID = SourceID(modID)
+			if alias := d.getAliasForModulePath(file.Module.Path); alias == "" {
+				sourceID = SourceID(getModuleShortName(file.Module.Path))
+			}
 			moduleID = &modID
 		default:
 			// Non-module source: root invowkfile in current directory
@@ -243,11 +247,15 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		}
 
 		flatCmds := file.Invowkfile.FlattenCommands()
-		for fullName, cmd := range flatCmds {
+		for _, cmd := range flatCmds {
 			// Extract simple name for conflict detection and display.
 			// For modules, FlattenCommands() returns prefixed names like "foo build",
 			// so we use cmd.Name which is the original unprefixed name.
 			simpleName := cmd.Name
+			fullName := simpleName
+			if isModule {
+				fullName = invowkfile.CommandName(string(sourceID) + " " + string(simpleName)) //goplint:ignore -- source ID and simple name were validated by discovery/schema
+			}
 
 			// For non-module sources, maintain precedence (skip if already seen)
 			if !isModule {

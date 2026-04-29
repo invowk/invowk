@@ -102,5 +102,5 @@ func (s *Service) buildExecContext(ctx context.Context, req Request, cmdInfo *di
 // applies rendering. Discovery is routed through s.discovery so the per-request
 // cache avoids redundant filesystem scans.
 func (s *Service) validateDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry, userEnv map[string]string) error {
-	return deps.ValidateDependencies(s.discovery, cmdInfo, registry, execCtx, userEnv)
+	return deps.ValidateDependenciesWithCapabilityChecker(s.discovery, cmdInfo, registry, execCtx, userEnv, s.capabilityChecker)
 }

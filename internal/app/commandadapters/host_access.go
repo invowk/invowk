@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/sshserver"
 )
 
@@ -82,9 +83,12 @@ func (h *HostAccess) Stop() {
 // SSHServer returns the active SSH server instance, or nil if not started. The
 // runtime registry adapter uses this to pass host-access coordinates to the
 // container runtime without exposing SSH details to commandsvc.
-func (h *HostAccess) SSHServer() *sshserver.Server {
+func (h *HostAccess) SSHServer() runtime.HostCallbackServer {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	if h.instance == nil {
+		return nil
+	}
 	return h.instance
 }

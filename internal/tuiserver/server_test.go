@@ -356,19 +356,8 @@ func TestServerUnknownComponent(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// With the new architecture, the server returns 200 with an error in the response body
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, resp.StatusCode)
-	}
-
-	// Check the response contains an error
-	var tuiResp Response
-	if err := json.NewDecoder(resp.Body).Decode(&tuiResp); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-
-	if tuiResp.Error == "" {
-		t.Error("Expected error in response for unknown component")
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, resp.StatusCode)
 	}
 }
 

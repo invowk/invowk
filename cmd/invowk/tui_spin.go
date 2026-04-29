@@ -68,7 +68,7 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
-		result, clientErr := client.Spin(tuiserver.SpinRequest{
+		result, clientErr := client.SpinContext(cmd.Context(), tuiserver.SpinRequest{
 			Title:   spinTitle,
 			Spinner: spinType,
 			Command: args, // Full command including args

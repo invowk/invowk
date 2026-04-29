@@ -318,20 +318,7 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 	var modules []*ResolvedModule
 	for key := range lock.Modules {
 		entry := lock.Modules[key]
-		modules = append(modules, &ResolvedModule{
-			ModuleRef: ModuleRef{
-				GitURL:  entry.GitURL,
-				Version: entry.Version,
-				Alias:   entry.Alias,
-				Path:    entry.Path,
-			},
-			ResolvedVersion: entry.ResolvedVersion,
-			GitCommit:       entry.GitCommit,
-			CachePath:       types.FilesystemPath(m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path))),
-			Namespace:       entry.Namespace,
-			ModuleID:        entry.ModuleID,
-			ModuleName:      extractModuleName(key),
-		})
+		modules = append(modules, m.resolvedModuleFromLockEntry(key, entry))
 	}
 
 	return modules, nil
@@ -339,8 +326,43 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 
 // LoadFromLock loads modules from an existing lock file without re-resolving.
 // This is used for command discovery when a lock file already exists.
-func (m *Resolver) LoadFromLock(ctx context.Context) ([]*ResolvedModule, error) {
-	return m.List(ctx)
+func (m *Resolver) LoadFromLock(_ context.Context) ([]*ResolvedModule, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
+	lock, err := invowkmod.LoadLockFile(lockPath)
+	if err != nil {
+		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+	}
+	if err := lock.RequireV2(); err != nil {
+		return nil, err
+	}
+
+	modules := make([]*ResolvedModule, 0, len(lock.Modules))
+	for key := range lock.Modules {
+		entry := lock.Modules[key]
+		modules = append(modules, m.resolvedModuleFromLockEntry(key, entry))
+	}
+	return modules, nil
+}
+
+func (m *Resolver) resolvedModuleFromLockEntry(key ModuleRefKey, entry LockedModule) *ResolvedModule {
+	return &ResolvedModule{
+		ModuleRef: ModuleRef{
+			GitURL:  entry.GitURL,
+			Version: entry.Version,
+			Alias:   entry.Alias,
+			Path:    entry.Path,
+		},
+		ResolvedVersion: entry.ResolvedVersion,
+		GitCommit:       entry.GitCommit,
+		CachePath:       types.FilesystemPath(m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path))),
+		Namespace:       entry.Namespace,
+		ModuleID:        entry.ModuleID,
+		ModuleName:      extractModuleName(key),
+		ContentHash:     entry.ContentHash,
+	}
 }
 
 // loadExistingLockHashes loads content hashes from the existing lock file

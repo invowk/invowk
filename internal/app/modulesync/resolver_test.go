@@ -610,6 +610,80 @@ func TestRemoveByNamespace(t *testing.T) {
 	}
 }
 
+func TestLoadFromLockPreservesContentHash(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	cacheDir := t.TempDir()
+	lockPath := filepath.Join(workDir, LockFileName)
+	wantHash := ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	lock := invowkmod.NewLockFile()
+	lock.Modules["https://github.com/user/tools.git"] = LockedModule{
+		GitURL:          "https://github.com/user/tools.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.2.3",
+		GitCommit:       "abc123def456789012345678901234567890abcd",
+		Namespace:       "tools@1.2.3",
+		ModuleID:        "io.example.tools",
+		ContentHash:     wantHash,
+	}
+	if err := lock.Save(lockPath); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	resolver, err := NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir))
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+	modules, err := resolver.LoadFromLock(t.Context())
+	if err != nil {
+		t.Fatalf("LoadFromLock() error = %v", err)
+	}
+	if len(modules) != 1 {
+		t.Fatalf("LoadFromLock() returned %d modules, want 1", len(modules))
+	}
+	if modules[0].ContentHash != wantHash {
+		t.Errorf("ContentHash = %q, want %q", modules[0].ContentHash, wantHash)
+	}
+}
+
+func TestLoadFromLockRejectsV1LockFile(t *testing.T) {
+	t.Parallel()
+
+	workDir := t.TempDir()
+	cacheDir := t.TempDir()
+	lockPath := filepath.Join(workDir, LockFileName)
+	lockContent := `// invowkmod.lock.cue - Auto-generated lock file for module dependencies
+version: "1.0"
+generated: "2026-04-29T00:00:00Z"
+
+modules: {
+	"https://github.com/user/tools.git": {
+		git_url:          "https://github.com/user/tools.git"
+		version:          "^1.0.0"
+		resolved_version: "1.2.3"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "tools@1.2.3"
+	}
+}
+`
+	if err := os.WriteFile(lockPath, []byte(lockContent), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	resolver, err := NewResolver(types.FilesystemPath(workDir), types.FilesystemPath(cacheDir))
+	if err != nil {
+		t.Fatalf("NewResolver() error = %v", err)
+	}
+	_, err = resolver.LoadFromLock(t.Context())
+	if err == nil {
+		t.Fatal("LoadFromLock() error = nil, want v1 upgrade error")
+	}
+	if !errors.Is(err, invowkmod.ErrLockFileV1UpgradeRequired) {
+		t.Fatalf("LoadFromLock() error = %v, want ErrLockFileV1UpgradeRequired", err)
+	}
+}
+
 func TestAddWritesLockFile(t *testing.T) {
 	t.Parallel()
 

@@ -56,6 +56,7 @@ type (
 	auditJSONOutput struct {
 		Findings        []auditJSONFinding `json:"findings"`
 		CompoundThreats []auditJSONFinding `json:"compound_threats,omitempty"`
+		Diagnostics     []audit.Diagnostic `json:"diagnostics,omitempty"`
 		Summary         auditJSONSummary   `json:"summary"`
 	}
 
@@ -64,17 +65,20 @@ type (
 	// auditCheckerName is a JSON DTO string for checker provenance.
 	auditCheckerName string
 
+	//goplint:ignore -- CLI JSON DTO fields are wire-format primitives.
 	auditJSONFinding struct {
-		Severity       string           `json:"severity"`
-		Category       string           `json:"category"`
-		SurfaceID      string           `json:"surface_id,omitempty"`
-		CheckerName    auditCheckerName `json:"checker_name"`
-		FilePath       string           `json:"file_path,omitempty"`
-		Line           int              `json:"line,omitempty"`
-		Title          string           `json:"title"`
-		Description    string           `json:"description"`
-		Recommendation string           `json:"recommendation"`
-		EscalatedFrom  []string         `json:"escalated_from,omitempty"`
+		Code               audit.FindingCode   `json:"code"`
+		Severity           string              `json:"severity"`
+		Category           string              `json:"category"`
+		SurfaceID          string              `json:"surface_id,omitempty"`
+		CheckerName        auditCheckerName    `json:"checker_name"`
+		FilePath           string              `json:"file_path,omitempty"`
+		Line               int                 `json:"line,omitempty"`
+		Title              string              `json:"title"`
+		Description        string              `json:"description"`
+		Recommendation     string              `json:"recommendation"`
+		EscalatedFrom      []string            `json:"escalated_from,omitempty"`
+		EscalatedFromCodes []audit.FindingCode `json:"escalated_from_codes,omitempty"`
 	}
 
 	auditJSONSummary struct {
@@ -392,6 +396,7 @@ func renderAuditJSON(w io.Writer, report *audit.Report, minSev audit.Severity) e
 	output := auditJSONOutput{
 		Findings:        convertFindings(filtered),
 		CompoundThreats: convertFindings(filteredCorrelated),
+		Diagnostics:     report.Diagnostics,
 		Summary: auditJSONSummary{
 			Total:              len(filtered) + len(filteredCorrelated),
 			Critical:           counts[audit.SeverityCritical],
@@ -418,19 +423,28 @@ func convertFindings(findings []audit.Finding) []auditJSONFinding {
 	result := make([]auditJSONFinding, 0, len(findings))
 	for i := range findings {
 		result = append(result, auditJSONFinding{
-			Severity:       findings[i].Severity.String(),
-			Category:       findings[i].Category.String(),
-			SurfaceID:      findings[i].SurfaceID,
-			CheckerName:    auditCheckerName(findings[i].CheckerName), //goplint:ignore -- checker names are internal scanner identifiers.
-			FilePath:       string(findings[i].FilePath),
-			Line:           findings[i].Line,
-			Title:          findings[i].Title,
-			Description:    findings[i].Description,
-			Recommendation: findings[i].Recommendation,
-			EscalatedFrom:  findings[i].EscalatedFrom,
+			Code:               findings[i].CodeOrDefault(),
+			Severity:           findings[i].Severity.String(),
+			Category:           findings[i].Category.String(),
+			SurfaceID:          findings[i].SurfaceID,
+			CheckerName:        auditCheckerName(findings[i].CheckerName), //goplint:ignore -- checker names are internal scanner identifiers.
+			FilePath:           string(findings[i].FilePath),
+			Line:               findings[i].Line,
+			Title:              findings[i].Title,
+			Description:        findings[i].Description,
+			Recommendation:     findings[i].Recommendation,
+			EscalatedFrom:      findings[i].EscalatedFrom,
+			EscalatedFromCodes: findingCodesToStrings(findings[i].EscalatedFromCodes),
 		})
 	}
 	return result
+}
+
+func findingCodesToStrings(codes []audit.FindingCode) []audit.FindingCode {
+	if len(codes) == 0 {
+		return nil
+	}
+	return append([]audit.FindingCode(nil), codes...)
 }
 
 func groupBySeverity(findings []audit.Finding) map[audit.Severity][]audit.Finding {

@@ -66,7 +66,7 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 	if client := tuiserver.NewClientFromEnv(); client != nil {
 		if limit == 1 && !chooseNoLimit {
 			// Single selection mode
-			result, err := client.ChooseSingle(tuiserver.ChooseRequest{
+			result, err := client.ChooseSingleContext(cmd.Context(), tuiserver.ChooseRequest{
 				Title:   chooseTitle,
 				Options: args,
 				Height:  chooseHeight,
@@ -77,7 +77,7 @@ func runTuiChoose(cmd *cobra.Command, args []string) error {
 			_, _ = fmt.Fprintln(os.Stdout, result)
 		} else {
 			// Multi-selection mode
-			results, err := client.ChooseMultiple(tuiserver.ChooseRequest{
+			results, err := client.ChooseMultipleContext(cmd.Context(), tuiserver.ChooseRequest{
 				Title:   chooseTitle,
 				Options: args,
 				Limit:   limit,

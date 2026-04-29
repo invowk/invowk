@@ -28,8 +28,13 @@ import (
 // it runs 'invowk internal check-cmd' inside the container. Neither phase executes the
 // referenced commands.
 func ValidateDependencies(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string) error {
+	return ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, registry, parentCtx, userEnv, nil)
+}
+
+// ValidateDependenciesWithCapabilityChecker validates dependencies with an injectable host capability checker.
+func ValidateDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker) error {
 	// Phase 1: Host dependencies (root + cmd + impl, always validated on host)
-	if err := ValidateHostDependencies(disc, cmdInfo, parentCtx, userEnv); err != nil {
+	if err := ValidateHostDependenciesWithCapabilityChecker(disc, cmdInfo, parentCtx, userEnv, hostCapabilityChecker); err != nil {
 		return err
 	}
 
@@ -41,6 +46,11 @@ func ValidateDependencies(disc CommandSetProvider, cmdInfo *discovery.CommandInf
 // All 6 dependency types are always checked on the host, regardless of selected runtime.
 // userEnv is the host environment captured eagerly at Execute() entry.
 func ValidateHostDependencies(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string) error {
+	return ValidateHostDependenciesWithCapabilityChecker(disc, cmdInfo, parentCtx, userEnv, nil)
+}
+
+// ValidateHostDependenciesWithCapabilityChecker validates host dependencies with an injectable capability checker.
+func ValidateHostDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker) error {
 	mergedDeps := invowkfile.MergeDependsOnAll(cmdInfo.Invowkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 	if mergedDeps == nil {
 		return nil
@@ -65,7 +75,7 @@ func ValidateHostDependencies(disc CommandSetProvider, cmdInfo *discovery.Comman
 	}
 
 	// Capabilities: host-only
-	if err := CheckCapabilityDependencies(mergedDeps, parentCtx); err != nil {
+	if err := CheckCapabilityDependenciesWithChecker(mergedDeps, parentCtx, hostCapabilityChecker); err != nil {
 		return err
 	}
 
@@ -152,7 +162,10 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 	// Derive currentModule for qualified-name lookup.
 	currentModule := ""
 	if cmdInfo.Invowkfile.Metadata != nil {
-		currentModule = string(cmdInfo.Invowkfile.Metadata.Module())
+		currentModule = string(cmdInfo.SourceID)
+		if currentModule == "" {
+			currentModule = string(cmdInfo.Invowkfile.Metadata.Module())
+		}
 	}
 
 	// Build CommandScope for module commands (nil for root invowkfile).
@@ -203,6 +216,9 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 	}
 
 	moduleID := cmdInfo.Invowkfile.Metadata.Module()
+	if cmdInfo.ModuleID != nil {
+		moduleID = *cmdInfo.ModuleID
+	}
 
 	// Collect global module IDs from discovered commands.
 	var globalIDs []invowkmod.ModuleID

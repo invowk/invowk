@@ -18,8 +18,10 @@ import (
 
 type (
 	stubCommandDiscovery struct {
-		lookup    discovery.LookupResult
-		lookupErr error
+		lookup        discovery.LookupResult
+		lookupErr     error
+		commandSet    discovery.CommandSetResult
+		commandSetErr error
 	}
 
 	staticCommandsvcConfigProvider struct {
@@ -33,7 +35,7 @@ type (
 )
 
 func (s *stubCommandDiscovery) DiscoverCommandSet(context.Context) (discovery.CommandSetResult, error) {
-	return discovery.CommandSetResult{}, nil
+	return s.commandSet, s.commandSetErr
 }
 
 func (s *stubCommandDiscovery) GetCommand(context.Context, string) (discovery.LookupResult, error) {
@@ -54,7 +56,7 @@ func TestServiceDiscoverCommand(t *testing.T) {
 	}
 
 	cmdInfo := commandsvcTestCommandInfo(t, "build")
-	foundCfg, foundCmd, diags, err := service.discoverCommand(t.Context(), Request{
+	foundCfg, foundCmd, _, diags, err := service.discoverCommand(t.Context(), Request{
 		Name:            "build",
 		ResolvedCommand: cmdInfo,
 	})
@@ -66,7 +68,7 @@ func TestServiceDiscoverCommand(t *testing.T) {
 	}
 
 	service.discovery = &stubCommandDiscovery{lookup: discovery.LookupResult{}}
-	_, _, _, err = service.discoverCommand(t.Context(), Request{Name: "missing"})
+	_, _, _, _, err = service.discoverCommand(t.Context(), Request{Name: "missing"})
 	if err == nil {
 		t.Fatal("expected missing-command error")
 	}
@@ -86,9 +88,50 @@ func TestServiceDiscoverCommand(t *testing.T) {
 		lookup:    discovery.LookupResult{Diagnostics: []discovery.Diagnostic{diag}},
 		lookupErr: errors.New("lookup failed"),
 	}
-	_, _, diags, err = service.discoverCommand(t.Context(), Request{Name: "build"})
+	_, _, _, diags, err = service.discoverCommand(t.Context(), Request{Name: "build"})
 	if err == nil || len(diags) != 1 {
 		t.Fatalf("discoverCommand(lookupErr) err=%v diags=%v", err, diags)
+	}
+}
+
+func TestServiceDiscoverCommandFromSourceAdjustsArgs(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.DefaultConfig()
+	configFallback := func(context.Context, config.Provider, string) (*config.Config, []discovery.Diagnostic) {
+		return cfg, nil
+	}
+	cmdInfo := commandsvcTestCommandInfo(t, "deploy staging")
+	cmdInfo.Name = "tools deploy staging"
+	cmdInfo.SimpleName = "deploy staging"
+	cmdInfo.SourceID = "tools"
+
+	commandSet := discovery.NewDiscoveredCommandSet()
+	commandSet.Add(cmdInfo)
+	commandSet.Analyze()
+
+	service := &Service{
+		config:         &staticCommandsvcConfigProvider{cfg: cfg},
+		discovery:      &stubCommandDiscovery{commandSet: discovery.CommandSetResult{Set: commandSet}},
+		configFallback: configFallback,
+	}
+
+	_, foundCmd, resolvedReq, _, err := service.discoverCommand(t.Context(), Request{
+		Name:       "deploy",
+		Args:       []string{"staging", "prod"},
+		FromSource: "tools",
+	})
+	if err != nil {
+		t.Fatalf("discoverCommand(from source) error = %v", err)
+	}
+	if foundCmd != cmdInfo {
+		t.Fatalf("foundCmd = %v, want %v", foundCmd, cmdInfo)
+	}
+	if resolvedReq.Name != "tools deploy staging" {
+		t.Fatalf("resolvedReq.Name = %q, want tools deploy staging", resolvedReq.Name)
+	}
+	if len(resolvedReq.Args) != 1 || resolvedReq.Args[0] != "prod" {
+		t.Fatalf("resolvedReq.Args = %v, want [prod]", resolvedReq.Args)
 	}
 }
 

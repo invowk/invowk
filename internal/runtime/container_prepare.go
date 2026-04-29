@@ -88,7 +88,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		// Setup cleanup function for SSH token revocation
 		tokenToRevoke := sshConnInfo.Token
 		cleanupSSH = func() {
-			r.sshServer.RevokeToken(tokenToRevoke)
+			r.hostCallbacks.RevokeToken(tokenToRevoke)
 		}
 	}
 

@@ -65,7 +65,7 @@ func runTuiWrite(cmd *cobra.Command, _ []string) error {
 
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
-		result, err = client.TextArea(tuiserver.TextAreaRequest{
+		result, err = client.TextAreaContext(cmd.Context(), tuiserver.TextAreaRequest{
 			Title:           writeTitle,
 			Description:     writeDescription,
 			Placeholder:     writePlaceholder,

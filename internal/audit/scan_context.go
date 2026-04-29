@@ -20,6 +20,11 @@ const (
 	invowkfileCUEFileName     = "invowkfile.cue"
 	invowkfileNoExtFileName   = "invowkfile"
 	invowkfileParseDiagFormat = "invowkfile parse error: %s: %v"
+
+	diagnosticInvowkfileParseError  DiagnosticCode = "invowkfile_parse_error"
+	diagnosticModuleSkipped         DiagnosticCode = "module_skipped"
+	diagnosticDiscoveryPartial      DiagnosticCode = "discovery_partial"
+	diagnosticVendoredModuleSkipped DiagnosticCode = "vendored_module_skipped"
 )
 
 type (
@@ -35,7 +40,7 @@ type (
 		// diagnostics collects non-fatal warnings from loading (e.g., modules
 		// that failed to load, discovery errors). Surfaced in the audit report
 		// so incomplete scans are visible to operators.
-		diagnostics []string
+		diagnostics []Diagnostic
 	}
 
 	// ScannedInvowkfile wraps a standalone invowkfile (not inside a module) with
@@ -123,8 +128,16 @@ func (sc *ScanContext) ScriptCount() int { return len(sc.scripts) }
 
 // Diagnostics returns non-fatal warnings collected during context building
 // (e.g., modules that failed to load, discovery errors, parse failures).
-func (sc *ScanContext) Diagnostics() []string {
-	return append([]string(nil), sc.diagnostics...)
+func (sc *ScanContext) Diagnostics() []Diagnostic {
+	return append([]Diagnostic(nil), sc.diagnostics...)
+}
+
+func (sc *ScanContext) addDiagnostic(code DiagnosticCode, message string, path types.FilesystemPath) {
+	diagnostic, err := NewDiagnostic("warning", code, DiagnosticMessage(message), withDiagnosticPath(path)) //goplint:ignore -- diagnostic message is assembled at scanner boundary.
+	if err != nil {
+		return
+	}
+	sc.diagnostics = append(sc.diagnostics, diagnostic)
 }
 
 // BuildScanContext discovers and loads all invowkfiles and modules at the given
@@ -183,7 +196,7 @@ func (sc *ScanContext) loadStandaloneInvowkfile(absPath types.FilesystemPath) er
 		// Capture parse errors rather than hard-failing — consistent with the
 		// directory-tree path so checkers can flag corrupted standalone invowkfiles.
 		si.ParseErr = parseErr
-		sc.diagnostics = append(sc.diagnostics, fmt.Sprintf(invowkfileParseDiagFormat, absPath, parseErr))
+		sc.addDiagnostic(diagnosticInvowkfileParseError, fmt.Sprintf(invowkfileParseDiagFormat, absPath, parseErr), absPath)
 	}
 	sc.invowkfiles = append(sc.invowkfiles, si)
 	return nil
@@ -235,7 +248,7 @@ func (sc *ScanContext) loadSingleModule(absPath types.FilesystemPath) error {
 	}
 
 	// Scan vendored modules (diagnostics propagated for failed loads).
-	var vendorDiags []string
+	var vendorDiags []Diagnostic
 	sm.VendoredModules, vendorDiags = loadVendoredModules(absPath)
 	sc.diagnostics = append(sc.diagnostics, vendorDiags...)
 
@@ -281,7 +294,7 @@ func (sc *ScanContext) appendParsedInvowkfile(path types.FilesystemPath) {
 		si.Invowkfile = inv
 	} else {
 		si.ParseErr = parseErr
-		sc.diagnostics = append(sc.diagnostics, fmt.Sprintf(invowkfileParseDiagFormat, path, parseErr))
+		sc.addDiagnostic(diagnosticInvowkfileParseError, fmt.Sprintf(invowkfileParseDiagFormat, path, parseErr), path)
 	}
 	sc.invowkfiles = append(sc.invowkfiles, si)
 }
@@ -298,7 +311,7 @@ func (sc *ScanContext) loadDirectoryModules(absPath types.FilesystemPath) error 
 		}
 		modPath := fspath.JoinStr(absPath, entry.Name())
 		if loadErr := sc.loadSingleModule(modPath); loadErr != nil {
-			sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("skipped invalid module %s: %v", entry.Name(), loadErr))
+			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", entry.Name(), loadErr), modPath)
 			continue
 		}
 	}
@@ -321,7 +334,7 @@ func (sc *ScanContext) loadDiscoveryResults(absPath types.FilesystemPath, cfg *c
 	disc := discovery.New(cfg, opts...)
 	files, discErr := disc.DiscoverAll()
 	if discErr != nil {
-		sc.diagnostics = append(sc.diagnostics, fmt.Sprintf("discovery error (partial results): %v", discErr))
+		sc.addDiagnostic(diagnosticDiscoveryPartial, fmt.Sprintf("discovery error (partial results): %v", discErr), "")
 	}
 	if files != nil {
 		sc.mergeDiscoveryResults(files)
@@ -377,7 +390,7 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 
 // loadVendoredModules scans the invowk_modules/ directory for vendored deps.
 // Returns the loaded modules and any diagnostics for modules that failed to load.
-func loadVendoredModules(modulePath types.FilesystemPath) (modules []*invowkmod.Module, diagnostics []string) {
+func loadVendoredModules(modulePath types.FilesystemPath) (modules []*invowkmod.Module, diagnostics []Diagnostic) {
 	vendorDir := fspath.JoinStr(modulePath, "invowk_modules")
 	entries, err := os.ReadDir(string(vendorDir))
 	if err != nil {
@@ -391,7 +404,15 @@ func loadVendoredModules(modulePath types.FilesystemPath) (modules []*invowkmod.
 		modPath := fspath.JoinStr(vendorDir, entry.Name())
 		mod, loadErr := invowkmod.Load(modPath)
 		if loadErr != nil {
-			diagnostics = append(diagnostics, fmt.Sprintf("skipped vendored module %s: %v", entry.Name(), loadErr))
+			diagnostic, diagErr := NewDiagnostic(
+				"warning",
+				diagnosticVendoredModuleSkipped,
+				DiagnosticMessage(fmt.Sprintf("skipped vendored module %s: %v", entry.Name(), loadErr)),
+				withDiagnosticPath(modulePath),
+			)
+			if diagErr == nil {
+				diagnostics = append(diagnostics, diagnostic)
+			}
 			continue
 		}
 		modules = append(modules, mod)

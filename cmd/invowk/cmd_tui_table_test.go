@@ -145,6 +145,7 @@ func TestRenderTUITableWithClient(t *testing.T) {
 
 	client := tuiserver.NewClient(string(server.URL()), server.Token())
 	idx, row, err := renderTUITableWithClient(
+		t.Context(),
 		tableConfig{
 			separator:  tableSeparator(","),
 			widths:     tableWidths{12, 8},

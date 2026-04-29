@@ -24,8 +24,15 @@ type (
 	BuildRegistryOptions struct {
 		// Config controls runtime behavior and feature flags.
 		Config *config.Config
-		// SSHServer is forwarded to the container runtime for host callbacks.
-		SSHServer *sshserver.Server
+		// HostCallbacks is forwarded to the container runtime for host callbacks.
+		HostCallbacks HostCallbackServer
+	}
+
+	// HostCallbackServer provides scoped host callback credentials to runtimes.
+	HostCallbackServer interface {
+		IsRunning() bool
+		GetConnectionInfo(commandID string) (*sshserver.ConnectionInfo, error)
+		RevokeToken(token sshserver.TokenValue)
 	}
 
 	//goplint:constant-only
@@ -113,8 +120,8 @@ func BuildRegistry(opts BuildRegistryOptions) RegistryBuildResult {
 			Cause:   err,
 		})
 	} else {
-		if opts.SSHServer != nil && opts.SSHServer.IsRunning() {
-			containerRT.SetSSHServer(opts.SSHServer)
+		if opts.HostCallbacks != nil && opts.HostCallbacks.IsRunning() {
+			containerRT.SetHostCallbacks(opts.HostCallbacks)
 		}
 		result.Registry.Register(RuntimeTypeContainer, containerRT)
 		result.Cleanup = func() {

@@ -243,6 +243,10 @@ func (s *Server) handleTUI(w http.ResponseWriter, r *http.Request) {
 		s.sendError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	if err := req.Component.Validate(); err != nil {
+		s.sendError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	// Acquire lock - only one TUI component at a time
 	s.mu.Lock()

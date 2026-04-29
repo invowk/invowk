@@ -6,7 +6,6 @@ import (
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
-	"github.com/invowk/invowk/internal/sshserver"
 )
 
 // RuntimeRegistryFactory creates and populates the runtime registry for command
@@ -17,7 +16,7 @@ type (
 	RuntimeRegistryFactory struct{}
 
 	sshServerProvider interface {
-		SSHServer() *sshserver.Server
+		SSHServer() runtime.HostCallbackServer
 	}
 )
 
@@ -45,14 +44,14 @@ func (RuntimeRegistryFactory) Validate() error {
 // give each its own mutex, defeating serialization and reintroducing the
 // ping_group_range race. See TestCreateRuntimeRegistry_SingleContainerInstance.
 func (RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc.HostAccess) commandsvc.RuntimeRegistryResult {
-	var sshServer *sshserver.Server
+	var hostCallbacks runtime.HostCallbackServer
 	if provider, ok := hostAccess.(sshServerProvider); ok && hostAccess.Running() {
-		sshServer = provider.SSHServer()
+		hostCallbacks = provider.SSHServer()
 	}
 
 	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{
-		Config:    cfg,
-		SSHServer: sshServer,
+		Config:        cfg,
+		HostCallbacks: hostCallbacks,
 	})
 
 	return commandsvc.RuntimeRegistryResult{

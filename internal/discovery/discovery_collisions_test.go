@@ -603,6 +603,47 @@ func TestGetEffectiveModuleID(t *testing.T) {
 	})
 }
 
+func TestDiscoverCommandSet_UsesAliasNamespaceForIncludedModule(t *testing.T) {
+	t.Parallel()
+
+	baseDir := t.TempDir()
+	firstRoot := t.TempDir()
+	secondRoot := t.TempDir()
+	firstModule := filepath.Join(firstRoot, "io.example.same.invowkmod")
+	secondModule := filepath.Join(secondRoot, "io.example.same.invowkmod")
+	createTestModule(t, firstModule, "io.example.same", "run")
+	createTestModule(t, secondModule, "io.example.same", "run")
+
+	cfg := config.DefaultConfig()
+	cfg.Includes = []config.IncludeEntry{
+		{Path: config.ModuleIncludePath(firstModule)},
+		{Path: config.ModuleIncludePath(secondModule), Alias: "aliased"},
+	}
+	d := New(cfg, WithBaseDir(types.FilesystemPath(baseDir)), WithCommandsDir(""))
+
+	result, err := d.DiscoverCommandSet(t.Context())
+	if err != nil {
+		t.Fatalf("DiscoverCommandSet() error = %v", err)
+	}
+
+	aliased := result.Set.ByName["aliased run"]
+	if aliased == nil {
+		t.Fatalf("ByName missing aliased command; sources: %v", result.Set.SourceOrder)
+	}
+	if aliased.SourceID != "aliased" {
+		t.Errorf("SourceID = %q, want aliased", aliased.SourceID)
+	}
+	if aliased.ModuleID == nil {
+		t.Fatal("ModuleID = nil, want aliased")
+	}
+	if *aliased.ModuleID != "aliased" {
+		t.Errorf("ModuleID = %q, want aliased", *aliased.ModuleID)
+	}
+	if len(result.Set.BySource["aliased"]) != 1 {
+		t.Errorf("BySource[aliased] has %d commands, want 1", len(result.Set.BySource["aliased"]))
+	}
+}
+
 func TestDiscoverAll_CurrentDirInvowkfileTakesPrecedenceOverModule(t *testing.T) {
 	t.Parallel()
 
