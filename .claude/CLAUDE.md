@@ -102,6 +102,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/review-tests/`](.agents/skills/review-tests/) - User-invokable (`/review-tests`). Test suite review and audit: structural hygiene, parallelism, assertions, integration gating, testscript quality, mirrors, coverage guardrails, domain testing.
 - [`.agents/skills/invowk-schema/`](.agents/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
 - [`.agents/skills/invowk-typesystem/`](.agents/skills/invowk-typesystem/) - Invowk value-type system guidance: Validate() contracts, primitive wrappers, aliases/re-exports, and catalog maintenance.
+- [`.agents/skills/go-hexagonal-ddd/`](.agents/skills/go-hexagonal-ddd/) - Hexagonal Architecture and DDD guidance for Go package boundaries, ports/adapters, application services, and domain modeling while preserving Go simplicity.
 - [`.agents/skills/native-mirror/`](.agents/skills/native-mirror/) - User-invokable (`/native-mirror`). Generate native_*.txtar mirrors from virtual tests with platform-split CUE.
 - [`.agents/skills/schema-sync-check/`](.agents/skills/schema-sync-check/) - User-invokable (`/schema-sync-check`). Validate CUE schema ↔ Go struct JSON tag alignment.
 - [`.agents/skills/server/`](.agents/skills/server/) - Server state machine pattern for SSH and TUI servers.
@@ -138,13 +139,13 @@ When working in a specific code area, apply these rules and skills:
 
 | Code Area | Rules | Skills |
 |-----------|-------|--------|
-| `cmd/invowk/` | testing, licensing, commands | go, cli, d2-diagrams |
-| `internal/app/commandsvc/` | testing, licensing, package-design | go, cli |
-| `internal/app/deps/` | testing, licensing, package-design | go, cli |
-| `internal/app/execute/` | testing, licensing, package-design | go, cli |
-| `internal/container/` | testing, windows, licensing | go, container, linux-testing |
-| `internal/discovery/` | testing, licensing, package-design | go, discovery, d2-diagrams |
-| `internal/runtime/` | testing, windows, licensing | go, shell (for virtual runtime), d2-diagrams, go-testing |
+| `cmd/invowk/` | testing, licensing, commands | go, cli, go-hexagonal-ddd, d2-diagrams |
+| `internal/app/commandsvc/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
+| `internal/app/deps/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
+| `internal/app/execute/` | testing, licensing, package-design | go, cli, go-hexagonal-ddd |
+| `internal/container/` | testing, windows, licensing | go, container, go-hexagonal-ddd, linux-testing |
+| `internal/discovery/` | testing, licensing, package-design | go, discovery, go-hexagonal-ddd, d2-diagrams |
+| `internal/runtime/` | testing, windows, licensing | go, shell (for virtual runtime), go-hexagonal-ddd, d2-diagrams, go-testing |
 | `internal/config/` | testing, cue-patterns, licensing | go, cue |
 | `pkg/cueutil/` | testing, cue-patterns, licensing | go, cue |
 | `internal/sshserver/` | testing, licensing | go, server |
@@ -152,8 +153,8 @@ When working in a specific code area, apply these rules and skills:
 | `internal/tui/` | testing, licensing | go, testing, tui-testing, tmux-testing, windows-testing |
 | `internal/issue/` | testing, licensing | go |
 | `internal/provision/` | testing, windows, licensing | go, container |
-| `pkg/invowkfile/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema |
-| `pkg/invowkmod/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema |
+| `pkg/invowkfile/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema, go-hexagonal-ddd |
+| `pkg/invowkmod/` | testing, cue-patterns, licensing, package-design | go, cue, invowk-schema, go-hexagonal-ddd |
 | `website/` | general-rules | docs, review-docs |
 | `docs/architecture/` | general-rules | docs, review-docs, d2-diagrams |
 | `internal/uroot/` | testing, licensing | go, uroot |
@@ -161,9 +162,9 @@ When working in a specific code area, apply these rules and skills:
 | `internal/benchmark/` | testing, licensing, commands | go |
 | `internal/watch/` | testing, licensing | go, macos-testing, linux-testing |
 | `pkg/platform/` | testing, windows, licensing | go, windows-testing |
-| `pkg/types/` | testing, licensing, package-design | go, invowk-typesystem |
+| `pkg/types/` | testing, licensing, package-design | go, invowk-typesystem, go-hexagonal-ddd |
 | `tests/cli/` | testing | go, testing, cli, invowk-schema, go-testing |
-| `internal/audit/` | testing, licensing, package-design | go, module-security |
+| `internal/audit/` | testing, licensing, package-design | go, module-security, go-hexagonal-ddd |
 | `tools/goplint/` | testing, licensing | go, go-testing |
 
 ## Quick Commands
