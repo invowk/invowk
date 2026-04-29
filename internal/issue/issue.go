@@ -10,8 +10,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/charmbracelet/glamour"
 )
 
 // Issue IDs for different error scenarios.
@@ -278,12 +276,6 @@ func (i *Issue) DocLinks() []HttpLink {
 // ExtLinks returns a copy of the external resource links for this issue.
 func (i *Issue) ExtLinks() []HttpLink {
 	return slices.Clone(i.extLinks)
-}
-
-// Render renders the issue message with documentation links using the specified style.
-// It uses glamour.Render for markdown rendering.
-func (i *Issue) Render(stylePath string) (string, error) {
-	return i.RenderWith(glamour.Render, stylePath)
 }
 
 // RenderWith renders the issue message using the provided render function.

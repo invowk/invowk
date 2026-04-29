@@ -133,6 +133,10 @@ type (
 		svc    *commandsvc.Service
 		stdout io.Writer
 	}
+
+	cliExecutionObserver struct {
+		stdout io.Writer
+	}
 )
 
 // NewApp creates an App with defaults for omitted dependencies.
@@ -168,13 +172,12 @@ func NewApp(d Dependencies) (*App, error) {
 		svc := commandsvc.NewWithPorts(
 			d.Config,
 			d.Discovery,
-			d.Stdout,
-			d.Stderr,
 			captureUserEnv,
 			loadConfigWithFallback,
 			hostAccess,
 			registryFactory,
 			interactiveExecutor,
+			&cliExecutionObserver{stdout: d.Stdout},
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}
@@ -187,6 +190,14 @@ func NewApp(d Dependencies) (*App, error) {
 		stdout:      d.Stdout,
 		stderr:      d.Stderr,
 	}, nil
+}
+
+func (o *cliExecutionObserver) CommandStarting(name invowkfile.CommandName) {
+	fmt.Fprintf(o.stdout, "-> Running '%s'...\n", name)
+}
+
+func (o *cliExecutionObserver) InteractiveFallback(runtimeName invowkfile.RuntimeMode) {
+	fmt.Fprintf(o.stdout, "! Runtime '%s' does not support interactive mode, using standard execution\n", runtimeName)
 }
 
 // Execute translates an ExecuteRequest into a commandsvc.Request, delegates

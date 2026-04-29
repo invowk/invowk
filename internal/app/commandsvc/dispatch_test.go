@@ -41,6 +41,13 @@ type (
 		result *runtimepkg.Result
 		called int
 	}
+
+	recordingExecutionObserver struct {
+		startedCommand       invowkfile.CommandName
+		interactiveFallback  invowkfile.RuntimeMode
+		commandStartingCalls int
+		fallbackCalls        int
+	}
 )
 
 func (s *stubRuntime) Name() string { return s.name }
@@ -84,13 +91,20 @@ func (s *stubInteractiveExecutor) Execute(execCtx *runtimepkg.ExecutionContext, 
 	return &runtimepkg.Result{ExitCode: 0}
 }
 
+func (o *recordingExecutionObserver) CommandStarting(name invowkfile.CommandName) {
+	o.startedCommand = name
+	o.commandStartingCalls++
+}
+
+func (o *recordingExecutionObserver) InteractiveFallback(runtimeName invowkfile.RuntimeMode) {
+	o.interactiveFallback = runtimeName
+	o.fallbackCalls++
+}
+
 func TestDispatchExecution_Success(t *testing.T) {
 	t.Parallel()
 
-	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	svc := &Service{
-		stdout:          stdout,
-		stderr:          stderr,
 		hostAccess:      noopHostAccess{},
 		registryFactory: defaultRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
@@ -125,8 +139,6 @@ func TestDispatchExecution_DependencyError(t *testing.T) {
 	t.Parallel()
 
 	svc := &Service{
-		stdout:          &bytes.Buffer{},
-		stderr:          &bytes.Buffer{},
 		hostAccess:      noopHostAccess{},
 		registryFactory: defaultRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
@@ -243,7 +255,7 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		rt := &stubRuntime{name: "stub", executeResult: &runtimepkg.Result{ExitCode: 7}}
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
-		svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}}
+		svc := &Service{}
 		result, err := svc.executeWithRequestedMode(
 			Request{Interactive: false},
 			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual},
@@ -264,8 +276,8 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		rt := &stubRuntime{name: "stub", executeResult: &runtimepkg.Result{ExitCode: 3}}
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
-		var stdout bytes.Buffer
-		svc := &Service{stdout: &stdout, stderr: &bytes.Buffer{}}
+		observer := &recordingExecutionObserver{}
+		svc := &Service{observer: observer}
 		result, err := svc.executeWithRequestedMode(
 			Request{Interactive: true, Verbose: true},
 			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual},
@@ -277,8 +289,11 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		if result.ExitCode != 3 || rt.executeCalled != 1 {
 			t.Fatalf("result=%v executeCalled=%d", result, rt.executeCalled)
 		}
-		if !strings.Contains(stdout.String(), "does not support interactive mode") {
-			t.Fatalf("stdout = %q", stdout.String())
+		if observer.fallbackCalls != 1 {
+			t.Fatalf("fallback calls = %d, want 1", observer.fallbackCalls)
+		}
+		if observer.interactiveFallback != "stub" {
+			t.Fatalf("interactive fallback runtime = %q, want %q", observer.interactiveFallback, "stub")
 		}
 	})
 
@@ -294,7 +309,7 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
 		executor := &stubInteractiveExecutor{}
-		svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}, interactive: executor}
+		svc := &Service{interactive: executor}
 		result, err := svc.executeWithRequestedMode(
 			Request{Interactive: true},
 			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual, Context: t.Context()},
@@ -324,7 +339,7 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
 		executor := &stubInteractiveExecutor{}
-		svc := &Service{stdout: &bytes.Buffer{}, stderr: &bytes.Buffer{}, interactive: executor}
+		svc := &Service{interactive: executor}
 		result, err := svc.executeWithRequestedMode(
 			Request{Interactive: true},
 			&runtimepkg.ExecutionContext{

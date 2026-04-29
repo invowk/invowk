@@ -5,7 +5,6 @@ package commandsvc
 import (
 	"context"
 	"errors"
-	"io"
 	"path/filepath"
 	"testing"
 
@@ -51,8 +50,6 @@ func TestServiceDiscoverCommand(t *testing.T) {
 	service := &Service{
 		config:         &staticCommandsvcConfigProvider{cfg: cfg},
 		discovery:      &stubCommandDiscovery{},
-		stdout:         io.Discard,
-		stderr:         io.Discard,
 		configFallback: configFallback,
 	}
 
@@ -146,8 +143,6 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 	service := &Service{
 		config:          &staticCommandsvcConfigProvider{cfg: cfg},
 		discovery:       &stubCommandDiscovery{lookup: discovery.LookupResult{Command: cmdInfo}},
-		stdout:          io.Discard,
-		stderr:          io.Discard,
 		hostAccess:      hostAccess,
 		registryFactory: defaultRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},

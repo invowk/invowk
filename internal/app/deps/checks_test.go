@@ -18,6 +18,15 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+type fakeCapabilityChecker map[invowkfile.CapabilityName]error
+
+func (f fakeCapabilityChecker) Check(capability invowkfile.CapabilityName) error {
+	if err, ok := f[capability]; ok {
+		return err
+	}
+	return nil
+}
+
 func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 	t.Parallel()
 
@@ -700,6 +709,44 @@ func TestCheckCapabilityDependencies(t *testing.T) {
 		deps := &invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{}}
 		if err := CheckCapabilityDependencies(deps, ctx); err != nil {
 			t.Fatalf("CheckCapabilityDependencies() = %v, want nil", err)
+		}
+	})
+
+	t.Run("injected checker accepts alternative", func(t *testing.T) {
+		t.Parallel()
+
+		deps := &invowkfile.DependsOn{
+			Capabilities: []invowkfile.CapabilityDependency{
+				{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityInternet}},
+			},
+		}
+		if err := CheckCapabilityDependenciesWithChecker(deps, ctx, fakeCapabilityChecker{}); err != nil {
+			t.Fatalf("CheckCapabilityDependenciesWithChecker() = %v, want nil", err)
+		}
+	})
+
+	t.Run("injected checker reports missing alternative", func(t *testing.T) {
+		t.Parallel()
+
+		deps := &invowkfile.DependsOn{
+			Capabilities: []invowkfile.CapabilityDependency{
+				{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityInternet}},
+			},
+		}
+		checker := fakeCapabilityChecker{
+			invowkfile.CapabilityInternet: &invowkfile.CapabilityError{
+				Capability: invowkfile.CapabilityInternet,
+				Message:    "offline",
+			},
+		}
+
+		err := CheckCapabilityDependenciesWithChecker(deps, ctx, checker)
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+		}
+		if len(depErr.MissingCapabilities) != 1 {
+			t.Fatalf("missing capabilities = %d, want 1", len(depErr.MissingCapabilities))
 		}
 	})
 }

@@ -6,7 +6,8 @@
 // an invowkfile and optionally script files. Modules enable portable distribution
 // of invowk commands with their associated scripts.
 //
-// This package consolidates all module-related functionality:
+// This package provides module metadata, local module operations, and stable
+// value types shared by application services:
 //
 // # Local Module Operations
 //
@@ -17,11 +18,11 @@
 //   - [Archive]: Create ZIP archives for module distribution
 //   - [Unpack]: Extract modules from ZIP archives (local or remote)
 //
-// # Git-Based Dependency Resolution
+// # Dependency Resolution Model
 //
-// Remote module management from Git repositories:
-//   - [Resolver]: Orchestrates dependency resolution, caching, and synchronization
-//   - [GitFetcher]: Handles Git operations (clone, fetch, checkout)
+// Types used by the application-layer module resolver:
+//   - [ModuleRef]: Dependency declaration for Git-based modules
+//   - [ResolvedModule]: Resolved module metadata persisted to lock files
 //   - [SemverResolver]: Semantic version constraint matching
 //   - Lock file management for reproducible builds
 //

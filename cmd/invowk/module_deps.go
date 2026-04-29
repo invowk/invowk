@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/invowk/invowk/internal/app/modulesync"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -161,7 +162,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	fmt.Println(moduleTitleStyle.Render("Add Module Dependency"))
 
 	// Create module resolver
-	resolver, err := invowkmod.NewResolver("", "")
+	resolver, err := modulesync.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
@@ -213,7 +214,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Remove Module Dependency"))
 
 	// Create module resolver
-	resolver, err := invowkmod.NewResolver("", "")
+	resolver, err := modulesync.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
@@ -222,7 +223,7 @@ func runModuleRemove(ctx context.Context, args []string) error {
 	results, err := resolver.Remove(ctx, identifier)
 	if err != nil {
 		// Format ambiguous matches nicely
-		if ambigErr, ok := errors.AsType[*invowkmod.AmbiguousIdentifierError](err); ok && ambigErr != nil {
+		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
 			fmt.Printf("%s %v\n", moduleErrorIcon, ambigErr)
 			return err
 		}
@@ -268,7 +269,7 @@ func runModuleSync(ctx context.Context) error {
 	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
 
 	// Create module resolver
-	resolver, err := invowkmod.NewResolver("", "")
+	resolver, err := modulesync.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
@@ -297,7 +298,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Update Module Dependencies"))
 
 	// Create module resolver
-	resolver, err := invowkmod.NewResolver("", "")
+	resolver, err := modulesync.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}
@@ -314,7 +315,7 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 	updated, err := resolver.Update(ctx, identifier)
 	if err != nil {
 		// Format ambiguous matches nicely
-		if ambigErr, ok := errors.AsType[*invowkmod.AmbiguousIdentifierError](err); ok && ambigErr != nil {
+		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
 			fmt.Printf("%s %v\n", moduleErrorIcon, ambigErr)
 			return err
 		}
@@ -344,7 +345,7 @@ func runModuleDeps(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Module Dependencies"))
 
 	// Create module resolver
-	resolver, err := invowkmod.NewResolver("", "")
+	resolver, err := modulesync.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}

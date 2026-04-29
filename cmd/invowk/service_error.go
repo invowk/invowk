@@ -58,7 +58,7 @@ func renderServiceError(stderr io.Writer, svcErr *ServiceError) {
 	}
 
 	if catalogEntry := issue.Get(svcErr.IssueID); catalogEntry != nil {
-		rendered, renderErr := catalogEntry.Render("dark")
+		rendered, renderErr := renderIssueCatalogEntry(catalogEntry, "dark")
 		if renderErr != nil {
 			slog.Warn("failed to render issue catalog entry", "issue_id", svcErr.IssueID, "error", renderErr)
 		} else {

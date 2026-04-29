@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/invowk/invowk/internal/app/modulesync"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -221,7 +222,7 @@ func runModuleVendor(ctx context.Context, args []string, vendorUpdate, vendorPru
 	// Create resolver with working dir set to the target module path so the
 	// lock file (invowkmod.lock.cue) lives next to invowkmod.cue.
 	absModPath := types.FilesystemPath(absPath) //goplint:ignore -- from filepath.Abs
-	resolver, err := invowkmod.NewResolver(absModPath, "")
+	resolver, err := modulesync.NewResolver(absModPath, "")
 	if err != nil {
 		return fmt.Errorf("failed to create resolver: %w", err)
 	}

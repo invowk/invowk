@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package modulesync
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -96,11 +97,11 @@ func TestFindModuleInDir(t *testing.T) {
 			t.Fatalf("MkdirAll() error: %v", err)
 		}
 
-		gotDir, gotName, err := findModuleInDir(dir)
+		gotDir, gotName, err := invowkmod.LocateModuleInDir(types.FilesystemPath(dir))
 		if err != nil {
 			t.Fatalf("findModuleInDir() error: %v", err)
 		}
-		if gotDir != modDir {
+		if gotDir != types.FilesystemPath(modDir) {
 			t.Errorf("dir = %q, want %q", gotDir, modDir)
 		}
 		if gotName != "mymod" {
@@ -120,11 +121,11 @@ func TestFindModuleInDir(t *testing.T) {
 			t.Fatalf("WriteFile() error: %v", err)
 		}
 
-		gotDir, gotName, err := findModuleInDir(dir)
+		gotDir, gotName, err := invowkmod.LocateModuleInDir(types.FilesystemPath(dir))
 		if err != nil {
 			t.Fatalf("findModuleInDir() error: %v", err)
 		}
-		if gotDir != dir {
+		if gotDir != types.FilesystemPath(dir) {
 			t.Errorf("dir = %q, want %q", gotDir, dir)
 		}
 		if gotName != "tools" {
@@ -144,11 +145,11 @@ func TestFindModuleInDir(t *testing.T) {
 			t.Fatalf("WriteFile() error: %v", err)
 		}
 
-		gotDir, gotName, err := findModuleInDir(dir)
+		gotDir, gotName, err := invowkmod.LocateModuleInDir(types.FilesystemPath(dir))
 		if err != nil {
 			t.Fatalf("findModuleInDir() error: %v", err)
 		}
-		if gotDir != dir {
+		if gotDir != types.FilesystemPath(dir) {
 			t.Errorf("dir = %q, want %q", gotDir, dir)
 		}
 		// Falls back to directory name when no .invowkmod suffix
@@ -161,11 +162,11 @@ func TestFindModuleInDir(t *testing.T) {
 		t.Parallel()
 
 		dir := t.TempDir()
-		_, _, err := findModuleInDir(dir)
+		_, _, err := invowkmod.LocateModuleInDir(types.FilesystemPath(dir))
 		if err == nil {
 			t.Fatal("expected error for empty directory, got nil")
 		}
-		if !errors.Is(err, ErrModuleNotFoundInDir) {
+		if !errors.Is(err, invowkmod.ErrModuleNotFoundInDir) {
 			t.Errorf("error should wrap ErrModuleNotFoundInDir, got: %v", err)
 		}
 	})
@@ -173,7 +174,7 @@ func TestFindModuleInDir(t *testing.T) {
 	t.Run("nonexistent_dir", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := findModuleInDir(filepath.Join(t.TempDir(), "nonexistent"))
+		_, _, err := invowkmod.LocateModuleInDir(types.FilesystemPath(filepath.Join(t.TempDir(), "nonexistent")))
 		if err == nil {
 			t.Fatal("expected error for nonexistent directory, got nil")
 		}
@@ -305,7 +306,7 @@ func TestResolver_cacheModule(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected ContentHashMismatchError, got nil")
 		}
-		if !errors.Is(err, ErrContentHashMismatch) {
+		if !errors.Is(err, invowkmod.ErrContentHashMismatch) {
 			t.Errorf("expected ErrContentHashMismatch, got: %v", err)
 		}
 	})

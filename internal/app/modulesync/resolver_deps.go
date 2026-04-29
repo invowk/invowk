@@ -1,27 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package modulesync
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
-)
-
-var (
-	// ErrGitURLRequired is returned when a module ref is missing the git_url field.
-	ErrGitURLRequired = errors.New("git_url is required")
-
-	// ErrUnsupportedGitURLScheme is returned when a git_url uses an unsupported scheme.
-	ErrUnsupportedGitURLScheme = errors.New("git_url must start with https://, git@, or ssh://")
-
-	// ErrVersionRequired is returned when a module ref is missing the version field.
-	ErrVersionRequired = errors.New("version is required")
 )
 
 // isSupportedGitURLPrefix returns true when the URL uses a supported Git scheme.
@@ -140,7 +129,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 	}
 
 	// Find .invowkmod directory
-	moduleDir, moduleName, err := findModuleInDir(modulePath)
+	moduleDirPath, moduleName, err := invowkmod.LocateModuleInDir(types.FilesystemPath(modulePath)) //goplint:ignore -- path resolved from repository checkout and optional validated subpath
 	if err != nil {
 		return nil, fmt.Errorf("failed to find module in %s: %w", modulePath, err)
 	}
@@ -158,7 +147,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 
 	// Cache the module in the versioned directory and compute content hash.
 	cachePath := m.getCachePath(string(req.GitURL), string(resolvedVersion), string(req.Path))
-	contentHash, err := m.cacheModule(moduleDir, cachePath, expectedHash)
+	contentHash, err := m.cacheModule(string(moduleDirPath), cachePath, expectedHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to cache module: %w", err)
 	}
@@ -186,7 +175,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 
 // loadTransitiveDeps loads transitive dependencies from a cached module.
 // Dependencies are declared in invowkmod.cue (not invowkfile.cue).
-func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, error) {
+func (m *Resolver) loadTransitiveDeps(cachePath string) (refs []ModuleRef, moduleID ModuleID, err error) {
 	// Find invowkmod.cue in the module (contains module metadata and requires)
 	invowkmodPath := filepath.Join(cachePath, "invowkmod.cue")
 	if _, statErr := os.Stat(invowkmodPath); statErr != nil {
@@ -197,12 +186,12 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, 
 			return nil, "", fmt.Errorf("checking invowkmod path %s: %w", invowkmodPath, statErr)
 		}
 		// Try finding .invowkmod directory
-		entries, err := os.ReadDir(cachePath)
-		if err != nil {
-			if os.IsNotExist(err) {
+		entries, readErr := os.ReadDir(cachePath)
+		if readErr != nil {
+			if os.IsNotExist(readErr) {
 				return nil, "", nil // Directory doesn't exist - no dependencies
 			}
-			return nil, "", fmt.Errorf("reading cache directory %s: %w", cachePath, err)
+			return nil, "", fmt.Errorf("reading cache directory %s: %w", cachePath, readErr)
 		}
 		for _, entry := range entries {
 			if entry.IsDir() && strings.HasSuffix(entry.Name(), ".invowkmod") {
@@ -213,17 +202,17 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) ([]ModuleRef, ModuleID, 
 	}
 
 	// Parse invowkmod to extract module name and requires.
-	data, err := os.ReadFile(invowkmodPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+	data, readErr := os.ReadFile(invowkmodPath)
+	if readErr != nil {
+		if os.IsNotExist(readErr) {
 			return nil, "", nil // No invowkmod.cue - no dependencies
 		}
-		return nil, "", fmt.Errorf("reading invowkmod %s: %w", invowkmodPath, err)
+		return nil, "", fmt.Errorf("reading invowkmod %s: %w", invowkmodPath, readErr)
 	}
 
-	meta, err := ParseInvowkmodBytes(data, types.FilesystemPath(invowkmodPath))
-	if err != nil {
-		return nil, "", fmt.Errorf("parsing invowkmod %s: %w", invowkmodPath, err)
+	meta, parseErr := invowkmod.ParseInvowkmodBytes(data, types.FilesystemPath(invowkmodPath))
+	if parseErr != nil {
+		return nil, "", fmt.Errorf("parsing invowkmod %s: %w", invowkmodPath, parseErr)
 	}
 
 	reqs := extractRequiresFromInvowkmod(meta.Requires)
@@ -258,6 +247,8 @@ func extractModuleName(key ModuleRefKey) ModuleShortName {
 // extractModuleFromInvowkmod extracts the module field from invowkmod content
 // using lightweight string matching. This avoids a full CUE evaluation dependency
 // and is sufficient for the "module:" top-level field.
+//
+//goplint:ignore -- resolver helper scans raw invowkmod CUE text.
 func extractModuleFromInvowkmod(content string) string {
 	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimSpace(line)

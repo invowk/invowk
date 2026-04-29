@@ -5,7 +5,6 @@ package commandsvc
 import (
 	"context"
 	"fmt"
-	"io"
 	"slices"
 
 	"github.com/invowk/invowk/internal/config"
@@ -22,11 +21,10 @@ type (
 	Service struct {
 		config          config.Provider
 		discovery       CommandDiscovery
-		stdout          io.Writer
-		stderr          io.Writer
 		hostAccess      HostAccess
 		registryFactory RuntimeRegistryFactory
 		interactive     InteractiveExecutor
+		observer        ExecutionObserver
 		userEnvFunc     UserEnvFunc
 		configFallback  ConfigFallbackFunc
 	}
@@ -44,11 +42,10 @@ type (
 func New(
 	configProvider config.Provider,
 	disc CommandDiscovery,
-	stdout, stderr io.Writer,
 	userEnvFunc UserEnvFunc,
 	configFallback ConfigFallbackFunc,
 ) *Service {
-	return NewWithPorts(configProvider, disc, stdout, stderr, userEnvFunc, configFallback, nil, nil, nil)
+	return NewWithPorts(configProvider, disc, userEnvFunc, configFallback, nil, nil, nil, nil)
 }
 
 // NewWithPorts creates a command execution service with explicit infrastructure
@@ -56,21 +53,20 @@ func New(
 func NewWithPorts(
 	configProvider config.Provider,
 	disc CommandDiscovery,
-	stdout, stderr io.Writer,
 	userEnvFunc UserEnvFunc,
 	configFallback ConfigFallbackFunc,
 	hostAccess HostAccess,
 	registryFactory RuntimeRegistryFactory,
 	interactive InteractiveExecutor,
+	observer ExecutionObserver,
 ) *Service {
 	svc := &Service{
 		config:          configProvider,
 		discovery:       disc,
-		stdout:          stdout,
-		stderr:          stderr,
 		hostAccess:      noopHostAccess{},
 		registryFactory: defaultRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
+		observer:        noopExecutionObserver{},
 		userEnvFunc:     userEnvFunc,
 		configFallback:  configFallback,
 	}
@@ -82,6 +78,9 @@ func NewWithPorts(
 	}
 	if interactive != nil {
 		svc.interactive = interactive
+	}
+	if observer != nil {
+		svc.observer = observer
 	}
 	return svc
 }

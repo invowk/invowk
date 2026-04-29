@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"context"
-	"io"
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
@@ -75,8 +74,6 @@ func TestResolveRuntime(t *testing.T) {
 		svc := commandsvc.New(
 			&fixedConfigProvider{cfg: cfg},
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			io.Discard,
-			io.Discard,
 			func() map[string]string { return nil },
 			testConfigFallback,
 		)
@@ -99,8 +96,6 @@ func TestResolveRuntime(t *testing.T) {
 		svc := commandsvc.New(
 			&fixedConfigProvider{cfg: cfg},
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			io.Discard,
-			io.Discard,
 			func() map[string]string { return nil },
 			testConfigFallback,
 		)
@@ -125,8 +120,6 @@ func TestResolveRuntime(t *testing.T) {
 		svc := commandsvc.New(
 			&fixedConfigProvider{cfg: cfg},
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			io.Discard,
-			io.Discard,
 			func() map[string]string { return nil },
 			testConfigFallback,
 		)
@@ -148,8 +141,6 @@ func TestResolveRuntime(t *testing.T) {
 		svc := commandsvc.New(
 			&fixedConfigProvider{cfg: cfg},
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			io.Discard,
-			io.Discard,
 			func() map[string]string { return nil },
 			testConfigFallback,
 		)
@@ -170,8 +161,6 @@ func TestResolveRuntime(t *testing.T) {
 		svc := commandsvc.New(
 			&fixedConfigProvider{},
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
-			io.Discard,
-			io.Discard,
 			func() map[string]string { return nil },
 			testConfigFallback,
 		)

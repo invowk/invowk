@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/invowk/invowk/internal/app/modulesync"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -57,7 +58,7 @@ func runModuleTidy(ctx context.Context) error {
 	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
 
 	// Create module resolver.
-	resolver, err := invowkmod.NewResolver("", "")
+	resolver, err := modulesync.NewResolver("", "")
 	if err != nil {
 		return fmt.Errorf(moduleResolverCreateErrFmt, err)
 	}

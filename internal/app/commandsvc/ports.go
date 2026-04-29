@@ -33,7 +33,16 @@ type (
 		Execute(*runtime.ExecutionContext, invowkfile.CommandName, runtime.InteractiveRuntime) *runtime.Result
 	}
 
+	// ExecutionObserver receives user-visible execution events. Adapters render
+	// these events; Service only describes what happened.
+	ExecutionObserver interface {
+		CommandStarting(invowkfile.CommandName)
+		InteractiveFallback(invowkfile.RuntimeMode)
+	}
+
 	noopHostAccess struct{}
+
+	noopExecutionObserver struct{}
 
 	defaultRuntimeRegistryFactory struct{}
 
@@ -45,6 +54,10 @@ func (noopHostAccess) Ensure(context.Context) error { return nil }
 func (noopHostAccess) Running() bool { return false }
 
 func (noopHostAccess) Stop() {}
+
+func (noopExecutionObserver) CommandStarting(invowkfile.CommandName) {}
+
+func (noopExecutionObserver) InteractiveFallback(invowkfile.RuntimeMode) {}
 
 func (defaultRuntimeRegistryFactory) Create(cfg *config.Config, _ HostAccess) RuntimeRegistryResult {
 	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{Config: cfg})

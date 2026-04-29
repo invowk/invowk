@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"strconv"
@@ -435,14 +436,20 @@ func completeCommands(app *App, rootFlags *rootFlagValues) func(*cobra.Command, 
 func listCommands(cmd *cobra.Command, app *App, rootFlags *rootFlagValues) error {
 	result, err := app.Discovery.DiscoverCommandSet(cmd.Context())
 	if err != nil {
-		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
+		rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.InvowkfileNotFoundId), "dark")
+		if renderErr != nil {
+			slog.Warn("failed to render issue catalog entry", "issue_id", issue.InvowkfileNotFoundId, "error", renderErr)
+		}
 		fmt.Fprint(app.stderr, rendered)
 		return err
 	}
 
 	commandSet := result.Set
 	if commandSet == nil || len(commandSet.Commands) == 0 {
-		rendered, _ := issue.Get(issue.InvowkfileNotFoundId).Render("dark")
+		rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.InvowkfileNotFoundId), "dark")
+		if renderErr != nil {
+			slog.Warn("failed to render issue catalog entry", "issue_id", issue.InvowkfileNotFoundId, "error", renderErr)
+		}
 		fmt.Fprint(app.stderr, rendered)
 		return errors.New("no commands found")
 	}

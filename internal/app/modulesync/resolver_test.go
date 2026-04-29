@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package modulesync
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -109,8 +110,8 @@ func TestGetDefaultCacheDir(t *testing.T) {
 		t.Parallel()
 
 		customPath := "/custom/path/to/modules"
-		result, err := GetDefaultCacheDirWith(func(key string) string {
-			if key == ModuleCachePathEnv {
+		result, err := invowkmod.GetDefaultCacheDirWith(func(key string) string {
+			if key == invowkmod.ModuleCachePathEnv {
 				return customPath
 			}
 			return ""
@@ -126,13 +127,13 @@ func TestGetDefaultCacheDir(t *testing.T) {
 	t.Run("without env var", func(t *testing.T) {
 		t.Parallel()
 
-		result, err := GetDefaultCacheDirWith(func(string) string { return "" })
+		result, err := invowkmod.GetDefaultCacheDirWith(func(string) string { return "" })
 		if err != nil {
 			t.Fatalf("GetDefaultCacheDirWith() error = %v", err)
 		}
 
 		homeDir, _ := os.UserHomeDir()
-		expected := filepath.Join(homeDir, ".invowk", DefaultModulesDir)
+		expected := filepath.Join(homeDir, ".invowk", invowkmod.DefaultModulesDir)
 		if string(result) != expected {
 			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, expected)
 		}
@@ -328,7 +329,7 @@ func TestCopyDir(t *testing.T) {
 	}
 
 	// Copy
-	if err := copyDir(srcDir, dstDir); err != nil {
+	if err := invowkmod.CopyModuleDir(types.FilesystemPath(srcDir), types.FilesystemPath(dstDir)); err != nil {
 		t.Fatalf("copyDir() error = %v", err)
 	}
 
@@ -551,7 +552,7 @@ func TestRemoveByNamespace(t *testing.T) {
 	cacheDir := t.TempDir()
 
 	// Write a lock file with known entries
-	lock := NewLockFile()
+	lock := invowkmod.NewLockFile()
 	rTestHash := ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 	lock.Modules["https://github.com/user/tools.git"] = LockedModule{
 		GitURL:          "https://github.com/user/tools.git",
@@ -594,9 +595,9 @@ func TestRemoveByNamespace(t *testing.T) {
 	}
 
 	// Verify lock file was updated
-	reloaded, err := LoadLockFile(lockPath)
+	reloaded, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
-		t.Fatalf("LoadLockFile() error = %v", err)
+		t.Fatalf("invowkmod.LoadLockFile() error = %v", err)
 	}
 	if len(reloaded.Modules) != 1 {
 		t.Errorf("lock file has %d modules after remove, want 1", len(reloaded.Modules))
@@ -634,9 +635,9 @@ func TestAddWritesLockFile(t *testing.T) {
 			ContentHash:     addTestHash,
 		}
 
-		lock, err := LoadLockFile(lockPath)
+		lock, err := invowkmod.LoadLockFile(lockPath)
 		if err != nil {
-			t.Fatalf("LoadLockFile() error = %v", err)
+			t.Fatalf("invowkmod.LoadLockFile() error = %v", err)
 		}
 		lock.AddModule(resolved)
 		if saveErr := lock.Save(lockPath); saveErr != nil {
@@ -644,9 +645,9 @@ func TestAddWritesLockFile(t *testing.T) {
 		}
 
 		// Verify the lock file was created and contains the expected entry
-		reloaded, err := LoadLockFile(lockPath)
+		reloaded, err := invowkmod.LoadLockFile(lockPath)
 		if err != nil {
-			t.Fatalf("LoadLockFile() after save error = %v", err)
+			t.Fatalf("invowkmod.LoadLockFile() after save error = %v", err)
 		}
 		if len(reloaded.Modules) != 1 {
 			t.Fatalf("lock file has %d modules, want 1", len(reloaded.Modules))
@@ -678,7 +679,7 @@ func TestAddWritesLockFile(t *testing.T) {
 		lockPath := filepath.Join(workDir, LockFileName)
 
 		// Pre-populate lock file with an existing entry
-		existing := NewLockFile()
+		existing := invowkmod.NewLockFile()
 		appendTestHash := ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 		existing.Modules["https://github.com/user/utils.git"] = LockedModule{
 			GitURL:          "https://github.com/user/utils.git",
@@ -708,9 +709,9 @@ func TestAddWritesLockFile(t *testing.T) {
 			ContentHash:     appendTestHash2,
 		}
 
-		lock, err := LoadLockFile(lockPath)
+		lock, err := invowkmod.LoadLockFile(lockPath)
 		if err != nil {
-			t.Fatalf("LoadLockFile() error = %v", err)
+			t.Fatalf("invowkmod.LoadLockFile() error = %v", err)
 		}
 		lock.AddModule(resolved)
 		if saveErr := lock.Save(lockPath); saveErr != nil {
@@ -718,9 +719,9 @@ func TestAddWritesLockFile(t *testing.T) {
 		}
 
 		// Verify both entries are present
-		reloaded, err := LoadLockFile(lockPath)
+		reloaded, err := invowkmod.LoadLockFile(lockPath)
 		if err != nil {
-			t.Fatalf("LoadLockFile() after save error = %v", err)
+			t.Fatalf("invowkmod.LoadLockFile() after save error = %v", err)
 		}
 		if len(reloaded.Modules) != 2 {
 			t.Fatalf("lock file has %d modules, want 2", len(reloaded.Modules))

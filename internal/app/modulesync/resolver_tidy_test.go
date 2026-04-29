@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package modulesync
 
 import (
 	"testing"

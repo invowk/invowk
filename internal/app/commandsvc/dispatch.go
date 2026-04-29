@@ -59,7 +59,8 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	}
 
 	if req.Verbose {
-		fmt.Fprintf(s.stdout, "-> Running '%s'...\n", req.Name)
+		cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- request name was resolved through discovery
+		s.observer.CommandStarting(cmdName)
 	}
 
 	result, err := s.executeWithRequestedMode(req, execCtx, registryResult.Registry)
@@ -124,7 +125,8 @@ func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.Executi
 	}
 
 	if req.Verbose {
-		fmt.Fprintf(s.stdout, "! Runtime '%s' does not support interactive mode, using standard execution\n", rt.Name())
+		runtimeName := invowkfile.RuntimeMode(rt.Name()) //goplint:ignore -- runtime names are registered from runtime mode constants
+		s.observer.InteractiveFallback(runtimeName)
 	}
 	return registry.Execute(execCtx), nil
 }

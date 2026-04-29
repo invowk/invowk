@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+package modulesync
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 
 	"github.com/invowk/invowk/pkg/fspath"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -34,8 +35,8 @@ type (
 		auth     transport.AuthMethod
 	}
 
-	// TagInfo contains information about a Git tag.
-	TagInfo struct {
+	// tagInfo contains information about a Git tag.
+	tagInfo struct {
 		// Name is the git tag name; intentionally untyped (pass-through from go-git).
 		Name   string
 		Commit GitCommit
@@ -83,7 +84,7 @@ func (f *GitFetcher) ListVersions(ctx context.Context, gitURL GitURL) ([]SemVer,
 	}
 
 	// Sort versions (newest first)
-	versions = SortVersions(versions)
+	versions = invowkmod.SortVersions(versions)
 
 	return versions, nil
 }
@@ -241,7 +242,7 @@ func (f *GitFetcher) ListTags(ctx context.Context, gitURL GitURL) ([]SemVer, err
 }
 
 // ListTagsWithCommits returns all tags with their commit hashes.
-func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]TagInfo, error) {
+func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]tagInfo, error) {
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{string(gitURL)},
@@ -254,14 +255,14 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]
 		return nil, fmt.Errorf(errMsgListRemoteRefs, err)
 	}
 
-	var tags []TagInfo
+	var tags []tagInfo
 	for _, ref := range refs {
 		if ref.Name().IsTag() {
 			commit := GitCommit(ref.Hash().String())
 			if err := commit.Validate(); err != nil {
 				return nil, fmt.Errorf("git commit hash for tag %q: %w", ref.Name().Short(), err)
 			}
-			tags = append(tags, TagInfo{
+			tags = append(tags, tagInfo{
 				Name:   ref.Name().Short(),
 				Commit: commit,
 			})
@@ -270,8 +271,8 @@ func (f *GitFetcher) ListTagsWithCommits(ctx context.Context, gitURL GitURL) ([]
 
 	// Sort by version
 	sort.Slice(tags, func(i, j int) bool {
-		vi, _ := ParseVersion(tags[i].Name) //nolint:errcheck // Non-semver tags sort lexically
-		vj, _ := ParseVersion(tags[j].Name) //nolint:errcheck // Non-semver tags sort lexically
+		vi, _ := invowkmod.ParseVersion(tags[i].Name) //nolint:errcheck // Non-semver tags sort lexically
+		vj, _ := invowkmod.ParseVersion(tags[j].Name) //nolint:errcheck // Non-semver tags sort lexically
 		if vi == nil || vj == nil {
 			return tags[i].Name < tags[j].Name
 		}

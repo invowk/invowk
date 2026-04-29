@@ -175,8 +175,6 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 				},
 			},
 		},
-		io.Discard,
-		io.Discard,
 		func() map[string]string { return nil },
 		testConfigFallback,
 	)
@@ -213,8 +211,6 @@ func TestDiscoverCommand_ResolvedCommandSkipsLookup(t *testing.T) {
 	svc := commandsvc.New(
 		&fixedConfigProvider{cfg: config.DefaultConfig()},
 		disc,
-		io.Discard,
-		io.Discard,
 		func() map[string]string { return nil },
 		testConfigFallback,
 	)

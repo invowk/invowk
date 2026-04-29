@@ -91,7 +91,10 @@ Configuration is stored in:
 func showConfig(ctx context.Context, app *App) error {
 	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
 	if err != nil {
-		rendered, _ := issue.Get(issue.ConfigLoadFailedId).Render("dark")
+		rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.ConfigLoadFailedId), "dark")
+		if renderErr != nil {
+			slog.Warn("failed to render issue catalog entry", "issue_id", issue.ConfigLoadFailedId, "error", renderErr)
+		}
 		fmt.Fprint(os.Stderr, rendered)
 		return err
 	}

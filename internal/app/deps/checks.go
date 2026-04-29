@@ -254,14 +254,22 @@ func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 // For container runtimes, these checks represent the host's capabilities, not the container's.
 // Each CapabilityDependency contains a list of alternatives; if any alternative is satisfied, the dependency is met.
 func CheckCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+	return CheckCapabilityDependenciesWithChecker(deps, ctx, newHostCapabilityChecker())
+}
+
+// CheckCapabilityDependenciesWithChecker verifies capability dependencies with an injected checker.
+func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext, checker CapabilityChecker) error {
 	if deps == nil || len(deps.Capabilities) == 0 {
 		return nil
+	}
+	if checker == nil {
+		checker = newHostCapabilityChecker()
 	}
 
 	var capabilityErrors []DependencyMessage
 
 	for _, capDep := range uniqueCapabilityDependencies(deps.Capabilities) {
-		found, lastErr := EvaluateAlternatives(capDep.Alternatives, invowkfile.CheckCapability)
+		found, lastErr := EvaluateAlternatives(capDep.Alternatives, checker.Check)
 		if !found && lastErr != nil {
 			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, false, lastErr))
 		}

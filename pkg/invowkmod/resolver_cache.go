@@ -5,7 +5,6 @@ package invowkmod
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,70 +53,6 @@ func GetDefaultCacheDirWith(getenv func(string) string) (types.FilesystemPath, e
 	return cachePath, nil
 }
 
-// getCachePath returns the cache path for a module.
-//
-// Known limitation (L-07): URLs differing only by scheme (e.g., https://github.com/user/repo
-// and git@github.com:user/repo) normalize to the same cache path. The content hash check
-// provides a backstop when a prior lock file exists, but on first sync (no baseline) a
-// stale cached copy from a different scheme could be reused undetected.
-func (m *Resolver) getCachePath(gitURL, version, subPath string) string {
-	// Convert git URL to path-safe format
-	// e.g., "https://github.com/user/repo.git" -> "github.com/user/repo"
-	urlPath := strings.TrimPrefix(gitURL, "https://")
-	urlPath = strings.TrimPrefix(urlPath, "git@")
-	urlPath = strings.TrimSuffix(urlPath, ".git")
-	urlPath = strings.ReplaceAll(urlPath, ":", "/")
-
-	parts := []string{string(m.cacheDir), urlPath, version}
-	if subPath != "" {
-		parts = append(parts, subPath)
-	}
-
-	return filepath.Join(parts...)
-}
-
-// cacheModule copies a module to the cache directory and returns its content hash.
-// If the destination already exists and expectedHash is non-empty, the cached content
-// is verified against the expected hash. A ContentHashMismatchError is returned on mismatch.
-func (m *Resolver) cacheModule(srcDir, dstDir string, expectedHash ContentHash) (ContentHash, error) {
-	// Check if already cached
-	if _, err := os.Stat(dstDir); err == nil {
-		// Compute hash of existing cached module.
-		actualHash, hashErr := computeModuleHash(dstDir)
-		if hashErr != nil {
-			return "", fmt.Errorf("failed to hash cached module: %w", hashErr)
-		}
-		if expectedHash != "" && actualHash != expectedHash {
-			return "", &ContentHashMismatchError{
-				Expected: expectedHash,
-				Actual:   actualHash,
-			}
-		}
-		return actualHash, nil
-	}
-
-	// L-05: When no expected hash exists (first sync or lock file deleted), warn that
-	// there is no integrity baseline to compare against. A pre-populated cache directory
-	// created by an attacker would not be detected until the next sync with a valid lock file.
-	if expectedHash == "" {
-		slog.Warn("caching module without integrity baseline (first sync)",
-			"dst", dstDir)
-	}
-
-	// Create parent directories
-	if err := os.MkdirAll(filepath.Dir(dstDir), 0o755); err != nil {
-		return "", fmt.Errorf("failed to create cache directory: %w", err)
-	}
-
-	// Copy the module directory
-	if err := copyDir(srcDir, dstDir); err != nil {
-		return "", err
-	}
-
-	// Compute hash of newly cached module.
-	return computeModuleHash(dstDir)
-}
-
 // findModuleInDir finds a .invowkmod directory or invowkmod.cue in the given directory.
 // A Git repo is considered a module if:
 //   - Repo name ends with .invowkmod suffix, OR
@@ -152,6 +87,12 @@ func findModuleInDir(dir string) (moduleDir string, moduleName ModuleShortName, 
 	}
 
 	return "", "", fmt.Errorf("%w in %s (expected .invowkmod directory or invowkmod.cue)", ErrModuleNotFoundInDir, dir)
+}
+
+// LocateModuleInDir finds a module directory inside dir.
+func LocateModuleInDir(dir types.FilesystemPath) (types.FilesystemPath, ModuleShortName, error) {
+	moduleDir, moduleName, err := findModuleInDir(string(dir))
+	return types.FilesystemPath(moduleDir), moduleName, err //goplint:ignore -- result is returned from filesystem traversal
 }
 
 // copyDir recursively copies a directory, skipping symlinks for security.
@@ -195,6 +136,11 @@ func copyDir(src, dst string) error {
 	}
 
 	return nil
+}
+
+// CopyModuleDir recursively copies a module directory, skipping symlinks.
+func CopyModuleDir(src, dst types.FilesystemPath) error {
+	return copyDir(string(src), string(dst))
 }
 
 // copyFile copies a single regular file. Uses os.Lstat to avoid following
