@@ -1,4 +1,4 @@
 interface:
   display_name: "Go Hexagonal DDD"
-  short_description: "Hexagonal DDD guidance for Go architecture"
-  default_prompt: "Use $go-hexagonal-ddd to review this Go package boundary and propose the simplest DDD-aligned refactor."
+  short_description: "Hexagonal DDD review for Go architecture"
+  default_prompt: "Use $go-hexagonal-ddd to run a deterministic full-codebase architecture review and report only high-confidence design findings."

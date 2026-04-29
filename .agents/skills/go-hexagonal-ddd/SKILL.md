@@ -1,6 +1,6 @@
 ---
 name: go-hexagonal-ddd
-description: Hexagonal Architecture and Domain-Driven Design guidance for Invowk's Go codebase. Use when Codex designs, reviews, refactors, or implements Go package boundaries, application services, ports/adapters, aggregates, value objects, repositories, domain services, module/discovery/runtime architecture, or when deciding how much DDD structure is warranted without sacrificing Go readability.
+description: Hexagonal Architecture and Domain-Driven Design guidance for Invowk's Go codebase. Use when Codex designs, reviews, refactors, or implements Go package boundaries, application services, ports/adapters, aggregates, value objects, repositories, domain services, module/discovery/runtime architecture, or when explicitly invoked for a full codebase architecture review with deterministic subagent passes and high-confidence design findings.
 ---
 
 # Go Hexagonal DDD
@@ -104,6 +104,93 @@ after the conversation, not the implementation.
   command execution, discovery, runtime, or server state.
 - Prefer one clear use-case method over a generic service with flags that encode
   unrelated workflows.
+
+## Manual Full-Codebase Review
+
+When the user explicitly invokes `$go-hexagonal-ddd` for a full, repo-wide, or
+codebase architecture review, run a deterministic review instead of a loose
+brainstorm. Do not auto-run this full workflow for ordinary package design or
+implementation tasks.
+
+### Coordinator Duties
+
+1. Read `AGENTS.md`, `.agents/rules/package-design.md`, and
+   `references/source-guide.md`.
+2. Capture a stable baseline: branch/HEAD, `git status --short`, and
+   `go list ./cmd/... ./internal/... ./pkg/... ./tools/...`.
+3. Create a task list and launch subagents for the review surfaces below. Use no
+   more than six live subagents. If fewer slots are available, queue the
+   remaining surfaces and launch them only as slots free up.
+4. Tell every subagent this is a read-only review. They must not edit files, run
+   broad formatters, or propose speculative rewrites.
+5. Do not substitute coordinator analysis for a queued surface. The coordinator
+   may inspect shared metadata, deduplicate results, and verify reported
+   evidence, but each owned surface should be reviewed by its assigned subagent.
+6. Merge subagent reports by evidence quality, not by volume. Prefer no finding
+   over a low-confidence architecture opinion.
+
+### Review Surfaces
+
+Use these deterministic surfaces unless the user narrows scope:
+
+| Surface | Primary paths | Focus |
+| --- | --- | --- |
+| SA-1 CLI and app services | `cmd/invowk/`, `internal/app/commandsvc/`, `internal/app/execute/`, `internal/app/deps/` | Driving adapter boundaries, use-case orchestration, domain policy placement |
+| SA-2 Discovery and modules | `internal/discovery/`, `pkg/invowkmod/`, `modules/`, module CLI tests | Dependency graph semantics, scope rules, module aggregate boundaries |
+| SA-3 Runtime and outside devices | `internal/runtime/`, `internal/container/`, `internal/provision/`, `internal/watch/`, `internal/uroot/` | Ports/adapters, host process/container/filesystem boundaries, deterministic test seams |
+| SA-4 Schemas and value types | `pkg/invowkfile/`, `pkg/types/`, `internal/config/`, `pkg/cueutil/` | Invariants, value-object placement, schema/domain language drift |
+| SA-5 Audit and security domains | `internal/audit/`, `internal/issue/`, lock-file and module-security call sites | Finding model, trust boundaries, policy services, error/diagnostic ownership |
+| SA-6 UI/server adapters and tools | `internal/tui/`, `internal/tuiserver/`, `internal/sshserver/`, `internal/core/serverbase/`, `tools/goplint/` | Adapter leakage, server lifecycle boundaries, analyzer/domain contract fit |
+
+### Subagent Prompt Shape
+
+Give each subagent the same constraints plus its assigned surface:
+
+```text
+Use $go-hexagonal-ddd in /var/home/danilo/Workspace/github/invowk/invowk for a
+read-only architecture review of <surface>. Read AGENTS.md, the relevant
+.agents/rules files, and .agents/skills/go-hexagonal-ddd/references/source-guide.md.
+Inspect current code, imports, call sites, and tests for this surface only.
+Return only high-confidence Hexagonal Architecture or DDD findings. For each
+finding include: evidence files/symbols, why the current boundary causes real
+design pressure, the smallest proposed design adjustment, and verification to
+run. If nothing meets that bar, say so.
+```
+
+### High-Confidence Gate
+
+Report a finding only when all are true:
+
+- It is grounded in current files, imports, call sites, or tests with concrete
+  symbols and paths.
+- It names the Invowk capability or policy being misplaced, duplicated, hidden
+  in an adapter, or coupled to an outside device.
+- It explains real pressure: blocked deterministic tests, repeated policy
+  logic, dependency direction mismatch, schema/domain language drift,
+  nondeterministic outside actor coupling, or a security/trust-boundary leak.
+- It proposes the smallest design adjustment that would improve ownership,
+  coupling, invariants, or testability without adding ceremony.
+- It includes a verification path such as narrow Go tests, CLI testscript,
+  schema sync checks, or package import checks.
+
+Omit items based only on naming taste, preferred layering style, hypothetical
+future adapters, generic "clean architecture" rules, or value-object wrapping
+with no validation/normalization leverage.
+
+### Final Report Shape
+
+Lead with findings, ordered by impact and confidence. For each finding use this
+shape:
+
+- **Finding:** concise title with affected surface.
+- **Evidence:** concrete files/symbols/call sites.
+- **Why it matters:** the current design pressure in Invowk terms.
+- **Design adjustment:** the smallest proposed package/type/port movement.
+- **Verification:** exact checks or tests that would confirm the adjustment.
+
+After findings, add "No High-Confidence Finding" surfaces so the user can see
+which areas were reviewed without noise. Keep speculative follow-ups separate
+and clearly labeled, or omit them if the user asked for findings only.
 
 ## Review Checklist
 
