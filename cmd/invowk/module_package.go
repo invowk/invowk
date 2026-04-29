@@ -9,9 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/app/moduleops"
-	"github.com/invowk/invowk/internal/app/modulesync"
 	"github.com/invowk/invowk/internal/config"
-	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 
@@ -205,61 +203,27 @@ func runModuleVendor(ctx context.Context, args []string, vendorUpdate, vendorPru
 		return fmt.Errorf("not a module directory (no invowkmod.cue found in %s)", absPath)
 	}
 
-	// Parse invowkmod.cue to get requirements.
-	modPath := invowkfile.FilesystemPath(invowkmodPath) //goplint:ignore -- derived from filepath.Abs result
-	meta, err := invowkfile.ParseInvowkmod(modPath)
-	if err != nil {
-		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
+	absModPath := types.FilesystemPath(absPath) //goplint:ignore -- from filepath.Abs
+	requirements, result, strategy, err := moduleops.VendorDependencies(ctx, absModPath, vendorUpdate, vendorPrune)
+	if err != nil && len(requirements) == 0 {
+		return fmt.Errorf("failed to resolve dependencies: %w", err)
 	}
-
-	if len(meta.Requires) == 0 {
+	if len(requirements) == 0 {
 		fmt.Printf("%s No dependencies declared in invowkmod.cue\n", moduleWarningIcon)
 		return nil
 	}
 
-	requirements := extractModuleRequirementsFromMetadata(meta)
 	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
-
-	// Create resolver with working dir set to the target module path so the
-	// lock file (invowkmod.lock.cue) lives next to invowkmod.cue.
-	absModPath := types.FilesystemPath(absPath) //goplint:ignore -- from filepath.Abs
-	resolver, err := modulesync.NewResolver(absModPath, "")
-	if err != nil {
-		return fmt.Errorf("failed to create resolver: %w", err)
-	}
-
-	// Resolution strategy:
-	//   --update          → always re-resolve (updates lock file)
-	//   lock file exists  → load from lock (reproducible)
-	//   no lock file      → sync fresh (resolve + create lock)
-	var resolved []*invowkmod.ResolvedModule
-	lockPath := filepath.Join(absPath, invowkmod.LockFileName)
-	_, lockErr := os.Stat(lockPath)
-
-	switch {
-	case vendorUpdate:
+	switch strategy {
+	case moduleops.VendorResolutionUpdated:
 		fmt.Printf("%s Re-resolving all dependencies (--update)\n", moduleInfoIcon)
-		resolved, err = resolver.Sync(ctx, requirements)
-	case lockErr == nil:
+	case moduleops.VendorResolutionLocked:
 		fmt.Printf("%s Loading from lock file\n", moduleInfoIcon)
-		resolved, err = resolver.LoadFromLock(ctx)
-	default:
+	case moduleops.VendorResolutionSynced:
 		fmt.Printf("%s Resolving dependencies (no lock file)\n", moduleInfoIcon)
-		resolved, err = resolver.Sync(ctx, requirements)
 	}
-
 	if err != nil {
 		return fmt.Errorf("failed to resolve dependencies: %w", err)
-	}
-
-	// Copy resolved modules into invowk_modules/
-	result, err := moduleops.VendorModules(moduleops.VendorOptions{
-		ModulePath: absModPath,
-		Modules:    resolved,
-		Prune:      vendorPrune,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to vendor modules: %w", err)
 	}
 
 	// Print results

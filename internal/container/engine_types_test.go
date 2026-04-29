@@ -75,6 +75,8 @@ func TestImageTag_Validate(t *testing.T) {
 		{"empty is invalid", ImageTag(""), false, true},
 		{"whitespace only is invalid", ImageTag("   "), false, true},
 		{"tab only is invalid", ImageTag("\t"), false, true},
+		{"embedded space is invalid", ImageTag("debian:stable slim"), false, true},
+		{"newline is invalid", ImageTag("debian:stable-slim\nRUN echo bad"), false, true},
 	}
 
 	for _, tt := range tests {

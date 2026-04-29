@@ -115,15 +115,15 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 		// vendored copy must match. This detects cache tampering between
 		// sync/add and vendor operations.
 		if mod.ContentHash != "" {
-			actualHash, hashErr := invowkmod.ComputeModuleHash(destPath)
-			if hashErr != nil {
-				return nil, fmt.Errorf("failed to verify vendored module hash at %s: %w", destPath, hashErr)
+			evaluation := invowkmod.EvaluateModuleContentHash(mod.ModuleRef.Key(), mod.ModuleID, dstPath, mod.ContentHash)
+			if evaluation.Status == invowkmod.VendoredHashUnavailable {
+				return nil, fmt.Errorf("failed to verify vendored module hash at %s: %w", destPath, evaluation.Err)
 			}
-			if actualHash != mod.ContentHash {
+			if evaluation.Status == invowkmod.VendoredHashMismatch {
 				return nil, &invowkmod.ContentHashMismatchError{
-					ModuleKey: mod.ModuleRef.Key(),
-					Expected:  mod.ContentHash,
-					Actual:    actualHash,
+					ModuleKey: evaluation.ModuleKey,
+					Expected:  evaluation.Expected,
+					Actual:    evaluation.Actual,
 				}
 			}
 		}

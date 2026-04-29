@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/app/modulesync"
-	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 
@@ -252,34 +251,19 @@ func runModuleRemove(ctx context.Context, args []string) error {
 func runModuleSync(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Sync Module Dependencies"))
 
-	// Parse invowkmod.cue to get requirements
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
-	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
+	requirements, resolved, err := modulesync.SyncModule(ctx, types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
-		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
+		fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
+		return err
 	}
 
-	// Extract requirements from invowkmod
-	requirements := extractModuleRequirementsFromMetadata(meta)
 	if len(requirements) == 0 {
 		fmt.Printf("%s No requires field found in invowkmod.cue\n", moduleInfoIcon)
 		return nil
 	}
 
 	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
-
-	// Create module resolver
-	resolver, err := modulesync.NewResolver("", "")
-	if err != nil {
-		return fmt.Errorf(moduleResolverCreateErrFmt, err)
-	}
-
-	// Sync modules
-	resolved, err := resolver.Sync(ctx, requirements)
-	if err != nil {
-		fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
-		return err
-	}
 
 	fmt.Println()
 	for _, p := range resolved {
@@ -378,19 +362,4 @@ func runModuleDeps(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// extractModuleRequirementsFromMetadata extracts module requirements from Invowkmod.
-func extractModuleRequirementsFromMetadata(meta *invowkfile.Invowkmod) []invowkmod.ModuleRef {
-	var reqs []invowkmod.ModuleRef
-
-	if meta == nil || meta.Requires == nil {
-		return reqs
-	}
-
-	for _, r := range meta.Requires {
-		reqs = append(reqs, invowkmod.ModuleRef(r))
-	}
-
-	return reqs
 }

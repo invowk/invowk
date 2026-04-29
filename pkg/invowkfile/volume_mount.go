@@ -5,7 +5,6 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 // ErrInvalidVolumeMountSpec is the sentinel error wrapped by InvalidVolumeMountSpecError.
@@ -28,16 +27,11 @@ type (
 func (v VolumeMountSpec) String() string { return string(v) }
 
 // Validate returns nil if the VolumeMountSpec is valid, or a validation error if not.
-// A valid spec must be non-empty and contain at least one ':' separator.
 //
 //goplint:nonzero
 func (v VolumeMountSpec) Validate() error {
-	s := string(v)
-	if s == "" {
-		return &InvalidVolumeMountSpecError{Value: v, Reason: "must not be empty"}
-	}
-	if !strings.Contains(s, ":") {
-		return &InvalidVolumeMountSpecError{Value: v, Reason: "must contain ':' separator (host:container format)"}
+	if err := ValidateVolumeMount(string(v)); err != nil {
+		return &InvalidVolumeMountSpecError{Value: v, Reason: err.Error()}
 	}
 	return nil
 }

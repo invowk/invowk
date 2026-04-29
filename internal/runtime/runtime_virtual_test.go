@@ -350,6 +350,30 @@ func TestVirtualRuntime_RejectsInterpreter(t *testing.T) {
 	}
 }
 
+func TestVirtualRuntime_ExecuteCaptureRejectsInterpreter(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	cmd := testCommandWithInterpreter("virtual-capture-with-interp", `echo "Hello"`, "python3", invowkfile.RuntimeVirtual)
+
+	rt := NewVirtualRuntime(false)
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+
+	result := rt.ExecuteCapture(ctx)
+	if result.ExitCode == 0 {
+		t.Error("ExecuteCapture() expected non-zero exit code for interpreter with virtual runtime")
+	}
+	if result.Error == nil {
+		t.Fatal("ExecuteCapture() expected error for interpreter with virtual runtime")
+	}
+	if !errors.Is(result.Error, invowkfile.ErrInterpreterNotAllowed) {
+		t.Errorf("ExecuteCapture() error = %q, want sentinel %q", result.Error, invowkfile.ErrInterpreterNotAllowed)
+	}
+}
+
 func TestVirtualRuntime_ContextCancellation(t *testing.T) {
 	t.Parallel()
 

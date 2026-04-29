@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/app/modulesync"
-	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -41,47 +39,26 @@ Examples:
 func runModuleTidy(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Tidy Module Dependencies"))
 
-	// Parse invowkmod.cue to get requirements.
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
-	meta, err := invowkfile.ParseInvowkmod(invowkfile.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
+	requirements, missing, err := modulesync.TidyModule(ctx, types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
-		return fmt.Errorf("failed to parse invowkmod.cue: %w", err)
+		return err
 	}
 
-	// Extract requirements from invowkmod.
-	requirements := extractModuleRequirementsFromMetadata(meta)
 	if len(requirements) == 0 {
 		fmt.Printf("%s No requires field found in invowkmod.cue — nothing to tidy\n", moduleInfoIcon)
 		return nil
 	}
 
 	fmt.Printf("%s Found %d requirement(s) in invowkmod.cue\n", moduleInfoIcon, len(requirements))
-
-	// Create module resolver.
-	resolver, err := modulesync.NewResolver("", "")
-	if err != nil {
-		return fmt.Errorf(moduleResolverCreateErrFmt, err)
-	}
-
-	// Find missing transitive deps.
 	fmt.Printf("%s Resolving dependencies to find missing transitive requirements...\n", moduleInfoIcon)
-	missing, err := resolver.Tidy(ctx, requirements)
-	if err != nil {
-		return err
-	}
 
 	if len(missing) == 0 {
 		fmt.Printf("%s All transitive dependencies are already declared — nothing to tidy\n", moduleSuccessIcon)
 		return nil
 	}
 
-	// Add missing requirements to invowkmod.cue.
-	invowkmodPath := types.FilesystemPath(invowkmodulePath) //goplint:ignore -- relative path from current dir
 	for _, req := range missing {
-		if addErr := invowkmod.AddRequirement(invowkmodPath, req); addErr != nil {
-			fmt.Printf("%s Failed to add %s: %v\n", moduleErrorIcon, req.GitURL, addErr)
-			return addErr
-		}
 		fmt.Printf("%s Added %s (%s)\n", moduleSuccessIcon,
 			modulePathStyle.Render(string(req.GitURL)),
 			CmdStyle.Render(string(req.Version)))

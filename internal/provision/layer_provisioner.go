@@ -74,6 +74,9 @@ func (p *LayerProvisioner) Provision(ctx context.Context, req Request) (*Result,
 	if req.BaseImage == "" {
 		req.BaseImage = "debian:stable-slim"
 	}
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("provision request: %w", err)
+	}
 	if !p.config.Enabled {
 		return &Result{
 			ImageTag: req.BaseImage,

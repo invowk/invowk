@@ -5,6 +5,8 @@ package modulesync
 import (
 	"context"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 func TestCheckMissingTransitiveDeps_AllDeclared(t *testing.T) {
@@ -32,7 +34,7 @@ func TestCheckMissingTransitiveDeps_AllDeclared(t *testing.T) {
 		},
 	}
 
-	diags := checkMissingTransitiveDeps(requirements, resolved)
+	diags := invowkmod.CheckMissingTransitiveDeps(requirements, resolved)
 	if len(diags) != 0 {
 		t.Errorf("expected 0 missing deps, got %d: %v", len(diags), diags)
 	}
@@ -57,7 +59,7 @@ func TestCheckMissingTransitiveDeps_SomeMissing(t *testing.T) {
 		},
 	}
 
-	diags := checkMissingTransitiveDeps(requirements, resolved)
+	diags := invowkmod.CheckMissingTransitiveDeps(requirements, resolved)
 	if len(diags) != 2 {
 		t.Fatalf("expected 2 missing deps, got %d", len(diags))
 	}
@@ -107,7 +109,7 @@ func TestCheckMissingTransitiveDeps_DiamondDep(t *testing.T) {
 		},
 	}
 
-	diags := checkMissingTransitiveDeps(requirements, resolved)
+	diags := invowkmod.CheckMissingTransitiveDeps(requirements, resolved)
 	if len(diags) != 0 {
 		t.Errorf("expected 0 missing deps (diamond satisfied), got %d", len(diags))
 	}
@@ -140,7 +142,7 @@ func TestCheckMissingTransitiveDeps_Deduplication(t *testing.T) {
 		},
 	}
 
-	diags := checkMissingTransitiveDeps(requirements, resolved)
+	diags := invowkmod.CheckMissingTransitiveDeps(requirements, resolved)
 	if len(diags) != 1 {
 		t.Fatalf("expected 1 deduplicated missing dep, got %d", len(diags))
 	}

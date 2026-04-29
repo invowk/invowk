@@ -71,6 +71,7 @@ func ValidateVolumeMount(volume string) error {
 		validOptions := map[string]bool{
 			"ro": true, "rw": true,
 			"z": true, "Z": true, // SELinux labels
+			"exec":   true,
 			"shared": true, "slave": true, "private": true,
 			"rshared": true, "rslave": true, "rprivate": true,
 			"nocopy": true, "copy": true,
@@ -117,15 +118,20 @@ func isWindowsDriveLetter(c byte) bool {
 
 // matchesSensitivePattern checks if a path matches a sensitive pattern.
 func matchesSensitivePattern(path string, patternParts []string) bool {
+	offset := 0
+	matched := false
 	for _, part := range patternParts {
 		if part == "" {
 			continue
 		}
-		if strings.Contains(path, part) {
-			return true
+		idx := strings.Index(path[offset:], part)
+		if idx == -1 {
+			return false
 		}
+		offset += idx + len(part)
+		matched = true
 	}
-	return false
+	return matched
 }
 
 // ValidatePortMapping validates a container port mapping specification.

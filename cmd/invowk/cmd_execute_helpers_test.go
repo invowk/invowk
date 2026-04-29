@@ -9,28 +9,29 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/commandadapters"
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 )
 
-// mockDiscoveryService implements DiscoveryService for testing checkAmbiguousCommand.
-// It returns a pre-built CommandSetResult without touching the filesystem.
-type mockDiscoveryService struct {
-	result discovery.CommandSetResult
-	err    error
+type fakeAmbiguityCommandService struct {
+	err error
 }
 
-func (m *mockDiscoveryService) DiscoverCommandSet(_ context.Context) (discovery.CommandSetResult, error) {
-	return m.result, m.err
+func (s *fakeAmbiguityCommandService) Execute(context.Context, ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+	return ExecuteResult{}, nil, nil
 }
 
-func (m *mockDiscoveryService) DiscoverAndValidateCommandSet(_ context.Context) (discovery.CommandSetResult, error) {
-	return m.result, m.err
+func (s *fakeAmbiguityCommandService) ResolveCommand(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	if s.err != nil {
+		return nil, req, nil, s.err
+	}
+	return &discovery.CommandInfo{Name: "build", SimpleName: "build"}, req, nil, nil
 }
 
-func (m *mockDiscoveryService) GetCommand(_ context.Context, _ string) (discovery.LookupResult, error) {
-	return discovery.LookupResult{}, nil
+func (s *fakeAmbiguityCommandService) ResolveFromSource(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	return &discovery.CommandInfo{Name: "build", SimpleName: "build"}, req, nil, nil
 }
 
 // TestCreateRuntimeRegistry_SingleContainerInstance verifies the invariant that
@@ -188,37 +189,10 @@ func TestParseEnvVarFlags(t *testing.T) {
 func TestCheckAmbiguousCommand(t *testing.T) {
 	t.Parallel()
 
-	// Build a command set with "deploy" in two sources and "build" in one source.
-	set := discovery.NewDiscoveredCommandSet()
-	set.BySimpleName["deploy"] = []*discovery.CommandInfo{
-		{SimpleName: "deploy", SourceID: discovery.SourceIDInvowkfile},
-		{SimpleName: "deploy", SourceID: "mymodule"},
-	}
-	set.BySimpleName["build"] = []*discovery.CommandInfo{
-		{SimpleName: "build", SourceID: discovery.SourceIDInvowkfile},
-	}
-	set.AmbiguousNames["deploy"] = true
-	set.BySource[discovery.SourceIDInvowkfile] = []*discovery.CommandInfo{
-		{SimpleName: "deploy", SourceID: discovery.SourceIDInvowkfile},
-		{SimpleName: "build", SourceID: discovery.SourceIDInvowkfile},
-	}
-	set.BySource["mymodule"] = []*discovery.CommandInfo{
-		{SimpleName: "deploy", SourceID: "mymodule"},
-	}
-	set.SourceOrder = []discovery.SourceID{discovery.SourceIDInvowkfile, "mymodule"}
-
-	mock := &mockDiscoveryService{
-		result: discovery.CommandSetResult{Set: set},
-	}
-
-	app := &App{
-		Discovery:   mock,
-		Diagnostics: &defaultDiagnosticRenderer{},
-		stderr:      &bytes.Buffer{},
-	}
 	tests := []struct {
 		name      string
 		args      []string
+		err       error
 		wantErr   bool
 		wantAmbig bool
 	}{
@@ -228,8 +202,15 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:      "ambiguous command returns error",
-			args:      []string{"deploy"},
+			name: "ambiguous command returns error",
+			args: []string{"deploy"},
+			err: &commandsvc.ClassifiedError{
+				Err: &commandsvc.AmbiguousCommandError{
+					CommandName: "deploy",
+					Sources:     []discovery.SourceID{discovery.SourceIDInvowkfile, "mymodule"},
+				},
+				Kind: commandsvc.ErrorKindCommandAmbiguous,
+			},
 			wantErr:   true,
 			wantAmbig: true,
 		},
@@ -249,6 +230,11 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			app := &App{
+				Commands:    &fakeAmbiguityCommandService{err: tt.err},
+				Diagnostics: &defaultDiagnosticRenderer{},
+				stderr:      &bytes.Buffer{},
+			}
 			err := checkAmbiguousCommand(t.Context(), app, tt.args)
 
 			if tt.wantErr {
@@ -271,17 +257,13 @@ func TestCheckAmbiguousCommand(t *testing.T) {
 	}
 }
 
-// TestCheckAmbiguousCommand_DiscoveryError verifies that discovery errors are
+// TestCheckAmbiguousCommand_ServiceError verifies that non-ambiguity errors are
 // silently swallowed (checkAmbiguousCommand is best-effort).
-func TestCheckAmbiguousCommand_DiscoveryError(t *testing.T) {
+func TestCheckAmbiguousCommand_ServiceError(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDiscoveryService{
-		err: errors.New("discovery failed"),
-	}
-
 	app := &App{
-		Discovery:   mock,
+		Commands:    &fakeAmbiguityCommandService{err: errors.New("discovery failed")},
 		Diagnostics: &defaultDiagnosticRenderer{},
 		stderr:      &bytes.Buffer{},
 	}

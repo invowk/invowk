@@ -205,32 +205,19 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 		return nil
 	}
 
-	// Build set of declared dependency keys for transitive-dep detection.
-	declared := make(map[invowkmod.ModuleRefKey]bool)
-	for _, req := range mod.Module.Metadata.Requires {
-		declared[invowkmod.ModuleRef(req).Key()] = true
-	}
-
 	// Check each vendored module's own requires for undeclared transitive deps.
 	var findings []Finding
-	for _, vendored := range mod.VendoredModules {
-		if vendored.Metadata == nil {
-			continue
-		}
-		for _, transReq := range vendored.Metadata.Requires {
-			if !declared[invowkmod.ModuleRef(transReq).Key()] {
-				findings = append(findings, Finding{
-					Severity:       SeverityMedium,
-					Category:       CategoryTrust,
-					SurfaceID:      mod.SurfaceID,
-					CheckerName:    moduleMetadataCheckerName,
-					FilePath:       fspath.JoinStr(mod.Path, moduleMetadataFileName),
-					Title:          "Transitive dependency not declared in root " + moduleMetadataFileName,
-					Description:    fmt.Sprintf("Module %q requires %q which is not declared in the root requires — violates explicit-only dep model", vendored.Metadata.Module, transReq.GitURL),
-					Recommendation: "Run 'invowk module tidy' to add missing transitive dependencies",
-				})
-			}
-		}
+	for _, diag := range invowkmod.CheckMissingVendoredTransitiveDeps(mod.Module.Metadata.Requires, mod.VendoredModules) {
+		findings = append(findings, Finding{
+			Severity:       SeverityMedium,
+			Category:       CategoryTrust,
+			SurfaceID:      mod.SurfaceID,
+			CheckerName:    moduleMetadataCheckerName,
+			FilePath:       fspath.JoinStr(mod.Path, moduleMetadataFileName),
+			Title:          "Transitive dependency not declared in root " + moduleMetadataFileName,
+			Description:    fmt.Sprintf("Module %q requires %q which is not declared in the root requires — violates explicit-only dep model", diag.RequiringModule, diag.MissingRef.GitURL),
+			Recommendation: "Run 'invowk module tidy' to add missing transitive dependencies",
+		})
 	}
 
 	// Second scan: verify each vendored module itself is declared in requires.

@@ -25,8 +25,15 @@ func IsDeclaredLockedVendoredModule(parentModule, childModule *Module) bool {
 // IsDeclaredLockedModule reports whether moduleID is present in both the
 // declared requirements and the lock file.
 func IsDeclaredLockedModule(requirements []ModuleRequirement, lock *LockFile, moduleID ModuleID) bool {
+	_, ok := DeclaredLockedModule(requirements, lock, moduleID)
+	return ok
+}
+
+// DeclaredLockedModule returns the lock entry that declares moduleID through the
+// root requirements, if one exists.
+func DeclaredLockedModule(requirements []ModuleRequirement, lock *LockFile, moduleID ModuleID) (LockedModule, bool) {
 	if lock == nil || moduleID == "" {
-		return false
+		return LockedModule{}, false
 	}
 	for _, req := range requirements {
 		key := ModuleRef(req).Key()
@@ -35,8 +42,8 @@ func IsDeclaredLockedModule(requirements []ModuleRequirement, lock *LockFile, mo
 			continue
 		}
 		if locked.IdentityModuleID() == moduleID {
-			return true
+			return locked, true
 		}
 	}
-	return false
+	return LockedModule{}, false
 }

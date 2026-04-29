@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -331,6 +330,10 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 	var files []*DiscoveredFile
 	diagnostics := make([]Diagnostic, 0)
 
+	if parentModule == nil || parentModule.Metadata == nil {
+		return files, diagnostics
+	}
+
 	vendorDir := invowkmod.GetVendoredModulesDir(parentModule.Path)
 	vendorDirStr := string(vendorDir)
 	if _, err := os.Stat(vendorDirStr); err != nil {
@@ -345,6 +348,19 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			CodeVendoredScanFailed,
 			fmt.Sprintf("failed to read vendored modules directory %s: %v", vendorDir, err),
 			vendorDir,
+			err,
+		))
+		return files, diagnostics
+	}
+
+	lockPath := types.FilesystemPath(filepath.Join(string(parentModule.Path), invowkmod.LockFileName)) //goplint:ignore -- derived from validated module path and constant filename
+	lock, err := invowkmod.LoadLockFile(string(lockPath))
+	if err != nil {
+		diagnostics = append(diagnostics, mustDiagnosticWithCause(
+			SeverityWarning,
+			CodeVendoredScanFailed,
+			fmt.Sprintf("failed to load lock file for vendored modules in %s: %v", parentModule.Name(), err),
+			lockPath,
 			err,
 		))
 		return files, diagnostics
@@ -395,7 +411,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			))
 			continue
 		}
-		if !invowkmod.IsDeclaredLockedVendoredModule(parentModule, m) {
+		if !invowkmod.IsDeclaredLockedModule(parentModule.Metadata.Requires, lock, m.Metadata.Module) {
 			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
 				CodeVendoredUndeclaredSkipped,
@@ -421,34 +437,22 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			Source:           SourceModule,
 			Module:           m,
 			ParentModule:     parentModule,
-			CommandNamespace: vendoredCommandNamespace(parentModule, m),
+			CommandNamespace: vendoredCommandNamespace(parentModule.Metadata.Requires, lock, m),
 		})
 	}
 
 	return files, diagnostics
 }
 
-func vendoredCommandNamespace(parentModule, childModule *invowkmod.Module) invowkmod.ModuleNamespace {
-	if parentModule == nil || childModule == nil || childModule.Metadata == nil {
+func vendoredCommandNamespace(requirements []invowkmod.ModuleRequirement, lock *invowkmod.LockFile, childModule *invowkmod.Module) invowkmod.ModuleNamespace {
+	if childModule == nil || childModule.Metadata == nil {
 		return ""
 	}
-
-	lockPath := fspath.JoinStr(parentModule.Path, invowkmod.LockFileName)
-	lock, err := invowkmod.LoadLockFile(string(lockPath))
-	if err != nil {
+	locked, ok := invowkmod.DeclaredLockedModule(requirements, lock, childModule.Metadata.Module)
+	if !ok || locked.Alias == "" {
 		return ""
 	}
-
-	for key := range lock.Modules {
-		locked := lock.Modules[key]
-		if locked.Alias == "" {
-			continue
-		}
-		if locked.IdentityModuleID() == childModule.Metadata.Module {
-			return invowkmod.ModuleNamespace(locked.Alias)
-		}
-	}
-	return ""
+	return invowkmod.ModuleNamespace(locked.Alias)
 }
 
 // appendModulesWithVendored appends the module files and diagnostics, then for

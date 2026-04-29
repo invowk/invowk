@@ -228,9 +228,15 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 		default:
 		}
 
-		vendoredID := string(vendored.Metadata.Module)
-		entries := lockByID[vendoredID]
-		if len(entries) == 0 {
+		evaluation := invowkmod.EvaluateVendoredModuleHash(mod.LockFile, vendored)
+		vendoredID := string(evaluation.ModuleID)
+		switch evaluation.Status {
+		case invowkmod.VendoredHashMatched:
+			continue
+		case invowkmod.VendoredHashAmbiguous:
+			// Already reported above from the lock-file-wide ambiguity scan.
+			continue
+		case invowkmod.VendoredHashMissing:
 			// Vendored module has no matching lock entry — flag it (M3).
 			findings = append(findings, Finding{
 				Severity:       SeverityMedium,
@@ -243,14 +249,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				Recommendation: "Run 'invowk module sync' to add the module to the lock file, or remove it from invowk_modules/",
 			})
 			continue
-		}
-
-		// Use first entry for hash verification (ambiguity already flagged above).
-		matchedKey := entries[0].key
-		expectedHash := entries[0].hash
-
-		actualHash, err := invowkmod.ComputeModuleHash(string(vendored.Path))
-		if err != nil {
+		case invowkmod.VendoredHashUnavailable:
 			findings = append(findings, Finding{
 				Severity:       SeverityHigh,
 				Category:       CategoryIntegrity,
@@ -258,13 +257,11 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				CheckerName:    lockFileCheckerName,
 				FilePath:       vendored.Path,
 				Title:          "Vendored module hash could not be computed",
-				Description:    fmt.Sprintf("Hash computation failed for vendored module %q: %v — integrity verification incomplete", vendoredID, err),
+				Description:    fmt.Sprintf("Hash computation failed for vendored module %q: %v — integrity verification incomplete", vendoredID, evaluation.Err),
 				Recommendation: "Verify directory permissions and contents; a module that cannot be hashed may be tampered with",
 			})
 			continue
-		}
-
-		if actualHash != expectedHash {
+		case invowkmod.VendoredHashMismatch:
 			findings = append(findings, Finding{
 				Severity:       SeverityCritical,
 				Category:       CategoryIntegrity,
@@ -272,8 +269,19 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				CheckerName:    lockFileCheckerName,
 				FilePath:       vendored.Path,
 				Title:          "Module content hash mismatch",
-				Description:    fmt.Sprintf("Vendored module %q has hash %s but lock file expects %s — module may have been tampered with", matchedKey, actualHash, expectedHash),
+				Description:    fmt.Sprintf("Vendored module %q has hash %s but lock file expects %s — module may have been tampered with", evaluation.ModuleKey, evaluation.Actual, evaluation.Expected),
 				Recommendation: "Re-vendor with 'invowk module sync' and verify the module source has not been compromised",
+			})
+		default:
+			findings = append(findings, Finding{
+				Severity:       SeverityHigh,
+				Category:       CategoryIntegrity,
+				SurfaceID:      mod.SurfaceID,
+				CheckerName:    lockFileCheckerName,
+				FilePath:       vendored.Path,
+				Title:          "Vendored module hash status is unknown",
+				Description:    fmt.Sprintf("Vendored module %q returned unknown integrity status %q", vendoredID, evaluation.Status),
+				Recommendation: "Run 'invowk module sync' to regenerate lock metadata before using vendored modules",
 			})
 		}
 	}

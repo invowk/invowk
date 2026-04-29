@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
@@ -280,19 +281,25 @@ func (e *InvalidContainerIDError) Unwrap() error { return ErrInvalidContainerID 
 func (t ImageTag) String() string { return string(t) }
 
 // Validate returns an error if the ImageTag is invalid.
-// A valid ImageTag is non-empty and not whitespace-only.
+// A valid ImageTag is non-empty and contains no whitespace or control characters.
 //
 //goplint:nonzero
 func (t ImageTag) Validate() error {
-	if strings.TrimSpace(string(t)) == "" {
+	tag := string(t)
+	if strings.TrimSpace(tag) == "" {
 		return &InvalidImageTagError{Value: t}
+	}
+	for _, r := range tag {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return &InvalidImageTagError{Value: t}
+		}
 	}
 	return nil
 }
 
 // Error implements the error interface for InvalidImageTagError.
 func (e *InvalidImageTagError) Error() string {
-	return fmt.Sprintf("invalid image tag %q: must be non-empty", e.Value)
+	return fmt.Sprintf("invalid image tag %q: must be non-empty and contain no whitespace or control characters", e.Value)
 }
 
 // Unwrap returns ErrInvalidImageTag for errors.Is() compatibility.

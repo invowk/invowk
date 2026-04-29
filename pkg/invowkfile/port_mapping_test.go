@@ -20,8 +20,10 @@ func TestPortMappingSpec_Validate(t *testing.T) {
 		{"with protocol", PortMappingSpec("8080:80/tcp"), true, false},
 		{"udp protocol", PortMappingSpec("5353:53/udp"), true, false},
 		{"range", PortMappingSpec("8000-8100:80-180"), true, false},
+		{"container port only", PortMappingSpec("8080"), true, false},
 		{"empty is invalid", PortMappingSpec(""), false, true},
-		{"no colon is invalid", PortMappingSpec("8080"), false, true},
+		{"invalid protocol is invalid", PortMappingSpec("8080:80/http"), false, true},
+		{"port zero is invalid", PortMappingSpec("0:80"), false, true},
 	}
 
 	for _, tt := range tests {

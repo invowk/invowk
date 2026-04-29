@@ -269,7 +269,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 
 	// Validate that all transitive deps are explicitly declared in root requirements.
 	// If any are missing, return an actionable error suggesting `invowk module tidy`.
-	if diags := checkMissingTransitiveDeps(requirements, resolved); len(diags) > 0 {
+	if diags := invowkmod.CheckMissingTransitiveDeps(requirements, resolved); len(diags) > 0 {
 		return nil, &MissingTransitiveDepError{Diagnostics: diags}
 	}
 

@@ -4,42 +4,11 @@ package modulesync
 
 import (
 	"context"
+
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 type resolveAllFunc func(context.Context, []ModuleRef, map[ModuleRefKey]ContentHash) ([]*ResolvedModule, error)
-
-// checkMissingTransitiveDeps compares each resolved module's TransitiveDeps
-// against the root requirements. Returns diagnostics for any transitive deps
-// that are not explicitly declared in the root invowkmod.cue.
-//
-// Diagnostics are deduplicated by the missing dep's Key() — if modules B and C
-// both require D, and D is not in root requirements, D is reported once
-// (attributed to the first module that declares it).
-func checkMissingTransitiveDeps(requirements []ModuleRef, resolved []*ResolvedModule) []MissingTransitiveDepDiagnostic {
-	rootKeys := make(map[ModuleRefKey]bool, len(requirements))
-	for _, req := range requirements {
-		rootKeys[req.Key()] = true
-	}
-
-	var diags []MissingTransitiveDepDiagnostic
-	seen := make(map[ModuleRefKey]bool)
-
-	for _, mod := range resolved {
-		for _, dep := range mod.TransitiveDeps {
-			key := dep.Key()
-			if !rootKeys[key] && !seen[key] {
-				seen[key] = true
-				diags = append(diags, MissingTransitiveDepDiagnostic{
-					RequiringModule: mod.ModuleID,
-					RequiringURL:    mod.ModuleRef.GitURL,
-					MissingRef:      dep,
-				})
-			}
-		}
-	}
-
-	return diags
-}
 
 // Tidy resolves all direct dependencies and returns any transitive dependencies
 // that are not declared in the root invowkmod.cue. The caller (CLI) is responsible
@@ -75,7 +44,7 @@ func tidyToFixedPoint(ctx context.Context, requirements []ModuleRef, knownHashes
 			return nil, err
 		}
 
-		diags := checkMissingTransitiveDeps(current, resolved)
+		diags := invowkmod.CheckMissingTransitiveDeps(current, resolved)
 		if len(diags) == 0 {
 			return missing, nil
 		}

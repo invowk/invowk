@@ -113,6 +113,36 @@ func TestLayerProvisioner_Provision_Disabled(t *testing.T) {
 	}
 }
 
+func TestLayerProvisioner_ProvisionRejectsInvalidBaseImage(t *testing.T) {
+	t.Parallel()
+
+	engine := newMockEngine()
+	cfg := &Config{
+		Enabled:          false,
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
+	}
+
+	provisioner, provErr := NewLayerProvisioner(engine, cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
+
+	_, err := provisioner.Provision(t.Context(), Request{BaseImage: container.ImageTag("debian:stable-slim\nRUN echo bad")})
+	if err == nil {
+		t.Fatal("Provision() returned nil error, want invalid base image error")
+	}
+	if !errors.Is(err, container.ErrInvalidImageTag) {
+		t.Errorf("Provision() error = %v, want ErrInvalidImageTag", err)
+	}
+	if len(engine.buildCalls) > 0 {
+		t.Error("expected no build calls for invalid request")
+	}
+	if len(engine.imageExistsCalls) > 0 {
+		t.Error("expected no image exists calls for invalid request")
+	}
+}
+
 func TestLayerProvisioner_Provision_CacheHit(t *testing.T) {
 	t.Parallel()
 

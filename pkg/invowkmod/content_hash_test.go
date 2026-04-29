@@ -270,12 +270,65 @@ version: "1.0.0"
 		ModuleID:        "io.example.dep",
 		ContentHash:     hash,
 	}
-	if err := lock.Save(filepath.Join(root, LockFileName)); err != nil {
-		t.Fatalf("Save() error = %v", err)
+	if saveErr := lock.Save(filepath.Join(root, LockFileName)); saveErr != nil {
+		t.Fatalf("Save() error = %v", saveErr)
 	}
 
 	if err := VerifyVendoredModuleHashes(types.FilesystemPath(root)); err != nil {
 		t.Fatalf("VerifyVendoredModuleHashes() error = %v", err)
+	}
+}
+
+func TestEvaluateVendoredModuleHashAmbiguousLockEntries(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	moduleDir := filepath.Join(root, "io.example.dep"+ModuleSuffix)
+	writeHashTestModule(t, moduleDir, "io.example.dep")
+
+	mod, err := Load(types.FilesystemPath(moduleDir))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	hash, err := computeModuleHash(moduleDir)
+	if err != nil {
+		t.Fatalf("computeModuleHash() error = %v", err)
+	}
+	lock := NewLockFile()
+	lock.Modules["https://github.com/example/dep.git"] = lockedHashTestModule("io.example.dep", hash)
+	lock.Modules["https://github.com/example/alias.git"] = lockedHashTestModule("io.example.dep", hash)
+
+	evaluation := EvaluateVendoredModuleHash(lock, mod)
+	if evaluation.Status != VendoredHashAmbiguous {
+		t.Fatalf("EvaluateVendoredModuleHash() status = %q, want %q", evaluation.Status, VendoredHashAmbiguous)
+	}
+	if len(evaluation.LockKeys) != 2 {
+		t.Errorf("EvaluateVendoredModuleHash() lock key count = %d, want 2", len(evaluation.LockKeys))
+	}
+}
+
+func TestVerifyVendoredModuleHashesRejectsAmbiguousLockEntries(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	vendorDir := filepath.Join(root, VendoredModulesDir)
+	moduleDir := filepath.Join(vendorDir, "io.example.dep"+ModuleSuffix)
+	writeHashTestModule(t, moduleDir, "io.example.dep")
+
+	hash, err := computeModuleHash(moduleDir)
+	if err != nil {
+		t.Fatalf("computeModuleHash() error = %v", err)
+	}
+	lock := NewLockFile()
+	lock.Modules["https://github.com/example/dep.git"] = lockedHashTestModule("io.example.dep", hash)
+	lock.Modules["https://github.com/example/alias.git"] = lockedHashTestModule("io.example.dep", hash)
+	if saveErr := lock.Save(filepath.Join(root, LockFileName)); saveErr != nil {
+		t.Fatalf("Save() error = %v", saveErr)
+	}
+
+	err = VerifyVendoredModuleHashes(types.FilesystemPath(root))
+	if err == nil {
+		t.Fatal("VerifyVendoredModuleHashes() returned nil, want ambiguous lock error")
 	}
 }
 
@@ -304,5 +357,33 @@ func TestComputeModuleHash_FileNameChanges(t *testing.T) {
 
 	if hash1 == hash2 {
 		t.Error("hashes should differ for different file names with same content")
+	}
+}
+
+func writeHashTestModule(t *testing.T, moduleDir, moduleID string) {
+	t.Helper()
+
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(moduleDir, "invowkmod.cue"), []byte(`module: "`+moduleID+`"
+version: "1.0.0"
+`), 0o644); err != nil {
+		t.Fatalf("failed to write invowkmod.cue: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(moduleDir, "invowkfile.cue"), []byte("cmds: []\n"), 0o644); err != nil {
+		t.Fatalf("failed to write invowkfile.cue: %v", err)
+	}
+}
+
+func lockedHashTestModule(moduleID string, hash ContentHash) LockedModule {
+	return LockedModule{
+		GitURL:          GitURL("https://github.com/example/" + moduleID + ".git"),
+		Version:         "1.0.0",
+		ResolvedVersion: "1.0.0",
+		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+		Namespace:       ModuleNamespace(moduleID),
+		ModuleID:        ModuleID(moduleID),
+		ContentHash:     hash,
 	}
 }

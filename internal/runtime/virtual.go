@@ -100,13 +100,8 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 		return errVirtualNoScript
 	}
 
-	// Check if interpreter is configured (not allowed for virtual runtime)
-	// This is a Go-level validation in addition to CUE schema validation
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig != nil {
-		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
-			return err
-		}
+	if err := validateVirtualInterpreter(ctx); err != nil {
+		return err
 	}
 
 	// Resolve the script content
@@ -128,14 +123,6 @@ func (r *VirtualRuntime) Validate(ctx *ExecutionContext) error {
 func (r *VirtualRuntime) Execute(ctx *ExecutionContext) *Result {
 	if err := validateExecutionContextForRun(ctx, errVirtualNoImpl, errVirtualNoScript); err != nil {
 		return NewErrorResult(1, err)
-	}
-
-	// Validate interpreter is not set (virtual runtime doesn't support custom interpreters)
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig != nil {
-		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
-			return NewErrorResult(1, err)
-		}
 	}
 
 	prepared, execCtx, errResult := r.prepareVirtualExec(ctx, interp.StdIO(ctx.IO.Stdin, ctx.IO.Stdout, ctx.IO.Stderr))
@@ -206,12 +193,8 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		return nil, err
 	}
 
-	// Validate interpreter is not set (virtual runtime doesn't support custom interpreters)
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	if rtConfig != nil {
-		if err := rtConfig.ValidateInterpreterForRuntime(); err != nil {
-			return nil, err
-		}
+	if err := validateVirtualInterpreter(ctx); err != nil {
+		return nil, err
 	}
 
 	// Resolve the script content
@@ -300,6 +283,10 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 // an interpreter runner. The stdIO option determines whether output is streamed
 // or captured. Returns an error Result on failure.
 func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.RunnerOption) (*virtualPreparedExec, context.Context, *Result) {
+	if err := validateVirtualInterpreter(ctx); err != nil {
+		return nil, nil, NewErrorResult(1, err)
+	}
+
 	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
 		return nil, nil, NewErrorResult(1, err)
@@ -342,6 +329,17 @@ func (r *VirtualRuntime) prepareVirtualExec(ctx *ExecutionContext, stdIO interp.
 	}
 
 	return &virtualPreparedExec{prog: prog, runner: runner}, execCtx, nil
+}
+
+func validateVirtualInterpreter(ctx *ExecutionContext) error {
+	if ctx == nil || ctx.SelectedImpl == nil {
+		return nil
+	}
+	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
+	if rtConfig == nil {
+		return nil
+	}
+	return rtConfig.ValidateInterpreterForRuntime()
 }
 
 // execHandler handles external command execution

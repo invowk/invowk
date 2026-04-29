@@ -18,9 +18,14 @@ func TestVolumeMountSpec_Validate(t *testing.T) {
 	}{
 		{"host:container", VolumeMountSpec("/host:/container"), true, false},
 		{"with ro option", VolumeMountSpec("/host:/container:ro"), true, false},
+		{"with exec option", VolumeMountSpec("/host:/container:ro,exec"), true, false},
 		{"relative paths", VolumeMountSpec("./data:/data"), true, false},
+		{"var home workspace path", VolumeMountSpec("/var/home/user/project:/workspace"), true, false},
 		{"empty is invalid", VolumeMountSpec(""), false, true},
 		{"no colon is invalid", VolumeMountSpec("/just-a-path"), false, true},
+		{"relative container is invalid", VolumeMountSpec("/host:relative"), false, true},
+		{"sensitive path is invalid", VolumeMountSpec("/etc/shadow:/data"), false, true},
+		{"home ssh path is invalid", VolumeMountSpec("/home/user/.ssh:/data"), false, true},
 	}
 
 	for _, tt := range tests {

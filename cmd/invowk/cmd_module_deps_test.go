@@ -6,16 +6,14 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
-
-	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-func TestExtractModuleRequirementsFromMetadata(t *testing.T) {
+func TestModuleRefsFromRequirements(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name     string
-		meta     *invowkfile.Invowkmod
+		meta     *invowkmod.Invowkmod
 		wantLen  int
 		wantRefs []invowkmod.ModuleRef
 	}{
@@ -26,7 +24,7 @@ func TestExtractModuleRequirementsFromMetadata(t *testing.T) {
 		},
 		{
 			name: "empty requires returns empty slice",
-			meta: &invowkfile.Invowkmod{
+			meta: &invowkmod.Invowkmod{
 				Module:  "test",
 				Version: "1.0.0",
 			},
@@ -34,7 +32,7 @@ func TestExtractModuleRequirementsFromMetadata(t *testing.T) {
 		},
 		{
 			name: "nil requires field returns empty slice",
-			meta: &invowkfile.Invowkmod{
+			meta: &invowkmod.Invowkmod{
 				Module:   "test",
 				Version:  "1.0.0",
 				Requires: nil,
@@ -43,10 +41,10 @@ func TestExtractModuleRequirementsFromMetadata(t *testing.T) {
 		},
 		{
 			name: "single requirement without alias",
-			meta: &invowkfile.Invowkmod{
+			meta: &invowkmod.Invowkmod{
 				Module:  "test",
 				Version: "1.0.0",
-				Requires: []invowkfile.ModuleRequirement{
+				Requires: []invowkmod.ModuleRequirement{
 					{
 						GitURL:  "https://github.com/example/tools.invowkmod.git",
 						Version: "^1.0.0",
@@ -63,10 +61,10 @@ func TestExtractModuleRequirementsFromMetadata(t *testing.T) {
 		},
 		{
 			name: "multiple requirements with alias and path",
-			meta: &invowkfile.Invowkmod{
+			meta: &invowkmod.Invowkmod{
 				Module:  "myapp",
 				Version: "2.0.0",
-				Requires: []invowkfile.ModuleRequirement{
+				Requires: []invowkmod.ModuleRequirement{
 					{
 						GitURL:  "https://github.com/org/utils.invowkmod.git",
 						Version: "^1.2.0",
@@ -99,10 +97,13 @@ func TestExtractModuleRequirementsFromMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := extractModuleRequirementsFromMetadata(tt.meta)
+			var got []invowkmod.ModuleRef
+			if tt.meta != nil {
+				got = invowkmod.ModuleRefsFromRequirements(tt.meta.Requires)
+			}
 
 			if len(got) != tt.wantLen {
-				t.Fatalf("extractModuleRequirementsFromMetadata() returned %d refs, want %d", len(got), tt.wantLen)
+				t.Fatalf("ModuleRefsFromRequirements() returned %d refs, want %d", len(got), tt.wantLen)
 			}
 
 			for i, want := range tt.wantRefs {

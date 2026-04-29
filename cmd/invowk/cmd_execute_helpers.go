@@ -4,10 +4,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 
-	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 
@@ -114,47 +115,30 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 	return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{resolvedReq.Name}, resolvedReq.Args...))
 }
 
-// checkAmbiguousCommand checks if a command name (including nested subcommands) is
-// ambiguous across sources. It mirrors Cobra's longest-match resolution for nested
-// command names and returns an AmbiguousCommandError when the resolved name exists
-// in multiple sources, requiring explicit disambiguation via @source or --ivk-from.
+// checkAmbiguousCommand asks the command service to resolve the full candidate
+// path and maps command-service ambiguity into the CLI rendering type.
 func checkAmbiguousCommand(ctx context.Context, app *App, args []string) error {
-	if len(args) == 0 {
+	if len(args) == 0 || app.Commands == nil {
 		return nil
 	}
 
-	commandSetResult, discoverErr := app.Discovery.DiscoverCommandSet(ctx)
-	if discoverErr != nil {
-		slog.Debug("skipping ambiguity check due to discovery error", "error", discoverErr)
+	req := ExecuteRequest{
+		Name:       strings.Join(args, " "),
+		ConfigPath: types.FilesystemPath(configPathFromContext(ctx)), //goplint:ignore -- config path already normalized at CLI boundary
+	}
+	_, _, diags, err := app.Commands.ResolveCommand(ctx, req)
+	app.Diagnostics.Render(ctx, diags, app.stderr)
+	if err == nil {
 		return nil
 	}
-
-	app.Diagnostics.Render(ctx, commandSetResult.Diagnostics, app.stderr)
-
-	commandSet := commandSetResult.Set
-	var cmdName invowkfile.CommandName
-	// Mirror Cobra longest-match behavior for nested command names.
-	for i := len(args); i > 0; i-- {
-		candidateName := invowkfile.CommandName(strings.Join(args[:i], " ")) //goplint:ignore -- CLI args joined for Cobra resolution
-		if _, exists := commandSet.BySimpleName[candidateName]; exists {
-			cmdName = candidateName
-			break
+	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
+		if ambigErr, ambigOK := errors.AsType[*commandsvc.AmbiguousCommandError](classified.Err); ambigOK {
+			return &AmbiguousCommandError{CommandName: ambigErr.CommandName, Sources: ambigErr.Sources}
 		}
-	}
-
-	if cmdName == "" {
-		// Unknown command path: let normal Cobra command resolution handle errors.
-		cmdName = invowkfile.CommandName(args[0]) //goplint:ignore -- CLI arg, validated by Cobra resolution
-	}
-
-	if !commandSet.AmbiguousNames[cmdName] {
 		return nil
 	}
-
-	var sources []discovery.SourceID
-	for _, c := range commandSet.BySimpleName[cmdName] {
-		sources = append(sources, c.SourceID)
+	if ambigErr, ok := errors.AsType[*commandsvc.AmbiguousCommandError](err); ok {
+		return &AmbiguousCommandError{CommandName: ambigErr.CommandName, Sources: ambigErr.Sources}
 	}
-
-	return &AmbiguousCommandError{CommandName: cmdName, Sources: sources}
+	return nil
 }
