@@ -192,6 +192,24 @@ func TestBuildProvisionConfig_StrictPropagation(t *testing.T) {
 	}
 }
 
+func TestBuildProvisionConfig_HostDefaultsOwnedByRuntimeAdapter(t *testing.T) {
+	const testSuffix = "runtime-owned-suffix"
+	t.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
+
+	cfg := config.DefaultConfig()
+	provCfg := buildProvisionConfig(cfg)
+
+	if provCfg.InvowkBinaryPath == "" {
+		t.Fatal("buildProvisionConfig().InvowkBinaryPath is empty")
+	}
+	if provCfg.CacheDir == "" {
+		t.Fatal("buildProvisionConfig().CacheDir is empty")
+	}
+	if provCfg.TagSuffix != testSuffix {
+		t.Fatalf("buildProvisionConfig().TagSuffix = %q, want %q", provCfg.TagSuffix, testSuffix)
+	}
+}
+
 // TestEnsureProvisionedImage_StrictMode tests that strict provisioning mode
 // returns a hard error when provisioning fails.
 func TestEnsureProvisionedImage_StrictMode(t *testing.T) {

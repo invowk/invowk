@@ -636,8 +636,8 @@ func TestDiscoverCommandSet_UsesAliasNamespaceForIncludedModule(t *testing.T) {
 	if aliased.ModuleID == nil {
 		t.Fatal("ModuleID = nil, want aliased")
 	}
-	if *aliased.ModuleID != "aliased" {
-		t.Errorf("ModuleID = %q, want aliased", *aliased.ModuleID)
+	if *aliased.ModuleID != "io.example.same" {
+		t.Errorf("ModuleID = %q, want io.example.same", *aliased.ModuleID)
 	}
 	if len(result.Set.BySource["aliased"]) != 1 {
 		t.Errorf("BySource[aliased] has %d commands, want 1", len(result.Set.BySource["aliased"]))

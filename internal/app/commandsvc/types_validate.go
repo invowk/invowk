@@ -93,6 +93,11 @@ func (r Request) appendLocationValidationErrors(errs *[]error) {
 			*errs = append(*errs, err)
 		}
 	}
+	if r.Platform != "" {
+		if err := r.Platform.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 	if r.Workdir != "" {
 		if err := r.Workdir.Validate(); err != nil {
 			*errs = append(*errs, err)

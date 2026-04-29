@@ -212,23 +212,23 @@ func TestToken_Validate(t *testing.T) {
 	}{
 		{
 			"valid token",
-			Token{Value: TokenValue("abc123"), CommandID: "cmd:1"},
+			Token{Value: TokenValue("abc123"), CommandID: CommandID("cmd:1")},
 			true, false, 0,
 		},
 		{
 			"empty value",
-			Token{Value: TokenValue(""), CommandID: "cmd:1"},
+			Token{Value: TokenValue(""), CommandID: CommandID("cmd:1")},
 			false, true, 1,
 		},
 		{
 			"whitespace-only value",
-			Token{Value: TokenValue("   "), CommandID: "cmd:1"},
+			Token{Value: TokenValue("   "), CommandID: CommandID("cmd:1")},
 			false, true, 1,
 		},
 		{
 			"zero value struct",
 			Token{},
-			false, true, 1, // Value is empty/invalid
+			false, true, 2, // Value and CommandID are empty/invalid
 		},
 	}
 

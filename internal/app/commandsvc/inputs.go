@@ -27,10 +27,10 @@ func (s *Service) validateInputs(req Request, cmdInfo *discovery.CommandInfo, de
 		return err
 	}
 
-	currentPlatform := invowkfile.CurrentPlatform()
-	if !cmdInfo.Command.CanRunOnCurrentHost() {
+	platform := requestPlatform(req)
+	if !cmdInfo.Command.CanRunOnPlatform(platform) {
 		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
-		return fmt.Errorf("%w: command '%s' does not support platform '%s' (supported: %s)", ErrUnsupportedPlatform, req.Name, currentPlatform, supportedPlatforms)
+		return fmt.Errorf("%w: command '%s' does not support platform '%s' (supported: %s)", ErrUnsupportedPlatform, req.Name, platform, supportedPlatforms)
 	}
 
 	return nil
@@ -45,7 +45,7 @@ func (s *Service) validateInputs(req Request, cmdInfo *discovery.CommandInfo, de
 // It returns raw typed errors (RuntimeNotAllowedError, etc.) — no ServiceError wrapping.
 func (s *Service) resolveRuntime(req Request, cmdInfo *discovery.CommandInfo, cfg *config.Config) (appexec.RuntimeSelection, error) {
 	cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- CLI boundary, validated by discovery lookup
-	selection, err := appexec.ResolveRuntime(cmdInfo.Command, cmdName, req.Runtime, cfg, invowkfile.CurrentPlatform())
+	selection, err := appexec.ResolveRuntime(cmdInfo.Command, cmdName, req.Runtime, cfg, requestPlatform(req))
 	if err != nil {
 		// Return the raw error (e.g., *RuntimeNotAllowedError); the CLI adapter
 		// inspects the type and applies rendering.
@@ -93,8 +93,15 @@ func (s *Service) buildExecContext(ctx context.Context, req Request, cmdInfo *di
 		EnvInheritAllow: req.EnvInheritAllow,
 		EnvInheritDeny:  req.EnvInheritDeny,
 		SourceID:        cmdInfo.SourceID,
-		Platform:        invowkfile.CurrentPlatform(),
+		Platform:        requestPlatform(req),
 	})
+}
+
+func requestPlatform(req Request) invowkfile.Platform {
+	if req.Platform != "" {
+		return req.Platform
+	}
+	return invowkfile.CurrentPlatform()
 }
 
 // validateDeps validates command dependencies and returns raw typed errors

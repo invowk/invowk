@@ -47,6 +47,9 @@ const (
 	CodeVendoredModuleLoadSkipped DiagnosticCode = "vendored_module_load_skipped"
 	// CodeVendoredNestedIgnored indicates nested vendored modules were ignored.
 	CodeVendoredNestedIgnored DiagnosticCode = "vendored_nested_ignored"
+	// CodeVendoredUndeclaredSkipped indicates a vendored module is not declared
+	// and locked by the parent module dependency graph.
+	CodeVendoredUndeclaredSkipped DiagnosticCode = "vendored_undeclared_skipped"
 	// CodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
 	// Bridged from runtime.CodeContainerRuntimeInitFailed at the CLI layer boundary.
 	CodeContainerRuntimeInitFailed DiagnosticCode = "container_runtime_init_failed"
@@ -218,7 +221,8 @@ func (dc DiagnosticCode) Validate() error {
 		CodeIncludeNotModule, CodeIncludeReservedSkipped, CodeIncludeModuleLoadFailed,
 		CodeVendoredScanFailed, CodeVendoredReservedSkipped, CodeVendoredModuleLoadSkipped,
 		CodeVendoredNestedIgnored, CodeContainerRuntimeInitFailed,
-		CodeModuleShadowsGlobal, CodeModuleSymlinkSkipped, CodeVendoredSymlinkSkipped:
+		CodeModuleShadowsGlobal, CodeModuleSymlinkSkipped, CodeVendoredSymlinkSkipped,
+		CodeVendoredUndeclaredSkipped:
 		return nil
 	default:
 		return &InvalidDiagnosticCodeError{Value: dc}

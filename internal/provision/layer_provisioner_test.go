@@ -190,15 +190,15 @@ func TestWithTagSuffixOption(t *testing.T) {
 	}
 }
 
-func TestDefaultConfigReadsTagSuffixFromEnv(t *testing.T) {
+func TestDefaultConfigDoesNotReadTagSuffixFromEnv(t *testing.T) {
 	// t.Setenv modifies the process environment; this test must not be parallel.
 	const testSuffix = "env-test-suffix"
 	t.Setenv("INVOWK_PROVISION_TAG_SUFFIX", testSuffix)
 
 	cfg := DefaultConfig()
 
-	if cfg.TagSuffix != testSuffix {
-		t.Errorf("DefaultConfig should read TagSuffix from env: got %q, want %q", cfg.TagSuffix, testSuffix)
+	if cfg.TagSuffix != "" {
+		t.Errorf("DefaultConfig should leave TagSuffix adapter-supplied: got %q", cfg.TagSuffix)
 	}
 }
 

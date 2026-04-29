@@ -395,6 +395,15 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			))
 			continue
 		}
+		if !invowkmod.IsDeclaredLockedVendoredModule(parentModule, m) {
+			diagnostics = append(diagnostics, mustDiagnosticWithPath(
+				SeverityWarning,
+				CodeVendoredUndeclaredSkipped,
+				fmt.Sprintf("skipping vendored module %s in %s: not declared and locked by parent invowkmod.cue", m.Name(), parentModule.Name()),
+				vendoredModPath,
+			))
+			continue
+		}
 
 		// Warn if the vendored module has its own invowk_modules/ (not recursed)
 		nestedVendorDir := invowkmod.GetVendoredModulesDir(vendoredModPath)

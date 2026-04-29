@@ -14,11 +14,11 @@ import (
 
 const (
 	// RuntimeNative executes commands using the system's default shell
-	RuntimeNative RuntimeMode = "native"
+	RuntimeNative RuntimeMode = RuntimeMode(types.RuntimeNative)
 	// RuntimeVirtual executes commands using mvdan/sh with u-root utilities
-	RuntimeVirtual RuntimeMode = "virtual"
+	RuntimeVirtual RuntimeMode = RuntimeMode(types.RuntimeVirtual)
 	// RuntimeContainer executes commands inside a disposable container
-	RuntimeContainer RuntimeMode = "container"
+	RuntimeContainer RuntimeMode = RuntimeMode(types.RuntimeContainer)
 
 	// EnvInheritNone disables host environment inheritance
 	EnvInheritNone EnvInheritMode = "none"
@@ -42,7 +42,7 @@ const (
 
 var (
 	// ErrInvalidRuntimeMode is returned when a RuntimeMode value is not one of the defined modes.
-	ErrInvalidRuntimeMode = errors.New("invalid runtime mode")
+	ErrInvalidRuntimeMode = types.ErrInvalidRuntimeMode
 	// ErrInvalidEnvInheritMode is returned when an EnvInheritMode value is not one of the defined modes.
 	ErrInvalidEnvInheritMode = errors.New("invalid env inherit mode")
 	// ErrInvalidPlatform is returned when a PlatformType value is not one of the defined platforms.

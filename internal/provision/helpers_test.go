@@ -28,8 +28,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("Expected ForceRebuild to be false by default")
 	}
 
-	if cfg.InvowkBinaryPath == "" {
-		t.Error("Expected InvowkBinaryPath to be set from os.Executable()")
+	if cfg.InvowkBinaryPath != "" {
+		t.Errorf("Expected InvowkBinaryPath to be adapter-supplied, got %s", cfg.InvowkBinaryPath)
 	}
 
 	if cfg.BinaryMountPath != "/invowk/bin" {

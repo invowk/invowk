@@ -24,7 +24,65 @@ func createVendoredModule(t *testing.T, parentModulePath, moduleFolder, moduleID
 	}
 	moduleDir := filepath.Join(vendorDir, moduleFolder)
 	createTestModule(t, moduleDir, moduleID, cmdName)
+	declareVendoredModule(t, parentModulePath, moduleDir, moduleID)
 	return moduleDir
+}
+
+func declareVendoredModule(t *testing.T, parentModulePath, moduleDir, moduleID string) {
+	t.Helper()
+
+	gitURL := invowkmod.GitURL("https://example.com/" + moduleID + ".git")
+	invowkmodPath := filepath.Join(parentModulePath, "invowkmod.cue")
+	content, err := os.ReadFile(invowkmodPath)
+	if err != nil {
+		t.Fatalf("failed to read parent invowkmod.cue: %v", err)
+	}
+	updated := string(content) + `requires: [
+	{git_url: "` + string(gitURL) + `", version: "^1.0.0"},
+]
+`
+	if writeErr := os.WriteFile(invowkmodPath, []byte(updated), 0o644); writeErr != nil {
+		t.Fatalf("failed to update parent invowkmod.cue: %v", writeErr)
+	}
+
+	hash, err := invowkmod.ComputeModuleHash(moduleDir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash() = %v", err)
+	}
+	lock := invowkmod.NewLockFile()
+	lock.Modules[invowkmod.ModuleRefKey(gitURL)] = invowkmod.LockedModule{
+		GitURL:          gitURL,
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.0.0",
+		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+		Namespace:       invowkmod.ModuleNamespace(moduleID),
+		ModuleID:        invowkmod.ModuleID(moduleID),
+		ContentHash:     hash,
+	}
+	if saveErr := lock.Save(filepath.Join(parentModulePath, invowkmod.LockFileName)); saveErr != nil {
+		t.Fatalf("lock.Save() = %v", saveErr)
+	}
+}
+
+func refreshVendoredModuleHash(t *testing.T, parentModulePath, moduleDir, moduleID string) {
+	t.Helper()
+
+	lockPath := filepath.Join(parentModulePath, invowkmod.LockFileName)
+	lock, err := invowkmod.LoadLockFile(lockPath)
+	if err != nil {
+		t.Fatalf("LoadLockFile() = %v", err)
+	}
+	hash, err := invowkmod.ComputeModuleHash(moduleDir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash() = %v", err)
+	}
+	key := invowkmod.ModuleRefKey("https://example.com/" + moduleID + ".git")
+	entry := lock.Modules[key]
+	entry.ContentHash = hash
+	lock.Modules[key] = entry
+	if saveErr := lock.Save(lockPath); saveErr != nil {
+		t.Fatalf("lock.Save() = %v", saveErr)
+	}
 }
 
 func TestDiscoverAll_FindsVendoredModulesInLocalModules(t *testing.T) {
@@ -77,6 +135,44 @@ func TestDiscoverAll_FindsVendoredModulesInLocalModules(t *testing.T) {
 	}
 }
 
+func TestDiscoverAll_SkipsUndeclaredVendoredModule(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	parentDir := filepath.Join(tmpDir, "parent.invowkmod")
+	createTestModule(t, parentDir, "parent", "parent-cmd")
+
+	vendorDir := filepath.Join(parentDir, invowkmod.VendoredModulesDir)
+	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
+		t.Fatalf("failed to create vendor dir: %v", err)
+	}
+	orphanDir := filepath.Join(vendorDir, "orphan.invowkmod")
+	createTestModule(t, orphanDir, "orphan", "orphan-cmd")
+
+	d := newTestDiscovery(t, config.DefaultConfig(), tmpDir)
+	files, diagnostics, err := d.discoverAllWithDiagnostics()
+	if err != nil {
+		t.Fatalf("discoverAllWithDiagnostics() error: %v", err)
+	}
+
+	for _, f := range files {
+		if f.Module != nil && f.Module.Name() == "orphan" {
+			t.Fatal("undeclared vendored module should not be discovered")
+		}
+	}
+
+	var foundDiagnostic bool
+	for _, diag := range diagnostics {
+		if diag.code == CodeVendoredUndeclaredSkipped {
+			foundDiagnostic = true
+			break
+		}
+	}
+	if !foundDiagnostic {
+		t.Fatalf("missing %s diagnostic: %v", CodeVendoredUndeclaredSkipped, diagnostics)
+	}
+}
+
 func TestDiscoverAll_VendoredModulesOrderedAfterParent(t *testing.T) {
 	t.Parallel()
 
@@ -125,8 +221,8 @@ func TestDiscoverCommandSet_UsesVendoredAliasNamespaceFromLockFile(t *testing.T)
 		t.Fatalf("ComputeModuleHash() = %v", err)
 	}
 	lock := invowkmod.NewLockFile()
-	lock.Modules["https://example.com/vendored.git"] = invowkmod.LockedModule{
-		GitURL:          "https://example.com/vendored.git",
+	lock.Modules["https://example.com/io.example.vendored.git"] = invowkmod.LockedModule{
+		GitURL:          "https://example.com/io.example.vendored.git",
 		Version:         "^1.0.0",
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
@@ -152,8 +248,8 @@ func TestDiscoverCommandSet_UsesVendoredAliasNamespaceFromLockFile(t *testing.T)
 	if cmd.SourceID != "tools" {
 		t.Fatalf("SourceID = %q, want tools", cmd.SourceID)
 	}
-	if cmd.ModuleID == nil || *cmd.ModuleID != "tools" {
-		t.Fatalf("ModuleID = %v, want tools", cmd.ModuleID)
+	if cmd.ModuleID == nil || *cmd.ModuleID != "io.example.vendored" {
+		t.Fatalf("ModuleID = %v, want io.example.vendored", cmd.ModuleID)
 	}
 }
 
@@ -249,6 +345,7 @@ func TestDiscoverAll_NestedVendoredNotRecursed(t *testing.T) {
 	// Create vendored module with its OWN invowk_modules/
 	vendoredDir := createVendoredModule(t, parentDir, "mid.invowkmod", "mid", "mid-cmd")
 	createVendoredModule(t, vendoredDir, "deep.invowkmod", "deep", "deep-cmd")
+	refreshVendoredModuleHash(t, parentDir, vendoredDir, "mid")
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir)
@@ -292,6 +389,7 @@ func TestDiscoverAll_NestedVendoredEmitsDiagnostic(t *testing.T) {
 	if err := os.MkdirAll(nestedVendorDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	refreshVendoredModuleHash(t, parentDir, vendoredDir, "mid")
 
 	cfg := config.DefaultConfig()
 	d := newTestDiscovery(t, cfg, tmpDir)

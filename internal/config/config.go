@@ -14,6 +14,7 @@ import (
 
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/cueutil"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 
@@ -324,9 +325,13 @@ func validateIncludes(fieldName string, includes []IncludeEntry) error {
 		}
 		seenPaths[cleanPath] = i
 
-		// Track short name for collision detection
-		shortName := strings.TrimSuffix(filepath.Base(pathStr), moduleSuffix)
-		shortNames[shortName] = append(shortNames[shortName], i)
+		// Track short name for collision detection using the module domain's
+		// structural folder-name parser. Path validation already checked this.
+		shortName, parseErr := invowkmod.ParseModuleName(filepath.Base(pathStr))
+		if parseErr != nil {
+			return fmt.Errorf("%s[%d]: %w", fieldName, i, parseErr)
+		}
+		shortNames[string(shortName)] = append(shortNames[string(shortName)], i)
 
 		// Check alias uniqueness
 		aliasStr := string(entry.Alias)

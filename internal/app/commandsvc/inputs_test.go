@@ -69,6 +69,22 @@ func TestValidateInputs(t *testing.T) {
 			t.Fatalf("errors.Is(ErrUnsupportedPlatform) = false for %v", err)
 		}
 	})
+
+	t.Run("uses request platform instead of host platform", func(t *testing.T) {
+		t.Parallel()
+
+		targetPlatform := unsupportedPlatform()
+		cmdInfo := commandsvcTestCommandInfo(t, "build")
+		cmdInfo.Command.Implementations[0].Platforms = []invowkfile.PlatformConfig{{Name: targetPlatform}}
+		err := service.validateInputs(
+			Request{Name: "build", Platform: targetPlatform},
+			cmdInfo,
+			resolvedDefinitions{},
+		)
+		if err != nil {
+			t.Fatalf("validateInputs() error = %v, want nil", err)
+		}
+	})
 }
 
 func TestResolveRuntime(t *testing.T) {

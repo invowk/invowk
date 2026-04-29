@@ -67,7 +67,7 @@ func TestPasswordHandler(t *testing.T) {
 		t.Parallel()
 
 		srv := mustNew(t, DefaultConfig())
-		token, err := srv.GenerateToken("cmd-123")
+		token, err := srv.GenerateToken(CommandID("cmd-123"))
 		if err != nil {
 			t.Fatalf("GenerateToken() error = %v", err)
 		}
@@ -84,7 +84,7 @@ func TestPasswordHandler(t *testing.T) {
 		if !ok {
 			t.Fatal("context 'token' not set")
 		}
-		if storedToken.(*Token).CommandID != "cmd-123" {
+		if storedToken.(*Token).CommandID != CommandID("cmd-123") {
 			t.Errorf("stored token CommandID = %q, want %q", storedToken.(*Token).CommandID, "cmd-123")
 		}
 
@@ -92,7 +92,7 @@ func TestPasswordHandler(t *testing.T) {
 		if !ok {
 			t.Fatal("context 'commandID' not set")
 		}
-		if storedCmdID != "cmd-123" {
+		if storedCmdID != CommandID("cmd-123") {
 			t.Errorf("stored commandID = %q, want %q", storedCmdID, "cmd-123")
 		}
 	})
@@ -138,7 +138,7 @@ func TestPasswordHandler(t *testing.T) {
 			t.Fatalf("NewWithClock() error = %v", err)
 		}
 
-		token, err := srv.GenerateToken("cmd-456")
+		token, err := srv.GenerateToken(CommandID("cmd-456"))
 		if err != nil {
 			t.Fatalf("GenerateToken() error = %v", err)
 		}
@@ -156,7 +156,7 @@ func TestPasswordHandler(t *testing.T) {
 		t.Parallel()
 
 		srv := mustNew(t, DefaultConfig())
-		token, err := srv.GenerateToken("cmd-789")
+		token, err := srv.GenerateToken(CommandID("cmd-789"))
 		if err != nil {
 			t.Fatalf("GenerateToken() error = %v", err)
 		}

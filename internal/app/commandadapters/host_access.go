@@ -104,7 +104,11 @@ func (s sshHostCallbackServer) IsRunning() bool {
 }
 
 func (s sshHostCallbackServer) GetConnectionInfo(commandID runtime.HostCallbackCommandID) (*runtime.HostCallbackConnectionInfo, error) {
-	info, err := s.server.GetConnectionInfo(commandID.String())
+	sshCommandID := sshserver.CommandID(commandID.String())
+	if err := sshCommandID.Validate(); err != nil {
+		return nil, err
+	}
+	info, err := s.server.GetConnectionInfo(sshCommandID)
 	if err != nil {
 		return nil, err
 	}

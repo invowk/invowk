@@ -46,6 +46,11 @@ func (s *recordingCommandService) Execute(ctx context.Context, _ ExecuteRequest)
 	return ExecuteResult{}, nil, nil
 }
 
+func (s *recordingCommandService) ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	s.lastConfigPath = configPathFromContext(ctx)
+	return req.ResolvedCommand, req, nil, nil
+}
+
 func (s *recordingCommandService) ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
 	s.lastConfigPath = configPathFromContext(ctx)
 	s.resolveFromSourceCalls++

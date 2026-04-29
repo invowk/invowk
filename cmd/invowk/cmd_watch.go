@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/watch"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
@@ -23,14 +24,33 @@ var (
 	errInvalidWatchDebounce = errors.New("invalid watch debounce")
 )
 
-// WatchCommandNotFoundError is returned when the specified command is not found during watch mode setup.
-type WatchCommandNotFoundError struct {
-	Name string
-}
+type (
+	// WatchCommandNotFoundError is returned when the specified command is not found during watch mode setup.
+	WatchCommandNotFoundError struct {
+		Name string
+	}
+
+	// WatchRunner owns the blocking watch loop for a configured command.
+	WatchRunner interface {
+		Run(context.Context) error
+	}
+
+	// WatchRunnerFactory constructs watch runners. App owns the factory so tests
+	// can drive watch callbacks without starting filesystem observers.
+	WatchRunnerFactory interface {
+		New(watch.Config) (WatchRunner, error)
+	}
+
+	productionWatchRunnerFactory struct{}
+)
 
 // Error implements the error interface.
 func (e *WatchCommandNotFoundError) Error() string {
 	return fmt.Sprintf("command '%s' not found", e.Name)
+}
+
+func (productionWatchRunnerFactory) New(cfg watch.Config) (WatchRunner, error) {
+	return watch.New(cfg)
 }
 
 // runWatchMode sets up file watching and re-executes the command on file changes.
@@ -48,23 +68,24 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		return errWatchDryRunConflict
 	}
 
-	// Check for ambiguous commands before proceeding, consistent with normal execution.
 	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
-	if ambErr := checkAmbiguousCommand(ctx, app, args); ambErr != nil {
-		return ambErr
-	}
 
-	// Look up the command to get its watch configuration.
-	// Use the configPath-enhanced context so --ivk-config is respected.
-	result, err := app.Discovery.GetCommand(ctx, args[0])
-	if err != nil {
-		return err
+	req := ExecuteRequest{
+		Name:       args[0],
+		Args:       args[1:],
+		FromSource: discovery.SourceID(cmdFlags.fromSource),    //goplint:ignore -- CLI flag value, validated downstream
+		ConfigPath: types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 	}
-	if result.Command == nil {
+	cmdInfo, resolvedReq, diags, err := app.Commands.ResolveCommand(ctx, req)
+	app.Diagnostics.Render(ctx, diags, app.stderr)
+	if err != nil {
+		return renderAndWrapServiceError(err, req)
+	}
+	if cmdInfo == nil {
 		return &WatchCommandNotFoundError{Name: args[0]}
 	}
 
-	cmdInfo := result.Command
+	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)
 
 	// Build the watch config from the command's schema or use defaults.
 	var patterns []invowkfile.GlobPattern
@@ -181,7 +202,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		Stderr: app.stderr,
 	}
 
-	w, err := watch.New(cfg)
+	w, err := app.Watchers.New(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to start watcher: %w", err)
 	}

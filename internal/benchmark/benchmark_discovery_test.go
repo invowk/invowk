@@ -4,6 +4,7 @@ package benchmark
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -148,6 +149,17 @@ func BenchmarkDiscoveryVendoredModules(b *testing.B) {
 	writeBenchmarkFile(b, filepath.Join(tmpDir, "invowkfile.cue"), sampleInvowkfile)
 
 	parentModulePath := createBenchmarkModule(b, tmpDir, "parent", "parent")
+	writeBenchmarkFile(b, filepath.Join(string(parentModulePath), "invowkmod.cue"), `
+module: "parent"
+version: "1.0.0"
+description: "benchmark parent module"
+requires: [
+	{
+		git_url: "https://github.com/example/child.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+`)
 
 	vendorRoot := filepath.Join(string(parentModulePath), invowkmod.VendoredModulesDir)
 	if err := os.MkdirAll(vendorRoot, 0o755); err != nil {
@@ -156,6 +168,26 @@ func BenchmarkDiscoveryVendoredModules(b *testing.B) {
 	vendoredPath := createBenchmarkModule(b, vendorRoot, "child", "child")
 	nestedVendorRoot := filepath.Join(string(vendoredPath), invowkmod.VendoredModulesDir)
 	_ = createBenchmarkModule(b, nestedVendorRoot, "grandchild", "grandchild")
+	childHash, err := invowkmod.ComputeModuleHash(string(vendoredPath))
+	if err != nil {
+		b.Fatalf("failed to compute vendored module hash: %v", err)
+	}
+	writeBenchmarkFile(b, filepath.Join(string(parentModulePath), invowkmod.LockFileName), fmt.Sprintf(`
+version: "2.0"
+generated: "2026-04-29T00:00:00Z"
+
+modules: {
+	"https://github.com/example/child.invowkmod.git": {
+		git_url:          "https://github.com/example/child.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "child@1.0.0"
+		module_id:        "child"
+		content_hash:     %q
+	}
+}
+`, childHash))
 
 	cfg := config.DefaultConfig()
 	disc := discovery.New(cfg, discovery.WithBaseDir(types.FilesystemPath(tmpDir)), discovery.WithCommandsDir(""))

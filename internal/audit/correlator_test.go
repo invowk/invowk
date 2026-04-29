@@ -67,14 +67,14 @@ func TestCorrelator_TrustChainWeakness(t *testing.T) {
 
 	c := mustNewCorrelator(t, DefaultRules())
 	findings := []Finding{
-		{Severity: SeverityMedium, Category: CategoryTrust, SurfaceID: "mod1", CheckerName: moduleMetadataCheckerName, Title: "deep deps"},
-		{Severity: SeverityMedium, Category: CategoryIntegrity, SurfaceID: "mod1", CheckerName: lockFileCheckerName, Title: "missing hash"},
+		{Severity: SeverityMedium, Category: CategoryTrust, SurfaceID: "mod1", CheckerName: moduleMetadataCheckerName, Title: "Wide dependency fan-out"},
+		{Severity: SeverityMedium, Category: CategoryIntegrity, SurfaceID: "mod1", CheckerName: lockFileCheckerName, Title: "Module content hash mismatch"},
 	}
 	result := c.Correlate(findings)
 
 	hasTrustChain := false
 	for _, f := range result {
-		if f.Title == "Trust chain weakness — deep deps with missing integrity" {
+		if f.Title == "Trust chain weakness — dependency graph with missing integrity" {
 			hasTrustChain = true
 			if f.Severity != SeverityHigh {
 				t.Errorf("trust chain severity = %v, want High", f.Severity)
@@ -83,6 +83,23 @@ func TestCorrelator_TrustChainWeakness(t *testing.T) {
 	}
 	if !hasTrustChain {
 		t.Error("expected trust-chain-weakness compound finding")
+	}
+}
+
+func TestCorrelator_TrustChainWeaknessIgnoresUnrelatedCheckerFindings(t *testing.T) {
+	t.Parallel()
+
+	c := mustNewCorrelator(t, DefaultRules())
+	findings := []Finding{
+		{Severity: SeverityMedium, Category: CategoryTrust, SurfaceID: "mod1", CheckerName: moduleMetadataCheckerName, Title: "Module ID similar to another module"},
+		{Severity: SeverityLow, Category: CategoryIntegrity, SurfaceID: "mod1", CheckerName: lockFileCheckerName, Title: "Orphaned lock file entry"},
+	}
+	result := c.Correlate(findings)
+
+	for _, f := range result {
+		if f.Code == "correlator-trust-chain-weakness" {
+			t.Fatalf("unrelated module metadata and lockfile findings triggered trust-chain correlation: %+v", f)
+		}
 	}
 }
 

@@ -36,7 +36,7 @@ type (
 		Value     TokenValue
 		CreatedAt time.Time
 		ExpiresAt time.Time
-		CommandID string // Composite identifier (name:executionID), intentionally untyped.
+		CommandID CommandID
 		Used      bool
 	}
 

@@ -30,11 +30,24 @@ func (e *InvalidCommandScopeError) Unwrap() error { return ErrInvalidCommandScop
 
 // Validate returns nil if the CommandScope has valid fields, or an error
 // collecting all field-level validation failures.
-// ModuleID is the only validatable field — map keys are ModuleID but are
-// populated post-construction and not validated here.
+// ModuleID and ModuleSourceID identify the owning module. Map keys are populated
+// post-construction and not validated here.
 func (s CommandScope) Validate() error {
+	var errs []error
 	if err := s.ModuleID.Validate(); err != nil {
-		return &InvalidCommandScopeError{FieldErrors: []error{err}}
+		errs = append(errs, err)
+	}
+	if s.ModuleSourceID != "" {
+		if err := s.ModuleSourceID.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	} else if len(errs) == 0 {
+		if err := ModuleSourceID(s.ModuleID).Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidCommandScopeError{FieldErrors: errs}
 	}
 	return nil
 }

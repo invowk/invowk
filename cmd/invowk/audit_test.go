@@ -30,3 +30,26 @@ func TestConvertFindingsPreservesCheckerName(t *testing.T) {
 		t.Errorf("CheckerName = %q, want lockfile", got[0].CheckerName)
 	}
 }
+
+func TestConvertFindingsPreservesSurfaceKind(t *testing.T) {
+	t.Parallel()
+
+	got := convertFindings([]audit.Finding{
+		{
+			Severity:    audit.SeverityHigh,
+			Category:    audit.CategoryIntegrity,
+			SurfaceID:   "SC-01",
+			SurfaceKind: audit.SurfaceKindVendoredModule,
+			CheckerName: "lockfile",
+			FilePath:    types.FilesystemPath("invowk.lock.cue"),
+			Title:       "hash mismatch",
+		},
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("convertFindings() returned %d findings, want 1", len(got))
+	}
+	if got[0].SurfaceKind != audit.SurfaceKindVendoredModule {
+		t.Errorf("SurfaceKind = %q, want %q", got[0].SurfaceKind, audit.SurfaceKindVendoredModule)
+	}
+}

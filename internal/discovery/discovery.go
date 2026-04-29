@@ -252,27 +252,19 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 	return nil
 }
 
-// GetEffectiveModuleID returns the effective module ID for a file, considering
-// aliases from the includes config. For module-backed files, if the module's
-// directory matches an include entry with an alias, the alias overrides the
-// module's declared ID.
+// GetEffectiveModuleID returns the effective module namespace for collision
+// checks, considering aliases from the includes config.
 func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) invowkmod.ModuleID {
 	if file.Invowkfile == nil {
 		return ""
 	}
 
 	moduleID := file.Invowkfile.GetModule()
-
-	// Module-backed files can have aliases configured in includes.
-	// Match against Module.Path (the module directory), not file.Path
-	// (the invowkfile inside the module), because includes reference
-	// module directories.
 	if file.Module != nil {
 		if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
 			return invowkmod.ModuleID(alias)
 		}
 	}
-
 	return moduleID
 }
 

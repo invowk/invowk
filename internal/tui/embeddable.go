@@ -114,17 +114,10 @@ type (
 	}
 
 	// TableSelectionResult holds the result of a table selection.
-	TableSelectionResult struct {
-		SelectedIndex int
-		SelectedRow   []string
-	}
+	TableSelectionResult = tuiwire.TableSelectionResult
 
 	// SpinResult holds the result of a spin operation.
-	SpinResult struct {
-		Stdout   string
-		Stderr   string
-		ExitCode types.ExitCode
-	}
+	SpinResult = tuiwire.SpinResult
 
 	// ComponentType represents the type of TUI component.
 	ComponentType string

@@ -2,12 +2,7 @@
 
 package tuiserver
 
-import (
-	"encoding/json"
-
-	"github.com/invowk/invowk/internal/tuiwire"
-	"github.com/invowk/invowk/pkg/types"
-)
+import "github.com/invowk/invowk/internal/tuiwire"
 
 // Environment variable names for TUI server communication.
 const (
@@ -37,200 +32,50 @@ var ErrInvalidComponent = tuiwire.ErrInvalidComponent
 type (
 	// Component represents a TUI component type.
 	Component = tuiwire.Component
-
-	// InvalidComponentError is returned when a Component value is not recognized.
-	// It wraps ErrInvalidComponent for errors.Is() compatibility.
+	// InvalidComponentError is returned when a component value is not recognized.
 	InvalidComponentError = tuiwire.InvalidComponentError
-
 	// Request is the common wrapper for all TUI requests.
-	Request struct {
-		// Component is the TUI component type (input, confirm, choose, etc.).
-		Component Component `json:"component"`
-		// Options contains component-specific options as raw JSON.
-		Options json.RawMessage `json:"options"`
-	}
-
+	Request = tuiwire.Request
 	// Response is the common wrapper for all TUI responses.
-	Response struct {
-		// Result contains the component-specific result as raw JSON.
-		// For input: {"value": "user input"}
-		// For confirm: {"confirmed": true}
-		// For choose: {"selected": "option1"} or {"selected": ["opt1", "opt2"]}
-		Result json.RawMessage `json:"result,omitempty"`
-		// Cancelled is true if the user cancelled the prompt (Ctrl+C, Esc).
-		Cancelled bool `json:"cancelled,omitempty"`
-		// Error contains an error message if the request failed.
-		Error string `json:"error,omitempty"`
-	}
-
+	Response = tuiwire.Response
 	// InputRequest contains options for the input component.
-	InputRequest struct {
-		Title       string `json:"title,omitempty"`
-		Description string `json:"description,omitempty"`
-		Placeholder string `json:"placeholder,omitempty"`
-		Value       string `json:"value,omitempty"`
-		CharLimit   int    `json:"char_limit,omitempty"`
-		Width       int    `json:"width,omitempty"`
-		Password    bool   `json:"password,omitempty"`
-		Prompt      string `json:"prompt,omitempty"`
-	}
-
+	InputRequest = tuiwire.InputRequest
 	// InputResult contains the result of an input prompt.
-	InputResult struct {
-		Value string `json:"value"`
-	}
-
+	InputResult = tuiwire.InputResult
 	// ConfirmRequest contains options for the confirm component.
-	ConfirmRequest struct {
-		Title       string `json:"title,omitempty"`
-		Description string `json:"description,omitempty"`
-		Affirmative string `json:"affirmative,omitempty"`
-		Negative    string `json:"negative,omitempty"`
-		Default     bool   `json:"default,omitempty"`
-	}
-
+	ConfirmRequest = tuiwire.ConfirmRequest
 	// ConfirmResult contains the result of a confirm prompt.
-	ConfirmResult struct {
-		Confirmed bool `json:"confirmed"`
-	}
-
+	ConfirmResult = tuiwire.ConfirmResult
 	// ChooseRequest contains options for the choose component.
-	ChooseRequest struct {
-		Title       string   `json:"title,omitempty"`
-		Description string   `json:"description,omitempty"`
-		Options     []string `json:"options"`
-		Selected    string   `json:"selected,omitempty"`
-		Limit       int      `json:"limit,omitempty"`
-		NoLimit     bool     `json:"no_limit,omitempty"`
-		Ordered     bool     `json:"ordered,omitempty"`
-		Height      int      `json:"height,omitempty"`
-		Cursor      string   `json:"cursor,omitempty"`
-	}
-
+	ChooseRequest = tuiwire.ChooseRequest
 	// ChooseResult contains the result of a choose prompt.
-	ChooseResult struct {
-		// Selected contains the selected option (single select) or options (multi-select).
-		Selected any `json:"selected"`
-	}
-
+	ChooseResult = tuiwire.ChooseResult
 	// FilterRequest contains options for the filter component.
-	FilterRequest struct {
-		Title       string   `json:"title,omitempty"`
-		Description string   `json:"description,omitempty"`
-		Options     []string `json:"options"`
-		Limit       int      `json:"limit,omitempty"`
-		NoLimit     bool     `json:"no_limit,omitempty"`
-		Placeholder string   `json:"placeholder,omitempty"`
-		Prompt      string   `json:"prompt,omitempty"`
-		Width       int      `json:"width,omitempty"`
-		Height      int      `json:"height,omitempty"`
-		Value       string   `json:"value,omitempty"`
-		Reverse     bool     `json:"reverse,omitempty"`
-		Fuzzy       bool     `json:"fuzzy,omitempty"`
-		Sort        bool     `json:"sort,omitempty"`
-		Strict      bool     `json:"strict,omitempty"`
-	}
-
+	FilterRequest = tuiwire.FilterRequest
 	// FilterResult contains the result of a filter prompt.
-	FilterResult struct {
-		Selected []string `json:"selected"`
-	}
-
+	FilterResult = tuiwire.FilterResult
 	// FileRequest contains options for the file picker component.
-	FileRequest struct {
-		Title       string   `json:"title,omitempty"`
-		Description string   `json:"description,omitempty"`
-		Path        string   `json:"path,omitempty"`
-		AllowedExts []string `json:"allowed_exts,omitempty"`
-		ShowHidden  bool     `json:"show_hidden,omitempty"`
-		ShowDirs    bool     `json:"show_dirs,omitempty"`
-		ShowFiles   bool     `json:"show_files,omitempty"`
-		Height      int      `json:"height,omitempty"`
-	}
-
+	FileRequest = tuiwire.FileRequest
 	// FileResult contains the result of a file picker.
-	FileResult struct {
-		Path string `json:"path"`
-	}
-
-	// WriteRequest contains options for the write component (styled text output).
-	WriteRequest struct {
-		Text string `json:"text"`
-		// Style options
-		Foreground       string `json:"foreground,omitempty"`
-		Background       string `json:"background,omitempty"`
-		Bold             bool   `json:"bold,omitempty"`
-		Italic           bool   `json:"italic,omitempty"`
-		Underline        bool   `json:"underline,omitempty"`
-		Strikethrough    bool   `json:"strikethrough,omitempty"`
-		Faint            bool   `json:"faint,omitempty"`
-		Blink            bool   `json:"blink,omitempty"`
-		Border           string `json:"border,omitempty"`
-		BorderForeground string `json:"border_foreground,omitempty"`
-		Width            int    `json:"width,omitempty"`
-		Align            string `json:"align,omitempty"`
-		Padding          []int  `json:"padding,omitempty"`
-		Margin           []int  `json:"margin,omitempty"`
-	}
-
-	// WriteResult is empty (write doesn't return a value).
-	WriteResult struct{}
-
-	// TextAreaRequest contains options for the textarea component (multi-line text input).
-	TextAreaRequest struct {
-		Title           string `json:"title,omitempty"`
-		Description     string `json:"description,omitempty"`
-		Placeholder     string `json:"placeholder,omitempty"`
-		Value           string `json:"value,omitempty"`
-		CharLimit       int    `json:"char_limit,omitempty"`
-		Width           int    `json:"width,omitempty"`
-		Height          int    `json:"height,omitempty"`
-		ShowLineNumbers bool   `json:"show_line_numbers,omitempty"`
-	}
-
+	FileResult = tuiwire.FileResult
+	// WriteRequest contains options for the write component.
+	WriteRequest = tuiwire.WriteRequest
+	// WriteResult is empty because write does not return a value.
+	WriteResult = tuiwire.WriteResult
+	// TextAreaRequest contains options for the textarea component.
+	TextAreaRequest = tuiwire.TextAreaRequest
 	// TextAreaResult contains the result of a textarea prompt.
-	TextAreaResult struct {
-		Value string `json:"value"`
-	}
-
+	TextAreaResult = tuiwire.TextAreaResult
 	// SpinRequest contains options for the spin component.
-	SpinRequest struct {
-		Title   string   `json:"title,omitempty"`
-		Spinner string   `json:"spinner,omitempty"`
-		Command []string `json:"command,omitempty"`
-	}
-
+	SpinRequest = tuiwire.SpinRequest
 	// SpinResult contains the result of a spin operation.
-	SpinResult struct {
-		Stdout   string         `json:"stdout,omitempty"`
-		Stderr   string         `json:"stderr,omitempty"`
-		ExitCode types.ExitCode `json:"exit_code"`
-	}
-
+	SpinResult = tuiwire.SpinResult
 	// PagerRequest contains options for the pager component.
-	PagerRequest struct {
-		Content     string `json:"content"`
-		ShowLineNum bool   `json:"show_line_num,omitempty"`
-		SoftWrap    bool   `json:"soft_wrap,omitempty"`
-	}
-
-	// PagerResult is empty (pager doesn't return a value).
-	PagerResult struct{}
-
+	PagerRequest = tuiwire.PagerRequest
+	// PagerResult is empty because pager does not return a value.
+	PagerResult = tuiwire.PagerResult
 	// TableRequest contains options for the table component.
-	TableRequest struct {
-		Columns   []string   `json:"columns,omitempty"`
-		Rows      [][]string `json:"rows"`
-		Widths    []int      `json:"widths,omitempty"`
-		Height    int        `json:"height,omitempty"`
-		Separator string     `json:"separator,omitempty"`
-		Border    string     `json:"border,omitempty"`
-		Print     bool       `json:"print,omitempty"`
-	}
-
+	TableRequest = tuiwire.TableRequest
 	// TableResult contains the result of a table selection.
-	TableResult struct {
-		SelectedRow   []string `json:"selected_row,omitempty"`
-		SelectedIndex int      `json:"selected_index"`
-	}
+	TableResult = tuiwire.TableResult
 )

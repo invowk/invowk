@@ -46,9 +46,10 @@ type (
 	// ScannedInvowkfile wraps a standalone invowkfile (not inside a module) with
 	// its parsed content and a surface identifier for finding attribution.
 	ScannedInvowkfile struct {
-		Path       types.FilesystemPath
-		Invowkfile *invowkfile.Invowkfile
-		SurfaceID  string
+		Path        types.FilesystemPath
+		Invowkfile  *invowkfile.Invowkfile
+		SurfaceID   string
+		SurfaceKind SurfaceKind
 		// ParseErr is non-nil when the invowkfile exists on disk but failed to
 		// parse. Checkers can inspect this to flag corrupted standalone invowkfiles.
 		ParseErr error
@@ -64,6 +65,7 @@ type (
 		LockPath        types.FilesystemPath
 		VendoredModules []*invowkmod.Module
 		SurfaceID       string
+		SurfaceKind     SurfaceKind
 		IsGlobal        bool
 		// InvowkfileParseErr is non-nil when the invowkfile exists on disk but
 		// failed to parse. Checkers can inspect this to flag modules with
@@ -79,6 +81,7 @@ type (
 	// the surface it belongs to. Used by content-analysis checkers.
 	ScriptRef struct {
 		SurfaceID   string
+		SurfaceKind SurfaceKind
 		FilePath    types.FilesystemPath
 		ModulePath  types.FilesystemPath
 		CommandName invowkfile.CommandName
@@ -187,8 +190,9 @@ func BuildScanContext(scanPath types.FilesystemPath, cfg *config.Config, include
 func (sc *ScanContext) loadStandaloneInvowkfile(absPath types.FilesystemPath) error {
 	inv, parseErr := invowkfile.Parse(absPath)
 	si := &ScannedInvowkfile{
-		Path:      absPath,
-		SurfaceID: string(absPath),
+		Path:        absPath,
+		SurfaceID:   string(absPath),
+		SurfaceKind: SurfaceKindRootInvowkfile,
 	}
 	if parseErr == nil {
 		si.Invowkfile = inv
@@ -226,11 +230,12 @@ func (sc *ScanContext) loadScannedModule(absPath types.FilesystemPath, mod *invo
 	}
 
 	sm := &ScannedModule{
-		Path:       absPath,
-		Module:     mod,
-		Invowkfile: inv,
-		SurfaceID:  surfaceID,
-		IsGlobal:   isGlobal,
+		Path:        absPath,
+		Module:      mod,
+		Invowkfile:  inv,
+		SurfaceID:   surfaceID,
+		SurfaceKind: moduleSurfaceKind(isGlobal, false),
+		IsGlobal:    isGlobal,
 	}
 
 	invPath := fspath.JoinStr(absPath, invowkfileCUEFileName)
@@ -294,8 +299,9 @@ func (sc *ScanContext) loadDirectoryInvowkfile(absPath types.FilesystemPath) {
 func (sc *ScanContext) appendParsedInvowkfile(path types.FilesystemPath) {
 	inv, parseErr := invowkfile.Parse(path)
 	si := &ScannedInvowkfile{
-		Path:      path,
-		SurfaceID: string(path),
+		Path:        path,
+		SurfaceID:   string(path),
+		SurfaceKind: SurfaceKindRootInvowkfile,
 	}
 	if parseErr == nil {
 		si.Invowkfile = inv
@@ -384,12 +390,14 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 			if sm.SurfaceID == string(f.Module.Path) {
 				sm.SurfaceID = discSurfaceID
 			}
+			sm.SurfaceKind = moduleSurfaceKind(f.IsGlobalModule, f.ParentModule != nil)
 			sc.modules = append(sc.modules, sm)
 		} else if f.Invowkfile != nil && !seenInvowkfiles[string(f.Path)] {
 			sc.invowkfiles = append(sc.invowkfiles, &ScannedInvowkfile{
-				Path:       f.Path,
-				Invowkfile: f.Invowkfile,
-				SurfaceID:  string(f.Path),
+				Path:        f.Path,
+				Invowkfile:  f.Invowkfile,
+				SurfaceID:   string(f.Path),
+				SurfaceKind: SurfaceKindRootInvowkfile,
 			})
 		}
 	}
@@ -434,18 +442,18 @@ func buildScriptRefs(invowkfiles []*ScannedInvowkfile, modules []*ScannedModule)
 		if sf.Invowkfile == nil {
 			continue // Parse-failed invowkfiles have no scripts to analyze.
 		}
-		refs = appendScriptsFromInvowkfile(refs, sf.SurfaceID, sf.Path, "", sf.Invowkfile)
+		refs = appendScriptsFromInvowkfile(refs, sf.SurfaceID, sf.SurfaceKind, sf.Path, "", sf.Invowkfile)
 	}
 	for _, sm := range modules {
 		if sm.Invowkfile != nil {
 			invPath := fspath.JoinStr(sm.Path, invowkfileCUEFileName)
-			refs = appendScriptsFromInvowkfile(refs, sm.SurfaceID, invPath, sm.Path, sm.Invowkfile)
+			refs = appendScriptsFromInvowkfile(refs, sm.SurfaceID, sm.SurfaceKind, invPath, sm.Path, sm.Invowkfile)
 		}
 	}
 	return refs
 }
 
-func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, filePath, modulePath types.FilesystemPath, inv *invowkfile.Invowkfile) []ScriptRef {
+func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKind SurfaceKind, filePath, modulePath types.FilesystemPath, inv *invowkfile.Invowkfile) []ScriptRef {
 	for ci := range inv.Commands {
 		cmd := &inv.Commands[ci]
 		for i := range cmd.Implementations {
@@ -453,6 +461,7 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, filePath, m
 			isFile := impl.IsScriptFile()
 			ref := ScriptRef{
 				SurfaceID:   surfaceID,
+				SurfaceKind: surfaceKind,
 				FilePath:    filePath,
 				ModulePath:  modulePath,
 				CommandName: cmd.Name,
@@ -476,6 +485,33 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, filePath, m
 		}
 	}
 	return refs
+}
+
+func moduleSurfaceKind(isGlobal, isVendored bool) SurfaceKind {
+	switch {
+	case isGlobal:
+		return SurfaceKindGlobalModule
+	case isVendored:
+		return SurfaceKindVendoredModule
+	default:
+		return SurfaceKindLocalModule
+	}
+}
+
+func (sc *ScanContext) enrichFindingSurfaceKinds(findings []Finding) {
+	kinds := make(map[string]SurfaceKind, len(sc.invowkfiles)+len(sc.modules))
+	for _, sf := range sc.invowkfiles {
+		kinds[sf.SurfaceID] = sf.SurfaceKind
+	}
+	for _, sm := range sc.modules {
+		kinds[sm.SurfaceID] = sm.SurfaceKind
+	}
+	for i := range findings {
+		if findings[i].SurfaceKind != "" {
+			continue
+		}
+		findings[i].SurfaceKind = kinds[findings[i].SurfaceID]
+	}
 }
 
 // readScriptFileContent reads a file-based script's contents for content analysis.

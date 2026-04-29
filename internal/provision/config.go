@@ -5,10 +5,7 @@ package provision
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 
-	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -31,7 +28,7 @@ type (
 		ForceRebuild bool
 
 		// InvowkBinaryPath is the path to the invowk binary on the host.
-		// If empty, os.Executable() will be used.
+		// If empty, the runtime adapter may supply the current executable.
 		InvowkBinaryPath types.FilesystemPath
 
 		// ModulesPaths are paths to module directories on the host.
@@ -51,7 +48,7 @@ type (
 		ModulesMountPath container.MountTargetPath
 
 		// CacheDir is where to store cached provisioned images metadata.
-		// Default: ~/.cache/invowk/provision
+		// Default is supplied by the runtime adapter when host discovery is available.
 		CacheDir types.FilesystemPath
 
 		// TagSuffix is an optional suffix appended to provisioned image tags.
@@ -127,35 +124,12 @@ func (e *InvalidProvisionConfigError) Error() string {
 // Unwrap returns ErrInvalidProvisionConfig for errors.Is() compatibility.
 func (e *InvalidProvisionConfigError) Unwrap() error { return ErrInvalidProvisionConfig }
 
-// DefaultConfig returns a Config with default values.
+// DefaultConfig returns pure provisioning defaults.
 func DefaultConfig() *Config {
-	binaryPath, _ := os.Executable()
-
-	// Discover module paths from user commands dir
-	var modulesPaths []types.FilesystemPath
-	if userDir, err := config.CommandsDir(); err == nil {
-		if info, err := os.Stat(string(userDir)); err == nil && info.IsDir() {
-			modulesPaths = append(modulesPaths, userDir)
-		}
-	}
-
-	var cacheDir types.FilesystemPath
-	if home, err := os.UserHomeDir(); err == nil {
-		cacheDir = types.FilesystemPath(filepath.Join(home, ".cache", "invowk", "provision")) //goplint:ignore -- validated by Config.Validate() at usage site
-	}
-
-	// Read tag suffix from environment (for test isolation)
-	tagSuffix := os.Getenv("INVOWK_PROVISION_TAG_SUFFIX")
-
 	return &Config{
 		Enabled:          true,
-		ForceRebuild:     false,
-		InvowkBinaryPath: types.FilesystemPath(binaryPath), //goplint:ignore -- validated by Config.Validate() at usage site
-		ModulesPaths:     modulesPaths,
 		BinaryMountPath:  "/invowk/bin",
 		ModulesMountPath: "/invowk/modules",
-		CacheDir:         cacheDir,
-		TagSuffix:        tagSuffix,
 	}
 }
 

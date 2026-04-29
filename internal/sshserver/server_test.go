@@ -30,7 +30,7 @@ func TestGenerateToken(t *testing.T) {
 
 	srv := mustNew(t, DefaultConfig())
 
-	token, err := srv.GenerateToken("test-command")
+	token, err := srv.GenerateToken(CommandID("test-command"))
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestGenerateToken(t *testing.T) {
 	if token.Value == "" {
 		t.Error("Token value should not be empty")
 	}
-	if token.CommandID != "test-command" {
+	if token.CommandID != CommandID("test-command") {
 		t.Errorf("CommandID = %q, want %q", token.CommandID, "test-command")
 	}
 	if token.ExpiresAt.Before(time.Now()) {
@@ -51,7 +51,7 @@ func TestValidateToken(t *testing.T) {
 
 	srv := mustNew(t, DefaultConfig())
 
-	token, err := srv.GenerateToken("test-command")
+	token, err := srv.GenerateToken(CommandID("test-command"))
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestValidateToken(t *testing.T) {
 	if !ok {
 		t.Error("Token should be valid")
 	}
-	if validated.CommandID != "test-command" {
+	if validated.CommandID != CommandID("test-command") {
 		t.Errorf("CommandID = %q, want %q", validated.CommandID, "test-command")
 	}
 
@@ -77,7 +77,7 @@ func TestRevokeToken(t *testing.T) {
 
 	srv := mustNew(t, DefaultConfig())
 
-	token, err := srv.GenerateToken("test-command")
+	token, err := srv.GenerateToken(CommandID("test-command"))
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -104,9 +104,9 @@ func TestRevokeTokensForCommand(t *testing.T) {
 	srv := mustNew(t, DefaultConfig())
 
 	// Generate multiple tokens for same command
-	token1, _ := srv.GenerateToken("command-1")
-	token2, _ := srv.GenerateToken("command-1")
-	token3, _ := srv.GenerateToken("command-2")
+	token1, _ := srv.GenerateToken(CommandID("command-1"))
+	token2, _ := srv.GenerateToken(CommandID("command-1"))
+	token3, _ := srv.GenerateToken(CommandID("command-2"))
 
 	// All should be valid
 	if _, ok := srv.ValidateToken(token1.Value); !ok {
@@ -120,7 +120,7 @@ func TestRevokeTokensForCommand(t *testing.T) {
 	}
 
 	// Revoke tokens for command-1
-	srv.RevokeTokensForCommand("command-1")
+	srv.RevokeTokensForCommand(CommandID("command-1"))
 
 	// token1 and token2 should be invalid
 	if _, ok := srv.ValidateToken(token1.Value); ok {
@@ -243,7 +243,7 @@ func TestGetConnectionInfo(t *testing.T) {
 	srv := mustNew(t, cfg)
 
 	// Should fail before server starts
-	_, err := srv.GetConnectionInfo("test")
+	_, err := srv.GetConnectionInfo(CommandID("test"))
 	if err == nil {
 		t.Error("GetConnectionInfo should fail when server is not running")
 	}
@@ -255,7 +255,7 @@ func TestGetConnectionInfo(t *testing.T) {
 	defer testutil.MustStop(t, srv)
 
 	// Should succeed after server starts
-	info, err := srv.GetConnectionInfo("test-command")
+	info, err := srv.GetConnectionInfo(CommandID("test-command"))
 	if err != nil {
 		t.Fatalf("GetConnectionInfo failed: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestExpiredToken(t *testing.T) {
 		t.Fatalf("NewWithClock() error = %v", srvErr)
 	}
 
-	token, err := srv.GenerateToken("test-command")
+	token, err := srv.GenerateToken(CommandID("test-command"))
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}

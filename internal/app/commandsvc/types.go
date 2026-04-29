@@ -5,6 +5,7 @@ package commandsvc
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/discovery"
@@ -16,6 +17,8 @@ import (
 const (
 	// ErrorKindCommandNotFound means the requested command or source was not found.
 	ErrorKindCommandNotFound ErrorKind = "command_not_found"
+	// ErrorKindCommandAmbiguous means an unqualified command exists in multiple sources.
+	ErrorKindCommandAmbiguous ErrorKind = "command_ambiguous"
 	// ErrorKindScriptExecutionFailed means script execution failed for a generic reason.
 	ErrorKindScriptExecutionFailed ErrorKind = "script_execution_failed"
 	// ErrorKindContainerEngineNotFound means the selected container engine is unavailable.
@@ -42,6 +45,9 @@ type (
 		// Runtime is the --ivk-runtime override (e.g., RuntimeContainer, RuntimeVirtual).
 		// Zero value ("") means no override.
 		Runtime invowkfile.RuntimeMode
+		// Platform is the resolved execution platform. Zero value means use the
+		// current host platform at the service boundary.
+		Platform invowkfile.Platform
 		// Interactive enables alternate screen buffer with TUI server.
 		Interactive bool
 		// Verbose enables verbose diagnostic output.
@@ -121,6 +127,13 @@ type (
 		Message string
 	}
 
+	// AmbiguousCommandError is returned when an unqualified command exists in
+	// multiple command sources and requires source disambiguation.
+	AmbiguousCommandError struct {
+		CommandName invowkfile.CommandName
+		Sources     []discovery.SourceID
+	}
+
 	//goplint:constant-only
 	//
 	// ErrorKind classifies command-service errors without depending on the CLI
@@ -152,6 +165,11 @@ func (e *ClassifiedError) Error() string { return e.Err.Error() }
 // Unwrap returns the underlying error for errors.Is/As chains.
 func (e *ClassifiedError) Unwrap() error { return e.Err }
 
+// Error implements the error interface.
+func (e *AmbiguousCommandError) Error() string {
+	return fmt.Sprintf("command %q is ambiguous", e.CommandName)
+}
+
 // String returns the string representation of the error kind.
 func (k ErrorKind) String() string { return string(k) }
 
@@ -159,6 +177,7 @@ func (k ErrorKind) String() string { return string(k) }
 func (k ErrorKind) Validate() error {
 	switch k {
 	case ErrorKindCommandNotFound,
+		ErrorKindCommandAmbiguous,
 		ErrorKindScriptExecutionFailed,
 		ErrorKindContainerEngineNotFound,
 		ErrorKindRuntimeNotAvailable,

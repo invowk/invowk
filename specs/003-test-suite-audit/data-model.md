@@ -287,7 +287,7 @@ func (s *Server) isTokenExpired(token *Token) bool {
 // In test
 clock := testutil.NewFakeClock(time.Now())
 srv := sshserver.NewWithClock(cfg, clock)
-token, _ := srv.GenerateToken("test")
+token, _ := srv.GenerateToken(sshserver.CommandID("test"))
 clock.Advance(cfg.TokenTTL + time.Millisecond)  // Deterministic!
 _, ok := srv.ValidateToken(token.Value)
 // ok should be false

@@ -93,6 +93,48 @@ func TestServiceDiscoverCommand(t *testing.T) {
 	}
 }
 
+func TestServiceResolveCommandRejectsAmbiguousLongestMatch(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.DefaultConfig()
+	first := commandsvcTestCommandInfo(t, "deploy staging")
+	first.Name = "deploy staging"
+	first.SimpleName = "deploy staging"
+	first.SourceID = discovery.SourceIDInvowkfile
+	second := commandsvcTestCommandInfo(t, "deploy staging")
+	second.Name = "tools deploy staging"
+	second.SimpleName = "deploy staging"
+	second.SourceID = "tools"
+
+	commandSet := discovery.NewDiscoveredCommandSet()
+	commandSet.Add(first)
+	commandSet.Add(second)
+	commandSet.Analyze()
+
+	service := &Service{
+		config:    &staticCommandsvcConfigProvider{cfg: cfg},
+		discovery: &stubCommandDiscovery{commandSet: discovery.CommandSetResult{Set: commandSet}},
+		configFallback: func(context.Context, config.Provider, string) (*config.Config, []discovery.Diagnostic) {
+			return cfg, nil
+		},
+	}
+
+	_, _, _, err := service.ResolveCommand(t.Context(), Request{
+		Name: "deploy",
+		Args: []string{"staging"},
+	})
+	if err == nil {
+		t.Fatal("ResolveCommand() returned nil error, want ambiguous command")
+	}
+	var ambiguous *AmbiguousCommandError
+	if !errors.As(err, &ambiguous) {
+		t.Fatalf("errors.As(*AmbiguousCommandError) = false for %T", err)
+	}
+	if ambiguous.CommandName != "deploy staging" {
+		t.Fatalf("CommandName = %q, want deploy staging", ambiguous.CommandName)
+	}
+}
+
 func TestServiceDiscoverCommandFromSourceAdjustsArgs(t *testing.T) {
 	t.Parallel()
 

@@ -114,6 +114,9 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 	if req.UserEnv == nil && s.userEnvFunc != nil {
 		req.UserEnv = s.userEnvFunc()
 	}
+	if req.Platform == "" {
+		req.Platform = invowkfile.CurrentPlatform()
+	}
 
 	cfg, cmdInfo, req, diags, err := s.discoverCommand(ctx, req)
 	if err != nil {
@@ -170,6 +173,18 @@ func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discover
 	return cmdInfo, resolvedReq, diags, err
 }
 
+// ResolveCommand resolves a command request without executing it.
+func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+	if err := req.Validate(); err != nil {
+		return nil, req, nil, err
+	}
+	if req.Platform == "" {
+		req.Platform = invowkfile.CurrentPlatform()
+	}
+	_, cmdInfo, resolvedReq, diags, err := s.discoverCommand(ctx, req)
+	return cmdInfo, resolvedReq, diags, err
+}
+
 // discoverCommand loads configuration and discovers the target command by name.
 // It returns the config, discovered command info, accumulated diagnostics, and
 // any error. It returns a ClassifiedError when the command is not found.
@@ -189,20 +204,91 @@ func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Con
 		return s.discoverCommandFromSource(ctx, cfg, req)
 	}
 
-	lookup, err := s.discovery.GetCommand(ctx, req.Name)
-	diags := slices.Clone(lookup.Diagnostics)
+	result, err := s.discovery.DiscoverCommandSet(ctx)
+	diags := slices.Clone(result.Diagnostics)
 	if err != nil {
 		return nil, nil, req, diags, err
 	}
 
-	if lookup.Command == nil {
+	if result.Set == nil {
+		return s.discoverCommandByLookup(ctx, cfg, req, diags)
+	}
+	cmdInfo, resolvedReq, ambiguousName := resolveCommandFromSet(result.Set, req)
+	if ambiguousName != "" {
+		return nil, nil, req, diags, &ClassifiedError{
+			Err: &AmbiguousCommandError{
+				CommandName: ambiguousName,
+				Sources:     ambiguousSourcesFor(result.Set, ambiguousName),
+			},
+			Kind: ErrorKindCommandAmbiguous,
+		}
+	}
+	if cmdInfo == nil {
 		return nil, nil, req, diags, &ClassifiedError{
 			Err:  fmt.Errorf("command '%s' not found", req.Name),
 			Kind: ErrorKindCommandNotFound,
 		}
 	}
 
+	return cfg, cmdInfo, resolvedReq, diags, nil
+}
+
+func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Config, req Request, diags []discovery.Diagnostic) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+	lookup, err := s.discovery.GetCommand(ctx, req.Name)
+	diags = append(diags, lookup.Diagnostics...)
+	if err != nil {
+		return nil, nil, req, diags, err
+	}
+	if lookup.Command == nil {
+		return nil, nil, req, diags, &ClassifiedError{
+			Err:  fmt.Errorf("command '%s' not found", req.Name),
+			Kind: ErrorKindCommandNotFound,
+		}
+	}
 	return cfg, lookup.Command, req, diags, nil
+}
+
+func ambiguousSourcesFor(commandSet *discovery.DiscoveredCommandSet, name invowkfile.CommandName) []discovery.SourceID {
+	var sources []discovery.SourceID
+	if commandSet == nil {
+		return sources
+	}
+	for _, cmd := range commandSet.BySimpleName[name] {
+		if !slices.Contains(sources, cmd.SourceID) {
+			sources = append(sources, cmd.SourceID)
+		}
+	}
+	return sources
+}
+
+func resolveCommandFromSet(commandSet *discovery.DiscoveredCommandSet, req Request) (*discovery.CommandInfo, Request, invowkfile.CommandName) {
+	if commandSet == nil {
+		return nil, req, ""
+	}
+
+	tokens := strings.Fields(req.Name)
+	tokens = append(tokens, req.Args...)
+	for i := len(tokens); i > 0; i-- {
+		candidate := invowkfile.CommandName(strings.Join(tokens[:i], " ")) //goplint:ignore -- request tokens validated by Request.Validate()
+		if commandSet.AmbiguousNames[candidate] {
+			return nil, req, candidate
+		}
+		if target := commandSet.ByName[candidate]; target != nil {
+			req.Name = string(target.Name)
+			req.Args = slices.Clone(tokens[i:])
+			req.ResolvedCommand = target
+			return target, req, ""
+		}
+		if simpleMatches := commandSet.BySimpleName[candidate]; len(simpleMatches) == 1 {
+			target := simpleMatches[0]
+			req.Name = string(target.Name)
+			req.Args = slices.Clone(tokens[i:])
+			req.ResolvedCommand = target
+			return target, req, ""
+		}
+	}
+
+	return nil, req, ""
 }
 
 func (s *Service) discoverCommandFromSource(ctx context.Context, cfg *config.Config, req Request) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {

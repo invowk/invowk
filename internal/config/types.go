@@ -19,12 +19,11 @@ const (
 	ContainerEngineDocker ContainerEngine = "docker"
 
 	// RuntimeNative runs commands in the host system shell.
-	// Defined locally to avoid coupling config to pkg/invowkfile.
-	RuntimeNative RuntimeMode = "native"
+	RuntimeNative RuntimeMode = RuntimeMode(types.RuntimeNative)
 	// RuntimeVirtual runs commands in the embedded mvdan/sh interpreter.
-	RuntimeVirtual RuntimeMode = "virtual"
+	RuntimeVirtual RuntimeMode = RuntimeMode(types.RuntimeVirtual)
 	// RuntimeContainer runs commands inside a container (Docker/Podman).
-	RuntimeContainer RuntimeMode = "container"
+	RuntimeContainer RuntimeMode = RuntimeMode(types.RuntimeContainer)
 
 	// ColorSchemeAuto detects the terminal color scheme automatically.
 	ColorSchemeAuto ColorScheme = "auto"
@@ -32,17 +31,13 @@ const (
 	ColorSchemeDark ColorScheme = "dark"
 	// ColorSchemeLight forces light color scheme.
 	ColorSchemeLight ColorScheme = "light"
-
-	// moduleSuffix is the filesystem suffix for invowkmod directories.
-	// Defined locally to avoid coupling config to pkg/invowkmod.
-	moduleSuffix = ".invowkmod"
 )
 
 var (
 	// ErrInvalidContainerEngine is returned when a ContainerEngine value is not recognized.
 	ErrInvalidContainerEngine = errors.New("invalid container engine")
 	// ErrInvalidConfigRuntimeMode is returned when a config RuntimeMode value is not recognized.
-	ErrInvalidConfigRuntimeMode = errors.New("invalid runtime mode")
+	ErrInvalidConfigRuntimeMode = types.ErrInvalidRuntimeMode
 	// ErrInvalidColorScheme is returned when a ColorScheme value is not recognized.
 	ErrInvalidColorScheme = errors.New("invalid color scheme")
 	// ErrInvalidModuleIncludePath is the sentinel error wrapped by InvalidModuleIncludePathError.
@@ -76,8 +71,6 @@ type (
 	}
 
 	// RuntimeMode specifies the execution runtime for commands.
-	// Defined locally to avoid coupling config to pkg/invowkfile;
-	// the orchestrator casts to invowkfile.RuntimeMode at the boundary.
 	//
 	//goplint:enum-cue=#ConfigRuntimeType
 	RuntimeMode string
@@ -255,7 +248,8 @@ func (c VirtualShellConfig) Validate() error { return nil }
 
 // IsModule reports whether this entry points to a module directory (.invowkmod).
 func (e IncludeEntry) IsModule() bool {
-	return strings.HasSuffix(string(e.Path), moduleSuffix)
+	_, err := invowkmod.ParseModuleName(filepath.Base(string(e.Path)))
+	return err == nil
 }
 
 // Validate returns an error if the IncludeEntry has invalid fields.
@@ -408,7 +402,10 @@ func (p ModuleIncludePath) Validate() error {
 	if strings.TrimSpace(pathStr) == "" {
 		return &InvalidModuleIncludePathError{Value: p}
 	}
-	if !filepath.IsAbs(pathStr) || !strings.HasSuffix(pathStr, moduleSuffix) {
+	if !filepath.IsAbs(pathStr) {
+		return &InvalidModuleIncludePathError{Value: p}
+	}
+	if _, err := invowkmod.ParseModuleName(filepath.Base(pathStr)); err != nil {
 		return &InvalidModuleIncludePathError{Value: p}
 	}
 	return nil

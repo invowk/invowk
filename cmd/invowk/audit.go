@@ -71,6 +71,7 @@ type (
 		Severity           string              `json:"severity"`
 		Category           string              `json:"category"`
 		SurfaceID          string              `json:"surface_id,omitempty"`
+		SurfaceKind        audit.SurfaceKind   `json:"surface_kind,omitempty"`
 		CheckerName        auditCheckerName    `json:"checker_name"`
 		FilePath           string              `json:"file_path,omitempty"`
 		Line               int                 `json:"line,omitempty"`
@@ -124,7 +125,10 @@ func (o auditJSONOutput) Validate() error {
 }
 
 func (f auditJSONFinding) Validate() error {
-	return f.CheckerName.Validate()
+	return errors.Join(
+		f.CheckerName.Validate(),
+		f.SurfaceKind.Validate(),
+	)
 }
 
 func (opts auditRunOptions) Validate() error {
@@ -427,6 +431,7 @@ func convertFindings(findings []audit.Finding) []auditJSONFinding {
 			Severity:           findings[i].Severity.String(),
 			Category:           findings[i].Category.String(),
 			SurfaceID:          findings[i].SurfaceID,
+			SurfaceKind:        findings[i].SurfaceKind,
 			CheckerName:        auditCheckerName(findings[i].CheckerName), //goplint:ignore -- checker names are internal scanner identifiers.
 			FilePath:           string(findings[i].FilePath),
 			Line:               findings[i].Line,

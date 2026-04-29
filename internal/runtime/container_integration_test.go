@@ -513,7 +513,7 @@ func (h testSSHHostCallbacks) IsRunning() bool {
 }
 
 func (h testSSHHostCallbacks) GetConnectionInfo(commandID HostCallbackCommandID) (*HostCallbackConnectionInfo, error) {
-	info, err := h.server.GetConnectionInfo(commandID.String())
+	info, err := h.server.GetConnectionInfo(sshserver.CommandID(commandID.String()))
 	if err != nil {
 		return nil, err
 	}

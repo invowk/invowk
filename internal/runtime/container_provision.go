@@ -197,6 +197,7 @@ func (r *ContainerRuntime) generateImageTag(invowkfilePath string) (string, erro
 // buildProvisionConfig creates a provision.Config from the app config.
 func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	provisionCfg := provision.DefaultConfig()
+	applyHostProvisionDefaults(provisionCfg)
 
 	if cfg == nil {
 		return provisionCfg
@@ -228,6 +229,33 @@ func buildProvisionConfig(cfg *config.Config) *provision.Config {
 	}
 
 	return provisionCfg
+}
+
+func applyHostProvisionDefaults(provisionCfg *provision.Config) {
+	if provisionCfg == nil {
+		return
+	}
+
+	if provisionCfg.InvowkBinaryPath == "" {
+		if binaryPath, err := os.Executable(); err == nil {
+			provisionCfg.InvowkBinaryPath = types.FilesystemPath(binaryPath) //goplint:ignore -- host path validated by provision.Config.Validate()
+		}
+	}
+	if len(provisionCfg.ModulesPaths) == 0 {
+		if userDir, err := config.CommandsDir(); err == nil {
+			if info, statErr := os.Stat(string(userDir)); statErr == nil && info.IsDir() {
+				provisionCfg.ModulesPaths = append(provisionCfg.ModulesPaths, userDir)
+			}
+		}
+	}
+	if provisionCfg.CacheDir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			provisionCfg.CacheDir = types.FilesystemPath(filepath.Join(home, ".cache", "invowk", "provision")) //goplint:ignore -- host path validated by provision.Config.Validate()
+		}
+	}
+	if provisionCfg.TagSuffix == "" {
+		provisionCfg.TagSuffix = os.Getenv("INVOWK_PROVISION_TAG_SUFFIX")
+	}
 }
 
 // isWindowsContainerImage detects if an image is Windows-based by name convention.

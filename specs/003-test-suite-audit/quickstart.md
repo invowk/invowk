@@ -117,7 +117,7 @@ func TestExpiredToken(t *testing.T) {
     cfg.TokenTTL = 1 * time.Millisecond
     srv := New(cfg)
 
-    token, _ := srv.GenerateToken("test-command")
+    token, _ := srv.GenerateToken(CommandID("test-command"))
 
     // FLAKY: May pass or fail based on system load
     time.Sleep(10 * time.Millisecond)
@@ -141,7 +141,7 @@ func TestExpiredToken(t *testing.T) {
     clock := testutil.NewFakeClock(time.Time{})  // Zero time uses fixed reference
     srv := NewWithClock(cfg, clock)  // Inject clock
 
-    token, _ := srv.GenerateToken("test-command")
+    token, _ := srv.GenerateToken(CommandID("test-command"))
 
     // DETERMINISTIC: Advance clock past TTL
     clock.Advance(cfg.TokenTTL + time.Second)

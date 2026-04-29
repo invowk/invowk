@@ -15,6 +15,8 @@ var (
 	ErrInvalidHostAddress = errors.New("invalid host address")
 	// ErrInvalidTokenValue is the sentinel error wrapped by InvalidTokenValueError.
 	ErrInvalidTokenValue = errors.New("invalid token value")
+	// ErrInvalidCommandID is the sentinel error wrapped by InvalidCommandIDError.
+	ErrInvalidCommandID = errors.New("invalid command ID")
 	// ErrInvalidListenPort is re-exported from pkg/types for backward compatibility.
 	ErrInvalidListenPort = types.ErrInvalidListenPort
 	// ErrInvalidSSHConfig is the sentinel error wrapped by InvalidSSHConfigError.
@@ -34,6 +36,9 @@ type (
 	// A valid token must be non-empty and not whitespace-only.
 	TokenValue string
 
+	// CommandID identifies the command execution that owns a callback token.
+	CommandID string
+
 	// ListenPort is re-exported from pkg/types as a cross-cutting type
 	// used by both sshserver and tuiserver.
 	ListenPort = types.ListenPort
@@ -48,6 +53,11 @@ type (
 	// empty or whitespace-only.
 	InvalidTokenValueError struct {
 		Value TokenValue
+	}
+
+	// InvalidCommandIDError is returned when a CommandID value is empty or whitespace-only.
+	InvalidCommandIDError struct {
+		Value CommandID
 	}
 
 	// InvalidListenPortError is re-exported from pkg/types for backward compatibility.
@@ -102,6 +112,20 @@ func (t TokenValue) Validate() error {
 	return nil
 }
 
+// String returns the string representation of the command ID.
+func (id CommandID) String() string { return string(id) }
+
+// Validate returns nil if the CommandID is valid (non-empty and not whitespace-only),
+// or an error wrapping ErrInvalidCommandID if it is not.
+//
+//goplint:nonzero
+func (id CommandID) Validate() error {
+	if strings.TrimSpace(string(id)) == "" {
+		return &InvalidCommandIDError{Value: id}
+	}
+	return nil
+}
+
 // Error implements the error interface for InvalidHostAddressError.
 func (e *InvalidHostAddressError) Error() string {
 	return fmt.Sprintf("invalid host address %q: must be non-empty", e.Value)
@@ -118,6 +142,14 @@ func (e *InvalidTokenValueError) Error() string {
 // Unwrap returns ErrInvalidTokenValue for errors.Is() compatibility.
 func (e *InvalidTokenValueError) Unwrap() error { return ErrInvalidTokenValue }
 
+// Error implements the error interface for InvalidCommandIDError.
+func (e *InvalidCommandIDError) Error() string {
+	return fmt.Sprintf("invalid command ID %q: must be non-empty", e.Value)
+}
+
+// Unwrap returns ErrInvalidCommandID for errors.Is() compatibility.
+func (e *InvalidCommandIDError) Unwrap() error { return ErrInvalidCommandID }
+
 // Error implements the error interface for InvalidSSHConfigError.
 func (e *InvalidSSHConfigError) Error() string {
 	return types.FormatFieldErrors("SSH server config", e.FieldErrors)
@@ -133,6 +165,9 @@ func (e *InvalidSSHConfigError) Unwrap() error { return ErrInvalidSSHConfig }
 func (t Token) Validate() error {
 	var errs []error
 	if err := t.Value.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := t.CommandID.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if len(errs) > 0 {

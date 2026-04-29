@@ -12,7 +12,11 @@ import (
 )
 
 // GenerateToken creates a new authentication token for a command.
-func (s *Server) GenerateToken(commandID string) (*Token, error) {
+func (s *Server) GenerateToken(commandID CommandID) (*Token, error) {
+	if err := commandID.Validate(); err != nil {
+		return nil, err
+	}
+
 	// Generate random token
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
@@ -71,7 +75,11 @@ func (s *Server) RevokeToken(tokenValue TokenValue) {
 // This is useful for cleanup when a command execution completes.
 // Currently exercised by tests; production callers will use this
 // when command lifecycle management is fully integrated.
-func (s *Server) RevokeTokensForCommand(commandID string) {
+func (s *Server) RevokeTokensForCommand(commandID CommandID) {
+	if err := commandID.Validate(); err != nil {
+		return
+	}
+
 	s.tokenMu.Lock()
 	defer s.tokenMu.Unlock()
 
@@ -84,7 +92,10 @@ func (s *Server) RevokeTokensForCommand(commandID string) {
 
 // GetConnectionInfo returns connection information for a command.
 // Returns an error if the server is not running.
-func (s *Server) GetConnectionInfo(commandID string) (*ConnectionInfo, error) {
+func (s *Server) GetConnectionInfo(commandID CommandID) (*ConnectionInfo, error) {
+	if err := commandID.Validate(); err != nil {
+		return nil, err
+	}
 	if !s.IsRunning() {
 		return nil, fmt.Errorf("SSH server is not running (state: %s)", s.State())
 	}

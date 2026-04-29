@@ -4,7 +4,6 @@ package commandadapters
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -118,71 +118,5 @@ func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
 
 func forwardComponentResponse(componentType tui.ComponentType, from <-chan tui.ComponentResponse, to chan<- tuiserver.Response) {
 	componentResponse := <-from
-	to <- componentResponseToProtocol(componentType, componentResponse)
-}
-
-func componentResponseToProtocol(componentType tui.ComponentType, response tui.ComponentResponse) tuiserver.Response {
-	switch {
-	case response.Cancelled:
-		return tuiserver.Response{Cancelled: true}
-	case response.Err != nil:
-		return tuiserver.Response{Error: response.Err.Error()}
-	default:
-		resultJSON, err := json.Marshal(componentResultToProtocol(componentType, response.Result))
-		if err != nil {
-			return tuiserver.Response{Error: fmt.Sprintf("failed to marshal result: %v", err)}
-		}
-		return tuiserver.Response{Result: resultJSON}
-	}
-}
-
-func componentResultToProtocol(componentType tui.ComponentType, result any) any {
-	switch componentType {
-	case tui.ComponentTypeInput, tui.ComponentTypeTextArea, tui.ComponentTypeWrite:
-		if s, ok := result.(string); ok {
-			return tuiserver.InputResult{Value: s}
-		}
-		return tuiserver.InputResult{}
-	case tui.ComponentTypeConfirm:
-		if b, ok := result.(bool); ok {
-			return tuiserver.ConfirmResult{Confirmed: b}
-		}
-		return tuiserver.ConfirmResult{}
-	case tui.ComponentTypeChoose:
-		if selected, ok := result.([]string); ok {
-			return tuiserver.ChooseResult{Selected: selected}
-		}
-		return tuiserver.ChooseResult{Selected: []string{}}
-	case tui.ComponentTypeFilter:
-		if selected, ok := result.([]string); ok {
-			return tuiserver.FilterResult{Selected: selected}
-		}
-		return tuiserver.FilterResult{Selected: []string{}}
-	case tui.ComponentTypeFile:
-		if path, ok := result.(string); ok {
-			return tuiserver.FileResult{Path: path}
-		}
-		return tuiserver.FileResult{}
-	case tui.ComponentTypeTable:
-		if tableResult, ok := result.(tui.TableSelectionResult); ok {
-			return tuiserver.TableResult{
-				SelectedRow:   tableResult.SelectedRow,
-				SelectedIndex: tableResult.SelectedIndex,
-			}
-		}
-		return tuiserver.TableResult{SelectedIndex: -1}
-	case tui.ComponentTypePager:
-		return tuiserver.PagerResult{}
-	case tui.ComponentTypeSpin:
-		if spinResult, ok := result.(tui.SpinResult); ok {
-			return tuiserver.SpinResult{
-				Stdout:   spinResult.Stdout,
-				Stderr:   spinResult.Stderr,
-				ExitCode: spinResult.ExitCode,
-			}
-		}
-		return tuiserver.SpinResult{}
-	default:
-		return result
-	}
+	to <- tuiwire.EncodeResponse(tuiwire.Component(componentType), componentResponse)
 }

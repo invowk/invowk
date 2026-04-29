@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 
@@ -80,11 +81,7 @@ type (
 
 	// ComponentResponse is the terminal renderer's local result for an
 	// embedded component request. Transport adapters decide how to encode it.
-	ComponentResponse struct {
-		Result    any
-		Err       error
-		Cancelled bool
-	}
+	ComponentResponse = tuiwire.ComponentResponse
 
 	// tuiComponentDoneMsg is sent when an embedded TUI component completes.
 	tuiComponentDoneMsg struct {

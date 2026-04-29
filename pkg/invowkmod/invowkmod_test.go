@@ -399,9 +399,9 @@ func TestNewCommandScope(t *testing.T) {
 		t.Error("global.module2 should be in GlobalModules")
 	}
 
-	// Check aliased dependency is set
-	if !scope.DirectDeps["dep2alias"] {
-		t.Error("dep2alias should be in DirectDeps")
+	// Check aliased dependency namespace is set separately from module IDs.
+	if !scope.DirectSources["dep2alias"] {
+		t.Error("dep2alias should be in DirectSources")
 	}
 }
 

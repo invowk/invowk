@@ -233,14 +233,14 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		isModule := file.Module != nil
 		switch {
 		case isModule:
-			// From a module - use the effective module namespace so configured
-			// aliases affect collision handling and command publishing equally.
-			modID := d.GetEffectiveModuleID(file)
-			sourceID = SourceID(modID)
+			// From a module: keep stable module identity separate from the
+			// command source namespace used for publishing and collision handling.
+			modID := file.Invowkfile.GetModule()
 			if file.CommandNamespace != "" {
 				sourceID = SourceID(file.CommandNamespace)
-				modID = invowkmod.ModuleID(file.CommandNamespace)
-			} else if alias := d.getAliasForModulePath(file.Module.Path); alias == "" {
+			} else if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
+				sourceID = SourceID(alias)
+			} else {
 				sourceID = SourceID(getModuleShortName(file.Module.Path))
 			}
 			moduleID = &modID

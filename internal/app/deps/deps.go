@@ -248,6 +248,12 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 
 	// Build scope from direct requirements (seeds DirectDeps with aliases).
 	scope := invowkmod.NewCommandScope(moduleID, globalIDs, cmdInfo.Invowkfile.Metadata.Requires())
+	scope.ModuleSourceID = invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
+	for _, cmd := range available {
+		if cmd.IsGlobalModule {
+			scope.GlobalSources[invowkmod.ModuleSourceID(cmd.SourceID)] = true //goplint:ignore -- SourceID validated by discovery
+		}
+	}
 
 	// Wire resolved RDNS module IDs for direct deps. Alias requirements match the
 	// source namespace, while non-aliased requirements match the repository short
@@ -259,6 +265,7 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 		for _, req := range cmdInfo.Invowkfile.Metadata.Requires() {
 			if requirementMatchesSource(req, cmd.SourceID) {
 				scope.AddDirectDep(*cmd.ModuleID)
+				scope.AddDirectSource(invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
 			}
 		}
 	}

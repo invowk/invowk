@@ -38,6 +38,7 @@ type (
 		Config      config.Provider
 		Discovery   DiscoveryService
 		Commands    CommandService
+		Watchers    WatchRunnerFactory
 		Diagnostics DiagnosticRenderer
 		stdout      io.Writer
 		stderr      io.Writer
@@ -50,6 +51,7 @@ type (
 		Config      config.Provider
 		Discovery   DiscoveryService
 		Commands    CommandService
+		Watchers    WatchRunnerFactory
 		Diagnostics DiagnosticRenderer
 		Stdout      io.Writer
 		Stderr      io.Writer
@@ -72,6 +74,7 @@ type (
 	// are returned as structured data for the CLI layer to render.
 	CommandService interface {
 		Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error)
+		ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error)
 		ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error)
 	}
 
@@ -182,11 +185,15 @@ func NewApp(d Dependencies) (*App, error) {
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}
+	if d.Watchers == nil {
+		d.Watchers = productionWatchRunnerFactory{}
+	}
 
 	return &App{
 		Config:      d.Config,
 		Discovery:   d.Discovery,
 		Commands:    d.Commands,
+		Watchers:    d.Watchers,
 		Diagnostics: d.Diagnostics,
 		stdout:      d.Stdout,
 		stderr:      d.Stderr,
@@ -231,6 +238,11 @@ func (a *cliCommandAdapter) ResolveFromSource(ctx context.Context, req ExecuteRe
 	return a.svc.ResolveFromSource(ctx, req)
 }
 
+// ResolveCommand delegates command selection to the command service.
+func (a *cliCommandAdapter) ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	return a.svc.ResolveCommand(ctx, req)
+}
+
 // renderAndWrapServiceError inspects the raw domain error from the service and
 // applies CLI rendering to produce a styled ServiceError. The error type
 // determines the issue catalog ID and rendering function.
@@ -258,6 +270,13 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 	}
 
 	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
+		if ambigErr, ambigOK := errors.AsType[*commandsvc.AmbiguousCommandError](classified.Err); ambigOK {
+			styledMsg := RenderAmbiguousCommandError(&AmbiguousCommandError{
+				CommandName: ambigErr.CommandName,
+				Sources:     ambigErr.Sources,
+			})
+			return newServiceError(classified.Err, 0, styledMsg)
+		}
 		// Re-create the styled message using the CLI-layer error formatter.
 		var styledMsg string
 		styledLabel := ErrorStyle.Render(serviceErrorLabel)
@@ -277,6 +296,8 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 
 func issueIDForServiceErrorKind(kind commandsvc.ErrorKind) issue.Id {
 	switch kind {
+	case commandsvc.ErrorKindCommandAmbiguous:
+		return issue.CommandNotFoundId
 	case commandsvc.ErrorKindCommandNotFound:
 		return issue.CommandNotFoundId
 	case commandsvc.ErrorKindContainerEngineNotFound:

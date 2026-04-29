@@ -29,10 +29,16 @@ import (
 type CommandScope struct {
 	// ModuleID is the module identifier that owns this scope
 	ModuleID ModuleID `json:"-"`
-	// GlobalModules are commands from globally installed modules (always accessible)
+	// ModuleSourceID is the command namespace for the module that owns this scope.
+	ModuleSourceID ModuleSourceID `json:"-"`
+	// GlobalModules are stable module IDs from globally installed modules.
 	GlobalModules map[ModuleID]bool `json:"-"`
-	// DirectDeps are module IDs from first-level requirements (from invowkmod.cue:requires)
+	// GlobalSources are command namespaces from globally installed modules.
+	GlobalSources map[ModuleSourceID]bool `json:"-"`
+	// DirectDeps are stable module IDs from first-level requirements.
 	DirectDeps map[ModuleID]bool `json:"-"`
+	// DirectSources are command namespaces from first-level requirements.
+	DirectSources map[ModuleSourceID]bool `json:"-"`
 }
 
 // NewCommandScope creates a CommandScope for a parsed module.
@@ -40,21 +46,28 @@ type CommandScope struct {
 // directRequirements should be the requires list from the module's invowkmod.cue
 func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequirements []ModuleRequirement) *CommandScope {
 	scope := &CommandScope{
-		ModuleID:      moduleID,
-		GlobalModules: make(map[ModuleID]bool),
-		DirectDeps:    make(map[ModuleID]bool),
+		ModuleID:       moduleID,
+		ModuleSourceID: ModuleSourceID(moduleID),
+		GlobalModules:  make(map[ModuleID]bool),
+		GlobalSources:  make(map[ModuleSourceID]bool),
+		DirectDeps:     make(map[ModuleID]bool),
+		DirectSources:  make(map[ModuleSourceID]bool),
 	}
 
 	for _, id := range globalModuleIDs {
 		scope.GlobalModules[id] = true
+		scope.GlobalSources[ModuleSourceID(id)] = true
 	}
 
 	for _, req := range directRequirements {
-		// The direct dependency namespace uses either alias or the resolved module ID
+		ref := ModuleRef(req)
 		if req.Alias != "" {
-			scope.DirectDeps[ModuleID(req.Alias)] = true
+			scope.DirectSources[ModuleSourceID(req.Alias)] = true
+			continue
 		}
-		// Note: The actual resolved module ID will be added during resolution
+		if sourceID := ref.DefaultSourceID(); sourceID != "" {
+			scope.DirectSources[sourceID] = true
+		}
 	}
 
 	return scope
@@ -64,25 +77,25 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 // Returns true if allowed, false with reason if not.
 func (s *CommandScope) CanCall(targetCmd string) (allowed bool, reason string) {
 	// Extract module prefix from command name (format: "module.name cmdname" or "module.name@version cmdname")
-	targetModule := ModuleID(ExtractModuleFromCommand(targetCmd)) //goplint:ignore -- used only for equality comparison
+	targetSource := ModuleSourceID(ExtractModuleFromCommand(targetCmd)) //goplint:ignore -- used only for equality comparison
 
 	// If no module prefix, it's a local command (always allowed)
-	if targetModule == "" {
+	if targetSource == "" {
 		return true, ""
 	}
 
 	// Check if target is from same module
-	if targetModule == s.ModuleID {
+	if targetSource == s.ModuleSourceID || ModuleID(targetSource) == s.ModuleID {
 		return true, ""
 	}
 
 	// Check if target is in global modules
-	if s.GlobalModules[targetModule] {
+	if s.GlobalSources[targetSource] || s.GlobalModules[ModuleID(targetSource)] {
 		return true, ""
 	}
 
 	// Check if target is in direct dependencies
-	if s.DirectDeps[targetModule] {
+	if s.DirectSources[targetSource] || s.DirectDeps[ModuleID(targetSource)] {
 		return true, ""
 	}
 
@@ -93,13 +106,24 @@ func (s *CommandScope) CanCall(targetCmd string) (allowed bool, reason string) {
 			"  - Commands from globally installed modules (~/.invowk/modules/)\n"+
 			"  - Commands from direct dependencies declared in invowkmod.cue:requires\n"+
 			"  Add '%s' to your invowkmod.cue requires list to use its commands",
-		s.ModuleID, targetCmd, targetModule, s.ModuleID, targetModule)
+		s.ModuleID, targetCmd, targetSource, s.ModuleID, targetSource)
 }
 
 // AddDirectDep adds a resolved direct dependency to the scope.
 // This is called during resolution when we know the actual module ID.
 func (s *CommandScope) AddDirectDep(moduleID ModuleID) {
+	if s.DirectDeps == nil {
+		s.DirectDeps = make(map[ModuleID]bool)
+	}
 	s.DirectDeps[moduleID] = true
+}
+
+// AddDirectSource adds a command namespace for a resolved direct dependency.
+func (s *CommandScope) AddDirectSource(sourceID ModuleSourceID) {
+	if s.DirectSources == nil {
+		s.DirectSources = make(map[ModuleSourceID]bool)
+	}
+	s.DirectSources[sourceID] = true
 }
 
 // ExtractModuleFromCommand extracts the module prefix from a fully qualified command name.

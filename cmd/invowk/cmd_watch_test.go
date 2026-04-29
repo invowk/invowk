@@ -3,14 +3,38 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/watch"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
+)
+
+type (
+	fakeWatchFactory struct {
+		cfg watch.Config
+		run func(context.Context, watch.Config) error
+	}
+
+	fakeWatchRunner struct {
+		cfg watch.Config
+		run func(context.Context, watch.Config) error
+	}
+
+	fakeWatchCommandService struct {
+		cmdInfo      *discovery.CommandInfo
+		executeErrs  []error
+		executeCalls int
+	}
 )
 
 // newWatchTestCmd creates a minimal *cobra.Command with a config-path-enhanced context
@@ -24,13 +48,19 @@ func newWatchTestCmd(t *testing.T) *cobra.Command {
 }
 
 // newWatchTestApp creates an App with the given discovery service and discarded I/O.
-func newWatchTestApp(disc DiscoveryService) *App {
-	return &App{
-		Discovery:   disc,
-		Diagnostics: &defaultDiagnosticRenderer{},
-		stdout:      io.Discard,
-		stderr:      io.Discard,
+func newWatchTestApp(t *testing.T, disc DiscoveryService) *App {
+	t.Helper()
+
+	app, err := NewApp(Dependencies{
+		Config:    &staticConfigProvider{cfg: config.DefaultConfig()},
+		Discovery: disc,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
 	}
+	return app
 }
 
 // emptyCommandSet returns an initialized (but empty) CommandSetResult.
@@ -39,12 +69,61 @@ func emptyCommandSet() discovery.CommandSetResult {
 	return discovery.CommandSetResult{Set: discovery.NewDiscoveredCommandSet()}
 }
 
+func (f *fakeWatchFactory) New(cfg watch.Config) (WatchRunner, error) {
+	f.cfg = cfg
+	return fakeWatchRunner{cfg: cfg, run: f.run}, nil
+}
+
+func (r fakeWatchRunner) Run(ctx context.Context) error {
+	if r.run == nil {
+		return nil
+	}
+	return r.run(ctx, r.cfg)
+}
+
+func (s *fakeWatchCommandService) Execute(context.Context, ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+	s.executeCalls++
+	if len(s.executeErrs) == 0 {
+		return ExecuteResult{}, nil, nil
+	}
+	err := s.executeErrs[0]
+	s.executeErrs = s.executeErrs[1:]
+	return ExecuteResult{}, nil, err
+}
+
+func (s *fakeWatchCommandService) ResolveCommand(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	req.Name = string(s.cmdInfo.Name)
+	req.ResolvedCommand = s.cmdInfo
+	return s.cmdInfo, req, nil, nil
+}
+
+func (s *fakeWatchCommandService) ResolveFromSource(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
+	return s.cmdInfo, req, nil, nil
+}
+
+func newResolvedWatchCommand(t *testing.T) *discovery.CommandInfo {
+	t.Helper()
+
+	return &discovery.CommandInfo{
+		Name:       "build",
+		SimpleName: "build",
+		SourceID:   discovery.SourceIDInvowkfile,
+		FilePath:   invowkfile.FilesystemPath(t.TempDir() + "/invowkfile.cue"),
+		Command: &invowkfile.Command{
+			Name: "build",
+			Watch: &invowkfile.WatchConfig{
+				Patterns: []invowkfile.GlobPattern{"**/*.go"},
+			},
+		},
+	}
+}
+
 func TestRunWatchMode_NoCommand(t *testing.T) {
 	t.Parallel()
 
 	err := runWatchMode(
 		newWatchTestCmd(t),
-		newWatchTestApp(&stubDiscoveryService{}),
+		newWatchTestApp(t, &stubDiscoveryService{}),
 		&rootFlagValues{},
 		&cmdFlagValues{},
 		nil, // no args
@@ -59,7 +138,7 @@ func TestRunWatchMode_DryRunConflict(t *testing.T) {
 
 	err := runWatchMode(
 		newWatchTestCmd(t),
-		newWatchTestApp(&stubDiscoveryService{}),
+		newWatchTestApp(t, &stubDiscoveryService{}),
 		&rootFlagValues{},
 		&cmdFlagValues{dryRun: true},
 		[]string{"build"},
@@ -78,17 +157,14 @@ func TestRunWatchMode_CommandNotFound(t *testing.T) {
 
 	err := runWatchMode(
 		newWatchTestCmd(t),
-		newWatchTestApp(disc),
+		newWatchTestApp(t, disc),
 		&rootFlagValues{},
 		&cmdFlagValues{},
 		[]string{"nonexistent"},
 	)
-	var cmdNotFound *WatchCommandNotFoundError
+	var cmdNotFound *ServiceError
 	if !errors.As(err, &cmdNotFound) {
-		t.Fatalf("error = %v (%T), want *WatchCommandNotFoundError", err, err)
-	}
-	if cmdNotFound.Name != "nonexistent" {
-		t.Fatalf("WatchCommandNotFoundError.Name = %q, want %q", cmdNotFound.Name, "nonexistent")
+		t.Fatalf("error = %v (%T), want *ServiceError", err, err)
 	}
 }
 
@@ -97,13 +173,12 @@ func TestRunWatchMode_GetCommandError(t *testing.T) {
 
 	wantErr := errors.New("discovery exploded")
 	disc := &stubDiscoveryService{
-		commandSet: emptyCommandSet(),
-		lookupErr:  wantErr,
+		lookupErr: wantErr,
 	}
 
 	err := runWatchMode(
 		newWatchTestCmd(t),
-		newWatchTestApp(disc),
+		newWatchTestApp(t, disc),
 		&rootFlagValues{},
 		&cmdFlagValues{},
 		[]string{"build"},
@@ -117,7 +192,6 @@ func TestRunWatchMode_InvalidDebounce(t *testing.T) {
 	t.Parallel()
 
 	disc := &stubDiscoveryService{
-		commandSet: emptyCommandSet(),
 		lookup: discovery.LookupResult{
 			Command: &discovery.CommandInfo{
 				Name: "build",
@@ -140,7 +214,7 @@ func TestRunWatchMode_InvalidDebounce(t *testing.T) {
 
 	err := runWatchMode(
 		newWatchTestCmd(t),
-		newWatchTestApp(disc),
+		newWatchTestApp(t, disc),
 		&rootFlagValues{},
 		&cmdFlagValues{},
 		[]string{"build"},
@@ -174,16 +248,142 @@ func TestRunWatchMode_AmbiguousCommand(t *testing.T) {
 
 	err := runWatchMode(
 		newWatchTestCmd(t),
-		newWatchTestApp(disc),
+		newWatchTestApp(t, disc),
 		&rootFlagValues{},
 		&cmdFlagValues{},
 		[]string{"deploy"},
 	)
-	var ambigErr *AmbiguousCommandError
+	var ambigErr *commandsvc.AmbiguousCommandError
 	if !errors.As(err, &ambigErr) {
-		t.Fatalf("error = %v (%T), want *AmbiguousCommandError", err, err)
+		t.Fatalf("error = %v (%T), want *commandsvc.AmbiguousCommandError", err, err)
 	}
 	if string(ambigErr.CommandName) != "deploy" {
 		t.Fatalf("AmbiguousCommandError.CommandName = %q, want %q", ambigErr.CommandName, "deploy")
+	}
+}
+
+func TestRunWatchMode_InjectedWatcherReexecutesOnChange(t *testing.T) {
+	t.Parallel()
+
+	commands := &fakeWatchCommandService{cmdInfo: newResolvedWatchCommand(t)}
+	watchers := &fakeWatchFactory{
+		run: func(ctx context.Context, cfg watch.Config) error {
+			return cfg.OnChange(ctx, []string{"main.go"})
+		},
+	}
+	app := &App{
+		Config:      &staticConfigProvider{cfg: config.DefaultConfig()},
+		Commands:    commands,
+		Watchers:    watchers,
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stdout:      io.Discard,
+		stderr:      io.Discard,
+	}
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		app,
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"build"},
+	)
+	if err != nil {
+		t.Fatalf("runWatchMode() error = %v", err)
+	}
+	if commands.executeCalls != 2 {
+		t.Fatalf("executeCalls = %d, want 2", commands.executeCalls)
+	}
+	if got := watchers.cfg.Patterns; len(got) != 1 || got[0] != "**/*.go" {
+		t.Fatalf("watch Patterns = %v, want [**/*.go]", got)
+	}
+}
+
+func TestRunWatchMode_ExitErrorResetsInfrastructureFailureCounter(t *testing.T) {
+	t.Parallel()
+
+	infraErr := errors.New("config disappeared")
+	commands := &fakeWatchCommandService{
+		cmdInfo: newResolvedWatchCommand(t),
+		executeErrs: []error{
+			nil,
+			infraErr,
+			&ExitError{Code: types.ExitCode(2)},
+			infraErr,
+			infraErr,
+			nil,
+		},
+	}
+	watchers := &fakeWatchFactory{
+		run: func(ctx context.Context, cfg watch.Config) error {
+			for range 5 {
+				if err := cfg.OnChange(ctx, []string{"main.go"}); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+	app := &App{
+		Config:      &staticConfigProvider{cfg: config.DefaultConfig()},
+		Commands:    commands,
+		Watchers:    watchers,
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stdout:      io.Discard,
+		stderr:      io.Discard,
+	}
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		app,
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"build"},
+	)
+	if err != nil {
+		t.Fatalf("runWatchMode() error = %v", err)
+	}
+}
+
+func TestRunWatchMode_AbortsAfterConsecutiveInfrastructureFailures(t *testing.T) {
+	t.Parallel()
+
+	infraErr := errors.New("config disappeared")
+	commands := &fakeWatchCommandService{
+		cmdInfo: newResolvedWatchCommand(t),
+		executeErrs: []error{
+			nil,
+			infraErr,
+			infraErr,
+			infraErr,
+		},
+	}
+	watchers := &fakeWatchFactory{
+		run: func(ctx context.Context, cfg watch.Config) error {
+			for range 3 {
+				if err := cfg.OnChange(ctx, []string{"main.go"}); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+	app := &App{
+		Config:      &staticConfigProvider{cfg: config.DefaultConfig()},
+		Commands:    commands,
+		Watchers:    watchers,
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stdout:      io.Discard,
+		stderr:      io.Discard,
+	}
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		app,
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"build"},
+	)
+	if err == nil || !strings.Contains(err.Error(), "aborting watch: 3 consecutive infrastructure failures") {
+		t.Fatalf("runWatchMode() error = %v, want consecutive infrastructure failure", err)
 	}
 }

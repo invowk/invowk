@@ -150,6 +150,19 @@ func (r ModuleRef) MatchesSourceID(sourceID ModuleSourceID) bool {
 	return moduleSourceFromGitURL(r.GitURL) == sourceID
 }
 
+// DefaultSourceID returns the command source namespace implied by this
+// requirement when no alias is declared.
+func (r ModuleRef) DefaultSourceID() ModuleSourceID {
+	if r.Path != "" {
+		sourceID := ModuleSourceID(slashpath.Base(string(r.Path)))
+		if err := sourceID.Validate(); err != nil {
+			return ""
+		}
+		return sourceID
+	}
+	return moduleSourceFromGitURL(r.GitURL)
+}
+
 // String returns a human-readable representation of the requirement.
 func (r ModuleRef) String() string {
 	s := string(r.GitURL)

@@ -121,19 +121,6 @@ Examples:
 				return runDisambiguatedCommand(cmd, app, rootFlags, cmdFlags, filter, remainingArgs)
 			}
 
-			// Without explicit source selection, detect ambiguity up front and
-			// show disambiguation guidance.
-			if len(args) > 0 {
-				if ambigCheckErr := checkAmbiguousCommand(cmd.Context(), app, args); ambigCheckErr != nil {
-					if ambigErr, ok := errors.AsType[*AmbiguousCommandError](ambigCheckErr); ok {
-						fmt.Fprint(app.stderr, RenderAmbiguousCommandError(ambigErr))
-						cmd.SilenceErrors = true
-						cmd.SilenceUsage = true
-					}
-					return ambigCheckErr
-				}
-			}
-
 			// Default path delegates request mapping + execution to CommandService.
 			return runCommand(cmd, app, rootFlags, cmdFlags, args)
 		},

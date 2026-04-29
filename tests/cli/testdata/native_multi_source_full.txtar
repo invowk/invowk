@@ -48,6 +48,12 @@ cmds: [
 -- mymod.invowkmod/invowkmod.cue --
 module:  "mymod"
 version: "0.1.0"
+requires: [
+	{
+		git_url: "https://github.com/example/dep.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
 
 -- mymod.invowkmod/invowkfile.cue --
 cmds: [
@@ -68,6 +74,22 @@ cmds: [
 		]
 	},
 ]
+
+-- mymod.invowkmod/invowkmod.lock.cue --
+version: "2.0"
+generated: "2025-01-01T00:00:00Z"
+
+modules: {
+	"https://github.com/example/dep.invowkmod.git": {
+		git_url:          "https://github.com/example/dep.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "abc123def456789012345678901234567890abcd"
+		namespace:        "dep@1.0.0"
+		module_id:        "dep"
+		content_hash:     "sha256:ebe6dbeee50a3f74055624ff5524ab02f4905d47bb2bffc20e74f9efc38c069d"
+	}
+}
 
 -- mymod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue --
 module:  "dep"

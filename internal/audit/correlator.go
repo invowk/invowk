@@ -22,6 +22,9 @@ type (
 		// enables rules that correlate two different categories from the same
 		// checker (e.g., script+execution vs script+path-traversal).
 		RequiredCategories [2]Category
+		// RequiredCodes optionally restricts matching to specific stable
+		// finding codes for each checker side.
+		RequiredCodes [2][]FindingCode
 		// ResultSeverity is the severity assigned to the compound finding.
 		ResultSeverity Severity
 		// ResultCategory is the category assigned to the compound finding.
@@ -85,9 +88,10 @@ func (c *Correlator) Correlate(findings []Finding) []Finding {
 func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding {
 	var result []Finding
 
-	// Build checker presence map and checker+category presence map for this surface.
+	// Build checker presence map and checker+category/code presence maps for this surface.
 	checkers := make(map[string]bool)
 	checkerCategories := make(map[string]map[Category]bool)
+	checkerCodes := make(map[string]map[FindingCode]bool)
 	for i := range findings {
 		name := findings[i].CheckerName
 		checkers[name] = true
@@ -95,6 +99,10 @@ func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding 
 			checkerCategories[name] = make(map[Category]bool)
 		}
 		checkerCategories[name][findings[i].Category] = true
+		if checkerCodes[name] == nil {
+			checkerCodes[name] = make(map[FindingCode]bool)
+		}
+		checkerCodes[name][findings[i].CodeOrDefault()] = true
 	}
 
 	for ri := range c.rules {
@@ -111,6 +119,10 @@ func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding 
 				!checkerCategories[rule.RequiredCheckers[1]][rule.RequiredCategories[1]] {
 				continue
 			}
+		}
+		if len(rule.RequiredCodes[0]) > 0 && (!hasAnyFindingCode(checkerCodes[rule.RequiredCheckers[0]], rule.RequiredCodes[0]) ||
+			!hasAnyFindingCode(checkerCodes[rule.RequiredCheckers[1]], rule.RequiredCodes[1])) {
+			continue
 		}
 
 		// Collect the titles of findings from the two required checkers.
@@ -138,6 +150,15 @@ func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding 
 	}
 
 	return result
+}
+
+func hasAnyFindingCode(available map[FindingCode]bool, required []FindingCode) bool {
+	for _, code := range required {
+		if available[code] {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Finding {
@@ -243,13 +264,29 @@ func DefaultRules() []CorrelationRule {
 			ResultRecommendation: "Decode and review all obfuscated content; do not use this module until the obfuscation is explained",
 		},
 		{
-			Name:                 "trust-chain-weakness",
-			Description:          "Deep dependency chain with unverified modules increases supply-chain attack surface",
-			RequiredCheckers:     [2]string{moduleMetadataCheckerName, lockFileCheckerName},
+			Name:             "trust-chain-weakness",
+			Description:      "Dependency graph weakness with unverified modules increases supply-chain attack surface",
+			RequiredCheckers: [2]string{moduleMetadataCheckerName, lockFileCheckerName},
+			RequiredCodes: [2][]FindingCode{
+				{
+					"module-metadata-trust-wide-dependency-fan-out",
+					"module-metadata-trust-transitive-dependency-not-declared-in-root-invowkmod-cue",
+					"module-metadata-trust-vendored-module-not-declared-in-requires",
+				},
+				{
+					"lockfile-integrity-module-has-dependencies-but-no-lock-file",
+					"lockfile-integrity-vendored-modules-present-without-lock-file",
+					"lockfile-integrity-lock-file-uses-v1-0-format-without-content-hashes",
+					"lockfile-integrity-vendored-modules-cannot-be-verified-v1-lock-file-has-no-content-hashes",
+					"lockfile-integrity-vendored-module-has-no-lock-file-entry",
+					"lockfile-integrity-module-content-hash-mismatch",
+					"lockfile-integrity-required-module-has-no-lock-file-entry",
+				},
+			},
 			ResultSeverity:       SeverityHigh,
 			ResultCategory:       CategoryTrust,
-			ResultTitle:          "Trust chain weakness — deep deps with missing integrity",
-			ResultRecommendation: "Run 'invowk module sync' to update lock file hashes; review dependency chain depth",
+			ResultTitle:          "Trust chain weakness — dependency graph with missing integrity",
+			ResultRecommendation: "Run 'invowk module sync' to update lock file hashes; review dependency graph breadth and missing declarations",
 		},
 		{
 			Name:                 "interpreter-traversal",
