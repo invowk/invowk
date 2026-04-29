@@ -1,365 +1,797 @@
-# Codebase Comparison Report: Invowk vs Just vs Task
+# Codebase Quality Comparison: Invowk vs Just vs Task
+
+> **Date**: 2026-04-29
+> **Scope**: Source-level quality comparison of Invowk, Just, and Task across architecture,
+> maintainability, type safety, error handling, testing, security posture, CI, and contributor
+> ergonomics.
+> **Requirement**: Every vector names a winner.
+
+## Source Snapshots
+
+| Project | Snapshot | Notes |
+|---------|----------|-------|
+| Invowk | Local checkout `ad89bfef` plus an existing dirty worktree | Metrics include tracked files in the working tree. The dirty paths were pre-existing module/audit refactor work, not created by this report. |
+| Just | [`casey/just@5e2b99f`](https://github.com/casey/just/tree/5e2b99fcb405af1309eb3861105e3168a49d597a) | Shallow clone of upstream `HEAD` on 2026-04-29. |
+| Task | [`go-task/task@ecffcc7`](https://github.com/go-task/task/tree/ecffcc720f0cd81c1546149e07926ab3f5c32797) | Shallow clone of upstream `HEAD` on 2026-04-29. |
+
+## Methodology
+
+This report compares the codebases as engineering systems, not just command-runner products.
+That matters because the projects have different goals:
+
+- **Invowk** is the broadest system: CUE config, explicit module dependencies, native/virtual/container runtimes, TUI, SSH support, supply-chain audit work, and a custom static analyzer.
+- **Just** is the narrowest system: a focused command runner with a custom DSL, compiler-style parser, strong Rust invariants, and very mature UX around one core job.
+- **Task** sits in the middle: YAML Taskfiles, includes, remote sources, watch mode, experiments, and broad community use, with a more organic Go architecture.
+
+The comparison uses:
+
+- Source exploration of the current Invowk checkout.
+- Fresh shallow clones of Just and Task.
+- `cloc`, `git ls-files`, `rg`, `wc`, manifest/workflow inspection, and targeted source reads.
+- Existing project-local deep-dive notes as historical context, but current metrics supersede stale values.
+
+Scores are directional. A winner means "best on this vector for long-term codebase quality,"
+not necessarily "best product decision for every user."
+
+## Quantitative Snapshot
+
+| Metric | Invowk | Just | Task | Winner |
+|--------|--------|------|------|--------|
+| Primary language | Go 1.26 | Rust 1.85 MSRV, edition 2024 | Go 1.25.8 module, CI also tests 1.26.x | Just |
+| License | MPL-2.0 | CC0-1.0 | MIT | Just |
+| Production code | 56,069 Go code lines | 20,048 Rust code lines | 9,701 Go code lines | Task |
+| Test code | 86,317 Go test code lines plus 8,020 txtar lines | 23,052 Rust test code lines plus fuzz target | 6,086 Go test code lines plus 509 testdata files | Invowk |
+| Test-to-production ratio | ~1.54:1 Go code, before txtar | ~1.15:1 Rust integration tests | ~0.63:1 Go code, plus testdata | Invowk |
+| Source files | 859 Go files, 14 CUE files | 123 Rust files under `src/` | 123 Go files | Just |
+| Test files | 360 Go test files plus 121 CLI txtar files | 106 Rust integration/unit files | 23 Go test files | Invowk |
+| Approx. Go/Rust package/module directories | 145 Go directories | 8 Rust directories | 34 Go directories | Just |
+| Largest implementation file | `tools/goplint/goplint/cfa.go`, 993 lines | `src/parser.rs`, 3,133 lines | `executor.go`, 619 lines | Task |
+| Largest test file | `pkg/invowkmod/lockfile_test.go`, 864 lines | `tests/misc.rs`, 2,668 lines | `task_test.go`, 2,873 lines | Invowk |
+| Dedicated config/schema language | CUE, 4,148 lines | Custom DSL grammar in Rust | YAML through Go AST types | Invowk |
+| Lint breadth | 50+ linters/analyzers plus formatters and custom `goplint` | Clippy `all` + `pedantic` at deny, rustfmt | 10 golangci-lint linters plus formatters | Invowk |
+| CI platform breadth | Linux with Docker/Podman, macOS, Windows, multi-arch build, website/docs gates | Ubuntu, macOS, Windows, MSRV, clippy, rustfmt, book | Ubuntu, macOS, Windows across Go 1.25.x and 1.26.x | Invowk |
+
+### Reading The Numbers
+
+Task wins code compactness because it solves a substantial problem with the least implementation
+volume. That is a real quality advantage. Invowk wins verification density, but it pays for that
+with much higher surface area. Just has the best middle ground: meaningfully larger than Task,
+far smaller than Invowk, and protected by Rust's type system.
+
+## Executive Verdict
+
+| Rank | Project | Overall Score | Short Verdict |
+|------|---------|---------------|---------------|
+| 1 | Invowk | 8.9/10 | Highest engineering rigor, strongest verification culture, best architectural separation, but also the most complex and highest-maintenance codebase. |
+| 2 | Just | 8.7/10 | Best language-level safety, best focused compiler architecture, excellent tests, and unusually good simplicity-to-quality ratio. Loses points for flat internal module boundaries and sparse internal docs. |
+| 3 | Task | 7.1/10 | Most pragmatic and adoption-tested; good remote-source and execution features. Loses on type discipline, package boundaries, and concentration of behavior in the root executor package. |
+
+Invowk narrowly wins the overall codebase-quality comparison because it combines strong
+architecture, explicit domain modeling, deep tests, static analysis, schema verification,
+security posture, and CI gates. Just is close, and in some ways more elegant: if the question
+were "which codebase is the easiest to trust at a glance for its scope?", Just could win.
+Task is not low quality, but it is visibly more organic and less aggressively governed.
+
+## Winner Matrix
+
+| Vector | Winner | Runner-up | Why |
+|--------|--------|-----------|-----|
+| Architecture boundaries | Invowk | Just | Invowk has explicit CLI, app, runtime, discovery, config, module, audit, and public type boundaries. |
+| Simplicity-to-scope ratio | Just | Task | Just stays small for its capability set while retaining strong compiler structure. |
+| Raw code compactness | Task | Just | Task has the smallest implementation by a wide margin. |
+| Type safety | Just | Invowk | Rust enums, lifetimes, ownership, and exhaustive matching beat Go plus analyzers. |
+| Domain modeling | Invowk | Just | Invowk models many domain concepts as validated values; Task is mostly primitives. |
+| Parser/config rigor | Invowk | Just | CUE schemas plus sync tests beat custom grammar alone; Just's grammar is excellent. |
+| Runtime abstraction | Invowk | Task | Invowk has native, virtual, container, capture, and interactive capabilities behind interfaces. |
+| Extensibility model | Invowk | Task | Explicit modules and dependency rules are more deliberate than Task includes/remotes. |
+| Error taxonomy | Invowk | Just | Invowk layers sentinel, typed, actionable, and rendered issue errors. |
+| Source-location diagnostics | Just | Task | Just's compiler errors are purpose-built for caret-style DSL feedback. |
+| Error recovery | Task | Invowk | Task supports ignore errors, deferred commands, optional includes, and cache fallback. |
+| Input validation | Invowk | Just | CUE constraints, Go validation, schema sync, platform checks, and file limits. |
+| Concurrency safety | Just | Invowk | Rust's type system wins; Invowk compensates with atomics, locks, and contexts. |
+| Resource cleanup | Just | Invowk | RAII is the cleanest model; Invowk is disciplined with defers and cleanup hooks. |
+| Security posture | Invowk | Task | Invowk has explicit runtime security docs, supply-chain modeling, audit code, and strict container policy. |
+| Supply-chain controls | Invowk | Task | Invowk's module lock/hash direction and explicit-only dependency model are strongest. |
+| Test volume | Invowk | Just | Invowk has the largest test corpus by far. |
+| Test quality per line | Just | Invowk | Just's fluent integration framework, dump/format tests, and fuzz target give high signal. |
+| Meta-testing and guardrails | Invowk | Just | Invowk tests its schemas, CLI coverage rules, mirrors, baselines, and analyzer semantics. |
+| Fuzzing | Just | Invowk | Just has a cargo-fuzz target; Invowk's robustness is broad but less fuzz-centered. |
+| CI breadth | Invowk | Task | Invowk tests more dimensions, including container engines and docs gates. |
+| Lint/static analysis | Invowk | Just | Invowk combines golangci breadth with custom `goplint`; Just's Clippy policy is very strong. |
+| Documentation inside code | Invowk | Just | Invowk's package docs and semantic comments are stronger. |
+| External user documentation signal | Task | Just | Task's mature website/docs ecosystem is the strongest user-facing docs surface. |
+| Contributor approachability | Just | Task | Just has a smaller, focused model; Task is familiar YAML/Go but has root-package concentration. |
+| Refactorability | Invowk | Just | Invowk has the clearest package seams and injected services. |
+| Performance posture | Just | Invowk | Just's zero-copy parser and Rust memory model are strongest; Invowk has benchmark/PGO infrastructure. |
+| Cross-platform portability | Just | Task | Just's platform trait and mature cross-platform release matrix are clean. |
+| Release engineering | Just | Task | Just's multi-target release workflow is mature and simpler than Invowk's broader but younger flow. |
+| Dependency minimalism | Just | Task | Just has a tighter dependency story for its scope than Invowk or Task. |
+| Governance and policy | Invowk | Just | Invowk has agent rules, docs gates, lints, analyzer baselines, and workflow hardening. |
+| Product maturity feedback loop | Task | Just | Task's ecosystem and long-lived user base have likely burned down many real-world edges. |
+| Overall maintainability | Just | Invowk | Just's compactness and Rust invariants offset weaker module hierarchy. |
+| Overall engineering rigor | Invowk | Just | Invowk is the most explicitly governed and verified. |
+| Overall codebase quality | Invowk | Just | Invowk wins narrowly, with complexity as the main risk. |
 
-> **Date**: 2026-02-26
-> **Methodology**: Deep automated analysis of all three codebases using source exploration,
-> GitHub API inspection, and structural metric extraction. Each codebase was analyzed across
-> five dimensions: code quality, abstractions/patterns, error handling, reliability, and tests.
+## Detailed Analysis
 
-## Project Overview
+### 1. Architecture Boundaries
 
-| Metric | Invowk | Just | Task |
-|--------|--------|------|------|
-| **Language** | Go 1.26+ | Rust (edition 2021) | Go 1.24+ |
-| **License** | MPL-2.0 | CC0-1.0 (public domain) | MIT |
-| **Stars** | Early-stage | ~31,657 | ~13,000+ |
-| **Source files** | 285 production Go files | 114 Rust source files | ~30 Go files (root) + packages |
-| **Production LoC** | ~47,235 | ~19,000 | ~15,000-20,000 |
-| **Test files** | 226 Go test + 113 txtar | 99 integration test files | ~15 test files + testdata/ |
-| **Test LoC** | ~75,318 | ~12,500 | ~10,000-15,000 (est.) |
-| **Test:Code ratio** | **1.59:1** | 0.67:1 | ~0.5-0.7:1 |
-| **Config format** | CUE | Custom DSL | YAML |
-| **CLI framework** | Cobra | clap | raw pflag |
-| **Runtime modes** | Native + Virtual + Container | Native shell only | Virtual shell only (mvdan/sh) |
-| **Release cadence** | Pre-1.0 | 1-3/month | Regular |
+**Winner: Invowk**
 
----
+Invowk has the clearest high-level decomposition:
 
-## Category 1: Code Quality
+- `cmd/invowk/` owns CLI adapter behavior.
+- `internal/app/...` owns application services and orchestration.
+- `internal/runtime/` owns execution runtimes and capability interfaces.
+- `internal/discovery/` owns module and command discovery.
+- `internal/audit/` and `internal/auditllm/` separate audit checks from LLM integration.
+- `pkg/invowkfile`, `pkg/invowkmod`, `pkg/types`, and `pkg/cueutil` define public data and parsing surfaces.
+- `tools/goplint/` is a separate tool module rather than being buried in the product binary.
 
-### Organization and Structure
+That is a strong architectural signal. It makes the codebase easier to reason about despite its
+size, and it creates room for focused tests and focused lint exceptions.
 
-**Invowk** follows a rigorous layered architecture:
-- `main.go` is 11 lines (pure entry point)
-- `cmd/invowk/app.go` is a textbook composition root using injected interfaces (`CommandService`, `DiscoveryService`, `ConfigProvider`, `DiagnosticRenderer`)
-- Clear separation: `cmd/` (CLI) -> `internal/` (domain logic, runtime, discovery, config, container, TUI, SSH) -> `pkg/` (public types)
-- 20 packages with `doc.go` files
-- Domain concepts are cleanly isolated: `internal/runtime/` handles execution, `internal/discovery/` handles module resolution, `internal/config/` handles configuration, `internal/issue/` handles error presentation
-- Cross-cutting types live in `pkg/types/` (leaf package, stdlib-only deps)
+Just is architecturally clean in pipeline terms: lexer, parser, analyzer, evaluator, and runner
+are distinct files and concepts. Its weakness is that most modules live in a flat `src/` namespace
+and commonly use `use super::*`, so internal boundaries are conventional rather than enforced.
 
-**Just** uses a flat module structure:
-- All 114 source files in a single `src/` directory with no subdirectories
-- Every file uses `use super::*` (global imports within the crate)
-- No enforced boundaries between compilation phases (lexer, parser, analyzer, evaluator all share one namespace)
-- One-type-per-file convention (file name matches type)
-- `pub(crate)` visibility discipline prevents external consumers from depending on internals, but internally there are no privacy barriers
+Task has good utility packages and a clean `taskfile/ast` area, but its core root package remains
+the center of gravity. `Executor` owns setup, compilation, execution, concurrency, output, status,
+watching, completion, and task lookup. That lowers the local cost of adding features but raises
+the long-term cost of changing behavior safely.
 
-**Task** has a "God package" problem:
-- The root `task` package holds ~80KB of Go code: execution, compilation, setup, help, watch, init, completion -- all in one package
-- `internal/` packages are small focused utilities (21 packages like `deepcopy`, `templater`, `fingerprint`) but the core logic lacks decomposition
-- `taskfile/ast` is a clean separation, but `variables.go` at 14KB mixes compilation logic with utility functions
-- No `internal/execution/` or `internal/runtime/` decomposition -- everything is a method on `*Executor`
+### 2. Simplicity-To-Scope Ratio
 
-### Naming and Consistency
+**Winner: Just**
 
-**Invowk**: Exceptional. Zero naming inconsistencies observed across 285 files. Strict Go conventions: PascalCase types, camelCase unexported, `Err` prefix for sentinels, `Error` suffix for types, action-oriented interfaces. OS name constants via `platform.Windows`/`platform.Darwin`/`platform.Linux` instead of magic strings.
+Just is the best example of "small enough to fit in your head" without being simplistic. It has a
+custom DSL, parser, evaluator, platform abstraction, tests, release machinery, and docs, but the
+implementation remains around 20k production Rust code lines. It has one main runtime story and
+keeps scope disciplined.
 
-**Just**: Excellent. Consistent Rust conventions throughout. File-to-type naming is consistent (e.g., `compile_error.rs` -> `CompileError`). Enum variants are highly descriptive (`PositionalArgumentCountMismatch`). `pub(crate)` is used pervasively.
+Task is also compact, but its compactness comes partly from concentrating behavior in large
+root-level abstractions. Just's compactness is more structurally healthy.
 
-**Task**: Good but inconsistent. `Executor` mixes exported and unexported fields freely, blurring the public API surface. Some doc comments are copy-paste bugs (e.g., `WithFailfast` has the description for `WithVersionCheck`). `FastCompiledTask` name is misleading (means "compiled without evaluating shell variables," not performance-optimized).
+Invowk is not compact. Its rigor is real, but so is the maintenance cost. For every powerful
+feature, there is a corresponding test, type, linter rule, or policy surface. That can be the
+right choice for an ambitious multi-runtime tool, but it is not the best simplicity-to-scope
+ratio.
 
-### Code Duplication
+### 3. Type Safety And Domain Modeling
 
-**Invowk**: Low duplication. Shared helpers like `executeShellCommon` unify both streaming and capturing execution paths. `serverbase.Base` provides shared lifecycle infrastructure for SSH and TUI servers. `EnvBuilder` interface reused by both native and virtual runtimes.
+**Winner: Just for type safety; Invowk for domain modeling**
 
-**Just**: Good DRY adherence through macros (`analysis_error!`, `run_error!`) and the `Test` builder. Error formatting is necessarily verbose (~300+ lines in `Error::fmt()`), but that's inherent to Rust pattern matching.
+Just wins pure type safety because Rust gives it tools Go cannot match:
 
-**Task**: Concerning duplication. Three nearly identical task compilation functions (`CompiledTask`, `FastCompiledTask`, `CompiledTaskForTaskList`) with field-by-field struct copying. ~930 lines of functional option boilerplate across `executor.go` and `reader.go`. `runCommand` duplicates error-handling logic between `cmd.Task != ""` and `cmd.Cmd != ""` branches.
+- Algebraic enums for AST nodes, tokens, settings, attributes, compile errors, and runtime errors.
+- Lifetimes that let parser output borrow from source text safely.
+- Exhaustive matching.
+- Ownership and borrowing rules that prevent entire categories of races and lifetime bugs.
 
-### Linting and Static Analysis
+Invowk is the stronger Go codebase for domain modeling. It uses validated value types for
+runtime modes, platforms, command names, module IDs, paths, container images, exit codes, and many
+other concepts. The custom `goplint` analyzer makes this a maintained architectural rule instead
+of a style preference.
 
-**Invowk**: The most rigorous of the three. ~40+ linters enabled in `.golangci.toml` including `wrapcheck`, `exhaustive`, `errname`, `goconst`, `decorder`, `funcorder`, `gosec`, `predeclared`, `forbidigo`. Additionally has a **custom `go/analysis` analyzer** (`tools/goplint/`) that enforces DDD Value Type compliance. Only 78 `nolint` directives across 46 files -- all commented. Every linter has an inline comment explaining why it's enabled.
+Task is the weakest here. It relies heavily on `string`, `bool`, `int`, `time.Duration`, and `any`
+in its AST/value surfaces. That keeps APIs easy to call but pushes correctness into runtime checks
+and conventions.
 
-**Just**: Very strict Clippy configuration: `all` + `pedantic` at `deny` level, `undocumented_unsafe_blocks = "deny"`, `arbitrary_source_item_ordering = "deny"`. The `cognitive-complexity-threshold = 1337` effectively disables complexity checking (pragmatic for compiler code). Rustfmt with 2-space indentation (non-standard for Rust).
+### 4. Parser And Configuration Guarantees
 
-**Task**: Relatively permissive. Only 7 linters beyond formatters: `depguard`, `mirror`, `misspell`, `noctx`, `paralleltest`, `thelper`, `tparallel`, `usetesting`. Missing: `wrapcheck`, `exhaustive`, `errname`, `goconst`, `revive`, `decorder`. No custom analyzers.
+**Winner: Invowk**
 
-### Comments and Documentation
+Invowk gets the strongest configuration guarantees because it combines:
 
-**Invowk**: Enforces "semantic commenting" -- comments explain intent, behavior, invariants, and design rationale. 20 packages have `doc.go` files with substantive package comments. The `EnvBuilder` interface documents a 10-level precedence hierarchy. The `Runtime` interface explains the ExitCode vs Error contract. Every `nolint` directive is explained.
+- CUE schema validation.
+- Go struct decoding.
+- Schema sync tests.
+- Domain type validation after decoding.
+- CLI integration tests for real command behavior.
 
-**Just**: Minimal doc comments on types/functions. The crate explicitly declares "no semantic version guarantees" for its library interface. However, has excellent domain documentation: `GRAMMAR.md` provides a formal BNF grammar, and `// SAFETY:` comments are present on all `unsafe` blocks (enforced by Clippy). Inline comments are sparse but targeted.
+Just deserves a close second. Its custom grammar and compiler pipeline are well-structured, and
+the DSL benefits from Rust's enum-heavy AST representation. It also has a formal grammar document
+and dump/format tests that exercise round-trip-like behavior.
 
-**Task**: Variable quality. Some functions have thorough docstrings (`FindMatchingTasks`), others are minimal or buggy. No semantic commenting convention. Internal packages generally lack doc comments. Main documentation lives on external website.
+Task's YAML approach is familiar and practical. Its `taskfile/ast` package handles rich YAML
+shapes, and remote/include behavior is mature. But YAML plus Go structs is less explicit than
+CUE, and there is no equivalent schema-sync gate.
 
-### Verdict: Code Quality
+### 5. Runtime Abstraction
 
-| Aspect | Winner | Runner-up |
-|--------|--------|-----------|
-| Organization | **Invowk** | Just |
-| Naming | **Invowk** (tie with Just) | Just |
-| DRY | **Invowk** | Just |
-| Linting | **Invowk** | Just |
-| Comments | **Invowk** | Just |
-| **Overall** | **Invowk** | **Just** |
+**Winner: Invowk**
 
-> **Honest opinion**: Invowk is in the best state here. The combination of layered architecture, injected interfaces, rigorous linting (40+ linters + custom analyzer), and semantic commenting sets a very high bar. Just is well-crafted Rust but suffers from flat module structure and sparse documentation. Task's God package and duplication are the weakest of the three.
+Invowk has the most deliberate runtime model:
 
----
+- Native shell runtime.
+- Virtual shell runtime using `mvdan/sh`.
+- Container runtime with Docker/Podman support.
+- Capture and interactive capabilities represented separately.
+- SSH/TUI-adjacent execution surfaces.
+- Runtime validation and availability checks.
 
-## Category 2: Abstractions and Patterns
+Task is second because it has a mature shell execution model around `mvdan/sh/moreinterp`,
+preconditions, status checks, watch mode, and execution graph behavior. But it does not have the
+same multi-runtime abstraction.
 
-### Architecture
+Just intentionally keeps runtime behavior simpler. That simplicity is good product design, but it
+does not win this vector.
 
-**Invowk** uses a **layered composition-root + dependency-injection architecture**:
-- `App` struct wires services via interfaces, with nil-safe defaults
-- `ExecuteRequest` is an immutable value object capturing all CLI inputs (22 fields)
-- `ExecutionContext` bundles runtime-resolved data
-- Runtime layer uses a capability-based interface hierarchy: `Runtime` (base) -> `CapturingRuntime` (output capture) -> `InteractiveRuntime` (PTY attachment)
-- `Registry` pattern for runtime lookup with `Available()` filtering and atomic `ExecutionID` generation
-- CUE schemas with a generic `ParseAndDecode[T]` flow (compile schema, unify, validate, decode)
-- Schema sync tests verify CUE fields match Go struct JSON tags at CI time
+### 6. Extensibility Model
 
-**Just** uses a **classic compiler pipeline**:
-- `Source text -> Lexer -> Tokens -> Parser -> AST -> Analyzer -> Justfile -> Evaluator/Executor`
-- Hand-written character-by-character lexer (zero-copy with `<'src>` lifetime threading)
-- Recursive descent parser for an LL(k) grammar (formal BNF documented in `GRAMMAR.md`)
-- `Thunk` enum bridges compile-time function resolution to runtime execution
-- `PlatformInterface` trait cleanly separates Unix/Windows platform code
-- `Recipe<'src, D>` has a phantom type parameter for unresolved vs resolved dependencies
+**Winner: Invowk**
 
-**Task** uses a **monolithic executor pattern**:
-- `Executor` struct (30+ fields) is both configuration holder and execution engine
-- Two-phase initialization: `NewExecutor(opts...)` then `Setup()` mutates internal state
-- `Node` interface hierarchy for Taskfile sources (File/HTTP/Git/Stdin/Cache) -- strongest abstraction in the codebase
-- Graph-based Taskfile include resolution with cycle detection via `dominikbraun/graph`
-- Template variable compilation via Go text/template
+Invowk's explicit module model is the most ambitious and most quality-oriented:
 
-### Type System Usage
+- Modules live in `*.invowkmod` directories.
+- Root modules declare dependencies explicitly.
+- Transitive dependencies are not silently resolved.
+- `module tidy` can add missing transitive declarations.
+- `module sync` can fail with actionable errors.
+- Lock-file hashing supports tamper detection.
+- Static command dependency checks enforce visibility for declared dependencies.
 
-**Invowk**: 90+ DDD Value Types with `IsValid() (bool, []error)`, `String()`, typed `Invalid*Error` wrapping sentinels, `New*` constructors, and functional options. Custom `goplint` analyzer enforces this with a regression gate. Examples: `RuntimeMode`, `ContainerImage`, `ExitCode`, `FilesystemPath`, `CommandName`, `ModuleID`, `PlatformType`.
+Task is second. Remote Taskfiles, includes, Git/HTTP sources, checksum verification, and `TaskRC`
+make Task practical and flexible. The model is less strict, but it is mature.
 
-**Just**: Excellent use of Rust's algebraic type system. `Expression<'src>` has 12 variants, `TokenKind` has 40, `CompileErrorKind` has ~50, `Error` has ~50, `Attribute` has 22, `Thunk` has 7, `Function` has 7. The `<'src>` lifetime parameter enables zero-copy parsing. The type system encodes invariants at compile time (e.g., `Recipe<'src, D>` where `D` transitions from `UnresolvedDependency` to `Dependency`).
+Just has imports and modules, but the extensibility story is intentionally limited and compiled-in.
 
-**Task**: No domain types. Everything is bare `string`, `bool`, `int`, `time.Duration`. `ast.Var.Value` is `any` (interface{}). Method types are compared against string literals (`"checksum"`, `"timestamp"`, `"none"`). Run modes are raw strings. No enums, no validated types, no `IsValid()` methods.
+### 7. Error Taxonomy
 
-### Extensibility
+**Winner: Invowk**
 
-**Invowk**: Extensibility via CUE data files rather than code plugins. Modules (`*.invowkmod`) with `requires` dependencies, `invowkfile.cue` for project commands. Three runtime modes (native/virtual/container) with SSH callback support.
+Invowk has the most layered error strategy:
 
-**Just**: No plugin system. All built-in functions are compiled in. Adding extensibility requires source modification. Filesystem-based modules (import/mod system) with no declared dependency graph.
+- Sentinel errors for `errors.Is`.
+- Typed errors for `errors.As`.
+- Actionable errors with operation/resource/suggestion context.
+- TUI/rendered issue templates.
+- Verbose error-chain rendering.
+- `wrapcheck` to make lost context a lint failure.
 
-**Task**: Experiments system for feature flags. Remote Taskfiles (HTTP/Git/stdin) with caching and trust prompts. `TaskRC` for user-level configuration. No plugin hooks.
+Just's error model is extremely strong in Rust terms. Compile errors and runtime errors are
+explicit enums, source spans are first-class, and diagnostics are polished. For DSL source-location
+errors, Just is the best of the three.
 
-### Verdict: Abstractions and Patterns
+Task has a useful `TaskError` interface with numeric exit codes and user-facing taskfile decode
+errors. It is more centralized than ad hoc, but it is not as rich as Invowk or as type-complete as
+Just.
 
-| Aspect | Winner | Runner-up |
-|--------|--------|-----------|
-| Overall Architecture | **Invowk** | Just |
-| Type System | **Just** (language advantage) | Invowk |
-| Runtime Abstraction | **Invowk** | N/A (others have single runtime) |
-| Config Schema | **Invowk** (CUE with sync tests) | Just (formal grammar) |
-| Extensibility | **Invowk** | Task |
-| Interface Design | **Invowk** | Task (`Node` interface is good) |
-| **Overall** | **Invowk** | **Just** |
+### 8. User-Facing Diagnostics
 
-> **Honest opinion**: Invowk leads on architecture and patterns. The composition root with injected interfaces, capability-based runtime hierarchy, and CUE schema system with CI-verified sync tests represent a level of engineering sophistication above both competitors. Just benefits enormously from Rust's type system (algebraic data types, lifetimes for zero-copy), which enables elegant patterns that are impossible in Go. Task's monolithic Executor and absence of domain types are significant weaknesses.
+**Winner: Just**
 
----
+Just wins because custom DSL diagnostics are central to its design. Caret positions, compile-time
+classification, and focused messages make the feedback loop excellent for editing a justfile.
 
-## Category 3: Error Handling
+Invowk is close. Its actionable suggestions, platform-specific messages, rich rendering, and
+verbose chains are arguably more elaborate. But CUE errors can be inherently more complex, and the
+diagnostic path has more layers.
 
-### Error Taxonomy
+Task is solid: YAML decode errors, fuzzy suggestions, CI annotations, and exit codes are useful.
+It does not have the same diagnostic precision as Just's compiler.
 
-**Invowk** has three layers:
-1. **DDD domain errors**: Per-type validation errors (`InvalidRuntimeModeError`, `InvalidExitCodeError`), each wrapping a sentinel via `Unwrap()`
-2. **ActionableError**: Rich contextual errors with `operation`, `resource`, `suggestions`, `cause` -- uses a builder pattern
-3. **Issue templates**: 15 embedded markdown templates for rich TUI rendering via `glamour.Render()`
+### 9. Error Recovery
 
-Every sentinel error is paired with a typed error struct. `errors.Is()` works via sentinel, `errors.As()` works via typed struct. `wrapcheck` linter enforces wrapping of all external errors.
+**Winner: Task**
 
-**Just** has a clean dual-enum system:
-1. **`CompileErrorKind<'src>`** (~50 variants): Lexing, parsing, and analysis errors with source location
-2. **`Error<'src>`** (~50 variants): Runtime errors, with `From` conversions from compile/config/search errors
-3. **Domain-specific Result aliases**: `CompileResult<'a, T>`, `RunResult<'a, T>`, `FunctionResult`, `SearchResult<T>`
+Task's execution model is the most forgiving:
 
-**Task** has a centralized typed error system:
-1. **`TaskError` interface**: `error + Code() int` -- all custom errors implement this
-2. **Three error categories**: Taskfile errors (100-111), Task errors (200-207), TaskRC errors (50-59)
-3. **`TaskfileDecodeError`**: Rich YAML error with line/column/snippet/colorized output
+- `ignore_error` behavior can continue after failures.
+- Deferred commands run even when main commands fail.
+- Optional includes support missing-file tolerance.
+- Remote source caching can soften network failures.
+- Watch/status/precondition behavior supports pragmatic workflows.
 
-### User-Facing Error Quality
+Invowk is more fail-fast and contract-heavy, which is often safer but less forgiving.
 
-**Invowk**: Platform-specific suggestions (e.g., "Install PowerShell Core" on Windows, "Set SHELL environment variable" on macOS). Verbose mode shows the full error chain with numbered depth. TUI mode renders markdown-formatted issue templates. Every error includes what operation failed, what resource was involved, and concrete suggestions for resolution.
+Just is intentionally fail-fast, especially around parsing and compilation.
 
-**Just**: Excellent source-location context with caret pointing to the error position. "Did you mean?" suggestions using Levenshtein distance. Colored output through custom `ColorDisplay` trait. Clear distinction between compile-time and runtime errors.
+### 10. Input Validation
 
-**Task**: `task:` prefix on all errors. `TaskfileDecodeError` includes colorized snippets. `TaskNotFoundError` has fuzzy "Did you mean?" suggestions. GitHub Actions CI annotations (`::error`). Exit codes enable programmatic handling.
+**Winner: Invowk**
 
-### Error Recovery
+Invowk validates at multiple layers:
 
-**Invowk**: Fail-fast for validation errors. Transient exit codes are classified and can trigger retry in container runtime. `ExitCode.IsTransient()` semantic method.
+- CUE schema constraints.
+- Domain value validation.
+- Schema sync tests.
+- Platform and runtime validation.
+- File-size and path policy checks.
+- Module dependency visibility checks.
 
-**Just**: No error recovery. Parser stops at first error. Fail-fast philosophy throughout.
+Just validates syntax and semantics very well, including recursion/cycle limits. Rust also removes
+many invalid states by construction.
 
-**Task**: Best error recovery: `IgnoreError` flag continues execution despite failures. Deferred commands always run. Remote Taskfile fallback to expired cache on network failure. Optional includes silently skip missing files.
+Task validates important operational cases, including task existence, platform filters, required
+variables, versions, checksums, and trust prompts. It has weaker validation around domain strings
+because fewer domain strings are typed.
 
-### Verdict: Error Handling
+### 11. Concurrency Safety
 
-| Aspect | Winner | Runner-up |
-|--------|--------|-----------|
-| Error Taxonomy | **Invowk** | Just |
-| User-Facing Messages | **Invowk** (tie with Just) | Just |
-| Error Types Design | **Just** (Rust enums) | Invowk |
-| Error Recovery | **Task** | Invowk |
-| Wrapping Discipline | **Invowk** (`wrapcheck` enforced) | Just (Rust `?` operator) |
-| Actionable Suggestions | **Invowk** | Just (edit distance) |
-| **Overall** | **Invowk** | **Just** |
+**Winner: Just**
 
-> **Honest opinion**: Invowk has the most sophisticated error handling system. The three-layer approach (domain errors -> ActionableError -> issue templates) with platform-specific suggestions, verbose error chains, and `wrapcheck` enforcement is ahead of both competitors. Just has excellent compile-time error reporting with source locations and the `<'src>` lifetime enables zero-cost error context, but it lacks error recovery and actionable suggestions beyond "did you mean?". Task has the best error recovery story (deferred commands, cache fallback, optional includes) but weaker error taxonomy and no wrapping enforcement.
+Just has the least concurrency surface and Rust's compile-time safety. That is a hard combination
+to beat.
 
----
+Invowk is disciplined where concurrency exists: contexts, atomics, mutexes, server state machines,
+and cross-process locking for container work. It wins over Task on breadth of explicit safeguards.
 
-## Category 4: Reliability
+Task has practical parallel task execution with `errgroup`, semaphores, and execution deduplication.
+Its main weakness is that concurrency concerns live close to the large executor model.
 
-### Concurrency and Thread Safety
+### 12. Resource Cleanup
 
-**Invowk**: `atomic.Int32` for server state machines with CAS retry loops. `atomic.Uint64` for monotonic execution IDs. `sync.Mutex` for discovery cache. `unix.Flock()` for cross-process serialization of container engine calls (preventing rootless Podman races). `context.Context` propagated through execution with timeout/cancellation.
+**Winner: Just**
 
-**Just**: Minimal concurrency (single-threaded execution model). `Mutex`-based signal handler state. `Arc<Recipe>` for shared recipe ownership. `Ran` type with Mutex for dependency deduplication. Rust's ownership model provides compile-time safety.
+Rust RAII wins. Temporary directories, guards, owned values, and drop semantics make many cleanup
+paths natural.
 
-**Task**: `errgroup.Group` for parallel task execution. Channel-based semaphore with deadlock avoidance (release-during-deps pattern). Execution deduplication via hash map with `sync.Mutex`. Atomic task call counting with 1000-call infinite loop detection. Some inconsistency: `executionHashes` uses Mutex, `taskCallCount` uses atomics.
+Invowk is second. It uses disciplined `defer`, explicit cleanup callbacks, contexts, and close-error
+handling patterns.
 
-### Resource Cleanup
+Task is good but less systematic. It uses `defer`, context cancellation, cleanup functions, and
+cache cleanup, but the patterns are less centrally governed.
 
-**Invowk**: Named-return defer pattern (`defer func() { if closeErr := f.Close(); closeErr != nil && err == nil { ... } }()`). `PreparedCommand.Cleanup func()` for interactive mode temp files. Context cancellation through the execution pipeline.
+### 13. Security Posture
 
-**Just**: RAII-based (`TempDir` auto-cleanup, `MutexGuard`). `Command::status_guard()` for signal handling during child processes. Rust's Drop trait handles most cleanup automatically.
+**Winner: Invowk**
 
-**Task**: `defer release()` for semaphore, `defer cancel()` for contexts, `defer CleanGitCache()` for remote caches. `CloseFunc` type for output writer cleanup.
+Invowk has the strongest explicit security posture:
 
-### Input Validation
+- The virtual runtime is documented as not being a sandbox.
+- Container runtime isolation is the recommended isolation mechanism.
+- Module dependency visibility is statically checked for declared command dependencies.
+- Module supply-chain design includes explicit dependency declarations and lock-file hashing.
+- CI includes `gosec`, `govulncheck`, license checks, and custom analyzer gates.
+- Container image policy is explicit and conservative.
 
-**Invowk**: Multi-layer validation: CUE schema constraints at parse time (regex patterns, MaxRunes), Go type `IsValid()` at domain boundaries, file size limits in `cueutil`, platform-specific runtime validation. Schema sync tests catch drift between CUE and Go at CI time.
+Task is second because it has remote source trust prompts, checksum verification, and mature
+real-world hardening around includes and remote Taskfiles.
 
-**Just**: Recursion depth limits, circular import/dependency detection, fuzz testing, BOM handling, CRLF handling. Rust's type system prevents many classes of bugs at compile time.
+Just is safest by simplicity: fewer moving parts and less remote/module surface. But it has less
+security-specific infrastructure.
 
-**Task**: Task existence check, internal task protection, platform filtering, required variable validation, schema version check, remote Taskfile checksum verification, trust prompts. No format validation on task names.
+### 14. Supply-Chain Controls
 
-### Memory Safety
+**Winner: Invowk**
 
-**Invowk**: Go's GC provides memory safety. No `unsafe` equivalent.
+Invowk's module model is explicitly supply-chain aware. The root dependency list is authoritative,
+transitives must be declared, and lock hashes provide tamper detection. This is a stronger model
+than implicit include graphs or source imports.
 
-**Just**: Only 3 `unsafe` blocks, all in `src/signals.rs` (Unix signal handling), all with `// SAFETY:` documentation. Zero-copy design via lifetimes -- no runtime overhead.
+Task has important controls: Git/HTTP sources, cache handling, checksums, and trust prompts.
 
-**Task**: Go's GC provides memory safety. No `unsafe` equivalent.
+Just has less supply-chain surface and therefore less need for controls, but it does not win a
+supply-chain-control vector.
 
-### Verdict: Reliability
+### 15. Test Volume
 
-| Aspect | Winner | Runner-up |
-|--------|--------|-----------|
-| Concurrency Safety | **Just** (compile-time guarantees) | Invowk |
-| Resource Cleanup | **Just** (RAII) | Invowk |
-| Input Validation | **Invowk** (multi-layer) | Just (fuzzing) |
-| Memory Safety | **Just** (3 unsafe blocks) | Invowk/Task (GC) |
-| Cross-Process Safety | **Invowk** (flock for container engine) | N/A |
-| Defensive Programming | **Invowk** | Task |
-| **Overall** | **Invowk** (slight edge) | **Just** |
+**Winner: Invowk**
 
-> **Honest opinion**: This is the closest category. Just gets inherent advantages from Rust's ownership model (RAII, compile-time thread safety, minimal unsafe), making it nearly impossible to have resource leaks or data races. Invowk compensates with multi-layer validation (CUE + Go types + schema sync tests), cross-process serialization (flock), and rigorous context propagation. Task's concurrency design is solid (channel semaphore with deadlock avoidance) but has inconsistent synchronization strategies and no cross-process safety mechanisms. Invowk edges ahead due to the sheer breadth of defensive mechanisms despite Go's weaker compile-time guarantees compared to Rust.
+Invowk has the largest verification corpus:
 
----
+- 360 Go test files.
+- 121 CLI `.txtar` tests.
+- 86,317 Go test code lines.
+- 8,020 txtar lines.
+- Schema, DDD, analyzer, runtime, container, CLI, and docs-adjacent tests.
 
-## Category 5: Tests
+Just is also strong: 106 Rust test files and 23,052 Rust test code lines for a 20,048-line
+production codebase.
 
-### Coverage and Volume
+Task has fewer test files and fewer test lines, though it has a large amount of testdata.
 
-**Invowk**: **1.59:1 test-to-production LoC ratio** (75,318 test lines / 47,235 production lines). 226 test files + 113 txtar CLI integration tests. The test codebase is larger than the production codebase, which is exceptional.
+### 16. Test Quality Per Line
 
-**Just**: **0.67:1 ratio** (12,500 test lines / 19,000 production lines). 99 integration test files covering feature areas. Fuzz testing via `cargo-fuzz`.
+**Winner: Just**
 
-**Task**: **~0.5-0.7:1 ratio** (est. 10-15K test lines / 15-20K production). ~15 test files, dominated by the 70KB monolithic `task_test.go`. No fuzz testing, no benchmarks.
+Just's tests are dense and expressive. The fluent test builder, focused integration files, format
+and dump checks, and fuzz target produce high confidence with relatively little machinery. It is
+the best example of tests that feel shaped around the product.
 
-### Test Types and Infrastructure
+Invowk has broader coverage and stronger guardrails, but it also has more boilerplate because Go
+requires more explicit setup for some invariants Rust gives for free.
 
-**Invowk**:
-- Unit tests with `t.Parallel()` throughout (219 files use `t.Parallel()` or `t.Run()`)
-- Table-driven tests with named subtests
-- Schema sync tests (1,158 lines) verifying CUE <-> Go struct alignment via reflection
-- 113 `.txtar` testscript CLI integration tests executing the real binary in isolated workspaces
-- Container runtime integration tests against real Docker/Podman
-- DDD compliance tests for every named type (valid/invalid/edge cases/sentinel wrapping)
-- Coverage guardrail: `TestBuiltinCommandTxtarCoverage` (424 lines) fails if new CLI commands lack txtar tests
-- Runtime mirror test verifying native_*.txtar exists for each virtual_*.txtar
-- CI: 6-platform matrix with `gotestsum --rerun-fails` for transient flakiness
+Task has practical integration tests, golden files, and many fixtures, but the test organization is
+less refined.
 
-**Just**:
-- Custom integration test framework with fluent builder API (`Test::new().justfile(...).args(...).stdout(...)`)
-- **Round-trip testing**: Every successful test automatically verifies `just --dump` re-parses identically -- innovative and catches serialization/parsing mismatches
-- Macro-based unit test DSLs (`analysis_error!`, `run_error!`)
-- Fuzz testing via `cargo-fuzz` for parser robustness
-- CI: Ubuntu, macOS, Windows; MSRV check; Clippy + rustfmt + shellcheck
+### 17. Meta-Testing And Guardrails
 
-**Task**:
-- Integration-dominant: Most tests create `Executor`, call `Setup()`, then `Run()`, asserting on stdout/stderr
-- Golden file testing via `goldie/v2`
-- Mock generation via `mockery`
-- Build-tagged tests for signals and watch mode
-- `cmd/sleepit` helper for signal testing
-- Self-dogfooding: uses Task to run its own test suite
-- CI: 2x3 matrix (Go 1.24/1.25 x Ubuntu/macOS/Windows)
+**Winner: Invowk**
 
-### Test Quality Comparison
+Invowk is strongest at testing the rules around the tests:
 
-**Invowk**: `errors.Is()` verified for every sentinel error. Container tests with exponential backoff retry and transient classification. `t.TempDir()` everywhere. `t.Context()` (Go 1.26) instead of `context.Background()`. `tparallel` linter enforces parallel test discipline.
+- CUE/Go schema sync tests.
+- CLI command coverage guardrails.
+- Virtual/native test mirror checks.
+- `goplint` baseline and semantic gates.
+- Analyzer compatibility gates.
+- Agent docs sync checks.
+- Docs, diagrams, website, license, lint, vulnerability, and release checks.
 
-**Just**: Round-trip test verification is a standout -- no other project has this. Fuzz testing adds robustness. 99 test files provide good feature coverage. No golden file testing or snapshot testing.
+Just is second because formatting/dump tests and fuzzing validate structural properties.
 
-**Task**: Extensive happy-path integration coverage. Golden files reduce assertion boilerplate. However, limited error-path testing, no fuzzing, no benchmarks, `gotestsum@latest` (unpinned), and the monolithic 70KB test file is hard to navigate.
+Task has conventional CI and tests, but less meta-testing.
 
-### Verdict: Tests
+### 18. Fuzzing And Robustness Testing
 
-| Aspect | Winner | Runner-up |
-|--------|--------|-----------|
-| Test Volume | **Invowk** (1.59:1 ratio) | Just (0.67:1) |
-| Test Types Breadth | **Invowk** (unit+integration+E2E+schema+DDD+guardrail) | Just |
-| Test Infrastructure | **Just** (round-trip + fuzzing + builder DSL) | Invowk (txtar + schema sync) |
-| Test Innovation | **Just** (round-trip testing) | Invowk (coverage guardrail) |
-| CI Pipeline | **Invowk** (6-platform + gotestsum retries) | Just (3-platform + MSRV) |
-| Meta-Testing | **Invowk** (guardrails enforce test completeness) | N/A |
-| **Overall** | **Invowk** | **Just** |
+**Winner: Just**
 
-> **Honest opinion**: Invowk has the most comprehensive test suite by a wide margin. The 1.59:1 test-to-code ratio, schema sync tests, coverage guardrails, DDD compliance tests, and 113 txtar E2E tests represent a level of testing discipline rare even in enterprise codebases. Just has excellent test infrastructure innovation (round-trip verification, fuzz testing, fluent test DSL) and would be the winner on test *quality per test*, but Invowk wins on breadth and volume. Task's testing is adequate but lags significantly: monolithic test file, no fuzzing, no schema validation, unpinned tools, and limited error-path coverage.
+Just has a `cargo-fuzz` target for compilation. For a custom parser/compiler, that is exactly the
+right kind of robustness investment.
 
----
+Invowk has broad integration and schema coverage, but a parser/config system this broad would
+benefit from more fuzz/property-style testing around CUE decoding, module graphs, and path handling.
 
-## Final Scorecard
+Task does not appear to emphasize fuzzing.
 
-| Category | Invowk | Just | Task |
-|----------|--------|------|------|
-| **Code Quality** | **9.2/10** | 8.0/10 | 6.5/10 |
-| **Abstractions/Patterns** | **9.0/10** | 8.5/10 | 6.0/10 |
-| **Error Handling** | **9.3/10** | 8.5/10 | 7.0/10 |
-| **Reliability** | **8.8/10** | 8.7/10 | 7.0/10 |
-| **Tests** | **9.5/10** | 8.5/10 | 6.5/10 |
-| **Overall** | **9.2/10** | **8.4/10** | **6.6/10** |
+### 19. CI Breadth
 
----
+**Winner: Invowk**
 
-## Honest Overall Assessment
+Invowk's CI is the broadest:
 
-### Invowk (Winner: 9.2/10)
-Invowk is, from a pure engineering perspective, the most rigorously engineered of the three codebases. Its DDD Value Type system with a custom `go/analysis` enforcer, three-layer error handling with issue templates, CUE schemas with CI-verified sync tests, and 1.59:1 test-to-code ratio represent an exceptional level of discipline. The architecture cleanly separates concerns through interfaces and dependency injection, and the linting configuration (40+ linters) leaves almost no room for accidental quality regression.
+- Linux with Docker and Podman legs.
+- macOS and Windows legs.
+- Multi-arch build checks.
+- Pinned `gotestsum`.
+- Coverage artifacts and JUnit publishing.
+- `govulncheck`.
+- License checks.
+- GoReleaser checks.
+- Website/docs gates.
+- Custom `goplint` jobs and analyzer benchmark/semantic gates.
 
-**The risk**: Over-engineering. With 90+ named types, a custom analyzer, 40+ linters, and a test suite larger than the production code, there's a question of whether the overhead of maintaining all this infrastructure creates friction for contributors. The project is pre-1.0, and this level of rigor is unusual for an early-stage project. However, it also means the foundation is exceptionally solid.
+Task is second because it tests Go 1.25.x and 1.26.x across Ubuntu, macOS, and Windows, and pins
+some actions by SHA. That is a good maturity signal.
 
-### Just (Runner-up: 8.4/10)
-Just benefits enormously from Rust's type system and ownership model, which provides compile-time guarantees that Go projects must enforce through discipline and tooling. The zero-copy lifetime-based parser is sophisticated and memory-efficient. Error handling is excellent with rich user-facing messages and source location context. The round-trip test verification is innovative and something the other projects could learn from.
+Just has clean Rust CI with clippy, rustfmt, MSRV, book generation, shellcheck, and platform tests.
+It is excellent, but narrower than Invowk's matrix.
 
-**The risk**: The flat module structure (114 files, one directory, `use super::*`) creates a maintenance ceiling. As the project grows, the lack of internal module boundaries will make it harder to reason about and refactor. Documentation is minimal -- the codebase relies on code clarity rather than explicit documentation. The parser's single-error-reporting (no error recovery) limits the user experience when multiple mistakes are present.
+### 20. Linting And Static Analysis
 
-### Task (Third: 6.6/10)
-Task is the most mature in terms of user adoption and feature breadth (remote Taskfiles, experiments system, self-dogfooding). Its error system with exit code ranges is well-designed, and the `Node` interface for Taskfile sources is architecturally clean. The concurrency design (channel semaphore with deadlock avoidance) solves real problems.
+**Winner: Invowk**
 
-**The risk**: The God package, bare-primitive type system, and monolithic test file indicate that the codebase has grown organically without periodic architectural investment. The linting gap (7 linters vs Invowk's 40+) means more classes of bugs can slip through. The two-phase `Executor` initialization and duplicated compilation functions suggest technical debt. For a project with 13K+ stars and widespread use, these are concerning indicators of maintenance burden.
+Invowk combines breadth and custom rules:
 
-### Caveats
+- 50+ golangci-lint analyzers/formatters.
+- Strict error wrapping.
+- Declaration ordering.
+- Exhaustiveness.
+- Security linting.
+- Magic-value and shadowing checks.
+- Custom DDD analyzer in `tools/goplint`.
 
-This comparison is inherently asymmetric:
+Just's Clippy setup is almost maximally strict for Rust: `all` and `pedantic` at deny, plus
+source item ordering and unsafe-block documentation. It would win in many comparisons.
 
-1. **Language differences**: Rust gives Just compile-time safety guarantees (ownership, lifetimes, exhaustive matching) that Go projects must enforce through tooling and discipline. Invowk's extensive tooling (40+ linters, custom analyzer, schema sync tests) is partially compensating for Go's weaker type system.
+Task has improved versus older snapshots: it now enables 10 linters, including `gosec` and
+`modernize`. It remains much lighter than Invowk's policy.
 
-2. **Scope differences**: Invowk supports three runtimes (native/virtual/container), modules with dependency management, CUE schemas, TUI, and SSH server -- far more than Just (single runtime, no modules, no TUI) or Task (single runtime, YAML). More code means more surface area for bugs but also more engineering challenges solved.
+### 21. Documentation Inside The Codebase
 
-3. **Maturity differences**: Just is at v1.46.0 with 31K+ stars. Task is at v3.48.0 with 13K+ stars. Invowk is pre-1.0. The fact that Invowk's codebase quality already exceeds these mature projects speaks to its engineering culture, but a pre-1.0 project hasn't faced the same scale of community contributions, edge cases, and production incidents.
+**Winner: Invowk**
 
-4. **Paradigm differences**: Just chose simplicity (one DSL, one runtime, no plugins). Task chose ecosystem (YAML, remote includes, experiments). Invowk chose rigor (CUE schemas, DDD types, multi-runtime). Each reflects a valid philosophy -- the "best" depends on what you value.
+Invowk has the best internal documentation:
+
+- Package-level `doc.go` files.
+- Comments that explain contracts and invariants.
+- Linter configuration with rationales.
+- Agent/rule/skill docs that encode workflow expectations.
+- Architecture diagrams and rendered docs.
+
+Just has excellent focused docs where they matter most, especially grammar and user docs. Internal
+type/function docs are lighter.
+
+Task's public docs ecosystem is mature, but internal comments and package docs are less systematic.
+
+### 22. External User Documentation Signal
+
+**Winner: Task**
+
+Task has the strongest mature user-facing documentation footprint. Its website, ecosystem, and
+long-lived Taskfile examples give users a familiar path into the tool. For adoption and support,
+that matters.
+
+Just is second: the README/book style is focused and approachable.
+
+Invowk has strong architecture and docs infrastructure, but as a younger and broader project, its
+user-facing story is less battle-tested.
+
+### 23. Contributor Approachability
+
+**Winner: Just**
+
+Just is the easiest codebase for a new capable contributor to orient in:
+
+- One main language.
+- One main runtime.
+- A focused DSL.
+- Clear compiler pipeline.
+- Smaller production codebase.
+- Strong tests.
+
+Task is approachable because Go and YAML are familiar, but contributors must learn the root
+executor's broad responsibilities.
+
+Invowk has excellent maps and rules, but the volume of rules, types, lints, analyzers, and
+verification gates raises the entry cost.
+
+### 24. Refactorability
+
+**Winner: Invowk**
+
+Invowk's package boundaries, injected services, domain types, and extensive tests make targeted
+refactors safer. The dirty working tree in this checkout is itself evidence that module/audit
+surfaces can be moved into clearer packages without rewriting the entire CLI.
+
+Just is refactorable because Rust catches many mistakes, but the flat module structure and broad
+`use super::*` pattern reduce architectural assistance during large moves.
+
+Task is harder to refactor because many concerns meet inside the root `task` package and
+`Executor` surface.
+
+### 25. Performance Posture
+
+**Winner: Just**
+
+Just has the best inherent performance posture:
+
+- Zero-copy parser design through lifetimes.
+- Native Rust binary.
+- Focused execution model.
+- Small dependency/runtime surface.
+
+Invowk is second. It has benchmarks, PGO-related infrastructure, bounded scanning work, and
+careful runtime choices. But its broader feature set and Go runtime mean more surface area.
+
+Task is pragmatic and likely fast enough for common workflows, but performance architecture is less
+prominent in the codebase.
+
+### 26. Cross-Platform Portability
+
+**Winner: Just**
+
+Just's platform abstraction is clean, and its release/test model is mature across Linux, macOS,
+and Windows. The smaller runtime surface makes portability easier to preserve.
+
+Task is also mature cross-platform and tests multiple Go versions across the big three OSes.
+
+Invowk tests broadly, but its container runtime is intentionally Linux-container-only, and its
+feature breadth creates more cross-platform edge cases.
+
+### 27. Release Engineering
+
+**Winner: Just**
+
+Just's release pipeline is mature and direct. It builds many targets, uses Rust's release tooling,
+generates docs, and avoids much of the complexity that comes from multi-runtime/container/doc-site
+coordination.
+
+Task is second with GoReleaser and broad artifact support.
+
+Invowk has strong release checks, but the release system is broader and younger. More gates are
+good for safety, but they are also more moving parts.
+
+### 28. Dependency Minimalism
+
+**Winner: Just**
+
+Just's dependencies are well aligned with its problem: CLI parsing, serialization, enums, shelling
+out, testing, and docs tooling. The scope stays tight.
+
+Task is second. It has graph, YAML, pflag, fsnotify, shell interpreter, golden tests, and release
+support, all fitting its feature set.
+
+Invowk has the largest dependency surface because it includes CUE, Cobra/Viper, Charm TUI/SSH
+libraries, go-git, OpenAI integration, u-root, container/tooling dependencies, docs tooling, and
+custom analyzer modules. The dependencies are explainable, but not minimal.
+
+### 29. Governance And Policy
+
+**Winner: Invowk**
+
+Invowk has the strongest explicit governance:
+
+- Repository-wide agent rules.
+- Rule indexes and sync checks.
+- Code area to skill/rule mappings.
+- Strict verification gates.
+- Lint explanations.
+- Agent docs checks.
+- Custom analyzer baselines.
+- Documentation review workflows.
+
+Just relies more on language, tests, and maintainer convention.
+
+Task has mature project workflows, but less internal governance around code shape.
+
+### 30. Product Maturity Feedback Loop
+
+**Winner: Task**
+
+Task likely has the strongest real-world feedback loop because of its ecosystem maturity and broad
+adoption. Production users discover workflow edge cases that tests rarely imagine.
+
+Just is also very mature and widely used.
+
+Invowk has the strongest internal discipline, but a pre-1.0 or younger tool cannot claim the same
+volume of production hardening.
+
+### 31. Overall Maintainability
+
+**Winner: Just**
+
+This is the hardest call in the report. Invowk has better formal architecture, but maintainability
+also includes cognitive load. Just has:
+
+- Smaller implementation.
+- Strong Rust invariants.
+- A focused product surface.
+- Good test density.
+- Mature release flow.
+
+Invowk is safer to refactor within a known subsystem, but there are many more subsystems. Just is
+easier to maintain as a whole.
+
+Task is maintainable in a pragmatic sense, but root-package concentration is the main risk.
+
+### 32. Overall Engineering Rigor
+
+**Winner: Invowk**
+
+Invowk is the most rigorous codebase:
+
+- More explicit domain modeling.
+- More static analysis.
+- More CI gates.
+- More schema verification.
+- More docs/rules automation.
+- More security and supply-chain modeling.
+- More test breadth.
+
+Just is elegant and rigorous in a Rust-native way, but less policy-heavy.
+
+Task is practical and mature, but less governed.
+
+## Category Scorecard
+
+| Category | Invowk | Just | Task | Winner |
+|----------|--------|------|------|--------|
+| Architecture | 9.3 | 8.5 | 6.8 | Invowk |
+| Simplicity | 6.7 | 9.4 | 8.6 | Just |
+| Type safety | 8.7 | 9.7 | 6.2 | Just |
+| Domain modeling | 9.5 | 8.6 | 5.8 | Invowk |
+| Config/schema correctness | 9.4 | 8.7 | 7.0 | Invowk |
+| Runtime/execution abstraction | 9.5 | 7.4 | 8.0 | Invowk |
+| Error handling | 9.4 | 9.1 | 7.8 | Invowk |
+| Diagnostics | 8.8 | 9.3 | 8.0 | Just |
+| Error recovery | 7.7 | 6.8 | 8.8 | Task |
+| Reliability | 9.0 | 9.2 | 7.8 | Just |
+| Security posture | 9.2 | 8.0 | 8.4 | Invowk |
+| Supply-chain controls | 9.3 | 7.0 | 8.4 | Invowk |
+| Test volume | 9.8 | 9.0 | 7.2 | Invowk |
+| Test quality | 9.0 | 9.4 | 7.4 | Just |
+| CI/static gates | 9.6 | 9.0 | 8.4 | Invowk |
+| Internal docs | 9.3 | 8.0 | 7.0 | Invowk |
+| External docs/adoption | 7.5 | 8.5 | 9.1 | Task |
+| Contributor approachability | 6.9 | 9.2 | 8.0 | Just |
+| Refactorability | 9.2 | 8.5 | 6.8 | Invowk |
+| Performance posture | 8.5 | 9.4 | 7.8 | Just |
+| Release engineering | 8.5 | 9.3 | 8.9 | Just |
+| Governance | 9.6 | 8.2 | 7.4 | Invowk |
+| Overall | 8.9 | 8.7 | 7.1 | Invowk |
+
+## Project-Specific Findings
+
+### Invowk
+
+**Strengths**
+
+- Best explicit architecture.
+- Best domain modeling in Go.
+- Best config/schema correctness story.
+- Best verification volume.
+- Best static-analysis posture.
+- Best supply-chain and runtime-security modeling.
+- Best refactor safety inside bounded subsystems.
+
+**Risks**
+
+- The codebase is large for its maturity level.
+- Contributor entry cost is high because rules, lints, skills, analyzers, schemas, and tests all
+  matter.
+- Some rigor may feel like ceremony unless each gate continues catching real defects.
+- Dependency footprint is broad.
+- Multi-runtime behavior creates cross-platform and test-matrix complexity that Just and Task
+  largely avoid.
+
+**Most valuable improvement**
+
+Reduce cognitive load without weakening safety. The best moves are architectural maps, smaller
+package-local contracts, clearer "common path" contribution docs, and continued extraction of
+large surfaces into cohesive packages. Do not remove the guardrails; make them easier to navigate.
+
+### Just
+
+**Strengths**
+
+- Best simplicity-to-quality ratio.
+- Best Rust-level correctness guarantees.
+- Best focused compiler architecture.
+- Strongest parser/source diagnostics.
+- Excellent test quality per line.
+- Mature release flow.
+- Low dependency and runtime complexity.
+
+**Risks**
+
+- Flat internal module structure will become more painful as features accumulate.
+- Sparse internal docs make some invariants maintainer-held rather than codebase-held.
+- Parser/compiler files are large.
+- Extensibility is intentionally limited.
+- Error recovery is not a priority.
+
+**Most valuable improvement**
+
+Introduce more internal module hierarchy around compiler phases without losing the current
+single-crate simplicity. Even modest `src/compiler/*`, `src/runtime/*`, and `src/diagnostics/*`
+submodules would improve navigability.
+
+### Task
+
+**Strengths**
+
+- Best product maturity feedback loop.
+- Strong pragmatic feature set.
+- Familiar YAML model.
+- Useful remote-source and include support.
+- Good cross-platform CI.
+- Good error recovery and operational tolerance.
+- Compact implementation for the feature set.
+
+**Risks**
+
+- Root package owns too many responsibilities.
+- `Executor` is too central.
+- Domain concepts are under-typed.
+- Test organization is less granular.
+- Static-analysis policy is lighter than the competitors.
+- Some design choices are shaped by accumulated compatibility rather than current clarity.
+
+**Most valuable improvement**
+
+Extract execution, compilation, source reading, and output/status behavior out of the root package
+behind smaller internal packages. The goal should not be Invowk-level governance; it should be
+reducing the blast radius of changes to `Executor`.
+
+## Final Assessment
+
+Invowk wins the strict codebase-quality contest, but not by a landslide. Its architecture,
+validation, tests, static analysis, and governance are unusually strong. The price is complexity.
+If Invowk keeps growing, its main quality challenge is not "add more rigor"; it is "make the rigor
+easier to carry."
+
+Just is the most elegant codebase in the comparison. It loses narrowly because it is less explicit
+about internal boundaries and policy, but for its scope it may be the healthiest project. It is the
+best model for Invowk to study when thinking about simplicity, parser tests, fuzzing, and release
+flow.
+
+Task is the most battle-tested product surface, but the codebase shows more organic growth. Its
+strength is pragmatism. Its main risk is that too much behavior has converged on the root executor
+model. It is the best model for Invowk to study when thinking about user adoption, forgiving
+execution workflows, and real-world Taskfile ergonomics.
+
+## Actionable Takeaways For Invowk
+
+| Priority | Takeaway | Why |
+|----------|----------|-----|
+| High | Add fuzz/property tests for CUE decoding, module graph validation, path handling, and command dependency declarations. | Just shows how valuable fuzzing is for parser-like surfaces. |
+| High | Keep extracting large module/audit/runtime responsibilities into cohesive packages. | Invowk's architecture wins, but only if package boundaries stay sharper than the code volume. |
+| High | Create a contributor "fast lane" that explains the minimum checks for common small changes. | Invowk's rigor is good, but contributor approachability is the weakest Invowk vector. |
+| Medium | Study Just's format/dump testing pattern for any Invowk command that serializes or normalizes config. | Round-trip properties catch drift better than example-only tests. |
+| Medium | Preserve Task-like operational forgiveness where it does not weaken safety. | Deferred cleanup, optional behavior, and cache fallback are user-friendly when explicitly scoped. |
+| Medium | Continue documenting security boundaries in plain language. | Invowk's virtual-runtime clarity is a major advantage and should remain non-negotiable. |
+| Low | Avoid competing with Task's YAML familiarity directly. | Invowk's advantage is stronger contracts, not lower-friction syntax. |
+| Low | Avoid adding Just-style custom DSL complexity unless CUE becomes a proven bottleneck. | CUE is currently one of Invowk's quality advantages. |
