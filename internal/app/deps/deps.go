@@ -306,19 +306,34 @@ func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []string {
 }
 
 // findMatchingCommand returns the first CommandInfo matching any alternative,
-// or nil if none found. Checks both bare name and module-qualified form.
+// or nil if none found. Module callers resolve bare alternatives against their
+// own source namespace before falling back to an unscoped root command.
 func findMatchingCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule string, alternatives []string) *discovery.CommandInfo {
 	for _, alt := range alternatives {
-		if cmd, ok := available[invowkfile.CommandName(alt)]; ok { //goplint:ignore -- map key lookup only
-			return cmd
+		exact := available[invowkfile.CommandName(alt)] //goplint:ignore -- map key lookup only
+		if isModuleScopedCommand(exact) {
+			return exact
 		}
 
-		qualified := invowkfile.CommandName(currentModule + " " + alt) //goplint:ignore -- map key lookup only
-		if cmd, ok := available[qualified]; ok {
-			return cmd
+		if currentModule != "" {
+			qualified := invowkfile.CommandName(currentModule + " " + alt) //goplint:ignore -- map key lookup only
+			if cmd, ok := available[qualified]; ok {
+				return cmd
+			}
+		}
+
+		if exact != nil {
+			return exact
 		}
 	}
 	return nil
+}
+
+func isModuleScopedCommand(cmd *discovery.CommandInfo) bool {
+	if cmd == nil {
+		return false
+	}
+	return cmd.ModuleID != nil || cmd.Invowkfile != nil && cmd.Invowkfile.Metadata != nil
 }
 
 //goplint:ignore -- helper formats normalized command-alternative display strings.

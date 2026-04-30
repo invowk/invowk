@@ -171,6 +171,66 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 	})
 }
 
+func TestFindMatchingCommand(t *testing.T) {
+	t.Parallel()
+
+	moduleID := invowkmod.ModuleID("io.example.mod")
+	depID := invowkmod.ModuleID("io.example.dep")
+	rootBuild := &discovery.CommandInfo{Name: invowkfile.CommandName("build")}
+	moduleBuild := &discovery.CommandInfo{
+		Name:     invowkfile.CommandName("mod build"),
+		SourceID: discovery.SourceID("mod"),
+		ModuleID: &moduleID,
+	}
+	depBuild := &discovery.CommandInfo{
+		Name:     invowkfile.CommandName("dep build"),
+		SourceID: discovery.SourceID("dep"),
+		ModuleID: &depID,
+	}
+
+	t.Run("prefers module-local qualified command over root exact match", func(t *testing.T) {
+		t.Parallel()
+
+		available := map[invowkfile.CommandName]*discovery.CommandInfo{
+			rootBuild.Name:   rootBuild,
+			moduleBuild.Name: moduleBuild,
+		}
+
+		got := findMatchingCommand(available, "mod", []string{"build"})
+		if got != moduleBuild {
+			t.Fatalf("findMatchingCommand() = %v, want module-local command", got)
+		}
+	})
+
+	t.Run("root caller keeps exact root match", func(t *testing.T) {
+		t.Parallel()
+
+		available := map[invowkfile.CommandName]*discovery.CommandInfo{
+			rootBuild.Name:   rootBuild,
+			moduleBuild.Name: moduleBuild,
+		}
+
+		got := findMatchingCommand(available, "", []string{"build"})
+		if got != rootBuild {
+			t.Fatalf("findMatchingCommand() = %v, want root command", got)
+		}
+	})
+
+	t.Run("explicit qualified module command keeps exact match", func(t *testing.T) {
+		t.Parallel()
+
+		available := map[invowkfile.CommandName]*discovery.CommandInfo{
+			moduleBuild.Name: moduleBuild,
+			depBuild.Name:    depBuild,
+		}
+
+		got := findMatchingCommand(available, "mod", []string{"dep build"})
+		if got != depBuild {
+			t.Fatalf("findMatchingCommand() = %v, want explicit dependency command", got)
+		}
+	})
+}
+
 func TestDiscoverAvailableCommands(t *testing.T) {
 	t.Parallel()
 
