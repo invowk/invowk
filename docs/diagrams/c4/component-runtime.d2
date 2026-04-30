@@ -436,15 +436,15 @@ provisioner: provision.LayerProvisioner {
   |
 }
 
-ssh_server: sshserver.Server {
+host_callbacks: runtime.HostCallbackServer {
   style: {
     fill: "#438DD5"
     font-color: "#ffffff"
   }
   tooltip: |md
-    **internal/sshserver**
-    SSH tunnel for container-to-host callbacks.
-    Optional dependency of ContainerRuntime.
+    **internal/runtime**
+    Port for optional container-to-host callbacks.
+    internal/sshserver adapts the concrete SSH server.
   |
 }
 
@@ -503,7 +503,7 @@ runtime_pkg.container_rt -> container_engine: "runs containers\nvia Engine" {
 runtime_pkg.container_rt -> provisioner: "provisions\nephemeral layers" {
   style.stroke: "#707070"
 }
-runtime_pkg.container_rt -> ssh_server: "uses optional\nhost callbacks" {
+runtime_pkg.container_rt -> host_callbacks: "uses optional\nhost callbacks" {
   style.stroke: "#707070"
 }
 runtime_pkg.container_rt -> config_pkg: reads config {

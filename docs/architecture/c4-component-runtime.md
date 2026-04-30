@@ -23,7 +23,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 |-----------|------------|----------------|
 | **NativeRuntime** | Go | Executes commands via the host shell (`bash`/`sh` on Unix, `PowerShell` on Windows). Fastest option. Configurable shell override. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **VirtualRuntime** | Go/mvdan-sh | Embedded POSIX shell interpreter with optional u-root built-in utilities. No host shell dependency. Spawns a subprocess of itself for PTY-based interactive mode. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
-| **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on `container.Engine`, `provision.LayerProvisioner`, `sshserver.Server`, and `config.Config`. Linux containers only. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
+| **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on `container.Engine`, `provision.LayerProvisioner`, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Linux containers only. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **DefaultEnvBuilder** | Go | Standard 10-level precedence implementation: host env (filtered) -> root/command/impl env files -> root/command/impl env vars -> ExtraEnv -> runtime env files -> runtime env vars. |
 | **MockEnvBuilder** | Go | Test helper that returns a fixed environment map. Enables testing runtimes in isolation without real file system access or env loading. |
 
@@ -46,7 +46,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 |------------|---------|---------|
 | `container.Engine` | ContainerRuntime | Unified Docker/Podman container engine abstraction |
 | `provision.LayerProvisioner` | ContainerRuntime | Creates ephemeral image layers with invowk binary and modules |
-| `sshserver.Server` | ContainerRuntime | Token-based SSH server for container-to-host callbacks |
+| `runtime.HostCallbackServer` | ContainerRuntime | Port that supplies token-based host callback credentials to container executions; `internal/sshserver` adapts the concrete SSH server to this port |
 | `config.Config` | ContainerRuntime | Application configuration (container engine preference, etc.) |
 | `mvdan.cc/sh/v3` | VirtualRuntime | Embedded POSIX shell interpreter (syntax, interp, expand) |
 | `internal/uroot` | VirtualRuntime | Built-in utilities for the virtual shell (cp, mv, cat, etc.) |

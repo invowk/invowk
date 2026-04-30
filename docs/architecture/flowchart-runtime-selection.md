@@ -32,7 +32,7 @@ cmds: [
             },
             {
                 platforms: [{name: "linux"}]
-                runtimes: [{name: "container", image: "golang:1.26"}]
+                runtimes: [{name: "container", image: "debian:stable-slim"}]
                 script: "make build"
             },
         ]

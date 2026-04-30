@@ -32,7 +32,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | **Dependency Validator** | Go | Domínio de validação de dependências (`internal/app/deps/`). Verifica dependências raiz, de comando e de implementação no host, além das dependências do runtime container selecionado dentro do container. |
 | **Execution Orchestrator** | Go | Seleção de runtime e construção do contexto de execução (`internal/app/execute/`). Escolhe o runtime selecionado e despacha para as implementações de runtime. |
 | **Discovery Engine** | Go | Encontra diretórios `invowkfile.cue` e `*.invowkmod` com ordenação por precedência. Constrói árvore unificada de comandos. |
-| **Configuration Manager** | Go/Viper+CUE | Carrega config de `~/.config/invowk/config.cue`. Valida contra schema CUE. |
+| **Configuration Manager** | Go/CUE | Carrega config de `~/.config/invowk/config.cue`. Valida contra schema CUE. |
 | **CUE Parser** | Go/cuelang | Implementa parsing em 3 etapas: compilar schema → unificar com dados → decodificar para structs Go. Fornece mensagens de erro ricas. |
 | **Module Resolver** | Go | Usado por comandos de módulo como `invowk module sync` para resolver dependências baseadas em Git. Gerencia cache em `~/.invowk/modules/`. Lida com lock files para reprodutibilidade. |
 | **Watch Engine** | Go | Monitora o sistema de arquivos para mudanças. Aplica debounce nos eventos de mudança e dispara re-execução de comandos para o modo `--ivk-watch`. |

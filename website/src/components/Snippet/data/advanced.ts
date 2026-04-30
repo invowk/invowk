@@ -724,7 +724,7 @@ This command is only available on the platforms listed above.`,
         },
         {
             script: "make build"
-            runtimes: [{name: "container", image: "golang:1.26"}]
+            runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
         },
         {

@@ -852,7 +852,6 @@ platforms: [{name: "linux"}]`,
     language: 'cue',
     code: `// Use a pre-built image
 image: "debian:stable-slim"
-image: "golang:1.26"
 
 // Build from a Containerfile
 containerfile: "./Containerfile"

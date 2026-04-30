@@ -18,14 +18,15 @@ default_runtime: "native"`,
 
   'config/container-engine': {
     language: 'cue',
-    code: `container_engine: "docker"  // or "podman"`,
+    code: `container_engine: "podman"`,
   },
 
   'config/includes': {
     language: 'cue',
     code: `includes: [
     {path: "/home/user/.invowk/modules/tools.invowkmod"},
-    {path: "/opt/company/shared.invowkmod", alias: "company"},
+    {path: "/home/user/projects/shared.invowkmod", alias: "shared"},
+    {path: "/opt/company/tools.invowkmod"},
 ]`,
   },
 
@@ -178,7 +179,7 @@ container: {
   'config/ui': {
     language: 'cue',
     code: `ui: {
-    color_scheme: "dark"
+    color_scheme: "auto"
     verbose: false
     interactive: false
 }`,
@@ -259,6 +260,11 @@ ui: {
 container: {
     auto_provision: {
         enabled: true
+        strict: false
+        binary_path: ""
+        includes: []
+        inherit_includes: true
+        cache_dir: ""
     }
 }`,
   },
@@ -330,6 +336,46 @@ invowk cmd build --ivk-runtime container`,
 }`,
   },
 
+  'reference/config/schema': {
+    language: 'cue',
+    code: `#Config: {
+    container_engine?: "podman" | "docker"
+    includes?: [...#IncludeEntry]
+    default_runtime?: "native" | "virtual" | "container"
+    virtual_shell?: #VirtualShellConfig
+    ui?: #UIConfig
+    container?: #ContainerConfig
+}
+
+#IncludeEntry: {
+    path:   string  // Must be absolute and end with .invowkmod
+    alias?: string  // Optional, for collision disambiguation
+}
+
+#VirtualShellConfig: {
+    enable_uroot_utils?: bool
+}
+
+#UIConfig: {
+    color_scheme?: "auto" | "dark" | "light"
+    verbose?: bool
+    interactive?: bool
+}
+
+#ContainerConfig: {
+    auto_provision?: #AutoProvisionConfig
+}
+
+#AutoProvisionConfig: {
+    enabled?: bool
+    strict?: bool
+    binary_path?: string
+    includes?: [...#IncludeEntry]
+    inherit_includes?: bool
+    cache_dir?: string
+}`,
+  },
+
   'reference/config/config-structure': {
     language: 'cue',
     code: `#Config: {
@@ -371,7 +417,7 @@ invowk cmd build --ivk-runtime container`,
   'reference/config/ui': {
     language: 'cue',
     code: `ui: {
-    color_scheme: "dark"
+    color_scheme: "auto"
     verbose: false
     interactive: false
 }`,
@@ -527,6 +573,11 @@ ui: {
 container: {
     auto_provision: {
         enabled: true
+        strict: false
+        binary_path: ""
+        includes: []
+        inherit_includes: true
+        cache_dir: ""
     }
 }`,
   },

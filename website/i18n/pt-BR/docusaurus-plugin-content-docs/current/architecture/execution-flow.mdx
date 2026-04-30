@@ -105,7 +105,7 @@ Quando `--ivk-watch` é passado, a execução é envolvida em um loop de watch:
 | 5 | CLI | Re-executar comando |
 | 6 | Watch Engine | Repetir a partir da etapa 4 até Ctrl+C |
 
-**Tratamento de erros:** Códigos de saída diferentes de zero do comando continuam o loop de watch. Erros de infraestrutura (não `ExitError`) abortam o loop após 3 falhas consecutivas.
+**Tratamento de erros:** Códigos de saída diferentes de zero do comando continuam o loop de watch. Erros de infraestrutura abortam o loop após 3 falhas consecutivas.
 
 ## Pontos de Tratamento de Erros
 

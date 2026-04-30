@@ -33,6 +33,8 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Module Dependencies**: Modules can import dependencies from remote Git repositories (GitHub, GitLab) with semantic versioning support and lock files for reproducibility
 
+- **Security Auditing**: Inspect modules and lock files with `invowk audit`, including optional LLM-assisted analysis
+
 ## Installation
 
 ### Shell Script (Linux/macOS)
@@ -3001,12 +3003,14 @@ invowk/
 │   ├── core/serverbase/        # Shared server state machine base
 │   ├── discovery/              # Invowkfile and module discovery
 │   ├── audit/                  # Security scanning (6 checkers + LLM + correlator)
+│   ├── auditllm/               # LLM provider adapters for audit analysis
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
 │   ├── runtime/                # Runtime implementations (native, virtual, container)
 │   ├── sshserver/              # SSH server for host access from containers
 │   ├── testutil/               # Test utilities
 │   ├── tui/                    # TUI component library and interactive execution
+│   ├── tuiwire/                # Shared TUI wire protocol types
 │   ├── tuiserver/              # TUI server for interactive sessions
 │   ├── uroot/                  # u-root utilities for virtual shell built-ins
 │   └── watch/                  # File-watching with debounced re-execution
@@ -3037,7 +3041,6 @@ Invowk requires Go 1.26+. Exact direct and transitive dependency versions are pi
 
 **Core:**
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
-- [Viper](https://github.com/spf13/viper) - Configuration management
 - [CUE](https://cuelang.org/) - Configuration language
 - [mvdan/sh](https://github.com/mvdan/sh) - Virtual shell interpreter
 - [Fang](https://github.com/charmbracelet/fang) - Signal handling and graceful shutdown

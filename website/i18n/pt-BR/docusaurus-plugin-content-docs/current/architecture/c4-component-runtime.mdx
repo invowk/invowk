@@ -31,7 +31,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 |------------|------------|------------------|
 | **NativeRuntime** | Go | Executa comandos via shell do host (`bash`/`sh` no Unix, `PowerShell` no Windows). Opção mais rápida. Shell override configurável. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
 | **VirtualRuntime** | Go/mvdan-sh | Interpretador de shell POSIX embarcado com utilitários built-in u-root opcionais. Sem dependência de shell do host. Cria um subprocesso de si mesmo para modo interativo baseado em PTY. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
-| **ContainerRuntime** | Go | Executa comandos dentro de containers Docker/Podman. Depende de `container.Engine`, `provision.LayerProvisioner`, `sshserver.Server` e `config.Config`. Somente containers Linux. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
+| **ContainerRuntime** | Go | Executa comandos dentro de containers Docker/Podman. Depende de `container.Engine`, `provision.LayerProvisioner`, a porta `runtime.HostCallbackServer` para callbacks opcionais do host e `config.Config`. Somente containers Linux. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
 | **DefaultEnvBuilder** | Go | Implementação padrão de precedência de 10 níveis: env do host (filtrado) -> env files root/command/impl -> env vars root/command/impl -> ExtraEnv -> env files do runtime -> env vars do runtime. |
 | **MockEnvBuilder** | Go | Helper de teste que retorna um mapa de ambiente fixo. Permite testar runtimes isoladamente sem acesso real ao sistema de arquivos ou carregamento de env. |
 
@@ -54,7 +54,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 |-------------|-----------|-----------|
 | `container.Engine` | ContainerRuntime | Abstração unificada de engine de container Docker/Podman |
 | `provision.LayerProvisioner` | ContainerRuntime | Cria camadas de imagem efêmeras com binário invowk e módulos |
-| `sshserver.Server` | ContainerRuntime | Servidor SSH baseado em token para callbacks container-para-host |
+| `runtime.HostCallbackServer` | ContainerRuntime | Porta que fornece credenciais de callback do host baseadas em token para execuções em container; `internal/sshserver` adapta o servidor SSH concreto para essa porta |
 | `config.Config` | ContainerRuntime | Configuração da aplicação (preferência de engine de container, etc.) |
 | `mvdan.cc/sh/v3` | VirtualRuntime | Interpretador de shell POSIX embarcado |
 | `internal/uroot` | VirtualRuntime | Utilitários built-in para o shell virtual (cp, mv, cat, etc.) |

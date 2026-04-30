@@ -1,6 +1,6 @@
 # Per-Request Discovery Cache Flowchart
 #
-# Shows how the discoveryRequestCache in cmd/invowk/app.go memoizes
+# Shows how DiscoveryService in internal/app/commandadapters/discovery.go memoizes
 # discovery results within a single CLI invocation. The cache is
 # attached to the request context by contextWithConfigPath() and
 # shared across seven callers that would otherwise trigger redundant
@@ -10,7 +10,7 @@
 # commandSet slot (when result.Set != nil) so downstream
 # DiscoverCommandSet calls reuse the same result.
 #
-# Source: cmd/invowk/app.go (discoveryRequestCache, appDiscoveryService)
+# Source: internal/app/commandadapters/discovery.go (DiscoveryService)
 
 vars: {
   d2-config: {
@@ -86,7 +86,7 @@ AttachCache -> cache: initializes empty cache
 # Three Cached Operations
 # ==============================================================================
 
-operations: Cached Operations (appDiscoveryService) {
+operations: Cached Operations (DiscoveryService) {
   style: {
     stroke: "#1168BD"
     stroke-dash: 3

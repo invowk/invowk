@@ -24,7 +24,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | **Dependency Validator** | Go | Dependency validation domain (`internal/app/deps/`). Checks root, command, and implementation dependencies on the host, plus selected container runtime dependencies inside the container. |
 | **Execution Orchestrator** | Go | Runtime selection and execution context construction (`internal/app/execute/`). Chooses the selected runtime and dispatches to runtime implementations. |
 | **Discovery Engine** | Go | Finds `invowkfile.cue` and `*.invowkmod` directories with precedence ordering. Builds unified command tree. |
-| **Configuration Manager** | Go/Viper+CUE | Loads config from `~/.config/invowk/config.cue`. Validates against CUE schema. |
+| **Configuration Manager** | Go/CUE | Loads config from `~/.config/invowk/config.cue`. Validates against CUE schema. |
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |
 | **Module Resolver** | Go | Orchestrates Git-based module dependency resolution (via `pkg/invowkmod`). Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. CLI subcommands (`module deps`, `module sync`, `module update`) drive resolution. |
 | **Watch Engine** | Go | Monitors file system for changes. Debounces change events and triggers command re-execution for `--ivk-watch` mode. |
