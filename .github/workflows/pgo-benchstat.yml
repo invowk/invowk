@@ -34,13 +34,14 @@ jobs:
         env:
           BENCH_TIME: "1s"
           BENCH_COUNT: "10"
+          BENCH_REGEX: "^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$"
         run: |
           set -euo pipefail
 
           mkdir -p artifacts/pgo-benchstat
 
-          go test -pgo=off ./internal/benchmark -run=^$ -bench=. -benchmem -benchtime="$BENCH_TIME" -count="$BENCH_COUNT" -short > artifacts/pgo-benchstat/pgo-off.txt
-          go test ./internal/benchmark -run=^$ -bench=. -benchmem -benchtime="$BENCH_TIME" -count="$BENCH_COUNT" -short > artifacts/pgo-benchstat/pgo-on.txt
+          go test -pgo=off ./internal/benchmark -run=^$ -bench="$BENCH_REGEX" -benchmem -benchtime="$BENCH_TIME" -count="$BENCH_COUNT" > artifacts/pgo-benchstat/pgo-off.txt
+          go test ./internal/benchmark -run=^$ -bench="$BENCH_REGEX" -benchmem -benchtime="$BENCH_TIME" -count="$BENCH_COUNT" > artifacts/pgo-benchstat/pgo-on.txt
 
       - name: Generate benchstat report
         run: |
@@ -54,8 +55,8 @@ jobs:
             echo "- Generated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             echo "- Commit: $GITHUB_SHA"
             echo "- Runner: ubuntu-latest"
-            echo "- Command (off): \`go test -pgo=off ./internal/benchmark -run=^$ -bench=. -benchmem -benchtime=1s -count=10 -short\`"
-            echo "- Command (on): \`go test ./internal/benchmark -run=^$ -bench=. -benchmem -benchtime=1s -count=10 -short\`"
+            echo "- Command (off): \`go test -pgo=off ./internal/benchmark -run=^$ -bench=\"$BENCH_REGEX\" -benchmem -benchtime=1s -count=10\`"
+            echo "- Command (on): \`go test ./internal/benchmark -run=^$ -bench=\"$BENCH_REGEX\" -benchmem -benchtime=1s -count=10\`"
             echo
             echo '```text'
             cat artifacts/pgo-benchstat/benchstat.txt

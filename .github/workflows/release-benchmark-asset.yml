@@ -63,28 +63,21 @@ jobs:
 
       - name: Generate benchmark report
         env:
+          TAG: ${{ steps.tag.outputs.name }}
           STARTUP_SAMPLES: "40"
           BENCH_COUNT: "5"
           BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
-        run: |
-          set -euo pipefail
-
-          rm -rf "$BENCH_REPORT_OUT_DIR"
-          mkdir -p "$BENCH_REPORT_OUT_DIR"
-          make bench-report
+        run: scripts/stage-release-bench-report.sh
 
       - name: Resolve generated report
         id: report
-        env:
-          TAG: ${{ steps.tag.outputs.name }}
-          OUT_DIR: ${{ runner.temp }}/release-benchmarks
         run: |
           set -euo pipefail
 
-          mapfile -t reports < <(find "$OUT_DIR" -maxdepth 1 -type f -name '*.md' | sort)
+          mapfile -t reports < <(find release-assets -maxdepth 1 -type f -name '*.md' | sort)
           count="${#reports[@]}"
           if [[ "$count" -ne 1 ]]; then
-            echo "::error::Expected exactly 1 benchmark report in '$OUT_DIR', found $count"
+            echo "::error::Expected exactly 1 staged benchmark asset in release-assets, found $count"
             if [[ "$count" -gt 0 ]]; then
               printf 'Found files:\n%s\n' "${reports[@]}"
             fi
@@ -92,8 +85,7 @@ jobs:
           fi
 
           report_path="${reports[0]}"
-          VERSION="${TAG#v}"
-          asset_name="invowk_${VERSION}_bench-report.md"
+          asset_name="$(basename "$report_path")"
 
           echo "path=$report_path" >> "$GITHUB_OUTPUT"
           echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"

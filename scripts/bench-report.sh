@@ -9,6 +9,7 @@ BINARY="./bin/invowk"
 GO_CMD="${GOCMD:-go}"
 STARTUP_SAMPLES="${STARTUP_SAMPLES:-40}"
 BENCH_COUNT="${BENCH_COUNT:-5}"
+SHORT_BENCH_REGEX='^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$'
 
 usage() {
 	cat <<'EOF'
@@ -180,9 +181,11 @@ run_startup_scenario "cmd_list" "Cmd List (cmd)" cmd
 echo ""
 echo "Running Go benchmarks from ./internal/benchmark (mode: $MODE, count: $BENCH_COUNT)..."
 
-go_bench_cmd=("$GO_CMD" "test" "-run=^$" "-bench=." "-benchmem" "-count=$BENCH_COUNT")
+go_bench_cmd=("$GO_CMD" "test" "-run=^$" "-benchmem" "-count=$BENCH_COUNT")
 if [[ "$MODE" == "short" ]]; then
-	go_bench_cmd+=("-short")
+	go_bench_cmd+=("-bench=$SHORT_BENCH_REGEX")
+else
+	go_bench_cmd+=("-bench=.")
 fi
 go_bench_cmd+=("./internal/benchmark/")
 

@@ -4,35 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'cmd/**'
-      - 'internal/**'
-      - 'pkg/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - '*.go'
-      - 'go.mod'
-      - 'go.sum'
-      - 'Makefile'
-      - 'default.pgo'
-      - '.goreleaser.yaml'
-      - '.github/workflows/ci.yml'
   pull_request:
     branches:
       - main
-    paths:
-      - 'cmd/**'
-      - 'internal/**'
-      - 'pkg/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - '*.go'
-      - 'go.mod'
-      - 'go.sum'
-      - 'Makefile'
-      - 'default.pgo'
-      - '.goreleaser.yaml'
-      - '.github/workflows/ci.yml'
   # Release validation must always run in full, regardless of changed paths.
   release:
     types:
@@ -246,7 +220,9 @@ jobs:
       - name: Run benchmark smoke tests
         if: matrix.runner == 'ubuntu-latest' && matrix.engine == 'docker'
         shell: bash
-        run: go test ./internal/benchmark -run=^$ -bench=. -benchtime=1x -short -count=1
+        run: |
+          BENCH_REGEX='^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$'
+          go test ./internal/benchmark -run=^$ -bench="$BENCH_REGEX" -benchmem -benchtime=1x -count=1
 
       # Run install script unit tests (pure function tests, no network calls).
       # Only on Linux — the POSIX install script is not applicable on Windows/macOS CI.
@@ -622,3 +598,84 @@ jobs:
         with:
           version: "~> v2.15"
           args: check
+
+  # Release dry run: exercises the release-only path on every push/PR so
+  # benchmark report staging, release assets, compression hooks, signing setup,
+  # and GoReleaser packaging do not first meet CI on tag day.
+  release-dry-run:
+    name: Release Dry Run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Install UPX
+        run: |
+          UPX_VERSION="5.1.1"
+          curl -fsSL "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz" -o /tmp/upx.tar.xz
+          tar -xJf /tmp/upx.tar.xz -C /tmp
+          sudo install -m 755 "/tmp/upx-${UPX_VERSION}-amd64_linux/upx" /usr/local/bin/upx
+          rm -rf /tmp/upx.tar.xz "/tmp/upx-${UPX_VERSION}-amd64_linux"
+          upx --version
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.1
+        with:
+          cosign-release: v3.0.6
+
+      - name: Stage benchmark report asset
+        env:
+          TAG: v0.0.0-ci
+          STARTUP_SAMPLES: "3"
+          BENCH_COUNT: "1"
+          BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
+        run: scripts/stage-release-bench-report.sh
+
+      - name: Run GoReleaser release dry run (PR)
+        if: github.event_name == 'pull_request'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2.15"
+          args: release --clean --snapshot --skip=sign
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GORELEASER_CURRENT_TAG: v0.0.0-ci
+          HOMEBREW_TAP_TOKEN: "dry-run"
+          WINGET_TOKEN: "dry-run"
+
+      - name: Run GoReleaser release dry run (integration)
+        if: github.event_name != 'pull_request'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2.15"
+          args: release --clean --snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GORELEASER_CURRENT_TAG: v0.0.0-ci
+          HOMEBREW_TAP_TOKEN: "dry-run"
+          WINGET_TOKEN: "dry-run"

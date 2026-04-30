@@ -369,26 +369,10 @@ jobs:
       # wipes dist/ before building. The .goreleaser.yaml extra_files glob
       # points to release-assets/ to pick up the report at upload time.
       - name: Generate benchmark report
-        if: "!(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true')"
         env:
           TAG: ${{ steps.tag.outputs.name }}
           BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
-        run: |
-          set -euo pipefail
-          mkdir -p "$BENCH_REPORT_OUT_DIR"
-          make bench-report
-
-          # Copy report to release-assets/ for GoReleaser extra_files
-          REPORT=$(find "$BENCH_REPORT_OUT_DIR" -maxdepth 1 -name '*.md' -type f | head -1)
-          if [[ -z "$REPORT" ]]; then
-            echo "::error::Benchmark report not generated (searched $BENCH_REPORT_OUT_DIR)"
-            exit 1
-          fi
-          rm -rf release-assets
-          mkdir -p release-assets
-          VERSION="${TAG#v}"
-          cp "$REPORT" "release-assets/invowk_${VERSION}_bench-report.md"
-          echo "Benchmark report staged: release-assets/invowk_${VERSION}_bench-report.md"
+        run: scripts/stage-release-bench-report.sh
 
       # Run GoReleaser (publish)
       - name: Run GoReleaser

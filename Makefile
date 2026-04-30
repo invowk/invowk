@@ -369,7 +369,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/stage-release-bench-report.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
