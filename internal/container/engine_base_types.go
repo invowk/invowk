@@ -222,12 +222,16 @@ func (e *InvalidHostFilesystemPathError) Unwrap() error { return ErrInvalidHostF
 // String returns the string representation of the VolumeMountSpec.
 func (s VolumeMountSpec) String() string { return string(s) }
 
-// Validate returns an error if the VolumeMountSpec is empty.
+// Validate returns an error if the VolumeMountSpec is not a supported
+// Docker/Podman volume argument.
 //
 //goplint:nonzero
 func (s VolumeMountSpec) Validate() error {
-	if strings.TrimSpace(string(s)) == "" {
-		return &InvalidVolumeMountError{Value: VolumeMount{HostPath: HostFilesystemPath(s)}}
+	if err := validateVolumeMountSpec(string(s)); err != nil {
+		return &InvalidVolumeMountError{
+			Value:     VolumeMount{HostPath: HostFilesystemPath(s)},
+			FieldErrs: []error{err},
+		}
 	}
 	return nil
 }
@@ -259,12 +263,16 @@ func (e *InvalidMountTargetPathError) Unwrap() error {
 // String returns the string representation of the PortMappingSpec.
 func (s PortMappingSpec) String() string { return string(s) }
 
-// Validate returns an error if the PortMappingSpec is empty.
+// Validate returns an error if the PortMappingSpec is not a supported
+// Docker/Podman port argument.
 //
 //goplint:nonzero
 func (s PortMappingSpec) Validate() error {
-	if strings.TrimSpace(string(s)) == "" {
-		return &InvalidPortMappingError{Value: PortMapping{}}
+	if err := validatePortMappingSpec(string(s)); err != nil {
+		return &InvalidPortMappingError{
+			Value:     PortMapping{},
+			FieldErrs: []error{err},
+		}
 	}
 	return nil
 }

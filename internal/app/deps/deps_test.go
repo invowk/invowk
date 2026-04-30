@@ -132,22 +132,39 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 	})
 
-	t.Run("allows non-aliased direct dependency module id", func(t *testing.T) {
+	t.Run("allows locked non-aliased direct dependency module id", func(t *testing.T) {
 		t.Parallel()
 
 		depID := invowkmod.ModuleID("io.example.dep")
+		req := invowkmod.ModuleRequirement{
+			GitURL:  "https://github.com/example/mono.git",
+			Version: "^1.0.0",
+			Path:    "modules/dep-tools",
+		}
+		moduleDir := t.TempDir()
+		lock := invowkmod.NewLockFile()
+		lock.Modules[invowkmod.ModuleRef(req).Key()] = invowkmod.LockedModule{
+			GitURL:          req.GitURL,
+			Version:         req.Version,
+			ResolvedVersion: "1.2.3",
+			GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+			Path:            req.Path,
+			Namespace:       "dep-tools@1.2.3",
+			ModuleID:        depID,
+			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		}
+		if err := lock.Save(filepath.Join(moduleDir, invowkmod.LockFileName)); err != nil {
+			t.Fatalf("lock.Save() = %v", err)
+		}
 		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
-			Module:  "io.example.caller",
-			Version: "1.0.0",
-			Requires: []invowkmod.ModuleRequirement{{
-				GitURL:  "https://github.com/example/dep.git",
-				Version: "^1.0.0",
-			}},
+			Module:   "io.example.caller",
+			Version:  "1.0.0",
+			Requires: []invowkmod.ModuleRequirement{req},
 		})
 		callerInfo := &discovery.CommandInfo{
 			Name:       invowkfile.CommandName("build"),
 			Command:    &invowkfile.Command{Name: "build"},
-			Invowkfile: &invowkfile.Invowkfile{Metadata: callerMeta},
+			Invowkfile: &invowkfile.Invowkfile{ModulePath: types.FilesystemPath(moduleDir), Metadata: callerMeta},
 		}
 		commandSet := &discovery.DiscoveredCommandSet{
 			Commands: []*discovery.CommandInfo{{

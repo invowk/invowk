@@ -22,10 +22,6 @@ type (
 		mu       sync.Mutex
 		instance *sshserver.Server
 	}
-
-	sshHostCallbackServer struct {
-		server *sshserver.Server
-	}
 )
 
 // NewHostAccess creates an SSH-backed host-access adapter.
@@ -96,54 +92,5 @@ func (h *HostAccess) SSHServer() runtime.HostCallbackServer {
 	if h.instance == nil {
 		return nil
 	}
-	return sshHostCallbackServer{server: h.instance}
-}
-
-func (s sshHostCallbackServer) IsRunning() bool {
-	return s.server != nil && s.server.IsRunning()
-}
-
-func (s sshHostCallbackServer) GetConnectionInfo(commandID runtime.HostCallbackCommandID) (*runtime.HostCallbackConnectionInfo, error) {
-	sshCommandID := sshserver.CommandID(commandID.String())
-	if err := sshCommandID.Validate(); err != nil {
-		return nil, err
-	}
-	info, err := s.server.GetConnectionInfo(sshCommandID)
-	if err != nil {
-		return nil, err
-	}
-	host := runtime.HostCallbackHost(info.Host.String())
-	if err := host.Validate(); err != nil {
-		return nil, err
-	}
-	token := runtime.HostCallbackToken(info.Token.String())
-	if err := token.Validate(); err != nil {
-		return nil, err
-	}
-	port := info.Port
-	if err := port.Validate(); err != nil {
-		return nil, err
-	}
-	user := runtime.HostCallbackUser(info.User)
-	if err := user.Validate(); err != nil {
-		return nil, err
-	}
-	connInfo := &runtime.HostCallbackConnectionInfo{
-		Host:  host,
-		Port:  port,
-		Token: token,
-		User:  user,
-	}
-	if err := connInfo.Validate(); err != nil {
-		return nil, err
-	}
-	return connInfo, nil
-}
-
-func (s sshHostCallbackServer) RevokeToken(token runtime.HostCallbackToken) {
-	sshToken := sshserver.TokenValue(token.String())
-	if err := sshToken.Validate(); err != nil {
-		return
-	}
-	s.server.RevokeToken(sshToken)
+	return sshserver.NewRuntimeHostCallbackServer(h.instance)
 }

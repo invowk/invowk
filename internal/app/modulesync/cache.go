@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -62,7 +63,7 @@ func (m *Resolver) cacheModule(srcDir, dstDir string, expectedHash ContentHash) 
 
 	srcPath := types.FilesystemPath(srcDir) //goplint:ignore -- OS-resolved path from repository checkout
 	dstPath := types.FilesystemPath(dstDir) //goplint:ignore -- resolver-managed cache path
-	if err := invowkmod.CopyModuleDir(srcPath, dstPath); err != nil {
+	if err := modulecache.CopyModuleDir(srcPath, dstPath); err != nil {
 		return "", err
 	}
 

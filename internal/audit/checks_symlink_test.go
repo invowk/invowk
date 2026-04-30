@@ -45,15 +45,7 @@ func TestSymlinkChecker_DetectsSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sc := &ScanContext{
-		modules: []*ScannedModule{{
-			Path:      types.FilesystemPath(modDir),
-			SurfaceID: "testmod",
-			Module: &invowkmod.Module{
-				Metadata: &invowkmod.Invowkmod{},
-			},
-		}},
-	}
+	sc := newSymlinkTestScanContext(t, modDir)
 
 	checker := NewSymlinkChecker()
 	findings, err := checker.Check(t.Context(), sc)
@@ -91,15 +83,7 @@ func TestSymlinkChecker_DetectsExternalTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sc := &ScanContext{
-		modules: []*ScannedModule{{
-			Path:      types.FilesystemPath(modDir),
-			SurfaceID: "testmod",
-			Module: &invowkmod.Module{
-				Metadata: &invowkmod.Invowkmod{},
-			},
-		}},
-	}
+	sc := newSymlinkTestScanContext(t, modDir)
 
 	checker := NewSymlinkChecker()
 	findings, err := checker.Check(t.Context(), sc)
@@ -130,15 +114,7 @@ func TestSymlinkChecker_DanglingSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sc := &ScanContext{
-		modules: []*ScannedModule{{
-			Path:      types.FilesystemPath(modDir),
-			SurfaceID: "testmod",
-			Module: &invowkmod.Module{
-				Metadata: &invowkmod.Invowkmod{},
-			},
-		}},
-	}
+	sc := newSymlinkTestScanContext(t, modDir)
 
 	checker := NewSymlinkChecker()
 	findings, err := checker.Check(t.Context(), sc)
@@ -184,15 +160,7 @@ func TestSymlinkChecker_SymlinkChain(t *testing.T) {
 			prev = link
 		}
 
-		sc := &ScanContext{
-			modules: []*ScannedModule{{
-				Path:      types.FilesystemPath(modDir),
-				SurfaceID: "testmod",
-				Module: &invowkmod.Module{
-					Metadata: &invowkmod.Invowkmod{},
-				},
-			}},
-		}
+		sc := newSymlinkTestScanContext(t, modDir)
 
 		checker := NewSymlinkChecker()
 		findings, err := checker.Check(t.Context(), sc)
@@ -230,15 +198,7 @@ func TestSymlinkChecker_SymlinkChain(t *testing.T) {
 			prev = link
 		}
 
-		sc := &ScanContext{
-			modules: []*ScannedModule{{
-				Path:      types.FilesystemPath(modDir),
-				SurfaceID: "testmod",
-				Module: &invowkmod.Module{
-					Metadata: &invowkmod.Invowkmod{},
-				},
-			}},
-		}
+		sc := newSymlinkTestScanContext(t, modDir)
 
 		checker := NewSymlinkChecker()
 		findings, err := checker.Check(t.Context(), sc)
@@ -262,15 +222,7 @@ func TestSymlinkChecker_NoSymlinks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sc := &ScanContext{
-		modules: []*ScannedModule{{
-			Path:      types.FilesystemPath(modDir),
-			SurfaceID: "testmod",
-			Module: &invowkmod.Module{
-				Metadata: &invowkmod.Invowkmod{},
-			},
-		}},
-	}
+	sc := newSymlinkTestScanContext(t, modDir)
 
 	checker := NewSymlinkChecker()
 	findings, err := checker.Check(t.Context(), sc)
@@ -279,5 +231,20 @@ func TestSymlinkChecker_NoSymlinks(t *testing.T) {
 	}
 	if len(findings) != 0 {
 		t.Errorf("no symlinks should produce 0 findings, got %d", len(findings))
+	}
+}
+
+func newSymlinkTestScanContext(t *testing.T, modDir string) *ScanContext {
+	t.Helper()
+
+	symlinks, scanErr := scanModuleSymlinks(types.FilesystemPath(modDir))
+	return &ScanContext{
+		modules: []*ScannedModule{{
+			Path:           types.FilesystemPath(modDir),
+			SurfaceID:      "testmod",
+			Module:         &invowkmod.Module{Metadata: &invowkmod.Invowkmod{}},
+			Symlinks:       symlinks,
+			SymlinkScanErr: scanErr,
+		}},
 	}
 }

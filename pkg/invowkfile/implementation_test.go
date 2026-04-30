@@ -315,6 +315,37 @@ func TestResolveScriptWithFSAndModule_PathTraversal(t *testing.T) {
 	}
 }
 
+func TestResolveScriptWithFSAndModule_ValidatesResolvedContent(t *testing.T) {
+	t.Parallel()
+
+	moduleDir := filepath.Join(string(filepath.Separator), "modules", "mymod.invowkmod")
+	if runtime.GOOS == "windows" {
+		moduleDir = `C:\modules\mymod.invowkmod`
+	}
+	invowkfilePath := FilesystemPath(filepath.Join(moduleDir, "invowkfile.cue"))
+	modulePath := FilesystemPath(moduleDir)
+	scriptPath := filepath.Join(moduleDir, "scripts", "empty.sh")
+	readFile := func(path string) ([]byte, error) {
+		if path != scriptPath {
+			return nil, os.ErrNotExist
+		}
+		return []byte("   \n\t"), nil
+	}
+
+	impl := &Implementation{
+		Script:   "./scripts/empty.sh",
+		Runtimes: []RuntimeConfig{{Name: RuntimeNative}},
+	}
+
+	_, err := impl.ResolveScriptWithFSAndModule(invowkfilePath, modulePath, readFile)
+	if err == nil {
+		t.Fatal("ResolveScriptWithFSAndModule() error = nil, want invalid script content")
+	}
+	if !errors.Is(err, ErrInvalidScriptContent) {
+		t.Fatalf("errors.Is(err, ErrInvalidScriptContent) = false for %v", err)
+	}
+}
+
 // TestResolveScriptWithModule_NoModulePath_NoContainmentCheck verifies that
 // containment checking is NOT applied when modulePath is empty (non-module
 // context). This is the backwards-compatibility case.

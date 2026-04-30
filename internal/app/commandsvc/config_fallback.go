@@ -19,7 +19,7 @@ import (
 // returns defaults with a diagnostic so command execution stays operational.
 //
 //goplint:ignore -- configPath matches ConfigFallbackFunc and is validated by the config provider.
-func LoadConfigWithFallback(ctx context.Context, provider config.Provider, configPath string) (*config.Config, []discovery.Diagnostic) {
+func LoadConfigWithFallback(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []discovery.Diagnostic) {
 	configFilePath := types.FilesystemPath(configPath) //goplint:ignore -- CLI config path is validated by provider.Load.
 	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: configFilePath})
 	if err == nil {

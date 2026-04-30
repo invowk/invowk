@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -87,7 +88,7 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 
 	for _, mod := range opts.Modules {
 		// Locate the .invowkmod directory within the cache path.
-		moduleDirPath, _, err := invowkmod.LocateModuleInDir(mod.CachePath)
+		moduleDirPath, _, err := modulecache.LocateModuleInDir(mod.CachePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to locate module in cache path %s: %w", mod.CachePath, err)
 		}
@@ -106,7 +107,7 @@ func VendorModules(opts VendorOptions) (*VendorResult, error) {
 		}
 
 		dstPath := types.FilesystemPath(destPath) //goplint:ignore -- filepath.Join from validated vendor directory and cache basename
-		if err := invowkmod.CopyModuleDir(moduleDirPath, dstPath); err != nil {
+		if err := modulecache.CopyModuleDir(moduleDirPath, dstPath); err != nil {
 			return nil, fmt.Errorf("failed to copy module to %s: %w", destPath, err)
 		}
 

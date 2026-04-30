@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkmod
+// Package modulecache owns filesystem cache operations for module sync and vendor workflows.
+package modulecache
 
 import (
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -24,15 +26,14 @@ const (
 // a .invowkmod subdirectory or an invowkmod.cue file.
 var ErrModuleNotFoundInDir = errors.New("no module found")
 
-// GetDefaultCacheDir returns the default module cache directory.
-// It checks INVOWK_MODULES_PATH environment variable first, then falls back to ~/.invowk/modules.
-func GetDefaultCacheDir() (types.FilesystemPath, error) {
-	return GetDefaultCacheDirWith(os.Getenv)
+// DefaultDir returns the default module cache directory.
+// It checks INVOWK_MODULES_PATH first, then falls back to ~/.invowk/modules.
+func DefaultDir() (types.FilesystemPath, error) {
+	return DefaultDirWith(os.Getenv)
 }
 
-// GetDefaultCacheDirWith returns the default module cache directory using the provided
-// getenv function. This enables testing without mutating process-global environment state.
-func GetDefaultCacheDirWith(getenv func(string) string) (types.FilesystemPath, error) {
+// DefaultDirWith returns the default module cache directory using getenv.
+func DefaultDirWith(getenv func(string) string) (types.FilesystemPath, error) {
 	if envPath := getenv(ModuleCachePathEnv); envPath != "" {
 		cachePath := types.FilesystemPath(envPath)
 		if err := cachePath.Validate(); err != nil {
@@ -53,35 +54,46 @@ func GetDefaultCacheDirWith(getenv func(string) string) (types.FilesystemPath, e
 	return cachePath, nil
 }
 
+// LocateModuleInDir finds a module directory inside dir.
+func LocateModuleInDir(dir types.FilesystemPath) (types.FilesystemPath, invowkmod.ModuleShortName, error) {
+	moduleDir, moduleName, err := findModuleInDir(string(dir))
+	return types.FilesystemPath(moduleDir), moduleName, err //goplint:ignore -- result is returned from filesystem traversal
+}
+
+// CopyModuleDir recursively copies a module directory, skipping symlinks.
+func CopyModuleDir(src, dst types.FilesystemPath) error {
+	return copyDir(string(src), string(dst))
+}
+
 // findModuleInDir finds a .invowkmod directory or invowkmod.cue in the given directory.
-// A Git repo is considered a module if:
-//   - Repo name ends with .invowkmod suffix, OR
-//   - Contains an invowkmod.cue file at the root
-func findModuleInDir(dir string) (moduleDir string, moduleName ModuleShortName, err error) {
+//
+//goplint:ignore -- helper inspects transient OS-native cache paths from filesystem traversal.
+func findModuleInDir(dir string) (moduleDir string, moduleName invowkmod.ModuleShortName, err error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read directory: %w", err)
 	}
 
-	// First, look for .invowkmod directories
 	for _, entry := range entries {
-		if entry.IsDir() && strings.HasSuffix(entry.Name(), ModuleSuffix) {
-			moduleName = ModuleShortName(strings.TrimSuffix(entry.Name(), ModuleSuffix))
+		if entry.IsDir() && strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
+			moduleName, err = newModuleShortName(strings.TrimSuffix(entry.Name(), invowkmod.ModuleSuffix))
+			if err != nil {
+				return "", "", err
+			}
 			return filepath.Join(dir, entry.Name()), moduleName, nil
 		}
 	}
 
-	// Check if this directory IS a module (has invowkmod.cue at root)
-	// This supports Git repos with .invowkmod suffix in their name
 	invowkmodPath := filepath.Join(dir, "invowkmod.cue")
 	if _, err := os.Stat(invowkmodPath); err == nil {
-		// Extract module name from directory (for .invowkmod repos)
 		dirName := filepath.Base(dir)
-		if name, found := strings.CutSuffix(dirName, ModuleSuffix); found {
-			moduleName = ModuleShortName(name)
+		if name, found := strings.CutSuffix(dirName, invowkmod.ModuleSuffix); found {
+			moduleName, err = newModuleShortName(name)
 		} else {
-			// Fall back to parsing invowkmod.cue to get the module name
-			moduleName = ModuleShortName(dirName)
+			moduleName, err = newModuleShortName(dirName)
+		}
+		if err != nil {
+			return "", "", err
 		}
 		return dir, moduleName, nil
 	}
@@ -89,13 +101,16 @@ func findModuleInDir(dir string) (moduleDir string, moduleName ModuleShortName, 
 	return "", "", fmt.Errorf("%w in %s (expected .invowkmod directory or invowkmod.cue)", ErrModuleNotFoundInDir, dir)
 }
 
-// LocateModuleInDir finds a module directory inside dir.
-func LocateModuleInDir(dir types.FilesystemPath) (types.FilesystemPath, ModuleShortName, error) {
-	moduleDir, moduleName, err := findModuleInDir(string(dir))
-	return types.FilesystemPath(moduleDir), moduleName, err //goplint:ignore -- result is returned from filesystem traversal
+//goplint:ignore -- helper validates module names derived from OS directory entries.
+func newModuleShortName(raw string) (invowkmod.ModuleShortName, error) {
+	name := invowkmod.ModuleShortName(raw)
+	if err := name.Validate(); err != nil {
+		return "", err
+	}
+	return name, nil
 }
 
-// copyDir recursively copies a directory, skipping symlinks for security.
+//goplint:ignore -- helper copies transient OS-native cache paths.
 func copyDir(src, dst string) error {
 	srcInfo, err := os.Stat(src)
 	if err != nil {
@@ -115,7 +130,6 @@ func copyDir(src, dst string) error {
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
 
-		// Skip symlinks to prevent directory traversal attacks
 		info, err := entry.Info()
 		if err != nil {
 			return err
@@ -128,34 +142,22 @@ func copyDir(src, dst string) error {
 			if err := copyDir(srcPath, dstPath); err != nil {
 				return err
 			}
-		} else {
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
+			continue
+		}
+		if err := copyFile(srcPath, dstPath); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-// CopyModuleDir recursively copies a module directory, skipping symlinks.
-func CopyModuleDir(src, dst types.FilesystemPath) error {
-	return copyDir(string(src), string(dst))
-}
-
-// copyFile copies a single regular file. Uses os.Lstat to avoid following
-// symlinks — a defense-in-depth layer independent of the caller's symlink
-// check in copyDir. This eliminates the TOCTOU window between the directory
-// entry check and the file read. Content hash verification provides a
-// second layer: if a file is replaced between copy and hash computation,
-// the mismatch is detected.
+//goplint:ignore -- helper copies transient OS-native cache paths.
 func copyFile(src, dst string) error {
 	srcInfo, err := os.Lstat(src)
 	if err != nil {
 		return fmt.Errorf("lstat %s: %w", src, err)
 	}
-	// Skip non-regular files (symlinks, devices, etc.) — each layer
-	// validates its own invariants rather than trusting the caller.
 	if !srcInfo.Mode().IsRegular() {
 		return nil
 	}

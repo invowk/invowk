@@ -20,7 +20,7 @@ type (
 	// runtime resolution, host-access lifecycle, execution context construction,
 	// and dispatch. It returns raw typed errors (not styled ServiceErrors).
 	Service struct {
-		config            config.Provider
+		config            config.Loader
 		discovery         CommandDiscovery
 		hostAccess        HostAccess
 		registryFactory   RuntimeRegistryFactory
@@ -34,7 +34,7 @@ type (
 
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
 	// The CLI layer provides the implementation that emits diagnostics.
-	ConfigFallbackFunc func(ctx context.Context, provider config.Provider, configPath string) (*config.Config, []discovery.Diagnostic)
+	ConfigFallbackFunc func(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []discovery.Diagnostic)
 )
 
 // New creates a command execution service.
@@ -43,18 +43,18 @@ type (
 // is nil. The configFallback function loads configuration with fallback behavior.
 // Both are provided by the CLI layer to avoid the service importing cmd/.
 func New(
-	configProvider config.Provider,
+	configProvider config.Loader,
 	disc CommandDiscovery,
 	userEnvFunc UserEnvFunc,
 	configFallback ConfigFallbackFunc,
 ) *Service {
-	return NewWithPorts(configProvider, disc, userEnvFunc, configFallback, nil, nil, nil, nil, nil)
+	return NewWithPorts(configProvider, disc, userEnvFunc, configFallback, nil, nil, nil, nil, nil, nil)
 }
 
 // NewWithPorts creates a command execution service with explicit infrastructure
 // adapters. Nil ports fall back to no-op/default adapters for tests.
 func NewWithPorts(
-	configProvider config.Provider,
+	configProvider config.Loader,
 	disc CommandDiscovery,
 	userEnvFunc UserEnvFunc,
 	configFallback ConfigFallbackFunc,
@@ -62,6 +62,7 @@ func NewWithPorts(
 	registryFactory RuntimeRegistryFactory,
 	interactive InteractiveExecutor,
 	observer ExecutionObserver,
+	capabilityChecker deps.CapabilityChecker,
 	hostProbe deps.HostProbe,
 ) *Service {
 	svc := &Service{
@@ -85,6 +86,9 @@ func NewWithPorts(
 	}
 	if observer != nil {
 		svc.observer = observer
+	}
+	if capabilityChecker != nil {
+		svc.capabilityChecker = capabilityChecker
 	}
 	if hostProbe != nil {
 		svc.hostProbe = hostProbe

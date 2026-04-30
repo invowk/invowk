@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -133,7 +134,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 	}
 
 	// Find .invowkmod directory
-	moduleDirPath, moduleName, err := invowkmod.LocateModuleInDir(types.FilesystemPath(modulePath)) //goplint:ignore -- path resolved from repository checkout and optional validated subpath
+	moduleDirPath, moduleName, err := modulecache.LocateModuleInDir(types.FilesystemPath(modulePath)) //goplint:ignore -- path resolved from repository checkout and optional validated subpath
 	if err != nil {
 		return nil, fmt.Errorf("failed to find module in %s: %w", modulePath, err)
 	}

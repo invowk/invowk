@@ -5,6 +5,7 @@ package deps
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -244,8 +245,12 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 		}
 	}
 
-	// Build scope from direct requirements (seeds DirectDeps with aliases).
-	scope := invowkmod.NewCommandScope(moduleID, globalIDs, cmdInfo.Invowkfile.Metadata.Requires())
+	requirements := cmdInfo.Invowkfile.Metadata.Requires()
+	lock := loadCommandScopeLock(cmdInfo.Invowkfile)
+
+	// Build scope from explicit aliases, then wire resolved direct dependencies
+	// below from discovery plus lock-file identity.
+	scope := invowkmod.NewCommandScope(moduleID, globalIDs, requirements)
 	scope.ModuleSourceID = invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
 	for _, cmd := range available {
 		if cmd.IsGlobalModule {
@@ -260,19 +265,39 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 		if cmd.ModuleID == nil || scope.DirectDeps[*cmd.ModuleID] {
 			continue
 		}
-		for _, req := range cmdInfo.Invowkfile.Metadata.Requires() {
-			if requirementMatchesSource(req, cmd.SourceID) {
-				scope.AddDirectDep(*cmd.ModuleID)
-				scope.AddDirectSource(invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
-			}
+		if commandMatchesDirectRequirement(requirements, lock, cmd) {
+			scope.AddDirectDep(*cmd.ModuleID)
+			scope.AddDirectSource(invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
 		}
 	}
 
 	return scope
 }
 
-func requirementMatchesSource(req invowkmod.ModuleRequirement, sourceID discovery.SourceID) bool {
-	return invowkmod.ModuleRef(req).MatchesSourceID(invowkmod.ModuleSourceID(sourceID)) //goplint:ignore -- SourceID already validated by discovery package
+func loadCommandScopeLock(inv *invowkfile.Invowkfile) *invowkmod.LockFile {
+	if inv == nil || inv.ModulePath == "" {
+		return nil
+	}
+	lock, err := invowkmod.LoadLockFile(filepath.Join(string(inv.ModulePath), invowkmod.LockFileName))
+	if err != nil {
+		return nil
+	}
+	return lock
+}
+
+func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement, lock *invowkmod.LockFile, cmd *discovery.CommandInfo) bool {
+	if cmd == nil || cmd.ModuleID == nil {
+		return false
+	}
+	if invowkmod.IsDeclaredLockedModule(requirements, lock, *cmd.ModuleID) {
+		return true
+	}
+	for _, req := range requirements {
+		if req.Alias != "" && discovery.SourceID(req.Alias) == cmd.SourceID {
+			return true
+		}
+	}
+	return false
 }
 
 func discoverAvailableCommands(disc CommandSetProvider, ctx *runtime.ExecutionContext) (map[invowkfile.CommandName]*discovery.CommandInfo, error) {

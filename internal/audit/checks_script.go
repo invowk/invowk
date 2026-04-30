@@ -5,12 +5,8 @@ package audit
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -139,31 +135,20 @@ func (c *ScriptChecker) checkScriptFileSize(ref ScriptRef) []Finding {
 		return nil
 	}
 
-	// Resolve script file path relative to module.
-	scriptPath := strings.TrimSpace(string(ref.Script))
-	if !strings.HasPrefix(scriptPath, "/") {
-		scriptPath = filepath.Join(string(ref.ModulePath), scriptPath)
-	}
-
-	info, err := os.Stat(scriptPath)
-	if err != nil {
+	if ref.FileStatErr != nil || ref.ScriptPath == "" {
 		return nil
 	}
 
-	if info.Size() > maxScriptFileSize {
-		filePath := types.FilesystemPath(scriptPath)
-		if err := filePath.Validate(); err != nil {
-			return nil
-		}
+	if ref.FileSize > maxScriptFileSize {
 		return []Finding{{
 			Severity:       SeverityMedium,
 			Category:       CategoryExecution,
 			SurfaceID:      ref.SurfaceID,
 			SurfaceKind:    ref.SurfaceKind,
 			CheckerName:    scriptCheckerName,
-			FilePath:       filePath,
+			FilePath:       ref.ScriptPath,
 			Title:          "Script file unusually large",
-			Description:    fmt.Sprintf("Script file is %d bytes — may contain embedded binaries or obfuscated content", info.Size()),
+			Description:    fmt.Sprintf("Script file is %d bytes — may contain embedded binaries or obfuscated content", ref.FileSize),
 			Recommendation: "Review the script contents; large scripts warrant extra scrutiny",
 		}}
 	}

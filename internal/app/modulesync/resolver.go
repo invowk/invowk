@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -71,7 +72,7 @@ func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetche
 
 	cd := cacheDir
 	if cd == "" {
-		cd, err = invowkmod.GetDefaultCacheDir()
+		cd, err = modulecache.DefaultDir()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cache directory: %w", err)
 		}

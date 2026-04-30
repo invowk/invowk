@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -128,8 +129,8 @@ func TestGetDefaultCacheDir(t *testing.T) {
 		t.Parallel()
 
 		customPath := "/custom/path/to/modules"
-		result, err := invowkmod.GetDefaultCacheDirWith(func(key string) string {
-			if key == invowkmod.ModuleCachePathEnv {
+		result, err := modulecache.DefaultDirWith(func(key string) string {
+			if key == modulecache.ModuleCachePathEnv {
 				return customPath
 			}
 			return ""
@@ -145,13 +146,13 @@ func TestGetDefaultCacheDir(t *testing.T) {
 	t.Run("without env var", func(t *testing.T) {
 		t.Parallel()
 
-		result, err := invowkmod.GetDefaultCacheDirWith(func(string) string { return "" })
+		result, err := modulecache.DefaultDirWith(func(string) string { return "" })
 		if err != nil {
 			t.Fatalf("GetDefaultCacheDirWith() error = %v", err)
 		}
 
 		homeDir, _ := os.UserHomeDir()
-		expected := filepath.Join(homeDir, ".invowk", invowkmod.DefaultModulesDir)
+		expected := filepath.Join(homeDir, ".invowk", modulecache.DefaultModulesDir)
 		if string(result) != expected {
 			t.Errorf("GetDefaultCacheDirWith() = %q, want %q", result, expected)
 		}
@@ -347,7 +348,7 @@ func TestCopyDir(t *testing.T) {
 	}
 
 	// Copy
-	if err := invowkmod.CopyModuleDir(types.FilesystemPath(srcDir), types.FilesystemPath(dstDir)); err != nil {
+	if err := modulecache.CopyModuleDir(types.FilesystemPath(srcDir), types.FilesystemPath(dstDir)); err != nil {
 		t.Fatalf("copyDir() error = %v", err)
 	}
 

@@ -145,6 +145,7 @@ func NewApp(d Dependencies) (*App, error) {
 			interactiveExecutor,
 			&cliExecutionObserver{stdout: d.Stdout},
 			nil,
+			nil,
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}

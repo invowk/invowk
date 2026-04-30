@@ -23,7 +23,7 @@ type (
 	// for command execution frontends.
 	//goplint:ignore -- adapter state is validated by construction; zero-value config provider is allowed in tests.
 	DiscoveryService struct {
-		config config.Provider
+		config config.Loader
 	}
 
 	//goplint:ignore -- request cache entry holds discovery results produced by the discovery domain.
@@ -52,7 +52,7 @@ type (
 )
 
 // NewDiscoveryService creates a request-cached discovery adapter.
-func NewDiscoveryService(provider config.Provider) *DiscoveryService {
+func NewDiscoveryService(provider config.Loader) *DiscoveryService {
 	return &DiscoveryService{config: provider}
 }
 

@@ -39,11 +39,21 @@ type (
 		SourcePath types.FilesystemPath
 	}
 
-	// Provider loads configuration from explicit options.
-	// This abstraction enables testing with custom config sources or mock implementations.
-	Provider interface {
+	// Loader loads configuration from explicit options.
+	Loader interface {
 		Load(ctx context.Context, opts LoadOptions) (*Config, error)
+	}
+
+	// SourceLoader loads configuration and reports the source path used.
+	SourceLoader interface {
 		LoadWithSource(ctx context.Context, opts LoadOptions) (LoadResult, error)
+	}
+
+	// Provider exposes the full configuration loading surface for CLI commands
+	// that need both config data and source metadata.
+	Provider interface {
+		Loader
+		SourceLoader
 	}
 
 	// fileProvider is the production Provider that loads configuration from the filesystem.

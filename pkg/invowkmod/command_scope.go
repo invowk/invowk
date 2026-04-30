@@ -60,13 +60,8 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 	}
 
 	for _, req := range directRequirements {
-		ref := ModuleRef(req)
 		if req.Alias != "" {
 			scope.DirectSources[ModuleSourceID(req.Alias)] = true
-			continue
-		}
-		if sourceID := ref.DefaultSourceID(); sourceID != "" {
-			scope.DirectSources[sourceID] = true
 		}
 	}
 

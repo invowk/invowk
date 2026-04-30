@@ -4,22 +4,17 @@ package runtime
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/invowk/invowk/internal/container"
-	"github.com/invowk/invowk/internal/sshserver"
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-type testSSHHostCallbacks struct {
-	server *sshserver.Server
-}
+type staticHostCallbacks struct{}
 
 // TestContainerRuntime_Integration tests the container runtime with real containers.
 // These tests require Docker or Podman to be available.
@@ -492,91 +487,34 @@ func createContainerRuntime(t *testing.T) *ContainerRuntime {
 	return rt
 }
 
-// createContainerRuntimeWithSSHServer creates a container runtime with an SSH server for testing
+// createContainerRuntimeWithSSHServer creates a container runtime with host callback coordinates for testing.
 func createContainerRuntimeWithSSHServer(t *testing.T) *ContainerRuntime {
 	t.Helper()
 
 	rt := createContainerRuntime(t)
-
-	// Create and start an SSH server for testing
-	srv, err := createTestSSHServer(t)
-	if err != nil {
-		t.Skipf("skipping test: failed to create SSH server: %v", err)
-	}
-
-	rt.SetHostCallbacks(testSSHHostCallbacks{server: srv})
+	rt.SetHostCallbacks(staticHostCallbacks{})
 	return rt
 }
 
-func (h testSSHHostCallbacks) IsRunning() bool {
-	return h.server != nil && h.server.IsRunning()
+func (staticHostCallbacks) IsRunning() bool {
+	return true
 }
 
-func (h testSSHHostCallbacks) GetConnectionInfo(commandID HostCallbackCommandID) (*HostCallbackConnectionInfo, error) {
-	info, err := h.server.GetConnectionInfo(sshserver.CommandID(commandID.String()))
-	if err != nil {
+func (staticHostCallbacks) GetConnectionInfo(commandID HostCallbackCommandID) (*HostCallbackConnectionInfo, error) {
+	if err := commandID.Validate(); err != nil {
 		return nil, err
 	}
-	host := HostCallbackHost(info.Host.String())
-	if err := host.Validate(); err != nil {
+	info := &HostCallbackConnectionInfo{
+		Host:  HostCallbackHost("127.0.0.1"),
+		Port:  2222,
+		Token: HostCallbackToken("test-token"),
+		User:  HostCallbackUser("invowk"),
+	}
+	if err := info.Validate(); err != nil {
 		return nil, err
 	}
-	token := HostCallbackToken(info.Token.String())
-	if err := token.Validate(); err != nil {
-		return nil, err
-	}
-	user := HostCallbackUser(info.User)
-	if err := user.Validate(); err != nil {
-		return nil, err
-	}
-	connInfo := &HostCallbackConnectionInfo{
-		Host:  host,
-		Port:  info.Port,
-		Token: token,
-		User:  user,
-	}
-	if err := connInfo.Validate(); err != nil {
-		return nil, err
-	}
-	return connInfo, nil
+	return info, nil
 }
 
-func (h testSSHHostCallbacks) RevokeToken(token HostCallbackToken) {
-	sshToken := sshserver.TokenValue(token.String())
-	if err := sshToken.Validate(); err != nil {
-		return
-	}
-	h.server.RevokeToken(sshToken)
-}
-
-// createTestSSHServer creates a test SSH server
-func createTestSSHServer(t *testing.T) (*sshserver.Server, error) {
-	t.Helper()
-
-	// Create a minimal SSH server configuration
-	cfg := sshserver.Config{
-		Host:     "127.0.0.1",
-		Port:     0, // Random available port
-		TokenTTL: 5 * time.Minute,
-	}
-
-	srv, err := sshserver.New(cfg)
-	if err != nil {
-		t.Fatalf("sshserver.New() error = %v", err)
-	}
-
-	// Start the server with context. Server.Start() blocks until the server
-	// is ready to accept connections or fails, eliminating the previous race
-	// condition where we'd access srv.Address() before initialization completed.
-	ctx := t.Context()
-	if err := srv.Start(ctx); err != nil {
-		return nil, fmt.Errorf("failed to start SSH server: %w", err)
-	}
-
-	// Register cleanup
-	t.Cleanup(func() {
-		testutil.MustStop(t, srv)
-	})
-
-	return srv, nil
+func (staticHostCallbacks) RevokeToken(HostCallbackToken) {
 }

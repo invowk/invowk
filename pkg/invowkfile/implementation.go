@@ -386,16 +386,16 @@ func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath File
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}
-		resolved := ScriptContent(content)
-		if err := resolved.Validate(); err != nil {
-			return "", fmt.Errorf("script file content: %w", err)
+		resolved, err := validateResolvedScriptContent("script file content", ScriptContent(content)) //goplint:ignore -- validated by helper before use.
+		if err != nil {
+			return "", err
 		}
 		s.resolvedScript = resolved
 	} else {
 		// Inline script - use directly (multi-line strings from CUE are already handled)
-		resolved := ScriptContent(script)
-		if err := resolved.Validate(); err != nil {
-			return "", fmt.Errorf("inline script content: %w", err)
+		resolved, err := validateResolvedScriptContent("inline script content", ScriptContent(script)) //goplint:ignore -- validated by helper before use.
+		if err != nil {
+			return "", err
 		}
 		s.resolvedScript = resolved
 	}
@@ -433,11 +433,28 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
 		}
-		return string(content), nil
+		resolved, err := validateResolvedScriptContent("script file content", ScriptContent(content)) //goplint:ignore -- validated by helper before use.
+		if err != nil {
+			return "", err
+		}
+		return string(resolved), nil
 	}
 
 	// Inline script - use directly
-	return script, nil
+	resolved, err := validateResolvedScriptContent("inline script content", ScriptContent(script)) //goplint:ignore -- validated by helper before use.
+	if err != nil {
+		return "", err
+	}
+	return string(resolved), nil
+}
+
+//goplint:ignore -- helper validates transient script bytes from file readers and inline source.
+func validateResolvedScriptContent(label string, content ScriptContent) (ScriptContent, error) {
+	resolved := content
+	if err := resolved.Validate(); err != nil {
+		return "", fmt.Errorf("%s: %w", label, err)
+	}
+	return resolved, nil
 }
 
 // validateScriptPathContainment ensures a resolved script path stays within

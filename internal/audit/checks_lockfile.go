@@ -5,12 +5,12 @@ package audit
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -106,8 +106,7 @@ func (c *LockFileChecker) checkSize(mod *ScannedModule) []Finding {
 	if mod.LockPath == "" {
 		return nil
 	}
-	info, err := os.Stat(string(mod.LockPath))
-	if err != nil {
+	if mod.LockFileStatErr != nil {
 		return []Finding{{
 			Severity:       SeverityLow,
 			Category:       CategoryIntegrity,
@@ -115,11 +114,11 @@ func (c *LockFileChecker) checkSize(mod *ScannedModule) []Finding {
 			CheckerName:    lockFileCheckerName,
 			FilePath:       mod.LockPath,
 			Title:          "Lock file size could not be verified",
-			Description:    fmt.Sprintf("Failed to stat lock file %s: %v — size guard bypassed", mod.LockPath, err),
+			Description:    fmt.Sprintf("Failed to stat lock file %s: %v — size guard bypassed", mod.LockPath, mod.LockFileStatErr),
 			Recommendation: "Verify file permissions; re-run the audit after fixing access issues",
 		}}
 	}
-	if info.Size() > invowkmod.LockFileSizeLimit {
+	if mod.LockFileSize > invowkmod.LockFileSizeLimit {
 		return []Finding{{
 			Severity:       SeverityMedium,
 			Category:       CategoryIntegrity,
@@ -127,7 +126,7 @@ func (c *LockFileChecker) checkSize(mod *ScannedModule) []Finding {
 			CheckerName:    lockFileCheckerName,
 			FilePath:       mod.LockPath,
 			Title:          "Lock file exceeds size limit",
-			Description:    fmt.Sprintf("Lock file is %d bytes, exceeding the %d byte limit — may be crafted for denial-of-service", info.Size(), invowkmod.LockFileSizeLimit),
+			Description:    fmt.Sprintf("Lock file is %d bytes, exceeding the %d byte limit — may be crafted for denial-of-service", mod.LockFileSize, invowkmod.LockFileSizeLimit),
 			Recommendation: "Inspect the lock file for suspicious content; regenerate with 'invowk module sync'",
 		}}
 	}
@@ -219,15 +218,19 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 		}
 	}
 
-	for _, vendored := range mod.VendoredModules {
+	pathByVendoredID := vendoredPathByModuleID(mod.VendoredModules)
+	for _, evaluation := range mod.VendoredHashes {
 		select {
 		case <-ctx.Done():
 			return findings
 		default:
 		}
 
-		evaluation := invowkmod.EvaluateVendoredModuleHash(mod.LockFile, vendored)
-		vendoredID := string(evaluation.ModuleID)
+		vendoredID := evaluation.ModuleID
+		vendoredPath := pathByVendoredID[vendoredID]
+		if vendoredPath == "" {
+			vendoredPath = mod.Path
+		}
 		switch evaluation.Status {
 		case invowkmod.VendoredHashMatched:
 			continue
@@ -241,7 +244,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
 				CheckerName:    lockFileCheckerName,
-				FilePath:       vendored.Path,
+				FilePath:       vendoredPath,
 				Title:          "Vendored module has no lock file entry",
 				Description:    fmt.Sprintf("Vendored module %q exists in invowk_modules/ but has no corresponding lock file entry — its content cannot be hash-verified", vendoredID),
 				Recommendation: "Run 'invowk module sync' to add the module to the lock file, or remove it from invowk_modules/",
@@ -253,7 +256,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
 				CheckerName:    lockFileCheckerName,
-				FilePath:       vendored.Path,
+				FilePath:       vendoredPath,
 				Title:          "Vendored module hash could not be computed",
 				Description:    fmt.Sprintf("Hash computation failed for vendored module %q: %v — integrity verification incomplete", vendoredID, evaluation.Err),
 				Recommendation: "Verify directory permissions and contents; a module that cannot be hashed may be tampered with",
@@ -265,7 +268,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
 				CheckerName:    lockFileCheckerName,
-				FilePath:       vendored.Path,
+				FilePath:       vendoredPath,
 				Title:          "Module content hash mismatch",
 				Description:    fmt.Sprintf("Vendored module %q has hash %s but lock file expects %s — module may have been tampered with", evaluation.ModuleKey, evaluation.Actual, evaluation.Expected),
 				Recommendation: "Re-vendor with 'invowk module sync' and verify the module source has not been compromised",
@@ -276,7 +279,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
 				CheckerName:    lockFileCheckerName,
-				FilePath:       vendored.Path,
+				FilePath:       vendoredPath,
 				Title:          "Vendored module hash status is unknown",
 				Description:    fmt.Sprintf("Vendored module %q returned unknown integrity status %q", vendoredID, evaluation.Status),
 				Recommendation: "Run 'invowk module sync' to regenerate lock metadata before using vendored modules",
@@ -285,6 +288,21 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 	}
 
 	return findings
+}
+
+func vendoredPathByModuleID(vendoredModules []*invowkmod.Module) map[invowkmod.ModuleID]types.FilesystemPath {
+	paths := make(map[invowkmod.ModuleID]types.FilesystemPath, len(vendoredModules))
+	for _, vendored := range vendoredModules {
+		if vendored == nil || vendored.Metadata == nil {
+			continue
+		}
+		moduleID := vendored.Metadata.Module
+		if moduleID == "" || paths[moduleID] != "" {
+			continue
+		}
+		paths[moduleID] = vendored.Path
+	}
+	return paths
 }
 
 func (c *LockFileChecker) checkOrphanedEntries(mod *ScannedModule) []Finding {

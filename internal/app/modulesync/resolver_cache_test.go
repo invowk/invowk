@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -97,7 +98,7 @@ func TestFindModuleInDir(t *testing.T) {
 			t.Fatalf("MkdirAll() error: %v", err)
 		}
 
-		gotDir, gotName, err := invowkmod.LocateModuleInDir(types.FilesystemPath(dir))
+		gotDir, gotName, err := modulecache.LocateModuleInDir(types.FilesystemPath(dir))
 		if err != nil {
 			t.Fatalf("findModuleInDir() error: %v", err)
 		}
@@ -121,7 +122,7 @@ func TestFindModuleInDir(t *testing.T) {
 			t.Fatalf("WriteFile() error: %v", err)
 		}
 
-		gotDir, gotName, err := invowkmod.LocateModuleInDir(types.FilesystemPath(dir))
+		gotDir, gotName, err := modulecache.LocateModuleInDir(types.FilesystemPath(dir))
 		if err != nil {
 			t.Fatalf("findModuleInDir() error: %v", err)
 		}
@@ -145,7 +146,7 @@ func TestFindModuleInDir(t *testing.T) {
 			t.Fatalf("WriteFile() error: %v", err)
 		}
 
-		gotDir, gotName, err := invowkmod.LocateModuleInDir(types.FilesystemPath(dir))
+		gotDir, gotName, err := modulecache.LocateModuleInDir(types.FilesystemPath(dir))
 		if err != nil {
 			t.Fatalf("findModuleInDir() error: %v", err)
 		}
@@ -162,11 +163,11 @@ func TestFindModuleInDir(t *testing.T) {
 		t.Parallel()
 
 		dir := t.TempDir()
-		_, _, err := invowkmod.LocateModuleInDir(types.FilesystemPath(dir))
+		_, _, err := modulecache.LocateModuleInDir(types.FilesystemPath(dir))
 		if err == nil {
 			t.Fatal("expected error for empty directory, got nil")
 		}
-		if !errors.Is(err, invowkmod.ErrModuleNotFoundInDir) {
+		if !errors.Is(err, modulecache.ErrModuleNotFoundInDir) {
 			t.Errorf("error should wrap ErrModuleNotFoundInDir, got: %v", err)
 		}
 	})
@@ -174,7 +175,7 @@ func TestFindModuleInDir(t *testing.T) {
 	t.Run("nonexistent_dir", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := invowkmod.LocateModuleInDir(types.FilesystemPath(filepath.Join(t.TempDir(), "nonexistent")))
+		_, _, err := modulecache.LocateModuleInDir(types.FilesystemPath(filepath.Join(t.TempDir(), "nonexistent")))
 		if err == nil {
 			t.Fatal("expected error for nonexistent directory, got nil")
 		}

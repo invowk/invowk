@@ -15,9 +15,15 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-type recordingDependencyHostProbe struct {
-	tools []invowkfile.BinaryName
-}
+type (
+	recordingDependencyHostProbe struct {
+		tools []invowkfile.BinaryName
+	}
+
+	recordingCapabilityChecker struct {
+		capabilities []invowkfile.CapabilityName
+	}
+)
 
 func TestValidateInputs(t *testing.T) {
 	t.Parallel()
@@ -206,6 +212,39 @@ func TestValidateDepsUsesInjectedHostProbe(t *testing.T) {
 	}
 }
 
+func TestValidateDepsUsesInjectedCapabilityChecker(t *testing.T) {
+	t.Parallel()
+
+	checker := &recordingCapabilityChecker{}
+	service := &Service{
+		discovery:         &stubCommandDiscovery{},
+		capabilityChecker: checker,
+	}
+	cmdInfo := commandsvcTestCommandInfo(t, "build")
+	cmdInfo.Command.DependsOn = &invowkfile.DependsOn{
+		Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityContainers}}},
+	}
+	execCtx, err := service.buildExecContext(
+		t.Context(),
+		Request{Name: "build"},
+		cmdInfo,
+		resolvedDefinitions{},
+		mustResolveRuntime(t, cmdInfo.Command),
+	)
+	if err != nil {
+		t.Fatalf("buildExecContext() = %v", err)
+	}
+
+	registry := runtimepkg.NewRegistry()
+	registry.Register(runtimepkg.RuntimeTypeVirtual, &stubRuntime{name: "virtual"})
+	if err := service.validateDeps(cmdInfo, execCtx, registry, map[string]string{}); err != nil {
+		t.Fatalf("validateDeps() = %v", err)
+	}
+	if len(checker.capabilities) != 1 || checker.capabilities[0] != invowkfile.CapabilityContainers {
+		t.Fatalf("checker.capabilities = %v, want [containers]", checker.capabilities)
+	}
+}
+
 func unsupportedPlatform() invowkfile.PlatformType {
 	switch invowkfile.CurrentPlatform() {
 	case invowkfile.PlatformLinux:
@@ -237,5 +276,10 @@ func (*recordingDependencyHostProbe) CheckFilepath(types.FilesystemPath, types.F
 }
 
 func (*recordingDependencyHostProbe) RunCustomCheck(context.Context, invowkfile.CustomCheck) error {
+	return nil
+}
+
+func (c *recordingCapabilityChecker) Check(_ context.Context, _ runtimepkg.IOContext, capability invowkfile.CapabilityName) error {
+	c.capabilities = append(c.capabilities, capability)
 	return nil
 }

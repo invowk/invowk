@@ -3,7 +3,9 @@
 package audit
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,7 +65,12 @@ type (
 		Invowkfile      *invowkfile.Invowkfile
 		LockFile        *invowkmod.LockFile
 		LockPath        types.FilesystemPath
+		LockFileSize    int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
+		LockFileStatErr error
 		VendoredModules []*invowkmod.Module
+		VendoredHashes  []invowkmod.VendoredHashEvaluation
+		Symlinks        []SymlinkRef
+		SymlinkScanErr  error
 		SurfaceID       string
 		SurfaceKind     SurfaceKind
 		IsGlobal        bool
@@ -89,6 +96,9 @@ type (
 		Script      invowkfile.ScriptContent
 		IsFile      bool
 		Runtimes    []invowkfile.RuntimeConfig
+		ScriptPath  types.FilesystemPath
+		FileSize    int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
+		FileStatErr error
 		// resolvedContent holds the actual script body for content analysis.
 		// For inline scripts this equals string(Script). For file-based scripts
 		// this holds the file contents (read during context building, capped at
@@ -103,6 +113,26 @@ type (
 	}
 
 	vendoredModuleArtifacts []vendoredModuleArtifact
+
+	//goplint:ignore -- internal snapshot DTO for filesystem facts captured during scan construction.
+	scriptFileFacts struct {
+		Path    types.FilesystemPath
+		Size    int64  //goplint:ignore -- immutable filesystem stat captured for checkers.
+		Content string //goplint:ignore -- transient script body captured for content checkers.
+		StatErr error
+	}
+
+	//goplint:ignore -- snapshot DTO built internally by scanner and inspected by checkers.
+	// SymlinkRef is a point-in-time filesystem fact captured while building the scan context.
+	SymlinkRef struct {
+		Path         types.FilesystemPath
+		RelPath      string //goplint:ignore -- display path relative to scanned module root.
+		Target       string //goplint:ignore -- raw symlink target captured from filesystem.
+		ReadErr      error
+		Dangling     bool
+		ChainTooDeep bool
+		EscapesRoot  bool
+	}
 )
 
 func (a vendoredModuleArtifact) Validate() error {
@@ -113,6 +143,21 @@ func (a vendoredModuleArtifact) Validate() error {
 		return fmt.Errorf("vendored module artifact %q has nil module", a.Path)
 	}
 	return a.Module.Validate()
+}
+
+func (f scriptFileFacts) Validate() error {
+	if f.Path == "" {
+		return nil
+	}
+	return f.Path.Validate()
+}
+
+// Validate returns nil when the captured symlink path is either empty or a valid filesystem path.
+func (r SymlinkRef) Validate() error {
+	if r.Path == "" {
+		return nil
+	}
+	return r.Path.Validate()
 }
 
 // Content returns the resolved script body for content analysis. For inline
@@ -291,10 +336,18 @@ func (sc *ScanContext) loadScannedModule(
 			sm.LockFileParseErr = loadErr
 		}
 		sm.LockPath = lockPath
+		info, infoErr := os.Stat(string(lockPath))
+		if infoErr != nil {
+			sm.LockFileStatErr = infoErr
+		} else {
+			sm.LockFileSize = info.Size()
+		}
 	}
 
 	vendored, vendorDiags := loadVendoredModules(absPath)
 	sm.VendoredModules = vendored.moduleList()
+	sm.VendoredHashes = buildVendoredHashEvaluations(sm.LockFile, sm.VendoredModules)
+	sm.Symlinks, sm.SymlinkScanErr = scanModuleSymlinks(absPath)
 	sc.diagnostics = append(sc.diagnostics, vendorDiags...)
 
 	return sm, vendored, nil
@@ -542,7 +595,11 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKind
 			// scripts, read the file (capped at maxScriptFileSize) so that
 			// content-analysis checkers can inspect the real script body.
 			if isFile {
-				ref.resolvedContent = readScriptFileContent(string(impl.Script), string(modulePath))
+				facts := readScriptFileFacts(string(impl.Script), string(modulePath))
+				ref.ScriptPath = facts.Path
+				ref.FileSize = facts.Size
+				ref.FileStatErr = facts.StatErr
+				ref.resolvedContent = facts.Content
 			} else {
 				ref.resolvedContent = string(impl.Script)
 			}
@@ -580,27 +637,122 @@ func (sc *ScanContext) enrichFindingSurfaceKinds(findings []Finding) {
 	}
 }
 
-// readScriptFileContent reads a file-based script's contents for content analysis.
-// Returns empty string if the file cannot be read (checkers handle empty gracefully).
-func readScriptFileContent(scriptPath, modulePath string) string {
+func buildVendoredHashEvaluations(lock *invowkmod.LockFile, modules []*invowkmod.Module) []invowkmod.VendoredHashEvaluation {
+	if lock == nil || len(modules) == 0 {
+		return nil
+	}
+	evaluations := make([]invowkmod.VendoredHashEvaluation, 0, len(modules))
+	for _, module := range modules {
+		evaluations = append(evaluations, invowkmod.EvaluateVendoredModuleHash(lock, module))
+	}
+	return evaluations
+}
+
+func scanModuleSymlinks(modulePath types.FilesystemPath) ([]SymlinkRef, error) {
+	modPath := string(modulePath)
+	var refs []SymlinkRef
+	err := filepath.WalkDir(modPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.Type()&os.ModeSymlink == 0 {
+			return nil
+		}
+
+		relPath, relErr := filepath.Rel(modPath, path)
+		if relErr != nil {
+			return fmt.Errorf("computing relative path for %s: %w", path, relErr)
+		}
+
+		ref := SymlinkRef{
+			Path:    types.FilesystemPath(path), //goplint:ignore -- path comes from filesystem walk.
+			RelPath: relPath,
+		}
+		target, readErr := os.Readlink(path)
+		if readErr != nil {
+			ref.ReadErr = readErr
+			refs = append(refs, ref)
+			return continueSymlinkWalk()
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		ref.Target = filepath.Clean(target)
+		ref.EscapesRoot = !isWithinBoundary(modPath, ref.Target)
+		if _, statErr := os.Stat(path); errors.Is(statErr, fs.ErrNotExist) {
+			ref.Dangling = true
+		}
+		ref.ChainTooDeep = symlinkChainTooDeep(path)
+		refs = append(refs, ref)
+		return nil
+	})
+	if err != nil {
+		return refs, fmt.Errorf("walking module symlinks in %s: %w", modulePath, err)
+	}
+	return refs, nil
+}
+
+func continueSymlinkWalk() error {
+	return nil
+}
+
+//goplint:ignore -- helper walks raw OS-native symlink paths captured from filepath.WalkDir.
+func symlinkChainTooDeep(path string) bool {
+	current := path
+	for range maxSymlinkChainDepth - 1 {
+		target, err := os.Readlink(current)
+		if err != nil {
+			return false
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(current), target)
+		}
+		info, lstatErr := os.Lstat(target)
+		if lstatErr != nil {
+			return false
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			return false
+		}
+		current = target
+	}
+	return true
+}
+
+// readScriptFileFacts reads file-based script metadata and contents for content analysis.
+// Empty content means the file could not be read or exceeded the scan size cap.
+//
+//goplint:ignore -- helper resolves raw script path text from invowkfile declarations.
+func readScriptFileFacts(scriptPath, modulePath string) scriptFileFacts {
 	resolved := strings.TrimSpace(scriptPath)
 	if modulePath != "" && !filepath.IsAbs(resolved) {
 		resolved = filepath.Join(modulePath, resolved)
 	}
+	resolvedPath := types.FilesystemPath(resolved) //goplint:ignore -- resolved from validated module/script path inputs.
+	facts := scriptFileFacts{Path: resolvedPath}
 
 	// Defense-in-depth: verify the resolved path stays within the module
 	// boundary. The invowkfile parser's script path containment check (SC-01)
 	// blocks traversal paths at parse time, but the audit scanner should not
 	// rely on upstream validation alone.
 	if modulePath != "" && !isWithinBoundary(modulePath, resolved) {
-		return ""
+		return facts
 	}
+
+	info, statErr := os.Stat(resolved)
+	if statErr != nil {
+		facts.StatErr = statErr
+		return facts
+	}
+	facts.Size = info.Size()
 
 	data, err := os.ReadFile(resolved)
 	if err != nil || len(data) > maxScriptFileSize {
-		return ""
+		facts.StatErr = err
+		return facts
 	}
-	return string(data)
+	facts.Content = string(data)
+	return facts
 }
 
 // isWithinBoundary checks whether target resolves to a path within the base

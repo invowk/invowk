@@ -359,6 +359,69 @@ func TestMountTargetPath_String(t *testing.T) {
 	}
 }
 
+func TestVolumeMountSpec_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		spec    VolumeMountSpec
+		wantErr bool
+	}{
+		{"host container path", "/host:/container", false},
+		{"read only option", "/host:/container:ro", false},
+		{"relative host path", "./data:/data", false},
+		{"empty is invalid", "", true},
+		{"missing container path is invalid", "/host", true},
+		{"relative container path is invalid", "/host:container", true},
+		{"sensitive host path is invalid", "/etc/shadow:/data", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.spec.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("VolumeMountSpec(%q).Validate() = %v, wantErr %v", tt.spec, err, tt.wantErr)
+			}
+			if tt.wantErr && !errors.Is(err, ErrInvalidVolumeMount) {
+				t.Fatalf("errors.Is(err, ErrInvalidVolumeMount) = false for %v", err)
+			}
+		})
+	}
+}
+
+func TestPortMappingSpec_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		spec    PortMappingSpec
+		wantErr bool
+	}{
+		{"simple mapping", "8080:80", false},
+		{"protocol suffix", "8080:80/udp", false},
+		{"container port only", "8080", false},
+		{"range", "8000-8100:80-180", false},
+		{"empty is invalid", "", true},
+		{"zero port is invalid", "0:80", true},
+		{"invalid protocol is invalid", "8080:80/http", true},
+		{"space is invalid", "8080: 80", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.spec.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("PortMappingSpec(%q).Validate() = %v, wantErr %v", tt.spec, err, tt.wantErr)
+			}
+			if tt.wantErr && !errors.Is(err, ErrInvalidPortMapping) {
+				t.Fatalf("errors.Is(err, ErrInvalidPortMapping) = false for %v", err)
+			}
+		})
+	}
+}
+
 func TestBuildOptions_Validate(t *testing.T) {
 	t.Parallel()
 

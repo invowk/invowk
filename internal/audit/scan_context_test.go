@@ -12,7 +12,7 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-func TestReadScriptFileContent_BoundaryCheck(t *testing.T) {
+func TestReadScriptFileFacts_BoundaryCheck(t *testing.T) {
 	t.Parallel()
 
 	// Create a module directory with a legitimate script inside it.
@@ -77,9 +77,9 @@ func TestReadScriptFileContent_BoundaryCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := readScriptFileContent(tt.scriptPath, tt.modulePath)
+			got := readScriptFileFacts(tt.scriptPath, tt.modulePath).Content
 			if got != tt.want {
-				t.Errorf("readScriptFileContent(%q, %q) = %q, want %q",
+				t.Errorf("readScriptFileFacts(%q, %q) content = %q, want %q",
 					tt.scriptPath, tt.modulePath, got, tt.want)
 			}
 		})
