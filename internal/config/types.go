@@ -301,18 +301,15 @@ func (e *InvalidUIConfigError) Error() string {
 func (e *InvalidUIConfigError) Unwrap() error { return ErrInvalidUIConfig }
 
 // Validate returns an error if the AutoProvisionConfig has invalid fields.
-// It delegates to BinaryPath.Validate(), each Includes entry's Validate(),
-// and CacheDir.Validate(). Bool fields (Enabled, Strict, InheritIncludes)
-// need no validation.
+// It delegates to BinaryPath.Validate(), Includes collection validation, and
+// CacheDir.Validate(). Bool fields (Enabled, Strict, InheritIncludes) need no validation.
 func (c AutoProvisionConfig) Validate() error {
 	var errs []error
 	if err := c.BinaryPath.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	for _, entry := range c.Includes {
-		if err := entry.Validate(); err != nil {
-			errs = append(errs, err)
-		}
+	if err := validateIncludes("container.auto_provision.includes", c.Includes); err != nil {
+		errs = append(errs, err)
 	}
 	if err := c.CacheDir.Validate(); err != nil {
 		errs = append(errs, err)
@@ -354,8 +351,8 @@ func (e *InvalidContainerConfigError) Unwrap() error { return ErrInvalidContaine
 
 // Validate returns an error if the Config has invalid fields.
 // It delegates to ContainerEngine.Validate(), DefaultRuntime.Validate(),
-// each Includes entry's Validate(), VirtualShell.Validate(), UI.Validate(),
-// and Container.Validate().
+// Includes collection validation, VirtualShell.Validate(), UI.Validate(), and
+// Container.Validate().
 func (c Config) Validate() error {
 	var errs []error
 	if err := c.ContainerEngine.Validate(); err != nil {
@@ -364,10 +361,8 @@ func (c Config) Validate() error {
 	if err := c.DefaultRuntime.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	for _, entry := range c.Includes {
-		if err := entry.Validate(); err != nil {
-			errs = append(errs, err)
-		}
+	if err := validateIncludes("includes", c.Includes); err != nil {
+		errs = append(errs, err)
 	}
 	if err := c.VirtualShell.Validate(); err != nil {
 		errs = append(errs, err)
@@ -507,10 +502,13 @@ func (m RuntimeMode) String() string { return string(m) }
 func (m RuntimeMode) Validate() error {
 	switch m {
 	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
-		return nil
 	default:
 		return &InvalidConfigRuntimeModeError{Value: m}
 	}
+	if err := types.RuntimeMode(m).Validate(); err != nil {
+		return &InvalidConfigRuntimeModeError{Value: m}
+	}
+	return nil
 }
 
 // Error implements the error interface for InvalidColorSchemeError.

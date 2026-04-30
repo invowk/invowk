@@ -500,6 +500,16 @@ func TestAutoProvisionConfig_Validate(t *testing.T) {
 			false, true, 1,
 		},
 		{
+			"duplicate include path",
+			func() AutoProvisionConfig {
+				path := ModuleIncludePath(filepath.Join(t.TempDir(), "dup.invowkmod"))
+				return AutoProvisionConfig{
+					Includes: []IncludeEntry{{Path: path}, {Path: path}},
+				}
+			}(),
+			false, true, 1,
+		},
+		{
 			"multiple invalid fields",
 			AutoProvisionConfig{
 				BinaryPath: "   ",
@@ -642,6 +652,16 @@ func TestConfig_Validate(t *testing.T) {
 			func() Config {
 				c := *DefaultConfig()
 				c.Includes = []IncludeEntry{{Path: ""}}
+				return c
+			}(),
+			false, true, 1,
+		},
+		{
+			"duplicate include path",
+			func() Config {
+				c := *DefaultConfig()
+				path := ModuleIncludePath(filepath.Join(t.TempDir(), "dup.invowkmod"))
+				c.Includes = []IncludeEntry{{Path: path}, {Path: path}}
 				return c
 			}(),
 			false, true, 1,

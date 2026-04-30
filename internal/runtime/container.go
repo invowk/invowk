@@ -3,12 +3,14 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
@@ -58,6 +60,7 @@ type (
 		provisionConfig *provision.Config
 		cfg             *config.Config
 		envBuilder      EnvBuilder
+		retrySleep      func(context.Context, time.Duration) error
 		//plint:internal -- fallback mutex for non-Linux flock; see runWithRetry()
 		runMu sync.Mutex
 		//plint:internal -- fallback ID counter for missing ExecutionID; see newExecutionID()
@@ -116,6 +119,7 @@ func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*C
 		provisionConfig: provisionCfg,
 		cfg:             cfg,
 		envBuilder:      NewDefaultEnvBuilder(),
+		retrySleep:      sleepWithContext,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -135,6 +139,7 @@ func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRun
 		provisioner:     provisioner,
 		provisionConfig: provisionCfg,
 		envBuilder:      NewDefaultEnvBuilder(),
+		retrySleep:      sleepWithContext,
 	}
 	for _, opt := range opts {
 		opt(r)

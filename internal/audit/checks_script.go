@@ -105,7 +105,8 @@ func (c *ScriptChecker) checkScriptPath(ref ScriptRef) []Finding {
 			findings = append(findings, Finding{
 				Severity:       SeverityHigh,
 				Category:       CategoryPathTraversal,
-				SurfaceID:      "SC-01",
+				SurfaceID:      ref.SurfaceID,
+				SurfaceKind:    ref.SurfaceKind,
 				CheckerName:    scriptCheckerName,
 				FilePath:       ref.FilePath,
 				Title:          "Script references path outside module boundary",
@@ -119,7 +120,8 @@ func (c *ScriptChecker) checkScriptPath(ref ScriptRef) []Finding {
 			findings = append(findings, Finding{
 				Severity:       SeverityHigh,
 				Category:       CategoryPathTraversal,
-				SurfaceID:      "SC-01",
+				SurfaceID:      ref.SurfaceID,
+				SurfaceKind:    ref.SurfaceKind,
 				CheckerName:    scriptCheckerName,
 				FilePath:       ref.FilePath,
 				Title:          "Module script uses absolute path",
@@ -149,11 +151,17 @@ func (c *ScriptChecker) checkScriptFileSize(ref ScriptRef) []Finding {
 	}
 
 	if info.Size() > maxScriptFileSize {
+		filePath := types.FilesystemPath(scriptPath)
+		if err := filePath.Validate(); err != nil {
+			return nil
+		}
 		return []Finding{{
 			Severity:       SeverityMedium,
 			Category:       CategoryExecution,
+			SurfaceID:      ref.SurfaceID,
+			SurfaceKind:    ref.SurfaceKind,
 			CheckerName:    scriptCheckerName,
-			FilePath:       types.FilesystemPath(scriptPath),
+			FilePath:       filePath,
 			Title:          "Script file unusually large",
 			Description:    fmt.Sprintf("Script file is %d bytes — may contain embedded binaries or obfuscated content", info.Size()),
 			Recommendation: "Review the script contents; large scripts warrant extra scrutiny",
@@ -218,6 +226,8 @@ func (c *ScriptChecker) checkObfuscation(ref ScriptRef, content string) []Findin
 			findings = append(findings, Finding{
 				Severity:       SeverityMedium,
 				Category:       CategoryPathTraversal,
+				SurfaceID:      ref.SurfaceID,
+				SurfaceKind:    ref.SurfaceKind,
 				CheckerName:    scriptCheckerName,
 				FilePath:       ref.FilePath,
 				Title:          "Script content contains path traversal",

@@ -257,7 +257,9 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 			if err := ctx.Err(); err != nil {
 				return nil, fmt.Errorf("context cancelled during run retry: %w", err)
 			}
-			time.Sleep(baseRunBackoff * time.Duration(1<<(attempt-1)))
+			if err := r.retrySleep(ctx, baseRunBackoff*time.Duration(1<<(attempt-1))); err != nil {
+				return nil, fmt.Errorf("context cancelled during run retry: %w", err)
+			}
 		}
 
 		var stderrBuf bytes.Buffer
@@ -312,6 +314,18 @@ func flushStderr(dst io.Writer, src *bytes.Buffer) {
 	}
 	if _, err := io.Copy(dst, src); err != nil {
 		slog.Debug("failed to flush stderr buffer", "error", err)
+	}
+}
+
+func sleepWithContext(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("sleep interrupted: %w", ctx.Err())
+	case <-timer.C:
+		return nil
 	}
 }
 

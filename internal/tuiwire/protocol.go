@@ -63,13 +63,6 @@ type (
 		Error     string          `json:"error,omitempty"`
 	}
 
-	// ComponentResponse is the terminal renderer result before wire encoding.
-	ComponentResponse struct {
-		Result    any
-		Err       error
-		Cancelled bool
-	}
-
 	// InputRequest contains options for the input component.
 	InputRequest struct {
 		Title       string `json:"title,omitempty"`
@@ -238,12 +231,6 @@ type (
 		SelectedIndex int      `json:"selected_index"`
 	}
 
-	// TableSelectionResult holds the terminal-local result of a table selection.
-	TableSelectionResult struct {
-		SelectedIndex int
-		SelectedRow   []string
-	}
-
 	// InvalidComponentError is returned when a Component value is not recognized.
 	// It wraps ErrInvalidComponent for errors.Is() compatibility.
 	InvalidComponentError struct {
@@ -276,66 +263,3 @@ func (c Component) Validate() error {
 
 // String returns the string representation of the Component.
 func (c Component) String() string { return string(c) }
-
-// EncodeResponse converts a terminal component response into the shared wire response.
-func EncodeResponse(component Component, response ComponentResponse) Response {
-	switch {
-	case response.Cancelled:
-		return Response{Cancelled: true}
-	case response.Err != nil:
-		return Response{Error: response.Err.Error()}
-	default:
-		resultJSON, err := json.Marshal(componentResultToProtocol(component, response.Result))
-		if err != nil {
-			return Response{Error: fmt.Sprintf("failed to marshal result: %v", err)}
-		}
-		return Response{Result: resultJSON}
-	}
-}
-
-func componentResultToProtocol(component Component, result any) any {
-	switch component {
-	case ComponentInput, ComponentTextArea, ComponentWrite:
-		if s, ok := result.(string); ok {
-			return InputResult{Value: s}
-		}
-		return InputResult{}
-	case ComponentConfirm:
-		if b, ok := result.(bool); ok {
-			return ConfirmResult{Confirmed: b}
-		}
-		return ConfirmResult{}
-	case ComponentChoose:
-		if selected, ok := result.([]string); ok {
-			return ChooseResult{Selected: selected}
-		}
-		return ChooseResult{Selected: []string{}}
-	case ComponentFilter:
-		if selected, ok := result.([]string); ok {
-			return FilterResult{Selected: selected}
-		}
-		return FilterResult{Selected: []string{}}
-	case ComponentFile:
-		if path, ok := result.(string); ok {
-			return FileResult{Path: path}
-		}
-		return FileResult{}
-	case ComponentTable:
-		if tableResult, ok := result.(TableSelectionResult); ok {
-			return TableResult{
-				SelectedRow:   tableResult.SelectedRow,
-				SelectedIndex: tableResult.SelectedIndex,
-			}
-		}
-		return TableResult{SelectedIndex: -1}
-	case ComponentPager:
-		return PagerResult{}
-	case ComponentSpin:
-		if spinResult, ok := result.(SpinResult); ok {
-			return spinResult
-		}
-		return SpinResult{}
-	default:
-		return result
-	}
-}

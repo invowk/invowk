@@ -96,7 +96,24 @@ type (
 		// Access via Content() method.
 		resolvedContent string
 	}
+
+	vendoredModuleArtifact struct {
+		Path   types.FilesystemPath
+		Module *invowkmod.Module
+	}
+
+	vendoredModuleArtifacts []vendoredModuleArtifact
 )
+
+func (a vendoredModuleArtifact) Validate() error {
+	if err := a.Path.Validate(); err != nil {
+		return err
+	}
+	if a.Module == nil {
+		return fmt.Errorf("vendored module artifact %q has nil module", a.Path)
+	}
+	return a.Module.Validate()
+}
 
 // Content returns the resolved script body for content analysis. For inline
 // scripts this is the script text; for file-based scripts this is the file
@@ -207,20 +224,27 @@ func (sc *ScanContext) loadStandaloneInvowkfile(absPath types.FilesystemPath) er
 }
 
 func (sc *ScanContext) loadSingleModule(absPath types.FilesystemPath) error {
-	sm, err := sc.loadScannedModule(absPath, nil, nil, false)
+	sm, vendored, err := sc.loadScannedModule(absPath, nil, nil, false, false)
 	if err != nil {
 		return err
 	}
 	sc.modules = append(sc.modules, sm)
+	sc.appendVendoredScannedModules(vendored, false)
 	return nil
 }
 
-func (sc *ScanContext) loadScannedModule(absPath types.FilesystemPath, mod *invowkmod.Module, inv *invowkfile.Invowkfile, isGlobal bool) (*ScannedModule, error) {
+func (sc *ScanContext) loadScannedModule(
+	absPath types.FilesystemPath,
+	mod *invowkmod.Module,
+	inv *invowkfile.Invowkfile,
+	isGlobal bool,
+	isVendored bool,
+) (*ScannedModule, []vendoredModuleArtifact, error) {
 	var err error
 	if mod == nil {
 		mod, err = invowkmod.Load(absPath)
 		if err != nil {
-			return nil, fmt.Errorf("loading module %s: %w", absPath, err)
+			return nil, nil, fmt.Errorf("loading module %s: %w", absPath, err)
 		}
 	}
 
@@ -234,7 +258,7 @@ func (sc *ScanContext) loadScannedModule(absPath types.FilesystemPath, mod *invo
 		Module:      mod,
 		Invowkfile:  inv,
 		SurfaceID:   surfaceID,
-		SurfaceKind: moduleSurfaceKind(isGlobal, false),
+		SurfaceKind: moduleSurfaceKind(isGlobal, isVendored),
 		IsGlobal:    isGlobal,
 	}
 
@@ -261,11 +285,11 @@ func (sc *ScanContext) loadScannedModule(absPath types.FilesystemPath, mod *invo
 		sm.LockPath = lockPath
 	}
 
-	var vendorDiags []Diagnostic
-	sm.VendoredModules, vendorDiags = loadVendoredModules(absPath)
+	vendored, vendorDiags := loadVendoredModules(absPath)
+	sm.VendoredModules = vendored.moduleList()
 	sc.diagnostics = append(sc.diagnostics, vendorDiags...)
 
-	return sm, nil
+	return sm, vendored, nil
 }
 
 func (sc *ScanContext) loadDirectoryTree(absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) error {
@@ -382,7 +406,7 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 				discSurfaceID = string(f.Module.Metadata.Module)
 			}
 
-			sm, err := sc.loadScannedModule(f.Module.Path, f.Module, f.Invowkfile, f.IsGlobalModule)
+			sm, vendored, err := sc.loadScannedModule(f.Module.Path, f.Module, f.Invowkfile, f.IsGlobalModule, f.ParentModule != nil)
 			if err != nil {
 				sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", f.Module.Name(), err), f.Module.Path)
 				continue
@@ -392,6 +416,7 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 			}
 			sm.SurfaceKind = moduleSurfaceKind(f.IsGlobalModule, f.ParentModule != nil)
 			sc.modules = append(sc.modules, sm)
+			sc.appendVendoredScannedModules(vendored, f.IsGlobalModule)
 		} else if f.Invowkfile != nil && !seenInvowkfiles[string(f.Path)] {
 			sc.invowkfiles = append(sc.invowkfiles, &ScannedInvowkfile{
 				Path:        f.Path,
@@ -405,7 +430,7 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 
 // loadVendoredModules scans the invowk_modules/ directory for vendored deps.
 // Returns the loaded modules and any diagnostics for modules that failed to load.
-func loadVendoredModules(modulePath types.FilesystemPath) (modules []*invowkmod.Module, diagnostics []Diagnostic) {
+func loadVendoredModules(modulePath types.FilesystemPath) (modules vendoredModuleArtifacts, diagnostics []Diagnostic) {
 	vendorDir := fspath.JoinStr(modulePath, "invowk_modules")
 	entries, err := os.ReadDir(string(vendorDir))
 	if err != nil {
@@ -430,9 +455,42 @@ func loadVendoredModules(modulePath types.FilesystemPath) (modules []*invowkmod.
 			}
 			continue
 		}
-		modules = append(modules, mod)
+		artifact := vendoredModuleArtifact{Path: modPath, Module: mod}
+		if err := artifact.Validate(); err != nil {
+			diagnostic, diagErr := NewDiagnostic(
+				"warning",
+				diagnosticVendoredModuleSkipped,
+				DiagnosticMessage(fmt.Sprintf("skipped invalid vendored module %s: %v", entry.Name(), err)),
+				withDiagnosticPath(modulePath),
+			)
+			if diagErr == nil {
+				diagnostics = append(diagnostics, diagnostic)
+			}
+			continue
+		}
+		modules = append(modules, artifact)
 	}
 	return modules, diagnostics
+}
+
+func (modules vendoredModuleArtifacts) moduleList() []*invowkmod.Module {
+	result := make([]*invowkmod.Module, 0, len(modules))
+	for _, module := range modules {
+		result = append(result, module.Module)
+	}
+	return result
+}
+
+func (sc *ScanContext) appendVendoredScannedModules(vendored vendoredModuleArtifacts, isGlobal bool) {
+	for _, artifact := range vendored {
+		sm, _, err := sc.loadScannedModule(artifact.Path, artifact.Module, nil, isGlobal, true)
+		if err != nil {
+			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid vendored module %s: %v", artifact.Path, err), artifact.Path)
+			continue
+		}
+		sm.SurfaceKind = moduleSurfaceKind(isGlobal, true)
+		sc.modules = append(sc.modules, sm)
+	}
 }
 
 // buildScriptRefs pre-computes all script references from invowkfiles and modules.

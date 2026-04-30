@@ -113,8 +113,19 @@ type (
 		SetSize(width, height TerminalDimension)
 	}
 
+	// ComponentResponse is the terminal renderer's local result for an
+	// embedded component request. Transport adapters decide how to encode it.
+	ComponentResponse struct {
+		Result    any
+		Err       error
+		Cancelled bool
+	}
+
 	// TableSelectionResult holds the result of a table selection.
-	TableSelectionResult = tuiwire.TableSelectionResult
+	TableSelectionResult struct {
+		SelectedIndex int
+		SelectedRow   []string
+	}
 
 	// SpinResult holds the result of a spin operation.
 	SpinResult = tuiwire.SpinResult
@@ -153,13 +164,73 @@ func (ct ComponentType) String() string {
 // Validate returns nil if the ComponentType is one of the defined component types,
 // or a validation error if it is not.
 func (ct ComponentType) Validate() error {
-	switch ct {
-	case ComponentTypeInput, ComponentTypeConfirm, ComponentTypeChoose, ComponentTypeFilter,
-		ComponentTypeFile, ComponentTypeWrite, ComponentTypeTextArea, ComponentTypeSpin,
-		ComponentTypePager, ComponentTypeTable:
-		return nil
-	default:
+	if err := tuiwire.Component(ct).Validate(); err != nil {
 		return &InvalidComponentTypeError{Value: ct}
+	}
+	return nil
+}
+
+// EncodeComponentResponse converts a terminal component response into the
+// shared wire response used by delegated TUI clients.
+func EncodeComponentResponse(component ComponentType, response ComponentResponse) tuiwire.Response {
+	switch {
+	case response.Cancelled:
+		return tuiwire.Response{Cancelled: true}
+	case response.Err != nil:
+		return tuiwire.Response{Error: response.Err.Error()}
+	default:
+		resultJSON, err := json.Marshal(componentResultToProtocol(component, response.Result))
+		if err != nil {
+			return tuiwire.Response{Error: fmt.Sprintf("failed to marshal result: %v", err)}
+		}
+		return tuiwire.Response{Result: resultJSON}
+	}
+}
+
+func componentResultToProtocol(component ComponentType, result any) any {
+	switch component {
+	case ComponentTypeInput, ComponentTypeTextArea, ComponentTypeWrite:
+		if s, ok := result.(string); ok {
+			return tuiwire.InputResult{Value: s}
+		}
+		return tuiwire.InputResult{}
+	case ComponentTypeConfirm:
+		if b, ok := result.(bool); ok {
+			return tuiwire.ConfirmResult{Confirmed: b}
+		}
+		return tuiwire.ConfirmResult{}
+	case ComponentTypeChoose:
+		if selected, ok := result.([]string); ok {
+			return tuiwire.ChooseResult{Selected: selected}
+		}
+		return tuiwire.ChooseResult{Selected: []string{}}
+	case ComponentTypeFilter:
+		if selected, ok := result.([]string); ok {
+			return tuiwire.FilterResult{Selected: selected}
+		}
+		return tuiwire.FilterResult{Selected: []string{}}
+	case ComponentTypeFile:
+		if path, ok := result.(string); ok {
+			return tuiwire.FileResult{Path: path}
+		}
+		return tuiwire.FileResult{}
+	case ComponentTypeTable:
+		if tableResult, ok := result.(TableSelectionResult); ok {
+			return tuiwire.TableResult{
+				SelectedRow:   tableResult.SelectedRow,
+				SelectedIndex: tableResult.SelectedIndex,
+			}
+		}
+		return tuiwire.TableResult{SelectedIndex: -1}
+	case ComponentTypePager:
+		return tuiwire.PagerResult{}
+	case ComponentTypeSpin:
+		if spinResult, ok := result.(SpinResult); ok {
+			return spinResult
+		}
+		return tuiwire.SpinResult{}
+	default:
+		return result
 	}
 }
 

@@ -42,11 +42,9 @@ type (
 
 	// Server represents the SSH server for container callbacks.
 	// A Server instance is single-use: once stopped or failed, create a new instance.
-	//
-	// Server embeds serverbase.Base for lifecycle management and state machine.
 	Server struct {
-		// Embed serverbase.Base for common server lifecycle management
-		*serverbase.Base
+		// base provides private state machine and lifecycle management.
+		base *serverbase.Base
 
 		// Immutable configuration (set at creation, never modified)
 		cfg Config
@@ -174,7 +172,7 @@ func NewWithClock(cfg Config, clock Clock) (*Server, error) {
 	})
 
 	s := &Server{
-		Base:   serverbase.NewBase(),
+		base:   serverbase.NewBase(),
 		cfg:    cfg,
 		clock:  clock,
 		tokens: make(map[TokenValue]*Token),

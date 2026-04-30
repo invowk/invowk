@@ -40,8 +40,8 @@ type (
 	//
 	// A Server instance is single-use: once stopped or failed, create a new instance.
 	Server struct {
-		// Embedded base provides state machine and lifecycle management
-		*serverbase.Base
+		// base provides private state machine and lifecycle management.
+		base *serverbase.Base
 
 		// Immutable configuration (set at creation, never modified)
 		listener   net.Listener
@@ -75,7 +75,7 @@ func New() (*Server, error) {
 	}
 
 	s := &Server{
-		Base:       serverbase.NewBase(),
+		base:       serverbase.NewBase(),
 		token:      AuthToken(token),
 		shutdownCh: make(chan struct{}),
 		requestCh:  make(chan TUIRequest),
@@ -97,7 +97,7 @@ func New() (*Server, error) {
 
 // Start begins accepting connections. Blocks until server is ready or context is cancelled.
 func (s *Server) Start(ctx context.Context) error {
-	if err := s.TransitionToStarting(ctx); err != nil {
+	if err := s.base.TransitionToStarting(ctx); err != nil {
 		return err
 	}
 
@@ -105,7 +105,7 @@ func (s *Server) Start(ctx context.Context) error {
 	listener, err := lc.Listen(ctx, "tcp", "0.0.0.0:0")
 	if err != nil {
 		startErr := fmt.Errorf("failed to create listener: %w", err)
-		s.TransitionToFailed(startErr)
+		s.base.TransitionToFailed(startErr)
 		return startErr
 	}
 	s.listener = listener
@@ -113,19 +113,19 @@ func (s *Server) Start(ctx context.Context) error {
 	s.port = types.ListenPort(tcpAddr.Port)
 
 	// Start serving in background
-	s.AddGoroutine()
+	s.base.AddGoroutine()
 	go func() {
-		defer s.DoneGoroutine()
+		defer s.base.DoneGoroutine()
 		// Signal that we're ready to accept connections
-		s.TransitionToRunning()
+		s.base.TransitionToRunning()
 		if err := s.httpServer.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
-			s.SendError(err)
+			s.base.SendError(err)
 		}
 	}()
 
 	// Wait for ready signal or context cancellation
-	if err := s.WaitForReady(ctx); err != nil {
-		s.TransitionToFailed(err)
+	if err := s.base.WaitForReady(ctx); err != nil {
+		s.base.TransitionToFailed(err)
 		_ = s.httpServer.Close() // Best-effort cleanup on error
 		_ = s.listener.Close()   // Best-effort cleanup on error
 		return err
@@ -139,7 +139,7 @@ func (s *Server) Stop() error {
 	// Signal shutdown to handlers (do this before state transition)
 	s.shutdownOnce.Do(func() { close(s.shutdownCh) })
 
-	if !s.TransitionToStopping() {
+	if !s.base.TransitionToStopping() {
 		// Already stopped/stopping, or never started - clean up listener
 		if s.listener != nil {
 			_ = s.listener.Close() // Best-effort cleanup; server already stopping
@@ -155,8 +155,8 @@ func (s *Server) Stop() error {
 	err := s.httpServer.Shutdown(shutdownCtx)
 
 	// Wait for serve goroutine to finish
-	s.WaitForShutdown()
-	s.TransitionToStopped()
+	s.base.WaitForShutdown()
+	s.base.TransitionToStopped()
 	s.closeRequestChannel()
 	s.closeErrChannel()
 
@@ -192,6 +192,21 @@ func (s *Server) RequestChannel() <-chan TUIRequest {
 	return s.requestCh
 }
 
+// State returns the current server state.
+func (s *Server) State() serverbase.State {
+	return s.base.State()
+}
+
+// IsRunning returns whether the server is currently running and accepting connections.
+func (s *Server) IsRunning() bool {
+	return s.base.IsRunning()
+}
+
+// Err returns a channel for receiving async errors.
+func (s *Server) Err() <-chan error {
+	return s.base.Err()
+}
+
 func (s *Server) closeRequestChannel() {
 	s.requestCloseOnce.Do(func() {
 		close(s.requestCh)
@@ -200,7 +215,7 @@ func (s *Server) closeRequestChannel() {
 
 func (s *Server) closeErrChannel() {
 	s.errCloseOnce.Do(func() {
-		s.CloseErrChannel()
+		s.base.CloseErrChannel()
 	})
 }
 

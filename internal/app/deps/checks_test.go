@@ -205,7 +205,7 @@ func TestContainerCapabilityValidation(t *testing.T) {
 		t.Fatalf("errorsList = %v", errorsList)
 	}
 
-	if string(formatCapabilityAlternatives([]invowkfile.CapabilityName{invowkfile.CapabilityTTY}, false, errors.New("tty - missing"))) != "  • tty - missing" {
+	if string(formatCapabilityAlternatives([]invowkfile.CapabilityName{invowkfile.CapabilityTTY}, false, errors.New("tty - missing"))) != "tty - missing" {
 		t.Fatal("single capability alternative formatting mismatch")
 	}
 

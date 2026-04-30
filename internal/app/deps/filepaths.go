@@ -33,7 +33,7 @@ func CheckFilepathDependenciesInContainer(deps *invowkfile.DependsOn, registry *
 
 	for _, fp := range deps.Filepaths {
 		if err := ValidateFilepathInContainer(fp, rt, ctx); err != nil {
-			filepathErrors = append(filepathErrors, DependencyMessage(err.Error()))
+			filepathErrors = append(filepathErrors, dependencyMessageFromDetail(err.Error()))
 		}
 	}
 
@@ -87,7 +87,7 @@ func CheckHostFilepathDependenciesWithProbe(deps *invowkfile.DependsOn, invowkfi
 
 	for _, fp := range deps.Filepaths {
 		if err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe); err != nil {
-			filepathErrors = append(filepathErrors, DependencyMessage(err.Error()))
+			filepathErrors = append(filepathErrors, dependencyMessageFromDetail(err.Error()))
 		}
 	}
 

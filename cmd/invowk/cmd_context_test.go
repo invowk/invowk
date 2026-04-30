@@ -236,21 +236,22 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 	}
 	ctx := contextWithConfigPath(t.Context(), string(req.ConfigPath))
 
-	// Execute the full pipeline; the service returns diagnostics from discovery only.
-	// Config diagnostics are emitted separately by the configFallback callback
-	// and should not be mixed into the discovery diagnostics.
+	// Execute the full pipeline; the service returns the config diagnostic once,
+	// followed by discovery diagnostics.
 	_, diags, err := svc.Execute(ctx, req)
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	// The discovery returns 1 diagnostic; verify no duplication.
-	if len(diags) != 1 {
-		t.Fatalf("Execute() diagnostics count = %d, want 1; diagnostics=%#v", len(diags), diags)
+	if len(diags) != 2 {
+		t.Fatalf("Execute() diagnostics count = %d, want 2; diagnostics=%#v", len(diags), diags)
 	}
 
-	if diags[0].Code() != discovery.CodeCommandNotFound {
-		t.Fatalf("Execute() diagnostic code = %q, want %q", diags[0].Code(), discovery.CodeCommandNotFound)
+	if diags[0].Code() != discovery.CodeConfigLoadFailed {
+		t.Fatalf("Execute() first diagnostic code = %q, want %q", diags[0].Code(), discovery.CodeConfigLoadFailed)
+	}
+	if diags[1].Code() != discovery.CodeCommandNotFound {
+		t.Fatalf("Execute() second diagnostic code = %q, want %q", diags[1].Code(), discovery.CodeCommandNotFound)
 	}
 }
 

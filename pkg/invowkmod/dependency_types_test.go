@@ -32,6 +32,18 @@ func TestModuleRef_MatchesSourceID(t *testing.T) {
 			want:     true,
 		},
 		{
+			name:     "module suffix stripped from git repository basename",
+			ref:      ModuleRef{GitURL: "https://github.com/example/io.example.tools.invowkmod.git"},
+			sourceID: "io.example.tools",
+			want:     true,
+		},
+		{
+			name:     "module suffix stripped from local path basename",
+			ref:      ModuleRef{Path: "/tmp/modules/io.example.local.invowkmod"},
+			sourceID: "io.example.local",
+			want:     true,
+		},
+		{
 			name:     "nonmatching source rejected",
 			ref:      ModuleRef{GitURL: "https://github.com/example/tools.git"},
 			sourceID: "other",

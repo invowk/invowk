@@ -86,8 +86,8 @@ type (
 		Severity Severity `json:"severity"`
 		// Category classifies the type of security concern.
 		Category Category `json:"category"`
-		// SurfaceID identifies the attack surface (e.g., "SC-01") when applicable.
-		// Empty string when the finding does not map to a known attack surface.
+		// SurfaceID identifies the scanned owner surface, such as a module ID or
+		// invowkfile path. Empty only when a finding cannot be tied to a surface.
 		SurfaceID string `json:"surface_id,omitempty"`
 		// SurfaceKind identifies the trust boundary that produced the finding.
 		SurfaceKind SurfaceKind `json:"surface_kind,omitempty"`

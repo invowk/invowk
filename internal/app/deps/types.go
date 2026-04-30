@@ -76,9 +76,8 @@ type (
 		DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
 	}
 
-	// DependencyMessage is a pre-formatted dependency validation message
-	// used in DependencyError fields. Each message describes a single
-	// unsatisfied dependency (e.g., "  - kubectl - not found in PATH").
+	// DependencyMessage is a plain dependency validation detail used in
+	// DependencyError fields. Adapters decide how to render bullets and spacing.
 	DependencyMessage string
 
 	// InvalidDependencyMessageError is returned when a DependencyMessage value
@@ -171,6 +170,21 @@ func (m DependencyMessage) Validate() error {
 // String returns the string representation of the DependencyMessage.
 func (m DependencyMessage) String() string {
 	return string(m)
+}
+
+// dependencyMessageFromDetail constructs a plain dependency validation detail.
+//
+//goplint:ignore -- dependency diagnostics normalize free-form details from typed errors; empty messages are rejected at aggregate construction.
+func dependencyMessageFromDetail(detail string) DependencyMessage {
+	return DependencyMessage(normalizeDependencyMessage(detail))
+}
+
+//goplint:ignore -- helper strips presentation bullets from legacy free-form diagnostics.
+func normalizeDependencyMessage(detail string) string {
+	text := strings.TrimSpace(detail)
+	text = strings.TrimSpace(strings.TrimPrefix(text, "•"))
+	text = strings.TrimSpace(strings.TrimPrefix(text, "-"))
+	return text
 }
 
 // Error implements the error interface for InvalidDependencyMessageError.

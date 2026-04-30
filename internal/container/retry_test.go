@@ -107,6 +107,41 @@ func TestRetryWithBackoff_ContextCancelledBetweenRetries(t *testing.T) {
 	}
 }
 
+func TestRetryWithBackoff_SleeperReceivesBackoffSchedule(t *testing.T) {
+	t.Parallel()
+
+	var sleeps []time.Duration
+	calls := 0
+	err := retryWithBackoff(
+		t.Context(),
+		3,
+		25*time.Millisecond,
+		func(_ int) (bool, error) {
+			calls++
+			return true, errAlwaysTransient
+		},
+		func(_ context.Context, duration time.Duration) error {
+			sleeps = append(sleeps, duration)
+			return nil
+		},
+	)
+	if !errors.Is(err, errAlwaysTransient) {
+		t.Fatalf("expected %v, got: %v", errAlwaysTransient, err)
+	}
+	if calls != 3 {
+		t.Fatalf("calls = %d, want 3", calls)
+	}
+	want := []time.Duration{25 * time.Millisecond, 50 * time.Millisecond}
+	if len(sleeps) != len(want) {
+		t.Fatalf("sleeps = %v, want %v", sleeps, want)
+	}
+	for i := range want {
+		if sleeps[i] != want[i] {
+			t.Fatalf("sleeps = %v, want %v", sleeps, want)
+		}
+	}
+}
+
 func TestRetryWithBackoff_BackoffTiming(t *testing.T) {
 	t.Parallel()
 	start := time.Now()

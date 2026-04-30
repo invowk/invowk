@@ -50,8 +50,12 @@ type (
 		Platform invowkfile.Platform
 		// Interactive enables alternate screen buffer with TUI server.
 		Interactive bool
+		// InteractiveSet is true when the caller explicitly set Interactive.
+		InteractiveSet bool
 		// Verbose enables verbose diagnostic output.
 		Verbose bool
+		// VerboseSet is true when the caller explicitly set Verbose.
+		VerboseSet bool
 		// FromSource is the --ivk-from flag value for source disambiguation.
 		FromSource discovery.SourceID
 		// ForceRebuild forces container image rebuilds, bypassing cache.

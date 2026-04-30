@@ -138,7 +138,7 @@ func RenderDependencyError(err *deps.DependencyError) string {
 		sb.WriteString(sectionStyle.Render(label))
 		sb.WriteString("\n")
 		for _, item := range items {
-			sb.WriteString(renderValueStyle.Render(item.String()))
+			sb.WriteString(renderValueStyle.Render("  • " + item.String()))
 			sb.WriteString("\n")
 		}
 	}

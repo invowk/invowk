@@ -104,6 +104,7 @@ type (
 		stdout    io.Writer
 		stderr    io.Writer
 		debounce  time.Duration
+		schedule  debounceScheduler
 		baseDir   string // Resolved absolute path; string because it comes from filepath.Abs
 		started   atomic.Bool
 		closed    atomic.Bool
@@ -122,6 +123,13 @@ type (
 		Close() error
 		Events() <-chan fsnotify.Event
 		Errors() <-chan error
+	}
+
+	debounceScheduler func(time.Duration, func()) debounceTimer
+
+	debounceTimer interface {
+		Reset(time.Duration) bool
+		Stop() bool
 	}
 
 	fsnotifyBackend struct {
@@ -262,8 +270,11 @@ func newWithBackend(cfg Config, backend watcherBackend, baseDir types.Filesystem
 		stdout:   stdout,
 		stderr:   stderr,
 		debounce: debounce,
-		baseDir:  absBase,
-		ready:    make(chan struct{}),
+		schedule: func(duration time.Duration, fire func()) debounceTimer {
+			return time.AfterFunc(duration, fire)
+		},
+		baseDir: absBase,
+		ready:   make(chan struct{}),
 	}
 
 	if err := w.addDirectories(); err != nil {
@@ -307,7 +318,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 	var (
 		mu      sync.Mutex
 		pending = make(map[string]struct{})
-		timer   *time.Timer
+		timer   debounceTimer
 		running atomic.Bool
 		wg      sync.WaitGroup
 	)
@@ -444,7 +455,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 			pending[rel] = struct{}{}
 			if timer == nil {
 				wg.Add(1)
-				timer = time.AfterFunc(w.debounce, fireWrapped)
+				timer = w.schedule(w.debounce, fireWrapped)
 			} else if !timer.Reset(w.debounce) {
 				// Timer had already expired: the old fire goroutine was
 				// started (and will wg.Done() independently). Reset

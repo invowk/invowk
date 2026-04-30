@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
@@ -26,8 +27,12 @@ func LoadConfigWithFallback(ctx context.Context, provider config.Provider, confi
 	}
 
 	if configPath != "" {
+		severity := discovery.SeverityError
+		if errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "config file not found") {
+			severity = discovery.SeverityWarning
+		}
 		diag, diagErr := discovery.NewDiagnosticWithCause(
-			discovery.SeverityError,
+			severity,
 			discovery.CodeConfigLoadFailed,
 			fmt.Sprintf("failed to load config from %s: %v", configPath, err),
 			configFilePath,

@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 
@@ -78,10 +77,6 @@ type (
 		// ResponseCh is where the result should be sent when the component completes.
 		ResponseCh chan<- ComponentResponse
 	}
-
-	// ComponentResponse is the terminal renderer's local result for an
-	// embedded component request. Transport adapters decide how to encode it.
-	ComponentResponse = tuiwire.ComponentResponse
 
 	// tuiComponentDoneMsg is sent when an embedded TUI component completes.
 	tuiComponentDoneMsg struct {

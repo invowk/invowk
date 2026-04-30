@@ -55,13 +55,13 @@ func CollectToolErrors(tools []invowkfile.ToolDependency, check func(invowkfile.
 		found, lastErr := EvaluateAlternatives(tool.Alternatives, check)
 		if !found && lastErr != nil {
 			if len(tool.Alternatives) == 1 {
-				toolErrors = append(toolErrors, DependencyMessage(lastErr.Error()))
+				toolErrors = append(toolErrors, dependencyMessageFromDetail(lastErr.Error()))
 			} else {
 				names := make([]string, len(tool.Alternatives))
 				for i, alt := range tool.Alternatives {
 					names[i] = string(alt)
 				}
-				toolErrors = append(toolErrors, DependencyMessage(fmt.Sprintf("  • none of [%s] found", strings.Join(names, ", "))))
+				toolErrors = append(toolErrors, dependencyMessageFromDetail(fmt.Sprintf("none of [%s] found", strings.Join(names, ", "))))
 			}
 		}
 	}

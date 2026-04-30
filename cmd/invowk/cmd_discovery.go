@@ -210,13 +210,15 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				return err
 			}
 
-			verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
+			verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
 			req := ExecuteRequest{
 				Name:            string(cmdName),
 				Args:            args,
 				Runtime:         parsedRuntime,
 				Interactive:     interactive,
+				InteractiveSet:  interactiveSet,
 				Verbose:         verbose,
+				VerboseSet:      verboseSet,
 				FromSource:      discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
 				ForceRebuild:    cmdFlags.forceRebuild,
 				DryRun:          cmdFlags.dryRun,

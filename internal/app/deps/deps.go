@@ -203,9 +203,7 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 		if scope != nil && matchedCmd.ModuleID != nil {
 			allowed, reason := scope.CanCall(string(matchedCmd.Name))
 			if !allowed {
-				forbiddenErrors = append(forbiddenErrors, DependencyMessage(
-					fmt.Sprintf("  • %s - %s", matchedCmd.Name, reason),
-				))
+				forbiddenErrors = append(forbiddenErrors, dependencyMessageFromDetail(fmt.Sprintf("%s - %s", matchedCmd.Name, reason)))
 			}
 		}
 	}
@@ -330,12 +328,12 @@ func formatMissingCommandDependency(alternatives []string, inContainer bool) Dep
 		if inContainer {
 			suffix = "command not found in container"
 		}
-		return DependencyMessage(fmt.Sprintf("  • %s - %s", alternatives[0], suffix))
+		return dependencyMessageFromDetail(fmt.Sprintf("%s - %s", alternatives[0], suffix))
 	}
 
-	message := "  • none of [%s] found"
+	message := "none of [%s] found"
 	if inContainer {
-		message = "  • none of [%s] found in container"
+		message = "none of [%s] found in container"
 	}
-	return DependencyMessage(fmt.Sprintf(message, strings.Join(alternatives, ", ")))
+	return dependencyMessageFromDetail(fmt.Sprintf(message, strings.Join(alternatives, ", ")))
 }

@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+type retrySleeper func(context.Context, time.Duration) error
+
 // RetryWithBackoff retries op up to maxAttempts times with exponential backoff.
 // It checks ctx.Err() between retries to respect cancellation immediately,
 // preventing wasted work when the caller has already abandoned the operation.
@@ -21,13 +23,26 @@ func RetryWithBackoff(
 	baseBackoff time.Duration,
 	op func(attempt int) (retry bool, err error),
 ) error {
+	return retryWithBackoff(ctx, maxAttempts, baseBackoff, op, sleepWithContext)
+}
+
+//goplint:ignore -- retry counts are local control-flow limits, not domain values.
+func retryWithBackoff(
+	ctx context.Context,
+	maxAttempts int,
+	baseBackoff time.Duration,
+	op func(attempt int) (retry bool, err error),
+	sleep retrySleeper,
+) error {
 	var lastErr error
 	for attempt := range maxAttempts {
 		if attempt > 0 {
 			if err := ctx.Err(); err != nil {
 				return fmt.Errorf("retry aborted: %w", err)
 			}
-			time.Sleep(baseBackoff * time.Duration(1<<(attempt-1)))
+			if err := sleep(ctx, baseBackoff*time.Duration(1<<(attempt-1))); err != nil {
+				return fmt.Errorf("retry aborted: %w", err)
+			}
 		}
 
 		retry, err := op(attempt)
@@ -40,4 +55,16 @@ func RetryWithBackoff(
 		lastErr = err
 	}
 	return lastErr
+}
+
+func sleepWithContext(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("sleep interrupted: %w", ctx.Err())
+	case <-timer.C:
+		return nil
+	}
 }

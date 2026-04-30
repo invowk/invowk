@@ -543,6 +543,5 @@ func (d *Discovery) detectModuleShadowing(files []*DiscoveredFile) []Diagnostic 
 // getModuleShortName extracts the short name from a module path.
 // e.g., "/path/to/foo.invowkmod" -> "foo"
 func getModuleShortName(modulePath types.FilesystemPath) invowkmod.ModuleShortName {
-	base := filepath.Base(string(modulePath))
-	return invowkmod.ModuleShortName(strings.TrimSuffix(base, invowkmod.ModuleSuffix))
+	return invowkmod.ModuleShortName(invowkmod.CommandSourceIDFromModulePath(modulePath))
 }

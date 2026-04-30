@@ -12,7 +12,6 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
-	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -118,5 +117,5 @@ func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
 
 func forwardComponentResponse(componentType tui.ComponentType, from <-chan tui.ComponentResponse, to chan<- tuiserver.Response) {
 	componentResponse := <-from
-	to <- tuiwire.EncodeResponse(tuiwire.Component(componentType), componentResponse)
+	to <- tui.EncodeComponentResponse(componentType, componentResponse)
 }

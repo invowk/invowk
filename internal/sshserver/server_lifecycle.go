@@ -35,9 +35,8 @@ type (
 //
 // After Start() returns nil, use Err() to monitor for runtime errors.
 func (s *Server) Start(ctx context.Context) error {
-	// Delegate state transition to serverbase.Base
-	// This handles the cancelled context check and Created -> Starting transition
-	if err := s.TransitionToStarting(ctx); err != nil {
+	// This handles the cancelled context check and Created -> Starting transition.
+	if err := s.base.TransitionToStarting(ctx); err != nil {
 		return err
 	}
 
@@ -50,7 +49,7 @@ func (s *Server) Start(ctx context.Context) error {
 	var lc net.ListenConfig
 	listener, err := lc.Listen(startupCtx, "tcp", addr)
 	if err != nil {
-		s.TransitionToFailed(fmt.Errorf("failed to listen on %s: %w", addr, err))
+		s.base.TransitionToFailed(fmt.Errorf("failed to listen on %s: %w", addr, err))
 		return s.LastError()
 	}
 
@@ -71,7 +70,7 @@ func (s *Server) Start(ctx context.Context) error {
 	)
 	if err != nil {
 		_ = listener.Close() // Best-effort cleanup on error
-		s.TransitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))
+		s.base.TransitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))
 		return s.LastError()
 	}
 
@@ -80,28 +79,28 @@ func (s *Server) Start(ctx context.Context) error {
 	s.srvMu.Unlock()
 
 	// Start the serve goroutine
-	s.AddGoroutine()
+	s.base.AddGoroutine()
 	go s.serve()
 
 	// Start token cleanup goroutine
-	s.AddGoroutine()
+	s.base.AddGoroutine()
 	go s.cleanupExpiredTokens()
 
 	// Wait for server to be ready or fail
 	select {
-	case <-s.StartedChannel():
+	case <-s.base.StartedChannel():
 		// Server is ready
 		s.logger.Info("SSH server started", "address", s.addr)
 		return nil
 
 	case err := <-s.Err():
 		// Server failed during startup
-		s.TransitionToFailed(err)
+		s.base.TransitionToFailed(err)
 		return err
 
 	case <-startupCtx.Done():
 		// Startup timeout or caller cancelled
-		s.TransitionToFailed(fmt.Errorf("startup timeout: %w", startupCtx.Err()))
+		s.base.TransitionToFailed(fmt.Errorf("startup timeout: %w", startupCtx.Err()))
 		return s.LastError()
 	}
 }
@@ -110,10 +109,9 @@ func (s *Server) Start(ctx context.Context) error {
 // It blocks until all connections are closed or the shutdown timeout is reached.
 // Safe to call multiple times; subsequent calls are no-ops.
 func (s *Server) Stop() error {
-	// Use serverbase.Base to handle state transition
-	if !s.TransitionToStopping() {
+	if !s.base.TransitionToStopping() {
 		// Already stopped, stopping, created, or failed
-		s.WaitForShutdown()
+		s.base.WaitForShutdown()
 		return nil
 	}
 
@@ -151,11 +149,11 @@ func (s *Server) doStop() error {
 	}
 
 	// Wait for all goroutines to exit
-	s.WaitForShutdown()
+	s.base.WaitForShutdown()
 
 	// Transition to Stopped and close error channel
-	s.TransitionToStopped()
-	s.CloseErrChannel()
+	s.base.TransitionToStopped()
+	s.base.CloseErrChannel()
 	s.logger.Info("SSH server stopped")
 
 	return shutdownErr
@@ -163,10 +161,10 @@ func (s *Server) doStop() error {
 
 // serve runs the SSH server and handles errors.
 func (s *Server) serve() {
-	defer s.DoneGoroutine()
+	defer s.base.DoneGoroutine()
 
 	// Transition: Starting -> Running (signals readiness)
-	s.TransitionToRunning()
+	s.base.TransitionToRunning()
 
 	// Block serving connections
 	s.srvMu.Lock()
@@ -187,20 +185,29 @@ func (s *Server) serve() {
 		}
 
 		// Report unexpected errors
-		s.SendError(fmt.Errorf("serve error: %w", err))
+		s.base.SendError(fmt.Errorf("serve error: %w", err))
 	}
 }
 
 // State returns the current server state.
-// This delegates to the embedded serverbase.Base.
 func (s *Server) State() serverbase.State {
-	return s.Base.State()
+	return s.base.State()
 }
 
 // IsRunning returns whether the server is currently running and accepting connections.
 // This is a convenience method equivalent to State() == serverbase.StateRunning.
 func (s *Server) IsRunning() bool {
-	return s.Base.IsRunning()
+	return s.base.IsRunning()
+}
+
+// Err returns a channel for receiving async errors.
+func (s *Server) Err() <-chan error {
+	return s.base.Err()
+}
+
+// LastError returns the error that caused the Failed state, or nil.
+func (s *Server) LastError() error {
+	return s.base.LastError()
 }
 
 // Address returns the server's bound address (host:port).
@@ -208,18 +215,18 @@ func (s *Server) IsRunning() bool {
 // Returns empty string if server never started or failed.
 func (s *Server) Address() string {
 	select {
-	case <-s.StartedChannel():
+	case <-s.base.StartedChannel():
 		s.srvMu.Lock()
 		defer s.srvMu.Unlock()
 		return s.addr
 	default:
 		// Server not started yet, check if context exists
-		ctx := s.Context()
+		ctx := s.base.Context()
 		if ctx == nil {
 			return ""
 		}
 		select {
-		case <-s.StartedChannel():
+		case <-s.base.StartedChannel():
 			s.srvMu.Lock()
 			defer s.srvMu.Unlock()
 			return s.addr
@@ -260,7 +267,7 @@ func (s *Server) Host() HostAddress {
 // Wait blocks until the server stops (either gracefully or due to error).
 // Returns the error if the server failed, nil otherwise.
 func (s *Server) Wait() error {
-	s.WaitForShutdown()
+	s.base.WaitForShutdown()
 
 	state := s.State()
 	if state == serverbase.StateFailed {

@@ -6,6 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
+)
+
+const (
+	// MaxDescriptionTextLength is the maximum number of runes allowed in a shared description.
+	MaxDescriptionTextLength = 10 * 1024
 )
 
 // ErrInvalidDescriptionText is the sentinel error wrapped by InvalidDescriptionTextError.
@@ -36,12 +42,15 @@ func (d DescriptionText) Validate() error {
 	if strings.TrimSpace(string(d)) == "" {
 		return &InvalidDescriptionTextError{Value: d}
 	}
+	if utf8.RuneCountInString(string(d)) > MaxDescriptionTextLength {
+		return &InvalidDescriptionTextError{Value: d}
+	}
 	return nil
 }
 
 // Error implements the error interface for InvalidDescriptionTextError.
 func (e *InvalidDescriptionTextError) Error() string {
-	return fmt.Sprintf("invalid description text: non-empty value must not be whitespace-only (got %q)", e.Value)
+	return fmt.Sprintf("invalid description text: non-empty value must not be whitespace-only and must be at most %d runes (got %q)", MaxDescriptionTextLength, e.Value)
 }
 
 // Unwrap returns ErrInvalidDescriptionText for errors.Is() compatibility.

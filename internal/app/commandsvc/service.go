@@ -195,17 +195,20 @@ func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.C
 // Config is loaded separately because downstream callers need it for runtime
 // registry construction and env builder configuration.
 func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
-	cfg, _ := s.loadConfig(ctx, string(req.ConfigPath))
+	cfg, configDiags := s.loadConfig(ctx, string(req.ConfigPath))
+	req = applyUIConfigDefaults(req, cfg)
 	if req.ResolvedCommand != nil {
-		return cfg, req.ResolvedCommand, req, nil, nil
+		return cfg, req.ResolvedCommand, req, configDiags, nil
 	}
 
 	if req.FromSource != "" {
-		return s.discoverCommandFromSource(ctx, cfg, req)
+		foundCfg, cmdInfo, resolvedReq, diags, err := s.discoverCommandFromSource(ctx, cfg, req)
+		diags = appendDiagnostics(configDiags, diags...)
+		return foundCfg, cmdInfo, resolvedReq, diags, err
 	}
 
 	result, err := s.discovery.DiscoverCommandSet(ctx)
-	diags := slices.Clone(result.Diagnostics)
+	diags := appendDiagnostics(configDiags, result.Diagnostics...)
 	if err != nil {
 		return nil, nil, req, diags, err
 	}
@@ -233,6 +236,19 @@ func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Con
 	return cfg, cmdInfo, resolvedReq, diags, nil
 }
 
+func applyUIConfigDefaults(req Request, cfg *config.Config) Request {
+	if cfg == nil {
+		return req
+	}
+	if !req.VerboseSet {
+		req.Verbose = cfg.UI.Verbose
+	}
+	if !req.InteractiveSet {
+		req.Interactive = cfg.UI.Interactive
+	}
+	return req
+}
+
 func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Config, req Request, diags []discovery.Diagnostic) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
 	lookup, err := s.discovery.GetCommand(ctx, req.Name)
 	diags = append(diags, lookup.Diagnostics...)
@@ -246,6 +262,11 @@ func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Confi
 		}
 	}
 	return cfg, lookup.Command, req, diags, nil
+}
+
+func appendDiagnostics(base []discovery.Diagnostic, extra ...discovery.Diagnostic) []discovery.Diagnostic {
+	result := slices.Clone(base)
+	return append(result, extra...)
 }
 
 func ambiguousSourcesFor(commandSet *discovery.DiscoveredCommandSet, name invowkfile.CommandName) []discovery.SourceID {

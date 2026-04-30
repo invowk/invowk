@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	slashpath "path"
+	"path/filepath"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -144,7 +145,7 @@ func (r ModuleRef) MatchesSourceID(sourceID ModuleSourceID) bool {
 	if r.Alias != "" {
 		return string(r.Alias) == sourceID.String()
 	}
-	if r.Path != "" && slashpath.Base(string(r.Path)) == sourceID.String() {
+	if r.Path != "" && r.DefaultSourceID() == sourceID {
 		return true
 	}
 	return moduleSourceFromGitURL(r.GitURL) == sourceID
@@ -154,11 +155,7 @@ func (r ModuleRef) MatchesSourceID(sourceID ModuleSourceID) bool {
 // requirement when no alias is declared.
 func (r ModuleRef) DefaultSourceID() ModuleSourceID {
 	if r.Path != "" {
-		sourceID := ModuleSourceID(slashpath.Base(string(r.Path)))
-		if err := sourceID.Validate(); err != nil {
-			return ""
-		}
-		return sourceID
+		return CommandSourceIDFromName(ModuleShortName(slashpath.Base(string(r.Path)))) //goplint:ignore -- basename normalized below before validation
 	}
 	return moduleSourceFromGitURL(r.GitURL)
 }
@@ -184,8 +181,20 @@ func moduleSourceFromGitURL(gitURL GitURL) ModuleSourceID {
 	if before, after, found := strings.Cut(urlPath, ":"); found && !strings.Contains(before, "/") {
 		urlPath = after
 	}
-	base := slashpath.Base(urlPath)
-	sourceID := ModuleSourceID(strings.TrimSuffix(base, ".git"))
+	return CommandSourceIDFromName(ModuleShortName(slashpath.Base(urlPath))) //goplint:ignore -- repository basename normalized below before validation
+}
+
+// CommandSourceIDFromModulePath returns the default command source namespace
+// for a module directory path.
+func CommandSourceIDFromModulePath(modulePath types.FilesystemPath) ModuleSourceID {
+	return CommandSourceIDFromName(ModuleShortName(filepath.Base(string(modulePath)))) //goplint:ignore -- filesystem basename normalized below before validation
+}
+
+// CommandSourceIDFromName returns the default command source namespace for a
+// module directory name, repository basename, or monorepo subdirectory basename.
+func CommandSourceIDFromName(name ModuleShortName) ModuleSourceID {
+	sourceName := strings.TrimSuffix(strings.TrimSuffix(string(name), ".git"), ModuleSuffix)
+	sourceID := ModuleSourceID(sourceName)
 	if err := sourceID.Validate(); err != nil {
 		return ""
 	}

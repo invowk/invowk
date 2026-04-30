@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // Validation limits to prevent resource exhaustion
@@ -16,7 +18,7 @@ const (
 	// MaxScriptLength is the maximum allowed length for script content (10 MB)
 	MaxScriptLength = 10 * 1024 * 1024
 	// MaxDescriptionLength is the maximum allowed length for description fields
-	MaxDescriptionLength = 10 * 1024
+	MaxDescriptionLength = types.MaxDescriptionTextLength
 	// MaxNameLength is the maximum allowed length for command/flag/arg names
 	MaxNameLength = 256
 	// MaxNestedGroups is the maximum depth of nested groups in regex patterns

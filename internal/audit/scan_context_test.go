@@ -138,6 +138,31 @@ func TestBuildScanContextIncludedModuleKeepsLockAndVendoredArtifacts(t *testing.
 	if len(included.VendoredModules) != 1 {
 		t.Fatalf("included VendoredModules = %d, want 1", len(included.VendoredModules))
 	}
+
+	var vendored *ScannedModule
+	for _, mod := range sc.Modules() {
+		if mod.SurfaceID == "io.example.dep" {
+			vendored = mod
+			break
+		}
+	}
+	if vendored == nil {
+		t.Fatalf("vendored module not scanned as first-class surface; modules: %v", sc.Modules())
+	}
+	if vendored.SurfaceKind != SurfaceKindVendoredModule {
+		t.Fatalf("vendored SurfaceKind = %q, want %q", vendored.SurfaceKind, SurfaceKindVendoredModule)
+	}
+
+	hasVendoredScript := false
+	for _, script := range sc.AllScripts() {
+		if script.SurfaceID == "io.example.dep" && script.SurfaceKind == SurfaceKindVendoredModule {
+			hasVendoredScript = true
+			break
+		}
+	}
+	if !hasVendoredScript {
+		t.Fatal("vendored module scripts were not exposed to audit checkers")
+	}
 }
 
 func createAuditTestModule(t *testing.T, moduleDir, moduleID, cmdName string) {

@@ -275,10 +275,13 @@ func (m RuntimeMode) String() string { return string(m) }
 func (m RuntimeMode) Validate() error {
 	switch m {
 	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
-		return nil
 	default:
 		return &InvalidRuntimeModeError{Value: m}
 	}
+	if err := types.RuntimeMode(m).Validate(); err != nil {
+		return &InvalidRuntimeModeError{Value: m}
+	}
+	return nil
 }
 
 // String returns the string representation of the EnvInheritMode.

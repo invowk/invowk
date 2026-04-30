@@ -84,17 +84,19 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 			return err
 		}
 
-		verbose, interactive := resolveUIFlags(ctx, app, cmd, rootFlags)
+		verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
 		req := ExecuteRequest{
-			Name:         args[0],
-			Args:         args[1:],
-			Runtime:      parsedRuntime,
-			Interactive:  interactive,
-			Verbose:      verbose,
-			FromSource:   filter.SourceID,
-			ForceRebuild: cmdFlags.forceRebuild,
-			DryRun:       cmdFlags.dryRun,
-			ConfigPath:   types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+			Name:           args[0],
+			Args:           args[1:],
+			Runtime:        parsedRuntime,
+			Interactive:    interactive,
+			InteractiveSet: interactiveSet,
+			Verbose:        verbose,
+			VerboseSet:     verboseSet,
+			FromSource:     filter.SourceID,
+			ForceRebuild:   cmdFlags.forceRebuild,
+			DryRun:         cmdFlags.dryRun,
+			ConfigPath:     types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 		}
 
 		return executeRequest(cmd, app, req)

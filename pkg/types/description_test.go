@@ -4,6 +4,7 @@ package types
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -22,6 +23,8 @@ func TestDescriptionText_Validate(t *testing.T) {
 		{"whitespace only is invalid", DescriptionText("   "), false, true},
 		{"tab only is invalid", DescriptionText("\t"), false, true},
 		{"newline only is invalid", DescriptionText("\n"), false, true},
+		{"max length is valid", DescriptionText(strings.Repeat("x", MaxDescriptionTextLength)), true, false},
+		{"over max length is invalid", DescriptionText(strings.Repeat("x", MaxDescriptionTextLength+1)), false, true},
 	}
 
 	for _, tt := range tests {

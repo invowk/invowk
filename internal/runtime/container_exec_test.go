@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/internal/container"
 )
@@ -40,16 +41,6 @@ type (
 		failStderr    string   // Stderr message for failed attempts.
 		successStderr string   // Stderr message for the successful attempt.
 		attempt       int
-	}
-
-	// cancelOnAttemptEngine wraps a MockStderrEngine and cancels a context when
-	// a specific attempt index is reached. This simulates external cancellation
-	// (e.g., user pressing Ctrl-C) during retry backoff.
-	cancelOnAttemptEngine struct {
-		*MockStderrEngine
-		cancelAtAttempt int
-		cancelFunc      context.CancelFunc
-		attempt         int
 	}
 )
 
@@ -98,19 +89,6 @@ func (m *countingMockEngine) Run(_ context.Context, opts container.RunOptions) (
 		fmt.Fprint(opts.Stderr, m.successStderr)
 	}
 	return &container.RunResult{ExitCode: 0}, nil
-}
-
-func (m *cancelOnAttemptEngine) Run(ctx context.Context, opts container.RunOptions) (*container.RunResult, error) {
-	m.mu.Lock()
-	currentAttempt := m.attempt
-	m.attempt++
-	m.mu.Unlock()
-
-	if currentAttempt == m.cancelAtAttempt {
-		m.cancelFunc()
-	}
-
-	return m.MockStderrEngine.Run(ctx, opts)
 }
 
 // TestRunWithRetry_SerializationDecision verifies the serialization decision
@@ -370,15 +348,10 @@ func TestRunWithRetry_ContextCancelled(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
-
-	// Cancel the context after the first attempt completes.
-	// We use a custom engine wrapper that cancels on the second call.
-	cancellingEngine := &cancelOnAttemptEngine{
-		MockStderrEngine: engine,
-		cancelAtAttempt:  1,
-		cancelFunc:       cancel,
+	rt.retrySleep = func(ctx context.Context, _ time.Duration) error {
+		cancel()
+		return ctx.Err()
 	}
-	rt.engine = cancellingEngine
 
 	var originalStderr bytes.Buffer
 	opts := container.RunOptions{
@@ -393,6 +366,9 @@ func TestRunWithRetry_ContextCancelled(t *testing.T) {
 	}
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("error should wrap context.Canceled, got: %v", err)
+	}
+	if len(engine.RunCalls) != 1 {
+		t.Fatalf("engine.Run() calls = %d, want 1", len(engine.RunCalls))
 	}
 }
 

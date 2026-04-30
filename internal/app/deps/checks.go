@@ -146,13 +146,13 @@ func evaluateCustomChecks(
 
 		if !found && lastErr != nil {
 			if len(checks) == 1 {
-				checkErrors = append(checkErrors, DependencyMessage(lastErr.Error()))
+				checkErrors = append(checkErrors, dependencyMessageFromDetail(lastErr.Error()))
 			} else {
 				names := make([]string, len(checks))
 				for i, c := range checks {
 					names[i] = string(c.Name)
 				}
-				checkErrors = append(checkErrors, DependencyMessage(fmt.Sprintf("  • none of custom checks [%s] passed", strings.Join(names, ", "))))
+				checkErrors = append(checkErrors, dependencyMessageFromDetail(fmt.Sprintf("none of custom checks [%s] passed", strings.Join(names, ", "))))
 			}
 		}
 	}
@@ -471,18 +471,18 @@ func capabilityDependencyKey(capDep invowkfile.CapabilityDependency) string {
 
 func formatCapabilityAlternatives(alternatives []invowkfile.CapabilityName, inContainer bool, lastErr error) DependencyMessage {
 	if len(alternatives) == 1 {
-		return DependencyMessage("  • " + lastErr.Error())
+		return dependencyMessageFromDetail(lastErr.Error())
 	}
 
 	alts := make([]string, len(alternatives))
 	for i, alt := range alternatives {
 		alts[i] = string(alt)
 	}
-	message := "  • none of capabilities [%s] satisfied"
+	message := "none of capabilities [%s] satisfied"
 	if inContainer {
-		message = "  • none of capabilities [%s] satisfied in container"
+		message = "none of capabilities [%s] satisfied in container"
 	}
-	return DependencyMessage(fmt.Sprintf(message, strings.Join(alts, ", ")))
+	return dependencyMessageFromDetail(fmt.Sprintf(message, strings.Join(alts, ", ")))
 }
 
 func collectHostEnvVarErrors(envVars []invowkfile.EnvVarDependency, userEnv map[string]string) []DependencyMessage {
@@ -524,16 +524,16 @@ func validateHostEnvVar(alt invowkfile.EnvVarCheck, userEnv map[string]string) e
 
 func formatEnvVarAlternatives(alternatives []invowkfile.EnvVarCheck, inContainer bool, lastErr error) DependencyMessage {
 	if len(alternatives) == 1 {
-		return DependencyMessage(lastErr.Error())
+		return dependencyMessageFromDetail(lastErr.Error())
 	}
 
 	names := make([]string, len(alternatives))
 	for i, alt := range alternatives {
 		names[i] = strings.TrimSpace(string(alt.Name))
 	}
-	message := "  • none of [%s] found or passed validation"
+	message := "none of [%s] found or passed validation"
 	if inContainer {
-		message = "  • none of [%s] found or passed validation in container"
+		message = "none of [%s] found or passed validation in container"
 	}
-	return DependencyMessage(fmt.Sprintf(message, strings.Join(names, ", ")))
+	return dependencyMessageFromDetail(fmt.Sprintf(message, strings.Join(names, ", ")))
 }

@@ -116,12 +116,12 @@ func (s *Server) GetConnectionInfo(commandID CommandID) (*ConnectionInfo, error)
 
 // cleanupExpiredTokens periodically removes expired tokens.
 func (s *Server) cleanupExpiredTokens() {
-	defer s.DoneGoroutine()
+	defer s.base.DoneGoroutine()
 
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	ctx := s.Context()
+	ctx := s.base.Context()
 	if ctx == nil {
 		return
 	}

@@ -75,7 +75,7 @@ func TestScriptChecker_PathTraversal(t *testing.T) {
 
 	hasTraversal := false
 	for _, f := range findings {
-		if f.Category == CategoryPathTraversal && f.SurfaceID == "SC-01" {
+		if f.Category == CategoryPathTraversal && f.SurfaceID == "testmod" {
 			hasTraversal = true
 		}
 	}

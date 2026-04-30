@@ -5,23 +5,38 @@ package audit
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
-// mockChecker is a test double for the Checker interface.
-type mockChecker struct {
-	name     string
-	category Category
-	findings []Finding
-	err      error
-}
+type (
+	// mockChecker is a test double for the Checker interface.
+	mockChecker struct {
+		name     string
+		category Category
+		findings []Finding
+		err      error
+	}
+
+	failingConfigProvider struct {
+		called bool
+	}
+)
 
 func (m *mockChecker) Name() string       { return m.name }
 func (m *mockChecker) Category() Category { return m.category }
 func (m *mockChecker) Check(_ context.Context, _ *ScanContext) ([]Finding, error) {
 	return m.findings, m.err
+}
+
+func (p *failingConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*config.Config, error) {
+	p.called = true
+	return nil, errors.New("unexpected config load")
 }
 
 func TestScanner_RunCheckersCollectsFindings(t *testing.T) {
@@ -57,6 +72,36 @@ func TestScanner_RunCheckersCollectsFindings(t *testing.T) {
 	}
 	if len(findings) != 2 {
 		t.Errorf("findings len = %d, want 2", len(findings))
+	}
+}
+
+func TestScanner_DirectCueTargetSkipsConfigLoad(t *testing.T) {
+	t.Parallel()
+
+	target := filepath.Join(t.TempDir(), "invowkfile.cue")
+	if err := os.WriteFile(target, []byte(`cmds: [{
+	name: "build"
+	implementations: [{
+		script: "echo build"
+		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}, {name: "macos"}]
+	}]
+}]
+`), 0o644); err != nil {
+		t.Fatalf("write invowkfile: %v", err)
+	}
+
+	provider := &failingConfigProvider{}
+	scanner := NewScanner(provider, WithCheckers(nil), WithCorrelator(nil))
+	report, err := scanner.Scan(t.Context(), types.FilesystemPath(target), false)
+	if err != nil {
+		t.Fatalf("Scan() = %v", err)
+	}
+	if provider.called {
+		t.Fatal("Scan() loaded config for an explicit invowkfile target")
+	}
+	if report.InvowkfileCount != 1 {
+		t.Fatalf("InvowkfileCount = %d, want 1", report.InvowkfileCount)
 	}
 }
 

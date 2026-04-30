@@ -202,18 +202,19 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		return err
 	}
 
-	// Resolve UI flags with CLI-over-config precedence before building the request.
-	verbose, interactive := resolveUIFlags(cmd.Context(), app, cmd, rootFlags)
+	verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
 	req := ExecuteRequest{
-		Name:         args[0],
-		Args:         args[1:],
-		Runtime:      parsedRuntime,
-		Interactive:  interactive,
-		Verbose:      verbose,
-		FromSource:   discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
-		ForceRebuild: cmdFlags.forceRebuild,
-		ConfigPath:   types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
-		DryRun:       cmdFlags.dryRun,
+		Name:           args[0],
+		Args:           args[1:],
+		Runtime:        parsedRuntime,
+		Interactive:    interactive,
+		InteractiveSet: interactiveSet,
+		Verbose:        verbose,
+		VerboseSet:     verboseSet,
+		FromSource:     discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+		ForceRebuild:   cmdFlags.forceRebuild,
+		ConfigPath:     types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+		DryRun:         cmdFlags.dryRun,
 	}
 
 	err = executeRequest(cmd, app, req)
@@ -338,6 +339,13 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	}
 
 	return verbose, interactive
+}
+
+func explicitUIFlags(cmd *cobra.Command, rootFlags *rootFlagValues) (verbose, interactive, verboseSet, interactiveSet bool) {
+	return rootFlags.verbose,
+		rootFlags.interactive,
+		cmd.Root().PersistentFlags().Changed("ivk-verbose"),
+		cmd.Root().PersistentFlags().Changed("ivk-interactive")
 }
 
 // validateCommandTree discovers all commands and validates the command tree for

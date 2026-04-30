@@ -6,10 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/pkg/fspath"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -69,7 +72,7 @@ func WithCorrelator(c *Correlator) ScannerOption {
 // Scan performs a full security analysis of the target path.
 //
 // Flow:
-//  1. Load config for discovery
+//  1. Load config when directory discovery needs it
 //  2. Build immutable ScanContext from the target path
 //  3. Run all checkers concurrently with context cancellation
 //  4. Apply correlator for compound threat detection
@@ -77,13 +80,16 @@ func WithCorrelator(c *Correlator) ScannerOption {
 func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGlobal bool) (*Report, error) {
 	start := time.Now()
 
-	// Load config for discovery.
-	cfg, err := s.config.Load(ctx, config.LoadOptions{})
-	if err != nil {
-		return nil, &ScanContextBuildError{
-			Path: path,
-			Err:  fmt.Errorf("loading config: %w", err),
+	var cfg *config.Config
+	if scanPathNeedsConfig(path) {
+		loaded, err := s.config.Load(ctx, config.LoadOptions{})
+		if err != nil {
+			return nil, &ScanContextBuildError{
+				Path: path,
+				Err:  fmt.Errorf("loading config: %w", err),
+			}
 		}
+		cfg = loaded
 	}
 
 	// Build immutable scan context.
@@ -121,6 +127,14 @@ func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGl
 	}
 
 	return report, nil
+}
+
+func scanPathNeedsConfig(path types.FilesystemPath) bool {
+	absPath, err := fspath.Abs(path)
+	if err != nil {
+		return true
+	}
+	return !strings.HasSuffix(string(absPath), ".cue") && !strings.HasSuffix(string(absPath), invowkmod.ModuleSuffix)
 }
 
 // runCheckers dispatches all checkers concurrently and collects findings.
