@@ -42,6 +42,11 @@ type (
 	}
 
 	productionWatchRunnerFactory struct{}
+
+	watchExecutionOutcome struct {
+		ExitCode types.ExitCode
+		Err      error
+	}
 )
 
 // Error implements the error interface.
@@ -51,6 +56,10 @@ func (e *WatchCommandNotFoundError) Error() string {
 
 func (productionWatchRunnerFactory) New(cfg watch.Config) (WatchRunner, error) {
 	return watch.New(cfg)
+}
+
+func (o watchExecutionOutcome) Validate() error {
+	return o.ExitCode.Validate()
 }
 
 // runWatchMode sets up file watching and re-executes the command on file changes.
@@ -111,7 +120,8 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		patterns = []invowkfile.GlobPattern{"**/*"}
 	}
 
-	// Build a re-execution closure that runs the command through the normal pipeline.
+	// Build a re-execution closure that runs the command through the command
+	// service and keeps command exit codes separate from infrastructure errors.
 	// The closure disables watch mode on the child request to prevent recursion.
 	// The changed-files parameter is unused because we re-execute the full command
 	// regardless of which specific files changed.
@@ -120,31 +130,33 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// for initial execution, or the watcher's callback context for re-execution.
 	// This threads cancellation signals (Ctrl+C) and context values (--ivk-config)
 	// into the execution pipeline, which derives its context from cmd.Context().
-	reexecute := func(execCtx context.Context, _ []string) error {
+	reexecute := func(execCtx context.Context, _ []string) watchExecutionOutcome {
 		childFlags := *cmdFlags
 		childFlags.watch = false
 		cmd.SetContext(execCtx)
-		return runCommand(cmd, app, rootFlags, &childFlags, args)
+		req, buildErr := buildExecuteRequest(cmd, rootFlags, &childFlags, args)
+		if buildErr != nil {
+			return watchExecutionOutcome{Err: buildErr}
+		}
+		result, execErr := executeWatchRequest(cmd, app, req)
+		if execErr != nil {
+			return watchExecutionOutcome{Err: execErr}
+		}
+		return watchExecutionOutcome{ExitCode: result.ExitCode}
 	}
 
 	// Execute the command once immediately before starting the watcher.
 	fmt.Fprintf(app.stdout, "%s Watch mode: initial execution of '%s'\n", VerboseHighlightStyle.Render("→"), args[0])
-	if execErr := reexecute(ctx, nil); execErr != nil {
+	if outcome := reexecute(ctx, nil); outcome.Err != nil || outcome.ExitCode != 0 {
 		// Propagate context cancellation (Ctrl+C) instead of looping.
 		if ctx.Err() != nil {
 			return fmt.Errorf("initial execution cancelled: %w", ctx.Err())
 		}
-		// Distinguish non-zero exit codes (command ran but reported failure)
-		// from infrastructure errors (config broken, runtime missing, etc.).
-		// ExitError means the command ran to completion — the user may fix their
-		// code and save, so continue watching. Other errors indicate infrastructure
-		// problems that watching cannot fix; abort immediately.
-		exitErr, ok := errors.AsType[*ExitError](execErr)
-		if !ok {
-			return fmt.Errorf("cannot start watch mode: %w", execErr)
+		if outcome.Err != nil {
+			return fmt.Errorf("cannot start watch mode: %w", outcome.Err)
 		}
 
-		fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), exitErr.Code)
+		fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
 	}
 
 	fmt.Fprintf(app.stdout, "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))
@@ -157,39 +169,39 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		baseDir = filepath.Join(filepath.Dir(string(cmdInfo.FilePath)), baseDir)
 	}
 
-	// Track consecutive infrastructure (non-ExitError) failures in the OnChange
+	// Track consecutive infrastructure failures in the OnChange
 	// callback. After maxConsecutiveInfraErrors, the watcher aborts because the
 	// underlying problem (deleted invowkfile, missing runtime, etc.) is unlikely
-	// to be fixed by further file changes. The counter resets on success or ExitError.
+	// to be fixed by further file changes. The counter resets when the command
+	// runs to completion, even if it exits non-zero.
 	const maxConsecutiveInfraErrors = 3
 	var consecutiveInfraErrors int
 
 	cfg := watch.Config{
-		Patterns:    patterns,
-		Ignore:      ignore,
-		Debounce:    debounce,
-		ClearScreen: clearScreen,
-		BaseDir:     types.FilesystemPath(baseDir), //goplint:ignore -- from invowkfile directory resolution
+		Patterns: patterns,
+		Ignore:   ignore,
+		Debounce: debounce,
+		BaseDir:  types.FilesystemPath(baseDir), //goplint:ignore -- from invowkfile directory resolution
 		OnChange: func(cbCtx context.Context, changed []string) error {
+			if clearScreen {
+				fmt.Fprint(app.stdout, "\033[2J\033[H")
+			}
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])
-			if execErr := reexecute(cbCtx, changed); execErr != nil {
+			outcome := reexecute(cbCtx, changed)
+			if outcome.Err != nil || outcome.ExitCode != 0 {
 				// Propagate context cancellation (Ctrl+C) instead of looping.
 				if cbCtx.Err() != nil {
 					return fmt.Errorf("execution cancelled: %w", cbCtx.Err())
 				}
-				// Distinguish non-zero exit codes from infrastructure errors.
-				// ExitError means the command ran — reset the infra counter.
-				// Other errors indicate infrastructure problems; escalate after
-				// repeated consecutive failures.
-				if exitErr, ok := errors.AsType[*ExitError](execErr); ok {
+				if outcome.Err == nil {
 					consecutiveInfraErrors = 0
-					fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), exitErr.Code)
+					fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
 				} else {
 					consecutiveInfraErrors++
-					fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), execErr)
+					fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), outcome.Err)
 					if consecutiveInfraErrors >= maxConsecutiveInfraErrors {
-						return fmt.Errorf("aborting watch: %d consecutive infrastructure failures (last: %w)", consecutiveInfraErrors, execErr)
+						return fmt.Errorf("aborting watch: %d consecutive infrastructure failures (last: %w)", consecutiveInfraErrors, outcome.Err)
 					}
 				}
 			} else {
@@ -209,4 +221,19 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// Use the config-path-enhanced context so --ivk-config is respected
 	// during re-execution, not the bare cmd.Context().
 	return w.Run(ctx)
+}
+
+func executeWatchRequest(cmd *cobra.Command, app *App, req ExecuteRequest) (ExecuteResult, error) {
+	reqCtx := contextWithConfigPath(cmd.Context(), string(req.ConfigPath))
+	cmd.SetContext(reqCtx)
+
+	result, diags, err := app.Commands.Execute(reqCtx, req)
+	app.Diagnostics.Render(reqCtx, diags, app.stderr)
+	if err != nil {
+		if svcErr, ok := errors.AsType[*ServiceError](err); ok {
+			renderServiceError(app.stderr, svcErr)
+		}
+		return result, err
+	}
+	return result, nil
 }

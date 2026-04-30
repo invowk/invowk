@@ -19,9 +19,9 @@ import (
 
 // Container host addresses for SSH tunneling
 const (
-	hostDockerInternal     = "host.docker.internal"
-	hostContainersInternal = "host.containers.internal"
-	hostGatewayMapping     = "host.docker.internal:host-gateway"
+	hostDockerInternal     HostServiceAddress = "host.docker.internal"
+	hostContainersInternal HostServiceAddress = "host.containers.internal"
+	hostGatewayMapping                        = "host.docker.internal:host-gateway"
 )
 
 // ErrContainerBuildConfig is returned when a container runtime command specifies neither
@@ -32,9 +32,10 @@ var (
 	ErrContainerBuildConfig = errors.New("invalid container build configuration")
 
 	// Compile-time interface checks.
-	_ Runtime            = (*ContainerRuntime)(nil)
-	_ CapturingRuntime   = (*ContainerRuntime)(nil)
-	_ InteractiveRuntime = (*ContainerRuntime)(nil)
+	_ Runtime                    = (*ContainerRuntime)(nil)
+	_ CapturingRuntime           = (*ContainerRuntime)(nil)
+	_ InteractiveRuntime         = (*ContainerRuntime)(nil)
+	_ HostServiceAddressProvider = (*ContainerRuntime)(nil)
 )
 
 type (

@@ -466,6 +466,10 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			))
 			continue
 		}
+		if diag, ok := vendoredTransitiveDiagnostic(parentModule, m, vendoredModPath); ok {
+			diagnostics = append(diagnostics, diag)
+			continue
+		}
 
 		// Warn if the vendored module has its own invowk_modules/ (not recursed)
 		nestedVendorDir := invowkmod.GetVendoredModulesDir(vendoredModPath)
@@ -488,6 +492,28 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 	}
 
 	return files, diagnostics
+}
+
+func vendoredTransitiveDiagnostic(parentModule, childModule *invowkmod.Module, childPath types.FilesystemPath) (Diagnostic, bool) {
+	if parentModule == nil || parentModule.Metadata == nil || childModule == nil {
+		return Diagnostic{}, false
+	}
+	diags := invowkmod.CheckMissingVendoredTransitiveDeps(parentModule.Metadata.Requires, []*invowkmod.Module{childModule})
+	if len(diags) == 0 {
+		return Diagnostic{}, false
+	}
+	missing := diags[0]
+	return mustDiagnosticWithPath(
+		SeverityWarning,
+		CodeVendoredTransitiveSkipped,
+		fmt.Sprintf(
+			"skipping vendored module %s in %s: transitive dependency %s must be declared by parent invowkmod.cue",
+			childModule.Name(),
+			parentModule.Name(),
+			missing.MissingRef.Key(),
+		),
+		childPath,
+	), true
 }
 
 func vendoredCommandNamespace(requirements []invowkmod.ModuleRequirement, lock *invowkmod.LockFile, childModule *invowkmod.Module) invowkmod.ModuleNamespace {

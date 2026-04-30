@@ -127,6 +127,18 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 			if flag.DefaultValue != "" {
 				fmt.Fprintf(sb, ", default_value: %q", flag.DefaultValue)
 			}
+			if flag.Type != "" && flag.Type != FlagTypeString {
+				fmt.Fprintf(sb, ", type: %q", flag.Type)
+			}
+			if flag.Required {
+				sb.WriteString(", required: true")
+			}
+			if flag.Short != "" {
+				fmt.Fprintf(sb, ", short: %q", flag.Short)
+			}
+			if flag.Validation != "" {
+				fmt.Fprintf(sb, ", validation: %q", flag.Validation)
+			}
 			sb.WriteString("},\n")
 		}
 		sb.WriteString(cueCloseList)
@@ -266,14 +278,10 @@ func generateRuntimeConfig(sb *strings.Builder, r *RuntimeConfig) {
 	}
 }
 
-// generateRuntimeConfigFields writes runtime-specific container fields.
+// generateRuntimeConfigFields writes runtime-specific fields.
 // When multiLine is true, each field is written on its own line with the given indent.
 // When multiLine is false, fields are written inline prefixed with ", ".
 func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent string, multiLine bool) {
-	if r.Name != RuntimeContainer {
-		return
-	}
-
 	// writeField writes a scalar field in either format.
 	writeField := func(key, value string) {
 		if multiLine {
@@ -303,6 +311,29 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 		}
 	}
 
+	if r.Interpreter != "" && r.Name != RuntimeVirtual {
+		writeField("interpreter", fmt.Sprintf("%q", r.Interpreter))
+	}
+	if r.EnvInheritMode != "" {
+		writeField("env_inherit_mode", fmt.Sprintf("%q", r.EnvInheritMode))
+	}
+	if len(r.EnvInheritAllow) > 0 {
+		items := make([]string, len(r.EnvInheritAllow))
+		for i, envName := range r.EnvInheritAllow {
+			items[i] = string(envName)
+		}
+		writeList("env_inherit_allow", items)
+	}
+	if len(r.EnvInheritDeny) > 0 {
+		items := make([]string, len(r.EnvInheritDeny))
+		for i, envName := range r.EnvInheritDeny {
+			items[i] = string(envName)
+		}
+		writeList("env_inherit_deny", items)
+	}
+	if r.Name != RuntimeContainer {
+		return
+	}
 	if r.EnableHostSSH {
 		writeField("enable_host_ssh", "true")
 	}

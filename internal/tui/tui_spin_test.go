@@ -11,14 +11,20 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+func testSpinRun() tea.Cmd {
+	return func() tea.Msg {
+		return spinnerDoneMsg{}
+	}
+}
+
 func TestNewSpinModel(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Loading...",
-		Command: []string{"echo", "hello"},
-		Type:    SpinnerDot,
-		Config:  DefaultConfig(),
+		Title:  "Loading...",
+		Run:    testSpinRun(),
+		Type:   SpinnerDot,
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -34,13 +40,12 @@ func TestNewSpinModel(t *testing.T) {
 	}
 }
 
-func TestNewSpinModel_EmptyCommand(t *testing.T) {
+func TestNewSpinModel_NoRun(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "No command",
-		Command: []string{}, // Empty command
-		Config:  DefaultConfig(),
+		Title:  "No command",
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -58,9 +63,9 @@ func TestSpinModel_SetSize(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -78,9 +83,9 @@ func TestSpinModel_ViewWhenDone(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -97,9 +102,9 @@ func TestSpinModel_ViewWithWidth(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Processing",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Processing",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -117,9 +122,9 @@ func TestSpinModel_Cancelled(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -134,9 +139,9 @@ func TestSpinModel_Result(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -168,9 +173,9 @@ func TestSpinModel_UpdateTickMsg(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -191,9 +196,9 @@ func TestSpinModel_UpdateDoneMsg(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -220,9 +225,9 @@ func TestSpinModel_UpdateCtrlC(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -241,9 +246,9 @@ func TestSpinModel_Init(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -259,9 +264,9 @@ func TestSpinModel_Frames(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -554,9 +559,9 @@ func TestSpinModel_TickWhenDone(t *testing.T) {
 	t.Parallel()
 
 	opts := SpinCommandOptions{
-		Title:   "Test",
-		Command: []string{"echo", "test"},
-		Config:  DefaultConfig(),
+		Title:  "Test",
+		Run:    testSpinRun(),
+		Config: DefaultConfig(),
 	}
 
 	model := NewSpinModel(t.Context(), opts)
@@ -596,9 +601,9 @@ func TestSpinModel_UnicodeAndLongInputs(t *testing.T) {
 			t.Parallel()
 
 			opts := SpinCommandOptions{
-				Title:   tt.value,
-				Command: []string{"echo", "test"},
-				Config:  DefaultConfig(),
+				Title:  tt.value,
+				Run:    testSpinRun(),
+				Config: DefaultConfig(),
 			}
 
 			model := NewSpinModel(t.Context(), opts)

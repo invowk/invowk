@@ -3,6 +3,8 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/invowk/invowk/internal/audit"
@@ -51,6 +53,44 @@ func TestConvertFindingsPreservesSurfaceKind(t *testing.T) {
 	}
 	if got[0].SurfaceKind != audit.SurfaceKindVendoredModule {
 		t.Errorf("SurfaceKind = %q, want %q", got[0].SurfaceKind, audit.SurfaceKindVendoredModule)
+	}
+}
+
+func TestRenderAuditJSONSeparatesFindingsAndCompoundThreats(t *testing.T) {
+	t.Parallel()
+
+	report := &audit.Report{
+		Findings: []audit.Finding{{
+			Severity:    audit.SeverityMedium,
+			Category:    audit.CategoryTrust,
+			CheckerName: "module-metadata",
+			Title:       "base finding",
+		}},
+		Correlated: []audit.Finding{{
+			Severity:    audit.SeverityHigh,
+			Category:    audit.CategoryTrust,
+			CheckerName: "correlator",
+			Title:       "compound finding",
+		}},
+	}
+
+	var buf bytes.Buffer
+	if err := renderAuditJSON(&buf, report, audit.SeverityInfo); err != nil {
+		t.Fatalf("renderAuditJSON() error = %v", err)
+	}
+
+	var got auditJSONOutput
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if len(got.Findings) != 1 {
+		t.Fatalf("len(Findings) = %d, want 1", len(got.Findings))
+	}
+	if len(got.CompoundThreats) != 1 {
+		t.Fatalf("len(CompoundThreats) = %d, want 1", len(got.CompoundThreats))
+	}
+	if got.Summary.Total != 2 {
+		t.Fatalf("Summary.Total = %d, want 2", got.Summary.Total)
 	}
 }
 

@@ -62,10 +62,6 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 	command := args[0]
 	cmdArgs := args[1:]
 
-	var output []byte
-	var err error
-	var exitCode types.ExitCode
-
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
 		if _, clientErr := client.SpinContext(cmd.Context(), tuiserver.SpinRequest{
@@ -79,10 +75,19 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	output, err = tui.SpinWithCommand(cmd.Context(), tui.SpinOptions{
+
+	var output []byte
+	var err error
+	spinErr := tui.SpinWithAction(tui.SpinOptions{
 		Title: spinTitle,
 		Type:  parsedType,
-	}, command, cmdArgs...)
+	}, func() {
+		execCmd := exec.CommandContext(cmd.Context(), command, cmdArgs...)
+		output, err = execCmd.CombinedOutput()
+	})
+	if spinErr != nil {
+		return spinErr
+	}
 
 	// Print the command output
 	if len(output) > 0 {
@@ -97,12 +102,6 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			spinExitCode := types.ExitCode(exitErr.ExitCode()) //goplint:ignore -- OS exit code from exec.ExitError
 			return &ExitError{Code: spinExitCode}
-		}
-		// If we got a synthetic error from HTTP client
-		if exitCode != 0 {
-			cmd.SilenceErrors = true
-			cmd.SilenceUsage = true
-			return &ExitError{Code: exitCode}
 		}
 		return err
 	}

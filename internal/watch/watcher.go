@@ -68,12 +68,6 @@ type (
 		// fires. Zero or negative values fall back to defaultDebounce.
 		Debounce time.Duration
 
-		// ClearScreen controls whether the terminal is cleared before each
-		// callback invocation by writing ANSI escape sequences to Stdout.
-		// No terminal detection is performed; callers should ensure Stdout
-		// is a real terminal when enabling this option.
-		ClearScreen bool
-
 		// BaseDir is the root directory to watch. All patterns are resolved
 		// relative to this path. An empty value defaults to the current working
 		// directory.
@@ -149,7 +143,7 @@ func init() {
 
 // Validate returns nil if all typed fields in the Config are valid,
 // or an error wrapping ErrInvalidWatchConfig if any are invalid.
-// Debounce, ClearScreen, OnChange, Stdout, and Stderr are skipped (non-domain types).
+// Debounce, OnChange, Stdout, and Stderr are skipped (non-domain types).
 // BaseDir is only validated when non-empty, since empty means "use current working directory".
 // Each GlobPattern in Patterns and Ignore is validated individually.
 func (c Config) Validate() error {
@@ -375,11 +369,6 @@ func (w *Watcher) Run(ctx context.Context) error {
 		changed := slices.Collect(maps.Keys(pending))
 		clear(pending)
 		mu.Unlock()
-
-		if w.cfg.ClearScreen {
-			// ANSI escape: clear screen and move cursor to top-left.
-			fmt.Fprint(w.stdout, "\033[2J\033[H")
-		}
 
 		if w.cfg.OnChange != nil {
 			if err := w.cfg.OnChange(ctx, changed); err != nil {

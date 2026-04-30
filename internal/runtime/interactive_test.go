@@ -229,15 +229,30 @@ func TestVirtualRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 func TestContainerRuntimeGetHostAddressForContainer(t *testing.T) {
 	t.Parallel()
 
-	cfg := &config.Config{ContainerEngine: "docker"}
-	rt, err := NewContainerRuntime(cfg)
-	if err != nil {
-		t.Skipf("Container runtime not available: %v", err)
+	tests := []struct {
+		name string
+		want HostServiceAddress
+	}{
+		{"docker", hostDockerInternal},
+		{"podman", hostContainersInternal},
 	}
 
-	hostAddr := rt.GetHostAddressForContainer()
-	if hostAddr != "host.docker.internal" && hostAddr != "host.containers.internal" {
-		t.Errorf("Unexpected host address: %s", hostAddr)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rt, err := NewContainerRuntimeWithEngine(NewMockEngine().WithName(tt.name))
+			if err != nil {
+				t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+			}
+			var provider HostServiceAddressProvider = rt
+			if got := provider.HostServiceAddress(); got != tt.want {
+				t.Fatalf("HostServiceAddress() = %q, want %q", got, tt.want)
+			}
+			if got := rt.GetHostAddressForContainer(); got != tt.want.String() {
+				t.Fatalf("GetHostAddressForContainer() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 

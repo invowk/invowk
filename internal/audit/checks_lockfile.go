@@ -46,6 +46,7 @@ func (c *LockFileChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding
 		// otherwise appear as absent, masking an integrity issue.
 		if mod.LockFileParseErr != nil {
 			findings = append(findings, Finding{
+				Code:           codeLockfilePresentUnparseable,
 				Severity:       SeverityMedium,
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
@@ -63,6 +64,7 @@ func (c *LockFileChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding
 			// integrity cannot be verified without one.
 			if mod.Module != nil && mod.Module.Metadata != nil && len(mod.Module.Metadata.Requires) > 0 {
 				findings = append(findings, Finding{
+					Code:           codeLockfileDependenciesNoLock,
 					Severity:       SeverityHigh,
 					Category:       CategoryIntegrity,
 					SurfaceID:      mod.SurfaceID,
@@ -78,6 +80,7 @@ func (c *LockFileChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding
 			// or stale vendored modules bypass integrity verification entirely.
 			if len(mod.VendoredModules) > 0 {
 				findings = append(findings, Finding{
+					Code:           codeLockfileVendoredNoLock,
 					Severity:       SeverityMedium,
 					Category:       CategoryIntegrity,
 					SurfaceID:      mod.SurfaceID,
@@ -108,6 +111,7 @@ func (c *LockFileChecker) checkSize(mod *ScannedModule) []Finding {
 	}
 	if mod.LockFileStatErr != nil {
 		return []Finding{{
+			Code:           codeLockfileSizeUnknown,
 			Severity:       SeverityLow,
 			Category:       CategoryIntegrity,
 			SurfaceID:      mod.SurfaceID,
@@ -120,6 +124,7 @@ func (c *LockFileChecker) checkSize(mod *ScannedModule) []Finding {
 	}
 	if mod.LockFileSize > invowkmod.LockFileSizeLimit {
 		return []Finding{{
+			Code:           codeLockfileSizeLimit,
 			Severity:       SeverityMedium,
 			Category:       CategoryIntegrity,
 			SurfaceID:      mod.SurfaceID,
@@ -137,6 +142,7 @@ func (c *LockFileChecker) checkVersion(mod *ScannedModule) []Finding {
 	version := mod.LockFile.Version
 	if version != invowkmod.LockFileVersionV1 && version != invowkmod.LockFileVersionV2 {
 		return []Finding{{
+			Code:           codeLockfileUnknownVersion,
 			Severity:       SeverityHigh,
 			Category:       CategoryIntegrity,
 			SurfaceID:      mod.SurfaceID,
@@ -150,6 +156,7 @@ func (c *LockFileChecker) checkVersion(mod *ScannedModule) []Finding {
 	if version == invowkmod.LockFileVersionV1 {
 		var findings []Finding
 		findings = append(findings, Finding{
+			Code:           codeLockfileV1NoHashes,
 			Severity:       SeverityMedium,
 			Category:       CategoryIntegrity,
 			SurfaceID:      mod.SurfaceID,
@@ -162,6 +169,7 @@ func (c *LockFileChecker) checkVersion(mod *ScannedModule) []Finding {
 		// Escalate when vendored modules exist: V1 provides zero hash verification.
 		if len(mod.VendoredModules) > 0 {
 			findings = append(findings, Finding{
+				Code:           codeLockfileV1VendoredNoHashes,
 				Severity:       SeverityHigh,
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
@@ -206,6 +214,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 				keys = append(keys, string(e.key))
 			}
 			findings = append(findings, Finding{
+				Code:           codeLockfileAmbiguousModule,
 				Severity:       SeverityMedium,
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
@@ -240,6 +249,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 		case invowkmod.VendoredHashMissing:
 			// Vendored module has no matching lock entry — flag it (M3).
 			findings = append(findings, Finding{
+				Code:           codeLockfileVendoredMissingEntry,
 				Severity:       SeverityMedium,
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
@@ -252,6 +262,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 			continue
 		case invowkmod.VendoredHashUnavailable:
 			findings = append(findings, Finding{
+				Code:           codeLockfileVendoredHashUnavailable,
 				Severity:       SeverityHigh,
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
@@ -264,6 +275,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 			continue
 		case invowkmod.VendoredHashMismatch:
 			findings = append(findings, Finding{
+				Code:           codeLockfileContentHashMismatch,
 				Severity:       SeverityCritical,
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
@@ -275,6 +287,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 			})
 		default:
 			findings = append(findings, Finding{
+				Code:           codeLockfileVendoredHashUnknown,
 				Severity:       SeverityHigh,
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,
@@ -323,6 +336,7 @@ func (c *LockFileChecker) checkOrphanedEntries(mod *ScannedModule) []Finding {
 			orphanCount++
 			if orphanCount <= maxOrphanFindings {
 				findings = append(findings, Finding{
+					Code:           codeLockfileOrphanEntry,
 					Severity:       SeverityLow,
 					Category:       CategoryIntegrity,
 					SurfaceID:      mod.SurfaceID,
@@ -339,6 +353,7 @@ func (c *LockFileChecker) checkOrphanedEntries(mod *ScannedModule) []Finding {
 	// Collapse excessive orphan findings into a summary.
 	if orphanCount > maxOrphanFindings {
 		findings = append(findings, Finding{
+			Code:           codeLockfileAdditionalOrphans,
 			Severity:       SeverityLow,
 			Category:       CategoryIntegrity,
 			SurfaceID:      mod.SurfaceID,
@@ -378,6 +393,7 @@ func (c *LockFileChecker) checkMissingEntries(mod *ScannedModule) []Finding {
 
 		if !lockKeys[reqKey] {
 			findings = append(findings, Finding{
+				Code:           codeLockfileRequiredMissingEntry,
 				Severity:       SeverityMedium,
 				Category:       CategoryIntegrity,
 				SurfaceID:      mod.SurfaceID,

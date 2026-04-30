@@ -173,6 +173,52 @@ func TestDiscoverAll_SkipsUndeclaredVendoredModule(t *testing.T) {
 	}
 }
 
+func TestDiscoverAll_SkipsVendoredModuleWithUndeclaredTransitiveRequirement(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	parentDir := filepath.Join(tmpDir, "parent.invowkmod")
+	createTestModule(t, parentDir, "parent", "parent-cmd")
+	childDir := createVendoredModule(t, parentDir, "child.invowkmod", "child", "child-cmd")
+
+	childModPath := filepath.Join(childDir, "invowkmod.cue")
+	content, err := os.ReadFile(childModPath)
+	if err != nil {
+		t.Fatalf("ReadFile(child invowkmod.cue) = %v", err)
+	}
+	updated := string(content) + `requires: [
+	{git_url: "https://example.com/grandchild.git", version: "^1.0.0"},
+]
+`
+	if writeErr := os.WriteFile(childModPath, []byte(updated), 0o644); writeErr != nil {
+		t.Fatalf("WriteFile(child invowkmod.cue) = %v", writeErr)
+	}
+	refreshVendoredModuleHash(t, parentDir, childDir, "child")
+
+	d := newTestDiscovery(t, config.DefaultConfig(), tmpDir)
+	files, diagnostics, err := d.discoverAllWithDiagnostics()
+	if err != nil {
+		t.Fatalf("discoverAllWithDiagnostics() error: %v", err)
+	}
+
+	for _, f := range files {
+		if f.Module != nil && f.Module.Name() == "child" {
+			t.Fatal("vendored module with undeclared transitive dependency should not be discovered")
+		}
+	}
+
+	var foundDiagnostic bool
+	for _, diag := range diagnostics {
+		if diag.code == CodeVendoredTransitiveSkipped {
+			foundDiagnostic = true
+			break
+		}
+	}
+	if !foundDiagnostic {
+		t.Fatalf("missing %s diagnostic: %v", CodeVendoredTransitiveSkipped, diagnostics)
+	}
+}
+
 func TestDiscoverAll_VendoredModulesOrderedAfterParent(t *testing.T) {
 	t.Parallel()
 
@@ -344,7 +390,11 @@ func TestDiscoverAll_NestedVendoredNotRecursed(t *testing.T) {
 
 	// Create vendored module with its OWN invowk_modules/
 	vendoredDir := createVendoredModule(t, parentDir, "mid.invowkmod", "mid", "mid-cmd")
-	createVendoredModule(t, vendoredDir, "deep.invowkmod", "deep", "deep-cmd")
+	nestedVendorDir := filepath.Join(vendoredDir, invowkmod.VendoredModulesDir)
+	if err := os.MkdirAll(nestedVendorDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	createTestModule(t, filepath.Join(nestedVendorDir, "deep.invowkmod"), "deep", "deep-cmd")
 	refreshVendoredModuleHash(t, parentDir, vendoredDir, "mid")
 
 	cfg := config.DefaultConfig()

@@ -172,11 +172,43 @@ func TestReport_FilterBySeverity(t *testing.T) {
 			{Severity: SeverityHigh, Title: "high1"},
 			{Severity: SeverityCritical, Title: "crit1"},
 		},
+		Correlated: []Finding{
+			{Severity: SeverityCritical, Title: "compound"},
+		},
 	}
 
 	filtered := report.FilterBySeverity(SeverityMedium)
-	if len(filtered) != 3 {
-		t.Errorf("FilterBySeverity(Medium) len = %d, want 3", len(filtered))
+	if len(filtered) != 4 {
+		t.Errorf("FilterBySeverity(Medium) len = %d, want 4", len(filtered))
+	}
+}
+
+func TestReport_IndividualFindingsBySeverityExcludesCompoundThreats(t *testing.T) {
+	t.Parallel()
+
+	report := &Report{
+		Findings: []Finding{
+			{Severity: SeverityMedium, Title: "individual"},
+		},
+		Correlated: []Finding{
+			{Severity: SeverityCritical, Title: "compound"},
+		},
+	}
+
+	filtered := report.IndividualFindingsBySeverity(SeverityInfo)
+	if len(filtered) != 1 {
+		t.Fatalf("IndividualFindingsBySeverity() len = %d, want 1", len(filtered))
+	}
+	if filtered[0].Title != "individual" {
+		t.Fatalf("IndividualFindingsBySeverity()[0].Title = %q, want individual", filtered[0].Title)
+	}
+
+	compound := report.CompoundThreatsBySeverity(SeverityInfo)
+	if len(compound) != 1 {
+		t.Fatalf("CompoundThreatsBySeverity() len = %d, want 1", len(compound))
+	}
+	if compound[0].Title != "compound" {
+		t.Fatalf("CompoundThreatsBySeverity()[0].Title = %q, want compound", compound[0].Title)
 	}
 }
 

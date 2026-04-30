@@ -47,13 +47,19 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	return &PreparedCommand{Cmd: cmd, Cleanup: prep.cleanup}, nil
 }
 
-// GetHostAddressForContainer returns the hostname that containers should use
-// to access services on the host machine.
-func (r *ContainerRuntime) GetHostAddressForContainer() string {
+// HostServiceAddress returns the hostname containers should use to access
+// services on the host machine.
+func (r *ContainerRuntime) HostServiceAddress() HostServiceAddress {
 	if r.engine.Name() == "podman" {
 		return hostContainersInternal
 	}
 	return hostDockerInternal
+}
+
+// GetHostAddressForContainer returns the hostname that containers should use
+// to access services on the host machine.
+func (r *ContainerRuntime) GetHostAddressForContainer() string {
+	return r.HostServiceAddress().String()
 }
 
 // CleanupImage removes the built image for an invowkfile

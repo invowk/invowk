@@ -253,8 +253,8 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 
 	requirements := cmdInfo.Invowkfile.Metadata.Requires()
 
-	// Build scope from explicit aliases, then wire resolved direct dependencies
-	// below from discovery plus lock-file identity.
+	// Wire resolved direct dependencies from discovery plus lock-file identity.
+	// Raw aliases are command namespaces, not authorization proof.
 	scope := invowkmod.NewCommandScope(moduleID, globalIDs, requirements)
 	scope.ModuleSourceID = invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
 	for _, cmd := range available {
@@ -309,15 +309,7 @@ func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement,
 	if cmd == nil || cmd.ModuleID == nil {
 		return false
 	}
-	if invowkmod.IsDeclaredLockedModule(requirements, lock, *cmd.ModuleID) {
-		return true
-	}
-	for _, req := range requirements {
-		if req.Alias != "" && discovery.SourceID(req.Alias) == cmd.SourceID {
-			return true
-		}
-	}
-	return false
+	return invowkmod.IsDeclaredLockedModule(requirements, lock, *cmd.ModuleID)
 }
 
 func discoverAvailableCommands(disc CommandSetProvider, ctx *runtime.ExecutionContext) (map[invowkfile.CommandName]*discovery.CommandInfo, error) {

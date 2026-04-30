@@ -895,6 +895,38 @@ func TestLayerProvisioner_PrepareBuildContext_NoBinary(t *testing.T) {
 	}
 }
 
+func TestLayerProvisioner_PrepareBuildContext_UsesCacheDir(t *testing.T) {
+	t.Parallel()
+
+	cacheDir := filepath.Join(t.TempDir(), "provision-cache")
+	cfg := &Config{
+		Enabled:          true,
+		CacheDir:         types.FilesystemPath(cacheDir),
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
+	}
+
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
+
+	buildCtx, warnings, cleanup, err := provisioner.prepareBuildContext(container.ImageTag("debian:stable-slim"))
+	if err != nil {
+		t.Fatalf("prepareBuildContext() error = %v", err)
+	}
+	defer cleanup()
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
+	if filepath.Dir(buildCtx) != cacheDir {
+		t.Fatalf("build context parent = %q, want %q", filepath.Dir(buildCtx), cacheDir)
+	}
+	if filepath.Base(buildCtx) == "" || !strings.HasPrefix(filepath.Base(buildCtx), "ctx-") {
+		t.Fatalf("build context = %q, want ctx-* child", buildCtx)
+	}
+}
+
 func TestLayerProvisioner_PrepareBuildContext_Cleanup(t *testing.T) {
 	t.Parallel()
 

@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -72,13 +71,13 @@ type (
 
 	//goplint:validate-all
 	//
-	// SpinCommandOptions configures an embeddable spin component with a command.
+	// SpinCommandOptions configures an embeddable spin component with a caller-owned action.
 	// Request-scoped cancellation is passed to NewSpinModel instead of being stored here.
 	SpinCommandOptions struct {
 		// Title is the text displayed next to the spinner.
 		Title string
-		// Command is the command and arguments to execute.
-		Command []string
+		// Run is the caller-owned action command that completes the spinner.
+		Run tea.Cmd
 		// Type specifies the spinner animation type.
 		Type SpinnerType
 		// Config holds common TUI configuration.
@@ -194,13 +193,8 @@ func SpinnerTypeNames() []string {
 }
 
 // NewSpinModel creates an embeddable spinner component.
-func NewSpinModel(ctx context.Context, opts SpinCommandOptions) *spinModel {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	if len(opts.Command) == 0 {
-		// No command - return immediately done
+func NewSpinModel(_ context.Context, opts SpinCommandOptions) *spinModel {
+	if opts.Run == nil {
 		return &spinModel{
 			title:  opts.Title,
 			done:   true,
@@ -210,7 +204,7 @@ func NewSpinModel(ctx context.Context, opts SpinCommandOptions) *spinModel {
 
 	return &spinModel{
 		title:  opts.Title,
-		run:    newSpinCommandCmd(ctx, opts.Command),
+		run:    opts.Run,
 		frames: getSpinnerType(opts.Type).Frames,
 	}
 }
@@ -289,39 +283,6 @@ func (m *spinModel) SetSize(width, height TerminalDimension) {
 	m.height = height
 }
 
-// newSpinCommandCmd starts the command execution and returns the result.
-//
-//goplint:ignore -- helper executes raw command argv captured at the TUI boundary.
-func newSpinCommandCmd(ctx context.Context, command []string) tea.Cmd {
-	return func() tea.Msg {
-		if len(command) == 0 {
-			return spinnerDoneMsg{result: SpinResult{}}
-		}
-
-		cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-		output, err := cmd.CombinedOutput()
-
-		result := SpinResult{
-			Stdout: string(output),
-		}
-
-		if err != nil {
-			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-				exitCode := types.ExitCode(exitErr.ExitCode())
-				if exitCode.Validate() != nil {
-					result.ExitCode = 1
-				} else {
-					result.ExitCode = exitCode
-				}
-			} else {
-				result.ExitCode = 1
-			}
-		}
-
-		return spinnerDoneMsg{result: result}
-	}
-}
-
 // tick returns a command that sends a spinnerTickMsg after a short delay.
 func (m *spinModel) tick() tea.Cmd {
 	return tea.Tick(100*time.Millisecond, func(_ time.Time) tea.Msg {
@@ -358,25 +319,6 @@ func SpinWithContext(ctx context.Context, opts SpinOptions) error {
 	}()
 
 	return runActionSpinner(opts, doneCh)
-}
-
-// SpinWithCommand displays a spinner while running a shell command.
-// The context controls cancellation for the spawned subprocess.
-// Returns the command output and any error.
-func SpinWithCommand(ctx context.Context, opts SpinOptions, command string, args ...string) ([]byte, error) {
-	var output []byte
-	var cmdErr error
-
-	action := func() {
-		cmd := exec.CommandContext(ctx, command, args...)
-		output, cmdErr = cmd.CombinedOutput()
-	}
-
-	if err := SpinWithAction(opts, action); err != nil {
-		return nil, err
-	}
-
-	return output, cmdErr
 }
 
 // NewSpin creates a new SpinBuilder with default options.

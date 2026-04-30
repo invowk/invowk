@@ -461,13 +461,7 @@ func (r *ContainerRuntime) setupSSHConnection(ctx *ExecutionContext, env map[str
 	// FilterInvowkEnvVars strips INVOWK_SSH_* from any nested invowk invocations,
 	// preventing propagation to child processes. Token lifetime is scoped to this
 	// execution via RevokeToken in the cleanup path.
-	// Use hostDockerInternal for Docker or hostContainersInternal for Podman
-	hostAddr := hostDockerInternal
-	if r.engine.Name() == "podman" {
-		hostAddr = hostContainersInternal
-	}
-
-	env["INVOWK_SSH_HOST"] = hostAddr
+	env["INVOWK_SSH_HOST"] = r.HostServiceAddress().String()
 	env["INVOWK_SSH_PORT"] = sshConnInfo.Port.String()
 	env["INVOWK_SSH_USER"] = sshConnInfo.User.String()
 	env["INVOWK_SSH_TOKEN"] = sshConnInfo.Token.String()

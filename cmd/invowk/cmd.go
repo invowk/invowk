@@ -197,13 +197,25 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		return runWatchMode(cmd, app, rootFlags, cmdFlags, args)
 	}
 
-	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
+	req, err := buildExecuteRequest(cmd, rootFlags, cmdFlags, args)
 	if err != nil {
 		return err
 	}
 
+	err = executeRequest(cmd, app, req)
+	silenceOnExitError(cmd, err)
+	return err
+}
+
+//goplint:ignore -- CLI adapter maps raw positional tokens into ExecuteRequest.
+func buildExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) (ExecuteRequest, error) {
+	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
+	if err != nil {
+		return ExecuteRequest{}, err
+	}
+
 	verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
-	req := ExecuteRequest{
+	return ExecuteRequest{
 		Name:           args[0],
 		Args:           args[1:],
 		Runtime:        parsedRuntime,
@@ -215,11 +227,7 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 		ForceRebuild:   cmdFlags.forceRebuild,
 		ConfigPath:     types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 		DryRun:         cmdFlags.dryRun,
-	}
-
-	err = executeRequest(cmd, app, req)
-	silenceOnExitError(cmd, err)
-	return err
+	}, nil
 }
 
 // silenceOnExitError suppresses Cobra's error/usage printing when the error is

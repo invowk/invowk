@@ -3,6 +3,7 @@
 package watch
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -45,10 +46,10 @@ func TestConfigValidate(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name: "non-domain fields do not affect validity",
+			name: "callback fields do not affect validity",
 			cfg: Config{
-				ClearScreen: true,
-				Patterns:    []invowkfile.GlobPattern{"**/*.go"},
+				OnChange: func(context.Context, []string) error { return nil },
+				Patterns: []invowkfile.GlobPattern{"**/*.go"},
 			},
 			wantOK: true,
 		},

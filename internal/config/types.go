@@ -233,7 +233,7 @@ type (
 		// InheritIncludes controls whether root-level includes are automatically
 		// merged into container provisioning (default: true).
 		InheritIncludes bool `json:"inherit_includes" mapstructure:"inherit_includes"`
-		// CacheDir specifies where to store cached provisioned images metadata
+		// CacheDir specifies where to place provision build contexts and cached image metadata.
 		CacheDir CacheDirPath `json:"cache_dir" mapstructure:"cache_dir"`
 	}
 

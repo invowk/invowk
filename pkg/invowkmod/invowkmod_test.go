@@ -402,9 +402,10 @@ func TestNewCommandScope(t *testing.T) {
 		t.Error("global.module2 should be in GlobalModules")
 	}
 
-	// Check aliased dependency namespace is set separately from module IDs.
-	if !scope.DirectSources["dep2alias"] {
-		t.Error("dep2alias should be in DirectSources")
+	// Aliases are command namespaces, not authorization proof. They are added
+	// only after discovery and lock-file identity checks.
+	if scope.DirectSources["dep2alias"] {
+		t.Error("dep2alias should not be in DirectSources before resolution")
 	}
 }
 

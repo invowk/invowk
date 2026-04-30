@@ -2403,7 +2403,7 @@ container: {
     binary_path: ""                       // Path to invowk binary to provision (default: auto-detect via os.Executable())
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
-    // cache_dir: ""  // Cache directory for provisioned image metadata (empty = auto-detect, optional)
+    // cache_dir: ""  // Parent directory for provision build contexts and cached image metadata (empty = auto-detect, optional)
   }
 }
 

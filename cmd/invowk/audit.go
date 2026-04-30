@@ -344,7 +344,7 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 		report.ModuleCount, report.InvowkfileCount, report.ScriptCount,
 		formatDuration(report.ScanDuration))
 
-	findings := report.FilterBySeverity(minSev)
+	findings := report.IndividualFindingsBySeverity(minSev)
 
 	if len(findings) == 0 {
 		fmt.Fprintf(w, "%s No findings at or above %s severity\n", SuccessStyle.Render("✓"), minSev)
@@ -388,7 +388,7 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 	}
 
 	// Compound threats section (filtered by minimum severity).
-	filteredCorrelated := report.FilterCorrelatedBySeverity(minSev)
+	filteredCorrelated := report.CompoundThreatsBySeverity(minSev)
 	if len(filteredCorrelated) > 0 {
 		fmt.Fprintln(w, auditSeparatorStyle.Render("═══ Compound Threats ═══"))
 		for i := range filteredCorrelated {
@@ -413,11 +413,11 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 }
 
 func renderAuditJSON(w io.Writer, report *audit.Report, minSev audit.Severity) error {
-	filtered := report.FilterBySeverity(minSev)
+	filtered := report.IndividualFindingsBySeverity(minSev)
 
 	// Apply the same severity filter to correlated findings so the JSON
 	// total is consistent with the displayed findings.
-	filteredCorrelated := report.FilterCorrelatedBySeverity(minSev)
+	filteredCorrelated := report.CompoundThreatsBySeverity(minSev)
 
 	// Count only filtered findings so the severity breakdown matches the
 	// findings and compound_threats arrays in the output (M16 fix).

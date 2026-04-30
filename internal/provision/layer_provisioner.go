@@ -264,44 +264,17 @@ func (p *LayerProvisioner) buildProvisionedImage(ctx context.Context, req Reques
 //
 // We use a visible directory in the user's home as the build context location.
 func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (buildContextDir string, warnings []Warning, cleanup func(), err error) {
-	// Use a visible directory in user's home that Docker Snap can access
-	// Snap's home interface doesn't expose hidden directories (starting with .)
-	var buildContextParent string
-	var parentCleanup func()
-
-	// Try HOME first, but verify it actually exists (handles cases like testscript
-	// setting HOME=/no-home or misconfigured environments)
-	if home, homeErr := os.UserHomeDir(); homeErr == nil {
-		if _, statErr := os.Stat(home); statErr == nil {
-			// Use a visible directory - Docker Snap can access this
-			buildContextParent = filepath.Join(home, "invowk-build")
-		}
-	}
-
-	// Fallback if HOME is unavailable or doesn't exist
-	if buildContextParent == "" {
-		if cwd, cwdErr := os.Getwd(); cwdErr == nil {
-			buildContextParent = filepath.Join(cwd, ".invowk-build")
-		} else {
-			// Last resort: create a random parent in the system temp directory.
-			// This avoids predictable paths in world-writable temp locations.
-			tempParent, tempErr := os.MkdirTemp("", "invowk-build-*")
-			if tempErr != nil {
-				return "", nil, nil, fmt.Errorf("failed to create fallback build context parent directory: %w", tempErr)
-			}
-			buildContextParent = tempParent
-			parentCleanup = func() {
-				_ = os.RemoveAll(tempParent) // Best-effort cleanup of fallback parent dir
-			}
-		}
+	buildContextParent, parentCleanup, err := p.resolveBuildContextParent()
+	if err != nil {
+		return "", nil, nil, err
 	}
 
 	// Ensure the parent directory exists
-	if mkdirErr := os.MkdirAll(buildContextParent, 0o755); mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(string(buildContextParent), 0o755); mkdirErr != nil {
 		return "", nil, nil, fmt.Errorf("failed to create build context parent directory: %w", mkdirErr)
 	}
 
-	tmpDir, err := os.MkdirTemp(buildContextParent, "ctx-*")
+	tmpDir, err := os.MkdirTemp(string(buildContextParent), "ctx-*")
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -356,4 +329,47 @@ func (p *LayerProvisioner) prepareBuildContext(baseImage container.ImageTag) (bu
 	}
 
 	return tmpDir, warnings, cleanup, nil
+}
+
+func (p *LayerProvisioner) resolveBuildContextParent() (parent types.FilesystemPath, cleanup func(), err error) {
+	if p.config.CacheDir != "" {
+		return p.config.CacheDir, nil, nil
+	}
+
+	// Try HOME first, but verify it actually exists (handles cases like testscript
+	// setting HOME=/no-home or misconfigured environments). Use a visible
+	// directory because Docker Snap cannot access hidden directories.
+	if home, homeErr := os.UserHomeDir(); homeErr == nil {
+		if _, statErr := os.Stat(home); statErr == nil {
+			parentPath := types.FilesystemPath(filepath.Join(home, "invowk-build"))
+			if pathErr := parentPath.Validate(); pathErr != nil {
+				return "", nil, pathErr
+			}
+			return parentPath, nil, nil
+		}
+	}
+
+	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
+		parentPath := types.FilesystemPath(filepath.Join(cwd, ".invowk-build"))
+		if pathErr := parentPath.Validate(); pathErr != nil {
+			return "", nil, pathErr
+		}
+		return parentPath, nil, nil
+	}
+
+	// Last resort: create a random parent in the system temp directory. This
+	// avoids predictable paths in world-writable temp locations.
+	tempParent, tempErr := os.MkdirTemp("", "invowk-build-*")
+	if tempErr != nil {
+		return "", nil, fmt.Errorf("failed to create fallback build context parent directory: %w", tempErr)
+	}
+	tempCleanup := func() {
+		_ = os.RemoveAll(tempParent) // Best-effort cleanup of fallback parent dir
+	}
+	parentPath := types.FilesystemPath(tempParent)
+	if pathErr := parentPath.Validate(); pathErr != nil {
+		tempCleanup()
+		return "", nil, pathErr
+	}
+	return parentPath, tempCleanup, nil
 }

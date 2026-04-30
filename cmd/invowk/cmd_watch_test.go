@@ -33,6 +33,7 @@ type (
 	fakeWatchCommandService struct {
 		cmdInfo      *discovery.CommandInfo
 		executeErrs  []error
+		exitCodes    []types.ExitCode
 		executeCalls int
 	}
 )
@@ -83,12 +84,17 @@ func (r fakeWatchRunner) Run(ctx context.Context) error {
 
 func (s *fakeWatchCommandService) Execute(context.Context, ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	s.executeCalls++
+	result := ExecuteResult{}
+	if len(s.exitCodes) > 0 {
+		result.ExitCode = s.exitCodes[0]
+		s.exitCodes = s.exitCodes[1:]
+	}
 	if len(s.executeErrs) == 0 {
-		return ExecuteResult{}, nil, nil
+		return result, nil, nil
 	}
 	err := s.executeErrs[0]
 	s.executeErrs = s.executeErrs[1:]
-	return ExecuteResult{}, nil, err
+	return result, nil, err
 }
 
 func (s *fakeWatchCommandService) ResolveCommand(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
@@ -298,7 +304,7 @@ func TestRunWatchMode_InjectedWatcherReexecutesOnChange(t *testing.T) {
 	}
 }
 
-func TestRunWatchMode_ExitErrorResetsInfrastructureFailureCounter(t *testing.T) {
+func TestRunWatchMode_NonZeroExitResetsInfrastructureFailureCounter(t *testing.T) {
 	t.Parallel()
 
 	infraErr := errors.New("config disappeared")
@@ -307,11 +313,12 @@ func TestRunWatchMode_ExitErrorResetsInfrastructureFailureCounter(t *testing.T) 
 		executeErrs: []error{
 			nil,
 			infraErr,
-			&ExitError{Code: types.ExitCode(2)},
+			nil,
 			infraErr,
 			infraErr,
 			nil,
 		},
+		exitCodes: []types.ExitCode{0, 0, 2, 0, 0, 0},
 	}
 	watchers := &fakeWatchFactory{
 		run: func(ctx context.Context, cfg watch.Config) error {
@@ -341,6 +348,42 @@ func TestRunWatchMode_ExitErrorResetsInfrastructureFailureCounter(t *testing.T) 
 	)
 	if err != nil {
 		t.Fatalf("runWatchMode() error = %v", err)
+	}
+}
+
+func TestRunWatchMode_ClearScreenOwnedByCLI(t *testing.T) {
+	t.Parallel()
+
+	commands := &fakeWatchCommandService{cmdInfo: newResolvedWatchCommand(t)}
+	commands.cmdInfo.Command.Watch.ClearScreen = true
+
+	var stdout strings.Builder
+	watchers := &fakeWatchFactory{
+		run: func(ctx context.Context, cfg watch.Config) error {
+			return cfg.OnChange(ctx, []string{"main.go"})
+		},
+	}
+	app := &App{
+		Config:      &staticConfigProvider{cfg: config.DefaultConfig()},
+		Commands:    commands,
+		Watchers:    watchers,
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stdout:      &stdout,
+		stderr:      io.Discard,
+	}
+
+	err := runWatchMode(
+		newWatchTestCmd(t),
+		app,
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"build"},
+	)
+	if err != nil {
+		t.Fatalf("runWatchMode() error = %v", err)
+	}
+	if !strings.Contains(stdout.String(), "\033[2J\033[H") {
+		t.Fatalf("stdout = %q, want ANSI clear sequence", stdout.String())
 	}
 }
 

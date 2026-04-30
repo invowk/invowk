@@ -99,6 +99,7 @@ func (c *ScriptChecker) checkScriptPath(ref ScriptRef) []Finding {
 	if ref.ModulePath != "" {
 		if strings.Contains(script, "../") || strings.Contains(script, "..\\") {
 			findings = append(findings, Finding{
+				Code:           codeScriptPathOutsideModule,
 				Severity:       SeverityHigh,
 				Category:       CategoryPathTraversal,
 				SurfaceID:      ref.SurfaceID,
@@ -114,6 +115,7 @@ func (c *ScriptChecker) checkScriptPath(ref ScriptRef) []Finding {
 		// Absolute paths in module context.
 		if strings.HasPrefix(script, "/") {
 			findings = append(findings, Finding{
+				Code:           codeScriptAbsolutePath,
 				Severity:       SeverityHigh,
 				Category:       CategoryPathTraversal,
 				SurfaceID:      ref.SurfaceID,
@@ -141,6 +143,7 @@ func (c *ScriptChecker) checkScriptFileSize(ref ScriptRef) []Finding {
 
 	if ref.FileSize > maxScriptFileSize {
 		return []Finding{{
+			Code:           codeScriptFileLarge,
 			Severity:       SeverityMedium,
 			Category:       CategoryExecution,
 			SurfaceID:      ref.SurfaceID,
@@ -160,6 +163,7 @@ func (c *ScriptChecker) checkRemoteExecution(ref ScriptRef, content string) []Fi
 
 	if remoteExecPattern.MatchString(content) || downloadExecPattern.MatchString(content) || processSubstitutionPattern.MatchString(content) {
 		findings = append(findings, Finding{
+			Code:           codeScriptRemoteExecution,
 			Severity:       SeverityCritical,
 			Category:       CategoryExecution,
 			SurfaceID:      ref.SurfaceID,
@@ -178,20 +182,22 @@ func (c *ScriptChecker) checkObfuscation(ref ScriptRef, content string) []Findin
 	var findings []Finding
 
 	patterns := []struct {
+		code  FindingCode
 		re    *regexp.Regexp
 		title string
 		desc  string
 	}{
-		{base64DecodePattern, "Script contains base64 decode", "base64 -d/--decode pattern detected"},
-		{evalPattern, "Script uses eval with dynamic content", "eval with variable/string interpolation detected"},
-		{base64SubshPattern, "Script uses base64 in subshell", "base64 encoding in $() subshell detected"},
-		{encodedPipePattern, "Script pipes encoded content to base64", "Long encoded string piped to base64 detected"},
-		{hexSequencePattern, "Script contains hex escape sequences", "Multiple hex escape sequences detected"},
+		{codeScriptBase64Decode, base64DecodePattern, "Script contains base64 decode", "base64 -d/--decode pattern detected"},
+		{codeScriptEvalDynamic, evalPattern, "Script uses eval with dynamic content", "eval with variable/string interpolation detected"},
+		{codeScriptBase64Subshell, base64SubshPattern, "Script uses base64 in subshell", "base64 encoding in $() subshell detected"},
+		{codeScriptEncodedPipe, encodedPipePattern, "Script pipes encoded content to base64", "Long encoded string piped to base64 detected"},
+		{codeScriptHexEscapes, hexSequencePattern, "Script contains hex escape sequences", "Multiple hex escape sequences detected"},
 	}
 
 	for _, p := range patterns {
 		if p.re.MatchString(content) {
 			findings = append(findings, Finding{
+				Code:           p.code,
 				Severity:       SeverityHigh,
 				Category:       CategoryObfuscation,
 				SurfaceID:      ref.SurfaceID,
@@ -209,6 +215,7 @@ func (c *ScriptChecker) checkObfuscation(ref ScriptRef, content string) []Findin
 		// Only flag if not already caught by checkScriptPath.
 		if !ref.IsFile || !strings.Contains(strings.TrimSpace(string(ref.Script)), "../") {
 			findings = append(findings, Finding{
+				Code:           codeScriptContentPathTraversal,
 				Severity:       SeverityMedium,
 				Category:       CategoryPathTraversal,
 				SurfaceID:      ref.SurfaceID,

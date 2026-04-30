@@ -49,6 +49,7 @@ func (c *SymlinkChecker) findingsFromModule(mod *ScannedModule) []Finding {
 
 	for _, symlink := range mod.Symlinks {
 		findings = append(findings, Finding{
+			Code:           codeSymlinkFound,
 			Severity:       SeverityHigh,
 			Category:       CategoryPathTraversal,
 			SurfaceID:      mod.SurfaceID,
@@ -70,6 +71,7 @@ func (c *SymlinkChecker) findingsFromModule(mod *ScannedModule) []Finding {
 		// Walk error is not critical — emit a diagnostic finding so incomplete
 		// scans are visible, then return partial findings.
 		findings = append(findings, Finding{
+			Code:           codeSymlinkWalkIncomplete,
 			Severity:       SeverityLow,
 			Category:       CategoryPathTraversal,
 			SurfaceID:      mod.SurfaceID,
@@ -87,6 +89,7 @@ func (c *SymlinkChecker) findingsFromModule(mod *ScannedModule) []Finding {
 func (c *SymlinkChecker) checkSymlinkTarget(symlink SymlinkRef, surfaceID string) []Finding {
 	if symlink.ReadErr != nil {
 		return []Finding{{
+			Code:           codeSymlinkTargetUnreadable,
 			Severity:       SeverityMedium,
 			Category:       CategoryPathTraversal,
 			SurfaceID:      surfaceID,
@@ -100,6 +103,7 @@ func (c *SymlinkChecker) checkSymlinkTarget(symlink SymlinkRef, surfaceID string
 
 	if symlink.EscapesRoot {
 		return []Finding{{
+			Code:           codeSymlinkEscapesRoot,
 			Severity:       SeverityCritical,
 			Category:       CategoryPathTraversal,
 			SurfaceID:      surfaceID,
@@ -113,6 +117,7 @@ func (c *SymlinkChecker) checkSymlinkTarget(symlink SymlinkRef, surfaceID string
 
 	if symlink.Dangling {
 		return []Finding{{
+			Code:           codeSymlinkDangling,
 			Severity:       SeverityLow,
 			Category:       CategoryPathTraversal,
 			SurfaceID:      surfaceID,
@@ -129,6 +134,7 @@ func (c *SymlinkChecker) checkSymlinkTarget(symlink SymlinkRef, surfaceID string
 
 func (c *SymlinkChecker) checkSymlinkChain(symlink SymlinkRef, surfaceID string) []Finding {
 	return []Finding{{
+		Code:           codeSymlinkChain,
 		Severity:       SeverityMedium,
 		Category:       CategoryPathTraversal,
 		SurfaceID:      surfaceID,

@@ -510,66 +510,6 @@ func TestWatcherSkipIfBusy(t *testing.T) {
 	}
 }
 
-// TestWatcherClearScreen verifies that ClearScreen: true writes the ANSI
-// clear escape sequence before invoking the callback.
-func TestWatcherClearScreen(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-
-	done := make(chan struct{})
-	var doneOnce sync.Once
-	stdoutBuf := &bytes.Buffer{}
-
-	w, err := New(Config{
-		BaseDir:     types.FilesystemPath(dir),
-		Debounce:    50 * time.Millisecond,
-		ClearScreen: true,
-		Stdout:      stdoutBuf,
-		Stderr:      &bytes.Buffer{},
-		OnChange: func(_ context.Context, _ []string) error {
-			doneOnce.Do(func() { close(done) })
-			return nil
-		},
-	})
-	if err != nil {
-		t.Fatalf("New() error: %v", err)
-	}
-
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	errCh := make(chan error, 1)
-	go func() { errCh <- w.Run(ctx) }()
-
-	select {
-	case <-w.Ready():
-	case <-time.After(5 * time.Second):
-		t.Fatal("watcher event loop did not become ready")
-	}
-
-	if err := os.WriteFile(filepath.Join(dir, "file.go"), []byte("x"), 0o644); err != nil {
-		t.Fatalf("write file.go: %v", err)
-	}
-
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for callback")
-	}
-
-	cancel()
-	if err := <-errCh; err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	// Verify ANSI clear sequence was written.
-	out := stdoutBuf.String()
-	if !strings.Contains(out, "\033[2J\033[H") {
-		t.Errorf("expected ANSI clear sequence in stdout, got %q", out)
-	}
-}
-
 // TestWatcherInvalidPattern verifies that New returns an error when given
 // an invalid glob pattern, failing fast at construction time.
 func TestWatcherInvalidPattern(t *testing.T) {

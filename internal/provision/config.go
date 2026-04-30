@@ -47,7 +47,8 @@ type (
 		// Default: /invowk/modules
 		ModulesMountPath container.MountTargetPath
 
-		// CacheDir is where to store cached provisioned images metadata.
+		// CacheDir is the parent directory for provision build contexts and
+		// cached image metadata.
 		// Default is supplied by the runtime adapter when host discovery is available.
 		CacheDir types.FilesystemPath
 

@@ -188,6 +188,74 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects alias collision without locked module identity", func(t *testing.T) {
+		t.Parallel()
+
+		req := invowkmod.ModuleRequirement{
+			GitURL:  "https://github.com/example/mono.git",
+			Version: "^1.0.0",
+			Path:    "modules/dep-tools",
+			Alias:   "tools",
+		}
+		moduleDir := t.TempDir()
+		lock := invowkmod.NewLockFile()
+		lock.Modules[invowkmod.ModuleRef(req).Key()] = invowkmod.LockedModule{
+			GitURL:          req.GitURL,
+			Version:         req.Version,
+			ResolvedVersion: "1.2.3",
+			GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+			Path:            req.Path,
+			Alias:           req.Alias,
+			Namespace:       "tools",
+			ModuleID:        "io.example.expected",
+			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		}
+		if err := lock.Save(filepath.Join(moduleDir, invowkmod.LockFileName)); err != nil {
+			t.Fatalf("lock.Save() = %v", err)
+		}
+		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+			Module:   "io.example.caller",
+			Version:  "1.0.0",
+			Requires: []invowkmod.ModuleRequirement{req},
+		})
+		callerInfo := &discovery.CommandInfo{
+			Name:       invowkfile.CommandName("build"),
+			Command:    &invowkfile.Command{Name: "build"},
+			Invowkfile: &invowkfile.Invowkfile{ModulePath: types.FilesystemPath(moduleDir), Metadata: callerMeta},
+		}
+		unrelatedID := invowkmod.ModuleID("io.example.unrelated")
+		commandSet := &discovery.DiscoveredCommandSet{
+			Commands: []*discovery.CommandInfo{{
+				Name:     invowkfile.CommandName("tools build"),
+				SourceID: discovery.SourceID("tools"),
+				ModuleID: &unrelatedID,
+			}},
+		}
+		disc := &stubCommandSetProvider{
+			result: discovery.CommandSetResult{Set: commandSet},
+		}
+		deps := &invowkfile.DependsOn{
+			Commands: []invowkfile.CommandDependency{
+				{Alternatives: []invowkfile.CommandName{"tools build"}},
+			},
+		}
+
+		err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx)
+		if err == nil {
+			t.Fatal("CheckCommandDependenciesExist() error = nil, want forbidden dependency")
+		}
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+		}
+		if len(depErr.ForbiddenCommands) != 1 {
+			t.Fatalf("len(depErr.ForbiddenCommands) = %d, want 1", len(depErr.ForbiddenCommands))
+		}
+		if !strings.Contains(depErr.ForbiddenCommands[0].String(), "module 'tools' is not accessible") {
+			t.Fatalf("ForbiddenCommands[0] = %q", depErr.ForbiddenCommands[0])
+		}
+	})
+
 	t.Run("reports corrupt command scope lock", func(t *testing.T) {
 		t.Parallel()
 

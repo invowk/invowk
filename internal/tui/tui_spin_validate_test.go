@@ -81,11 +81,11 @@ func TestSpinCommandOptions_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid with command and type",
+			name: "valid with run command and type",
 			opts: SpinCommandOptions{
-				Title:   "Running...",
-				Command: []string{"echo", "hello"},
-				Type:    SpinnerGlobe,
+				Title: "Running...",
+				Run:   testSpinRun(),
+				Type:  SpinnerGlobe,
 			},
 			wantErr: false,
 		},

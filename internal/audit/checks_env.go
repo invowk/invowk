@@ -87,6 +87,7 @@ func (c *EnvChecker) checkEnvInheritMode(ref ScriptRef) []Finding {
 
 		if rt.EnvInheritMode == invowkfile.EnvInheritAll {
 			findings = append(findings, Finding{
+				Code:           codeEnvInheritAll,
 				Severity:       SeverityLow,
 				Category:       CategoryExfiltration,
 				SurfaceID:      ref.SurfaceID,
@@ -102,6 +103,7 @@ func (c *EnvChecker) checkEnvInheritMode(ref ScriptRef) []Finding {
 			// Container runtimes are excluded: they follow a different env
 			// path through buildContainerEnvMap with INVOWK_* filtering.
 			findings = append(findings, Finding{
+				Code:           codeEnvInheritDefaultAll,
 				Severity:       SeverityInfo,
 				Category:       CategoryExfiltration,
 				SurfaceID:      ref.SurfaceID,
@@ -122,6 +124,7 @@ func (c *EnvChecker) checkSensitiveVars(ref ScriptRef, content string) []Finding
 
 	if sensitiveVarPattern.MatchString(content) {
 		findings = append(findings, Finding{
+			Code:           codeEnvSensitiveVar,
 			Severity:       SeverityMedium,
 			Category:       CategoryExfiltration,
 			SurfaceID:      ref.SurfaceID,
@@ -135,6 +138,7 @@ func (c *EnvChecker) checkSensitiveVars(ref ScriptRef, content string) []Finding
 
 	if genericSecretPattern.MatchString(content) {
 		findings = append(findings, Finding{
+			Code:           codeEnvGenericSecret,
 			Severity:       SeverityMedium,
 			Category:       CategoryExfiltration,
 			SurfaceID:      ref.SurfaceID,
@@ -155,6 +159,7 @@ func (c *EnvChecker) checkTokenExtraction(ref ScriptRef, content string) []Findi
 	}
 
 	return []Finding{{
+		Code:           codeEnvTokenExtraction,
 		Severity:       SeverityHigh,
 		Category:       CategoryExfiltration,
 		SurfaceID:      ref.SurfaceID,

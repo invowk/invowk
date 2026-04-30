@@ -96,6 +96,7 @@ func (c *NetworkChecker) checkReverseShell(ref ScriptRef, content string) []Find
 	for _, p := range patterns {
 		if p.re.MatchString(content) {
 			findings = append(findings, Finding{
+				Code:           codeNetworkReverseShell,
 				Severity:       SeverityCritical,
 				Category:       CategoryExfiltration,
 				SurfaceID:      ref.SurfaceID,
@@ -117,6 +118,7 @@ func (c *NetworkChecker) checkDNSExfiltration(ref ScriptRef, content string) []F
 	}
 
 	return []Finding{{
+		Code:           codeNetworkDNSExfiltration,
 		Severity:       SeverityHigh,
 		Category:       CategoryExfiltration,
 		SurfaceID:      ref.SurfaceID,
@@ -134,6 +136,7 @@ func (c *NetworkChecker) checkEncodedURLs(ref ScriptRef, content string) []Findi
 	}
 
 	return []Finding{{
+		Code:           codeNetworkEncodedURL,
 		Severity:       SeverityHigh,
 		Category:       CategoryExfiltration,
 		SurfaceID:      ref.SurfaceID,
@@ -151,6 +154,7 @@ func (c *NetworkChecker) checkNetworkCommands(ref ScriptRef, content string) []F
 	}
 
 	return []Finding{{
+		Code:           codeNetworkAccessCommand,
 		Severity:       SeverityMedium,
 		Category:       CategoryExfiltration,
 		SurfaceID:      ref.SurfaceID,

@@ -11,6 +11,8 @@ type (
 	CorrelationRule struct {
 		// Name identifies this rule (e.g., "credential-exfiltration").
 		Name string
+		// Code is the stable machine-readable finding code emitted by this rule.
+		Code FindingCode
 		// Description explains the compound threat.
 		Description string
 		// RequiredCheckers lists the two checker names that must both have
@@ -136,7 +138,7 @@ func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding 
 		}
 
 		result = append(result, Finding{
-			Code:               FindingCode("correlator-" + rule.Name), //goplint:ignore -- rule names are package-defined constants.
+			Code:               ruleFindingCode(rule),
 			Severity:           rule.ResultSeverity,
 			Category:           rule.ResultCategory,
 			SurfaceID:          surfaceID,
@@ -150,6 +152,17 @@ func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding 
 	}
 
 	return result
+}
+
+func ruleFindingCode(rule *CorrelationRule) FindingCode {
+	if rule.Code != "" {
+		return rule.Code
+	}
+	code := FindingCode("correlator-" + rule.Name)
+	if err := code.Validate(); err != nil {
+		return ""
+	}
+	return code
 }
 
 func hasAnyFindingCode(available map[FindingCode]bool, required []FindingCode) bool {
@@ -187,7 +200,7 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 	// Rule: 3+ distinct categories → Critical.
 	if len(categories) >= 3 {
 		result = append(result, Finding{
-			Code:           "correlator-multiple-categories",
+			Code:           codeCorrelatorMultipleCategories,
 			Severity:       SeverityCritical,
 			Category:       CategoryTrust,
 			SurfaceID:      surfaceID,
@@ -202,7 +215,7 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 	// Rule: High + any → Critical.
 	if highCount > 0 && len(findings) > 1 {
 		result = append(result, Finding{
-			Code:           "correlator-high-plus-other",
+			Code:           codeCorrelatorHighPlusOther,
 			Severity:       SeverityCritical,
 			Category:       CategoryTrust,
 			SurfaceID:      surfaceID,
@@ -217,7 +230,7 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 	// Rule: Medium + Medium → High.
 	if mediumCount >= 2 {
 		result = append(result, Finding{
-			Code:           "correlator-medium-plus-medium",
+			Code:           codeCorrelatorMediumPlusMedium,
 			Severity:       SeverityHigh,
 			Category:       CategoryTrust,
 			SurfaceID:      surfaceID,
@@ -237,6 +250,7 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 func DefaultRules() []CorrelationRule {
 	return []CorrelationRule{
 		{
+			Code:                 codeCorrelatorCredentialExfiltration,
 			Name:                 "credential-exfiltration",
 			Description:          "Module accesses sensitive environment variables and has network access — potential credential exfiltration",
 			RequiredCheckers:     [2]string{envCheckerName, networkCheckerName},
@@ -246,6 +260,7 @@ func DefaultRules() []CorrelationRule {
 			ResultRecommendation: "Restrict env_inherit_mode to 'none' or 'allow' and audit all network access in this module",
 		},
 		{
+			Code:                 codeCorrelatorPathSymlinkEscape,
 			Name:                 "path-symlink-escape",
 			Description:          "Path traversal combined with external symlink target allows escaping the module boundary",
 			RequiredCheckers:     [2]string{scriptCheckerName, symlinkCheckerName},
@@ -255,6 +270,7 @@ func DefaultRules() []CorrelationRule {
 			ResultRecommendation: "Remove symlinks from module directories and ensure all script paths are relative within the module",
 		},
 		{
+			Code:                 codeCorrelatorObfuscatedExfiltration,
 			Name:                 "obfuscated-exfiltration",
 			Description:          "Script contains obfuscation patterns alongside network access — likely deliberate evasion",
 			RequiredCheckers:     [2]string{scriptCheckerName, networkCheckerName},
@@ -264,6 +280,7 @@ func DefaultRules() []CorrelationRule {
 			ResultRecommendation: "Decode and review all obfuscated content; do not use this module until the obfuscation is explained",
 		},
 		{
+			Code:             codeCorrelatorTrustChainWeakness,
 			Name:             "trust-chain-weakness",
 			Description:      "Dependency graph weakness with unverified modules increases supply-chain attack surface",
 			RequiredCheckers: [2]string{moduleMetadataCheckerName, lockFileCheckerName},
@@ -289,6 +306,7 @@ func DefaultRules() []CorrelationRule {
 			ResultRecommendation: "Run 'invowk module sync' to update lock file hashes; review dependency graph breadth and missing declarations",
 		},
 		{
+			Code:                 codeCorrelatorInterpreterTraversal,
 			Name:                 "interpreter-traversal",
 			Description:          "Unusual interpreter combined with path traversal in the same module",
 			RequiredCheckers:     [2]string{scriptCheckerName, scriptCheckerName},

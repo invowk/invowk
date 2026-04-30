@@ -81,7 +81,7 @@ import "strings"
 	// merged into container provisioning. Default: true.
 	inherit_includes?: bool
 
-	// cache_dir specifies where to store cached provisioned images metadata.
+	// cache_dir specifies where to place provision build contexts and cached image metadata.
 	// Default: ~/.cache/invowk/provision
 	cache_dir?: string & !="" & strings.MaxRunes(4096)
 })

@@ -85,6 +85,7 @@ func (c *ModuleMetadataChecker) checkGlobalTrust(mod *ScannedModule) []Finding {
 	}
 
 	return []Finding{{
+		Code:           codeModuleMetadataGlobalNoHash,
 		Severity:       SeverityInfo,
 		Category:       CategoryTrust,
 		SurfaceID:      mod.SurfaceID,
@@ -106,6 +107,7 @@ func (c *ModuleMetadataChecker) checkInvowkfileParseFailure(mod *ScannedModule) 
 	}
 
 	return []Finding{{
+		Code:           codeModuleMetadataInvowkfileParseFailure,
 		Severity:       SeverityMedium,
 		Category:       CategoryTrust,
 		SurfaceID:      mod.SurfaceID,
@@ -128,6 +130,7 @@ func (c *ModuleMetadataChecker) checkDependencyFanOut(mod *ScannedModule) []Find
 	}
 
 	return []Finding{{
+		Code:           codeModuleMetadataWideFanOut,
 		Severity:       SeverityMedium,
 		Category:       CategoryTrust,
 		SurfaceID:      mod.SurfaceID,
@@ -160,6 +163,7 @@ func (c *ModuleMetadataChecker) checkTyposquatting(mod *ScannedModule, allIDs []
 		dist := levenshtein(thisID, otherID)
 		if dist > 0 && dist <= typosquatLevenshteinThreshold {
 			findings = append(findings, Finding{
+				Code:           codeModuleMetadataSimilarID,
 				Severity:       SeverityMedium,
 				Category:       CategoryTrust,
 				SurfaceID:      mod.SurfaceID,
@@ -185,6 +189,7 @@ func (c *ModuleMetadataChecker) checkVersionPinning(mod *ScannedModule) []Findin
 		version := string(req.Version)
 		if unpinnedVersions[version] {
 			findings = append(findings, Finding{
+				Code:           codeModuleMetadataUnpinnedDependency,
 				Severity:       SeverityLow,
 				Category:       CategoryTrust,
 				SurfaceID:      mod.SurfaceID,
@@ -209,6 +214,7 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 	var findings []Finding
 	for _, diag := range invowkmod.CheckMissingVendoredTransitiveDeps(mod.Module.Metadata.Requires, mod.VendoredModules) {
 		findings = append(findings, Finding{
+			Code:           codeModuleMetadataTransitiveNotDeclared,
 			Severity:       SeverityMedium,
 			Category:       CategoryTrust,
 			SurfaceID:      mod.SurfaceID,
@@ -236,6 +242,7 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 		}
 		if !found {
 			findings = append(findings, Finding{
+				Code:           codeModuleMetadataVendoredNotDeclared,
 				Severity:       SeverityMedium,
 				Category:       CategoryTrust,
 				SurfaceID:      mod.SurfaceID,

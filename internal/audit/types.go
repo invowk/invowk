@@ -298,7 +298,20 @@ func (r *Report) AllFindings() []Finding {
 	all := make([]Finding, 0, len(r.Findings)+len(r.Correlated))
 	all = append(all, r.Findings...)
 	all = append(all, r.Correlated...)
-	slices.SortFunc(all, func(a, b Finding) int {
+	sortFindings(all)
+	return all
+}
+
+// IndividualFindings returns individual checker findings sorted by severity
+// descending, then by file path ascending.
+func (r *Report) IndividualFindings() []Finding {
+	findings := slices.Clone(r.Findings)
+	sortFindings(findings)
+	return findings
+}
+
+func sortFindings(findings []Finding) {
+	slices.SortFunc(findings, func(a, b Finding) int {
 		if c := cmp.Compare(b.Severity, a.Severity); c != 0 { // descending severity
 			return c
 		}
@@ -310,13 +323,21 @@ func (r *Report) AllFindings() []Finding {
 		}
 		return cmp.Compare(a.Title, b.Title) // title as final tiebreaker for determinism
 	})
-	return all
 }
 
-// FilterBySeverity returns findings at or above the given minimum severity.
+// FilterBySeverity returns all findings at or above the given minimum severity.
 func (r *Report) FilterBySeverity(minSev Severity) []Finding {
 	all := r.AllFindings()
 	return slices.DeleteFunc(all, func(f Finding) bool {
+		return f.Severity < minSev
+	})
+}
+
+// IndividualFindingsBySeverity returns individual checker findings at or above
+// the given minimum severity, excluding compound threats.
+func (r *Report) IndividualFindingsBySeverity(minSev Severity) []Finding {
+	findings := r.IndividualFindings()
+	return slices.DeleteFunc(findings, func(f Finding) bool {
 		return f.Severity < minSev
 	})
 }
@@ -367,10 +388,9 @@ func (r *Report) HasFindings(minSev Severity) bool {
 	return false
 }
 
-// FilterCorrelatedBySeverity returns correlated findings at or above the given
-// minimum severity. Used by render functions that need correlated findings
-// separate from individual findings (e.g., JSON output with distinct arrays).
-func (r *Report) FilterCorrelatedBySeverity(minSev Severity) []Finding {
+// CompoundThreatsBySeverity returns correlated findings at or above the given
+// minimum severity.
+func (r *Report) CompoundThreatsBySeverity(minSev Severity) []Finding {
 	var filtered []Finding
 	for i := range r.Correlated {
 		if r.Correlated[i].Severity >= minSev {
@@ -378,6 +398,12 @@ func (r *Report) FilterCorrelatedBySeverity(minSev Severity) []Finding {
 		}
 	}
 	return filtered
+}
+
+// FilterCorrelatedBySeverity returns correlated findings at or above the given
+// minimum severity.
+func (r *Report) FilterCorrelatedBySeverity(minSev Severity) []Finding {
+	return r.CompoundThreatsBySeverity(minSev)
 }
 
 // DurationMillis returns the scan duration in milliseconds for JSON output.
