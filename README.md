@@ -2862,24 +2862,27 @@ Additional automatic escalation rules:
 
 ### LLM-Powered Analysis
 
-For deeper semantic analysis beyond regex patterns, enable LLM-powered auditing via the `--llm` flag. This sends script content to a local or remote LLM through any OpenAI-compatible API for reasoning about novel attack vectors, subtle logic flaws, and context-dependent security issues.
+For deeper semantic analysis beyond regex patterns, enable LLM-powered auditing with `--llm-provider` or manual `--llm` configuration. This sends script content to a local CLI tool or remote/local OpenAI-compatible API for reasoning about novel attack vectors, subtle logic flaws, and context-dependent security issues.
 
 ```bash
-# Auto-detect best available provider (local Ollama first, then cloud)
+# Auto-detect best available provider (local Ollama first, then env-var APIs, then CLIs)
 invowk audit --llm-provider auto
 
-# Use a specific provider (works with OAuth — no API key needed)
+# Use a specific CLI provider (uses that tool's current default model)
 invowk audit --llm-provider claude
 invowk audit --llm-provider codex
 invowk audit --llm-provider gemini
 
-# Override model within a provider
+# Override the model passed to a CLI provider
 invowk audit --llm-provider claude --llm-model claude-opus-4-6
+
+# Cloud API credentials require an explicit model
+OPENAI_API_KEY=sk-... invowk audit --llm-provider codex --llm-model <model>
 
 # Manual configuration (Ollama, LM Studio, or any OpenAI-compatible server)
 invowk audit --llm
 invowk audit --llm --llm-url http://localhost:1234/v1
-invowk audit --llm --llm-url https://api.openai.com/v1 --llm-api-key sk-...
+invowk audit --llm --llm-url https://api.openai.com/v1 --llm-api-key sk-... --llm-model <model>
 ```
 
 **LLM Flags:**
@@ -2889,12 +2892,12 @@ invowk audit --llm --llm-url https://api.openai.com/v1 --llm-api-key sk-...
 | `--llm-provider` | | Auto-detect or use specific provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Enable LLM with manual `--llm-url`/`--llm-api-key` config |
 | `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL (env: `INVOWK_LLM_URL`) |
-| `--llm-model` | (per provider) | Model name override (env: `INVOWK_LLM_MODEL`) |
+| `--llm-model` | `qwen2.5-coder:7b` for manual/Ollama; CLI provider default when omitted | Model name; required when `--llm-provider` selects cloud API credentials and optional for CLI providers (env applies only to manual `--llm`) |
 | `--llm-api-key` | (empty) | API key (env: `INVOWK_LLM_API_KEY`) |
 | `--llm-timeout` | `2m` | Per-request timeout (env: `INVOWK_LLM_TIMEOUT`) |
 | `--llm-concurrency` | `2` | Max parallel LLM requests (env: `INVOWK_LLM_CONCURRENCY`) |
 
-`--llm-provider` seamlessly integrates with Claude Code, Codex CLI, and Gemini CLI — if you're already logged in via OAuth, it just works. No API keys needed.
+`--llm-provider` seamlessly integrates with Claude Code, Codex CLI, and Gemini CLI. If you're already logged in via OAuth, it just works and invowk lets the tool choose its current default model unless you pass `--llm-model`. When provider detection finds cloud API credentials such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`, you must pass `--llm-model` so the cloud model choice is explicit.
 
 **Compatible LLM servers:**
 
@@ -3015,7 +3018,7 @@ invowk/
 │   ├── platform/               # Cross-platform utilities
 │   └── types/                  # DDD value-type catalog (shared typed primitives)
 ├── tests/cli/                  # CLI integration tests (testscript .txtar files)
-├── modules/                    # Sample invowk modules for validation
+├── samples/invowkmods/         # Sample invowk modules and audit fixtures
 ├── scripts/                    # Build, install, and release scripts
 ├── specs/                      # Feature specifications and research
 ├── tasks/                      # Pending analysis documents and planning notes

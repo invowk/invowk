@@ -162,7 +162,7 @@ invowk audit --severity info
 
 ## LLM-Powered Analysis
 
-For deeper semantic analysis beyond pattern matching, enable LLM-powered auditing with the `--llm` flag. This sends script content to a local or remote LLM through any OpenAI-compatible API.
+For deeper semantic analysis beyond pattern matching, enable LLM-powered auditing with `--llm-provider` or manual `--llm` configuration. This sends script content to a local CLI tool or remote/local OpenAI-compatible API.
 
 :::info Why LLM analysis?
 Built-in checkers use regex patterns — they are fast and deterministic but can only detect known patterns. LLM analysis reasons about code *intent*, catching novel attack vectors, subtle logic flaws, and context-dependent security issues that regex cannot express.
@@ -183,6 +183,28 @@ ollama pull qwen2.5-coder:7b
 invowk audit --llm
 ```
 
+### Provider Detection
+
+Use `--llm-provider` to let invowk connect through local tools or cloud API credentials:
+
+```bash
+# Auto-detect: Ollama, env-var APIs, then CLI tools
+invowk audit --llm-provider auto
+
+# CLI providers use the tool's current default model when --llm-model is omitted
+invowk audit --llm-provider claude
+invowk audit --llm-provider codex
+invowk audit --llm-provider gemini
+
+# Explicit model override for a CLI provider
+invowk audit --llm-provider codex --llm-model MODEL_NAME
+
+# Env-var cloud APIs require an explicit model
+OPENAI_API_KEY=sk-... invowk audit --llm-provider codex --llm-model MODEL_NAME
+```
+
+When `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY` selects a cloud API provider, `--llm-model` is required. CLI-backed providers delegate to Claude Code, Codex CLI, or Gemini CLI defaults unless you pass `--llm-model`.
+
 ### Compatible Servers
 
 | Server | Default URL | Notes |
@@ -197,9 +219,10 @@ invowk audit --llm
 
 | Flag | Default | Env Override | Description |
 |------|---------|-------------|-------------|
+| `--llm-provider` | *(empty)* | &mdash; | Auto-detect or use `auto`, `claude`, `codex`, `gemini`, or `ollama` |
 | `--llm` | `false` | &mdash; | Enable LLM-powered analysis |
 | `--llm-url` | `http://localhost:11434/v1` | `INVOWK_LLM_URL` | API base URL |
-| `--llm-model` | `qwen2.5-coder:7b` | `INVOWK_LLM_MODEL` | Model name |
+| `--llm-model` | `qwen2.5-coder:7b` for manual/Ollama; CLI tool default for CLI providers | `INVOWK_LLM_MODEL` for manual `--llm` | Model name; required for env-var cloud API providers |
 | `--llm-api-key` | *(empty)* | `INVOWK_LLM_API_KEY` | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | `INVOWK_LLM_TIMEOUT` | Per-request timeout |
 | `--llm-concurrency` | `2` | `INVOWK_LLM_CONCURRENCY` | Max parallel LLM requests |

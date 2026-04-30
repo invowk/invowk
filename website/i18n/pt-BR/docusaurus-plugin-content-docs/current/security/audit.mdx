@@ -162,7 +162,7 @@ invowk audit --severity info
 
 ## Análise com LLM
 
-Para análise semântica mais profunda além da correspondência de padrões, habilite a auditoria com LLM usando a flag `--llm`. Isso envia conteúdo de scripts para um LLM local ou remoto através de qualquer API compatível com OpenAI.
+Para análise semântica mais profunda além da correspondência de padrões, habilite a auditoria com LLM usando `--llm-provider` ou a configuração manual `--llm`. Isso envia conteúdo de scripts para uma ferramenta CLI local ou para uma API local/remota compatível com OpenAI.
 
 :::info Por que análise com LLM?
 Os checkers integrados usam padrões regex — são rápidos e determinísticos mas só detectam padrões conhecidos. A análise com LLM raciocina sobre a *intenção* do código, detectando vetores de ataque inéditos, falhas lógicas sutis e problemas de segurança dependentes de contexto que regex não consegue expressar.
@@ -183,6 +183,28 @@ ollama pull qwen2.5-coder:7b
 invowk audit --llm
 ```
 
+### Detecção de Provedor
+
+Use `--llm-provider` para conectar o invowk por ferramentas locais ou credenciais de API em variáveis de ambiente:
+
+```bash
+# Auto-detectar: Ollama, APIs via env var, depois ferramentas CLI
+invowk audit --llm-provider auto
+
+# Provedores CLI usam o modelo padrão atual da ferramenta quando --llm-model é omitido
+invowk audit --llm-provider claude
+invowk audit --llm-provider codex
+invowk audit --llm-provider gemini
+
+# Override explícito de modelo para um provedor CLI
+invowk audit --llm-provider codex --llm-model NOME_DO_MODELO
+
+# APIs cloud via env var exigem modelo explícito
+OPENAI_API_KEY=sk-... invowk audit --llm-provider codex --llm-model NOME_DO_MODELO
+```
+
+Quando `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` ou `GOOGLE_API_KEY` seleciona um provedor de API cloud, `--llm-model` é obrigatório. Provedores baseados em CLI delegam para os padrões do Claude Code, Codex CLI ou Gemini CLI, a menos que você passe `--llm-model`.
+
 ### Servidores Compatíveis
 
 | Servidor | URL Padrão | Notas |
@@ -197,9 +219,10 @@ invowk audit --llm
 
 | Flag | Padrão | Variável de Ambiente | Descrição |
 |------|--------|---------------------|-----------|
+| `--llm-provider` | *(vazio)* | &mdash; | Auto-detectar ou usar `auto`, `claude`, `codex`, `gemini` ou `ollama` |
 | `--llm` | `false` | &mdash; | Habilitar análise com LLM |
 | `--llm-url` | `http://localhost:11434/v1` | `INVOWK_LLM_URL` | URL base da API |
-| `--llm-model` | `qwen2.5-coder:7b` | `INVOWK_LLM_MODEL` | Nome do modelo |
+| `--llm-model` | `qwen2.5-coder:7b` para manual/Ollama; padrão da ferramenta para provedores CLI | `INVOWK_LLM_MODEL` para `--llm` manual | Nome do modelo; obrigatório para provedores de API cloud via env var |
 | `--llm-api-key` | *(vazio)* | `INVOWK_LLM_API_KEY` | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | `INVOWK_LLM_TIMEOUT` | Timeout por requisição |
 | `--llm-concurrency` | `2` | `INVOWK_LLM_CONCURRENCY` | Máximo de requisições LLM paralelas |

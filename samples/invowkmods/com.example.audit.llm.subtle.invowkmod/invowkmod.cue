@@ -1,0 +1,5 @@
+module: "com.example.audit.llm.subtle"
+version: "0.1.0"
+description: "Semantic security fixture for LLM-backed audit checks"
+license: "MPL-2.0"
+repository: "https://github.com/invowk/invowk"

@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	llmProviderNotFoundErrMsg = "no LLM provider found"
+	llmProviderNotFoundErrMsg      = "no LLM provider found"
+	llmProviderModelRequiredErrMsg = "LLM provider model required"
 
 	// ProviderAuto auto-detects the best available LLM provider.
 	ProviderAuto = "auto"
@@ -35,10 +36,6 @@ const (
 	anthropicBaseURL = "https://api.anthropic.com/v1/"
 	openaiBaseURL    = "https://api.openai.com/v1"
 	geminiBaseURL    = "https://generativelanguage.googleapis.com/v1beta/openai/"
-
-	defaultClaudeModel = "claude-sonnet-4-6"
-	defaultOpenAIModel = "gpt-4o"
-	defaultGeminiModel = "gemini-2.5-flash"
 )
 
 var (
@@ -46,12 +43,15 @@ var (
 
 	// ErrLLMProviderNotFound is the sentinel for when no LLM provider can be detected.
 	ErrLLMProviderNotFound = errors.New(llmProviderNotFoundErrMsg)
+	// ErrLLMProviderModelRequired is the sentinel for cloud API providers selected
+	// from environment credentials without an explicit --llm-model.
+	ErrLLMProviderModelRequired = errors.New(llmProviderModelRequiredErrMsg)
 
 	// cloudProviders defines the cloud provider configurations in detection order.
 	cloudProviders = map[string]cloudProvider{
-		ProviderClaude: {envVars: []string{"ANTHROPIC_API_KEY"}, baseURL: anthropicBaseURL, defaultModel: defaultClaudeModel, name: ProviderClaude, cliTool: "claude"},
-		ProviderCodex:  {envVars: []string{"OPENAI_API_KEY"}, baseURL: openaiBaseURL, defaultModel: defaultOpenAIModel, name: ProviderCodex, cliTool: "codex"},
-		ProviderGemini: {envVars: []string{"GEMINI_API_KEY", "GOOGLE_API_KEY"}, baseURL: geminiBaseURL, defaultModel: defaultGeminiModel, name: ProviderGemini, cliTool: "gemini"},
+		ProviderClaude: {envVars: []string{"ANTHROPIC_API_KEY"}, baseURL: anthropicBaseURL, name: ProviderClaude, cliTool: "claude"},
+		ProviderCodex:  {envVars: []string{"OPENAI_API_KEY"}, baseURL: openaiBaseURL, name: ProviderCodex, cliTool: "codex"},
+		ProviderGemini: {envVars: []string{"GEMINI_API_KEY", "GOOGLE_API_KEY"}, baseURL: geminiBaseURL, name: ProviderGemini, cliTool: "gemini"},
 	}
 )
 
@@ -59,6 +59,13 @@ type (
 	// LLMProviderNotFoundError is returned when auto-detection finds no provider.
 	LLMProviderNotFoundError struct {
 		Tried []string
+	}
+
+	// LLMProviderModelRequiredError is returned when cloud API credentials are
+	// available but the caller did not choose a model explicitly.
+	LLMProviderModelRequiredError struct {
+		Provider string
+		EnvVar   string
 	}
 
 	// ProviderResult holds a detected provider's configuration.
@@ -89,14 +96,13 @@ type (
 	}
 
 	// cloudProvider bundles the fixed configuration for a cloud LLM provider.
-	// Each provider has one or more env var names, a base URL, a default model,
-	// a display name, and a CLI tool name for fallback.
+	// Each provider has one or more env var names, a base URL, a display name,
+	// and a CLI tool name for fallback.
 	cloudProvider struct {
-		envVars      []string
-		baseURL      string
-		defaultModel string
-		name         string
-		cliTool      string
+		envVars []string
+		baseURL string
+		name    string
+		cliTool string
 	}
 )
 
@@ -106,7 +112,8 @@ func (r *ProviderResult) Completer() audit.LLMCompleter { return r.completer }
 // Name returns the provider name (e.g., "claude", "ollama").
 func (r *ProviderResult) Name() string { return r.name }
 
-// Model returns the model that will be used.
+// Model returns the model that will be used, or an empty string when a CLI
+// provider is delegating model selection to the tool.
 func (r *ProviderResult) Model() string { return r.model }
 
 // Error implements the error interface.
@@ -116,6 +123,17 @@ func (e *LLMProviderNotFoundError) Error() string {
 
 // Unwrap returns the sentinel for errors.Is chains.
 func (e *LLMProviderNotFoundError) Unwrap() error { return ErrLLMProviderNotFound }
+
+// Error implements the error interface.
+func (e *LLMProviderModelRequiredError) Error() string {
+	return fmt.Sprintf("%s: %s is set for %s; specify --llm-model when using cloud API credentials",
+		llmProviderModelRequiredErrMsg, e.EnvVar, e.Provider)
+}
+
+// Unwrap returns the sentinel for errors.Is chains.
+func (e *LLMProviderModelRequiredError) Unwrap() error {
+	return ErrLLMProviderModelRequired
+}
 
 // ValidProviders returns the list of valid --llm-provider values.
 func ValidProviders() []string {
@@ -135,8 +153,10 @@ func defaultProviderDeps() providerDeps {
 // probes providers in local-first order: Ollama, then cloud env vars
 // (Anthropic, OpenAI, Google), then CLI tools (claude, codex, gemini).
 //
-// The modelOverride parameter, when non-empty, replaces the provider's
-// default model selection.
+// The modelOverride parameter, when non-empty, selects the cloud/API model or
+// passes an explicit model flag to CLI tools. Empty modelOverride delegates
+// CLI model selection to the tool default. Cloud API credentials require a
+// non-empty modelOverride so invowk never hardcodes a stale cloud default.
 func DetectProvider(ctx context.Context, name, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
 	return detectProviderWith(ctx, defaultProviderDeps(), name, modelOverride, timeout)
 }
@@ -163,8 +183,12 @@ func detectAutoProvider(ctx context.Context, deps providerDeps, modelOverride st
 	for _, name := range []string{ProviderClaude, ProviderCodex, ProviderGemini} {
 		spec := cloudProviders[name]
 		for _, envVar := range spec.envVars {
-			if result, err := tryEnvVar(deps, spec, envVar, modelOverride, timeout); err == nil {
+			result, err := tryEnvVar(deps, spec, envVar, modelOverride, timeout)
+			if err == nil {
 				return result, nil
+			}
+			if errors.Is(err, ErrLLMProviderModelRequired) {
+				return nil, err
 			}
 			tried = append(tried, envVar)
 		}
@@ -238,15 +262,13 @@ func tryEnvVar(deps providerDeps, spec cloudProvider, envVar, modelOverride stri
 	if apiKey == "" {
 		return nil, fmt.Errorf("%s not set", envVar)
 	}
-
-	model := spec.defaultModel
-	if modelOverride != "" {
-		model = modelOverride
+	if modelOverride == "" {
+		return nil, &LLMProviderModelRequiredError{Provider: spec.name, EnvVar: envVar}
 	}
 
 	client, err := NewLLMClient(LLMClientConfig{
 		BaseURL: spec.baseURL,
-		Model:   model,
+		Model:   modelOverride,
 		APIKey:  apiKey,
 		Timeout: timeout,
 	})
@@ -254,14 +276,18 @@ func tryEnvVar(deps providerDeps, spec cloudProvider, envVar, modelOverride stri
 		return nil, err
 	}
 
-	return &ProviderResult{completer: client, name: spec.name, model: model}, nil
+	return &ProviderResult{completer: client, name: spec.name, model: modelOverride}, nil
 }
 
 // detectCloudProvider tries env vars first, then falls back to the CLI tool.
 func detectCloudProvider(deps providerDeps, spec cloudProvider, modelOverride string, timeout time.Duration) (*ProviderResult, error) {
 	for _, envVar := range spec.envVars {
-		if result, err := tryEnvVar(deps, spec, envVar, modelOverride, timeout); err == nil {
+		result, err := tryEnvVar(deps, spec, envVar, modelOverride, timeout)
+		if err == nil {
 			return result, nil
+		}
+		if errors.Is(err, ErrLLMProviderModelRequired) {
+			return nil, err
 		}
 	}
 	return tryCLITool(deps, spec.cliTool, modelOverride)
@@ -278,30 +304,11 @@ func tryCLITool(deps providerDeps, tool, modelOverride string) (*ProviderResult,
 		providerName = ProviderCodex
 	}
 
-	model := cliDefaultModel(tool)
-	if modelOverride != "" {
-		model = modelOverride
-	}
-
 	return &ProviderResult{
-		completer: NewCLICompleter(tool, model),
+		completer: NewCLICompleter(tool, modelOverride),
 		name:      providerName,
-		model:     model,
+		model:     modelOverride,
 	}, nil
-}
-
-// cliDefaultModel returns the default model name for a CLI tool.
-func cliDefaultModel(tool string) string {
-	switch tool {
-	case "claude":
-		return defaultClaudeModel
-	case "codex":
-		return defaultOpenAIModel
-	case "gemini":
-		return defaultGeminiModel
-	default:
-		return DefaultLLMModel
-	}
 }
 
 // NewCLICompleter creates a completer that shells out to the named CLI tool.
@@ -316,9 +323,9 @@ func NewCLICompleter(tool, model string) *CLICompleter {
 // chat messages.
 //
 // Each tool has different flags and output formats:
-//   - claude: -p --output-format json --bare -> {"type":"result","result":"..."}
-//   - codex: exec --json -m <model> -> JSONL with item.completed events
-//   - gemini: -p --output-format json -> {"response":"..."}
+//   - claude: -p --output-format json --bare [--model <model>] -> {"type":"result","result":"..."}
+//   - codex: exec --json [-m <model>] -> JSONL with item.completed events
+//   - gemini: -p --output-format json [--model <model>] -> {"response":"..."}
 func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	prompt := systemPrompt + "\n\n" + userPrompt
 
@@ -356,7 +363,11 @@ func defaultRunCmd(ctx context.Context, name string, args ...string) ([]byte, er
 func (c *CLICompleter) buildArgs(prompt string) ([]string, error) {
 	switch c.tool {
 	case "claude":
-		return []string{"-p", prompt, "--output-format", "json", "--bare"}, nil
+		args := []string{"-p", prompt, "--output-format", "json", "--bare"}
+		if c.model != "" {
+			args = append(args, "--model", c.model)
+		}
+		return args, nil
 	case "codex":
 		args := []string{"exec", prompt, "--json"}
 		if c.model != "" {
@@ -364,7 +375,11 @@ func (c *CLICompleter) buildArgs(prompt string) ([]string, error) {
 		}
 		return args, nil
 	case "gemini":
-		return []string{"-p", prompt, "--output-format", "json"}, nil
+		args := []string{"-p", prompt, "--output-format", "json"}
+		if c.model != "" {
+			args = append(args, "--model", c.model)
+		}
+		return args, nil
 	default:
 		return nil, fmt.Errorf("unsupported CLI tool: %s", c.tool)
 	}

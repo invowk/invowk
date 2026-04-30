@@ -1,6 +1,6 @@
 ---
 name: invowk-schema
-description: Schema guidelines for invowkfile.cue and modules/*.invowkmod, cross-platform runtime patterns, command implementations, capability checks, environment variables.
+description: Schema guidelines for invowkfile.cue and samples/invowkmods/*.invowkmod, cross-platform runtime patterns, command implementations, capability checks, environment variables.
 disable-model-invocation: false
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: false
 
 Use this skill when:
 - Editing the `invowkfile.cue` root example file
-- Working with sample modules in `modules/`
+- Working with sample modules in `samples/invowkmods/`
 - Adding or modifying command/implementation structures
 - Handling cross-platform runtime selection (native vs virtual runtimes on different platforms)
 
@@ -181,24 +181,27 @@ implementations: [
 
 ## Invowkmod Modules
 
-### Samples (`modules/` directory)
+### Samples (`samples/invowkmods/` directory)
 
-The `modules/` directory contains sample modules that serve as reference implementations and validation tests.
+The `samples/invowkmods/` directory contains sample modules that serve as reference implementations, validation tests, and audit fixtures.
 
 - A module is a `.invowkmod` directory containing `invowkmod.cue` (metadata) and `invowkfile.cue` (commands).
 - The invowkmod schema lives in `pkg/invowkmod/invowkmod_schema.cue` and the invowkfile schema in `pkg/invowkfile/invowkfile_schema.cue`.
 - Always update sample modules when the invowkmod schema, validation rules, or module behavior changes.
 - Modules should demonstrate module-specific features (script file references, cross-platform paths, requirements).
-- After module-related changes, run validation: `go run . validate modules/<module-name>.invowkmod`.
+- After module-related changes, run validation against safe samples: `go run . validate samples/invowkmods/io.invowk.sample.invowkmod`.
+- Intentionally unsafe audit fixtures under `samples/invowkmods/com.example.audit.*.invowkmod` should be verified with `invowk audit`, not normal validation.
 
 ### Current Sample Modules
 
 - `io.invowk.sample.invowkmod` - Minimal cross-platform module with a simple greeting command.
+- `com.example.audit.deterministic.invowkmod` - Intentionally unsafe fixture covering deterministic audit checkers.
+- `com.example.audit.llm.subtle.invowkmod` - Semantic fixture for LLM-backed audit checks.
 
 ### Module Validation Checklist
 
 When modifying module-related code, verify:
-1. All modules in `modules/` pass validation: `go run . validate modules/*.invowkmod`.
+1. Safe modules in `samples/invowkmods/` pass validation: `go run . validate samples/invowkmods/io.invowk.sample.invowkmod`.
 2. Module naming conventions and module ID matching are enforced.
 3. `invowkmod.cue` is required and parsed; `invowkfile.cue` contains only commands.
 4. Script path resolution works correctly (forward slashes, relative paths).
@@ -209,7 +212,7 @@ When modifying module-related code, verify:
 
 | Pitfall | Symptom | Fix |
 |---------|---------|-----|
-| Stale sample modules | Validation fails after schema changes | Update modules in `modules/` after module-related changes |
+| Stale sample modules | Validation fails after schema changes | Update safe samples in `samples/invowkmods/` after module-related changes |
 | Missing platform restrictions | Bash scripts fail on Windows | Add platform-specific implementations for native+virtual runtimes |
 | Args with subcommands | Discovery validation error | Commands with positional args cannot have subcommands |
 | Treating Unix `/...` paths as universally absolute in config tests | Windows short CI fails on include path validation | For `includes` fixtures, use `t.TempDir()` + `filepath.Join(...)` and keep relative negatives explicit |

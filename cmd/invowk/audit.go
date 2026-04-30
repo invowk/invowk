@@ -259,7 +259,7 @@ Exit codes:
 	cmd.Flags().StringVar(&llmProvider, "llm-provider", "", "auto-detect or use specific provider: auto, claude, codex, gemini, ollama")
 	cmd.Flags().BoolVar(&enableLLM, "llm", false, "enable LLM with manual --llm-url/--llm-api-key config")
 	cmd.Flags().StringVar(&llmURL, "llm-url", auditllm.DefaultLLMBaseURL, "OpenAI-compatible API base URL")
-	cmd.Flags().StringVar(&llmModel, auditFlagLLMModel, auditllm.DefaultLLMModel, "LLM model name")
+	cmd.Flags().StringVar(&llmModel, auditFlagLLMModel, auditllm.DefaultLLMModel, "LLM model name; required for cloud API providers and optional for CLI providers")
 	cmd.Flags().StringVar(&llmAPIKey, "llm-api-key", "", "API key (empty for local servers)")
 	cmd.Flags().DurationVar(&llmTimeout, "llm-timeout", auditllm.DefaultLLMTimeout, "per-request timeout")
 	cmd.Flags().IntVar(&llmConcurrency, "llm-concurrency", audit.DefaultLLMConcurrency, "max parallel LLM requests")
@@ -586,7 +586,11 @@ func buildProviderChecker(ctx context.Context, cmd *cobra.Command, provider stri
 		}
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Using LLM provider: %s (model: %s)\n", result.Name(), result.Model())
+	modelDisplay := result.Model()
+	if modelDisplay == "" {
+		modelDisplay = result.Name() + " CLI default"
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "Using LLM provider: %s (model: %s)\n", result.Name(), modelDisplay)
 
 	concurrency := llmOpts.Concurrency
 	if concurrency == 0 {

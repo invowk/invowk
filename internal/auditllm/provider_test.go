@@ -57,17 +57,10 @@ func ollamaModelServer(t *testing.T, modelIDs ...string) *httptest.Server {
 
 // --- Provider detection tests (deterministic via injectable deps) ---
 
-func TestDetectAutoProvider_OllamaFirst(t *testing.T) {
+func TestDetectAutoProvider_EnvVarUsesExplicitModel(t *testing.T) {
 	t.Parallel()
 
-	srv := ollamaModelServer(t, "qwen2.5-coder:7b")
 	deps := failDeps()
-	deps.httpDo = http.DefaultClient.Do
-
-	// Point tryOllama at the test server by overriding DefaultLLMBaseURL
-	// indirectly: tryOllama uses DefaultLLMBaseURL which is hard-coded.
-	// Instead, test via tryEnvVar path and verify priority with a more
-	// targeted test below. Here we test that env-var detection works.
 	deps.getenv = func(key string) string {
 		if key == "ANTHROPIC_API_KEY" {
 			return "sk-test-key"
@@ -75,22 +68,19 @@ func TestDetectAutoProvider_OllamaFirst(t *testing.T) {
 		return ""
 	}
 
-	result, err := detectProviderWith(t.Context(), deps, ProviderAuto, "", 5*time.Second)
+	result, err := detectProviderWith(t.Context(), deps, ProviderAuto, "claude-test-model", 5*time.Second)
 	if err != nil {
 		t.Fatalf("detectProviderWith: %v", err)
 	}
-	// Ollama probe fails (wrong URL), so falls through to ANTHROPIC_API_KEY.
 	if result.Name() != ProviderClaude {
 		t.Errorf("Name() = %q, want %q", result.Name(), ProviderClaude)
 	}
-	if result.Model() != defaultClaudeModel {
-		t.Errorf("Model() = %q, want %q", result.Model(), defaultClaudeModel)
+	if result.Model() != "claude-test-model" {
+		t.Errorf("Model() = %q, want %q", result.Model(), "claude-test-model")
 	}
-
-	_ = srv // keep server alive for potential Ollama probe
 }
 
-func TestDetectAutoProvider_FallsToOpenAI(t *testing.T) {
+func TestDetectAutoProvider_EnvVarRequiresModel(t *testing.T) {
 	t.Parallel()
 
 	deps := failDeps()
@@ -102,14 +92,25 @@ func TestDetectAutoProvider_FallsToOpenAI(t *testing.T) {
 	}
 
 	result, err := detectProviderWith(t.Context(), deps, ProviderAuto, "", 5*time.Second)
-	if err != nil {
-		t.Fatalf("detectProviderWith: %v", err)
+	if err == nil {
+		t.Fatal("expected error when env var provider has no explicit model")
 	}
-	if result.Name() != ProviderCodex {
-		t.Errorf("Name() = %q, want %q", result.Name(), ProviderCodex)
+	if result != nil {
+		t.Fatalf("result = %#v, want nil", result)
 	}
-	if result.Model() != defaultOpenAIModel {
-		t.Errorf("Model() = %q, want %q", result.Model(), defaultOpenAIModel)
+	if !errors.Is(err, ErrLLMProviderModelRequired) {
+		t.Errorf("expected ErrLLMProviderModelRequired, got %v", err)
+	}
+
+	var modelRequired *LLMProviderModelRequiredError
+	if !errors.As(err, &modelRequired) {
+		t.Fatalf("expected LLMProviderModelRequiredError, got %T", err)
+	}
+	if modelRequired.Provider != ProviderCodex {
+		t.Errorf("Provider = %q, want %q", modelRequired.Provider, ProviderCodex)
+	}
+	if modelRequired.EnvVar != "OPENAI_API_KEY" {
+		t.Errorf("EnvVar = %q, want %q", modelRequired.EnvVar, "OPENAI_API_KEY")
 	}
 }
 
@@ -130,6 +131,9 @@ func TestDetectAutoProvider_FallsToCLI(t *testing.T) {
 	}
 	if result.Name() != ProviderGemini {
 		t.Errorf("Name() = %q, want %q", result.Name(), ProviderGemini)
+	}
+	if result.Model() != "" {
+		t.Errorf("Model() = %q, want empty CLI default delegation", result.Model())
 	}
 }
 
@@ -188,14 +192,37 @@ func TestDetectSpecificProvider_ClaudeEnvVar(t *testing.T) {
 	}
 
 	result, err := detectProviderWith(t.Context(), deps, ProviderClaude, "", 5*time.Second)
+	if err == nil {
+		t.Fatal("expected error when env var provider has no explicit model")
+	}
+	if result != nil {
+		t.Fatalf("result = %#v, want nil", result)
+	}
+	if !errors.Is(err, ErrLLMProviderModelRequired) {
+		t.Errorf("expected ErrLLMProviderModelRequired, got %v", err)
+	}
+}
+
+func TestDetectSpecificProvider_ClaudeEnvVarWithModel(t *testing.T) {
+	t.Parallel()
+
+	deps := failDeps()
+	deps.getenv = func(key string) string {
+		if key == "ANTHROPIC_API_KEY" {
+			return "sk-test-key"
+		}
+		return ""
+	}
+
+	result, err := detectProviderWith(t.Context(), deps, ProviderClaude, "claude-explicit", 5*time.Second)
 	if err != nil {
 		t.Fatalf("detectProviderWith: %v", err)
 	}
 	if result.Name() != ProviderClaude {
 		t.Errorf("Name() = %q, want %q", result.Name(), ProviderClaude)
 	}
-	if result.Model() != defaultClaudeModel {
-		t.Errorf("Model() = %q, want %q", result.Model(), defaultClaudeModel)
+	if result.Model() != "claude-explicit" {
+		t.Errorf("Model() = %q, want %q", result.Model(), "claude-explicit")
 	}
 }
 
@@ -217,6 +244,32 @@ func TestDetectSpecificProvider_ClaudeFallsToCLI(t *testing.T) {
 	if result.Name() != ProviderClaude {
 		t.Errorf("Name() = %q, want %q", result.Name(), ProviderClaude)
 	}
+	if result.Model() != "" {
+		t.Errorf("Model() = %q, want empty CLI default delegation", result.Model())
+	}
+}
+
+func TestDetectSpecificProvider_CodexCLIKeepsExplicitModel(t *testing.T) {
+	t.Parallel()
+
+	deps := failDeps()
+	deps.lookPath = func(name string) (string, error) {
+		if name == "codex" {
+			return "/usr/bin/codex", nil
+		}
+		return "", fmt.Errorf("%s not found", name)
+	}
+
+	result, err := detectProviderWith(t.Context(), deps, ProviderCodex, "codex-explicit", 5*time.Second)
+	if err != nil {
+		t.Fatalf("detectProviderWith: %v", err)
+	}
+	if result.Name() != ProviderCodex {
+		t.Errorf("Name() = %q, want %q", result.Name(), ProviderCodex)
+	}
+	if result.Model() != "codex-explicit" {
+		t.Errorf("Model() = %q, want %q", result.Model(), "codex-explicit")
+	}
 }
 
 func TestDetectSpecificProvider_GeminiDualEnvVar(t *testing.T) {
@@ -232,14 +285,14 @@ func TestDetectSpecificProvider_GeminiDualEnvVar(t *testing.T) {
 	}
 
 	result, err := detectProviderWith(t.Context(), deps, ProviderGemini, "", 5*time.Second)
-	if err != nil {
-		t.Fatalf("detectProviderWith: %v", err)
+	if err == nil {
+		t.Fatal("expected error when env var provider has no explicit model")
 	}
-	if result.Name() != ProviderGemini {
-		t.Errorf("Name() = %q, want %q", result.Name(), ProviderGemini)
+	if result != nil {
+		t.Fatalf("result = %#v, want nil", result)
 	}
-	if result.Model() != defaultGeminiModel {
-		t.Errorf("Model() = %q, want %q", result.Model(), defaultGeminiModel)
+	if !errors.Is(err, ErrLLMProviderModelRequired) {
+		t.Errorf("expected ErrLLMProviderModelRequired, got %v", err)
 	}
 }
 
@@ -326,22 +379,40 @@ func TestCLICompleter_BuildArgs(t *testing.T) {
 		wantArgs []string
 	}{
 		{
-			name:     "claude args",
+			name:     "claude args use CLI default without model flag",
 			tool:     "claude",
-			model:    "claude-sonnet-4-6",
+			model:    "",
 			wantArgs: []string{"-p", "test prompt", "--output-format", "json", "--bare"},
 		},
 		{
-			name:     "codex args with model",
+			name:     "claude args with explicit model",
+			tool:     "claude",
+			model:    "claude-explicit",
+			wantArgs: []string{"-p", "test prompt", "--output-format", "json", "--bare", "--model", "claude-explicit"},
+		},
+		{
+			name:     "codex args use CLI default without model flag",
+			tool:     "codex",
+			model:    "",
+			wantArgs: []string{"exec", "test prompt", "--json"},
+		},
+		{
+			name:     "codex args with explicit model",
 			tool:     "codex",
 			model:    "gpt-4o",
 			wantArgs: []string{"exec", "test prompt", "--json", "-m", "gpt-4o"},
 		},
 		{
-			name:     "gemini args",
+			name:     "gemini args use CLI default without model flag",
 			tool:     "gemini",
-			model:    "gemini-2.5-flash",
+			model:    "",
 			wantArgs: []string{"-p", "test prompt", "--output-format", "json"},
+		},
+		{
+			name:     "gemini args with explicit model",
+			tool:     "gemini",
+			model:    "gemini-explicit",
+			wantArgs: []string{"-p", "test prompt", "--output-format", "json", "--model", "gemini-explicit"},
 		},
 	}
 
@@ -606,29 +677,6 @@ func TestParseGeminiOutput(t *testing.T) {
 			t.Errorf("expected audit.ErrLLMMalformedResponse, got %v", err)
 		}
 	})
-}
-
-func TestCliDefaultModel(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		tool string
-		want string
-	}{
-		{"claude", defaultClaudeModel},
-		{"codex", defaultOpenAIModel},
-		{"gemini", defaultGeminiModel},
-		{"unknown", DefaultLLMModel},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.tool, func(t *testing.T) {
-			t.Parallel()
-			if got := cliDefaultModel(tt.tool); got != tt.want {
-				t.Errorf("cliDefaultModel(%q) = %q, want %q", tt.tool, got, tt.want)
-			}
-		})
-	}
 }
 
 func TestTryOllama_ProbeSucceeds(t *testing.T) {
