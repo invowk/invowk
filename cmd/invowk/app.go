@@ -176,6 +176,10 @@ func (o *cliExecutionObserver) InteractiveFallback(runtimeName invowkfile.Runtim
 // to the underlying service, and wraps raw domain errors into styled
 // ServiceErrors for CLI rendering. Dry-run results are rendered here.
 func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+	if err := req.Validate(); err != nil {
+		return ExecuteResult{}, nil, renderAndWrapServiceError(err, req)
+	}
+
 	result, diags, err := a.svc.Execute(ctx, req)
 
 	// Handle dry-run rendering: the service returns structured data;

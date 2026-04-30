@@ -332,6 +332,10 @@ func (m *spinModel) tick() tea.Cmd {
 // SpinWithAction displays a spinner while running an action function.
 // The spinner stops when the action completes.
 func SpinWithAction(opts SpinOptions, action func()) error {
+	if err := opts.Validate(); err != nil {
+		return err
+	}
+
 	doneCh := make(chan struct{})
 	go func() {
 		action()
@@ -343,6 +347,10 @@ func SpinWithAction(opts SpinOptions, action func()) error {
 
 // SpinWithContext displays a spinner until the context is cancelled.
 func SpinWithContext(ctx context.Context, opts SpinOptions) error {
+	if err := opts.Validate(); err != nil {
+		return err
+	}
+
 	doneCh := make(chan struct{})
 	go func() {
 		<-ctx.Done()

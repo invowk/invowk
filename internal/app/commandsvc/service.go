@@ -172,6 +172,12 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 
 // ResolveFromSource resolves a source-filtered command request without executing it.
 func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+	if err := req.Validate(); err != nil {
+		return nil, req, nil, err
+	}
+	if req.Platform == "" {
+		req.Platform = invowkfile.CurrentPlatform()
+	}
 	_, cmdInfo, resolvedReq, diags, err := s.discoverCommandFromSource(ctx, nil, req)
 	return cmdInfo, resolvedReq, diags, err
 }

@@ -133,6 +133,9 @@ func (p *LayerProvisioner) CleanupProvisionedImages(_ context.Context) error {
 // GetProvisionedImageTag returns the tag that would be used for a provisioned
 // image without actually building it. Useful for checking if an image is cached.
 func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage container.ImageTag) (string, error) {
+	if err := baseImage.Validate(); err != nil {
+		return "", fmt.Errorf("base image: %w", err)
+	}
 	cacheKey, err := p.calculateCacheKey(ctx, baseImage, p.config.InvowkfilePath)
 	if err != nil {
 		return "", err

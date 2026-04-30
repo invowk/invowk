@@ -391,6 +391,28 @@ func TestLayerProvisioner_GetProvisionedImageTag(t *testing.T) {
 	}
 }
 
+func TestLayerProvisioner_GetProvisionedImageTagRejectsInvalidBaseImage(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		Enabled:          true,
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
+	}
+	provisioner, provErr := NewLayerProvisioner(newMockEngine(), cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
+
+	_, err := provisioner.GetProvisionedImageTag(t.Context(), container.ImageTag("debian:stable-slim\nRUN echo bad"))
+	if err == nil {
+		t.Fatal("GetProvisionedImageTag() returned nil error, want invalid base image error")
+	}
+	if !errors.Is(err, container.ErrInvalidImageTag) {
+		t.Fatalf("GetProvisionedImageTag() error = %v, want ErrInvalidImageTag", err)
+	}
+}
+
 // --- IsImageProvisioned Tests ---
 
 func TestLayerProvisioner_IsImageProvisioned(t *testing.T) {

@@ -96,6 +96,9 @@ func (e *SandboxAwareEngine) PrepareRunCommand(ctx context.Context, opts RunOpti
 // Build builds an image from a Dockerfile.
 // In sandbox mode, the build command is executed via the host spawn mechanism.
 func (e *SandboxAwareEngine) Build(ctx context.Context, opts BuildOptions) error {
+	if err := opts.Validate(); err != nil {
+		return err
+	}
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.Build(ctx, opts)
 	}
@@ -127,6 +130,9 @@ func (e *SandboxAwareEngine) Build(ctx context.Context, opts BuildOptions) error
 // Run runs a command in a container.
 // In sandbox mode, the run command is executed via the host spawn mechanism.
 func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.Run(ctx, opts)
 	}

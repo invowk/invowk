@@ -86,6 +86,8 @@ func (h ContentHash) String() string { return string(h) }
 // ComputeModuleHash computes a deterministic SHA-256 hash of a module directory tree.
 // This is the exported accessor for computeModuleHash, enabling use by the
 // audit scanner (internal/audit/) which cannot access unexported functions.
+//
+//goplint:ignore -- exported adapter accepts OS-resolved path text for the internal hashing helper.
 func ComputeModuleHash(dir string) (ContentHash, error) {
 	return computeModuleHash(dir)
 }

@@ -217,3 +217,20 @@ func TestCreate_ExistingModule(t *testing.T) {
 		t.Errorf("expected ErrModuleAlreadyExists, got: %v", err)
 	}
 }
+
+func TestCreateRejectsInvalidOptionsBeforeFilesystemWork(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	_, err := Create(CreateOptions{
+		ParentDir:   types.FilesystemPath(tmpDir),
+		Name:        ModuleShortName("valid"),
+		Description: types.DescriptionText("   "),
+	})
+	if err == nil {
+		t.Fatal("Create() returned nil error, want invalid create options")
+	}
+	if !errors.Is(err, ErrInvalidCreateOptions) {
+		t.Fatalf("Create() error = %v, want ErrInvalidCreateOptions", err)
+	}
+}

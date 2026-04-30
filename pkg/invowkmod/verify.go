@@ -47,6 +47,15 @@ type (
 	}
 )
 
+func (e lockHashEntry) Validate() error {
+	var errs []error
+	errs = append(errs, e.key.Validate())
+	if e.hash != "" {
+		errs = append(errs, e.hash.Validate())
+	}
+	return errors.Join(errs...)
+}
+
 // String returns the string representation of the VendoredHashStatus.
 func (s VendoredHashStatus) String() string { return string(s) }
 

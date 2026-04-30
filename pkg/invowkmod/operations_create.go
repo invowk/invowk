@@ -12,6 +12,10 @@ import (
 // Create creates a new module with the given options.
 // Returns the path to the created module or an error.
 func Create(opts CreateOptions) (string, error) {
+	if err := opts.Validate(); err != nil {
+		return "", err
+	}
+
 	// Validate module name
 	if opts.Name == "" {
 		return "", errors.New("module name cannot be empty")

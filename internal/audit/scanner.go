@@ -35,7 +35,10 @@ type (
 // DefaultRules() are validated at compile-test time, so the error is not
 // expected at runtime; a nil correlator disables compound threat detection.
 func NewScanner(cfg config.Provider, opts ...ScannerOption) *Scanner {
-	cor, _ := NewCorrelator(DefaultRules()) //nolint:errcheck // DefaultRules are compile-time constants; validated by tests
+	cor, err := NewCorrelator(DefaultRules())
+	if err != nil {
+		cor = nil
+	}
 	s := &Scanner{
 		checkers:   DefaultCheckers(),
 		correlator: cor,

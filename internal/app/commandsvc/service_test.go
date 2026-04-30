@@ -135,6 +135,21 @@ func TestServiceResolveCommandRejectsAmbiguousLongestMatch(t *testing.T) {
 	}
 }
 
+func TestServiceResolveFromSourceRejectsInvalidRequest(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{}
+	_, _, _, err := service.ResolveFromSource(t.Context(), Request{
+		FromSource: discovery.SourceID("invalid source"),
+	})
+	if err == nil {
+		t.Fatal("ResolveFromSource() returned nil error, want validation error")
+	}
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("ResolveFromSource() error = %v, want ErrInvalidRequest", err)
+	}
+}
+
 func TestServiceDiscoverCommandFromSourceAdjustsArgs(t *testing.T) {
 	t.Parallel()
 

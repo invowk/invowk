@@ -490,7 +490,13 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 }
 
 // Exec runs a command in a running container.
+//
+//goplint:trusted-boundary -- Exec validates the RunOptions fields it actually consumes; RunOptions.Validate requires Image for run-only paths.
 func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, command []string, opts RunOptions) (*RunResult, error) {
+	if err := validateExecInputs(containerID, command, opts); err != nil {
+		return nil, err
+	}
+
 	args := e.ExecArgs(containerID, command, opts)
 
 	cmd := e.CreateCommand(ctx, args...)
@@ -504,6 +510,23 @@ func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, comma
 	}
 	result.ContainerID = containerID
 	return result, nil
+}
+
+//goplint:ignore -- raw argv vector mirrors the public Exec API; this helper validates non-empty command shape.
+func validateExecInputs(containerID ContainerID, command []string, opts RunOptions) error {
+	var errs []error
+	if err := containerID.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(command) == 0 {
+		errs = append(errs, errors.New("exec command cannot be empty"))
+	}
+	if opts.WorkDir != "" {
+		if err := opts.WorkDir.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Remove removes a container.

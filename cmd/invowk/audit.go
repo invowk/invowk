@@ -138,10 +138,16 @@ func (o auditJSONOutput) Validate() error {
 }
 
 func (f auditJSONFinding) Validate() error {
-	return errors.Join(
+	var errs []error
+	errs = append(errs,
+		f.Code.Validate(),
 		f.CheckerName.Validate(),
 		f.SurfaceKind.Validate(),
 	)
+	for _, code := range f.EscalatedFromCodes {
+		errs = append(errs, code.Validate())
+	}
+	return errors.Join(errs...)
 }
 
 func (d auditJSONDiagnostic) Validate() error {

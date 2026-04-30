@@ -2,9 +2,11 @@
 
 ## Status
 
-Yes. The provisioning request/image invariant issue is a goplint coverage gap.
+Implemented.
 
-The production fix is still required in the application code: `LayerProvisioner.Provision` now defaults the base image and then calls `Request.Validate()` before reading request fields for disabled provisioning, cache lookup, or layer build decisions.
+`LayerProvisioner.Provision` defaults the base image and then calls `Request.Validate()` before reading request fields for disabled provisioning, cache lookup, or layer build decisions. The adjacent cache-inspection boundary, `LayerProvisioner.GetProvisionedImageTag`, now validates its `container.ImageTag` argument before cache-key generation so `IsImageProvisioned` inherits the same image invariant.
+
+goplint now includes `--check-boundary-request-validation`, included by `--check-all`, for exported functions and methods that accept validatable `*Request` / `*Options` structs and return `error`. It reports `unvalidated-boundary-request` when the parameter is read before a checked `Validate()` guard. The mode allows defaulting and nil-guard prologues before validation, and it supports a narrow `//goplint:trusted-boundary` directive for wrappers that delegate to an already-validating boundary or validate a documented partial option shape.
 
 ## Why Existing Rules Missed It
 
@@ -19,17 +21,17 @@ Current goplint rules cover nearby cases:
 
 Those rules do not prove that a method accepting an already-built request struct validates the request before using its fields. This means request structs with complete invariant definitions can still cross an application boundary unchecked.
 
-## Proposed Analyzer Rule
+## Analyzer Rule
 
-Add a boundary request validation rule for structs that have `Validate() error` and are passed by value or pointer into exported or package-boundary orchestration methods.
+The boundary request validation rule applies to structs that have `Validate() error`, whose type name ends in `Request` or `Options`, and that are passed by value or pointer into exported error-returning boundary methods.
 
-The rule should report when a method:
+The rule reports when a method:
 
 - accepts a validatable request-like struct parameter
 - reads fields from that parameter, passes fields into another operation, or makes control-flow decisions from those fields
 - does so before a dominating successful `req.Validate()` check
 
-The rule should allow explicit trusted-boundary exceptions for code paths where validation is guaranteed by a caller and documented with a narrow goplint directive.
+The rule allows explicit trusted-boundary exceptions for code paths where validation is guaranteed by a caller and documented with the narrow `//goplint:trusted-boundary -- reason` directive.
 
 ## Example Shape
 
