@@ -29,8 +29,11 @@ func (s *Service) validateInputs(req Request, cmdInfo *discovery.CommandInfo, de
 
 	platform := requestPlatform(req)
 	if !cmdInfo.Command.CanRunOnPlatform(platform) {
-		supportedPlatforms := cmdInfo.Command.GetPlatformsString()
-		return fmt.Errorf("%w: command '%s' does not support platform '%s' (supported: %s)", ErrUnsupportedPlatform, req.Name, platform, supportedPlatforms)
+		return &UnsupportedPlatformError{
+			CommandName: invowkfile.CommandName(req.Name), //goplint:ignore -- service request name validated by discovery
+			Current:     platform,
+			Supported:   cmdInfo.Command.GetSupportedPlatforms(),
+		}
 	}
 
 	return nil

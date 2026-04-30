@@ -4,6 +4,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -635,6 +636,56 @@ func TestLoad_ActionableErrorFormat(t *testing.T) {
 	errStr := err.Error()
 	if errStr == "" {
 		t.Error("expected non-empty error string")
+	}
+}
+
+func TestLoad_DuplicateIncludeAliasKeepsActionableSuggestions(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ConfigFileName+"."+ConfigFileExt)
+	first := filepath.Join(tmpDir, "first.invowkmod")
+	second := filepath.Join(tmpDir, "second.invowkmod")
+	cfg := fmt.Sprintf(`includes: [
+	{path: %q, alias: "same"},
+	{path: %q, alias: "same"},
+]`, first, second)
+	if err := os.WriteFile(cfgPath, []byte(cfg), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	_, _, err := loadWithOptions(t.Context(), LoadOptions{
+		ConfigFilePath: types.FilesystemPath(cfgPath),
+		BaseDir:        types.FilesystemPath(tmpDir),
+	})
+	if err == nil {
+		t.Fatal("expected duplicate include alias error")
+	}
+	if !errors.Is(err, ErrInvalidIncludeCollection) {
+		t.Fatalf("errors.Is(err, ErrInvalidIncludeCollection) = false for %v", err)
+	}
+	var includeErr *InvalidIncludeCollectionError
+	if !errors.As(err, &includeErr) {
+		t.Fatalf("errors.As(err, *InvalidIncludeCollectionError) = false for %v", err)
+	}
+	if includeErr.Field != "includes" {
+		t.Fatalf("include field = %q, want includes", includeErr.Field)
+	}
+	var actionable *issue.ActionableError
+	if !errors.As(err, &actionable) {
+		t.Fatalf("errors.As(err, *ActionableError) = false for %v", err)
+	}
+	if actionable.Operation() != "validate configuration" {
+		t.Fatalf("operation = %q, want validate configuration", actionable.Operation())
+	}
+	suggestions := strings.Join(actionable.Suggestions(), "\n")
+	for _, want := range []string{
+		"Ensure each alias is unique across all includes entries",
+		"When two modules share the same short name, all must have unique aliases",
+	} {
+		if !strings.Contains(suggestions, want) {
+			t.Fatalf("suggestions %q do not contain %q", suggestions, want)
+		}
 	}
 }
 

@@ -32,6 +32,13 @@ func TestValidateFlagValues(t *testing.T) {
 		if !errors.Is(err, ErrFlagValidationFailed) {
 			t.Fatalf("errors.Is(err, ErrFlagValidationFailed) = false for %v", err)
 		}
+		var flagErr *FlagValidationError
+		if !errors.As(err, &flagErr) {
+			t.Fatalf("errors.As(err, *FlagValidationError) = false for %v", err)
+		}
+		if flagErr.CommandName != "build" {
+			t.Fatalf("CommandName = %q, want build", flagErr.CommandName)
+		}
 		if !strings.Contains(err.Error(), "required flag '--name'") {
 			t.Fatalf("error = %v, want error containing %q", err, "required flag '--name'")
 		}

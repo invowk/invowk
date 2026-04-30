@@ -322,6 +322,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 		running atomic.Bool
 		wg      sync.WaitGroup
 	)
+	callbackErr := make(chan error, 1)
 
 	// fireBody drains the pending set and invokes the OnChange callback.
 	// It may be scheduled by time.AfterFunc after the context is cancelled,
@@ -382,7 +383,10 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 		if w.cfg.OnChange != nil {
 			if err := w.cfg.OnChange(ctx, changed); err != nil {
-				fmt.Fprintf(w.stderr, "watch: callback error: %v\n", err)
+				select {
+				case callbackErr <- err:
+				default:
+				}
 			}
 		}
 	}
@@ -426,6 +430,9 @@ func (w *Watcher) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
+
+		case err := <-callbackErr:
+			return err
 
 		case evt, ok := <-w.backend.Events():
 			if !ok {

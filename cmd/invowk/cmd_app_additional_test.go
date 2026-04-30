@@ -317,6 +317,25 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		t.Fatalf("arg branch returned %T issue %v", wrapped, svcErr.IssueID)
 	}
 
+	flagErr := &deps.FlagValidationError{
+		CommandName: "build",
+		Failures:    []deps.DependencyMessage{"required flag '--name' was not provided"},
+	}
+	wrapped = renderAndWrapServiceError(flagErr, ExecuteRequest{Name: "build"})
+	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.InvalidArgumentId || !strings.Contains(svcErr.StyledMessage, "Invalid flag") {
+		t.Fatalf("flag branch returned %#v", svcErr)
+	}
+
+	platformErr := &commandsvc.UnsupportedPlatformError{
+		CommandName: "build",
+		Current:     invowkfile.PlatformLinux,
+		Supported:   []invowkfile.Platform{invowkfile.PlatformMac},
+	}
+	wrapped = renderAndWrapServiceError(platformErr, ExecuteRequest{Name: "build"})
+	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.HostNotSupportedId || !strings.Contains(svcErr.StyledMessage, "Host not supported") {
+		t.Fatalf("platform branch returned %#v", svcErr)
+	}
+
 	runtimeErr := &appexec.RuntimeNotAllowedError{
 		CommandName: "build",
 		Runtime:     invowkfile.RuntimeContainer,

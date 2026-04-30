@@ -202,14 +202,16 @@ func NewSpinModel(ctx context.Context, opts SpinCommandOptions) *spinModel {
 	if len(opts.Command) == 0 {
 		// No command - return immediately done
 		return &spinModel{
-			done: true,
+			title:  opts.Title,
+			done:   true,
+			frames: getSpinnerType(opts.Type).Frames,
 		}
 	}
 
 	return &spinModel{
 		title:  opts.Title,
 		run:    newSpinCommandCmd(ctx, opts.Command),
-		frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		frames: getSpinnerType(opts.Type).Frames,
 	}
 }
 

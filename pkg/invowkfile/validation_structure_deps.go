@@ -75,6 +75,7 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 						Field:     basePath.Copy().EnvVars(i, j).Field("validation").String(),
 						Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 						Severity:  SeverityError,
+						Cause:     err,
 					})
 				}
 			}
@@ -98,6 +99,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 				Field:     basePath.Copy().CustomCheck(i, 0).String(),
 				Message:   customCheckDependencyValidationMessage(err) + invowkfileAtSuffix + string(ctx.FilePath),
 				Severity:  SeverityError,
+				Cause:     err,
 			})
 			continue
 		}
@@ -137,6 +139,7 @@ func (v *StructureValidator) validateCustomChecks(ctx *ValidationContext, checks
 						Field:     path.String(),
 						Message:   "expected_output: " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 						Severity:  SeverityError,
+						Cause:     err,
 					})
 				}
 			}

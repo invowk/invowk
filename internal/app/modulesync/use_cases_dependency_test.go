@@ -34,6 +34,36 @@ func TestNewResolverForInvowkmodPathUsesMetadataDirectory(t *testing.T) {
 	}
 }
 
+func TestListModuleDependenciesUsesInvowkmodPathDirectory(t *testing.T) {
+	moduleDir := t.TempDir()
+	otherDir := t.TempDir()
+	t.Chdir(otherDir)
+
+	lock := invowkmod.NewLockFile()
+	lock.Modules["https://github.com/user/tools.git"] = LockedModule{
+		GitURL:          "https://github.com/user/tools.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.2.3",
+		GitCommit:       "abc123def456789012345678901234567890abcd",
+		Namespace:       "tools@1.2.3",
+		ContentHash:     ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+	}
+	if err := lock.Save(filepath.Join(moduleDir, LockFileName)); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	deps, err := ListModuleDependencies(t.Context(), types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")))
+	if err != nil {
+		t.Fatalf("ListModuleDependencies() error = %v", err)
+	}
+	if len(deps) != 1 {
+		t.Fatalf("deps = %d, want 1", len(deps))
+	}
+	if deps[0].Namespace != "tools@1.2.3" {
+		t.Fatalf("namespace = %q, want tools@1.2.3", deps[0].Namespace)
+	}
+}
+
 func TestAddModuleDependencyReportsDeclarationFailureAfterLockUpdate(t *testing.T) {
 	t.Parallel()
 

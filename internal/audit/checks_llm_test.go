@@ -278,6 +278,30 @@ func TestBatchScripts_RespectsCharLimit(t *testing.T) {
 	}
 }
 
+func TestBatchScripts_UsesResolvedFileContentLength(t *testing.T) {
+	t.Parallel()
+
+	prepared := make([]ScriptRef, 3)
+	for i := range prepared {
+		prepared[i] = ScriptRef{
+			CommandName:     invowkfile.CommandName(fmt.Sprintf("cmd%d", i)),
+			Script:          "script.sh",
+			IsFile:          true,
+			resolvedContent: strings.Repeat("x", maxBatchChars/2+1),
+		}
+	}
+
+	batches := batchScripts(prepared)
+	if len(batches) != 3 {
+		t.Fatalf("len(batches) = %d, want 3", len(batches))
+	}
+	for i, batch := range batches {
+		if len(batch) != 1 {
+			t.Fatalf("len(batches[%d]) = %d, want 1", i, len(batch))
+		}
+	}
+}
+
 func TestBatchScripts_RespectsCountLimit(t *testing.T) {
 	t.Parallel()
 

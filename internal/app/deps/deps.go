@@ -12,6 +12,7 @@ import (
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // ValidateDependencies validates dependencies for a command in two phases:
@@ -182,8 +183,13 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 		}
 	}
 
+	lock, err := loadCommandScopeLock(cmdInfo.Invowkfile)
+	if err != nil {
+		return err
+	}
+
 	// Build CommandScope for module commands (nil for root invowkfile).
-	scope := buildCommandScope(cmdInfo, available)
+	scope := buildCommandScope(cmdInfo, available, lock)
 
 	var commandErrors []DependencyMessage
 	var forbiddenErrors []DependencyMessage
@@ -202,9 +208,9 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 
 		// Scope enforcement: if the caller is a module command, check CanCall.
 		if scope != nil && matchedCmd.ModuleID != nil {
-			allowed, reason := scope.CanCall(string(matchedCmd.Name))
-			if !allowed {
-				forbiddenErrors = append(forbiddenErrors, dependencyMessageFromDetail(fmt.Sprintf("%s - %s", matchedCmd.Name, reason)))
+			decision := scope.CanCall(invowkmod.CommandReference(matchedCmd.Name))
+			if !decision.Allowed {
+				forbiddenErrors = append(forbiddenErrors, commandScopeDenialDetail(scope, decision))
 			}
 		}
 	}
@@ -222,7 +228,7 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 
 // buildCommandScope constructs a CommandScope for scope enforcement.
 // Returns nil for root invowkfile commands (no scope restrictions).
-func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.CommandName]*discovery.CommandInfo) *invowkmod.CommandScope {
+func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.CommandName]*discovery.CommandInfo, lock *invowkmod.LockFile) *invowkmod.CommandScope {
 	if cmdInfo.Invowkfile.Metadata == nil {
 		return nil // Root invowkfile — no scope restrictions.
 	}
@@ -246,7 +252,6 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 	}
 
 	requirements := cmdInfo.Invowkfile.Metadata.Requires()
-	lock := loadCommandScopeLock(cmdInfo.Invowkfile)
 
 	// Build scope from explicit aliases, then wire resolved direct dependencies
 	// below from discovery plus lock-file identity.
@@ -274,15 +279,30 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 	return scope
 }
 
-func loadCommandScopeLock(inv *invowkfile.Invowkfile) *invowkmod.LockFile {
+func loadCommandScopeLock(inv *invowkfile.Invowkfile) (*invowkmod.LockFile, error) {
 	if inv == nil || inv.ModulePath == "" {
-		return nil
+		return &invowkmod.LockFile{}, nil
 	}
-	lock, err := invowkmod.LoadLockFile(filepath.Join(string(inv.ModulePath), invowkmod.LockFileName))
+	lockPath := filepath.Join(string(inv.ModulePath), invowkmod.LockFileName)
+	lock, err := invowkmod.LoadLockFile(lockPath)
 	if err != nil {
-		return nil
+		return nil, &CommandScopeLockError{
+			Path: types.FilesystemPath(lockPath),
+			Err:  err,
+		}
 	}
-	return lock
+	return lock, nil
+}
+
+func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.CommandScopeDecision) DependencyMessage {
+	return dependencyMessageFromDetail(fmt.Sprintf(
+		"%s - command from module '%s' cannot call '%s': module '%s' is not accessible\n"+
+			"  Commands can only call:\n"+
+			"  - Commands from the same module (%s)\n"+
+			"  - Commands from globally installed modules (~/.invowk/modules/)\n"+
+			"  - Commands from direct dependencies declared in invowkmod.cue:requires\n"+
+			"  Add '%s' to your invowkmod.cue requires list to use its commands",
+		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID, decision.TargetSource))
 }
 
 func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement, lock *invowkmod.LockFile, cmd *discovery.CommandInfo) bool {

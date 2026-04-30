@@ -217,8 +217,24 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 		return newServiceError(err, issue.DependenciesNotSatisfiedId, RenderDependencyError(depErr))
 	}
 
+	if flagErr, ok := errors.AsType[*deps.FlagValidationError](err); ok {
+		return newServiceError(err, issue.InvalidArgumentId, RenderFlagValidationError(flagErr))
+	}
+
 	if argErr, ok := errors.AsType[*deps.ArgumentValidationError](err); ok {
 		return newServiceError(err, issue.InvalidArgumentId, RenderArgumentValidationError(argErr))
+	}
+
+	if platformErr, ok := errors.AsType[*commandsvc.UnsupportedPlatformError](err); ok {
+		supported := make([]string, 0, len(platformErr.Supported))
+		for i := range platformErr.Supported {
+			supported = append(supported, string(platformErr.Supported[i]))
+		}
+		return newServiceError(
+			err,
+			issue.HostNotSupportedId,
+			RenderHostNotSupportedError(string(platformErr.CommandName), string(platformErr.Current), strings.Join(supported, ", ")),
+		)
 	}
 
 	if notAllowed, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {

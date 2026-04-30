@@ -3,9 +3,6 @@
 package deps
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -16,7 +13,7 @@ func ValidateFlagValues(cmdName string, flagValues map[invowkfile.FlagName]strin
 		return nil
 	}
 
-	var validationErrs []string
+	var validationErrs []DependencyMessage
 
 	for _, flag := range flagDefs {
 		value, hasValue := flagValues[flag.Name]
@@ -25,20 +22,23 @@ func ValidateFlagValues(cmdName string, flagValues map[invowkfile.FlagName]strin
 		// Note: Cobra handles required flag checking via MarkFlagRequired,
 		// but we double-check here for runtime validation (defense-in-depth for direct service calls)
 		if flag.Required && (!hasValue || value == "") {
-			validationErrs = append(validationErrs, fmt.Sprintf("required flag '--%s' was not provided", flag.Name))
+			validationErrs = append(validationErrs, dependencyMessageFromDetail("required flag '--"+string(flag.Name)+"' was not provided"))
 			continue
 		}
 
 		// Validate the value if provided (skip empty values for non-required flags)
 		if hasValue && value != "" {
 			if err := flag.ValidateFlagValue(value); err != nil {
-				validationErrs = append(validationErrs, err.Error())
+				validationErrs = append(validationErrs, dependencyMessageFromDetail(err.Error()))
 			}
 		}
 	}
 
 	if len(validationErrs) > 0 {
-		return fmt.Errorf("%w for command '%s':\n  %s", ErrFlagValidationFailed, cmdName, strings.Join(validationErrs, "\n  "))
+		return &FlagValidationError{
+			CommandName: invowkfile.CommandName(cmdName), //goplint:ignore -- display value in validation error type
+			Failures:    validationErrs,
+		}
 	}
 
 	return nil

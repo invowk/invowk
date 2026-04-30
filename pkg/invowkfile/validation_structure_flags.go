@@ -266,6 +266,7 @@ func (v *StructureValidator) validateFlag(ctx *ValidationContext, cmd *Command, 
 				Field:     path.String(),
 				Message:   "has unsafe validation regex '" + string(flag.Validation) + "': " + err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
 				Severity:  SeverityError,
+				Cause:     err,
 			})
 		} else if flag.DefaultValue != "" {
 			// Check if default_value matches validation regex

@@ -10,6 +10,7 @@ import (
 
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -67,6 +68,10 @@ var (
 	// ErrDependencyDiscoveryFailed is returned when the discovery pipeline fails
 	// while resolving command dependencies for validation.
 	ErrDependencyDiscoveryFailed = errors.New("failed to discover commands for dependency validation")
+
+	// ErrCommandScopeLockLoadFailed is returned when command scope validation
+	// cannot load the module lock file needed for direct-dependency identity.
+	ErrCommandScopeLockLoadFailed = errors.New("command scope lock load failed")
 )
 
 type (
@@ -100,6 +105,20 @@ type (
 		ForbiddenCommands []DependencyMessage
 	}
 
+	// FlagValidationError represents runtime validation failures for dynamic
+	// command flags.
+	FlagValidationError struct {
+		CommandName invowkfile.CommandName
+		Failures    []DependencyMessage
+	}
+
+	// CommandScopeLockError reports lock-file load failures that affect
+	// depends_on.cmds scope enforcement.
+	CommandScopeLockError struct {
+		Path types.FilesystemPath
+		Err  error
+	}
+
 	//goplint:constant-only
 	//
 	// ArgErrType represents the type of argument validation error.
@@ -124,6 +143,37 @@ type (
 		ValueError   error
 	}
 )
+
+// Error implements the error interface for FlagValidationError.
+func (e *FlagValidationError) Error() string {
+	if e == nil {
+		return ErrFlagValidationFailed.Error()
+	}
+	failures := make([]string, 0, len(e.Failures))
+	for i := range e.Failures {
+		failures = append(failures, e.Failures[i].String())
+	}
+	return fmt.Sprintf("%s for command '%s':\n  %s", ErrFlagValidationFailed, e.CommandName, strings.Join(failures, "\n  "))
+}
+
+// Unwrap returns ErrFlagValidationFailed for errors.Is compatibility.
+func (e *FlagValidationError) Unwrap() error { return ErrFlagValidationFailed }
+
+// Error implements the error interface for CommandScopeLockError.
+func (e *CommandScopeLockError) Error() string {
+	if e == nil || e.Err == nil {
+		return ErrCommandScopeLockLoadFailed.Error()
+	}
+	return fmt.Sprintf("load command scope lock %q: %v", e.Path, e.Err)
+}
+
+// Unwrap returns ErrCommandScopeLockLoadFailed and the underlying cause.
+func (e *CommandScopeLockError) Unwrap() error {
+	if e == nil {
+		return ErrCommandScopeLockLoadFailed
+	}
+	return errors.Join(ErrCommandScopeLockLoadFailed, e.Err)
+}
 
 // Error implements the error interface.
 func (e *InvalidArgErrTypeError) Error() string {

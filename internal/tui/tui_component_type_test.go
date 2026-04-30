@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/tuiserver"
+	"github.com/invowk/invowk/internal/tuiwire"
 )
 
 func TestComponentType_Validate(t *testing.T) {
@@ -47,9 +48,9 @@ func TestComponentType_Validate(t *testing.T) {
 func TestCreateEmbeddableComponent_SpinIsRenderOnly(t *testing.T) {
 	t.Parallel()
 
-	options, err := json.Marshal(map[string]any{
-		"title":   "loading",
-		"command": []string{"should-not-run"},
+	options, err := json.Marshal(tuiwire.SpinRequest{
+		Title:   "loading",
+		Spinner: "dot",
 	})
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
@@ -65,6 +66,88 @@ func TestCreateEmbeddableComponent_SpinIsRenderOnly(t *testing.T) {
 	}
 	if !model.done || model.run != nil {
 		t.Fatal("delegated spin component should be render-only and must not carry a command")
+	}
+	if model.title != "loading" {
+		t.Fatalf("spin title = %q, want loading", model.title)
+	}
+	wantFrames := getSpinnerType(SpinnerDot).Frames
+	if len(model.frames) != len(wantFrames) || model.frames[0] != wantFrames[0] {
+		t.Fatalf("spin frames = %#v, want spinner dot frames", model.frames)
+	}
+}
+
+func TestCreateEmbeddableComponent_FileUsesWireRequest(t *testing.T) {
+	t.Parallel()
+
+	options, err := json.Marshal(tuiwire.FileRequest{
+		Title:       "pick",
+		Description: "choose carefully",
+		Path:        "/tmp",
+		AllowedExts: []string{
+			".go",
+			".cue",
+		},
+		ShowHidden: true,
+		ShowDirs:   true,
+		ShowFiles:  false,
+		Height:     7,
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	component, err := CreateEmbeddableComponent(ComponentTypeFile, options, 80, 24)
+	if err != nil {
+		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
+	}
+	model, ok := component.(*fileModel)
+	if !ok {
+		t.Fatalf("component type = %T, want *fileModel", component)
+	}
+	if model.picker.CurrentDirectory != "/tmp" {
+		t.Fatalf("current directory = %q, want /tmp", model.picker.CurrentDirectory)
+	}
+	if model.picker.FileAllowed {
+		t.Fatal("file selection should be disabled from ShowFiles=false")
+	}
+	if !model.picker.DirAllowed {
+		t.Fatal("directory selection should be enabled from ShowDirs=true")
+	}
+	if len(model.picker.AllowedTypes) != 2 || model.picker.AllowedTypes[0] != ".go" {
+		t.Fatalf("allowed types = %#v, want .go/.cue", model.picker.AllowedTypes)
+	}
+	if !model.picker.ShowHidden {
+		t.Fatal("show hidden should be enabled")
+	}
+}
+
+func TestCreateEmbeddableComponent_TableUsesWireRequest(t *testing.T) {
+	t.Parallel()
+
+	options, err := json.Marshal(tuiwire.TableRequest{
+		Columns: []string{"name", "version"},
+		Rows: [][]string{
+			{"invowk", "1.0.0"},
+		},
+		Widths: []int{12, 8},
+		Height: 5,
+		Border: "none",
+		Print:  true,
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	component, err := CreateEmbeddableComponent(ComponentTypeTable, options, 80, 24)
+	if err != nil {
+		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
+	}
+	model, ok := component.(*tableModel)
+	if !ok {
+		t.Fatalf("component type = %T, want *tableModel", component)
+	}
+	if len(model.rows) != 1 || len(model.rows[0]) != 2 || model.rows[0][0] != "invowk" {
+		t.Fatalf("rows = %#v, want mapped wire rows", model.rows)
 	}
 }
 

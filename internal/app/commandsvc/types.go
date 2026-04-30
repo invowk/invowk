@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/discovery"
@@ -145,6 +146,14 @@ type (
 		AvailableSources []discovery.SourceID
 	}
 
+	// UnsupportedPlatformError is returned when a command has no implementation
+	// for the requested platform.
+	UnsupportedPlatformError struct {
+		CommandName invowkfile.CommandName
+		Current     invowkfile.Platform
+		Supported   []invowkfile.Platform
+	}
+
 	//goplint:constant-only
 	//
 	// ErrorKind classifies command-service errors without depending on the CLI
@@ -185,6 +194,21 @@ func (e *AmbiguousCommandError) Error() string {
 func (e *SourceNotFoundError) Error() string {
 	return fmt.Sprintf("source %q not found", e.Source)
 }
+
+// Error implements the error interface.
+func (e *UnsupportedPlatformError) Error() string {
+	if e == nil {
+		return ErrUnsupportedPlatform.Error()
+	}
+	supported := make([]string, 0, len(e.Supported))
+	for i := range e.Supported {
+		supported = append(supported, string(e.Supported[i]))
+	}
+	return fmt.Sprintf("command '%s' does not support platform '%s' (supported: %s)", e.CommandName, e.Current, strings.Join(supported, ", "))
+}
+
+// Unwrap returns ErrUnsupportedPlatform for errors.Is compatibility.
+func (e *UnsupportedPlatformError) Unwrap() error { return ErrUnsupportedPlatform }
 
 // String returns the string representation of the error kind.
 func (k ErrorKind) String() string { return string(k) }

@@ -5,6 +5,7 @@ package deps
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -184,6 +185,49 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 
 		if err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx); err != nil {
 			t.Fatalf("CheckCommandDependenciesExist() = %v", err)
+		}
+	})
+
+	t.Run("reports corrupt command scope lock", func(t *testing.T) {
+		t.Parallel()
+
+		moduleDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(moduleDir, invowkmod.LockFileName), []byte("not: [valid"), 0o644); err != nil {
+			t.Fatalf("WriteFile(lock) error = %v", err)
+		}
+		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+			Module:  "io.example.caller",
+			Version: "1.0.0",
+		})
+		callerInfo := &discovery.CommandInfo{
+			Name:       invowkfile.CommandName("build"),
+			Command:    &invowkfile.Command{Name: "build"},
+			Invowkfile: &invowkfile.Invowkfile{ModulePath: types.FilesystemPath(moduleDir), Metadata: callerMeta},
+		}
+		commandSet := &discovery.DiscoveredCommandSet{
+			Commands: []*discovery.CommandInfo{{
+				Name: invowkfile.CommandName("build"),
+			}},
+		}
+		disc := &stubCommandSetProvider{
+			result: discovery.CommandSetResult{Set: commandSet},
+		}
+		deps := &invowkfile.DependsOn{
+			Commands: []invowkfile.CommandDependency{
+				{Alternatives: []invowkfile.CommandName{"build"}},
+			},
+		}
+
+		err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx)
+		if err == nil {
+			t.Fatal("CheckCommandDependenciesExist() error = nil, want lock error")
+		}
+		if !errors.Is(err, ErrCommandScopeLockLoadFailed) {
+			t.Fatalf("errors.Is(err, ErrCommandScopeLockLoadFailed) = false for %v", err)
+		}
+		var lockErr *CommandScopeLockError
+		if !errors.As(err, &lockErr) {
+			t.Fatalf("errors.As(err, *CommandScopeLockError) = false for %v", err)
 		}
 	})
 }

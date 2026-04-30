@@ -31,6 +31,11 @@ const (
 	ColorSchemeDark ColorScheme = "dark"
 	// ColorSchemeLight forces light color scheme.
 	ColorSchemeLight ColorScheme = "light"
+
+	// IncludeCollectionRoot identifies the root config includes collection.
+	IncludeCollectionRoot IncludeCollectionField = "includes"
+	// IncludeCollectionAutoProvision identifies the container auto-provision includes collection.
+	IncludeCollectionAutoProvision IncludeCollectionField = "container.auto_provision.includes"
 )
 
 var (
@@ -48,6 +53,10 @@ var (
 	ErrInvalidCacheDirPath = errors.New("invalid cache dir path")
 	// ErrInvalidIncludeEntry is the sentinel error wrapped by InvalidIncludeEntryError.
 	ErrInvalidIncludeEntry = errors.New("invalid include entry")
+	// ErrInvalidIncludeCollection is the sentinel error wrapped by InvalidIncludeCollectionError.
+	ErrInvalidIncludeCollection = errors.New("invalid include collection")
+	// ErrInvalidIncludeCollectionField is returned when an include collection field is not recognized.
+	ErrInvalidIncludeCollectionField = errors.New("invalid include collection field")
 	// ErrInvalidUIConfig is the sentinel error wrapped by InvalidUIConfigError.
 	ErrInvalidUIConfig = errors.New("invalid UI config")
 	// ErrInvalidAutoProvisionConfig is the sentinel error wrapped by InvalidAutoProvisionConfigError.
@@ -129,6 +138,17 @@ type (
 	// field-level validation errors from Path and Alias.
 	InvalidIncludeEntryError struct {
 		FieldErrors []error
+	}
+
+	// IncludeCollectionField identifies the include collection being validated.
+	IncludeCollectionField string
+
+	// InvalidIncludeCollectionError is returned when an include collection has
+	// invalid cross-entry constraints such as duplicate paths or aliases. It
+	// wraps ErrInvalidIncludeCollection for errors.Is() compatibility.
+	InvalidIncludeCollectionError struct {
+		Field IncludeCollectionField
+		Cause error
 	}
 
 	// InvalidConfigError is returned when a Config has invalid fields.
@@ -279,6 +299,38 @@ func (e *InvalidIncludeEntryError) Error() string {
 // Unwrap returns ErrInvalidIncludeEntry for errors.Is() compatibility.
 func (e *InvalidIncludeEntryError) Unwrap() error { return ErrInvalidIncludeEntry }
 
+// Validate returns nil if the include collection field is recognized.
+func (f IncludeCollectionField) Validate() error {
+	switch f {
+	case IncludeCollectionRoot, IncludeCollectionAutoProvision:
+		return nil
+	default:
+		return ErrInvalidIncludeCollectionField
+	}
+}
+
+// String returns the string representation of the include collection field.
+func (f IncludeCollectionField) String() string {
+	return string(f)
+}
+
+// Error implements the error interface for InvalidIncludeCollectionError.
+func (e *InvalidIncludeCollectionError) Error() string {
+	if e == nil || e.Cause == nil {
+		return ErrInvalidIncludeCollection.Error()
+	}
+	return fmt.Sprintf("%s: %v", e.Field, e.Cause)
+}
+
+// Unwrap returns ErrInvalidIncludeCollection and the underlying cause for
+// errors.Is/errors.As compatibility.
+func (e *InvalidIncludeCollectionError) Unwrap() error {
+	if e == nil {
+		return ErrInvalidIncludeCollection
+	}
+	return errors.Join(ErrInvalidIncludeCollection, e.Cause)
+}
+
 // Validate returns an error if the UIConfig has invalid fields.
 // It delegates to ColorScheme.Validate(); bool fields need no validation.
 func (c UIConfig) Validate() error {
@@ -308,7 +360,7 @@ func (c AutoProvisionConfig) Validate() error {
 	if err := c.BinaryPath.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := validateIncludes("container.auto_provision.includes", c.Includes); err != nil {
+	if err := validateIncludes(IncludeCollectionAutoProvision, c.Includes); err != nil {
 		errs = append(errs, err)
 	}
 	if err := c.CacheDir.Validate(); err != nil {
@@ -325,8 +377,13 @@ func (e *InvalidAutoProvisionConfigError) Error() string {
 	return types.FormatFieldErrors("auto-provision config", e.FieldErrors)
 }
 
-// Unwrap returns ErrInvalidAutoProvisionConfig for errors.Is() compatibility.
-func (e *InvalidAutoProvisionConfigError) Unwrap() error { return ErrInvalidAutoProvisionConfig }
+// Unwrap returns ErrInvalidAutoProvisionConfig and field errors for errors.Is/errors.As compatibility.
+func (e *InvalidAutoProvisionConfigError) Unwrap() error {
+	if e == nil {
+		return ErrInvalidAutoProvisionConfig
+	}
+	return errors.Join(ErrInvalidAutoProvisionConfig, errors.Join(e.FieldErrors...))
+}
 
 // Validate returns an error if the ContainerConfig has invalid fields.
 // It delegates to AutoProvision.Validate().
@@ -346,8 +403,13 @@ func (e *InvalidContainerConfigError) Error() string {
 	return types.FormatFieldErrors("container config", e.FieldErrors)
 }
 
-// Unwrap returns ErrInvalidContainerConfig for errors.Is() compatibility.
-func (e *InvalidContainerConfigError) Unwrap() error { return ErrInvalidContainerConfig }
+// Unwrap returns ErrInvalidContainerConfig and field errors for errors.Is/errors.As compatibility.
+func (e *InvalidContainerConfigError) Unwrap() error {
+	if e == nil {
+		return ErrInvalidContainerConfig
+	}
+	return errors.Join(ErrInvalidContainerConfig, errors.Join(e.FieldErrors...))
+}
 
 // Validate returns an error if the Config has invalid fields.
 // It delegates to ContainerEngine.Validate(), DefaultRuntime.Validate(),
@@ -361,7 +423,7 @@ func (c Config) Validate() error {
 	if err := c.DefaultRuntime.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := validateIncludes("includes", c.Includes); err != nil {
+	if err := validateIncludes(IncludeCollectionRoot, c.Includes); err != nil {
 		errs = append(errs, err)
 	}
 	if err := c.VirtualShell.Validate(); err != nil {
@@ -384,8 +446,13 @@ func (e *InvalidConfigError) Error() string {
 	return types.FormatFieldErrors("config", e.FieldErrors)
 }
 
-// Unwrap returns ErrInvalidConfig for errors.Is() compatibility.
-func (e *InvalidConfigError) Unwrap() error { return ErrInvalidConfig }
+// Unwrap returns ErrInvalidConfig and field errors for errors.Is/errors.As compatibility.
+func (e *InvalidConfigError) Unwrap() error {
+	if e == nil {
+		return ErrInvalidConfig
+	}
+	return errors.Join(ErrInvalidConfig, errors.Join(e.FieldErrors...))
+}
 
 // String returns the string representation of the ModuleIncludePath.
 func (p ModuleIncludePath) String() string { return string(p) }

@@ -98,6 +98,49 @@ func TestWatcherBackendFiltersAndDebouncesEvents(t *testing.T) {
 	}
 }
 
+func TestWatcherRunReturnsCallbackError(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	backend := newFakeWatcherBackend()
+	callbackErr := errors.New("callback failed")
+	w, err := newWithBackend(Config{
+		BaseDir:  types.FilesystemPath(dir),
+		Debounce: 10 * time.Millisecond,
+		Stdout:   &bytes.Buffer{},
+		Stderr:   &bytes.Buffer{},
+		OnChange: func(_ context.Context, _ []string) error {
+			return callbackErr
+		},
+	}, backend, types.FilesystemPath(dir))
+	if err != nil {
+		t.Fatalf("newWithBackend() = %v", err)
+	}
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- w.Run(t.Context()) }()
+
+	select {
+	case <-w.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher event loop did not become ready")
+	}
+
+	backend.events <- fsnotify.Event{Name: filepath.Join(dir, "main.go"), Op: fsnotify.Write}
+
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, callbackErr) {
+			t.Fatalf("Run() error = %v, want callback error", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for Run callback error")
+	}
+	if !backend.closed {
+		t.Fatal("backend was not closed")
+	}
+}
+
 func newFakeWatcherBackend() *fakeWatcherBackend {
 	return &fakeWatcherBackend{
 		events: make(chan fsnotify.Event, 4),

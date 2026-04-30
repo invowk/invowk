@@ -265,31 +265,25 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.File
 	// CUE schema is the primary validation layer; this catches any gaps
 	// or values that bypass CUE.
 	if err := cfg.Validate(); err != nil {
+		if includeErr, ok := errors.AsType[*InvalidIncludeCollectionError](err); ok {
+			return nil, "", wrapIncludeCollectionError(includeErr)
+		}
 		return nil, "", fmt.Errorf("invalid config: %w", err)
 	}
 
-	// Validate includes constraints that CUE cannot express:
-	// path uniqueness, alias uniqueness, and short-name collision disambiguation.
-	if err := validateIncludes("includes", cfg.Includes); err != nil {
-		return nil, "", issue.NewErrorContext().
-			WithOperation("validate configuration").
-			WithSuggestion("Ensure each alias is unique across all includes entries").
-			WithSuggestion("When two modules share the same short name, all must have unique aliases").
-			Wrap(err).
-			BuildError()
-	}
-
-	// Validate auto_provision includes with the same rules.
-	if err := validateIncludes("container.auto_provision.includes", cfg.Container.AutoProvision.Includes); err != nil {
-		return nil, "", issue.NewErrorContext().
-			WithOperation("validate configuration").
-			WithSuggestion("Ensure each alias is unique across all auto_provision includes entries").
-			WithSuggestion("When two modules share the same short name, all must have unique aliases").
-			Wrap(err).
-			BuildError()
-	}
-
 	return cfg, resolvedPath, nil
+}
+
+func wrapIncludeCollectionError(err *InvalidIncludeCollectionError) error {
+	ctx := issue.NewErrorContext().
+		WithOperation("validate configuration").
+		WithSuggestion("When two modules share the same short name, all must have unique aliases")
+	if err != nil && err.Field == IncludeCollectionAutoProvision {
+		ctx = ctx.WithSuggestion("Ensure each alias is unique across all auto_provision includes entries")
+	} else {
+		ctx = ctx.WithSuggestion("Ensure each alias is unique across all includes entries")
+	}
+	return ctx.Wrap(err).BuildError()
 }
 
 // configDirWithOverride resolves the configuration directory, honoring
@@ -410,21 +404,28 @@ func applyConfigPatch(cfg *Config, patch *configPatch) *Config {
 //
 // The fieldName parameter is used in error messages to identify which includes
 // section failed validation (e.g., "includes" vs "container.auto_provision.includes").
-func validateIncludes(fieldName string, includes []IncludeEntry) error {
+func validateIncludes(fieldName IncludeCollectionField, includes []IncludeEntry) error {
+	fieldLabel := fieldName.String()
 	seenAliases := make(map[string]string) // alias -> path of first occurrence
 	seenPaths := make(map[string]int)      // cleaned path -> index of first occurrence
 	shortNames := make(map[string][]int)   // short name -> indices of entries with that name
 
 	for i, entry := range includes {
 		if err := entry.Validate(); err != nil {
-			return fmt.Errorf("%s[%d]: %w", fieldName, i, err)
+			return &InvalidIncludeCollectionError{
+				Field: fieldName,
+				Cause: fmt.Errorf("%s[%d]: %w", fieldLabel, i, err),
+			}
 		}
 		pathStr := string(entry.Path)
 
 		// Check path uniqueness (normalized to handle trailing slashes and redundant separators)
 		cleanPath := filepath.Clean(pathStr)
 		if firstIdx, exists := seenPaths[cleanPath]; exists {
-			return fmt.Errorf("%s[%d]: duplicate path %q (same as %s[%d])", fieldName, i, entry.Path, fieldName, firstIdx)
+			return &InvalidIncludeCollectionError{
+				Field: fieldName,
+				Cause: fmt.Errorf("%s[%d]: duplicate path %q (same as %s[%d])", fieldLabel, i, entry.Path, fieldLabel, firstIdx),
+			}
 		}
 		seenPaths[cleanPath] = i
 
@@ -432,7 +433,10 @@ func validateIncludes(fieldName string, includes []IncludeEntry) error {
 		// structural folder-name parser. Path validation already checked this.
 		shortName, parseErr := invowkmod.ParseModuleName(filepath.Base(pathStr))
 		if parseErr != nil {
-			return fmt.Errorf("%s[%d]: %w", fieldName, i, parseErr)
+			return &InvalidIncludeCollectionError{
+				Field: fieldName,
+				Cause: fmt.Errorf("%s[%d]: %w", fieldLabel, i, parseErr),
+			}
 		}
 		shortNames[string(shortName)] = append(shortNames[string(shortName)], i)
 
@@ -440,7 +444,10 @@ func validateIncludes(fieldName string, includes []IncludeEntry) error {
 		aliasStr := string(entry.Alias)
 		if aliasStr != "" {
 			if existingPath, exists := seenAliases[aliasStr]; exists {
-				return fmt.Errorf("%s: duplicate alias %q used by both %q and %q", fieldName, entry.Alias, existingPath, entry.Path)
+				return &InvalidIncludeCollectionError{
+					Field: fieldName,
+					Cause: fmt.Errorf("%s: duplicate alias %q used by both %q and %q", fieldLabel, entry.Alias, existingPath, entry.Path),
+				}
 			}
 			seenAliases[aliasStr] = pathStr
 		}
@@ -454,10 +461,13 @@ func validateIncludes(fieldName string, includes []IncludeEntry) error {
 		}
 		for _, idx := range indices {
 			if includes[idx].Alias == "" {
-				return fmt.Errorf(
-					"%s[%d]: module %q shares short name %q with %d other entry(ies); all entries with this short name must have unique aliases",
-					fieldName, idx, includes[idx].Path, shortName, len(indices)-1,
-				)
+				return &InvalidIncludeCollectionError{
+					Field: fieldName,
+					Cause: fmt.Errorf(
+						"%s[%d]: module %q shares short name %q with %d other entry(ies); all entries with this short name must have unique aliases",
+						fieldLabel, idx, includes[idx].Path, shortName, len(indices)-1,
+					),
+				}
 			}
 		}
 	}

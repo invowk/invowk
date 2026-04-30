@@ -74,6 +74,13 @@ func TestValidateInputs(t *testing.T) {
 		if !errors.Is(err, ErrUnsupportedPlatform) {
 			t.Fatalf("errors.Is(ErrUnsupportedPlatform) = false for %v", err)
 		}
+		var platformErr *UnsupportedPlatformError
+		if !errors.As(err, &platformErr) {
+			t.Fatalf("errors.As(*UnsupportedPlatformError) = false for %v", err)
+		}
+		if platformErr.CommandName != "build" {
+			t.Fatalf("CommandName = %q, want build", platformErr.CommandName)
+		}
 	})
 
 	t.Run("uses request platform instead of host platform", func(t *testing.T) {

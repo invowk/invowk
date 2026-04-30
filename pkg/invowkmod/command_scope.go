@@ -3,42 +3,129 @@
 package invowkmod
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
 
-// CommandScope defines what commands a module can access.
-// Commands in a module can ONLY call:
-//  1. Commands from the same module
-//  2. Commands from globally installed modules (~/.invowk/modules/)
-//  3. Commands from first-level requirements (direct dependencies in invowkmod.cue:requires)
-//
-// CommandScope holds the commands visible to a module, populated post-construction
-// via AddDirectDep(). Commands CANNOT call transitive dependencies.
-//
-// SCOPE ENFORCEMENT BOUNDARY: CanCall() is a static analysis gate enforced at
-// depends_on.cmds declaration validation time (via CheckCommandDependenciesExist),
-// NOT a runtime subprocess interceptor. If a module script dynamically invokes
-// `invowk cmd <forbidden-command>`, the scope check is not triggered because
-// the subprocess spawns a new CLI process outside the validation pipeline.
-// For execution isolation, use the container runtime.
-//
-//goplint:mutable
-//goplint:validate-all
-//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
-type CommandScope struct {
-	// ModuleID is the module identifier that owns this scope
-	ModuleID ModuleID `json:"-"`
-	// ModuleSourceID is the command namespace for the module that owns this scope.
-	ModuleSourceID ModuleSourceID `json:"-"`
-	// GlobalModules are stable module IDs from globally installed modules.
-	GlobalModules map[ModuleID]bool `json:"-"`
-	// GlobalSources are command namespaces from globally installed modules.
-	GlobalSources map[ModuleSourceID]bool `json:"-"`
-	// DirectDeps are stable module IDs from first-level requirements.
-	DirectDeps map[ModuleID]bool `json:"-"`
-	// DirectSources are command namespaces from first-level requirements.
-	DirectSources map[ModuleSourceID]bool `json:"-"`
+const (
+	// CommandScopeDenyInaccessible means the target module is not local,
+	// global, or a direct dependency.
+	CommandScopeDenyInaccessible CommandScopeDenyReason = "inaccessible"
+)
+
+var (
+	// ErrInvalidCommandReference is returned when a command reference is empty.
+	ErrInvalidCommandReference = errors.New("invalid command reference")
+	// ErrInvalidCommandScopeDenyReason is returned when a denial reason is not recognized.
+	ErrInvalidCommandScopeDenyReason = errors.New("invalid command scope deny reason")
+	// ErrInvalidCommandScopeDecision is returned when a scope decision is internally inconsistent.
+	ErrInvalidCommandScopeDecision = errors.New("invalid command scope decision")
+)
+
+type (
+	// CommandScope defines what commands a module can access.
+	// Commands in a module can ONLY call:
+	//  1. Commands from the same module
+	//  2. Commands from globally installed modules (~/.invowk/modules/)
+	//  3. Commands from first-level requirements (direct dependencies in invowkmod.cue:requires)
+	//
+	// CommandScope holds the commands visible to a module, populated post-construction
+	// via AddDirectDep(). Commands CANNOT call transitive dependencies.
+	//
+	// SCOPE ENFORCEMENT BOUNDARY: CanCall() is a static analysis gate enforced at
+	// depends_on.cmds declaration validation time (via CheckCommandDependenciesExist),
+	// NOT a runtime subprocess interceptor. If a module script dynamically invokes
+	// `invowk cmd <forbidden-command>`, the scope check is not triggered because
+	// the subprocess spawns a new CLI process outside the validation pipeline.
+	// For execution isolation, use the container runtime.
+	//
+	//goplint:mutable
+	//goplint:validate-all
+	//nolint:recvcheck // DDD Validate() (value) + existing methods (pointer)
+	CommandScope struct {
+		// ModuleID is the module identifier that owns this scope
+		ModuleID ModuleID `json:"-"`
+		// ModuleSourceID is the command namespace for the module that owns this scope.
+		ModuleSourceID ModuleSourceID `json:"-"`
+		// GlobalModules are stable module IDs from globally installed modules.
+		GlobalModules map[ModuleID]bool `json:"-"`
+		// GlobalSources are command namespaces from globally installed modules.
+		GlobalSources map[ModuleSourceID]bool `json:"-"`
+		// DirectDeps are stable module IDs from first-level requirements.
+		DirectDeps map[ModuleID]bool `json:"-"`
+		// DirectSources are command namespaces from first-level requirements.
+		DirectSources map[ModuleSourceID]bool `json:"-"`
+	}
+
+	// CommandReference identifies a command reference used in depends_on.cmds scope checks.
+	CommandReference string
+
+	// CommandScopeDenyReason identifies why a command reference is outside scope.
+	CommandScopeDenyReason string
+
+	// CommandScopeDecision reports whether a target command is visible from a module scope.
+	CommandScopeDecision struct {
+		// Allowed reports whether the target command can be called.
+		Allowed bool
+		// TargetCommand is the original target command reference.
+		TargetCommand CommandReference
+		// TargetSource is the command namespace extracted from TargetCommand.
+		TargetSource ModuleSourceID
+		// Reason classifies the denial when Allowed is false.
+		Reason CommandScopeDenyReason
+	}
+)
+
+// Validate returns nil if the command reference is non-empty and not whitespace-only.
+func (r CommandReference) Validate() error {
+	if strings.TrimSpace(string(r)) == "" {
+		return ErrInvalidCommandReference
+	}
+	return nil
+}
+
+// String returns the string representation of the command reference.
+func (r CommandReference) String() string {
+	return string(r)
+}
+
+// Validate returns nil if the denial reason is recognized.
+func (r CommandScopeDenyReason) Validate() error {
+	switch r {
+	case CommandScopeDenyInaccessible:
+		return nil
+	default:
+		return ErrInvalidCommandScopeDenyReason
+	}
+}
+
+// String returns the string representation of the denial reason.
+func (r CommandScopeDenyReason) String() string {
+	return string(r)
+}
+
+// Validate returns nil if the decision is internally consistent.
+func (d CommandScopeDecision) Validate() error {
+	var errs []error
+	if err := d.TargetCommand.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if d.Allowed {
+		if d.Reason != "" {
+			errs = append(errs, fmt.Errorf("%w: allowed decision has denial reason %q", ErrInvalidCommandScopeDecision, d.Reason))
+		}
+		return errors.Join(errs...)
+	}
+	if d.TargetSource == "" {
+		errs = append(errs, fmt.Errorf("%w: denied decision has empty target source", ErrInvalidCommandScopeDecision))
+	} else if err := d.TargetSource.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := d.Reason.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
 // NewCommandScope creates a CommandScope for a parsed module.
@@ -69,39 +156,36 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 }
 
 // CanCall checks if a command can call another command based on scope rules.
-// Returns true if allowed, false with reason if not.
-func (s *CommandScope) CanCall(targetCmd string) (allowed bool, reason string) {
+func (s *CommandScope) CanCall(targetCmd CommandReference) CommandScopeDecision {
 	// Extract module prefix from command name (format: "module.name cmdname" or "module.name@version cmdname")
-	targetSource := ModuleSourceID(ExtractModuleFromCommand(targetCmd)) //goplint:ignore -- used only for equality comparison
+	targetSource := ModuleSourceID(ExtractModuleFromCommand(string(targetCmd))) //goplint:ignore -- used only for equality comparison
 
 	// If no module prefix, it's a local command (always allowed)
 	if targetSource == "" {
-		return true, ""
+		return CommandScopeDecision{Allowed: true, TargetCommand: targetCmd}
 	}
 
 	// Check if target is from same module
 	if targetSource == s.ModuleSourceID || ModuleID(targetSource) == s.ModuleID {
-		return true, ""
+		return CommandScopeDecision{Allowed: true, TargetCommand: targetCmd, TargetSource: targetSource}
 	}
 
 	// Check if target is in global modules
 	if s.GlobalSources[targetSource] || s.GlobalModules[ModuleID(targetSource)] {
-		return true, ""
+		return CommandScopeDecision{Allowed: true, TargetCommand: targetCmd, TargetSource: targetSource}
 	}
 
 	// Check if target is in direct dependencies
 	if s.DirectSources[targetSource] || s.DirectDeps[ModuleID(targetSource)] {
-		return true, ""
+		return CommandScopeDecision{Allowed: true, TargetCommand: targetCmd, TargetSource: targetSource}
 	}
 
-	return false, fmt.Sprintf(
-		"command from module '%s' cannot call '%s': module '%s' is not accessible\n"+
-			"  Commands can only call:\n"+
-			"  - Commands from the same module (%s)\n"+
-			"  - Commands from globally installed modules (~/.invowk/modules/)\n"+
-			"  - Commands from direct dependencies declared in invowkmod.cue:requires\n"+
-			"  Add '%s' to your invowkmod.cue requires list to use its commands",
-		s.ModuleID, targetCmd, targetSource, s.ModuleID, targetSource)
+	return CommandScopeDecision{
+		Allowed:       false,
+		TargetCommand: targetCmd,
+		TargetSource:  targetSource,
+		Reason:        CommandScopeDenyInaccessible,
+	}
 }
 
 // AddDirectDep adds a resolved direct dependency to the scope.

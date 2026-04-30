@@ -162,7 +162,7 @@ func batchScripts(prepared []ScriptRef) [][]ScriptRef {
 	currentChars := 0
 
 	for i := range prepared {
-		contentLen := len(string(prepared[i].Script))
+		contentLen := len(prepared[i].Content())
 
 		// Start a new batch if adding this script would exceed limits.
 		if len(current) > 0 && (currentChars+contentLen > maxBatchChars || len(current) >= maxScriptsPerBatch) {

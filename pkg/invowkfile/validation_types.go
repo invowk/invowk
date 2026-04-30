@@ -63,6 +63,8 @@ type (
 		Message string
 		// Severity indicates whether this is an error or warning.
 		Severity ValidationSeverity
+		// Cause is the underlying domain validation cause, when one exists.
+		Cause error
 	}
 
 	// ValidationErrors is a collection of validation errors that implements the error interface.
@@ -215,6 +217,12 @@ func (n ValidatorName) String() string {
 // NewValidationError creates a validated ValidationError, returning construction errors
 // if the validator name or severity are invalid.
 func NewValidationError(validator ValidatorName, field, message string, severity ValidationSeverity) (ValidationError, error) {
+	return NewValidationErrorWithCause(validator, field, message, severity, nil)
+}
+
+// NewValidationErrorWithCause creates a validated ValidationError with an
+// optional underlying domain cause for errors.Is/errors.As matching.
+func NewValidationErrorWithCause(validator ValidatorName, field, message string, severity ValidationSeverity, cause error) (ValidationError, error) {
 	var errs []error
 	if err := validator.Validate(); err != nil {
 		errs = append(errs, err)
@@ -225,7 +233,7 @@ func NewValidationError(validator ValidatorName, field, message string, severity
 	if len(errs) > 0 {
 		return ValidationError{}, errors.Join(errs...)
 	}
-	return ValidationError{Validator: validator, Field: field, Message: message, Severity: severity}, nil
+	return ValidationError{Validator: validator, Field: field, Message: message, Severity: severity, Cause: cause}, nil
 }
 
 // Error implements the error interface for ValidationError.
@@ -234,6 +242,11 @@ func (e ValidationError) Error() string {
 		return e.Field + ": " + e.Message
 	}
 	return e.Message
+}
+
+// Unwrap returns the underlying validation cause, when present.
+func (e ValidationError) Unwrap() error {
+	return e.Cause
 }
 
 // IsError returns true if this is an error-level validation issue.
@@ -290,6 +303,15 @@ func (errs ValidationErrors) Error() string {
 	}
 
 	return b.String()
+}
+
+// Unwrap returns the individual validation errors for errors.Is/errors.As matching.
+func (errs ValidationErrors) Unwrap() []error {
+	unwrapped := make([]error, len(errs))
+	for i := range errs {
+		unwrapped[i] = errs[i]
+	}
+	return unwrapped
 }
 
 // HasErrors returns true if there are any error-level validation issues.

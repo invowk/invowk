@@ -240,3 +240,24 @@ func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requir
 	}
 	return requirements, missing, nil
 }
+
+// UpdateModule updates resolved module dependencies in the lock file next to invowkmodPath.
+//
+//goplint:ignore -- module update identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
+func UpdateModule(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) ([]*ResolvedModule, error) {
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
+	if err != nil {
+		return nil, fmt.Errorf(errFmtCreateModuleResolver, err)
+	}
+	return resolver.Update(ctx, identifier)
+}
+
+// ListModuleDependencies lists resolved module dependencies from the lock file
+// next to invowkmodPath.
+func ListModuleDependencies(ctx context.Context, invowkmodPath types.FilesystemPath) ([]*ResolvedModule, error) {
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
+	if err != nil {
+		return nil, fmt.Errorf(errFmtCreateModuleResolver, err)
+	}
+	return resolver.List(ctx)
+}

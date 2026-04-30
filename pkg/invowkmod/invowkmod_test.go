@@ -324,13 +324,13 @@ func TestCommandScope_CanCall(t *testing.T) {
 			name:       "command from unknown module",
 			targetCmd:  "unknown.module cmd",
 			expectOK:   false,
-			expectDesc: "not accessible",
+			expectDesc: "inaccessible",
 		},
 		{
 			name:       "transitive dependency (not allowed)",
 			targetCmd:  "transitive.dep cmd",
 			expectOK:   false,
-			expectDesc: "not accessible",
+			expectDesc: "inaccessible",
 		},
 	}
 
@@ -338,12 +338,15 @@ func TestCommandScope_CanCall(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			allowed, reason := scope.CanCall(tt.targetCmd)
-			if allowed != tt.expectOK {
-				t.Errorf("CanCall(%q) = %v, want %v", tt.targetCmd, allowed, tt.expectOK)
+			decision := scope.CanCall(CommandReference(tt.targetCmd))
+			if decision.Allowed != tt.expectOK {
+				t.Errorf("CanCall(%q).Allowed = %v, want %v", tt.targetCmd, decision.Allowed, tt.expectOK)
 			}
-			if !tt.expectOK && tt.expectDesc != "" && !strings.Contains(reason, tt.expectDesc) {
-				t.Errorf("reason should contain %q, got %q", tt.expectDesc, reason)
+			if !tt.expectOK && decision.Reason != CommandScopeDenyInaccessible {
+				t.Errorf("reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+			}
+			if !tt.expectOK && tt.expectDesc != "" && !strings.Contains(string(decision.Reason), tt.expectDesc) {
+				t.Errorf("reason should contain %q, got %q", tt.expectDesc, decision.Reason)
 			}
 		})
 	}

@@ -17,8 +17,7 @@ import (
 )
 
 const (
-	moduleResolverCreateErrFmt = "failed to create module resolver: %w"
-	invowkmodCueFileName       = "invowkmod.cue"
+	invowkmodCueFileName = "invowkmod.cue"
 )
 
 // newModuleAddCommand creates the `invowk module add` command.
@@ -283,12 +282,6 @@ func runModuleSync(ctx context.Context) error {
 func runModuleUpdate(ctx context.Context, args []string) error {
 	fmt.Println(moduleTitleStyle.Render("Update Module Dependencies"))
 
-	// Create module resolver
-	resolver, err := modulesync.NewResolver("", "")
-	if err != nil {
-		return fmt.Errorf(moduleResolverCreateErrFmt, err)
-	}
-
 	var identifier string
 	if len(args) > 0 {
 		identifier = args[0]
@@ -297,8 +290,8 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 		fmt.Printf("%s Updating all modules...\n", moduleInfoIcon)
 	}
 
-	// Update modules
-	updated, err := resolver.Update(ctx, identifier)
+	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
+	updated, err := modulesync.UpdateModule(ctx, types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
@@ -330,14 +323,8 @@ func runModuleUpdate(ctx context.Context, args []string) error {
 func runModuleDeps(ctx context.Context) error {
 	fmt.Println(moduleTitleStyle.Render("Module Dependencies"))
 
-	// Create module resolver
-	resolver, err := modulesync.NewResolver("", "")
-	if err != nil {
-		return fmt.Errorf(moduleResolverCreateErrFmt, err)
-	}
-
-	// List modules
-	deps, err := resolver.List(ctx)
+	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
+	deps, err := modulesync.ListModuleDependencies(ctx, types.FilesystemPath(invowkmodPath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		return fmt.Errorf("failed to list module dependencies: %w", err)
 	}

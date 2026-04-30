@@ -495,7 +495,7 @@ func TestValidateIncludes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateIncludes("includes", tt.includes)
+			err := validateIncludes(IncludeCollectionRoot, tt.includes)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
 			}
@@ -514,12 +514,12 @@ func TestValidateIncludes_OSNativeAbsolutePathSemantics(t *testing.T) {
 	t.Parallel()
 
 	nativeAbsolutePath := absoluteModulePath(t, "native", "mymod.invowkmod")
-	if err := validateIncludes("includes", []IncludeEntry{{Path: ModuleIncludePath(nativeAbsolutePath)}}); err != nil {
+	if err := validateIncludes(IncludeCollectionRoot, []IncludeEntry{{Path: ModuleIncludePath(nativeAbsolutePath)}}); err != nil {
 		t.Fatalf("expected OS-native absolute path to be valid, got: %v", err)
 	}
 
 	unixStyleAbsolute := "/tmp/mymod.invowkmod"
-	err := validateIncludes("includes", []IncludeEntry{{Path: ModuleIncludePath(unixStyleAbsolute)}})
+	err := validateIncludes(IncludeCollectionRoot, []IncludeEntry{{Path: ModuleIncludePath(unixStyleAbsolute)}})
 	if runtime.GOOS == "windows" {
 		if err == nil {
 			t.Fatalf("expected Unix-style absolute path %q to be rejected on Windows", unixStyleAbsolute)
@@ -583,7 +583,7 @@ func TestValidateAutoProvisionIncludes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateIncludes("container.auto_provision.includes", tt.includes)
+			err := validateIncludes(IncludeCollectionAutoProvision, tt.includes)
 			if tt.wantErr && err == nil {
 				t.Error("expected validation error, got nil")
 			}

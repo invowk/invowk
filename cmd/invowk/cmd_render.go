@@ -12,6 +12,28 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// RenderFlagValidationError creates a styled error message for dynamic flag validation failures.
+//
+//plint:render
+func RenderFlagValidationError(err *deps.FlagValidationError) string {
+	var sb strings.Builder
+
+	sb.WriteString(renderHeaderStyle.Render("✗ Invalid flag value!"))
+	sb.WriteString("\n\n")
+	fmt.Fprintf(&sb, "Command %s received invalid flag input.\n\n", renderCommandStyle.Render("'"+string(err.CommandName)+"'"))
+	sb.WriteString(renderLabelStyle.Render("Flag errors:"))
+	sb.WriteString("\n")
+	for _, failure := range err.Failures {
+		sb.WriteString(renderValueStyle.Render("  • " + failure.String()))
+		sb.WriteString("\n")
+	}
+	sb.WriteString("\n")
+	sb.WriteString(renderHintStyle.Render("Run the command with --help for usage information."))
+	sb.WriteString("\n")
+
+	return sb.String()
+}
+
 // RenderArgumentValidationError creates a styled error message for argument validation failures
 //
 //plint:render

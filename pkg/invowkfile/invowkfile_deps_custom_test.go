@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -321,9 +322,9 @@ depends_on: {
 	if err == nil {
 		t.Errorf("Parse() should reject dangerous expected_output regex pattern")
 	}
-	// NOTE: errors.Is(err, ErrNestedQuantifiers) is not feasible here because
-	// the sentinel is flattened into a ValidationError.Message string during parsing.
-	// Structural validation errors do not wrap the original error.
+	if !errors.Is(err, ErrNestedQuantifiers) {
+		t.Errorf("errors.Is(err, ErrNestedQuantifiers) = false for %v", err)
+	}
 	if err != nil && !strings.Contains(err.Error(), "nested quantifiers") {
 		t.Errorf("Expected error about nested quantifiers, got: %v", err)
 	}

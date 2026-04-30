@@ -353,8 +353,8 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		return model, nil
 
 	case ComponentTypeFile:
-		var opts FileOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+		opts, err := fileOptionsFromProtocol(options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal file options: %w", err)
 		}
 		model := NewFileModelForModal(opts)
@@ -380,8 +380,8 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		return model, nil
 
 	case ComponentTypeTable:
-		var opts TableOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+		opts, err := tableOptionsFromProtocol(options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal table options: %w", err)
 		}
 		model := NewTableModelForModal(opts)
@@ -389,8 +389,8 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		return model, nil
 
 	case ComponentTypeSpin:
-		var opts SpinOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+		opts, err := spinOptionsFromProtocol(options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal spin options: %w", err)
 		}
 		model := NewSpinModel(context.Background(), SpinCommandOptions{
@@ -403,6 +403,66 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 	default:
 		return nil, fmt.Errorf("unknown component type: %s", componentType)
 	}
+}
+
+func fileOptionsFromProtocol(options json.RawMessage) (FileOptions, error) {
+	var req tuiwire.FileRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return FileOptions{}, err
+	}
+	return FileOptions{
+		Title:             req.Title,
+		Description:       req.Description,
+		CurrentDirectory:  req.Path,
+		AllowedExtensions: req.AllowedExts,
+		ShowHidden:        req.ShowHidden,
+		Height:            TerminalDimension(req.Height),
+		FileAllowed:       req.ShowFiles,
+		DirAllowed:        req.ShowDirs,
+	}, nil
+}
+
+func tableOptionsFromProtocol(options json.RawMessage) (TableOptions, error) {
+	var req tuiwire.TableRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return TableOptions{}, err
+	}
+	columns := make([]TableColumn, len(req.Columns))
+	for i := range req.Columns {
+		columns[i] = TableColumn{
+			Title: req.Columns[i],
+		}
+		if i < len(req.Widths) {
+			columns[i].Width = TerminalDimension(req.Widths[i])
+		}
+	}
+	return TableOptions{
+		Columns:    columns,
+		Rows:       req.Rows,
+		Height:     TerminalDimension(req.Height),
+		Selectable: !req.Print,
+		Separator:  req.Separator,
+		Border:     req.Border != "none",
+	}, nil
+}
+
+func spinOptionsFromProtocol(options json.RawMessage) (SpinOptions, error) {
+	var req tuiwire.SpinRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return SpinOptions{}, err
+	}
+	spinType := SpinnerLine
+	if req.Spinner != "" {
+		parsed, err := ParseSpinnerType(req.Spinner)
+		if err != nil {
+			return SpinOptions{}, err
+		}
+		spinType = parsed
+	}
+	return SpinOptions{
+		Title: req.Title,
+		Type:  spinType,
+	}, nil
 }
 
 // RenderOverlay renders an overlay component centered on top of a base view.

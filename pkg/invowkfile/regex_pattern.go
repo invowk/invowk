@@ -22,6 +22,7 @@ type (
 	InvalidRegexPatternError struct {
 		Value  RegexPattern
 		Reason string
+		Cause  error
 	}
 )
 
@@ -30,8 +31,13 @@ func (e *InvalidRegexPatternError) Error() string {
 	return fmt.Sprintf("invalid regex pattern %q: %s", e.Value, e.Reason)
 }
 
-// Unwrap returns ErrInvalidRegexPattern so callers can use errors.Is for programmatic detection.
-func (e *InvalidRegexPatternError) Unwrap() error { return ErrInvalidRegexPattern }
+// Unwrap returns ErrInvalidRegexPattern and the underlying regex validation cause.
+func (e *InvalidRegexPatternError) Unwrap() error {
+	if e == nil {
+		return ErrInvalidRegexPattern
+	}
+	return errors.Join(ErrInvalidRegexPattern, e.Cause)
+}
 
 // Validate returns nil if the RegexPattern is a safe, compilable regex,
 // or a validation error if it is not.
@@ -43,7 +49,7 @@ func (r RegexPattern) Validate() error {
 		return nil
 	}
 	if err := ValidateRegexPattern(string(r)); err != nil {
-		return &InvalidRegexPatternError{Value: r, Reason: err.Error()}
+		return &InvalidRegexPatternError{Value: r, Reason: err.Error(), Cause: err}
 	}
 	return nil
 }
