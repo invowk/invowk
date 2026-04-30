@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // systemPrompt defines the security analyst role and instructs the LLM to
@@ -82,7 +80,7 @@ func buildUserPrompt(scripts []ScriptRef) string {
 		}
 
 		b.WriteString("---\n")
-		script := string(ref.Script)
+		script := ref.Content()
 		b.WriteString(script)
 		if !strings.HasSuffix(script, "\n") {
 			b.WriteByte('\n')
@@ -195,21 +193,19 @@ func truncateScript(content string, maxChars int) (string, bool) {
 	return content[:maxChars] + fmt.Sprintf("\n[TRUNCATED at %d chars]", maxChars), true
 }
 
-// prepareScripts filters scripts suitable for LLM analysis (non-empty inline
-// content) and applies truncation. File-only references and empty scripts are
-// excluded.
+// prepareScripts filters scripts suitable for LLM analysis and applies truncation.
 func prepareScripts(scripts []ScriptRef, maxScriptChars int) []ScriptRef {
 	result := make([]ScriptRef, 0, len(scripts))
 
 	for i := range scripts {
-		content := string(scripts[i].Script)
-		if scripts[i].IsFile || strings.TrimSpace(content) == "" {
+		content := scripts[i].Content()
+		if strings.TrimSpace(content) == "" {
 			continue
 		}
 
 		truncated, _ := truncateScript(content, maxScriptChars)
 		ref := scripts[i]
-		ref.Script = invowkfile.ScriptContent(truncated) //goplint:ignore -- Content derived from already-validated ScriptContent, only truncated
+		ref.resolvedContent = truncated
 		result = append(result, ref)
 	}
 

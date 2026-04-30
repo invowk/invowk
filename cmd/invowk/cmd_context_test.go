@@ -67,6 +67,10 @@ func (s *recordingDiscoveryService) DiscoverAndValidateCommandSet(_ context.Cont
 	return s.result, nil
 }
 
+func (s *recordingDiscoveryService) DiscoverModules(_ context.Context) (discovery.ModuleListResult, error) {
+	return discovery.ModuleListResult{}, nil
+}
+
 func (s *recordingDiscoveryService) GetCommand(_ context.Context, _ string) (discovery.LookupResult, error) {
 	return discovery.LookupResult{}, nil
 }
@@ -77,6 +81,10 @@ func (s *lookupDiscoveryService) DiscoverCommandSet(_ context.Context) (discover
 
 func (s *lookupDiscoveryService) DiscoverAndValidateCommandSet(_ context.Context) (discovery.CommandSetResult, error) {
 	return discovery.CommandSetResult{}, nil
+}
+
+func (s *lookupDiscoveryService) DiscoverModules(_ context.Context) (discovery.ModuleListResult, error) {
+	return discovery.ModuleListResult{}, nil
 }
 
 func (s *lookupDiscoveryService) GetCommand(_ context.Context, _ string) (discovery.LookupResult, error) {

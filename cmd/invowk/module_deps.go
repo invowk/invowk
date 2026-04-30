@@ -160,12 +160,6 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 
 	fmt.Println(moduleTitleStyle.Render("Add Module Dependency"))
 
-	// Create module resolver
-	resolver, err := modulesync.NewResolver("", "")
-	if err != nil {
-		return fmt.Errorf(moduleResolverCreateErrFmt, err)
-	}
-
 	// Create requirement
 	req := invowkmod.ModuleRef{
 		GitURL:  invowkmod.GitURL(gitURL),
@@ -176,13 +170,14 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 
 	fmt.Printf("%s Resolving %s@%s...\n", moduleInfoIcon, gitURL, version)
 
-	// Add the module (resolves, caches, and updates lock file)
-	resolved, err := resolver.Add(ctx, req)
+	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
+	result, err := modulesync.AddModuleDependency(ctx, types.FilesystemPath(invowkmodPath), req) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		fmt.Printf("%s Failed to add module: %v\n", moduleErrorIcon, err)
 		return err
 	}
 
+	resolved := result.Resolved()
 	fmt.Printf("%s Module resolved and lock file updated\n", moduleSuccessIcon)
 	fmt.Println()
 	fmt.Printf("%s Git URL:   %s\n", moduleInfoIcon, modulePathStyle.Render(string(resolved.ModuleRef.GitURL)))
@@ -190,15 +185,14 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	fmt.Printf("%s Namespace: %s\n", moduleInfoIcon, CmdStyle.Render(string(resolved.Namespace)))
 	fmt.Printf("%s Cache:     %s\n", moduleInfoIcon, moduleDetailStyle.Render(string(resolved.CachePath)))
 
-	// Auto-edit invowkmod.cue to add the requires entry
-	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	if editErr := invowkmod.AddRequirement(types.FilesystemPath(invowkmodPath), req); editErr != nil {
-		if os.IsNotExist(editErr) {
+	declaration := result.Declaration()
+	if declaration.Err() != nil {
+		if os.IsNotExist(declaration.Err()) {
 			fmt.Println()
 			fmt.Printf("%s invowkmod.cue not found — lock file was updated but you need to create invowkmod.cue\n", moduleInfoIcon)
 		} else {
 			fmt.Println()
-			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, editErr)
+			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, declaration.Err())
 		}
 	} else {
 		fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
@@ -212,14 +206,9 @@ func runModuleRemove(ctx context.Context, args []string) error {
 
 	fmt.Println(moduleTitleStyle.Render("Remove Module Dependency"))
 
-	// Create module resolver
-	resolver, err := modulesync.NewResolver("", "")
-	if err != nil {
-		return fmt.Errorf(moduleResolverCreateErrFmt, err)
-	}
-
 	fmt.Printf("%s Removing %s...\n", moduleInfoIcon, identifier)
-	results, err := resolver.Remove(ctx, identifier)
+	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
+	result, err := modulesync.RemoveModuleDependency(ctx, types.FilesystemPath(invowkmodPath), identifier) //goplint:ignore -- relative path from current dir
 	if err != nil {
 		// Format ambiguous matches nicely
 		if ambigErr, ok := errors.AsType[*modulesync.AmbiguousIdentifierError](err); ok && ambigErr != nil {
@@ -230,22 +219,35 @@ func runModuleRemove(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// Auto-edit invowkmod.cue to remove the requires entries
-	invowkmodPath := filepath.Join(".", invowkmodCueFileName)
-	for i := range results {
-		if editErr := invowkmod.RemoveRequirement(types.FilesystemPath(invowkmodPath), results[i].RemovedEntry.GitURL, results[i].RemovedEntry.Path); editErr != nil { //goplint:ignore -- relative path from current dir
-			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, editErr)
+	declarations := result.Declarations()
+	removed := result.Removed()
+	for i := range declarations {
+		if declarations[i].Err() != nil {
+			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, declarations[i].Err())
 		}
 	}
 
-	for i := range results {
-		fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(results[i].RemovedEntry.Namespace)))
+	for i := range removed {
+		fmt.Printf("%s Removed %s\n", moduleSuccessIcon, CmdStyle.Render(string(removed[i].RemovedEntry.Namespace)))
 	}
 
 	fmt.Println()
-	fmt.Printf("%s Lock file and invowkmod.cue updated\n", moduleSuccessIcon)
+	if moduleDeclarationEditsClean(declarations) {
+		fmt.Printf("%s Lock file and invowkmod.cue updated\n", moduleSuccessIcon)
+	} else {
+		fmt.Printf("%s Lock file updated; invowkmod.cue needs manual review\n", moduleInfoIcon)
+	}
 
 	return nil
+}
+
+func moduleDeclarationEditsClean(edits []modulesync.DeclarationEditResult) bool {
+	for i := range edits {
+		if edits[i].Err() != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func runModuleSync(ctx context.Context) error {

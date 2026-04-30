@@ -81,6 +81,7 @@ type (
 	DiscoveryService interface {
 		DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
 		DiscoverAndValidateCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
+		DiscoverModules(ctx context.Context) (discovery.ModuleListResult, error)
 		GetCommand(ctx context.Context, name string) (discovery.LookupResult, error)
 	}
 

@@ -118,7 +118,15 @@ func (a vendoredModuleArtifact) Validate() error {
 // Content returns the resolved script body for content analysis. For inline
 // scripts this is the script text; for file-based scripts this is the file
 // contents read during context building. Empty when the file could not be read.
-func (r ScriptRef) Content() string { return r.resolvedContent }
+func (r ScriptRef) Content() string {
+	if r.resolvedContent != "" {
+		return r.resolvedContent
+	}
+	if !r.IsFile {
+		return string(r.Script)
+	}
+	return ""
+}
 
 // RootPath returns the scan root directory.
 func (sc *ScanContext) RootPath() types.FilesystemPath { return sc.rootPath }

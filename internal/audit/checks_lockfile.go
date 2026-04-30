@@ -15,8 +15,6 @@ import (
 
 const (
 	lockFileCheckerName = "lockfile"
-	// maxLockFileSize matches the CUE guard and the lock file parser DoS protection (5 MiB).
-	maxLockFileSize = 5 * 1024 * 1024
 )
 
 // LockFileChecker validates lock file integrity: hash mismatches, orphaned or
@@ -121,7 +119,7 @@ func (c *LockFileChecker) checkSize(mod *ScannedModule) []Finding {
 			Recommendation: "Verify file permissions; re-run the audit after fixing access issues",
 		}}
 	}
-	if info.Size() > maxLockFileSize {
+	if info.Size() > invowkmod.LockFileSizeLimit {
 		return []Finding{{
 			Severity:       SeverityMedium,
 			Category:       CategoryIntegrity,
@@ -129,7 +127,7 @@ func (c *LockFileChecker) checkSize(mod *ScannedModule) []Finding {
 			CheckerName:    lockFileCheckerName,
 			FilePath:       mod.LockPath,
 			Title:          "Lock file exceeds size limit",
-			Description:    fmt.Sprintf("Lock file is %d bytes, exceeding the %d byte limit — may be crafted for denial-of-service", info.Size(), maxLockFileSize),
+			Description:    fmt.Sprintf("Lock file is %d bytes, exceeding the %d byte limit — may be crafted for denial-of-service", info.Size(), invowkmod.LockFileSizeLimit),
 			Recommendation: "Inspect the lock file for suspicious content; regenerate with 'invowk module sync'",
 		}}
 	}

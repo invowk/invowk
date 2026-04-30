@@ -140,6 +140,11 @@ func prependLookupDiagnostics(result discovery.LookupResult, cfgDiags []discover
 	return result
 }
 
+func prependModuleListDiagnostics(result discovery.ModuleListResult, cfgDiags []discovery.Diagnostic) discovery.ModuleListResult {
+	result.Diagnostics = prependDiags(result.Diagnostics, cfgDiags)
+	return result
+}
+
 // DiscoverCommandSet discovers commands and prepends configuration diagnostics.
 func (s *DiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
 	cfg, cfgDiags := s.loadConfig(ctx)
@@ -196,6 +201,13 @@ func (s *DiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (d
 	}
 
 	return prependCommandSetDiagnostics(result, cfgDiags), err
+}
+
+// DiscoverModules discovers modules and prepends configuration diagnostics.
+func (s *DiscoveryService) DiscoverModules(ctx context.Context) (discovery.ModuleListResult, error) {
+	cfg, cfgDiags := s.loadConfig(ctx)
+	result, err := discovery.New(cfg).DiscoverModules()
+	return prependModuleListDiagnostics(result, cfgDiags), err
 }
 
 // GetCommand looks up a command by name and prepends configuration diagnostics.

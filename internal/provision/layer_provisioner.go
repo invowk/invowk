@@ -15,6 +15,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const provisionedLayerCacheVersion = "1"
+
 // Compile-time interface check
 var _ Provisioner = (*LayerProvisioner)(nil)
 
@@ -161,9 +163,11 @@ func (p *LayerProvisioner) buildProvisionedTag(hash string) string {
 	return "invowk-provisioned:" + hash
 }
 
-// calculateCacheKey generates a unique key based on all provisioned resources.
-func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag, invowkfilePath types.FilesystemPath) (string, error) {
+// calculateCacheKey generates a unique key based on all provisioned layer resources.
+func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag, _ types.FilesystemPath) (string, error) {
 	h := sha256.New()
+
+	h.Write([]byte("provision_layer_version:" + provisionedLayerCacheVersion))
 
 	// Include base image identifier
 	// Try to get image digest for more accurate caching
@@ -181,9 +185,11 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage cont
 			return "", fmt.Errorf("failed to hash invowk binary: %w", err)
 		}
 		h.Write([]byte("binary:" + binaryHash))
+		h.Write([]byte("binary_mount:" + string(p.config.BinaryMountPath)))
 	}
 
 	// Include modules hash
+	h.Write([]byte("modules_mount:" + string(p.config.ModulesMountPath)))
 	modules := DiscoverModules(p.config.ModulesPaths)
 	for _, modulePath := range modules {
 		moduleHash, err := CalculateDirHash(modulePath)
@@ -193,18 +199,6 @@ func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage cont
 		}
 		moduleName := filepath.Base(modulePath)
 		h.Write([]byte("module:" + moduleName + ":" + moduleHash))
-	}
-
-	// Include invowkfile directory hash if set
-	if invowkfilePath == "" {
-		invowkfilePath = p.config.InvowkfilePath
-	}
-	if invowkfilePath != "" {
-		invowkfileDir := filepath.Dir(string(invowkfilePath))
-		dirHash, err := CalculateDirHash(invowkfileDir)
-		if err == nil {
-			h.Write([]byte("invowkfile:" + dirHash))
-		}
 	}
 
 	return hex.EncodeToString(h.Sum(nil)), nil

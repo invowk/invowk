@@ -416,6 +416,14 @@ func TestValidateCustomChecks(t *testing.T) {
 
 		// Invalid cases - check_script too long
 		{
+			name: "direct check missing check_script",
+			checks: []CustomCheckDependency{{
+				Name: "test",
+			}},
+			shouldError: true,
+			errorMsg:    "invalid script content",
+		},
+		{
 			name: "check_script too long",
 			checks: []CustomCheckDependency{{
 				Name:        "test",
@@ -468,6 +476,28 @@ func TestValidateCustomChecks(t *testing.T) {
 		},
 
 		// Invalid cases - alternatives format
+		{
+			name: "alternatives with missing check_script",
+			checks: []CustomCheckDependency{{
+				Alternatives: []CustomCheck{
+					{Name: "check"},
+				},
+			}},
+			shouldError: true,
+			errorMsg:    "invalid script content",
+		},
+		{
+			name: "alternatives mixed with direct fields",
+			checks: []CustomCheckDependency{{
+				Name:        "direct",
+				CheckScript: "echo direct",
+				Alternatives: []CustomCheck{
+					{Name: "check", CheckScript: "echo test"},
+				},
+			}},
+			shouldError: true,
+			errorMsg:    "either direct fields or alternatives",
+		},
 		{
 			name: "alternatives with invalid name in second alternative",
 			checks: []CustomCheckDependency{{

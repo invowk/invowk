@@ -35,6 +35,10 @@ func (t *testDiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context
 	return t.disc.DiscoverAndValidateCommandSet(ctx)
 }
 
+func (t *testDiscoveryService) DiscoverModules(context.Context) (discovery.ModuleListResult, error) {
+	return t.disc.DiscoverModules()
+}
+
 func (t *testDiscoveryService) GetCommand(ctx context.Context, name string) (discovery.LookupResult, error) {
 	return t.disc.GetCommand(ctx, name)
 }

@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 
 	"charm.land/lipgloss/v2"
@@ -98,30 +97,14 @@ Examples:
 func runModuleList(ctx context.Context, app *App) error {
 	fmt.Println(moduleTitleStyle.Render("Discovered Modules"))
 
-	// Load config via provider
-	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
+	result, err := app.Discovery.DiscoverModules(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
+		return fmt.Errorf("failed to discover modules: %w", err)
 	}
+	app.Diagnostics.Render(ctx, result.Diagnostics, app.stderr)
 
-	// Create discovery instance
-	disc := discovery.New(cfg)
-
-	// Discover all files
-	files, err := disc.DiscoverAll()
-	if err != nil {
-		return fmt.Errorf("failed to discover files: %w", err)
-	}
-
-	// Filter for modules only
-	var modules []*discovery.DiscoveredFile
-	for _, f := range files {
-		if f.Module != nil {
-			modules = append(modules, f)
-		}
-	}
-
-	if len(modules) == 0 {
+	if len(result.Modules) == 0 {
 		fmt.Printf("%s No modules found\n", moduleWarningIcon)
 		fmt.Println()
 		fmt.Printf("%s Modules are discovered in:\n", moduleInfoIcon)
@@ -131,12 +114,12 @@ func runModuleList(ctx context.Context, app *App) error {
 		return nil
 	}
 
-	fmt.Printf("%s Found %d module(s)\n", moduleInfoIcon, len(modules))
+	fmt.Printf("%s Found %d module(s)\n", moduleInfoIcon, len(result.Modules))
 	fmt.Println()
 
 	// Group by source
 	bySource := make(map[discovery.Source][]*discovery.DiscoveredFile)
-	for _, b := range modules {
+	for _, b := range result.Modules {
 		bySource[b.Source] = append(bySource[b.Source], b)
 	}
 

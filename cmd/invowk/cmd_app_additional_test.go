@@ -30,6 +30,8 @@ type (
 		commandSetErr   error
 		validatedSet    discovery.CommandSetResult
 		validatedSetErr error
+		modules         discovery.ModuleListResult
+		modulesErr      error
 		lookup          discovery.LookupResult
 		lookupErr       error
 	}
@@ -45,6 +47,10 @@ func (s *stubDiscoveryService) DiscoverCommandSet(context.Context) (discovery.Co
 
 func (s *stubDiscoveryService) DiscoverAndValidateCommandSet(context.Context) (discovery.CommandSetResult, error) {
 	return s.validatedSet, s.validatedSetErr
+}
+
+func (s *stubDiscoveryService) DiscoverModules(context.Context) (discovery.ModuleListResult, error) {
+	return s.modules, s.modulesErr
 }
 
 func (s *stubDiscoveryService) GetCommand(context.Context, string) (discovery.LookupResult, error) {
@@ -256,6 +262,31 @@ func TestLookupFromCommandSetAndDiagnosticRenderer(t *testing.T) {
 		if !strings.Contains(rendered, token) {
 			t.Fatalf("rendered diagnostics missing %q:\n%s", token, rendered)
 		}
+	}
+}
+
+func TestRunModuleListRendersDiscoveryDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	diag := testMustDiagnostic(t, discovery.SeverityWarning, discovery.CodeModuleLoadSkipped, "bad module skipped")
+	var stderr bytes.Buffer
+	app, err := NewApp(Dependencies{
+		Config: &staticConfigProvider{cfg: config.DefaultConfig()},
+		Discovery: &stubDiscoveryService{
+			modules: discovery.ModuleListResult{Diagnostics: []discovery.Diagnostic{diag}},
+		},
+		Diagnostics: &defaultDiagnosticRenderer{},
+		Stderr:      &stderr,
+	})
+	if err != nil {
+		t.Fatalf("NewApp() unexpected error: %v", err)
+	}
+
+	if err := runModuleList(t.Context(), app); err != nil {
+		t.Fatalf("runModuleList() error = %v", err)
+	}
+	if !strings.Contains(stderr.String(), "bad module skipped") {
+		t.Fatalf("stderr = %q, want discovery diagnostic", stderr.String())
 	}
 }
 

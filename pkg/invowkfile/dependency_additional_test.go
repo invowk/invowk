@@ -255,6 +255,64 @@ func TestDependencyValidators_ValidCases(t *testing.T) {
 	}
 }
 
+func TestCustomCheckDependencyValidateShape(t *testing.T) {
+	t.Parallel()
+
+	validCode := types.ExitCode(0)
+	tests := []struct {
+		name    string
+		dep     CustomCheckDependency
+		wantErr error
+	}{
+		{
+			name: "direct check requires script",
+			dep: CustomCheckDependency{
+				Name: "shellcheck",
+			},
+			wantErr: ErrInvalidScriptContent,
+		},
+		{
+			name: "alternative check requires script",
+			dep: CustomCheckDependency{
+				Alternatives: []CustomCheck{{Name: "shellcheck"}},
+			},
+			wantErr: ErrInvalidScriptContent,
+		},
+		{
+			name: "alternatives reject direct fields",
+			dep: CustomCheckDependency{
+				Name:        "direct",
+				CheckScript: "true",
+				Alternatives: []CustomCheck{
+					{Name: "alt", CheckScript: "true"},
+				},
+			},
+			wantErr: ErrMixedCustomCheckDependency,
+		},
+		{
+			name: "alternatives reject direct expected code",
+			dep: CustomCheckDependency{
+				ExpectedCode: &validCode,
+				Alternatives: []CustomCheck{
+					{Name: "alt", CheckScript: "true"},
+				},
+			},
+			wantErr: ErrMixedCustomCheckDependency,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.dep.Validate()
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Validate() error = %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestDependencyValidators_EmptyAlternativesInvalid(t *testing.T) {
 	t.Parallel()
 

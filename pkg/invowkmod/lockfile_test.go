@@ -3,13 +3,10 @@
 package invowkmod
 
 import (
-	"context"
 	"errors"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -20,12 +17,6 @@ const (
 	// testContentHash2 is a second valid ContentHash for multi-module test fixtures.
 	testContentHash2 = ContentHash("sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2")
 )
-
-// testLogHandler captures slog records for test assertions.
-type testLogHandler struct {
-	mu      sync.Mutex
-	records []slog.Record
-}
 
 func TestNewLockFile(t *testing.T) {
 	t.Parallel()
@@ -712,37 +703,8 @@ func TestLockFile_Save(t *testing.T) {
 	})
 }
 
-func (h *testLogHandler) Enabled(_ context.Context, _ slog.Level) bool { return true }
-
-func (h *testLogHandler) Handle(_ context.Context, r slog.Record) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.records = append(h.records, r)
-	return nil
-}
-
-func (h *testLogHandler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
-func (h *testLogHandler) WithGroup(_ string) slog.Handler      { return h }
-
-func (h *testLogHandler) hasWarning(substr string) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for i := range h.records {
-		if h.records[i].Level == slog.LevelWarn && strings.Contains(h.records[i].Message, substr) {
-			return true
-		}
-	}
-	return false
-}
-
-// TestParseLockFile_V1DeprecationWarning verifies that parsing a v1 lock file
-// emits a slog.Warn deprecation warning about upgrading to v2.0.
-func TestParseLockFile_V1DeprecationWarning(t *testing.T) {
-	// Not parallel: replaces the global slog default for the duration of the test.
-	handler := &testLogHandler{}
-	oldLogger := slog.Default()
-	slog.SetDefault(slog.New(handler))
-	defer slog.SetDefault(oldLogger)
+func TestParseLockFile_V1PreservesVersionState(t *testing.T) {
+	t.Parallel()
 
 	content := `version: "1.0"
 generated: "2025-01-15T10:30:00Z"
@@ -763,42 +725,6 @@ modules: {
 	}
 	if lf.Version != "1.0" {
 		t.Errorf("Version = %q, want %q", lf.Version, "1.0")
-	}
-
-	if !handler.hasWarning("deprecated v1.0 format") {
-		t.Error("expected slog.Warn about deprecated v1.0 format, but no matching warning was emitted")
-	}
-}
-
-// TestParseLockFile_V2NoDeprecationWarning verifies that parsing a v2 lock file
-// does NOT emit the v1 deprecation warning.
-func TestParseLockFile_V2NoDeprecationWarning(t *testing.T) {
-	// Not parallel: replaces the global slog default for the duration of the test.
-	handler := &testLogHandler{}
-	oldLogger := slog.Default()
-	slog.SetDefault(slog.New(handler))
-	defer slog.SetDefault(oldLogger)
-
-	content := `version: "2.0"
-generated: "2025-01-15T10:30:00Z"
-
-modules: {
-	"https://github.com/user/repo.git": {
-		git_url:          "https://github.com/user/repo.git"
-		version:          "^1.0.0"
-		resolved_version: "1.2.0"
-		git_commit:       "abc123def456789012345678901234567890abcd"
-		namespace:        "repo@1.2.0"
-		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-	}
-}`
-	_, err := parseLockFile(content)
-	if err != nil {
-		t.Fatalf("parseLockFile() error: %v", err)
-	}
-
-	if handler.hasWarning("deprecated v1.0 format") {
-		t.Error("v2 lock file should NOT emit v1 deprecation warning")
 	}
 }
 

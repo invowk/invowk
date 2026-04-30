@@ -16,10 +16,10 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-// maxLockFileSize is the maximum allowed lock file size (5 MiB).
-// Matches the CUE file size guard in cueutil.CheckFileSize. Prevents DoS
+// LockFileSizeLimit is the maximum allowed lock file size (5 MiB).
+// It matches the CUE file size guard in cueutil.CheckFileSize and prevents DoS
 // via crafted multi-GB lock files that would exhaust process memory (M-01).
-const maxLockFileSize = 5 * 1024 * 1024
+const LockFileSizeLimit = 5 * 1024 * 1024
 
 var (
 	// ErrInvalidModuleNamespace is returned when a ModuleNamespace value is empty.
@@ -298,8 +298,8 @@ func LoadLockFile(path string) (*LockFile, error) {
 		}
 		return nil, fmt.Errorf("failed to stat lock file: %w", err)
 	}
-	if info.Size() > maxLockFileSize {
-		return nil, fmt.Errorf("lock file exceeds maximum size (%d bytes > %d bytes)", info.Size(), maxLockFileSize)
+	if info.Size() > LockFileSizeLimit {
+		return nil, fmt.Errorf("lock file exceeds maximum size (%d bytes > %d bytes)", info.Size(), LockFileSizeLimit)
 	}
 
 	data, err := os.ReadFile(path)

@@ -86,7 +86,7 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 		goCtx,
 		tui.InteractiveOptions{
 			Title:       "Running Command",
-			CommandName: cmdName,
+			CommandName: cmdName.String(),
 			OnProgramReady: func(p *tea.Program) {
 				go bridgeTUIRequests(tuiServer, p)
 			},

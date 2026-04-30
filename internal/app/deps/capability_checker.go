@@ -10,6 +10,7 @@ import (
 	"os/exec"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"golang.org/x/term"
 )
@@ -17,7 +18,7 @@ import (
 type (
 	// CapabilityChecker checks host capabilities for dependency validation.
 	CapabilityChecker interface {
-		Check(invowkfile.CapabilityName) error
+		Check(context.Context, runtime.IOContext, invowkfile.CapabilityName) error
 	}
 
 	hostCapabilityChecker struct{}
@@ -28,16 +29,20 @@ func newHostCapabilityChecker() CapabilityChecker {
 }
 
 // Check validates that a system capability is available.
-func (hostCapabilityChecker) Check(capability invowkfile.CapabilityName) error {
+func (hostCapabilityChecker) Check(ctx context.Context, ioCtx runtime.IOContext, capability invowkfile.CapabilityName) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	switch capability {
 	case invowkfile.CapabilityLocalAreaNetwork:
 		return checkLocalAreaNetwork()
 	case invowkfile.CapabilityInternet:
-		return checkInternet()
+		return checkInternet(ctx)
 	case invowkfile.CapabilityContainers:
-		return checkContainers()
+		return checkContainers(ctx)
 	case invowkfile.CapabilityTTY:
-		return checkTTY()
+		return checkTTY(ioCtx)
 	default:
 		return &invowkfile.CapabilityError{
 			Capability: capability,
@@ -88,7 +93,7 @@ func checkLocalAreaNetwork() error {
 }
 
 // checkInternet checks for working internet connectivity with lightweight DNS probes.
-func checkInternet() error {
+func checkInternet(parentCtx context.Context) error {
 	if checkLocalAreaNetwork() != nil {
 		return &invowkfile.CapabilityError{
 			Capability: invowkfile.CapabilityInternet,
@@ -104,7 +109,7 @@ func checkInternet() error {
 
 	dialer := &net.Dialer{Timeout: invowkfile.DefaultCapabilityTimeout}
 	resolver := &net.Resolver{}
-	ctx, cancel := context.WithTimeout(context.Background(), invowkfile.DefaultCapabilityTimeout)
+	ctx, cancel := context.WithTimeout(parentCtx, invowkfile.DefaultCapabilityTimeout)
 	defer cancel()
 
 	var lastErr error
@@ -134,7 +139,7 @@ func checkInternet() error {
 }
 
 // checkContainers checks if Docker or Podman is available and ready.
-func checkContainers() error {
+func checkContainers(parentCtx context.Context) error {
 	foundEngine := false
 	var lastErr error
 	for _, engine := range []config.ContainerEngine{config.ContainerEnginePodman, config.ContainerEngineDocker} {
@@ -144,7 +149,7 @@ func checkContainers() error {
 		}
 		foundEngine = true
 
-		ctx, cancel := context.WithTimeout(context.Background(), invowkfile.DefaultCapabilityTimeout)
+		ctx, cancel := context.WithTimeout(parentCtx, invowkfile.DefaultCapabilityTimeout)
 		cmd := exec.CommandContext(ctx, path, containerCapabilityProbeArgs(engine)...)
 		err = cmd.Run()
 		cancel()
@@ -184,8 +189,10 @@ func containerCapabilityProbeArgs(engine config.ContainerEngine) []string {
 }
 
 // checkTTY checks whether invowk is running in an interactive terminal.
-func checkTTY() error {
-	if term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) {
+func checkTTY(ioCtx runtime.IOContext) error {
+	stdin, stdinOK := ioCtx.Stdin.(*os.File)
+	stdout, stdoutOK := ioCtx.Stdout.(*os.File)
+	if stdinOK && stdoutOK && term.IsTerminal(int(stdin.Fd())) && term.IsTerminal(int(stdout.Fd())) {
 		return nil
 	}
 

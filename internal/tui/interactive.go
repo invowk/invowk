@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 
 	"charm.land/bubbles/v2/viewport"
@@ -33,7 +32,7 @@ type (
 		// Title is displayed at the top of the viewport.
 		Title string
 		// CommandName is the name of the command being executed.
-		CommandName invowkfile.CommandName
+		CommandName string //goplint:ignore -- display-only TUI label passed from adapter boundary.
 		// Config holds common TUI configuration.
 		Config Config
 		// OnProgramReady is called with the *tea.Program after it's created.
@@ -166,9 +165,8 @@ func (b *InteractiveBuilder) Title(title string) *InteractiveBuilder {
 }
 
 // CommandName sets the command name displayed in the header.
-// The string is cast to invowkfile.CommandName internally.
 func (b *InteractiveBuilder) CommandName(name string) *InteractiveBuilder {
-	b.opts.CommandName = invowkfile.CommandName(name)
+	b.opts.CommandName = name
 	return b
 }
 

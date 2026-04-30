@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -51,6 +52,13 @@ type (
 		// accessible by any module's CommandScope.
 		IsGlobalModule bool
 	}
+
+	// ModuleListResult contains discovered modules and any non-fatal diagnostics
+	// produced while scanning discovery sources.
+	ModuleListResult struct {
+		Modules     []*DiscoveredFile
+		Diagnostics []Diagnostic
+	}
 )
 
 // String returns a human-readable source name
@@ -87,6 +95,44 @@ func (s Source) Validate() error {
 func (d *Discovery) DiscoverAll() ([]*DiscoveredFile, error) {
 	files, _, err := d.discoverAllWithDiagnostics()
 	return files, err
+}
+
+// DiscoverModules finds all discovered modules and returns non-fatal diagnostics
+// about skipped or invalid discovery inputs.
+func (d *Discovery) DiscoverModules() (ModuleListResult, error) {
+	files, diagnostics, err := d.discoverAllWithDiagnostics()
+	if err != nil {
+		return ModuleListResult{Diagnostics: diagnostics}, err
+	}
+
+	modules := make([]*DiscoveredFile, 0, len(files))
+	for _, f := range files {
+		if f.Module != nil {
+			modules = append(modules, f)
+		}
+	}
+
+	return ModuleListResult{Modules: modules, Diagnostics: diagnostics}, nil
+}
+
+// Validate returns nil if the module list result contains valid discovered
+// files and diagnostics.
+func (r ModuleListResult) Validate() error {
+	var errs []error
+	for _, module := range r.Modules {
+		if module == nil {
+			continue
+		}
+		if err := module.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for i := range r.Diagnostics {
+		if err := r.Diagnostics[i].Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // discoverAllWithDiagnostics discovers files plus non-fatal warnings about

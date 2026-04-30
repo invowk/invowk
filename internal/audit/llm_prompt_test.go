@@ -16,9 +16,11 @@ func TestBuildUserPrompt_SingleScript(t *testing.T) {
 
 	scripts := []ScriptRef{
 		{
-			CommandName: "build",
-			FilePath:    types.FilesystemPath("/path/to/invowkfile.cue"),
-			Script:      invowkfile.ScriptContent("#!/bin/bash\necho hello"),
+			CommandName:     "build",
+			FilePath:        types.FilesystemPath("/path/to/invowkfile.cue"),
+			Script:          invowkfile.ScriptContent("scripts/build.sh"),
+			IsFile:          true,
+			resolvedContent: "#!/bin/bash\necho hello",
 			Runtimes: []invowkfile.RuntimeConfig{
 				{Name: invowkfile.RuntimeNative},
 			},
@@ -280,19 +282,25 @@ func TestPrepareScripts_FiltersAndTruncates(t *testing.T) {
 	scripts := []ScriptRef{
 		{CommandName: "build", Script: "make build", IsFile: false},
 		{CommandName: "deploy", Script: "", IsFile: false},
-		{CommandName: "test", Script: "make test", IsFile: true},
+		{CommandName: "test", Script: "scripts/test.sh", IsFile: true, resolvedContent: "make test"},
 		{CommandName: "lint", Script: "  \t\n  ", IsFile: false},
 		{CommandName: "clean", Script: "rm -rf dist", IsFile: false},
 	}
 
 	prepared := prepareScripts(scripts, maxScriptChars)
-	if len(prepared) != 2 {
-		t.Fatalf("expected 2 analyzable scripts, got %d", len(prepared))
+	if len(prepared) != 3 {
+		t.Fatalf("expected 3 analyzable scripts, got %d", len(prepared))
 	}
 	if prepared[0].CommandName != "build" {
 		t.Errorf("first = %q, want %q", prepared[0].CommandName, "build")
 	}
-	if prepared[1].CommandName != "clean" {
-		t.Errorf("second = %q, want %q", prepared[1].CommandName, "clean")
+	if prepared[1].CommandName != "test" {
+		t.Errorf("second = %q, want %q", prepared[1].CommandName, "test")
+	}
+	if prepared[1].Content() != "make test" {
+		t.Errorf("file script content = %q, want %q", prepared[1].Content(), "make test")
+	}
+	if prepared[2].CommandName != "clean" {
+		t.Errorf("third = %q, want %q", prepared[2].CommandName, "clean")
 	}
 }

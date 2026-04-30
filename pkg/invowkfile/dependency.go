@@ -37,6 +37,9 @@ var (
 	ErrInvalidDependsOn = errors.New("invalid depends_on")
 	// ErrMissingDependencyAlternatives is returned when an OR dependency has no alternatives.
 	ErrMissingDependencyAlternatives = errors.New("dependency alternatives must contain at least one item")
+	// ErrMixedCustomCheckDependency is returned when a custom check dependency
+	// combines direct check fields with an alternatives list.
+	ErrMixedCustomCheckDependency = errors.New("custom check dependency must use either direct fields or alternatives")
 )
 
 type (
@@ -445,14 +448,16 @@ func (f FilepathDependency) Validate() error {
 }
 
 // Validate returns nil if the CustomCheck has valid fields.
-// Delegates to Name.Validate() (nonzero), CheckScript.Validate() (zero-valid),
+// Delegates to Name.Validate() (nonzero), CheckScript.Validate() (required),
 // ExpectedCode.Validate() (when non-nil), and ExpectedOutput.Validate() (zero-valid).
 func (c CustomCheck) Validate() error {
 	var errs []error
 	if err := c.Name.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := c.CheckScript.Validate(); err != nil {
+	if c.CheckScript == "" {
+		errs = append(errs, &InvalidScriptContentError{Value: c.CheckScript})
+	} else if err := c.CheckScript.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if c.ExpectedCode != nil {
@@ -474,18 +479,43 @@ func (c CustomCheck) Validate() error {
 // Otherwise, validates the direct check fields.
 func (c CustomCheckDependency) Validate() error {
 	var errs []error
-	if len(c.Alternatives) == 0 && c.Name == "" && c.CheckScript == "" {
+
+	if len(c.Alternatives) > 0 {
+		if c.hasDirectFields() {
+			errs = append(errs, ErrMixedCustomCheckDependency)
+		}
+		for i := range c.Alternatives {
+			appendFieldError(&errs, c.Alternatives[i].Validate())
+		}
+		if len(errs) > 0 {
+			return &InvalidCustomCheckDependencyError{FieldErrors: errs}
+		}
+		return nil
+	}
+
+	if c.Name == "" && c.CheckScript == "" {
 		errs = append(errs, ErrMissingDependencyAlternatives)
 	}
-	appendFieldError(&errs, c.CheckScript.Validate())
-	appendFieldError(&errs, c.ExpectedOutput.Validate())
-	appendEachValidation(&errs, c.Alternatives)
-	appendOptionalValidation(&errs, c.Name, len(c.Alternatives) == 0 && c.Name != "")
-	appendOptionalValidation(&errs, c.ExpectedCode, len(c.Alternatives) == 0 && c.ExpectedCode != nil)
+	appendFieldError(&errs, c.Name.Validate())
+	if c.CheckScript == "" {
+		appendFieldError(&errs, &InvalidScriptContentError{Value: c.CheckScript})
+	} else {
+		appendFieldError(&errs, c.CheckScript.Validate())
+	}
+	if c.ExpectedCode != nil {
+		appendFieldError(&errs, c.ExpectedCode.Validate())
+	}
+	if c.ExpectedOutput != "" {
+		appendFieldError(&errs, c.ExpectedOutput.Validate())
+	}
 	if len(errs) > 0 {
 		return &InvalidCustomCheckDependencyError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (c CustomCheckDependency) hasDirectFields() bool {
+	return c.Name != "" || c.CheckScript != "" || c.ExpectedCode != nil || c.ExpectedOutput != ""
 }
 
 // Validate returns nil if the DependsOn has valid fields.
@@ -554,7 +584,10 @@ func (e *InvalidFilepathDependencyError) Unwrap() error {
 func (e *InvalidCustomCheckError) Error() string {
 	return types.FormatFieldErrors("custom check", e.FieldErrors)
 }
-func (e *InvalidCustomCheckError) Unwrap() error { return ErrInvalidCustomCheck }
+
+func (e *InvalidCustomCheckError) Unwrap() error {
+	return errors.Join(ErrInvalidCustomCheck, errors.Join(e.FieldErrors...))
+}
 
 func (e *InvalidCustomCheckDependencyError) Error() string {
 	return types.FormatFieldErrors("custom check dependency", e.FieldErrors)

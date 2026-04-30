@@ -18,12 +18,29 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-type fakeCapabilityChecker map[invowkfile.CapabilityName]error
+type (
+	fakeCapabilityChecker map[invowkfile.CapabilityName]error
 
-func (f fakeCapabilityChecker) Check(capability invowkfile.CapabilityName) error {
+	recordedCapabilityRequest struct {
+		ctx        context.Context
+		ioCtx      runtimepkg.IOContext
+		capability invowkfile.CapabilityName
+	}
+
+	recordingCapabilityChecker struct {
+		requests []recordedCapabilityRequest
+	}
+)
+
+func (f fakeCapabilityChecker) Check(_ context.Context, _ runtimepkg.IOContext, capability invowkfile.CapabilityName) error {
 	if err, ok := f[capability]; ok {
 		return err
 	}
+	return nil
+}
+
+func (r *recordingCapabilityChecker) Check(ctx context.Context, ioCtx runtimepkg.IOContext, capability invowkfile.CapabilityName) error {
+	r.requests = append(r.requests, recordedCapabilityRequest{ctx: ctx, ioCtx: ioCtx, capability: capability})
 	return nil
 }
 
@@ -414,6 +431,31 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
 		}
 	})
+
+	t.Run("invalid check does not execute probe", func(t *testing.T) {
+		t.Parallel()
+
+		probe := &recordingHostProbe{}
+		deps := &invowkfile.DependsOn{
+			CustomChecks: []invowkfile.CustomCheckDependency{{
+				Name: "empty-script",
+			}},
+		}
+		err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, probe)
+		if err == nil {
+			t.Fatal("expected dependency error")
+		}
+		if len(probe.checks) != 0 {
+			t.Fatalf("probe executed %d checks, want 0", len(probe.checks))
+		}
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+		}
+		if len(depErr.FailedCustomChecks) != 1 {
+			t.Fatalf("FailedCustomChecks = %d, want 1", len(depErr.FailedCustomChecks))
+		}
+	})
 }
 
 func newDependencyExecutionContext(t *testing.T) *runtimepkg.ExecutionContext {
@@ -747,6 +789,38 @@ func TestCheckCapabilityDependencies(t *testing.T) {
 		}
 		if len(depErr.MissingCapabilities) != 1 {
 			t.Fatalf("missing capabilities = %d, want 1", len(depErr.MissingCapabilities))
+		}
+	})
+
+	t.Run("injected checker receives request scoped context and io", func(t *testing.T) {
+		t.Parallel()
+
+		ioCtx, stdout, stderr := runtimepkg.CaptureIO()
+		ctx := newDependencyExecutionContext(t)
+		ctx.Context = t.Context()
+		ctx.IO = ioCtx
+		deps := &invowkfile.DependsOn{
+			Capabilities: []invowkfile.CapabilityDependency{
+				{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}},
+			},
+		}
+		checker := &recordingCapabilityChecker{}
+
+		if err := CheckCapabilityDependenciesWithChecker(deps, ctx, checker); err != nil {
+			t.Fatalf("CheckCapabilityDependenciesWithChecker() = %v, want nil", err)
+		}
+		if len(checker.requests) != 1 {
+			t.Fatalf("recorded requests = %d, want 1", len(checker.requests))
+		}
+		got := checker.requests[0]
+		if got.ctx != ctx.Context {
+			t.Fatal("capability checker did not receive execution context")
+		}
+		if got.ioCtx.Stdout != stdout || got.ioCtx.Stderr != stderr {
+			t.Fatal("capability checker did not receive execution IO")
+		}
+		if got.capability != invowkfile.CapabilityTTY {
+			t.Fatalf("Capability = %q, want %q", got.capability, invowkfile.CapabilityTTY)
 		}
 	})
 }

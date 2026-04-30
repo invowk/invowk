@@ -25,7 +25,7 @@ func TestNewInteractiveModel(t *testing.T) {
 	if model.title != opts.Title {
 		t.Errorf("expected title %q, got %q", opts.Title, model.title)
 	}
-	if model.cmdName != string(opts.CommandName) {
+	if model.cmdName != opts.CommandName {
 		t.Errorf("expected cmdName %q, got %q", opts.CommandName, model.cmdName)
 	}
 	if model.state != stateExecuting {

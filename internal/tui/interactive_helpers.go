@@ -38,7 +38,7 @@ func stripOSCSequences(s string) string {
 func newInteractiveModel(opts InteractiveOptions, pty xpty.Pty) *interactiveModel {
 	return &interactiveModel{
 		title:   opts.Title,
-		cmdName: string(opts.CommandName),
+		cmdName: opts.CommandName,
 		state:   stateExecuting,
 		pty:     pty,
 	}

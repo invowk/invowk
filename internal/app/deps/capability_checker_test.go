@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -19,7 +20,7 @@ func TestHostCapabilityChecker_Check(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping integration test in short mode")
 		}
-		assertCapabilityErrorType(t, checker.Check(invowkfile.CapabilityLocalAreaNetwork))
+		assertCapabilityErrorType(t, checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityLocalAreaNetwork))
 	})
 
 	t.Run("internet", func(t *testing.T) {
@@ -27,7 +28,7 @@ func TestHostCapabilityChecker_Check(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping integration test in short mode")
 		}
-		assertCapabilityErrorType(t, checker.Check(invowkfile.CapabilityInternet))
+		assertCapabilityErrorType(t, checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityInternet))
 	})
 
 	t.Run("containers", func(t *testing.T) {
@@ -35,18 +36,18 @@ func TestHostCapabilityChecker_Check(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping integration test in short mode")
 		}
-		assertCapabilityErrorType(t, checker.Check(invowkfile.CapabilityContainers))
+		assertCapabilityErrorType(t, checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityContainers))
 	})
 
 	t.Run("tty", func(t *testing.T) {
 		t.Parallel()
-		assertCapabilityErrorType(t, checker.Check(invowkfile.CapabilityTTY))
+		assertCapabilityErrorType(t, checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityTTY))
 	})
 
 	t.Run("unknown", func(t *testing.T) {
 		t.Parallel()
 
-		err := checker.Check(invowkfile.CapabilityName("unknown-capability"))
+		err := checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityName("unknown-capability"))
 		var capErr *invowkfile.CapabilityError
 		if !errors.As(err, &capErr) {
 			t.Fatalf("errors.As(*CapabilityError) = false for %T", err)
@@ -86,7 +87,7 @@ func TestCheckInternet_ReturnsCapabilityError(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	err := checkInternet()
+	err := checkInternet(t.Context())
 	if err != nil {
 		var capErr *invowkfile.CapabilityError
 		if !errors.As(err, &capErr) {

@@ -139,6 +139,10 @@ func evaluateCustomChecks(
 	var checkErrors []DependencyMessage
 
 	for _, checkDep := range deps.CustomChecks {
+		if err := checkDep.Validate(); err != nil {
+			checkErrors = append(checkErrors, dependencyMessageFromDetail(customCheckDependencyValidationMessage(err)))
+			continue
+		}
 		checks := checkDep.GetChecks()
 		found, lastErr := EvaluateAlternatives(checks, func(check invowkfile.CustomCheck) error {
 			return validator(goCtx, check)
@@ -165,6 +169,32 @@ func evaluateCustomChecks(
 	}
 
 	return nil
+}
+
+//goplint:ignore -- returns human-readable validation detail for DependencyMessage.
+func customCheckDependencyValidationMessage(err error) string {
+	var message strings.Builder
+	message.WriteString(err.Error())
+	if depErr, ok := errors.AsType[*invowkfile.InvalidCustomCheckDependencyError](err); ok {
+		for i := range depErr.FieldErrors {
+			message.WriteString(": ")
+			message.WriteString(customCheckFieldValidationMessage(depErr.FieldErrors[i]))
+		}
+	}
+	return message.String()
+}
+
+//goplint:ignore -- returns human-readable validation detail for DependencyMessage.
+func customCheckFieldValidationMessage(err error) string {
+	var message strings.Builder
+	message.WriteString(err.Error())
+	if checkErr, ok := errors.AsType[*invowkfile.InvalidCustomCheckError](err); ok {
+		for i := range checkErr.FieldErrors {
+			message.WriteString(": ")
+			message.WriteString(checkErr.FieldErrors[i].Error())
+		}
+	}
+	return message.String()
 }
 
 // CheckEnvVarDependenciesInContainer validates env vars inside the container.
@@ -274,7 +304,9 @@ func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx *run
 	var capabilityErrors []DependencyMessage
 
 	for _, capDep := range uniqueCapabilityDependencies(deps.Capabilities) {
-		found, lastErr := EvaluateAlternatives(capDep.Alternatives, checker.Check)
+		found, lastErr := EvaluateAlternatives(capDep.Alternatives, func(capability invowkfile.CapabilityName) error {
+			return checker.Check(ctx.Context, ctx.IO, capability)
+		})
 		if !found && lastErr != nil {
 			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, false, lastErr))
 		}
