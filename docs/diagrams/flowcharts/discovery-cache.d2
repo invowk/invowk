@@ -132,7 +132,7 @@ operations.GetCommand -> cache.lookups: read/write {
   style.stroke: "#388E3C"
 }
 
-operations.GetCommand -> cache.commandSet: read (shortcut,\nwhen populated) {
+operations.GetCommand -> cache.commandSet: "read (shortcut,\nwhen populated)" {
   style: {
     stroke: "#E65100"
     stroke-dash: 3
@@ -141,7 +141,7 @@ operations.GetCommand -> cache.commandSet: read (shortcut,\nwhen populated) {
 }
 
 # Cross-population arrow (dashed)
-operations.DiscoverAndValidateCommandSet -> cache.commandSet: cross-populate\n(when result.Set != nil) {
+operations.DiscoverAndValidateCommandSet -> cache.commandSet: "cross-populate\n(when result.Set != nil)" {
   style: {
     stroke: "#E65100"
     stroke-dash: 3
