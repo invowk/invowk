@@ -61,6 +61,36 @@ func TestBuildUserPrompt_MultipleScripts(t *testing.T) {
 	}
 }
 
+func TestSystemPromptEmbeddedMarkdownContract(t *testing.T) {
+	t.Parallel()
+
+	required := []string{
+		"You are a security auditor for Invowk",
+		"The deterministic audit scanner already checks obvious patterns",
+		"module supply-chain scenarios",
+		"The virtual runtime is a portable shell interpreter, not a security sandbox",
+		"Command scope enforcement is static validation",
+		`"info", "low", "medium", "high", "critical"`,
+		`"integrity"`,
+		`"path-traversal"`,
+		`"exfiltration"`,
+		`"execution"`,
+		`"trust"`,
+		`"obfuscation"`,
+		`{"findings": [{"severity": "..."`,
+		`{"findings": []}`,
+		"Return ONLY a JSON object",
+		"Include a concrete exploit path in description",
+		"Prefer no finding over a speculative finding",
+	}
+
+	for _, want := range required {
+		if !strings.Contains(systemPrompt, want) {
+			t.Errorf("systemPrompt should contain %q", want)
+		}
+	}
+}
+
 func TestParseFindings_ValidJSON(t *testing.T) {
 	t.Parallel()
 

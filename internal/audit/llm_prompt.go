@@ -3,6 +3,7 @@
 package audit
 
 import (
+	_ "embed" // required for go:embed prompts/llm_system.md
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,36 +11,13 @@ import (
 	"strings"
 )
 
-// systemPrompt defines the security analyst role and instructs the LLM to
-// return structured JSON findings. The categories and severity levels match
-// the audit package's existing Category and Severity constants.
-const systemPrompt = `You are a security auditor for Invowk, a command runner tool. You analyze shell scripts defined in invowkfile configurations for security vulnerabilities.
+var (
+	//go:embed prompts/llm_system.md
+	systemPrompt string
 
-Analyze the provided scripts and report security findings in JSON format. Each finding must use EXACTLY these severity levels: "info", "low", "medium", "high", "critical".
-
-Each finding must use EXACTLY one of these categories:
-- "integrity" — tamper detection, hash mismatches
-- "path-traversal" — path escapes, absolute paths in modules
-- "exfiltration" — network access, DNS exfil, credential extraction
-- "execution" — remote code execution, reverse shells, dangerous eval
-- "trust" — module trust boundaries, dependency chains
-- "obfuscation" — encoded content, eval patterns, deliberate evasion
-
-Return ONLY a JSON object with this schema (no markdown, no explanation):
-{"findings": [{"severity": "...", "category": "...", "command_name": "...", "title": "...", "description": "...", "recommendation": "...", "line": 0}]}
-
-If nothing suspicious is found, return: {"findings": []}
-
-Focus on real security risks. Do NOT report:
-- Standard package manager usage (apt, pip, npm install)
-- Normal network operations that are clearly intentional
-- Code style or quality issues
-- Low-value informational observations
-
-Be precise about line numbers when possible. Be concise in descriptions.`
-
-// jsonFencePattern matches JSON inside markdown code fences.
-var jsonFencePattern = regexp.MustCompile("(?s)```(?:json)?\\s*\\n(.+?)\\n\\s*```")
+	// jsonFencePattern matches JSON inside markdown code fences.
+	jsonFencePattern = regexp.MustCompile("(?s)```(?:json)?\\s*\\n(.+?)\\n\\s*```")
+)
 
 type (
 	// llmFindingResponse is the expected JSON structure from the LLM.

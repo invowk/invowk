@@ -24,7 +24,8 @@
 //   - scanner.go       Scanner orchestrator: context build, checker dispatch, correlation
 //   - correlator.go    Compound threat detection and severity escalation
 //   - errors.go        Sentinel errors and typed error structs
-//   - llm_prompt.go    System prompt, response schema, and finding conversion
+//   - llm_prompt.go    Embedded prompt, response schema, and finding conversion
+//   - prompts/         Markdown prompt assets embedded by the audit package
 //   - checks_*.go      Individual checker implementations (one per security category)
 //
 // LLM provider adapters live in internal/auditllm so the audit domain package
