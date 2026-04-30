@@ -323,7 +323,7 @@ func NewCLICompleter(tool, model string) *CLICompleter {
 // chat messages.
 //
 // Each tool has different flags and output formats:
-//   - claude: -p --output-format json --bare [--model <model>] -> {"type":"result","result":"..."}
+//   - claude: -p --output-format json [--model <model>] -> {"type":"result","result":"..."}
 //   - codex: exec --json [-m <model>] -> JSONL with item.completed events
 //   - gemini: -p --output-format json [--model <model>] -> {"response":"..."}
 func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
@@ -342,7 +342,14 @@ func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt st
 	output, err := run(ctx, c.tool, args...)
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			return "", fmt.Errorf("%s CLI failed (exit %d): %s", c.tool, exitErr.ExitCode(), string(exitErr.Stderr))
+			details := strings.TrimSpace(string(exitErr.Stderr))
+			if details == "" {
+				details = strings.TrimSpace(string(output))
+			}
+			if details == "" {
+				return "", fmt.Errorf("%s CLI failed (exit %d)", c.tool, exitErr.ExitCode())
+			}
+			return "", fmt.Errorf("%s CLI failed (exit %d): %s", c.tool, exitErr.ExitCode(), details)
 		}
 		return "", fmt.Errorf("%s CLI failed: %w", c.tool, err)
 	}
@@ -354,7 +361,7 @@ func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt st
 func defaultRunCmd(ctx context.Context, name string, args ...string) ([]byte, error) {
 	out, err := exec.CommandContext(ctx, name, args...).Output()
 	if err != nil {
-		return nil, err //nolint:wrapcheck // caller wraps with tool-specific context
+		return out, err //nolint:wrapcheck // caller wraps with tool-specific context
 	}
 	return out, nil
 }
@@ -363,7 +370,7 @@ func defaultRunCmd(ctx context.Context, name string, args ...string) ([]byte, er
 func (c *CLICompleter) buildArgs(prompt string) ([]string, error) {
 	switch c.tool {
 	case "claude":
-		args := []string{"-p", prompt, "--output-format", "json", "--bare"}
+		args := []string{"-p", prompt, "--output-format", "json"}
 		if c.model != "" {
 			args = append(args, "--model", c.model)
 		}

@@ -382,13 +382,13 @@ func TestCLICompleter_BuildArgs(t *testing.T) {
 			name:     "claude args use CLI default without model flag",
 			tool:     "claude",
 			model:    "",
-			wantArgs: []string{"-p", "test prompt", "--output-format", "json", "--bare"},
+			wantArgs: []string{"-p", "test prompt", "--output-format", "json"},
 		},
 		{
 			name:     "claude args with explicit model",
 			tool:     "claude",
 			model:    "claude-explicit",
-			wantArgs: []string{"-p", "test prompt", "--output-format", "json", "--bare", "--model", "claude-explicit"},
+			wantArgs: []string{"-p", "test prompt", "--output-format", "json", "--model", "claude-explicit"},
 		},
 		{
 			name:     "codex args use CLI default without model flag",
@@ -533,6 +533,26 @@ func TestCLICompleter_Complete_ExitError(t *testing.T) {
 	}
 }
 
+func TestCLICompleter_Complete_ExitErrorIncludesStdoutFallback(t *testing.T) {
+	t.Parallel()
+
+	c := &CLICompleter{
+		tool:  "claude",
+		model: "test",
+		runCmd: func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+			return []byte(`{"type":"result","result":"Not logged in"}`), &exec.ExitError{}
+		},
+	}
+
+	_, err := c.Complete(t.Context(), "system", "user")
+	if err == nil {
+		t.Fatal("expected error for exit error")
+	}
+	if !strings.Contains(err.Error(), "Not logged in") {
+		t.Errorf("error should contain stdout fallback: %v", err)
+	}
+}
+
 func TestCLICompleter_Complete_PromptMerge(t *testing.T) {
 	t.Parallel()
 
@@ -551,7 +571,7 @@ func TestCLICompleter_Complete_PromptMerge(t *testing.T) {
 		t.Fatalf("Complete: %v", err)
 	}
 
-	// Claude args: -p <prompt> --output-format json --bare
+	// Claude args: -p <prompt> --output-format json
 	if len(capturedArgs) < 2 {
 		t.Fatalf("expected >= 2 args, got %d", len(capturedArgs))
 	}
