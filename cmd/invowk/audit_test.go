@@ -5,6 +5,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/invowk/invowk/internal/audit"
@@ -108,5 +109,28 @@ func TestConvertDiagnosticsUsesCLIDTO(t *testing.T) {
 	}
 	if got[0].Severity != "warning" || got[0].Code != "module-skipped" || got[0].Message != "skipped invalid module" {
 		t.Fatalf("diagnostic DTO = %#v", got[0])
+	}
+}
+
+func TestScanErrorContainsCheckerFindsJoinedLLMFailure(t *testing.T) {
+	t.Parallel()
+
+	err := errors.Join(
+		&audit.CheckerFailedError{CheckerName: "network", Err: errors.New("network failed")},
+		&audit.CheckerFailedError{CheckerName: audit.LLMCheckerName, Err: errors.New("llm failed")},
+	)
+
+	if !scanErrorContainsChecker(err, audit.LLMCheckerName) {
+		t.Fatal("expected joined LLM checker failure to be detected")
+	}
+}
+
+func TestScanErrorContainsCheckerIgnoresOtherCheckers(t *testing.T) {
+	t.Parallel()
+
+	err := &audit.CheckerFailedError{CheckerName: "network", Err: errors.New("network failed")}
+
+	if scanErrorContainsChecker(err, audit.LLMCheckerName) {
+		t.Fatal("did not expect non-LLM checker failure to be detected as LLM")
 	}
 }

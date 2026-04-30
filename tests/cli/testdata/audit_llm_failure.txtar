@@ -1,0 +1,31 @@
+# Test: invowk audit fails hard when LLM analysis fails
+# Verifies a failed LLM tool invocation exits as a scan error and does not
+# render a misleading clean-audit summary.
+
+[windows] skip 'fake CLI provider uses a POSIX shell script'
+
+cd $WORK
+chmod 0755 claude
+env PATH=$WORK:$PATH
+
+! exec invowk audit --llm-provider claude .
+stderr 'scan error: checker "llm" failed'
+stderr 'fake claude unavailable'
+! stdout 'No findings at or above low severity'
+! stdout 'Security Audit'
+
+-- claude --
+#!/bin/sh
+echo 'fake claude unavailable' >&2
+exit 1
+
+-- invowkfile.cue --
+cmds: [{
+    name: "safe"
+    description: "Safe command"
+    implementations: [{
+        script: "echo ok"
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]

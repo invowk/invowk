@@ -10,7 +10,10 @@ import (
 )
 
 const (
-	llmCheckerName = "llm"
+	// LLMCheckerName is the checker identifier used for LLM-powered analysis.
+	LLMCheckerName = "llm"
+
+	llmCheckerName = LLMCheckerName
 
 	// maxBatchChars is the target character budget per batch, leaving room
 	// for the system prompt and response. Conservative at 6000 chars (~2000
