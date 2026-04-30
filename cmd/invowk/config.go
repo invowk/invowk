@@ -9,10 +9,12 @@ import (
 	"os"
 	"strconv"
 
+	"charm.land/lipgloss/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/issue"
-
-	"github.com/spf13/cobra"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -89,15 +91,11 @@ Configuration is stored in:
 }
 
 func showConfig(ctx context.Context, app *App) error {
-	cfg, err := app.Config.Load(ctx, config.LoadOptions{})
+	result, err := app.Config.LoadWithSource(ctx, config.LoadOptions{})
 	if err != nil {
-		rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.ConfigLoadFailedId), "dark")
-		if renderErr != nil {
-			slog.Warn("failed to render issue catalog entry", "issue_id", issue.ConfigLoadFailedId, "error", renderErr)
-		}
-		fmt.Fprint(os.Stderr, rendered)
-		return err
+		return renderConfigLoadFailure(err)
 	}
+	cfg := result.Config
 
 	// Style definitions using shared color palette
 	headerStyle := TitleStyle
@@ -107,19 +105,7 @@ func showConfig(ctx context.Context, app *App) error {
 	fmt.Println(headerStyle.Render("Current Configuration"))
 	fmt.Println()
 
-	// Derive config file path from the standard config directory since the provider
-	// does not cache resolved paths; each call derives from the standard config directory.
-	cfgDir, dirErr := config.ConfigDir()
-	if dirErr == nil {
-		cfgPath := string(cfgDir) + "/config.cue"
-		if info, err := os.Stat(cfgPath); err == nil && !info.IsDir() {
-			fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), cfgPath)
-		} else {
-			fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), SubtitleStyle.Render("(using defaults)"))
-		}
-	} else {
-		fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), SubtitleStyle.Render("(using defaults)"))
-	}
+	printConfigFileLine(keyStyle, result.SourcePath)
 	fmt.Println()
 
 	// Show values
@@ -128,17 +114,7 @@ func showConfig(ctx context.Context, app *App) error {
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("includes"))
-	if len(cfg.Includes) == 0 {
-		fmt.Printf("  %s\n", SubtitleStyle.Render("(none configured)"))
-	} else {
-		for _, inc := range cfg.Includes {
-			if inc.Alias != "" {
-				fmt.Printf("  - %s (alias: %s)\n", valueStyle.Render(string(inc.Path)), valueStyle.Render(string(inc.Alias)))
-			} else {
-				fmt.Printf("  - %s\n", valueStyle.Render(string(inc.Path)))
-			}
-		}
-	}
+	printIncludes(cfg.Includes, valueStyle)
 
 	fmt.Println()
 	fmt.Printf("%s:\n", keyStyle.Render("virtual_shell"))
@@ -151,6 +127,37 @@ func showConfig(ctx context.Context, app *App) error {
 	fmt.Printf("  verbose: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Verbose)))
 
 	return nil
+}
+
+func renderConfigLoadFailure(err error) error {
+	rendered, renderErr := renderIssueCatalogEntry(issue.Get(issue.ConfigLoadFailedId), "dark")
+	if renderErr != nil {
+		slog.Warn("failed to render issue catalog entry", "issue_id", issue.ConfigLoadFailedId, "error", renderErr)
+	}
+	fmt.Fprint(os.Stderr, rendered)
+	return err
+}
+
+func printConfigFileLine(keyStyle lipgloss.Style, sourcePath types.FilesystemPath) {
+	if sourcePath != "" {
+		fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), sourcePath)
+		return
+	}
+	fmt.Printf(configFieldFmt, keyStyle.Render(configFileLabel), SubtitleStyle.Render("(using defaults)"))
+}
+
+func printIncludes(includes []config.IncludeEntry, valueStyle lipgloss.Style) {
+	if len(includes) == 0 {
+		fmt.Printf("  %s\n", SubtitleStyle.Render("(none configured)"))
+		return
+	}
+	for _, inc := range includes {
+		if inc.Alias != "" {
+			fmt.Printf("  - %s (alias: %s)\n", valueStyle.Render(string(inc.Path)), valueStyle.Render(string(inc.Alias)))
+			continue
+		}
+		fmt.Printf("  - %s\n", valueStyle.Render(string(inc.Path)))
+	}
 }
 
 func initConfig() error {

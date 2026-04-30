@@ -32,14 +32,31 @@ func EvaluateAlternatives[T any](alternatives []T, check func(T) error) (bool, e
 func NewContainerValidationContext(parentCtx *runtime.ExecutionContext, script string) (execCtx *runtime.ExecutionContext, stdout, stderr *bytes.Buffer) {
 	stdout = &bytes.Buffer{}
 	stderr = &bytes.Buffer{}
+	selectedImpl := invowkfile.Implementation{
+		Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}},
+	}
+	if parentCtx.SelectedImpl != nil {
+		selectedImpl = *parentCtx.SelectedImpl
+	}
+	selectedImpl.Script = invowkfile.ScriptContent(script) //goplint:ignore -- inline validation script
+	selectedRuntime := parentCtx.SelectedRuntime
+	if selectedRuntime == "" {
+		selectedRuntime = invowkfile.RuntimeContainer
+	}
 	execCtx = &runtime.ExecutionContext{
 		Command:         parentCtx.Command,
 		Invowkfile:      parentCtx.Invowkfile,
-		SelectedImpl:    &invowkfile.Implementation{Script: invowkfile.ScriptContent(script), Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}}, //goplint:ignore -- inline validation script
-		SelectedRuntime: invowkfile.RuntimeContainer,
+		SelectedImpl:    &selectedImpl,
+		SelectedRuntime: selectedRuntime,
 		Context:         parentCtx.Context,
+		PositionalArgs:  parentCtx.PositionalArgs,
+		WorkDir:         parentCtx.WorkDir,
+		Verbose:         parentCtx.Verbose,
+		ForceRebuild:    parentCtx.ForceRebuild,
+		ExecutionID:     parentCtx.ExecutionID,
 		IO:              runtime.IOContext{Stdout: stdout, Stderr: stderr},
-		Env:             runtime.DefaultEnv(),
+		Env:             parentCtx.Env,
+		TUI:             parentCtx.TUI,
 	}
 	return execCtx, stdout, stderr
 }

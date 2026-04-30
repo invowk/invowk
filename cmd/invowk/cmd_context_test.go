@@ -102,6 +102,14 @@ func (p *fixedConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*co
 	return config.DefaultConfig(), nil
 }
 
+func (p *fixedConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
+	cfg, err := p.Load(ctx, opts)
+	if err != nil {
+		return config.LoadResult{}, err
+	}
+	return config.LoadResult{Config: cfg}, nil
+}
+
 func TestExecuteRequest_AttachesConfigPathToContext(t *testing.T) {
 	t.Parallel()
 

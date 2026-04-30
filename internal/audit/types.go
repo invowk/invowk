@@ -4,7 +4,6 @@ package audit
 
 import (
 	"cmp"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -120,13 +119,6 @@ type (
 
 	diagnosticOption func(*Diagnostic)
 
-	diagnosticJSON struct {
-		Severity DiagnosticSeverity   `json:"severity"`
-		Code     DiagnosticCode       `json:"code"`
-		Message  DiagnosticMessage    `json:"message"`
-		Path     types.FilesystemPath `json:"path,omitempty"`
-	}
-
 	// Report aggregates findings from all checkers with summary statistics.
 	Report struct {
 		// Findings contains all individual checker findings.
@@ -239,15 +231,17 @@ func (d Diagnostic) Validate() error {
 	return nil
 }
 
-// MarshalJSON renders Diagnostic as the public audit report DTO.
-func (d Diagnostic) MarshalJSON() ([]byte, error) {
-	return json.Marshal(diagnosticJSON{
-		Severity: d.severity,
-		Code:     d.code,
-		Message:  d.message,
-		Path:     d.path,
-	})
-}
+// Severity returns the diagnostic severity.
+func (d Diagnostic) Severity() DiagnosticSeverity { return d.severity }
+
+// Code returns the stable diagnostic code.
+func (d Diagnostic) Code() DiagnosticCode { return d.code }
+
+// Message returns the human-readable diagnostic message.
+func (d Diagnostic) Message() DiagnosticMessage { return d.message }
+
+// Path returns the optional path associated with the diagnostic.
+func (d Diagnostic) Path() types.FilesystemPath { return d.path }
 
 // CodeOrDefault returns Code or derives a deterministic fallback for legacy findings.
 func (f Finding) CodeOrDefault() FindingCode {

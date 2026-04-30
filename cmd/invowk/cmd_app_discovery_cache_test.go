@@ -28,9 +28,25 @@ func (p *staticConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*c
 	return p.cfg, nil
 }
 
+func (p *staticConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
+	cfg, err := p.Load(ctx, opts)
+	if err != nil {
+		return config.LoadResult{}, err
+	}
+	return config.LoadResult{Config: cfg}, nil
+}
+
 func (p *countingConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*config.Config, error) {
 	p.calls++
 	return p.cfg, nil
+}
+
+func (p *countingConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
+	cfg, err := p.Load(ctx, opts)
+	if err != nil {
+		return config.LoadResult{}, err
+	}
+	return config.LoadResult{Config: cfg}, nil
 }
 
 // setupDiscoveryCacheTestDir creates a temp directory with a minimal invowkfile

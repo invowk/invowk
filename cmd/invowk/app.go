@@ -240,6 +240,13 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 			})
 			return newServiceError(classified.Err, 0, styledMsg)
 		}
+		if sourceErr, sourceOK := errors.AsType[*commandsvc.SourceNotFoundError](classified.Err); sourceOK {
+			styledMsg := RenderSourceNotFoundError(&SourceNotFoundError{
+				Source:           sourceErr.Source,
+				AvailableSources: sourceErr.AvailableSources,
+			})
+			return newServiceError(classified.Err, issue.CommandNotFoundId, styledMsg)
+		}
 		// Re-create the styled message using the CLI-layer error formatter.
 		var styledMsg string
 		styledLabel := ErrorStyle.Render(serviceErrorLabel)

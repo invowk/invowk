@@ -670,7 +670,7 @@ default_runtime: "virtual"
 	}
 
 	// Verify resolvedPath matches
-	if resolvedPath != customConfigPath {
+	if resolvedPath != types.FilesystemPath(customConfigPath) {
 		t.Errorf("resolvedPath = %s, want %s", resolvedPath, customConfigPath)
 	}
 }
@@ -752,6 +752,43 @@ default_runtime: "virtual"
 
 		if cfg.ContainerEngine != ContainerEngineDocker {
 			t.Errorf("ContainerEngine = %s, want docker", cfg.ContainerEngine)
+		}
+	})
+
+	t.Run("reports config directory source", func(t *testing.T) {
+		t.Parallel()
+		result, err := provider.LoadWithSource(t.Context(), LoadOptions{
+			ConfigDirPath: types.FilesystemPath(configDir),
+			BaseDir:       types.FilesystemPath(tmpDir),
+		})
+		if err != nil {
+			t.Fatalf("Provider.LoadWithSource() returned error: %v", err)
+		}
+		if result.Config.ContainerEngine != ContainerEngineDocker {
+			t.Errorf("ContainerEngine = %s, want docker", result.Config.ContainerEngine)
+		}
+		if result.SourcePath != types.FilesystemPath(cfgPath) {
+			t.Errorf("SourcePath = %s, want %s", result.SourcePath, cfgPath)
+		}
+	})
+
+	t.Run("reports local fallback source", func(t *testing.T) {
+		t.Parallel()
+		baseDir := t.TempDir()
+		localPath := filepath.Join(baseDir, ConfigFileName+"."+ConfigFileExt)
+		if err := os.WriteFile(localPath, []byte(validConfig), 0o644); err != nil {
+			t.Fatalf("failed to write local config: %v", err)
+		}
+
+		result, err := provider.LoadWithSource(t.Context(), LoadOptions{
+			ConfigDirPath: types.FilesystemPath(t.TempDir()),
+			BaseDir:       types.FilesystemPath(baseDir),
+		})
+		if err != nil {
+			t.Fatalf("Provider.LoadWithSource() returned error: %v", err)
+		}
+		if result.SourcePath != types.FilesystemPath(localPath) {
+			t.Errorf("SourcePath = %s, want %s", result.SourcePath, localPath)
 		}
 	})
 

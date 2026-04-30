@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -54,6 +55,16 @@ func TestValidateModuleRef(t *testing.T) {
 			},
 			wantErr:      true,
 			wantSentinel: ErrUnsupportedGitURLScheme,
+		},
+		{
+			name: "invalid alias",
+			req: ModuleRef{
+				GitURL:  "https://github.com/user/repo.git",
+				Version: "^1.0.0",
+				Alias:   "123alias",
+			},
+			wantErr:      true,
+			wantSentinel: invowkmod.ErrInvalidModuleRef,
 		},
 	}
 

@@ -32,10 +32,18 @@ type (
 		FieldErrors []error
 	}
 
+	// LoadResult contains the loaded configuration and the source path that
+	// produced it. SourcePath is empty when defaults were used.
+	LoadResult struct {
+		Config     *Config
+		SourcePath types.FilesystemPath
+	}
+
 	// Provider loads configuration from explicit options.
 	// This abstraction enables testing with custom config sources or mock implementations.
 	Provider interface {
 		Load(ctx context.Context, opts LoadOptions) (*Config, error)
+		LoadWithSource(ctx context.Context, opts LoadOptions) (LoadResult, error)
 	}
 
 	// fileProvider is the production Provider that loads configuration from the filesystem.
@@ -85,6 +93,23 @@ func (e *InvalidLoadOptionsError) Error() string {
 // Unwrap returns ErrInvalidLoadOptions for errors.Is() compatibility.
 func (e *InvalidLoadOptionsError) Unwrap() error { return ErrInvalidLoadOptions }
 
+// Validate returns nil when the result contains a config and the optional
+// source path is valid.
+func (r LoadResult) Validate() error {
+	var errs []error
+	if r.Config == nil {
+		errs = append(errs, errors.New("config is required"))
+	} else if err := r.Config.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if r.SourcePath != "" {
+		if err := r.SourcePath.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // NewProvider creates a configuration provider.
 func NewProvider() Provider {
 	return &fileProvider{}
@@ -94,14 +119,30 @@ func NewProvider() Provider {
 // It validates LoadOptions before proceeding and delegates to loadWithOptions
 // which validates the resulting Config after unmarshalling.
 func (p *fileProvider) Load(ctx context.Context, opts LoadOptions) (*Config, error) {
-	if err := opts.Validate(); err != nil {
-		return nil, fmt.Errorf("config load: %w", err)
-	}
-
-	cfg, _, err := loadWithOptions(ctx, opts)
+	result, err := p.LoadWithSource(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return cfg, nil
+	return result.Config, nil
+}
+
+// LoadWithSource reads configuration and returns the resolved source metadata.
+// It validates LoadOptions before proceeding and delegates to loadWithOptions
+// which validates the resulting Config after decoding.
+func (p *fileProvider) LoadWithSource(ctx context.Context, opts LoadOptions) (LoadResult, error) {
+	if err := opts.Validate(); err != nil {
+		return LoadResult{}, fmt.Errorf("config load: %w", err)
+	}
+
+	cfg, sourcePath, err := loadWithOptions(ctx, opts)
+	if err != nil {
+		return LoadResult{}, err
+	}
+
+	result := LoadResult{Config: cfg, SourcePath: sourcePath}
+	if err := result.Validate(); err != nil {
+		return LoadResult{}, fmt.Errorf("config load result: %w", err)
+	}
+	return result, nil
 }

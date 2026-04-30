@@ -138,6 +138,13 @@ type (
 		Sources     []discovery.SourceID
 	}
 
+	// SourceNotFoundError is returned when a source-constrained request names a
+	// source that is not present in the discovered command set.
+	SourceNotFoundError struct {
+		Source           discovery.SourceID
+		AvailableSources []discovery.SourceID
+	}
+
 	//goplint:constant-only
 	//
 	// ErrorKind classifies command-service errors without depending on the CLI
@@ -172,6 +179,11 @@ func (e *ClassifiedError) Unwrap() error { return e.Err }
 // Error implements the error interface.
 func (e *AmbiguousCommandError) Error() string {
 	return fmt.Sprintf("command %q is ambiguous", e.CommandName)
+}
+
+// Error implements the error interface.
+func (e *SourceNotFoundError) Error() string {
+	return fmt.Sprintf("source %q not found", e.Source)
 }
 
 // String returns the string representation of the error kind.

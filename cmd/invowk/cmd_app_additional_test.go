@@ -41,6 +41,14 @@ func (p *errorConfigProvider) Load(context.Context, config.LoadOptions) (*config
 	return nil, p.err
 }
 
+func (p *errorConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
+	cfg, err := p.Load(ctx, opts)
+	if err != nil {
+		return config.LoadResult{}, err
+	}
+	return config.LoadResult{Config: cfg}, nil
+}
+
 func (s *stubDiscoveryService) DiscoverCommandSet(context.Context) (discovery.CommandSetResult, error) {
 	return s.commandSet, s.commandSetErr
 }
@@ -328,6 +336,18 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 	wrapped = renderAndWrapServiceError(classified, ExecuteRequest{Name: "build"})
 	if !errors.As(wrapped, &svcErr) || !strings.Contains(svcErr.StyledMessage, "timed out") {
 		t.Fatalf("classified branch returned %#v", svcErr)
+	}
+
+	sourceErr := &commandsvc.ClassifiedError{
+		Err: &commandsvc.SourceNotFoundError{
+			Source:           "missing",
+			AvailableSources: []discovery.SourceID{"invowkfile", "tools"},
+		},
+		Kind: commandsvc.ErrorKindCommandNotFound,
+	}
+	wrapped = renderAndWrapServiceError(sourceErr, ExecuteRequest{Name: "build"})
+	if !errors.As(wrapped, &svcErr) || svcErr.IssueID != issue.CommandNotFoundId || !strings.Contains(svcErr.StyledMessage, "Available sources") {
+		t.Fatalf("source-not-found branch returned %#v", svcErr)
 	}
 
 	plain := errors.New("plain error")

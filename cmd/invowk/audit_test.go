@@ -53,3 +53,20 @@ func TestConvertFindingsPreservesSurfaceKind(t *testing.T) {
 		t.Errorf("SurfaceKind = %q, want %q", got[0].SurfaceKind, audit.SurfaceKindVendoredModule)
 	}
 }
+
+func TestConvertDiagnosticsUsesCLIDTO(t *testing.T) {
+	t.Parallel()
+
+	diag, err := audit.NewDiagnostic("warning", "module-skipped", "skipped invalid module")
+	if err != nil {
+		t.Fatalf("NewDiagnostic() error = %v", err)
+	}
+
+	got := convertDiagnostics([]audit.Diagnostic{diag})
+	if len(got) != 1 {
+		t.Fatalf("convertDiagnostics() returned %d diagnostics, want 1", len(got))
+	}
+	if got[0].Severity != "warning" || got[0].Code != "module-skipped" || got[0].Message != "skipped invalid module" {
+		t.Fatalf("diagnostic DTO = %#v", got[0])
+	}
+}

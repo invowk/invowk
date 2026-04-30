@@ -54,10 +54,10 @@ var (
 type (
 	// auditJSONOutput is the top-level JSON structure.
 	auditJSONOutput struct {
-		Findings        []auditJSONFinding `json:"findings"`
-		CompoundThreats []auditJSONFinding `json:"compound_threats,omitempty"`
-		Diagnostics     []audit.Diagnostic `json:"diagnostics,omitempty"`
-		Summary         auditJSONSummary   `json:"summary"`
+		Findings        []auditJSONFinding    `json:"findings"`
+		CompoundThreats []auditJSONFinding    `json:"compound_threats,omitempty"`
+		Diagnostics     []auditJSONDiagnostic `json:"diagnostics,omitempty"`
+		Summary         auditJSONSummary      `json:"summary"`
 	}
 
 	//goplint:constant-only
@@ -80,6 +80,14 @@ type (
 		Recommendation     string              `json:"recommendation"`
 		EscalatedFrom      []string            `json:"escalated_from,omitempty"`
 		EscalatedFromCodes []audit.FindingCode `json:"escalated_from_codes,omitempty"`
+	}
+
+	//goplint:ignore -- CLI JSON DTO fields are wire-format primitives.
+	auditJSONDiagnostic struct {
+		Severity audit.DiagnosticSeverity `json:"severity"`
+		Code     audit.DiagnosticCode     `json:"code"`
+		Message  audit.DiagnosticMessage  `json:"message"`
+		Path     types.FilesystemPath     `json:"path,omitempty"`
 	}
 
 	auditJSONSummary struct {
@@ -121,6 +129,11 @@ func (o auditJSONOutput) Validate() error {
 			return err
 		}
 	}
+	for i := range o.Diagnostics {
+		if err := o.Diagnostics[i].Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -129,6 +142,19 @@ func (f auditJSONFinding) Validate() error {
 		f.CheckerName.Validate(),
 		f.SurfaceKind.Validate(),
 	)
+}
+
+func (d auditJSONDiagnostic) Validate() error {
+	var errs []error
+	errs = append(errs,
+		d.Severity.Validate(),
+		d.Code.Validate(),
+		d.Message.Validate(),
+	)
+	if d.Path != "" {
+		errs = append(errs, d.Path.Validate())
+	}
+	return errors.Join(errs...)
 }
 
 func (opts auditRunOptions) Validate() error {
@@ -400,7 +426,7 @@ func renderAuditJSON(w io.Writer, report *audit.Report, minSev audit.Severity) e
 	output := auditJSONOutput{
 		Findings:        convertFindings(filtered),
 		CompoundThreats: convertFindings(filteredCorrelated),
-		Diagnostics:     report.Diagnostics,
+		Diagnostics:     convertDiagnostics(report.Diagnostics),
 		Summary: auditJSONSummary{
 			Total:              len(filtered) + len(filteredCorrelated),
 			Critical:           counts[audit.SeverityCritical],
@@ -440,6 +466,19 @@ func convertFindings(findings []audit.Finding) []auditJSONFinding {
 			Recommendation:     findings[i].Recommendation,
 			EscalatedFrom:      findings[i].EscalatedFrom,
 			EscalatedFromCodes: findingCodesToStrings(findings[i].EscalatedFromCodes),
+		})
+	}
+	return result
+}
+
+func convertDiagnostics(diagnostics []audit.Diagnostic) []auditJSONDiagnostic {
+	result := make([]auditJSONDiagnostic, 0, len(diagnostics))
+	for i := range diagnostics {
+		result = append(result, auditJSONDiagnostic{
+			Severity: diagnostics[i].Severity(),
+			Code:     diagnostics[i].Code(),
+			Message:  diagnostics[i].Message(),
+			Path:     diagnostics[i].Path(),
 		})
 	}
 	return result

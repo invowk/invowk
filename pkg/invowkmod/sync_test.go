@@ -198,6 +198,28 @@ func TestAliasLengthConstraint(t *testing.T) {
 	}
 }
 
+func TestAliasCommandSourceConstraint(t *testing.T) {
+	t.Parallel()
+
+	valid := `{
+	git_url: "https://github.com/user/test.invowkmod.git"
+	version: "^1.0.0"
+	alias: "my-tools_1"
+}`
+	if err := validateCUEModuleRequirement(t, valid); err != nil {
+		t.Errorf("command source alias should be valid, got error: %v", err)
+	}
+
+	invalid := `{
+	git_url: "https://github.com/user/test.invowkmod.git"
+	version: "^1.0.0"
+	alias: "1tools"
+}`
+	if validateCUEModuleRequirement(t, invalid) == nil {
+		t.Errorf("alias starting with digit should fail validation, but passed")
+	}
+}
+
 // TestInvowkmodVersionConstraint verifies #Invowkmod.version accepts valid semver and rejects invalid formats.
 func TestInvowkmodVersionConstraint(t *testing.T) {
 	t.Parallel()

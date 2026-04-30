@@ -17,10 +17,6 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
-
-	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/cuecontext"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -36,6 +32,99 @@ const (
 
 //go:embed config_schema.cue
 var configSchema string
+
+type (
+	configPatch struct {
+		ContainerEngine *ContainerEngine         `json:"container_engine"`
+		Includes        *[]IncludeEntry          `json:"includes"`
+		DefaultRuntime  *RuntimeMode             `json:"default_runtime"`
+		VirtualShell    *virtualShellConfigPatch `json:"virtual_shell"`
+		UI              *uiConfigPatch           `json:"ui"`
+		Container       *containerConfigPatch    `json:"container"`
+	}
+
+	virtualShellConfigPatch struct {
+		EnableUrootUtils *bool `json:"enable_uroot_utils"`
+	}
+
+	uiConfigPatch struct {
+		ColorScheme *ColorScheme `json:"color_scheme"`
+		Verbose     *bool        `json:"verbose"`
+		Interactive *bool        `json:"interactive"`
+	}
+
+	containerConfigPatch struct {
+		AutoProvision *autoProvisionConfigPatch `json:"auto_provision"`
+	}
+
+	autoProvisionConfigPatch struct {
+		Enabled         *bool           `json:"enabled"`
+		Strict          *bool           `json:"strict"`
+		BinaryPath      *BinaryFilePath `json:"binary_path"`
+		Includes        *[]IncludeEntry `json:"includes"`
+		InheritIncludes *bool           `json:"inherit_includes"`
+		CacheDir        *CacheDirPath   `json:"cache_dir"`
+	}
+)
+
+func (p configPatch) Validate() error {
+	var errs []error
+	if p.ContainerEngine != nil {
+		errs = append(errs, p.ContainerEngine.Validate())
+	}
+	if p.Includes != nil {
+		for i := range *p.Includes {
+			errs = append(errs, (*p.Includes)[i].Validate())
+		}
+	}
+	if p.DefaultRuntime != nil {
+		errs = append(errs, p.DefaultRuntime.Validate())
+	}
+	if p.VirtualShell != nil {
+		errs = append(errs, p.VirtualShell.Validate())
+	}
+	if p.UI != nil {
+		errs = append(errs, p.UI.Validate())
+	}
+	if p.Container != nil {
+		errs = append(errs, p.Container.Validate())
+	}
+	return errors.Join(errs...)
+}
+
+func (p virtualShellConfigPatch) Validate() error {
+	return nil
+}
+
+func (p uiConfigPatch) Validate() error {
+	if p.ColorScheme != nil {
+		return p.ColorScheme.Validate()
+	}
+	return nil
+}
+
+func (p containerConfigPatch) Validate() error {
+	if p.AutoProvision != nil {
+		return p.AutoProvision.Validate()
+	}
+	return nil
+}
+
+func (p autoProvisionConfigPatch) Validate() error {
+	var errs []error
+	if p.BinaryPath != nil {
+		errs = append(errs, p.BinaryPath.Validate())
+	}
+	if p.Includes != nil {
+		for i := range *p.Includes {
+			errs = append(errs, (*p.Includes)[i].Validate())
+		}
+	}
+	if p.CacheDir != nil {
+		errs = append(errs, p.CacheDir.Validate())
+	}
+	return errors.Join(errs...)
+}
 
 // configDirFrom computes the config directory from injectable dependencies,
 // enabling tests to avoid mutating process-global environment variables.
@@ -101,31 +190,15 @@ func CommandsDir() (types.FilesystemPath, error) {
 
 // loadWithOptions performs option-driven config loading from the filesystem.
 // Each call reads and parses configuration from disk with no caching.
-func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, error) {
+func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.FilesystemPath, error) {
 	select {
 	case <-ctx.Done():
 		return nil, "", fmt.Errorf("load config canceled: %w", ctx.Err())
 	default:
 	}
 
-	v := viper.New()
-
-	// Set defaults
-	defaults := DefaultConfig()
-	v.SetDefault("container_engine", defaults.ContainerEngine)
-	v.SetDefault("includes", defaults.Includes)
-	v.SetDefault("default_runtime", defaults.DefaultRuntime)
-	v.SetDefault("virtual_shell.enable_uroot_utils", defaults.VirtualShell.EnableUrootUtils)
-	v.SetDefault("ui.color_scheme", defaults.UI.ColorScheme)
-	v.SetDefault("ui.verbose", defaults.UI.Verbose)
-	v.SetDefault("ui.interactive", defaults.UI.Interactive)
-	v.SetDefault("container.auto_provision.enabled", defaults.Container.AutoProvision.Enabled)
-	v.SetDefault("container.auto_provision.binary_path", defaults.Container.AutoProvision.BinaryPath)
-	v.SetDefault("container.auto_provision.includes", defaults.Container.AutoProvision.Includes)
-	v.SetDefault("container.auto_provision.inherit_includes", defaults.Container.AutoProvision.InheritIncludes)
-	v.SetDefault("container.auto_provision.cache_dir", defaults.Container.AutoProvision.CacheDir)
-
-	resolvedPath := ""
+	cfg := DefaultConfig()
+	var resolvedPath types.FilesystemPath
 
 	// If a custom config file path is set via --ivk-config flag, use it exclusively.
 	configFilePath := string(opts.ConfigFilePath)
@@ -140,10 +213,12 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 				Wrap(fmt.Errorf("config file not found: %s", configFilePath)).
 				BuildError()
 		}
-		if err := loadCUEIntoViper(v, configFilePath); err != nil {
+		loaded, err := decodeCUEConfigFile(opts.ConfigFilePath)
+		if err != nil {
 			return nil, "", cueLoadError(configFilePath, err)
 		}
-		resolvedPath = configFilePath
+		cfg = loaded
+		resolvedPath = opts.ConfigFilePath
 	} else {
 		// Get config directory
 		cfgDir, err := configDirWithOverride(opts.ConfigDirPath)
@@ -154,10 +229,16 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 		// Try to load CUE config file
 		cuePath := filepath.Join(string(cfgDir), ConfigFileName+"."+ConfigFileExt)
 		if fileExists(cuePath) {
-			if err := loadCUEIntoViper(v, cuePath); err != nil {
+			resolved := types.FilesystemPath(cuePath)
+			if err := resolved.Validate(); err != nil {
+				return nil, "", fmt.Errorf("config file path: %w", err)
+			}
+			loaded, err := decodeCUEConfigFile(resolved)
+			if err != nil {
 				return nil, "", cueLoadError(cuePath, err)
 			}
-			resolvedPath = cuePath
+			cfg = loaded
+			resolvedPath = resolved
 		} else {
 			// Also check current directory (or BaseDir override)
 			localCuePath := ConfigFileName + "." + ConfigFileExt
@@ -165,23 +246,24 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 				localCuePath = filepath.Join(string(opts.BaseDir), localCuePath)
 			}
 			if fileExists(localCuePath) {
-				if err := loadCUEIntoViper(v, localCuePath); err != nil {
+				resolved := types.FilesystemPath(localCuePath)
+				if err := resolved.Validate(); err != nil {
+					return nil, "", fmt.Errorf("config file path: %w", err)
+				}
+				loaded, err := decodeCUEConfigFile(resolved)
+				if err != nil {
 					return nil, "", cueLoadError(localCuePath, err)
 				}
-				resolvedPath = localCuePath
+				cfg = loaded
+				resolvedPath = resolved
 			}
 			// If no config file found, use defaults (no error)
 		}
 	}
 
-	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, "", fmt.Errorf("failed to parse config: %w", err)
-	}
-
 	// Defense-in-depth: validate all typed fields after unmarshalling.
 	// CUE schema is the primary validation layer; this catches any gaps
-	// or values that bypass CUE (e.g., env var overrides via Viper).
+	// or values that bypass CUE.
 	if err := cfg.Validate(); err != nil {
 		return nil, "", fmt.Errorf("invalid config: %w", err)
 	}
@@ -207,7 +289,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, string, er
 			BuildError()
 	}
 
-	return &cfg, resolvedPath, nil
+	return cfg, resolvedPath, nil
 }
 
 // configDirWithOverride resolves the configuration directory, honoring
@@ -244,59 +326,80 @@ func cueLoadError(path string, err error) error {
 		BuildError()
 }
 
-// loadCUEIntoViper parses a CUE file, validates it against the #Config schema,
-// and merges its contents into Viper.
-//
-// Note: This uses manual CUE parsing instead of cueutil.ParseAndDecode because:
-// 1. Config decodes to map[string]any (not a struct) for Viper integration
-// 2. Uses Concrete(false) because config fields are optional
-// 3. Needs to merge into Viper's config map, not return a struct
-func loadCUEIntoViper(v *viper.Viper, path string) error {
-	// Read CUE file
-	data, err := os.ReadFile(path)
+// decodeCUEConfigFile parses a CUE file through the shared schema parser and
+// applies the resulting patch over DefaultConfig().
+func decodeCUEConfigFile(path types.FilesystemPath) (*Config, error) {
+	data, err := os.ReadFile(string(path))
 	if err != nil {
-		return fmt.Errorf("failed to read config file: %w", err)
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Check file size using cueutil
-	if err := cueutil.CheckFileSize(data, cueutil.DefaultMaxFileSize, path); err != nil {
-		return err
+	parsed, err := cueutil.ParseAndDecodeString[configPatch](
+		configSchema,
+		data,
+		"#Config",
+		cueutil.WithConcrete(false),
+		cueutil.WithFilename(string(path)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := parsed.Value.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config patch: %w", err)
 	}
 
-	// Parse with CUE
-	ctx := cuecontext.New()
+	return applyConfigPatch(DefaultConfig(), parsed.Value), nil
+}
 
-	// Compile the schema
-	schemaValue := ctx.CompileString(configSchema)
-	if schemaValue.Err() != nil {
-		return fmt.Errorf("internal error: failed to compile config schema: %w", schemaValue.Err())
+func applyConfigPatch(cfg *Config, patch *configPatch) *Config {
+	if patch == nil {
+		return cfg
 	}
-
-	// Compile the user's config file
-	userValue := ctx.CompileBytes(data, cue.Filename(path))
-	if userValue.Err() != nil {
-		return cueutil.FormatError(userValue.Err(), path)
+	if patch.ContainerEngine != nil {
+		cfg.ContainerEngine = *patch.ContainerEngine
 	}
-
-	// Unify with schema to validate against #Config definition
-	schema := schemaValue.LookupPath(cue.ParsePath("#Config"))
-	unified := schema.Unify(userValue)
-	if err := unified.Validate(cue.Concrete(false)); err != nil {
-		return cueutil.FormatError(err, path)
+	if patch.Includes != nil {
+		cfg.Includes = *patch.Includes
 	}
-
-	// Decode to Go map
-	var configMap map[string]any
-	if err := unified.Decode(&configMap); err != nil {
-		return cueutil.FormatError(err, path)
+	if patch.DefaultRuntime != nil {
+		cfg.DefaultRuntime = *patch.DefaultRuntime
 	}
-
-	// Merge into Viper (preserves defaults, allows env overrides)
-	if err := v.MergeConfigMap(configMap); err != nil {
-		return fmt.Errorf("failed to merge config: %w", err)
+	if patch.VirtualShell != nil && patch.VirtualShell.EnableUrootUtils != nil {
+		cfg.VirtualShell.EnableUrootUtils = *patch.VirtualShell.EnableUrootUtils
 	}
-
-	return nil
+	if patch.UI != nil {
+		if patch.UI.ColorScheme != nil {
+			cfg.UI.ColorScheme = *patch.UI.ColorScheme
+		}
+		if patch.UI.Verbose != nil {
+			cfg.UI.Verbose = *patch.UI.Verbose
+		}
+		if patch.UI.Interactive != nil {
+			cfg.UI.Interactive = *patch.UI.Interactive
+		}
+	}
+	if patch.Container != nil && patch.Container.AutoProvision != nil {
+		auto := patch.Container.AutoProvision
+		if auto.Enabled != nil {
+			cfg.Container.AutoProvision.Enabled = *auto.Enabled
+		}
+		if auto.Strict != nil {
+			cfg.Container.AutoProvision.Strict = *auto.Strict
+		}
+		if auto.BinaryPath != nil {
+			cfg.Container.AutoProvision.BinaryPath = *auto.BinaryPath
+		}
+		if auto.Includes != nil {
+			cfg.Container.AutoProvision.Includes = *auto.Includes
+		}
+		if auto.InheritIncludes != nil {
+			cfg.Container.AutoProvision.InheritIncludes = *auto.InheritIncludes
+		}
+		if auto.CacheDir != nil {
+			cfg.Container.AutoProvision.CacheDir = *auto.CacheDir
+		}
+	}
+	return cfg
 }
 
 // validateIncludes checks include collection constraints:

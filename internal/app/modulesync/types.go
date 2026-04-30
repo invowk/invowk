@@ -8,8 +8,9 @@ const (
 	// LockFileName is the name of the module dependency lock file.
 	LockFileName = invowkmod.LockFileName
 
-	errFmtLoadLockFile = "failed to load lock file: %w"
-	errFmtSaveLockFile = "failed to save lock file: %w"
+	errFmtCreateModuleResolver = "failed to create module resolver: %w"
+	errFmtLoadLockFile         = "failed to load lock file: %w"
+	errFmtSaveLockFile         = "failed to save lock file: %w"
 )
 
 var (

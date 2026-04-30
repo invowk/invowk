@@ -60,7 +60,7 @@ var (
 	// ErrInvalidModuleID is returned when a ModuleID value does not match the required format.
 	ErrInvalidModuleID = errors.New("invalid module ID")
 
-	// ErrInvalidModuleAlias is returned when a ModuleAlias value is whitespace-only.
+	// ErrInvalidModuleAlias is returned when a ModuleAlias value is invalid.
 	ErrInvalidModuleAlias = errors.New("invalid module alias")
 
 	// ErrInvalidSubdirectoryPath is returned when a SubdirectoryPath value contains
@@ -85,6 +85,10 @@ var (
 	// moduleIDPattern validates the ModuleID format: starts with a letter, alphanumeric segments
 	// separated by dots. This mirrors the CUE schema constraint in invowkmod_schema.cue.
 	moduleIDPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
+
+	// moduleAliasPattern validates aliases that become command source IDs.
+	// This mirrors discovery.SourceID without importing the internal package.
+	moduleAliasPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
 )
 
 type (
@@ -101,10 +105,11 @@ type (
 
 	// ModuleAlias represents an optional namespace alias for imported module commands.
 	// The zero value ("") is valid and means "no alias" (default namespace is used).
-	// Non-zero values must not be whitespace-only.
+	// Non-zero values must be valid command source identifiers.
 	ModuleAlias string
 
-	// InvalidModuleAliasError is returned when a ModuleAlias value is whitespace-only.
+	// InvalidModuleAliasError is returned when a ModuleAlias value is not a valid
+	// command source identifier.
 	// It wraps ErrInvalidModuleAlias for errors.Is() compatibility.
 	InvalidModuleAliasError struct {
 		Value ModuleAlias
@@ -362,7 +367,7 @@ func (e *InvalidInvowkmodError) Unwrap() error { return ErrInvalidInvowkmod }
 
 // Error implements the error interface for InvalidModuleAliasError.
 func (e *InvalidModuleAliasError) Error() string {
-	return fmt.Sprintf("invalid module alias %q (must not be whitespace-only)", e.Value)
+	return fmt.Sprintf("invalid module alias %q (must start with a letter and contain only letters, digits, dots, underscores, or hyphens)", e.Value)
 }
 
 // Unwrap returns the sentinel error for errors.Is() compatibility.
@@ -373,12 +378,12 @@ func (e *InvalidModuleAliasError) Unwrap() error {
 // Validate returns nil if the ModuleAlias is valid, or an error
 // describing the validation failure.
 // The zero value ("") is valid — it means "no alias".
-// Non-zero values must not be whitespace-only.
+// Non-zero values must be valid command source identifiers.
 func (a ModuleAlias) Validate() error {
 	if a == "" {
 		return nil
 	}
-	if strings.TrimSpace(string(a)) == "" {
+	if !moduleAliasPattern.MatchString(string(a)) {
 		return &InvalidModuleAliasError{Value: a}
 	}
 	return nil

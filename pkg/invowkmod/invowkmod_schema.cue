@@ -25,9 +25,9 @@ import "strings"
 
 	// alias overrides the default namespace for imported commands (optional)
 	// If not specified, namespace is: <module>@<resolved-version>
-	// Must follow module naming rules
+	// Must follow command source ID rules
 	// Used to disambiguate collisions between modules with same name
-	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9]*(\\.[a-zA-Z][a-zA-Z0-9]*)*$" & strings.MaxRunes(256)
+	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
 
 	// path specifies a subdirectory containing the module (optional)
 	// Used for monorepos with multiple modules

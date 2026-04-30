@@ -12,7 +12,6 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -323,12 +322,11 @@ func (s *Service) discoverCommandFromSource(ctx context.Context, cfg *config.Con
 		availableSources = result.Set.SourceOrder
 	}
 	if result.Set == nil || !slices.Contains(availableSources, req.FromSource) {
-		availableSourceText, textErr := formatSourceIDs(availableSources)
-		if textErr != nil {
-			return nil, nil, req, diags, textErr
-		}
 		return nil, nil, req, diags, &ClassifiedError{
-			Err:  fmt.Errorf("source '%s' not found\nAvailable sources: %s", req.FromSource, availableSourceText),
+			Err: &SourceNotFoundError{
+				Source:           req.FromSource,
+				AvailableSources: slices.Clone(availableSources),
+			},
 			Kind: ErrorKindCommandNotFound,
 		}
 	}
@@ -361,18 +359,6 @@ func (s *Service) discoverCommandFromSource(ctx context.Context, cfg *config.Con
 	req.Args = slices.Clone(tokens[matchLen:])
 	req.ResolvedCommand = target
 	return cfg, target, req, diags, nil
-}
-
-func formatSourceIDs(sourceIDs []discovery.SourceID) (types.DescriptionText, error) {
-	parts := make([]string, 0, len(sourceIDs))
-	for _, sourceID := range sourceIDs {
-		parts = append(parts, sourceID.String())
-	}
-	text := types.DescriptionText(strings.Join(parts, ", "))
-	if err := text.Validate(); err != nil {
-		return "", err
-	}
-	return text, nil
 }
 
 // resolveDefinitions resolves flag/arg definitions and flag values by applying

@@ -39,6 +39,14 @@ func (p *failingConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*
 	return nil, errors.New("unexpected config load")
 }
 
+func (p *failingConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
+	cfg, err := p.Load(ctx, opts)
+	if err != nil {
+		return config.LoadResult{}, err
+	}
+	return config.LoadResult{Config: cfg}, nil
+}
+
 func TestScanner_RunCheckersCollectsFindings(t *testing.T) {
 	t.Parallel()
 

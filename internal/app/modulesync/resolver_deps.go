@@ -44,6 +44,10 @@ func (m *Resolver) validateModuleRef(req ModuleRef) error {
 		}
 	}
 
+	if err := req.Validate(); err != nil {
+		return fmt.Errorf("invalid module requirement: %w", err)
+	}
+
 	return nil
 }
 

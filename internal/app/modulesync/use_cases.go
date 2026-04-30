@@ -99,7 +99,7 @@ func LoadRequirements(invowkmodPath types.FilesystemPath) ([]ModuleRef, error) {
 func AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
 	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
-		return AddModuleDependencyResult{}, fmt.Errorf("failed to create module resolver: %w", err)
+		return AddModuleDependencyResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
 	return resolver.AddModuleDependency(ctx, invowkmodPath, req)
 }
@@ -126,7 +126,7 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 func RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
 	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
-		return RemoveModuleDependencyResult{}, fmt.Errorf("failed to create module resolver: %w", err)
+		return RemoveModuleDependencyResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
 	return resolver.RemoveModuleDependency(ctx, invowkmodPath, identifier)
 }
@@ -203,9 +203,9 @@ func SyncModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requir
 		return requirements, nil, nil
 	}
 
-	resolver, err := NewResolver("", "")
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create module resolver: %w", err)
+		return nil, nil, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
 	resolved, err = resolver.Sync(ctx, requirements)
 	if err != nil {
@@ -225,9 +225,9 @@ func TidyModule(ctx context.Context, invowkmodPath types.FilesystemPath) (requir
 		return requirements, nil, nil
 	}
 
-	resolver, err := NewResolver("", "")
+	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create module resolver: %w", err)
+		return nil, nil, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
 	missing, err = resolver.Tidy(ctx, requirements)
 	if err != nil {

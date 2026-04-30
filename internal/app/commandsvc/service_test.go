@@ -176,6 +176,53 @@ func TestServiceDiscoverCommandFromSourceAdjustsArgs(t *testing.T) {
 	}
 }
 
+func TestServiceDiscoverCommandFromSourceReturnsTypedSourceNotFound(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.DefaultConfig()
+	configFallback := func(context.Context, config.Provider, string) (*config.Config, []discovery.Diagnostic) {
+		return cfg, nil
+	}
+	cmdInfo := commandsvcTestCommandInfo(t, "deploy")
+	cmdInfo.SourceID = "tools"
+
+	commandSet := discovery.NewDiscoveredCommandSet()
+	commandSet.Add(cmdInfo)
+	commandSet.Analyze()
+
+	service := &Service{
+		config:         &staticCommandsvcConfigProvider{cfg: cfg},
+		discovery:      &stubCommandDiscovery{commandSet: discovery.CommandSetResult{Set: commandSet}},
+		configFallback: configFallback,
+	}
+
+	_, _, _, _, err := service.discoverCommand(t.Context(), Request{
+		Name:       "deploy",
+		FromSource: "missing",
+	})
+	if err == nil {
+		t.Fatal("discoverCommand(from missing source) error = nil, want error")
+	}
+
+	var classified *ClassifiedError
+	if !errors.As(err, &classified) {
+		t.Fatalf("errors.As(*ClassifiedError) = false for %T", err)
+	}
+	var sourceErr *SourceNotFoundError
+	if !errors.As(err, &sourceErr) {
+		t.Fatalf("errors.As(*SourceNotFoundError) = false for %T", err)
+	}
+	if sourceErr.Source != "missing" {
+		t.Fatalf("Source = %q, want missing", sourceErr.Source)
+	}
+	if len(sourceErr.AvailableSources) != 1 || sourceErr.AvailableSources[0] != "tools" {
+		t.Fatalf("AvailableSources = %v, want [tools]", sourceErr.AvailableSources)
+	}
+	if classified.Kind != ErrorKindCommandNotFound {
+		t.Fatalf("Kind = %q, want command-not-found", classified.Kind)
+	}
+}
+
 func TestResolveDefinitionsAndLoadConfig(t *testing.T) {
 	t.Parallel()
 
@@ -290,4 +337,12 @@ func commandsvcTestCommandInfo(t testing.TB, name string) *discovery.CommandInfo
 
 func (p *staticCommandsvcConfigProvider) Load(context.Context, config.LoadOptions) (*config.Config, error) {
 	return p.cfg, nil
+}
+
+func (p *staticCommandsvcConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
+	cfg, err := p.Load(ctx, opts)
+	if err != nil {
+		return config.LoadResult{}, err
+	}
+	return config.LoadResult{Config: cfg}, nil
 }

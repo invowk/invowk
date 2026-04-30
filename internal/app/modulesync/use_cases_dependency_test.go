@@ -11,6 +11,29 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+func TestNewResolverForInvowkmodPathUsesMetadataDirectory(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	moduleDir := filepath.Join(rootDir, "nested", "module")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(moduleDir) error = %v", err)
+	}
+
+	resolver, err := newResolverForInvowkmodPath(types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")))
+	if err != nil {
+		t.Fatalf("newResolverForInvowkmodPath() error = %v", err)
+	}
+
+	want, err := filepath.Abs(moduleDir)
+	if err != nil {
+		t.Fatalf("Abs(moduleDir) error = %v", err)
+	}
+	if resolver.workingDir != types.FilesystemPath(want) {
+		t.Fatalf("workingDir = %q, want %q", resolver.workingDir, want)
+	}
+}
+
 func TestAddModuleDependencyReportsDeclarationFailureAfterLockUpdate(t *testing.T) {
 	t.Parallel()
 
