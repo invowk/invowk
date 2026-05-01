@@ -5,6 +5,7 @@ package commandsvc
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"strings"
@@ -30,6 +31,7 @@ type (
 		observer          ExecutionObserver
 		capabilityChecker deps.CapabilityChecker
 		hostProbe         deps.HostProbe
+		lockProvider      deps.CommandScopeLockProvider
 		userEnvFunc       UserEnvFunc
 		configFallback    ConfigFallbackFunc
 	}
@@ -41,6 +43,7 @@ type (
 		observer          ExecutionObserver
 		capabilityChecker deps.CapabilityChecker
 		hostProbe         deps.HostProbe
+		lockProvider      deps.CommandScopeLockProvider
 	}
 
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
@@ -56,6 +59,7 @@ func NewPorts(
 	observer ExecutionObserver,
 	capabilityChecker deps.CapabilityChecker,
 	hostProbe deps.HostProbe,
+	lockProvider deps.CommandScopeLockProvider,
 ) ports {
 	return ports{
 		hostAccess:        hostAccess,
@@ -64,6 +68,7 @@ func NewPorts(
 		observer:          observer,
 		capabilityChecker: capabilityChecker,
 		hostProbe:         hostProbe,
+		lockProvider:      lockProvider,
 	}
 }
 
@@ -110,6 +115,9 @@ func New(
 	}
 	if servicePorts.hostProbe != nil {
 		svc.hostProbe = servicePorts.hostProbe
+	}
+	if servicePorts.lockProvider != nil {
+		svc.lockProvider = servicePorts.lockProvider
 	}
 	return svc
 }
@@ -268,7 +276,7 @@ func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Con
 
 	if req.FromSource != "" {
 		foundCfg, cmdInfo, resolvedReq, diags, err := s.discoverCommandFromSource(ctx, cfg, req)
-		diags = appendDiagnostics(configDiags, diags...)
+		diags = append(slices.Clone(configDiags), diags...)
 		return foundCfg, cmdInfo, resolvedReq, diags, err
 	}
 
@@ -316,7 +324,7 @@ func applyUIConfigDefaults(req Request, cfg *config.Config) Request {
 
 func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Config, req Request, diags []Diagnostic) (*config.Config, *discovery.CommandInfo, Request, []Diagnostic, error) {
 	lookup, err := s.discovery.GetCommand(ctx, req.Name)
-	diags = append(diags, lookup.Diagnostics...)
+	diags = appendDiagnostics(diags, lookup.Diagnostics...)
 	if err != nil {
 		return nil, nil, req, diags, err
 	}
@@ -331,7 +339,16 @@ func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Confi
 
 func appendDiagnostics(base []Diagnostic, extra ...discovery.Diagnostic) []Diagnostic {
 	result := slices.Clone(base)
-	return append(result, extra...)
+	for _, diag := range extra {
+		converted, err := DiagnosticFromDiscovery(diag)
+		if err != nil {
+			slog.Error("BUG: failed to bridge discovery diagnostic to command diagnostic",
+				"code", diag.Code(), "error", err)
+			continue
+		}
+		result = append(result, converted)
+	}
+	return result
 }
 
 func ambiguousSourcesFor(commandSet *discovery.DiscoveredCommandSet, name invowkfile.CommandName) []discovery.SourceID {
@@ -382,7 +399,7 @@ func (s *Service) discoverCommandFromSource(ctx context.Context, cfg *config.Con
 	if err != nil {
 		return nil, nil, req, nil, err
 	}
-	diags := slices.Clone(result.Diagnostics)
+	diags := appendDiagnostics(nil, result.Diagnostics...)
 	var availableSources []discovery.SourceID
 	if result.Set != nil {
 		availableSources = result.Set.SourceOrder

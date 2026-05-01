@@ -191,6 +191,20 @@ func verifyVendoredModuleHashEvaluation(moduleID ModuleID, evaluation VendoredHa
 	}
 }
 
+// VerifyLockedVendoredModuleHash checks one already-declared vendored module
+// against its exact lock-file entry.
+func VerifyLockedVendoredModuleHash(moduleKey ModuleRefKey, locked LockedModule, module *Module) error {
+	if module == nil || module.Metadata == nil {
+		return fmt.Errorf("missing vendored module metadata for lock entry %s", moduleKey)
+	}
+	if locked.ContentHash == "" {
+		return nil
+	}
+
+	evaluation := EvaluateModuleContentHash(moduleKey, module.Metadata.Module, module.Path, locked.ContentHash)
+	return verifyVendoredModuleHashEvaluation(module.Metadata.Module, evaluation)
+}
+
 // EvaluateVendoredModuleHash matches a vendored module to its lock file entry
 // using the resolved module ID and computes the vendored content-hash status.
 func EvaluateVendoredModuleHash(lock *LockFile, m *Module) VendoredHashEvaluation {

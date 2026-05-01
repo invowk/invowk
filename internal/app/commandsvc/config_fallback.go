@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/invowk/invowk/internal/config"
-	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -26,13 +25,13 @@ func LoadConfigWithFallback(ctx context.Context, provider config.Loader, configP
 	}
 
 	if configPath != "" {
-		severity := discovery.SeverityError
+		severity := DiagnosticSeverityError
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, config.ErrConfigFileNotFound) {
-			severity = discovery.SeverityWarning
+			severity = DiagnosticSeverityWarning
 		}
-		diag, diagErr := discovery.NewDiagnosticWithCause(
+		diag, diagErr := NewDiagnosticWithCause(
 			severity,
-			discovery.CodeConfigLoadFailed,
+			DiagnosticCodeConfigLoadFailed,
 			fmt.Sprintf("failed to load config from %s: %v", configPath, err),
 			configFilePath,
 			err,
@@ -44,14 +43,14 @@ func LoadConfigWithFallback(ctx context.Context, provider config.Loader, configP
 		return config.DefaultConfig(), []Diagnostic{diag}
 	}
 
-	severity := discovery.SeverityError
+	severity := DiagnosticSeverityError
 	if errors.Is(err, os.ErrNotExist) {
-		severity = discovery.SeverityWarning
+		severity = DiagnosticSeverityWarning
 	}
 
-	diag, diagErr := discovery.NewDiagnosticWithCause(
+	diag, diagErr := NewDiagnosticWithCause(
 		severity,
-		discovery.CodeConfigLoadFailed,
+		DiagnosticCodeConfigLoadFailed,
 		fmt.Sprintf("failed to load config, using defaults: %v", err),
 		"",
 		err,

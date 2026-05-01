@@ -306,25 +306,18 @@ func (c *Client) TextAreaContext(ctx context.Context, opts TextAreaRequest) (str
 	return result.Value, nil
 }
 
-// Spin sends a spinner request to the TUI server.
-// Returns the command output and exit code.
-func (c *Client) Spin(opts SpinRequest) (*SpinResult, error) {
+// Spin sends a presentation-only spinner request to the TUI server.
+func (c *Client) Spin(opts SpinRequest) error {
 	return c.SpinContext(context.Background(), opts)
 }
 
-// SpinContext sends a spinner request with caller cancellation.
-func (c *Client) SpinContext(ctx context.Context, opts SpinRequest) (*SpinResult, error) {
-	resp, err := c.sendRequestContext(ctx, ComponentSpin, opts)
+// SpinContext sends a presentation-only spinner request with caller cancellation.
+func (c *Client) SpinContext(ctx context.Context, opts SpinRequest) error {
+	_, err := c.sendRequestContext(ctx, ComponentSpin, opts)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	var result SpinResult
-	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse spin result: %w", err)
-	}
-
-	return &result, nil
+	return nil
 }
 
 // Pager sends a pager request to the TUI server.

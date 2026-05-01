@@ -173,6 +173,52 @@ func TestDiscoverAll_SkipsUndeclaredVendoredModule(t *testing.T) {
 	}
 }
 
+func TestDiscoverAll_VerifiesOnlyDeclaredVendoredModules(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	parentDir := filepath.Join(tmpDir, "parent.invowkmod")
+	createTestModule(t, parentDir, "parent", "parent-cmd")
+	createVendoredModule(t, parentDir, "declared.invowkmod", "declared", "declared-cmd")
+
+	vendorDir := filepath.Join(parentDir, invowkmod.VendoredModulesDir)
+	staleDir := filepath.Join(vendorDir, "stale.invowkmod")
+	createTestModule(t, staleDir, "stale", "stale-cmd")
+
+	d := newTestDiscovery(t, config.DefaultConfig(), tmpDir)
+	files, diagnostics, err := d.discoverAllWithDiagnostics()
+	if err != nil {
+		t.Fatalf("discoverAllWithDiagnostics() error: %v", err)
+	}
+
+	var foundDeclared bool
+	for _, f := range files {
+		if f.Module == nil {
+			continue
+		}
+		switch f.Module.Name() {
+		case "declared":
+			foundDeclared = true
+		case "stale":
+			t.Fatal("stale undeclared vendored module should not be discovered")
+		}
+	}
+	if !foundDeclared {
+		t.Fatal("declared vendored module was not discovered")
+	}
+
+	var foundDiagnostic bool
+	for _, diag := range diagnostics {
+		if diag.code == CodeVendoredUndeclaredSkipped {
+			foundDiagnostic = true
+			break
+		}
+	}
+	if !foundDiagnostic {
+		t.Fatalf("missing %s diagnostic: %v", CodeVendoredUndeclaredSkipped, diagnostics)
+	}
+}
+
 func TestDiscoverAll_SkipsVendoredModuleWithUndeclaredTransitiveRequirement(t *testing.T) {
 	t.Parallel()
 

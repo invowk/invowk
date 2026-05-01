@@ -112,5 +112,5 @@ func requestPlatform(req Request) invowkfile.Platform {
 // applies rendering. Discovery is routed through s.discovery so the per-request
 // cache avoids redundant filesystem scans.
 func (s *Service) validateDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry, userEnv map[string]string) error {
-	return deps.ValidateDependenciesWithHostProbe(s.discovery, cmdInfo, registry, execCtx, userEnv, s.capabilityChecker, s.hostProbe)
+	return deps.ValidateDependenciesWithPorts(s.discovery, cmdInfo, registry, execCtx, userEnv, s.capabilityChecker, s.hostProbe, s.lockProvider)
 }

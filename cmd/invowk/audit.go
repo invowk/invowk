@@ -372,6 +372,7 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 		formatDuration(report.ScanDuration))
 
 	findings := report.IndividualFindingsBySeverity(minSev)
+	renderAuditDiagnostics(w, report.Diagnostics)
 
 	if len(findings) == 0 {
 		fmt.Fprintf(w, "%s No findings at or above %s severity\n", SuccessStyle.Render("✓"), minSev)
@@ -437,6 +438,22 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 		counts[audit.SeverityCritical], counts[audit.SeverityHigh],
 		counts[audit.SeverityMedium], counts[audit.SeverityLow],
 		counts[audit.SeverityInfo])
+}
+
+func renderAuditDiagnostics(w io.Writer, diagnostics []audit.Diagnostic) {
+	if len(diagnostics) == 0 {
+		return
+	}
+
+	fmt.Fprintf(w, "%s Diagnostics (%d)\n", WarningStyle.Render("!"), len(diagnostics))
+	for i := range diagnostics {
+		fmt.Fprintf(w, "  %s: %s\n", diagnostics[i].Code(), diagnostics[i].Message())
+		if diagnostics[i].Path() != "" {
+			pathStr := auditFindingPathStyle.Render(string(diagnostics[i].Path()))
+			fmt.Fprintln(w, auditFindingDetailStyle.Render("Path: "+pathStr))
+		}
+	}
+	fmt.Fprintln(w)
 }
 
 func renderAuditJSON(w io.Writer, report *audit.Report, minSev audit.Severity) error {

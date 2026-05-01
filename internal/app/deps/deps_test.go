@@ -5,7 +5,6 @@ package deps
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,6 +30,11 @@ type (
 		filepathErrors map[types.FilesystemPath]error
 		checks         []invowkfile.CheckName
 		checkErrors    map[invowkfile.CheckName]error
+	}
+
+	staticCommandScopeLockProvider struct {
+		lock *invowkmod.LockFile
+		err  error
 	}
 )
 
@@ -63,6 +67,16 @@ func (p *recordingHostProbe) RunCustomCheck(_ context.Context, check invowkfile.
 		return p.checkErrors[check.Name]
 	}
 	return nil
+}
+
+func (p staticCommandScopeLockProvider) LoadCommandScopeLock(*invowkfile.Invowkfile) (*invowkmod.LockFile, error) {
+	if p.err != nil {
+		return nil, p.err
+	}
+	if p.lock == nil {
+		return &invowkmod.LockFile{}, nil
+	}
+	return p.lock, nil
 }
 
 func TestCheckCommandDependenciesExist(t *testing.T) {
@@ -166,9 +180,6 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			ModuleID:        depID,
 			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
-		if err := lock.Save(filepath.Join(moduleDir, invowkmod.LockFileName)); err != nil {
-			t.Fatalf("lock.Save() = %v", err)
-		}
 		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
 			Module:   "io.example.caller",
 			Version:  "1.0.0",
@@ -195,7 +206,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			},
 		}
 
-		if err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx); err != nil {
+		if err := CheckCommandDependenciesExistWithLockProvider(disc, deps, callerInfo, ctx, staticCommandScopeLockProvider{lock: lock}); err != nil {
 			t.Fatalf("CheckCommandDependenciesExist() = %v", err)
 		}
 	})
@@ -220,9 +231,6 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			Namespace:       "allowed-tools",
 			ModuleID:        depID,
 			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-		}
-		if err := lock.Save(filepath.Join(moduleDir, invowkmod.LockFileName)); err != nil {
-			t.Fatalf("lock.Save() = %v", err)
 		}
 		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
 			Module:   "io.example.caller",
@@ -250,7 +258,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			},
 		}
 
-		err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx)
+		err := CheckCommandDependenciesExistWithLockProvider(disc, deps, callerInfo, ctx, staticCommandScopeLockProvider{lock: lock})
 		if err == nil {
 			t.Fatal("CheckCommandDependenciesExist() error = nil, want forbidden dependency")
 		}
@@ -285,9 +293,6 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			ModuleID:        "io.example.expected",
 			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
-		if err := lock.Save(filepath.Join(moduleDir, invowkmod.LockFileName)); err != nil {
-			t.Fatalf("lock.Save() = %v", err)
-		}
 		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
 			Module:   "io.example.caller",
 			Version:  "1.0.0",
@@ -315,7 +320,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			},
 		}
 
-		err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx)
+		err := CheckCommandDependenciesExistWithLockProvider(disc, deps, callerInfo, ctx, staticCommandScopeLockProvider{lock: lock})
 		if err == nil {
 			t.Fatal("CheckCommandDependenciesExist() error = nil, want forbidden dependency")
 		}
@@ -335,9 +340,6 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		t.Parallel()
 
 		moduleDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(moduleDir, invowkmod.LockFileName), []byte("not: [valid"), 0o644); err != nil {
-			t.Fatalf("WriteFile(lock) error = %v", err)
-		}
 		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
 			Module:  "io.example.caller",
 			Version: "1.0.0",
@@ -361,7 +363,11 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			},
 		}
 
-		err := CheckCommandDependenciesExist(disc, deps, callerInfo, ctx)
+		providerErr := &CommandScopeLockError{
+			Path: types.FilesystemPath(filepath.Join(moduleDir, invowkmod.LockFileName)),
+			Err:  errors.New("corrupt lock"),
+		}
+		err := CheckCommandDependenciesExistWithLockProvider(disc, deps, callerInfo, ctx, staticCommandScopeLockProvider{err: providerErr})
 		if err == nil {
 			t.Fatal("CheckCommandDependenciesExist() error = nil, want lock error")
 		}

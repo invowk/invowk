@@ -308,7 +308,7 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 			},
 			wantErr:      true,
 			wantSentinel: ErrContainerBuildConfig,
-			errMsg:       "Containerfile or Dockerfile",
+			errMsg:       "containerfile or image",
 		},
 	}
 
@@ -341,84 +341,6 @@ func TestContainerRuntime_Validate_Unit(t *testing.T) {
 				t.Errorf("Validate() unexpected error: %v", err)
 			}
 		})
-	}
-}
-
-// TestContainerRuntime_Validate_WithContainerfile tests validation with Containerfile present.
-func TestContainerRuntime_Validate_WithContainerfile(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
-	}
-
-	// Create a Containerfile in the temp directory
-	containerfilePath := filepath.Join(tmpDir, "Containerfile")
-	if err := os.WriteFile(containerfilePath, []byte("FROM debian:stable-slim\n"), 0o644); err != nil {
-		t.Fatalf("failed to create Containerfile: %v", err)
-	}
-
-	cmd := &invowkfile.Command{
-		Name: "with-containerfile",
-		Implementations: []invowkfile.Implementation{
-			{
-				Script:    "echo hello",
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}, // No image, but Containerfile exists
-				Platforms: invowkfile.AllPlatformConfigs(),
-			},
-		},
-	}
-
-	engine := NewMockEngine()
-	rt, rtErr := NewContainerRuntimeWithEngine(engine)
-	if rtErr != nil {
-		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", rtErr)
-	}
-	ctx := NewExecutionContext(t.Context(), cmd, inv)
-
-	err := rt.Validate(ctx)
-	if err != nil {
-		t.Errorf("Validate() with Containerfile unexpected error: %v", err)
-	}
-}
-
-// TestContainerRuntime_Validate_WithDockerfile tests validation with Dockerfile present.
-func TestContainerRuntime_Validate_WithDockerfile(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	inv := &invowkfile.Invowkfile{
-		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
-	}
-
-	// Create a Dockerfile in the temp directory
-	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
-	if err := os.WriteFile(dockerfilePath, []byte("FROM debian:stable-slim\n"), 0o644); err != nil {
-		t.Fatalf("failed to create Dockerfile: %v", err)
-	}
-
-	cmd := &invowkfile.Command{
-		Name: "with-dockerfile",
-		Implementations: []invowkfile.Implementation{
-			{
-				Script:    "echo hello",
-				Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}}, // No image, but Dockerfile exists
-				Platforms: invowkfile.AllPlatformConfigs(),
-			},
-		},
-	}
-
-	engine := NewMockEngine()
-	rt, rtErr := NewContainerRuntimeWithEngine(engine)
-	if rtErr != nil {
-		t.Fatalf("NewContainerRuntimeWithEngine() unexpected error: %v", rtErr)
-	}
-	ctx := NewExecutionContext(t.Context(), cmd, inv)
-
-	err := rt.Validate(ctx)
-	if err != nil {
-		t.Errorf("Validate() with Dockerfile unexpected error: %v", err)
 	}
 }
 

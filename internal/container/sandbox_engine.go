@@ -4,8 +4,10 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os/exec"
+	"strings"
 
 	"github.com/invowk/invowk/pkg/platform"
 )
@@ -24,10 +26,16 @@ import (
 //
 // When not in a sandbox, this wrapper passes through to the underlying engine
 // without modification.
-type SandboxAwareEngine struct {
-	wrapped     Engine
-	sandboxType platform.SandboxType
-}
+type (
+	// SandboxAwareEngine wraps a container Engine with sandbox host-spawn behavior.
+	SandboxAwareEngine struct {
+		wrapped     Engine
+		sandboxType platform.SandboxType
+		hostRunner  sandboxHostRunner
+	}
+
+	sandboxHostRunner func(ctx context.Context, name string, args ...string) ([]byte, error)
+)
 
 // NewSandboxAwareEngine wraps an Engine with sandbox awareness.
 // If not running in a sandbox, the engine is returned unwrapped.
@@ -39,6 +47,7 @@ func NewSandboxAwareEngine(engine Engine) Engine {
 	return &SandboxAwareEngine{
 		wrapped:     engine,
 		sandboxType: sandboxType,
+		hostRunner:  defaultSandboxHostRunner,
 	}
 }
 
@@ -48,6 +57,7 @@ func newSandboxAwareEngineForTesting(engine Engine, sandboxType platform.Sandbox
 	return &SandboxAwareEngine{
 		wrapped:     engine,
 		sandboxType: sandboxType,
+		hostRunner:  defaultSandboxHostRunner,
 	}
 }
 
@@ -62,16 +72,23 @@ func (e *SandboxAwareEngine) Available() bool {
 	if e.sandboxType == platform.SandboxNone {
 		return e.wrapped.Available()
 	}
-	spawnCmd, spawnArgs := e.getSpawnInfo()
-	args := append(append([]string{}, spawnArgs...), e.wrapped.BinaryPath(), "version")
-	cmd := exec.CommandContext(context.Background(), spawnCmd, args...)
-	return cmd.Run() == nil
+	return probeEngineAvailability(func(ctx context.Context) error {
+		_, err := e.runHostSpawn(ctx, e.versionArgs()...)
+		return err
+	})
 }
 
 // Version returns the wrapped engine version.
 //
 //plint:render
 func (e *SandboxAwareEngine) Version(ctx context.Context) (string, error) {
+	if e.sandboxType != platform.SandboxNone {
+		out, err := e.runHostSpawn(ctx, e.versionArgs()...)
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
 	return e.wrapped.Version(ctx)
 }
 
@@ -240,6 +257,39 @@ func (e *SandboxAwareEngine) SysctlOverrideActive() bool {
 		return checker.SysctlOverrideActive()
 	}
 	return false
+}
+
+//goplint:ignore -- host-spawn adapter uses os/exec primitive argv and output bytes.
+func defaultSandboxHostRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = cmdWaitDelay
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf(commandFailedFmt, name, args, err)
+	}
+	return out, nil
+}
+
+//goplint:ignore -- host-spawn adapter uses os/exec primitive argv and output bytes.
+func (e *SandboxAwareEngine) runHostSpawn(ctx context.Context, args ...string) ([]byte, error) {
+	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), args)
+	runner := e.hostRunner
+	if runner == nil {
+		runner = defaultSandboxHostRunner
+	}
+	return runner(ctx, fullArgs[0], fullArgs[1:]...)
+}
+
+//goplint:ignore -- host-spawn adapter uses os/exec primitive argv and output bytes.
+func (e *SandboxAwareEngine) versionArgs() []string {
+	switch e.wrapped.Name() {
+	case string(EngineTypeDocker):
+		return []string{"version", "--format", "{{.Server.Version}}"}
+	case string(EngineTypePodman):
+		return []string{"version", "--format", "{{.Version}}"}
+	default:
+		return []string{"version"}
+	}
 }
 
 // buildSpawnArgs constructs the full argument list for spawning a command on the host.

@@ -166,7 +166,7 @@ func TestDispatchExecution_DependencyError(t *testing.T) {
 func TestAppendRuntimeRegistryDiagnostics(t *testing.T) {
 	t.Parallel()
 
-	diag, err := discovery.NewDiagnostic(discovery.SeverityWarning, discovery.CodeConfigLoadFailed, "warn")
+	diag, err := NewDiagnosticWithCause(DiagnosticSeverityWarning, DiagnosticCodeConfigLoadFailed, "warn", "", nil)
 	if err != nil {
 		t.Fatalf("NewDiagnostic(): %v", err)
 	}

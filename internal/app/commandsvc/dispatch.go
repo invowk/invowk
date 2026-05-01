@@ -141,19 +141,19 @@ func newClassifiedExecutionError(err error) *ClassifiedError {
 }
 
 // BridgeRuntimeDiagnostics converts runtime-layer initialization diagnostics
-// into discovery diagnostics for the CLI-facing diagnostic renderer.
+// into command-service diagnostics.
 func BridgeRuntimeDiagnostics(diags []runtime.InitDiagnostic) []Diagnostic {
 	result := make([]Diagnostic, 0, len(diags))
 	for _, diag := range diags {
-		d, err := discovery.NewDiagnosticWithCause(
-			discovery.SeverityWarning,
-			discovery.DiagnosticCode(diag.Code),
+		d, err := NewDiagnosticWithCause(
+			DiagnosticSeverityWarning,
+			DiagnosticCode(diag.Code),
 			diag.Message,
 			"",
 			diag.Cause,
 		)
 		if err != nil {
-			slog.Error("BUG: failed to bridge runtime diagnostic to discovery diagnostic",
+			slog.Error("BUG: failed to bridge runtime diagnostic to command diagnostic",
 				"code", diag.Code, "error", err)
 			continue
 		}

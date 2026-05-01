@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"slices"
 	"strings"
@@ -147,6 +148,7 @@ func NewApp(d Dependencies) (*App, error) {
 				&cliExecutionObserver{stdout: d.Stdout},
 				commandadapters.NewDependencyCapabilityChecker(),
 				commandadapters.NewDependencyHostProbe(),
+				commandadapters.NewDependencyLockProvider(),
 			),
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
@@ -182,7 +184,8 @@ func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (Ex
 		return ExecuteResult{}, nil, renderAndWrapServiceError(err, req)
 	}
 
-	result, diags, err := a.svc.Execute(ctx, req)
+	result, commandDiags, err := a.svc.Execute(ctx, req)
+	diags := convertCommandDiagnostics(commandDiags)
 
 	// Handle dry-run rendering: the service returns structured data;
 	// the CLI adapter renders it with lipgloss styles.
@@ -199,12 +202,34 @@ func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (Ex
 
 // ResolveFromSource delegates source-filtered command selection to the command service.
 func (a *cliCommandAdapter) ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
-	return a.svc.ResolveFromSource(ctx, req)
+	cmdInfo, resolvedReq, commandDiags, err := a.svc.ResolveFromSource(ctx, req)
+	return cmdInfo, resolvedReq, convertCommandDiagnostics(commandDiags), err
 }
 
 // ResolveCommand delegates command selection to the command service.
 func (a *cliCommandAdapter) ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
-	return a.svc.ResolveCommand(ctx, req)
+	cmdInfo, resolvedReq, commandDiags, err := a.svc.ResolveCommand(ctx, req)
+	return cmdInfo, resolvedReq, convertCommandDiagnostics(commandDiags), err
+}
+
+func convertCommandDiagnostics(diags []commandsvc.Diagnostic) []discovery.Diagnostic {
+	result := make([]discovery.Diagnostic, 0, len(diags))
+	for _, diag := range diags {
+		converted, err := discovery.NewDiagnosticWithCause(
+			discovery.Severity(diag.Severity()),
+			discovery.DiagnosticCode(diag.Code()),
+			diag.Message().String(),
+			diag.Path(),
+			diag.Cause(),
+		)
+		if err != nil {
+			slog.Error("BUG: failed to bridge command diagnostic to CLI diagnostic",
+				"code", diag.Code(), "error", err)
+			continue
+		}
+		result = append(result, converted)
+	}
+	return result
 }
 
 // renderAndWrapServiceError inspects the raw domain error from the service and

@@ -84,7 +84,7 @@ func TestServiceDiscoverCommand(t *testing.T) {
 		t.Fatalf("NewDiagnostic(): %v", diagErr)
 	}
 	service.discovery = &stubCommandDiscovery{
-		lookup:    discovery.LookupResult{Diagnostics: []Diagnostic{diag}},
+		lookup:    discovery.LookupResult{Diagnostics: []discovery.Diagnostic{diag}},
 		lookupErr: errors.New("lookup failed"),
 	}
 	_, _, _, diags, err = service.discoverCommand(t.Context(), Request{Name: "build"})

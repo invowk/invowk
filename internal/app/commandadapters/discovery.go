@@ -253,7 +253,8 @@ func (s *DiscoveryService) loadConfig(ctx context.Context) (*config.Config, []di
 		cache.mu.Unlock()
 	}
 
-	cfg, diags := commandsvc.LoadConfigWithFallback(ctx, s.config, configPath)
+	cfg, commandDiags := commandsvc.LoadConfigWithFallback(ctx, s.config, configPath)
+	diags := discoveryDiagnosticsFromCommand(commandDiags)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		if !cache.hasConfig {
@@ -265,6 +266,24 @@ func (s *DiscoveryService) loadConfig(ctx context.Context) (*config.Config, []di
 	}
 
 	return cfg, diags
+}
+
+func discoveryDiagnosticsFromCommand(diags []commandsvc.Diagnostic) []discovery.Diagnostic {
+	result := make([]discovery.Diagnostic, 0, len(diags))
+	for _, diag := range diags {
+		converted, err := discovery.NewDiagnosticWithCause(
+			discovery.Severity(diag.Severity()),
+			discovery.DiagnosticCode(diag.Code()),
+			diag.Message().String(),
+			diag.Path(),
+			diag.Cause(),
+		)
+		if err != nil {
+			continue
+		}
+		result = append(result, converted)
+	}
+	return result
 }
 
 func lookupFromCommandSet(commandSetResult discovery.CommandSetResult, cmdName invowkfile.CommandName) (discovery.LookupResult, error) {

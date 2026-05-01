@@ -31,12 +31,6 @@ const (
 )
 
 type (
-	// Diagnostic is the command-service diagnostic vocabulary returned to driving
-	// adapters. Discovery diagnostics are bridged into this type at the service
-	// boundary so execution/config/runtime warnings do not leak discovery package
-	// names through command-service APIs.
-	Diagnostic = discovery.Diagnostic
-
 	//goplint:validate-all
 	//
 	// Request captures all execution inputs as an immutable value.

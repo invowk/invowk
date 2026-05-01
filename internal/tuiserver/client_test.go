@@ -396,18 +396,11 @@ func TestClient_Spin(t *testing.T) {
 	server, client := startTestServer(t)
 
 	errCh := respondWith(t, server, Response{
-		Result: mustMarshalResult(t, SpinResult{Stdout: "output", ExitCode: 0}),
+		Result: mustMarshalResult(t, SpinResult{}),
 	})
 
-	result, err := client.Spin(SpinRequest{Title: "loading"})
-	if err != nil {
+	if err := client.Spin(SpinRequest{Title: "loading"}); err != nil {
 		t.Fatalf("Spin() error = %v", err)
-	}
-	if result.Stdout != "output" {
-		t.Fatalf("Spin().Stdout = %q, want %q", result.Stdout, "output")
-	}
-	if result.ExitCode != 0 {
-		t.Fatalf("Spin().ExitCode = %d, want 0", result.ExitCode)
 	}
 	assertNoAsyncError(t, errCh)
 }

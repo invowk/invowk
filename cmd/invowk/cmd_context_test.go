@@ -264,10 +264,10 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 		t.Fatalf("Execute() diagnostics count = %d, want 2; diagnostics=%#v", len(diags), diags)
 	}
 
-	if diags[0].Code() != discovery.CodeConfigLoadFailed {
+	if diags[0].Code() != commandsvc.DiagnosticCodeConfigLoadFailed {
 		t.Fatalf("Execute() first diagnostic code = %q, want %q", diags[0].Code(), discovery.CodeConfigLoadFailed)
 	}
-	if diags[1].Code() != discovery.CodeCommandNotFound {
+	if string(diags[1].Code()) != string(discovery.CodeCommandNotFound) {
 		t.Fatalf("Execute() second diagnostic code = %q, want %q", diags[1].Code(), discovery.CodeCommandNotFound)
 	}
 }

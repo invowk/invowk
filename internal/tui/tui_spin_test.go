@@ -146,10 +146,7 @@ func TestSpinModel_Result(t *testing.T) {
 
 	model := NewSpinModel(t.Context(), opts)
 	model.done = true
-	model.result = SpinResult{
-		Stdout:   "test output",
-		ExitCode: 0,
-	}
+	model.result = SpinResult{}
 
 	result, err := model.Result()
 	if err != nil {
@@ -161,12 +158,7 @@ func TestSpinModel_Result(t *testing.T) {
 		t.Fatalf("expected SpinResult, got %T", result)
 	}
 
-	if spinResult.Stdout != "test output" {
-		t.Errorf("expected stdout 'test output', got %q", spinResult.Stdout)
-	}
-	if spinResult.ExitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", spinResult.ExitCode)
-	}
+	_ = spinResult
 }
 
 func TestSpinModel_UpdateTickMsg(t *testing.T) {
@@ -205,19 +197,13 @@ func TestSpinModel_UpdateDoneMsg(t *testing.T) {
 
 	// Simulate done message
 	msg := spinnerDoneMsg{
-		result: SpinResult{
-			Stdout:   "output",
-			ExitCode: 0,
-		},
+		result: SpinResult{},
 	}
 	updatedModel, _ := model.Update(msg)
 	m := updatedModel.(*spinModel)
 
 	if !m.IsDone() {
 		t.Error("expected model to be done after done message")
-	}
-	if m.result.Stdout != "output" {
-		t.Errorf("expected stdout 'output', got %q", m.result.Stdout)
 	}
 }
 

@@ -79,11 +79,10 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 	}
 
 	result, err := r.provisioner.Provision(ctx.Context, provision.Request{
-		BaseImage:      container.ImageTag(baseImage),
-		InvowkfilePath: ctx.Invowkfile.FilePath,
-		ForceRebuild:   ctx.ForceRebuild,
-		Stdout:         ctx.IO.Stderr,
-		Stderr:         ctx.IO.Stderr,
+		BaseImage:    container.ImageTag(baseImage),
+		ForceRebuild: ctx.ForceRebuild,
+		Stdout:       ctx.IO.Stderr,
+		Stderr:       ctx.IO.Stderr,
 	})
 	if err != nil {
 		if r.provisionConfig.Strict {
@@ -114,13 +113,7 @@ func (r *ContainerRuntime) ensureImage(ctx *ExecutionContext, cfg invowkfileCont
 	// Build from Containerfile/Dockerfile
 	containerfile := cfg.Containerfile
 	if containerfile == "" {
-		// Try Containerfile first, then Dockerfile
-		containerfilePath := filepath.Join(invowkDir, "Containerfile")
-		if _, err := os.Stat(containerfilePath); err == nil {
-			containerfile = container.HostFilesystemPath("Containerfile")
-		} else {
-			containerfile = container.HostFilesystemPath("Dockerfile")
-		}
+		return "", fmt.Errorf("%w: container runtime requires either containerfile or image in the runtime config", ErrContainerBuildConfig)
 	}
 
 	containerfilePath := filepath.Join(invowkDir, string(containerfile))

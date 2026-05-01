@@ -5,14 +5,12 @@ package deps
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 // ValidateDependencies validates dependencies for a command in two phases:
@@ -40,8 +38,14 @@ func ValidateDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdInfo 
 // ValidateDependenciesWithHostProbe validates dependencies with injectable
 // host-device probes for application-service tests and adapters.
 func ValidateDependenciesWithHostProbe(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe) error {
+	return ValidateDependenciesWithPorts(disc, cmdInfo, registry, parentCtx, userEnv, hostCapabilityChecker, hostProbe, nil)
+}
+
+// ValidateDependenciesWithPorts validates dependencies with injectable
+// outside-device ports for application-service tests and adapters.
+func ValidateDependenciesWithPorts(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe, lockProvider CommandScopeLockProvider) error {
 	// Phase 1: Host dependencies (root + cmd + impl, always validated on host)
-	if err := ValidateHostDependenciesWithHostProbe(disc, cmdInfo, parentCtx, userEnv, hostCapabilityChecker, hostProbe); err != nil {
+	if err := ValidateHostDependenciesWithPorts(disc, cmdInfo, parentCtx, userEnv, hostCapabilityChecker, hostProbe, lockProvider); err != nil {
 		return err
 	}
 
@@ -63,6 +67,12 @@ func ValidateHostDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdI
 
 // ValidateHostDependenciesWithHostProbe validates host dependencies with injectable host-device probes.
 func ValidateHostDependenciesWithHostProbe(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe) error {
+	return ValidateHostDependenciesWithPorts(disc, cmdInfo, parentCtx, userEnv, hostCapabilityChecker, hostProbe, nil)
+}
+
+// ValidateHostDependenciesWithPorts validates host dependencies with injectable
+// host-device and lock-file ports.
+func ValidateHostDependenciesWithPorts(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe, lockProvider CommandScopeLockProvider) error {
 	mergedDeps := invowkfile.MergeDependsOnAll(cmdInfo.Invowkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 	if mergedDeps == nil {
 		return nil
@@ -98,7 +108,7 @@ func ValidateHostDependenciesWithHostProbe(disc CommandSetProvider, cmdInfo *dis
 
 	// Command discoverability + scope enforcement: routed through CommandSetProvider
 	// so the per-request cache avoids redundant filesystem scans.
-	return CheckCommandDependenciesExist(disc, mergedDeps, cmdInfo, parentCtx)
+	return CheckCommandDependenciesExistWithLockProvider(disc, mergedDeps, cmdInfo, parentCtx, lockProvider)
 }
 
 // ValidateRuntimeDependencies validates the selected runtime config's depends_on against
@@ -162,6 +172,12 @@ func ValidateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runti
 // each found command must be in the caller's CommandScope (same module, global, or
 // direct dependency). Root invowkfile commands (nil Metadata) bypass scope enforcement.
 func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.DependsOn, cmdInfo *discovery.CommandInfo, ctx *runtime.ExecutionContext) error {
+	return CheckCommandDependenciesExistWithLockProvider(disc, deps, cmdInfo, ctx, nil)
+}
+
+// CheckCommandDependenciesExistWithLockProvider verifies command dependencies
+// using caller-provided lock-file state for module scope policy.
+func CheckCommandDependenciesExistWithLockProvider(disc CommandSetProvider, deps *invowkfile.DependsOn, cmdInfo *discovery.CommandInfo, ctx *runtime.ExecutionContext, lockProvider CommandScopeLockProvider) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
@@ -180,7 +196,7 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 		}
 	}
 
-	lock, err := loadCommandScopeLock(cmdInfo.Invowkfile)
+	lock, err := commandScopeLock(lockProvider, cmdInfo.Invowkfile)
 	if err != nil {
 		return err
 	}
@@ -277,19 +293,11 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 	return scope
 }
 
-func loadCommandScopeLock(inv *invowkfile.Invowkfile) (*invowkmod.LockFile, error) {
-	if inv == nil || inv.ModulePath == "" {
+func commandScopeLock(provider CommandScopeLockProvider, inv *invowkfile.Invowkfile) (*invowkmod.LockFile, error) {
+	if provider == nil || inv == nil || inv.ModulePath == "" {
 		return &invowkmod.LockFile{}, nil
 	}
-	lockPath := filepath.Join(string(inv.ModulePath), invowkmod.LockFileName)
-	lock, err := invowkmod.LoadLockFile(lockPath)
-	if err != nil {
-		return nil, &CommandScopeLockError{
-			Path: types.FilesystemPath(lockPath),
-			Err:  err,
-		}
-	}
-	return lock, nil
+	return provider.LoadCommandScopeLock(inv)
 }
 
 func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.CommandScopeDecision) DependencyMessage {

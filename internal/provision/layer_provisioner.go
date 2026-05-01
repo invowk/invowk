@@ -87,7 +87,7 @@ func (p *LayerProvisioner) Provision(ctx context.Context, req Request) (*Result,
 	}
 
 	// Calculate cache key
-	cacheKey, err := p.calculateCacheKey(ctx, req.BaseImage, req.InvowkfilePath)
+	cacheKey, err := p.calculateCacheKey(ctx, req.BaseImage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate cache key: %w", err)
 	}
@@ -136,7 +136,7 @@ func (p *LayerProvisioner) GetProvisionedImageTag(ctx context.Context, baseImage
 	if err := baseImage.Validate(); err != nil {
 		return "", fmt.Errorf("base image: %w", err)
 	}
-	cacheKey, err := p.calculateCacheKey(ctx, baseImage, p.config.InvowkfilePath)
+	cacheKey, err := p.calculateCacheKey(ctx, baseImage)
 	if err != nil {
 		return "", err
 	}
@@ -167,7 +167,7 @@ func (p *LayerProvisioner) buildProvisionedTag(hash string) string {
 }
 
 // calculateCacheKey generates a unique key based on all provisioned layer resources.
-func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag, _ types.FilesystemPath) (string, error) {
+func (p *LayerProvisioner) calculateCacheKey(ctx context.Context, baseImage container.ImageTag) (string, error) {
 	h := sha256.New()
 
 	h.Write([]byte("provision_layer_version:" + provisionedLayerCacheVersion))

@@ -5,9 +5,7 @@ package container
 import (
 	"context"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -129,22 +127,62 @@ func TestSandboxAwareEngine_Flatpak(t *testing.T) {
 }
 
 func TestSandboxAwareEngine_AvailableUsesHostSpawn(t *testing.T) {
-	tmpDir := t.TempDir()
-	spawnPath := filepath.Join(tmpDir, "flatpak-spawn")
-	if err := os.WriteFile(spawnPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write flatpak-spawn stub: %v", err)
-	}
-	t.Setenv("PATH", tmpDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-
 	mock := &mockEngine{
 		name:       "podman",
 		available:  false,
 		binaryPath: "/usr/bin/podman",
 	}
 	engine := newSandboxAwareEngineForTesting(mock, platform.SandboxFlatpak)
+	var gotName string
+	var gotArgs []string
+	engine.hostRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		gotName = name
+		gotArgs = append([]string(nil), args...)
+		return nil, nil
+	}
 
 	if !engine.Available() {
 		t.Fatal("Available() = false, want true via host spawn")
+	}
+	if gotName != "flatpak-spawn" {
+		t.Fatalf("host runner name = %q, want flatpak-spawn", gotName)
+	}
+	wantArgs := []string{"--host", "/usr/bin/podman", "version", "--format", "{{.Version}}"}
+	if !slices.Equal(gotArgs, wantArgs) {
+		t.Fatalf("host runner args = %v, want %v", gotArgs, wantArgs)
+	}
+}
+
+func TestSandboxAwareEngine_VersionUsesHostSpawn(t *testing.T) {
+	t.Parallel()
+
+	mock := &mockEngine{
+		name:       "docker",
+		available:  false,
+		binaryPath: "/usr/bin/docker",
+	}
+	engine := newSandboxAwareEngineForTesting(mock, platform.SandboxFlatpak)
+	var gotName string
+	var gotArgs []string
+	engine.hostRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		gotName = name
+		gotArgs = append([]string(nil), args...)
+		return []byte("25.0.0\n"), nil
+	}
+
+	version, err := engine.Version(t.Context())
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
+	if version != "25.0.0" {
+		t.Fatalf("Version() = %q, want 25.0.0", version)
+	}
+	if gotName != "flatpak-spawn" {
+		t.Fatalf("host runner name = %q, want flatpak-spawn", gotName)
+	}
+	wantArgs := []string{"--host", "/usr/bin/docker", "version", "--format", "{{.Server.Version}}"}
+	if !slices.Equal(gotArgs, wantArgs) {
+		t.Fatalf("host runner args = %v, want %v", gotArgs, wantArgs)
 	}
 }
 

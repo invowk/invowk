@@ -143,7 +143,7 @@ func TestLoadConfigWithFallback(t *testing.T) {
 	if len(explicitDiags) != 1 {
 		t.Fatalf("len(explicitDiags) = %d, want 1", len(explicitDiags))
 	}
-	if explicitDiags[0].Severity() != discovery.SeverityError {
+	if explicitDiags[0].Severity() != commandsvc.DiagnosticSeverityError {
 		t.Fatalf("explicit severity = %s, want error", explicitDiags[0].Severity())
 	}
 	if string(explicitDiags[0].Path()) != customPath {
@@ -158,7 +158,7 @@ func TestLoadConfigWithFallback(t *testing.T) {
 	if defaultCfg == nil {
 		t.Fatal("defaultCfg = nil")
 	}
-	if len(defaultDiags) != 1 || defaultDiags[0].Severity() != discovery.SeverityError {
+	if len(defaultDiags) != 1 || defaultDiags[0].Severity() != commandsvc.DiagnosticSeverityError {
 		t.Fatalf("defaultDiags = %v", defaultDiags)
 	}
 

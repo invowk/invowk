@@ -31,7 +31,6 @@ func TestConfigValidate(t *testing.T) {
 			name: "all valid paths",
 			cfg: Config{
 				InvowkBinaryPath: types.FilesystemPath(filepath.Join(tmpDir, "bin", "invowk")),
-				InvowkfilePath:   types.FilesystemPath(filepath.Join(tmpDir, "project", "invowkfile.cue")),
 				BinaryMountPath:  "/invowk/bin",     // container-internal path
 				ModulesMountPath: "/invowk/modules", // container-internal path
 				CacheDir:         types.FilesystemPath(filepath.Join(tmpDir, "cache", "provision")),
@@ -78,7 +77,6 @@ func TestConfigValidate(t *testing.T) {
 			name: "multiple invalid fields",
 			cfg: Config{
 				InvowkBinaryPath: "   ",
-				InvowkfilePath:   "   ",
 				BinaryMountPath:  container.MountTargetPath("   "),
 				ModulesMountPath: container.MountTargetPath("   "),
 				CacheDir:         "   ",
@@ -149,7 +147,6 @@ func TestConfigValidate_MultipleFieldErrors(t *testing.T) {
 
 	cfg := Config{
 		InvowkBinaryPath: "   ",
-		InvowkfilePath:   "   ",
 		CacheDir:         "   ",
 	}
 
@@ -162,8 +159,8 @@ func TestConfigValidate_MultipleFieldErrors(t *testing.T) {
 	if !errors.As(err, &configErr) {
 		t.Fatalf("error should be *InvalidProvisionConfigError, got: %T", err)
 	}
-	if len(configErr.FieldErrors) != 3 {
-		t.Errorf("expected 3 field errors, got %d: %v", len(configErr.FieldErrors), configErr.FieldErrors)
+	if len(configErr.FieldErrors) != 2 {
+		t.Errorf("expected 2 field errors, got %d: %v", len(configErr.FieldErrors), configErr.FieldErrors)
 	}
 
 	// Verify Error() message mentions count

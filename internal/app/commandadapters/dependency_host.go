@@ -17,6 +17,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 	"golang.org/x/term"
@@ -26,11 +27,18 @@ type (
 	dependencyHostProbe struct{}
 
 	dependencyCapabilityChecker struct{}
+
+	dependencyLockProvider struct{}
 )
 
 // NewDependencyHostProbe creates the production host probe for dependency checks.
 func NewDependencyHostProbe() deps.HostProbe {
 	return dependencyHostProbe{}
+}
+
+// NewDependencyLockProvider creates the production lock provider for command scope checks.
+func NewDependencyLockProvider() deps.CommandScopeLockProvider {
+	return dependencyLockProvider{}
 }
 
 // NewDependencyCapabilityChecker creates the production capability checker for dependency checks.
@@ -40,6 +48,11 @@ func NewDependencyCapabilityChecker() deps.CapabilityChecker {
 
 // Validate returns nil because DependencyHostProbe is stateless.
 func (dependencyHostProbe) Validate() error {
+	return nil
+}
+
+// Validate returns nil because DependencyLockProvider is stateless.
+func (dependencyLockProvider) Validate() error {
 	return nil
 }
 
@@ -93,6 +106,29 @@ func (dependencyHostProbe) RunCustomCheck(ctx context.Context, check invowkfile.
 	outputStr := strings.TrimSpace(string(output))
 
 	return deps.ValidateCustomCheckOutput(check, outputStr, err)
+}
+
+// LoadCommandScopeLock loads lock-file state for command-scope validation.
+func (dependencyLockProvider) LoadCommandScopeLock(inv *invowkfile.Invowkfile) (*invowkmod.LockFile, error) {
+	if inv == nil || inv.ModulePath == "" {
+		return &invowkmod.LockFile{}, nil
+	}
+	lockPath := filepath.Join(string(inv.ModulePath), invowkmod.LockFileName)
+	typedPath := types.FilesystemPath(lockPath)
+	if pathErr := typedPath.Validate(); pathErr != nil {
+		return nil, &deps.CommandScopeLockError{
+			Path: typedPath,
+			Err:  pathErr,
+		}
+	}
+	lock, err := invowkmod.LoadLockFile(lockPath)
+	if err != nil {
+		return nil, &deps.CommandScopeLockError{
+			Path: typedPath,
+			Err:  err,
+		}
+	}
+	return lock, nil
 }
 
 // Check validates that a system capability is available.

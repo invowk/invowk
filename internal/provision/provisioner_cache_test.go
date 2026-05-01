@@ -33,12 +33,12 @@ func TestLayerProvisioner_CalculateCacheKey_Determinism(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+	key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+	key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -83,12 +83,12 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 		}
 
-		key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+		key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("registry.example.com/base/app:22.04"), "")
+		key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("registry.example.com/base/app:22.04"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -123,12 +123,12 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			t.Fatalf("NewLayerProvisioner(cfg2) unexpected error: %v", p2Err)
 		}
 
-		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -173,12 +173,12 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			t.Fatalf("NewLayerProvisioner(cfgWithoutMods) unexpected error: %v", p2Err)
 		}
 
-		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -213,12 +213,12 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 			t.Fatalf("NewLayerProvisioner(cfg2) unexpected error: %v", p2Err)
 		}
 
-		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+		key1, err := p1.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+		key2, err := p2.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -249,7 +249,6 @@ func TestLayerProvisioner_CalculateCacheKey_IgnoresWorkspaceContent(t *testing.T
 	cfg := &Config{
 		Enabled:          true,
 		InvowkBinaryPath: types.FilesystemPath(binaryPath),
-		InvowkfilePath:   types.FilesystemPath(invowkfilePath),
 		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
@@ -258,14 +257,14 @@ func TestLayerProvisioner_CalculateCacheKey_IgnoresWorkspaceContent(t *testing.T
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), cfg.InvowkfilePath)
+	key1, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if writeErr := os.WriteFile(filepath.Join(workspace, "README.md"), []byte("changed workspace content"), 0o644); writeErr != nil {
 		t.Fatalf("failed to write workspace file: %v", writeErr)
 	}
-	key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), cfg.InvowkfilePath)
+	key2, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -291,7 +290,7 @@ func TestLayerProvisioner_CalculateCacheKey_NoBinary(t *testing.T) {
 		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
 	}
 
-	key, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"), "")
+	key, err := provisioner.calculateCacheKey(t.Context(), container.ImageTag("debian:stable-slim"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

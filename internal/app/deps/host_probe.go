@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -20,5 +21,10 @@ type (
 		CheckTool(invowkfile.BinaryName) error
 		CheckFilepath(displayPath, resolvedPath types.FilesystemPath, fp invowkfile.FilepathDependency) error
 		RunCustomCheck(ctx context.Context, check invowkfile.CustomCheck) error
+	}
+
+	// CommandScopeLockProvider loads lock-file state for command-scope policy.
+	CommandScopeLockProvider interface {
+		LoadCommandScopeLock(inv *invowkfile.Invowkfile) (*invowkmod.LockFile, error)
 	}
 )

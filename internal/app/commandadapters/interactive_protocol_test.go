@@ -9,7 +9,6 @@ import (
 
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiwire"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestComponentResponseToProtocolStatus(t *testing.T) {
@@ -86,16 +85,9 @@ func TestComponentResponseToProtocolResults(t *testing.T) {
 		t.Parallel()
 
 		got := componentResponseToProtocol(tui.ComponentTypeSpin, tui.ComponentResponse{
-			Result: tuiwire.SpinResult{
-				Stdout:   "output",
-				Stderr:   "error",
-				ExitCode: types.ExitCode(1),
-			},
+			Result: tuiwire.SpinResult{},
 		})
-		result := decodeComponentResult[tuiwire.SpinResult](t, got)
-		if result.Stdout != "output" || result.Stderr != "error" || result.ExitCode != 1 {
-			t.Fatalf("SpinResult = %+v, want output/error/1", result)
-		}
+		_ = decodeComponentResult[tuiwire.SpinResult](t, got)
 	})
 }
 

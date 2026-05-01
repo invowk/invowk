@@ -1,0 +1,27 @@
+# Test: invowk audit surfaces diagnostics in text output
+# Verifies non-fatal scan diagnostics are visible even when no findings exist.
+
+cd $WORK
+
+exec invowk audit --severity low ./root.invowkmod
+stdout 'Security Audit'
+stdout 'Diagnostics'
+stdout 'vendored_module_skipped'
+stdout 'bad.invowkmod'
+stdout 'No findings at or above low severity'
+
+-- root.invowkmod/invowkmod.cue --
+module: "root"
+version: "1.0.0"
+-- root.invowkmod/invowkfile.cue --
+cmds: [{
+    name: "safe"
+    implementations: [{
+        script: "echo safe"
+        runtimes: [{name: "native"}]
+        platforms: [{name: "linux"}, {name: "macos"}]
+    }]
+}]
+-- root.invowkmod/invowk_modules/bad.invowkmod/invowkmod.cue --
+module: "io.example.bad"
+version:

@@ -372,19 +372,27 @@ func (d *Discovery) loadIncludesWithDiagnostics() ([]*DiscoveredFile, []Diagnost
 // module's invowk_modules/ directory to find vendored dependencies. Nested
 // vendoring (invowk_modules inside vendored modules) is not recursed into;
 // a diagnostic warning is emitted if detected.
-func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkmod.Module) ([]*DiscoveredFile, []Diagnostic) {
+func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkmod.Module) ([]*DiscoveredFile, []Diagnostic, error) {
 	var files []*DiscoveredFile
 	diagnostics := make([]Diagnostic, 0)
 
 	if parentModule == nil || parentModule.Metadata == nil {
-		return files, diagnostics
+		return files, diagnostics, nil
 	}
 
 	vendorDir := invowkmod.GetVendoredModulesDir(parentModule.Path)
 	vendorDirStr := string(vendorDir)
 	if _, err := os.Stat(vendorDirStr); err != nil {
-		// No vendor directory is common and not a warning
-		return files, diagnostics
+		if !os.IsNotExist(err) {
+			diagnostics = append(diagnostics, mustDiagnosticWithCause(
+				SeverityWarning,
+				CodeVendoredScanFailed,
+				fmt.Sprintf("failed to stat vendored modules directory %s: %v", vendorDir, err),
+				vendorDir,
+				err,
+			))
+		}
+		return files, diagnostics, nil
 	}
 
 	entries, err := os.ReadDir(vendorDirStr)
@@ -396,7 +404,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			vendorDir,
 			err,
 		))
-		return files, diagnostics
+		return files, diagnostics, nil
 	}
 
 	lockPath := types.FilesystemPath(filepath.Join(string(parentModule.Path), invowkmod.LockFileName)) //goplint:ignore -- derived from validated module path and constant filename
@@ -409,7 +417,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			lockPath,
 			err,
 		))
-		return files, diagnostics
+		return files, diagnostics, nil
 	}
 
 	for _, entry := range entries {
@@ -457,7 +465,8 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 			))
 			continue
 		}
-		if !invowkmod.IsDeclaredLockedModule(parentModule.Metadata.Requires, lock, m.Metadata.Module) {
+		moduleKey, locked, ok := invowkmod.DeclaredLockedModuleEntry(parentModule.Metadata.Requires, lock, m.Metadata.Module)
+		if !ok {
 			diagnostics = append(diagnostics, mustDiagnosticWithPath(
 				SeverityWarning,
 				CodeVendoredUndeclaredSkipped,
@@ -465,6 +474,11 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 				vendoredModPath,
 			))
 			continue
+		}
+		if d.verifyVendoredIntegrity {
+			if err := invowkmod.VerifyLockedVendoredModuleHash(moduleKey, locked, m); err != nil {
+				return files, diagnostics, fmt.Errorf("vendored module integrity check failed for %s: %w", m.Name(), err)
+			}
 		}
 		if diag, ok := vendoredTransitiveDiagnostic(parentModule, m, vendoredModPath); ok {
 			diagnostics = append(diagnostics, diag)
@@ -491,7 +505,7 @@ func (d *Discovery) discoverVendoredModulesWithDiagnostics(parentModule *invowkm
 		})
 	}
 
-	return files, diagnostics
+	return files, diagnostics, nil
 }
 
 func vendoredTransitiveDiagnostic(parentModule, childModule *invowkmod.Module, childPath types.FilesystemPath) (Diagnostic, bool) {
@@ -528,13 +542,13 @@ func vendoredCommandNamespace(requirements []invowkmod.ModuleRequirement, lock *
 }
 
 // appendModulesWithVendored appends the module files and diagnostics, then for
-// each discovered module, verifies vendored dependency integrity and scans its
+// each discovered module, scans its
 // invowk_modules/ directory. This DRYs the pattern used at all 3 module
 // discovery sites (local modules, includes, user-dir).
 //
-// Hash verification (SC-10 defense) runs before vendored module discovery so
-// that tampered modules are never loaded into the command tree. Returns a hard
-// error on hash mismatch — callers must abort discovery.
+// Hash verification (SC-10 defense) runs after an entry is confirmed as an
+// explicit locked dependency. Returns a hard error on hash mismatch — callers
+// must abort discovery.
 //
 // Vendored children inherit IsGlobalModule from their parent so that scope
 // enforcement treats globally-installed vendored commands identically to their
@@ -550,18 +564,11 @@ func (d *Discovery) appendModulesWithVendored(
 	for _, mf := range moduleFiles {
 		files = append(files, mf)
 
-		// Scan vendored modules owned by this module
-		if mf.Module != nil && d.verifyVendoredIntegrity {
-			// Verify vendored module content hashes against the lock file before
-			// loading any vendored code. A mismatch indicates tampering (e.g.,
-			// malicious commits, CI cache poisoning) and must abort discovery.
-			if err := invowkmod.VerifyVendoredModuleHashes(mf.Module.Path); err != nil {
-				return files, diagnostics, fmt.Errorf("vendored module integrity check failed for %s: %w", mf.Module.Name(), err)
-			}
-		}
-
 		if mf.Module != nil {
-			vendoredFiles, vendoredDiags := d.discoverVendoredModulesWithDiagnostics(mf.Module)
+			vendoredFiles, vendoredDiags, err := d.discoverVendoredModulesWithDiagnostics(mf.Module)
+			if err != nil {
+				return files, diagnostics, err
+			}
 			// Inherit IsGlobalModule from the parent module.
 			if mf.IsGlobalModule {
 				for _, vf := range vendoredFiles {

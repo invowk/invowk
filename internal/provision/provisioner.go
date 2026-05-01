@@ -8,7 +8,6 @@ import (
 	"io"
 
 	"github.com/invowk/invowk/internal/container"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -34,8 +33,6 @@ type (
 	Request struct {
 		// BaseImage is the image to layer invowk resources onto.
 		BaseImage container.ImageTag
-		// InvowkfilePath is the current invowkfile path for module discovery.
-		InvowkfilePath types.FilesystemPath
 		// ForceRebuild bypasses the provisioned-image cache.
 		ForceRebuild bool
 		// Stdout receives build output.
@@ -70,11 +67,6 @@ func (r Request) Validate() error {
 	var errs []error
 	if r.BaseImage != "" {
 		if err := r.BaseImage.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if r.InvowkfilePath != "" {
-		if err := r.InvowkfilePath.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}

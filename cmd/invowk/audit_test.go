@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/audit"
@@ -109,6 +110,36 @@ func TestConvertDiagnosticsUsesCLIDTO(t *testing.T) {
 	}
 	if got[0].Severity != "warning" || got[0].Code != "module-skipped" || got[0].Message != "skipped invalid module" {
 		t.Fatalf("diagnostic DTO = %#v", got[0])
+	}
+}
+
+func TestRenderAuditTextShowsDiagnosticsWithoutFindings(t *testing.T) {
+	t.Parallel()
+
+	diag, err := audit.NewDiagnostic("warning", "vendored_nested_ignored", "nested vendored modules are ignored")
+	if err != nil {
+		t.Fatalf("NewDiagnostic() error = %v", err)
+	}
+	report := &audit.Report{
+		ModuleCount: 1,
+		Diagnostics: []audit.Diagnostic{
+			diag,
+		},
+	}
+
+	var buf bytes.Buffer
+	renderAuditText(&buf, report, ".", audit.SeverityLow)
+
+	out := buf.String()
+	for _, want := range []string{
+		"Diagnostics (1)",
+		"vendored_nested_ignored",
+		"nested vendored modules are ignored",
+		"No findings at or above low severity",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("renderAuditText() output missing %q:\n%s", want, out)
+		}
 	}
 }
 

@@ -740,14 +740,3 @@ func TestConfigOptions_WithModulesPaths(t *testing.T) {
 		t.Errorf("expected first path '/path/to/modules1', got %q", cfg.ModulesPaths[0])
 	}
 }
-
-func TestConfigOptions_WithInvowkfilePath(t *testing.T) {
-	t.Parallel()
-
-	cfg := DefaultConfig()
-	cfg.Apply(WithInvowkfilePath(types.FilesystemPath("/path/to/invowkfile.cue")))
-
-	if cfg.InvowkfilePath != "/path/to/invowkfile.cue" {
-		t.Errorf("expected InvowkfilePath '/path/to/invowkfile.cue', got %q", cfg.InvowkfilePath)
-	}
-}

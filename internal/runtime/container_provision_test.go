@@ -402,12 +402,11 @@ func TestPrepareCommandIncludesProvisionedEnvVars(t *testing.T) {
 	}
 }
 
-func TestEnsureProvisionedImagePassesRequestWithoutMutatingConfig(t *testing.T) {
+func TestEnsureProvisionedImagePassesConfigScopedRequest(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	invPath := invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))
-	inv := &invowkfile.Invowkfile{FilePath: invPath}
+	inv := &invowkfile.Invowkfile{FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue"))}
 	cmd := &invowkfile.Command{
 		Name: "request-test",
 		Implementations: []invowkfile.Implementation{{
@@ -420,7 +419,6 @@ func TestEnsureProvisionedImagePassesRequestWithoutMutatingConfig(t *testing.T) 
 	var gotReq provision.Request
 	provCfg := &provision.Config{
 		Enabled:          true,
-		InvowkfilePath:   types.FilesystemPath(filepath.Join(tmpDir, "old-invowkfile.cue")),
 		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
 		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
 	}
@@ -455,16 +453,10 @@ func TestEnsureProvisionedImagePassesRequestWithoutMutatingConfig(t *testing.T) 
 		cleanup()
 	}
 
-	if gotReq.InvowkfilePath != invPath {
-		t.Fatalf("request InvowkfilePath = %q, want %q", gotReq.InvowkfilePath, invPath)
-	}
 	if !gotReq.ForceRebuild {
 		t.Fatal("request ForceRebuild = false, want true")
 	}
 	if gotReq.Stdout != &stderr || gotReq.Stderr != &stderr {
 		t.Fatal("request writers should be routed to execution stderr")
-	}
-	if provCfg.InvowkfilePath == invPath {
-		t.Fatal("provision config was mutated with execution invowkfile path")
 	}
 }

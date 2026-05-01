@@ -35,10 +35,6 @@ type (
 		// These are discovered from config search paths and user commands dir.
 		ModulesPaths []types.FilesystemPath
 
-		// InvowkfilePath is the path to the current invowkfile being executed.
-		// This is used to determine what needs to be provisioned.
-		InvowkfilePath types.FilesystemPath
-
 		// BinaryMountPath is where to place the binary in the container.
 		// Default: /invowk/bin
 		BinaryMountPath container.MountTargetPath
@@ -78,11 +74,6 @@ func (c Config) Validate() error {
 	var errs []error
 	if c.InvowkBinaryPath != "" {
 		if err := c.InvowkBinaryPath.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if c.InvowkfilePath != "" {
-		if err := c.InvowkfilePath.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -159,13 +150,6 @@ func WithInvowkBinaryPath(path types.FilesystemPath) Option {
 func WithModulesPaths(paths []types.FilesystemPath) Option {
 	return func(c *Config) {
 		c.ModulesPaths = paths
-	}
-}
-
-// WithInvowkfilePath returns an Option that sets InvowkfilePath on the config.
-func WithInvowkfilePath(path types.FilesystemPath) Option {
-	return func(c *Config) {
-		c.InvowkfilePath = path
 	}
 }
 
