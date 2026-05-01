@@ -106,6 +106,12 @@ func ValidateFilepathAlternativesWithProbe(fp invowkfile.FilepathDependency, inv
 
 //goplint:ignore -- helper resolves transient dependency path strings against a validated base dir.
 func resolveHostFilepathAlternative(invowkDir types.FilesystemPath, altPath string) string {
+	// Unix-style absolute paths (leading '/') must pass through unchanged on every
+	// platform. On Windows, filepath.IsAbs("/foo") returns false, so the check
+	// must precede the IsAbs guard to avoid joining the path with the invowkfile dir.
+	if strings.HasPrefix(altPath, "/") {
+		return altPath
+	}
 	if filepath.IsAbs(altPath) {
 		return altPath
 	}
