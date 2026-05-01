@@ -4,7 +4,6 @@ package tui
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -291,21 +290,6 @@ func TestInteractiveBuilder_Context(t *testing.T) {
 
 	if builder.ctx != ctx {
 		t.Error("expected context to be set")
-	}
-}
-
-func TestInteractiveBuilder_Run_NoCommand(t *testing.T) {
-	t.Parallel()
-
-	builder := NewInteractive()
-
-	result, err := builder.Run()
-
-	if !errors.Is(err, errNoCommand) {
-		t.Errorf("expected errNoCommand, got %v", err)
-	}
-	if result != nil {
-		t.Error("expected nil result when error occurs")
 	}
 }
 

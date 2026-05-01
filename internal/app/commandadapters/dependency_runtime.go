@@ -163,15 +163,18 @@ func (p dependencyRuntimeProbe) CheckCommand(command invowkfile.CommandName) err
 	return fmt.Errorf("command %s %w", command, deps.ErrContainerCommandNotFound)
 }
 
-// RunCustomCheck validates a custom check against the selected container runtime.
-func (p dependencyRuntimeProbe) RunCustomCheck(check invowkfile.CustomCheck) error {
+// RunCustomCheck runs a custom check against the selected container runtime.
+func (p dependencyRuntimeProbe) RunCustomCheck(check invowkfile.CustomCheck) (deps.CustomCheckResult, error) {
 	result, stdout, stderr, err := p.runContainerValidation(string(check.CheckScript))
 	if err != nil {
-		return fmt.Errorf("%s - %w", check.Name, err)
+		return deps.CustomCheckResult{}, fmt.Errorf("%s - %w", check.Name, err)
 	}
 
-	output := strings.TrimSpace(stdout + stderr)
-	return deps.ValidateCustomCheckOutput(check, output, result.Error)
+	output := deps.CustomCheckOutput(strings.TrimSpace(stdout + stderr))
+	if validateErr := output.Validate(); validateErr != nil {
+		return deps.CustomCheckResult{}, fmt.Errorf("custom check output: %w", validateErr)
+	}
+	return deps.NewCustomCheckResult(output, result.ExitCode)
 }
 
 //goplint:ignore -- runtime adapter translates typed dependency paths into shell probe strings at the container boundary.

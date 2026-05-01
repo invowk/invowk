@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -126,6 +127,131 @@ func TestBuildScanContextStandaloneFileScriptUsesInvowkfileDirectory(t *testing.
 	}
 	if scripts[0].ScriptPath != types.FilesystemPath(filepath.Join(scriptDir, "pwn.sh")) {
 		t.Fatalf("ScriptPath = %q, want %q", scripts[0].ScriptPath, filepath.Join(scriptDir, "pwn.sh"))
+	}
+}
+
+func TestScanContextAllScriptsReturnsDeepCopies(t *testing.T) {
+	t.Parallel()
+
+	sc := &ScanContext{
+		scripts: []ScriptRef{{
+			CommandName: "build",
+			Runtimes: []invowkfile.RuntimeConfig{{
+				Name:            invowkfile.RuntimeContainer,
+				EnvInheritAllow: []invowkfile.EnvVarName{"SAFE"},
+				Volumes:         []invowkfile.VolumeMountSpec{"/host:/container"},
+			}},
+		}},
+	}
+
+	first := sc.AllScripts()
+	first[0].Runtimes[0].Name = invowkfile.RuntimeNative
+	first[0].Runtimes[0].EnvInheritAllow[0] = "MUTATED"
+	first[0].Runtimes[0].Volumes[0] = "/other:/container"
+
+	second := sc.AllScripts()
+	if second[0].Runtimes[0].Name != invowkfile.RuntimeContainer {
+		t.Fatalf("runtime name = %q, want container", second[0].Runtimes[0].Name)
+	}
+	if second[0].Runtimes[0].EnvInheritAllow[0] != "SAFE" {
+		t.Fatalf("EnvInheritAllow = %v, want SAFE", second[0].Runtimes[0].EnvInheritAllow)
+	}
+	if second[0].Runtimes[0].Volumes[0] != "/host:/container" {
+		t.Fatalf("Volumes = %v, want original", second[0].Runtimes[0].Volumes)
+	}
+}
+
+func TestScanContextInvowkfilesReturnsDeepCopies(t *testing.T) {
+	t.Parallel()
+
+	expectedCode := types.ExitCode(7)
+	sc := &ScanContext{
+		invowkfiles: []*ScannedInvowkfile{{
+			Invowkfile: &invowkfile.Invowkfile{
+				Env: &invowkfile.EnvConfig{
+					Files: []invowkfile.DotenvFilePath{".env"},
+					Vars:  map[invowkfile.EnvVarName]string{"TOKEN": "original"},
+				},
+				Commands: []invowkfile.Command{{
+					Name:  "build",
+					Flags: []invowkfile.Flag{{Name: "target"}},
+					Args:  []invowkfile.Argument{{Name: "pkg"}},
+					Watch: &invowkfile.WatchConfig{Patterns: []invowkfile.GlobPattern{"*.go"}},
+					DependsOn: &invowkfile.DependsOn{
+						CustomChecks: []invowkfile.CustomCheckDependency{{
+							Name:         "check",
+							ExpectedCode: &expectedCode,
+							Alternatives: []invowkfile.CustomCheck{{
+								Name:         "alt",
+								ExpectedCode: &expectedCode,
+							}},
+						}},
+					},
+					Implementations: []invowkfile.Implementation{{
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Ports: []invowkfile.PortMappingSpec{"8080:80"}}},
+						Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.PlatformLinux}},
+					}},
+				}},
+			},
+		}},
+	}
+
+	first := sc.Invowkfiles()
+	first[0].Invowkfile.Env.Files[0] = "mutated.env"
+	first[0].Invowkfile.Env.Vars["TOKEN"] = "mutated"
+	first[0].Invowkfile.Commands[0].Flags[0].Name = "mutated"
+	first[0].Invowkfile.Commands[0].Args[0].Name = "mutated"
+	first[0].Invowkfile.Commands[0].Watch.Patterns[0] = "*.rs"
+	*first[0].Invowkfile.Commands[0].DependsOn.CustomChecks[0].ExpectedCode = 9
+	*first[0].Invowkfile.Commands[0].DependsOn.CustomChecks[0].Alternatives[0].ExpectedCode = 9
+	first[0].Invowkfile.Commands[0].Implementations[0].Runtimes[0].Ports[0] = "9000:90"
+
+	second := sc.Invowkfiles()
+	command := second[0].Invowkfile.Commands[0]
+	if second[0].Invowkfile.Env.Files[0] != ".env" || second[0].Invowkfile.Env.Vars["TOKEN"] != "original" {
+		t.Fatalf("env clone mutated: %+v", second[0].Invowkfile.Env)
+	}
+	if command.Flags[0].Name != "target" || command.Args[0].Name != "pkg" {
+		t.Fatalf("command fields mutated: flags=%v args=%v", command.Flags, command.Args)
+	}
+	if command.Watch.Patterns[0] != "*.go" {
+		t.Fatalf("watch patterns = %v, want original", command.Watch.Patterns)
+	}
+	if *command.DependsOn.CustomChecks[0].ExpectedCode != 7 ||
+		*command.DependsOn.CustomChecks[0].Alternatives[0].ExpectedCode != 7 {
+		t.Fatalf("custom check expected codes mutated: %+v", command.DependsOn.CustomChecks)
+	}
+	if command.Implementations[0].Runtimes[0].Ports[0] != "8080:80" {
+		t.Fatalf("runtime ports = %v, want original", command.Implementations[0].Runtimes[0].Ports)
+	}
+}
+
+func TestScanContextModulesReturnsInvowkfileDeepCopies(t *testing.T) {
+	t.Parallel()
+
+	sc := &ScanContext{
+		modules: []*ScannedModule{{
+			Invowkfile: &invowkfile.Invowkfile{
+				Commands: []invowkfile.Command{{
+					Name: "serve",
+					Implementations: []invowkfile.Implementation{{
+						Runtimes: []invowkfile.RuntimeConfig{{
+							Name:    invowkfile.RuntimeContainer,
+							Volumes: []invowkfile.VolumeMountSpec{"/data:/data:ro"},
+						}},
+					}},
+				}},
+			},
+		}},
+	}
+
+	first := sc.Modules()
+	first[0].Invowkfile.Commands[0].Implementations[0].Runtimes[0].Volumes[0] = "/tmp:/data"
+
+	second := sc.Modules()
+	got := second[0].Invowkfile.Commands[0].Implementations[0].Runtimes[0].Volumes[0]
+	if got != "/data:/data:ro" {
+		t.Fatalf("module runtime volume = %q, want original", got)
 	}
 }
 

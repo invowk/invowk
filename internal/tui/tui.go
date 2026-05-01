@@ -39,8 +39,6 @@ var (
 	// ErrCancelled is returned when a user cancels a TUI component (e.g., via Ctrl+C or Esc).
 	// Callers can check for this error using errors.Is(err, ErrCancelled).
 	ErrCancelled = types.ErrUserCancelled
-	// errNoCommand is returned when trying to run an interactive session without a command.
-	errNoCommand = errors.New("no command provided")
 	// ErrInvalidTheme is returned when a Theme value is not one of the defined themes.
 	ErrInvalidTheme = errors.New("invalid theme")
 	// ErrInvalidTUIConfig is the sentinel error wrapped by InvalidTUIConfigError.

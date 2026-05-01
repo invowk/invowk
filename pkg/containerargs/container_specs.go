@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package types
+// Package containerargs validates raw Docker/Podman argument syntax shared by
+// invowkfile schema values and container adapters.
+package containerargs
 
 import (
 	"errors"

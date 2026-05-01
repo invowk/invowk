@@ -6,11 +6,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/invowk/invowk/internal/app/moduleops"
 	"github.com/invowk/invowk/internal/config"
-	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -159,21 +157,15 @@ func runModuleImport(ctx context.Context, args []string, importPath string, impo
 		Overwrite: importOverwrite,
 	}
 
-	modulePath, err := moduleops.Unpack(ctx, opts)
+	result, err := moduleops.Unpack(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to import module: %w", err)
 	}
 
-	// Load the module to get its name
-	b, err := invowkmod.Load(types.FilesystemPath(modulePath))
-	if err != nil {
-		return fmt.Errorf("failed to load imported module: %w", err)
-	}
-
 	fmt.Printf("%s Module imported successfully\n", moduleSuccessIcon)
 	fmt.Println()
-	fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(string(b.Name())))
-	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(modulePath))
+	fmt.Printf("%s Name: %s\n", moduleInfoIcon, CmdStyle.Render(string(result.ModuleName())))
+	fmt.Printf("%s Path: %s\n", moduleInfoIcon, modulePathStyle.Render(string(result.ModulePath())))
 	fmt.Println()
 	fmt.Printf("%s The module commands are now available via invowk\n", moduleInfoIcon)
 
@@ -191,20 +183,11 @@ func runModuleVendor(ctx context.Context, args []string, vendorUpdate, vendorPru
 		targetDir = "."
 	}
 
-	// Convert to absolute path
-	absPath, err := filepath.Abs(targetDir)
-	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
+	targetPath := types.FilesystemPath(targetDir)
+	if err := targetPath.Validate(); err != nil {
+		return fmt.Errorf("module path: %w", err)
 	}
-
-	// Verify target contains invowkmod.cue (required for vendor operations).
-	invowkmodPath := filepath.Join(absPath, "invowkmod.cue")
-	if _, statErr := os.Stat(invowkmodPath); os.IsNotExist(statErr) {
-		return fmt.Errorf("not a module directory (no invowkmod.cue found in %s)", absPath)
-	}
-
-	absModPath := types.FilesystemPath(absPath) //goplint:ignore -- from filepath.Abs
-	requirements, result, strategy, err := moduleops.VendorDependencies(ctx, absModPath, vendorUpdate, vendorPrune)
+	requirements, result, strategy, err := moduleops.VendorDependencies(ctx, targetPath, vendorUpdate, vendorPrune)
 	if err != nil && len(requirements) == 0 {
 		return fmt.Errorf("failed to resolve dependencies: %w", err)
 	}

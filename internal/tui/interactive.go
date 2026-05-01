@@ -4,9 +4,7 @@ package tui
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -117,7 +115,6 @@ type (
 	// InteractiveBuilder provides a fluent API for building interactive execution.
 	InteractiveBuilder struct {
 		opts InteractiveOptions
-		cmd  *exec.Cmd
 		ctx  context.Context
 	}
 
@@ -180,22 +177,8 @@ func (b *InteractiveBuilder) CommandName(name string) *InteractiveBuilder {
 	return b
 }
 
-// Command sets the exec.Cmd to run.
-func (b *InteractiveBuilder) Command(cmd *exec.Cmd) *InteractiveBuilder {
-	b.cmd = cmd
-	return b
-}
-
 // Context sets the context for cancellation.
 func (b *InteractiveBuilder) Context(ctx context.Context) *InteractiveBuilder {
 	b.ctx = ctx
 	return b
-}
-
-// Run executes in interactive mode and returns the result.
-func (b *InteractiveBuilder) Run() (*InteractiveResult, error) {
-	if b.cmd == nil {
-		return nil, errNoCommand
-	}
-	return nil, errors.New("interactive command execution is owned by the runtime adapter")
 }

@@ -12,7 +12,7 @@ exists importmod.zip
 mkdir imported
 exec invowk module import ./importmod.zip --path ./imported
 stdout 'Module imported successfully'
-stdout 'Name:'
+stdout 'Name: .*importmod'
 stdout 'Path:'
 
 # Test 2: Import fails when source does not exist

@@ -285,8 +285,8 @@ func (*recordingDependencyHostProbe) CheckFilepath(types.FilesystemPath, types.F
 	return nil
 }
 
-func (*recordingDependencyHostProbe) RunCustomCheck(context.Context, invowkfile.CustomCheck) error {
-	return nil
+func (*recordingDependencyHostProbe) RunCustomCheck(context.Context, invowkfile.CustomCheck) (deps.CustomCheckResult, error) {
+	return deps.CustomCheckResult{}, nil
 }
 
 func (c *recordingCapabilityChecker) Check(_ context.Context, _ deps.IOContext, capability invowkfile.CapabilityName) error {

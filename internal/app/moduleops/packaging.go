@@ -46,11 +46,47 @@ type (
 		SourceFetcher ArchiveSourceFetcher
 	}
 
+	// UnpackResult contains the completed module import result.
+	UnpackResult struct {
+		modulePath types.FilesystemPath
+		moduleName invowkmod.ModuleID
+	}
+
 	// DefaultArchiveSourceFetcher resolves local paths and HTTP(S) URLs.
 	DefaultArchiveSourceFetcher struct {
 		HTTPClient *http.Client
 	}
 )
+
+// NewUnpackResult creates a validated module import result.
+func NewUnpackResult(modulePath types.FilesystemPath, moduleName invowkmod.ModuleID) (UnpackResult, error) {
+	result := UnpackResult{
+		modulePath: modulePath,
+		moduleName: moduleName,
+	}
+	if err := result.Validate(); err != nil {
+		return UnpackResult{}, err
+	}
+	return result, nil
+}
+
+// ModulePath returns the imported module path.
+func (r UnpackResult) ModulePath() types.FilesystemPath { return r.modulePath }
+
+// ModuleName returns the imported module name.
+func (r UnpackResult) ModuleName() invowkmod.ModuleID { return r.moduleName }
+
+// Validate returns nil when the module import result is structurally valid.
+func (r UnpackResult) Validate() error {
+	var errs []error
+	if err := r.modulePath.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("module path: %w", err))
+	}
+	if err := r.moduleName.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("module name: %w", err))
+	}
+	return errors.Join(errs...)
+}
 
 // Archive creates a ZIP archive of a module.
 // Returns the path to the created ZIP file or an error.
@@ -173,15 +209,15 @@ func Archive(modulePath, outputPath types.FilesystemPath) (archivePath types.Fil
 
 // Unpack extracts a module from a ZIP archive.
 // The context controls cancellation for network-based sources (URL downloads).
-// Returns the path to the extracted module or an error.
-func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err error) {
+// Returns the validated module import result or an error.
+func Unpack(ctx context.Context, opts UnpackOptions) (result UnpackResult, err error) {
 	if opts.Source == "" {
-		return "", errors.New("source cannot be empty")
+		return UnpackResult{}, errors.New("source cannot be empty")
 	}
 
 	absDestDir, err := resolveUnpackDestination(opts.DestDir)
 	if err != nil {
-		return "", err
+		return UnpackResult{}, err
 	}
 
 	sourceFetcher := opts.SourceFetcher
@@ -190,13 +226,13 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 	}
 	zipPath, cleanup, err := sourceFetcher.FetchArchiveSource(ctx, opts.Source)
 	if err != nil {
-		return "", err
+		return UnpackResult{}, err
 	}
 	defer cleanup()
 
 	zipReader, err := zip.OpenReader(string(zipPath))
 	if err != nil {
-		return "", fmt.Errorf("failed to open ZIP file: %w", err)
+		return UnpackResult{}, fmt.Errorf("failed to open ZIP file: %w", err)
 	}
 	defer func() {
 		if closeErr := zipReader.Close(); closeErr != nil && err == nil {
@@ -206,24 +242,26 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 
 	moduleRoot, err := findModuleRoot(zipReader.File)
 	if err != nil {
-		return "", err
+		return UnpackResult{}, err
 	}
 
 	modulePath, err := prepareModuleDestination(absDestDir, moduleRoot, opts.Overwrite)
 	if err != nil {
-		return "", err
+		return UnpackResult{}, err
 	}
 
-	if err := extractModuleFiles(zipReader.File, moduleRoot, absDestDir); err != nil {
-		return "", err
+	if extractErr := extractModuleFiles(zipReader.File, moduleRoot, absDestDir); extractErr != nil {
+		return UnpackResult{}, extractErr
 	}
 
-	if err := validateExtractedModule(modulePath); err != nil {
+	mod, err := validateExtractedModule(modulePath)
+	if err != nil {
 		_ = os.RemoveAll(modulePath)
-		return "", fmt.Errorf("extracted module is invalid: %w", err)
+		return UnpackResult{}, fmt.Errorf("extracted module is invalid: %w", err)
 	}
 
-	return modulePath, nil
+	modulePathValue := types.FilesystemPath(modulePath) //goplint:ignore -- validated by validateExtractedModule.
+	return NewUnpackResult(modulePathValue, mod.Name())
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
@@ -374,15 +412,16 @@ func validateDestinationPath(root, candidate, value string) error {
 }
 
 //goplint:ignore -- unpack helpers operate on transient OS-native module paths.
-func validateExtractedModule(modulePath string) error {
+func validateExtractedModule(modulePath string) (*invowkmod.Module, error) {
 	modLoadPath := types.FilesystemPath(modulePath)
 	if err := modLoadPath.Validate(); err != nil {
-		return fmt.Errorf("extracted module path: %w", err)
+		return nil, fmt.Errorf("extracted module path: %w", err)
 	}
-	if _, err := invowkmod.Load(modLoadPath); err != nil {
-		return err
+	mod, err := invowkmod.Load(modLoadPath)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return mod, nil
 }
 
 // downloadFile downloads a file from a URL and returns the path to the temporary file.

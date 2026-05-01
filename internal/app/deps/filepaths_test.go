@@ -130,12 +130,16 @@ func (s *filepathStubRuntime) CheckCommand(command invowkfile.CommandName) error
 	return fmt.Errorf("command %s %w", command, ErrContainerCommandNotFound)
 }
 
-func (s *filepathStubRuntime) RunCustomCheck(check invowkfile.CustomCheck) error {
+func (s *filepathStubRuntime) RunCustomCheck(check invowkfile.CustomCheck) (CustomCheckResult, error) {
 	result, stdout, stderr, err := s.runValidation(string(check.CheckScript))
 	if err != nil {
-		return fmt.Errorf("%s - %w", check.Name, err)
+		return CustomCheckResult{}, fmt.Errorf("%s - %w", check.Name, err)
 	}
-	return ValidateCustomCheckOutput(check, strings.TrimSpace(stdout+stderr), result.Error)
+	output := CustomCheckOutput(strings.TrimSpace(stdout + stderr))
+	if validateErr := output.Validate(); validateErr != nil {
+		return CustomCheckResult{}, fmt.Errorf("custom check output: %w", validateErr)
+	}
+	return NewCustomCheckResult(output, result.ExitCode)
 }
 
 func (s *filepathStubRuntime) runValidation(script string) (result *runtimepkg.Result, stdout, stderr string, err error) {

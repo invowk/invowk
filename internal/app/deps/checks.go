@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -15,40 +14,29 @@ import (
 )
 
 // ValidateCustomCheckOutput validates custom check script output against expected values.
-func ValidateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, execErr error) error {
+func ValidateCustomCheckOutput(check invowkfile.CustomCheck, result CustomCheckResult) error {
+	if err := result.Validate(); err != nil {
+		return fmt.Errorf("custom check result: %w", err)
+	}
+
 	// Determine expected exit code (default: 0)
 	var expectedCode types.ExitCode
 	if check.ExpectedCode != nil {
 		expectedCode = *check.ExpectedCode
 	}
 
-	// Check exit code
-	var actualCode types.ExitCode
-	if execErr != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](execErr); ok {
-			exitCode := types.ExitCode(exitErr.ExitCode())
-			if err := exitCode.Validate(); err != nil {
-				return fmt.Errorf("exit code validation: %w", err)
-			}
-			actualCode = exitCode
-		} else {
-			// Try to get exit code from error message for non-native runtimes
-			actualCode = 1 // Default to 1 for errors
-		}
-	}
-
-	if actualCode != expectedCode {
-		return fmt.Errorf("%s - check script returned exit code %d, expected %d", check.Name, actualCode, expectedCode)
+	if result.ExitCode() != expectedCode {
+		return fmt.Errorf("%s - check script returned exit code %d, expected %d", check.Name, result.ExitCode(), expectedCode)
 	}
 
 	// Check output pattern if specified
 	if check.ExpectedOutput != "" {
-		matched, err := regexp.MatchString(string(check.ExpectedOutput), outputStr)
+		matched, err := regexp.MatchString(string(check.ExpectedOutput), result.Output().String())
 		if err != nil {
 			return fmt.Errorf("%s - invalid regex pattern '%s': %w", check.Name, check.ExpectedOutput.String(), err)
 		}
 		if !matched {
-			return fmt.Errorf("%s - check script output '%s' does not match pattern '%s'", check.Name, outputStr, check.ExpectedOutput.String())
+			return fmt.Errorf("%s - check script output '%s' does not match pattern '%s'", check.Name, result.Output().String(), check.ExpectedOutput.String())
 		}
 	}
 
@@ -63,7 +51,7 @@ func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, probe R
 	if probe == nil {
 		return ErrRuntimeDependencyProbeRequired
 	}
-	return evaluateCustomChecks(deps, ctx, func(_ context.Context, check invowkfile.CustomCheck) error {
+	return evaluateCustomChecks(deps, ctx, func(_ context.Context, check invowkfile.CustomCheck) (CustomCheckResult, error) {
 		return probe.RunCustomCheck(check)
 	})
 }
@@ -93,7 +81,7 @@ func CheckHostCustomCheckDependenciesWithProbe(deps *invowkfile.DependsOn, ctx E
 func evaluateCustomChecks(
 	deps *invowkfile.DependsOn,
 	ctx ExecutionContext,
-	validator func(context.Context, invowkfile.CustomCheck) error,
+	runner func(context.Context, invowkfile.CustomCheck) (CustomCheckResult, error),
 ) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
@@ -115,7 +103,11 @@ func evaluateCustomChecks(
 		}
 		checks := checkDep.GetChecks()
 		found, lastErr := EvaluateAlternatives(checks, func(check invowkfile.CustomCheck) error {
-			return validator(goCtx, check)
+			result, err := runner(goCtx, check)
+			if err != nil {
+				return err
+			}
+			return ValidateCustomCheckOutput(check, result)
 		})
 
 		if !found && lastErr != nil {

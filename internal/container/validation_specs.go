@@ -2,12 +2,12 @@
 
 package container
 
-import "github.com/invowk/invowk/pkg/types"
+import "github.com/invowk/invowk/pkg/containerargs"
 
 func validateVolumeMountSpec(volume VolumeMountSpec) error {
-	return types.ContainerVolumeMountSpec(volume).Validate()
+	return containerargs.ContainerVolumeMountSpec(volume).Validate()
 }
 
 func validatePortMappingSpec(port PortMappingSpec) error {
-	return types.ContainerPortMappingSpec(port).Validate()
+	return containerargs.ContainerPortMappingSpec(port).Validate()
 }

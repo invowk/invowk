@@ -2,7 +2,7 @@
 
 package invowkfile
 
-import "github.com/invowk/invowk/pkg/types"
+import "github.com/invowk/invowk/pkg/containerargs"
 
 // ValidateVolumeMount validates a container volume mount specification.
 // Valid formats:
@@ -12,7 +12,7 @@ import "github.com/invowk/invowk/pkg/types"
 //   - relative/path:/container/path
 //   - named-volume:/container/path
 func ValidateVolumeMount(volume string) error {
-	return types.ContainerVolumeMountSpec(volume).Validate()
+	return containerargs.ContainerVolumeMountSpec(volume).Validate()
 }
 
 // ValidatePortMapping validates a container port mapping specification.
@@ -22,5 +22,5 @@ func ValidateVolumeMount(volume string) error {
 //   - hostIP:hostPort:containerPort
 //   - hostPort:containerPort/protocol
 func ValidatePortMapping(port string) error {
-	return types.ContainerPortMappingSpec(port).Validate()
+	return containerargs.ContainerPortMappingSpec(port).Validate()
 }

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -247,7 +246,11 @@ func (sc *ScanContext) Modules() []*ScannedModule {
 // AllScripts returns a copy of the pre-computed script references.
 // Safe for concurrent use by multiple checkers.
 func (sc *ScanContext) AllScripts() []ScriptRef {
-	return append([]ScriptRef(nil), sc.scripts...)
+	scripts := make([]ScriptRef, 0, len(sc.scripts))
+	for i := range sc.scripts {
+		scripts = append(scripts, cloneScriptRef(sc.scripts[i]))
+	}
+	return scripts
 }
 
 // ScriptCount returns the total number of scripts across all surfaces.
@@ -265,82 +268,6 @@ func (sc *ScanContext) addDiagnostic(code DiagnosticCode, message string, path t
 		return
 	}
 	sc.diagnostics = append(sc.diagnostics, diagnostic)
-}
-
-func cloneScannedInvowkfile(file *ScannedInvowkfile) *ScannedInvowkfile {
-	if file == nil {
-		return nil
-	}
-	cloned := *file
-	if file.Invowkfile != nil {
-		inv := *file.Invowkfile
-		cloned.Invowkfile = &inv
-	}
-	return &cloned
-}
-
-func cloneScannedModule(module *ScannedModule) *ScannedModule {
-	if module == nil {
-		return nil
-	}
-	cloned := *module
-	if module.Module != nil {
-		mod := *module.Module
-		if module.Module.Metadata != nil {
-			metadata := *module.Module.Metadata
-			metadata.Requires = append([]invowkmod.ModuleRequirement(nil), module.Module.Metadata.Requires...)
-			mod.Metadata = &metadata
-		}
-		cloned.Module = &mod
-	}
-	if module.Invowkfile != nil {
-		inv := *module.Invowkfile
-		cloned.Invowkfile = &inv
-	}
-	if module.LockFile != nil {
-		lockFile := *module.LockFile
-		lockFile.Modules = cloneLockedModules(module.LockFile.Modules)
-		cloned.LockFile = &lockFile
-	}
-	cloned.VendoredModules = cloneVendoredModules(module.VendoredModules)
-	cloned.VendoredHashes = append([]invowkmod.VendoredHashEvaluation(nil), module.VendoredHashes...)
-	cloned.Symlinks = append([]SymlinkRef(nil), module.Symlinks...)
-	return &cloned
-}
-
-func cloneLockedModules(modules map[invowkmod.ModuleRefKey]invowkmod.LockedModule) map[invowkmod.ModuleRefKey]invowkmod.LockedModule {
-	if modules == nil {
-		return nil
-	}
-	cloned := make(map[invowkmod.ModuleRefKey]invowkmod.LockedModule, len(modules))
-	maps.Copy(cloned, modules)
-	return cloned
-}
-
-func cloneVendoredModules(modules []*invowkmod.Module) []*invowkmod.Module {
-	cloned := make([]*invowkmod.Module, 0, len(modules))
-	for _, module := range modules {
-		cloned = append(cloned, cloneVendoredModule(module))
-	}
-	return cloned
-}
-
-func cloneVendoredModule(module *invowkmod.Module) *invowkmod.Module {
-	if module == nil {
-		return nil
-	}
-	mod := *module
-	mod.Metadata = cloneModuleMetadata(module.Metadata)
-	return &mod
-}
-
-func cloneModuleMetadata(metadata *invowkmod.Invowkmod) *invowkmod.Invowkmod {
-	if metadata == nil {
-		return nil
-	}
-	cloned := *metadata
-	cloned.Requires = append([]invowkmod.ModuleRequirement(nil), metadata.Requires...)
-	return &cloned
 }
 
 // BuildScanContext discovers and loads all invowkfiles and modules at the given

@@ -198,7 +198,7 @@ func TestUnpack(t *testing.T) {
 			t.Fatalf("failed to create unpack dir: %v", mkdirErr)
 		}
 
-		extractedPath, err := Unpack(t.Context(), UnpackOptions{
+		result, err := Unpack(t.Context(), UnpackOptions{
 			Source:  zipPath,
 			DestDir: types.FilesystemPath(unpackDir),
 		})
@@ -207,13 +207,16 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Verify extracted module is valid
-		b, err := invowkmod.Load(types.FilesystemPath(extractedPath))
+		b, err := invowkmod.Load(result.ModulePath())
 		if err != nil {
 			t.Fatalf("extracted module is invalid: %v", err)
 		}
 
 		if b.Name() != "mytools" {
 			t.Errorf("extracted module name = %q, expected %q", b.Name(), "mytools")
+		}
+		if result.ModuleName() != "mytools" {
+			t.Errorf("result.ModuleName() = %q, expected %q", result.ModuleName(), "mytools")
 		}
 	})
 
@@ -270,7 +273,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Unpack with overwrite
-		extractedPath, err := Unpack(t.Context(), UnpackOptions{
+		result, err := Unpack(t.Context(), UnpackOptions{
 			Source:    zipPath,
 			DestDir:   types.FilesystemPath(tmpDir),
 			Overwrite: true,
@@ -280,7 +283,7 @@ func TestUnpack(t *testing.T) {
 		}
 
 		// Verify marker file is gone (module was replaced)
-		if _, statErr := os.Stat(filepath.Join(extractedPath, "marker.txt")); !os.IsNotExist(statErr) {
+		if _, statErr := os.Stat(filepath.Join(string(result.ModulePath()), "marker.txt")); !os.IsNotExist(statErr) {
 			t.Error("marker file should not exist after overwrite")
 		}
 	})
@@ -299,7 +302,7 @@ version: "1.0.0"
 		fetcher := &fakeArchiveSourceFetcher{path: types.FilesystemPath(zipPath)}
 		unpackDir := filepath.Join(tmpDir, "unpacked")
 
-		extractedPath, err := Unpack(t.Context(), UnpackOptions{
+		result, err := Unpack(t.Context(), UnpackOptions{
 			Source:        "https://example.com/module.zip",
 			DestDir:       types.FilesystemPath(unpackDir),
 			SourceFetcher: fetcher,
@@ -310,8 +313,11 @@ version: "1.0.0"
 		if !fetcher.called || !fetcher.cleanedUp {
 			t.Fatalf("fetcher called=%v cleanedUp=%v, want true/true", fetcher.called, fetcher.cleanedUp)
 		}
-		if filepath.Base(extractedPath) != "mytools.invowkmod" {
-			t.Fatalf("extractedPath = %q, want mytools.invowkmod basename", extractedPath)
+		if filepath.Base(string(result.ModulePath())) != "mytools.invowkmod" {
+			t.Fatalf("ModulePath() = %q, want mytools.invowkmod basename", result.ModulePath())
+		}
+		if result.ModuleName() != "mytools" {
+			t.Fatalf("ModuleName() = %q, want mytools", result.ModuleName())
 		}
 	})
 

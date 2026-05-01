@@ -61,12 +61,12 @@ func (p *recordingHostProbe) CheckFilepath(_, resolvedPath types.FilesystemPath,
 	return nil
 }
 
-func (p *recordingHostProbe) RunCustomCheck(_ context.Context, check invowkfile.CustomCheck) error {
+func (p *recordingHostProbe) RunCustomCheck(_ context.Context, check invowkfile.CustomCheck) (CustomCheckResult, error) {
 	p.checks = append(p.checks, check.Name)
 	if p.checkErrors != nil {
-		return p.checkErrors[check.Name]
+		return CustomCheckResult{}, p.checkErrors[check.Name]
 	}
-	return nil
+	return CustomCheckResult{}, nil
 }
 
 func (p staticCommandScopeLockProvider) LoadCommandScopeLock(*invowkfile.Invowkfile) (*invowkmod.LockFile, error) {

@@ -4,6 +4,7 @@ package commandadapters
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -99,12 +100,25 @@ func (dependencyHostProbe) CheckFilepath(displayPath, resolvedPath types.Filesys
 }
 
 // RunCustomCheck runs a custom check script using the native shell.
-func (dependencyHostProbe) RunCustomCheck(ctx context.Context, check invowkfile.CustomCheck) error {
+func (dependencyHostProbe) RunCustomCheck(ctx context.Context, check invowkfile.CustomCheck) (deps.CustomCheckResult, error) {
 	cmd := exec.CommandContext(ctx, "sh", "-c", string(check.CheckScript))
 	output, err := cmd.CombinedOutput()
-	outputStr := strings.TrimSpace(string(output))
+	outputText := deps.CustomCheckOutput(strings.TrimSpace(string(output)))
+	if validateErr := outputText.Validate(); validateErr != nil {
+		return deps.CustomCheckResult{}, fmt.Errorf("custom check output: %w", validateErr)
+	}
 
-	return deps.ValidateCustomCheckOutput(check, outputStr, err)
+	if err == nil {
+		return deps.NewCustomCheckResult(outputText, 0)
+	}
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+		exitCode := types.ExitCode(exitErr.ExitCode())
+		if validateErr := exitCode.Validate(); validateErr != nil {
+			return deps.CustomCheckResult{}, fmt.Errorf("exit code validation: %w", validateErr)
+		}
+		return deps.NewCustomCheckResult(outputText, exitCode)
+	}
+	return deps.CustomCheckResult{}, fmt.Errorf("%s - %w", check.Name, err)
 }
 
 // LoadCommandScopeLock loads lock-file state for command-scope validation.

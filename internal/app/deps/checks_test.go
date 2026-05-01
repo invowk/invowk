@@ -107,8 +107,12 @@ func TestValidateCustomCheckInContainer(t *testing.T) {
 			return &runtimepkg.Result{ExitCode: 0}
 		},
 	}
-	if validateErr := probe.RunCustomCheck(check); validateErr != nil {
+	result, validateErr := probe.RunCustomCheck(check)
+	if validateErr != nil {
 		t.Fatalf("RunCustomCheck() = %v", validateErr)
+	}
+	if validateErr := ValidateCustomCheckOutput(check, result); validateErr != nil {
+		t.Fatalf("ValidateCustomCheckOutput() = %v", validateErr)
 	}
 
 	probe = &filepathStubRuntime{
@@ -116,7 +120,7 @@ func TestValidateCustomCheckInContainer(t *testing.T) {
 			return &runtimepkg.Result{ExitCode: 1, Error: errors.New("engine down")}
 		},
 	}
-	err := probe.RunCustomCheck(check)
+	_, err := probe.RunCustomCheck(check)
 	if !errors.Is(err, ErrContainerValidationFailed) {
 		t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
 	}
@@ -294,13 +298,11 @@ func TestValidateCustomCheckOutput(t *testing.T) {
 
 	expectedZero := types.ExitCode(0)
 	expectedTwo := types.ExitCode(2)
-	exitErr := shellExitError(t)
 
 	tests := []struct {
 		name    string
 		check   invowkfile.CustomCheck
-		output  string
-		execErr error
+		result  CustomCheckResult
 		wantErr string // empty = expect nil
 	}{
 		{
@@ -310,36 +312,36 @@ func TestValidateCustomCheckOutput(t *testing.T) {
 		{
 			name:    "exit code mismatch",
 			check:   invowkfile.CustomCheck{Name: "demo", ExpectedCode: &expectedZero},
-			execErr: exitErr,
+			result:  mustCustomCheckResult(t, "", 1),
 			wantErr: "returned exit code",
 		},
 		{
 			name:    "expected non-zero exit code matches",
 			check:   invowkfile.CustomCheck{Name: "demo", ExpectedCode: &expectedTwo},
-			execErr: exitErr, // exit code 1 != expected 2
+			result:  mustCustomCheckResult(t, "", 1), // exit code 1 != expected 2
 			wantErr: "returned exit code",
 		},
 		{
 			name:   "output matches regex pattern",
 			check:  invowkfile.CustomCheck{Name: "demo", ExpectedOutput: "^ok$"},
-			output: "ok",
+			result: mustCustomCheckResult(t, "ok", 0),
 		},
 		{
 			name:    "output does not match regex pattern",
 			check:   invowkfile.CustomCheck{Name: "demo", ExpectedOutput: "^ok$"},
-			output:  "fail",
+			result:  mustCustomCheckResult(t, "fail", 0),
 			wantErr: "does not match pattern",
 		},
 		{
 			name:    "invalid regex pattern",
 			check:   invowkfile.CustomCheck{Name: "demo", ExpectedOutput: "[invalid"},
-			output:  "anything",
+			result:  mustCustomCheckResult(t, "anything", 0),
 			wantErr: "invalid regex pattern",
 		},
 		{
-			name:    "non-ExitError defaults to exit code 1",
+			name:    "non-zero result fails default expected code",
 			check:   invowkfile.CustomCheck{Name: "demo"},
-			execErr: errors.New("generic failure"),
+			result:  mustCustomCheckResult(t, "", 1),
 			wantErr: "returned exit code",
 		},
 	}
@@ -347,7 +349,7 @@ func TestValidateCustomCheckOutput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := ValidateCustomCheckOutput(tt.check, tt.output, tt.execErr)
+			err := ValidateCustomCheckOutput(tt.check, tt.result)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateCustomCheckOutput() = %v, want nil", err)
@@ -362,6 +364,20 @@ func TestValidateCustomCheckOutput(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustCustomCheckResult(t testing.TB, output string, exitCode types.ExitCode) CustomCheckResult {
+	t.Helper()
+
+	outputValue := CustomCheckOutput(output)
+	if err := outputValue.Validate(); err != nil {
+		t.Fatalf("CustomCheckOutput.Validate() = %v", err)
+	}
+	result, err := NewCustomCheckResult(outputValue, exitCode)
+	if err != nil {
+		t.Fatalf("NewCustomCheckResult() = %v", err)
+	}
+	return result
 }
 
 func TestCheckHostCustomCheckDependencies(t *testing.T) {
@@ -547,9 +563,9 @@ func TestEvaluateCustomChecks_PropagatesContext(t *testing.T) {
 	}
 
 	var receivedCtx atomic.Pointer[context.Context]
-	validator := func(goCtx context.Context, _ invowkfile.CustomCheck) error {
+	validator := func(goCtx context.Context, _ invowkfile.CustomCheck) (CustomCheckResult, error) {
 		receivedCtx.Store(&goCtx)
-		return nil
+		return CustomCheckResult{}, nil
 	}
 
 	_ = evaluateCustomChecks(deps, execCtx, validator)
@@ -585,9 +601,9 @@ func TestEvaluateCustomChecks_NilContextFallback(t *testing.T) {
 	}
 
 	var receivedCtx atomic.Pointer[context.Context]
-	validator := func(goCtx context.Context, _ invowkfile.CustomCheck) error {
+	validator := func(goCtx context.Context, _ invowkfile.CustomCheck) (CustomCheckResult, error) {
 		receivedCtx.Store(&goCtx)
-		return nil
+		return CustomCheckResult{}, nil
 	}
 
 	_ = evaluateCustomChecks(deps, execCtx, validator)

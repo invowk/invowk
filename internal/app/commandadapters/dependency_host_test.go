@@ -177,7 +177,7 @@ func TestDependencyHostProbeRunCustomCheckContextCancellation(t *testing.T) {
 		CheckScript: "sleep 60",
 	}
 
-	err := dependencyHostProbe{}.RunCustomCheck(ctx, check)
+	_, err := dependencyHostProbe{}.RunCustomCheck(ctx, check)
 	if err == nil {
 		t.Fatal("expected error from cancelled context, got nil")
 	}

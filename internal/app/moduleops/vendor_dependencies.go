@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/app/modulesync"
@@ -52,7 +53,22 @@ func VendorDependencies(ctx context.Context, modulePath types.FilesystemPath, up
 		return nil, nil, "", fmt.Errorf("module path: %w", err)
 	}
 
-	invowkmodPath := types.FilesystemPath(filepath.Join(string(modulePath), "invowkmod.cue")) //goplint:ignore -- derived from validated module path and constant filename
+	absPath, err := filepath.Abs(string(modulePath))
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to resolve path: %w", err)
+	}
+	modulePath = types.FilesystemPath(absPath) //goplint:ignore -- filepath.Abs result validated below.
+	if validateErr := modulePath.Validate(); validateErr != nil {
+		return nil, nil, "", fmt.Errorf("absolute module path: %w", validateErr)
+	}
+
+	invowkmodPath := types.FilesystemPath(filepath.Join(absPath, "invowkmod.cue")) //goplint:ignore -- derived from validated module path and constant filename
+	if _, statErr := os.Stat(string(invowkmodPath)); os.IsNotExist(statErr) {
+		return nil, nil, "", fmt.Errorf("not a module directory (no invowkmod.cue found in %s)", absPath)
+	} else if statErr != nil {
+		return nil, nil, "", fmt.Errorf("failed to stat invowkmod.cue: %w", statErr)
+	}
+
 	requirements, err := modulesync.LoadRequirements(invowkmodPath)
 	if err != nil {
 		return nil, nil, "", err
