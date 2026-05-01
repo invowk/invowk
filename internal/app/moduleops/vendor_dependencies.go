@@ -86,7 +86,7 @@ func resolveVendorDependencies(ctx context.Context, resolver *modulesync.Resolve
 		resolved, err := resolver.Sync(ctx, requirements)
 		return resolved, VendorResolutionUpdated, err
 	case lockErr == nil:
-		resolved, err := resolver.LoadFromLock(ctx)
+		resolved, err := resolver.LoadDeclaredFromLock(ctx, requirements)
 		return resolved, VendorResolutionLocked, err
 	default:
 		resolved, err := resolver.Sync(ctx, requirements)

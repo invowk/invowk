@@ -8,6 +8,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -85,7 +86,7 @@ func runTuiTable(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	rows, err := loadTableRows(cfg)
+	rows, err := loadTableRows(cfg, cmd.InOrStdin())
 	if err != nil {
 		return err
 	}
@@ -101,7 +102,7 @@ func runTuiTable(cmd *cobra.Command, _ []string) error {
 
 	// If selectable and a row was selected, print it
 	if cfg.selectable && selectedIdx >= 0 && len(selectedRow) > 0 {
-		_, _ = fmt.Fprintln(os.Stdout, strings.Join(selectedRow, string(cfg.separator))) // Terminal output; error non-critical
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), strings.Join(selectedRow, string(cfg.separator))) // Terminal output; error non-critical
 	}
 
 	return nil
@@ -160,11 +161,11 @@ func (c tableConfig) Validate() error {
 }
 
 //goplint:ignore -- CLI table helpers operate on transient display rows.
-func loadTableRows(cfg tableConfig) ([][]string, error) {
+func loadTableRows(cfg tableConfig, input io.Reader) ([][]string, error) {
 	if cfg.file != "" {
 		return loadTableRowsFromFile(cfg)
 	}
-	return loadTableRowsFromStdin(cfg)
+	return loadTableRowsFromInput(cfg, input)
 }
 
 //goplint:ignore -- CLI table helpers operate on transient display rows.
@@ -185,13 +186,13 @@ func loadTableRowsFromFile(cfg tableConfig) ([][]string, error) {
 }
 
 //goplint:ignore -- CLI table helpers operate on transient display rows.
-func loadTableRowsFromStdin(cfg tableConfig) ([][]string, error) {
-	if !isStdinPiped() {
+func loadTableRowsFromInput(cfg tableConfig, input io.Reader) ([][]string, error) {
+	if !isInputPiped(input) {
 		return nil, errors.New("no data provided; use --file or pipe data via stdin")
 	}
 
 	var rows [][]string
-	scanner := bufio.NewScanner(os.Stdin)
+	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line != "" {

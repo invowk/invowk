@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
@@ -107,6 +106,6 @@ func runTuiFile(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, result) // Terminal output; error non-critical
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), result) // Terminal output; error non-critical
 	return nil
 }

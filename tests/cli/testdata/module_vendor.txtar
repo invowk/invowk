@@ -32,8 +32,8 @@ stdout 'Vendor Module Dependencies'
 stderr 'module directory'
 stderr 'invowkmod.cue'
 
-# Test 7: Happy path - vendor from pre-seeded lock file + cache
-# The lock file points to a pre-populated cache directory, so no network access is needed.
+# Test 7: Happy path - vendor declared modules from pre-seeded lock file + cache
+# The lock file includes a stale entry that is no longer declared; vendor ignores it.
 env INVOWK_MODULES_PATH=$WORK/module-cache
 exec invowk module vendor ./depmod.invowkmod
 stdout 'Loading from lock file'
@@ -44,7 +44,7 @@ exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkmod.cue
 exists depmod.invowkmod/invowk_modules/dep.invowkmod/invowkfile.cue
 
 # Test 8: Prune removes stale vendored modules
-# Create a stale module in invowk_modules/ that is not in the lock file
+# Create a stale module in invowk_modules/ that is not in declared requirements.
 mkdir depmod.invowkmod/invowk_modules/stale.invowkmod
 cp stale-invowkmod.cue depmod.invowkmod/invowk_modules/stale.invowkmod/invowkmod.cue
 exists depmod.invowkmod/invowk_modules/stale.invowkmod/invowkmod.cue
@@ -116,6 +116,14 @@ modules: {
 		resolved_version: "1.0.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "dep@1.0.0"
+		content_hash:     "sha256:b9cd452f25142af660ad9199ef5180efc597e9a11b540eab0cc8e907844a5098"
+	}
+	"https://github.com/example/stale.invowkmod.git": {
+		git_url:          "https://github.com/example/stale.invowkmod.git"
+		version:          "^1.0.0"
+		resolved_version: "1.0.0"
+		git_commit:       "def456789012345678901234567890abcdef1234"
+		namespace:        "stale@1.0.0"
 		content_hash:     "sha256:b9cd452f25142af660ad9199ef5180efc597e9a11b540eab0cc8e907844a5098"
 	}
 }

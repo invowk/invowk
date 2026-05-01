@@ -9,9 +9,7 @@ import (
 	"github.com/invowk/invowk/internal/app/deps"
 )
 
-// All tests from this file have been migrated to specialized test files:
-// - cmd_deps_test.go: Tool, command, filepath, capability, env var dependency tests
-// - cmd_deps_caps_env_test.go: Capability and environment variable dependency tests
+// Most command behavior tests have been migrated to specialized test files:
 // - cmd_runtime_test.go: Platform and runtime tests
 // - cmd_flags_test.go: Flag handling and user environment capture tests
 // - cmd_args_test.go: Positional argument tests

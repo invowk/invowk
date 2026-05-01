@@ -11,21 +11,35 @@ import (
 	"strings"
 )
 
-// isStdinPiped reports whether stdin has piped content (not a terminal).
-func isStdinPiped() bool {
-	stat, _ := os.Stdin.Stat()
+type statReader interface {
+	Stat() (os.FileInfo, error)
+}
+
+// isInputPiped reports whether input has provided content. Injected readers are
+// treated as provided input so Cobra SetIn tests do not need process-wide stdin.
+func isInputPiped(input io.Reader) bool {
+	file, ok := input.(statReader)
+	if !ok {
+		return true
+	}
+	stat, err := file.Stat()
+	if err != nil {
+		return false
+	}
 	return (stat.Mode() & os.ModeCharDevice) == 0
 }
 
-// readStdinAll reads all piped stdin content into a string.
+// readInputAll reads all provided input content into a string.
 // Returns an error wrapping noInputMsg when stdin is a terminal.
-func readStdinAll(noInputMsg string) (string, error) {
-	if !isStdinPiped() {
+//
+//goplint:ignore -- CLI adapter helper carries transient terminal text and display error text.
+func readInputAll(input io.Reader, noInputMsg string) (string, error) {
+	if !isInputPiped(input) {
 		return "", errors.New(noInputMsg)
 	}
 
 	var sb strings.Builder
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(input)
 
 	for {
 		line, err := reader.ReadString('\n')

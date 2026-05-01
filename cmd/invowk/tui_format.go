@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/invowk/invowk/internal/tui"
@@ -61,7 +60,7 @@ func runTuiFormat(cmd *cobra.Command, args []string) error {
 		content = strings.Join(args, " ")
 	} else {
 		var err error
-		content, err = readStdinAll("no content provided; provide as arguments or pipe via stdin")
+		content, err = readInputAll(cmd.InOrStdin(), "no content provided; provide as arguments or pipe via stdin")
 		if err != nil {
 			return err
 		}
@@ -91,9 +90,9 @@ func runTuiFormat(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprint(os.Stdout, result) // Terminal output; error non-critical
+	_, _ = fmt.Fprint(cmd.OutOrStdout(), result) // Terminal output; error non-critical
 	if result != "" && result[len(result)-1] != '\n' {
-		_, _ = fmt.Fprintln(os.Stdout)
+		_, _ = fmt.Fprintln(cmd.OutOrStdout())
 	}
 	return nil
 }

@@ -5,7 +5,6 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +73,7 @@ func TestLoadTableRowsFromFileAndSplitHeaders(t *testing.T) {
 	rows, err := loadTableRows(tableConfig{
 		file:      tableFile(csvPath),
 		separator: tableSeparator(","),
-	})
+	}, strings.NewReader(""))
 	if err != nil {
 		t.Fatalf("loadTableRows(): %v", err)
 	}
@@ -100,13 +99,11 @@ func TestLoadTableRowsFromFileAndSplitHeaders(t *testing.T) {
 }
 
 func TestLoadTableRowsFromStdin(t *testing.T) {
-	// No t.Parallel(): withPipeStdin replaces os.Stdin (process-wide).
-	restore := withPipeStdin(t, "name|age\nAlice|30\nBob|25\n")
-	defer restore()
+	t.Parallel()
 
-	rows, err := loadTableRowsFromStdin(tableConfig{separator: tableSeparator("|")})
+	rows, err := loadTableRowsFromInput(tableConfig{separator: tableSeparator("|")}, strings.NewReader("name|age\nAlice|30\nBob|25\n"))
 	if err != nil {
-		t.Fatalf("loadTableRowsFromStdin(): %v", err)
+		t.Fatalf("loadTableRowsFromInput(): %v", err)
 	}
 	if len(rows) != 3 {
 		t.Fatalf("len(rows) = %d, want 3", len(rows))
@@ -203,15 +200,15 @@ func TestRunTuiTableSelectablePrintsSelectedRow(t *testing.T) {
 	if err := cmd.Flags().Set("selectable", "true"); err != nil {
 		t.Fatalf("Set(selectable): %v", err)
 	}
+	var output strings.Builder
+	cmd.SetOut(&output)
 
-	output := captureStdout(t, func() {
-		if err := runTuiTable(cmd, nil); err != nil {
-			t.Fatalf("runTuiTable(): %v", err)
-		}
-	})
+	if err := runTuiTable(cmd, nil); err != nil {
+		t.Fatalf("runTuiTable(): %v", err)
+	}
 
-	if output != "Bob,25\n" {
-		t.Fatalf("stdout = %q, want %q", output, "Bob,25\n")
+	if output.String() != "Bob,25\n" {
+		t.Fatalf("stdout = %q, want %q", output.String(), "Bob,25\n")
 	}
 
 	req := <-requests
@@ -225,61 +222,14 @@ func TestRunTuiTableSelectablePrintsSelectedRow(t *testing.T) {
 }
 
 func TestRunTuiTableNoData(t *testing.T) {
-	// No t.Parallel(): withPipeStdin replaces os.Stdin (process-wide).
-	restore := withPipeStdin(t, "")
-	defer restore()
+	t.Parallel()
 
-	err := runTuiTable(newTUITableCommand(), nil)
+	cmd := newTUITableCommand()
+	cmd.SetIn(strings.NewReader(""))
+	err := runTuiTable(cmd, nil)
 	if !errors.Is(err, errNoDataToDisplay) {
 		t.Fatalf("runTuiTable() error = %v, want errNoDataToDisplay", err)
 	}
-}
-
-func withPipeStdin(t *testing.T, input string) func() {
-	t.Helper()
-
-	oldStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe(): %v", err)
-	}
-	if _, err := w.WriteString(input); err != nil {
-		t.Fatalf("WriteString(): %v", err)
-	}
-	if closeErr := w.Close(); closeErr != nil {
-		t.Fatalf("Close(writer): %v", closeErr)
-	}
-	os.Stdin = r
-
-	return func() {
-		_ = r.Close()
-		os.Stdin = oldStdin
-	}
-}
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe(): %v", err)
-	}
-	os.Stdout = w
-
-	fn()
-
-	if closeErr := w.Close(); closeErr != nil {
-		t.Fatalf("Close(writer): %v", closeErr)
-	}
-	os.Stdout = oldStdout
-
-	out, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("ReadAll(): %v", err)
-	}
-	_ = r.Close()
-	return string(out)
 }
 
 func startTableTestServer(t *testing.T, result tuiserver.TableResult) (server *tuiserver.Server, requests <-chan tuiserver.TableRequest, asyncErrs <-chan error) {

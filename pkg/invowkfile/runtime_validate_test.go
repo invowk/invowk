@@ -250,16 +250,29 @@ func TestRuntimeConfig_Validate_InvalidEnvInheritAllow(t *testing.T) {
 
 func TestRuntimeConfig_Validate_InvalidContainerfile(t *testing.T) {
 	t.Parallel()
-	rc := RuntimeConfig{
-		Name:          RuntimeContainer,
-		Containerfile: "   ", // whitespace-only
+	tests := []struct {
+		name          string
+		containerfile ContainerfilePath
+	}{
+		{"whitespace-only", "   "},
+		{"windows absolute path", `C:\tmp\Containerfile`},
 	}
-	err := rc.Validate()
-	if err == nil {
-		t.Fatal("RuntimeConfig with whitespace-only containerfile should fail")
-	}
-	if !errors.Is(err, ErrInvalidRuntimeConfig) {
-		t.Errorf("error should wrap ErrInvalidRuntimeConfig, got: %v", err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			rc := RuntimeConfig{
+				Name:          RuntimeContainer,
+				Containerfile: tt.containerfile,
+			}
+			err := rc.Validate()
+			if err == nil {
+				t.Fatal("RuntimeConfig with invalid containerfile should fail")
+			}
+			if !errors.Is(err, ErrInvalidRuntimeConfig) {
+				t.Errorf("error should wrap ErrInvalidRuntimeConfig, got: %v", err)
+			}
+		})
 	}
 }
 

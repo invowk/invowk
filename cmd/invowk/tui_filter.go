@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/invowk/invowk/internal/tui"
@@ -67,8 +66,8 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 
 	var options []string
 
-	if isStdinPiped() {
-		scanner := bufio.NewScanner(os.Stdin)
+	if isInputPiped(cmd.InOrStdin()) {
+		scanner := bufio.NewScanner(cmd.InOrStdin())
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
 			if line != "" {
@@ -127,6 +126,6 @@ func runTuiFilter(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, strings.Join(results, "\n")) // Terminal output; error non-critical
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), strings.Join(results, "\n")) // Terminal output; error non-critical
 	return nil
 }

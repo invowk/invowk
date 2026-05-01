@@ -65,7 +65,7 @@ func runTuiPager(cmd *cobra.Command, args []string) error {
 		content = string(data)
 	} else {
 		var err error
-		content, err = readStdinAll("no content provided; provide a file path or pipe content via stdin")
+		content, err = readInputAll(cmd.InOrStdin(), "no content provided; provide a file path or pipe content via stdin")
 		if err != nil {
 			return err
 		}

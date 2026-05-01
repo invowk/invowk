@@ -135,17 +135,19 @@ func NewApp(d Dependencies) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
-		svc := commandsvc.NewWithPorts(
+		svc := commandsvc.New(
 			d.Config,
 			d.Discovery,
 			captureUserEnv,
 			commandsvc.LoadConfigWithFallback,
-			hostAccess,
-			registryFactory,
-			interactiveExecutor,
-			&cliExecutionObserver{stdout: d.Stdout},
-			commandadapters.NewDependencyCapabilityChecker(),
-			commandadapters.NewDependencyHostProbe(),
+			commandsvc.NewPorts(
+				hostAccess,
+				registryFactory,
+				interactiveExecutor,
+				&cliExecutionObserver{stdout: d.Stdout},
+				commandadapters.NewDependencyCapabilityChecker(),
+				commandadapters.NewDependencyHostProbe(),
+			),
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}

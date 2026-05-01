@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -70,7 +69,7 @@ Examples:
 }
 
 func runTuiSpin(cmd *cobra.Command, args []string) error {
-	return runTuiSpinWithRunner(cmd, args, execTUISpinRunner{}, tui.SpinWithAction, os.Stdout)
+	return runTuiSpinWithRunner(cmd, args, execTUISpinRunner{}, tui.SpinWithAction, cmd.OutOrStdout())
 }
 
 func runTuiSpinWithRunner(cmd *cobra.Command, args []string, runner tuiSpinRunner, spin tuiSpinAction, stdout io.Writer) error {

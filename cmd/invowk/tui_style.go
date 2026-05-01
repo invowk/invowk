@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -94,7 +93,7 @@ func runTuiStyle(cmd *cobra.Command, args []string) error {
 		content = strings.Join(args, " ")
 	} else {
 		var err error
-		content, err = readStdinAll("no content provided; provide as arguments or pipe via stdin")
+		content, err = readInputAll(cmd.InOrStdin(), "no content provided; provide as arguments or pipe via stdin")
 		if err != nil {
 			return err
 		}
@@ -175,7 +174,7 @@ func runTuiStyle(cmd *cobra.Command, args []string) error {
 		style = style.Border(lipgloss.HiddenBorder())
 	}
 
-	if _, err := lipgloss.Fprintln(os.Stdout, style.Render(content)); err != nil {
+	if _, err := lipgloss.Fprintln(cmd.OutOrStdout(), style.Render(content)); err != nil {
 		return fmt.Errorf("failed to write styled output: %w", err)
 	}
 	return nil

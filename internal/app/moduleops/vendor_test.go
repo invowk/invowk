@@ -441,6 +441,98 @@ func TestVendorModules_CopiesFromCache(t *testing.T) {
 	}
 }
 
+func TestVendorDependenciesIgnoresStaleLockEntriesWhenPruning(t *testing.T) {
+	tmpDir := t.TempDir()
+	cacheRoot := filepath.Join(tmpDir, "module-cache")
+	t.Setenv("INVOWK_MODULES_PATH", cacheRoot)
+
+	modulePath := createValidModuleForPackaging(t, tmpDir, "parent.invowkmod", "parent")
+	invowkmodContent := `module: "parent"
+version: "1.0.0"
+requires: [
+	{
+		git_url: "https://github.com/example/dep.invowkmod.git"
+		version: "^1.0.0"
+	},
+]
+`
+	if err := os.WriteFile(filepath.Join(modulePath, "invowkmod.cue"), []byte(invowkmodContent), 0o644); err != nil {
+		t.Fatalf("WriteFile(invowkmod.cue): %v", err)
+	}
+
+	depCacheDir := filepath.Join(cacheRoot, "github.com", "example", "dep.invowkmod", "1.0.0")
+	if mkdirErr := os.MkdirAll(depCacheDir, 0o755); mkdirErr != nil {
+		t.Fatalf("MkdirAll(dep cache): %v", mkdirErr)
+	}
+	depModuleDir := createValidModuleForPackaging(t, depCacheDir, "dep.invowkmod", "dep")
+	depHash, err := invowkmod.ComputeModuleHash(depModuleDir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash(dep): %v", err)
+	}
+
+	staleCacheDir := filepath.Join(cacheRoot, "github.com", "example", "stale.invowkmod", "1.0.0")
+	if mkdirErr := os.MkdirAll(staleCacheDir, 0o755); mkdirErr != nil {
+		t.Fatalf("MkdirAll(stale cache): %v", mkdirErr)
+	}
+	staleModuleDir := createValidModuleForPackaging(t, staleCacheDir, "stale.invowkmod", "stale")
+	staleHash, err := invowkmod.ComputeModuleHash(staleModuleDir)
+	if err != nil {
+		t.Fatalf("ComputeModuleHash(stale): %v", err)
+	}
+
+	lock := invowkmod.NewLockFile()
+	lock.Modules["https://github.com/example/dep.invowkmod.git"] = invowkmod.LockedModule{
+		GitURL:          "https://github.com/example/dep.invowkmod.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.0.0",
+		GitCommit:       "abc123def456789012345678901234567890abcd",
+		Namespace:       "dep@1.0.0",
+		ModuleID:        "dep",
+		ContentHash:     depHash,
+	}
+	lock.Modules["https://github.com/example/stale.invowkmod.git"] = invowkmod.LockedModule{
+		GitURL:          "https://github.com/example/stale.invowkmod.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.0.0",
+		GitCommit:       "def456789012345678901234567890abcdef1234",
+		Namespace:       "stale@1.0.0",
+		ModuleID:        "stale",
+		ContentHash:     staleHash,
+	}
+	if saveErr := lock.Save(filepath.Join(modulePath, invowkmod.LockFileName)); saveErr != nil {
+		t.Fatalf("Save(lock): %v", saveErr)
+	}
+
+	vendorDir := filepath.Join(modulePath, VendoredModulesDir)
+	if mkdirErr := os.MkdirAll(vendorDir, 0o755); mkdirErr != nil {
+		t.Fatalf("MkdirAll(vendor dir): %v", mkdirErr)
+	}
+	createValidModuleForPackaging(t, vendorDir, "stale.invowkmod", "stale")
+
+	requirements, result, strategy, err := VendorDependencies(t.Context(), types.FilesystemPath(modulePath), false, true)
+	if err != nil {
+		t.Fatalf("VendorDependencies() error = %v", err)
+	}
+	if strategy != VendorResolutionLocked {
+		t.Fatalf("strategy = %s, want %s", strategy, VendorResolutionLocked)
+	}
+	if len(requirements) != 1 {
+		t.Fatalf("requirements = %d, want 1", len(requirements))
+	}
+	if len(result.Vendored) != 1 {
+		t.Fatalf("vendored = %d, want 1", len(result.Vendored))
+	}
+	if got := filepath.Base(string(result.Vendored[0].VendorPath)); got != "dep.invowkmod" {
+		t.Fatalf("vendored directory = %q, want dep.invowkmod", got)
+	}
+	if len(result.Pruned) != 1 || filepath.Base(result.Pruned[0]) != "stale.invowkmod" {
+		t.Fatalf("pruned = %v, want stale.invowkmod", result.Pruned)
+	}
+	if _, err := os.Stat(filepath.Join(vendorDir, "stale.invowkmod")); !os.IsNotExist(err) {
+		t.Fatalf("stale vendored module still exists: %v", err)
+	}
+}
+
 func TestVendorModules_OverwritesExisting(t *testing.T) {
 	t.Parallel()
 

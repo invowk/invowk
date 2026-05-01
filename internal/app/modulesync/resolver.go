@@ -357,12 +357,8 @@ func (m *Resolver) LoadFromLock(_ context.Context) ([]*ResolvedModule, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	lockPath := filepath.Join(string(m.workingDir), LockFileName)
-	lock, err := invowkmod.LoadLockFile(lockPath)
+	lock, err := m.loadV2LockFile()
 	if err != nil {
-		return nil, fmt.Errorf(errFmtLoadLockFile, err)
-	}
-	if err := lock.RequireV2(); err != nil {
 		return nil, err
 	}
 
@@ -372,6 +368,43 @@ func (m *Resolver) LoadFromLock(_ context.Context) ([]*ResolvedModule, error) {
 		modules = append(modules, m.resolvedModuleFromLockEntry(key, entry))
 	}
 	return modules, nil
+}
+
+// LoadDeclaredFromLock loads only the modules declared by requirements from an
+// existing lock file. Lock-only entries are ignored so callers whose source of
+// truth is invowkmod.cue can prune stale vendored modules instead of
+// accidentally preserving them.
+func (m *Resolver) LoadDeclaredFromLock(_ context.Context, requirements []ModuleRef) ([]*ResolvedModule, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	lock, err := m.loadV2LockFile()
+	if err != nil {
+		return nil, err
+	}
+
+	modules := make([]*ResolvedModule, 0, len(requirements))
+	for _, req := range requirements {
+		key := req.Key()
+		entry, ok := lock.Modules[key]
+		if !ok {
+			return nil, fmt.Errorf("declared module %s missing from lock file", key)
+		}
+		modules = append(modules, m.resolvedModuleFromLockEntry(key, entry))
+	}
+	return modules, nil
+}
+
+func (m *Resolver) loadV2LockFile() (*LockFile, error) {
+	lockPath := filepath.Join(string(m.workingDir), LockFileName)
+	lock, err := invowkmod.LoadLockFile(lockPath)
+	if err != nil {
+		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+	}
+	if err := lock.RequireV2(); err != nil {
+		return nil, err
+	}
+	return lock, nil
 }
 
 func (m *Resolver) resolvedModuleFromLockEntry(key ModuleRefKey, entry LockedModule) *ResolvedModule {

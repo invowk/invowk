@@ -34,38 +34,54 @@ type (
 		configFallback    ConfigFallbackFunc
 	}
 
+	ports struct {
+		hostAccess        HostAccess
+		registryFactory   RuntimeRegistryCreator
+		interactive       InteractiveExecutor
+		observer          ExecutionObserver
+		capabilityChecker deps.CapabilityChecker
+		hostProbe         deps.HostProbe
+	}
+
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
 	// The CLI layer provides the implementation that emits diagnostics.
 	ConfigFallbackFunc func(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []Diagnostic)
 )
 
-// New creates a command execution service.
-//
-// The userEnvFunc callback captures the host environment when Request.UserEnv
-// is nil. The configFallback function loads configuration with fallback behavior.
-// Both are provided by the CLI layer to avoid the service importing cmd/.
-func New(
-	configProvider config.Loader,
-	disc CommandDiscovery,
-	userEnvFunc UserEnvFunc,
-	configFallback ConfigFallbackFunc,
-) *Service {
-	return NewWithPorts(configProvider, disc, userEnvFunc, configFallback, nil, nil, nil, nil, nil, nil)
-}
-
-// NewWithPorts creates a command execution service with explicit infrastructure
-// adapters. Nil ports fall back to no-op/default adapters for tests.
-func NewWithPorts(
-	configProvider config.Loader,
-	disc CommandDiscovery,
-	userEnvFunc UserEnvFunc,
-	configFallback ConfigFallbackFunc,
+// NewPorts creates the infrastructure port bundle for production service wiring.
+func NewPorts(
 	hostAccess HostAccess,
 	registryFactory RuntimeRegistryCreator,
 	interactive InteractiveExecutor,
 	observer ExecutionObserver,
 	capabilityChecker deps.CapabilityChecker,
 	hostProbe deps.HostProbe,
+) ports {
+	return ports{
+		hostAccess:        hostAccess,
+		registryFactory:   registryFactory,
+		interactive:       interactive,
+		observer:          observer,
+		capabilityChecker: capabilityChecker,
+		hostProbe:         hostProbe,
+	}
+}
+
+// DefaultPorts returns the deterministic default/no-op service ports used by tests.
+func DefaultPorts() ports { return ports{} }
+
+// New creates a command execution service.
+//
+// The userEnvFunc callback captures the host environment when Request.UserEnv
+// is nil. The configFallback function loads configuration with fallback behavior.
+// Host and runtime infrastructure ports are explicit so production callers
+// cannot accidentally construct an under-wired service after adapter splits.
+func New(
+	configProvider config.Loader,
+	disc CommandDiscovery,
+	userEnvFunc UserEnvFunc,
+	configFallback ConfigFallbackFunc,
+	servicePorts ports,
 ) *Service {
 	svc := &Service{
 		config:          configProvider,
@@ -77,23 +93,23 @@ func NewWithPorts(
 		userEnvFunc:     userEnvFunc,
 		configFallback:  configFallback,
 	}
-	if hostAccess != nil {
-		svc.hostAccess = hostAccess
+	if servicePorts.hostAccess != nil {
+		svc.hostAccess = servicePorts.hostAccess
 	}
-	if registryFactory != nil {
-		svc.registryFactory = registryFactory
+	if servicePorts.registryFactory != nil {
+		svc.registryFactory = servicePorts.registryFactory
 	}
-	if interactive != nil {
-		svc.interactive = interactive
+	if servicePorts.interactive != nil {
+		svc.interactive = servicePorts.interactive
 	}
-	if observer != nil {
-		svc.observer = observer
+	if servicePorts.observer != nil {
+		svc.observer = servicePorts.observer
 	}
-	if capabilityChecker != nil {
-		svc.capabilityChecker = capabilityChecker
+	if servicePorts.capabilityChecker != nil {
+		svc.capabilityChecker = servicePorts.capabilityChecker
 	}
-	if hostProbe != nil {
-		svc.hostProbe = hostProbe
+	if servicePorts.hostProbe != nil {
+		svc.hostProbe = servicePorts.hostProbe
 	}
 	return svc
 }

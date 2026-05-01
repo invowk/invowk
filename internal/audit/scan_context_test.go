@@ -165,6 +165,45 @@ func TestBuildScanContextIncludedModuleKeepsLockAndVendoredArtifacts(t *testing.
 	}
 }
 
+func TestBuildScanContextWarnsAndIgnoresNestedVendoredModules(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	moduleDir := filepath.Join(root, "io.example.root.invowkmod")
+	createAuditTestModule(t, moduleDir, "io.example.root", "root-cmd")
+	childDir := filepath.Join(moduleDir, invowkmod.VendoredModulesDir, "io.example.child.invowkmod")
+	createAuditTestModule(t, childDir, "io.example.child", "child-cmd")
+	nestedDir := filepath.Join(childDir, invowkmod.VendoredModulesDir, "io.example.nested.invowkmod")
+	createAuditTestModule(t, nestedDir, "io.example.nested", "nested-cmd")
+
+	sc, err := BuildScanContext(types.FilesystemPath(root), config.DefaultConfig(), false)
+	if err != nil {
+		t.Fatalf("BuildScanContext() = %v", err)
+	}
+
+	var foundDiagnostic bool
+	for _, diagnostic := range sc.Diagnostics() {
+		if diagnostic.Code() == diagnosticNestedVendoredIgnored && diagnostic.Path() == types.FilesystemPath(childDir) {
+			foundDiagnostic = true
+			break
+		}
+	}
+	if !foundDiagnostic {
+		t.Fatalf("missing %s diagnostic; diagnostics=%v", diagnosticNestedVendoredIgnored, sc.Diagnostics())
+	}
+
+	for _, mod := range sc.Modules() {
+		if mod.SurfaceID == "io.example.nested" {
+			t.Fatal("nested vendored module was scanned as a first-class audit surface")
+		}
+	}
+	for _, script := range sc.AllScripts() {
+		if script.SurfaceID == "io.example.nested" {
+			t.Fatal("nested vendored module script was exposed to audit checkers")
+		}
+	}
+}
+
 func TestScanContextModulesReturnsCheckerOwnedSnapshots(t *testing.T) {
 	t.Parallel()
 

@@ -28,6 +28,7 @@ const (
 	diagnosticModuleSkipped         DiagnosticCode = "module_skipped"
 	diagnosticDiscoveryPartial      DiagnosticCode = "discovery_partial"
 	diagnosticVendoredModuleSkipped DiagnosticCode = "vendored_module_skipped"
+	diagnosticNestedVendoredIgnored DiagnosticCode = "vendored_nested_ignored"
 )
 
 type (
@@ -629,10 +630,17 @@ func (modules vendoredModuleArtifacts) moduleList() []*invowkmod.Module {
 
 func (sc *ScanContext) appendVendoredScannedModules(vendored vendoredModuleArtifacts, isGlobal bool) {
 	for _, artifact := range vendored {
-		sm, _, err := sc.loadScannedModule(artifact.Path, artifact.Module, nil, isGlobal, true)
+		sm, nested, err := sc.loadScannedModule(artifact.Path, artifact.Module, nil, isGlobal, true)
 		if err != nil {
 			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid vendored module %s: %v", artifact.Path, err), artifact.Path)
 			continue
+		}
+		if len(nested) > 0 {
+			sc.addDiagnostic(
+				diagnosticNestedVendoredIgnored,
+				fmt.Sprintf("vendored module %s contains %d nested vendored module(s); nested vendored modules are ignored by the flat explicit-only audit policy", artifact.Path, len(nested)),
+				artifact.Path,
+			)
 		}
 		sm.SurfaceKind = moduleSurfaceKind(isGlobal, true)
 		sc.modules = append(sc.modules, sm)

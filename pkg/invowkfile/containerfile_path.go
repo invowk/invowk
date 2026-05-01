@@ -5,7 +5,6 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -45,7 +44,7 @@ func (p ContainerfilePath) Validate() error {
 	if len(path) > MaxPathLength {
 		return &InvalidContainerfilePathError{Value: p, Reason: fmt.Sprintf("path too long (%d chars, max %d)", len(path), MaxPathLength)}
 	}
-	if filepath.IsAbs(path) {
+	if isAbsolutePath(path) {
 		return &InvalidContainerfilePathError{Value: p, Reason: "path must be relative, not absolute"}
 	}
 	if strings.ContainsRune(path, '\x00') {
