@@ -34,7 +34,6 @@ func (s *Server) GenerateToken(commandID CommandID) (*Token, error) {
 		CreatedAt: now,
 		ExpiresAt: now.Add(s.cfg.TokenTTL),
 		CommandID: commandID,
-		Used:      false,
 	}
 
 	s.tokenMu.Lock()

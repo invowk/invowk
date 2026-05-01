@@ -25,9 +25,12 @@ type (
 	}
 
 	recordingHostProbe struct {
-		tools     []invowkfile.BinaryName
-		filepaths []types.FilesystemPath
-		checks    []invowkfile.CheckName
+		tools          []invowkfile.BinaryName
+		toolErrors     map[invowkfile.BinaryName]error
+		filepaths      []types.FilesystemPath
+		filepathErrors map[types.FilesystemPath]error
+		checks         []invowkfile.CheckName
+		checkErrors    map[invowkfile.CheckName]error
 	}
 )
 
@@ -40,16 +43,25 @@ func (s *stubCommandSetProvider) DiscoverCommandSet(context.Context) (discovery.
 
 func (p *recordingHostProbe) CheckTool(tool invowkfile.BinaryName) error {
 	p.tools = append(p.tools, tool)
+	if p.toolErrors != nil {
+		return p.toolErrors[tool]
+	}
 	return nil
 }
 
 func (p *recordingHostProbe) CheckFilepath(_, resolvedPath types.FilesystemPath, _ invowkfile.FilepathDependency) error {
 	p.filepaths = append(p.filepaths, resolvedPath)
+	if p.filepathErrors != nil {
+		return p.filepathErrors[resolvedPath]
+	}
 	return nil
 }
 
 func (p *recordingHostProbe) RunCustomCheck(_ context.Context, check invowkfile.CustomCheck) error {
 	p.checks = append(p.checks, check.Name)
+	if p.checkErrors != nil {
+		return p.checkErrors[check.Name]
+	}
 	return nil
 }
 
@@ -530,7 +542,19 @@ func TestValidateDependencies(t *testing.T) {
 			SelectedImpl:    &cmd.Implementations[0],
 		}
 
-		err := ValidateDependencies(disc, cmdInfo, runtimepkg.NewRegistry(), execCtx, nil)
+		err := ValidateDependenciesWithHostProbe(
+			disc,
+			cmdInfo,
+			runtimepkg.NewRegistry(),
+			execCtx,
+			nil,
+			nil,
+			&recordingHostProbe{
+				toolErrors: map[invowkfile.BinaryName]error{
+					"___nonexistent_tool_for_test___": errors.New("missing host tool"),
+				},
+			},
+		)
 		if err == nil {
 			t.Fatal("expected host dependency error")
 		}

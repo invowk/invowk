@@ -64,7 +64,7 @@ func TestListModuleDependenciesUsesInvowkmodPathDirectory(t *testing.T) {
 	}
 }
 
-func TestAddModuleDependencyReportsDeclarationFailureAfterLockUpdate(t *testing.T) {
+func TestAddModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	t.Parallel()
 
 	workDir := t.TempDir()
@@ -103,12 +103,12 @@ version: "1.2.3"`)
 	if err != nil {
 		t.Fatalf("LoadLockFile() error = %v", err)
 	}
-	if len(lock.Modules) != 1 {
-		t.Fatalf("lock modules = %d, want 1", len(lock.Modules))
+	if len(lock.Modules) != 0 {
+		t.Fatalf("lock modules = %d, want 0 after rollback", len(lock.Modules))
 	}
 }
 
-func TestRemoveModuleDependencyReportsDeclarationFailureAfterLockUpdate(t *testing.T) {
+func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 	t.Parallel()
 
 	workDir := t.TempDir()
@@ -157,8 +157,8 @@ func TestRemoveModuleDependencyReportsDeclarationFailureAfterLockUpdate(t *testi
 	if err != nil {
 		t.Fatalf("LoadLockFile() error = %v", err)
 	}
-	if len(reloaded.Modules) != 0 {
-		t.Fatalf("lock modules = %d, want 0", len(reloaded.Modules))
+	if len(reloaded.Modules) != 1 {
+		t.Fatalf("lock modules = %d, want 1 after rollback", len(reloaded.Modules))
 	}
 }
 

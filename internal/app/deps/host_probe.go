@@ -4,10 +4,15 @@ package deps
 
 import (
 	"context"
+	"errors"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+// ErrHostProbeRequired is returned when host dependencies must be evaluated but
+// the application layer did not inject an infrastructure host probe.
+var ErrHostProbeRequired = errors.New("host dependency probe is required")
 
 type (
 	// HostProbe performs host-device checks for dependency validation.
@@ -16,22 +21,4 @@ type (
 		CheckFilepath(displayPath, resolvedPath types.FilesystemPath, fp invowkfile.FilepathDependency) error
 		RunCustomCheck(ctx context.Context, check invowkfile.CustomCheck) error
 	}
-
-	defaultHostProbe struct{}
 )
-
-func newDefaultHostProbe() HostProbe {
-	return defaultHostProbe{}
-}
-
-func (defaultHostProbe) CheckTool(toolName invowkfile.BinaryName) error {
-	return ValidateToolNative(toolName)
-}
-
-func (defaultHostProbe) CheckFilepath(displayPath, resolvedPath types.FilesystemPath, fp invowkfile.FilepathDependency) error {
-	return ValidateSingleFilepath(displayPath, resolvedPath, fp)
-}
-
-func (defaultHostProbe) RunCustomCheck(ctx context.Context, check invowkfile.CustomCheck) error {
-	return validateCustomCheckNative(ctx, check)
-}

@@ -4,7 +4,6 @@ package deps
 
 import (
 	"fmt"
-	"os/exec"
 	"regexp"
 
 	"github.com/invowk/invowk/internal/runtime"
@@ -42,16 +41,6 @@ func CheckToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runt
 	return nil
 }
 
-// ValidateToolNative validates a tool dependency against the host system PATH.
-// It accepts a BinaryName and checks if it exists in the system PATH.
-func ValidateToolNative(toolName invowkfile.BinaryName) error {
-	_, err := exec.LookPath(string(toolName))
-	if err != nil {
-		return fmt.Errorf("  • %s - not found in PATH", toolName)
-	}
-	return nil
-}
-
 // ValidateToolInContainer validates a tool dependency within a container.
 // It accepts a BinaryName and checks if it exists in the container environment.
 // The runtime is passed directly (hoisted by caller) to avoid redundant registry lookups.
@@ -84,13 +73,16 @@ func ValidateToolInContainer(toolName invowkfile.BinaryName, rt runtime.Runtime,
 // CheckHostToolDependencies verifies all required tools are available against the HOST PATH.
 // Always uses native validation regardless of selected runtime.
 func CheckHostToolDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
-	return CheckHostToolDependenciesWithProbe(deps, ctx, newDefaultHostProbe())
+	return CheckHostToolDependenciesWithProbe(deps, ctx, nil)
 }
 
 // CheckHostToolDependenciesWithProbe verifies host tool dependencies through an injectable probe.
 func CheckHostToolDependenciesWithProbe(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext, probe HostProbe) error {
 	if deps == nil || len(deps.Tools) == 0 {
 		return nil
+	}
+	if probe == nil {
+		return ErrHostProbeRequired
 	}
 
 	toolErrors := CollectToolErrors(deps.Tools, probe.CheckTool)

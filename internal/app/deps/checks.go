@@ -66,16 +66,6 @@ func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registr
 	})
 }
 
-// validateCustomCheckNative runs a custom check script using the native shell.
-// Uses the provided context for cancellation and timeout propagation (SC-07).
-func validateCustomCheckNative(ctx context.Context, check invowkfile.CustomCheck) error {
-	cmd := exec.CommandContext(ctx, "sh", "-c", string(check.CheckScript))
-	output, err := cmd.CombinedOutput()
-	outputStr := strings.TrimSpace(string(output))
-
-	return ValidateCustomCheckOutput(check, outputStr, err)
-}
-
 // validateCustomCheckInContainer runs a custom check script within a container.
 // Distinguishes infrastructure failures (container engine down) from script exit codes
 // to prevent false-positive validation when the container never actually ran.
@@ -108,11 +98,17 @@ func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runt
 // Host-level custom checks always run in the native shell, regardless of the selected runtime,
 // ensuring host-side prerequisites are validated in a consistent, predictable environment.
 func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
-	return CheckHostCustomCheckDependenciesWithProbe(deps, ctx, newDefaultHostProbe())
+	return CheckHostCustomCheckDependenciesWithProbe(deps, ctx, nil)
 }
 
 // CheckHostCustomCheckDependenciesWithProbe validates host custom checks through an injectable probe.
 func CheckHostCustomCheckDependenciesWithProbe(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext, probe HostProbe) error {
+	if deps == nil || len(deps.CustomChecks) == 0 {
+		return nil
+	}
+	if probe == nil {
+		return ErrHostProbeRequired
+	}
 	return evaluateCustomChecks(deps, ctx, probe.RunCustomCheck)
 }
 
@@ -289,7 +285,7 @@ func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *r
 // For container runtimes, these checks represent the host's capabilities, not the container's.
 // Each CapabilityDependency contains a list of alternatives; if any alternative is satisfied, the dependency is met.
 func CheckCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
-	return CheckCapabilityDependenciesWithChecker(deps, ctx, newHostCapabilityChecker())
+	return CheckCapabilityDependenciesWithChecker(deps, ctx, nil)
 }
 
 // CheckCapabilityDependenciesWithChecker verifies capability dependencies with an injected checker.
@@ -298,7 +294,7 @@ func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx *run
 		return nil
 	}
 	if checker == nil {
-		checker = newHostCapabilityChecker()
+		return ErrCapabilityCheckerRequired
 	}
 
 	var capabilityErrors []DependencyMessage

@@ -177,7 +177,7 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	}
 
 	resolved := result.Resolved()
-	fmt.Printf("%s Module resolved and lock file updated\n", moduleSuccessIcon)
+	fmt.Printf("%s Module resolved\n", moduleSuccessIcon)
 	fmt.Println()
 	fmt.Printf("%s Git URL:   %s\n", moduleInfoIcon, modulePathStyle.Render(string(resolved.ModuleRef.GitURL)))
 	fmt.Printf("%s Version:   %s → %s\n", moduleInfoIcon, version, CmdStyle.Render(string(resolved.ResolvedVersion)))
@@ -188,12 +188,13 @@ func runModuleAdd(ctx context.Context, args []string, addAlias, addPath string) 
 	if declaration.Err() != nil {
 		if os.IsNotExist(declaration.Err()) {
 			fmt.Println()
-			fmt.Printf("%s invowkmod.cue not found — lock file was updated but you need to create invowkmod.cue\n", moduleInfoIcon)
+			fmt.Printf("%s invowkmod.cue not found — dependency was not persisted\n", moduleInfoIcon)
 		} else {
 			fmt.Println()
-			fmt.Printf("%s Could not auto-edit invowkmod.cue: %v\n", moduleInfoIcon, declaration.Err())
+			fmt.Printf("%s Could not auto-edit invowkmod.cue; lock file changes were rolled back: %v\n", moduleInfoIcon, declaration.Err())
 		}
 	} else {
+		fmt.Printf("%s Module lock file updated\n", moduleSuccessIcon)
 		fmt.Printf("%s Updated invowkmod.cue with new requires entry\n", moduleSuccessIcon)
 	}
 

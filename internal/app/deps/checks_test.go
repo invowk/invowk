@@ -408,7 +408,7 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 				},
 			}},
 		}
-		if err := CheckHostCustomCheckDependencies(deps, ctx); err != nil {
+		if err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, &recordingHostProbe{}); err != nil {
 			t.Fatalf("err = %v", err)
 		}
 	})
@@ -422,7 +422,11 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 				},
 			}},
 		}
-		err := CheckHostCustomCheckDependencies(deps, ctx)
+		err := CheckHostCustomCheckDependenciesWithProbe(deps, ctx, &recordingHostProbe{
+			checkErrors: map[invowkfile.CheckName]error{
+				"fail": errors.New("check failed"),
+			},
+		})
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -533,40 +537,6 @@ func TestShellEscapeSingleQuote(t *testing.T) {
 				t.Fatalf("ShellEscapeSingleQuote(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
-	}
-}
-
-// TestValidateCustomCheckNative_ContextCancellation verifies that
-// validateCustomCheckNative respects the Go context for cancellation (SC-07).
-// When passed an already-cancelled context, the check should return quickly
-// with a context error rather than waiting for the script to complete.
-func TestValidateCustomCheckNative_ContextCancellation(t *testing.T) {
-	t.Parallel()
-
-	if goruntime.GOOS == "windows" {
-		t.Skip("skipping: native shell check uses 'sh -c' which is not available on Windows")
-	}
-
-	// Create an already-cancelled context.
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-
-	// Use a long-running check script that would hang without cancellation.
-	check := invowkfile.CustomCheck{
-		Name:        "slow-check",
-		CheckScript: "sleep 60",
-	}
-
-	err := validateCustomCheckNative(ctx, check)
-	if err == nil {
-		t.Fatal("expected error from cancelled context, got nil")
-	}
-
-	// The error should originate from context cancellation, not from a timeout.
-	// exec.CommandContext returns an exit error when the context is cancelled.
-	// We check that the script did not complete normally (exit code 0).
-	if strings.Contains(err.Error(), "returned exit code 0") {
-		t.Error("expected context cancellation error, but check passed with exit code 0")
 	}
 }
 

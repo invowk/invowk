@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -13,6 +14,15 @@ import (
 )
 
 type (
+	fileSnapshotData []byte
+
+	fileSnapshot struct {
+		path   *types.FilesystemPath
+		data   fileSnapshotData
+		mode   os.FileMode
+		exists bool
+	}
+
 	// DeclarationEditResult describes the invowkmod.cue declaration mutation
 	// paired with a lock-file mutation.
 	DeclarationEditResult struct {
@@ -107,11 +117,22 @@ func AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath
 // AddModuleDependency resolves req with this resolver, updates the lock file,
 // and adds the corresponding requires entry to invowkmodPath.
 func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
+	lockSnapshot, snapshotErr := m.readLockSnapshot()
+	if snapshotErr != nil {
+		return AddModuleDependencyResult{}, snapshotErr
+	}
+	declarationSnapshot, snapshotErr := readFileSnapshot(invowkmodPath)
+	if snapshotErr != nil {
+		return AddModuleDependencyResult{}, snapshotErr
+	}
 	resolved, err := m.Add(ctx, req)
 	if err != nil {
 		return AddModuleDependencyResult{}, err
 	}
 	editErr := invowkmod.AddRequirement(invowkmodPath, req)
+	if editErr != nil {
+		editErr = errors.Join(editErr, declarationSnapshot.restore(), lockSnapshot.restore())
+	}
 	declaration, err := NewDeclarationEditResult(editErr == nil, editErr)
 	if err != nil {
 		return AddModuleDependencyResult{}, err
@@ -134,6 +155,14 @@ func RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemP
 // RemoveModuleDependency removes matching modules with this resolver and
 // removes their requires entries from invowkmodPath.
 func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
+	lockSnapshot, snapshotErr := m.readLockSnapshot()
+	if snapshotErr != nil {
+		return RemoveModuleDependencyResult{}, snapshotErr
+	}
+	declarationSnapshot, snapshotErr := readFileSnapshot(invowkmodPath)
+	if snapshotErr != nil {
+		return RemoveModuleDependencyResult{}, snapshotErr
+	}
 	removed, err := m.Remove(ctx, identifier)
 	if err != nil {
 		return RemoveModuleDependencyResult{}, err
@@ -142,7 +171,16 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	declarations := make([]DeclarationEditResult, 0, len(removed))
 	for i := range removed {
 		editErr := invowkmod.RemoveRequirement(invowkmodPath, removed[i].RemovedEntry.GitURL, removed[i].RemovedEntry.Path)
-		declaration, declarationErr := NewDeclarationEditResult(editErr == nil, editErr)
+		if editErr != nil {
+			editErr = errors.Join(editErr, declarationSnapshot.restore(), lockSnapshot.restore())
+			declaration, declarationErr := NewDeclarationEditResult(false, editErr)
+			if declarationErr != nil {
+				return RemoveModuleDependencyResult{}, declarationErr
+			}
+			declarations = append(declarations, declaration)
+			return NewRemoveModuleDependencyResult(removed, declarations)
+		}
+		declaration, declarationErr := NewDeclarationEditResult(true, nil)
 		if declarationErr != nil {
 			return RemoveModuleDependencyResult{}, declarationErr
 		}
@@ -150,6 +188,69 @@ func (m *Resolver) RemoveModuleDependency(ctx context.Context, invowkmodPath typ
 	}
 
 	return NewRemoveModuleDependencyResult(removed, declarations)
+}
+
+func newFileSnapshot(path types.FilesystemPath, data fileSnapshotData, mode os.FileMode, exists bool) fileSnapshot {
+	return fileSnapshot{
+		path:   &path,
+		data:   data,
+		mode:   mode,
+		exists: exists,
+	}
+}
+
+func (s fileSnapshot) Validate() error {
+	if s.path == nil {
+		return errors.New("file snapshot path is required")
+	}
+	return s.path.Validate()
+}
+
+func (m *Resolver) readLockSnapshot() (fileSnapshot, error) {
+	lockPath := types.FilesystemPath(filepath.Join(string(m.workingDir), LockFileName))
+	snapshot, err := readFileSnapshot(lockPath)
+	if err != nil {
+		return fileSnapshot{}, fmt.Errorf("snapshot lock file before dependency edit: %w", err)
+	}
+	return snapshot, nil
+}
+
+func readFileSnapshot(path types.FilesystemPath) (fileSnapshot, error) {
+	info, err := os.Stat(string(path))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return newFileSnapshot(path, nil, 0, false), nil
+		}
+		return fileSnapshot{}, fmt.Errorf("stat file before dependency edit: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return newFileSnapshot(path, nil, info.Mode(), true), nil
+	}
+	data, err := os.ReadFile(string(path))
+	if err != nil {
+		return fileSnapshot{}, fmt.Errorf("read file before dependency edit: %w", err)
+	}
+	return newFileSnapshot(path, fileSnapshotData(data), info.Mode(), true), nil
+}
+
+func (s fileSnapshot) restore() error {
+	if err := s.Validate(); err != nil {
+		return fmt.Errorf("invalid rollback snapshot: %w", err)
+	}
+	path := string(*s.path)
+	if !s.exists {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("rollback remove %s: %w", *s.path, err)
+		}
+		return nil
+	}
+	if !s.mode.IsRegular() {
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(s.data), s.mode.Perm()); err != nil {
+		return fmt.Errorf("rollback %s: %w", *s.path, err)
+	}
+	return nil
 }
 
 func newResolverForInvowkmodPath(invowkmodPath types.FilesystemPath) (*Resolver, error) {

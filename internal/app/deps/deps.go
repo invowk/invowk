@@ -63,9 +63,6 @@ func ValidateHostDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdI
 
 // ValidateHostDependenciesWithHostProbe validates host dependencies with injectable host-device probes.
 func ValidateHostDependenciesWithHostProbe(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe) error {
-	if hostProbe == nil {
-		hostProbe = newDefaultHostProbe()
-	}
 	mergedDeps := invowkfile.MergeDependsOnAll(cmdInfo.Invowkfile.DependsOn, cmdInfo.Command.DependsOn, parentCtx.SelectedImpl.DependsOn)
 	if mergedDeps == nil {
 		return nil

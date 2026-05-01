@@ -536,6 +536,36 @@ func TestCheckModuleCollisions(t *testing.T) {
 		}
 	})
 
+	t.Run("VendoredAliasCollision", func(t *testing.T) {
+		t.Parallel()
+
+		files := []*DiscoveredFile{
+			{
+				Path:             "/parent1.invowkmod/invowk_modules/child1.invowkmod/invowkfile.cue",
+				Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.child1")},
+				Module:           &invowkmod.Module{Path: "/parent1.invowkmod/invowk_modules/child1.invowkmod"},
+				ParentModule:     &invowkmod.Module{Metadata: &invowkmod.Invowkmod{Module: "io.example.parent1"}},
+				CommandNamespace: "tools",
+			},
+			{
+				Path:             "/parent2.invowkmod/invowk_modules/child2.invowkmod/invowkfile.cue",
+				Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.child2")},
+				Module:           &invowkmod.Module{Path: "/parent2.invowkmod/invowk_modules/child2.invowkmod"},
+				ParentModule:     &invowkmod.Module{Metadata: &invowkmod.Invowkmod{Module: "io.example.parent2"}},
+				CommandNamespace: "tools",
+			},
+		}
+
+		err := d.CheckModuleCollisions(files)
+		collisionErr, ok := errors.AsType[*ModuleCollisionError](err)
+		if !ok {
+			t.Fatalf("CheckModuleCollisions() error = %T %v, want ModuleCollisionError", err, err)
+		}
+		if collisionErr.Namespace != "tools" {
+			t.Fatalf("Namespace = %q, want tools", collisionErr.Namespace)
+		}
+	})
+
 	t.Run("SkipsFilesWithErrors", func(t *testing.T) {
 		t.Parallel()
 
@@ -615,6 +645,25 @@ func TestGetEffectiveCommandNamespace(t *testing.T) {
 		namespace := d.GetEffectiveCommandNamespace(file)
 		if namespace != "io.example.aliased" {
 			t.Errorf("GetEffectiveCommandNamespace() = %s, want io.example.aliased", namespace)
+		}
+	})
+
+	t.Run("WithVendoredCommandNamespace", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := config.DefaultConfig()
+		d := New(cfg)
+
+		file := &DiscoveredFile{
+			Path:             "/path/to/parent.invowkmod/invowk_modules/tools.invowkmod/invowkfile.cue",
+			Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.tools")},
+			Module:           &invowkmod.Module{Path: "/path/to/parent.invowkmod/invowk_modules/tools.invowkmod"},
+			CommandNamespace: "tools",
+		}
+
+		namespace := d.GetEffectiveCommandNamespace(file)
+		if namespace != "tools" {
+			t.Errorf("GetEffectiveCommandNamespace() = %s, want tools", namespace)
 		}
 	})
 

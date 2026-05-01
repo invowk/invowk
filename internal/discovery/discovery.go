@@ -261,8 +261,11 @@ func (d *Discovery) GetEffectiveCommandNamespace(file *DiscoveredFile) SourceID 
 
 	moduleID := file.Invowkfile.GetModule()
 	if file.Module != nil {
-		if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
-			return SourceID(alias)
+		if file.CommandNamespace != "" {
+			return SourceID(file.CommandNamespace)
+		}
+		if includeAlias := d.getAliasForModulePath(file.Module.Path); includeAlias != "" {
+			return SourceID(includeAlias)
 		}
 	}
 	return SourceID(moduleID)

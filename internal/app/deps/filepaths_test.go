@@ -8,13 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 	"testing"
 
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -229,17 +227,23 @@ func TestValidateFilepathAlternatives(t *testing.T) {
 		fp := invowkfile.FilepathDependency{
 			Alternatives: []invowkfile.FilesystemPath{invowkfile.FilesystemPath(existingFile)},
 		}
-		if err := ValidateFilepathAlternatives(fp, invowkDir); err != nil {
-			t.Fatalf("ValidateFilepathAlternatives() = %v", err)
+		probe := &recordingHostProbe{}
+		if err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe); err != nil {
+			t.Fatalf("ValidateFilepathAlternativesWithProbe() = %v", err)
 		}
 	})
 
 	t.Run("missing path returns error", func(t *testing.T) {
 		t.Parallel()
+		missingPath := types.FilesystemPath("/nonexistent/path")
 		fp := invowkfile.FilepathDependency{
-			Alternatives: []invowkfile.FilesystemPath{"/nonexistent/path"},
+			Alternatives: []invowkfile.FilesystemPath{missingPath},
 		}
-		err := ValidateFilepathAlternatives(fp, invowkDir)
+		err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, &recordingHostProbe{
+			filepathErrors: map[types.FilesystemPath]error{
+				missingPath: fmt.Errorf("%s: %w", missingPath, ErrPathNotExists),
+			},
+		})
 		if err == nil {
 			t.Fatal("expected error for missing path")
 		}
@@ -250,8 +254,13 @@ func TestValidateFilepathAlternatives(t *testing.T) {
 		fp := invowkfile.FilepathDependency{
 			Alternatives: []invowkfile.FilesystemPath{"/nonexistent", invowkfile.FilesystemPath(existingFile)},
 		}
-		if err := ValidateFilepathAlternatives(fp, invowkDir); err != nil {
-			t.Fatalf("ValidateFilepathAlternatives() = %v", err)
+		probe := &recordingHostProbe{
+			filepathErrors: map[types.FilesystemPath]error{
+				"/nonexistent": fmt.Errorf("/nonexistent: %w", ErrPathNotExists),
+			},
+		}
+		if err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe); err != nil {
+			t.Fatalf("ValidateFilepathAlternativesWithProbe() = %v", err)
 		}
 	})
 
@@ -261,144 +270,6 @@ func TestValidateFilepathAlternatives(t *testing.T) {
 		err := ValidateFilepathAlternatives(fp, invowkDir)
 		if !errors.Is(err, ErrNoPathAlternatives) {
 			t.Fatalf("err = %v, want wrapping ErrNoPathAlternatives", err)
-		}
-	})
-}
-
-func TestValidateSingleFilepath(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	readableFile := filepath.Join(tmpDir, "readable.txt")
-	if err := os.WriteFile(readableFile, []byte("content"), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	t.Run("existing file with no requirements succeeds", func(t *testing.T) {
-		t.Parallel()
-		err := ValidateSingleFilepath(types.FilesystemPath(readableFile), types.FilesystemPath(readableFile), invowkfile.FilepathDependency{})
-		if err != nil {
-			t.Fatalf("ValidateSingleFilepath() = %v", err)
-		}
-	})
-
-	t.Run("nonexistent file returns error", func(t *testing.T) {
-		t.Parallel()
-		missing := filepath.Join(tmpDir, "missing.txt")
-		err := ValidateSingleFilepath(types.FilesystemPath(missing), types.FilesystemPath(missing), invowkfile.FilepathDependency{})
-		if err == nil {
-			t.Fatal("ValidateSingleFilepath() = nil, want error")
-		}
-		if !errors.Is(err, ErrPathNotExists) {
-			t.Fatalf("errors.Is(err, ErrPathNotExists) = false for %v", err)
-		}
-	})
-
-	t.Run("readable check passes for readable file", func(t *testing.T) {
-		t.Parallel()
-		err := ValidateSingleFilepath(
-			types.FilesystemPath(readableFile),
-			types.FilesystemPath(readableFile),
-			invowkfile.FilepathDependency{Readable: true},
-		)
-		if err != nil {
-			t.Fatalf("ValidateSingleFilepath() = %v", err)
-		}
-	})
-
-	t.Run("writable check passes for writable dir", func(t *testing.T) {
-		t.Parallel()
-		writableDir := t.TempDir()
-		err := ValidateSingleFilepath(
-			types.FilesystemPath(writableDir),
-			types.FilesystemPath(writableDir),
-			invowkfile.FilepathDependency{Writable: true},
-		)
-		if err != nil {
-			t.Fatalf("ValidateSingleFilepath() = %v", err)
-		}
-	})
-}
-
-func TestIsReadableWritableExecutable(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("content"), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	fileInfo, err := os.Stat(testFile)
-	if err != nil {
-		t.Fatalf("Stat: %v", err)
-	}
-
-	dirInfo, err := os.Stat(tmpDir)
-	if err != nil {
-		t.Fatalf("Stat dir: %v", err)
-	}
-
-	t.Run("IsReadable file", func(t *testing.T) {
-		t.Parallel()
-		if !IsReadable(testFile, fileInfo) {
-			t.Fatal("IsReadable() = false, want true")
-		}
-	})
-
-	t.Run("IsReadable dir", func(t *testing.T) {
-		t.Parallel()
-		if !IsReadable(tmpDir, dirInfo) {
-			t.Fatal("IsReadable(dir) = false, want true")
-		}
-	})
-
-	t.Run("IsWritable dir", func(t *testing.T) {
-		t.Parallel()
-		if !IsWritable(tmpDir, dirInfo) {
-			t.Fatal("IsWritable(dir) = false, want true")
-		}
-	})
-
-	t.Run("IsWritable file", func(t *testing.T) {
-		t.Parallel()
-		if !IsWritable(testFile, fileInfo) {
-			t.Fatal("IsWritable(file) = false, want true")
-		}
-	})
-
-	t.Run("IsExecutable on non-executable file", func(t *testing.T) {
-		t.Parallel()
-		if IsExecutable(testFile, fileInfo) {
-			t.Fatal("IsExecutable() = true for non-executable file, want false")
-		}
-	})
-
-	t.Run("IsExecutable on executable file", func(t *testing.T) {
-		t.Parallel()
-		// On Windows, executability is determined by file extension (PATHEXT),
-		// not Unix permission bits. Use .bat so the test passes cross-platform.
-		execName := "exec.sh"
-		if goruntime.GOOS == platform.Windows {
-			execName = "exec.bat"
-		}
-		execFile := filepath.Join(t.TempDir(), execName)
-		if writeErr := os.WriteFile(execFile, []byte("#!/bin/sh"), 0o755); writeErr != nil {
-			t.Fatalf("WriteFile: %v", writeErr)
-		}
-		execInfo, statErr := os.Stat(execFile)
-		if statErr != nil {
-			t.Fatalf("Stat: %v", statErr)
-		}
-		if !IsExecutable(execFile, execInfo) {
-			t.Fatal("IsExecutable() = false for executable file, want true")
-		}
-	})
-
-	t.Run("IsExecutable on dir", func(t *testing.T) {
-		t.Parallel()
-		if !IsExecutable(tmpDir, dirInfo) {
-			t.Fatal("IsExecutable(dir) = false, want true")
 		}
 	})
 }
@@ -456,56 +327,4 @@ func TestEvaluateAlternatives(t *testing.T) {
 			t.Fatalf("lastErr = %v, want error containing 'failed: b'", lastErr)
 		}
 	})
-}
-
-func TestWindowsFilepathHelpers(t *testing.T) {
-	tmpDir := t.TempDir()
-	exePath := filepath.Join(tmpDir, "tool.exe")
-	txtPath := filepath.Join(tmpDir, "notes.txt")
-	if err := os.WriteFile(exePath, []byte("binary"), 0o600); err != nil {
-		t.Fatalf("WriteFile(exe): %v", err)
-	}
-	if err := os.WriteFile(txtPath, []byte("text"), 0o600); err != nil {
-		t.Fatalf("WriteFile(txt): %v", err)
-	}
-
-	t.Setenv("PATHEXT", ".EXE;.BAT")
-
-	if !windowsPathHasExecutableExtension(exePath) {
-		t.Fatal("windowsPathHasExecutableExtension(exePath) = false, want true")
-	}
-	if windowsPathHasExecutableExtension(txtPath) {
-		t.Fatal("windowsPathHasExecutableExtension(txtPath) = true, want false")
-	}
-	if !canOpenPath(tmpDir) {
-		t.Fatal("canOpenPath(tmpDir) = false, want true")
-	}
-	if canOpenPath(filepath.Join(tmpDir, "missing")) {
-		t.Fatal("canOpenPath(missing) = true, want false")
-	}
-	if !canOpenReadOnly(exePath) {
-		t.Fatal("canOpenReadOnly(exePath) = false, want true")
-	}
-	if canOpenReadOnly(filepath.Join(tmpDir, "missing.exe")) {
-		t.Fatal("canOpenReadOnly(missing) = true, want false")
-	}
-
-	dirInfo, err := os.Stat(tmpDir)
-	if err != nil {
-		t.Fatalf("Stat(tmpDir): %v", err)
-	}
-	if !isExecutableOnWindows(tmpDir, dirInfo) {
-		t.Fatal("isExecutableOnWindows(tmpDir) = false, want true")
-	}
-
-	fileInfo, err := os.Stat(exePath)
-	if err != nil {
-		t.Fatalf("Stat(exePath): %v", err)
-	}
-	if !isExecutableOnWindows(exePath, fileInfo) {
-		t.Fatal("isExecutableOnWindows(exePath) = false, want true")
-	}
-	if isExecutableOnWindows(txtPath, fileInfo) {
-		t.Fatal("isExecutableOnWindows(txtPath) = true, want false")
-	}
 }

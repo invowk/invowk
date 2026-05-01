@@ -220,3 +220,8 @@ func isAbsolutePath(path string) bool {
 
 	return false
 }
+
+// isWindowsDriveLetter returns true if c is a valid Windows drive letter.
+func isWindowsDriveLetter(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+}

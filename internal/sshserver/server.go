@@ -37,7 +37,6 @@ type (
 		CreatedAt time.Time
 		ExpiresAt time.Time
 		CommandID CommandID
-		Used      bool
 	}
 
 	// Server represents the SSH server for container callbacks.

@@ -3,8 +3,10 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -14,6 +16,23 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
+)
+
+type (
+	tuiSpinRunner interface {
+		Run(context.Context, string, []string) tuiSpinRunResult
+	}
+
+	tuiSpinAction func(tui.SpinOptions, func()) error
+
+	tuiSpinRunResult struct {
+		//goplint:ignore -- CLI adapter carries raw process output from exec.CombinedOutput.
+		Output   []byte
+		ExitCode types.ExitCode
+		Err      error
+	}
+
+	execTUISpinRunner struct{}
 )
 
 // newTUISpinCommand creates the `invowk tui spin` command.
@@ -51,6 +70,10 @@ Examples:
 }
 
 func runTuiSpin(cmd *cobra.Command, args []string) error {
+	return runTuiSpinWithRunner(cmd, args, execTUISpinRunner{}, tui.SpinWithAction, os.Stdout)
+}
+
+func runTuiSpinWithRunner(cmd *cobra.Command, args []string, runner tuiSpinRunner, spin tuiSpinAction, stdout io.Writer) error {
 	spinTitle, _ := cmd.Flags().GetString("title")
 	spinType, _ := cmd.Flags().GetString("type")
 
@@ -76,35 +99,48 @@ func runTuiSpin(cmd *cobra.Command, args []string) error {
 		return parseErr
 	}
 
-	var output []byte
-	var err error
-	spinErr := tui.SpinWithAction(tui.SpinOptions{
+	var runResult tuiSpinRunResult
+	spinErr := spin(tui.SpinOptions{
 		Title: spinTitle,
 		Type:  parsedType,
 	}, func() {
-		execCmd := exec.CommandContext(cmd.Context(), command, cmdArgs...)
-		output, err = execCmd.CombinedOutput()
+		runResult = runner.Run(cmd.Context(), command, cmdArgs)
 	})
 	if spinErr != nil {
 		return spinErr
 	}
 
 	// Print the command output
-	if len(output) > 0 {
-		_, _ = fmt.Fprint(os.Stdout, strings.TrimSuffix(string(output), "\n"))
-		_, _ = fmt.Fprintln(os.Stdout)
+	if len(runResult.Output) > 0 {
+		_, _ = fmt.Fprint(stdout, strings.TrimSuffix(string(runResult.Output), "\n"))
+		_, _ = fmt.Fprintln(stdout)
 	}
 
-	if err != nil {
-		// If it's an exec.ExitError, exit with the same code
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			cmd.SilenceErrors = true
-			cmd.SilenceUsage = true
-			spinExitCode := types.ExitCode(exitErr.ExitCode()) //goplint:ignore -- OS exit code from exec.ExitError
-			return &ExitError{Code: spinExitCode}
-		}
-		return err
+	if runResult.Err != nil {
+		return runResult.Err
+	}
+	if runResult.ExitCode != 0 {
+		cmd.SilenceErrors = true
+		cmd.SilenceUsage = true
+		return &ExitError{Code: runResult.ExitCode}
 	}
 
 	return nil
+}
+
+func (r tuiSpinRunResult) Validate() error {
+	return r.ExitCode.Validate()
+}
+
+//goplint:ignore -- exec.CommandContext receives user command argv from Cobra.
+func (execTUISpinRunner) Run(ctx context.Context, command string, args []string) tuiSpinRunResult {
+	execCmd := exec.CommandContext(ctx, command, args...)
+	output, err := execCmd.CombinedOutput()
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+		return tuiSpinRunResult{
+			Output:   output,
+			ExitCode: types.ExitCode(exitErr.ExitCode()), //goplint:ignore -- OS exit code from exec.ExitError
+		}
+	}
+	return tuiSpinRunResult{Output: output, Err: err}
 }

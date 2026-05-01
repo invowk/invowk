@@ -144,8 +144,8 @@ func NewApp(d Dependencies) (*App, error) {
 			registryFactory,
 			interactiveExecutor,
 			&cliExecutionObserver{stdout: d.Stdout},
-			nil,
-			nil,
+			commandadapters.NewDependencyCapabilityChecker(),
+			commandadapters.NewDependencyHostProbe(),
 		)
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}

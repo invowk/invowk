@@ -18,7 +18,7 @@ func TestContainerfilePath_Validate(t *testing.T) {
 	}{
 		{"simple path", ContainerfilePath("Containerfile"), true, false},
 		{"relative path", ContainerfilePath("./docker/Dockerfile"), true, false},
-		{"absolute path", ContainerfilePath("/project/Containerfile"), true, false},
+		{"absolute path is invalid", ContainerfilePath("/project/Containerfile"), false, true},
 		{"empty is valid (zero value)", ContainerfilePath(""), true, false},
 		{"whitespace only is invalid", ContainerfilePath("   "), false, true},
 		{"tab only is invalid", ContainerfilePath("\t"), false, true},

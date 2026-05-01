@@ -227,7 +227,7 @@ func (s VolumeMountSpec) String() string { return string(s) }
 //
 //goplint:nonzero
 func (s VolumeMountSpec) Validate() error {
-	if err := validateVolumeMountSpec(string(s)); err != nil {
+	if err := validateVolumeMountSpec(s); err != nil {
 		return &InvalidVolumeMountError{
 			Value:     VolumeMount{HostPath: HostFilesystemPath(s)},
 			FieldErrs: []error{err},
@@ -268,7 +268,7 @@ func (s PortMappingSpec) String() string { return string(s) }
 //
 //goplint:nonzero
 func (s PortMappingSpec) Validate() error {
-	if err := validatePortMappingSpec(string(s)); err != nil {
+	if err := validatePortMappingSpec(s); err != nil {
 		return &InvalidPortMappingError{
 			Value:     PortMapping{},
 			FieldErrs: []error{err},
