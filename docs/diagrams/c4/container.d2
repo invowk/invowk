@@ -115,8 +115,9 @@ invowk_cli: Invowk CLI {
       }
       tooltip: |md
         **Go**
-        Infrastructure adapters implementing commandsvc ports:
-        host access, runtime registry construction, and interactive execution
+        Infrastructure adapters implementing commandsvc and deps ports:
+        host access, runtime registry construction, interactive execution,
+        host probes, runtime dependency probes, and host-callback server.
       |
     }
 
@@ -182,7 +183,11 @@ invowk_cli: Invowk CLI {
       }
       tooltip: |md
         **Go**
-        Git-based dependency resolution with caching
+        Git-based dependency resolution with caching.
+        Implementation split across internal/app/modulesync
+        (resolution + lock file), internal/app/moduleops
+        (packaging + vendoring), and internal/app/modulecache
+        (per-request memoization). Domain types live in pkg/invowkmod.
       |
     }
 
