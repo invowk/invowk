@@ -4,7 +4,7 @@ package tui
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -15,7 +15,6 @@ import (
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/xpty"
 )
 
 // Const block placed before var/type (decorder: const → var → type → func).
@@ -64,6 +63,17 @@ type (
 		result InteractiveResult
 	}
 
+	// InteractiveTerminal is the terminal device conversation required by the
+	// interactive renderer. Runtime adapters own the concrete PTY/process setup.
+	InteractiveTerminal interface {
+		Read([]byte) (int, error)
+		Write([]byte) (int, error)
+		Resize(width, height int) error
+	}
+
+	// InteractiveWaitFunc waits for the running command and returns its result.
+	InteractiveWaitFunc func(context.Context) InteractiveResult
+
 	// TUIComponentMsg is sent by the bridge goroutine when a child process
 	// requests a TUI component to be rendered as an overlay.
 	//
@@ -71,8 +81,8 @@ type (
 	TUIComponentMsg struct {
 		// Component is the type of TUI component to render.
 		Component ComponentType
-		// Options contains the component-specific options as raw JSON.
-		Options json.RawMessage
+		// Options contains local component-specific renderer options.
+		Options any
 		// ResponseCh is where the result should be sent when the component completes.
 		ResponseCh chan<- ComponentResponse
 	}
@@ -96,7 +106,7 @@ type (
 		width    TerminalDimension
 		height   TerminalDimension
 		mu       sync.Mutex
-		pty      xpty.Pty
+		terminal InteractiveTerminal
 
 		// TUI component overlay fields
 		activeComponent     EmbeddableComponent
@@ -187,5 +197,5 @@ func (b *InteractiveBuilder) Run() (*InteractiveResult, error) {
 	if b.cmd == nil {
 		return nil, errNoCommand
 	}
-	return RunInteractiveCmd(b.ctx, b.opts, b.cmd)
+	return nil, errors.New("interactive command execution is owned by the runtime adapter")
 }

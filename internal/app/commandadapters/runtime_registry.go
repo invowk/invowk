@@ -3,6 +3,9 @@
 package commandadapters
 
 import (
+	"fmt"
+	"log/slog"
+
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
@@ -14,7 +17,9 @@ import (
 //
 //goplint:ignore -- stateless infrastructure adapter has no domain invariants.
 type (
-	RuntimeRegistryFactory struct{}
+	RuntimeRegistryFactory struct {
+		containerRuntimeFactory func(*config.Config) (*runtime.ContainerRuntime, error)
+	}
 
 	sshServerProvider interface {
 		SSHServer() runtime.HostCallbackServer
@@ -23,7 +28,11 @@ type (
 
 // NewRuntimeRegistryFactory creates a runtime-registry adapter.
 func NewRuntimeRegistryFactory() (RuntimeRegistryFactory, error) {
-	factory := RuntimeRegistryFactory{}
+	factory := RuntimeRegistryFactory{
+		containerRuntimeFactory: func(cfg *config.Config) (*runtime.ContainerRuntime, error) {
+			return runtime.NewContainerRuntime(cfg)
+		},
+	}
 	if err := factory.Validate(); err != nil {
 		return RuntimeRegistryFactory{}, err
 	}
@@ -45,23 +54,59 @@ func (RuntimeRegistryFactory) Validate() error {
 // instances for one execution would give each its own mutex, defeating
 // serialization and reintroducing the ping_group_range race. See
 // TestCreateRuntimeRegistry_SingleContainerInstance.
-func (RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc.HostAccess, selectedRuntime invowkfile.RuntimeMode) commandsvc.RuntimeRegistryResult {
+func (f RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc.HostAccess, selectedRuntime invowkfile.RuntimeMode) commandsvc.RuntimeRegistryResult {
 	var hostCallbacks runtime.HostCallbackServer
 	if provider, ok := hostAccess.(sshServerProvider); ok && hostAccess.Running() {
 		hostCallbacks = provider.SSHServer()
 	}
 
-	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{
-		Config:                           cfg,
-		HostCallbacks:                    hostCallbacks,
-		SelectedRuntime:                  selectedRuntime,
-		VirtualInteractiveCommandFactory: virtualInteractiveCommand,
-	})
-
-	return commandsvc.RuntimeRegistryResult{
-		Registry:         built.Registry,
-		Cleanup:          built.Cleanup,
-		Diagnostics:      commandsvc.BridgeRuntimeDiagnostics(built.Diagnostics),
-		ContainerInitErr: built.ContainerInitErr,
+	if cfg == nil {
+		cfg = config.DefaultConfig()
 	}
+
+	result := commandsvc.RuntimeRegistryResult{
+		Registry: runtime.NewRegistry(),
+		Cleanup:  func() {},
+	}
+	result.Registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
+	result.Registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(
+		cfg.VirtualShell.EnableUrootUtils,
+		runtime.WithInteractiveCommandFactory(virtualInteractiveCommand),
+	))
+
+	if !shouldInitializeContainerRuntime(selectedRuntime) {
+		return result
+	}
+
+	factory := f.containerRuntimeFactory
+	if factory == nil {
+		factory = func(cfg *config.Config) (*runtime.ContainerRuntime, error) {
+			return runtime.NewContainerRuntime(cfg)
+		}
+	}
+	containerRT, err := factory(cfg)
+	if err != nil {
+		result.ContainerInitErr = err
+		result.Diagnostics = commandsvc.BridgeRuntimeDiagnostics([]runtime.InitDiagnostic{{
+			Code:    runtime.CodeContainerRuntimeInitFailed,
+			Message: fmt.Sprintf("container runtime unavailable: %v", err),
+			Cause:   err,
+		}})
+		return result
+	}
+
+	if hostCallbacks != nil && hostCallbacks.IsRunning() {
+		containerRT.SetHostCallbacks(hostCallbacks)
+	}
+	result.Registry.Register(runtime.RuntimeTypeContainer, containerRT)
+	result.Cleanup = func() {
+		if closeErr := containerRT.Close(); closeErr != nil {
+			slog.Warn("container runtime cleanup failed", "error", closeErr)
+		}
+	}
+	return result
+}
+
+func shouldInitializeContainerRuntime(selectedRuntime invowkfile.RuntimeMode) bool {
+	return selectedRuntime == "" || selectedRuntime == invowkfile.RuntimeContainer
 }

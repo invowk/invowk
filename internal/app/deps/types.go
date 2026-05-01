@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -127,6 +128,10 @@ type (
 		// ForbiddenCommands are commands that exist in discovery but are in a module
 		// outside the caller's CommandScope (not a direct dependency).
 		ForbiddenCommands []DependencyMessage
+		// StructuredFailures is the adapter-facing source of truth for dependency
+		// rendering. Legacy categorized slices are retained for compatibility
+		// while validators are migrated to populate structured records directly.
+		StructuredFailures []DependencyFailure
 	}
 
 	// FlagValidationError represents runtime validation failures for dynamic
@@ -290,6 +295,9 @@ func (f DependencyFailure) Validate() error {
 func (e *DependencyError) Failures() []DependencyFailure {
 	if e == nil {
 		return nil
+	}
+	if len(e.StructuredFailures) > 0 {
+		return slices.Clone(e.StructuredFailures)
 	}
 	var failures []DependencyFailure
 	appendDependencyFailures(&failures, DependencyFailureTool, e.MissingTools)

@@ -4,6 +4,7 @@ package modulesync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -339,13 +340,14 @@ func (m *Resolver) List(_ context.Context) ([]*ResolvedModule, error) {
 	defer m.mu.Unlock()
 
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
-	lock, err := invowkmod.LoadLockFile(lockPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+	lockSnapshot := invowkmod.InspectLockFile(types.FilesystemPath(lockPath))
+	if lockSnapshot.StatErr != nil || lockSnapshot.ParseErr != nil {
+		return nil, fmt.Errorf(errFmtLoadLockFile, errors.Join(lockSnapshot.StatErr, lockSnapshot.ParseErr))
 	}
+	if !lockSnapshot.Present {
+		return nil, nil
+	}
+	lock := lockSnapshot.LockFile
 
 	var modules []*ResolvedModule
 	for key := range lock.Modules {
@@ -436,14 +438,14 @@ func (m *Resolver) resolvedModuleFromLockEntry(key ModuleRefKey, entry LockedMod
 // downgrade cache verification.
 func (m *Resolver) loadExistingLockHashes() (map[ModuleRefKey]ContentHash, error) {
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)
-	lock, err := invowkmod.LoadLockFile(lockPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return map[ModuleRefKey]ContentHash{}, nil
-		}
-		return nil, fmt.Errorf(errFmtLoadLockFile, err)
+	lockSnapshot := invowkmod.InspectLockFile(types.FilesystemPath(lockPath))
+	if lockSnapshot.StatErr != nil || lockSnapshot.ParseErr != nil {
+		return nil, fmt.Errorf(errFmtLoadLockFile, errors.Join(lockSnapshot.StatErr, lockSnapshot.ParseErr))
 	}
-	return lock.ContentHashes(), nil
+	if !lockSnapshot.Present {
+		return map[ModuleRefKey]ContentHash{}, nil
+	}
+	return lockSnapshot.LockFile.ContentHashes(), nil
 }
 
 // isGitURL returns true if s looks like a Git URL.

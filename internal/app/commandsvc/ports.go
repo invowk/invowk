@@ -8,6 +8,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -32,6 +33,11 @@ type (
 	InteractiveExecutor interface {
 		Execute(*runtime.ExecutionContext, invowkfile.CommandName, runtime.InteractiveRuntime) *runtime.Result
 	}
+
+	// RequestScopeFunc attaches per-request service state such as discovery
+	// caches. Service calls this at entry points so callers are not required
+	// to know adapter-specific context conventions.
+	RequestScopeFunc func(context.Context, types.FilesystemPath) context.Context
 
 	// ExecutionObserver receives user-visible execution events. Adapters render
 	// these events; Service only describes what happened.
@@ -77,4 +83,11 @@ func (defaultInteractiveExecutor) Execute(execCtx *runtime.ExecutionContext, _ i
 		return &runtime.Result{ExitCode: 1, Error: err}
 	}
 	return &runtime.Result{ExitCode: 1, Error: ErrInteractiveExecutorNotConfigured}
+}
+
+func beginNoopRequestScope(ctx context.Context, _ types.FilesystemPath) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
 }

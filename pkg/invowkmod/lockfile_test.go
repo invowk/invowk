@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -651,6 +653,66 @@ func TestLoadLockFile(t *testing.T) {
 		mod := loaded.Modules[ModuleRefKey("https://github.com/user/repo.git")]
 		if mod.ResolvedVersion != "1.2.0" {
 			t.Errorf("ResolvedVersion = %q", mod.ResolvedVersion)
+		}
+	})
+}
+
+func TestInspectLockFile(t *testing.T) {
+	t.Parallel()
+
+	t.Run("missing_preserves_absence", func(t *testing.T) {
+		t.Parallel()
+
+		snapshot := InspectLockFile(types.FilesystemPath(filepath.Join(t.TempDir(), LockFileName)))
+		if snapshot.Present {
+			t.Fatal("Present = true, want false")
+		}
+		if snapshot.LockFile != nil || snapshot.StatErr != nil || snapshot.ParseErr != nil {
+			t.Fatalf("snapshot = %#v, want empty absence state", snapshot)
+		}
+	})
+
+	t.Run("valid_preserves_size_and_lock", func(t *testing.T) {
+		t.Parallel()
+
+		path := filepath.Join(t.TempDir(), LockFileName)
+		lock := NewLockFile()
+		if err := lock.Save(path); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+
+		snapshot := InspectLockFile(types.FilesystemPath(path))
+		if !snapshot.Present {
+			t.Fatal("Present = false, want true")
+		}
+		if snapshot.Size == 0 {
+			t.Fatal("Size = 0, want captured file size")
+		}
+		if snapshot.LockFile == nil {
+			t.Fatal("LockFile = nil, want parsed lock file")
+		}
+		if snapshot.StatErr != nil || snapshot.ParseErr != nil {
+			t.Fatalf("unexpected snapshot errors: stat=%v parse=%v", snapshot.StatErr, snapshot.ParseErr)
+		}
+	})
+
+	t.Run("parse_error_preserves_presence", func(t *testing.T) {
+		t.Parallel()
+
+		path := filepath.Join(t.TempDir(), LockFileName)
+		if err := os.WriteFile(path, []byte("version: 2.0"), 0o644); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+
+		snapshot := InspectLockFile(types.FilesystemPath(path))
+		if !snapshot.Present {
+			t.Fatal("Present = false, want true")
+		}
+		if snapshot.ParseErr == nil {
+			t.Fatal("ParseErr = nil, want parse error")
+		}
+		if snapshot.LockFile != nil {
+			t.Fatal("LockFile != nil, want nil on parse error")
 		}
 	})
 }

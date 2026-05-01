@@ -460,20 +460,13 @@ func (sc *ScanContext) loadScannedModule(
 	}
 
 	lockPath := fspath.JoinStr(absPath, invowkmod.LockFileName)
-	if _, statErr := os.Stat(string(lockPath)); statErr == nil {
-		lock, loadErr := invowkmod.LoadLockFile(string(lockPath))
-		if loadErr == nil {
-			sm.LockFile = lock
-		} else {
-			sm.LockFileParseErr = loadErr
-		}
+	lockSnapshot := invowkmod.InspectLockFile(lockPath)
+	if lockSnapshot.Present || lockSnapshot.StatErr != nil {
 		sm.LockPath = lockPath
-		info, infoErr := os.Stat(string(lockPath))
-		if infoErr != nil {
-			sm.LockFileStatErr = infoErr
-		} else {
-			sm.LockFileSize = info.Size()
-		}
+		sm.LockFile = lockSnapshot.LockFile
+		sm.LockFileSize = lockSnapshot.Size
+		sm.LockFileStatErr = lockSnapshot.StatErr
+		sm.LockFileParseErr = lockSnapshot.ParseErr
 	}
 
 	vendored, vendorDiags := loadVendoredModules(absPath)

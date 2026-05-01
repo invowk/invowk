@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/types"
 
 	tea "charm.land/bubbletea/v2"
@@ -35,25 +34,25 @@ const (
 	modalOverheadHeight = modalBorderHeight + modalPaddingHeight // 4
 
 	// ComponentTypeInput represents the text input component.
-	ComponentTypeInput ComponentType = ComponentType(tuiwire.ComponentInput)
+	ComponentTypeInput ComponentType = "input"
 	// ComponentTypeConfirm represents the yes/no confirmation component.
-	ComponentTypeConfirm ComponentType = ComponentType(tuiwire.ComponentConfirm)
+	ComponentTypeConfirm ComponentType = "confirm"
 	// ComponentTypeChoose represents the single/multi-select component.
-	ComponentTypeChoose ComponentType = ComponentType(tuiwire.ComponentChoose)
+	ComponentTypeChoose ComponentType = "choose"
 	// ComponentTypeFilter represents the filterable list component.
-	ComponentTypeFilter ComponentType = ComponentType(tuiwire.ComponentFilter)
+	ComponentTypeFilter ComponentType = "filter"
 	// ComponentTypeFile represents the file picker component.
-	ComponentTypeFile ComponentType = ComponentType(tuiwire.ComponentFile)
+	ComponentTypeFile ComponentType = "file"
 	// ComponentTypeWrite represents the styled text output component.
-	ComponentTypeWrite ComponentType = ComponentType(tuiwire.ComponentWrite)
+	ComponentTypeWrite ComponentType = "write"
 	// ComponentTypeTextArea represents the multi-line text input component.
-	ComponentTypeTextArea ComponentType = ComponentType(tuiwire.ComponentTextArea)
+	ComponentTypeTextArea ComponentType = "textarea"
 	// ComponentTypeSpin represents the spinner/loading component.
-	ComponentTypeSpin ComponentType = ComponentType(tuiwire.ComponentSpin)
+	ComponentTypeSpin ComponentType = "spin"
 	// ComponentTypePager represents the scrollable text viewer component.
-	ComponentTypePager ComponentType = ComponentType(tuiwire.ComponentPager)
+	ComponentTypePager ComponentType = "pager"
 	// ComponentTypeTable represents the table selection component.
-	ComponentTypeTable ComponentType = ComponentType(tuiwire.ComponentTable)
+	ComponentTypeTable ComponentType = "table"
 )
 
 // Modal ANSI variables: modal overlays render on a styled background, but child
@@ -128,7 +127,7 @@ type (
 	}
 
 	// SpinResult holds the result of a spin operation.
-	SpinResult = tuiwire.SpinResult
+	SpinResult struct{}
 
 	// ComponentType represents the type of TUI component.
 	ComponentType string
@@ -164,10 +163,21 @@ func (ct ComponentType) String() string {
 // Validate returns nil if the ComponentType is one of the defined component types,
 // or a validation error if it is not.
 func (ct ComponentType) Validate() error {
-	if err := tuiwire.Component(ct).Validate(); err != nil {
+	switch ct {
+	case ComponentTypeInput,
+		ComponentTypeConfirm,
+		ComponentTypeChoose,
+		ComponentTypeFilter,
+		ComponentTypeFile,
+		ComponentTypeWrite,
+		ComponentTypeTextArea,
+		ComponentTypeSpin,
+		ComponentTypePager,
+		ComponentTypeTable:
+		return nil
+	default:
 		return &InvalidComponentTypeError{Value: ct}
 	}
-	return nil
 }
 
 // CalculateModalSize calculates appropriate modal content dimensions based on component type
@@ -247,101 +257,98 @@ func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight T
 	return ModalSize{Width: width, Height: height}
 }
 
-// CreateEmbeddableComponent creates an embeddable component from a component type and options.
-// The options should be a JSON-encoded representation of the component-specific options.
-// Components created here use a modal-specific theme to ensure proper rendering in overlays.
-func CreateEmbeddableComponent(componentType ComponentType, options json.RawMessage, width, height TerminalDimension) (EmbeddableComponent, error) {
+// CreateEmbeddableComponent creates an embeddable component from a component
+// type and local renderer options. Transport adapters decode wire formats
+// before calling into the renderer.
+func CreateEmbeddableComponent(componentType ComponentType, options any, width, height TerminalDimension) (EmbeddableComponent, error) {
 	switch componentType {
 	case ComponentTypeInput:
-		opts, err := inputOptionsFromProtocol(options)
+		opts, err := componentOptions[InputOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal input options: %w", err)
+			return nil, fmt.Errorf("invalid input options: %w", err)
 		}
 		model := NewInputModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypeConfirm:
-		opts, err := confirmOptionsFromProtocol(options)
+		opts, err := componentOptions[ConfirmOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal confirm options: %w", err)
+			return nil, fmt.Errorf("invalid confirm options: %w", err)
 		}
 		model := NewConfirmModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypeChoose:
-		var opts ChooseStringOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal choose options: %w", err)
+		opts, err := componentOptions[ChooseStringOptions](options)
+		if err != nil {
+			return nil, fmt.Errorf("invalid choose options: %w", err)
 		}
 		model := NewChooseModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypeFilter:
-		opts, err := filterOptionsFromProtocol(options)
+		opts, err := componentOptions[FilterOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal filter options: %w", err)
+			return nil, fmt.Errorf("invalid filter options: %w", err)
 		}
 		model := NewFilterModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypeFile:
-		opts, err := fileOptionsFromProtocol(options)
+		opts, err := componentOptions[FileOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal file options: %w", err)
+			return nil, fmt.Errorf("invalid file options: %w", err)
 		}
 		model := NewFileModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypeWrite:
-		opts, err := writeOptionsFromProtocol(options)
+		opts, err := componentOptions[WriteOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal write options: %w", err)
+			return nil, fmt.Errorf("invalid write options: %w", err)
 		}
 		model := NewWriteModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypeTextArea:
-		opts, err := textAreaOptionsFromProtocol(options)
+		opts, err := componentOptions[WriteOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal textarea options: %w", err)
+			return nil, fmt.Errorf("invalid textarea options: %w", err)
 		}
 		model := NewWriteModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypePager:
-		opts, err := pagerOptionsFromProtocol(options)
+		opts, err := componentOptions[PagerOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal pager options: %w", err)
+			return nil, fmt.Errorf("invalid pager options: %w", err)
 		}
 		model := NewPagerModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypeTable:
-		opts, err := tableOptionsFromProtocol(options)
+		opts, err := componentOptions[TableOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal table options: %w", err)
+			return nil, fmt.Errorf("invalid table options: %w", err)
 		}
 		model := NewTableModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
 	case ComponentTypeSpin:
-		opts, err := spinOptionsFromProtocol(options)
+		opts, err := componentOptions[SpinCommandOptions](options)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal spin options: %w", err)
+			return nil, fmt.Errorf("invalid spin options: %w", err)
 		}
-		model := NewSpinModel(context.Background(), SpinCommandOptions{
-			Title: opts.Title,
-			Type:  opts.Type,
-		})
+		model := NewSpinModel(context.Background(), opts)
 		model.SetSize(width, height)
 		return model, nil
 
@@ -350,156 +357,26 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 	}
 }
 
-func inputOptionsFromProtocol(options json.RawMessage) (InputOptions, error) {
-	var req tuiwire.InputRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return InputOptions{}, err
+func componentOptions[T any](options any) (T, error) {
+	if opts, ok := options.(T); ok {
+		return opts, nil
 	}
-	return InputOptions{
-		Title:       req.Title,
-		Description: req.Description,
-		Placeholder: req.Placeholder,
-		Value:       req.Value,
-		CharLimit:   req.CharLimit,
-		Width:       TerminalDimension(req.Width),
-		Password:    req.Password,
-		Prompt:      req.Prompt,
-	}, nil
-}
-
-func confirmOptionsFromProtocol(options json.RawMessage) (ConfirmOptions, error) {
-	var req tuiwire.ConfirmRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return ConfirmOptions{}, err
-	}
-	return ConfirmOptions{
-		Title:       req.Title,
-		Description: req.Description,
-		Affirmative: req.Affirmative,
-		Negative:    req.Negative,
-		Default:     req.Default,
-	}, nil
-}
-
-func filterOptionsFromProtocol(options json.RawMessage) (FilterOptions, error) {
-	var req tuiwire.FilterRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return FilterOptions{}, err
-	}
-	return FilterOptions{
-		Title:       req.Title,
-		Placeholder: req.Placeholder,
-		Options:     req.Options,
-		Limit:       req.Limit,
-		NoLimit:     req.NoLimit,
-		Height:      TerminalDimension(req.Height),
-		Width:       TerminalDimension(req.Width),
-		Reverse:     req.Reverse,
-		Fuzzy:       req.Fuzzy,
-		Sort:        req.Sort,
-		Strict:      req.Strict,
-	}, nil
-}
-
-func fileOptionsFromProtocol(options json.RawMessage) (FileOptions, error) {
-	var req tuiwire.FileRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return FileOptions{}, err
-	}
-	return FileOptions{
-		Title:             req.Title,
-		Description:       req.Description,
-		CurrentDirectory:  req.Path,
-		AllowedExtensions: req.AllowedExts,
-		ShowHidden:        req.ShowHidden,
-		Height:            TerminalDimension(req.Height),
-		FileAllowed:       req.ShowFiles,
-		DirAllowed:        req.ShowDirs,
-	}, nil
-}
-
-func writeOptionsFromProtocol(options json.RawMessage) (WriteOptions, error) {
-	var req tuiwire.WriteRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return WriteOptions{}, err
-	}
-	return WriteOptions{
-		Value: req.Text,
-		Width: TerminalDimension(req.Width),
-	}, nil
-}
-
-func textAreaOptionsFromProtocol(options json.RawMessage) (WriteOptions, error) {
-	var req tuiwire.TextAreaRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return WriteOptions{}, err
-	}
-	return WriteOptions{
-		Title:           req.Title,
-		Description:     req.Description,
-		Placeholder:     req.Placeholder,
-		Value:           req.Value,
-		CharLimit:       req.CharLimit,
-		Width:           TerminalDimension(req.Width),
-		Height:          TerminalDimension(req.Height),
-		ShowLineNumbers: req.ShowLineNumbers,
-	}, nil
-}
-
-func pagerOptionsFromProtocol(options json.RawMessage) (PagerOptions, error) {
-	var req tuiwire.PagerRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return PagerOptions{}, err
-	}
-	return PagerOptions{
-		Title:           req.Title,
-		Content:         req.Content,
-		ShowLineNumbers: req.ShowLineNum,
-		SoftWrap:        req.SoftWrap,
-	}, nil
-}
-
-func tableOptionsFromProtocol(options json.RawMessage) (TableOptions, error) {
-	var req tuiwire.TableRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return TableOptions{}, err
-	}
-	columns := make([]TableColumn, len(req.Columns))
-	for i := range req.Columns {
-		columns[i] = TableColumn{
-			Title: req.Columns[i],
+	if raw, ok := options.(json.RawMessage); ok {
+		var opts T
+		if err := json.Unmarshal(raw, &opts); err != nil {
+			return opts, err
 		}
-		if i < len(req.Widths) {
-			columns[i].Width = TerminalDimension(req.Widths[i])
+		return opts, nil
+	}
+	if raw, ok := options.([]byte); ok {
+		var opts T
+		if err := json.Unmarshal(raw, &opts); err != nil {
+			return opts, err
 		}
+		return opts, nil
 	}
-	return TableOptions{
-		Columns:    columns,
-		Rows:       req.Rows,
-		Height:     TerminalDimension(req.Height),
-		Selectable: !req.Print,
-		Separator:  req.Separator,
-		Border:     req.Border != "none",
-	}, nil
-}
-
-func spinOptionsFromProtocol(options json.RawMessage) (SpinOptions, error) {
-	var req tuiwire.SpinRequest
-	if err := json.Unmarshal(options, &req); err != nil {
-		return SpinOptions{}, err
-	}
-	spinType := SpinnerLine
-	if req.Spinner != "" {
-		parsed, err := ParseSpinnerType(req.Spinner)
-		if err != nil {
-			return SpinOptions{}, err
-		}
-		spinType = parsed
-	}
-	return SpinOptions{
-		Title: req.Title,
-		Type:  spinType,
-	}, nil
+	var zero T
+	return zero, fmt.Errorf("got %T", options)
 }
 
 // RenderOverlay renders an overlay component centered on top of a base view.

@@ -3,7 +3,6 @@
 package tui
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -48,15 +47,7 @@ func TestComponentType_Validate(t *testing.T) {
 func TestCreateEmbeddableComponent_SpinIsRenderOnly(t *testing.T) {
 	t.Parallel()
 
-	options, err := json.Marshal(tuiwire.SpinRequest{
-		Title:   "loading",
-		Spinner: "dot",
-	})
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
-	}
-
-	component, err := CreateEmbeddableComponent(ComponentTypeSpin, options, 80, 24)
+	component, err := CreateEmbeddableComponent(ComponentTypeSpin, SpinCommandOptions{Title: "loading", Type: SpinnerDot}, 80, 24)
 	if err != nil {
 		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
 	}
@@ -76,24 +67,21 @@ func TestCreateEmbeddableComponent_SpinIsRenderOnly(t *testing.T) {
 	}
 }
 
-func TestCreateEmbeddableComponent_FileUsesWireRequest(t *testing.T) {
+func TestCreateEmbeddableComponent_FileUsesLocalOptions(t *testing.T) {
 	t.Parallel()
 
-	options, err := json.Marshal(tuiwire.FileRequest{
-		Title:       "pick",
-		Description: "choose carefully",
-		Path:        "/tmp",
-		AllowedExts: []string{
+	options := FileOptions{
+		Title:            "pick",
+		Description:      "choose carefully",
+		CurrentDirectory: "/tmp",
+		AllowedExtensions: []string{
 			".go",
 			".cue",
 		},
-		ShowHidden: true,
-		ShowDirs:   true,
-		ShowFiles:  false,
-		Height:     7,
-	})
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
+		ShowHidden:  true,
+		DirAllowed:  true,
+		FileAllowed: false,
+		Height:      7,
 	}
 
 	component, err := CreateEmbeddableComponent(ComponentTypeFile, options, 80, 24)
@@ -121,10 +109,10 @@ func TestCreateEmbeddableComponent_FileUsesWireRequest(t *testing.T) {
 	}
 }
 
-func TestCreateEmbeddableComponent_InputUsesWireRequest(t *testing.T) {
+func TestCreateEmbeddableComponent_InputUsesLocalOptions(t *testing.T) {
 	t.Parallel()
 
-	options, err := json.Marshal(tuiwire.InputRequest{
+	options := InputOptions{
 		Title:       "name",
 		Description: "enter a name",
 		Placeholder: "Ada",
@@ -132,9 +120,6 @@ func TestCreateEmbeddableComponent_InputUsesWireRequest(t *testing.T) {
 		CharLimit:   12,
 		Password:    true,
 		Prompt:      "$ ",
-	})
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
 	}
 
 	component, err := CreateEmbeddableComponent(ComponentTypeInput, options, 80, 24)
@@ -159,19 +144,16 @@ func TestCreateEmbeddableComponent_InputUsesWireRequest(t *testing.T) {
 	}
 }
 
-func TestCreateEmbeddableComponent_FilterUsesWireRequest(t *testing.T) {
+func TestCreateEmbeddableComponent_FilterUsesLocalOptions(t *testing.T) {
 	t.Parallel()
 
-	options, err := json.Marshal(tuiwire.FilterRequest{
+	options := FilterOptions{
 		Title:       "pick",
 		Options:     []string{"one", "two"},
 		Limit:       3,
 		NoLimit:     true,
 		Placeholder: "search",
 		Height:      6,
-	})
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
 	}
 
 	component, err := CreateEmbeddableComponent(ComponentTypeFilter, options, 80, 24)
@@ -193,18 +175,15 @@ func TestCreateEmbeddableComponent_FilterUsesWireRequest(t *testing.T) {
 	}
 }
 
-func TestCreateEmbeddableComponent_TextAreaUsesWireRequest(t *testing.T) {
+func TestCreateEmbeddableComponent_TextAreaUsesLocalOptions(t *testing.T) {
 	t.Parallel()
 
-	options, err := json.Marshal(tuiwire.TextAreaRequest{
+	options := WriteOptions{
 		Title:           "body",
 		Placeholder:     "type",
 		Value:           "initial",
 		CharLimit:       20,
 		ShowLineNumbers: true,
-	})
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
 	}
 
 	component, err := CreateEmbeddableComponent(ComponentTypeTextArea, options, 80, 24)
@@ -226,17 +205,14 @@ func TestCreateEmbeddableComponent_TextAreaUsesWireRequest(t *testing.T) {
 	}
 }
 
-func TestCreateEmbeddableComponent_PagerUsesWireRequest(t *testing.T) {
+func TestCreateEmbeddableComponent_PagerUsesLocalOptions(t *testing.T) {
 	t.Parallel()
 
-	options, err := json.Marshal(tuiwire.PagerRequest{
-		Title:       "manual",
-		Content:     "body",
-		ShowLineNum: true,
-		SoftWrap:    true,
-	})
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
+	options := PagerOptions{
+		Title:           "manual",
+		Content:         "body",
+		ShowLineNumbers: true,
+		SoftWrap:        true,
 	}
 
 	component, err := CreateEmbeddableComponent(ComponentTypePager, options, 80, 24)
@@ -255,21 +231,20 @@ func TestCreateEmbeddableComponent_PagerUsesWireRequest(t *testing.T) {
 	}
 }
 
-func TestCreateEmbeddableComponent_TableUsesWireRequest(t *testing.T) {
+func TestCreateEmbeddableComponent_TableUsesLocalOptions(t *testing.T) {
 	t.Parallel()
 
-	options, err := json.Marshal(tuiwire.TableRequest{
-		Columns: []string{"name", "version"},
+	options := TableOptions{
+		Columns: []TableColumn{
+			{Title: "name", Width: 12},
+			{Title: "version", Width: 8},
+		},
 		Rows: [][]string{
 			{"invowk", "1.0.0"},
 		},
-		Widths: []int{12, 8},
-		Height: 5,
-		Border: "none",
-		Print:  true,
-	})
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
+		Height:     5,
+		Border:     false,
+		Selectable: false,
 	}
 
 	component, err := CreateEmbeddableComponent(ComponentTypeTable, options, 80, 24)

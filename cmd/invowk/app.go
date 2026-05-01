@@ -135,6 +135,10 @@ func NewApp(d Dependencies) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		requestScope, err := commandadapters.NewDiscoveryRequestScope()
+		if err != nil {
+			return nil, err
+		}
 		svc := commandsvc.New(
 			d.Config,
 			d.Discovery,
@@ -145,6 +149,7 @@ func NewApp(d Dependencies) (*App, error) {
 				registryFactory,
 				interactiveExecutor,
 				&cliExecutionObserver{stdout: d.Stdout},
+				requestScope.Begin,
 				commandadapters.NewDependencyCapabilityChecker(),
 				commandadapters.NewDependencyHostProbe(),
 				commandadapters.NewDependencyLockProvider(),

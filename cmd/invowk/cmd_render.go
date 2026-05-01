@@ -165,19 +165,28 @@ func RenderDependencyError(err *deps.DependencyError) string {
 		}
 	}
 
-	renderSection("Missing Tools:", err.MissingTools)
-	renderSection("Missing Commands:", err.MissingCommands)
-	renderSection("Forbidden Commands (not a direct dependency):", err.ForbiddenCommands)
-	renderSection("Missing or Inaccessible Files:", err.MissingFilepaths)
-	renderSection("Missing Capabilities:", err.MissingCapabilities)
-	renderSection("Failed Custom Checks:", err.FailedCustomChecks)
-	renderSection("Missing or Invalid Environment Variables:", err.MissingEnvVars)
+	grouped := dependencyFailuresByKind(err.Failures())
+	renderSection("Missing Tools:", grouped[deps.DependencyFailureTool])
+	renderSection("Missing Commands:", grouped[deps.DependencyFailureCommand])
+	renderSection("Forbidden Commands (not a direct dependency):", grouped[deps.DependencyFailureForbiddenCommand])
+	renderSection("Missing or Inaccessible Files:", grouped[deps.DependencyFailureFilepath])
+	renderSection("Missing Capabilities:", grouped[deps.DependencyFailureCapability])
+	renderSection("Failed Custom Checks:", grouped[deps.DependencyFailureCustomCheck])
+	renderSection("Missing or Invalid Environment Variables:", grouped[deps.DependencyFailureEnvVar])
 
 	sb.WriteString("\n")
 	sb.WriteString(renderHintStyle.Render("Fix the missing dependencies and try again, or update your invowkfile to remove unnecessary ones."))
 	sb.WriteString("\n")
 
 	return sb.String()
+}
+
+func dependencyFailuresByKind(failures []deps.DependencyFailure) map[deps.DependencyFailureKind][]deps.DependencyMessage {
+	grouped := make(map[deps.DependencyFailureKind][]deps.DependencyMessage)
+	for _, failure := range failures {
+		grouped[failure.Kind()] = append(grouped[failure.Kind()], failure.Detail())
+	}
+	return grouped
 }
 
 // RenderHostNotSupportedError creates a styled error message for unsupported host OS

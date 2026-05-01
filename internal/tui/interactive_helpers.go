@@ -5,8 +5,6 @@ package tui
 import (
 	"os"
 	"regexp"
-
-	"github.com/charmbracelet/x/xpty"
 )
 
 // oscSequenceRe matches all OSC (Operating System Command) escape sequences.
@@ -35,12 +33,12 @@ func stripOSCSequences(s string) string {
 	return oscSequenceRe.ReplaceAllString(s, "")
 }
 
-func newInteractiveModel(opts InteractiveOptions, pty xpty.Pty) *interactiveModel {
+func newInteractiveModel(opts InteractiveOptions, terminal InteractiveTerminal) *interactiveModel {
 	return &interactiveModel{
-		title:   opts.Title,
-		cmdName: opts.CommandName,
-		state:   stateExecuting,
-		pty:     pty,
+		title:    opts.Title,
+		cmdName:  opts.CommandName,
+		state:    stateExecuting,
+		terminal: terminal,
 	}
 }
 
@@ -63,4 +61,11 @@ func getTerminalSize() (width, height int, err error) {
 	// Fallback: try stdin
 	fd = int(os.Stdin.Fd())
 	return getTerminalSizeFromFd(fd)
+}
+
+// TerminalSize returns the current terminal size for runtime adapters that
+// prepare interactive terminal sessions.
+func TerminalSize() (width, height TerminalDimension, err error) {
+	w, h, err := getTerminalSize()
+	return TerminalDimension(w), TerminalDimension(h), err //goplint:ignore -- getTerminalSize returns non-negative terminal dimensions from the OS.
 }

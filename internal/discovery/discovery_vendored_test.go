@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -734,9 +735,12 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 		t.Fatal("CheckModuleCollisions() should return error for duplicate module IDs")
 	}
 
-	errMsg := collisionErr.Error()
-	if !strings.Contains(errMsg, "vendored in parent") {
-		t.Errorf("collision error should mention 'vendored in parent', got: %s", errMsg)
+	var typedErr *ModuleCollisionError
+	if !errors.As(collisionErr, &typedErr) {
+		t.Fatalf("collision error = %T, want ModuleCollisionError", collisionErr)
+	}
+	if typedErr.SecondKind != ModuleCollisionSourceVendored {
+		t.Errorf("SecondKind = %q, want vendored", typedErr.SecondKind)
 	}
 }
 

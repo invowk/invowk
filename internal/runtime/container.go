@@ -40,7 +40,7 @@ type (
 	//
 	// WARNING: Only ONE ContainerRuntime instance should exist per process.
 	// Process-wide serialization relies on this single-instance invariant,
-	// enforced by BuildRegistry() creating exactly one instance.
+	// enforced by the command adapter registry factory creating exactly one instance.
 	// See TestCreateRuntimeRegistry_SingleContainerInstance for the enforcement test.
 	//
 	// The runMu mutex provides intra-process fallback locking when flock-based
@@ -52,7 +52,7 @@ type (
 	// causing transient "OCI runtime" errors. See container_exec.go for
 	// the retry and serialization logic.
 	ContainerRuntime struct {
-		engine          container.Engine
+		engine          containerEngine
 		hostCallbacks   HostCallbackServer
 		provisioner     provision.Provisioner
 		provisionConfig *provision.Config
@@ -74,6 +74,19 @@ type (
 		Image         container.ImageTag
 		Volumes       []container.VolumeMountSpec
 		Ports         []container.PortMappingSpec
+	}
+
+	containerEngine interface {
+		Name() string
+		Available() bool
+		Build(context.Context, container.BuildOptions) error
+		Run(context.Context, container.RunOptions) (*container.RunResult, error)
+		ImageExists(context.Context, container.ImageTag) (bool, error)
+		RemoveImage(context.Context, container.ImageTag, bool) error
+	}
+
+	containerEngineCloser interface {
+		Close() error
 	}
 )
 
@@ -126,7 +139,7 @@ func NewContainerRuntime(cfg *config.Config, opts ...ContainerRuntimeOption) (*C
 }
 
 // NewContainerRuntimeWithEngine creates a container runtime with a specific engine.
-func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRuntimeOption) (*ContainerRuntime, error) {
+func NewContainerRuntimeWithEngine(engine containerEngine, opts ...ContainerRuntimeOption) (*ContainerRuntime, error) {
 	provisionCfg := provision.DefaultConfig()
 	provisioner, err := provision.NewLayerProvisioner(engine, provisionCfg)
 	if err != nil {
@@ -148,7 +161,10 @@ func NewContainerRuntimeWithEngine(engine container.Engine, opts ...ContainerRun
 // Close releases resources held by the container engine (e.g., the sysctl
 // override temp file on Linux). Should be called when the runtime is no longer needed.
 func (r *ContainerRuntime) Close() error {
-	return container.CloseEngine(r.engine)
+	if closer, ok := r.engine.(containerEngineCloser); ok {
+		return closer.Close()
+	}
+	return nil
 }
 
 // SetProvisionConfig updates the provisioner configuration.

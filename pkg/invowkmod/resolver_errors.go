@@ -29,8 +29,7 @@ type (
 	}
 
 	// MissingTransitiveDepError is returned by Sync() when one or more transitive
-	// dependencies are not declared in the root invowkmod.cue. It contains actionable
-	// diagnostics with ready-to-paste CUE snippets.
+	// dependencies are not declared in the root invowkmod.cue.
 	MissingTransitiveDepError struct {
 		Diagnostics []MissingTransitiveDepDiagnostic
 	}
@@ -63,26 +62,10 @@ func (d MissingTransitiveDepDiagnostic) CUESnippet() string {
 	return strings.Join(lines, "\n")
 }
 
-// Error implements the error interface. It produces a multi-line message listing
-// all missing transitive dependencies with actionable CUE snippets and a hint
-// to run `invowk module tidy`.
+// Error implements the error interface with a terse domain summary. Adapters
+// render CLI-specific remediation such as CUE snippets and tidy hints.
 func (e *MissingTransitiveDepError) Error() string {
-	var sb strings.Builder
-
-	count := len(e.Diagnostics)
-	fmt.Fprintf(&sb, "%s: %d missing transitive dependency(ies)\n", missingTransitiveDepsErrMsg, count)
-
-	for _, diag := range e.Diagnostics {
-		sb.WriteString("\n")
-		fmt.Fprintf(&sb, "Module %q (%s) requires\n", diag.RequiringModule, diag.RequiringURL)
-		fmt.Fprintf(&sb, "%q but it is not declared in your invowkmod.cue.\n", diag.MissingRef.GitURL)
-		sb.WriteString("\nAdd it to your requires list:\n")
-		sb.WriteString(diag.CUESnippet())
-		sb.WriteString("\n")
-	}
-
-	sb.WriteString("\nOr run: invowk module tidy")
-	return sb.String()
+	return fmt.Sprintf("%s: %d missing transitive dependency(ies)", missingTransitiveDepsErrMsg, len(e.Diagnostics))
 }
 
 // Unwrap returns ErrMissingTransitiveDeps so callers can use errors.Is for detection.

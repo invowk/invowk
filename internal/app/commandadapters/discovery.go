@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -25,6 +26,10 @@ type (
 	DiscoveryService struct {
 		config config.Loader
 	}
+
+	// DiscoveryRequestScope attaches CLI discovery request state for command
+	// service entry points.
+	DiscoveryRequestScope struct{}
 
 	//goplint:ignore -- request cache entry holds discovery results produced by the discovery domain.
 	lookupCacheEntry struct {
@@ -58,6 +63,25 @@ func NewDiscoveryService(provider config.Loader) *DiscoveryService {
 
 // Validate returns nil because DiscoveryService has no intrinsic invariants.
 func (s *DiscoveryService) Validate() error {
+	return nil
+}
+
+// NewDiscoveryRequestScope creates a request-scope adapter for command services.
+func NewDiscoveryRequestScope() (DiscoveryRequestScope, error) {
+	scope := DiscoveryRequestScope{}
+	if err := scope.Validate(); err != nil {
+		return DiscoveryRequestScope{}, err
+	}
+	return scope, nil
+}
+
+// Begin attaches the configured path and discovery cache for one service request.
+func (DiscoveryRequestScope) Begin(ctx context.Context, configPath types.FilesystemPath) context.Context {
+	return ContextWithConfigPath(ctx, string(configPath))
+}
+
+// Validate returns nil because DiscoveryRequestScope is stateless.
+func (DiscoveryRequestScope) Validate() error {
 	return nil
 }
 

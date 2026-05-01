@@ -15,6 +15,7 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -29,6 +30,7 @@ type (
 		registryFactory   RuntimeRegistryCreator
 		interactive       InteractiveExecutor
 		observer          ExecutionObserver
+		requestScope      RequestScopeFunc
 		capabilityChecker deps.CapabilityChecker
 		hostProbe         deps.HostProbe
 		lockProvider      deps.CommandScopeLockProvider
@@ -41,6 +43,7 @@ type (
 		registryFactory   RuntimeRegistryCreator
 		interactive       InteractiveExecutor
 		observer          ExecutionObserver
+		requestScope      RequestScopeFunc
 		capabilityChecker deps.CapabilityChecker
 		hostProbe         deps.HostProbe
 		lockProvider      deps.CommandScopeLockProvider
@@ -57,6 +60,7 @@ func NewPorts(
 	registryFactory RuntimeRegistryCreator,
 	interactive InteractiveExecutor,
 	observer ExecutionObserver,
+	requestScope RequestScopeFunc,
 	capabilityChecker deps.CapabilityChecker,
 	hostProbe deps.HostProbe,
 	lockProvider deps.CommandScopeLockProvider,
@@ -66,6 +70,7 @@ func NewPorts(
 		registryFactory:   registryFactory,
 		interactive:       interactive,
 		observer:          observer,
+		requestScope:      requestScope,
 		capabilityChecker: capabilityChecker,
 		hostProbe:         hostProbe,
 		lockProvider:      lockProvider,
@@ -95,6 +100,7 @@ func New(
 		registryFactory: missingRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
 		observer:        noopExecutionObserver{},
+		requestScope:    beginNoopRequestScope,
 		userEnvFunc:     userEnvFunc,
 		configFallback:  configFallback,
 	}
@@ -109,6 +115,9 @@ func New(
 	}
 	if servicePorts.observer != nil {
 		svc.observer = servicePorts.observer
+	}
+	if servicePorts.requestScope != nil {
+		svc.requestScope = servicePorts.requestScope
 	}
 	if servicePorts.capabilityChecker != nil {
 		svc.capabilityChecker = servicePorts.capabilityChecker
@@ -136,6 +145,7 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []Diagnosti
 	if err := req.Validate(); err != nil {
 		return Result{}, nil, err
 	}
+	ctx = s.beginRequest(ctx, req.ConfigPath)
 
 	// Capture the host environment early, before any downstream code could
 	// potentially modify it via os.Setenv. Tests can pre-populate req.UserEnv
@@ -239,6 +249,7 @@ func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discover
 	if err := req.Validate(); err != nil {
 		return nil, req, nil, err
 	}
+	ctx = s.beginRequest(ctx, req.ConfigPath)
 	if req.Platform == "" {
 		req.Platform = invowkfile.CurrentPlatform()
 	}
@@ -251,11 +262,19 @@ func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.C
 	if err := req.Validate(); err != nil {
 		return nil, req, nil, err
 	}
+	ctx = s.beginRequest(ctx, req.ConfigPath)
 	if req.Platform == "" {
 		req.Platform = invowkfile.CurrentPlatform()
 	}
 	_, cmdInfo, resolvedReq, diags, err := s.discoverCommand(ctx, req)
 	return cmdInfo, resolvedReq, diags, err
+}
+
+func (s *Service) beginRequest(ctx context.Context, configPath types.FilesystemPath) context.Context {
+	if s.requestScope == nil {
+		return beginNoopRequestScope(ctx, configPath)
+	}
+	return s.requestScope(ctx, configPath)
 }
 
 // discoverCommand loads configuration and discovers the target command by name.

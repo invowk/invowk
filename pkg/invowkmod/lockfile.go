@@ -79,6 +79,17 @@ type (
 		Modules map[ModuleRefKey]LockedModule
 	}
 
+	// LockFileSnapshot is a read model for lock-file trust state.
+	// It preserves the difference between an absent lock file, a stat/read
+	// failure, a parse failure, an oversized file, and a valid parsed lock file.
+	LockFileSnapshot struct {
+		Present  bool
+		Size     int64 //goplint:ignore -- immutable filesystem stat captured for lock-file checks.
+		LockFile *LockFile
+		StatErr  error
+		ParseErr error
+	}
+
 	// InvalidLockedModuleError is returned when a LockedModule has invalid fields.
 	// It wraps ErrInvalidLockedModule for errors.Is() compatibility and collects
 	// field-level validation errors.
@@ -287,27 +298,55 @@ func (l *LockFile) RequireV2() error {
 	return nil
 }
 
+// InspectLockFile reads lock-file trust state from path without collapsing
+// absence, stat/read failures, parse failures, or oversized files.
+func InspectLockFile(path types.FilesystemPath) LockFileSnapshot {
+	snapshot := LockFileSnapshot{}
+	info, err := os.Stat(string(path))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return snapshot
+		}
+		snapshot.StatErr = fmt.Errorf("failed to stat lock file: %w", err)
+		return snapshot
+	}
+	snapshot.Present = true
+	snapshot.Size = info.Size()
+	if info.Size() > LockFileSizeLimit {
+		snapshot.ParseErr = fmt.Errorf("lock file exceeds maximum size (%d bytes > %d bytes)", info.Size(), LockFileSizeLimit)
+		return snapshot
+	}
+
+	data, err := os.ReadFile(string(path))
+	if err != nil {
+		snapshot.ParseErr = fmt.Errorf("failed to read lock file: %w", err)
+		return snapshot
+	}
+
+	lock, err := parseLockFile(string(data))
+	if err != nil {
+		snapshot.ParseErr = err
+		return snapshot
+	}
+	snapshot.LockFile = lock
+	return snapshot
+}
+
 // LoadLockFile loads a lock file from the given path.
 // Returns a new empty lock file if the path does not exist.
 // Rejects files exceeding maxLockFileSize to prevent DoS (M-01).
 func LoadLockFile(path string) (*LockFile, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return NewLockFile(), nil
-		}
-		return nil, fmt.Errorf("failed to stat lock file: %w", err)
+	snapshot := InspectLockFile(types.FilesystemPath(path))
+	switch {
+	case snapshot.StatErr != nil:
+		return nil, snapshot.StatErr
+	case snapshot.ParseErr != nil:
+		return nil, snapshot.ParseErr
+	case !snapshot.Present:
+		return NewLockFile(), nil
+	default:
+		return snapshot.LockFile, nil
 	}
-	if info.Size() > LockFileSizeLimit {
-		return nil, fmt.Errorf("lock file exceeds maximum size (%d bytes > %d bytes)", info.Size(), LockFileSizeLimit)
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read lock file: %w", err)
-	}
-
-	return parseLockFile(string(data))
 }
 
 // Save writes the lock file to disk in CUE format.

@@ -406,14 +406,8 @@ func TestModuleCollisionError(t *testing.T) {
 	if !strings.Contains(errMsg, "io.example.tools") {
 		t.Error("error message should contain module ID")
 	}
-	if !strings.Contains(errMsg, "/path/to/first") {
-		t.Error("error message should contain first source")
-	}
-	if !strings.Contains(errMsg, "/path/to/second") {
-		t.Error("error message should contain second source")
-	}
-	if !strings.Contains(errMsg, "alias") {
-		t.Error("error message should mention alias as a solution")
+	if strings.Contains(errMsg, "includes:") || strings.Contains(errMsg, "alias") {
+		t.Error("domain error should not render CLI remediation")
 	}
 
 	if !errors.Is(err, ErrModuleCollision) {

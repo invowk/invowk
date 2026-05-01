@@ -166,8 +166,8 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 			// Emergency escape: force quit
 			return m, tea.Quit
 		default:
-			// Forward the key to the PTY
-			if m.pty != nil {
+			// Forward the key to the terminal session
+			if m.terminal != nil {
 				m.forwardKeyToPty(msg)
 			}
 		}
@@ -344,7 +344,9 @@ func (m *interactiveModel) forwardKeyToPty(msg tea.KeyPressMsg) {
 	}
 
 	if len(data) > 0 {
-		_, _ = m.pty.Write(data)
+		if _, err := m.terminal.Write(data); err != nil {
+			return
+		}
 	}
 }
 
@@ -375,9 +377,9 @@ func (m *interactiveModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, t
 		m.activeComponent.SetSize(modalSize.Width, modalSize.Height)
 	}
 
-	// Resize the PTY to match
-	if m.pty != nil && m.state == stateExecuting {
-		_ = m.pty.Resize(msg.Width, viewportHeight) //nolint:errcheck // Best-effort resize
+	// Resize the terminal session to match
+	if m.terminal != nil && m.state == stateExecuting {
+		_ = m.terminal.Resize(msg.Width, viewportHeight) //nolint:errcheck // Best-effort resize
 	}
 
 	return m, nil

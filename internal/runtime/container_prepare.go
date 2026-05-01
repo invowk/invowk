@@ -3,10 +3,17 @@
 package runtime
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 
 	"github.com/invowk/invowk/internal/container"
 )
+
+type containerRunCommandPreparer interface {
+	PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd
+}
 
 // SupportsInteractive returns true if the container runtime can run interactively.
 // This requires a container engine to be available.
@@ -46,7 +53,11 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return nil, fmt.Errorf("container run options: %w", err)
 	}
 
-	cmd := r.engine.PrepareRunCommand(ctx.Context, runOpts)
+	preparer, ok := r.engine.(containerRunCommandPreparer)
+	if !ok {
+		return nil, errors.New("container engine does not support interactive command preparation")
+	}
+	cmd := preparer.PrepareRunCommand(ctx.Context, runOpts)
 	return &PreparedCommand{Cmd: cmd, Cleanup: prep.cleanup}, nil
 }
 

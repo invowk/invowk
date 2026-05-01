@@ -109,14 +109,8 @@ func TestMissingTransitiveDepError_Error(t *testing.T) {
 		if !strings.Contains(msg, "1 missing transitive dependency(ies)") {
 			t.Errorf("expected count in message, got:\n%s", msg)
 		}
-		if !strings.Contains(msg, "io.example.B") {
-			t.Errorf("expected requiring module in message, got:\n%s", msg)
-		}
-		if !strings.Contains(msg, "C.invowkmod") {
-			t.Errorf("expected missing module URL in message, got:\n%s", msg)
-		}
-		if !strings.Contains(msg, "invowk module tidy") {
-			t.Errorf("expected tidy hint in message, got:\n%s", msg)
+		if strings.Contains(msg, "invowk module tidy") || strings.Contains(msg, "requires\n") {
+			t.Errorf("domain error should not render CLI remediation, got:\n%s", msg)
 		}
 	})
 
@@ -147,9 +141,6 @@ func TestMissingTransitiveDepError_Error(t *testing.T) {
 		msg := err.Error()
 		if !strings.Contains(msg, "2 missing transitive dependency(ies)") {
 			t.Errorf("expected count=2 in message, got:\n%s", msg)
-		}
-		if !strings.Contains(msg, "C.git") || !strings.Contains(msg, "D.git") {
-			t.Errorf("expected both missing URLs in message, got:\n%s", msg)
 		}
 	})
 

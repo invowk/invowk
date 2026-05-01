@@ -15,6 +15,13 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
+const (
+	// ModuleCollisionSourceLocal identifies a local/include/global module source.
+	ModuleCollisionSourceLocal ModuleCollisionSourceKind = "local"
+	// ModuleCollisionSourceVendored identifies a vendored module source.
+	ModuleCollisionSourceVendored ModuleCollisionSourceKind = "vendored"
+)
+
 var (
 	// ErrNoInvowkfileFound is returned when no invowkfile.cue is found in any search path.
 	// Callers can check for this error using errors.Is(err, ErrNoInvowkfileFound).
@@ -26,11 +33,16 @@ var (
 )
 
 type (
+	// ModuleCollisionSourceKind classifies the source that triggered a module
+	// namespace collision.
+	ModuleCollisionSourceKind string
+
 	// ModuleCollisionError is returned when two modules publish the same command namespace.
 	ModuleCollisionError struct {
 		Namespace    SourceID
 		FirstSource  string
 		SecondSource string
+		SecondKind   ModuleCollisionSourceKind
 	}
 
 	// Discovery is the stateless entry point for file discovery, command set building,
@@ -62,16 +74,22 @@ type (
 	Option func(*Discovery)
 )
 
+// String returns the source kind as a string.
+func (k ModuleCollisionSourceKind) String() string { return string(k) }
+
+// Validate returns nil if the source kind is known.
+func (k ModuleCollisionSourceKind) Validate() error {
+	switch k {
+	case ModuleCollisionSourceLocal, ModuleCollisionSourceVendored:
+		return nil
+	default:
+		return fmt.Errorf("invalid module collision source kind %q", k)
+	}
+}
+
 // Error implements the error interface.
 func (e *ModuleCollisionError) Error() string {
-	return fmt.Sprintf(
-		"module name collision: '%s' defined in both:\n"+
-			"  - %s\n"+
-			"  - %s\n\n"+
-			"Add an alias to disambiguate in your config:\n"+
-			"  includes: [{path: %q, alias: \"<new-alias>\"}]",
-		e.Namespace, e.FirstSource, e.SecondSource,
-		e.SecondSource)
+	return fmt.Sprintf("module name collision: %q defined in multiple sources", e.Namespace)
 }
 
 // Unwrap returns ErrModuleCollision so callers can use errors.Is for programmatic detection.
@@ -228,11 +246,13 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 		// the error message shows the path users need for their includes config.
 		// Annotate vendored modules with their parent for clearer diagnostics.
 		sourcePath := string(file.Path)
+		sourceKind := ModuleCollisionSourceLocal
 		if file.Module != nil {
 			sourcePath = string(file.Module.Path)
 		}
 		if file.ParentModule != nil {
 			sourcePath = fmt.Sprintf("%s (vendored in %s)", sourcePath, file.ParentModule.Name())
+			sourceKind = ModuleCollisionSourceVendored
 		}
 
 		if existingSource, exists := moduleSources[namespace]; exists {
@@ -243,6 +263,7 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 				Namespace:    namespace,
 				FirstSource:  existingSource,
 				SecondSource: sourcePath,
+				SecondKind:   sourceKind,
 			}
 		}
 

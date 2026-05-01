@@ -256,6 +256,10 @@ func runModuleSync(ctx context.Context) error {
 	invowkmodulePath := filepath.Join(".", invowkmodCueFileName)
 	requirements, resolved, err := modulesync.SyncModule(ctx, types.FilesystemPath(invowkmodulePath)) //goplint:ignore -- relative path from current dir
 	if err != nil {
+		if missingErr, ok := errors.AsType[*modulesync.MissingTransitiveDepError](err); ok {
+			renderMissingTransitiveDeps(missingErr)
+			return err
+		}
 		fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
 		return err
 	}
@@ -278,6 +282,20 @@ func runModuleSync(ctx context.Context) error {
 	fmt.Printf("%s Lock file updated: %s\n", moduleSuccessIcon, invowkmod.LockFileName)
 
 	return nil
+}
+
+func renderMissingTransitiveDeps(err *modulesync.MissingTransitiveDepError) {
+	fmt.Printf("%s Failed to sync modules: %v\n", moduleErrorIcon, err)
+	for _, diag := range err.Diagnostics {
+		fmt.Println()
+		fmt.Printf("Module %q (%s) requires\n", diag.RequiringModule, diag.RequiringURL)
+		fmt.Printf("%q but it is not declared in your invowkmod.cue.\n", diag.MissingRef.GitURL)
+		fmt.Println()
+		fmt.Println("Add it to your requires list:")
+		fmt.Println(diag.CUESnippet())
+	}
+	fmt.Println()
+	fmt.Println("Or run: invowk module tidy")
 }
 
 func runModuleUpdate(ctx context.Context, args []string) error {

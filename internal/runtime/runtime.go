@@ -259,7 +259,7 @@ type (
 
 	// Registry holds all available runtimes and generates unique execution IDs.
 	// A single Registry instance is created per command execution via
-	// BuildRegistry(), so the idCounter provides execution-scoped
+	// the command adapter registry factory, so the idCounter provides execution-scoped
 	// uniqueness for execution IDs. Registration should happen before any
 	// concurrent calls to Get, Execute, or Available.
 	Registry struct {

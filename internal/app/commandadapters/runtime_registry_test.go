@@ -3,6 +3,7 @@
 package commandadapters
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -50,5 +51,38 @@ func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
 
 	if !slices.Contains(prepared.Cmd.Args, "internal") || !slices.Contains(prepared.Cmd.Args, "exec-virtual") {
 		t.Fatalf("prepared args = %v, want hidden virtual exec command", prepared.Cmd.Args)
+	}
+}
+
+func TestRuntimeRegistryFactorySkipsContainerRuntimeForNonContainerExecution(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	factory := RuntimeRegistryFactory{
+		containerRuntimeFactory: func(*config.Config) (*runtime.ContainerRuntime, error) {
+			called = true
+			return nil, errors.New("container runtime factory should not be called")
+		},
+	}
+	result := factory.Create(config.DefaultConfig(), nil, invowkfile.RuntimeNative)
+	defer result.Cleanup()
+
+	if called {
+		t.Fatal("container runtime factory was called for native execution")
+	}
+	if _, err := result.Registry.Get(runtime.RuntimeTypeNative); err != nil {
+		t.Fatalf("native runtime not registered: %v", err)
+	}
+	if _, err := result.Registry.Get(runtime.RuntimeTypeVirtual); err != nil {
+		t.Fatalf("virtual runtime not registered: %v", err)
+	}
+	if _, err := result.Registry.Get(runtime.RuntimeTypeContainer); !errors.Is(err, runtime.ErrRuntimeNotAvailable) {
+		t.Fatalf("container runtime lookup error = %v, want ErrRuntimeNotAvailable", err)
+	}
+	if result.ContainerInitErr != nil {
+		t.Fatalf("ContainerInitErr = %v, want nil", result.ContainerInitErr)
+	}
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("Diagnostics = %v, want none", result.Diagnostics)
 	}
 }
