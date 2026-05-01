@@ -97,6 +97,8 @@ type (
 		Faint bool
 		// Blink enables blinking text.
 		Blink bool
+		// Reverse swaps foreground and background colors.
+		Reverse bool
 		// Padding adds padding around the text (top, right, bottom, left or single value for all).
 		Padding []int
 		// Margin adds margin around the text (top, right, bottom, left or single value for all).
@@ -113,6 +115,13 @@ type (
 		Height TerminalDimension
 		// Align sets text alignment (left, center, right).
 		Align TextAlign
+	}
+
+	// StyledTextOptions configures styled one-way text output.
+	StyledTextOptions struct {
+		Text  types.DescriptionText
+		Style Style
+		Width TerminalDimension
 	}
 
 	// componentViewParams holds the variable parts of the standard TUI component View()
@@ -132,6 +141,23 @@ type (
 // Error implements the error interface for InvalidThemeError.
 func (e *InvalidThemeError) Error() string {
 	return fmt.Sprintf("invalid theme %q (valid: default, charm, dracula, catppuccin, base16)", e.Value)
+}
+
+// Validate returns nil if styled text options are valid.
+func (o StyledTextOptions) Validate() error {
+	var errs []error
+	if o.Text != "" {
+		if err := o.Text.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := o.Width.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return errors.New(types.FormatFieldErrors("styled text options", errs))
+	}
+	return nil
 }
 
 // Unwrap returns the sentinel error for errors.Is() compatibility.
@@ -216,6 +242,9 @@ func (s Style) Apply(text string) string {
 	}
 	if s.Blink {
 		style = style.Blink(true)
+	}
+	if s.Reverse {
+		style = style.Reverse(true)
 	}
 
 	switch len(s.Padding) {

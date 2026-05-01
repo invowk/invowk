@@ -535,10 +535,10 @@ func vendoredCommandNamespace(requirements []invowkmod.ModuleRequirement, lock *
 		return ""
 	}
 	locked, ok := invowkmod.DeclaredLockedModule(requirements, lock, childModule.Metadata.Module)
-	if !ok || locked.Alias == "" {
+	if !ok || locked.EffectiveCommandSourceID() == "" {
 		return ""
 	}
-	return invowkmod.ModuleNamespace(locked.Alias)
+	return invowkmod.ModuleNamespace(locked.EffectiveCommandSourceID())
 }
 
 // appendModulesWithVendored appends the module files and diagnostics, then for

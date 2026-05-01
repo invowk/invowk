@@ -4,6 +4,7 @@ package moduleops
 
 import (
 	"archive/zip"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -14,6 +15,17 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+type fakeArchiveSourceFetcher struct {
+	path      types.FilesystemPath
+	called    bool
+	cleanedUp bool
+}
+
+func (f *fakeArchiveSourceFetcher) FetchArchiveSource(context.Context, string) (path types.FilesystemPath, cleanup func(), err error) {
+	f.called = true
+	return f.path, func() { f.cleanedUp = true }, nil
+}
 
 // ============================================================================
 // Tests for Module Packaging Operations (Archive, Unpack)
@@ -69,19 +81,25 @@ func createZipForUnpackTest(t *testing.T, zipPath string, entries map[string]str
 	}
 }
 
+func createScaffoldModuleForPackaging(t *testing.T, tmpDir string, opts invowkmod.CreateOptions) string {
+	t.Helper()
+	opts.ParentDir = types.FilesystemPath(tmpDir)
+	modulePath, err := CreateModule(t.Context(), opts)
+	if err != nil {
+		t.Fatalf("CreateModule() failed: %v", err)
+	}
+	return string(modulePath)
+}
+
 func TestArchive(t *testing.T) {
 	t.Run("archive valid module", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create a module first
-		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
+		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
 			Name:             "mytools",
-			ParentDir:        types.FilesystemPath(tmpDir),
 			CreateScriptsDir: true,
 		})
-		if err != nil {
-			t.Fatalf("invowkmod.Create() failed: %v", err)
-		}
 
 		// Add a script file
 		scriptPath := filepath.Join(modulePath, "scripts", "test.sh")
@@ -115,13 +133,9 @@ func TestArchive(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create a module
-		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
-			Name:      "com.example.tools",
-			ParentDir: types.FilesystemPath(tmpDir),
+		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
+			Name: "com.example.tools",
 		})
-		if err != nil {
-			t.Fatalf("invowkmod.Create() failed: %v", err)
-		}
 
 		// Change to temp dir to test default output
 		restoreWd := testutil.MustChdir(t, tmpDir)
@@ -165,16 +179,12 @@ func TestUnpack(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
-		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
-			Name:      "mytools",
-			ParentDir: types.FilesystemPath(tmpDir),
+		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
+			Name: "mytools",
 		})
-		if err != nil {
-			t.Fatalf("invowkmod.Create() failed: %v", err)
-		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
+		_, err := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
@@ -213,16 +223,12 @@ func TestUnpack(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
-		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
-			Name:      "mytools",
-			ParentDir: types.FilesystemPath(tmpDir),
+		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
+			Name: "mytools",
 		})
-		if err != nil {
-			t.Fatalf("invowkmod.Create() failed: %v", err)
-		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
+		_, err := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
@@ -247,16 +253,12 @@ func TestUnpack(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create and archive a module
-		modulePath, err := invowkmod.Create(invowkmod.CreateOptions{
-			Name:      "mytools",
-			ParentDir: types.FilesystemPath(tmpDir),
+		modulePath := createScaffoldModuleForPackaging(t, tmpDir, invowkmod.CreateOptions{
+			Name: "mytools",
 		})
-		if err != nil {
-			t.Fatalf("invowkmod.Create() failed: %v", err)
-		}
 
 		zipPath := filepath.Join(tmpDir, "module.zip")
-		_, err = Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
+		_, err := Archive(types.FilesystemPath(modulePath), types.FilesystemPath(zipPath))
 		if err != nil {
 			t.Fatalf("Archive() failed: %v", err)
 		}
@@ -280,6 +282,36 @@ func TestUnpack(t *testing.T) {
 		// Verify marker file is gone (module was replaced)
 		if _, statErr := os.Stat(filepath.Join(extractedPath, "marker.txt")); !os.IsNotExist(statErr) {
 			t.Error("marker file should not exist after overwrite")
+		}
+	})
+
+	t.Run("unpack uses injected source fetcher", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		zipPath := filepath.Join(tmpDir, "module.zip")
+		createZipForUnpackTest(t, zipPath, map[string]string{
+			"mytools.invowkmod/invowkmod.cue": `module: "mytools"
+version: "1.0.0"
+`,
+			"mytools.invowkmod/invowkfile.cue": "cmds: []\n",
+		})
+		fetcher := &fakeArchiveSourceFetcher{path: types.FilesystemPath(zipPath)}
+		unpackDir := filepath.Join(tmpDir, "unpacked")
+
+		extractedPath, err := Unpack(t.Context(), UnpackOptions{
+			Source:        "https://example.com/module.zip",
+			DestDir:       types.FilesystemPath(unpackDir),
+			SourceFetcher: fetcher,
+		})
+		if err != nil {
+			t.Fatalf("Unpack() failed: %v", err)
+		}
+		if !fetcher.called || !fetcher.cleanedUp {
+			t.Fatalf("fetcher called=%v cleanedUp=%v, want true/true", fetcher.called, fetcher.cleanedUp)
+		}
+		if filepath.Base(extractedPath) != "mytools.invowkmod" {
+			t.Fatalf("extractedPath = %q, want mytools.invowkmod basename", extractedPath)
 		}
 	})
 

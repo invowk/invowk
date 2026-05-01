@@ -252,6 +252,28 @@ func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, probe Runti
 	return nil
 }
 
+// checkResolvedCommandDependenciesInContainer validates already-resolved command
+// dependencies inside the container using discovery-qualified command names.
+func checkResolvedCommandDependenciesInContainer(commands []resolvedCommandDependency, probe RuntimeDependencyProbe, ctx ExecutionContext) error {
+	if len(commands) == 0 {
+		return nil
+	}
+	if probe == nil {
+		return ErrRuntimeDependencyProbeRequired
+	}
+
+	commandErrors := collectResolvedContainerCommandErrors(commands, probe)
+	if len(commandErrors) > 0 {
+		return &DependencyError{
+			CommandName:        ctx.CommandName,
+			MissingCommands:    commandErrors,
+			StructuredFailures: dependencyFailures(DependencyFailureCommand, commandErrors),
+		}
+	}
+
+	return nil
+}
+
 // CheckCapabilityDependencies verifies all required system capabilities are available.
 // Capabilities are always checked against the host system, regardless of the runtime mode.
 // For container runtimes, these checks represent the host's capabilities, not the container's.
@@ -351,6 +373,24 @@ func collectContainerCommandErrors(commands []invowkfile.CommandDependency, prob
 			return probe.CheckCommand(alt)
 		})
 		if !found && lastErr != nil {
+			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, true))
+		}
+	}
+	return commandErrors
+}
+
+func collectResolvedContainerCommandErrors(commands []resolvedCommandDependency, probe RuntimeDependencyProbe) []DependencyMessage {
+	var commandErrors []DependencyMessage
+	for _, dep := range commands {
+		if dep.Command == nil {
+			continue
+		}
+		command := *dep.Command
+		if err := probe.CheckCommand(command); err != nil {
+			alternatives := dep.Alternatives
+			if len(alternatives) == 0 {
+				alternatives = []invowkfile.CommandName{command}
+			}
 			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, true))
 		}
 	}

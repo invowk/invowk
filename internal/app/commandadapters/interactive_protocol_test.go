@@ -95,15 +95,11 @@ func TestComponentRequestFromProtocolChoose(t *testing.T) {
 	t.Parallel()
 
 	raw, err := json.Marshal(tuiwire.ChooseRequest{
-		Title:       "Pick",
-		Description: "ignored by current renderer",
-		Options:     []string{"one", "two"},
-		Selected:    "ignored",
-		Limit:       2,
-		NoLimit:     true,
-		Ordered:     true,
-		Height:      7,
-		Cursor:      "ignored",
+		Title:   "Pick",
+		Options: []string{"one", "two"},
+		Limit:   2,
+		NoLimit: true,
+		Height:  7,
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal() = %v", err)
@@ -122,6 +118,71 @@ func TestComponentRequestFromProtocolChoose(t *testing.T) {
 	}
 	if len(opts.Options) != 2 || opts.Options[0] != "one" || opts.Options[1] != "two" {
 		t.Fatalf("Options = %v", opts.Options)
+	}
+}
+
+func TestComponentRequestFromProtocolChooseRejectsUnsupportedFields(t *testing.T) {
+	t.Parallel()
+
+	raw, err := json.Marshal(tuiwire.ChooseRequest{
+		Title:       "Pick",
+		Description: "not supported by renderer",
+		Options:     []string{"one", "two"},
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal() = %v", err)
+	}
+
+	if _, err := componentRequestFromProtocol(tui.ComponentTypeChoose, raw); err == nil {
+		t.Fatal("componentRequestFromProtocol() error = nil, want unsupported field error")
+	}
+}
+
+func TestComponentRequestFromProtocolWriteMapsStyle(t *testing.T) {
+	t.Parallel()
+
+	raw, err := json.Marshal(tuiwire.WriteRequest{
+		Text:          "hello",
+		Foreground:    "212",
+		Background:    "#000000",
+		Bold:          true,
+		Italic:        true,
+		Underline:     true,
+		Strikethrough: true,
+		Faint:         true,
+		Blink:         true,
+		Border:        "rounded",
+		Align:         "center",
+		Padding:       []int{1, 2, 3, 4},
+		Margin:        []int{4, 3, 2, 1},
+		Width:         40,
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal() = %v", err)
+	}
+
+	got, err := componentRequestFromProtocol(tui.ComponentTypeWrite, raw)
+	if err != nil {
+		t.Fatalf("componentRequestFromProtocol() = %v", err)
+	}
+	opts, ok := got.(tui.StyledTextOptions)
+	if !ok {
+		t.Fatalf("got %T, want tui.StyledTextOptions", got)
+	}
+	if opts.Text != "hello" || opts.Width != 40 {
+		t.Fatalf("opts = %+v", opts)
+	}
+	if opts.Style.Foreground != "212" || opts.Style.Background != "#000000" || opts.Style.Border != tui.BorderRounded || opts.Style.Align != tui.AlignCenter {
+		t.Fatalf("style = %+v", opts.Style)
+	}
+	if !opts.Style.Bold || !opts.Style.Italic || !opts.Style.Underline || !opts.Style.Strikethrough || !opts.Style.Faint || !opts.Style.Blink {
+		t.Fatalf("style booleans = %+v", opts.Style)
+	}
+	if len(opts.Style.Padding) != 4 || opts.Style.Padding[1] != 2 {
+		t.Fatalf("Padding = %v", opts.Style.Padding)
+	}
+	if len(opts.Style.Margin) != 4 || opts.Style.Margin[1] != 3 {
+		t.Fatalf("Margin = %v", opts.Style.Margin)
 	}
 }
 

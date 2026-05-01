@@ -777,6 +777,68 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 		}
 	})
 
+	t.Run("container command probe uses resolved module command name", func(t *testing.T) {
+		t.Parallel()
+
+		moduleID := invowkmod.ModuleID("io.example.mod")
+		moduleMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+			Module:  moduleID,
+			Version: "1.0.0",
+		})
+		moduleCmd := &invowkfile.Command{
+			Name: "build",
+			Implementations: []invowkfile.Implementation{{
+				Script: "echo hello",
+				Runtimes: []invowkfile.RuntimeConfig{{
+					Name: invowkfile.RuntimeContainer,
+					DependsOn: &invowkfile.DependsOn{
+						Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"build"}}},
+					},
+				}},
+			}},
+		}
+		callerInfo := &discovery.CommandInfo{
+			Name:       "mod build",
+			SourceID:   "mod",
+			ModuleID:   &moduleID,
+			Command:    moduleCmd,
+			Invowkfile: &invowkfile.Invowkfile{Metadata: moduleMeta},
+		}
+		disc := &stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{
+			Commands: []*discovery.CommandInfo{{
+				Name:       "mod build",
+				SourceID:   "mod",
+				ModuleID:   &moduleID,
+				Invowkfile: &invowkfile.Invowkfile{Metadata: moduleMeta},
+			}},
+		}}}
+
+		var scripts []string
+		probe := &filepathStubRuntime{
+			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+				scripts = append(scripts, string(ctx.SelectedImpl.Script))
+				if strings.Contains(string(ctx.SelectedImpl.Script), "check-cmd 'mod build'") {
+					return &runtimepkg.Result{ExitCode: 0}
+				}
+				return &runtimepkg.Result{ExitCode: 1}
+			},
+		}
+
+		err := ValidateRuntimeDependencies(
+			disc,
+			callerInfo,
+			probe,
+			testDependencyExecutionContext(t, moduleCmd, invowkfile.RuntimeContainer),
+			nil,
+		)
+		if err != nil {
+			t.Fatalf("ValidateRuntimeDependencies() = %v", err)
+		}
+		if len(scripts) != 1 || !strings.Contains(scripts[0], "check-cmd 'mod build'") {
+			t.Fatalf("probe scripts = %v, want resolved module command", scripts)
+		}
+	})
+
 	t.Run("container runtime enforces command scope before probe", func(t *testing.T) {
 		t.Parallel()
 

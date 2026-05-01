@@ -5,54 +5,43 @@ package invowkmod
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
-// Create creates a new module with the given options.
-// Returns the path to the created module or an error.
-func Create(opts CreateOptions) (string, error) {
+type (
+	// ModuleScaffold is the deterministic file layout for a newly created module.
+	ModuleScaffold struct {
+		directoryName     ModuleScaffoldDirectoryName
+		invowkmodContent  ModuleScaffoldContent
+		invowkfileContent ModuleScaffoldContent
+		createScriptsDir  bool
+	}
+
+	// ModuleScaffoldDirectoryName is the folder name for a generated module scaffold.
+	ModuleScaffoldDirectoryName string
+
+	// ModuleScaffoldContent is generated CUE file content for a module scaffold.
+	ModuleScaffoldContent string
+)
+
+// NewModuleScaffold builds the deterministic file layout for a new module.
+// Filesystem creation is owned by the application layer.
+//
+//goplint:ignore -- scaffold is validated before return; constructor builds generated content locally.
+func NewModuleScaffold(opts CreateOptions) (ModuleScaffold, error) {
 	if err := opts.Validate(); err != nil {
-		return "", err
+		return ModuleScaffold{}, err
 	}
 
 	// Validate module name
 	if opts.Name == "" {
-		return "", errors.New("module name cannot be empty")
+		return ModuleScaffold{}, errors.New("module name cannot be empty")
 	}
 
 	// Validate the name format
 	if !moduleNameRegex.MatchString(string(opts.Name)) {
-		return "", fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", opts.Name)
-	}
-
-	// Default parent directory to current directory
-	parentDir := string(opts.ParentDir)
-	if parentDir == "" {
-		var err error
-		parentDir, err = os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("failed to get current directory: %w", err)
-		}
-	}
-
-	// Resolve absolute path
-	absParentDir, err := filepath.Abs(parentDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve parent directory: %w", err)
-	}
-
-	// Create module directory
-	moduleDirName := string(opts.Name) + ModuleSuffix
-	modulePath := filepath.Join(absParentDir, moduleDirName)
-
-	// Check if module already exists
-	if _, err := os.Stat(modulePath); err == nil {
-		return "", fmt.Errorf("%w at %s", ErrModuleAlreadyExists, modulePath)
-	}
-
-	if err := os.MkdirAll(modulePath, 0o755); err != nil {
-		return "", fmt.Errorf("failed to create module directory: %w", err)
+		return ModuleScaffold{}, fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", opts.Name)
 	}
 
 	// Use name as module identifier if not specified
@@ -84,13 +73,6 @@ description: %q
 // ]
 `, opts.Name, moduleID, description)
 
-	invowkmodPath := filepath.Join(modulePath, "invowkmod.cue")
-	if err := os.WriteFile(invowkmodPath, []byte(invowkmodContent), 0o644); err != nil {
-		// Clean up on failure
-		_ = os.RemoveAll(modulePath) // Best-effort cleanup on error path
-		return "", fmt.Errorf("failed to create invowkmod.cue: %w", err)
-	}
-
 	// Create invowkfile.cue (command definitions only)
 	invowkfileContent := fmt.Sprintf(`// Invowkfile - Command definitions for %s module
 // See https://github.com/invowk/invowk for documentation
@@ -117,30 +99,74 @@ cmds: [
 ]
 `, opts.Name, opts.Name)
 
-	invowkfilePath := filepath.Join(modulePath, "invowkfile.cue")
-	if err := os.WriteFile(invowkfilePath, []byte(invowkfileContent), 0o644); err != nil {
-		// Clean up on failure
-		_ = os.RemoveAll(modulePath) // Best-effort cleanup on error path
-		return "", fmt.Errorf("failed to create invowkfile.cue: %w", err)
+	scaffold := ModuleScaffold{
+		directoryName:     ModuleScaffoldDirectoryName(string(opts.Name) + ModuleSuffix), //goplint:ignore -- derived from validated module short name and fixed suffix.
+		invowkmodContent:  ModuleScaffoldContent(invowkmodContent),                       //goplint:ignore -- generated non-empty content validated below.
+		invowkfileContent: ModuleScaffoldContent(invowkfileContent),                      //goplint:ignore -- generated non-empty content validated below.
+		createScriptsDir:  opts.CreateScriptsDir,
 	}
-
-	// Optionally create scripts directory
-	if opts.CreateScriptsDir {
-		scriptsDir := filepath.Join(modulePath, "scripts")
-		if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
-			// Clean up on failure
-			_ = os.RemoveAll(modulePath) // Best-effort cleanup on error path
-			return "", fmt.Errorf("failed to create scripts directory: %w", err)
-		}
-
-		// Create a placeholder .gitkeep file
-		gitkeepPath := filepath.Join(scriptsDir, ".gitkeep")
-		if err := os.WriteFile(gitkeepPath, []byte(""), 0o644); err != nil {
-			// Clean up on failure
-			_ = os.RemoveAll(modulePath) // Best-effort cleanup on error path
-			return "", fmt.Errorf("failed to create .gitkeep: %w", err)
-		}
+	if err := scaffold.Validate(); err != nil {
+		return ModuleScaffold{}, err
 	}
+	return scaffold, nil
+}
 
-	return modulePath, nil
+// DirectoryName returns the module scaffold directory name.
+func (s ModuleScaffold) DirectoryName() ModuleScaffoldDirectoryName {
+	return s.directoryName
+}
+
+// InvowkmodContent returns the generated invowkmod.cue content.
+func (s ModuleScaffold) InvowkmodContent() ModuleScaffoldContent {
+	return s.invowkmodContent
+}
+
+// InvowkfileContent returns the generated invowkfile.cue content.
+func (s ModuleScaffold) InvowkfileContent() ModuleScaffoldContent {
+	return s.invowkfileContent
+}
+
+// CreateScriptsDir reports whether the scaffold includes scripts/.
+func (s ModuleScaffold) CreateScriptsDir() bool {
+	return s.createScriptsDir
+}
+
+// Validate returns nil if the scaffold has generated content for all required files.
+func (s ModuleScaffold) Validate() error {
+	var errs []error
+	if err := s.directoryName.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := s.invowkmodContent.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := s.invowkfileContent.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return errors.New(types.FormatFieldErrors("module scaffold", errs))
+	}
+	return nil
+}
+
+// String returns the directory name as text.
+func (n ModuleScaffoldDirectoryName) String() string { return string(n) }
+
+// Validate returns nil when the directory name is non-empty.
+func (n ModuleScaffoldDirectoryName) Validate() error {
+	if n == "" {
+		return errors.New("module scaffold directory name must not be empty")
+	}
+	return nil
+}
+
+// String returns generated scaffold content as text.
+func (c ModuleScaffoldContent) String() string { return string(c) }
+
+// Validate returns nil when generated scaffold content is non-empty.
+func (c ModuleScaffoldContent) Validate() error {
+	if c == "" {
+		return errors.New("module scaffold content must not be empty")
+	}
+	return nil
 }

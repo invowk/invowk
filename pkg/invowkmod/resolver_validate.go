@@ -139,6 +139,11 @@ func (r ResolvedModule) Validate() error {
 			errs = append(errs, err)
 		}
 	}
+	if r.CommandSourceID != "" {
+		if err := r.CommandSourceID.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	if r.ModuleName != "" {
 		if err := r.ModuleName.Validate(); err != nil {
 			errs = append(errs, err)

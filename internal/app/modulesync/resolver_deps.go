@@ -141,6 +141,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 
 	// Compute namespace
 	namespace := computeNamespace(moduleName, string(resolvedVersion), req.Alias)
+	commandSourceID := req.CommandSourceID()
 
 	// Look up known hash from the prior lock file for cache tamper detection.
 	// If the module is already cached, cacheModule verifies the cached content
@@ -171,6 +172,7 @@ func (m *Resolver) resolveOne(ctx context.Context, req ModuleRef, knownHashes ma
 		GitCommit:       commit,
 		CachePath:       types.FilesystemPath(cachePath),
 		Namespace:       namespace,
+		CommandSourceID: commandSourceID,
 		ModuleName:      moduleName,
 		ModuleID:        moduleID,
 		TransitiveDeps:  transitiveDeps,
@@ -225,7 +227,7 @@ func (m *Resolver) loadTransitiveDeps(cachePath string) (refs []ModuleRef, modul
 	return reqs, meta.Module, nil
 }
 
-// computeNamespace generates the namespace for a module.
+// computeNamespace generates the display namespace for a module.
 func computeNamespace(moduleName ModuleShortName, version string, alias ModuleAlias) ModuleNamespace {
 	if alias != "" {
 		return ModuleNamespace(alias)

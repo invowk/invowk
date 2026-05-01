@@ -131,7 +131,8 @@ func ValidateRuntimeDependencies(disc CommandSetProvider, cmdInfo *discovery.Com
 	if probe == nil {
 		return ErrRuntimeDependencyProbeRequired
 	}
-	if err := CheckCommandDependenciesExistWithLockProvider(disc, rtDeps, cmdInfo, parentCtx, lockProvider); err != nil {
+	resolvedCommands, err := resolveCommandDependenciesWithLockProvider(disc, rtDeps, cmdInfo, parentCtx, lockProvider)
+	if err != nil {
 		return err
 	}
 
@@ -161,7 +162,7 @@ func ValidateRuntimeDependencies(disc CommandSetProvider, cmdInfo *discovery.Com
 	}
 
 	// Command discoverability: validated inside the container
-	return CheckCommandDependenciesInContainer(rtDeps, probe, parentCtx)
+	return checkResolvedCommandDependenciesInContainer(resolvedCommands, probe, parentCtx)
 }
 
 // CheckCommandDependenciesExist verifies that required commands are discoverable via the
@@ -178,13 +179,20 @@ func CheckCommandDependenciesExist(disc CommandSetProvider, deps *invowkfile.Dep
 // CheckCommandDependenciesExistWithLockProvider verifies command dependencies
 // using caller-provided lock-file state for module scope policy.
 func CheckCommandDependenciesExistWithLockProvider(disc CommandSetProvider, deps *invowkfile.DependsOn, cmdInfo *discovery.CommandInfo, ctx ExecutionContext, lockProvider CommandScopeLockProvider) error {
+	_, err := resolveCommandDependenciesWithLockProvider(disc, deps, cmdInfo, ctx, lockProvider)
+	return err
+}
+
+// resolveCommandDependenciesWithLockProvider verifies command dependencies and
+// returns the discovery-qualified command names that satisfied them.
+func resolveCommandDependenciesWithLockProvider(disc CommandSetProvider, deps *invowkfile.DependsOn, cmdInfo *discovery.CommandInfo, ctx ExecutionContext, lockProvider CommandScopeLockProvider) ([]resolvedCommandDependency, error) {
 	if deps == nil || len(deps.Commands) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	available, err := discoverAvailableCommands(disc, ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Derive currentModule for qualified-name lookup.
@@ -198,7 +206,7 @@ func CheckCommandDependenciesExistWithLockProvider(disc CommandSetProvider, deps
 
 	lock, err := commandScopeLock(lockProvider, cmdInfo.Invowkfile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Build CommandScope for module commands (nil for root invowkfile).
@@ -206,6 +214,7 @@ func CheckCommandDependenciesExistWithLockProvider(disc CommandSetProvider, deps
 
 	var commandErrors []DependencyMessage
 	var forbiddenErrors []DependencyMessage
+	resolved := make([]resolvedCommandDependency, 0, len(deps.Commands))
 
 	for _, dep := range deps.Commands {
 		alternatives := normalizedCommandAlternatives(dep)
@@ -219,6 +228,12 @@ func CheckCommandDependenciesExistWithLockProvider(disc CommandSetProvider, deps
 			continue
 		}
 
+		matchedName := matchedCmd.Name
+		resolved = append(resolved, resolvedCommandDependency{
+			Alternatives: alternatives,
+			Command:      &matchedName,
+		})
+
 		// Scope enforcement: if the caller is a module command, check CanCall.
 		if scope != nil && matchedCmd.ModuleID != nil {
 			decision := scope.CanCall(invowkmod.CommandReference(matchedCmd.Name))
@@ -231,7 +246,7 @@ func CheckCommandDependenciesExistWithLockProvider(disc CommandSetProvider, deps
 	if len(commandErrors) > 0 || len(forbiddenErrors) > 0 {
 		structuredFailures := dependencyFailures(DependencyFailureCommand, commandErrors)
 		structuredFailures = append(structuredFailures, dependencyFailures(DependencyFailureForbiddenCommand, forbiddenErrors)...)
-		return &DependencyError{
+		return nil, &DependencyError{
 			CommandName:        ctx.CommandName,
 			MissingCommands:    commandErrors,
 			ForbiddenCommands:  forbiddenErrors,
@@ -239,7 +254,7 @@ func CheckCommandDependenciesExistWithLockProvider(disc CommandSetProvider, deps
 		}
 	}
 
-	return nil
+	return resolved, nil
 }
 
 // buildCommandScope constructs a CommandScope for scope enforcement.
@@ -325,7 +340,7 @@ func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement,
 		if !ok {
 			continue
 		}
-		if locked.IdentityModuleID() == *cmd.ModuleID && ref.MatchesSourceID(sourceID) {
+		if locked.IdentityModuleID() == *cmd.ModuleID && locked.EffectiveCommandSourceID() == sourceID {
 			return true
 		}
 	}

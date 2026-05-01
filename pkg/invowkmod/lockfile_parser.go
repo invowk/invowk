@@ -63,6 +63,7 @@ type (
 		Alias           ModuleAlias      `json:"alias"`
 		Path            SubdirectoryPath `json:"path"`
 		Namespace       ModuleNamespace  `json:"namespace"`
+		CommandSourceID ModuleSourceID   `json:"command_source_id"`
 		ModuleID        ModuleID         `json:"module_id"`
 		ContentHash     ContentHash      `json:"content_hash"`
 	}
@@ -232,6 +233,11 @@ func (m lockedModuleCUE) Validate() error {
 	}
 	if err := m.Namespace.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	if m.CommandSourceID != "" {
+		if err := m.CommandSourceID.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if m.ModuleID != "" {
 		if err := m.ModuleID.Validate(); err != nil {

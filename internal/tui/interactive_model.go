@@ -208,6 +208,10 @@ func (m *interactiveModel) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 
 // handleTUIComponentRequest creates an embedded TUI component and switches to TUI state.
 func (m *interactiveModel) handleTUIComponentRequest(msg TUIComponentMsg) (tea.Model, tea.Cmd) {
+	if msg.Component == ComponentTypeWrite {
+		return m.handleStyledTextRequest(msg)
+	}
+
 	// Calculate modal dimensions based on component type
 	modalSize := CalculateModalSize(msg.Component, m.width, m.height) //goplint:ignore -- bubbletea Update() cannot return error
 
@@ -229,6 +233,42 @@ func (m *interactiveModel) handleTUIComponentRequest(msg TUIComponentMsg) (tea.M
 
 	// Initialize the component
 	return m, m.activeComponent.Init()
+}
+
+func (m *interactiveModel) handleStyledTextRequest(msg TUIComponentMsg) (tea.Model, tea.Cmd) {
+	opts, err := componentOptions[StyledTextOptions](msg.Options)
+	if err != nil {
+		go func() {
+			msg.ResponseCh <- ComponentResponse{Err: fmt.Errorf("invalid write options: %w", err)}
+		}()
+		return m, nil
+	}
+	if err := opts.Validate(); err != nil {
+		go func() {
+			msg.ResponseCh <- ComponentResponse{Err: fmt.Errorf("invalid write options: %w", err)}
+		}()
+		return m, nil
+	}
+
+	style := opts.Style
+	if style.Width == 0 && opts.Width > 0 {
+		style.Width = opts.Width
+	}
+	rendered := style.Apply(opts.Text.String())
+	if !strings.HasSuffix(rendered, "\n") {
+		rendered += "\n"
+	}
+	m.mu.Lock()
+	m.content.WriteString(rendered)
+	m.mu.Unlock()
+	if m.ready {
+		m.viewport.SetContent(m.content.String())
+		m.viewport.GotoBottom()
+	}
+	go func() {
+		msg.ResponseCh <- ComponentResponse{}
+	}()
+	return m, nil
 }
 
 // handleTUIComponentDone processes the result from a completed TUI component.

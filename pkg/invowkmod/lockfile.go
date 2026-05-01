@@ -33,7 +33,7 @@ var (
 )
 
 type (
-	// ModuleNamespace is the computed namespace for a module's commands.
+	// ModuleNamespace is the computed display namespace for a locked module.
 	// Format: "<module>@<version>" or the alias if one is specified.
 	// Must not be empty — it is always a computed value.
 	ModuleNamespace string
@@ -120,8 +120,11 @@ type (
 		// Path is the subdirectory path within the repository (optional).
 		Path SubdirectoryPath
 
-		// Namespace is the computed namespace for commands.
+		// Namespace is the computed display namespace.
 		Namespace ModuleNamespace
+
+		// CommandSourceID is the command-publishing namespace used by discovery.
+		CommandSourceID ModuleSourceID
 
 		// ModuleID is the resolved module identifier from invowkmod.cue.
 		ModuleID ModuleID
@@ -235,6 +238,11 @@ func (m LockedModule) Validate() error {
 	}
 	if err := m.Namespace.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	if m.CommandSourceID != "" {
+		if err := m.CommandSourceID.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if m.ModuleID != "" {
 		if err := m.ModuleID.Validate(); err != nil {
@@ -372,6 +380,7 @@ func (l *LockFile) AddModule(resolved *ResolvedModule) {
 		Alias:           resolved.ModuleRef.Alias,
 		Path:            resolved.ModuleRef.Path,
 		Namespace:       resolved.Namespace,
+		CommandSourceID: resolved.CommandSourceID,
 		ModuleID:        resolved.ModuleID,
 		ContentHash:     resolved.ContentHash,
 	}
@@ -430,6 +439,9 @@ func (l *LockFile) toCUE() string {
 			fmt.Fprintf(&sb, "\t\tpath:             %q\n", mod.Path)
 		}
 		fmt.Fprintf(&sb, "\t\tnamespace:        %q\n", mod.Namespace)
+		if mod.CommandSourceID != "" {
+			fmt.Fprintf(&sb, "\t\tcommand_source_id: %q\n", mod.CommandSourceID)
+		}
 		if mod.ModuleID != "" {
 			fmt.Fprintf(&sb, "\t\tmodule_id:        %q\n", mod.ModuleID)
 		}

@@ -262,6 +262,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 			Alias:           resolved.ModuleRef.Alias,
 			Path:            resolved.ModuleRef.Path,
 			Namespace:       resolved.Namespace,
+			CommandSourceID: resolved.CommandSourceID,
 			ModuleID:        resolved.ModuleID,
 			ContentHash:     resolved.ContentHash,
 		}
@@ -321,6 +322,7 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 			Alias:           mod.ModuleRef.Alias,
 			Path:            mod.ModuleRef.Path,
 			Namespace:       mod.Namespace,
+			CommandSourceID: mod.CommandSourceID,
 			ModuleID:        mod.ModuleID,
 			ContentHash:     mod.ContentHash,
 		}
@@ -426,6 +428,7 @@ func (m *Resolver) resolvedModuleFromLockEntry(key ModuleRefKey, entry LockedMod
 		GitCommit:       entry.GitCommit,
 		CachePath:       types.FilesystemPath(m.getCachePath(string(entry.GitURL), string(entry.ResolvedVersion), string(entry.Path))),
 		Namespace:       entry.Namespace,
+		CommandSourceID: entry.EffectiveCommandSourceID(),
 		ModuleID:        entry.ModuleID,
 		ModuleName:      extractModuleName(key),
 		ContentHash:     entry.ContentHash,

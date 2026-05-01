@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"charm.land/lipgloss/v2"
+	"github.com/invowk/invowk/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -101,81 +101,78 @@ func runTuiStyle(cmd *cobra.Command, args []string) error {
 		content = strings.TrimSuffix(content, "\n")
 	}
 
-	// Build the style
-	style := lipgloss.NewStyle()
-
-	if styleForeground != "" {
-		style = style.Foreground(lipgloss.Color(styleForeground))
-	}
-	if styleBackground != "" {
-		style = style.Background(lipgloss.Color(styleBackground))
-	}
-	if styleBold {
-		style = style.Bold(true)
-	}
-	if styleItalic {
-		style = style.Italic(true)
-	}
-	if styleUnderline {
-		style = style.Underline(true)
-	}
-	if styleStrike {
-		style = style.Strikethrough(true)
-	}
-	if styleFaint {
-		style = style.Faint(true)
-	}
-	if styleBlink {
-		style = style.Blink(true)
-	}
-	if styleReverse {
-		style = style.Reverse(true)
+	style, err := tuiStyleFromFlags(
+		styleForeground, styleBackground,
+		styleBold, styleItalic, styleUnderline, styleStrike, styleFaint, styleBlink, styleReverse,
+		styleMarginT, styleMarginR, styleMarginB, styleMarginL,
+		stylePaddingT, stylePaddingR, stylePaddingB, stylePaddingL,
+		styleWidth, styleHeight,
+		styleAlign, styleBorder,
+	)
+	if err != nil {
+		return err
 	}
 
-	// Margins
-	if styleMarginL > 0 || styleMarginR > 0 || styleMarginT > 0 || styleMarginB > 0 {
-		style = style.Margin(styleMarginT, styleMarginR, styleMarginB, styleMarginL)
-	}
-
-	// Padding
-	if stylePaddingL > 0 || stylePaddingR > 0 || stylePaddingT > 0 || stylePaddingB > 0 {
-		style = style.Padding(stylePaddingT, stylePaddingR, stylePaddingB, stylePaddingL)
-	}
-
-	// Dimensions
-	if styleWidth > 0 {
-		style = style.Width(styleWidth)
-	}
-	if styleHeight > 0 {
-		style = style.Height(styleHeight)
-	}
-
-	// Alignment
-	switch styleAlign {
-	case "center":
-		style = style.Align(lipgloss.Center)
-	case "right":
-		style = style.Align(lipgloss.Right)
-	case "left":
-		style = style.Align(lipgloss.Left)
-	}
-
-	// Border
-	switch styleBorder {
-	case "normal":
-		style = style.Border(lipgloss.NormalBorder())
-	case "rounded":
-		style = style.Border(lipgloss.RoundedBorder())
-	case "thick":
-		style = style.Border(lipgloss.ThickBorder())
-	case "double":
-		style = style.Border(lipgloss.DoubleBorder())
-	case "hidden":
-		style = style.Border(lipgloss.HiddenBorder())
-	}
-
-	if _, err := lipgloss.Fprintln(cmd.OutOrStdout(), style.Render(content)); err != nil {
+	if _, err := fmt.Fprintln(cmd.OutOrStdout(), style.Apply(content)); err != nil {
 		return fmt.Errorf("failed to write styled output: %w", err)
+	}
+	return nil
+}
+
+//goplint:ignore -- CLI flags are raw Cobra primitives converted and validated before rendering.
+func tuiStyleFromFlags(
+	foreground, background string,
+	bold, italic, underline, strikethrough, faint, blink, reverse bool,
+	marginTop, marginRight, marginBottom, marginLeft int,
+	paddingTop, paddingRight, paddingBottom, paddingLeft int,
+	width, height int,
+	alignValue, borderValue string,
+) (tui.Style, error) {
+	style := tui.Style{
+		Foreground:    tui.ColorSpec(foreground), //goplint:ignore -- validated before return by validateTUIStyle.
+		Background:    tui.ColorSpec(background), //goplint:ignore -- validated before return by validateTUIStyle.
+		Bold:          bold,
+		Italic:        italic,
+		Underline:     underline,
+		Strikethrough: strikethrough,
+		Faint:         faint,
+		Blink:         blink,
+		Reverse:       reverse,
+		Width:         tui.TerminalDimension(width),  //goplint:ignore -- validated before return by validateTUIStyle.
+		Height:        tui.TerminalDimension(height), //goplint:ignore -- validated before return by validateTUIStyle.
+		Align:         tui.TextAlign(alignValue),     //goplint:ignore -- validated before return by validateTUIStyle.
+		Border:        tui.BorderStyle(borderValue),  //goplint:ignore -- validated before return by validateTUIStyle.
+	}
+	if marginLeft > 0 || marginRight > 0 || marginTop > 0 || marginBottom > 0 {
+		style.Margin = []int{marginTop, marginRight, marginBottom, marginLeft}
+	}
+	if paddingLeft > 0 || paddingRight > 0 || paddingTop > 0 || paddingBottom > 0 {
+		style.Padding = []int{paddingTop, paddingRight, paddingBottom, paddingLeft}
+	}
+	if err := validateTUIStyle(style); err != nil {
+		return tui.Style{}, err
+	}
+	return style, nil
+}
+
+func validateTUIStyle(style tui.Style) error {
+	if err := style.Foreground.Validate(); err != nil {
+		return err
+	}
+	if err := style.Background.Validate(); err != nil {
+		return err
+	}
+	if err := style.Width.Validate(); err != nil {
+		return err
+	}
+	if err := style.Height.Validate(); err != nil {
+		return err
+	}
+	if err := style.Align.Validate(); err != nil {
+		return err
+	}
+	if err := style.Border.Validate(); err != nil {
+		return err
 	}
 	return nil
 }

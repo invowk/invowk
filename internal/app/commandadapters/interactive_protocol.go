@@ -4,10 +4,12 @@ package commandadapters
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiwire"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func componentRequestFromProtocol(component tui.ComponentType, options json.RawMessage) (any, error) {
@@ -47,6 +49,9 @@ func componentRequestFromProtocol(component tui.ComponentType, options json.RawM
 		var req tuiwire.ChooseRequest
 		if err := json.Unmarshal(options, &req); err != nil {
 			return nil, err
+		}
+		if req.Description != "" || req.Selected != "" || req.Ordered || req.Cursor != "" {
+			return nil, errors.New("choose request contains unsupported fields: description, selected, ordered, cursor")
 		}
 		height, err := terminalDimensionFromProtocol(req.Height)
 		if err != nil {
@@ -113,7 +118,16 @@ func componentRequestFromProtocol(component tui.ComponentType, options json.RawM
 		if err != nil {
 			return nil, err
 		}
-		return tui.WriteOptions{Value: req.Text, Width: width}, nil
+		style, err := styleFromWriteRequest(req)
+		if err != nil {
+			return nil, err
+		}
+		text := types.DescriptionText(req.Text) //goplint:ignore -- delegated write text is display content, not a domain identifier.
+		return tui.StyledTextOptions{
+			Text:  text,
+			Style: style,
+			Width: width,
+		}, nil
 	case tui.ComponentTypeTextArea:
 		var req tuiwire.TextAreaRequest
 		if err := json.Unmarshal(options, &req); err != nil {
@@ -167,6 +181,95 @@ func componentRequestFromProtocol(component tui.ComponentType, options json.RawM
 	default:
 		return nil, fmt.Errorf("unknown component type: %s", component)
 	}
+}
+
+func validateProtocolStyleBoxes(style tui.Style) error {
+	if !validBoxValues(style.Padding) {
+		return errors.New("padding must contain 1, 2, or 4 values")
+	}
+	if !validBoxValues(style.Margin) {
+		return errors.New("margin must contain 1, 2, or 4 values")
+	}
+	return nil
+}
+
+//goplint:ignore -- protocol box dimensions are raw JSON integer lists validated before rendering.
+func validBoxValues(values []int) bool {
+	switch len(values) {
+	case 0, 1, 2, 4:
+		return true
+	default:
+		return false
+	}
+}
+
+func styleFromWriteRequest(req tuiwire.WriteRequest) (tui.Style, error) {
+	foreground, err := colorSpecFromProtocol(req.Foreground)
+	if err != nil {
+		return tui.Style{}, err
+	}
+	background, err := colorSpecFromProtocol(req.Background)
+	if err != nil {
+		return tui.Style{}, err
+	}
+	borderForeground, err := colorSpecFromProtocol(req.BorderForeground)
+	if err != nil {
+		return tui.Style{}, err
+	}
+	border, err := borderStyleFromProtocol(req.Border)
+	if err != nil {
+		return tui.Style{}, err
+	}
+	align, err := textAlignFromProtocol(req.Align)
+	if err != nil {
+		return tui.Style{}, err
+	}
+	style := tui.Style{
+		Foreground:       foreground,
+		Background:       background,
+		Bold:             req.Bold,
+		Italic:           req.Italic,
+		Underline:        req.Underline,
+		Strikethrough:    req.Strikethrough,
+		Faint:            req.Faint,
+		Blink:            req.Blink,
+		Border:           border,
+		BorderForeground: borderForeground,
+		Align:            align,
+		Padding:          req.Padding,
+		Margin:           req.Margin,
+	}
+	if err := validateProtocolStyleBoxes(style); err != nil {
+		return tui.Style{}, err
+	}
+	return style, nil
+}
+
+//goplint:ignore -- protocol color values are raw JSON strings converted and validated before return.
+func colorSpecFromProtocol(value string) (tui.ColorSpec, error) {
+	spec := tui.ColorSpec(value) //goplint:ignore -- validated before return
+	if err := spec.Validate(); err != nil {
+		return "", err
+	}
+	return spec, nil
+}
+
+//goplint:ignore -- protocol border style values are raw JSON strings converted and validated before return.
+func borderStyleFromProtocol(value string) (tui.BorderStyle, error) {
+	border := tui.BorderStyle(value) //goplint:ignore -- validated before return
+	if err := border.Validate(); err != nil {
+		return "", err
+	}
+	return border, nil
+}
+
+//goplint:ignore -- protocol text alignment values are raw JSON strings converted and validated before return.
+func textAlignFromProtocol(value string) (tui.TextAlign, error) {
+	align := tui.TextAlign(value) //goplint:ignore -- validated before return
+	if err := align.Validate(); err != nil {
+		return "", err
+	}
+	return align, nil
 }
 
 func tableOptionsFromProtocol(options json.RawMessage) (tui.TableOptions, error) {

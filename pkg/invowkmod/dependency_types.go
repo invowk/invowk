@@ -7,6 +7,7 @@ import (
 	"fmt"
 	slashpath "path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -17,6 +18,8 @@ const (
 	// The lock file pairs naturally with invowkmod.cue (like go.sum pairs with go.mod).
 	LockFileName = "invowkmod.lock.cue"
 )
+
+var moduleSourceIDRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
 
 type (
 	//goplint:validate-all
@@ -31,8 +34,7 @@ type (
 		// Examples: "^1.2.0", "~1.2.0", ">=1.0.0 <2.0.0", "1.2.3"
 		Version SemVerConstraint
 
-		// Alias overrides the default namespace for imported commands (optional).
-		// If not set, the namespace is: <module>@<resolved-version>
+		// Alias overrides the default command source for imported commands (optional).
 		Alias ModuleAlias
 
 		// Path specifies a subdirectory containing the module (optional).
@@ -57,9 +59,12 @@ type (
 		// CachePath is the absolute path to the cached module directory.
 		CachePath types.FilesystemPath
 
-		// Namespace is the computed namespace for this module's commands.
+		// Namespace is the computed display namespace.
 		// Format: "<module>@<version>" or alias if specified.
 		Namespace ModuleNamespace
+
+		// CommandSourceID is the command-publishing namespace used by discovery.
+		CommandSourceID ModuleSourceID
 
 		// ModuleName is the name of the module (from the folder name without .invowkmod).
 		ModuleName ModuleShortName
@@ -129,6 +134,9 @@ func (id ModuleSourceID) Validate() error {
 	if strings.TrimSpace(string(id)) == "" {
 		return errors.New("module source ID must not be empty")
 	}
+	if !moduleSourceIDRegex.MatchString(string(id)) {
+		return fmt.Errorf("module source ID %q must start with a letter and contain only letters, digits, dots, underscores, or hyphens", id)
+	}
 	return nil
 }
 
@@ -142,13 +150,29 @@ func (r ModuleRef) Key() ModuleRefKey {
 
 // MatchesSourceID reports whether this requirement can publish commands under sourceID.
 func (r ModuleRef) MatchesSourceID(sourceID ModuleSourceID) bool {
+	return r.CommandSourceID() == sourceID
+}
+
+// CommandSourceID returns the source namespace used when publishing commands
+// from this requirement.
+func (r ModuleRef) CommandSourceID() ModuleSourceID {
 	if r.Alias != "" {
-		return string(r.Alias) == sourceID.String()
+		return ModuleSourceID(r.Alias)
 	}
-	if r.Path != "" && r.DefaultSourceID() == sourceID {
-		return true
+	return r.DefaultSourceID()
+}
+
+// EffectiveCommandSourceID returns the persisted command source ID for this
+// lock entry, falling back to the historical alias/default-source derivation.
+func (m LockedModule) EffectiveCommandSourceID() ModuleSourceID {
+	if m.CommandSourceID != "" {
+		return m.CommandSourceID
 	}
-	return moduleSourceFromGitURL(r.GitURL) == sourceID
+	return ModuleRef{
+		GitURL: m.GitURL,
+		Alias:  m.Alias,
+		Path:   m.Path,
+	}.CommandSourceID()
 }
 
 // DefaultSourceID returns the command source namespace implied by this

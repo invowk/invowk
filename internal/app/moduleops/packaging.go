@@ -29,6 +29,11 @@ var (
 )
 
 type (
+	// ArchiveSourceFetcher resolves an unpack source to a local ZIP file.
+	ArchiveSourceFetcher interface {
+		FetchArchiveSource(ctx context.Context, source string) (path types.FilesystemPath, cleanup func(), err error)
+	}
+
 	// UnpackOptions contains options for unpacking a module.
 	UnpackOptions struct {
 		// Source is the path to the ZIP file or URL; intentionally untyped (mixed path/URL).
@@ -37,6 +42,13 @@ type (
 		DestDir types.FilesystemPath
 		// Overwrite allows overwriting an existing module
 		Overwrite bool
+		// SourceFetcher resolves local and remote sources for production or tests.
+		SourceFetcher ArchiveSourceFetcher
+	}
+
+	// DefaultArchiveSourceFetcher resolves local paths and HTTP(S) URLs.
+	DefaultArchiveSourceFetcher struct {
+		HTTPClient *http.Client
 	}
 )
 
@@ -172,13 +184,17 @@ func Unpack(ctx context.Context, opts UnpackOptions) (extractedPath string, err 
 		return "", err
 	}
 
-	zipPath, cleanup, err := resolveUnpackSource(ctx, opts.Source)
+	sourceFetcher := opts.SourceFetcher
+	if sourceFetcher == nil {
+		sourceFetcher = DefaultArchiveSourceFetcher{}
+	}
+	zipPath, cleanup, err := sourceFetcher.FetchArchiveSource(ctx, opts.Source)
 	if err != nil {
 		return "", err
 	}
 	defer cleanup()
 
-	zipReader, err := zip.OpenReader(zipPath)
+	zipReader, err := zip.OpenReader(string(zipPath))
 	if err != nil {
 		return "", fmt.Errorf("failed to open ZIP file: %w", err)
 	}
@@ -231,21 +247,32 @@ func resolveUnpackDestination(destDir types.FilesystemPath) (string, error) {
 	return absDestDir, nil
 }
 
-//goplint:ignore -- unpack helpers operate on transient OS-native and ZIP path strings.
-func resolveUnpackSource(ctx context.Context, source string) (zipPath string, cleanup func(), err error) {
+// FetchArchiveSource resolves a local ZIP path or downloads a remote ZIP URL.
+func (f DefaultArchiveSourceFetcher) FetchArchiveSource(ctx context.Context, source string) (zipPath types.FilesystemPath, cleanup func(), err error) {
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		zipPath, err = downloadFile(ctx, source)
+		zipPath, err = f.downloadFile(ctx, source)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to download module: %w", err)
 		}
-		return zipPath, func() { _ = os.Remove(zipPath) }, nil
+		return zipPath, func() { _ = os.Remove(string(zipPath)) }, nil
 	}
 
-	zipPath, err = filepath.Abs(source)
+	absZipPath, err := filepath.Abs(source)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to resolve source path: %w", err)
 	}
+	zipPath = types.FilesystemPath(absZipPath) //goplint:ignore -- validated before return.
+	if err := zipPath.Validate(); err != nil {
+		return "", nil, fmt.Errorf("source path: %w", err)
+	}
 	return zipPath, func() { /* source is user-provided path — no cleanup needed */ }, nil
+}
+
+func (f DefaultArchiveSourceFetcher) httpClient() *http.Client {
+	if f.HTTPClient != nil {
+		return f.HTTPClient
+	}
+	return http.DefaultClient
 }
 
 //goplint:ignore -- unpack helpers operate on transient ZIP member path strings.
@@ -360,18 +387,21 @@ func validateExtractedModule(modulePath string) error {
 
 // downloadFile downloads a file from a URL and returns the path to the temporary file.
 // The context controls cancellation and timeout for the HTTP request.
-func downloadFile(ctx context.Context, url string) (tmpPath string, err error) {
+func (f DefaultArchiveSourceFetcher) downloadFile(ctx context.Context, url string) (tmpPath types.FilesystemPath, err error) {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "invowk-module-*.zip")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
-	tmpPath = tmpFile.Name()
+	tmpPath = types.FilesystemPath(tmpFile.Name()) //goplint:ignore -- validated before return.
+	if validateErr := tmpPath.Validate(); validateErr != nil {
+		return "", fmt.Errorf("temporary archive path: %w", validateErr)
+	}
 
 	// Clean up temp file on any error
 	defer func() {
 		if err != nil {
-			_ = os.Remove(tmpPath) // Best-effort cleanup
+			_ = os.Remove(string(tmpPath)) // Best-effort cleanup
 		}
 	}()
 
@@ -386,7 +416,7 @@ func downloadFile(ctx context.Context, url string) (tmpPath string, err error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := f.httpClient().Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to download: %w", err)
 	}

@@ -104,6 +104,15 @@ type (
 	// DependencyFailureKind categorizes a dependency validation failure.
 	DependencyFailureKind string
 
+	//goplint:nonzero
+	//
+	// resolvedCommandDependency records the discovery-qualified command name
+	// that satisfied a depends_on.cmds declaration.
+	resolvedCommandDependency struct {
+		Alternatives []invowkfile.CommandName
+		Command      *invowkfile.CommandName
+	}
+
 	// InvalidDependencyMessageError is returned when a DependencyMessage value
 	// fails validation (empty string).
 	InvalidDependencyMessageError struct {
@@ -288,6 +297,22 @@ func (f DependencyFailure) Detail() DependencyMessage { return f.detail }
 // Validate returns nil when all dependency failure fields are valid.
 func (f DependencyFailure) Validate() error {
 	return errors.Join(f.kind.Validate(), f.detail.Validate())
+}
+
+// Validate returns nil when the resolved command dependency has a concrete command.
+func (d resolvedCommandDependency) Validate() error {
+	if d.Command == nil {
+		return errors.New("resolved command dependency command must not be nil")
+	}
+	if err := d.Command.Validate(); err != nil {
+		return err
+	}
+	for _, alternative := range d.Alternatives {
+		if err := alternative.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Failures returns categorized dependency failures without requiring adapters to

@@ -14,7 +14,7 @@ stdout 'Styled content'
 
 # Test 3: Multiple style flags combined
 exec invowk tui style --bold --underline 'Multi styled'
-stdout 'Multi styled'
+stdout 'M.*u.*l.*t.*i.* .*s.*t.*y.*l.*e.*d'
 
 -- style_input.txt --
 Styled content
