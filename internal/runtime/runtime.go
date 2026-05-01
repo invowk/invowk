@@ -36,6 +36,13 @@ var (
 	// ErrContainerEngineUnavailable is returned when no supported container engine is available.
 	ErrContainerEngineUnavailable = errors.New("container engine unavailable")
 
+	// ErrShellNotFound is returned when the native runtime cannot find a host shell.
+	ErrShellNotFound = errors.New("shell not found")
+
+	// ErrVirtualInteractiveLauncherNotConfigured is returned when virtual
+	// interactive mode is requested without an injected subprocess launcher.
+	ErrVirtualInteractiveLauncherNotConfigured = errors.New("virtual interactive launcher not configured")
+
 	// ErrInvalidRuntimeType is returned when a RuntimeType value is not one of the defined runtime types.
 	ErrInvalidRuntimeType = errors.New("invalid runtime type")
 

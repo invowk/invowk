@@ -27,7 +27,7 @@ type (
 	// CommandScope defines what commands a module can access.
 	// Commands in a module can ONLY call:
 	//  1. Commands from the same module
-	//  2. Commands from globally installed modules (~/.invowk/modules/)
+	//  2. Commands from globally installed user command modules (~/.invowk/cmds/)
 	//  3. Commands from first-level requirements (direct dependencies in invowkmod.cue:requires)
 	//
 	// CommandScope holds the commands visible to a module, populated post-construction

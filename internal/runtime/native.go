@@ -10,9 +10,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
-	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
@@ -34,6 +34,17 @@ type (
 
 	// NativeRuntimeOption configures a NativeRuntime.
 	NativeRuntimeOption func(*NativeRuntime)
+
+	// ShellLookupAttempt identifies one shell candidate considered by NativeRuntime.
+	ShellLookupAttempt string
+
+	// ShellLookupAttempts is the ordered list of shell candidates considered by NativeRuntime.
+	ShellLookupAttempts []ShellLookupAttempt
+
+	// ShellNotFoundError reports the shell lookup attempts made by NativeRuntime.
+	ShellNotFoundError struct {
+		Attempted ShellLookupAttempts
+	}
 )
 
 // WithShell sets the shell path for the native runtime.
@@ -325,27 +336,47 @@ func (r *NativeRuntime) getShell() (string, error) {
 	}
 }
 
-// shellNotFoundError creates an actionable error for shell not found scenarios.
-func (r *NativeRuntime) shellNotFoundError(attempted []string) error {
-	ctx := issue.NewErrorContext().
-		WithOperation("find shell").
-		WithResource("shells attempted: " + strings.Join(attempted, ", "))
-
-	switch runtime.GOOS {
-	case platform.Windows:
-		ctx.WithSuggestion("Install PowerShell Core (pwsh) from https://aka.ms/powershell")
-		ctx.WithSuggestion("Or ensure PowerShell or cmd.exe is in your PATH")
-	case "darwin":
-		ctx.WithSuggestion("Set the SHELL environment variable to a valid shell path")
-		ctx.WithSuggestion("Or install bash via Homebrew: brew install bash")
-	default:
-		ctx.WithSuggestion("Set the SHELL environment variable to a valid shell path")
-		ctx.WithSuggestion("Or install bash: apt install bash (Debian/Ubuntu) or dnf install bash (Fedora)")
+// Error implements the error interface.
+func (e *ShellNotFoundError) Error() string {
+	if e == nil {
+		return ErrShellNotFound.Error()
 	}
+	if len(e.Attempted) == 0 {
+		return ErrShellNotFound.Error()
+	}
+	attempts := make([]string, 0, len(e.Attempted))
+	for _, attempt := range e.Attempted {
+		attempts = append(attempts, attempt.String())
+	}
+	return fmt.Sprintf("%s; attempted: %s", ErrShellNotFound, strings.Join(attempts, ", "))
+}
 
-	ctx.WithSuggestion("Alternatively, use the virtual runtime: invowk cmd <command> --ivk-runtime virtual")
+// Unwrap returns ErrShellNotFound so callers can classify shell lookup failures.
+func (e *ShellNotFoundError) Unwrap() error { return ErrShellNotFound }
 
-	return ctx.Wrap(errors.New("no shell found in PATH")).BuildError()
+// String returns the shell lookup attempt text.
+func (a ShellLookupAttempt) String() string { return string(a) }
+
+// Validate returns an error if the shell lookup attempt is empty.
+func (a ShellLookupAttempt) Validate() error {
+	if strings.TrimSpace(string(a)) == "" {
+		return errors.New("shell lookup attempt must be non-empty")
+	}
+	return nil
+}
+
+// shellNotFoundError creates a runtime-owned shell lookup error.
+func (r *NativeRuntime) shellNotFoundError(attempted []string) error {
+	copied := slices.Clone(attempted)
+	result := make(ShellLookupAttempts, 0, len(copied))
+	for _, attempt := range copied {
+		lookupAttempt := ShellLookupAttempt(attempt)
+		if err := lookupAttempt.Validate(); err != nil {
+			continue
+		}
+		result = append(result, lookupAttempt)
+	}
+	return &ShellNotFoundError{Attempted: result}
 }
 
 // getShellArgs returns the arguments to pass to the shell

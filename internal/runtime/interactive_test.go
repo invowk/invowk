@@ -3,9 +3,10 @@
 package runtime
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"slices"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
@@ -170,8 +171,14 @@ cmds: [{
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
+	var gotSpec VirtualInteractiveCommandSpec
+	factory := func(ctx context.Context, spec VirtualInteractiveCommandSpec) (*exec.Cmd, error) {
+		gotSpec = spec
+		return exec.CommandContext(ctx, "test-invowk", "virtual-launcher"), nil
+	}
+
 	// Create virtual runtime and prepare for interactive execution
-	rt := NewVirtualRuntime(false)
+	rt := NewVirtualRuntime(false, WithInteractiveCommandFactory(factory))
 	prepared, err := rt.PrepareInteractive(ctx)
 	if err != nil {
 		t.Fatalf("PrepareInteractive failed: %v", err)
@@ -182,12 +189,27 @@ cmds: [{
 		t.Fatal("PrepareInteractive returned nil Cmd")
 	}
 
-	// Verify the command invokes invowk internal exec-virtual
-	args := prepared.Cmd.Args
-	if len(args) < 3 {
-		t.Errorf("Expected at least 3 args, got %d", len(args))
-	} else if args[1] != "internal" || args[2] != "exec-virtual" {
-		t.Errorf("Expected 'internal exec-virtual' args, got %v", args[1:3])
+	if prepared.Cmd.Args[0] != "test-invowk" || prepared.Cmd.Args[1] != "virtual-launcher" {
+		t.Fatalf("prepared command args = %v, want injected launcher", prepared.Cmd.Args)
+	}
+	if gotSpec.ScriptFile == nil {
+		t.Fatal("launcher spec missing script file")
+	}
+	data, err := os.ReadFile(string(*gotSpec.ScriptFile))
+	if err != nil {
+		t.Fatalf("ReadFile(script file) error = %v", err)
+	}
+	if string(data) != "echo hello" {
+		t.Fatalf("script file contents = %q, want echo hello", data)
+	}
+	if gotSpec.WorkDir == nil {
+		t.Fatal("launcher spec missing workdir")
+	}
+	if gotSpec.EnvJSON == "" {
+		t.Fatal("launcher spec missing env JSON")
+	}
+	if gotSpec.EnableUroot {
+		t.Fatal("launcher spec EnableUroot = true, want false")
 	}
 
 	// Cleanup (removes temp script file)
@@ -213,15 +235,21 @@ func TestVirtualRuntimePrepareInteractivePassesUrootPolicy(t *testing.T) {
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
-	rt := NewVirtualRuntime(true)
+	var gotSpec VirtualInteractiveCommandSpec
+	factory := func(ctx context.Context, spec VirtualInteractiveCommandSpec) (*exec.Cmd, error) {
+		gotSpec = spec
+		return exec.CommandContext(ctx, "test-invowk", "virtual-launcher"), nil
+	}
+
+	rt := NewVirtualRuntime(true, WithInteractiveCommandFactory(factory))
 	prepared, err := rt.PrepareInteractive(ctx)
 	if err != nil {
 		t.Fatalf("PrepareInteractive() error = %v", err)
 	}
 	t.Cleanup(prepared.Cleanup)
 
-	if !slices.Contains(prepared.Cmd.Args, "--enable-uroot") {
-		t.Fatalf("prepared args = %v, want --enable-uroot", prepared.Cmd.Args)
+	if !gotSpec.EnableUroot {
+		t.Fatal("launcher spec EnableUroot = false, want true")
 	}
 }
 

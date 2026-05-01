@@ -35,6 +35,9 @@ type (
 		// ContainerRuntimeFactory constructs the container runtime. Tests use
 		// this to prove non-container dispatch does not probe container engines.
 		ContainerRuntimeFactory func(*config.Config) (*ContainerRuntime, error)
+		// VirtualInteractiveCommandFactory creates the subprocess used by virtual
+		// interactive execution. The CLI/composition adapter owns hidden argv.
+		VirtualInteractiveCommandFactory VirtualInteractiveCommandFactory
 	}
 
 	// HostCallbackServer provides scoped host callback credentials to runtimes.
@@ -196,7 +199,10 @@ func BuildRegistry(opts BuildRegistryOptions) RegistryBuildResult {
 	}
 
 	result.Registry.Register(RuntimeTypeNative, NewNativeRuntime())
-	result.Registry.Register(RuntimeTypeVirtual, NewVirtualRuntime(cfg.VirtualShell.EnableUrootUtils))
+	result.Registry.Register(RuntimeTypeVirtual, NewVirtualRuntime(
+		cfg.VirtualShell.EnableUrootUtils,
+		WithInteractiveCommandFactory(opts.VirtualInteractiveCommandFactory),
+	))
 
 	if !shouldInitializeContainerRuntime(opts.SelectedRuntime) {
 		return result

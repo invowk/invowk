@@ -73,8 +73,9 @@ import "strings"
 	// Dependencies are resolved at module level
 	// All required modules are loaded and their commands made available
 	// IMPORTANT: Commands in this module can ONLY call:
-	//   1. Commands from globally installed modules (~/.invowk/modules/)
-	//   2. Commands from modules declared directly in THIS requires list
+	//   1. Commands from this same module
+	//   2. Commands from globally installed user command modules (~/.invowk/cmds/)
+	//   3. Commands from modules declared directly in THIS requires list
 	// Commands CANNOT call transitive dependencies (dependencies of dependencies)
 	requires?: [...#ModuleRequirement]
 })

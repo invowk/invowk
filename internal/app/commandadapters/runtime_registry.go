@@ -52,9 +52,10 @@ func (RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc.H
 	}
 
 	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{
-		Config:          cfg,
-		HostCallbacks:   hostCallbacks,
-		SelectedRuntime: selectedRuntime,
+		Config:                           cfg,
+		HostCallbacks:                    hostCallbacks,
+		SelectedRuntime:                  selectedRuntime,
+		VirtualInteractiveCommandFactory: virtualInteractiveCommand,
 	})
 
 	return commandsvc.RuntimeRegistryResult{

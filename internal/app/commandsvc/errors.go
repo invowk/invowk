@@ -29,11 +29,6 @@ var (
 	ErrRuntimeResolution = errors.New("runtime resolution failed")
 )
 
-type operationError interface {
-	error
-	Operation() string
-}
-
 // classifyExecutionError maps execution/runtime failures to service-owned error
 // kinds and returns a classification hint (e.g., HintTimedOut, HintCancelled).
 // The CLI adapter maps the kind to presentation content.
@@ -54,12 +49,10 @@ func classifyExecutionError(err error) (kind ErrorKind, hint string) {
 		kind = ErrorKindContainerEngineNotFound
 	case errors.Is(err, runtime.ErrRuntimeNotAvailable):
 		kind = ErrorKindRuntimeNotAvailable
+	case errors.Is(err, runtime.ErrShellNotFound):
+		kind = ErrorKindShellNotFound
 	case errors.Is(err, os.ErrPermission):
 		kind = ErrorKindPermissionDenied
-	default:
-		if opErr, ok := errors.AsType[operationError](err); ok && opErr.Operation() == "find shell" {
-			kind = ErrorKindShellNotFound
-		}
 	}
 
 	return kind, ""

@@ -32,6 +32,8 @@ type Base struct {
 	errCh chan error
 	//plint:internal -- ensures errCh is closed once at terminal stop
 	errCloseOnce sync.Once
+	//plint:internal -- stateMu protects errCh close/send ordering
+	errClosed bool
 	//plint:internal -- last error that caused Failed state
 	lastErr error
 }
@@ -125,18 +127,13 @@ func (b *Base) TransitionToRunning() {
 func (b *Base) TransitionToFailed(err error) {
 	b.stateMu.Lock()
 	b.lastErr = err
+	cancel := b.cancel
+	b.state.Store(int32(StateFailed))
+	b.sendErrorLocked(err)
 	b.stateMu.Unlock()
 
-	b.state.Store(int32(StateFailed))
-
-	if b.cancel != nil {
-		b.cancel()
-	}
-
-	// Send error to channel for Err() consumers (non-blocking)
-	select {
-	case b.errCh <- err:
-	default:
+	if cancel != nil {
+		cancel()
 	}
 }
 
@@ -206,6 +203,8 @@ func (b *Base) WaitForShutdown() {
 // Context returns the server's context for use in goroutines.
 // Returns nil if the server hasn't started.
 func (b *Base) Context() context.Context {
+	b.stateMu.Lock()
+	defer b.stateMu.Unlock()
 	return b.ctx
 }
 
@@ -224,16 +223,18 @@ func (b *Base) DoneGoroutine() {
 // SendError sends an error to the error channel (non-blocking).
 // If the channel is full, the error is dropped.
 func (b *Base) SendError(err error) {
-	select {
-	case b.errCh <- err:
-	default:
-	}
+	b.stateMu.Lock()
+	defer b.stateMu.Unlock()
+	b.sendErrorLocked(err)
 }
 
 // CloseErrChannel closes the error channel to signal consumers.
 // Should be called when the server is fully stopped.
 func (b *Base) CloseErrChannel() {
 	b.errCloseOnce.Do(func() {
+		b.stateMu.Lock()
+		defer b.stateMu.Unlock()
+		b.errClosed = true
 		close(b.errCh)
 	})
 }
@@ -242,4 +243,14 @@ func (b *Base) CloseErrChannel() {
 // The channel is closed when the server transitions to Running.
 func (b *Base) StartedChannel() <-chan struct{} {
 	return b.startedCh
+}
+
+func (b *Base) sendErrorLocked(err error) {
+	if b.errClosed {
+		return
+	}
+	select {
+	case b.errCh <- err:
+	default:
+	}
 }

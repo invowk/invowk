@@ -14,6 +14,7 @@ import (
 
 	"github.com/invowk/invowk/internal/uroot"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
@@ -31,10 +32,31 @@ type (
 		// urootRegistry holds the u-root command registry for built-in utilities.
 		// Nil when enableUrootUtils is false.
 		urootRegistry *uroot.Registry
+		// interactiveCommandFactory creates the subprocess used for PTY-backed execution.
+		interactiveCommandFactory VirtualInteractiveCommandFactory
 	}
 
 	// VirtualRuntimeOption configures a VirtualRuntime.
 	VirtualRuntimeOption func(*VirtualRuntime)
+
+	// VirtualInteractiveEnvJSON is the serialized environment passed to the virtual subprocess adapter.
+	VirtualInteractiveEnvJSON string
+
+	// VirtualInteractiveArgs contains command positional arguments passed to the virtual subprocess adapter.
+	VirtualInteractiveArgs []string
+
+	// VirtualInteractiveCommandSpec describes a prepared virtual interactive subprocess request.
+	//goplint:ignore -- subprocess adapter DTO carries CLI-boundary argv and serialized env.
+	VirtualInteractiveCommandSpec struct {
+		ScriptFile  *types.FilesystemPath
+		WorkDir     *types.FilesystemPath
+		EnvJSON     VirtualInteractiveEnvJSON
+		Args        VirtualInteractiveArgs
+		EnableUroot bool
+	}
+
+	// VirtualInteractiveCommandFactory creates the subprocess command for virtual interactive execution.
+	VirtualInteractiveCommandFactory func(ctx context.Context, spec VirtualInteractiveCommandSpec) (*exec.Cmd, error)
 
 	// virtualPreparedExec holds a parsed program and runner ready for execution.
 	// This bundles the result of script resolution, parsing, env building, and
@@ -74,6 +96,45 @@ func WithUrootRegistry(reg *uroot.Registry) VirtualRuntimeOption {
 	return func(r *VirtualRuntime) {
 		r.urootRegistry = reg
 	}
+}
+
+// WithInteractiveCommandFactory injects the subprocess factory used for PTY-backed virtual execution.
+func WithInteractiveCommandFactory(factory VirtualInteractiveCommandFactory) VirtualRuntimeOption {
+	return func(r *VirtualRuntime) {
+		r.interactiveCommandFactory = factory
+	}
+}
+
+// String returns the serialized environment JSON.
+func (e VirtualInteractiveEnvJSON) String() string { return string(e) }
+
+// Validate returns an error if the serialized environment is empty.
+func (e VirtualInteractiveEnvJSON) Validate() error {
+	if strings.TrimSpace(string(e)) == "" {
+		return errors.New("virtual interactive env JSON must be non-empty")
+	}
+	return nil
+}
+
+// Validate returns nil when the subprocess request contains required paths and env data.
+func (s VirtualInteractiveCommandSpec) Validate() error {
+	var scriptFileErr error
+	if s.ScriptFile == nil {
+		scriptFileErr = errors.New("virtual interactive script file is required")
+	} else {
+		scriptFileErr = s.ScriptFile.Validate()
+	}
+	var workDirErr error
+	if s.WorkDir == nil {
+		workDirErr = errors.New("virtual interactive workdir is required")
+	} else {
+		workDirErr = s.WorkDir.Validate()
+	}
+	return errors.Join(
+		scriptFileErr,
+		workDirErr,
+		s.EnvJSON.Validate(),
+	)
 }
 
 // NewVirtualRuntime creates a new virtual runtime with optional configuration.
@@ -200,9 +261,8 @@ func (r *VirtualRuntime) PrepareInteractive(ctx *ExecutionContext) (*PreparedCom
 }
 
 // PrepareCommand prepares the virtual execution for interactive mode.
-// Since mvdan/sh runs entirely in-process, we spawn a subprocess that can be
-// attached to a PTY. The subprocess invokes `invowk internal exec-virtual`
-// which executes the virtual shell with PTY stdio.
+// Since mvdan/sh runs entirely in-process, we ask the composition adapter to
+// create a subprocess that can be attached to a PTY.
 func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand, error) {
 	if err := validateExecutionContextForRun(ctx, errVirtualNoImpl, errVirtualNoScript); err != nil {
 		return nil, err
@@ -241,15 +301,13 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		return nil, fmt.Errorf("failed to close temp script: %w", err)
 	}
 
-	// Get current invowk binary path
-	invowkPath, err := os.Executable()
-	if err != nil {
-		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
-		return nil, fmt.Errorf("failed to get invowk executable path: %w", err)
-	}
-
 	// Determine working directory
 	workDir := ctx.EffectiveWorkDir()
+	workDirPath := types.FilesystemPath(workDir)
+	if validateErr := workDirPath.Validate(); validateErr != nil {
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return nil, fmt.Errorf("invalid virtual interactive workdir: %w", validateErr)
+	}
 
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritAll)
@@ -266,27 +324,34 @@ func (r *VirtualRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedCommand
 		return nil, fmt.Errorf("failed to serialize environment: %w", err)
 	}
 
-	// Build subprocess command arguments
-	args := []string{
-		"internal", "exec-virtual",
-		"--script-file", tmpFile.Name(),
-		"--workdir", workDir,
-		"--env-json", string(envJSON),
-	}
-	if r.enableUrootUtils {
-		args = append(args, "--enable-uroot")
+	if r.interactiveCommandFactory == nil {
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return nil, ErrVirtualInteractiveLauncherNotConfigured
 	}
 
-	// Add positional arguments
-	for _, arg := range ctx.PositionalArgs {
-		args = append(args, "--args", arg)
+	scriptFile := types.FilesystemPath(tmpFile.Name())
+	if validateErr := scriptFile.Validate(); validateErr != nil {
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return nil, fmt.Errorf("invalid virtual interactive script file: %w", validateErr)
 	}
 
-	cmd := exec.CommandContext(ctx.Context, invowkPath, args...)
+	spec := VirtualInteractiveCommandSpec{
+		ScriptFile:  &scriptFile,
+		WorkDir:     &workDirPath,
+		EnvJSON:     VirtualInteractiveEnvJSON(envJSON),
+		Args:        VirtualInteractiveArgs(append([]string(nil), ctx.PositionalArgs...)),
+		EnableUroot: r.enableUrootUtils,
+	}
+	if validateErr := spec.Validate(); validateErr != nil {
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return nil, fmt.Errorf("invalid virtual interactive command spec: %w", validateErr)
+	}
 
-	// Subprocess inherits filtered environment; script-visible TUI vars are passed
-	// through the serialized environment above.
-	cmd.Env = FilterInvowkEnvVars(os.Environ())
+	cmd, err := r.interactiveCommandFactory(ctx.Context, spec)
+	if err != nil {
+		_ = os.Remove(tmpFile.Name()) // Best-effort cleanup on error path
+		return nil, fmt.Errorf("create virtual interactive subprocess: %w", err)
+	}
 
 	// Track temp file for cleanup
 	tempFilePath := tmpFile.Name()

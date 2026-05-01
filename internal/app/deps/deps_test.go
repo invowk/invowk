@@ -334,6 +334,12 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		if !strings.Contains(depErr.ForbiddenCommands[0].String(), "module 'tools' is not accessible") {
 			t.Fatalf("ForbiddenCommands[0] = %q", depErr.ForbiddenCommands[0])
 		}
+		if !strings.Contains(depErr.ForbiddenCommands[0].String(), "~/.invowk/cmds/") {
+			t.Fatalf("ForbiddenCommands[0] missing user commands directory: %q", depErr.ForbiddenCommands[0])
+		}
+		if strings.Contains(depErr.ForbiddenCommands[0].String(), "~/.invowk/modules/") {
+			t.Fatalf("ForbiddenCommands[0] points at module cache path: %q", depErr.ForbiddenCommands[0])
+		}
 	})
 
 	t.Run("reports corrupt command scope lock", func(t *testing.T) {

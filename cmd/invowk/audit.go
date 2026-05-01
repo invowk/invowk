@@ -403,9 +403,10 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 
 	triage := audit.ClassifyReportFindings(report)
 	findings := triage.ConfirmedFindingsBySeverity(minSev)
+	filteredCorrelated := triage.ConfirmedCompoundThreatsBySeverity(minSev)
 	renderAuditDiagnostics(w, report.Diagnostics)
 
-	if len(findings) == 0 {
+	if len(findings) == 0 && len(filteredCorrelated) == 0 {
 		fmt.Fprintf(w, "%s No confirmed findings at or above %s severity\n", SuccessStyle.Render("✓"), minSev)
 		renderSuppressedAuditFindings(w, triage, minSev)
 		return
@@ -447,8 +448,6 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 		}
 	}
 
-	// Compound threats section (filtered by minimum severity).
-	filteredCorrelated := triage.ConfirmedCompoundThreatsBySeverity(minSev)
 	if len(filteredCorrelated) > 0 {
 		fmt.Fprintln(w, auditSeparatorStyle.Render("═══ Compound Threats ═══"))
 		for i := range filteredCorrelated {

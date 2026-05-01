@@ -209,6 +209,45 @@ func TestRaceConditions(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("concurrent lifecycle context reads during transitions", func(t *testing.T) {
+		t.Parallel()
+
+		for range 50 {
+			b := NewBase()
+
+			var wg sync.WaitGroup
+			for range 8 {
+				wg.Go(func() {
+					for range 100 {
+						ctx := b.Context()
+						if ctx != nil {
+							select {
+							case <-ctx.Done():
+							default:
+							}
+						}
+					}
+				})
+			}
+			wg.Go(func() {
+				if err := b.TransitionToStarting(t.Context()); err == nil {
+					b.TransitionToRunning()
+				}
+			})
+			wg.Go(func() {
+				b.TransitionToFailed(context.Canceled)
+			})
+			wg.Go(func() {
+				b.TransitionToStopping()
+			})
+			wg.Wait()
+
+			if err := b.State().Validate(); err != nil {
+				t.Fatalf("final state is invalid: %v", err)
+			}
+		}
+	})
 }
 
 // T011: Double Start/Stop idempotency tests

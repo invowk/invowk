@@ -180,6 +180,45 @@ func TestRenderAuditTextShowsDiagnosticsWithoutFindings(t *testing.T) {
 	}
 }
 
+func TestRenderAuditTextShowsCompoundThreatsWithoutIndividualFindings(t *testing.T) {
+	t.Parallel()
+
+	report := &audit.Report{
+		Findings: []audit.Finding{{
+			Severity:    audit.SeverityMedium,
+			Category:    audit.CategoryTrust,
+			CheckerName: "module-metadata",
+			Title:       "medium base finding",
+		}},
+		Correlated: []audit.Finding{{
+			Severity:      audit.SeverityHigh,
+			Category:      audit.CategoryTrust,
+			CheckerName:   "correlator",
+			Title:         "high compound finding",
+			Description:   "combined risk remains high",
+			EscalatedFrom: []string{"medium base finding"},
+		}},
+	}
+
+	var buf bytes.Buffer
+	renderAuditText(&buf, report, ".", audit.SeverityHigh)
+
+	out := buf.String()
+	for _, want := range []string{
+		"Compound Threats",
+		"high compound finding",
+		"combined risk remains high",
+		"Summary: 0 critical, 1 high, 0 medium, 0 low, 0 info",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("renderAuditText() output missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "No confirmed findings") {
+		t.Fatalf("renderAuditText() reported no findings despite compound threat:\n%s", out)
+	}
+}
+
 func TestScanErrorContainsCheckerFindsJoinedLLMFailure(t *testing.T) {
 	t.Parallel()
 

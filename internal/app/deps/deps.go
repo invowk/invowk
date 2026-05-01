@@ -305,7 +305,7 @@ func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.
 		"%s - command from module '%s' cannot call '%s': module '%s' is not accessible\n"+
 			"  Commands can only call:\n"+
 			"  - Commands from the same module (%s)\n"+
-			"  - Commands from globally installed modules (~/.invowk/modules/)\n"+
+			"  - Commands from globally installed user command modules (~/.invowk/cmds/)\n"+
 			"  - Commands from direct dependencies declared in invowkmod.cue:requires\n"+
 			"  Add '%s' to your invowkmod.cue requires list to use its commands",
 		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID, decision.TargetSource))

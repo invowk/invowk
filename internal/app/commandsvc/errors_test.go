@@ -11,11 +11,6 @@ import (
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
 )
 
-type testOperationError struct {
-	err       error
-	operation string
-}
-
 func TestClassifyExecutionError(t *testing.T) {
 	t.Parallel()
 
@@ -53,11 +48,8 @@ func TestClassifyExecutionError(t *testing.T) {
 			wantKind: ErrorKindPermissionDenied,
 		},
 		{
-			name: "actionable find shell",
-			err: testOperationError{
-				err:       errors.New("missing"),
-				operation: "find shell",
-			},
+			name:     "shell not found",
+			err:      &runtimepkg.ShellNotFoundError{Attempted: runtimepkg.ShellLookupAttempts{"bash", "sh"}},
 			wantKind: ErrorKindShellNotFound,
 		},
 		{
@@ -77,9 +69,3 @@ func TestClassifyExecutionError(t *testing.T) {
 		})
 	}
 }
-
-func (e testOperationError) Error() string { return e.err.Error() }
-
-func (e testOperationError) Unwrap() error { return e.err }
-
-func (e testOperationError) Operation() string { return e.operation }

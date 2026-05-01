@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -196,21 +195,23 @@ func TestNativeRuntime_ShellNotFoundError(t *testing.T) {
 		t.Fatal("shellNotFoundError() should return error")
 	}
 
-	errStr := errActionable.Error()
-
-	// Verify error contains operation context
-	if !strings.Contains(errStr, "find shell") {
-		t.Errorf("error should contain operation 'find shell', got: %s", errStr)
+	if !errors.Is(errActionable, ErrShellNotFound) {
+		t.Fatalf("shellNotFoundError() should wrap ErrShellNotFound, got %v", errActionable)
 	}
 
-	// Verify error contains resource (attempted shells)
-	if !strings.Contains(errStr, "shells attempted") {
-		t.Errorf("error should contain resource 'shells attempted', got: %s", errStr)
+	var shellErr *ShellNotFoundError
+	if !errors.As(errActionable, &shellErr) {
+		t.Fatalf("shellNotFoundError() should return ShellNotFoundError, got %T", errActionable)
+	}
+	if got := shellErr.Attempted; len(got) != 3 ||
+		got[0] != ShellLookupAttempt("$SHELL") ||
+		got[1] != ShellLookupAttempt("bash") ||
+		got[2] != ShellLookupAttempt("sh") {
+		t.Fatalf("Attempted = %v, want [$SHELL bash sh]", got)
 	}
 
-	// Verify error contains "no shell found" cause
-	if !strings.Contains(errStr, "no shell found") {
-		t.Errorf("error should contain cause 'no shell found', got: %s", errStr)
+	if !strings.Contains(errActionable.Error(), "shell not found") {
+		t.Errorf("error should contain cause 'shell not found', got: %s", errActionable)
 	}
 }
 
@@ -220,21 +221,19 @@ func TestNativeRuntime_ShellNotFoundError_Format(t *testing.T) {
 
 	rt := NewNativeRuntime()
 
-	// Get an actionable error
 	errVal := rt.shellNotFoundError([]string{"bash", "sh"})
 
-	// Check that it can be cast to *issue.ActionableError
-	ae, ok := errors.AsType[*issue.ActionableError](errVal)
-	if !ok {
-		t.Fatal("shellNotFoundError should return *issue.ActionableError")
+	var shellErr *ShellNotFoundError
+	if !errors.As(errVal, &shellErr) {
+		t.Fatal("shellNotFoundError should return *ShellNotFoundError")
 	}
 
-	if !strings.Contains(ae.Error(), "find shell") {
-		t.Errorf("error should contain operation, got: %s", ae.Error())
+	if got := shellErr.Error(); !strings.Contains(got, "attempted: bash, sh") {
+		t.Errorf("error should list attempted shells, got: %s", got)
 	}
 
-	if len(ae.Suggestions()) == 0 {
-		t.Fatal("expected suggestions")
+	if !errors.Is(shellErr, ErrShellNotFound) {
+		t.Fatal("ShellNotFoundError should unwrap ErrShellNotFound")
 	}
 }
 
