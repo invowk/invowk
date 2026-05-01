@@ -203,6 +203,37 @@ func TestLockFileChecker_MissingEntrySubpath(t *testing.T) {
 	}
 }
 
+func TestLockFileChecker_DeclaredLockEntryWithoutVendoredModuleIsNotOrphaned(t *testing.T) {
+	t.Parallel()
+
+	requirement := invowkmod.ModuleRequirement{
+		GitURL:  "https://example.com/dep.git",
+		Version: "^1.0.0",
+	}
+	sc := newModuleOnlyContext(&ScannedModule{
+		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
+		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
+		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{
+			Module:   "testmod",
+			Requires: []invowkmod.ModuleRequirement{requirement},
+		}},
+		LockFile: &invowkmod.LockFile{
+			Version: invowkmod.LockFileVersionV2,
+			Modules: map[invowkmod.ModuleRefKey]invowkmod.LockedModule{
+				invowkmod.ModuleRef(requirement).Key(): testLockedModule("io.example.dep"),
+			},
+		},
+	})
+
+	findings, err := NewLockFileChecker().Check(t.Context(), sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasFinding(findings, SeverityLow, "Orphaned lock file entry") {
+		t.Fatalf("declared lock entry was reported as orphaned: %v", findings)
+	}
+}
+
 func TestLockFileChecker_Clean(t *testing.T) {
 	t.Parallel()
 

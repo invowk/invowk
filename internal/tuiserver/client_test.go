@@ -28,7 +28,7 @@ func startTestServer(t *testing.T) (*Server, *Client) {
 	}
 	t.Cleanup(func() { testutil.MustStop(t, server) })
 
-	client := NewClient(string(server.URL()), server.Token())
+	client := NewClient(server.URL(), server.Token())
 	return server, client
 }
 

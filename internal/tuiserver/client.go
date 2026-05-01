@@ -22,7 +22,7 @@ var ErrTUIServerResponse = errors.New("TUI server error")
 // Client provides methods to communicate with the TUI server.
 // It is used by child processes to delegate TUI rendering to the parent.
 type Client struct {
-	addr   string // Composite URL — intentional string (transport boundary).
+	addr   types.TUIServerURL
 	token  AuthToken
 	client *http.Client
 }
@@ -37,15 +37,19 @@ func NewClientFromEnv() *Client {
 		return nil
 	}
 
+	serverURL := types.TUIServerURL(addr)
+	if err := serverURL.Validate(); err != nil {
+		return nil
+	}
 	authToken := AuthToken(token)
 	if err := authToken.Validate(); err != nil {
 		return nil
 	}
-	return NewClient(addr, authToken)
+	return NewClient(serverURL, authToken)
 }
 
 // NewClient creates a new Client with the given server address and token.
-func NewClient(addr string, token AuthToken) *Client {
+func NewClient(addr types.TUIServerURL, token AuthToken) *Client {
 	return &Client{
 		addr:  addr,
 		token: token,
@@ -69,7 +73,7 @@ func (c *Client) IsAvailableContext(ctx context.Context) bool {
 		ctx = context.Background()
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.addr+"/health", http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.addr.String()+"/health", http.NoBody)
 	if err != nil {
 		return false
 	}
@@ -376,7 +380,7 @@ func (c *Client) sendRequestContext(ctx context.Context, component Component, op
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.addr+"/tui", bytes.NewReader(reqBody))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.addr.String()+"/tui", bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}

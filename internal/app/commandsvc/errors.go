@@ -27,6 +27,9 @@ var (
 
 	// ErrRuntimeResolution is returned when the runtime for a command cannot be resolved.
 	ErrRuntimeResolution = errors.New("runtime resolution failed")
+
+	// ErrRuntimeNotAllowed is returned when a runtime override is incompatible with a command.
+	ErrRuntimeNotAllowed = errors.New("runtime not allowed")
 )
 
 // classifyExecutionError maps execution/runtime failures to service-owned error

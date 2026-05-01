@@ -376,9 +376,9 @@ func TestIsWindowsContainerImage(t *testing.T) {
 		t.Run(tt.image, func(t *testing.T) {
 			t.Parallel()
 
-			got := isWindowsContainerImage(tt.image)
+			got := errors.Is(container.ValidateSupportedRuntimeImage(container.ImageTag(tt.image)), container.ErrWindowsContainerImage)
 			if got != tt.want {
-				t.Errorf("isWindowsContainerImage(%q) = %v, want %v", tt.image, got, tt.want)
+				t.Errorf("ValidateSupportedRuntimeImage(%q) windows error = %v, want %v", tt.image, got, tt.want)
 			}
 		})
 	}
@@ -415,9 +415,9 @@ func TestIsAlpineContainerImage(t *testing.T) {
 		t.Run(tt.image, func(t *testing.T) {
 			t.Parallel()
 
-			got := isAlpineContainerImage(tt.image)
+			got := errors.Is(container.ValidateSupportedRuntimeImage(container.ImageTag(tt.image)), container.ErrAlpineContainerImage)
 			if got != tt.want {
-				t.Errorf("isAlpineContainerImage(%q) = %v, want %v", tt.image, got, tt.want)
+				t.Errorf("ValidateSupportedRuntimeImage(%q) alpine error = %v, want %v", tt.image, got, tt.want)
 			}
 		})
 	}
@@ -436,13 +436,13 @@ func TestValidateSupportedContainerImage(t *testing.T) {
 			name:       "windows image rejected",
 			image:      container.ImageTag("mcr.microsoft.com/windows/servercore:ltsc2022"),
 			wantErr:    true,
-			wantTarget: ErrWindowsContainerImage,
+			wantTarget: container.ErrWindowsContainerImage,
 		},
 		{
 			name:       "alpine image rejected",
 			image:      container.ImageTag("alpine:latest"),
 			wantErr:    true,
-			wantTarget: ErrAlpineContainerImage,
+			wantTarget: container.ErrAlpineContainerImage,
 		},
 		{
 			name:    "debian image allowed",
@@ -455,19 +455,19 @@ func TestValidateSupportedContainerImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateSupportedContainerImage(tt.image)
+			err := container.ValidateSupportedRuntimeImage(tt.image)
 			if tt.wantErr {
 				if err == nil {
-					t.Fatalf("validateSupportedContainerImage(%q) expected error, got nil", tt.image)
+					t.Fatalf("ValidateSupportedRuntimeImage(%q) expected error, got nil", tt.image)
 				}
 				if tt.wantTarget != nil && !errors.Is(err, tt.wantTarget) {
-					t.Fatalf("validateSupportedContainerImage(%q) error = %q, want errors.Is(%v)", tt.image, err.Error(), tt.wantTarget)
+					t.Fatalf("ValidateSupportedRuntimeImage(%q) error = %q, want errors.Is(%v)", tt.image, err.Error(), tt.wantTarget)
 				}
 				return
 			}
 
 			if err != nil {
-				t.Fatalf("validateSupportedContainerImage(%q) unexpected error: %v", tt.image, err)
+				t.Fatalf("ValidateSupportedRuntimeImage(%q) unexpected error: %v", tt.image, err)
 			}
 		})
 	}

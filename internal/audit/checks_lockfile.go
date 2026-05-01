@@ -321,37 +321,26 @@ func vendoredPathByModuleID(vendoredModules []*invowkmod.Module) map[invowkmod.M
 func (c *LockFileChecker) checkOrphanedEntries(mod *ScannedModule) []Finding {
 	var findings []Finding
 
-	// Build set of vendored module IDs.
-	vendoredIDs := make(map[string]bool)
-	for _, v := range mod.VendoredModules {
-		vendoredIDs[string(v.Metadata.Module)] = true
-	}
-
 	const maxOrphanFindings = 10
-	orphanCount := 0
-	for key := range mod.LockFile.Modules {
-		lockMod := mod.LockFile.Modules[key]
-		moduleID := string(lockMod.IdentityModuleID())
-		if !vendoredIDs[moduleID] {
-			orphanCount++
-			if orphanCount <= maxOrphanFindings {
-				findings = append(findings, Finding{
-					Code:           codeLockfileOrphanEntry,
-					Severity:       SeverityLow,
-					Category:       CategoryIntegrity,
-					SurfaceID:      mod.SurfaceID,
-					CheckerName:    lockFileCheckerName,
-					FilePath:       mod.LockPath,
-					Title:          "Orphaned lock file entry",
-					Description:    fmt.Sprintf("Lock file contains entry %q which is not present in vendored modules", key),
-					Recommendation: "Run 'invowk module tidy' to remove stale lock file entries",
-				})
-			}
+	orphaned := invowkmod.OrphanedLockedModuleEntries(mod.Module.Metadata.Requires, mod.LockFile)
+	for i, key := range orphaned {
+		if i < maxOrphanFindings {
+			findings = append(findings, Finding{
+				Code:           codeLockfileOrphanEntry,
+				Severity:       SeverityLow,
+				Category:       CategoryIntegrity,
+				SurfaceID:      mod.SurfaceID,
+				CheckerName:    lockFileCheckerName,
+				FilePath:       mod.LockPath,
+				Title:          "Orphaned lock file entry",
+				Description:    fmt.Sprintf("Lock file contains entry %q which is not declared in module requirements", key),
+				Recommendation: "Run 'invowk module tidy' to remove stale lock file entries",
+			})
 		}
 	}
 
 	// Collapse excessive orphan findings into a summary.
-	if orphanCount > maxOrphanFindings {
+	if len(orphaned) > maxOrphanFindings {
 		findings = append(findings, Finding{
 			Code:           codeLockfileAdditionalOrphans,
 			Severity:       SeverityLow,
@@ -360,7 +349,7 @@ func (c *LockFileChecker) checkOrphanedEntries(mod *ScannedModule) []Finding {
 			CheckerName:    lockFileCheckerName,
 			FilePath:       mod.LockPath,
 			Title:          "Additional orphaned lock file entries",
-			Description:    fmt.Sprintf("%d additional orphaned entries not shown (total: %d)", orphanCount-maxOrphanFindings, orphanCount),
+			Description:    fmt.Sprintf("%d additional orphaned entries not shown (total: %d)", len(orphaned)-maxOrphanFindings, len(orphaned)),
 			Recommendation: "Run 'invowk module tidy' to remove all stale lock file entries",
 		})
 	}

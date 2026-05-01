@@ -119,9 +119,12 @@ func TestResolveRuntime(t *testing.T) {
 		cmdInfo,
 		config.DefaultConfig(),
 	)
-	var notAllowed *appexec.RuntimeNotAllowedError
+	var notAllowed *RuntimeNotAllowedError
 	if !errors.As(err, &notAllowed) {
 		t.Fatalf("errors.As(*RuntimeNotAllowedError) = false for %T", err)
+	}
+	if !errors.Is(err, ErrRuntimeNotAllowed) {
+		t.Fatalf("errors.Is(ErrRuntimeNotAllowed) = false for %v", err)
 	}
 
 	badCfg := config.DefaultConfig()

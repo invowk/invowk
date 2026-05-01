@@ -83,7 +83,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 
 	// Validate explicit image policy before provisioning rewrites image tags.
 	if containerCfg.Image != "" {
-		if err := validateSupportedContainerImage(containerCfg.Image); err != nil {
+		if err := container.ValidateSupportedRuntimeImage(containerCfg.Image); err != nil {
 			return nil, NewErrorResult(1, err)
 		}
 	}

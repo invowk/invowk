@@ -12,7 +12,6 @@ import (
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/app/deps"
-	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
@@ -336,7 +335,7 @@ func TestRenderAndWrapServiceError(t *testing.T) {
 		t.Fatalf("platform branch returned %#v", svcErr)
 	}
 
-	runtimeErr := &appexec.RuntimeNotAllowedError{
+	runtimeErr := &commandsvc.RuntimeNotAllowedError{
 		CommandName: "build",
 		Runtime:     invowkfile.RuntimeContainer,
 		Platform:    invowkfile.PlatformLinux,

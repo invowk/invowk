@@ -140,7 +140,7 @@ func TestRenderTUITableWithClient(t *testing.T) {
 		SelectedRow:   []string{"Bob", "25"},
 	})
 
-	client := tuiserver.NewClient(string(server.URL()), server.Token())
+	client := tuiserver.NewClient(server.URL(), server.Token())
 	idx, row, err := renderTUITableWithClient(
 		t.Context(),
 		tableConfig{

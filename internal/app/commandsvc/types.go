@@ -179,6 +179,15 @@ type (
 		Supported   []invowkfile.Platform
 	}
 
+	// RuntimeNotAllowedError is returned when a runtime override is incompatible
+	// with the requested command on the target platform.
+	RuntimeNotAllowedError struct {
+		CommandName invowkfile.CommandName
+		Runtime     invowkfile.RuntimeMode
+		Platform    invowkfile.Platform
+		Allowed     []invowkfile.RuntimeMode
+	}
+
 	//goplint:constant-only
 	//
 	// ErrorKind classifies command-service errors without depending on the CLI
@@ -234,6 +243,27 @@ func (e *UnsupportedPlatformError) Error() string {
 
 // Unwrap returns ErrUnsupportedPlatform for errors.Is compatibility.
 func (e *UnsupportedPlatformError) Unwrap() error { return ErrUnsupportedPlatform }
+
+// Error implements the error interface.
+func (e *RuntimeNotAllowedError) Error() string {
+	if e == nil {
+		return ErrRuntimeNotAllowed.Error()
+	}
+	allowed := make([]string, 0, len(e.Allowed))
+	for i := range e.Allowed {
+		allowed = append(allowed, string(e.Allowed[i]))
+	}
+	return fmt.Sprintf(
+		"runtime '%s' is not allowed for command '%s' on platform '%s' (allowed: %s)",
+		e.Runtime,
+		e.CommandName,
+		e.Platform,
+		strings.Join(allowed, ", "),
+	)
+}
+
+// Unwrap returns ErrRuntimeNotAllowed for errors.Is compatibility.
+func (e *RuntimeNotAllowedError) Unwrap() error { return ErrRuntimeNotAllowed }
 
 // String returns the string representation of the error kind.
 func (k ErrorKind) String() string { return string(k) }

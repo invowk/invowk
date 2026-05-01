@@ -45,15 +45,18 @@ func (s *Service) validateInputs(req Request, cmdInfo *discovery.CommandInfo, de
 //  2. Config default runtime (cfg.DefaultRuntime) — soft, silently falls back if incompatible.
 //  3. Per-command default — first runtime of the first matching implementation.
 //
-// It returns raw typed errors (RuntimeNotAllowedError, etc.) — no ServiceError wrapping.
+// It returns service-owned typed errors (RuntimeNotAllowedError, etc.) — no ServiceError wrapping.
 func (s *Service) resolveRuntime(req Request, cmdInfo *discovery.CommandInfo, cfg *config.Config) (appexec.RuntimeSelection, error) {
 	cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- CLI boundary, validated by discovery lookup
 	selection, err := appexec.ResolveRuntime(cmdInfo.Command, cmdName, req.Runtime, cfg, requestPlatform(req))
 	if err != nil {
-		// Return the raw error (e.g., *RuntimeNotAllowedError); the CLI adapter
-		// inspects the type and applies rendering.
-		if _, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok { //nolint:errcheck // type match only; error is re-returned
-			return appexec.RuntimeSelection{}, err
+		if notAllowed, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
+			return appexec.RuntimeSelection{}, &RuntimeNotAllowedError{
+				CommandName: notAllowed.CommandName,
+				Runtime:     notAllowed.Runtime,
+				Platform:    notAllowed.Platform,
+				Allowed:     notAllowed.Allowed,
+			}
 		}
 		return appexec.RuntimeSelection{}, fmt.Errorf("%w: resolve runtime for '%s': %w", ErrRuntimeResolution, req.Name, err)
 	}

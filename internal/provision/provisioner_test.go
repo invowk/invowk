@@ -143,6 +143,36 @@ func TestLayerProvisioner_ProvisionRejectsInvalidBaseImage(t *testing.T) {
 	}
 }
 
+func TestLayerProvisioner_ProvisionRejectsUnsupportedBaseImage(t *testing.T) {
+	t.Parallel()
+
+	engine := newMockEngine()
+	cfg := &Config{
+		Enabled:          false,
+		BinaryMountPath:  container.MountTargetPath("/invowk/bin"),
+		ModulesMountPath: container.MountTargetPath("/invowk/modules"),
+	}
+
+	provisioner, provErr := NewLayerProvisioner(engine, cfg)
+	if provErr != nil {
+		t.Fatalf("NewLayerProvisioner() unexpected error: %v", provErr)
+	}
+
+	_, err := provisioner.Provision(t.Context(), Request{BaseImage: container.ImageTag("alpine:latest")})
+	if err == nil {
+		t.Fatal("Provision() returned nil error, want unsupported base image error")
+	}
+	if !errors.Is(err, container.ErrAlpineContainerImage) {
+		t.Errorf("Provision() error = %v, want ErrAlpineContainerImage", err)
+	}
+	if len(engine.buildCalls) > 0 {
+		t.Error("expected no build calls for unsupported request")
+	}
+	if len(engine.imageExistsCalls) > 0 {
+		t.Error("expected no image exists calls for unsupported request")
+	}
+}
+
 func TestLayerProvisioner_Provision_CacheHit(t *testing.T) {
 	t.Parallel()
 

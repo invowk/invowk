@@ -3,6 +3,7 @@
 package moduleops
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,6 +14,23 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+type fakeVendorDependencyResolver struct {
+	syncResult []*invowkmod.ResolvedModule
+	lockResult []*invowkmod.ResolvedModule
+	syncCalls  int
+	lockCalls  int
+}
+
+func (r *fakeVendorDependencyResolver) Sync(context.Context, []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error) {
+	r.syncCalls++
+	return r.syncResult, nil
+}
+
+func (r *fakeVendorDependencyResolver) LoadDeclaredFromLock(context.Context, []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error) {
+	r.lockCalls++
+	return r.lockResult, nil
+}
 
 // ============================================================================
 // Tests for Vendored Modules
@@ -530,6 +548,57 @@ requires: [
 	}
 	if _, err := os.Stat(filepath.Join(vendorDir, "stale.invowkmod")); !os.IsNotExist(err) {
 		t.Fatalf("stale vendored module still exists: %v", err)
+	}
+}
+
+func TestResolveVendorDependenciesUsesUpdateStrategy(t *testing.T) {
+	t.Parallel()
+
+	modulePath := types.FilesystemPath(t.TempDir())
+	requirements := []invowkmod.ModuleRef{{GitURL: "https://example.com/dep.git", Version: "^1.0.0"}}
+	if writeErr := os.WriteFile(filepath.Join(string(modulePath), invowkmod.LockFileName), []byte("stale lock"), 0o644); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	resolver := &fakeVendorDependencyResolver{
+		syncResult: []*invowkmod.ResolvedModule{{ModuleRef: requirements[0]}},
+		lockResult: []*invowkmod.ResolvedModule{
+			{ModuleRef: invowkmod.ModuleRef{GitURL: "https://example.com/locked.git", Version: "^1.0.0"}},
+		},
+	}
+
+	resolved, strategy, err := resolveVendorDependencies(t.Context(), resolver, modulePath, requirements, true)
+	if err != nil {
+		t.Fatalf("resolveVendorDependencies(update) error = %v", err)
+	}
+	if strategy != VendorResolutionUpdated {
+		t.Fatalf("strategy = %s, want %s", strategy, VendorResolutionUpdated)
+	}
+	if resolver.syncCalls != 1 || resolver.lockCalls != 0 {
+		t.Fatalf("calls = sync:%d lock:%d, want sync:1 lock:0", resolver.syncCalls, resolver.lockCalls)
+	}
+	if len(resolved) != 1 || resolved[0].ModuleRef.GitURL != requirements[0].GitURL {
+		t.Fatalf("resolved = %#v, want sync result", resolved)
+	}
+}
+
+func TestResolveVendorDependenciesSyncsWhenLockMissing(t *testing.T) {
+	t.Parallel()
+
+	modulePath := types.FilesystemPath(t.TempDir())
+	requirements := []invowkmod.ModuleRef{{GitURL: "https://example.com/dep.git", Version: "^1.0.0"}}
+	resolver := &fakeVendorDependencyResolver{
+		syncResult: []*invowkmod.ResolvedModule{{ModuleRef: requirements[0]}},
+	}
+
+	_, strategy, err := resolveVendorDependencies(t.Context(), resolver, modulePath, requirements, false)
+	if err != nil {
+		t.Fatalf("resolveVendorDependencies(no lock) error = %v", err)
+	}
+	if strategy != VendorResolutionSynced {
+		t.Fatalf("strategy = %s, want %s", strategy, VendorResolutionSynced)
+	}
+	if resolver.syncCalls != 1 || resolver.lockCalls != 0 {
+		t.Fatalf("calls = sync:%d lock:%d, want sync:1 lock:0", resolver.syncCalls, resolver.lockCalls)
 	}
 }
 

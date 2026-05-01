@@ -25,6 +25,11 @@ const (
 type (
 	// VendorResolutionStrategy describes how vendored dependencies were resolved.
 	VendorResolutionStrategy string
+
+	vendorDependencyResolver interface {
+		Sync(ctx context.Context, requirements []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error)
+		LoadDeclaredFromLock(ctx context.Context, requirements []invowkmod.ModuleRef) ([]*invowkmod.ResolvedModule, error)
+	}
 )
 
 // String returns the string representation of the VendorResolutionStrategy.
@@ -61,6 +66,17 @@ func VendorDependencies(ctx context.Context, modulePath types.FilesystemPath, up
 		return nil, nil, "", fmt.Errorf("failed to create resolver: %w", err)
 	}
 
+	return vendorDependenciesWithResolver(ctx, modulePath, requirements, resolver, update, prune)
+}
+
+func vendorDependenciesWithResolver(
+	ctx context.Context,
+	modulePath types.FilesystemPath,
+	requirements []invowkmod.ModuleRef,
+	resolver vendorDependencyResolver,
+	update bool,
+	prune bool,
+) ([]invowkmod.ModuleRef, *VendorResult, VendorResolutionStrategy, error) {
 	resolved, strategy, err := resolveVendorDependencies(ctx, resolver, modulePath, requirements, update)
 	if err != nil {
 		return requirements, nil, strategy, err
@@ -77,7 +93,7 @@ func VendorDependencies(ctx context.Context, modulePath types.FilesystemPath, up
 	return requirements, result, strategy, nil
 }
 
-func resolveVendorDependencies(ctx context.Context, resolver *modulesync.Resolver, modulePath types.FilesystemPath, requirements []invowkmod.ModuleRef, update bool) ([]*invowkmod.ResolvedModule, VendorResolutionStrategy, error) {
+func resolveVendorDependencies(ctx context.Context, resolver vendorDependencyResolver, modulePath types.FilesystemPath, requirements []invowkmod.ModuleRef, update bool) ([]*invowkmod.ResolvedModule, VendorResolutionStrategy, error) {
 	lockPath := filepath.Join(string(modulePath), invowkmod.LockFileName)
 	_, lockErr := os.Stat(lockPath)
 

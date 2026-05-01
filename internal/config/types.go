@@ -19,11 +19,11 @@ const (
 	ContainerEngineDocker ContainerEngine = "docker"
 
 	// RuntimeNative runs commands in the host system shell.
-	RuntimeNative RuntimeMode = RuntimeMode(types.RuntimeNative)
+	RuntimeNative RuntimeMode = types.RuntimeNative
 	// RuntimeVirtual runs commands in the embedded mvdan/sh interpreter.
-	RuntimeVirtual RuntimeMode = RuntimeMode(types.RuntimeVirtual)
+	RuntimeVirtual RuntimeMode = types.RuntimeVirtual
 	// RuntimeContainer runs commands inside a container (Docker/Podman).
-	RuntimeContainer RuntimeMode = RuntimeMode(types.RuntimeContainer)
+	RuntimeContainer RuntimeMode = types.RuntimeContainer
 
 	// ColorSchemeAuto detects the terminal color scheme automatically.
 	ColorSchemeAuto ColorScheme = "auto"
@@ -82,13 +82,10 @@ type (
 	// RuntimeMode specifies the execution runtime for commands.
 	//
 	//goplint:enum-cue=#ConfigRuntimeType
-	RuntimeMode string
+	RuntimeMode = types.RuntimeMode
 
 	// InvalidConfigRuntimeModeError is returned when a config RuntimeMode value is not recognized.
-	// It wraps ErrInvalidConfigRuntimeMode for errors.Is() compatibility.
-	InvalidConfigRuntimeModeError struct {
-		Value RuntimeMode
-	}
+	InvalidConfigRuntimeModeError = types.InvalidRuntimeModeError
 
 	// ColorScheme specifies the terminal color scheme preference.
 	//
@@ -550,32 +547,6 @@ func (ce ContainerEngine) Validate() error {
 	default:
 		return &InvalidContainerEngineError{Value: ce}
 	}
-}
-
-// Error implements the error interface for InvalidConfigRuntimeModeError.
-func (e *InvalidConfigRuntimeModeError) Error() string {
-	return fmt.Sprintf("invalid runtime mode %q (valid: native, virtual, container)", e.Value)
-}
-
-// Unwrap returns the sentinel error for errors.Is() compatibility.
-func (e *InvalidConfigRuntimeModeError) Unwrap() error {
-	return ErrInvalidConfigRuntimeMode
-}
-
-// String returns the string representation of the config RuntimeMode.
-func (m RuntimeMode) String() string { return string(m) }
-
-// Validate returns an error if the config RuntimeMode is not one of the defined runtime modes.
-func (m RuntimeMode) Validate() error {
-	switch m {
-	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
-	default:
-		return &InvalidConfigRuntimeModeError{Value: m}
-	}
-	if err := types.RuntimeMode(m).Validate(); err != nil {
-		return &InvalidConfigRuntimeModeError{Value: m}
-	}
-	return nil
 }
 
 // Error implements the error interface for InvalidColorSchemeError.

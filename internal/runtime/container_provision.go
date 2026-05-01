@@ -44,19 +44,9 @@ const (
 	containerWorkspacePrefix = containerWorkspaceRoot + "/"
 )
 
-var (
-	// errStrictModeProvisioning is returned when container provisioning fails
-	// and strict mode is enabled, preventing fallback to the base image.
-	errStrictModeProvisioning = errors.New("container provisioning failed (strict mode enabled)")
-
-	// ErrWindowsContainerImage is returned when a Windows container image is used.
-	// The container runtime only supports Linux containers.
-	ErrWindowsContainerImage = errors.New("windows container images are not supported")
-
-	// ErrAlpineContainerImage is returned when an Alpine-based container image is used.
-	// Alpine images are intentionally unsupported due to musl compatibility issues.
-	ErrAlpineContainerImage = errors.New("alpine-based container images are not supported")
-)
+// errStrictModeProvisioning is returned when container provisioning fails
+// and strict mode is enabled, preventing fallback to the base image.
+var errStrictModeProvisioning = errors.New("container provisioning failed (strict mode enabled)")
 
 // ensureProvisionedImage ensures the container image exists and is provisioned
 // with invowk resources (binary, modules, etc.). This enables nested invowk commands
@@ -249,66 +239,6 @@ func applyHostProvisionDefaults(provisionCfg *provision.Config) {
 	if provisionCfg.TagSuffix == "" {
 		provisionCfg.TagSuffix = os.Getenv("INVOWK_PROVISION_TAG_SUFFIX")
 	}
-}
-
-// isWindowsContainerImage detects if an image is Windows-based by name convention.
-// The container runtime only supports Linux containers. Windows container images
-// (e.g., mcr.microsoft.com/windows/servercore) are not supported because the
-// runtime executes scripts using /bin/sh which is not available in Windows containers.
-func isWindowsContainerImage(image string) bool {
-	imageLower := strings.ToLower(image)
-	windowsPatterns := []string{
-		"mcr.microsoft.com/windows/",
-		"mcr.microsoft.com/powershell:",
-		"microsoft/windowsservercore",
-		"microsoft/nanoserver",
-	}
-	for _, pattern := range windowsPatterns {
-		if strings.Contains(imageLower, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
-// isAlpineContainerImage detects Alpine-based image references by repository name.
-// Alpine images are intentionally unsupported because musl-based environments have
-// subtle behavioral differences that reduce runtime reliability.
-//
-// Detection is segment-aware: only the last path segment of the image name is
-// checked, so images like "go-alpine-builder:v1" or "myorg/alpine-tools" are
-// NOT matched. Matches: alpine, alpine:3.20, docker.io/library/alpine:latest.
-func isAlpineContainerImage(image string) bool {
-	imageLower := strings.ToLower(strings.TrimSpace(image))
-	if imageLower == "" {
-		return false
-	}
-
-	// Strip tag/digest suffix for name-only matching.
-	name := imageLower
-	if idx := strings.LastIndex(name, ":"); idx != -1 {
-		name = name[:idx]
-	}
-	if idx := strings.LastIndex(name, "@"); idx != -1 {
-		name = name[:idx]
-	}
-
-	// Check bare name or last path segment.
-	// Matches: alpine, alpine:3.20, docker.io/library/alpine:latest
-	// Does NOT match: go-alpine-builder, myorg/alpine-tools
-	return name == "alpine" || strings.HasSuffix(name, "/alpine")
-}
-
-// validateSupportedContainerImage enforces the container runtime image policy.
-func validateSupportedContainerImage(image container.ImageTag) error {
-	if isWindowsContainerImage(string(image)) {
-		return fmt.Errorf("%w; the container runtime requires Linux-based images (e.g., debian:stable-slim); see https://invowk.io/docs/runtime-modes/container for details", ErrWindowsContainerImage)
-	}
-	if isAlpineContainerImage(string(image)) {
-		return fmt.Errorf("%w; use a Debian-based image (e.g., debian:stable-slim) for reliable execution; see https://invowk.io/docs/runtime-modes/container for details", ErrAlpineContainerImage)
-	}
-
-	return nil
 }
 
 // containerConfigFromRuntime extracts container config from RuntimeConfig

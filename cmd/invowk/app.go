@@ -15,7 +15,6 @@ import (
 	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/app/deps"
-	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
@@ -262,7 +261,7 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 		)
 	}
 
-	if notAllowed, ok := errors.AsType[*appexec.RuntimeNotAllowedError](err); ok {
+	if notAllowed, ok := errors.AsType[*commandsvc.RuntimeNotAllowedError](err); ok {
 		var allowed []string
 		for _, r := range notAllowed.Allowed {
 			allowed = append(allowed, string(r))

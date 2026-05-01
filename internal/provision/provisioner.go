@@ -69,6 +69,9 @@ func (r Request) Validate() error {
 		if err := r.BaseImage.Validate(); err != nil {
 			errs = append(errs, err)
 		}
+		if err := container.ValidateSupportedRuntimeImage(r.BaseImage); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	return errors.Join(errs...)
 }

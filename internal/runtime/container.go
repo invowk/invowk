@@ -199,6 +199,11 @@ func (r *ContainerRuntime) Validate(ctx *ExecutionContext) error {
 	if rtConfig.Containerfile == "" && rtConfig.Image == "" {
 		return fmt.Errorf("%w: container runtime requires either containerfile or image in the runtime config", ErrContainerBuildConfig)
 	}
+	if rtConfig.Image != "" {
+		if err := container.ValidateSupportedRuntimeImage(container.ImageTag(rtConfig.Image)); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

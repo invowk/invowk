@@ -185,7 +185,7 @@ func ResolveRuntime(command *invowkfile.Command, commandName invowkfile.CommandN
 	}
 
 	if cfg != nil && cfg.DefaultRuntime != "" {
-		configRuntime := invowkfile.RuntimeMode(cfg.DefaultRuntime)
+		configRuntime := cfg.DefaultRuntime
 		// Defense-in-depth: CUE schema validates config at load time, but verify
 		// here to prevent silent fallthrough to command default on invalid config.
 		if err := configRuntime.Validate(); err != nil {

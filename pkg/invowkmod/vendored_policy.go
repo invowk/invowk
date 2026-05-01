@@ -4,6 +4,7 @@ package invowkmod
 
 import (
 	"path/filepath"
+	"slices"
 )
 
 // IsDeclaredLockedVendoredModule reports whether childModule is an explicit,
@@ -53,4 +54,28 @@ func DeclaredLockedModuleEntry(requirements []ModuleRequirement, lock *LockFile,
 		}
 	}
 	return "", LockedModule{}, false
+}
+
+// OrphanedLockedModuleEntries returns lock entries that are not declared by the
+// current root requirements. The lock file may contain stale entries after
+// requirements are removed; vendored module presence is intentionally not part
+// of this classification.
+func OrphanedLockedModuleEntries(requirements []ModuleRequirement, lock *LockFile) []ModuleRefKey {
+	if lock == nil {
+		return nil
+	}
+
+	declared := make(map[ModuleRefKey]bool, len(requirements))
+	for _, req := range requirements {
+		declared[ModuleRef(req).Key()] = true
+	}
+
+	var orphaned []ModuleRefKey
+	for key := range lock.Modules {
+		if !declared[key] {
+			orphaned = append(orphaned, key)
+		}
+	}
+	slices.Sort(orphaned)
+	return orphaned
 }

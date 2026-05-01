@@ -209,7 +209,7 @@ err := discovery.CheckModuleCollisions()
 Commands can only call:
 
 1. Commands from the **same module**
-2. Commands from **globally installed modules** (`~/.invowk/modules/`)
+2. Commands from **globally installed user command modules** (`~/.invowk/cmds/`)
 3. Commands from **first-level requirements** (direct dependencies in `invowkmod.cue:requires`)
 
 **CRITICAL:** Transitive dependencies are **NOT accessible**. Commands cannot call dependencies of dependencies. This enforces explicit, auditable dependency chains.

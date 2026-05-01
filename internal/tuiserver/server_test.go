@@ -421,6 +421,20 @@ func TestClientFromEnv(t *testing.T) {
 		t.Error("Expected client when both env vars are set")
 	}
 
+	cleanupAddr()
+	cleanupAddr = testutil.MustSetenv(t, EnvTUIAddr, "localhost:12345")
+	client = NewClientFromEnv()
+	if client != nil {
+		t.Error("Expected nil client when TUI addr has no HTTP scheme")
+	}
+
+	cleanupAddr()
+	cleanupAddr = testutil.MustSetenv(t, EnvTUIAddr, "ftp://127.0.0.1:12345")
+	client = NewClientFromEnv()
+	if client != nil {
+		t.Error("Expected nil client when TUI addr has unsupported scheme")
+	}
+
 	// Cleanup within test (restores to previous state in this test)
 	cleanupToken()
 	cleanupAddr()
@@ -453,7 +467,7 @@ func TestClientIsAvailable(t *testing.T) {
 	}
 	defer testutil.MustStop(t, server)
 
-	client = NewClient(string(server.URL()), server.Token())
+	client = NewClient(server.URL(), server.Token())
 	if !client.IsAvailable() {
 		t.Error("Client to running server should be available")
 	}

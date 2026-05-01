@@ -14,11 +14,11 @@ import (
 
 const (
 	// RuntimeNative executes commands using the system's default shell
-	RuntimeNative RuntimeMode = RuntimeMode(types.RuntimeNative)
+	RuntimeNative RuntimeMode = types.RuntimeNative
 	// RuntimeVirtual executes commands using mvdan/sh with u-root utilities
-	RuntimeVirtual RuntimeMode = RuntimeMode(types.RuntimeVirtual)
+	RuntimeVirtual RuntimeMode = types.RuntimeVirtual
 	// RuntimeContainer executes commands inside a disposable container
-	RuntimeContainer RuntimeMode = RuntimeMode(types.RuntimeContainer)
+	RuntimeContainer RuntimeMode = types.RuntimeContainer
 
 	// EnvInheritNone disables host environment inheritance
 	EnvInheritNone EnvInheritMode = "none"
@@ -89,7 +89,7 @@ type (
 	// RuntimeMode represents the execution runtime type.
 	//
 	//goplint:enum-cue=#RuntimeType
-	RuntimeMode string
+	RuntimeMode = types.RuntimeMode
 
 	// EnvInheritMode defines how host environment variables are inherited.
 	//
@@ -102,10 +102,7 @@ type (
 	PlatformType string
 
 	// InvalidRuntimeModeError is returned when a RuntimeMode value is not recognized.
-	// It wraps ErrInvalidRuntimeMode for errors.Is() compatibility.
-	InvalidRuntimeModeError struct {
-		Value RuntimeMode
-	}
+	InvalidRuntimeModeError = types.InvalidRuntimeModeError
 
 	// InvalidEnvInheritModeError is returned when an EnvInheritMode value is not recognized.
 	// It wraps ErrInvalidEnvInheritMode for errors.Is() compatibility.
@@ -234,16 +231,6 @@ func FindRuntimeConfig(runtimes []RuntimeConfig, mode RuntimeMode) *RuntimeConfi
 	return nil
 }
 
-// Error implements the error interface for InvalidRuntimeModeError.
-func (e *InvalidRuntimeModeError) Error() string {
-	return fmt.Sprintf("invalid runtime mode %q (valid: native, virtual, container)", e.Value)
-}
-
-// Unwrap returns the sentinel error for errors.Is() compatibility.
-func (e *InvalidRuntimeModeError) Unwrap() error {
-	return ErrInvalidRuntimeMode
-}
-
 // Error implements the error interface for InvalidEnvInheritModeError.
 func (e *InvalidEnvInheritModeError) Error() string {
 	return fmt.Sprintf("invalid env_inherit_mode %q (valid: none, allow, all)", e.Value)
@@ -262,26 +249,6 @@ func (e *InvalidPlatformError) Error() string {
 // Unwrap returns the sentinel error for errors.Is() compatibility.
 func (e *InvalidPlatformError) Unwrap() error {
 	return ErrInvalidPlatform
-}
-
-// String returns the string representation of the RuntimeMode.
-func (m RuntimeMode) String() string { return string(m) }
-
-// Validate returns nil if the RuntimeMode is one of the defined runtime modes,
-// or a validation error if it is not.
-// Note: the zero value ("") is NOT valid — it serves as a sentinel for "no override".
-//
-//goplint:nonzero
-func (m RuntimeMode) Validate() error {
-	switch m {
-	case RuntimeNative, RuntimeVirtual, RuntimeContainer:
-	default:
-		return &InvalidRuntimeModeError{Value: m}
-	}
-	if err := types.RuntimeMode(m).Validate(); err != nil {
-		return &InvalidRuntimeModeError{Value: m}
-	}
-	return nil
 }
 
 // String returns the string representation of the EnvInheritMode.
