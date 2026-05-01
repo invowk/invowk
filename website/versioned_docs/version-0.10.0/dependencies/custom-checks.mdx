@@ -1,0 +1,130 @@
+---
+sidebar_position: 7
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Custom Check Dependencies
+
+Custom checks let you write validation scripts for requirements that don't fit the built-in dependency types. Check tool versions, configuration validity, or any other custom requirement.
+
+## Basic Usage
+
+<Snippet id="dependencies/custom-checks" />
+
+If the check fails:
+
+```
+✗ Dependencies not satisfied
+
+Command 'build' has unmet dependencies:
+
+Failed Custom Checks:
+  • go-version - check script returned non-zero exit code
+
+Ensure all requirements are met and try again.
+```
+
+## Check Properties
+
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Identifier for error messages |
+| `check_script` | Yes | Script to execute for the check |
+| `expected_code` | No | Expected exit code (default: 0) |
+| `expected_output` | No | Regex pattern to match output |
+
+:::info Host and Container Execution
+Root, command, and implementation-level custom checks always run on the host. To run a custom check inside a container image, put `depends_on` inside the selected container runtime block.
+:::
+
+## Exit Code Validation
+
+By default, a check passes if the script exits with code 0:
+
+<Snippet id="dependencies/custom-checks-exit-code-default" />
+
+Expect a different exit code:
+
+<Snippet id="dependencies/custom-checks-exit-code-custom" />
+
+## Output Validation
+
+Check that output matches a pattern:
+
+<Snippet id="dependencies/custom-checks-output-validation" />
+
+Both conditions must pass when used together:
+
+<Snippet id="dependencies/custom-checks-output-and-exit-code" />
+
+## Alternatives (OR Semantics)
+
+Provide alternative checks:
+
+<Snippet id="dependencies/custom-checks-alternatives" />
+
+The dependency is satisfied if **any** alternative passes.
+
+## Real-World Examples
+
+### Tool Version Check
+
+<Snippet id="dependencies/custom-checks-example-tool-version" />
+
+### Docker Running Check
+
+<Snippet id="dependencies/custom-checks-example-docker-running" />
+
+### Git Status Check
+
+<Snippet id="dependencies/custom-checks-example-git-status" />
+
+### Configuration Validation
+
+<Snippet id="dependencies/custom-checks-example-config-validation" />
+
+### Memory/Resource Check
+
+<Snippet id="dependencies/custom-checks-example-memory-resource" />
+
+### Kubernetes Context
+
+<Snippet id="dependencies/custom-checks-example-kubernetes" />
+
+### Multiple Version Options
+
+<Snippet id="dependencies/custom-checks-example-multiple-versions" />
+
+## Container Context
+
+Runtime-level custom checks inside a container runtime block run **inside the container**:
+
+<Snippet id="dependencies/custom-checks-container-context" />
+
+## Script Tips
+
+### Keep Scripts Simple
+
+<Snippet id="dependencies/custom-checks-tip-keep-simple" />
+
+### Use Proper Exit Codes
+
+<Snippet id="dependencies/custom-checks-tip-exit-codes" />
+
+### Handle Missing Commands
+
+<Snippet id="dependencies/custom-checks-tip-handle-missing" />
+
+## Best Practices
+
+1. **Name checks clearly**: Use descriptive names for error messages
+2. **Keep scripts simple**: One check, one purpose
+3. **Use exit codes**: Return 0 for success, non-zero for failure
+4. **Add output validation**: When version format matters
+5. **Consider alternatives**: Offer multiple valid configurations
+
+## Next Steps
+
+- [Overview](./overview) - Return to dependencies overview
+- [Flags and Arguments](../flags-and-arguments/overview) - Accept user input

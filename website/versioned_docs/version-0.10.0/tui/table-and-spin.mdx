@@ -1,0 +1,121 @@
+---
+sidebar_position: 5
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Table and Spin
+
+Data display and loading indicator components.
+
+## Table
+
+Display and optionally select from tabular data.
+
+### Basic Usage
+
+<Snippet id="tui/table-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--file` | CSV file to display |
+| `--separator` | Column separator (default: `,`) |
+| `--columns` | Column headers (override file header) |
+| `--widths` | Column widths (comma-separated integers) |
+| `--selectable` | Allow row selection |
+| `--height` | Table height |
+
+### Examples
+
+<Snippet id="tui/table-examples" />
+
+### Selectable Tables
+
+<Snippet id="tui/table-selectable" />
+
+The selected row is returned as the full CSV line.
+
+### Real-World Examples
+
+#### Display Server List
+
+<Snippet id="tui/table-servers" />
+
+#### Select and SSH
+
+<Snippet id="tui/table-ssh" />
+
+#### Process List
+
+<Snippet id="tui/table-process" />
+
+---
+
+## Spin
+
+Show a spinner while running a long command.
+
+### Basic Usage
+
+<Snippet id="tui/spin-basic" />
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Spinner title/message |
+| `--type` | Spinner animation type |
+
+### Spinner Types
+
+Available spinner animations:
+
+- `line` - Simple line
+- `dot` - Dots
+- `minidot` - Small dots
+- `jump` - Jumping dots
+- `pulse` - Pulsing dot
+- `points` - Points
+- `globe` - Spinning globe
+- `moon` - Moon phases
+- `monkey` - Monkey
+- `meter` - Progress meter
+- `hamburger` - Hamburger menu
+- `ellipsis` - Ellipsis
+
+<Snippet id="tui/spin-types" />
+
+### Examples
+
+<Snippet id="tui/spin-examples" />
+
+### Chained Spinners
+
+<Snippet id="tui/spin-chained" />
+
+### Exit Code Handling
+
+The spin command returns the exit code of the wrapped command:
+
+<Snippet id="tui/spin-exit-code" />
+
+### In Scripts
+
+<Snippet id="tui/spin-script" />
+
+## Combined Patterns
+
+### Select Then Execute with Spinner
+
+<Snippet id="tui/spin-select-execute" />
+
+### Table Selection with Spinner Action
+
+<Snippet id="tui/table-spin-combined" />
+
+## Next Steps
+
+- [Format and Style](./format-and-style) - Text formatting
+- [Overview](./overview) - All TUI components
