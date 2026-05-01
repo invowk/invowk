@@ -3,6 +3,7 @@
 package commandsvc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -19,6 +20,8 @@ const (
 )
 
 type (
+	watchInfraErrorCount int
+
 	// WatchInfraErrorLimit is the number of consecutive infrastructure errors
 	// that cause watch mode to abort.
 	WatchInfraErrorLimit int
@@ -38,11 +41,42 @@ type (
 		InfraErrorAbortLimit WatchInfraErrorLimit
 	}
 
+	// WatchExecutionOutcome separates command exit status from execution
+	// infrastructure failures during watch re-execution.
+	//
+	//goplint:ignore -- watch execution result is a small callback DTO with no constructor invariants.
+	WatchExecutionOutcome struct {
+		ExitCode types.ExitCode
+		Err      error
+	}
+
+	// WatchExecutionFunc executes the watched command once.
+	//
+	//goplint:ignore -- filesystem watcher adapters provide changed paths as raw OS-native strings.
+	WatchExecutionFunc func(context.Context, []string) WatchExecutionOutcome
+
+	// WatchSession owns watch-mode re-execution policy; adapters own
+	// filesystem watching and rendering.
+	WatchSession struct {
+		plan                   WatchPlan
+		execute                WatchExecutionFunc
+		consecutiveInfraErrors watchInfraErrorCount
+	}
+
 	// InvalidWatchPlanError reports invalid watch configuration on a command.
 	InvalidWatchPlanError struct {
 		Err error
 	}
 )
+
+func (c watchInfraErrorCount) String() string { return fmt.Sprintf("%d", c) }
+
+func (c watchInfraErrorCount) Validate() error {
+	if c < 0 {
+		return errors.New("watch infrastructure error count must not be negative")
+	}
+	return nil
+}
 
 // String returns the decimal string representation of the WatchInfraErrorLimit.
 func (l WatchInfraErrorLimit) String() string { return fmt.Sprintf("%d", l) }
@@ -53,6 +87,11 @@ func (l WatchInfraErrorLimit) Validate() error {
 		return errors.New("watch infrastructure error limit must be positive")
 	}
 	return nil
+}
+
+// Validate returns nil when the watch execution outcome is well-formed.
+func (o WatchExecutionOutcome) Validate() error {
+	return o.ExitCode.Validate()
 }
 
 // Error implements error.
@@ -108,6 +147,75 @@ func NewWatchPlan(cmdInfo *discovery.CommandInfo) (WatchPlan, error) {
 		return WatchPlan{}, &InvalidWatchPlanError{Err: err}
 	}
 	return plan, nil
+}
+
+// NewWatchSession creates watch-mode execution policy for a validated plan.
+func NewWatchSession(plan WatchPlan, execute WatchExecutionFunc) (*WatchSession, error) {
+	if err := plan.Validate(); err != nil {
+		return nil, &InvalidWatchPlanError{Err: err}
+	}
+	if execute == nil {
+		return nil, errors.New("watch execution function is required")
+	}
+	session := &WatchSession{plan: plan, execute: execute}
+	if err := session.Validate(); err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+// Validate returns nil when the session has executable watch policy.
+func (s *WatchSession) Validate() error {
+	if s == nil {
+		return errors.New("watch session is required")
+	}
+	if err := s.plan.Validate(); err != nil {
+		return err
+	}
+	if s.execute == nil {
+		return errors.New("watch execution function is required")
+	}
+	return s.consecutiveInfraErrors.Validate()
+}
+
+// InitialExecution executes the watched command once before the filesystem
+// watcher starts.
+func (s *WatchSession) InitialExecution(ctx context.Context) (WatchExecutionOutcome, error) {
+	outcome := s.execute(ctx, nil)
+	if outcome.Err == nil && outcome.ExitCode == 0 {
+		return outcome, nil
+	}
+	if ctx.Err() != nil {
+		return outcome, fmt.Errorf("initial execution cancelled: %w", ctx.Err())
+	}
+	if outcome.Err != nil {
+		return outcome, fmt.Errorf("cannot start watch mode: %w", outcome.Err)
+	}
+	return outcome, nil
+}
+
+// HandleChange applies watch-mode re-execution policy after a filesystem change.
+//
+//goplint:ignore -- filesystem watcher adapters provide changed paths as raw OS-native strings.
+func (s *WatchSession) HandleChange(ctx context.Context, changed []string) (WatchExecutionOutcome, error) {
+	outcome := s.execute(ctx, changed)
+	if outcome.Err == nil && outcome.ExitCode == 0 {
+		s.consecutiveInfraErrors = 0
+		return outcome, nil
+	}
+	if ctx.Err() != nil {
+		return outcome, fmt.Errorf("execution cancelled: %w", ctx.Err())
+	}
+	if outcome.Err == nil {
+		s.consecutiveInfraErrors = 0
+		return outcome, nil
+	}
+
+	s.consecutiveInfraErrors++
+	if s.consecutiveInfraErrors >= watchInfraErrorCount(s.plan.InfraErrorAbortLimit) {
+		return outcome, fmt.Errorf("aborting watch: %d consecutive infrastructure failures (last: %w)", s.consecutiveInfraErrors, outcome.Err)
+	}
+	return outcome, nil
 }
 
 // Validate returns nil when the watch plan's typed fields are valid.

@@ -227,18 +227,18 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 	//
 	// On Linux, acquireRunLock() provides cross-process serialization via flock so
 	// that concurrent invowk processes (testscript, parallel terminal invocations)
-	// don't race. On non-Linux, flock is unavailable and we fall back to sync.Mutex
-	// for intra-process protection only.
+	// don't race. On non-Linux, flock is unavailable and we fall back to a
+	// process-wide mutex for intra-process protection across runtime instances.
 	if checker, ok := r.engine.(container.SysctlOverrideChecker); ok && !checker.SysctlOverrideActive() {
-		lock, lockErr := acquireRunLock()
+		lock, lockErr := acquireContainerRunLock()
 		if lockErr != nil {
 			if errors.Is(lockErr, errFlockUnavailable) {
 				slog.Debug("flock unavailable, falling back to in-process mutex", "error", lockErr)
 			} else {
 				slog.Warn("flock acquisition failed, falling back to in-process mutex", "error", lockErr)
 			}
-			r.runMu.Lock()
-			defer r.runMu.Unlock()
+			containerRunFallbackMu.Lock()
+			defer containerRunFallbackMu.Unlock()
 		} else {
 			defer lock.Release()
 		}

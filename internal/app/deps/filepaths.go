@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
@@ -15,7 +14,7 @@ import (
 
 // CheckFilepathDependenciesInContainer verifies all required files/directories exist inside the container.
 // Called only for container runtime (caller guards non-container early return).
-func CheckFilepathDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
+func CheckFilepathDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx ExecutionContext) error {
 	if deps == nil || len(deps.Filepaths) == 0 {
 		return nil
 	}
@@ -26,14 +25,14 @@ func CheckFilepathDependenciesInContainer(deps *invowkfile.DependsOn, probe Runt
 	var filepathErrors []DependencyMessage
 
 	for _, fp := range deps.Filepaths {
-		if err := probe.CheckFilepath(ctx, fp); err != nil {
+		if err := probe.CheckFilepath(fp); err != nil {
 			filepathErrors = append(filepathErrors, dependencyMessageFromDetail(err.Error()))
 		}
 	}
 
 	if len(filepathErrors) > 0 {
 		return &DependencyError{
-			CommandName:        ctx.Command.Name,
+			CommandName:        ctx.CommandName,
 			MissingFilepaths:   filepathErrors,
 			StructuredFailures: dependencyFailures(DependencyFailureFilepath, filepathErrors),
 		}
@@ -44,12 +43,12 @@ func CheckFilepathDependenciesInContainer(deps *invowkfile.DependsOn, probe Runt
 
 // CheckHostFilepathDependencies verifies all required files/directories exist on the HOST filesystem.
 // Always uses native validation regardless of selected runtime.
-func CheckHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath types.FilesystemPath, ctx *runtime.ExecutionContext) error {
+func CheckHostFilepathDependencies(deps *invowkfile.DependsOn, invowkfilePath types.FilesystemPath, ctx ExecutionContext) error {
 	return CheckHostFilepathDependenciesWithProbe(deps, invowkfilePath, ctx, nil)
 }
 
 // CheckHostFilepathDependenciesWithProbe verifies host filepath dependencies through an injectable probe.
-func CheckHostFilepathDependenciesWithProbe(deps *invowkfile.DependsOn, invowkfilePath types.FilesystemPath, ctx *runtime.ExecutionContext, probe HostProbe) error {
+func CheckHostFilepathDependenciesWithProbe(deps *invowkfile.DependsOn, invowkfilePath types.FilesystemPath, ctx ExecutionContext, probe HostProbe) error {
 	if deps == nil || len(deps.Filepaths) == 0 {
 		return nil
 	}
@@ -65,7 +64,7 @@ func CheckHostFilepathDependenciesWithProbe(deps *invowkfile.DependsOn, invowkfi
 
 	if len(filepathErrors) > 0 {
 		return &DependencyError{
-			CommandName:        ctx.Command.Name,
+			CommandName:        ctx.CommandName,
 			MissingFilepaths:   filepathErrors,
 			StructuredFailures: dependencyFailures(DependencyFailureFilepath, filepathErrors),
 		}

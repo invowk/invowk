@@ -32,7 +32,7 @@ type (
 	// RuntimeDependencyProbeFactory adapts one execution registry into the
 	// runtime dependency probe used by dependency validation.
 	RuntimeDependencyProbeFactory interface {
-		Create(*runtime.Registry) deps.RuntimeDependencyProbe
+		Create(*runtime.Registry, *runtime.ExecutionContext) deps.RuntimeDependencyProbe
 	}
 
 	// InteractiveExecutor owns terminal UI execution for runtimes that support
@@ -87,7 +87,7 @@ func (missingRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfi
 	}
 }
 
-func (noopRuntimeDependencyProbeFactory) Create(*runtime.Registry) deps.RuntimeDependencyProbe {
+func (noopRuntimeDependencyProbeFactory) Create(*runtime.Registry, *runtime.ExecutionContext) deps.RuntimeDependencyProbe {
 	return nil
 }
 

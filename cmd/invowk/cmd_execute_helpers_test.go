@@ -35,11 +35,9 @@ func (s *fakeAmbiguityCommandService) ResolveFromSource(_ context.Context, req E
 	return &discovery.CommandInfo{Name: "build", SimpleName: "build"}, req, nil, nil
 }
 
-// TestCreateRuntimeRegistry_SingleContainerInstance verifies the invariant that
-// CreateRuntimeRegistry creates at most one ContainerRuntime instance. The
-// ContainerRuntime.runMu mutex provides intra-process serialization as a fallback
-// when flock-based cross-process locking is unavailable; multiple instances would
-// each have their own mutex, defeating the serialization guarantee.
+// TestCreateRuntimeRegistry_SingleContainerInstance verifies that registry setup
+// creates at most one ContainerRuntime instance per execution so cleanup and
+// provisioning state stay scoped to that execution.
 func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 	t.Parallel()
 

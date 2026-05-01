@@ -40,11 +40,6 @@ type (
 	}
 
 	productionWatchRunnerCreator struct{}
-
-	watchExecutionOutcome struct {
-		ExitCode types.ExitCode
-		Err      error
-	}
 )
 
 // Error implements the error interface.
@@ -54,10 +49,6 @@ func (e *WatchCommandNotFoundError) Error() string {
 
 func (productionWatchRunnerCreator) Create(cfg watch.Config) (WatchRunner, error) {
 	return watch.New(cfg)
-}
-
-func (o watchExecutionOutcome) Validate() error {
-	return o.ExitCode.Validate()
 }
 
 // runWatchMode sets up file watching and re-executes the command on file changes.
@@ -109,43 +100,36 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	// for initial execution, or the watcher's callback context for re-execution.
 	// This threads cancellation signals (Ctrl+C) and context values (--ivk-config)
 	// into the execution pipeline, which derives its context from cmd.Context().
-	reexecute := func(execCtx context.Context, _ []string) watchExecutionOutcome {
+	reexecute := func(execCtx context.Context, _ []string) commandsvc.WatchExecutionOutcome {
 		childFlags := *cmdFlags
 		childFlags.watch = false
 		cmd.SetContext(execCtx)
 		req, buildErr := buildExecuteRequest(cmd, rootFlags, &childFlags, args)
 		if buildErr != nil {
-			return watchExecutionOutcome{Err: buildErr}
+			return commandsvc.WatchExecutionOutcome{Err: buildErr}
 		}
 		result, execErr := executeWatchRequest(cmd, app, req)
 		if execErr != nil {
-			return watchExecutionOutcome{Err: execErr}
+			return commandsvc.WatchExecutionOutcome{Err: execErr}
 		}
-		return watchExecutionOutcome{ExitCode: result.ExitCode}
+		return commandsvc.WatchExecutionOutcome{ExitCode: result.ExitCode}
+	}
+	session, err := commandsvc.NewWatchSession(plan, reexecute)
+	if err != nil {
+		return err
 	}
 
 	// Execute the command once immediately before starting the watcher.
 	fmt.Fprintf(app.stdout, "%s Watch mode: initial execution of '%s'\n", VerboseHighlightStyle.Render("→"), args[0])
-	if outcome := reexecute(ctx, nil); outcome.Err != nil || outcome.ExitCode != 0 {
-		// Propagate context cancellation (Ctrl+C) instead of looping.
-		if ctx.Err() != nil {
-			return fmt.Errorf("initial execution cancelled: %w", ctx.Err())
-		}
-		if outcome.Err != nil {
-			return fmt.Errorf("cannot start watch mode: %w", outcome.Err)
-		}
-
+	outcome, err := session.InitialExecution(ctx)
+	if err != nil {
+		return err
+	}
+	if outcome.ExitCode != 0 {
 		fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
 	}
 
 	fmt.Fprintf(app.stdout, "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))
-
-	// Track consecutive infrastructure failures in the OnChange
-	// callback. After the plan's limit, the watcher aborts because the
-	// underlying problem (deleted invowkfile, missing runtime, etc.) is unlikely
-	// to be fixed by further file changes. The counter resets when the command
-	// runs to completion, even if it exits non-zero.
-	var consecutiveInfraErrors int
 
 	cfg := watch.Config{
 		Patterns: plan.Patterns,
@@ -158,24 +142,14 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 			}
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
 				VerboseHighlightStyle.Render("→"), len(changed), args[0])
-			outcome := reexecute(cbCtx, changed)
-			if outcome.Err != nil || outcome.ExitCode != 0 {
-				// Propagate context cancellation (Ctrl+C) instead of looping.
-				if cbCtx.Err() != nil {
-					return fmt.Errorf("execution cancelled: %w", cbCtx.Err())
-				}
-				if outcome.Err == nil {
-					consecutiveInfraErrors = 0
-					fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
-				} else {
-					consecutiveInfraErrors++
-					fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), outcome.Err)
-					if consecutiveInfraErrors >= int(plan.InfraErrorAbortLimit) {
-						return fmt.Errorf("aborting watch: %d consecutive infrastructure failures (last: %w)", consecutiveInfraErrors, outcome.Err)
-					}
-				}
-			} else {
-				consecutiveInfraErrors = 0
+			outcome, handleErr := session.HandleChange(cbCtx, changed)
+			if outcome.Err != nil {
+				fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), outcome.Err)
+			} else if outcome.ExitCode != 0 {
+				fmt.Fprintf(app.stderr, "%s Command exited with code %d\n", WarningStyle.Render("!"), outcome.ExitCode)
+			}
+			if handleErr != nil {
+				return handleErr
 			}
 			fmt.Fprintf(app.stdout, "\n%s Watching for changes...\n\n", VerboseHighlightStyle.Render("→"))
 			return nil

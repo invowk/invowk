@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -60,24 +59,24 @@ func ValidateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 // Called only for container runtime (caller guards non-container early return).
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
-func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
+func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx ExecutionContext) error {
 	if probe == nil {
 		return ErrRuntimeDependencyProbeRequired
 	}
 	return evaluateCustomChecks(deps, ctx, func(_ context.Context, check invowkfile.CustomCheck) error {
-		return probe.RunCustomCheck(ctx, check)
+		return probe.RunCustomCheck(check)
 	})
 }
 
 // CheckHostCustomCheckDependencies validates custom checks always using the native shell on the host.
 // Host-level custom checks always run in the native shell, regardless of the selected runtime,
 // ensuring host-side prerequisites are validated in a consistent, predictable environment.
-func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+func CheckHostCustomCheckDependencies(deps *invowkfile.DependsOn, ctx ExecutionContext) error {
 	return CheckHostCustomCheckDependenciesWithProbe(deps, ctx, nil)
 }
 
 // CheckHostCustomCheckDependenciesWithProbe validates host custom checks through an injectable probe.
-func CheckHostCustomCheckDependenciesWithProbe(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext, probe HostProbe) error {
+func CheckHostCustomCheckDependenciesWithProbe(deps *invowkfile.DependsOn, ctx ExecutionContext, probe HostProbe) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
 		return nil
 	}
@@ -93,7 +92,7 @@ func CheckHostCustomCheckDependenciesWithProbe(deps *invowkfile.DependsOn, ctx *
 // The validator receives the Go context from ExecutionContext for cancellation/timeout.
 func evaluateCustomChecks(
 	deps *invowkfile.DependsOn,
-	ctx *runtime.ExecutionContext,
+	ctx ExecutionContext,
 	validator func(context.Context, invowkfile.CustomCheck) error,
 ) error {
 	if deps == nil || len(deps.CustomChecks) == 0 {
@@ -102,7 +101,7 @@ func evaluateCustomChecks(
 
 	// Extract the Go context for cancellation/timeout propagation.
 	// Nil fallback to context.Background() for backwards compatibility.
-	goCtx := ctx.Context
+	goCtx := ctx.GoContext()
 	if goCtx == nil {
 		goCtx = context.Background()
 	}
@@ -134,7 +133,7 @@ func evaluateCustomChecks(
 
 	if len(checkErrors) > 0 {
 		return &DependencyError{
-			CommandName:        ctx.Command.Name,
+			CommandName:        ctx.CommandName,
 			FailedCustomChecks: checkErrors,
 			StructuredFailures: dependencyFailures(DependencyFailureCustomCheck, checkErrors),
 		}
@@ -171,7 +170,7 @@ func customCheckFieldValidationMessage(err error) string {
 
 // CheckEnvVarDependenciesInContainer validates env vars inside the container.
 // Called only for container runtime (caller guards non-container early return).
-func CheckEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
+func CheckEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx ExecutionContext) error {
 	if deps == nil || len(deps.EnvVars) == 0 {
 		return nil
 	}
@@ -182,7 +181,7 @@ func CheckEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, probe Runtim
 	envVarErrors := collectContainerEnvVarErrors(deps.EnvVars, probe, ctx)
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
-			CommandName:        ctx.Command.Name,
+			CommandName:        ctx.CommandName,
 			MissingEnvVars:     envVarErrors,
 			StructuredFailures: dependencyFailures(DependencyFailureEnvVar, envVarErrors),
 		}
@@ -193,7 +192,7 @@ func CheckEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, probe Runtim
 
 // CheckCapabilityDependenciesInContainer validates capabilities inside the container.
 // Called only for container runtime (caller guards non-container early return).
-func CheckCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
+func CheckCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx ExecutionContext) error {
 	if deps == nil || len(deps.Capabilities) == 0 {
 		return nil
 	}
@@ -204,7 +203,7 @@ func CheckCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, probe Ru
 	capabilityErrors := collectContainerCapabilityErrors(deps.Capabilities, probe, ctx)
 	if len(capabilityErrors) > 0 {
 		return &DependencyError{
-			CommandName:         ctx.Command.Name,
+			CommandName:         ctx.CommandName,
 			MissingCapabilities: capabilityErrors,
 			StructuredFailures:  dependencyFailures(DependencyFailureCapability, capabilityErrors),
 		}
@@ -233,7 +232,7 @@ func CapabilityCheckScript(capName invowkfile.CapabilityName) string {
 // CheckCommandDependenciesInContainer validates command discoverability inside the container.
 // Called only for container runtime (caller guards non-container early return).
 // Runs `invowk internal check-cmd` inside the container to verify auto-provisioning worked.
-func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
+func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx ExecutionContext) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
@@ -244,7 +243,7 @@ func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, probe Runti
 	commandErrors := collectContainerCommandErrors(deps.Commands, probe, ctx)
 	if len(commandErrors) > 0 {
 		return &DependencyError{
-			CommandName:        ctx.Command.Name,
+			CommandName:        ctx.CommandName,
 			MissingCommands:    commandErrors,
 			StructuredFailures: dependencyFailures(DependencyFailureCommand, commandErrors),
 		}
@@ -257,12 +256,12 @@ func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, probe Runti
 // Capabilities are always checked against the host system, regardless of the runtime mode.
 // For container runtimes, these checks represent the host's capabilities, not the container's.
 // Each CapabilityDependency contains a list of alternatives; if any alternative is satisfied, the dependency is met.
-func CheckCapabilityDependencies(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext) error {
+func CheckCapabilityDependencies(deps *invowkfile.DependsOn, ctx ExecutionContext) error {
 	return CheckCapabilityDependenciesWithChecker(deps, ctx, nil)
 }
 
 // CheckCapabilityDependenciesWithChecker verifies capability dependencies with an injected checker.
-func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx *runtime.ExecutionContext, checker CapabilityChecker) error {
+func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx ExecutionContext, checker CapabilityChecker) error {
 	if deps == nil || len(deps.Capabilities) == 0 {
 		return nil
 	}
@@ -274,7 +273,7 @@ func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx *run
 
 	for _, capDep := range uniqueCapabilityDependencies(deps.Capabilities) {
 		found, lastErr := EvaluateAlternatives(capDep.Alternatives, func(capability invowkfile.CapabilityName) error {
-			return checker.Check(ctx.Context, ctx.IO, capability)
+			return checker.Check(ctx.GoContext(), ctx.IO, capability)
 		})
 		if !found && lastErr != nil {
 			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, false, lastErr))
@@ -283,7 +282,7 @@ func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx *run
 
 	if len(capabilityErrors) > 0 {
 		return &DependencyError{
-			CommandName:         ctx.Command.Name,
+			CommandName:         ctx.CommandName,
 			MissingCapabilities: capabilityErrors,
 			StructuredFailures:  dependencyFailures(DependencyFailureCapability, capabilityErrors),
 		}
@@ -297,7 +296,7 @@ func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx *run
 // at the START of execution before invowk sets any command-level env vars.
 // This ensures the check validates the user's actual environment, not variables set by invowk.
 // Each EnvVarDependency contains alternatives with OR semantics (early return on first match).
-func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]string, ctx *runtime.ExecutionContext) error {
+func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]string, ctx ExecutionContext) error {
 	if deps == nil || len(deps.EnvVars) == 0 {
 		return nil
 	}
@@ -305,7 +304,7 @@ func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 	envVarErrors := collectHostEnvVarErrors(deps.EnvVars, userEnv)
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
-			CommandName:        ctx.Command.Name,
+			CommandName:        ctx.CommandName,
 			MissingEnvVars:     envVarErrors,
 			StructuredFailures: dependencyFailures(DependencyFailureEnvVar, envVarErrors),
 		}
@@ -314,11 +313,11 @@ func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 	return nil
 }
 
-func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) []DependencyMessage {
+func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, probe RuntimeDependencyProbe, _ ExecutionContext) []DependencyMessage {
 	var envVarErrors []DependencyMessage
 	for _, envVar := range envVars {
 		found, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
-			return probe.CheckEnvVar(ctx, alt)
+			return probe.CheckEnvVar(alt)
 		})
 		if !found && lastErr != nil {
 			envVarErrors = append(envVarErrors, formatEnvVarAlternatives(envVar.Alternatives, true, lastErr))
@@ -327,11 +326,11 @@ func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, probe R
 	return envVarErrors
 }
 
-func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDependency, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) []DependencyMessage {
+func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDependency, probe RuntimeDependencyProbe, _ ExecutionContext) []DependencyMessage {
 	var capabilityErrors []DependencyMessage
 	for _, capDep := range capabilities {
 		found, lastErr := EvaluateAlternatives(capDep.Alternatives, func(alt invowkfile.CapabilityName) error {
-			return probe.CheckCapability(ctx, alt)
+			return probe.CheckCapability(alt)
 		})
 		if !found && lastErr != nil {
 			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, true, lastErr))
@@ -340,7 +339,7 @@ func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDepend
 	return capabilityErrors
 }
 
-func collectContainerCommandErrors(commands []invowkfile.CommandDependency, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) []DependencyMessage {
+func collectContainerCommandErrors(commands []invowkfile.CommandDependency, probe RuntimeDependencyProbe, _ ExecutionContext) []DependencyMessage {
 	var commandErrors []DependencyMessage
 	for _, dep := range commands {
 		alternatives := normalizedCommandAlternatives(dep)
@@ -349,7 +348,7 @@ func collectContainerCommandErrors(commands []invowkfile.CommandDependency, prob
 		}
 
 		found, lastErr := EvaluateAlternatives(alternatives, func(alt invowkfile.CommandName) error {
-			return probe.CheckCommand(ctx, alt)
+			return probe.CheckCommand(alt)
 		})
 		if !found && lastErr != nil {
 			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, true))

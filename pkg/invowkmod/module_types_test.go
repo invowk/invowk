@@ -23,6 +23,8 @@ func TestModuleAlias_Validate(t *testing.T) {
 		{"alias with dashes", ModuleAlias("my-tools"), true, false},
 		{"alias with underscores", ModuleAlias("my_tools"), true, false},
 		{"single char", ModuleAlias("a"), true, false},
+		{"max length", ModuleAlias(strings.Repeat("a", MaxModuleAliasLength)), true, false},
+		{"over max length", ModuleAlias(strings.Repeat("a", MaxModuleAliasLength+1)), false, true},
 		{"starts with digit", ModuleAlias("1tools"), false, true},
 		{"starts with hyphen", ModuleAlias("-tools"), false, true},
 		{"space only", ModuleAlias(" "), false, true},

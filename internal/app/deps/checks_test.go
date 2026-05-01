@@ -23,7 +23,7 @@ type (
 
 	recordedCapabilityRequest struct {
 		ctx        context.Context
-		ioCtx      runtimepkg.IOContext
+		ioCtx      IOContext
 		capability invowkfile.CapabilityName
 	}
 
@@ -32,14 +32,14 @@ type (
 	}
 )
 
-func (f fakeCapabilityChecker) Check(_ context.Context, _ runtimepkg.IOContext, capability invowkfile.CapabilityName) error {
+func (f fakeCapabilityChecker) Check(_ context.Context, _ IOContext, capability invowkfile.CapabilityName) error {
 	if err, ok := f[capability]; ok {
 		return err
 	}
 	return nil
 }
 
-func (r *recordingCapabilityChecker) Check(ctx context.Context, ioCtx runtimepkg.IOContext, capability invowkfile.CapabilityName) error {
+func (r *recordingCapabilityChecker) Check(ctx context.Context, ioCtx IOContext, capability invowkfile.CapabilityName) error {
 	r.requests = append(r.requests, recordedCapabilityRequest{ctx: ctx, ioCtx: ioCtx, capability: capability})
 	return nil
 }
@@ -99,7 +99,6 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 func TestValidateCustomCheckInContainer(t *testing.T) {
 	t.Parallel()
 
-	ctx := newDependencyExecutionContext(t)
 	check := invowkfile.CustomCheck{Name: "demo", CheckScript: "echo ok", ExpectedOutput: "^ok$"}
 
 	probe := &filepathStubRuntime{
@@ -108,7 +107,7 @@ func TestValidateCustomCheckInContainer(t *testing.T) {
 			return &runtimepkg.Result{ExitCode: 0}
 		},
 	}
-	if validateErr := probe.RunCustomCheck(ctx, check); validateErr != nil {
+	if validateErr := probe.RunCustomCheck(check); validateErr != nil {
 		t.Fatalf("RunCustomCheck() = %v", validateErr)
 	}
 
@@ -117,7 +116,7 @@ func TestValidateCustomCheckInContainer(t *testing.T) {
 			return &runtimepkg.Result{ExitCode: 1, Error: errors.New("engine down")}
 		},
 	}
-	err := probe.RunCustomCheck(ctx, check)
+	err := probe.RunCustomCheck(check)
 	if !errors.Is(err, ErrContainerValidationFailed) {
 		t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
 	}
@@ -142,20 +141,20 @@ func TestContainerEnvVarValidation(t *testing.T) {
 			}
 		},
 	}
-	if stub.CheckEnvVar(ctx, invowkfile.EnvVarCheck{Name: "", Validation: "^.+$"}) == nil {
+	if stub.CheckEnvVar(invowkfile.EnvVarCheck{Name: "", Validation: "^.+$"}) == nil {
 		t.Fatal("expected empty name error")
 	}
 
-	if err := stub.CheckEnvVar(ctx, invowkfile.EnvVarCheck{Name: "HOME", Validation: "^/home/"}); err != nil {
+	if err := stub.CheckEnvVar(invowkfile.EnvVarCheck{Name: "HOME", Validation: "^/home/"}); err != nil {
 		t.Fatalf("CheckEnvVar() = %v", err)
 	}
 
-	err := stub.CheckEnvVar(ctx, invowkfile.EnvVarCheck{Name: "MISSING"})
+	err := stub.CheckEnvVar(invowkfile.EnvVarCheck{Name: "MISSING"})
 	if !errors.Is(err, ErrContainerEnvVarNotSet) {
 		t.Fatalf("err = %v, want wrapping ErrContainerEnvVarNotSet", err)
 	}
 
-	err = stub.CheckEnvVar(ctx, invowkfile.EnvVarCheck{Name: "TRANSIENT"})
+	err = stub.CheckEnvVar(invowkfile.EnvVarCheck{Name: "TRANSIENT"})
 	if !errors.Is(err, ErrContainerEngineFailure) {
 		t.Fatalf("err = %v, want wrapping ErrContainerEngineFailure", err)
 	}
@@ -191,10 +190,10 @@ func TestContainerCapabilityValidation(t *testing.T) {
 			return &runtimepkg.Result{ExitCode: 1}
 		},
 	}
-	if stub.CheckCapability(ctx, invowkfile.CapabilityName("bogus")) == nil {
+	if stub.CheckCapability(invowkfile.CapabilityName("bogus")) == nil {
 		t.Fatal("expected unknown capability error")
 	}
-	if err := stub.CheckCapability(ctx, invowkfile.CapabilityContainers); err != nil {
+	if err := stub.CheckCapability(invowkfile.CapabilityContainers); err != nil {
 		t.Fatalf("CheckCapability() = %v", err)
 	}
 
@@ -241,16 +240,16 @@ func TestContainerCommandValidation(t *testing.T) {
 			}
 		},
 	}
-	if err := stub.CheckCommand(ctx, "build"); err != nil {
+	if err := stub.CheckCommand("build"); err != nil {
 		t.Fatalf("CheckCommand(build) = %v", err)
 	}
 
-	err := stub.CheckCommand(ctx, "missing")
+	err := stub.CheckCommand("missing")
 	if !errors.Is(err, ErrContainerCommandNotFound) {
 		t.Fatalf("err = %v, want wrapping ErrContainerCommandNotFound", err)
 	}
 
-	err = stub.CheckCommand(ctx, "broken")
+	err = stub.CheckCommand("broken")
 	if !errors.Is(err, ErrContainerValidationFailed) {
 		t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
 	}
@@ -447,11 +446,11 @@ func TestCheckHostCustomCheckDependencies(t *testing.T) {
 	})
 }
 
-func newDependencyExecutionContext(t *testing.T) *runtimepkg.ExecutionContext {
+func newDependencyExecutionContext(t *testing.T) ExecutionContext {
 	t.Helper()
-	return &runtimepkg.ExecutionContext{
-		Command: &invowkfile.Command{Name: "build"},
-		Context: t.Context(),
+	return ExecutionContext{
+		CommandName: "build",
+		Context:     t.Context(),
 	}
 }
 
@@ -534,9 +533,9 @@ func TestEvaluateCustomChecks_PropagatesContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	execCtx := &runtimepkg.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test"},
-		Context: ctx,
+	execCtx := ExecutionContext{
+		CommandName: "test",
+		Context:     ctx,
 	}
 
 	deps := &invowkfile.DependsOn{
@@ -572,9 +571,9 @@ func TestEvaluateCustomChecks_PropagatesContext(t *testing.T) {
 func TestEvaluateCustomChecks_NilContextFallback(t *testing.T) {
 	t.Parallel()
 
-	execCtx := &runtimepkg.ExecutionContext{
-		Command: &invowkfile.Command{Name: "test"},
-		Context: nil, // nil context
+	execCtx := ExecutionContext{
+		CommandName: "test",
+		Context:     nil, // nil context
 	}
 
 	deps := &invowkfile.DependsOn{
@@ -750,7 +749,9 @@ func TestCheckCapabilityDependencies(t *testing.T) {
 	t.Run("injected checker receives request scoped context and io", func(t *testing.T) {
 		t.Parallel()
 
-		ioCtx, stdout, stderr := runtimepkg.CaptureIO()
+		stdout := &strings.Builder{}
+		stderr := &strings.Builder{}
+		ioCtx := IOContext{Stdout: stdout, Stderr: stderr}
 		ctx := newDependencyExecutionContext(t)
 		ctx.Context = t.Context()
 		ctx.IO = ioCtx

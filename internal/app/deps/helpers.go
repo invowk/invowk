@@ -3,11 +3,9 @@
 package deps
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -24,41 +22,6 @@ func EvaluateAlternatives[T any](alternatives []T, check func(T) error) (bool, e
 		}
 	}
 	return false, lastErr
-}
-
-// NewContainerValidationContext creates an ExecutionContext for running a validation
-// script inside a container. This DRYs the 6+ identical struct constructions
-// across the container dependency check functions.
-func NewContainerValidationContext(parentCtx *runtime.ExecutionContext, script string) (execCtx *runtime.ExecutionContext, stdout, stderr *bytes.Buffer) {
-	stdout = &bytes.Buffer{}
-	stderr = &bytes.Buffer{}
-	selectedImpl := invowkfile.Implementation{
-		Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}},
-	}
-	if parentCtx.SelectedImpl != nil {
-		selectedImpl = *parentCtx.SelectedImpl
-	}
-	selectedImpl.Script = invowkfile.ScriptContent(script) //goplint:ignore -- inline validation script
-	selectedRuntime := parentCtx.SelectedRuntime
-	if selectedRuntime == "" {
-		selectedRuntime = invowkfile.RuntimeContainer
-	}
-	execCtx = &runtime.ExecutionContext{
-		Command:         parentCtx.Command,
-		Invowkfile:      parentCtx.Invowkfile,
-		SelectedImpl:    &selectedImpl,
-		SelectedRuntime: selectedRuntime,
-		Context:         parentCtx.Context,
-		PositionalArgs:  parentCtx.PositionalArgs,
-		WorkDir:         parentCtx.WorkDir,
-		Verbose:         parentCtx.Verbose,
-		ForceRebuild:    parentCtx.ForceRebuild,
-		ExecutionID:     parentCtx.ExecutionID,
-		IO:              runtime.IOContext{Stdout: stdout, Stderr: stderr},
-		Env:             parentCtx.Env,
-		TUI:             parentCtx.TUI,
-	}
-	return execCtx, stdout, stderr
 }
 
 // CollectToolErrors evaluates each tool dependency and collects error messages for
@@ -84,17 +47,6 @@ func CollectToolErrors(tools []invowkfile.ToolDependency, check func(invowkfile.
 	}
 
 	return toolErrors
-}
-
-// CheckTransientExitCode returns a formatted error if the container execution result
-// indicates a transient engine failure (exit codes 125/126). Returns nil otherwise.
-// All container validation functions must call this after checking result.Error
-// and before interpreting result.ExitCode for domain-specific failures.
-func CheckTransientExitCode(result *runtime.Result, label string) error {
-	if runtime.IsTransientContainerEngineExitCode(result.ExitCode) {
-		return fmt.Errorf("%s - %w (exit code %s)", label, ErrContainerEngineFailure, result.ExitCode)
-	}
-	return nil
 }
 
 // ShellEscapeSingleQuote escapes single quotes for safe use inside shell single-quoted arguments.

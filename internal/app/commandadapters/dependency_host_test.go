@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/deps"
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
@@ -28,7 +27,7 @@ func TestDependencyCapabilityCheckerCheck(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping integration test in short mode")
 		}
-		assertCapabilityErrorType(t, checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityLocalAreaNetwork))
+		assertCapabilityErrorType(t, checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityLocalAreaNetwork))
 	})
 
 	t.Run("internet", func(t *testing.T) {
@@ -36,7 +35,7 @@ func TestDependencyCapabilityCheckerCheck(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping integration test in short mode")
 		}
-		assertCapabilityErrorType(t, checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityInternet))
+		assertCapabilityErrorType(t, checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityInternet))
 	})
 
 	t.Run("containers", func(t *testing.T) {
@@ -44,18 +43,18 @@ func TestDependencyCapabilityCheckerCheck(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping integration test in short mode")
 		}
-		assertCapabilityErrorType(t, checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityContainers))
+		assertCapabilityErrorType(t, checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityContainers))
 	})
 
 	t.Run("tty", func(t *testing.T) {
 		t.Parallel()
-		assertCapabilityErrorType(t, checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityTTY))
+		assertCapabilityErrorType(t, checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityTTY))
 	})
 
 	t.Run("unknown", func(t *testing.T) {
 		t.Parallel()
 
-		err := checker.Check(t.Context(), runtime.DefaultIO(), invowkfile.CapabilityName("unknown-capability"))
+		err := checker.Check(t.Context(), deps.IOContext{}, invowkfile.CapabilityName("unknown-capability"))
 		var capErr *invowkfile.CapabilityError
 		if !errors.As(err, &capErr) {
 			t.Fatalf("errors.As(*CapabilityError) = false for %T", err)

@@ -602,6 +602,30 @@ func TestResolveVendorDependenciesSyncsWhenLockMissing(t *testing.T) {
 	}
 }
 
+func TestResolveVendorDependenciesRejectsInvalidLock(t *testing.T) {
+	t.Parallel()
+
+	modulePath := types.FilesystemPath(t.TempDir())
+	requirements := []invowkmod.ModuleRef{{GitURL: "https://example.com/dep.git", Version: "^1.0.0"}}
+	if writeErr := os.WriteFile(filepath.Join(string(modulePath), invowkmod.LockFileName), []byte("not: valid: lock:"), 0o644); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	resolver := &fakeVendorDependencyResolver{
+		syncResult: []*invowkmod.ResolvedModule{{ModuleRef: requirements[0]}},
+	}
+
+	_, strategy, err := resolveVendorDependencies(t.Context(), resolver, modulePath, requirements, false)
+	if err == nil {
+		t.Fatal("resolveVendorDependencies(invalid lock) error = nil, want error")
+	}
+	if strategy != "" {
+		t.Fatalf("strategy = %s, want empty", strategy)
+	}
+	if resolver.syncCalls != 0 || resolver.lockCalls != 0 {
+		t.Fatalf("calls = sync:%d lock:%d, want sync:0 lock:0", resolver.syncCalls, resolver.lockCalls)
+	}
+}
+
 func TestVendorModules_OverwritesExisting(t *testing.T) {
 	t.Parallel()
 

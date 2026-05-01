@@ -79,13 +79,32 @@ func (p staticCommandScopeLockProvider) LoadCommandScopeLock(*invowkfile.Invowkf
 	return p.lock, nil
 }
 
+func testDependencyExecutionContext(t testing.TB, cmd *invowkfile.Command, selectedRuntime invowkfile.RuntimeMode) ExecutionContext {
+	t.Helper()
+
+	ctx := ExecutionContext{
+		Context:         t.Context(),
+		SelectedRuntime: selectedRuntime,
+	}
+	if cmd == nil {
+		return ctx
+	}
+	ctx.CommandName = cmd.Name
+	if len(cmd.Implementations) == 0 {
+		return ctx
+	}
+	impl := &cmd.Implementations[0]
+	ctx.ImplementationDependsOn = impl.DependsOn
+	if rt := invowkfile.FindRuntimeConfig(impl.Runtimes, selectedRuntime); rt != nil {
+		ctx.RuntimeDependsOn = rt.DependsOn
+	}
+	return ctx
+}
+
 func TestCheckCommandDependenciesExist(t *testing.T) {
 	t.Parallel()
 
-	ctx := &runtimepkg.ExecutionContext{
-		Command: &invowkfile.Command{Name: "build"},
-		Context: t.Context(),
-	}
+	ctx := testDependencyExecutionContext(t, &invowkfile.Command{Name: "build"}, "")
 
 	// Root invowkfile cmdInfo — no module metadata, no scope enforcement.
 	rootCmdInfo := &discovery.CommandInfo{
@@ -462,10 +481,7 @@ func TestDiscoverAvailableCommands(t *testing.T) {
 				},
 			},
 		}
-		ctx := &runtimepkg.ExecutionContext{
-			Command: &invowkfile.Command{Name: "build"},
-			Context: t.Context(),
-		}
+		ctx := testDependencyExecutionContext(t, &invowkfile.Command{Name: "build"}, "")
 
 		available, err := discoverAvailableCommands(disc, ctx)
 		if err != nil {
@@ -480,7 +496,7 @@ func TestDiscoverAvailableCommands(t *testing.T) {
 		t.Parallel()
 
 		disc := &stubCommandSetProvider{err: errors.New("boom")}
-		_, err := discoverAvailableCommands(disc, nil)
+		_, err := discoverAvailableCommands(disc, ExecutionContext{})
 		if err == nil {
 			t.Fatal("discoverAvailableCommands() = nil, want error")
 		}
@@ -506,12 +522,7 @@ func TestValidateDependencies(t *testing.T) {
 			Command:    cmd,
 			Invowkfile: &invowkfile.Invowkfile{},
 		}
-		execCtx := &runtimepkg.ExecutionContext{
-			Command:         cmd,
-			Context:         t.Context(),
-			SelectedRuntime: invowkfile.RuntimeVirtual,
-			SelectedImpl:    &cmd.Implementations[0],
-		}
+		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtual)
 
 		if err := ValidateDependencies(disc, cmdInfo, execCtx, nil); err != nil {
 			t.Fatalf("ValidateDependencies() = %v", err)
@@ -547,12 +558,7 @@ func TestValidateDependencies(t *testing.T) {
 			Command:    cmd,
 			Invowkfile: &invowkfile.Invowkfile{},
 		}
-		execCtx := &runtimepkg.ExecutionContext{
-			Command:         cmd,
-			Context:         t.Context(),
-			SelectedRuntime: invowkfile.RuntimeContainer,
-			SelectedImpl:    &cmd.Implementations[0],
-		}
+		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer)
 
 		err := ValidateDependenciesWithHostProbe(
 			disc,
@@ -604,12 +610,7 @@ func TestValidateDependencies(t *testing.T) {
 			Command:    cmd,
 			Invowkfile: &invowkfile.Invowkfile{},
 		}
-		execCtx := &runtimepkg.ExecutionContext{
-			Command:         cmd,
-			Context:         t.Context(),
-			SelectedRuntime: invowkfile.RuntimeVirtual,
-			SelectedImpl:    &cmd.Implementations[0],
-		}
+		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtual)
 
 		if err := ValidateDependencies(disc, cmdInfo, execCtx, nil); err != nil {
 			t.Fatalf("ValidateDependencies() = %v, expected nil (phase 2 skipped for non-container)", err)
@@ -636,12 +637,7 @@ func TestValidateDependencies(t *testing.T) {
 			Command:    cmd,
 			Invowkfile: &invowkfile.Invowkfile{},
 		}
-		execCtx := &runtimepkg.ExecutionContext{
-			Command:         cmd,
-			Context:         t.Context(),
-			SelectedRuntime: invowkfile.RuntimeVirtual,
-			SelectedImpl:    &cmd.Implementations[0],
-		}
+		execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtual)
 
 		err := ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, nil, execCtx, nil,
 			fakeCapabilityChecker{
@@ -692,11 +688,7 @@ func TestValidateHostDependenciesWithHostProbeUsesInjectedProbe(t *testing.T) {
 		Command:    cmd,
 		Invowkfile: &invowkfile.Invowkfile{FilePath: types.FilesystemPath(invowkfilePath)},
 	}
-	execCtx := &runtimepkg.ExecutionContext{
-		Command:      cmd,
-		Context:      t.Context(),
-		SelectedImpl: &cmd.Implementations[0],
-	}
+	execCtx := testDependencyExecutionContext(t, cmd, invowkfile.RuntimeNative)
 	probe := &recordingHostProbe{}
 
 	err := ValidateHostDependenciesWithHostProbe(
@@ -741,19 +733,21 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 		}},
 	}
 	cmdInfo := &discovery.CommandInfo{
-		Name:    cmd.Name,
-		Command: cmd,
+		Name:       cmd.Name,
+		Command:    cmd,
+		Invowkfile: &invowkfile.Invowkfile{},
 	}
 
 	t.Run("non-container runtime is a no-op", func(t *testing.T) {
 		t.Parallel()
 
-		err := ValidateRuntimeDependencies(cmdInfo, nil, &runtimepkg.ExecutionContext{
-			Command:         cmd,
-			Context:         t.Context(),
-			SelectedRuntime: invowkfile.RuntimeVirtual,
-			SelectedImpl:    &cmd.Implementations[0],
-		})
+		err := ValidateRuntimeDependencies(
+			&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{}}},
+			cmdInfo,
+			nil,
+			testDependencyExecutionContext(t, cmd, invowkfile.RuntimeVirtual),
+			nil,
+		)
 		if err != nil {
 			t.Fatalf("ValidateRuntimeDependencies() = %v", err)
 		}
@@ -771,14 +765,87 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 			},
 		}
 
-		err := ValidateRuntimeDependencies(cmdInfo, probe, &runtimepkg.ExecutionContext{
-			Command:         cmd,
-			Context:         t.Context(),
-			SelectedRuntime: invowkfile.RuntimeContainer,
-			SelectedImpl:    &cmd.Implementations[0],
-		})
+		err := ValidateRuntimeDependencies(
+			&stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{Commands: []*discovery.CommandInfo{{Name: "build"}}}}},
+			cmdInfo,
+			probe,
+			testDependencyExecutionContext(t, cmd, invowkfile.RuntimeContainer),
+			nil,
+		)
 		if err != nil {
 			t.Fatalf("ValidateRuntimeDependencies() = %v", err)
+		}
+	})
+
+	t.Run("container runtime enforces command scope before probe", func(t *testing.T) {
+		t.Parallel()
+
+		req := invowkmod.ModuleRequirement{
+			GitURL:  "https://github.com/example/tools.git",
+			Version: "^1.0.0",
+			Alias:   "allowed-tools",
+		}
+		depID := invowkmod.ModuleID("io.example.tools")
+		lock := invowkmod.NewLockFile()
+		lock.Modules[invowkmod.ModuleRef(req).Key()] = invowkmod.LockedModule{
+			GitURL:          req.GitURL,
+			Version:         req.Version,
+			ResolvedVersion: "1.2.3",
+			GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+			Alias:           req.Alias,
+			Namespace:       "allowed-tools",
+			ModuleID:        depID,
+			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		}
+		moduleCmd := &invowkfile.Command{
+			Name: "build",
+			Implementations: []invowkfile.Implementation{{
+				Script: "echo hello",
+				Runtimes: []invowkfile.RuntimeConfig{{
+					Name: invowkfile.RuntimeContainer,
+					DependsOn: &invowkfile.DependsOn{
+						Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"other-tools test"}}},
+					},
+				}},
+			}},
+		}
+		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+			Module:   "io.example.caller",
+			Version:  "1.0.0",
+			Requires: []invowkmod.ModuleRequirement{req},
+		})
+		callerInfo := &discovery.CommandInfo{
+			Name:       moduleCmd.Name,
+			Command:    moduleCmd,
+			Invowkfile: &invowkfile.Invowkfile{ModulePath: types.FilesystemPath(t.TempDir()), Metadata: callerMeta},
+		}
+		disc := &stubCommandSetProvider{result: discovery.CommandSetResult{Set: &discovery.DiscoveredCommandSet{
+			Commands: []*discovery.CommandInfo{{
+				Name:     "other-tools test",
+				SourceID: "other-tools",
+				ModuleID: &depID,
+			}},
+		}}}
+		probe := &filepathStubRuntime{
+			execFn: func(*runtimepkg.ExecutionContext) *runtimepkg.Result {
+				t.Fatal("container probe should not run after command scope denial")
+				return &runtimepkg.Result{ExitCode: 0}
+			},
+		}
+
+		err := ValidateRuntimeDependencies(
+			disc,
+			callerInfo,
+			probe,
+			testDependencyExecutionContext(t, moduleCmd, invowkfile.RuntimeContainer),
+			staticCommandScopeLockProvider{lock: lock},
+		)
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(*DependencyError) = false for %T", err)
+		}
+		if len(depErr.ForbiddenCommands) != 1 {
+			t.Fatalf("len(ForbiddenCommands) = %d, want 1", len(depErr.ForbiddenCommands))
 		}
 	})
 }

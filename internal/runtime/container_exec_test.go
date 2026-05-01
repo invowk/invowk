@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -41,6 +42,13 @@ type (
 		failStderr    string   // Stderr message for failed attempts.
 		successStderr string   // Stderr message for the successful attempt.
 		attempt       int
+	}
+
+	serializingSysctlEngine struct {
+		*MockEngine
+		start  <-chan struct{}
+		active *atomic.Int32
+		max    *atomic.Int32
 	}
 )
 
@@ -88,6 +96,25 @@ func (m *countingMockEngine) Run(_ context.Context, opts container.RunOptions) (
 	if opts.Stderr != nil {
 		fmt.Fprint(opts.Stderr, m.successStderr)
 	}
+	return &container.RunResult{ExitCode: 0}, nil
+}
+
+func (m *serializingSysctlEngine) SysctlOverrideActive() bool {
+	return false
+}
+
+func (m *serializingSysctlEngine) Run(_ context.Context, opts container.RunOptions) (*container.RunResult, error) {
+	<-m.start
+	current := m.active.Add(1)
+	for {
+		observed := m.max.Load()
+		if current <= observed || m.max.CompareAndSwap(observed, current) {
+			break
+		}
+	}
+	time.Sleep(50 * time.Millisecond)
+	m.active.Add(-1)
+	m.MockEngine.Run(context.Background(), opts) // record call for consistency with other mock engines.
 	return &container.RunResult{ExitCode: 0}, nil
 }
 
@@ -369,6 +396,60 @@ func TestRunWithRetry_ContextCancelled(t *testing.T) {
 	}
 	if len(engine.RunCalls) != 1 {
 		t.Fatalf("engine.Run() calls = %d, want 1", len(engine.RunCalls))
+	}
+}
+
+func TestRunWithRetry_FallbackSerializerSharedAcrossRuntimeInstances(t *testing.T) {
+	originalAcquire := acquireContainerRunLock
+	acquireContainerRunLock = func() (*runLock, error) {
+		return nil, errFlockUnavailable
+	}
+	t.Cleanup(func() {
+		acquireContainerRunLock = originalAcquire
+	})
+
+	start := make(chan struct{})
+	var active atomic.Int32
+	var maxActive atomic.Int32
+	rt1, err := NewContainerRuntimeWithEngine(&serializingSysctlEngine{
+		MockEngine: NewMockEngine().WithName("podman"),
+		start:      start,
+		active:     &active,
+		max:        &maxActive,
+	})
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine(rt1) error = %v", err)
+	}
+	rt2, err := NewContainerRuntimeWithEngine(&serializingSysctlEngine{
+		MockEngine: NewMockEngine().WithName("podman"),
+		start:      start,
+		active:     &active,
+		max:        &maxActive,
+	})
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine(rt2) error = %v", err)
+	}
+
+	errCh := make(chan error, 2)
+	run := func(rt *ContainerRuntime) {
+		_, runErr := rt.runWithRetry(t.Context(), container.RunOptions{
+			Image:  container.ImageTag("debian:stable-slim"),
+			Stdout: &bytes.Buffer{},
+			Stderr: &bytes.Buffer{},
+		})
+		errCh <- runErr
+	}
+	go run(rt1)
+	go run(rt2)
+	close(start)
+
+	for range 2 {
+		if runErr := <-errCh; runErr != nil {
+			t.Fatalf("runWithRetry() error = %v", runErr)
+		}
+	}
+	if got := maxActive.Load(); got != 1 {
+		t.Fatalf("max concurrent runs = %d, want 1", got)
 	}
 }
 

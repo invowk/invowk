@@ -28,6 +28,9 @@ const (
 var (
 	ErrContainerBuildConfig = errors.New("invalid container build configuration")
 
+	containerRunFallbackMu  sync.Mutex
+	acquireContainerRunLock = acquireRunLock
+
 	// Compile-time interface checks.
 	_ Runtime                    = (*ContainerRuntime)(nil)
 	_ CapturingRuntime           = (*ContainerRuntime)(nil)
@@ -38,19 +41,8 @@ var (
 type (
 	// ContainerRuntime executes commands inside a container.
 	//
-	// WARNING: Only ONE ContainerRuntime instance should exist per process.
-	// Process-wide serialization relies on this single-instance invariant,
-	// enforced by the command adapter registry factory creating exactly one instance.
-	// See TestCreateRuntimeRegistry_SingleContainerInstance for the enforcement test.
-	//
-	// The runMu mutex provides intra-process fallback locking when flock-based
-	// cross-process serialization is unavailable (non-Linux platforms).
-	// Multiple instances would defeat this protection, reintroducing the
-	// ping_group_range race on platforms without flock. The ping_group_range
-	// race is a Podman-specific sysctl contention issue where concurrent
-	// container starts compete for /proc/sys/net/ipv4/ping_group_range,
-	// causing transient "OCI runtime" errors. See container_exec.go for
-	// the retry and serialization logic.
+	// Process-wide fallback serialization is shared across instances when
+	// flock-based cross-process serialization is unavailable.
 	ContainerRuntime struct {
 		engine          containerEngine
 		hostCallbacks   HostCallbackServer
@@ -59,8 +51,6 @@ type (
 		cfg             *config.Config
 		envBuilder      EnvBuilder
 		retrySleep      func(context.Context, time.Duration) error
-		//plint:internal -- fallback mutex for non-Linux flock; see runWithRetry()
-		runMu sync.Mutex
 		//plint:internal -- fallback ID counter for missing ExecutionID; see newExecutionID()
 		fallbackIDCounter atomic.Uint64
 	}

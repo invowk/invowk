@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -37,11 +36,11 @@ type (
 
 	// RuntimeDependencyProbe performs selected-runtime checks for dependency validation.
 	RuntimeDependencyProbe interface {
-		CheckTool(ctx *runtime.ExecutionContext, tool invowkfile.BinaryName) error
-		CheckFilepath(ctx *runtime.ExecutionContext, fp invowkfile.FilepathDependency) error
-		CheckEnvVar(ctx *runtime.ExecutionContext, envVar invowkfile.EnvVarCheck) error
-		CheckCapability(ctx *runtime.ExecutionContext, capability invowkfile.CapabilityName) error
-		CheckCommand(ctx *runtime.ExecutionContext, command invowkfile.CommandName) error
-		RunCustomCheck(ctx *runtime.ExecutionContext, check invowkfile.CustomCheck) error
+		CheckTool(tool invowkfile.BinaryName) error
+		CheckFilepath(fp invowkfile.FilepathDependency) error
+		CheckEnvVar(envVar invowkfile.EnvVarCheck) error
+		CheckCapability(capability invowkfile.CapabilityName) error
+		CheckCommand(command invowkfile.CommandName) error
+		RunCustomCheck(check invowkfile.CustomCheck) error
 	}
 )

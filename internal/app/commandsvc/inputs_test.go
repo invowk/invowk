@@ -289,7 +289,7 @@ func (*recordingDependencyHostProbe) RunCustomCheck(context.Context, invowkfile.
 	return nil
 }
 
-func (c *recordingCapabilityChecker) Check(_ context.Context, _ runtimepkg.IOContext, capability invowkfile.CapabilityName) error {
+func (c *recordingCapabilityChecker) Check(_ context.Context, _ deps.IOContext, capability invowkfile.CapabilityName) error {
 	c.capabilities = append(c.capabilities, capability)
 	return nil
 }

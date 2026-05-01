@@ -117,7 +117,30 @@ func requestPlatform(req Request) invowkfile.Platform {
 func (s *Service) validateDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry, userEnv map[string]string) error {
 	var runtimeProbe deps.RuntimeDependencyProbe
 	if s.runtimeProbeFactory != nil {
-		runtimeProbe = s.runtimeProbeFactory.Create(registry)
+		runtimeProbe = s.runtimeProbeFactory.Create(registry, execCtx)
 	}
-	return deps.ValidateDependenciesWithPorts(s.discovery, cmdInfo, runtimeProbe, execCtx, userEnv, s.capabilityChecker, s.hostProbe, s.lockProvider)
+	return deps.ValidateDependenciesWithPorts(s.discovery, cmdInfo, runtimeProbe, dependencyExecutionContext(execCtx), userEnv, s.capabilityChecker, s.hostProbe, s.lockProvider)
+}
+
+func dependencyExecutionContext(execCtx *runtime.ExecutionContext) deps.ExecutionContext {
+	var implDeps *invowkfile.DependsOn
+	var runtimeDeps *invowkfile.DependsOn
+	if execCtx.SelectedImpl != nil {
+		implDeps = execCtx.SelectedImpl.DependsOn
+		if rc := invowkfile.FindRuntimeConfig(execCtx.SelectedImpl.Runtimes, execCtx.SelectedRuntime); rc != nil {
+			runtimeDeps = rc.DependsOn
+		}
+	}
+	return deps.ExecutionContext{
+		Context:                 execCtx.Context,
+		CommandName:             execCtx.Command.Name,
+		SelectedRuntime:         execCtx.SelectedRuntime,
+		ImplementationDependsOn: implDeps,
+		RuntimeDependsOn:        runtimeDeps,
+		IO: deps.IOContext{
+			Stdout: execCtx.IO.Stdout,
+			Stderr: execCtx.IO.Stderr,
+			Stdin:  execCtx.IO.Stdin,
+		},
+	}
 }

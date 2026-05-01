@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -18,6 +17,6 @@ var ErrCapabilityCheckerRequired = errors.New("host capability checker is requir
 type (
 	// CapabilityChecker checks host capabilities for dependency validation.
 	CapabilityChecker interface {
-		Check(context.Context, runtime.IOContext, invowkfile.CapabilityName) error
+		Check(context.Context, IOContext, invowkfile.CapabilityName) error
 	}
 )

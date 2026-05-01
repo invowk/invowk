@@ -4,8 +4,8 @@ package moduleops
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/invowk/invowk/internal/app/modulesync"
@@ -94,18 +94,21 @@ func vendorDependenciesWithResolver(
 }
 
 func resolveVendorDependencies(ctx context.Context, resolver vendorDependencyResolver, modulePath types.FilesystemPath, requirements []invowkmod.ModuleRef, update bool) ([]*invowkmod.ResolvedModule, VendorResolutionStrategy, error) {
-	lockPath := filepath.Join(string(modulePath), invowkmod.LockFileName)
-	_, lockErr := os.Stat(lockPath)
-
-	switch {
-	case update:
+	if update {
 		resolved, err := resolver.Sync(ctx, requirements)
 		return resolved, VendorResolutionUpdated, err
-	case lockErr == nil:
+	}
+
+	lockPath := types.FilesystemPath(filepath.Join(string(modulePath), invowkmod.LockFileName)) //goplint:ignore -- derived from validated module path and constant filename
+	lockSnapshot := invowkmod.InspectLockFile(lockPath)
+	if lockSnapshot.StatErr != nil || lockSnapshot.ParseErr != nil {
+		return nil, "", fmt.Errorf("failed to inspect lock file: %w", errors.Join(lockSnapshot.StatErr, lockSnapshot.ParseErr))
+	}
+	if lockSnapshot.Present {
 		resolved, err := resolver.LoadDeclaredFromLock(ctx, requirements)
 		return resolved, VendorResolutionLocked, err
-	default:
-		resolved, err := resolver.Sync(ctx, requirements)
-		return resolved, VendorResolutionSynced, err
 	}
+
+	resolved, err := resolver.Sync(ctx, requirements)
+	return resolved, VendorResolutionSynced, err
 }

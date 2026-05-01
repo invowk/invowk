@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/types"
@@ -29,6 +30,10 @@ const (
 	// MaxModuleIDLength is the maximum allowed length for a module identifier.
 	// This mirrors the CUE schema constraint: strings.MaxRunes(256).
 	MaxModuleIDLength = 256
+
+	// MaxModuleAliasLength is the maximum allowed length for a module alias.
+	// This mirrors the CUE schema constraint: strings.MaxRunes(256).
+	MaxModuleAliasLength = 256
 
 	// IssueTypeStructure categorizes structural validation issues (missing files, wrong layout).
 	IssueTypeStructure ValidationIssueType = "structure"
@@ -388,7 +393,7 @@ func (a ModuleAlias) Validate() error {
 	if a == "" {
 		return nil
 	}
-	if !moduleAliasPattern.MatchString(string(a)) {
+	if utf8.RuneCountInString(string(a)) > MaxModuleAliasLength || !moduleAliasPattern.MatchString(string(a)) {
 		return &InvalidModuleAliasError{Value: a}
 	}
 	return nil

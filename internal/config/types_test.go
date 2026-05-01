@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
@@ -346,6 +347,14 @@ func TestIncludeEntry_Validate(t *testing.T) {
 			IncludeEntry{
 				Path:  ModuleIncludePath(absModPath),
 				Alias: invowkmod.ModuleAlias("   "),
+			},
+			false, true, 1,
+		},
+		{
+			"invalid alias (over max length)",
+			IncludeEntry{
+				Path:  ModuleIncludePath(absModPath),
+				Alias: invowkmod.ModuleAlias(strings.Repeat("a", invowkmod.MaxModuleAliasLength+1)),
 			},
 			false, true, 1,
 		},

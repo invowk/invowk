@@ -3,6 +3,7 @@
 package commandadapters
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -14,12 +15,19 @@ import (
 )
 
 type (
+	containerValidationScript string
+
 	dependencyRuntimeProbeFactory struct{}
 
 	dependencyRuntimeProbe struct {
-		registry *runtime.Registry
+		registry  *runtime.Registry
+		parentCtx *runtime.ExecutionContext
 	}
 )
+
+func (s containerValidationScript) String() string { return string(s) }
+
+func (s containerValidationScript) Validate() error { return nil }
 
 // NewDependencyRuntimeProbeFactory creates runtime probes for dependency validation.
 func NewDependencyRuntimeProbeFactory() dependencyRuntimeProbeFactory {
@@ -27,13 +35,13 @@ func NewDependencyRuntimeProbeFactory() dependencyRuntimeProbeFactory {
 }
 
 // NewDependencyRuntimeProbe creates the production runtime probe for dependency checks.
-func NewDependencyRuntimeProbe(registry *runtime.Registry) deps.RuntimeDependencyProbe {
-	return dependencyRuntimeProbe{registry: registry}
+func NewDependencyRuntimeProbe(registry *runtime.Registry, parentCtx *runtime.ExecutionContext) deps.RuntimeDependencyProbe {
+	return dependencyRuntimeProbe{registry: registry, parentCtx: parentCtx}
 }
 
 // Create adapts a runtime registry into a runtime dependency probe.
-func (dependencyRuntimeProbeFactory) Create(registry *runtime.Registry) deps.RuntimeDependencyProbe {
-	return NewDependencyRuntimeProbe(registry)
+func (dependencyRuntimeProbeFactory) Create(registry *runtime.Registry, parentCtx *runtime.ExecutionContext) deps.RuntimeDependencyProbe {
+	return NewDependencyRuntimeProbe(registry, parentCtx)
 }
 
 // Validate returns nil when the runtime probe has a registry.
@@ -41,18 +49,24 @@ func (p dependencyRuntimeProbe) Validate() error {
 	if p.registry == nil {
 		return deps.ErrContainerRuntimeNotAvailable
 	}
+	if p.parentCtx == nil {
+		return deps.ErrContainerRuntimeNotAvailable
+	}
+	if err := p.parentCtx.Validate(); err != nil {
+		return fmt.Errorf("invalid dependency validation context: %w", err)
+	}
 	return nil
 }
 
 // CheckTool validates a tool dependency against the selected container runtime.
-func (p dependencyRuntimeProbe) CheckTool(ctx *runtime.ExecutionContext, tool invowkfile.BinaryName) error {
+func (p dependencyRuntimeProbe) CheckTool(tool invowkfile.BinaryName) error {
 	toolName := string(tool)
 	if !deps.ToolNamePattern.MatchString(toolName) {
 		return fmt.Errorf("%s - invalid tool name for shell interpolation", tool)
 	}
 
 	script := fmt.Sprintf("command -v '%s' || which '%s'", deps.ShellEscapeSingleQuote(toolName), deps.ShellEscapeSingleQuote(toolName))
-	result, _, _, err := p.runContainerValidation(ctx, script)
+	result, _, _, err := p.runContainerValidation(script)
 	if err != nil {
 		return fmt.Errorf("%s - %w", tool, err)
 	}
@@ -63,14 +77,14 @@ func (p dependencyRuntimeProbe) CheckTool(ctx *runtime.ExecutionContext, tool in
 }
 
 // CheckFilepath validates a filepath dependency against the selected container runtime.
-func (p dependencyRuntimeProbe) CheckFilepath(ctx *runtime.ExecutionContext, fp invowkfile.FilepathDependency) error {
+func (p dependencyRuntimeProbe) CheckFilepath(fp invowkfile.FilepathDependency) error {
 	if len(fp.Alternatives) == 0 {
 		return fmt.Errorf("(no paths specified) - %w", deps.ErrNoPathAlternatives)
 	}
 
 	var allErrors []string
 	for _, altPath := range fp.Alternatives {
-		detail, err := p.checkFilepathAlternative(ctx, string(altPath), fp)
+		detail, err := p.checkFilepathAlternative(string(altPath), fp)
 		if err != nil {
 			return err
 		}
@@ -87,7 +101,7 @@ func (p dependencyRuntimeProbe) CheckFilepath(ctx *runtime.ExecutionContext, fp 
 }
 
 // CheckEnvVar validates an environment variable dependency against the selected container runtime.
-func (p dependencyRuntimeProbe) CheckEnvVar(ctx *runtime.ExecutionContext, envVar invowkfile.EnvVarCheck) error {
+func (p dependencyRuntimeProbe) CheckEnvVar(envVar invowkfile.EnvVarCheck) error {
 	name := strings.TrimSpace(string(envVar.Name))
 	if name == "" {
 		return errors.New("(empty) - environment variable name cannot be empty")
@@ -102,7 +116,7 @@ func (p dependencyRuntimeProbe) CheckEnvVar(ctx *runtime.ExecutionContext, envVa
 		script = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, escapedValidation)
 	}
 
-	result, _, _, err := p.runContainerValidation(ctx, script)
+	result, _, _, err := p.runContainerValidation(script)
 	if err != nil {
 		return fmt.Errorf("%w for env var %s", err, name)
 	}
@@ -116,13 +130,13 @@ func (p dependencyRuntimeProbe) CheckEnvVar(ctx *runtime.ExecutionContext, envVa
 }
 
 // CheckCapability validates a capability dependency against the selected container runtime.
-func (p dependencyRuntimeProbe) CheckCapability(ctx *runtime.ExecutionContext, capability invowkfile.CapabilityName) error {
+func (p dependencyRuntimeProbe) CheckCapability(capability invowkfile.CapabilityName) error {
 	script := deps.CapabilityCheckScript(capability)
 	if script == "" {
 		return fmt.Errorf("%s - unknown capability", capability)
 	}
 
-	result, _, _, err := p.runContainerValidation(ctx, script)
+	result, _, _, err := p.runContainerValidation(script)
 	if err != nil {
 		return fmt.Errorf("%w for capability %s", err, capability)
 	}
@@ -133,9 +147,9 @@ func (p dependencyRuntimeProbe) CheckCapability(ctx *runtime.ExecutionContext, c
 }
 
 // CheckCommand validates command discoverability against the selected container runtime.
-func (p dependencyRuntimeProbe) CheckCommand(ctx *runtime.ExecutionContext, command invowkfile.CommandName) error {
+func (p dependencyRuntimeProbe) CheckCommand(command invowkfile.CommandName) error {
 	script := fmt.Sprintf("invowk internal check-cmd '%s'", deps.ShellEscapeSingleQuote(command.String()))
-	result, _, stderr, err := p.runContainerValidation(ctx, script)
+	result, _, stderr, err := p.runContainerValidation(script)
 	if err != nil {
 		stderrStr := strings.TrimSpace(stderr)
 		if stderrStr != "" {
@@ -150,8 +164,8 @@ func (p dependencyRuntimeProbe) CheckCommand(ctx *runtime.ExecutionContext, comm
 }
 
 // RunCustomCheck validates a custom check against the selected container runtime.
-func (p dependencyRuntimeProbe) RunCustomCheck(ctx *runtime.ExecutionContext, check invowkfile.CustomCheck) error {
-	result, stdout, stderr, err := p.runContainerValidation(ctx, string(check.CheckScript))
+func (p dependencyRuntimeProbe) RunCustomCheck(check invowkfile.CustomCheck) error {
+	result, stdout, stderr, err := p.runContainerValidation(string(check.CheckScript))
 	if err != nil {
 		return fmt.Errorf("%s - %w", check.Name, err)
 	}
@@ -161,9 +175,9 @@ func (p dependencyRuntimeProbe) RunCustomCheck(ctx *runtime.ExecutionContext, ch
 }
 
 //goplint:ignore -- runtime adapter translates typed dependency paths into shell probe strings at the container boundary.
-func (p dependencyRuntimeProbe) checkFilepathAlternative(ctx *runtime.ExecutionContext, altPath string, fp invowkfile.FilepathDependency) (string, error) {
+func (p dependencyRuntimeProbe) checkFilepathAlternative(altPath string, fp invowkfile.FilepathDependency) (string, error) {
 	script := buildContainerFilepathCheckScript(fp, altPath)
-	result, _, stderr, err := p.runContainerValidation(ctx, script)
+	result, _, stderr, err := p.runContainerValidation(script)
 	if err != nil {
 		return "", fmt.Errorf("%w for path %s", err, altPath)
 	}
@@ -179,23 +193,66 @@ func (p dependencyRuntimeProbe) checkFilepathAlternative(ctx *runtime.ExecutionC
 }
 
 //goplint:ignore -- runtime adapter captures shell script text and process streams from the container boundary.
-func (p dependencyRuntimeProbe) runContainerValidation(ctx *runtime.ExecutionContext, script string) (result *runtime.Result, stdout, stderr string, err error) {
+func (p dependencyRuntimeProbe) runContainerValidation(script string) (result *runtime.Result, stdout, stderr string, err error) {
 	rt, err := p.containerRuntime()
 	if err != nil {
 		return nil, "", "", err
 	}
 
-	validationCtx, stdoutBuf, stderrBuf := deps.NewContainerValidationContext(ctx, script)
+	validationScript := containerValidationScript(script)
+	if err := validationScript.Validate(); err != nil {
+		return nil, "", "", err
+	}
+	validationCtx, stdoutBuf, stderrBuf := p.newContainerValidationContext(validationScript)
 	result = rt.Execute(validationCtx)
 	if result.Error != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](result.Error); !ok || exitErr == nil {
 			return result, stdoutBuf.String(), stderrBuf.String(), fmt.Errorf("%w: %w", deps.ErrContainerValidationFailed, result.Error)
 		}
 	}
-	if err := deps.CheckTransientExitCode(result, script); err != nil {
+	if err := checkTransientExitCode(result, validationScript); err != nil {
 		return result, stdoutBuf.String(), stderrBuf.String(), err
 	}
 	return result, stdoutBuf.String(), stderrBuf.String(), nil
+}
+
+func (p dependencyRuntimeProbe) newContainerValidationContext(script containerValidationScript) (execCtx *runtime.ExecutionContext, stdout, stderr *bytes.Buffer) {
+	stdout = &bytes.Buffer{}
+	stderr = &bytes.Buffer{}
+	selectedImpl := invowkfile.Implementation{
+		Runtimes: []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer}},
+	}
+	if p.parentCtx.SelectedImpl != nil {
+		selectedImpl = *p.parentCtx.SelectedImpl
+	}
+	selectedImpl.Script = invowkfile.ScriptContent(script) //goplint:ignore -- inline validation script owned by runtime adapter
+	selectedRuntime := p.parentCtx.SelectedRuntime
+	if selectedRuntime == "" {
+		selectedRuntime = invowkfile.RuntimeContainer
+	}
+	execCtx = &runtime.ExecutionContext{
+		Command:         p.parentCtx.Command,
+		Invowkfile:      p.parentCtx.Invowkfile,
+		SelectedImpl:    &selectedImpl,
+		SelectedRuntime: selectedRuntime,
+		Context:         p.parentCtx.Context,
+		PositionalArgs:  p.parentCtx.PositionalArgs,
+		WorkDir:         p.parentCtx.WorkDir,
+		Verbose:         p.parentCtx.Verbose,
+		ForceRebuild:    p.parentCtx.ForceRebuild,
+		ExecutionID:     p.parentCtx.ExecutionID,
+		IO:              runtime.IOContext{Stdout: stdout, Stderr: stderr},
+		Env:             p.parentCtx.Env,
+		TUI:             p.parentCtx.TUI,
+	}
+	return execCtx, stdout, stderr
+}
+
+func checkTransientExitCode(result *runtime.Result, label containerValidationScript) error {
+	if runtime.IsTransientContainerEngineExitCode(result.ExitCode) {
+		return fmt.Errorf("%s - %w (exit code %s)", label, deps.ErrContainerEngineFailure, result.ExitCode)
+	}
+	return nil
 }
 
 func (p dependencyRuntimeProbe) containerRuntime() (runtime.Runtime, error) {

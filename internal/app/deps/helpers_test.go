@@ -7,9 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestCollectToolErrors(t *testing.T) {
@@ -113,92 +111,4 @@ func TestCollectToolErrors(t *testing.T) {
 			t.Errorf("expected multi-alt format, got %q", result[0])
 		}
 	})
-}
-
-func TestNewContainerValidationContextPreservesExecutionContract(t *testing.T) {
-	t.Parallel()
-
-	parentImpl := &invowkfile.Implementation{
-		Script: "python3 app.py",
-		Runtimes: []invowkfile.RuntimeConfig{{
-			Name:           invowkfile.RuntimeContainer,
-			Image:          "python:3-slim",
-			Volumes:        []invowkfile.VolumeMountSpec{"/host:/container"},
-			Ports:          []invowkfile.PortMappingSpec{"8080:80"},
-			EnableHostSSH:  true,
-			EnvInheritMode: invowkfile.EnvInheritAllow,
-			EnvInheritAllow: []invowkfile.EnvVarName{
-				"PATH",
-			},
-		}},
-	}
-	parentCtx := &runtime.ExecutionContext{
-		Command:         &invowkfile.Command{Name: "build"},
-		SelectedImpl:    parentImpl,
-		SelectedRuntime: invowkfile.RuntimeContainer,
-		Context:         t.Context(),
-		Env: runtime.EnvContext{
-			ExtraEnv: map[string]string{"INVOWK_FLAG_VERBOSE": "true"},
-		},
-		ForceRebuild: true,
-	}
-
-	execCtx, stdout, stderr := NewContainerValidationContext(parentCtx, "command -v python3")
-
-	if execCtx.SelectedImpl == parentImpl {
-		t.Fatal("validation context should clone the selected implementation")
-	}
-	if execCtx.SelectedImpl.Script != "command -v python3" {
-		t.Fatalf("Script = %q, want validation script", execCtx.SelectedImpl.Script)
-	}
-	if got := execCtx.SelectedImpl.Runtimes[0]; got.Image != "python:3-slim" || len(got.Volumes) != 1 || len(got.Ports) != 1 || !got.EnableHostSSH {
-		t.Fatalf("runtime config not preserved: %#v", got)
-	}
-	if execCtx.SelectedRuntime != invowkfile.RuntimeContainer {
-		t.Fatalf("SelectedRuntime = %q, want container", execCtx.SelectedRuntime)
-	}
-	if execCtx.Env.ExtraEnv["INVOWK_FLAG_VERBOSE"] != "true" {
-		t.Fatalf("Env.ExtraEnv not preserved: %#v", execCtx.Env.ExtraEnv)
-	}
-	if execCtx.ForceRebuild != parentCtx.ForceRebuild {
-		t.Fatalf("ForceRebuild = %v, want %v", execCtx.ForceRebuild, parentCtx.ForceRebuild)
-	}
-	if execCtx.IO.Stdout != stdout || execCtx.IO.Stderr != stderr {
-		t.Fatal("validation context should capture stdout and stderr")
-	}
-}
-
-func TestCheckTransientExitCode(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		exitCode types.ExitCode
-		wantErr  bool
-	}{
-		{"zero is not transient", 0, false},
-		{"one is not transient", 1, false},
-		{"125 is transient", 125, true},
-		{"126 is transient", 126, true},
-		{"127 is not transient", 127, false},
-		{"255 is not transient", 255, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			result := &runtime.Result{ExitCode: tt.exitCode}
-			err := CheckTransientExitCode(result, "test-check")
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CheckTransientExitCode(exitCode=%d) error = %v, wantErr %v", tt.exitCode, err, tt.wantErr)
-			}
-			if tt.wantErr && !errors.Is(err, ErrContainerEngineFailure) {
-				t.Errorf("errors.Is(err, ErrContainerEngineFailure) = false for %v", err)
-			}
-			if tt.wantErr && !strings.Contains(err.Error(), "test-check") {
-				t.Errorf("error message should include label 'test-check', got %q", err.Error())
-			}
-		})
-	}
 }

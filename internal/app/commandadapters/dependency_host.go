@@ -15,7 +15,6 @@ import (
 
 	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
@@ -132,7 +131,7 @@ func (dependencyLockProvider) LoadCommandScopeLock(inv *invowkfile.Invowkfile) (
 }
 
 // Check validates that a system capability is available.
-func (dependencyCapabilityChecker) Check(ctx context.Context, ioCtx runtime.IOContext, capability invowkfile.CapabilityName) error {
+func (dependencyCapabilityChecker) Check(ctx context.Context, ioCtx deps.IOContext, capability invowkfile.CapabilityName) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -292,7 +291,7 @@ func containerCapabilityProbeArgs(engine config.ContainerEngine) []string {
 }
 
 // checkTTY checks whether invowk is running in an interactive terminal.
-func checkTTY(ioCtx runtime.IOContext) error {
+func checkTTY(ioCtx deps.IOContext) error {
 	stdin, stdinOK := ioCtx.Stdin.(*os.File)
 	stdout, stdoutOK := ioCtx.Stdout.(*os.File)
 	if stdinOK && stdoutOK && term.IsTerminal(int(stdin.Fd())) && term.IsTerminal(int(stdout.Fd())) {
