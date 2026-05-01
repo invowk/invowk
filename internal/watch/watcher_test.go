@@ -23,10 +23,12 @@ import (
 )
 
 type fakeWatcherBackend struct {
-	events chan fsnotify.Event
-	errors chan error
-	added  []string
-	closed bool
+	events   chan fsnotify.Event
+	errors   chan error
+	addErr   error
+	closeErr error
+	added    []string
+	closed   bool
 }
 
 // isIgnoredByDefaults reports whether rel matches any of the default ignore
@@ -141,6 +143,28 @@ func TestWatcherRunReturnsCallbackError(t *testing.T) {
 	}
 }
 
+func TestWatcherInitFailureCloseUsesConfiguredStderr(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	stderr := &bytes.Buffer{}
+	backend := newFakeWatcherBackend()
+	backend.addErr = errors.New("add failed")
+	backend.closeErr = errors.New("close failed")
+
+	_, err := newWithBackend(Config{
+		BaseDir: types.FilesystemPath(dir),
+		Stdout:  &bytes.Buffer{},
+		Stderr:  stderr,
+	}, backend, types.FilesystemPath(dir))
+	if err == nil {
+		t.Fatal("newWithBackend() error = nil, want add error")
+	}
+	if !strings.Contains(stderr.String(), "watch: close after init failure: close failed") {
+		t.Fatalf("stderr = %q, want configured close diagnostic", stderr.String())
+	}
+}
+
 func newFakeWatcherBackend() *fakeWatcherBackend {
 	return &fakeWatcherBackend{
 		events: make(chan fsnotify.Event, 4),
@@ -150,14 +174,14 @@ func newFakeWatcherBackend() *fakeWatcherBackend {
 
 func (b *fakeWatcherBackend) Add(path string) error {
 	b.added = append(b.added, path)
-	return nil
+	return b.addErr
 }
 
 func (b *fakeWatcherBackend) Close() error {
 	b.closed = true
 	close(b.events)
 	close(b.errors)
-	return nil
+	return b.closeErr
 }
 
 func (b *fakeWatcherBackend) Events() <-chan fsnotify.Event {

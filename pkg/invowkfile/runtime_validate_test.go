@@ -330,3 +330,21 @@ func TestInvalidRuntimeConfigError_Unwrap(t *testing.T) {
 		t.Error("Unwrap() should return ErrInvalidRuntimeConfig")
 	}
 }
+
+func TestInvalidRuntimeConfigError_UnwrapsFieldErrors(t *testing.T) {
+	t.Parallel()
+
+	err := RuntimeConfig{
+		Name:        RuntimeVirtual,
+		Interpreter: "bash",
+	}.Validate()
+	if err == nil {
+		t.Fatal("RuntimeConfig.Validate() error = nil, want interpreter error")
+	}
+	if !errors.Is(err, ErrInvalidRuntimeConfig) {
+		t.Fatalf("errors.Is(%v, ErrInvalidRuntimeConfig) = false", err)
+	}
+	if !errors.Is(err, ErrInterpreterNotAllowed) {
+		t.Fatalf("errors.Is(%v, ErrInterpreterNotAllowed) = false", err)
+	}
+}

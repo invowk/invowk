@@ -2,7 +2,10 @@
 
 package audit
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 // mustNewCorrelator creates a Correlator or fails the test.
 func mustNewCorrelator(t *testing.T, rules []CorrelationRule) *Correlator {
@@ -42,8 +45,9 @@ func TestCorrelator_ObfuscatedExfiltration(t *testing.T) {
 
 	c := mustNewCorrelator(t, DefaultRules())
 	findings := []Finding{
-		{Severity: SeverityHigh, Category: CategoryObfuscation, SurfaceID: "mod1", CheckerName: scriptCheckerName, Title: "obfuscation"},
-		{Severity: SeverityHigh, Category: CategoryExfiltration, SurfaceID: "mod1", CheckerName: networkCheckerName, Title: "network"},
+		{Code: codeScriptRemoteExecution, Severity: SeverityCritical, Category: CategoryExecution, SurfaceID: "mod1", CheckerName: scriptCheckerName, Title: "remote execution"},
+		{Code: codeScriptBase64Decode, Severity: SeverityHigh, Category: CategoryObfuscation, SurfaceID: "mod1", CheckerName: scriptCheckerName, Title: "obfuscation"},
+		{Code: codeNetworkAccessCommand, Severity: SeverityHigh, Category: CategoryExfiltration, SurfaceID: "mod1", CheckerName: networkCheckerName, Title: "network"},
 	}
 	result := c.Correlate(findings)
 
@@ -55,10 +59,30 @@ func TestCorrelator_ObfuscatedExfiltration(t *testing.T) {
 			if f.Severity != SeverityCritical {
 				t.Errorf("obfuscated exfil severity = %v, want Critical", f.Severity)
 			}
+			if slices.Contains(f.EscalatedFrom, "remote execution") {
+				t.Fatalf("EscalatedFrom = %v, want only rule-matching findings", f.EscalatedFrom)
+			}
 		}
 	}
 	if !hasObfuscatedExfil {
 		t.Error("expected obfuscated-exfiltration compound finding")
+	}
+}
+
+func TestCorrelator_ObfuscatedExfiltrationRequiresObfuscation(t *testing.T) {
+	t.Parallel()
+
+	c := mustNewCorrelator(t, DefaultRules())
+	findings := []Finding{
+		{Code: codeScriptRemoteExecution, Severity: SeverityCritical, Category: CategoryExecution, SurfaceID: "mod1", CheckerName: scriptCheckerName, Title: "remote execution"},
+		{Code: codeNetworkAccessCommand, Severity: SeverityHigh, Category: CategoryExfiltration, SurfaceID: "mod1", CheckerName: networkCheckerName, Title: "network"},
+	}
+	result := c.Correlate(findings)
+
+	for _, f := range result {
+		if f.Code == codeCorrelatorObfuscatedExfiltration {
+			t.Fatalf("non-obfuscated script finding triggered obfuscated-exfiltration: %+v", f)
+		}
 	}
 }
 

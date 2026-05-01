@@ -738,7 +738,8 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKey 
 			// scripts, read the file (capped at maxScriptFileSize) so that
 			// content-analysis checkers can inspect the real script body.
 			if isFile {
-				facts := readScriptFileFacts(string(impl.Script), string(modulePath))
+				scriptPath := impl.GetScriptFilePathWithModule(filePath, modulePath)
+				facts := readScriptFileFacts(string(scriptPath), string(modulePath))
 				ref.ScriptPath = facts.Path
 				ref.FileSize = facts.Size
 				ref.FileStatErr = facts.StatErr

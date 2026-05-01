@@ -2,7 +2,15 @@
 
 package audit
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
+
+const (
+	correlationRuleSideLeft correlationRuleSide = iota
+	correlationRuleSideRight
+)
 
 type (
 	// CorrelationRule defines a compound threat pattern that emerges when findings
@@ -43,6 +51,8 @@ type (
 	Correlator struct {
 		rules []CorrelationRule
 	}
+
+	correlationRuleSide int
 )
 
 // NewCorrelator creates a Correlator with the given rules. It validates that
@@ -129,7 +139,8 @@ func (c *Correlator) applyRules(surfaceID scanSurfaceID, surfaceKey ScanSurfaceK
 		var escalatedFrom []string
 		var escalatedFromCodes []FindingCode
 		for i := range findings {
-			if findings[i].CheckerName == rule.RequiredCheckers[0] || findings[i].CheckerName == rule.RequiredCheckers[1] {
+			if findingMatchesRuleSide(findings[i], rule, correlationRuleSideLeft) ||
+				findingMatchesRuleSide(findings[i], rule, correlationRuleSideRight) {
 				escalatedFrom = append(escalatedFrom, findings[i].Title)
 				escalatedFromCodes = append(escalatedFromCodes, findings[i].CodeOrDefault())
 			}
@@ -151,6 +162,40 @@ func (c *Correlator) applyRules(surfaceID scanSurfaceID, surfaceKey ScanSurfaceK
 	}
 
 	return result
+}
+
+func findingMatchesRuleSide(finding Finding, rule *CorrelationRule, side correlationRuleSide) bool {
+	sideIndex := int(side) //goplint:ignore -- enum-like side value indexes fixed two-element rule arrays.
+	if finding.CheckerName != rule.RequiredCheckers[sideIndex] {
+		return false
+	}
+	if rule.RequiredCategories[sideIndex] != "" && finding.Category != rule.RequiredCategories[sideIndex] {
+		return false
+	}
+	if len(rule.RequiredCodes[sideIndex]) > 0 && !slices.Contains(rule.RequiredCodes[sideIndex], finding.CodeOrDefault()) {
+		return false
+	}
+	return true
+}
+
+func (s correlationRuleSide) String() string {
+	switch s {
+	case correlationRuleSideLeft:
+		return "left"
+	case correlationRuleSideRight:
+		return "right"
+	default:
+		return "unknown"
+	}
+}
+
+func (s correlationRuleSide) Validate() error {
+	switch s {
+	case correlationRuleSideLeft, correlationRuleSideRight:
+		return nil
+	default:
+		return fmt.Errorf("invalid correlation rule side %s", s)
+	}
 }
 
 func correlationSurfaceKey(finding Finding) ScanSurfaceKey {
@@ -295,6 +340,7 @@ func DefaultRules() []CorrelationRule {
 			Name:                 "obfuscated-exfiltration",
 			Description:          "Script contains obfuscation patterns alongside network access — likely deliberate evasion",
 			RequiredCheckers:     [2]string{scriptCheckerName, networkCheckerName},
+			RequiredCategories:   [2]Category{CategoryObfuscation, CategoryExfiltration},
 			ResultSeverity:       SeverityCritical,
 			ResultCategory:       CategoryExfiltration,
 			ResultTitle:          "Obfuscated network access detected",

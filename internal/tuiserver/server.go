@@ -122,7 +122,9 @@ func (s *Server) Start(ctx context.Context) error {
 		// Signal that we're ready to accept connections
 		s.base.TransitionToRunning()
 		if err := s.httpServer.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
-			s.base.SendError(err)
+			s.shutdownOnce.Do(func() { close(s.shutdownCh) })
+			s.closeRequestChannel()
+			s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err))
 		}
 	}()
 
@@ -201,6 +203,11 @@ func (s *Server) State() serverbase.State {
 // IsRunning returns whether the server is currently running and accepting connections.
 func (s *Server) IsRunning() bool {
 	return s.base.IsRunning()
+}
+
+// LastError returns the error that caused the Failed state, or nil.
+func (s *Server) LastError() error {
+	return s.base.LastError()
 }
 
 // Err returns a channel for receiving async errors.

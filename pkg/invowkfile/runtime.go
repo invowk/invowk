@@ -418,7 +418,9 @@ func (e *InvalidRuntimeConfigError) Error() string {
 }
 
 // Unwrap returns ErrInvalidRuntimeConfig for errors.Is() compatibility.
-func (e *InvalidRuntimeConfigError) Unwrap() error { return ErrInvalidRuntimeConfig }
+func (e *InvalidRuntimeConfigError) Unwrap() error {
+	return errors.Join(ErrInvalidRuntimeConfig, errors.Join(e.FieldErrors...))
+}
 
 // GetEffectiveInterpreter returns the effective interpreter value for a RuntimeConfig.
 // If the Interpreter field is empty, returns "auto" (the default).

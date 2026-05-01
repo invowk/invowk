@@ -197,6 +197,11 @@ func New(cfg Config) (*Watcher, error) {
 		return nil, patErr
 	}
 
+	stderr := cfg.Stderr
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
 	fsw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("watch: create fsnotify watcher: %w", err)
@@ -204,7 +209,7 @@ func New(cfg Config) (*Watcher, error) {
 	w, err := newWithBackend(cfg, fsnotifyBackend{watcher: fsw}, cfg.BaseDir)
 	if err != nil {
 		if closeErr := fsw.Close(); closeErr != nil {
-			fmt.Fprintf(os.Stderr, "watch: close after init failure: %v\n", closeErr)
+			fmt.Fprintf(stderr, "watch: close after init failure: %v\n", closeErr)
 		}
 		return nil, err
 	}

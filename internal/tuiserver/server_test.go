@@ -208,6 +208,42 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	}
 }
 
+func TestServerServeFailureTransitionsToFailed(t *testing.T) {
+	t.Parallel()
+
+	server, err := New()
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if err := server.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	if err := server.listener.Close(); err != nil {
+		t.Fatalf("listener.Close() error = %v", err)
+	}
+
+	testutil.RequirePollUntil(t, 5*time.Second, 10*time.Millisecond, "server did not transition to failed after serve error", func() bool {
+		return server.State() == serverbase.StateFailed
+	})
+	if server.LastError() == nil {
+		t.Fatal("LastError() = nil, want serve error")
+	}
+
+	select {
+	case err := <-server.Err():
+		if err == nil {
+			t.Fatal("Err() yielded nil, want serve error")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for async serve error")
+	}
+
+	if err := server.Stop(); err != nil {
+		t.Fatalf("Stop() after serve failure error = %v", err)
+	}
+}
+
 func TestServerStateString(t *testing.T) {
 	t.Parallel()
 

@@ -13,7 +13,13 @@ import (
 	"github.com/invowk/invowk/internal/core/serverbase"
 	"github.com/invowk/invowk/internal/testutil"
 	"github.com/invowk/invowk/pkg/types"
+
+	"github.com/charmbracelet/ssh"
 )
+
+type failingServerListener struct {
+	err error
+}
 
 // mustNew is a test helper that creates a Server and fails the test on error.
 func mustNew(t *testing.T, cfg Config) *Server {
@@ -23,6 +29,12 @@ func mustNew(t *testing.T, cfg Config) *Server {
 		t.Fatalf("New() error = %v", err)
 	}
 	return srv
+}
+
+func (l failingServerListener) Accept() (net.Conn, error) { return nil, l.err }
+func (l failingServerListener) Close() error              { return nil }
+func (l failingServerListener) Addr() net.Addr {
+	return &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0}
 }
 
 func TestGenerateToken(t *testing.T) {
@@ -390,6 +402,33 @@ func TestServerStartWithCancelledContext(t *testing.T) {
 	// State should be Failed
 	if srv.State() != serverbase.StateFailed {
 		t.Errorf("State should be Failed, got %s", srv.State())
+	}
+}
+
+func TestServerServeFailureTransitionsToFailed(t *testing.T) {
+	t.Parallel()
+
+	serveErr := errors.New("accept failed")
+	srv := &Server{
+		base:     serverbase.NewBase(),
+		srv:      &ssh.Server{},
+		listener: failingServerListener{err: serveErr},
+	}
+	if err := srv.base.TransitionToStarting(t.Context()); err != nil {
+		t.Fatalf("TransitionToStarting() error = %v", err)
+	}
+
+	srv.base.AddGoroutine()
+	go srv.serve()
+
+	testutil.RequirePollUntil(t, 5*time.Second, 10*time.Millisecond, "server did not transition to failed after serve error", func() bool {
+		return srv.State() == serverbase.StateFailed
+	})
+	if !errors.Is(srv.LastError(), serveErr) {
+		t.Fatalf("LastError() = %v, want %v", srv.LastError(), serveErr)
+	}
+	if err := srv.Wait(); !errors.Is(err, serveErr) {
+		t.Fatalf("Wait() error = %v, want %v", err, serveErr)
 	}
 }
 

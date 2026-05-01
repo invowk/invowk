@@ -600,7 +600,10 @@ func (e *InvalidCustomCheckDependencyError) Unwrap() error {
 func (e *InvalidDependsOnError) Error() string {
 	return types.FormatFieldErrors("depends_on", e.FieldErrors)
 }
-func (e *InvalidDependsOnError) Unwrap() error { return ErrInvalidDependsOn }
+
+func (e *InvalidDependsOnError) Unwrap() error {
+	return errors.Join(ErrInvalidDependsOn, errors.Join(e.FieldErrors...))
+}
 
 // appendFrom appends all dependency slices from src into d. Nil src is a no-op.
 func (d *DependsOn) appendFrom(src *DependsOn) {

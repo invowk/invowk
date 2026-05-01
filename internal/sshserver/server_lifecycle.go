@@ -183,8 +183,7 @@ func (s *Server) serve() {
 			return
 		}
 
-		// Report unexpected errors
-		s.base.SendError(fmt.Errorf("serve error: %w", err))
+		s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err))
 	}
 }
 

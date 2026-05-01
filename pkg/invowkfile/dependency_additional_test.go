@@ -176,6 +176,23 @@ func TestDependencyValidators_InvalidCases(t *testing.T) {
 	}
 }
 
+func TestInvalidDependsOnError_UnwrapsFieldErrors(t *testing.T) {
+	t.Parallel()
+
+	err := DependsOn{
+		Tools: []ToolDependency{{Alternatives: []BinaryName{""}}},
+	}.Validate()
+	if err == nil {
+		t.Fatal("DependsOn.Validate() error = nil, want tool dependency error")
+	}
+	if !errors.Is(err, ErrInvalidDependsOn) {
+		t.Fatalf("errors.Is(%v, ErrInvalidDependsOn) = false", err)
+	}
+	if !errors.Is(err, ErrInvalidToolDependency) {
+		t.Fatalf("errors.Is(%v, ErrInvalidToolDependency) = false", err)
+	}
+}
+
 func TestDependencyValidators_ValidCases(t *testing.T) {
 	t.Parallel()
 
