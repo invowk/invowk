@@ -44,11 +44,21 @@ func componentRequestFromProtocol(component tui.ComponentType, options json.RawM
 			Default:     req.Default,
 		}, nil
 	case tui.ComponentTypeChoose:
-		var opts tui.ChooseStringOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+		var req tuiwire.ChooseRequest
+		if err := json.Unmarshal(options, &req); err != nil {
 			return nil, err
 		}
-		return opts, nil
+		height, err := terminalDimensionFromProtocol(req.Height)
+		if err != nil {
+			return nil, err
+		}
+		return tui.ChooseStringOptions{
+			Title:   req.Title,
+			Options: req.Options,
+			Limit:   req.Limit,
+			NoLimit: req.NoLimit,
+			Height:  height,
+		}, nil
 	case tui.ComponentTypeFilter:
 		var req tuiwire.FilterRequest
 		if err := json.Unmarshal(options, &req); err != nil {

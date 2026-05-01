@@ -5,6 +5,7 @@ package commandsvc
 import (
 	"context"
 
+	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -26,6 +27,12 @@ type (
 	// to runtimes without exposing those details to Service.
 	RuntimeRegistryCreator interface {
 		Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeRegistryResult
+	}
+
+	// RuntimeDependencyProbeFactory adapts one execution registry into the
+	// runtime dependency probe used by dependency validation.
+	RuntimeDependencyProbeFactory interface {
+		Create(*runtime.Registry) deps.RuntimeDependencyProbe
 	}
 
 	// InteractiveExecutor owns terminal UI execution for runtimes that support
@@ -52,6 +59,8 @@ type (
 
 	missingRuntimeRegistryFactory struct{}
 
+	noopRuntimeDependencyProbeFactory struct{}
+
 	defaultInteractiveExecutor struct{}
 )
 
@@ -76,6 +85,10 @@ func (missingRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfi
 		Registry: runtime.NewRegistry(),
 		Cleanup:  func() {},
 	}
+}
+
+func (noopRuntimeDependencyProbeFactory) Create(*runtime.Registry) deps.RuntimeDependencyProbe {
+	return nil
 }
 
 func (defaultInteractiveExecutor) Execute(execCtx *runtime.ExecutionContext, _ invowkfile.CommandName, interactiveRT runtime.InteractiveRuntime) *runtime.Result {

@@ -3,7 +3,6 @@
 package deps
 
 import (
-	"fmt"
 	"regexp"
 
 	"github.com/invowk/invowk/internal/runtime"
@@ -17,56 +16,26 @@ var ToolNamePattern = regexp.MustCompile(`^[A-Za-z0-9._+\-/]+$`)
 // CheckToolDependenciesInContainer verifies all required tools are available inside the container.
 // Called only for container runtime (caller guards non-container early return).
 // Each ToolDependency has alternatives with OR semantics (any alternative found satisfies the dependency).
-func CheckToolDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func CheckToolDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Tools) == 0 {
 		return nil
 	}
-
-	rt, err := registry.Get(runtime.RuntimeTypeContainer)
-	if err != nil {
-		return fmt.Errorf("%w for tool validation", ErrContainerRuntimeNotAvailable)
+	if probe == nil {
+		return ErrRuntimeDependencyProbeRequired
 	}
 
 	toolErrors := CollectToolErrors(deps.Tools, func(alt invowkfile.BinaryName) error {
-		return ValidateToolInContainer(alt, rt, ctx)
+		return probe.CheckTool(ctx, alt)
 	})
 
 	if len(toolErrors) > 0 {
 		return &DependencyError{
-			CommandName:  ctx.Command.Name,
-			MissingTools: toolErrors,
+			CommandName:        ctx.Command.Name,
+			MissingTools:       toolErrors,
+			StructuredFailures: dependencyFailures(DependencyFailureTool, toolErrors),
 		}
 	}
 
-	return nil
-}
-
-// ValidateToolInContainer validates a tool dependency within a container.
-// It accepts a BinaryName and checks if it exists in the container environment.
-// The runtime is passed directly (hoisted by caller) to avoid redundant registry lookups.
-func ValidateToolInContainer(toolName invowkfile.BinaryName, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
-	toolNameStr := string(toolName)
-
-	// Defense-in-depth: validate tool name before shell interpolation
-	if !ToolNamePattern.MatchString(toolNameStr) {
-		return fmt.Errorf("  • %s - invalid tool name for shell interpolation", toolName)
-	}
-
-	checkScript := fmt.Sprintf("command -v '%s' || which '%s'", ShellEscapeSingleQuote(toolNameStr), ShellEscapeSingleQuote(toolNameStr))
-
-	validationCtx, _, stderr := NewContainerValidationContext(ctx, checkScript)
-
-	result := rt.Execute(validationCtx)
-	if result.Error != nil {
-		return fmt.Errorf("  • %s - %w: %w", toolName, ErrContainerValidationFailed, result.Error)
-	}
-	if err := CheckTransientExitCode(result, toolNameStr); err != nil {
-		return err
-	}
-	if result.ExitCode != 0 {
-		_ = stderr // consumed by NewContainerValidationContext but not needed here
-		return fmt.Errorf("  • %s - not available in container", toolName)
-	}
 	return nil
 }
 
@@ -89,8 +58,9 @@ func CheckHostToolDependenciesWithProbe(deps *invowkfile.DependsOn, ctx *runtime
 
 	if len(toolErrors) > 0 {
 		return &DependencyError{
-			CommandName:  ctx.Command.Name,
-			MissingTools: toolErrors,
+			CommandName:        ctx.Command.Name,
+			MissingTools:       toolErrors,
+			StructuredFailures: dependencyFailures(DependencyFailureTool, toolErrors),
 		}
 	}
 

@@ -91,6 +91,40 @@ func TestComponentResponseToProtocolResults(t *testing.T) {
 	})
 }
 
+func TestComponentRequestFromProtocolChoose(t *testing.T) {
+	t.Parallel()
+
+	raw, err := json.Marshal(tuiwire.ChooseRequest{
+		Title:       "Pick",
+		Description: "ignored by current renderer",
+		Options:     []string{"one", "two"},
+		Selected:    "ignored",
+		Limit:       2,
+		NoLimit:     true,
+		Ordered:     true,
+		Height:      7,
+		Cursor:      "ignored",
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal() = %v", err)
+	}
+
+	got, err := componentRequestFromProtocol(tui.ComponentTypeChoose, raw)
+	if err != nil {
+		t.Fatalf("componentRequestFromProtocol() = %v", err)
+	}
+	opts, ok := got.(tui.ChooseStringOptions)
+	if !ok {
+		t.Fatalf("got %T, want tui.ChooseStringOptions", got)
+	}
+	if opts.Title != "Pick" || opts.Limit != 2 || !opts.NoLimit || opts.Height != 7 {
+		t.Fatalf("opts = %+v", opts)
+	}
+	if len(opts.Options) != 2 || opts.Options[0] != "one" || opts.Options[1] != "two" {
+		t.Fatalf("Options = %v", opts.Options)
+	}
+}
+
 func decodeComponentResult[T any](t testing.TB, got tuiwire.Response) T {
 	t.Helper()
 

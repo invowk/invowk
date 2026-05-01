@@ -26,31 +26,31 @@ import (
 // that commands are discoverable via the standard discovery pipeline. For container runtime deps,
 // it runs 'invowk internal check-cmd' inside the container. Neither phase executes the
 // referenced commands.
-func ValidateDependencies(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string) error {
-	return ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, registry, parentCtx, userEnv, nil)
+func ValidateDependencies(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, parentCtx *runtime.ExecutionContext, userEnv map[string]string) error {
+	return ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, nil, parentCtx, userEnv, nil)
 }
 
 // ValidateDependenciesWithCapabilityChecker validates dependencies with an injectable host capability checker.
-func ValidateDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker) error {
-	return ValidateDependenciesWithHostProbe(disc, cmdInfo, registry, parentCtx, userEnv, hostCapabilityChecker, nil)
+func ValidateDependenciesWithCapabilityChecker(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, runtimeProbe RuntimeDependencyProbe, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker) error {
+	return ValidateDependenciesWithHostProbe(disc, cmdInfo, runtimeProbe, parentCtx, userEnv, hostCapabilityChecker, nil)
 }
 
 // ValidateDependenciesWithHostProbe validates dependencies with injectable
 // host-device probes for application-service tests and adapters.
-func ValidateDependenciesWithHostProbe(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe) error {
-	return ValidateDependenciesWithPorts(disc, cmdInfo, registry, parentCtx, userEnv, hostCapabilityChecker, hostProbe, nil)
+func ValidateDependenciesWithHostProbe(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, runtimeProbe RuntimeDependencyProbe, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe) error {
+	return ValidateDependenciesWithPorts(disc, cmdInfo, runtimeProbe, parentCtx, userEnv, hostCapabilityChecker, hostProbe, nil)
 }
 
 // ValidateDependenciesWithPorts validates dependencies with injectable
 // outside-device ports for application-service tests and adapters.
-func ValidateDependenciesWithPorts(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe, lockProvider CommandScopeLockProvider) error {
+func ValidateDependenciesWithPorts(disc CommandSetProvider, cmdInfo *discovery.CommandInfo, runtimeProbe RuntimeDependencyProbe, parentCtx *runtime.ExecutionContext, userEnv map[string]string, hostCapabilityChecker CapabilityChecker, hostProbe HostProbe, lockProvider CommandScopeLockProvider) error {
 	// Phase 1: Host dependencies (root + cmd + impl, always validated on host)
 	if err := ValidateHostDependenciesWithPorts(disc, cmdInfo, parentCtx, userEnv, hostCapabilityChecker, hostProbe, lockProvider); err != nil {
 		return err
 	}
 
 	// Phase 2: Runtime dependencies (selected runtime's depends_on, runtime-aware)
-	return ValidateRuntimeDependencies(cmdInfo, registry, parentCtx)
+	return ValidateRuntimeDependencies(cmdInfo, runtimeProbe, parentCtx)
 }
 
 // ValidateHostDependencies validates merged root+cmd+impl dependencies against the HOST.
@@ -115,7 +115,7 @@ func ValidateHostDependenciesWithPorts(disc CommandSetProvider, cmdInfo *discove
 // the runtime's own environment. Runtime-level depends_on is only supported for the
 // container runtime -- for native/virtual, it's a no-op since CUE schema and structural
 // validation prevent declaring depends_on on those runtime types.
-func ValidateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runtime.Registry, parentCtx *runtime.ExecutionContext) error { //nolint:revive // cmdInfo kept for phase symmetry with ValidateHostDependencies
+func ValidateRuntimeDependencies(cmdInfo *discovery.CommandInfo, probe RuntimeDependencyProbe, parentCtx *runtime.ExecutionContext) error { //nolint:revive // cmdInfo kept for phase symmetry with ValidateHostDependencies
 	selectedRuntime := parentCtx.SelectedRuntime
 
 	// Runtime-level depends_on is only supported for container runtime
@@ -134,34 +134,37 @@ func ValidateRuntimeDependencies(cmdInfo *discovery.CommandInfo, registry *runti
 	if rtDeps.IsEmpty() {
 		return nil
 	}
+	if probe == nil {
+		return ErrRuntimeDependencyProbeRequired
+	}
 
 	// Env vars: validated inside the container
-	if err := CheckEnvVarDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
+	if err := CheckEnvVarDependenciesInContainer(rtDeps, probe, parentCtx); err != nil {
 		return err
 	}
 
 	// Tools: validated inside the container
-	if err := CheckToolDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
+	if err := CheckToolDependenciesInContainer(rtDeps, probe, parentCtx); err != nil {
 		return err
 	}
 
 	// Filepaths: validated inside the container
-	if err := CheckFilepathDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
+	if err := CheckFilepathDependenciesInContainer(rtDeps, probe, parentCtx); err != nil {
 		return err
 	}
 
 	// Capabilities: validated inside the container
-	if err := CheckCapabilityDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
+	if err := CheckCapabilityDependenciesInContainer(rtDeps, probe, parentCtx); err != nil {
 		return err
 	}
 
 	// Custom checks: validated inside the container
-	if err := CheckCustomCheckDependenciesInContainer(rtDeps, registry, parentCtx); err != nil {
+	if err := CheckCustomCheckDependenciesInContainer(rtDeps, probe, parentCtx); err != nil {
 		return err
 	}
 
 	// Command discoverability: validated inside the container
-	return CheckCommandDependenciesInContainer(rtDeps, registry, parentCtx)
+	return CheckCommandDependenciesInContainer(rtDeps, probe, parentCtx)
 }
 
 // CheckCommandDependenciesExist verifies that required commands are discoverable via the
@@ -229,10 +232,13 @@ func CheckCommandDependenciesExistWithLockProvider(disc CommandSetProvider, deps
 	}
 
 	if len(commandErrors) > 0 || len(forbiddenErrors) > 0 {
+		structuredFailures := dependencyFailures(DependencyFailureCommand, commandErrors)
+		structuredFailures = append(structuredFailures, dependencyFailures(DependencyFailureForbiddenCommand, forbiddenErrors)...)
 		return &DependencyError{
-			CommandName:       ctx.Command.Name,
-			MissingCommands:   commandErrors,
-			ForbiddenCommands: forbiddenErrors,
+			CommandName:        ctx.Command.Name,
+			MissingCommands:    commandErrors,
+			ForbiddenCommands:  forbiddenErrors,
+			StructuredFailures: structuredFailures,
 		}
 	}
 
@@ -303,11 +309,8 @@ func commandScopeLock(provider CommandScopeLockProvider, inv *invowkfile.Invowkf
 func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.CommandScopeDecision) DependencyMessage {
 	return dependencyMessageFromDetail(fmt.Sprintf(
 		"%s - command from module '%s' cannot call '%s': module '%s' is not accessible\n"+
-			"  Commands can only call:\n"+
-			"  - Commands from the same module (%s)\n"+
-			"  - Commands from globally installed user command modules (~/.invowk/cmds/)\n"+
-			"  - Commands from direct dependencies declared in invowkmod.cue:requires\n"+
-			"  Add '%s' to your invowkmod.cue requires list to use its commands",
+			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires. "+
+			"Add '%s' to your invowkmod.cue requires list to use its commands",
 		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID, decision.TargetSource))
 }
 
@@ -350,13 +353,12 @@ func discoverAvailableCommands(disc CommandSetProvider, ctx *runtime.ExecutionCo
 	return available, nil
 }
 
-//goplint:ignore -- helper normalizes discovered command names for dependency checks.
-func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []string {
-	var alternatives []string
+func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []invowkfile.CommandName {
+	var alternatives []invowkfile.CommandName
 	for _, alt := range dep.Alternatives {
 		trimmed := strings.TrimSpace(string(alt))
 		if trimmed != "" {
-			alternatives = append(alternatives, trimmed)
+			alternatives = append(alternatives, invowkfile.CommandName(trimmed)) //goplint:ignore -- normalized from existing typed command dependency input.
 		}
 	}
 	return alternatives
@@ -365,15 +367,15 @@ func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []string {
 // findMatchingCommand returns the first CommandInfo matching any alternative,
 // or nil if none found. Module callers resolve bare alternatives against their
 // own source namespace before falling back to an unscoped root command.
-func findMatchingCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule string, alternatives []string) *discovery.CommandInfo {
+func findMatchingCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule string, alternatives []invowkfile.CommandName) *discovery.CommandInfo {
 	for _, alt := range alternatives {
-		exact := available[invowkfile.CommandName(alt)] //goplint:ignore -- map key lookup only
+		exact := available[alt]
 		if isModuleScopedCommand(exact) {
 			return exact
 		}
 
 		if currentModule != "" {
-			qualified := invowkfile.CommandName(currentModule + " " + alt) //goplint:ignore -- map key lookup only
+			qualified := invowkfile.CommandName(currentModule + " " + string(alt)) //goplint:ignore -- map key lookup only
 			if cmd, ok := available[qualified]; ok {
 				return cmd
 			}
@@ -393,8 +395,7 @@ func isModuleScopedCommand(cmd *discovery.CommandInfo) bool {
 	return cmd.ModuleID != nil || cmd.Invowkfile != nil && cmd.Invowkfile.Metadata != nil
 }
 
-//goplint:ignore -- helper formats normalized command-alternative display strings.
-func formatMissingCommandDependency(alternatives []string, inContainer bool) DependencyMessage {
+func formatMissingCommandDependency(alternatives []invowkfile.CommandName, inContainer bool) DependencyMessage {
 	if len(alternatives) == 1 {
 		suffix := "command not found"
 		if inContainer {
@@ -407,5 +408,14 @@ func formatMissingCommandDependency(alternatives []string, inContainer bool) Dep
 	if inContainer {
 		message = "none of [%s] found in container"
 	}
-	return dependencyMessageFromDetail(fmt.Sprintf(message, strings.Join(alternatives, ", ")))
+	return dependencyMessageFromDetail(fmt.Sprintf(message, commandNamesDisplay(alternatives)))
+}
+
+//goplint:ignore -- dependency error rendering needs a comma-separated display string for typed command names.
+func commandNamesDisplay(names []invowkfile.CommandName) string {
+	display := make([]string, 0, len(names))
+	for _, name := range names {
+		display = append(display, name.String())
+	}
+	return strings.Join(display, ", ")
 }

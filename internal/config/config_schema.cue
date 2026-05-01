@@ -48,7 +48,7 @@ import "strings"
 
 	// alias optionally overrides the module identifier for collision disambiguation.
 	// Must be unique across all includes entries.
-	alias?: string & !="" & strings.MaxRunes(256)
+	alias?: string & =~"^[a-zA-Z][a-zA-Z0-9._-]*$" & strings.MaxRunes(256)
 })
 
 // ContainerConfig configures container runtime behavior

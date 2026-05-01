@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue/errors"
-
-	"github.com/invowk/invowk/pkg/types"
 )
 
 const pathMessageFormat = "%s: %s"
@@ -20,16 +18,16 @@ var ErrFileSizeExceeded = goerrors.New("file size exceeds maximum")
 // ValidationError represents a CUE validation error with context.
 type ValidationError struct {
 	// FilePath is the file being validated.
-	FilePath types.FilesystemPath
+	FilePath string //goplint:ignore -- cueutil is domain-agnostic; validation errors carry utility file paths as text.
 
 	// CUEPath is the JSON path to the invalid value (e.g., "cmds[0].name").
 	CUEPath CUEPath
 
 	// Message is the validation error message.
-	Message types.DescriptionText
+	Message string //goplint:ignore -- cueutil is domain-agnostic; validation errors carry CUE diagnostic text.
 
 	// Suggestion is an optional hint for fixing the error.
-	Suggestion types.DescriptionText
+	Suggestion string //goplint:ignore -- cueutil is domain-agnostic; validation errors carry optional diagnostic text.
 }
 
 // Error implements the error interface.

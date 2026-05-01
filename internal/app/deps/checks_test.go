@@ -48,7 +48,6 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 	t.Parallel()
 
 	ctx := newDependencyExecutionContext(t)
-	registry := runtimepkg.NewRegistry()
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			if strings.Contains(string(ctx.SelectedImpl.Script), "echo ok") {
@@ -58,8 +57,6 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 			return &runtimepkg.Result{ExitCode: 1, Error: shellExitError(t)}
 		},
 	}
-	registry.Register(runtimepkg.RuntimeTypeContainer, stub)
-
 	deps := &invowkfile.DependsOn{
 		CustomChecks: []invowkfile.CustomCheckDependency{
 			{
@@ -71,7 +68,7 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 		},
 	}
 
-	if err := CheckCustomCheckDependenciesInContainer(deps, registry, ctx); err != nil {
+	if err := CheckCustomCheckDependenciesInContainer(deps, stub, ctx); err != nil {
 		t.Fatalf("CheckCustomCheckDependenciesInContainer() = %v", err)
 	}
 
@@ -84,7 +81,7 @@ func TestCheckCustomCheckDependenciesInContainer(t *testing.T) {
 				},
 			}},
 		},
-		registry,
+		stub,
 		ctx,
 	)
 	if err == nil {
@@ -105,28 +102,22 @@ func TestValidateCustomCheckInContainer(t *testing.T) {
 	ctx := newDependencyExecutionContext(t)
 	check := invowkfile.CustomCheck{Name: "demo", CheckScript: "echo ok", ExpectedOutput: "^ok$"}
 
-	err := validateCustomCheckInContainer(check, runtimepkg.NewRegistry(), ctx)
-	if err == nil || !errors.Is(err, ErrContainerRuntimeNotAvailable) {
-		t.Fatalf("err = %v, want wrapping ErrContainerRuntimeNotAvailable", err)
-	}
-
-	registry := runtimepkg.NewRegistry()
-	registry.Register(runtimepkg.RuntimeTypeContainer, &filepathStubRuntime{
+	probe := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			_, _ = io.WriteString(ctx.IO.Stdout, "ok")
 			return &runtimepkg.Result{ExitCode: 0}
 		},
-	})
-	if validateErr := validateCustomCheckInContainer(check, registry, ctx); validateErr != nil {
-		t.Fatalf("validateCustomCheckInContainer() = %v", validateErr)
+	}
+	if validateErr := probe.RunCustomCheck(ctx, check); validateErr != nil {
+		t.Fatalf("RunCustomCheck() = %v", validateErr)
 	}
 
-	registry.Register(runtimepkg.RuntimeTypeContainer, &filepathStubRuntime{
+	probe = &filepathStubRuntime{
 		execFn: func(_ *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			return &runtimepkg.Result{ExitCode: 1, Error: errors.New("engine down")}
 		},
-	})
-	err = validateCustomCheckInContainer(check, registry, ctx)
+	}
+	err := probe.RunCustomCheck(ctx, check)
 	if !errors.Is(err, ErrContainerValidationFailed) {
 		t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
 	}
@@ -136,7 +127,6 @@ func TestContainerEnvVarValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := newDependencyExecutionContext(t)
-	registry := runtimepkg.NewRegistry()
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			script := string(ctx.SelectedImpl.Script)
@@ -152,22 +142,20 @@ func TestContainerEnvVarValidation(t *testing.T) {
 			}
 		},
 	}
-	registry.Register(runtimepkg.RuntimeTypeContainer, stub)
-
-	if validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "", Validation: "^.+$"}, stub, ctx) == nil {
+	if stub.CheckEnvVar(ctx, invowkfile.EnvVarCheck{Name: "", Validation: "^.+$"}) == nil {
 		t.Fatal("expected empty name error")
 	}
 
-	if err := validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "HOME", Validation: "^/home/"}, stub, ctx); err != nil {
-		t.Fatalf("validateContainerEnvVar() = %v", err)
+	if err := stub.CheckEnvVar(ctx, invowkfile.EnvVarCheck{Name: "HOME", Validation: "^/home/"}); err != nil {
+		t.Fatalf("CheckEnvVar() = %v", err)
 	}
 
-	err := validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "MISSING"}, stub, ctx)
+	err := stub.CheckEnvVar(ctx, invowkfile.EnvVarCheck{Name: "MISSING"})
 	if !errors.Is(err, ErrContainerEnvVarNotSet) {
 		t.Fatalf("err = %v, want wrapping ErrContainerEnvVarNotSet", err)
 	}
 
-	err = validateContainerEnvVar(invowkfile.EnvVarCheck{Name: "TRANSIENT"}, stub, ctx)
+	err = stub.CheckEnvVar(ctx, invowkfile.EnvVarCheck{Name: "TRANSIENT"})
 	if !errors.Is(err, ErrContainerEngineFailure) {
 		t.Fatalf("err = %v, want wrapping ErrContainerEngineFailure", err)
 	}
@@ -183,7 +171,7 @@ func TestContainerEnvVarValidation(t *testing.T) {
 
 	err = CheckEnvVarDependenciesInContainer(
 		&invowkfile.DependsOn{EnvVars: []invowkfile.EnvVarDependency{{Alternatives: []invowkfile.EnvVarCheck{{Name: "MISSING"}}}}},
-		registry,
+		stub,
 		ctx,
 	)
 	if err == nil {
@@ -195,7 +183,6 @@ func TestContainerCapabilityValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := newDependencyExecutionContext(t)
-	registry := runtimepkg.NewRegistry()
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			if strings.Contains(string(ctx.SelectedImpl.Script), "command -v docker") {
@@ -204,13 +191,11 @@ func TestContainerCapabilityValidation(t *testing.T) {
 			return &runtimepkg.Result{ExitCode: 1}
 		},
 	}
-	registry.Register(runtimepkg.RuntimeTypeContainer, stub)
-
-	if validateContainerCapability(invowkfile.CapabilityName("bogus"), stub, ctx) == nil {
+	if stub.CheckCapability(ctx, invowkfile.CapabilityName("bogus")) == nil {
 		t.Fatal("expected unknown capability error")
 	}
-	if err := validateContainerCapability(invowkfile.CapabilityContainers, stub, ctx); err != nil {
-		t.Fatalf("validateContainerCapability() = %v", err)
+	if err := stub.CheckCapability(ctx, invowkfile.CapabilityContainers); err != nil {
+		t.Fatalf("CheckCapability() = %v", err)
 	}
 
 	errorsList := collectContainerCapabilityErrors(
@@ -228,7 +213,7 @@ func TestContainerCapabilityValidation(t *testing.T) {
 
 	err := CheckCapabilityDependenciesInContainer(
 		&invowkfile.DependsOn{Capabilities: []invowkfile.CapabilityDependency{{Alternatives: []invowkfile.CapabilityName{invowkfile.CapabilityTTY}}}},
-		registry,
+		stub,
 		ctx,
 	)
 	if err == nil {
@@ -241,7 +226,6 @@ func TestContainerCommandValidation(t *testing.T) {
 
 	ctx := newDependencyExecutionContext(t)
 	var seenScripts []string
-	registry := runtimepkg.NewRegistry()
 	stub := &filepathStubRuntime{
 		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 			script := string(ctx.SelectedImpl.Script)
@@ -257,18 +241,16 @@ func TestContainerCommandValidation(t *testing.T) {
 			}
 		},
 	}
-	registry.Register(runtimepkg.RuntimeTypeContainer, stub)
-
-	if err := validateContainerCommand("build", stub, ctx); err != nil {
-		t.Fatalf("validateContainerCommand(build) = %v", err)
+	if err := stub.CheckCommand(ctx, "build"); err != nil {
+		t.Fatalf("CheckCommand(build) = %v", err)
 	}
 
-	err := validateContainerCommand("missing", stub, ctx)
+	err := stub.CheckCommand(ctx, "missing")
 	if !errors.Is(err, ErrContainerCommandNotFound) {
 		t.Fatalf("err = %v, want wrapping ErrContainerCommandNotFound", err)
 	}
 
-	err = validateContainerCommand("broken", stub, ctx)
+	err = stub.CheckCommand(ctx, "broken")
 	if !errors.Is(err, ErrContainerValidationFailed) {
 		t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
 	}
@@ -284,7 +266,7 @@ func TestContainerCommandValidation(t *testing.T) {
 
 	err = CheckCommandDependenciesInContainer(
 		&invowkfile.DependsOn{Commands: []invowkfile.CommandDependency{{Alternatives: []invowkfile.CommandName{"missing"}}}},
-		registry,
+		stub,
 		ctx,
 	)
 	if err == nil {
@@ -296,12 +278,15 @@ func TestContainerCommandValidation(t *testing.T) {
 	}
 }
 
-func TestRequireContainerRuntime(t *testing.T) {
+func TestRuntimeDependencyProbeRequired(t *testing.T) {
 	t.Parallel()
 
-	_, err := requireContainerRuntime(runtimepkg.NewRegistry(), "demo")
-	if err == nil || !errors.Is(err, ErrContainerRuntimeNotAvailable) {
-		t.Fatalf("err = %v, want wrapping ErrContainerRuntimeNotAvailable", err)
+	ctx := newDependencyExecutionContext(t)
+	err := CheckToolDependenciesInContainer(&invowkfile.DependsOn{
+		Tools: []invowkfile.ToolDependency{{Alternatives: []invowkfile.BinaryName{"go"}}},
+	}, nil, ctx)
+	if err == nil || !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
+		t.Fatalf("err = %v, want wrapping ErrRuntimeDependencyProbeRequired", err)
 	}
 }
 

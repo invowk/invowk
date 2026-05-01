@@ -65,7 +65,7 @@ func (dependencyCapabilityChecker) Validate() error {
 func (dependencyHostProbe) CheckTool(toolName invowkfile.BinaryName) error {
 	_, err := exec.LookPath(string(toolName))
 	if err != nil {
-		return fmt.Errorf("  • %s - not found in PATH", toolName)
+		return fmt.Errorf("%s - not found in PATH", toolName)
 	}
 	return nil
 }

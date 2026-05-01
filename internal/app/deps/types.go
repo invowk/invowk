@@ -320,6 +320,12 @@ func appendDependencyFailures(dst *[]DependencyFailure, kind DependencyFailureKi
 	}
 }
 
+func dependencyFailures(kind DependencyFailureKind, details []DependencyMessage) []DependencyFailure {
+	failures := make([]DependencyFailure, 0, len(details))
+	appendDependencyFailures(&failures, kind, details)
+	return failures
+}
+
 // dependencyMessageFromDetail constructs a plain dependency validation detail.
 //
 //goplint:ignore -- dependency diagnostics normalize free-form details from typed errors; empty messages are rejected at aggregate construction.

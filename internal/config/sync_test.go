@@ -209,6 +209,26 @@ func TestIncludesEntryConstraints(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "alias starting with digit rejected",
+			cueData: `includes: [{path: "/home/user/mymod.invowkmod", alias: "1bad"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "alias containing space rejected",
+			cueData: `includes: [{path: "/home/user/mymod.invowkmod", alias: "bad alias"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "container alias starting with digit rejected",
+			cueData: `container: {auto_provision: {includes: [{path: "/home/user/mymod.invowkmod", alias: "1bad"}]}}`,
+			wantErr: true,
+		},
+		{
+			name:    "container alias containing space rejected",
+			cueData: `container: {auto_provision: {includes: [{path: "/home/user/mymod.invowkmod", alias: "bad alias"}]}}`,
+			wantErr: true,
+		},
+		{
 			name:    "alias over 256 chars rejected",
 			cueData: `includes: [{path: "/home/user/mymod.invowkmod", alias: "` + strings.Repeat("a", 257) + `"}]`,
 			wantErr: true,

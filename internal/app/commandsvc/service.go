@@ -24,29 +24,31 @@ type (
 	// runtime resolution, host-access lifecycle, execution context construction,
 	// and dispatch. It returns raw typed errors (not styled ServiceErrors).
 	Service struct {
-		config            config.Loader
-		discovery         CommandDiscovery
-		hostAccess        HostAccess
-		registryFactory   RuntimeRegistryCreator
-		interactive       InteractiveExecutor
-		observer          ExecutionObserver
-		requestScope      RequestScopeFunc
-		capabilityChecker deps.CapabilityChecker
-		hostProbe         deps.HostProbe
-		lockProvider      deps.CommandScopeLockProvider
-		userEnvFunc       UserEnvFunc
-		configFallback    ConfigFallbackFunc
+		config              config.Loader
+		discovery           CommandDiscovery
+		hostAccess          HostAccess
+		registryFactory     RuntimeRegistryCreator
+		runtimeProbeFactory RuntimeDependencyProbeFactory
+		interactive         InteractiveExecutor
+		observer            ExecutionObserver
+		requestScope        RequestScopeFunc
+		capabilityChecker   deps.CapabilityChecker
+		hostProbe           deps.HostProbe
+		lockProvider        deps.CommandScopeLockProvider
+		userEnvFunc         UserEnvFunc
+		configFallback      ConfigFallbackFunc
 	}
 
 	ports struct {
-		hostAccess        HostAccess
-		registryFactory   RuntimeRegistryCreator
-		interactive       InteractiveExecutor
-		observer          ExecutionObserver
-		requestScope      RequestScopeFunc
-		capabilityChecker deps.CapabilityChecker
-		hostProbe         deps.HostProbe
-		lockProvider      deps.CommandScopeLockProvider
+		hostAccess          HostAccess
+		registryFactory     RuntimeRegistryCreator
+		runtimeProbeFactory RuntimeDependencyProbeFactory
+		interactive         InteractiveExecutor
+		observer            ExecutionObserver
+		requestScope        RequestScopeFunc
+		capabilityChecker   deps.CapabilityChecker
+		hostProbe           deps.HostProbe
+		lockProvider        deps.CommandScopeLockProvider
 	}
 
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
@@ -58,6 +60,7 @@ type (
 func NewPorts(
 	hostAccess HostAccess,
 	registryFactory RuntimeRegistryCreator,
+	runtimeProbeFactory RuntimeDependencyProbeFactory,
 	interactive InteractiveExecutor,
 	observer ExecutionObserver,
 	requestScope RequestScopeFunc,
@@ -66,14 +69,15 @@ func NewPorts(
 	lockProvider deps.CommandScopeLockProvider,
 ) ports {
 	return ports{
-		hostAccess:        hostAccess,
-		registryFactory:   registryFactory,
-		interactive:       interactive,
-		observer:          observer,
-		requestScope:      requestScope,
-		capabilityChecker: capabilityChecker,
-		hostProbe:         hostProbe,
-		lockProvider:      lockProvider,
+		hostAccess:          hostAccess,
+		registryFactory:     registryFactory,
+		runtimeProbeFactory: runtimeProbeFactory,
+		interactive:         interactive,
+		observer:            observer,
+		requestScope:        requestScope,
+		capabilityChecker:   capabilityChecker,
+		hostProbe:           hostProbe,
+		lockProvider:        lockProvider,
 	}
 }
 
@@ -94,21 +98,25 @@ func New(
 	servicePorts ports,
 ) *Service {
 	svc := &Service{
-		config:          configProvider,
-		discovery:       disc,
-		hostAccess:      noopHostAccess{},
-		registryFactory: missingRuntimeRegistryFactory{},
-		interactive:     defaultInteractiveExecutor{},
-		observer:        noopExecutionObserver{},
-		requestScope:    beginNoopRequestScope,
-		userEnvFunc:     userEnvFunc,
-		configFallback:  configFallback,
+		config:              configProvider,
+		discovery:           disc,
+		hostAccess:          noopHostAccess{},
+		registryFactory:     missingRuntimeRegistryFactory{},
+		runtimeProbeFactory: noopRuntimeDependencyProbeFactory{},
+		interactive:         defaultInteractiveExecutor{},
+		observer:            noopExecutionObserver{},
+		requestScope:        beginNoopRequestScope,
+		userEnvFunc:         userEnvFunc,
+		configFallback:      configFallback,
 	}
 	if servicePorts.hostAccess != nil {
 		svc.hostAccess = servicePorts.hostAccess
 	}
 	if servicePorts.registryFactory != nil {
 		svc.registryFactory = servicePorts.registryFactory
+	}
+	if servicePorts.runtimeProbeFactory != nil {
+		svc.runtimeProbeFactory = servicePorts.runtimeProbeFactory
 	}
 	if servicePorts.interactive != nil {
 		svc.interactive = servicePorts.interactive

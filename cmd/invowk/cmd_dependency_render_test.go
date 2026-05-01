@@ -15,22 +15,22 @@ func TestRenderDependencyError(t *testing.T) {
 	err := &deps.DependencyError{
 		CommandName: "complex-deploy",
 		MissingTools: []deps.DependencyMessage{
-			"  - kubectl - not found in PATH",
+			"kubectl - not found in PATH",
 		},
 		MissingCommands: []deps.DependencyMessage{
-			"  - build - command not found",
+			"build - command not found",
 		},
 		MissingFilepaths: []deps.DependencyMessage{
-			"  - config.yaml - file not found",
+			"config.yaml - file not found",
 		},
 		MissingCapabilities: []deps.DependencyMessage{
-			"  - capability \"internet\" not available: no connection",
+			"capability \"internet\" not available: no connection",
 		},
 		MissingEnvVars: []deps.DependencyMessage{
-			"  - AWS_ACCESS_KEY_ID - not set in environment",
+			"AWS_ACCESS_KEY_ID - not set in environment",
 		},
 		FailedCustomChecks: []deps.DependencyMessage{
-			"  - docker-version: exit code 127 (expected 0)",
+			"docker-version: exit code 127 (expected 0)",
 		},
 	}
 

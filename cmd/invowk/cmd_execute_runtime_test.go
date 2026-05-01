@@ -87,7 +87,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})
@@ -110,7 +110,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{
@@ -135,7 +135,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "native-only"})
@@ -157,7 +157,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})
@@ -178,7 +178,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})

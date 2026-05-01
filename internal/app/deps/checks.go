@@ -39,17 +39,17 @@ func ValidateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 	}
 
 	if actualCode != expectedCode {
-		return fmt.Errorf("  • %s - check script returned exit code %d, expected %d", check.Name, actualCode, expectedCode)
+		return fmt.Errorf("%s - check script returned exit code %d, expected %d", check.Name, actualCode, expectedCode)
 	}
 
 	// Check output pattern if specified
 	if check.ExpectedOutput != "" {
 		matched, err := regexp.MatchString(string(check.ExpectedOutput), outputStr)
 		if err != nil {
-			return fmt.Errorf("  • %s - invalid regex pattern '%s': %w", check.Name, check.ExpectedOutput.String(), err)
+			return fmt.Errorf("%s - invalid regex pattern '%s': %w", check.Name, check.ExpectedOutput.String(), err)
 		}
 		if !matched {
-			return fmt.Errorf("  • %s - check script output '%s' does not match pattern '%s'", check.Name, outputStr, check.ExpectedOutput.String())
+			return fmt.Errorf("%s - check script output '%s' does not match pattern '%s'", check.Name, outputStr, check.ExpectedOutput.String())
 		}
 	}
 
@@ -60,38 +60,13 @@ func ValidateCustomCheckOutput(check invowkfile.CustomCheck, outputStr string, e
 // Called only for container runtime (caller guards non-container early return).
 // Each CustomCheckDependency can be either a direct check or a list of alternatives.
 // For alternatives, OR semantics are used (early return on first passing check).
-func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func CheckCustomCheckDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
+	if probe == nil {
+		return ErrRuntimeDependencyProbeRequired
+	}
 	return evaluateCustomChecks(deps, ctx, func(_ context.Context, check invowkfile.CustomCheck) error {
-		return validateCustomCheckInContainer(check, registry, ctx)
+		return probe.RunCustomCheck(ctx, check)
 	})
-}
-
-// validateCustomCheckInContainer runs a custom check script within a container.
-// Distinguishes infrastructure failures (container engine down) from script exit codes
-// to prevent false-positive validation when the container never actually ran.
-func validateCustomCheckInContainer(check invowkfile.CustomCheck, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
-	rt, err := registry.Get(runtime.RuntimeTypeContainer)
-	if err != nil {
-		return depBulletErr(string(check.Name), ErrContainerRuntimeNotAvailable)
-	}
-
-	validationCtx, stdout, stderr := NewContainerValidationContext(ctx, string(check.CheckScript))
-
-	result := rt.Execute(validationCtx)
-
-	// Infrastructure failures must be surfaced immediately -- if the container engine
-	// failed, no check ever ran, so we must not fall through to exit code comparison.
-	if result.Error != nil {
-		if exitErr, ok := errors.AsType[*exec.ExitError](result.Error); !ok || exitErr == nil {
-			return fmt.Errorf("  • %s - %w: %w", check.Name, ErrContainerValidationFailed, result.Error)
-		}
-	}
-	if err := CheckTransientExitCode(result, string(check.Name)); err != nil {
-		return err
-	}
-
-	outputStr := strings.TrimSpace(stdout.String() + stderr.String())
-	return ValidateCustomCheckOutput(check, outputStr, result.Error)
 }
 
 // CheckHostCustomCheckDependencies validates custom checks always using the native shell on the host.
@@ -161,6 +136,7 @@ func evaluateCustomChecks(
 		return &DependencyError{
 			CommandName:        ctx.Command.Name,
 			FailedCustomChecks: checkErrors,
+			StructuredFailures: dependencyFailures(DependencyFailureCustomCheck, checkErrors),
 		}
 	}
 
@@ -195,21 +171,20 @@ func customCheckFieldValidationMessage(err error) string {
 
 // CheckEnvVarDependenciesInContainer validates env vars inside the container.
 // Called only for container runtime (caller guards non-container early return).
-func CheckEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func CheckEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.EnvVars) == 0 {
 		return nil
 	}
-
-	rt, err := requireContainerRuntime(registry, "env var validation")
-	if err != nil {
-		return err
+	if probe == nil {
+		return ErrRuntimeDependencyProbeRequired
 	}
 
-	envVarErrors := collectContainerEnvVarErrors(deps.EnvVars, rt, ctx)
+	envVarErrors := collectContainerEnvVarErrors(deps.EnvVars, probe, ctx)
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
-			CommandName:    ctx.Command.Name,
-			MissingEnvVars: envVarErrors,
+			CommandName:        ctx.Command.Name,
+			MissingEnvVars:     envVarErrors,
+			StructuredFailures: dependencyFailures(DependencyFailureEnvVar, envVarErrors),
 		}
 	}
 
@@ -218,21 +193,20 @@ func CheckEnvVarDependenciesInContainer(deps *invowkfile.DependsOn, registry *ru
 
 // CheckCapabilityDependenciesInContainer validates capabilities inside the container.
 // Called only for container runtime (caller guards non-container early return).
-func CheckCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func CheckCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Capabilities) == 0 {
 		return nil
 	}
-
-	rt, err := requireContainerRuntime(registry, "capability validation")
-	if err != nil {
-		return err
+	if probe == nil {
+		return ErrRuntimeDependencyProbeRequired
 	}
 
-	capabilityErrors := collectContainerCapabilityErrors(deps.Capabilities, rt, ctx)
+	capabilityErrors := collectContainerCapabilityErrors(deps.Capabilities, probe, ctx)
 	if len(capabilityErrors) > 0 {
 		return &DependencyError{
 			CommandName:         ctx.Command.Name,
 			MissingCapabilities: capabilityErrors,
+			StructuredFailures:  dependencyFailures(DependencyFailureCapability, capabilityErrors),
 		}
 	}
 
@@ -259,21 +233,20 @@ func CapabilityCheckScript(capName invowkfile.CapabilityName) string {
 // CheckCommandDependenciesInContainer validates command discoverability inside the container.
 // Called only for container runtime (caller guards non-container early return).
 // Runs `invowk internal check-cmd` inside the container to verify auto-provisioning worked.
-func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, registry *runtime.Registry, ctx *runtime.ExecutionContext) error {
+func CheckCommandDependenciesInContainer(deps *invowkfile.DependsOn, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) error {
 	if deps == nil || len(deps.Commands) == 0 {
 		return nil
 	}
-
-	rt, err := requireContainerRuntime(registry, "command dependency validation")
-	if err != nil {
-		return err
+	if probe == nil {
+		return ErrRuntimeDependencyProbeRequired
 	}
 
-	commandErrors := collectContainerCommandErrors(deps.Commands, rt, ctx)
+	commandErrors := collectContainerCommandErrors(deps.Commands, probe, ctx)
 	if len(commandErrors) > 0 {
 		return &DependencyError{
-			CommandName:     ctx.Command.Name,
-			MissingCommands: commandErrors,
+			CommandName:        ctx.Command.Name,
+			MissingCommands:    commandErrors,
+			StructuredFailures: dependencyFailures(DependencyFailureCommand, commandErrors),
 		}
 	}
 
@@ -312,6 +285,7 @@ func CheckCapabilityDependenciesWithChecker(deps *invowkfile.DependsOn, ctx *run
 		return &DependencyError{
 			CommandName:         ctx.Command.Name,
 			MissingCapabilities: capabilityErrors,
+			StructuredFailures:  dependencyFailures(DependencyFailureCapability, capabilityErrors),
 		}
 	}
 
@@ -331,36 +305,20 @@ func CheckEnvVarDependencies(deps *invowkfile.DependsOn, userEnv map[string]stri
 	envVarErrors := collectHostEnvVarErrors(deps.EnvVars, userEnv)
 	if len(envVarErrors) > 0 {
 		return &DependencyError{
-			CommandName:    ctx.Command.Name,
-			MissingEnvVars: envVarErrors,
+			CommandName:        ctx.Command.Name,
+			MissingEnvVars:     envVarErrors,
+			StructuredFailures: dependencyFailures(DependencyFailureEnvVar, envVarErrors),
 		}
 	}
 
 	return nil
 }
 
-// depBulletErr formats a dependency error with the standard bullet-point prefix.
-// Used across dependency validators to produce consistently styled error messages.
-//
-//goplint:ignore -- accepts raw string from multiple typed sources (CustomCheckName, EnvVarName).
-func depBulletErr(name string, err error) error {
-	return fmt.Errorf("  • %s - %w", name, err)
-}
-
-//goplint:ignore -- helper formats internal dependency-check labels.
-func requireContainerRuntime(registry *runtime.Registry, label string) (runtime.Runtime, error) {
-	rt, err := registry.Get(runtime.RuntimeTypeContainer)
-	if err != nil {
-		return nil, fmt.Errorf("%w for %s", ErrContainerRuntimeNotAvailable, label)
-	}
-	return rt, nil
-}
-
-func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) []DependencyMessage {
+func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) []DependencyMessage {
 	var envVarErrors []DependencyMessage
 	for _, envVar := range envVars {
 		found, lastErr := EvaluateAlternatives(envVar.Alternatives, func(alt invowkfile.EnvVarCheck) error {
-			return validateContainerEnvVar(alt, rt, ctx)
+			return probe.CheckEnvVar(ctx, alt)
 		})
 		if !found && lastErr != nil {
 			envVarErrors = append(envVarErrors, formatEnvVarAlternatives(envVar.Alternatives, true, lastErr))
@@ -369,43 +327,11 @@ func collectContainerEnvVarErrors(envVars []invowkfile.EnvVarDependency, rt runt
 	return envVarErrors
 }
 
-func validateContainerEnvVar(alt invowkfile.EnvVarCheck, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
-	name := strings.TrimSpace(string(alt.Name))
-	if name == "" {
-		return errors.New("  • (empty) - environment variable name cannot be empty")
-	}
-	if err := invowkfile.ValidateEnvVarName(name); err != nil {
-		return depBulletErr(name, err)
-	}
-
-	checkScript := fmt.Sprintf("test -n \"${%s+x}\"", name)
-	if alt.Validation != "" {
-		escapedValidation := ShellEscapeSingleQuote(string(alt.Validation))
-		checkScript = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, escapedValidation)
-	}
-
-	validationCtx, _, _ := NewContainerValidationContext(ctx, checkScript)
-	result := rt.Execute(validationCtx)
-	if result.Error != nil {
-		return fmt.Errorf("%w for env var %s: %w", ErrContainerValidationFailed, name, result.Error)
-	}
-	if err := CheckTransientExitCode(result, name); err != nil {
-		return err
-	}
-	if result.ExitCode == 0 {
-		return nil
-	}
-	if alt.Validation != "" {
-		return fmt.Errorf("  • %s - not set or value does not match pattern '%s' in container", name, alt.Validation.String())
-	}
-	return depBulletErr(name, ErrContainerEnvVarNotSet)
-}
-
-func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) []DependencyMessage {
+func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDependency, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) []DependencyMessage {
 	var capabilityErrors []DependencyMessage
 	for _, capDep := range capabilities {
 		found, lastErr := EvaluateAlternatives(capDep.Alternatives, func(alt invowkfile.CapabilityName) error {
-			return validateContainerCapability(alt, rt, ctx)
+			return probe.CheckCapability(ctx, alt)
 		})
 		if !found && lastErr != nil {
 			capabilityErrors = append(capabilityErrors, formatCapabilityAlternatives(capDep.Alternatives, true, lastErr))
@@ -414,27 +340,7 @@ func collectContainerCapabilityErrors(capabilities []invowkfile.CapabilityDepend
 	return capabilityErrors
 }
 
-func validateContainerCapability(alt invowkfile.CapabilityName, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
-	checkScript := CapabilityCheckScript(alt)
-	if checkScript == "" {
-		return fmt.Errorf("%s - unknown capability", string(alt))
-	}
-
-	validationCtx, _, _ := NewContainerValidationContext(ctx, checkScript)
-	result := rt.Execute(validationCtx)
-	if result.Error != nil {
-		return fmt.Errorf("%w for capability %s: %w", ErrContainerValidationFailed, string(alt), result.Error)
-	}
-	if err := CheckTransientExitCode(result, string(alt)); err != nil {
-		return err
-	}
-	if result.ExitCode == 0 {
-		return nil
-	}
-	return fmt.Errorf("%s - not available in container", string(alt))
-}
-
-func collectContainerCommandErrors(commands []invowkfile.CommandDependency, rt runtime.Runtime, ctx *runtime.ExecutionContext) []DependencyMessage {
+func collectContainerCommandErrors(commands []invowkfile.CommandDependency, probe RuntimeDependencyProbe, ctx *runtime.ExecutionContext) []DependencyMessage {
 	var commandErrors []DependencyMessage
 	for _, dep := range commands {
 		alternatives := normalizedCommandAlternatives(dep)
@@ -442,36 +348,14 @@ func collectContainerCommandErrors(commands []invowkfile.CommandDependency, rt r
 			continue
 		}
 
-		found, lastErr := EvaluateAlternatives(alternatives, func(alt string) error {
-			return validateContainerCommand(alt, rt, ctx)
+		found, lastErr := EvaluateAlternatives(alternatives, func(alt invowkfile.CommandName) error {
+			return probe.CheckCommand(ctx, alt)
 		})
 		if !found && lastErr != nil {
 			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, true))
 		}
 	}
 	return commandErrors
-}
-
-//goplint:ignore -- helper executes discovered command names as container lookup probes.
-func validateContainerCommand(alt string, rt runtime.Runtime, ctx *runtime.ExecutionContext) error {
-	checkScript := fmt.Sprintf("invowk internal check-cmd '%s'", ShellEscapeSingleQuote(alt))
-	validationCtx, _, stderr := NewContainerValidationContext(ctx, checkScript)
-
-	result := rt.Execute(validationCtx)
-	if result.Error != nil {
-		stderrStr := strings.TrimSpace(stderr.String())
-		if stderrStr != "" {
-			return fmt.Errorf("%w for command %s: %w (%s)", ErrContainerValidationFailed, alt, result.Error, stderrStr)
-		}
-		return fmt.Errorf("%w for command %s: %w", ErrContainerValidationFailed, alt, result.Error)
-	}
-	if err := CheckTransientExitCode(result, alt); err != nil {
-		return err
-	}
-	if result.ExitCode == 0 {
-		return nil
-	}
-	return fmt.Errorf("command %s %w", alt, ErrContainerCommandNotFound)
 }
 
 func uniqueCapabilityDependencies(capabilities []invowkfile.CapabilityDependency) []invowkfile.CapabilityDependency {
@@ -529,12 +413,12 @@ func collectHostEnvVarErrors(envVars []invowkfile.EnvVarDependency, userEnv map[
 func validateHostEnvVar(alt invowkfile.EnvVarCheck, userEnv map[string]string) error {
 	name := strings.TrimSpace(string(alt.Name))
 	if name == "" {
-		return errors.New("  • (empty) - environment variable name cannot be empty")
+		return errors.New("(empty) - environment variable name cannot be empty")
 	}
 
 	value, exists := userEnv[name]
 	if !exists {
-		return fmt.Errorf("  • %s - not set in environment", name)
+		return fmt.Errorf("%s - not set in environment", name)
 	}
 	if alt.Validation == "" {
 		return nil
@@ -542,10 +426,10 @@ func validateHostEnvVar(alt invowkfile.EnvVarCheck, userEnv map[string]string) e
 
 	matched, err := regexp.MatchString(string(alt.Validation), value)
 	if err != nil {
-		return fmt.Errorf("  • %s - invalid validation regex '%s': %w", name, alt.Validation.String(), err)
+		return fmt.Errorf("%s - invalid validation regex '%s': %w", name, alt.Validation.String(), err)
 	}
 	if !matched {
-		return fmt.Errorf("  • %s - value '%s' does not match required pattern '%s'", name, value, alt.Validation.String())
+		return fmt.Errorf("%s - value '%s' does not match required pattern '%s'", name, value, alt.Validation.String())
 	}
 	return nil
 }

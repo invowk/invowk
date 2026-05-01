@@ -62,7 +62,7 @@ type (
 	ExecutionID string
 
 	// HostServiceAddress is the hostname runtime children use to reach host services.
-	HostServiceAddress string
+	HostServiceAddress = types.HostServiceAddress
 
 	// InvalidExecutionIDError is returned when an ExecutionID value does not
 	// match the expected nanoseconds-counter format.
@@ -267,17 +267,6 @@ type (
 		idCounter atomic.Uint64
 	}
 )
-
-// String returns the raw hostname for environment variables and URLs.
-func (h HostServiceAddress) String() string { return string(h) }
-
-// Validate returns nil when the host service address is non-empty.
-func (h HostServiceAddress) Validate() error {
-	if strings.TrimSpace(string(h)) == "" {
-		return errors.New("host service address must not be empty")
-	}
-	return nil
-}
 
 // Error implements the error interface for InvalidRuntimeTypeError.
 func (e *InvalidRuntimeTypeError) Error() string {

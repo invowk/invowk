@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -33,6 +34,138 @@ func (s *filepathStubRuntime) Available() bool { return true }
 
 func (s *filepathStubRuntime) Validate(_ *runtimepkg.ExecutionContext) error { return nil }
 
+func (s *filepathStubRuntime) CheckTool(ctx *runtimepkg.ExecutionContext, tool invowkfile.BinaryName) error {
+	toolName := string(tool)
+	if !ToolNamePattern.MatchString(toolName) {
+		return fmt.Errorf("%s - invalid tool name for shell interpolation", tool)
+	}
+	result, _, _, err := s.runValidation(ctx, fmt.Sprintf("command -v '%s' || which '%s'", ShellEscapeSingleQuote(toolName), ShellEscapeSingleQuote(toolName)))
+	if err != nil {
+		return fmt.Errorf("%s - %w", tool, err)
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("%s - not available in container", tool)
+	}
+	return nil
+}
+
+func (s *filepathStubRuntime) CheckFilepath(ctx *runtimepkg.ExecutionContext, fp invowkfile.FilepathDependency) error {
+	if len(fp.Alternatives) == 0 {
+		return fmt.Errorf("(no paths specified) - %w", ErrNoPathAlternatives)
+	}
+	var allErrors []string
+	for _, altPath := range fp.Alternatives {
+		script := testContainerFilepathCheckScript(fp, string(altPath))
+		result, _, stderr, err := s.runValidation(ctx, script)
+		if err != nil {
+			return fmt.Errorf("%w for path %s", err, altPath)
+		}
+		if result.ExitCode == 0 {
+			return nil
+		}
+		detail := "not found or permission denied in container"
+		if stderrStr := strings.TrimSpace(stderr); stderrStr != "" {
+			detail = stderrStr
+		}
+		allErrors = append(allErrors, fmt.Sprintf("%s: %s", altPath, detail))
+	}
+	if len(allErrors) == 1 {
+		return errors.New(allErrors[0])
+	}
+	return fmt.Errorf("none of the alternatives satisfied the requirements in container: %s", strings.Join(allErrors, "; "))
+}
+
+func (s *filepathStubRuntime) CheckEnvVar(ctx *runtimepkg.ExecutionContext, envVar invowkfile.EnvVarCheck) error {
+	name := strings.TrimSpace(string(envVar.Name))
+	if name == "" {
+		return errors.New("(empty) - environment variable name cannot be empty")
+	}
+	if err := invowkfile.ValidateEnvVarName(name); err != nil {
+		return fmt.Errorf("%s - %w", name, err)
+	}
+	script := fmt.Sprintf("test -n \"${%s+x}\"", name)
+	if envVar.Validation != "" {
+		script = fmt.Sprintf("test -n \"${%s+x}\" && printf '%%s' \"$%s\" | grep -qE '%s'", name, name, ShellEscapeSingleQuote(string(envVar.Validation)))
+	}
+	result, _, _, err := s.runValidation(ctx, script)
+	if err != nil {
+		return fmt.Errorf("%w for env var %s", err, name)
+	}
+	if result.ExitCode == 0 {
+		return nil
+	}
+	if envVar.Validation != "" {
+		return fmt.Errorf("%s - not set or value does not match pattern '%s' in container", name, envVar.Validation.String())
+	}
+	return fmt.Errorf("%s - %w", name, ErrContainerEnvVarNotSet)
+}
+
+func (s *filepathStubRuntime) CheckCapability(ctx *runtimepkg.ExecutionContext, capability invowkfile.CapabilityName) error {
+	script := CapabilityCheckScript(capability)
+	if script == "" {
+		return fmt.Errorf("%s - unknown capability", capability)
+	}
+	result, _, _, err := s.runValidation(ctx, script)
+	if err != nil {
+		return fmt.Errorf("%w for capability %s", err, capability)
+	}
+	if result.ExitCode == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s - not available in container", capability)
+}
+
+func (s *filepathStubRuntime) CheckCommand(ctx *runtimepkg.ExecutionContext, command invowkfile.CommandName) error {
+	result, _, stderr, err := s.runValidation(ctx, fmt.Sprintf("invowk internal check-cmd '%s'", ShellEscapeSingleQuote(command.String())))
+	if err != nil {
+		if stderrStr := strings.TrimSpace(stderr); stderrStr != "" {
+			return fmt.Errorf("%w for command %s (%s)", err, command, stderrStr)
+		}
+		return fmt.Errorf("%w for command %s", err, command)
+	}
+	if result.ExitCode == 0 {
+		return nil
+	}
+	return fmt.Errorf("command %s %w", command, ErrContainerCommandNotFound)
+}
+
+func (s *filepathStubRuntime) RunCustomCheck(ctx *runtimepkg.ExecutionContext, check invowkfile.CustomCheck) error {
+	result, stdout, stderr, err := s.runValidation(ctx, string(check.CheckScript))
+	if err != nil {
+		return fmt.Errorf("%s - %w", check.Name, err)
+	}
+	return ValidateCustomCheckOutput(check, strings.TrimSpace(stdout+stderr), result.Error)
+}
+
+func (s *filepathStubRuntime) runValidation(ctx *runtimepkg.ExecutionContext, script string) (result *runtimepkg.Result, stdout, stderr string, err error) {
+	validationCtx, stdoutBuf, stderrBuf := NewContainerValidationContext(ctx, script)
+	result = s.Execute(validationCtx)
+	if result.Error != nil {
+		if exitErr, ok := errors.AsType[*exec.ExitError](result.Error); !ok || exitErr == nil {
+			return result, stdoutBuf.String(), stderrBuf.String(), fmt.Errorf("%w: %w", ErrContainerValidationFailed, result.Error)
+		}
+	}
+	if err := CheckTransientExitCode(result, script); err != nil {
+		return result, stdoutBuf.String(), stderrBuf.String(), err
+	}
+	return result, stdoutBuf.String(), stderrBuf.String(), nil
+}
+
+func testContainerFilepathCheckScript(fp invowkfile.FilepathDependency, altPath string) string {
+	escapedPath := ShellEscapeSingleQuote(altPath)
+	checks := []string{fmt.Sprintf("test -e '%s'", escapedPath)}
+	if fp.Readable {
+		checks = append(checks, fmt.Sprintf("test -r '%s'", escapedPath))
+	}
+	if fp.Writable {
+		checks = append(checks, fmt.Sprintf("test -w '%s'", escapedPath))
+	}
+	if fp.Executable {
+		checks = append(checks, fmt.Sprintf("test -x '%s'", escapedPath))
+	}
+	return strings.Join(checks, " && ")
+}
+
 func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 	t.Parallel()
 
@@ -47,30 +180,29 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 		deps := &invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
 		}
-		err := CheckFilepathDependenciesInContainer(deps, runtimepkg.NewRegistry(), execCtx)
-		if err == nil || !errors.Is(err, ErrContainerRuntimeNotAvailable) {
-			t.Fatalf("err = %v, want wrapping ErrContainerRuntimeNotAvailable", err)
+		err := CheckFilepathDependenciesInContainer(deps, nil, execCtx)
+		if err == nil || !errors.Is(err, ErrRuntimeDependencyProbeRequired) {
+			t.Fatalf("err = %v, want wrapping ErrRuntimeDependencyProbeRequired", err)
 		}
 	})
 
 	t.Run("dependency error aggregates failing paths", func(t *testing.T) {
 		t.Parallel()
 
-		registry := runtimepkg.NewRegistry()
-		registry.Register(runtimepkg.RuntimeTypeContainer, &filepathStubRuntime{
+		probe := &filepathStubRuntime{
 			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 				if _, err := io.WriteString(ctx.IO.Stderr, "permission denied"); err != nil {
 					t.Fatalf("WriteString(): %v", err)
 				}
 				return &runtimepkg.Result{ExitCode: 1}
 			},
-		})
+		}
 
 		deps := &invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
 		}
 
-		err := CheckFilepathDependenciesInContainer(deps, registry, execCtx)
+		err := CheckFilepathDependenciesInContainer(deps, probe, execCtx)
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -86,14 +218,13 @@ func TestCheckFilepathDependenciesInContainer(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		registry := runtimepkg.NewRegistry()
-		registry.Register(runtimepkg.RuntimeTypeContainer, &filepathStubRuntime{})
+		probe := &filepathStubRuntime{}
 
 		deps := &invowkfile.DependsOn{
 			Filepaths: []invowkfile.FilepathDependency{{Alternatives: []invowkfile.FilesystemPath{"/tmp"}}},
 		}
 
-		if err := CheckFilepathDependenciesInContainer(deps, registry, execCtx); err != nil {
+		if err := CheckFilepathDependenciesInContainer(deps, probe, execCtx); err != nil {
 			t.Fatalf("CheckFilepathDependenciesInContainer() = %v", err)
 		}
 	})
@@ -110,7 +241,7 @@ func TestValidateFilepathInContainer(t *testing.T) {
 	t.Run("requires at least one alternative", func(t *testing.T) {
 		t.Parallel()
 
-		err := ValidateFilepathInContainer(invowkfile.FilepathDependency{}, &filepathStubRuntime{}, execCtx)
+		err := (&filepathStubRuntime{}).CheckFilepath(execCtx, invowkfile.FilepathDependency{})
 		if !errors.Is(err, ErrNoPathAlternatives) {
 			t.Fatalf("err = %v, want wrapping ErrNoPathAlternatives", err)
 		}
@@ -119,10 +250,9 @@ func TestValidateFilepathInContainer(t *testing.T) {
 	t.Run("succeeds on first passing alternative", func(t *testing.T) {
 		t.Parallel()
 
-		err := ValidateFilepathInContainer(
-			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp", "/var/tmp"}},
-			&filepathStubRuntime{},
+		err := (&filepathStubRuntime{}).CheckFilepath(
 			execCtx,
+			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp", "/var/tmp"}},
 		)
 		if err != nil {
 			t.Fatalf("ValidateFilepathInContainer() = %v", err)
@@ -132,17 +262,16 @@ func TestValidateFilepathInContainer(t *testing.T) {
 	t.Run("reports aggregated detail from stderr", func(t *testing.T) {
 		t.Parallel()
 
-		err := ValidateFilepathInContainer(
-			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp", "/var/tmp"}},
-			&filepathStubRuntime{
-				execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
-					if _, writeErr := io.WriteString(ctx.IO.Stderr, "permission denied"); writeErr != nil {
-						t.Fatalf("WriteString(): %v", writeErr)
-					}
-					return &runtimepkg.Result{ExitCode: 1}
-				},
+		err := (&filepathStubRuntime{
+			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+				if _, writeErr := io.WriteString(ctx.IO.Stderr, "permission denied"); writeErr != nil {
+					t.Fatalf("WriteString(): %v", writeErr)
+				}
+				return &runtimepkg.Result{ExitCode: 1}
 			},
+		}).CheckFilepath(
 			execCtx,
+			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp", "/var/tmp"}},
 		)
 		if err == nil || !strings.Contains(err.Error(), "permission denied") {
 			t.Fatalf("err = %v", err)
@@ -152,14 +281,13 @@ func TestValidateFilepathInContainer(t *testing.T) {
 	t.Run("transient exit code is surfaced", func(t *testing.T) {
 		t.Parallel()
 
-		err := ValidateFilepathInContainer(
-			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}},
-			&filepathStubRuntime{
-				execFn: func(_ *runtimepkg.ExecutionContext) *runtimepkg.Result {
-					return &runtimepkg.Result{ExitCode: 125}
-				},
+		err := (&filepathStubRuntime{
+			execFn: func(_ *runtimepkg.ExecutionContext) *runtimepkg.Result {
+				return &runtimepkg.Result{ExitCode: 125}
 			},
+		}).CheckFilepath(
 			execCtx,
+			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}},
 		)
 		if !errors.Is(err, ErrContainerEngineFailure) {
 			t.Fatalf("err = %v, want wrapping ErrContainerEngineFailure", err)
@@ -169,14 +297,13 @@ func TestValidateFilepathInContainer(t *testing.T) {
 	t.Run("runtime error is propagated", func(t *testing.T) {
 		t.Parallel()
 
-		err := ValidateFilepathInContainer(
-			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}},
-			&filepathStubRuntime{
-				execFn: func(_ *runtimepkg.ExecutionContext) *runtimepkg.Result {
-					return &runtimepkg.Result{ExitCode: 1, Error: errors.New("engine down")}
-				},
+		err := (&filepathStubRuntime{
+			execFn: func(_ *runtimepkg.ExecutionContext) *runtimepkg.Result {
+				return &runtimepkg.Result{ExitCode: 1, Error: errors.New("engine down")}
 			},
+		}).CheckFilepath(
 			execCtx,
+			invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}},
 		)
 		if !errors.Is(err, ErrContainerValidationFailed) {
 			t.Fatalf("err = %v, want wrapping ErrContainerValidationFailed", err)
@@ -187,7 +314,7 @@ func TestValidateFilepathInContainer(t *testing.T) {
 func TestContainerFilepathHelpers(t *testing.T) {
 	t.Parallel()
 
-	script := buildContainerFilepathCheckScript(
+	script := testContainerFilepathCheckScript(
 		invowkfile.FilepathDependency{Readable: true, Writable: true, Executable: true},
 		"/tmp/that's-it",
 	)
@@ -198,17 +325,14 @@ func TestContainerFilepathHelpers(t *testing.T) {
 		t.Fatalf("script = %q", script)
 	}
 
-	singleErr := formatContainerFilepathError([]invowkfile.FilesystemPath{"/tmp"}, []string{"missing permissions"})
-	if !strings.Contains(singleErr.Error(), "missing permissions") {
-		t.Fatalf("singleErr = %q, want containing 'missing permissions'", singleErr.Error())
-	}
-
-	multiErr := formatContainerFilepathError(
-		[]invowkfile.FilesystemPath{"/tmp", "/var/tmp"},
-		[]string{"/tmp: missing", "/var/tmp: denied"},
-	)
-	if !strings.Contains(multiErr.Error(), "none of the alternatives satisfied the requirements in container") {
-		t.Fatalf("multiErr = %q", multiErr.Error())
+	err := (&filepathStubRuntime{
+		execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+			_, _ = io.WriteString(ctx.IO.Stderr, "missing permissions")
+			return &runtimepkg.Result{ExitCode: 1}
+		},
+	}).CheckFilepath(&runtimepkg.ExecutionContext{Command: &invowkfile.Command{Name: "build"}}, invowkfile.FilepathDependency{Alternatives: []invowkfile.FilesystemPath{"/tmp"}})
+	if !strings.Contains(err.Error(), "missing permissions") {
+		t.Fatalf("err = %q, want containing 'missing permissions'", err.Error())
 	}
 }
 

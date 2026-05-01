@@ -412,7 +412,7 @@ func TestFindMatchingCommand(t *testing.T) {
 			moduleBuild.Name: moduleBuild,
 		}
 
-		got := findMatchingCommand(available, "mod", []string{"build"})
+		got := findMatchingCommand(available, "mod", []invowkfile.CommandName{"build"})
 		if got != moduleBuild {
 			t.Fatalf("findMatchingCommand() = %v, want module-local command", got)
 		}
@@ -426,7 +426,7 @@ func TestFindMatchingCommand(t *testing.T) {
 			moduleBuild.Name: moduleBuild,
 		}
 
-		got := findMatchingCommand(available, "", []string{"build"})
+		got := findMatchingCommand(available, "", []invowkfile.CommandName{"build"})
 		if got != rootBuild {
 			t.Fatalf("findMatchingCommand() = %v, want root command", got)
 		}
@@ -440,7 +440,7 @@ func TestFindMatchingCommand(t *testing.T) {
 			depBuild.Name:    depBuild,
 		}
 
-		got := findMatchingCommand(available, "mod", []string{"dep build"})
+		got := findMatchingCommand(available, "mod", []invowkfile.CommandName{"dep build"})
 		if got != depBuild {
 			t.Fatalf("findMatchingCommand() = %v, want explicit dependency command", got)
 		}
@@ -513,7 +513,7 @@ func TestValidateDependencies(t *testing.T) {
 			SelectedImpl:    &cmd.Implementations[0],
 		}
 
-		if err := ValidateDependencies(disc, cmdInfo, runtimepkg.NewRegistry(), execCtx, nil); err != nil {
+		if err := ValidateDependencies(disc, cmdInfo, execCtx, nil); err != nil {
 			t.Fatalf("ValidateDependencies() = %v", err)
 		}
 	})
@@ -557,7 +557,7 @@ func TestValidateDependencies(t *testing.T) {
 		err := ValidateDependenciesWithHostProbe(
 			disc,
 			cmdInfo,
-			runtimepkg.NewRegistry(),
+			nil,
 			execCtx,
 			nil,
 			nil,
@@ -611,7 +611,7 @@ func TestValidateDependencies(t *testing.T) {
 			SelectedImpl:    &cmd.Implementations[0],
 		}
 
-		if err := ValidateDependencies(disc, cmdInfo, runtimepkg.NewRegistry(), execCtx, nil); err != nil {
+		if err := ValidateDependencies(disc, cmdInfo, execCtx, nil); err != nil {
 			t.Fatalf("ValidateDependencies() = %v, expected nil (phase 2 skipped for non-container)", err)
 		}
 	})
@@ -643,7 +643,7 @@ func TestValidateDependencies(t *testing.T) {
 			SelectedImpl:    &cmd.Implementations[0],
 		}
 
-		err := ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, runtimepkg.NewRegistry(), execCtx, nil,
+		err := ValidateDependenciesWithCapabilityChecker(disc, cmdInfo, nil, execCtx, nil,
 			fakeCapabilityChecker{
 				invowkfile.CapabilityInternet: errors.New("offline"),
 			},
@@ -748,7 +748,7 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 	t.Run("non-container runtime is a no-op", func(t *testing.T) {
 		t.Parallel()
 
-		err := ValidateRuntimeDependencies(cmdInfo, runtimepkg.NewRegistry(), &runtimepkg.ExecutionContext{
+		err := ValidateRuntimeDependencies(cmdInfo, nil, &runtimepkg.ExecutionContext{
 			Command:         cmd,
 			Context:         t.Context(),
 			SelectedRuntime: invowkfile.RuntimeVirtual,
@@ -762,17 +762,16 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 	t.Run("container runtime delegates to container checks", func(t *testing.T) {
 		t.Parallel()
 
-		registry := runtimepkg.NewRegistry()
-		registry.Register(runtimepkg.RuntimeTypeContainer, &filepathStubRuntime{
+		probe := &filepathStubRuntime{
 			execFn: func(ctx *runtimepkg.ExecutionContext) *runtimepkg.Result {
 				if strings.Contains(string(ctx.SelectedImpl.Script), "check-cmd 'build'") {
 					return &runtimepkg.Result{ExitCode: 0}
 				}
 				return &runtimepkg.Result{ExitCode: 1}
 			},
-		})
+		}
 
-		err := ValidateRuntimeDependencies(cmdInfo, registry, &runtimepkg.ExecutionContext{
+		err := ValidateRuntimeDependencies(cmdInfo, probe, &runtimepkg.ExecutionContext{
 			Command:         cmd,
 			Context:         t.Context(),
 			SelectedRuntime: invowkfile.RuntimeContainer,
