@@ -92,5 +92,5 @@ func (h *HostAccess) SSHServer() runtime.HostCallbackServer {
 	if h.instance == nil {
 		return nil
 	}
-	return sshserver.NewRuntimeHostCallbackServer(h.instance)
+	return newRuntimeHostCallbackServer(h.instance)
 }

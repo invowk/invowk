@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/invowk/invowk/internal/issue"
 )
 
 // --- Dockerfile Resolution ---
@@ -147,42 +145,33 @@ func ParsePortMapping(portStr string) (PortMapping, error) {
 	return mapping, nil
 }
 
-// --- Actionable Error Helpers ---
+// --- Engine Operation Error Helpers ---
 
-// buildContainerError creates an actionable error for container build failures.
+// buildContainerError creates a typed error for container build failures.
 func buildContainerError(engine string, opts BuildOptions, cause error) error {
-	ctx := issue.NewErrorContext().
-		WithOperation("build container image")
-
-	// Determine resource (Dockerfile or image tag)
+	resource := ""
 	switch {
 	case opts.Dockerfile != "":
-		ctx.WithResource(string(opts.Dockerfile))
+		resource = string(opts.Dockerfile)
 	case opts.ContextDir != "":
-		ctx.WithResource(string(opts.ContextDir) + "/Dockerfile")
+		resource = string(opts.ContextDir) + "/Dockerfile"
 	case opts.Tag != "":
-		ctx.WithResource(string(opts.Tag))
+		resource = string(opts.Tag)
 	}
-
-	// Add suggestions based on common build issues
-	ctx.WithSuggestion("Check Dockerfile syntax for errors")
-	ctx.WithSuggestion("Verify the build context path exists and is accessible")
-	ctx.WithSuggestion("Ensure base images are available (try: " + engine + " pull <base-image>)")
-	ctx.WithSuggestion("Run with --ivk-verbose to see full build output")
-
-	return ctx.Wrap(cause).BuildError()
+	return &OperationError{
+		Engine:    engine,
+		Operation: "build container image",
+		Resource:  resource,
+		Err:       cause,
+	}
 }
 
-// runContainerError creates an actionable error for container run failures.
+// runContainerError creates a typed error for container run failures.
 func runContainerError(engine string, opts RunOptions, cause error) error {
-	ctx := issue.NewErrorContext().
-		WithOperation("run container").
-		WithResource(string(opts.Image))
-
-	ctx.WithSuggestion("Verify the image exists (try: " + engine + " images)")
-	ctx.WithSuggestion("Check that volume mount paths exist on the host")
-	ctx.WithSuggestion("Ensure port mappings don't conflict with running services")
-	ctx.WithSuggestion("Run with --ivk-verbose to see full container output")
-
-	return ctx.Wrap(cause).BuildError()
+	return &OperationError{
+		Engine:    engine,
+		Operation: "run container",
+		Resource:  string(opts.Image),
+		Err:       cause,
+	}
 }

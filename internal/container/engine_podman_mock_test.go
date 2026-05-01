@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
-
-	"github.com/invowk/invowk/internal/issue"
 )
 
 // =============================================================================
@@ -188,9 +186,8 @@ func TestPodmanEngine_ErrorPaths(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for failed build")
 		}
-		// Build returns an actionable error — verify via type assertion (same pattern as engine_base_options_test.go)
-		if _, ok := errors.AsType[*issue.ActionableError](err); !ok {
-			t.Errorf("expected *issue.ActionableError, got %T: %v", err, err)
+		if _, ok := errors.AsType[*OperationError](err); !ok {
+			t.Errorf("expected *OperationError, got %T: %v", err, err)
 		}
 	})
 

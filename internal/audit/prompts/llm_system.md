@@ -19,12 +19,12 @@ Each finding must use EXACTLY one of these categories:
 - "obfuscation" - encoded content, eval patterns, deliberate evasion
 
 Return ONLY a JSON object with this schema (no markdown, no explanation):
-{"findings": [{"severity": "...", "category": "...", "command_name": "...", "title": "...", "description": "...", "recommendation": "...", "line": 0}]}
+{"findings": [{"script_id": "...", "severity": "...", "category": "...", "command_name": "...", "title": "...", "description": "...", "recommendation": "...", "line": 0}]}
 
 If nothing suspicious is found, return: {"findings": []}
 
 For every finding:
-- Set command_name to the exact script header name when possible. Avoid unknown command names unless attribution is genuinely impossible.
+- Set script_id to the exact "Script ID" value from the prompt. Set command_name to the exact script header name.
 - Include a concrete exploit path in description: what data or authority is at risk, how an attacker could influence it, and what the script does with it.
 - Include a precise recommendation that changes behavior, not just "review this".
 - Use line when the suspicious behavior maps to a specific line. Use 0 only when no reliable line exists.

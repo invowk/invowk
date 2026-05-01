@@ -27,6 +27,7 @@ type (
 
 	// llmFinding is a single finding as reported by the LLM.
 	llmFinding struct {
+		ScriptID       string `json:"script_id,omitempty"`
 		Severity       string `json:"severity"`
 		Category       string `json:"category"`
 		CommandName    string `json:"command_name"`
@@ -46,6 +47,7 @@ func buildUserPrompt(scripts []ScriptRef) string {
 
 	for i := range scripts {
 		ref := &scripts[i]
+		fmt.Fprintf(&b, "Script ID: %s\n", scriptPromptID(ref))
 		fmt.Fprintf(&b, "=== Script: %s ===\n", ref.CommandName)
 		fmt.Fprintf(&b, "File: %s\n", ref.FilePath)
 
@@ -107,10 +109,16 @@ func parseFindings(raw string) ([]llmFinding, error) {
 // invalid severity or category values are silently discarded as a defense
 // against LLM hallucination.
 func convertBatchFindings(parsed []llmFinding, batch []ScriptRef) []Finding {
-	// Build lookup by command name for efficient matching.
+	// Build lookups for efficient exact matching.
+	byID := make(map[string]*ScriptRef, len(batch))
 	byName := make(map[string]*ScriptRef, len(batch))
+	nameCounts := make(map[string]int, len(batch))
 	for i := range batch {
-		byName[string(batch[i].CommandName)] = &batch[i]
+		ref := &batch[i]
+		byID[scriptPromptID(ref)] = ref
+		name := string(ref.CommandName)
+		byName[name] = ref
+		nameCounts[name]++
 	}
 
 	var findings []Finding
@@ -118,11 +126,9 @@ func convertBatchFindings(parsed []llmFinding, batch []ScriptRef) []Finding {
 	for i := range parsed {
 		lf := &parsed[i]
 
-		// Match finding to script by command name; fall back to first
-		// script when the LLM returns an unrecognized command name.
-		ref, ok := byName[lf.CommandName]
+		ref, ok := matchLLMFindingToScript(lf, byID, byName, nameCounts, batch)
 		if !ok {
-			ref = &batch[0]
+			continue
 		}
 
 		f, valid := buildFinding(lf, ref)
@@ -133,6 +139,31 @@ func convertBatchFindings(parsed []llmFinding, batch []ScriptRef) []Finding {
 	}
 
 	return findings
+}
+
+func matchLLMFindingToScript(
+	lf *llmFinding,
+	byID map[string]*ScriptRef,
+	byName map[string]*ScriptRef,
+	nameCounts map[string]int,
+	batch []ScriptRef,
+) (*ScriptRef, bool) {
+	if lf.ScriptID != "" {
+		ref, ok := byID[lf.ScriptID]
+		return ref, ok
+	}
+	if lf.CommandName != "" && nameCounts[lf.CommandName] == 1 {
+		ref, ok := byName[lf.CommandName]
+		return ref, ok
+	}
+	if len(batch) == 1 {
+		return &batch[0], true
+	}
+	return nil, false
+}
+
+func scriptPromptID(ref *ScriptRef) string {
+	return fmt.Sprintf("%s:%s", ref.SurfaceID, ref.FilePath)
 }
 
 // buildFinding validates severity/category and constructs a Finding from an

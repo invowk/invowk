@@ -203,12 +203,13 @@ func TestLLMChecker_Check_PartialBatchFailure(t *testing.T) {
 
 	// Mock that alternates between success and failure.
 	callCount := 0
-	alternating := &mockCompleterFunc{fn: func(_ context.Context, _, _ string) (string, error) {
+	alternating := &mockCompleterFunc{fn: func(_ context.Context, _, userPrompt string) (string, error) {
 		callCount++
 		if callCount%2 == 0 {
 			return "", fmt.Errorf("batch failed: %w", ErrLLMRequestFailed)
 		}
-		return `{"findings": [{"severity": "low", "category": "trust", "command_name": "cmd", "title": "Issue", "description": "Desc", "recommendation": "Fix"}]}`, nil
+		scriptID := firstPromptScriptID(userPrompt)
+		return fmt.Sprintf(`{"findings": [{"script_id": %q, "severity": "low", "category": "trust", "title": "Issue", "description": "Desc", "recommendation": "Fix"}]}`, scriptID), nil
 	}}
 	checker := NewLLMChecker(alternating, 1) // Serial to make alternation deterministic.
 
@@ -231,6 +232,16 @@ func TestLLMChecker_Check_PartialBatchFailure(t *testing.T) {
 	if len(findings) == 0 {
 		t.Error("expected some findings from successful batches")
 	}
+}
+
+func firstPromptScriptID(prompt string) string {
+	for line := range strings.SplitSeq(prompt, "\n") {
+		id, ok := strings.CutPrefix(line, "Script ID: ")
+		if ok {
+			return id
+		}
+	}
+	return ""
 }
 
 func TestBatchScripts_EmptyInput(t *testing.T) {

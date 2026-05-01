@@ -9,8 +9,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	"github.com/invowk/invowk/internal/issue"
 )
 
 // T031: BaseCLIEngine WithExecCommand option tests
@@ -104,11 +102,10 @@ func TestBuildContainerError(t *testing.T) {
 	cause := errors.New("build context not found")
 
 	tests := []struct {
-		name           string
-		engine         string
-		opts           BuildOptions
-		errorContains  []string // Must be in .Error()
-		formatContains []string // Must be in suggestions
+		name          string
+		engine        string
+		opts          BuildOptions
+		errorContains []string // Must be in .Error()
 	}{
 		{
 			name:   "with dockerfile",
@@ -121,11 +118,6 @@ func TestBuildContainerError(t *testing.T) {
 				"build container image",
 				"Dockerfile.custom",
 			},
-			formatContains: []string{
-				"Check Dockerfile syntax",
-				"build context path",
-				"docker pull",
-			},
 		},
 		{
 			name:   "with context only",
@@ -136,9 +128,6 @@ func TestBuildContainerError(t *testing.T) {
 			errorContains: []string{
 				"build container image",
 				"/app/Dockerfile",
-			},
-			formatContains: []string{
-				"podman pull",
 			},
 		},
 		{
@@ -171,16 +160,12 @@ func TestBuildContainerError(t *testing.T) {
 				}
 			}
 
-			// Check formatted output for suggestions (requires type assertion)
-			if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
-				suggestions := strings.Join(ae.Suggestions(), "\n")
-				for _, exp := range tt.formatContains {
-					if !strings.Contains(suggestions, exp) {
-						t.Errorf("suggestions should contain %q, got: %s", exp, suggestions)
-					}
-				}
-			} else if len(tt.formatContains) > 0 {
-				t.Error("expected ActionableError for format checking")
+			var opErr *OperationError
+			if !errors.As(err, &opErr) {
+				t.Fatalf("expected OperationError, got %T", err)
+			}
+			if !errors.Is(err, ErrContainerOperationFailed) {
+				t.Fatalf("expected ErrContainerOperationFailed, got %v", err)
 			}
 		})
 	}
@@ -209,14 +194,12 @@ func TestRunContainerError(t *testing.T) {
 		t.Errorf("error should contain image, got: %s", errStr)
 	}
 
-	// Check formatted output for suggestions
-	if ae, ok := errors.AsType[*issue.ActionableError](err); ok {
-		suggestions := strings.Join(ae.Suggestions(), "\n")
-		if !strings.Contains(suggestions, "docker images") {
-			t.Errorf("suggestions should contain expected text, got: %s", suggestions)
-		}
-	} else {
-		t.Error("expected ActionableError")
+	var opErr *OperationError
+	if !errors.As(err, &opErr) {
+		t.Fatalf("expected OperationError, got %T", err)
+	}
+	if !errors.Is(err, ErrContainerOperationFailed) {
+		t.Fatalf("expected ErrContainerOperationFailed, got %v", err)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
@@ -19,7 +18,7 @@ import (
 // returns defaults with a diagnostic so command execution stays operational.
 //
 //goplint:ignore -- configPath matches ConfigFallbackFunc and is validated by the config provider.
-func LoadConfigWithFallback(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []discovery.Diagnostic) {
+func LoadConfigWithFallback(ctx context.Context, provider config.Loader, configPath string) (cfg *config.Config, diags []Diagnostic) {
 	configFilePath := types.FilesystemPath(configPath) //goplint:ignore -- CLI config path is validated by provider.Load.
 	cfg, err := provider.Load(ctx, config.LoadOptions{ConfigFilePath: configFilePath})
 	if err == nil {
@@ -28,7 +27,7 @@ func LoadConfigWithFallback(ctx context.Context, provider config.Loader, configP
 
 	if configPath != "" {
 		severity := discovery.SeverityError
-		if errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "config file not found") {
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, config.ErrConfigFileNotFound) {
 			severity = discovery.SeverityWarning
 		}
 		diag, diagErr := discovery.NewDiagnosticWithCause(
@@ -42,7 +41,7 @@ func LoadConfigWithFallback(ctx context.Context, provider config.Loader, configP
 			slog.Error("BUG: failed to create config-load diagnostic", "error", diagErr)
 			return config.DefaultConfig(), nil
 		}
-		return config.DefaultConfig(), []discovery.Diagnostic{diag}
+		return config.DefaultConfig(), []Diagnostic{diag}
 	}
 
 	severity := discovery.SeverityError
@@ -61,5 +60,5 @@ func LoadConfigWithFallback(ctx context.Context, provider config.Loader, configP
 		slog.Error("BUG: failed to create config-load diagnostic", "error", diagErr)
 		return config.DefaultConfig(), nil
 	}
-	return config.DefaultConfig(), []discovery.Diagnostic{diag}
+	return config.DefaultConfig(), []Diagnostic{diag}
 }

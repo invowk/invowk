@@ -59,9 +59,13 @@ func (e *SandboxAwareEngine) Name() string {
 // Available checks if the wrapped engine is available.
 // In a sandbox environment, we check if the engine is available via the host spawn.
 func (e *SandboxAwareEngine) Available() bool {
-	// For availability check, we use the wrapped engine's check.
-	// The spawn command overhead doesn't affect availability status.
-	return e.wrapped.Available()
+	if e.sandboxType == platform.SandboxNone {
+		return e.wrapped.Available()
+	}
+	spawnCmd, spawnArgs := e.getSpawnInfo()
+	args := append(append([]string{}, spawnArgs...), e.wrapped.BinaryPath(), "version")
+	cmd := exec.CommandContext(context.Background(), spawnCmd, args...)
+	return cmd.Run() == nil
 }
 
 // Version returns the wrapped engine version.

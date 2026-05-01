@@ -59,6 +59,8 @@ var (
 	ErrInvalidBuildOptions = errors.New("invalid build options")
 	// ErrInvalidRunOptions is the sentinel error wrapped by InvalidRunOptionsError.
 	ErrInvalidRunOptions = errors.New("invalid run options")
+	// ErrContainerOperationFailed is wrapped by container engine operation failures.
+	ErrContainerOperationFailed = errors.New("container operation failed")
 )
 
 type (
@@ -227,6 +229,14 @@ type (
 		Reason string
 	}
 
+	// OperationError describes a failed container engine operation.
+	OperationError struct {
+		Engine    string
+		Operation string
+		Resource  string
+		Err       error
+	}
+
 	engineDiscovery interface {
 		NewPodman() Engine
 		NewDocker() Engine
@@ -242,6 +252,17 @@ func (e *EngineNotAvailableError) Error() string {
 // Unwrap returns the underlying sentinel error for errors.Is compatibility.
 func (e *EngineNotAvailableError) Unwrap() error {
 	return ErrNoEngineAvailable
+}
+
+func (e *OperationError) Error() string {
+	if e.Resource != "" {
+		return fmt.Sprintf("%s %s failed for %s: %v", e.Engine, e.Operation, e.Resource, e.Err)
+	}
+	return fmt.Sprintf("%s %s failed: %v", e.Engine, e.Operation, e.Err)
+}
+
+func (e *OperationError) Unwrap() error {
+	return errors.Join(ErrContainerOperationFailed, e.Err)
 }
 
 // Error implements the error interface for InvalidEngineTypeError.
@@ -457,10 +478,10 @@ func newEngineWithDiscovery(preferredType EngineType, discovery engineDiscovery)
 
 	switch preferredType {
 	case EngineTypePodman:
-		podman := discovery.NewPodman()
+		podman := NewSandboxAwareEngine(discovery.NewPodman())
 		if podman.Available() {
 			engine = podman
-		} else if docker := discovery.NewDocker(); docker.Available() {
+		} else if docker := NewSandboxAwareEngine(discovery.NewDocker()); docker.Available() {
 			// Fall back to Docker
 			engine = docker
 		} else {
@@ -471,10 +492,10 @@ func newEngineWithDiscovery(preferredType EngineType, discovery engineDiscovery)
 		}
 
 	case EngineTypeDocker:
-		docker := discovery.NewDocker()
+		docker := NewSandboxAwareEngine(discovery.NewDocker())
 		if docker.Available() {
 			engine = docker
-		} else if podman := discovery.NewPodman(); podman.Available() {
+		} else if podman := NewSandboxAwareEngine(discovery.NewPodman()); podman.Available() {
 			// Fall back to Podman
 			engine = podman
 		} else {
@@ -493,8 +514,7 @@ func newEngineWithDiscovery(preferredType EngineType, discovery engineDiscovery)
 		return nil, fmt.Errorf("unknown container engine type: %s", preferredType)
 	}
 
-	// Wrap with sandbox awareness for Flatpak/Snap environments
-	return NewSandboxAwareEngine(engine), nil
+	return engine, nil
 }
 
 // CloseEngine releases resources held by a container engine. It is a no-op for
@@ -515,15 +535,15 @@ func AutoDetectEngine() (Engine, error) {
 
 func autoDetectEngineWithDiscovery(discovery engineDiscovery) (Engine, error) {
 	// Try Podman first (more commonly available in rootless setups)
-	podman := discovery.NewPodman()
+	podman := NewSandboxAwareEngine(discovery.NewPodman())
 	if podman.Available() {
-		return NewSandboxAwareEngine(podman), nil
+		return podman, nil
 	}
 
 	// Try Docker
-	docker := discovery.NewDocker()
+	docker := NewSandboxAwareEngine(discovery.NewDocker())
 	if docker.Available() {
-		return NewSandboxAwareEngine(docker), nil
+		return docker, nil
 	}
 
 	return nil, &EngineNotAvailableError{

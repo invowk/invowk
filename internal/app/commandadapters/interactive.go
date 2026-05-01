@@ -116,5 +116,5 @@ func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
 
 func forwardComponentResponse(componentType tui.ComponentType, from <-chan tui.ComponentResponse, to chan<- tuiserver.Response) {
 	componentResponse := <-from
-	to <- tui.EncodeComponentResponse(componentType, componentResponse)
+	to <- componentResponseToProtocol(componentType, componentResponse)
 }

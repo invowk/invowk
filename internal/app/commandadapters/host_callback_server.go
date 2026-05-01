@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package sshserver
+package commandadapters
 
-import "github.com/invowk/invowk/internal/runtime"
+import (
+	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/sshserver"
+)
 
 type runtimeHostCallbackServer struct {
-	server *Server
+	server *sshserver.Server
 }
 
-// NewRuntimeHostCallbackServer adapts an SSH server to the runtime host-callback port.
-func NewRuntimeHostCallbackServer(server *Server) runtime.HostCallbackServer {
+func newRuntimeHostCallbackServer(server *sshserver.Server) runtime.HostCallbackServer {
 	if server == nil {
 		return nil
 	}
@@ -21,7 +23,7 @@ func (s runtimeHostCallbackServer) IsRunning() bool {
 }
 
 func (s runtimeHostCallbackServer) GetConnectionInfo(commandID runtime.HostCallbackCommandID) (*runtime.HostCallbackConnectionInfo, error) {
-	sshCommandID := CommandID(commandID.String())
+	sshCommandID := sshserver.CommandID(commandID.String())
 	if err := sshCommandID.Validate(); err != nil {
 		return nil, err
 	}
@@ -58,7 +60,7 @@ func (s runtimeHostCallbackServer) GetConnectionInfo(commandID runtime.HostCallb
 }
 
 func (s runtimeHostCallbackServer) RevokeToken(token runtime.HostCallbackToken) {
-	sshToken := TokenValue(token.String())
+	sshToken := sshserver.TokenValue(token.String())
 	if err := sshToken.Validate(); err != nil {
 		return
 	}

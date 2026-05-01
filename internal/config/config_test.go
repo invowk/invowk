@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -671,22 +670,6 @@ func TestLoad_DuplicateIncludeAliasKeepsActionableSuggestions(t *testing.T) {
 	if includeErr.Field != "includes" {
 		t.Fatalf("include field = %q, want includes", includeErr.Field)
 	}
-	var actionable *issue.ActionableError
-	if !errors.As(err, &actionable) {
-		t.Fatalf("errors.As(err, *ActionableError) = false for %v", err)
-	}
-	if actionable.Operation() != "validate configuration" {
-		t.Fatalf("operation = %q, want validate configuration", actionable.Operation())
-	}
-	suggestions := strings.Join(actionable.Suggestions(), "\n")
-	for _, want := range []string{
-		"Ensure each alias is unique across all includes entries",
-		"When two modules share the same short name, all must have unique aliases",
-	} {
-		if !strings.Contains(suggestions, want) {
-			t.Fatalf("suggestions %q do not contain %q", suggestions, want)
-		}
-	}
 }
 
 func TestLoad_CustomPath_Valid(t *testing.T) {
@@ -745,13 +728,12 @@ func TestLoad_CustomPath_NotFound_ReturnsError(t *testing.T) {
 		t.Error("expected non-empty error string")
 	}
 
-	// Verify suggestions are present via ActionableError type
-	ae, ok := errors.AsType[*issue.ActionableError](err)
-	if !ok {
-		t.Fatal("expected error to be *issue.ActionableError")
+	var notFound *FileNotFoundError
+	if !errors.As(err, &notFound) {
+		t.Fatalf("expected FileNotFoundError, got %T", err)
 	}
-	if len(ae.Suggestions()) == 0 {
-		t.Error("expected ActionableError to have suggestions")
+	if !errors.Is(err, ErrConfigFileNotFound) {
+		t.Fatalf("expected ErrConfigFileNotFound, got %v", err)
 	}
 }
 

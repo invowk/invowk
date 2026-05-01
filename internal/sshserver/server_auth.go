@@ -43,25 +43,34 @@ func (s *Server) GenerateToken(commandID CommandID) (*Token, error) {
 
 	s.logger.Debug("Generated token", "commandID", commandID)
 
-	return token, nil
+	return cloneToken(token), nil
 }
 
 // ValidateToken checks if a token is valid.
 func (s *Server) ValidateToken(tokenValue TokenValue) (*Token, bool) {
 	s.tokenMu.RLock()
 	token, exists := s.tokens[tokenValue]
+	snapshot := cloneToken(token)
 	s.tokenMu.RUnlock()
 
 	if !exists {
 		return nil, false
 	}
 
-	if s.clock.Now().After(token.ExpiresAt) {
+	if s.clock.Now().After(snapshot.ExpiresAt) {
 		s.RevokeToken(tokenValue)
 		return nil, false
 	}
 
-	return token, true
+	return snapshot, true
+}
+
+func cloneToken(token *Token) *Token {
+	if token == nil {
+		return nil
+	}
+	snapshot := *token
+	return &snapshot
 }
 
 // RevokeToken invalidates a token.

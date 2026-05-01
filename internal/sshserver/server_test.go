@@ -72,6 +72,36 @@ func TestValidateToken(t *testing.T) {
 	}
 }
 
+func TestValidateTokenReturnsSnapshot(t *testing.T) {
+	t.Parallel()
+
+	srv := mustNew(t, DefaultConfig())
+	token, err := srv.GenerateToken(CommandID("test-command"))
+	if err != nil {
+		t.Fatalf("GenerateToken() error = %v", err)
+	}
+
+	token.CommandID = CommandID("mutated")
+	token.ExpiresAt = time.Now().Add(-time.Hour)
+
+	validated, ok := srv.ValidateToken(token.Value)
+	if !ok {
+		t.Fatal("ValidateToken() ok = false, want true after mutating returned snapshot")
+	}
+	if validated.CommandID != CommandID("test-command") {
+		t.Fatalf("validated CommandID = %q, want original", validated.CommandID)
+	}
+
+	validated.CommandID = CommandID("mutated-again")
+	validatedAgain, ok := srv.ValidateToken(token.Value)
+	if !ok {
+		t.Fatal("ValidateToken() second ok = false, want true")
+	}
+	if validatedAgain.CommandID != CommandID("test-command") {
+		t.Fatalf("validatedAgain CommandID = %q, want original", validatedAgain.CommandID)
+	}
+}
+
 func TestRevokeToken(t *testing.T) {
 	t.Parallel()
 

@@ -45,7 +45,7 @@ func TestServiceDiscoverCommand(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	configFallback := func(context.Context, config.Loader, string) (*config.Config, []discovery.Diagnostic) {
+	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
 		return cfg, nil
 	}
 	service := &Service{
@@ -84,7 +84,7 @@ func TestServiceDiscoverCommand(t *testing.T) {
 		t.Fatalf("NewDiagnostic(): %v", diagErr)
 	}
 	service.discovery = &stubCommandDiscovery{
-		lookup:    discovery.LookupResult{Diagnostics: []discovery.Diagnostic{diag}},
+		lookup:    discovery.LookupResult{Diagnostics: []Diagnostic{diag}},
 		lookupErr: errors.New("lookup failed"),
 	}
 	_, _, _, diags, err = service.discoverCommand(t.Context(), Request{Name: "build"})
@@ -114,7 +114,7 @@ func TestServiceResolveCommandRejectsAmbiguousLongestMatch(t *testing.T) {
 	service := &Service{
 		config:    &staticCommandsvcConfigProvider{cfg: cfg},
 		discovery: &stubCommandDiscovery{commandSet: discovery.CommandSetResult{Set: commandSet}},
-		configFallback: func(context.Context, config.Loader, string) (*config.Config, []discovery.Diagnostic) {
+		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
 			return cfg, nil
 		},
 	}
@@ -154,7 +154,7 @@ func TestServiceDiscoverCommandFromSourceAdjustsArgs(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	configFallback := func(context.Context, config.Loader, string) (*config.Config, []discovery.Diagnostic) {
+	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
 		return cfg, nil
 	}
 	cmdInfo := commandsvcTestCommandInfo(t, "deploy staging")
@@ -195,7 +195,7 @@ func TestServiceDiscoverCommandFromSourceReturnsTypedSourceNotFound(t *testing.T
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	configFallback := func(context.Context, config.Loader, string) (*config.Config, []discovery.Diagnostic) {
+	configFallback := func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
 		return cfg, nil
 	}
 	cmdInfo := commandsvcTestCommandInfo(t, "deploy")
@@ -245,7 +245,7 @@ func TestResolveDefinitionsAndLoadConfig(t *testing.T) {
 	calls := 0
 	service := &Service{
 		config: &staticCommandsvcConfigProvider{cfg: cfg},
-		configFallback: func(context.Context, config.Loader, string) (*config.Config, []discovery.Diagnostic) {
+		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
 			calls++
 			return cfg, nil
 		},
@@ -293,15 +293,17 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 		registryFactory: defaultRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
 		userEnvFunc:     func() map[string]string { return map[string]string{} },
-		configFallback: func(context.Context, config.Loader, string) (*config.Config, []discovery.Diagnostic) {
+		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {
 			return cfg, nil
 		},
 	}
 
 	result, diags, err := service.Execute(t.Context(), Request{
-		Name:    "build",
-		DryRun:  true,
-		Runtime: invowkfile.RuntimeContainer,
+		Name:     "build",
+		DryRun:   true,
+		Platform: invowkfile.PlatformMac,
+		Runtime:  invowkfile.RuntimeContainer,
+		EnvVars:  map[string]string{"REQ_ONLY": "from-request"},
 	})
 	if err != nil {
 		t.Fatalf("Execute(dry-run) error = %v", err)
@@ -311,6 +313,16 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 	}
 	if result.DryRunData == nil {
 		t.Fatal("Execute(dry-run) did not return DryRunData")
+	}
+	plan := result.DryRunData.Plan
+	if plan.Platform != invowkfile.PlatformMac {
+		t.Fatalf("dry-run platform = %q, want %q", plan.Platform, invowkfile.PlatformMac)
+	}
+	if plan.Env["REQ_ONLY"] != "from-request" {
+		t.Fatalf("dry-run env REQ_ONLY = %q, want from-request; env=%v", plan.Env["REQ_ONLY"], plan.Env)
+	}
+	if plan.Env["INVOWK_PLATFORM"] != string(invowkfile.PlatformMac) {
+		t.Fatalf("dry-run env INVOWK_PLATFORM = %q, want %q; env=%v", plan.Env["INVOWK_PLATFORM"], invowkfile.PlatformMac, plan.Env)
 	}
 	if hostAccess.ensureCalls != 0 {
 		t.Fatalf("HostAccess.Ensure called %d times for dry-run, want 0", hostAccess.ensureCalls)

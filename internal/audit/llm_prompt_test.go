@@ -32,6 +32,9 @@ func TestBuildUserPrompt_SingleScript(t *testing.T) {
 	if !strings.Contains(prompt, "=== Script: build ===") {
 		t.Error("prompt should contain script header with command name")
 	}
+	if !strings.Contains(prompt, "Script ID: ") {
+		t.Error("prompt should contain stable script ID")
+	}
 	if !strings.Contains(prompt, "File: /path/to/invowkfile.cue") {
 		t.Error("prompt should contain file path")
 	}
@@ -77,7 +80,7 @@ func TestSystemPromptEmbeddedMarkdownContract(t *testing.T) {
 		`"execution"`,
 		`"trust"`,
 		`"obfuscation"`,
-		`{"findings": [{"severity": "..."`,
+		`{"findings": [{"script_id": "..."`,
 		`{"findings": []}`,
 		"Return ONLY a JSON object",
 		"Include a concrete exploit path in description",
@@ -253,6 +256,43 @@ func TestConvertBatchFindings_MatchesByCommandName(t *testing.T) {
 	}
 	if findings[0].SurfaceID != "deploy-surface" {
 		t.Errorf("surface = %q, want %q", findings[0].SurfaceID, "deploy-surface")
+	}
+}
+
+func TestConvertBatchFindings_MatchesByScriptID(t *testing.T) {
+	t.Parallel()
+
+	batch := []ScriptRef{
+		{CommandName: "deploy", SurfaceID: "surface-a", FilePath: "a.cue"},
+		{CommandName: "deploy", SurfaceID: "surface-b", FilePath: "b.cue"},
+	}
+	parsed := []llmFinding{
+		{ScriptID: scriptPromptID(&batch[1]), Severity: "high", Category: "execution", CommandName: "deploy", Title: "RCE"},
+	}
+
+	findings := convertBatchFindings(parsed, batch)
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+	if findings[0].SurfaceID != "surface-b" {
+		t.Errorf("surface = %q, want %q", findings[0].SurfaceID, "surface-b")
+	}
+}
+
+func TestConvertBatchFindings_DropsUnknownMultiScriptAttribution(t *testing.T) {
+	t.Parallel()
+
+	parsed := []llmFinding{
+		{Severity: "medium", Category: "trust", CommandName: "unknown", Title: "Issue"},
+	}
+	batch := []ScriptRef{
+		{CommandName: "build", SurfaceID: "build-surface", FilePath: "build.cue"},
+		{CommandName: "deploy", SurfaceID: "deploy-surface", FilePath: "deploy.cue"},
+	}
+
+	findings := convertBatchFindings(parsed, batch)
+	if len(findings) != 0 {
+		t.Fatalf("expected 0 findings for unknown multi-script attribution, got %d", len(findings))
 	}
 }
 

@@ -162,25 +162,33 @@ func VerifyVendoredModuleHashes(modulePath types.FilesystemPath) error {
 		}
 
 		evaluation := EvaluateVendoredModuleHash(lock, m)
-		switch evaluation.Status {
-		case VendoredHashMatched, VendoredHashMissing:
-			continue
-		case VendoredHashAmbiguous:
-			return fmt.Errorf("ambiguous lock file entries for vendored module %s: %s", m.Metadata.Module, joinModuleRefKeys(evaluation.LockKeys))
-		case VendoredHashUnavailable:
-			return fmt.Errorf("computing hash for vendored module %s: %w", entry.Name(), evaluation.Err)
-		case VendoredHashMismatch:
-			return &ContentHashMismatchError{
-				ModuleKey: evaluation.ModuleKey,
-				Expected:  evaluation.Expected,
-				Actual:    evaluation.Actual,
-			}
-		default:
-			return fmt.Errorf("unknown vendored hash status %q for module %s", evaluation.Status, m.Metadata.Module)
+		if err := verifyVendoredModuleHashEvaluation(m.Metadata.Module, evaluation); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func verifyVendoredModuleHashEvaluation(moduleID ModuleID, evaluation VendoredHashEvaluation) error {
+	switch evaluation.Status {
+	case VendoredHashMatched:
+		return nil
+	case VendoredHashMissing:
+		return fmt.Errorf("missing lock file entry for vendored module %s", moduleID)
+	case VendoredHashAmbiguous:
+		return fmt.Errorf("ambiguous lock file entries for vendored module %s: %s", moduleID, joinModuleRefKeys(evaluation.LockKeys))
+	case VendoredHashUnavailable:
+		return fmt.Errorf("computing hash for vendored module %s: %w", moduleID, evaluation.Err)
+	case VendoredHashMismatch:
+		return &ContentHashMismatchError{
+			ModuleKey: evaluation.ModuleKey,
+			Expected:  evaluation.Expected,
+			Actual:    evaluation.Actual,
+		}
+	default:
+		return fmt.Errorf("unknown vendored hash status %q for module %s", evaluation.Status, moduleID)
+	}
 }
 
 // EvaluateVendoredModuleHash matches a vendored module to its lock file entry

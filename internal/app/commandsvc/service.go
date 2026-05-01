@@ -36,7 +36,7 @@ type (
 
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
 	// The CLI layer provides the implementation that emits diagnostics.
-	ConfigFallbackFunc func(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []discovery.Diagnostic)
+	ConfigFallbackFunc func(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []Diagnostic)
 )
 
 // New creates a command execution service.
@@ -107,7 +107,7 @@ func NewWithPorts(
 //  6. Propagates incoming context for timeout and cancellation signals.
 //  7. Dry-run intercept: if DryRun is set, returns structured data for rendering.
 //  8. Dispatches execution (timeout → dep validation → runtime).
-func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery.Diagnostic, error) {
+func (s *Service) Execute(ctx context.Context, req Request) (Result, []Diagnostic, error) {
 	// Validate typed fields before any downstream work to catch programmatic misuse early.
 	if err := req.Validate(); err != nil {
 		return Result{}, nil, err
@@ -175,9 +175,9 @@ func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime
 		CommandName:                 invowkfile.CommandName(req.Name), //goplint:ignore -- request name was resolved through discovery
 		SourceID:                    cmdInfo.SourceID,
 		Runtime:                     execCtx.SelectedRuntime,
-		Platform:                    invowkfile.CurrentPlatform(),
+		Platform:                    req.Platform,
 		WorkDir:                     execCtx.WorkDir,
-		Env:                         copyStringMap(execCtx.Env.ExtraEnv),
+		Env:                         dryRunEnv(execCtx),
 		DependencyValidationSkipped: true,
 	}
 	if impl != nil {
@@ -186,6 +186,18 @@ func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime
 		plan.ScriptIsFile = impl.IsScriptFile()
 	}
 	return plan
+}
+
+func dryRunEnv(execCtx *runtime.ExecutionContext) map[string]string {
+	env := copyStringMap(execCtx.Env.ExtraEnv)
+	if len(execCtx.Env.RuntimeEnvVars) == 0 {
+		return env
+	}
+	if env == nil {
+		env = make(map[string]string, len(execCtx.Env.RuntimeEnvVars))
+	}
+	maps.Copy(env, execCtx.Env.RuntimeEnvVars)
+	return env
 }
 
 //goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
@@ -199,7 +211,7 @@ func copyStringMap(src map[string]string) map[string]string {
 }
 
 // ResolveFromSource resolves a source-filtered command request without executing it.
-func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []Diagnostic, error) {
 	if err := req.Validate(); err != nil {
 		return nil, req, nil, err
 	}
@@ -211,7 +223,7 @@ func (s *Service) ResolveFromSource(ctx context.Context, req Request) (*discover
 }
 
 // ResolveCommand resolves a command request without executing it.
-func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.CommandInfo, Request, []Diagnostic, error) {
 	if err := req.Validate(); err != nil {
 		return nil, req, nil, err
 	}
@@ -231,7 +243,7 @@ func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.C
 // checkAmbiguousCommand, and this method — avoiding duplicate filesystem scans.
 // Config is loaded separately because downstream callers need it for runtime
 // registry construction and env builder configuration.
-func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+func (s *Service) discoverCommand(ctx context.Context, req Request) (*config.Config, *discovery.CommandInfo, Request, []Diagnostic, error) {
 	cfg, configDiags := s.loadConfig(ctx, string(req.ConfigPath))
 	req = applyUIConfigDefaults(req, cfg)
 	if req.ResolvedCommand != nil {
@@ -286,7 +298,7 @@ func applyUIConfigDefaults(req Request, cfg *config.Config) Request {
 	return req
 }
 
-func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Config, req Request, diags []discovery.Diagnostic) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Config, req Request, diags []Diagnostic) (*config.Config, *discovery.CommandInfo, Request, []Diagnostic, error) {
 	lookup, err := s.discovery.GetCommand(ctx, req.Name)
 	diags = append(diags, lookup.Diagnostics...)
 	if err != nil {
@@ -301,7 +313,7 @@ func (s *Service) discoverCommandByLookup(ctx context.Context, cfg *config.Confi
 	return cfg, lookup.Command, req, diags, nil
 }
 
-func appendDiagnostics(base []discovery.Diagnostic, extra ...discovery.Diagnostic) []discovery.Diagnostic {
+func appendDiagnostics(base []Diagnostic, extra ...discovery.Diagnostic) []Diagnostic {
 	result := slices.Clone(base)
 	return append(result, extra...)
 }
@@ -349,7 +361,7 @@ func resolveCommandFromSet(commandSet *discovery.DiscoveredCommandSet, req Reque
 	return nil, req, ""
 }
 
-func (s *Service) discoverCommandFromSource(ctx context.Context, cfg *config.Config, req Request) (*config.Config, *discovery.CommandInfo, Request, []discovery.Diagnostic, error) {
+func (s *Service) discoverCommandFromSource(ctx context.Context, cfg *config.Config, req Request) (*config.Config, *discovery.CommandInfo, Request, []Diagnostic, error) {
 	result, err := s.discovery.DiscoverCommandSet(ctx)
 	if err != nil {
 		return nil, nil, req, nil, err
@@ -434,6 +446,6 @@ func (s *Service) resolveDefinitions(req Request, cmdInfo *discovery.CommandInfo
 
 // loadConfig loads configuration via the configFallback callback. On failure it
 // returns defaults with diagnostics so callers stay operational.
-func (s *Service) loadConfig(ctx context.Context, configPath string) (*config.Config, []discovery.Diagnostic) {
+func (s *Service) loadConfig(ctx context.Context, configPath string) (cfg *config.Config, diags []Diagnostic) {
 	return s.configFallback(ctx, s.config, configPath)
 }

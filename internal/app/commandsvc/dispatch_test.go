@@ -171,18 +171,18 @@ func TestAppendRuntimeRegistryDiagnostics(t *testing.T) {
 		t.Fatalf("NewDiagnostic(): %v", err)
 	}
 
-	base := []discovery.Diagnostic{}
-	result := appendRuntimeRegistryDiagnostics(base, Request{Verbose: true}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual}, RuntimeRegistryResult{Diagnostics: []discovery.Diagnostic{diag}})
+	base := []Diagnostic{}
+	result := appendRuntimeRegistryDiagnostics(base, Request{Verbose: true}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual}, RuntimeRegistryResult{Diagnostics: []Diagnostic{diag}})
 	if len(result) != 1 {
 		t.Fatalf("len(result) = %d, want 1", len(result))
 	}
 
-	result = appendRuntimeRegistryDiagnostics(base, Request{}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeContainer}, RuntimeRegistryResult{Diagnostics: []discovery.Diagnostic{diag}})
+	result = appendRuntimeRegistryDiagnostics(base, Request{}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeContainer}, RuntimeRegistryResult{Diagnostics: []Diagnostic{diag}})
 	if len(result) != 1 {
 		t.Fatalf("len(result) = %d, want 1", len(result))
 	}
 
-	result = appendRuntimeRegistryDiagnostics(base, Request{}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual}, RuntimeRegistryResult{Diagnostics: []discovery.Diagnostic{diag}})
+	result = appendRuntimeRegistryDiagnostics(base, Request{}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual}, RuntimeRegistryResult{Diagnostics: []Diagnostic{diag}})
 	if len(result) != 0 {
 		t.Fatalf("len(result) = %d, want 0", len(result))
 	}

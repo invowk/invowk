@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -329,6 +330,33 @@ func TestVerifyVendoredModuleHashesRejectsAmbiguousLockEntries(t *testing.T) {
 	err = VerifyVendoredModuleHashes(types.FilesystemPath(root))
 	if err == nil {
 		t.Fatal("VerifyVendoredModuleHashes() returned nil, want ambiguous lock error")
+	}
+}
+
+func TestVerifyVendoredModuleHashesRejectsMissingLockEntry(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	vendorDir := filepath.Join(root, VendoredModulesDir)
+	moduleDir := filepath.Join(vendorDir, "io.example.extra"+ModuleSuffix)
+	writeHashTestModule(t, moduleDir, "io.example.extra")
+
+	hash, err := computeModuleHash(moduleDir)
+	if err != nil {
+		t.Fatalf("computeModuleHash() error = %v", err)
+	}
+	lock := NewLockFile()
+	lock.Modules["https://github.com/example/other.git"] = lockedHashTestModule("io.example.other", hash)
+	if saveErr := lock.Save(filepath.Join(root, LockFileName)); saveErr != nil {
+		t.Fatalf("Save() error = %v", saveErr)
+	}
+
+	err = VerifyVendoredModuleHashes(types.FilesystemPath(root))
+	if err == nil {
+		t.Fatal("VerifyVendoredModuleHashes() returned nil, want missing lock entry error")
+	}
+	if !strings.Contains(err.Error(), "missing lock file entry") {
+		t.Fatalf("VerifyVendoredModuleHashes() error = %v, want missing lock entry", err)
 	}
 }
 

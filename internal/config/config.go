@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/cueutil"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/platform"
@@ -30,10 +29,28 @@ const (
 	errMsgHomeDir = "failed to get home directory: %w"
 )
 
-//go:embed config_schema.cue
-var configSchema string
+var (
+	//go:embed config_schema.cue
+	configSchema string
+
+	// ErrConfigFileNotFound marks an explicit config path that does not exist.
+	ErrConfigFileNotFound = errors.New("config file not found")
+	// ErrConfigLoadFailed marks config CUE read/parse/decode failures.
+	ErrConfigLoadFailed = errors.New("config load failed")
+)
 
 type (
+	// FileNotFoundError identifies a missing explicit config file.
+	FileNotFoundError struct {
+		Path types.FilesystemPath
+	}
+
+	// LoadError wraps a config file read/parse/decode failure.
+	LoadError struct {
+		Path types.FilesystemPath
+		Err  error
+	}
+
 	configPatch struct {
 		ContainerEngine *ContainerEngine         `json:"container_engine"`
 		Includes        *[]IncludeEntry          `json:"includes"`
@@ -66,6 +83,22 @@ type (
 		CacheDir        *CacheDirPath   `json:"cache_dir"`
 	}
 )
+
+func (e *FileNotFoundError) Error() string {
+	return fmt.Sprintf("config file not found: %s", e.Path)
+}
+
+func (e *FileNotFoundError) Unwrap() error {
+	return errors.Join(ErrConfigFileNotFound, os.ErrNotExist)
+}
+
+func (e *LoadError) Error() string {
+	return fmt.Sprintf("failed to load config %s: %v", e.Path, e.Err)
+}
+
+func (e *LoadError) Unwrap() error {
+	return errors.Join(ErrConfigLoadFailed, e.Err)
+}
 
 func (p configPatch) Validate() error {
 	var errs []error
@@ -204,14 +237,7 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.File
 	configFilePath := string(opts.ConfigFilePath)
 	if configFilePath != "" {
 		if !fileExists(configFilePath) {
-			return nil, "", issue.NewErrorContext().
-				WithOperation("load configuration").
-				WithResource(configFilePath).
-				WithSuggestion("Verify the file path is correct").
-				WithSuggestion("Check that the file exists and is readable").
-				WithSuggestion("Use 'invowk config show' to see default configuration").
-				Wrap(fmt.Errorf("config file not found: %s", configFilePath)).
-				BuildError()
+			return nil, "", &FileNotFoundError{Path: opts.ConfigFilePath}
 		}
 		loaded, err := decodeCUEConfigFile(opts.ConfigFilePath)
 		if err != nil {
@@ -268,22 +294,14 @@ func loadWithOptions(ctx context.Context, opts LoadOptions) (*Config, types.File
 		if includeErr, ok := errors.AsType[*InvalidIncludeCollectionError](err); ok {
 			return nil, "", wrapIncludeCollectionError(includeErr)
 		}
-		return nil, "", fmt.Errorf("invalid config: %w", err)
+		return nil, "", err
 	}
 
 	return cfg, resolvedPath, nil
 }
 
 func wrapIncludeCollectionError(err *InvalidIncludeCollectionError) error {
-	ctx := issue.NewErrorContext().
-		WithOperation("validate configuration").
-		WithSuggestion("When two modules share the same short name, all must have unique aliases")
-	if err != nil && err.Field == IncludeCollectionAutoProvision {
-		ctx = ctx.WithSuggestion("Ensure each alias is unique across all auto_provision includes entries")
-	} else {
-		ctx = ctx.WithSuggestion("Ensure each alias is unique across all includes entries")
-	}
-	return ctx.Wrap(err).BuildError()
+	return &InvalidConfigError{FieldErrors: []error{err}}
 }
 
 // configDirWithOverride resolves the configuration directory, honoring
@@ -306,18 +324,14 @@ func commandsDirWithOverride(commandsDirPath types.FilesystemPath) (types.Filesy
 	return CommandsDir()
 }
 
-// cueLoadError wraps a CUE loading/parsing error with actionable suggestions.
+// cueLoadError wraps a CUE loading/parsing error with typed config semantics.
 // This is the common error path for all config file locations (explicit path,
 // config dir, current dir).
 func cueLoadError(path string, err error) error {
-	return issue.NewErrorContext().
-		WithOperation("load configuration").
-		WithResource(path).
-		WithSuggestion("Check that the file contains valid CUE syntax").
-		WithSuggestion("Verify the configuration values match the expected schema").
-		WithSuggestion("See 'invowk config --help' for configuration options").
-		Wrap(err).
-		BuildError()
+	return &LoadError{
+		Path: types.FilesystemPath(path), //goplint:ignore -- path came from provider/file discovery and is preserved for diagnostics.
+		Err:  err,
+	}
 }
 
 // decodeCUEConfigFile parses a CUE file through the shared schema parser and

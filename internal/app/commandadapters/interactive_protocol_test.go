@@ -12,13 +12,13 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-func TestComponentResponseToProtocol(t *testing.T) {
+func TestComponentResponseToProtocolStatus(t *testing.T) {
 	t.Parallel()
 
 	t.Run("cancelled", func(t *testing.T) {
 		t.Parallel()
 
-		got := tui.EncodeComponentResponse(tui.ComponentTypeInput, tui.ComponentResponse{Cancelled: true})
+		got := componentResponseToProtocol(tui.ComponentTypeInput, tui.ComponentResponse{Cancelled: true})
 		if !got.Cancelled {
 			t.Fatal("Cancelled = false, want true")
 		}
@@ -27,38 +27,53 @@ func TestComponentResponseToProtocol(t *testing.T) {
 	t.Run("error", func(t *testing.T) {
 		t.Parallel()
 
-		got := tui.EncodeComponentResponse(tui.ComponentTypeInput, tui.ComponentResponse{Err: errors.New("boom")})
+		got := componentResponseToProtocol(tui.ComponentTypeInput, tui.ComponentResponse{Err: errors.New("boom")})
 		if got.Error != "boom" {
 			t.Fatalf("Error = %q, want boom", got.Error)
 		}
 	})
+}
+
+func TestComponentResponseToProtocolResults(t *testing.T) {
+	t.Parallel()
 
 	t.Run("input result", func(t *testing.T) {
 		t.Parallel()
 
-		got := tui.EncodeComponentResponse(tui.ComponentTypeInput, tui.ComponentResponse{Result: "hello"})
-		var result tuiwire.InputResult
-		if err := json.Unmarshal(got.Result, &result); err != nil {
-			t.Fatalf("json.Unmarshal() = %v", err)
-		}
+		got := componentResponseToProtocol(tui.ComponentTypeInput, tui.ComponentResponse{Result: "hello"})
+		result := decodeComponentResult[tuiwire.InputResult](t, got)
 		if result.Value != "hello" {
 			t.Fatalf("Value = %q, want hello", result.Value)
 		}
 	})
 
+	t.Run("textarea result", func(t *testing.T) {
+		t.Parallel()
+
+		got := componentResponseToProtocol(tui.ComponentTypeTextArea, tui.ComponentResponse{Result: "hello\nthere"})
+		result := decodeComponentResult[tuiwire.TextAreaResult](t, got)
+		if result.Value != "hello\nthere" {
+			t.Fatalf("Value = %q, want textarea text", result.Value)
+		}
+	})
+
+	t.Run("write result", func(t *testing.T) {
+		t.Parallel()
+
+		got := componentResponseToProtocol(tui.ComponentTypeWrite, tui.ComponentResponse{Result: "ignored"})
+		_ = decodeComponentResult[tuiwire.WriteResult](t, got)
+	})
+
 	t.Run("table result", func(t *testing.T) {
 		t.Parallel()
 
-		got := tui.EncodeComponentResponse(tui.ComponentTypeTable, tui.ComponentResponse{
+		got := componentResponseToProtocol(tui.ComponentTypeTable, tui.ComponentResponse{
 			Result: tui.TableSelectionResult{
 				SelectedRow:   []string{"a", "b"},
 				SelectedIndex: 1,
 			},
 		})
-		var result tuiwire.TableResult
-		if err := json.Unmarshal(got.Result, &result); err != nil {
-			t.Fatalf("json.Unmarshal() = %v", err)
-		}
+		result := decodeComponentResult[tuiwire.TableResult](t, got)
 		if result.SelectedIndex != 1 {
 			t.Fatalf("SelectedIndex = %d, want 1", result.SelectedIndex)
 		}
@@ -70,19 +85,26 @@ func TestComponentResponseToProtocol(t *testing.T) {
 	t.Run("spin result", func(t *testing.T) {
 		t.Parallel()
 
-		got := tui.EncodeComponentResponse(tui.ComponentTypeSpin, tui.ComponentResponse{
+		got := componentResponseToProtocol(tui.ComponentTypeSpin, tui.ComponentResponse{
 			Result: tuiwire.SpinResult{
 				Stdout:   "output",
 				Stderr:   "error",
 				ExitCode: types.ExitCode(1),
 			},
 		})
-		var result tuiwire.SpinResult
-		if err := json.Unmarshal(got.Result, &result); err != nil {
-			t.Fatalf("json.Unmarshal() = %v", err)
-		}
+		result := decodeComponentResult[tuiwire.SpinResult](t, got)
 		if result.Stdout != "output" || result.Stderr != "error" || result.ExitCode != 1 {
 			t.Fatalf("SpinResult = %+v, want output/error/1", result)
 		}
 	})
+}
+
+func decodeComponentResult[T any](t testing.TB, got tuiwire.Response) T {
+	t.Helper()
+
+	var result T
+	if err := json.Unmarshal(got.Result, &result); err != nil {
+		t.Fatalf("json.Unmarshal() = %v", err)
+	}
+	return result
 }

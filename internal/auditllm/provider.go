@@ -83,7 +83,7 @@ type (
 		model string
 		// runCmd executes a command and returns its stdout. When nil,
 		// defaults to exec.CommandContext(...).Output() in Complete().
-		runCmd func(ctx context.Context, name string, args ...string) ([]byte, error)
+		runCmd func(ctx context.Context, name string, args []string, input string) ([]byte, error)
 	}
 
 	// providerDeps holds injectable infrastructure dependencies for provider
@@ -329,7 +329,7 @@ func NewCLICompleter(tool, model string) *CLICompleter {
 func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	prompt := systemPrompt + "\n\n" + userPrompt
 
-	args, err := c.buildArgs(prompt)
+	args, err := c.buildArgs()
 	if err != nil {
 		return "", err
 	}
@@ -339,7 +339,7 @@ func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt st
 		run = defaultRunCmd
 	}
 
-	output, err := run(ctx, c.tool, args...)
+	output, err := run(ctx, c.tool, args, prompt)
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			details := strings.TrimSpace(string(exitErr.Stderr))
@@ -358,8 +358,10 @@ func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt st
 }
 
 // defaultRunCmd is the production implementation that shells out via exec.
-func defaultRunCmd(ctx context.Context, name string, args ...string) ([]byte, error) {
-	out, err := exec.CommandContext(ctx, name, args...).Output()
+func defaultRunCmd(ctx context.Context, name string, args []string, input string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdin = strings.NewReader(input)
+	out, err := cmd.Output()
 	if err != nil {
 		return out, err //nolint:wrapcheck // caller wraps with tool-specific context
 	}
@@ -367,29 +369,27 @@ func defaultRunCmd(ctx context.Context, name string, args ...string) ([]byte, er
 }
 
 // buildArgs constructs the command-line arguments for the tool.
-func (c *CLICompleter) buildArgs(prompt string) ([]string, error) {
+func (c *CLICompleter) buildArgs() ([]string, error) {
 	switch c.tool {
-	case "claude":
-		args := []string{"-p", prompt, "--output-format", "json"}
-		if c.model != "" {
-			args = append(args, "--model", c.model)
-		}
-		return args, nil
+	case "claude", "gemini":
+		return c.promptFlagArgs(), nil
 	case "codex":
-		args := []string{"exec", prompt, "--json"}
+		args := []string{"exec", "--json"}
 		if c.model != "" {
 			args = append(args, "-m", c.model)
-		}
-		return args, nil
-	case "gemini":
-		args := []string{"-p", prompt, "--output-format", "json"}
-		if c.model != "" {
-			args = append(args, "--model", c.model)
 		}
 		return args, nil
 	default:
 		return nil, fmt.Errorf("unsupported CLI tool: %s", c.tool)
 	}
+}
+
+func (c *CLICompleter) promptFlagArgs() []string {
+	args := []string{"-p", "-", "--output-format", "json"}
+	if c.model != "" {
+		args = append(args, "--model", c.model)
+	}
+	return args
 }
 
 // parseOutput extracts the response text from tool-specific JSON output.

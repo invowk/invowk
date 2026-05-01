@@ -13,7 +13,7 @@ import (
 )
 
 // testConfigFallback wraps the application-service fallback for commandsvc.ConfigFallbackFunc.
-func testConfigFallback(ctx context.Context, provider config.Loader, configPath string) (*config.Config, []discovery.Diagnostic) {
+func testConfigFallback(ctx context.Context, provider config.Loader, configPath string) (cfg *config.Config, diags []commandsvc.Diagnostic) {
 	return commandsvc.LoadConfigWithFallback(ctx, provider, configPath)
 }
 

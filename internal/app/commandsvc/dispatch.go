@@ -19,7 +19,7 @@ import (
 type RuntimeRegistryResult struct {
 	Registry         *runtime.Registry
 	Cleanup          func()
-	Diagnostics      []discovery.Diagnostic
+	Diagnostics      []Diagnostic
 	ContainerInitErr error
 }
 
@@ -32,7 +32,7 @@ type RuntimeRegistryResult struct {
 //
 // It returns ClassifiedError for runtime failures and raw typed errors for
 // dependency validation. The CLI adapter handles rendering.
-func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (Result, []discovery.Diagnostic, error) {
+func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []Diagnostic) (Result, []Diagnostic, error) {
 	registryResult := s.registryFactory.Create(cfg, s.hostAccess, execCtx.SelectedRuntime)
 	diags = appendRuntimeRegistryDiagnostics(diags, req, execCtx, registryResult)
 	defer registryResult.Cleanup()
@@ -75,7 +75,7 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	return Result{ExitCode: result.ExitCode}, diags, nil
 }
 
-func appendRuntimeRegistryDiagnostics(diags []discovery.Diagnostic, req Request, execCtx *runtime.ExecutionContext, registryResult RuntimeRegistryResult) []discovery.Diagnostic {
+func appendRuntimeRegistryDiagnostics(diags []Diagnostic, req Request, execCtx *runtime.ExecutionContext, registryResult RuntimeRegistryResult) []Diagnostic {
 	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
 		diags = append(diags, registryResult.Diagnostics...)
 	}
@@ -142,8 +142,8 @@ func newClassifiedExecutionError(err error) *ClassifiedError {
 
 // BridgeRuntimeDiagnostics converts runtime-layer initialization diagnostics
 // into discovery diagnostics for the CLI-facing diagnostic renderer.
-func BridgeRuntimeDiagnostics(diags []runtime.InitDiagnostic) []discovery.Diagnostic {
-	result := make([]discovery.Diagnostic, 0, len(diags))
+func BridgeRuntimeDiagnostics(diags []runtime.InitDiagnostic) []Diagnostic {
+	result := make([]Diagnostic, 0, len(diags))
 	for _, diag := range diags {
 		d, err := discovery.NewDiagnosticWithCause(
 			discovery.SeverityWarning,

@@ -382,37 +382,37 @@ func TestCLICompleter_BuildArgs(t *testing.T) {
 			name:     "claude args use CLI default without model flag",
 			tool:     "claude",
 			model:    "",
-			wantArgs: []string{"-p", "test prompt", "--output-format", "json"},
+			wantArgs: []string{"-p", "-", "--output-format", "json"},
 		},
 		{
 			name:     "claude args with explicit model",
 			tool:     "claude",
 			model:    "claude-explicit",
-			wantArgs: []string{"-p", "test prompt", "--output-format", "json", "--model", "claude-explicit"},
+			wantArgs: []string{"-p", "-", "--output-format", "json", "--model", "claude-explicit"},
 		},
 		{
 			name:     "codex args use CLI default without model flag",
 			tool:     "codex",
 			model:    "",
-			wantArgs: []string{"exec", "test prompt", "--json"},
+			wantArgs: []string{"exec", "--json"},
 		},
 		{
 			name:     "codex args with explicit model",
 			tool:     "codex",
 			model:    "gpt-4o",
-			wantArgs: []string{"exec", "test prompt", "--json", "-m", "gpt-4o"},
+			wantArgs: []string{"exec", "--json", "-m", "gpt-4o"},
 		},
 		{
 			name:     "gemini args use CLI default without model flag",
 			tool:     "gemini",
 			model:    "",
-			wantArgs: []string{"-p", "test prompt", "--output-format", "json"},
+			wantArgs: []string{"-p", "-", "--output-format", "json"},
 		},
 		{
 			name:     "gemini args with explicit model",
 			tool:     "gemini",
 			model:    "gemini-explicit",
-			wantArgs: []string{"-p", "test prompt", "--output-format", "json", "--model", "gemini-explicit"},
+			wantArgs: []string{"-p", "-", "--output-format", "json", "--model", "gemini-explicit"},
 		},
 	}
 
@@ -420,7 +420,7 @@ func TestCLICompleter_BuildArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			c := NewCLICompleter(tt.tool, tt.model)
-			args, err := c.buildArgs("test prompt")
+			args, err := c.buildArgs()
 			if err != nil {
 				t.Fatalf("buildArgs: %v", err)
 			}
@@ -440,7 +440,7 @@ func TestCLICompleter_BuildArgs_UnsupportedTool(t *testing.T) {
 	t.Parallel()
 
 	c := NewCLICompleter("unsupported", "model")
-	_, err := c.buildArgs("prompt")
+	_, err := c.buildArgs()
 	if err == nil {
 		t.Fatal("expected error for unsupported tool")
 	}
@@ -452,7 +452,7 @@ func TestCLICompleter_Complete_Claude(t *testing.T) {
 	c := &CLICompleter{
 		tool:  "claude",
 		model: "claude-sonnet-4-6",
-		runCmd: func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		runCmd: func(_ context.Context, _ string, _ []string, _ string) ([]byte, error) {
 			return []byte(`{"type":"result","result":"No issues found.","session_id":"abc"}`), nil
 		},
 	}
@@ -476,7 +476,7 @@ func TestCLICompleter_Complete_Codex(t *testing.T) {
 	c := &CLICompleter{
 		tool:  "codex",
 		model: "gpt-4o",
-		runCmd: func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		runCmd: func(_ context.Context, _ string, _ []string, _ string) ([]byte, error) {
 			return []byte(codexOutput), nil
 		},
 	}
@@ -496,7 +496,7 @@ func TestCLICompleter_Complete_Gemini(t *testing.T) {
 	c := &CLICompleter{
 		tool:  "gemini",
 		model: "gemini-2.5-flash",
-		runCmd: func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		runCmd: func(_ context.Context, _ string, _ []string, _ string) ([]byte, error) {
 			return []byte(`{"response":"All clear.","stats":{}}`), nil
 		},
 	}
@@ -516,7 +516,7 @@ func TestCLICompleter_Complete_ExitError(t *testing.T) {
 	c := &CLICompleter{
 		tool:  "claude",
 		model: "test",
-		runCmd: func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		runCmd: func(_ context.Context, _ string, _ []string, _ string) ([]byte, error) {
 			return nil, &exec.ExitError{Stderr: []byte("auth failed")}
 		},
 	}
@@ -539,7 +539,7 @@ func TestCLICompleter_Complete_ExitErrorIncludesStdoutFallback(t *testing.T) {
 	c := &CLICompleter{
 		tool:  "claude",
 		model: "test",
-		runCmd: func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		runCmd: func(_ context.Context, _ string, _ []string, _ string) ([]byte, error) {
 			return []byte(`{"type":"result","result":"Not logged in"}`), &exec.ExitError{}
 		},
 	}
@@ -557,11 +557,13 @@ func TestCLICompleter_Complete_PromptMerge(t *testing.T) {
 	t.Parallel()
 
 	var capturedArgs []string
+	var capturedInput string
 	c := &CLICompleter{
 		tool:  "claude",
 		model: "test",
-		runCmd: func(_ context.Context, _ string, args ...string) ([]byte, error) {
+		runCmd: func(_ context.Context, _ string, args []string, input string) ([]byte, error) {
 			capturedArgs = args
+			capturedInput = input
 			return []byte(`{"type":"result","result":"ok"}`), nil
 		},
 	}
@@ -571,13 +573,13 @@ func TestCLICompleter_Complete_PromptMerge(t *testing.T) {
 		t.Fatalf("Complete: %v", err)
 	}
 
-	// Claude args: -p <prompt> --output-format json
-	if len(capturedArgs) < 2 {
-		t.Fatalf("expected >= 2 args, got %d", len(capturedArgs))
+	for _, arg := range capturedArgs {
+		if strings.Contains(arg, "SYSTEM") || strings.Contains(arg, "USER") {
+			t.Fatalf("prompt leaked into argv: %v", capturedArgs)
+		}
 	}
-	prompt := capturedArgs[1] // -p is [0], prompt is [1]
-	if prompt != "SYSTEM\n\nUSER" {
-		t.Errorf("prompt = %q, want %q", prompt, "SYSTEM\n\nUSER")
+	if capturedInput != "SYSTEM\n\nUSER" {
+		t.Errorf("stdin prompt = %q, want %q", capturedInput, "SYSTEM\n\nUSER")
 	}
 }
 
@@ -587,7 +589,7 @@ func TestCLICompleter_Complete_GenericError(t *testing.T) {
 	c := &CLICompleter{
 		tool:  "claude",
 		model: "test",
-		runCmd: func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		runCmd: func(_ context.Context, _ string, _ []string, _ string) ([]byte, error) {
 			return nil, errors.New("command not found")
 		},
 	}

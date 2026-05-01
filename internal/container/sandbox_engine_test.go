@@ -5,7 +5,9 @@ package container
 import (
 	"context"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -123,6 +125,26 @@ func TestSandboxAwareEngine_Flatpak(t *testing.T) {
 
 	if !slices.Equal(args, expected) {
 		t.Errorf("BuildRunArgs() = %v, want %v", args, expected)
+	}
+}
+
+func TestSandboxAwareEngine_AvailableUsesHostSpawn(t *testing.T) {
+	tmpDir := t.TempDir()
+	spawnPath := filepath.Join(tmpDir, "flatpak-spawn")
+	if err := os.WriteFile(spawnPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write flatpak-spawn stub: %v", err)
+	}
+	t.Setenv("PATH", tmpDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	mock := &mockEngine{
+		name:       "podman",
+		available:  false,
+		binaryPath: "/usr/bin/podman",
+	}
+	engine := newSandboxAwareEngineForTesting(mock, platform.SandboxFlatpak)
+
+	if !engine.Available() {
+		t.Fatal("Available() = false, want true via host spawn")
 	}
 }
 
