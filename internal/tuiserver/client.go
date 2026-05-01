@@ -37,7 +37,11 @@ func NewClientFromEnv() *Client {
 		return nil
 	}
 
-	return NewClient(addr, AuthToken(token))
+	authToken := AuthToken(token)
+	if err := authToken.Validate(); err != nil {
+		return nil
+	}
+	return NewClient(addr, authToken)
 }
 
 // NewClient creates a new Client with the given server address and token.

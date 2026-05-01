@@ -73,10 +73,14 @@ func New() (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
+	authToken := AuthToken(token)
+	if err := authToken.Validate(); err != nil {
+		return nil, fmt.Errorf("validate generated token: %w", err)
+	}
 
 	s := &Server{
 		base:       serverbase.NewBase(),
-		token:      AuthToken(token),
+		token:      authToken,
 		shutdownCh: make(chan struct{}),
 		requestCh:  make(chan TUIRequest),
 	}

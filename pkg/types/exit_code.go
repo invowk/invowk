@@ -43,9 +43,5 @@ func (c ExitCode) Validate() error {
 // IsSuccess returns true if the exit code indicates successful execution.
 func (c ExitCode) IsSuccess() bool { return c == 0 }
 
-// IsTransient returns true if the exit code indicates a transient container
-// engine error that may succeed on retry (codes 125 and 126).
-func (c ExitCode) IsTransient() bool { return c == 125 || c == 126 }
-
 // String returns the decimal string representation of the ExitCode.
 func (c ExitCode) String() string { return strconv.Itoa(int(c)) }

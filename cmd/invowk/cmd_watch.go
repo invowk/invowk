@@ -6,12 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"time"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/watch"
-	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -35,13 +33,13 @@ type (
 		Run(context.Context) error
 	}
 
-	// WatchRunnerFactory constructs watch runners. App owns the factory so tests
+	// WatchRunnerCreator constructs watch runners. App owns the creator so tests
 	// can drive watch callbacks without starting filesystem observers.
-	WatchRunnerFactory interface {
-		New(watch.Config) (WatchRunner, error)
+	WatchRunnerCreator interface {
+		Create(watch.Config) (WatchRunner, error)
 	}
 
-	productionWatchRunnerFactory struct{}
+	productionWatchRunnerCreator struct{}
 
 	watchExecutionOutcome struct {
 		ExitCode types.ExitCode
@@ -54,7 +52,7 @@ func (e *WatchCommandNotFoundError) Error() string {
 	return fmt.Sprintf("command '%s' not found", e.Name)
 }
 
-func (productionWatchRunnerFactory) New(cfg watch.Config) (WatchRunner, error) {
+func (productionWatchRunnerCreator) Create(cfg watch.Config) (WatchRunner, error) {
 	return watch.New(cfg)
 }
 
@@ -96,28 +94,9 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)
 
-	// Build the watch config from the command's schema or use defaults.
-	var patterns []invowkfile.GlobPattern
-	var ignore []invowkfile.GlobPattern
-	var debounce time.Duration
-	var clearScreen bool
-
-	if watchCfg := cmdInfo.Command.Watch; watchCfg != nil {
-		patterns = watchCfg.Patterns
-		ignore = watchCfg.Ignore
-		clearScreen = watchCfg.ClearScreen
-		if watchCfg.Debounce != "" {
-			d, parseErr := watchCfg.ParseDebounce()
-			if parseErr != nil {
-				return fmt.Errorf("%w: %w", errInvalidWatchDebounce, parseErr)
-			}
-			debounce = d
-		}
-	}
-
-	// Default to watching all files if no patterns configured.
-	if len(patterns) == 0 {
-		patterns = []invowkfile.GlobPattern{"**/*"}
+	plan, err := commandsvc.NewWatchPlan(cmdInfo)
+	if err != nil {
+		return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
 	}
 
 	// Build a re-execution closure that runs the command through the command
@@ -161,29 +140,20 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	fmt.Fprintf(app.stdout, "\n%s Watching for changes (Ctrl+C to stop)...\n\n", VerboseHighlightStyle.Render("→"))
 
-	// Resolve base directory: use command workdir if set, otherwise current dir.
-	// Relative workdir is resolved against the invowkfile directory, matching
-	// how the execution pipeline resolves it (not against os.Getwd()).
-	baseDir := string(cmdInfo.Command.WorkDir)
-	if baseDir != "" && !filepath.IsAbs(baseDir) {
-		baseDir = filepath.Join(filepath.Dir(string(cmdInfo.FilePath)), baseDir)
-	}
-
 	// Track consecutive infrastructure failures in the OnChange
-	// callback. After maxConsecutiveInfraErrors, the watcher aborts because the
+	// callback. After the plan's limit, the watcher aborts because the
 	// underlying problem (deleted invowkfile, missing runtime, etc.) is unlikely
 	// to be fixed by further file changes. The counter resets when the command
 	// runs to completion, even if it exits non-zero.
-	const maxConsecutiveInfraErrors = 3
 	var consecutiveInfraErrors int
 
 	cfg := watch.Config{
-		Patterns: patterns,
-		Ignore:   ignore,
-		Debounce: debounce,
-		BaseDir:  types.FilesystemPath(baseDir), //goplint:ignore -- from invowkfile directory resolution
+		Patterns: plan.Patterns,
+		Ignore:   plan.Ignore,
+		Debounce: plan.Debounce,
+		BaseDir:  plan.BaseDir,
 		OnChange: func(cbCtx context.Context, changed []string) error {
-			if clearScreen {
+			if plan.ClearScreen {
 				fmt.Fprint(app.stdout, "\033[2J\033[H")
 			}
 			fmt.Fprintf(app.stdout, "%s Detected %d change(s). Re-executing '%s'...\n",
@@ -200,7 +170,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 				} else {
 					consecutiveInfraErrors++
 					fmt.Fprintf(app.stderr, "%s Execution failed: %v\n", WarningStyle.Render("!"), outcome.Err)
-					if consecutiveInfraErrors >= maxConsecutiveInfraErrors {
+					if consecutiveInfraErrors >= int(plan.InfraErrorAbortLimit) {
 						return fmt.Errorf("aborting watch: %d consecutive infrastructure failures (last: %w)", consecutiveInfraErrors, outcome.Err)
 					}
 				}
@@ -214,7 +184,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		Stderr: app.stderr,
 	}
 
-	w, err := app.Watchers.New(cfg)
+	w, err := app.Watchers.Create(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to start watcher: %w", err)
 	}

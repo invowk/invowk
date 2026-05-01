@@ -20,11 +20,11 @@ type (
 		Stop()
 	}
 
-	// RuntimeRegistryFactory builds a runtime registry for one execution. It
+	// RuntimeRegistryCreator builds a runtime registry for one execution. It
 	// receives HostAccess so an adapter can forward concrete transport handles
 	// to runtimes without exposing those details to Service.
-	RuntimeRegistryFactory interface {
-		Create(*config.Config, HostAccess) RuntimeRegistryResult
+	RuntimeRegistryCreator interface {
+		Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeRegistryResult
 	}
 
 	// InteractiveExecutor owns terminal UI execution for runtimes that support
@@ -53,14 +53,23 @@ func (noopHostAccess) Ensure(context.Context) error { return nil }
 
 func (noopHostAccess) Running() bool { return false }
 
-func (noopHostAccess) Stop() {}
+func (noopHostAccess) Stop() {
+	// No host-access infrastructure was started.
+}
 
-func (noopExecutionObserver) CommandStarting(invowkfile.CommandName) {}
+func (noopExecutionObserver) CommandStarting(invowkfile.CommandName) {
+	// Command lifecycle events are optional for service-only callers.
+}
 
-func (noopExecutionObserver) InteractiveFallback(invowkfile.RuntimeMode) {}
+func (noopExecutionObserver) InteractiveFallback(invowkfile.RuntimeMode) {
+	// Interactive fallback events are optional for service-only callers.
+}
 
-func (defaultRuntimeRegistryFactory) Create(cfg *config.Config, _ HostAccess) RuntimeRegistryResult {
-	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{Config: cfg})
+func (defaultRuntimeRegistryFactory) Create(cfg *config.Config, _ HostAccess, selectedRuntime invowkfile.RuntimeMode) RuntimeRegistryResult {
+	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{
+		Config:          cfg,
+		SelectedRuntime: selectedRuntime,
+	})
 	return RuntimeRegistryResult{
 		Registry:         built.Registry,
 		Cleanup:          built.Cleanup,

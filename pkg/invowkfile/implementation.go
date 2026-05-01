@@ -5,7 +5,6 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -17,6 +16,8 @@ import (
 const (
 	// scriptPathTraversalErrMsg backs ErrScriptPathTraversal.
 	scriptPathTraversalErrMsg = "script path escapes module boundary"
+	// scriptReaderRequiredErrMsg backs ErrScriptReaderRequired.
+	scriptReaderRequiredErrMsg = "script file reader required"
 )
 
 var (
@@ -32,6 +33,10 @@ var (
 	// ErrScriptPathTraversal is returned when a module script path resolves
 	// outside the module boundary (e.g., "../../etc/passwd"). See SC-01.
 	ErrScriptPathTraversal = errors.New(scriptPathTraversalErrMsg)
+
+	// ErrScriptReaderRequired is returned when resolving a script file without
+	// an explicit filesystem reader.
+	ErrScriptReaderRequired = errors.New(scriptReaderRequiredErrMsg)
 )
 
 type (
@@ -82,13 +87,6 @@ type (
 		// Must be a valid Go duration string (e.g., "30s", "5m", "1h30m").
 		// When exceeded, the command is cancelled and returns a timeout error.
 		Timeout DurationString `json:"timeout,omitempty"`
-
-		// resolvedScript caches the resolved script content (lazy memoization).
-		// Script content is resolved from file path or inline source on first
-		// ResolveScript call and reused for subsequent calls.
-		resolvedScript ScriptContent
-		// scriptResolved tracks whether resolvedScript has been populated.
-		scriptResolved bool
 	}
 
 	// PlatformRuntimeKey represents a unique combination of platform and runtime
@@ -343,65 +341,27 @@ func (s *Implementation) GetScriptFilePathWithModule(invowkfilePath, modulePath 
 	return fspath.JoinStr(fspath.Dir(invowkfilePath), script)
 }
 
-// ResolveScript returns the actual script content to execute.
-// If Implementation is a file path, it reads the file content.
-// If Implementation is inline content (including multi-line), it returns it directly.
+// ResolveScript returns inline script content.
+// File-based scripts require ResolveScriptWithFS so the caller owns filesystem
+// access instead of the schema model.
 // The invowkfilePath parameter is used to resolve relative paths.
 //
-// Security: this method delegates to ResolveScriptWithModule with an empty modulePath,
-// which means NO path containment check is applied. It is only safe for trusted
-// (user-controlled) invowkfiles — not for third-party modules. Module contexts
-// must use ResolveScriptWithModule with a non-empty modulePath.
+// Security: this method delegates to ResolveScriptWithFSAndModule with an empty
+// modulePath, which means NO path containment check is applied. It is only safe
+// for trusted (user-controlled) inline invowkfiles — not for third-party module
+// file scripts. Module contexts must use ResolveScriptWithFSAndModule with a
+// non-empty modulePath.
 func (s *Implementation) ResolveScript(invowkfilePath FilesystemPath) (string, error) {
 	return s.ResolveScriptWithModule(invowkfilePath, "")
 }
 
-// ResolveScriptWithModule returns the actual script content to execute.
-// If Implementation is a file path, it reads the file content.
-// If Implementation is inline content (including multi-line), it returns it directly.
+// ResolveScriptWithModule returns inline script content.
+// File-based scripts require ResolveScriptWithFSAndModule so the caller owns
+// filesystem access instead of the schema model.
 // The invowkfilePath parameter is used to resolve relative paths when not in a module.
 // The modulePath parameter specifies the module root directory for module-relative paths.
 func (s *Implementation) ResolveScriptWithModule(invowkfilePath, modulePath FilesystemPath) (string, error) {
-	if s.scriptResolved {
-		return string(s.resolvedScript), nil
-	}
-
-	script := string(s.Script)
-	if script == "" {
-		return "", errors.New("script has no content")
-	}
-
-	if s.IsScriptFile() {
-		scriptPath := s.GetScriptFilePathWithModule(invowkfilePath, modulePath)
-
-		// Security: When resolving in a module context, validate that the script
-		// path stays within the module boundary to prevent path traversal (SC-01).
-		if modulePath != "" {
-			if err := validateScriptPathContainment(scriptPath, modulePath); err != nil {
-				return "", err
-			}
-		}
-
-		content, err := os.ReadFile(string(scriptPath))
-		if err != nil {
-			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
-		}
-		resolved, err := validateResolvedScriptContent("script file content", ScriptContent(content)) //goplint:ignore -- validated by helper before use.
-		if err != nil {
-			return "", err
-		}
-		s.resolvedScript = resolved
-	} else {
-		// Inline script - use directly (multi-line strings from CUE are already handled)
-		resolved, err := validateResolvedScriptContent("inline script content", ScriptContent(script)) //goplint:ignore -- validated by helper before use.
-		if err != nil {
-			return "", err
-		}
-		s.resolvedScript = resolved
-	}
-
-	s.scriptResolved = true
-	return string(s.resolvedScript), nil
+	return s.ResolveScriptWithFSAndModule(invowkfilePath, modulePath, scriptReaderRequired)
 }
 
 // ResolveScriptWithFS resolves the script using a custom filesystem reader function.
@@ -429,6 +389,9 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 			}
 		}
 
+		if readFile == nil {
+			return "", ErrScriptReaderRequired
+		}
 		content, err := readFile(string(scriptPath))
 		if err != nil {
 			return "", fmt.Errorf("failed to read script file '%s': %w", scriptPath, err)
@@ -446,6 +409,11 @@ func (s *Implementation) ResolveScriptWithFSAndModule(invowkfilePath, modulePath
 		return "", err
 	}
 	return string(resolved), nil
+}
+
+//goplint:ignore -- reader adapter matches os.ReadFile-style boundary signature.
+func scriptReaderRequired(string) ([]byte, error) {
+	return nil, ErrScriptReaderRequired
 }
 
 //goplint:ignore -- helper validates transient script bytes from file readers and inline source.

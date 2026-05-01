@@ -26,9 +26,9 @@ var (
 )
 
 type (
-	// ModuleCollisionError is returned when two modules have the same module identifier.
+	// ModuleCollisionError is returned when two modules publish the same command namespace.
 	ModuleCollisionError struct {
-		ModuleID     invowkmod.ModuleID
+		Namespace    SourceID
 		FirstSource  string
 		SecondSource string
 	}
@@ -70,7 +70,7 @@ func (e *ModuleCollisionError) Error() string {
 			"  - %s\n\n"+
 			"Add an alias to disambiguate in your config:\n"+
 			"  includes: [{path: %q, alias: \"<new-alias>\"}]",
-		e.ModuleID, e.FirstSource, e.SecondSource,
+		e.Namespace, e.FirstSource, e.SecondSource,
 		e.SecondSource)
 }
 
@@ -210,17 +210,17 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 // It returns a ModuleCollisionError if two modules have the same module identifier
 // and neither has an alias configured via includes.
 func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
-	// Map effective module IDs to their source paths for collision detection.
+	// Map effective command namespaces to their source paths for collision detection.
 	// Values are display strings (may include annotations like "vendored in ...").
-	moduleSources := make(map[invowkmod.ModuleID]string)
+	moduleSources := make(map[SourceID]string)
 
 	for _, file := range files {
 		if file.Error != nil || file.Invowkfile == nil {
 			continue
 		}
 
-		moduleID := d.GetEffectiveModuleID(file)
-		if moduleID == "" {
+		namespace := d.GetEffectiveCommandNamespace(file)
+		if namespace == "" {
 			continue
 		}
 
@@ -235,26 +235,26 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 			sourcePath = fmt.Sprintf("%s (vendored in %s)", sourcePath, file.ParentModule.Name())
 		}
 
-		if existingSource, exists := moduleSources[moduleID]; exists {
-			if err := moduleID.Validate(); err != nil {
-				return fmt.Errorf("invalid module ID %q: %w", moduleID, err)
+		if existingSource, exists := moduleSources[namespace]; exists {
+			if err := namespace.Validate(); err != nil {
+				return fmt.Errorf("invalid command namespace %q: %w", namespace, err)
 			}
 			return &ModuleCollisionError{
-				ModuleID:     moduleID,
+				Namespace:    namespace,
 				FirstSource:  existingSource,
 				SecondSource: sourcePath,
 			}
 		}
 
-		moduleSources[moduleID] = sourcePath
+		moduleSources[namespace] = sourcePath
 	}
 
 	return nil
 }
 
-// GetEffectiveModuleID returns the effective module namespace for collision
+// GetEffectiveCommandNamespace returns the effective command namespace for collision
 // checks, considering aliases from the includes config.
-func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) invowkmod.ModuleID {
+func (d *Discovery) GetEffectiveCommandNamespace(file *DiscoveredFile) SourceID {
 	if file.Invowkfile == nil {
 		return ""
 	}
@@ -262,10 +262,10 @@ func (d *Discovery) GetEffectiveModuleID(file *DiscoveredFile) invowkmod.ModuleI
 	moduleID := file.Invowkfile.GetModule()
 	if file.Module != nil {
 		if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
-			return invowkmod.ModuleID(alias)
+			return SourceID(alias)
 		}
 	}
-	return moduleID
+	return SourceID(moduleID)
 }
 
 // getAliasForModulePath looks up an alias for the given module directory path

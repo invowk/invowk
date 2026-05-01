@@ -155,13 +155,13 @@ func TestResolveScript_FromFile(t *testing.T) {
 		t.Parallel()
 
 		s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScript(FilesystemPath(invowkfilePath))
+		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
 		if err != nil {
-			t.Errorf("ResolveScript() error = %v", err)
+			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
 		}
 		if result != scriptContent {
-			t.Errorf("ResolveScript() = %q, want %q", result, scriptContent)
+			t.Errorf("ResolveScriptWithFS() = %q, want %q", result, scriptContent)
 		}
 	})
 
@@ -169,13 +169,13 @@ func TestResolveScript_FromFile(t *testing.T) {
 		t.Parallel()
 
 		s := &Implementation{Script: ScriptContent(scriptPath), Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		result, err := s.ResolveScript(FilesystemPath(invowkfilePath))
+		result, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
 		if err != nil {
-			t.Errorf("ResolveScript() error = %v", err)
+			t.Errorf("ResolveScriptWithFS() error = %v", err)
 			return
 		}
 		if result != scriptContent {
-			t.Errorf("ResolveScript() = %q, want %q", result, scriptContent)
+			t.Errorf("ResolveScriptWithFS() = %q, want %q", result, scriptContent)
 		}
 	})
 
@@ -183,9 +183,9 @@ func TestResolveScript_FromFile(t *testing.T) {
 		t.Parallel()
 
 		s := &Implementation{Script: "./nonexistent.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
-		_, err := s.ResolveScript(FilesystemPath(invowkfilePath))
+		_, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
 		if err == nil {
-			t.Error("ResolveScript() expected error for missing file, got nil")
+			t.Error("ResolveScriptWithFS() expected error for missing file, got nil")
 		}
 	})
 }
@@ -395,7 +395,7 @@ func TestContainerfilePathCUEValidation(t *testing.T) {
 	}
 }
 
-func TestScriptCaching(t *testing.T) {
+func TestResolveScriptWithFSReadsCurrentFileContent(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -409,13 +409,13 @@ func TestScriptCaching(t *testing.T) {
 	invowkfilePath := filepath.Join(tmpDir, "invowkfile.cue")
 	s := &Implementation{Script: "./test.sh", Runtimes: []RuntimeConfig{{Name: RuntimeNative}}}
 
-	// First resolution
-	result1, err := s.ResolveScript(FilesystemPath(invowkfilePath))
+	// First resolution.
+	result1, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
 	if err != nil {
-		t.Fatalf("First ResolveScript() error = %v", err)
+		t.Fatalf("First ResolveScriptWithFS() error = %v", err)
 	}
 	if result1 != "original content" {
-		t.Errorf("First ResolveScript() = %q, want %q", result1, "original content")
+		t.Errorf("First ResolveScriptWithFS() = %q, want %q", result1, "original content")
 	}
 
 	// Modify the file
@@ -423,12 +423,12 @@ func TestScriptCaching(t *testing.T) {
 		t.Fatalf("Failed to modify script file: %v", writeErr)
 	}
 
-	// Second resolution should return cached content
-	result2, err := s.ResolveScript(FilesystemPath(invowkfilePath))
+	// Second resolution reads through the caller-owned filesystem boundary.
+	result2, err := s.ResolveScriptWithFS(FilesystemPath(invowkfilePath), os.ReadFile)
 	if err != nil {
-		t.Fatalf("Second ResolveScript() error = %v", err)
+		t.Fatalf("Second ResolveScriptWithFS() error = %v", err)
 	}
-	if result2 != "original content" {
-		t.Errorf("Caching failed: second ResolveScript() = %q, want cached %q", result2, "original content")
+	if result2 != "modified content" {
+		t.Errorf("Second ResolveScriptWithFS() = %q, want %q", result2, "modified content")
 	}
 }

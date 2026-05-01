@@ -15,11 +15,26 @@ import (
 
 const (
 	// ArgErrMissingRequired indicates missing required arguments.
-	ArgErrMissingRequired ArgErrType = iota
+	ArgErrMissingRequired ArgErrType = 0
 	// ArgErrTooMany indicates too many arguments were provided.
-	ArgErrTooMany
+	ArgErrTooMany ArgErrType = 1
 	// ArgErrInvalidValue indicates an argument value failed validation.
-	ArgErrInvalidValue
+	ArgErrInvalidValue ArgErrType = 2
+
+	// DependencyFailureTool means a host/runtime tool dependency is missing.
+	DependencyFailureTool DependencyFailureKind = "tool"
+	// DependencyFailureCommand means a command dependency is missing.
+	DependencyFailureCommand DependencyFailureKind = "command"
+	// DependencyFailureFilepath means a filepath dependency is missing.
+	DependencyFailureFilepath DependencyFailureKind = "filepath"
+	// DependencyFailureCapability means a capability dependency is missing.
+	DependencyFailureCapability DependencyFailureKind = "capability"
+	// DependencyFailureCustomCheck means a custom check dependency failed.
+	DependencyFailureCustomCheck DependencyFailureKind = "custom_check"
+	// DependencyFailureEnvVar means an environment variable dependency is missing.
+	DependencyFailureEnvVar DependencyFailureKind = "env_var"
+	// DependencyFailureForbiddenCommand means a command dependency is outside scope.
+	DependencyFailureForbiddenCommand DependencyFailureKind = "forbidden_command"
 )
 
 var (
@@ -85,10 +100,19 @@ type (
 	// DependencyError fields. Adapters decide how to render bullets and spacing.
 	DependencyMessage string
 
+	// DependencyFailureKind categorizes a dependency validation failure.
+	DependencyFailureKind string
+
 	// InvalidDependencyMessageError is returned when a DependencyMessage value
 	// fails validation (empty string).
 	InvalidDependencyMessageError struct {
 		Value DependencyMessage
+	}
+
+	// DependencyFailure is a structured dependency validation failure.
+	DependencyFailure struct {
+		kind   DependencyFailureKind
+		detail DependencyMessage
 	}
 
 	// DependencyError represents unsatisfied dependencies.
@@ -220,6 +244,72 @@ func (m DependencyMessage) Validate() error {
 // String returns the string representation of the DependencyMessage.
 func (m DependencyMessage) String() string {
 	return string(m)
+}
+
+// String returns the string representation of the DependencyFailureKind.
+func (k DependencyFailureKind) String() string { return string(k) }
+
+// Validate returns nil if the dependency failure kind is known.
+func (k DependencyFailureKind) Validate() error {
+	switch k {
+	case DependencyFailureTool,
+		DependencyFailureCommand,
+		DependencyFailureFilepath,
+		DependencyFailureCapability,
+		DependencyFailureCustomCheck,
+		DependencyFailureEnvVar,
+		DependencyFailureForbiddenCommand:
+		return nil
+	default:
+		return fmt.Errorf("invalid dependency failure kind %q", k)
+	}
+}
+
+// NewDependencyFailure creates a validated dependency failure.
+func NewDependencyFailure(kind DependencyFailureKind, detail DependencyMessage) (DependencyFailure, error) {
+	failure := DependencyFailure{kind: kind, detail: detail}
+	if err := failure.Validate(); err != nil {
+		return DependencyFailure{}, err
+	}
+	return failure, nil
+}
+
+// Kind returns the dependency failure category.
+func (f DependencyFailure) Kind() DependencyFailureKind { return f.kind }
+
+// Detail returns the dependency failure detail.
+func (f DependencyFailure) Detail() DependencyMessage { return f.detail }
+
+// Validate returns nil when all dependency failure fields are valid.
+func (f DependencyFailure) Validate() error {
+	return errors.Join(f.kind.Validate(), f.detail.Validate())
+}
+
+// Failures returns categorized dependency failures without requiring adapters to
+// infer failure kinds from rendered section text.
+func (e *DependencyError) Failures() []DependencyFailure {
+	if e == nil {
+		return nil
+	}
+	var failures []DependencyFailure
+	appendDependencyFailures(&failures, DependencyFailureTool, e.MissingTools)
+	appendDependencyFailures(&failures, DependencyFailureCommand, e.MissingCommands)
+	appendDependencyFailures(&failures, DependencyFailureFilepath, e.MissingFilepaths)
+	appendDependencyFailures(&failures, DependencyFailureCapability, e.MissingCapabilities)
+	appendDependencyFailures(&failures, DependencyFailureCustomCheck, e.FailedCustomChecks)
+	appendDependencyFailures(&failures, DependencyFailureEnvVar, e.MissingEnvVars)
+	appendDependencyFailures(&failures, DependencyFailureForbiddenCommand, e.ForbiddenCommands)
+	return failures
+}
+
+func appendDependencyFailures(dst *[]DependencyFailure, kind DependencyFailureKind, details []DependencyMessage) {
+	for _, detail := range details {
+		failure, err := NewDependencyFailure(kind, detail)
+		if err != nil {
+			continue
+		}
+		*dst = append(*dst, failure)
+	}
 }
 
 // dependencyMessageFromDetail constructs a plain dependency validation detail.

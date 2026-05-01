@@ -165,6 +165,45 @@ func TestBuildScanContextIncludedModuleKeepsLockAndVendoredArtifacts(t *testing.
 	}
 }
 
+func TestScanContextModulesReturnsCheckerOwnedSnapshots(t *testing.T) {
+	t.Parallel()
+
+	sc := newModuleOnlyContext(&ScannedModule{
+		SurfaceID: "root",
+		Module: &invowkmod.Module{
+			Metadata: &invowkmod.Invowkmod{
+				Module:  "io.example.root",
+				Version: "1.0.0",
+				Requires: []invowkmod.ModuleRequirement{{
+					GitURL:  "https://github.com/example/dep.git",
+					Version: "1.0.0",
+				}},
+			},
+		},
+		Symlinks: []SymlinkRef{{RelPath: "link"}},
+	})
+
+	first := sc.Modules()
+	first[0].SurfaceID = "mutated"
+	first[0].Module.Metadata.Module = "io.example.mutated"
+	first[0].Module.Metadata.Requires[0].GitURL = "https://github.com/example/other.git"
+	first[0].Symlinks[0].RelPath = "mutated-link"
+
+	second := sc.Modules()
+	if second[0].SurfaceID != "root" {
+		t.Fatalf("SurfaceID = %q, want root", second[0].SurfaceID)
+	}
+	if second[0].Module.Metadata.Module != "io.example.root" {
+		t.Fatalf("Module = %q, want io.example.root", second[0].Module.Metadata.Module)
+	}
+	if second[0].Module.Metadata.Requires[0].GitURL != "https://github.com/example/dep.git" {
+		t.Fatalf("GitURL = %q, want original dependency", second[0].Module.Metadata.Requires[0].GitURL)
+	}
+	if second[0].Symlinks[0].RelPath != "link" {
+		t.Fatalf("Symlink RelPath = %q, want link", second[0].Symlinks[0].RelPath)
+	}
+}
+
 func createAuditTestModule(t *testing.T, moduleDir, moduleID, cmdName string) {
 	t.Helper()
 	if err := os.MkdirAll(moduleDir, 0o755); err != nil {

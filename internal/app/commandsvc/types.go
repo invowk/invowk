@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	appexec "github.com/invowk/invowk/internal/app/execute"
 	"github.com/invowk/invowk/internal/discovery"
-	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -112,12 +110,39 @@ type (
 	// importing service internals. All fields are plain types to avoid
 	// coupling the adapter to runtime/discovery implementation details.
 	DryRunData struct {
+		// Plan is the service-owned command execution plan.
+		Plan DryRunPlan
+	}
+
+	//goplint:validate-all
+	//
+	// DryRunPlan contains renderable command execution facts.
+	//
+	//goplint:mutable
+	//
+	// DryRunPlan is a service-to-adapter DTO assembled at the command boundary.
+	DryRunPlan struct {
+		// CommandName is the command requested by the user.
+		CommandName invowkfile.CommandName
 		// SourceID identifies the origin of the command.
 		SourceID discovery.SourceID
-		// Selection is the resolved runtime mode + implementation.
-		Selection appexec.RuntimeSelection
-		// ExecCtx is the constructed execution context.
-		ExecCtx *runtime.ExecutionContext
+		// Runtime is the selected runtime mode.
+		Runtime invowkfile.RuntimeMode
+		// Platform is the current target platform.
+		Platform invowkfile.Platform
+		// WorkDir is the explicit working-directory override, if any.
+		WorkDir invowkfile.WorkDir
+		// Timeout is the selected implementation timeout, if any.
+		Timeout invowkfile.DurationString
+		// Script is the selected implementation script or script-file path.
+		Script invowkfile.ScriptContent
+		// ScriptIsFile is true when Script names a script file.
+		ScriptIsFile bool
+		// Env contains projected execution environment variables.
+		Env map[string]string //goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
+		// DependencyValidationSkipped is true because dry-run mode does not
+		// execute dependency checks.
+		DependencyValidationSkipped bool
 	}
 
 	// ClassifiedError is a typed error that carries a service-owned error kind

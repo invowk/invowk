@@ -9,10 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	appexec "github.com/invowk/invowk/internal/app/execute"
-	"github.com/invowk/invowk/internal/discovery"
-	"github.com/invowk/invowk/internal/runtime"
-	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/internal/app/commandsvc"
 )
 
 const dryRunFieldFmt = "  %s %s\n"
@@ -21,37 +18,36 @@ const dryRunFieldFmt = "  %s %s\n"
 // It shows the command name, source, runtime, platform, working directory,
 // script content, and environment variables — everything a user needs to
 // understand what invowk would do.
-func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, resolved appexec.RuntimeSelection) {
+func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 	fmt.Fprintln(w, TitleStyle.Render("Dry Run"))
 	fmt.Fprintln(w)
 
 	// Command metadata.
-	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Command:"), req.Name)
-	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Source:"), cmdInfo.SourceID)
-	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Runtime:"), string(resolved.Mode()))
-	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Platform:"), string(invowkfile.CurrentPlatform()))
+	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Command:"), plan.CommandName)
+	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Source:"), plan.SourceID)
+	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Runtime:"), string(plan.Runtime))
+	fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Platform:"), string(plan.Platform))
 
-	if execCtx.WorkDir != "" {
-		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("WorkDir:"), execCtx.WorkDir)
+	if plan.WorkDir != "" {
+		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("WorkDir:"), plan.WorkDir)
 	}
 
-	if resolved.Impl() == nil {
+	if plan.Script == "" {
 		fmt.Fprintln(w)
 		return
 	}
 
-	if resolved.Impl().Timeout != "" {
-		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Timeout:"), resolved.Impl().Timeout)
+	if plan.Timeout != "" {
+		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Timeout:"), plan.Timeout)
 	}
 
 	// Script content.
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, VerboseHighlightStyle.Render("  Script:"))
-	script := resolved.Impl().Script
-	if resolved.Impl().IsScriptFile() {
-		fmt.Fprintf(w, "    (file: %s)\n", script)
+	if plan.ScriptIsFile {
+		fmt.Fprintf(w, "    (file: %s)\n", plan.Script)
 	} else {
-		for line := range strings.SplitSeq(string(script), "\n") {
+		for line := range strings.SplitSeq(string(plan.Script), "\n") {
 			fmt.Fprintf(w, "    %s\n", line)
 		}
 	}
@@ -59,7 +55,7 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 	// Environment variables, split into metadata (INVOWK_*/ARG*) and user-defined.
 	invowkVars := make(map[string]string)
 	userVars := make(map[string]string)
-	for k, v := range execCtx.Env.ExtraEnv {
+	for k, v := range plan.Env {
 		if strings.HasPrefix(k, "INVOWK_") || isArgEnvVar(k) {
 			invowkVars[k] = v
 		} else {
@@ -81,7 +77,9 @@ func renderDryRun(w io.Writer, req ExecuteRequest, cmdInfo *discovery.CommandInf
 		}
 	}
 
-	fmt.Fprintln(w, SubtitleStyle.Render("  Note: dependency validation (tools, cmds, filepaths, capabilities, custom checks, env vars) is not performed in dry-run mode."))
+	if plan.DependencyValidationSkipped {
+		fmt.Fprintln(w, SubtitleStyle.Render("  Note: dependency validation (tools, cmds, filepaths, capabilities, custom checks, env vars) is not performed in dry-run mode."))
+	}
 	fmt.Fprintln(w)
 }
 

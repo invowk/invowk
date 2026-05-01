@@ -127,7 +127,7 @@ func BenchmarkDiscoveryIncludesAndAliases(b *testing.B) {
 				continue
 			}
 
-			switch invowkmod.ModuleAlias(disc.GetEffectiveModuleID(file)) {
+			switch invowkmod.ModuleAlias(disc.GetEffectiveCommandNamespace(file)) {
 			case "alpha":
 				aliasHits["alpha"] = true
 			case "beta":

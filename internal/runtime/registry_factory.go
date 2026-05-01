@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -27,6 +28,13 @@ type (
 		Config *config.Config
 		// HostCallbacks is forwarded to the container runtime for host callbacks.
 		HostCallbacks HostCallbackServer
+		// SelectedRuntime limits outside-device initialization to the runtime
+		// needed for the current execution. The zero value preserves full
+		// registry construction for callers that are not dispatching a command.
+		SelectedRuntime invowkfile.RuntimeMode
+		// ContainerRuntimeFactory constructs the container runtime. Tests use
+		// this to prove non-container dispatch does not probe container engines.
+		ContainerRuntimeFactory func(*config.Config) (*ContainerRuntime, error)
 	}
 
 	// HostCallbackServer provides scoped host callback credentials to runtimes.
@@ -190,7 +198,11 @@ func BuildRegistry(opts BuildRegistryOptions) RegistryBuildResult {
 	result.Registry.Register(RuntimeTypeNative, NewNativeRuntime())
 	result.Registry.Register(RuntimeTypeVirtual, NewVirtualRuntime(cfg.VirtualShell.EnableUrootUtils))
 
-	containerRT, err := NewContainerRuntime(cfg)
+	if !shouldInitializeContainerRuntime(opts.SelectedRuntime) {
+		return result
+	}
+
+	containerRT, err := buildContainerRuntime(cfg, opts.ContainerRuntimeFactory)
 	if err != nil {
 		result.ContainerInitErr = err
 		result.Diagnostics = append(result.Diagnostics, InitDiagnostic{
@@ -211,4 +223,15 @@ func BuildRegistry(opts BuildRegistryOptions) RegistryBuildResult {
 	}
 
 	return result
+}
+
+func shouldInitializeContainerRuntime(selectedRuntime invowkfile.RuntimeMode) bool {
+	return selectedRuntime == "" || selectedRuntime == invowkfile.RuntimeContainer
+}
+
+func buildContainerRuntime(cfg *config.Config, factory func(*config.Config) (*ContainerRuntime, error)) (*ContainerRuntime, error) {
+	if factory == nil {
+		return NewContainerRuntime(cfg)
+	}
+	return factory(cfg)
 }

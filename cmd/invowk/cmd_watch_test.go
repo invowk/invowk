@@ -70,7 +70,7 @@ func emptyCommandSet() discovery.CommandSetResult {
 	return discovery.CommandSetResult{Set: discovery.NewDiscoveredCommandSet()}
 }
 
-func (f *fakeWatchFactory) New(cfg watch.Config) (WatchRunner, error) {
+func (f *fakeWatchFactory) Create(cfg watch.Config) (WatchRunner, error) {
 	f.cfg = cfg
 	return fakeWatchRunner{cfg: cfg, run: f.run}, nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 type fakeAmbiguityCommandService struct {
@@ -43,7 +44,7 @@ func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	result := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t))
+	result := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
 	defer result.Cleanup()
 
 	// If the container engine is available, verify it's registered exactly once
@@ -62,7 +63,7 @@ func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
 
 	// Verify that calling CreateRuntimeRegistry a second time does not share
 	// state with the first registry (each call creates its own instance).
-	result2 := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t))
+	result2 := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
 	defer result2.Cleanup()
 
 	rt2, err := result2.Registry.Get(runtime.RuntimeTypeContainer)

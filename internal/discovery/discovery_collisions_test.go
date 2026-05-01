@@ -397,7 +397,7 @@ func TestModuleCollisionError(t *testing.T) {
 	t.Parallel()
 
 	err := &ModuleCollisionError{
-		ModuleID:     "io.example.tools",
+		Namespace:    "io.example.tools",
 		FirstSource:  "/path/to/first",
 		SecondSource: "/path/to/second",
 	}
@@ -470,8 +470,8 @@ func TestCheckModuleCollisions(t *testing.T) {
 		if !ok {
 			t.Errorf("error should be ModuleCollisionError, got %T", err)
 		}
-		if collisionErr != nil && collisionErr.ModuleID != "io.example.same" {
-			t.Errorf("ModuleID = %s, want io.example.same", collisionErr.ModuleID)
+		if collisionErr != nil && collisionErr.Namespace != "io.example.same" {
+			t.Errorf("Namespace = %s, want io.example.same", collisionErr.Namespace)
 		}
 	})
 
@@ -500,6 +500,39 @@ func TestCheckModuleCollisions(t *testing.T) {
 		err := dAlias.CheckModuleCollisions(files)
 		if err != nil {
 			t.Errorf("CheckModuleCollisions() should not return error when alias resolves collision: %v", err)
+		}
+	})
+
+	t.Run("HyphenatedAliasCollisionReportsNamespace", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := config.DefaultConfig()
+		cfg.Includes = []config.IncludeEntry{
+			{Path: "/path/to/module1.invowkmod", Alias: "ci-tools"},
+			{Path: "/path/to/module2.invowkmod", Alias: "ci-tools"},
+		}
+		dAlias := New(cfg)
+
+		files := []*DiscoveredFile{
+			{
+				Path:       "/path/to/module1.invowkmod/invowkfile.cue",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.one")},
+				Module:     &invowkmod.Module{Path: "/path/to/module1.invowkmod"},
+			},
+			{
+				Path:       "/path/to/module2.invowkmod/invowkfile.cue",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.two")},
+				Module:     &invowkmod.Module{Path: "/path/to/module2.invowkmod"},
+			},
+		}
+
+		err := dAlias.CheckModuleCollisions(files)
+		collisionErr, ok := errors.AsType[*ModuleCollisionError](err)
+		if !ok {
+			t.Fatalf("CheckModuleCollisions() error = %T %v, want ModuleCollisionError", err, err)
+		}
+		if collisionErr.Namespace != "ci-tools" {
+			t.Fatalf("Namespace = %q, want ci-tools", collisionErr.Namespace)
 		}
 	})
 
@@ -544,7 +577,7 @@ func TestCheckModuleCollisions(t *testing.T) {
 	})
 }
 
-func TestGetEffectiveModuleID(t *testing.T) {
+func TestGetEffectiveCommandNamespace(t *testing.T) {
 	t.Parallel()
 
 	t.Run("WithoutAlias", func(t *testing.T) {
@@ -558,9 +591,9 @@ func TestGetEffectiveModuleID(t *testing.T) {
 			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.original")},
 		}
 
-		moduleID := d.GetEffectiveModuleID(file)
-		if moduleID != "io.example.original" {
-			t.Errorf("GetEffectiveModuleID() = %s, want io.example.original", moduleID)
+		namespace := d.GetEffectiveCommandNamespace(file)
+		if namespace != "io.example.original" {
+			t.Errorf("GetEffectiveCommandNamespace() = %s, want io.example.original", namespace)
 		}
 	})
 
@@ -579,9 +612,9 @@ func TestGetEffectiveModuleID(t *testing.T) {
 			Module:     &invowkmod.Module{Path: "/path/to/module.invowkmod"},
 		}
 
-		moduleID := d.GetEffectiveModuleID(file)
-		if moduleID != "io.example.aliased" {
-			t.Errorf("GetEffectiveModuleID() = %s, want io.example.aliased", moduleID)
+		namespace := d.GetEffectiveCommandNamespace(file)
+		if namespace != "io.example.aliased" {
+			t.Errorf("GetEffectiveCommandNamespace() = %s, want io.example.aliased", namespace)
 		}
 	})
 
@@ -596,9 +629,9 @@ func TestGetEffectiveModuleID(t *testing.T) {
 			Invowkfile: nil,
 		}
 
-		moduleID := d.GetEffectiveModuleID(file)
-		if moduleID != "" {
-			t.Errorf("GetEffectiveModuleID() = %s, want empty string", moduleID)
+		namespace := d.GetEffectiveCommandNamespace(file)
+		if namespace != "" {
+			t.Errorf("GetEffectiveCommandNamespace() = %s, want empty string", namespace)
 		}
 	})
 }

@@ -69,29 +69,6 @@ func TestExitCodeIsSuccess(t *testing.T) {
 	}
 }
 
-func TestExitCodeIsTransient(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		code ExitCode
-		want bool
-	}{
-		{0, false},
-		{1, false},
-		{124, false},
-		{125, true},
-		{126, true},
-		{127, false},
-		{255, false},
-	}
-
-	for _, tt := range tests {
-		if got := tt.code.IsTransient(); got != tt.want {
-			t.Errorf("ExitCode(%d).IsTransient() = %v, want %v", tt.code, got, tt.want)
-		}
-	}
-}
-
 func TestExitCodeString(t *testing.T) {
 	t.Parallel()
 

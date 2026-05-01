@@ -33,7 +33,7 @@ type RuntimeRegistryResult struct {
 // It returns ClassifiedError for runtime failures and raw typed errors for
 // dependency validation. The CLI adapter handles rendering.
 func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []discovery.Diagnostic) (Result, []discovery.Diagnostic, error) {
-	registryResult := s.registryFactory.Create(cfg, s.hostAccess)
+	registryResult := s.registryFactory.Create(cfg, s.hostAccess, execCtx.SelectedRuntime)
 	diags = appendRuntimeRegistryDiagnostics(diags, req, execCtx, registryResult)
 	defer registryResult.Cleanup()
 

@@ -263,11 +263,12 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 		}
 	}
 
-	// Wire resolved RDNS module IDs for direct deps. Alias requirements match the
-	// source namespace, while non-aliased requirements match the repository short
-	// name used by discovery for the module source.
+	// Wire resolved RDNS module IDs and command namespaces for direct deps.
+	// Alias requirements match the source namespace, while non-aliased
+	// requirements match the repository short name used by discovery for the
+	// module source.
 	for _, cmd := range available {
-		if cmd.ModuleID == nil || scope.DirectDeps[*cmd.ModuleID] {
+		if cmd.ModuleID == nil {
 			continue
 		}
 		if commandMatchesDirectRequirement(requirements, lock, cmd) {
@@ -309,7 +310,21 @@ func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement,
 	if cmd == nil || cmd.ModuleID == nil {
 		return false
 	}
-	return invowkmod.IsDeclaredLockedModule(requirements, lock, *cmd.ModuleID)
+	if lock == nil {
+		return false
+	}
+	sourceID := invowkmod.ModuleSourceID(cmd.SourceID) //goplint:ignore -- SourceID validated by discovery
+	for _, req := range requirements {
+		ref := invowkmod.ModuleRef(req)
+		locked, ok := lock.Modules[ref.Key()]
+		if !ok {
+			continue
+		}
+		if locked.IdentityModuleID() == *cmd.ModuleID && ref.MatchesSourceID(sourceID) {
+			return true
+		}
+	}
+	return false
 }
 
 func discoverAvailableCommands(disc CommandSetProvider, ctx *runtime.ExecutionContext) (map[invowkfile.CommandName]*discovery.CommandInfo, error) {

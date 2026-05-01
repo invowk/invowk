@@ -34,7 +34,7 @@ type (
 		Config      config.Provider
 		Discovery   DiscoveryService
 		Commands    CommandService
-		Watchers    WatchRunnerFactory
+		Watchers    WatchRunnerCreator
 		Diagnostics DiagnosticRenderer
 		stdout      io.Writer
 		stderr      io.Writer
@@ -47,7 +47,7 @@ type (
 		Config      config.Provider
 		Discovery   DiscoveryService
 		Commands    CommandService
-		Watchers    WatchRunnerFactory
+		Watchers    WatchRunnerCreator
 		Diagnostics DiagnosticRenderer
 		Stdout      io.Writer
 		Stderr      io.Writer
@@ -150,7 +150,7 @@ func NewApp(d Dependencies) (*App, error) {
 		d.Commands = &cliCommandAdapter{svc: svc, stdout: d.Stdout}
 	}
 	if d.Watchers == nil {
-		d.Watchers = productionWatchRunnerFactory{}
+		d.Watchers = productionWatchRunnerCreator{}
 	}
 
 	return &App{
@@ -185,13 +185,7 @@ func (a *cliCommandAdapter) Execute(ctx context.Context, req ExecuteRequest) (Ex
 	// Handle dry-run rendering: the service returns structured data;
 	// the CLI adapter renders it with lipgloss styles.
 	if result.DryRunData != nil {
-		renderDryRun(
-			a.stdout,
-			req,
-			&discovery.CommandInfo{SourceID: result.DryRunData.SourceID},
-			result.DryRunData.ExecCtx,
-			result.DryRunData.Selection,
-		)
+		renderDryRun(a.stdout, result.DryRunData.Plan)
 		return ExecuteResult{ExitCode: result.ExitCode}, diags, nil
 	}
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -176,18 +177,26 @@ func (r ScriptRef) Content() string {
 // RootPath returns the scan root directory.
 func (sc *ScanContext) RootPath() types.FilesystemPath { return sc.rootPath }
 
-// Invowkfiles returns a copy of the standalone invowkfiles slice.
-// The returned slice is safe to iterate without risk of concurrent mutation.
-// The pointed-to ScannedInvowkfile structs are shared and must not be modified.
+// Invowkfiles returns cloned standalone invowkfile snapshots.
+// Checkers may inspect the returned values concurrently without mutating the
+// scanner-owned snapshot shared with other checkers.
 func (sc *ScanContext) Invowkfiles() []*ScannedInvowkfile {
-	return append([]*ScannedInvowkfile(nil), sc.invowkfiles...)
+	files := make([]*ScannedInvowkfile, 0, len(sc.invowkfiles))
+	for _, file := range sc.invowkfiles {
+		files = append(files, cloneScannedInvowkfile(file))
+	}
+	return files
 }
 
-// Modules returns a copy of the discovered modules slice.
-// The returned slice is safe to iterate without risk of concurrent mutation.
-// The pointed-to ScannedModule structs are shared and must not be modified.
+// Modules returns cloned discovered module snapshots.
+// Checkers may inspect the returned values concurrently without mutating the
+// scanner-owned snapshot shared with other checkers.
 func (sc *ScanContext) Modules() []*ScannedModule {
-	return append([]*ScannedModule(nil), sc.modules...)
+	modules := make([]*ScannedModule, 0, len(sc.modules))
+	for _, module := range sc.modules {
+		modules = append(modules, cloneScannedModule(module))
+	}
+	return modules
 }
 
 // AllScripts returns a copy of the pre-computed script references.
@@ -211,6 +220,82 @@ func (sc *ScanContext) addDiagnostic(code DiagnosticCode, message string, path t
 		return
 	}
 	sc.diagnostics = append(sc.diagnostics, diagnostic)
+}
+
+func cloneScannedInvowkfile(file *ScannedInvowkfile) *ScannedInvowkfile {
+	if file == nil {
+		return nil
+	}
+	cloned := *file
+	if file.Invowkfile != nil {
+		inv := *file.Invowkfile
+		cloned.Invowkfile = &inv
+	}
+	return &cloned
+}
+
+func cloneScannedModule(module *ScannedModule) *ScannedModule {
+	if module == nil {
+		return nil
+	}
+	cloned := *module
+	if module.Module != nil {
+		mod := *module.Module
+		if module.Module.Metadata != nil {
+			metadata := *module.Module.Metadata
+			metadata.Requires = append([]invowkmod.ModuleRequirement(nil), module.Module.Metadata.Requires...)
+			mod.Metadata = &metadata
+		}
+		cloned.Module = &mod
+	}
+	if module.Invowkfile != nil {
+		inv := *module.Invowkfile
+		cloned.Invowkfile = &inv
+	}
+	if module.LockFile != nil {
+		lockFile := *module.LockFile
+		lockFile.Modules = cloneLockedModules(module.LockFile.Modules)
+		cloned.LockFile = &lockFile
+	}
+	cloned.VendoredModules = cloneVendoredModules(module.VendoredModules)
+	cloned.VendoredHashes = append([]invowkmod.VendoredHashEvaluation(nil), module.VendoredHashes...)
+	cloned.Symlinks = append([]SymlinkRef(nil), module.Symlinks...)
+	return &cloned
+}
+
+func cloneLockedModules(modules map[invowkmod.ModuleRefKey]invowkmod.LockedModule) map[invowkmod.ModuleRefKey]invowkmod.LockedModule {
+	if modules == nil {
+		return nil
+	}
+	cloned := make(map[invowkmod.ModuleRefKey]invowkmod.LockedModule, len(modules))
+	maps.Copy(cloned, modules)
+	return cloned
+}
+
+func cloneVendoredModules(modules []*invowkmod.Module) []*invowkmod.Module {
+	cloned := make([]*invowkmod.Module, 0, len(modules))
+	for _, module := range modules {
+		cloned = append(cloned, cloneVendoredModule(module))
+	}
+	return cloned
+}
+
+func cloneVendoredModule(module *invowkmod.Module) *invowkmod.Module {
+	if module == nil {
+		return nil
+	}
+	mod := *module
+	mod.Metadata = cloneModuleMetadata(module.Metadata)
+	return &mod
+}
+
+func cloneModuleMetadata(metadata *invowkmod.Invowkmod) *invowkmod.Invowkmod {
+	if metadata == nil {
+		return nil
+	}
+	cloned := *metadata
+	cloned.Requires = append([]invowkmod.ModuleRequirement(nil), metadata.Requires...)
+	return &cloned
 }
 
 // BuildScanContext discovers and loads all invowkfiles and modules at the given

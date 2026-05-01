@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
@@ -14,6 +16,12 @@ const (
 )
 
 type availabilityProbe func(ctx context.Context) error
+
+// IsTransientEngineExitCode returns true for container engine exit codes that
+// usually indicate a transient engine or OCI runtime failure worth retrying.
+func IsTransientEngineExitCode(code types.ExitCode) bool {
+	return code == 125 || code == 126
+}
 
 func probeEngineAvailability(probe availabilityProbe) bool {
 	return probeEngineAvailabilityWithRetryConfig(

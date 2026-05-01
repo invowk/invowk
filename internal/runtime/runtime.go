@@ -468,7 +468,11 @@ func (ctx *ExecutionContext) EffectiveWorkDir() string {
 //
 //goplint:ignore -- runtime APIs consume script bodies as strings for shell/interpreter calls.
 func (ctx *ExecutionContext) ResolveSelectedScript() (string, error) {
-	return ctx.SelectedImpl.ResolveScriptWithModule(ctx.Invowkfile.FilePath, ctx.Invowkfile.ModulePath)
+	resolver, err := NewScriptResolver(nil)
+	if err != nil {
+		return "", err
+	}
+	return resolver.ResolveSelected(ctx)
 }
 
 // SelectedScriptFilePath returns the selected implementation's script path using

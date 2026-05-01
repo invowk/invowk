@@ -281,7 +281,7 @@ func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.R
 		// engine.Run() returns exit-code failures in result rather than err.
 		// Check for transient engine exit codes (125 = generic engine error,
 		// 126 = OCI runtime failure e.g., crun ping_group_range race).
-		if result.ExitCode == 0 || !result.ExitCode.IsTransient() {
+		if result.ExitCode == 0 || !container.IsTransientEngineExitCode(result.ExitCode) {
 			flushStderr(originalStderr, &stderrBuf)
 			return result, nil
 		}

@@ -6,6 +6,7 @@ import (
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // RuntimeRegistryFactory creates and populates the runtime registry for command
@@ -37,21 +38,23 @@ func (RuntimeRegistryFactory) Validate() error {
 // Create builds a runtime registry and forwards an active SSH-backed host
 // access server to the container runtime when available.
 //
-// INVARIANT: This method creates exactly one ContainerRuntime instance per
-// call. The ContainerRuntime.runMu mutex provides intra-process serialization
-// as a fallback when flock-based cross-process locking is unavailable
-// (non-Linux platforms). Creating multiple ContainerRuntime instances would
-// give each its own mutex, defeating serialization and reintroducing the
-// ping_group_range race. See TestCreateRuntimeRegistry_SingleContainerInstance.
-func (RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc.HostAccess) commandsvc.RuntimeRegistryResult {
+// INVARIANT: This method creates at most one ContainerRuntime instance per
+// container execution. The ContainerRuntime.runMu mutex provides intra-process
+// serialization as a fallback when flock-based cross-process locking is
+// unavailable (non-Linux platforms). Creating multiple ContainerRuntime
+// instances for one execution would give each its own mutex, defeating
+// serialization and reintroducing the ping_group_range race. See
+// TestCreateRuntimeRegistry_SingleContainerInstance.
+func (RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc.HostAccess, selectedRuntime invowkfile.RuntimeMode) commandsvc.RuntimeRegistryResult {
 	var hostCallbacks runtime.HostCallbackServer
 	if provider, ok := hostAccess.(sshServerProvider); ok && hostAccess.Running() {
 		hostCallbacks = provider.SSHServer()
 	}
 
 	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{
-		Config:        cfg,
-		HostCallbacks: hostCallbacks,
+		Config:          cfg,
+		HostCallbacks:   hostCallbacks,
+		SelectedRuntime: selectedRuntime,
 	})
 
 	return commandsvc.RuntimeRegistryResult{

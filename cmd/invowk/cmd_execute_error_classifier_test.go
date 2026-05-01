@@ -16,6 +16,7 @@ import (
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // TestRenderAndWrapServiceError_ClassifiedError verifies that the CLI adapter
@@ -120,7 +121,7 @@ func TestCreateRuntimeRegistryWithDiagnostics(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.ContainerEngine = "not-a-real-engine"
 
-	result := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t))
+	result := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
 	defer result.Cleanup()
 
 	if result.Registry == nil {

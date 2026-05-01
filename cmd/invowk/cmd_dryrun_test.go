@@ -7,9 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	appexec "github.com/invowk/invowk/internal/app/execute"
-	"github.com/invowk/invowk/internal/discovery"
-	"github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -51,26 +49,23 @@ func TestRenderDryRun_AllSections(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
-	req := ExecuteRequest{Name: "deploy"}
-	cmdInfo := &discovery.CommandInfo{SourceID: "my-module.invowkmod"}
-	cmd := &invowkfile.Command{}
-	inv := &invowkfile.Invowkfile{}
-	execCtx := runtime.NewExecutionContext(t.Context(), cmd, inv)
-	execCtx.WorkDir = "/app"
-	execCtx.Env.ExtraEnv = map[string]string{
-		"INVOWK_CMD_NAME": "deploy",
-		"ARG1":            "production",
-		"DATABASE_URL":    "postgres://localhost/app",
-	}
-	resolved := appexec.RuntimeSelectionOf(
-		invowkfile.RuntimeVirtual,
-		&invowkfile.Implementation{
-			Script:  "echo deploying",
-			Timeout: "30s",
+	plan := commandsvc.DryRunPlan{
+		CommandName: "deploy",
+		SourceID:    "my-module.invowkmod",
+		Runtime:     invowkfile.RuntimeVirtual,
+		Platform:    invowkfile.PlatformLinux,
+		WorkDir:     "/app",
+		Timeout:     "30s",
+		Script:      "echo deploying",
+		Env: map[string]string{
+			"INVOWK_CMD_NAME": "deploy",
+			"ARG1":            "production",
+			"DATABASE_URL":    "postgres://localhost/app",
 		},
-	)
+		DependencyValidationSkipped: true,
+	}
 
-	renderDryRun(&buf, req, cmdInfo, execCtx, resolved)
+	renderDryRun(&buf, plan)
 	out := buf.String()
 
 	// Verify all conditional sections appear.
@@ -98,14 +93,14 @@ func TestRenderDryRun_NoImpl(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
-	req := ExecuteRequest{Name: "test"}
-	cmdInfo := &discovery.CommandInfo{SourceID: "invowkfile"}
-	cmd := &invowkfile.Command{}
-	inv := &invowkfile.Invowkfile{}
-	execCtx := runtime.NewExecutionContext(t.Context(), cmd, inv)
-	resolved := appexec.RuntimeSelectionOf(invowkfile.RuntimeNative, nil)
+	plan := commandsvc.DryRunPlan{
+		CommandName: "test",
+		SourceID:    "invowkfile",
+		Runtime:     invowkfile.RuntimeNative,
+		Platform:    invowkfile.PlatformLinux,
+	}
 
-	renderDryRun(&buf, req, cmdInfo, execCtx, resolved)
+	renderDryRun(&buf, plan)
 	out := buf.String()
 
 	// Should still render metadata but no script/timeout/env sections.

@@ -346,10 +346,10 @@ func TestResolveScriptWithFSAndModule_ValidatesResolvedContent(t *testing.T) {
 	}
 }
 
-// TestResolveScriptWithModule_NoModulePath_NoContainmentCheck verifies that
+// TestResolveScriptWithFSAndModule_NoModulePath_NoContainmentCheck verifies that
 // containment checking is NOT applied when modulePath is empty (non-module
 // context). This is the backwards-compatibility case.
-func TestResolveScriptWithModule_NoModulePath_NoContainmentCheck(t *testing.T) {
+func TestResolveScriptWithFSAndModule_NoModulePath_NoContainmentCheck(t *testing.T) {
 	t.Parallel()
 
 	// Create a script file in one directory and an invowkfile in another,
@@ -374,7 +374,7 @@ func TestResolveScriptWithModule_NoModulePath_NoContainmentCheck(t *testing.T) {
 	}
 
 	// Empty modulePath means no containment check.
-	result, err := impl.ResolveScriptWithModule(invowkfilePath, "")
+	result, err := impl.ResolveScriptWithFSAndModule(invowkfilePath, "", os.ReadFile)
 	if errors.Is(err, ErrScriptPathTraversal) {
 		t.Fatalf("unexpected ErrScriptPathTraversal without module context: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestResolveScriptWithModule_NoModulePath_NoContainmentCheck(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result != scriptContent {
-		t.Errorf("ResolveScriptWithModule() = %q, want %q", result, scriptContent)
+		t.Errorf("ResolveScriptWithFSAndModule() = %q, want %q", result, scriptContent)
 	}
 }
 

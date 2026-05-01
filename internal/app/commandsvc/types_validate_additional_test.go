@@ -65,7 +65,10 @@ func TestTypesValidateErrorsAndHelpers(t *testing.T) {
 	}
 
 	data := DryRunData{
-		SourceID: discovery.SourceID("bad source"),
+		Plan: DryRunPlan{
+			SourceID: discovery.SourceID("bad source"),
+			Runtime:  invowkfile.RuntimeNative,
+		},
 	}
 	if data.Validate() == nil {
 		t.Fatal("expected DryRunData validation error")

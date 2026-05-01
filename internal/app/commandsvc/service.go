@@ -5,12 +5,14 @@ package commandsvc
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -23,7 +25,7 @@ type (
 		config            config.Loader
 		discovery         CommandDiscovery
 		hostAccess        HostAccess
-		registryFactory   RuntimeRegistryFactory
+		registryFactory   RuntimeRegistryCreator
 		interactive       InteractiveExecutor
 		observer          ExecutionObserver
 		capabilityChecker deps.CapabilityChecker
@@ -59,7 +61,7 @@ func NewWithPorts(
 	userEnvFunc UserEnvFunc,
 	configFallback ConfigFallbackFunc,
 	hostAccess HostAccess,
-	registryFactory RuntimeRegistryFactory,
+	registryFactory RuntimeRegistryCreator,
 	interactive InteractiveExecutor,
 	observer ExecutionObserver,
 	capabilityChecker deps.CapabilityChecker,
@@ -149,9 +151,7 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 		return Result{
 			ExitCode: 0,
 			DryRunData: &DryRunData{
-				SourceID:  cmdInfo.SourceID,
-				Selection: resolved,
-				ExecCtx:   execCtx,
+				Plan: newDryRunPlan(req, cmdInfo, execCtx, resolved.Impl()),
 			},
 		}, diags, nil
 	}
@@ -168,6 +168,34 @@ func (s *Service) Execute(ctx context.Context, req Request) (Result, []discovery
 	}
 
 	return s.dispatchExecution(req, execCtx, cmdInfo, cfg, diags)
+}
+
+func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, impl *invowkfile.Implementation) DryRunPlan {
+	plan := DryRunPlan{
+		CommandName:                 invowkfile.CommandName(req.Name), //goplint:ignore -- request name was resolved through discovery
+		SourceID:                    cmdInfo.SourceID,
+		Runtime:                     execCtx.SelectedRuntime,
+		Platform:                    invowkfile.CurrentPlatform(),
+		WorkDir:                     execCtx.WorkDir,
+		Env:                         copyStringMap(execCtx.Env.ExtraEnv),
+		DependencyValidationSkipped: true,
+	}
+	if impl != nil {
+		plan.Timeout = impl.Timeout
+		plan.Script = impl.Script
+		plan.ScriptIsFile = impl.IsScriptFile()
+	}
+	return plan
+}
+
+//goplint:ignore -- environment maps are stringly typed by os/exec and container APIs.
+func copyStringMap(src map[string]string) map[string]string {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]string, len(src))
+	maps.Copy(dst, src)
+	return dst
 }
 
 // ResolveFromSource resolves a source-filtered command request without executing it.

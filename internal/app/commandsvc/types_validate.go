@@ -36,7 +36,7 @@ type (
 
 	// InvalidDryRunDataError is returned when a DryRunData has invalid fields.
 	// It wraps ErrInvalidDryRunData for errors.Is() compatibility and collects
-	// field-level validation errors from SourceID and Selection.
+	// field-level validation errors from Plan.
 	InvalidDryRunDataError struct {
 		FieldErrors []error
 	}
@@ -150,27 +150,56 @@ func (r Result) Validate() error {
 	return nil
 }
 
+// NewDryRunPlan creates a validated dry-run plan.
+func NewDryRunPlan(plan DryRunPlan) (DryRunPlan, error) {
+	if err := plan.Validate(); err != nil {
+		return DryRunPlan{}, err
+	}
+	return plan, nil
+}
+
 // Validate returns nil if the DryRunData has valid fields, or a validation error if not.
-// It validates SourceID (when non-empty) and delegates to Selection.Validate().
-//
-//goplint:ignore -- helper-based delegation keeps field-order stability while reducing Sonar complexity.
+// It delegates to Plan.Validate().
 func (d DryRunData) Validate() error {
+	return d.Plan.Validate()
+}
+
+// Validate returns nil if the DryRunPlan has valid fields, or a validation error if not.
+func (p DryRunPlan) Validate() error {
 	var errs []error
-	for _, validate := range []func(){
-		func() {
-			if d.SourceID != "" {
-				if err := d.SourceID.Validate(); err != nil {
-					errs = append(errs, err)
-				}
-			}
-		},
-		func() {
-			if err := d.Selection.Validate(); err != nil {
-				errs = append(errs, err)
-			}
-		},
-	} {
-		validate()
+	if p.Runtime == "" {
+		errs = append(errs, errors.New("runtime is required"))
+	}
+	if p.CommandName != "" {
+		if err := p.CommandName.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if p.SourceID != "" {
+		if err := p.SourceID.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if p.Runtime != "" {
+		if err := p.Runtime.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if p.Platform != "" {
+		if err := p.Platform.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if p.WorkDir != "" {
+		if err := p.WorkDir.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := p.Timeout.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := p.Script.Validate(); err != nil {
+		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
 		return &InvalidDryRunDataError{FieldErrors: errs}

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/invowk/invowk/internal/tuiserver"
 	"github.com/invowk/invowk/internal/tuiwire"
 )
 
@@ -199,24 +198,24 @@ func TestComponentTypeMatchesServerProtocol(t *testing.T) {
 	tests := []struct {
 		name   string
 		client ComponentType
-		server tuiserver.Component
+		wire   tuiwire.Component
 	}{
-		{"input", ComponentTypeInput, tuiserver.ComponentInput},
-		{"confirm", ComponentTypeConfirm, tuiserver.ComponentConfirm},
-		{"choose", ComponentTypeChoose, tuiserver.ComponentChoose},
-		{"filter", ComponentTypeFilter, tuiserver.ComponentFilter},
-		{"file", ComponentTypeFile, tuiserver.ComponentFile},
-		{"write", ComponentTypeWrite, tuiserver.ComponentWrite},
-		{"textarea", ComponentTypeTextArea, tuiserver.ComponentTextArea},
-		{"spin", ComponentTypeSpin, tuiserver.ComponentSpin},
-		{"pager", ComponentTypePager, tuiserver.ComponentPager},
-		{"table", ComponentTypeTable, tuiserver.ComponentTable},
+		{"input", ComponentTypeInput, tuiwire.ComponentInput},
+		{"confirm", ComponentTypeConfirm, tuiwire.ComponentConfirm},
+		{"choose", ComponentTypeChoose, tuiwire.ComponentChoose},
+		{"filter", ComponentTypeFilter, tuiwire.ComponentFilter},
+		{"file", ComponentTypeFile, tuiwire.ComponentFile},
+		{"write", ComponentTypeWrite, tuiwire.ComponentWrite},
+		{"textarea", ComponentTypeTextArea, tuiwire.ComponentTextArea},
+		{"spin", ComponentTypeSpin, tuiwire.ComponentSpin},
+		{"pager", ComponentTypePager, tuiwire.ComponentPager},
+		{"table", ComponentTypeTable, tuiwire.ComponentTable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if string(tt.client) != string(tt.server) {
-				t.Fatalf("client component = %q, server component = %q", tt.client, tt.server)
+			if string(tt.client) != string(tt.wire) {
+				t.Fatalf("client component = %q, wire component = %q", tt.client, tt.wire)
 			}
 		})
 	}
