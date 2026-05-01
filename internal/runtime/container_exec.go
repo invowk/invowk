@@ -124,8 +124,10 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 
 	// Prepare volumes
 	volumes := containerCfg.Volumes
-	// Always mount the invowkfile directory
-	volumes = append(volumes, container.VolumeMountSpec(invowkDir+":/workspace")) //goplint:ignore -- constructed from known-good directory + constant mount target
+	// Always mount the invowkfile directory. Convert host path to forward slashes
+	// so the volume-mount validator does not reject Windows backslashes; both
+	// Docker and Podman accept forward slashes in Windows host paths.
+	volumes = append(volumes, container.VolumeMountSpec(filepath.ToSlash(invowkDir)+":/workspace")) //goplint:ignore -- constructed from known-good directory + constant mount target
 
 	// Resolve interpreter (defaults to "auto" which parses shebang)
 	interpInfo := rtConfig.ResolveInterpreterFromScript(script)
