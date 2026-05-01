@@ -164,7 +164,7 @@ func TestParseFindings_ExtractFromSurroundingText(t *testing.T) {
 func TestParseFindings_Malformed(t *testing.T) {
 	t.Parallel()
 
-	raw := "This is not JSON at all, just random text from the LLM."
+	raw := "This is not JSON at all, SECRET_TOKEN=hunter2"
 
 	_, err := parseFindings(raw)
 	if err == nil {
@@ -172,6 +172,16 @@ func TestParseFindings_Malformed(t *testing.T) {
 	}
 	if !errors.Is(err, ErrLLMMalformedResponse) {
 		t.Errorf("expected ErrLLMMalformedResponse, got %v", err)
+	}
+	if strings.Contains(err.Error(), "SECRET_TOKEN") {
+		t.Fatalf("malformed response error leaked raw response: %v", err)
+	}
+	var malformed *LLMMalformedResponseError
+	if !errors.As(err, &malformed) {
+		t.Fatalf("errors.As(*LLMMalformedResponseError) = false for %T", err)
+	}
+	if !strings.Contains(malformed.RawResponsePreview(), "SECRET_TOKEN") {
+		t.Fatalf("RawResponsePreview() did not retain bounded debug response")
 	}
 }
 

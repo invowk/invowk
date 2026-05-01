@@ -200,6 +200,7 @@ type (
 
 	// PagerRequest contains options for the pager component.
 	PagerRequest struct {
+		Title       string `json:"title,omitempty"`
 		Content     string `json:"content"`
 		ShowLineNum bool   `json:"show_line_num,omitempty"`
 		SoftWrap    bool   `json:"soft_wrap,omitempty"`

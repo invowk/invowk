@@ -74,6 +74,7 @@ func runTuiPager(cmd *cobra.Command, args []string) error {
 	// Check if we should delegate to parent TUI server
 	if client := tuiserver.NewClientFromEnv(); client != nil {
 		return client.PagerContext(cmd.Context(), tuiserver.PagerRequest{
+			Title:       pagerTitle,
 			Content:     content,
 			ShowLineNum: pagerLineNum,
 			SoftWrap:    pagerSoftWrap,

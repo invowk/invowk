@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,8 +18,13 @@ import (
 
 const provisionedLayerCacheVersion = "1"
 
-// Compile-time interface check
-var _ Provisioner = (*LayerProvisioner)(nil)
+var (
+	// Compile-time interface check.
+	_ Provisioner = (*LayerProvisioner)(nil)
+
+	// ErrImageBuilderRequired is returned when enabled provisioning has no image-builder port.
+	ErrImageBuilderRequired = errors.New("image builder required")
+)
 
 // LayerProvisioner creates ephemeral container image layers that include
 // invowk resources (binary, modules, etc.) on top of a base image.
@@ -50,6 +56,9 @@ func NewLayerProvisioner(engine imageBuilder, cfg *Config) (*LayerProvisioner, e
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("provision config: %w", err)
+	}
+	if cfg.Enabled && engine == nil {
+		return nil, ErrImageBuilderRequired
 	}
 	return &LayerProvisioner{
 		engine: engine,

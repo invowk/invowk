@@ -40,11 +40,21 @@ type (
 
 // Error implements the error interface.
 func (e *LLMMalformedResponseError) Error() string {
+	if e.Err == nil {
+		return llmMalformedResponseErrMsg
+	}
+	return fmt.Sprintf("%s: %v", llmMalformedResponseErrMsg, e.Err)
+}
+
+// RawResponsePreview returns a bounded raw provider response for explicit debug use.
+//
+//goplint:ignore -- explicit debug API returns bounded provider text for callers to opt into.
+func (e *LLMMalformedResponseError) RawResponsePreview() string {
 	raw := e.RawResponse
 	if len(raw) > maxErrorResponseLen {
 		raw = raw[:maxErrorResponseLen] + "..."
 	}
-	return fmt.Sprintf("%s: %v (response: %q)", llmMalformedResponseErrMsg, e.Err, raw)
+	return raw
 }
 
 // Unwrap returns the sentinel for errors.Is chains.

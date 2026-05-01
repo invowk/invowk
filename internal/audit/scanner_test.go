@@ -11,6 +11,7 @@ import (
 
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -23,6 +24,8 @@ type (
 		err      error
 	}
 
+	moduleIdentityChecker struct{}
+
 	failingConfigProvider struct {
 		called bool
 	}
@@ -32,6 +35,41 @@ func (m *mockChecker) Name() string       { return m.name }
 func (m *mockChecker) Category() Category { return m.category }
 func (m *mockChecker) Check(_ context.Context, _ *ScanContext) ([]Finding, error) {
 	return m.findings, m.err
+}
+
+func (m moduleIdentityChecker) Name() string { return "module-identity-test" }
+func (m moduleIdentityChecker) Category() Category {
+	return CategoryTrust
+}
+
+func (m moduleIdentityChecker) Check(_ context.Context, sc *ScanContext) ([]Finding, error) {
+	var findings []Finding
+	for _, mod := range sc.Modules() {
+		switch mod.SurfaceKind {
+		case SurfaceKindLocalModule:
+			findings = append(findings, Finding{
+				Severity:    SeverityHigh,
+				Category:    CategoryObfuscation,
+				SurfaceID:   mod.SurfaceID,
+				SurfaceKind: mod.SurfaceKind,
+				CheckerName: scriptCheckerName,
+				FilePath:    mod.Path,
+				Title:       "local finding",
+			})
+		case SurfaceKindVendoredModule:
+			findings = append(findings, Finding{
+				Severity:    SeverityHigh,
+				Category:    CategoryExfiltration,
+				SurfaceID:   mod.SurfaceID,
+				SurfaceKind: mod.SurfaceKind,
+				CheckerName: networkCheckerName,
+				FilePath:    mod.Path,
+				Title:       "vendored finding",
+			})
+		case "", SurfaceKindRootInvowkfile, SurfaceKindGlobalModule:
+		}
+	}
+	return findings, nil
 }
 
 func (p *failingConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*config.Config, error) {
@@ -110,6 +148,28 @@ func TestScanner_DirectCueTargetSkipsConfigLoad(t *testing.T) {
 	}
 	if report.InvowkfileCount != 1 {
 		t.Fatalf("InvowkfileCount = %d, want 1", report.InvowkfileCount)
+	}
+}
+
+func TestScannerCorrelationUsesScanSurfaceKey(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	localDir := filepath.Join(root, "io.example.shared.invowkmod")
+	createAuditTestModule(t, localDir, "io.example.shared", "local-cmd")
+	vendorDir := filepath.Join(localDir, invowkmod.VendoredModulesDir, "io.example.shared.invowkmod")
+	createAuditTestModule(t, vendorDir, "io.example.shared", "vendored-cmd")
+
+	scanner := NewScanner(config.NewProvider(), WithCheckers([]Checker{moduleIdentityChecker{}}))
+	report, err := scanner.Scan(t.Context(), types.FilesystemPath(root), false)
+	if err != nil {
+		t.Fatalf("Scan() = %v", err)
+	}
+
+	for _, finding := range report.Correlated {
+		if finding.Title == "Obfuscated network access detected" {
+			t.Fatalf("correlated findings crossed local/vendored scan surfaces: %+v", finding)
+		}
 	}
 }
 

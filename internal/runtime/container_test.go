@@ -235,6 +235,48 @@ func TestContainerRuntime_Available_NilEngine(t *testing.T) {
 	}
 }
 
+func TestContainerRuntime_PrepareCommandValidatesRunOptions(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	inv := &invowkfile.Invowkfile{
+		FilePath: invowkfile.FilesystemPath(filepath.Join(tmpDir, "invowkfile.cue")),
+	}
+	cmd := &invowkfile.Command{
+		Name: "invalid-port",
+		Implementations: []invowkfile.Implementation{
+			{
+				Script: "echo hello",
+				Runtimes: []invowkfile.RuntimeConfig{{
+					Name:  invowkfile.RuntimeContainer,
+					Image: "debian:stable-slim",
+					Ports: []invowkfile.PortMappingSpec{
+						"not-a-port",
+					},
+				}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			},
+		},
+	}
+
+	engine := NewMockEngine()
+	rt, err := NewContainerRuntimeWithEngine(engine)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+	}
+	ctx := NewExecutionContext(t.Context(), cmd, inv)
+	ctx.SelectedRuntime = invowkfile.RuntimeContainer
+	ctx.SelectedImpl = &cmd.Implementations[0]
+
+	_, err = rt.PrepareCommand(ctx)
+	if err == nil {
+		t.Fatal("PrepareCommand() returned nil error, want invalid run options")
+	}
+	if len(engine.PrepareRunCalls) != 0 {
+		t.Fatalf("PrepareRunCommand calls = %d, want 0", len(engine.PrepareRunCalls))
+	}
+}
+
 // TestContainerRuntime_Validate_Unit tests the validation logic (unit tests without containers).
 func TestContainerRuntime_Validate_Unit(t *testing.T) {
 	t.Parallel()

@@ -22,6 +22,10 @@ type entryBounds struct {
 // Returns an error if the file doesn't exist or the requirement is a duplicate
 // (same git_url and path).
 func AddRequirement(invowkmodPath types.FilesystemPath, req ModuleRef) error {
+	if err := req.ValidateDeclaration(); err != nil {
+		return fmt.Errorf("invalid requirement declaration: %w", err)
+	}
+
 	data, err := os.ReadFile(string(invowkmodPath))
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", invowkmodPath, err)

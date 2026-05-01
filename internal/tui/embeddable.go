@@ -253,8 +253,8 @@ func CalculateModalSize(componentType ComponentType, screenWidth, screenHeight T
 func CreateEmbeddableComponent(componentType ComponentType, options json.RawMessage, width, height TerminalDimension) (EmbeddableComponent, error) {
 	switch componentType {
 	case ComponentTypeInput:
-		var opts InputOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+		opts, err := inputOptionsFromProtocol(options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal input options: %w", err)
 		}
 		model := NewInputModelForModal(opts)
@@ -262,8 +262,8 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		return model, nil
 
 	case ComponentTypeConfirm:
-		var opts ConfirmOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+		opts, err := confirmOptionsFromProtocol(options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal confirm options: %w", err)
 		}
 		model := NewConfirmModelForModal(opts)
@@ -280,8 +280,8 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		return model, nil
 
 	case ComponentTypeFilter:
-		var opts FilterOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+		opts, err := filterOptionsFromProtocol(options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal filter options: %w", err)
 		}
 		model := NewFilterModelForModal(opts)
@@ -297,18 +297,27 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 		model.SetSize(width, height)
 		return model, nil
 
-	case ComponentTypeWrite, ComponentTypeTextArea:
-		var opts WriteOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+	case ComponentTypeWrite:
+		opts, err := writeOptionsFromProtocol(options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal write options: %w", err)
 		}
 		model := NewWriteModelForModal(opts)
 		model.SetSize(width, height)
 		return model, nil
 
+	case ComponentTypeTextArea:
+		opts, err := textAreaOptionsFromProtocol(options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal textarea options: %w", err)
+		}
+		model := NewWriteModelForModal(opts)
+		model.SetSize(width, height)
+		return model, nil
+
 	case ComponentTypePager:
-		var opts PagerOptions
-		if err := json.Unmarshal(options, &opts); err != nil {
+		opts, err := pagerOptionsFromProtocol(options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal pager options: %w", err)
 		}
 		model := NewPagerModelForModal(opts)
@@ -341,6 +350,57 @@ func CreateEmbeddableComponent(componentType ComponentType, options json.RawMess
 	}
 }
 
+func inputOptionsFromProtocol(options json.RawMessage) (InputOptions, error) {
+	var req tuiwire.InputRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return InputOptions{}, err
+	}
+	return InputOptions{
+		Title:       req.Title,
+		Description: req.Description,
+		Placeholder: req.Placeholder,
+		Value:       req.Value,
+		CharLimit:   req.CharLimit,
+		Width:       TerminalDimension(req.Width),
+		Password:    req.Password,
+		Prompt:      req.Prompt,
+	}, nil
+}
+
+func confirmOptionsFromProtocol(options json.RawMessage) (ConfirmOptions, error) {
+	var req tuiwire.ConfirmRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return ConfirmOptions{}, err
+	}
+	return ConfirmOptions{
+		Title:       req.Title,
+		Description: req.Description,
+		Affirmative: req.Affirmative,
+		Negative:    req.Negative,
+		Default:     req.Default,
+	}, nil
+}
+
+func filterOptionsFromProtocol(options json.RawMessage) (FilterOptions, error) {
+	var req tuiwire.FilterRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return FilterOptions{}, err
+	}
+	return FilterOptions{
+		Title:       req.Title,
+		Placeholder: req.Placeholder,
+		Options:     req.Options,
+		Limit:       req.Limit,
+		NoLimit:     req.NoLimit,
+		Height:      TerminalDimension(req.Height),
+		Width:       TerminalDimension(req.Width),
+		Reverse:     req.Reverse,
+		Fuzzy:       req.Fuzzy,
+		Sort:        req.Sort,
+		Strict:      req.Strict,
+	}, nil
+}
+
 func fileOptionsFromProtocol(options json.RawMessage) (FileOptions, error) {
 	var req tuiwire.FileRequest
 	if err := json.Unmarshal(options, &req); err != nil {
@@ -355,6 +415,47 @@ func fileOptionsFromProtocol(options json.RawMessage) (FileOptions, error) {
 		Height:            TerminalDimension(req.Height),
 		FileAllowed:       req.ShowFiles,
 		DirAllowed:        req.ShowDirs,
+	}, nil
+}
+
+func writeOptionsFromProtocol(options json.RawMessage) (WriteOptions, error) {
+	var req tuiwire.WriteRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return WriteOptions{}, err
+	}
+	return WriteOptions{
+		Value: req.Text,
+		Width: TerminalDimension(req.Width),
+	}, nil
+}
+
+func textAreaOptionsFromProtocol(options json.RawMessage) (WriteOptions, error) {
+	var req tuiwire.TextAreaRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return WriteOptions{}, err
+	}
+	return WriteOptions{
+		Title:           req.Title,
+		Description:     req.Description,
+		Placeholder:     req.Placeholder,
+		Value:           req.Value,
+		CharLimit:       req.CharLimit,
+		Width:           TerminalDimension(req.Width),
+		Height:          TerminalDimension(req.Height),
+		ShowLineNumbers: req.ShowLineNumbers,
+	}, nil
+}
+
+func pagerOptionsFromProtocol(options json.RawMessage) (PagerOptions, error) {
+	var req tuiwire.PagerRequest
+	if err := json.Unmarshal(options, &req); err != nil {
+		return PagerOptions{}, err
+	}
+	return PagerOptions{
+		Title:           req.Title,
+		Content:         req.Content,
+		ShowLineNumbers: req.ShowLineNum,
+		SoftWrap:        req.SoftWrap,
 	}, nil
 }
 

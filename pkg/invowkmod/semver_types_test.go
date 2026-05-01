@@ -55,6 +55,42 @@ func TestSemVer_String(t *testing.T) {
 	}
 }
 
+func TestValidateDeclaredSemVer(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		version SemVer
+		wantErr bool
+	}{
+		{"exact", SemVer("1.2.3"), false},
+		{"prerelease", SemVer("1.2.3-beta.1"), false},
+		{"v_prefix", SemVer("v1.2.3"), true},
+		{"major_only", SemVer("1"), true},
+		{"major_minor", SemVer("1.2"), true},
+		{"invalid", SemVer("not-a-version"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateDeclaredSemVer(tt.version)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("ValidateDeclaredSemVer(%q) error = nil, want error", tt.version)
+				}
+				if !errors.Is(err, ErrInvalidSemVer) {
+					t.Fatalf("ValidateDeclaredSemVer(%q) error = %v, want ErrInvalidSemVer", tt.version, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ValidateDeclaredSemVer(%q) error = %v, want nil", tt.version, err)
+			}
+		})
+	}
+}
+
 func TestSemVerConstraint_Validate(t *testing.T) {
 	t.Parallel()
 
@@ -100,6 +136,42 @@ func TestSemVerConstraint_String(t *testing.T) {
 	sc := SemVerConstraint("^1.2.0")
 	if sc.String() != "^1.2.0" {
 		t.Errorf("SemVerConstraint.String() = %q, want %q", sc.String(), "^1.2.0")
+	}
+}
+
+func TestValidateDeclaredSemVerConstraint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		constraint SemVerConstraint
+		wantErr    bool
+	}{
+		{"exact", SemVerConstraint("1.2.3"), false},
+		{"caret", SemVerConstraint("^1.2.0"), false},
+		{"partial", SemVerConstraint("1.2"), false},
+		{"v_prefix", SemVerConstraint("v1.2.3"), true},
+		{"operator_v_prefix", SemVerConstraint("^v1.2.3"), true},
+		{"invalid", SemVerConstraint(">>1.2.3"), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateDeclaredSemVerConstraint(tt.constraint)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("ValidateDeclaredSemVerConstraint(%q) error = nil, want error", tt.constraint)
+				}
+				if !errors.Is(err, ErrInvalidSemVerConstraint) {
+					t.Fatalf("ValidateDeclaredSemVerConstraint(%q) error = %v, want ErrInvalidSemVerConstraint", tt.constraint, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ValidateDeclaredSemVerConstraint(%q) error = %v, want nil", tt.constraint, err)
+			}
+		})
 	}
 }
 

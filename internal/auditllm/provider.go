@@ -342,14 +342,7 @@ func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt st
 	output, err := run(ctx, c.tool, args, prompt)
 	if err != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			details := strings.TrimSpace(string(exitErr.Stderr))
-			if details == "" {
-				details = strings.TrimSpace(string(output))
-			}
-			if details == "" {
-				return "", fmt.Errorf("%s CLI failed (exit %d)", c.tool, exitErr.ExitCode())
-			}
-			return "", fmt.Errorf("%s CLI failed (exit %d): %s", c.tool, exitErr.ExitCode(), details)
+			return "", fmt.Errorf("%s CLI failed (exit %d); provider output withheld", c.tool, exitErr.ExitCode())
 		}
 		return "", fmt.Errorf("%s CLI failed: %w", c.tool, err)
 	}

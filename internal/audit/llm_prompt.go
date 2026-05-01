@@ -184,6 +184,8 @@ func buildFinding(lf *llmFinding, ref *ScriptRef) (Finding, bool) {
 		Severity:       sev,
 		Category:       category,
 		SurfaceID:      ref.SurfaceID,
+		SurfaceKey:     ref.SurfaceKey,
+		SurfaceKind:    ref.SurfaceKind,
 		CheckerName:    llmCheckerName,
 		FilePath:       ref.FilePath,
 		Line:           lf.Line,

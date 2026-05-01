@@ -107,6 +107,9 @@ func LoadRequirements(invowkmodPath types.FilesystemPath) ([]ModuleRef, error) {
 // AddModuleDependency resolves req, updates the lock file, and adds the
 // corresponding requires entry to invowkmodPath.
 func AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
+	if err := req.ValidateDeclaration(); err != nil {
+		return AddModuleDependencyResult{}, fmt.Errorf("invalid requirement declaration: %w", err)
+	}
 	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
 		return AddModuleDependencyResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
@@ -117,6 +120,9 @@ func AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath
 // AddModuleDependency resolves req with this resolver, updates the lock file,
 // and adds the corresponding requires entry to invowkmodPath.
 func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, req ModuleRef) (AddModuleDependencyResult, error) {
+	if err := req.ValidateDeclaration(); err != nil {
+		return AddModuleDependencyResult{}, fmt.Errorf("invalid requirement declaration: %w", err)
+	}
 	lockSnapshot, snapshotErr := m.readLockSnapshot()
 	if snapshotErr != nil {
 		return AddModuleDependencyResult{}, snapshotErr
@@ -145,7 +151,7 @@ func (m *Resolver) AddModuleDependency(ctx context.Context, invowkmodPath types.
 //
 //goplint:ignore -- module remove identifier is a CLI-facing selector: URL, namespace, module name, or lock key.
 func RemoveModuleDependency(ctx context.Context, invowkmodPath types.FilesystemPath, identifier string) (RemoveModuleDependencyResult, error) {
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
+	resolver, err := newLockOnlyResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
 		return RemoveModuleDependencyResult{}, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
@@ -356,9 +362,17 @@ func UpdateModule(ctx context.Context, invowkmodPath types.FilesystemPath, ident
 // ListModuleDependencies lists resolved module dependencies from the lock file
 // next to invowkmodPath.
 func ListModuleDependencies(ctx context.Context, invowkmodPath types.FilesystemPath) ([]*ResolvedModule, error) {
-	resolver, err := newResolverForInvowkmodPath(invowkmodPath)
+	resolver, err := newLockOnlyResolverForInvowkmodPath(invowkmodPath)
 	if err != nil {
 		return nil, fmt.Errorf(errFmtCreateModuleResolver, err)
 	}
 	return resolver.List(ctx)
+}
+
+func newLockOnlyResolverForInvowkmodPath(invowkmodPath types.FilesystemPath) (*Resolver, error) {
+	workingDir := types.FilesystemPath(filepath.Dir(string(invowkmodPath)))
+	if err := workingDir.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid module working directory: %w", err)
+	}
+	return newLockOnlyResolver(workingDir)
 }

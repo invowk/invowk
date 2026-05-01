@@ -3,6 +3,7 @@
 package provision
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -98,9 +99,9 @@ func TestNewLayerProvisionerWithNilConfig(t *testing.T) {
 	t.Parallel()
 
 	// NewLayerProvisioner should use DefaultConfig when passed nil
-	provisioner, err := NewLayerProvisioner(nil, nil)
+	provisioner, err := NewLayerProvisioner(newMockEngine(), nil)
 	if err != nil {
-		t.Fatalf("NewLayerProvisioner(nil, nil) unexpected error: %v", err)
+		t.Fatalf("NewLayerProvisioner(engine, nil) unexpected error: %v", err)
 	}
 
 	if provisioner.config == nil {
@@ -113,6 +114,15 @@ func TestNewLayerProvisionerWithNilConfig(t *testing.T) {
 
 	if provisioner.config.BinaryMountPath != "/invowk/bin" {
 		t.Errorf("Expected BinaryMountPath to be /invowk/bin, got %s", provisioner.config.BinaryMountPath)
+	}
+}
+
+func TestNewLayerProvisionerRejectsNilEngineWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewLayerProvisioner(nil, nil)
+	if !errors.Is(err, ErrImageBuilderRequired) {
+		t.Fatalf("NewLayerProvisioner(nil, nil) error = %v, want ErrImageBuilderRequired", err)
 	}
 }
 

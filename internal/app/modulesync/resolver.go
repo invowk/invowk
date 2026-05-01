@@ -48,14 +48,18 @@ type (
 // workingDir is the directory containing invowkmod.cue (typically current working directory).
 // cacheDir can be empty to use the default (~/.invowk/modules or $INVOWK_MODULES_PATH).
 func NewResolver(workingDir, cacheDir types.FilesystemPath) (*Resolver, error) {
-	return newResolver(workingDir, cacheDir, nil)
+	return newResolver(workingDir, cacheDir, nil, true)
 }
 
 func newResolverWithFetcher(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher) (*Resolver, error) {
-	return newResolver(workingDir, cacheDir, fetcher)
+	return newResolver(workingDir, cacheDir, fetcher, true)
 }
 
-func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher) (*Resolver, error) {
+func newLockOnlyResolver(workingDir types.FilesystemPath) (*Resolver, error) {
+	return newResolver(workingDir, "", nil, false)
+}
+
+func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetcher, ensureCacheDir bool) (*Resolver, error) {
 	wd := string(workingDir)
 	if wd == "" {
 		var err error
@@ -88,9 +92,10 @@ func newResolver(workingDir, cacheDir types.FilesystemPath, fetcher moduleFetche
 		return nil, fmt.Errorf("cache directory: %w", err)
 	}
 
-	// Ensure cache directory exists
-	if err := os.MkdirAll(absCacheDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create cache directory: %w", err)
+	if ensureCacheDir {
+		if err := os.MkdirAll(absCacheDir, 0o755); err != nil {
+			return nil, fmt.Errorf("failed to create cache directory: %w", err)
+		}
 	}
 
 	absWorkingPath := types.FilesystemPath(absWorkingDir)

@@ -324,17 +324,21 @@ func (m ModuleID) String() string { return string(m) }
 
 // Validate returns nil if the Invowkmod has valid fields, or an error
 // collecting all field-level validation failures.
-// It delegates to Module.Validate(), Version.Validate(), and each
-// Requires entry's Validate(). Description and FilePath are validated
+// It delegates to Module.Validate(), declaration-specific Version validation,
+// and each Requires entry's Validate(). Description and FilePath are validated
 // only when non-empty (their zero values are valid).
 // Author, License, and Repository are not validated at the Go layer —
 // their constraints (MaxRunes) are enforced by the CUE schema at parse time.
+//
+//goplint:ignore -- metadata declarations intentionally reject v-prefixed and partial Git tag syntax.
 func (m Invowkmod) Validate() error {
 	var errs []error
 	if err := m.Module.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := m.Version.Validate(); err != nil {
+		errs = append(errs, err)
+	} else if err := ValidateDeclaredSemVer(m.Version); err != nil {
 		errs = append(errs, err)
 	}
 	if m.Description != "" {
@@ -458,12 +462,16 @@ func (p SubdirectoryPath) String() string { return string(p) }
 // Validate returns nil if all typed fields of the ModuleRequirement are valid,
 // or an error collecting all field-level validation failures.
 // GitURL and Version are required; Alias and Path are optional (zero values are valid).
+//
+//goplint:ignore -- dependency declarations intentionally reject v-prefixed Git tag syntax.
 func (r ModuleRequirement) Validate() error {
 	var errs []error
 	if err := r.GitURL.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := r.Version.Validate(); err != nil {
+		errs = append(errs, err)
+	} else if err := ValidateDeclaredSemVerConstraint(r.Version); err != nil {
 		errs = append(errs, err)
 	}
 	if err := r.Alias.Validate(); err != nil {

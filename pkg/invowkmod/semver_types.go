@@ -5,6 +5,7 @@ package invowkmod
 import (
 	"errors"
 	"fmt"
+	"regexp"
 )
 
 const (
@@ -31,6 +32,9 @@ var (
 	ErrInvalidSemVer           = errors.New("invalid semver")
 	ErrInvalidSemVerConstraint = errors.New("invalid semver constraint")
 	ErrInvalidConstraintOp     = errors.New("invalid constraint operator")
+
+	declaredSemVerPattern           = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
+	declaredSemVerConstraintPattern = regexp.MustCompile(`^(~|\^|>=|<=|>|<|=)?(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))?(\.(0|[1-9][0-9]*))?(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
 )
 
 type (
@@ -84,6 +88,15 @@ func (s SemVer) Validate() error {
 	return nil
 }
 
+// ValidateDeclaredSemVer validates a concrete module metadata version as it is
+// allowed to appear in invowkmod.cue declarations.
+func ValidateDeclaredSemVer(s SemVer) error {
+	if !declaredSemVerPattern.MatchString(string(s)) {
+		return &InvalidSemVerError{Value: s}
+	}
+	return nil
+}
+
 // String returns the string representation of the SemVer.
 func (s SemVer) String() string { return string(s) }
 
@@ -100,6 +113,15 @@ func (e *InvalidSemVerConstraintError) Unwrap() error { return ErrInvalidSemVerC
 func (s SemVerConstraint) Validate() error {
 	r := &SemverResolver{}
 	if _, err := r.ParseConstraint(string(s)); err != nil {
+		return &InvalidSemVerConstraintError{Value: s}
+	}
+	return nil
+}
+
+// ValidateDeclaredSemVerConstraint validates a module requirement version
+// constraint as it is allowed to appear in invowkmod.cue declarations.
+func ValidateDeclaredSemVerConstraint(s SemVerConstraint) error {
+	if !declaredSemVerConstraintPattern.MatchString(string(s)) {
 		return &InvalidSemVerConstraintError{Value: s}
 	}
 	return nil

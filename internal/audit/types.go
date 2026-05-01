@@ -63,6 +63,10 @@ type (
 	// SurfaceKind classifies the trust boundary that produced a finding.
 	SurfaceKind string
 
+	// ScanSurfaceKey identifies one scanner-owned trust surface instance for
+	// internal correlation. It is not part of the report contract.
+	ScanSurfaceKey string
+
 	// DiagnosticCode is a stable machine-readable scan diagnostic identifier.
 	DiagnosticCode string
 
@@ -88,6 +92,10 @@ type (
 		// SurfaceID identifies the scanned owner surface, such as a module ID or
 		// invowkfile path. Empty only when a finding cannot be tied to a surface.
 		SurfaceID string `json:"surface_id,omitempty"`
+		// SurfaceKey identifies the scanner-owned trust surface instance used for
+		// correlation. It is intentionally omitted from reports; SurfaceID remains
+		// the display identity.
+		SurfaceKey ScanSurfaceKey `json:"-"`
 		// SurfaceKind identifies the trust boundary that produced the finding.
 		SurfaceKind SurfaceKind `json:"surface_kind,omitempty"`
 		// CheckerName is the name of the checker that produced this finding.
@@ -150,6 +158,12 @@ func (c FindingCode) Validate() error { return nil }
 
 // String returns the string representation of the SurfaceKind.
 func (k SurfaceKind) String() string { return string(k) }
+
+// String returns the string representation of the scan surface key.
+func (k ScanSurfaceKey) String() string { return string(k) }
+
+// Validate returns nil because scan surface keys are constructed by scan context builders.
+func (k ScanSurfaceKey) Validate() error { return nil }
 
 // Validate returns nil if SurfaceKind is empty or one of the known trust boundaries.
 func (k SurfaceKind) Validate() error {

@@ -65,29 +65,27 @@ func NewCorrelator(rules []CorrelationRule) (*Correlator, error) {
 //   - 3+ distinct categories in same surface → Critical
 func (c *Correlator) Correlate(findings []Finding) []Finding {
 	// Group findings by surface.
-	bySurface := make(map[string][]Finding)
+	bySurface := make(map[ScanSurfaceKey][]Finding)
 	for i := range findings {
-		sid := findings[i].SurfaceID
-		if sid == "" {
-			sid = string(findings[i].FilePath)
-		}
-		bySurface[sid] = append(bySurface[sid], findings[i])
+		key := correlationSurfaceKey(findings[i])
+		bySurface[key] = append(bySurface[key], findings[i])
 	}
 
 	var correlated []Finding
 
-	for surfaceID, surfaceFindings := range bySurface {
+	for surfaceKey, surfaceFindings := range bySurface {
+		surfaceID := correlationSurfaceID(surfaceKey, surfaceFindings)
 		// Apply named correlation rules.
-		correlated = append(correlated, c.applyRules(surfaceID, surfaceFindings)...)
+		correlated = append(correlated, c.applyRules(surfaceID, surfaceKey, surfaceFindings)...)
 
 		// Apply severity escalation rules.
-		correlated = append(correlated, c.applyEscalation(surfaceID, surfaceFindings)...)
+		correlated = append(correlated, c.applyEscalation(surfaceID, surfaceKey, surfaceFindings)...)
 	}
 
 	return correlated
 }
 
-func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding {
+func (c *Correlator) applyRules(surfaceID scanSurfaceID, surfaceKey ScanSurfaceKey, findings []Finding) []Finding {
 	var result []Finding
 
 	// Build checker presence map and checker+category/code presence maps for this surface.
@@ -141,7 +139,8 @@ func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding 
 			Code:               ruleFindingCode(rule),
 			Severity:           rule.ResultSeverity,
 			Category:           rule.ResultCategory,
-			SurfaceID:          surfaceID,
+			SurfaceID:          surfaceID.String(),
+			SurfaceKey:         surfaceKey,
 			CheckerName:        "correlator",
 			Title:              rule.ResultTitle,
 			Description:        rule.Description,
@@ -152,6 +151,25 @@ func (c *Correlator) applyRules(surfaceID string, findings []Finding) []Finding 
 	}
 
 	return result
+}
+
+func correlationSurfaceKey(finding Finding) ScanSurfaceKey {
+	if finding.SurfaceKey != "" {
+		return finding.SurfaceKey
+	}
+	if finding.SurfaceID != "" {
+		return newScanSurfaceKey(finding.SurfaceID)
+	}
+	return newScanSurfaceKey(string(finding.FilePath))
+}
+
+func correlationSurfaceID(surfaceKey ScanSurfaceKey, findings []Finding) scanSurfaceID {
+	for i := range findings {
+		if findings[i].SurfaceID != "" {
+			return newScanSurfaceID(findings[i].SurfaceID)
+		}
+	}
+	return newScanSurfaceID(surfaceKey.String())
 }
 
 func ruleFindingCode(rule *CorrelationRule) FindingCode {
@@ -174,7 +192,7 @@ func hasAnyFindingCode(available map[FindingCode]bool, required []FindingCode) b
 	return false
 }
 
-func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Finding {
+func (c *Correlator) applyEscalation(surfaceID scanSurfaceID, surfaceKey ScanSurfaceKey, findings []Finding) []Finding {
 	var result []Finding
 
 	// Count severities and distinct categories in a single pass.
@@ -203,7 +221,8 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 			Code:           codeCorrelatorMultipleCategories,
 			Severity:       SeverityCritical,
 			Category:       CategoryTrust,
-			SurfaceID:      surfaceID,
+			SurfaceID:      surfaceID.String(),
+			SurfaceKey:     surfaceKey,
 			CheckerName:    "correlator",
 			Title:          "Multiple security concern categories detected",
 			Description:    fmt.Sprintf("%d distinct categories of security findings in the same surface suggest a coordinated threat or severely compromised module", len(categories)),
@@ -218,7 +237,8 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 			Code:           codeCorrelatorHighPlusOther,
 			Severity:       SeverityCritical,
 			Category:       CategoryTrust,
-			SurfaceID:      surfaceID,
+			SurfaceID:      surfaceID.String(),
+			SurfaceKey:     surfaceKey,
 			CheckerName:    "correlator",
 			Title:          "High-severity finding combined with other issues",
 			Description:    fmt.Sprintf("A high-severity finding plus %d other finding(s) in the same surface elevates the overall risk", len(findings)-1),
@@ -233,7 +253,8 @@ func (c *Correlator) applyEscalation(surfaceID string, findings []Finding) []Fin
 			Code:           codeCorrelatorMediumPlusMedium,
 			Severity:       SeverityHigh,
 			Category:       CategoryTrust,
-			SurfaceID:      surfaceID,
+			SurfaceID:      surfaceID.String(),
+			SurfaceKey:     surfaceKey,
 			CheckerName:    "correlator",
 			Title:          "Multiple medium-severity findings compound risk",
 			Description:    fmt.Sprintf("%d medium-severity findings in the same surface compound the overall risk", mediumCount),

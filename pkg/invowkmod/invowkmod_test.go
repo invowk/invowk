@@ -205,6 +205,63 @@ description: "Missing module field"
 		}
 	})
 
+	t.Run("invalid metadata version - v prefix", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "v1.0.0"
+`
+		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invowkmod.cue: %v", err)
+		}
+
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		if err == nil {
+			t.Error("ParseInvowkmod() should return error for v-prefixed metadata version")
+		}
+	})
+
+	t.Run("invalid metadata version - partial", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "1.0"
+`
+		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invowkmod.cue: %v", err)
+		}
+
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		if err == nil {
+			t.Error("ParseInvowkmod() should return error for partial metadata version")
+		}
+	})
+
+	t.Run("invalid requirement version - v prefix", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		invowkmodPath := filepath.Join(tmpDir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/example/tools.git", version: "v1.0.0"},
+]
+`
+		if err := os.WriteFile(invowkmodPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write invowkmod.cue: %v", err)
+		}
+
+		_, err := ParseInvowkmod(types.FilesystemPath(invowkmodPath))
+		if err == nil {
+			t.Error("ParseInvowkmod() should return error for v-prefixed requirement version")
+		}
+	})
+
 	t.Run("invalid module name format", func(t *testing.T) {
 		t.Parallel()
 

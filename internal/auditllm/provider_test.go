@@ -513,11 +513,12 @@ func TestCLICompleter_Complete_Gemini(t *testing.T) {
 func TestCLICompleter_Complete_ExitError(t *testing.T) {
 	t.Parallel()
 
+	const rawProviderOutput = "auth failed SECRET_TOKEN=hunter2"
 	c := &CLICompleter{
 		tool:  "claude",
 		model: "test",
 		runCmd: func(_ context.Context, _ string, _ []string, _ string) ([]byte, error) {
-			return nil, &exec.ExitError{Stderr: []byte("auth failed")}
+			return nil, &exec.ExitError{Stderr: []byte(rawProviderOutput)}
 		},
 	}
 
@@ -528,12 +529,12 @@ func TestCLICompleter_Complete_ExitError(t *testing.T) {
 	if !strings.Contains(err.Error(), "claude CLI failed") {
 		t.Errorf("error should mention tool name: %v", err)
 	}
-	if !strings.Contains(err.Error(), "auth failed") {
-		t.Errorf("error should contain stderr: %v", err)
+	if strings.Contains(err.Error(), rawProviderOutput) || strings.Contains(err.Error(), "SECRET_TOKEN") {
+		t.Errorf("error should not contain raw provider output: %v", err)
 	}
 }
 
-func TestCLICompleter_Complete_ExitErrorIncludesStdoutFallback(t *testing.T) {
+func TestCLICompleter_Complete_ExitErrorWithholdsStdoutFallback(t *testing.T) {
 	t.Parallel()
 
 	c := &CLICompleter{
@@ -548,8 +549,8 @@ func TestCLICompleter_Complete_ExitErrorIncludesStdoutFallback(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for exit error")
 	}
-	if !strings.Contains(err.Error(), "Not logged in") {
-		t.Errorf("error should contain stdout fallback: %v", err)
+	if strings.Contains(err.Error(), "Not logged in") {
+		t.Errorf("error should not contain stdout fallback: %v", err)
 	}
 }
 

@@ -3,10 +3,13 @@
 package modulesync
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/modulecache"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -61,6 +64,91 @@ func TestListModuleDependenciesUsesInvowkmodPathDirectory(t *testing.T) {
 	}
 	if deps[0].Namespace != "tools@1.2.3" {
 		t.Fatalf("namespace = %q, want tools@1.2.3", deps[0].Namespace)
+	}
+}
+
+func TestListModuleDependenciesDoesNotCreateModuleCache(t *testing.T) {
+	moduleDir := t.TempDir()
+	cacheDir := filepath.Join(t.TempDir(), "modules")
+	t.Setenv(modulecache.ModuleCachePathEnv, cacheDir)
+
+	lock := invowkmod.NewLockFile()
+	lock.Modules["https://github.com/user/tools.git"] = LockedModule{
+		GitURL:          "https://github.com/user/tools.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.2.3",
+		GitCommit:       "abc123def456789012345678901234567890abcd",
+		Namespace:       "tools@1.2.3",
+		ContentHash:     ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+	}
+	if err := lock.Save(filepath.Join(moduleDir, LockFileName)); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	if _, err := ListModuleDependencies(t.Context(), types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue"))); err != nil {
+		t.Fatalf("ListModuleDependencies() error = %v", err)
+	}
+	if _, err := os.Stat(cacheDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("module cache stat error = %v, want not exist", err)
+	}
+}
+
+func TestRemoveModuleDependencyDoesNotCreateModuleCache(t *testing.T) {
+	moduleDir := t.TempDir()
+	cacheDir := filepath.Join(t.TempDir(), "modules")
+	t.Setenv(modulecache.ModuleCachePathEnv, cacheDir)
+
+	invowkmodPath := filepath.Join(moduleDir, "invowkmod.cue")
+	if err := os.WriteFile(invowkmodPath, []byte(`module: "io.example.root"
+version: "1.0.0"
+requires: [
+	{git_url: "https://github.com/user/tools.git", version: "^1.0.0"},
+]
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile(invowkmod.cue) error = %v", err)
+	}
+	lock := invowkmod.NewLockFile()
+	lock.Modules["https://github.com/user/tools.git"] = LockedModule{
+		GitURL:          "https://github.com/user/tools.git",
+		Version:         "^1.0.0",
+		ResolvedVersion: "1.2.3",
+		GitCommit:       "abc123def456789012345678901234567890abcd",
+		Namespace:       "tools@1.2.3",
+		ContentHash:     ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+	}
+	if err := lock.Save(filepath.Join(moduleDir, LockFileName)); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	result, err := RemoveModuleDependency(t.Context(), types.FilesystemPath(invowkmodPath), "tools")
+	if err != nil {
+		t.Fatalf("RemoveModuleDependency() error = %v", err)
+	}
+	if len(result.Removed()) != 1 {
+		t.Fatalf("Removed = %d, want 1", len(result.Removed()))
+	}
+	if _, err := os.Stat(cacheDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("module cache stat error = %v, want not exist", err)
+	}
+}
+
+func TestAddModuleDependencyRejectsDeclarationInvalidVersionBeforeCache(t *testing.T) {
+	moduleDir := t.TempDir()
+	cacheDir := filepath.Join(t.TempDir(), "modules")
+	t.Setenv(modulecache.ModuleCachePathEnv, cacheDir)
+
+	_, err := AddModuleDependency(t.Context(), types.FilesystemPath(filepath.Join(moduleDir, "invowkmod.cue")), ModuleRef{
+		GitURL:  "https://github.com/user/tools.git",
+		Version: "v1.2.3",
+	})
+	if err == nil {
+		t.Fatal("AddModuleDependency() error = nil, want invalid declaration version error")
+	}
+	if !strings.Contains(err.Error(), "invalid requirement declaration") {
+		t.Fatalf("AddModuleDependency() error = %v, want invalid requirement declaration", err)
+	}
+	if _, statErr := os.Stat(cacheDir); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("module cache stat error = %v, want not exist", statErr)
 	}
 }
 

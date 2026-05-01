@@ -88,6 +88,20 @@ func (r ModuleRef) Validate() error {
 	return nil
 }
 
+// ValidateDeclaration returns nil if the ModuleRef can be written to an
+// invowkmod.cue requires entry.
+func (r ModuleRef) ValidateDeclaration() error {
+	if err := r.Validate(); err != nil {
+		return err
+	}
+	if r.Version != "" {
+		if err := ValidateDeclaredSemVerConstraint(r.Version); err != nil {
+			return &InvalidModuleRefError{FieldErrors: []error{err}}
+		}
+	}
+	return nil
+}
+
 // Error implements the error interface for InvalidResolvedModuleError.
 func (e *InvalidResolvedModuleError) Error() string {
 	return types.FormatFieldErrors("resolved module", e.FieldErrors)

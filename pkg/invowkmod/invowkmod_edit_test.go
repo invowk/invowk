@@ -132,6 +132,44 @@ requires: [
 		}
 	})
 
+	t.Run("reject declaration-invalid version before editing file", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		path := filepath.Join(dir, "invowkmod.cue")
+		content := `module: "mymodule"
+version: "1.0.0"
+`
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("failed to write test file: %v", err)
+		}
+
+		req := ModuleRef{
+			GitURL:  "https://github.com/user/tools.git",
+			Version: "v1.0.0",
+		}
+
+		err := AddRequirement(types.FilesystemPath(path), req)
+		if err == nil {
+			t.Fatal("expected invalid version error, got nil")
+		}
+		var refErr *InvalidModuleRefError
+		if !errors.As(err, &refErr) {
+			t.Fatalf("expected InvalidModuleRefError, got: %v", err)
+		}
+		if len(refErr.FieldErrors) != 1 || !errors.Is(refErr.FieldErrors[0], ErrInvalidSemVerConstraint) {
+			t.Fatalf("field errors = %v, want ErrInvalidSemVerConstraint", refErr.FieldErrors)
+		}
+
+		result, readErr := os.ReadFile(path)
+		if readErr != nil {
+			t.Fatalf("failed to read result: %v", readErr)
+		}
+		if string(result) != content {
+			t.Fatalf("file changed after invalid requirement:\n%s", result)
+		}
+	})
+
 	t.Run("preserves existing comments", func(t *testing.T) {
 		t.Parallel()
 

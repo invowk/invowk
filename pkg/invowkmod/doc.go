@@ -1,30 +1,32 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// Package invowkmod provides comprehensive functionality for working with invowk modules.
+// Package invowkmod defines Invowk module metadata, validation, lock-file
+// structures, and module-domain policies.
 //
 // A module is a self-contained folder with a ".invowkmod" suffix that contains
 // an invowkfile and optionally script files. Modules enable portable distribution
 // of invowk commands with their associated scripts.
 //
-// This package provides module metadata, local module operations, and stable
-// value types shared by application services:
+// This package owns stable value types shared by application services. Workflow
+// operations such as archive/import/vendor are coordinated by the application
+// layer in internal/app/moduleops so this package stays focused on module
+// structure and invariants.
 //
-// # Local Module Operations
+// # Module Structure and Validation
 //
-// Local module management including validation, creation, archiving, and vendoring:
+// Local module structure checks:
 //   - [Validate]: Comprehensive module structure and security validation
 //   - [Load]: Validate and load a module into a runtime representation
 //   - [Create]: Scaffold new modules with proper structure
-//   - [Archive]: Create ZIP archives for module distribution
-//   - [Unpack]: Extract modules from ZIP archives (local or remote)
 //
 // # Dependency Resolution Model
 //
-// Types used by the application-layer module resolver:
+// Types and policies used by the application-layer module resolver:
 //   - [ModuleRef]: Dependency declaration for Git-based modules
 //   - [ResolvedModule]: Resolved module metadata persisted to lock files
 //   - [SemverResolver]: Semantic version constraint matching
-//   - Lock file management for reproducible builds
+//   - [LockFile]: Lock file management for reproducible builds
+//   - [DeclaredLockedModuleEntries]: Declaration-to-lock policy helpers
 //
 // # Module Metadata and Parsing
 //

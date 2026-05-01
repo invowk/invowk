@@ -53,6 +53,7 @@ type (
 		Path        types.FilesystemPath
 		Invowkfile  *invowkfile.Invowkfile
 		SurfaceID   string
+		SurfaceKey  ScanSurfaceKey
 		SurfaceKind SurfaceKind
 		// ParseErr is non-nil when the invowkfile exists on disk but failed to
 		// parse. Checkers can inspect this to flag corrupted standalone invowkfiles.
@@ -74,6 +75,7 @@ type (
 		Symlinks        []SymlinkRef
 		SymlinkScanErr  error
 		SurfaceID       string
+		SurfaceKey      ScanSurfaceKey
 		SurfaceKind     SurfaceKind
 		IsGlobal        bool
 		// InvowkfileParseErr is non-nil when the invowkfile exists on disk but
@@ -90,6 +92,7 @@ type (
 	// the surface it belongs to. Used by content-analysis checkers.
 	ScriptRef struct {
 		SurfaceID   string
+		SurfaceKey  ScanSurfaceKey
 		SurfaceKind SurfaceKind
 		FilePath    types.FilesystemPath
 		ModulePath  types.FilesystemPath
@@ -135,6 +138,15 @@ type (
 		ChainTooDeep bool
 		EscapesRoot  bool
 	}
+
+	scanSurfaceIdentity struct {
+		id   scanSurfaceID
+		key  ScanSurfaceKey
+		kind SurfaceKind
+		path *types.FilesystemPath
+	}
+
+	scanSurfaceID string
 )
 
 func (a vendoredModuleArtifact) Validate() error {
@@ -160,6 +172,38 @@ func (r SymlinkRef) Validate() error {
 		return nil
 	}
 	return r.Path.Validate()
+}
+
+func (id scanSurfaceID) String() string { return string(id) }
+
+func (id scanSurfaceID) Validate() error { return nil }
+
+//goplint:ignore -- constructor validates scanner-owned identity text before returning a typed value.
+func newScanSurfaceID(raw string) scanSurfaceID {
+	id := scanSurfaceID(raw)
+	if err := id.Validate(); err != nil {
+		return ""
+	}
+	return id
+}
+
+func (i scanSurfaceIdentity) Validate() error {
+	var errs []error
+	if err := i.id.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := i.key.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := i.kind.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if i.path != nil {
+		if err := i.path.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Content returns the resolved script body for content analysis. For inline
@@ -348,6 +392,7 @@ func (sc *ScanContext) loadStandaloneInvowkfile(absPath types.FilesystemPath) er
 	si := &ScannedInvowkfile{
 		Path:        absPath,
 		SurfaceID:   string(absPath),
+		SurfaceKey:  scanSurfaceKey(SurfaceKindRootInvowkfile, absPath),
 		SurfaceKind: SurfaceKindRootInvowkfile,
 	}
 	if parseErr == nil {
@@ -397,6 +442,7 @@ func (sc *ScanContext) loadScannedModule(
 		Module:      mod,
 		Invowkfile:  inv,
 		SurfaceID:   surfaceID,
+		SurfaceKey:  scanSurfaceKey(moduleSurfaceKind(isGlobal, isVendored), absPath),
 		SurfaceKind: moduleSurfaceKind(isGlobal, isVendored),
 		IsGlobal:    isGlobal,
 	}
@@ -472,6 +518,7 @@ func (sc *ScanContext) appendParsedInvowkfile(path types.FilesystemPath) {
 	si := &ScannedInvowkfile{
 		Path:        path,
 		SurfaceID:   string(path),
+		SurfaceKey:  scanSurfaceKey(SurfaceKindRootInvowkfile, path),
 		SurfaceKind: SurfaceKindRootInvowkfile,
 	}
 	if parseErr == nil {
@@ -569,6 +616,7 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 				Path:        f.Path,
 				Invowkfile:  f.Invowkfile,
 				SurfaceID:   string(f.Path),
+				SurfaceKey:  scanSurfaceKey(SurfaceKindRootInvowkfile, f.Path),
 				SurfaceKind: SurfaceKindRootInvowkfile,
 			})
 		}
@@ -643,6 +691,7 @@ func (sc *ScanContext) appendVendoredScannedModules(vendored vendoredModuleArtif
 			)
 		}
 		sm.SurfaceKind = moduleSurfaceKind(isGlobal, true)
+		sm.SurfaceKey = scanSurfaceKey(sm.SurfaceKind, sm.Path)
 		sc.modules = append(sc.modules, sm)
 	}
 }
@@ -654,18 +703,18 @@ func buildScriptRefs(invowkfiles []*ScannedInvowkfile, modules []*ScannedModule)
 		if sf.Invowkfile == nil {
 			continue // Parse-failed invowkfiles have no scripts to analyze.
 		}
-		refs = appendScriptsFromInvowkfile(refs, sf.SurfaceID, sf.SurfaceKind, sf.Path, "", sf.Invowkfile)
+		refs = appendScriptsFromInvowkfile(refs, sf.SurfaceID, sf.SurfaceKey, sf.SurfaceKind, sf.Path, "", sf.Invowkfile)
 	}
 	for _, sm := range modules {
 		if sm.Invowkfile != nil {
 			invPath := fspath.JoinStr(sm.Path, invowkfileCUEFileName)
-			refs = appendScriptsFromInvowkfile(refs, sm.SurfaceID, sm.SurfaceKind, invPath, sm.Path, sm.Invowkfile)
+			refs = appendScriptsFromInvowkfile(refs, sm.SurfaceID, sm.SurfaceKey, sm.SurfaceKind, invPath, sm.Path, sm.Invowkfile)
 		}
 	}
 	return refs
 }
 
-func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKind SurfaceKind, filePath, modulePath types.FilesystemPath, inv *invowkfile.Invowkfile) []ScriptRef {
+func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKey ScanSurfaceKey, surfaceKind SurfaceKind, filePath, modulePath types.FilesystemPath, inv *invowkfile.Invowkfile) []ScriptRef {
 	for ci := range inv.Commands {
 		cmd := &inv.Commands[ci]
 		for i := range cmd.Implementations {
@@ -673,6 +722,7 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKind
 			isFile := impl.IsScriptFile()
 			ref := ScriptRef{
 				SurfaceID:   surfaceID,
+				SurfaceKey:  surfaceKey,
 				SurfaceKind: surfaceKind,
 				FilePath:    filePath,
 				ModulePath:  modulePath,
@@ -714,20 +764,79 @@ func moduleSurfaceKind(isGlobal, isVendored bool) SurfaceKind {
 	}
 }
 
-func (sc *ScanContext) enrichFindingSurfaceKinds(findings []Finding) {
-	kinds := make(map[string]SurfaceKind, len(sc.invowkfiles)+len(sc.modules))
-	for _, sf := range sc.invowkfiles {
-		kinds[sf.SurfaceID] = sf.SurfaceKind
-	}
-	for _, sm := range sc.modules {
-		kinds[sm.SurfaceID] = sm.SurfaceKind
-	}
+func (sc *ScanContext) enrichFindingSurfaceIdentity(findings []Finding) {
+	surfaces := sc.surfaceIdentities()
 	for i := range findings {
-		if findings[i].SurfaceKind != "" {
+		identity, ok := matchSurfaceIdentity(findings[i], surfaces)
+		if !ok {
 			continue
 		}
-		findings[i].SurfaceKind = kinds[findings[i].SurfaceID]
+		if findings[i].SurfaceKind == "" {
+			findings[i].SurfaceKind = identity.kind
+		}
+		if findings[i].SurfaceKey == "" {
+			findings[i].SurfaceKey = identity.key
+		}
 	}
+}
+
+func (sc *ScanContext) surfaceIdentities() []scanSurfaceIdentity {
+	surfaces := make([]scanSurfaceIdentity, 0, len(sc.invowkfiles)+len(sc.modules))
+	for _, sf := range sc.invowkfiles {
+		surfaces = append(surfaces, scanSurfaceIdentity{id: newScanSurfaceID(sf.SurfaceID), key: sf.SurfaceKey, kind: sf.SurfaceKind, path: &sf.Path})
+	}
+	for _, sm := range sc.modules {
+		surfaces = append(surfaces, scanSurfaceIdentity{id: newScanSurfaceID(sm.SurfaceID), key: sm.SurfaceKey, kind: sm.SurfaceKind, path: &sm.Path})
+	}
+	return surfaces
+}
+
+func matchSurfaceIdentity(finding Finding, surfaces []scanSurfaceIdentity) (scanSurfaceIdentity, bool) {
+	var candidates []scanSurfaceIdentity
+	for _, surface := range surfaces {
+		if finding.SurfaceID != "" && surface.id.String() != finding.SurfaceID {
+			continue
+		}
+		if finding.SurfaceKind != "" && surface.kind != finding.SurfaceKind {
+			continue
+		}
+		candidates = append(candidates, surface)
+	}
+	if len(candidates) == 0 {
+		return scanSurfaceIdentity{}, false
+	}
+	if len(candidates) == 1 || finding.FilePath == "" {
+		return candidates[0], true
+	}
+	for _, candidate := range candidates {
+		if candidate.path != nil && sameAuditSurfacePath(*candidate.path, finding.FilePath) {
+			return candidate, true
+		}
+	}
+	return candidates[0], true
+}
+
+func sameAuditSurfacePath(surfacePath, findingPath types.FilesystemPath) bool {
+	if surfacePath == "" || findingPath == "" {
+		return false
+	}
+	return string(surfacePath) == string(findingPath) || isWithinBoundary(string(surfacePath), string(findingPath))
+}
+
+func scanSurfaceKey(kind SurfaceKind, path types.FilesystemPath) ScanSurfaceKey {
+	if path == "" {
+		return ""
+	}
+	return newScanSurfaceKey(string(kind) + "\x00" + string(path))
+}
+
+//goplint:ignore -- constructor validates scanner-owned identity text before returning a typed value.
+func newScanSurfaceKey(raw string) ScanSurfaceKey {
+	key := ScanSurfaceKey(raw)
+	if err := key.Validate(); err != nil {
+		return ""
+	}
+	return key
 }
 
 func buildVendoredHashEvaluations(lock *invowkmod.LockFile, modules []*invowkmod.Module) []invowkmod.VendoredHashEvaluation {

@@ -103,14 +103,14 @@ func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGl
 
 	// Run checkers concurrently.
 	findings, checkerErrors := s.runCheckers(ctx, sc)
-	sc.enrichFindingSurfaceKinds(findings)
+	sc.enrichFindingSurfaceIdentity(findings)
 	ensureFindingCodes(findings)
 
 	// Apply correlation (nil correlator means DefaultRules() failed; skip).
 	var correlated []Finding
 	if s.correlator != nil {
 		correlated = s.correlator.Correlate(findings)
-		sc.enrichFindingSurfaceKinds(correlated)
+		sc.enrichFindingSurfaceIdentity(correlated)
 		ensureFindingCodes(correlated)
 	}
 

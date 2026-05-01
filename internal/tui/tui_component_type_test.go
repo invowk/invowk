@@ -5,6 +5,7 @@ package tui
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/tuiwire"
@@ -117,6 +118,140 @@ func TestCreateEmbeddableComponent_FileUsesWireRequest(t *testing.T) {
 	}
 	if !model.picker.ShowHidden {
 		t.Fatal("show hidden should be enabled")
+	}
+}
+
+func TestCreateEmbeddableComponent_InputUsesWireRequest(t *testing.T) {
+	t.Parallel()
+
+	options, err := json.Marshal(tuiwire.InputRequest{
+		Title:       "name",
+		Description: "enter a name",
+		Placeholder: "Ada",
+		Value:       "Lovelace",
+		CharLimit:   12,
+		Password:    true,
+		Prompt:      "$ ",
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	component, err := CreateEmbeddableComponent(ComponentTypeInput, options, 80, 24)
+	if err != nil {
+		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
+	}
+	model, ok := component.(*inputModel)
+	if !ok {
+		t.Fatalf("component type = %T, want *inputModel", component)
+	}
+	if model.input.CharLimit != 12 {
+		t.Fatalf("char limit = %d, want 12", model.input.CharLimit)
+	}
+	if model.input.Placeholder != "Ada" {
+		t.Fatalf("placeholder = %q, want Ada", model.input.Placeholder)
+	}
+	if model.input.Value() != "Lovelace" {
+		t.Fatalf("value = %q, want Lovelace", model.input.Value())
+	}
+	if model.input.Prompt != "$ " {
+		t.Fatalf("prompt = %q, want '$ '", model.input.Prompt)
+	}
+}
+
+func TestCreateEmbeddableComponent_FilterUsesWireRequest(t *testing.T) {
+	t.Parallel()
+
+	options, err := json.Marshal(tuiwire.FilterRequest{
+		Title:       "pick",
+		Options:     []string{"one", "two"},
+		Limit:       3,
+		NoLimit:     true,
+		Placeholder: "search",
+		Height:      6,
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	component, err := CreateEmbeddableComponent(ComponentTypeFilter, options, 80, 24)
+	if err != nil {
+		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
+	}
+	model, ok := component.(*filterModel)
+	if !ok {
+		t.Fatalf("component type = %T, want *filterModel", component)
+	}
+	if !model.noLimit {
+		t.Fatal("no_limit should be preserved")
+	}
+	if model.limit != 3 {
+		t.Fatalf("limit = %d, want 3", model.limit)
+	}
+	if model.list.FilterInput.Placeholder != "search" {
+		t.Fatalf("placeholder = %q, want search", model.list.FilterInput.Placeholder)
+	}
+}
+
+func TestCreateEmbeddableComponent_TextAreaUsesWireRequest(t *testing.T) {
+	t.Parallel()
+
+	options, err := json.Marshal(tuiwire.TextAreaRequest{
+		Title:           "body",
+		Placeholder:     "type",
+		Value:           "initial",
+		CharLimit:       20,
+		ShowLineNumbers: true,
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	component, err := CreateEmbeddableComponent(ComponentTypeTextArea, options, 80, 24)
+	if err != nil {
+		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
+	}
+	model, ok := component.(*writeModel)
+	if !ok {
+		t.Fatalf("component type = %T, want *writeModel", component)
+	}
+	if model.textarea.CharLimit != 20 {
+		t.Fatalf("char limit = %d, want 20", model.textarea.CharLimit)
+	}
+	if !model.textarea.ShowLineNumbers {
+		t.Fatal("show_line_numbers should be preserved")
+	}
+	if model.textarea.Value() != "initial" {
+		t.Fatalf("value = %q, want initial", model.textarea.Value())
+	}
+}
+
+func TestCreateEmbeddableComponent_PagerUsesWireRequest(t *testing.T) {
+	t.Parallel()
+
+	options, err := json.Marshal(tuiwire.PagerRequest{
+		Title:       "manual",
+		Content:     "body",
+		ShowLineNum: true,
+		SoftWrap:    true,
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	component, err := CreateEmbeddableComponent(ComponentTypePager, options, 80, 24)
+	if err != nil {
+		t.Fatalf("CreateEmbeddableComponent() error = %v", err)
+	}
+	model, ok := component.(*pagerModel)
+	if !ok {
+		t.Fatalf("component type = %T, want *pagerModel", component)
+	}
+	if model.title != "manual" {
+		t.Fatalf("title = %q, want manual", model.title)
+	}
+	if !strings.Contains(model.viewport.View(), "body") {
+		t.Fatalf("content = %q, want body", model.viewport.View())
 	}
 }
 

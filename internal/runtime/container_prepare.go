@@ -42,6 +42,9 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		TTY:         true, // Enable -t for PTY
 		ExtraHosts:  prep.extraHosts,
 	}
+	if err := runOpts.Validate(); err != nil {
+		return nil, fmt.Errorf("container run options: %w", err)
+	}
 
 	cmd := r.engine.PrepareRunCommand(ctx.Context, runOpts)
 	return &PreparedCommand{Cmd: cmd, Cleanup: prep.cleanup}, nil
