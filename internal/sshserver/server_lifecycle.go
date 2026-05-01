@@ -153,7 +153,6 @@ func (s *Server) doStop() error {
 
 	// Transition to Stopped and close error channel
 	s.base.TransitionToStopped()
-	s.base.CloseErrChannel()
 	s.logger.Info("SSH server stopped")
 
 	return shutdownErr

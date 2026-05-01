@@ -3,6 +3,7 @@
 package invowkfile
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -68,6 +69,50 @@ func TestInvowkfile_Validate_DefaultValidators(t *testing.T) {
 	}
 }
 
+func TestInvowkfile_Validate_DependsOnEmptyAlternatives(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*Invowkfile)
+	}{
+		{
+			name: "root tool",
+			mutate: func(inv *Invowkfile) {
+				inv.DependsOn = &DependsOn{Tools: []ToolDependency{{}}}
+			},
+		},
+		{
+			name: "command capability",
+			mutate: func(inv *Invowkfile) {
+				inv.Commands[0].DependsOn = &DependsOn{Capabilities: []CapabilityDependency{{}}}
+			},
+		},
+		{
+			name: "implementation env var",
+			mutate: func(inv *Invowkfile) {
+				inv.Commands[0].Implementations[0].DependsOn = &DependsOn{EnvVars: []EnvVarDependency{{}}}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			inv := validValidationInvowkfile()
+			tt.mutate(inv)
+			errs := inv.Validate()
+			if len(errs) == 0 {
+				t.Fatal("Validate() returned no errors, want missing dependency alternatives")
+			}
+			if !errors.Is(errs[0].Cause, ErrMissingDependencyAlternatives) {
+				t.Fatalf("first validation cause = %v, want ErrMissingDependencyAlternatives", errs[0].Cause)
+			}
+		})
+	}
+}
+
 func TestInvowkfile_Validate_WithStrictMode(t *testing.T) {
 	t.Parallel()
 
@@ -111,6 +156,21 @@ func TestInvowkfile_Validate_WithStrictMode(t *testing.T) {
 	}
 	if errs[0].Severity != SeverityError {
 		t.Errorf("expected error severity with strict mode, got %v", errs[0].Severity)
+	}
+}
+
+func validValidationInvowkfile() *Invowkfile {
+	return &Invowkfile{
+		FilePath: "/test/invowkfile.cue",
+		Commands: []Command{{
+			Name:        "build",
+			Description: "Build the project",
+			Implementations: []Implementation{{
+				Script:    "echo 'building'",
+				Runtimes:  []RuntimeConfig{{Name: RuntimeNative}},
+				Platforms: []PlatformConfig{{Name: PlatformLinux}},
+			}},
+		}},
 	}
 }
 
@@ -281,8 +341,8 @@ func TestInvowkfile_Validate_MultipleErrors(t *testing.T) {
 	}
 
 	// Verify we can filter errors and warnings
-	errors := errs.Errors()
-	for _, e := range errors {
+	validationErrors := errs.Errors()
+	for _, e := range validationErrors {
 		if e.Severity != SeverityError {
 			t.Errorf("Errors() returned non-error: %v", e)
 		}

@@ -96,6 +96,43 @@ func TestRenderAuditJSONSeparatesFindingsAndCompoundThreats(t *testing.T) {
 	}
 }
 
+func TestRenderAuditJSONSuppressesByDesignRootFindings(t *testing.T) {
+	t.Parallel()
+
+	report := &audit.Report{
+		Findings: []audit.Finding{{
+			Code:        "env-exfiltration-command-uses-default-env-inheritance-all-host-variables",
+			Severity:    audit.SeverityHigh,
+			Category:    audit.CategoryExfiltration,
+			SurfaceKind: audit.SurfaceKindRootInvowkfile,
+			CheckerName: "env",
+			Title:       "Command uses default env inheritance (all host variables)",
+		}},
+	}
+
+	var buf bytes.Buffer
+	if err := renderAuditJSON(&buf, report, audit.SeverityInfo); err != nil {
+		t.Fatalf("renderAuditJSON() error = %v", err)
+	}
+
+	var got auditJSONOutput
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if len(got.Findings) != 0 {
+		t.Fatalf("len(Findings) = %d, want 0 confirmed findings", len(got.Findings))
+	}
+	if len(got.SuppressedFindings) != 1 {
+		t.Fatalf("len(SuppressedFindings) = %d, want 1", len(got.SuppressedFindings))
+	}
+	if got.SuppressedFindings[0].Rule != audit.TriageRuleR7 {
+		t.Fatalf("suppressed rule = %s, want %s", got.SuppressedFindings[0].Rule, audit.TriageRuleR7)
+	}
+	if got.Summary.Total != 0 || got.Summary.Suppressed != 1 {
+		t.Fatalf("summary = %+v, want total 0 suppressed 1", got.Summary)
+	}
+}
+
 func TestConvertDiagnosticsUsesCLIDTO(t *testing.T) {
 	t.Parallel()
 
@@ -135,7 +172,7 @@ func TestRenderAuditTextShowsDiagnosticsWithoutFindings(t *testing.T) {
 		"Diagnostics (1)",
 		"vendored_nested_ignored",
 		"nested vendored modules are ignored",
-		"No findings at or above low severity",
+		"No confirmed findings at or above low severity",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("renderAuditText() output missing %q:\n%s", want, out)

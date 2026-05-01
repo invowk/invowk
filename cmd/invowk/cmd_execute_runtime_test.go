@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
@@ -15,6 +16,16 @@ import (
 // testConfigFallback wraps the application-service fallback for commandsvc.ConfigFallbackFunc.
 func testConfigFallback(ctx context.Context, provider config.Loader, configPath string) (cfg *config.Config, diags []commandsvc.Diagnostic) {
 	return commandsvc.LoadConfigWithFallback(ctx, provider, configPath)
+}
+
+func testRuntimeRegistryFactory(t testing.TB) commandsvc.RuntimeRegistryCreator {
+	t.Helper()
+
+	registryFactory, err := commandadapters.NewRuntimeRegistryFactory()
+	if err != nil {
+		t.Fatalf("NewRuntimeRegistryFactory() error = %v", err)
+	}
+	return registryFactory
 }
 
 // buildDualRuntimeCommand creates a command with both native and virtual runtimes
@@ -76,7 +87,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.DefaultPorts(),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})
@@ -99,7 +110,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.DefaultPorts(),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{
@@ -124,7 +135,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.DefaultPorts(),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "native-only"})
@@ -146,7 +157,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.DefaultPorts(),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})
@@ -167,7 +178,7 @@ func TestResolveRuntime(t *testing.T) {
 			&lookupDiscoveryService{lookup: discovery.LookupResult{Command: cmdInfo}},
 			func() map[string]string { return nil },
 			testConfigFallback,
-			commandsvc.DefaultPorts(),
+			commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil),
 		)
 
 		result, _, err := svc.Execute(t.Context(), commandsvc.Request{Name: "test-cmd"})

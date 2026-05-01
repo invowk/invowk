@@ -8,7 +8,7 @@ stdout 'Security Audit'
 stdout 'Diagnostics'
 stdout 'vendored_module_skipped'
 stdout 'bad.invowkmod'
-stdout 'No findings at or above low severity'
+stdout 'No confirmed findings at or above low severity'
 
 -- root.invowkmod/invowkmod.cue --
 module: "root"

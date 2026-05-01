@@ -18,6 +18,10 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 
 	// Validate tool dependencies
 	for i, dep := range deps.Tools {
+		if err := dep.Validate(); err != nil {
+			errs = append(errs, dependencyValidationError(v.Name(), basePath.Copy().DependsOn().Field("tools["+strconv.Itoa(i+1)+"]"), ctx, err))
+			continue
+		}
 		for j, alt := range dep.Alternatives {
 			if err := ValidateToolName(alt); err != nil {
 				errs = append(errs, ValidationError{
@@ -32,6 +36,10 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 
 	// Validate command dependencies
 	for i, dep := range deps.Commands {
+		if err := dep.Validate(); err != nil {
+			errs = append(errs, dependencyValidationError(v.Name(), basePath.Copy().DependsOn().Field("cmds["+strconv.Itoa(i+1)+"]"), ctx, err))
+			continue
+		}
 		for j, alt := range dep.Alternatives {
 			if err := ValidateCommandDependencyName(alt); err != nil {
 				errs = append(errs, ValidationError{
@@ -46,6 +54,10 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 
 	// Validate filepath dependencies
 	for i, dep := range deps.Filepaths {
+		if err := dep.Validate(); err != nil {
+			errs = append(errs, dependencyValidationError(v.Name(), basePath.Copy().DependsOn().Filepaths(i), ctx, err))
+			continue
+		}
 		if err := ValidateFilepathDependency(dep.Alternatives); err != nil {
 			errs = append(errs, ValidationError{
 				Validator: v.Name(),
@@ -56,8 +68,19 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 		}
 	}
 
+	// Validate capability dependencies.
+	for i, dep := range deps.Capabilities {
+		if err := dep.Validate(); err != nil {
+			errs = append(errs, dependencyValidationError(v.Name(), basePath.Copy().DependsOn().Field("capabilities["+strconv.Itoa(i+1)+"]"), ctx, err))
+		}
+	}
+
 	// Validate env var dependencies
 	for i, dep := range deps.EnvVars {
+		if err := dep.Validate(); err != nil {
+			errs = append(errs, dependencyValidationError(v.Name(), basePath.Copy().DependsOn().Field("env_vars["+strconv.Itoa(i+1)+"]"), ctx, err))
+			continue
+		}
 		for j, alt := range dep.Alternatives {
 			name := strings.TrimSpace(string(alt.Name))
 			if err := ValidateEnvVarName(name); err != nil {
@@ -86,6 +109,16 @@ func (v *StructureValidator) validateDependsOn(ctx *ValidationContext, deps *Dep
 	errs = append(errs, v.validateCustomChecks(ctx, deps.CustomChecks, basePath)...)
 
 	return errs
+}
+
+func dependencyValidationError(validator ValidatorName, fieldPath *FieldPath, ctx *ValidationContext, err error) ValidationError {
+	return ValidationError{
+		Validator: validator,
+		Field:     fieldPath.String(),
+		Message:   err.Error() + invowkfileAtSuffix + string(ctx.FilePath),
+		Severity:  SeverityError,
+		Cause:     err,
+	}
 }
 
 // validateCustomChecks validates custom check dependencies for security and correctness.

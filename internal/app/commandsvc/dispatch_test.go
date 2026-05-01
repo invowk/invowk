@@ -47,6 +47,10 @@ type (
 		commandStartingCalls int
 		fallbackCalls        int
 	}
+
+	staticRuntimeRegistryFactory struct {
+		registry *runtimepkg.Registry
+	}
 )
 
 func (s *stubRuntime) Name() string { return s.name }
@@ -100,12 +104,23 @@ func (o *recordingExecutionObserver) InteractiveFallback(runtimeName invowkfile.
 	o.fallbackCalls++
 }
 
+func (f staticRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeRegistryResult {
+	registry := f.registry
+	if registry == nil {
+		registry = runtimepkg.NewRegistry()
+		registry.Register(runtimepkg.RuntimeTypeNative, runtimepkg.NewNativeRuntime())
+		registry.Register(runtimepkg.RuntimeTypeVirtual, runtimepkg.NewVirtualRuntime(true))
+		registry.Register(runtimepkg.RuntimeTypeContainer, &stubRuntime{name: string(invowkfile.RuntimeContainer)})
+	}
+	return RuntimeRegistryResult{Registry: registry, Cleanup: func() {}}
+}
+
 func TestDispatchExecution_Success(t *testing.T) {
 	t.Parallel()
 
 	svc := &Service{
 		hostAccess:      noopHostAccess{},
-		registryFactory: defaultRuntimeRegistryFactory{},
+		registryFactory: staticRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
 	}
 	cmdInfo, execCtx, execStdout := commandInfoAndContext(t, "echo hello")
@@ -139,7 +154,7 @@ func TestDispatchExecution_DependencyError(t *testing.T) {
 
 	svc := &Service{
 		hostAccess:      noopHostAccess{},
-		registryFactory: defaultRuntimeRegistryFactory{},
+		registryFactory: staticRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
 	}
 	cmdInfo, execCtx, _ := commandInfoAndContext(t, "echo hello")

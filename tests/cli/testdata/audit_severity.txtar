@@ -9,7 +9,7 @@ cd $WORK
 # Test 1: With --severity critical, medium network findings are excluded → exit 0
 exec invowk audit --severity critical
 stdout 'Security Audit'
-stdout 'No findings at or above critical severity'
+stdout 'No confirmed findings at or above critical severity'
 
 -- invowkfile.cue --
 cmds: [{

@@ -470,6 +470,31 @@ func TestWithErrorChannel(t *testing.T) {
 	}
 }
 
+func TestTransitionToStoppedClosesErrChannel(t *testing.T) {
+	t.Parallel()
+
+	b := NewBase()
+	if err := b.TransitionToStarting(t.Context()); err != nil {
+		t.Fatalf("TransitionToStarting() error = %v", err)
+	}
+	b.TransitionToRunning()
+	if !b.TransitionToStopping() {
+		t.Fatal("TransitionToStopping() = false, want true")
+	}
+
+	b.TransitionToStopped()
+	b.CloseErrChannel()
+
+	select {
+	case _, ok := <-b.Err():
+		if ok {
+			t.Fatal("Err channel still open after TransitionToStopped()")
+		}
+	default:
+		t.Fatal("Err channel should be closed after TransitionToStopped()")
+	}
+}
+
 // Test goroutine tracking
 func TestGoroutineTracking(t *testing.T) {
 	t.Parallel()

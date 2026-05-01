@@ -407,6 +407,14 @@ func TestStopWithoutStart(t *testing.T) {
 	if srv.State() != serverbase.StateStopped {
 		t.Errorf("State should be Stopped, got %s", srv.State())
 	}
+	select {
+	case _, ok := <-srv.Err():
+		if ok {
+			t.Fatal("Err channel still open after Stop() without Start()")
+		}
+	default:
+		t.Fatal("Err channel should be closed after Stop() without Start()")
+	}
 }
 
 func TestServerStateString(t *testing.T) {

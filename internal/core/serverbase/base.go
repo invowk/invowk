@@ -30,6 +30,8 @@ type Base struct {
 	startedCh chan struct{}
 	//plint:internal -- async error channel; created in NewBase()
 	errCh chan error
+	//plint:internal -- ensures errCh is closed once at terminal stop
+	errCloseOnce sync.Once
 	//plint:internal -- last error that caused Failed state
 	lastErr error
 }
@@ -153,6 +155,7 @@ func (b *Base) TransitionToStopping() bool {
 			return false // Already stopped
 		case StateCreated:
 			if b.state.CompareAndSwap(int32(StateCreated), int32(StateStopped)) {
+				b.CloseErrChannel()
 				return false // Never started, just mark stopped
 			}
 			continue // State changed, retry
@@ -181,6 +184,7 @@ func (b *Base) TransitionToStopping() bool {
 // Must be called after all goroutines have exited.
 func (b *Base) TransitionToStopped() {
 	b.state.Store(int32(StateStopped))
+	b.CloseErrChannel()
 }
 
 // WaitForReady blocks until the server is ready or context is cancelled.
@@ -229,7 +233,9 @@ func (b *Base) SendError(err error) {
 // CloseErrChannel closes the error channel to signal consumers.
 // Should be called when the server is fully stopped.
 func (b *Base) CloseErrChannel() {
-	close(b.errCh)
+	b.errCloseOnce.Do(func() {
+		close(b.errCh)
+	})
 }
 
 // StartedChannel returns the started channel for custom waiting logic.

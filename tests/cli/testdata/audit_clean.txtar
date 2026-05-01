@@ -6,12 +6,12 @@ cd $WORK
 # Test 1: Clean invowkfile with safe inline script
 exec invowk audit
 stdout 'Security Audit'
-stdout 'No findings at or above low severity'
+stdout 'No confirmed findings at or above low severity'
 
 # Test 2: Clean audit with explicit path
 exec invowk audit .
 stdout 'Security Audit'
-stdout 'No findings'
+stdout 'No confirmed findings'
 
 -- invowkfile.cue --
 cmds: [{

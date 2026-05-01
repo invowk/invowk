@@ -92,7 +92,7 @@ func New(
 		config:          configProvider,
 		discovery:       disc,
 		hostAccess:      noopHostAccess{},
-		registryFactory: defaultRuntimeRegistryFactory{},
+		registryFactory: missingRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
 		observer:        noopExecutionObserver{},
 		userEnvFunc:     userEnvFunc,

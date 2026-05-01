@@ -243,7 +243,7 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 		},
 		func() map[string]string { return nil },
 		testConfigFallback,
-		commandsvc.DefaultPorts(),
+		commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil),
 	)
 
 	customCuePath2 := filepath.Join(t.TempDir(), "custom.cue")
@@ -281,7 +281,7 @@ func TestDiscoverCommand_ResolvedCommandSkipsLookup(t *testing.T) {
 		disc,
 		func() map[string]string { return nil },
 		testConfigFallback,
-		commandsvc.DefaultPorts(),
+		commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil),
 	)
 
 	resolved := &discovery.CommandInfo{

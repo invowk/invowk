@@ -124,8 +124,17 @@ The scanner produces structured JSON with this schema:
     }
   ],
   "compound_threats": [...],
+  "suppressed_findings": [
+    {
+      "finding": {...},
+      "disposition": "suppressed",
+      "rule": "R7",
+      "rationale": "why the deterministic policy suppressed it"
+    }
+  ],
+  "suppressed_compound_threats": [...],
   "summary": {
-    "total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0,
+    "total": 0, "suppressed": 0, "critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0,
     "modules_scanned": 0, "invowkfiles_scanned": 0, "scripts_scanned": 0,
     "duration_ms": 0
   }
@@ -150,8 +159,16 @@ The Go scanner already handles all of these deterministically:
 
 ## Phase 2: Classify & Triage
 
-**Main agent work. No subagents.** Parse the Phase 1 JSON and classify each
-finding into one of three buckets:
+**Main agent work. No subagents.** The R1-R12 policy is implemented in
+`internal/audit` via `ClassifyReportFindings`; `invowk audit --format json`
+emits confirmed findings in `findings` / `compound_threats` and by-design
+suppressed findings in `suppressed_findings` /
+`suppressed_compound_threats`. Use those fields first instead of manually
+re-implementing the table.
+
+When reviewing code changes to `internal/audit/`, verify the classifier still
+matches this table. For external scan output, parse the Phase 1 JSON and place
+each finding into one of three buckets:
 
 ### Bucket 1: Confirmed findings (report as-is)
 

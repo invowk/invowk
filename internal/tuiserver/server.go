@@ -53,7 +53,6 @@ type (
 		shutdownCh       chan struct{}
 		shutdownOnce     sync.Once
 		requestCloseOnce sync.Once
-		errCloseOnce     sync.Once
 
 		// Request handling - mu protects concurrent access during TUI rendering.
 		// Only one TUI component can be rendered at a time.
@@ -149,7 +148,6 @@ func (s *Server) Stop() error {
 			_ = s.listener.Close() // Best-effort cleanup; server already stopping
 		}
 		s.closeRequestChannel()
-		s.closeErrChannel()
 		return nil
 	}
 
@@ -162,7 +160,6 @@ func (s *Server) Stop() error {
 	s.base.WaitForShutdown()
 	s.base.TransitionToStopped()
 	s.closeRequestChannel()
-	s.closeErrChannel()
 
 	return err
 }
@@ -214,12 +211,6 @@ func (s *Server) Err() <-chan error {
 func (s *Server) closeRequestChannel() {
 	s.requestCloseOnce.Do(func() {
 		close(s.requestCh)
-	})
-}
-
-func (s *Server) closeErrChannel() {
-	s.errCloseOnce.Do(func() {
-		s.base.CloseErrChannel()
 	})
 }
 

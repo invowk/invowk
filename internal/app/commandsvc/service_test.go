@@ -290,7 +290,7 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 		config:          &staticCommandsvcConfigProvider{cfg: cfg},
 		discovery:       &stubCommandDiscovery{lookup: discovery.LookupResult{Command: cmdInfo}},
 		hostAccess:      hostAccess,
-		registryFactory: defaultRuntimeRegistryFactory{},
+		registryFactory: missingRuntimeRegistryFactory{},
 		interactive:     defaultInteractiveExecutor{},
 		userEnvFunc:     func() map[string]string { return map[string]string{} },
 		configFallback: func(context.Context, config.Loader, string) (*config.Config, []Diagnostic) {

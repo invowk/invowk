@@ -551,6 +551,13 @@ func CreateDefaultConfig(configDirPath types.FilesystemPath) error {
 // Save writes the current configuration to file.
 // When configDirPath is empty, the platform-default directory from ConfigDir() is used.
 func Save(cfg *Config, configDirPath types.FilesystemPath) error {
+	if cfg == nil {
+		return errors.New("config is nil")
+	}
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+
 	cfgDir, err := configDirWithOverride(configDirPath)
 	if err != nil {
 		return err

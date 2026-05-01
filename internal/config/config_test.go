@@ -444,6 +444,47 @@ func TestLoadAndSave(t *testing.T) {
 	}
 }
 
+func TestSaveRejectsInvalidConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*Config)
+	}{
+		{
+			name: "invalid default runtime",
+			mutate: func(cfg *Config) {
+				cfg.DefaultRuntime = RuntimeMode("invalid-runtime")
+			},
+		},
+		{
+			name: "invalid auto provision include",
+			mutate: func(cfg *Config) {
+				cfg.Container.AutoProvision.Includes = []IncludeEntry{{Path: ModuleIncludePath("relative.invowkmod")}}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configDir := filepath.Join(tmpDir, AppName)
+			cfg := DefaultConfig()
+			tt.mutate(cfg)
+
+			err := Save(cfg, types.FilesystemPath(configDir))
+			if err == nil {
+				t.Fatal("Save() returned nil, want invalid config error")
+			}
+			if _, statErr := os.Stat(filepath.Join(configDir, ConfigFileName+"."+ConfigFileExt)); !os.IsNotExist(statErr) {
+				t.Fatalf("Save() wrote config despite validation failure, stat err=%v", statErr)
+			}
+		})
+	}
+}
+
 func TestLoad_ReturnsDefaultsWhenNoConfigFile(t *testing.T) {
 	t.Parallel()
 	// Use a temp directory with no config file

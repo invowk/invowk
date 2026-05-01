@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -92,7 +91,7 @@ func CollectToolErrors(tools []invowkfile.ToolDependency, check func(invowkfile.
 // All container validation functions must call this after checking result.Error
 // and before interpreting result.ExitCode for domain-specific failures.
 func CheckTransientExitCode(result *runtime.Result, label string) error {
-	if container.IsTransientEngineExitCode(result.ExitCode) {
+	if runtime.IsTransientContainerEngineExitCode(result.ExitCode) {
 		return fmt.Errorf("  • %s - %w (exit code %s)", label, ErrContainerEngineFailure, result.ExitCode)
 	}
 	return nil

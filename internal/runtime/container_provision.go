@@ -423,7 +423,14 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 		// Path is outside invowkfile dir - use as-is (must exist in container or be a mounted path)
 		return string(effectiveWorkDir)
 	}
+	if isContainerAbsolutePath(effectiveWorkDir) {
+		return string(effectiveWorkDir)
+	}
 
 	// Relative path - join with /workspace
 	return containerWorkspacePrefix + filepath.ToSlash(string(effectiveWorkDir))
+}
+
+func isContainerAbsolutePath(path types.FilesystemPath) bool {
+	return strings.HasPrefix(path.String(), "/")
 }

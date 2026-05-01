@@ -54,10 +54,12 @@ var (
 type (
 	// auditJSONOutput is the top-level JSON structure.
 	auditJSONOutput struct {
-		Findings        []auditJSONFinding    `json:"findings"`
-		CompoundThreats []auditJSONFinding    `json:"compound_threats,omitempty"`
-		Diagnostics     []auditJSONDiagnostic `json:"diagnostics,omitempty"`
-		Summary         auditJSONSummary      `json:"summary"`
+		Findings                  []auditJSONFinding    `json:"findings"`
+		CompoundThreats           []auditJSONFinding    `json:"compound_threats,omitempty"`
+		SuppressedFindings        []auditJSONSuppressed `json:"suppressed_findings,omitempty"`
+		SuppressedCompoundThreats []auditJSONSuppressed `json:"suppressed_compound_threats,omitempty"`
+		Diagnostics               []auditJSONDiagnostic `json:"diagnostics,omitempty"`
+		Summary                   auditJSONSummary      `json:"summary"`
 	}
 
 	//goplint:constant-only
@@ -90,8 +92,17 @@ type (
 		Path     types.FilesystemPath     `json:"path,omitempty"`
 	}
 
+	//goplint:ignore -- CLI JSON DTO fields are wire-format primitives.
+	auditJSONSuppressed struct {
+		Finding     auditJSONFinding        `json:"finding"`
+		Disposition audit.TriageDisposition `json:"disposition"`
+		Rule        audit.TriageRule        `json:"rule"`
+		Rationale   audit.TriageRationale   `json:"rationale"`
+	}
+
 	auditJSONSummary struct {
 		Total              int   `json:"total"`
+		Suppressed         int   `json:"suppressed"`
 		Critical           int   `json:"critical"`
 		High               int   `json:"high"`
 		Medium             int   `json:"medium"`
@@ -129,6 +140,16 @@ func (o auditJSONOutput) Validate() error {
 			return err
 		}
 	}
+	for i := range o.SuppressedFindings {
+		if err := o.SuppressedFindings[i].Validate(); err != nil {
+			return err
+		}
+	}
+	for i := range o.SuppressedCompoundThreats {
+		if err := o.SuppressedCompoundThreats[i].Validate(); err != nil {
+			return err
+		}
+	}
 	for i := range o.Diagnostics {
 		if err := o.Diagnostics[i].Validate(); err != nil {
 			return err
@@ -148,6 +169,15 @@ func (f auditJSONFinding) Validate() error {
 		errs = append(errs, code.Validate())
 	}
 	return errors.Join(errs...)
+}
+
+func (s auditJSONSuppressed) Validate() error {
+	return errors.Join(
+		s.Finding.Validate(),
+		s.Disposition.Validate(),
+		s.Rule.Validate(),
+		s.Rationale.Validate(),
+	)
 }
 
 func (d auditJSONDiagnostic) Validate() error {
@@ -334,8 +364,8 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 		return &ExitError{Code: auditExitError}
 	}
 
-	// Determine exit code based on filtered findings.
-	if report.HasFindings(minSev) {
+	// Determine exit code based on confirmed findings after deterministic triage.
+	if audit.ClassifyReportFindings(report).HasConfirmedFindings(minSev) {
 		return &ExitError{Code: auditExitFindings}
 	}
 
@@ -371,11 +401,13 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 		report.ModuleCount, report.InvowkfileCount, report.ScriptCount,
 		formatDuration(report.ScanDuration))
 
-	findings := report.IndividualFindingsBySeverity(minSev)
+	triage := audit.ClassifyReportFindings(report)
+	findings := triage.ConfirmedFindingsBySeverity(minSev)
 	renderAuditDiagnostics(w, report.Diagnostics)
 
 	if len(findings) == 0 {
-		fmt.Fprintf(w, "%s No findings at or above %s severity\n", SuccessStyle.Render("✓"), minSev)
+		fmt.Fprintf(w, "%s No confirmed findings at or above %s severity\n", SuccessStyle.Render("✓"), minSev)
+		renderSuppressedAuditFindings(w, triage, minSev)
 		return
 	}
 
@@ -416,7 +448,7 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 	}
 
 	// Compound threats section (filtered by minimum severity).
-	filteredCorrelated := report.CompoundThreatsBySeverity(minSev)
+	filteredCorrelated := triage.ConfirmedCompoundThreatsBySeverity(minSev)
 	if len(filteredCorrelated) > 0 {
 		fmt.Fprintln(w, auditSeparatorStyle.Render("═══ Compound Threats ═══"))
 		for i := range filteredCorrelated {
@@ -431,13 +463,33 @@ func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev 
 			fmt.Fprintln(w)
 		}
 	}
+	renderSuppressedAuditFindings(w, triage, minSev)
 
 	// Summary line.
-	counts := report.CountBySeverity()
+	counts := countFindingsBySeverity(findings, filteredCorrelated)
 	fmt.Fprintf(w, "Summary: %d critical, %d high, %d medium, %d low, %d info\n",
 		counts[audit.SeverityCritical], counts[audit.SeverityHigh],
 		counts[audit.SeverityMedium], counts[audit.SeverityLow],
 		counts[audit.SeverityInfo])
+}
+
+func renderSuppressedAuditFindings(w io.Writer, triage audit.ReportTriage, minSev audit.Severity) {
+	suppressed := triage.SuppressedFindingsBySeverity(minSev)
+	suppressedCompound := triage.SuppressedCompoundThreatsBySeverity(minSev)
+	if len(suppressed) == 0 && len(suppressedCompound) == 0 {
+		return
+	}
+
+	fmt.Fprintln(w, auditSeparatorStyle.Render("═══ Suppressed By Design ═══"))
+	for i := range suppressed {
+		fmt.Fprintf(w, "  %s [%s] %s\n", auditInfoIcon, suppressed[i].Rule(), suppressed[i].Finding().Title)
+		fmt.Fprintln(w, auditFindingDetailStyle.Render(suppressed[i].Rationale().String()))
+	}
+	for i := range suppressedCompound {
+		fmt.Fprintf(w, "  %s [%s] %s\n", auditInfoIcon, suppressedCompound[i].Rule(), suppressedCompound[i].Finding().Title)
+		fmt.Fprintln(w, auditFindingDetailStyle.Render(suppressedCompound[i].Rationale().String()))
+	}
+	fmt.Fprintln(w)
 }
 
 func renderAuditDiagnostics(w io.Writer, diagnostics []audit.Diagnostic) {
@@ -457,28 +509,28 @@ func renderAuditDiagnostics(w io.Writer, diagnostics []audit.Diagnostic) {
 }
 
 func renderAuditJSON(w io.Writer, report *audit.Report, minSev audit.Severity) error {
-	filtered := report.IndividualFindingsBySeverity(minSev)
+	triage := audit.ClassifyReportFindings(report)
+	filtered := triage.ConfirmedFindingsBySeverity(minSev)
 
 	// Apply the same severity filter to correlated findings so the JSON
 	// total is consistent with the displayed findings.
-	filteredCorrelated := report.CompoundThreatsBySeverity(minSev)
+	filteredCorrelated := triage.ConfirmedCompoundThreatsBySeverity(minSev)
+	suppressed := triage.SuppressedFindingsBySeverity(minSev)
+	suppressedCorrelated := triage.SuppressedCompoundThreatsBySeverity(minSev)
 
 	// Count only filtered findings so the severity breakdown matches the
 	// findings and compound_threats arrays in the output (M16 fix).
-	counts := make(map[audit.Severity]int)
-	for i := range filtered {
-		counts[filtered[i].Severity]++
-	}
-	for i := range filteredCorrelated {
-		counts[filteredCorrelated[i].Severity]++
-	}
+	counts := countFindingsBySeverity(filtered, filteredCorrelated)
 
 	output := auditJSONOutput{
-		Findings:        convertFindings(filtered),
-		CompoundThreats: convertFindings(filteredCorrelated),
-		Diagnostics:     convertDiagnostics(report.Diagnostics),
+		Findings:                  convertFindings(filtered),
+		CompoundThreats:           convertFindings(filteredCorrelated),
+		SuppressedFindings:        convertSuppressedFindings(suppressed),
+		SuppressedCompoundThreats: convertSuppressedFindings(suppressedCorrelated),
+		Diagnostics:               convertDiagnostics(report.Diagnostics),
 		Summary: auditJSONSummary{
 			Total:              len(filtered) + len(filteredCorrelated),
+			Suppressed:         len(suppressed) + len(suppressedCorrelated),
 			Critical:           counts[audit.SeverityCritical],
 			High:               counts[audit.SeverityHigh],
 			Medium:             counts[audit.SeverityMedium],
@@ -499,6 +551,18 @@ func renderAuditJSON(w io.Writer, report *audit.Report, minSev audit.Severity) e
 	return nil
 }
 
+//goplint:ignore -- CLI summary counts are map values for JSON/text rendering.
+func countFindingsBySeverity(findings, correlated []audit.Finding) map[audit.Severity]int {
+	counts := make(map[audit.Severity]int)
+	for i := range findings {
+		counts[findings[i].Severity]++
+	}
+	for i := range correlated {
+		counts[correlated[i].Severity]++
+	}
+	return counts
+}
+
 func convertFindings(findings []audit.Finding) []auditJSONFinding {
 	result := make([]auditJSONFinding, 0, len(findings))
 	for i := range findings {
@@ -516,6 +580,19 @@ func convertFindings(findings []audit.Finding) []auditJSONFinding {
 			Recommendation:     findings[i].Recommendation,
 			EscalatedFrom:      findings[i].EscalatedFrom,
 			EscalatedFromCodes: findingCodesToStrings(findings[i].EscalatedFromCodes),
+		})
+	}
+	return result
+}
+
+func convertSuppressedFindings(findings []audit.TriagedFinding) []auditJSONSuppressed {
+	result := make([]auditJSONSuppressed, 0, len(findings))
+	for i := range findings {
+		result = append(result, auditJSONSuppressed{
+			Finding:     convertFindings([]audit.Finding{findings[i].Finding()})[0],
+			Disposition: findings[i].Disposition(),
+			Rule:        findings[i].Rule(),
+			Rationale:   findings[i].Rationale(),
 		})
 	}
 	return result

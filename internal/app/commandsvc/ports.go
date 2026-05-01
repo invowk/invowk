@@ -44,7 +44,7 @@ type (
 
 	noopExecutionObserver struct{}
 
-	defaultRuntimeRegistryFactory struct{}
+	missingRuntimeRegistryFactory struct{}
 
 	defaultInteractiveExecutor struct{}
 )
@@ -65,16 +65,10 @@ func (noopExecutionObserver) InteractiveFallback(invowkfile.RuntimeMode) {
 	// Interactive fallback events are optional for service-only callers.
 }
 
-func (defaultRuntimeRegistryFactory) Create(cfg *config.Config, _ HostAccess, selectedRuntime invowkfile.RuntimeMode) RuntimeRegistryResult {
-	built := runtime.BuildRegistry(runtime.BuildRegistryOptions{
-		Config:          cfg,
-		SelectedRuntime: selectedRuntime,
-	})
+func (missingRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeRegistryResult {
 	return RuntimeRegistryResult{
-		Registry:         built.Registry,
-		Cleanup:          built.Cleanup,
-		Diagnostics:      BridgeRuntimeDiagnostics(built.Diagnostics),
-		ContainerInitErr: built.ContainerInitErr,
+		Registry: runtime.NewRegistry(),
+		Cleanup:  func() {},
 	}
 }
 

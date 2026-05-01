@@ -509,10 +509,21 @@ func TestGetContainerWorkDir(t *testing.T) {
 			want:       "/workspace/subdir",
 		},
 		{
+			name:       "container absolute workdir stays absolute",
+			cmdWorkDir: "/app",
+			want:       "/app",
+		},
+		{
 			name:               "CLI override takes precedence",
 			cmdWorkDir:         "",
 			ctxWorkDirOverride: "cli-override",
 			want:               "/workspace/cli-override",
+		},
+		{
+			name:               "container absolute CLI override stays absolute",
+			cmdWorkDir:         "",
+			ctxWorkDirOverride: "/app",
+			want:               "/app",
 		},
 	}
 
