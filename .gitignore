@@ -4,6 +4,9 @@ bin/
 /invowk-upx
 /invowk-cli
 
+# GOOS=windows cross-compile cache (scripts/check-windows-build.sh)
+/.cache/
+
 # SSH keys generated during tests/development (keep embedded ones)
 internal/runtime/id_ed25519
 internal/runtime/id_ed25519.pub

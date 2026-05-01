@@ -569,10 +569,18 @@ func (m *Module) InvowkfilePath() types.FilesystemPath {
 // Script paths in modules should use forward slashes for cross-platform compatibility.
 // This function converts the cross-platform path to the native format.
 func (m *Module) ResolveScriptPath(scriptPath types.FilesystemPath) types.FilesystemPath {
+	// Unix-style absolute paths (leading '/') target the same logical location
+	// across platforms and must pass through unchanged. On Windows,
+	// filepath.IsAbs(filepath.FromSlash("/foo")) is false because "\foo"
+	// is not Windows-absolute, so the check must precede native conversion.
+	if strings.HasPrefix(string(scriptPath), "/") {
+		return scriptPath
+	}
+
 	// Convert forward slashes to native path separator
 	nativePath := filepath.FromSlash(string(scriptPath))
 
-	// If already absolute, return as-is
+	// If already host-absolute (e.g., C:\foo on Windows), return as-is.
 	if filepath.IsAbs(nativePath) {
 		return types.FilesystemPath(nativePath) //goplint:ignore -- OS path from filepath.FromSlash
 	}
@@ -588,10 +596,18 @@ func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
 		return errors.New("script path cannot be empty")
 	}
 
+	// Unix-style absolute paths (leading '/') must be rejected across platforms.
+	// On Windows, filepath.IsAbs(filepath.FromSlash("/foo")) is false because
+	// "\foo" is not Windows-absolute, so the FromSlash+IsAbs chain alone would
+	// silently accept "/foo" on Windows while Linux/macOS reject it.
+	if strings.HasPrefix(string(scriptPath), "/") {
+		return errors.New("absolute paths are not allowed in modules; use paths relative to module root")
+	}
+
 	// Convert to native path
 	nativePath := filepath.FromSlash(string(scriptPath))
 
-	// Absolute paths are not allowed in modules
+	// Reject host-absolute paths (e.g., C:\foo on Windows).
 	if filepath.IsAbs(nativePath) {
 		return errors.New("absolute paths are not allowed in modules; use paths relative to module root")
 	}

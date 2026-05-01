@@ -361,6 +361,12 @@ update-baseline: build-goplint
 	./$(BUILD_DIR)/goplint -check-all -check-enum-sync -cfg-interproc-engine=legacy -update-baseline=tools/goplint/baseline.toml -config=tools/goplint/exceptions.toml ./cmd/... ./internal/... ./pkg/...
 	@echo "Baseline updated: tools/goplint/baseline.toml"
 
+# Cross-compile for Windows to catch build-time regressions (Linux-only imports,
+# wrong build tags, missing platform shims) without leaving Linux/macOS.
+.PHONY: check-windows-build
+check-windows-build:
+	@./scripts/check-windows-build.sh
+
 # Lint shell scripts with shellcheck (optional tool, like gotestsum)
 SHELLCHECK := $(shell command -v shellcheck 2>/dev/null)
 
@@ -369,7 +375,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/stage-release-bench-report.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/stage-release-bench-report.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -529,6 +535,7 @@ help:
 	@echo "  bench-report-full Run startup+Go benchmark report (full mode)"
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
+	@echo "  check-windows-build Cross-compile for GOOS=windows to catch build-time regressions"
 	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2)"
 	@echo "  check-diagram-readability  Validate flowchart readability guardrails"
 	@echo "  version-docs     Snapshot docs for a release version"

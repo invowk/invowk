@@ -36,6 +36,14 @@ repos:
         always_run: true
         verbose: true
 
+      - id: windows-cross-build
+        name: windows cross-compile gate
+        entry: "bash -c 'make check-windows-build 2>&1'"
+        language: system
+        pass_filenames: false
+        files: '^(cmd/|internal/|pkg/|tools/goplint/|go\.mod$|go\.sum$|tools/goplint/go\.mod$|tools/goplint/go\.sum$|scripts/check-windows-build\.sh$|Makefile$|\.pre-commit-config\.yaml$)'
+        verbose: true
+
       - id: pgo-staleness
         name: pgo staleness advisory
         entry: "bash -c 'if git diff --cached --name-only | grep -Ev \"_test\\.go$\" | grep -Eq \"^(pkg/cueutil/|pkg/invowkfile/|pkg/invowkmod/|internal/discovery/)\"; then if ! git diff --cached --name-only | grep -Eq \"^default\\.pgo$\"; then echo \"\" >&2; echo \"⚠ PGO advisory: hot-path files changed without updating default.pgo\" >&2; echo \"  Run: make pgo-profile-parse-discovery && git add default.pgo\" >&2; echo \"  (CI will auto-fix if you forget, but local regeneration is preferred)\" >&2; echo \"\" >&2; fi; fi; exit 0'"

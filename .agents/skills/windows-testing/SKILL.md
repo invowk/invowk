@@ -1,15 +1,25 @@
 ---
 name: windows-testing
 description: >-
-  Deep Windows-specific testing knowledge for Go. Covers process lifecycle
-  (CreateProcess, no fork, Job Objects, TerminateProcess), signal handling
-  differences (no POSIX signals, only os.Interrupt/os.Kill), exec.CommandContext
-  Windows behavior (exit code 1 indistinguishable from normal failure),
-  file system pitfalls (NTFS case-insensitivity, MAX_PATH, sharing violations,
-  Defender scanning), timer resolution (15.6ms default causes timing flakiness),
-  race detector overhead, and CI patterns (windows-latest, -timeout 15m).
-  Use when debugging Windows-only test failures, writing platform-split tests,
-  or understanding why tests flake on windows-latest CI runners.
+  Deep Windows-specific knowledge for Go code and tests. Covers process
+  lifecycle (CreateProcess, no fork, Job Objects, TerminateProcess), signal
+  handling differences (no POSIX signals, only os.Interrupt/os.Kill),
+  exec.CommandContext Windows behavior (exit code 1 indistinguishable from
+  normal failure), file system pitfalls (NTFS case-insensitivity, MAX_PATH,
+  sharing violations, Defender scanning), timer resolution (15.6ms default
+  causes timing flakiness), race detector overhead, CI patterns (windows-latest,
+  -timeout 15m), and the canonical cross-platform path bug class.
+  TRIGGER PROACTIVELY (not only after a Windows failure) when refactoring,
+  reviewing, or adding code that touches:
+  - filepath.IsAbs, filepath.Join, filepath.FromSlash, filepath.ToSlash
+  - Volume-mount string construction (host:container patterns, "\":\"" literals)
+  - DDD path types: FilesystemPath, WorkDir, SubdirectoryPath, ScriptPath,
+    HostServiceAddress, ContainerVolumeMountSpec
+  - Functions whose body resolves user-fed or CUE-fed path strings
+  - Anything in internal/runtime/, internal/container/, internal/app/deps/,
+    or pkg/invowkmod/ that constructs, validates, or compares paths
+  Also use when debugging Windows-only test failures, writing platform-split
+  tests, or understanding why tests flake on windows-latest CI runners.
 disable-model-invocation: false
 ---
 
@@ -141,6 +151,60 @@ Handling. Key points:
 - The `skipOnWindows` table-driven pattern handles Unix-only path test cases.
 
 Do not duplicate the path handling rules here. Consult `windows.md` directly.
+
+### Refactoring Path-Touching Code (Pre-Flight Checklist)
+
+Run this checklist any time a refactor or new feature touches code that
+constructs, validates, or compares paths. Five consecutive Windows failures in
+v0.10.0 traced back to this checklist not being run.
+
+1. **Origin check.** Is the input value a CUE-fed/user-fed string (e.g., a
+   field on `invowkfile.Command`, `invowkfile.Implementation`, or any value
+   typed as `WorkDir`, `FilesystemPath`, `SubdirectoryPath`, `ScriptPath`),
+   or is it a true host path computed from `t.TempDir()`/`os.Getwd()`?
+   - **CUE-fed/user-fed**: continue to step 2.
+   - **Host-path-only**: platform-native semantics are correct; no further checks.
+
+2. **Unix-style absolute guard.** When the value can be a Unix-style absolute
+   path (`/app`, `/workspace/...`), is `strings.HasPrefix(input, "/")`
+   checked **before** any `filepath.FromSlash` or `filepath.IsAbs`?
+   - On Windows, `filepath.FromSlash("/app") = "\app"` and
+     `filepath.IsAbs("\app") = false`, so the absolute branch is silently
+     skipped. The `strings.HasPrefix` check must come first to preserve the
+     value as a container-absolute path.
+   - The `--check-cross-platform-paths` goplint analyzer flags
+     `filepath.IsAbs(filepath.FromSlash(x))` chains automatically; do not
+     rely on the analyzer alone -- verify by reading the function.
+
+3. **Volume-mount construction.** When concatenating
+   `<host>+":"+<container>+"[:options]"`, is the host portion
+   `filepath.ToSlash`-ed before the colon?
+   - The volume-mount validator rejects `\` as a shell metacharacter. A
+     literal Windows host path like `C:\Users\x:/workspace` will fail
+     `RunOptions.Validate()` with `1 field error`. Both Docker and Podman
+     accept forward slashes in Windows host paths.
+
+4. **Container path joins.** When building paths under `/workspace/...`, are
+   you using `path.Join` or string concatenation (with `/`), NOT
+   `filepath.Join`?
+   - `filepath.Join("/workspace", "scripts")` produces `\workspace\scripts`
+     on Windows, breaking the in-container path.
+
+5. **Test coverage.** Does the function have a test case where the input is
+   `/foo` (a Unix-style absolute) on Windows? If not, add one or use the
+   `skipOnWindows` table-driven pattern. The `Cross-Platform Path Validator
+   Matrix` in `.agents/rules/testing.md` lists the seven canonical inputs
+   to cover.
+
+6. **GOOS=windows compile sanity.** Run `make check-windows-build` (the C
+   pre-commit gate) before pushing. This catches Linux-only imports and
+   build-tag mistakes -- not runtime path bugs, but compile-time regressions
+   that would otherwise only surface in Windows CI.
+
+If any answer is "no", fix the code before merging the refactor. Recall is
+the failure mode this section exists to prevent: every cross-platform path
+rule was already documented in `.agents/rules/windows.md` when the v0.10.0
+bugs landed; the rules just were not consulted during the refactor.
 
 ## Line Endings
 
