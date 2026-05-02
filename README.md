@@ -3015,6 +3015,7 @@ invowk/
 │   ├── uroot/                  # u-root utilities for virtual shell built-ins
 │   └── watch/                  # File-watching with debounced re-execution
 ├── pkg/
+│   ├── containerargs/          # Shared validators for raw Docker/Podman container arguments
 │   ├── cueutil/                # Shared CUE parsing utilities
 │   ├── fspath/                 # Filesystem path wrappers (typed paths)
 │   ├── invowkmod/              # Module validation and structure

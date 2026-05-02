@@ -536,7 +536,9 @@ workdir: ".\src\app"`,
     implementations: [
         // Linux implementation with platform-specific env
         {
-            script: "echo "Config: \$CONFIG_PATH""
+            script: """
+                echo "Config: $CONFIG_PATH"
+                """
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
             env: {
@@ -548,7 +550,9 @@ workdir: ".\src\app"`,
         },
         // macOS implementation with platform-specific env
         {
-            script: "echo "Config: \$CONFIG_PATH""
+            script: """
+                echo "Config: $CONFIG_PATH"
+                """
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
             env: {
@@ -560,7 +564,9 @@ workdir: ".\src\app"`,
         },
         // Windows implementation
         {
-            script: "echo "Config: %CONFIG_PATH%""
+            script: """
+                echo "Config: %CONFIG_PATH%"
+                """
             runtimes: [{name: "native"}]
             platforms: [{name: "windows"}]
             env: {

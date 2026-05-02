@@ -372,7 +372,9 @@ platforms: [
     implementations: [
         // Linux implementation with platform-specific env
         {
-            script: "echo "Deploying to \$PLATFORM with config at \$CONFIG_PATH""
+            script: """
+                echo "Deploying to $PLATFORM with config at $CONFIG_PATH"
+                """
             runtimes: [{name: "native"}]
             platforms: [{name: "linux"}]
             env: {
@@ -384,7 +386,9 @@ platforms: [
         },
         // macOS implementation with platform-specific env
         {
-            script: "echo "Deploying to \$PLATFORM with config at \$CONFIG_PATH""
+            script: """
+                echo "Deploying to $PLATFORM with config at $CONFIG_PATH"
+                """
             runtimes: [{name: "native"}]
             platforms: [{name: "macos"}]
             env: {

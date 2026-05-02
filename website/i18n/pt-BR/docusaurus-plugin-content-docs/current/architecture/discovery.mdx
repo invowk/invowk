@@ -49,14 +49,18 @@ Quando o mesmo nome de comando existe em múltiplos locais:
 
 | De | Pode Acessar | Não Pode Acessar |
 |----|--------------|------------------|
-| Módulo A | comandos de A, comandos de B | comandos de C (transitivo) |
-| Módulo B | comandos de B, comandos de C | - |
-| invowkfile Raiz | Próprios comandos, deps diretas | Deps transitivas |
+| Módulo A | comandos de A, comandos de B, módulos instalados globalmente (`~/.invowk/cmds/`) | comandos de C (transitivo) |
+| Módulo B | comandos de B, comandos de C, módulos instalados globalmente (`~/.invowk/cmds/`) | - |
+| invowkfile Raiz | Próprios comandos, deps diretas, módulos instalados globalmente (`~/.invowk/cmds/`) | Deps transitivas |
 
 **Por que esta restrição?**
 - Previne acoplamento implícito a dependências transitivas
 - Torna dependências explícitas em cada módulo
 - Permite upgrades de dependências sem quebrar consumidores
+
+:::note Análise estática, não interceptação em tempo de execução
+Esta regra de visibilidade é aplicada como um **gate de análise estática** no momento da validação de `depends_on.cmds` (via `CheckCommandDependenciesExist()` em `internal/app/deps/`). Ela verifica referências declaradas a comandos entre módulos — **não** intercepta chamadas de subprocesso. Um script que invoca dinamicamente `invowk cmd ...` em tempo de execução está fora desse gate. Para isolamento de execução, use o runtime de **container**.
+:::
 
 ## Configuração de Includes
 

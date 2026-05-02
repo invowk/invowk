@@ -49,14 +49,18 @@ When the same command name exists in multiple locations:
 
 | From | Can Access | Cannot Access |
 |------|------------|---------------|
-| Module A | A's commands, B's commands | C's commands (transitive) |
-| Module B | B's commands, C's commands | - |
-| Root invowkfile | Own commands, direct deps | Transitive deps |
+| Module A | A's commands, B's commands, globally installed modules (`~/.invowk/cmds/`) | C's commands (transitive) |
+| Module B | B's commands, C's commands, globally installed modules (`~/.invowk/cmds/`) | - |
+| Root invowkfile | Own commands, direct deps, globally installed modules (`~/.invowk/cmds/`) | Transitive deps |
 
 **Why this restriction?**
 - Prevents implicit coupling to transitive dependencies
 - Makes dependencies explicit in each module
 - Enables dependency upgrades without breaking consumers
+
+:::note Static analysis, not runtime interception
+This visibility rule is enforced as a **static analysis gate** at `depends_on.cmds` validation time (via `CheckCommandDependenciesExist()` in `internal/app/deps/`). It checks declared inter-module command references — it does **not** intercept subprocess calls. A script that dynamically invokes `invowk cmd ...` at runtime is outside this check. For execution isolation, use the **container** runtime.
+:::
 
 ## Includes Configuration
 

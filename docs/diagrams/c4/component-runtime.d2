@@ -424,14 +424,16 @@ container_engine: container.Engine {
   |
 }
 
-provisioner: provision.LayerProvisioner {
+provisioner: provision.Provisioner {
   style: {
     fill: "#438DD5"
     font-color: "#ffffff"
   }
   tooltip: |md
     **internal/provision**
-    Creates ephemeral image layers containing
+    Port for container image provisioning.
+    Production adapter: provision.LayerProvisioner,
+    which creates ephemeral image layers containing
     the invowk binary and modules.
   |
 }

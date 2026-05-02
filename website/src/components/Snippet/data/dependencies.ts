@@ -1030,7 +1030,9 @@ Install the missing tools and try again.`,
     code: `custom_checks: [
     {
         name: "not-production"
-        check_script: "test "$ENV" = 'production'"
+        check_script: """
+            test "$ENV" = 'production'
+            """
         expected_code: 1  // Should fail (not be production)
     }
 ]`,
@@ -1129,11 +1131,15 @@ Install the missing tools and try again.`,
         custom_checks: [
             {
                 name: "clean-working-tree"
-                check_script: "test -z "$(git status --porcelain)""
+                check_script: """
+                    test -z "$(git status --porcelain)"
+                    """
             },
             {
                 name: "on-main-branch"
-                check_script: "test "$(git branch --show-current)" = 'main'"
+                check_script: """
+                    test "$(git branch --show-current)" = 'main'
+                    """
             }
         ]
     }
@@ -1154,7 +1160,9 @@ Install the missing tools and try again.`,
         custom_checks: [
             {
                 name: "valid-yaml"
-                check_script: "python3 -c 'import yaml; yaml.safe_load(open("config.yaml"))'"
+                check_script: """
+                    python3 -c 'import yaml; yaml.safe_load(open("config.yaml"))'
+                    """
             },
             {
                 name: "has-required-fields"

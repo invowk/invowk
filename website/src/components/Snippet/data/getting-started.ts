@@ -359,7 +359,9 @@ invowk cmd hello --ivk-runtime virtual`,
     code: `// The virtual runtime uses the built-in mvdan/sh interpreter
 // It works identically on Linux, macOS, and Windows
 {
-    script: "echo "Hello, $INVOWK_ARG_NAME!""
+    script: """
+        echo "Hello, $INVOWK_ARG_NAME!"
+        """
     runtimes: [{name: "virtual"}]
     platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 }`,
