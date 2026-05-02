@@ -123,6 +123,8 @@ type (
 	// SubdirectoryPath represents a relative path to a subdirectory within a repository.
 	// The zero value ("") is valid and means "repository root".
 	// Non-zero values must not contain path traversal (..) or absolute paths.
+	//
+	//goplint:cue-fed-path
 	SubdirectoryPath string
 
 	// InvalidSubdirectoryPathError is returned when a SubdirectoryPath value contains
@@ -596,21 +598,24 @@ func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
 		return errors.New("script path cannot be empty")
 	}
 
-	// Unix-style absolute paths (leading '/') must be rejected across platforms.
-	// On Windows, filepath.IsAbs(filepath.FromSlash("/foo")) is false because
-	// "\foo" is not Windows-absolute, so the FromSlash+IsAbs chain alone would
-	// silently accept "/foo" on Windows while Linux/macOS reject it.
-	if strings.HasPrefix(string(scriptPath), "/") {
+	// Normalize separators and clean before classifying absoluteness/traversal
+	// so the rejection set is identical on every host (Linux/macOS/Windows).
+	// Without this, filepath.IsAbs is platform-native and silently accepts
+	// Windows drive paths like "C:\foo" on non-Windows hosts, and backslash
+	// traversal like "a\..\..\escape" is treated as a single filename on Linux
+	// because '\' is not a separator there. Both classes are the same v0.10.0
+	// cross-platform divergence the SubdirectoryPath.Validate normalization
+	// solved.
+	cleanSlash := slashpath.Clean(strings.ReplaceAll(string(scriptPath), "\\", "/"))
+	if strings.HasPrefix(cleanSlash, "/") || isWindowsDrivePath(cleanSlash) {
 		return errors.New("absolute paths are not allowed in modules; use paths relative to module root")
 	}
+	if cleanSlash == ".." || strings.HasPrefix(cleanSlash, "../") {
+		return fmt.Errorf("script path '%s' escapes the module directory", scriptPath)
+	}
 
-	// Convert to native path
+	// Convert to native path for the subsequent filepath.Rel containment check.
 	nativePath := filepath.FromSlash(string(scriptPath))
-
-	// Reject host-absolute paths (e.g., C:\foo on Windows).
-	if filepath.IsAbs(nativePath) {
-		return errors.New("absolute paths are not allowed in modules; use paths relative to module root")
-	}
 
 	// Resolve the full path
 	fullPath := filepath.Join(string(m.Path), nativePath)
@@ -709,3 +714,17 @@ func (e *InvalidModuleError) Error() string {
 
 // Unwrap returns ErrInvalidModule for errors.Is() compatibility.
 func (e *InvalidModuleError) Unwrap() error { return ErrInvalidModule }
+
+// isWindowsDrivePath reports whether the (already slash-normalized, cleaned)
+// path begins with a Windows drive-letter prefix like "C:" or "c:". Combined
+// with a leading-slash check, this gives a host-independent absolute-path
+// classifier matching the SubdirectoryPath.Validate normalization.
+//
+//goplint:ignore -- cleanPath is a normalized intermediate, not a domain path value.
+func isWindowsDrivePath(cleanPath string) bool {
+	if len(cleanPath) < 2 || cleanPath[1] != ':' {
+		return false
+	}
+	first := cleanPath[0]
+	return (first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z')
+}

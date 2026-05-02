@@ -5,6 +5,8 @@ package invowkfile
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 )
 
 func TestVolumeMountSpec_Validate(t *testing.T) {
@@ -51,6 +53,57 @@ func TestVolumeMountSpec_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestVolumeMountSpec_Validate_Matrix exercises the canonical eight-vector
+// volume-mount matrix. v0.10.0 bug #4 was a Windows backslash host path
+// embedded in a `host:container` spec — this matrix documents what the
+// current validator does with each compound shape so a future refactor that
+// changes any one vector is caught at CI rather than at release time.
+func TestVolumeMountSpec_Validate_Matrix(t *testing.T) {
+	t.Parallel()
+	rejectInvalid := pathmatrix.RejectIs(ErrInvalidVolumeMountSpec)
+	pathmatrix.VolumeMount(t, func(spec string) error {
+		return VolumeMountSpec(spec).Validate()
+	}, pathmatrix.VolumeMountVectors{
+		// Standard Unix host + Unix container — accepted everywhere.
+		UnixHostUnixContainer: pathmatrix.PassAny(nil),
+
+		// Windows backslash host with a Unix container path. The current
+		// validator parses on the FIRST colon, which puts everything before
+		// `C:\host:` into the host portion — including the drive-letter
+		// colon. This rejects the spec on every platform, which is the
+		// desired behavior because a backslash host path needs to be
+		// `filepath.ToSlash`-converted before being concatenated. v0.10.0
+		// bug #4 was the unconverted form leaking through.
+		WindowsBackslashHostUnix: rejectInvalid,
+
+		// Windows forward-slash host: `C:/host:/container`. The current
+		// validator accepts this — the FIRST-colon split yields host="C"
+		// and container="/host:/container", and the validator treats both
+		// portions as well-formed. This may be a latent bug class on
+		// non-Windows hosts (host="C" is meaningless on Linux) but it's
+		// the documented behavior; flag changes here for review.
+		WindowsForwardSlashHostUnix: pathmatrix.PassAny(nil),
+
+		// A named Docker volume bound at a Unix container path. The
+		// validator accepts named volumes as the host portion — `myvol`
+		// is a valid Docker volume name.
+		NamedVolumeUnix: pathmatrix.PassAny(nil),
+
+		// Relative host `./host:/container` is explicitly valid (matches
+		// the "./data:/data" case in the literal test table above).
+		RelativeHostUnix: pathmatrix.PassAny(nil),
+
+		// Host path with a literal colon embedded — the FIRST-colon parser
+		// splits at the drive-letter colon, leaving an unparseable
+		// remainder. Rejected.
+		HostWithColonInPath: rejectInvalid,
+
+		// Malformed: missing host or missing container.
+		EmptyHost:      rejectInvalid,
+		EmptyContainer: rejectInvalid,
+	})
 }
 
 func TestVolumeMountSpec_String(t *testing.T) {

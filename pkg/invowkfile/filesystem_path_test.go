@@ -3,60 +3,18 @@
 package invowkfile
 
 import (
-	"errors"
-	"testing"
+	"github.com/invowk/invowk/pkg/types"
 )
 
-func TestFilesystemPath_Validate(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		path    FilesystemPath
-		want    bool
-		wantErr bool
-	}{
-		{"absolute path", FilesystemPath("/usr/bin/bash"), true, false},
-		{"relative path", FilesystemPath("run.sh"), true, false},
-		{"windows style", FilesystemPath("C:\\Program Files\\app.exe"), true, false},
-		{"UNC path", FilesystemPath(`\\server\share`), true, false},
-		{"extended-length UNC path", FilesystemPath(`\\?\C:\path`), true, false},
-		{"traversal with slash", FilesystemPath("a/../../escape"), true, false},
-		{"traversal with backslash", FilesystemPath(`a\..\..\escape`), true, false},
-		{"empty is invalid", FilesystemPath(""), false, true},
-		{"whitespace only is invalid", FilesystemPath("   "), false, true},
-		{"tab only is invalid", FilesystemPath("\t"), false, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			err := tt.path.Validate()
-			if (err == nil) != tt.want {
-				t.Errorf("FilesystemPath(%q).Validate() error = %v, want valid=%v", tt.path, err, tt.want)
-			}
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("FilesystemPath(%q).Validate() returned nil, want error", tt.path)
-				}
-				if !errors.Is(err, ErrInvalidFilesystemPath) {
-					t.Errorf("error should wrap ErrInvalidFilesystemPath, got: %v", err)
-				}
-				var fpErr *InvalidFilesystemPathError
-				if !errors.As(err, &fpErr) {
-					t.Errorf("error should be *InvalidFilesystemPathError, got: %T", err)
-				}
-			} else if err != nil {
-				t.Errorf("FilesystemPath(%q).Validate() returned unexpected error: %v", tt.path, err)
-			}
-		})
-	}
-}
-
-func TestFilesystemPath_String(t *testing.T) {
-	t.Parallel()
-	p := FilesystemPath("scripts/run.sh")
-	if p.String() != "scripts/run.sh" {
-		t.Errorf("FilesystemPath.String() = %q, want %q", p.String(), "scripts/run.sh")
-	}
-}
+// FilesystemPath in this package is a Go type alias for types.FilesystemPath.
+// The original validator tests live in pkg/types/filesystem_path_test.go;
+// keeping a duplicate here adds zero coverage. These compile-time assertions
+// keep the alias contract enforced — if the alias is ever replaced by a
+// distinct wrapper type, this file fails to build and the duplicated tests
+// can be reintroduced as needed.
+var (
+	_ types.FilesystemPath              = FilesystemPath("")
+	_ FilesystemPath                    = types.FilesystemPath("")
+	_ *types.InvalidFilesystemPathError = (*InvalidFilesystemPathError)(nil)
+	_ *InvalidFilesystemPathError       = (*types.InvalidFilesystemPathError)(nil)
+)

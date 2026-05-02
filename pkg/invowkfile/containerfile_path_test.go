@@ -1,59 +1,66 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package invowkfile
+package invowkfile_test
 
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+// TestContainerfilePath_Validate runs the canonical seven-vector matrix
+// against ContainerfilePath.Validate. ContainerfilePath has a strict
+// "relative-only" contract: every absolute form is rejected, traversal is
+// allowed (it's just a string forwarded to the container engine), and
+// valid relative names pass through. Behavior surfaced by the matrix:
+//   - All four absolute dialects rejected on every platform.
+//   - Slash and backslash traversal accepted (delegated to the engine).
+//   - Valid relative names accepted everywhere.
 func TestContainerfilePath_Validate(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		path    ContainerfilePath
-		want    bool
-		wantErr bool
-	}{
-		{"simple path", ContainerfilePath("Containerfile"), true, false},
-		{"relative path", ContainerfilePath("./docker/Dockerfile"), true, false},
-		{"absolute path is invalid", ContainerfilePath("/project/Containerfile"), false, true},
-		{"windows absolute path with backslashes is invalid", ContainerfilePath(`C:\tmp\Containerfile`), false, true},
-		{"windows absolute path with slashes is invalid", ContainerfilePath("C:/tmp/Containerfile"), false, true},
-		{"empty is valid (zero value)", ContainerfilePath(""), true, false},
-		{"whitespace only is invalid", ContainerfilePath("   "), false, true},
-		{"tab only is invalid", ContainerfilePath("\t"), false, true},
-	}
+	rejectInvalid := pathmatrix.RejectIs(invowkfile.ErrInvalidContainerfilePath)
+	pathmatrix.Validator(t, func(s string) error {
+		return invowkfile.ContainerfilePath(s).Validate()
+	}, pathmatrix.Expectations{
+		UnixAbsolute:       rejectInvalid,
+		WindowsDriveAbs:    rejectInvalid,
+		WindowsRooted:      rejectInvalid,
+		UNC:                rejectInvalid,
+		SlashTraversal:     pathmatrix.PassAny(nil),
+		BackslashTraversal: pathmatrix.PassAny(nil),
+		ValidRelative:      pathmatrix.PassAny(nil),
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			err := tt.path.Validate()
-			if (err == nil) != tt.want {
-				t.Errorf("ContainerfilePath(%q).Validate() error = %v, want valid=%v", tt.path, err, tt.want)
-			}
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("ContainerfilePath(%q).Validate() returned nil, want error", tt.path)
-				}
-				if !errors.Is(err, ErrInvalidContainerfilePath) {
-					t.Errorf("error should wrap ErrInvalidContainerfilePath, got: %v", err)
-				}
-				var cpErr *InvalidContainerfilePathError
-				if !errors.As(err, &cpErr) {
-					t.Errorf("error should be *InvalidContainerfilePathError, got: %T", err)
-				}
-			} else if err != nil {
-				t.Errorf("ContainerfilePath(%q).Validate() returned unexpected error: %v", tt.path, err)
-			}
-		})
-	}
+		ExtraVectors: map[string]pathmatrix.VectorCase{
+			"empty_zero_value_valid":   {Input: "", Expect: pathmatrix.PassAny(nil)},
+			"whitespace_only_invalid":  {Input: "   ", Expect: rejectInvalid},
+			"tab_only_invalid":         {Input: "\t", Expect: rejectInvalid},
+			"windows_drive_with_slash": {Input: pathmatrix.InputWindowsDriveSlash, Expect: rejectInvalid},
+			"simple_filename":          {Input: "Containerfile", Expect: pathmatrix.PassAny(nil)},
+			"relative_dotted":          {Input: "./docker/Dockerfile", Expect: pathmatrix.PassAny(nil)},
+		},
+	})
+
+	t.Run("error_wraps_typed_struct", func(t *testing.T) {
+		t.Parallel()
+		err := invowkfile.ContainerfilePath("/absolute").Validate()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		var cpErr *invowkfile.InvalidContainerfilePathError
+		if !errors.As(err, &cpErr) {
+			t.Errorf("error should be *InvalidContainerfilePathError, got: %T", err)
+		}
+	})
 }
 
+// TestContainerfilePath_String confirms String() returns the underlying
+// value unchanged.
 func TestContainerfilePath_String(t *testing.T) {
 	t.Parallel()
-	p := ContainerfilePath("Containerfile")
+	p := invowkfile.ContainerfilePath("Containerfile")
 	if p.String() != "Containerfile" {
 		t.Errorf("ContainerfilePath.String() = %q, want %q", p.String(), "Containerfile")
 	}

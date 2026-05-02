@@ -16,6 +16,8 @@ type (
 	// The zero value ("") is valid (means no containerfile specified).
 	// Mutually exclusive with ContainerImage in RuntimeConfig.
 	// Non-zero values must not be whitespace-only.
+	//
+	//goplint:cue-fed-path
 	ContainerfilePath string
 
 	// InvalidContainerfilePathError is returned when a ContainerfilePath value is

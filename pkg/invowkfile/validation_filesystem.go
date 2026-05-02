@@ -196,23 +196,28 @@ func ValidateCommandDependencyName(name CommandName) error {
 	return nil
 }
 
-// isAbsolutePath checks if a path is absolute in either Unix or Windows format.
-// Unlike filepath.IsAbs(), this function works cross-platform: it detects both
-// Unix-style paths (/etc/passwd) and Windows-style paths (C:\Windows or C:/Windows)
-// regardless of the host operating system. This is essential for security validation
-// of user-provided paths that may originate from different platforms.
+// isAbsolutePath checks if a path is absolute in any of the four dialects
+// the codebase must accept as input — Unix-rooted ("/foo"), Windows-drive
+// ("C:\foo" or "C:/foo"), Windows-rooted ("\foo"), and UNC ("\\server\share").
+// Unlike filepath.IsAbs(), this function works cross-platform: every dialect
+// is detected regardless of the host operating system. This is essential
+// for security validation of user-provided paths that may originate from
+// different platforms — without it, validators silently accept Windows-style
+// absolutes on Linux/macOS and treat them as relative segments, the v0.10.0
+// cross-platform divergence class.
 func isAbsolutePath(path string) bool {
 	if path == "" {
 		return false
 	}
 
-	// Unix-style absolute path
-	if path[0] == '/' {
+	// Unix-style absolute path. Also catches UNC ("\\server\share") and
+	// Windows-rooted ("\foo") after backslash normalization below.
+	if path[0] == '/' || path[0] == '\\' {
 		return true
 	}
 
 	// Windows-style absolute path: drive letter + colon + path separator
-	// Examples: "C:\Users" or "C:/Users"
+	// Examples: "C:\Users" or "C:/Users".
 	if len(path) >= 3 && isWindowsDriveLetter(path[0]) && path[1] == ':' {
 		sep := path[2]
 		return sep == '\\' || sep == '/'

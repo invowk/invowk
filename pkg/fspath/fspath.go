@@ -5,6 +5,7 @@ package fspath
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -55,7 +56,15 @@ func FromSlash(p types.FilesystemPath) types.FilesystemPath {
 	return types.FilesystemPath(filepath.FromSlash(string(p))) //goplint:ignore -- derived from typed input
 }
 
-// IsAbs wraps filepath.IsAbs for FilesystemPath.
+// IsAbs reports whether p is absolute. Unix-style absolute paths (leading
+// '/') return true on every platform — FilesystemPath holds CUE-fed
+// forward-slash paths, and on Windows filepath.IsAbs("/foo") returns false
+// without this guard, producing host-dependent behavior the type contract
+// forbids.
 func IsAbs(p types.FilesystemPath) bool {
-	return filepath.IsAbs(string(p))
+	s := string(p)
+	if strings.HasPrefix(s, "/") {
+		return true
+	}
+	return filepath.IsAbs(s)
 }

@@ -7,8 +7,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 	"github.com/invowk/invowk/pkg/platform"
 )
+
+// errIsAbsolutePathFalse is a local sentinel used by TestIsAbsolutePath so
+// the bool-returning isAbsolutePath helper plugs into pathmatrix.Validator
+// (which expects an error-shaped function).
+var errIsAbsolutePathFalse = errors.New("isAbsolutePath returned false")
 
 func TestValidateRegexPattern(t *testing.T) {
 	t.Parallel()
@@ -820,45 +826,42 @@ func TestValidateCommandDependencyName(t *testing.T) {
 	}
 }
 
+// TestIsAbsolutePath runs the canonical seven-vector matrix against the
+// internal isAbsolutePath helper. The helper is the codebase's
+// host-independent absoluteness oracle — it must return true for all four
+// absolute dialects (Unix, Windows-drive, Windows-rooted, UNC) on every
+// platform, and false for every relative shape.
 func TestIsAbsolutePath(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name     string
-		path     string
-		expected bool
-	}{
-		// Unix-style absolute paths
-		{name: "unix root", path: "/", expected: true},
-		{name: "unix absolute", path: "/etc/passwd", expected: true},
-		{name: "unix deep path", path: "/usr/local/bin/go", expected: true},
-
-		// Windows-style absolute paths
-		{name: "windows C drive backslash", path: `C:\Users\test`, expected: true},
-		{name: "windows C drive slash", path: "C:/Users/test", expected: true},
-		{name: "windows lowercase drive", path: `c:\windows`, expected: true},
-		{name: "windows D drive", path: `D:\data`, expected: true},
-
-		// Relative paths (should return false)
-		{name: "relative simple", path: "file.txt", expected: false},
-		{name: "relative subdir", path: "subdir/file.txt", expected: false},
-		{name: "relative dot", path: "./file.txt", expected: false},
-		{name: "relative parent", path: "../file.txt", expected: false},
-		{name: "empty path", path: "", expected: false},
-
-		// Edge cases
-		{name: "windows drive no slash", path: "C:file.txt", expected: false},
-		{name: "single letter not drive", path: "C", expected: false},
+	wrap := func(s string) error {
+		if isAbsolutePath(s) {
+			return nil
+		}
+		return errIsAbsolutePathFalse
 	}
+	wantTrue := pathmatrix.PassAny(nil)
+	wantFalse := pathmatrix.RejectIs(errIsAbsolutePathFalse)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	pathmatrix.Validator(t, wrap, pathmatrix.Expectations{
+		UnixAbsolute:    wantTrue,
+		WindowsDriveAbs: wantTrue,
+		WindowsRooted:   wantTrue,
+		UNC:             wantTrue,
+		// Traversal forms with a leading non-slash character are
+		// classified as relative; they may contain ".." but the helper
+		// only inspects the first character.
+		SlashTraversal:     wantFalse,
+		BackslashTraversal: wantFalse,
+		ValidRelative:      wantFalse,
 
-			got := isAbsolutePath(tt.path)
-			if got != tt.expected {
-				t.Errorf("isAbsolutePath(%q) = %v, want %v", tt.path, got, tt.expected)
-			}
-		})
-	}
+		ExtraVectors: map[string]pathmatrix.VectorCase{
+			"unix_root":               {Input: "/", Expect: wantTrue},
+			"windows_drive_lowercase": {Input: `c:\windows`, Expect: wantTrue},
+			"windows_drive_d":         {Input: `D:\data`, Expect: wantTrue},
+			"windows_drive_no_slash":  {Input: "C:file.txt", Expect: wantFalse},
+			"single_letter_not_drive": {Input: "C", Expect: wantFalse},
+			"empty":                   {Input: "", Expect: wantFalse},
+		},
+	})
 }

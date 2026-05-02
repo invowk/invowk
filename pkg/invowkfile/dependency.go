@@ -66,6 +66,8 @@ type (
 
 	// ScriptContent holds inline script source code or a script file path.
 	// The zero value ("") is valid. Non-zero values must not be whitespace-only.
+	//
+	//goplint:cue-fed-path
 	ScriptContent string
 
 	// InvalidScriptContentError is returned when a ScriptContent value is invalid.

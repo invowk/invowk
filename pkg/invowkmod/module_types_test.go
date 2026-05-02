@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 )
 
 func TestModuleAlias_Validate(t *testing.T) {
@@ -118,51 +120,38 @@ func TestModuleNamespace_String(t *testing.T) {
 func TestSubdirectoryPath_Validate(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		path    SubdirectoryPath
-		want    bool
-		wantErr bool
-	}{
-		{"empty is valid (repo root)", SubdirectoryPath(""), true, false},
-		{"simple subdir", SubdirectoryPath("modules/tools"), true, false},
-		{"single segment", SubdirectoryPath("tools"), true, false},
-		{"nested path", SubdirectoryPath("a/b/c/d"), true, false},
-		{"dot prefix", SubdirectoryPath("./tools"), true, false},
-		{"path traversal", SubdirectoryPath("../escape"), false, true},
-		{"nested path traversal", SubdirectoryPath("a/../../escape"), false, true},
-		{"windows-style path traversal", SubdirectoryPath(`a\..\..\escape`), false, true},
-		{"absolute unix path", SubdirectoryPath("/absolute/path"), false, true},
-		{"absolute windows drive path", SubdirectoryPath(`C:\absolute\path`), false, true},
-		{"absolute windows root path", SubdirectoryPath(`\absolute\path`), false, true},
-		{"absolute windows unc path", SubdirectoryPath(`\\server\share`), false, true},
-		{"null byte", SubdirectoryPath("path\x00evil"), false, true},
-		{"too long", SubdirectoryPath(strings.Repeat("a", MaxPathLength+1)), false, true},
-	}
+	rejectInvalid := pathmatrix.RejectIs(ErrInvalidSubdirectoryPath)
+	pathmatrix.Validator(t, func(s string) error {
+		return SubdirectoryPath(s).Validate()
+	}, pathmatrix.Expectations{
+		UnixAbsolute:       rejectInvalid,
+		WindowsDriveAbs:    rejectInvalid,
+		WindowsRooted:      rejectInvalid,
+		UNC:                rejectInvalid,
+		SlashTraversal:     rejectInvalid,
+		BackslashTraversal: rejectInvalid,
+		ValidRelative:      pathmatrix.PassAny(nil),
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			err := tt.path.Validate()
-			if (err == nil) != tt.want {
-				t.Errorf("SubdirectoryPath(%q).Validate() error = %v, wantValid %v", tt.path, err, tt.want)
-			}
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("SubdirectoryPath(%q).Validate() returned nil, want error", tt.path)
-				}
-				if !errors.Is(err, ErrInvalidSubdirectoryPath) {
-					t.Errorf("error should wrap ErrInvalidSubdirectoryPath, got: %v", err)
-				}
-				var pathErr *InvalidSubdirectoryPathError
-				if !errors.As(err, &pathErr) {
-					t.Errorf("error should be *InvalidSubdirectoryPathError, got: %T", err)
-				}
-			} else if err != nil {
-				t.Errorf("SubdirectoryPath(%q).Validate() returned unexpected error: %v", tt.path, err)
-			}
-		})
-	}
+		ExtraVectors: map[string]pathmatrix.VectorCase{
+			"empty_is_valid_repo_root": {Input: "", Expect: pathmatrix.PassAny(nil)},
+			"nested_valid_relative":    {Input: "a/b/c/d", Expect: pathmatrix.PassAny(nil)},
+			"single_dot_traversal":     {Input: "../escape", Expect: rejectInvalid},
+			"null_byte":                {Input: "path\x00evil", Expect: rejectInvalid},
+			"too_long":                 {Input: strings.Repeat("a", MaxPathLength+1), Expect: rejectInvalid},
+		},
+	})
+
+	t.Run("error_wraps_typed_struct", func(t *testing.T) {
+		t.Parallel()
+		err := SubdirectoryPath("../escape").Validate()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		var pathErr *InvalidSubdirectoryPathError
+		if !errors.As(err, &pathErr) {
+			t.Errorf("error should be *InvalidSubdirectoryPathError, got: %T", err)
+		}
+	})
 }
 
 func TestSubdirectoryPath_String(t *testing.T) {

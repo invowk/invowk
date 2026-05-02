@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	runtimepkg "github.com/invowk/invowk/internal/runtime"
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -459,4 +460,54 @@ func TestEvaluateAlternatives(t *testing.T) {
 			t.Fatalf("lastErr = %v, want error containing 'failed: b'", lastErr)
 		}
 	})
+}
+
+// TestValidateFilepathAlternatives_Matrix exercises the canonical
+// seven-vector cross-platform path matrix against
+// ValidateFilepathAlternativesWithProbe by inspecting what the function
+// resolves before passing to the probe. The recording probe always
+// returns nil, so the test infers behavior from the captured
+// resolvedPath. This is the test that would have caught v0.10.0 bug #1.
+//
+// Resolver behavior captured here:
+//   - UnixAbsolute "/foo" passes through unchanged on every platform
+//     (the strings.HasPrefix("/") guard added in v0.10.0).
+//   - WindowsDriveAbs "C:\foo" passes through on Windows
+//     (filepath.IsAbs true) but is joined to invowkDir on Linux/macOS
+//     because the resolver only treats it as absolute when the host
+//     filepath package agrees.
+//   - WindowsRooted "\foo", UNC "\\server\share", and traversal forms
+//     are joined to invowkDir as relative segments.
+func TestValidateFilepathAlternatives_Matrix(t *testing.T) {
+	t.Parallel()
+	invowkDir := types.FilesystemPath(t.TempDir())
+
+	resolveFor := func(input string) (string, error) {
+		probe := &recordingHostProbe{}
+		fp := invowkfile.FilepathDependency{
+			Alternatives: []invowkfile.FilesystemPath{invowkfile.FilesystemPath(input)},
+		}
+		if err := ValidateFilepathAlternativesWithProbe(fp, invowkDir, probe); err != nil {
+			return "", err
+		}
+		if len(probe.filepaths) == 0 {
+			return "", errors.New("probe never called")
+		}
+		return string(probe.filepaths[0]), nil
+	}
+
+	driveAbsPassThrough := pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs)
+	expect := pathmatrix.Expectations{
+		UnixAbsolute:    pathmatrix.Pass(pathmatrix.InputUnixAbsolute),
+		WindowsDriveAbs: pathmatrix.PassRelative(pathmatrix.InputWindowsDriveAbs),
+		OnWindows: &pathmatrix.PlatformOverride{
+			WindowsDriveAbs: &driveAbsPassThrough,
+		},
+		WindowsRooted:      pathmatrix.PassRelative(pathmatrix.InputWindowsRooted),
+		UNC:                pathmatrix.PassRelative(pathmatrix.InputUNC),
+		SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal),
+		BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal),
+		ValidRelative:      pathmatrix.PassAny(nil),
+	}
+	pathmatrix.Resolver(t, string(invowkDir), resolveFor, expect)
 }

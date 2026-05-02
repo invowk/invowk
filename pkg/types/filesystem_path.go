@@ -15,6 +15,8 @@ type (
 	// FilesystemPath represents an absolute or relative filesystem path.
 	// A valid path must be non-empty and not whitespace-only.
 	// The zero value ("") is invalid — a path must always point somewhere.
+	//
+	//goplint:cue-fed-path
 	FilesystemPath string
 
 	// InvalidFilesystemPathError is returned when a FilesystemPath value is

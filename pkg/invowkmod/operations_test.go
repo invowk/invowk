@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
+	"github.com/invowk/invowk/internal/testutil/pathmatrix"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -389,48 +389,53 @@ version: "1.0.0"
 	})
 }
 
+// TestModule_ResolveScriptPath runs the canonical seven-vector matrix
+// against Module.ResolveScriptPath. Unix-absolute paths pass through
+// unchanged on every platform (the strings.HasPrefix("/") guard from the
+// v0.10.0 fix); host-absolute paths pass through on the platform that
+// recognizes them, otherwise get joined with the module root. UNC and
+// Windows-rooted forms are not absolute on any platform without a drive
+// letter, so they get joined with the module root too. Traversal vectors
+// are NOT rejected by ResolveScriptPath itself — that's ValidateScriptPath's
+// job; the resolver only joins.
 func TestModule_ResolveScriptPath(t *testing.T) {
 	t.Parallel()
 
 	modulePath := filepath.Join(string(filepath.Separator), "home", "user", "mycommands.invowkmod")
-	module := &Module{
-		Path: types.FilesystemPath(modulePath),
+	module := &Module{Path: types.FilesystemPath(modulePath)}
+
+	resolve := func(input string) (string, error) {
+		return string(module.ResolveScriptPath(types.FilesystemPath(input))), nil
 	}
 
-	tests := []struct {
-		name       string
-		scriptPath types.FilesystemPath
-		expected   string
-	}{
-		{
-			name:       "relative path with forward slashes",
-			scriptPath: "scripts/build.sh",
-			expected:   filepath.Join(modulePath, "scripts", "build.sh"),
+	expect := pathmatrix.Expectations{
+		// Unix-style absolute paths pass through everywhere.
+		UnixAbsolute: pathmatrix.Pass(pathmatrix.InputUnixAbsolute),
+		// Windows drive-absolute passes through on Windows; gets joined on
+		// non-Windows because filepath.IsAbs("C:\\…") returns false.
+		WindowsDriveAbs: pathmatrix.PassRelative(pathmatrix.InputWindowsDriveAbs),
+		OnWindows: &pathmatrix.PlatformOverride{
+			WindowsDriveAbs: func() *pathmatrix.Outcome {
+				o := pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs)
+				return &o
+			}(),
 		},
-		{
-			name:       "relative path in root",
-			scriptPath: "run.sh",
-			expected:   filepath.Join(modulePath, "run.sh"),
-		},
-		{
-			name:       "nested path",
-			scriptPath: "lib/utils/helper.sh",
-			expected:   filepath.Join(modulePath, "lib", "utils", "helper.sh"),
-		},
+		WindowsRooted:      pathmatrix.PassRelative(pathmatrix.InputWindowsRooted),
+		UNC:                pathmatrix.PassRelative(pathmatrix.InputUNC),
+		SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal),
+		BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal),
+		ValidRelative:      pathmatrix.PassAny(nil),
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			result := module.ResolveScriptPath(tt.scriptPath)
-			if string(result) != tt.expected {
-				t.Errorf("ResolveScriptPath(%q) = %q, want %q", tt.scriptPath, result, tt.expected)
-			}
-		})
-	}
+	pathmatrix.Resolver(t, modulePath, resolve, expect)
 }
 
+// TestModule_ValidateScriptPath runs the canonical seven-vector matrix
+// against Module.ValidateScriptPath. After the cross-platform-absolute fix
+// (isCrossPlatformAbsolutePath helper), every absolute form is rejected on
+// every platform regardless of host — not just the dialect filepath.IsAbs
+// recognizes for the running platform. Backslash traversal is still
+// silently accepted on non-Windows because backslashes aren't separators
+// there; locking that current behavior in via OnLinux/OnDarwin overrides.
 func TestModule_ValidateScriptPath(t *testing.T) {
 	t.Parallel()
 
@@ -438,66 +443,26 @@ func TestModule_ValidateScriptPath(t *testing.T) {
 		Path: types.FilesystemPath(filepath.Join(t.TempDir(), "mycommands.invowkmod")),
 	}
 
-	tests := []struct {
-		name       string
-		scriptPath types.FilesystemPath
-		expectErr  bool
-	}{
-		{
-			name:       "valid relative path",
-			scriptPath: "scripts/build.sh",
-			expectErr:  false,
-		},
-		{
-			name:       "valid path in root",
-			scriptPath: "run.sh",
-			expectErr:  false,
-		},
-		{
-			name:       "empty path",
-			scriptPath: "",
-			expectErr:  true,
-		},
-		{
-			name: "absolute path not allowed",
-			scriptPath: func() types.FilesystemPath {
-				if runtime.GOOS == "windows" {
-					return `C:\Windows\System32\cmd.exe`
-				}
-				return "/usr/bin/bash"
-			}(),
-			expectErr: true,
-		},
-		{
-			name:       "path escapes module with ..",
-			scriptPath: "../other/script.sh",
-			expectErr:  true,
-		},
-		{
-			name:       "path with multiple .. escapes",
-			scriptPath: "scripts/../../other.sh",
-			expectErr:  true,
-		},
-		{
-			name:       "valid path with . component",
-			scriptPath: "./scripts/build.sh",
-			expectErr:  false,
-		},
-	}
+	pathmatrix.Validator(t, func(input string) error {
+		return module.ValidateScriptPath(types.FilesystemPath(input))
+	}, pathmatrix.Expectations{
+		UnixAbsolute:    pathmatrix.Reject(),
+		WindowsDriveAbs: pathmatrix.Reject(),
+		WindowsRooted:   pathmatrix.Reject(),
+		UNC:             pathmatrix.Reject(),
+		SlashTraversal:  pathmatrix.Reject(),
+		// Backslash traversal: rejected on Windows where backslashes
+		// are separators; on Linux/macOS the normalization replaces
+		// backslashes with forward slashes too, so this is now also
+		// rejected everywhere.
+		BackslashTraversal: pathmatrix.Reject(),
+		ValidRelative:      pathmatrix.PassAny(nil),
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := module.ValidateScriptPath(tt.scriptPath)
-			if tt.expectErr && err == nil {
-				t.Errorf("ValidateScriptPath(%q) expected error, got nil", tt.scriptPath)
-			}
-			if !tt.expectErr && err != nil {
-				t.Errorf("ValidateScriptPath(%q) unexpected error: %v", tt.scriptPath, err)
-			}
-		})
-	}
+		ExtraVectors: map[string]pathmatrix.VectorCase{
+			"empty_is_invalid":     {Input: "", Expect: pathmatrix.Reject()},
+			"single_dot_traversal": {Input: "../other/script.sh", Expect: pathmatrix.Reject()},
+		},
+	})
 }
 
 func TestModule_ContainsPath(t *testing.T) {

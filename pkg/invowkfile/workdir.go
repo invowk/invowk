@@ -15,6 +15,8 @@ type (
 	// WorkDir represents a working directory path for command execution.
 	// The zero value ("") is valid and means "inherit from parent or use default".
 	// Non-zero values must not be whitespace-only.
+	//
+	//goplint:cue-fed-path
 	WorkDir string
 
 	// InvalidWorkDirError is returned when a WorkDir value is whitespace-only.

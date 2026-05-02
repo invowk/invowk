@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/invowk/invowk/internal/discovery"
@@ -139,7 +140,11 @@ func NewWatchPlan(cmdInfo *discovery.CommandInfo) (WatchPlan, error) {
 	}
 
 	baseDir := string(cmdInfo.Command.WorkDir)
-	if baseDir != "" && !filepath.IsAbs(baseDir) {
+	// Unix-style absolute paths (leading '/') are container-absolute and must
+	// pass through unchanged on every platform. On Windows, filepath.IsAbs("/foo")
+	// returns false, so this guard must precede IsAbs to avoid joining the path
+	// with the invowkfile directory.
+	if baseDir != "" && !strings.HasPrefix(baseDir, "/") && !filepath.IsAbs(baseDir) {
 		baseDir = filepath.Join(filepath.Dir(string(cmdInfo.FilePath)), baseDir)
 	}
 	plan.BaseDir = types.FilesystemPath(baseDir) //goplint:ignore -- from invowkfile directory resolution
