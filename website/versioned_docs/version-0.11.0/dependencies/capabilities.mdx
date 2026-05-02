@@ -1,0 +1,146 @@
+---
+sidebar_position: 5
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Capability Dependencies
+
+Capability dependencies verify that required system capabilities are available before your command runs. Invowk™ supports network connectivity, container engine availability, and interactive TTY checks.
+
+## Available Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| `local-area-network` | Checks for LAN connectivity |
+| `internet` | Checks for internet connectivity |
+| `containers` | Checks that Docker or Podman is installed and responding |
+| `tty` | Checks that Invowk is running in an interactive TTY |
+
+## Basic Usage
+
+<Snippet id="dependencies/capabilities-basic" />
+
+If internet connectivity isn't available:
+
+```
+✗ Dependencies not satisfied
+
+Command 'deploy' has unmet dependencies:
+
+Missing Capabilities:
+  • internet - no internet connectivity
+
+Ensure the required capabilities are available and try again.
+```
+
+## Internet Connectivity
+
+Check for working internet access:
+
+<Snippet id="dependencies/capabilities-internet" />
+
+This checks:
+- DNS resolution is working
+- Can reach external hosts
+- Network is not blocked
+
+### Use Cases
+
+<Snippet id="dependencies/capabilities-internet-usecases" />
+
+## Local Area Network
+
+Check for LAN connectivity:
+
+<Snippet id="dependencies/capabilities-lan" />
+
+This checks:
+- Network interface is up
+- Can communicate on local network
+- Useful for on-premise services
+
+### Use Cases
+
+<Snippet id="dependencies/capabilities-lan-usecases" />
+
+## Container Engine
+
+Check that a container engine is installed and ready:
+
+<Snippet id="dependencies/capabilities-containers" />
+
+This checks:
+- Docker or Podman is present in PATH
+- The engine responds to a version command
+
+### Use Cases
+
+Use this when a command shells out to Docker/Podman directly or requires container builds.
+
+## Interactive TTY
+
+Check that Invowk is running in an interactive terminal:
+
+<Snippet id="dependencies/capabilities-tty" />
+
+This checks:
+- `stdin` is a terminal
+- `stdout` is a terminal
+
+### Use Cases
+
+Use this for interactive prompts, TUI components, or scripts that require keyboard input.
+
+## Alternatives (OR Semantics)
+
+Require either capability:
+
+<Snippet id="dependencies/capabilities-alternatives" />
+
+This is useful when a command can work with either:
+- Remote cloud services (internet)
+- Local on-premise services (LAN)
+
+## Real-World Examples
+
+### Package Installation
+
+<Snippet id="dependencies/capabilities-package-install" />
+
+### CI Pipeline
+
+<Snippet id="dependencies/capabilities-ci-pipeline" />
+
+### Hybrid Environment
+
+<Snippet id="dependencies/capabilities-hybrid" />
+
+## Offline-First Pattern
+
+Design commands that work offline when possible:
+
+<Snippet id="dependencies/capabilities-offline-first" />
+
+## Container Context
+
+For container runtime, capability checks are performed on the **host**, not inside the container:
+
+<Snippet id="dependencies/capabilities-container-context" />
+
+This makes sense because:
+- Container networking inherits from host
+- You're checking if the deployment can reach external services
+- Container network is ephemeral
+
+## Best Practices
+
+1. **Only check when necessary**: Don't require internet for offline-capable tasks
+2. **Use alternatives**: When local or cloud services are interchangeable
+3. **Fail fast**: Check connectivity before starting long operations
+4. **Provide fallbacks**: Offer offline alternatives when possible
+
+## Next Steps
+
+- [Environment Variables](./env-vars) - Check for required env vars
+- [Custom Checks](./custom-checks) - Write custom validation scripts

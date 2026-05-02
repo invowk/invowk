@@ -1,0 +1,106 @@
+---
+sidebar_position: 3
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Variáveis de Ambiente
+
+Defina variáveis de ambiente diretamente no seu invowkfile. Estas ficam disponíveis para seus scripts durante a execução.
+
+## Uso Básico
+
+<Snippet id="environment/env-vars-basic" />
+
+## Sintaxe de Variáveis
+
+Variáveis são pares chave-valor de strings:
+
+<Snippet id="environment/env-vars-syntax" />
+
+Todos os valores são strings. O shell interpreta conforme necessário.
+
+## Referenciando Outras Variáveis
+
+Referencie variáveis de ambiente do sistema:
+
+<Snippet id="environment/env-vars-references" />
+
+Nota: Referências são expandidas em tempo de execução, não no momento da definição.
+
+## Níveis de Escopo
+
+### Nível Raiz
+
+Disponível para todos os comandos:
+
+<Snippet id="environment/env-vars-scope-root" />
+
+### Nível de Comando
+
+Disponível para comando específico:
+
+<Snippet id="environment/env-vars-scope-command" />
+
+### Nível de Implementação
+
+Disponível para implementação específica:
+
+<Snippet id="environment/env-vars-scope-implementation" />
+
+### Nível de Plataforma
+
+Variáveis por plataforma:
+
+<Snippet id="environment/env-vars-scope-platform" />
+
+## Combinado com Arquivos
+
+Variáveis sobrescrevem valores de arquivos env:
+
+<Snippet id="environment/env-vars-combined-files" />
+
+## Sobrescrita via CLI
+
+Sobrescreva em tempo de execução:
+
+<Snippet id="environment/env-vars-cli-override" />
+
+Variáveis da CLI têm a maior prioridade.
+
+## Exemplos do Mundo Real
+
+### Configuração de Build
+
+<Snippet id="environment/env-vars-build-config" />
+
+### Configuração de API
+
+<Snippet id="environment/env-vars-api-config" />
+
+### Valores Dinâmicos
+
+<Snippet id="environment/env-vars-dynamic" />
+
+### Configuração de Banco de Dados
+
+<Snippet id="environment/env-vars-database" />
+
+## Ambiente de Container
+
+Variáveis são passadas para containers:
+
+<Snippet id="environment/env-vars-container" />
+
+## Melhores Práticas
+
+1. **Use padrões**: `${VAR:-default}` para config opcional
+2. **Mantenha secrets fora**: Não hardcode secrets; use arquivos env ou secrets externos
+3. **Documente variáveis**: Adicione comentários explicando cada variável
+4. **Use nomenclatura consistente**: Convenção `UPPER_SNAKE_CASE`
+5. **Escopo apropriado**: Raiz para compartilhado, comando para específico
+
+## Próximos Passos
+
+- [Env Files](./env-files) - Carregar de arquivos .env
+- [Precedence](./precedence) - Entender ordem de sobrescrita
