@@ -125,6 +125,8 @@ func TestValidator_RejectAllWithSentinel(t *testing.T) {
 // the test fixture is a non-canonicalizing resolver. Valid-relative is
 // expressed via PassAny because the three sub-forms (bare/nested/dotted)
 // cannot be expressed by a single PassRelative segment.
+//
+//goplint:ignore -- this is the meta-test of PassRelative itself; using divergent vectors with PassRelative is the point of the test, not a misuse.
 func TestResolver_PassRelative(t *testing.T) {
 	t.Parallel()
 	baseDir := t.TempDir()
@@ -301,6 +303,32 @@ func TestMissingBaseVector_FailsAtSetup(t *testing.T) {
 	})
 }
 
+// TestPassHostNativeAbs_FollowsFilepathIsAbs verifies the new outcome
+// produces the right expectation on the running platform: pass-through
+// when filepath.IsAbs(input) is true; joined when false. The fixture
+// resolver implements the canonical "host-native absolute" contract by
+// delegating directly to filepath.IsAbs, so the matrix must agree.
+func TestPassHostNativeAbs_FollowsFilepathIsAbs(t *testing.T) {
+	t.Parallel()
+	baseDir := t.TempDir()
+	resolve := func(input string) (string, error) {
+		if filepath.IsAbs(input) {
+			return input, nil
+		}
+		return filepath.Join(baseDir, input), nil
+	}
+	expect := pathmatrix.Expectations{
+		UnixAbsolute:       pathmatrix.PassHostNativeAbs(pathmatrix.InputUnixAbsolute),
+		WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs),
+		WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted),
+		UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC),
+		SlashTraversal:     pathmatrix.PassHostNativeAbs(pathmatrix.InputSlashTraversal),
+		BackslashTraversal: pathmatrix.PassHostNativeAbs(pathmatrix.InputBackslashTraversal),
+		ValidRelative:      pathmatrix.PassAny(nil),
+	}
+	pathmatrix.Resolver(t, baseDir, resolve, expect)
+}
+
 // TestValidatorAndResolver_MatchHelperNames is a smoke test that the
 // public API names exposed by pathmatrix match what doc.go references.
 // If a future refactor renames Validator/Resolver, this fails at compile
@@ -311,6 +339,7 @@ func TestValidatorAndResolver_MatchHelperNames(t *testing.T) {
 	_ = pathmatrix.Resolver
 	_ = pathmatrix.Pass
 	_ = pathmatrix.PassRelative
+	_ = pathmatrix.PassHostNativeAbs
 	_ = pathmatrix.PassAny
 	_ = pathmatrix.PassIfTrue
 	_ = pathmatrix.Reject

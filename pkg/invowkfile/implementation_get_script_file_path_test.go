@@ -23,7 +23,10 @@ import (
 //   - modulePath != "" (module context, the scenario A.2 fixed)
 //   - modulePath == "" (invowkfile-relative resolution)
 //
-// Both branches are exercised below.
+// Both branches are exercised below. Platform-divergent vectors use
+// PassHostNativeAbs so the matrix delegates the pass-through-vs-join
+// decision to filepath.IsAbs at test runtime, matching the resolver's
+// actual contract on every platform.
 func TestGetScriptFilePathWithModule_Matrix(t *testing.T) {
 	t.Parallel()
 
@@ -39,18 +42,11 @@ func TestGetScriptFilePathWithModule_Matrix(t *testing.T) {
 			return string(impl.GetScriptFilePathWithModule(invowkfilePath, invowkfile.FilesystemPath(moduleDir))), nil
 		}
 
-		// On every platform: "/foo" is container-absolute and passes through.
-		// "C:\foo" passes through on Windows (filepath.IsAbs true); on Linux/macOS
-		// it's a relative spec and gets joined with moduleDir. UNC and
-		// Windows-rooted forms behave platform-specifically — model with overrides.
 		expect := pathmatrix.Expectations{
-			UnixAbsolute:    pathmatrix.Pass(pathmatrix.InputUnixAbsolute + ".sh"),
-			WindowsDriveAbs: pathmatrix.PassRelative(pathmatrix.InputWindowsDriveAbs + ".sh"),
-			OnWindows: &pathmatrix.PlatformOverride{
-				WindowsDriveAbs: func() *pathmatrix.Outcome { o := pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs + ".sh"); return &o }(),
-			},
-			WindowsRooted:      pathmatrix.PassRelative(pathmatrix.InputWindowsRooted + ".sh"),
-			UNC:                pathmatrix.PassRelative(pathmatrix.InputUNC + ".sh"),
+			UnixAbsolute:       pathmatrix.Pass(pathmatrix.InputUnixAbsolute + ".sh"),
+			WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs + ".sh"),
+			WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted + ".sh"),
+			UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC + ".sh"),
 			SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal + ".sh"),
 			BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal + ".sh"),
 			ValidRelative:      pathmatrix.PassAny(nil),
@@ -69,13 +65,10 @@ func TestGetScriptFilePathWithModule_Matrix(t *testing.T) {
 		}
 
 		expect := pathmatrix.Expectations{
-			UnixAbsolute:    pathmatrix.Pass(pathmatrix.InputUnixAbsolute + ".sh"),
-			WindowsDriveAbs: pathmatrix.PassRelative(pathmatrix.InputWindowsDriveAbs + ".sh"),
-			OnWindows: &pathmatrix.PlatformOverride{
-				WindowsDriveAbs: func() *pathmatrix.Outcome { o := pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs + ".sh"); return &o }(),
-			},
-			WindowsRooted:      pathmatrix.PassRelative(pathmatrix.InputWindowsRooted + ".sh"),
-			UNC:                pathmatrix.PassRelative(pathmatrix.InputUNC + ".sh"),
+			UnixAbsolute:       pathmatrix.Pass(pathmatrix.InputUnixAbsolute + ".sh"),
+			WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs + ".sh"),
+			WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted + ".sh"),
+			UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC + ".sh"),
 			SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal + ".sh"),
 			BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal + ".sh"),
 			ValidRelative:      pathmatrix.PassAny(nil),

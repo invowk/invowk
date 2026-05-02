@@ -41,18 +41,15 @@ func TestGetEffectiveWorkDir_Matrix(t *testing.T) {
 		return string(inv.GetEffectiveWorkDir(nil, nil, "")), nil
 	}
 
-	// Per-platform divergence: WindowsDriveAbs is recognized as absolute
-	// on Windows (filepath.IsAbs true → pass-through) but treated as a
-	// relative segment on Linux/macOS (filepath.IsAbs false → joined).
-	driveAbsPassThrough := pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs)
+	// Platform-divergent vectors use PassHostNativeAbs so the matrix
+	// agrees with whatever filepath.IsAbs reports on the running
+	// platform — pass-through when host considers absolute, joined
+	// when relative. No per-platform override needed.
 	expect := pathmatrix.Expectations{
-		UnixAbsolute:    pathmatrix.Pass(pathmatrix.InputUnixAbsolute),
-		WindowsDriveAbs: pathmatrix.PassRelative(pathmatrix.InputWindowsDriveAbs),
-		OnWindows: &pathmatrix.PlatformOverride{
-			WindowsDriveAbs: &driveAbsPassThrough,
-		},
-		WindowsRooted:      pathmatrix.PassRelative(pathmatrix.InputWindowsRooted),
-		UNC:                pathmatrix.PassRelative(pathmatrix.InputUNC),
+		UnixAbsolute:       pathmatrix.Pass(pathmatrix.InputUnixAbsolute),
+		WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs),
+		WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted),
+		UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC),
 		SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal),
 		BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal),
 		ValidRelative:      pathmatrix.PassAny(nil),

@@ -56,16 +56,17 @@ const (
 
 	// outcomeKind values. Numeric constants (not iota) so they coexist
 	// with string consts in the same block per decorder.
-	outcomeUnset        outcomeKind = 0
-	outcomePass         outcomeKind = 1
-	outcomePassRelative outcomeKind = 2
-	outcomePassAny      outcomeKind = 3
-	outcomePassIfTrue   outcomeKind = 4
-	outcomeReject       outcomeKind = 5
-	outcomeRejectIs     outcomeKind = 6
-	outcomeRejectAs     outcomeKind = 7
-	outcomeCustom       outcomeKind = 8
-	outcomeSkip         outcomeKind = 9
+	outcomeUnset         outcomeKind = 0
+	outcomePass          outcomeKind = 1
+	outcomePassRelative  outcomeKind = 2
+	outcomePassAny       outcomeKind = 3
+	outcomePassIfTrue    outcomeKind = 4
+	outcomeReject        outcomeKind = 5
+	outcomeRejectIs      outcomeKind = 6
+	outcomeRejectAs      outcomeKind = 7
+	outcomeCustom        outcomeKind = 8
+	outcomeSkip          outcomeKind = 9
+	outcomeHostNativeAbs outcomeKind = 10
 
 	// matrixMode values, distinguishing validator and resolver behaviors.
 	validatorMode matrixMode = 0
@@ -157,8 +158,31 @@ func Pass(exact string) Outcome { return Outcome{kind: outcomePass, exact: exact
 // PassRelative asserts the function returns nil error and the resolved
 // path equals filepath.Join(baseDir, segment). The matrix performs the
 // join so callers don't need to write "<base>/segment" sentinel strings.
+//
+// CAUTION: PassRelative encodes a single host-relative expectation across
+// every platform. For platform-divergent inputs whose absoluteness depends
+// on filepath.IsAbs (UNC "\\server\share", Windows drive "C:\foo",
+// Windows-rooted "\foo"), prefer [PassHostNativeAbs] which delegates the
+// pass-through-vs-join decision to filepath.IsAbs at test time and so
+// produces correct expectations on every platform automatically.
 func PassRelative(segment string) Outcome {
 	return Outcome{kind: outcomePassRelative, relative: segment}
+}
+
+// PassHostNativeAbs asserts the resolver follows the host filepath
+// package's absoluteness contract: when filepath.IsAbs(input) is true on
+// the running platform, the resolver passes the input through unchanged;
+// when false, the resolver joins it with baseDir via filepath.Join. The
+// matrix calls filepath.IsAbs(input) at test runtime to select between
+// pass-through and join, so a single declaration produces correct
+// expectations on every platform without per-platform overrides.
+//
+// Use this for resolvers whose contract is "pass-through if the host
+// considers absolute, else join". This is the right outcome for inputs
+// whose absoluteness diverges by platform — UNC "\\server\share",
+// Windows drive "C:\foo", and Windows-rooted "\foo".
+func PassHostNativeAbs(input string) Outcome {
+	return Outcome{kind: outcomeHostNativeAbs, exact: input}
 }
 
 // PassAny asserts the function returns nil error; if `assert` is non-nil
@@ -410,7 +434,8 @@ func runOneVector(t *testing.T, baseDir string, resolve func(input string) (stri
 	case outcomeSkip:
 		t.Skip(outcome.skipMsg)
 	case outcomePass, outcomePassRelative, outcomePassAny, outcomePassIfTrue,
-		outcomeReject, outcomeRejectIs, outcomeRejectAs, outcomeCustom:
+		outcomeReject, outcomeRejectIs, outcomeRejectAs, outcomeCustom,
+		outcomeHostNativeAbs:
 		// Handled below after invoking resolve.
 	}
 	got, gotErr := resolve(input)
@@ -433,8 +458,38 @@ func runOneVector(t *testing.T, baseDir string, resolve func(input string) (stri
 		assertRejectAs(t, input, got, gotErr, outcome.target)
 	case outcomeCustom:
 		outcome.custom(t, got, gotErr)
+	case outcomeHostNativeAbs:
+		assertPassHostNativeAbs(t, input, got, gotErr, baseDir, outcome.exact)
 	}
 }
+
+// assertPassHostNativeAbs implements the [PassHostNativeAbs] contract:
+// pass-through when the host filepath package considers the input
+// absolute, joined to baseDir otherwise. Single test declaration ⇒
+// correct expectation on every platform.
+func assertPassHostNativeAbs(t *testing.T, input, got string, gotErr error, baseDir, want string) {
+	t.Helper()
+	if gotErr != nil {
+		t.Fatalf("input=%q: expected nil error, got %v", input, gotErr)
+	}
+	if filepath.IsAbs(want) {
+		if got != want {
+			t.Errorf("input=%q (host-absolute on %s): got %q, want pass-through %q",
+				input, hostGOOS(), got, want)
+		}
+		return
+	}
+	expected := filepath.Join(baseDir, want)
+	if got != expected {
+		t.Errorf("input=%q (host-relative on %s): got %q, want filepath.Join(%q, %q) = %q",
+			input, hostGOOS(), got, baseDir, want, expected)
+	}
+}
+
+// hostGOOS returns the running platform name for diagnostic messages.
+// Defined as a tiny indirection so test failure messages name the
+// platform that produced the divergent expectation.
+func hostGOOS() string { return goruntime.GOOS }
 
 func assertPassExact(t *testing.T, input, got string, gotErr error, want string) {
 	t.Helper()

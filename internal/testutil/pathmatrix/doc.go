@@ -62,15 +62,35 @@
 //
 // # Cross-platform expectation expressions
 //
-//   - [Pass]         — exact pass-through string (the function returns the input unchanged or a known constant).
-//   - [PassRelative] — the function joins the input with the test's baseDir using filepath.Join.
-//   - [PassAny]      — accept any non-error result; optional inspector callback.
-//   - [PassIfTrue]   — for boolean-returning predicates wrapped via `func(s) error { if pred(s) { return nil }; return errFalse }`.
-//   - [Reject]       — assert the function returns a non-nil error (use sparingly; prefer [RejectIs] / [RejectAs]).
-//   - [RejectIs]     — assert the returned error wraps a specific sentinel via errors.Is.
-//   - [RejectAs]     — assert the returned error matches a target type via errors.As.
-//   - [Custom]       — caller-defined assertion against (got, gotErr).
-//   - [Skip]         — declare the vector intentionally inapplicable; recorded via t.Skip in the per-vector subtest.
+//   - [Pass]              — exact pass-through string (the function returns the input unchanged or a known constant).
+//   - [PassRelative]      — the function joins the input with the test's baseDir using filepath.Join.
+//   - [PassHostNativeAbs] — like Pass when filepath.IsAbs(input) is true on the running platform; like PassRelative otherwise. Use for resolvers that follow the host filepath package's absoluteness contract — the right outcome for platform-divergent inputs (UNC, Windows-drive, Windows-rooted).
+//   - [PassAny]           — accept any non-error result; optional inspector callback.
+//   - [PassIfTrue]        — for boolean-returning predicates wrapped via `func(s) error { if pred(s) { return nil }; return errFalse }`.
+//   - [Reject]            — assert the function returns a non-nil error (use sparingly; prefer [RejectIs] / [RejectAs]).
+//   - [RejectIs]          — assert the returned error wraps a specific sentinel via errors.Is.
+//   - [RejectAs]          — assert the returned error matches a target type via errors.As.
+//   - [Custom]             — caller-defined assertion against (got, gotErr).
+//   - [Skip]              — declare the vector intentionally inapplicable; recorded via t.Skip in the per-vector subtest.
+//
+// # Choosing between PassRelative and PassHostNativeAbs
+//
+// Most resolvers under test follow the contract: "if filepath.IsAbs(input)
+// is true, return input unchanged; else, return filepath.Join(baseDir, input)".
+// For these, [PassHostNativeAbs] is the right outcome: a single declaration
+// produces correct expectations on every platform without per-platform
+// overrides.
+//
+// [PassRelative] encodes "joined to baseDir on every platform". This is
+// only correct when the resolver explicitly normalizes the input — for
+// example, a validator that rejects every absolute form regardless of
+// platform. For inputs whose absoluteness depends on filepath.IsAbs (UNC
+// "\\server\share", Windows drive "C:\foo", Windows-rooted "\foo"),
+// [PassRelative] without an [Expectations.OnWindows] override will fail
+// on Windows where filepath.IsAbs returns true and the resolver passes
+// through. Use [PassHostNativeAbs] instead. The cross-platform-paths
+// goplint analyzer flags PassRelative on these three input constants
+// (InputUNC, InputWindowsDriveAbs, InputWindowsRooted) at commit time.
 //
 // # Subtest naming
 //

@@ -496,15 +496,15 @@ func TestValidateFilepathAlternatives_Matrix(t *testing.T) {
 		return string(probe.filepaths[0]), nil
 	}
 
-	driveAbsPassThrough := pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs)
+	// Platform-divergent vectors use PassHostNativeAbs: pass-through
+	// when filepath.IsAbs is true on the running platform, joined with
+	// invowkDir otherwise. This matches the resolver's actual contract
+	// and produces correct expectations on every platform automatically.
 	expect := pathmatrix.Expectations{
-		UnixAbsolute:    pathmatrix.Pass(pathmatrix.InputUnixAbsolute),
-		WindowsDriveAbs: pathmatrix.PassRelative(pathmatrix.InputWindowsDriveAbs),
-		OnWindows: &pathmatrix.PlatformOverride{
-			WindowsDriveAbs: &driveAbsPassThrough,
-		},
-		WindowsRooted:      pathmatrix.PassRelative(pathmatrix.InputWindowsRooted),
-		UNC:                pathmatrix.PassRelative(pathmatrix.InputUNC),
+		UnixAbsolute:       pathmatrix.Pass(pathmatrix.InputUnixAbsolute),
+		WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs),
+		WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted),
+		UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC),
 		SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal),
 		BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal),
 		ValidRelative:      pathmatrix.PassAny(nil),

@@ -409,19 +409,16 @@ func TestModule_ResolveScriptPath(t *testing.T) {
 	}
 
 	expect := pathmatrix.Expectations{
-		// Unix-style absolute paths pass through everywhere.
+		// Unix-style absolute paths pass through on every platform via
+		// the explicit strings.HasPrefix("/") guard in the resolver.
 		UnixAbsolute: pathmatrix.Pass(pathmatrix.InputUnixAbsolute),
-		// Windows drive-absolute passes through on Windows; gets joined on
-		// non-Windows because filepath.IsAbs("C:\\…") returns false.
-		WindowsDriveAbs: pathmatrix.PassRelative(pathmatrix.InputWindowsDriveAbs),
-		OnWindows: &pathmatrix.PlatformOverride{
-			WindowsDriveAbs: func() *pathmatrix.Outcome {
-				o := pathmatrix.Pass(pathmatrix.InputWindowsDriveAbs)
-				return &o
-			}(),
-		},
-		WindowsRooted:      pathmatrix.PassRelative(pathmatrix.InputWindowsRooted),
-		UNC:                pathmatrix.PassRelative(pathmatrix.InputUNC),
+		// Windows-style absolutes: pass-through if the host filepath
+		// package considers them absolute, joined with the module root
+		// otherwise. PassHostNativeAbs delegates the platform decision
+		// to filepath.IsAbs at test runtime.
+		WindowsDriveAbs:    pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsDriveAbs),
+		WindowsRooted:      pathmatrix.PassHostNativeAbs(pathmatrix.InputWindowsRooted),
+		UNC:                pathmatrix.PassHostNativeAbs(pathmatrix.InputUNC),
 		SlashTraversal:     pathmatrix.PassRelative(pathmatrix.InputSlashTraversal),
 		BackslashTraversal: pathmatrix.PassRelative(pathmatrix.InputBackslashTraversal),
 		ValidRelative:      pathmatrix.PassAny(nil),
