@@ -36,6 +36,23 @@ Each subagent produces a checklist status table BEFORE listing findings. Every i
 Findings are generated FROM failed checklist items. Every finding must trace back to a specific
 check ID. Do not generate findings that are not associated with a checklist item.
 
+### Out-of-Checklist Observations
+
+If during review a subagent identifies a real documentation issue that does not map to any
+existing checklist item, it must NOT invent a finding ID. Instead, append a
+**Notes for Coordinator** section after the Findings list:
+
+```
+## Notes for Coordinator (out-of-checklist)
+- file: <path:line> — short description of the observation, why it does not fit any current
+  checklist item, and a suggested action.
+```
+
+The coordinator collects these in a separate **Additional Observations** section in the
+merged report (see `SKILL.md` merge step) so they remain visible without polluting the
+RD-### finding list. Where appropriate, the coordinator should propose adding a new
+checklist item to capture the pattern in future runs.
+
 ## Finding Entry Template
 
 Each finding is one row. Use this format:
@@ -86,9 +103,9 @@ End the report with aggregate counts:
 |---|---|---|---|---|
 | S1: README | 22 | ... | ... | ... |
 | S2: Website | 13 | ... | ... | ... |
-| S3: Snippet | 18 | ... | ... | ... |
+| S3: Snippet | 20 | ... | ... | ... |
 | S4: i18n | 6 | ... | ... | ... |
-| S5: Diagram | 11 | ... | ... | ... |
+| S5: Diagram | 13 | ... | ... | ... |
 | S6: ContainerPolicy | 6 | ... | ... | ... |
 | S7: Config | 7 | ... | ... | ... |
 | S8: Homepage | 5 | ... | ... | ... |

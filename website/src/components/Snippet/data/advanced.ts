@@ -401,7 +401,7 @@ cmds: [
 workdir: "./src/app"
 
 // Avoid - Windows-specific
-workdir: ".\src\app"`,
+workdir: #".\\src\\app"#`,
   },
 
   'advanced/workdir-frontend-backend': {
@@ -571,8 +571,8 @@ workdir: ".\src\app"`,
             platforms: [{name: "windows"}]
             env: {
                 vars: {
-                    CONFIG_PATH: "%APPDATA%\myapp\config.yaml"
-                    CACHE_DIR: "%LOCALAPPDATA%\myapp\cache"
+                    CONFIG_PATH: #"%APPDATA%\\myapp\\config.yaml"#
+                    CACHE_DIR: #"%LOCALAPPDATA%\\myapp\\cache"#
                 }
             }
         }

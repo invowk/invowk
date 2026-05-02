@@ -247,7 +247,7 @@ script: "scripts/build.sh"
 script: "scripts/lib/logging.sh"
 
 // Bad - will fail on some platforms
-script: "scripts\build.sh"
+script: #"scripts\\build.sh"#
 
 // Bad - escapes module directory
 script: "../outside.sh"`,
@@ -448,7 +448,7 @@ done`,
   'modules/path-separators-good-bad': {
     language: 'cue',
     code: `// Bad - Windows-style
-script: "scripts\build.sh"
+script: #"scripts\\build.sh"#
 
 // Good - Forward slashes
 script: "scripts/build.sh"`,

@@ -811,7 +811,7 @@ Install the missing tools and try again.`,
         // Must be set AND match semver format
         {alternatives: [{
             name: "VERSION"
-            validation: "^[0-9]+\.[0-9]+\.[0-9]+$"
+            validation: #"^[0-9]+\\.[0-9]+\\.[0-9]+$"#
         }]}
     ]
 }`,
@@ -923,7 +923,7 @@ Install the missing tools and try again.`,
             // Version must be semantic
             {alternatives: [{
                 name: "VERSION"
-                validation: "^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$"
+                validation: #"^v?[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9]+)?$"#
             }]},
             // Git tag message
             {alternatives: [{name: "RELEASE_NOTES"}]}
@@ -942,21 +942,21 @@ Install the missing tools and try again.`,
 
   'dependencies/env-vars-pattern-semver': {
     language: 'cue',
-    code: `validation: "^[0-9]+\.[0-9]+\.[0-9]+$"
+    code: `validation: #"^[0-9]+\\.[0-9]+\\.[0-9]+$"#
 // Matches: 1.0.0, 2.1.3
 // Rejects: v1.0.0, 1.0, latest`,
   },
 
   'dependencies/env-vars-pattern-url': {
     language: 'cue',
-    code: `validation: "^https?://[^\s]+$"
+    code: `validation: #"^https?://[^\\s]+$"#
 // Matches: http://localhost, https://example.com/path
 // Rejects: ftp://server, not-a-url`,
   },
 
   'dependencies/env-vars-pattern-email': {
     language: 'cue',
-    code: `validation: "^[^@]+@[^@]+\.[^@]+$"
+    code: `validation: #"^[^@]+@[^@]+\\.[^@]+$"#
 // Matches: user@example.com
 // Rejects: invalid, @example.com`,
   },

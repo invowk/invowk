@@ -50,7 +50,7 @@ code examples. CUE snippets are the most drift-prone because the schema evolves 
 the examples.
 
 The #1 drift pattern is missing `platforms` field in implementation blocks. Five additional
-patterns are cataloged in `references/cue-drift-patterns.md` (6 total).
+patterns are cataloged in `references/cue-drift-patterns.md` (8 total — including Patterns 7 and 8 for the TS-template / CUE-string interaction class).
 
 **Important**: Partial/fragment snippets that show individual CUE fields (e.g., just
 `runtimes:` config) are intentionally incomplete and exempt from schema completeness checks.
@@ -185,7 +185,7 @@ checklist review work assigned to any pending subagent.
 |----------|---------|-------------------|-------|
 | **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S1 | Walk 22-section sync map, verify each section against its source of truth |
 | **SA-2: Website Docs** | S2 | `consolidated-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S2 | Verify MDX pages against Go code and CUE schemas using the code→docs map |
-| **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 6 CUE drift patterns to all 11 snippet data files systematically |
+| **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 8 CUE drift patterns to all 11 snippet data files systematically. Patterns 1–6 are CUE-shape drift; Patterns 7 (nested `"`) and 8 (TS template literal eats `\`) require running the rendered output through `cue eval` because the bug is invisible in source. |
 | **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity` results, detect stale prose via git dates |
 | **SA-5: Architecture Diagrams** | S5 | `consolidated-sync-map.md` (diagram section), `surface-checklists.md` §S5 | D2 node/label accuracy vs current package names and code structure |
 | **SA-6: Container Image Policy** | S6 | `surface-checklists.md` §S6 | Deep scan beyond Step 1 grep — CUE runtime fields, Dockerfiles in examples |
@@ -222,6 +222,8 @@ For each checklist item:
 ## Output
 1. Checklist Status table (every item, no omissions)
 2. Findings list (one entry per FAIL item, using the checklist's pre-assigned severity)
+3. Optional `Notes for Coordinator (out-of-checklist)` list — see `structured-output-format.md`
+   for when and how to use this channel (real issue, no matching check ID, suggest action)
 ```
 
 ### Step 3: Merge and Report
@@ -234,7 +236,11 @@ The coordinator:
 5. **Sorts** by severity (ERROR first), then by surface
 6. **Assigns** sequential IDs (RD-001, RD-002, ...) to the merged list
 7. **Merges** checklist tables into a unified Checklist Completion summary
-8. **Produces** the final report (see `references/structured-output-format.md`)
+8. **Collects out-of-checklist observations** from each subagent's `Notes for Coordinator`
+   section into a separate **Additional Observations** block in the final report (does NOT
+   receive RD-### IDs). For each one, consider whether to add a new checklist item to capture
+   the pattern in future runs.
+9. **Produces** the final report (see `references/structured-output-format.md`)
 
 ---
 
@@ -243,7 +249,7 @@ The coordinator:
 Read these when working on the corresponding review surface:
 
 - **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
-  enumerated verification items (88 total across 8 surfaces). This is the primary review driver.
+  enumerated verification items (92 total across 8 surfaces). This is the primary review driver.
 - **[references/consolidated-sync-map.md](references/consolidated-sync-map.md)** — Superset
   code → docs mapping (website + diagrams + drift-prone areas)
 - **[references/readme-sync-map.md](references/readme-sync-map.md)** — README section →

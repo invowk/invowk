@@ -51,14 +51,16 @@ at least one `Start -> ...` edge.
 ## 4. D2 Syntax Validation
 
 ```bash
-for f in docs/diagrams/**/*.d2; do
-  echo "=== $f ===" && d2 validate "$f" 2>&1
+for f in $(find docs/diagrams -name '*.d2'); do
+  d2 fmt --check "$f" 2>&1 || echo "FAIL: $f"
 done
 ```
 
-**What it checks**: D2 syntax validity for all 23 diagram source files.
+**What it checks**: D2 syntax validity (and formatter cleanliness) for all 23 diagram source
+files. Note: `d2 fmt --check` is the supported syntax check in current D2 versions; older
+docs referenced `d2 validate`, which is not available as a subcommand.
 
-**Expected**: All files validate without errors.
+**Expected**: All files validate without errors and produce no `FAIL:` lines.
 
 **Failure triage**: Fix D2 syntax errors. Common issues: unquoted labels with special characters,
 missing closing braces, invalid `vars` blocks.
@@ -119,6 +121,36 @@ Then apply the full pattern checklist from `references/cue-drift-patterns.md`:
 - Module requires use `git_url` not `git`
 - Version constraints have no `v` prefix
 - Module `includes` paths end with `.invowkmod`
+
+## 7b. TS-Template / CUE-String Interaction (Patterns 7 and 8)
+
+These bugs are invisible at the TS layer — they only surface in the rendered CUE. Always run
+these greps as part of S3 review:
+
+```bash
+# Pattern 7: nested unescaped " in script:/check_script: CUE strings
+grep -nE '(script|check_script): "[^"]*"[^,"]+"[^"]*"' \
+  website/src/components/Snippet/data/*.ts
+
+# Pattern 8a: regex/charclass escapes that TS strips silently
+grep -nE 'validation: "[^"]*\\[a-zA-Z]' website/src/components/Snippet/data/*.ts
+
+# Pattern 8b: Windows env-var paths in CUE strings
+grep -nE '"[A-Z_%]+\\[a-z]' website/src/components/Snippet/data/*.ts
+
+# Pattern 8c: generic catch-all (excludes TS-recognized escapes and existing \\\\ pairs)
+grep -nE '"[^"]*\\[a-zA-Z][^"]*"' website/src/components/Snippet/data/*.ts \
+  | grep -vE 'language:|\\n|\\t|\\r|\\b|\\f|\\v|\\\\|\\"|\\$\{|\\u'
+```
+
+**Expected**: All four greps produce empty output, OR all hits are already wrapped in raw
+strings `#"..."#` with `\\` doubling in TS source.
+
+**Verification**: For any non-trivial fix, render the TS template literal in a small Node
+script and feed the output to `cue eval` to confirm correctness. The TS layer cannot self-validate
+these patterns — only `cue eval` on the rendered text exposes them.
+
+See `cue-drift-patterns.md` Patterns 7 and 8 for full guidance.
 
 ## 8. Dual-Prefix Config Snippet Check
 

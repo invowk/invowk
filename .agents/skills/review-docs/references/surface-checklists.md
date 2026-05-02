@@ -85,7 +85,9 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 - `website/src/components/Snippet/data/cli.ts`
 
 **Source of truth**: `pkg/invowkfile/invowkfile_schema.cue`, `pkg/invowkmod/invowkmod_schema.cue`,
-`internal/config/config_schema.cue`. See `cue-drift-patterns.md` for the 6 patterns.
+`internal/config/config_schema.cue`. See `cue-drift-patterns.md` for the 8 patterns (1–6 are
+CUE-shape drift; 7 and 8 are TS-template / CUE-string interaction bugs that only surface in
+the rendered output).
 
 **Important exception**: Partial/fragment snippets that show individual CUE fields (e.g., just
 `runtimes:` config) are intentionally incomplete. Only flag snippets that show a full `cmds` entry
@@ -124,7 +126,18 @@ with an implementation block but lack required fields.
 | S3-C17 | CUE field names in snippets match current schema field names (cross-reference against `.cue` files) | ERROR |
 | S3-C18 | Snippet IDs referenced in MDX pages exist in the corresponding data file | ERROR |
 
-**Total items**: 18
+### TypeScript-template / CUE-string interaction
+
+These two checks catch bugs that only surface AFTER the TS template literal renders. The TS
+layer accepts the broken source verbatim; only `cue eval` on the rendered text reveals them.
+See `cue-drift-patterns.md` Patterns 7 and 8 for full detection guidance.
+
+| ID | Check | Severity |
+|---|---|---|
+| S3-C19 | Pattern 7 — No nested unescaped `"` inside `script:` / `check_script:` double-quoted CUE strings (run the Pattern 7 detection grep; rendered output must `cue eval` cleanly) | ERROR |
+| S3-C20 | Pattern 8 — No bare `\X` inside CUE strings where TS template-literal escape rules would silently drop the `\` (regex `\.` `\s` `\d`, Windows paths `\m` `\c` etc.). Use `#"..."#` raw strings with doubled backslashes in TS source. | ERROR |
+
+**Total items**: 20
 
 ---
 
@@ -167,8 +180,10 @@ with an implementation block but lack required fields.
 | S5-C09 | Server diagrams match current SSH/TUI server implementations | `internal/sshserver/`, `internal/tuiserver/` | WARNING |
 | S5-C10 | Architecture prose docs in `docs/architecture/` reference correct package names and component relationships | Actual package structure | INFO |
 | S5-C11 | Website architecture pages in `website/docs/architecture/` are consistent with `docs/architecture/` prose | `docs/architecture/` source files | INFO |
+| S5-C12 | C4 component diagrams label hexagonal **ports** (interfaces consumed by the runtime), not their concrete adapters. The runtime's struct field type or constructor option is the source of truth — if it takes `provision.Provisioner`, that's the port; `LayerProvisioner` is the adapter and belongs in the tooltip or a "production adapter:" prose line. | Runtime struct field types in `internal/runtime/*.go` | WARNING |
+| S5-C13 | Architecture prose tables that enumerate domain rules (e.g. dependency visibility, runtime selection, validation order) include every case defined by the source-of-truth Go function. Cross-check tables against the function's logic — missing cases are silent gaps, not bugs the build will catch. | The Go function being summarized (e.g. `CommandScope.CanCall()` in `pkg/invowkmod/`) | WARNING |
 
-**Total items**: 11
+**Total items**: 13
 
 ---
 
@@ -243,10 +258,10 @@ with an implementation block but lack required fields.
 |---------|-------|
 | S1: README | 22 |
 | S2: Website Docs | 13 |
-| S3: Snippet Data & CUE Drift | 18 |
+| S3: Snippet Data & CUE Drift | 20 |
 | S4: i18n Parity | 6 |
-| S5: Architecture Diagrams | 11 |
+| S5: Architecture Diagrams | 13 |
 | S6: Container Image Policy | 6 |
 | S7: DefaultConfig() vs Docs | 7 |
 | S8: Homepage & Terminal Demo | 5 |
-| **Grand total** | **88** |
+| **Grand total** | **92** |

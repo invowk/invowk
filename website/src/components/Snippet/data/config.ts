@@ -80,7 +80,7 @@ $EDITOR ~/.config/invowk/config.cue
 $EDITOR ~/Library/Application\ Support/invowk/config.cue
 
 # Windows PowerShell
-notepad "$env:APPDATA\invowk\config.cue"`,
+notepad "$env:APPDATA\\invowk\\config.cue"`,
   },
 
   'config/full-example': {

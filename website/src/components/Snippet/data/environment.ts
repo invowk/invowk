@@ -543,7 +543,7 @@ implementations: [
         platforms: [{name: "windows"}]
         env: {
             vars: {
-                PLATFORM_CONFIG: "%APPDATA%\myapp"
+                PLATFORM_CONFIG: #"%APPDATA%\\myapp"#
                 PLATFORM_NAME: "Windows"
             }
         }

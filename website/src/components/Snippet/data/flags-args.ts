@@ -323,7 +323,7 @@ invowk cmd build -v --output=./dist -f`,
     {
         name: "version"
         description: "Semantic version"
-        validation: "^[0-9]+\.[0-9]+\.[0-9]+$"
+        validation: #"^[0-9]+\\.[0-9]+\\.[0-9]+$"#
     }
 ]`,
   },
@@ -410,7 +410,7 @@ invowk cmd deploy --env=production
             name: "version"
             description: "Version to deploy"
             short: "v"
-            validation: "^[0-9]+\.[0-9]+\.[0-9]+$"
+            validation: #"^[0-9]+\\.[0-9]+\\.[0-9]+$"#
         },
         {
             name: "dry-run"
@@ -616,7 +616,7 @@ args: [
     {
         name: "version"
         description: "Version number"
-        validation: "^[0-9]+\.[0-9]+\.[0-9]+$"
+        validation: #"^[0-9]+\\.[0-9]+\\.[0-9]+$"#
     }
 ]`,
   },
@@ -719,7 +719,7 @@ invowk cmd deploy production
             name: "archive"
             description: "Output archive name"
             required: true
-            validation: "\.(zip|tar\.gz|tgz)$"
+            validation: #"\\.(zip|tar\\.gz|tgz)$"#
         },
         {
             name: "files"
