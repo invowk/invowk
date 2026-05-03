@@ -53,7 +53,7 @@ invowk audit --format json
 invowk audit --format json | jq '.summary.total'
 
 # List finding titles
-invowk audit --format json | jq '.findings[] | "[\(.severity)] \(.title)"'
+invowk audit --format json | jq '.findings[] | "[\\\\(.severity)] \\\\(.title)"'
 
 # Check for compound threats
 invowk audit --format json | jq '.compound_threats'`,

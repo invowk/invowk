@@ -130,7 +130,7 @@ fi`,
     language: 'bash',
     code: `while true; do
     EMAIL=$(invowk tui input --title "Email:")
-    if echo "$EMAIL" | grep -qE '^[^@]+@[^@]+\.[^@]+$'; then
+    if echo "$EMAIL" | grep -qE '^[^@]+@[^@]+\\\\.[^@]+$'; then
         break
     fi
     echo "Invalid email format, try again."
@@ -194,7 +194,7 @@ echo "Success!" | invowk tui style --foreground "#00FF00" --bold`,
     language: 'bash',
     code: `while true; do
     EMAIL=$(invowk tui input --title "Email address:")
-    if echo "$EMAIL" | grep -qE '^[^@]+@[^@]+\.[^@]+$'; then
+    if echo "$EMAIL" | grep -qE '^[^@]+@[^@]+\\\\.[^@]+$'; then
         break
     fi
     echo "Invalid email format" | invowk tui style --foreground "#FF0000"
@@ -371,7 +371,7 @@ fi`,
     language: 'bash',
     code: `while true; do
     EMAIL=$(invowk tui input --title "Email:")
-    if echo "$EMAIL" | grep -qE '^[^@]+@[^@]+\.[^@]+$'; then
+    if echo "$EMAIL" | grep -qE '^[^@]+@[^@]+\\\\.[^@]+$'; then
         break
     fi
     echo "Invalid email format, try again."
@@ -898,7 +898,7 @@ cat app.js | invowk tui format --type code --language javascript`,
   'tui/format-emoji': {
     language: 'bash',
     code: `echo "Hello :wave: World :smile:" | invowk tui format --type emoji
-# Output: Hello \ud83d\udc4b World \ud83d\ude04`,
+# Output: Hello \\\\ud83d\\\\udc4b World \\\\ud83d\\\\ude04`,
   },
 
   'tui/format-readme': {
@@ -1043,22 +1043,18 @@ invowk tui style
             
             # Check services
             if systemctl is-active nginx > /dev/null 2>&1; then
-                echo "nginx: " | tr -d '
-'
+                echo "nginx: " | tr -d '\\\\n'
                 invowk tui style --foreground "#00FF00" "running"
             else
-                echo "nginx: " | tr -d '
-'
+                echo "nginx: " | tr -d '\\\\n'
                 invowk tui style --foreground "#FF0000" "stopped"
             fi
             
             if systemctl is-active postgresql > /dev/null 2>&1; then
-                echo "postgres: " | tr -d '
-'
+                echo "postgres: " | tr -d '\\\\n'
                 invowk tui style --foreground "#00FF00" "running"
             else
-                echo "postgres: " | tr -d '
-'
+                echo "postgres: " | tr -d '\\\\n'
                 invowk tui style --foreground "#FF0000" "stopped"
             fi
             """

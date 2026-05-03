@@ -323,7 +323,7 @@ invowk cmd build -v --output=./dist -f`,
     {
         name: "version"
         description: "Semantic version"
-        validation: "^[0-9]+\.[0-9]+\.[0-9]+$"
+        validation: "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
     }
 ]`,
   },
@@ -410,7 +410,7 @@ invowk cmd deploy --env=production
             name: "version"
             description: "Version to deploy"
             short: "v"
-            validation: "^[0-9]+\.[0-9]+\.[0-9]+$"
+            validation: "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
         },
         {
             name: "dry-run"
@@ -583,7 +583,7 @@ args: [
             echo "Count: $INVOWK_ARG_INPUTS_COUNT"
 
             for i in $(seq 1 $INVOWK_ARG_INPUTS_COUNT); do
-                eval "file=\$INVOWK_ARG_INPUTS_$i"
+                eval "file=\\\$INVOWK_ARG_INPUTS_$i"
                 echo "Processing: $file"
             done
             """
@@ -616,7 +616,7 @@ args: [
     {
         name: "version"
         description: "Version number"
-        validation: "^[0-9]+\.[0-9]+\.[0-9]+$"
+        validation: "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$"
     }
 ]`,
   },
@@ -719,7 +719,7 @@ invowk cmd deploy production
             name: "archive"
             description: "Output archive name"
             required: true
-            validation: "\.(zip|tar\.gz|tgz)$"
+            validation: "\\\\.(zip|tar\\\\.gz|tgz)$"
         },
         {
             name: "files"
@@ -773,7 +773,7 @@ invowk cmd deploy production
             
             if [ -n "$INVOWK_ARG_SERVICES" ]; then
                 for i in $(seq 1 $INVOWK_ARG_SERVICES_COUNT); do
-                    eval "service=\$INVOWK_ARG_SERVICES_$i"
+                    eval "service=\\\$INVOWK_ARG_SERVICES_$i"
                     echo "Deploying $service..."
                     kubectl scale deployment/$service --replicas=$INVOWK_ARG_REPLICAS
                 done
