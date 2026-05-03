@@ -221,42 +221,87 @@ container: {
 }`,
   },
 
+  'config/minimal-example': {
+    language: 'cue',
+    code: `// Just override what you need
+container_engine: "docker"`,
+  },
+
+  'config/empty-example': {
+    language: 'cue',
+    code: `// Empty config - use all defaults`,
+  },
+
+  'config/cue-validate': {
+    language: 'bash',
+    code: `cue vet ~/.config/invowk/config.cue`,
+  },
+
+  'config/invowk-validate': {
+    language: 'bash',
+    code: `invowk config show`,
+  },
+
   'config/complete-example': {
     language: 'cue',
     code: `// Invowk Configuration File
-// Located at: ~/.config/invowk/config.cue
+// =========================
+// Location: ~/.config/invowk/config.cue
 
-// Use Podman as the container engine
+// Container Engine
+// ----------------
+// Which container runtime to use: "podman" or "docker"
 container_engine: "podman"
 
-// Additional modules to include in discovery
+// Includes
+// --------
+// Additional modules to include in discovery.
+// Each entry specifies a path to an *.invowkmod directory.
+// Modules may have an optional alias for collision disambiguation.
 includes: [
-    {path: "/home/user/.invowk/modules/tools.invowkmod"},       // Personal modules
-    {path: "/home/user/work/shared.invowkmod", alias: "team"},   // Team shared module
+    // Personal modules
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},
+
+    // Team shared module (with alias)
+    {path: "/home/user/work/shared.invowkmod", alias: "team"},
+
+    // Organization-wide module
+    {path: "/opt/company/tools.invowkmod"},
 ]
 
-// Keep the default runtime set to native shell
+// Default Runtime
+// ---------------
+// The runtime to use when a command doesn't specify one
+// Options: "native", "virtual", "container"
 default_runtime: "native"
 
-// Virtual shell settings
+// Virtual Shell Configuration
+// ---------------------------
+// Settings for the virtual shell runtime (mvdan/sh)
 virtual_shell: {
     // Enable u-root utilities for more shell commands
+    // Provides ls, cat, grep, etc. in the virtual environment
     enable_uroot_utils: true
 }
 
-// UI preferences
+// UI Configuration
+// ----------------
+// User interface settings
 ui: {
-    // Auto-detect color scheme from terminal
+    // Color scheme: "auto", "dark", or "light"
+    // "auto" detects from terminal settings
     color_scheme: "auto"
     
-    // Don't be verbose by default
+    // Enable verbose output by default
+    // Same as always passing --ivk-verbose
     verbose: false
-    
-    // Enable interactive mode for commands with stdin (e.g., password prompts)
+
+    // Enable interactive mode by default
     interactive: false
 }
 
 // Container provisioning
+// ----------------------
 container: {
     auto_provision: {
         enabled: true
@@ -289,6 +334,128 @@ invowk cmd build --ivk-runtime container`,
   // =============================================================================
   // REFERENCE - CONFIG SCHEMA
   // =============================================================================
+
+  'reference/config/example': {
+    language: 'cue',
+    code: `// ~/.config/invowk/config.cue
+container_engine: "podman"
+includes: [
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},
+    {path: "/usr/local/share/invowk/shared.invowkmod"},
+]
+default_runtime: "native"`,
+  },
+
+  'reference/config/cli-custom-path': {
+    language: 'bash',
+    code: `# Use a custom config file with --ivk-config (-c)
+invowk --ivk-config /path/to/config.cue config show
+
+# Or use the short flag
+invowk -c /path/to/config.cue cmd build`,
+  },
+
+  'reference/config/init': {
+    language: 'bash',
+    code: `invowk config init`,
+  },
+
+  'reference/config/show': {
+    language: 'bash',
+    code: `invowk config show`,
+  },
+
+  'reference/config/dump': {
+    language: 'bash',
+    code: `invowk config dump`,
+  },
+
+  'reference/config/path': {
+    language: 'bash',
+    code: `invowk config path`,
+  },
+
+  'reference/config/set-examples': {
+    language: 'bash',
+    code: `# Set the container engine
+invowk config set container_engine podman
+
+# Set the default runtime
+invowk config set default_runtime virtual
+
+# Set the color scheme
+invowk config set ui.color_scheme dark`,
+  },
+
+  'reference/config/edit-linux-macos': {
+    language: 'bash',
+    code: `# Linux
+$EDITOR ~/.config/invowk/config.cue
+
+# macOS
+$EDITOR ~/Library/Application\ Support/invowk/config.cue
+
+# Windows PowerShell
+notepad "$env:APPDATA\invowk\config.cue"`,
+  },
+
+  'reference/config/full-example': {
+    language: 'cue',
+    code: `// ~/.config/invowk/config.cue
+
+// Container engine: "podman" or "docker"
+container_engine: "podman"
+
+// Additional modules to include in discovery
+includes: [
+    {path: "/home/user/.invowk/modules/tools.invowkmod"},
+    {path: "/home/user/projects/shared.invowkmod", alias: "shared"},
+]
+
+// Default runtime for commands that don't specify one
+default_runtime: "native"
+
+// Virtual shell configuration
+virtual_shell: {
+    enable_uroot_utils: true
+}
+
+// UI preferences
+ui: {
+    color_scheme: "auto"  // "auto", "dark", or "light"
+    verbose: false
+    interactive: false    // Enable alternate screen buffer mode
+}
+
+// Container provisioning
+container: {
+    auto_provision: {
+        enabled: true
+        strict: false
+        binary_path: ""
+        includes: []
+        inherit_includes: true
+        cache_dir: ""
+    }
+}`,
+  },
+
+  'reference/config/env-override-examples': {
+    language: 'bash',
+    code: `# Invowk does not currently support config overrides via env vars`,
+  },
+
+  'reference/config/cli-override-examples': {
+    language: 'bash',
+    code: `# Enable verbose output for a run
+invowk --ivk-verbose cmd build
+
+# Run command in interactive mode (alternate screen buffer)
+invowk --ivk-interactive cmd build
+
+# Override runtime for a command
+invowk cmd build --ivk-runtime container`,
+  },
 
   'reference/config/schema-definition': {
     language: 'cue',
