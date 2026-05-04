@@ -723,6 +723,10 @@ pattern = "moduleops.*.constructor"
 reason = "application adapter DTOs/options; constructed via struct literals at command boundaries"
 
 [[exceptions]]
+pattern = "llmconfig.*.constructor"
+reason = "application resolution DTOs/options; constructed via struct literals at command boundaries"
+
+[[exceptions]]
 pattern = "config.*.constructor"
 reason = "config DTOs; populated by Viper mapstructure"
 

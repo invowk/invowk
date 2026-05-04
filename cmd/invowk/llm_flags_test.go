@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/invowk/invowk/internal/app/llmconfig"
 	"github.com/invowk/invowk/internal/config"
 )
 
@@ -58,7 +59,7 @@ func TestResolveLLMForCommand_UsesConfiguredProviderDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveLLMForCommand() error = %v", err)
 	}
-	if got.mode != llmModeProvider || got.provider != "codex" || got.model != "gpt-5.1-codex" {
+	if got.Mode != llmconfig.ModeProvider || got.Provider != "codex" || got.Model != "gpt-5.1-codex" {
 		t.Fatalf("resolved = %+v, want codex provider with model override", got)
 	}
 }
@@ -75,8 +76,8 @@ func TestResolveLLMForCommand_AuditDoesNotImplicitlyUseConfiguredDefault(t *test
 	if err != nil {
 		t.Fatalf("resolveLLMForCommand() error = %v", err)
 	}
-	if got.mode != llmModeNone {
-		t.Fatalf("mode = %v, want none", got.mode)
+	if got.Mode != llmconfig.ModeNone {
+		t.Fatalf("mode = %v, want none", got.Mode)
 	}
 }
 
@@ -95,7 +96,7 @@ func TestResolveLLMForCommand_LLMFlagUsesConfiguredProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveLLMForCommand() error = %v", err)
 	}
-	if got.mode != llmModeProvider || got.provider != "claude" {
+	if got.Mode != llmconfig.ModeProvider || got.Provider != "claude" {
 		t.Fatalf("resolved = %+v, want claude provider", got)
 	}
 	if provider.lastOpts.ConfigFilePath != "/tmp/invowk-config.cue" {
@@ -119,11 +120,11 @@ func TestResolveLLMForCommand_APIConfigUsesEnvReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveLLMForCommand() error = %v", err)
 	}
-	if got.mode != llmModeAPI {
-		t.Fatalf("mode = %v, want API", got.mode)
+	if got.Mode != llmconfig.ModeAPI {
+		t.Fatalf("mode = %v, want API", got.Mode)
 	}
-	if got.apiConfig.BaseURL != "https://example.invalid/v1" || got.apiConfig.Model != "custom-model" || got.apiConfig.APIKey != "secret-value" {
-		t.Fatalf("apiConfig = %+v, want configured URL/model/API key from env ref", got.apiConfig)
+	if got.APIConfig.BaseURL != "https://example.invalid/v1" || got.APIConfig.Model != "custom-model" || got.APIConfig.APIKey != "secret-value" {
+		t.Fatalf("apiConfig = %+v, want configured URL/model/API key from env ref", got.APIConfig)
 	}
 }
 

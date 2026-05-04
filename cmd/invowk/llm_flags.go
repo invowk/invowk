@@ -6,31 +6,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/invowk/invowk/internal/app/llmconfig"
 	"github.com/invowk/invowk/internal/audit"
 	"github.com/invowk/invowk/internal/auditllm"
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/llm"
 	"github.com/invowk/invowk/pkg/types"
 )
 
 const (
 	llmFlagModel = "llm-model"
-
-	llmModeNone     llmMode = 0
-	llmModeProvider llmMode = 1
-	llmModeAPI      llmMode = 2
 )
 
 type (
-	llmMode int
-
 	llmFlagValues struct {
 		enable      bool
 		provider    string
@@ -42,16 +36,8 @@ type (
 	}
 
 	llmCompleterResult struct {
-		completer   audit.LLMCompleter
+		completer   llm.Completer
 		concurrency int
-	}
-
-	llmResolvedConfig struct {
-		mode        llmMode
-		provider    config.LLMProvider
-		model       config.LLMModelName
-		apiConfig   auditllm.LLMClientConfig
-		concurrency config.LLMConcurrency
 	}
 )
 
@@ -79,50 +65,6 @@ func validateLLMFlagSelection(flags llmFlagValues) error {
 	return nil
 }
 
-func (m llmMode) String() string {
-	switch m {
-	case llmModeNone:
-		return "none"
-	case llmModeProvider:
-		return "provider"
-	case llmModeAPI:
-		return "api"
-	default:
-		return fmt.Sprintf("unknown(%d)", m)
-	}
-}
-
-func (m llmMode) Validate() error {
-	switch m {
-	case llmModeNone, llmModeProvider, llmModeAPI:
-		return nil
-	default:
-		return fmt.Errorf("invalid LLM mode %d", m)
-	}
-}
-
-func (c llmResolvedConfig) Validate() error {
-	var errs []error
-	if err := c.mode.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := c.provider.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if err := c.model.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if c.mode == llmModeAPI {
-		if err := c.apiConfig.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := c.concurrency.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	return errors.Join(errs...)
-}
-
 func resolveLLMForCommand(
 	ctx context.Context,
 	cmd *cobra.Command,
@@ -130,180 +72,90 @@ func resolveLLMForCommand(
 	configPath types.FilesystemPath,
 	flags llmFlagValues,
 	useConfiguredDefault bool,
-) (*llmResolvedConfig, *ExitError) {
-	cfg, err := provider.Load(ctx, config.LoadOptions{
-		ConfigFilePath: configPath,
-	})
-	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "failed to load LLM configuration: %v\n", err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
+) (*llmconfig.Resolved, *ExitError) {
+	flagValues, flagErr := llmConfigFlagValues(cmd, flags)
+	if flagErr != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", flagErr)
+		return nil, &ExitError{Code: auditExitError, Err: flagErr}
 	}
-
-	result := llmResolvedConfig{
-		apiConfig: auditllm.LLMClientConfig{
+	resolved, err := llmconfig.Resolve(ctx, provider, llmconfig.ResolveOptions{
+		ConfigFilePath:       optionalConfigFilePath(configPath),
+		Flags:                flagValues,
+		UseConfiguredDefault: useConfiguredDefault,
+		Defaults: llmconfig.Defaults{
 			BaseURL:     auditllm.DefaultLLMBaseURL,
 			Model:       auditllm.DefaultLLMModel,
 			Timeout:     auditllm.DefaultLLMTimeout,
-			Concurrency: auditllm.DefaultLLMConcurrency,
+			Concurrency: audit.DefaultLLMConcurrency,
 		},
-	}
-	applyLLMConfigDefaults(&result, cfg.LLM)
-
-	switch {
-	case flags.provider != "":
-		providerValue := config.LLMProvider(flags.provider)
-		if err := providerValue.Validate(); err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
-			return nil, &ExitError{Code: auditExitError, Err: err}
-		}
-		result.mode = llmModeProvider
-		result.provider = providerValue
-	case flags.enable:
-		if result.mode == llmModeNone {
-			result.mode = llmModeAPI
-		}
-	case useConfiguredDefault && result.mode != llmModeNone:
-		// Use configured default mode as-is.
-	case useConfiguredDefault:
-		err := errors.New("configure llm.provider or llm.api.*, or specify --llm-provider/--llm")
-		fmt.Fprintln(cmd.ErrOrStderr(), err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
-	default:
-		return &llmResolvedConfig{mode: llmModeNone}, nil
-	}
-
-	if err := applyLLMEnvOverrides(cmd, &result); err != nil {
+	})
+	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
 		return nil, &ExitError{Code: auditExitError, Err: err}
 	}
-	if err := applyLLMFlagOverrides(cmd, flags, &result); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
+	return resolved, nil
+}
+
+func llmConfigFlagValues(cmd *cobra.Command, flags llmFlagValues) (llmconfig.FlagValues, error) {
+	provider := config.LLMProvider(flags.provider)
+	if err := provider.Validate(); err != nil {
+		return llmconfig.FlagValues{}, err
 	}
-	concurrency := config.LLMConcurrency(normalizedLLMConcurrency(result.apiConfig.Concurrency))
+	baseURL := config.LLMBaseURL(flags.url)
+	if err := baseURL.Validate(); err != nil {
+		return llmconfig.FlagValues{}, err
+	}
+	model := config.LLMModelName(flags.model)
+	if err := model.Validate(); err != nil {
+		return llmconfig.FlagValues{}, err
+	}
+	concurrency := config.LLMConcurrency(flags.concurrency)
 	if err := concurrency.Validate(); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
+		return llmconfig.FlagValues{}, err
 	}
-	result.concurrency = concurrency
-	if err := result.Validate(); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
-		return nil, &ExitError{Code: auditExitError, Err: err}
-	}
-	return &result, nil
+	return llmconfig.FlagValues{
+		Enable:      flags.enable,
+		Provider:    provider,
+		BaseURL:     baseURL,
+		Model:       model,
+		APIKey:      flags.apiKey,
+		Timeout:     flags.timeout,
+		Concurrency: concurrency,
+		Changed: llmconfig.ChangedFlags{
+			BaseURL:     cmd.Flags().Changed("llm-url"),
+			Model:       cmd.Flags().Changed(llmFlagModel),
+			APIKey:      cmd.Flags().Changed("llm-api-key"),
+			Timeout:     cmd.Flags().Changed("llm-timeout"),
+			Concurrency: cmd.Flags().Changed("llm-concurrency"),
+		},
+	}, nil
 }
 
-func applyLLMConfigDefaults(result *llmResolvedConfig, llm config.LLMConfig) {
-	if llm.Provider != "" {
-		result.mode = llmModeProvider
-		result.provider = llm.Provider
+func optionalConfigFilePath(path types.FilesystemPath) *types.FilesystemPath {
+	if path == "" {
+		return nil
 	}
-	if llm.Model != "" {
-		result.model = llm.Model
-		result.apiConfig.Model = llm.Model.String()
-	}
-	if llm.Timeout != "" {
-		if timeout, err := llm.Timeout.Duration(); err == nil {
-			result.apiConfig.Timeout = timeout
-		}
-	}
-	if llm.Concurrency != 0 {
-		result.apiConfig.Concurrency = int(llm.Concurrency)
-	}
-	if llm.API.HasConfig() {
-		result.mode = llmModeAPI
-		result.provider = ""
-		if llm.API.BaseURL != "" {
-			result.apiConfig.BaseURL = llm.API.BaseURL.String()
-		}
-		if llm.API.Model != "" {
-			result.apiConfig.Model = llm.API.Model.String()
-		}
-		if llm.API.APIKeyEnv != "" {
-			result.apiConfig.APIKey = os.Getenv(llm.API.APIKeyEnv.String())
-		}
-	}
+	return &path
 }
 
-func applyLLMEnvOverrides(cmd *cobra.Command, result *llmResolvedConfig) error {
-	if !cmd.Flags().Changed("llm-url") {
-		if envURL := os.Getenv("INVOWK_LLM_URL"); envURL != "" {
-			result.apiConfig.BaseURL = envURL
-		}
-	}
-	if !cmd.Flags().Changed(llmFlagModel) {
-		if envModel := os.Getenv("INVOWK_LLM_MODEL"); envModel != "" {
-			model := config.LLMModelName(envModel)
-			if err := model.Validate(); err != nil {
-				return err
-			}
-			result.model = model
-			result.apiConfig.Model = envModel
-		}
-	}
-	if !cmd.Flags().Changed("llm-api-key") && result.apiConfig.APIKey == "" {
-		if envKey := os.Getenv("INVOWK_LLM_API_KEY"); envKey != "" {
-			result.apiConfig.APIKey = envKey
-		}
-	}
-	if !cmd.Flags().Changed("llm-timeout") {
-		if envTimeout := os.Getenv("INVOWK_LLM_TIMEOUT"); envTimeout != "" {
-			if d, err := time.ParseDuration(envTimeout); err == nil {
-				result.apiConfig.Timeout = d
-			}
-		}
-	}
-	if !cmd.Flags().Changed("llm-concurrency") {
-		if envConc := os.Getenv("INVOWK_LLM_CONCURRENCY"); envConc != "" {
-			if n, err := strconv.Atoi(envConc); err == nil {
-				result.apiConfig.Concurrency = n
-			}
-		}
-	}
-	return nil
-}
-
-func applyLLMFlagOverrides(cmd *cobra.Command, flags llmFlagValues, result *llmResolvedConfig) error {
-	if cmd.Flags().Changed("llm-url") {
-		result.apiConfig.BaseURL = flags.url
-	}
-	if cmd.Flags().Changed(llmFlagModel) {
-		model := config.LLMModelName(flags.model)
-		if err := model.Validate(); err != nil {
-			return err
-		}
-		result.model = model
-		result.apiConfig.Model = flags.model
-	}
-	if cmd.Flags().Changed("llm-api-key") {
-		result.apiConfig.APIKey = flags.apiKey
-	}
-	if cmd.Flags().Changed("llm-timeout") {
-		result.apiConfig.Timeout = flags.timeout
-	}
-	if cmd.Flags().Changed("llm-concurrency") {
-		result.apiConfig.Concurrency = flags.concurrency
-	}
-	return nil
-}
-
-func buildLLMCompleter(ctx context.Context, cmd *cobra.Command, llm *llmResolvedConfig) (*llmCompleterResult, *ExitError) {
-	if llm == nil || llm.mode == llmModeNone {
+func buildLLMCompleter(ctx context.Context, cmd *cobra.Command, resolved *llmconfig.Resolved) (*llmCompleterResult, *ExitError) {
+	if resolved == nil || resolved.Mode == llmconfig.ModeNone {
 		err := errors.New("LLM is not enabled")
 		fmt.Fprintln(cmd.ErrOrStderr(), err)
 		return nil, &ExitError{Code: auditExitError, Err: err}
 	}
 
-	if llm.mode == llmModeAPI {
-		return buildManualCompleter(ctx, cmd, llm.apiConfig)
+	apiConfig := toLLMClientConfig(resolved.APIConfig)
+	if resolved.Mode == llmconfig.ModeAPI {
+		return buildManualCompleter(ctx, cmd, apiConfig)
 	}
 
-	if err := llm.apiConfig.Validate(); err != nil {
+	if err := apiConfig.Validate(); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
 		return nil, &ExitError{Code: auditExitError, Err: err}
 	}
 
-	return buildProviderCompleter(ctx, cmd, llm.provider, llm.model, llm.apiConfig)
+	return buildProviderCompleter(ctx, cmd, resolved.Provider, resolved.Model, apiConfig)
 }
 
 func buildProviderCompleter(ctx context.Context, cmd *cobra.Command, provider config.LLMProvider, modelOverride config.LLMModelName, llmOpts auditllm.LLMClientConfig) (*llmCompleterResult, *ExitError) {
@@ -333,7 +185,7 @@ func buildProviderCompleter(ctx context.Context, cmd *cobra.Command, provider co
 
 	return &llmCompleterResult{
 		completer:   result.Completer(),
-		concurrency: normalizedLLMConcurrency(llmOpts.Concurrency),
+		concurrency: llmOpts.Concurrency,
 	}, nil
 }
 
@@ -351,13 +203,16 @@ func buildManualCompleter(ctx context.Context, cmd *cobra.Command, llmOpts audit
 
 	return &llmCompleterResult{
 		completer:   llmClient,
-		concurrency: normalizedLLMConcurrency(llmOpts.Concurrency),
+		concurrency: llmOpts.Concurrency,
 	}, nil
 }
 
-func normalizedLLMConcurrency(concurrency int) int {
-	if concurrency == 0 {
-		return audit.DefaultLLMConcurrency
+func toLLMClientConfig(cfg llmconfig.APIConfig) auditllm.LLMClientConfig {
+	return auditllm.LLMClientConfig{
+		BaseURL:     cfg.BaseURL.String(),
+		Model:       cfg.Model.String(),
+		APIKey:      cfg.APIKey,
+		Timeout:     cfg.Timeout,
+		Concurrency: int(cfg.Concurrency),
 	}
-	return concurrency
 }

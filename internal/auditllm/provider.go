@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/audit"
+	"github.com/invowk/invowk/internal/llm"
 )
 
 const (
@@ -39,7 +40,7 @@ const (
 )
 
 var (
-	_ audit.LLMCompleter = (*CLICompleter)(nil) // compile-time interface assertion
+	_ llm.Completer = (*CLICompleter)(nil) // compile-time interface assertion
 
 	// ErrLLMProviderNotFound is the sentinel for when no LLM provider can be detected.
 	ErrLLMProviderNotFound = errors.New(llmProviderNotFoundErrMsg)
@@ -70,7 +71,7 @@ type (
 
 	// ProviderResult holds a detected provider's configuration.
 	ProviderResult struct {
-		completer audit.LLMCompleter
+		completer llm.Completer
 		name      string
 		model     string
 	}
@@ -107,7 +108,7 @@ type (
 )
 
 // Completer returns the LLM completer for this provider.
-func (r *ProviderResult) Completer() audit.LLMCompleter { return r.completer }
+func (r *ProviderResult) Completer() llm.Completer { return r.completer }
 
 // Name returns the provider name (e.g., "claude", "ollama").
 func (r *ProviderResult) Name() string { return r.name }

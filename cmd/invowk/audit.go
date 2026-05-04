@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/invowk/invowk/internal/app/llmconfig"
 	"github.com/invowk/invowk/internal/audit"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/types"
@@ -115,7 +116,7 @@ type (
 		minSeverity   string //goplint:ignore -- transient CLI flag validated by audit.ParseSeverity.
 		configPath    string //goplint:ignore -- root CLI flag validated by config provider.
 		includeGlobal bool
-		llm           *llmResolvedConfig
+		llm           *llmconfig.Resolved
 	}
 )
 
@@ -234,7 +235,7 @@ Exit codes:
 				}
 			}
 
-			var llm *llmResolvedConfig
+			var llm *llmconfig.Resolved
 			if llmFlags.enable || llmFlags.provider != "" {
 				resolved, llmErr := resolveLLMForCommand(
 					cmd.Context(),
@@ -293,7 +294,7 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 		}),
 	}
 
-	if opts.llm != nil && opts.llm.mode != llmModeNone {
+	if opts.llm != nil && opts.llm.Mode != llmconfig.ModeNone {
 		result, completerErr := buildLLMCompleter(ctx, cmd, opts.llm)
 		if completerErr != nil {
 			return completerErr

@@ -16,6 +16,7 @@ import (
 	"github.com/openai/openai-go/packages/param"
 
 	"github.com/invowk/invowk/internal/audit"
+	"github.com/invowk/invowk/internal/llm"
 )
 
 const (
@@ -34,8 +35,8 @@ const (
 )
 
 var (
-	_ audit.LLMCompleter = (*LLMClient)(nil) // compile-time interface assertion
-	_ ModelVerifier      = (*LLMClient)(nil) // compile-time interface assertion
+	_ llm.Completer = (*LLMClient)(nil) // compile-time interface assertion
+	_ ModelVerifier = (*LLMClient)(nil) // compile-time interface assertion
 
 	// ErrLLMClientConfigInvalid is the sentinel for invalid client configuration.
 	ErrLLMClientConfigInvalid = errors.New(llmClientConfigInvalidErrMsg)

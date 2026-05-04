@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/invowk/invowk/internal/audit"
+	"github.com/invowk/invowk/internal/llm"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
@@ -32,7 +32,7 @@ type (
 		DryRun      bool
 		PrintOnly   bool
 		Replace     bool
-		Completer   audit.LLMCompleter
+		Completer   llm.Completer
 	}
 
 	// CreateResult contains the validated generated command and resulting file content.

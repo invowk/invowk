@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/invowk/invowk/internal/llm"
 )
 
 const (
@@ -38,20 +40,14 @@ const (
 // be explicitly added via WithChecker(NewLLMChecker(...)).
 type (
 	LLMChecker struct {
-		completer   LLMCompleter
+		completer   llm.Completer
 		concurrency int
-	}
-
-	// LLMCompleter abstracts the LLM chat completion call for testability.
-	// Production adapters live outside the audit domain package.
-	LLMCompleter interface {
-		Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error)
 	}
 )
 
 // NewLLMChecker creates an LLMChecker with the given completer and concurrency.
 // The concurrency parameter controls the maximum number of parallel LLM requests.
-func NewLLMChecker(completer LLMCompleter, concurrency int) *LLMChecker {
+func NewLLMChecker(completer llm.Completer, concurrency int) *LLMChecker {
 	if concurrency <= 0 {
 		concurrency = DefaultLLMConcurrency
 	}
