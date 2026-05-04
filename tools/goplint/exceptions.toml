@@ -3404,8 +3404,44 @@ pattern = "invowk.formatDuration.return.*"
 reason = "CLI display formatting helper"
 
 [[exceptions]]
-pattern = "invowk.buildProviderChecker.provider"
+pattern = "invowk.buildProviderCompleter.provider"
 reason = "CLI flag text parsed by LLM provider detection"
+
+[[exceptions]]
+pattern = "invowk.llmFlagValues.*"
+reason = "Cobra flag binding shared by audit and agent command authoring"
+
+[[exceptions]]
+pattern = "invowk.llmCompleterResult.*"
+reason = "CLI adapter result carrying runtime LLM provider dependencies"
+
+[[exceptions]]
+pattern = "invowk.normalizedLLMConcurrency.*"
+reason = "CLI flag normalization for LLM worker count"
+
+[[exceptions]]
+pattern = "invowk.normalizedLLMConcurrency.return.*"
+reason = "CLI flag normalization for LLM worker count"
+
+[[exceptions]]
+pattern = "invowkfile.SchemaCUE.return.*"
+reason = "raw embedded CUE schema text for documentation and agent prompts"
+
+[[exceptions]]
+pattern = "invowkmod.SchemaCUE.return.*"
+reason = "raw embedded CUE schema text for documentation and agent prompts"
+
+[[exceptions]]
+pattern = "agentcmd.*.*"
+reason = "LLM/filesystem boundary package carries raw prompt, CUE, diff, and path text"
+
+[[exceptions]]
+pattern = "agentcmd.*.*.*"
+reason = "LLM/filesystem boundary package carries raw prompt, CUE, diff, and path text"
+
+[[exceptions]]
+pattern = "agentcmd.CreateOptions.LoadDescription.return.*"
+reason = "LLM/filesystem boundary package carries raw prompt, CUE, diff, and path text"
 
 [[exceptions]]
 pattern = "invowk.WatchCommandNotFoundError.Name"
@@ -4074,4 +4110,3 @@ reason = "package alias delegates runtime identity and validation to pkg/types.R
 [[exceptions]]
 pattern = "invowkfile.RuntimeMode.virtual.enum-cue-missing-go"
 reason = "package alias delegates runtime identity and validation to pkg/types.RuntimeMode"
-

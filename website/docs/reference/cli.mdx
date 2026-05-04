@@ -569,6 +569,47 @@ Scan for security risks in invowkfiles, modules, and scripts. See the [Security 
 
 ---
 
+### invowk agent cmd prompt
+
+Print the system prompt that LLM agents should use when authoring a custom Invowk command.
+
+<Snippet id="reference/cli/agent-prompt-syntax" />
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `text` | Output format: `text`, `json` |
+
+### invowk agent cmd create
+
+Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`. See [LLM-Assisted Command Authoring](../advanced/llm-assisted-authoring) for the full workflow.
+
+<Snippet id="reference/cli/agent-create-syntax" />
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--file` | `invowkfile.cue` | Invowkfile to update |
+| `--from-file` | | Read the command request from a file |
+| `--dry-run` | `false` | Print the patch without writing |
+| `--print` | `false` | Print only the generated command CUE |
+| `--replace` | `false` | Replace an existing command with the same name |
+| `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
+| `--llm` | `false` | Enable LLM with manual URL/key config |
+| `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |
+| `--llm-model` | `qwen2.5-coder:7b` | LLM model name |
+| `--llm-api-key` | *(empty)* | API key (empty for local servers) |
+| `--llm-timeout` | `2m` | Per-request timeout |
+| `--llm-concurrency` | `2` | Max parallel LLM requests |
+
+**Examples:**
+
+<Snippet id="reference/cli/agent-examples" />
+
+---
+
 ### invowk completion
 
 Generate shell completion scripts.

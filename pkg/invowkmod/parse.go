@@ -15,6 +15,11 @@ import (
 // Cache schema bytes once to avoid per-parse string conversion allocations.
 var invowkmodSchemaBytes = []byte(invowkmodSchema)
 
+// SchemaCUE returns the embedded invowkmod.cue schema used for validation.
+func SchemaCUE() string {
+	return invowkmodSchema
+}
+
 // ParseInvowkmod reads and parses module metadata from invowkmod.cue at the given path.
 func ParseInvowkmod(path types.FilesystemPath) (*Invowkmod, error) {
 	data, err := os.ReadFile(string(path))

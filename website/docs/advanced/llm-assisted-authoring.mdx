@@ -1,0 +1,35 @@
+---
+sidebar_position: 5
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# LLM-Assisted Command Authoring
+
+`invowk agent cmd` helps LLM agents create valid custom commands without guessing the current CUE contract.
+
+## Prompt for External Agents
+
+Use `prompt` when another agent or tool will do the editing. The output is a system prompt with the full current `invowkfile.cue` and `invowkmod.cue` schemas, plus Invowk-specific guidance about runtimes, dependencies, command visibility, and safe defaults.
+
+<Snippet id="agent/authoring-prompt" />
+
+## Generate a Command
+
+Use `create` when Invowk should call the configured LLM provider, validate the generated command, and patch `invowkfile.cue`.
+
+<Snippet id="agent/create-command" />
+
+The create command uses the same LLM provider flags as `invowk audit`: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`.
+
+## Write Behavior
+
+By default, `create` updates `invowkfile.cue`. Use `--dry-run` to preview the patch, `--print` to print only the generated command object, and `--replace` when you intentionally want to overwrite an existing command with the same name.
+
+:::caution Prompt content is sent to the configured provider
+`create` sends your request and the current target invowkfile content to the selected LLM provider. Use a local provider when your command definitions contain private project details.
+:::
+
+## Validation
+
+Invowk accepts only one generated command object. It rejects full `cmds` arrays, malformed JSON, invalid CUE, unknown runtime/platform fields, and duplicate command names unless `--replace` is set.

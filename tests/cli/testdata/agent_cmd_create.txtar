@@ -1,0 +1,45 @@
+# Test: invowk agent cmd create
+# Verifies LLM-assisted command creation, preview modes, duplicate handling,
+# replacement, and --from-file.
+
+[windows] skip 'fake CLI provider uses a POSIX shell script'
+
+cd $WORK
+chmod 0755 claude
+env PATH=$WORK:$PATH
+env ANTHROPIC_API_KEY=
+
+exec invowk agent cmd create --llm-provider claude 'create a generated hello command'
+stderr 'Using LLM provider: claude'
+stdout 'Added command "agenthello" to invowkfile.cue'
+exists invowkfile.cue
+exec invowk cmd agenthello
+stdout 'generated'
+
+! exec invowk agent cmd create --llm-provider claude 'create a duplicate command'
+stderr 'Command "agenthello" already exists'
+
+exec invowk agent cmd create --llm-provider claude --replace 'replace generated command'
+stdout 'Added command "agenthello" to invowkfile.cue'
+exec invowk cmd agenthello
+stdout 'generated'
+
+exec invowk agent cmd create --llm-provider claude --print --file print.cue 'print only'
+stdout 'name: "agenthello"'
+! exists print.cue
+
+exec invowk agent cmd create --llm-provider claude --dry-run --file dry.cue --from-file request.md
+stdout '--- /dev/null'
+stdout '\+\+\+ dry.cue'
+stdout 'agenthello'
+! exists dry.cue
+
+-- request.md --
+Create a generated command from a file.
+
+-- claude --
+#!/bin/sh
+cat >/dev/null
+cat <<'JSON'
+{"type":"result","result":"{\"command_cue\":\"{name:\\\"agenthello\\\",description:\\\"Print a generated greeting\\\",implementations:[{script:\\\"echo generated\\\",runtimes:[{name:\\\"virtual\\\"}],platforms:[{name:\\\"linux\\\"},{name:\\\"macos\\\"},{name:\\\"windows\\\"}]}]}\",\"summary\":\"generated command added\"}"}
+JSON

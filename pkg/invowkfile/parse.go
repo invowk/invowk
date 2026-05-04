@@ -27,6 +27,11 @@ var (
 // This is a type alias for invowkmod.Module.
 type Module = invowkmod.Module
 
+// SchemaCUE returns the embedded invowkfile.cue schema used for validation.
+func SchemaCUE() string {
+	return invowkfileSchema
+}
+
 // Parse reads and parses an invowkfile from the given path.
 func Parse(path FilesystemPath) (*Invowkfile, error) {
 	pathStr := string(path)

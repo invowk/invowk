@@ -392,6 +392,58 @@ invowk validate ./mymod.invowkmod
 invowk validate ./my-project/`,
   },
 
+  'agent/authoring-prompt': {
+    language: 'bash',
+    code: `# Print the system prompt for an external agent
+invowk agent cmd prompt
+
+# Machine-readable prompt and schemas
+invowk agent cmd prompt --format json`,
+  },
+
+  'agent/create-command': {
+    language: 'bash',
+    code: `# Generate and patch invowkfile.cue using the best available provider
+invowk agent cmd create --llm-provider auto 'add a lint command that runs golangci-lint'
+
+# Preview the patch without writing
+invowk agent cmd create --llm-provider codex --dry-run 'add a test command'
+
+# Print only the generated command object
+invowk agent cmd create --llm-provider claude --print 'add a release checklist command'
+
+# Use an OpenAI-compatible local server
+invowk agent cmd create --llm --llm-url http://localhost:1234/v1 'add a docs build command'`,
+  },
+
+  'reference/cli/agent-prompt-syntax': {
+    language: 'bash',
+    code: `invowk agent cmd prompt [flags]`,
+  },
+
+  'reference/cli/agent-create-syntax': {
+    language: 'bash',
+    code: `invowk agent cmd create [description...] [flags]`,
+  },
+
+  'reference/cli/agent-examples': {
+    language: 'bash',
+    code: `# Print the command-authoring system prompt
+invowk agent cmd prompt
+
+# Generate and add a command with provider auto-detection
+invowk agent cmd create --llm-provider auto 'add a format command'
+
+# Preview instead of writing
+invowk agent cmd create --llm-provider codex --dry-run 'add a test command'
+
+# Replace an existing command with the same name
+invowk agent cmd create --llm-provider claude --replace 'improve the lint command'
+
+# Read the request from a file
+invowk agent cmd create --llm-provider gemini --from-file command-request.md`,
+  },
+
   'reference/cli/completion-syntax': {
     language: 'bash',
     code: `invowk completion [shell]`,

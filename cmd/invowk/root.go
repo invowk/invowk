@@ -74,6 +74,7 @@ be organized hierarchically with support for dependencies.
 	rootCmd.AddCommand(newModuleCommand(app))
 	rootCmd.AddCommand(newValidateCommand(app))
 	rootCmd.AddCommand(newAuditCommand(app))
+	rootCmd.AddCommand(newAgentCommand())
 	rootCmd.AddCommand(newInternalCommand())
 
 	return rootCmd

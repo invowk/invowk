@@ -1,25 +1,6 @@
 ---
 name: windows-testing
-description: >-
-  Deep Windows-specific knowledge for Go code and tests. Covers process
-  lifecycle (CreateProcess, no fork, Job Objects, TerminateProcess), signal
-  handling differences (no POSIX signals, only os.Interrupt/os.Kill),
-  exec.CommandContext Windows behavior (exit code 1 indistinguishable from
-  normal failure), file system pitfalls (NTFS case-insensitivity, MAX_PATH,
-  sharing violations, Defender scanning), timer resolution (15.6ms default
-  causes timing flakiness), race detector overhead, CI patterns (windows-latest,
-  -timeout 15m), and the canonical cross-platform path bug class.
-  TRIGGER PROACTIVELY (not only after a Windows failure) when refactoring,
-  reviewing, or adding code that touches:
-  - filepath.IsAbs, filepath.Join, filepath.FromSlash, filepath.ToSlash
-  - Volume-mount string construction (host:container patterns, "\":\"" literals)
-  - DDD path types: FilesystemPath, WorkDir, SubdirectoryPath, ScriptPath,
-    HostServiceAddress, ContainerVolumeMountSpec
-  - Functions whose body resolves user-fed or CUE-fed path strings
-  - Anything in internal/runtime/, internal/container/, internal/app/deps/,
-    or pkg/invowkmod/ that constructs, validates, or compares paths
-  Also use when debugging Windows-only test failures, writing platform-split
-  tests, or understanding why tests flake on windows-latest CI runners.
+description: Deep Windows testing guidance for Go code in Invowk. Use proactively when editing tests or code that touches Windows process lifecycle, os/exec, Job Objects, TerminateProcess, console interrupts, NTFS/MAX_PATH/sharing issues, timer resolution, race detector overhead, windows-latest CI, path normalization, volume-mount strings, DDD path value types, or path construction/validation in internal/runtime, internal/container, internal/app/deps, and pkg/invowkmod. Also use for Windows-only failures and platform-split testscript coverage.
 disable-model-invocation: false
 ---
 

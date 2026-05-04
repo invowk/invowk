@@ -35,6 +35,8 @@ A dynamically extensible, CLI-based command runner similar to [just](https://git
 
 - **Security Auditing**: Inspect modules and lock files with `invowk audit`, including optional LLM-assisted analysis
 
+- **LLM-Assisted Command Authoring**: Use `invowk agent cmd prompt` and `invowk agent cmd create` to give agents the current schemas or generate validated custom commands with the same LLM providers as `invowk audit`
+
 ## Installation
 
 ### Shell Script (Linux/macOS)
@@ -197,6 +199,30 @@ invowk cmd hello --ivk-runtime virtual
 # Use the container runtime (requires Docker/Podman, Linux only)
 invowk cmd hello --ivk-runtime container
 ```
+
+## LLM-Assisted Command Authoring
+
+Invowk can provide an agent-ready system prompt for custom command authoring:
+
+```bash
+invowk agent cmd prompt
+invowk agent cmd prompt --format json
+```
+
+It can also ask a configured LLM provider to generate one command, validate the CUE, and patch `invowkfile.cue`:
+
+```bash
+# Auto-detect Ollama, cloud credentials, or Claude/Codex/Gemini CLIs
+invowk agent cmd create --llm-provider auto 'add a lint command that runs golangci-lint'
+
+# Preview without writing
+invowk agent cmd create --llm-provider codex --dry-run 'add a test command'
+
+# Print only the generated command object
+invowk agent cmd create --llm-provider claude --print 'add a docs build command'
+```
+
+`agent cmd create` uses the same LLM flags as `invowk audit`, including `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command rejects malformed JSON, invalid CUE, full `cmds` arrays, and duplicate command names unless `--replace` is set.
 
 ## Invowkfile Format
 

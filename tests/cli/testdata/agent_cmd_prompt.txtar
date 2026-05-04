@@ -1,0 +1,18 @@
+# Test: invowk agent cmd prompt
+# Verifies text and JSON prompt output include schemas and authoring guidance.
+
+cd $WORK
+
+exec invowk agent cmd prompt
+stdout 'Return only JSON'
+stdout '#Invowkfile'
+stdout '#Invowkmod'
+stdout 'not a security sandbox'
+
+exec invowk agent cmd prompt --format json
+stdout '"system_prompt"'
+stdout '"invowkfile.cue"'
+stdout '"invowkmod.cue"'
+
+! exec invowk agent cmd prompt --format yaml
+stderr 'Unknown prompt format'
