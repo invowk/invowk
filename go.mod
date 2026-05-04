@@ -16,7 +16,7 @@ require (
 	github.com/charmbracelet/wish v1.4.7
 	github.com/charmbracelet/x/xpty v0.1.3
 	github.com/creack/pty v1.1.24
-	github.com/fsnotify/fsnotify v1.9.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-git/go-git/v5 v5.18.0
 	github.com/muesli/reflow v0.3.0
 	github.com/openai/openai-go v1.12.0
