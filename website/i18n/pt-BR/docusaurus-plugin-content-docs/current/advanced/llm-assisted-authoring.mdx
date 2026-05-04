@@ -22,6 +22,15 @@ Use `create` quando o Invowk deve chamar o provedor LLM configurado, validar o c
 
 O comando create usa as mesmas flags de provedor LLM de `invowk audit`: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout` e `--llm-concurrency`.
 
+Configure `llm.provider` ou `llm.api` uma vez em `config.cue` para omitir flags LLM nas próximas execuções de create:
+
+```bash
+invowk config set llm.provider codex
+invowk agent cmd create 'add a lint command that runs golangci-lint'
+```
+
+Veja [Opções de Configuração](../configuration/options#llm) para exemplos de provider e API. Chaves de API brutas devem ficar em variáveis de ambiente, referenciadas com `llm.api.api_key_env`.
+
 ## Comportamento de Escrita
 
 Por padrão, `create` atualiza `invowkfile.cue`. Use `--dry-run` para visualizar o patch, `--print` para imprimir apenas o objeto de comando gerado e `--replace` quando você realmente quiser substituir um comando existente com o mesmo nome.

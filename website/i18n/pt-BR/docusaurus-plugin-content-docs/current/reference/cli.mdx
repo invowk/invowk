@@ -554,7 +554,7 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 | `--severity` | `low` | Severidade mínima: `info`, `low`, `medium`, `high`, `critical` |
 | `--include-global` | `false` | Incluir `~/.invowk/cmds/` no scan |
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
-| `--llm` | `false` | Habilitar LLM com configuração manual de URL/chave |
+| `--llm` | `false` | Habilitar LLM usando configuração ou API |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
 | `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo LLM |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
@@ -597,7 +597,7 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--print` | `false` | Imprimir apenas o CUE do comando gerado |
 | `--replace` | `false` | Substituir um comando existente com o mesmo nome |
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
-| `--llm` | `false` | Habilitar LLM com configuração manual de URL/chave |
+| `--llm` | `false` | Habilitar LLM usando configuração ou API |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
 | `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo LLM |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |

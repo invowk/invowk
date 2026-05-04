@@ -14,6 +14,9 @@ import "strings"
 // ColorSchemeType defines valid color scheme types
 #ColorSchemeType: "auto" | "dark" | "light"
 
+// LLMProviderType defines valid LLM provider harnesses
+#LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
+
 // Config is the root configuration structure
 #Config: close({
 	// container_engine specifies which container runtime to use
@@ -37,6 +40,9 @@ import "strings"
 
 	// container configures container runtime behavior
 	container?: #ContainerConfig
+
+	// llm configures the default LLM backend for LLM-aware commands
+	llm?: #LLMConfig
 })
 
 // IncludeEntry specifies a module to include in command discovery.
@@ -103,6 +109,38 @@ import "strings"
 
 	// interactive enables alternate screen buffer mode for command execution
 	interactive?: bool
+})
+
+// LLMConfig configures the default LLM backend.
+// Use provider for supported local harnesses, or api for OpenAI-compatible endpoints.
+#LLMConfig: close({
+	// provider selects a supported LLM harness/provider.
+	provider?: #LLMProviderType
+
+	// model overrides the provider model. CLI harnesses use their current default when omitted.
+	model?: string & !="" & strings.MaxRunes(256)
+
+	// timeout sets the per-request timeout as a Go duration string, e.g. "2m".
+	timeout?: string & !="" & strings.MaxRunes(64)
+
+	// concurrency limits concurrent LLM requests. Zero means use the built-in default.
+	concurrency?: int & >=0
+
+	// api configures an OpenAI-compatible endpoint. Do not store raw API keys here;
+	// use api_key_env to name an environment variable that contains the secret.
+	api?: #LLMAPIConfig
+})
+
+// LLMAPIConfig configures an OpenAI-compatible LLM API endpoint.
+#LLMAPIConfig: close({
+	// base_url is the OpenAI-compatible API base URL.
+	base_url?: string & !="" & strings.MaxRunes(2048)
+
+	// model is the model name sent to the API endpoint.
+	model?: string & !="" & strings.MaxRunes(256)
+
+	// api_key_env names the environment variable that contains the API key.
+	api_key_env?: string & =~"^[A-Za-z_][A-Za-z0-9_]*$" & strings.MaxRunes(256)
 })
 
 // Validate that the configuration conforms to the schema

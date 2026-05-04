@@ -403,7 +403,11 @@ invowk agent cmd prompt --format json`,
 
   'agent/create-command': {
     language: 'bash',
-    code: `# Generate and patch invowkfile.cue using the best available provider
+    code: `# Configure once, then generate without per-run LLM flags
+invowk config set llm.provider codex
+invowk agent cmd create 'add a lint command that runs golangci-lint'
+
+# Generate and patch invowkfile.cue using the best available provider
 invowk agent cmd create --llm-provider auto 'add a lint command that runs golangci-lint'
 
 # Preview the patch without writing

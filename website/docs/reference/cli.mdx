@@ -554,7 +554,7 @@ Scan for security risks in invowkfiles, modules, and scripts. See the [Security 
 | `--severity` | `low` | Minimum severity: `info`, `low`, `medium`, `high`, `critical` |
 | `--include-global` | `false` | Include `~/.invowk/cmds/` in scan |
 | `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
-| `--llm` | `false` | Enable LLM with manual URL/key config |
+| `--llm` | `false` | Enable LLM using configured or API settings |
 | `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |
 | `--llm-model` | `qwen2.5-coder:7b` | LLM model name |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |
@@ -597,7 +597,7 @@ Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`
 | `--print` | `false` | Print only the generated command CUE |
 | `--replace` | `false` | Replace an existing command with the same name |
 | `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
-| `--llm` | `false` | Enable LLM with manual URL/key config |
+| `--llm` | `false` | Enable LLM using configured or API settings |
 | `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |
 | `--llm-model` | `qwen2.5-coder:7b` | LLM model name |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |

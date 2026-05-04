@@ -37,6 +37,9 @@ func TestGenerateCUE_DefaultConfig(t *testing.T) {
 	if strings.Contains(output, "cache_dir:") {
 		t.Error("GenerateCUE(defaults) should omit cache_dir when empty")
 	}
+	if strings.Contains(output, "\nllm:") {
+		t.Error("GenerateCUE(defaults) should omit llm when no LLM default is configured")
+	}
 }
 
 func TestGenerateCUE_IncludesWithAndWithoutAliases(t *testing.T) {
@@ -144,6 +147,94 @@ func TestGenerateCUE_Roundtrip(t *testing.T) {
 	}
 	if loaded.Container.AutoProvision.Enabled != cfg.Container.AutoProvision.Enabled {
 		t.Errorf("roundtrip AutoProvision.Enabled = %v, want %v", loaded.Container.AutoProvision.Enabled, cfg.Container.AutoProvision.Enabled)
+	}
+}
+
+func TestGenerateCUE_LLMProviderRoundtrip(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.LLM = LLMConfig{
+		Provider:    LLMProviderCodex,
+		Model:       "gpt-5.1-codex",
+		Timeout:     "3m",
+		Concurrency: 2,
+	}
+
+	cueContent := GenerateCUE(cfg)
+	for _, want := range []string{
+		`provider: "codex"`,
+		`model: "gpt-5.1-codex"`,
+		`timeout: "3m"`,
+		`concurrency: 2`,
+	} {
+		if !strings.Contains(cueContent, want) {
+			t.Fatalf("GenerateCUE() missing %q:\n%s", want, cueContent)
+		}
+	}
+
+	cfgDir := filepath.Join(t.TempDir(), AppName)
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	cfgPath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(cueContent), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	loaded, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
+	if err != nil {
+		t.Fatalf("loadWithOptions() error = %v", err)
+	}
+	if loaded.LLM.Provider != cfg.LLM.Provider || loaded.LLM.Model != cfg.LLM.Model || loaded.LLM.Timeout != cfg.LLM.Timeout || loaded.LLM.Concurrency != cfg.LLM.Concurrency {
+		t.Fatalf("loaded LLM = %+v, want %+v", loaded.LLM, cfg.LLM)
+	}
+}
+
+func TestGenerateCUE_LLMAPIRoundtrip(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.LLM = LLMConfig{
+		Timeout:     "90s",
+		Concurrency: 1,
+		API: LLMAPIConfig{
+			BaseURL:   "https://example.invalid/v1",
+			Model:     "model-a",
+			APIKeyEnv: "EXAMPLE_TOKEN",
+		},
+	}
+
+	cueContent := GenerateCUE(cfg)
+	for _, want := range []string{
+		`api: {`,
+		`base_url: "https://example.invalid/v1"`,
+		`model: "model-a"`,
+		`api_key_env: "EXAMPLE_TOKEN"`,
+	} {
+		if !strings.Contains(cueContent, want) {
+			t.Fatalf("GenerateCUE() missing %q:\n%s", want, cueContent)
+		}
+	}
+	if strings.Contains(cueContent, `provider:`) {
+		t.Fatalf("API-mode GenerateCUE() should not render provider:\n%s", cueContent)
+	}
+
+	cfgDir := filepath.Join(t.TempDir(), AppName)
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	cfgPath := filepath.Join(cfgDir, ConfigFileName+"."+ConfigFileExt)
+	if err := os.WriteFile(cfgPath, []byte(cueContent), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	loaded, _, err := loadWithOptions(t.Context(), LoadOptions{ConfigDirPath: types.FilesystemPath(cfgDir)})
+	if err != nil {
+		t.Fatalf("loadWithOptions() error = %v", err)
+	}
+	if loaded.LLM.API != cfg.LLM.API {
+		t.Fatalf("loaded LLM.API = %+v, want %+v", loaded.LLM.API, cfg.LLM.API)
 	}
 }
 

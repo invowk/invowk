@@ -9,10 +9,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/invowk/invowk/internal/agentcmd"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 // newAgentCommand creates the `invowk agent` command group.
-func newAgentCommand() *cobra.Command {
+func newAgentCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Helpers for LLM-assisted invowk authoring",
@@ -22,18 +23,18 @@ These commands expose machine-oriented prompts and generation flows for agents
 that create custom invowk commands.`,
 	}
 
-	cmd.AddCommand(newAgentCmdCommand())
+	cmd.AddCommand(newAgentCmdCommand(app, rootFlags))
 	return cmd
 }
 
-func newAgentCmdCommand() *cobra.Command {
+func newAgentCmdCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cmd",
 		Short: "Create and inspect custom-command authoring prompts",
 	}
 
 	cmd.AddCommand(newAgentCmdPromptCommand())
-	cmd.AddCommand(newAgentCmdCreateCommand())
+	cmd.AddCommand(newAgentCmdCreateCommand(app, rootFlags))
 	return cmd
 }
 
@@ -58,7 +59,7 @@ func newAgentCmdPromptCommand() *cobra.Command {
 	return cmd
 }
 
-func newAgentCmdCreateCommand() *cobra.Command {
+func newAgentCmdCreateCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	var (
 		targetPath string
 		fromFile   string
@@ -82,8 +83,18 @@ command object.`,
 				return &ExitError{Code: auditExitError, Err: err}
 			}
 
-			llmOpts := llmClientConfigFromFlags(cmd, llmFlags)
-			llmResult, llmErr := buildLLMCompleter(cmd.Context(), cmd, llmFlags, llmOpts)
+			resolved, llmErr := resolveLLMForCommand(
+				cmd.Context(),
+				cmd,
+				app.Config,
+				types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- root flag value is validated by config provider.
+				llmFlags,
+				true,
+			)
+			if llmErr != nil {
+				return llmErr
+			}
+			llmResult, llmErr := buildLLMCompleter(cmd.Context(), cmd, resolved)
 			if llmErr != nil {
 				return llmErr
 			}

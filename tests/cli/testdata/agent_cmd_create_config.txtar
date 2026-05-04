@@ -1,0 +1,26 @@
+# Test: invowk agent cmd create uses global LLM config
+# Verifies configured providers remove the need for per-command LLM flags.
+
+[windows] skip 'fake CLI provider uses a POSIX shell script'
+
+cd $WORK
+chmod 0755 claude
+env PATH=$WORK:$PATH
+env XDG_CONFIG_HOME=$WORK/config
+env ANTHROPIC_API_KEY=
+
+exec invowk config set llm.provider claude
+stdout 'Set llm.provider = claude'
+
+exec invowk agent cmd create 'create a generated hello command'
+stderr 'Using LLM provider: claude'
+stdout 'Added command "agenthello" to invowkfile.cue'
+exec invowk cmd agenthello
+stdout 'generated'
+
+-- claude --
+#!/bin/sh
+cat >/dev/null
+cat <<'JSON'
+{"type":"result","result":"{\"command_cue\":\"{name:\\\"agenthello\\\",description:\\\"Print a generated greeting\\\",implementations:[{script:\\\"echo generated\\\",runtimes:[{name:\\\"virtual\\\"}],platforms:[{name:\\\"linux\\\"},{name:\\\"macos\\\"},{name:\\\"windows\\\"}]}]}\",\"summary\":\"generated command added\"}"}
+JSON

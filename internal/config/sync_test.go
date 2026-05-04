@@ -80,6 +80,28 @@ func TestUIConfigSchemaSync(t *testing.T) {
 	schematest.AssertFieldsSync(t, "UIConfig", cueFields, goFields)
 }
 
+// TestLLMConfigSchemaSync verifies LLMConfig Go struct matches #LLMConfig CUE definition.
+func TestLLMConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
+	schema, _ := getCUESchema(t)
+	cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#LLMConfig"))
+	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[LLMConfig]())
+
+	schematest.AssertFieldsSync(t, "LLMConfig", cueFields, goFields)
+}
+
+// TestLLMAPIConfigSchemaSync verifies LLMAPIConfig Go struct matches #LLMAPIConfig CUE definition.
+func TestLLMAPIConfigSchemaSync(t *testing.T) {
+	t.Parallel()
+
+	schema, _ := getCUESchema(t)
+	cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, "#LLMAPIConfig"))
+	goFields := schematest.ExtractGoJSONTags(t, reflect.TypeFor[LLMAPIConfig]())
+
+	schematest.AssertFieldsSync(t, "LLMAPIConfig", cueFields, goFields)
+}
+
 // TestContainerConfigSchemaSync verifies ContainerConfig Go struct matches #ContainerConfig CUE definition.
 func TestContainerConfigSchemaSync(t *testing.T) {
 	t.Parallel()
@@ -250,6 +272,61 @@ func TestIncludesEntryConstraints(t *testing.T) {
 			}
 			if !tt.wantErr && err != nil {
 				t.Errorf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestLLMSchemaConstraints(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		cueData string
+		wantErr bool
+	}{
+		{
+			name:    "provider accepted",
+			cueData: `llm: {provider: "codex"}`,
+			wantErr: false,
+		},
+		{
+			name:    "unknown provider rejected",
+			cueData: `llm: {provider: "llama-file"}`,
+			wantErr: true,
+		},
+		{
+			name:    "negative concurrency rejected",
+			cueData: `llm: {concurrency: -1}`,
+			wantErr: true,
+		},
+		{
+			name:    "valid api key env accepted",
+			cueData: `llm: {api: {api_key_env: "OPENAI_API_KEY"}}`,
+			wantErr: false,
+		},
+		{
+			name:    "invalid api key env rejected",
+			cueData: `llm: {api: {api_key_env: "1_BAD"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "empty api model rejected",
+			cueData: `llm: {api: {model: ""}}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validateCUE(t, tt.cueData)
+			if tt.wantErr && err == nil {
+				t.Fatal("validateCUE() succeeded, want error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("validateCUE() error = %v, want nil", err)
 			}
 		})
 	}

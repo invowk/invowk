@@ -25,7 +25,11 @@ invowk audit --include-global`,
 
   'security/audit-llm-examples': {
     language: 'bash',
-    code: `# Auto-detect best available provider (local Ollama first, then cloud)
+    code: `# Configure once, then opt in per audit run
+invowk config set llm.provider codex
+invowk audit --llm
+
+# Auto-detect best available provider (local Ollama first, then cloud)
 invowk audit --llm-provider auto
 
 # Use a specific provider (works with OAuth — no API key needed)

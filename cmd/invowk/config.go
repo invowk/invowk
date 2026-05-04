@@ -126,6 +126,10 @@ func showConfig(ctx context.Context, app *App) error {
 	fmt.Printf("  interactive: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Interactive)))
 	fmt.Printf("  verbose: %s\n", valueStyle.Render(strconv.FormatBool(cfg.UI.Verbose)))
 
+	fmt.Println()
+	fmt.Printf("%s:\n", keyStyle.Render("llm"))
+	printLLMConfig(cfg.LLM, valueStyle)
+
 	return nil
 }
 
@@ -157,6 +161,37 @@ func printIncludes(includes []config.IncludeEntry, valueStyle lipgloss.Style) {
 			continue
 		}
 		fmt.Printf("  - %s\n", valueStyle.Render(string(inc.Path)))
+	}
+}
+
+func printLLMConfig(llm config.LLMConfig, valueStyle lipgloss.Style) {
+	if !llm.HasConfig() {
+		fmt.Printf("  %s\n", SubtitleStyle.Render("(none configured)"))
+		return
+	}
+	if llm.Provider != "" {
+		fmt.Printf("  provider: %s\n", valueStyle.Render(string(llm.Provider)))
+	}
+	if llm.Model != "" {
+		fmt.Printf("  model: %s\n", valueStyle.Render(string(llm.Model)))
+	}
+	if llm.Timeout != "" {
+		fmt.Printf("  timeout: %s\n", valueStyle.Render(string(llm.Timeout)))
+	}
+	if llm.Concurrency != 0 {
+		fmt.Printf("  concurrency: %s\n", valueStyle.Render(llm.Concurrency.String()))
+	}
+	if llm.API.HasConfig() {
+		fmt.Println("  api:")
+		if llm.API.BaseURL != "" {
+			fmt.Printf("    base_url: %s\n", valueStyle.Render(string(llm.API.BaseURL)))
+		}
+		if llm.API.Model != "" {
+			fmt.Printf("    model: %s\n", valueStyle.Render(string(llm.API.Model)))
+		}
+		if llm.API.APIKeyEnv != "" {
+			fmt.Printf("    api_key_env: %s\n", valueStyle.Render(string(llm.API.APIKeyEnv)))
+		}
 	}
 }
 
@@ -242,8 +277,65 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 	case "virtual_shell.enable_uroot_utils":
 		cfg.VirtualShell.EnableUrootUtils = value == "true" || value == "1"
 
+	case "llm.provider":
+		provider := config.LLMProvider(value)
+		if err := provider.Validate(); err != nil {
+			return err
+		}
+		cfg.LLM.Provider = provider
+		cfg.LLM.API = config.LLMAPIConfig{}
+
+	case "llm.model":
+		model := config.LLMModelName(value)
+		if err := model.Validate(); err != nil {
+			return err
+		}
+		cfg.LLM.Model = model
+
+	case "llm.timeout":
+		timeout := config.LLMTimeout(value)
+		if err := timeout.Validate(); err != nil {
+			return err
+		}
+		cfg.LLM.Timeout = timeout
+
+	case "llm.concurrency":
+		parsed, parseErr := strconv.Atoi(value)
+		if parseErr != nil {
+			return fmt.Errorf("invalid llm.concurrency %q: %w", value, parseErr)
+		}
+		concurrency := config.LLMConcurrency(parsed)
+		if err := concurrency.Validate(); err != nil {
+			return err
+		}
+		cfg.LLM.Concurrency = concurrency
+
+	case "llm.api.base_url":
+		baseURL := config.LLMBaseURL(value)
+		if err := baseURL.Validate(); err != nil {
+			return err
+		}
+		cfg.LLM.Provider = ""
+		cfg.LLM.API.BaseURL = baseURL
+
+	case "llm.api.model":
+		model := config.LLMModelName(value)
+		if err := model.Validate(); err != nil {
+			return err
+		}
+		cfg.LLM.Provider = ""
+		cfg.LLM.API.Model = model
+
+	case "llm.api.api_key_env":
+		keyEnv := config.LLMAPIKeyEnvVar(value)
+		if err := keyEnv.Validate(); err != nil {
+			return err
+		}
+		cfg.LLM.Provider = ""
+		cfg.LLM.API.APIKeyEnv = keyEnv
+
 	default:
-		return fmt.Errorf("unknown configuration key: %s\nValid keys: container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils", key)
+		return fmt.Errorf("unknown configuration key: %s\nValid keys: container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils, llm.provider, llm.model, llm.timeout, llm.concurrency, llm.api.base_url, llm.api.model, llm.api.api_key_env", key)
 	}
 
 	if err := config.Save(cfg, ""); err != nil {

@@ -212,6 +212,10 @@ invowk agent cmd prompt --format json
 It can also ask a configured LLM provider to generate one command, validate the CUE, and patch `invowkfile.cue`:
 
 ```bash
+# Configure once, then omit LLM flags on create
+invowk config set llm.provider codex
+invowk agent cmd create 'add a lint command that runs golangci-lint'
+
 # Auto-detect Ollama, cloud credentials, or Claude/Codex/Gemini CLIs
 invowk agent cmd create --llm-provider auto 'add a lint command that runs golangci-lint'
 
@@ -222,7 +226,7 @@ invowk agent cmd create --llm-provider codex --dry-run 'add a test command'
 invowk agent cmd create --llm-provider claude --print 'add a docs build command'
 ```
 
-`agent cmd create` uses the same LLM flags as `invowk audit`, including `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command rejects malformed JSON, invalid CUE, full `cmds` arrays, and duplicate command names unless `--replace` is set.
+`agent cmd create` uses the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command rejects malformed JSON, invalid CUE, full `cmds` arrays, and duplicate command names unless `--replace` is set.
 
 ## Invowkfile Format
 
@@ -2890,9 +2894,13 @@ Additional automatic escalation rules:
 
 ### LLM-Powered Analysis
 
-For deeper semantic analysis beyond regex patterns, enable LLM-powered auditing with `--llm-provider` or manual `--llm` configuration. This sends script content to a local CLI tool or remote/local OpenAI-compatible API for reasoning about novel attack vectors, subtle logic flaws, and context-dependent security issues.
+For deeper semantic analysis beyond regex patterns, enable LLM-powered auditing with `--llm-provider` or `--llm`. This sends script content to a local CLI tool or remote/local OpenAI-compatible API for reasoning about novel attack vectors, subtle logic flaws, and context-dependent security issues. Bare `invowk audit` never uses global LLM config by itself; pass `--llm` to opt in to a configured backend.
 
 ```bash
+# Configure once, then explicitly opt in per audit run
+invowk config set llm.provider codex
+invowk audit --llm
+
 # Auto-detect best available provider (local Ollama first, then env-var APIs, then CLIs)
 invowk audit --llm-provider auto
 
@@ -2918,12 +2926,35 @@ invowk audit --llm --llm-url https://api.openai.com/v1 --llm-api-key sk-... --ll
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--llm-provider` | | Auto-detect or use specific provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
-| `--llm` | `false` | Enable LLM with manual `--llm-url`/`--llm-api-key` config |
+| `--llm` | `false` | Enable LLM using configured or OpenAI-compatible API settings |
 | `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL (env: `INVOWK_LLM_URL`) |
-| `--llm-model` | `qwen2.5-coder:7b` for manual/Ollama; CLI provider default when omitted | Model name; required when `--llm-provider` selects cloud API credentials and optional for CLI providers (env applies only to manual `--llm`) |
+| `--llm-model` | `qwen2.5-coder:7b` for API/Ollama; CLI provider default when omitted | Model name; required when provider detection selects cloud API credentials and optional for CLI providers |
 | `--llm-api-key` | (empty) | API key (env: `INVOWK_LLM_API_KEY`) |
 | `--llm-timeout` | `2m` | Per-request timeout (env: `INVOWK_LLM_TIMEOUT`) |
 | `--llm-concurrency` | `2` | Max parallel LLM requests (env: `INVOWK_LLM_CONCURRENCY`) |
+
+Global LLM config lives in `~/.config/invowk/config.cue`. Use a provider harness:
+
+```cue
+llm: {
+    provider: "codex"
+    model: "gpt-5.1-codex" // optional for CLI harnesses
+    timeout: "2m"
+    concurrency: 2
+}
+```
+
+Or use an OpenAI-compatible endpoint without storing secrets in config:
+
+```cue
+llm: {
+    api: {
+        base_url: "https://api.openai.com/v1"
+        model: "gpt-5.1"
+        api_key_env: "OPENAI_API_KEY"
+    }
+}
+```
 
 `--llm-provider` seamlessly integrates with Claude Code, Codex CLI, and Gemini CLI. If you're already logged in via OAuth, it just works and invowk lets the tool choose its current default model unless you pass `--llm-model`. When provider detection finds cloud API credentials such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`, you must pass `--llm-model` so the cloud model choice is explicit.
 

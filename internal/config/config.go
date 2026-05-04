@@ -57,6 +57,7 @@ type (
 		DefaultRuntime  *RuntimeMode             `json:"default_runtime"`
 		VirtualShell    *virtualShellConfigPatch `json:"virtual_shell"`
 		UI              *uiConfigPatch           `json:"ui"`
+		LLM             *llmConfigPatch          `json:"llm"`
 		Container       *containerConfigPatch    `json:"container"`
 	}
 
@@ -72,6 +73,20 @@ type (
 
 	containerConfigPatch struct {
 		AutoProvision *autoProvisionConfigPatch `json:"auto_provision"`
+	}
+
+	llmConfigPatch struct {
+		Provider    *LLMProvider       `json:"provider"`
+		Model       *LLMModelName      `json:"model"`
+		Timeout     *LLMTimeout        `json:"timeout"`
+		Concurrency *LLMConcurrency    `json:"concurrency"`
+		API         *llmAPIConfigPatch `json:"api"`
+	}
+
+	llmAPIConfigPatch struct {
+		BaseURL   *LLMBaseURL      `json:"base_url"`
+		Model     *LLMModelName    `json:"model"`
+		APIKeyEnv *LLMAPIKeyEnvVar `json:"api_key_env"`
 	}
 
 	autoProvisionConfigPatch struct {
@@ -119,6 +134,9 @@ func (p configPatch) Validate() error {
 	if p.UI != nil {
 		errs = append(errs, p.UI.Validate())
 	}
+	if p.LLM != nil {
+		errs = append(errs, p.LLM.Validate())
+	}
 	if p.Container != nil {
 		errs = append(errs, p.Container.Validate())
 	}
@@ -141,6 +159,47 @@ func (p containerConfigPatch) Validate() error {
 		return p.AutoProvision.Validate()
 	}
 	return nil
+}
+
+func (p llmConfigPatch) Validate() error {
+	var errs []error
+	if p.Provider != nil {
+		errs = append(errs, p.Provider.Validate())
+	}
+	if p.Model != nil {
+		errs = append(errs, p.Model.Validate())
+	}
+	if p.Timeout != nil {
+		errs = append(errs, p.Timeout.Validate())
+	}
+	if p.Concurrency != nil {
+		errs = append(errs, p.Concurrency.Validate())
+	}
+	if p.API != nil {
+		errs = append(errs, p.API.Validate())
+	}
+	if p.Provider != nil && p.API != nil && p.API.HasConfig() {
+		errs = append(errs, errors.New("llm.provider and llm.api are mutually exclusive"))
+	}
+	return errors.Join(errs...)
+}
+
+func (p llmAPIConfigPatch) HasConfig() bool {
+	return p.BaseURL != nil || p.Model != nil || p.APIKeyEnv != nil
+}
+
+func (p llmAPIConfigPatch) Validate() error {
+	var errs []error
+	if p.BaseURL != nil {
+		errs = append(errs, p.BaseURL.Validate())
+	}
+	if p.Model != nil {
+		errs = append(errs, p.Model.Validate())
+	}
+	if p.APIKeyEnv != nil {
+		errs = append(errs, p.APIKeyEnv.Validate())
+	}
+	return errors.Join(errs...)
 }
 
 func (p autoProvisionConfigPatch) Validate() error {
@@ -386,6 +445,9 @@ func applyConfigPatch(cfg *Config, patch *configPatch) *Config {
 			cfg.UI.Interactive = *patch.UI.Interactive
 		}
 	}
+	if patch.LLM != nil {
+		applyLLMConfigPatch(cfg, patch.LLM)
+	}
 	if patch.Container != nil && patch.Container.AutoProvision != nil {
 		auto := patch.Container.AutoProvision
 		if auto.Enabled != nil {
@@ -408,6 +470,34 @@ func applyConfigPatch(cfg *Config, patch *configPatch) *Config {
 		}
 	}
 	return cfg
+}
+
+func applyLLMConfigPatch(cfg *Config, patch *llmConfigPatch) {
+	if patch.Provider != nil {
+		cfg.LLM.Provider = *patch.Provider
+		cfg.LLM.API = LLMAPIConfig{}
+	}
+	if patch.Model != nil {
+		cfg.LLM.Model = *patch.Model
+	}
+	if patch.Timeout != nil {
+		cfg.LLM.Timeout = *patch.Timeout
+	}
+	if patch.Concurrency != nil {
+		cfg.LLM.Concurrency = *patch.Concurrency
+	}
+	if patch.API != nil {
+		cfg.LLM.Provider = ""
+		if patch.API.BaseURL != nil {
+			cfg.LLM.API.BaseURL = *patch.API.BaseURL
+		}
+		if patch.API.Model != nil {
+			cfg.LLM.API.Model = *patch.API.Model
+		}
+		if patch.API.APIKeyEnv != nil {
+			cfg.LLM.API.APIKeyEnv = *patch.API.APIKeyEnv
+		}
+	}
 }
 
 // validateIncludes checks include collection constraints:
@@ -618,6 +708,37 @@ func GenerateCUE(cfg *Config) string {
 	fmt.Fprintf(&sb, "\tverbose: %v\n", cfg.UI.Verbose)
 	fmt.Fprintf(&sb, "\tinteractive: %v\n", cfg.UI.Interactive)
 	sb.WriteString("}\n")
+
+	// LLM config
+	if cfg.LLM.HasConfig() {
+		sb.WriteString("\nllm: {\n")
+		if cfg.LLM.Provider != "" {
+			fmt.Fprintf(&sb, "\tprovider: %q\n", cfg.LLM.Provider)
+		}
+		if cfg.LLM.Model != "" {
+			fmt.Fprintf(&sb, "\tmodel: %q\n", cfg.LLM.Model)
+		}
+		if cfg.LLM.Timeout != "" {
+			fmt.Fprintf(&sb, "\ttimeout: %q\n", cfg.LLM.Timeout)
+		}
+		if cfg.LLM.Concurrency != 0 {
+			fmt.Fprintf(&sb, "\tconcurrency: %d\n", cfg.LLM.Concurrency)
+		}
+		if cfg.LLM.API.HasConfig() {
+			sb.WriteString("\tapi: {\n")
+			if cfg.LLM.API.BaseURL != "" {
+				fmt.Fprintf(&sb, "\t\tbase_url: %q\n", cfg.LLM.API.BaseURL)
+			}
+			if cfg.LLM.API.Model != "" {
+				fmt.Fprintf(&sb, "\t\tmodel: %q\n", cfg.LLM.API.Model)
+			}
+			if cfg.LLM.API.APIKeyEnv != "" {
+				fmt.Fprintf(&sb, "\t\tapi_key_env: %q\n", cfg.LLM.API.APIKeyEnv)
+			}
+			sb.WriteString("\t}\n")
+		}
+		sb.WriteString("}\n")
+	}
 
 	// Container config
 	sb.WriteString("\ncontainer: {\n")

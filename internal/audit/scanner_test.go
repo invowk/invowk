@@ -138,7 +138,10 @@ func TestScanner_DirectCueTargetSkipsConfigLoad(t *testing.T) {
 	}
 
 	provider := &failingConfigProvider{}
-	scanner := NewScanner(provider, WithCheckers(nil), WithCorrelator(nil))
+	scanner, err := NewScanner(provider, WithCheckers(nil), WithCorrelator(nil))
+	if err != nil {
+		t.Fatalf("NewScanner() = %v", err)
+	}
 	report, err := scanner.Scan(t.Context(), types.FilesystemPath(target), false)
 	if err != nil {
 		t.Fatalf("Scan() = %v", err)
@@ -160,7 +163,10 @@ func TestScannerCorrelationUsesScanSurfaceKey(t *testing.T) {
 	vendorDir := filepath.Join(localDir, invowkmod.VendoredModulesDir, "io.example.shared.invowkmod")
 	createAuditTestModule(t, vendorDir, "io.example.shared", "vendored-cmd")
 
-	scanner := NewScanner(config.NewProvider(), WithCheckers([]Checker{moduleIdentityChecker{}}))
+	scanner, err := NewScanner(config.NewProvider(), WithCheckers([]Checker{moduleIdentityChecker{}}))
+	if err != nil {
+		t.Fatalf("NewScanner() = %v", err)
+	}
 	report, err := scanner.Scan(t.Context(), types.FilesystemPath(root), false)
 	if err != nil {
 		t.Fatalf("Scan() = %v", err)

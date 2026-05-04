@@ -1,0 +1,41 @@
+# Test: invowk audit requires explicit LLM opt-in even with global config
+# Verifies bare audit stays deterministic, while --llm uses configured LLM defaults.
+
+[windows] skip 'fake CLI provider uses a POSIX shell script'
+
+cd $WORK
+chmod 0755 claude
+env PATH=$WORK:$PATH
+env XDG_CONFIG_HOME=$WORK/config
+env ANTHROPIC_API_KEY=
+
+exec invowk config set llm.provider claude
+stdout 'Set llm.provider = claude'
+
+exec invowk audit .
+stdout 'Security Audit'
+stdout 'No confirmed findings at or above low severity'
+! stderr 'Using LLM provider'
+! stderr 'configured claude invoked'
+
+! exec invowk audit --llm .
+stderr 'Using LLM provider: claude'
+stderr 'scan error: checker "llm" failed'
+stderr 'provider output withheld'
+! stderr 'configured claude invoked'
+
+-- claude --
+#!/bin/sh
+echo 'configured claude invoked' >&2
+exit 1
+
+-- invowkfile.cue --
+cmds: [{
+    name: "safe"
+    description: "Safe command"
+    implementations: [{
+        script: "echo ok"
+        runtimes: [{name: "virtual"}]
+        platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+}]

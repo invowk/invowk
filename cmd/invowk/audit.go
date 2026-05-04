@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/invowk/invowk/internal/audit"
-	"github.com/invowk/invowk/internal/auditllm"
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -113,10 +113,9 @@ type (
 		path          string //goplint:ignore -- transient CLI argument validated by BuildScanContext.
 		format        string //goplint:ignore -- transient CLI flag validated by runAudit.
 		minSeverity   string //goplint:ignore -- transient CLI flag validated by audit.ParseSeverity.
+		configPath    string //goplint:ignore -- root CLI flag validated by config provider.
 		includeGlobal bool
-		enableLLM     bool
-		llmProvider   string //goplint:ignore -- transient CLI flag validated against audit.ValidProviders.
-		llmOpts       auditllm.LLMClientConfig
+		llm           *llmResolvedConfig
 	}
 )
 
@@ -189,14 +188,14 @@ func (d auditJSONDiagnostic) Validate() error {
 }
 
 func (opts auditRunOptions) Validate() error {
-	if !opts.enableLLM && opts.llmProvider == "" {
-		return nil
+	if opts.llm != nil {
+		return opts.llm.Validate()
 	}
-	return opts.llmOpts.Validate()
+	return nil
 }
 
 // newAuditCommand creates the top-level `invowk audit` command.
-func newAuditCommand(app *App) *cobra.Command {
+func newAuditCommand(app *App, rootFlags *rootFlagValues) *cobra.Command {
 	var (
 		format        string
 		minSeverity   string
@@ -215,7 +214,7 @@ and optionally global modules in ~/.invowk/cmds/.
 
 Use --llm-provider to enable LLM-powered security analysis. Providers:
 auto (detect best available), claude, codex, gemini, ollama.
-Use --llm for manual configuration via --llm-url and --llm-api-key.
+Use --llm to enable LLM analysis using configured or OpenAI-compatible API settings.
 
 Exit codes:
   0  No findings at or above the severity threshold
@@ -235,16 +234,29 @@ Exit codes:
 				}
 			}
 
-			llmOpts := llmClientConfigFromFlags(cmd, llmFlags)
+			var llm *llmResolvedConfig
+			if llmFlags.enable || llmFlags.provider != "" {
+				resolved, llmErr := resolveLLMForCommand(
+					cmd.Context(),
+					cmd,
+					app.Config,
+					types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- root flag value is validated by config provider.
+					llmFlags,
+					false,
+				)
+				if llmErr != nil {
+					return llmErr
+				}
+				llm = resolved
+			}
 
 			return runAudit(cmd, app, auditRunOptions{
 				path:          auditPath,
 				format:        format,
 				minSeverity:   minSeverity,
+				configPath:    rootFlags.configPath,
 				includeGlobal: includeGlobal,
-				enableLLM:     llmFlags.enable,
-				llmProvider:   llmFlags.provider,
-				llmOpts:       llmOpts,
+				llm:           llm,
 			})
 		},
 	}
@@ -275,26 +287,24 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 	}
 
 	// Create scanner with optional LLM checker.
-	var scannerOpts []audit.ScannerOption
+	scannerOpts := []audit.ScannerOption{
+		audit.WithConfigLoadOptions(config.LoadOptions{
+			ConfigFilePath: types.FilesystemPath(opts.configPath), //goplint:ignore -- root flag value is validated by config provider.
+		}),
+	}
 
-	switch {
-	case opts.llmProvider != "":
-		// Auto-detect or use specific provider.
-		result, completerErr := buildLLMCompleter(ctx, cmd, llmFlagValues{provider: opts.llmProvider}, opts.llmOpts)
-		if completerErr != nil {
-			return completerErr
-		}
-		scannerOpts = append(scannerOpts, audit.WithChecker(audit.NewLLMChecker(result.completer, result.concurrency)))
-
-	case opts.enableLLM:
-		// Manual --llm configuration.
-		result, completerErr := buildLLMCompleter(ctx, cmd, llmFlagValues{enable: true}, opts.llmOpts)
+	if opts.llm != nil && opts.llm.mode != llmModeNone {
+		result, completerErr := buildLLMCompleter(ctx, cmd, opts.llm)
 		if completerErr != nil {
 			return completerErr
 		}
 		scannerOpts = append(scannerOpts, audit.WithChecker(audit.NewLLMChecker(result.completer, result.concurrency)))
 	}
-	scanner := audit.NewScanner(app.Config, scannerOpts...)
+	scanner, err := audit.NewScanner(app.Config, scannerOpts...)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "invalid scanner configuration: %v\n", err)
+		return &ExitError{Code: auditExitError, Err: err}
+	}
 
 	// Run scan.
 	report, scanErr := scanner.Scan(ctx, types.FilesystemPath(opts.path), opts.includeGlobal) //goplint:ignore -- CLI arg path from Cobra, validated by filepath.Abs in BuildScanContext

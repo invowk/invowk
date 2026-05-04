@@ -5,8 +5,11 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -32,6 +35,17 @@ const (
 	// ColorSchemeLight forces light color scheme.
 	ColorSchemeLight ColorScheme = "light"
 
+	// LLMProviderAuto auto-detects the best available local/CLI LLM harness.
+	LLMProviderAuto LLMProvider = "auto"
+	// LLMProviderClaude uses the Claude Code CLI harness.
+	LLMProviderClaude LLMProvider = "claude"
+	// LLMProviderCodex uses the Codex CLI harness.
+	LLMProviderCodex LLMProvider = "codex"
+	// LLMProviderGemini uses the Gemini CLI harness.
+	LLMProviderGemini LLMProvider = "gemini"
+	// LLMProviderOllama uses the local Ollama HTTP API harness.
+	LLMProviderOllama LLMProvider = "ollama"
+
 	// IncludeCollectionRoot identifies the root config includes collection.
 	IncludeCollectionRoot IncludeCollectionField = "includes"
 	// IncludeCollectionAutoProvision identifies the container auto-provision includes collection.
@@ -39,12 +53,30 @@ const (
 )
 
 var (
+	llmAPIKeyEnvVarPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
 	// ErrInvalidContainerEngine is returned when a ContainerEngine value is not recognized.
 	ErrInvalidContainerEngine = errors.New("invalid container engine")
 	// ErrInvalidConfigRuntimeMode is returned when a config RuntimeMode value is not recognized.
 	ErrInvalidConfigRuntimeMode = types.ErrInvalidRuntimeMode
 	// ErrInvalidColorScheme is returned when a ColorScheme value is not recognized.
 	ErrInvalidColorScheme = errors.New("invalid color scheme")
+	// ErrInvalidLLMProvider is returned when an LLM provider value is not recognized.
+	ErrInvalidLLMProvider = errors.New("invalid LLM provider")
+	// ErrInvalidLLMBaseURL is returned when an LLM API base URL is invalid.
+	ErrInvalidLLMBaseURL = errors.New("invalid LLM base URL")
+	// ErrInvalidLLMModelName is returned when an LLM model name is invalid.
+	ErrInvalidLLMModelName = errors.New("invalid LLM model name")
+	// ErrInvalidLLMAPIKeyEnvVar is returned when an LLM API key environment variable name is invalid.
+	ErrInvalidLLMAPIKeyEnvVar = errors.New("invalid LLM API key environment variable")
+	// ErrInvalidLLMTimeout is returned when an LLM timeout is invalid.
+	ErrInvalidLLMTimeout = errors.New("invalid LLM timeout")
+	// ErrInvalidLLMConcurrency is returned when an LLM concurrency value is invalid.
+	ErrInvalidLLMConcurrency = errors.New("invalid LLM concurrency")
+	// ErrInvalidLLMAPIConfig is the sentinel error wrapped by InvalidLLMAPIConfigError.
+	ErrInvalidLLMAPIConfig = errors.New("invalid LLM API config")
+	// ErrInvalidLLMConfig is the sentinel error wrapped by InvalidLLMConfigError.
+	ErrInvalidLLMConfig = errors.New("invalid LLM config")
 	// ErrInvalidModuleIncludePath is the sentinel error wrapped by InvalidModuleIncludePathError.
 	ErrInvalidModuleIncludePath = errors.New("invalid module include path")
 	// ErrInvalidBinaryFilePath is returned when a BinaryFilePath value is whitespace-only.
@@ -96,6 +128,56 @@ type (
 	// It wraps ErrInvalidColorScheme for errors.Is() compatibility.
 	InvalidColorSchemeError struct {
 		Value ColorScheme
+	}
+
+	// LLMProvider selects a supported agent harness for LLM-backed commands.
+	//
+	//goplint:enum-cue=#LLMProviderType
+	LLMProvider string
+
+	// InvalidLLMProviderError is returned when an LLMProvider value is not recognized.
+	InvalidLLMProviderError struct {
+		Value LLMProvider
+	}
+
+	// LLMBaseURL is an OpenAI-compatible API base URL.
+	LLMBaseURL string
+
+	// InvalidLLMBaseURLError is returned when an LLMBaseURL is malformed.
+	InvalidLLMBaseURLError struct {
+		Value LLMBaseURL
+	}
+
+	// LLMModelName identifies a configured LLM model.
+	LLMModelName string
+
+	// InvalidLLMModelNameError is returned when an LLMModelName is blank.
+	InvalidLLMModelNameError struct {
+		Value LLMModelName
+	}
+
+	// LLMAPIKeyEnvVar names the environment variable containing an API key.
+	LLMAPIKeyEnvVar string
+
+	// InvalidLLMAPIKeyEnvVarError is returned when an API key env var name is invalid.
+	InvalidLLMAPIKeyEnvVarError struct {
+		Value LLMAPIKeyEnvVar
+	}
+
+	// LLMTimeout is a Go duration string used for LLM requests.
+	LLMTimeout string
+
+	// InvalidLLMTimeoutError is returned when an LLMTimeout cannot be parsed.
+	InvalidLLMTimeoutError struct {
+		Value LLMTimeout
+	}
+
+	// LLMConcurrency is the max number of concurrent LLM requests.
+	LLMConcurrency int
+
+	// InvalidLLMConcurrencyError is returned when an LLMConcurrency is negative.
+	InvalidLLMConcurrencyError struct {
+		Value LLMConcurrency
 	}
 
 	// ModuleIncludePath represents an absolute filesystem path to a *.invowkmod directory.
@@ -162,6 +244,16 @@ type (
 		FieldErrors []error
 	}
 
+	// InvalidLLMAPIConfigError is returned when LLM API config fields are invalid.
+	InvalidLLMAPIConfigError struct {
+		FieldErrors []error
+	}
+
+	// InvalidLLMConfigError is returned when LLM config fields are invalid or contradictory.
+	InvalidLLMConfigError struct {
+		FieldErrors []error
+	}
+
 	// InvalidAutoProvisionConfigError is returned when an AutoProvisionConfig has invalid fields.
 	// It wraps ErrInvalidAutoProvisionConfig for errors.Is() compatibility and collects
 	// field-level validation errors.
@@ -201,8 +293,38 @@ type (
 		VirtualShell VirtualShellConfig `json:"virtual_shell" mapstructure:"virtual_shell"`
 		// UI configures the user interface
 		UI UIConfig `json:"ui" mapstructure:"ui"`
+		// LLM configures default LLM-backed agent/audit behavior.
+		LLM LLMConfig `json:"llm,omitzero" mapstructure:"llm"`
 		// Container configures container runtime behavior
 		Container ContainerConfig `json:"container" mapstructure:"container"`
+	}
+
+	//goplint:validate-all
+	//
+	// LLMConfig configures default LLM-backed command behavior.
+	LLMConfig struct {
+		// Provider selects a supported local/CLI harness.
+		Provider LLMProvider `json:"provider,omitempty" mapstructure:"provider"`
+		// Model optionally overrides the provider-selected model.
+		Model LLMModelName `json:"model,omitempty" mapstructure:"model"`
+		// Timeout optionally overrides the per-request timeout.
+		Timeout LLMTimeout `json:"timeout,omitempty" mapstructure:"timeout"`
+		// Concurrency optionally overrides parallel LLM request count.
+		Concurrency LLMConcurrency `json:"concurrency,omitempty" mapstructure:"concurrency"`
+		// API configures an OpenAI-compatible API instead of a provider harness.
+		API LLMAPIConfig `json:"api,omitzero" mapstructure:"api"`
+	}
+
+	//goplint:validate-all
+	//
+	// LLMAPIConfig configures an OpenAI-compatible API backend.
+	LLMAPIConfig struct {
+		// BaseURL is the OpenAI-compatible API base URL.
+		BaseURL LLMBaseURL `json:"base_url,omitempty" mapstructure:"base_url"`
+		// Model is the API model name.
+		Model LLMModelName `json:"model,omitempty" mapstructure:"model"`
+		// APIKeyEnv names the environment variable containing the API key.
+		APIKeyEnv LLMAPIKeyEnvVar `json:"api_key_env,omitempty" mapstructure:"api_key_env"`
 	}
 
 	//goplint:validate-all
@@ -349,6 +471,228 @@ func (e *InvalidUIConfigError) Error() string {
 // Unwrap returns ErrInvalidUIConfig for errors.Is() compatibility.
 func (e *InvalidUIConfigError) Unwrap() error { return ErrInvalidUIConfig }
 
+// String returns the string representation of the LLMProvider.
+func (p LLMProvider) String() string { return string(p) }
+
+// Validate returns an error if the LLMProvider is not one of the supported providers.
+// The zero value is valid and means no provider default is configured.
+func (p LLMProvider) Validate() error {
+	switch p {
+	case "", LLMProviderAuto, LLMProviderClaude, LLMProviderCodex, LLMProviderGemini, LLMProviderOllama:
+		return nil
+	default:
+		return &InvalidLLMProviderError{Value: p}
+	}
+}
+
+// Error implements the error interface for InvalidLLMProviderError.
+func (e *InvalidLLMProviderError) Error() string {
+	return fmt.Sprintf("invalid LLM provider %q (valid: auto, claude, codex, gemini, ollama)", e.Value)
+}
+
+// Unwrap returns ErrInvalidLLMProvider for errors.Is() compatibility.
+func (e *InvalidLLMProviderError) Unwrap() error { return ErrInvalidLLMProvider }
+
+// String returns the string representation of the LLMBaseURL.
+func (u LLMBaseURL) String() string { return string(u) }
+
+// Validate returns an error if the non-empty LLMBaseURL is not an absolute HTTP URL.
+func (u LLMBaseURL) Validate() error {
+	raw := string(u)
+	if raw == "" {
+		return nil
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return &InvalidLLMBaseURLError{Value: u}
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return &InvalidLLMBaseURLError{Value: u}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidLLMBaseURLError.
+func (e *InvalidLLMBaseURLError) Error() string {
+	return fmt.Sprintf("invalid LLM base URL %q: must be an absolute http(s) URL", e.Value)
+}
+
+// Unwrap returns ErrInvalidLLMBaseURL for errors.Is() compatibility.
+func (e *InvalidLLMBaseURLError) Unwrap() error { return ErrInvalidLLMBaseURL }
+
+// String returns the string representation of the LLMModelName.
+func (m LLMModelName) String() string { return string(m) }
+
+// Validate returns an error if the non-empty LLMModelName is whitespace-only.
+func (m LLMModelName) Validate() error {
+	if m == "" {
+		return nil
+	}
+	if strings.TrimSpace(string(m)) == "" {
+		return &InvalidLLMModelNameError{Value: m}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidLLMModelNameError.
+func (e *InvalidLLMModelNameError) Error() string {
+	return fmt.Sprintf("invalid LLM model name %q: non-empty value must not be whitespace-only", e.Value)
+}
+
+// Unwrap returns ErrInvalidLLMModelName for errors.Is() compatibility.
+func (e *InvalidLLMModelNameError) Unwrap() error { return ErrInvalidLLMModelName }
+
+// String returns the string representation of the LLMAPIKeyEnvVar.
+func (v LLMAPIKeyEnvVar) String() string { return string(v) }
+
+// Validate returns an error if the non-empty LLMAPIKeyEnvVar is not a valid environment variable name.
+func (v LLMAPIKeyEnvVar) Validate() error {
+	if v == "" {
+		return nil
+	}
+	if !llmAPIKeyEnvVarPattern.MatchString(string(v)) {
+		return &InvalidLLMAPIKeyEnvVarError{Value: v}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidLLMAPIKeyEnvVarError.
+func (e *InvalidLLMAPIKeyEnvVarError) Error() string {
+	return fmt.Sprintf("invalid LLM API key environment variable %q", e.Value)
+}
+
+// Unwrap returns ErrInvalidLLMAPIKeyEnvVar for errors.Is() compatibility.
+func (e *InvalidLLMAPIKeyEnvVarError) Unwrap() error { return ErrInvalidLLMAPIKeyEnvVar }
+
+// String returns the string representation of the LLMTimeout.
+func (t LLMTimeout) String() string { return string(t) }
+
+// Duration parses the timeout into a duration. The zero value returns 0.
+func (t LLMTimeout) Duration() (time.Duration, error) {
+	if t == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(string(t))
+	if err != nil || d <= 0 {
+		return 0, &InvalidLLMTimeoutError{Value: t}
+	}
+	return d, nil
+}
+
+// Validate returns an error if the non-empty LLMTimeout is not a positive Go duration.
+func (t LLMTimeout) Validate() error {
+	_, err := t.Duration()
+	return err
+}
+
+// Error implements the error interface for InvalidLLMTimeoutError.
+func (e *InvalidLLMTimeoutError) Error() string {
+	return fmt.Sprintf("invalid LLM timeout %q: must be a positive Go duration", e.Value)
+}
+
+// Unwrap returns ErrInvalidLLMTimeout for errors.Is() compatibility.
+func (e *InvalidLLMTimeoutError) Unwrap() error { return ErrInvalidLLMTimeout }
+
+// String returns the string representation of the LLMConcurrency.
+func (c LLMConcurrency) String() string { return fmt.Sprintf("%d", c) }
+
+// Validate returns an error if LLMConcurrency is negative.
+func (c LLMConcurrency) Validate() error {
+	if c < 0 {
+		return &InvalidLLMConcurrencyError{Value: c}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidLLMConcurrencyError.
+func (e *InvalidLLMConcurrencyError) Error() string {
+	return fmt.Sprintf("invalid LLM concurrency %d: must be zero or greater", e.Value)
+}
+
+// Unwrap returns ErrInvalidLLMConcurrency for errors.Is() compatibility.
+func (e *InvalidLLMConcurrencyError) Unwrap() error { return ErrInvalidLLMConcurrency }
+
+// HasConfig reports whether any API backend setting is configured.
+func (c LLMAPIConfig) HasConfig() bool {
+	return c.BaseURL != "" || c.Model != "" || c.APIKeyEnv != ""
+}
+
+// Validate returns an error if the LLM API config has invalid fields.
+func (c LLMAPIConfig) Validate() error {
+	var errs []error
+	if err := c.BaseURL.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.Model.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.APIKeyEnv.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return &InvalidLLMAPIConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidLLMAPIConfigError.
+func (e *InvalidLLMAPIConfigError) Error() string {
+	return types.FormatFieldErrors("LLM API config", e.FieldErrors)
+}
+
+// Unwrap returns ErrInvalidLLMAPIConfig and field errors for errors.Is/errors.As compatibility.
+func (e *InvalidLLMAPIConfigError) Unwrap() error {
+	if e == nil {
+		return ErrInvalidLLMAPIConfig
+	}
+	return errors.Join(ErrInvalidLLMAPIConfig, errors.Join(e.FieldErrors...))
+}
+
+// HasConfig reports whether any LLM default is configured.
+func (c LLMConfig) HasConfig() bool {
+	return c.Provider != "" || c.Model != "" || c.Timeout != "" || c.Concurrency != 0 || c.API.HasConfig()
+}
+
+// Validate returns an error if the LLM config has invalid fields or contradictory modes.
+func (c LLMConfig) Validate() error {
+	var errs []error
+	if err := c.Provider.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.Model.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.Timeout.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.Concurrency.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.API.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if c.Provider != "" && c.API.HasConfig() {
+		errs = append(errs, errors.New("llm.provider and llm.api are mutually exclusive"))
+	}
+	if len(errs) > 0 {
+		return &InvalidLLMConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidLLMConfigError.
+func (e *InvalidLLMConfigError) Error() string {
+	return types.FormatFieldErrors("LLM config", e.FieldErrors)
+}
+
+// Unwrap returns ErrInvalidLLMConfig and field errors for errors.Is/errors.As compatibility.
+func (e *InvalidLLMConfigError) Unwrap() error {
+	if e == nil {
+		return ErrInvalidLLMConfig
+	}
+	return errors.Join(ErrInvalidLLMConfig, errors.Join(e.FieldErrors...))
+}
+
 // Validate returns an error if the AutoProvisionConfig has invalid fields.
 // It delegates to BinaryPath.Validate(), Includes collection validation, and
 // CacheDir.Validate(). Bool fields (Enabled, Strict, InheritIncludes) need no validation.
@@ -427,6 +771,9 @@ func (c Config) Validate() error {
 		errs = append(errs, err)
 	}
 	if err := c.UI.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.LLM.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := c.Container.Validate(); err != nil {
@@ -586,6 +933,7 @@ func DefaultConfig() *Config {
 			Verbose:     false,
 			Interactive: false,
 		},
+		LLM: LLMConfig{},
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
 				Enabled:         true,
