@@ -27,7 +27,7 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 |------|-----------|---------|
 | **BaseCLIEngineOption** | `func(*BaseCLIEngine)` | Functional option type for `NewBaseCLIEngine`. Enables constructor customization without parameter explosion. |
 | **ExecCommandFunc** | `func(ctx, name, arg...) *exec.Cmd` | Injection point for `exec.CommandContext`. Allows tests to mock command execution without a real container engine. |
-| **VolumeFormatFunc** | `func(volume string) string` | Transforms volume strings before passing to `-v`. Podman uses this to append SELinux labels (`:z`) on Linux. Identity function by default. |
+| **VolumeFormatFunc** | `func(volume VolumeMountSpec) string` | Transforms volume mount specs before passing to `-v`. Podman uses this to append SELinux labels (`:z`) on Linux. Identity function by default. |
 | **RunArgsTransformer** | `func(args []string) []string` | Post-processes the `run` argument slice. Podman uses this to inject `--userns=keep-id` before the image name for rootless compatibility. Identity function by default. |
 | **SELinuxCheckFunc** | `func() bool` | Determines whether SELinux labeling should be applied. Injected into Podman's volume formatter. Defaults to checking `/sys/fs/selinux` existence. |
 

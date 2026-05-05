@@ -140,14 +140,15 @@ invowk_cli: Invowk CLI {
       |
     }
 
-    execution_orch: Execution Orchestrator {
+    execution_orch: Execution Context Builder {
       style: {
         fill: "#438DD5"
         font-color: "#ffffff"
       }
       tooltip: |md
         **Go**
-        Resolves runtime selection and dispatches to runtime implementations
+        Resolves runtime selection and builds runtime.ExecutionContext.
+        Command Service dispatches through runtime.Registry.
       |
     }
 
@@ -473,21 +474,21 @@ invowk_cli.entry_core.cmd -> invowk_cli.entry_core.module_resolver: "Manages mod
 invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.dependency_validator: "Validates deps" {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.execution_orch: "Selects runtime" {
+invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.execution_orch: "Selects runtime\nbuilds context" {
   style.stroke: "#707070"
 }
 invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.command_adapters: "Calls ports\n[HostAccess/Registry/Interactive]" {
   style.stroke: "#707070"
 }
 
-# Execution Orchestrator to Runtime fan-out
-invowk_cli.entry_core.execution_orch -> invowk_cli.runtimes.runtime_native: Dispatches {
+# Command Service to Runtime fan-out
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_native: "Dispatches\n[Runtime Registry]" {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.execution_orch -> invowk_cli.runtimes.runtime_virtual: Dispatches {
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_virtual: "Dispatches\n[Runtime Registry]" {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.execution_orch -> invowk_cli.runtimes.runtime_container: Dispatches {
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_container: "Dispatches\n[Runtime Registry]" {
   style.stroke: "#707070"
 }
 

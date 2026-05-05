@@ -556,10 +556,12 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Habilitar LLM usando configuração ou API |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
-| `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo LLM |
+| `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
+
+`--llm` e `--llm-provider` são mutuamente exclusivos. Use `--llm` para o backend configurado/API e `--llm-provider` para forçar a detecção de provedor.
 
 **Códigos de saída:** `0` = limpo, `1` = achados detectados, `2` = erro de scan.
 
@@ -600,12 +602,12 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Habilitar LLM usando configuração ou API |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
-| `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo LLM |
+| `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
-`--dry-run` e `--print` são mutuamente exclusivos. `--verify` exige escrever o invowkfile e não pode ser combinado com `--dry-run` ou `--print`.
+Forneça argumentos de descrição ou `--from-file`; eles são mutuamente exclusivos. `--llm` e `--llm-provider` são mutuamente exclusivos. `--dry-run` e `--print` são mutuamente exclusivos. `--verify` exige escrever o invowkfile e não pode ser combinado com `--dry-run` ou `--print`.
 
 **Exemplos:**
 

@@ -556,10 +556,12 @@ Scan for security risks in invowkfiles, modules, and scripts. See the [Security 
 | `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Enable LLM using configured or API settings |
 | `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |
-| `--llm-model` | `qwen2.5-coder:7b` | LLM model name |
+| `--llm-model` | `qwen2.5-coder:7b` | Model name; required for cloud API providers and optional for CLI providers |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | Per-request timeout |
 | `--llm-concurrency` | `2` | Max parallel LLM requests |
+
+`--llm` and `--llm-provider` are mutually exclusive. Use `--llm` for the configured/API backend and `--llm-provider` to force provider detection.
 
 **Exit codes:** `0` = clean, `1` = findings detected, `2` = scan error.
 
@@ -600,12 +602,12 @@ Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`
 | `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Enable LLM using configured or API settings |
 | `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |
-| `--llm-model` | `qwen2.5-coder:7b` | LLM model name |
+| `--llm-model` | `qwen2.5-coder:7b` | Model name; required for cloud API providers and optional for CLI providers |
 | `--llm-api-key` | *(empty)* | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | Per-request timeout |
 | `--llm-concurrency` | `2` | Max parallel LLM requests |
 
-`--dry-run` and `--print` are mutually exclusive. `--verify` requires writing the invowkfile and cannot be combined with `--dry-run` or `--print`.
+Provide either description arguments or `--from-file`; they are mutually exclusive. `--llm` and `--llm-provider` are mutually exclusive. `--dry-run` and `--print` are mutually exclusive. `--verify` requires writing the invowkfile and cannot be combined with `--dry-run` or `--print`.
 
 **Examples:**
 

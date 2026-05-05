@@ -33,7 +33,7 @@ Este diagrama amplia o container **Container Engine Abstraction** do [Diagrama d
 |------|-----------|
 | **BaseCLIEngineOption** | Tipo de opção `func(*BaseCLIEngine)` para customização do construtor. |
 | **ExecCommandFunc** | Ponto de injeção para `exec.CommandContext`. Permite que testes mockem a execução de comandos. |
-| **VolumeFormatFunc** | Transforma strings de volume. Podman usa para adicionar labels SELinux (`:z`) no Linux. |
+| **VolumeFormatFunc** | Transforma valores `VolumeMountSpec` antes de passá-los para `-v`. Podman usa para adicionar labels SELinux (`:z`) no Linux. |
 | **RunArgsTransformer** | Pós-processa argumentos de run. Podman usa para injetar `--userns=keep-id` para compatibilidade rootless. |
 | **SELinuxCheckFunc** | Determina se labeling SELinux deve ser aplicado. Injetado no formatter de volume do Podman. |
 

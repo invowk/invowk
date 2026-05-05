@@ -22,11 +22,11 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 |-----------|------------|----------------|
 | **Command Service** | Go | Hexagonal domain service (`internal/app/commandsvc/`) orchestrating command execution. Receives requests from CLI, coordinates discovery, validation, SSH lifecycle, and runtime dispatch. Returns typed results/errors; CLI adapter applies rendering. |
 | **Dependency Validator** | Go | Dependency validation domain (`internal/app/deps/`). Checks root, command, and implementation dependencies on the host, plus selected container runtime dependencies inside the container. |
-| **Execution Orchestrator** | Go | Runtime selection and execution context construction (`internal/app/execute/`). Chooses the selected runtime and dispatches to runtime implementations. |
+| **Execution Context Builder** | Go | Runtime selection and execution context construction (`internal/app/execute/`). Produces the selected runtime and `runtime.ExecutionContext`; `internal/app/commandsvc` dispatches through `runtime.Registry`. |
 | **Discovery Engine** | Go | Finds `invowkfile.cue` and `*.invowkmod` directories with precedence ordering. Builds unified command tree. |
 | **Configuration Manager** | Go/CUE | Loads config from `~/.config/invowk/config.cue`. Validates against CUE schema. |
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |
-| **Module Resolver** | Go | Orchestrates Git-based module dependency resolution (via `pkg/invowkmod`). Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. CLI subcommands (`module deps`, `module sync`, `module update`) drive resolution. |
+| **Module Resolver** | Go | Used by module commands such as `invowk module sync` to resolve Git-based dependencies. Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. |
 | **Watch Engine** | Go | Monitors file system for changes. Debounces change events and triggers command re-execution for `--ivk-watch` mode. |
 | **Audit Scanner** | Go | Security scanning of module system (`internal/audit/`). Detects supply-chain risks, path traversal, symlink abuse, and environment variable injection. Supports `--llm` flag for LLM-powered analysis. |
 | **Agent Command Authoring** | Go | LLM-assisted command authoring (`internal/agentcmd/`, `internal/llm/`). Renders agent prompts, resolves configured LLM backends, validates generated CUE, and patches `invowkfile.cue`. |

@@ -303,9 +303,15 @@ The JSON DTO includes:
 | `suppressed_findings[]` | Findings suppressed by triage rules |
 | `suppressed_compound_threats[]` | Suppressed correlator findings |
 | `diagnostics[]` | Non-finding scanner diagnostics |
+| `summary.total` | Count of confirmed findings and compound threats at or above the severity threshold |
 | `summary.suppressed` | Count of suppressed findings and compound threats |
+| `summary.critical` / `high` / `medium` / `low` / `info` | Confirmed finding counts by severity |
+| `summary.modules_scanned` | Number of modules scanned |
+| `summary.invowkfiles_scanned` | Number of invowkfiles scanned |
+| `summary.scripts_scanned` | Number of script bodies scanned |
+| `summary.duration_ms` | Scan duration in milliseconds |
 
-Each finding includes `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, optional `file_path`/`line`, `title`, `description`, `recommendation`, and optional escalation provenance fields.
+Each finding includes `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, optional `file_path`/`line`, `title`, `description`, `recommendation`, and optional escalation provenance fields. Valid `surface_kind` values are `root_invowkfile`, `local_module`, `vendored_module`, and `global_module`.
 
 ### GitHub Actions Example
 

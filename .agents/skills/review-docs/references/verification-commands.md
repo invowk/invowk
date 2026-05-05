@@ -70,7 +70,7 @@ find website/docs -type f -name '*.mdx' | sort
 find website/src/components/Snippet/data -maxdepth 1 -type f -name '*.ts' | sort
 find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | sort
 find docs/architecture -maxdepth 1 -type f -name '*.md' | sort
-printf '%s\n' .agents/commands/review-docs.md .agents/skills/docs/SKILL.md .agents/skills/review-docs/SKILL.md
+printf '%s\n' website/sidebars.ts AGENTS.md .agents/commands/review-docs.md .agents/skills/docs/SKILL.md .agents/skills/review-docs/SKILL.md
 ```
 
 **What it checks**: The coordinator compares this list against `surface-checklists.md` file

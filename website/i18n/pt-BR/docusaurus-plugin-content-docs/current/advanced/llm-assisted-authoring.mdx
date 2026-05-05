@@ -36,9 +36,9 @@ Veja [Opções de Configuração](../configuration/options#llm) para exemplos de
 Por padrão, `create` atualiza `invowkfile.cue`. Use `--dry-run` para visualizar o patch, `--print` para imprimir apenas o objeto de comando gerado, `--verify` para resolver o comando escrito com um plano de execução dry-run e `--replace` quando você realmente quiser substituir um comando existente com o mesmo nome.
 
 :::caution O conteúdo do prompt é enviado ao provedor configurado
-`create` envia o system prompt e schemas de autoria gerados, além de um prompt de usuário contendo sua solicitação, o caminho do invowkfile de destino e o conteúdo atual do invowkfile de destino ou seu estado de arquivo ausente/vazio. Use um provedor local quando as definições de comandos tiverem detalhes privados do projeto.
+`create` envia o system prompt e schemas de autoria gerados, além de um prompt de usuário contendo sua solicitação, o caminho do invowkfile de destino e o conteúdo atual do invowkfile de destino ou seu estado de arquivo ausente/vazio. Se o modelo retorna saída inválida, a tentativa de reparo também envia o erro de validação e a resposta anterior do modelo. Use um provedor local quando as definições de comandos tiverem detalhes privados do projeto.
 :::
 
 ## Validação
 
-O Invowk aceita apenas um objeto de comando gerado. Ele usa saída JSON estruturada com backends de API OpenAI compatíveis, tenta novamente uma vez com feedback de validação quando um modelo retorna saída inválida e rejeita arrays `cmds` completos, JSON malformado, CUE inválido, campos desconhecidos de runtime/plataforma e nomes de comando duplicados, a menos que `--replace` esteja definido.
+O Invowk aceita apenas um objeto de comando gerado. Ele usa saída JSON estruturada com backends de API OpenAI compatíveis, tenta novamente uma vez com feedback de validação quando um modelo retorna saída inválida e rejeita arrays `cmds` completos, JSON malformado e CUE inválido com campos desconhecidos de runtime/plataforma. Ao escrever em `invowkfile.cue`, nomes de comando duplicados são rejeitados a menos que `--replace` esteja definido; `--print` valida e imprime o objeto de comando gerado sem verificar duplicatas no arquivo de destino.

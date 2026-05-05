@@ -303,9 +303,15 @@ O DTO JSON inclui:
 | `suppressed_findings[]` | Achados suprimidos por regras de triagem |
 | `suppressed_compound_threats[]` | Achados do correlacionador suprimidos |
 | `diagnostics[]` | Diagnósticos do scanner que não são achados |
+| `summary.total` | Contagem de achados e ameaças compostas confirmados no limiar de severidade ou acima dele |
 | `summary.suppressed` | Contagem de achados e ameaças compostas suprimidos |
+| `summary.critical` / `high` / `medium` / `low` / `info` | Contagens de achados confirmados por severidade |
+| `summary.modules_scanned` | Número de módulos verificados |
+| `summary.invowkfiles_scanned` | Número de invowkfiles verificados |
+| `summary.scripts_scanned` | Número de corpos de script verificados |
+| `summary.duration_ms` | Duração do scan em milissegundos |
 
-Cada achado inclui `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, `file_path`/`line` opcionais, `title`, `description`, `recommendation` e campos opcionais de proveniência de escalação.
+Cada achado inclui `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, `file_path`/`line` opcionais, `title`, `description`, `recommendation` e campos opcionais de proveniência de escalação. Valores válidos de `surface_kind` são `root_invowkfile`, `local_module`, `vendored_module` e `global_module`.
 
 ### Exemplo com GitHub Actions
 

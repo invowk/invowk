@@ -124,14 +124,11 @@ Design commands that work offline when possible:
 
 ## Container Context
 
-For container runtime, capability checks are performed on the **host**, not inside the container:
+For container runtime, root, command, and implementation capability checks run on the **host**. Capability checks declared inside the selected container runtime configuration run **inside the container**:
 
 <Snippet id="dependencies/capabilities-container-context" />
 
-This makes sense because:
-- Container networking inherits from host
-- You're checking if the deployment can reach external services
-- Container network is ephemeral
+Use host checks for deployment reachability and other workstation requirements. Use runtime-level container checks when the command needs the container image itself to prove that a service is reachable or a capability is available from inside the execution environment.
 
 ## Best Practices
 
