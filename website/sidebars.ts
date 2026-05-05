@@ -81,6 +81,7 @@ const sidebars: SidebarsConfig = {
         'advanced/workdir',
         'advanced/platform-specific',
         'advanced/interactive-mode',
+        'advanced/llm-assisted-authoring',
       ],
     },
     {

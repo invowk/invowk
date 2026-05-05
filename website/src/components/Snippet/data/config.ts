@@ -111,6 +111,14 @@ ui: {
     interactive: false    // Enable alternate screen buffer mode
 }
 
+// LLM defaults for invowk agent and audit --llm
+llm: {
+    provider: "codex"
+    model: "gpt-5.1-codex"
+    timeout: "2m"
+    concurrency: 2
+}
+
 // Container provisioning
 container: {
     auto_provision: {
@@ -132,6 +140,7 @@ container: {
     default_runtime?: "native" | "virtual" | "container"
     virtual_shell?: #VirtualShellConfig
     ui?: #UIConfig
+    llm?: #LLMConfig
     container?: #ContainerConfig
 }
 
@@ -148,6 +157,20 @@ container: {
     color_scheme?: "auto" | "dark" | "light"
     verbose?: bool
     interactive?: bool
+}
+
+#LLMConfig: {
+    provider?: "auto" | "claude" | "codex" | "gemini" | "ollama"
+    model?: string
+    timeout?: string
+    concurrency?: int
+    api?: #LLMAPIConfig
+}
+
+#LLMAPIConfig: {
+    base_url?: string
+    model?: string
+    api_key_env?: string
 }
 
 #ContainerConfig: {
@@ -203,6 +226,27 @@ container: {
     language: 'cue',
     code: `ui: {
     interactive: true
+}`,
+  },
+
+  'config/llm-provider': {
+    language: 'cue',
+    code: `llm: {
+    provider: "codex"
+    model: "gpt-5.1-codex" // optional for CLI harnesses
+    timeout: "2m"
+    concurrency: 2
+}`,
+  },
+
+  'config/llm-api': {
+    language: 'cue',
+    code: `llm: {
+    api: {
+        base_url: "https://api.openai.com/v1"
+        model: "gpt-5.1"
+        api_key_env: "OPENAI_API_KEY"
+    }
 }`,
   },
 
@@ -298,6 +342,17 @@ ui: {
 
     // Enable interactive mode by default
     interactive: false
+}
+
+// LLM defaults
+// ------------
+// Used by invowk agent cmd create and by invowk audit --llm.
+// Bare invowk audit remains deterministic and does not call LLMs.
+llm: {
+    provider: "codex"
+    model: "gpt-5.1-codex"
+    timeout: "2m"
+    concurrency: 2
 }
 
 // Container provisioning

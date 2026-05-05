@@ -27,6 +27,7 @@ type (
 		checkers   []Checker
 		correlator *Correlator
 		config     config.Provider
+		configOpts config.LoadOptions //goplint:ignore -- validated by config provider before scan context construction.
 	}
 )
 
@@ -34,7 +35,7 @@ type (
 // Use options to customize which checkers run or to inject a custom correlator.
 // DefaultRules() are validated at compile-test time, so the error is not
 // expected at runtime; a nil correlator disables compound threat detection.
-func NewScanner(cfg config.Provider, opts ...ScannerOption) *Scanner {
+func NewScanner(cfg config.Provider, opts ...ScannerOption) (*Scanner, error) {
 	cor, err := NewCorrelator(DefaultRules())
 	if err != nil {
 		cor = nil
@@ -47,7 +48,23 @@ func NewScanner(cfg config.Provider, opts ...ScannerOption) *Scanner {
 	for _, opt := range opts {
 		opt(s)
 	}
-	return s
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// WithConfigLoadOptions sets explicit config loading options used while building
+// scan context for directory scans.
+func WithConfigLoadOptions(opts config.LoadOptions) ScannerOption {
+	return func(s *Scanner) {
+		s.configOpts = opts
+	}
+}
+
+// Validate returns an error when the scanner's typed configuration inputs are invalid.
+func (s *Scanner) Validate() error {
+	return s.configOpts.Validate()
 }
 
 // WithChecker appends a checker to the scanner's default set.
@@ -85,7 +102,7 @@ func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGl
 
 	var cfg *config.Config
 	if scanPathNeedsConfig(path) {
-		loaded, err := s.config.Load(ctx, config.LoadOptions{})
+		loaded, err := s.config.Load(ctx, s.configOpts)
 		if err != nil {
 			return nil, &ScanContextBuildError{
 				Path: path,

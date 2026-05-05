@@ -554,7 +554,7 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 | `--severity` | `low` | Severidade mínima: `info`, `low`, `medium`, `high`, `critical` |
 | `--include-global` | `false` | Incluir `~/.invowk/cmds/` no scan |
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
-| `--llm` | `false` | Habilitar LLM com configuração manual de URL/chave |
+| `--llm` | `false` | Habilitar LLM usando configuração ou API |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
 | `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo LLM |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
@@ -566,6 +566,48 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 **Exemplos:**
 
 <Snippet id="reference/cli/audit-examples" />
+
+---
+
+### invowk agent cmd prompt
+
+Imprimir o system prompt que agentes LLM devem usar ao criar um comando personalizado do Invowk.
+
+<Snippet id="reference/cli/agent-prompt-syntax" />
+
+**Flags:**
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--format` | `text` | Formato de saída: `text`, `json` |
+
+### invowk agent cmd create
+
+Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `invowkfile.cue`. Veja [Autoria de Comandos com LLM](../advanced/llm-assisted-authoring) para o fluxo completo.
+
+<Snippet id="reference/cli/agent-create-syntax" />
+
+**Flags:**
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--file` | `invowkfile.cue` | Invowkfile a atualizar |
+| `--from-file` | | Ler a solicitação do comando a partir de um arquivo |
+| `--dry-run` | `false` | Imprimir o patch sem escrever |
+| `--print` | `false` | Imprimir apenas o CUE do comando gerado |
+| `--replace` | `false` | Substituir um comando existente com o mesmo nome |
+| `--verify` | `false` | Depois de escrever, resolver o comando gerado com um plano de execução dry-run |
+| `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
+| `--llm` | `false` | Habilitar LLM usando configuração ou API |
+| `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
+| `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo LLM |
+| `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
+| `--llm-timeout` | `2m` | Timeout por requisição |
+| `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
+
+**Exemplos:**
+
+<Snippet id="reference/cli/agent-examples" />
 
 ---
 

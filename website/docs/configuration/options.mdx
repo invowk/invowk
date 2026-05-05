@@ -20,7 +20,7 @@ Unknown fields are rejected, so keep config files limited to the schema-defined 
 
 ### container_engine
 
-**Type:** `"podman" | "docker"`  
+**Type:** `"podman" | "docker"`
 **Default:** `"podman"`
 
 Specifies which container runtime to use for container-based command execution.
@@ -58,7 +58,7 @@ When multiple includes define commands with the same name, they become ambiguous
 
 ### default_runtime
 
-**Type:** `"native" | "virtual" | "container"`  
+**Type:** `"native" | "virtual" | "container"`
 **Default:** `"native"`
 
 Sets the global default runtime mode for commands that don't specify a runtime.
@@ -111,7 +111,7 @@ Configures the user interface settings.
 
 #### ui.color_scheme
 
-**Type:** `"auto" | "dark" | "light"`  
+**Type:** `"auto" | "dark" | "light"`
 **Default:** `"auto"`
 
 Sets the color scheme for Invowk's output.
@@ -125,7 +125,7 @@ Sets the color scheme for Invowk's output.
 
 #### ui.verbose
 
-**Type:** `bool`  
+**Type:** `bool`
 **Default:** `false`
 
 Enables verbose output by default. When enabled, Invowk prints additional information about command discovery, dependency validation, and execution.
@@ -136,7 +136,7 @@ This is equivalent to always passing `--ivk-verbose` on the command line.
 
 #### ui.interactive
 
-**Type:** `bool`  
+**Type:** `bool`
 **Default:** `false`
 
 Enables interactive mode by default. When enabled, commands run in an alternate screen buffer with full PTY support, allowing interactive programs like password prompts, confirmations, and other stdin-based interactions to work properly.
@@ -144,6 +144,58 @@ Enables interactive mode by default. When enabled, commands run in an alternate 
 <Snippet id="config/ui-interactive" />
 
 This is equivalent to always passing `--ivk-interactive` on the command line.
+
+### llm
+
+**Type:** `#LLMConfig`
+**Default:** *(unset)*
+
+Configures a default LLM backend for LLM-aware commands. `invowk agent cmd create` uses this config automatically when no LLM flags are passed. `invowk audit` still requires explicit opt-in with `--llm` or `--llm-provider` before any script content is sent to an LLM.
+
+Use a supported provider harness:
+
+<Snippet id="config/llm-provider" />
+
+Or use an OpenAI-compatible API endpoint:
+
+<Snippet id="config/llm-api" />
+
+`llm.provider` and `llm.api` are mutually exclusive. Do not store raw API keys in `config.cue`; use `llm.api.api_key_env` to name an environment variable instead.
+
+#### llm.provider
+
+**Type:** `"auto" | "claude" | "codex" | "gemini" | "ollama"`
+**Default:** *(unset)*
+
+Selects a supported provider/harness. `auto` probes local Ollama, cloud credentials, and CLI tools in provider order.
+
+#### llm.model
+
+**Type:** `string`
+**Default:** *(provider default or API default)*
+
+Overrides the model used by the configured provider. CLI harnesses use their own current default when omitted.
+
+#### llm.timeout
+
+**Type:** Go duration string
+**Default:** `2m`
+
+Sets the per-request timeout used by LLM-backed commands.
+
+#### llm.concurrency
+
+**Type:** `int`
+**Default:** `2`
+
+Limits concurrent LLM requests. Set `0` or omit the field to use the built-in default.
+
+#### llm.api
+
+**Type:** `#LLMAPIConfig`
+**Default:** *(unset)*
+
+Configures an OpenAI-compatible API endpoint with `base_url`, `model`, and `api_key_env`.
 
 ### container
 
@@ -156,7 +208,7 @@ Configures container runtime behavior.
 
 #### container.auto_provision.enabled
 
-**Type:** `bool`  
+**Type:** `bool`
 **Default:** `true`
 
 Enables automatic provisioning of the invowk binary and modules into container images.
@@ -164,7 +216,7 @@ When enabled, Invowk builds a cached, derived image for every container run by a
 
 #### container.auto_provision.binary_path
 
-**Type:** `string`  
+**Type:** `string`
 **Default:** *(empty; uses the running invowk binary)*
 
 Overrides the path to the invowk binary to provision into containers.
@@ -192,7 +244,7 @@ When `true`, auto-provisioning failures are treated as hard errors instead of wa
 
 #### container.auto_provision.cache_dir
 
-**Type:** `string`  
+**Type:** `string`
 **Default:** *(empty — uses platform-specific default, typically `~/.cache/invowk/provision`)*
 
 Overrides the parent directory used for provision build contexts and cached image metadata.

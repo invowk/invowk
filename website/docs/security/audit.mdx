@@ -162,7 +162,7 @@ invowk audit --severity info
 
 ## LLM-Powered Analysis
 
-For deeper semantic analysis beyond pattern matching, enable LLM-powered auditing with `--llm-provider` or manual `--llm` configuration. This sends script content to a local CLI tool or remote/local OpenAI-compatible API.
+For deeper semantic analysis beyond pattern matching, enable LLM-powered auditing with `--llm-provider` or `--llm`. This sends script content to a local CLI tool or remote/local OpenAI-compatible API. Bare `invowk audit` never uses global LLM config by itself; pass `--llm` to opt in to a configured backend.
 
 :::info Why LLM analysis?
 Built-in checkers use regex patterns — they are fast and deterministic but can only detect known patterns. LLM analysis reasons about code *intent*, catching novel attack vectors, subtle logic flaws, and context-dependent security issues that regex cannot express.
@@ -182,6 +182,15 @@ ollama pull qwen2.5-coder:7b
 # 3. Run the audit with LLM analysis
 invowk audit --llm
 ```
+
+You can configure one backend globally:
+
+```bash
+invowk config set llm.provider codex
+invowk audit --llm
+```
+
+See [Configuration Options](../configuration/options#llm) for provider and API config, including `llm.api.api_key_env` for secret-free API credentials.
 
 ### Provider Detection
 
@@ -220,9 +229,9 @@ When `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY
 | Flag | Default | Env Override | Description |
 |------|---------|-------------|-------------|
 | `--llm-provider` | *(empty)* | &mdash; | Auto-detect or use `auto`, `claude`, `codex`, `gemini`, or `ollama` |
-| `--llm` | `false` | &mdash; | Enable LLM-powered analysis |
+| `--llm` | `false` | &mdash; | Enable LLM-powered analysis using configured or API settings |
 | `--llm-url` | `http://localhost:11434/v1` | `INVOWK_LLM_URL` | API base URL |
-| `--llm-model` | `qwen2.5-coder:7b` for manual/Ollama; CLI tool default for CLI providers | `INVOWK_LLM_MODEL` for manual `--llm` | Model name; required for env-var cloud API providers |
+| `--llm-model` | `qwen2.5-coder:7b` for API/Ollama; CLI tool default for CLI providers | `INVOWK_LLM_MODEL` | Model name; required for env-var cloud API providers |
 | `--llm-api-key` | *(empty)* | `INVOWK_LLM_API_KEY` | API key (empty for local servers) |
 | `--llm-timeout` | `2m` | `INVOWK_LLM_TIMEOUT` | Per-request timeout |
 | `--llm-concurrency` | `2` | `INVOWK_LLM_CONCURRENCY` | Max parallel LLM requests |
