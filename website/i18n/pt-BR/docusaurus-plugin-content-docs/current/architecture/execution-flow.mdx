@@ -88,9 +88,9 @@ Quando `--ivk-dry-run` é passado, o pipeline é interrompido após a resoluçã
 | Etapa | Componente | Ação |
 |-------|------------|------|
 | 1 | CLI | Detectar flag `--ivk-dry-run` |
-| 2 | CLI | Executar descoberta + resolução normalmente (etapas 1-16) |
+| 2 | Command Service | Executar descoberta, validação de entrada, resolução de runtime e construção do contexto de execução |
 | 3 | CLI | Imprimir plano de execução resolvido (Comando, Fonte, Runtime, Plataforma, WorkDir, Timeout, Script, Ambiente) |
-| 4 | CLI | Sair com código 0 (validação de dependências é ignorada) |
+| 4 | CLI | Sair com código 0 antes de acesso ao host, validação de dependências, setup de registry ou efeitos colaterais de runtime |
 
 ### 6. Loop do Modo Watch
 

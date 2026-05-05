@@ -172,21 +172,21 @@ Seleciona um provedor/harness suportado. `auto` procura Ollama local, credenciai
 #### llm.model
 
 **Tipo:** `string`
-**Padrão:** *(padrão do provedor ou da API)*
+**Padrão:** *(não definido)*
 
-Substitui o modelo usado pelo provedor configurado. Harnesses CLI usam seu próprio padrão atual quando omitido.
+Substitui o modelo usado pelo provedor configurado. Harnesses CLI usam seu próprio padrão atual quando omitido, e fluxos de API/Ollama usam o fallback do resolvedor `qwen2.5-coder:7b` quando nenhum modelo é configurado ou passado por flag.
 
 #### llm.timeout
 
 **Tipo:** string de duração Go
-**Padrão:** `2m`
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `2m`)*
 
 Define o timeout por requisição usado por comandos com LLM.
 
 #### llm.concurrency
 
 **Tipo:** `int`
-**Padrão:** `2`
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `2`)*
 
 Limita requisições LLM concorrentes. Defina `0` ou omita o campo para usar o padrão integrado.
 
@@ -196,6 +196,27 @@ Limita requisições LLM concorrentes. Defina `0` ou omita o campo para usar o p
 **Padrão:** *(não definido)*
 
 Configura um endpoint de API compatível com OpenAI usando `base_url`, `model` e `api_key_env`.
+
+##### llm.api.base_url
+
+**Tipo:** `string`
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `http://localhost:11434/v1`)*
+
+URL base da API compatível com OpenAI.
+
+##### llm.api.model
+
+**Tipo:** `string`
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `qwen2.5-coder:7b`)*
+
+Nome do modelo enviado ao endpoint de API.
+
+##### llm.api.api_key_env
+
+**Tipo:** `string`
+**Padrão:** *(não definido)*
+
+Nome da variável de ambiente que contém a chave de API.
 
 ### container
 

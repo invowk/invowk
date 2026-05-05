@@ -19,7 +19,7 @@ Dependências de módulos são módulos externos dos quais seu módulo depende. 
 - **Hospedadas em repositórios Git** (GitHub, GitLab, Bitbucket, etc.)
 - **Versionadas com semver** (tags como `v1.2.3` ou `1.2.3`)
 - **Cacheadas localmente** para uso offline e performance
-- **Namespaced** por ID do módulo ou alias para evitar colisões
+- **Publicadas sob um ID de origem de comando** derivado da URL/caminho do módulo ou alias para evitar colisões
 
 ## Início Rápido
 
@@ -43,7 +43,7 @@ Dependências de módulos são módulos externos dos quais seu módulo depende. 
 
 ## Namespaces e Aliases
 
-Quando um módulo de dependência está instalado em um caminho de descoberta, execute seus comandos com o ID do módulo (ou o alias, se você definiu):
+Quando um módulo de dependência está instalado em um caminho de descoberta, seus comandos são publicados sob um ID de origem de comando. O ID padrão é derivado da URL ou caminho do módulo; `alias` o sobrescreve. Execute o nome simples quando ele for único, ou use `@<source>` / `--ivk-from <source>` para desambiguar:
 
 <Snippet id="modules/dependencies/namespace-usage" />
 
@@ -53,7 +53,7 @@ Quando um módulo de dependência está instalado em um caminho de descoberta, e
 2. **Resolução**: `invowk module sync` resolve restrições de versão para versões concretas
 3. **Download**: Módulos são clonados do Git e cacheados localmente
 4. **Lock file**: Versões resolvidas são gravadas em `invowkmod.lock.cue`
-5. **Descoberta**: Comandos ficam disponíveis via namespace quando a dependência é instalada
+5. **Descoberta**: Comandos ficam disponíveis pelo ID de origem de comando do módulo quando a dependência é instalada
 
 :::note Dependências Explícitas (Estilo Go)
 O Invowk usa um **modelo de dependências explícitas**, similar ao Go modules: todo módulo na árvore de dependências deve ser declarado no `invowkmod.cue` raiz. Se o módulo A requer o módulo B, e B requer C, então C também deve ser declarado no seu `invowkmod.cue`.

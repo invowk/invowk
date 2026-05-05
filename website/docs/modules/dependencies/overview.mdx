@@ -19,7 +19,7 @@ Module dependencies are external modules that your module depends on. They are:
 - **Hosted in Git repositories** (GitHub, GitLab, Bitbucket, etc.)
 - **Versioned with semantic versioning** (tags like `v1.2.3` or `1.2.3`)
 - **Cached locally** for offline use and performance
-- **Namespaced** by module ID or alias to prevent collisions
+- **Published under a command source ID** derived from the module URL/path or alias to prevent collisions
 
 ## Quick Start
 
@@ -43,7 +43,7 @@ Module dependencies are external modules that your module depends on. They are:
 
 ## Namespaces and Aliases
 
-When a dependency module is installed in a discovery path, run its commands with the module ID (or alias if you set one):
+When a dependency module is installed in a discovery path, its commands publish under a command source ID. The default source ID is derived from the module URL or path; `alias` overrides it. Run the simple command name when unique, or use `@<source>` / `--ivk-from <source>` to disambiguate:
 
 <Snippet id="modules/dependencies/namespace-usage" />
 
@@ -53,7 +53,7 @@ When a dependency module is installed in a discovery path, run its commands with
 2. **Resolution**: `invowk module sync` resolves version constraints to concrete versions
 3. **Download**: Modules are cloned from Git and cached locally
 4. **Lock file**: Resolved versions are written to `invowkmod.lock.cue`
-5. **Discovery**: Commands are available via the module namespace when the dependency is installed
+5. **Discovery**: Commands are available via the module command source ID when the dependency is installed
 
 :::note Explicit-Only Dependencies (Go-Style)
 Invowk uses an **explicit-only dependency model**, similar to Go modules: every module in the dependency tree must be declared in your root `invowkmod.cue`. If module A requires module B, and B requires C, then C must also be declared in your `invowkmod.cue`.

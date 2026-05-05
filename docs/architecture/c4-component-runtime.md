@@ -15,6 +15,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 | **Runtime** | `Name()`, `Execute()`, `Available()`, `Validate()` | Core execution contract. All runtimes implement this. `Execute` returns a `*Result` with both exit code and error -- non-zero exit code without error is a normal process exit; error indicates infrastructure failure. |
 | **CapturingRuntime** | `ExecuteCapture()` | Optional output capture capability. Returns a `*Result` with `Output` and `ErrOutput` fields populated. Does not embed `Runtime`. |
 | **InteractiveRuntime** | `SupportsInteractive()`, `PrepareInteractive()` | PTY attachment capability. Embeds `Runtime`. Returns a `PreparedCommand` with an `exec.Cmd` ready for PTY attachment and a cleanup function. |
+| **HostServiceAddressProvider** | `HostServiceAddress()` | Optional capability for runtimes whose child processes need a non-localhost address to reach host services such as the TUI server. Implemented by ContainerRuntime. |
 | **EnvBuilder** | `Build()` | Environment variable construction following a 10-level precedence hierarchy (host env at level 1 through `--ivk-env-var` CLI flags at level 10). |
 
 ## Implementations
@@ -23,7 +24,7 @@ This diagram zooms into the **Runtime** container from the [C2 Container Diagram
 |-----------|------------|----------------|
 | **NativeRuntime** | Go | Executes commands via the host shell (`bash`/`sh` on Unix, `PowerShell` on Windows). Fastest option. Configurable shell override. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
 | **VirtualRuntime** | Go/mvdan-sh | Embedded POSIX shell interpreter with optional u-root built-in utilities. No host shell dependency. Spawns a subprocess of itself for PTY-based interactive mode. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
-| **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on `container.Engine`, `provision.LayerProvisioner`, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Linux containers only. Implements Runtime, CapturingRuntime, and InteractiveRuntime. |
+| **ContainerRuntime** | Go | Executes commands inside Docker/Podman containers. Depends on `container.Engine`, `provision.LayerProvisioner`, the `runtime.HostCallbackServer` port for optional host callbacks, and `config.Config`. Linux containers only. Implements Runtime, CapturingRuntime, InteractiveRuntime, and HostServiceAddressProvider. |
 | **DefaultEnvBuilder** | Go | Standard 10-level precedence implementation: host env (filtered) -> root/command/impl env files -> root/command/impl env vars -> ExtraEnv -> runtime env files -> runtime env vars. |
 | **MockEnvBuilder** | Go | Test helper that returns a fixed environment map. Enables testing runtimes in isolation without real file system access or env loading. |
 
@@ -68,9 +69,10 @@ All three concrete runtimes (Native, Virtual, Container) implement all three int
 
 The `Registry` decouples runtime selection from execution:
 
-1. CLI layer resolves the `RuntimeType` from command defaults or `--ivk-runtime` flag.
-2. `Registry.GetForContext()` looks up the matching `Runtime` from its internal map.
-3. `Registry.Execute()` chains: get runtime -> check availability -> validate -> execute.
+1. The CLI parses flags into a command-service request.
+2. `commandsvc.Service` resolves the `RuntimeType` from `--ivk-runtime`, configuration defaults, or the command implementation, delegating selection rules to `internal/app/execute`.
+3. `Registry.GetForContext()` looks up the matching `Runtime` from its internal map.
+4. `Registry.Execute()` chains: get runtime -> check availability -> validate -> execute.
 
 This pattern means the execution pipeline never needs to know which concrete runtime is in use.
 

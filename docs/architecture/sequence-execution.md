@@ -89,9 +89,9 @@ When `--ivk-dry-run` is passed, the pipeline short-circuits after resolution:
 | Step | Component | Action |
 |------|-----------|--------|
 | 1 | CLI | Detect `--ivk-dry-run` flag |
-| 2 | CLI | Run discovery + resolution as normal (steps 1-6) |
+| 2 | Command Service | Run discovery, input validation, runtime resolution, and execution-context construction |
 | 3 | CLI | Print resolved execution plan (Command, Source, Runtime, Platform, WorkDir, Timeout, Script, Environment) |
-| 4 | CLI | Exit with code 0 (dependency validation is skipped) |
+| 4 | CLI | Exit with code 0 before host access, dependency validation, registry setup, or runtime side effects |
 
 ### 6. Watch Mode Loop
 
@@ -117,9 +117,12 @@ When `--ivk-watch` is passed, execution is wrapped in a watch loop:
 | Phase | Typical Duration | Optimization |
 |-------|------------------|--------------|
 | Initialization | < 10ms | Config cached after first load |
-| Discovery | 10-100ms | Depends on number of files/modules |
+| Discovery | 10-100ms | Per-request cache eliminates duplicate filesystem scans |
 | Resolution | < 1ms | Simple lookup |
 | Execution | Variable | Depends on command |
+
+**Key optimizations:**
+- **Per-request discovery cache**: A `discoveryRequestCache` attached to the request context memoizes `DiscoverCommandSet`, `DiscoverAndValidateCommandSet`, and `GetCommand` results. Cross-population ensures that a `DiscoverAndValidateCommandSet` call also satisfies downstream `DiscoverCommandSet` lookups, eliminating redundant filesystem traversals within a single CLI invocation.
 
 **Bottlenecks to watch:**
 - Many modules in configured includes → slower discovery

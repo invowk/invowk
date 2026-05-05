@@ -74,7 +74,7 @@ Scans scripts for network access patterns that may indicate data exfiltration.
 Analyzes environment configuration and script content for credential exposure risks.
 
 **Detects:**
-- Risky `env_inherit_mode: "all"` (exposes all host environment variables)
+- Risky `env_inherit_mode: "all"` and unset native/virtual runtime `env_inherit_mode` defaults (both expose all host environment variables)
 - Access to sensitive variables: `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, passwords, private keys
 - Credential extraction patterns in scripts
 
@@ -96,6 +96,8 @@ Walks module directories checking for symlink-based escape attacks.
 - Symlinks pointing outside the module boundary
 - Symlink chains (symlink &rarr; symlink)
 - Dangling symlinks (target does not exist)
+- Any symlink in a module directory, because module packages should be self-contained
+- Unreadable symlink targets and incomplete directory walks that leave the scan with reduced coverage
 
 ### Module Metadata Checker
 
@@ -106,6 +108,8 @@ Analyzes module dependency chains and metadata for supply-chain risks.
 - **Fan-out**: Modules with excessive dependency counts
 - **Missing version pins**: Dependencies without pinned versions
 - **Undeclared transitive deps**: Dependencies required by sub-dependencies but not declared in root `invowkmod.cue`
+- **Vendored modules missing from `requires`**: Dependencies present in `invowk_modules/` without a matching declaration
+- **Module invowkfile parse failures**: Malformed module command files that prevent script-content auditing
 - **Global module trust**: Modules from `~/.invowk/cmds/` that bypass local review
 
 ## Compound Threat Detection
@@ -118,6 +122,7 @@ The correlator identifies when findings from different checkers appear in the sa
 | **Path + symlink escape** | Script + Symlink | Critical |
 | **Obfuscated exfiltration** | Script + Network | Critical |
 | **Trust chain weakness** | Module Metadata + Lock File | High |
+| **Interpreter traversal** | Script execution + path traversal | Critical |
 
 **Automatic severity escalation:**
 - 3+ distinct security categories in the same surface &rarr; **Critical**
@@ -173,8 +178,7 @@ Built-in checkers use regex patterns — they are fast and deterministic but can
 The LLM checker works with any server implementing the OpenAI `/v1/chat/completions` API. The default configuration targets [Ollama](https://ollama.com), the most popular local LLM server:
 
 ```bash
-# 1. Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+# 1. Install Ollama from your package manager or https://ollama.com
 
 # 2. Pull a code-focused model
 ollama pull qwen2.5-coder:7b
@@ -294,16 +298,44 @@ invowk audit --severity high
 
 <Snippet id="security/audit-json-example" />
 
+The JSON DTO includes:
+
+| Field | Description |
+|-------|-------------|
+| `findings[]` | Confirmed findings at or above the severity threshold |
+| `compound_threats[]` | Confirmed correlator findings at or above the severity threshold |
+| `suppressed_findings[]` | Findings suppressed by triage rules |
+| `suppressed_compound_threats[]` | Suppressed correlator findings |
+| `diagnostics[]` | Non-finding scanner diagnostics |
+| `summary.total` | Count of confirmed findings and compound threats at or above the severity threshold |
+| `summary.suppressed` | Count of suppressed findings and compound threats |
+| `summary.critical` / `high` / `medium` / `low` / `info` | Confirmed finding counts by severity |
+| `summary.modules_scanned` | Number of modules scanned |
+| `summary.invowkfiles_scanned` | Number of invowkfiles scanned |
+| `summary.scripts_scanned` | Number of script bodies scanned |
+| `summary.duration_ms` | Scan duration in milliseconds |
+
+Each finding includes `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, optional `file_path`/`line`, `title`, `description`, `recommendation`, and optional escalation provenance fields. Valid `surface_kind` values are `root_invowkfile`, `local_module`, `vendored_module`, and `global_module`.
+
+Each suppressed finding or suppressed compound threat wraps the original entry as `finding` and includes `disposition`, `rule`, and `rationale` fields that explain why triage suppressed it.
+
 ### GitHub Actions Example
 
 ```yaml
 - name: Security audit
   run: |
+    set +e
     invowk audit --severity high --format json > audit-results.json
-    if [ $? -eq 1 ]; then
+    status=$?
+    set -e
+
+    if [ "$status" -eq 1 ]; then
       echo "::error::Security findings detected"
-      cat audit-results.json | jq '.findings[] | "[\(.severity)] \(.title)"'
+      jq -r '.findings[] | "[\(.severity)] \(.title)"' audit-results.json
       exit 1
+    elif [ "$status" -ne 0 ]; then
+      cat audit-results.json
+      exit "$status"
     fi
 ```
 
@@ -312,9 +344,10 @@ invowk audit --severity high
 ```yaml
 - name: Start Ollama
   run: |
-    curl -fsSL https://ollama.com/install.sh | sh
-    ollama pull qwen2.5-coder:7b &
-    wait
+    # Use a runner image or setup step that installs Ollama explicitly.
+    ollama serve > ollama.log 2>&1 &
+    sleep 2
+    ollama pull qwen2.5-coder:7b
 
 - name: Security audit (with LLM)
   run: invowk audit --llm --severity high --format json

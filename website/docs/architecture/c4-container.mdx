@@ -22,21 +22,25 @@ In C4 terminology, "container" refers to a separately runnable/deployable unit (
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
-| **CLI Commands** | Go/Cobra | Entry points for all user interactions: `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion`, `audit` subcommands |
+| **CLI Commands** | Go/Cobra | Entry points for all user interactions: `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion`, `audit`, `agent` subcommands |
 
 ### Core Engine
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
 | **Command Service** | Go | Hexagonal domain service (`internal/app/commandsvc/`) orchestrating command execution. Receives requests from CLI, coordinates discovery, validation, SSH lifecycle, and runtime dispatch. Returns typed results/errors; CLI adapter applies rendering. |
+| **Command Adapters** | Go | Infrastructure adapters (`internal/app/commandadapters/`) implementing command service ports for host SSH access, runtime registry construction, interactive execution, host/runtime dependency probes, and host-callback server adaptation. |
 | **Dependency Validator** | Go | Dependency validation domain (`internal/app/deps/`). Checks root, command, and implementation dependencies on the host, plus selected container runtime dependencies inside the container. |
-| **Execution Orchestrator** | Go | Runtime selection and execution context construction (`internal/app/execute/`). Chooses the selected runtime and dispatches to runtime implementations. |
+| **Execution Context Builder** | Go | Runtime selection and execution context construction (`internal/app/execute/`). Produces the selected runtime and `runtime.ExecutionContext`; `internal/app/commandsvc` dispatches through `runtime.Registry`. |
 | **Discovery Engine** | Go | Finds `invowkfile.cue` and `*.invowkmod` directories with precedence ordering. Builds unified command tree. |
 | **Configuration Manager** | Go/CUE | Loads config from `~/.config/invowk/config.cue`. Validates against CUE schema. |
 | **CUE Parser** | Go/cuelang | Implements 3-step parsing: compile schema → unify with data → decode to Go structs. Provides rich error messages. |
 | **Module Resolver** | Go | Used by module commands such as `invowk module sync` to resolve Git-based dependencies. Manages cache at `~/.invowk/modules/`. Handles lock files for reproducibility. |
 | **Watch Engine** | Go | Monitors file system for changes. Debounces change events and triggers command re-execution for `--ivk-watch` mode. |
 | **Audit Scanner** | Go | Security scanning of module system (`internal/audit/`). Detects supply-chain risks, path traversal, symlink abuse, and environment variable injection. Supports `--llm` flag for LLM-powered analysis. |
+| **Agent Command Authoring** | Go | LLM-assisted command authoring (`internal/agentcmd/`, `internal/llm/`). Renders agent prompts, resolves configured LLM backends, validates generated CUE, and patches `invowkfile.cue`. |
+| **LLM Config Resolver** | Go | Shared resolver (`internal/app/llmconfig/`) for configured defaults, explicit provider selection, API settings, model requirements, and env-backed credentials. |
+| **LLM Provider Layer** | Go | Provider adapters (`internal/auditllm/`, `internal/llm/`) used by audit analysis and command authoring to call CLI providers or OpenAI-compatible APIs. |
 
 ### Runtimes
 
@@ -59,6 +63,8 @@ In C4 terminology, "container" refers to a separately runnable/deployable unit (
 |-----------|------------|----------------|
 | **SSH Server** | Go/Wish | Token-based SSH server for container-to-host callbacks. Enables `enable_host_ssh` feature. |
 | **TUI Server** | Go/Bubble Tea | HTTP server handling TUI component requests from child processes. Enables interactive prompts in any runtime. |
+| **Server Lifecycle Base** | Go | Shared `internal/core/serverbase` state machine used by SSH and TUI servers for lifecycle transitions. |
+| **TUI Wire Protocol** | Go | Shared `internal/tuiwire` request/response vocabulary and `INVOWK_TUI_*` environment variable names for delegated TUI components. |
 
 ## Data Stores
 
@@ -109,6 +115,8 @@ In C4 terminology, "container" refers to a separately runnable/deployable unit (
 
 - **SSH Server**: Enables commands inside containers to call back to the host (e.g., for secrets management)
 - **TUI Server**: Allows any subprocess (native, virtual, container) to request interactive UI components
+- **Server Lifecycle Base**: Keeps SSH and TUI server start/stop/failure transitions consistent
+- **TUI Wire Protocol**: Keeps delegated TUI requests and responses stable across runtimes
 
 ### Why CUE for Configuration?
 

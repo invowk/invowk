@@ -229,7 +229,9 @@ invowk agent cmd create --llm-provider claude --print 'add a docs build command'
 invowk agent cmd create --llm-provider codex --verify 'add a release command'
 ```
 
-`agent cmd create` uses the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command retries once with validation feedback when a model returns invalid output, uses structured JSON output with compatible OpenAI API backends, and rejects malformed JSON, invalid CUE, full `cmds` arrays, and duplicate command names unless `--replace` is set.
+`agent cmd create` uses the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command retries once with validation feedback when a model returns invalid output, uses structured JSON output with compatible OpenAI API backends, and rejects malformed JSON, invalid CUE, and full `cmds` arrays. When writing to `invowkfile.cue`, duplicate command names are rejected unless `--replace` is set.
+
+When `agent cmd create` uses an LLM provider, it sends the command-authoring system prompt and schemas, your request, the target path, the current target invowkfile content or missing/empty state, and repair feedback if validation retries. For cloud providers, review your provider's data handling policies before sending private scripts or workspace details.
 
 ## Invowkfile Format
 
@@ -1765,15 +1767,18 @@ The `interpreter` field is **not supported** with the virtual runtime. The virtu
 
 ### Supported Interpreters
 
-Any executable available in PATH (or in the container) can be used as an interpreter. Common examples:
-- `python3`, `python`
-- `ruby`
-- `node`
-- `perl`
-- `php`
-- `lua`
-- `Rscript`
-- Custom interpreters
+Explicit interpreters are validated against a safety allowlist. The interpreter may be `auto`
+(detect from shebang) or one of these known interpreter base names:
+- POSIX shells: `sh`, `bash`, `zsh`, `fish`, `dash`, `ksh`, `mksh`
+- Python: `python`, `python3`, `python2`
+- JavaScript runtimes: `node`, `deno`, `bun`
+- Other scripting languages: `ruby`, `perl`, `php`, `lua`, `Rscript`
+- Windows shells: `pwsh`, `powershell`, `cmd`
+
+Invowk strips directory prefixes and a Windows `.exe` suffix before checking the name, so
+`/usr/bin/python3` and `python3.exe` are valid. `/usr/bin/env <interpreter>` and
+`/bin/env <interpreter>` are also accepted when the interpreter argument is allowlisted.
+Arbitrary custom interpreter names are rejected as unsafe.
 
 ## Modules
 
@@ -2063,7 +2068,7 @@ requires: [
 	{
 		git_url: "https://github.com/user/deploy-utils.invowkmod.git"
 		version: "~2.1.0"  // Approximately 2.1.x
-		alias:   "deploy"  // Custom namespace (for collision disambiguation)
+		alias:   "deploy"  // Custom command source ID (for collision disambiguation)
 	},
 	{
 		git_url: "https://github.com/user/monorepo.invowkmod.git"
@@ -2141,6 +2146,8 @@ modules: {
 		resolved_version: "1.2.3"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "common-tools@1.2.3"
+		command_source_id: "common-tools"
+		module_id:        "com.example.commontools"
 		content_hash:     "sha256:a1b2c3d4e5f6..."
 	}
 }
@@ -2148,16 +2155,20 @@ modules: {
 
 ### Command Namespacing
 
-When dependency modules are installed or vendored, their commands are namespaced to prevent conflicts:
+When dependency modules are installed or vendored, their commands are published under a command source ID to prevent conflicts:
 
-- **Default**: `<module-name>@<version>` (e.g., `common-tools@1.2.3`)
-- **With alias**: Uses the specified alias (e.g., `deploy`)
+- **Default**: the derived module source ID (for example, `common-tools`)
+- **With alias**: the specified alias (for example, `deploy`)
 
-Access dependency commands using the namespace:
+The lock file's `namespace` field may include the resolved version for display and compatibility, but command execution uses `command_source_id` or the alias. Access dependency commands with a simple name when unique, or disambiguate with `@<source>` or `--ivk-from`:
 
 ```bash
 # Run a command from a dependency
-invowk cmd common-tools@1.2.3 build
+invowk cmd common-tools build
+
+# Disambiguate when another source also defines "build"
+invowk cmd @common-tools build
+invowk cmd --ivk-from common-tools build
 
 # With alias
 invowk cmd deploy production
@@ -2435,10 +2446,10 @@ container: {
   auto_provision: {
     enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
     strict: false                         // Hard error on provisioning failure instead of warning (default: false)
-    binary_path: ""                       // Path to invowk binary to provision (default: auto-detect via os.Executable())
+    // binary_path: "/usr/local/bin/invowk" // Optional non-empty override; omit to auto-detect via os.Executable()
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
-    // cache_dir: ""  // Parent directory for provision build contexts and cached image metadata (empty = auto-detect, optional)
+    // cache_dir: "/var/cache/invowk/provision" // Optional non-empty override; omit to use the platform default
   }
 }
 
@@ -2448,6 +2459,26 @@ ui: {
   verbose: false
   interactive: false      // Enable alternate screen buffer mode for command execution
 }
+
+// LLM provider defaults for LLM-aware commands (optional)
+// Invowk leaves this unset by default. `invowk agent cmd create`
+// uses configured LLM settings automatically; `invowk audit` still
+// requires explicit opt-in with --llm or --llm-provider.
+llm: {
+  provider: "codex"        // "auto", "claude", "codex", "gemini", or "ollama"
+  model: "gpt-5.1-codex"   // Optional for CLI providers
+  timeout: "2m"            // Optional; built-in resolver fallback when omitted
+  concurrency: 2           // Optional; built-in resolver fallback when omitted
+}
+
+// Or configure an OpenAI-compatible API without storing raw secrets:
+// llm: {
+//   api: {
+//     base_url: "https://api.openai.com/v1"
+//     model: "gpt-5.1"
+//     api_key_env: "OPENAI_API_KEY"
+//   }
+// }
 ```
 
 ## Shell Completion
@@ -2762,6 +2793,9 @@ invowk tui pager --line-numbers myfile.go
 
 # With title
 git log | invowk tui pager --title "Git History"
+
+# Soft-wrap long lines
+make build 2>&1 | invowk tui pager --title "Build Output" --soft-wrap
 ```
 
 ### Format
@@ -2777,6 +2811,12 @@ cat main.go | invowk tui format --type code --language go
 
 # Convert emoji shortcodes
 echo "Hello :wave: World :smile:" | invowk tui format --type emoji
+
+# Pass template-formatted text through the template formatter
+echo "Hello {{.Name}}" | invowk tui format --type template
+
+# Pick a Glamour theme for markdown/code output
+cat README.md | invowk tui format --type markdown --theme dark
 ```
 
 ### Style
@@ -2874,10 +2914,10 @@ The audit scanner runs 6 built-in security checkers concurrently:
 |---------|----------|-----------------|
 | **Script** | execution, path-traversal, obfuscation | Remote code execution (`curl \| bash`), path traversal (`../`), base64 obfuscation, eval patterns, hex sequences |
 | **Network** | exfiltration | Reverse shells, DNS exfiltration, encoded URLs, suspicious network commands |
-| **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
+| **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, unset native/virtual `env_inherit_mode` defaults that inherit all host variables, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
 | **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous versions, tamper detection |
-| **Symlink** | path-traversal | Symlinks pointing outside module boundaries, symlink chains, dangling symlinks |
-| **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, global module trust |
+| **Symlink** | path-traversal | Any symlink in a module directory, symlinks pointing outside module boundaries, symlink chains, dangling or unreadable symlinks, incomplete directory walks |
+| **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, vendored modules missing from `requires`, module invowkfile parse failures, global module trust |
 
 ### Compound Threat Detection
 
@@ -2889,6 +2929,7 @@ After individual checkers run, the **correlator** cross-references findings from
 | Path + symlink escape | path traversal + external symlink | Critical |
 | Obfuscated exfiltration | obfuscation + network access | Critical |
 | Trust chain weakness | metadata issues + lock file issues | High |
+| Interpreter traversal | unusual interpreter + path traversal | Critical |
 
 Additional automatic escalation rules:
 - 3+ distinct security categories in the same surface &rarr; **Critical**
@@ -2965,7 +3006,7 @@ llm: {
 
 | Server | Default Port | Install |
 |--------|-------------|---------|
-| [Ollama](https://ollama.com) | 11434 | `curl -fsSL https://ollama.com/install.sh \| sh && ollama pull qwen2.5-coder:7b` |
+| [Ollama](https://ollama.com) | 11434 | Install from your package manager or ollama.com, then run `ollama pull qwen2.5-coder:7b` |
 | [LM Studio](https://lmstudio.ai) | 1234 | Download from website, load a model |
 | [llamafile](https://github.com/mozilla-ai/llamafile) | 8080 | Download single executable, run |
 | [vLLM](https://docs.vllm.ai) | 8000 | `pip install vllm` |
@@ -2992,8 +3033,13 @@ invowk audit --severity high --format json
 # Include LLM analysis in CI (requires LLM server accessible from CI runner)
 invowk audit --llm --severity high --format json
 
-# Parse JSON output in scripts
-invowk audit --format json | jq '.summary'
+# Parse JSON output without masking audit's exit code 1 for findings
+set +e
+invowk audit --format json > audit-results.json
+status=$?
+set -e
+jq '.summary' audit-results.json
+exit "$status"
 ```
 
 The JSON output structure:
@@ -3002,21 +3048,24 @@ The JSON output structure:
 {
   "findings": [
     {
-      "severity": "high",
+      "code": "script-execution-script-downloads-and-executes-remote-code",
+      "severity": "critical",
       "category": "execution",
       "surface_id": "tools.invowkmod",
+      "surface_kind": "local_module",
+      "checker_name": "script",
       "file_path": "tools.invowkmod/invowkfile.cue",
       "line": 15,
-      "title": "Remote code execution via piped download",
-      "description": "Script downloads and executes remote code without verification",
-      "recommendation": "Pin the URL and verify checksums before execution"
+      "title": "Script downloads and executes remote code",
+      "description": "Command \"bootstrap\" contains a remote code download and execution pattern (pipe, process substitution, or download-then-execute)",
+      "recommendation": "Download to a temporary file, verify its checksum, then execute"
     }
   ],
-  "compound_threats": [],
   "summary": {
     "total": 1,
-    "critical": 0,
-    "high": 1,
+    "suppressed": 0,
+    "critical": 1,
+    "high": 0,
     "medium": 0,
     "low": 0,
     "info": 0,
@@ -3047,6 +3096,7 @@ invowk/
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
 │   ├── validate.go             # validate command
+│   ├── agent.go                # LLM-assisted command authoring helpers
 │   ├── audit.go                # audit command (security scanning + LLM analysis)
 │   ├── completion.go           # Shell completion generation
 │   ├── tui.go                  # tui parent command
@@ -3054,9 +3104,14 @@ invowk/
 │   └── internal.go             # Hidden internal commands
 ├── internal/
 │   ├── app/                    # Hexagonal domain layer
+│   │   ├── commandadapters/    # Application adapters for discovery and dependency services
 │   │   ├── commandsvc/         # Command execution service (discovery, validation, dispatch)
 │   │   ├── deps/               # Dependency validation domain logic
-│   │   └── execute/            # Execution orchestration (runtime resolution, context construction)
+│   │   ├── execute/            # Execution orchestration (runtime resolution, context construction)
+│   │   ├── llmconfig/          # Shared LLM configuration resolution
+│   │   ├── modulecache/        # Module cache domain service
+│   │   ├── moduleops/          # Module create/import/archive/vendor operations
+│   │   └── modulesync/         # Module sync and tidy orchestration
 │   ├── benchmark/              # Benchmarks for PGO profile generation
 │   ├── config/                 # Configuration management with CUE schema
 │   ├── container/              # Container engine abstraction (Docker, Podman, sandbox)
@@ -3064,6 +3119,8 @@ invowk/
 │   ├── discovery/              # Invowkfile and module discovery
 │   ├── audit/                  # Security scanning (6 checkers + LLM + correlator)
 │   ├── auditllm/               # LLM provider adapters for audit analysis
+│   ├── agentcmd/               # LLM-assisted custom-command authoring pipeline
+│   ├── llm/                    # Shared LLM completion interface and adapters
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
 │   ├── runtime/                # Runtime implementations (native, virtual, container)
@@ -3075,6 +3132,7 @@ invowk/
 │   ├── uroot/                  # u-root utilities for virtual shell built-ins
 │   └── watch/                  # File-watching with debounced re-execution
 ├── pkg/
+│   ├── containerargs/          # Shared Docker/Podman argument validation
 │   ├── cueutil/                # Shared CUE parsing utilities
 │   ├── fspath/                 # Filesystem path wrappers (typed paths)
 │   ├── invowkmod/              # Module validation and structure

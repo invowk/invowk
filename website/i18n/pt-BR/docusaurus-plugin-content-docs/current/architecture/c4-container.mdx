@@ -22,21 +22,25 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
-| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion`, `audit` |
+| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion`, `audit`, `agent` |
 
 ### Motor Principal
 
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
 | **Command Service** | Go | Serviço de domínio hexagonal (`internal/app/commandsvc/`) que orquestra a execução de comandos. Recebe requisições da CLI, coordena descoberta, validação, ciclo de vida SSH e despacho de runtime. Retorna resultados/erros tipados; adaptador CLI aplica renderização. |
+| **Command Adapters** | Go | Adaptadores de infraestrutura (`internal/app/commandadapters/`) que implementam portas do serviço de comandos para acesso SSH ao host, construção do registro de runtimes, execução interativa, probes de dependências no host/runtime e adaptação do servidor de callback para o host. |
 | **Dependency Validator** | Go | Domínio de validação de dependências (`internal/app/deps/`). Verifica dependências raiz, de comando e de implementação no host, além das dependências do runtime container selecionado dentro do container. |
-| **Execution Orchestrator** | Go | Seleção de runtime e construção do contexto de execução (`internal/app/execute/`). Escolhe o runtime selecionado e despacha para as implementações de runtime. |
+| **Execution Context Builder** | Go | Seleção de runtime e construção do contexto de execução (`internal/app/execute/`). Produz o runtime selecionado e `runtime.ExecutionContext`; `internal/app/commandsvc` despacha por meio de `runtime.Registry`. |
 | **Discovery Engine** | Go | Encontra diretórios `invowkfile.cue` e `*.invowkmod` com ordenação por precedência. Constrói árvore unificada de comandos. |
 | **Configuration Manager** | Go/CUE | Carrega config de `~/.config/invowk/config.cue`. Valida contra schema CUE. |
 | **CUE Parser** | Go/cuelang | Implementa parsing em 3 etapas: compilar schema → unificar com dados → decodificar para structs Go. Fornece mensagens de erro ricas. |
 | **Module Resolver** | Go | Usado por comandos de módulo como `invowk module sync` para resolver dependências baseadas em Git. Gerencia cache em `~/.invowk/modules/`. Lida com lock files para reprodutibilidade. |
 | **Watch Engine** | Go | Monitora o sistema de arquivos para mudanças. Aplica debounce nos eventos de mudança e dispara re-execução de comandos para o modo `--ivk-watch`. |
 | **Audit Scanner** | Go | Varredura de segurança do sistema de módulos (`internal/audit/`). Detecta riscos de supply-chain, travessia de caminho, abuso de symlink e injeção de variáveis de ambiente. Suporta flag `--llm` para análise com LLM. |
+| **Agent Command Authoring** | Go | Autoria de comandos assistida por LLM (`internal/agentcmd/`, `internal/llm/`). Renderiza prompts de agente, resolve backends LLM configurados, valida CUE gerado e aplica patches em `invowkfile.cue`. |
+| **LLM Config Resolver** | Go | Resolvedor compartilhado (`internal/app/llmconfig/`) para defaults configurados, seleção explícita de provider, ajustes de API, requisitos de modelo e credenciais via ambiente. |
+| **LLM Provider Layer** | Go | Adaptadores de provider (`internal/auditllm/`, `internal/llm/`) usados por auditoria e autoria de comandos para chamar providers CLI ou APIs compatíveis com OpenAI. |
 
 ### Runtimes
 
@@ -59,6 +63,8 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 |------------|------------|------------------|
 | **SSH Server** | Go/Wish | Servidor SSH baseado em token para callbacks container-para-host. Habilita funcionalidade `enable_host_ssh`. |
 | **TUI Server** | Go/Bubble Tea | Servidor HTTP tratando requisições de componentes TUI de processos filhos. Habilita prompts interativos em qualquer runtime. |
+| **Server Lifecycle Base** | Go | Máquina de estados compartilhada em `internal/core/serverbase` usada pelos servidores SSH e TUI para transições de ciclo de vida. |
+| **TUI Wire Protocol** | Go | Vocabulário compartilhado de requisição/resposta em `internal/tuiwire` e nomes de variáveis `INVOWK_TUI_*` para componentes TUI delegados. |
 
 ## Armazenamentos de Dados
 
@@ -109,6 +115,8 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 - **SSH Server**: Permite que comandos dentro de containers chamem de volta o host (ex: para gerenciamento de secrets)
 - **TUI Server**: Permite que qualquer subprocesso (native, virtual, container) solicite componentes de UI interativa
+- **Server Lifecycle Base**: Mantém consistentes as transições de start/stop/falha dos servidores SSH e TUI
+- **TUI Wire Protocol**: Mantém estáveis as requisições e respostas TUI delegadas entre runtimes
 
 ### Por Que CUE para Configuração?
 

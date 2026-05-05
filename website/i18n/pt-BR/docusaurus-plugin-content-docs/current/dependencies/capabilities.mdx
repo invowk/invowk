@@ -124,14 +124,11 @@ Projete comandos que funcionam offline quando possível:
 
 ## Contexto de Container
 
-Para runtime container, verificações de capacidade são realizadas no **host**, não dentro do container:
+Para runtime container, verificações de capacidade no nível raiz, de comando e de implementação rodam no **host**. Verificações de capacidade declaradas dentro da configuração do runtime container selecionado rodam **dentro do container**:
 
 <Snippet id="dependencies/capabilities-container-context" />
 
-Isso faz sentido porque:
-- Rede do container herda do host
-- Você está verificando se o deploy pode alcançar serviços externos
-- Rede do container é efêmera
+Use verificações no host para alcance de deploy e outros requisitos da estação de trabalho. Use verificações no nível do runtime container quando o comando precisa que a própria imagem do container prove que um serviço é alcançável ou que uma capacidade está disponível dentro do ambiente de execução.
 
 ## Melhores Práticas
 

@@ -111,7 +111,8 @@ ui: {
     interactive: false    // Enable alternate screen buffer mode
 }
 
-// LLM defaults for invowk agent and audit --llm
+// Example LLM backend override for invowk agent and audit --llm
+// Invowk leaves llm unset by default.
 llm: {
     provider: "codex"
     model: "gpt-5.1-codex"
@@ -124,10 +125,8 @@ container: {
     auto_provision: {
         enabled: true
         strict: false
-        binary_path: ""
         includes: []
         inherit_includes: true
-        cache_dir: ""
     }
 }`,
   },
@@ -344,9 +343,10 @@ ui: {
     interactive: false
 }
 
-// LLM defaults
-// ------------
+// Example LLM backend override
+// ----------------------------
 // Used by invowk agent cmd create and by invowk audit --llm.
+// Invowk leaves llm unset by default.
 // Bare invowk audit remains deterministic and does not call LLMs.
 llm: {
     provider: "codex"
@@ -361,10 +361,8 @@ container: {
     auto_provision: {
         enabled: true
         strict: false
-        binary_path: ""
         includes: []
         inherit_includes: true
-        cache_dir: ""
     }
 }`,
   },
@@ -482,15 +480,22 @@ ui: {
     interactive: false    // Enable alternate screen buffer mode
 }
 
+// Example LLM backend override for invowk agent and audit --llm
+// Invowk leaves llm unset by default.
+llm: {
+    provider: "codex"
+    model: "gpt-5.1-codex"
+    timeout: "2m"
+    concurrency: 2
+}
+
 // Container provisioning
 container: {
     auto_provision: {
         enabled: true
         strict: false
-        binary_path: ""
         includes: []
         inherit_includes: true
-        cache_dir: ""
     }
 }`,
   },
@@ -521,6 +526,7 @@ invowk cmd build --ivk-runtime container`,
     default_runtime?:  "native" | "virtual" | "container"
     virtual_shell?:    #VirtualShellConfig
     ui?:               #UIConfig
+    llm?:              #LLMConfig
     container?:        #ContainerConfig
 }
 
@@ -540,6 +546,22 @@ invowk cmd build --ivk-runtime container`,
     color_scheme?: "auto" | "dark" | "light"
     verbose?:      bool
     interactive?:  bool
+}
+
+// LLM configuration
+#LLMConfig: {
+    provider?:    "auto" | "claude" | "codex" | "gemini" | "ollama"
+    model?:       string
+    timeout?:     string
+    concurrency?: int
+    api?:         #LLMAPIConfig
+}
+
+// OpenAI-compatible API configuration
+#LLMAPIConfig: {
+    base_url?:    string
+    model?:       string
+    api_key_env?: string
 }
 
 // Container configuration
@@ -566,6 +588,7 @@ invowk cmd build --ivk-runtime container`,
     default_runtime?: "native" | "virtual" | "container"
     virtual_shell?: #VirtualShellConfig
     ui?: #UIConfig
+    llm?: #LLMConfig
     container?: #ContainerConfig
 }
 
@@ -582,6 +605,20 @@ invowk cmd build --ivk-runtime container`,
     color_scheme?: "auto" | "dark" | "light"
     verbose?: bool
     interactive?: bool
+}
+
+#LLMConfig: {
+    provider?: "auto" | "claude" | "codex" | "gemini" | "ollama"
+    model?: string
+    timeout?: string
+    concurrency?: int
+    api?: #LLMAPIConfig
+}
+
+#LLMAPIConfig: {
+    base_url?: string
+    model?: string
+    api_key_env?: string
 }
 
 #ContainerConfig: {
@@ -606,6 +643,7 @@ invowk cmd build --ivk-runtime container`,
     default_runtime?:  "native" | "virtual" | "container"
     virtual_shell?:    #VirtualShellConfig
     ui?:               #UIConfig
+    llm?:              #LLMConfig
     container?:        #ContainerConfig
 }`,
   },
@@ -677,6 +715,26 @@ invowk cmd build --ivk-runtime container`,
 }`,
   },
 
+  'reference/config/llm-config-structure': {
+    language: 'cue',
+    code: `#LLMConfig: {
+    provider?:    "auto" | "claude" | "codex" | "gemini" | "ollama"
+    model?:       string
+    timeout?:     string
+    concurrency?: int
+    api?:         #LLMAPIConfig
+}`,
+  },
+
+  'reference/config/llm-api-config-structure': {
+    language: 'cue',
+    code: `#LLMAPIConfig: {
+    base_url?:    string
+    model?:       string
+    api_key_env?: string
+}`,
+  },
+
   'reference/config/container-config-structure': {
     language: 'cue',
     code: `#ContainerConfig: {
@@ -729,6 +787,27 @@ invowk cmd build --ivk-runtime container`,
     language: 'cue',
     code: `ui: {
     interactive: true
+}`,
+  },
+
+  'reference/config/llm-provider': {
+    language: 'cue',
+    code: `llm: {
+    provider: "codex"
+    model: "gpt-5.1-codex" // optional for CLI harnesses
+    timeout: "2m"
+    concurrency: 2
+}`,
+  },
+
+  'reference/config/llm-api': {
+    language: 'cue',
+    code: `llm: {
+    api: {
+        base_url: "https://api.openai.com/v1"
+        model: "gpt-5.1"
+        api_key_env: "OPENAI_API_KEY"
+    }
 }`,
   },
 
@@ -790,16 +869,26 @@ ui: {
     interactive: false
 }
 
+// Example LLM backend override
+// ----------------------------
+// Used by invowk agent cmd create and by invowk audit --llm.
+// Invowk leaves llm unset by default.
+// Bare invowk audit remains deterministic and does not call LLMs.
+llm: {
+    provider: "codex"
+    model: "gpt-5.1-codex"
+    timeout: "2m"
+    concurrency: 2
+}
+
 // Container provisioning
 // ----------------------
 container: {
     auto_provision: {
         enabled: true
         strict: false
-        binary_path: ""
         includes: []
         inherit_includes: true
-        cache_dir: ""
     }
 }`,
   },
