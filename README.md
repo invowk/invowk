@@ -2068,7 +2068,7 @@ requires: [
 	{
 		git_url: "https://github.com/user/deploy-utils.invowkmod.git"
 		version: "~2.1.0"  // Approximately 2.1.x
-		alias:   "deploy"  // Custom namespace (for collision disambiguation)
+		alias:   "deploy"  // Custom command source ID (for collision disambiguation)
 	},
 	{
 		git_url: "https://github.com/user/monorepo.invowkmod.git"
@@ -2155,16 +2155,20 @@ modules: {
 
 ### Command Namespacing
 
-When dependency modules are installed or vendored, their commands are namespaced to prevent conflicts:
+When dependency modules are installed or vendored, their commands are published under a command source ID to prevent conflicts:
 
-- **Default**: `<module-name>@<version>` (e.g., `common-tools@1.2.3`)
-- **With alias**: Uses the specified alias (e.g., `deploy`)
+- **Default**: the derived module source ID (for example, `common-tools`)
+- **With alias**: the specified alias (for example, `deploy`)
 
-Access dependency commands using the namespace:
+The lock file's `namespace` field may include the resolved version for display and compatibility, but command execution uses `command_source_id` or the alias. Access dependency commands with a simple name when unique, or disambiguate with `@<source>` or `--ivk-from`:
 
 ```bash
 # Run a command from a dependency
-invowk cmd common-tools@1.2.3 build
+invowk cmd common-tools build
+
+# Disambiguate when another source also defines "build"
+invowk cmd @common-tools build
+invowk cmd --ivk-from common-tools build
 
 # With alias
 invowk cmd deploy production
@@ -2910,7 +2914,7 @@ The audit scanner runs 6 built-in security checkers concurrently:
 |---------|----------|-----------------|
 | **Script** | execution, path-traversal, obfuscation | Remote code execution (`curl \| bash`), path traversal (`../`), base64 obfuscation, eval patterns, hex sequences |
 | **Network** | exfiltration | Reverse shells, DNS exfiltration, encoded URLs, suspicious network commands |
-| **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
+| **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, unset native/virtual `env_inherit_mode` defaults that inherit all host variables, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
 | **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous versions, tamper detection |
 | **Symlink** | path-traversal | Any symlink in a module directory, symlinks pointing outside module boundaries, symlink chains, dangling or unreadable symlinks, incomplete directory walks |
 | **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, vendored modules missing from `requires`, module invowkfile parse failures, global module trust |

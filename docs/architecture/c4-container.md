@@ -21,6 +21,7 @@ This diagram zooms into Invowk to show its internal containers - the major appli
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
 | **Command Service** | Go | Hexagonal domain service (`internal/app/commandsvc/`) orchestrating command execution. Receives requests from CLI, coordinates discovery, validation, SSH lifecycle, and runtime dispatch. Returns typed results/errors; CLI adapter applies rendering. |
+| **Command Adapters** | Go | Infrastructure adapters (`internal/app/commandadapters/`) implementing command service ports for host SSH access, runtime registry construction, interactive execution, host/runtime dependency probes, and host-callback server adaptation. |
 | **Dependency Validator** | Go | Dependency validation domain (`internal/app/deps/`). Checks root, command, and implementation dependencies on the host, plus selected container runtime dependencies inside the container. |
 | **Execution Context Builder** | Go | Runtime selection and execution context construction (`internal/app/execute/`). Produces the selected runtime and `runtime.ExecutionContext`; `internal/app/commandsvc` dispatches through `runtime.Registry`. |
 | **Discovery Engine** | Go | Finds `invowkfile.cue` and `*.invowkmod` directories with precedence ordering. Builds unified command tree. |

@@ -162,9 +162,12 @@ invowk module create mytools --scripts`,
 
   'modules/template-invowkmod': {
     language: 'cue',
-    code: `module: "mytools"
+    code: `// Invowkmod - Module metadata for mytools
+// See https://github.com/invowk/invowk for documentation
+
+module: "mytools"
 version: "1.0.0"
-description: "Commands for mytools"
+description: "Commands from mytools module"
 
 // Uncomment to add dependencies:
 // requires: [
@@ -177,20 +180,28 @@ description: "Commands for mytools"
 
   'modules/template-invowkfile': {
     language: 'cue',
-    code: `cmds: [
+    code: `// Invowkfile - Command definitions for mytools module
+// See https://github.com/invowk/invowk for documentation
+
+cmds: [
     {
-        name: "hello"
-        description: "Say hello"
+        name:        "hello"
+        description: "A sample command"
         implementations: [
             {
-                script: """
-                    echo "Hello from mytools!"
-                    """
-                runtimes: [{name: "virtual"}]
-                platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
-            }
+                script: "echo \\"Hello from mytools!\\""
+                runtimes: [
+                    {name: "native"},
+                    {name: "virtual"},
+                ]
+                platforms: [
+                    {name: "linux"},
+                    {name: "macos"},
+                    {name: "windows"},
+                ]
+            },
         ]
-    }
+    },
 ]`,
   },
 
@@ -404,7 +415,7 @@ script: "../outside.sh"`,
 
 ✗ Module validation failed with 1 issue(s)
 
-  1. [naming] module name 'my-tools' contains invalid characters (hyphens not allowed)`,
+  1. [naming] module name 'my-tools' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')`,
   },
 
   'modules/error-nested': {
@@ -690,11 +701,15 @@ requires: [
 
   'modules/dependencies/namespace-usage': {
     language: 'bash',
-    code: `# Default namespace includes the resolved version
-invowk cmd com.example.common@1.2.3 build
+    code: `# Default command source ID
+invowk cmd common build
+
+# Disambiguate when another source also defines "build"
+invowk cmd @common build
+invowk cmd --ivk-from common build
 
 # With alias
-invowk cmd common build`,
+invowk cmd tools build`,
   },
 
   'modules/dependencies/cache-structure': {
@@ -758,10 +773,10 @@ requires: [
   'modules/dependencies/alias-example': {
     language: 'cue',
     code: `requires: [
-    // Default namespace: common@1.2.3
+    // Default command source ID: common
     {git_url: "https://github.com/user/common.invowkmod.git", version: "^1.0.0"},
 
-    // Custom namespace: tools
+    // Custom command source ID: tools
     {
         git_url: "https://github.com/user/common.invowkmod.git"
         version: "^1.0.0"
@@ -772,7 +787,7 @@ requires: [
 
   'modules/dependencies/alias-usage': {
     language: 'bash',
-    code: `# Instead of: invowk cmd common@1.2.3 build
+    code: `# Instead of: invowk cmd common build
 invowk cmd tools build`,
   },
 
@@ -875,6 +890,7 @@ modules: {
         git_commit:       "abc123def456789012345678901234567890abcd"
         alias:            "common"
         namespace:        "common"
+        command_source_id: "common"
         content_hash:     "sha256:a1b2c3d4e5f6..."
     }
 }`,

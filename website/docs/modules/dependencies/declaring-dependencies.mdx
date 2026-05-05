@@ -18,7 +18,7 @@ Module dependencies are declared in the `requires` field of `invowkmod.cue`. Thi
 |-------|----------|-------------|
 | `git_url` | Yes | Git repository URL (HTTPS or SSH) |
 | `version` | Yes | Semantic version constraint |
-| `alias` | No | Custom namespace for commands |
+| `alias` | No | Custom command source ID for commands |
 | `path` | No | Subdirectory within the repository |
 
 ### git_url
@@ -53,7 +53,7 @@ However, the `version` constraint value in `invowkmod.cue` must **not** include 
 
 ### alias
 
-Override the default namespace for the dependency's commands:
+Override the default command source ID for the dependency's commands:
 
 <Snippet id="modules/dependencies/alias-example" />
 

@@ -29,6 +29,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
 | **Command Service** | Go | Serviço de domínio hexagonal (`internal/app/commandsvc/`) que orquestra a execução de comandos. Recebe requisições da CLI, coordena descoberta, validação, ciclo de vida SSH e despacho de runtime. Retorna resultados/erros tipados; adaptador CLI aplica renderização. |
+| **Command Adapters** | Go | Adaptadores de infraestrutura (`internal/app/commandadapters/`) que implementam portas do serviço de comandos para acesso SSH ao host, construção do registro de runtimes, execução interativa, probes de dependências no host/runtime e adaptação do servidor de callback para o host. |
 | **Dependency Validator** | Go | Domínio de validação de dependências (`internal/app/deps/`). Verifica dependências raiz, de comando e de implementação no host, além das dependências do runtime container selecionado dentro do container. |
 | **Execution Context Builder** | Go | Seleção de runtime e construção do contexto de execução (`internal/app/execute/`). Produz o runtime selecionado e `runtime.ExecutionContext`; `internal/app/commandsvc` despacha por meio de `runtime.Registry`. |
 | **Discovery Engine** | Go | Encontra diretórios `invowkfile.cue` e `*.invowkmod` com ordenação por precedência. Constrói árvore unificada de comandos. |

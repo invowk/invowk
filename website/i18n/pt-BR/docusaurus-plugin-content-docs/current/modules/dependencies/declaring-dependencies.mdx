@@ -18,7 +18,7 @@ Dependências de módulos são declaradas no campo `requires` de `invowkmod.cue`
 |-------|-------------|-----------|
 | `git_url` | Sim | URL do repositório Git (HTTPS ou SSH) |
 | `version` | Sim | Restrição de versão semântica |
-| `alias` | Não | Namespace personalizado para comandos |
+| `alias` | Não | ID de origem de comando personalizado para comandos |
 | `path` | Não | Subdiretório dentro do repositório |
 
 ### git_url
@@ -53,7 +53,7 @@ No entanto, o valor da restrição `version` no `invowkmod.cue` **não** deve in
 
 ### alias
 
-Sobrescreva o namespace padrão para os comandos da dependência:
+Sobrescreva o ID de origem de comando padrão para os comandos da dependência:
 
 <Snippet id="modules/dependencies/alias-example" />
 

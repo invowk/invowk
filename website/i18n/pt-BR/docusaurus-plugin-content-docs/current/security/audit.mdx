@@ -74,7 +74,7 @@ Escaneia scripts em busca de padrões de acesso à rede que podem indicar exfilt
 Analisa configuração de ambiente e conteúdo de scripts em busca de riscos de exposição de credenciais.
 
 **Detecta:**
-- `env_inherit_mode: "all"` arriscado (expõe todas as variáveis de ambiente do host)
+- `env_inherit_mode: "all"` arriscado e defaults não definidos de `env_inherit_mode` nos runtimes native/virtual (ambos expõem todas as variáveis de ambiente do host)
 - Acesso a variáveis sensíveis: `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, senhas, chaves privadas
 - Padrões de extração de credenciais em scripts
 
