@@ -58,6 +58,14 @@ func TestResolveDockerfilePath(t *testing.T) {
 			wantErr:        true,
 		},
 		{
+			name:           "sibling prefix traversal",
+			contextPath:    "/app",
+			dockerfilePath: "../app2/Dockerfile",
+			expected:       "",
+			wantErr:        true,
+			skipOnWindows:  true,
+		},
+		{
 			name:           "complex path traversal",
 			contextPath:    "/app/subdir",
 			dockerfilePath: "../../outside",

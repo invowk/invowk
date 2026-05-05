@@ -106,6 +106,40 @@ check_quality_gate() {
 	esac
 }
 
+sonar_branch_exists() {
+	local branch="$1"
+	local response
+
+	if [[ -z "$branch" ]]; then
+		return 0
+	fi
+
+	response="$(
+		sonar_curl \
+			--get "${SONAR_HOST_URL%/}/api/project_branches/list" \
+			--data-urlencode "project=${SONAR_PROJECT_KEY}"
+	)"
+	jq -e --arg branch "$branch" 'any(.branches[]?; .name == $branch)' <<<"$response" >/dev/null
+}
+
+write_no_branch_reports() {
+	local branch="$1"
+
+	jq -n --arg branch "$branch" '{
+		projectStatus: {
+			status: "NONE",
+			branch: $branch,
+			note: "No SonarCloud analysis exists for this branch yet"
+		}
+	}' >"$QUALITY_GATE_JSON"
+	printf '[]\n' >"$ISSUES_JSON"
+
+	echo "Sonar quality gate: no data available for branch ${branch} (analysis may be pending or require a PR)"
+	echo "Unresolved Sonar issues: 0 (no branch analysis available)"
+	echo "Quality gate JSON report: $QUALITY_GATE_JSON"
+	echo "Issues JSON report: $ISSUES_JSON"
+}
+
 fetch_unresolved_issues() {
 	local branch="$1"
 	local page=1
@@ -209,6 +243,14 @@ main() {
 		dashboard_url+="&branch=${branch}"
 	fi
 	echo "Sonar dashboard: $dashboard_url"
+
+	if [[ -n "$branch" ]] && ! sonar_branch_exists "$branch"; then
+		if [[ "$branch" == "main" ]]; then
+			fail "Sonar branch ${branch} was not found for project ${SONAR_PROJECT_KEY}"
+		fi
+		write_no_branch_reports "$branch"
+		return 0
+	fi
 
 	info "Checking Sonar quality gate"
 	check_quality_gate "$branch"

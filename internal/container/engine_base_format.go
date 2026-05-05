@@ -30,8 +30,8 @@ func ResolveDockerfilePath(contextPath, dockerfilePath string) (string, error) {
 	resolvedClean := filepath.Clean(resolved)
 	contextClean := filepath.Clean(contextPath)
 
-	// Ensure resolved path starts with context path
-	if !strings.HasPrefix(resolvedClean, contextClean) {
+	// Ensure resolved path is either the context path itself or a child path.
+	if resolvedClean != contextClean && !strings.HasPrefix(resolvedClean, contextClean+string(filepath.Separator)) {
 		return "", fmt.Errorf("dockerfile path %q escapes context directory %q", dockerfilePath, contextPath)
 	}
 

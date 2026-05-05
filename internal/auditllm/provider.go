@@ -37,6 +37,8 @@ const (
 	anthropicBaseURL = "https://api.anthropic.com/v1/"
 	openaiBaseURL    = "https://api.openai.com/v1"
 	geminiBaseURL    = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+	cliCommandWaitDelay = 10 * time.Second
 )
 
 var (
@@ -354,6 +356,7 @@ func (c *CLICompleter) Complete(ctx context.Context, systemPrompt, userPrompt st
 // defaultRunCmd is the production implementation that shells out via exec.
 func defaultRunCmd(ctx context.Context, name string, args []string, input string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = cliCommandWaitDelay
 	cmd.Stdin = strings.NewReader(input)
 	out, err := cmd.Output()
 	if err != nil {

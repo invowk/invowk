@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,8 +74,7 @@ func runInternalExecVirtual(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Execute the script
-	ctx := context.Background()
-	err = ivkruntime.RunVirtualScript(ctx, ivkruntime.VirtualScriptOptions{
+	err = ivkruntime.RunVirtualScript(cmd.Context(), ivkruntime.VirtualScriptOptions{
 		Script:      string(scriptContent),
 		ScriptName:  scriptFile,
 		WorkDir:     workdir,
