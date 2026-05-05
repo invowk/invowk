@@ -19,26 +19,48 @@ fi
 
 rm -rf "$BENCH_REPORT_OUT_DIR"
 mkdir -p "$BENCH_REPORT_OUT_DIR"
-make bench-report
+TAG="$TAG" BENCH_HISTORY_JSON="${BENCH_HISTORY_JSON:-}" make bench-report
 
-mapfile -t reports < <(find "$BENCH_REPORT_OUT_DIR" -maxdepth 1 -type f -name '*.md' | sort)
-count="${#reports[@]}"
+mapfile -t json_reports < <(find "$BENCH_REPORT_OUT_DIR" -maxdepth 1 -type f -name '*.json' | sort)
+count="${#json_reports[@]}"
 if [[ "$count" -ne 1 ]]; then
-	echo "Error: expected exactly 1 benchmark report in '$BENCH_REPORT_OUT_DIR', found $count." >&2
+	echo "Error: expected exactly 1 benchmark JSON report in '$BENCH_REPORT_OUT_DIR', found $count." >&2
 	if [[ "$count" -gt 0 ]]; then
-		printf 'Found files:\n%s\n' "${reports[@]}" >&2
+		printf 'Found files:\n%s\n' "${json_reports[@]}" >&2
 	fi
 	exit 1
 fi
 
-report="${reports[0]}"
+json_report="${json_reports[0]}"
+stem="${json_report%.json}"
+markdown_report="${stem}.md"
+svg_report="${stem}_summary.svg"
+raw_report="${stem}_raw.txt"
+
+for expected in "$markdown_report" "$json_report" "$svg_report" "$raw_report"; do
+	if [[ ! -s "$expected" ]]; then
+		echo "Error: expected benchmark asset is missing or empty: $expected" >&2
+		exit 1
+	fi
+done
+
 version="${TAG#v}"
-asset_name="invowk_${version}_bench-report.md"
-asset_path="${RELEASE_ASSETS_DIR}/${asset_name}"
+md_asset_name="invowk_${version}_bench-report.md"
+json_asset_name="invowk_${version}_bench-report.json"
+svg_asset_name="invowk_${version}_bench-summary.svg"
+raw_asset_name="invowk_${version}_bench-raw.txt"
 
 rm -rf "$RELEASE_ASSETS_DIR"
 mkdir -p "$RELEASE_ASSETS_DIR"
-cp "$report" "$asset_path"
+cp "$markdown_report" "${RELEASE_ASSETS_DIR}/${md_asset_name}"
+cp "$json_report" "${RELEASE_ASSETS_DIR}/${json_asset_name}"
+cp "$svg_report" "${RELEASE_ASSETS_DIR}/${svg_asset_name}"
+cp "$raw_report" "${RELEASE_ASSETS_DIR}/${raw_asset_name}"
 
-echo "Benchmark report staged: $asset_path"
-echo "Source report: $report"
+node scripts/benchmark-report.mjs validate-assets --dir "$RELEASE_ASSETS_DIR" --layout release --tag "$TAG"
+
+echo "Benchmark report staged: ${RELEASE_ASSETS_DIR}/${md_asset_name}"
+echo "Benchmark JSON staged: ${RELEASE_ASSETS_DIR}/${json_asset_name}"
+echo "Benchmark SVG staged: ${RELEASE_ASSETS_DIR}/${svg_asset_name}"
+echo "Benchmark raw output staged: ${RELEASE_ASSETS_DIR}/${raw_asset_name}"
+echo "Source report stem: $stem"

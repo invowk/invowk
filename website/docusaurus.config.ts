@@ -139,6 +139,11 @@ const config: Config = {
           position: 'left',
           label: 'Docs',
         },
+        {
+          to: '/performance',
+          label: 'Performance',
+          position: 'left',
+        },
         // {to: '/blog', label: 'Blog', position: 'left'}, // TODO: Enable when blog content is ready
         {
           type: 'docsVersionDropdown',

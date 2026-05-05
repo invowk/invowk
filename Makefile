@@ -64,6 +64,7 @@ GOTESTSUM := $(shell command -v gotestsum 2>/dev/null)
 STARTUP_SAMPLES ?= 40
 BENCH_COUNT ?= 5
 BENCH_REPORT_OUT_DIR ?= docs/benchmarks
+BENCH_HISTORY_JSON ?= website/static/benchmarks/history.json
 
 # Default target
 .DEFAULT_GOAL := build
@@ -237,13 +238,28 @@ pgo-audit:
 .PHONY: bench-report
 bench-report: build
 	@echo "Running benchmark report (short mode)..."
-	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) ./scripts/bench-report.sh --mode short --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
+	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) BENCH_HISTORY_JSON=$(BENCH_HISTORY_JSON) ./scripts/bench-report.sh --mode short --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
 
 # Run full benchmark suite (includes container benchmarks) and generate report.
 .PHONY: bench-report-full
 bench-report-full: build
 	@echo "Running benchmark report (full mode)..."
-	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) ./scripts/bench-report.sh --mode full --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
+	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) BENCH_HISTORY_JSON=$(BENCH_HISTORY_JSON) ./scripts/bench-report.sh --mode full --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
+
+# Aggregate benchmark history from local report assets.
+.PHONY: bench-history
+bench-history:
+	node scripts/benchmark-report.mjs history --input-dir $(BENCH_REPORT_OUT_DIR) --output $(BENCH_HISTORY_JSON) --allow-partial
+
+# Validate generated benchmark report assets.
+.PHONY: bench-validate-assets
+bench-validate-assets:
+	node scripts/benchmark-report.mjs validate-assets --dir $(BENCH_REPORT_OUT_DIR) --layout generated
+
+# Validate website benchmark history data.
+.PHONY: website-history-check
+website-history-check:
+	node scripts/benchmark-report.mjs validate-history --input $(BENCH_HISTORY_JSON)
 
 # Clean build artifacts
 .PHONY: clean
@@ -402,6 +418,9 @@ test-scripts:
 	@echo "Running shell script tests..."
 	sh scripts/test_install.sh
 	@echo ""
+	@echo "Running benchmark report script tests..."
+	node scripts/test_benchmark_report.mjs
+	@echo ""
 	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
 
 # Install pre-commit hooks
@@ -533,6 +552,9 @@ help:
 	@echo "  pgo-audit        Validate default.pgo symbol freshness and hot-path coverage"
 	@echo "  bench-report     Run startup+Go benchmark report (short mode)"
 	@echo "  bench-report-full Run startup+Go benchmark report (full mode)"
+	@echo "  bench-history    Aggregate benchmark history from local assets"
+	@echo "  bench-validate-assets Validate generated benchmark report assets"
+	@echo "  website-history-check Validate website benchmark history data"
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
 	@echo "  check-windows-build Cross-compile for GOOS=windows to catch build-time regressions"
@@ -572,6 +594,7 @@ help:
 	@echo "  STARTUP_SAMPLES Number of startup samples for bench-report targets (default: 40)"
 	@echo "  BENCH_COUNT     Go benchmark run count for bench-report targets (default: 5)"
 	@echo "  BENCH_REPORT_OUT_DIR Output directory for bench-report targets (default: docs/benchmarks)"
+	@echo "  BENCH_HISTORY_JSON Output path for benchmark history data (default: website/static/benchmarks/history.json)"
 	@echo "  SONAR_TOKEN      SonarCloud token for sonar-local (optional, for private projects)"
 	@echo "  SONAR_HOST_URL   Sonar host URL (default: https://sonarcloud.io)"
 	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk_invowk)"

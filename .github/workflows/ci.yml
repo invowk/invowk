@@ -231,6 +231,17 @@ jobs:
         shell: bash
         run: sh scripts/test_install.sh
 
+      - name: Setup Node.js
+        if: startsWith(matrix.runner, 'ubuntu')
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Run benchmark report script tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: node scripts/test_benchmark_report.mjs
+
       # Run PowerShell install script tests (PS 7.x/Core).
       - name: Run PowerShell install script tests (pwsh)
         if: matrix.os == 'windows'
@@ -621,6 +632,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
       - name: Download Go modules
         shell: bash
         run: |
@@ -648,7 +664,7 @@ jobs:
         with:
           cosign-release: v3.0.6
 
-      - name: Stage benchmark report asset
+      - name: Stage benchmark report assets
         env:
           TAG: v0.0.0-ci
           STARTUP_SAMPLES: "3"

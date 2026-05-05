@@ -29,6 +29,8 @@ Environment:
   STARTUP_SAMPLES  Startup timing samples per scenario (default: 40)
   BENCH_COUNT      Go benchmark run count (default: 5)
   GOCMD            Go command override (default: go)
+  TAG              Release tag for asset metadata (optional)
+  BENCH_HISTORY_JSON Existing aggregate history JSON for comparisons (optional)
 EOF
 }
 
@@ -116,17 +118,13 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 startup_rows_tsv="$tmp_dir/startup_rows.tsv"
-startup_md_rows="$tmp_dir/startup_rows.md"
 go_bench_raw="$tmp_dir/go_bench_raw.txt"
 go_bench_rows_tsv="$tmp_dir/go_bench_rows.tsv"
 go_bench_summary_tsv="$tmp_dir/go_bench_summary.tsv"
-go_bench_md_rows="$tmp_dir/go_bench_rows.md"
 
 : >"$startup_rows_tsv"
-: >"$startup_md_rows"
 : >"$go_bench_rows_tsv"
 : >"$go_bench_summary_tsv"
-: >"$go_bench_md_rows"
 
 run_startup_scenario() {
 	local scenario_id="$1"
@@ -166,7 +164,6 @@ run_startup_scenario() {
 
 	printf "%-28s %12.2f %12.2f %12.2f %10d\n" "$label" "$mean_ms" "$min_ms" "$max_ms" "$STARTUP_SAMPLES"
 	printf "%s\t%s\t%s\t%s\t%s\n" "$label" "$mean_ms" "$min_ms" "$max_ms" "$STARTUP_SAMPLES" >>"$startup_rows_tsv"
-	printf "| %s | %s | %s | %s | %s |\n" "$label" "$mean_ms" "$min_ms" "$max_ms" "$STARTUP_SAMPLES" >>"$startup_md_rows"
 }
 
 echo "Running startup timing scenarios ($STARTUP_SAMPLES samples each)..."
@@ -372,8 +369,6 @@ printf "%-42s %7s %12s %12s %12s %12s %15s %13s %13s %12s %14s\n" \
 while IFS=$'\t' read -r name samples mean_ns min_ns max_ns mean_ms mean_iters est_run_ms est_total_s mean_bytes mean_allocs; do
 	printf "%-42s %7s %12s %12s %12s %12s %15s %13s %13s %12s %14s\n" \
 		"$name" "$samples" "$mean_ns" "$min_ns" "$max_ns" "$mean_ms" "$mean_iters" "$est_run_ms" "$est_total_s" "$mean_bytes" "$mean_allocs"
-	printf "| \`%s\` | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" \
-		"$name" "$samples" "$mean_ns" "$min_ns" "$max_ns" "$mean_ms" "$mean_iters" "$est_run_ms" "$est_total_s" "$mean_bytes" "$mean_allocs" >>"$go_bench_md_rows"
 done <"$go_bench_summary_tsv"
 
 echo ""
@@ -388,67 +383,43 @@ fi
 
 generated_at_utc="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
 report_stamp="$(date -u +"%Y-%m-%d_%H-%M-%S")"
-report_path="$OUT_DIR/$report_stamp.md"
 git_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")"
 git_commit="$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 go_version="$($GO_CMD version 2>/dev/null || echo "unknown")"
 platform="$(uname -srm)"
+go_bench_command="${go_bench_cmd[*]}"
 
-{
-	echo "# Invowk Benchmark Report"
-	echo ""
-	echo "> Generated at: $generated_at_utc"
-	echo ""
-	echo "## Run Metadata"
-	echo ""
-	echo "| Field | Value |"
-	echo "|---|---|"
-	echo "| Mode | \`$MODE\` |"
-	echo "| Startup Samples | \`$STARTUP_SAMPLES\` per scenario |"
-	echo "| Go Benchmark Count | \`$BENCH_COUNT\` |"
-	echo "| Go Benchmark Status | \`$go_bench_status\` |"
-	echo "| Go Benchmark Wall Time (s) | \`$go_bench_wall_s\` |"
-	echo "| Go Benchmark Estimated Loop Time (s) | \`$go_bench_est_total_s\` |"
-	echo "| Go Benchmark Harness/Overhead (s) | \`$go_bench_overhead_s\` |"
-	echo "| Go Benchmark Timing Scope | \`$go_bench_timing_scope\` |"
-	echo "| Branch | \`$git_branch\` |"
-	echo "| Commit | \`$git_commit\` |"
-	echo "| Platform | \`$platform\` |"
-	echo "| Go Version | \`$go_version\` |"
-	echo "| Binary | \`$BINARY_PATH\` |"
-	echo ""
-	echo "## Startup Timings"
-	echo ""
-	echo "| Scenario | Mean (ms) | Min (ms) | Max (ms) | Samples |"
-	echo "|---|---:|---:|---:|---:|"
-	cat "$startup_md_rows"
-	echo ""
-	echo "## Go Benchmarks (\`internal/benchmark\`)"
-	echo ""
-	echo "| Benchmark | Samples | Mean ns/op | Min ns/op | Max ns/op | Mean ms/op | Mean iters/run | Est run (ms) | Est total (s) | Mean B/op | Mean allocs/op |"
-	echo "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
-	cat "$go_bench_md_rows"
-	if [[ "$go_bench_timing_unavailable_count" -gt 0 ]]; then
-		echo ""
-		echo "> Note: \`$go_bench_timing_unavailable_count\` benchmark row(s) had incomplete timing data for derived time columns."
-	fi
-	if [[ "$go_bench_exit" -ne 0 ]]; then
-		echo ""
-		echo "> Note: Go benchmark command failed with exit code \`$go_bench_exit\`. This report includes the rows parsed before the failure."
-	fi
-	echo ""
-	echo "## Raw Startup Timing Data"
-	echo ""
-	echo '```text'
-	cat "$startup_rows_tsv"
-	echo '```'
-	echo ""
-	echo "## Raw Go Benchmark Output"
-	echo ""
-	echo '```text'
-	cat "$go_bench_raw"
-	echo '```'
-} >"$report_path"
+render_args=(
+	"scripts/benchmark-report.mjs" "render"
+	"--out-dir" "$OUT_DIR"
+	"--stamp" "$report_stamp"
+	"--mode" "$MODE"
+	"--startup-samples" "$STARTUP_SAMPLES"
+	"--go-bench-count" "$BENCH_COUNT"
+	"--go-bench-status" "$go_bench_status"
+	"--go-bench-wall" "$go_bench_wall_s"
+	"--go-bench-est-total" "$go_bench_est_total_s"
+	"--go-bench-overhead" "$go_bench_overhead_s"
+	"--go-bench-timing-scope" "$go_bench_timing_scope"
+	"--startup-tsv" "$startup_rows_tsv"
+	"--go-summary-tsv" "$go_bench_summary_tsv"
+	"--go-raw" "$go_bench_raw"
+	"--branch" "$git_branch"
+	"--commit" "$git_commit"
+	"--platform" "$platform"
+	"--go-version" "$go_version"
+	"--binary" "$BINARY_PATH"
+	"--go-bench-command" "$go_bench_command"
+	"--generated-at" "$generated_at_utc"
+)
+
+if [[ -n "${TAG:-}" ]]; then
+	render_args+=("--tag" "$TAG")
+fi
+
+if [[ -n "${BENCH_HISTORY_JSON:-}" ]]; then
+	render_args+=("--history" "$BENCH_HISTORY_JSON")
+fi
 
 echo ""
-echo "Benchmark report written to: $report_path"
+node "${render_args[@]}"

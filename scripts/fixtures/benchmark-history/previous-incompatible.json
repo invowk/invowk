@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "source_kind": "json",
+  "release": {
+    "tag": "v0.8.0",
+    "version": "0.8.0",
+    "prerelease": false,
+    "generated_at": "2026-02-05T00:00:00.000Z",
+    "commit": "7654321",
+    "branch": "main"
+  },
+  "run": {
+    "mode": "short",
+    "startup_samples": 20,
+    "go_benchmark_count": 5,
+    "go_benchmark_status": "ok",
+    "go_benchmark_wall_seconds": 35.0,
+    "go_benchmark_estimated_loop_seconds": 34.0,
+    "go_benchmark_overhead_seconds": 1.0,
+    "go_benchmark_timing_scope": "all parsed benchmark rows",
+    "binary": "./bin/invowk",
+    "commands": {"go_benchmark": "go test ./internal/benchmark"}
+  },
+  "environment": {
+    "platform": "Linux 5.15 x86_64",
+    "os": "Linux",
+    "kernel": "5.15",
+    "arch": "x86_64",
+    "cpu_model": "Older Fixture CPU",
+    "logical_cpu_count": 8,
+    "go_version": "go version go1.25.0 linux/amd64",
+    "runner": "ubuntu-latest"
+  },
+  "startup": [
+    {"id": "version", "label": "Version (--version)", "mean_ms": 13.0, "min_ms": 12.0, "max_ms": 14.0, "samples": 20},
+    {"id": "cmd_list", "label": "Cmd List (cmd)", "mean_ms": 52.0, "min_ms": 50.0, "max_ms": 55.0, "samples": 20}
+  ],
+  "go_benchmarks": [
+    {"id": "BenchmarkCUEParsing", "raw_name": "BenchmarkCUEParsing-8", "cpu_suffix": "8", "samples": 5, "mean_ns_op": 160.0, "min_ns_op": 150.0, "max_ns_op": 170.0, "mean_ms_op": 0.00016, "mean_iterations_per_run": 1000.0, "estimated_run_ms": 1.0, "estimated_total_seconds": 5.0, "mean_bytes_op": 30.0, "mean_allocs_op": 3.0}
+  ],
+  "raw": {
+    "startup_rows": "Version (--version)\t13.00\t12.00\t14.00\t20\nCmd List (cmd)\t52.00\t50.00\t55.00\t20\n",
+    "go_benchmark_output": "goos: linux\ngoarch: amd64\ncpu: Older Fixture CPU\nBenchmarkCUEParsing-8 5 160 ns/op 30 B/op 3 allocs/op\nPASS\n"
+  },
+  "warnings": [],
+  "artifacts": {}
+}

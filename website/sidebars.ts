@@ -86,6 +86,13 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Performance',
+      items: [
+        'performance/benchmark-history',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Modules',
       items: [
         'modules/overview',

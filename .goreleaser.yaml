@@ -95,6 +95,9 @@ release:
   mode: replace
   extra_files:
     - glob: release-assets/invowk_*_bench-report.md
+    - glob: release-assets/invowk_*_bench-report.json
+    - glob: release-assets/invowk_*_bench-summary.svg
+    - glob: release-assets/invowk_*_bench-raw.txt
   header: |
     ## invowk {{ .Version }}
   footer: |
