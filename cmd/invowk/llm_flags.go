@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	llmFlagModel = "llm-model"
+	invalidLLMConfigurationFmt = "invalid LLM configuration: %v\n"
+	llmFlagModel               = "llm-model"
 )
 
 type (
@@ -75,7 +76,7 @@ func resolveLLMForCommand(
 ) (*llmconfig.Resolved, *ExitError) {
 	flagValues, flagErr := llmConfigFlagValues(cmd, flags)
 	if flagErr != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", flagErr)
+		fmt.Fprintf(cmd.ErrOrStderr(), invalidLLMConfigurationFmt, flagErr)
 		return nil, &ExitError{Code: auditExitError, Err: flagErr}
 	}
 	resolved, err := llmconfig.Resolve(ctx, provider, llmconfig.ResolveOptions{
@@ -90,7 +91,7 @@ func resolveLLMForCommand(
 		},
 	})
 	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
+		fmt.Fprintf(cmd.ErrOrStderr(), invalidLLMConfigurationFmt, err)
 		return nil, &ExitError{Code: auditExitError, Err: err}
 	}
 	return resolved, nil
@@ -151,7 +152,7 @@ func buildLLMCompleter(ctx context.Context, cmd *cobra.Command, resolved *llmcon
 	}
 
 	if err := apiConfig.Validate(); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid LLM configuration: %v\n", err)
+		fmt.Fprintf(cmd.ErrOrStderr(), invalidLLMConfigurationFmt, err)
 		return nil, &ExitError{Code: auditExitError, Err: err}
 	}
 

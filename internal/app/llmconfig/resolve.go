@@ -305,47 +305,86 @@ func applyConfigDefaults(result *Resolved, llm config.LLMConfig, getenv func(str
 }
 
 func applyEnvOverrides(result *Resolved, changed ChangedFlags, getenv func(string) string) error {
-	if !changed.BaseURL {
-		if envURL := getenv("INVOWK_LLM_URL"); envURL != "" {
-			baseURL := config.LLMBaseURL(envURL)
-			if err := baseURL.Validate(); err != nil {
-				return err
-			}
-			result.APIConfig.BaseURL = baseURL
-		}
+	if err := applyEnvBaseURL(result, changed, getenv); err != nil {
+		return err
 	}
-	if !changed.Model {
-		if envModel := getenv("INVOWK_LLM_MODEL"); envModel != "" {
-			model := config.LLMModelName(envModel)
-			if err := model.Validate(); err != nil {
-				return err
-			}
-			result.Model = model
-			result.APIConfig.Model = model
-		}
+	if err := applyEnvModel(result, changed, getenv); err != nil {
+		return err
 	}
-	if !changed.APIKey && result.APIConfig.APIKey == "" {
-		if envKey := getenv("INVOWK_LLM_API_KEY"); envKey != "" {
-			result.APIConfig.APIKey = envKey
-		}
+	applyEnvAPIKey(result, changed, getenv)
+	applyEnvTimeout(result, changed, getenv)
+	return applyEnvConcurrency(result, changed, getenv)
+}
+
+func applyEnvBaseURL(result *Resolved, changed ChangedFlags, getenv func(string) string) error {
+	if changed.BaseURL {
+		return nil
 	}
-	if !changed.Timeout {
-		if envTimeout := getenv("INVOWK_LLM_TIMEOUT"); envTimeout != "" {
-			if d, err := time.ParseDuration(envTimeout); err == nil {
-				result.APIConfig.Timeout = d
-			}
-		}
+	envURL := getenv("INVOWK_LLM_URL")
+	if envURL == "" {
+		return nil
 	}
-	if !changed.Concurrency {
-		if envConc := getenv("INVOWK_LLM_CONCURRENCY"); envConc != "" {
-			if n, err := strconv.Atoi(envConc); err == nil {
-				concurrency := config.LLMConcurrency(n)
-				if validateErr := concurrency.Validate(); validateErr != nil {
-					return validateErr
-				}
-				result.APIConfig.Concurrency = concurrency
-			}
+	baseURL := config.LLMBaseURL(envURL)
+	if err := baseURL.Validate(); err != nil {
+		return err
+	}
+	result.APIConfig.BaseURL = baseURL
+	return nil
+}
+
+func applyEnvModel(result *Resolved, changed ChangedFlags, getenv func(string) string) error {
+	if changed.Model {
+		return nil
+	}
+	envModel := getenv("INVOWK_LLM_MODEL")
+	if envModel == "" {
+		return nil
+	}
+	model := config.LLMModelName(envModel)
+	if err := model.Validate(); err != nil {
+		return err
+	}
+	result.Model = model
+	result.APIConfig.Model = model
+	return nil
+}
+
+func applyEnvAPIKey(result *Resolved, changed ChangedFlags, getenv func(string) string) {
+	if changed.APIKey || result.APIConfig.APIKey != "" {
+		return
+	}
+	if envKey := getenv("INVOWK_LLM_API_KEY"); envKey != "" {
+		result.APIConfig.APIKey = envKey
+	}
+}
+
+func applyEnvTimeout(result *Resolved, changed ChangedFlags, getenv func(string) string) {
+	if changed.Timeout {
+		return
+	}
+	envTimeout := getenv("INVOWK_LLM_TIMEOUT")
+	if envTimeout == "" {
+		return
+	}
+	if d, err := time.ParseDuration(envTimeout); err == nil {
+		result.APIConfig.Timeout = d
+	}
+}
+
+func applyEnvConcurrency(result *Resolved, changed ChangedFlags, getenv func(string) string) error {
+	if changed.Concurrency {
+		return nil
+	}
+	envConc := getenv("INVOWK_LLM_CONCURRENCY")
+	if envConc == "" {
+		return nil
+	}
+	if n, err := strconv.Atoi(envConc); err == nil {
+		concurrency := config.LLMConcurrency(n)
+		if validateErr := concurrency.Validate(); validateErr != nil {
+			return validateErr
 		}
+		result.APIConfig.Concurrency = concurrency
 	}
 	return nil
 }

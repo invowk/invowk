@@ -20,6 +20,28 @@ import (
 const (
 	configFieldFmt  = "%s: %s\n"
 	configFileLabel = "Config file"
+	validConfigKeys = "container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils, llm.provider, llm.model, llm.timeout, llm.concurrency, llm.api.base_url, llm.api.model, llm.api.api_key_env"
+)
+
+var configSetters = map[string]configSetter{
+	"container_engine":                 setContainerEngineConfig,
+	"default_runtime":                  setDefaultRuntimeConfig,
+	"ui.verbose":                       setUIVerboseConfig,
+	"ui.interactive":                   setUIInteractiveConfig,
+	"ui.color_scheme":                  setUIColorSchemeConfig,
+	"virtual_shell.enable_uroot_utils": setVirtualShellUrootConfig,
+	"llm.provider":                     setLLMProviderConfig,
+	"llm.model":                        setLLMModelConfig,
+	"llm.timeout":                      setLLMTimeoutConfig,
+	"llm.concurrency":                  setLLMConcurrencyConfig,
+	"llm.api.base_url":                 setLLMAPIBaseURLConfig,
+	"llm.api.model":                    setLLMAPIModelConfig,
+	"llm.api.api_key_env":              setLLMAPIKeyEnvConfig,
+}
+
+type (
+	configSetter func(*config.Config, configValue) error
+	configValue  string
 )
 
 // newConfigCommand creates the `invowk config` command tree.
@@ -246,96 +268,16 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 		return err
 	}
 
-	switch key {
-	case "container_engine":
-		ce := config.ContainerEngine(value)
-		if err := ce.Validate(); err != nil {
-			return err
-		}
-		cfg.ContainerEngine = ce
-
-	case "default_runtime":
-		rm := config.RuntimeMode(value)
-		if err := rm.Validate(); err != nil {
-			return err
-		}
-		cfg.DefaultRuntime = rm
-
-	case "ui.verbose":
-		cfg.UI.Verbose = value == "true" || value == "1"
-
-	case "ui.interactive":
-		cfg.UI.Interactive = value == "true" || value == "1"
-
-	case "ui.color_scheme":
-		cs := config.ColorScheme(value)
-		if err := cs.Validate(); err != nil {
-			return err
-		}
-		cfg.UI.ColorScheme = cs
-
-	case "virtual_shell.enable_uroot_utils":
-		cfg.VirtualShell.EnableUrootUtils = value == "true" || value == "1"
-
-	case "llm.provider":
-		provider := config.LLMProvider(value)
-		if err := provider.Validate(); err != nil {
-			return err
-		}
-		cfg.LLM.Provider = provider
-		cfg.LLM.API = config.LLMAPIConfig{}
-
-	case "llm.model":
-		model := config.LLMModelName(value)
-		if err := model.Validate(); err != nil {
-			return err
-		}
-		cfg.LLM.Model = model
-
-	case "llm.timeout":
-		timeout := config.LLMTimeout(value)
-		if err := timeout.Validate(); err != nil {
-			return err
-		}
-		cfg.LLM.Timeout = timeout
-
-	case "llm.concurrency":
-		parsed, parseErr := strconv.Atoi(value)
-		if parseErr != nil {
-			return fmt.Errorf("invalid llm.concurrency %q: %w", value, parseErr)
-		}
-		concurrency := config.LLMConcurrency(parsed)
-		if err := concurrency.Validate(); err != nil {
-			return err
-		}
-		cfg.LLM.Concurrency = concurrency
-
-	case "llm.api.base_url":
-		baseURL := config.LLMBaseURL(value)
-		if err := baseURL.Validate(); err != nil {
-			return err
-		}
-		cfg.LLM.Provider = ""
-		cfg.LLM.API.BaseURL = baseURL
-
-	case "llm.api.model":
-		model := config.LLMModelName(value)
-		if err := model.Validate(); err != nil {
-			return err
-		}
-		cfg.LLM.Provider = ""
-		cfg.LLM.API.Model = model
-
-	case "llm.api.api_key_env":
-		keyEnv := config.LLMCredentialEnvVar(value)
-		if err := keyEnv.Validate(); err != nil {
-			return err
-		}
-		cfg.LLM.Provider = ""
-		cfg.LLM.API.CredentialEnv = keyEnv
-
-	default:
-		return fmt.Errorf("unknown configuration key: %s\nValid keys: container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils, llm.provider, llm.model, llm.timeout, llm.concurrency, llm.api.base_url, llm.api.model, llm.api.api_key_env", key)
+	setter, ok := configSetters[key]
+	if !ok {
+		return fmt.Errorf("unknown configuration key: %s\nValid keys: %s", key, validConfigKeys)
+	}
+	rawValue := configValue(value)
+	if err := rawValue.Validate(); err != nil {
+		return err
+	}
+	if err := setter(cfg, rawValue); err != nil {
+		return err
 	}
 
 	if err := config.Save(cfg, ""); err != nil {
@@ -343,5 +285,122 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 	}
 
 	fmt.Printf("%s Set %s = %s\n", SuccessStyle.Render("✓"), key, value)
+	return nil
+}
+
+func (v configValue) String() string { return string(v) }
+
+func (v configValue) Validate() error { return nil }
+
+func setContainerEngineConfig(cfg *config.Config, value configValue) error {
+	ce := config.ContainerEngine(value)
+	if err := ce.Validate(); err != nil {
+		return err
+	}
+	cfg.ContainerEngine = ce
+	return nil
+}
+
+func setDefaultRuntimeConfig(cfg *config.Config, value configValue) error {
+	rm := config.RuntimeMode(value)
+	if err := rm.Validate(); err != nil {
+		return err
+	}
+	cfg.DefaultRuntime = rm
+	return nil
+}
+
+func setUIVerboseConfig(cfg *config.Config, value configValue) error {
+	cfg.UI.Verbose = value == "true" || value == "1"
+	return nil
+}
+
+func setUIInteractiveConfig(cfg *config.Config, value configValue) error {
+	cfg.UI.Interactive = value == "true" || value == "1"
+	return nil
+}
+
+func setUIColorSchemeConfig(cfg *config.Config, value configValue) error {
+	cs := config.ColorScheme(value)
+	if err := cs.Validate(); err != nil {
+		return err
+	}
+	cfg.UI.ColorScheme = cs
+	return nil
+}
+
+func setVirtualShellUrootConfig(cfg *config.Config, value configValue) error {
+	cfg.VirtualShell.EnableUrootUtils = value == "true" || value == "1"
+	return nil
+}
+
+func setLLMProviderConfig(cfg *config.Config, value configValue) error {
+	provider := config.LLMProvider(value)
+	if err := provider.Validate(); err != nil {
+		return err
+	}
+	cfg.LLM.Provider = provider
+	cfg.LLM.API = config.LLMAPIConfig{}
+	return nil
+}
+
+func setLLMModelConfig(cfg *config.Config, value configValue) error {
+	model := config.LLMModelName(value)
+	if err := model.Validate(); err != nil {
+		return err
+	}
+	cfg.LLM.Model = model
+	return nil
+}
+
+func setLLMTimeoutConfig(cfg *config.Config, value configValue) error {
+	timeout := config.LLMTimeout(value)
+	if err := timeout.Validate(); err != nil {
+		return err
+	}
+	cfg.LLM.Timeout = timeout
+	return nil
+}
+
+func setLLMConcurrencyConfig(cfg *config.Config, value configValue) error {
+	parsed, parseErr := strconv.Atoi(string(value))
+	if parseErr != nil {
+		return fmt.Errorf("invalid llm.concurrency %q: %w", value, parseErr)
+	}
+	concurrency := config.LLMConcurrency(parsed)
+	if err := concurrency.Validate(); err != nil {
+		return err
+	}
+	cfg.LLM.Concurrency = concurrency
+	return nil
+}
+
+func setLLMAPIBaseURLConfig(cfg *config.Config, value configValue) error {
+	baseURL := config.LLMBaseURL(value)
+	if err := baseURL.Validate(); err != nil {
+		return err
+	}
+	cfg.LLM.Provider = ""
+	cfg.LLM.API.BaseURL = baseURL
+	return nil
+}
+
+func setLLMAPIModelConfig(cfg *config.Config, value configValue) error {
+	model := config.LLMModelName(value)
+	if err := model.Validate(); err != nil {
+		return err
+	}
+	cfg.LLM.Provider = ""
+	cfg.LLM.API.Model = model
+	return nil
+}
+
+func setLLMAPIKeyEnvConfig(cfg *config.Config, value configValue) error {
+	keyEnv := config.LLMCredentialEnvVar(value)
+	if err := keyEnv.Validate(); err != nil {
+		return err
+	}
+	cfg.LLM.Provider = ""
+	cfg.LLM.API.CredentialEnv = keyEnv
 	return nil
 }

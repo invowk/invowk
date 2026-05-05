@@ -5,6 +5,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -83,64 +84,14 @@ Use --dry-run to preview the file patch, or --print to print only the generated
 command object.`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateAgentCmdCreateModes(dryRun, printOnly, verify); err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
-			}
-			if err := validateLLMFlagSelection(llmFlags); err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
-			}
-
-			resolved, llmErr := resolveLLMForCommand(
-				cmd.Context(),
-				cmd,
-				app.Config,
-				types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- root flag value is validated by config provider.
-				llmFlags,
-				true,
-			)
-			if llmErr != nil {
-				return llmErr
-			}
-			llmResult, llmErr := buildLLMCompleter(cmd.Context(), cmd, resolved)
-			if llmErr != nil {
-				return llmErr
-			}
-
-			result, err := agentcmd.CreateCommand(cmd.Context(), agentcmd.CreateOptions{
+			return runAgentCmdCreate(cmd, app, rootFlags, agentcmd.CreateOptions{
 				Description: strings.Join(args, " "),
 				TargetPath:  targetPath,
 				FromFile:    fromFile,
 				DryRun:      dryRun,
 				PrintOnly:   printOnly,
 				Replace:     replace,
-				Completer:   llmResult.completer,
-			})
-			if err != nil {
-				return &ExitError{Code: auditExitError, Err: err}
-			}
-
-			if verify {
-				if err := verifyGeneratedCommand(cmd, app, rootFlags, result); err != nil {
-					return &ExitError{Code: auditExitError, Err: err}
-				}
-			}
-
-			w := cmd.OutOrStdout()
-			switch {
-			case printOnly:
-				fmt.Fprintln(w, result.CommandCUE)
-			case dryRun:
-				fmt.Fprint(w, result.Diff)
-			default:
-				fmt.Fprintf(w, "%s Added command %q to %s\n", SuccessStyle.Render("✓"), result.CommandName, result.TargetPath)
-				if verify {
-					fmt.Fprintf(w, "%s Verified command %q with a dry-run execution plan\n", SuccessStyle.Render("✓"), result.CommandName)
-				}
-				if result.Summary != "" {
-					fmt.Fprintln(w, result.Summary)
-				}
-			}
-			return nil
+			}, verify, llmFlags)
 		},
 	}
 
@@ -153,6 +104,92 @@ command object.`,
 	bindLLMFlags(cmd, &llmFlags)
 
 	return cmd
+}
+
+func runAgentCmdCreate(
+	cmd *cobra.Command,
+	app *App,
+	rootFlags *rootFlagValues,
+	createOpts agentcmd.CreateOptions,
+	verify bool,
+	llmFlags llmFlagValues,
+) error {
+	if err := validateAgentCmdCreateOptions(createOpts, verify, llmFlags); err != nil {
+		return &ExitError{Code: auditExitError, Err: err}
+	}
+	llmResult, llmErr := resolveAgentCmdCreateCompleter(cmd, app, rootFlags, llmFlags)
+	if llmErr != nil {
+		return llmErr
+	}
+
+	createOpts.Completer = llmResult.completer
+	result, err := agentcmd.CreateCommand(cmd.Context(), createOpts)
+	if err != nil {
+		return &ExitError{Code: auditExitError, Err: err}
+	}
+
+	if verify {
+		if err := verifyGeneratedCommand(cmd, app, rootFlags, result); err != nil {
+			return &ExitError{Code: auditExitError, Err: err}
+		}
+	}
+
+	renderAgentCmdCreateResult(cmd, result, createOpts, verify)
+	return nil
+}
+
+func validateAgentCmdCreateOptions(createOpts agentcmd.CreateOptions, verify bool, llmFlags llmFlagValues) error {
+	if err := validateAgentCmdCreateModes(createOpts.DryRun, createOpts.PrintOnly, verify); err != nil {
+		return err
+	}
+	return validateLLMFlagSelection(llmFlags)
+}
+
+func resolveAgentCmdCreateCompleter(
+	cmd *cobra.Command,
+	app *App,
+	rootFlags *rootFlagValues,
+	llmFlags llmFlagValues,
+) (*llmCompleterResult, *ExitError) {
+	resolved, llmErr := resolveLLMForCommand(
+		cmd.Context(),
+		cmd,
+		app.Config,
+		types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- root flag value is validated by config provider.
+		llmFlags,
+		true,
+	)
+	if llmErr != nil {
+		return nil, llmErr
+	}
+	return buildLLMCompleter(cmd.Context(), cmd, resolved)
+}
+
+func renderAgentCmdCreateResult(
+	cmd *cobra.Command,
+	result *agentcmd.CreateResult,
+	createOpts agentcmd.CreateOptions,
+	verify bool,
+) {
+	w := cmd.OutOrStdout()
+	switch {
+	case createOpts.PrintOnly:
+		fmt.Fprintln(w, result.CommandCUE)
+	case createOpts.DryRun:
+		fmt.Fprint(w, result.Diff)
+	default:
+		renderAgentCmdCreateWriteResult(w, result, verify)
+	}
+}
+
+func renderAgentCmdCreateWriteResult(w io.Writer, result *agentcmd.CreateResult, verify bool) {
+	fmt.Fprintf(w, "%s Added command %q to %s\n", SuccessStyle.Render("✓"), result.CommandName, result.TargetPath)
+	if verify {
+		fmt.Fprintf(w, "%s Verified command %q with a dry-run execution plan\n", SuccessStyle.Render("✓"), result.CommandName)
+	}
+	if result.Summary != "" {
+		fmt.Fprintln(w, result.Summary)
+	}
 }
 
 func validateAgentCmdCreateModes(dryRun, printOnly, verify bool) error {
