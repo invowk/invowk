@@ -38,6 +38,8 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | **Watch Engine** | Go | Monitora o sistema de arquivos para mudanças. Aplica debounce nos eventos de mudança e dispara re-execução de comandos para o modo `--ivk-watch`. |
 | **Audit Scanner** | Go | Varredura de segurança do sistema de módulos (`internal/audit/`). Detecta riscos de supply-chain, travessia de caminho, abuso de symlink e injeção de variáveis de ambiente. Suporta flag `--llm` para análise com LLM. |
 | **Agent Command Authoring** | Go | Autoria de comandos assistida por LLM (`internal/agentcmd/`, `internal/llm/`). Renderiza prompts de agente, resolve backends LLM configurados, valida CUE gerado e aplica patches em `invowkfile.cue`. |
+| **LLM Config Resolver** | Go | Resolvedor compartilhado (`internal/app/llmconfig/`) para defaults configurados, seleção explícita de provider, ajustes de API, requisitos de modelo e credenciais via ambiente. |
+| **LLM Provider Layer** | Go | Adaptadores de provider (`internal/auditllm/`, `internal/llm/`) usados por auditoria e autoria de comandos para chamar providers CLI ou APIs compatíveis com OpenAI. |
 
 ### Runtimes
 
@@ -60,6 +62,8 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 |------------|------------|------------------|
 | **SSH Server** | Go/Wish | Servidor SSH baseado em token para callbacks container-para-host. Habilita funcionalidade `enable_host_ssh`. |
 | **TUI Server** | Go/Bubble Tea | Servidor HTTP tratando requisições de componentes TUI de processos filhos. Habilita prompts interativos em qualquer runtime. |
+| **Server Lifecycle Base** | Go | Máquina de estados compartilhada em `internal/core/serverbase` usada pelos servidores SSH e TUI para transições de ciclo de vida. |
+| **TUI Wire Protocol** | Go | Vocabulário compartilhado de requisição/resposta em `internal/tuiwire` e nomes de variáveis `INVOWK_TUI_*` para componentes TUI delegados. |
 
 ## Armazenamentos de Dados
 
@@ -110,6 +114,8 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 - **SSH Server**: Permite que comandos dentro de containers chamem de volta o host (ex: para gerenciamento de secrets)
 - **TUI Server**: Permite que qualquer subprocesso (native, virtual, container) solicite componentes de UI interativa
+- **Server Lifecycle Base**: Mantém consistentes as transições de start/stop/falha dos servidores SSH e TUI
+- **TUI Wire Protocol**: Mantém estáveis as requisições e respostas TUI delegadas entre runtimes
 
 ### Por Que CUE para Configuração?
 

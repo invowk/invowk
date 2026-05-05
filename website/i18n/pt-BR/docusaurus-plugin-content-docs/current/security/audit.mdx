@@ -96,6 +96,8 @@ Percorre diretórios de módulos verificando ataques de escape via symlinks.
 - Symlinks apontando para fora do limite do módulo
 - Cadeias de symlinks (symlink → symlink)
 - Symlinks pendentes (alvo não existe)
+- Qualquer symlink em diretório de módulo, porque pacotes de módulo devem ser autocontidos
+- Alvos de symlink ilegíveis e caminhadas de diretório incompletas que deixam o scan com cobertura reduzida
 
 ### Module Metadata Checker
 
@@ -106,6 +108,8 @@ Analisa cadeias de dependências e metadados de módulos em busca de riscos na c
 - **Fan-out**: Módulos com quantidade excessiva de dependências
 - **Versões não fixadas**: Dependências sem versões fixadas
 - **Deps transitivas não declaradas**: Dependências requeridas por sub-dependências mas não declaradas no `invowkmod.cue` raiz
+- **Módulos vendorizados ausentes de `requires`**: Dependências presentes em `invowk_modules/` sem uma declaração correspondente
+- **Falhas de parsing do invowkfile do módulo**: Arquivos de comando de módulo malformados que impedem auditoria do conteúdo de scripts
 - **Confiança em módulos globais**: Módulos de `~/.invowk/cmds/` que contornam a revisão local
 
 ## Detecção de Ameaças Compostas

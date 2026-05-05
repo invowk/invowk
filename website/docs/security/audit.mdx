@@ -96,6 +96,8 @@ Walks module directories checking for symlink-based escape attacks.
 - Symlinks pointing outside the module boundary
 - Symlink chains (symlink &rarr; symlink)
 - Dangling symlinks (target does not exist)
+- Any symlink in a module directory, because module packages should be self-contained
+- Unreadable symlink targets and incomplete directory walks that leave the scan with reduced coverage
 
 ### Module Metadata Checker
 
@@ -106,6 +108,8 @@ Analyzes module dependency chains and metadata for supply-chain risks.
 - **Fan-out**: Modules with excessive dependency counts
 - **Missing version pins**: Dependencies without pinned versions
 - **Undeclared transitive deps**: Dependencies required by sub-dependencies but not declared in root `invowkmod.cue`
+- **Vendored modules missing from `requires`**: Dependencies present in `invowk_modules/` without a matching declaration
+- **Module invowkfile parse failures**: Malformed module command files that prevent script-content auditing
 - **Global module trust**: Modules from `~/.invowk/cmds/` that bypass local review
 
 ## Compound Threat Detection

@@ -76,9 +76,10 @@ All three concrete runtimes (Native, Virtual, Container) implement all three int
 
 The `Registry` decouples runtime selection from execution:
 
-1. CLI layer resolves the `RuntimeType` from command defaults or `--ivk-runtime` flag.
-2. `Registry.GetForContext()` looks up the matching `Runtime`.
-3. `Registry.Execute()` chains: get runtime → check availability → validate → execute.
+1. The CLI parses flags into a command-service request.
+2. `commandsvc.Service` resolves the `RuntimeType` from `--ivk-runtime`, configuration defaults, or the command implementation, delegating selection rules to `internal/app/execute`.
+3. `Registry.GetForContext()` looks up the matching `Runtime`.
+4. `Registry.Execute()` chains: get runtime → check availability → validate → execute.
 
 ### ExecutionContext Composition
 

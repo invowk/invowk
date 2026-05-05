@@ -607,7 +607,7 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--llm-timeout` | `2m` | Timeout por requisição |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
-Forneça argumentos de descrição ou `--from-file`; eles são mutuamente exclusivos. `--llm` e `--llm-provider` são mutuamente exclusivos. `--dry-run` e `--print` são mutuamente exclusivos. `--verify` exige escrever o invowkfile e não pode ser combinado com `--dry-run` ou `--print`.
+Forneça argumentos de descrição ou `--from-file`; eles são mutuamente exclusivos. `--llm` e `--llm-provider` são mutuamente exclusivos. `--dry-run` e `--print` são mutuamente exclusivos. `--verify` exige escrever o invowkfile e não pode ser combinado com `--dry-run` ou `--print`. A verificação atualmente só aceita o alvo do diretório atual (`./invowkfile.cue`); combinar `--verify` com `--file` para outro caminho falha antes de resolver o plano de execução dry-run.
 
 **Exemplos:**
 

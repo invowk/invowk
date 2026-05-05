@@ -1765,15 +1765,18 @@ The `interpreter` field is **not supported** with the virtual runtime. The virtu
 
 ### Supported Interpreters
 
-Any executable available in PATH (or in the container) can be used as an interpreter. Common examples:
-- `python3`, `python`
-- `ruby`
-- `node`
-- `perl`
-- `php`
-- `lua`
-- `Rscript`
-- Custom interpreters
+Explicit interpreters are validated against a safety allowlist. The interpreter may be `auto`
+(detect from shebang) or one of these known interpreter base names:
+- POSIX shells: `sh`, `bash`, `zsh`, `fish`, `dash`, `ksh`, `mksh`
+- Python: `python`, `python3`, `python2`
+- JavaScript runtimes: `node`, `deno`, `bun`
+- Other scripting languages: `ruby`, `perl`, `php`, `lua`, `Rscript`
+- Windows shells: `pwsh`, `powershell`, `cmd`
+
+Invowk strips directory prefixes and a Windows `.exe` suffix before checking the name, so
+`/usr/bin/python3` and `python3.exe` are valid. `/usr/bin/env <interpreter>` and
+`/bin/env <interpreter>` are also accepted when the interpreter argument is allowlisted.
+Arbitrary custom interpreter names are rejected as unsafe.
 
 ## Modules
 
@@ -2905,8 +2908,8 @@ The audit scanner runs 6 built-in security checkers concurrently:
 | **Network** | exfiltration | Reverse shells, DNS exfiltration, encoded URLs, suspicious network commands |
 | **Environment** | exfiltration | Risky `env_inherit_mode: "all"`, sensitive variable access (AWS keys, tokens, passwords), credential extraction patterns |
 | **Lock File** | integrity | Hash mismatches, orphaned/missing entries, ambiguous versions, tamper detection |
-| **Symlink** | path-traversal | Symlinks pointing outside module boundaries, symlink chains, dangling symlinks |
-| **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, global module trust |
+| **Symlink** | path-traversal | Any symlink in a module directory, symlinks pointing outside module boundaries, symlink chains, dangling or unreadable symlinks, incomplete directory walks |
+| **Module Metadata** | trust | Typosquatting detection (Levenshtein distance), excessive fan-out, missing version pins, undeclared transitive dependencies, vendored modules missing from `requires`, module invowkfile parse failures, global module trust |
 
 ### Compound Threat Detection
 
@@ -3022,8 +3025,13 @@ invowk audit --severity high --format json
 # Include LLM analysis in CI (requires LLM server accessible from CI runner)
 invowk audit --llm --severity high --format json
 
-# Parse JSON output in scripts
-invowk audit --format json | jq '.summary'
+# Parse JSON output without masking audit's exit code 1 for findings
+set +e
+invowk audit --format json > audit-results.json
+status=$?
+set -e
+jq '.summary' audit-results.json
+exit "$status"
 ```
 
 The JSON output structure:

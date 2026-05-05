@@ -76,9 +76,10 @@ Todos os três runtimes concretos (Native, Virtual, Container) implementam todas
 
 O `Registry` desacopla seleção de runtime da execução:
 
-1. A camada CLI resolve o `RuntimeType` dos defaults do comando ou flag `--ivk-runtime`.
-2. `Registry.GetForContext()` busca o `Runtime` correspondente.
-3. `Registry.Execute()` encadeia: obter runtime -> verificar disponibilidade -> validar -> executar.
+1. A CLI faz parsing das flags para uma requisição do serviço de comandos.
+2. `commandsvc.Service` resolve o `RuntimeType` a partir de `--ivk-runtime`, defaults de configuração ou implementação do comando, delegando as regras de seleção para `internal/app/execute`.
+3. `Registry.GetForContext()` busca o `Runtime` correspondente.
+4. `Registry.Execute()` encadeia: obter runtime -> verificar disponibilidade -> validar -> executar.
 
 ### Composição do ExecutionContext
 

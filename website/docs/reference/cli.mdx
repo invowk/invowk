@@ -607,7 +607,7 @@ Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`
 | `--llm-timeout` | `2m` | Per-request timeout |
 | `--llm-concurrency` | `2` | Max parallel LLM requests |
 
-Provide either description arguments or `--from-file`; they are mutually exclusive. `--llm` and `--llm-provider` are mutually exclusive. `--dry-run` and `--print` are mutually exclusive. `--verify` requires writing the invowkfile and cannot be combined with `--dry-run` or `--print`.
+Provide either description arguments or `--from-file`; they are mutually exclusive. `--llm` and `--llm-provider` are mutually exclusive. `--dry-run` and `--print` are mutually exclusive. `--verify` requires writing the invowkfile and cannot be combined with `--dry-run` or `--print`. Verification currently supports only the current directory target (`./invowkfile.cue`); combining `--verify` with `--file` for another path fails before the dry-run execution plan is resolved.
 
 **Examples:**
 
