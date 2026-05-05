@@ -596,6 +596,7 @@ Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`
 | `--dry-run` | `false` | Print the patch without writing |
 | `--print` | `false` | Print only the generated command CUE |
 | `--replace` | `false` | Replace an existing command with the same name |
+| `--verify` | `false` | After writing, resolve the generated command with a dry-run execution plan |
 | `--llm-provider` | | Auto-detect or force provider: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Enable LLM using configured or API settings |
 | `--llm-url` | `http://localhost:11434/v1` | OpenAI-compatible API base URL |

@@ -5,10 +5,13 @@ package agentcmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/internal/llm"
 )
 
 const testCommandObject = `{
@@ -21,11 +24,49 @@ const testCommandObject = `{
 	}]
 }`
 
-type fakeCompleter struct {
-	response string
-}
+type (
+	fakeCompleter struct {
+		response string
+	}
+
+	sequenceCompleter struct {
+		responses []string
+		prompts   []string
+	}
+
+	structuredCompleter struct {
+		response          string
+		fallbackResponse  string
+		structuredErr     error
+		structuredFormats []llm.JSONSchemaFormat
+		fallbackCalls     int
+	}
+)
 
 func (c fakeCompleter) Complete(context.Context, string, string) (string, error) {
+	return c.response, nil
+}
+
+func (c *sequenceCompleter) Complete(_ context.Context, _, userPrompt string) (string, error) {
+	c.prompts = append(c.prompts, userPrompt)
+	if len(c.responses) == 0 {
+		return "", errors.New("unexpected completion call")
+	}
+	resp := c.responses[0]
+	c.responses = c.responses[1:]
+	return resp, nil
+}
+
+func (c *structuredCompleter) Complete(context.Context, string, string) (string, error) {
+	c.fallbackCalls++
+	return c.fallbackResponse, nil
+}
+
+func (c *structuredCompleter) CompleteJSONSchema(_ context.Context, _, _ string, format llm.JSONSchemaFormat) (string, error) {
+	c.structuredFormats = append(c.structuredFormats, format)
+	if c.structuredErr != nil {
+		return "", c.structuredErr
+	}
 	return c.response, nil
 }
 
@@ -132,6 +173,91 @@ func TestCreateCommandDryRunDoesNotWrite(t *testing.T) {
 	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
 		t.Fatalf("dry run wrote target file, stat err = %v", err)
+	}
+}
+
+func TestCreateCommandRepairsInvalidModelResponse(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	target := filepath.Join(tmpDir, "invowkfile.cue")
+	response := `{"command_cue":` + quoteForJSON(testCommandObject) + `,"summary":"repaired"}`
+	completer := &sequenceCompleter{
+		responses: []string{"not json", response},
+	}
+
+	result, err := CreateCommand(t.Context(), CreateOptions{
+		Description: "make a hello command",
+		TargetPath:  target,
+		DryRun:      true,
+		Completer:   completer,
+	})
+	if err != nil {
+		t.Fatalf("CreateCommand() error = %v", err)
+	}
+	if result.CommandName != "hello generated" {
+		t.Fatalf("CommandName = %q", result.CommandName)
+	}
+	if len(completer.prompts) != 2 {
+		t.Fatalf("completion calls = %d, want 2", len(completer.prompts))
+	}
+	for _, want := range []string{"previous response was rejected", "could not extract generated command JSON", "not json"} {
+		if !strings.Contains(completer.prompts[1], want) {
+			t.Fatalf("repair prompt missing %q:\n%s", want, completer.prompts[1])
+		}
+	}
+}
+
+func TestCreateCommandUsesStructuredCompletionWhenAvailable(t *testing.T) {
+	t.Parallel()
+
+	response := `{"command_cue":` + quoteForJSON(testCommandObject) + `,"summary":"structured"}`
+	completer := &structuredCompleter{response: response}
+
+	result, err := CreateCommand(t.Context(), CreateOptions{
+		Description: "make a hello command",
+		DryRun:      true,
+		Completer:   completer,
+	})
+	if err != nil {
+		t.Fatalf("CreateCommand() error = %v", err)
+	}
+	if result.CommandName != "hello generated" {
+		t.Fatalf("CommandName = %q", result.CommandName)
+	}
+	if completer.fallbackCalls != 0 {
+		t.Fatalf("fallback calls = %d, want 0", completer.fallbackCalls)
+	}
+	if len(completer.structuredFormats) != 1 {
+		t.Fatalf("structured formats = %d, want 1", len(completer.structuredFormats))
+	}
+	if completer.structuredFormats[0].Name != "invowk_command_generation" || !completer.structuredFormats[0].Strict {
+		t.Fatalf("unexpected structured format: %#v", completer.structuredFormats[0])
+	}
+}
+
+func TestCreateCommandFallsBackWhenStructuredCompletionUnsupported(t *testing.T) {
+	t.Parallel()
+
+	response := `{"command_cue":` + quoteForJSON(testCommandObject) + `,"summary":"fallback"}`
+	completer := &structuredCompleter{
+		fallbackResponse: response,
+		structuredErr:    llm.ErrStructuredOutputUnsupported,
+	}
+
+	result, err := CreateCommand(t.Context(), CreateOptions{
+		Description: "make a hello command",
+		DryRun:      true,
+		Completer:   completer,
+	})
+	if err != nil {
+		t.Fatalf("CreateCommand() error = %v", err)
+	}
+	if result.CommandName != "hello generated" {
+		t.Fatalf("CommandName = %q", result.CommandName)
+	}
+	if completer.fallbackCalls != 1 {
+		t.Fatalf("fallback calls = %d, want 1", completer.fallbackCalls)
 	}
 }
 

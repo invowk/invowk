@@ -224,9 +224,12 @@ invowk agent cmd create --llm-provider codex --dry-run 'add a test command'
 
 # Print only the generated command object
 invowk agent cmd create --llm-provider claude --print 'add a docs build command'
+
+# Write, then verify the generated command with a dry-run execution plan
+invowk agent cmd create --llm-provider codex --verify 'add a release command'
 ```
 
-`agent cmd create` uses the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command rejects malformed JSON, invalid CUE, full `cmds` arrays, and duplicate command names unless `--replace` is set.
+`agent cmd create` uses the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command retries once with validation feedback when a model returns invalid output, uses structured JSON output with compatible OpenAI API backends, and rejects malformed JSON, invalid CUE, full `cmds` arrays, and duplicate command names unless `--replace` is set.
 
 ## Invowkfile Format
 

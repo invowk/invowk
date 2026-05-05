@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -35,8 +36,9 @@ const (
 )
 
 var (
-	_ llm.Completer = (*LLMClient)(nil) // compile-time interface assertion
-	_ ModelVerifier = (*LLMClient)(nil) // compile-time interface assertion
+	_ llm.Completer           = (*LLMClient)(nil) // compile-time interface assertion
+	_ llm.StructuredCompleter = (*LLMClient)(nil) // compile-time interface assertion
+	_ ModelVerifier           = (*LLMClient)(nil) // compile-time interface assertion
 
 	// ErrLLMClientConfigInvalid is the sentinel for invalid client configuration.
 	ErrLLMClientConfigInvalid = errors.New(llmClientConfigInvalidErrMsg)
@@ -241,6 +243,46 @@ func (c *LLMClient) Complete(ctx context.Context, systemPrompt, userPrompt strin
 		return "", c.classifyError(err)
 	}
 
+	return completionContent(resp)
+}
+
+// CompleteJSONSchema requests schema-constrained JSON from providers known to
+// support OpenAI Structured Outputs. Other OpenAI-compatible backends fall back
+// to prompt-only completion through ErrStructuredOutputUnsupported.
+func (c *LLMClient) CompleteJSONSchema(ctx context.Context, systemPrompt, userPrompt string, format llm.JSONSchemaFormat) (string, error) {
+	if !c.supportsStructuredOutput() {
+		return "", llm.ErrStructuredOutputUnsupported
+	}
+	if strings.TrimSpace(format.Name) == "" {
+		return "", &LLMClientConfigInvalidError{Reason: "structured output schema name is required"}
+	}
+
+	resp, err := c.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+		Model: c.model,
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.SystemMessage(systemPrompt),
+			openai.UserMessage(userPrompt),
+		},
+		ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
+			OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
+				JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
+					Name:        format.Name,
+					Description: openai.String(format.Description),
+					Schema:      format.Schema,
+					Strict:      openai.Bool(format.Strict),
+				},
+			},
+		},
+		Temperature: param.NewOpt(0.0),
+	})
+	if err != nil {
+		return "", c.classifyError(err)
+	}
+
+	return completionContent(resp)
+}
+
+func completionContent(resp *openai.ChatCompletion) (string, error) {
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("%w: no choices in response", audit.ErrLLMEmptyResponse)
 	}
@@ -291,6 +333,14 @@ func (c *LLMClient) VerifyModel(ctx context.Context) error {
 		Available:  available,
 		Suggestion: suggestCodeModel(available),
 	}
+}
+
+func (c *LLMClient) supportsStructuredOutput() bool {
+	parsed, err := url.Parse(c.url)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Hostname(), "api.openai.com")
 }
 
 // suggestCodeModel returns the best code-focused model from the available list,

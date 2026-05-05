@@ -36,3 +36,13 @@ exec invowk config set container_engine docker
 exec invowk config show
 stdout 'docker'
 ! stderr .
+
+# Test 4: Credential environment references are acknowledged without printing the configured name
+exec invowk config set llm.api.base_url https://api.openai.com/v1
+exec invowk config set llm.api.model gpt-4.1-mini
+exec invowk config set llm.api.api_key_env OPENAI_API_KEY
+exec invowk config show
+stdout 'api_key_env'
+stdout '(configured)'
+! stdout 'OPENAI_API_KEY'
+! stderr .

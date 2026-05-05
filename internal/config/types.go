@@ -53,7 +53,7 @@ const (
 )
 
 var (
-	llmAPIKeyEnvVarPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	llmCredentialEnvVarPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 	// ErrInvalidContainerEngine is returned when a ContainerEngine value is not recognized.
 	ErrInvalidContainerEngine = errors.New("invalid container engine")
@@ -67,8 +67,8 @@ var (
 	ErrInvalidLLMBaseURL = errors.New("invalid LLM base URL")
 	// ErrInvalidLLMModelName is returned when an LLM model name is invalid.
 	ErrInvalidLLMModelName = errors.New("invalid LLM model name")
-	// ErrInvalidLLMAPIKeyEnvVar is returned when an LLM API key environment variable name is invalid.
-	ErrInvalidLLMAPIKeyEnvVar = errors.New("invalid LLM API key environment variable")
+	// ErrInvalidLLMCredentialEnvVar is returned when an LLM API key environment variable name is invalid.
+	ErrInvalidLLMCredentialEnvVar = errors.New("invalid LLM API key environment variable")
 	// ErrInvalidLLMTimeout is returned when an LLM timeout is invalid.
 	ErrInvalidLLMTimeout = errors.New("invalid LLM timeout")
 	// ErrInvalidLLMConcurrency is returned when an LLM concurrency value is invalid.
@@ -156,12 +156,12 @@ type (
 		Value LLMModelName
 	}
 
-	// LLMAPIKeyEnvVar names the environment variable containing an API key.
-	LLMAPIKeyEnvVar string
+	// LLMCredentialEnvVar names the environment variable containing an API key.
+	LLMCredentialEnvVar string
 
-	// InvalidLLMAPIKeyEnvVarError is returned when an API key env var name is invalid.
-	InvalidLLMAPIKeyEnvVarError struct {
-		Value LLMAPIKeyEnvVar
+	// InvalidLLMCredentialEnvVarError is returned when an API key env var name is invalid.
+	InvalidLLMCredentialEnvVarError struct {
+		Value LLMCredentialEnvVar
 	}
 
 	// LLMTimeout is a Go duration string used for LLM requests.
@@ -323,8 +323,8 @@ type (
 		BaseURL LLMBaseURL `json:"base_url,omitempty" mapstructure:"base_url"`
 		// Model is the API model name.
 		Model LLMModelName `json:"model,omitempty" mapstructure:"model"`
-		// APIKeyEnv names the environment variable containing the API key.
-		APIKeyEnv LLMAPIKeyEnvVar `json:"api_key_env,omitempty" mapstructure:"api_key_env"`
+		// CredentialEnv names the environment variable containing the API key.
+		CredentialEnv LLMCredentialEnvVar `json:"api_key_env,omitempty" mapstructure:"api_key_env"`
 	}
 
 	//goplint:validate-all
@@ -542,27 +542,27 @@ func (e *InvalidLLMModelNameError) Error() string {
 // Unwrap returns ErrInvalidLLMModelName for errors.Is() compatibility.
 func (e *InvalidLLMModelNameError) Unwrap() error { return ErrInvalidLLMModelName }
 
-// String returns the string representation of the LLMAPIKeyEnvVar.
-func (v LLMAPIKeyEnvVar) String() string { return string(v) }
+// String returns the string representation of the LLMCredentialEnvVar.
+func (v LLMCredentialEnvVar) String() string { return string(v) }
 
-// Validate returns an error if the non-empty LLMAPIKeyEnvVar is not a valid environment variable name.
-func (v LLMAPIKeyEnvVar) Validate() error {
+// Validate returns an error if the non-empty LLMCredentialEnvVar is not a valid environment variable name.
+func (v LLMCredentialEnvVar) Validate() error {
 	if v == "" {
 		return nil
 	}
-	if !llmAPIKeyEnvVarPattern.MatchString(string(v)) {
-		return &InvalidLLMAPIKeyEnvVarError{Value: v}
+	if !llmCredentialEnvVarPattern.MatchString(string(v)) {
+		return &InvalidLLMCredentialEnvVarError{Value: v}
 	}
 	return nil
 }
 
-// Error implements the error interface for InvalidLLMAPIKeyEnvVarError.
-func (e *InvalidLLMAPIKeyEnvVarError) Error() string {
+// Error implements the error interface for InvalidLLMCredentialEnvVarError.
+func (e *InvalidLLMCredentialEnvVarError) Error() string {
 	return fmt.Sprintf("invalid LLM API key environment variable %q", e.Value)
 }
 
-// Unwrap returns ErrInvalidLLMAPIKeyEnvVar for errors.Is() compatibility.
-func (e *InvalidLLMAPIKeyEnvVarError) Unwrap() error { return ErrInvalidLLMAPIKeyEnvVar }
+// Unwrap returns ErrInvalidLLMCredentialEnvVar for errors.Is() compatibility.
+func (e *InvalidLLMCredentialEnvVarError) Unwrap() error { return ErrInvalidLLMCredentialEnvVar }
 
 // String returns the string representation of the LLMTimeout.
 func (t LLMTimeout) String() string { return string(t) }
@@ -614,7 +614,7 @@ func (e *InvalidLLMConcurrencyError) Unwrap() error { return ErrInvalidLLMConcur
 
 // HasConfig reports whether any API backend setting is configured.
 func (c LLMAPIConfig) HasConfig() bool {
-	return c.BaseURL != "" || c.Model != "" || c.APIKeyEnv != ""
+	return c.BaseURL != "" || c.Model != "" || c.CredentialEnv != ""
 }
 
 // Validate returns an error if the LLM API config has invalid fields.
@@ -626,7 +626,7 @@ func (c LLMAPIConfig) Validate() error {
 	if err := c.Model.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := c.APIKeyEnv.Validate(); err != nil {
+	if err := c.CredentialEnv.Validate(); err != nil {
 		errs = append(errs, err)
 	}
 	if len(errs) > 0 {

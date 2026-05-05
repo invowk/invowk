@@ -298,8 +298,8 @@ func applyConfigDefaults(result *Resolved, llm config.LLMConfig, getenv func(str
 		if llm.API.Model != "" {
 			result.APIConfig.Model = llm.API.Model
 		}
-		if llm.API.APIKeyEnv != "" {
-			result.APIConfig.APIKey = getenv(llm.API.APIKeyEnv.String())
+		if llm.API.CredentialEnv != "" {
+			result.APIConfig.APIKey = getenv(llm.API.CredentialEnv.String())
 		}
 	}
 }

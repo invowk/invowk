@@ -84,9 +84,9 @@ type (
 	}
 
 	llmAPIConfigPatch struct {
-		BaseURL   *LLMBaseURL      `json:"base_url"`
-		Model     *LLMModelName    `json:"model"`
-		APIKeyEnv *LLMAPIKeyEnvVar `json:"api_key_env"`
+		BaseURL       *LLMBaseURL          `json:"base_url"`
+		Model         *LLMModelName        `json:"model"`
+		CredentialEnv *LLMCredentialEnvVar `json:"api_key_env"`
 	}
 
 	autoProvisionConfigPatch struct {
@@ -185,7 +185,7 @@ func (p llmConfigPatch) Validate() error {
 }
 
 func (p llmAPIConfigPatch) HasConfig() bool {
-	return p.BaseURL != nil || p.Model != nil || p.APIKeyEnv != nil
+	return p.BaseURL != nil || p.Model != nil || p.CredentialEnv != nil
 }
 
 func (p llmAPIConfigPatch) Validate() error {
@@ -196,8 +196,8 @@ func (p llmAPIConfigPatch) Validate() error {
 	if p.Model != nil {
 		errs = append(errs, p.Model.Validate())
 	}
-	if p.APIKeyEnv != nil {
-		errs = append(errs, p.APIKeyEnv.Validate())
+	if p.CredentialEnv != nil {
+		errs = append(errs, p.CredentialEnv.Validate())
 	}
 	return errors.Join(errs...)
 }
@@ -494,8 +494,8 @@ func applyLLMConfigPatch(cfg *Config, patch *llmConfigPatch) {
 		if patch.API.Model != nil {
 			cfg.LLM.API.Model = *patch.API.Model
 		}
-		if patch.API.APIKeyEnv != nil {
-			cfg.LLM.API.APIKeyEnv = *patch.API.APIKeyEnv
+		if patch.API.CredentialEnv != nil {
+			cfg.LLM.API.CredentialEnv = *patch.API.CredentialEnv
 		}
 	}
 }
@@ -732,8 +732,8 @@ func GenerateCUE(cfg *Config) string {
 			if cfg.LLM.API.Model != "" {
 				fmt.Fprintf(&sb, "\t\tmodel: %q\n", cfg.LLM.API.Model)
 			}
-			if cfg.LLM.API.APIKeyEnv != "" {
-				fmt.Fprintf(&sb, "\t\tapi_key_env: %q\n", cfg.LLM.API.APIKeyEnv)
+			if cfg.LLM.API.CredentialEnv != "" {
+				fmt.Fprintf(&sb, "\t\tapi_key_env: %q\n", cfg.LLM.API.CredentialEnv)
 			}
 			sb.WriteString("\t}\n")
 		}
@@ -766,4 +766,14 @@ func GenerateCUE(cfg *Config) string {
 	sb.WriteString("}\n")
 
 	return sb.String()
+}
+
+// GenerateDisplayCUE generates configuration output for terminal display.
+//
+// It intentionally omits credential-related references that are safe to keep in
+// config.cue but should not be echoed by diagnostic commands.
+func GenerateDisplayCUE(cfg *Config) string {
+	display := *cfg
+	display.LLM.API.CredentialEnv = ""
+	return GenerateCUE(&display)
 }

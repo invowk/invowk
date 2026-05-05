@@ -30,3 +30,14 @@ stdout 'enable_uroot_utils: true'
 # Test 3: Dump includes the CUE file header comment
 exec invowk config dump
 stdout 'Invowk Configuration File'
+
+# Test 4: Dump keeps non-secret LLM API settings but omits credential env references
+exec invowk config set llm.api.base_url https://api.openai.com/v1
+exec invowk config set llm.api.model gpt-4.1-mini
+exec invowk config set llm.api.api_key_env OPENAI_API_KEY
+exec invowk config dump
+stdout 'base_url: "https://api.openai.com/v1"'
+stdout 'model: "gpt-4.1-mini"'
+! stdout 'api_key_env'
+! stdout 'OPENAI_API_KEY'
+! stderr .

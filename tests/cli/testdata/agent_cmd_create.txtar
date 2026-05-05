@@ -17,12 +17,17 @@ exec invowk cmd agenthello
 stdout 'generated'
 
 ! exec invowk agent cmd create --llm-provider claude 'create a duplicate command'
-stderr 'Command "agenthello" already exists'
+stderr 'command "agenthello" already exists'
 
 exec invowk agent cmd create --llm-provider claude --replace 'replace generated command'
 stdout 'Added command "agenthello" to invowkfile.cue'
 exec invowk cmd agenthello
 stdout 'generated'
+
+exec invowk agent cmd create --llm-provider claude --replace --verify 'verify generated command'
+stdout 'Dry Run'
+stdout 'agenthello'
+stdout 'Verified command "agenthello" with a dry-run execution plan'
 
 exec invowk agent cmd create --llm-provider claude --print --file print.cue 'print only'
 stdout 'name: "agenthello"'

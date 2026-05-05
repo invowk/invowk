@@ -33,7 +33,7 @@ See [Configuration Options](../configuration/options#llm) for provider and API e
 
 ## Write Behavior
 
-By default, `create` updates `invowkfile.cue`. Use `--dry-run` to preview the patch, `--print` to print only the generated command object, and `--replace` when you intentionally want to overwrite an existing command with the same name.
+By default, `create` updates `invowkfile.cue`. Use `--dry-run` to preview the patch, `--print` to print only the generated command object, `--verify` to resolve the written command with a dry-run execution plan, and `--replace` when you intentionally want to overwrite an existing command with the same name.
 
 :::caution Prompt content is sent to the configured provider
 `create` sends your request and the current target invowkfile content to the selected LLM provider. Use a local provider when your command definitions contain private project details.
@@ -41,4 +41,4 @@ By default, `create` updates `invowkfile.cue`. Use `--dry-run` to preview the pa
 
 ## Validation
 
-Invowk accepts only one generated command object. It rejects full `cmds` arrays, malformed JSON, invalid CUE, unknown runtime/platform fields, and duplicate command names unless `--replace` is set.
+Invowk accepts only one generated command object. It uses structured JSON output with compatible OpenAI API backends, retries once with validation feedback when a model returns invalid output, and rejects full `cmds` arrays, malformed JSON, invalid CUE, unknown runtime/platform fields, and duplicate command names unless `--replace` is set.

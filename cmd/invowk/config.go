@@ -81,7 +81,7 @@ Configuration is stored in:
 				return err
 			}
 
-			cueContent := config.GenerateCUE(cfg)
+			cueContent := config.GenerateDisplayCUE(cfg)
 			fmt.Print(cueContent)
 			return nil
 		},
@@ -189,8 +189,8 @@ func printLLMConfig(llm config.LLMConfig, valueStyle lipgloss.Style) {
 		if llm.API.Model != "" {
 			fmt.Printf("    model: %s\n", valueStyle.Render(string(llm.API.Model)))
 		}
-		if llm.API.APIKeyEnv != "" {
-			fmt.Printf("    api_key_env: %s\n", valueStyle.Render(string(llm.API.APIKeyEnv)))
+		if llm.API.CredentialEnv != "" {
+			fmt.Printf("    api_key_env: %s\n", valueStyle.Render("(configured)"))
 		}
 	}
 }
@@ -327,12 +327,12 @@ func setConfigValue(ctx context.Context, app *App, key, value string) error {
 		cfg.LLM.API.Model = model
 
 	case "llm.api.api_key_env":
-		keyEnv := config.LLMAPIKeyEnvVar(value)
+		keyEnv := config.LLMCredentialEnvVar(value)
 		if err := keyEnv.Validate(); err != nil {
 			return err
 		}
 		cfg.LLM.Provider = ""
-		cfg.LLM.API.APIKeyEnv = keyEnv
+		cfg.LLM.API.CredentialEnv = keyEnv
 
 	default:
 		return fmt.Errorf("unknown configuration key: %s\nValid keys: container_engine, default_runtime, ui.verbose, ui.interactive, ui.color_scheme, virtual_shell.enable_uroot_utils, llm.provider, llm.model, llm.timeout, llm.concurrency, llm.api.base_url, llm.api.model, llm.api.api_key_env", key)

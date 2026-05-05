@@ -21,6 +21,7 @@ type (
 	PromptDocument struct {
 		SystemPrompt string            `json:"system_prompt"`
 		Schemas      map[string]string `json:"schemas"`
+		Response     map[string]any    `json:"response_schema"`
 	}
 )
 
@@ -61,6 +62,7 @@ func BuildPromptDocument() PromptDocument {
 			"invowkfile.cue": invowkfile.SchemaCUE(),
 			"invowkmod.cue":  invowkmod.SchemaCUE(),
 		},
+		Response: GenerationResponseSchema(),
 	}
 }
 
@@ -100,4 +102,41 @@ func BuildUserPrompt(description, targetPath, existing string) string {
 	}
 	b.WriteString("\nReturn the JSON object only.")
 	return b.String()
+}
+
+// BuildRepairPrompt returns a follow-up prompt that asks the model to correct
+// an invalid generated response without changing the original task.
+func BuildRepairPrompt(description, targetPath, existing, previousResponse string, failure error) string {
+	var b strings.Builder
+	b.WriteString(BuildUserPrompt(description, targetPath, existing))
+	b.WriteString("\n\nThe previous response was rejected by Invowk validation.\n")
+	b.WriteString("Validation error:\n")
+	b.WriteString(failure.Error())
+	b.WriteString("\n\nPrevious response:\n")
+	b.WriteString(previousResponse)
+	if !strings.HasSuffix(previousResponse, "\n") {
+		b.WriteByte('\n')
+	}
+	b.WriteString("\nReturn corrected JSON only, preserving the original user request.")
+	return b.String()
+}
+
+// GenerationResponseSchema returns the JSON schema for command-generation
+// responses requested from structured-output providers.
+func GenerationResponseSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"command_cue": map[string]any{
+				"type":        "string",
+				"description": "A single Invowk #Command object in CUE syntax, without a surrounding cmds list.",
+			},
+			"summary": map[string]any{
+				"type":        "string",
+				"description": "A short human summary of the generated command.",
+			},
+		},
+		"required":             []string{"command_cue", "summary"},
+		"additionalProperties": false,
+	}
 }

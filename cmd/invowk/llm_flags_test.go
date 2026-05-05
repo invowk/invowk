@@ -110,9 +110,9 @@ func TestResolveLLMForCommand_APIConfigUsesEnvReference(t *testing.T) {
 	cmd, flags := newTestLLMCommand(t)
 	cfg := config.DefaultConfig()
 	cfg.LLM.API = config.LLMAPIConfig{ //nolint:gosec // test uses an environment-variable name, not a credential value.
-		BaseURL:   "https://example.invalid/v1",
-		Model:     "custom-model",
-		APIKeyEnv: "CUSTOM_LLM_TOKEN_VAR",
+		BaseURL:       "https://example.invalid/v1",
+		Model:         "custom-model",
+		CredentialEnv: "CUSTOM_LLM_TOKEN_VAR",
 	}
 	provider := &testConfigProvider{cfg: cfg}
 

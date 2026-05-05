@@ -19,6 +19,7 @@ import (
 const (
 	defaultInvowkfileName = "invowkfile.cue"
 	generatedCommandPath  = "generated-command.cue"
+	defaultRepairAttempts = 1
 )
 
 var jsonFencePattern = regexp.MustCompile("(?s)```(?:json)?\\s*\\n(.+?)\\n\\s*```")
@@ -33,6 +34,9 @@ type (
 		PrintOnly   bool
 		Replace     bool
 		Completer   llm.Completer
+		// RepairAttempts is the number of validation-feedback retries after the
+		// initial generation attempt. Zero uses the default bounded retry count.
+		RepairAttempts int
 	}
 
 	// CreateResult contains the validated generated command and resulting file content.
@@ -73,40 +77,16 @@ func CreateCommand(ctx context.Context, opts CreateOptions) (*CreateResult, erro
 		return nil, err
 	}
 
-	raw, err := opts.Completer.Complete(ctx, BuildSystemPrompt(), BuildUserPrompt(description, targetPath, existing))
-	if err != nil {
-		return nil, fmt.Errorf("LLM completion failed: %w", err)
-	}
-
-	resp, err := ParseGenerationResponse(raw)
+	result, err := opts.generateValidCommand(ctx, description, targetPath, existing, exists)
 	if err != nil {
 		return nil, err
 	}
 
-	command, commandCUE, err := ValidateCommandCUE(resp.CommandCUE)
-	if err != nil {
-		return nil, err
-	}
-
-	result := &CreateResult{
-		CommandName: command.Name,
-		CommandCUE:  commandCUE,
-		TargetPath:  targetPath,
-		Summary:     resp.Summary,
-	}
 	if opts.PrintOnly {
 		return result, nil
 	}
-
-	content, err := PatchInvowkfile(existing, exists, commandCUE, command.Name, opts.Replace, targetPath)
-	if err != nil {
-		return nil, err
-	}
-	result.Content = content
-	result.Changed = content != existing
-
 	if opts.DryRun {
-		result.Diff = BuildUnifiedDiff(targetPath, existing, content, exists)
+		result.Diff = BuildUnifiedDiff(targetPath, existing, result.Content, exists)
 		return result, nil
 	}
 	if targetDir := filepath.Dir(targetPath); targetDir != "." {
@@ -114,7 +94,7 @@ func CreateCommand(ctx context.Context, opts CreateOptions) (*CreateResult, erro
 			return nil, fmt.Errorf("create target directory: %w", err)
 		}
 	}
-	if err := os.WriteFile(targetPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(targetPath, []byte(result.Content), 0o644); err != nil {
 		return nil, fmt.Errorf("write %s: %w", targetPath, err)
 	}
 
@@ -152,6 +132,93 @@ func (opts CreateOptions) LoadDescription() (string, error) {
 		return "", errors.New("description file is empty")
 	}
 	return description, nil
+}
+
+func (opts CreateOptions) generateValidCommand(ctx context.Context, description, targetPath, existing string, exists bool) (*CreateResult, error) {
+	systemPrompt := BuildSystemPrompt()
+	userPrompt := BuildUserPrompt(description, targetPath, existing)
+	attempts := opts.maxGenerationAttempts()
+	var previousResponse string
+	var lastErr error
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if attempt > 1 {
+			userPrompt = BuildRepairPrompt(description, targetPath, existing, previousResponse, lastErr)
+		}
+
+		raw, err := opts.complete(ctx, systemPrompt, userPrompt)
+		if err != nil {
+			return nil, fmt.Errorf("LLM completion failed: %w", err)
+		}
+		previousResponse = raw
+
+		result, err := opts.resultFromResponse(raw, targetPath, existing, exists)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+	}
+
+	return nil, fmt.Errorf("generated command invalid after %d attempt(s): %w", attempts, lastErr)
+}
+
+func (opts CreateOptions) complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	if structured, ok := opts.Completer.(llm.StructuredCompleter); ok {
+		raw, err := structured.CompleteJSONSchema(ctx, systemPrompt, userPrompt, llm.JSONSchemaFormat{
+			Name:        "invowk_command_generation",
+			Description: "Generated Invowk command object and summary.",
+			Schema:      GenerationResponseSchema(),
+			Strict:      true,
+		})
+		if err == nil {
+			return raw, nil
+		}
+		if !errors.Is(err, llm.ErrStructuredOutputUnsupported) {
+			return "", err
+		}
+	}
+	return opts.Completer.Complete(ctx, systemPrompt, userPrompt)
+}
+
+func (opts CreateOptions) resultFromResponse(raw, targetPath, existing string, exists bool) (*CreateResult, error) {
+	resp, err := ParseGenerationResponse(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	command, commandCUE, err := ValidateCommandCUE(resp.CommandCUE)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &CreateResult{
+		CommandName: command.Name,
+		CommandCUE:  commandCUE,
+		TargetPath:  targetPath,
+		Summary:     resp.Summary,
+	}
+	if opts.PrintOnly {
+		return result, nil
+	}
+
+	content, err := PatchInvowkfile(existing, exists, commandCUE, command.Name, opts.Replace, targetPath)
+	if err != nil {
+		return nil, err
+	}
+	result.Content = content
+	result.Changed = content != existing
+	return result, nil
+}
+
+func (opts CreateOptions) maxGenerationAttempts() int {
+	repairAttempts := opts.RepairAttempts
+	if repairAttempts == 0 {
+		repairAttempts = defaultRepairAttempts
+	}
+	if repairAttempts < 0 {
+		repairAttempts = 0
+	}
+	return repairAttempts + 1
 }
 
 // ParseGenerationResponse parses the model's JSON-only response.

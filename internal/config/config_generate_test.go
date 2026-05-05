@@ -199,9 +199,9 @@ func TestGenerateCUE_LLMAPIRoundtrip(t *testing.T) {
 		Timeout:     "90s",
 		Concurrency: 1,
 		API: LLMAPIConfig{
-			BaseURL:   "https://example.invalid/v1",
-			Model:     "model-a",
-			APIKeyEnv: "EXAMPLE_TOKEN",
+			BaseURL:       "https://example.invalid/v1",
+			Model:         "model-a",
+			CredentialEnv: "EXAMPLE_TOKEN",
 		},
 	}
 
@@ -235,6 +235,33 @@ func TestGenerateCUE_LLMAPIRoundtrip(t *testing.T) {
 	}
 	if loaded.LLM.API != cfg.LLM.API {
 		t.Fatalf("loaded LLM.API = %+v, want %+v", loaded.LLM.API, cfg.LLM.API)
+	}
+}
+
+func TestGenerateDisplayCUE_RedactsLLMCredentialEnv(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	cfg.LLM = LLMConfig{
+		API: LLMAPIConfig{
+			BaseURL:       "https://example.invalid/v1",
+			Model:         "model-a",
+			CredentialEnv: "EXAMPLE_TOKEN",
+		},
+	}
+
+	cueContent := GenerateDisplayCUE(cfg)
+	if strings.Contains(cueContent, "EXAMPLE_TOKEN") || strings.Contains(cueContent, "api_key_env") {
+		t.Fatalf("GenerateDisplayCUE() leaked API key env reference:\n%s", cueContent)
+	}
+	for _, want := range []string{
+		`api: {`,
+		`base_url: "https://example.invalid/v1"`,
+		`model: "model-a"`,
+	} {
+		if !strings.Contains(cueContent, want) {
+			t.Fatalf("GenerateDisplayCUE() missing %q:\n%s", want, cueContent)
+		}
 	}
 }
 

@@ -33,7 +33,7 @@ Veja [Opções de Configuração](../configuration/options#llm) para exemplos de
 
 ## Comportamento de Escrita
 
-Por padrão, `create` atualiza `invowkfile.cue`. Use `--dry-run` para visualizar o patch, `--print` para imprimir apenas o objeto de comando gerado e `--replace` quando você realmente quiser substituir um comando existente com o mesmo nome.
+Por padrão, `create` atualiza `invowkfile.cue`. Use `--dry-run` para visualizar o patch, `--print` para imprimir apenas o objeto de comando gerado, `--verify` para resolver o comando escrito com um plano de execução dry-run e `--replace` quando você realmente quiser substituir um comando existente com o mesmo nome.
 
 :::caution O conteúdo do prompt é enviado ao provedor configurado
 `create` envia a sua solicitação e o conteúdo atual do invowkfile de destino ao provedor LLM selecionado. Use um provedor local quando as definições de comandos tiverem detalhes privados do projeto.
@@ -41,4 +41,4 @@ Por padrão, `create` atualiza `invowkfile.cue`. Use `--dry-run` para visualizar
 
 ## Validação
 
-O Invowk aceita apenas um objeto de comando gerado. Ele rejeita arrays `cmds` completos, JSON malformado, CUE inválido, campos desconhecidos de runtime/plataforma e nomes de comando duplicados, a menos que `--replace` esteja definido.
+O Invowk aceita apenas um objeto de comando gerado. Ele usa saída JSON estruturada com backends de API OpenAI compatíveis, tenta novamente uma vez com feedback de validação quando um modelo retorna saída inválida e rejeita arrays `cmds` completos, JSON malformado, CUE inválido, campos desconhecidos de runtime/plataforma e nomes de comando duplicados, a menos que `--replace` esteja definido.

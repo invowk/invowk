@@ -596,6 +596,7 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--dry-run` | `false` | Imprimir o patch sem escrever |
 | `--print` | `false` | Imprimir apenas o CUE do comando gerado |
 | `--replace` | `false` | Substituir um comando existente com o mesmo nome |
+| `--verify` | `false` | Depois de escrever, resolver o comando gerado com um plano de execução dry-run |
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Habilitar LLM usando configuração ou API |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
