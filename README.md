@@ -2446,10 +2446,10 @@ container: {
   auto_provision: {
     enabled: true                         // Enable/disable auto-provisioning of invowk into containers (default: true)
     strict: false                         // Hard error on provisioning failure instead of warning (default: false)
-    binary_path: ""                       // Path to invowk binary to provision (default: auto-detect via os.Executable())
+    // binary_path: "/usr/local/bin/invowk" // Optional non-empty override; omit to auto-detect via os.Executable()
     includes: [{path: "/extra/modules.invowkmod"}] // Modules to provision into containers (optional)
     inherit_includes: true                // Inherit root-level includes for provisioning (default: true)
-    // cache_dir: ""  // Parent directory for provision build contexts and cached image metadata (empty = auto-detect, optional)
+    // cache_dir: "/var/cache/invowk/provision" // Optional non-empty override; omit to use the platform default
   }
 }
 
