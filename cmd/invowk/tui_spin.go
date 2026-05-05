@@ -9,6 +9,7 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+const tuiSpinCommandWaitDelay = 10 * time.Second
 
 type (
 	tuiSpinRunner interface {
@@ -134,6 +137,7 @@ func (r tuiSpinRunResult) Validate() error {
 //goplint:ignore -- exec.CommandContext receives user command argv from Cobra.
 func (execTUISpinRunner) Run(ctx context.Context, command string, args []string) tuiSpinRunResult {
 	execCmd := exec.CommandContext(ctx, command, args...)
+	execCmd.WaitDelay = tuiSpinCommandWaitDelay
 	output, err := execCmd.CombinedOutput()
 	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		return tuiSpinRunResult{

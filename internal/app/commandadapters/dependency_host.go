@@ -13,6 +13,7 @@ import (
 	goruntime "runtime"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
@@ -22,6 +23,8 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 	"golang.org/x/term"
 )
+
+const cmdWaitDelay = 10 * time.Second
 
 type (
 	dependencyHostProbe struct{}
@@ -102,6 +105,7 @@ func (dependencyHostProbe) CheckFilepath(displayPath, resolvedPath types.Filesys
 // RunCustomCheck runs a custom check script using the native shell.
 func (dependencyHostProbe) RunCustomCheck(ctx context.Context, check invowkfile.CustomCheck) (deps.CustomCheckResult, error) {
 	cmd := exec.CommandContext(ctx, "sh", "-c", string(check.CheckScript))
+	cmd.WaitDelay = cmdWaitDelay
 	output, err := cmd.CombinedOutput()
 	outputText := deps.CustomCheckOutput(strings.TrimSpace(string(output)))
 	if validateErr := outputText.Validate(); validateErr != nil {
@@ -267,6 +271,7 @@ func checkContainers(parentCtx context.Context) error {
 
 		ctx, cancel := context.WithTimeout(parentCtx, invowkfile.DefaultCapabilityTimeout)
 		cmd := exec.CommandContext(ctx, path, containerCapabilityProbeArgs(engine)...)
+		cmd.WaitDelay = cmdWaitDelay
 		err = cmd.Run()
 		cancel()
 		if err == nil {

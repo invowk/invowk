@@ -30,8 +30,8 @@ func ResolveDockerfilePath(contextPath, dockerfilePath string) (string, error) {
 	resolvedClean := filepath.Clean(resolved)
 	contextClean := filepath.Clean(contextPath)
 
-	// Ensure resolved path starts with context path
-	if !strings.HasPrefix(resolvedClean, contextClean) {
+	// Ensure resolved path is either the context path itself or a child path.
+	if resolvedClean != contextClean && !strings.HasPrefix(resolvedClean, contextClean+string(filepath.Separator)) {
 		return "", fmt.Errorf("dockerfile path %q escapes context directory %q", dockerfilePath, contextPath)
 	}
 
@@ -45,7 +45,7 @@ func ResolveDockerfilePath(contextPath, dockerfilePath string) (string, error) {
 //plint:render
 func FormatVolumeMount(mount VolumeMount) string {
 	var result strings.Builder
-	result.WriteString(string(mount.HostPath))
+	result.WriteString(filepath.ToSlash(string(mount.HostPath)))
 	result.WriteString(":")
 	result.WriteString(string(mount.ContainerPath))
 

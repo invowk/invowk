@@ -27,6 +27,7 @@ const (
 	containerHarnessStatusReady containerHarnessStatus = 1
 	containerHarnessStatusFail  containerHarnessStatus = 2
 	containerSmokeTimeout                              = 30 * time.Second
+	containerCleanupWaitDelay                          = 10 * time.Second
 )
 
 var containerHarness = sync.OnceValue(resolveContainerSuiteHarness)
@@ -305,6 +306,7 @@ func cleanupTestContainersForHarness(prefix string, harness containerSuiteHarnes
 	enginePath := harness.binaryPath
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	listCmd := exec.CommandContext(ctx, enginePath, "ps", "-a", "-q", "--filter", "name="+prefix)
+	listCmd.WaitDelay = containerCleanupWaitDelay
 	output, err := listCmd.Output()
 	cancel()
 	if err != nil || len(output) == 0 {
@@ -314,6 +316,7 @@ func cleanupTestContainersForHarness(prefix string, harness containerSuiteHarnes
 	for containerID := range strings.FieldsSeq(strings.TrimSpace(string(output))) {
 		rmCtx, rmCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		rmCmd := exec.CommandContext(rmCtx, enginePath, "rm", "-f", containerID)
+		rmCmd.WaitDelay = containerCleanupWaitDelay
 		runErr := rmCmd.Run()
 		_ = runErr
 		rmCancel()

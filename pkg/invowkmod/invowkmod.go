@@ -615,7 +615,7 @@ func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
 	}
 
 	// Convert to native path for the subsequent filepath.Rel containment check.
-	nativePath := filepath.FromSlash(string(scriptPath))
+	nativePath := filepath.FromSlash(cleanSlash)
 
 	// Resolve the full path
 	fullPath := filepath.Join(string(m.Path), nativePath)
@@ -627,7 +627,7 @@ func (m *Module) ValidateScriptPath(scriptPath types.FilesystemPath) error {
 	}
 
 	// Check for path escaping (e.g., "../something")
-	if strings.HasPrefix(relPath, "..") {
+	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("script path '%s' escapes the module directory", scriptPath)
 	}
 
@@ -651,7 +651,7 @@ func (m *Module) ContainsPath(path types.FilesystemPath) bool {
 		return false
 	}
 
-	return !strings.HasPrefix(relPath, "..")
+	return relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator))
 }
 
 // GetInvowkfileDir returns the directory containing the invowkfile.
@@ -700,7 +700,7 @@ func (m *Module) checkSymlinkSafety(path string) error {
 	}
 
 	relPath, err := filepath.Rel(moduleRealPath, realPath)
-	if err != nil || strings.HasPrefix(relPath, "..") {
+	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
 		return errors.New("path resolves to location outside module directory (symlink escape)")
 	}
 

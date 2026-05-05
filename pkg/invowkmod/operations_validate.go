@@ -206,7 +206,7 @@ func recordSymlinkIssue(result *ValidationResult, absPath, entryPath string) {
 
 	resolvedTarget := resolveModuleSymlinkTarget(entryPath, linkTarget)
 	relToRoot, relErr := filepath.Rel(absPath, resolvedTarget)
-	if relErr != nil || strings.HasPrefix(relToRoot, "..") {
+	if relErr != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) {
 		result.AddIssue(IssueTypeSecurity, fmt.Sprintf("symlink points outside module directory (target: %s)", linkTarget), relPath)
 		return
 	}

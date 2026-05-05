@@ -5,7 +5,7 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
+	slashpath "path"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/platform"
@@ -52,15 +52,15 @@ func ValidateFilename(name string) error {
 
 // ValidateContainerfilePath validates a containerfile path for security.
 // [GO-ONLY] Path traversal prevention MUST be in Go because it requires:
-// 1. Access to filesystem operations (filepath.Join, filepath.Clean, filepath.Rel)
-// 2. Knowledge of the baseDir (invowkfile directory) at runtime
-// 3. Cross-platform path separator handling
+// 1. Cross-platform path separator handling
+// 2. Validation that must remain deterministic across host operating systems
 // CUE can only validate static patterns (like !strings.Contains("..")) but cannot
-// detect sophisticated path traversal via symlinks or normalized paths.
+// reliably canonicalize slash and backslash path dialects.
 //
 // It ensures paths are relative, don't escape the invowkfile directory,
 // and contain valid filename characters.
 func ValidateContainerfilePath(containerfile, baseDir string) error {
+	_ = baseDir // Kept for API compatibility with validation call sites.
 	if containerfile == "" {
 		return nil
 	}
@@ -80,19 +80,14 @@ func ValidateContainerfilePath(containerfile, baseDir string) error {
 		return errors.New("containerfile path contains null byte")
 	}
 
-	// Convert to native path separators and resolve
-	nativePath := filepath.FromSlash(containerfile)
-	fullPath := filepath.Join(baseDir, nativePath)
-	cleanPath := filepath.Clean(fullPath)
-
-	// Verify the resolved path stays within baseDir
-	relPath, err := filepath.Rel(baseDir, cleanPath)
-	if err != nil || strings.HasPrefix(relPath, "..") {
+	// Normalize with slash semantics so validation is identical on every host.
+	cleanPath := slashpath.Clean(strings.ReplaceAll(containerfile, "\\", "/"))
+	if cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
 		return fmt.Errorf("containerfile path '%s' escapes the invowkfile directory", containerfile)
 	}
 
 	// Validate the filename component
-	return ValidateFilename(filepath.Base(containerfile))
+	return ValidateFilename(slashpath.Base(cleanPath))
 }
 
 // ValidateEnvFilePath validates an env file path for security.
@@ -124,9 +119,10 @@ func ValidateEnvFilePath(filePath string) error {
 		return errors.New("env file path contains null byte")
 	}
 
-	// Check for path traversal sequences
-	normalized := filepath.Clean(cleanPath)
-	if strings.HasPrefix(normalized, "..") || strings.Contains(normalized, string(filepath.Separator)+"..") {
+	// Check for path traversal sequences using slash semantics so backslash
+	// traversal is rejected identically on every host OS.
+	normalized := slashpath.Clean(strings.ReplaceAll(cleanPath, "\\", "/"))
+	if normalized == ".." || strings.HasPrefix(normalized, "../") || strings.Contains(normalized, "/../") {
 		return fmt.Errorf("env file path cannot contain '..': %s", filePath)
 	}
 

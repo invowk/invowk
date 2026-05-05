@@ -346,7 +346,7 @@ func (r *ContainerRuntime) getContainerWorkDir(ctx *ExecutionContext, invowkDir 
 	if filepath.IsAbs(string(effectiveWorkDir)) {
 		// Check if the path is inside the invowkfile directory (mounted at /workspace)
 		relPath, err := filepath.Rel(invowkDir, string(effectiveWorkDir))
-		if err == nil && !strings.HasPrefix(relPath, "..") {
+		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
 			// Path is within invowkfile dir - map to /workspace
 			return containerWorkspacePrefix + filepath.ToSlash(relPath)
 		}

@@ -5,6 +5,7 @@ package container
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -307,7 +308,7 @@ func (v VolumeMount) Validate() error {
 
 // String returns the volume mount in "host:container[:selinux][:ro]" format.
 func (v VolumeMount) String() string {
-	s := string(v.HostPath) + ":" + string(v.ContainerPath)
+	s := filepath.ToSlash(string(v.HostPath)) + ":" + string(v.ContainerPath)
 	if v.SELinux != "" {
 		s += ":" + string(v.SELinux)
 	}

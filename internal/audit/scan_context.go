@@ -882,5 +882,5 @@ func readScriptFileFacts(scriptPath, modulePath string) scriptFileFacts {
 // directory. Used by multiple checkers for module boundary enforcement.
 func isWithinBoundary(base, target string) bool {
 	rel, err := filepath.Rel(base, target)
-	return err == nil && !strings.HasPrefix(rel, "..")
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

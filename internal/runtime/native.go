@@ -12,13 +12,17 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
 
-const failedBuildEnvironmentFmt = "failed to build environment: %w"
+const (
+	failedBuildEnvironmentFmt = "failed to build environment: %w"
+	cmdWaitDelay              = 10 * time.Second
+)
 
 type (
 	// NativeRuntime executes commands using the system's default shell.
@@ -214,6 +218,7 @@ func (r *NativeRuntime) executeShellCommon(ctx *ExecutionContext, script string,
 	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
+	cmd.WaitDelay = cmdWaitDelay
 
 	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
 		return NewErrorResult(1, err)
@@ -259,6 +264,7 @@ func (r *NativeRuntime) executeInterpreterCommon(ctx *ExecutionContext, script s
 	cmdArgs = append(cmdArgs, ctx.PositionalArgs...)
 
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
+	cmd.WaitDelay = cmdWaitDelay
 
 	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
 		return NewErrorResult(1, err)
@@ -436,6 +442,7 @@ func (r *NativeRuntime) prepareShellCommand(ctx *ExecutionContext, script string
 	args = r.appendPositionalArgs(shell, args, ctx.PositionalArgs)
 
 	cmd := exec.CommandContext(ctx.Context, shell, args...)
+	cmd.WaitDelay = cmdWaitDelay
 
 	if err := r.configureCommandDirAndEnv(cmd, ctx); err != nil {
 		return nil, err
@@ -471,6 +478,7 @@ func (r *NativeRuntime) prepareInterpreterCommand(ctx *ExecutionContext, script 
 	cmdArgs = append(cmdArgs, ctx.PositionalArgs...)
 
 	cmd := exec.CommandContext(ctx.Context, interpreterPath, cmdArgs...)
+	cmd.WaitDelay = cmdWaitDelay
 
 	if err = r.configureCommandDirAndEnv(cmd, ctx); err != nil {
 		if cleanup != nil {
