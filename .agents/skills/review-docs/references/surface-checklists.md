@@ -9,6 +9,12 @@ Severity is pre-assigned per item to eliminate subjective classification. The se
 Finding Type is also pre-assigned per item. Use the listed type exactly; do not invent or
 reinterpret categories during review.
 
+Closed-world comparison rule: compare documented claims, examples, field lists, command syntax,
+defaults, generated assets, and required coverage against the listed source of truth. Do not flag
+omitted background context, alternative wording, or tone unless the check explicitly requires
+complete coverage of that thing. Every FAIL must satisfy the Finding Admission Gate in
+`structured-output-format.md`.
+
 ---
 
 ## §S1: README.md
@@ -48,7 +54,8 @@ reinterpret categories during review.
 
 ## §S2: Website Docs (next version only)
 
-**File scope**: `website/docs/` (59+ MDX pages). Never review `website/versioned_docs/`.
+**File scope**: live inventory from `website/docs/` (`*.mdx`). Never review
+`website/versioned_docs/`.
 
 **Source of truth mapping**: See `consolidated-sync-map.md` for the full code→docs map.
 
@@ -75,7 +82,7 @@ reinterpret categories during review.
 
 ## §S3: Snippet Data and CUE Schema Drift
 
-**File scope** (all 12 snippet data files):
+**File scope** (all live snippet data files; current expected inventory):
 - `website/src/components/Snippet/data/core-concepts.ts`
 - `website/src/components/Snippet/data/dependencies.ts`
 - `website/src/components/Snippet/data/advanced.ts`
@@ -113,7 +120,7 @@ with an implementation block but lack required fields.
 | S3-C11 | `cli.ts` — Same check | ERROR | snippet-drift |
 | S3-C12 | `security.ts` — Same check | ERROR | snippet-drift |
 
-### Patterns 2–6: Cross-file checks (apply to all 12 files)
+### Patterns 2–6: Cross-file checks (apply to all listed snippet files)
 
 | ID | Check | Severity | Finding Type |
 |---|---|---|---|
@@ -144,7 +151,7 @@ with an implementation block but lack required fields.
 | S4-C02 | All `<Snippet id="...">` references in pt-BR MDX files match English counterparts | English `website/docs/` files | ERROR | i18n-structural-drift |
 | S4-C03 | All `<Diagram id="...">` references in pt-BR MDX files match English counterparts | English `website/docs/` files | ERROR | i18n-structural-drift |
 | S4-C04 | No missing pt-BR mirrors for English pages added in the last 30 days | `git log --since="30 days ago" --diff-filter=A -- website/docs/` | WARNING | i18n-structural-drift |
-| S4-C05 | pt-BR pages modified more than 60 days after their English counterpart have stale-prose risk — spot-check 3 most recently modified English pages | `git log --diff-filter=M -- website/docs/` vs `git log -- website/i18n/pt-BR/` | WARNING | i18n-prose-staleness |
+| S4-C05 | pt-BR pages modified more than 60 days after their English counterpart have stale-prose risk — spot-check the first 3 paths from the deterministic stale-prose command in `verification-commands.md` | `git log --diff-filter=M -- website/docs/` vs `git log -- website/i18n/pt-BR/` | WARNING | i18n-prose-staleness |
 | S4-C06 | Exceptions in `website/docs-parity-exceptions.json` have valid justifications and refer to existing files | Exception file contents | INFO | i18n-structural-drift |
 
 **Total items**: 6
@@ -154,15 +161,15 @@ with an implementation block but lack required fields.
 ## §S5: Architecture Diagrams
 
 **File scope**:
-- D2 source files: `docs/diagrams/` (23 `.d2` files)
-- Architecture prose: `docs/architecture/` (8 `.md` files)
+- D2 source files: live inventory from `docs/diagrams/` (`*.d2`, excluding experiments)
+- Architecture prose: live inventory from `docs/architecture/` (`*.md`)
 - Website architecture pages: `website/docs/architecture/`
 
 **Source of truth mapping**: See `consolidated-sync-map.md` (diagram section).
 
 | ID | Check | Source of Truth | Severity | Finding Type |
 |---|---|---|---|---|
-| S5-C01 | D2 syntax validates for all 23 files (Step 1 `d2 validate` results) | Step 1 programmatic results | ERROR | diagram-drift |
+| S5-C01 | D2 syntax validates for every live D2 source file from Step 1 inventory | Step 1 programmatic results | ERROR | diagram-drift |
 | S5-C02 | Diagram readability checks pass (`check-diagram-readability.sh` results) | Step 1 programmatic results | WARNING | diagram-drift |
 | S5-C03 | Discovery-related diagrams (`flowchart-discovery.md`, `sequence-execution.md`) match current `internal/discovery/` package structure | `internal/discovery/` package names, exported types | WARNING | diagram-drift |
 | S5-C04 | Runtime-related diagrams (`flowchart-runtime-selection.md`, `sequence-execution.md`) match current `internal/runtime/` structure | `internal/runtime/` package names, runtime types | WARNING | diagram-drift |

@@ -3,6 +3,19 @@
 Run these automated checks BEFORE manual review to catch mechanical issues.
 Any failure should be investigated and recorded as a finding before proceeding.
 
+## 0. Deterministic Run Setup
+
+```bash
+export LC_ALL=C
+date +%F
+git rev-parse HEAD
+git status --short
+```
+
+Record the date and commit SHA in the Context Block. If `git status --short` changes after
+Step 1, rerun the programmatic checks and restart any affected subagents with the new Context
+Block.
+
 ## 1. Documentation Parity
 
 ```bash
@@ -66,10 +79,10 @@ asset scripts. Do not hand-edit frozen versioned docs unless explicitly backport
 Record the live inventory before spawning subagents:
 
 ```bash
-find website/docs -type f -name '*.mdx' | sort
-find website/src/components/Snippet/data -maxdepth 1 -type f -name '*.ts' | sort
-find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | sort
-find docs/architecture -maxdepth 1 -type f -name '*.md' | sort
+LC_ALL=C find website/docs -type f -name '*.mdx' | LC_ALL=C sort
+LC_ALL=C find website/src/components/Snippet/data -maxdepth 1 -type f -name '*.ts' | LC_ALL=C sort
+LC_ALL=C find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | LC_ALL=C sort
+LC_ALL=C find docs/architecture -maxdepth 1 -type f -name '*.md' | LC_ALL=C sort
 printf '%s\n' website/sidebars.ts AGENTS.md .agents/commands/review-docs.md .agents/skills/docs/SKILL.md .agents/skills/review-docs/SKILL.md
 ```
 
@@ -80,6 +93,21 @@ agent workflow doc is a coverage-gap finding.
 **Expected**: Every live file is owned by at least one checklist surface.
 
 **Failure triage**: Add or update a checklist item/surface before running the review.
+
+## 5a. Deterministic i18n Stale-Prose Candidate Set
+
+Use this exact command for S4-C05. It makes the "spot-check 3 pages" rule stable across agents:
+
+```bash
+git log --format=%cs --name-only --diff-filter=M -- website/docs/ \
+  | awk 'NF && $0 !~ /^[0-9]{4}-/ {print}' \
+  | LC_ALL=C sort -u \
+  | head -3
+```
+
+Only produce a finding when one of those three pages has an exact factual mismatch against the
+English source and satisfies the Finding Admission Gate. General translation quality concerns are
+candidate observations, not findings.
 
 ## 6. Diagram Readability
 
@@ -99,12 +127,13 @@ at least one `Start -> ...` edge.
 ## 7. D2 Syntax Validation
 
 ```bash
-for f in docs/diagrams/**/*.d2; do
-  echo "=== $f ===" && d2 validate "$f" 2>&1
-done
+while IFS= read -r f; do
+  echo "=== $f ==="
+  d2 validate "$f" 2>&1
+done < <(LC_ALL=C find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | LC_ALL=C sort)
 ```
 
-**What it checks**: D2 syntax validity for all 23 diagram source files.
+**What it checks**: D2 syntax validity for every live diagram source file from the inventory.
 
 **Expected**: All files validate without errors.
 
@@ -184,6 +213,7 @@ gets updated after a config change but the other is forgotten.
 
 Run checks in this order (fastest first, dependency-free checks in parallel):
 
+0. Deterministic run setup
 1. `npm run docs:parity` + container image policy grep + live inventory capture (parallel)
 2. `check-diagram-readability.sh` + D2 validation loop (parallel)
 3. `make check-agent-docs`

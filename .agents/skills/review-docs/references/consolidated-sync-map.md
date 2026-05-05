@@ -38,7 +38,8 @@ When code changes affect architectural behavior, evaluate and update these diagr
 | External integration changes | `c4-context.md` |
 | Server (SSH/TUI) changes | `sequence-execution.md` (container/virtual variants) |
 
-Diagram sources live in `docs/diagrams/` (23 `.d2` files). Rendered SVGs in `docs/diagrams/rendered/`.
+Diagram sources live in the `docs/diagrams/` live inventory (`*.d2`, excluding experiments).
+Rendered SVGs live in `docs/diagrams/rendered/`.
 Architecture prose docs in `docs/architecture/` reference these SVGs. Website pages in
 `website/docs/architecture/` serve them via Docusaurus static directories.
 
