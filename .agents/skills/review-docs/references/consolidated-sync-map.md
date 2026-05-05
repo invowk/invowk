@@ -19,6 +19,9 @@ The `/docs` skill and `/review-docs` skill both reference this file.
 | `cmd/invowk/validate.go` | `website/docs/reference/cli.mdx` (validate command) |
 | `cmd/invowk/cmd_validate*.go` | `website/docs/dependencies/` pages |
 | `cmd/invowk/tui_*.go` | `website/docs/tui/` pages + snippets |
+| `cmd/invowk/audit.go`, `internal/audit/`, `internal/auditllm/` | `website/docs/security/audit.mdx`, `website/src/components/Snippet/data/security.ts`, `website/docs/reference/cli.mdx`, `README.md` Security Auditing |
+| `cmd/invowk/agent.go`, `internal/agentcmd/`, shared LLM flags/config | `website/docs/advanced/llm-assisted-authoring.mdx`, `website/src/components/Snippet/data/advanced.ts`, `website/docs/reference/cli.mdx`, `README.md` LLM-Assisted Command Authoring |
+| `.agents/skills/review-docs/`, `.agents/commands/review-docs.md` | `.agents/skills/docs/SKILL.md`, `AGENTS.md`, review-docs workflow references |
 | New features | Add/update docs under `website/docs/` and snippets as needed |
 
 ## Code → Diagram Map
@@ -47,3 +50,6 @@ Architecture prose docs in `docs/architecture/` reference these SVGs. Website pa
 4. **Container image policy violations** — All examples must use `debian:stable-slim`. Language-specific images allowed only for language-specific demos.
 5. **pt-BR diagram ID divergence** — Diagram IDs in i18n MDX files can silently diverge from English. `npm run docs:parity` catches this.
 6. **Stale i18n content** — When fixing factual errors in English docs, the same stale content often persists in pt-BR translations and snippet data files.
+7. **Security/audit contract drift** — Audit docs span CLI flags, checker categories, JSON DTOs, LLM provider behavior, and CI examples; review `cmd/invowk/audit.go`, `internal/audit/`, and `security.ts` together.
+8. **LLM contract drift** — `invowk audit` and `invowk agent cmd create` share LLM flags but differ in opt-in/default behavior; verify both docs against `llm_flags.go` and `llmconfig`.
+9. **Agent workflow coverage drift** — New docs sections or snippet data files can outgrow review surfaces; run a live inventory before manual review.

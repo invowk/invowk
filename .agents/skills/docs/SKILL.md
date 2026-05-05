@@ -37,7 +37,7 @@ When code changes require documentation updates:
 
 All code blocks use the `<Snippet>` component — never inline fenced code blocks for reusable content.
 
-- Define snippets in `website/src/components/Snippet/data/*.ts` (11 section files)
+- Define snippets in `website/src/components/Snippet/data/*.ts` (12 section files)
 - Reference by ID: `<Snippet id="section/name" />`
 - Reuse identical snippet IDs across EN and pt-BR translations
 - Escape `${...}` as `\${...}` inside snippets

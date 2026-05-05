@@ -1,6 +1,6 @@
 ---
 name: review-docs
-description: Comprehensive documentation review and audit for invowk. Checks README, website docs (next version only), MDX snippets, CUE schema alignment, i18n parity, architecture diagrams, and container image policy against the actual codebase. Use this when reviewing documentation accuracy, when code changes may have caused doc drift, after significant feature work, or before releases. Always use this skill for any documentation review task, even if the user doesn't explicitly say "review docs" — any mention of checking docs, verifying documentation accuracy, or ensuring docs match code should trigger this skill.
+description: Comprehensive documentation review and audit for invowk. Checks README, website docs (next version only), MDX snippets, CUE schema alignment, i18n parity, architecture diagrams, container image policy, security/audit docs, LLM authoring docs, and agent workflow docs against the actual codebase. Use this when reviewing documentation accuracy, when code changes may have caused doc drift, after significant feature work, or before releases. Always use this skill for any documentation review task, even if the user doesn't explicitly say "review docs" — any mention of checking docs, verifying documentation accuracy, or ensuring docs match code should trigger this skill.
 disable-model-invocation: false
 ---
 
@@ -13,7 +13,8 @@ editing and the `/d2-diagrams` skill for diagram creation.
 ## Purpose and Scope
 
 **Review**: README.md, website docs (next version only), MDX snippets, CUE examples, i18n
-parity, architecture diagrams, container image policy, and DefaultConfig() accuracy.
+parity, architecture diagrams, container image policy, DefaultConfig() accuracy, security/audit
+docs, LLM-assisted authoring docs, and agent workflow docs.
 
 **Do NOT**:
 - Edit documentation (use `/docs` for that after review identifies issues)
@@ -25,7 +26,7 @@ parity, architecture diagrams, container image policy, and DefaultConfig() accur
 
 ## Review Surfaces
 
-The review covers 8 surfaces. Each has a source of truth in the codebase.
+The review covers 11 surfaces. Each has a source of truth in the codebase.
 
 ### S1: README.md
 
@@ -37,7 +38,7 @@ Read `references/readme-sync-map.md` for the full section → source-of-truth ma
 
 ### S2: Website Docs (next version only)
 
-56+ MDX pages in `website/docs/` across 11 sections plus `architecture/`. Source of truth
+59+ MDX pages in `website/docs/` across 12 sections plus `architecture/`. Source of truth
 is the Go code and CUE schemas. Only review `website/docs/` (the "Next" unreleased version
 at `/docs/next/`), never `website/versioned_docs/`.
 
@@ -45,7 +46,7 @@ Read `references/consolidated-sync-map.md` for the full code → docs mapping.
 
 ### S3: Snippet Data and CUE Schema Drift
 
-11 snippet data files in `website/src/components/Snippet/data/*.ts` contain all reusable
+12 snippet data files in `website/src/components/Snippet/data/*.ts` contain all reusable
 code examples. CUE snippets are the most drift-prone because the schema evolves faster than
 the examples.
 
@@ -101,6 +102,24 @@ marketing purposes. Do NOT flag its simplifications as errors.
 Check `references/intentional-simplifications.md` before flagging anything in the homepage,
 Quick Start, or getting-started sections.
 
+### S9: Security Audit Docs
+
+`website/docs/security/audit.mdx`, README security sections, and security snippets document the
+`invowk audit` command. Source of truth is `cmd/invowk/audit.go`, `cmd/invowk/llm_flags.go`,
+`internal/audit/`, `internal/auditllm/`, and `internal/app/llmconfig/`.
+
+### S10: LLM-Assisted Command Authoring Docs
+
+`website/docs/advanced/llm-assisted-authoring.mdx`, README LLM authoring sections, and related
+snippets document `invowk agent cmd`. Source of truth is `cmd/invowk/agent.go`,
+`internal/agentcmd/`, shared LLM flags, and the LLM config resolver.
+
+### S11: Agent Workflow Docs
+
+Agent-facing docs must stay in sync with this skill and the current repository surfaces. Review
+`.agents/commands/review-docs.md`, `.agents/skills/docs/SKILL.md`, `AGENTS.md`, and related
+skill references when the review workflow changes.
+
 ---
 
 ## Consistency Principles
@@ -129,6 +148,10 @@ They apply to both the coordinator and all subagents.
    that pass are reported as PASS with brief evidence. Items that cannot be checked are N/A
    with an explanation. The coordinator verifies completeness during merge.
 
+6. **Inventory-first coverage** — Before spawning subagents, the coordinator records a live
+   inventory of docs, snippet data files, sidebars, diagram sources, and agent workflow docs.
+   Any file or section not assigned to a checklist is itself a finding.
+
 ---
 
 ## Orchestration Strategy
@@ -149,6 +172,8 @@ for f in docs/diagrams/**/*.d2; do d2 validate "$f" 2>&1; done
 
 # Sequential
 make check-agent-docs
+node scripts/validate-version-assets.mjs
+cd website && npm run typecheck
 cd website && npm run build
 ```
 
@@ -162,11 +187,14 @@ container-grep     : PASS | FAIL (files: ...)
 diagram-readability: PASS | FAIL (detail)
 d2-validate        : PASS | FAIL (files: ...)
 check-agent-docs   : PASS | FAIL (detail)
+version-assets     : PASS | FAIL (detail)
+website-typecheck  : PASS | FAIL (detail)
 website-build      : PASS | FAIL (detail)
+doc-inventory      : PASS | FAIL (unassigned files/surfaces: ...)
 ==========================
 ```
 
-### Step 2: Spawn 8 Parallel Subagents
+### Step 2: Spawn 11 Parallel Subagents
 
 Spawn one subagent per surface. Each subagent receives:
 1. The Context Block from Step 1
@@ -185,12 +213,15 @@ checklist review work assigned to any pending subagent.
 |----------|---------|-------------------|-------|
 | **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S1 | Walk 22-section sync map, verify each section against its source of truth |
 | **SA-2: Website Docs** | S2 | `consolidated-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S2 | Verify MDX pages against Go code and CUE schemas using the code→docs map |
-| **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 6 CUE drift patterns to all 11 snippet data files systematically |
+| **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 6 CUE drift patterns to all 12 snippet data files systematically |
 | **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity` results, detect stale prose via git dates |
 | **SA-5: Architecture Diagrams** | S5 | `consolidated-sync-map.md` (diagram section), `surface-checklists.md` §S5 | D2 node/label accuracy vs current package names and code structure |
 | **SA-6: Container Image Policy** | S6 | `surface-checklists.md` §S6 | Deep scan beyond Step 1 grep — CUE runtime fields, Dockerfiles in examples |
 | **SA-7: DefaultConfig() vs Docs** | S7 | `consolidated-sync-map.md`, `surface-checklists.md` §S7 | Field-by-field comparison of DefaultConfig() output vs 4 doc pages + snippets |
 | **SA-8: Homepage & Terminal Demo** | S8 | `intentional-simplifications.md`, `surface-checklists.md` §S8 | Verify simplifications are valid and syntax is not actively misleading |
+| **SA-9: Security Audit Docs** | S9 | `surface-checklists.md` §S9, `consolidated-sync-map.md` | Verify audit command flags, JSON shape, checker categories, correlator rules, LLM opt-in behavior, and snippets |
+| **SA-10: LLM-Assisted Command Authoring** | S10 | `surface-checklists.md` §S10, `consolidated-sync-map.md` | Verify `invowk agent cmd` docs, shared LLM flags/config, write modes, validation behavior, and snippets |
+| **SA-11: Agent Workflow Docs** | S11 | `surface-checklists.md` §S11, `verification-commands.md` | Verify this workflow's command wrapper, docs skill references, AGENTS index text, and stale surface counts |
 
 #### Subagent Prompt Template
 
@@ -228,7 +259,7 @@ For each checklist item:
 
 The coordinator:
 1. **Verifies completeness** — Each subagent reported on all checklist items for its surface
-2. **Collects** findings from SA-1 through SA-8
+2. **Collects** findings from SA-1 through SA-11
 3. **Deduplicates** by (file, line/snippet ID) — keep higher severity on conflicts
 4. **Cross-checks** against `references/intentional-simplifications.md`
 5. **Sorts** by severity (ERROR first), then by surface
@@ -243,7 +274,7 @@ The coordinator:
 Read these when working on the corresponding review surface:
 
 - **[references/surface-checklists.md](references/surface-checklists.md)** — Per-surface
-  enumerated verification items (88 total across 8 surfaces). This is the primary review driver.
+  enumerated verification items (117 total across 11 surfaces). This is the primary review driver.
 - **[references/consolidated-sync-map.md](references/consolidated-sync-map.md)** — Superset
   code → docs mapping (website + diagrams + drift-prone areas)
 - **[references/readme-sync-map.md](references/readme-sync-map.md)** — README section →

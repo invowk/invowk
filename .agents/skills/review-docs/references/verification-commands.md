@@ -33,7 +33,55 @@ missing MDX imports, syntax errors, and unresolved snippet/diagram references.
 `<Snippet>` import statement in MDX, unescaped `${...}` in snippet data, or new page not
 added to `sidebars.ts`.
 
-## 3. Diagram Readability
+## 3. Website Typecheck
+
+```bash
+cd website && npm run typecheck
+```
+
+**What it checks**: TypeScript correctness for Docusaurus config, snippet aggregation, custom
+components, and page code.
+
+**Expected**: Exit 0.
+
+**Failure triage**: Fix TypeScript errors in website source files. Common causes: stale snippet
+imports, removed snippet data exports, or component prop drift.
+
+## 4. Version Asset Validation
+
+```bash
+node scripts/validate-version-assets.mjs
+```
+
+**What it checks**: Current and versioned snippet/diagram asset registries are internally
+consistent without manually reviewing frozen versioned docs.
+
+**Expected**: Exit 0.
+
+**Failure triage**: Regenerate or repair version asset snapshots with the repository's version
+asset scripts. Do not hand-edit frozen versioned docs unless explicitly backporting.
+
+## 5. Live Documentation Inventory
+
+Record the live inventory before spawning subagents:
+
+```bash
+find website/docs -type f -name '*.mdx' | sort
+find website/src/components/Snippet/data -maxdepth 1 -type f -name '*.ts' | sort
+find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | sort
+find docs/architecture -maxdepth 1 -type f -name '*.md' | sort
+printf '%s\n' .agents/commands/review-docs.md .agents/skills/docs/SKILL.md .agents/skills/review-docs/SKILL.md
+```
+
+**What it checks**: The coordinator compares this list against `surface-checklists.md` file
+scopes and the subagent table. Any unassigned docs page, snippet file, diagram source, or
+agent workflow doc is a coverage-gap finding.
+
+**Expected**: Every live file is owned by at least one checklist surface.
+
+**Failure triage**: Add or update a checklist item/surface before running the review.
+
+## 6. Diagram Readability
 
 ```bash
 ./scripts/check-diagram-readability.sh
@@ -48,7 +96,7 @@ at least one `Start -> ...` edge.
 **Failure triage**: Fix the D2 source file to meet the readability requirements. Use the
 `/d2-diagrams` skill for guidance.
 
-## 4. D2 Syntax Validation
+## 7. D2 Syntax Validation
 
 ```bash
 for f in docs/diagrams/**/*.d2; do
@@ -63,7 +111,7 @@ done
 **Failure triage**: Fix D2 syntax errors. Common issues: unquoted labels with special characters,
 missing closing braces, invalid `vars` blocks.
 
-## 5. Agent Docs Integrity
+## 8. Agent Docs Integrity
 
 ```bash
 make check-agent-docs
@@ -75,7 +123,7 @@ make check-agent-docs
 
 **Failure triage**: Update AGENTS.md to match the current filesystem state.
 
-## 6. Container Image Policy Check
+## 9. Container Image Policy Check
 
 ```bash
 # README
@@ -99,7 +147,7 @@ grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' website/i18n/ || echo "i18n: PASS
 **Failure triage**: Replace with `debian:stable-slim`. See `.agents/rules/version-pinning.md`
 Container Images section.
 
-## 7. CUE Snippet Schema Spot-Check
+## 10. CUE Snippet Schema Spot-Check
 
 This is a manual review — no single command catches all drift patterns. The most effective
 approach is:
@@ -120,7 +168,7 @@ Then apply the full pattern checklist from `references/cue-drift-patterns.md`:
 - Version constraints have no `v` prefix
 - Module `includes` paths end with `.invowkmod`
 
-## 8. Dual-Prefix Config Snippet Check
+## 11. Dual-Prefix Config Snippet Check
 
 ```bash
 # List all config-related snippet IDs
@@ -136,8 +184,10 @@ gets updated after a config change but the other is forgotten.
 
 Run checks in this order (fastest first, dependency-free checks in parallel):
 
-1. `npm run docs:parity` + container image policy grep (parallel)
+1. `npm run docs:parity` + container image policy grep + live inventory capture (parallel)
 2. `check-diagram-readability.sh` + D2 validation loop (parallel)
 3. `make check-agent-docs`
-4. `npm run build` (slower, run last — also catches issues from steps 1-3)
-5. CUE snippet spot-check + dual-prefix check (manual, during build)
+4. `node scripts/validate-version-assets.mjs`
+5. `npm run typecheck`
+6. `npm run build` (slower, run last — also catches issues from earlier steps)
+7. CUE snippet spot-check + dual-prefix check (manual, during build)

@@ -8,7 +8,7 @@ deduplication across subagents and prioritized triage.
 ```
 # Documentation Review Report
 - Date: YYYY-MM-DD
-- Surfaces covered: [list of S1-S8 reviewed]
+- Surfaces covered: [list of S1-S11 reviewed]
 - Programmatic checks: [PASS/FAIL for each automated check]
 ```
 
@@ -44,7 +44,8 @@ Each finding is one row. Use this format:
 |---|---|
 | **ID** | `RD-{NNN}` — sequential within the report |
 | **Check ID** | The checklist item that produced this finding (e.g., `S1-C04`) |
-| **Surface** | One of: README, Website, Snippet, i18n, Diagram, ContainerPolicy, Config, Homepage |
+| **Surface** | One of: README, Website, Snippet, i18n, Diagram, ContainerPolicy, Config, Homepage, SecurityAudit, LLMAuthoring, AgentDocs |
+| **Finding Type** | Use the pre-assigned type from the checklist, e.g. `schema-drift`, `security-contract-drift`, or `coverage-gap` |
 | **Severity** | ERROR / WARNING / INFO / SKIP — use the pre-assigned severity from the checklist |
 | **File** | Path relative to repo root |
 | **Line(s)** | Line number(s) or snippet ID |
@@ -66,6 +67,27 @@ what each level means:
 | **INFO** | Style issue, minor improvement opportunity, or non-blocking suggestion | Fix when convenient |
 | **SKIP** | Intentional simplification (documented in `intentional-simplifications.md`) | No action needed |
 
+### Finding Type Definitions
+
+Finding Type is pre-assigned per checklist item in `surface-checklists.md`. Use the checklist's
+type exactly to keep cross-run grouping stable:
+
+| Type | Meaning |
+|---|---|
+| `coverage-gap` | A live documentation or workflow surface is not assigned to any checklist |
+| `source-drift` | Prose no longer matches implementation behavior or source layout |
+| `schema-drift` | Documented CUE/Go schema fields, types, defaults, or validation rules are stale |
+| `cli-contract-drift` | CLI command names, flags, arguments, output, or exit behavior are stale |
+| `snippet-drift` | Snippet data or snippet references are missing, stale, or syntactically invalid |
+| `i18n-structural-drift` | Translation file, snippet ID, or diagram ID structure diverges from English |
+| `i18n-prose-staleness` | Translated prose preserves stale facts after English changed |
+| `diagram-drift` | D2 sources, rendered diagrams, or architecture diagram prose drifted |
+| `policy-violation` | Documentation violates a repository policy such as container image policy |
+| `security-contract-drift` | Security/audit docs drift from command, checker, JSON, or LLM contracts |
+| `generated-asset-drift` | Generated snippet/diagram version assets are stale or not validated |
+| `navigation-drift` | Docs exist but are missing from navigation, sidebars, links, or build references |
+| `agent-docs-drift` | Agent-facing skills, commands, or indexes are stale relative to workflow contracts |
+
 ## Summary Table
 
 End the report with aggregate counts:
@@ -85,13 +107,16 @@ End the report with aggregate counts:
 | Surface | Total Items | PASS | FAIL | N/A |
 |---|---|---|---|---|
 | S1: README | 22 | ... | ... | ... |
-| S2: Website | 13 | ... | ... | ... |
-| S3: Snippet | 18 | ... | ... | ... |
+| S2: Website | 14 | ... | ... | ... |
+| S3: Snippet | 19 | ... | ... | ... |
 | S4: i18n | 6 | ... | ... | ... |
 | S5: Diagram | 11 | ... | ... | ... |
 | S6: ContainerPolicy | 6 | ... | ... | ... |
 | S7: Config | 7 | ... | ... | ... |
 | S8: Homepage | 5 | ... | ... | ... |
+| S9: SecurityAudit | 10 | ... | ... | ... |
+| S10: LLMAuthoring | 8 | ... | ... | ... |
+| S11: AgentDocs | 9 | ... | ... | ... |
 
 ### Breakdown by Surface
 
@@ -105,6 +130,9 @@ End the report with aggregate counts:
 | ContainerPolicy | ... | ... | ... | ... |
 | Config | ... | ... | ... | ... |
 | Homepage | ... | ... | ... | ... |
+| SecurityAudit | ... | ... | ... | ... |
+| LLMAuthoring | ... | ... | ... | ... |
+| AgentDocs | ... | ... | ... | ... |
 
 ### Priority Fix List
 [ERRORs first, then WARNINGs, with file paths for quick navigation]
@@ -112,11 +140,11 @@ End the report with aggregate counts:
 
 ## Merge Procedure (for coordinator)
 
-When merging findings from the 8 surface-dedicated subagents (SA-1 through SA-8):
+When merging findings from the 11 surface-dedicated subagents (SA-1 through SA-11):
 
 1. **Verify completeness** — Each subagent must have reported on ALL checklist items for its
    surface. Flag any missing items (the subagent may need to re-run or explain the gap).
-2. **Collect** all findings from SA-1 through SA-8.
+2. **Collect** all findings from SA-1 through SA-11.
 3. **Deduplicate** by (file, line/snippet ID) — if two subagents found the same issue (possible
    for cross-cutting concerns), keep the one with higher severity and more detail.
 4. **Cross-check** against `references/intentional-simplifications.md` — downgrade any finding
