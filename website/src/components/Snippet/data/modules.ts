@@ -941,12 +941,13 @@ invowk module add https://github.com/user/monorepo.invowkmod.git ^1.0.0 --path m
     code: `Add Module Dependency
 
 ℹ Resolving https://github.com/user/mod.invowkmod.git@^1.0.0...
-✓ Module resolved and lock file updated
+✓ Module resolved
 
 ℹ Git URL:   https://github.com/user/mod.invowkmod.git
 ℹ Version:   ^1.0.0 → 1.2.3
 ℹ Namespace: mod@1.2.3
 ℹ Cache:     /home/user/.invowk/modules/github.com/user/mod.invowkmod/1.2.3
+✓ Module lock file updated
 ✓ Updated invowkmod.cue with new requires entry`,
   },
 

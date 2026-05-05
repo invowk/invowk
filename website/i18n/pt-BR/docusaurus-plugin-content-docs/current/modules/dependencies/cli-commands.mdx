@@ -55,6 +55,18 @@ Resolve uma dependência, faz cache, atualiza o lock file e autoedita `invowkmod
 1. Resolve e faz cache do módulo
 2. Atualiza o lock file
 3. Autoedita `invowkmod.cue` para adicionar a entrada em `requires` (se o arquivo existir)
+
+A saída se parece com:
+```
+ℹ Resolving <url>@<version>...
+✓ Module resolved
+ℹ Git URL:   <url>
+ℹ Version:   <requested> → <resolved>
+ℹ Namespace: <namespace>
+ℹ Cache:     <path>
+✓ Module lock file updated
+✓ Updated invowkmod.cue with new requires entry
+```
 :::
 
 ## invowk module remove
