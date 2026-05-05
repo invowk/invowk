@@ -2144,6 +2144,8 @@ modules: {
 		resolved_version: "1.2.3"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "common-tools@1.2.3"
+		command_source_id: "https://github.com/user/common-tools.invowkmod.git@1.2.3"
+		module_id:        "com.example.common-tools"
 		content_hash:     "sha256:a1b2c3d4e5f6..."
 	}
 }
@@ -3040,28 +3042,24 @@ The JSON output structure:
 {
   "findings": [
     {
-      "code": "script-execution-remote-code-execution-via-piped-download",
-      "severity": "high",
+      "code": "script-execution-script-downloads-and-executes-remote-code",
+      "severity": "critical",
       "category": "execution",
       "surface_id": "tools.invowkmod",
       "surface_kind": "local_module",
       "checker_name": "script",
       "file_path": "tools.invowkmod/invowkfile.cue",
       "line": 15,
-      "title": "Remote code execution via piped download",
-      "description": "Script downloads and executes remote code without verification",
-      "recommendation": "Pin the URL and verify checksums before execution"
+      "title": "Script downloads and executes remote code",
+      "description": "Command \"bootstrap\" contains a remote code download and execution pattern (pipe, process substitution, or download-then-execute)",
+      "recommendation": "Download to a temporary file, verify its checksum, then execute"
     }
   ],
-  "compound_threats": [],
-  "suppressed_findings": [],
-  "suppressed_compound_threats": [],
-  "diagnostics": [],
   "summary": {
     "total": 1,
     "suppressed": 0,
-    "critical": 0,
-    "high": 1,
+    "critical": 1,
+    "high": 0,
     "medium": 0,
     "low": 0,
     "info": 0,
@@ -3100,9 +3098,14 @@ invowk/
 │   └── internal.go             # Hidden internal commands
 ├── internal/
 │   ├── app/                    # Hexagonal domain layer
+│   │   ├── commandadapters/    # Application adapters for discovery and dependency services
 │   │   ├── commandsvc/         # Command execution service (discovery, validation, dispatch)
 │   │   ├── deps/               # Dependency validation domain logic
-│   │   └── execute/            # Execution orchestration (runtime resolution, context construction)
+│   │   ├── execute/            # Execution orchestration (runtime resolution, context construction)
+│   │   ├── llmconfig/          # Shared LLM configuration resolution
+│   │   ├── modulecache/        # Module cache domain service
+│   │   ├── moduleops/          # Module create/import/archive/vendor operations
+│   │   └── modulesync/         # Module sync and tidy orchestration
 │   ├── benchmark/              # Benchmarks for PGO profile generation
 │   ├── config/                 # Configuration management with CUE schema
 │   ├── container/              # Container engine abstraction (Docker, Podman, sandbox)
