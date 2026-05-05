@@ -118,7 +118,6 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/tui-testing/`](.agents/skills/tui-testing/) - VHS-based TUI testing workflow for autonomous visual analysis.
 - [`.agents/skills/uroot/`](.agents/skills/uroot/) - u-root utility implementation patterns.
 - [`.agents/skills/learn/`](.agents/skills/learn/) - User-invokable (`/learn`). Post-work learning review to keep `.claude/CLAUDE.md`, hooks, rules, and skills up-to-date.
-- [`.agents/skills/pr/`](.agents/skills/pr/) - GitHub PR workflow: tests, lints, license check, branch creation, conventional commits, and PR description.
 - [`.agents/skills/changelog/`](.agents/skills/changelog/) - User-invokable (`/changelog`). Generate release notes from conventional commits since last tag.
 - [`.agents/skills/ci-update/`](.agents/skills/ci-update/) - User-invokable (`/ci-update`). Audit and update CI workflow versions, tool installs, MCP servers, and pre-commit hooks with sync pair validation.
 - [`.agents/skills/dep-audit/`](.agents/skills/dep-audit/) - User-invokable (`/dep-audit`). Audit Go dependencies for vulnerabilities and available updates.
