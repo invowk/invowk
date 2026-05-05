@@ -187,6 +187,7 @@ func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID ContainerID
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), removeArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
 	return cmd.Run()
 }
@@ -208,6 +209,7 @@ func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image ImageTag) (b
 	checkArgs := baseEngine.ImageExistsArgs(image)
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), checkArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
 	err := cmd.Run()
 	return err == nil, nil
@@ -228,6 +230,7 @@ func (e *SandboxAwareEngine) RemoveImage(ctx context.Context, image ImageTag, fo
 	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), removeArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
 	return cmd.Run()
 }

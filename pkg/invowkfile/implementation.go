@@ -442,7 +442,7 @@ func validateScriptPathContainment(scriptPath, modulePath FilesystemPath) error 
 	if err != nil {
 		return fmt.Errorf("%w: failed to resolve path relative to module: %w", ErrScriptPathTraversal, err)
 	}
-	if strings.HasPrefix(relPath, "..") {
+	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("%w: '%s' resolves outside module '%s'",
 			ErrScriptPathTraversal, scriptPath, modulePath)
 	}

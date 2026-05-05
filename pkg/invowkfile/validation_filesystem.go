@@ -5,6 +5,7 @@ package invowkfile
 import (
 	"errors"
 	"fmt"
+	slashpath "path"
 	"path/filepath"
 	"strings"
 
@@ -124,9 +125,10 @@ func ValidateEnvFilePath(filePath string) error {
 		return errors.New("env file path contains null byte")
 	}
 
-	// Check for path traversal sequences
-	normalized := filepath.Clean(cleanPath)
-	if strings.HasPrefix(normalized, "..") || strings.Contains(normalized, string(filepath.Separator)+"..") {
+	// Check for path traversal sequences using slash semantics so backslash
+	// traversal is rejected identically on every host OS.
+	normalized := slashpath.Clean(strings.ReplaceAll(cleanPath, "\\", "/"))
+	if normalized == ".." || strings.HasPrefix(normalized, "../") || strings.Contains(normalized, "/../") {
 		return fmt.Errorf("env file path cannot contain '..': %s", filePath)
 	}
 

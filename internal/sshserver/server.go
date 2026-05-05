@@ -19,6 +19,8 @@ import (
 	"github.com/charmbracelet/wish"
 )
 
+const cmdWaitDelay = 10 * time.Second
+
 type (
 	// Clock abstracts time operations for deterministic testing.
 	// Production code uses realClock; tests inject a fake clock.
@@ -203,6 +205,7 @@ func (s *Server) runInteractiveShell(sess ssh.Session) {
 	shell := string(s.cfg.DefaultShell)
 
 	cmd := exec.CommandContext(sess.Context(), shell)
+	cmd.WaitDelay = cmdWaitDelay
 	cmd.Env = append(os.Environ(), sess.Environ()...)
 
 	ptyReq, winCh, isPty := sess.Pty()
@@ -250,6 +253,7 @@ func (s *Server) runCommand(sess ssh.Session, args []string) {
 	} else {
 		cmd = exec.CommandContext(sess.Context(), args[0], args[1:]...)
 	}
+	cmd.WaitDelay = cmdWaitDelay
 
 	cmd.Env = append(os.Environ(), sess.Environ()...)
 	cmd.Stdin = sess

@@ -45,7 +45,7 @@ func ResolveDockerfilePath(contextPath, dockerfilePath string) (string, error) {
 //plint:render
 func FormatVolumeMount(mount VolumeMount) string {
 	var result strings.Builder
-	result.WriteString(string(mount.HostPath))
+	result.WriteString(filepath.ToSlash(string(mount.HostPath)))
 	result.WriteString(":")
 	result.WriteString(string(mount.ContainerPath))
 
