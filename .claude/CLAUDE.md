@@ -80,7 +80,7 @@ Commands are user-invokable slash commands (e.g., `/review-docs`) that execute m
 - [`.agents/commands/fix-it.md`](.agents/commands/fix-it.md) - Analyze issues and propose robust fix plan with prevention strategy.
 - [`.agents/commands/fix-it-simple.md`](.agents/commands/fix-it-simple.md) - Analyze issues and propose concise fix with prevention.
 - [`.agents/commands/improve-type-system.md`](.agents/commands/improve-type-system.md) - Four-phase DDD Value Type conversion: assess goplint findings, plan conversions by impact, execute via invowk-typesystem skill, verify baseline.
-- [`.agents/commands/review-docs.md`](.agents/commands/review-docs.md) - Review README and website docs for accuracy against current architecture and behaviors.
+- [`.agents/commands/review-docs.md`](.agents/commands/review-docs.md) - Review all documentation surfaces for accuracy against current architecture and behavior: README, current website docs, snippets, i18n, diagrams, config defaults, security audit docs, LLM authoring docs, and agent workflow docs.
 - [`.agents/commands/review-rules.md`](.agents/commands/review-rules.md) - Review rules files for contradictions, ambiguities, incoherence, or excessive noise.
 - [`.agents/commands/review-tests.md`](.agents/commands/review-tests.md) - Review test suite for semantic comprehensiveness, signal-to-noise, and E2E coverage.
 - [`.agents/commands/review-type-system.md`](.agents/commands/review-type-system.md) - Review Go type system for type safety improvements and abstraction opportunities.
@@ -98,7 +98,7 @@ Skills provide domain-specific procedural guidance. They are invoked when workin
 - [`.agents/skills/d2-diagrams/`](.agents/skills/d2-diagrams/) - Agent-optimized D2 diagram generation with TALA layout, validation pipeline, deterministic output. **DEFAULT for new diagrams.**
 - [`.agents/skills/discovery/`](.agents/skills/discovery/) - Module/command discovery, precedence order, collision detection, source tracking.
 - [`.agents/skills/docs/`](.agents/skills/docs/) - Documentation editing workflow: Docusaurus, MDX snippets, i18n, versioning. For review/audit, use `/review-docs`.
-- [`.agents/skills/review-docs/`](.agents/skills/review-docs/) - User-invokable (`/review-docs`). Documentation review and audit: README, website docs, snippets, CUE drift, i18n parity, diagrams, container policy.
+- [`.agents/skills/review-docs/`](.agents/skills/review-docs/) - User-invokable (`/review-docs`). Documentation review and audit across 11 surfaces: README, current website docs, snippet/CUE drift, i18n parity, diagrams, container policy, `DefaultConfig()` docs, security audit docs, LLM authoring docs, and agent workflow docs.
 - [`.agents/skills/review-tests/`](.agents/skills/review-tests/) - User-invokable (`/review-tests`). Test suite review and audit: structural hygiene, parallelism, assertions, integration gating, testscript quality, mirrors, coverage guardrails, domain testing.
 - [`.agents/skills/invowk-schema/`](.agents/skills/invowk-schema/) - Invowkfile/invowkmod schema guidelines, cross-platform runtime patterns.
 - [`.agents/skills/invowk-typesystem/`](.agents/skills/invowk-typesystem/) - Invowk value-type system guidance: Validate() contracts, primitive wrappers, aliases/re-exports, and catalog maintenance.

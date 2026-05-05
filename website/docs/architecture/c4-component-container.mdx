@@ -16,7 +16,7 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
-| **Engine** | Go interface | 10-method contract for container operations: `Name`, `Available`, `Version`, `Build`, `Run`, `Remove`, `ImageExists`, `RemoveImage`, `BinaryPath`, `BuildRunArgs`. All factory functions return this type. |
+| **Engine** | Go interface | 11-method contract for container operations: `Name`, `Available`, `Version`, `Build`, `Run`, `Remove`, `ImageExists`, `RemoveImage`, `BinaryPath`, `BuildRunArgs`, `PrepareRunCommand`. All factory functions return this type. |
 
 ## Implementations
 

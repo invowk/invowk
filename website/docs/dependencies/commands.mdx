@@ -10,6 +10,8 @@ Command dependencies (`depends_on.cmds`) are a **discovery check**: they ensure 
 
 Invowk does **not** execute those commands automatically.
 
+For commands inside modules, this is also a **static access check**. A module command may depend on commands from the same module, globally installed modules in `~/.invowk/cmds`, or direct dependencies declared in the root `invowkmod.cue:requires`. Commands from unrelated modules or undeclared transitive dependencies fail validation even if they are otherwise discoverable. Root invowkfile commands are checked for discoverability only.
+
 ## Basic Usage
 
 <Snippet id="dependencies/commands-basic" />
@@ -26,6 +28,8 @@ If none of the listed alternatives can be found, Invowk fails with a **Missing C
 <Snippet id="dependencies/commands-alternatives" />
 
 The dependency is satisfied if **any** alternative is discoverable.
+
+For module commands, the chosen alternative must also pass the static access check described above.
 
 ## Multiple Requirements (AND Semantics)
 

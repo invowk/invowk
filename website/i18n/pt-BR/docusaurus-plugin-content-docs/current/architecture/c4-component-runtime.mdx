@@ -23,6 +23,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 | **Runtime** | `Name()`, `Execute()`, `Available()`, `Validate()` | Contrato principal de execução. Todos os runtimes implementam este. `Execute` retorna um `*Result` com exit code e erro -- exit code diferente de zero sem erro é uma saída normal de processo; erro indica falha de infraestrutura. |
 | **CapturingRuntime** | `ExecuteCapture()` | Capacidade opcional de captura de saída. Retorna um `*Result` com campos `Output` e `ErrOutput` preenchidos. Não embarca `Runtime`. |
 | **InteractiveRuntime** | `SupportsInteractive()`, `PrepareInteractive()` | Capacidade de attachment de PTY. Embarca `Runtime`. Retorna um `PreparedCommand` com um `exec.Cmd` pronto para attachment de PTY e uma função de cleanup. |
+| **HostServiceAddressProvider** | `HostServiceAddress()` | Capacidade opcional para runtimes cujos processos filhos precisam de um endereço diferente de localhost para alcançar serviços do host, como o servidor TUI. Implementada por ContainerRuntime. |
 | **EnvBuilder** | `Build()` | Construção de variáveis de ambiente seguindo uma hierarquia de precedência de 10 níveis (env do host no nível 1 até flags CLI `--ivk-env-var` no nível 10). |
 
 ## Implementações
@@ -31,7 +32,7 @@ O pacote runtime (`internal/runtime/`) é responsável por executar comandos def
 |------------|------------|------------------|
 | **NativeRuntime** | Go | Executa comandos via shell do host (`bash`/`sh` no Unix, `PowerShell` no Windows). Opção mais rápida. Shell override configurável. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
 | **VirtualRuntime** | Go/mvdan-sh | Interpretador de shell POSIX embarcado com utilitários built-in u-root opcionais. Sem dependência de shell do host. Cria um subprocesso de si mesmo para modo interativo baseado em PTY. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
-| **ContainerRuntime** | Go | Executa comandos dentro de containers Docker/Podman. Depende de `container.Engine`, `provision.LayerProvisioner`, a porta `runtime.HostCallbackServer` para callbacks opcionais do host e `config.Config`. Somente containers Linux. Implementa Runtime, CapturingRuntime e InteractiveRuntime. |
+| **ContainerRuntime** | Go | Executa comandos dentro de containers Docker/Podman. Depende de `container.Engine`, `provision.LayerProvisioner`, a porta `runtime.HostCallbackServer` para callbacks opcionais do host e `config.Config`. Somente containers Linux. Implementa Runtime, CapturingRuntime, InteractiveRuntime e HostServiceAddressProvider. |
 | **DefaultEnvBuilder** | Go | Implementação padrão de precedência de 10 níveis: env do host (filtrado) -> env files root/command/impl -> env vars root/command/impl -> ExtraEnv -> env files do runtime -> env vars do runtime. |
 | **MockEnvBuilder** | Go | Helper de teste que retorna um mapa de ambiente fixo. Permite testar runtimes isoladamente sem acesso real ao sistema de arquivos ou carregamento de env. |
 

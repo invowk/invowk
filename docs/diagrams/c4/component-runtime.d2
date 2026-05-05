@@ -71,6 +71,18 @@ runtime_pkg: internal/runtime {
     |
   }
 
+  host_addr_iface: HostServiceAddressProvider {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Interface**
+      Provides the host address runtime children
+      use to reach host services such as the TUI server.
+    |
+  }
+
   env_builder_iface: EnvBuilder {
     style: {
       fill: "#85BBF0"
@@ -300,6 +312,14 @@ runtime_pkg: internal/runtime {
     }
   }
   container_rt -> interactive_iface: implements {
+    style: {
+      stroke: "#707070"
+      stroke-dash: 3
+    }
+  }
+
+  # ContainerRuntime also exposes the host service address for child processes
+  container_rt -> host_addr_iface: implements {
     style: {
       stroke: "#707070"
       stroke-dash: 3

@@ -317,6 +317,8 @@ O DTO JSON inclui:
 
 Cada achado inclui `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, `file_path`/`line` opcionais, `title`, `description`, `recommendation` e campos opcionais de proveniência de escalação. Valores válidos de `surface_kind` são `root_invowkfile`, `local_module`, `vendored_module` e `global_module`.
 
+Cada achado suprimido ou ameaça composta suprimida envolve a entrada original como `finding` e inclui os campos `disposition`, `rule` e `rationale`, que explicam por que a triagem a suprimiu.
+
 ### Exemplo com GitHub Actions
 
 ```yaml

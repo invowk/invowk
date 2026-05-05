@@ -231,6 +231,8 @@ invowk agent cmd create --llm-provider codex --verify 'add a release command'
 
 `agent cmd create` uses the global `llm` config when present, and the same LLM flags as `invowk audit` for per-run overrides: `--llm-provider`, `--llm`, `--llm-url`, `--llm-model`, `--llm-api-key`, `--llm-timeout`, and `--llm-concurrency`. The command retries once with validation feedback when a model returns invalid output, uses structured JSON output with compatible OpenAI API backends, and rejects malformed JSON, invalid CUE, and full `cmds` arrays. When writing to `invowkfile.cue`, duplicate command names are rejected unless `--replace` is set.
 
+When `agent cmd create` uses an LLM provider, it sends the command-authoring system prompt and schemas, your request, the target path, the current target invowkfile content or missing/empty state, and repair feedback if validation retries. For cloud providers, review your provider's data handling policies before sending private scripts or workspace details.
+
 ## Invowkfile Format
 
 Invowkfiles are written in [CUE](https://cuelang.org/) format. CUE provides powerful validation, templating, and a clean syntax. Invowkfiles contain **commands only**; module metadata lives in `invowkmod.cue` when you build a module. Here's an example:
@@ -2144,8 +2146,8 @@ modules: {
 		resolved_version: "1.2.3"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "common-tools@1.2.3"
-		command_source_id: "https://github.com/user/common-tools.invowkmod.git@1.2.3"
-		module_id:        "com.example.common-tools"
+		command_source_id: "common-tools"
+		module_id:        "com.example.commontools"
 		content_hash:     "sha256:a1b2c3d4e5f6..."
 	}
 }
@@ -3126,6 +3128,7 @@ invowk/
 │   ├── uroot/                  # u-root utilities for virtual shell built-ins
 │   └── watch/                  # File-watching with debounced re-execution
 ├── pkg/
+│   ├── containerargs/          # Shared Docker/Podman argument validation
 │   ├── cueutil/                # Shared CUE parsing utilities
 │   ├── fspath/                 # Filesystem path wrappers (typed paths)
 │   ├── invowkmod/              # Module validation and structure

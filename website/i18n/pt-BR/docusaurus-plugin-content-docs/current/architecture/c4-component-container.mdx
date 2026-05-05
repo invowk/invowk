@@ -16,7 +16,7 @@ Este diagrama amplia o container **Container Engine Abstraction** do [Diagrama d
 
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
-| **Engine** | Interface Go | Contrato de 10 métodos para operações de container: `Name`, `Available`, `Version`, `Build`, `Run`, `Remove`, `ImageExists`, `RemoveImage`, `BinaryPath`, `BuildRunArgs`. Todas as funções factory retornam este tipo. |
+| **Engine** | Interface Go | Contrato de 11 métodos para operações de container: `Name`, `Available`, `Version`, `Build`, `Run`, `Remove`, `ImageExists`, `RemoveImage`, `BinaryPath`, `BuildRunArgs`, `PrepareRunCommand`. Todas as funções factory retornam este tipo. |
 
 ## Implementações
 

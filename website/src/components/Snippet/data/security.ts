@@ -29,7 +29,7 @@ invowk audit --include-global`,
 invowk config set llm.provider codex
 invowk audit --llm
 
-# Auto-detect best available provider (local Ollama first, then cloud)
+# Auto-detect best available provider (local Ollama, cloud env vars, then CLI tools)
 invowk audit --llm-provider auto
 
 # Use a specific provider (works with OAuth — no API key needed)

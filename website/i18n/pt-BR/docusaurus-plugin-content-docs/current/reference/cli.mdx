@@ -556,7 +556,7 @@ Escanear riscos de segurança em invowkfiles, módulos e scripts. Veja o guia de
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Habilitar LLM usando configuração ou API |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
-| `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
+| `--llm-model` | Fallback de API/Ollama: `qwen2.5-coder:7b`; padrão da ferramenta para provedor CLI quando omitido | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
@@ -602,7 +602,7 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--llm-provider` | | Auto-detectar ou forçar provedor: `auto`, `claude`, `codex`, `gemini`, `ollama` |
 | `--llm` | `false` | Habilitar LLM usando configuração ou API |
 | `--llm-url` | `http://localhost:11434/v1` | URL base da API compatível com OpenAI |
-| `--llm-model` | `qwen2.5-coder:7b` | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
+| `--llm-model` | Fallback de API/Ollama: `qwen2.5-coder:7b`; padrão da ferramenta para provedor CLI quando omitido | Nome do modelo; obrigatório para provedores de API cloud e opcional para provedores CLI |
 | `--llm-api-key` | *(vazio)* | Chave de API (vazio para servidores locais) |
 | `--llm-timeout` | `2m` | Timeout por requisição |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |

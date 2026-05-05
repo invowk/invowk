@@ -317,6 +317,8 @@ The JSON DTO includes:
 
 Each finding includes `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, optional `file_path`/`line`, `title`, `description`, `recommendation`, and optional escalation provenance fields. Valid `surface_kind` values are `root_invowkfile`, `local_module`, `vendored_module`, and `global_module`.
 
+Each suppressed finding or suppressed compound threat wraps the original entry as `finding` and includes `disposition`, `rule`, and `rationale` fields that explain why triage suppressed it.
+
 ### GitHub Actions Example
 
 ```yaml
