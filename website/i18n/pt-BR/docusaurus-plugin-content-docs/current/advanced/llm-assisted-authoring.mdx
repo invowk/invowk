@@ -36,7 +36,7 @@ Veja [Opções de Configuração](../configuration/options#llm) para exemplos de
 Por padrão, `create` atualiza `invowkfile.cue`. Use `--dry-run` para visualizar o patch, `--print` para imprimir apenas o objeto de comando gerado, `--verify` para resolver o comando escrito com um plano de execução dry-run e `--replace` quando você realmente quiser substituir um comando existente com o mesmo nome.
 
 :::caution O conteúdo do prompt é enviado ao provedor configurado
-`create` envia a sua solicitação e o conteúdo atual do invowkfile de destino ao provedor LLM selecionado. Use um provedor local quando as definições de comandos tiverem detalhes privados do projeto.
+`create` envia o system prompt e schemas de autoria gerados, além de um prompt de usuário contendo sua solicitação, o caminho do invowkfile de destino e o conteúdo atual do invowkfile de destino ou seu estado de arquivo ausente/vazio. Use um provedor local quando as definições de comandos tiverem detalhes privados do projeto.
 :::
 
 ## Validação

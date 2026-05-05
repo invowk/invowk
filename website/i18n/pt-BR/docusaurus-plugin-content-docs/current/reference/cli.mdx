@@ -605,6 +605,8 @@ Gerar um comando personalizado com uma LLM, validá-lo e aplicar o patch em `inv
 | `--llm-timeout` | `2m` | Timeout por requisição |
 | `--llm-concurrency` | `2` | Máximo de requisições LLM paralelas |
 
+`--dry-run` e `--print` são mutuamente exclusivos. `--verify` exige escrever o invowkfile e não pode ser combinado com `--dry-run` ou `--print`.
+
 **Exemplos:**
 
 <Snippet id="reference/cli/agent-examples" />

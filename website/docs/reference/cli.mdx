@@ -605,6 +605,8 @@ Generate one custom command with an LLM, validate it, and patch `invowkfile.cue`
 | `--llm-timeout` | `2m` | Per-request timeout |
 | `--llm-concurrency` | `2` | Max parallel LLM requests |
 
+`--dry-run` and `--print` are mutually exclusive. `--verify` requires writing the invowkfile and cannot be combined with `--dry-run` or `--print`.
+
 **Examples:**
 
 <Snippet id="reference/cli/agent-examples" />

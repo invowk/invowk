@@ -118,6 +118,7 @@ O correlacionador identifica quando achados de diferentes checkers aparecem na m
 | **Escape path + symlink** | Script + Symlink | Crítica |
 | **Exfiltração ofuscada** | Script + Network | Crítica |
 | **Fraqueza na cadeia de confiança** | Module Metadata + Lock File | Alta |
+| **Travessia de interpretador** | Execução de script + path traversal | Crítica |
 
 **Escalação automática de severidade:**
 - 3+ categorias distintas na mesma superfície &rarr; **Crítica**
@@ -173,8 +174,7 @@ Os checkers integrados usam padrões regex — são rápidos e determinísticos 
 O checker LLM funciona com qualquer servidor que implemente a API OpenAI `/v1/chat/completions`. A configuração padrão usa o [Ollama](https://ollama.com), o servidor LLM local mais popular:
 
 ```bash
-# 1. Instalar Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+# 1. Instalar Ollama com seu gerenciador de pacotes ou por https://ollama.com
 
 # 2. Baixar um modelo focado em código
 ollama pull qwen2.5-coder:7b
@@ -294,16 +294,36 @@ invowk audit --severity high
 
 <Snippet id="security/audit-json-example" />
 
+O DTO JSON inclui:
+
+| Campo | Descrição |
+|-------|-----------|
+| `findings[]` | Achados confirmados no limiar de severidade ou acima dele |
+| `compound_threats[]` | Achados confirmados do correlacionador no limiar de severidade ou acima dele |
+| `suppressed_findings[]` | Achados suprimidos por regras de triagem |
+| `suppressed_compound_threats[]` | Achados do correlacionador suprimidos |
+| `diagnostics[]` | Diagnósticos do scanner que não são achados |
+| `summary.suppressed` | Contagem de achados e ameaças compostas suprimidos |
+
+Cada achado inclui `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, `file_path`/`line` opcionais, `title`, `description`, `recommendation` e campos opcionais de proveniência de escalação.
+
 ### Exemplo com GitHub Actions
 
 ```yaml
 - name: Auditoria de segurança
   run: |
+    set +e
     invowk audit --severity high --format json > audit-results.json
-    if [ $? -eq 1 ]; then
+    status=$?
+    set -e
+
+    if [ "$status" -eq 1 ]; then
       echo "::error::Achados de segurança detectados"
-      cat audit-results.json | jq '.findings[] | "[\(.severity)] \(.title)"'
+      jq -r '.findings[] | "[\(.severity)] \(.title)"' audit-results.json
       exit 1
+    elif [ "$status" -ne 0 ]; then
+      cat audit-results.json
+      exit "$status"
     fi
 ```
 
@@ -312,9 +332,10 @@ invowk audit --severity high
 ```yaml
 - name: Iniciar Ollama
   run: |
-    curl -fsSL https://ollama.com/install.sh | sh
-    ollama pull qwen2.5-coder:7b &
-    wait
+    # Use uma imagem de runner ou etapa de setup que instale o Ollama explicitamente.
+    ollama serve > ollama.log 2>&1 &
+    sleep 2
+    ollama pull qwen2.5-coder:7b
 
 - name: Auditoria de segurança (com LLM)
   run: invowk audit --llm --severity high --format json

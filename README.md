@@ -2448,6 +2448,26 @@ ui: {
   verbose: false
   interactive: false      // Enable alternate screen buffer mode for command execution
 }
+
+// LLM provider defaults for LLM-aware commands (optional)
+// Invowk leaves this unset by default. `invowk agent cmd create`
+// uses configured LLM settings automatically; `invowk audit` still
+// requires explicit opt-in with --llm or --llm-provider.
+llm: {
+  provider: "codex"        // "auto", "claude", "codex", "gemini", or "ollama"
+  model: "gpt-5.1-codex"   // Optional for CLI providers
+  timeout: "2m"            // Optional; built-in resolver fallback when omitted
+  concurrency: 2           // Optional; built-in resolver fallback when omitted
+}
+
+// Or configure an OpenAI-compatible API without storing raw secrets:
+// llm: {
+//   api: {
+//     base_url: "https://api.openai.com/v1"
+//     model: "gpt-5.1"
+//     api_key_env: "OPENAI_API_KEY"
+//   }
+// }
 ```
 
 ## Shell Completion
@@ -2762,6 +2782,9 @@ invowk tui pager --line-numbers myfile.go
 
 # With title
 git log | invowk tui pager --title "Git History"
+
+# Soft-wrap long lines
+make build 2>&1 | invowk tui pager --title "Build Output" --soft-wrap
 ```
 
 ### Format
@@ -2777,6 +2800,12 @@ cat main.go | invowk tui format --type code --language go
 
 # Convert emoji shortcodes
 echo "Hello :wave: World :smile:" | invowk tui format --type emoji
+
+# Pass template-formatted text through the template formatter
+echo "Hello {{.Name}}" | invowk tui format --type template
+
+# Pick a Glamour theme for markdown/code output
+cat README.md | invowk tui format --type markdown --theme dark
 ```
 
 ### Style
@@ -2889,6 +2918,7 @@ After individual checkers run, the **correlator** cross-references findings from
 | Path + symlink escape | path traversal + external symlink | Critical |
 | Obfuscated exfiltration | obfuscation + network access | Critical |
 | Trust chain weakness | metadata issues + lock file issues | High |
+| Interpreter traversal | unusual interpreter + path traversal | Critical |
 
 Additional automatic escalation rules:
 - 3+ distinct security categories in the same surface &rarr; **Critical**
@@ -2965,7 +2995,7 @@ llm: {
 
 | Server | Default Port | Install |
 |--------|-------------|---------|
-| [Ollama](https://ollama.com) | 11434 | `curl -fsSL https://ollama.com/install.sh \| sh && ollama pull qwen2.5-coder:7b` |
+| [Ollama](https://ollama.com) | 11434 | Install from your package manager or ollama.com, then run `ollama pull qwen2.5-coder:7b` |
 | [LM Studio](https://lmstudio.ai) | 1234 | Download from website, load a model |
 | [llamafile](https://github.com/mozilla-ai/llamafile) | 8080 | Download single executable, run |
 | [vLLM](https://docs.vllm.ai) | 8000 | `pip install vllm` |
@@ -3002,9 +3032,12 @@ The JSON output structure:
 {
   "findings": [
     {
+      "code": "script-execution-remote-code-execution-via-piped-download",
       "severity": "high",
       "category": "execution",
       "surface_id": "tools.invowkmod",
+      "surface_kind": "module",
+      "checker_name": "script",
       "file_path": "tools.invowkmod/invowkfile.cue",
       "line": 15,
       "title": "Remote code execution via piped download",
@@ -3013,8 +3046,12 @@ The JSON output structure:
     }
   ],
   "compound_threats": [],
+  "suppressed_findings": [],
+  "suppressed_compound_threats": [],
+  "diagnostics": [],
   "summary": {
     "total": 1,
+    "suppressed": 0,
     "critical": 0,
     "high": 1,
     "medium": 0,
@@ -3047,6 +3084,7 @@ invowk/
 │   ├── init.go                 # init command
 │   ├── config.go               # config commands
 │   ├── validate.go             # validate command
+│   ├── agent.go                # LLM-assisted command authoring helpers
 │   ├── audit.go                # audit command (security scanning + LLM analysis)
 │   ├── completion.go           # Shell completion generation
 │   ├── tui.go                  # tui parent command
@@ -3064,6 +3102,8 @@ invowk/
 │   ├── discovery/              # Invowkfile and module discovery
 │   ├── audit/                  # Security scanning (6 checkers + LLM + correlator)
 │   ├── auditllm/               # LLM provider adapters for audit analysis
+│   ├── agentcmd/               # LLM-assisted custom-command authoring pipeline
+│   ├── llm/                    # Shared LLM completion interface and adapters
 │   ├── issue/                  # Error types and ActionableError
 │   ├── provision/              # Container provisioning (ephemeral layer attachment)
 │   ├── runtime/                # Runtime implementations (native, virtual, container)

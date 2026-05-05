@@ -22,7 +22,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
-| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion`, `audit` |
+| **CLI Commands** | Go/Cobra | Pontos de entrada para todas as interações do usuário: subcomandos `cmd`, `init`, `config`, `module`, `tui`, `validate`, `completion`, `audit`, `agent` |
 
 ### Motor Principal
 
@@ -37,6 +37,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | **Module Resolver** | Go | Usado por comandos de módulo como `invowk module sync` para resolver dependências baseadas em Git. Gerencia cache em `~/.invowk/modules/`. Lida com lock files para reprodutibilidade. |
 | **Watch Engine** | Go | Monitora o sistema de arquivos para mudanças. Aplica debounce nos eventos de mudança e dispara re-execução de comandos para o modo `--ivk-watch`. |
 | **Audit Scanner** | Go | Varredura de segurança do sistema de módulos (`internal/audit/`). Detecta riscos de supply-chain, travessia de caminho, abuso de symlink e injeção de variáveis de ambiente. Suporta flag `--llm` para análise com LLM. |
+| **Agent Command Authoring** | Go | Autoria de comandos assistida por LLM (`internal/agentcmd/`, `internal/llm/`). Renderiza prompts de agente, resolve backends LLM configurados, valida CUE gerado e aplica patches em `invowkfile.cue`. |
 
 ### Runtimes
 
