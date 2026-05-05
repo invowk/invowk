@@ -122,11 +122,16 @@ func validateSensitiveVolumeMountPath(hostPath string) error {
 			}
 			continue
 		}
-		if strings.HasPrefix(lowerHost, sensitive) || lowerHost == sensitive {
+		if isPathBoundaryMatch(lowerHost, sensitive) {
 			return fmt.Errorf("volume mount attempts to mount sensitive path %q", sensitive)
 		}
 	}
 	return nil
+}
+
+//goplint:ignore -- parser helper compares raw slash-separated host path syntax.
+func isPathBoundaryMatch(candidate, base string) bool {
+	return candidate == base || strings.HasPrefix(candidate, base+"/")
 }
 
 //goplint:ignore -- parser helper validates raw Docker/Podman CLI port syntax.

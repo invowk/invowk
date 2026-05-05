@@ -90,6 +90,7 @@ type (
 
 	// MountTargetPath represents a filesystem path inside a container for volume mounts.
 	// A valid path must be non-empty and not whitespace-only.
+	//goplint:path-domain=container
 	MountTargetPath string
 
 	// PortMappingSpec is the raw port mapping argument accepted by Docker/Podman.

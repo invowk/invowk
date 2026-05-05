@@ -374,6 +374,7 @@ func TestVolumeMountSpec_Validate(t *testing.T) {
 		{"missing container path is invalid", "/host", true},
 		{"relative container path is invalid", "/host:container", true},
 		{"sensitive host path is invalid", "/etc/shadow:/data", true},
+		{"sensitive path sibling is valid", "/etc/passwd2:/data", false},
 	}
 
 	for _, tt := range tests {
