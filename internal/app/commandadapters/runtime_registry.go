@@ -63,7 +63,9 @@ func (f RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc
 
 	result := commandsvc.RuntimeRegistryResult{
 		Registry: runtime.NewRegistry(),
-		Cleanup:  func() {},
+		Cleanup: func() {
+			// Native and virtual runtimes do not allocate registry resources.
+		},
 	}
 	result.Registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
 	result.Registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(

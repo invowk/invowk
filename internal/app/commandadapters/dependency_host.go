@@ -122,7 +122,7 @@ func (dependencyHostProbe) RunCustomCheck(ctx context.Context, check invowkfile.
 		}
 		return deps.NewCustomCheckResult(outputText, exitCode)
 	}
-	return deps.CustomCheckResult{}, fmt.Errorf("%s - %w", check.Name, err)
+	return deps.CustomCheckResult{}, fmt.Errorf(dependencyErrorFormat, check.Name, err)
 }
 
 // LoadCommandScopeLock loads lock-file state for command-scope validation.

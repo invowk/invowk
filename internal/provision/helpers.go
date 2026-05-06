@@ -52,7 +52,7 @@ func CalculateDirHash(dirPath string) (string, error) {
 		return "", fmt.Errorf("open root %s: %w", dirPath, err)
 	}
 	defer func() {
-		if closeErr := root.Close(); closeErr != nil {
+		if root.Close() != nil {
 			return
 		}
 	}() // Read-only root handle; close error non-critical
