@@ -610,6 +610,87 @@ jobs:
           version: "~> v2.15"
           args: check
 
+  # Benchmark history contract: proves the report renderer, committed history,
+  # release staging, and release asset validation compose in pull-request CI.
+  benchmark-history-contract:
+    name: Benchmark History Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Run benchmark report script tests
+        run: node scripts/test_benchmark_report.mjs
+
+      - name: Validate committed benchmark history
+        run: node scripts/benchmark-report.mjs validate-history --input website/static/benchmarks/history.json
+
+      - name: Stage history-aware benchmark assets
+        env:
+          TAG: v0.0.0-ci
+          STARTUP_SAMPLES: "3"
+          BENCH_COUNT: "1"
+          BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
+          BENCH_HISTORY_JSON: website/static/benchmarks/history.json
+        run: scripts/stage-release-bench-report.sh
+
+      - name: Assert staged benchmark assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          expected=(
+            release-assets/invowk_0.0.0-ci_bench-report.md
+            release-assets/invowk_0.0.0-ci_bench-report.json
+            release-assets/invowk_0.0.0-ci_bench-summary.svg
+            release-assets/invowk_0.0.0-ci_bench-raw.txt
+          )
+
+          for asset in "${expected[@]}"; do
+            if [[ ! -s "$asset" ]]; then
+              echo "::error::Missing or empty benchmark release asset: $asset"
+              exit 1
+            fi
+          done
+
+          count="$(find release-assets -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          if [[ "$count" -ne "${#expected[@]}" ]]; then
+            echo "::error::Expected ${#expected[@]} benchmark release assets, found $count"
+            find release-assets -maxdepth 1 -type f -print | sort
+            exit 1
+          fi
+
+          grep -F "## Performance Evolution" release-assets/invowk_0.0.0-ci_bench-report.md
+
   # Release dry run: exercises the release-only path on every push/PR so
   # benchmark report staging, release assets, compression hooks, signing setup,
   # and GoReleaser packaging do not first meet CI on tag day.
@@ -670,6 +751,7 @@ jobs:
           STARTUP_SAMPLES: "3"
           BENCH_COUNT: "1"
           BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
+          BENCH_HISTORY_JSON: website/static/benchmarks/history.json
         run: scripts/stage-release-bench-report.sh
 
       - name: Run GoReleaser release dry run (PR)

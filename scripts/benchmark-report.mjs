@@ -988,7 +988,7 @@ function validateAssetDirectory(dir, options) {
     const version = tag.replace(/^v/, '');
     const expected = releaseSuffixes.map((suffix) => `invowk_${version}${suffix}`);
     const missing = expected.filter((file) => !files.includes(file));
-    const unexpected = files.filter((file) => file.startsWith(`invowk_${version}`) && !expected.includes(file));
+    const unexpected = files.filter((file) => !expected.includes(file));
     if (missing.length > 0 || unexpected.length > 0) {
       throw new Error(`invalid release benchmark assets; missing=[${missing.join(', ')}] unexpected=[${unexpected.join(', ')}] found=[${files.join(', ')}]`);
     }

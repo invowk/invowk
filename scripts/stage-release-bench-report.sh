@@ -19,6 +19,12 @@ fi
 
 rm -rf "$BENCH_REPORT_OUT_DIR"
 mkdir -p "$BENCH_REPORT_OUT_DIR"
+
+if [[ -n "${BENCH_HISTORY_JSON:-}" && ! -s "$BENCH_HISTORY_JSON" ]]; then
+	echo "Error: BENCH_HISTORY_JSON is set but missing or empty: $BENCH_HISTORY_JSON" >&2
+	exit 1
+fi
+
 TAG="$TAG" BENCH_HISTORY_JSON="${BENCH_HISTORY_JSON:-}" make bench-report
 
 mapfile -t json_reports < <(find "$BENCH_REPORT_OUT_DIR" -maxdepth 1 -type f -name '*.json' | sort)
@@ -58,6 +64,13 @@ cp "$svg_report" "${RELEASE_ASSETS_DIR}/${svg_asset_name}"
 cp "$raw_report" "${RELEASE_ASSETS_DIR}/${raw_asset_name}"
 
 node scripts/benchmark-report.mjs validate-assets --dir "$RELEASE_ASSETS_DIR" --layout release --tag "$TAG"
+
+if [[ -n "${BENCH_HISTORY_JSON:-}" ]]; then
+	if ! grep -Fq "## Performance Evolution" "${RELEASE_ASSETS_DIR}/${md_asset_name}"; then
+		echo "Error: history-aware benchmark report is missing the Performance Evolution section." >&2
+		exit 1
+	fi
+fi
 
 echo "Benchmark report staged: ${RELEASE_ASSETS_DIR}/${md_asset_name}"
 echo "Benchmark JSON staged: ${RELEASE_ASSETS_DIR}/${json_asset_name}"

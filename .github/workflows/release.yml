@@ -387,6 +387,7 @@ jobs:
         env:
           TAG: ${{ steps.tag.outputs.name }}
           BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
+          BENCH_HISTORY_JSON: website/static/benchmarks/history.json
         run: scripts/stage-release-bench-report.sh
 
       # Run GoReleaser (publish)
