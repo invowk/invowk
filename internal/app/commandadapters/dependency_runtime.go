@@ -14,6 +14,8 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
+const dependencyErrorFormat = "%s - %w"
+
 type (
 	containerValidationScript string
 
@@ -68,7 +70,7 @@ func (p dependencyRuntimeProbe) CheckTool(tool invowkfile.BinaryName) error {
 	script := fmt.Sprintf("command -v '%s' || which '%s'", deps.ShellEscapeSingleQuote(toolName), deps.ShellEscapeSingleQuote(toolName))
 	result, _, _, err := p.runContainerValidation(script)
 	if err != nil {
-		return fmt.Errorf("%s - %w", tool, err)
+		return fmt.Errorf(dependencyErrorFormat, tool, err)
 	}
 	if result.ExitCode != 0 {
 		return fmt.Errorf("%s - not available in container", tool)
@@ -107,7 +109,7 @@ func (p dependencyRuntimeProbe) CheckEnvVar(envVar invowkfile.EnvVarCheck) error
 		return errors.New("(empty) - environment variable name cannot be empty")
 	}
 	if err := invowkfile.ValidateEnvVarName(name); err != nil {
-		return fmt.Errorf("%s - %w", name, err)
+		return fmt.Errorf(dependencyErrorFormat, name, err)
 	}
 
 	script := fmt.Sprintf("test -n \"${%s+x}\"", name)
@@ -126,7 +128,7 @@ func (p dependencyRuntimeProbe) CheckEnvVar(envVar invowkfile.EnvVarCheck) error
 	if envVar.Validation != "" {
 		return fmt.Errorf("%s - not set or value does not match pattern '%s' in container", name, envVar.Validation.String())
 	}
-	return fmt.Errorf("%s - %w", name, deps.ErrContainerEnvVarNotSet)
+	return fmt.Errorf(dependencyErrorFormat, name, deps.ErrContainerEnvVarNotSet)
 }
 
 // CheckCapability validates a capability dependency against the selected container runtime.
@@ -167,7 +169,7 @@ func (p dependencyRuntimeProbe) CheckCommand(command invowkfile.CommandName) err
 func (p dependencyRuntimeProbe) RunCustomCheck(check invowkfile.CustomCheck) (deps.CustomCheckResult, error) {
 	result, stdout, stderr, err := p.runContainerValidation(string(check.CheckScript))
 	if err != nil {
-		return deps.CustomCheckResult{}, fmt.Errorf("%s - %w", check.Name, err)
+		return deps.CustomCheckResult{}, fmt.Errorf(dependencyErrorFormat, check.Name, err)
 	}
 
 	output := deps.CustomCheckOutput(strings.TrimSpace(stdout + stderr))

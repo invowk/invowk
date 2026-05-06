@@ -30,11 +30,34 @@ Each subagent produces a checklist status table BEFORE listing findings. Every i
 
 **Status values**:
 - **PASS** — Check verified, documentation is accurate. Include brief evidence (file + line or observation).
-- **FAIL** — Documentation does not match source of truth. A finding entry is required below.
+- **FAIL** — Documentation has an objective mismatch with source of truth and satisfies the Finding Admission Gate. A finding entry is required below.
 - **N/A** — Check could not be performed (e.g., command not available, file not found). Explain why.
 
 Findings are generated FROM failed checklist items. Every finding must trace back to a specific
 check ID. Do not generate findings that are not associated with a checklist item.
+
+## Finding Admission Gate
+
+Before emitting a finding, verify that all of these are true:
+
+1. The issue maps to one explicit check ID from `surface-checklists.md`.
+2. The documentation target is exact: repo-relative path plus line number, section heading, or
+   snippet ID.
+3. The source of truth is exact: repo-relative path plus function, command, schema definition,
+   constant, or programmatic check result.
+4. The mismatch is objective and factual: invalid syntax, wrong field/flag/default/command,
+   missing required coverage, stale generated asset, broken navigation, or documented policy
+   violation.
+5. The expected content is directly inferable from the source of truth.
+6. The issue is not listed in `intentional-simplifications.md`.
+
+If any condition is false, do not emit an RD-* finding. Mark the checklist item PASS when the
+documentation is acceptable, N/A when the evidence cannot be gathered in the environment, or
+place the note under "Candidate Observations" for future checklist refinement.
+
+Never create counted findings for style preference, tone, wording nuance, readability taste,
+unmeasured risk, "could mention" omissions, or a possible contradiction without an exact source
+of truth.
 
 ## Finding Entry Template
 
@@ -54,6 +77,20 @@ Each finding is one row. Use this format:
 | **Expected Content** | What the doc should say based on the source of truth |
 | **Rationale** | Why this is a finding (one sentence) |
 
+## Candidate Observations
+
+Use this optional section for non-blocking notes discovered during exploration. Candidate
+observations are not findings, do not receive RD-* IDs, and are excluded from severity counts.
+The coordinator may only promote a candidate when it can be converted into a checklist-backed
+coverage-gap finding with exact evidence.
+
+```
+## Candidate Observations
+
+- S2 candidate: `website/docs/...` may benefit from clearer wording, but no factual drift was
+  found. Not counted.
+```
+
 ### Severity Definitions
 
 Severity is pre-assigned per checklist item in `surface-checklists.md`. Use the checklist's
@@ -64,7 +101,7 @@ what each level means:
 |---|---|---|
 | **ERROR** | Factually wrong: would mislead users, cause errors, or show invalid syntax | Must fix before next release |
 | **WARNING** | Incomplete or outdated: missing recent feature, stale default value, or unclear | Should fix soon |
-| **INFO** | Style issue, minor improvement opportunity, or non-blocking suggestion | Fix when convenient |
+| **INFO** | Objective but non-blocking drift, such as stale workflow metadata or generated-asset validation notes | Fix when convenient |
 | **SKIP** | Intentional simplification (documented in `intentional-simplifications.md`) | No action needed |
 
 ### Finding Type Definitions
@@ -145,12 +182,16 @@ When merging findings from the 11 surface-dedicated subagents (SA-1 through SA-1
 1. **Verify completeness** — Each subagent must have reported on ALL checklist items for its
    surface. Flag any missing items (the subagent may need to re-run or explain the gap).
 2. **Collect** all findings from SA-1 through SA-11.
-3. **Deduplicate** by (file, line/snippet ID) — if two subagents found the same issue (possible
+3. **Reject incomplete findings** — If a finding lacks check ID, exact doc target, exact source of
+   truth, current content, expected content, or rationale, exclude it from the merged report and
+   record it as N/A/candidate feedback.
+4. **Deduplicate** by (file, line/snippet ID) — if two subagents found the same issue (possible
    for cross-cutting concerns), keep the one with higher severity and more detail.
-4. **Cross-check** against `references/intentional-simplifications.md` — downgrade any finding
+5. **Cross-check** against `references/intentional-simplifications.md` — downgrade any finding
    that matches the registry to SKIP.
-5. **Sort** by severity (ERROR → WARNING → INFO → SKIP), then by surface.
-6. **Assign sequential IDs** (RD-001, RD-002, ...) to the merged list.
-7. **Merge checklist tables** — Combine the per-subagent checklist tables into the unified
+6. **Sort** by severity (ERROR → WARNING → INFO → SKIP), then surface ID, check ID, file path,
+   and line/snippet ID.
+7. **Assign sequential IDs** (RD-001, RD-002, ...) to the merged list.
+8. **Merge checklist tables** — Combine the per-subagent checklist tables into the unified
    Checklist Completion summary.
-8. **Produce** the summary table, checklist completion, and priority fix list.
+9. **Produce** the summary table, checklist completion, and priority fix list.

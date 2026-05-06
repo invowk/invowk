@@ -36,8 +36,8 @@ The root configuration object.
 
 ### container_engine
 
-**Type:** `"podman" | "docker"`  
-**Required:** No  
+**Type:** `"podman" | "docker"`
+**Required:** No
 **Default:** `"podman"`
 
 Specifies which container runtime to use for container-based command execution.
@@ -74,8 +74,8 @@ Additional modules to include in command discovery. Each entry specifies a path 
 
 ### default_runtime
 
-**Type:** `"native" | "virtual" | "container"`  
-**Required:** No  
+**Type:** `"native" | "virtual" | "container"`
+**Required:** No
 **Default:** `"native"`
 
 Sets the global default runtime mode for commands that don't specify a preferred runtime.
@@ -90,8 +90,8 @@ Sets the global default runtime mode for commands that don't specify a preferred
 
 ### virtual_shell
 
-**Type:** `#VirtualShellConfig`  
-**Required:** No  
+**Type:** `#VirtualShellConfig`
+**Required:** No
 **Default:** `{enable_uroot_utils: true}`
 
 Configuration for the virtual shell runtime.
@@ -100,18 +100,32 @@ Configuration for the virtual shell runtime.
 
 ### ui
 
-**Type:** `#UIConfig`  
-**Required:** No  
+**Type:** `#UIConfig`
+**Required:** No
 **Default:** `{color_scheme: "auto", verbose: false, interactive: false}`
 
 User interface configuration.
 
 <Snippet id="reference/config/ui" />
 
+### llm
+
+**Type:** `#LLMConfig`
+**Required:** No
+**Default:** *(unset)*
+
+Default LLM backend configuration for LLM-aware commands. `invowk agent cmd create` uses this config when no LLM flags are passed. `invowk audit` still requires explicit opt-in with `--llm` or `--llm-provider` before it sends script content to an LLM.
+
+<Snippet id="reference/config/llm-provider" />
+
+Use `llm.api` for OpenAI-compatible endpoints when you want to configure an API backend without storing raw secrets in `config.cue`.
+
+<Snippet id="reference/config/llm-api" />
+
 ### container
 
-**Type:** `#ContainerConfig`  
-**Required:** No  
+**Type:** `#ContainerConfig`
+**Required:** No
 **Default:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
 
 Container runtime configuration.
@@ -128,8 +142,8 @@ Configuration for the virtual shell runtime (mvdan/sh).
 
 ### enable_uroot_utils
 
-**Type:** `bool`  
-**Required:** No  
+**Type:** `bool`
+**Required:** No
 **Default:** `true`
 
 Enables u-root utilities in the virtual shell environment. When enabled, provides additional commands beyond basic shell builtins.
@@ -150,8 +164,8 @@ User interface configuration.
 
 ### color_scheme
 
-**Type:** `"auto" | "dark" | "light"`  
-**Required:** No  
+**Type:** `"auto" | "dark" | "light"`
+**Required:** No
 **Default:** `"auto"`
 
 Sets the color scheme for terminal output.
@@ -166,8 +180,8 @@ Sets the color scheme for terminal output.
 
 ### verbose
 
-**Type:** `bool`  
-**Required:** No  
+**Type:** `bool`
+**Required:** No
 **Default:** `false`
 
 Enables verbose output by default for all commands.
@@ -178,13 +192,93 @@ Equivalent to always passing `--ivk-verbose` on the command line.
 
 ### interactive
 
-**Type:** `bool`  
-**Required:** No  
+**Type:** `bool`
+**Required:** No
 **Default:** `false`
 
 Enables interactive mode by default (alternate screen buffer with PTY).
 
 <Snippet id="reference/config/ui-interactive" />
+
+---
+
+## LLMConfig
+
+Default LLM backend configuration. The whole `llm` object is unset by `DefaultConfig()` until the user configures a provider or API endpoint.
+
+<Snippet id="reference/config/llm-config-structure" />
+
+### provider
+
+**Type:** `"auto" | "claude" | "codex" | "gemini" | "ollama"`
+**Required:** No
+**Default:** *(unset)*
+
+Selects a supported provider or CLI harness. `auto` probes local Ollama, cloud API credentials, and CLI tools in provider order.
+
+### model
+
+**Type:** `string`
+**Required:** No
+**Default:** *(unset)*
+
+Overrides the provider model. CLI harnesses use their own default when omitted.
+
+### timeout
+
+**Type:** Go duration string
+**Required:** No
+**Default:** *(unset in config; resolver fallback: `2m`)*
+
+Sets the per-request timeout for LLM-backed commands.
+
+### concurrency
+
+**Type:** `int`
+**Required:** No
+**Default:** *(unset in config; resolver fallback: `2`)*
+
+Limits concurrent LLM requests. Set `0` or omit the field to use the resolver fallback.
+
+### api
+
+**Type:** `#LLMAPIConfig`
+**Required:** No
+**Default:** *(unset)*
+
+OpenAI-compatible API endpoint configuration. `provider` and `api` are mutually exclusive.
+
+---
+
+## LLMAPIConfig
+
+Configuration for an OpenAI-compatible API backend.
+
+<Snippet id="reference/config/llm-api-config-structure" />
+
+### base_url
+
+**Type:** `string`
+**Required:** No
+**Default:** *(unset in config; resolver fallback: `http://localhost:11434/v1`)*
+
+OpenAI-compatible API base URL.
+
+### model
+
+**Type:** `string`
+**Required:** No
+**Default:** *(unset in config; resolver fallback: `qwen2.5-coder:7b`)*
+
+Model name sent to the API endpoint.
+
+### api_key_env
+
+**Type:** `string`
+**Required:** No
+**Default:** *(unset)*
+
+Name of the environment variable containing the API key. Use this instead of storing raw API keys in `config.cue`.
 
 ---
 
@@ -232,8 +326,8 @@ Makes provisioning failure a hard error instead of falling back to the unprovisi
 
 ### binary_path
 
-**Type:** `string`  
-**Required:** No  
+**Type:** `string`
+**Required:** No
 **Default:** *(empty; uses the running invowk binary)*
 
 Overrides the path to the invowk binary to provision.
@@ -256,8 +350,8 @@ When `true`, the root-level `includes` entries are automatically inherited by au
 
 ### cache_dir
 
-**Type:** `string`  
-**Required:** No  
+**Type:** `string`
+**Required:** No
 **Default:** *(empty — uses platform-specific default, typically `~/.cache/invowk/provision`)*
 
 Overrides the parent directory used for provision build contexts and cached image metadata.

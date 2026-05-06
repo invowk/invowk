@@ -172,21 +172,21 @@ Selects a supported provider/harness. `auto` probes local Ollama, cloud credenti
 #### llm.model
 
 **Type:** `string`
-**Default:** *(provider default or API default)*
+**Default:** *(unset)*
 
-Overrides the model used by the configured provider. CLI harnesses use their own current default when omitted.
+Overrides the model used by the configured provider. CLI harnesses use their own current default when omitted, and API/Ollama flows use the resolver fallback `qwen2.5-coder:7b` when no model is configured or flagged.
 
 #### llm.timeout
 
 **Type:** Go duration string
-**Default:** `2m`
+**Default:** *(unset in config; resolver fallback: `2m`)*
 
 Sets the per-request timeout used by LLM-backed commands.
 
 #### llm.concurrency
 
 **Type:** `int`
-**Default:** `2`
+**Default:** *(unset in config; resolver fallback: `2`)*
 
 Limits concurrent LLM requests. Set `0` or omit the field to use the built-in default.
 
@@ -196,6 +196,27 @@ Limits concurrent LLM requests. Set `0` or omit the field to use the built-in de
 **Default:** *(unset)*
 
 Configures an OpenAI-compatible API endpoint with `base_url`, `model`, and `api_key_env`.
+
+##### llm.api.base_url
+
+**Type:** `string`
+**Default:** *(unset in config; resolver fallback: `http://localhost:11434/v1`)*
+
+OpenAI-compatible API base URL.
+
+##### llm.api.model
+
+**Type:** `string`
+**Default:** *(unset in config; resolver fallback: `qwen2.5-coder:7b`)*
+
+Model name sent to the API endpoint.
+
+##### llm.api.api_key_env
+
+**Type:** `string`
+**Default:** *(unset)*
+
+Environment variable name that holds the API key.
 
 ### container
 

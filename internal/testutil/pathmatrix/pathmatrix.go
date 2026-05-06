@@ -54,6 +54,8 @@ const (
 	// eagerly, so the matrix runs it as a separate sub-subtest.
 	InputValidRelativeDotted = "./tools"
 
+	expectedNilErrorFormat = "input=%q: expected nil error, got %v"
+
 	// outcomeKind values. Numeric constants (not iota) so they coexist
 	// with string consts in the same block per decorder.
 	outcomeUnset         outcomeKind = 0
@@ -470,7 +472,7 @@ func runOneVector(t *testing.T, baseDir string, resolve func(input string) (stri
 func assertPassHostNativeAbs(t *testing.T, input, got string, gotErr error, baseDir, want string) {
 	t.Helper()
 	if gotErr != nil {
-		t.Fatalf("input=%q: expected nil error, got %v", input, gotErr)
+		t.Fatalf(expectedNilErrorFormat, input, gotErr)
 	}
 	if filepath.IsAbs(want) {
 		if got != want {
@@ -494,7 +496,7 @@ func hostGOOS() string { return goruntime.GOOS }
 func assertPassExact(t *testing.T, input, got string, gotErr error, want string) {
 	t.Helper()
 	if gotErr != nil {
-		t.Fatalf("input=%q: expected nil error, got %v", input, gotErr)
+		t.Fatalf(expectedNilErrorFormat, input, gotErr)
 	}
 	if got != want {
 		t.Errorf("input=%q: got %q, want exact %q", input, got, want)
@@ -504,7 +506,7 @@ func assertPassExact(t *testing.T, input, got string, gotErr error, want string)
 func assertPassRelative(t *testing.T, input, got string, gotErr error, baseDir, segment string) {
 	t.Helper()
 	if gotErr != nil {
-		t.Fatalf("input=%q: expected nil error, got %v", input, gotErr)
+		t.Fatalf(expectedNilErrorFormat, input, gotErr)
 	}
 	want := filepath.Join(baseDir, segment)
 	if got != want {
@@ -516,7 +518,7 @@ func assertPassRelative(t *testing.T, input, got string, gotErr error, baseDir, 
 func assertPassAny(t *testing.T, input, got string, gotErr error, asserter func(testing.TB, string), mode matrixMode) {
 	t.Helper()
 	if gotErr != nil {
-		t.Fatalf("input=%q: expected nil error, got %v", input, gotErr)
+		t.Fatalf(expectedNilErrorFormat, input, gotErr)
 	}
 	if asserter == nil {
 		return

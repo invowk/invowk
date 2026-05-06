@@ -118,6 +118,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
       - name: Install gotestsum
         run: |
           go install gotest.tools/gotestsum@v1.13.0
@@ -235,6 +240,11 @@ jobs:
         shell: bash
         run: sh scripts/test_install.sh
 
+      - name: Run benchmark report script tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: node scripts/test_benchmark_report.mjs
+
       # Run WinGet manifest enhancement tests (Python + bash, no network calls).
       - name: Run WinGet enhancement tests
         if: startsWith(matrix.runner, 'ubuntu')
@@ -315,6 +325,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
       # Create and push tag for workflow_dispatch
       - name: Create tag
         if: github.event_name == 'workflow_dispatch'
@@ -364,14 +379,15 @@ jobs:
           app-id: ${{ secrets.DOCS_APP_ID }}
           private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
 
-      # Generate benchmark report to include as a release asset.
+      # Generate benchmark report assets (Markdown, JSON, SVG, raw output).
       # Written to release-assets/ (NOT dist/) because GoReleaser's --clean
-      # wipes dist/ before building. The .goreleaser.yaml extra_files glob
-      # points to release-assets/ to pick up the report at upload time.
-      - name: Generate benchmark report
+      # wipes dist/ before building. The .goreleaser.yaml extra_files globs
+      # point to release-assets/ to pick up the reports at upload time.
+      - name: Generate benchmark report assets
         env:
           TAG: ${{ steps.tag.outputs.name }}
           BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
+          BENCH_HISTORY_JSON: website/static/benchmarks/history.json
         run: scripts/stage-release-bench-report.sh
 
       # Run GoReleaser (publish)

@@ -28,7 +28,9 @@ HostAccess: Host Access Adapter
 RegistryFactory: Runtime Registry Factory
 Interactive: Interactive Adapter
 SSH: SSH Server
+ServerBase: Server Lifecycle Base
 TUI: TUI Server
+TUIWire: TUI Wire Protocol
 ContainerRT: Container Runtime
 Engine: Engine Abstraction
 Provision: Layer Provisioner
@@ -45,6 +47,8 @@ SVC -> SVC: "If --ivk-dry-run: return plan\n(no host access, registry, or contai
 # 0a. Host access is a port. The default adapter owns the SSH server lifecycle.
 SVC -> HostAccess: "Ensure(ctx)\nif enable_host_ssh"
 HostAccess -> SSH: Start (if needed)
+SSH -> ServerBase: "TransitionToStarting\nAdd goroutine"
+ServerBase -> SSH: "Running / failed state"
 SSH -> HostAccess: Ready
 HostAccess -> SVC: Ready / no-op
 
@@ -71,11 +75,27 @@ Interactive -> TUI: Start {
   style.stroke-dash: 3
   style.font-color: "#666666"
 }
+TUI -> ServerBase: "TransitionToStarting\nAdd goroutine" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+ServerBase -> TUI: "Running / failed state" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
 TUI -> Interactive: URL + token {
   style.stroke-dash: 3
   style.font-color: "#666666"
 }
+TUI -> TUIWire: "Serve /tui JSON envelopes\nand INVOWK_TUI_* names" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
 Interactive -> ContainerRT: "PrepareInteractive(context with INVOWK_TUI_*)" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+ContainerRT -> TUIWire: "Pass component env\ninto container" {
   style.stroke-dash: 3
   style.font-color: "#666666"
 }

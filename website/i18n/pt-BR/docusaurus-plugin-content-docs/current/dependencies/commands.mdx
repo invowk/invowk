@@ -10,6 +10,8 @@ Dependências de comandos (`depends_on.cmds`) são uma **verificação de descob
 
 O Invowk **não** executa esses comandos automaticamente.
 
+Para comandos dentro de módulos, isso também é uma **verificação estática de acesso**. Um comando de módulo pode depender de comandos do mesmo módulo, de módulos instalados globalmente em `~/.invowk/cmds` ou de dependências diretas declaradas no `invowkmod.cue:requires` raiz. Comandos de módulos não relacionados ou dependências transitivas não declaradas falham na validação mesmo que estejam descobertos de outra forma. Comandos do invowkfile raiz são verificados apenas por descoberta.
+
 ## Uso Básico
 
 <Snippet id="dependencies/commands-basic" />
@@ -26,6 +28,8 @@ Se nenhuma das alternativas puder ser encontrada, o Invowk falha com um erro de 
 <Snippet id="dependencies/commands-alternatives" />
 
 A dependência é satisfeita se **qualquer** alternativa for descoberta.
+
+Para comandos de módulo, a alternativa escolhida também deve passar pela verificação estática de acesso descrita acima.
 
 ## Múltiplos Requisitos (Semântica E)
 

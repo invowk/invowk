@@ -63,6 +63,14 @@ host_shell: Host Shell {
   tooltip: bash/sh/PowerShell
 }
 
+llm_providers: Optional LLM Providers {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: Claude, Codex/OpenAI, Gemini, and local Ollama
+}
+
 # ==============================================================================
 # System Boundary: Invowk CLI
 # ==============================================================================
@@ -92,7 +100,7 @@ invowk_cli: Invowk CLI {
       }
       tooltip: |md
         **Go/Cobra**
-        Root, cmd, init, config, module, tui, validate, completion, audit
+        Root, cmd, init, config, module, tui, validate, completion, audit, agent
       |
     }
 
@@ -132,14 +140,15 @@ invowk_cli: Invowk CLI {
       |
     }
 
-    execution_orch: Execution Orchestrator {
+    execution_orch: Execution Context Builder {
       style: {
         fill: "#438DD5"
         font-color: "#ffffff"
       }
       tooltip: |md
         **Go**
-        Resolves runtime selection and dispatches to runtime implementations
+        Resolves runtime selection and builds runtime.ExecutionContext.
+        Command Service dispatches through runtime.Registry.
       |
     }
 
@@ -211,6 +220,42 @@ invowk_cli: Invowk CLI {
         **Go**
         Security scanning of module system. Detects supply-chain risks,
         path traversal, symlink abuse, env var injection. Supports --llm.
+      |
+    }
+
+    agent_authoring: Agent Command Authoring {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        LLM-assisted custom-command authoring. Renders agent prompts,
+        resolves LLM config, validates generated CUE, and patches invowkfile.cue.
+      |
+    }
+
+    llm_config: LLM Config Resolver {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        internal/app/llmconfig resolves configured defaults, provider selection,
+        API settings, model requirements, and env-backed credentials.
+      |
+    }
+
+    llm_bridge: LLM Provider Layer {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        internal/auditllm and internal/llm adapt audit analysis and agent command
+        authoring to CLI providers and OpenAI-compatible APIs.
       |
     }
   }
@@ -314,6 +359,30 @@ invowk_cli: Invowk CLI {
         HTTP server for TUI requests from child processes
       |
     }
+
+    server_base: Server Lifecycle Base {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        Shared internal/core/serverbase state machine for SSH and TUI server
+        startup, running, stopping, stopped, and failed transitions.
+      |
+    }
+
+    tui_wire: TUI Wire Protocol {
+      style: {
+        fill: "#438DD5"
+        font-color: "#ffffff"
+      }
+      tooltip: |md
+        **Go**
+        internal/tuiwire defines delegated TUI component names, request/response
+        JSON envelopes, and INVOWK_TUI_* environment variables.
+      |
+    }
   }
 }
 
@@ -414,6 +483,36 @@ invowk_cli.entry_core.audit_scanner -> modules: Scans {
 invowk_cli.entry_core.audit_scanner -> invowkfiles: Scans {
   style.stroke: "#707070"
 }
+invowk_cli.entry_core.agent_authoring -> invowkfiles: "Reads/Patches\n[invowkfile.cue]" {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.agent_authoring -> config_file: "Reads LLM config" {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.audit_scanner -> invowk_cli.entry_core.llm_config: "Resolves opt-in LLM settings" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.entry_core.agent_authoring -> invowk_cli.entry_core.llm_config: "Resolves configured defaults" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.entry_core.llm_config -> config_file: "Reads config/env" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.entry_core.audit_scanner -> invowk_cli.entry_core.llm_bridge: "Semantic analysis\n[internal/auditllm]" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.entry_core.agent_authoring -> invowk_cli.entry_core.llm_bridge: "Prompt + repair loop\n[internal/llm]" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.entry_core.llm_bridge -> invowk_cli.entry_core.llm_config: "Uses resolved settings" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
 
 # Command to Watch Engine
 invowk_cli.entry_core.cmd -> invowk_cli.entry_core.watch_engine: "Delegates watch\n[--ivk-watch]" {
@@ -424,6 +523,17 @@ invowk_cli.entry_core.cmd -> invowk_cli.entry_core.watch_engine: "Delegates watc
 # Command to Audit Scanner
 invowk_cli.entry_core.cmd -> invowk_cli.entry_core.audit_scanner: "Scans modules\n[invowk audit]" {
   style.stroke: "#707070"
+}
+invowk_cli.entry_core.cmd -> invowk_cli.entry_core.agent_authoring: "Generates commands\n[invowk agent]" {
+  style.stroke: "#707070"
+}
+invowk_cli.entry_core.llm_bridge -> llm_providers: "Optional analysis\n[--llm]" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.entry_core.llm_bridge -> llm_providers: "Generates command CUE\n[LLM provider]" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
 }
 
 # Command to Command Service
@@ -436,21 +546,21 @@ invowk_cli.entry_core.cmd -> invowk_cli.entry_core.module_resolver: "Manages mod
 invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.dependency_validator: "Validates deps" {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.execution_orch: "Selects runtime" {
+invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.execution_orch: "Selects runtime\nbuilds context" {
   style.stroke: "#707070"
 }
 invowk_cli.entry_core.command_svc -> invowk_cli.entry_core.command_adapters: "Calls ports\n[HostAccess/Registry/Interactive]" {
   style.stroke: "#707070"
 }
 
-# Execution Orchestrator to Runtime fan-out
-invowk_cli.entry_core.execution_orch -> invowk_cli.runtimes.runtime_native: Dispatches {
+# Command Service to Runtime fan-out
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_native: "Dispatches\n[Runtime Registry]" {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.execution_orch -> invowk_cli.runtimes.runtime_virtual: Dispatches {
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_virtual: "Dispatches\n[Runtime Registry]" {
   style.stroke: "#707070"
 }
-invowk_cli.entry_core.execution_orch -> invowk_cli.runtimes.runtime_container: Dispatches {
+invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_container: "Dispatches\n[Runtime Registry]" {
   style.stroke: "#707070"
 }
 
@@ -473,6 +583,17 @@ invowk_cli.entry_core.command_adapters -> invowk_cli.container_infra.ssh_server:
 invowk_cli.entry_core.command_adapters -> invowk_cli.container_infra.tui_server: "Runs interactive TUI\n[HTTP]" {
   style.stroke: "#707070"
 }
+invowk_cli.container_infra.ssh_server -> invowk_cli.container_infra.server_base: "Uses lifecycle state machine" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.container_infra.tui_server -> invowk_cli.container_infra.server_base: "Uses lifecycle state machine" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.container_infra.tui_server -> invowk_cli.container_infra.tui_wire: "Exchanges component JSON" {
+  style.stroke: "#707070"
+}
 invowk_cli.entry_core.command_adapters -> invowk_cli.runtimes.runtime_container: "Builds registry\nwith SSH reference" {
   style.stroke: "#707070"
   style.stroke-dash: 3
@@ -483,6 +604,14 @@ invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.ssh_server: 
 }
 invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.tui_server: "Requests TUI\n[HTTP]" {
   style.stroke: "#707070"
+}
+invowk_cli.runtimes.runtime_virtual -> invowk_cli.container_infra.tui_wire: "Uses INVOWK_TUI_* env" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
+}
+invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.tui_wire: "Uses INVOWK_TUI_* env" {
+  style.stroke: "#707070"
+  style.stroke-dash: 3
 }
 
 # Container infrastructure to external

@@ -36,8 +36,8 @@ O objeto de configuração raiz.
 
 ### container_engine
 
-**Tipo:** `"podman" | "docker"`  
-**Obrigatório:** Não  
+**Tipo:** `"podman" | "docker"`
+**Obrigatório:** Não
 **Padrão:** `"podman"`
 
 Especifica qual container runtime usar para execução de comandos baseada em container.
@@ -73,8 +73,8 @@ Módulos adicionais para incluir na descoberta de comandos. Cada entrada especif
 
 ### default_runtime
 
-**Tipo:** `"native" | "virtual" | "container"`  
-**Obrigatório:** Não  
+**Tipo:** `"native" | "virtual" | "container"`
+**Obrigatório:** Não
 **Padrão:** `"native"`
 
 Define o modo de runtime padrão global para comandos que não especificam um runtime preferido.
@@ -89,8 +89,8 @@ Define o modo de runtime padrão global para comandos que não especificam um ru
 
 ### virtual_shell
 
-**Tipo:** `#VirtualShellConfig`  
-**Obrigatório:** Não  
+**Tipo:** `#VirtualShellConfig`
+**Obrigatório:** Não
 **Padrão:** `{enable_uroot_utils: true}`
 
 Configuração para o virtual shell runtime.
@@ -99,18 +99,32 @@ Configuração para o virtual shell runtime.
 
 ### ui
 
-**Tipo:** `#UIConfig`  
-**Obrigatório:** Não  
+**Tipo:** `#UIConfig`
+**Obrigatório:** Não
 **Padrão:** `{color_scheme: "auto", verbose: false, interactive: false}`
 
 Configuração de interface do usuário.
 
 <Snippet id="reference/config/ui" />
 
+### llm
+
+**Tipo:** `#LLMConfig`
+**Obrigatório:** Não
+**Padrão:** *(não definido)*
+
+Configuração padrão de backend LLM para comandos que usam LLM. `invowk agent cmd create` usa essa configuração quando nenhuma flag LLM é passada. `invowk audit` ainda exige opt-in explícito com `--llm` ou `--llm-provider` antes de enviar conteúdo de script para uma LLM.
+
+<Snippet id="reference/config/llm-provider" />
+
+Use `llm.api` para endpoints compatíveis com OpenAI quando quiser configurar um backend de API sem armazenar segredos brutos em `config.cue`.
+
+<Snippet id="reference/config/llm-api" />
+
 ### container
 
-**Tipo:** `#ContainerConfig`  
-**Obrigatório:** Não  
+**Tipo:** `#ContainerConfig`
+**Obrigatório:** Não
 **Padrão:** `{auto_provision: {enabled: true, strict: false, inherit_includes: true}}`
 
 Configuração para o runtime container.
@@ -127,8 +141,8 @@ Configuração para o virtual shell runtime (mvdan/sh).
 
 ### enable_uroot_utils
 
-**Tipo:** `bool`  
-**Obrigatório:** Não  
+**Tipo:** `bool`
+**Obrigatório:** Não
 **Padrão:** `true`
 
 Habilita utilitários u-root no ambiente virtual shell. Quando habilitado, fornece comandos adicionais além dos builtins básicos de shell.
@@ -149,8 +163,8 @@ Configuração de interface do usuário.
 
 ### color_scheme
 
-**Tipo:** `"auto" | "dark" | "light"`  
-**Obrigatório:** Não  
+**Tipo:** `"auto" | "dark" | "light"`
+**Obrigatório:** Não
 **Padrão:** `"auto"`
 
 Define o esquema de cores para saída de terminal.
@@ -165,8 +179,8 @@ Define o esquema de cores para saída de terminal.
 
 ### verbose
 
-**Tipo:** `bool`  
-**Obrigatório:** Não  
+**Tipo:** `bool`
+**Obrigatório:** Não
 **Padrão:** `false`
 
 Habilita saída verbose por padrão para todos os comandos.
@@ -177,13 +191,93 @@ Equivalente a sempre passar `--ivk-verbose` na linha de comando.
 
 ### interactive
 
-**Tipo:** `bool`  
-**Obrigatório:** Não  
+**Tipo:** `bool`
+**Obrigatório:** Não
 **Padrão:** `false`
 
 Habilita o modo interativo por padrão (buffer de tela alternativo com PTY).
 
 <Snippet id="reference/config/ui-interactive" />
+
+---
+
+## LLMConfig
+
+Configuração padrão de backend LLM. O objeto `llm` inteiro fica não definido em `DefaultConfig()` até o usuário configurar um provedor ou endpoint de API.
+
+<Snippet id="reference/config/llm-config-structure" />
+
+### provider
+
+**Tipo:** `"auto" | "claude" | "codex" | "gemini" | "ollama"`
+**Obrigatório:** Não
+**Padrão:** *(não definido)*
+
+Seleciona um provedor ou harness CLI suportado. `auto` procura Ollama local, credenciais de API cloud e ferramentas CLI na ordem de provedores.
+
+### model
+
+**Tipo:** `string`
+**Obrigatório:** Não
+**Padrão:** *(não definido)*
+
+Substitui o modelo do provedor. Harnesses CLI usam seu próprio padrão quando omitido.
+
+### timeout
+
+**Tipo:** string de duração Go
+**Obrigatório:** Não
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `2m`)*
+
+Define o timeout por requisição para comandos com LLM.
+
+### concurrency
+
+**Tipo:** `int`
+**Obrigatório:** Não
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `2`)*
+
+Limita requisições LLM concorrentes. Defina `0` ou omita o campo para usar o fallback do resolvedor.
+
+### api
+
+**Tipo:** `#LLMAPIConfig`
+**Obrigatório:** Não
+**Padrão:** *(não definido)*
+
+Configuração de endpoint de API compatível com OpenAI. `provider` e `api` são mutuamente exclusivos.
+
+---
+
+## LLMAPIConfig
+
+Configuração para um backend de API compatível com OpenAI.
+
+<Snippet id="reference/config/llm-api-config-structure" />
+
+### base_url
+
+**Tipo:** `string`
+**Obrigatório:** Não
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `http://localhost:11434/v1`)*
+
+URL base da API compatível com OpenAI.
+
+### model
+
+**Tipo:** `string`
+**Obrigatório:** Não
+**Padrão:** *(não definido na configuração; fallback do resolvedor: `qwen2.5-coder:7b`)*
+
+Nome do modelo enviado ao endpoint de API.
+
+### api_key_env
+
+**Tipo:** `string`
+**Obrigatório:** Não
+**Padrão:** *(não definido)*
+
+Nome da variável de ambiente que contém a chave de API. Use isso em vez de armazenar chaves brutas em `config.cue`.
 
 ---
 
@@ -231,8 +325,8 @@ Faz com que falhas de provisionamento sejam erros fatais em vez de fazer fallbac
 
 ### binary_path
 
-**Tipo:** `string`  
-**Obrigatório:** Não  
+**Tipo:** `string`
+**Obrigatório:** Não
 **Padrão:** *(vazio; usa o binário do invowk em execução)*
 
 Sobrescreve o caminho do binário do invowk para provisionar.
@@ -255,8 +349,8 @@ Quando `true`, as entradas de `includes` do nível raiz são automaticamente her
 
 ### cache_dir
 
-**Tipo:** `string`  
-**Obrigatório:** Não  
+**Tipo:** `string`
+**Obrigatório:** Não
 **Padrão:** *(vazio — usa o padrão específico da plataforma, tipicamente `~/.cache/invowk/provision`)*
 
 Sobrescreve o diretório pai usado para contextos de build de provisionamento e metadados de imagens em cache.

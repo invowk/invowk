@@ -583,7 +583,7 @@ args: [
             echo "Count: $INVOWK_ARG_INPUTS_COUNT"
 
             for i in $(seq 1 $INVOWK_ARG_INPUTS_COUNT); do
-                eval "file=\\\$INVOWK_ARG_INPUTS_$i"
+                file=$(printenv "INVOWK_ARG_INPUTS_$i")
                 echo "Processing: $file"
             done
             """
@@ -773,7 +773,7 @@ invowk cmd deploy production
             
             if [ -n "$INVOWK_ARG_SERVICES" ]; then
                 for i in $(seq 1 $INVOWK_ARG_SERVICES_COUNT); do
-                    eval "service=\\\$INVOWK_ARG_SERVICES_$i"
+                    service=$(printenv "INVOWK_ARG_SERVICES_$i")
                     echo "Deploying $service..."
                     kubectl scale deployment/$service --replicas=$INVOWK_ARG_REPLICAS
                 done

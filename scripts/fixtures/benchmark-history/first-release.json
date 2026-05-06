@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "source_kind": "json",
+  "release": {
+    "tag": "v0.1.0",
+    "version": "0.1.0",
+    "prerelease": false,
+    "generated_at": "2025-05-05T00:00:00.000Z",
+    "commit": "0000001",
+    "branch": "main"
+  },
+  "run": {
+    "mode": "short",
+    "startup_samples": 10,
+    "go_benchmark_count": 1,
+    "go_benchmark_status": "ok",
+    "go_benchmark_wall_seconds": 5.0,
+    "go_benchmark_estimated_loop_seconds": 4.5,
+    "go_benchmark_overhead_seconds": 0.5,
+    "go_benchmark_timing_scope": "all parsed benchmark rows",
+    "binary": "./bin/invowk",
+    "commands": {"go_benchmark": "go test ./internal/benchmark"}
+  },
+  "environment": {
+    "platform": "Linux 5.15 x86_64",
+    "os": "Linux",
+    "kernel": "5.15",
+    "arch": "x86_64",
+    "cpu_model": "First Fixture CPU",
+    "logical_cpu_count": 4,
+    "go_version": "go version go1.24.0 linux/amd64",
+    "runner": "ubuntu-latest"
+  },
+  "startup": [
+    {"id": "version", "label": "Version (--version)", "mean_ms": 30.0, "min_ms": 28.0, "max_ms": 35.0, "samples": 10}
+  ],
+  "go_benchmarks": [
+    {"id": "BenchmarkCUEParsing", "raw_name": "BenchmarkCUEParsing-4", "cpu_suffix": "4", "samples": 1, "mean_ns_op": 300.0, "min_ns_op": 300.0, "max_ns_op": 300.0, "mean_ms_op": 0.0003, "mean_iterations_per_run": 1000.0, "estimated_run_ms": 1.0, "estimated_total_seconds": 1.0, "mean_bytes_op": 40.0, "mean_allocs_op": 4.0}
+  ],
+  "raw": {
+    "startup_rows": "Version (--version)\t30.00\t28.00\t35.00\t10\n",
+    "go_benchmark_output": "BenchmarkCUEParsing-4 1 300 ns/op 40 B/op 4 allocs/op\nPASS\n"
+  },
+  "warnings": [],
+  "artifacts": {}
+}

@@ -110,7 +110,7 @@ llm_providers: Optional LLM Providers {
     fill: "#999999"
     font-color: "#ffffff"
   }
-  tooltip: Claude, Codex/OpenAI, Gemini, and local Ollama for audit analysis
+  tooltip: Claude, Codex/OpenAI, Gemini, and local Ollama for audit analysis and command authoring
 }
 
 # ==============================================================================
@@ -141,7 +141,7 @@ invowk -> host_shell: "Executes native commands\n[exec/spawn]" {
 invowk -> filesystem: "Reads configs, invowkfiles, modules\n[File I/O]" {
   style.stroke: "#707070"
 }
-invowk -> llm_providers: "Requests audit analysis\n[OpenAI-compatible API/CLI]" {
+invowk -> llm_providers: "Requests audit analysis and command authoring\n[OpenAI-compatible API/CLI]" {
   style.stroke: "#707070"
   style.stroke-dash: 3
 }

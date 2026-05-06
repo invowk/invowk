@@ -50,6 +50,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
       - name: Verify gh CLI
         run: gh --version
 
@@ -67,47 +72,52 @@ jobs:
           STARTUP_SAMPLES: "40"
           BENCH_COUNT: "5"
           BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
+          BENCH_HISTORY_JSON: website/static/benchmarks/history.json
         run: scripts/stage-release-bench-report.sh
 
-      - name: Resolve generated report
-        id: report
+      - name: Resolve generated reports
+        id: reports
         run: |
           set -euo pipefail
 
-          mapfile -t reports < <(find release-assets -maxdepth 1 -type f -name '*.md' | sort)
+          mapfile -t reports < <(find release-assets -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' -o -name '*.svg' -o -name '*.txt' \) | sort)
           count="${#reports[@]}"
-          if [[ "$count" -ne 1 ]]; then
-            echo "::error::Expected exactly 1 staged benchmark asset in release-assets, found $count"
+          if [[ "$count" -ne 4 ]]; then
+            echo "::error::Expected exactly 4 staged benchmark assets in release-assets, found $count"
             if [[ "$count" -gt 0 ]]; then
               printf 'Found files:\n%s\n' "${reports[@]}"
             fi
             exit 1
           fi
 
-          report_path="${reports[0]}"
-          asset_name="$(basename "$report_path")"
+          printf '%s\n' "${reports[@]}" > /tmp/benchmark-assets.txt
 
-          echo "path=$report_path" >> "$GITHUB_OUTPUT"
-          echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"
-          echo "Report path: $report_path"
-          echo "Asset name: $asset_name"
+          echo "manifest=/tmp/benchmark-assets.txt" >> "$GITHUB_OUTPUT"
+          echo "Report assets:"
+          cat /tmp/benchmark-assets.txt
 
-      - name: Upload benchmark report asset
+      - name: Upload benchmark report assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.name }}
-          REPORT_PATH: ${{ steps.report.outputs.path }}
-          ASSET_NAME: ${{ steps.report.outputs.asset_name }}
+          MANIFEST: ${{ steps.reports.outputs.manifest }}
         run: |
           set -euo pipefail
-          gh release upload "$TAG" "${REPORT_PATH}#${ASSET_NAME}" --clobber
+          while IFS= read -r report_path; do
+            asset_name="$(basename "$report_path")"
+            gh release upload "$TAG" "${report_path}#${asset_name}" --clobber
+          done < "$MANIFEST"
 
-      - name: Verify uploaded asset
+      - name: Verify uploaded assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.name }}
-          ASSET_NAME: ${{ steps.report.outputs.asset_name }}
+          MANIFEST: ${{ steps.reports.outputs.manifest }}
         run: |
           set -euo pipefail
-          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$ASSET_NAME" >/dev/null
-          echo "Verified release asset '$ASSET_NAME' on tag '$TAG'."
+          gh release view "$TAG" --json assets --jq '.assets[].name' > /tmp/release-assets.txt
+          while IFS= read -r report_path; do
+            asset_name="$(basename "$report_path")"
+            grep -Fx "$asset_name" /tmp/release-assets.txt >/dev/null
+            echo "Verified release asset '$asset_name' on tag '$TAG'."
+          done < "$MANIFEST"

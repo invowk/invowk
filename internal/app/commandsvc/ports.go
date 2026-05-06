@@ -83,7 +83,9 @@ func (noopExecutionObserver) InteractiveFallback(invowkfile.RuntimeMode) {
 func (missingRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeRegistryResult {
 	return RuntimeRegistryResult{
 		Registry: runtime.NewRegistry(),
-		Cleanup:  func() {},
+		Cleanup: func() {
+			// Missing registry adapters have no infrastructure to clean up.
+		},
 	}
 }
 

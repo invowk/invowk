@@ -80,6 +80,7 @@ The sidebar is manually configured in `website/sidebars.ts`. Current sections:
 | Flags and Arguments | `flags-and-arguments/` |
 | Environment Configuration | `environment/` |
 | Advanced Features | `advanced/` |
+| Performance | `performance/` |
 | Modules | `modules/` |
 | TUI Components | `tui/` |
 | Configuration | `configuration/` |

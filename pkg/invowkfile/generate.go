@@ -12,6 +12,7 @@ import (
 const (
 	cueCloseList          = "\t\t]\n"
 	cueAlternativesPrefix = "\t{alternatives: ["
+	cueValidationField    = ", validation: %q"
 )
 
 // GenerateCUE generates CUE text from an Invowkfile struct.
@@ -137,7 +138,7 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 				fmt.Fprintf(sb, ", short: %q", flag.Short)
 			}
 			if flag.Validation != "" {
-				fmt.Fprintf(sb, ", validation: %q", flag.Validation)
+				fmt.Fprintf(sb, cueValidationField, flag.Validation)
 			}
 			sb.WriteString("},\n")
 		}
@@ -190,7 +191,7 @@ func generateCommand(sb *strings.Builder, cmd *Command) {
 				fmt.Fprintf(sb, ", type: %q", arg.Type)
 			}
 			if arg.Validation != "" {
-				fmt.Fprintf(sb, ", validation: %q", arg.Validation)
+				fmt.Fprintf(sb, cueValidationField, arg.Validation)
 			}
 			if arg.Variadic {
 				sb.WriteString(", variadic: true")
@@ -474,7 +475,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 				sb.WriteString("{")
 				fmt.Fprintf(sb, "name: %q", alt.Name)
 				if alt.Validation != "" {
-					fmt.Fprintf(sb, ", validation: %q", alt.Validation)
+					fmt.Fprintf(sb, cueValidationField, alt.Validation)
 				}
 				sb.WriteString("}")
 			}

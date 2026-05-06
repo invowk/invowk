@@ -29,7 +29,7 @@ invowk audit --include-global`,
 invowk config set llm.provider codex
 invowk audit --llm
 
-# Auto-detect best available provider (local Ollama first, then cloud)
+# Auto-detect best available provider (local Ollama, cloud env vars, then CLI tools)
 invowk audit --llm-provider auto
 
 # Use a specific provider (works with OAuth — no API key needed)
@@ -50,17 +50,22 @@ invowk audit --llm-provider auto --severity high --format json`,
 
   'security/audit-json-example': {
     language: 'bash',
-    code: `# Full JSON output
-invowk audit --format json
+    code: `# Capture JSON output without masking audit's exit code 1 for findings
+set +e
+invowk audit --format json > audit-results.json
+status=$?
+set -e
 
 # Parse findings count
-invowk audit --format json | jq '.summary.total'
+jq '.summary.total' audit-results.json
 
 # List finding titles
-invowk audit --format json | jq '.findings[] | "[\\\\(.severity)] \\\\(.title)"'
+jq '.findings[] | "[\\\\(.severity)] \\\\(.title)"' audit-results.json
 
 # Check for compound threats
-invowk audit --format json | jq '.compound_threats'`,
+jq '.compound_threats' audit-results.json
+
+exit "$status"`,
   },
 
   // =============================================================================

@@ -1,7 +1,6 @@
 ---
 name: review-docs
 description: Comprehensive documentation review and audit for invowk. Checks README, website docs (next version only), MDX snippets, CUE schema alignment, i18n parity, architecture diagrams, container image policy, security/audit docs, LLM authoring docs, and agent workflow docs against the actual codebase. Use this when reviewing documentation accuracy, when code changes may have caused doc drift, after significant feature work, or before releases. Always use this skill for any documentation review task, even if the user doesn't explicitly say "review docs" — any mention of checking docs, verifying documentation accuracy, or ensuring docs match code should trigger this skill.
-disable-model-invocation: false
 ---
 
 # Documentation Review and Audit
@@ -9,6 +8,11 @@ disable-model-invocation: false
 This skill orchestrates a structured review of all documentation surfaces to ensure they
 accurately reflect the current codebase. It is review-only — use the `/docs` skill for
 editing and the `/d2-diagrams` skill for diagram creation.
+
+The review is closed-world and evidence-gated. A counted finding must come from a checklist
+item, cite an exact documentation target, cite an exact source of truth, and describe an
+objective factual mismatch. Style preferences, wording nuance, missing nice-to-have context,
+and speculative risk are not findings unless a checklist item explicitly requires them.
 
 ## Purpose and Scope
 
@@ -38,17 +42,17 @@ Read `references/readme-sync-map.md` for the full section → source-of-truth ma
 
 ### S2: Website Docs (next version only)
 
-59+ MDX pages in `website/docs/` across 12 sections plus `architecture/`. Source of truth
-is the Go code and CUE schemas. Only review `website/docs/` (the "Next" unreleased version
-at `/docs/next/`), never `website/versioned_docs/`.
+MDX pages discovered by the live inventory in `website/docs/` across the current sections plus
+`architecture/`. Source of truth is the Go code and CUE schemas. Only review `website/docs/`
+(the "Next" unreleased version at `/docs/next/`), never `website/versioned_docs/`.
 
 Read `references/consolidated-sync-map.md` for the full code → docs mapping.
 
 ### S3: Snippet Data and CUE Schema Drift
 
-12 snippet data files in `website/src/components/Snippet/data/*.ts` contain all reusable
-code examples. CUE snippets are the most drift-prone because the schema evolves faster than
-the examples.
+The live inventory of `website/src/components/Snippet/data/*.ts` contains all reusable code
+examples. CUE snippets are the most drift-prone because the schema evolves faster than the
+examples.
 
 The #1 drift pattern is missing `platforms` field in implementation blocks. Five additional
 patterns are cataloged in `references/cue-drift-patterns.md` (6 total).
@@ -70,8 +74,8 @@ recently, then compare with the corresponding pt-BR files for stale or contradic
 
 ### S5: Architecture Diagrams
 
-23 D2 source files in `docs/diagrams/`, 8 architecture prose docs in `docs/architecture/`,
-and website architecture pages in `website/docs/architecture/`.
+The live D2 source inventory in `docs/diagrams/`, architecture prose docs in
+`docs/architecture/`, and website architecture pages in `website/docs/architecture/`.
 
 Focus: Do diagram nodes, labels, and relationships match current package names and code
 structure? Delegate detailed D2 review (formatting, readability rules, rendering) to the
@@ -128,8 +132,9 @@ These principles ensure that running the review multiple times produces the same
 They apply to both the coordinator and all subagents.
 
 1. **Checklist-driven review** — Each subagent follows its surface's checklist from
-   `references/surface-checklists.md`. Every checklist item gets a status (PASS/FAIL/N-A).
-   This is the primary review activity — open-ended exploration is secondary and optional.
+   `references/surface-checklists.md`. Every checklist item gets a status (PASS/FAIL/N/A).
+   This is the review activity. Open-ended exploration may only produce uncounted candidate
+   observations for the coordinator, not findings.
 
 2. **Pre-assigned severity** — Each checklist item has a severity level defined in
    `surface-checklists.md`. Subagents use that severity, not their own judgment. The reason:
@@ -137,8 +142,9 @@ They apply to both the coordinator and all subagents.
    (after scope sampling). Fixing severity at definition time eliminates this.
 
 3. **Deterministic file traversal** — Each checklist enumerates the exact files to review.
-   Subagents check all listed files, not a sample. For surfaces with many files (S2, S3),
-   the checklist specifies which files to examine.
+   Subagents check all listed files, not a sample. Live inventories are sorted with
+   `LC_ALL=C sort` and passed to every subagent in the Context Block. Subagents do not
+   recalculate or reinterpret inventory membership.
 
 4. **Structured context passing** — The coordinator passes programmatic check results to
    subagents using the Context Block format defined below, not free-form prose. This ensures
@@ -148,9 +154,19 @@ They apply to both the coordinator and all subagents.
    that pass are reported as PASS with brief evidence. Items that cannot be checked are N/A
    with an explanation. The coordinator verifies completeness during merge.
 
-6. **Inventory-first coverage** — Before spawning subagents, the coordinator records a live
+6. **Finding admission gate** — A FAIL may become a finding only when it has all fields required
+   by `references/structured-output-format.md`: check ID, exact doc path and line/snippet ID,
+   exact source-of-truth file and symbol/command/schema section, current content, expected
+   content, and one-sentence rationale. If any field is missing, report N/A or an uncounted
+   candidate observation instead of a finding.
+
+7. **Inventory-first coverage** — Before spawning subagents, the coordinator records a live
    inventory of docs, snippet data files, sidebars, diagram sources, and agent workflow docs.
    Any file or section not assigned to a checklist is itself a finding.
+
+8. **Stable audit snapshot** — Record the audit date and `git rev-parse HEAD` once in Step 1.
+   All subagents use that snapshot. If the working tree changes during the review, rerun Step 1
+   and restart the affected subagents with the new Context Block.
 
 ---
 
@@ -162,13 +178,18 @@ Run automated checks first to catch mechanical issues. See `references/verificat
 for full details and failure triage.
 
 ```bash
+export LC_ALL=C
+git rev-parse HEAD
+
 # Parallel group 1
 cd website && npm run docs:parity
 grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' README.md website/docs/ website/src/components/Snippet/data/ website/i18n/
 
 # Parallel group 2
 ./scripts/check-diagram-readability.sh
-for f in docs/diagrams/**/*.d2; do d2 validate "$f" 2>&1; done
+while IFS= read -r f; do
+  d2 validate "$f" 2>&1
+done < <(LC_ALL=C find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | LC_ALL=C sort)
 
 # Sequential
 make check-agent-docs
@@ -182,6 +203,8 @@ Record results in the **Context Block** format:
 ```
 PROGRAMMATIC CHECK RESULTS
 ==========================
+audit-date         : YYYY-MM-DD
+git-head           : <commit sha>
 docs:parity        : PASS | FAIL (detail)
 container-grep     : PASS | FAIL (files: ...)
 diagram-readability: PASS | FAIL (detail)
@@ -191,6 +214,7 @@ version-assets     : PASS | FAIL (detail)
 website-typecheck  : PASS | FAIL (detail)
 website-build      : PASS | FAIL (detail)
 doc-inventory      : PASS | FAIL (unassigned files/surfaces: ...)
+inventory-counts   : website-docs=N, snippets=N, d2=N, architecture=N, agent-docs=N
 ==========================
 ```
 
@@ -213,8 +237,8 @@ checklist review work assigned to any pending subagent.
 |----------|---------|-------------------|-------|
 | **SA-1: README** | S1 | `readme-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S1 | Walk 22-section sync map, verify each section against its source of truth |
 | **SA-2: Website Docs** | S2 | `consolidated-sync-map.md`, `intentional-simplifications.md`, `surface-checklists.md` §S2 | Verify MDX pages against Go code and CUE schemas using the code→docs map |
-| **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 6 CUE drift patterns to all 12 snippet data files systematically |
-| **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity` results, detect stale prose via git dates |
+| **SA-3: Snippet Data & CUE Drift** | S3 | `cue-drift-patterns.md`, `intentional-simplifications.md`, `surface-checklists.md` §S3 | Apply 6 CUE drift patterns to the live snippet inventory systematically |
+| **SA-4: i18n Parity** | S4 | `intentional-simplifications.md`, `surface-checklists.md` §S4 | Structural parity via `docs:parity` results, detect stale prose via the deterministic S4-C05 command |
 | **SA-5: Architecture Diagrams** | S5 | `consolidated-sync-map.md` (diagram section), `surface-checklists.md` §S5 | D2 node/label accuracy vs current package names and code structure |
 | **SA-6: Container Image Policy** | S6 | `surface-checklists.md` §S6 | Deep scan beyond Step 1 grep — CUE runtime fields, Dockerfiles in examples |
 | **SA-7: DefaultConfig() vs Docs** | S7 | `consolidated-sync-map.md`, `surface-checklists.md` §S7 | Field-by-field comparison of DefaultConfig() output vs 4 doc pages + snippets |
@@ -234,7 +258,8 @@ You are reviewing documentation surface S{N}: {Surface Name} for the invowk proj
 ## Your Task
 Follow the checklist in `references/surface-checklists.md` §S{N} item by item. For each
 checklist item, report PASS, FAIL, or N/A with evidence. Then generate findings for
-all FAIL items using the format in `references/structured-output-format.md`.
+all FAIL items that satisfy the Finding Admission Gate in
+`references/structured-output-format.md`.
 
 ## Reference Files to Read
 {list of reference files from the table above}
@@ -248,24 +273,30 @@ For each checklist item:
 2. Read the documentation target file
 3. Compare — does the doc accurately reflect the source of truth?
 4. Check `references/intentional-simplifications.md` — is a mismatch deliberate?
-5. Record status: PASS (with evidence), FAIL (generate finding), or N/A (with reason)
+5. Apply the Finding Admission Gate. If the mismatch is stylistic, subjective, speculative, or
+   missing exact evidence, do not generate a finding.
+6. Record status: PASS (with evidence), FAIL (generate finding), or N/A (with reason)
 
 ## Output
 1. Checklist Status table (every item, no omissions)
 2. Findings list (one entry per FAIL item, using the checklist's pre-assigned severity)
+3. Candidate observations (optional, uncounted; coordinator does not include these in RD-* IDs
+   unless they are converted into a checklist-backed coverage-gap finding)
 ```
 
 ### Step 3: Merge and Report
 
 The coordinator:
 1. **Verifies completeness** — Each subagent reported on all checklist items for its surface
-2. **Collects** findings from SA-1 through SA-11
-3. **Deduplicates** by (file, line/snippet ID) — keep higher severity on conflicts
-4. **Cross-checks** against `references/intentional-simplifications.md`
-5. **Sorts** by severity (ERROR first), then by surface
-6. **Assigns** sequential IDs (RD-001, RD-002, ...) to the merged list
-7. **Merges** checklist tables into a unified Checklist Completion summary
-8. **Produces** the final report (see `references/structured-output-format.md`)
+2. **Rejects incomplete findings** — Findings that fail the admission gate are returned to the
+   subagent as N/A/candidate observations, not merged
+3. **Collects** findings from SA-1 through SA-11
+4. **Deduplicates** by (file, line/snippet ID) — keep higher severity on conflicts
+5. **Cross-checks** against `references/intentional-simplifications.md`
+6. **Sorts** by severity (ERROR first), then surface ID, check ID, file path, and line/snippet ID
+7. **Assigns** sequential IDs (RD-001, RD-002, ...) to the merged list
+8. **Merges** checklist tables into a unified Checklist Completion summary
+9. **Produces** the final report (see `references/structured-output-format.md`)
 
 ---
 

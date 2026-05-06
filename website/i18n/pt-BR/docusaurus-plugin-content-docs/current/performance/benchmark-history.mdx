@@ -1,0 +1,46 @@
+---
+sidebar_position: 1
+---
+
+# Histórico de Benchmarks
+
+O Invowk publica relatórios de benchmark com os releases para que usuários vejam os custos atuais de inicialização e execução de comandos, e para que mantenedores inspecionem tendências de parser, discovery, runtime, memória e alocações.
+
+Cada publicação de benchmark de release inclui estes assets:
+
+- Relatório Markdown: o relatório legível por pessoas.
+- Relatório JSON: o registro canônico e legível por máquinas.
+- Resumo SVG: um resumo gráfico estático para releases no GitHub.
+- Saída bruta: a saída de benchmark Go usada para inspeção mais profunda.
+
+O relatório JSON é a fonte da verdade para o relatório Markdown, o resumo SVG, os dados históricos agregados e a página interativa de performance.
+
+## Janelas Históricas
+
+A página de performance enfatiza três janelas:
+
+- Últimos 3 meses: a visão mais útil para trabalho ativo de release.
+- Último 1 ano: a visão de médio prazo para a direção geral do produto.
+- Histórico completo: todo o registro disponível, incluindo relatórios legados preenchidos quando possível.
+
+A visualização padrão usa valores indexados. O primeiro valor da janela selecionada é tratado como `100`, então pontos posteriores deixam a direção relativa fácil de escanear. Valores absolutos continuam disponíveis em tabelas e controles dos gráficos.
+
+## Lendo Tendências
+
+Duração de benchmark, contagem de alocações e uso de memória usam a semântica de menor-é-melhor. Uma linha mais baixa ou valor menor na tabela significa que o comando ou benchmark ficou mais barato naquela medição.
+
+Notas de ambiente importam. Versão do Go, modelo de CPU, sistema operacional, imagem do runner, modo de benchmark e contagem de amostras podem mudar os resultados. Quando o ambiente registrado difere entre releases comparados, o relatório marca a comparação como confiança reduzida em vez de apresentá-la como uma mudança limpa apenas do produto.
+
+Relatórios legados somente em Markdown podem ser preenchidos no histórico, mas são marcados com confiança reduzida porque foram interpretados a partir de um formato legível por pessoas em vez de emitidos pelo schema JSON canônico.
+
+## Fluxo de Mantenedores
+
+Use os alvos de benchmark ao preparar ou verificar dados de performance de release:
+
+- `make bench-report` gera artefatos Markdown, JSON, SVG e saída bruta em modo curto.
+- `make bench-report-full` inclui a suíte completa de benchmarks.
+- `make bench-history` agrega assets locais de relatório de benchmark nos dados históricos do website.
+- `make bench-validate-assets` valida artefatos locais de benchmark gerados.
+- `make website-history-check` valida os dados históricos de benchmark do website.
+
+Os workflows de release e fallback preparam todos os tipos de assets de benchmark juntos. Se um asset estiver ausente, vazio, duplicado ou malformado, a preparação falha antes da publicação.
