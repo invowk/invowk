@@ -1,0 +1,55 @@
+---
+sidebar_position: 4
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Command Dependencies (`cmds`)
+
+Command dependencies (`depends_on.cmds`) are a **discovery check**: they ensure specific Invowk™ commands are available (discoverable) before your command runs.
+
+Invowk does **not** execute those commands automatically.
+
+For commands inside modules, this is also a **static access check**. A module command may depend on commands from the same module, globally installed modules in `~/.invowk/cmds`, or direct dependencies declared in the root `invowkmod.cue:requires`. Commands from unrelated modules or undeclared transitive dependencies fail validation even if they are otherwise discoverable. Root invowkfile commands are checked for discoverability only.
+
+## Basic Usage
+
+<Snippet id="dependencies/commands-basic" />
+
+If none of the listed alternatives can be found, Invowk fails with a **Missing Commands** dependency error.
+
+## Naming & Resolution
+
+- **Same invowkfile**: reference commands by name (e.g., `"build"`, `"test unit"`).
+- **Modules**: use the module-prefixed name (or alias) as shown by `invowk cmd` (e.g., `"shared generate-types"`).
+
+## Alternatives (OR Semantics)
+
+<Snippet id="dependencies/commands-alternatives" />
+
+The dependency is satisfied if **any** alternative is discoverable.
+
+For module commands, the chosen alternative must also pass the static access check described above.
+
+## Multiple Requirements (AND Semantics)
+
+<Snippet id="dependencies/commands-multiple" />
+
+All entries must be satisfied.
+
+## Cross-Invowkfile Requirements
+
+<Snippet id="dependencies/commands-cross-invowkfile" />
+
+This is especially useful when your invowkfile expects another invowkfile/module to be installed.
+
+## If you want workflows…
+
+If you want `deploy` to actually run `build` first, do it explicitly in your script (or create a dedicated “workflow” command). Invowk doesn’t orchestrate command execution via `depends_on.cmds`.
+
+<Snippet id="dependencies/commands-workflow" />
+
+## Next Steps
+
+- [Capabilities](./capabilities) - Check system capabilities
+- [Environment Variables](./env-vars) - Check for required env vars

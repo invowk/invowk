@@ -1,0 +1,46 @@
+---
+sidebar_position: 1
+---
+
+# Benchmark History
+
+Invowk publishes benchmark reports with releases so users can see current startup and command-runner costs, and maintainers can inspect parser, discovery, runtime, memory, and allocation trends.
+
+Each release benchmark publication includes these assets:
+
+- Markdown report: the human-readable release report.
+- JSON report: the canonical machine-readable benchmark record.
+- SVG summary: a static graphical summary for GitHub releases.
+- Raw output: the Go benchmark output used for deeper inspection.
+
+The JSON report is the source of truth for the Markdown report, SVG summary, aggregate history data, and the interactive performance page.
+
+## History Windows
+
+The performance page emphasizes three windows:
+
+- Last 3 months: the most useful view for active release work.
+- Last 1 year: the medium-term view for broad product direction.
+- All history: the full available record, including backfilled legacy reports when possible.
+
+The default chart view uses indexed values. The first value in the selected window is treated as `100`, so later points make the relative direction easy to scan. Absolute values are still available in tables and chart controls.
+
+## Reading Trends
+
+Benchmark duration, allocation count, and memory usage use lower-is-better semantics. A lower line or smaller table value means the command or benchmark became cheaper in that measurement.
+
+Environment notes matter. Go version, CPU model, operating system, runner image, benchmark mode, and sample count can all change results. When the recorded environment differs across compared releases, the report marks the comparison as reduced confidence instead of presenting it as a clean product-only change.
+
+Legacy Markdown-only reports can be backfilled into history, but they are marked with reduced confidence because they were parsed from a human-readable format rather than emitted from the canonical JSON schema.
+
+## Maintainer Workflow
+
+Use the benchmark targets when preparing or checking release performance data:
+
+- `make bench-report` generates short-mode Markdown, JSON, SVG, and raw benchmark artifacts.
+- `make bench-report-full` includes the full benchmark suite.
+- `make bench-history` aggregates local benchmark report assets into website history data.
+- `make bench-validate-assets` validates generated local benchmark artifacts.
+- `make website-history-check` validates the website benchmark history data.
+
+Release and fallback workflows stage all benchmark asset types together. If one asset is missing, empty, duplicated, or malformed, staging fails before publication.

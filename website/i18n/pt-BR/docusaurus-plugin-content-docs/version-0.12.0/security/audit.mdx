@@ -1,0 +1,354 @@
+---
+sidebar_position: 1
+---
+
+import Snippet from '@site/src/components/Snippet';
+
+# Auditoria de Segurança
+
+O Invowk inclui um scanner de segurança integrado que analisa invowkfiles, módulos, dependências vendorizadas e conteúdo de scripts em busca de vulnerabilidades na cadeia de suprimentos, injeção de scripts, travessia de caminhos, padrões suspeitos e problemas de integridade de lock files.
+
+## Início Rápido
+
+<Snippet id="security/audit-basic-examples" />
+
+## Como Funciona
+
+O comando `invowk audit` constrói um snapshot imutável de todos os artefatos descobertos (invowkfiles, módulos, scripts, lock files), e então executa **6 checkers de segurança integrados** concorrentemente. Após todos os checkers completarem, um **correlacionador** cruza os achados para detectar ameaças compostas.
+
+```
+invowk audit [path]
+  │
+  ├── Descoberta ──► Snapshot imutável (ScanContext)
+  │
+  ├── Checkers Concorrentes (6 integrados + LLM opcional)
+  │   ├── Script Checker ──► achados de execução, travessia, ofuscação
+  │   ├── Network Checker ──► achados de exfiltração
+  │   ├── Env Checker ──► achados de exfiltração
+  │   ├── Lock File Checker ──► achados de integridade
+  │   ├── Symlink Checker ──► achados de travessia de caminhos
+  │   ├── Module Metadata Checker ──► achados de confiança
+  │   └── LLM Checker (opt-in) ──► achados multi-categoria
+  │
+  ├── Correlacionador ──► detecção de ameaças compostas
+  │
+  └── Relatório ──► saída em texto ou JSON
+```
+
+## Alvos de Scan
+
+O scanner auto-detecta o tipo de alvo baseado no caminho:
+
+| Caminho | O que é Escaneado |
+|---------|-------------------|
+| Diretório (padrão `.`) | Invowkfile raiz + todos os diretórios `*.invowkmod` + fontes de descoberta |
+| Diretório `*.invowkmod` | Módulo único (invowkfile + lock file + deps vendorizadas) |
+| Arquivo `*.cue` | Invowkfile standalone único |
+
+Ao escanear um diretório, o scanner também descobre módulos de caminhos `includes` configurados e opcionalmente de `~/.invowk/cmds/` (com `--include-global`).
+
+## Checkers Integrados
+
+### Script Checker
+
+Analisa conteúdo e caminhos de scripts em busca de padrões de execução perigosos.
+
+**Detecta:**
+- Execução remota de código: `curl | bash`, `wget | sh`, download-e-execução silencioso
+- Travessia de caminhos: sequências `../` no conteúdo do script
+- Ofuscação: codificação/decodificação base64, `eval` com conteúdo dinâmico, sequências hexadecimais
+- Arquivos de script excepcionalmente grandes (>5 MiB)
+
+### Network Checker
+
+Escaneia scripts em busca de padrões de acesso à rede que podem indicar exfiltração de dados.
+
+**Detecta:**
+- Padrões de reverse shell (bash, Python, Perl, netcat)
+- Exfiltração DNS (`dig`, `nslookup` com subdomínios dinâmicos)
+- URLs codificadas (alvos de rede codificados em base64)
+- Comandos de rede suspeitos em contextos inesperados
+
+### Environment Checker
+
+Analisa configuração de ambiente e conteúdo de scripts em busca de riscos de exposição de credenciais.
+
+**Detecta:**
+- `env_inherit_mode: "all"` arriscado e defaults não definidos de `env_inherit_mode` nos runtimes native/virtual (ambos expõem todas as variáveis de ambiente do host)
+- Acesso a variáveis sensíveis: `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, senhas, chaves privadas
+- Padrões de extração de credenciais em scripts
+
+### Lock File Checker
+
+Valida a integridade do lock file do módulo para detecção de adulteração.
+
+**Detecta:**
+- Incompatibilidades de hash SHA-256 entre conteúdo travado e real
+- Entradas órfãs (módulos travados que não estão mais na árvore de dependências)
+- Entradas ausentes (dependências ainda não travadas)
+- Entradas ambíguas e problemas de formato de versão
+
+### Symlink Checker
+
+Percorre diretórios de módulos verificando ataques de escape via symlinks.
+
+**Detecta:**
+- Symlinks apontando para fora do limite do módulo
+- Cadeias de symlinks (symlink → symlink)
+- Symlinks pendentes (alvo não existe)
+- Qualquer symlink em diretório de módulo, porque pacotes de módulo devem ser autocontidos
+- Alvos de symlink ilegíveis e caminhadas de diretório incompletas que deixam o scan com cobertura reduzida
+
+### Module Metadata Checker
+
+Analisa cadeias de dependências e metadados de módulos em busca de riscos na cadeia de suprimentos.
+
+**Detecta:**
+- **Typosquatting**: Nomes de módulos similares a módulos populares (distância de Levenshtein)
+- **Fan-out**: Módulos com quantidade excessiva de dependências
+- **Versões não fixadas**: Dependências sem versões fixadas
+- **Deps transitivas não declaradas**: Dependências requeridas por sub-dependências mas não declaradas no `invowkmod.cue` raiz
+- **Módulos vendorizados ausentes de `requires`**: Dependências presentes em `invowk_modules/` sem uma declaração correspondente
+- **Falhas de parsing do invowkfile do módulo**: Arquivos de comando de módulo malformados que impedem auditoria do conteúdo de scripts
+- **Confiança em módulos globais**: Módulos de `~/.invowk/cmds/` que contornam a revisão local
+
+## Detecção de Ameaças Compostas
+
+O correlacionador identifica quando achados de diferentes checkers aparecem na mesma superfície de ataque, indicando ameaças coordenadas:
+
+| Ameaça Composta | Checkers Envolvidos | Severidade |
+|-----------------|---------------------|------------|
+| **Exfiltração de credenciais** | Env + Network | Crítica |
+| **Escape path + symlink** | Script + Symlink | Crítica |
+| **Exfiltração ofuscada** | Script + Network | Crítica |
+| **Fraqueza na cadeia de confiança** | Module Metadata + Lock File | Alta |
+| **Travessia de interpretador** | Execução de script + path traversal | Crítica |
+
+**Escalação automática de severidade:**
+- 3+ categorias distintas na mesma superfície &rarr; **Crítica**
+- Alta + qualquer outro achado na mesma superfície &rarr; **Crítica**
+- 2+ achados Médios na mesma superfície &rarr; **Alta**
+
+## Níveis de Severidade
+
+| Nível | Significado |
+|-------|-------------|
+| `critical` | Ação imediata necessária; provável exploit ativo ou ataque coordenado |
+| `high` | Risco sério; deve ser resolvido antes de usar o módulo |
+| `medium` | Preocupação notável; justifica investigação |
+| `low` | Problema menor; considere resolver |
+| `info` | Observação informativa; normalmente nenhuma ação necessária |
+
+Use `--severity` para filtrar o nível mínimo exibido:
+
+```bash
+# Apenas achados críticos e altos
+invowk audit --severity high
+
+# Tudo incluindo informativos
+invowk audit --severity info
+```
+
+## Flags
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--format` | `text` | Formato de saída: `text` ou `json` |
+| `--severity` | `low` | Severidade mínima: `info`, `low`, `medium`, `high`, `critical` |
+| `--include-global` | `false` | Incluir `~/.invowk/cmds/` no scan |
+
+## Códigos de Saída
+
+| Código | Significado |
+|--------|-------------|
+| `0` | Nenhum achado no ou acima do limiar de severidade |
+| `1` | Achados detectados |
+| `2` | Erro de scan |
+
+## Análise com LLM
+
+Para análise semântica mais profunda além da correspondência de padrões, habilite a auditoria com LLM usando `--llm-provider` ou `--llm`. Isso envia conteúdo de scripts para uma ferramenta CLI local ou para uma API local/remota compatível com OpenAI. `invowk audit` sem flags nunca usa a configuração LLM global por conta própria; passe `--llm` para optar por um backend configurado.
+
+:::info Por que análise com LLM?
+Os checkers integrados usam padrões regex — são rápidos e determinísticos mas só detectam padrões conhecidos. A análise com LLM raciocina sobre a *intenção* do código, detectando vetores de ataque inéditos, falhas lógicas sutis e problemas de segurança dependentes de contexto que regex não consegue expressar.
+:::
+
+### Configuração
+
+O checker LLM funciona com qualquer servidor que implemente a API OpenAI `/v1/chat/completions`. A configuração padrão usa o [Ollama](https://ollama.com), o servidor LLM local mais popular:
+
+```bash
+# 1. Instalar Ollama com seu gerenciador de pacotes ou por https://ollama.com
+
+# 2. Baixar um modelo focado em código
+ollama pull qwen2.5-coder:7b
+
+# 3. Executar a auditoria com análise LLM
+invowk audit --llm
+```
+
+Você pode configurar um backend global:
+
+```bash
+invowk config set llm.provider codex
+invowk audit --llm
+```
+
+Veja [Opções de Configuração](../configuration/options#llm) para config de provider e API, incluindo `llm.api.api_key_env` para credenciais sem segredo bruto no arquivo.
+
+### Detecção de Provedor
+
+Use `--llm-provider` para conectar o invowk por ferramentas locais ou credenciais de API em variáveis de ambiente:
+
+```bash
+# Auto-detectar: Ollama, APIs via env var, depois ferramentas CLI
+invowk audit --llm-provider auto
+
+# Provedores CLI usam o modelo padrão atual da ferramenta quando --llm-model é omitido
+invowk audit --llm-provider claude
+invowk audit --llm-provider codex
+invowk audit --llm-provider gemini
+
+# Override explícito de modelo para um provedor CLI
+invowk audit --llm-provider codex --llm-model NOME_DO_MODELO
+
+# APIs cloud via env var exigem modelo explícito
+OPENAI_API_KEY=sk-... invowk audit --llm-provider codex --llm-model NOME_DO_MODELO
+```
+
+Quando `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` ou `GOOGLE_API_KEY` seleciona um provedor de API cloud, `--llm-model` é obrigatório. Provedores baseados em CLI delegam para os padrões do Claude Code, Codex CLI ou Gemini CLI, a menos que você passe `--llm-model`.
+
+### Servidores Compatíveis
+
+| Servidor | URL Padrão | Notas |
+|----------|-----------|-------|
+| [Ollama](https://ollama.com) | `http://localhost:11434/v1` | Alvo padrão, melhor experiência local |
+| [LM Studio](https://lmstudio.ai) | `http://localhost:1234/v1` | Interface gráfica, bom navegador de modelos |
+| [llamafile](https://github.com/mozilla-ai/llamafile) | `http://localhost:8080/v1` | Executável único, instalação zero |
+| [vLLM](https://docs.vllm.ai) | `http://localhost:8000/v1` | Produção, otimizado para GPU |
+| [OpenAI](https://platform.openai.com) | `https://api.openai.com/v1` | Nuvem, requer chave de API |
+
+### Flags do LLM
+
+| Flag | Padrão | Variável de Ambiente | Descrição |
+|------|--------|---------------------|-----------|
+| `--llm-provider` | *(vazio)* | &mdash; | Auto-detectar ou usar `auto`, `claude`, `codex`, `gemini` ou `ollama` |
+| `--llm` | `false` | &mdash; | Habilitar análise com LLM usando configuração ou API |
+| `--llm-url` | `http://localhost:11434/v1` | `INVOWK_LLM_URL` | URL base da API |
+| `--llm-model` | `qwen2.5-coder:7b` para API/Ollama; padrão da ferramenta para provedores CLI | `INVOWK_LLM_MODEL` | Nome do modelo; obrigatório para provedores de API cloud via env var |
+| `--llm-api-key` | *(vazio)* | `INVOWK_LLM_API_KEY` | Chave de API (vazio para servidores locais) |
+| `--llm-timeout` | `2m` | `INVOWK_LLM_TIMEOUT` | Timeout por requisição |
+| `--llm-concurrency` | `2` | `INVOWK_LLM_CONCURRENCY` | Máximo de requisições LLM paralelas |
+
+### Modelos Recomendados
+
+| Modelo | RAM | Qualidade | Notas |
+|--------|-----|-----------|-------|
+| `qwen2.5-coder:7b` | 8 GB | Boa | Padrão, cabe na maioria das máquinas |
+| `qwen2.5-coder:14b` | 16 GB | Melhor | Bom equilíbrio |
+| `qwen2.5-coder:32b` | 24 GB | Excelente | Nível GPT-4o para código |
+| `deepseek-coder:33b` | 24 GB | Excelente | Melhor para raciocínio chain-of-thought |
+
+### Auto-Detecção de Modelo
+
+Quando `--llm` está habilitado, o invowk verifica se o modelo configurado está disponível no servidor antes de escanear. Se o modelo não for encontrado, ele mostra:
+
+- A lista de modelos disponíveis no servidor
+- Uma sugestão do melhor modelo focado em código (detectado dinamicamente por correspondência de padrões)
+
+```
+$ invowk audit --llm --llm-model modelo-inexistente
+LLM model not found: "modelo-inexistente" is not available on the server; try: qwen2.5-coder:14b
+available models: llama3:8b, qwen2.5-coder:14b, mistral:7b
+```
+
+A detecção reconhece famílias de modelos focados em código (`qwen2.5-coder`, `deepseek-coder`, `codellama`, `codegemma`, `starcoder`, `codestral`) independente da versão ou variante de quantização.
+
+### Exemplos
+
+<Snippet id="security/audit-llm-examples" />
+
+### Como Funciona
+
+O checker LLM:
+1. **Verifica** se o modelo configurado existe no servidor (com sugestões se não)
+2. **Filtra** scripts: exclui referências somente-arquivo e scripts vazios
+2. **Agrupa** scripts por contagem de caracteres (~6000 chars) e quantidade (máx 5 por lote)
+3. **Envia** cada lote ao LLM com um prompt de sistema de analista de segurança
+4. **Parseia** achados JSON estruturados da resposta
+5. **Valida** severidade e categoria contra enums existentes (defesa contra alucinação)
+6. **Integra** achados no mesmo pipeline dos checkers integrados
+
+Achados do LLM participam da detecção de ameaças compostas — se o LLM identifica um padrão de exfiltração e um checker integrado identifica acesso a variáveis sensíveis no mesmo módulo, o correlacionador escala para **Crítica**.
+
+:::caution O conteúdo dos scripts é enviado ao servidor configurado
+Quando `--llm` está habilitado, o conteúdo dos scripts dos seus invowkfiles e módulos é enviado ao endpoint de API configurado. Para servidores locais (Ollama, LM Studio), os dados permanecem na sua máquina. Para APIs em nuvem, revise as políticas de tratamento de dados do seu provedor.
+:::
+
+## Integração com CI
+
+### Gate Básico de CI
+
+```bash
+# Falhar pipeline se houver achados altos/críticos
+invowk audit --severity high
+```
+
+### Saída JSON para Automação
+
+<Snippet id="security/audit-json-example" />
+
+O DTO JSON inclui:
+
+| Campo | Descrição |
+|-------|-----------|
+| `findings[]` | Achados confirmados no limiar de severidade ou acima dele |
+| `compound_threats[]` | Achados confirmados do correlacionador no limiar de severidade ou acima dele |
+| `suppressed_findings[]` | Achados suprimidos por regras de triagem |
+| `suppressed_compound_threats[]` | Achados do correlacionador suprimidos |
+| `diagnostics[]` | Diagnósticos do scanner que não são achados |
+| `summary.total` | Contagem de achados e ameaças compostas confirmados no limiar de severidade ou acima dele |
+| `summary.suppressed` | Contagem de achados e ameaças compostas suprimidos |
+| `summary.critical` / `high` / `medium` / `low` / `info` | Contagens de achados confirmados por severidade |
+| `summary.modules_scanned` | Número de módulos verificados |
+| `summary.invowkfiles_scanned` | Número de invowkfiles verificados |
+| `summary.scripts_scanned` | Número de corpos de script verificados |
+| `summary.duration_ms` | Duração do scan em milissegundos |
+
+Cada achado inclui `code`, `severity`, `category`, `surface_id`, `surface_kind`, `checker_name`, `file_path`/`line` opcionais, `title`, `description`, `recommendation` e campos opcionais de proveniência de escalação. Valores válidos de `surface_kind` são `root_invowkfile`, `local_module`, `vendored_module` e `global_module`.
+
+Cada achado suprimido ou ameaça composta suprimida envolve a entrada original como `finding` e inclui os campos `disposition`, `rule` e `rationale`, que explicam por que a triagem a suprimiu.
+
+### Exemplo com GitHub Actions
+
+```yaml
+- name: Auditoria de segurança
+  run: |
+    set +e
+    invowk audit --severity high --format json > audit-results.json
+    status=$?
+    set -e
+
+    if [ "$status" -eq 1 ]; then
+      echo "::error::Achados de segurança detectados"
+      jq -r '.findings[] | "[\(.severity)] \(.title)"' audit-results.json
+      exit 1
+    elif [ "$status" -ne 0 ]; then
+      cat audit-results.json
+      exit "$status"
+    fi
+```
+
+### Com LLM no CI
+
+```yaml
+- name: Iniciar Ollama
+  run: |
+    # Use uma imagem de runner ou etapa de setup que instale o Ollama explicitamente.
+    ollama serve > ollama.log 2>&1 &
+    sleep 2
+    ollama pull qwen2.5-coder:7b
+
+- name: Auditoria de segurança (com LLM)
+  run: invowk audit --llm --severity high --format json
+```
