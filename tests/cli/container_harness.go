@@ -303,8 +303,8 @@ func smokeWorkspaceMountEngine(ctx context.Context, engine container.Engine) err
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	probePath := filepath.Join(tmpDir, "probe.txt")
-	if err := os.WriteFile(probePath, []byte("ok\n"), 0o600); err != nil {
-		return fmt.Errorf("write smoke workspace probe: %w", err)
+	if writeErr := os.WriteFile(probePath, []byte("ok\n"), 0o600); writeErr != nil {
+		return fmt.Errorf("write smoke workspace probe: %w", writeErr)
 	}
 
 	var stderr bytes.Buffer
