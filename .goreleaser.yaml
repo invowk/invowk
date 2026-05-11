@@ -93,14 +93,11 @@ release:
   # PATCH requests that set both prerelease=true and make_latest=true.
   make_latest: "{{ if .Prerelease }}false{{ else }}true{{ end }}"
   mode: replace
-  extra_files:
-    - glob: release-assets/invowk_*_bench-report.md
-    - glob: release-assets/invowk_*_bench-report.json
-    - glob: release-assets/invowk_*_bench-summary.svg
-    - glob: release-assets/invowk_*_bench-raw.txt
   header: |
     ## invowk {{ .Version }}
   footer: |
+    **Performance History**: https://bencher.dev/perf/invowk
+
     ---
     {{ if .PreviousTag }}
     **Full Changelog**: https://github.com/invowk/invowk/compare/{{ .PreviousTag }}...{{ .Tag }}

@@ -1,0 +1,171 @@
+name: Benchmarks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  workflow_dispatch:
+
+concurrency:
+  group: benchmarks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOPROXY: "https://proxy.golang.org|direct"
+  BENCHER_PROJECT: ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
+  BENCHER_TESTBED: github-ubuntu-24-04-go-1-26
+  BENCH_BMF_OUT: artifacts/benchmarks/invowk.bmf.json
+
+jobs:
+  bencher:
+    name: Track Benchmarks
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # GitHub-hosted Ubuntu 26.04 is not available yet. Pin benchmark runs to
+    # the newest supported Ubuntu image and mirror that in BENCHER_TESTBED.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Download Go modules
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Install Bencher CLI
+        uses: bencherdev/bencher@main
+
+      - name: Determine Bencher branch
+        id: meta
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            echo "branch=pr-$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "hash=$PR_HEAD_SHA" >> "$GITHUB_OUTPUT"
+            echo "start-point=$PR_BASE_REF" >> "$GITHUB_OUTPUT"
+            echo "start-point-hash=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "branch=$REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "hash=$SHA" >> "$GITHUB_OUTPUT"
+            echo "start-point=" >> "$GITHUB_OUTPUT"
+            echo "start-point-hash=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Track benchmark data in Bencher
+        shell: bash
+        env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BENCHER_BRANCH: ${{ steps.meta.outputs.branch }}
+          BENCHER_HASH: ${{ steps.meta.outputs.hash }}
+          BENCHER_START_POINT: ${{ steps.meta.outputs.start-point }}
+          BENCHER_START_POINT_HASH: ${{ steps.meta.outputs.start-point-hash }}
+        run: |
+          set -euo pipefail
+
+          start_point_args=()
+          if [[ -n "$BENCHER_START_POINT" ]]; then
+            start_point_args=(
+              --start-point "$BENCHER_START_POINT"
+              --start-point-hash "$BENCHER_START_POINT_HASH"
+              --start-point-clone-thresholds
+              --start-point-reset
+            )
+          fi
+
+          bencher run \
+            --project "$BENCHER_PROJECT" \
+            --branch "$BENCHER_BRANCH" \
+            --hash "$BENCHER_HASH" \
+            --testbed "$BENCHER_TESTBED" \
+            --adapter json \
+            --file "$BENCH_BMF_OUT" \
+            --github-actions "$GITHUB_TOKEN" \
+            --ci-id bmf \
+            --error-on-alert \
+            "${start_point_args[@]}" \
+            "node scripts/bench-bmf.mjs --output artifacts/benchmarks/invowk.bmf.json --raw-go-output artifacts/benchmarks/go-bench.txt"
+
+  fork-pr-artifact:
+    name: Benchmark Fork PR
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    # See the trusted Bencher job above for the runner/testbed rationale.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Generate BMF benchmark data
+        run: node scripts/bench-bmf.mjs --output artifacts/benchmarks/invowk.bmf.json --raw-go-output artifacts/benchmarks/go-bench.txt
+
+      - name: Upload BMF benchmark data
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-bmf-pr-${{ github.event.pull_request.number }}
+          path: |
+            artifacts/benchmarks/invowk.bmf.json
+            artifacts/benchmarks/go-bench.txt
+          if-no-files-found: error
+          retention-days: 7

@@ -39,7 +39,10 @@ Thumbs.db
 # Claude Code local overrides (personal, not shared)
 .claude.local.md
 
-# Release staging (benchmark reports for GoReleaser extra_files)
+# Generated benchmark output
+artifacts/benchmarks/
+
+# Release staging
 release-assets/
 
 # VHS test output (generated files, not golden files)

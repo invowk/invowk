@@ -240,10 +240,10 @@ jobs:
         shell: bash
         run: sh scripts/test_install.sh
 
-      - name: Run benchmark report script tests
+      - name: Run Bencher BMF script tests
         if: startsWith(matrix.runner, 'ubuntu')
         shell: bash
-        run: node scripts/test_benchmark_report.mjs
+        run: node scripts/test_bench_bmf.mjs
 
       # Run WinGet manifest enhancement tests (Python + bash, no network calls).
       - name: Run WinGet enhancement tests
@@ -308,10 +308,13 @@ jobs:
     name: Release
     needs: [validate, test]
     if: always() && needs.test.result == 'success' && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
-    runs-on: ubuntu-latest
+    # GitHub-hosted Ubuntu 26.04 is not available yet. Pin the release
+    # benchmark runner and Bencher testbed to the newest supported Ubuntu image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: write
+      checks: write
       id-token: write  # Required for Cosign keyless signing
     steps:
       - name: Checkout
@@ -354,6 +357,44 @@ jobs:
             echo "name=$TAG_REF" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Determine release benchmark metadata
+        id: bench-meta
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+
+          release_sha="$(git rev-list -n 1 "$TAG_NAME")"
+          previous_tag=""
+          found_current=false
+          while IFS= read -r tag; do
+            if [[ "$tag" == "$TAG_NAME" ]]; then
+              found_current=true
+              break
+            fi
+            previous_tag="$tag"
+          done < <(git tag --sort=v:refname | grep -E '^v[0-9]' || true)
+
+          if [[ "$found_current" != "true" ]]; then
+            echo "::error::Release tag $TAG_NAME was not found in the local tag list."
+            exit 1
+          fi
+
+          previous_sha=""
+          if [[ -n "$previous_tag" ]]; then
+            previous_sha="$(git rev-list -n 1 "$previous_tag")"
+          fi
+
+          echo "release-sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "previous-tag=$previous_tag" >> "$GITHUB_OUTPUT"
+          echo "previous-sha=$previous_sha" >> "$GITHUB_OUTPUT"
+          echo "Release benchmark branch: $TAG_NAME ($release_sha)"
+          if [[ -n "$previous_tag" ]]; then
+            echo "Release benchmark start point: $previous_tag ($previous_sha)"
+          else
+            echo "No previous release tag found; Bencher will create the release branch without a start point."
+          fi
+
       # Install UPX for binary compression (pinned to avoid apt repo drift)
       - name: Install UPX
         run: |
@@ -379,16 +420,53 @@ jobs:
           app-id: ${{ secrets.DOCS_APP_ID }}
           private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
 
-      # Generate benchmark report assets (Markdown, JSON, SVG, raw output).
-      # Written to release-assets/ (NOT dist/) because GoReleaser's --clean
-      # wipes dist/ before building. The .goreleaser.yaml extra_files globs
-      # point to release-assets/ to pick up the reports at upload time.
-      - name: Generate benchmark report assets
+      - name: Install Bencher CLI
+        uses: bencherdev/bencher@main
+
+      - name: Track release performance in Bencher
+        shell: bash
         env:
-          TAG: ${{ steps.tag.outputs.name }}
-          BENCH_REPORT_OUT_DIR: ${{ runner.temp }}/release-benchmarks
-          BENCH_HISTORY_JSON: website/static/benchmarks/history.json
-        run: scripts/stage-release-bench-report.sh
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+          BENCHER_PROJECT: ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
+          BENCHER_TESTBED: github-ubuntu-24-04-go-1-26
+          BENCH_BMF_OUT: artifacts/benchmarks/invowk.bmf.json
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+          RELEASE_SHA: ${{ steps.bench-meta.outputs.release-sha }}
+          PREVIOUS_TAG: ${{ steps.bench-meta.outputs.previous-tag }}
+          PREVIOUS_SHA: ${{ steps.bench-meta.outputs.previous-sha }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          set -euo pipefail
+
+          start_point_args=()
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            start_point_args=(
+              --start-point "$PREVIOUS_TAG"
+              --start-point-hash "$PREVIOUS_SHA"
+              --start-point-clone-thresholds
+              --start-point-reset
+            )
+          fi
+
+          dry_run_args=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            dry_run_args=(--dry-run)
+          fi
+
+          bencher run \
+            --project "$BENCHER_PROJECT" \
+            --branch "$TAG_NAME" \
+            --hash "$RELEASE_SHA" \
+            --testbed "$BENCHER_TESTBED" \
+            --adapter json \
+            --file "$BENCH_BMF_OUT" \
+            --github-actions "$GITHUB_TOKEN" \
+            --ci-id release-bmf \
+            --error-on-alert \
+            "${start_point_args[@]}" \
+            "${dry_run_args[@]}" \
+            "node scripts/bench-bmf.mjs --output artifacts/benchmarks/invowk.bmf.json --raw-go-output artifacts/benchmarks/go-bench.txt"
 
       # Run GoReleaser (publish)
       - name: Run GoReleaser
