@@ -9,6 +9,8 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
+  SHORT_BENCH_REGEX,
+  TRACKED_GO_BENCHMARKS,
   goMetricsToBmf,
   parseGoBenchOutput,
   validateBmf,
@@ -38,11 +40,12 @@ function testParseGoBenchOutput() {
   assert.deepEqual(cue.allocs, [2, 4]);
 
   const bmf = goMetricsToBmf(parsed);
-  assert.equal(bmf['go/BenchmarkCUEParsing'].latency.value, 110);
-  assert.equal(bmf['go/BenchmarkCUEParsing'].latency.lower_value, 100);
-  assert.equal(bmf['go/BenchmarkCUEParsing'].latency.upper_value, 120);
-  assert.equal(bmf['go/BenchmarkCUEParsing'].memory.value, 22);
-  assert.equal(bmf['go/BenchmarkCUEParsing'].allocations.value, 3);
+  assert.equal(bmf['cue/parse-invowkfile-basic'].latency.value, 110);
+  assert.equal(bmf['cue/parse-invowkfile-basic'].latency.lower_value, 100);
+  assert.equal(bmf['cue/parse-invowkfile-basic'].latency.upper_value, 120);
+  assert.equal(bmf['cue/parse-invowkfile-basic'].memory.value, 22);
+  assert.equal(bmf['cue/parse-invowkfile-basic'].allocations.value, 3);
+  assert.equal(bmf['command/execute-virtual-end-to-end-basic'].latency.value, 500);
   validateBmf(bmf);
 }
 
@@ -55,6 +58,15 @@ function testValidateBmfRejectsInvalidPayload() {
     () => validateBmf({}),
     /at least one benchmark/,
   );
+}
+
+function testTrackedRegexUsesExplicitBenchmarks() {
+  assert.ok(SHORT_BENCH_REGEX.startsWith('^('));
+  assert.ok(!SHORT_BENCH_REGEX.includes('.*'));
+  for (const name of TRACKED_GO_BENCHMARKS) {
+    assert.match(name, /^Benchmark/);
+    assert.match(name, new RegExp(SHORT_BENCH_REGEX));
+  }
 }
 
 function testEmitterEndToEndWithFixtures() {
@@ -92,7 +104,9 @@ function testEmitterEndToEndWithFixtures() {
     validateBmf(bmf);
     assert.ok(bmf['binary/bin-invowk']['file-size'].value > 0);
     assert.ok(bmf['startup/version'].latency.value > 0);
-    assert.equal(bmf['go/BenchmarkFullPipeline'].latency.value, 500);
+    assert.ok(bmf['command/execute-cli-native-basic'].latency.value > 0);
+    assert.ok(bmf['command/execute-cli-virtual-basic'].latency.value > 0);
+    assert.equal(bmf['command/execute-virtual-end-to-end-basic'].latency.value, 500);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -100,6 +114,7 @@ function testEmitterEndToEndWithFixtures() {
 
 testParseGoBenchOutput();
 testValidateBmfRejectsInvalidPayload();
+testTrackedRegexUsesExplicitBenchmarks();
 testEmitterEndToEndWithFixtures();
 
 console.log('bench-bmf tests passed');

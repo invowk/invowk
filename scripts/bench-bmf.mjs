@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -9,13 +10,74 @@ import { fileURLToPath } from 'node:url';
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), '..');
 
-export const SHORT_BENCH_REGEX = '^Benchmark(CUEParsing|CUEParsingComplex|InvowkmodParsing|Discovery.*|ModuleValidation|FullPipeline)$';
+export const GO_BENCH_PACKAGES = [
+  './internal/benchmark',
+  './internal/app/modulesync',
+  './internal/app/moduleops',
+  './cmd/invowk',
+];
+
+export const TRACKED_GO_BENCHMARKS = [
+  'BenchmarkCUEParsing',
+  'BenchmarkCUEParsingComplex',
+  'BenchmarkInvowkmodParsing',
+  'BenchmarkDiscovery',
+  'BenchmarkDiscoveryIncludesAndAliases',
+  'BenchmarkDiscoveryVendoredModules',
+  'BenchmarkDiscoveryModuleCollisionCheck',
+  'BenchmarkDiscoveryWorkspaceLarge',
+  'BenchmarkRuntimeNative',
+  'BenchmarkRuntimeVirtual',
+  'BenchmarkRuntimeVirtualComplex',
+  'BenchmarkFullPipeline',
+  'BenchmarkModuleValidation',
+  'BenchmarkModuleSyncExplicitDeps',
+  'BenchmarkModuleTidyTransitiveDeps',
+  'BenchmarkModuleVendorLockedDeps',
+  'BenchmarkAuditScanDeterministicModule',
+  'BenchmarkAuditRenderJSONReport',
+  'BenchmarkValidateWorkspaceBasic',
+  'BenchmarkValidateWorkspaceLarge',
+];
+
+const benchmarkNameMap = new Map([
+  ['BenchmarkCUEParsing', 'cue/parse-invowkfile-basic'],
+  ['BenchmarkCUEParsingComplex', 'cue/parse-invowkfile-large'],
+  ['BenchmarkInvowkmodParsing', 'cue/parse-invowkmod-basic'],
+  ['BenchmarkDiscovery', 'discovery/load-workspace-basic'],
+  ['BenchmarkDiscoveryIncludesAndAliases', 'discovery/load-configured-includes-aliases'],
+  ['BenchmarkDiscoveryVendoredModules', 'discovery/load-vendored-modules'],
+  ['BenchmarkDiscoveryModuleCollisionCheck', 'discovery/detect-module-id-collision'],
+  ['BenchmarkDiscoveryWorkspaceLarge', 'discovery/load-workspace-large'],
+  ['BenchmarkRuntimeNative', 'runtime/native-execute-basic'],
+  ['BenchmarkRuntimeVirtual', 'runtime/virtual-execute-basic'],
+  ['BenchmarkRuntimeVirtualComplex', 'runtime/virtual-execute-script-complex'],
+  ['BenchmarkRuntimeContainer', 'runtime/container-execute-basic'],
+  ['BenchmarkFullPipeline', 'command/execute-virtual-end-to-end-basic'],
+  ['BenchmarkCommandLookup', 'command/lookup-by-name'],
+  ['BenchmarkEnvBuilding', 'runtime/build-environment-overrides'],
+  ['BenchmarkModuleValidation', 'module/validate-basic'],
+  ['BenchmarkModuleSyncExplicitDeps', 'module/sync-explicit-deps'],
+  ['BenchmarkModuleTidyTransitiveDeps', 'module/tidy-transitive-deps'],
+  ['BenchmarkModuleVendorLockedDeps', 'module/vendor-locked-deps'],
+  ['BenchmarkAuditScanDeterministicModule', 'audit/scan-deterministic-module'],
+  ['BenchmarkAuditRenderJSONReport', 'audit/render-json-report'],
+  ['BenchmarkValidateWorkspaceBasic', 'validate/workspace-basic'],
+  ['BenchmarkValidateWorkspaceLarge', 'validate/workspace-large'],
+]);
+
+export const SHORT_BENCH_REGEX = `^(${TRACKED_GO_BENCHMARKS.map(escapeRegex).join('|')})$`;
 
 const startupScenarios = [
   { id: 'version', name: 'startup/version', args: ['--version'] },
   { id: 'help', name: 'startup/help', args: ['--help'] },
   { id: 'cmd-help', name: 'startup/cmd-help', args: ['cmd', '--help'] },
   { id: 'cmd-list', name: 'startup/cmd-list', args: ['cmd'] },
+];
+
+const commandScenarios = [
+  { name: 'command/execute-cli-native-basic', args: ['cmd', 'native-basic'] },
+  { name: 'command/execute-cli-virtual-basic', args: ['cmd', 'virtual-basic'] },
 ];
 
 function main() {
@@ -60,10 +122,22 @@ function main() {
 
     if (!skipStartup) {
       for (const scenario of startupScenarios) {
-        const summary = measureStartup(binary, scenario.args, startupSamples);
+        const summary = measureCommand(binary, scenario.args, startupSamples);
         bmf[scenario.name] = {
           latency: toMetric(summary.mean, summary.min, summary.max),
         };
+      }
+
+      const commandFixtureDir = createCommandFixture();
+      try {
+        for (const scenario of commandScenarios) {
+          const summary = measureCommand(binary, scenario.args, startupSamples, commandFixtureDir);
+          bmf[scenario.name] = {
+            latency: toMetric(summary.mean, summary.min, summary.max),
+          };
+        }
+      } finally {
+        fs.rmSync(commandFixtureDir, { recursive: true, force: true });
       }
     }
 
@@ -193,13 +267,42 @@ function assertExecutable(binary) {
   }
 }
 
-function measureStartup(binary, args, samples) {
-  runChecked(binary, args);
+function createCommandFixture() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'invowk-command-bench-'));
+  fs.writeFileSync(
+    path.join(dir, 'invowkfile.cue'),
+    `cmds: [
+  {
+    name: "native-basic"
+    description: "Native command benchmark"
+    implementations: [{
+      script: "echo ok"
+      runtimes: [{name: "native"}]
+      platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+  },
+  {
+    name: "virtual-basic"
+    description: "Virtual command benchmark"
+    implementations: [{
+      script: "echo ok"
+      runtimes: [{name: "virtual"}]
+      platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+    }]
+  },
+]
+`,
+  );
+  return dir;
+}
+
+function measureCommand(binary, args, samples, cwd = repoRoot) {
+  runChecked(binary, args, cwd);
 
   const values = [];
   for (let i = 0; i < samples; i += 1) {
     const started = process.hrtime.bigint();
-    runChecked(binary, args);
+    runChecked(binary, args, cwd);
     const elapsedNs = Number(process.hrtime.bigint() - started);
     values.push(elapsedNs);
   }
@@ -207,9 +310,9 @@ function measureStartup(binary, args, samples) {
   return summarize(values);
 }
 
-function runChecked(command, args) {
+function runChecked(command, args, cwd = repoRoot) {
   const result = spawnSync(command, args, {
-    cwd: repoRoot,
+    cwd,
     encoding: 'utf8',
     stdio: 'ignore',
   });
@@ -221,7 +324,7 @@ function runChecked(command, args) {
 function runGoBenchmarks({ goCmd, benchRegex, benchCount, benchTime }) {
   const goArgs = [
     'test',
-    './internal/benchmark',
+    ...GO_BENCH_PACKAGES,
     '-run=^$',
     `-bench=${benchRegex}`,
     '-benchmem',
@@ -303,7 +406,7 @@ export function goMetricsToBmf(metrics) {
       benchmark.allocations = summaryToMetric(summarize(values.allocs));
     }
 
-    bmf[`go/${name}`] = benchmark;
+    bmf[bencherBenchmarkName(name)] = benchmark;
   }
 
   if (Object.keys(bmf).length === 0) {
@@ -311,6 +414,14 @@ export function goMetricsToBmf(metrics) {
   }
 
   return bmf;
+}
+
+function bencherBenchmarkName(name) {
+  return benchmarkNameMap.get(name) || `go/${name}`;
+}
+
+function escapeRegex(value) {
+  return value.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
 }
 
 function summarize(values) {
