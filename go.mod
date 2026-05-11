@@ -16,16 +16,16 @@ require (
 	github.com/charmbracelet/wish v1.4.7
 	github.com/charmbracelet/x/xpty v0.1.3
 	github.com/creack/pty v1.1.24
-	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-git/go-git/v5 v5.18.0
+	github.com/fsnotify/fsnotify v1.10.1
+	github.com/go-git/go-git/v5 v5.19.0
 	github.com/muesli/reflow v0.3.0
 	github.com/openai/openai-go v1.12.0
 	github.com/rogpeppe/go-internal v1.14.1
-	github.com/sahilm/fuzzy v0.1.1
+	github.com/sahilm/fuzzy v0.1.2
 	github.com/spf13/cobra v1.10.2
 	github.com/u-root/u-root v0.16.0
-	golang.org/x/sys v0.43.0
-	golang.org/x/term v0.42.0
+	golang.org/x/sys v0.44.0
+	golang.org/x/term v0.43.0
 	mvdan.cc/sh/v3 v3.13.1
 )
 
@@ -62,7 +62,7 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.8.0 // indirect
+	github.com/go-git/go-billy/v5 v5.9.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
@@ -93,7 +93,7 @@ require (
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.3.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
-	github.com/pjbgf/sha1cd v0.5.0 // indirect
+	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20260420112717-c39628bde8b5 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
