@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -36,10 +37,11 @@ type (
 	containerHarnessStatus int
 
 	engineProbeStatus struct {
-		present    bool
-		healthy    bool
-		reason     string
-		binaryPath string
+		present     bool
+		healthy     bool
+		unsupported bool
+		reason      string
+		binaryPath  string
 	}
 
 	containerSuiteHarness struct {
@@ -105,14 +107,25 @@ func decideContainerSuiteHarness(
 		return harnessForSelectedEngine(engineType, statuses[engineType], true)
 	}
 
-	preferredStatus := statuses[preferred]
-	if preferredStatus.present {
-		return harnessForSelectedEngine(preferred, preferredStatus, false)
-	}
-
 	fallback := container.EngineTypeDocker
 	if preferred == container.EngineTypeDocker {
 		fallback = container.EngineTypePodman
+	}
+
+	preferredStatus := statuses[preferred]
+	if preferredStatus.present {
+		if preferredStatus.healthy {
+			return harnessForSelectedEngine(preferred, preferredStatus, false)
+		}
+		if !preferredStatus.unsupported {
+			return harnessForSelectedEngine(preferred, preferredStatus, false)
+		}
+
+		fallbackStatus := statuses[fallback]
+		if fallbackStatus.present {
+			return harnessForSelectedEngine(fallback, fallbackStatus, false)
+		}
+		return harnessForSelectedEngine(preferred, preferredStatus, false)
 	}
 
 	fallbackStatus := statuses[fallback]
@@ -140,6 +153,13 @@ func harnessForSelectedEngine(
 	}
 
 	if status.present {
+		if status.unsupported && !explicit {
+			return containerSuiteHarness{
+				status: containerHarnessStatusSkip,
+				reason: fmt.Sprintf("container engine %q cannot support the container CLI suite in this environment: %s", engineType, status.reason),
+			}
+		}
+
 		prefix := "selected"
 		if explicit {
 			prefix = "explicit"
@@ -195,6 +215,15 @@ func probeEngineStatus(engineType container.EngineType) engineProbeStatus {
 			present:    true,
 			reason:     fmt.Sprintf("build smoke failed: %v", err),
 			binaryPath: binaryPath,
+		}
+	}
+
+	if err := smokeWorkspaceMountEngine(ctx, engine); err != nil {
+		return engineProbeStatus{
+			present:     true,
+			unsupported: isContainerSuiteUnsupportedMountError(err),
+			reason:      fmt.Sprintf("workspace mount smoke failed: %v", err),
+			binaryPath:  binaryPath,
 		}
 	}
 
@@ -264,6 +293,48 @@ func smokeBuildEngine(ctx context.Context, engine container.Engine) error {
 	removeErr := engine.RemoveImage(ctx, tag, true)
 	_ = removeErr
 	return nil
+}
+
+func smokeWorkspaceMountEngine(ctx context.Context, engine container.Engine) error {
+	tmpDir, err := os.MkdirTemp("", "invowk-container-workspace-smoke-*")
+	if err != nil {
+		return fmt.Errorf("create smoke workspace dir: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	probePath := filepath.Join(tmpDir, "probe.txt")
+	if err := os.WriteFile(probePath, []byte("ok\n"), 0o600); err != nil {
+		return fmt.Errorf("write smoke workspace probe: %w", err)
+	}
+
+	var stderr bytes.Buffer
+	result, err := engine.Run(ctx, container.RunOptions{
+		Image:   "debian:stable-slim",
+		WorkDir: "/workspace",
+		Volumes: []container.VolumeMountSpec{
+			container.VolumeMountSpec(filepath.ToSlash(tmpDir) + ":/workspace"), //goplint:ignore -- smoke probe uses a test-owned temp dir
+		},
+		Command: []string{"cat", "/workspace/probe.txt"},
+		Remove:  true,
+		Stdout:  io.Discard,
+		Stderr:  &stderr,
+	})
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return errors.New("workspace mount smoke returned nil result")
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("exit code %d: %s", result.ExitCode, strings.TrimSpace(stderr.String()))
+	}
+	return nil
+}
+
+func isContainerSuiteUnsupportedMountError(err error) bool {
+	errText := err.Error()
+	return strings.Contains(errText, "SELinux relabeling") &&
+		strings.Contains(errText, "is not allowed")
 }
 
 func ensureContainerSuiteConfig(env *testscript.Env) error {

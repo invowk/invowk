@@ -63,6 +63,36 @@ func TestDecideContainerSuiteHarness(t *testing.T) {
 			wantText:  "installed but unhealthy",
 		},
 		{
+			name:      "preferred unsupported fallback healthy",
+			preferred: container.EngineTypePodman,
+			statuses: map[container.EngineType]engineProbeStatus{
+				container.EngineTypePodman: {present: true, unsupported: true, reason: "workspace mount smoke failed"},
+				container.EngineTypeDocker: {present: true, healthy: true, binaryPath: "/usr/bin/docker"},
+			},
+			wantState: containerHarnessStatusReady,
+			wantType:  container.EngineTypeDocker,
+		},
+		{
+			name:      "preferred unsupported without fallback skips",
+			preferred: container.EngineTypePodman,
+			statuses: map[container.EngineType]engineProbeStatus{
+				container.EngineTypePodman: {present: true, unsupported: true, reason: "workspace mount smoke failed"},
+				container.EngineTypeDocker: {present: false},
+			},
+			wantState: containerHarnessStatusSkip,
+			wantText:  "cannot support the container CLI suite",
+		},
+		{
+			name:      "explicit unsupported engine fails",
+			explicit:  "podman",
+			preferred: container.EngineTypePodman,
+			statuses: map[container.EngineType]engineProbeStatus{
+				container.EngineTypePodman: {present: true, unsupported: true, reason: "workspace mount smoke failed"},
+			},
+			wantState: containerHarnessStatusFail,
+			wantText:  "installed but unhealthy",
+		},
+		{
 			name:      "no installed engines skips",
 			preferred: container.EngineTypePodman,
 			statuses: map[container.EngineType]engineProbeStatus{

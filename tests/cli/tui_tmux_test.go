@@ -3,30 +3,37 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 const (
 	// tmuxWaitTimeout is the default timeout for tmux waitFor polls.
-	// 10s gives CI runners headroom under load (previously 5s caused flakes on ubuntu-24.04).
-	tmuxWaitTimeout = 10 * time.Second
+	// 30s gives heavily loaded CI runners room to render full-screen widgets.
+	tmuxWaitTimeout = 30 * time.Second
 
 	// tuiInputSettleDelay is a small pause after waitFor succeeds and before
 	// sendKeys. Tmux rendering is asynchronous — even after content is visible in
 	// the pane, the TUI process may not yet be ready to accept input. This delay
 	// is a pragmatic minimum; increasing it reduces flakiness on slow CI runners.
-	tuiInputSettleDelay = 50 * time.Millisecond
+	tuiInputSettleDelay = 100 * time.Millisecond
+
+	tmuxCleanupTimeout = 5 * time.Second
 )
 
+var tmuxSessionMu sync.Mutex
+
 // tmuxSession wraps a tmux session for TUI testing.
-// Each test gets a unique session name to avoid conflicts in parallel execution.
+// Each test gets a unique session name, but sessions are serialized to keep
+// CI runner load and tmux server state deterministic.
 type tmuxSession struct {
 	name string
 	t    *testing.T
@@ -34,6 +41,10 @@ type tmuxSession struct {
 
 func newTmuxSession(t *testing.T, suffix string) *tmuxSession {
 	t.Helper()
+
+	tmuxSessionMu.Lock()
+	t.Cleanup(tmuxSessionMu.Unlock)
+
 	name := fmt.Sprintf("invowk-test-%s-%d", suffix, os.Getpid())
 	ctx := t.Context()
 
@@ -83,7 +94,9 @@ func (s *tmuxSession) waitFor(pattern string, timeout time.Duration) bool {
 }
 
 func (s *tmuxSession) kill() {
-	ctx := s.t.Context()
+	ctx, cancel := context.WithTimeout(context.Background(), tmuxCleanupTimeout)
+	defer cancel()
+
 	_ = exec.CommandContext(ctx, "tmux", "kill-session", "-t", s.name).Run()
 }
 
@@ -364,7 +377,7 @@ func TestTUI_Table(t *testing.T) {
 		s.sendKeys(command, "Enter")
 
 		// Wait for the table header to render before interacting.
-		if !s.waitFor("name", 5*time.Second) {
+		if !s.waitFor("name", tmuxWaitTimeout) {
 			t.Log("table header 'name' not found in pane, pane content:\n" + s.capturePlain())
 			t.Fatal("table TUI did not render within timeout")
 		}

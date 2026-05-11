@@ -42,6 +42,14 @@ func containerSetup(env *testscript.Env) error {
 	if err := commonSetup(env); err != nil {
 		return err
 	}
+
+	homeDir, err := os.MkdirTemp("", "invowk-container-home-*")
+	if err != nil {
+		return fmt.Errorf("create container test home: %w", err)
+	}
+	env.Defer(func() { _ = os.RemoveAll(homeDir) })
+	env.Setenv("HOME", homeDir)
+
 	if err := ensureContainerSuiteConfig(env); err != nil {
 		return err
 	}
