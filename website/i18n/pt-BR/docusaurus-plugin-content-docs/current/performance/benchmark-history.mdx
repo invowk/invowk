@@ -4,43 +4,34 @@ sidebar_position: 1
 
 # Histórico de Benchmarks
 
-O Invowk publica relatórios de benchmark com os releases para que usuários vejam os custos atuais de inicialização e execução de comandos, e para que mantenedores inspecionem tendências de parser, discovery, runtime, memória e alocações.
+O Invowk acompanha a performance de releases no [Bencher](https://bencher.dev/perf/invowk). O histórico público é indexado pela tag de release, então usuários podem comparar versões publicadas como `v0.12.0` e `v0.13.0` diretamente.
 
-Cada publicação de benchmark de release inclui estes assets:
+Execuções de benchmark em pull requests são guardrails para mantenedores. Elas podem falhar uma mudança quando o Bencher detecta regressão, mas não são o histórico de performance voltado a usuários.
 
-- Relatório Markdown: o relatório legível por pessoas.
-- Relatório JSON: o registro canônico e legível por máquinas.
-- Resumo SVG: um resumo gráfico estático para releases no GitHub.
-- Saída bruta: a saída de benchmark Go usada para inspeção mais profunda.
+## Fluxo de Release
 
-O relatório JSON é a fonte da verdade para o relatório Markdown, o resumo SVG, os dados históricos agregados e a página interativa de performance.
+O workflow de release envia JSON no Bencher Metric Format antes de publicar o release no GitHub:
 
-## Janelas Históricas
+- `--branch` é a tag de release, por exemplo `v0.13.0`.
+- `--hash` é o SHA do commit do release.
+- `--start-point` é a tag do release anterior quando ela existe.
+- `--start-point-clone-thresholds` e `--start-point-reset` mantêm thresholds e histórico alinhados de versão para versão.
 
-A página de performance enfatiza três janelas:
+## Métricas Acompanhadas
 
-- Últimos 3 meses: a visão mais útil para trabalho ativo de release.
-- Último 1 ano: a visão de médio prazo para a direção geral do produto.
-- Histórico completo: todo o registro disponível, incluindo relatórios legados preenchidos quando possível.
+O payload BMF inclui as mesmas dimensões de performance antes exibidas nos assets locais de release:
 
-A visualização padrão usa valores indexados. O primeiro valor da janela selecionada é tratado como `100`, então pontos posteriores deixam a direção relativa fácil de escanear. Valores absolutos continuam disponíveis em tabelas e controles dos gráficos.
+- Latência de inicialização da CLI para versão, ajuda, ajuda de comando e listagem de comandos.
+- Latência de benchmarks de parser, discovery, validação de módulos e pipeline completo.
+- Uso de memória e contagem de alocações dos benchmarks Go.
+- Tempo de build de release e tamanho do binário stripped.
 
-## Lendo Tendências
+## Comandos de Mantenedor
 
-Duração de benchmark, contagem de alocações e uso de memória usam a semântica de menor-é-melhor. Uma linha mais baixa ou valor menor na tabela significa que o comando ou benchmark ficou mais barato naquela medição.
+Gere dados BMF locais com:
 
-Notas de ambiente importam. Versão do Go, modelo de CPU, sistema operacional, imagem do runner, modo de benchmark e contagem de amostras podem mudar os resultados. Quando o ambiente registrado difere entre releases comparados, o relatório marca a comparação como confiança reduzida em vez de apresentá-la como uma mudança limpa apenas do produto.
+```bash
+make bench-bmf
+```
 
-Relatórios legados somente em Markdown podem ser preenchidos no histórico, mas são marcados com confiança reduzida porque foram interpretados a partir de um formato legível por pessoas em vez de emitidos pelo schema JSON canônico.
-
-## Fluxo de Mantenedores
-
-Use os alvos de benchmark ao preparar ou verificar dados de performance de release:
-
-- `make bench-report` gera artefatos Markdown, JSON, SVG e saída bruta em modo curto.
-- `make bench-report-full` inclui a suíte completa de benchmarks.
-- `make bench-history` agrega assets locais de relatório de benchmark nos dados históricos do website.
-- `make bench-validate-assets` valida artefatos locais de benchmark gerados.
-- `make website-history-check` valida os dados históricos de benchmark do website.
-
-Os workflows de release e fallback preparam todos os tipos de assets de benchmark juntos. Se um asset estiver ausente, vazio, duplicado ou malformado, a preparação falha antes da publicação.
+A saída é escrita em `artifacts/benchmarks/invowk.bmf.json` e pode ser enviada com o adapter `json` do Bencher.

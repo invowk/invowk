@@ -60,11 +60,12 @@ endif
 # Detect gotestsum for enhanced test output and rerun-fails support
 GOTESTSUM := $(shell command -v gotestsum 2>/dev/null)
 
-# Benchmark report defaults (override when needed, e.g. STARTUP_SAMPLES=80 BENCH_COUNT=8)
+# Benchmark defaults (override when needed, e.g. STARTUP_SAMPLES=80 BENCH_COUNT=8)
 STARTUP_SAMPLES ?= 40
 BENCH_COUNT ?= 5
-BENCH_REPORT_OUT_DIR ?= docs/benchmarks
-BENCH_HISTORY_JSON ?= website/static/benchmarks/history.json
+BENCH_TIME ?= 1s
+BENCH_BMF_OUT ?= artifacts/benchmarks/invowk.bmf.json
+BENCH_GO_RAW_OUT ?= artifacts/benchmarks/go-bench.txt
 
 # Default target
 .DEFAULT_GOAL := build
@@ -233,33 +234,18 @@ pgo-profile-parse-discovery:
 pgo-audit:
 	./scripts/pgo-audit.sh
 
-# Run benchmark suite and generate a human-readable markdown report.
+# Generate Bencher Metric Format JSON for the stable benchmark suite.
 # Default mode is short for reliability on machines without container engines.
-.PHONY: bench-report
-bench-report: build
-	@echo "Running benchmark report (short mode)..."
-	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) BENCH_HISTORY_JSON=$(BENCH_HISTORY_JSON) ./scripts/bench-report.sh --mode short --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
+.PHONY: bench-bmf
+bench-bmf:
+	@echo "Generating Bencher Metric Format benchmark data (short mode)..."
+	node scripts/bench-bmf.mjs --mode short --startup-samples $(STARTUP_SAMPLES) --bench-count $(BENCH_COUNT) --bench-time $(BENCH_TIME) --output $(BENCH_BMF_OUT) --raw-go-output $(BENCH_GO_RAW_OUT)
 
-# Run full benchmark suite (includes container benchmarks) and generate report.
-.PHONY: bench-report-full
-bench-report-full: build
-	@echo "Running benchmark report (full mode)..."
-	STARTUP_SAMPLES=$(STARTUP_SAMPLES) BENCH_COUNT=$(BENCH_COUNT) BENCH_HISTORY_JSON=$(BENCH_HISTORY_JSON) ./scripts/bench-report.sh --mode full --out-dir $(BENCH_REPORT_OUT_DIR) --binary ./bin/invowk
-
-# Aggregate benchmark history from local report assets.
-.PHONY: bench-history
-bench-history:
-	node scripts/benchmark-report.mjs history --input-dir $(BENCH_REPORT_OUT_DIR) --output $(BENCH_HISTORY_JSON) --allow-partial
-
-# Validate generated benchmark report assets.
-.PHONY: bench-validate-assets
-bench-validate-assets:
-	node scripts/benchmark-report.mjs validate-assets --dir $(BENCH_REPORT_OUT_DIR) --layout generated
-
-# Validate website benchmark history data.
-.PHONY: website-history-check
-website-history-check:
-	node scripts/benchmark-report.mjs validate-history --input $(BENCH_HISTORY_JSON)
+# Generate Bencher Metric Format JSON for the full benchmark suite.
+.PHONY: bench-bmf-full
+bench-bmf-full:
+	@echo "Generating Bencher Metric Format benchmark data (full mode)..."
+	node scripts/bench-bmf.mjs --mode full --startup-samples $(STARTUP_SAMPLES) --bench-count $(BENCH_COUNT) --bench-time $(BENCH_TIME) --output $(BENCH_BMF_OUT) --raw-go-output $(BENCH_GO_RAW_OUT)
 
 # Clean build artifacts
 .PHONY: clean
@@ -391,7 +377,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/bench-report.sh scripts/install.sh scripts/release.sh scripts/stage-release-bench-report.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -418,8 +404,8 @@ test-scripts:
 	@echo "Running shell script tests..."
 	sh scripts/test_install.sh
 	@echo ""
-	@echo "Running benchmark report script tests..."
-	node scripts/test_benchmark_report.mjs
+	@echo "Running Bencher BMF script tests..."
+	node scripts/test_bench_bmf.mjs
 	@echo ""
 	@echo "Note: PowerShell tests (scripts/test_install.ps1) run on Windows CI only."
 
@@ -550,11 +536,8 @@ help:
 	@echo "  pgo-profile-short Generate PGO profile (short, no container benchmarks)"
 	@echo "  pgo-profile-parse-discovery Generate focused PGO profile for CUE/discovery hot paths"
 	@echo "  pgo-audit        Validate default.pgo symbol freshness and hot-path coverage"
-	@echo "  bench-report     Run startup+Go benchmark report (short mode)"
-	@echo "  bench-report-full Run startup+Go benchmark report (full mode)"
-	@echo "  bench-history    Aggregate benchmark history from local assets"
-	@echo "  bench-validate-assets Validate generated benchmark report assets"
-	@echo "  website-history-check Validate website benchmark history data"
+	@echo "  bench-bmf        Generate Bencher BMF metrics (short mode)"
+	@echo "  bench-bmf-full   Generate Bencher BMF metrics (full mode)"
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
 	@echo "  check-windows-build Cross-compile for GOOS=windows to catch build-time regressions"
@@ -591,10 +574,11 @@ help:
 	@echo "  TYPE           Bump type for release-bump: major, minor, or patch"
 	@echo "  PRERELEASE     Pre-release label: alpha, beta, or rc (optional)"
 	@echo "  PROMOTE        Set to 1 to allow promoting a prerelease stream to stable"
-	@echo "  STARTUP_SAMPLES Number of startup samples for bench-report targets (default: 40)"
-	@echo "  BENCH_COUNT     Go benchmark run count for bench-report targets (default: 5)"
-	@echo "  BENCH_REPORT_OUT_DIR Output directory for bench-report targets (default: docs/benchmarks)"
-	@echo "  BENCH_HISTORY_JSON Output path for benchmark history data (default: website/static/benchmarks/history.json)"
+	@echo "  STARTUP_SAMPLES Number of startup samples for bench-bmf targets (default: 40)"
+	@echo "  BENCH_COUNT     Go benchmark run count for bench-bmf targets (default: 5)"
+	@echo "  BENCH_TIME      Go benchmark benchtime for bench-bmf targets (default: 1s)"
+	@echo "  BENCH_BMF_OUT   Output path for BMF JSON (default: artifacts/benchmarks/invowk.bmf.json)"
+	@echo "  BENCH_GO_RAW_OUT Output path for raw go benchmark output (default: artifacts/benchmarks/go-bench.txt)"
 	@echo "  SONAR_TOKEN      SonarCloud token for sonar-local (optional, for private projects)"
 	@echo "  SONAR_HOST_URL   Sonar host URL (default: https://sonarcloud.io)"
 	@echo "  SONAR_PROJECT_KEY Sonar project key (default: invowk_invowk)"

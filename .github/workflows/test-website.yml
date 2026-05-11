@@ -7,8 +7,6 @@ on:
     paths:
       - 'website/**'
       - 'docs/diagrams/**'
-      - 'docs/benchmarks/**'
-      - 'scripts/benchmark-report.mjs'
       - 'scripts/snapshot-version-assets.mjs'
       - 'scripts/validate-docs-parity.mjs'
       - 'scripts/validate-version-assets.mjs'
@@ -74,13 +72,5 @@ jobs:
       - name: Validate docs parity
         run: node ../scripts/validate-docs-parity.mjs --mode strict --all-locales
 
-      - name: Validate benchmark history data
-        run: node ../scripts/benchmark-report.mjs validate-history --input static/benchmarks/history.json
-
       - name: Build website
         run: npm run build
-
-      - name: Verify benchmark history build outputs
-        run: |
-          test -s build/performance.html
-          test -s build/benchmarks/history.json
