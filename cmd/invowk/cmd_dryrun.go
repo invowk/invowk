@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 const dryRunFieldFmt = "  %s %s\n"
@@ -41,8 +42,10 @@ func renderDryRun(w io.Writer, plan commandsvc.DryRunPlan) {
 	if plan.Timeout != "" {
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Timeout:"), plan.Timeout)
 	}
+	if plan.Runtime == invowkfile.RuntimeContainer && plan.PersistentContainerMode != "" {
+		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Container:"), plan.PersistentContainerMode)
+	}
 	if plan.PersistentContainerMode == "persistent" {
-		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("Container:"), "persistent")
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("ContainerName:"), plan.PersistentContainerName)
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("ContainerNameSource:"), plan.PersistentContainerNameSource)
 		fmt.Fprintf(w, dryRunFieldFmt, VerboseHighlightStyle.Render("CreateIfMissing:"), strconv.FormatBool(plan.PersistentContainerCreateIfMissing))

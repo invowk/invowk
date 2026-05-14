@@ -192,10 +192,7 @@ func (r *ContainerRuntime) ensurePersistentContainer(ctx *ExecutionContext, prep
 		case !errors.Is(err, container.ErrContainerNotFound):
 			return "", fmt.Errorf("inspect persistent container %q: %w", target.name, err)
 		case !target.createIfMissing:
-			return "", fmt.Errorf(
-				"persistent container %q does not exist; create it first or set runtime.persistent.create_if_missing: true",
-				target.name,
-			)
+			return "", missingPersistentContainerError(target.name)
 		case !prep.imagePrepared:
 			return "", fmt.Errorf(
 				"persistent container %q disappeared before execution; retry the command to create it with prepared image state",
@@ -284,10 +281,11 @@ func persistentContainerLabels(ctx *ExecutionContext, prep *containerExecPrep, t
 
 //goplint:ignore -- SHA-256 hex digest label value.
 func persistentContainerSpecHash(prep *containerExecPrep) string {
-	image := prep.specImage
-	if image == "" {
-		image = prep.image
-	}
+	// Hash the image the managed container is actually created from. In
+	// non-strict provisioning mode, preparation may fall back from the desired
+	// provisioned tag to the base image; labeling that degraded container with
+	// the desired tag would make later runs silently reuse the wrong target.
+	image := prep.image
 	parts := []string{
 		"image=" + string(image),
 		"command=" + strings.Join(persistentContainerIdleCommand, "\x00"),
@@ -316,10 +314,23 @@ func (r *ContainerRuntime) shouldSkipPersistentImagePreparation(ctx *ExecutionCo
 	case err == nil:
 		return true, nil
 	case errors.Is(err, container.ErrContainerNotFound):
+		if !target.createIfMissing {
+			// Report the missing target before image preparation so a typoed
+			// persistent name cannot build, provision, or otherwise mutate the
+			// engine image cache for a command that must fail.
+			return false, missingPersistentContainerError(target.name)
+		}
 		return false, nil
 	default:
 		return false, fmt.Errorf("inspect persistent container %q: %w", target.name, err)
 	}
+}
+
+func missingPersistentContainerError(name container.ContainerName) error {
+	return fmt.Errorf(
+		"persistent container %q does not exist; create it first or set runtime.persistent.create_if_missing: true",
+		name,
+	)
 }
 
 func (r *ContainerRuntime) persistentSpecImage(ctx *ExecutionContext, cfg invowkfileContainerConfig) (container.ImageTag, error) {
@@ -398,12 +409,23 @@ func (r *ContainerRuntime) withPersistentContainerLock(fn func() (container.Cont
 }
 
 func execOptionsForPersistent(ctx *ExecutionContext, prep *containerExecPrep, stdout, stderr io.Writer) container.RunOptions {
+	return persistentExecOptions(ctx.IO.Stdin, prep, stdout, stderr)
+}
+
+func captureExecOptionsForPersistent(prep *containerExecPrep, stdout, stderr io.Writer) container.RunOptions {
+	// Capture calls run dependency checks and other non-interactive probes.
+	// They must not inherit terminal stdin, otherwise docker/podman exec -i can
+	// block waiting for the user's terminal while the caller expects buffers.
+	return persistentExecOptions(nil, prep, stdout, stderr)
+}
+
+func persistentExecOptions(stdin io.Reader, prep *containerExecPrep, stdout, stderr io.Writer) container.RunOptions {
 	return container.RunOptions{
 		WorkDir:     prep.workDir,
 		Env:         maps.Clone(prep.env),
-		Stdin:       ctx.IO.Stdin,
+		Stdin:       stdin,
 		Stdout:      stdout,
 		Stderr:      stderr,
-		Interactive: ctx.IO.Stdin != nil,
+		Interactive: stdin != nil,
 	}
 }

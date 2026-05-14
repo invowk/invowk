@@ -151,3 +151,38 @@ func TestRenderDryRun_PersistentContainer(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderDryRun_EphemeralContainer(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	plan := commandsvc.DryRunPlan{
+		CommandName:             "test",
+		SourceID:                "invowkfile",
+		Runtime:                 invowkfile.RuntimeContainer,
+		Platform:                invowkfile.PlatformLinux,
+		Script:                  "echo ephemeral",
+		PersistentContainerMode: "ephemeral",
+	}
+
+	renderDryRun(&buf, plan)
+	out := buf.String()
+
+	for _, token := range []string{
+		"Container:",
+		"ephemeral",
+	} {
+		if !strings.Contains(out, token) {
+			t.Fatalf("renderDryRun output missing %q:\n%s", token, out)
+		}
+	}
+	for _, token := range []string{
+		"ContainerName:",
+		"ContainerNameSource:",
+		"CreateIfMissing:",
+	} {
+		if strings.Contains(out, token) {
+			t.Fatalf("renderDryRun output contains persistent-only field %q:\n%s", token, out)
+		}
+	}
+}

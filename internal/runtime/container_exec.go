@@ -32,7 +32,6 @@ type (
 		ports          []container.PortMappingSpec
 		extraHosts     []container.HostMapping
 		containerCfg   invowkfileContainerConfig
-		specImage      container.ImageTag //goplint:ignore -- optional fingerprint identity validated when present.
 		imagePrepared  bool
 		sshConnInfo    *HostCallbackConnectionInfo
 		tempScriptPath types.FilesystemPath
@@ -92,11 +91,11 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		}
 	}
 
-	specImage, err := r.persistentSpecImage(ctx, containerCfg)
+	skipImagePrep, err := r.shouldSkipPersistentImagePreparation(ctx, containerCfg)
 	if err != nil {
 		return nil, NewErrorResult(1, err)
 	}
-	skipImagePrep, err := r.shouldSkipPersistentImagePreparation(ctx, containerCfg)
+	specImage, err := r.persistentSpecImage(ctx, containerCfg)
 	if err != nil {
 		return nil, NewErrorResult(1, err)
 	}
@@ -224,7 +223,6 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		ports:          containerCfg.Ports,
 		extraHosts:     extraHosts,
 		containerCfg:   containerCfg,
-		specImage:      specImage,
 		imagePrepared:  !skipImagePrep,
 		sshConnInfo:    sshConnInfo,
 		tempScriptPath: tempScriptPath,
@@ -435,7 +433,7 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 		if err != nil {
 			return &Result{ExitCode: 1, Error: err}
 		}
-		runOpts := execOptionsForPersistent(ctx, prep, &stdout, &stderr)
+		runOpts := captureExecOptionsForPersistent(prep, &stdout, &stderr)
 		result, err := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
 		if err != nil {
 			return &Result{

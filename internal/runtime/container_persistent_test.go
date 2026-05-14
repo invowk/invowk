@@ -3,6 +3,8 @@
 package runtime
 
 import (
+	"bytes"
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -200,6 +202,101 @@ func TestContainerRuntimeExecuteDoesNotCreateMissingCLIContainerByDefault(t *tes
 	}
 }
 
+func TestContainerRuntimeExecuteRejectsMissingTargetBeforeImagePreparation(t *testing.T) {
+	t.Parallel()
+
+	provisionCalls := 0
+	tagCalls := 0
+	engine := NewMockEngine().WithImageExists(false)
+	rt, err := NewContainerRuntimeWithEngine(
+		engine,
+		WithContainerProvisioner(
+			fakeProvisioner{
+				result:   &provision.Result{ImageTag: "invowk-provisioned:test"},
+				calls:    &provisionCalls,
+				tagCalls: &tagCalls,
+			},
+			&provision.Config{Enabled: true},
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+	}
+	ctx := newPersistentExecutionContext(t, nil)
+	ctx.ContainerNameOverride = "typo-target"
+	ctx.SelectedImpl.Runtimes[0].Image = ""
+	ctx.SelectedImpl.Runtimes[0].Containerfile = "Containerfile"
+
+	result := rt.Execute(ctx)
+
+	if result.Error == nil {
+		t.Fatal("Execute() error = nil, want missing persistent container error")
+	}
+	if !strings.Contains(result.Error.Error(), "does not exist") {
+		t.Fatalf("Execute() error = %v, want missing persistent container message", result.Error)
+	}
+	if tagCalls != 0 {
+		t.Fatalf("GetProvisionedImageTag calls = %d, want 0 before missing-target failure", tagCalls)
+	}
+	if provisionCalls != 0 {
+		t.Fatalf("Provision calls = %d, want 0 before missing-target failure", provisionCalls)
+	}
+	if len(engine.BuildCalls) != 0 {
+		t.Fatalf("BuildCalls = %d, want 0 before missing-target failure", len(engine.BuildCalls))
+	}
+}
+
+func TestContainerRuntimeExecuteLabelsFallbackImageForManagedPersistentContainer(t *testing.T) {
+	t.Parallel()
+
+	engine := NewMockEngine()
+	const desiredImage = "invowk-provisioned:desired"
+	rt, err := NewContainerRuntimeWithEngine(
+		engine,
+		WithContainerProvisioner(
+			fakeProvisioner{
+				err:         errors.New("provision failed"),
+				resolvedTag: desiredImage,
+			},
+			&provision.Config{Enabled: true, Strict: false},
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewContainerRuntimeWithEngine() error = %v", err)
+	}
+	ctx := newPersistentExecutionContext(t, &invowkfile.RuntimePersistentConfig{CreateIfMissing: true, Name: "managed-dev"})
+	ctx.IO.Stderr = &bytes.Buffer{}
+
+	result := rt.Execute(ctx)
+
+	if result.Error != nil {
+		t.Fatalf("Execute() error = %v", result.Error)
+	}
+	if len(engine.CreateCalls) != 1 {
+		t.Fatalf("CreateCalls = %d, want 1", len(engine.CreateCalls))
+	}
+	create := engine.CreateCalls[0]
+	got := create.Labels[persistentContainerLabelSpecHash]
+	want := persistentContainerSpecHash(&containerExecPrep{
+		image:      "debian:stable-slim",
+		volumes:    create.Volumes,
+		ports:      create.Ports,
+		extraHosts: create.ExtraHosts,
+	})
+	wrongProvisioned := persistentContainerSpecHash(&containerExecPrep{
+		image:      desiredImage,
+		volumes:    create.Volumes,
+		ports:      create.Ports,
+		extraHosts: create.ExtraHosts,
+	})
+	if got != want {
+		t.Fatalf("created spec hash = %q, want fallback base-image hash %q", got, want)
+	}
+	if got == wrongProvisioned {
+		t.Fatal("created spec hash used the desired provisioned image after fallback")
+	}
+}
+
 func TestContainerRuntimeExecuteRejectsUnmanagedConfigTarget(t *testing.T) {
 	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
 		ContainerID: "external-container",
@@ -323,8 +420,7 @@ func TestContainerRuntimeExecuteReinspectsAfterNameConflict(t *testing.T) {
 	ctx := newPersistentExecutionContext(t, &invowkfile.RuntimePersistentConfig{CreateIfMissing: true, Name: "race-dev"})
 	invowkDir := filepath.Dir(string(ctx.Invowkfile.FilePath))
 	prep := &containerExecPrep{
-		image:     "debian:stable-slim",
-		specImage: "debian:stable-slim",
+		image: "debian:stable-slim",
 		volumes: []container.VolumeMountSpec{
 			container.VolumeMountSpec(filepath.ToSlash(invowkDir) + ":/workspace"),
 		},
@@ -453,6 +549,37 @@ func TestContainerRuntimeExecuteCaptureUsesPersistentExecPath(t *testing.T) {
 	}
 	if len(engine.ExecCalls) != 1 {
 		t.Fatalf("ExecCalls = %d, want 1", len(engine.ExecCalls))
+	}
+}
+
+func TestContainerRuntimeExecuteCaptureDisablesPersistentStdin(t *testing.T) {
+	t.Parallel()
+
+	engine := NewMockEngine().WithInspectInfo(&container.ContainerInfo{
+		ContainerID: "external-container",
+		Name:        "existing-dev",
+		Running:     true,
+		Labels:      map[string]string{},
+	})
+	rt := newPersistentTestRuntime(t, engine)
+	ctx := newPersistentExecutionContext(t, nil)
+	ctx.ContainerNameOverride = "existing-dev"
+	ctx.IO.Stdin = strings.NewReader("terminal input")
+
+	result := rt.ExecuteCapture(ctx)
+
+	if result.Error != nil {
+		t.Fatalf("ExecuteCapture() error = %v", result.Error)
+	}
+	if len(engine.ExecCalls) != 1 {
+		t.Fatalf("ExecCalls = %d, want 1", len(engine.ExecCalls))
+	}
+	call := engine.ExecCalls[0]
+	if call.Stdin != nil {
+		t.Fatal("persistent capture exec inherited stdin, want nil")
+	}
+	if call.Interactive {
+		t.Fatal("persistent capture exec is interactive, want non-interactive")
 	}
 }
 

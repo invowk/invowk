@@ -20,10 +20,13 @@ import (
 )
 
 type fakeProvisioner struct {
-	result  *provision.Result
-	err     error
-	request *provision.Request
-	calls   *int
+	result      *provision.Result
+	err         error
+	request     *provision.Request
+	calls       *int
+	resolvedTag container.ImageTag
+	tagErr      error
+	tagCalls    *int
 }
 
 func (p fakeProvisioner) Provision(_ context.Context, req provision.Request) (*provision.Result, error) {
@@ -34,6 +37,22 @@ func (p fakeProvisioner) Provision(_ context.Context, req provision.Request) (*p
 		*p.request = req
 	}
 	return p.result, p.err
+}
+
+func (p fakeProvisioner) GetProvisionedImageTag(_ context.Context, _ container.ImageTag) (string, error) {
+	if p.tagCalls != nil {
+		(*p.tagCalls)++
+	}
+	if p.tagErr != nil {
+		return "", p.tagErr
+	}
+	if p.resolvedTag != "" {
+		return string(p.resolvedTag), nil
+	}
+	if p.result != nil && p.result.ImageTag != "" {
+		return string(p.result.ImageTag), nil
+	}
+	return "invowk-provisioned:test", nil
 }
 
 // TestContainerRuntime_SetProvisionConfig tests updating provision config.
