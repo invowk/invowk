@@ -93,6 +93,18 @@ stderr 'missing required invowkmod.cue'
 stdout 'Invowkfile Validation'
 stderr 'CUE schema validation failed'
 
+# Test 14: Persistent container config is valid only on container runtimes
+exec invowk validate ./persistent_valid/invowkfile.cue
+stdout 'Invowkfile is valid'
+
+! exec invowk validate ./persistent_invalid_name/invowkfile.cue
+stdout 'Invowkfile Validation'
+stderr 'CUE schema validation failed'
+
+! exec invowk validate ./persistent_noncontainer/invowkfile.cue
+stdout 'Invowkfile Validation'
+stderr 'CUE schema validation failed'
+
 -- invowkfile.cue --
 cmds: [
 	{
@@ -227,3 +239,54 @@ cmds: [
 	},
 ]
 
+-- persistent_valid/invowkfile.cue --
+cmds: [
+	{
+		name: "persistent valid"
+		implementations: [{
+			script: "echo persistent"
+			runtimes: [{
+				name:  "container"
+				image: "debian:stable-slim"
+				persistent: {
+					create_if_missing: true
+					name: "invowk-test-persistent"
+				}
+			}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- persistent_invalid_name/invowkfile.cue --
+cmds: [
+	{
+		name: "persistent invalid name"
+		implementations: [{
+			script: "echo persistent"
+			runtimes: [{
+				name:  "container"
+				image: "debian:stable-slim"
+				persistent: {
+					name: "Invalid/Name"
+				}
+			}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]
+
+-- persistent_noncontainer/invowkfile.cue --
+cmds: [
+	{
+		name: "persistent noncontainer"
+		implementations: [{
+			script: "echo persistent"
+			runtimes: [{
+				name: "virtual"
+				persistent: {create_if_missing: true}
+			}]
+			platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+		}]
+	},
+]

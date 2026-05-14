@@ -2324,6 +2324,23 @@ cmds: [
 ]
 ```
 
+Persistent container targets can be enabled per container runtime:
+
+```cue
+runtimes: [{
+	name: "container",
+	image: "debian:stable-slim",
+	persistent: {
+		create_if_missing: true,
+		// Optional. If omitted, invowk derives a stable invowk-* name
+		// from the fully-qualified command namespace.
+		name: "myproject-build",
+	},
+}]
+```
+
+By default, container runs are ephemeral. With `persistent`, invowk reuses a long-lived container and executes commands with `docker exec` or `podman exec`. You can target a pre-existing running container with `--ivk-container-name <name>`; explicit names must use portable Docker/Podman naming.
+
 Control host environment inheritance per runtime:
 
 ```cue

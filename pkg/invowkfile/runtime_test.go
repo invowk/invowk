@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -154,6 +155,62 @@ func TestEnvInheritMode_Validate(t *testing.T) {
 				t.Errorf("EnvInheritMode(%q).Validate() returned unexpected error: %v", tt.mode, err)
 			}
 		})
+	}
+}
+
+func TestRuntimePersistentConfigValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		cfg     RuntimePersistentConfig
+		wantErr bool
+	}{
+		{
+			name: "create if missing with derived name",
+			cfg:  RuntimePersistentConfig{CreateIfMissing: true},
+		},
+		{
+			name: "explicit portable name",
+			cfg:  RuntimePersistentConfig{Name: "existing_dev"},
+		},
+		{
+			name:    "invalid uppercase name",
+			cfg:     RuntimePersistentConfig{Name: "Existing"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.cfg.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRuntimeConfigValidatePersistentContainerOnly(t *testing.T) {
+	t.Parallel()
+
+	err := RuntimeConfig{
+		Name:       RuntimeNative,
+		Persistent: &RuntimePersistentConfig{CreateIfMissing: true},
+	}.Validate()
+	if err == nil {
+		t.Fatal("RuntimeConfig.Validate() error = nil, want persistent rejected for native runtime")
+	}
+	if !errors.Is(err, ErrInvalidRuntimeConfig) {
+		t.Fatalf("RuntimeConfig.Validate() error = %v, want ErrInvalidRuntimeConfig", err)
+	}
+	var invalid *InvalidRuntimeConfigError
+	if !errors.As(err, &invalid) || len(invalid.FieldErrors) != 1 {
+		t.Fatalf("RuntimeConfig.Validate() error = %T %v, want one field error", err, err)
+	}
+	if !strings.Contains(invalid.FieldErrors[0].Error(), "persistent is only valid for container runtime") {
+		t.Fatalf("RuntimeConfig.Validate() field error = %v, want persistent container-only message", invalid.FieldErrors[0])
 	}
 }
 

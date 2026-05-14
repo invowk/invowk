@@ -83,6 +83,20 @@ Expose container ports to the host:
 
 <Snippet id="runtime-modes/container-ports" />
 
+## Persistent Containers
+
+By default, Invowk starts an ephemeral container for each command and removes it after the process exits. Set `persistent` on a container runtime block when a command should reuse a long-lived container across invocations:
+
+<Snippet id="runtime-modes/container-persistent-managed" />
+
+When `create_if_missing` is `true`, Invowk creates the container if it does not exist, labels it as Invowk-managed, starts it, and executes the command with `docker exec` or `podman exec` on later runs. If `name` is omitted, Invowk derives a stable name that starts with `invowk-` from the fully-qualified command namespace.
+
+You can also target a pre-existing running container from the CLI:
+
+<Snippet id="runtime-modes/container-persistent-cli-target" />
+
+Explicit names must be portable Docker/Podman names: lowercase letters, digits, `.`, `_`, or `-`, starting with a lowercase letter or digit.
+
 ## Using Interpreters
 
 Like native runtime, containers support custom interpreters:

@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/containerargs"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -49,12 +50,16 @@ var (
 	ErrInvalidPlatform = errors.New("invalid platform type")
 	// ErrInvalidContainerImage is the sentinel error wrapped by InvalidContainerImageError.
 	ErrInvalidContainerImage = errors.New("invalid container image")
+	// ErrInvalidContainerName is the sentinel error wrapped by InvalidContainerNameError.
+	ErrInvalidContainerName = containerargs.ErrInvalidContainerName
 
 	// ErrInvalidPlatformConfig is the sentinel error wrapped by InvalidPlatformConfigError.
 	ErrInvalidPlatformConfig = errors.New("invalid platform config")
 
 	// ErrInvalidRuntimeConfig is the sentinel error wrapped by InvalidRuntimeConfigError.
 	ErrInvalidRuntimeConfig = errors.New("invalid runtime config")
+	// ErrInvalidRuntimePersistentConfig is the sentinel error wrapped by InvalidRuntimePersistentConfigError.
+	ErrInvalidRuntimePersistentConfig = errors.New("invalid runtime persistent config")
 
 	// ErrInterpreterNotAllowed is returned when an interpreter is specified for a
 	// runtime that does not support custom interpreters (e.g., the virtual runtime
@@ -121,12 +126,17 @@ type (
 	// For container runtimes, validation of the image value is done at the CUE schema level
 	// and by the container engine. IsValid() checks basic structural validity.
 	ContainerImage string
+	// ContainerName is a portable Docker/Podman container name.
+	// The zero value ("") is valid when no explicit name is configured.
+	ContainerName = containerargs.ContainerName
 
 	// InvalidContainerImageError is returned when a ContainerImage value is
 	// non-empty but whitespace-only (structurally invalid).
 	InvalidContainerImageError struct {
 		Value ContainerImage
 	}
+	// InvalidContainerNameError is returned when a ContainerName value is invalid.
+	InvalidContainerNameError = containerargs.InvalidContainerNameError
 
 	// InvalidPlatformConfigError is returned when a PlatformConfig has invalid fields.
 	// It wraps ErrInvalidPlatformConfig for errors.Is() compatibility and collects
@@ -140,6 +150,22 @@ type (
 	// field-level validation errors.
 	InvalidRuntimeConfigError struct {
 		FieldErrors []error
+	}
+
+	// InvalidRuntimePersistentConfigError is returned when a RuntimePersistentConfig has invalid fields.
+	// It wraps ErrInvalidRuntimePersistentConfig for errors.Is() compatibility.
+	InvalidRuntimePersistentConfigError struct {
+		FieldErrors []error
+	}
+
+	//goplint:validate-all
+	//
+	// RuntimePersistentConfig configures persistent container targeting for a container runtime.
+	RuntimePersistentConfig struct {
+		// CreateIfMissing allows Invowk to create a managed persistent container when the target name is missing.
+		CreateIfMissing bool `json:"create_if_missing,omitempty"`
+		// Name optionally sets the persistent container target name.
+		Name ContainerName `json:"name,omitempty"`
 	}
 
 	//goplint:validate-all
@@ -181,6 +207,8 @@ type (
 		Volumes []VolumeMountSpec `json:"volumes,omitempty"`
 		// Ports specifies port mappings in "host:container" format (container only)
 		Ports []PortMappingSpec `json:"ports,omitempty"`
+		// Persistent configures persistent container targeting (container only)
+		Persistent *RuntimePersistentConfig `json:"persistent,omitempty"`
 	}
 
 	//goplint:validate-all
@@ -325,6 +353,26 @@ func (i ContainerImage) Validate() error {
 // String returns the string representation of the ContainerImage.
 func (i ContainerImage) String() string { return string(i) }
 
+// Validate returns nil if the RuntimePersistentConfig has valid fields.
+func (p RuntimePersistentConfig) Validate() error {
+	var errs []error
+	appendOptionalValidation(&errs, p.Name, p.Name != "")
+	if len(errs) > 0 {
+		return &InvalidRuntimePersistentConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+// Error implements the error interface for InvalidRuntimePersistentConfigError.
+func (e *InvalidRuntimePersistentConfigError) Error() string {
+	return types.FormatFieldErrors("runtime persistent config", e.FieldErrors)
+}
+
+// Unwrap returns ErrInvalidRuntimePersistentConfig for errors.Is() compatibility.
+func (e *InvalidRuntimePersistentConfigError) Unwrap() error {
+	return errors.Join(ErrInvalidRuntimePersistentConfig, errors.Join(e.FieldErrors...))
+}
+
 // Validate returns nil if the PlatformConfig has valid fields,
 // or an error collecting all field-level validation failures.
 // Delegates to Name.Validate() (nonzero).
@@ -366,6 +414,7 @@ func (rc RuntimeConfig) Validate() error {
 	appendOptionalValidation(&errs, rc.Image, rc.Image != "")
 	appendEachValidation(&errs, rc.Volumes)
 	appendEachValidation(&errs, rc.Ports)
+	appendOptionalValidation(&errs, rc.Persistent, rc.Persistent != nil)
 	appendRuntimeConfigInvariantErrors(&errs, rc)
 	if len(errs) > 0 {
 		return &InvalidRuntimeConfigError{FieldErrors: errs}
@@ -409,6 +458,9 @@ func appendNonContainerRuntimeFieldErrors(errs *[]error, rc RuntimeConfig) {
 	}
 	if len(rc.Ports) > 0 {
 		*errs = append(*errs, errors.New("ports is only valid for container runtime"))
+	}
+	if rc.Persistent != nil {
+		*errs = append(*errs, errors.New("persistent is only valid for container runtime"))
 	}
 }
 

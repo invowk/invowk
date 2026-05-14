@@ -95,6 +95,7 @@ func runDisambiguatedCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagVa
 			VerboseSet:     verboseSet,
 			FromSource:     filter.SourceID,
 			ForceRebuild:   cmdFlags.forceRebuild,
+			ContainerName:  invowkfile.ContainerName(cmdFlags.containerName), //goplint:ignore -- CLI flag boundary conversion
 			DryRun:         cmdFlags.dryRun,
 			ConfigPath:     types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
 		}

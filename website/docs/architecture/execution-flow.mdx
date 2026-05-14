@@ -14,7 +14,7 @@ This diagram shows the temporal flow from CLI invocation through discovery, runt
 
 ## Container Runtime Flow (Detailed)
 
-When the container runtime is selected, additional steps occur:
+When the container runtime is selected, additional steps occur. The default path is an ephemeral `run --rm`; when `persistent` is configured or `--ivk-container-name` is provided, Invowk resolves/inspects a target container and executes with `docker exec` or `podman exec`.
 
 <Diagram id="architecture/execution-container" />
 

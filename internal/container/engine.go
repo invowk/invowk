@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/invowk/invowk/pkg/containerargs"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -52,13 +53,19 @@ var (
 	// ErrInvalidImageTag is the sentinel error wrapped by InvalidImageTagError.
 	ErrInvalidImageTag = errors.New("invalid image tag")
 	// ErrInvalidContainerName is the sentinel error wrapped by InvalidContainerNameError.
-	ErrInvalidContainerName = errors.New("invalid container name")
+	ErrInvalidContainerName = containerargs.ErrInvalidContainerName
 	// ErrInvalidHostMapping is the sentinel error wrapped by InvalidHostMappingError.
 	ErrInvalidHostMapping = errors.New("invalid host mapping")
 	// ErrInvalidBuildOptions is the sentinel error wrapped by InvalidBuildOptionsError.
 	ErrInvalidBuildOptions = errors.New("invalid build options")
 	// ErrInvalidRunOptions is the sentinel error wrapped by InvalidRunOptionsError.
 	ErrInvalidRunOptions = errors.New("invalid run options")
+	// ErrInvalidCreateOptions is the sentinel error wrapped by InvalidCreateOptionsError.
+	ErrInvalidCreateOptions = errors.New("invalid create options")
+	// ErrContainerNotFound is returned when a named container does not exist.
+	ErrContainerNotFound = errors.New("container not found")
+	// ErrContainerNameConflict is returned when a container name is already in use.
+	ErrContainerNameConflict = errors.New("container name conflict")
 	// ErrContainerOperationFailed is wrapped by container engine operation failures.
 	ErrContainerOperationFailed = errors.New("container operation failed")
 )
@@ -75,9 +82,9 @@ type (
 	// Examples: "debian:stable-slim", "invowk-provisioned:abc123"
 	ImageTag string
 
-	// ContainerName is a user-assigned name for a container instance.
+	// ContainerName is a user-assigned portable name for a container instance.
 	// The zero value ("") means "no explicit name" (engine assigns one).
-	ContainerName string //nolint:revive // DDD Value Type pattern: explicit name preferred over stuttering-free abbreviation
+	ContainerName = containerargs.ContainerName //nolint:revive // DDD value type keeps the domain noun explicit across package boundaries.
 
 	// HostMapping is a host-to-IP mapping entry for --add-host (e.g., "host.docker.internal:host-gateway").
 	HostMapping string
@@ -101,10 +108,7 @@ type (
 	}
 
 	// InvalidContainerNameError is returned when a ContainerName value is invalid.
-	// DDD Value Type error struct — wraps ErrInvalidContainerName for errors.Is().
-	InvalidContainerNameError struct {
-		Value ContainerName
-	}
+	InvalidContainerNameError = containerargs.InvalidContainerNameError
 
 	// InvalidHostMappingError is returned when a HostMapping value is invalid.
 	// DDD Value Type error struct — wraps ErrInvalidHostMapping for errors.Is().
@@ -124,6 +128,22 @@ type (
 		FieldErrors []error
 	}
 
+	// InvalidCreateOptionsError is returned when CreateOptions has one or more invalid fields.
+	// It wraps ErrInvalidCreateOptions for errors.Is() compatibility.
+	InvalidCreateOptionsError struct {
+		FieldErrors []error
+	}
+
+	// ContainerNotFoundError is returned when a named container does not exist.
+	ContainerNotFoundError struct { //nolint:revive // DDD error type mirrors the sentinel for errors.As clarity.
+		Name ContainerName
+	}
+
+	// ContainerNameConflictError is returned when a container name is already in use.
+	ContainerNameConflictError struct { //nolint:revive // DDD error type mirrors the sentinel for errors.As clarity.
+		Name ContainerName
+	}
+
 	// Engine defines the interface for container operations
 	Engine interface {
 		// Name returns the engine name (docker or podman)
@@ -137,6 +157,14 @@ type (
 		Build(ctx context.Context, opts BuildOptions) error
 		// Run runs a command in a container
 		Run(ctx context.Context, opts RunOptions) (*RunResult, error)
+		// InspectContainer inspects a container by name
+		InspectContainer(ctx context.Context, name ContainerName) (*ContainerInfo, error)
+		// Create creates a stopped container
+		Create(ctx context.Context, opts CreateOptions) (*CreateResult, error)
+		// Start starts a stopped container by ID or name
+		Start(ctx context.Context, containerID ContainerID) error
+		// Exec runs a command in a running container
+		Exec(ctx context.Context, containerID ContainerID, command []string, opts RunOptions) (*RunResult, error)
 		// Remove removes a container by its ID
 		Remove(ctx context.Context, containerID ContainerID, force bool) error
 		// ImageExists checks if an image exists
@@ -213,6 +241,36 @@ type (
 
 	//goplint:validate-all
 	//
+	// CreateOptions contains options for creating a persistent container.
+	CreateOptions struct {
+		// Image is the image to create the container from.
+		Image ImageTag //goplint:ignore -- required for container creation; CreateOptions.Validate enforces non-empty validity.
+		// Command is the idle command to keep the container alive after start.
+		Command []string //goplint:ignore -- exec boundary (container idle command argv).
+		// WorkDir is the default working directory inside the container.
+		WorkDir MountTargetPath //goplint:ignore -- optional creation-time working directory validated when non-empty.
+		// Env contains creation-time environment variables.
+		Env map[string]string //goplint:ignore -- exec/OS boundary (container creation env map).
+		// Labels are container metadata labels.
+		Labels map[string]string //goplint:ignore -- container labels are stringly typed by Docker/Podman APIs.
+		// Volumes are volume mounts in "host:container[:options]" format.
+		Volumes []VolumeMountSpec
+		// Ports are port mappings in Docker/Podman "-p" format.
+		Ports []PortMappingSpec
+		// Name is the container name.
+		Name ContainerName
+		// ExtraHosts are additional host-to-IP mappings.
+		ExtraHosts []HostMapping
+	}
+
+	// CreateResult contains the result of creating a container.
+	CreateResult struct {
+		// ContainerID is the created container ID.
+		ContainerID ContainerID //goplint:ignore -- required result field; CreateResult.Validate enforces non-empty validity.
+	}
+
+	//goplint:validate-all
+	//
 	// RunResult contains the result of running a container
 	RunResult struct {
 		// ContainerID is the container ID
@@ -221,6 +279,20 @@ type (
 		ExitCode types.ExitCode
 		// Error contains any error
 		Error error
+	}
+
+	// ContainerInfo contains inspect metadata for a container.
+	ContainerInfo struct { //nolint:revive // Domain DTO name stays explicit when referenced outside this package.
+		// ContainerID is the container ID.
+		ContainerID ContainerID //goplint:ignore -- required inspect result field; ContainerInfo.Validate enforces non-empty validity.
+		// Name is the container name.
+		Name ContainerName
+		// Running reports whether the container is currently running.
+		Running bool
+		// Status is the engine-specific status string.
+		Status string //goplint:ignore -- display-only engine status text.
+		// Labels contains container metadata labels.
+		Labels map[string]string //goplint:ignore -- container labels are stringly typed by Docker/Podman APIs.
 	}
 
 	// EngineNotAvailableError is returned when a container engine is not available
@@ -325,29 +397,6 @@ func (e *InvalidImageTagError) Error() string {
 // Unwrap returns ErrInvalidImageTag for errors.Is() compatibility.
 func (e *InvalidImageTagError) Unwrap() error { return ErrInvalidImageTag }
 
-// String returns the string representation of the ContainerName.
-func (n ContainerName) String() string { return string(n) }
-
-// Validate returns an error if the ContainerName is invalid.
-// The zero value ("") is valid (means no explicit name). Non-zero: not whitespace-only.
-func (n ContainerName) Validate() error {
-	if n == "" {
-		return nil
-	}
-	if strings.TrimSpace(string(n)) == "" {
-		return &InvalidContainerNameError{Value: n}
-	}
-	return nil
-}
-
-// Error implements the error interface for InvalidContainerNameError.
-func (e *InvalidContainerNameError) Error() string {
-	return fmt.Sprintf("invalid container name %q: non-empty value must not be whitespace-only", e.Value)
-}
-
-// Unwrap returns ErrInvalidContainerName for errors.Is() compatibility.
-func (e *InvalidContainerNameError) Unwrap() error { return ErrInvalidContainerName }
-
 // String returns the string representation of the HostMapping.
 func (h HostMapping) String() string { return string(h) }
 
@@ -410,40 +459,133 @@ func (e *InvalidRunOptionsError) Error() string {
 // Unwrap returns ErrInvalidRunOptions for errors.Is() compatibility.
 func (e *InvalidRunOptionsError) Unwrap() error { return ErrInvalidRunOptions }
 
+// Error implements the error interface for InvalidCreateOptionsError.
+func (e *InvalidCreateOptionsError) Error() string {
+	return types.FormatFieldErrors("create options", e.FieldErrors)
+}
+
+// Unwrap returns ErrInvalidCreateOptions for errors.Is() compatibility.
+func (e *InvalidCreateOptionsError) Unwrap() error { return ErrInvalidCreateOptions }
+
+// Error implements the error interface for ContainerNotFoundError.
+func (e *ContainerNotFoundError) Error() string {
+	return fmt.Sprintf("container %q not found", e.Name)
+}
+
+// Unwrap returns ErrContainerNotFound for errors.Is() compatibility.
+func (e *ContainerNotFoundError) Unwrap() error { return ErrContainerNotFound }
+
+// Error implements the error interface for ContainerNameConflictError.
+func (e *ContainerNameConflictError) Error() string {
+	return fmt.Sprintf("container name %q is already in use", e.Name)
+}
+
+// Unwrap returns ErrContainerNameConflict for errors.Is() compatibility.
+func (e *ContainerNameConflictError) Unwrap() error { return ErrContainerNameConflict }
+
 // Validate returns an error if any typed field of the RunOptions is invalid.
 // Validates Image, WorkDir, Name, ExtraHosts, Volumes, and Ports.
 func (o RunOptions) Validate() error {
 	var errs []error
-	if err := o.Image.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if o.WorkDir != "" {
-		if err := o.WorkDir.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := o.Name.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	for _, h := range o.ExtraHosts {
-		if err := h.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, v := range o.Volumes {
-		if err := v.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, p := range o.Ports {
-		if err := p.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	o.appendImageValidationErrors(&errs)
+	o.appendRunLocationValidationErrors(&errs)
+	o.appendNetworkValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidRunOptionsError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (o RunOptions) appendImageValidationErrors(errs *[]error) {
+	if err := o.Image.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+}
+
+func (o RunOptions) appendRunLocationValidationErrors(errs *[]error) {
+	if o.WorkDir != "" {
+		if err := o.WorkDir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if err := o.Name.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	for _, v := range o.Volumes {
+		if err := v.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (o RunOptions) appendNetworkValidationErrors(errs *[]error) {
+	for _, h := range o.ExtraHosts {
+		if err := h.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, p := range o.Ports {
+		if err := p.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+// Validate returns an error if any typed field of the CreateOptions is invalid.
+func (o CreateOptions) Validate() error {
+	var errs []error
+	o.appendCreateImageValidationErrors(&errs)
+	o.appendCreateNameValidationErrors(&errs)
+	o.appendCreateLocationValidationErrors(&errs)
+	o.appendCreateNetworkValidationErrors(&errs)
+	if len(errs) > 0 {
+		return &InvalidCreateOptionsError{FieldErrors: errs}
+	}
+	return nil
+}
+
+func (o CreateOptions) appendCreateImageValidationErrors(errs *[]error) {
+	if err := o.Image.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	if len(o.Command) == 0 {
+		*errs = append(*errs, errors.New("container command is required"))
+	}
+}
+
+func (o CreateOptions) appendCreateNameValidationErrors(errs *[]error) {
+	if err := o.Name.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	if o.Name == "" {
+		*errs = append(*errs, errors.New("container name is required"))
+	}
+}
+
+func (o CreateOptions) appendCreateLocationValidationErrors(errs *[]error) {
+	if o.WorkDir != "" {
+		if err := o.WorkDir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, v := range o.Volumes {
+		if err := v.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (o CreateOptions) appendCreateNetworkValidationErrors(errs *[]error) {
+	for _, h := range o.ExtraHosts {
+		if err := h.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, p := range o.Ports {
+		if err := p.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 // String returns the string representation of the EngineType.

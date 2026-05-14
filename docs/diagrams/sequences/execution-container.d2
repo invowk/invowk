@@ -4,8 +4,9 @@
 # - CommandService orchestration through host access, registry, and interactive ports
 # - Image validation and base image resolution
 # - Ephemeral layer provisioning (separate from base image)
+# - Ephemeral run or persistent target lifecycle
 # - Execution with retry
-# - Cleanup
+# - Cleanup of runtime resources while persistent containers remain
 #
 # Source: internal/app/commandsvc, internal/app/commandadapters,
 # internal/runtime/container_exec.go, container_provision.go
@@ -122,15 +123,34 @@ Provision -> ContainerRT: Provisioned image tag
 # 2. Runtime setup
 ContainerRT -> ContainerRT: "Build env + INVOWK_SSH_*\nif host access reference is active"
 
-# 3. Execution Phase
-ContainerRT -> Engine: Run container (with transient retry)
-Engine -> Container: docker/podman run
+# 3. Persistent target selection (optional)
+ContainerRT -> ContainerRT: "Resolve persistent target\nCLI > config name > derived invowk-*"
+ContainerRT -> Engine: "Inspect container\nif persistent requested" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+Engine -> Container: "docker/podman container inspect" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+ContainerRT -> Engine: "Create + start managed target\nif missing and create_if_missing" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+Engine -> Container: "docker/podman create/start" {
+  style.stroke-dash: 3
+  style.font-color: "#666666"
+}
+
+# 4. Execution Phase
+ContainerRT -> Engine: "Run ephemeral container\nor exec persistent target"
+Engine -> Container: "docker/podman run --rm\nor docker/podman exec"
 Container -> Engine: Exit code, output
 Engine -> ContainerRT: Result
 
-# 4. Cleanup Phase
+# 5. Cleanup Phase
 # Runtime cleanup (tokens/temp files/provision resources)
-ContainerRT -> ContainerRT: Cleanup runtime resources
+ContainerRT -> ContainerRT: "Cleanup runtime resources\npersistent containers remain"
 
 # Return
 ContainerRT -> SVC: Result

@@ -59,6 +59,9 @@ type (
 		FromSource discovery.SourceID
 		// ForceRebuild forces container image rebuilds, bypassing cache.
 		ForceRebuild bool
+		// ContainerName overrides the persistent container target name for
+		// container runtime execution. Zero value means no CLI override.
+		ContainerName invowkfile.ContainerName
 		// Workdir overrides the working directory for the command.
 		Workdir invowkfile.WorkDir
 		// EnvFiles are dotenv file paths from --ivk-env-file flags.
@@ -134,6 +137,16 @@ type (
 		WorkDir invowkfile.WorkDir
 		// Timeout is the selected implementation timeout, if any.
 		Timeout invowkfile.DurationString
+		// PersistentContainerMode reports whether the container runtime would
+		// use an ephemeral or persistent target.
+		PersistentContainerMode string //goplint:ignore -- dry-run render DTO, not a domain value
+		// PersistentContainerName is the resolved persistent container name.
+		PersistentContainerName invowkfile.ContainerName
+		// PersistentContainerNameSource explains where the persistent name came from.
+		PersistentContainerNameSource string //goplint:ignore -- dry-run render DTO, not a domain value
+		// PersistentContainerCreateIfMissing reports whether invowk would create
+		// a missing managed persistent container.
+		PersistentContainerCreateIfMissing bool
 		// Script is the selected implementation script or script-file path.
 		Script invowkfile.ScriptContent
 		// ScriptIsFile is true when Script names a script file.

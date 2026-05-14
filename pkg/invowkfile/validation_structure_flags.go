@@ -46,6 +46,7 @@ var (
 		reservedFlagRuntime:     reservedFlagRuntime,
 		reservedFlagFrom:        reservedFlagFrom,
 		"ivk-force-rebuild":     "ivk-force-rebuild",
+		"ivk-container-name":    "ivk-container-name",
 		reservedFlagVerbose:     reservedFlagVerbose,
 		reservedFlagConfig:      reservedFlagConfig,
 		reservedFlagInteractive: reservedFlagInteractive,

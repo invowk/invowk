@@ -179,6 +179,29 @@ func TestMakeUsernsKeepIDAdder(t *testing.T) {
 			want: []string{"run", "-p", "8080:80", "--userns=keep-id", "debian:stable-slim"},
 		},
 		{
+			name: "create command",
+			args: []string{"create", "--name", "mycontainer", "debian:stable-slim"},
+			want: []string{"create", "--name", "mycontainer", "--userns=keep-id", "debian:stable-slim"},
+		},
+		{
+			name: "create with labels",
+			args: []string{
+				"create",
+				"--name", "mycontainer",
+				"--label", "dev.invowk.managed=true",
+				"--label", "dev.invowk.persistent=true",
+				"debian:stable-slim",
+			},
+			want: []string{
+				"create",
+				"--name", "mycontainer",
+				"--label", "dev.invowk.managed=true",
+				"--label", "dev.invowk.persistent=true",
+				"--userns=keep-id",
+				"debian:stable-slim",
+			},
+		},
+		{
 			name: "non-run command unchanged",
 			args: []string{"build", "-t", "myimage", "."},
 			want: []string{"build", "-t", "myimage", "."},

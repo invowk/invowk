@@ -51,14 +51,16 @@ type (
 	// (Command and Invowkfile must be non-nil; Selection.Impl must be non-nil).
 	// All other fields are optional and default to their zero values.
 	BuildExecutionContextOptions struct {
-		Command    *invowkfile.Command
-		Invowkfile *invowkfile.Invowkfile
-		Selection  RuntimeSelection
+		Command         *invowkfile.Command
+		CommandFullName invowkfile.CommandName //goplint:ignore -- optional discovery metadata validated when non-empty.
+		Invowkfile      *invowkfile.Invowkfile
+		Selection       RuntimeSelection
 
-		Args         []string
-		Verbose      bool
-		Workdir      invowkfile.WorkDir
-		ForceRebuild bool
+		Args          []string
+		Verbose       bool
+		Workdir       invowkfile.WorkDir
+		ForceRebuild  bool
+		ContainerName invowkfile.ContainerName
 
 		EnvFiles []invowkfile.DotenvFilePath
 		EnvVars  map[string]string
@@ -245,6 +247,8 @@ func BuildExecutionContext(ctx context.Context, opts BuildExecutionContextOption
 	execCtx.PositionalArgs = opts.Args
 	execCtx.WorkDir = opts.Workdir
 	execCtx.ForceRebuild = opts.ForceRebuild
+	execCtx.ContainerNameOverride = opts.ContainerName
+	execCtx.CommandFullName = opts.CommandFullName
 	execCtx.Env.RuntimeEnvFiles = opts.EnvFiles
 	execCtx.Env.RuntimeEnvVars = opts.EnvVars
 

@@ -858,6 +858,14 @@ containerfile: "./Containerfile"
 containerfile: "./docker/Dockerfile.build"`,
   },
 
+  'reference/invowkfile/persistent-container-example': {
+    language: 'cue',
+    code: `persistent: {
+    create_if_missing: true
+    name: "myproject-build"  // Optional portable Docker/Podman name
+}`,
+  },
+
   'reference/invowkfile/volumes-example': {
     language: 'cue',
     code: `volumes: [

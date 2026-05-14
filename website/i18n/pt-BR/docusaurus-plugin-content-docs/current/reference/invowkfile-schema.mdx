@@ -143,7 +143,7 @@ As seguintes flags são reservadas pelo invowk e não podem ser usadas em comand
 - `ivk-env-file` (`-e`), `ivk-env-var` (`-E`)
 - `ivk-env-inherit-mode`, `ivk-env-inherit-allow`, `ivk-env-inherit-deny`
 - `ivk-workdir` (`-w`), `ivk-runtime` (`-r`), `ivk-from` (`-f`)
-- `ivk-force-rebuild`, `ivk-dry-run`
+- `ivk-force-rebuild`, `ivk-container-name`, `ivk-dry-run`
 - `ivk-watch` (`-W`)
 - `ivk-verbose` (`-v`), `ivk-config` (`-c`), `ivk-interactive` (`-i`)
 - `help` (`-h`), `version`
@@ -311,6 +311,17 @@ Habilita acesso SSH do container de volta para o host. Quando habilitado, o Invo
 Especifique a origem do container. São **mutuamente exclusivos**.
 
 <Snippet id="reference/invowkfile/containerfile-image-examples" />
+
+### persistent
+
+**Tipo:** `{create_if_missing?: bool, name?: string}`
+**Disponível para:** `container`
+
+Reutiliza um container duradouro em vez de criar um container efêmero por invocação. Quando `create_if_missing` é `true`, o Invowk cria e marca um container gerenciado se ele não existir. Se `name` for omitido, o Invowk deriva um nome `invowk-*` estável a partir do namespace totalmente qualificado do comando.
+
+Use `--ivk-container-name` para direcionar um container em execução já existente pela CLI. Nomes explícitos devem usar a nomenclatura portável de Docker/Podman: letras minúsculas, dígitos, `.`, `_` ou `-`, começando com uma letra minúscula ou dígito.
+
+<Snippet id="reference/invowkfile/persistent-container-example" />
 
 ### volumes
 

@@ -31,7 +31,8 @@ func (e *InvalidBuildExecutionContextOptionsError) Unwrap() error {
 
 // Validate returns nil if the BuildExecutionContextOptions has valid fields,
 // or a validation error if not.
-// It validates Selection, Workdir (when non-empty), EnvFiles, EnvInheritMode
+// It validates Selection, CommandFullName (when non-empty), Workdir
+// (when non-empty), ContainerName (when non-empty), EnvFiles, EnvInheritMode
 // (when non-empty), EnvInheritAllow, EnvInheritDeny, SourceID (when non-empty),
 // and Platform (when non-empty).
 func (o BuildExecutionContextOptions) Validate() error {
@@ -51,6 +52,11 @@ func (o BuildExecutionContextOptions) appendSelectionValidationErrors(errs *[]er
 	}
 	if o.Workdir != "" {
 		if err := o.Workdir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if o.ContainerName != "" {
+		if err := o.ContainerName.Validate(); err != nil {
 			*errs = append(*errs, err)
 		}
 	}
@@ -80,6 +86,11 @@ func (o BuildExecutionContextOptions) appendEnvValidationErrors(errs *[]error) {
 }
 
 func (o BuildExecutionContextOptions) appendMetadataValidationErrors(errs *[]error) {
+	if o.CommandFullName != "" {
+		if err := o.CommandFullName.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 	if o.SourceID != "" {
 		if err := o.SourceID.Validate(); err != nil {
 			*errs = append(*errs, err)

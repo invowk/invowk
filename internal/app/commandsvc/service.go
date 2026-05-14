@@ -227,6 +227,11 @@ func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime
 		plan.Script = impl.Script
 		plan.ScriptIsFile = impl.IsScriptFile()
 	}
+	persistentPlan := runtime.ContainerPersistentDryRunPlan(execCtx)
+	plan.PersistentContainerMode = persistentPlan.Mode
+	plan.PersistentContainerName = persistentPlan.Name
+	plan.PersistentContainerNameSource = persistentPlan.NameSource
+	plan.PersistentContainerCreateIfMissing = persistentPlan.CreateIfMissing
 	return plan
 }
 

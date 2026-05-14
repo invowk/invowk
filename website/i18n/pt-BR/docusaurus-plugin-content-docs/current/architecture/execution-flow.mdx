@@ -14,7 +14,7 @@ Este diagrama mostra o fluxo temporal desde a invocação do CLI através da des
 
 ## Fluxo do Runtime Container (Detalhado)
 
-Quando o runtime container é selecionado, etapas adicionais ocorrem:
+Quando o runtime container é selecionado, etapas adicionais ocorrem. O caminho padrão é um `run --rm` efêmero; quando `persistent` é configurado ou `--ivk-container-name` é fornecido, o Invowk resolve/inspeciona um container de destino e executa com `docker exec` ou `podman exec`.
 
 <Diagram id="architecture/execution-container" />
 

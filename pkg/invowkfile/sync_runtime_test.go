@@ -405,6 +405,51 @@ cmds: [{
 	}
 }
 
+func TestPersistentContainerConfigConstraints(t *testing.T) {
+	t.Parallel()
+
+	valid := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{
+			name: "container"
+			image: "debian:stable-slim"
+			persistent: {
+				create_if_missing: true
+				name: "existing_dev"
+			}
+		}]
+		platforms: [{name: "linux"}]
+	}]
+}]`
+	if err := validateCUE(t, valid); err != nil {
+		t.Fatalf("valid persistent config should pass, got error: %v", err)
+	}
+
+	invalidName := strings.Replace(valid, `name: "existing_dev"`, `name: "ExistingDev"`, 1)
+	if validateCUE(t, invalidName) == nil {
+		t.Fatal("uppercase persistent container name should fail validation")
+	}
+
+	invalidRuntime := `
+cmds: [{
+	name: "test"
+	implementations: [{
+		script: "echo hello"
+		runtimes: [{
+			name: "native"
+			persistent: {create_if_missing: true}
+		}]
+		platforms: [{name: "linux"}]
+	}]
+}]`
+	if validateCUE(t, invalidRuntime) == nil {
+		t.Fatal("persistent config on non-container runtime should fail validation")
+	}
+}
+
 // TestCustomCheckNameLengthConstraint verifies #CustomCheck.name has a 256 rune limit.
 func TestCustomCheckNameLengthConstraint(t *testing.T) {
 	t.Parallel()

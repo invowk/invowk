@@ -31,6 +31,8 @@ type (
 		volumes        []container.VolumeMountSpec
 		ports          []container.PortMappingSpec
 		extraHosts     []container.HostMapping
+		containerCfg   invowkfileContainerConfig
+		imagePrepared  bool
 		sshConnInfo    *HostCallbackConnectionInfo
 		tempScriptPath types.FilesystemPath
 		cleanup        func() // Combined cleanup for provisioning and temp files
@@ -58,6 +60,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	var provisionCleanup func()
 	var sshConnInfo *HostCallbackConnectionInfo
 	var tempScriptPath types.FilesystemPath
+	var pCleanup func()
 
 	defer func() {
 		if errResult != nil {
@@ -88,6 +91,15 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		}
 	}
 
+	skipImagePrep, err := r.shouldSkipPersistentImagePreparation(ctx, containerCfg)
+	if err != nil {
+		return nil, NewErrorResult(1, err)
+	}
+	specImage, err := r.persistentSpecImage(ctx, containerCfg)
+	if err != nil {
+		return nil, NewErrorResult(1, err)
+	}
+
 	// Resolve the script content (from file or inline)
 	script, err := ctx.ResolveSelectedScript()
 	if err != nil {
@@ -95,11 +107,15 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	}
 
 	// Determine the image to use (with provisioning if enabled)
-	image, provisionEnv, pCleanup, err := r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
-	if err != nil {
-		return nil, NewErrorResult(1, fmt.Errorf("failed to prepare container image: %w", err))
+	image := string(specImage)
+	provisionEnv := map[string]string(nil)
+	if !skipImagePrep {
+		image, provisionEnv, pCleanup, err = r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
+		if err != nil {
+			return nil, NewErrorResult(1, fmt.Errorf("failed to prepare container image: %w", err))
+		}
+		provisionCleanup = pCleanup
 	}
-	provisionCleanup = pCleanup
 
 	// Build environment
 	env, err := r.envBuilder.Build(ctx, invowkfile.EnvInheritNone)
@@ -184,9 +200,14 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 
 	// Success: clear errResult so the deferred cleanup doesn't run
 	// (errResult is nil by default on success since we return nil for the second value)
-	imageTag := container.ImageTag(image)
-	if err := imageTag.Validate(); err != nil {
-		return nil, NewErrorResult(1, fmt.Errorf("container image tag: %w", err))
+	imageTag := container.ImageTag(image) //goplint:ignore -- validated immediately below when present.
+	if imageTag == "" && !skipImagePrep {
+		return nil, NewErrorResult(1, errors.New("container image tag is empty"))
+	}
+	if imageTag != "" {
+		if err := imageTag.Validate(); err != nil {
+			return nil, NewErrorResult(1, fmt.Errorf("container image tag: %w", err))
+		}
 	}
 	mountTarget := container.MountTargetPath(workDir)
 	if err := mountTarget.Validate(); err != nil {
@@ -201,6 +222,8 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		volumes:        volumes,
 		ports:          containerCfg.Ports,
 		extraHosts:     extraHosts,
+		containerCfg:   containerCfg,
+		imagePrepared:  !skipImagePrep,
 		sshConnInfo:    sshConnInfo,
 		tempScriptPath: tempScriptPath,
 		cleanup:        cleanup,
@@ -355,6 +378,19 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	}
 	defer prep.cleanup()
 
+	if persistentContainerRequested(ctx, prep.containerCfg) {
+		containerID, err := r.ensurePersistentContainer(ctx, prep)
+		if err != nil {
+			return NewErrorResult(1, err)
+		}
+		runOpts := execOptionsForPersistent(ctx, prep, ctx.IO.Stdout, ctx.IO.Stderr)
+		result, err := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
+		if err != nil {
+			return NewErrorResult(1, fmt.Errorf("failed to exec persistent container: %w", err))
+		}
+		return NewErrorResult(result.ExitCode, result.Error)
+	}
+
 	// Run the container
 	runOpts := container.RunOptions{
 		Image:       prep.image,
@@ -391,6 +427,29 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	// Capture stdout and stderr into buffers
 	var stdout, stderr bytes.Buffer
+
+	if persistentContainerRequested(ctx, prep.containerCfg) {
+		containerID, err := r.ensurePersistentContainer(ctx, prep)
+		if err != nil {
+			return &Result{ExitCode: 1, Error: err}
+		}
+		runOpts := captureExecOptionsForPersistent(prep, &stdout, &stderr)
+		result, err := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
+		if err != nil {
+			return &Result{
+				ExitCode:  1,
+				Error:     fmt.Errorf("failed to exec persistent container: %w", err),
+				Output:    stdout.String(),
+				ErrOutput: stderr.String(),
+			}
+		}
+		return &Result{
+			ExitCode:  result.ExitCode,
+			Error:     result.Error,
+			Output:    stdout.String(),
+			ErrOutput: stderr.String(),
+		}
+	}
 
 	// Run the container with output capture
 	runOpts := container.RunOptions{

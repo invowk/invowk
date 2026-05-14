@@ -12,6 +12,7 @@ import (
 const (
 	cueCloseList          = "\t\t]\n"
 	cueAlternativesPrefix = "\t{alternatives: ["
+	cueNameField          = "name: %q"
 	cueValidationField    = ", validation: %q"
 )
 
@@ -264,7 +265,7 @@ func generateRuntimeConfig(sb *strings.Builder, r *RuntimeConfig) {
 	if hasDeps {
 		// Multi-line format for runtimes with depends_on
 		sb.WriteString("\t\t\t\t\t{\n")
-		fmt.Fprintf(sb, "\t\t\t\t\t\tname: %q\n", r.Name)
+		fmt.Fprintf(sb, "\t\t\t\t\t\t"+cueNameField+"\n", r.Name)
 		generateRuntimeConfigFields(sb, r, "\t\t\t\t\t\t", true)
 		sb.WriteString("\t\t\t\t\t\tdepends_on: {\n")
 		generateDependsOnContent(sb, r.DependsOn, "\t\t\t\t\t\t\t")
@@ -273,7 +274,7 @@ func generateRuntimeConfig(sb *strings.Builder, r *RuntimeConfig) {
 	} else {
 		// Compact single-line format (existing behavior)
 		sb.WriteString("\t\t\t\t\t{")
-		fmt.Fprintf(sb, "name: %q", r.Name)
+		fmt.Fprintf(sb, cueNameField, r.Name)
 		generateRuntimeConfigFields(sb, r, "", false)
 		sb.WriteString("},\n")
 	}
@@ -357,6 +358,32 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 			portStrs[i] = string(p)
 		}
 		writeList("ports", portStrs)
+	}
+	if r.Persistent != nil {
+		if multiLine {
+			sb.WriteString(indent + "persistent: {\n")
+			if r.Persistent.CreateIfMissing {
+				sb.WriteString(indent + "\tcreate_if_missing: true\n")
+			}
+			if r.Persistent.Name != "" {
+				fmt.Fprintf(sb, "%s\t"+cueNameField+"\n", indent, r.Persistent.Name)
+			}
+			sb.WriteString(indent + "}\n")
+		} else {
+			sb.WriteString(", persistent: {")
+			wroteField := false
+			if r.Persistent.CreateIfMissing {
+				sb.WriteString("create_if_missing: true")
+				wroteField = true
+			}
+			if r.Persistent.Name != "" {
+				if wroteField {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(sb, cueNameField, r.Persistent.Name)
+			}
+			sb.WriteString("}")
+		}
 	}
 }
 
@@ -473,7 +500,7 @@ func generateDependsOnContent(sb *strings.Builder, deps *DependsOn, indent strin
 					sb.WriteString(", ")
 				}
 				sb.WriteString("{")
-				fmt.Fprintf(sb, "name: %q", alt.Name)
+				fmt.Fprintf(sb, cueNameField, alt.Name)
 				if alt.Validation != "" {
 					fmt.Fprintf(sb, cueValidationField, alt.Validation)
 				}

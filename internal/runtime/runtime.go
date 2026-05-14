@@ -160,6 +160,12 @@ type (
 		Verbose bool
 		// ForceRebuild forces container image rebuilds, bypassing cache (container runtime only)
 		ForceRebuild bool
+		// ContainerNameOverride overrides the persistent container target name.
+		// It is meaningful only for the container runtime.
+		ContainerNameOverride invowkfile.ContainerName
+		// CommandFullName is the discovered fully-qualified command namespace.
+		// It is used for deterministic managed persistent container names.
+		CommandFullName invowkfile.CommandName //goplint:ignore -- optional discovery metadata validated when non-empty.
 		// ExecutionID is a unique identifier for this command execution.
 		ExecutionID ExecutionID
 

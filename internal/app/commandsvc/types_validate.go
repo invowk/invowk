@@ -68,9 +68,9 @@ func (e *InvalidDryRunDataError) Unwrap() error { return ErrInvalidDryRunData }
 
 // Validate returns nil if the Request has valid fields, or a validation error if not.
 // It validates Runtime (when non-empty), FromSource (when non-empty),
-// Workdir (when non-empty), EnvFiles, ConfigPath (when non-empty),
-// EnvInheritMode (when non-empty), EnvInheritAllow, EnvInheritDeny,
-// and ResolvedCommand (when non-nil).
+// ContainerName (when non-empty), Workdir (when non-empty), EnvFiles,
+// ConfigPath (when non-empty), EnvInheritMode (when non-empty),
+// EnvInheritAllow, EnvInheritDeny, and ResolvedCommand (when non-nil).
 func (r Request) Validate() error {
 	var errs []error
 	r.appendLocationValidationErrors(&errs)
@@ -83,6 +83,11 @@ func (r Request) Validate() error {
 }
 
 func (r Request) appendLocationValidationErrors(errs *[]error) {
+	r.appendRuntimeLocationValidationErrors(errs)
+	r.appendFilesystemLocationValidationErrors(errs)
+}
+
+func (r Request) appendRuntimeLocationValidationErrors(errs *[]error) {
 	if r.Runtime != "" {
 		if err := r.Runtime.Validate(); err != nil {
 			*errs = append(*errs, err)
@@ -95,6 +100,14 @@ func (r Request) appendLocationValidationErrors(errs *[]error) {
 	}
 	if r.Platform != "" {
 		if err := r.Platform.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (r Request) appendFilesystemLocationValidationErrors(errs *[]error) {
+	if r.ContainerName != "" {
+		if err := r.ContainerName.Validate(); err != nil {
 			*errs = append(*errs, err)
 		}
 	}
@@ -197,6 +210,11 @@ func (p DryRunPlan) Validate() error {
 	}
 	if err := p.Timeout.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	if p.PersistentContainerName != "" {
+		if err := p.PersistentContainerName.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if err := p.Script.Validate(); err != nil {
 		errs = append(errs, err)

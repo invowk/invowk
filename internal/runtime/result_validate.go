@@ -85,7 +85,7 @@ func (d InitDiagnostic) Validate() error {
 }
 
 // Validate returns nil if the ExecutionContext has valid fields, or a validation error if not.
-// It validates SelectedRuntime, WorkDir (when non-empty), ExecutionID (when non-empty),
+// It validates SelectedRuntime, WorkDir, persistent-container metadata, ExecutionID,
 // and delegates to Env.Validate() and TUI.Validate().
 //
 // This method exists for completeness and API symmetry. In practice, ExecutionContext
@@ -94,19 +94,8 @@ func (d InitDiagnostic) Validate() error {
 // so construction already guarantees validity.
 func (ctx ExecutionContext) Validate() error {
 	var errs []error
-	if err := ctx.SelectedRuntime.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if ctx.WorkDir != "" {
-		if err := ctx.WorkDir.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if ctx.ExecutionID != "" {
-		if err := ctx.ExecutionID.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	ctx.appendRuntimeSelectionValidationErrors(&errs)
+	ctx.appendCommandIdentityValidationErrors(&errs)
 	if err := ctx.Env.Validate(); err != nil {
 		errs = append(errs, err)
 	}
@@ -117,4 +106,33 @@ func (ctx ExecutionContext) Validate() error {
 		return &InvalidExecutionContextError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (ctx ExecutionContext) appendRuntimeSelectionValidationErrors(errs *[]error) {
+	if err := ctx.SelectedRuntime.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	if ctx.WorkDir != "" {
+		if err := ctx.WorkDir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if ctx.ContainerNameOverride != "" {
+		if err := ctx.ContainerNameOverride.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (ctx ExecutionContext) appendCommandIdentityValidationErrors(errs *[]error) {
+	if ctx.CommandFullName != "" {
+		if err := ctx.CommandFullName.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if ctx.ExecutionID != "" {
+		if err := ctx.ExecutionID.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
