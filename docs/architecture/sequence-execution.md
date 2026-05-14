@@ -8,7 +8,7 @@ This diagram shows the temporal flow from CLI invocation through discovery, runt
 
 ## Container Runtime Flow (Detailed)
 
-When the container runtime is selected, additional steps occur:
+When the container runtime is selected, additional steps occur. The default path is an ephemeral `run --rm`; when `persistent` is configured or `--ivk-container-name` is provided, Invowk resolves/inspects a target container and executes with `docker exec` or `podman exec`.
 
 ![Container Runtime Sequence](../diagrams/rendered/sequences/execution-container.svg)
 
@@ -79,7 +79,7 @@ Vendored modules are scanned one level deep per discovered module. Nested vendor
 **Runtime-specific behavior:**
 - **Native**: Spawns host shell process
 - **Virtual**: Interprets via mvdan/sh
-- **Container**: Provisions image, runs container with transient retry handling
+- **Container**: Provisions an image and either runs an ephemeral container with transient retry handling or execs into a persistent target
 - **SSH/TUI lifecycle**: Managed by command orchestration (CommandService), not by the runtime implementation itself
 
 ### 5. Dry-Run Intercept

@@ -5,11 +5,13 @@ package container
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -65,6 +67,19 @@ type (
 		cmdEnvOverrides      map[string]string  // Per-command env var overrides (e.g., CONTAINERS_CONF_OVERRIDE)
 		sysctlOverridePath   HostFilesystemPath // Temp file path for sysctl override (removed on Close)
 		sysctlOverrideActive bool               // Whether the temp file sysctl override is in effect
+	}
+
+	rawContainerInspect struct {
+		ID     string            //goplint:ignore -- Docker/Podman inspect JSON boundary.
+		Name   string            //goplint:ignore -- Docker/Podman inspect JSON boundary.
+		Labels map[string]string //goplint:ignore -- Docker/Podman inspect JSON boundary.
+		State  struct {
+			Running bool
+			Status  string //goplint:ignore -- Docker/Podman inspect JSON boundary.
+		}
+		Config struct {
+			Labels map[string]string //goplint:ignore -- Docker/Podman inspect JSON boundary.
+		}
 	}
 
 	// CmdCustomizer is implemented by engines that inject per-command overrides
@@ -324,6 +339,53 @@ func (e *BaseCLIEngine) ExecArgs(containerID ContainerID, command []string, opts
 	return args
 }
 
+// InspectContainerArgs constructs arguments for a container inspect command.
+//
+//goplint:ignore -- raw argv builder for Docker/Podman CLI boundary.
+func (e *BaseCLIEngine) InspectContainerArgs(name ContainerName) []string {
+	return []string{"container", "inspect", string(name)}
+}
+
+// CreateArgs constructs arguments for a container create command.
+//
+//goplint:ignore -- raw argv builder for Docker/Podman CLI boundary.
+func (e *BaseCLIEngine) CreateArgs(opts CreateOptions) []string {
+	args := []string{"create"}
+
+	if opts.Name != "" {
+		args = append(args, "--name", string(opts.Name))
+	}
+	if opts.WorkDir != "" {
+		args = append(args, "-w", string(opts.WorkDir))
+	}
+	for key, value := range opts.Env {
+		args = append(args, "-e", fmt.Sprintf("%s=%s", key, value))
+	}
+	for key, value := range opts.Labels {
+		args = append(args, "--label", fmt.Sprintf("%s=%s", key, value))
+	}
+	for _, v := range opts.Volumes {
+		args = append(args, "-v", e.volumeFormatter(v))
+	}
+	for _, p := range opts.Ports {
+		args = append(args, "-p", string(p))
+	}
+	for _, h := range opts.ExtraHosts {
+		args = append(args, "--add-host", string(h))
+	}
+
+	args = append(args, string(opts.Image))
+	args = append(args, opts.Command...)
+	return e.runArgsTransformer(args)
+}
+
+// StartArgs constructs arguments for a container start command.
+//
+//goplint:ignore -- raw argv builder for Docker/Podman CLI boundary.
+func (e *BaseCLIEngine) StartArgs(containerID ContainerID) []string {
+	return []string{"start", string(containerID)}
+}
+
 // RemoveArgs constructs arguments for a container remove command.
 func (e *BaseCLIEngine) RemoveArgs(containerID ContainerID, force bool) []string {
 	args := []string{"rm"}
@@ -489,6 +551,80 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 	return runResultFromExecError(cmd.Run(), "container run")
 }
 
+// InspectContainer inspects a container by name.
+func (e *BaseCLIEngine) InspectContainer(ctx context.Context, name ContainerName) (*ContainerInfo, error) {
+	if err := name.Validate(); err != nil {
+		return nil, err
+	}
+	args := e.InspectContainerArgs(name)
+	out, err := e.RunCommandCombined(ctx, args...)
+	if err != nil {
+		if isContainerInspectNotFoundOutput(out) {
+			return nil, &ContainerNotFoundError{Name: name}
+		}
+		return nil, &OperationError{
+			Engine:    e.name,
+			Operation: "inspect container",
+			Resource:  string(name),
+			Err:       err,
+		}
+	}
+
+	info, parseErr := parseContainerInspect(out, name)
+	if parseErr != nil {
+		return nil, &OperationError{
+			Engine:    e.name,
+			Operation: "parse container inspect",
+			Resource:  string(name),
+			Err:       parseErr,
+		}
+	}
+	return info, nil
+}
+
+// Create creates a stopped container.
+func (e *BaseCLIEngine) Create(ctx context.Context, opts CreateOptions) (*CreateResult, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+
+	args := e.CreateArgs(opts)
+	out, err := e.RunCommandCombined(ctx, args...)
+	if err != nil {
+		if isContainerNameConflictOutput(out) {
+			return nil, &ContainerNameConflictError{Name: opts.Name}
+		}
+		return nil, &OperationError{
+			Engine:    e.name,
+			Operation: "create container",
+			Resource:  string(opts.Name),
+			Err:       err,
+		}
+	}
+
+	id := ContainerID(strings.TrimSpace(string(out)))
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("created container ID: %w", err)
+	}
+	return &CreateResult{ContainerID: id}, nil
+}
+
+// Start starts a stopped container.
+func (e *BaseCLIEngine) Start(ctx context.Context, containerID ContainerID) error {
+	if err := containerID.Validate(); err != nil {
+		return err
+	}
+	if err := e.RunCommandStatus(ctx, e.StartArgs(containerID)...); err != nil {
+		return &OperationError{
+			Engine:    e.name,
+			Operation: "start container",
+			Resource:  string(containerID),
+			Err:       err,
+		}
+	}
+	return nil
+}
+
 // Exec runs a command in a running container.
 //
 //goplint:trusted-boundary -- Exec validates the RunOptions fields it actually consumes; RunOptions.Validate requires Image for run-only paths.
@@ -510,6 +646,13 @@ func (e *BaseCLIEngine) Exec(ctx context.Context, containerID ContainerID, comma
 	}
 	result.ContainerID = containerID
 	return result, nil
+}
+
+// PrepareExecCommand creates a configured command for a container exec.
+//
+//goplint:ignore -- exec.Command adapter boundary uses raw argv.
+func (e *BaseCLIEngine) PrepareExecCommand(ctx context.Context, containerID ContainerID, command []string, opts RunOptions) *exec.Cmd {
+	return e.CreateCommand(ctx, e.ExecArgs(containerID, command, opts)...)
 }
 
 //goplint:ignore -- raw argv vector mirrors the public Exec API; this helper validates non-empty command shape.
@@ -551,6 +694,60 @@ func (e *BaseCLIEngine) BuildRunArgs(opts RunOptions) []string {
 // PrepareRunCommand creates a configured command for a container run.
 func (e *BaseCLIEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
 	return e.CreateCommand(ctx, e.BuildRunArgs(opts)...)
+}
+
+//goplint:ignore -- Docker/Podman inspect JSON boundary.
+func parseContainerInspect(data []byte, fallbackName ContainerName) (*ContainerInfo, error) {
+	var inspected []rawContainerInspect
+	if err := json.Unmarshal(data, &inspected); err != nil {
+		return nil, fmt.Errorf("decode inspect JSON: %w", err)
+	}
+	if len(inspected) == 0 {
+		return nil, errors.New("container inspect returned no entries")
+	}
+
+	raw := inspected[0]
+	id := ContainerID(raw.ID)
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("container inspect ID: %w", err)
+	}
+	name := ContainerName(strings.TrimPrefix(raw.Name, "/"))
+	if name == "" {
+		name = fallbackName
+	}
+	if err := name.Validate(); err != nil {
+		return nil, fmt.Errorf("container inspect name: %w", err)
+	}
+	labels := raw.Config.Labels
+	if len(labels) == 0 {
+		labels = raw.Labels
+	}
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	return &ContainerInfo{
+		ContainerID: id,
+		Name:        name,
+		Running:     raw.State.Running,
+		Status:      raw.State.Status,
+		Labels:      labels,
+	}, nil
+}
+
+//goplint:ignore -- Docker/Podman stderr parsing boundary.
+func isContainerInspectNotFoundOutput(out []byte) bool {
+	lower := strings.ToLower(string(out))
+	return strings.Contains(lower, "no such object") ||
+		strings.Contains(lower, "no such container") ||
+		strings.Contains(lower, "does not exist")
+}
+
+//goplint:ignore -- Docker/Podman stderr parsing boundary.
+func isContainerNameConflictOutput(out []byte) bool {
+	lower := strings.ToLower(string(out))
+	return strings.Contains(lower, "already in use") ||
+		strings.Contains(lower, "already exists") ||
+		strings.Contains(lower, "name is in use")
 }
 
 // InspectImage returns information about an image.

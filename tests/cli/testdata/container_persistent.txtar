@@ -1,0 +1,71 @@
+# Test: Persistent container runtime targets
+
+[!container-available] skip 'no functional container runtime available'
+[in-sandbox] skip 'container tests may require --filesystem permissions in sandbox - run tests on host or grant permissions'
+
+cd $WORK
+env PERSISTENT_NAME=invowk-test-$INVOWK_PROVISION_TAG_SUFFIX-persistent
+env EXTERNAL_NAME=invowk-test-$INVOWK_PROVISION_TAG_SUFFIX-external
+
+# Test 1: CLI override plus create_if_missing creates a managed persistent target.
+exec invowk cmd mark --ivk-container-name $PERSISTENT_NAME
+stdout 'marker-missing'
+
+# Test 2: A later invocation observes state in the same managed target.
+exec invowk cmd mark --ivk-container-name $PERSISTENT_NAME
+stdout 'marker-present'
+
+# Test 3: Stopped managed targets are started before exec.
+exec sh -c 'exec "$INVOWK_TEST_CONTAINER_ENGINE" stop -t 1 "$PERSISTENT_NAME"'
+exec invowk cmd mark --ivk-container-name $PERSISTENT_NAME
+stdout 'marker-present'
+
+# Test 4: Dry-run reports persistent targeting without executing lifecycle work.
+exec invowk cmd mark --ivk-container-name $PERSISTENT_NAME --ivk-dry-run
+stdout 'Container:.*persistent'
+stdout 'ContainerName:'
+stdout 'ContainerNameSource:.*cli'
+stdout 'CreateIfMissing:.*true'
+
+# Test 5: Invalid explicit names fail before execution.
+! exec invowk cmd mark --ivk-container-name Invalid/Name
+stderr 'Invalid request'
+
+# Test 6: A pre-existing running external target can be selected by CLI override.
+exec sh -c 'exec "$INVOWK_TEST_CONTAINER_ENGINE" create --name "$EXTERNAL_NAME" -v "$WORK:/workspace" -w /workspace debian:stable-slim /bin/sh -c "trap \"exit 0\" TERM INT; while true; do sleep 3600; done"'
+exec sh -c 'exec "$INVOWK_TEST_CONTAINER_ENGINE" start "$EXTERNAL_NAME"'
+exec invowk cmd external --ivk-container-name $EXTERNAL_NAME
+stdout 'external-ok'
+
+-- invowkfile.cue --
+cmds: [
+	{
+		name: "mark"
+		implementations: [{
+			script: #"""
+				if [ -f /tmp/invowk-persistent-marker ]; then
+					echo marker-present
+				else
+					echo marker-missing
+					touch /tmp/invowk-persistent-marker
+				fi
+				"""#
+			runtimes: [{
+				name:  "container"
+				image: "debian:stable-slim"
+				persistent: {
+					create_if_missing: true
+				}
+			}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+	{
+		name: "external"
+		implementations: [{
+			script:    "echo external-ok"
+			runtimes:  [{name: "container", image: "debian:stable-slim"}]
+			platforms: [{name: "linux"}]
+		}]
+	},
+]

@@ -243,3 +243,48 @@ func TestGenerateCUE_RuntimeBaseFieldsRoundTrip(t *testing.T) {
 		t.Fatalf("roundtrip env_inherit_deny = %v, want [SECRET_TOKEN]", runtimeCfg.EnvInheritDeny)
 	}
 }
+
+func TestGenerateCUE_RuntimePersistentFieldsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	inv := &Invowkfile{
+		Commands: []Command{{
+			Name: "run",
+			Implementations: []Implementation{{
+				Script: "echo run",
+				Runtimes: []RuntimeConfig{{
+					Name:  RuntimeContainer,
+					Image: "debian:stable-slim",
+					Persistent: &RuntimePersistentConfig{
+						CreateIfMissing: true,
+						Name:            "existing_dev",
+					},
+				}},
+				Platforms: AllPlatformConfigs(),
+			}},
+		}},
+	}
+
+	got := GenerateCUE(inv)
+	for _, want := range []string{
+		`persistent: {`,
+		`create_if_missing: true`,
+		`name: "existing_dev"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("generated CUE missing %q:\n%s", want, got)
+		}
+	}
+
+	parsed, err := ParseBytes([]byte(got), "roundtrip.cue")
+	if err != nil {
+		t.Fatalf("ParseBytes() error = %v\n%s", err, got)
+	}
+	persistent := parsed.Commands[0].Implementations[0].Runtimes[0].Persistent
+	if persistent == nil {
+		t.Fatal("roundtrip persistent config = nil")
+	}
+	if !persistent.CreateIfMissing || persistent.Name != "existing_dev" {
+		t.Fatalf("roundtrip persistent config = %+v", persistent)
+	}
+}

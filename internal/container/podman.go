@@ -191,13 +191,13 @@ func addSELinuxLabelWithCheck(volume VolumeMountSpec, selinuxCheck SELinuxCheckF
 	return volumeStr + ":z"
 }
 
-// makeUsernsKeepIDAdder creates a transformer that adds --userns=keep-id to run commands.
+// makeUsernsKeepIDAdder creates a transformer that adds --userns=keep-id to run/create commands.
 // This preserves host user UID/GID in rootless Podman, preventing permission
 // issues with volume mounts. The flag is harmless in rootful mode.
 func makeUsernsKeepIDAdder() RunArgsTransformer {
 	return func(args []string) []string {
-		if len(args) == 0 || args[0] != "run" {
-			return args // Only transform run commands
+		if len(args) == 0 || args[0] != "run" && args[0] != "create" {
+			return args // Only transform run/create commands
 		}
 
 		// Find image position (first non-flag argument after "run")
@@ -212,7 +212,7 @@ func makeUsernsKeepIDAdder() RunArgsTransformer {
 			arg := args[i]
 			// Flags that take a separate argument value
 			if arg == "-w" || arg == "-e" || arg == "-v" || arg == "-p" ||
-				arg == "--name" || arg == "--add-host" {
+				arg == "--name" || arg == "--add-host" || arg == "--label" {
 				skipNext = true
 				continue
 			}

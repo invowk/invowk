@@ -358,6 +358,32 @@ func generateRuntimeConfigFields(sb *strings.Builder, r *RuntimeConfig, indent s
 		}
 		writeList("ports", portStrs)
 	}
+	if r.Persistent != nil {
+		if multiLine {
+			sb.WriteString(indent + "persistent: {\n")
+			if r.Persistent.CreateIfMissing {
+				sb.WriteString(indent + "\tcreate_if_missing: true\n")
+			}
+			if r.Persistent.Name != "" {
+				fmt.Fprintf(sb, "%s\tname: %q\n", indent, r.Persistent.Name)
+			}
+			sb.WriteString(indent + "}\n")
+		} else {
+			sb.WriteString(", persistent: {")
+			wroteField := false
+			if r.Persistent.CreateIfMissing {
+				sb.WriteString("create_if_missing: true")
+				wroteField = true
+			}
+			if r.Persistent.Name != "" {
+				if wroteField {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(sb, "name: %q", r.Persistent.Name)
+			}
+			sb.WriteString("}")
+		}
+	}
 }
 
 // generateDependsOnContent generates the content of a depends_on block

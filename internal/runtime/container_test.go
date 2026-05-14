@@ -5,6 +5,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,25 +17,45 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// MockEngine implements container.Engine for testing.
-// It records calls and returns configured results without requiring Docker/Podman.
-type MockEngine struct {
-	mu sync.Mutex
+type (
+	// MockEngine implements container.Engine for testing.
+	// It records calls and returns configured results without requiring Docker/Podman.
+	MockEngine struct {
+		mu sync.Mutex
 
-	// Configuration
-	name        string
-	available   bool
-	runResult   *container.RunResult
-	runErr      error
-	imageExists bool
-	buildErr    error
-	version     string
+		// Configuration
+		name        string
+		available   bool
+		runResult   *container.RunResult
+		runErr      error
+		execResult  *container.RunResult
+		execErr     error
+		inspectInfo *container.ContainerInfo
+		inspectErr  error
+		inspectSeq  []mockInspectResult
+		createErr   error
+		startErr    error
+		imageExists bool
+		buildErr    error
+		version     string
 
-	// Call recording
-	RunCalls        []container.RunOptions
-	BuildCalls      []container.BuildOptions
-	PrepareRunCalls []container.RunOptions
-}
+		// Call recording
+		RunCalls         []container.RunOptions
+		BuildCalls       []container.BuildOptions
+		InspectCalls     []container.ContainerName
+		CreateCalls      []container.CreateOptions
+		StartCalls       []container.ContainerID
+		ExecCalls        []container.RunOptions
+		ExecCommands     [][]string
+		PrepareRunCalls  []container.RunOptions
+		PrepareExecCalls []container.RunOptions
+	}
+
+	mockInspectResult struct {
+		info *container.ContainerInfo
+		err  error
+	}
+)
 
 // NewMockEngine creates a MockEngine with sensible defaults.
 func NewMockEngine() *MockEngine {
@@ -43,6 +64,7 @@ func NewMockEngine() *MockEngine {
 		available:   true,
 		imageExists: true,
 		runResult:   &container.RunResult{ExitCode: 0},
+		execResult:  &container.RunResult{ExitCode: 0},
 		version:     "1.0.0",
 	}
 }
@@ -69,6 +91,28 @@ func (m *MockEngine) WithRunResult(exitCode ExitCode, err error) *MockEngine {
 // WithRunError configures Run() to return an error.
 func (m *MockEngine) WithRunError(err error) *MockEngine {
 	m.runErr = err
+	return m
+}
+
+func (m *MockEngine) WithExecResult(exitCode ExitCode, err error) *MockEngine {
+	m.execResult = &container.RunResult{ExitCode: exitCode}
+	m.execErr = err
+	return m
+}
+
+func (m *MockEngine) WithInspectInfo(info *container.ContainerInfo) *MockEngine {
+	m.inspectInfo = info
+	m.inspectErr = nil
+	return m
+}
+
+func (m *MockEngine) WithInspectError(err error) *MockEngine {
+	m.inspectErr = err
+	return m
+}
+
+func (m *MockEngine) WithInspectSequence(results ...mockInspectResult) *MockEngine {
+	m.inspectSeq = append([]mockInspectResult(nil), results...)
 	return m
 }
 
@@ -115,6 +159,73 @@ func (m *MockEngine) Run(_ context.Context, opts container.RunOptions) (*contain
 	return m.runResult, nil
 }
 
+func (m *MockEngine) InspectContainer(_ context.Context, name container.ContainerName) (*container.ContainerInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.InspectCalls = append(m.InspectCalls, name)
+	if len(m.inspectSeq) > 0 {
+		result := m.inspectSeq[0]
+		m.inspectSeq = m.inspectSeq[1:]
+		if result.err != nil {
+			return nil, result.err
+		}
+		if result.info == nil {
+			return nil, &container.ContainerNotFoundError{Name: name}
+		}
+		return result.info, nil
+	}
+	if m.inspectErr != nil {
+		return nil, m.inspectErr
+	}
+	if m.inspectInfo == nil {
+		return nil, &container.ContainerNotFoundError{Name: name}
+	}
+	return m.inspectInfo, nil
+}
+
+func (m *MockEngine) Create(_ context.Context, opts container.CreateOptions) (*container.CreateResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.CreateCalls = append(m.CreateCalls, opts)
+	if m.createErr != nil {
+		return nil, m.createErr
+	}
+	if m.inspectInfo == nil {
+		m.inspectInfo = &container.ContainerInfo{
+			ContainerID: "created-container",
+			Name:        opts.Name,
+			Running:     false,
+			Labels:      maps.Clone(opts.Labels),
+		}
+	}
+	return &container.CreateResult{ContainerID: "created-container"}, nil
+}
+
+func (m *MockEngine) Start(_ context.Context, id container.ContainerID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.StartCalls = append(m.StartCalls, id)
+	if m.inspectInfo != nil && m.inspectInfo.ContainerID == id {
+		info := *m.inspectInfo
+		info.Running = true
+		m.inspectInfo = &info
+	}
+	return m.startErr
+}
+
+func (m *MockEngine) Exec(_ context.Context, id container.ContainerID, command []string, opts container.RunOptions) (*container.RunResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ExecCalls = append(m.ExecCalls, opts)
+	m.ExecCommands = append(m.ExecCommands, append([]string(nil), command...))
+	if m.execErr != nil {
+		return nil, m.execErr
+	}
+	result := *m.execResult
+	result.ContainerID = id
+	return &result, nil
+}
+
 func (m *MockEngine) Remove(_ context.Context, _ container.ContainerID, _ bool) error {
 	return nil
 }
@@ -146,6 +257,14 @@ func (m *MockEngine) PrepareRunCommand(ctx context.Context, opts container.RunOp
 	m.PrepareRunCalls = append(m.PrepareRunCalls, opts)
 	m.mu.Unlock()
 	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...)
+}
+
+func (m *MockEngine) PrepareExecCommand(ctx context.Context, id container.ContainerID, command []string, opts container.RunOptions) *exec.Cmd {
+	m.mu.Lock()
+	m.PrepareExecCalls = append(m.PrepareExecCalls, opts)
+	m.mu.Unlock()
+	args := append([]string{"exec", string(id)}, command...)
+	return exec.CommandContext(ctx, m.BinaryPath(), args...)
 }
 
 // --- Tests ---

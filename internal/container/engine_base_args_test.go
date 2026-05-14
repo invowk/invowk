@@ -265,6 +265,50 @@ func TestBaseCLIEngine_ExecArgs(t *testing.T) {
 	}
 }
 
+func TestBaseCLIEngine_PersistentLifecycleArgs(t *testing.T) {
+	t.Parallel()
+	engine := NewBaseCLIEngine("/usr/bin/docker")
+
+	inspectArgs := engine.InspectContainerArgs("my-dev")
+	if !slices.Equal(inspectArgs, []string{"container", "inspect", "my-dev"}) {
+		t.Fatalf("InspectContainerArgs() = %v", inspectArgs)
+	}
+
+	startArgs := engine.StartArgs("abc123")
+	if !slices.Equal(startArgs, []string{"start", "abc123"}) {
+		t.Fatalf("StartArgs() = %v", startArgs)
+	}
+
+	createArgs := engine.CreateArgs(CreateOptions{
+		Image:   "debian:stable-slim",
+		Command: []string{"/bin/sh", "-c", "sleep infinity"},
+		WorkDir: "/workspace",
+		Labels: map[string]string{
+			"dev.invowk.managed": "true",
+		},
+		Volumes:    []VolumeMountSpec{"/host:/workspace"},
+		Ports:      []PortMappingSpec{"8080:80"},
+		Name:       "my-dev",
+		ExtraHosts: []HostMapping{"host.docker.internal:host-gateway"},
+	})
+
+	for _, want := range []string{
+		"create",
+		"--name", "my-dev",
+		"-w", "/workspace",
+		"--label", "dev.invowk.managed=true",
+		"-v", "/host:/workspace",
+		"-p", "8080:80",
+		"--add-host", "host.docker.internal:host-gateway",
+		"debian:stable-slim",
+		"/bin/sh", "-c", "sleep infinity",
+	} {
+		if !slices.Contains(createArgs, want) {
+			t.Fatalf("CreateArgs() missing %q: %v", want, createArgs)
+		}
+	}
+}
+
 func TestBaseCLIEngine_RemoveArgs(t *testing.T) {
 	t.Parallel()
 	engine := NewBaseCLIEngine("/usr/bin/docker")

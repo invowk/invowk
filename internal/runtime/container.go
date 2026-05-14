@@ -13,6 +13,7 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/provision"
+	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // Container host addresses for SSH tunneling
@@ -64,6 +65,7 @@ type (
 		Image         container.ImageTag
 		Volumes       []container.VolumeMountSpec
 		Ports         []container.PortMappingSpec
+		Persistent    *invowkfile.RuntimePersistentConfig
 	}
 
 	containerEngine interface {
@@ -71,6 +73,10 @@ type (
 		Available() bool
 		Build(context.Context, container.BuildOptions) error
 		Run(context.Context, container.RunOptions) (*container.RunResult, error)
+		InspectContainer(context.Context, container.ContainerName) (*container.ContainerInfo, error)
+		Create(context.Context, container.CreateOptions) (*container.CreateResult, error)
+		Start(context.Context, container.ContainerID) error
+		Exec(context.Context, container.ContainerID, []string, container.RunOptions) (*container.RunResult, error)
 		ImageExists(context.Context, container.ImageTag) (bool, error)
 		RemoveImage(context.Context, container.ImageTag, bool) error
 	}

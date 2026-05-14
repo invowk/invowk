@@ -39,6 +39,20 @@ func (e fakeDiscoveryEngine) Run(context.Context, RunOptions) (*RunResult, error
 	return &RunResult{}, nil
 }
 
+func (e fakeDiscoveryEngine) InspectContainer(context.Context, ContainerName) (*ContainerInfo, error) {
+	return nil, &ContainerNotFoundError{}
+}
+
+func (e fakeDiscoveryEngine) Create(context.Context, CreateOptions) (*CreateResult, error) {
+	return &CreateResult{ContainerID: "test-container"}, nil
+}
+
+func (e fakeDiscoveryEngine) Start(context.Context, ContainerID) error { return nil }
+
+func (e fakeDiscoveryEngine) Exec(context.Context, ContainerID, []string, RunOptions) (*RunResult, error) {
+	return &RunResult{}, nil
+}
+
 func (e fakeDiscoveryEngine) Remove(context.Context, ContainerID, bool) error { return nil }
 
 func (e fakeDiscoveryEngine) ImageExists(context.Context, ImageTag) (bool, error) {
@@ -53,6 +67,10 @@ func (e fakeDiscoveryEngine) BuildRunArgs(RunOptions) []string { return []string
 
 func (e fakeDiscoveryEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
 	return exec.CommandContext(ctx, e.BinaryPath(), e.BuildRunArgs(opts)...)
+}
+
+func (e fakeDiscoveryEngine) PrepareExecCommand(ctx context.Context, id ContainerID, command []string, _ RunOptions) *exec.Cmd {
+	return exec.CommandContext(ctx, e.BinaryPath(), append([]string{"exec", string(id)}, command...)...)
 }
 
 func TestEngineNotAvailableError_Error(t *testing.T) {

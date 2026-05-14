@@ -65,6 +65,22 @@ func (m *mockEngine) Run(_ context.Context, _ RunOptions) (*RunResult, error) {
 	return &RunResult{}, nil
 }
 
+func (m *mockEngine) InspectContainer(_ context.Context, _ ContainerName) (*ContainerInfo, error) {
+	return nil, &ContainerNotFoundError{}
+}
+
+func (m *mockEngine) Create(_ context.Context, _ CreateOptions) (*CreateResult, error) {
+	return &CreateResult{ContainerID: "test-container"}, nil
+}
+
+func (m *mockEngine) Start(_ context.Context, _ ContainerID) error {
+	return nil
+}
+
+func (m *mockEngine) Exec(_ context.Context, _ ContainerID, _ []string, _ RunOptions) (*RunResult, error) {
+	return &RunResult{}, nil
+}
+
 func (m *mockEngine) Remove(_ context.Context, _ ContainerID, _ bool) error {
 	return nil
 }

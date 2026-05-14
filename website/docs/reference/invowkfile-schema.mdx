@@ -143,7 +143,7 @@ The following flags are reserved by invowk and cannot be used in user-defined co
 - `ivk-env-file` (`-e`), `ivk-env-var` (`-E`)
 - `ivk-env-inherit-mode`, `ivk-env-inherit-allow`, `ivk-env-inherit-deny`
 - `ivk-workdir` (`-w`), `ivk-runtime` (`-r`), `ivk-from` (`-f`)
-- `ivk-force-rebuild`, `ivk-dry-run`
+- `ivk-force-rebuild`, `ivk-container-name`, `ivk-dry-run`
 - `ivk-watch` (`-W`)
 - `ivk-verbose` (`-v`), `ivk-config` (`-c`), `ivk-interactive` (`-i`)
 - `help` (`-h`), `version`
@@ -311,6 +311,17 @@ Enable SSH access from container back to the host. When enabled, Invowk starts a
 Specify the container source. These are **mutually exclusive**.
 
 <Snippet id="reference/invowkfile/containerfile-image-examples" />
+
+### persistent
+
+**Type:** `{create_if_missing?: bool, name?: string}`
+**Available for:** `container`
+
+Reuse a long-lived container instead of creating an ephemeral container per invocation. When `create_if_missing` is `true`, Invowk creates and labels a managed container if it does not exist. If `name` is omitted, Invowk derives a stable `invowk-*` name from the fully-qualified command namespace.
+
+Use `--ivk-container-name` to target a pre-existing running container from the CLI. Explicit names must use portable Docker/Podman naming: lowercase letters, digits, `.`, `_`, or `-`, starting with a lowercase letter or digit.
+
+<Snippet id="reference/invowkfile/persistent-container-example" />
 
 ### volumes
 

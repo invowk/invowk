@@ -23,9 +23,13 @@ type fakeProvisioner struct {
 	result  *provision.Result
 	err     error
 	request *provision.Request
+	calls   *int
 }
 
 func (p fakeProvisioner) Provision(_ context.Context, req provision.Request) (*provision.Result, error) {
+	if p.calls != nil {
+		(*p.calls)++
+	}
 	if p.request != nil {
 		*p.request = req
 	}

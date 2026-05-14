@@ -172,6 +172,141 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 	return runResultFromExecError(cmd.Run(), "sandbox run")
 }
 
+// InspectContainer inspects a container by name.
+func (e *SandboxAwareEngine) InspectContainer(ctx context.Context, name ContainerName) (*ContainerInfo, error) {
+	if e.sandboxType == platform.SandboxNone {
+		return e.wrapped.InspectContainer(ctx, name)
+	}
+
+	baseEngine, ok := e.getBaseCLIEngine()
+	if !ok {
+		return e.wrapped.InspectContainer(ctx, name)
+	}
+
+	inspectArgs := baseEngine.InspectContainerArgs(name)
+	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), inspectArgs)
+	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
+	e.CustomizeCmd(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if isContainerInspectNotFoundOutput(out) {
+			return nil, &ContainerNotFoundError{Name: name}
+		}
+		return nil, err
+	}
+	return parseContainerInspect(out, name)
+}
+
+// Create creates a stopped container.
+func (e *SandboxAwareEngine) Create(ctx context.Context, opts CreateOptions) (*CreateResult, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+	if e.sandboxType == platform.SandboxNone {
+		return e.wrapped.Create(ctx, opts)
+	}
+
+	baseEngine, ok := e.getBaseCLIEngine()
+	if !ok {
+		return e.wrapped.Create(ctx, opts)
+	}
+
+	createArgs := baseEngine.CreateArgs(opts)
+	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), createArgs)
+	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
+	e.CustomizeCmd(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if isContainerNameConflictOutput(out) {
+			return nil, &ContainerNameConflictError{Name: opts.Name}
+		}
+		return nil, err
+	}
+	id := ContainerID(strings.TrimSpace(string(out)))
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("created container ID: %w", err)
+	}
+	return &CreateResult{ContainerID: id}, nil
+}
+
+// Start starts a stopped container.
+func (e *SandboxAwareEngine) Start(ctx context.Context, containerID ContainerID) error {
+	if e.sandboxType == platform.SandboxNone {
+		return e.wrapped.Start(ctx, containerID)
+	}
+
+	baseEngine, ok := e.getBaseCLIEngine()
+	if !ok {
+		return e.wrapped.Start(ctx, containerID)
+	}
+	startArgs := baseEngine.StartArgs(containerID)
+	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), startArgs)
+	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
+	e.CustomizeCmd(cmd)
+	return cmd.Run()
+}
+
+// Exec runs a command in a running container.
+//
+//goplint:trusted-boundary -- Exec validates the RunOptions fields it actually consumes; RunOptions.Validate requires Image for run-only paths.
+//goplint:ignore -- container exec API mirrors Docker/Podman argv boundary.
+func (e *SandboxAwareEngine) Exec(ctx context.Context, containerID ContainerID, command []string, opts RunOptions) (*RunResult, error) {
+	if err := validateExecInputs(containerID, command, opts); err != nil {
+		return nil, err
+	}
+	if e.sandboxType == platform.SandboxNone {
+		return e.wrapped.Exec(ctx, containerID, command, opts)
+	}
+
+	baseEngine, ok := e.getBaseCLIEngine()
+	if !ok {
+		return e.wrapped.Exec(ctx, containerID, command, opts)
+	}
+
+	execArgs := baseEngine.ExecArgs(containerID, command, opts)
+	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), execArgs)
+	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
+	e.CustomizeCmd(cmd)
+	cmd.Stdin = opts.Stdin
+	cmd.Stdout = opts.Stdout
+	cmd.Stderr = opts.Stderr
+	result, err := runResultFromExecError(cmd.Run(), "sandbox exec")
+	if err != nil {
+		return nil, err
+	}
+	result.ContainerID = containerID
+	return result, nil
+}
+
+// PrepareExecCommand creates a configured command for a container exec.
+//
+//goplint:trusted-boundary -- PrepareExecCommand is the interactive exec adapter; RunOptions image validation is run-only.
+//goplint:ignore -- container exec API mirrors Docker/Podman argv boundary.
+func (e *SandboxAwareEngine) PrepareExecCommand(ctx context.Context, containerID ContainerID, command []string, opts RunOptions) *exec.Cmd {
+	if e.sandboxType == platform.SandboxNone {
+		if preparer, ok := e.wrapped.(interface {
+			PrepareExecCommand(context.Context, ContainerID, []string, RunOptions) *exec.Cmd
+		}); ok {
+			return preparer.PrepareExecCommand(ctx, containerID, command, opts)
+		}
+	}
+
+	baseEngine, ok := e.getBaseCLIEngine()
+	if !ok {
+		return exec.CommandContext(ctx, e.wrapped.BinaryPath(), e.wrapped.BuildRunArgs(opts)...)
+	}
+	execArgs := baseEngine.ExecArgs(containerID, command, opts)
+	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), execArgs)
+	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+	cmd.WaitDelay = cmdWaitDelay
+	e.CustomizeCmd(cmd)
+	return cmd
+}
+
 // Remove removes a container.
 func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID ContainerID, force bool) error {
 	if e.sandboxType == platform.SandboxNone {

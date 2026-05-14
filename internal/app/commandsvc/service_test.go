@@ -284,6 +284,10 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 		Name:          invowkfile.RuntimeContainer,
 		Image:         "debian:stable-slim",
 		EnableHostSSH: true,
+		Persistent: &invowkfile.RuntimePersistentConfig{
+			CreateIfMissing: true,
+			Name:            "configured-dev",
+		},
 	}}
 
 	service := &Service{
@@ -299,11 +303,12 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 	}
 
 	result, diags, err := service.Execute(t.Context(), Request{
-		Name:     "build",
-		DryRun:   true,
-		Platform: invowkfile.PlatformMac,
-		Runtime:  invowkfile.RuntimeContainer,
-		EnvVars:  map[string]string{"REQ_ONLY": "from-request"},
+		Name:          "build",
+		DryRun:        true,
+		Platform:      invowkfile.PlatformMac,
+		Runtime:       invowkfile.RuntimeContainer,
+		ContainerName: "override-dev",
+		EnvVars:       map[string]string{"REQ_ONLY": "from-request"},
 	})
 	if err != nil {
 		t.Fatalf("Execute(dry-run) error = %v", err)
@@ -323,6 +328,18 @@ func TestServiceExecute_DryRunDoesNotStartHostAccess(t *testing.T) {
 	}
 	if plan.Env["INVOWK_PLATFORM"] != string(invowkfile.PlatformMac) {
 		t.Fatalf("dry-run env INVOWK_PLATFORM = %q, want %q; env=%v", plan.Env["INVOWK_PLATFORM"], invowkfile.PlatformMac, plan.Env)
+	}
+	if plan.PersistentContainerMode != "persistent" {
+		t.Fatalf("persistent mode = %q, want persistent", plan.PersistentContainerMode)
+	}
+	if plan.PersistentContainerName != "override-dev" {
+		t.Fatalf("persistent name = %q, want CLI override", plan.PersistentContainerName)
+	}
+	if plan.PersistentContainerNameSource != "cli" {
+		t.Fatalf("persistent source = %q, want cli", plan.PersistentContainerNameSource)
+	}
+	if !plan.PersistentContainerCreateIfMissing {
+		t.Fatal("persistent create_if_missing = false, want true from runtime config")
 	}
 	if hostAccess.ensureCalls != 0 {
 		t.Fatalf("HostAccess.Ensure called %d times for dry-run, want 0", hostAccess.ensureCalls)

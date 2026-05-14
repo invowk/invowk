@@ -85,12 +85,14 @@ func (s *Service) ensureSSHIfNeeded(ctx context.Context, resolved appexec.Runtim
 func (s *Service) buildExecContext(ctx context.Context, req Request, cmdInfo *discovery.CommandInfo, defs resolvedDefinitions, resolved appexec.RuntimeSelection) (*runtime.ExecutionContext, error) {
 	return appexec.BuildExecutionContext(ctx, appexec.BuildExecutionContextOptions{
 		Command:         cmdInfo.Command,
+		CommandFullName: cmdInfo.Name,
 		Invowkfile:      cmdInfo.Invowkfile,
 		Selection:       resolved,
 		Args:            req.Args,
 		Verbose:         req.Verbose,
 		Workdir:         req.Workdir,
 		ForceRebuild:    req.ForceRebuild,
+		ContainerName:   req.ContainerName,
 		EnvFiles:        req.EnvFiles,
 		EnvVars:         req.EnvVars,
 		FlagValues:      defs.flagValues,

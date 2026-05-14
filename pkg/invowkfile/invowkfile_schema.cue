@@ -29,6 +29,9 @@ import "strings"
 // NonWhitespaceString is non-empty and contains at least one non-whitespace rune.
 #NonWhitespaceString: string & =~"\\S"
 
+// ContainerName is a strict Docker/Podman-compatible portable container name.
+#ContainerName: string & strings.MaxRunes(128) & =~"^[a-z0-9][a-z0-9._-]*$"
+
 // EnvConfig defines environment configuration for a command or implementation
 #EnvConfig: close({
 	// files lists dotenv files to load (optional)
@@ -119,6 +122,13 @@ import "strings"
 	// ports specifies port mappings in "host:container" format (optional)
 	// Example: ["8080:80", "3000:3000"]
 	ports?: [...string & !="" & strings.MaxRunes(256)]
+
+	// persistent configures an opt-in persistent container target (optional).
+	// create_if_missing defaults to false; name is optional and must be portable.
+	persistent?: close({
+		create_if_missing?: bool
+		name?: #ContainerName
+	})
 
 	// depends_on specifies dependencies validated inside the container environment (optional).
 	// Unlike root/command/implementation-level depends_on (which always check the host),

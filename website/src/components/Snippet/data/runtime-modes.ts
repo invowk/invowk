@@ -634,6 +634,26 @@ WORKDIR /workspace`,
 }]`,
   },
 
+  'runtime-modes/container-persistent-managed': {
+    language: 'cue',
+    code: `runtimes: [{
+    name: "container"
+    image: "debian:stable-slim"
+    persistent: {
+        create_if_missing: true
+        // Optional. When omitted, invowk derives a stable invowk-* name
+        // from the fully-qualified command namespace.
+        name: "myproject-build"
+    }
+}]`,
+  },
+
+  'runtime-modes/container-persistent-cli-target': {
+    language: 'bash',
+    code: `# Target an already-running container by portable name
+invowk cmd build --ivk-container-name dev-shell`,
+  },
+
   'runtime-modes/container-interpreter': {
     language: 'cue',
     code: `{

@@ -11,9 +11,15 @@ import (
 	"github.com/invowk/invowk/internal/container"
 )
 
-type containerRunCommandPreparer interface {
-	PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd
-}
+type (
+	containerRunCommandPreparer interface {
+		PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd
+	}
+
+	containerExecCommandPreparer interface {
+		PrepareExecCommand(ctx context.Context, containerID container.ContainerID, command []string, opts container.RunOptions) *exec.Cmd
+	}
+)
 
 // SupportsInteractive returns true if the container runtime can run interactively.
 // This requires a container engine to be available.
@@ -35,6 +41,28 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	prep, errResult := r.prepareContainerExecution(ctx, containerExecOptions{interactiveTUI: true})
 	if errResult != nil {
 		return nil, errResult.Error
+	}
+
+	if persistentContainerRequested(ctx, prep.containerCfg) {
+		containerID, err := r.ensurePersistentContainer(ctx, prep)
+		if err != nil {
+			prep.cleanup()
+			return nil, err
+		}
+		runOpts := execOptionsForPersistent(ctx, prep, nil, nil)
+		runOpts.Interactive = true
+		runOpts.TTY = true
+		if err := validatePersistentExecOptions(runOpts); err != nil {
+			prep.cleanup()
+			return nil, err
+		}
+		preparer, ok := r.engine.(containerExecCommandPreparer)
+		if !ok {
+			prep.cleanup()
+			return nil, errors.New("container engine does not support interactive exec preparation")
+		}
+		cmd := preparer.PrepareExecCommand(ctx.Context, containerID, prep.shellCmd, runOpts)
+		return &PreparedCommand{Cmd: cmd, Cleanup: prep.cleanup}, nil
 	}
 
 	runOpts := container.RunOptions{
@@ -59,6 +87,20 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 	}
 	cmd := preparer.PrepareRunCommand(ctx.Context, runOpts)
 	return &PreparedCommand{Cmd: cmd, Cleanup: prep.cleanup}, nil
+}
+
+func validatePersistentExecOptions(opts container.RunOptions) error {
+	if opts.WorkDir != "" {
+		if err := opts.WorkDir.Validate(); err != nil {
+			return fmt.Errorf("container exec work dir: %w", err)
+		}
+	}
+	for _, h := range opts.ExtraHosts {
+		if err := h.Validate(); err != nil {
+			return fmt.Errorf("container exec extra host: %w", err)
+		}
+	}
+	return nil
 }
 
 // HostServiceAddress returns the hostname containers should use to access

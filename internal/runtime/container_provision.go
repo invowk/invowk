@@ -251,6 +251,7 @@ func containerConfigFromRuntime(rt *invowkfile.RuntimeConfig) invowkfileContaine
 		Image:         container.ImageTag(rt.Image),
 		Volumes:       containerVolumeSpecs(rt.Volumes),
 		Ports:         containerPortSpecs(rt.Ports),
+		Persistent:    rt.Persistent,
 	}
 }
 

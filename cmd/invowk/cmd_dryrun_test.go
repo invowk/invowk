@@ -114,3 +114,40 @@ func TestRenderDryRun_NoImpl(t *testing.T) {
 		t.Error("Script should not appear when impl is nil")
 	}
 }
+
+func TestRenderDryRun_PersistentContainer(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	plan := commandsvc.DryRunPlan{
+		CommandName:                        "test",
+		SourceID:                           "invowkfile",
+		Runtime:                            invowkfile.RuntimeContainer,
+		Platform:                           invowkfile.PlatformLinux,
+		Timeout:                            "30s",
+		Script:                             "echo persistent",
+		PersistentContainerMode:            "persistent",
+		PersistentContainerName:            "existing-dev",
+		PersistentContainerNameSource:      "cli",
+		PersistentContainerCreateIfMissing: false,
+		DependencyValidationSkipped:        true,
+	}
+
+	renderDryRun(&buf, plan)
+	out := buf.String()
+
+	for _, token := range []string{
+		"Container:",
+		"persistent",
+		"ContainerName:",
+		"existing-dev",
+		"ContainerNameSource:",
+		"cli",
+		"CreateIfMissing:",
+		"false",
+	} {
+		if !strings.Contains(out, token) {
+			t.Fatalf("renderDryRun output missing %q:\n%s", token, out)
+		}
+	}
+}
