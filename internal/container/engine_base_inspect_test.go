@@ -4,6 +4,7 @@ package container
 
 import (
 	"errors"
+	"maps"
 	"testing"
 )
 
@@ -125,21 +126,22 @@ func TestParseContainerInspectDockerAndPodmanShapes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseContainerInspect() error = %v", err)
 			}
-			if info.Running != tt.running {
-				t.Fatalf("Running = %v, want %v", info.Running, tt.running)
-			}
-			if info.Status != tt.status {
-				t.Fatalf("Status = %q, want %q", info.Status, tt.status)
-			}
-			if len(info.Labels) != len(tt.labels) {
-				t.Fatalf("Labels = %v, want %v", info.Labels, tt.labels)
-			}
-			for key, want := range tt.labels {
-				if info.Labels[key] != want {
-					t.Fatalf("label %q = %q, want %q", key, info.Labels[key], want)
-				}
-			}
+			assertContainerInfo(t, info, tt.running, tt.status, tt.labels)
 		})
+	}
+}
+
+func assertContainerInfo(t *testing.T, info *ContainerInfo, running bool, status string, labels map[string]string) {
+	t.Helper()
+
+	if info.Running != running {
+		t.Fatalf("Running = %v, want %v", info.Running, running)
+	}
+	if info.Status != status {
+		t.Fatalf("Status = %q, want %q", info.Status, status)
+	}
+	if !maps.Equal(info.Labels, labels) {
+		t.Fatalf("Labels = %v, want %v", info.Labels, labels)
 	}
 }
 

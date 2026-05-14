@@ -83,6 +83,11 @@ func (r Request) Validate() error {
 }
 
 func (r Request) appendLocationValidationErrors(errs *[]error) {
+	r.appendRuntimeLocationValidationErrors(errs)
+	r.appendFilesystemLocationValidationErrors(errs)
+}
+
+func (r Request) appendRuntimeLocationValidationErrors(errs *[]error) {
 	if r.Runtime != "" {
 		if err := r.Runtime.Validate(); err != nil {
 			*errs = append(*errs, err)
@@ -98,6 +103,9 @@ func (r Request) appendLocationValidationErrors(errs *[]error) {
 			*errs = append(*errs, err)
 		}
 	}
+}
+
+func (r Request) appendFilesystemLocationValidationErrors(errs *[]error) {
 	if r.ContainerName != "" {
 		if err := r.ContainerName.Validate(); err != nil {
 			*errs = append(*errs, err)

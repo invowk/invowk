@@ -33,23 +33,35 @@ func TestContainerNameValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.value.Validate()
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("Validate() error = nil, want error")
-				}
-				if !errors.Is(err, ErrInvalidContainerName) {
-					t.Fatalf("Validate() error = %v, want ErrInvalidContainerName", err)
-				}
-				var invalid *InvalidContainerNameError
-				if !errors.As(err, &invalid) {
-					t.Fatalf("Validate() error type = %T, want *InvalidContainerNameError", err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Validate() unexpected error: %v", err)
-			}
+			assertContainerNameValidation(t, tt.value, tt.wantErr)
 		})
+	}
+}
+
+func assertContainerNameValidation(t *testing.T, value ContainerName, wantErr bool) {
+	t.Helper()
+
+	err := value.Validate()
+	if wantErr {
+		assertInvalidContainerNameError(t, err)
+		return
+	}
+	if err != nil {
+		t.Fatalf("Validate() unexpected error: %v", err)
+	}
+}
+
+func assertInvalidContainerNameError(t *testing.T, err error) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("Validate() error = nil, want error")
+	}
+	if !errors.Is(err, ErrInvalidContainerName) {
+		t.Fatalf("Validate() error = %v, want ErrInvalidContainerName", err)
+	}
+	var invalid *InvalidContainerNameError
+	if !errors.As(err, &invalid) {
+		t.Fatalf("Validate() error type = %T, want *InvalidContainerNameError", err)
 	}
 }

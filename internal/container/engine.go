@@ -487,77 +487,105 @@ func (e *ContainerNameConflictError) Unwrap() error { return ErrContainerNameCon
 // Validates Image, WorkDir, Name, ExtraHosts, Volumes, and Ports.
 func (o RunOptions) Validate() error {
 	var errs []error
-	if err := o.Image.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if o.WorkDir != "" {
-		if err := o.WorkDir.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := o.Name.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	for _, h := range o.ExtraHosts {
-		if err := h.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, v := range o.Volumes {
-		if err := v.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	for _, p := range o.Ports {
-		if err := p.Validate(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	o.appendImageValidationErrors(&errs)
+	o.appendRunLocationValidationErrors(&errs)
+	o.appendNetworkValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidRunOptionsError{FieldErrors: errs}
 	}
 	return nil
 }
 
-// Validate returns an error if any typed field of the CreateOptions is invalid.
-func (o CreateOptions) Validate() error {
-	var errs []error
+func (o RunOptions) appendImageValidationErrors(errs *[]error) {
 	if err := o.Image.Validate(); err != nil {
-		errs = append(errs, err)
+		*errs = append(*errs, err)
 	}
-	if err := o.Name.Validate(); err != nil {
-		errs = append(errs, err)
-	}
-	if o.Name == "" {
-		errs = append(errs, errors.New("container name is required"))
-	}
-	if len(o.Command) == 0 {
-		errs = append(errs, errors.New("container command is required"))
-	}
+}
+
+func (o RunOptions) appendRunLocationValidationErrors(errs *[]error) {
 	if o.WorkDir != "" {
 		if err := o.WorkDir.Validate(); err != nil {
-			errs = append(errs, err)
+			*errs = append(*errs, err)
 		}
 	}
-	for _, h := range o.ExtraHosts {
-		if err := h.Validate(); err != nil {
-			errs = append(errs, err)
-		}
+	if err := o.Name.Validate(); err != nil {
+		*errs = append(*errs, err)
 	}
 	for _, v := range o.Volumes {
 		if err := v.Validate(); err != nil {
-			errs = append(errs, err)
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (o RunOptions) appendNetworkValidationErrors(errs *[]error) {
+	for _, h := range o.ExtraHosts {
+		if err := h.Validate(); err != nil {
+			*errs = append(*errs, err)
 		}
 	}
 	for _, p := range o.Ports {
 		if err := p.Validate(); err != nil {
-			errs = append(errs, err)
+			*errs = append(*errs, err)
 		}
 	}
+}
+
+// Validate returns an error if any typed field of the CreateOptions is invalid.
+func (o CreateOptions) Validate() error {
+	var errs []error
+	o.appendCreateImageValidationErrors(&errs)
+	o.appendCreateNameValidationErrors(&errs)
+	o.appendCreateLocationValidationErrors(&errs)
+	o.appendCreateNetworkValidationErrors(&errs)
 	if len(errs) > 0 {
 		return &InvalidCreateOptionsError{FieldErrors: errs}
 	}
 	return nil
+}
+
+func (o CreateOptions) appendCreateImageValidationErrors(errs *[]error) {
+	if err := o.Image.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	if len(o.Command) == 0 {
+		*errs = append(*errs, errors.New("container command is required"))
+	}
+}
+
+func (o CreateOptions) appendCreateNameValidationErrors(errs *[]error) {
+	if err := o.Name.Validate(); err != nil {
+		*errs = append(*errs, err)
+	}
+	if o.Name == "" {
+		*errs = append(*errs, errors.New("container name is required"))
+	}
+}
+
+func (o CreateOptions) appendCreateLocationValidationErrors(errs *[]error) {
+	if o.WorkDir != "" {
+		if err := o.WorkDir.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, v := range o.Volumes {
+		if err := v.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+}
+
+func (o CreateOptions) appendCreateNetworkValidationErrors(errs *[]error) {
+	for _, h := range o.ExtraHosts {
+		if err := h.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	for _, p := range o.Ports {
+		if err := p.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
 }
 
 // String returns the string representation of the EngineType.
