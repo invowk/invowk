@@ -506,7 +506,7 @@ jobs:
             --error-on-alert \
             "${start_point_args[@]}" \
             "${dry_run_args[@]}" \
-            "node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
+            "GOPROXY=off GOSUMDB=off node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
 
       # Run GoReleaser (publish)
       - name: Run GoReleaser
