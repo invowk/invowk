@@ -135,7 +135,7 @@ jobs:
             "${threshold_args[@]}" \
             --error-on-alert \
             "${start_point_args[@]}" \
-            "GOPROXY=off GOSUMDB=off node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
+            "GOPROXY=off GOSUMDB=off GOFLAGS=-mod=vendor node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
 
   fork-pr-artifact:
     name: Benchmark Fork PR

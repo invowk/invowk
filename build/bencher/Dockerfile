@@ -9,8 +9,7 @@ COPY --from=go-base /usr/local/go /usr/local/go
 
 ENV PATH="/usr/local/go/bin:${PATH}" \
     GOPATH="/go" \
-    GOMODCACHE="/go/pkg/mod" \
-    GOCACHE="/go/build-cache" \
+    GOCACHE="/tmp/go-build-cache" \
     GOAMD64="v3" \
     GOTOOLCHAIN=local \
     GOPROXY="https://proxy.golang.org|direct"
@@ -27,19 +26,18 @@ RUN apt-get update \
 
 WORKDIR /workspace
 
-RUN mkdir -p "${GOMODCACHE}" "${GOCACHE}" "${GOPATH}/bin" \
+RUN mkdir -p "${GOCACHE}" "${GOPATH}/bin" \
     && chmod -R a+rwX "${GOPATH}"
-
-COPY go.mod go.sum ./
-RUN go mod download all
 
 COPY . .
 ENV GOPROXY="off" \
-    GOSUMDB="off"
+    GOSUMDB="off" \
+    GOFLAGS="-mod=vendor"
 
-RUN go build -trimpath -o /tmp/invowk-warmup . \
+RUN GOPROXY="https://proxy.golang.org|direct" GOSUMDB="sum.golang.org" GOFLAGS="" go mod vendor \
+    && go build -trimpath -o /tmp/invowk-warmup . \
     && go test ./internal/benchmark ./internal/app/modulesync ./internal/app/moduleops ./cmd/invowk -run=^$ -bench=^$ \
-    && rm -f /tmp/invowk-warmup \
+    && rm -rf /tmp/invowk-warmup "${GOCACHE}" \
     && chmod -R a+rwX "${GOPATH}" /workspace
 
 CMD ["node", "scripts/bench-bmf.mjs", "--output", "/tmp/invowk.bmf.json", "--raw-go-output", "/tmp/go-bench.txt"]
