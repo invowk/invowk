@@ -87,15 +87,15 @@ jobs:
         shell: bash
         env:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-          BENCHER_USER_EMAIL: ${{ secrets.BENCHER_USER_EMAIL }}
           BENCHER_IMAGE_TAG: ${{ steps.pr.outputs.head-sha }}
         run: |
           set -euo pipefail
+          source trusted/scripts/bencher-registry-login.sh
 
           cp trusted/.dockerignore source/.dockerignore
           image="$BENCHER_IMAGE_REPOSITORY:$BENCHER_IMAGE_TAG"
           docker build --platform linux/amd64 -f trusted/build/bencher/Dockerfile -t "$image" source
-          echo "$BENCHER_API_TOKEN" | docker login registry.bencher.dev -u "$BENCHER_USER_EMAIL" --password-stdin
+          bencher_registry_login
           docker push "$image"
           echo "image=$image" >> "$GITHUB_OUTPUT"
 

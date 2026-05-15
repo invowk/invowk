@@ -242,6 +242,11 @@ jobs:
         shell: bash
         run: node scripts/test_bench_bmf.mjs
 
+      - name: Run Bencher registry login script tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: bash scripts/test_bencher_registry_login.sh
+
       # Run PowerShell install script tests (PS 7.x/Core).
       - name: Run PowerShell install script tests (pwsh)
         if: matrix.os == 'windows'

@@ -245,6 +245,11 @@ jobs:
         shell: bash
         run: node scripts/test_bench_bmf.mjs
 
+      - name: Run Bencher registry login script tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: bash scripts/test_bencher_registry_login.sh
+
       # Run WinGet manifest enhancement tests (Python + bash, no network calls).
       - name: Run WinGet enhancement tests
         if: startsWith(matrix.runner, 'ubuntu')
@@ -428,19 +433,19 @@ jobs:
         shell: bash
         env:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-          BENCHER_USER_EMAIL: ${{ secrets.BENCHER_USER_EMAIL }}
           BENCHER_IMAGE_REPOSITORY: registry.bencher.dev/invowk
           BENCHER_IMAGE_TAG: ${{ steps.bench-meta.outputs.release-sha }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
         run: |
           set -euo pipefail
+          source scripts/bencher-registry-login.sh
 
           image="$BENCHER_IMAGE_REPOSITORY:$BENCHER_IMAGE_TAG"
           docker build --platform linux/amd64 -f build/bencher/Dockerfile -t "$image" .
           if [[ "$DRY_RUN" == "true" ]]; then
             echo "Dry run requested; skipping benchmark image push."
           else
-            echo "$BENCHER_API_TOKEN" | docker login registry.bencher.dev -u "$BENCHER_USER_EMAIL" --password-stdin
+            bencher_registry_login
             docker push "$image"
           fi
           echo "image=$image" >> "$GITHUB_OUTPUT"
