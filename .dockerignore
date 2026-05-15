@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MPL-2.0
+
+.git
+.github
+.codex
+.claude
+.agents
+artifacts
+bin
+coverage
+dist
+node_modules
+tmp
+*.out
+*.prof

@@ -49,10 +49,10 @@ export default function Performance(): ReactNode {
           <div className={styles.section}>
             <Heading as="h2">Maintainer Workflow</Heading>
             <p>
-              Pull requests use Bencher as a regression gate. Releases use the Git tag as the durable public performance identity.
+              Pull requests use Bencher as a regression gate on the same bare-metal Spec used by releases. Releases use the Git tag as the durable public performance identity.
             </p>
             <p>
-              Local benchmark data can be generated with <code>make bench-bmf</code>; CI uploads that Bencher Metric Format JSON with Bencher's <code>json</code> adapter.
+              Local benchmark data can be generated with <code>make bench-bmf</code>; CI packages the benchmark image and Bencher runs it remotely with the <code>json</code> adapter.
             </p>
           </div>
         </section>

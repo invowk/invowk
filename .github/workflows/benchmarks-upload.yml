@@ -13,16 +13,21 @@ concurrency:
 
 env:
   BENCHER_PROJECT: ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
-  BENCHER_TESTBED: github-ubuntu-24-04-go-1-26
+  BENCHER_TESTBED: bencher-intel-v1-go-1-26
+  BENCHER_SPEC: intel-v1
+  BENCHER_IMAGE_REPOSITORY: registry.bencher.dev/invowk
+  BENCHER_JOB_TIMEOUT: 1800
+  BENCH_BMF_OUT: /tmp/invowk.bmf.json
+  BENCH_GO_RAW_OUT: /tmp/go-bench.txt
 
 jobs:
   upload-fork-pr:
     name: Upload Fork PR Benchmarks
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
-    # GitHub-hosted Ubuntu 26.04 is not available yet. This upload job does
-    # not run benchmarks, but it shares the same pinned support boundary.
+    # GitHub Actions only packages the benchmark image. Bencher runs the actual
+    # benchmarks on the bare-metal Spec configured above.
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     permissions:
       actions: read
       contents: read
@@ -56,25 +61,40 @@ jobs:
           echo "skip=false" >> "$GITHUB_OUTPUT"
           echo "number=$pr_number" >> "$GITHUB_OUTPUT"
           echo "branch=pr-$pr_number" >> "$GITHUB_OUTPUT"
+          echo "head-repo=$head_repo" >> "$GITHUB_OUTPUT"
           echo "head-sha=$(jq -r '.head.sha' <<<"$pr_json")" >> "$GITHUB_OUTPUT"
           echo "base-ref=$(jq -r '.base.ref' <<<"$pr_json")" >> "$GITHUB_OUTPUT"
           echo "base-sha=$(jq -r '.base.sha' <<<"$pr_json")" >> "$GITHUB_OUTPUT"
           echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Download benchmark artifact
+      - name: Checkout trusted benchmark packaging
         if: steps.pr.outputs.skip != 'true'
+        uses: actions/checkout@v6
+        with:
+          path: trusted
+
+      - name: Checkout pull request head
+        if: steps.pr.outputs.skip != 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.pr.outputs.head-repo }}
+          ref: ${{ steps.pr.outputs.head-sha }}
+          path: source
+
+      - name: Build and push benchmark image
+        if: steps.pr.outputs.skip != 'true'
+        id: image
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ steps.pr.outputs.run-id }}
-          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          BENCHER_IMAGE_TAG: ${{ steps.pr.outputs.head-sha }}
         run: |
           set -euo pipefail
-          mkdir -p artifacts/benchmarks-import
-          gh run download "$RUN_ID" \
-            --name "bench-bmf-pr-$PR_NUMBER" \
-            --dir artifacts/benchmarks-import
-          test -s artifacts/benchmarks-import/invowk.bmf.json
+
+          cp trusted/.dockerignore source/.dockerignore
+          image="$BENCHER_IMAGE_REPOSITORY:$BENCHER_IMAGE_TAG"
+          docker build --platform linux/amd64 -f trusted/build/bencher/Dockerfile -t "$image" source
+          docker push "$image"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
 
       - name: Install Bencher CLI
         if: steps.pr.outputs.skip != 'true'
@@ -91,8 +111,13 @@ jobs:
           BENCHER_HASH: ${{ steps.pr.outputs.head-sha }}
           BENCHER_START_POINT: ${{ steps.pr.outputs.base-ref }}
           BENCHER_START_POINT_HASH: ${{ steps.pr.outputs.base-sha }}
+          BENCHER_IMAGE: ${{ steps.image.outputs.image }}
         run: |
           set -euo pipefail
+          source trusted/scripts/bencher-threshold-args.sh
+
+          threshold_args=()
+          bencher_threshold_args threshold_args
 
           bencher run \
             --project "$BENCHER_PROJECT" \
@@ -103,9 +128,15 @@ jobs:
             --start-point-clone-thresholds \
             --start-point-reset \
             --testbed "$BENCHER_TESTBED" \
+            --spec "$BENCHER_SPEC" \
+            --image "$BENCHER_IMAGE" \
+            --job-timeout "$BENCHER_JOB_TIMEOUT" \
+            --job-poll-interval 5 \
             --adapter json \
-            --file artifacts/benchmarks-import/invowk.bmf.json \
+            --file "$BENCH_BMF_OUT" \
             --github-actions "$GITHUB_TOKEN" \
             --ci-id bmf \
             --ci-number "$PR_NUMBER" \
-            --error-on-alert
+            "${threshold_args[@]}" \
+            --error-on-alert \
+            "node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
