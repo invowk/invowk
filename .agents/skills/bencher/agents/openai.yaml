@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bencher"
+  short_description: "Maintain Invowk Bencher benchmarks"
+  default_prompt: "Use $bencher to diagnose Invowk benchmark CI or threshold issues."
