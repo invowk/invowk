@@ -37,4 +37,4 @@ make bench-bmf
 
 A saída é escrita em `artifacts/benchmarks/invowk.bmf.json` e pode ser enviada com o adapter `json` do Bencher.
 
-O CI empacota o código dos benchmarks em uma imagem OCI com `build/bencher/Dockerfile`, envia essa imagem para o registry do Bencher e então chama `bencher run --image ... --spec ...`. Runners bare-metal compartilhados do Bencher não têm acesso à rede durante a execução dos benchmarks, então a imagem baixa módulos Go e instala dependências de runtime durante o build da imagem.
+O CI empacota o código dos benchmarks em uma imagem OCI com `build/bencher/Dockerfile`, faz login no registry do Bencher com `BENCHER_USER_EMAIL` e `BENCHER_API_TOKEN`, envia a imagem e então chama `bencher run --image ... --spec ...`. Runners bare-metal compartilhados do Bencher não têm acesso à rede durante a execução dos benchmarks, então a imagem baixa módulos Go e instala dependências de runtime durante o build da imagem.

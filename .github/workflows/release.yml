@@ -427,6 +427,8 @@ jobs:
         id: bench-image
         shell: bash
         env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+          BENCHER_USER_EMAIL: ${{ secrets.BENCHER_USER_EMAIL }}
           BENCHER_IMAGE_REPOSITORY: registry.bencher.dev/invowk
           BENCHER_IMAGE_TAG: ${{ steps.bench-meta.outputs.release-sha }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
@@ -438,6 +440,7 @@ jobs:
           if [[ "$DRY_RUN" == "true" ]]; then
             echo "Dry run requested; skipping benchmark image push."
           else
+            echo "$BENCHER_API_TOKEN" | docker login registry.bencher.dev -u "$BENCHER_USER_EMAIL" --password-stdin
             docker push "$image"
           fi
           echo "image=$image" >> "$GITHUB_OUTPUT"
