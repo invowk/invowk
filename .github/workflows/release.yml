@@ -245,6 +245,11 @@ jobs:
         shell: bash
         run: node scripts/test_bench_bmf.mjs
 
+      - name: Run Bencher registry login script tests
+        if: startsWith(matrix.runner, 'ubuntu')
+        shell: bash
+        run: bash scripts/test_bencher_registry_login.sh
+
       # Run WinGet manifest enhancement tests (Python + bash, no network calls).
       - name: Run WinGet enhancement tests
         if: startsWith(matrix.runner, 'ubuntu')
@@ -308,8 +313,8 @@ jobs:
     name: Release
     needs: [validate, test]
     if: always() && needs.test.result == 'success' && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
-    # GitHub-hosted Ubuntu 26.04 is not available yet. Pin the release
-    # benchmark runner and Bencher testbed to the newest supported Ubuntu image.
+    # GitHub Actions only packages the benchmark image. Bencher runs release
+    # benchmarks on the bare-metal Spec configured below.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -423,13 +428,39 @@ jobs:
       - name: Install Bencher CLI
         uses: bencherdev/bencher@main
 
+      - name: Build and push benchmark image
+        id: bench-image
+        shell: bash
+        env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+          BENCHER_IMAGE_REPOSITORY: registry.bencher.dev/invowk
+          BENCHER_IMAGE_TAG: ${{ steps.bench-meta.outputs.release-sha }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          set -euo pipefail
+          source scripts/bencher-registry-login.sh
+
+          image="$BENCHER_IMAGE_REPOSITORY:$BENCHER_IMAGE_TAG"
+          docker build --platform linux/amd64 -f build/bencher/Dockerfile -t "$image" .
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Dry run requested; skipping benchmark image push."
+          else
+            bencher_registry_login
+            docker push "$image"
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
       - name: Track release performance in Bencher
         shell: bash
         env:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
           BENCHER_PROJECT: ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
-          BENCHER_TESTBED: github-ubuntu-24-04-go-1-26
-          BENCH_BMF_OUT: artifacts/benchmarks/invowk.bmf.json
+          BENCHER_TESTBED: bencher-intel-v1-go-1-26
+          BENCHER_SPEC: intel-v1
+          BENCHER_IMAGE: ${{ steps.bench-image.outputs.image }}
+          BENCHER_JOB_TIMEOUT: 1800
+          BENCH_BMF_OUT: /tmp/invowk.bmf.json
+          BENCH_GO_RAW_OUT: /tmp/go-bench.txt
           GITHUB_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ steps.tag.outputs.name }}
           RELEASE_SHA: ${{ steps.bench-meta.outputs.release-sha }}
@@ -438,6 +469,7 @@ jobs:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
         run: |
           set -euo pipefail
+          source scripts/bencher-threshold-args.sh
 
           start_point_args=()
           if [[ -n "$PREVIOUS_TAG" ]]; then
@@ -454,19 +486,27 @@ jobs:
             dry_run_args=(--dry-run)
           fi
 
+          threshold_args=()
+          bencher_threshold_args threshold_args
+
           bencher run \
             --project "$BENCHER_PROJECT" \
             --branch "$TAG_NAME" \
             --hash "$RELEASE_SHA" \
             --testbed "$BENCHER_TESTBED" \
+            --spec "$BENCHER_SPEC" \
+            --image "$BENCHER_IMAGE" \
+            --job-timeout "$BENCHER_JOB_TIMEOUT" \
+            --job-poll-interval 5 \
             --adapter json \
             --file "$BENCH_BMF_OUT" \
             --github-actions "$GITHUB_TOKEN" \
             --ci-id release-bmf \
+            "${threshold_args[@]}" \
             --error-on-alert \
             "${start_point_args[@]}" \
             "${dry_run_args[@]}" \
-            "node scripts/bench-bmf.mjs --output artifacts/benchmarks/invowk.bmf.json --raw-go-output artifacts/benchmarks/go-bench.txt"
+            "GOPROXY=off GOSUMDB=off GOFLAGS=-mod=vendor node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
 
       # Run GoReleaser (publish)
       - name: Run GoReleaser

@@ -21,15 +21,19 @@ concurrency:
 env:
   GOPROXY: "https://proxy.golang.org|direct"
   BENCHER_PROJECT: ddfe58db-e86d-49b8-a6c7-60fc46eabf0b
-  BENCHER_TESTBED: github-ubuntu-24-04-go-1-26
-  BENCH_BMF_OUT: artifacts/benchmarks/invowk.bmf.json
+  BENCHER_TESTBED: bencher-intel-v1-go-1-26
+  BENCHER_SPEC: intel-v1
+  BENCHER_IMAGE_REPOSITORY: registry.bencher.dev/invowk
+  BENCHER_JOB_TIMEOUT: 1800
+  BENCH_BMF_OUT: /tmp/invowk.bmf.json
+  BENCH_GO_RAW_OUT: /tmp/go-bench.txt
 
 jobs:
   bencher:
     name: Track Benchmarks
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    # GitHub-hosted Ubuntu 26.04 is not available yet. Pin benchmark runs to
-    # the newest supported Ubuntu image and mirror that in BENCHER_TESTBED.
+    # GitHub Actions only packages the benchmark image. Bencher runs the actual
+    # benchmarks on the bare-metal Spec configured above.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -42,30 +46,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
-      - name: Download Go modules
-        shell: bash
-        run: |
-          for attempt in 1 2 3; do
-            if go mod download; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              exit 1
-            fi
-            sleep "$((attempt * 20))"
-          done
 
       - name: Install Bencher CLI
         uses: bencherdev/bencher@main
@@ -96,6 +76,22 @@ jobs:
             echo "start-point-hash=" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Build and push benchmark image
+        id: image
+        shell: bash
+        env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+          BENCHER_IMAGE_TAG: ${{ steps.meta.outputs.hash }}
+        run: |
+          set -euo pipefail
+          source scripts/bencher-registry-login.sh
+
+          image="$BENCHER_IMAGE_REPOSITORY:$BENCHER_IMAGE_TAG"
+          docker build --platform linux/amd64 -f build/bencher/Dockerfile -t "$image" .
+          bencher_registry_login
+          docker push "$image"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
       - name: Track benchmark data in Bencher
         shell: bash
         env:
@@ -105,8 +101,10 @@ jobs:
           BENCHER_HASH: ${{ steps.meta.outputs.hash }}
           BENCHER_START_POINT: ${{ steps.meta.outputs.start-point }}
           BENCHER_START_POINT_HASH: ${{ steps.meta.outputs.start-point-hash }}
+          BENCHER_IMAGE: ${{ steps.image.outputs.image }}
         run: |
           set -euo pipefail
+          source scripts/bencher-threshold-args.sh
 
           start_point_args=()
           if [[ -n "$BENCHER_START_POINT" ]]; then
@@ -118,54 +116,36 @@ jobs:
             )
           fi
 
+          threshold_args=()
+          bencher_threshold_args threshold_args
+
           bencher run \
             --project "$BENCHER_PROJECT" \
             --branch "$BENCHER_BRANCH" \
             --hash "$BENCHER_HASH" \
             --testbed "$BENCHER_TESTBED" \
+            --spec "$BENCHER_SPEC" \
+            --image "$BENCHER_IMAGE" \
+            --job-timeout "$BENCHER_JOB_TIMEOUT" \
+            --job-poll-interval 5 \
             --adapter json \
             --file "$BENCH_BMF_OUT" \
             --github-actions "$GITHUB_TOKEN" \
             --ci-id bmf \
+            "${threshold_args[@]}" \
             --error-on-alert \
             "${start_point_args[@]}" \
-            "node scripts/bench-bmf.mjs --output artifacts/benchmarks/invowk.bmf.json --raw-go-output artifacts/benchmarks/go-bench.txt"
+            "GOPROXY=off GOSUMDB=off GOFLAGS=-mod=vendor node scripts/bench-bmf.mjs --output '$BENCH_BMF_OUT' --raw-go-output '$BENCH_GO_RAW_OUT'"
 
   fork-pr-artifact:
     name: Benchmark Fork PR
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-    # See the trusted Bencher job above for the runner/testbed rationale.
+    # The trusted workflow_run handler builds the image and asks Bencher to run
+    # benchmarks on bare metal. This job only creates a successful trigger.
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
-      - name: Checkout pull request head
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
-      - name: Generate BMF benchmark data
-        run: node scripts/bench-bmf.mjs --output artifacts/benchmarks/invowk.bmf.json --raw-go-output artifacts/benchmarks/go-bench.txt
-
-      - name: Upload BMF benchmark data
-        uses: actions/upload-artifact@v7
-        with:
-          name: bench-bmf-pr-${{ github.event.pull_request.number }}
-          path: |
-            artifacts/benchmarks/invowk.bmf.json
-            artifacts/benchmarks/go-bench.txt
-          if-no-files-found: error
-          retention-days: 7
+      - name: Defer fork PR benchmarks to trusted bare-metal workflow
+        run: echo "Fork PR benchmark execution is handled by benchmarks-upload.yml on Bencher bare metal."

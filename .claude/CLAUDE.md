@@ -92,6 +92,7 @@ Commands are user-invokable slash commands (e.g., `/review-docs`) that execute m
 
 Skills provide domain-specific procedural guidance. They are invoked when working on specific components.
 
+- [`.agents/skills/bencher/`](.agents/skills/bencher/) - Bencher benchmark CI, BMF output, dedicated runner handoff, thresholds, reports, and alert troubleshooting.
 - [`.agents/skills/cli/`](.agents/skills/cli/) - CLI command structure, Cobra patterns, execution flow, hidden internal commands.
 - [`.agents/skills/container/`](.agents/skills/container/) - Container engine abstraction, Docker/Podman patterns, path handling, Linux-only policy.
 - [`.agents/skills/cue/`](.agents/skills/cue/) - CUE schema parsing, 3-step parse flow, validation matrix, schema sync tests.

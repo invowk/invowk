@@ -6,7 +6,7 @@ sidebar_position: 1
 
 Invowk tracks release performance in [Bencher](https://bencher.dev/perf/invowk). The public history is keyed by release tag, so users can compare published versions such as `v0.12.0` and `v0.13.0` directly.
 
-Pull request benchmark runs are maintainer guardrails. They can fail a change when Bencher detects a regression, but they are not the user-facing performance history.
+Pull request benchmark runs are maintainer guardrails. They can fail a change when Bencher detects a regression, but they are not the user-facing performance history. Pull requests use the same Bencher bare-metal Spec as release runs.
 
 ## Release Workflow
 
@@ -16,6 +16,7 @@ The release workflow uploads Bencher Metric Format JSON before publishing the Gi
 - `--hash` is the release commit SHA.
 - `--start-point` is the previous release tag when one exists.
 - `--start-point-clone-thresholds` and `--start-point-reset` keep release thresholds and history aligned from version to version.
+- `--image` and `--spec` make Bencher execute the benchmark command on bare-metal runners, not on the GitHub Actions runner that packaged the image.
 
 ## Tracked Metrics
 
@@ -35,3 +36,5 @@ make bench-bmf
 ```
 
 The output is written to `artifacts/benchmarks/invowk.bmf.json` and can be uploaded with Bencher's `json` adapter.
+
+CI packages the benchmark source into an OCI image with `build/bencher/Dockerfile`, logs in to Bencher's registry with `BENCHER_API_TOKEN`, pushes the image, and then calls `bencher run --image ... --spec ...`. Shared Bencher bare-metal runners do not have network access during benchmark execution, so the image vendors Go dependencies and installs runtime dependencies at image build time.
