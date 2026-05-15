@@ -22,6 +22,12 @@ bencher_threshold_args() {
 		--threshold-max-sample-size 64
 		--threshold-lower-boundary _
 		--threshold-upper-boundary 0.10
+		--threshold-measure build-time
+		--threshold-test percentage
+		--threshold-min-sample-size 5
+		--threshold-max-sample-size 32
+		--threshold-lower-boundary _
+		--threshold-upper-boundary 0.20
 		--threshold-measure file-size
 		--threshold-test percentage
 		--threshold-min-sample-size 2
