@@ -68,6 +68,7 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 		return Result{}, diags, err
 	}
 
+	diags = append(diags, BridgeRuntimeDiagnostics(result.Diagnostics)...)
 	if result.Error != nil {
 		return Result{}, diags, newClassifiedExecutionError(result.Error)
 	}

@@ -17,6 +17,8 @@ func TestInitDiagnosticCode_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"container_runtime_init_failed", CodeContainerRuntimeInitFailed, true, false},
+		{"container_provisioning_failed", CodeContainerProvisioningFailed, true, false},
+		{"container_provisioning_warning", CodeContainerProvisioningWarning, true, false},
 		{"empty", InitDiagnosticCode(""), false, true},
 		{"unknown", InitDiagnosticCode("unknown_code"), false, true},
 	}

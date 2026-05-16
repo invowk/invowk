@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/invowk/invowk/internal/container"
+	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/internal/provision"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
@@ -57,55 +58,6 @@ func TestContainerRuntimeExecuteCreatesManagedPersistentContainerWhenMissing(t *
 	}
 	if !slices.Equal(engine.ExecCommands[0], []string{"/bin/sh", "-c", "echo persistent"}) {
 		t.Fatalf("Exec command = %v", engine.ExecCommands[0])
-	}
-}
-
-func TestDerivePersistentContainerName(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		namespace invowkfile.CommandName
-		wantSlug  string
-	}{
-		{
-			name:      "root command namespace",
-			namespace: "build assets",
-			wantSlug:  "invowk-build-assets-",
-		},
-		{
-			name:      "module command namespace",
-			namespace: "io.invowk.tools build",
-			wantSlug:  "invowk-io.invowk.tools-build-",
-		},
-		{
-			name:      "punctuation is normalized",
-			namespace: "Build:Release/All",
-			wantSlug:  "invowk-build-release-all-",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			ctx := &ExecutionContext{
-				CommandFullName: tt.namespace,
-				Invowkfile: &invowkfile.Invowkfile{
-					FilePath: invowkfile.FilesystemPath(filepath.Join(t.TempDir(), "invowkfile.cue")),
-				},
-			}
-			name := derivePersistentContainerName(ctx)
-			if !strings.HasPrefix(string(name), tt.wantSlug) {
-				t.Fatalf("derived name = %q, want prefix %q", name, tt.wantSlug)
-			}
-			if err := name.Validate(); err != nil {
-				t.Fatalf("derived name Validate() = %v", err)
-			}
-			again := derivePersistentContainerName(ctx)
-			if again != name {
-				t.Fatalf("derived name is not deterministic: %q then %q", name, again)
-			}
-		})
 	}
 }
 
@@ -427,7 +379,7 @@ func TestContainerRuntimeExecuteReinspectsAfterNameConflict(t *testing.T) {
 	}
 	target := persistentContainerTarget{
 		name:            "race-dev",
-		nameSource:      persistentContainerNameSourceConfig,
+		nameSource:      containerplan.PersistentNameSourceConfig,
 		createIfMissing: true,
 	}
 	labels := persistentContainerLabels(ctx, prep, target)

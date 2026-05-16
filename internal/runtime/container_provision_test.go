@@ -280,7 +280,7 @@ func TestEnsureProvisionedImage_StrictMode(t *testing.T) {
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
 	cfg := invowkfileContainerConfig{Image: container.ImageTag("debian:stable-slim")}
-	_, _, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
+	_, _, _, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 
 	if err == nil {
 		t.Fatal("ensureProvisionedImage() with strict=true should return error on provisioning failure")
@@ -336,7 +336,7 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 	execCtx.IO.Stdout = &bytes.Buffer{}
 
 	cfg := invowkfileContainerConfig{Image: container.ImageTag("debian:stable-slim")}
-	imageName, _, _, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
+	imageName, _, _, diagnostics, err := rt.ensureProvisionedImage(execCtx, cfg, tmpDir)
 	if err != nil {
 		t.Fatalf("ensureProvisionedImage() with strict=false should not return error, got: %v", err)
 	}
@@ -344,16 +344,28 @@ func TestEnsureProvisionedImage_NonStrictMode(t *testing.T) {
 		t.Errorf("imageName = %q, want %q (should fall back to base image)", imageName, "debian:stable-slim")
 	}
 
-	// Verify the warning message contains actionable information
+	if len(diagnostics) != 1 {
+		t.Fatalf("diagnostics = %d, want 1", len(diagnostics))
+	}
+	if diagnostics[0].Code != CodeContainerProvisioningFailed {
+		t.Fatalf("diagnostic code = %q, want %q", diagnostics[0].Code, CodeContainerProvisioningFailed)
+	}
+	if diagnostics[0].Cause == nil {
+		t.Fatal("diagnostic cause is nil")
+	}
+
+	// Verify the structured warning contains actionable information and the
+	// runtime adapter did not render it directly.
+	message := diagnostics[0].Message
+	if !strings.Contains(message, "strict") {
+		t.Error("diagnostic should mention strict mode as the remedy")
+	}
+	if !strings.Contains(message, "Nested invowk commands") {
+		t.Error("diagnostic should explain consequences (nested invowk commands won't work)")
+	}
 	stderrOutput := stderr.String()
-	if !strings.Contains(stderrOutput, "WARNING") {
-		t.Error("stderr should contain WARNING")
-	}
-	if !strings.Contains(stderrOutput, "strict") {
-		t.Error("stderr should mention strict mode as the remedy")
-	}
-	if !strings.Contains(stderrOutput, "Nested invowk commands") {
-		t.Error("stderr should explain consequences (nested invowk commands won't work)")
+	if strings.Contains(stderrOutput, "WARNING") {
+		t.Fatalf("stderr contains rendered warning %q, want structured diagnostics only", stderrOutput)
 	}
 }
 
@@ -468,7 +480,7 @@ func TestEnsureProvisionedImagePassesConfigScopedRequest(t *testing.T) {
 	execCtx.IO.Stdout = &stdout
 	execCtx.IO.Stderr = &stderr
 
-	_, _, cleanup, err := rt.ensureProvisionedImage(execCtx, invowkfileContainerConfig{Image: "debian:stable-slim"}, tmpDir)
+	_, _, cleanup, _, err := rt.ensureProvisionedImage(execCtx, invowkfileContainerConfig{Image: "debian:stable-slim"}, tmpDir)
 	if err != nil {
 		t.Fatalf("ensureProvisionedImage() = %v", err)
 	}

@@ -5,7 +5,6 @@ package audit
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/fspath"
@@ -371,14 +370,8 @@ func (c *LockFileChecker) checkMissingEntries(mod *ScannedModule) []Finding {
 	}
 
 	// Check that each required module has an exact lock file entry.
-	// Normalize path separators to forward slashes for cross-platform consistency —
-	// lock files always use forward slashes, but SubdirectoryPath may contain
-	// native backslashes on Windows (H4 fix).
 	for _, req := range mod.Module.Metadata.Requires {
-		reqKey := string(req.GitURL)
-		if req.Path != "" {
-			reqKey += "#" + filepath.ToSlash(string(req.Path))
-		}
+		reqKey := string(invowkmod.ModuleRef(req).Key())
 
 		if !lockKeys[reqKey] {
 			findings = append(findings, Finding{

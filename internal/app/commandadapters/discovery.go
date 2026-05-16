@@ -24,7 +24,9 @@ type (
 	// for command execution frontends.
 	//goplint:ignore -- adapter state is validated by construction; zero-value config provider is allowed in tests.
 	DiscoveryService struct {
-		config config.Loader
+		config      config.Loader
+		baseDir     *types.FilesystemPath
+		commandsDir *types.FilesystemPath
 	}
 
 	// DiscoveryRequestScope attaches CLI discovery request state for command
@@ -61,8 +63,39 @@ func NewDiscoveryService(provider config.Loader) *DiscoveryService {
 	return &DiscoveryService{config: provider}
 }
 
-// Validate returns nil because DiscoveryService has no intrinsic invariants.
+// NewDiscoveryServiceWithDirs creates a discovery adapter with explicit
+// filesystem roots. Passing an empty commandsDir disables user-dir discovery.
+func NewDiscoveryServiceWithDirs(provider config.Loader, baseDir, commandsDir types.FilesystemPath) (*DiscoveryService, error) {
+	service := &DiscoveryService{
+		config:      provider,
+		baseDir:     &baseDir,
+		commandsDir: &commandsDir,
+	}
+	if err := service.Validate(); err != nil {
+		return nil, err
+	}
+	return service, nil
+}
+
+// Validate returns nil when optional discovery paths are valid.
 func (s *DiscoveryService) Validate() error {
+	if s == nil {
+		return nil
+	}
+	var errs []error
+	if s.baseDir != nil {
+		if err := s.baseDir.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("discovery base dir: %w", err))
+		}
+	}
+	if s.commandsDir != nil && *s.commandsDir != "" {
+		if err := s.commandsDir.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("discovery commands dir: %w", err))
+		}
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
 	return nil
 }
 
@@ -183,7 +216,7 @@ func (s *DiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.Co
 		cache.mu.Unlock()
 	}
 
-	result, err := discovery.New(cfg).DiscoverCommandSet(ctx)
+	result, err := s.newDiscovery(cfg).DiscoverCommandSet(ctx)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		cache.hasCommandSet = true
@@ -210,7 +243,7 @@ func (s *DiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (d
 		cache.mu.Unlock()
 	}
 
-	result, err := discovery.New(cfg).DiscoverAndValidateCommandSet(ctx)
+	result, err := s.newDiscovery(cfg).DiscoverAndValidateCommandSet(ctx)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		cache.hasValidatedSet = true
@@ -230,7 +263,7 @@ func (s *DiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (d
 // DiscoverModules discovers modules and prepends configuration diagnostics.
 func (s *DiscoveryService) DiscoverModules(ctx context.Context) (discovery.ModuleListResult, error) {
 	cfg, cfgDiags := s.loadConfig(ctx)
-	result, err := discovery.New(cfg).DiscoverModules()
+	result, err := s.newDiscovery(cfg).DiscoverModules()
 	return prependModuleListDiagnostics(result, cfgDiags), err
 }
 
@@ -254,7 +287,7 @@ func (s *DiscoveryService) GetCommand(ctx context.Context, name string) (discove
 		cache.mu.Unlock()
 	}
 
-	result, err := discovery.New(cfg).GetCommand(ctx, name)
+	result, err := s.newDiscovery(cfg).GetCommand(ctx, name)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		cache.lookups[name] = lookupCacheEntry{result: result, err: err}
@@ -290,6 +323,17 @@ func (s *DiscoveryService) loadConfig(ctx context.Context) (*config.Config, []di
 	}
 
 	return cfg, diags
+}
+
+func (s *DiscoveryService) newDiscovery(cfg *config.Config) *discovery.Discovery {
+	var opts []discovery.Option
+	if s.baseDir != nil {
+		opts = append(opts, discovery.WithBaseDir(*s.baseDir))
+	}
+	if s.commandsDir != nil {
+		opts = append(opts, discovery.WithCommandsDir(*s.commandsDir))
+	}
+	return discovery.New(cfg, opts...)
 }
 
 func discoveryDiagnosticsFromCommand(diags []commandsvc.Diagnostic) []discovery.Diagnostic {

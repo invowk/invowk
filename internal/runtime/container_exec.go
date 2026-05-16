@@ -33,6 +33,7 @@ type (
 		extraHosts     []container.HostMapping
 		containerCfg   invowkfileContainerConfig
 		imagePrepared  bool
+		diagnostics    []InitDiagnostic
 		sshConnInfo    *HostCallbackConnectionInfo
 		tempScriptPath types.FilesystemPath
 		cleanup        func() // Combined cleanup for provisioning and temp files
@@ -109,8 +110,9 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 	// Determine the image to use (with provisioning if enabled)
 	image := string(specImage)
 	provisionEnv := map[string]string(nil)
+	var provisionDiags []InitDiagnostic
 	if !skipImagePrep {
-		image, provisionEnv, pCleanup, err = r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
+		image, provisionEnv, pCleanup, provisionDiags, err = r.ensureProvisionedImage(ctx, containerCfg, invowkDir)
 		if err != nil {
 			return nil, NewErrorResult(1, fmt.Errorf("failed to prepare container image: %w", err))
 		}
@@ -224,6 +226,7 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 		extraHosts:     extraHosts,
 		containerCfg:   containerCfg,
 		imagePrepared:  !skipImagePrep,
+		diagnostics:    provisionDiags,
 		sshConnInfo:    sshConnInfo,
 		tempScriptPath: tempScriptPath,
 		cleanup:        cleanup,
@@ -381,14 +384,14 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 	if persistentContainerRequested(ctx, prep.containerCfg) {
 		containerID, err := r.ensurePersistentContainer(ctx, prep)
 		if err != nil {
-			return NewErrorResult(1, err)
+			return resultWithDiagnostics(NewErrorResult(1, err), prep.diagnostics)
 		}
 		runOpts := execOptionsForPersistent(ctx, prep, ctx.IO.Stdout, ctx.IO.Stderr)
 		result, err := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
 		if err != nil {
-			return NewErrorResult(1, fmt.Errorf("failed to exec persistent container: %w", err))
+			return resultWithDiagnostics(NewErrorResult(1, fmt.Errorf("failed to exec persistent container: %w", err)), prep.diagnostics)
 		}
-		return NewErrorResult(result.ExitCode, result.Error)
+		return resultWithDiagnostics(NewErrorResult(result.ExitCode, result.Error), prep.diagnostics)
 	}
 
 	// Run the container
@@ -409,10 +412,10 @@ func (r *ContainerRuntime) Execute(ctx *ExecutionContext) *Result {
 
 	result, err := r.runWithRetry(ctx.Context, runOpts)
 	if err != nil {
-		return NewErrorResult(1, fmt.Errorf("failed to run container: %w", err))
+		return resultWithDiagnostics(NewErrorResult(1, fmt.Errorf("failed to run container: %w", err)), prep.diagnostics)
 	}
 
-	return NewErrorResult(result.ExitCode, result.Error)
+	return resultWithDiagnostics(NewErrorResult(result.ExitCode, result.Error), prep.diagnostics)
 }
 
 // ExecuteCapture runs a command in a container and captures its stdout/stderr.
@@ -431,24 +434,24 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 	if persistentContainerRequested(ctx, prep.containerCfg) {
 		containerID, err := r.ensurePersistentContainer(ctx, prep)
 		if err != nil {
-			return &Result{ExitCode: 1, Error: err}
+			return resultWithDiagnostics(&Result{ExitCode: 1, Error: err}, prep.diagnostics)
 		}
 		runOpts := captureExecOptionsForPersistent(prep, &stdout, &stderr)
 		result, err := r.engine.Exec(ctx.Context, containerID, prep.shellCmd, runOpts)
 		if err != nil {
-			return &Result{
+			return resultWithDiagnostics(&Result{
 				ExitCode:  1,
 				Error:     fmt.Errorf("failed to exec persistent container: %w", err),
 				Output:    stdout.String(),
 				ErrOutput: stderr.String(),
-			}
+			}, prep.diagnostics)
 		}
-		return &Result{
+		return resultWithDiagnostics(&Result{
 			ExitCode:  result.ExitCode,
 			Error:     result.Error,
 			Output:    stdout.String(),
 			ErrOutput: stderr.String(),
-		}
+		}, prep.diagnostics)
 	}
 
 	// Run the container with output capture
@@ -469,20 +472,28 @@ func (r *ContainerRuntime) ExecuteCapture(ctx *ExecutionContext) *Result {
 
 	result, err := r.runWithRetry(ctx.Context, runOpts)
 	if err != nil {
-		return &Result{
+		return resultWithDiagnostics(&Result{
 			ExitCode:  1,
 			Error:     fmt.Errorf("failed to run container: %w", err),
 			Output:    stdout.String(),
 			ErrOutput: stderr.String(),
-		}
+		}, prep.diagnostics)
 	}
 
-	return &Result{
+	return resultWithDiagnostics(&Result{
 		ExitCode:  result.ExitCode,
 		Error:     result.Error,
 		Output:    stdout.String(),
 		ErrOutput: stderr.String(),
+	}, prep.diagnostics)
+}
+
+func resultWithDiagnostics(result *Result, diagnostics []InitDiagnostic) *Result {
+	if result == nil || len(diagnostics) == 0 {
+		return result
 	}
+	result.Diagnostics = append(append([]InitDiagnostic(nil), diagnostics...), result.Diagnostics...)
+	return result
 }
 
 // setupSSHConnection sets up SSH connection for container host access

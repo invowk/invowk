@@ -143,9 +143,17 @@ func (id ModuleSourceID) Validate() error {
 // Key returns a unique key for this requirement based on GitURL and Path.
 func (r ModuleRef) Key() ModuleRefKey {
 	if r.Path != "" {
-		return ModuleRefKey(fmt.Sprintf("%s#%s", r.GitURL, string(r.Path)))
+		return ModuleRefKey(fmt.Sprintf("%s#%s", r.GitURL, normalizedSubdirectoryPath(r.Path).String()))
 	}
 	return ModuleRefKey(r.GitURL)
+}
+
+func normalizedSubdirectoryPath(path SubdirectoryPath) SubdirectoryPath {
+	normalized := SubdirectoryPath(slashpath.Clean(strings.ReplaceAll(string(path), "\\", "/")))
+	if err := normalized.Validate(); err != nil {
+		return path
+	}
+	return normalized
 }
 
 // MatchesSourceID reports whether this requirement can publish commands under sourceID.

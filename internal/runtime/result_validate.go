@@ -22,7 +22,7 @@ var (
 type (
 	// InvalidResultError is returned when a Result has invalid fields.
 	// It wraps ErrInvalidResult for errors.Is() compatibility and collects
-	// field-level validation errors from ExitCode.
+	// field-level validation errors from ExitCode and Diagnostics.
 	InvalidResultError struct {
 		FieldErrors []error
 	}
@@ -69,8 +69,17 @@ func (e *InvalidExecutionContextError) Unwrap() error { return ErrInvalidExecuti
 // Validate returns nil if the Result has valid fields, or a validation error if not.
 // It delegates to ExitCode.Validate().
 func (r Result) Validate() error {
+	var errs []error
 	if err := r.ExitCode.Validate(); err != nil {
-		return &InvalidResultError{FieldErrors: []error{err}}
+		errs = append(errs, err)
+	}
+	for i := range r.Diagnostics {
+		if err := r.Diagnostics[i].Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &InvalidResultError{FieldErrors: errs}
 	}
 	return nil
 }

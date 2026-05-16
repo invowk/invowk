@@ -13,6 +13,10 @@ import (
 const (
 	// CodeContainerRuntimeInitFailed indicates the container runtime could not be initialized.
 	CodeContainerRuntimeInitFailed InitDiagnosticCode = "container_runtime_init_failed"
+	// CodeContainerProvisioningFailed indicates non-strict container provisioning failed.
+	CodeContainerProvisioningFailed InitDiagnosticCode = "container_provisioning_failed"
+	// CodeContainerProvisioningWarning indicates container provisioning completed with a warning.
+	CodeContainerProvisioningWarning InitDiagnosticCode = "container_provisioning_warning"
 )
 
 // ErrInvalidInitDiagnosticCode is the sentinel error wrapped by InvalidInitDiagnosticCodeError.
@@ -130,7 +134,11 @@ func (info HostCallbackConnectionInfo) Validate() error {
 // Error implements the error interface.
 func (e *InvalidInitDiagnosticCodeError) Error() string {
 	return fmt.Sprintf("invalid init diagnostic code %q (valid: %s)",
-		e.Value, CodeContainerRuntimeInitFailed)
+		e.Value, strings.Join([]string{
+			CodeContainerRuntimeInitFailed.String(),
+			CodeContainerProvisioningFailed.String(),
+			CodeContainerProvisioningWarning.String(),
+		}, ", "))
 }
 
 // Unwrap returns ErrInvalidInitDiagnosticCode so callers can use errors.Is for programmatic detection.
@@ -143,7 +151,9 @@ func (c InitDiagnosticCode) String() string { return string(c) }
 // or a validation error if it is not.
 func (c InitDiagnosticCode) Validate() error {
 	switch c {
-	case CodeContainerRuntimeInitFailed:
+	case CodeContainerRuntimeInitFailed,
+		CodeContainerProvisioningFailed,
+		CodeContainerProvisioningWarning:
 		return nil
 	default:
 		return &InvalidInitDiagnosticCodeError{Value: c}

@@ -203,6 +203,38 @@ func TestLockFileChecker_MissingEntrySubpath(t *testing.T) {
 	}
 }
 
+func TestLockFileChecker_MissingEntryUsesModuleRefKeyNormalization(t *testing.T) {
+	t.Parallel()
+
+	requirement := invowkmod.ModuleRequirement{
+		GitURL:  "https://example.com/monorepo.git",
+		Version: "^1.0.0",
+		Path:    `modules\tools`,
+	}
+	sc := newModuleOnlyContext(&ScannedModule{
+		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
+		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
+		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{
+			Module:   "testmod",
+			Requires: []invowkmod.ModuleRequirement{requirement},
+		}},
+		LockFile: &invowkmod.LockFile{
+			Version: invowkmod.LockFileVersionV2,
+			Modules: map[invowkmod.ModuleRefKey]invowkmod.LockedModule{
+				"https://example.com/monorepo.git#modules/tools": testLockedModule("io.example.tools"),
+			},
+		},
+	})
+
+	findings, err := NewLockFileChecker().Check(t.Context(), sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasFinding(findings, SeverityMedium, "Required module has no lock file entry") {
+		t.Fatalf("normalized lock entry was reported missing: %v", findings)
+	}
+}
+
 func TestLockFileChecker_DeclaredLockEntryWithoutVendoredModuleIsNotOrphaned(t *testing.T) {
 	t.Parallel()
 

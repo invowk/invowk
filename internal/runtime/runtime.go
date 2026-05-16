@@ -190,6 +190,8 @@ type (
 		Output string
 		// ErrOutput contains captured stderr (if captured)
 		ErrOutput string
+		// Diagnostics contains non-fatal runtime diagnostics for callers to render.
+		Diagnostics []InitDiagnostic
 	}
 
 	// Runtime defines the interface for command execution.

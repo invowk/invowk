@@ -11,6 +11,7 @@ import (
 	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
@@ -82,6 +83,53 @@ func setupDiscoveryCacheTestDir(t *testing.T) {
 		t.Fatalf("failed to chdir to test dir: %v", err)
 	}
 	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+}
+
+func writeDiscoveryCacheTestInvowkfile(t *testing.T, dir string) {
+	t.Helper()
+
+	invPath := filepath.Join(dir, "invowkfile.cue")
+	content := invowkfile.GenerateCUE(&invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{
+			{
+				Name: "build",
+				Implementations: []invowkfile.Implementation{
+					{
+						Script:    "echo build",
+						Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeVirtual}},
+						Platforms: invowkfile.AllPlatformConfigs(),
+					},
+				},
+			},
+		},
+	})
+	if err := os.WriteFile(invPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test invowkfile: %v", err)
+	}
+}
+
+func TestAppDiscoveryService_UsesInjectedBaseDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	writeDiscoveryCacheTestInvowkfile(t, tmpDir)
+
+	svc, err := commandadapters.NewDiscoveryServiceWithDirs(
+		&staticConfigProvider{cfg: config.DefaultConfig()},
+		types.FilesystemPath(tmpDir),
+		"",
+	)
+	if err != nil {
+		t.Fatalf("NewDiscoveryServiceWithDirs() error = %v", err)
+	}
+
+	result, err := svc.GetCommand(contextWithConfigPath(t.Context(), ""), "build")
+	if err != nil {
+		t.Fatalf("GetCommand() error: %v", err)
+	}
+	if result.Command == nil {
+		t.Fatalf("GetCommand() returned nil command (diagnostics: %#v)", result.Diagnostics)
+	}
 }
 
 // Not parallel: os.Chdir is process-wide.

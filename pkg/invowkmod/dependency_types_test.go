@@ -60,3 +60,16 @@ func TestModuleRef_MatchesSourceID(t *testing.T) {
 		})
 	}
 }
+
+func TestModuleRefKey_NormalizesSubdirectorySeparators(t *testing.T) {
+	t.Parallel()
+
+	ref := ModuleRef{
+		GitURL: "https://github.com/example/mono.git",
+		Path:   `modules\go-tools`,
+	}
+
+	if got, want := ref.Key(), ModuleRefKey("https://github.com/example/mono.git#modules/go-tools"); got != want {
+		t.Fatalf("Key() = %q, want %q", got, want)
+	}
+}

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/invowk/invowk/pkg/cueutil"
-	"github.com/invowk/invowk/pkg/fspath"
 	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
@@ -94,23 +93,13 @@ func ParseInvowkmodBytes(data []byte, path FilesystemPath) (*Invowkmod, error) {
 // The modulePath should be the path to the module directory (ending in .invowkmod).
 // Returns a Module with Metadata from invowkmod.cue and Commands from invowkfile.cue.
 func ParseModule(modulePath FilesystemPath) (*Module, error) {
-	modulePathStr := string(modulePath)
-	invowkmodFSPath := fspath.JoinStr(modulePath, "invowkmod.cue")
-	invowkfilePath := filepath.Join(modulePathStr, "invowkfile.cue")
-
-	// Parse invowkmod.cue (required)
-	meta, err := ParseInvowkmod(invowkmodFSPath)
+	result, err := invowkmod.Load(modulePath)
 	if err != nil {
 		return nil, fmt.Errorf("module at %s: %w", modulePath, err)
 	}
 
-	// Create result
-	result := &Module{
-		Metadata: meta,
-		Path:     modulePath,
-	}
-
 	// Parse invowkfile.cue (optional - may be a library-only module)
+	invowkfilePath := filepath.Join(string(result.Path), "invowkfile.cue")
 	if _, statErr := os.Stat(invowkfilePath); statErr == nil {
 		data, readErr := os.ReadFile(invowkfilePath)
 		if readErr != nil {
@@ -123,8 +112,8 @@ func ParseModule(modulePath FilesystemPath) (*Module, error) {
 		}
 
 		// Attach local metadata snapshot and module path
-		inv.Metadata = NewModuleMetadataFromInvowkmod(meta)
-		inv.ModulePath = modulePath
+		inv.Metadata = NewModuleMetadataFromInvowkmod(result.Metadata)
+		inv.ModulePath = result.Path
 
 		result.Commands = inv
 	} else {

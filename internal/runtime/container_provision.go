@@ -51,16 +51,16 @@ var errStrictModeProvisioning = errors.New("container provisioning failed (stric
 // ensureProvisionedImage ensures the container image exists and is provisioned
 // with invowk resources (binary, modules, etc.). This enables nested invowk commands
 // inside containers.
-func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invowkfileContainerConfig, invowkDir string) (imageName string, envVars map[string]string, cleanup func(), err error) {
+func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg invowkfileContainerConfig, invowkDir string) (imageName string, envVars map[string]string, cleanup func(), diagnostics []InitDiagnostic, err error) {
 	// First, ensure the base image exists
 	baseImage, err := r.ensureImage(ctx, cfg, invowkDir)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, nil, err
 	}
 
 	// If provisioning is disabled, return the base image
 	if r.provisioner == nil || r.provisionConfig == nil || !r.provisionConfig.Enabled {
-		return baseImage, nil, nil, nil
+		return baseImage, nil, nil, nil, nil
 	}
 
 	// Provision the image with invowk resources
@@ -77,20 +77,26 @@ func (r *ContainerRuntime) ensureProvisionedImage(ctx *ExecutionContext, cfg inv
 	if err != nil {
 		if r.provisionConfig.Strict {
 			// Multi-wrap (Go 1.20+): callers can match either sentinel via errors.Is
-			return "", nil, nil, fmt.Errorf("%w: %w", errStrictModeProvisioning, err)
+			return "", nil, nil, nil, fmt.Errorf("%w: %w", errStrictModeProvisioning, err)
 		}
-		_, _ = fmt.Fprintf(ctx.IO.Stderr,
-			"WARNING: Container provisioning failed: %v\n"+
-				"  The container will run WITHOUT invowk resources (binary, modules).\n"+
-				"  Nested invowk commands inside the container will not work.\n"+
-				"  To fail on provisioning errors, set: container.auto_provision.strict = true\n", err)
-		return baseImage, nil, nil, nil
+		diag := InitDiagnostic{
+			Code: CodeContainerProvisioningFailed,
+			Message: fmt.Sprintf("Container provisioning failed: %v. Running without invowk resources (binary, modules). "+
+				"Nested invowk commands inside the container will not work. "+
+				"To fail on provisioning errors, set container.auto_provision.strict = true.", err),
+			Cause: err,
+		}
+		return baseImage, nil, nil, []InitDiagnostic{diag}, nil
 	}
+	diagnostics = make([]InitDiagnostic, 0, len(result.Warnings))
 	for _, warning := range result.Warnings {
-		_, _ = fmt.Fprintf(ctx.IO.Stderr, "WARNING: %s\n", warning.Message.String())
+		diagnostics = append(diagnostics, InitDiagnostic{
+			Code:    CodeContainerProvisioningWarning,
+			Message: warning.Message.String(),
+		})
 	}
 
-	return string(result.ImageTag), result.EnvVars, result.Cleanup, nil
+	return string(result.ImageTag), result.EnvVars, result.Cleanup, diagnostics, nil
 }
 
 // ensureImage ensures the container image exists, building if necessary

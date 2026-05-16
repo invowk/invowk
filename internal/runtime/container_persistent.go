@@ -14,27 +14,17 @@ import (
 	"strings"
 
 	"github.com/invowk/invowk/internal/container"
-	"github.com/invowk/invowk/pkg/containerargs"
+	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 const (
-	persistentContainerModeEphemeral  = "ephemeral"
-	persistentContainerModePersistent = "persistent"
-
-	persistentContainerNameSourceCLI     = "cli"
-	persistentContainerNameSourceConfig  = "config"
-	persistentContainerNameSourceDerived = "derived"
-
 	persistentContainerLabelManaged     = "dev.invowk.managed"
 	persistentContainerLabelPersistent  = "dev.invowk.persistent"
 	persistentContainerLabelNamespace   = "dev.invowk.command.namespace"
 	persistentContainerLabelSource      = "dev.invowk.command.source"
 	persistentContainerLabelSpecHash    = "dev.invowk.container.spec"
 	persistentContainerManagedLabelTrue = "true"
-
-	persistentContainerNamePrefix = "invowk-"
-	persistentContainerHashLen    = 12
 )
 
 var persistentContainerIdleCommand = []string{
@@ -44,17 +34,9 @@ var persistentContainerIdleCommand = []string{
 }
 
 type (
-	// ContainerPersistentPlan contains dry-run facts for persistent container targeting.
-	ContainerPersistentPlan struct {
-		Mode            string //goplint:ignore -- dry-run render DTO mode label.
-		Name            invowkfile.ContainerName
-		NameSource      string //goplint:ignore -- dry-run render DTO source label.
-		CreateIfMissing bool
-	}
-
 	persistentContainerTarget struct {
 		name            container.ContainerName
-		nameSource      string //goplint:ignore -- internal source classifier label.
+		nameSource      containerplan.PersistentNameSource
 		createIfMissing bool
 	}
 
@@ -63,118 +45,61 @@ type (
 	}
 )
 
-// ContainerPersistentDryRunPlan reports what the container runtime would do for
-// persistent targeting without inspecting or mutating the container engine.
-func ContainerPersistentDryRunPlan(ctx *ExecutionContext) ContainerPersistentPlan {
-	if ctx == nil || ctx.SelectedImpl == nil {
-		return ContainerPersistentPlan{Mode: persistentContainerModeEphemeral}
-	}
-	rtConfig := ctx.SelectedImpl.GetRuntimeConfig(ctx.SelectedRuntime)
-	target, ok := resolvePersistentContainerTarget(ctx, containerConfigFromRuntime(rtConfig))
-	if !ok {
-		return ContainerPersistentPlan{Mode: persistentContainerModeEphemeral}
-	}
-	return ContainerPersistentPlan{
-		Mode:            persistentContainerModePersistent,
-		Name:            target.name,
-		NameSource:      target.nameSource,
-		CreateIfMissing: target.createIfMissing,
-	}
-}
-
-// Validate returns nil when the dry-run persistent target plan has valid typed fields.
-func (p ContainerPersistentPlan) Validate() error {
-	if p.Name != "" {
-		return p.Name.Validate()
-	}
-	return nil
-}
-
 func (t persistentContainerTarget) Validate() error {
-	return t.name.Validate()
+	return errors.Join(t.name.Validate(), t.nameSource.Validate())
 }
 
 func persistentContainerRequested(ctx *ExecutionContext, cfg invowkfileContainerConfig) bool {
-	return ctx != nil && (ctx.ContainerNameOverride != "" || cfg.Persistent != nil)
+	return persistentContainerPlan(ctx, cfg).Requested()
 }
 
 func resolvePersistentContainerTarget(ctx *ExecutionContext, cfg invowkfileContainerConfig) (persistentContainerTarget, bool) {
-	if !persistentContainerRequested(ctx, cfg) {
+	plan := persistentContainerPlan(ctx, cfg)
+	if !plan.Requested() {
 		return persistentContainerTarget{}, false
 	}
-
 	target := persistentContainerTarget{
-		createIfMissing: cfg.Persistent != nil && cfg.Persistent.CreateIfMissing,
-	}
-	switch {
-	case ctx.ContainerNameOverride != "":
-		target.name = ctx.ContainerNameOverride
-		target.nameSource = persistentContainerNameSourceCLI
-	case cfg.Persistent != nil && cfg.Persistent.Name != "":
-		target.name = cfg.Persistent.Name
-		target.nameSource = persistentContainerNameSourceConfig
-	default:
-		target.name = derivePersistentContainerName(ctx)
-		target.nameSource = persistentContainerNameSourceDerived
+		name:            plan.Name(),
+		nameSource:      plan.NameSource(),
+		createIfMissing: plan.CreateIfMissing(),
 	}
 	return target, true
 }
 
-func derivePersistentContainerName(ctx *ExecutionContext) container.ContainerName {
-	namespace := ctx.CommandFullName
-	if namespace == "" && ctx.Command != nil {
-		namespace = ctx.Command.Name
-	}
-	source := ""
-	if ctx.Invowkfile != nil {
-		source = string(ctx.Invowkfile.FilePath)
-	}
-
-	sum := sha256.Sum256([]byte(string(namespace) + "\x00" + source))
-	hash := hex.EncodeToString(sum[:])[:persistentContainerHashLen]
-	slug := containerNameSlug(string(namespace))
-
-	maxSlugLen := max(containerargs.MaxContainerNameLength-len(persistentContainerNamePrefix)-len(hash)-1, 1)
-	if len(slug) > maxSlugLen {
-		slug = strings.Trim(slug[:maxSlugLen], "-._")
-	}
-	if slug == "" {
-		slug = "cmd"
-	}
-
-	//goplint:ignore -- validated immediately below with deterministic fallback.
-	name := container.ContainerName(persistentContainerNamePrefix + slug + "-" + hash)
-	if err := name.Validate(); err != nil {
-		//goplint:ignore -- deterministic hash fallback uses the same portable grammar.
-		return container.ContainerName(persistentContainerNamePrefix + hash)
-	}
-	return name
-}
-
-//goplint:ignore -- slug builder operates on command namespace text for container-name derivation.
-func containerNameSlug(value string) string {
-	var b strings.Builder
-	lastSep := false
-	for _, r := range strings.ToLower(value) {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			b.WriteRune(r)
-			lastSep = false
-		case r == '.', r == '_', r == '-':
-			if b.Len() > 0 {
-				b.WriteRune(r)
-				lastSep = r == '-'
-			}
-		case !lastSep && b.Len() > 0:
-			b.WriteByte('-')
-			lastSep = true
+func persistentContainerPlan(ctx *ExecutionContext, cfg invowkfileContainerConfig) containerplan.PersistentPlan {
+	var commandFullName, commandName invowkfile.CommandName
+	var invowkfilePath invowkfile.FilesystemPath
+	var containerNameOverride invowkfile.ContainerName
+	if ctx != nil {
+		containerNameOverride = ctx.ContainerNameOverride
+		commandFullName = ctx.CommandFullName
+		if ctx.Command != nil {
+			commandName = ctx.Command.Name
+		}
+		if ctx.Invowkfile != nil {
+			invowkfilePath = ctx.Invowkfile.FilePath
 		}
 	}
-	slug := strings.Trim(b.String(), "-._")
-	if slug == "" {
-		return "cmd"
+	opts := []containerplan.PersistentRequestOption{
+		containerplan.WithContainerNameOverride(containerNameOverride),
+		containerplan.WithConfig(cfg.Persistent),
 	}
-	return slug
+	if commandFullName != "" {
+		fullName := containerplan.CommandNamespace(commandFullName)
+		opts = append(opts, containerplan.WithCommandFullName(&fullName))
+	}
+	if commandName != "" {
+		name := containerplan.CommandNamespace(commandName)
+		opts = append(opts, containerplan.WithCommandName(&name))
+	}
+	if invowkfilePath != "" {
+		opts = append(opts, containerplan.WithInvowkfilePath(&invowkfilePath))
+	}
+	req, err := containerplan.NewPersistentRequest(opts...)
+	if err != nil {
+		return containerplan.EphemeralPlan()
+	}
+	return containerplan.ResolvePersistentTarget(req)
 }
 
 func (r *ContainerRuntime) ensurePersistentContainer(ctx *ExecutionContext, prep *containerExecPrep) (container.ContainerID, error) {
@@ -231,7 +156,7 @@ func (r *ContainerRuntime) reusePersistentContainer(ctx *ExecutionContext, info 
 		if err := ensureManagedPersistentSpecMatches(info, createOpts); err != nil {
 			return "", err
 		}
-	case target.nameSource != persistentContainerNameSourceCLI:
+	case target.nameSource != containerplan.PersistentNameSourceCLI:
 		return "", fmt.Errorf(
 			"persistent container %q already exists but is not managed by invowk; use --ivk-container-name to target an existing external container",
 			target.name,
@@ -275,7 +200,7 @@ func persistentContainerLabels(ctx *ExecutionContext, prep *containerExecPrep, t
 			labels[persistentContainerLabelNamespace] = string(ctx.Command.Name)
 		}
 	}
-	labels[persistentContainerLabelSource] = target.nameSource
+	labels[persistentContainerLabelSource] = target.nameSource.String()
 	return labels
 }
 
