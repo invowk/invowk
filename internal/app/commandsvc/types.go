@@ -215,8 +215,8 @@ type (
 	}
 
 	// ConfigAwareCommandDiscovery lets a discovery adapter own request-scoped
-	// config loading and diagnostics while still giving the command service the
-	// resolved config needed for execution planning.
+	// config loading while explicitly assigning config diagnostics to command
+	// execution for the current request.
 	ConfigAwareCommandDiscovery interface {
 		LoadConfigForCommand(ctx context.Context) (*config.Config, []discovery.Diagnostic)
 	}

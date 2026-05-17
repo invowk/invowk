@@ -146,24 +146,12 @@ func (s *runtimeSession) DependencyProbe(execCtx *runtime.ExecutionContext) deps
 	return s.dependencyProbeFactory.Create(s.registry, execCtx)
 }
 
-func (s *runtimeSession) Execute(execCtx *runtime.ExecutionContext, cmdName invowkfile.CommandName, interactive bool, interactiveExecutor commandsvc.InteractiveExecutor) (*runtime.Result, invowkfile.RuntimeMode, error) {
-	if !interactive {
-		return s.registry.Execute(execCtx), "", nil
-	}
+func (s *runtimeSession) RuntimeForContext(execCtx *runtime.ExecutionContext) (runtime.Runtime, error) {
+	return s.registry.GetForContext(execCtx)
+}
 
-	rt, err := s.registry.GetForContext(execCtx)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get runtime: %w", err)
-	}
-
-	if interactiveRT, ok := rt.(commandsvc.RuntimeInteractiveCommand); ok {
-		if interactiveExecutor == nil {
-			return &runtime.Result{ExitCode: 1, Error: commandsvc.ErrInteractiveExecutorNotConfigured}, "", nil
-		}
-		return interactiveExecutor.Execute(execCtx, cmdName, interactiveRT), "", nil
-	}
-
-	return s.registry.Execute(execCtx), invowkfile.RuntimeMode(rt.Name()), nil //goplint:ignore -- runtime names are registered from runtime mode constants.
+func (s *runtimeSession) Execute(execCtx *runtime.ExecutionContext) *runtime.Result {
+	return s.registry.Execute(execCtx)
 }
 
 func (s *runtimeSession) Close() {

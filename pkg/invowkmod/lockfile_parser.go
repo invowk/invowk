@@ -258,8 +258,15 @@ func (m lockedModuleCUE) Validate() error {
 // the single source of truth. For v1.0 lock files, ContentHash errors are
 // filtered out because the field predates v2.0.
 func validateLockedModuleForVersion(key ModuleRefKey, mod LockedModule, requireContentHash bool) error {
+	versionFieldErrors := lockedModuleVersionFieldErrors(mod, requireContentHash)
 	err := mod.Validate()
 	if err == nil {
+		if len(versionFieldErrors) > 0 {
+			return fmt.Errorf("lock file module %q: %w", key, &InvalidLockedModuleError{
+				ModuleKey:   key,
+				FieldErrors: versionFieldErrors,
+			})
+		}
 		return nil
 	}
 
@@ -283,6 +290,25 @@ func validateLockedModuleForVersion(key ModuleRefKey, mod LockedModule, requireC
 		}
 		lockedErr.FieldErrors = filtered
 	}
+	lockedErr.FieldErrors = append(lockedErr.FieldErrors, versionFieldErrors...)
+	if len(lockedErr.FieldErrors) == 0 {
+		return nil
+	}
 
 	return fmt.Errorf("lock file module %q: %w", key, lockedErr)
+}
+
+func lockedModuleVersionFieldErrors(mod LockedModule, requireSplitMetadata bool) []error {
+	if !requireSplitMetadata {
+		return nil
+	}
+
+	var errs []error
+	if mod.CommandSourceID == "" {
+		errs = append(errs, errors.New("command_source_id is required in v2 lock entries"))
+	}
+	if mod.ModuleID == "" {
+		errs = append(errs, errors.New("module_id is required in v2 lock entries"))
+	}
+	return errs
 }

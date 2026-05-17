@@ -148,26 +148,17 @@ func TestCreateRuntimeSessionWithDiagnostics(t *testing.T) {
 		t.Fatalf("expected container_runtime_init_failed diagnostic, got %#v", diagnostics)
 	}
 
-	nativeResult, _, err := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeNative), "", false, nil)
-	if err != nil {
-		t.Fatalf("native Execute() error = %v", err)
-	}
+	nativeResult := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeNative))
 	if !nativeResult.Success() {
 		t.Fatalf("native Execute() result = %#v, want success", nativeResult)
 	}
 
-	virtualResult, _, err := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeVirtual), "", false, nil)
-	if err != nil {
-		t.Fatalf("virtual Execute() error = %v", err)
-	}
+	virtualResult := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeVirtual))
 	if !virtualResult.Success() {
 		t.Fatalf("virtual Execute() result = %#v, want success", virtualResult)
 	}
 
-	containerResult, _, err := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeContainer), "", false, nil)
-	if err != nil {
-		t.Fatalf("container Execute() error = %v", err)
-	}
+	containerResult := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeContainer))
 	if !errors.Is(containerResult.Error, runtime.ErrRuntimeNotAvailable) {
 		t.Fatalf("container Execute() error = %v, want ErrRuntimeNotAvailable", containerResult.Error)
 	}

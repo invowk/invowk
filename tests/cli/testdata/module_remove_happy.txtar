@@ -43,6 +43,8 @@ modules: {
 		resolved_version: "1.0.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "dep@1.0.0"
+		command_source_id: "dep"
+		module_id:        "dep"
 		content_hash:     "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 	}
 }

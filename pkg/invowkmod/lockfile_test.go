@@ -328,6 +328,8 @@ modules: {
 		resolved_version: "1.2.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "repo@1.2.0"
+		command_source_id: "repo"
+		module_id:        "repo"
 		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
@@ -371,6 +373,7 @@ modules: {
 		path:             "sub"
 		module_id:        "io.example.tools"
 		namespace:        "tools"
+		command_source_id: "tools"
 		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
@@ -443,6 +446,8 @@ modules: {
 		resolved_version: "1.2.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "repo@1.2.0"
+		command_source_id: "repo"
+		module_id:        "repo"
 		content_hash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	}
 }`
@@ -632,6 +637,8 @@ func TestLoadLockFile(t *testing.T) {
 					ResolvedVersion: "1.2.0",
 					GitCommit:       "abc123def456789012345678901234567890abcd",
 					Namespace:       "repo@1.2.0",
+					CommandSourceID: "repo",
+					ModuleID:        "repo",
 					ContentHash:     testContentHash,
 				},
 			},
@@ -803,6 +810,8 @@ func TestParseLockFileCUE_RoundTrip(t *testing.T) {
 				ResolvedVersion: "1.2.0",
 				GitCommit:       "abc123def456789012345678901234567890abcd",
 				Namespace:       "repo@1.2.0",
+				CommandSourceID: "repo",
+				ModuleID:        "repo",
 				ContentHash:     testContentHash,
 			},
 			"https://github.com/org/mono.git#tools": {
@@ -813,6 +822,8 @@ func TestParseLockFileCUE_RoundTrip(t *testing.T) {
 				Alias:           "tools",
 				Path:            "tools",
 				Namespace:       "tools",
+				CommandSourceID: "tools",
+				ModuleID:        "io.example.tools",
 				ContentHash:     testContentHash2,
 			},
 		},

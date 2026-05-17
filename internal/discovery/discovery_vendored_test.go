@@ -57,6 +57,7 @@ func declareVendoredModule(t *testing.T, parentModulePath, moduleDir, moduleID s
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
 		Namespace:       invowkmod.ModuleNamespace(moduleID),
+		CommandSourceID: invowkmod.ModuleSourceID(moduleID),
 		ModuleID:        invowkmod.ModuleID(moduleID),
 		ContentHash:     hash,
 	}
@@ -321,6 +322,7 @@ func TestDiscoverCommandSet_UsesVendoredAliasNamespaceFromLockFile(t *testing.T)
 		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
 		Alias:           "tools",
 		Namespace:       "tools",
+		CommandSourceID: "tools",
 		ModuleID:        "io.example.vendored",
 		ContentHash:     hash,
 	}

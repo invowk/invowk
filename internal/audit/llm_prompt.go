@@ -104,11 +104,11 @@ func parseFindings(raw string) ([]llmFinding, error) {
 	}
 }
 
-// convertBatchFindings maps LLM findings to audit Findings for a batch
-// of scripts, matching findings to scripts by command name. Findings with
-// invalid severity or category values are silently discarded as a defense
-// against LLM hallucination.
-func convertBatchFindings(parsed []llmFinding, batch []ScriptRef) []Finding {
+// convertBatchFindings maps LLM findings to audit Findings for a batch.
+// A non-empty findings array is an LLM response contract: unusable finding
+// entries are reported as malformed responses so explicit LLM analysis cannot
+// be silently interpreted as clean.
+func convertBatchFindings(parsed []llmFinding, batch []ScriptRef) ([]Finding, error) {
 	// Build lookups for efficient exact matching.
 	byID := make(map[string]*ScriptRef, len(batch))
 	byName := make(map[string]*ScriptRef, len(batch))
@@ -122,23 +122,29 @@ func convertBatchFindings(parsed []llmFinding, batch []ScriptRef) []Finding {
 	}
 
 	var findings []Finding
+	var errs []error
 
 	for i := range parsed {
 		lf := &parsed[i]
 
 		ref, ok := matchLLMFindingToScript(lf, byID, byName, nameCounts, batch)
 		if !ok {
+			errs = append(errs, malformedLLMFindingError(i, fmt.Sprintf("finding could not be matched to a script (script_id=%q, command_name=%q)", lf.ScriptID, lf.CommandName)))
 			continue
 		}
 
-		f, valid := buildFinding(lf, ref)
-		if !valid {
+		f, err := buildFinding(lf, ref)
+		if err != nil {
+			errs = append(errs, malformedLLMFindingError(i, err.Error()))
 			continue
 		}
 		findings = append(findings, f)
 	}
 
-	return findings
+	if len(errs) > 0 {
+		return findings, errors.Join(errs...)
+	}
+	return findings, nil
 }
 
 func matchLLMFindingToScript(
@@ -166,18 +172,24 @@ func scriptPromptID(ref *ScriptRef) string {
 	return fmt.Sprintf("%s:%s", ref.SurfaceID, ref.FilePath)
 }
 
+//goplint:ignore -- LLM response conversion builds provider-facing diagnostics from JSON finding ordinal and reason.
+func malformedLLMFindingError(index int, reason string) error {
+	return &LLMMalformedResponseError{
+		Err: fmt.Errorf("invalid LLM finding %d: %s", index, reason),
+	}
+}
+
 // buildFinding validates severity/category and constructs a Finding from an
-// LLM-reported finding and its attributed ScriptRef. Returns false when the
-// finding has invalid severity or category (hallucination defense).
-func buildFinding(lf *llmFinding, ref *ScriptRef) (Finding, bool) {
+// LLM-reported finding and its attributed ScriptRef.
+func buildFinding(lf *llmFinding, ref *ScriptRef) (Finding, error) {
 	sev, err := ParseSeverity(lf.Severity)
 	if err != nil {
-		return Finding{}, false
+		return Finding{}, fmt.Errorf("invalid severity %q: %w", lf.Severity, err)
 	}
 
 	category := Category(lf.Category)
-	if category.Validate() != nil {
-		return Finding{}, false
+	if err := category.Validate(); err != nil {
+		return Finding{}, fmt.Errorf("invalid category %q: %w", lf.Category, err)
 	}
 
 	return Finding{
@@ -192,7 +204,7 @@ func buildFinding(lf *llmFinding, ref *ScriptRef) (Finding, bool) {
 		Title:          lf.Title,
 		Description:    lf.Description,
 		Recommendation: lf.Recommendation,
-	}, true
+	}, nil
 }
 
 // truncateScript limits a script's content to maxChars characters.

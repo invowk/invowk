@@ -3,6 +3,8 @@
 package audit
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +15,21 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+func TestBuildScanContextCanceledBeforeDirectoryScan(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, err := BuildScanContext(ctx, types.FilesystemPath(t.TempDir()), config.DefaultConfig(), false)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("BuildScanContext() error = %v, want context.Canceled", err)
+	}
+	if !ScanFailureIsFatal(err) {
+		t.Fatalf("BuildScanContext() cancellation should be fatal")
+	}
+}
 
 func TestReadScriptFileFacts_BoundaryCheck(t *testing.T) {
 	t.Parallel()
@@ -79,7 +96,11 @@ func TestReadScriptFileFacts_BoundaryCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := readScriptFileFacts(tt.scriptPath, tt.modulePath).Content
+			facts, err := readScriptFileFacts(t.Context(), tt.scriptPath, tt.modulePath)
+			if err != nil {
+				t.Fatalf("readScriptFileFacts() error = %v", err)
+			}
+			got := facts.Content
 			if got != tt.want {
 				t.Errorf("readScriptFileFacts(%q, %q) content = %q, want %q",
 					tt.scriptPath, tt.modulePath, got, tt.want)
@@ -114,7 +135,7 @@ func TestBuildScanContextStandaloneFileScriptUsesInvowkfileDirectory(t *testing.
 		t.Fatalf("WriteFile(invowkfile) error = %v", err)
 	}
 
-	sc, err := BuildScanContext(types.FilesystemPath(invowkfilePath), config.DefaultConfig(), false)
+	sc, err := BuildScanContext(t.Context(), types.FilesystemPath(invowkfilePath), config.DefaultConfig(), false)
 	if err != nil {
 		t.Fatalf("BuildScanContext() error = %v", err)
 	}
@@ -274,6 +295,7 @@ func TestBuildScanContextIncludedModuleKeepsLockAndVendoredArtifacts(t *testing.
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
 		Namespace:       "io.example.dep",
+		CommandSourceID: "io.example.dep",
 		ModuleID:        "io.example.dep",
 		ContentHash:     hash,
 	}
@@ -286,7 +308,7 @@ func TestBuildScanContextIncludedModuleKeepsLockAndVendoredArtifacts(t *testing.
 
 	cfg := config.DefaultConfig()
 	cfg.Includes = []config.IncludeEntry{{Path: config.ModuleIncludePath(includeDir)}}
-	sc, err := BuildScanContext(types.FilesystemPath(root), cfg, false)
+	sc, err := BuildScanContext(t.Context(), types.FilesystemPath(root), cfg, false)
 	if err != nil {
 		t.Fatalf("BuildScanContext() = %v", err)
 	}
@@ -345,7 +367,7 @@ func TestBuildScanContextWarnsAndIgnoresNestedVendoredModules(t *testing.T) {
 	nestedDir := filepath.Join(childDir, invowkmod.VendoredModulesDir, "io.example.nested.invowkmod")
 	createAuditTestModule(t, nestedDir, "io.example.nested", "nested-cmd")
 
-	sc, err := BuildScanContext(types.FilesystemPath(root), config.DefaultConfig(), false)
+	sc, err := BuildScanContext(t.Context(), types.FilesystemPath(root), config.DefaultConfig(), false)
 	if err != nil {
 		t.Fatalf("BuildScanContext() = %v", err)
 	}

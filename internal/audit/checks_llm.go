@@ -148,7 +148,7 @@ func (c *LLMChecker) analyzeBatch(ctx context.Context, batch []ScriptRef) ([]Fin
 		return nil, err
 	}
 
-	return convertBatchFindings(parsed, batch), nil
+	return convertBatchFindings(parsed, batch)
 }
 
 // batchScripts groups prepared scripts into batches respecting character and

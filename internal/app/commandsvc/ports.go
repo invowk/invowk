@@ -35,7 +35,8 @@ type (
 		Diagnostics() []Diagnostic
 		ContainerInitErr() error
 		DependencyProbe(*runtime.ExecutionContext) deps.RuntimeDependencyProbe
-		Execute(*runtime.ExecutionContext, invowkfile.CommandName, bool, InteractiveExecutor) (*runtime.Result, invowkfile.RuntimeMode, error)
+		RuntimeForContext(*runtime.ExecutionContext) (runtime.Runtime, error)
+		Execute(*runtime.ExecutionContext) *runtime.Result
 		Close()
 	}
 
@@ -109,8 +110,12 @@ func (*emptyRuntimeSession) DependencyProbe(*runtime.ExecutionContext) deps.Runt
 	return nil
 }
 
-func (s *emptyRuntimeSession) Execute(execCtx *runtime.ExecutionContext, _ invowkfile.CommandName, _ bool, _ InteractiveExecutor) (*runtime.Result, invowkfile.RuntimeMode, error) {
-	return s.registry.Execute(execCtx), "", nil
+func (s *emptyRuntimeSession) RuntimeForContext(execCtx *runtime.ExecutionContext) (runtime.Runtime, error) {
+	return s.registry.GetForContext(execCtx)
+}
+
+func (s *emptyRuntimeSession) Execute(execCtx *runtime.ExecutionContext) *runtime.Result {
+	return s.registry.Execute(execCtx)
 }
 
 func (*emptyRuntimeSession) Close() {

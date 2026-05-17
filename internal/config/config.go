@@ -176,6 +176,9 @@ func (p llmConfigPatch) Validate() error {
 		errs = append(errs, p.Concurrency.Validate())
 	}
 	if p.API != nil {
+		if !p.API.HasConfig() {
+			errs = append(errs, errors.New("llm.api must set at least one of base_url, model, or api_key_env"))
+		}
 		errs = append(errs, p.API.Validate())
 	}
 	if p.Provider != nil && p.API != nil && p.API.HasConfig() {
@@ -492,7 +495,7 @@ func applyLLMConfigPatch(cfg *Config, patch *llmConfigPatch) {
 	if patch.Concurrency != nil {
 		cfg.LLM.Concurrency = *patch.Concurrency
 	}
-	if patch.API != nil {
+	if patch.API != nil && patch.API.HasConfig() {
 		cfg.LLM.Provider = ""
 		if patch.API.BaseURL != nil {
 			cfg.LLM.API.BaseURL = *patch.API.BaseURL

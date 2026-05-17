@@ -282,8 +282,8 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 
 	requirements := cmdInfo.Invowkfile.Metadata.Requires()
 
-	// Wire resolved direct dependencies from discovery plus lock-file identity.
-	// Raw aliases are command namespaces, not authorization proof.
+	// Wire direct dependencies from declarations resolved through lock-file
+	// identity. Raw aliases are command namespaces, not authorization proof.
 	scope := invowkmod.NewCommandScope(moduleID, globalIDs, requirements)
 	scope.ModuleSourceID = invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
 	for _, cmd := range available {
@@ -293,9 +293,8 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 	}
 
 	// Wire resolved RDNS module IDs and command namespaces for direct deps.
-	// Alias requirements match the source namespace, while non-aliased
-	// requirements match the repository short name used by discovery for the
-	// module source.
+	// A dependency is authorized only when the declaration and lock-file entry
+	// agree with the discovered module identity and command source.
 	for _, cmd := range available {
 		if cmd.ModuleID == nil {
 			continue
@@ -318,8 +317,8 @@ func commandScopeLock(provider CommandScopeLockProvider, inv *invowkfile.Invowkf
 func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.CommandScopeDecision) DependencyMessage {
 	return dependencyMessageFromDetail(fmt.Sprintf(
 		"%s - command from module '%s' cannot call '%s': module '%s' is not accessible\n"+
-			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires. "+
-			"Add '%s' to your invowkmod.cue requires list to use its commands",
+			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires and resolved in invowkmod.lock.cue. "+
+			"Add '%s' to your invowkmod.cue requires list if it is missing, then run 'invowk module sync' to refresh lock metadata",
 		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID, decision.TargetSource))
 }
 

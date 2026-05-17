@@ -120,21 +120,12 @@ func (*testRuntimeSession) DependencyProbe(*runtimepkg.ExecutionContext) deps.Ru
 	return nil
 }
 
-func (s *testRuntimeSession) Execute(execCtx *runtimepkg.ExecutionContext, cmdName invowkfile.CommandName, interactive bool, interactiveExecutor InteractiveExecutor) (*runtimepkg.Result, invowkfile.RuntimeMode, error) {
-	if !interactive {
-		return s.registry.Execute(execCtx), "", nil
-	}
-	rt, err := s.registry.GetForContext(execCtx)
-	if err != nil {
-		return nil, "", err
-	}
-	if interactiveRT, ok := rt.(RuntimeInteractiveCommand); ok {
-		if interactiveExecutor == nil {
-			return &runtimepkg.Result{ExitCode: 1, Error: ErrInteractiveExecutorNotConfigured}, "", nil
-		}
-		return interactiveExecutor.Execute(execCtx, cmdName, interactiveRT), "", nil
-	}
-	return s.registry.Execute(execCtx), invowkfile.RuntimeMode(rt.Name()), nil //goplint:ignore -- test runtime name controls expected observer metadata.
+func (s *testRuntimeSession) RuntimeForContext(execCtx *runtimepkg.ExecutionContext) (runtimepkg.Runtime, error) {
+	return s.registry.GetForContext(execCtx)
+}
+
+func (s *testRuntimeSession) Execute(execCtx *runtimepkg.ExecutionContext) *runtimepkg.Result {
+	return s.registry.Execute(execCtx)
 }
 
 func (*testRuntimeSession) Close() {}

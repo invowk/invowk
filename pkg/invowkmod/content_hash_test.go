@@ -269,6 +269,7 @@ version: "1.0.0"
 		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
 		Alias:           "tools",
 		Namespace:       "tools",
+		CommandSourceID: "tools",
 		ModuleID:        "io.example.dep",
 		ContentHash:     hash,
 	}
@@ -436,6 +437,7 @@ func lockedHashTestModule(moduleID string, hash ContentHash) LockedModule {
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
 		Namespace:       ModuleNamespace(moduleID),
+		CommandSourceID: ModuleSourceID(moduleID),
 		ModuleID:        ModuleID(moduleID),
 		ContentHash:     hash,
 	}

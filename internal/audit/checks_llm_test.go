@@ -198,6 +198,27 @@ func TestLLMChecker_Check_MalformedResponse(t *testing.T) {
 	}
 }
 
+func TestLLMChecker_Check_InvalidFindingIsMalformedResponse(t *testing.T) {
+	t.Parallel()
+
+	mock := &mockCompleter{
+		response: `{"findings": [{"severity": "extreme", "category": "execution", "command_name": "build", "title": "Issue", "description": "Desc", "recommendation": "Fix"}]}`,
+	}
+	checker := NewLLMChecker(mock, 1)
+
+	sc := buildTestScanContext(t, []ScriptRef{
+		{CommandName: "build", Script: invowkfile.ScriptContent("make build")},
+	})
+
+	_, err := checker.Check(t.Context(), sc)
+	if err == nil {
+		t.Fatal("expected error for invalid LLM finding")
+	}
+	if !errors.Is(err, ErrLLMMalformedResponse) {
+		t.Errorf("expected ErrLLMMalformedResponse, got %v", err)
+	}
+}
+
 func TestLLMChecker_Check_PartialBatchFailure(t *testing.T) {
 	t.Parallel()
 

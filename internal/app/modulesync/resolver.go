@@ -253,19 +253,7 @@ func (m *Resolver) Update(ctx context.Context, identifier string) ([]*ResolvedMo
 			return nil, fmt.Errorf("failed to update %s: %w", key, err)
 		}
 
-		// Update lock entry
-		lock.Modules[key] = LockedModule{
-			GitURL:          resolved.ModuleRef.GitURL,
-			Version:         resolved.ModuleRef.Version,
-			ResolvedVersion: resolved.ResolvedVersion,
-			GitCommit:       resolved.GitCommit,
-			Alias:           resolved.ModuleRef.Alias,
-			Path:            resolved.ModuleRef.Path,
-			Namespace:       resolved.Namespace,
-			CommandSourceID: resolved.CommandSourceID,
-			ModuleID:        resolved.ModuleID,
-			ContentHash:     resolved.ContentHash,
-		}
+		lock.AddModule(resolved)
 
 		updated = append(updated, resolved)
 	}
@@ -307,25 +295,10 @@ func (m *Resolver) Sync(ctx context.Context, requirements []ModuleRef) ([]*Resol
 		return nil, &MissingTransitiveDepError{Diagnostics: diags}
 	}
 
-	// Save lock file
-	lock := &LockFile{
-		Version: "2.0",
-		Modules: make(map[ModuleRefKey]LockedModule),
-	}
+	lock := invowkmod.NewLockFile()
 
 	for _, mod := range resolved {
-		lock.Modules[mod.ModuleRef.Key()] = LockedModule{
-			GitURL:          mod.ModuleRef.GitURL,
-			Version:         mod.ModuleRef.Version,
-			ResolvedVersion: mod.ResolvedVersion,
-			GitCommit:       mod.GitCommit,
-			Alias:           mod.ModuleRef.Alias,
-			Path:            mod.ModuleRef.Path,
-			Namespace:       mod.Namespace,
-			CommandSourceID: mod.CommandSourceID,
-			ModuleID:        mod.ModuleID,
-			ContentHash:     mod.ContentHash,
-		}
+		lock.AddModule(mod)
 	}
 
 	lockPath := filepath.Join(string(m.workingDir), LockFileName)

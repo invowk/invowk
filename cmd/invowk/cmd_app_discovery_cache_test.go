@@ -5,6 +5,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 
@@ -25,6 +27,7 @@ type (
 
 	countingConfigProvider struct {
 		cfg   *config.Config
+		err   error
 		calls int
 	}
 )
@@ -43,6 +46,9 @@ func (p *staticConfigProvider) LoadWithSource(ctx context.Context, opts config.L
 
 func (p *countingConfigProvider) Load(_ context.Context, _ config.LoadOptions) (*config.Config, error) {
 	p.calls++
+	if p.err != nil {
+		return nil, p.err
+	}
 	return p.cfg, nil
 }
 
@@ -290,6 +296,45 @@ func TestListCommands_ReusesDiscoveryConfigForUIFlags(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "Discovery Sources") {
 		t.Fatalf("listCommands() did not apply verbose UI config:\n%s", stdout.String())
+	}
+}
+
+// Not parallel: os.Chdir is process-wide.
+func TestResolveUIFlagsDoesNotConsumeDiscoveryConfigDiagnostics(t *testing.T) {
+	setupDiscoveryCacheTestDir(t)
+
+	cfgProvider := &countingConfigProvider{err: errors.New("config boom")}
+	svc := commandadapters.NewDiscoveryService(cfgProvider)
+	var stdout, stderr bytes.Buffer
+	app, err := NewApp(Dependencies{
+		Config:    cfgProvider,
+		Discovery: svc,
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+
+	listCmd := &cobra.Command{Use: "cmd"}
+	listCmd.PersistentFlags().Bool("ivk-verbose", false, "")
+	listCmd.PersistentFlags().Bool("ivk-interactive", false, "")
+	ctx := contextWithConfigPath(t.Context(), "")
+	listCmd.SetContext(ctx)
+
+	resolveUIFlags(ctx, app, listCmd, &rootFlagValues{})
+	result, err := svc.DiscoverCommandSet(ctx)
+	if err != nil {
+		t.Fatalf("DiscoverCommandSet() error = %v", err)
+	}
+	if cfgProvider.calls != 1 {
+		t.Fatalf("config provider Load() calls = %d, want 1", cfgProvider.calls)
+	}
+	if len(result.Diagnostics) != 1 {
+		t.Fatalf("DiscoverCommandSet() diagnostics = %v, want exactly one config diagnostic", result.Diagnostics)
+	}
+	if result.Diagnostics[0].Code() != discovery.CodeConfigLoadFailed {
+		t.Fatalf("diagnostic code = %q, want %q", result.Diagnostics[0].Code(), discovery.CodeConfigLoadFailed)
 	}
 }
 

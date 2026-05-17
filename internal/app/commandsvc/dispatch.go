@@ -4,6 +4,7 @@ package commandsvc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/invowk/invowk/internal/config"
@@ -102,12 +103,24 @@ func applyExecutionTimeout(execCtx *runtime.ExecutionContext) (context.CancelFun
 }
 
 func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.ExecutionContext, session RuntimeSession) (*runtime.Result, invowkfile.RuntimeMode, error) {
-	cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- request name was resolved through discovery
-	result, interactiveFallback, err := session.Execute(execCtx, cmdName, req.Interactive, s.interactive)
-	if err != nil {
-		return nil, interactiveFallback, newClassifiedExecutionError(err)
+	if !req.Interactive {
+		return session.Execute(execCtx), "", nil
 	}
-	return result, interactiveFallback, nil
+
+	rt, err := session.RuntimeForContext(execCtx)
+	if err != nil {
+		return nil, "", newClassifiedExecutionError(fmt.Errorf("failed to get runtime: %w", err))
+	}
+
+	if interactiveRT := runtime.GetInteractiveRuntime(rt); interactiveRT != nil {
+		if s.interactive == nil {
+			return &runtime.Result{ExitCode: 1, Error: ErrInteractiveExecutorNotConfigured}, "", nil
+		}
+		cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- request name was resolved through discovery
+		return s.interactive.Execute(execCtx, cmdName, interactiveRT), "", nil
+	}
+
+	return session.Execute(execCtx), invowkfile.RuntimeMode(rt.Name()), nil //goplint:ignore -- runtime names are registered from runtime mode constants.
 }
 
 func newClassifiedExecutionError(err error) *ClassifiedError {

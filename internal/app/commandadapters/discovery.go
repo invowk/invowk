@@ -42,10 +42,10 @@ type (
 	discoveryRequestCache struct {
 		mu sync.Mutex
 
-		hasConfig        bool
-		cfg              *config.Config
-		cfgDiags         []discovery.Diagnostic
-		cfgDiagsConsumed bool
+		hasConfig              bool
+		cfg                    *config.Config
+		cfgDiags               []discovery.Diagnostic
+		cfgDiagsOwnedByCommand bool
 
 		hasCommandSet bool
 		commandSet    discovery.CommandSetResult
@@ -203,6 +203,12 @@ func prependModuleListDiagnostics(result discovery.ModuleListResult, cfgDiags []
 	return result
 }
 
+// LoadConfig loads the request config through the same cache used by discovery
+// without claiming ownership of config diagnostics.
+func (s *DiscoveryService) LoadConfig(ctx context.Context) (*config.Config, []discovery.Diagnostic) {
+	return s.loadConfig(ctx)
+}
+
 // LoadConfigForCommand loads the request config through the same cache used by
 // discovery, and marks config diagnostics as owned by the command service for
 // this request.
@@ -210,7 +216,7 @@ func (s *DiscoveryService) LoadConfigForCommand(ctx context.Context) (*config.Co
 	cfg, cfgDiags := s.loadConfig(ctx)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
-		cache.cfgDiagsConsumed = true
+		cache.cfgDiagsOwnedByCommand = true
 		cache.mu.Unlock()
 	}
 	return cfg, cfgDiags
@@ -349,9 +355,9 @@ func unconsumedConfigDiagnostics(ctx context.Context, diags []discovery.Diagnost
 	}
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
-		consumed := cache.cfgDiagsConsumed
+		ownedByCommand := cache.cfgDiagsOwnedByCommand
 		cache.mu.Unlock()
-		if consumed {
+		if ownedByCommand {
 			return nil
 		}
 	}

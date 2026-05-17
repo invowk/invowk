@@ -56,13 +56,19 @@ func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
-	executor := &recordingInteractiveExecutor{}
-	result, _, err := session.Execute(ctx, inv.Commands[0].Name, true, executor)
+	rt, err := session.RuntimeForContext(ctx)
 	if err != nil {
-		t.Fatalf("Execute() error = %v", err)
+		t.Fatalf("RuntimeForContext() error = %v", err)
 	}
+	interactiveRT := runtime.GetInteractiveRuntime(rt)
+	if interactiveRT == nil {
+		t.Fatalf("RuntimeForContext() returned %T, want interactive runtime", rt)
+	}
+
+	executor := &recordingInteractiveExecutor{}
+	result := executor.Execute(ctx, inv.Commands[0].Name, interactiveRT)
 	if !result.Success() {
-		t.Fatalf("Execute() result = %#v, want success", result)
+		t.Fatalf("interactive Execute() result = %#v, want success", result)
 	}
 
 	if !slices.Contains(executor.args, "internal") || !slices.Contains(executor.args, "exec-virtual") {
@@ -93,26 +99,17 @@ func TestRuntimeRegistryFactorySkipsContainerRuntimeForNonContainerExecution(t *
 		t.Fatalf("Diagnostics = %v, want none", session.Diagnostics())
 	}
 
-	nativeResult, _, err := session.Execute(runtimeContext(t, invowkfile.RuntimeNative), "", false, nil)
-	if err != nil {
-		t.Fatalf("native Execute() error = %v", err)
-	}
+	nativeResult := session.Execute(runtimeContext(t, invowkfile.RuntimeNative))
 	if !nativeResult.Success() {
 		t.Fatalf("native Execute() result = %#v, want success", nativeResult)
 	}
 
-	virtualResult, _, err := session.Execute(runtimeContext(t, invowkfile.RuntimeVirtual), "", false, nil)
-	if err != nil {
-		t.Fatalf("virtual Execute() error = %v", err)
-	}
+	virtualResult := session.Execute(runtimeContext(t, invowkfile.RuntimeVirtual))
 	if !virtualResult.Success() {
 		t.Fatalf("virtual Execute() result = %#v, want success", virtualResult)
 	}
 
-	containerResult, _, err := session.Execute(runtimeContext(t, invowkfile.RuntimeContainer), "", false, nil)
-	if err != nil {
-		t.Fatalf("container Execute() error = %v", err)
-	}
+	containerResult := session.Execute(runtimeContext(t, invowkfile.RuntimeContainer))
 	if !errors.Is(containerResult.Error, runtime.ErrRuntimeNotAvailable) {
 		t.Fatalf("container Execute() error = %v, want ErrRuntimeNotAvailable", containerResult.Error)
 	}

@@ -28,10 +28,11 @@ type (
 	// Commands in a module can ONLY call:
 	//  1. Commands from the same module
 	//  2. Commands from globally installed user command modules (~/.invowk/cmds/)
-	//  3. Commands from first-level requirements (direct dependencies in invowkmod.cue:requires)
+	//  3. Commands from first-level requirements resolved in invowkmod.lock.cue
 	//
 	// CommandScope holds the commands visible to a module, populated post-construction
-	// via AddDirectDependency(). Commands CANNOT call transitive dependencies.
+	// via AddDirectDependency() after requires and lock metadata agree. Commands
+	// CANNOT call transitive dependencies.
 	//
 	// SCOPE ENFORCEMENT BOUNDARY: CanCall() is a static analysis gate enforced at
 	// depends_on.cmds declaration validation time (via CheckCommandDependenciesExist),

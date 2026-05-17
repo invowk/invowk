@@ -203,7 +203,10 @@ func TestConvertBatchFindings_ValidSingleScript(t *testing.T) {
 		{SurfaceID: "test-surface", FilePath: types.FilesystemPath("/test/invowkfile.cue"), CommandName: "deploy"},
 	}
 
-	findings := convertBatchFindings(parsed, batch)
+	findings, err := convertBatchFindings(parsed, batch)
+	if err != nil {
+		t.Fatalf("convertBatchFindings() error = %v", err)
+	}
 	if len(findings) != 1 {
 		t.Fatalf("expected 1 finding, got %d", len(findings))
 	}
@@ -229,9 +232,12 @@ func TestConvertBatchFindings_InvalidSeverity(t *testing.T) {
 	}
 	batch := []ScriptRef{{SurfaceID: "test"}}
 
-	findings := convertBatchFindings(parsed, batch)
+	findings, err := convertBatchFindings(parsed, batch)
 	if len(findings) != 0 {
-		t.Errorf("expected 0 findings (invalid severity discarded), got %d", len(findings))
+		t.Errorf("expected 0 findings for invalid severity, got %d", len(findings))
+	}
+	if !errors.Is(err, ErrLLMMalformedResponse) {
+		t.Fatalf("convertBatchFindings() error = %v, want ErrLLMMalformedResponse", err)
 	}
 }
 
@@ -243,9 +249,12 @@ func TestConvertBatchFindings_InvalidCategory(t *testing.T) {
 	}
 	batch := []ScriptRef{{SurfaceID: "test"}}
 
-	findings := convertBatchFindings(parsed, batch)
+	findings, err := convertBatchFindings(parsed, batch)
 	if len(findings) != 0 {
-		t.Errorf("expected 0 findings (invalid category discarded), got %d", len(findings))
+		t.Errorf("expected 0 findings for invalid category, got %d", len(findings))
+	}
+	if !errors.Is(err, ErrLLMMalformedResponse) {
+		t.Fatalf("convertBatchFindings() error = %v, want ErrLLMMalformedResponse", err)
 	}
 }
 
@@ -260,7 +269,10 @@ func TestConvertBatchFindings_MatchesByCommandName(t *testing.T) {
 		{CommandName: "deploy", SurfaceID: "deploy-surface", FilePath: "deploy.cue"},
 	}
 
-	findings := convertBatchFindings(parsed, batch)
+	findings, err := convertBatchFindings(parsed, batch)
+	if err != nil {
+		t.Fatalf("convertBatchFindings() error = %v", err)
+	}
 	if len(findings) != 1 {
 		t.Fatalf("expected 1 finding, got %d", len(findings))
 	}
@@ -280,7 +292,10 @@ func TestConvertBatchFindings_MatchesByScriptID(t *testing.T) {
 		{ScriptID: scriptPromptID(&batch[1]), Severity: "high", Category: "execution", CommandName: "deploy", Title: "RCE"},
 	}
 
-	findings := convertBatchFindings(parsed, batch)
+	findings, err := convertBatchFindings(parsed, batch)
+	if err != nil {
+		t.Fatalf("convertBatchFindings() error = %v", err)
+	}
 	if len(findings) != 1 {
 		t.Fatalf("expected 1 finding, got %d", len(findings))
 	}
@@ -300,9 +315,12 @@ func TestConvertBatchFindings_DropsUnknownMultiScriptAttribution(t *testing.T) {
 		{CommandName: "deploy", SurfaceID: "deploy-surface", FilePath: "deploy.cue"},
 	}
 
-	findings := convertBatchFindings(parsed, batch)
+	findings, err := convertBatchFindings(parsed, batch)
 	if len(findings) != 0 {
 		t.Fatalf("expected 0 findings for unknown multi-script attribution, got %d", len(findings))
+	}
+	if !errors.Is(err, ErrLLMMalformedResponse) {
+		t.Fatalf("convertBatchFindings() error = %v, want ErrLLMMalformedResponse", err)
 	}
 }
 
@@ -316,7 +334,10 @@ func TestConvertBatchFindings_SingleScriptFallback(t *testing.T) {
 		{CommandName: "build", SurfaceID: "build-surface", FilePath: "build.cue"},
 	}
 
-	findings := convertBatchFindings(parsed, batch)
+	findings, err := convertBatchFindings(parsed, batch)
+	if err != nil {
+		t.Fatalf("convertBatchFindings() error = %v", err)
+	}
 	if len(findings) != 1 {
 		t.Fatalf("expected 1 finding, got %d", len(findings))
 	}
