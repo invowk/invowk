@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -407,6 +408,10 @@ func TestRunWatchMode_ReexecutionUsesResolvedCommandRequest(t *testing.T) {
 	}
 	if len(commands.requests) != 2 {
 		t.Fatalf("execute request count = %d, want initial + change", len(commands.requests))
+	}
+	wantBaseDir := filepath.Join(filepath.Dir(string(cmdInfo.FilePath)), "src")
+	if watchers.cfg.BaseDir != types.FilesystemPath(wantBaseDir) {
+		t.Fatalf("watch BaseDir = %q, want resolved --ivk-workdir %q", watchers.cfg.BaseDir, wantBaseDir)
 	}
 	for i, req := range commands.requests {
 		if req.Name != "tools build" || len(req.Args) != 1 || req.Args[0] != "linux" {

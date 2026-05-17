@@ -6,8 +6,8 @@ package tuiwire
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
+
+	"github.com/invowk/invowk/internal/tui/component"
 )
 
 // Environment variable names for TUI server communication.
@@ -20,33 +20,33 @@ const (
 	EnvTUIToken = "INVOWK_TUI_TOKEN"
 
 	// ComponentInput represents the text input component.
-	ComponentInput Component = "input"
+	ComponentInput Component = component.TypeInput
 	// ComponentConfirm represents the yes/no confirmation component.
-	ComponentConfirm Component = "confirm"
+	ComponentConfirm Component = component.TypeConfirm
 	// ComponentChoose represents the single/multi-select component.
-	ComponentChoose Component = "choose"
+	ComponentChoose Component = component.TypeChoose
 	// ComponentFilter represents the filterable list component.
-	ComponentFilter Component = "filter"
+	ComponentFilter Component = component.TypeFilter
 	// ComponentFile represents the file picker component.
-	ComponentFile Component = "file"
+	ComponentFile Component = component.TypeFile
 	// ComponentWrite represents the styled text output component.
-	ComponentWrite Component = "write"
+	ComponentWrite Component = component.TypeWrite
 	// ComponentTextArea represents the multi-line text input component.
-	ComponentTextArea Component = "textarea"
+	ComponentTextArea Component = component.TypeTextArea
 	// ComponentSpin represents the spinner/loading component.
-	ComponentSpin Component = "spin"
+	ComponentSpin Component = component.TypeSpin
 	// ComponentPager represents the scrollable text viewer component.
-	ComponentPager Component = "pager"
+	ComponentPager Component = component.TypePager
 	// ComponentTable represents the table selection component.
-	ComponentTable Component = "table"
+	ComponentTable Component = component.TypeTable
 )
 
 // ErrInvalidComponent is returned when a Component value is not one of the defined types.
-var ErrInvalidComponent = errors.New("invalid component")
+var ErrInvalidComponent = component.ErrInvalidType
 
 type (
 	// Component represents a delegated TUI component type.
-	Component string
+	Component = component.Type
 
 	// Request is the common wrapper for all TUI requests.
 	Request struct {
@@ -228,33 +228,5 @@ type (
 
 	// InvalidComponentError is returned when a Component value is not recognized.
 	// It wraps ErrInvalidComponent for errors.Is() compatibility.
-	InvalidComponentError struct {
-		Value Component
-	}
+	InvalidComponentError = component.InvalidTypeError
 )
-
-// Error implements the error interface for InvalidComponentError.
-func (e *InvalidComponentError) Error() string {
-	return fmt.Sprintf("invalid component %q (valid: input, confirm, choose, filter, file, write, textarea, spin, pager, table)", e.Value)
-}
-
-// Unwrap returns the sentinel error for errors.Is() compatibility.
-func (e *InvalidComponentError) Unwrap() error {
-	return ErrInvalidComponent
-}
-
-// Validate returns nil if the Component is one of the defined component types,
-// or an error wrapping ErrInvalidComponent if it is not.
-func (c Component) Validate() error {
-	switch c {
-	case ComponentInput, ComponentConfirm, ComponentChoose, ComponentFilter,
-		ComponentFile, ComponentWrite, ComponentTextArea, ComponentSpin,
-		ComponentPager, ComponentTable:
-		return nil
-	default:
-		return &InvalidComponentError{Value: c}
-	}
-}
-
-// String returns the string representation of the Component.
-func (c Component) String() string { return string(c) }

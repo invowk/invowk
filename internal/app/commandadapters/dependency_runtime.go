@@ -133,12 +133,12 @@ func (p dependencyRuntimeProbe) CheckEnvVar(envVar invowkfile.EnvVarCheck) error
 
 // CheckCapability validates a capability dependency against the selected container runtime.
 func (p dependencyRuntimeProbe) CheckCapability(capability invowkfile.CapabilityName) error {
-	script := deps.CapabilityCheckScript(capability)
+	script := capabilityCheckScript(capability)
 	if script == "" {
 		return fmt.Errorf("%s - unknown capability", capability)
 	}
 
-	result, _, _, err := p.runContainerValidation(script)
+	result, _, _, err := p.runContainerValidation(script.String())
 	if err != nil {
 		return fmt.Errorf("%w for capability %s", err, capability)
 	}
@@ -146,6 +146,22 @@ func (p dependencyRuntimeProbe) CheckCapability(capability invowkfile.Capability
 		return nil
 	}
 	return fmt.Errorf("%s - not available in container", capability)
+}
+
+// capabilityCheckScript returns a POSIX shell probe for a container capability.
+func capabilityCheckScript(capName invowkfile.CapabilityName) containerValidationScript {
+	switch capName {
+	case invowkfile.CapabilityInternet:
+		return "ping -c 1 -W 2 8.8.8.8 2>/dev/null || curl -sf --max-time 2 https://google.com >/dev/null 2>&1"
+	case invowkfile.CapabilityContainers:
+		return "command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1"
+	case invowkfile.CapabilityLocalAreaNetwork:
+		return "ip route 2>/dev/null | grep -q default || route -n 2>/dev/null | grep -q '^0.0.0.0'"
+	case invowkfile.CapabilityTTY:
+		return "test -t 0"
+	default:
+		return ""
+	}
 }
 
 // CheckCommand validates command discoverability against the selected container runtime.

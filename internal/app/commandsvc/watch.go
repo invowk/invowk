@@ -27,6 +27,9 @@ type (
 	// that cause watch mode to abort.
 	WatchInfraErrorLimit int
 
+	// WatchPlanOption configures watch plan construction.
+	WatchPlanOption func(*watchPlanOptions)
+
 	// WatchPlan contains command watch configuration derived from the resolved
 	// command definition. Adapters own filesystem watching and rendering.
 	//
@@ -67,6 +70,10 @@ type (
 	// InvalidWatchPlanError reports invalid watch configuration on a command.
 	InvalidWatchPlanError struct {
 		Err error
+	}
+
+	watchPlanOptions struct {
+		workdirOverride invowkfile.WorkDir
 	}
 )
 
@@ -111,8 +118,32 @@ func (e *InvalidWatchPlanError) Unwrap() error {
 	return e.Err
 }
 
+// WithWatchWorkdirOverride applies a request-level workdir override to the watch base directory.
+func WithWatchWorkdirOverride(workdir invowkfile.WorkDir) WatchPlanOption {
+	return func(opts *watchPlanOptions) {
+		opts.workdirOverride = workdir
+	}
+}
+
+// Validate returns nil when watch plan options contain valid typed fields.
+func (o watchPlanOptions) Validate() error {
+	if o.workdirOverride != "" {
+		return o.workdirOverride.Validate()
+	}
+	return nil
+}
+
 // NewWatchPlan builds the app-owned watch plan for a resolved command.
-func NewWatchPlan(cmdInfo *discovery.CommandInfo) (WatchPlan, error) {
+func NewWatchPlan(cmdInfo *discovery.CommandInfo, opts ...WatchPlanOption) (WatchPlan, error) {
+	options := watchPlanOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
+	if err := options.Validate(); err != nil {
+		return WatchPlan{}, &InvalidWatchPlanError{Err: err}
+	}
 	plan := WatchPlan{
 		Patterns:             []invowkfile.GlobPattern{defaultWatchPattern},
 		InfraErrorAbortLimit: defaultWatchInfraErrorLimit,
@@ -140,6 +171,9 @@ func NewWatchPlan(cmdInfo *discovery.CommandInfo) (WatchPlan, error) {
 	}
 
 	baseDir := string(cmdInfo.Command.WorkDir)
+	if options.workdirOverride != "" {
+		baseDir = string(options.workdirOverride)
+	}
 	// Unix-style absolute paths (leading '/') are container-absolute and must
 	// pass through unchanged on every platform. On Windows, filepath.IsAbs("/foo")
 	// returns false, so this guard must precede IsAbs to avoid joining the path

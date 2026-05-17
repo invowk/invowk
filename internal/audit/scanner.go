@@ -213,7 +213,7 @@ func ensureFindingCodes(findings []Finding) {
 // DefaultCheckers returns the full set of built-in security checkers.
 func DefaultCheckers() []Checker {
 	return []Checker{
-		NewLockFileChecker(),
+		NewLockFileChecker(WithHashEvaluator(vendoredHashEvaluatorFunc(invowkmod.EvaluateVendoredModuleHash))),
 		NewScriptChecker(),
 		NewNetworkChecker(),
 		NewEnvChecker(),

@@ -237,41 +237,13 @@ func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime
 }
 
 func newPersistentContainerPlan(execCtx *runtime.ExecutionContext, impl *invowkfile.Implementation) containerplan.PersistentPlan {
-	var commandFullName, commandName invowkfile.CommandName
-	var invowkfilePath invowkfile.FilesystemPath
-	var containerNameOverride invowkfile.ContainerName
-	if execCtx != nil {
-		containerNameOverride = execCtx.ContainerNameOverride
-		commandFullName = execCtx.CommandFullName
-		if execCtx.Command != nil {
-			commandName = execCtx.Command.Name
-		}
-		if execCtx.Invowkfile != nil {
-			invowkfilePath = execCtx.Invowkfile.FilePath
-		}
-	}
 	var persistentConfig *invowkfile.RuntimePersistentConfig
 	if impl != nil && execCtx != nil {
 		if rtConfig := impl.GetRuntimeConfig(execCtx.SelectedRuntime); rtConfig != nil {
 			persistentConfig = rtConfig.Persistent
 		}
 	}
-	opts := []containerplan.PersistentRequestOption{
-		containerplan.WithContainerNameOverride(containerNameOverride),
-		containerplan.WithConfig(persistentConfig),
-	}
-	if commandFullName != "" {
-		fullName := containerplan.CommandNamespace(commandFullName)
-		opts = append(opts, containerplan.WithCommandFullName(&fullName))
-	}
-	if commandName != "" {
-		name := containerplan.CommandNamespace(commandName)
-		opts = append(opts, containerplan.WithCommandName(&name))
-	}
-	if invowkfilePath != "" {
-		opts = append(opts, containerplan.WithInvowkfilePath(&invowkfilePath))
-	}
-	req, err := containerplan.NewPersistentRequest(opts...)
+	req, err := execCtx.PersistentContainerRequest(persistentConfig)
 	if err != nil {
 		return containerplan.EphemeralPlan()
 	}

@@ -25,7 +25,7 @@ func TestCreateOptions_Validate(t *testing.T) {
 		{
 			"valid complete options",
 			CreateOptions{
-				Name:        ModuleShortName("mymodule"),
+				Name:        ModuleDirectoryName("mymodule"),
 				ParentDir:   types.FilesystemPath(filepath.Join(tmpDir, "projects")),
 				Module:      ModuleID("io.example.mymodule"),
 				Description: types.DescriptionText("A test module"),
@@ -40,14 +40,14 @@ func TestCreateOptions_Validate(t *testing.T) {
 		{
 			"valid minimal (only name)",
 			CreateOptions{
-				Name: ModuleShortName("mymodule"),
+				Name: ModuleDirectoryName("mymodule"),
 			},
 			true, false, 0,
 		},
 		{
 			"valid with empty optional fields",
 			CreateOptions{
-				Name:      ModuleShortName("mymodule"),
+				Name:      ModuleDirectoryName("mymodule"),
 				ParentDir: types.FilesystemPath(filepath.Join(tmpDir, "some-dir")),
 			},
 			true, false, 0,
@@ -55,14 +55,14 @@ func TestCreateOptions_Validate(t *testing.T) {
 		{
 			"invalid name (starts with digit)",
 			CreateOptions{
-				Name: ModuleShortName("1invalid"),
+				Name: ModuleDirectoryName("1invalid"),
 			},
 			false, true, 1,
 		},
 		{
 			"invalid module ID",
 			CreateOptions{
-				Name:   ModuleShortName("mymodule"),
+				Name:   ModuleDirectoryName("mymodule"),
 				Module: ModuleID("1bad"),
 			},
 			false, true, 1,
@@ -70,7 +70,7 @@ func TestCreateOptions_Validate(t *testing.T) {
 		{
 			"invalid description (whitespace-only)",
 			CreateOptions{
-				Name:        ModuleShortName("mymodule"),
+				Name:        ModuleDirectoryName("mymodule"),
 				Description: types.DescriptionText("   "),
 			},
 			false, true, 1,
@@ -78,7 +78,7 @@ func TestCreateOptions_Validate(t *testing.T) {
 		{
 			"multiple invalid fields",
 			CreateOptions{
-				Name:        ModuleShortName("1invalid"),
+				Name:        ModuleDirectoryName("1invalid"),
 				Module:      ModuleID("1bad"),
 				Description: types.DescriptionText("   "),
 			},

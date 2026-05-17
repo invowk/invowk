@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/platform"
@@ -458,6 +459,31 @@ func NewExecutionContext(ctx context.Context, cmd *invowkfile.Command, inv *invo
 		Env:             DefaultEnv(),
 		// TUI: zero value is fine (not configured by default)
 	}
+}
+
+// PersistentContainerRequest returns the planning request used for persistent container targeting.
+func (ctx *ExecutionContext) PersistentContainerRequest(cfg *invowkfile.RuntimePersistentConfig) (containerplan.PersistentRequest, error) {
+	opts := []containerplan.PersistentRequestOption{
+		containerplan.WithConfig(cfg),
+	}
+	if ctx == nil {
+		return containerplan.NewPersistentRequest(opts...)
+	}
+	opts = append(opts,
+		containerplan.WithContainerNameOverride(ctx.ContainerNameOverride),
+	)
+	if ctx.CommandFullName != "" {
+		commandFullName := containerplan.CommandNamespace(ctx.CommandFullName)
+		opts = append(opts, containerplan.WithCommandFullName(&commandFullName))
+	}
+	if ctx.Command != nil {
+		commandName := containerplan.CommandNamespace(ctx.Command.Name)
+		opts = append(opts, containerplan.WithCommandName(&commandName))
+	}
+	if ctx.Invowkfile != nil {
+		opts = append(opts, containerplan.WithInvowkfilePath(&ctx.Invowkfile.FilePath))
+	}
+	return containerplan.NewPersistentRequest(opts...)
 }
 
 // EffectiveWorkDir determines the working directory using the hierarchical override model.

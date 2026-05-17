@@ -56,7 +56,8 @@ func runModuleCreate(ctx context.Context, args []string, createPath string, crea
 	moduleName := args[0]
 
 	// Validate module name first
-	if err := invowkmod.ValidateName(invowkmod.ModuleShortName(moduleName)); err != nil {
+	directoryName := invowkmod.ModuleDirectoryName(moduleName)
+	if err := invowkmod.ValidateName(directoryName); err != nil {
 		return err
 	}
 
@@ -64,7 +65,7 @@ func runModuleCreate(ctx context.Context, args []string, createPath string, crea
 
 	// Create the module
 	opts := invowkmod.CreateOptions{
-		Name:             invowkmod.ModuleShortName(moduleName),
+		Name:             directoryName,
 		ParentDir:        types.FilesystemPath(createPath),
 		Module:           invowkmod.ModuleID(createModule),
 		Description:      types.DescriptionText(createDescription),

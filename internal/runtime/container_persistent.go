@@ -15,7 +15,6 @@ import (
 
 	"github.com/invowk/invowk/internal/container"
 	"github.com/invowk/invowk/internal/containerplan"
-	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 const (
@@ -67,35 +66,7 @@ func resolvePersistentContainerTarget(ctx *ExecutionContext, cfg invowkfileConta
 }
 
 func persistentContainerPlan(ctx *ExecutionContext, cfg invowkfileContainerConfig) containerplan.PersistentPlan {
-	var commandFullName, commandName invowkfile.CommandName
-	var invowkfilePath invowkfile.FilesystemPath
-	var containerNameOverride invowkfile.ContainerName
-	if ctx != nil {
-		containerNameOverride = ctx.ContainerNameOverride
-		commandFullName = ctx.CommandFullName
-		if ctx.Command != nil {
-			commandName = ctx.Command.Name
-		}
-		if ctx.Invowkfile != nil {
-			invowkfilePath = ctx.Invowkfile.FilePath
-		}
-	}
-	opts := []containerplan.PersistentRequestOption{
-		containerplan.WithContainerNameOverride(containerNameOverride),
-		containerplan.WithConfig(cfg.Persistent),
-	}
-	if commandFullName != "" {
-		fullName := containerplan.CommandNamespace(commandFullName)
-		opts = append(opts, containerplan.WithCommandFullName(&fullName))
-	}
-	if commandName != "" {
-		name := containerplan.CommandNamespace(commandName)
-		opts = append(opts, containerplan.WithCommandName(&name))
-	}
-	if invowkfilePath != "" {
-		opts = append(opts, containerplan.WithInvowkfilePath(&invowkfilePath))
-	}
-	req, err := containerplan.NewPersistentRequest(opts...)
+	req, err := ctx.PersistentContainerRequest(cfg.Persistent)
 	if err != nil {
 		return containerplan.EphemeralPlan()
 	}

@@ -86,7 +86,7 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)
 
-	plan, err := commandsvc.NewWatchPlan(cmdInfo)
+	plan, err := commandsvc.NewWatchPlan(cmdInfo, commandsvc.WithWatchWorkdirOverride(resolvedReq.Workdir))
 	if err != nil {
 		return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
 	}

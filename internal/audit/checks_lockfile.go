@@ -16,13 +16,48 @@ const (
 	lockFileCheckerName = "lockfile"
 )
 
-// LockFileChecker validates lock file integrity: hash mismatches, orphaned or
-// missing entries, version checks, and size limits. Only operates on modules
-// (standalone invowkfiles have no lock files).
-type LockFileChecker struct{}
+type (
+	// VendoredHashEvaluator evaluates one vendored module against lock-file hash metadata.
+	VendoredHashEvaluator interface {
+		EvaluateVendoredModuleHash(lock *invowkmod.LockFile, module *invowkmod.Module) invowkmod.VendoredHashEvaluation
+	}
+
+	// LockFileCheckerOption configures lock-file checker dependencies.
+	LockFileCheckerOption func(*LockFileChecker)
+
+	// LockFileChecker validates lock file integrity: hash mismatches, orphaned or
+	// missing entries, version checks, and size limits. Only operates on modules
+	// (standalone invowkfiles have no lock files).
+	LockFileChecker struct {
+		hashEvaluator VendoredHashEvaluator
+	}
+
+	vendoredHashEvaluatorFunc func(*invowkmod.LockFile, *invowkmod.Module) invowkmod.VendoredHashEvaluation
+)
+
+func (f vendoredHashEvaluatorFunc) EvaluateVendoredModuleHash(lock *invowkmod.LockFile, module *invowkmod.Module) invowkmod.VendoredHashEvaluation {
+	return f(lock, module)
+}
 
 // NewLockFileChecker creates a LockFileChecker.
-func NewLockFileChecker() *LockFileChecker { return &LockFileChecker{} }
+func NewLockFileChecker(opts ...LockFileCheckerOption) *LockFileChecker {
+	checker := &LockFileChecker{
+		hashEvaluator: vendoredHashEvaluatorFunc(invowkmod.EvaluateVendoredModuleHash),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(checker)
+		}
+	}
+	return checker
+}
+
+// WithHashEvaluator sets the hash evaluator used by the lock-file checker.
+func WithHashEvaluator(evaluator VendoredHashEvaluator) LockFileCheckerOption {
+	return func(checker *LockFileChecker) {
+		checker.hashEvaluator = evaluator
+	}
+}
 
 // Name returns the checker identifier.
 func (c *LockFileChecker) Name() string { return lockFileCheckerName }
@@ -216,7 +251,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 		default:
 		}
 
-		evaluation := invowkmod.EvaluateVendoredModuleHash(mod.LockFile, vendored)
+		evaluation := c.hashEvaluator.EvaluateVendoredModuleHash(mod.LockFile, vendored)
 		vendoredID := evaluation.ModuleID
 		vendoredPath := pathByVendoredID[vendoredID]
 		if vendoredPath == "" {

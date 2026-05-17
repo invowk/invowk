@@ -105,17 +105,17 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
 	for req := range server.RequestChannel() {
 		responseCh := make(chan tui.ComponentResponse, 1)
-		options, err := componentRequestFromProtocol(tui.ComponentType(req.Component), req.Options)
+		options, err := componentRequestFromProtocol(req.Component, req.Options)
 		if err != nil {
 			req.ResponseCh <- tuiserver.Response{Error: err.Error()}
 			continue
 		}
 		program.Send(tui.TUIComponentMsg{
-			Component:  tui.ComponentType(req.Component),
+			Component:  req.Component,
 			Options:    options,
 			ResponseCh: responseCh,
 		})
-		go forwardComponentResponse(tui.ComponentType(req.Component), responseCh, req.ResponseCh)
+		go forwardComponentResponse(req.Component, responseCh, req.ResponseCh)
 	}
 }
 

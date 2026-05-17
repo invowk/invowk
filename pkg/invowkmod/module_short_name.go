@@ -13,31 +13,45 @@ var (
 	// the required format.
 	ErrInvalidModuleShortName = errors.New("invalid module short name")
 
+	// ErrInvalidModuleDirectoryName is returned when a ModuleDirectoryName value
+	// does not match the required format.
+	ErrInvalidModuleDirectoryName = errors.New("invalid module directory name")
+
 	// moduleShortNamePattern validates the ModuleShortName format: starts with a letter,
 	// followed by letters, digits, dots, underscores, or hyphens.
-	// This matches the naming rules for .invowkmod directory names (the folder name
-	// prefix before the .invowkmod suffix). It is intentionally broader than moduleIDPattern
-	// (which only allows dot-separated alphanumeric segments) because folder names may
-	// contain hyphens and underscores for filesystem convenience.
+	// This supports source namespace derivation from repository and subdirectory basenames.
 	moduleShortNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
+
+	// moduleDirectoryNamePattern validates the .invowkmod folder prefix format.
+	moduleDirectoryNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 )
 
 type (
-	// ModuleShortName represents the module folder name without the .invowkmod suffix.
-	// For example, "io.invowk.sample" from "io.invowk.sample.invowkmod".
-	// Using a named type prevents accidental confusion with ModuleID, SourceID,
-	// or other string identifiers.
+	// ModuleShortName represents source namespace material derived from module
+	// paths, repository basenames, or monorepo subdirectories.
 	ModuleShortName string
+
+	// ModuleDirectoryName represents a real .invowkmod directory name without the suffix.
+	ModuleDirectoryName string
 
 	// InvalidModuleShortNameError is returned when a ModuleShortName value does not match
 	// the required format. It wraps ErrInvalidModuleShortName for errors.Is() compatibility.
 	InvalidModuleShortNameError struct {
 		Value ModuleShortName
 	}
+
+	// InvalidModuleDirectoryNameError is returned when a ModuleDirectoryName value
+	// does not match the required format. It wraps ErrInvalidModuleDirectoryName.
+	InvalidModuleDirectoryNameError struct {
+		Value ModuleDirectoryName
+	}
 )
 
 // String returns the string representation of the ModuleShortName.
 func (n ModuleShortName) String() string { return string(n) }
+
+// String returns the string representation of the ModuleDirectoryName.
+func (n ModuleDirectoryName) String() string { return string(n) }
 
 //goplint:nonzero
 
@@ -47,6 +61,16 @@ func (n ModuleShortName) String() string { return string(n) }
 func (n ModuleShortName) Validate() error {
 	if n == "" || !moduleShortNamePattern.MatchString(string(n)) {
 		return &InvalidModuleShortNameError{Value: n}
+	}
+	return nil
+}
+
+//goplint:nonzero
+
+// Validate returns nil if the ModuleDirectoryName matches the .invowkmod folder prefix format.
+func (n ModuleDirectoryName) Validate() error {
+	if n == "" || !moduleDirectoryNamePattern.MatchString(string(n)) {
+		return &InvalidModuleDirectoryNameError{Value: n}
 	}
 	return nil
 }
@@ -62,4 +86,17 @@ func (e *InvalidModuleShortNameError) Error() string {
 // Unwrap returns the sentinel error for errors.Is() compatibility.
 func (e *InvalidModuleShortNameError) Unwrap() error {
 	return ErrInvalidModuleShortName
+}
+
+// Error implements the error interface for InvalidModuleDirectoryNameError.
+func (e *InvalidModuleDirectoryNameError) Error() string {
+	return fmt.Sprintf(
+		"invalid module directory name %q: must start with a letter and contain only alphanumeric characters, with optional dot-separated segments",
+		string(e.Value),
+	)
+}
+
+// Unwrap returns the sentinel error for errors.Is() compatibility.
+func (e *InvalidModuleDirectoryNameError) Unwrap() error {
+	return ErrInvalidModuleDirectoryName
 }
