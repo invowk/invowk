@@ -495,6 +495,24 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
 		}
 	})
+
+	t.Run("denies source matching global module id without discovered global source", func(t *testing.T) {
+		t.Parallel()
+
+		globalScope := NewCommandScope("io.example.caller", []ModuleID{"io.example.global"}, nil)
+
+		decision := globalScope.CanCallTarget(CommandTarget{
+			Reference: "io.example.global lint",
+			SourceID:  "io.example.global",
+			ModuleID:  "io.example.other",
+		})
+		if decision.Allowed {
+			t.Fatalf("CanCallTarget() allowed global module id as source fallback: %+v", decision)
+		}
+		if decision.Reason != CommandScopeDenyInaccessible {
+			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+		}
+	})
 }
 
 func TestExtractModuleFromCommand(t *testing.T) {

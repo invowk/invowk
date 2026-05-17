@@ -170,7 +170,8 @@ func (d CommandScopeDecision) Validate() error {
 // NewCommandScope creates a CommandScope for a parsed module.
 // globalModuleIDs should contain module IDs from ~/.invowk/cmds/
 // directRequirements is accepted for API compatibility. Direct dependency
-// sources are added only after discovery and lock-file identity checks.
+// sources and global command sources are added only after discovery metadata
+// identifies the actual command namespace.
 func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequirements []ModuleRequirement) *CommandScope {
 	scope := &CommandScope{
 		ModuleID:                moduleID,
@@ -184,7 +185,6 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 
 	for _, id := range globalModuleIDs {
 		scope.GlobalModules[id] = true
-		scope.GlobalSources[ModuleSourceID(id)] = true
 	}
 
 	_ = directRequirements
