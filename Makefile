@@ -382,7 +382,7 @@ else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
 
-# Fetch SonarCloud quality gate status and unresolved issues via REST API
+# Fetch SonarCloud quality gate status and fail on unresolved issues via REST API.
 .PHONY: sonar-local
 sonar-local:
 	@./scripts/sonar-local.sh
@@ -563,7 +563,7 @@ help:
 	@echo "  check-cfg-refinement Run Phase C refinement gate for tools/goplint"
 	@echo "  check-cfg-alias  Run Phase D alias gate for opt-in SSA alias verification"
 	@echo "  lint-scripts     Lint shell scripts (requires shellcheck)"
-	@echo "  sonar-local      Fetch SonarCloud quality gate and unresolved issues (API-only)"
+	@echo "  sonar-local      Fail on SonarCloud quality gate or unresolved issues (API-only)"
 	@echo "  check-agent-docs Validate AGENTS/rules/skills governance docs integrity"
 	@echo "  test-scripts     Run install script tests (POSIX; PS1 on Windows CI)"
 	@echo "  install-hooks    Install pre-commit hooks (requires pre-commit)"

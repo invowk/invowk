@@ -57,5 +57,5 @@ repos:
         entry: "bash -c 'make sonar-local 2>&1'"
         language: system
         pass_filenames: false
-        files: '^(sonar-project\.properties$|\.sonarcloud\.properties$|scripts/sonar-local\.sh$|Makefile$|\.pre-commit-config\.yaml$)'
+        always_run: true
         verbose: true

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MPL-2.0
 
 # Fetch SonarCloud quality gate status and unresolved issues via REST API.
+# Fails when SonarCloud reports any unresolved issue: each finding must be
+# fixed in code or explicitly accepted/marked false-positive in SonarCloud.
 #
 # Uses results from SonarCloud's Automatic Analysis — no local scanner.
 #
@@ -263,6 +265,10 @@ main() {
 	echo "Unresolved Sonar issues: $issue_count"
 	echo "Issues JSON report: $ISSUES_JSON"
 	print_issue_table "$issue_count"
+
+	if (( issue_count > 0 )); then
+		fail "Sonar has ${issue_count} unresolved issue(s); fix them or mark them accepted/false-positive in SonarCloud"
+	fi
 }
 
 main "$@"
