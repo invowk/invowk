@@ -248,12 +248,12 @@ cmds: [
 				// Multi-line scripts use triple quotes
 				script: """
 					echo "Building ${PROJECT_NAME}..."
-					go build -o bin/app ./...
+					echo "Build complete"
 					"""
 				// Allowed runtimes (first is default). Container runtime requires image or containerfile.
 				runtimes: [
 					{name: "native"},
-					{name: "container", image: "golang:1.26"},
+					{name: "container", image: "debian:stable-slim"},
 				]
 				platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
 				// Environment variables for this implementation
@@ -1012,20 +1012,20 @@ Dependencies can also be specified at the script level, which is especially usef
 ```cue
 cmds: [
 	{
-		name: "docker-build"
+		name: "container-check"
 		implementations: [
 			{
-				script: "go build -o /workspace/bin/app ./..."
+				script: "test -f /workspace/invowkfile.cue && echo ready"
 				runtimes: [{
 					name: "container"
-					image: "golang:1.26"
+					image: "debian:stable-slim"
 					// Runtime-level depends_on — validated inside the container
 					depends_on: {
 						tools: [
-							{alternatives: ["go"]},
+							{alternatives: ["sh"]},
 						]
 						filepaths: [
-							{alternatives: ["/workspace/go.mod"]},
+							{alternatives: ["/workspace/invowkfile.cue"]},
 						]
 					}
 				}]
@@ -2291,8 +2291,8 @@ cmds: [
 > The container runtime **requires Linux-based container images** (e.g., `debian:stable-slim`).
 >
 > **NOT supported:**
-> - **Alpine-based images** (`alpine:*`) - musl-based environments have subtle behavioral differences that reduce runtime reliability
-> - **Windows container images** (`mcr.microsoft.com/windows/*`) - No POSIX shell available
+> - **Alpine-based images** - musl-based environments have subtle behavioral differences that reduce runtime reliability
+> - **Windows container images** - No POSIX shell available
 >
 > **Platform compatibility:**
 > - **Linux with Docker/Podman**: Works natively
@@ -2955,7 +2955,7 @@ Additional automatic escalation rules:
 
 ### LLM-Powered Analysis
 
-For deeper semantic analysis beyond regex patterns, enable LLM-powered auditing with `--llm-provider` or `--llm`. This sends script content to a local CLI tool or remote/local OpenAI-compatible API for reasoning about novel attack vectors, subtle logic flaws, and context-dependent security issues. Bare `invowk audit` never uses global LLM config by itself; pass `--llm` to opt in to a configured backend.
+For deeper semantic analysis beyond regex patterns, enable LLM-powered auditing with `--llm-provider` or `--llm`. This sends script content to a local CLI tool or remote/local OpenAI-compatible API for reasoning about novel attack vectors, subtle logic flaws, and context-dependent security issues. API-backed providers must support OpenAI-compatible chat completions and model listing because invowk verifies the configured model before scanning. Bare `invowk audit` never uses global LLM config by itself; pass `--llm` to opt in to a configured backend.
 
 ```bash
 # Configure once, then explicitly opt in per audit run
@@ -3243,7 +3243,8 @@ export SONAR_PROJECT_KEY=invowk_invowk
 ```
 
 The command writes reports to `.sonar/reports/` (quality-gate.json, issues.json)
-and fails if the Sonar quality gate is red for the analyzed branch.
+and fails if the Sonar quality gate is red for the analyzed branch or if
+SonarCloud reports unresolved issues.
 
 When pre-commit hooks are installed, the `sonar-local` hook runs on changes to
 Sonar configuration files and blocks the commit on quality gate failures.

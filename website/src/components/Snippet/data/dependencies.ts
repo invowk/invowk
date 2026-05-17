@@ -216,12 +216,12 @@ cmds: [...]`,
     name: "build"
     implementations: [
         {
-            script: "go build ./..."
-            runtimes: [{name: "container", image: "golang:1.26"}]
+            script: "echo checking container dependencies"
+            runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
             depends_on: {
                 // Validated INSIDE the container
-                tools: [{alternatives: ["go"]}]
+                tools: [{alternatives: ["sh"]}]
             }
         }
     ]
@@ -324,14 +324,14 @@ Install the missing tools and try again.`,
     name: "build"
     implementations: [
         {
-            script: "go build ./..."
+            script: "test -f /workspace/invowkfile.cue && echo ready"
             runtimes: [{
                 name: "container"
-                image: "golang:1.26"
+                image: "debian:stable-slim"
                 depends_on: {
                     // Checked INSIDE the container
-                    tools: [{alternatives: ["go"]}]
-                    filepaths: [{alternatives: ["/workspace/go.mod"]}]
+                    tools: [{alternatives: ["sh"]}]
+                    filepaths: [{alternatives: ["/workspace/invowkfile.cue"]}]
                 }
             }]
             platforms: [{name: "linux"}]
@@ -502,13 +502,13 @@ Install the missing tools and try again.`,
     code: `{
     name: "build"
     implementations: [{
-        script: "go build ./..."
+        script: "echo running inside container"
         runtimes: [{
             name: "container"
-            image: "golang:1.26"
+            image: "debian:stable-slim"
             depends_on: {
-                // This checks for 'go' INSIDE the container
-                tools: [{alternatives: ["go"]}]
+                // This checks for 'sh' INSIDE the container
+                tools: [{alternatives: ["sh"]}]
             }
         }]
         platforms: [{name: "linux"}]
@@ -1258,17 +1258,17 @@ Install the missing tools and try again.`,
     code: `{
     name: "build"
     implementations: [{
-        script: "npm run build"
+        script: "echo running custom checks"
         runtimes: [{
             name: "container"
-            image: "node:22-slim"
+            image: "debian:stable-slim"
             depends_on: {
                 custom_checks: [
                     {
-                        name: "node-version"
+                        name: "shell-ready"
                         // This runs INSIDE the container
-                        check_script: "node --version"
-                        expected_output: "^v20\."
+                        check_script: "test -x /bin/sh && echo ok"
+                        expected_output: "^ok$"
                     }
                 ]
             }
@@ -1493,16 +1493,15 @@ check_script: """
     code: `{
     name: "build"
     implementations: [{
-        script: "go build ./..."
+        script: "test -f /workspace/invowkfile.cue && echo ready"
         runtimes: [{
             name: "container"
-            image: "golang:1.26"
+            image: "debian:stable-slim"
             depends_on: {
                 filepaths: [
                     // These are checked INSIDE the container
                     // /workspace is where your project is mounted
-                    {alternatives: ["/workspace/go.mod"]},
-                    {alternatives: ["/workspace/go.sum"]},
+                    {alternatives: ["/workspace/invowkfile.cue"]},
                 ]
             }
         }]

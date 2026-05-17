@@ -666,14 +666,14 @@ invowk cmd build --ivk-env-var NODE_ENV=dev --ivk-env-var DEBUG=true --ivk-env-v
     name: "build"
     env: {
         vars: {
-            GOOS: "linux"
-            GOARCH: "amd64"
-            CGO_ENABLED: "0"
+            TARGET_OS: "linux"
+            TARGET_ARCH: "amd64"
+            BUILD_MODE: "release"
         }
     }
     implementations: [{
-        script: "go build -o /workspace/bin/app ./..."
-        runtimes: [{name: "container", image: "golang:1.26"}]
+        script: "echo $TARGET_OS/$TARGET_ARCH in $BUILD_MODE mode"
+        runtimes: [{name: "container", image: "debian:stable-slim"}]
         platforms: [{name: "linux"}]
     }]
 }`,
@@ -838,12 +838,12 @@ env: {
 
 // Implementation: specific to this runtime
 implementations: [{
-    script: "npm run build"
-    runtimes: [{name: "container", image: "node:22-slim"}]
+    script: "echo $BUILD_FLAGS"
+    runtimes: [{name: "container", image: "debian:stable-slim"}]
     platforms: [{name: "linux"}]
     env: {
         vars: {
-            NODE_OPTIONS: "--max-old-space-size=4096"
+            BUILD_FLAGS: "--strict"
         }
     }
 }]`,

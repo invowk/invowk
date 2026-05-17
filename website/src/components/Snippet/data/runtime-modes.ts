@@ -486,12 +486,12 @@ virtual_shell: {
     language: 'cue',
     code: `// env belongs on the implementation, not on the runtime
 implementations: [{
-    script: "node index.js"
-    runtimes: [{name: "container", image: "node:22-slim"}]
+    script: "echo APP_ENV=$APP_ENV && echo DEBUG=$DEBUG"
+    runtimes: [{name: "container", image: "debian:stable-slim"}]
     platforms: [{name: "linux"}]
     env: {
         vars: {
-            NODE_ENV: "production"
+            APP_ENV: "production"
             DEBUG: "app:*"
         }
     }
@@ -502,10 +502,10 @@ implementations: [{
     language: 'cue',
     code: `// workdir belongs on the implementation, not on the runtime
 implementations: [{
-    script: "python main.py"
-    runtimes: [{name: "container", image: "python:3-slim"}]
+    script: "pwd && ls"
+    runtimes: [{name: "container", image: "debian:stable-slim"}]
     platforms: [{name: "linux"}]
-    workdir: "/app"
+    workdir: "/workspace"
 }]`,
   },
 
@@ -549,8 +549,8 @@ implementations: [{
     {
         name: "build container"
         implementations: [{
-            script: "go build -o /workspace/bin/app ./..."
-            runtimes: [{name: "container", image: "golang:1.26"}]
+            script: "echo building in container"
+            runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
         }]
     }
@@ -571,9 +571,9 @@ implementations: [{
             platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
         },
         {
-            script: "go build ./..."
+            script: "echo building in container"
             runtimes: [
-                {name: "container", image: "golang:1.26"}  // Reproducible
+                {name: "container", image: "debian:stable-slim"}  // Reproducible
             ]
             platforms: [{name: "linux"}]  // Container runtime is Linux-only
         },
@@ -701,32 +701,29 @@ invowk cmd build --ivk-container-name dev-shell`,
   'runtime-modes/container-full-example': {
     language: 'cue',
     code: `{
-    name: "build and test"
-    description: "Build and test in isolated container"
+    name: "check workspace"
+    description: "Check project files in an isolated container"
     env: {
         vars: {
-            GO_ENV: "test"
-            CGO_ENABLED: "0"
+            APP_ENV: "test"
+            CHECK_MODE: "full"
         }
     }
     depends_on: {
-        tools: [{alternatives: ["go"]}]
-        filepaths: [{alternatives: ["go.mod"]}]
+        tools: [{alternatives: ["sh"]}]
+        filepaths: [{alternatives: ["invowkfile.cue"]}]
     }
     implementations: [{
         script: """
-            echo "Go version: $(go version)"
-            echo "Building..."
-            go build -o /workspace/bin/app ./...
-            echo "Testing..."
-            go test -v ./...
-            echo "Done!"
+            echo "Environment: $APP_ENV"
+            test -f /workspace/invowkfile.cue
+            echo "Workspace ready"
             """
         runtimes: [{
             name: "container"
-            image: "golang:1.26"
+            image: "debian:stable-slim"
             volumes: [
-                "\${HOME}/go/pkg/mod:/go/pkg/mod:ro"  // Cache Go dependencies
+                "\${HOME}/.cache/invowk:/cache:ro"  // Reuse host-side cache data
             ]
         }]
         platforms: [{name: "linux"}]
@@ -819,10 +816,10 @@ invowk cmd build --ivk-container-name dev-shell`,
     }
     implementations: [{
         platforms: [{name: "linux"}]
-        script: "make build"
+        script: "test -f /workspace/invowkfile.cue && echo ready"
         runtimes: [{
             name: "container"
-            image: "golang:1.26"
+            image: "debian:stable-slim"
         }]
     }]
 }`,

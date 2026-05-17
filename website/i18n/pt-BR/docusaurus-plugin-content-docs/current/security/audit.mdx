@@ -175,7 +175,7 @@ Os checkers integrados usam padrões regex — são rápidos e determinísticos 
 
 ### Configuração
 
-O checker LLM funciona com qualquer servidor que implemente a API OpenAI `/v1/chat/completions`. A configuração padrão usa o [Ollama](https://ollama.com), o servidor LLM local mais popular:
+O checker LLM funciona com servidores compatíveis com OpenAI que oferecem chat completions e listagem de modelos, porque o invowk verifica o modelo configurado antes de escanear. A configuração padrão usa o [Ollama](https://ollama.com), o servidor LLM local mais popular:
 
 ```bash
 # 1. Instalar Ollama com seu gerenciador de pacotes ou por https://ollama.com

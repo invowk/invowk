@@ -55,6 +55,7 @@ Na terminologia C4, "container" refere-se a uma unidade separadamente executáve
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
 | **Container Engine Abstraction** | Go | Interface unificada para Docker e Podman. Auto-detecta engine disponível com fallback. |
+| **Container Plan Policy** | Go | Camada de política pura (`internal/containerplan/`) que resolve alvos de container efêmeros vs persistentes, nomes estáveis, origem dos nomes e comportamento de criação quando ausente para dry-run e execução em container. |
 | **Image Provisioner** | Go | Cria camadas efêmeras de imagem contendo binário invowk e módulos necessários. Permite execução seamless em container. |
 
 ### Servidores

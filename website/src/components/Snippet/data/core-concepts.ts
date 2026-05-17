@@ -357,8 +357,8 @@ platforms: [
         },
         // Reproducible container build
         {
-            script: "go build -o /workspace/bin/app ./..."
-            runtimes: [{name: "container", image: "golang:1.26"}]
+            script: "echo building in container"
+            runtimes: [{name: "container", image: "debian:stable-slim"}]
             platforms: [{name: "linux"}]
         }
     ]
