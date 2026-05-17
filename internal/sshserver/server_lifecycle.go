@@ -179,7 +179,7 @@ func (s *Server) serve() {
 			return
 		}
 
-		if failedErr := s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err)); failedErr != nil {
+		if s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err)) != nil {
 			return
 		}
 	}

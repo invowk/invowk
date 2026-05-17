@@ -4,6 +4,7 @@ package audit
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,33 +24,17 @@ func readScriptFileFacts(ctx context.Context, scriptPath, modulePath string) (sc
 	resolvedPath := types.FilesystemPath(resolved) //goplint:ignore -- resolved from validated module/script path inputs.
 	facts := scriptFileFacts{Path: resolvedPath}
 
-	// Defense-in-depth: verify the resolved path stays within the module
-	// boundary. The invowkfile parser's script path containment check (SC-01)
-	// blocks traversal paths at parse time, but the audit scanner should not
-	// rely on upstream validation alone.
-	if modulePath != "" && !isWithinBoundary(modulePath, resolved) {
-		return facts, nil
-	}
 	if err := scanContextErr(ctx); err != nil {
 		return facts, err
 	}
 
-	readPath := resolved
-	if modulePath != "" {
-		evaluated, evalErr := filepath.EvalSymlinks(resolved)
-		if evalErr != nil {
-			facts.StatErr = evalErr
-			return facts, nil //nolint:nilerr // Symlink/path resolution failures are nonfatal scan facts for checkers.
-		}
-		evaluatedModulePath, moduleEvalErr := filepath.EvalSymlinks(modulePath)
-		if moduleEvalErr != nil {
-			facts.StatErr = moduleEvalErr
-			return facts, nil //nolint:nilerr // Symlink/path resolution failures are nonfatal scan facts for checkers.
-		}
-		if !isWithinBoundary(evaluatedModulePath, evaluated) {
-			return facts, nil
-		}
-		readPath = evaluated
+	readPath, pathErr := scriptReadPath(resolved, modulePath)
+	if pathErr != nil {
+		facts.StatErr = pathErr
+		return facts, nil //nolint:nilerr // Symlink/path resolution failures are nonfatal scan facts for checkers.
+	}
+	if readPath == "" {
+		return facts, nil
 	}
 
 	info, statErr := os.Stat(readPath)
@@ -69,6 +54,32 @@ func readScriptFileFacts(ctx context.Context, scriptPath, modulePath string) (sc
 	}
 	facts.Content = string(data)
 	return facts, nil
+}
+
+//goplint:ignore -- helper resolves raw script and module path text before typed scan facts are recorded.
+func scriptReadPath(resolved, modulePath string) (string, error) {
+	if modulePath == "" {
+		return resolved, nil
+	}
+
+	// Defense-in-depth: verify the lexical path stays within the module
+	// boundary before following symlinks.
+	if !isWithinBoundary(modulePath, resolved) {
+		return "", nil
+	}
+
+	evaluated, err := filepath.EvalSymlinks(resolved)
+	if err != nil {
+		return "", fmt.Errorf("evaluate script path symlinks: %w", err)
+	}
+	evaluatedModulePath, err := filepath.EvalSymlinks(modulePath)
+	if err != nil {
+		return "", fmt.Errorf("evaluate module path symlinks: %w", err)
+	}
+	if !isWithinBoundary(evaluatedModulePath, evaluated) {
+		return "", nil
+	}
+	return evaluated, nil
 }
 
 // isWithinBoundary checks whether target resolves to a path within the base

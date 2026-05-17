@@ -123,7 +123,7 @@ func (s *Server) Start(ctx context.Context) error {
 		if err := s.httpServer.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
 			s.shutdownOnce.Do(func() { close(s.shutdownCh) })
 			s.closeRequestChannel()
-			if failedErr := s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err)); failedErr != nil {
+			if s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err)) != nil {
 				return
 			}
 		}

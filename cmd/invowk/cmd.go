@@ -17,6 +17,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const longConfigFlagInlinePrefix = "--ivk-config="
+
 type (
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
 	// These correspond to persistent and local flags registered on the cmdCmd command.
@@ -269,8 +271,8 @@ func explicitConfigPathFromArgs(args []string) string {
 				return args[i+1]
 			}
 			return ""
-		case strings.HasPrefix(arg, "--ivk-config="):
-			return strings.TrimPrefix(arg, "--ivk-config=")
+		case strings.HasPrefix(arg, longConfigFlagInlinePrefix):
+			return strings.TrimPrefix(arg, longConfigFlagInlinePrefix)
 		case strings.HasPrefix(arg, "-c="):
 			return strings.TrimPrefix(arg, "-c=")
 		case strings.HasPrefix(arg, "-c") && len(arg) > 2:
@@ -306,7 +308,7 @@ func firstTopLevelToken(args []string) (token string, remaining []string) {
 			}
 			continue
 		// Root config flag with inline value.
-		case strings.HasPrefix(arg, "--ivk-config="), strings.HasPrefix(arg, "-c="),
+		case strings.HasPrefix(arg, longConfigFlagInlinePrefix), strings.HasPrefix(arg, "-c="),
 			(strings.HasPrefix(arg, "-c") && len(arg) > 2):
 			continue
 		// Any other flag-like token (keep scanning for the command token).

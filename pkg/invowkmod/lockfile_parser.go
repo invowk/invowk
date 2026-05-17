@@ -21,6 +21,7 @@ const (
 
 	unknownLockFileVersionErrMsg    = "unknown lock file version"
 	lockFileV1UpgradeRequiredErrMsg = "lock file uses deprecated v1.0 format"
+	lockFileModuleErrorFormat       = "lock file module %q: %w"
 )
 
 var (
@@ -262,7 +263,7 @@ func validateLockedModuleForVersion(key ModuleRefKey, mod LockedModule, requireC
 	err := mod.Validate()
 	if err == nil {
 		if len(versionFieldErrors) > 0 {
-			return fmt.Errorf("lock file module %q: %w", key, &InvalidLockedModuleError{
+			return fmt.Errorf(lockFileModuleErrorFormat, key, &InvalidLockedModuleError{
 				ModuleKey:   key,
 				FieldErrors: versionFieldErrors,
 			})
@@ -272,7 +273,7 @@ func validateLockedModuleForVersion(key ModuleRefKey, mod LockedModule, requireC
 
 	lockedErr, ok := errors.AsType[*InvalidLockedModuleError](err)
 	if !ok {
-		return fmt.Errorf("lock file module %q: %w", key, err)
+		return fmt.Errorf(lockFileModuleErrorFormat, key, err)
 	}
 
 	lockedErr.ModuleKey = key
@@ -295,7 +296,7 @@ func validateLockedModuleForVersion(key ModuleRefKey, mod LockedModule, requireC
 		return nil
 	}
 
-	return fmt.Errorf("lock file module %q: %w", key, lockedErr)
+	return fmt.Errorf(lockFileModuleErrorFormat, key, lockedErr)
 }
 
 func lockedModuleVersionFieldErrors(mod LockedModule, requireSplitMetadata bool) []error {
