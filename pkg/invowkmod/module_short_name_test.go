@@ -73,3 +73,41 @@ func TestModuleShortName_String(t *testing.T) {
 		t.Errorf("ModuleShortName.String() = %q, want %q", n.String(), "io.invowk.sample")
 	}
 }
+
+func TestModuleDirectoryName_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		value    ModuleDirectoryName
+		wantErr  bool
+		sentinel error
+	}{
+		{"simple", "foo", false, nil},
+		{"rdns", "io.invowk.sample", false, nil},
+		{"uppercase", "Com.Example.Utils", false, nil},
+		{"starts with digit", "1module", true, ErrInvalidModuleDirectoryName},
+		{"contains hyphen", "my-module", true, ErrInvalidModuleDirectoryName},
+		{"contains underscore", "my_module", true, ErrInvalidModuleDirectoryName},
+		{"segment starts with number", "com.123example", true, ErrInvalidModuleDirectoryName},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.value.Validate()
+			if !tt.wantErr && err != nil {
+				t.Fatalf("ModuleDirectoryName(%q).Validate() error = %v", tt.value, err)
+			}
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("ModuleDirectoryName(%q).Validate() = nil, want error", tt.value)
+				}
+				if !errors.Is(err, tt.sentinel) {
+					t.Fatalf("ModuleDirectoryName(%q).Validate() error = %v, want %v", tt.value, err, tt.sentinel)
+				}
+			}
+		})
+	}
+}

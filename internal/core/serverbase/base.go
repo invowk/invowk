@@ -91,8 +91,7 @@ func (b *Base) TransitionToStarting(ctx context.Context) error {
 	// to StateRunning before the cancelled context is detected.
 	select {
 	case <-ctx.Done():
-		b.TransitionToFailed(fmt.Errorf("context cancelled before start: %w", ctx.Err()))
-		return b.lastErr
+		return b.TransitionToFailed(fmt.Errorf("context cancelled before start: %w", ctx.Err()))
 	default:
 	}
 
@@ -124,17 +123,27 @@ func (b *Base) TransitionToRunning() {
 
 // TransitionToFailed marks the server as failed with the given error.
 // Can be called from Starting state on initialization failure.
-func (b *Base) TransitionToFailed(err error) {
+// Returns the recorded failure error so adapters can return the canonical
+// lifecycle error without reaching back into LastError().
+func (b *Base) TransitionToFailed(err error) error {
 	b.stateMu.Lock()
+	currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
+	if currentState.IsTerminal() {
+		recordedErr := b.lastErr
+		b.stateMu.Unlock()
+		return recordedErr
+	}
 	b.lastErr = err
 	cancel := b.cancel
 	b.state.Store(int32(StateFailed))
 	b.sendErrorLocked(err)
+	b.closeErrChannelLocked()
 	b.stateMu.Unlock()
 
 	if cancel != nil {
 		cancel()
 	}
+	return err
 }
 
 // TransitionToStopping attempts to transition to Stopping state.
@@ -179,9 +188,17 @@ func (b *Base) TransitionToStopping() bool {
 
 // TransitionToStopped marks the server as fully stopped.
 // Must be called after all goroutines have exited.
-func (b *Base) TransitionToStopped() {
+func (b *Base) TransitionToStopped() bool {
+	b.stateMu.Lock()
+	defer b.stateMu.Unlock()
+
+	currentState := State(b.state.Load()) //goplint:ignore -- atomic value set only from known State constants
+	if currentState.IsTerminal() {
+		return false
+	}
 	b.state.Store(int32(StateStopped))
-	b.CloseErrChannel()
+	b.closeErrChannelLocked()
+	return true
 }
 
 // WaitForReady blocks until the server is ready or context is cancelled.
@@ -231,12 +248,9 @@ func (b *Base) SendError(err error) {
 // CloseErrChannel closes the error channel to signal consumers.
 // Should be called when the server is fully stopped.
 func (b *Base) CloseErrChannel() {
-	b.errCloseOnce.Do(func() {
-		b.stateMu.Lock()
-		defer b.stateMu.Unlock()
-		b.errClosed = true
-		close(b.errCh)
-	})
+	b.stateMu.Lock()
+	defer b.stateMu.Unlock()
+	b.closeErrChannelLocked()
 }
 
 // StartedChannel returns the started channel for custom waiting logic.
@@ -253,4 +267,11 @@ func (b *Base) sendErrorLocked(err error) {
 	case b.errCh <- err:
 	default:
 	}
+}
+
+func (b *Base) closeErrChannelLocked() {
+	b.errCloseOnce.Do(func() {
+		b.errClosed = true
+		close(b.errCh)
+	})
 }

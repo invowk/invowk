@@ -6,12 +6,13 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/types"
 )
 
 var (
-	// ErrInvalidTUIServerURL is re-exported from pkg/types for backward compatibility.
-	ErrInvalidTUIServerURL = types.ErrInvalidTUIServerURL
+	// ErrInvalidTUIServerURL is re-exported from internal/tuiwire for runtime callers.
+	ErrInvalidTUIServerURL = tuiwire.ErrInvalidTUIServerURL
 
 	// ErrInvalidTUIServerToken is the sentinel error wrapped by InvalidTUIServerTokenError.
 	ErrInvalidTUIServerToken = errors.New("invalid TUI server token")
@@ -20,11 +21,11 @@ var (
 )
 
 type (
-	// TUIServerURL is re-exported from pkg/types for backward compatibility.
-	TUIServerURL = types.TUIServerURL
+	// TUIServerURL is re-exported from internal/tuiwire for runtime callers.
+	TUIServerURL = tuiwire.TUIServerURL
 
-	// InvalidTUIServerURLError is re-exported from pkg/types for backward compatibility.
-	InvalidTUIServerURLError = types.InvalidTUIServerURLError
+	// InvalidTUIServerURLError is re-exported from internal/tuiwire for runtime callers.
+	InvalidTUIServerURLError = tuiwire.InvalidTUIServerURLError
 
 	// TUIServerToken represents an authentication token for the TUI server.
 	// The zero value ("") is valid and means no token is configured.

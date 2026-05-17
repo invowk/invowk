@@ -5,7 +5,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 
@@ -216,28 +215,5 @@ func TestRenderAuditTextShowsCompoundThreatsWithoutIndividualFindings(t *testing
 	}
 	if strings.Contains(out, "No confirmed findings") {
 		t.Fatalf("renderAuditText() reported no findings despite compound threat:\n%s", out)
-	}
-}
-
-func TestScanErrorContainsCheckerFindsJoinedLLMFailure(t *testing.T) {
-	t.Parallel()
-
-	err := errors.Join(
-		&audit.CheckerFailedError{CheckerName: "network", Err: errors.New("network failed")},
-		&audit.CheckerFailedError{CheckerName: audit.LLMCheckerName, Err: errors.New("llm failed")},
-	)
-
-	if !scanErrorContainsChecker(err, audit.LLMCheckerName) {
-		t.Fatal("expected joined LLM checker failure to be detected")
-	}
-}
-
-func TestScanErrorContainsCheckerIgnoresOtherCheckers(t *testing.T) {
-	t.Parallel()
-
-	err := &audit.CheckerFailedError{CheckerName: "network", Err: errors.New("network failed")}
-
-	if scanErrorContainsChecker(err, audit.LLMCheckerName) {
-		t.Fatal("did not expect non-LLM checker failure to be detected as LLM")
 	}
 }

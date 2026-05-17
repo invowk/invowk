@@ -14,15 +14,21 @@ import (
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/internal/watch"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
 
 type (
 	recordingCommandService struct {
-		lastConfigPath         string
-		resolveFromSourceCalls int
-		lastResolveRequest     ExecuteRequest
+		lastConfigPath            string
+		resolveFromSourceCalls    int
+		resolveCommandCalls       int
+		lastResolveRequest        ExecuteRequest
+		lastResolveCommandRequest ExecuteRequest
+		lastExecuteRequest        ExecuteRequest
+		resolvedFromSource        *discovery.CommandInfo
+		resolvedRequest           ExecuteRequest
 	}
 
 	recordingDiscoveryService struct {
@@ -41,21 +47,45 @@ type (
 	}
 )
 
-func (s *recordingCommandService) Execute(ctx context.Context, _ ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+func (s *recordingCommandService) Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	s.lastConfigPath = configPathFromContext(ctx)
+	s.lastExecuteRequest = req
 	return ExecuteResult{}, nil, nil
 }
 
 func (s *recordingCommandService) ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
 	s.lastConfigPath = configPathFromContext(ctx)
-	return req.ResolvedCommand, req, nil, nil
+	s.resolveCommandCalls++
+	s.lastResolveCommandRequest = req
+	cmdInfo := req.ResolvedCommand
+	if cmdInfo == nil && s.resolvedFromSource != nil {
+		cmdInfo = s.resolvedFromSource
+	}
+	return cmdInfo, req, nil, nil
+}
+
+func (s *recordingCommandService) ResolveWatchPlan(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
+	cmdInfo, resolvedReq, diags, err := s.ResolveCommand(ctx, req)
+	if err != nil {
+		return cmdInfo, resolvedReq, commandsvc.WatchPlan{}, diags, err
+	}
+	plan, planErr := commandsvc.NewWatchPlan(cmdInfo, commandsvc.WithWatchWorkdirOverride(resolvedReq.Workdir))
+	return cmdInfo, resolvedReq, plan, diags, planErr
 }
 
 func (s *recordingCommandService) ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
 	s.lastConfigPath = configPathFromContext(ctx)
 	s.resolveFromSourceCalls++
 	s.lastResolveRequest = req
-	return req.ResolvedCommand, req, nil, nil
+	cmdInfo := req.ResolvedCommand
+	if s.resolvedFromSource != nil {
+		cmdInfo = s.resolvedFromSource
+	}
+	resolvedReq := req
+	if s.resolvedRequest.Name != "" {
+		resolvedReq = s.resolvedRequest
+	}
+	return cmdInfo, resolvedReq, nil, nil
 }
 
 func (s *recordingDiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
@@ -177,6 +207,109 @@ func TestRunDisambiguatedCommand_AttachesConfigPathToContext(t *testing.T) {
 	}
 }
 
+func TestRunDisambiguatedCommand_BuildsCompleteExecuteRequest(t *testing.T) {
+	t.Parallel()
+
+	cmdInfo := &discovery.CommandInfo{
+		Name:       "tools deploy",
+		SimpleName: "deploy",
+		SourceID:   "tools",
+		Command: &invowkfile.Command{
+			Name: "deploy",
+			Flags: []invowkfile.Flag{
+				{Name: "profile", Type: invowkfile.FlagTypeString},
+				{Name: "retries", Type: invowkfile.FlagTypeInt},
+			},
+			Args: []invowkfile.Argument{{Name: "target"}},
+		},
+	}
+	commands := &recordingCommandService{
+		resolvedFromSource: cmdInfo,
+		resolvedRequest: ExecuteRequest{
+			Name: "tools deploy",
+			Args: []string{"prod"},
+		},
+	}
+	rootFlags := &rootFlagValues{configPath: filepath.Join(t.TempDir(), "custom.cue")}
+	app := &App{
+		Config:      &fixedConfigProvider{cfg: config.DefaultConfig()},
+		Commands:    commands,
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stderr:      io.Discard,
+	}
+	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
+	cmd.Flags().StringArray("ivk-env-file", nil, "")
+	cmd.Flags().StringArray("ivk-env-var", nil, "")
+	cmd.Flags().String("ivk-env-inherit-mode", "", "")
+	cmd.Flags().StringArray("ivk-env-inherit-allow", nil, "")
+	cmd.Flags().StringArray("ivk-env-inherit-deny", nil, "")
+	cmd.Flags().String("ivk-workdir", "", "")
+	cmd.Flags().String("profile", "", "")
+	cmd.Flags().Int("retries", 0, "")
+	for name, value := range map[string]string{
+		"ivk-env-file":          "prod.env",
+		"ivk-env-var":           "DEPLOY_ENV=prod",
+		"ivk-env-inherit-mode":  "allow",
+		"ivk-env-inherit-allow": "PATH",
+		"ivk-env-inherit-deny":  "SECRET",
+		"ivk-workdir":           "services/api",
+		"profile":               "release",
+		"retries":               "3",
+	} {
+		if err := cmd.Flags().Set(name, value); err != nil {
+			t.Fatalf("set flag %s: %v", name, err)
+		}
+	}
+
+	err := runDisambiguatedCommand(
+		cmd,
+		app,
+		rootFlags,
+		&cmdFlagValues{forceRebuild: true, containerName: "deploy-box"},
+		&SourceFilter{SourceID: "tools"},
+		[]string{"deploy", "prod"},
+	)
+	if err != nil {
+		t.Fatalf("runDisambiguatedCommand() error = %v", err)
+	}
+
+	req := commands.lastExecuteRequest
+	if req.Name != "tools deploy" || len(req.Args) != 1 || req.Args[0] != "prod" {
+		t.Fatalf("request command = %q %v, want tools deploy [prod]", req.Name, req.Args)
+	}
+	if req.ResolvedCommand != cmdInfo {
+		t.Fatalf("ResolvedCommand = %v, want cmdInfo", req.ResolvedCommand)
+	}
+	if req.Workdir != "services/api" {
+		t.Fatalf("Workdir = %q, want services/api", req.Workdir)
+	}
+	if len(req.EnvFiles) != 1 || req.EnvFiles[0] != "prod.env" {
+		t.Fatalf("EnvFiles = %v, want [prod.env]", req.EnvFiles)
+	}
+	if req.EnvVars["DEPLOY_ENV"] != "prod" {
+		t.Fatalf("EnvVars = %v, want DEPLOY_ENV=prod", req.EnvVars)
+	}
+	if req.EnvInheritMode != invowkfile.EnvInheritAllow {
+		t.Fatalf("EnvInheritMode = %q, want allow", req.EnvInheritMode)
+	}
+	if len(req.EnvInheritAllow) != 1 || req.EnvInheritAllow[0] != "PATH" {
+		t.Fatalf("EnvInheritAllow = %v, want [PATH]", req.EnvInheritAllow)
+	}
+	if len(req.EnvInheritDeny) != 1 || req.EnvInheritDeny[0] != "SECRET" {
+		t.Fatalf("EnvInheritDeny = %v, want [SECRET]", req.EnvInheritDeny)
+	}
+	if req.FlagValues["profile"] != "release" || req.FlagValues["retries"] != "3" {
+		t.Fatalf("FlagValues = %v, want profile/retries", req.FlagValues)
+	}
+	if len(req.FlagDefs) != 2 || len(req.ArgDefs) != 1 {
+		t.Fatalf("FlagDefs/ArgDefs = %d/%d, want 2/1", len(req.FlagDefs), len(req.ArgDefs))
+	}
+	if !req.ForceRebuild || req.ContainerName != "deploy-box" {
+		t.Fatalf("ForceRebuild/ContainerName = %v/%q, want true/deploy-box", req.ForceRebuild, req.ContainerName)
+	}
+}
+
 func TestRunDisambiguatedCommand_WatchResolvesSourceThroughCommandService(t *testing.T) {
 	t.Parallel()
 
@@ -217,6 +350,62 @@ func TestRunDisambiguatedCommand_WatchResolvesSourceThroughCommandService(t *tes
 	}
 }
 
+func TestRunDisambiguatedCommand_WatchPreservesAtSourceFilter(t *testing.T) {
+	t.Parallel()
+
+	stopErr := errors.New("stop watcher")
+	cmdInfo := newResolvedWatchCommand(t)
+	cmdInfo.Name = "tools deploy"
+	cmdInfo.SimpleName = "deploy"
+	cmdInfo.SourceID = "tools"
+	cmdInfo.Command.Name = "deploy"
+
+	commands := &recordingCommandService{
+		resolvedFromSource: cmdInfo,
+		resolvedRequest: ExecuteRequest{
+			Name:       "tools deploy",
+			Args:       []string{"prod"},
+			FromSource: "tools",
+		},
+	}
+	rootFlags := &rootFlagValues{configPath: filepath.Join(t.TempDir(), "custom.cue")}
+	app := &App{
+		Config:      &fixedConfigProvider{cfg: config.DefaultConfig()},
+		Commands:    commands,
+		Watchers:    &fakeWatchFactory{run: func(context.Context, watch.Config) error { return stopErr }},
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stdout:      io.Discard,
+		stderr:      io.Discard,
+	}
+
+	err := runDisambiguatedCommand(
+		&cobra.Command{},
+		app,
+		rootFlags,
+		&cmdFlagValues{watch: true},
+		&SourceFilter{SourceID: "tools"},
+		[]string{"deploy", "prod"},
+	)
+	if !errors.Is(err, stopErr) {
+		t.Fatalf("runDisambiguatedCommand() error = %v, want stop watcher", err)
+	}
+	if commands.resolveFromSourceCalls != 1 {
+		t.Fatalf("ResolveFromSource calls = %d, want 1", commands.resolveFromSourceCalls)
+	}
+	if commands.resolveCommandCalls != 1 {
+		t.Fatalf("ResolveCommand calls = %d, want 1", commands.resolveCommandCalls)
+	}
+	if commands.lastResolveRequest.FromSource != "tools" {
+		t.Fatalf("ResolveFromSource FromSource = %q, want tools", commands.lastResolveRequest.FromSource)
+	}
+	if commands.lastResolveCommandRequest.FromSource != "tools" {
+		t.Fatalf("ResolveCommand FromSource = %q, want tools", commands.lastResolveCommandRequest.FromSource)
+	}
+	if commands.lastExecuteRequest.FromSource != "tools" {
+		t.Fatalf("Execute FromSource = %q, want tools", commands.lastExecuteRequest.FromSource)
+	}
+}
+
 func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 	t.Parallel()
 
@@ -243,7 +432,7 @@ func TestDiscoverCommand_DoesNotDuplicateConfigDiagnostics(t *testing.T) {
 		},
 		func() map[string]string { return nil },
 		testConfigFallback,
-		commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
+		commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil),
 	)
 
 	customCuePath2 := filepath.Join(t.TempDir(), "custom.cue")
@@ -281,7 +470,7 @@ func TestDiscoverCommand_ResolvedCommandSkipsLookup(t *testing.T) {
 		disc,
 		func() map[string]string { return nil },
 		testConfigFallback,
-		commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil, nil),
+		commandsvc.NewPorts(nil, testRuntimeRegistryFactory(t), nil, nil, nil, nil, nil, nil),
 	)
 
 	resolved := &discovery.CommandInfo{

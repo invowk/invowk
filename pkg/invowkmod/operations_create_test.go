@@ -100,7 +100,7 @@ func TestNewModuleScaffoldRejectsInvalidOptionsBeforeScaffoldWork(t *testing.T) 
 
 	_, err := NewModuleScaffold(CreateOptions{
 		ParentDir:   types.FilesystemPath(t.TempDir()),
-		Name:        ModuleShortName("valid"),
+		Name:        ModuleDirectoryName("valid"),
 		Description: types.DescriptionText("   "),
 	})
 	if err == nil {

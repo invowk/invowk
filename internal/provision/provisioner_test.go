@@ -43,8 +43,8 @@ func (m *mockEngine) Name() string                                 { return "moc
 func (m *mockEngine) Available() bool                              { return true }
 func (m *mockEngine) BinaryPath() string                           { return "/usr/bin/mock" }
 func (m *mockEngine) BuildRunArgs(_ container.RunOptions) []string { return []string{"run"} }
-func (m *mockEngine) PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd {
-	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...)
+func (m *mockEngine) PrepareRunCommand(ctx context.Context, opts container.RunOptions) (*exec.Cmd, func(), error) {
+	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...), nil, nil
 }
 
 func (m *mockEngine) Version(_ context.Context) (string, error) {
@@ -528,13 +528,7 @@ func TestLayerProvisioner_PrepareBuildContext(t *testing.T) {
 
 	// Create a module directory
 	modulesDir := filepath.Join(tmpDir, "modules")
-	modPath := filepath.Join(modulesDir, "example.invowkmod")
-	if err := os.MkdirAll(modPath, 0o755); err != nil {
-		t.Fatalf("failed to create module dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(modPath, "invowkmod.cue"), []byte("test module"), 0o644); err != nil {
-		t.Fatalf("failed to write module file: %v", err)
-	}
+	createProvisioningModule(t, modulesDir, "example.invowkmod", "example")
 
 	cfg := &Config{
 		Enabled:          true,
@@ -716,10 +710,7 @@ func TestLayerProvisioner_PrepareBuildContext_ModuleCopyWarnings(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	modulesDir := filepath.Join(tmpDir, "modules")
-	modPath := filepath.Join(modulesDir, "broken.invowkmod")
-	if err := os.MkdirAll(modPath, 0o755); err != nil {
-		t.Fatalf("failed to create module dir: %v", err)
-	}
+	createProvisioningModule(t, modulesDir, "broken.invowkmod", "broken")
 
 	cfg := &Config{
 		Enabled:          true,

@@ -10,7 +10,6 @@ import (
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/watch"
-	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -68,27 +67,27 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
 
-	req := ExecuteRequest{
+	resolveReq, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
 		Name:       args[0],
 		Args:       args[1:],
-		FromSource: discovery.SourceID(cmdFlags.fromSource),    //goplint:ignore -- CLI flag value, validated downstream
-		ConfigPath: types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+		FromSource: discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+	})
+	if err != nil {
+		return err
 	}
-	cmdInfo, resolvedReq, diags, err := app.Commands.ResolveCommand(ctx, req)
+	cmdInfo, resolvedReq, plan, diags, err := app.Commands.ResolveWatchPlan(ctx, resolveReq)
 	app.Diagnostics.Render(ctx, diags, app.stderr)
 	if err != nil {
-		return renderAndWrapServiceError(err, req)
+		if planErr, ok := errors.AsType[*commandsvc.InvalidWatchPlanError](err); ok && planErr != nil {
+			return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
+		}
+		return renderAndWrapServiceError(err, resolveReq)
 	}
 	if cmdInfo == nil {
 		return &WatchCommandNotFoundError{Name: args[0]}
 	}
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)
-
-	plan, err := commandsvc.NewWatchPlan(cmdInfo)
-	if err != nil {
-		return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
-	}
 
 	// Build a re-execution closure that runs the command through the command
 	// service and keeps command exit codes separate from infrastructure errors.
@@ -104,7 +103,14 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		childFlags := *cmdFlags
 		childFlags.watch = false
 		cmd.SetContext(execCtx)
-		req, buildErr := buildExecuteRequest(cmd, rootFlags, &childFlags, args)
+		req, buildErr := buildCommandExecuteRequest(cmd, rootFlags, &childFlags, executeRequestOptions{
+			Name:            resolvedReq.Name,
+			Args:            resolvedReq.Args,
+			FromSource:      resolvedReq.FromSource,
+			ResolvedCommand: cmdInfo,
+			FlagDefs:        commandFlagDefs(cmdInfo),
+			ArgDefs:         commandArgDefs(cmdInfo),
+		})
 		if buildErr != nil {
 			return commandsvc.WatchExecutionOutcome{Err: buildErr}
 		}

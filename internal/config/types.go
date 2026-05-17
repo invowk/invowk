@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
@@ -50,6 +51,8 @@ const (
 	IncludeCollectionRoot IncludeCollectionField = "includes"
 	// IncludeCollectionAutoProvision identifies the container auto-provision includes collection.
 	IncludeCollectionAutoProvision IncludeCollectionField = "container.auto_provision.includes"
+
+	llmTimeoutMaxRunes = 64
 )
 
 var (
@@ -169,7 +172,8 @@ type (
 
 	// InvalidLLMTimeoutError is returned when an LLMTimeout cannot be parsed.
 	InvalidLLMTimeoutError struct {
-		Value LLMTimeout
+		Value  LLMTimeout
+		Reason string
 	}
 
 	// LLMConcurrency is the max number of concurrent LLM requests.
@@ -569,12 +573,12 @@ func (t LLMTimeout) String() string { return string(t) }
 
 // Duration parses the timeout into a duration. The zero value returns 0.
 func (t LLMTimeout) Duration() (time.Duration, error) {
-	if t == "" {
-		return 0, nil
+	if utf8.RuneCountInString(string(t)) > llmTimeoutMaxRunes {
+		return 0, &InvalidLLMTimeoutError{Value: t, Reason: fmt.Sprintf("must be at most %d runes", llmTimeoutMaxRunes)}
 	}
-	d, err := time.ParseDuration(string(t))
-	if err != nil || d <= 0 {
-		return 0, &InvalidLLMTimeoutError{Value: t}
+	d, err := types.OptionalPositiveDurationString(t).Duration()
+	if err != nil {
+		return 0, &InvalidLLMTimeoutError{Value: t, Reason: "must be a positive Go duration"}
 	}
 	return d, nil
 }
@@ -587,7 +591,11 @@ func (t LLMTimeout) Validate() error {
 
 // Error implements the error interface for InvalidLLMTimeoutError.
 func (e *InvalidLLMTimeoutError) Error() string {
-	return fmt.Sprintf("invalid LLM timeout %q: must be a positive Go duration", e.Value)
+	reason := e.Reason
+	if reason == "" {
+		reason = "must be a positive Go duration"
+	}
+	return fmt.Sprintf("invalid LLM timeout %q: %s", e.Value, reason)
 }
 
 // Unwrap returns ErrInvalidLLMTimeout for errors.Is() compatibility.

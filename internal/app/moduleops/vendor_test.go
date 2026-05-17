@@ -505,6 +505,7 @@ requires: [
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "dep@1.0.0",
+		CommandSourceID: "dep",
 		ModuleID:        "dep",
 		ContentHash:     depHash,
 	}
@@ -514,6 +515,7 @@ requires: [
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "def456789012345678901234567890abcdef1234",
 		Namespace:       "stale@1.0.0",
+		CommandSourceID: "stale",
 		ModuleID:        "stale",
 		ContentHash:     staleHash,
 	}

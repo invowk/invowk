@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
@@ -211,6 +212,13 @@ type (
 	CommandDiscovery interface {
 		DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error)
 		GetCommand(ctx context.Context, name string) (discovery.LookupResult, error)
+	}
+
+	// ConfigAwareCommandDiscovery lets a discovery adapter own request-scoped
+	// config loading while explicitly assigning config diagnostics to command
+	// execution for the current request.
+	ConfigAwareCommandDiscovery interface {
+		LoadConfigForCommand(ctx context.Context) (*config.Config, []discovery.Diagnostic)
 	}
 
 	// UserEnvFunc captures the host environment. The service calls this

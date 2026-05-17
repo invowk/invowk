@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/internal/tui"
 	"github.com/invowk/invowk/internal/tuiserver"
@@ -38,7 +39,7 @@ func (InteractiveExecutor) Validate() error {
 // Execute runs a command in interactive mode using Bubble Tea's alternate
 // screen buffer. It starts an HTTP-based TUI server for bidirectional component
 // requests between the running command and the terminal UI.
-func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowkfile.CommandName, interactiveRT runtime.InteractiveRuntime) *runtime.Result {
+func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowkfile.CommandName, interactiveRT commandsvc.RuntimeInteractiveCommand) *runtime.Result {
 	if err := interactiveRT.Validate(ctx); err != nil {
 		return &runtime.Result{ExitCode: types.ExitCode(1), Error: err} //goplint:ignore -- literal exit code for validation failure
 	}
@@ -62,7 +63,7 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 		}
 	}()
 
-	var tuiServerURL types.TUIServerURL
+	var tuiServerURL runtime.TUIServerURL
 	if hostProvider, ok := interactiveRT.(runtime.HostServiceAddressProvider); ok {
 		tuiServerURL = tuiServer.URLWithHost(hostProvider.HostServiceAddress())
 	} else {
@@ -105,17 +106,17 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 func bridgeTUIRequests(server *tuiserver.Server, program *tea.Program) {
 	for req := range server.RequestChannel() {
 		responseCh := make(chan tui.ComponentResponse, 1)
-		options, err := componentRequestFromProtocol(tui.ComponentType(req.Component), req.Options)
+		options, err := componentRequestFromProtocol(req.Component, req.Options)
 		if err != nil {
 			req.ResponseCh <- tuiserver.Response{Error: err.Error()}
 			continue
 		}
 		program.Send(tui.TUIComponentMsg{
-			Component:  tui.ComponentType(req.Component),
+			Component:  req.Component,
 			Options:    options,
 			ResponseCh: responseCh,
 		})
-		go forwardComponentResponse(tui.ComponentType(req.Component), responseCh, req.ResponseCh)
+		go forwardComponentResponse(req.Component, responseCh, req.ResponseCh)
 	}
 }
 

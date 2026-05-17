@@ -124,6 +124,37 @@ func TestAutoProvisionConfigSchemaSync(t *testing.T) {
 	schematest.AssertFieldsSync(t, "AutoProvisionConfig", cueFields, goFields)
 }
 
+// TestConfigPatchSchemaSync verifies decode patch DTOs match their CUE definitions.
+func TestConfigPatchSchemaSync(t *testing.T) {
+	t.Parallel()
+
+	schema, _ := getCUESchema(t)
+	tests := []struct {
+		name       string
+		definition string
+		goType     reflect.Type
+	}{
+		{name: "configPatch", definition: "#Config", goType: reflect.TypeFor[configPatch]()},
+		{name: "virtualShellConfigPatch", definition: "#VirtualShellConfig", goType: reflect.TypeFor[virtualShellConfigPatch]()},
+		{name: "uiConfigPatch", definition: "#UIConfig", goType: reflect.TypeFor[uiConfigPatch]()},
+		{name: "llmConfigPatch", definition: "#LLMConfig", goType: reflect.TypeFor[llmConfigPatch]()},
+		{name: "llmAPIConfigPatch", definition: "#LLMAPIConfig", goType: reflect.TypeFor[llmAPIConfigPatch]()},
+		{name: "containerConfigPatch", definition: "#ContainerConfig", goType: reflect.TypeFor[containerConfigPatch]()},
+		{name: "autoProvisionConfigPatch", definition: "#AutoProvisionConfig", goType: reflect.TypeFor[autoProvisionConfigPatch]()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, tt.definition))
+			goFields := schematest.ExtractGoJSONTags(t, tt.goType)
+
+			schematest.AssertFieldsSync(t, tt.name, cueFields, goFields)
+		})
+	}
+}
+
 // =============================================================================
 // Schema Boundary Tests
 // =============================================================================
@@ -298,6 +329,21 @@ func TestLLMSchemaConstraints(t *testing.T) {
 		{
 			name:    "negative concurrency rejected",
 			cueData: `llm: {concurrency: -1}`,
+			wantErr: true,
+		},
+		{
+			name:    "valid timeout accepted",
+			cueData: `llm: {timeout: "2m30s"}`,
+			wantErr: false,
+		},
+		{
+			name:    "malformed timeout rejected",
+			cueData: `llm: {timeout: "soon"}`,
+			wantErr: true,
+		},
+		{
+			name:    "timeout over max runes rejected",
+			cueData: `llm: {timeout: "` + strings.Repeat("1h", 33) + `"}`,
 			wantErr: true,
 		},
 		{
@@ -795,6 +841,26 @@ func TestBehavioralSync_ColorScheme(t *testing.T) {
 			{"invalid", false, false, ""},
 			{"AUTO", false, false, ""},
 			{"", false, false, ""},
+		},
+	)
+}
+
+//nolint:tparallel // CUE Value.Unify() and Context.CompileString() mutate internal state; subtests must be serial.
+func TestBehavioralSync_LLMTimeout(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// timeout is an optional field in #LLMConfig. CUE enforces the Go-duration
+	// shape and max length; Go owns optional-zero and positive-duration semantics.
+	runBehavioralSyncField(t, schema, ctx, "#LLMConfig", "timeout",
+		func(s string) error { return LLMTimeout(s).Validate() },
+		[]behavioralSyncCase{
+			{"2m30s", true, true, ""},
+			{"1h30m", true, true, ""},
+			{"soon", false, false, ""},
+			{strings.Repeat("1h", 33), false, false, ""},
+			{"0s", false, true, "CUE validates duration syntax; Go enforces positive duration"},
+			{"", true, false, "Go zero value means unset; CUE rejects an explicit empty duration field"},
 		},
 	)
 }

@@ -108,7 +108,8 @@ func CurrentPlatform() Platform {
 // *Invowkfile already has a Validate(opts ...ValidateOption) ValidationErrors method
 // in validation.go that runs the full composite validation pipeline.
 // Delegates to DefaultShell (zero-valid), WorkDir (zero-valid), Env (non-nil),
-// DependsOn (non-nil), each Command, FilePath (non-empty), and ModulePath (non-empty).
+// DependsOn (non-nil), Metadata (non-nil), each Command, FilePath
+// (non-empty), and ModulePath (non-empty).
 func (inv Invowkfile) ValidateFields() error {
 	var errs []error
 	inv.appendBaseValidationErrors(&errs)
@@ -277,6 +278,11 @@ func (inv Invowkfile) appendBaseValidationErrors(errs *[]error) {
 	}
 	if inv.DependsOn != nil {
 		if err := inv.DependsOn.Validate(); err != nil {
+			*errs = append(*errs, err)
+		}
+	}
+	if inv.Metadata != nil {
+		if err := inv.Metadata.Validate(); err != nil {
 			*errs = append(*errs, err)
 		}
 	}

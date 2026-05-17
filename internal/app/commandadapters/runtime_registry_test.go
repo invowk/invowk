@@ -7,10 +7,30 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
+
+type recordingInteractiveExecutor struct {
+	args []string
+}
+
+func (e *recordingInteractiveExecutor) Execute(execCtx *runtime.ExecutionContext, _ invowkfile.CommandName, interactiveRT commandsvc.RuntimeInteractiveCommand) *runtime.Result {
+	if err := interactiveRT.Validate(execCtx); err != nil {
+		return &runtime.Result{ExitCode: 1, Error: err}
+	}
+	prepared, err := interactiveRT.PrepareInteractive(execCtx)
+	if err != nil {
+		return &runtime.Result{ExitCode: 1, Error: err}
+	}
+	if prepared.Cleanup != nil {
+		defer prepared.Cleanup()
+	}
+	e.args = prepared.Cmd.Args
+	return &runtime.Result{ExitCode: 0}
+}
 
 func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
 	t.Parallel()
@@ -19,15 +39,8 @@ func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRuntimeRegistryFactory() error = %v", err)
 	}
-	result := factory.Create(config.DefaultConfig(), nil, invowkfile.RuntimeVirtual)
-	rt, err := result.Registry.Get(runtime.RuntimeTypeVirtual)
-	if err != nil {
-		t.Fatalf("registry.Get(virtual) error = %v", err)
-	}
-	interactive, ok := rt.(runtime.InteractiveRuntime)
-	if !ok {
-		t.Fatalf("virtual runtime does not implement InteractiveRuntime")
-	}
+	session := factory.Create(config.DefaultConfig(), nil, invowkfile.RuntimeVirtual)
+	t.Cleanup(session.Close)
 
 	inv := &invowkfile.Invowkfile{
 		Commands: []invowkfile.Command{{
@@ -43,14 +56,23 @@ func TestRuntimeRegistryFactoryInjectsVirtualInteractiveLauncher(t *testing.T) {
 	ctx.SelectedRuntime = invowkfile.RuntimeVirtual
 	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
 
-	prepared, err := interactive.PrepareInteractive(ctx)
+	rt, err := session.RuntimeForContext(ctx)
 	if err != nil {
-		t.Fatalf("PrepareInteractive() error = %v", err)
+		t.Fatalf("RuntimeForContext() error = %v", err)
 	}
-	t.Cleanup(prepared.Cleanup)
+	interactiveRT := runtime.GetInteractiveRuntime(rt)
+	if interactiveRT == nil {
+		t.Fatalf("RuntimeForContext() returned %T, want interactive runtime", rt)
+	}
 
-	if !slices.Contains(prepared.Cmd.Args, "internal") || !slices.Contains(prepared.Cmd.Args, "exec-virtual") {
-		t.Fatalf("prepared args = %v, want hidden virtual exec command", prepared.Cmd.Args)
+	executor := &recordingInteractiveExecutor{}
+	result := executor.Execute(ctx, inv.Commands[0].Name, interactiveRT)
+	if !result.Success() {
+		t.Fatalf("interactive Execute() result = %#v, want success", result)
+	}
+
+	if !slices.Contains(executor.args, "internal") || !slices.Contains(executor.args, "exec-virtual") {
+		t.Fatalf("prepared args = %v, want hidden virtual exec command", executor.args)
 	}
 }
 
@@ -64,25 +86,50 @@ func TestRuntimeRegistryFactorySkipsContainerRuntimeForNonContainerExecution(t *
 			return nil, errors.New("container runtime factory should not be called")
 		},
 	}
-	result := factory.Create(config.DefaultConfig(), nil, invowkfile.RuntimeNative)
-	defer result.Cleanup()
+	session := factory.Create(config.DefaultConfig(), nil, invowkfile.RuntimeNative)
+	t.Cleanup(session.Close)
 
 	if called {
 		t.Fatal("container runtime factory was called for native execution")
 	}
-	if _, err := result.Registry.Get(runtime.RuntimeTypeNative); err != nil {
-		t.Fatalf("native runtime not registered: %v", err)
+	if session.ContainerInitErr() != nil {
+		t.Fatalf("ContainerInitErr = %v, want nil", session.ContainerInitErr())
 	}
-	if _, err := result.Registry.Get(runtime.RuntimeTypeVirtual); err != nil {
-		t.Fatalf("virtual runtime not registered: %v", err)
+	if len(session.Diagnostics()) != 0 {
+		t.Fatalf("Diagnostics = %v, want none", session.Diagnostics())
 	}
-	if _, err := result.Registry.Get(runtime.RuntimeTypeContainer); !errors.Is(err, runtime.ErrRuntimeNotAvailable) {
-		t.Fatalf("container runtime lookup error = %v, want ErrRuntimeNotAvailable", err)
+
+	nativeResult := session.Execute(runtimeContext(t, invowkfile.RuntimeNative))
+	if !nativeResult.Success() {
+		t.Fatalf("native Execute() result = %#v, want success", nativeResult)
 	}
-	if result.ContainerInitErr != nil {
-		t.Fatalf("ContainerInitErr = %v, want nil", result.ContainerInitErr)
+
+	virtualResult := session.Execute(runtimeContext(t, invowkfile.RuntimeVirtual))
+	if !virtualResult.Success() {
+		t.Fatalf("virtual Execute() result = %#v, want success", virtualResult)
 	}
-	if len(result.Diagnostics) != 0 {
-		t.Fatalf("Diagnostics = %v, want none", result.Diagnostics)
+
+	containerResult := session.Execute(runtimeContext(t, invowkfile.RuntimeContainer))
+	if !errors.Is(containerResult.Error, runtime.ErrRuntimeNotAvailable) {
+		t.Fatalf("container Execute() error = %v, want ErrRuntimeNotAvailable", containerResult.Error)
 	}
+}
+
+func runtimeContext(t testing.TB, mode invowkfile.RuntimeMode) *runtime.ExecutionContext {
+	t.Helper()
+
+	inv := &invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{{
+			Name: "hello",
+			Implementations: []invowkfile.Implementation{{
+				Script:    "true",
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: mode}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			}},
+		}},
+	}
+	ctx := runtime.NewExecutionContext(t.Context(), &inv.Commands[0], inv)
+	ctx.SelectedRuntime = mode
+	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
+	return ctx
 }

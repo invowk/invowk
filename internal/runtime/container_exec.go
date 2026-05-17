@@ -248,30 +248,6 @@ func (r *ContainerRuntime) prepareContainerExecution(ctx *ExecutionContext, opts
 // process can decide to retry) never leak to the user's terminal. On success or
 // non-transient failure the buffer is flushed to the caller's original stderr.
 func (r *ContainerRuntime) runWithRetry(ctx context.Context, runOpts container.RunOptions) (*container.RunResult, error) {
-	// The ping_group_range race only affects rootless Podman. Serialize runs when
-	// the engine implements SysctlOverrideChecker but the override isn't active
-	// (podman-remote, non-Linux, temp file failure). Engines that don't implement the
-	// checker (Docker) don't suffer from this race and skip serialization entirely.
-	//
-	// On Linux, acquireRunLock() provides cross-process serialization via flock so
-	// that concurrent invowk processes (testscript, parallel terminal invocations)
-	// don't race. On non-Linux, flock is unavailable and we fall back to a
-	// process-wide mutex for intra-process protection across runtime instances.
-	if checker, ok := r.engine.(container.SysctlOverrideChecker); ok && !checker.SysctlOverrideActive() {
-		lock, lockErr := acquireContainerRunLock()
-		if lockErr != nil {
-			if errors.Is(lockErr, errFlockUnavailable) {
-				slog.Debug("flock unavailable, falling back to in-process mutex", "error", lockErr)
-			} else {
-				slog.Warn("flock acquisition failed, falling back to in-process mutex", "error", lockErr)
-			}
-			containerRunFallbackMu.Lock()
-			defer containerRunFallbackMu.Unlock()
-		} else {
-			defer lock.Release()
-		}
-	}
-
 	// Buffer stderr per-attempt so transient error messages from the container
 	// engine (written directly to the inherited fd by crun/runc) don't leak to
 	// the user's terminal when the retry succeeds.

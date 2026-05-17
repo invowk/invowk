@@ -105,6 +105,7 @@ func TestGenerateCUE_Roundtrip(t *testing.T) {
 		Container: ContainerConfig{
 			AutoProvision: AutoProvisionConfig{
 				Enabled:         false,
+				Strict:          true,
 				InheritIncludes: false,
 			},
 		},
@@ -147,6 +148,9 @@ func TestGenerateCUE_Roundtrip(t *testing.T) {
 	}
 	if loaded.Container.AutoProvision.Enabled != cfg.Container.AutoProvision.Enabled {
 		t.Errorf("roundtrip AutoProvision.Enabled = %v, want %v", loaded.Container.AutoProvision.Enabled, cfg.Container.AutoProvision.Enabled)
+	}
+	if loaded.Container.AutoProvision.Strict != cfg.Container.AutoProvision.Strict {
+		t.Errorf("roundtrip AutoProvision.Strict = %v, want %v", loaded.Container.AutoProvision.Strict, cfg.Container.AutoProvision.Strict)
 	}
 }
 

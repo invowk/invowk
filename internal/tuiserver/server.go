@@ -108,8 +108,7 @@ func (s *Server) Start(ctx context.Context) error {
 	listener, err := lc.Listen(ctx, "tcp", "0.0.0.0:0")
 	if err != nil {
 		startErr := fmt.Errorf("failed to create listener: %w", err)
-		s.base.TransitionToFailed(startErr)
-		return startErr
+		return s.base.TransitionToFailed(startErr)
 	}
 	s.listener = listener
 	tcpAddr := listener.Addr().(*net.TCPAddr)
@@ -124,16 +123,18 @@ func (s *Server) Start(ctx context.Context) error {
 		if err := s.httpServer.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
 			s.shutdownOnce.Do(func() { close(s.shutdownCh) })
 			s.closeRequestChannel()
-			s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err))
+			if s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err)) != nil {
+				return
+			}
 		}
 	}()
 
 	// Wait for ready signal or context cancellation
 	if err := s.base.WaitForReady(ctx); err != nil {
-		s.base.TransitionToFailed(err)
+		failedErr := s.base.TransitionToFailed(err)
 		_ = s.httpServer.Close() // Best-effort cleanup on error
 		_ = s.listener.Close()   // Best-effort cleanup on error
-		return err
+		return failedErr
 	}
 
 	return nil
@@ -173,17 +174,17 @@ func (s *Server) Port() types.ListenPort {
 
 // URL returns the full server URL for localhost access (e.g., "http://127.0.0.1:54321").
 // For container access, use URLWithHost() with the appropriate host address.
-func (s *Server) URL() types.TUIServerURL {
+func (s *Server) URL() URL {
 	return s.URLWithHost(types.HostServiceAddress("127.0.0.1")) //goplint:ignore -- localhost literal for loopback server URL
 }
 
 // URLWithHost returns the full server URL with a custom host (e.g., "http://host.docker.internal:54321").
 // This is useful for containers that need to access the server via a different hostname.
-func (s *Server) URLWithHost(host types.HostServiceAddress) types.TUIServerURL {
+func (s *Server) URLWithHost(host types.HostServiceAddress) URL {
 	if err := host.Validate(); err != nil {
 		return ""
 	}
-	return types.TUIServerURL("http://" + net.JoinHostPort(host.String(), s.port.String()))
+	return URL("http://" + net.JoinHostPort(host.String(), s.port.String()))
 }
 
 // Token returns the authentication token.

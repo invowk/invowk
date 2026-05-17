@@ -196,11 +196,11 @@ func resolveCommandDependenciesWithLockProvider(disc CommandSetProvider, deps *i
 	}
 
 	// Derive currentModule for qualified-name lookup.
-	currentModule := ""
+	var currentModule invowkmod.ModuleSourceID
 	if cmdInfo.Invowkfile.Metadata != nil {
-		currentModule = string(cmdInfo.SourceID)
+		currentModule = invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
 		if currentModule == "" {
-			currentModule = string(cmdInfo.Invowkfile.Metadata.Module())
+			currentModule = invowkmod.ModuleSourceID(cmdInfo.Invowkfile.Metadata.Module())
 		}
 	}
 
@@ -222,24 +222,22 @@ func resolveCommandDependenciesWithLockProvider(disc CommandSetProvider, deps *i
 			continue
 		}
 
-		matchedCmd := findMatchingCommand(available, currentModule, alternatives)
+		matchedCmd, forbidden, found := findAccessibleCommand(available, currentModule, alternatives, scope)
+		if matchedCmd != nil {
+			matchedName := matchedCmd.Name
+			resolved = append(resolved, resolvedCommandDependency{
+				Alternatives: alternatives,
+				Command:      &matchedName,
+			})
+			continue
+		}
+		if found {
+			forbiddenErrors = append(forbiddenErrors, forbidden...)
+			continue
+		}
 		if matchedCmd == nil {
 			commandErrors = append(commandErrors, formatMissingCommandDependency(alternatives, false))
 			continue
-		}
-
-		matchedName := matchedCmd.Name
-		resolved = append(resolved, resolvedCommandDependency{
-			Alternatives: alternatives,
-			Command:      &matchedName,
-		})
-
-		// Scope enforcement: if the caller is a module command, check CanCall.
-		if scope != nil && matchedCmd.ModuleID != nil {
-			decision := scope.CanCall(invowkmod.CommandReference(matchedCmd.Name))
-			if !decision.Allowed {
-				forbiddenErrors = append(forbiddenErrors, commandScopeDenialDetail(scope, decision))
-			}
 		}
 	}
 
@@ -269,42 +267,27 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 		moduleID = *cmdInfo.ModuleID
 	}
 
-	// Collect global module IDs from discovered commands.
-	var globalIDs []invowkmod.ModuleID
-	seenGlobal := make(map[invowkmod.ModuleID]bool)
-	for _, cmd := range available {
-		if cmd.IsGlobalModule && cmd.ModuleID != nil {
-			id := *cmd.ModuleID
-			if !seenGlobal[id] {
-				seenGlobal[id] = true
-				globalIDs = append(globalIDs, id)
-			}
-		}
-	}
-
 	requirements := cmdInfo.Invowkfile.Metadata.Requires()
 
-	// Wire resolved direct dependencies from discovery plus lock-file identity.
-	// Raw aliases are command namespaces, not authorization proof.
-	scope := invowkmod.NewCommandScope(moduleID, globalIDs, requirements)
+	// Wire direct dependencies from declarations resolved through lock-file
+	// identity. Raw aliases are command namespaces, not authorization proof.
+	scope := invowkmod.NewCommandScope(moduleID)
 	scope.ModuleSourceID = invowkmod.ModuleSourceID(cmdInfo.SourceID) //goplint:ignore -- SourceID validated by discovery
 	for _, cmd := range available {
 		if cmd.IsGlobalModule {
-			scope.GlobalSources[invowkmod.ModuleSourceID(cmd.SourceID)] = true //goplint:ignore -- SourceID validated by discovery
+			scope.AddGlobalSource(invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
 		}
 	}
 
 	// Wire resolved RDNS module IDs and command namespaces for direct deps.
-	// Alias requirements match the source namespace, while non-aliased
-	// requirements match the repository short name used by discovery for the
-	// module source.
+	// A dependency is authorized only when the declaration and lock-file entry
+	// agree with the discovered module identity and command source.
 	for _, cmd := range available {
 		if cmd.ModuleID == nil {
 			continue
 		}
 		if commandMatchesDirectRequirement(requirements, lock, cmd) {
-			scope.AddDirectDep(*cmd.ModuleID)
-			scope.AddDirectSource(invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
+			scope.AddDirectDependency(*cmd.ModuleID, invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
 		}
 	}
 
@@ -321,9 +304,9 @@ func commandScopeLock(provider CommandScopeLockProvider, inv *invowkfile.Invowkf
 func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.CommandScopeDecision) DependencyMessage {
 	return dependencyMessageFromDetail(fmt.Sprintf(
 		"%s - command from module '%s' cannot call '%s': module '%s' is not accessible\n"+
-			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires. "+
-			"Add '%s' to your invowkmod.cue requires list to use its commands",
-		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID, decision.TargetSource))
+			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires and resolved in invowkmod.lock.cue. "+
+			"Declare the dependency module in invowkmod.cue:requires if it is missing, then run 'invowk module sync' to refresh lock metadata",
+		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID))
 }
 
 func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement, lock *invowkmod.LockFile, cmd *discovery.CommandInfo) bool {
@@ -345,6 +328,31 @@ func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement,
 		}
 	}
 	return false
+}
+
+func findAccessibleCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule invowkmod.ModuleSourceID, alternatives []invowkfile.CommandName, scope *invowkmod.CommandScope) (*discovery.CommandInfo, []DependencyMessage, bool) {
+	var forbidden []DependencyMessage
+	for _, alt := range alternatives {
+		for _, candidate := range matchingCommandCandidates(available, currentModule, alt) {
+			decision := commandScopeDecision(scope, candidate)
+			if decision.Allowed {
+				return candidate, nil, true
+			}
+			forbidden = append(forbidden, commandScopeDenialDetail(scope, decision))
+		}
+	}
+	return nil, forbidden, len(forbidden) > 0
+}
+
+func commandScopeDecision(scope *invowkmod.CommandScope, cmd *discovery.CommandInfo) invowkmod.CommandScopeDecision {
+	if scope == nil || cmd.ModuleID == nil {
+		return invowkmod.CommandScopeDecision{Allowed: true, TargetCommand: invowkmod.CommandReference(cmd.Name)}
+	}
+	return scope.CanCallTarget(invowkmod.CommandTarget{
+		Reference: invowkmod.CommandReference(cmd.Name),
+		SourceID:  invowkmod.ModuleSourceID(cmd.SourceID), //goplint:ignore -- SourceID validated by discovery
+		ModuleID:  *cmd.ModuleID,
+	})
 }
 
 func discoverAvailableCommands(disc CommandSetProvider, ctx ExecutionContext) (map[invowkfile.CommandName]*discovery.CommandInfo, error) {
@@ -373,26 +381,36 @@ func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []invowkfil
 
 // findMatchingCommand returns the first CommandInfo matching any alternative,
 // or nil if none found. Module callers resolve bare alternatives against their
-// own source namespace before falling back to an unscoped root command.
-func findMatchingCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule string, alternatives []invowkfile.CommandName) *discovery.CommandInfo {
+// own source namespace and explicit module/global namespaces, but root
+// invowkfile commands are not visible from module command scopes.
+func findMatchingCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule invowkmod.ModuleSourceID, alternatives []invowkfile.CommandName) *discovery.CommandInfo {
 	for _, alt := range alternatives {
-		exact := available[alt]
-		if isModuleScopedCommand(exact) {
-			return exact
-		}
-
-		if currentModule != "" {
-			qualified := invowkfile.CommandName(currentModule + " " + string(alt)) //goplint:ignore -- map key lookup only
-			if cmd, ok := available[qualified]; ok {
-				return cmd
-			}
-		}
-
-		if exact != nil {
-			return exact
+		candidates := matchingCommandCandidates(available, currentModule, alt)
+		if len(candidates) > 0 {
+			return candidates[0]
 		}
 	}
 	return nil
+}
+
+func matchingCommandCandidates(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule invowkmod.ModuleSourceID, alt invowkfile.CommandName) []*discovery.CommandInfo {
+	var candidates []*discovery.CommandInfo
+	exact := available[alt]
+	if isModuleScopedCommand(exact) {
+		candidates = append(candidates, exact)
+	}
+
+	if currentModule != "" {
+		qualified := invowkfile.CommandName(string(currentModule) + " " + string(alt)) //goplint:ignore -- map key lookup only
+		if cmd, ok := available[qualified]; ok && cmd != exact {
+			candidates = append(candidates, cmd)
+		}
+	}
+
+	if currentModule == "" && exact != nil {
+		candidates = append(candidates, exact)
+	}
+	return candidates
 }
 
 func isModuleScopedCommand(cmd *discovery.CommandInfo) bool {

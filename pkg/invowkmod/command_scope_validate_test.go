@@ -21,8 +21,10 @@ func TestCommandScope_Validate(t *testing.T) {
 			"valid scope",
 			CommandScope{
 				ModuleID:      "io.invowk.sample",
-				GlobalModules: map[ModuleID]bool{"global.tools": true},
-				DirectDeps:    map[ModuleID]bool{"dep.module": true},
+				GlobalSources: map[ModuleSourceID]bool{"global.tools": true},
+				DirectDependencySources: map[ModuleID]map[ModuleSourceID]bool{
+					"dep.module": {"dep-tools": true},
+				},
 			},
 			true, false, 0,
 		},
@@ -36,9 +38,9 @@ func TestCommandScope_Validate(t *testing.T) {
 		{
 			"valid scope with empty maps",
 			CommandScope{
-				ModuleID:      "mymodule",
-				GlobalModules: map[ModuleID]bool{},
-				DirectDeps:    map[ModuleID]bool{},
+				ModuleID:                "mymodule",
+				GlobalSources:           map[ModuleSourceID]bool{},
+				DirectDependencySources: map[ModuleID]map[ModuleSourceID]bool{},
 			},
 			true, false, 0,
 		},

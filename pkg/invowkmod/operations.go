@@ -7,16 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
 )
-
-// moduleNameRegex validates the module folder name prefix (before .invowkmod)
-// Must start with a letter, contain only alphanumeric chars, with optional dot-separated segments
-// Compatible with RDNS naming (e.g., "com.example.mycommands")
-var moduleNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$`)
 
 type (
 	//goplint:validate-all
@@ -24,7 +18,7 @@ type (
 	// CreateOptions contains options for creating a new module.
 	CreateOptions struct {
 		// Name is the module name (e.g., "com.example.mytools")
-		Name ModuleShortName
+		Name ModuleDirectoryName
 		// ParentDir is the directory where the module will be created
 		ParentDir types.FilesystemPath
 		// Module is the module identifier for the invowkfile (defaults to Name if empty)
@@ -50,7 +44,7 @@ func IsModule(path types.FilesystemPath) bool {
 
 	// Check if the prefix is valid
 	prefix := strings.TrimSuffix(base, ModuleSuffix)
-	if !moduleNameRegex.MatchString(prefix) {
+	if err := ModuleDirectoryName(prefix).Validate(); err != nil {
 		return false
 	}
 
@@ -72,7 +66,7 @@ func IsModule(path types.FilesystemPath) bool {
 // ParseModuleName extracts and validates the module name from a folder name.
 // The folder name must end with .invowkmod and have a valid prefix.
 // Returns the module name (without suffix) or an error if invalid.
-func ParseModuleName(folderName string) (ModuleShortName, error) {
+func ParseModuleName(folderName string) (ModuleDirectoryName, error) {
 	// Must end with .invowkmod
 	if !strings.HasSuffix(folderName, ModuleSuffix) {
 		return "", fmt.Errorf("folder name must end with '%s'", ModuleSuffix)
@@ -90,20 +84,17 @@ func ParseModuleName(folderName string) (ModuleShortName, error) {
 	}
 
 	// Validate prefix format
-	if !moduleNameRegex.MatchString(prefix) {
+	directoryName := ModuleDirectoryName(prefix)
+	if err := directoryName.Validate(); err != nil {
 		return "", fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", prefix)
 	}
 
-	shortName := ModuleShortName(prefix)
-	if err := shortName.Validate(); err != nil {
-		return "", fmt.Errorf("module short name: %w", err)
-	}
-	return shortName, nil
+	return directoryName, nil
 }
 
 // ValidateName checks if a module name is valid.
 // Returns nil if valid, or an error describing the problem.
-func ValidateName(name ModuleShortName) error {
+func ValidateName(name ModuleDirectoryName) error {
 	nameStr := string(name)
 
 	if nameStr == "" {
@@ -114,7 +105,7 @@ func ValidateName(name ModuleShortName) error {
 		return errors.New("module name cannot start with a dot")
 	}
 
-	if !moduleNameRegex.MatchString(nameStr) {
+	if err := name.Validate(); err != nil {
 		return fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", nameStr)
 	}
 

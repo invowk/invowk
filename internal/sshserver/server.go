@@ -33,7 +33,10 @@ type (
 
 	//goplint:validate-all
 	//
-	// Token represents an authentication token for container callbacks.
+	// Token represents an execution-lifetime bearer token for container
+	// callbacks. CommandID identifies the execution that owns the token for
+	// cleanup and revocation; it is not an authorization scope enforced per SSH
+	// session command.
 	Token struct {
 		Value     TokenValue
 		CreatedAt time.Time

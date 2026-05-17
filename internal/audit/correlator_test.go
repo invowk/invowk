@@ -156,8 +156,8 @@ func TestCorrelator_HighPlusAnyEscalation(t *testing.T) {
 
 	c := mustNewCorrelator(t, nil)
 	findings := []Finding{
-		{Severity: SeverityHigh, Category: CategoryExecution, SurfaceID: "mod1"},
-		{Severity: SeverityLow, Category: CategoryTrust, SurfaceID: "mod1"},
+		{Code: codeScriptRemoteExecution, Severity: SeverityHigh, Category: CategoryExecution, SurfaceID: "mod1", Title: "remote execution"},
+		{Code: codeNetworkAccessCommand, Severity: SeverityLow, Category: CategoryTrust, SurfaceID: "mod1", Title: "network access"},
 	}
 	result := c.Correlate(findings)
 
@@ -167,6 +167,9 @@ func TestCorrelator_HighPlusAnyEscalation(t *testing.T) {
 			hasEscalation = true
 			if f.Severity != SeverityCritical {
 				t.Errorf("escalation severity = %v, want Critical", f.Severity)
+			}
+			if !slices.Contains(f.EscalatedFromCodes, codeScriptRemoteExecution) || !slices.Contains(f.EscalatedFromCodes, codeNetworkAccessCommand) {
+				t.Fatalf("EscalatedFromCodes = %v, want constituent stable codes", f.EscalatedFromCodes)
 			}
 		}
 	}

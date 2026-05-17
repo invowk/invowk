@@ -144,7 +144,8 @@ type (
 		Name ContainerName
 	}
 
-	// Engine defines the interface for container operations
+	// Engine defines the lifecycle and execution operations for a container
+	// engine. Command preparation for PTY attachment lives in CommandPreparer.
 	Engine interface {
 		// Name returns the engine name (docker or podman)
 		Name() string
@@ -171,7 +172,12 @@ type (
 		ImageExists(ctx context.Context, image ImageTag) (bool, error)
 		// RemoveImage removes an image
 		RemoveImage(ctx context.Context, image ImageTag, force bool) error
+	}
 
+	// CommandPreparer exposes CLI command construction for adapters that need
+	// to attach a container run process to a PTY instead of executing it through
+	// Engine.Run.
+	CommandPreparer interface {
 		// BinaryPath returns the path to the container engine binary.
 		// This is used when preparing commands for PTY attachment in interactive mode.
 		BinaryPath() string
@@ -182,7 +188,16 @@ type (
 		BuildRunArgs(opts RunOptions) []string
 
 		// PrepareRunCommand creates a configured command for a container run.
-		PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd
+		// The returned cleanup releases any resources held for the command's
+		// lifetime and must run after the caller has waited for the process.
+		PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error)
+	}
+
+	// LifecycleCoordinator serializes engine lifecycle operations when the
+	// adapter knows they share the same engine-level constraints as run.
+	LifecycleCoordinator interface {
+		// CoordinateLifecycle runs fn under the engine adapter's lifecycle coordination policy.
+		CoordinateLifecycle(fn func() error) error
 	}
 
 	//goplint:validate-all

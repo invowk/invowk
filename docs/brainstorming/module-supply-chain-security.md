@@ -2,6 +2,8 @@
 
 > Brainstorming analysis — captures design rationale for invowk's module dependency security posture.
 
+> Status note: this brainstorming note predates the current command-scope implementation. Declared `depends_on.cmds` references are now checked through `CommandScope.CanCallTarget()` using discovery-provided module IDs and source IDs; runtime subprocess calls are still outside that static validation path.
+
 ## The Question
 
 **Should we remove the transitive modules/dependencies feature to reduce supply chain attack surface, or is there a better approach?**
@@ -28,7 +30,7 @@ Invowk is fundamentally a code execution engine. With supply chain attacks becom
 
 - No code signing or checksum verification of module content.
 - No SBOM or provenance attestation.
-- `CanCall()` visibility enforcement is **not wired into the execution path** — it's defined and tested but unenforced at runtime.
+- Static command-scope enforcement exists for declared `depends_on.cmds`; dynamic subprocess calls such as `invowk cmd <name>` inside scripts are not intercepted.
 - No protection against Git tag mutation (someone replaces a tag pointing to a different commit).
 
 ## Analysis
@@ -40,7 +42,7 @@ Invowk is fundamentally a code execution engine. With supply chain attacks becom
 
 ### Recommended improvements (ordered by impact)
 
-1. **Enforce `CanCall()` at runtime** — this is the low-hanging fruit. The code exists in `pkg/invowkmod/command_scope.go`, it's tested, it just needs to be wired into `commandsvc` dispatch. This makes the "transitive deps can't call your commands" rule a real boundary, not just documentation.
+1. **Keep hardening command-scope enforcement** — declared `depends_on.cmds` now flow through `CommandScope.CanCallTarget()` in `pkg/invowkmod/command_scope.go`. The remaining gap is runtime subprocess interception: if a script dynamically runs `invowk cmd <name>`, that is a new CLI process outside the static dependency validation path.
 
 2. **Add content-hash verification** — store a SHA-256 of the module tree in the lock file alongside the Git commit. Verify on every load. This catches tag mutation and tampering after clone.
 
@@ -117,7 +119,7 @@ Invowk already has a partial version of this philosophy built in — but it's in
 
 - **Discovery is already depth-1**: `discoverVendoredModulesWithDiagnostics` in `internal/discovery/discovery_files.go` only scans `invowk_modules/` one level deep. Nested `invowk_modules/` directories inside vendored modules emit a `SeverityWarning` diagnostic (`CodeVendoredNestedIgnored`). Discovery already treats the module graph as flat.
 
-- **`CommandScope.CanCall()` enforces 1-level visibility**: The rule "commands from module A can only call commands from module A's direct dependencies, not transitive ones" is already coded in `pkg/invowkmod/command_scope.go`. Only direct deps from `requires` are added to the `DirectDeps` map. This means even if transitive modules are resolved, their commands are invisible to the root module at the visibility level.
+- **`CommandScope.CanCallTarget()` enforces 1-level visibility for declared dependencies**: The rule "commands from module A can only declare command dependencies on module A, global command sources, or direct dependencies" is coded in `pkg/invowkmod/command_scope.go`. Only direct dependency `(module ID, source ID)` pairs that match `requires` and lock metadata are added to `DirectDependencySources`. This means even if transitive modules are resolved, their commands are invisible to the root module at the static dependency-validation level.
 
 - **Vendoring is already flat**: `moduleops.VendorModules()` in `internal/app/moduleops/vendor.go` copies resolved modules into a single `invowk_modules/` directory, not nested. The on-disk layout is already flat even though the resolution was recursive.
 
@@ -125,9 +127,9 @@ Invowk already has a partial version of this philosophy built in — but it's in
 
 - **`resolveAll()` recursively resolves**: Despite discovery and visibility being depth-1, the resolver in `pkg/invowkmod/resolver_deps.go` recursively calls `resolveOne()` for every transitive `requires`. It clones repos, resolves semver, and stores everything in the lock file — even modules the root will never be able to call.
 
-- **Lock file includes everything**: `invowkmod.lock.cue` contains entries for the entire transitive graph, even though only depth-1 modules are usable. This means `invowk module sync` fetches code that the root module can never interact with (assuming `CanCall()` is enforced).
+- **Lock file includes everything**: `invowkmod.lock.cue` contains entries for the entire transitive graph, even though only depth-1 modules are usable. This means `invowk module sync` fetches code that the root module can never interact with through declared command dependencies.
 
-- **The gap creates a confusing security posture**: Transitive modules are fetched, vendored, and present on disk — but (once `CanCall()` is enforced) their commands are invisible. An attacker who compromises a transitive module still gets their code cloned to the user's machine and present in `invowk_modules/`. The code exists; it just can't be *called*. But "code on disk that can't be called" is still code on disk — it's in the build environment, CI pipelines, and container layers.
+- **The gap creates a confusing security posture**: Transitive modules are fetched, vendored, and present on disk — but their commands are invisible to declared command dependencies. An attacker who compromises a transitive module still gets their code cloned to the user's machine and present in `invowk_modules/`. The code exists; it just can't be *called* through the static dependency mechanism. But "code on disk that can't be called" is still code on disk — it's in the build environment, CI pipelines, and container layers.
 
 #### What implementation would look like
 
@@ -158,7 +160,7 @@ This preserves the convenience of automatic resolution while ensuring informed c
 
 The nuclear option is **the right call if invowk modules will be shared publicly** (like npm packages or Go modules). Once there's a public ecosystem, supply chain attacks become a real threat and the Go model is proven.
 
-If modules are primarily **private/internal** (teams sharing within an org), the current model with `CanCall()` enforcement + content-hash verification is probably sufficient — the trust boundary is the org itself.
+If modules are primarily **private/internal** (teams sharing within an org), the current model with command-scope enforcement + content-hash verification is probably sufficient — the trust boundary is the org itself.
 
 The fact that discovery, visibility, and vendoring are already depth-1 makes the nuclear option surprisingly low-effort to implement — it's mostly about **removing** recursive resolution code rather than adding new systems. The hardest part is `invowk module tidy`, which is a convenience feature, not a security one.
 
@@ -216,17 +218,17 @@ The validation happens at execution time (in `dispatchExecution()` at `internal/
 
 This means `depends_on.cmds` is essentially "assert this command is installed/available on this system" — a precondition guard, not an execution dependency.
 
-**Finding 2: All included modules' commands live in one flat namespace with full cross-visibility.**
+**Finding 2: All included modules' commands live in one flat discovery namespace.**
 
-Discovery in `internal/discovery/discovery_commands.go` (`DiscoverCommandSet`, line 185) aggregates commands from all sources — current directory, local modules, config includes, and user cmds dir — into a single flat `DiscoveredCommandSet.ByName` map. There is no namespace isolation between modules at the discovery level.
+Discovery in `internal/discovery/discovery_commands.go` aggregates commands from all sources — current directory, local modules, config includes, and user cmds dir — into a single flat `DiscoveredCommandSet.ByName` map. There is no namespace isolation between modules at the discovery level.
 
-This means: if modules A and B are both in `config.cue` `includes`, a command in module A that declares `depends_on.cmds: ["bar"]` where `bar` is from module B will pass validation — because `bar` is in the aggregated command set.
+The dependency-validation layer now adds the missing policy check: a command in module A that declares `depends_on.cmds: ["bar"]` where `bar` is from module B must pass command-scope validation, not just flat-name discovery.
 
-`CommandScope.CanCall()` in `pkg/invowkmod/command_scope.go` — which could restrict cross-module visibility — is **never called in any production code path**. It exists only in tests. Today, all included modules can see all other included modules' commands, with no enforcement boundary.
+`CommandScope.CanCallTarget()` in `pkg/invowkmod/command_scope.go` restricts cross-module visibility using the discovered target module ID and source ID. A flat-namespace design would need to intentionally remove or bypass that policy.
 
 #### How this design resolves cross-module `depends_on`
 
-Under the 2nd nuclear option, the cross-module `depends_on.cmds` scenario works exactly as it does today, but with a cleaner mental model:
+Under the 2nd nuclear option, the cross-module `depends_on.cmds` scenario would work through the flat aggregate namespace, with a cleaner mental model:
 
 ```cue
 // config.cue — user controls everything
@@ -239,20 +241,20 @@ includes: [
 - `deploy-tools` defines a `deploy` command with `depends_on.cmds: ["build"]`.
 - `build-tools` defines a `build` command.
 - Both are in `config.cue` `includes`, so both are discovered.
-- When user runs `invowk cmd deploy`, the `depends_on.cmds` check runs `CheckCommandDependenciesExist()`, finds `build` in the aggregated command set, and passes.
+- When user runs `invowk cmd deploy`, the `depends_on.cmds` check runs `CheckCommandDependenciesExist()`, finds `build` in the aggregated command set, and would pass under the flat-namespace design.
 - The `deploy` script runs. If it needs to call `build`, it does so explicitly via `invowk cmd build` in its script — this is a subprocess call, not a `depends_on` mechanism.
 
 The key insight: **`depends_on.cmds` was never about module-to-module relationships**. It's about "this command needs another command to be available on this system." Under the 2nd nuclear option, the user explicitly made both available via `config.cue`. No module needed to "know about" another module.
 
-#### What happens to `CommandScope.CanCall()`
+#### What happens to command-scope enforcement
 
-Since `CanCall()` is never called in production today, there are two options:
+Since command-scope enforcement is now wired into production dependency validation, there are two options for the flat-namespace design:
 
-1. **Remove it entirely**: Under this design, all included modules' commands are in the same flat namespace with full cross-visibility. `CanCall()` scoping is unnecessary because there are no transitive deps to hide from — everything the user includes is intentionally visible.
+1. **Remove it entirely**: Under this design, all included modules' commands are in the same flat namespace with full cross-visibility. Command scoping is unnecessary because there are no transitive deps to hide from — everything the user includes is intentionally visible.
 
-2. **Keep it for future use**: If a future feature needs to restrict which modules can reference which (e.g., "module A should only see module B"), `CanCall()` could be wired in. But this would be an opt-in governance feature, not a security feature — the user already controls what's included.
+2. **Keep it as governance policy**: If a future feature needs to restrict which modules can reference which (e.g., "module A should only see module B"), `CanCallTarget()` could remain as an opt-in governance feature. But this would no longer be a supply-chain security feature — the user already controls what's included.
 
-The recommendation is to **remove it** (or at minimum, remove the `DirectDeps` and `GlobalModules` concepts). With no module-to-module `requires`, the distinction between "direct dep" and "global module" is meaningless. Everything is user-included.
+The recommendation for that design is to **remove the scope policy**. With no module-to-module `requires`, the distinction between "direct dep" and "global module" is meaningless. Everything is user-included.
 
 #### What would be removed / simplified
 
@@ -263,7 +265,7 @@ The recommendation is to **remove it** (or at minimum, remove the `DirectDeps` a
 | `loadTransitiveDeps()` | Parses dep module's `requires` for recursive resolution | **Removed** |
 | Lock file (`invowkmod.lock.cue`) | Pins entire transitive graph | **Removed or simplified** (git SHAs could move to a simpler manifest alongside config) |
 | `VendorModules()` / `invowk_modules/` | Copies resolved modules from cache | **Simplified** — modules live where the user puts them (local path or `~/.invowk/modules/`) |
-| `CommandScope` / `CanCall()` | Enforces 1-level visibility (never called in prod) | **Removed** — flat namespace, user controls visibility via includes |
+| `CommandScope` / command-scope policy | Enforces 1-level visibility for declared dependencies | **Removed** — flat namespace, user controls visibility via includes |
 | `config.cue` `includes` | References local module paths | **Unchanged** — becomes the sole module reference mechanism |
 | `CheckCommandDependenciesExist()` | Checks aggregated command set | **Unchanged** — works exactly as today |
 | Git fetching | Built into resolver | **Separate CLI command** (`invowk module add <url>`) |
@@ -343,7 +345,7 @@ This means any virtual shell script can execute arbitrary host binaries (`git`, 
 
 ### Implication for recommendation #5
 
-Option 5 ("sandbox transitive deps via virtual-shell-only") **does not work today** and requires significant implementation effort. The virtual shell is a *portable shell interpreter*, not a security boundary. This shifts the recommendation priority: content-hash verification and `CanCall()` enforcement remain the best immediate wins, while true sandboxing is a longer-term research item.
+Option 5 ("sandbox transitive deps via virtual-shell-only") **does not work today** and requires significant implementation effort. The virtual shell is a *portable shell interpreter*, not a security boundary. This shifts the recommendation priority: content-hash verification and command-scope enforcement remain the best immediate wins, while true sandboxing is a longer-term research item.
 
 ## Recommendation
 
@@ -354,7 +356,7 @@ This is the strongest security choice and the best fit for invowk's nature as a 
 **If the 2nd nuclear option is too aggressive (breaking change for existing users with `requires`):**
 - **1st nuclear option** (Go-style explicit-only): keep `requires` but remove transitive resolution. Users must declare every dependency. Add `invowk module tidy` for convenience. Medium effort.
 - **Middle ground**: keep transitive resolution but add an explicit approval checkpoint. Least disruptive, still provides informed consent.
-- **Minimum viable improvement**: enforce `CanCall()` at runtime + add content-hash verification. Closes the two biggest gaps (unenforced visibility + no tamper detection) without changing the dependency model.
+- **Minimum viable improvement**: keep command-scope enforcement on declared dependencies + add content-hash verification. Closes the two biggest gaps (visibility policy + no tamper detection) without changing the dependency model.
 
 **Not viable without significant work:**
 - Virtual-shell sandboxing requires a restrictive `ExecHandler`, env isolation, and careful allowlist design. This is a longer-term research direction, not a quick win.

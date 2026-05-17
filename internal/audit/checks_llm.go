@@ -123,8 +123,12 @@ func (c *LLMChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding, err
 		allFindings = append(allFindings, r.findings...)
 	}
 
-	if len(errs) > 0 && len(allFindings) == 0 {
-		return nil, fmt.Errorf("all LLM analysis batches failed: %w", errors.Join(errs...))
+	if len(errs) > 0 {
+		joined := errors.Join(errs...)
+		if len(allFindings) == 0 {
+			return nil, fmt.Errorf("all LLM analysis batches failed: %w", joined)
+		}
+		return allFindings, fmt.Errorf("some LLM analysis batches failed: %w", joined)
 	}
 
 	return allFindings, nil
@@ -144,7 +148,7 @@ func (c *LLMChecker) analyzeBatch(ctx context.Context, batch []ScriptRef) ([]Fin
 		return nil, err
 	}
 
-	return convertBatchFindings(parsed, batch), nil
+	return convertBatchFindings(parsed, batch)
 }
 
 // batchScripts groups prepared scripts into batches respecting character and

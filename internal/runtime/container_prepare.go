@@ -12,10 +12,6 @@ import (
 )
 
 type (
-	containerRunCommandPreparer interface {
-		PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd
-	}
-
 	containerExecCommandPreparer interface {
 		PrepareExecCommand(ctx context.Context, containerID container.ContainerID, command []string, opts container.RunOptions) *exec.Cmd
 	}
@@ -81,12 +77,26 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return nil, fmt.Errorf("container run options: %w", err)
 	}
 
-	preparer, ok := r.engine.(containerRunCommandPreparer)
+	preparer, ok := r.engine.(container.CommandPreparer)
 	if !ok {
 		return nil, errors.New("container engine does not support interactive command preparation")
 	}
-	cmd := preparer.PrepareRunCommand(ctx.Context, runOpts)
-	return &PreparedCommand{Cmd: cmd, Cleanup: prep.cleanup}, nil
+	cmd, runCleanup, err := preparer.PrepareRunCommand(ctx.Context, runOpts)
+	if err != nil {
+		prep.cleanup()
+		return nil, err
+	}
+	return &PreparedCommand{Cmd: cmd, Cleanup: combinePreparedCleanups(runCleanup, prep.cleanup)}, nil
+}
+
+func combinePreparedCleanups(cleanups ...func()) func() {
+	return func() {
+		for _, cleanup := range cleanups {
+			if cleanup != nil {
+				cleanup()
+			}
+		}
+	}
 }
 
 func validatePersistentExecOptions(opts container.RunOptions) error {

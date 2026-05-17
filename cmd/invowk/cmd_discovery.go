@@ -9,13 +9,11 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/issue"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/types"
 
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
@@ -154,86 +152,21 @@ func buildLeafCommand(app *App, rootFlags *rootFlagValues, cmdFlags *cmdFlagValu
 				}
 			}
 
-			// Extract typed flag values from Cobra state for service-side validation
-			// and INVOWK_FLAG_* environment projection.
-			flagValues := make(map[invowkfile.FlagName]string)
-			for _, flag := range cmdRuntimeFlags {
-				var val string
-				var err error
-				nameStr := string(flag.Name)
-				switch flag.GetType() {
-				case invowkfile.FlagTypeBool:
-					var boolVal bool
-					boolVal, err = cmd.Flags().GetBool(nameStr)
-					if err == nil {
-						val = strconv.FormatBool(boolVal)
-					}
-				case invowkfile.FlagTypeInt:
-					var intVal int
-					intVal, err = cmd.Flags().GetInt(nameStr)
-					if err == nil {
-						val = strconv.Itoa(intVal)
-					}
-				case invowkfile.FlagTypeFloat:
-					var floatVal float64
-					floatVal, err = cmd.Flags().GetFloat64(nameStr)
-					if err == nil {
-						val = fmt.Sprintf("%g", floatVal)
-					}
-				case invowkfile.FlagTypeString:
-					val, err = cmd.Flags().GetString(nameStr)
-				}
-				if err == nil {
-					flagValues[flag.Name] = val
-				}
-			}
-
-			envFiles, _ := cmd.Flags().GetStringArray("ivk-env-file")
-			envVarFlags, _ := cmd.Flags().GetStringArray("ivk-env-var")
-			envVars := parseEnvVarFlags(envVarFlags)
-			workdirOverride, _ := cmd.Flags().GetString("ivk-workdir")
-			envInheritModeStr, _ := cmd.Flags().GetString("ivk-env-inherit-mode")
-			envInheritAllow, _ := cmd.Flags().GetStringArray("ivk-env-inherit-allow")
-			envInheritDeny, _ := cmd.Flags().GetStringArray("ivk-env-inherit-deny")
-
 			// Watch mode intercepts before normal execution.
 			if cmdFlags.watch {
 				return runWatchMode(cmd, app, rootFlags, cmdFlags, append([]string{string(cmdName)}, args...))
 			}
 
-			parsedRuntime, err := cmdFlags.parsedRuntimeMode()
-			if err != nil {
-				return err
-			}
-			parsedEnvInheritMode, err := invowkfile.ParseEnvInheritMode(envInheritModeStr)
-			if err != nil {
-				return err
-			}
-
-			verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
-			req := ExecuteRequest{
+			req, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
 				Name:            string(cmdName),
 				Args:            args,
-				Runtime:         parsedRuntime,
-				Interactive:     interactive,
-				InteractiveSet:  interactiveSet,
-				Verbose:         verbose,
-				VerboseSet:      verboseSet,
 				FromSource:      discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
-				ForceRebuild:    cmdFlags.forceRebuild,
-				ContainerName:   invowkfile.ContainerName(cmdFlags.containerName), //goplint:ignore -- CLI flag boundary conversion
-				DryRun:          cmdFlags.dryRun,
-				Workdir:         invowkfile.WorkDir(workdirOverride), //goplint:ignore -- CLI flag value, may be empty
-				EnvFiles:        toDotenvFilePaths(envFiles),
-				EnvVars:         envVars,
-				ConfigPath:      types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
-				FlagValues:      flagValues,
+				ResolvedCommand: cmdInfo,
 				FlagDefs:        cmdRuntimeFlags,
 				ArgDefs:         cmdArgs,
-				EnvInheritMode:  parsedEnvInheritMode,
-				EnvInheritAllow: toEnvVarNames(envInheritAllow),
-				EnvInheritDeny:  toEnvVarNames(envInheritDeny),
-				ResolvedCommand: cmdInfo,
+			})
+			if err != nil {
+				return err
 			}
 
 			err = executeRequest(cmd, app, req)

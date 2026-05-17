@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -25,6 +26,7 @@ func TestDurationStringValidate(t *testing.T) {
 		{name: "number without unit", value: "30", wantValid: false},
 		{name: "zero duration", value: "0s", wantValid: false},
 		{name: "negative duration", value: "-5m", wantValid: false},
+		{name: "over max runes", value: DurationString(strings.Repeat("1h", 17)), wantValid: false},
 	}
 
 	for _, tt := range tests {

@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -105,7 +106,7 @@ func CalculateDirHash(dirPath string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// DiscoverModules finds all .invowkmod directories in the given paths.
+// DiscoverModules finds valid .invowkmod directories in the given paths.
 func DiscoverModules(paths []types.FilesystemPath) []string {
 	var modules []string
 	seen := make(map[string]bool)
@@ -122,9 +123,10 @@ func DiscoverModules(paths []types.FilesystemPath) []string {
 			if !d.IsDir() {
 				return nil
 			}
-			if strings.HasSuffix(d.Name(), ".invowkmod") {
+			if strings.HasSuffix(d.Name(), invowkmod.ModuleSuffix) {
 				absPath, _ := filepath.Abs(path)
-				if !seen[absPath] {
+				modulePath := types.FilesystemPath(absPath) //goplint:ignore -- filepath.Abs result from WalkDir; validated by invowkmod.Validate below.
+				if !seen[absPath] && isValidProvisioningModule(modulePath) {
 					seen[absPath] = true
 					modules = append(modules, absPath)
 				}
@@ -135,6 +137,14 @@ func DiscoverModules(paths []types.FilesystemPath) []string {
 	}
 
 	return modules
+}
+
+func isValidProvisioningModule(path types.FilesystemPath) bool {
+	if !invowkmod.IsModule(path) {
+		return false
+	}
+	result, err := invowkmod.Validate(path)
+	return err == nil && result != nil && result.Valid
 }
 
 // CopyFile copies a regular file from src to dst. Uses os.Lstat as a

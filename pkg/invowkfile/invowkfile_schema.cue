@@ -24,6 +24,8 @@ import "strings"
 
 // DurationString constrains a Go-style duration string (e.g., "30s", "5m", "1h30m").
 // Shared by #Implementation.timeout and #WatchConfig.debounce.
+// [GO-ONLY] Positive-duration semantics are enforced by DurationString.Validate()
+// because CUE only validates the syntactic shape here.
 #DurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(32)
 
 // NonWhitespaceString is non-empty and contains at least one non-whitespace rune.
@@ -192,7 +194,7 @@ import "strings"
 	// If any of the provided tools is found in PATH, the validation succeeds (early return).
 	// This allows specifying multiple possible tools (e.g., ["podman", "docker"]).
 	// Tool names must be valid binary names: alphanumeric, can include . _ + -
-	alternatives: [...string & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"] & [_, ...]
+	alternatives: [...string & strings.MaxRunes(256) & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"] & [_, ...]
 })
 
 // CustomCheck represents a custom validation script to verify system requirements
@@ -251,7 +253,7 @@ import "strings"
 	// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
 	// Command names must be valid: starts with letter, can include letters, digits, underscores, hyphens, and spaces
-	alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"] & [_, ...]
+	alternatives: [...string & strings.MaxRunes(256) & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"] & [_, ...]
 })
 
 // CapabilityName defines the supported system capability types

@@ -3,6 +3,7 @@
 package audit
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -10,6 +11,31 @@ import (
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+type (
+	stubVendoredHashEvaluator struct {
+		results map[invowkmod.ModuleID]invowkmod.VendoredHashEvaluation
+	}
+
+	cancelingVendoredHashEvaluator struct {
+		cancel context.CancelFunc
+	}
+)
+
+func (s stubVendoredHashEvaluator) EvaluateVendoredModuleHash(_ *invowkmod.LockFile, module *invowkmod.Module) invowkmod.VendoredHashEvaluation {
+	if module == nil || module.Metadata == nil {
+		return invowkmod.VendoredHashEvaluation{Status: invowkmod.VendoredHashMissing}
+	}
+	if result, ok := s.results[module.Metadata.Module]; ok {
+		return result
+	}
+	return invowkmod.VendoredHashEvaluation{Status: invowkmod.VendoredHashMatched, ModuleID: module.Metadata.Module}
+}
+
+func (c cancelingVendoredHashEvaluator) EvaluateVendoredModuleHash(_ *invowkmod.LockFile, module *invowkmod.Module) invowkmod.VendoredHashEvaluation {
+	c.cancel()
+	return invowkmod.VendoredHashEvaluation{Status: invowkmod.VendoredHashMatched, ModuleID: module.Metadata.Module}
+}
 
 // testLockedModule returns a LockedModule with valid DDD typed fields suitable
 // for lock file test fixtures. The namespace encodes the module ID so that
@@ -266,6 +292,50 @@ func TestLockFileChecker_DeclaredLockEntryWithoutVendoredModuleIsNotOrphaned(t *
 	}
 }
 
+func TestLockFileChecker_HashCancellationIsReturned(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	sc := newModuleOnlyContext(&ScannedModule{
+		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
+		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
+		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{
+			Module: "testmod",
+		}},
+		LockFile: &invowkmod.LockFile{
+			Version: invowkmod.LockFileVersionV2,
+			Modules: map[invowkmod.ModuleRefKey]invowkmod.LockedModule{
+				"https://example.com/dep1.git": testLockedModule("io.example.dep1"),
+				"https://example.com/dep2.git": testLockedModule("io.example.dep2"),
+			},
+		},
+		VendoredModules: []*invowkmod.Module{
+			{
+				Metadata: &invowkmod.Invowkmod{Module: "io.example.dep1"},
+				Path:     "/test/mod.invowkmod/invowk_modules/dep1.invowkmod",
+			},
+			{
+				Metadata: &invowkmod.Invowkmod{Module: "io.example.dep2"},
+				Path:     "/test/mod.invowkmod/invowk_modules/dep2.invowkmod",
+			},
+		},
+	})
+
+	checker := NewLockFileChecker(WithHashEvaluator(cancelingVendoredHashEvaluator{cancel: cancel}))
+	findings, err := checker.Check(ctx, sc)
+	if err == nil {
+		t.Fatal("Check() returned nil error, want cancellation")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Check() error = %v, want context.Canceled", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("Check() findings = %v, want none before cancellation", findings)
+	}
+}
+
 func TestLockFileChecker_Clean(t *testing.T) {
 	t.Parallel()
 
@@ -290,23 +360,17 @@ func TestLockFileChecker_Clean(t *testing.T) {
 		}},
 	})
 
-	checker := NewLockFileChecker()
+	checker := NewLockFileChecker(WithHashEvaluator(stubVendoredHashEvaluator{}))
 	findings, err := checker.Check(t.Context(), sc)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// The vendored module path does not exist on disk, so ComputeModuleHash
-	// will emit a High finding about hash computation failure and checkSize
-	// may emit a Low finding. Filter those expected non-integrity findings.
 	for _, f := range findings {
 		if f.CheckerName != lockFileCheckerName {
 			continue
 		}
-		// Allow hash-computation and stat-failure findings for the non-existent
-		// in-memory fixture; flag anything else as unexpected.
-		if f.Title == "Vendored module hash could not be computed" ||
-			f.Title == "Lock file size could not be verified" {
+		if f.Title == "Lock file size could not be verified" {
 			continue
 		}
 		t.Errorf("unexpected finding: [%s] %s: %s", f.Severity, f.Title, f.Description)

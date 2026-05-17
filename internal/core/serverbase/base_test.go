@@ -69,7 +69,9 @@ func TestStateTransitions(t *testing.T) {
 
 		// Transition to Failed
 		testErr := context.DeadlineExceeded
-		b.TransitionToFailed(testErr)
+		if err := b.TransitionToFailed(testErr); !errors.Is(err, testErr) {
+			t.Fatalf("TransitionToFailed() = %v, want %v", err, testErr)
+		}
 
 		if b.State() != StateFailed {
 			t.Errorf("expected StateFailed, got %s", b.State())
@@ -352,6 +354,12 @@ func TestCancelledContext(t *testing.T) {
 		if err == nil {
 			t.Error("expected error with cancelled context")
 		}
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("TransitionToStarting() error = %v, want context.Canceled", err)
+		}
+		if !errors.Is(b.LastError(), context.Canceled) {
+			t.Errorf("LastError() = %v, want context.Canceled", b.LastError())
+		}
 
 		if b.State() != StateFailed {
 			t.Errorf("expected StateFailed, got %s", b.State())
@@ -532,6 +540,57 @@ func TestTransitionToStoppedClosesErrChannel(t *testing.T) {
 	default:
 		t.Fatal("Err channel should be closed after TransitionToStopped()")
 	}
+}
+
+func TestTerminalTransitionsAreIrreversible(t *testing.T) {
+	t.Parallel()
+
+	t.Run("failed is not overwritten by stopped", func(t *testing.T) {
+		t.Parallel()
+
+		b := NewBase()
+		if err := b.TransitionToStarting(t.Context()); err != nil {
+			t.Fatalf("TransitionToStarting() error = %v", err)
+		}
+		cause := context.DeadlineExceeded
+		if err := b.TransitionToFailed(cause); !errors.Is(err, cause) {
+			t.Fatalf("TransitionToFailed() = %v, want %v", err, cause)
+		}
+		if b.TransitionToStopped() {
+			t.Fatal("TransitionToStopped() = true after failed terminal state")
+		}
+		if b.State() != StateFailed {
+			t.Fatalf("State() = %s, want %s", b.State(), StateFailed)
+		}
+		if !errors.Is(b.LastError(), cause) {
+			t.Fatalf("LastError() = %v, want %v", b.LastError(), cause)
+		}
+	})
+
+	t.Run("stopped is not overwritten by failed", func(t *testing.T) {
+		t.Parallel()
+
+		b := NewBase()
+		if err := b.TransitionToStarting(t.Context()); err != nil {
+			t.Fatalf("TransitionToStarting() error = %v", err)
+		}
+		b.TransitionToRunning()
+		if !b.TransitionToStopping() {
+			t.Fatal("TransitionToStopping() = false, want true")
+		}
+		if !b.TransitionToStopped() {
+			t.Fatal("TransitionToStopped() = false, want true")
+		}
+		if err := b.TransitionToFailed(context.Canceled); err != nil {
+			t.Fatalf("TransitionToFailed() after stopped = %v, want nil ignored transition", err)
+		}
+		if b.State() != StateStopped {
+			t.Fatalf("State() = %s, want %s", b.State(), StateStopped)
+		}
+		if b.LastError() != nil {
+			t.Fatalf("LastError() = %v, want nil", b.LastError())
+		}
+	})
 }
 
 // Test goroutine tracking

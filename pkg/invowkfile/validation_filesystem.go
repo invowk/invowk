@@ -153,36 +153,20 @@ func ValidateFilepathDependency(paths []FilesystemPath) error {
 }
 
 // ValidateToolName validates a tool/binary name.
-// [CUE-VALIDATED] Format validation (alphanumeric, can include . _ + -) is in CUE schema:
-// alternatives: [...string & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"]
-// [GO-ONLY] Length limit validation (MaxNameLength) is Go-only because CUE schema
-// doesn't enforce string length limits on tool names for simplicity.
+// It delegates to BinaryName so tool dependency invariants stay owned by the
+// value object used by programmatic callers and parsed CUE alike.
 func ValidateToolName(name BinaryName) error {
-	s := string(name)
-	// Length check is Go-only (not in CUE schema)
-	if len(s) > MaxNameLength {
-		return fmt.Errorf("tool name too long (%d chars, max %d)", len(s), MaxNameLength)
-	}
-	// Format validation is redundant with CUE but kept as defense-in-depth
-	// for cases where this function is called outside the CUE parse flow.
-	if s == "" {
-		return errors.New("tool name cannot be empty")
-	}
-	if !toolNameRegex.MatchString(s) {
-		return fmt.Errorf("tool name '%s' is invalid (must be alphanumeric, can include . _ + -)", s)
-	}
-	return nil
+	return name.Validate()
 }
 
 // ValidateCommandDependencyName validates a command dependency name.
-// [CUE-VALIDATED] Format validation is in CUE: alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"]
-// [GO-ONLY] Length limit (MaxNameLength) is Go-only for defense-in-depth.
+// [CUE-VALIDATED] Format and length validation are in CUE:
+// alternatives: [...string & strings.MaxRunes(256) & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"]
 func ValidateCommandDependencyName(name CommandName) error {
 	s := string(name)
 	if s == "" {
 		return errors.New("command name cannot be empty")
 	}
-	// [GO-ONLY] Length limit - not in CUE schema
 	if len(s) > MaxNameLength {
 		return fmt.Errorf("command name too long (%d chars, max %d)", len(s), MaxNameLength)
 	}

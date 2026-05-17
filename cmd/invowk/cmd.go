@@ -17,6 +17,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const longConfigFlagInlinePrefix = "--ivk-config="
+
 type (
 	// cmdFlagValues holds the flag bindings for the `invowk cmd` subcommand.
 	// These correspond to persistent and local flags registered on the cmdCmd command.
@@ -140,6 +142,9 @@ Examples:
 	// Skipping registration for unrelated invocations (e.g., --version, init)
 	// avoids startup-time discovery scans and CUE parsing.
 	if shouldRegisterDiscoveredCommands(os.Args[1:]) {
+		if configPath := explicitConfigPathFromArgs(os.Args[1:]); configPath != "" {
+			rootFlags.configPath = configPath
+		}
 		registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
 	}
 
@@ -212,26 +217,11 @@ func runCommand(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFlag
 
 //goplint:ignore -- CLI adapter maps raw positional tokens into ExecuteRequest.
 func buildExecuteRequest(cmd *cobra.Command, rootFlags *rootFlagValues, cmdFlags *cmdFlagValues, args []string) (ExecuteRequest, error) {
-	parsedRuntime, err := cmdFlags.parsedRuntimeMode()
-	if err != nil {
-		return ExecuteRequest{}, err
-	}
-
-	verbose, interactive, verboseSet, interactiveSet := explicitUIFlags(cmd, rootFlags)
-	return ExecuteRequest{
-		Name:           args[0],
-		Args:           args[1:],
-		Runtime:        parsedRuntime,
-		Interactive:    interactive,
-		InteractiveSet: interactiveSet,
-		Verbose:        verbose,
-		VerboseSet:     verboseSet,
-		FromSource:     discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
-		ForceRebuild:   cmdFlags.forceRebuild,
-		ContainerName:  invowkfile.ContainerName(cmdFlags.containerName), //goplint:ignore -- CLI flag boundary conversion
-		ConfigPath:     types.FilesystemPath(rootFlags.configPath),       //goplint:ignore -- CLI flag value, may be empty
-		DryRun:         cmdFlags.dryRun,
-	}, nil
+	return buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
+		Name:       args[0],
+		Args:       args[1:],
+		FromSource: discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+	})
 }
 
 // silenceOnExitError suppresses Cobra's error/usage printing when the error is
@@ -263,6 +253,35 @@ func shouldRegisterDiscoveredCommands(args []string) bool {
 	}
 }
 
+// explicitConfigPathFromArgs extracts --ivk-config from raw argv before Cobra
+// parses flags, so dynamic command registration uses the same config path as
+// eventual command execution.
+//
+//goplint:ignore -- parses raw process argv tokens at CLI startup boundary.
+func explicitConfigPathFromArgs(args []string) string {
+	for i := range len(args) {
+		arg := args[i]
+		if arg == "--" {
+			return ""
+		}
+
+		switch {
+		case arg == "--ivk-config", arg == "-c":
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+			return ""
+		case strings.HasPrefix(arg, longConfigFlagInlinePrefix):
+			return strings.TrimPrefix(arg, longConfigFlagInlinePrefix)
+		case strings.HasPrefix(arg, "-c="):
+			return strings.TrimPrefix(arg, "-c=")
+		case strings.HasPrefix(arg, "-c") && len(arg) > 2:
+			return strings.TrimPrefix(arg, "-c")
+		}
+	}
+	return ""
+}
+
 // firstTopLevelToken extracts the first root-level command token from argv,
 // skipping root persistent flags and their values.
 //
@@ -289,7 +308,7 @@ func firstTopLevelToken(args []string) (token string, remaining []string) {
 			}
 			continue
 		// Root config flag with inline value.
-		case strings.HasPrefix(arg, "--ivk-config="), strings.HasPrefix(arg, "-c="),
+		case strings.HasPrefix(arg, longConfigFlagInlinePrefix), strings.HasPrefix(arg, "-c="),
 			(strings.HasPrefix(arg, "-c") && len(arg) > 2):
 			continue
 		// Any other flag-like token (keep scanning for the command token).
@@ -335,7 +354,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	verbose = rootFlags.verbose
 	interactive = rootFlags.interactive
 
-	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)}) //goplint:ignore -- CLI flag value, may be empty
+	cfg, err := loadUIConfig(ctx, app, rootFlags)
 	if err != nil {
 		fmt.Fprintln(app.stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, rootFlags.verbose))
 		return verbose, interactive
@@ -351,6 +370,16 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	}
 
 	return verbose, interactive
+}
+
+func loadUIConfig(ctx context.Context, app *App, rootFlags *rootFlagValues) (*config.Config, error) {
+	if discoveryConfig, ok := app.Discovery.(interface {
+		LoadConfig(context.Context) (*config.Config, []discovery.Diagnostic)
+	}); ok {
+		cfg, _ := discoveryConfig.LoadConfig(ctx)
+		return cfg, nil
+	}
+	return app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)}) //goplint:ignore -- CLI flag value, may be empty
 }
 
 func explicitUIFlags(cmd *cobra.Command, rootFlags *rootFlagValues) (verbose, interactive, verboseSet, interactiveSet bool) {

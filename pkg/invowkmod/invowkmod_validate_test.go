@@ -105,7 +105,7 @@ func TestValidationResult_Validate(t *testing.T) {
 			ValidationResult{
 				Valid:          true,
 				ModulePath:     types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod")),
-				ModuleName:     ModuleShortName("mymodule"),
+				ModuleName:     ModuleDirectoryName("mymodule"),
 				InvowkmodPath:  types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod", "invowkmod.cue")),
 				InvowkfilePath: types.FilesystemPath(filepath.Join(tmpDir, "module.invowkmod", "invowkfile.cue")),
 				Issues: []ValidationIssue{
@@ -130,7 +130,7 @@ func TestValidationResult_Validate(t *testing.T) {
 		{
 			"invalid module name",
 			ValidationResult{
-				ModuleName: ModuleShortName("1invalid"),
+				ModuleName: ModuleDirectoryName("1invalid"),
 			},
 			false, true, 1,
 		},
@@ -146,7 +146,7 @@ func TestValidationResult_Validate(t *testing.T) {
 		{
 			"multiple invalid fields",
 			ValidationResult{
-				ModuleName: ModuleShortName("1invalid"),
+				ModuleName: ModuleDirectoryName("1invalid"),
 				Issues: []ValidationIssue{
 					{Type: "bad-type"},
 				},

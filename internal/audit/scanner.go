@@ -113,7 +113,7 @@ func (s *Scanner) Scan(ctx context.Context, path types.FilesystemPath, includeGl
 	}
 
 	// Build immutable scan context.
-	sc, err := BuildScanContext(path, cfg, includeGlobal)
+	sc, err := BuildScanContext(ctx, path, cfg, includeGlobal)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func ensureFindingCodes(findings []Finding) {
 // DefaultCheckers returns the full set of built-in security checkers.
 func DefaultCheckers() []Checker {
 	return []Checker{
-		NewLockFileChecker(),
+		NewLockFileChecker(WithHashEvaluator(vendoredHashEvaluatorFunc(invowkmod.EvaluateVendoredModuleHash))),
 		NewScriptChecker(),
 		NewNetworkChecker(),
 		NewEnvChecker(),

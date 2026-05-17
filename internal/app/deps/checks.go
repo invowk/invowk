@@ -204,23 +204,6 @@ func CheckCapabilityDependenciesInContainer(deps *invowkfile.DependsOn, probe Ru
 	return nil
 }
 
-// CapabilityCheckScript returns a shell one-liner that checks whether a system capability
-// is available. The returned script is suitable for execution in any POSIX shell environment.
-func CapabilityCheckScript(capName invowkfile.CapabilityName) string {
-	switch capName {
-	case invowkfile.CapabilityInternet:
-		return "ping -c 1 -W 2 8.8.8.8 2>/dev/null || curl -sf --max-time 2 https://google.com >/dev/null 2>&1"
-	case invowkfile.CapabilityContainers:
-		return "command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1"
-	case invowkfile.CapabilityLocalAreaNetwork:
-		// Check for any non-loopback network interface being up
-		return "ip route 2>/dev/null | grep -q default || route -n 2>/dev/null | grep -q '^0.0.0.0'"
-	case invowkfile.CapabilityTTY:
-		return "test -t 0"
-	}
-	return ""
-}
-
 // CheckCommandDependenciesInContainer validates command discoverability inside the container.
 // Called only for container runtime (caller guards non-container early return).
 // Runs `invowk internal check-cmd` inside the container to verify auto-provisioning worked.

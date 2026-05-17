@@ -43,7 +43,6 @@ func cloneScannedModule(module *ScannedModule) *ScannedModule {
 		cloned.LockFile = &lockFile
 	}
 	cloned.VendoredModules = cloneVendoredModules(module.VendoredModules)
-	cloned.VendoredHashes = append([]invowkmod.VendoredHashEvaluation(nil), module.VendoredHashes...)
 	cloned.Symlinks = append([]SymlinkRef(nil), module.Symlinks...)
 	return &cloned
 }

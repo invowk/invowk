@@ -15,9 +15,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -26,6 +26,15 @@ const (
 	RuntimeTypeNative    RuntimeType = "native"
 	RuntimeTypeVirtual   RuntimeType = "virtual"
 	RuntimeTypeContainer RuntimeType = "container"
+
+	// EnvVarCmdName is injected with the command name being executed.
+	EnvVarCmdName = "INVOWK_CMD_NAME"
+	// EnvVarRuntime is injected with the selected runtime type.
+	EnvVarRuntime = "INVOWK_RUNTIME"
+	// EnvVarSource is injected with the source identifier (invowkfile path or module ID).
+	EnvVarSource = "INVOWK_SOURCE"
+	// EnvVarPlatform is injected with the resolved platform (linux, macos, windows).
+	EnvVarPlatform = "INVOWK_PLATFORM"
 )
 
 var (
@@ -460,6 +469,31 @@ func NewExecutionContext(ctx context.Context, cmd *invowkfile.Command, inv *invo
 	}
 }
 
+// PersistentContainerRequest returns the planning request used for persistent container targeting.
+func (ctx *ExecutionContext) PersistentContainerRequest(cfg *invowkfile.RuntimePersistentConfig) (containerplan.PersistentRequest, error) {
+	opts := []containerplan.PersistentRequestOption{
+		containerplan.WithConfig(cfg),
+	}
+	if ctx == nil {
+		return containerplan.NewPersistentRequest(opts...)
+	}
+	opts = append(opts,
+		containerplan.WithContainerNameOverride(ctx.ContainerNameOverride),
+	)
+	if ctx.CommandFullName != "" {
+		commandFullName := containerplan.CommandNamespace(ctx.CommandFullName)
+		opts = append(opts, containerplan.WithCommandFullName(&commandFullName))
+	}
+	if ctx.Command != nil {
+		commandName := containerplan.CommandNamespace(ctx.Command.Name)
+		opts = append(opts, containerplan.WithCommandName(&commandName))
+	}
+	if ctx.Invowkfile != nil {
+		opts = append(opts, containerplan.WithInvowkfilePath(&ctx.Invowkfile.FilePath))
+	}
+	return containerplan.NewPersistentRequest(opts...)
+}
+
 // EffectiveWorkDir determines the working directory using the hierarchical override model.
 // Precedence (highest to lowest): CLI override > Implementation > Command > Root > Default.
 // This centralizes workdir resolution that was previously duplicated across runtimes.
@@ -644,11 +678,11 @@ func shouldFilterEnvVar(name string) bool {
 	// Filter metadata env vars to prevent leakage between nested invocations.
 	// Each invocation gets fresh metadata from its own execution context.
 	// All four vars are unconditionally filtered here, even though EnvVarSource
-	// and EnvVarPlatform are conditionally injected in projectEnvVars. The
-	// unconditional filtering is by design: it prevents leakage even if future
-	// code paths inject these vars unconditionally.
+	// and EnvVarPlatform are conditionally injected in the app execution layer.
+	// The unconditional filtering is by design: it prevents leakage even if
+	// future code paths inject these vars unconditionally.
 	switch name {
-	case platform.EnvVarCmdName, platform.EnvVarRuntime, platform.EnvVarSource, platform.EnvVarPlatform:
+	case EnvVarCmdName, EnvVarRuntime, EnvVarSource, EnvVarPlatform:
 		return true
 	}
 

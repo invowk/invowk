@@ -27,6 +27,9 @@ type (
 	// that cause watch mode to abort.
 	WatchInfraErrorLimit int
 
+	// WatchPlanOption configures watch plan construction.
+	WatchPlanOption func(*watchPlanOptions)
+
 	// WatchPlan contains command watch configuration derived from the resolved
 	// command definition. Adapters own filesystem watching and rendering.
 	//
@@ -67,6 +70,12 @@ type (
 	// InvalidWatchPlanError reports invalid watch configuration on a command.
 	InvalidWatchPlanError struct {
 		Err error
+	}
+
+	watchPlanOptions struct {
+		workdirOverride invowkfile.WorkDir
+		selectedRuntime *invowkfile.RuntimeMode
+		selectedImpl    *invowkfile.Implementation
 	}
 )
 
@@ -111,8 +120,53 @@ func (e *InvalidWatchPlanError) Unwrap() error {
 	return e.Err
 }
 
+// WithWatchWorkdirOverride applies a request-level workdir override to the watch base directory.
+func WithWatchWorkdirOverride(workdir invowkfile.WorkDir) WatchPlanOption {
+	return func(opts *watchPlanOptions) {
+		opts.workdirOverride = workdir
+	}
+}
+
+// WithWatchExecution applies the selected execution runtime and implementation
+// to host watch-root planning.
+func WithWatchExecution(runtime invowkfile.RuntimeMode, impl *invowkfile.Implementation) WatchPlanOption {
+	return func(opts *watchPlanOptions) {
+		opts.selectedRuntime = &runtime
+		opts.selectedImpl = impl
+	}
+}
+
+// Validate returns nil when watch plan options contain valid typed fields.
+func (o watchPlanOptions) Validate() error {
+	if o.workdirOverride != "" {
+		if err := o.workdirOverride.Validate(); err != nil {
+			return err
+		}
+	}
+	if o.selectedRuntime != nil {
+		if err := o.selectedRuntime.Validate(); err != nil {
+			return err
+		}
+	}
+	if o.selectedImpl != nil {
+		if err := o.selectedImpl.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // NewWatchPlan builds the app-owned watch plan for a resolved command.
-func NewWatchPlan(cmdInfo *discovery.CommandInfo) (WatchPlan, error) {
+func NewWatchPlan(cmdInfo *discovery.CommandInfo, opts ...WatchPlanOption) (WatchPlan, error) {
+	options := watchPlanOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
+	if err := options.Validate(); err != nil {
+		return WatchPlan{}, &InvalidWatchPlanError{Err: err}
+	}
 	plan := WatchPlan{
 		Patterns:             []invowkfile.GlobPattern{defaultWatchPattern},
 		InfraErrorAbortLimit: defaultWatchInfraErrorLimit,
@@ -139,19 +193,42 @@ func NewWatchPlan(cmdInfo *discovery.CommandInfo) (WatchPlan, error) {
 		}
 	}
 
-	baseDir := string(cmdInfo.Command.WorkDir)
-	// Unix-style absolute paths (leading '/') are container-absolute and must
-	// pass through unchanged on every platform. On Windows, filepath.IsAbs("/foo")
-	// returns false, so this guard must precede IsAbs to avoid joining the path
-	// with the invowkfile directory.
-	if baseDir != "" && !strings.HasPrefix(baseDir, "/") && !filepath.IsAbs(baseDir) {
-		baseDir = filepath.Join(filepath.Dir(string(cmdInfo.FilePath)), baseDir)
-	}
-	plan.BaseDir = types.FilesystemPath(baseDir) //goplint:ignore -- from invowkfile directory resolution
+	baseDir := watchBaseDir(cmdInfo, options)
+	plan.BaseDir = baseDir
 	if err := plan.Validate(); err != nil {
 		return WatchPlan{}, &InvalidWatchPlanError{Err: err}
 	}
 	return plan, nil
+}
+
+func watchBaseDir(cmdInfo *discovery.CommandInfo, options watchPlanOptions) types.FilesystemPath {
+	invowkfileDir := types.FilesystemPath(filepath.Dir(string(cmdInfo.FilePath))) //goplint:ignore -- derived from validated command source path.
+	baseDir := types.FilesystemPath(cmdInfo.Command.WorkDir)
+	if options.workdirOverride != "" {
+		baseDir = types.FilesystemPath(options.workdirOverride)
+	}
+	if options.selectedImpl != nil && cmdInfo.Invowkfile != nil {
+		effective := cmdInfo.Invowkfile.GetEffectiveWorkDir(cmdInfo.Command, options.selectedImpl, options.workdirOverride)
+		baseDir = effective
+	}
+	if baseDir == "" {
+		return ""
+	}
+	if options.selectedRuntime != nil && *options.selectedRuntime == invowkfile.RuntimeContainer && strings.HasPrefix(string(baseDir), "/") {
+		if isPathInside(invowkfileDir, baseDir) {
+			return baseDir
+		}
+		return invowkfileDir
+	}
+	if !filepath.IsAbs(string(baseDir)) {
+		return types.FilesystemPath(filepath.Join(string(invowkfileDir), string(baseDir))) //goplint:ignore -- joined from validated command source and workdir paths.
+	}
+	return baseDir
+}
+
+func isPathInside(baseDir, candidate types.FilesystemPath) bool {
+	rel, err := filepath.Rel(string(baseDir), string(candidate))
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // NewWatchSession creates watch-mode execution policy for a validated plan.

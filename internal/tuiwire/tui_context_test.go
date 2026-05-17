@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package types
+package tuiwire
 
 import (
 	"errors"

@@ -61,14 +61,14 @@ func TestWindowsReservedNames(t *testing.T) {
 	}
 
 	for _, name := range expectedNames {
-		if !WindowsReservedNames[name] {
-			t.Errorf("WindowsReservedNames missing %q", name)
+		if !windowsReservedNames[name] {
+			t.Errorf("windowsReservedNames missing %q", name)
 		}
 	}
 
 	// Verify count is correct (22 reserved names)
 	expectedCount := 22
-	if len(WindowsReservedNames) != expectedCount {
-		t.Errorf("WindowsReservedNames has %d entries, want %d", len(WindowsReservedNames), expectedCount)
+	if len(windowsReservedNames) != expectedCount {
+		t.Errorf("windowsReservedNames has %d entries, want %d", len(windowsReservedNames), expectedCount)
 	}
 }

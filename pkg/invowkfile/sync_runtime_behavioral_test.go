@@ -235,6 +235,7 @@ func TestBehavioralSync_DurationString(t *testing.T) {
 			{"-5s", false, false, ""},
 			// Go rejects "0s" (non-positive); CUE regex accepts "0s" format
 			{"0s", false, true, "Go rejects zero duration (must be positive); CUE only checks format"},
+			{strings.Repeat("1h", 17), false, false, ""},
 		},
 	)
 }
@@ -257,7 +258,7 @@ func TestBehavioralSync_GlobPattern(t *testing.T) {
 }
 
 // TestBehavioralSync_BinaryName verifies Go BinaryName.Validate() agrees with
-// CUE #ToolDependency.alternatives element constraint (=~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$").
+// CUE #ToolDependency.alternatives element constraint (regex + length).
 func TestBehavioralSync_BinaryName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
@@ -272,11 +273,35 @@ func TestBehavioralSync_BinaryName(t *testing.T) {
 			{"a", true, true, ""},
 			{"", false, false, ""},
 			{"/usr/bin/git", false, false, ""},
-			// Go BinaryName.Validate() only checks non-empty + no path separators.
-			// CUE regex is stricter: must start with alphanumeric, only [a-zA-Z0-9._+-].
-			{".hidden", true, false, "Go allows dot-start; CUE regex requires alphanumeric start"},
-			{"-flag", true, false, "Go allows hyphen-start; CUE regex requires alphanumeric start"},
-			{"has space", true, false, "Go allows spaces; CUE regex does not include space"},
+			{".hidden", false, false, ""},
+			{"-flag", false, false, ""},
+			{"has space", false, false, ""},
+			{"a" + strings.Repeat("b", 255), true, true, ""},
+			{"a" + strings.Repeat("b", 256), false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_CommandDependencyName verifies Go
+// ValidateCommandDependencyName agrees with CUE #CommandDependency.alternatives
+// element constraint (regex + length).
+func TestBehavioralSync_CommandDependencyName(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncListElement(t, schema, ctx, "#CommandDependency", "alternatives",
+		func(s string) error { return ValidateCommandDependencyName(CommandName(s)) },
+		[]behavioralSyncCase{
+			{"build", true, true, ""},
+			{"test unit", true, true, ""},
+			{"deploy-prod", true, true, ""},
+			{"a", true, true, ""},
+			{"", false, false, ""},
+			{"123bad", false, false, ""},
+			{"-flag", false, false, ""},
+			{"_private", false, false, ""},
+			{"a" + strings.Repeat("b", 255), true, true, ""},
+			{"a" + strings.Repeat("b", 256), false, false, ""},
 		},
 	)
 }

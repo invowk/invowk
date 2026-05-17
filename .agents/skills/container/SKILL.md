@@ -42,10 +42,10 @@ Use this skill when working on:
 
 ### Image Validation (Early Rejection)
 
-`validateSupportedContainerImage()` (`container_provision.go`) enforces the image policy **before** provisioning to fail fast:
+`ValidateSupportedRuntimeImage()` (`image_policy.go`) enforces the image policy **before** provisioning to fail fast:
 
 ```go
-validateSupportedContainerImage(image) error
+ValidateSupportedRuntimeImage(image) error
   ├── isWindowsContainerImage(image) — pattern matching (mcr.microsoft.com/windows/*, etc.)
   └── isAlpineContainerImage(image)  — segment-aware matching (last path segment only)
 ```
@@ -60,21 +60,29 @@ The `Engine` interface (`engine.go`) defines the unified contract for all contai
 
 ```go
 type Engine interface {
-    // Core operations
-    Build(ctx context.Context, opts BuildOptions) (*BuildResult, error)
+    Build(ctx context.Context, opts BuildOptions) error
     Run(ctx context.Context, opts RunOptions) (*RunResult, error)
-    Remove(ctx context.Context, containerID string) error
-    ImageExists(ctx context.Context, image string) (bool, error)
-    RemoveImage(ctx context.Context, image string) error
-
-    // Metadata
+    InspectContainer(ctx context.Context, name ContainerName) (*ContainerInfo, error)
+    Create(ctx context.Context, opts CreateOptions) (*CreateResult, error)
+    Start(ctx context.Context, containerID ContainerID) error
+    Exec(ctx context.Context, containerID ContainerID, command []string, opts RunOptions) (*RunResult, error)
+    Remove(ctx context.Context, containerID ContainerID, force bool) error
+    ImageExists(ctx context.Context, image ImageTag) (bool, error)
+    RemoveImage(ctx context.Context, image ImageTag, force bool) error
     Name() string
     Version(ctx context.Context) (string, error)
     Available() bool
+}
+```
 
-    // Interactive mode support
-    BuildRunArgs(opts RunOptions) []string
+Interactive PTY support is exposed by the smaller `CommandPreparer` adapter
+contract, not the main `Engine` interface:
+
+```go
+type CommandPreparer interface {
     BinaryPath() string
+    BuildRunArgs(opts RunOptions) []string
+    PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error)
 }
 ```
 
@@ -189,17 +197,17 @@ On **Linux with local Podman**, `NewPodmanEngine()` calls `sysctlOverrideOpts(bi
 4. Every Podman subprocess opens the path independently and reads the override config
 5. The temp file is cleaned up by `BaseCLIEngine.Close()` when the engine is released
 
-On **non-Linux** platforms, `sysctlOverrideOpts()` (`podman_sysctl_other.go`) returns nil — Podman runs inside a VM where host-side env vars don't reach crun. Instead, `runWithRetry()` falls back to `containerRunMu` (in-process mutex) since flock can't reach the VM.
+On **non-Linux** platforms, `sysctlOverrideOpts()` (`podman_sysctl_other.go`) returns nil — Podman runs inside a VM where host-side env vars don't reach crun. Instead, run serialization falls back to an in-process mutex since flock can't reach the VM.
 
-On **podman-remote** (Fedora Silverblue/toolbox), `sysctlOverrideOpts()` returns nil — the env var only affects the remote client, not the Podman service that calls crun. Detected via `isRemotePodman()` which checks binary name + follows symlinks. On Linux, `runWithRetry()` uses **flock** (`acquireRunLock()`) for cross-process serialization instead.
+On **podman-remote** (Fedora Silverblue/toolbox), `sysctlOverrideOpts()` returns nil — the env var only affects the remote client, not the Podman service that calls crun. Detected via `isRemotePodman()` which checks binary name + follows symlinks. On Linux, Podman run paths use **flock** (`acquireRunLock()`) for cross-process serialization instead.
 
 ### Cross-Process Serialization (flock)
 
-When the sysctl override is not active, `runWithRetry()` serializes container runs to prevent the ping_group_range race. On Linux, `acquireRunLock()` (`run_lock_linux.go`) acquires a blocking `flock(2)` on `$XDG_RUNTIME_DIR/invowk-podman.lock` (fallback: `os.TempDir()`). This provides **cross-process** serialization — all invowk processes on the same machine share the flock. On non-Linux, `acquireRunLock()` returns an error, causing fallback to `sync.Mutex` for intra-process protection only.
+When the sysctl override is not active, `BaseCLIEngine.Run()`, `SandboxAwareEngine.Run()`, and non-persistent interactive `PrepareRunCommand()` paths serialize Podman runs to prevent the ping_group_range race. On Linux, `acquireRunLock()` (`run_lock_linux.go`) acquires a blocking `flock(2)` on `$XDG_RUNTIME_DIR/invowk-podman.lock` (fallback: `os.TempDir()`). This provides **cross-process** serialization — all invowk processes on the same machine share the flock. On non-Linux, `acquireRunLock()` returns an error, causing fallback to `sync.Mutex` for intra-process protection only. Prepared interactive commands return a cleanup function; release the serialization cleanup only after the PTY command has exited.
 
 ### Stderr Buffering
 
-`runWithRetry()` buffers stderr per-attempt so that transient error messages from crun (written directly to the inherited stderr fd before Go can decide to retry) never leak to the user's terminal. On success, non-transient failure, or retry exhaustion, the final attempt's buffer is flushed to the caller's original writer. On transient failure with retries remaining, the buffer is discarded and retried. Interactive mode (`PrepareCommand`) is unaffected — it uses a PTY and bypasses `runWithRetry()`.
+`runWithRetry()` buffers stderr per-attempt so that transient error messages from crun (written directly to the inherited stderr fd before Go can decide to retry) never leak to the user's terminal. On success, non-transient failure, or retry exhaustion, the final attempt's buffer is flushed to the caller's original writer. On transient failure with retries remaining, the buffer is discarded and retried. Interactive mode uses a PTY and bypasses `runWithRetry()` retries, but non-persistent Podman runs still acquire the serialization cleanup through `PrepareRunCommand()`.
 
 ### SysctlOverrideChecker Interface
 
@@ -213,7 +221,7 @@ type SysctlOverrideChecker interface {
 
 **Implemented by:** `PodmanEngine`, `SandboxAwareEngine` (forwards to wrapped engine)
 
-**Used in:** `runWithRetry()` — when the checker returns false, acquires flock (Linux) or mutex (non-Linux); when not implemented (Docker), skips serialization entirely
+**Used in:** Podman run preparation — when the checker returns false, run paths acquire flock (Linux) or mutex (non-Linux); when not implemented (Docker), serialization is skipped entirely
 
 ### CmdCustomizer Interface
 
@@ -229,7 +237,7 @@ type CmdCustomizer interface {
 
 **Used in:**
 - `SandboxAwareEngine.Build/Run/Remove/ImageExists/RemoveImage` — sandbox commands bypass `CreateCommand`
-- `ContainerRuntime.PrepareCommand()` — interactive mode creates its own `exec.Cmd` for PTY attachment
+- `SandboxAwareEngine.PrepareRunCommand()` — interactive host-spawn commands are built outside the wrapped engine
 
 ### Key Files
 
@@ -239,8 +247,9 @@ type CmdCustomizer interface {
 | `podman_sysctl_other.go` | No-op `sysctlOverrideOpts()` (macOS/Windows stub) |
 | `engine_base.go` | `CmdCustomizer`, `SysctlOverrideChecker`, `EngineCloser`, `WithCmdEnvOverride()`, `WithSysctlOverridePath()`, `WithSysctlOverrideActive()`, `Close()` |
 | `podman.go` | `SysctlOverrideActive()`, `Close()` methods on `PodmanEngine` |
-| `internal/runtime/container_exec.go` | `containerRunMu` (fallback mutex), `runWithRetry()` (flock + stderr buffering), `flushStderr()` |
-| `internal/runtime/container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
+| `run_serialization.go` | Podman run serialization helper, fallback mutex, prepared-command cleanup lease |
+| `internal/runtime/container_exec.go` | `runWithRetry()` retry logic and stderr buffering |
+| `internal/runtime/container_prepare.go` | `CommandPreparer` type assertion and prepared cleanup composition |
 
 ---
 
@@ -441,6 +450,10 @@ Without this guard, transient engine failures (125/126) after retry exhaustion g
 | `podman.go` | Podman + SELinux/rootless logic |
 | `podman_sysctl_linux.go` | Temp file-based sysctl override (Linux only) |
 | `podman_sysctl_other.go` | No-op sysctl override stub (non-Linux) |
+| `run_lock_linux.go` | flock-based cross-process lock (`acquireRunLock()`, `runLock`) |
+| `run_lock_other.go` | No-op stub, forces fallback to `sync.Mutex` |
+| `run_serialization.go` | Podman run serialization and prepared-command cleanup lease |
+| `image_policy.go` | Image validation (`ValidateSupportedRuntimeImage`, Alpine/Windows rejection) |
 | `sandbox_engine.go` | Flatpak/Snap wrapper decorator |
 | `transient.go` | Shared transient error classifier |
 | `doc.go` | Package documentation |
@@ -450,12 +463,10 @@ Without this guard, transient engine failures (125/126) after retry exhaustion g
 | File | Purpose |
 |------|---------|
 | `container_exec.go` | Container execution, `runWithRetry()`, `IsTransientExitCode()` (exported), `flushStderr()` |
-| `container_provision.go` | Image building, `ensureImage()` retry, retry constants, **image validation** (`validateSupportedContainerImage`, `isAlpineContainerImage`, `isWindowsContainerImage`) |
-| `container_prepare.go` | `CmdCustomizer` type assertion in `PrepareCommand()` |
-| `run_lock_linux.go` | flock-based cross-process lock (`acquireRunLock()`, `runLock`) |
-| `run_lock_other.go` | No-op stub, forces fallback to `sync.Mutex` |
-| `container_exec_test.go` | Unit tests for `runWithRetry()`: serialization decision, stderr buffering, exit codes, context cancellation |
-| `container_test.go` | Unit tests for `isAlpineContainerImage()`, `isWindowsContainerImage()`, `validateSupportedContainerImage()` |
+| `container_provision.go` | Image preparation and provisioning |
+| `container_prepare.go` | `CommandPreparer` type assertion and prepared cleanup composition |
+| `container_exec_test.go` | Unit tests for `runWithRetry()`: stderr buffering, exit codes, context cancellation |
+| `container_test.go` | Unit tests for `isAlpineContainerImage()`, `isWindowsContainerImage()`, `ValidateSupportedRuntimeImage()` |
 
 ---
 

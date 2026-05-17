@@ -94,24 +94,34 @@ func (e *SandboxAwareEngine) Version(ctx context.Context) (string, error) {
 
 // BinaryPath returns the path to the container engine binary.
 func (e *SandboxAwareEngine) BinaryPath() string {
-	return e.wrapped.BinaryPath()
+	return e.wrappedBinaryPath()
 }
 
 // BuildRunArgs builds the argument slice for a 'run' command.
 // When in a sandbox, this prepends the spawn command and args.
 func (e *SandboxAwareEngine) BuildRunArgs(opts RunOptions) []string {
-	baseArgs := e.wrapped.BuildRunArgs(opts)
+	baseArgs := e.wrappedRunArgs(opts)
 	return e.wrapArgs(baseArgs)
 }
 
 // PrepareRunCommand creates a configured command for a container run.
-func (e *SandboxAwareEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
-	baseArgs := e.wrapped.BuildRunArgs(opts)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), baseArgs)
+func (e *SandboxAwareEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error) {
+	if err := opts.Validate(); err != nil {
+		return nil, nil, err
+	}
+	if e.sandboxType == platform.SandboxNone {
+		if preparer, ok := e.wrapped.(CommandPreparer); ok {
+			return preparer.PrepareRunCommand(ctx, opts)
+		}
+	}
+
+	cleanup := e.runSerializationCleanup()
+	baseArgs := e.wrappedRunArgs(opts)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), baseArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
-	return cmd
+	return cmd, cleanup, nil
 }
 
 // Build builds an image from a Dockerfile.
@@ -133,7 +143,7 @@ func (e *SandboxAwareEngine) Build(ctx context.Context, opts BuildOptions) error
 	}
 
 	buildArgs := baseEngine.BuildArgs(opts)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), buildArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), buildArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
@@ -158,18 +168,19 @@ func (e *SandboxAwareEngine) Run(ctx context.Context, opts RunOptions) (*RunResu
 		return e.wrapped.Run(ctx, opts)
 	}
 
-	// Get the run args from the underlying engine
-	baseArgs := e.wrapped.BuildRunArgs(opts)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), baseArgs)
+	return e.withRunSerialization(func() (*RunResult, error) {
+		baseArgs := e.wrappedRunArgs(opts)
+		fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), baseArgs)
 
-	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
-	cmd.WaitDelay = cmdWaitDelay
-	e.CustomizeCmd(cmd)
-	cmd.Stdin = opts.Stdin
-	cmd.Stdout = opts.Stdout
-	cmd.Stderr = opts.Stderr
+		cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
+		cmd.WaitDelay = cmdWaitDelay
+		e.CustomizeCmd(cmd)
+		cmd.Stdin = opts.Stdin
+		cmd.Stdout = opts.Stdout
+		cmd.Stderr = opts.Stderr
 
-	return runResultFromExecError(cmd.Run(), "sandbox run")
+		return runResultFromExecError(cmd.Run(), "sandbox run")
+	})
 }
 
 // InspectContainer inspects a container by name.
@@ -184,7 +195,7 @@ func (e *SandboxAwareEngine) InspectContainer(ctx context.Context, name Containe
 	}
 
 	inspectArgs := baseEngine.InspectContainerArgs(name)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), inspectArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), inspectArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
@@ -213,7 +224,7 @@ func (e *SandboxAwareEngine) Create(ctx context.Context, opts CreateOptions) (*C
 	}
 
 	createArgs := baseEngine.CreateArgs(opts)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), createArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), createArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
@@ -242,7 +253,7 @@ func (e *SandboxAwareEngine) Start(ctx context.Context, containerID ContainerID)
 		return e.wrapped.Start(ctx, containerID)
 	}
 	startArgs := baseEngine.StartArgs(containerID)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), startArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), startArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
@@ -267,7 +278,7 @@ func (e *SandboxAwareEngine) Exec(ctx context.Context, containerID ContainerID, 
 	}
 
 	execArgs := baseEngine.ExecArgs(containerID, command, opts)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), execArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), execArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
@@ -297,10 +308,10 @@ func (e *SandboxAwareEngine) PrepareExecCommand(ctx context.Context, containerID
 
 	baseEngine, ok := e.getBaseCLIEngine()
 	if !ok {
-		return exec.CommandContext(ctx, e.wrapped.BinaryPath(), e.wrapped.BuildRunArgs(opts)...)
+		return exec.CommandContext(ctx, e.wrappedBinaryPath(), e.wrappedRunArgs(opts)...)
 	}
 	execArgs := baseEngine.ExecArgs(containerID, command, opts)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), execArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), execArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
@@ -319,7 +330,7 @@ func (e *SandboxAwareEngine) Remove(ctx context.Context, containerID ContainerID
 	}
 
 	removeArgs := baseEngine.RemoveArgs(containerID, force)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), removeArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), removeArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
@@ -342,7 +353,7 @@ func (e *SandboxAwareEngine) ImageExists(ctx context.Context, image ImageTag) (b
 	}
 
 	checkArgs := baseEngine.ImageExistsArgs(image)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), checkArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), checkArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
@@ -362,7 +373,7 @@ func (e *SandboxAwareEngine) RemoveImage(ctx context.Context, image ImageTag, fo
 	}
 
 	removeArgs := baseEngine.RemoveImageArgs(image, force)
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), removeArgs)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), removeArgs)
 
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
@@ -397,6 +408,19 @@ func (e *SandboxAwareEngine) SysctlOverrideActive() bool {
 	return false
 }
 
+// CoordinateLifecycle runs lifecycle operations under the same adapter-owned
+// serialization policy as container run.
+func (e *SandboxAwareEngine) CoordinateLifecycle(fn func() error) error {
+	overrideActive := false
+	if checker, ok := e.wrapped.(SysctlOverrideChecker); ok {
+		overrideActive = checker.SysctlOverrideActive()
+	}
+	if !needsPodmanRunSerialization(EngineType(e.wrapped.Name()), overrideActive) { //goplint:ignore -- Engine.Name() is the container engine adapter boundary
+		return fn()
+	}
+	return WithRunLock(fn)
+}
+
 //goplint:ignore -- host-spawn adapter uses os/exec primitive argv and output bytes.
 func defaultSandboxHostRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
@@ -410,7 +434,7 @@ func defaultSandboxHostRunner(ctx context.Context, name string, args ...string) 
 
 //goplint:ignore -- host-spawn adapter uses os/exec primitive argv and output bytes.
 func (e *SandboxAwareEngine) runHostSpawn(ctx context.Context, args ...string) ([]byte, error) {
-	fullArgs := e.buildSpawnArgs(e.wrapped.BinaryPath(), args)
+	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), args)
 	runner := e.hostRunner
 	if runner == nil {
 		runner = defaultSandboxHostRunner
@@ -461,13 +485,64 @@ func (e *SandboxAwareEngine) getSpawnInfo() (cmd string, args []string) {
 	return "", nil
 }
 
+//goplint:ignore -- command-preparer adapter returns exec boundary strings.
+func (e *SandboxAwareEngine) wrappedBinaryPath() string {
+	if preparer, ok := e.wrapped.(CommandPreparer); ok {
+		return preparer.BinaryPath()
+	}
+	if baseEngine, ok := e.getBaseCLIEngine(); ok {
+		return baseEngine.BinaryPath()
+	}
+	return e.wrapped.Name()
+}
+
+//goplint:ignore -- command-preparer adapter returns exec boundary argv slices.
+func (e *SandboxAwareEngine) wrappedRunArgs(opts RunOptions) []string {
+	if preparer, ok := e.wrapped.(CommandPreparer); ok {
+		return preparer.BuildRunArgs(opts)
+	}
+	if baseEngine, ok := e.getBaseCLIEngine(); ok {
+		return baseEngine.RunArgs(opts)
+	}
+	return []string{"run", string(opts.Image)}
+}
+
+func (e *SandboxAwareEngine) withRunSerialization(fn func() (*RunResult, error)) (*RunResult, error) {
+	overrideActive := false
+	if checker, ok := e.wrapped.(SysctlOverrideChecker); ok {
+		overrideActive = checker.SysctlOverrideActive()
+	}
+	if !needsPodmanRunSerialization(EngineType(e.wrapped.Name()), overrideActive) { //goplint:ignore -- Engine.Name() is the container engine adapter boundary
+		return fn()
+	}
+
+	var result *RunResult
+	err := WithRunLock(func() error {
+		var runErr error
+		result, runErr = fn()
+		return runErr
+	})
+	return result, err
+}
+
+func (e *SandboxAwareEngine) runSerializationCleanup() func() {
+	overrideActive := false
+	if checker, ok := e.wrapped.(SysctlOverrideChecker); ok {
+		overrideActive = checker.SysctlOverrideActive()
+	}
+	if !needsPodmanRunSerialization(EngineType(e.wrapped.Name()), overrideActive) { //goplint:ignore -- Engine.Name() is the container engine adapter boundary
+		return nil
+	}
+	return acquireRunLockCleanup()
+}
+
 // wrapArgs prepends spawn command to existing args if in sandbox.
 // This is used for BuildRunArgs which returns args starting from "run".
 func (e *SandboxAwareEngine) wrapArgs(args []string) []string {
 	if e.sandboxType == platform.SandboxNone {
 		return args
 	}
-	return e.buildSpawnArgs(e.wrapped.BinaryPath(), args)
+	return e.buildSpawnArgs(e.wrappedBinaryPath(), args)
 }
 
 // getBaseCLIEngine attempts to extract the BaseCLIEngine from the wrapped engine

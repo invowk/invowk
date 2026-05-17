@@ -3,6 +3,7 @@
 package audit
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -70,7 +71,6 @@ type (
 		LockFileSize    int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
 		LockFileStatErr error
 		VendoredModules []*invowkmod.Module
-		VendoredHashes  []invowkmod.VendoredHashEvaluation
 		Symlinks        []SymlinkRef
 		SymlinkScanErr  error
 		SurfaceID       string
@@ -277,7 +277,11 @@ func (sc *ScanContext) addDiagnostic(code DiagnosticCode, message string, path t
 //   - If path ends with ".cue": standalone invowkfile
 //   - If path ends with ".invowkmod": single module
 //   - Otherwise: directory tree scan using discovery
-func BuildScanContext(scanPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) (*ScanContext, error) {
+func BuildScanContext(ctx context.Context, scanPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) (*ScanContext, error) {
+	if err := scanContextErr(ctx); err != nil {
+		return nil, &ScanContextBuildError{Path: scanPath, Err: err}
+	}
+
 	absPath, err := fspath.Abs(scanPath)
 	if err != nil {
 		return nil, &ScanContextBuildError{Path: scanPath, Err: fmt.Errorf("resolving path: %w", err)}
@@ -291,16 +295,16 @@ func BuildScanContext(scanPath types.FilesystemPath, cfg *config.Config, include
 	// suffix checks on the raw scanPath would fail for paths like "./foo.invowkmod/".
 	switch {
 	case strings.HasSuffix(string(absPath), ".cue"):
-		if err := sc.loadStandaloneInvowkfile(absPath); err != nil {
-			return nil, &ScanContextBuildError{Path: scanPath, Err: err}
+		if loadErr := sc.loadStandaloneInvowkfile(ctx, absPath); loadErr != nil {
+			return nil, &ScanContextBuildError{Path: scanPath, Err: loadErr}
 		}
 	case strings.HasSuffix(string(absPath), invowkmod.ModuleSuffix):
-		if err := sc.loadSingleModule(absPath); err != nil {
-			return nil, &ScanContextBuildError{Path: scanPath, Err: err}
+		if loadErr := sc.loadSingleModule(ctx, absPath); loadErr != nil {
+			return nil, &ScanContextBuildError{Path: scanPath, Err: loadErr}
 		}
 	default:
-		if err := sc.loadDirectoryTree(absPath, cfg, includeGlobal); err != nil {
-			return nil, &ScanContextBuildError{Path: scanPath, Err: err}
+		if loadErr := sc.loadDirectoryTree(ctx, absPath, cfg, includeGlobal); loadErr != nil {
+			return nil, &ScanContextBuildError{Path: scanPath, Err: loadErr}
 		}
 	}
 
@@ -309,12 +313,35 @@ func BuildScanContext(scanPath types.FilesystemPath, cfg *config.Config, include
 	}
 
 	// Pre-compute derived views so checkers share a single allocation.
-	sc.scripts = buildScriptRefs(sc.invowkfiles, sc.modules)
+	scripts, err := buildScriptRefs(ctx, sc.invowkfiles, sc.modules)
+	if err != nil {
+		return nil, &ScanContextBuildError{Path: scanPath, Err: err}
+	}
+	sc.scripts = scripts
 
 	return sc, nil
 }
 
-func (sc *ScanContext) loadStandaloneInvowkfile(absPath types.FilesystemPath) error {
+func scanContextErr(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("scan context build canceled: %w", ctx.Err())
+	default:
+		return nil
+	}
+}
+
+func isScanContextCancellation(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+func (sc *ScanContext) loadStandaloneInvowkfile(ctx context.Context, absPath types.FilesystemPath) error {
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	inv, parseErr := invowkfile.Parse(absPath)
 	si := &ScannedInvowkfile{
 		Path:        absPath,
@@ -334,23 +361,30 @@ func (sc *ScanContext) loadStandaloneInvowkfile(absPath types.FilesystemPath) er
 	return nil
 }
 
-func (sc *ScanContext) loadSingleModule(absPath types.FilesystemPath) error {
-	sm, vendored, err := sc.loadScannedModule(absPath, nil, nil, false, false)
+func (sc *ScanContext) loadSingleModule(ctx context.Context, absPath types.FilesystemPath) error {
+	sm, vendored, err := sc.loadScannedModule(ctx, absPath, nil, nil, false, false)
 	if err != nil {
 		return err
 	}
 	sc.modules = append(sc.modules, sm)
-	sc.appendVendoredScannedModules(vendored, false)
+	if err := sc.appendVendoredScannedModules(ctx, vendored, false); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (sc *ScanContext) loadScannedModule(
+	ctx context.Context,
 	absPath types.FilesystemPath,
 	mod *invowkmod.Module,
 	inv *invowkfile.Invowkfile,
 	isGlobal bool,
 	isVendored bool,
 ) (*ScannedModule, []vendoredModuleArtifact, error) {
+	if err := scanContextErr(ctx); err != nil {
+		return nil, nil, err
+	}
+
 	var err error
 	if mod == nil {
 		mod, err = invowkmod.Load(absPath)
@@ -396,45 +430,69 @@ func (sc *ScanContext) loadScannedModule(
 		sm.LockFileParseErr = lockSnapshot.ParseErr
 	}
 
-	vendored, vendorDiags := loadVendoredModules(absPath)
+	vendored, vendorDiags, err := loadVendoredModules(ctx, absPath)
+	if err != nil {
+		return nil, nil, err
+	}
 	sm.VendoredModules = vendored.moduleList()
-	sm.VendoredHashes = buildVendoredHashEvaluations(sm.LockFile, sm.VendoredModules)
-	sm.Symlinks, sm.SymlinkScanErr = scanModuleSymlinks(absPath)
+	sm.Symlinks, sm.SymlinkScanErr = scanModuleSymlinks(ctx, absPath)
+	if errors.Is(sm.SymlinkScanErr, context.Canceled) || errors.Is(sm.SymlinkScanErr, context.DeadlineExceeded) {
+		return nil, nil, sm.SymlinkScanErr
+	}
 	sc.diagnostics = append(sc.diagnostics, vendorDiags...)
 
 	return sm, vendored, nil
 }
 
-func (sc *ScanContext) loadDirectoryTree(absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) error {
-	sc.loadDirectoryInvowkfile(absPath)
-	if err := sc.loadDirectoryModules(absPath); err != nil {
+func (sc *ScanContext) loadDirectoryTree(ctx context.Context, absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) error {
+	if err := scanContextErr(ctx); err != nil {
 		return err
 	}
-	sc.loadDiscoveryResults(absPath, cfg, includeGlobal)
+	if err := sc.loadDirectoryInvowkfile(ctx, absPath); err != nil {
+		return err
+	}
+	if err := sc.loadDirectoryModules(ctx, absPath); err != nil {
+		return err
+	}
+	if err := sc.loadDiscoveryResults(ctx, absPath, cfg, includeGlobal); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (sc *ScanContext) loadDirectoryInvowkfile(absPath types.FilesystemPath) {
+func (sc *ScanContext) loadDirectoryInvowkfile(ctx context.Context, absPath types.FilesystemPath) error {
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	invPath := fspath.JoinStr(absPath, invowkfileCUEFileName)
 	_, invCueErr := os.Stat(string(invPath))
 	if invCueErr == nil {
-		sc.appendParsedInvowkfile(invPath)
-		return
+		return sc.appendParsedInvowkfile(ctx, invPath)
 	}
 
 	// Fall back to extensionless "invowkfile" variant when .cue is absent.
 	if !os.IsNotExist(invCueErr) {
-		return
+		return nil
 	}
 
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	invPathNoExt := fspath.JoinStr(absPath, invowkfileNoExtFileName)
 	if _, statErr := os.Stat(string(invPathNoExt)); statErr == nil {
-		sc.appendParsedInvowkfile(invPathNoExt)
+		return sc.appendParsedInvowkfile(ctx, invPathNoExt)
 	}
+	return nil
 }
 
-func (sc *ScanContext) appendParsedInvowkfile(path types.FilesystemPath) {
+func (sc *ScanContext) appendParsedInvowkfile(ctx context.Context, path types.FilesystemPath) error {
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	inv, parseErr := invowkfile.Parse(path)
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	si := &ScannedInvowkfile{
 		Path:        path,
 		SurfaceID:   string(path),
@@ -448,20 +506,30 @@ func (sc *ScanContext) appendParsedInvowkfile(path types.FilesystemPath) {
 		sc.addDiagnostic(diagnosticInvowkfileParseError, fmt.Sprintf(invowkfileParseDiagFormat, path, parseErr), path)
 	}
 	sc.invowkfiles = append(sc.invowkfiles, si)
+	return nil
 }
 
-func (sc *ScanContext) loadDirectoryModules(absPath types.FilesystemPath) error {
+func (sc *ScanContext) loadDirectoryModules(ctx context.Context, absPath types.FilesystemPath) error {
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	entries, err := os.ReadDir(string(absPath))
 	if err != nil {
 		return fmt.Errorf("reading directory: %w", err)
 	}
 
 	for _, entry := range entries {
+		if err := scanContextErr(ctx); err != nil {
+			return err
+		}
 		if !entry.IsDir() || !strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
 			continue
 		}
 		modPath := fspath.JoinStr(absPath, entry.Name())
-		if loadErr := sc.loadSingleModule(modPath); loadErr != nil {
+		if loadErr := sc.loadSingleModule(ctx, modPath); loadErr != nil {
+			if isScanContextCancellation(loadErr) {
+				return loadErr
+			}
 			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", entry.Name(), loadErr), modPath)
 			continue
 		}
@@ -470,9 +538,12 @@ func (sc *ScanContext) loadDirectoryModules(absPath types.FilesystemPath) error 
 	return nil
 }
 
-func (sc *ScanContext) loadDiscoveryResults(absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) {
+func (sc *ScanContext) loadDiscoveryResults(ctx context.Context, absPath types.FilesystemPath, cfg *config.Config, includeGlobal bool) error {
 	if cfg == nil {
-		return
+		return nil
+	}
+	if err := scanContextErr(ctx); err != nil {
+		return err
 	}
 
 	opts := []discovery.Option{
@@ -489,13 +560,16 @@ func (sc *ScanContext) loadDiscoveryResults(absPath types.FilesystemPath, cfg *c
 		sc.addDiagnostic(diagnosticDiscoveryPartial, fmt.Sprintf("discovery error (partial results): %v", discErr), "")
 	}
 	if files != nil {
-		sc.mergeDiscoveryResults(files)
+		if err := sc.mergeDiscoveryResults(ctx, files); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // mergeDiscoveryResults adds newly-discovered files that weren't already found
 // by the direct scan above.
-func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) {
+func (sc *ScanContext) mergeDiscoveryResults(ctx context.Context, files []*discovery.DiscoveredFile) error {
 	seenInvowkfiles := make(map[string]bool)
 	for _, sf := range sc.invowkfiles {
 		seenInvowkfiles[string(sf.Path)] = true
@@ -506,6 +580,9 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 	}
 
 	for _, f := range files {
+		if err := scanContextErr(ctx); err != nil {
+			return err
+		}
 		if f.Module != nil {
 			modPath := string(f.Module.Path)
 			if seenModules[modPath] {
@@ -520,8 +597,11 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 				discSurfaceID = string(f.Module.Metadata.Module)
 			}
 
-			sm, vendored, err := sc.loadScannedModule(f.Module.Path, f.Module, f.Invowkfile, f.IsGlobalModule, f.ParentModule != nil)
+			sm, vendored, err := sc.loadScannedModule(ctx, f.Module.Path, f.Module, f.Invowkfile, f.IsGlobalModule, f.ParentModule != nil)
 			if err != nil {
+				if isScanContextCancellation(err) {
+					return err
+				}
 				sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", f.Module.Name(), err), f.Module.Path)
 				continue
 			}
@@ -530,7 +610,9 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 			}
 			sm.SurfaceKind = moduleSurfaceKind(f.IsGlobalModule, f.ParentModule != nil)
 			sc.modules = append(sc.modules, sm)
-			sc.appendVendoredScannedModules(vendored, f.IsGlobalModule)
+			if err := sc.appendVendoredScannedModules(ctx, vendored, f.IsGlobalModule); err != nil {
+				return err
+			}
 		} else if f.Invowkfile != nil && !seenInvowkfiles[string(f.Path)] {
 			sc.invowkfiles = append(sc.invowkfiles, &ScannedInvowkfile{
 				Path:        f.Path,
@@ -541,18 +623,28 @@ func (sc *ScanContext) mergeDiscoveryResults(files []*discovery.DiscoveredFile) 
 			})
 		}
 	}
+	return nil
 }
 
 // loadVendoredModules scans the invowk_modules/ directory for vendored deps.
 // Returns the loaded modules and any diagnostics for modules that failed to load.
-func loadVendoredModules(modulePath types.FilesystemPath) (modules vendoredModuleArtifacts, diagnostics []Diagnostic) {
+func loadVendoredModules(ctx context.Context, modulePath types.FilesystemPath) (modules vendoredModuleArtifacts, diagnostics []Diagnostic, err error) {
+	if ctxErr := scanContextErr(ctx); ctxErr != nil {
+		return nil, nil, ctxErr
+	}
 	vendorDir := fspath.JoinStr(modulePath, "invowk_modules")
-	entries, err := os.ReadDir(string(vendorDir))
-	if err != nil {
-		return nil, nil
+	entries, readErr := os.ReadDir(string(vendorDir))
+	if errors.Is(readErr, os.ErrNotExist) {
+		return nil, nil, nil
+	}
+	if readErr != nil {
+		return nil, nil, fmt.Errorf("reading vendored modules: %w", readErr)
 	}
 
 	for _, entry := range entries {
+		if err := scanContextErr(ctx); err != nil {
+			return nil, nil, err
+		}
 		if !entry.IsDir() || !strings.HasSuffix(entry.Name(), invowkmod.ModuleSuffix) {
 			continue
 		}
@@ -585,7 +677,7 @@ func loadVendoredModules(modulePath types.FilesystemPath) (modules vendoredModul
 		}
 		modules = append(modules, artifact)
 	}
-	return modules, diagnostics
+	return modules, diagnostics, nil
 }
 
 func (modules vendoredModuleArtifacts) moduleList() []*invowkmod.Module {
@@ -596,10 +688,16 @@ func (modules vendoredModuleArtifacts) moduleList() []*invowkmod.Module {
 	return result
 }
 
-func (sc *ScanContext) appendVendoredScannedModules(vendored vendoredModuleArtifacts, isGlobal bool) {
+func (sc *ScanContext) appendVendoredScannedModules(ctx context.Context, vendored vendoredModuleArtifacts, isGlobal bool) error {
 	for _, artifact := range vendored {
-		sm, nested, err := sc.loadScannedModule(artifact.Path, artifact.Module, nil, isGlobal, true)
+		if err := scanContextErr(ctx); err != nil {
+			return err
+		}
+		sm, nested, err := sc.loadScannedModule(ctx, artifact.Path, artifact.Module, nil, isGlobal, true)
 		if err != nil {
+			if isScanContextCancellation(err) {
+				return err
+			}
 			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid vendored module %s: %v", artifact.Path, err), artifact.Path)
 			continue
 		}
@@ -614,30 +712,51 @@ func (sc *ScanContext) appendVendoredScannedModules(vendored vendoredModuleArtif
 		sm.SurfaceKey = scanSurfaceKey(sm.SurfaceKind, sm.Path)
 		sc.modules = append(sc.modules, sm)
 	}
+	return nil
 }
 
 // buildScriptRefs pre-computes all script references from invowkfiles and modules.
-func buildScriptRefs(invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) []ScriptRef {
+func buildScriptRefs(ctx context.Context, invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) ([]ScriptRef, error) {
 	var refs []ScriptRef
 	for _, sf := range invowkfiles {
+		if err := scanContextErr(ctx); err != nil {
+			return nil, err
+		}
 		if sf.Invowkfile == nil {
 			continue // Parse-failed invowkfiles have no scripts to analyze.
 		}
-		refs = appendScriptsFromInvowkfile(refs, sf.SurfaceID, sf.SurfaceKey, sf.SurfaceKind, sf.Path, "", sf.Invowkfile)
-	}
-	for _, sm := range modules {
-		if sm.Invowkfile != nil {
-			invPath := fspath.JoinStr(sm.Path, invowkfileCUEFileName)
-			refs = appendScriptsFromInvowkfile(refs, sm.SurfaceID, sm.SurfaceKey, sm.SurfaceKind, invPath, sm.Path, sm.Invowkfile)
+		var err error
+		refs, err = appendScriptsFromInvowkfile(ctx, refs, sf.SurfaceID, sf.SurfaceKey, sf.SurfaceKind, sf.Path, "", sf.Invowkfile)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return refs
+	for _, sm := range modules {
+		if err := scanContextErr(ctx); err != nil {
+			return nil, err
+		}
+		if sm.Invowkfile != nil {
+			invPath := fspath.JoinStr(sm.Path, invowkfileCUEFileName)
+			var err error
+			refs, err = appendScriptsFromInvowkfile(ctx, refs, sm.SurfaceID, sm.SurfaceKey, sm.SurfaceKind, invPath, sm.Path, sm.Invowkfile)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return refs, nil
 }
 
-func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKey ScanSurfaceKey, surfaceKind SurfaceKind, filePath, modulePath types.FilesystemPath, inv *invowkfile.Invowkfile) []ScriptRef {
+func appendScriptsFromInvowkfile(ctx context.Context, refs []ScriptRef, surfaceID string, surfaceKey ScanSurfaceKey, surfaceKind SurfaceKind, filePath, modulePath types.FilesystemPath, inv *invowkfile.Invowkfile) ([]ScriptRef, error) {
 	for ci := range inv.Commands {
+		if err := scanContextErr(ctx); err != nil {
+			return nil, err
+		}
 		cmd := &inv.Commands[ci]
 		for i := range cmd.Implementations {
+			if err := scanContextErr(ctx); err != nil {
+				return nil, err
+			}
 			impl := &cmd.Implementations[i]
 			isFile := impl.IsScriptFile()
 			ref := ScriptRef{
@@ -659,7 +778,10 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKey 
 			// content-analysis checkers can inspect the real script body.
 			if isFile {
 				scriptPath := impl.GetScriptFilePathWithModule(filePath, modulePath)
-				facts := readScriptFileFacts(string(scriptPath), string(modulePath))
+				facts, err := readScriptFileFacts(ctx, string(scriptPath), string(modulePath))
+				if err != nil {
+					return nil, err
+				}
 				ref.ScriptPath = facts.Path
 				ref.FileSize = facts.Size
 				ref.FileStatErr = facts.StatErr
@@ -671,7 +793,7 @@ func appendScriptsFromInvowkfile(refs []ScriptRef, surfaceID string, surfaceKey 
 			refs = append(refs, ref)
 		}
 	}
-	return refs
+	return refs, nil
 }
 
 func moduleSurfaceKind(isGlobal, isVendored bool) SurfaceKind {
@@ -760,21 +882,16 @@ func newScanSurfaceKey(raw string) ScanSurfaceKey {
 	return key
 }
 
-func buildVendoredHashEvaluations(lock *invowkmod.LockFile, modules []*invowkmod.Module) []invowkmod.VendoredHashEvaluation {
-	if lock == nil || len(modules) == 0 {
-		return nil
+func scanModuleSymlinks(ctx context.Context, modulePath types.FilesystemPath) ([]SymlinkRef, error) {
+	if err := scanContextErr(ctx); err != nil {
+		return nil, err
 	}
-	evaluations := make([]invowkmod.VendoredHashEvaluation, 0, len(modules))
-	for _, module := range modules {
-		evaluations = append(evaluations, invowkmod.EvaluateVendoredModuleHash(lock, module))
-	}
-	return evaluations
-}
-
-func scanModuleSymlinks(modulePath types.FilesystemPath) ([]SymlinkRef, error) {
 	modPath := string(modulePath)
 	var refs []SymlinkRef
 	err := filepath.WalkDir(modPath, func(path string, d fs.DirEntry, err error) error {
+		if ctxErr := scanContextErr(ctx); ctxErr != nil {
+			return ctxErr
+		}
 		if err != nil {
 			return err
 		}
@@ -840,47 +957,4 @@ func symlinkChainTooDeep(path string) bool {
 		current = target
 	}
 	return true
-}
-
-// readScriptFileFacts reads file-based script metadata and contents for content analysis.
-// Empty content means the file could not be read or exceeded the scan size cap.
-//
-//goplint:ignore -- helper resolves raw script path text from invowkfile declarations.
-func readScriptFileFacts(scriptPath, modulePath string) scriptFileFacts {
-	resolved := strings.TrimSpace(scriptPath)
-	if modulePath != "" && !filepath.IsAbs(resolved) {
-		resolved = filepath.Join(modulePath, resolved)
-	}
-	resolvedPath := types.FilesystemPath(resolved) //goplint:ignore -- resolved from validated module/script path inputs.
-	facts := scriptFileFacts{Path: resolvedPath}
-
-	// Defense-in-depth: verify the resolved path stays within the module
-	// boundary. The invowkfile parser's script path containment check (SC-01)
-	// blocks traversal paths at parse time, but the audit scanner should not
-	// rely on upstream validation alone.
-	if modulePath != "" && !isWithinBoundary(modulePath, resolved) {
-		return facts
-	}
-
-	info, statErr := os.Stat(resolved)
-	if statErr != nil {
-		facts.StatErr = statErr
-		return facts
-	}
-	facts.Size = info.Size()
-
-	data, err := os.ReadFile(resolved)
-	if err != nil || len(data) > maxScriptFileSize {
-		facts.StatErr = err
-		return facts
-	}
-	facts.Content = string(data)
-	return facts
-}
-
-// isWithinBoundary checks whether target resolves to a path within the base
-// directory. Used by multiple checkers for module boundary enforcement.
-func isWithinBoundary(base, target string) bool {
-	rel, err := filepath.Rel(base, target)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

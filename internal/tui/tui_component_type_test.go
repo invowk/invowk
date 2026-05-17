@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -41,6 +42,18 @@ func TestComponentType_Validate(t *testing.T) {
 				t.Errorf("error should wrap ErrInvalidComponentType, got: %v", err)
 			}
 		})
+	}
+}
+
+func TestCreateEmbeddableComponentRejectsWireJSONOptions(t *testing.T) {
+	t.Parallel()
+
+	_, err := CreateEmbeddableComponent(ComponentTypeConfirm, json.RawMessage(`{"title":"Proceed?"}`), 80, 24)
+	if err == nil {
+		t.Fatal("CreateEmbeddableComponent() error = nil, want typed-only renderer options error")
+	}
+	if !strings.Contains(err.Error(), "json.RawMessage") {
+		t.Fatalf("CreateEmbeddableComponent() error = %v, want raw JSON type mentioned", err)
 	}
 }
 

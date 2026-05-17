@@ -164,24 +164,39 @@ func (p containerConfigPatch) Validate() error {
 func (p llmConfigPatch) Validate() error {
 	var errs []error
 	if p.Provider != nil {
-		errs = append(errs, p.Provider.Validate())
+		errs = appendValidationError(errs, p.Provider.Validate())
 	}
 	if p.Model != nil {
-		errs = append(errs, p.Model.Validate())
+		errs = appendValidationError(errs, p.Model.Validate())
 	}
 	if p.Timeout != nil {
-		errs = append(errs, p.Timeout.Validate())
+		errs = appendValidationError(errs, p.Timeout.Validate())
 	}
 	if p.Concurrency != nil {
-		errs = append(errs, p.Concurrency.Validate())
+		errs = appendValidationError(errs, p.Concurrency.Validate())
 	}
 	if p.API != nil {
-		errs = append(errs, p.API.Validate())
+		if !p.API.HasConfig() {
+			errs = append(errs, &InvalidLLMAPIConfigError{
+				FieldErrors: []error{errors.New("llm.api must set at least one of base_url, model, or api_key_env")},
+			})
+		}
+		errs = appendValidationError(errs, p.API.Validate())
 	}
 	if p.Provider != nil && p.API != nil && p.API.HasConfig() {
 		errs = append(errs, errors.New("llm.provider and llm.api are mutually exclusive"))
 	}
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return &InvalidLLMConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+func appendValidationError(errs []error, err error) []error {
+	if err == nil {
+		return errs
+	}
+	return append(errs, err)
 }
 
 func (p llmAPIConfigPatch) HasConfig() bool {
@@ -367,6 +382,9 @@ func wrapIncludeCollectionError(err *InvalidIncludeCollectionError) error {
 // explicit provider options before platform defaults.
 func configDirWithOverride(configDirPath types.FilesystemPath) (types.FilesystemPath, error) {
 	if configDirPath != "" {
+		if err := configDirPath.Validate(); err != nil {
+			return "", err
+		}
 		return configDirPath, nil
 	}
 
@@ -377,6 +395,9 @@ func configDirWithOverride(configDirPath types.FilesystemPath) (types.Filesystem
 // explicit provider options before platform defaults.
 func commandsDirWithOverride(commandsDirPath types.FilesystemPath) (types.FilesystemPath, error) {
 	if commandsDirPath != "" {
+		if err := commandsDirPath.Validate(); err != nil {
+			return "", err
+		}
 		return commandsDirPath, nil
 	}
 
@@ -486,7 +507,7 @@ func applyLLMConfigPatch(cfg *Config, patch *llmConfigPatch) {
 	if patch.Concurrency != nil {
 		cfg.LLM.Concurrency = *patch.Concurrency
 	}
-	if patch.API != nil {
+	if patch.API != nil && patch.API.HasConfig() {
 		cfg.LLM.Provider = ""
 		if patch.API.BaseURL != nil {
 			cfg.LLM.API.BaseURL = *patch.API.BaseURL
@@ -744,6 +765,9 @@ func GenerateCUE(cfg *Config) string {
 	sb.WriteString("\ncontainer: {\n")
 	sb.WriteString("\tauto_provision: {\n")
 	fmt.Fprintf(&sb, "\t\tenabled: %v\n", cfg.Container.AutoProvision.Enabled)
+	if cfg.Container.AutoProvision.Strict {
+		sb.WriteString("\t\tstrict: true\n")
+	}
 	if cfg.Container.AutoProvision.BinaryPath != "" {
 		fmt.Fprintf(&sb, "\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath)
 	}

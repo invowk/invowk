@@ -48,12 +48,6 @@ type (
 	CommandScope = invowkmod.CommandScope
 )
 
-// ExtractModuleFromCommand extracts the module prefix from a fully qualified command name.
-// This is a wrapper for invowkmod.ExtractModuleFromCommand.
-func ExtractModuleFromCommand(cmd string) string {
-	return invowkmod.ExtractModuleFromCommand(cmd)
-}
-
 // NewModuleMetadata creates a validated ModuleMetadata snapshot.
 // Module and Version are required; Description and Requires are optional
 // (zero values are valid). The requires slice is defensively copied.
@@ -74,23 +68,24 @@ func NewModuleMetadata(module invowkmod.ModuleID, version invowkmod.SemVer, desc
 	return m, nil
 }
 
-// NewModuleMetadataFromInvowkmod converts invowkmod metadata to the lightweight
-// invowkfile-local metadata shape. This is a non-validating factory used during
-// CUE parsing where the metadata may be in an intermediate state.
-func NewModuleMetadataFromInvowkmod(meta *Invowkmod) *ModuleMetadata {
+// NewModuleMetadataFromInvowkmod converts validated invowkmod metadata to the
+// lightweight invowkfile-local metadata shape.
+func NewModuleMetadataFromInvowkmod(meta *Invowkmod) (*ModuleMetadata, error) {
 	if meta == nil {
-		return nil
+		return nil, &InvalidModuleMetadataError{
+			FieldErrors: []error{errors.New("module metadata is required")},
+		}
 	}
 
 	requires := make([]ModuleRequirement, len(meta.Requires))
 	copy(requires, meta.Requires)
 
-	return &ModuleMetadata{
-		module:      meta.Module,
-		version:     meta.Version,
-		description: meta.Description,
-		requires:    requires,
-	}
+	return NewModuleMetadata(
+		meta.Module,
+		meta.Version,
+		meta.Description,
+		requires,
+	)
 }
 
 // Module returns the module identifier.

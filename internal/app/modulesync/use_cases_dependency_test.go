@@ -49,6 +49,8 @@ func TestListModuleDependenciesUsesInvowkmodPathDirectory(t *testing.T) {
 		ResolvedVersion: "1.2.3",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "tools@1.2.3",
+		CommandSourceID: "tools",
+		ModuleID:        "io.example.tools",
 		ContentHash:     ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
 	}
 	if err := lock.Save(filepath.Join(moduleDir, LockFileName)); err != nil {
@@ -79,6 +81,8 @@ func TestListModuleDependenciesDoesNotCreateModuleCache(t *testing.T) {
 		ResolvedVersion: "1.2.3",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "tools@1.2.3",
+		CommandSourceID: "tools",
+		ModuleID:        "io.example.tools",
 		ContentHash:     ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
 	}
 	if err := lock.Save(filepath.Join(moduleDir, LockFileName)); err != nil {
@@ -114,6 +118,8 @@ requires: [
 		ResolvedVersion: "1.2.3",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "tools@1.2.3",
+		CommandSourceID: "tools",
+		ModuleID:        "io.example.tools",
 		ContentHash:     ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
 	}
 	if err := lock.Save(filepath.Join(moduleDir, LockFileName)); err != nil {
@@ -208,6 +214,8 @@ func TestRemoveModuleDependencyRollsBackLockOnDeclarationFailure(t *testing.T) {
 		ResolvedVersion: "1.2.3",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "tools@1.2.3",
+		CommandSourceID: "tools",
+		ModuleID:        "io.example.tools",
 		ContentHash:     ContentHash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
 	}
 	if err := lock.Save(filepath.Join(workDir, LockFileName)); err != nil {

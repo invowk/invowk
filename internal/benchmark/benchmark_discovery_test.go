@@ -183,6 +183,7 @@ modules: {
 		resolved_version: "1.0.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "child@1.0.0"
+		command_source_id: "child"
 		module_id:        "child"
 		content_hash:     %q
 	}

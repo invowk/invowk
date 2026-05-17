@@ -296,6 +296,53 @@ func TestModuleMetadataChecker_VendoredDeclarationMatchesPathSource(t *testing.T
 	}
 }
 
+func TestModuleMetadataChecker_VendoredDeclarationUsesLockedModuleID(t *testing.T) {
+	t.Parallel()
+
+	req := invowkmod.ModuleRequirement{
+		GitURL:  "https://example.com/mono.git",
+		Path:    "modules/tools",
+		Version: "^1.0.0",
+	}
+	lock := invowkmod.NewLockFile()
+	lock.Modules[invowkmod.ModuleRef(req).Key()] = invowkmod.LockedModule{
+		GitURL:          req.GitURL,
+		Path:            req.Path,
+		Version:         req.Version,
+		ResolvedVersion: "1.2.3",
+		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
+		Namespace:       "tools",
+		ModuleID:        "io.example.tools",
+		ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+	}
+	sc := &ScanContext{
+		modules: []*ScannedModule{{
+			Path:      types.FilesystemPath("/test/root.invowkmod"),
+			SurfaceID: "root",
+			Module: &invowkmod.Module{
+				Metadata: &invowkmod.Invowkmod{
+					Module:   "root",
+					Requires: []invowkmod.ModuleRequirement{req},
+				},
+			},
+			LockFile: lock,
+			VendoredModules: []*invowkmod.Module{{
+				Metadata: &invowkmod.Invowkmod{Module: "io.example.tools"},
+			}},
+		}},
+	}
+
+	findings, err := NewModuleMetadataChecker().Check(t.Context(), sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range findings {
+		if f.Title == "Vendored module not declared in requires" {
+			t.Fatalf("vendored module matched by locked module ID was reported undeclared: %#v", f)
+		}
+	}
+}
+
 func TestLevenshtein(t *testing.T) {
 	t.Parallel()
 

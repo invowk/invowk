@@ -17,6 +17,11 @@ import "strings"
 // LLMProviderType defines valid LLM provider harnesses
 #LLMProviderType: "auto" | "claude" | "codex" | "gemini" | "ollama"
 
+// DurationString constrains a Go-style duration string (e.g., "30s", "5m", "1h30m").
+// [GO-ONLY] Positive-duration semantics are enforced by pkg/types because CUE
+// only validates the syntactic shape here.
+#DurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(64)
+
 // Config is the root configuration structure
 #Config: close({
 	// container_engine specifies which container runtime to use
@@ -121,7 +126,7 @@ import "strings"
 	model?: string & !="" & strings.MaxRunes(256)
 
 	// timeout sets the per-request timeout as a Go duration string, e.g. "2m".
-	timeout?: string & !="" & strings.MaxRunes(64)
+	timeout?: #DurationString
 
 	// concurrency limits concurrent LLM requests. Zero means use the built-in default.
 	concurrency?: int & >=0

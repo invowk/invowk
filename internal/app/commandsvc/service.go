@@ -25,31 +25,29 @@ type (
 	// runtime resolution, host-access lifecycle, execution context construction,
 	// and dispatch. It returns raw typed errors (not styled ServiceErrors).
 	Service struct {
-		config              config.Loader
-		discovery           CommandDiscovery
-		hostAccess          HostAccess
-		registryFactory     RuntimeRegistryCreator
-		runtimeProbeFactory RuntimeDependencyProbeFactory
-		interactive         InteractiveExecutor
-		observer            ExecutionObserver
-		requestScope        RequestScopeFunc
-		capabilityChecker   deps.CapabilityChecker
-		hostProbe           deps.HostProbe
-		lockProvider        deps.CommandScopeLockProvider
-		userEnvFunc         UserEnvFunc
-		configFallback      ConfigFallbackFunc
+		config            config.Loader
+		discovery         CommandDiscovery
+		hostAccess        HostAccess
+		registryFactory   RuntimeRegistryCreator
+		interactive       InteractiveExecutor
+		observer          ExecutionObserver
+		requestScope      RequestScopeFunc
+		capabilityChecker deps.CapabilityChecker
+		hostProbe         deps.HostProbe
+		lockProvider      deps.CommandScopeLockProvider
+		userEnvFunc       UserEnvFunc
+		configFallback    ConfigFallbackFunc
 	}
 
 	ports struct {
-		hostAccess          HostAccess
-		registryFactory     RuntimeRegistryCreator
-		runtimeProbeFactory RuntimeDependencyProbeFactory
-		interactive         InteractiveExecutor
-		observer            ExecutionObserver
-		requestScope        RequestScopeFunc
-		capabilityChecker   deps.CapabilityChecker
-		hostProbe           deps.HostProbe
-		lockProvider        deps.CommandScopeLockProvider
+		hostAccess        HostAccess
+		registryFactory   RuntimeRegistryCreator
+		interactive       InteractiveExecutor
+		observer          ExecutionObserver
+		requestScope      RequestScopeFunc
+		capabilityChecker deps.CapabilityChecker
+		hostProbe         deps.HostProbe
+		lockProvider      deps.CommandScopeLockProvider
 	}
 
 	// ConfigFallbackFunc loads configuration with fallback to defaults on failure.
@@ -61,7 +59,6 @@ type (
 func NewPorts(
 	hostAccess HostAccess,
 	registryFactory RuntimeRegistryCreator,
-	runtimeProbeFactory RuntimeDependencyProbeFactory,
 	interactive InteractiveExecutor,
 	observer ExecutionObserver,
 	requestScope RequestScopeFunc,
@@ -70,15 +67,14 @@ func NewPorts(
 	lockProvider deps.CommandScopeLockProvider,
 ) ports {
 	return ports{
-		hostAccess:          hostAccess,
-		registryFactory:     registryFactory,
-		runtimeProbeFactory: runtimeProbeFactory,
-		interactive:         interactive,
-		observer:            observer,
-		requestScope:        requestScope,
-		capabilityChecker:   capabilityChecker,
-		hostProbe:           hostProbe,
-		lockProvider:        lockProvider,
+		hostAccess:        hostAccess,
+		registryFactory:   registryFactory,
+		interactive:       interactive,
+		observer:          observer,
+		requestScope:      requestScope,
+		capabilityChecker: capabilityChecker,
+		hostProbe:         hostProbe,
+		lockProvider:      lockProvider,
 	}
 }
 
@@ -99,25 +95,21 @@ func New(
 	servicePorts ports,
 ) *Service {
 	svc := &Service{
-		config:              configProvider,
-		discovery:           disc,
-		hostAccess:          noopHostAccess{},
-		registryFactory:     missingRuntimeRegistryFactory{},
-		runtimeProbeFactory: noopRuntimeDependencyProbeFactory{},
-		interactive:         defaultInteractiveExecutor{},
-		observer:            noopExecutionObserver{},
-		requestScope:        beginNoopRequestScope,
-		userEnvFunc:         userEnvFunc,
-		configFallback:      configFallback,
+		config:          configProvider,
+		discovery:       disc,
+		hostAccess:      noopHostAccess{},
+		registryFactory: missingRuntimeRegistryFactory{},
+		interactive:     defaultInteractiveExecutor{},
+		observer:        noopExecutionObserver{},
+		requestScope:    beginNoopRequestScope,
+		userEnvFunc:     userEnvFunc,
+		configFallback:  configFallback,
 	}
 	if servicePorts.hostAccess != nil {
 		svc.hostAccess = servicePorts.hostAccess
 	}
 	if servicePorts.registryFactory != nil {
 		svc.registryFactory = servicePorts.registryFactory
-	}
-	if servicePorts.runtimeProbeFactory != nil {
-		svc.runtimeProbeFactory = servicePorts.runtimeProbeFactory
 	}
 	if servicePorts.interactive != nil {
 		svc.interactive = servicePorts.interactive
@@ -237,41 +229,13 @@ func newDryRunPlan(req Request, cmdInfo *discovery.CommandInfo, execCtx *runtime
 }
 
 func newPersistentContainerPlan(execCtx *runtime.ExecutionContext, impl *invowkfile.Implementation) containerplan.PersistentPlan {
-	var commandFullName, commandName invowkfile.CommandName
-	var invowkfilePath invowkfile.FilesystemPath
-	var containerNameOverride invowkfile.ContainerName
-	if execCtx != nil {
-		containerNameOverride = execCtx.ContainerNameOverride
-		commandFullName = execCtx.CommandFullName
-		if execCtx.Command != nil {
-			commandName = execCtx.Command.Name
-		}
-		if execCtx.Invowkfile != nil {
-			invowkfilePath = execCtx.Invowkfile.FilePath
-		}
-	}
 	var persistentConfig *invowkfile.RuntimePersistentConfig
 	if impl != nil && execCtx != nil {
 		if rtConfig := impl.GetRuntimeConfig(execCtx.SelectedRuntime); rtConfig != nil {
 			persistentConfig = rtConfig.Persistent
 		}
 	}
-	opts := []containerplan.PersistentRequestOption{
-		containerplan.WithContainerNameOverride(containerNameOverride),
-		containerplan.WithConfig(persistentConfig),
-	}
-	if commandFullName != "" {
-		fullName := containerplan.CommandNamespace(commandFullName)
-		opts = append(opts, containerplan.WithCommandFullName(&fullName))
-	}
-	if commandName != "" {
-		name := containerplan.CommandNamespace(commandName)
-		opts = append(opts, containerplan.WithCommandName(&name))
-	}
-	if invowkfilePath != "" {
-		opts = append(opts, containerplan.WithInvowkfilePath(&invowkfilePath))
-	}
-	req, err := containerplan.NewPersistentRequest(opts...)
+	req, err := execCtx.PersistentContainerRequest(persistentConfig)
 	if err != nil {
 		return containerplan.EphemeralPlan()
 	}
@@ -324,6 +288,35 @@ func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.C
 	}
 	_, cmdInfo, resolvedReq, diags, err := s.discoverCommand(ctx, req)
 	return cmdInfo, resolvedReq, diags, err
+}
+
+// ResolveWatchPlan resolves a command request and builds its app-owned watch
+// plan using the selected execution runtime.
+func (s *Service) ResolveWatchPlan(ctx context.Context, req Request) (*discovery.CommandInfo, Request, WatchPlan, []Diagnostic, error) {
+	if err := req.Validate(); err != nil {
+		return nil, req, WatchPlan{}, nil, err
+	}
+	ctx = s.beginRequest(ctx, req.ConfigPath)
+	if req.Platform == "" {
+		req.Platform = invowkfile.CurrentPlatform()
+	}
+	cfg, cmdInfo, resolvedReq, diags, err := s.discoverCommand(ctx, req)
+	if err != nil {
+		return cmdInfo, resolvedReq, WatchPlan{}, diags, err
+	}
+	resolved, err := s.resolveRuntime(resolvedReq, cmdInfo, cfg)
+	if err != nil {
+		return cmdInfo, resolvedReq, WatchPlan{}, diags, err
+	}
+	plan, err := NewWatchPlan(
+		cmdInfo,
+		WithWatchWorkdirOverride(resolvedReq.Workdir),
+		WithWatchExecution(resolved.Mode(), resolved.Impl()),
+	)
+	if err != nil {
+		return cmdInfo, resolvedReq, WatchPlan{}, diags, err
+	}
+	return cmdInfo, resolvedReq, plan, diags, nil
 }
 
 func (s *Service) beginRequest(ctx context.Context, configPath types.FilesystemPath) context.Context {
@@ -555,5 +548,9 @@ func (s *Service) resolveDefinitions(req Request, cmdInfo *discovery.CommandInfo
 // loadConfig loads configuration via the configFallback callback. On failure it
 // returns defaults with diagnostics so callers stay operational.
 func (s *Service) loadConfig(ctx context.Context, configPath string) (cfg *config.Config, diags []Diagnostic) {
+	if discoveryConfig, ok := s.discovery.(ConfigAwareCommandDiscovery); ok {
+		cfg, discoveryDiags := discoveryConfig.LoadConfigForCommand(ctx)
+		return cfg, appendDiagnostics(nil, discoveryDiags...)
+	}
 	return s.configFallback(ctx, s.config, configPath)
 }

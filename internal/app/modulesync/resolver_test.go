@@ -579,6 +579,8 @@ func TestRemoveByNamespace(t *testing.T) {
 		ResolvedVersion: "1.2.3",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "tools@1.2.3",
+		CommandSourceID: "tools",
+		ModuleID:        "io.example.tools",
 		ContentHash:     rTestHash,
 	}
 	lock.Modules["https://github.com/user/utils.git"] = LockedModule{
@@ -588,6 +590,8 @@ func TestRemoveByNamespace(t *testing.T) {
 		GitCommit:       "def456abc78901234567890123456789abcdef1a",
 		Alias:           "myalias",
 		Namespace:       "myalias",
+		CommandSourceID: "myalias",
+		ModuleID:        "io.example.utils",
 		ContentHash:     rTestHash,
 	}
 
@@ -643,6 +647,7 @@ func TestLoadFromLockPreservesContentHash(t *testing.T) {
 		ResolvedVersion: "1.2.3",
 		GitCommit:       "abc123def456789012345678901234567890abcd",
 		Namespace:       "tools@1.2.3",
+		CommandSourceID: "tools",
 		ModuleID:        "io.example.tools",
 		ContentHash:     wantHash,
 	}
@@ -789,7 +794,9 @@ func TestAddWritesLockFile(t *testing.T) {
 			ResolvedVersion: "1.2.3",
 			GitCommit:       "abc123def456789012345678901234567890abcd",
 			Namespace:       "tools@1.2.3",
+			CommandSourceID: "tools",
 			ModuleName:      "tools",
+			ModuleID:        "io.example.tools",
 			ContentHash:     addTestHash,
 		}
 
@@ -845,6 +852,8 @@ func TestAddWritesLockFile(t *testing.T) {
 			ResolvedVersion: "2.1.0",
 			GitCommit:       "eee78901234567890123456789abcdef12345678",
 			Namespace:       "utils@2.1.0",
+			CommandSourceID: "utils",
+			ModuleID:        "io.example.utils",
 			ContentHash:     appendTestHash,
 		}
 		if err := existing.Save(lockPath); err != nil {
@@ -863,7 +872,9 @@ func TestAddWritesLockFile(t *testing.T) {
 			ResolvedVersion: "1.5.0",
 			GitCommit:       "aaa456bbb789ccc012ddd345eee678fff901abc2",
 			Namespace:       "mytools",
+			CommandSourceID: "mytools",
 			ModuleName:      "tools",
+			ModuleID:        "io.example.tools",
 			ContentHash:     appendTestHash2,
 		}
 

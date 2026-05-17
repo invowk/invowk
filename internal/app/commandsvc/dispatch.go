@@ -13,18 +13,8 @@ import (
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
-// RuntimeRegistryResult bundles the runtime registry with its cleanup function,
-// non-fatal initialization diagnostics, and any container runtime init error
-// for fail-fast dispatch.
-type RuntimeRegistryResult struct {
-	Registry         *runtime.Registry
-	Cleanup          func()
-	Diagnostics      []Diagnostic
-	ContainerInitErr error
-}
-
 // dispatchExecution runs the post-context-build execution pipeline:
-//  1. Creates runtime registry.
+//  1. Creates a runtime session.
 //  2. Validates timeout string (fail-fast on invalid values).
 //  3. Wraps context with timeout.
 //  4. Validates dependencies (tools, cmds, filepaths, capabilities, custom checks, env vars).
@@ -33,16 +23,16 @@ type RuntimeRegistryResult struct {
 // It returns ClassifiedError for runtime failures and raw typed errors for
 // dependency validation. The CLI adapter handles rendering.
 func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionContext, cmdInfo *discovery.CommandInfo, cfg *config.Config, diags []Diagnostic) (Result, []Diagnostic, error) {
-	registryResult := s.registryFactory.Create(cfg, s.hostAccess, execCtx.SelectedRuntime)
-	diags = appendRuntimeRegistryDiagnostics(diags, req, execCtx, registryResult)
-	defer registryResult.Cleanup()
+	session := s.registryFactory.Create(cfg, s.hostAccess, execCtx.SelectedRuntime)
+	diags = appendRuntimeSessionDiagnostics(diags, req, execCtx, session)
+	defer session.Close()
 
 	// Assign a unique execution ID now that the registry is available.
 	// NewExecutionContext leaves ExecutionID empty; it is set here because
 	// the registry (which owns the monotonic counter) is created at this point.
-	execCtx.ExecutionID = registryResult.Registry.NewExecutionID()
+	execCtx.ExecutionID = session.NewExecutionID()
 
-	if err := failFastContainerInit(registryResult.ContainerInitErr, execCtx.SelectedRuntime); err != nil {
+	if err := failFastContainerInit(session.ContainerInitErr(), execCtx.SelectedRuntime); err != nil {
 		return Result{}, diags, err
 	}
 
@@ -52,8 +42,8 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	}
 	defer cancel()
 
-	// Dependency validation needs the registry to check runtime-aware dependencies.
-	if validateErr := s.validateDeps(cmdInfo, execCtx, registryResult.Registry, req.UserEnv); validateErr != nil {
+	// Dependency validation uses the runtime session to check runtime-aware dependencies.
+	if validateErr := s.validateDeps(cmdInfo, execCtx, session, req.UserEnv); validateErr != nil {
 		// Return the raw error (e.g., *DependencyError); the CLI adapter wraps it.
 		return Result{}, diags, validateErr
 	}
@@ -63,9 +53,12 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 		s.observer.CommandStarting(cmdName)
 	}
 
-	result, err := s.executeWithRequestedMode(req, execCtx, registryResult.Registry)
+	result, interactiveFallback, err := s.executeWithRequestedMode(req, execCtx, session)
 	if err != nil {
 		return Result{}, diags, err
+	}
+	if req.Verbose && interactiveFallback != "" {
+		s.observer.InteractiveFallback(interactiveFallback)
 	}
 
 	diags = append(diags, BridgeRuntimeDiagnostics(result.Diagnostics)...)
@@ -76,9 +69,9 @@ func (s *Service) dispatchExecution(req Request, execCtx *runtime.ExecutionConte
 	return Result{ExitCode: result.ExitCode}, diags, nil
 }
 
-func appendRuntimeRegistryDiagnostics(diags []Diagnostic, req Request, execCtx *runtime.ExecutionContext, registryResult RuntimeRegistryResult) []Diagnostic {
+func appendRuntimeSessionDiagnostics(diags []Diagnostic, req Request, execCtx *runtime.ExecutionContext, session RuntimeSession) []Diagnostic {
 	if req.Verbose || execCtx.SelectedRuntime == invowkfile.RuntimeContainer {
-		diags = append(diags, registryResult.Diagnostics...)
+		diags = append(diags, session.Diagnostics()...)
 	}
 	return diags
 }
@@ -109,27 +102,25 @@ func applyExecutionTimeout(execCtx *runtime.ExecutionContext) (context.CancelFun
 	return cancel, nil
 }
 
-func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.ExecutionContext, registry *runtime.Registry) (*runtime.Result, error) {
+func (s *Service) executeWithRequestedMode(req Request, execCtx *runtime.ExecutionContext, session RuntimeSession) (*runtime.Result, invowkfile.RuntimeMode, error) {
 	if !req.Interactive {
-		return registry.Execute(execCtx), nil
+		return session.Execute(execCtx), "", nil
 	}
 
-	rt, err := registry.GetForContext(execCtx)
+	rt, err := session.RuntimeForContext(execCtx)
 	if err != nil {
-		return nil, newClassifiedExecutionError(fmt.Errorf("failed to get runtime: %w", err))
+		return nil, "", newClassifiedExecutionError(fmt.Errorf("failed to get runtime: %w", err))
 	}
 
-	interactiveRT := runtime.GetInteractiveRuntime(rt)
-	if interactiveRT != nil {
+	if interactiveRT := runtime.GetInteractiveRuntime(rt); interactiveRT != nil {
+		if s.interactive == nil {
+			return &runtime.Result{ExitCode: 1, Error: ErrInteractiveExecutorNotConfigured}, "", nil
+		}
 		cmdName := invowkfile.CommandName(req.Name) //goplint:ignore -- request name was resolved through discovery
-		return s.interactive.Execute(execCtx, cmdName, interactiveRT), nil
+		return s.interactive.Execute(execCtx, cmdName, interactiveRT), "", nil
 	}
 
-	if req.Verbose {
-		runtimeName := invowkfile.RuntimeMode(rt.Name()) //goplint:ignore -- runtime names are registered from runtime mode constants
-		s.observer.InteractiveFallback(runtimeName)
-	}
-	return registry.Execute(execCtx), nil
+	return session.Execute(execCtx), invowkfile.RuntimeMode(rt.Name()), nil //goplint:ignore -- runtime names are registered from runtime mode constants.
 }
 
 func newClassifiedExecutionError(err error) *ClassifiedError {

@@ -71,6 +71,7 @@ type (
 	CommandService interface {
 		Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error)
 		ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error)
+		ResolveWatchPlan(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error)
 		ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error)
 	}
 
@@ -147,7 +148,6 @@ func NewApp(d Dependencies) (*App, error) {
 			commandsvc.NewPorts(
 				hostAccess,
 				registryFactory,
-				commandadapters.NewDependencyRuntimeProbeFactory(),
 				interactiveExecutor,
 				&cliExecutionObserver{stdout: d.Stdout},
 				requestScope.Begin,
@@ -217,6 +217,12 @@ func (a *cliCommandAdapter) ResolveCommand(ctx context.Context, req ExecuteReque
 	return cmdInfo, resolvedReq, convertCommandDiagnostics(commandDiags), err
 }
 
+// ResolveWatchPlan delegates watch command selection and planning to the command service.
+func (a *cliCommandAdapter) ResolveWatchPlan(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
+	cmdInfo, resolvedReq, plan, commandDiags, err := a.svc.ResolveWatchPlan(ctx, req)
+	return cmdInfo, resolvedReq, plan, convertCommandDiagnostics(commandDiags), err
+}
+
 func convertCommandDiagnostics(diags []commandsvc.Diagnostic) []discovery.Diagnostic {
 	result := make([]discovery.Diagnostic, 0, len(diags))
 	for _, diag := range diags {
@@ -255,6 +261,22 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 		return newServiceError(err, issue.InvalidArgumentId, RenderArgumentValidationError(argErr))
 	}
 
+	if ambigErr, ok := errors.AsType[*commandsvc.AmbiguousCommandError](err); ok {
+		styledMsg := RenderAmbiguousCommandError(&AmbiguousCommandError{
+			CommandName: ambigErr.CommandName,
+			Sources:     ambigErr.Sources,
+		})
+		return newServiceError(ambigErr, 0, styledMsg)
+	}
+
+	if sourceErr, ok := errors.AsType[*commandsvc.SourceNotFoundError](err); ok {
+		styledMsg := RenderSourceNotFoundError(&SourceNotFoundError{
+			Source:           sourceErr.Source,
+			AvailableSources: sourceErr.AvailableSources,
+		})
+		return newServiceError(sourceErr, issue.CommandNotFoundId, styledMsg)
+	}
+
 	if platformErr, ok := errors.AsType[*commandsvc.UnsupportedPlatformError](err); ok {
 		supported := make([]string, 0, len(platformErr.Supported))
 		for i := range platformErr.Supported {
@@ -280,20 +302,6 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 	}
 
 	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
-		if ambigErr, ambigOK := errors.AsType[*commandsvc.AmbiguousCommandError](classified.Err); ambigOK {
-			styledMsg := RenderAmbiguousCommandError(&AmbiguousCommandError{
-				CommandName: ambigErr.CommandName,
-				Sources:     ambigErr.Sources,
-			})
-			return newServiceError(classified.Err, 0, styledMsg)
-		}
-		if sourceErr, sourceOK := errors.AsType[*commandsvc.SourceNotFoundError](classified.Err); sourceOK {
-			styledMsg := RenderSourceNotFoundError(&SourceNotFoundError{
-				Source:           sourceErr.Source,
-				AvailableSources: sourceErr.AvailableSources,
-			})
-			return newServiceError(classified.Err, issue.CommandNotFoundId, styledMsg)
-		}
 		// Re-create the styled message using the CLI-layer error formatter.
 		var styledMsg string
 		styledLabel := ErrorStyle.Render(serviceErrorLabel)

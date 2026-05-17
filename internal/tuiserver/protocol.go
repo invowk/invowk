@@ -26,10 +26,20 @@ const (
 	ComponentTable    Component = tuiwire.ComponentTable
 )
 
-// ErrInvalidComponent is returned when a Component value is not one of the defined types.
-var ErrInvalidComponent = tuiwire.ErrInvalidComponent
+var (
+	// ErrInvalidComponent is returned when a Component value is not one of the defined types.
+	ErrInvalidComponent = tuiwire.ErrInvalidComponent
+	// ErrInvalidTUIServerURL is returned when a TUI server URL is invalid.
+	ErrInvalidTUIServerURL = tuiwire.ErrInvalidTUIServerURL
+	// ErrUserCancelled is returned when a delegated TUI component is cancelled.
+	ErrUserCancelled = tuiwire.ErrUserCancelled
+)
 
 type (
+	// URL represents the URL of a TUI server for interactive mode.
+	URL = tuiwire.TUIServerURL
+	// InvalidTUIServerURLError is returned when a TUIServerURL value is invalid.
+	InvalidTUIServerURLError = tuiwire.InvalidTUIServerURLError
 	// Component represents a TUI component type.
 	Component = tuiwire.Component
 	// InvalidComponentError is returned when a component value is not recognized.

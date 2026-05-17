@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/testutil"
-	"github.com/invowk/invowk/pkg/types"
 )
 
 // startTestServer creates a running TUI server and client for testing.
@@ -89,7 +88,7 @@ func assertCancelled(t *testing.T, server *Server, callClient func() error) {
 	errCh := respondWith(t, server, Response{Cancelled: true})
 
 	err := callClient()
-	if !errors.Is(err, types.ErrUserCancelled) {
+	if !errors.Is(err, ErrUserCancelled) {
 		t.Fatalf("error = %v, want ErrUserCancelled", err)
 	}
 	assertNoAsyncError(t, errCh)

@@ -16,13 +16,48 @@ const (
 	lockFileCheckerName = "lockfile"
 )
 
-// LockFileChecker validates lock file integrity: hash mismatches, orphaned or
-// missing entries, version checks, and size limits. Only operates on modules
-// (standalone invowkfiles have no lock files).
-type LockFileChecker struct{}
+type (
+	// VendoredHashEvaluator evaluates one vendored module against lock-file hash metadata.
+	VendoredHashEvaluator interface {
+		EvaluateVendoredModuleHash(lock *invowkmod.LockFile, module *invowkmod.Module) invowkmod.VendoredHashEvaluation
+	}
+
+	// LockFileCheckerOption configures lock-file checker dependencies.
+	LockFileCheckerOption func(*LockFileChecker)
+
+	// LockFileChecker validates lock file integrity: hash mismatches, orphaned or
+	// missing entries, version checks, and size limits. Only operates on modules
+	// (standalone invowkfiles have no lock files).
+	LockFileChecker struct {
+		hashEvaluator VendoredHashEvaluator
+	}
+
+	vendoredHashEvaluatorFunc func(*invowkmod.LockFile, *invowkmod.Module) invowkmod.VendoredHashEvaluation
+)
+
+func (f vendoredHashEvaluatorFunc) EvaluateVendoredModuleHash(lock *invowkmod.LockFile, module *invowkmod.Module) invowkmod.VendoredHashEvaluation {
+	return f(lock, module)
+}
 
 // NewLockFileChecker creates a LockFileChecker.
-func NewLockFileChecker() *LockFileChecker { return &LockFileChecker{} }
+func NewLockFileChecker(opts ...LockFileCheckerOption) *LockFileChecker {
+	checker := &LockFileChecker{
+		hashEvaluator: vendoredHashEvaluatorFunc(invowkmod.EvaluateVendoredModuleHash),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(checker)
+		}
+	}
+	return checker
+}
+
+// WithHashEvaluator sets the hash evaluator used by the lock-file checker.
+func WithHashEvaluator(evaluator VendoredHashEvaluator) LockFileCheckerOption {
+	return func(checker *LockFileChecker) {
+		checker.hashEvaluator = evaluator
+	}
+}
 
 // Name returns the checker identifier.
 func (c *LockFileChecker) Name() string { return lockFileCheckerName }
@@ -96,7 +131,11 @@ func (c *LockFileChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding
 
 		findings = append(findings, c.checkSize(mod)...)
 		findings = append(findings, c.checkVersion(mod)...)
-		findings = append(findings, c.checkHashMismatches(ctx, mod)...)
+		hashFindings, err := c.checkHashMismatches(ctx, mod)
+		findings = append(findings, hashFindings...)
+		if err != nil {
+			return findings, err
+		}
 		findings = append(findings, c.checkOrphanedEntries(mod)...)
 		findings = append(findings, c.checkMissingEntries(mod)...)
 	}
@@ -184,56 +223,39 @@ func (c *LockFileChecker) checkVersion(mod *ScannedModule) []Finding {
 	return nil
 }
 
-func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedModule) []Finding {
+func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedModule) ([]Finding, error) {
 	var findings []Finding
 
 	hashes := mod.LockFile.ContentHashes()
 	if len(hashes) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	// Pre-build moduleID → (key, hash) lookup to detect ambiguous entries
-	// where multiple lock entries share the same module ID.
-	type lockEntry struct {
-		key  invowkmod.ModuleRefKey
-		hash invowkmod.ContentHash
-	}
-	lockByID := make(map[string][]lockEntry)
-	for key, hash := range hashes {
-		lockMod := mod.LockFile.Modules[key]
-		moduleID := string(lockMod.IdentityModuleID())
-		lockByID[moduleID] = append(lockByID[moduleID], lockEntry{key: key, hash: hash})
-	}
-
-	// Flag ambiguous lock entries (multiple entries for same module ID).
-	for id, entries := range lockByID {
-		if len(entries) > 1 {
-			var keys []string
-			for _, e := range entries {
-				keys = append(keys, string(e.key))
-			}
-			findings = append(findings, Finding{
-				Code:           codeLockfileAmbiguousModule,
-				Severity:       SeverityMedium,
-				Category:       CategoryIntegrity,
-				SurfaceID:      mod.SurfaceID,
-				CheckerName:    lockFileCheckerName,
-				FilePath:       mod.LockPath,
-				Title:          "Ambiguous lock file entries for same module",
-				Description:    fmt.Sprintf("Module ID %q has %d lock entries (%s) — only the first would be verified, allowing a crafted duplicate to evade detection", id, len(entries), strings.Join(keys, ", ")),
-				Recommendation: "Ensure each module ID has exactly one lock file entry; run 'invowk module sync' to regenerate",
-			})
-		}
+	// Flag ambiguous lock entries using the same lock/hash policy as vendored
+	// module verification.
+	for _, ambiguity := range invowkmod.FindAmbiguousLockedModuleEntries(mod.LockFile) {
+		findings = append(findings, Finding{
+			Code:           codeLockfileAmbiguousModule,
+			Severity:       SeverityMedium,
+			Category:       CategoryIntegrity,
+			SurfaceID:      mod.SurfaceID,
+			CheckerName:    lockFileCheckerName,
+			FilePath:       mod.LockPath,
+			Title:          "Ambiguous lock file entries for same module",
+			Description:    fmt.Sprintf("Module ID %q has %d lock entries (%s) — hash verification is ambiguous until the duplicate identity is resolved", ambiguity.ModuleID, len(ambiguity.LockKeys), moduleRefKeysList(ambiguity.LockKeys)),
+			Recommendation: "Ensure each module ID has exactly one lock file entry; run 'invowk module sync' to regenerate",
+		})
 	}
 
 	pathByVendoredID := vendoredPathByModuleID(mod.VendoredModules)
-	for _, evaluation := range mod.VendoredHashes {
+	for _, vendored := range mod.VendoredModules {
 		select {
 		case <-ctx.Done():
-			return findings
+			return findings, fmt.Errorf("lockfile hash check cancelled: %w", ctx.Err())
 		default:
 		}
 
+		evaluation := c.hashEvaluator.EvaluateVendoredModuleHash(mod.LockFile, vendored)
 		vendoredID := evaluation.ModuleID
 		vendoredPath := pathByVendoredID[vendoredID]
 		if vendoredPath == "" {
@@ -299,7 +321,16 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 		}
 	}
 
-	return findings
+	return findings, nil
+}
+
+//goplint:ignore -- display-only lockfile key list for audit finding descriptions.
+func moduleRefKeysList(keys []invowkmod.ModuleRefKey) string {
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, string(key))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func vendoredPathByModuleID(vendoredModules []*invowkmod.Module) map[invowkmod.ModuleID]types.FilesystemPath {

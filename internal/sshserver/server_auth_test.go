@@ -53,17 +53,10 @@ func (s *stubSSHContext) SetValue(key, value any) {
 	s.values[key] = value
 }
 
-func (s *stubSSHContext) getValue(key any) (any, bool) {
-	s.Lock()
-	defer s.Unlock()
-	v, ok := s.values[key]
-	return v, ok
-}
-
 func TestPasswordHandler(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid token returns true and sets context", func(t *testing.T) {
+	t.Run("valid token returns true", func(t *testing.T) {
 		t.Parallel()
 
 		srv := mustNew(t, DefaultConfig())
@@ -78,22 +71,27 @@ func TestPasswordHandler(t *testing.T) {
 		if !result {
 			t.Error("passwordHandler() = false, want true for valid token")
 		}
+	})
 
-		// Verify context values were set
-		storedToken, ok := ctx.getValue("token")
-		if !ok {
-			t.Fatal("context 'token' not set")
-		}
-		if storedToken.(*Token).CommandID != CommandID("cmd-123") {
-			t.Errorf("stored token CommandID = %q, want %q", storedToken.(*Token).CommandID, "cmd-123")
+	t.Run("valid token can be reused until revoked", func(t *testing.T) {
+		t.Parallel()
+
+		srv := mustNew(t, DefaultConfig())
+		token, err := srv.GenerateToken(CommandID("cmd-reuse"))
+		if err != nil {
+			t.Fatalf("GenerateToken() error = %v", err)
 		}
 
-		storedCmdID, ok := ctx.getValue("commandID")
-		if !ok {
-			t.Fatal("context 'commandID' not set")
+		if !srv.passwordHandler(newStubSSHContext(t.Context()), string(token.Value)) {
+			t.Fatal("passwordHandler() first use = false, want true")
 		}
-		if storedCmdID != CommandID("cmd-123") {
-			t.Errorf("stored commandID = %q, want %q", storedCmdID, "cmd-123")
+		if !srv.passwordHandler(newStubSSHContext(t.Context()), string(token.Value)) {
+			t.Fatal("passwordHandler() second use = false, want reusable token before revocation")
+		}
+
+		srv.RevokeToken(token.Value)
+		if srv.passwordHandler(newStubSSHContext(t.Context()), string(token.Value)) {
+			t.Fatal("passwordHandler() after revocation = true, want false")
 		}
 	})
 

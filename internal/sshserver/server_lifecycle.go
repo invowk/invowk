@@ -49,8 +49,7 @@ func (s *Server) Start(ctx context.Context) error {
 	var lc net.ListenConfig
 	listener, err := lc.Listen(startupCtx, "tcp", addr)
 	if err != nil {
-		s.base.TransitionToFailed(fmt.Errorf("failed to listen on %s: %w", addr, err))
-		return s.LastError()
+		return s.base.TransitionToFailed(fmt.Errorf("failed to listen on %s: %w", addr, err))
 	}
 
 	s.srvMu.Lock()
@@ -70,8 +69,7 @@ func (s *Server) Start(ctx context.Context) error {
 	)
 	if err != nil {
 		_ = listener.Close() // Best-effort cleanup on error
-		s.base.TransitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))
-		return s.LastError()
+		return s.base.TransitionToFailed(fmt.Errorf("failed to create SSH server: %w", err))
 	}
 
 	s.srvMu.Lock()
@@ -95,13 +93,11 @@ func (s *Server) Start(ctx context.Context) error {
 
 	case err := <-s.Err():
 		// Server failed during startup
-		s.base.TransitionToFailed(err)
-		return err
+		return s.base.TransitionToFailed(err)
 
 	case <-startupCtx.Done():
 		// Startup timeout or caller cancelled
-		s.base.TransitionToFailed(fmt.Errorf("startup timeout: %w", startupCtx.Err()))
-		return s.LastError()
+		return s.base.TransitionToFailed(fmt.Errorf("startup timeout: %w", startupCtx.Err()))
 	}
 }
 
@@ -183,7 +179,9 @@ func (s *Server) serve() {
 			return
 		}
 
-		s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err))
+		if s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err)) != nil {
+			return
+		}
 	}
 }
 

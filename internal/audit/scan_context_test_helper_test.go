@@ -3,16 +3,22 @@
 package audit
 
 import (
+	"context"
+
 	"github.com/invowk/invowk/pkg/invowkfile"
 )
 
 // newTestScanContext creates a ScanContext for testing with scripts pre-computed.
 // This mirrors BuildScanContext's post-construction step.
 func newTestScanContext(invowkfiles []*ScannedInvowkfile, modules []*ScannedModule) *ScanContext {
+	scripts, err := buildScriptRefs(context.Background(), invowkfiles, modules)
+	if err != nil {
+		panic(err)
+	}
 	return &ScanContext{
 		invowkfiles: invowkfiles,
 		modules:     modules,
-		scripts:     buildScriptRefs(invowkfiles, modules),
+		scripts:     scripts,
 	}
 }
 

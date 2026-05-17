@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/ssh"
 )
 
-// GenerateToken creates a new authentication token for a command.
+// GenerateToken creates a new execution-lifetime bearer token for a command.
 func (s *Server) GenerateToken(commandID CommandID) (*Token, error) {
 	if err := commandID.Validate(); err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (s *Server) GenerateToken(commandID CommandID) (*Token, error) {
 	return cloneToken(token), nil
 }
 
-// ValidateToken checks if a token is valid.
+// ValidateToken checks if an execution-lifetime bearer token is valid.
 func (s *Server) ValidateToken(tokenValue TokenValue) (*Token, bool) {
 	s.tokenMu.RLock()
 	token, exists := s.tokens[tokenValue]
@@ -163,10 +163,6 @@ func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
 		s.logger.Warn("Invalid token authentication attempt", "user", ctx.User())
 		return false
 	}
-
-	// Store the token info in the context for later use
-	ctx.SetValue("token", token)
-	ctx.SetValue("commandID", token.CommandID)
 
 	s.logger.Debug("Token authentication successful", "commandID", token.CommandID)
 	return true

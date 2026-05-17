@@ -40,7 +40,7 @@ func NewModuleScaffold(opts CreateOptions) (ModuleScaffold, error) {
 	}
 
 	// Validate the name format
-	if !moduleNameRegex.MatchString(string(opts.Name)) {
+	if err := opts.Name.Validate(); err != nil {
 		return ModuleScaffold{}, fmt.Errorf("module name '%s' is invalid: must start with a letter, contain only alphanumeric characters, with optional dot-separated segments (e.g., 'mycommands', 'com.example.utils')", opts.Name)
 	}
 

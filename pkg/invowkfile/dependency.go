@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/invowk/invowk/pkg/types"
 )
@@ -44,7 +45,8 @@ var (
 
 type (
 	// BinaryName represents the name of an executable binary expected in PATH.
-	// Must be non-empty and must not contain path separators (/ or \).
+	// Must be non-empty, start with an alphanumeric character, and contain only
+	// alphanumeric characters plus '.', '_', '+', or '-'.
 	BinaryName string
 
 	// InvalidBinaryNameError is returned when a BinaryName value is invalid.
@@ -286,7 +288,9 @@ func (e *InvalidBinaryNameError) Error() string {
 func (e *InvalidBinaryNameError) Unwrap() error { return ErrInvalidBinaryName }
 
 // Validate returns nil if the BinaryName is valid, or a validation error if not.
-// A valid BinaryName must be non-empty, not whitespace-only, and must not contain path separators.
+// A valid BinaryName must be non-empty, not whitespace-only, fit MaxNameLength,
+// start with an alphanumeric character, and contain only alphanumeric
+// characters plus '.', '_', '+', or '-'.
 //
 //goplint:nonzero
 func (b BinaryName) Validate() error {
@@ -294,8 +298,14 @@ func (b BinaryName) Validate() error {
 	if strings.TrimSpace(s) == "" {
 		return &InvalidBinaryNameError{Value: b, Reason: "must not be empty or whitespace-only"}
 	}
+	if utf8.RuneCountInString(s) > MaxNameLength {
+		return &InvalidBinaryNameError{Value: b, Reason: fmt.Sprintf("exceeds maximum length of %d runes", MaxNameLength)}
+	}
 	if strings.ContainsAny(s, "/\\") {
 		return &InvalidBinaryNameError{Value: b, Reason: "must not contain path separators"}
+	}
+	if !toolNameRegex.MatchString(s) {
+		return &InvalidBinaryNameError{Value: b, Reason: "must start with an alphanumeric character and contain only alphanumeric characters, '.', '_', '+', or '-'"}
 	}
 	return nil
 }

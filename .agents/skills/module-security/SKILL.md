@@ -27,6 +27,21 @@ that comes from asking LLMs to pattern-match code.
 - `.agents/rules/package-design.md` — package boundaries for `internal/audit/`
 - If this skill conflicts with a rule, **the rule wins**.
 
+## Path Boundary Guardrail
+
+When changing scanner code that resolves file-based scripts, module roots, or
+symlinks, compare like with like: lexical paths before following symlinks, and
+evaluated paths after following symlinks. A target resolved with
+`filepath.EvalSymlinks` must be checked against an evaluated module/root path,
+not the raw path from discovery or tests. This prevents false boundary escapes
+on macOS (`/var` -> `/private/var`) and Windows short/long temp path aliases
+while preserving symlink-escape blocking.
+
+Regression tests for this area must cover:
+- a normal in-module script,
+- a symlink/traversal escape that stays blocked,
+- a legitimate script read through a symlinked module/root path.
+
 ## Scope
 
 | Code Area | What to Audit |
@@ -284,7 +299,7 @@ SC-08 Arbitrary interpreter paths:
   → If no allowlist: DRIFTED (regression)
 
 SC-09 Root invowkfile scope bypass:
-  grep -n "CanCall\|CommandScope" internal/app/deps/deps.go
+  grep -n "CanCallTarget\|CommandScope" internal/app/deps/deps.go
   → If scope check exists: CONFIRMED (By-design)
 
 SC-10 Global module trust:

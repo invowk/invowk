@@ -103,7 +103,7 @@ func (s *filepathStubRuntime) CheckEnvVar(envVar invowkfile.EnvVarCheck) error {
 }
 
 func (s *filepathStubRuntime) CheckCapability(capability invowkfile.CapabilityName) error {
-	script := CapabilityCheckScript(capability)
+	script := testCapabilityCheckScript(capability)
 	if script == "" {
 		return fmt.Errorf("%s - unknown capability", capability)
 	}
@@ -115,6 +115,21 @@ func (s *filepathStubRuntime) CheckCapability(capability invowkfile.CapabilityNa
 		return nil
 	}
 	return fmt.Errorf("%s - not available in container", capability)
+}
+
+func testCapabilityCheckScript(capName invowkfile.CapabilityName) string {
+	switch capName {
+	case invowkfile.CapabilityInternet:
+		return "ping -c 1 -W 2 8.8.8.8 2>/dev/null || curl -sf --max-time 2 https://google.com >/dev/null 2>&1"
+	case invowkfile.CapabilityContainers:
+		return "command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1"
+	case invowkfile.CapabilityLocalAreaNetwork:
+		return "ip route 2>/dev/null | grep -q default || route -n 2>/dev/null | grep -q '^0.0.0.0'"
+	case invowkfile.CapabilityTTY:
+		return "test -t 0"
+	default:
+		return ""
+	}
 }
 
 func (s *filepathStubRuntime) CheckCommand(command invowkfile.CommandName) error {

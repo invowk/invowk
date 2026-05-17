@@ -486,35 +486,6 @@ func shellExitError(t *testing.T) error {
 	return err
 }
 
-func TestCapabilityCheckScript(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name         string
-		cap          invowkfile.CapabilityName
-		wantNonEmpty bool
-	}{
-		{"internet", invowkfile.CapabilityInternet, true},
-		{"containers", invowkfile.CapabilityContainers, true},
-		{"lan", invowkfile.CapabilityLocalAreaNetwork, true},
-		{"tty", invowkfile.CapabilityTTY, true},
-		{"unknown", invowkfile.CapabilityName("bogus"), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got := CapabilityCheckScript(tt.cap)
-			if tt.wantNonEmpty && got == "" {
-				t.Fatalf("CapabilityCheckScript(%q) = empty, want non-empty script", tt.cap)
-			}
-			if !tt.wantNonEmpty && got != "" {
-				t.Fatalf("CapabilityCheckScript(%q) = %q, want empty string", tt.cap, got)
-			}
-		})
-	}
-}
-
 func TestShellEscapeSingleQuote(t *testing.T) {
 	t.Parallel()
 

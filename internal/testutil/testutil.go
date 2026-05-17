@@ -3,6 +3,7 @@
 package testutil
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -151,7 +152,16 @@ func ContainerSafeTempDir(t testing.TB, prefix string) string {
 
 	baseTmpDir := filepath.Join(homeDir, "invowk-test")
 	if mkdirErr := os.MkdirAll(baseTmpDir, 0o755); mkdirErr != nil {
-		t.Fatalf("Failed to create base temp dir: %v", mkdirErr)
+		info, statErr := os.Stat(baseTmpDir)
+		if statErr != nil || info.IsDir() {
+			t.Fatalf("Failed to create base temp dir: %v", mkdirErr)
+		}
+
+		fallbackTmpDir := filepath.Join(homeDir, fmt.Sprintf("invowk-test-%d", os.Getpid()))
+		if fallbackErr := os.MkdirAll(fallbackTmpDir, 0o755); fallbackErr != nil {
+			t.Fatalf("Failed to create fallback temp dir after base temp dir %s was occupied by a file: %v", baseTmpDir, fallbackErr)
+		}
+		baseTmpDir = fallbackTmpDir
 	}
 
 	tmpDir, err := os.MkdirTemp(baseTmpDir, prefix+"-*")

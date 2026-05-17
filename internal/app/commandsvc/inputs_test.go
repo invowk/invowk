@@ -184,7 +184,7 @@ func TestBuildExecContextAndValidateDeps(t *testing.T) {
 
 	registry := runtimepkg.NewRegistry()
 	registry.Register(runtimepkg.RuntimeTypeVirtual, &stubRuntime{name: "virtual"})
-	if err := service.validateDeps(cmdInfo, execCtx, registry, map[string]string{}); err != nil {
+	if err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
 		t.Fatalf("validateDeps() = %v", err)
 	}
 }
@@ -214,7 +214,7 @@ func TestValidateDepsUsesInjectedHostProbe(t *testing.T) {
 
 	registry := runtimepkg.NewRegistry()
 	registry.Register(runtimepkg.RuntimeTypeVirtual, &stubRuntime{name: "virtual"})
-	if err := service.validateDeps(cmdInfo, execCtx, registry, map[string]string{}); err != nil {
+	if err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
 		t.Fatalf("validateDeps() = %v", err)
 	}
 	if len(probe.tools) != 1 || probe.tools[0] != "tool-from-probe" {
@@ -247,7 +247,7 @@ func TestValidateDepsUsesInjectedCapabilityChecker(t *testing.T) {
 
 	registry := runtimepkg.NewRegistry()
 	registry.Register(runtimepkg.RuntimeTypeVirtual, &stubRuntime{name: "virtual"})
-	if err := service.validateDeps(cmdInfo, execCtx, registry, map[string]string{}); err != nil {
+	if err := service.validateDeps(cmdInfo, execCtx, &testRuntimeSession{registry: registry}, map[string]string{}); err != nil {
 		t.Fatalf("validateDeps() = %v", err)
 	}
 	if len(checker.capabilities) != 1 || checker.capabilities[0] != invowkfile.CapabilityContainers {

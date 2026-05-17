@@ -50,8 +50,6 @@ type (
 	// TriageRationale describes why the matched policy rule produced the disposition.
 	TriageRationale string
 
-	findingTitle string
-
 	// TriagedFinding pairs a finding with its deterministic triage classification.
 	TriagedFinding struct {
 		finding     Finding
@@ -89,10 +87,6 @@ func (r TriageRationale) String() string { return string(r) }
 
 // Validate returns nil when the rationale is set by trusted audit policy code.
 func (r TriageRationale) Validate() error { return nil }
-
-func (t findingTitle) String() string { return string(t) }
-
-func (t findingTitle) Validate() error { return nil }
 
 // NewTriagedFinding constructs a triaged finding.
 func NewTriagedFinding(opts ...TriagedFindingOption) (TriagedFinding, error) {
@@ -183,24 +177,23 @@ func ClassifyReportFindings(report *Report) ReportTriage {
 	}
 
 	suppressedCodes := make(map[FindingCode]bool)
-	suppressedTitles := make(map[findingTitle]bool)
 	triage := ReportTriage{}
 
 	for i := range report.Findings {
-		classified := classifyFinding(report.Findings[i], suppressedCodes, suppressedTitles)
+		classified := classifyFinding(report.Findings[i], suppressedCodes)
 		if classified.Disposition() == TriageDispositionSuppressed {
 			triage.suppressedFindings = append(triage.suppressedFindings, classified)
-			rememberSuppressedFinding(classified.Finding(), suppressedCodes, suppressedTitles)
+			rememberSuppressedFinding(classified.Finding(), suppressedCodes)
 			continue
 		}
 		triage.confirmedFindings = append(triage.confirmedFindings, classified.Finding())
 	}
 
 	for i := range report.Correlated {
-		classified := classifyFinding(report.Correlated[i], suppressedCodes, suppressedTitles)
+		classified := classifyFinding(report.Correlated[i], suppressedCodes)
 		if classified.Disposition() == TriageDispositionSuppressed {
 			triage.suppressedCorrelated = append(triage.suppressedCorrelated, classified)
-			rememberSuppressedFinding(classified.Finding(), suppressedCodes, suppressedTitles)
+			rememberSuppressedFinding(classified.Finding(), suppressedCodes)
 			continue
 		}
 		triage.confirmedCorrelated = append(triage.confirmedCorrelated, classified.Finding())
@@ -248,42 +241,41 @@ func (t ReportTriage) SuppressedCompoundThreatsBySeverity(minSev Severity) []Tri
 	return filterTriagedFindingsBySeverity(t.suppressedCorrelated, minSev)
 }
 
-func classifyFinding(finding Finding, suppressedCodes map[FindingCode]bool, suppressedTitles map[findingTitle]bool) TriagedFinding {
+func classifyFinding(finding Finding, suppressedCodes map[FindingCode]bool) TriagedFinding {
 	if findingIsModuleSurface(finding) {
 		return confirmedFinding(finding, TriageRuleR1, "module findings are supply-chain findings")
 	}
-	if finding.CodeOrDefault() == codeNetworkReverseShell {
+	if finding.Code == codeNetworkReverseShell {
 		return confirmedFinding(finding, TriageRuleR2, "reverse-shell patterns are always reported")
 	}
-	if finding.CodeOrDefault() == codeScriptRemoteExecution {
+	if finding.Code == codeScriptRemoteExecution {
 		return confirmedFinding(finding, TriageRuleR3, "download-and-execute patterns are always reported")
 	}
-	if finding.CodeOrDefault() == codeLockfileContentHashMismatch {
+	if finding.Code == codeLockfileContentHashMismatch {
 		return confirmedFinding(finding, TriageRuleR4, "content-hash mismatches are tamper indicators")
 	}
-	if finding.CodeOrDefault() == codeSymlinkEscapesRoot {
+	if finding.Code == codeSymlinkEscapesRoot {
 		return confirmedFinding(finding, TriageRuleR5, "symlink escapes cross the module boundary")
 	}
 
 	if findingIsRootInvowkfile(finding) {
-		if finding.CodeOrDefault() == codeEnvInheritDefaultAll || finding.Title == "Command uses default env inheritance (all host variables)" {
+		if finding.Code == codeEnvInheritDefaultAll {
 			return suppressedFinding(finding, TriageRuleR7, "root invowkfiles are user-controlled and default env inheritance is expected")
 		}
-		if finding.CodeOrDefault() == codeEnvSensitiveVar || finding.Title == "Script accesses sensitive environment variable" {
+		if finding.Code == codeEnvSensitiveVar {
 			return suppressedFinding(finding, TriageRuleR8, "root invowkfiles may intentionally forward credentials")
 		}
-		if finding.CodeOrDefault() == codeNetworkDNSExfiltration || finding.Title == "Possible DNS exfiltration pattern" {
+		if finding.Code == codeNetworkDNSExfiltration {
 			return suppressedFinding(finding, TriageRuleR9, "root invowkfile container commands may legitimately use DNS")
 		}
-		if compoundConstituentsSuppressed(finding, suppressedCodes, suppressedTitles) {
-			switch {
-			case finding.CodeOrDefault() == codeCorrelatorCredentialExfiltration || finding.Title == "Potential credential exfiltration":
+		if compoundConstituentsSuppressed(finding, suppressedCodes) {
+			if finding.Code == codeCorrelatorCredentialExfiltration {
 				return suppressedFinding(finding, TriageRuleR10, "credential-exfiltration compound contains only suppressed constituents")
-			case finding.CodeOrDefault() == codeCorrelatorHighPlusOther || finding.Title == "High-severity finding combined with other issues":
-				return suppressedFinding(finding, TriageRuleR11, "generic escalation contains only suppressed constituents")
-			default:
-				return suppressedFinding(finding, TriageRuleR6, "compound finding contains only suppressed constituents")
 			}
+			if finding.Code == codeCorrelatorHighPlusOther {
+				return suppressedFinding(finding, TriageRuleR11, "generic escalation contains only suppressed constituents")
+			}
+			return suppressedFinding(finding, TriageRuleR6, "compound finding contains only suppressed constituents")
 		}
 	}
 
@@ -323,32 +315,21 @@ func findingIsRootInvowkfile(finding Finding) bool {
 	return finding.SurfaceKind == "" || finding.SurfaceKind == SurfaceKindRootInvowkfile
 }
 
-func compoundConstituentsSuppressed(finding Finding, suppressedCodes map[FindingCode]bool, suppressedTitles map[findingTitle]bool) bool {
-	if len(finding.EscalatedFromCodes) > 0 {
-		for _, code := range finding.EscalatedFromCodes {
-			if !suppressedCodes[code] {
-				return false
-			}
-		}
-		return true
-	}
-	if len(finding.EscalatedFrom) == 0 {
+func compoundConstituentsSuppressed(finding Finding, suppressedCodes map[FindingCode]bool) bool {
+	if len(finding.EscalatedFromCodes) == 0 {
 		return false
 	}
-	for _, title := range finding.EscalatedFrom {
-		key := findingTitle(title) //goplint:ignore -- correlator titles are produced by trusted checker output.
-		if !suppressedTitles[key] {
+	for _, code := range finding.EscalatedFromCodes {
+		if code == "" || !suppressedCodes[code] {
 			return false
 		}
 	}
 	return true
 }
 
-func rememberSuppressedFinding(finding Finding, suppressedCodes map[FindingCode]bool, suppressedTitles map[findingTitle]bool) {
-	suppressedCodes[finding.CodeOrDefault()] = true
-	if finding.Title != "" {
-		key := findingTitle(finding.Title) //goplint:ignore -- finding titles are produced by trusted checker output.
-		suppressedTitles[key] = true
+func rememberSuppressedFinding(finding Finding, suppressedCodes map[FindingCode]bool) {
+	if finding.Code != "" {
+		suppressedCodes[finding.Code] = true
 	}
 }
 

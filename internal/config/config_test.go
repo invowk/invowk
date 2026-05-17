@@ -232,6 +232,14 @@ func TestConfigDirWithOverride(t *testing.T) {
 		}
 	})
 
+	t.Run("invalid explicit path rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := configDirWithOverride("   ")
+		if !errors.Is(err, types.ErrInvalidFilesystemPath) {
+			t.Fatalf("configDirWithOverride() error = %v, want %v", err, types.ErrInvalidFilesystemPath)
+		}
+	})
+
 	t.Run("empty falls through to ConfigDir", func(t *testing.T) {
 		t.Parallel()
 		dir, err := configDirWithOverride("")
@@ -260,6 +268,14 @@ func TestCommandsDirWithOverride(t *testing.T) {
 		}
 		if dir != want {
 			t.Errorf("commandsDirWithOverride() = %q, want %q", dir, want)
+		}
+	})
+
+	t.Run("invalid explicit path rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := commandsDirWithOverride("   ")
+		if !errors.Is(err, types.ErrInvalidFilesystemPath) {
+			t.Fatalf("commandsDirWithOverride() error = %v, want %v", err, types.ErrInvalidFilesystemPath)
 		}
 	})
 
@@ -541,6 +557,42 @@ func TestCreateDefaultConfig(t *testing.T) {
 	err = CreateDefaultConfig(types.FilesystemPath(configDir))
 	if err != nil {
 		t.Fatalf("CreateDefaultConfig() returned error on second call: %v", err)
+	}
+}
+
+func TestConfigOperationsRejectInvalidOverride(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "ensure config dir",
+			call: func() error { return EnsureConfigDir("   ") },
+		},
+		{
+			name: "ensure commands dir",
+			call: func() error { return EnsureCommandsDir("   ") },
+		},
+		{
+			name: "create default config",
+			call: func() error { return CreateDefaultConfig("   ") },
+		},
+		{
+			name: "save",
+			call: func() error { return Save(DefaultConfig(), "   ") },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := tt.call()
+			if !errors.Is(err, types.ErrInvalidFilesystemPath) {
+				t.Fatalf("%s error = %v, want %v", tt.name, err, types.ErrInvalidFilesystemPath)
+			}
+		})
 	}
 }
 

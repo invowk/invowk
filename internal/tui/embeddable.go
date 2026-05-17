@@ -4,13 +4,12 @@ package tui
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/invowk/invowk/internal/tui/component"
 	"github.com/invowk/invowk/pkg/types"
 
 	tea "charm.land/bubbletea/v2"
@@ -34,25 +33,25 @@ const (
 	modalOverheadHeight = modalBorderHeight + modalPaddingHeight // 4
 
 	// ComponentTypeInput represents the text input component.
-	ComponentTypeInput ComponentType = "input"
+	ComponentTypeInput ComponentType = component.TypeInput
 	// ComponentTypeConfirm represents the yes/no confirmation component.
-	ComponentTypeConfirm ComponentType = "confirm"
+	ComponentTypeConfirm ComponentType = component.TypeConfirm
 	// ComponentTypeChoose represents the single/multi-select component.
-	ComponentTypeChoose ComponentType = "choose"
+	ComponentTypeChoose ComponentType = component.TypeChoose
 	// ComponentTypeFilter represents the filterable list component.
-	ComponentTypeFilter ComponentType = "filter"
+	ComponentTypeFilter ComponentType = component.TypeFilter
 	// ComponentTypeFile represents the file picker component.
-	ComponentTypeFile ComponentType = "file"
+	ComponentTypeFile ComponentType = component.TypeFile
 	// ComponentTypeWrite represents the styled text output component.
-	ComponentTypeWrite ComponentType = "write"
+	ComponentTypeWrite ComponentType = component.TypeWrite
 	// ComponentTypeTextArea represents the multi-line text input component.
-	ComponentTypeTextArea ComponentType = "textarea"
+	ComponentTypeTextArea ComponentType = component.TypeTextArea
 	// ComponentTypeSpin represents the spinner/loading component.
-	ComponentTypeSpin ComponentType = "spin"
+	ComponentTypeSpin ComponentType = component.TypeSpin
 	// ComponentTypePager represents the scrollable text viewer component.
-	ComponentTypePager ComponentType = "pager"
+	ComponentTypePager ComponentType = component.TypePager
 	// ComponentTypeTable represents the table selection component.
-	ComponentTypeTable ComponentType = "table"
+	ComponentTypeTable ComponentType = component.TypeTable
 )
 
 // Modal ANSI variables: modal overlays render on a styled background, but child
@@ -72,7 +71,7 @@ var (
 	ansiResetWithBg = ansiReset + modalBgANSI
 
 	// ErrInvalidComponentType is returned when a ComponentType value is not one of the defined types.
-	ErrInvalidComponentType = errors.New("invalid component type")
+	ErrInvalidComponentType = component.ErrInvalidType
 )
 
 type (
@@ -130,13 +129,11 @@ type (
 	SpinResult struct{}
 
 	// ComponentType represents the type of TUI component.
-	ComponentType string
+	ComponentType = component.Type
 
 	// InvalidComponentTypeError is returned when a ComponentType value is not recognized.
 	// It wraps ErrInvalidComponentType for errors.Is() compatibility.
-	InvalidComponentTypeError struct {
-		Value ComponentType
-	}
+	InvalidComponentTypeError = component.InvalidTypeError
 
 	// ModalSize contains the calculated dimensions for a modal overlay.
 	ModalSize struct {
@@ -144,41 +141,6 @@ type (
 		Height TerminalDimension
 	}
 )
-
-// Error implements the error interface for InvalidComponentTypeError.
-func (e *InvalidComponentTypeError) Error() string {
-	return fmt.Sprintf("invalid component type %q (valid: input, confirm, choose, filter, file, write, textarea, spin, pager, table)", e.Value)
-}
-
-// Unwrap returns the sentinel error for errors.Is() compatibility.
-func (e *InvalidComponentTypeError) Unwrap() error {
-	return ErrInvalidComponentType
-}
-
-// String returns the string representation of the ComponentType.
-func (ct ComponentType) String() string {
-	return string(ct)
-}
-
-// Validate returns nil if the ComponentType is one of the defined component types,
-// or a validation error if it is not.
-func (ct ComponentType) Validate() error {
-	switch ct {
-	case ComponentTypeInput,
-		ComponentTypeConfirm,
-		ComponentTypeChoose,
-		ComponentTypeFilter,
-		ComponentTypeFile,
-		ComponentTypeWrite,
-		ComponentTypeTextArea,
-		ComponentTypeSpin,
-		ComponentTypePager,
-		ComponentTypeTable:
-		return nil
-	default:
-		return &InvalidComponentTypeError{Value: ct}
-	}
-}
 
 // CalculateModalSize calculates appropriate modal content dimensions based on component type
 // and available screen space. The returned dimensions are for the INNER content area,
@@ -359,20 +321,6 @@ func CreateEmbeddableComponent(componentType ComponentType, options any, width, 
 
 func componentOptions[T any](options any) (T, error) {
 	if opts, ok := options.(T); ok {
-		return opts, nil
-	}
-	if raw, ok := options.(json.RawMessage); ok {
-		var opts T
-		if err := json.Unmarshal(raw, &opts); err != nil {
-			return opts, err
-		}
-		return opts, nil
-	}
-	if raw, ok := options.([]byte); ok {
-		var opts T
-		if err := json.Unmarshal(raw, &opts); err != nil {
-			return opts, err
-		}
 		return opts, nil
 	}
 	var zero T

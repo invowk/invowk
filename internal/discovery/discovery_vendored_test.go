@@ -57,6 +57,7 @@ func declareVendoredModule(t *testing.T, parentModulePath, moduleDir, moduleID s
 		ResolvedVersion: "1.0.0",
 		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
 		Namespace:       invowkmod.ModuleNamespace(moduleID),
+		CommandSourceID: invowkmod.ModuleSourceID(moduleID),
 		ModuleID:        invowkmod.ModuleID(moduleID),
 		ContentHash:     hash,
 	}
@@ -321,6 +322,7 @@ func TestDiscoverCommandSet_UsesVendoredAliasNamespaceFromLockFile(t *testing.T)
 		GitCommit:       "0123456789abcdef0123456789abcdef01234567",
 		Alias:           "tools",
 		Namespace:       "tools",
+		CommandSourceID: "tools",
 		ModuleID:        "io.example.vendored",
 		ContentHash:     hash,
 	}
@@ -711,19 +713,16 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Build DiscoveredFiles with parsed Invowkfiles (module metadata attached).
-	// Parse the invowkfile.cue for each so CheckModuleCollisions can read module IDs.
-	dup1Inv, err := invowkfile.Parse(dup1Mod.InvowkfilePath())
+	// Build DiscoveredFiles with parsed Invowkfiles (module metadata attached)
+	// so CheckModuleCollisions can read module IDs.
+	dup1Inv, err := invowkfile.ParseLoadedModuleInvowkfile(dup1Mod)
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup1Inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(dup1Mod.Metadata)
-
-	dup2Inv, err := invowkfile.Parse(dup2Mod.InvowkfilePath())
+	dup2Inv, err := invowkfile.ParseLoadedModuleInvowkfile(dup2Mod)
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup2Inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(dup2Mod.Metadata)
 
 	files := []*DiscoveredFile{
 		{Path: dup1Mod.InvowkfilePath(), Source: SourceModule, Module: dup1Mod, Invowkfile: dup1Inv},

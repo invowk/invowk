@@ -237,7 +237,7 @@ func TestSymlinkChecker_NoSymlinks(t *testing.T) {
 func newSymlinkTestScanContext(t *testing.T, modDir string) *ScanContext {
 	t.Helper()
 
-	symlinks, scanErr := scanModuleSymlinks(types.FilesystemPath(modDir))
+	symlinks, scanErr := scanModuleSymlinks(t.Context(), types.FilesystemPath(modDir))
 	return &ScanContext{
 		modules: []*ScannedModule{{
 			Path:           types.FilesystemPath(modDir),

@@ -406,7 +406,7 @@ func TestValidateName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateName(ModuleShortName(tt.moduleName))
+			err := ValidateName(ModuleDirectoryName(tt.moduleName))
 			if tt.expectErr && err == nil {
 				t.Errorf("ValidateName(%q) expected error, got nil", tt.moduleName)
 			}

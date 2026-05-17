@@ -26,19 +26,31 @@ type (
 	// receives HostAccess so an adapter can forward concrete transport handles
 	// to runtimes without exposing those details to Service.
 	RuntimeRegistryCreator interface {
-		Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeRegistryResult
+		Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeSession
 	}
 
-	// RuntimeDependencyProbeFactory adapts one execution registry into the
-	// runtime dependency probe used by dependency validation.
-	RuntimeDependencyProbeFactory interface {
-		Create(*runtime.Registry, *runtime.ExecutionContext) deps.RuntimeDependencyProbe
+	// RuntimeSession owns runtime adapter state for one command execution.
+	RuntimeSession interface {
+		NewExecutionID() runtime.ExecutionID
+		Diagnostics() []Diagnostic
+		ContainerInitErr() error
+		DependencyProbe(*runtime.ExecutionContext) deps.RuntimeDependencyProbe
+		RuntimeForContext(*runtime.ExecutionContext) (runtime.Runtime, error)
+		Execute(*runtime.ExecutionContext) *runtime.Result
+		Close()
+	}
+
+	// RuntimeInteractiveCommand is the minimal runtime-side conversation needed
+	// by an interactive execution adapter.
+	RuntimeInteractiveCommand interface {
+		Validate(*runtime.ExecutionContext) error
+		PrepareInteractive(*runtime.ExecutionContext) (*runtime.PreparedCommand, error)
 	}
 
 	// InteractiveExecutor owns terminal UI execution for runtimes that support
 	// interactive mode.
 	InteractiveExecutor interface {
-		Execute(*runtime.ExecutionContext, invowkfile.CommandName, runtime.InteractiveRuntime) *runtime.Result
+		Execute(*runtime.ExecutionContext, invowkfile.CommandName, RuntimeInteractiveCommand) *runtime.Result
 	}
 
 	// RequestScopeFunc attaches per-request service state such as discovery
@@ -59,7 +71,9 @@ type (
 
 	missingRuntimeRegistryFactory struct{}
 
-	noopRuntimeDependencyProbeFactory struct{}
+	emptyRuntimeSession struct {
+		registry *runtime.Registry
+	}
 
 	defaultInteractiveExecutor struct{}
 )
@@ -80,20 +94,35 @@ func (noopExecutionObserver) InteractiveFallback(invowkfile.RuntimeMode) {
 	// Interactive fallback events are optional for service-only callers.
 }
 
-func (missingRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeRegistryResult {
-	return RuntimeRegistryResult{
-		Registry: runtime.NewRegistry(),
-		Cleanup: func() {
-			// Missing registry adapters have no infrastructure to clean up.
-		},
-	}
+func (missingRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeSession {
+	return &emptyRuntimeSession{registry: runtime.NewRegistry()}
 }
 
-func (noopRuntimeDependencyProbeFactory) Create(*runtime.Registry, *runtime.ExecutionContext) deps.RuntimeDependencyProbe {
+func (s *emptyRuntimeSession) NewExecutionID() runtime.ExecutionID {
+	return s.registry.NewExecutionID()
+}
+
+func (*emptyRuntimeSession) Diagnostics() []Diagnostic { return nil }
+
+func (*emptyRuntimeSession) ContainerInitErr() error { return nil }
+
+func (*emptyRuntimeSession) DependencyProbe(*runtime.ExecutionContext) deps.RuntimeDependencyProbe {
 	return nil
 }
 
-func (defaultInteractiveExecutor) Execute(execCtx *runtime.ExecutionContext, _ invowkfile.CommandName, interactiveRT runtime.InteractiveRuntime) *runtime.Result {
+func (s *emptyRuntimeSession) RuntimeForContext(execCtx *runtime.ExecutionContext) (runtime.Runtime, error) {
+	return s.registry.GetForContext(execCtx)
+}
+
+func (s *emptyRuntimeSession) Execute(execCtx *runtime.ExecutionContext) *runtime.Result {
+	return s.registry.Execute(execCtx)
+}
+
+func (*emptyRuntimeSession) Close() {
+	// Missing registry adapters have no infrastructure to clean up.
+}
+
+func (defaultInteractiveExecutor) Execute(execCtx *runtime.ExecutionContext, _ invowkfile.CommandName, interactiveRT RuntimeInteractiveCommand) *runtime.Result {
 	if err := interactiveRT.Validate(execCtx); err != nil {
 		return &runtime.Result{ExitCode: 1, Error: err}
 	}

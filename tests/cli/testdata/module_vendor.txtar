@@ -116,6 +116,8 @@ modules: {
 		resolved_version: "1.0.0"
 		git_commit:       "abc123def456789012345678901234567890abcd"
 		namespace:        "dep@1.0.0"
+		command_source_id: "dep"
+		module_id:        "dep"
 		content_hash:     "sha256:b9cd452f25142af660ad9199ef5180efc597e9a11b540eab0cc8e907844a5098"
 	}
 	"https://github.com/example/stale.invowkmod.git": {
@@ -124,6 +126,8 @@ modules: {
 		resolved_version: "1.0.0"
 		git_commit:       "def456789012345678901234567890abcdef1234"
 		namespace:        "stale@1.0.0"
+		command_source_id: "stale"
+		module_id:        "stale"
 		content_hash:     "sha256:b9cd452f25142af660ad9199ef5180efc597e9a11b540eab0cc8e907844a5098"
 	}
 }
