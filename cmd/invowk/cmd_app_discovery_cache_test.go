@@ -3,15 +3,19 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/commandadapters"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
+
+	"github.com/spf13/cobra"
 )
 
 type (
@@ -251,6 +255,41 @@ func TestAppDiscoveryService_RequestScopedConfigCache_ReusesConfigLoad(t *testin
 
 	if cfgProvider.calls != 1 {
 		t.Fatalf("config provider Load() calls = %d, want 1", cfgProvider.calls)
+	}
+}
+
+// Not parallel: os.Chdir is process-wide.
+func TestListCommands_ReusesDiscoveryConfigForUIFlags(t *testing.T) {
+	setupDiscoveryCacheTestDir(t)
+
+	cfg := config.DefaultConfig()
+	cfg.UI.Verbose = true
+	cfgProvider := &countingConfigProvider{cfg: cfg}
+	svc := commandadapters.NewDiscoveryService(cfgProvider)
+	var stdout, stderr bytes.Buffer
+	app, err := NewApp(Dependencies{
+		Config:    cfgProvider,
+		Discovery: svc,
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+
+	listCmd := &cobra.Command{Use: "cmd"}
+	listCmd.PersistentFlags().Bool("ivk-verbose", false, "")
+	listCmd.PersistentFlags().Bool("ivk-interactive", false, "")
+	listCmd.SetContext(contextWithConfigPath(t.Context(), ""))
+
+	if err := listCommands(listCmd, app, &rootFlagValues{}); err != nil {
+		t.Fatalf("listCommands() error = %v", err)
+	}
+	if cfgProvider.calls != 1 {
+		t.Fatalf("config provider Load() calls = %d, want 1", cfgProvider.calls)
+	}
+	if !strings.Contains(stdout.String(), "Discovery Sources") {
+		t.Fatalf("listCommands() did not apply verbose UI config:\n%s", stdout.String())
 	}
 }
 

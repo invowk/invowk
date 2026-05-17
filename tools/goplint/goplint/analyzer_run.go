@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"go/ast"
 	"strings"
+	"sync"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -123,7 +124,7 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 		ssaRes = buildSSAForPass(pass)
 	}
 
-	if err := runTraversal(pass, insp, rc, cfg, bl, needs, &collectors, ssaRes); err != nil {
+	if err := runTraversal(pass, insp, rc, cfg, bl, needs, &collectors, ssaRes, &state.calleeSummaryCache); err != nil {
 		return nil, err
 	}
 	if err := runPostTraversalChecks(pass, state, rc, cfg, bl, &collectors); err != nil {
@@ -373,6 +374,7 @@ func runTraversal(
 	needs runNeeds,
 	collectors *runCollectors,
 	ssaRes *ssaResult,
+	calleeSummaryCache *sync.Map,
 ) error {
 	var traverseErr error
 	nodeFilter := []ast.Node{
@@ -484,6 +486,7 @@ func runTraversal(
 					newCFGPhaseCOptions(rc),
 					rc.cfgAliasMode,
 					ssaRes,
+					calleeSummaryCache,
 				); err != nil {
 					traverseErr = err
 					return
@@ -590,6 +593,7 @@ func runPostTraversalChecks(
 			rc.cfgInconclusivePolicy,
 			rc.cfgWitnessMaxSteps,
 			newCFGPhaseCOptions(rc),
+			&state.calleeSummaryCache,
 		); err != nil {
 			return err
 		}

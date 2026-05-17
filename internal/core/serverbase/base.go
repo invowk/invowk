@@ -91,8 +91,7 @@ func (b *Base) TransitionToStarting(ctx context.Context) error {
 	// to StateRunning before the cancelled context is detected.
 	select {
 	case <-ctx.Done():
-		b.TransitionToFailed(fmt.Errorf("context cancelled before start: %w", ctx.Err()))
-		return b.lastErr
+		return b.TransitionToFailed(fmt.Errorf("context cancelled before start: %w", ctx.Err()))
 	default:
 	}
 
@@ -124,7 +123,9 @@ func (b *Base) TransitionToRunning() {
 
 // TransitionToFailed marks the server as failed with the given error.
 // Can be called from Starting state on initialization failure.
-func (b *Base) TransitionToFailed(err error) {
+// Returns the recorded failure error so adapters can return the canonical
+// lifecycle error without reaching back into LastError().
+func (b *Base) TransitionToFailed(err error) error {
 	b.stateMu.Lock()
 	b.lastErr = err
 	cancel := b.cancel
@@ -135,6 +136,7 @@ func (b *Base) TransitionToFailed(err error) {
 	if cancel != nil {
 		cancel()
 	}
+	return err
 }
 
 // TransitionToStopping attempts to transition to Stopping state.

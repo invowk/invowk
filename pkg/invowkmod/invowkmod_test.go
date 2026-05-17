@@ -409,6 +409,45 @@ func TestCommandScope_CanCall(t *testing.T) {
 	}
 }
 
+func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
+	t.Parallel()
+
+	scope := NewCommandScope("io.example.caller", nil, nil)
+	scope.AddDirectDependency("io.example.tools", "allowed-tools")
+
+	t.Run("allows resolved direct dependency source pair", func(t *testing.T) {
+		t.Parallel()
+
+		decision := scope.CanCallTarget(CommandTarget{
+			Reference: "allowed-tools test",
+			SourceID:  "allowed-tools",
+			ModuleID:  "io.example.tools",
+		})
+		if !decision.Allowed {
+			t.Fatalf("CanCallTarget() denied resolved source pair: %+v", decision)
+		}
+	})
+
+	t.Run("denies presentation alias with unrelated discovery source", func(t *testing.T) {
+		t.Parallel()
+
+		decision := scope.CanCallTarget(CommandTarget{
+			Reference: "allowed-tools test",
+			SourceID:  "other-tools",
+			ModuleID:  "io.example.tools",
+		})
+		if decision.Allowed {
+			t.Fatalf("CanCallTarget() allowed mismatched source pair: %+v", decision)
+		}
+		if decision.TargetSource != "other-tools" {
+			t.Fatalf("TargetSource = %q, want discovery source", decision.TargetSource)
+		}
+		if decision.Reason != CommandScopeDenyInaccessible {
+			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+		}
+	})
+}
+
 func TestExtractModuleFromCommand(t *testing.T) {
 	t.Parallel()
 

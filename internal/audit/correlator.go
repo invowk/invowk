@@ -262,7 +262,7 @@ func (c *Correlator) applyEscalation(surfaceID scanSurfaceID, surfaceKey ScanSur
 
 	// Rule: 3+ distinct categories → Critical.
 	if len(categories) >= 3 {
-		result = append(result, Finding{
+		finding := Finding{
 			Code:           codeCorrelatorMultipleCategories,
 			Severity:       SeverityCritical,
 			Category:       CategoryTrust,
@@ -272,13 +272,15 @@ func (c *Correlator) applyEscalation(surfaceID scanSurfaceID, surfaceKey ScanSur
 			Title:          "Multiple security concern categories detected",
 			Description:    fmt.Sprintf("%d distinct categories of security findings in the same surface suggest a coordinated threat or severely compromised module", len(categories)),
 			Recommendation: "Review this module thoroughly before use; consider isolating it via the container runtime",
-		})
+		}
+		attachEscalationInputs(&finding, findings)
+		result = append(result, finding)
 		return result
 	}
 
 	// Rule: High + any → Critical.
 	if highCount > 0 && len(findings) > 1 {
-		result = append(result, Finding{
+		finding := Finding{
 			Code:           codeCorrelatorHighPlusOther,
 			Severity:       SeverityCritical,
 			Category:       CategoryTrust,
@@ -288,13 +290,15 @@ func (c *Correlator) applyEscalation(surfaceID scanSurfaceID, surfaceKey ScanSur
 			Title:          "High-severity finding combined with other issues",
 			Description:    fmt.Sprintf("A high-severity finding plus %d other finding(s) in the same surface elevates the overall risk", len(findings)-1),
 			Recommendation: "Investigate each finding individually; the combination may indicate an active threat",
-		})
+		}
+		attachEscalationInputs(&finding, findings)
+		result = append(result, finding)
 		return result
 	}
 
 	// Rule: Medium + Medium → High.
 	if mediumCount >= 2 {
-		result = append(result, Finding{
+		finding := Finding{
 			Code:           codeCorrelatorMediumPlusMedium,
 			Severity:       SeverityHigh,
 			Category:       CategoryTrust,
@@ -304,11 +308,29 @@ func (c *Correlator) applyEscalation(surfaceID scanSurfaceID, surfaceKey ScanSur
 			Title:          "Multiple medium-severity findings compound risk",
 			Description:    fmt.Sprintf("%d medium-severity findings in the same surface compound the overall risk", mediumCount),
 			Recommendation: "Address each finding individually to reduce the compound risk",
-		})
+		}
+		attachEscalationInputs(&finding, findings)
+		result = append(result, finding)
 		return result
 	}
 
 	return result
+}
+
+func attachEscalationInputs(target *Finding, findings []Finding) {
+	if target == nil {
+		return
+	}
+	target.EscalatedFrom = make([]string, 0, len(findings))
+	target.EscalatedFromCodes = make([]FindingCode, 0, len(findings))
+	for i := range findings {
+		if findings[i].Title != "" {
+			target.EscalatedFrom = append(target.EscalatedFrom, findings[i].Title)
+		}
+		if code := findings[i].CodeOrDefault(); code != "" {
+			target.EscalatedFromCodes = append(target.EscalatedFromCodes, code)
+		}
+	}
 }
 
 // DefaultRules returns the 5 named correlation rules from the threat model.

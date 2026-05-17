@@ -69,7 +69,9 @@ func TestStateTransitions(t *testing.T) {
 
 		// Transition to Failed
 		testErr := context.DeadlineExceeded
-		b.TransitionToFailed(testErr)
+		if err := b.TransitionToFailed(testErr); !errors.Is(err, testErr) {
+			t.Fatalf("TransitionToFailed() = %v, want %v", err, testErr)
+		}
 
 		if b.State() != StateFailed {
 			t.Errorf("expected StateFailed, got %s", b.State())
@@ -351,6 +353,12 @@ func TestCancelledContext(t *testing.T) {
 		err := b.TransitionToStarting(ctx)
 		if err == nil {
 			t.Error("expected error with cancelled context")
+		}
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("TransitionToStarting() error = %v, want context.Canceled", err)
+		}
+		if !errors.Is(b.LastError(), context.Canceled) {
+			t.Errorf("LastError() = %v, want context.Canceled", b.LastError())
 		}
 
 		if b.State() != StateFailed {

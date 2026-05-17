@@ -209,13 +209,14 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 	}
 
 	pathByVendoredID := vendoredPathByModuleID(mod.VendoredModules)
-	for _, evaluation := range mod.VendoredHashes {
+	for _, vendored := range mod.VendoredModules {
 		select {
 		case <-ctx.Done():
 			return findings
 		default:
 		}
 
+		evaluation := invowkmod.EvaluateVendoredModuleHash(mod.LockFile, vendored)
 		vendoredID := evaluation.ModuleID
 		vendoredPath := pathByVendoredID[vendoredID]
 		if vendoredPath == "" {

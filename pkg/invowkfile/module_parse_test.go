@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 func TestParseModuleUsesInvowkmodLoadValidation(t *testing.T) {
@@ -66,6 +68,46 @@ version: "1.0.0"
 	}
 	if got, want := mod.Commands.GetModule(), "io.example.demo"; string(got) != want {
 		t.Fatalf("Commands.GetModule() = %q, want %q", got, want)
+	}
+}
+
+func TestParseLoadedModuleInvowkfileAttachesModuleIdentity(t *testing.T) {
+	t.Parallel()
+
+	moduleDir := filepath.Join(t.TempDir(), "io.example.helper.invowkmod")
+	if err := os.Mkdir(moduleDir, 0o755); err != nil {
+		t.Fatalf("failed to create module dir: %v", err)
+	}
+	writeParseModuleFile(t, filepath.Join(moduleDir, "invowkmod.cue"), `module: "io.example.helper"
+version: "1.0.0"
+`)
+	writeParseModuleFile(t, filepath.Join(moduleDir, "invowkfile.cue"), GenerateCUE(&Invowkfile{
+		Commands: []Command{{
+			Name: "build",
+			Implementations: []Implementation{{
+				Script:    "echo build",
+				Runtimes:  []RuntimeConfig{{Name: RuntimeVirtual}},
+				Platforms: AllPlatformConfigs(),
+			}},
+		}},
+	}))
+
+	loaded, err := invowkmod.Load(FilesystemPath(moduleDir))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	inv, err := ParseLoadedModuleInvowkfile(loaded)
+	if err != nil {
+		t.Fatalf("ParseLoadedModuleInvowkfile() error = %v", err)
+	}
+	if inv == nil {
+		t.Fatal("ParseLoadedModuleInvowkfile() = nil, want invowkfile")
+	}
+	if got, want := inv.GetModule(), invowkmod.ModuleID("io.example.helper"); got != want {
+		t.Fatalf("Invowkfile.GetModule() = %q, want %q", got, want)
+	}
+	if inv.ModulePath != FilesystemPath(moduleDir) {
+		t.Fatalf("Invowkfile.ModulePath = %q, want %q", inv.ModulePath, moduleDir)
 	}
 }
 

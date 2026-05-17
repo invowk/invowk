@@ -193,6 +193,13 @@ type (
 		PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error)
 	}
 
+	// LifecycleCoordinator serializes engine lifecycle operations when the
+	// adapter knows they share the same engine-level constraints as run.
+	LifecycleCoordinator interface {
+		// CoordinateLifecycle runs fn under the engine adapter's lifecycle coordination policy.
+		CoordinateLifecycle(fn func() error) error
+	}
+
 	//goplint:validate-all
 	//
 	// BuildOptions contains options for building an image

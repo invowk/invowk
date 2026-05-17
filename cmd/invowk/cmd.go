@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -352,7 +353,7 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	verbose = rootFlags.verbose
 	interactive = rootFlags.interactive
 
-	cfg, err := app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)}) //goplint:ignore -- CLI flag value, may be empty
+	cfg, err := loadUIConfig(ctx, app, rootFlags)
 	if err != nil {
 		fmt.Fprintln(app.stderr, WarningStyle.Render("Warning: ")+formatErrorForDisplay(err, rootFlags.verbose))
 		return verbose, interactive
@@ -368,6 +369,14 @@ func resolveUIFlags(ctx context.Context, app *App, cmd *cobra.Command, rootFlags
 	}
 
 	return verbose, interactive
+}
+
+func loadUIConfig(ctx context.Context, app *App, rootFlags *rootFlagValues) (*config.Config, error) {
+	if discoveryConfig, ok := app.Discovery.(commandsvc.ConfigAwareCommandDiscovery); ok {
+		cfg, _ := discoveryConfig.LoadConfigForCommand(ctx)
+		return cfg, nil
+	}
+	return app.Config.Load(ctx, config.LoadOptions{ConfigFilePath: types.FilesystemPath(rootFlags.configPath)}) //goplint:ignore -- CLI flag value, may be empty
 }
 
 func explicitUIFlags(cmd *cobra.Command, rootFlags *rootFlagValues) (verbose, interactive, verboseSet, interactiveSet bool) {

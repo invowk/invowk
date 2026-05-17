@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	_ "embed" // required for go:embed invowkfile_schema.cue
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,10 @@ var (
 	invowkfileSchema string
 	// Cache schema bytes once to avoid per-parse string conversion allocations.
 	invowkfileSchemaBytes = []byte(invowkfileSchema)
+
+	// ErrModuleInvowkfileUnavailable is returned when a loaded module has no
+	// command-bearing invowkfile.cue to parse.
+	ErrModuleInvowkfileUnavailable = errors.New("module invowkfile unavailable")
 
 	// Ensure Invowkfile satisfies the typed module command contract.
 	_ invowkmod.ModuleCommands = (*Invowkfile)(nil)
@@ -101,31 +106,40 @@ func ParseModule(modulePath FilesystemPath) (*Module, error) {
 	// Parse invowkfile.cue (optional - may be a library-only module)
 	invowkfilePath := filepath.Join(string(result.Path), "invowkfile.cue")
 	if _, statErr := os.Stat(invowkfilePath); statErr == nil {
-		data, readErr := os.ReadFile(invowkfilePath)
-		if readErr != nil {
-			return nil, fmt.Errorf("failed to read invowkfile at %s: %w", invowkfilePath, readErr)
-		}
-
-		inv, parseErr := ParseBytes(data, invowkfilePath)
+		inv, parseErr := ParseLoadedModuleInvowkfile(result)
 		if parseErr != nil {
 			return nil, parseErr
 		}
-
-		metadata, metadataErr := NewModuleMetadataFromInvowkmod(result.Metadata)
-		if metadataErr != nil {
-			return nil, fmt.Errorf("module metadata at %s: %w", modulePath, metadataErr)
-		}
-
-		// Attach local metadata snapshot and module path.
-		inv.Metadata = metadata
-		inv.ModulePath = result.Path
-
 		result.Commands = inv
 	} else {
 		result.IsLibraryOnly = true
 	}
 
 	return result, nil
+}
+
+// ParseLoadedModuleInvowkfile parses a command-bearing invowkfile.cue for an
+// already loaded module and attaches the module's validated metadata and path.
+func ParseLoadedModuleInvowkfile(module *Module) (*Invowkfile, error) {
+	if module == nil {
+		return nil, errors.New("module is nil")
+	}
+	if module.IsLibraryOnly || module.InvowkfilePath() == "" {
+		return nil, ErrModuleInvowkfileUnavailable
+	}
+
+	inv, err := Parse(module.InvowkfilePath())
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := NewModuleMetadataFromInvowkmod(module.Metadata)
+	if err != nil {
+		return nil, fmt.Errorf("module metadata at %s: %w", module.Path, err)
+	}
+
+	inv.Metadata = metadata
+	inv.ModulePath = module.Path
+	return inv, nil
 }
 
 // ParseEnvInheritMode parses a string into an EnvInheritMode.

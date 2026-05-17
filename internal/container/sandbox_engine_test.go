@@ -211,6 +211,65 @@ func TestSandboxAwareEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *t
 	}
 }
 
+func TestSandboxAwareEngine_CoordinateLifecycleSerializationDecision(t *testing.T) {
+	originalAcquire := acquireContainerLock
+	var lockAttempts atomic.Int32
+	acquireContainerLock = func() (*runLock, error) {
+		lockAttempts.Add(1)
+		return nil, errFlockUnavailable
+	}
+	t.Cleanup(func() {
+		acquireContainerLock = originalAcquire
+	})
+
+	tests := []struct {
+		name             string
+		wrapped          Engine
+		wantLockAttempts int32
+	}{
+		{
+			name:             "podman serializes",
+			wrapped:          &mockEngine{name: string(EngineTypePodman), binaryPath: "/usr/bin/podman"},
+			wantLockAttempts: 1,
+		},
+		{
+			name:             "docker skips serialization",
+			wrapped:          &mockEngine{name: string(EngineTypeDocker), binaryPath: "/usr/bin/docker"},
+			wantLockAttempts: 0,
+		},
+		{
+			name: "podman with override active skips serialization",
+			wrapped: &PodmanEngine{BaseCLIEngine: NewBaseCLIEngine(
+				"/usr/bin/podman",
+				WithName(string(EngineTypePodman)),
+				WithSysctlOverrideActive(true),
+			)},
+			wantLockAttempts: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lockAttempts.Store(0)
+			engine := newSandboxAwareEngineForTesting(tt.wrapped, platform.SandboxFlatpak)
+
+			var called atomic.Bool
+			if err := engine.CoordinateLifecycle(func() error {
+				called.Store(true)
+				return nil
+			}); err != nil {
+				t.Fatalf("CoordinateLifecycle() error = %v", err)
+			}
+			if !called.Load() {
+				t.Fatal("CoordinateLifecycle() did not call callback")
+			}
+			if got := lockAttempts.Load(); got != tt.wantLockAttempts {
+				t.Fatalf("lock attempts = %d, want %d", got, tt.wantLockAttempts)
+			}
+		})
+	}
+}
+
 func TestSandboxAwareEngine_AvailableUsesHostSpawn(t *testing.T) {
 	mock := &mockEngine{
 		name:       "podman",

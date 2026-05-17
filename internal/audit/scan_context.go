@@ -70,7 +70,6 @@ type (
 		LockFileSize    int64 //goplint:ignore -- immutable filesystem stat captured for checkers.
 		LockFileStatErr error
 		VendoredModules []*invowkmod.Module
-		VendoredHashes  []invowkmod.VendoredHashEvaluation
 		Symlinks        []SymlinkRef
 		SymlinkScanErr  error
 		SurfaceID       string
@@ -398,7 +397,6 @@ func (sc *ScanContext) loadScannedModule(
 
 	vendored, vendorDiags := loadVendoredModules(absPath)
 	sm.VendoredModules = vendored.moduleList()
-	sm.VendoredHashes = buildVendoredHashEvaluations(sm.LockFile, sm.VendoredModules)
 	sm.Symlinks, sm.SymlinkScanErr = scanModuleSymlinks(absPath)
 	sc.diagnostics = append(sc.diagnostics, vendorDiags...)
 
@@ -758,17 +756,6 @@ func newScanSurfaceKey(raw string) ScanSurfaceKey {
 		return ""
 	}
 	return key
-}
-
-func buildVendoredHashEvaluations(lock *invowkmod.LockFile, modules []*invowkmod.Module) []invowkmod.VendoredHashEvaluation {
-	if lock == nil || len(modules) == 0 {
-		return nil
-	}
-	evaluations := make([]invowkmod.VendoredHashEvaluation, 0, len(modules))
-	for _, module := range modules {
-		evaluations = append(evaluations, invowkmod.EvaluateVendoredModuleHash(lock, module))
-	}
-	return evaluations
 }
 
 func scanModuleSymlinks(modulePath types.FilesystemPath) ([]SymlinkRef, error) {

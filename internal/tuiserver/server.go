@@ -108,8 +108,7 @@ func (s *Server) Start(ctx context.Context) error {
 	listener, err := lc.Listen(ctx, "tcp", "0.0.0.0:0")
 	if err != nil {
 		startErr := fmt.Errorf("failed to create listener: %w", err)
-		s.base.TransitionToFailed(startErr)
-		return startErr
+		return s.base.TransitionToFailed(startErr)
 	}
 	s.listener = listener
 	tcpAddr := listener.Addr().(*net.TCPAddr)
@@ -124,16 +123,18 @@ func (s *Server) Start(ctx context.Context) error {
 		if err := s.httpServer.Serve(s.listener); !errors.Is(err, http.ErrServerClosed) {
 			s.shutdownOnce.Do(func() { close(s.shutdownCh) })
 			s.closeRequestChannel()
-			s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err))
+			if failedErr := s.base.TransitionToFailed(fmt.Errorf("serve error: %w", err)); failedErr != nil {
+				return
+			}
 		}
 	}()
 
 	// Wait for ready signal or context cancellation
 	if err := s.base.WaitForReady(ctx); err != nil {
-		s.base.TransitionToFailed(err)
+		failedErr := s.base.TransitionToFailed(err)
 		_ = s.httpServer.Close() // Best-effort cleanup on error
 		_ = s.listener.Close()   // Best-effort cleanup on error
-		return err
+		return failedErr
 	}
 
 	return nil

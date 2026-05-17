@@ -711,22 +711,13 @@ func TestCheckModuleCollisions_AnnotatesVendored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Build DiscoveredFiles with parsed Invowkfiles (module metadata attached).
-	// Parse the invowkfile.cue for each so CheckModuleCollisions can read module IDs.
-	dup1Inv, err := invowkfile.Parse(dup1Mod.InvowkfilePath())
+	// Build DiscoveredFiles with parsed Invowkfiles (module metadata attached)
+	// so CheckModuleCollisions can read module IDs.
+	dup1Inv, err := invowkfile.ParseLoadedModuleInvowkfile(dup1Mod)
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup1Inv.Metadata, err = invowkfile.NewModuleMetadataFromInvowkmod(dup1Mod.Metadata)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	dup2Inv, err := invowkfile.Parse(dup2Mod.InvowkfilePath())
-	if err != nil {
-		t.Fatal(err)
-	}
-	dup2Inv.Metadata, err = invowkfile.NewModuleMetadataFromInvowkmod(dup2Mod.Metadata)
+	dup2Inv, err := invowkfile.ParseLoadedModuleInvowkfile(dup2Mod)
 	if err != nil {
 		t.Fatal(err)
 	}

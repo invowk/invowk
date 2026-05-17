@@ -323,11 +323,16 @@ func ensureManagedPersistentSpecMatches(info *container.ContainerInfo, createOpt
 }
 
 func (r *ContainerRuntime) withPersistentContainerLock(fn func() (container.ContainerID, error)) (container.ContainerID, error) {
+	coordinator, ok := r.engine.(container.LifecycleCoordinator)
+	if !ok {
+		return fn()
+	}
+
 	var containerID container.ContainerID
-	err := container.WithRunLock(func() error {
-		var lockErr error
-		containerID, lockErr = fn()
-		return lockErr
+	err := coordinator.CoordinateLifecycle(func() error {
+		var lifecycleErr error
+		containerID, lifecycleErr = fn()
+		return lifecycleErr
 	})
 	return containerID, err
 }

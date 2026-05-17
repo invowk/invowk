@@ -11,6 +11,9 @@ import (
 var (
 	runFallbackMu        sync.Mutex
 	acquireContainerLock = acquireRunLock
+
+	_ LifecycleCoordinator = (*BaseCLIEngine)(nil)
+	_ LifecycleCoordinator = (*SandboxAwareEngine)(nil)
 )
 
 // WithRunLock serializes container operations that need the shared Podman run
@@ -52,6 +55,15 @@ func (e *BaseCLIEngine) withRunSerialization(fn func() (*RunResult, error)) (*Ru
 		return runErr
 	})
 	return result, err
+}
+
+// CoordinateLifecycle runs lifecycle operations under the same adapter-owned
+// serialization policy as container run.
+func (e *BaseCLIEngine) CoordinateLifecycle(fn func() error) error {
+	if !needsPodmanRunSerialization(EngineType(e.name), e.sysctlOverrideActive) { //goplint:ignore -- BaseCLIEngine names are initialized from EngineType constants
+		return fn()
+	}
+	return WithRunLock(fn)
 }
 
 func (e *BaseCLIEngine) runSerializationCleanup() func() {

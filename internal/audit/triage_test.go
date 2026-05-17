@@ -97,6 +97,57 @@ func TestReportTriageHasConfirmedFindingsUsesConfirmedBucketsOnly(t *testing.T) 
 	}
 }
 
+func TestClassifyReportFindingsRequiresStableCodesForSuppression(t *testing.T) {
+	t.Parallel()
+
+	report := &Report{
+		Findings: []Finding{{
+			Severity:    SeverityHigh,
+			Category:    CategoryExfiltration,
+			SurfaceKind: SurfaceKindRootInvowkfile,
+			CheckerName: llmCheckerName,
+			Title:       "Script accesses sensitive environment variable",
+		}},
+		Correlated: []Finding{{
+			Severity:      SeverityCritical,
+			Category:      CategoryTrust,
+			SurfaceKind:   SurfaceKindRootInvowkfile,
+			CheckerName:   "correlator",
+			Title:         "High-severity finding combined with other issues",
+			EscalatedFrom: []string{"Script accesses sensitive environment variable"},
+		}},
+	}
+
+	triage := ClassifyReportFindings(report)
+
+	if len(triage.suppressedFindings) != 0 {
+		t.Fatalf("suppressed findings = %v, want none without stable codes", triage.suppressedFindings)
+	}
+	if len(triage.suppressedCorrelated) != 0 {
+		t.Fatalf("suppressed correlated = %v, want none without stable codes", triage.suppressedCorrelated)
+	}
+	assertConfirmedFinding(t, triage.confirmedFindings, report.Findings[0].CodeOrDefault())
+}
+
+func TestClassifyReportFindingsSuppressesExplicitlyNormalizedLegacyCodes(t *testing.T) {
+	t.Parallel()
+
+	report := &Report{
+		Findings: []Finding{{
+			Severity:    SeverityInfo,
+			Category:    CategoryExfiltration,
+			SurfaceKind: SurfaceKindRootInvowkfile,
+			CheckerName: envCheckerName,
+			Title:       "Command uses default env inheritance (all host variables)",
+		}},
+	}
+	ensureFindingCodes(report.Findings)
+
+	triage := ClassifyReportFindings(report)
+
+	assertTriageRule(t, triage.suppressedFindings, codeEnvInheritDefaultAll, TriageRuleR7)
+}
+
 func triageFinding(code FindingCode, surfaceKind SurfaceKind, title string) Finding {
 	return Finding{
 		Code:        code,

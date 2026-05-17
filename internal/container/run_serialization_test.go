@@ -211,6 +211,67 @@ func TestBaseCLIEngine_PrepareRunCommandSkipsSerializationForDocker(t *testing.T
 	}
 }
 
+func TestBaseCLIEngine_CoordinateLifecycleSerializationDecision(t *testing.T) {
+	originalAcquire := acquireContainerLock
+	var lockAttempts atomic.Int32
+	acquireContainerLock = func() (*runLock, error) {
+		lockAttempts.Add(1)
+		return nil, errFlockUnavailable
+	}
+	t.Cleanup(func() {
+		acquireContainerLock = originalAcquire
+	})
+
+	tests := []struct {
+		name                 string
+		engineName           string
+		sysctlOverrideActive bool
+		wantLockAttempts     int32
+	}{
+		{
+			name:             "docker skips serialization",
+			engineName:       string(EngineTypeDocker),
+			wantLockAttempts: 0,
+		},
+		{
+			name:                 "podman with override active skips serialization",
+			engineName:           string(EngineTypePodman),
+			sysctlOverrideActive: true,
+			wantLockAttempts:     0,
+		},
+		{
+			name:             "podman with override inactive serializes",
+			engineName:       string(EngineTypePodman),
+			wantLockAttempts: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lockAttempts.Store(0)
+			engine := NewBaseCLIEngine(
+				HostFilesystemPath("/usr/bin/"+tt.engineName),
+				WithName(tt.engineName),
+				WithSysctlOverrideActive(tt.sysctlOverrideActive),
+			)
+
+			var called atomic.Bool
+			if err := engine.CoordinateLifecycle(func() error {
+				called.Store(true)
+				return nil
+			}); err != nil {
+				t.Fatalf("CoordinateLifecycle() error = %v", err)
+			}
+			if !called.Load() {
+				t.Fatal("CoordinateLifecycle() did not call callback")
+			}
+			if got := lockAttempts.Load(); got != tt.wantLockAttempts {
+				t.Fatalf("lock attempts = %d, want %d", got, tt.wantLockAttempts)
+			}
+		})
+	}
+}
+
 func updateMaxInt32(maxCounter *atomic.Int32, candidate int32) {
 	for {
 		observed := maxCounter.Load()

@@ -367,6 +367,9 @@ func wrapIncludeCollectionError(err *InvalidIncludeCollectionError) error {
 // explicit provider options before platform defaults.
 func configDirWithOverride(configDirPath types.FilesystemPath) (types.FilesystemPath, error) {
 	if configDirPath != "" {
+		if err := configDirPath.Validate(); err != nil {
+			return "", err
+		}
 		return configDirPath, nil
 	}
 
@@ -377,6 +380,9 @@ func configDirWithOverride(configDirPath types.FilesystemPath) (types.Filesystem
 // explicit provider options before platform defaults.
 func commandsDirWithOverride(commandsDirPath types.FilesystemPath) (types.FilesystemPath, error) {
 	if commandsDirPath != "" {
+		if err := commandsDirPath.Validate(); err != nil {
+			return "", err
+		}
 		return commandsDirPath, nil
 	}
 
@@ -744,6 +750,9 @@ func GenerateCUE(cfg *Config) string {
 	sb.WriteString("\ncontainer: {\n")
 	sb.WriteString("\tauto_provision: {\n")
 	fmt.Fprintf(&sb, "\t\tenabled: %v\n", cfg.Container.AutoProvision.Enabled)
+	if cfg.Container.AutoProvision.Strict {
+		sb.WriteString("\t\tstrict: true\n")
+	}
 	if cfg.Container.AutoProvision.BinaryPath != "" {
 		fmt.Fprintf(&sb, "\t\tbinary_path: %q\n", cfg.Container.AutoProvision.BinaryPath)
 	}

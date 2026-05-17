@@ -301,8 +301,7 @@ func buildCommandScope(cmdInfo *discovery.CommandInfo, available map[invowkfile.
 			continue
 		}
 		if commandMatchesDirectRequirement(requirements, lock, cmd) {
-			scope.AddDirectDep(*cmd.ModuleID)
-			scope.AddDirectSource(invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
+			scope.AddDirectDependency(*cmd.ModuleID, invowkmod.ModuleSourceID(cmd.SourceID)) //goplint:ignore -- SourceID validated by discovery
 		}
 	}
 
@@ -363,7 +362,11 @@ func commandScopeDecision(scope *invowkmod.CommandScope, cmd *discovery.CommandI
 	if scope == nil || cmd.ModuleID == nil {
 		return invowkmod.CommandScopeDecision{Allowed: true, TargetCommand: invowkmod.CommandReference(cmd.Name)}
 	}
-	return scope.CanCall(invowkmod.CommandReference(cmd.Name))
+	return scope.CanCallTarget(invowkmod.CommandTarget{
+		Reference: invowkmod.CommandReference(cmd.Name),
+		SourceID:  invowkmod.ModuleSourceID(cmd.SourceID), //goplint:ignore -- SourceID validated by discovery
+		ModuleID:  *cmd.ModuleID,
+	})
 }
 
 func discoverAvailableCommands(disc CommandSetProvider, ctx ExecutionContext) (map[invowkfile.CommandName]*discovery.CommandInfo, error) {

@@ -408,6 +408,19 @@ func (e *SandboxAwareEngine) SysctlOverrideActive() bool {
 	return false
 }
 
+// CoordinateLifecycle runs lifecycle operations under the same adapter-owned
+// serialization policy as container run.
+func (e *SandboxAwareEngine) CoordinateLifecycle(fn func() error) error {
+	overrideActive := false
+	if checker, ok := e.wrapped.(SysctlOverrideChecker); ok {
+		overrideActive = checker.SysctlOverrideActive()
+	}
+	if !needsPodmanRunSerialization(EngineType(e.wrapped.Name()), overrideActive) { //goplint:ignore -- Engine.Name() is the container engine adapter boundary
+		return fn()
+	}
+	return WithRunLock(fn)
+}
+
 //goplint:ignore -- host-spawn adapter uses os/exec primitive argv and output bytes.
 func defaultSandboxHostRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
