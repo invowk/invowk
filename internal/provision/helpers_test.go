@@ -4,6 +4,7 @@ package provision
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -39,6 +40,20 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.ModulesMountPath != "/invowk/modules" {
 		t.Errorf("Expected ModulesMountPath to be /invowk/modules, got %s", cfg.ModulesMountPath)
 	}
+}
+
+func createProvisioningModule(t *testing.T, parentDir, folderName, moduleID string) string {
+	t.Helper()
+
+	modulePath := filepath.Join(parentDir, folderName)
+	if err := os.MkdirAll(modulePath, 0o755); err != nil {
+		t.Fatalf("failed to create module dir %s: %v", modulePath, err)
+	}
+	metadata := fmt.Sprintf("module: %q\nversion: \"1.0.0\"\n", moduleID)
+	if err := os.WriteFile(filepath.Join(modulePath, "invowkmod.cue"), []byte(metadata), 0o644); err != nil {
+		t.Fatalf("failed to write module metadata: %v", err)
+	}
+	return modulePath
 }
 
 func TestConfigOptions(t *testing.T) {
@@ -182,15 +197,9 @@ func TestDiscoverModules(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create some module directories
-	module1 := filepath.Join(tmpDir, "mymodule.invowkmod")
-	if err := os.MkdirAll(module1, 0o755); err != nil {
-		t.Fatalf("Failed to create module1: %v", err)
-	}
-
-	module2 := filepath.Join(tmpDir, "subdir", "another.invowkmod")
-	if err := os.MkdirAll(module2, 0o755); err != nil {
-		t.Fatalf("Failed to create module2: %v", err)
-	}
+	module1 := createProvisioningModule(t, tmpDir, "mymodule.invowkmod", "mymodule")
+	module2Parent := filepath.Join(tmpDir, "subdir")
+	module2 := createProvisioningModule(t, module2Parent, "another.invowkmod", "another")
 
 	// Create a non-module directory
 	notModule := filepath.Join(tmpDir, "notamodule")
@@ -222,6 +231,29 @@ func TestDiscoverModules(t *testing.T) {
 	}
 	if !foundModule2 {
 		t.Error("Expected to find another.invowkmod")
+	}
+	if module1 == module2 {
+		t.Fatal("test setup created duplicate module paths")
+	}
+}
+
+func TestDiscoverModules_SkipsInvalidModuleWithoutMetadata(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	valid := createProvisioningModule(t, tmpDir, "valid.invowkmod", "valid")
+	invalid := filepath.Join(tmpDir, "invalid.invowkmod")
+	if err := os.MkdirAll(invalid, 0o755); err != nil {
+		t.Fatalf("failed to create invalid module dir: %v", err)
+	}
+
+	modules := DiscoverModules([]types.FilesystemPath{types.FilesystemPath(tmpDir)})
+
+	if len(modules) != 1 {
+		t.Fatalf("modules = %v, want only valid module", modules)
+	}
+	if modules[0] != valid {
+		t.Fatalf("module = %q, want %q", modules[0], valid)
 	}
 }
 
@@ -447,10 +479,7 @@ func TestDiscoverModules_Deduplication(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	modPath := filepath.Join(tmpDir, "test.invowkmod")
-	if err := os.MkdirAll(modPath, 0o755); err != nil {
-		t.Fatalf("failed to create module dir: %v", err)
-	}
+	createProvisioningModule(t, tmpDir, "test.invowkmod", "test")
 
 	// Pass the same path twice
 	modules := DiscoverModules([]types.FilesystemPath{types.FilesystemPath(tmpDir), types.FilesystemPath(tmpDir)})
@@ -466,15 +495,8 @@ func TestDiscoverModules_MultiplePaths(t *testing.T) {
 	dir1 := t.TempDir()
 	dir2 := t.TempDir()
 
-	mod1 := filepath.Join(dir1, "mod1.invowkmod")
-	if err := os.MkdirAll(mod1, 0o755); err != nil {
-		t.Fatalf("failed to create mod1: %v", err)
-	}
-
-	mod2 := filepath.Join(dir2, "mod2.invowkmod")
-	if err := os.MkdirAll(mod2, 0o755); err != nil {
-		t.Fatalf("failed to create mod2: %v", err)
-	}
+	createProvisioningModule(t, dir1, "mod1.invowkmod", "mod1")
+	createProvisioningModule(t, dir2, "mod2.invowkmod", "mod2")
 
 	modules := DiscoverModules([]types.FilesystemPath{types.FilesystemPath(dir1), types.FilesystemPath(dir2)})
 

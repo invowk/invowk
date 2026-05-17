@@ -31,6 +31,13 @@ func (s *fakeAmbiguityCommandService) ResolveCommand(_ context.Context, req Exec
 	return &discovery.CommandInfo{Name: "build", SimpleName: "build"}, req, nil, nil
 }
 
+func (s *fakeAmbiguityCommandService) ResolveWatchPlan(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
+	if s.err != nil {
+		return nil, req, commandsvc.WatchPlan{}, nil, s.err
+	}
+	return &discovery.CommandInfo{Name: "build", SimpleName: "build"}, req, commandsvc.WatchPlan{}, nil, nil
+}
+
 func (s *fakeAmbiguityCommandService) ResolveFromSource(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
 	return &discovery.CommandInfo{Name: "build", SimpleName: "build"}, req, nil, nil
 }

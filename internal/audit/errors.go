@@ -66,12 +66,16 @@ func (e *CheckerFailedError) Is(target error) bool {
 	return target == ErrCheckerFailed
 }
 
-// ScanErrorContainsChecker reports whether a scanner error tree contains a
-// failure from the named checker. This keeps checker-failure policy in the
-// audit package while adapters decide how to render or exit.
-//
+// ScanFailureIsFatal reports whether a scanner error should suppress partial
+// results. LLM checker failures are fatal because callers explicitly requested
+// interpretive analysis and the partial deterministic report would otherwise
+// hide that requested analysis failed.
+func ScanFailureIsFatal(err error) bool {
+	return scanErrorContainsChecker(err, LLMCheckerName)
+}
+
 //goplint:ignore -- checker names come from the audit Checker.Name() interface.
-func ScanErrorContainsChecker(err error, checkerName string) bool {
+func scanErrorContainsChecker(err error, checkerName string) bool {
 	if err == nil {
 		return false
 	}

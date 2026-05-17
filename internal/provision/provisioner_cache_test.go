@@ -142,13 +142,7 @@ func TestLayerProvisioner_CalculateCacheKey_DifferentInputs(t *testing.T) {
 		t.Parallel()
 
 		modulesDir := filepath.Join(tmpDir, "modules")
-		modPath := filepath.Join(modulesDir, "test.invowkmod")
-		if err := os.MkdirAll(modPath, 0o755); err != nil {
-			t.Fatalf("failed to create module dir: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(modPath, "invowkmod.cue"), []byte("module content"), 0o644); err != nil {
-			t.Fatalf("failed to write module file: %v", err)
-		}
+		createProvisioningModule(t, modulesDir, "test.invowkmod", "test")
 
 		cfgWithMods := &Config{
 			Enabled:          true,

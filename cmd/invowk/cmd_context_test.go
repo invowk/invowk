@@ -64,6 +64,15 @@ func (s *recordingCommandService) ResolveCommand(ctx context.Context, req Execut
 	return cmdInfo, req, nil, nil
 }
 
+func (s *recordingCommandService) ResolveWatchPlan(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
+	cmdInfo, resolvedReq, diags, err := s.ResolveCommand(ctx, req)
+	if err != nil {
+		return cmdInfo, resolvedReq, commandsvc.WatchPlan{}, diags, err
+	}
+	plan, planErr := commandsvc.NewWatchPlan(cmdInfo, commandsvc.WithWatchWorkdirOverride(resolvedReq.Workdir))
+	return cmdInfo, resolvedReq, plan, diags, planErr
+}
+
 func (s *recordingCommandService) ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
 	s.lastConfigPath = configPathFromContext(ctx)
 	s.resolveFromSourceCalls++

@@ -313,7 +313,7 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "scan error: %v\n", scanErr)
 		return &ExitError{Code: auditExitError, Err: scanErr}
 	}
-	if scanErr != nil && audit.ScanErrorContainsChecker(scanErr, audit.LLMCheckerName) {
+	if scanErr != nil && audit.ScanFailureIsFatal(scanErr) {
 		fmt.Fprintf(cmd.ErrOrStderr(), "scan error: %v\n", scanErr)
 		return &ExitError{Code: auditExitError, Err: scanErr}
 	}

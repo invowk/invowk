@@ -69,6 +69,64 @@ func TestInvowkfile_Validate_DefaultValidators(t *testing.T) {
 	}
 }
 
+func TestParseBytesRejectsNonPositiveDurations(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		field   string
+		content string
+	}{
+		{
+			name:  "implementation timeout",
+			field: "timeout",
+			content: `
+cmds: [{
+	name: "build"
+	implementations: [{
+		script: "echo build"
+		timeout: "0s"
+		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
+	}]
+}]
+`,
+		},
+		{
+			name:  "watch debounce",
+			field: "watch",
+			content: `
+cmds: [{
+	name: "build"
+	watch: {
+		patterns: ["**/*"]
+		debounce: "0s"
+	}
+	implementations: [{
+		script: "echo build"
+		runtimes: [{name: "native"}]
+		platforms: [{name: "linux"}]
+	}]
+}]
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := ParseBytes([]byte(tt.content), "duration.cue")
+			if err == nil {
+				t.Fatal("ParseBytes() error = nil, want duration validation error")
+			}
+			if !strings.Contains(err.Error(), tt.field) || !strings.Contains(err.Error(), "positive duration") {
+				t.Fatalf("ParseBytes() error = %v, want %q positive duration validation", err, tt.field)
+			}
+		})
+	}
+}
+
 func TestInvowkfile_Validate_DependsOnEmptyAlternatives(t *testing.T) {
 	t.Parallel()
 

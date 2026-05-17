@@ -36,7 +36,9 @@ type (
 	// A valid token must be non-empty and not whitespace-only.
 	TokenValue string
 
-	// CommandID identifies the command execution that owns a callback token.
+	// CommandID identifies the command execution that owns a callback token for
+	// cleanup and revocation. Tokens are bearer credentials valid for their
+	// execution lifetime rather than per-command authorization scopes.
 	CommandID string
 
 	// ListenPort is re-exported from pkg/types as a cross-cutting type

@@ -4,7 +4,6 @@ package tui
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -322,20 +321,6 @@ func CreateEmbeddableComponent(componentType ComponentType, options any, width, 
 
 func componentOptions[T any](options any) (T, error) {
 	if opts, ok := options.(T); ok {
-		return opts, nil
-	}
-	if raw, ok := options.(json.RawMessage); ok {
-		var opts T
-		if err := json.Unmarshal(raw, &opts); err != nil {
-			return opts, err
-		}
-		return opts, nil
-	}
-	if raw, ok := options.([]byte); ok {
-		var opts T
-		if err := json.Unmarshal(raw, &opts); err != nil {
-			return opts, err
-		}
 		return opts, nil
 	}
 	var zero T

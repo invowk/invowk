@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -183,6 +184,10 @@ func (s *recordingDynamicCommandService) Execute(_ context.Context, req ExecuteR
 
 func (s *recordingDynamicCommandService) ResolveCommand(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
 	return nil, req, nil, nil
+}
+
+func (s *recordingDynamicCommandService) ResolveWatchPlan(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
+	return nil, req, commandsvc.WatchPlan{}, nil, nil
 }
 
 func (s *recordingDynamicCommandService) ResolveFromSource(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {

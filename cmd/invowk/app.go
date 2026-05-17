@@ -71,6 +71,7 @@ type (
 	CommandService interface {
 		Execute(ctx context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error)
 		ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error)
+		ResolveWatchPlan(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error)
 		ResolveFromSource(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error)
 	}
 
@@ -215,6 +216,12 @@ func (a *cliCommandAdapter) ResolveFromSource(ctx context.Context, req ExecuteRe
 func (a *cliCommandAdapter) ResolveCommand(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
 	cmdInfo, resolvedReq, commandDiags, err := a.svc.ResolveCommand(ctx, req)
 	return cmdInfo, resolvedReq, convertCommandDiagnostics(commandDiags), err
+}
+
+// ResolveWatchPlan delegates watch command selection and planning to the command service.
+func (a *cliCommandAdapter) ResolveWatchPlan(ctx context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
+	cmdInfo, resolvedReq, plan, commandDiags, err := a.svc.ResolveWatchPlan(ctx, req)
+	return cmdInfo, resolvedReq, plan, convertCommandDiagnostics(commandDiags), err
 }
 
 func convertCommandDiagnostics(diags []commandsvc.Diagnostic) []discovery.Diagnostic {

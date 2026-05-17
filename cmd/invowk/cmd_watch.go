@@ -75,9 +75,12 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	if err != nil {
 		return err
 	}
-	cmdInfo, resolvedReq, diags, err := app.Commands.ResolveCommand(ctx, resolveReq)
+	cmdInfo, resolvedReq, plan, diags, err := app.Commands.ResolveWatchPlan(ctx, resolveReq)
 	app.Diagnostics.Render(ctx, diags, app.stderr)
 	if err != nil {
+		if planErr, ok := errors.AsType[*commandsvc.InvalidWatchPlanError](err); ok && planErr != nil {
+			return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
+		}
 		return renderAndWrapServiceError(err, resolveReq)
 	}
 	if cmdInfo == nil {
@@ -85,11 +88,6 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 	}
 
 	args = append([]string{resolvedReq.Name}, resolvedReq.Args...)
-
-	plan, err := commandsvc.NewWatchPlan(cmdInfo, commandsvc.WithWatchWorkdirOverride(resolvedReq.Workdir))
-	if err != nil {
-		return fmt.Errorf("%w: %w", errInvalidWatchDebounce, err)
-	}
 
 	// Build a re-execution closure that runs the command through the command
 	// service and keeps command exit codes separate from infrastructure errors.

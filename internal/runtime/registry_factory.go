@@ -23,22 +23,23 @@ const (
 var ErrInvalidInitDiagnosticCode = errors.New("invalid init diagnostic code")
 
 type (
-	// HostCallbackServer provides scoped host callback credentials to runtimes.
+	// HostCallbackServer provides execution-lifetime bearer credentials to runtimes.
 	HostCallbackServer interface {
 		IsRunning() bool
 		GetConnectionInfo(commandID HostCallbackCommandID) (*HostCallbackConnectionInfo, error)
 		RevokeToken(token HostCallbackToken)
 	}
 
-	// HostCallbackCommandID identifies one execution-scoped callback credential.
+	// HostCallbackCommandID identifies the execution that owns a callback
+	// credential for cleanup; the token itself is the bearer credential.
 	HostCallbackCommandID string
 
 	// HostCallbackHost is the host address used by container runtimes to reach
-	// a scoped host callback service.
+	// a host callback service.
 	HostCallbackHost string
 
 	// HostCallbackToken is the credential token used by container runtimes to
-	// authenticate to a scoped host callback service.
+	// authenticate to a host callback service.
 	HostCallbackToken string
 
 	// HostCallbackUser is the callback username passed to container runtimes.

@@ -5,9 +5,12 @@ package commandsvc
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/invowk/invowk/internal/discovery"
+	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -44,6 +47,57 @@ func TestWatchSessionInitialExecution(t *testing.T) {
 			t.Fatalf("ExitCode = %d, want 2", outcome.ExitCode)
 		}
 	})
+}
+
+func TestNewWatchPlanContainerAbsoluteWorkdirUsesHostInvowkfileDir(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	impl := invowkfile.Implementation{
+		Script:    "echo build",
+		Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeContainer, Image: "debian:stable-slim"}},
+		Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.CurrentPlatform()}},
+	}
+	cmd := &invowkfile.Command{
+		Name:            "build",
+		WorkDir:         "/app",
+		Implementations: []invowkfile.Implementation{impl},
+	}
+	info := newWatchPlanCommandInfo(dir, cmd)
+
+	plan, err := NewWatchPlan(info, WithWatchExecution(invowkfile.RuntimeContainer, &cmd.Implementations[0]))
+	if err != nil {
+		t.Fatalf("NewWatchPlan() error = %v", err)
+	}
+	if plan.BaseDir != types.FilesystemPath(dir) {
+		t.Fatalf("BaseDir = %q, want invowkfile dir %q for container-absolute workdir", plan.BaseDir, dir)
+	}
+}
+
+func TestNewWatchPlanNativeAbsoluteWorkdirUsesHostPath(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	hostWorkdir := filepath.Join(dir, "host")
+	impl := invowkfile.Implementation{
+		Script:    "echo build",
+		Runtimes:  []invowkfile.RuntimeConfig{{Name: invowkfile.RuntimeNative}},
+		Platforms: []invowkfile.PlatformConfig{{Name: invowkfile.CurrentPlatform()}},
+	}
+	cmd := &invowkfile.Command{
+		Name:            "build",
+		WorkDir:         invowkfile.WorkDir(hostWorkdir),
+		Implementations: []invowkfile.Implementation{impl},
+	}
+	info := newWatchPlanCommandInfo(dir, cmd)
+
+	plan, err := NewWatchPlan(info, WithWatchExecution(invowkfile.RuntimeNative, &cmd.Implementations[0]))
+	if err != nil {
+		t.Fatalf("NewWatchPlan() error = %v", err)
+	}
+	if plan.BaseDir != types.FilesystemPath(hostWorkdir) {
+		t.Fatalf("BaseDir = %q, want native host workdir %q", plan.BaseDir, hostWorkdir)
+	}
 }
 
 func TestWatchSessionHandleChangePolicy(t *testing.T) {
@@ -88,6 +142,23 @@ func TestWatchSessionHandleChangePolicy(t *testing.T) {
 			t.Fatalf("HandleChange() error = %v, want wrapped infra error", err)
 		}
 	})
+}
+
+func newWatchPlanCommandInfo(dir string, cmd *invowkfile.Command) *discovery.CommandInfo {
+	inv := &invowkfile.Invowkfile{
+		FilePath: types.FilesystemPath(filepath.Join(dir, "invowkfile.cue")),
+		Commands: []invowkfile.Command{
+			*cmd,
+		},
+	}
+	return &discovery.CommandInfo{
+		Name:       cmd.Name,
+		SimpleName: cmd.Name,
+		SourceID:   discovery.SourceIDInvowkfile,
+		FilePath:   inv.FilePath,
+		Command:    cmd,
+		Invowkfile: inv,
+	}
 }
 
 func newTestWatchSession(t *testing.T, execute WatchExecutionFunc) *WatchSession {

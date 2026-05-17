@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestScanErrorContainsCheckerFindsJoinedLLMFailure(t *testing.T) {
+func TestScanFailureIsFatalFindsJoinedLLMFailure(t *testing.T) {
 	t.Parallel()
 
 	err := errors.Join(
@@ -15,17 +15,17 @@ func TestScanErrorContainsCheckerFindsJoinedLLMFailure(t *testing.T) {
 		&CheckerFailedError{CheckerName: LLMCheckerName, Err: errors.New("llm failed")},
 	)
 
-	if !ScanErrorContainsChecker(err, LLMCheckerName) {
-		t.Fatal("expected joined LLM checker failure to be detected")
+	if !ScanFailureIsFatal(err) {
+		t.Fatal("expected joined LLM checker failure to be fatal")
 	}
 }
 
-func TestScanErrorContainsCheckerIgnoresOtherCheckers(t *testing.T) {
+func TestScanFailureIsFatalIgnoresOtherCheckers(t *testing.T) {
 	t.Parallel()
 
 	err := &CheckerFailedError{CheckerName: "network", Err: errors.New("network failed")}
 
-	if ScanErrorContainsChecker(err, LLMCheckerName) {
-		t.Fatal("did not expect non-LLM checker failure to be detected as LLM")
+	if ScanFailureIsFatal(err) {
+		t.Fatal("did not expect non-LLM checker failure to be fatal")
 	}
 }

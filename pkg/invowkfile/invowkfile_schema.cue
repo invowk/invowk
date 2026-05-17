@@ -24,6 +24,8 @@ import "strings"
 
 // DurationString constrains a Go-style duration string (e.g., "30s", "5m", "1h30m").
 // Shared by #Implementation.timeout and #WatchConfig.debounce.
+// [GO-ONLY] Positive-duration semantics are enforced by DurationString.Validate()
+// because CUE only validates the syntactic shape here.
 #DurationString: string & =~"^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" & strings.MaxRunes(32)
 
 // NonWhitespaceString is non-empty and contains at least one non-whitespace rune.

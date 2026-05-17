@@ -3,7 +3,6 @@
 package tui
 
 import (
-	"encoding/json"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -130,7 +129,7 @@ func TestInteractiveModel_HandleTUIComponentRequest_InvalidOptions(t *testing.T)
 	responseCh := make(chan ComponentResponse, 1)
 	msg := TUIComponentMsg{
 		Component:  ComponentType("nonexistent-component"),
-		Options:    json.RawMessage(`{}`),
+		Options:    ConfirmOptions{},
 		ResponseCh: responseCh,
 	}
 
@@ -161,7 +160,7 @@ func TestInteractiveModel_HandleTUIComponentRequest_ValidDispatch(t *testing.T) 
 	responseCh := make(chan ComponentResponse, 1)
 	msg := TUIComponentMsg{
 		Component:  ComponentTypeConfirm,
-		Options:    json.RawMessage(`{"title":"Proceed?","affirmative":"Yes","negative":"No"}`),
+		Options:    ConfirmOptions{Title: "Proceed?", Affirmative: "Yes", Negative: "No"},
 		ResponseCh: responseCh,
 	}
 

@@ -14,9 +14,7 @@ import (
 // All type declarations in a single block for decorder compliance.
 type (
 	// ChooseStringOptions configures the embeddable Choose component for strings.
-	// This is used by the TUI server for dynamic component creation.
-	// JSON tags must match the snake_case format used by ChooseRequest in protocol.go
-	// for proper unmarshaling when options are received via the TUI server JSON protocol.
+	// Transport adapters decode protocol requests into this local renderer shape.
 	ChooseStringOptions struct {
 		// Title is the title/prompt displayed above the options.
 		Title string `json:"title,omitempty"`

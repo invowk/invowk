@@ -48,6 +48,14 @@ func (v *StructureValidator) validateCommand(ctx *ValidationContext, inv *Invowk
 	// Validate command-level env configuration
 	validationErrors = append(validationErrors, v.validateEnvConfig(ctx, cmd.Env, path.Copy())...)
 
+	// [GO-ONLY] Positive duration semantics require time.ParseDuration; CUE only
+	// enforces the syntactic duration shape.
+	if cmd.Watch != nil {
+		if err := cmd.Watch.Validate(); err != nil {
+			validationErrors = append(validationErrors, watchConfigValidationErrors(v.Name(), path.Copy().Field("watch").String(), err)...)
+		}
+	}
+
 	if len(cmd.Implementations) == 0 {
 		validationErrors = append(validationErrors, ValidationError{
 			Validator: v.Name(),
@@ -136,6 +144,17 @@ func (v *StructureValidator) validateImplementation(ctx *ValidationContext, inv 
 	// Validate implementation-level env configuration
 	validationErrors = append(validationErrors, v.validateEnvConfig(ctx, impl.Env, path.Copy())...)
 
+	// [GO-ONLY] Positive duration semantics require time.ParseDuration; CUE only
+	// enforces the syntactic duration shape.
+	if err := impl.Timeout.Validate(); err != nil {
+		validationErrors = append(validationErrors, ValidationError{
+			Validator: v.Name(),
+			Field:     path.Copy().Field("timeout").String(),
+			Message:   err.Error(),
+			Severity:  SeverityError,
+		})
+	}
+
 	return validationErrors
 }
 
@@ -187,4 +206,26 @@ func runtimeConfigValidationError(validatorName ValidatorName, field string, err
 		Message:   err.Error(),
 		Severity:  SeverityError,
 	}
+}
+
+//goplint:ignore -- validation field paths are rendered diagnostic strings.
+func watchConfigValidationErrors(validatorName ValidatorName, field string, err error) []ValidationError {
+	if invalid, ok := errors.AsType[*InvalidWatchConfigError](err); ok {
+		result := make([]ValidationError, 0, len(invalid.FieldErrors))
+		for _, fieldErr := range invalid.FieldErrors {
+			result = append(result, ValidationError{
+				Validator: validatorName,
+				Field:     field,
+				Message:   fieldErr.Error(),
+				Severity:  SeverityError,
+			})
+		}
+		return result
+	}
+	return []ValidationError{{
+		Validator: validatorName,
+		Field:     field,
+		Message:   err.Error(),
+		Severity:  SeverityError,
+	}}
 }

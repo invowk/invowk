@@ -106,6 +106,13 @@ func (s *fakeWatchCommandService) ResolveCommand(_ context.Context, req ExecuteR
 	return s.cmdInfo, req, nil, nil
 }
 
+func (s *fakeWatchCommandService) ResolveWatchPlan(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, commandsvc.WatchPlan, []discovery.Diagnostic, error) {
+	req.Name = string(s.cmdInfo.Name)
+	req.ResolvedCommand = s.cmdInfo
+	plan, err := commandsvc.NewWatchPlan(s.cmdInfo, commandsvc.WithWatchWorkdirOverride(req.Workdir))
+	return s.cmdInfo, req, plan, nil, err
+}
+
 func (s *fakeWatchCommandService) ResolveFromSource(_ context.Context, req ExecuteRequest) (*discovery.CommandInfo, ExecuteRequest, []discovery.Diagnostic, error) {
 	return s.cmdInfo, req, nil, nil
 }

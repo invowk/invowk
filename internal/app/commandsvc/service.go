@@ -298,6 +298,35 @@ func (s *Service) ResolveCommand(ctx context.Context, req Request) (*discovery.C
 	return cmdInfo, resolvedReq, diags, err
 }
 
+// ResolveWatchPlan resolves a command request and builds its app-owned watch
+// plan using the selected execution runtime.
+func (s *Service) ResolveWatchPlan(ctx context.Context, req Request) (*discovery.CommandInfo, Request, WatchPlan, []Diagnostic, error) {
+	if err := req.Validate(); err != nil {
+		return nil, req, WatchPlan{}, nil, err
+	}
+	ctx = s.beginRequest(ctx, req.ConfigPath)
+	if req.Platform == "" {
+		req.Platform = invowkfile.CurrentPlatform()
+	}
+	cfg, cmdInfo, resolvedReq, diags, err := s.discoverCommand(ctx, req)
+	if err != nil {
+		return cmdInfo, resolvedReq, WatchPlan{}, diags, err
+	}
+	resolved, err := s.resolveRuntime(resolvedReq, cmdInfo, cfg)
+	if err != nil {
+		return cmdInfo, resolvedReq, WatchPlan{}, diags, err
+	}
+	plan, err := NewWatchPlan(
+		cmdInfo,
+		WithWatchWorkdirOverride(resolvedReq.Workdir),
+		WithWatchExecution(resolved.Mode(), resolved.Impl()),
+	)
+	if err != nil {
+		return cmdInfo, resolvedReq, WatchPlan{}, diags, err
+	}
+	return cmdInfo, resolvedReq, plan, diags, nil
+}
+
 func (s *Service) beginRequest(ctx context.Context, configPath types.FilesystemPath) context.Context {
 	if s.requestScope == nil {
 		return beginNoopRequestScope(ctx, configPath)
