@@ -2404,7 +2404,7 @@ cmds: [
 
 invowk uses a global configuration file (CUE format):
 
-- **Linux**: `~/.config/invowk/config.cue`
+- **Linux/other Unix-like**: `$XDG_CONFIG_HOME/invowk/config.cue` when set, otherwise `~/.config/invowk/config.cue`
 - **macOS**: `~/Library/Application Support/invowk/config.cue`
 - **Windows**: `%APPDATA%\invowk\config.cue`
 
@@ -2994,7 +2994,10 @@ invowk audit --llm --llm-url https://api.openai.com/v1 --llm-api-key sk-... --ll
 | `--llm-timeout` | `2m` | Per-request timeout (env: `INVOWK_LLM_TIMEOUT`) |
 | `--llm-concurrency` | `2` | Max parallel LLM requests (env: `INVOWK_LLM_CONCURRENCY`) |
 
-Global LLM config lives in `~/.config/invowk/config.cue`. Use a provider harness:
+Global LLM config lives in the standard Invowk config file. On Linux and other
+Unix-like systems, that is `$XDG_CONFIG_HOME/invowk/config.cue` when
+`XDG_CONFIG_HOME` is set, otherwise `~/.config/invowk/config.cue`. Use a provider
+harness:
 
 ```cue
 llm: {

@@ -7,7 +7,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Fluxograma de Precedência de Descoberta
 
-Este diagrama mostra como comandos são descobertos e como conflitos são resolvidos quando o mesmo nome de comando aparece em múltiplos locais.
+Este diagrama mostra como comandos são descobertos e como colisões de nomes de comando são tratadas entre fontes.
 
 ## Fluxo de Descoberta
 
@@ -15,23 +15,24 @@ Este diagrama mostra como comandos são descobertos e como conflitos são resolv
 
 ## Resolução de Conflitos
 
-Quando o mesmo nome de comando existe em múltiplos locais:
+Quando nomes colidem, o Invowk trata dois casos diferentes:
 
 <Diagram id="architecture/discovery-conflict" />
 
 ### Regras de Resolução
 
-| Prioridade | Fonte | Caminho de Exemplo |
-|------------|-------|-------------------|
-| 1 (maior) | invowkfile do diretório atual | `./invowkfile.cue` |
-| 2 | Módulos locais | `./mytools.invowkmod/` |
-| 3 | Includes configurados | `/opt/invowk-modules/tools.invowkmod` |
-| 4 (menor) | Diretório de comandos do usuário | `~/.invowk/cmds/mytools.invowkmod/` |
+| Caso | Comportamento |
+|------|---------------|
+| Mesmo **nome completo de comando** descoberto em múltiplas fontes | A primeira fonte descoberta vence (ordem de precedência) |
+| Mesmo **nome simples de comando** em fontes diferentes | Marca como ambíguo; o usuário deve desambiguar (`@source` / `--ivk-from`) |
 
-**Princípios chave**:
-- Mais perto do diretório de trabalho = maior prioridade.
-- Includes configurados têm precedência sobre o diretório de comandos do usuário porque representam configuração explícita e intencional.
-- O diretório de comandos do usuário (`~/.invowk/cmds/`) descobre apenas diretórios `*.invowkmod` como filhos imediatos (não recursivo). Invowkfiles avulsos não são descobertos a partir desse local.
+**Ordem de precedência de descoberta**:
+1. invowkfile do diretório atual (`./invowkfile.cue`)
+2. Módulos locais (`./*.invowkmod`)
+3. Includes configurados (caminhos de módulo em `config.Includes`)
+4. Diretório de comandos do usuário (`~/.invowk/cmds/*.invowkmod`, somente módulos, não recursivo)
+
+Módulos vendorizados (`invowk_modules/`) são escaneados um nível abaixo de cada fonte de módulo descoberta.
 
 ## Detalhes da Descoberta de Módulos
 
@@ -62,7 +63,7 @@ Esta checagem de visibilidade se aplica a dependências declaradas em `depends_o
 
 ## Configuração de Includes
 
-Módulos adicionais são configurados em `~/.config/invowk/config.cue`:
+Módulos adicionais são configurados no arquivo global de config resolvido:
 
 <Snippet id="architecture/discovery-includes-config" />
 

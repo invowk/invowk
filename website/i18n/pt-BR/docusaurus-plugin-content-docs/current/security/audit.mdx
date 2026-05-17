@@ -161,9 +161,9 @@ invowk audit --severity info
 
 | Código | Significado |
 |--------|-------------|
-| `0` | Nenhum achado no ou acima do limiar de severidade |
-| `1` | Achados detectados |
-| `2` | Erro de scan |
+| `0` | Nenhum achado confirmado no ou acima do limiar de severidade; relatórios apenas com achados suprimidos saem com sucesso |
+| `1` | Achados confirmados detectados |
+| `2` | Erro de scan, configuração ou uso |
 
 ## Análise com LLM
 
@@ -272,12 +272,14 @@ A detecção reconhece famílias de modelos focados em código (`qwen2.5-coder`,
 
 O checker LLM:
 1. **Verifica** se o modelo configurado existe no servidor (com sugestões se não)
-2. **Filtra** scripts: exclui referências somente-arquivo e scripts vazios
-2. **Agrupa** scripts por contagem de caracteres (~6000 chars) e quantidade (máx 5 por lote)
-3. **Envia** cada lote ao LLM com um prompt de sistema de analista de segurança
-4. **Parseia** achados JSON estruturados da resposta
-5. **Valida** severidade e categoria contra enums existentes (defesa contra alucinação)
-6. **Integra** achados no mesmo pipeline dos checkers integrados
+2. **Resolve** conteúdo de scripts inline e baseados em arquivo, depois filtra scripts vazios
+3. **Agrupa** scripts por contagem de caracteres (~6000 chars) e quantidade (máx 5 por lote)
+4. **Envia** cada lote ao LLM com um prompt de sistema de analista de segurança
+5. **Parseia** achados JSON estruturados da resposta
+6. **Rejeita** campos de achado malformados, como valores desconhecidos de severidade/categoria, em vez de tratar silenciosamente uma resposta ruim do LLM como limpa
+7. **Integra** achados válidos no mesmo pipeline dos checkers integrados
+
+Quando a análise LLM é solicitada explicitamente, falhas do checker LLM são erros fatais de varredura. Por exemplo, campos de achado LLM malformados, como valores desconhecidos de severidade ou categoria, fazem a auditoria falhar com código de saída 2 em vez de cair para resultados determinísticos parciais.
 
 Achados do LLM participam da detecção de ameaças compostas — se o LLM identifica um padrão de exfiltração e um checker integrado identifica acesso a variáveis sensíveis no mesmo módulo, o correlacionador escala para **Crítica**.
 
@@ -331,7 +333,7 @@ Cada achado suprimido ou ameaça composta suprimida envolve a entrada original c
 
     if [ "$status" -eq 1 ]; then
       echo "::error::Achados de segurança detectados"
-      jq -r '.findings[] | "[\(.severity)] \(.title)"' audit-results.json
+      jq -r '(.findings[]?, .compound_threats[]?) | "[\(.severity)] \(.title)"' audit-results.json
       exit 1
     elif [ "$status" -ne 0 ]; then
       cat audit-results.json

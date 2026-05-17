@@ -31,7 +31,7 @@ O runtime virtual usa o interpretador mvdan/sh embutido:
 | Etapa | Componente | Ação |
 |-------|------------|------|
 | 1 | CLI | Receber comando do usuário |
-| 2-4 | Config + CUE | Carregar e fazer parsing de `~/.config/invowk/config.cue` |
+| 2-4 | Config + CUE | Carregar e fazer parsing do arquivo global de config resolvido |
 
 **Decisões-chave tomadas:**
 - Preferência de engine de container (docker vs podman)

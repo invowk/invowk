@@ -84,6 +84,7 @@ LC_ALL=C find website/src/components/Snippet/data -maxdepth 1 -type f -name '*.t
 LC_ALL=C find docs/diagrams -path '*/experiments/*' -prune -o -type f -name '*.d2' -print | LC_ALL=C sort
 LC_ALL=C find docs/architecture -maxdepth 1 -type f -name '*.md' | LC_ALL=C sort
 printf '%s\n' website/sidebars.ts AGENTS.md .agents/commands/review-docs.md .agents/skills/docs/SKILL.md .agents/skills/review-docs/SKILL.md
+LC_ALL=C find .agents/skills/review-docs/references -maxdepth 1 -type f -name '*.md' | LC_ALL=C sort
 ```
 
 **What it checks**: The coordinator compares this list against `surface-checklists.md` file
@@ -158,17 +159,22 @@ make check-agent-docs
 # README
 grep -n 'ubuntu:\|alpine:\|mcr.microsoft.com' README.md || echo "README: PASS"
 
-# Website docs
+# Website docs (current)
 grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' website/docs/ || echo "Website docs: PASS"
 
 # Snippet data
 grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' website/src/components/Snippet/data/ || echo "Snippet data: PASS"
 
-# i18n docs
-grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' website/i18n/ || echo "i18n: PASS"
+# Current i18n docs
+grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' website/i18n/pt-BR/docusaurus-plugin-content-docs/current/ || echo "Current i18n: PASS"
+
+# Architecture prose
+grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' docs/architecture/ || echo "Architecture prose: PASS"
 ```
 
-**What it checks**: No prohibited container images (Ubuntu, Alpine, Windows) in any documentation.
+**What it checks**: No prohibited container images (Ubuntu, Alpine, Windows) in any live/current
+documentation surface covered by the review. Frozen versioned snapshots are validated by version
+asset checks and are not manually reviewed by this gate.
 
 **Expected**: No matches (all PASS), or only language-specific images like `golang:1.26`,
 `python:3-slim` in language-specific runtime demos.

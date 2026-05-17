@@ -183,7 +183,7 @@ git rev-parse HEAD
 
 # Parallel group 1
 cd website && npm run docs:parity
-grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' README.md website/docs/ website/src/components/Snippet/data/ website/i18n/
+grep -rn 'ubuntu:\|alpine:\|mcr.microsoft.com' README.md website/docs/ website/src/components/Snippet/data/ website/i18n/pt-BR/docusaurus-plugin-content-docs/current/ docs/architecture/
 
 # Parallel group 2
 ./scripts/check-diagram-readability.sh

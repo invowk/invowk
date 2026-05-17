@@ -161,9 +161,9 @@ invowk audit --severity info
 
 | Code | Meaning |
 |------|---------|
-| `0` | No findings at or above the severity threshold |
-| `1` | Findings detected |
-| `2` | Scan error |
+| `0` | No confirmed findings at or above the severity threshold; suppressed-only reports exit successfully |
+| `1` | Confirmed findings detected |
+| `2` | Scan, configuration, or usage error |
 
 ## LLM-Powered Analysis
 
@@ -272,12 +272,14 @@ The detection recognizes code-focused model families (`qwen2.5-coder`, `deepseek
 
 The LLM checker:
 1. **Verifies** the configured model exists on the server (with suggestions if not)
-2. **Filters** scripts: excludes file-only references and empty scripts
-2. **Batches** scripts by character count (~6000 chars) and count (max 5 per batch)
-3. **Sends** each batch to the LLM with a security analyst system prompt
-4. **Parses** structured JSON findings from the response
-5. **Validates** severity and category against existing enums (discards hallucinated values)
-6. **Merges** findings into the same pipeline as built-in checkers
+2. **Resolves** inline and file-based script content, then filters out empty scripts
+3. **Batches** scripts by character count (~6000 chars) and count (max 5 per batch)
+4. **Sends** each batch to the LLM with a security analyst system prompt
+5. **Parses** structured JSON findings from the response
+6. **Rejects** malformed finding fields such as unknown severity/category values instead of silently treating bad LLM output as clean
+7. **Merges** valid findings into the same pipeline as built-in checkers
+
+When LLM analysis is explicitly requested, LLM checker failures are fatal scan errors. For example, malformed LLM finding fields such as unknown severity or category values cause the audit to fail with exit code 2 instead of falling back to partial deterministic results.
 
 LLM findings participate in compound threat detection — if the LLM flags an exfiltration pattern and a built-in checker flags sensitive variable access in the same module, the correlator escalates to **Critical**.
 
@@ -331,7 +333,7 @@ Each suppressed finding or suppressed compound threat wraps the original entry a
 
     if [ "$status" -eq 1 ]; then
       echo "::error::Security findings detected"
-      jq -r '.findings[] | "[\(.severity)] \(.title)"' audit-results.json
+      jq -r '(.findings[]?, .compound_threats[]?) | "[\(.severity)] \(.title)"' audit-results.json
       exit 1
     elif [ "$status" -ne 0 ]; then
       cat audit-results.json

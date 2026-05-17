@@ -7,7 +7,7 @@ import Snippet from '@site/src/components/Snippet';
 
 # Discovery Precedence Flowchart
 
-This diagram shows how commands are discovered and how conflicts are resolved when the same command name appears in multiple locations.
+This diagram shows how commands are discovered and how command name collisions are handled across sources.
 
 ## Discovery Flow
 
@@ -15,23 +15,24 @@ This diagram shows how commands are discovered and how conflicts are resolved wh
 
 ## Conflict Resolution
 
-When the same command name exists in multiple locations:
+When names collide, Invowk handles two different cases:
 
 <Diagram id="architecture/discovery-conflict" />
 
 ### Resolution Rules
 
-| Priority | Source | Example Path |
-|----------|--------|--------------|
-| 1 (highest) | Current directory invowkfile | `./invowkfile.cue` |
-| 2 | Local modules | `./mytools.invowkmod/` |
-| 3 | Configured includes | `/opt/invowk-modules/tools.invowkmod` |
-| 4 (lowest) | User commands directory | `~/.invowk/cmds/mytools.invowkmod/` |
+| Case | Behavior |
+|------|----------|
+| Same **full command name** discovered in multiple sources | First discovered source wins (precedence order) |
+| Same **simple command name** across different sources | Mark ambiguous; user must disambiguate (`@source` / `--ivk-from`) |
 
-**Key principles**:
-- Closer to the working directory = higher priority.
-- Configured includes take precedence over the user commands directory because they represent explicit, intentional configuration.
-- The user commands directory (`~/.invowk/cmds/`) only discovers `*.invowkmod` directories as immediate children (non-recursive). Loose invowkfiles are not discovered from this location.
+**Discovery precedence order**:
+1. Current directory invowkfile (`./invowkfile.cue`)
+2. Local modules (`./*.invowkmod`)
+3. Configured includes (module paths from `config.Includes`)
+4. User commands directory (`~/.invowk/cmds/*.invowkmod`, modules only, non-recursive)
+
+Vendored modules (`invowk_modules/`) are scanned one level deep for each discovered module source.
 
 ## Module Discovery Details
 
@@ -62,7 +63,7 @@ This visibility check applies to declared `depends_on.cmds` dependencies during 
 
 ## Includes Configuration
 
-Additional modules are configured in `~/.config/invowk/config.cue`:
+Additional modules are configured in the resolved global config file:
 
 <Snippet id="architecture/discovery-includes-config" />
 

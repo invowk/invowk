@@ -69,7 +69,7 @@ This visibility check applies to declared `depends_on.cmds` dependencies during 
 
 ## Includes Configuration
 
-Additional modules are configured in `~/.config/invowk/config.cue`:
+Additional modules are configured in the resolved global config file:
 
 ```cue
 includes: [
