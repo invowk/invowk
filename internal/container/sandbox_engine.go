@@ -105,13 +105,23 @@ func (e *SandboxAwareEngine) BuildRunArgs(opts RunOptions) []string {
 }
 
 // PrepareRunCommand creates a configured command for a container run.
-func (e *SandboxAwareEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
+func (e *SandboxAwareEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error) {
+	if err := opts.Validate(); err != nil {
+		return nil, nil, err
+	}
+	if e.sandboxType == platform.SandboxNone {
+		if preparer, ok := e.wrapped.(CommandPreparer); ok {
+			return preparer.PrepareRunCommand(ctx, opts)
+		}
+	}
+
+	cleanup := e.runSerializationCleanup()
 	baseArgs := e.wrappedRunArgs(opts)
 	fullArgs := e.buildSpawnArgs(e.wrappedBinaryPath(), baseArgs)
 	cmd := exec.CommandContext(ctx, fullArgs[0], fullArgs[1:]...)
 	cmd.WaitDelay = cmdWaitDelay
 	e.CustomizeCmd(cmd)
-	return cmd
+	return cmd, cleanup, nil
 }
 
 // Build builds an image from a Dockerfile.
@@ -500,6 +510,17 @@ func (e *SandboxAwareEngine) withRunSerialization(fn func() (*RunResult, error))
 		return runErr
 	})
 	return result, err
+}
+
+func (e *SandboxAwareEngine) runSerializationCleanup() func() {
+	overrideActive := false
+	if checker, ok := e.wrapped.(SysctlOverrideChecker); ok {
+		overrideActive = checker.SysctlOverrideActive()
+	}
+	if !needsPodmanRunSerialization(EngineType(e.wrapped.Name()), overrideActive) { //goplint:ignore -- Engine.Name() is the container engine adapter boundary
+		return nil
+	}
+	return acquireRunLockCleanup()
 }
 
 // wrapArgs prepends spawn command to existing args if in sandbox.

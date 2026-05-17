@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	prepareCommandBlockedDuration = 50 * time.Millisecond
+	prepareCommandReleaseTimeout  = time.Second
+)
+
 func TestBaseCLIEngine_RunSerializationDecision(t *testing.T) {
 	originalAcquire := acquireContainerLock
 	var lockAttempts atomic.Int32
@@ -118,6 +123,91 @@ func TestBaseCLIEngine_FallbackSerializerSharedAcrossEngines(t *testing.T) {
 	}
 	if got := maxActive.Load(); got != 1 {
 		t.Fatalf("max concurrent runs = %d, want 1", got)
+	}
+}
+
+func TestBaseCLIEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *testing.T) {
+	originalAcquire := acquireContainerLock
+	var lockAttempts atomic.Int32
+	acquireContainerLock = func() (*runLock, error) {
+		lockAttempts.Add(1)
+		return nil, errFlockUnavailable
+	}
+	t.Cleanup(func() {
+		acquireContainerLock = originalAcquire
+	})
+
+	engine := NewBaseCLIEngine("/usr/bin/podman", WithName(string(EngineTypePodman)))
+	_, firstCleanup, err := engine.PrepareRunCommand(t.Context(), RunOptions{Image: ImageTag("debian:stable-slim")})
+	if err != nil {
+		t.Fatalf("PrepareRunCommand() error = %v", err)
+	}
+	if firstCleanup == nil {
+		t.Fatal("PrepareRunCommand() cleanup = nil, want serialization cleanup")
+	}
+	defer func() {
+		if firstCleanup != nil {
+			firstCleanup()
+		}
+	}()
+
+	secondPrepared := make(chan struct{})
+	secondDone := make(chan struct{})
+	errCh := make(chan error, 1)
+	go func() {
+		close(secondPrepared)
+		_, secondCleanup, prepErr := engine.PrepareRunCommand(t.Context(), RunOptions{Image: ImageTag("debian:stable-slim")})
+		if secondCleanup != nil {
+			secondCleanup()
+		}
+		errCh <- prepErr
+		close(secondDone)
+	}()
+	<-secondPrepared
+
+	select {
+	case <-secondDone:
+		t.Fatal("second PrepareRunCommand returned before first cleanup released serialization")
+	case <-time.After(prepareCommandBlockedDuration):
+	}
+
+	firstCleanup()
+	firstCleanup = nil
+
+	select {
+	case <-secondDone:
+	case <-time.After(prepareCommandReleaseTimeout):
+		t.Fatal("second PrepareRunCommand did not return after first cleanup")
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("second PrepareRunCommand() error = %v", err)
+	}
+	if got := lockAttempts.Load(); got != 2 {
+		t.Fatalf("lock attempts = %d, want 2", got)
+	}
+}
+
+func TestBaseCLIEngine_PrepareRunCommandSkipsSerializationForDocker(t *testing.T) {
+	originalAcquire := acquireContainerLock
+	var lockAttempts atomic.Int32
+	acquireContainerLock = func() (*runLock, error) {
+		lockAttempts.Add(1)
+		return nil, errFlockUnavailable
+	}
+	t.Cleanup(func() {
+		acquireContainerLock = originalAcquire
+	})
+
+	engine := NewBaseCLIEngine("/usr/bin/docker", WithName(string(EngineTypeDocker)))
+	_, cleanup, err := engine.PrepareRunCommand(t.Context(), RunOptions{Image: ImageTag("debian:stable-slim")})
+	if err != nil {
+		t.Fatalf("PrepareRunCommand() error = %v", err)
+	}
+	if cleanup != nil {
+		t.Fatal("PrepareRunCommand() cleanup != nil for docker")
+	}
+	if got := lockAttempts.Load(); got != 0 {
+		t.Fatalf("lock attempts = %d, want 0", got)
 	}
 }
 

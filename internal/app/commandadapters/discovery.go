@@ -42,9 +42,10 @@ type (
 	discoveryRequestCache struct {
 		mu sync.Mutex
 
-		hasConfig bool
-		cfg       *config.Config
-		cfgDiags  []discovery.Diagnostic
+		hasConfig        bool
+		cfg              *config.Config
+		cfgDiags         []discovery.Diagnostic
+		cfgDiagsConsumed bool
 
 		hasCommandSet bool
 		commandSet    discovery.CommandSetResult
@@ -202,9 +203,23 @@ func prependModuleListDiagnostics(result discovery.ModuleListResult, cfgDiags []
 	return result
 }
 
+// LoadConfigForCommand loads the request config through the same cache used by
+// discovery, and marks config diagnostics as owned by the command service for
+// this request.
+func (s *DiscoveryService) LoadConfigForCommand(ctx context.Context) (*config.Config, []discovery.Diagnostic) {
+	cfg, cfgDiags := s.loadConfig(ctx)
+	if cache := discoveryCacheFromContext(ctx); cache != nil {
+		cache.mu.Lock()
+		cache.cfgDiagsConsumed = true
+		cache.mu.Unlock()
+	}
+	return cfg, cfgDiags
+}
+
 // DiscoverCommandSet discovers commands and prepends configuration diagnostics.
 func (s *DiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
 	cfg, cfgDiags := s.loadConfig(ctx)
+	cfgDiags = unconsumedConfigDiagnostics(ctx, cfgDiags)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		if cache.hasCommandSet {
@@ -232,6 +247,7 @@ func (s *DiscoveryService) DiscoverCommandSet(ctx context.Context) (discovery.Co
 // and prepends configuration diagnostics.
 func (s *DiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (discovery.CommandSetResult, error) {
 	cfg, cfgDiags := s.loadConfig(ctx)
+	cfgDiags = unconsumedConfigDiagnostics(ctx, cfgDiags)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		if cache.hasValidatedSet {
@@ -263,6 +279,7 @@ func (s *DiscoveryService) DiscoverAndValidateCommandSet(ctx context.Context) (d
 // DiscoverModules discovers modules and prepends configuration diagnostics.
 func (s *DiscoveryService) DiscoverModules(ctx context.Context) (discovery.ModuleListResult, error) {
 	cfg, cfgDiags := s.loadConfig(ctx)
+	cfgDiags = unconsumedConfigDiagnostics(ctx, cfgDiags)
 	result, err := s.newDiscovery(cfg).DiscoverModules()
 	return prependModuleListDiagnostics(result, cfgDiags), err
 }
@@ -272,6 +289,7 @@ func (s *DiscoveryService) DiscoverModules(ctx context.Context) (discovery.Modul
 //goplint:ignore -- command lookup name is received at the adapter boundary.
 func (s *DiscoveryService) GetCommand(ctx context.Context, name string) (discovery.LookupResult, error) {
 	cfg, cfgDiags := s.loadConfig(ctx)
+	cfgDiags = unconsumedConfigDiagnostics(ctx, cfgDiags)
 	if cache := discoveryCacheFromContext(ctx); cache != nil {
 		cache.mu.Lock()
 		if entry, ok := cache.lookups[name]; ok {
@@ -323,6 +341,21 @@ func (s *DiscoveryService) loadConfig(ctx context.Context) (*config.Config, []di
 	}
 
 	return cfg, diags
+}
+
+func unconsumedConfigDiagnostics(ctx context.Context, diags []discovery.Diagnostic) []discovery.Diagnostic {
+	if len(diags) == 0 {
+		return nil
+	}
+	if cache := discoveryCacheFromContext(ctx); cache != nil {
+		cache.mu.Lock()
+		consumed := cache.cfgDiagsConsumed
+		cache.mu.Unlock()
+		if consumed {
+			return nil
+		}
+	}
+	return diags
 }
 
 func (s *DiscoveryService) newDiscovery(cfg *config.Config) *discovery.Discovery {

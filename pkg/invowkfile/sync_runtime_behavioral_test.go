@@ -257,7 +257,7 @@ func TestBehavioralSync_GlobPattern(t *testing.T) {
 }
 
 // TestBehavioralSync_BinaryName verifies Go BinaryName.Validate() agrees with
-// CUE #ToolDependency.alternatives element constraint (=~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$").
+// CUE #ToolDependency.alternatives element constraint (regex + length).
 func TestBehavioralSync_BinaryName(t *testing.T) {
 	t.Parallel()
 	schema, ctx := getCUESchema(t)
@@ -275,6 +275,32 @@ func TestBehavioralSync_BinaryName(t *testing.T) {
 			{".hidden", false, false, ""},
 			{"-flag", false, false, ""},
 			{"has space", false, false, ""},
+			{"a" + strings.Repeat("b", 255), true, true, ""},
+			{"a" + strings.Repeat("b", 256), false, false, ""},
+		},
+	)
+}
+
+// TestBehavioralSync_CommandDependencyName verifies Go
+// ValidateCommandDependencyName agrees with CUE #CommandDependency.alternatives
+// element constraint (regex + length).
+func TestBehavioralSync_CommandDependencyName(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	runBehavioralSyncListElement(t, schema, ctx, "#CommandDependency", "alternatives",
+		func(s string) error { return ValidateCommandDependencyName(CommandName(s)) },
+		[]behavioralSyncCase{
+			{"build", true, true, ""},
+			{"test unit", true, true, ""},
+			{"deploy-prod", true, true, ""},
+			{"a", true, true, ""},
+			{"", false, false, ""},
+			{"123bad", false, false, ""},
+			{"-flag", false, false, ""},
+			{"_private", false, false, ""},
+			{"a" + strings.Repeat("b", 255), true, true, ""},
+			{"a" + strings.Repeat("b", 256), false, false, ""},
 		},
 	)
 }

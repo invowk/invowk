@@ -694,8 +694,13 @@ func (e *BaseCLIEngine) BuildRunArgs(opts RunOptions) []string {
 }
 
 // PrepareRunCommand creates a configured command for a container run.
-func (e *BaseCLIEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
-	return e.CreateCommand(ctx, e.BuildRunArgs(opts)...)
+func (e *BaseCLIEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error) {
+	if err := opts.Validate(); err != nil {
+		return nil, nil, err
+	}
+	cleanup := e.runSerializationCleanup()
+	cmd := e.CreateCommand(ctx, e.BuildRunArgs(opts)...)
+	return cmd, cleanup, nil
 }
 
 //goplint:ignore -- Docker/Podman inspect JSON boundary.

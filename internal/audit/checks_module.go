@@ -227,19 +227,14 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 	}
 
 	// Second scan: verify each vendored module itself is declared in requires.
-	// Match through the same source identity helper used by command scope wiring.
+	// Prefer lock-file identity when available; source names are only a
+	// lockless compatibility fallback.
 	for _, vendored := range mod.VendoredModules {
 		if vendored.Metadata == nil {
 			continue
 		}
-		vendoredID := invowkmod.ModuleSourceID(vendored.Metadata.Module) //goplint:ignore -- module metadata is already parsed and validated
-		found := false
-		for _, req := range mod.Module.Metadata.Requires {
-			if invowkmod.ModuleRef(req).MatchesSourceID(vendoredID) {
-				found = true
-				break
-			}
-		}
+		vendoredID := vendored.Metadata.Module
+		found := vendoredModuleDeclared(mod.Module.Metadata.Requires, mod.LockFile, vendoredID)
 		if !found {
 			findings = append(findings, Finding{
 				Code:           codeModuleMetadataVendoredNotDeclared,
@@ -256,6 +251,20 @@ func (c *ModuleMetadataChecker) checkUndeclaredTransitive(mod *ScannedModule) []
 	}
 
 	return findings
+}
+
+func vendoredModuleDeclared(requirements []invowkmod.ModuleRequirement, lock *invowkmod.LockFile, moduleID invowkmod.ModuleID) bool {
+	if lock != nil {
+		return invowkmod.IsDeclaredLockedModule(requirements, lock, moduleID)
+	}
+
+	vendoredSourceID := invowkmod.ModuleSourceID(moduleID) //goplint:ignore -- module metadata is already parsed and validated
+	for _, req := range requirements {
+		if invowkmod.ModuleRef(req).MatchesSourceID(vendoredSourceID) {
+			return true
+		}
+	}
+	return false
 }
 
 // levenshtein computes the Levenshtein edit distance between two strings.

@@ -17,6 +17,12 @@ var (
 // gate. Linux uses flock for cross-process protection; other platforms fall
 // back to a process-wide mutex.
 func WithRunLock(fn func() error) error {
+	cleanup := acquireRunLockCleanup()
+	defer cleanup()
+	return fn()
+}
+
+func acquireRunLockCleanup() func() {
 	lock, lockErr := acquireContainerLock()
 	if lockErr != nil {
 		if errors.Is(lockErr, errFlockUnavailable) {
@@ -25,11 +31,9 @@ func WithRunLock(fn func() error) error {
 			slog.Warn("flock acquisition failed, falling back to in-process mutex", "error", lockErr)
 		}
 		runFallbackMu.Lock()
-		defer runFallbackMu.Unlock()
-		return fn()
+		return runFallbackMu.Unlock
 	}
-	defer lock.Release()
-	return fn()
+	return lock.Release
 }
 
 func needsPodmanRunSerialization(engineName EngineType, sysctlOverrideActive bool) bool {
@@ -48,4 +52,11 @@ func (e *BaseCLIEngine) withRunSerialization(fn func() (*RunResult, error)) (*Ru
 		return runErr
 	})
 	return result, err
+}
+
+func (e *BaseCLIEngine) runSerializationCleanup() func() {
+	if !needsPodmanRunSerialization(EngineType(e.name), e.sysctlOverrideActive) { //goplint:ignore -- BaseCLIEngine names are initialized from EngineType constants
+		return nil
+	}
+	return acquireRunLockCleanup()
 }

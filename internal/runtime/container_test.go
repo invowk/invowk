@@ -252,11 +252,11 @@ func (m *MockEngine) BuildRunArgs(opts container.RunOptions) []string {
 	return args
 }
 
-func (m *MockEngine) PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd {
+func (m *MockEngine) PrepareRunCommand(ctx context.Context, opts container.RunOptions) (*exec.Cmd, func(), error) {
 	m.mu.Lock()
 	m.PrepareRunCalls = append(m.PrepareRunCalls, opts)
 	m.mu.Unlock()
-	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...)
+	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...), nil, nil
 }
 
 func (m *MockEngine) PrepareExecCommand(ctx context.Context, id container.ContainerID, command []string, opts container.RunOptions) *exec.Cmd {

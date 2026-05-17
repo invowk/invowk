@@ -160,14 +160,13 @@ func ValidateToolName(name BinaryName) error {
 }
 
 // ValidateCommandDependencyName validates a command dependency name.
-// [CUE-VALIDATED] Format validation is in CUE: alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"]
-// [GO-ONLY] Length limit (MaxNameLength) is Go-only for defense-in-depth.
+// [CUE-VALIDATED] Format and length validation are in CUE:
+// alternatives: [...string & strings.MaxRunes(256) & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"]
 func ValidateCommandDependencyName(name CommandName) error {
 	s := string(name)
 	if s == "" {
 		return errors.New("command name cannot be empty")
 	}
-	// [GO-ONLY] Length limit - not in CUE schema
 	if len(s) > MaxNameLength {
 		return fmt.Errorf("command name too long (%d chars, max %d)", len(s), MaxNameLength)
 	}

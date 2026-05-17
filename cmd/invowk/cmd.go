@@ -140,6 +140,9 @@ Examples:
 	// Skipping registration for unrelated invocations (e.g., --version, init)
 	// avoids startup-time discovery scans and CUE parsing.
 	if shouldRegisterDiscoveredCommands(os.Args[1:]) {
+		if configPath := explicitConfigPathFromArgs(os.Args[1:]); configPath != "" {
+			rootFlags.configPath = configPath
+		}
 		registerDiscoveredCommands(context.Background(), app, rootFlags, cmdFlags, cmdCmd)
 	}
 
@@ -246,6 +249,35 @@ func shouldRegisterDiscoveredCommands(args []string) bool {
 	default:
 		return false
 	}
+}
+
+// explicitConfigPathFromArgs extracts --ivk-config from raw argv before Cobra
+// parses flags, so dynamic command registration uses the same config path as
+// eventual command execution.
+//
+//goplint:ignore -- parses raw process argv tokens at CLI startup boundary.
+func explicitConfigPathFromArgs(args []string) string {
+	for i := range len(args) {
+		arg := args[i]
+		if arg == "--" {
+			return ""
+		}
+
+		switch {
+		case arg == "--ivk-config", arg == "-c":
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+			return ""
+		case strings.HasPrefix(arg, "--ivk-config="):
+			return strings.TrimPrefix(arg, "--ivk-config=")
+		case strings.HasPrefix(arg, "-c="):
+			return strings.TrimPrefix(arg, "-c=")
+		case strings.HasPrefix(arg, "-c") && len(arg) > 2:
+			return strings.TrimPrefix(arg, "-c")
+		}
+	}
+	return ""
 }
 
 // firstTopLevelToken extracts the first root-level command token from argv,

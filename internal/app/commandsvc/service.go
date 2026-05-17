@@ -555,5 +555,9 @@ func (s *Service) resolveDefinitions(req Request, cmdInfo *discovery.CommandInfo
 // loadConfig loads configuration via the configFallback callback. On failure it
 // returns defaults with diagnostics so callers stay operational.
 func (s *Service) loadConfig(ctx context.Context, configPath string) (cfg *config.Config, diags []Diagnostic) {
+	if discoveryConfig, ok := s.discovery.(ConfigAwareCommandDiscovery); ok {
+		cfg, discoveryDiags := discoveryConfig.LoadConfigForCommand(ctx)
+		return cfg, appendDiagnostics(nil, discoveryDiags...)
+	}
 	return s.configFallback(ctx, s.config, configPath)
 }

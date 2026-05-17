@@ -4,6 +4,9 @@ package cmd
 
 import (
 	"context"
+	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/invowk/invowk/internal/app/commandadapters"
@@ -11,7 +14,26 @@ import (
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
+	"github.com/invowk/invowk/pkg/types"
 )
+
+type countingFailingConfigProvider struct {
+	err   error
+	calls int
+}
+
+func (p *countingFailingConfigProvider) Load(context.Context, config.LoadOptions) (*config.Config, error) {
+	p.calls++
+	return nil, p.err
+}
+
+func (p *countingFailingConfigProvider) LoadWithSource(ctx context.Context, opts config.LoadOptions) (config.LoadResult, error) {
+	cfg, err := p.Load(ctx, opts)
+	if err != nil {
+		return config.LoadResult{}, err
+	}
+	return config.LoadResult{Config: cfg}, nil
+}
 
 // testConfigFallback wraps the application-service fallback for commandsvc.ConfigFallbackFunc.
 func testConfigFallback(ctx context.Context, provider config.Loader, configPath string) (cfg *config.Config, diags []commandsvc.Diagnostic) {
@@ -26,6 +48,65 @@ func testRuntimeRegistryFactory(t testing.TB) commandsvc.RuntimeRegistryCreator 
 		t.Fatalf("NewRuntimeRegistryFactory() error = %v", err)
 	}
 	return registryFactory
+}
+
+func TestResolveCommandLoadsConfigOnceAndReportsOneDiagnostic(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "missing-config.cue")
+	writeRuntimeTestInvowkfile(t, tmpDir)
+	provider := &countingFailingConfigProvider{err: os.ErrNotExist}
+	discoverySvc, err := commandadapters.NewDiscoveryServiceWithDirs(
+		provider,
+		types.FilesystemPath(tmpDir),
+		"",
+	)
+	if err != nil {
+		t.Fatalf("NewDiscoveryServiceWithDirs() error = %v", err)
+	}
+	app, err := NewApp(Dependencies{
+		Config:    provider,
+		Discovery: discoverySvc,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+
+	_, _, diags, err := app.Commands.ResolveCommand(t.Context(), ExecuteRequest{
+		Name:       "build",
+		ConfigPath: types.FilesystemPath(configPath),
+	})
+	if err != nil {
+		t.Fatalf("ResolveCommand() error = %v", err)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("config load calls = %d, want 1", provider.calls)
+	}
+	if len(diags) != 1 {
+		t.Fatalf("diagnostics = %d, want 1: %#v", len(diags), diags)
+	}
+	if diags[0].Code() != discovery.DiagnosticCode(commandsvc.DiagnosticCodeConfigLoadFailed) {
+		t.Fatalf("diagnostic code = %q, want %q", diags[0].Code(), commandsvc.DiagnosticCodeConfigLoadFailed)
+	}
+}
+
+func writeRuntimeTestInvowkfile(t testing.TB, dir string) {
+	t.Helper()
+
+	content := `cmds: [{
+	name: "build"
+	description: "Build command"
+	implementations: [{
+		script: "echo build"
+		runtimes: [{name: "virtual"}]
+		platforms: [{name: "linux"}, {name: "macos"}, {name: "windows"}]
+	}]
+}]
+`
+	if err := os.WriteFile(filepath.Join(dir, "invowkfile.cue"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write invowkfile: %v", err)
+	}
 }
 
 // buildDualRuntimeCommand creates a command with both native and virtual runtimes

@@ -188,7 +188,9 @@ type (
 		BuildRunArgs(opts RunOptions) []string
 
 		// PrepareRunCommand creates a configured command for a container run.
-		PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd
+		// The returned cleanup releases any resources held for the command's
+		// lifetime and must run after the caller has waited for the process.
+		PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error)
 	}
 
 	//goplint:validate-all

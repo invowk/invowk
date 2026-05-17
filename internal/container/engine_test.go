@@ -65,8 +65,8 @@ func (e fakeDiscoveryEngine) BinaryPath() string { return "/bin/" + e.name }
 
 func (e fakeDiscoveryEngine) BuildRunArgs(RunOptions) []string { return []string{"run"} }
 
-func (e fakeDiscoveryEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
-	return exec.CommandContext(ctx, e.BinaryPath(), e.BuildRunArgs(opts)...)
+func (e fakeDiscoveryEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error) {
+	return exec.CommandContext(ctx, e.BinaryPath(), e.BuildRunArgs(opts)...), nil, nil
 }
 
 func (e fakeDiscoveryEngine) PrepareExecCommand(ctx context.Context, id ContainerID, command []string, _ RunOptions) *exec.Cmd {

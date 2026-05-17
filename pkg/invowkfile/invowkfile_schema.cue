@@ -192,7 +192,7 @@ import "strings"
 	// If any of the provided tools is found in PATH, the validation succeeds (early return).
 	// This allows specifying multiple possible tools (e.g., ["podman", "docker"]).
 	// Tool names must be valid binary names: alphanumeric, can include . _ + -
-	alternatives: [...string & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"] & [_, ...]
+	alternatives: [...string & strings.MaxRunes(256) & =~"^[a-zA-Z0-9][a-zA-Z0-9._+-]*$"] & [_, ...]
 })
 
 // CustomCheck represents a custom validation script to verify system requirements
@@ -251,7 +251,7 @@ import "strings"
 	// If any of the provided commands is discoverable, the dependency is satisfied (early return).
 	// This allows specifying alternative commands (e.g., ["build-debug", "build-release"]).
 	// Command names must be valid: starts with letter, can include letters, digits, underscores, hyphens, and spaces
-	alternatives: [...string & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"] & [_, ...]
+	alternatives: [...string & strings.MaxRunes(256) & =~"^[a-zA-Z][a-zA-Z0-9_ -]*$"] & [_, ...]
 })
 
 // CapabilityName defines the supported system capability types

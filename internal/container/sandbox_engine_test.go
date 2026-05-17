@@ -8,7 +8,9 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/invowk/invowk/pkg/platform"
 )
@@ -53,8 +55,8 @@ func (m *mockEngine) BuildRunArgs(_ RunOptions) []string {
 	return []string{"run", "--rm", "debian:stable-slim", "echo", "hello"}
 }
 
-func (m *mockEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) *exec.Cmd {
-	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...)
+func (m *mockEngine) PrepareRunCommand(ctx context.Context, opts RunOptions) (*exec.Cmd, func(), error) {
+	return exec.CommandContext(ctx, m.BinaryPath(), m.BuildRunArgs(opts)...), nil, nil
 }
 
 func (m *mockEngine) Build(_ context.Context, _ BuildOptions) error {
@@ -139,6 +141,73 @@ func TestSandboxAwareEngine_Flatpak(t *testing.T) {
 
 	if !slices.Equal(args, expected) {
 		t.Errorf("BuildRunArgs() = %v, want %v", args, expected)
+	}
+}
+
+func TestSandboxAwareEngine_PrepareRunCommandHoldsSerializationUntilCleanup(t *testing.T) {
+	originalAcquire := acquireContainerLock
+	var lockAttempts atomic.Int32
+	acquireContainerLock = func() (*runLock, error) {
+		lockAttempts.Add(1)
+		return nil, errFlockUnavailable
+	}
+	t.Cleanup(func() {
+		acquireContainerLock = originalAcquire
+	})
+
+	mock := &mockEngine{
+		name:       string(EngineTypePodman),
+		available:  true,
+		binaryPath: "/usr/bin/podman",
+		buildArgs:  []string{"run", "--rm", "debian:stable-slim"},
+	}
+	engine := newSandboxAwareEngineForTesting(mock, platform.SandboxFlatpak)
+	_, firstCleanup, err := engine.PrepareRunCommand(t.Context(), RunOptions{Image: ImageTag("debian:stable-slim")})
+	if err != nil {
+		t.Fatalf("PrepareRunCommand() error = %v", err)
+	}
+	if firstCleanup == nil {
+		t.Fatal("PrepareRunCommand() cleanup = nil, want serialization cleanup")
+	}
+	defer func() {
+		if firstCleanup != nil {
+			firstCleanup()
+		}
+	}()
+
+	secondPrepared := make(chan struct{})
+	secondDone := make(chan struct{})
+	errCh := make(chan error, 1)
+	go func() {
+		close(secondPrepared)
+		_, secondCleanup, prepErr := engine.PrepareRunCommand(t.Context(), RunOptions{Image: ImageTag("debian:stable-slim")})
+		if secondCleanup != nil {
+			secondCleanup()
+		}
+		errCh <- prepErr
+		close(secondDone)
+	}()
+	<-secondPrepared
+
+	select {
+	case <-secondDone:
+		t.Fatal("second PrepareRunCommand returned before first cleanup released serialization")
+	case <-time.After(prepareCommandBlockedDuration):
+	}
+
+	firstCleanup()
+	firstCleanup = nil
+
+	select {
+	case <-secondDone:
+	case <-time.After(prepareCommandReleaseTimeout):
+		t.Fatal("second PrepareRunCommand did not return after first cleanup")
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("second PrepareRunCommand() error = %v", err)
+	}
+	if got := lockAttempts.Load(); got != 2 {
+		t.Fatalf("lock attempts = %d, want 2", got)
 	}
 }
 
