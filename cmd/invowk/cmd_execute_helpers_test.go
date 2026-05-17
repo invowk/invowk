@@ -42,43 +42,55 @@ func (s *fakeAmbiguityCommandService) ResolveFromSource(_ context.Context, req E
 	return &discovery.CommandInfo{Name: "build", SimpleName: "build"}, req, nil, nil
 }
 
-// TestCreateRuntimeRegistry_SingleContainerInstance verifies that registry setup
-// creates at most one ContainerRuntime instance per execution so cleanup and
-// provisioning state stay scoped to that execution.
-func TestCreateRuntimeRegistry_SingleContainerInstance(t *testing.T) {
+// TestCreateRuntimeSession_ContainerInitializationIsScoped verifies that
+// runtime setup returns independent sessions so cleanup and provisioning state
+// stay scoped to each execution.
+func TestCreateRuntimeSession_ContainerInitializationIsScoped(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
-	result := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
-	defer result.Cleanup()
+	session := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
+	defer session.Close()
 
-	// If the container engine is available, verify it's registered exactly once
-	// by retrieving it and confirming it's a *ContainerRuntime.
-	rt, err := result.Registry.Get(runtime.RuntimeTypeContainer)
-	if err != nil {
+	if session.NewExecutionID() == "" {
+		t.Fatal("Create() returned a session that cannot create execution IDs")
+	}
+	if err := session.ContainerInitErr(); err != nil {
 		// Container engine not available in this environment — the invariant
 		// is trivially satisfied (zero instances).
 		t.Logf("container runtime not available: %v (invariant trivially satisfied)", err)
 		return
 	}
 
-	if _, ok := rt.(*runtime.ContainerRuntime); !ok {
-		t.Fatalf("expected *runtime.ContainerRuntime, got %T", rt)
-	}
-
-	// Verify that calling CreateRuntimeRegistry a second time does not share
-	// state with the first registry (each call creates its own instance).
-	result2 := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
-	defer result2.Cleanup()
-
-	rt2, err := result2.Registry.Get(runtime.RuntimeTypeContainer)
-	if err != nil {
+	session2 := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
+	defer session2.Close()
+	if session2.ContainerInitErr() != nil {
+		t.Logf("second container session unavailable: %v", session2.ContainerInitErr())
 		return
 	}
 
-	if rt == rt2 {
-		t.Fatal("two CreateRuntimeRegistry calls returned the same ContainerRuntime pointer — instances must be independent")
+	if session == session2 {
+		t.Fatal("two Create calls returned the same runtime session")
 	}
+}
+
+func runtimeContextForMode(t testing.TB, mode invowkfile.RuntimeMode) *runtime.ExecutionContext {
+	t.Helper()
+
+	inv := &invowkfile.Invowkfile{
+		Commands: []invowkfile.Command{{
+			Name: "hello",
+			Implementations: []invowkfile.Implementation{{
+				Script:    "true",
+				Runtimes:  []invowkfile.RuntimeConfig{{Name: mode}},
+				Platforms: invowkfile.AllPlatformConfigs(),
+			}},
+		}},
+	}
+	ctx := runtime.NewExecutionContext(t.Context(), &inv.Commands[0], inv)
+	ctx.SelectedRuntime = mode
+	ctx.SelectedImpl = &inv.Commands[0].Implementations[0]
+	return ctx
 }
 
 func newTestHostAccess(t testing.TB) *commandadapters.HostAccess {

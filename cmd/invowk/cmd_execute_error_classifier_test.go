@@ -115,45 +115,60 @@ func TestRenderAndWrapServiceError_ClassifiedError(t *testing.T) {
 	}
 }
 
-func TestCreateRuntimeRegistryWithDiagnostics(t *testing.T) {
+func TestCreateRuntimeSessionWithDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.DefaultConfig()
 	cfg.ContainerEngine = "not-a-real-engine"
 
-	result := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
-	defer result.Cleanup()
+	session := commandadapters.RuntimeRegistryFactory{}.Create(cfg, newTestHostAccess(t), invowkfile.RuntimeContainer)
+	defer session.Close()
 
-	if result.Registry == nil {
-		t.Fatal("CreateRuntimeRegistry() returned nil registry")
+	if session.NewExecutionID() == "" {
+		t.Fatal("Create() returned session without execution IDs")
 	}
 
-	if result.ContainerInitErr == nil {
-		t.Fatal("CreateRuntimeRegistry() should return container init error for invalid engine")
+	if session.ContainerInitErr() == nil {
+		t.Fatal("Create() should return container init error for invalid engine")
 	}
 
-	if len(result.Diagnostics) == 0 {
-		t.Fatal("CreateRuntimeRegistry() should return diagnostics for invalid engine")
+	diagnostics := session.Diagnostics()
+	if len(diagnostics) == 0 {
+		t.Fatal("Create() should return diagnostics for invalid engine")
 	}
 
 	foundInitDiag := false
-	for _, diag := range result.Diagnostics {
+	for _, diag := range diagnostics {
 		if diag.Code() == "container_runtime_init_failed" {
 			foundInitDiag = true
 			break
 		}
 	}
 	if !foundInitDiag {
-		t.Fatalf("expected container_runtime_init_failed diagnostic, got %#v", result.Diagnostics)
+		t.Fatalf("expected container_runtime_init_failed diagnostic, got %#v", diagnostics)
 	}
 
-	if _, err := result.Registry.Get(runtime.RuntimeTypeNative); err != nil {
-		t.Fatalf("native runtime should be registered: %v", err)
+	nativeResult, _, err := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeNative), "", false, nil)
+	if err != nil {
+		t.Fatalf("native Execute() error = %v", err)
 	}
-	if _, err := result.Registry.Get(runtime.RuntimeTypeVirtual); err != nil {
-		t.Fatalf("virtual runtime should be registered: %v", err)
+	if !nativeResult.Success() {
+		t.Fatalf("native Execute() result = %#v, want success", nativeResult)
 	}
-	if _, err := result.Registry.Get(runtime.RuntimeTypeContainer); err == nil {
-		t.Fatal("container runtime should not be registered when initialization fails")
+
+	virtualResult, _, err := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeVirtual), "", false, nil)
+	if err != nil {
+		t.Fatalf("virtual Execute() error = %v", err)
+	}
+	if !virtualResult.Success() {
+		t.Fatalf("virtual Execute() result = %#v, want success", virtualResult)
+	}
+
+	containerResult, _, err := session.Execute(runtimeContextForMode(t, invowkfile.RuntimeContainer), "", false, nil)
+	if err != nil {
+		t.Fatalf("container Execute() error = %v", err)
+	}
+	if !errors.Is(containerResult.Error, runtime.ErrRuntimeNotAvailable) {
+		t.Fatalf("container Execute() error = %v, want ErrRuntimeNotAvailable", containerResult.Error)
 	}
 }

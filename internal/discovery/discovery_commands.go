@@ -235,14 +235,12 @@ func (d *Discovery) DiscoverCommandSet(ctx context.Context) (CommandSetResult, e
 		case isModule:
 			// From a module: keep stable module identity separate from the
 			// command source namespace used for publishing and collision handling.
-			modID := file.Invowkfile.GetModule()
-			if file.CommandNamespace != "" {
-				sourceID = SourceID(file.CommandNamespace)
-			} else if alias := d.getAliasForModulePath(file.Module.Path); alias != "" {
-				sourceID = SourceID(alias)
-			} else {
-				sourceID = SourceID(getModuleShortName(file.Module.Path))
+			source, ok := d.commandSourceFor(file)
+			if !ok {
+				continue
 			}
+			sourceID = source.SourceID
+			modID := source.ModuleID
 			moduleID = &modID
 		default:
 			// Non-module source: root invowkfile in current directory

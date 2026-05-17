@@ -3,10 +3,12 @@
 package commandadapters
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
 	"github.com/invowk/invowk/internal/app/commandsvc"
+	"github.com/invowk/invowk/internal/app/deps"
 	"github.com/invowk/invowk/internal/config"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
@@ -19,6 +21,15 @@ import (
 type (
 	RuntimeRegistryFactory struct {
 		containerRuntimeFactory func(*config.Config) (*runtime.ContainerRuntime, error)
+	}
+
+	//goplint:ignore -- private adapter session owns infrastructure handles rather than domain invariants.
+	runtimeSession struct {
+		registry               *runtime.Registry
+		cleanup                func()
+		diagnostics            []commandsvc.Diagnostic
+		containerInitErr       error
+		dependencyProbeFactory dependencyRuntimeProbeFactory
 	}
 
 	sshServerProvider interface {
@@ -51,7 +62,7 @@ func (RuntimeRegistryFactory) Validate() error {
 // container execution. Runtime-level fallback serialization is process-wide,
 // but one runtime instance still keeps registry cleanup and provisioning state
 // scoped to a single execution.
-func (f RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc.HostAccess, selectedRuntime invowkfile.RuntimeMode) commandsvc.RuntimeRegistryResult {
+func (f RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc.HostAccess, selectedRuntime invowkfile.RuntimeMode) commandsvc.RuntimeSession {
 	var hostCallbacks runtime.HostCallbackServer
 	if provider, ok := hostAccess.(sshServerProvider); ok && hostAccess.Running() {
 		hostCallbacks = provider.SSHServer()
@@ -61,20 +72,21 @@ func (f RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc
 		cfg = config.DefaultConfig()
 	}
 
-	result := commandsvc.RuntimeRegistryResult{
-		Registry: runtime.NewRegistry(),
-		Cleanup: func() {
+	session := &runtimeSession{
+		registry: runtime.NewRegistry(),
+		cleanup: func() {
 			// Native and virtual runtimes do not allocate registry resources.
 		},
+		dependencyProbeFactory: NewDependencyRuntimeProbeFactory(),
 	}
-	result.Registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
-	result.Registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(
+	session.registry.Register(runtime.RuntimeTypeNative, runtime.NewNativeRuntime())
+	session.registry.Register(runtime.RuntimeTypeVirtual, runtime.NewVirtualRuntime(
 		cfg.VirtualShell.EnableUrootUtils,
 		runtime.WithInteractiveCommandFactory(virtualInteractiveCommand),
 	))
 
 	if !shouldInitializeContainerRuntime(selectedRuntime) {
-		return result
+		return session
 	}
 
 	factory := f.containerRuntimeFactory
@@ -85,27 +97,77 @@ func (f RuntimeRegistryFactory) Create(cfg *config.Config, hostAccess commandsvc
 	}
 	containerRT, err := factory(cfg)
 	if err != nil {
-		result.ContainerInitErr = err
-		result.Diagnostics = commandsvc.BridgeRuntimeDiagnostics([]runtime.InitDiagnostic{{
+		session.containerInitErr = err
+		session.diagnostics = commandsvc.BridgeRuntimeDiagnostics([]runtime.InitDiagnostic{{
 			Code:    runtime.CodeContainerRuntimeInitFailed,
 			Message: fmt.Sprintf("container runtime unavailable: %v", err),
 			Cause:   err,
 		}})
-		return result
+		return session
 	}
 
 	if hostCallbacks != nil && hostCallbacks.IsRunning() {
 		containerRT.SetHostCallbacks(hostCallbacks)
 	}
-	result.Registry.Register(runtime.RuntimeTypeContainer, containerRT)
-	result.Cleanup = func() {
+	session.registry.Register(runtime.RuntimeTypeContainer, containerRT)
+	session.cleanup = func() {
 		if closeErr := containerRT.Close(); closeErr != nil {
 			slog.Warn("container runtime cleanup failed", "error", closeErr)
 		}
 	}
-	return result
+	return session
 }
 
 func shouldInitializeContainerRuntime(selectedRuntime invowkfile.RuntimeMode) bool {
 	return selectedRuntime == "" || selectedRuntime == invowkfile.RuntimeContainer
+}
+
+func (s *runtimeSession) NewExecutionID() runtime.ExecutionID {
+	return s.registry.NewExecutionID()
+}
+
+func (s *runtimeSession) Validate() error {
+	var errs []error
+	for i := range s.diagnostics {
+		errs = append(errs, s.diagnostics[i].Validate())
+	}
+	return errors.Join(errs...)
+}
+
+func (s *runtimeSession) Diagnostics() []commandsvc.Diagnostic {
+	return s.diagnostics
+}
+
+func (s *runtimeSession) ContainerInitErr() error {
+	return s.containerInitErr
+}
+
+func (s *runtimeSession) DependencyProbe(execCtx *runtime.ExecutionContext) deps.RuntimeDependencyProbe {
+	return s.dependencyProbeFactory.Create(s.registry, execCtx)
+}
+
+func (s *runtimeSession) Execute(execCtx *runtime.ExecutionContext, cmdName invowkfile.CommandName, interactive bool, interactiveExecutor commandsvc.InteractiveExecutor) (*runtime.Result, invowkfile.RuntimeMode, error) {
+	if !interactive {
+		return s.registry.Execute(execCtx), "", nil
+	}
+
+	rt, err := s.registry.GetForContext(execCtx)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get runtime: %w", err)
+	}
+
+	if interactiveRT, ok := rt.(commandsvc.RuntimeInteractiveCommand); ok {
+		if interactiveExecutor == nil {
+			return &runtime.Result{ExitCode: 1, Error: commandsvc.ErrInteractiveExecutorNotConfigured}, "", nil
+		}
+		return interactiveExecutor.Execute(execCtx, cmdName, interactiveRT), "", nil
+	}
+
+	return s.registry.Execute(execCtx), invowkfile.RuntimeMode(rt.Name()), nil //goplint:ignore -- runtime names are registered from runtime mode constants.
+}
+
+func (s *runtimeSession) Close() {
+	if s.cleanup != nil {
+		s.cleanup()
+	}
 }

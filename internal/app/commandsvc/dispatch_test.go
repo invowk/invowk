@@ -41,15 +41,14 @@ type (
 		called int
 	}
 
-	recordingExecutionObserver struct {
-		startedCommand       invowkfile.CommandName
-		interactiveFallback  invowkfile.RuntimeMode
-		commandStartingCalls int
-		fallbackCalls        int
-	}
-
 	staticRuntimeRegistryFactory struct {
 		registry *runtimepkg.Registry
+	}
+
+	testRuntimeSession struct {
+		registry         *runtimepkg.Registry
+		diagnostics      []Diagnostic
+		containerInitErr error
 	}
 )
 
@@ -80,7 +79,7 @@ func (s *stubInteractiveRuntime) PrepareInteractive(execCtx *runtimepkg.Executio
 	return &runtimepkg.PreparedCommand{Cmd: exec.CommandContext(execCtx.Context, shellPath, shellArgs...)}, nil
 }
 
-func (s *stubInteractiveExecutor) Execute(execCtx *runtimepkg.ExecutionContext, _ invowkfile.CommandName, interactiveRT runtimepkg.InteractiveRuntime) *runtimepkg.Result {
+func (s *stubInteractiveExecutor) Execute(execCtx *runtimepkg.ExecutionContext, _ invowkfile.CommandName, interactiveRT RuntimeInteractiveCommand) *runtimepkg.Result {
 	s.called++
 	if s.result != nil {
 		return s.result
@@ -94,17 +93,7 @@ func (s *stubInteractiveExecutor) Execute(execCtx *runtimepkg.ExecutionContext, 
 	return &runtimepkg.Result{ExitCode: 0}
 }
 
-func (o *recordingExecutionObserver) CommandStarting(name invowkfile.CommandName) {
-	o.startedCommand = name
-	o.commandStartingCalls++
-}
-
-func (o *recordingExecutionObserver) InteractiveFallback(runtimeName invowkfile.RuntimeMode) {
-	o.interactiveFallback = runtimeName
-	o.fallbackCalls++
-}
-
-func (f staticRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeRegistryResult {
+func (f staticRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkfile.RuntimeMode) RuntimeSession {
 	registry := f.registry
 	if registry == nil {
 		registry = runtimepkg.NewRegistry()
@@ -112,8 +101,43 @@ func (f staticRuntimeRegistryFactory) Create(*config.Config, HostAccess, invowkf
 		registry.Register(runtimepkg.RuntimeTypeVirtual, runtimepkg.NewVirtualRuntime(true))
 		registry.Register(runtimepkg.RuntimeTypeContainer, &stubRuntime{name: string(invowkfile.RuntimeContainer)})
 	}
-	return RuntimeRegistryResult{Registry: registry, Cleanup: func() {}}
+	return &testRuntimeSession{registry: registry}
 }
+
+func (s *testRuntimeSession) NewExecutionID() runtimepkg.ExecutionID {
+	return s.registry.NewExecutionID()
+}
+
+func (s *testRuntimeSession) Diagnostics() []Diagnostic {
+	return s.diagnostics
+}
+
+func (s *testRuntimeSession) ContainerInitErr() error {
+	return s.containerInitErr
+}
+
+func (*testRuntimeSession) DependencyProbe(*runtimepkg.ExecutionContext) deps.RuntimeDependencyProbe {
+	return nil
+}
+
+func (s *testRuntimeSession) Execute(execCtx *runtimepkg.ExecutionContext, cmdName invowkfile.CommandName, interactive bool, interactiveExecutor InteractiveExecutor) (*runtimepkg.Result, invowkfile.RuntimeMode, error) {
+	if !interactive {
+		return s.registry.Execute(execCtx), "", nil
+	}
+	rt, err := s.registry.GetForContext(execCtx)
+	if err != nil {
+		return nil, "", err
+	}
+	if interactiveRT, ok := rt.(RuntimeInteractiveCommand); ok {
+		if interactiveExecutor == nil {
+			return &runtimepkg.Result{ExitCode: 1, Error: ErrInteractiveExecutorNotConfigured}, "", nil
+		}
+		return interactiveExecutor.Execute(execCtx, cmdName, interactiveRT), "", nil
+	}
+	return s.registry.Execute(execCtx), invowkfile.RuntimeMode(rt.Name()), nil //goplint:ignore -- test runtime name controls expected observer metadata.
+}
+
+func (*testRuntimeSession) Close() {}
 
 func TestDispatchExecution_Success(t *testing.T) {
 	t.Parallel()
@@ -178,7 +202,7 @@ func TestDispatchExecution_DependencyError(t *testing.T) {
 	}
 }
 
-func TestAppendRuntimeRegistryDiagnostics(t *testing.T) {
+func TestAppendRuntimeSessionDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	diag, err := NewDiagnosticWithCause(DiagnosticSeverityWarning, DiagnosticCodeConfigLoadFailed, "warn", "", nil)
@@ -187,17 +211,17 @@ func TestAppendRuntimeRegistryDiagnostics(t *testing.T) {
 	}
 
 	base := []Diagnostic{}
-	result := appendRuntimeRegistryDiagnostics(base, Request{Verbose: true}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual}, RuntimeRegistryResult{Diagnostics: []Diagnostic{diag}})
+	result := appendRuntimeSessionDiagnostics(base, Request{Verbose: true}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual}, &testRuntimeSession{diagnostics: []Diagnostic{diag}})
 	if len(result) != 1 {
 		t.Fatalf("len(result) = %d, want 1", len(result))
 	}
 
-	result = appendRuntimeRegistryDiagnostics(base, Request{}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeContainer}, RuntimeRegistryResult{Diagnostics: []Diagnostic{diag}})
+	result = appendRuntimeSessionDiagnostics(base, Request{}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeContainer}, &testRuntimeSession{diagnostics: []Diagnostic{diag}})
 	if len(result) != 1 {
 		t.Fatalf("len(result) = %d, want 1", len(result))
 	}
 
-	result = appendRuntimeRegistryDiagnostics(base, Request{}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual}, RuntimeRegistryResult{Diagnostics: []Diagnostic{diag}})
+	result = appendRuntimeSessionDiagnostics(base, Request{}, &runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual}, &testRuntimeSession{diagnostics: []Diagnostic{diag}})
 	if len(result) != 0 {
 		t.Fatalf("len(result) = %d, want 0", len(result))
 	}
@@ -270,10 +294,10 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
 		svc := &Service{}
-		result, err := svc.executeWithRequestedMode(
+		result, _, err := svc.executeWithRequestedMode(
 			Request{Interactive: false},
 			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual},
-			registry,
+			&testRuntimeSession{registry: registry},
 		)
 		if err != nil {
 			t.Fatalf("executeWithRequestedMode() error = %v", err)
@@ -290,12 +314,11 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		rt := &stubRuntime{name: "stub", executeResult: &runtimepkg.Result{ExitCode: 3}}
 		registry.Register(runtimepkg.RuntimeTypeVirtual, rt)
 
-		observer := &recordingExecutionObserver{}
-		svc := &Service{observer: observer}
-		result, err := svc.executeWithRequestedMode(
+		svc := &Service{}
+		result, interactiveFallback, err := svc.executeWithRequestedMode(
 			Request{Interactive: true, Verbose: true},
 			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual},
-			registry,
+			&testRuntimeSession{registry: registry},
 		)
 		if err != nil {
 			t.Fatalf("executeWithRequestedMode() error = %v", err)
@@ -303,11 +326,8 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 		if result.ExitCode != 3 || rt.executeCalled != 1 {
 			t.Fatalf("result=%v executeCalled=%d", result, rt.executeCalled)
 		}
-		if observer.fallbackCalls != 1 {
-			t.Fatalf("fallback calls = %d, want 1", observer.fallbackCalls)
-		}
-		if observer.interactiveFallback != "stub" {
-			t.Fatalf("interactive fallback runtime = %q, want %q", observer.interactiveFallback, "stub")
+		if interactiveFallback != "stub" {
+			t.Fatalf("interactive fallback runtime = %q, want %q", interactiveFallback, "stub")
 		}
 	})
 
@@ -324,10 +344,10 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 
 		executor := &stubInteractiveExecutor{}
 		svc := &Service{interactive: executor}
-		result, err := svc.executeWithRequestedMode(
+		result, _, err := svc.executeWithRequestedMode(
 			Request{Interactive: true},
 			&runtimepkg.ExecutionContext{SelectedRuntime: invowkfile.RuntimeVirtual, Context: t.Context()},
-			registry,
+			&testRuntimeSession{registry: registry},
 		)
 		if err != nil {
 			t.Fatalf("executeWithRequestedMode() error = %v", err)
@@ -354,14 +374,14 @@ func TestExecuteWithRequestedMode(t *testing.T) {
 
 		executor := &stubInteractiveExecutor{}
 		svc := &Service{interactive: executor}
-		result, err := svc.executeWithRequestedMode(
+		result, _, err := svc.executeWithRequestedMode(
 			Request{Interactive: true},
 			&runtimepkg.ExecutionContext{
 				SelectedRuntime: invowkfile.RuntimeVirtual,
 				Context:         t.Context(),
 				TUI:             runtimepkg.TUIContext{},
 			},
-			registry,
+			&testRuntimeSession{registry: registry},
 		)
 		if err != nil {
 			t.Fatalf("executeWithRequestedMode() error = %v", err)

@@ -225,9 +225,11 @@ func TestLLMChecker_Check_PartialBatchFailure(t *testing.T) {
 	sc := buildTestScanContext(t, scripts)
 
 	findings, err := checker.Check(t.Context(), sc)
-	// Partial success: should return findings from successful batches without error.
-	if err != nil {
-		t.Fatalf("expected partial success (nil error), got %v", err)
+	if err == nil {
+		t.Fatal("expected partial batch failure error, got nil")
+	}
+	if !errors.Is(err, ErrLLMRequestFailed) {
+		t.Fatalf("Check() error = %v, want ErrLLMRequestFailed", err)
 	}
 	if len(findings) == 0 {
 		t.Error("expected some findings from successful batches")

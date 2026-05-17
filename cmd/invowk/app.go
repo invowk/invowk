@@ -148,7 +148,6 @@ func NewApp(d Dependencies) (*App, error) {
 			commandsvc.NewPorts(
 				hostAccess,
 				registryFactory,
-				commandadapters.NewDependencyRuntimeProbeFactory(),
 				interactiveExecutor,
 				&cliExecutionObserver{stdout: d.Stdout},
 				requestScope.Begin,

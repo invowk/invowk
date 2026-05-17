@@ -122,6 +122,42 @@ func TestColorScheme_Validate(t *testing.T) {
 	}
 }
 
+func TestLLMTimeout_Validate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		timeout LLMTimeout
+		wantErr bool
+	}{
+		{name: "empty default", timeout: ""},
+		{name: "positive duration", timeout: "2m30s"},
+		{name: "malformed", timeout: "soon", wantErr: true},
+		{name: "zero", timeout: "0s", wantErr: true},
+		{name: "negative", timeout: "-1s", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.timeout.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("LLMTimeout(%q).Validate() returned nil, want error", tt.timeout)
+				}
+				if !errors.Is(err, ErrInvalidLLMTimeout) {
+					t.Fatalf("LLMTimeout(%q).Validate() error = %v, want ErrInvalidLLMTimeout", tt.timeout, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("LLMTimeout(%q).Validate() error = %v, want nil", tt.timeout, err)
+			}
+		})
+	}
+}
+
 func TestModuleIncludePath_Validate(t *testing.T) {
 	t.Parallel()
 

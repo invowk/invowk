@@ -301,6 +301,16 @@ func TestLLMSchemaConstraints(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "valid timeout accepted",
+			cueData: `llm: {timeout: "2m30s"}`,
+			wantErr: false,
+		},
+		{
+			name:    "malformed timeout rejected",
+			cueData: `llm: {timeout: "soon"}`,
+			wantErr: true,
+		},
+		{
 			name:    "valid api key env accepted",
 			cueData: `llm: {api: {api_key_env: "OPENAI_API_KEY"}}`,
 			wantErr: false,

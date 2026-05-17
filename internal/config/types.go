@@ -569,11 +569,8 @@ func (t LLMTimeout) String() string { return string(t) }
 
 // Duration parses the timeout into a duration. The zero value returns 0.
 func (t LLMTimeout) Duration() (time.Duration, error) {
-	if t == "" {
-		return 0, nil
-	}
-	d, err := time.ParseDuration(string(t))
-	if err != nil || d <= 0 {
+	d, err := types.OptionalPositiveDurationString(t).Duration()
+	if err != nil {
 		return 0, &InvalidLLMTimeoutError{Value: t}
 	}
 	return d, nil

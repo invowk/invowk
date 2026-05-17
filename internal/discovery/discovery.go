@@ -72,6 +72,15 @@ type (
 
 	// Option configures a Discovery instance via the functional options pattern.
 	Option func(*Discovery)
+
+	//goplint:ignore -- private collision-check DTO assembled from already parsed module metadata.
+	commandSourceIdentity struct {
+		ModuleID             invowkmod.ModuleID
+		SourceID             SourceID
+		SourcePath           string //goplint:ignore -- diagnostic display path may include vendored annotations.
+		SourceKind           ModuleCollisionSourceKind
+		ExplicitCommandScope bool
+	}
 )
 
 // String returns the source kind as a string.
@@ -85,6 +94,15 @@ func (k ModuleCollisionSourceKind) Validate() error {
 	default:
 		return fmt.Errorf("invalid module collision source kind %q", k)
 	}
+}
+
+// Validate returns nil when the command source identity's typed fields are valid.
+func (i commandSourceIdentity) Validate() error {
+	return errors.Join(
+		i.ModuleID.Validate(),
+		i.SourceID.Validate(),
+		i.SourceKind.Validate(),
+	)
 }
 
 // Error implements the error interface.
@@ -220,72 +238,103 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 	return file, nil
 }
 
-// CheckModuleCollisions checks for module ID collisions among discovered files.
-// It returns a ModuleCollisionError if two modules have the same module identifier
-// and neither has an alias configured via includes.
+// CheckModuleCollisions checks for module identity and command-source collisions
+// among discovered files. Duplicate module identities remain a hard collision
+// unless an explicit command namespace/alias disambiguates them; duplicate
+// command source IDs always collide because they publish into the same command
+// namespace.
 func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
-	// Map effective command namespaces to their source paths for collision detection.
+	// Map module identities separately from command source IDs so stable module
+	// identity policy and command-publication namespace policy cannot drift.
 	// Values are display strings (may include annotations like "vendored in ...").
-	moduleSources := make(map[SourceID]string)
+	moduleSources := make(map[invowkmod.ModuleID]commandSourceIdentity)
+	commandSources := make(map[SourceID]string)
 
 	for _, file := range files {
 		if file.Error != nil || file.Invowkfile == nil {
 			continue
 		}
 
-		namespace := d.GetEffectiveCommandNamespace(file)
-		if namespace == "" {
+		source, ok := d.commandSourceFor(file)
+		if !ok {
 			continue
 		}
 
-		// Use the module directory path (not the invowkfile inside it) so
-		// the error message shows the path users need for their includes config.
-		// Annotate vendored modules with their parent for clearer diagnostics.
-		sourcePath := string(file.Path)
-		sourceKind := ModuleCollisionSourceLocal
-		if file.Module != nil {
-			sourcePath = string(file.Module.Path)
-		}
-		if file.ParentModule != nil {
-			sourcePath = fmt.Sprintf("%s (vendored in %s)", sourcePath, file.ParentModule.Name())
-			sourceKind = ModuleCollisionSourceVendored
-		}
-
-		if existingSource, exists := moduleSources[namespace]; exists {
+		if existing, exists := moduleSources[source.ModuleID]; exists && !existing.ExplicitCommandScope && !source.ExplicitCommandScope {
+			namespace := SourceID(source.ModuleID)
 			if err := namespace.Validate(); err != nil {
-				return fmt.Errorf("invalid command namespace %q: %w", namespace, err)
+				return fmt.Errorf("invalid module namespace %q: %w", namespace, err)
 			}
 			return &ModuleCollisionError{
 				Namespace:    namespace,
+				FirstSource:  existing.SourcePath,
+				SecondSource: source.SourcePath,
+				SecondKind:   source.SourceKind,
+			}
+		}
+		moduleSources[source.ModuleID] = source
+
+		if existingSource, exists := commandSources[source.SourceID]; exists {
+			if err := source.SourceID.Validate(); err != nil {
+				return fmt.Errorf("invalid command namespace %q: %w", source.SourceID, err)
+			}
+			return &ModuleCollisionError{
+				Namespace:    source.SourceID,
 				FirstSource:  existingSource,
-				SecondSource: sourcePath,
-				SecondKind:   sourceKind,
+				SecondSource: source.SourcePath,
+				SecondKind:   source.SourceKind,
 			}
 		}
 
-		moduleSources[namespace] = sourcePath
+		commandSources[source.SourceID] = source.SourcePath
 	}
 
 	return nil
 }
 
-// GetEffectiveCommandNamespace returns the effective command namespace for collision
-// checks, considering aliases from the includes config.
+// GetEffectiveCommandNamespace returns the command-source namespace used for
+// command publication and collision checks, considering aliases from the
+// includes config and vendored lock metadata.
 func (d *Discovery) GetEffectiveCommandNamespace(file *DiscoveredFile) SourceID {
-	if file.Invowkfile == nil {
+	source, ok := d.commandSourceFor(file)
+	if !ok {
 		return ""
 	}
+	return source.SourceID
+}
 
+func (d *Discovery) commandSourceFor(file *DiscoveredFile) (commandSourceIdentity, bool) {
+	if file == nil || file.Invowkfile == nil {
+		return commandSourceIdentity{}, false
+	}
 	moduleID := file.Invowkfile.GetModule()
+	if moduleID == "" {
+		return commandSourceIdentity{}, false
+	}
+
+	source := commandSourceIdentity{
+		ModuleID:   moduleID,
+		SourceID:   SourceID(moduleID),
+		SourcePath: string(file.Path),
+		SourceKind: ModuleCollisionSourceLocal,
+	}
 	if file.Module != nil {
+		source.SourcePath = string(file.Module.Path)
 		if file.CommandNamespace != "" {
-			return SourceID(file.CommandNamespace)
-		}
-		if includeAlias := d.getAliasForModulePath(file.Module.Path); includeAlias != "" {
-			return SourceID(includeAlias)
+			source.SourceID = SourceID(file.CommandNamespace)
+			source.ExplicitCommandScope = true
+		} else if includeAlias := d.getAliasForModulePath(file.Module.Path); includeAlias != "" {
+			source.SourceID = SourceID(includeAlias)
+			source.ExplicitCommandScope = true
+		} else {
+			source.SourceID = SourceID(getModuleShortName(file.Module.Path))
 		}
 	}
-	return SourceID(moduleID)
+	if file.ParentModule != nil {
+		source.SourcePath = fmt.Sprintf("%s (vendored in %s)", source.SourcePath, file.ParentModule.Name())
+		source.SourceKind = ModuleCollisionSourceVendored
+	}
+	return source, true
 }
 
 // getAliasForModulePath looks up an alias for the given module directory path

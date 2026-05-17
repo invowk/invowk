@@ -116,11 +116,8 @@ func requestPlatform(req Request) invowkfile.Platform {
 // (e.g., *deps.DependencyError). The CLI adapter inspects the error type and
 // applies rendering. Discovery is routed through s.discovery so the per-request
 // cache avoids redundant filesystem scans.
-func (s *Service) validateDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, registry *runtime.Registry, userEnv map[string]string) error {
-	var runtimeProbe deps.RuntimeDependencyProbe
-	if s.runtimeProbeFactory != nil {
-		runtimeProbe = s.runtimeProbeFactory.Create(registry, execCtx)
-	}
+func (s *Service) validateDeps(cmdInfo *discovery.CommandInfo, execCtx *runtime.ExecutionContext, session RuntimeSession, userEnv map[string]string) error {
+	runtimeProbe := session.DependencyProbe(execCtx)
 	return deps.ValidateDependenciesWithPorts(s.discovery, cmdInfo, runtimeProbe, dependencyExecutionContext(execCtx), userEnv, s.capabilityChecker, s.hostProbe, s.lockProvider)
 }
 

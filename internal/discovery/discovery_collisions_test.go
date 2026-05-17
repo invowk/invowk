@@ -530,6 +530,58 @@ func TestCheckModuleCollisions(t *testing.T) {
 		}
 	})
 
+	t.Run("CommandSourceCollisionWithDifferentModuleIDs", func(t *testing.T) {
+		t.Parallel()
+
+		files := []*DiscoveredFile{
+			{
+				Path:       "/first/tools.invowkmod/invowkfile.cue",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.first")},
+				Module:     &invowkmod.Module{Path: "/first/tools.invowkmod"},
+			},
+			{
+				Path:       "/second/tools.invowkmod/invowkfile.cue",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.second")},
+				Module:     &invowkmod.Module{Path: "/second/tools.invowkmod"},
+			},
+		}
+
+		err := d.CheckModuleCollisions(files)
+		collisionErr, ok := errors.AsType[*ModuleCollisionError](err)
+		if !ok {
+			t.Fatalf("CheckModuleCollisions() error = %T %v, want ModuleCollisionError", err, err)
+		}
+		if collisionErr.Namespace != "tools" {
+			t.Fatalf("Namespace = %q, want tools", collisionErr.Namespace)
+		}
+	})
+
+	t.Run("DuplicateModuleIDWithoutCommandSourceCollision", func(t *testing.T) {
+		t.Parallel()
+
+		files := []*DiscoveredFile{
+			{
+				Path:       "/first/one.invowkmod/invowkfile.cue",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.same")},
+				Module:     &invowkmod.Module{Path: "/first/one.invowkmod"},
+			},
+			{
+				Path:       "/second/two.invowkmod/invowkfile.cue",
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.same")},
+				Module:     &invowkmod.Module{Path: "/second/two.invowkmod"},
+			},
+		}
+
+		err := d.CheckModuleCollisions(files)
+		collisionErr, ok := errors.AsType[*ModuleCollisionError](err)
+		if !ok {
+			t.Fatalf("CheckModuleCollisions() error = %T %v, want ModuleCollisionError", err, err)
+		}
+		if collisionErr.Namespace != "io.example.same" {
+			t.Fatalf("Namespace = %q, want io.example.same", collisionErr.Namespace)
+		}
+	})
+
 	t.Run("VendoredAliasCollision", func(t *testing.T) {
 		t.Parallel()
 
@@ -639,6 +691,24 @@ func TestGetEffectiveCommandNamespace(t *testing.T) {
 		namespace := d.GetEffectiveCommandNamespace(file)
 		if namespace != "io.example.aliased" {
 			t.Errorf("GetEffectiveCommandNamespace() = %s, want io.example.aliased", namespace)
+		}
+	})
+
+	t.Run("WithModuleDefaultSourceID", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := config.DefaultConfig()
+		d := New(cfg)
+
+		file := &DiscoveredFile{
+			Path:       "/path/to/tools.invowkmod/invowkfile.cue",
+			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.tools")},
+			Module:     &invowkmod.Module{Path: "/path/to/tools.invowkmod"},
+		}
+
+		namespace := d.GetEffectiveCommandNamespace(file)
+		if namespace != "tools" {
+			t.Errorf("GetEffectiveCommandNamespace() = %s, want tools", namespace)
 		}
 	})
 

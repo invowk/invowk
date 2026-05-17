@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	coretypes "github.com/invowk/invowk/pkg/types"
 )
 
 // ErrInvalidDurationString is the sentinel error wrapped by InvalidDurationStringError.
@@ -39,15 +41,13 @@ func (e *InvalidDurationStringError) Unwrap() error { return ErrInvalidDurationS
 //
 //goplint:nonzero
 func (d DurationString) Validate() error {
-	if d == "" {
-		return nil
-	}
-	dur, err := time.ParseDuration(string(d))
+	err := coretypes.OptionalPositiveDurationString(d).Validate()
 	if err != nil {
-		return &InvalidDurationStringError{Value: d, Reason: err.Error()}
-	}
-	if dur <= 0 {
-		return &InvalidDurationStringError{Value: d, Reason: "must be a positive duration"}
+		reason := err.Error()
+		if invalid, ok := errors.AsType[*coretypes.InvalidOptionalPositiveDurationStringError](err); ok {
+			reason = invalid.Reason
+		}
+		return &InvalidDurationStringError{Value: d, Reason: reason}
 	}
 	return nil
 }
@@ -55,19 +55,14 @@ func (d DurationString) Validate() error {
 // String returns the string representation of the DurationString.
 func (d DurationString) String() string { return string(d) }
 
-// parseDuration parses a Go duration string and rejects empty, zero, or negative values.
+// parseDuration parses an optional Go duration string and rejects zero or
+// negative non-empty values.
 // Returns (0, nil) when value is empty (caller should apply default).
 // The fieldName is used in error messages (e.g., "debounce", "timeout").
 func parseDuration(fieldName string, value DurationString) (time.Duration, error) {
-	if value == "" {
-		return 0, nil
-	}
-	d, err := time.ParseDuration(string(value))
+	d, err := coretypes.OptionalPositiveDurationString(value).Duration()
 	if err != nil {
 		return 0, fmt.Errorf("invalid %s %q: %w", fieldName, value, err)
-	}
-	if d <= 0 {
-		return 0, fmt.Errorf("invalid %s %q: must be a positive duration", fieldName, value)
 	}
 	return d, nil
 }
