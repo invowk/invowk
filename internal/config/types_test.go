@@ -135,6 +135,7 @@ func TestLLMTimeout_Validate(t *testing.T) {
 		{name: "malformed", timeout: "soon", wantErr: true},
 		{name: "zero", timeout: "0s", wantErr: true},
 		{name: "negative", timeout: "-1s", wantErr: true},
+		{name: "over max runes", timeout: LLMTimeout(strings.Repeat("1h", 33)), wantErr: true},
 	}
 
 	for _, tt := range tests {

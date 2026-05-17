@@ -582,6 +582,36 @@ func TestCheckModuleCollisions(t *testing.T) {
 		}
 	})
 
+	t.Run("LibraryOnlyDuplicateModuleID", func(t *testing.T) {
+		t.Parallel()
+
+		files := []*DiscoveredFile{
+			{
+				Module: &invowkmod.Module{
+					Path:          "/first/lib.invowkmod",
+					IsLibraryOnly: true,
+					Metadata:      &invowkmod.Invowkmod{Module: "io.example.lib"},
+				},
+			},
+			{
+				Module: &invowkmod.Module{
+					Path:          "/second/lib.invowkmod",
+					IsLibraryOnly: true,
+					Metadata:      &invowkmod.Invowkmod{Module: "io.example.lib"},
+				},
+			},
+		}
+
+		err := d.CheckModuleCollisions(files)
+		collisionErr, ok := errors.AsType[*ModuleCollisionError](err)
+		if !ok {
+			t.Fatalf("CheckModuleCollisions() error = %T %v, want ModuleCollisionError", err, err)
+		}
+		if collisionErr.Namespace != "io.example.lib" {
+			t.Fatalf("Namespace = %q, want io.example.lib", collisionErr.Namespace)
+		}
+	})
+
 	t.Run("VendoredAliasCollision", func(t *testing.T) {
 		t.Parallel()
 

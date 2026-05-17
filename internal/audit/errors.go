@@ -3,6 +3,7 @@
 package audit
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -67,10 +68,14 @@ func (e *CheckerFailedError) Is(target error) bool {
 }
 
 // ScanFailureIsFatal reports whether a scanner error should suppress partial
-// results. LLM checker failures are fatal because callers explicitly requested
-// interpretive analysis and the partial deterministic report would otherwise
-// hide that requested analysis failed.
+// results. Cancellation is fatal because the scan did not complete by caller
+// intent or deadline. LLM checker failures are fatal because callers explicitly
+// requested interpretive analysis and the partial deterministic report would
+// otherwise hide that requested analysis failed.
 func ScanFailureIsFatal(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
 	return scanErrorContainsChecker(err, LLMCheckerName)
 }
 

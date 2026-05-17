@@ -131,7 +131,11 @@ func (c *LockFileChecker) Check(ctx context.Context, sc *ScanContext) ([]Finding
 
 		findings = append(findings, c.checkSize(mod)...)
 		findings = append(findings, c.checkVersion(mod)...)
-		findings = append(findings, c.checkHashMismatches(ctx, mod)...)
+		hashFindings, err := c.checkHashMismatches(ctx, mod)
+		findings = append(findings, hashFindings...)
+		if err != nil {
+			return findings, err
+		}
 		findings = append(findings, c.checkOrphanedEntries(mod)...)
 		findings = append(findings, c.checkMissingEntries(mod)...)
 	}
@@ -219,12 +223,12 @@ func (c *LockFileChecker) checkVersion(mod *ScannedModule) []Finding {
 	return nil
 }
 
-func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedModule) []Finding {
+func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedModule) ([]Finding, error) {
 	var findings []Finding
 
 	hashes := mod.LockFile.ContentHashes()
 	if len(hashes) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Flag ambiguous lock entries using the same lock/hash policy as vendored
@@ -247,7 +251,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 	for _, vendored := range mod.VendoredModules {
 		select {
 		case <-ctx.Done():
-			return findings
+			return findings, fmt.Errorf("lockfile hash check cancelled: %w", ctx.Err())
 		default:
 		}
 
@@ -317,7 +321,7 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 		}
 	}
 
-	return findings
+	return findings, nil
 }
 
 //goplint:ignore -- display-only lockfile key list for audit finding descriptions.

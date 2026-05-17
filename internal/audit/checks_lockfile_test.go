@@ -3,6 +3,7 @@
 package audit
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -11,9 +12,15 @@ import (
 	"github.com/invowk/invowk/pkg/types"
 )
 
-type stubVendoredHashEvaluator struct {
-	results map[invowkmod.ModuleID]invowkmod.VendoredHashEvaluation
-}
+type (
+	stubVendoredHashEvaluator struct {
+		results map[invowkmod.ModuleID]invowkmod.VendoredHashEvaluation
+	}
+
+	cancelingVendoredHashEvaluator struct {
+		cancel context.CancelFunc
+	}
+)
 
 func (s stubVendoredHashEvaluator) EvaluateVendoredModuleHash(_ *invowkmod.LockFile, module *invowkmod.Module) invowkmod.VendoredHashEvaluation {
 	if module == nil || module.Metadata == nil {
@@ -22,6 +29,11 @@ func (s stubVendoredHashEvaluator) EvaluateVendoredModuleHash(_ *invowkmod.LockF
 	if result, ok := s.results[module.Metadata.Module]; ok {
 		return result
 	}
+	return invowkmod.VendoredHashEvaluation{Status: invowkmod.VendoredHashMatched, ModuleID: module.Metadata.Module}
+}
+
+func (c cancelingVendoredHashEvaluator) EvaluateVendoredModuleHash(_ *invowkmod.LockFile, module *invowkmod.Module) invowkmod.VendoredHashEvaluation {
+	c.cancel()
 	return invowkmod.VendoredHashEvaluation{Status: invowkmod.VendoredHashMatched, ModuleID: module.Metadata.Module}
 }
 
@@ -277,6 +289,50 @@ func TestLockFileChecker_DeclaredLockEntryWithoutVendoredModuleIsNotOrphaned(t *
 	}
 	if hasFinding(findings, SeverityLow, "Orphaned lock file entry") {
 		t.Fatalf("declared lock entry was reported as orphaned: %v", findings)
+	}
+}
+
+func TestLockFileChecker_HashCancellationIsReturned(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	sc := newModuleOnlyContext(&ScannedModule{
+		Path: types.FilesystemPath("/test/mod.invowkmod"), SurfaceID: "testmod",
+		LockPath: "/test/mod.invowkmod/invowkmod.lock.cue",
+		Module: &invowkmod.Module{Metadata: &invowkmod.Invowkmod{
+			Module: "testmod",
+		}},
+		LockFile: &invowkmod.LockFile{
+			Version: invowkmod.LockFileVersionV2,
+			Modules: map[invowkmod.ModuleRefKey]invowkmod.LockedModule{
+				"https://example.com/dep1.git": testLockedModule("io.example.dep1"),
+				"https://example.com/dep2.git": testLockedModule("io.example.dep2"),
+			},
+		},
+		VendoredModules: []*invowkmod.Module{
+			{
+				Metadata: &invowkmod.Invowkmod{Module: "io.example.dep1"},
+				Path:     "/test/mod.invowkmod/invowk_modules/dep1.invowkmod",
+			},
+			{
+				Metadata: &invowkmod.Invowkmod{Module: "io.example.dep2"},
+				Path:     "/test/mod.invowkmod/invowk_modules/dep2.invowkmod",
+			},
+		},
+	})
+
+	checker := NewLockFileChecker(WithHashEvaluator(cancelingVendoredHashEvaluator{cancel: cancel}))
+	findings, err := checker.Check(ctx, sc)
+	if err == nil {
+		t.Fatal("Check() returned nil error, want cancellation")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Check() error = %v, want context.Canceled", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("Check() findings = %v, want none before cancellation", findings)
 	}
 }
 

@@ -4,9 +4,9 @@ package platform
 
 import "strings"
 
-// WindowsReservedNames are filenames that cannot be used on Windows.
+// windowsReservedNames are filenames that cannot be used on Windows.
 // These names are reserved by the operating system regardless of file extension.
-var WindowsReservedNames = map[string]bool{
+var windowsReservedNames = map[string]bool{
 	"CON": true, "PRN": true, "AUX": true, "NUL": true,
 	"COM1": true, "COM2": true, "COM3": true, "COM4": true,
 	"COM5": true, "COM6": true, "COM7": true, "COM8": true, "COM9": true,
@@ -23,5 +23,5 @@ func IsWindowsReservedName(name string) bool {
 	if idx := strings.LastIndex(upper, "."); idx != -1 {
 		upper = upper[:idx]
 	}
-	return WindowsReservedNames[upper]
+	return windowsReservedNames[upper]
 }

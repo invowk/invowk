@@ -18,7 +18,6 @@ import (
 	"github.com/invowk/invowk/internal/containerplan"
 	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	"github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -27,6 +26,15 @@ const (
 	RuntimeTypeNative    RuntimeType = "native"
 	RuntimeTypeVirtual   RuntimeType = "virtual"
 	RuntimeTypeContainer RuntimeType = "container"
+
+	// EnvVarCmdName is injected with the command name being executed.
+	EnvVarCmdName = "INVOWK_CMD_NAME"
+	// EnvVarRuntime is injected with the selected runtime type.
+	EnvVarRuntime = "INVOWK_RUNTIME"
+	// EnvVarSource is injected with the source identifier (invowkfile path or module ID).
+	EnvVarSource = "INVOWK_SOURCE"
+	// EnvVarPlatform is injected with the resolved platform (linux, macos, windows).
+	EnvVarPlatform = "INVOWK_PLATFORM"
 )
 
 var (
@@ -670,11 +678,11 @@ func shouldFilterEnvVar(name string) bool {
 	// Filter metadata env vars to prevent leakage between nested invocations.
 	// Each invocation gets fresh metadata from its own execution context.
 	// All four vars are unconditionally filtered here, even though EnvVarSource
-	// and EnvVarPlatform are conditionally injected in projectEnvVars. The
-	// unconditional filtering is by design: it prevents leakage even if future
-	// code paths inject these vars unconditionally.
+	// and EnvVarPlatform are conditionally injected in the app execution layer.
+	// The unconditional filtering is by design: it prevents leakage even if
+	// future code paths inject these vars unconditionally.
 	switch name {
-	case platform.EnvVarCmdName, platform.EnvVarRuntime, platform.EnvVarSource, platform.EnvVarPlatform:
+	case EnvVarCmdName, EnvVarRuntime, EnvVarSource, EnvVarPlatform:
 		return true
 	}
 

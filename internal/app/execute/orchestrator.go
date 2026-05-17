@@ -13,7 +13,6 @@ import (
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/runtime"
 	"github.com/invowk/invowk/pkg/invowkfile"
-	platmeta "github.com/invowk/invowk/pkg/platform"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -299,17 +298,17 @@ func validateEnvVarNames(names []invowkfile.EnvVarName, label string) error {
 func projectEnvVars(opts BuildExecutionContextOptions, execCtx *runtime.ExecutionContext) {
 	// Metadata env vars for script self-introspection.
 	// These allow scripts to know which command, runtime, source, and platform they run under.
-	execCtx.Env.ExtraEnv[platmeta.EnvVarCmdName] = string(opts.Command.Name)
-	execCtx.Env.ExtraEnv[platmeta.EnvVarRuntime] = string(opts.Selection.Mode())
+	execCtx.Env.ExtraEnv[runtime.EnvVarCmdName] = string(opts.Command.Name)
+	execCtx.Env.ExtraEnv[runtime.EnvVarRuntime] = string(opts.Selection.Mode())
 	// EnvVarSource and EnvVarPlatform are conditionally injected (only when
 	// non-empty), but unconditionally filtered in shouldFilterEnvVar. The
 	// asymmetry is intentional: filtering prevents leakage even if future
 	// code paths inject these vars unconditionally.
 	if opts.SourceID != "" {
-		execCtx.Env.ExtraEnv[platmeta.EnvVarSource] = string(opts.SourceID)
+		execCtx.Env.ExtraEnv[runtime.EnvVarSource] = string(opts.SourceID)
 	}
 	if opts.Platform != "" {
-		execCtx.Env.ExtraEnv[platmeta.EnvVarPlatform] = string(opts.Platform)
+		execCtx.Env.ExtraEnv[runtime.EnvVarPlatform] = string(opts.Platform)
 	}
 
 	for i, arg := range opts.Args {

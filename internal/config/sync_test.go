@@ -124,6 +124,37 @@ func TestAutoProvisionConfigSchemaSync(t *testing.T) {
 	schematest.AssertFieldsSync(t, "AutoProvisionConfig", cueFields, goFields)
 }
 
+// TestConfigPatchSchemaSync verifies decode patch DTOs match their CUE definitions.
+func TestConfigPatchSchemaSync(t *testing.T) {
+	t.Parallel()
+
+	schema, _ := getCUESchema(t)
+	tests := []struct {
+		name       string
+		definition string
+		goType     reflect.Type
+	}{
+		{name: "configPatch", definition: "#Config", goType: reflect.TypeFor[configPatch]()},
+		{name: "virtualShellConfigPatch", definition: "#VirtualShellConfig", goType: reflect.TypeFor[virtualShellConfigPatch]()},
+		{name: "uiConfigPatch", definition: "#UIConfig", goType: reflect.TypeFor[uiConfigPatch]()},
+		{name: "llmConfigPatch", definition: "#LLMConfig", goType: reflect.TypeFor[llmConfigPatch]()},
+		{name: "llmAPIConfigPatch", definition: "#LLMAPIConfig", goType: reflect.TypeFor[llmAPIConfigPatch]()},
+		{name: "containerConfigPatch", definition: "#ContainerConfig", goType: reflect.TypeFor[containerConfigPatch]()},
+		{name: "autoProvisionConfigPatch", definition: "#AutoProvisionConfig", goType: reflect.TypeFor[autoProvisionConfigPatch]()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cueFields := schematest.ExtractCUEFields(t, schematest.LookupDefinition(t, schema, tt.definition))
+			goFields := schematest.ExtractGoJSONTags(t, tt.goType)
+
+			schematest.AssertFieldsSync(t, tt.name, cueFields, goFields)
+		})
+	}
+}
+
 // =============================================================================
 // Schema Boundary Tests
 // =============================================================================
@@ -308,6 +339,11 @@ func TestLLMSchemaConstraints(t *testing.T) {
 		{
 			name:    "malformed timeout rejected",
 			cueData: `llm: {timeout: "soon"}`,
+			wantErr: true,
+		},
+		{
+			name:    "timeout over max runes rejected",
+			cueData: `llm: {timeout: "` + strings.Repeat("1h", 33) + `"}`,
 			wantErr: true,
 		},
 		{

@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	coretypes "github.com/invowk/invowk/pkg/types"
 )
+
+const durationStringMaxRunes = 32
 
 // ErrInvalidDurationString is the sentinel error wrapped by InvalidDurationStringError.
 var ErrInvalidDurationString = errors.New("invalid duration string")
@@ -41,6 +44,9 @@ func (e *InvalidDurationStringError) Unwrap() error { return ErrInvalidDurationS
 //
 //goplint:nonzero
 func (d DurationString) Validate() error {
+	if utf8.RuneCountInString(string(d)) > durationStringMaxRunes {
+		return &InvalidDurationStringError{Value: d, Reason: fmt.Sprintf("must be at most %d runes", durationStringMaxRunes)}
+	}
 	err := coretypes.OptionalPositiveDurationString(d).Validate()
 	if err != nil {
 		reason := err.Error()
@@ -60,6 +66,9 @@ func (d DurationString) String() string { return string(d) }
 // Returns (0, nil) when value is empty (caller should apply default).
 // The fieldName is used in error messages (e.g., "debounce", "timeout").
 func parseDuration(fieldName string, value DurationString) (time.Duration, error) {
+	if err := value.Validate(); err != nil {
+		return 0, fmt.Errorf("invalid %s %q: %w", fieldName, value, err)
+	}
 	d, err := coretypes.OptionalPositiveDurationString(value).Duration()
 	if err != nil {
 		return 0, fmt.Errorf("invalid %s %q: %w", fieldName, value, err)

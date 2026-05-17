@@ -235,6 +235,7 @@ func TestBehavioralSync_DurationString(t *testing.T) {
 			{"-5s", false, false, ""},
 			// Go rejects "0s" (non-positive); CUE regex accepts "0s" format
 			{"0s", false, true, "Go rejects zero duration (must be positive); CUE only checks format"},
+			{strings.Repeat("1h", 17), false, false, ""},
 		},
 	)
 }

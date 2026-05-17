@@ -251,42 +251,45 @@ func (d *Discovery) CheckModuleCollisions(files []*DiscoveredFile) error {
 	commandSources := make(map[SourceID]string)
 
 	for _, file := range files {
-		if file.Error != nil || file.Invowkfile == nil {
+		if file == nil || file.Error != nil {
 			continue
 		}
 
-		source, ok := d.commandSourceFor(file)
+		moduleSource, hasModuleIdentity := d.moduleIdentityFor(file)
+		if hasModuleIdentity {
+			if existing, exists := moduleSources[moduleSource.ModuleID]; exists && !existing.ExplicitCommandScope && !moduleSource.ExplicitCommandScope {
+				namespace := SourceID(moduleSource.ModuleID)
+				if err := namespace.Validate(); err != nil {
+					return fmt.Errorf("invalid module namespace %q: %w", namespace, err)
+				}
+				return &ModuleCollisionError{
+					Namespace:    namespace,
+					FirstSource:  existing.SourcePath,
+					SecondSource: moduleSource.SourcePath,
+					SecondKind:   moduleSource.SourceKind,
+				}
+			}
+			moduleSources[moduleSource.ModuleID] = moduleSource
+		}
+
+		commandSource, ok := d.commandSourceFor(file)
 		if !ok {
 			continue
 		}
 
-		if existing, exists := moduleSources[source.ModuleID]; exists && !existing.ExplicitCommandScope && !source.ExplicitCommandScope {
-			namespace := SourceID(source.ModuleID)
-			if err := namespace.Validate(); err != nil {
-				return fmt.Errorf("invalid module namespace %q: %w", namespace, err)
+		if existingSource, exists := commandSources[commandSource.SourceID]; exists {
+			if err := commandSource.SourceID.Validate(); err != nil {
+				return fmt.Errorf("invalid command namespace %q: %w", commandSource.SourceID, err)
 			}
 			return &ModuleCollisionError{
-				Namespace:    namespace,
-				FirstSource:  existing.SourcePath,
-				SecondSource: source.SourcePath,
-				SecondKind:   source.SourceKind,
-			}
-		}
-		moduleSources[source.ModuleID] = source
-
-		if existingSource, exists := commandSources[source.SourceID]; exists {
-			if err := source.SourceID.Validate(); err != nil {
-				return fmt.Errorf("invalid command namespace %q: %w", source.SourceID, err)
-			}
-			return &ModuleCollisionError{
-				Namespace:    source.SourceID,
+				Namespace:    commandSource.SourceID,
 				FirstSource:  existingSource,
-				SecondSource: source.SourcePath,
-				SecondKind:   source.SourceKind,
+				SecondSource: commandSource.SourcePath,
+				SecondKind:   commandSource.SourceKind,
 			}
 		}
 
-		commandSources[source.SourceID] = source.SourcePath
+		commandSources[commandSource.SourceID] = commandSource.SourcePath
 	}
 
 	return nil
@@ -303,11 +306,22 @@ func (d *Discovery) GetEffectiveCommandNamespace(file *DiscoveredFile) SourceID 
 	return source.SourceID
 }
 
-func (d *Discovery) commandSourceFor(file *DiscoveredFile) (commandSourceIdentity, bool) {
-	if file == nil || file.Invowkfile == nil {
+func (d *Discovery) moduleIdentityFor(file *DiscoveredFile) (commandSourceIdentity, bool) {
+	if file == nil {
 		return commandSourceIdentity{}, false
 	}
-	moduleID := file.Invowkfile.GetModule()
+
+	var moduleID invowkmod.ModuleID
+	sourcePath := string(file.Path)
+	if file.Module != nil {
+		sourcePath = string(file.Module.Path)
+		if file.Module.Metadata != nil {
+			moduleID = file.Module.Metadata.Module
+		}
+	}
+	if moduleID == "" && file.Invowkfile != nil {
+		moduleID = file.Invowkfile.GetModule()
+	}
 	if moduleID == "" {
 		return commandSourceIdentity{}, false
 	}
@@ -315,24 +329,32 @@ func (d *Discovery) commandSourceFor(file *DiscoveredFile) (commandSourceIdentit
 	source := commandSourceIdentity{
 		ModuleID:   moduleID,
 		SourceID:   SourceID(moduleID),
-		SourcePath: string(file.Path),
+		SourcePath: sourcePath,
 		SourceKind: ModuleCollisionSourceLocal,
 	}
 	if file.Module != nil {
-		source.SourcePath = string(file.Module.Path)
 		if file.CommandNamespace != "" {
 			source.SourceID = SourceID(file.CommandNamespace)
 			source.ExplicitCommandScope = true
 		} else if includeAlias := d.getAliasForModulePath(file.Module.Path); includeAlias != "" {
 			source.SourceID = SourceID(includeAlias)
 			source.ExplicitCommandScope = true
-		} else {
-			source.SourceID = SourceID(getModuleShortName(file.Module.Path))
 		}
 	}
 	if file.ParentModule != nil {
 		source.SourcePath = fmt.Sprintf("%s (vendored in %s)", source.SourcePath, file.ParentModule.Name())
 		source.SourceKind = ModuleCollisionSourceVendored
+	}
+	return source, true
+}
+
+func (d *Discovery) commandSourceFor(file *DiscoveredFile) (commandSourceIdentity, bool) {
+	source, ok := d.moduleIdentityFor(file)
+	if !ok || file.Invowkfile == nil {
+		return commandSourceIdentity{}, false
+	}
+	if file.Module != nil && !source.ExplicitCommandScope {
+		source.SourceID = SourceID(getModuleShortName(file.Module.Path))
 	}
 	return source, true
 }
