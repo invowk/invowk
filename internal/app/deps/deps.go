@@ -318,8 +318,8 @@ func commandScopeDenialDetail(scope *invowkmod.CommandScope, decision invowkmod.
 	return dependencyMessageFromDetail(fmt.Sprintf(
 		"%s - command from module '%s' cannot call '%s': module '%s' is not accessible\n"+
 			"Commands can only call commands from the same module (%s), commands from globally installed user command modules (~/.invowk/cmds/), or commands from direct dependencies declared in invowkmod.cue:requires and resolved in invowkmod.lock.cue. "+
-			"Add '%s' to your invowkmod.cue requires list if it is missing, then run 'invowk module sync' to refresh lock metadata",
-		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID, decision.TargetSource))
+			"Declare the dependency module in invowkmod.cue:requires if it is missing, then run 'invowk module sync' to refresh lock metadata",
+		decision.TargetCommand, scope.ModuleID, decision.TargetCommand, decision.TargetSource, scope.ModuleID))
 }
 
 func commandMatchesDirectRequirement(requirements []invowkmod.ModuleRequirement, lock *invowkmod.LockFile, cmd *discovery.CommandInfo) bool {

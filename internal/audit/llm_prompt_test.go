@@ -304,6 +304,37 @@ func TestConvertBatchFindings_MatchesByScriptID(t *testing.T) {
 	}
 }
 
+func TestMatchLLMFindingToScriptUsesFullScriptIdentity(t *testing.T) {
+	t.Parallel()
+
+	batch := []ScriptRef{
+		{
+			SurfaceID:   "same-surface",
+			FilePath:    "invowkfile.cue",
+			CommandName: "build",
+			ImplIndex:   0,
+		},
+		{
+			SurfaceID:   "same-surface",
+			FilePath:    "invowkfile.cue",
+			CommandName: "deploy",
+			ImplIndex:   1,
+		},
+	}
+	byID := map[string]*ScriptRef{
+		scriptPromptID(&batch[0]): &batch[0],
+		scriptPromptID(&batch[1]): &batch[1],
+	}
+
+	ref, ok := matchLLMFindingToScript(&llmFinding{ScriptID: scriptPromptID(&batch[1])}, byID, nil, nil, batch)
+	if !ok {
+		t.Fatal("matchLLMFindingToScript() did not match script_id")
+	}
+	if ref.CommandName != "deploy" || ref.ImplIndex != 1 {
+		t.Fatalf("matched script = %s[%d], want deploy[1]", ref.CommandName, ref.ImplIndex)
+	}
+}
+
 func TestConvertBatchFindings_DropsUnknownMultiScriptAttribution(t *testing.T) {
 	t.Parallel()
 

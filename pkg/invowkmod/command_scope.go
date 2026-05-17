@@ -196,7 +196,15 @@ func NewCommandScope(moduleID ModuleID, globalModuleIDs []ModuleID, directRequir
 func (s *CommandScope) CanCall(targetCmd CommandReference) CommandScopeDecision {
 	// Extract module prefix from command name (format: "module.name cmdname" or "module.name@version cmdname")
 	targetSource := ModuleSourceID(ExtractModuleFromCommand(string(targetCmd))) //goplint:ignore -- used only for equality comparison
-	return s.CanCallTarget(CommandTarget{Reference: targetCmd, SourceID: targetSource})
+	decision := s.CanCallTarget(CommandTarget{Reference: targetCmd, SourceID: targetSource})
+	if decision.Allowed || targetSource == "" {
+		return decision
+	}
+	if s.targetIsLegacyDirectReference(targetSource) {
+		decision.Allowed = true
+		decision.Reason = ""
+	}
+	return decision
 }
 
 // CanCallTarget checks if a discovered command target is visible from this scope.
@@ -240,28 +248,11 @@ func (s *CommandScope) CanCallTarget(target CommandTarget) CommandScopeDecision 
 	return decision
 }
 
-// AddDirectDep adds a resolved direct dependency to the scope.
-// This is called during resolution when we know the actual module ID.
-func (s *CommandScope) AddDirectDep(moduleID ModuleID) {
-	if s.DirectDeps == nil {
-		s.DirectDeps = make(map[ModuleID]bool)
-	}
-	s.DirectDeps[moduleID] = true
-}
-
-// AddDirectSource adds a command namespace for a resolved direct dependency.
-func (s *CommandScope) AddDirectSource(sourceID ModuleSourceID) {
-	if s.DirectSources == nil {
-		s.DirectSources = make(map[ModuleSourceID]bool)
-	}
-	s.DirectSources[sourceID] = true
-}
-
 // AddDirectDependency adds a resolved direct dependency identity/source pair
 // to the scope.
 func (s *CommandScope) AddDirectDependency(moduleID ModuleID, sourceID ModuleSourceID) {
-	s.AddDirectDep(moduleID)
-	s.AddDirectSource(sourceID)
+	s.addDirectDep(moduleID)
+	s.addDirectSource(sourceID)
 	if s.DirectDependencySources == nil {
 		s.DirectDependencySources = make(map[ModuleID]map[ModuleSourceID]bool)
 	}
@@ -269,6 +260,22 @@ func (s *CommandScope) AddDirectDependency(moduleID ModuleID, sourceID ModuleSou
 		s.DirectDependencySources[moduleID] = make(map[ModuleSourceID]bool)
 	}
 	s.DirectDependencySources[moduleID][sourceID] = true
+}
+
+// addDirectDep records the stable module ID half of a resolved direct dependency.
+func (s *CommandScope) addDirectDep(moduleID ModuleID) {
+	if s.DirectDeps == nil {
+		s.DirectDeps = make(map[ModuleID]bool)
+	}
+	s.DirectDeps[moduleID] = true
+}
+
+// addDirectSource records the command namespace half of a resolved direct dependency.
+func (s *CommandScope) addDirectSource(sourceID ModuleSourceID) {
+	if s.DirectSources == nil {
+		s.DirectSources = make(map[ModuleSourceID]bool)
+	}
+	s.DirectSources[sourceID] = true
 }
 
 // ExtractModuleFromCommand extracts the module prefix from a fully qualified command name.
@@ -311,8 +318,9 @@ func (s *CommandScope) targetIsDirectDependency(target CommandTarget) bool {
 	if target.ModuleID != "" && target.SourceID != "" {
 		return s.DirectDependencySources[target.ModuleID][target.SourceID]
 	}
-	if target.SourceID != "" {
-		return s.DirectSources[target.SourceID] || s.DirectDeps[ModuleID(target.SourceID)]
-	}
-	return target.ModuleID != "" && s.DirectDeps[target.ModuleID]
+	return false
+}
+
+func (s *CommandScope) targetIsLegacyDirectReference(sourceID ModuleSourceID) bool {
+	return s.DirectSources[sourceID] || s.DirectDeps[ModuleID(sourceID)]
 }

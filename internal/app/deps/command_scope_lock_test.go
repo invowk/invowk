@@ -64,4 +64,7 @@ func TestCheckCommandDependenciesDeclaredRequireWithoutLockEntryPointsToSync(t *
 	if !strings.Contains(detail, "invowkmod.lock.cue") || !strings.Contains(detail, "invowk module sync") {
 		t.Fatalf("ForbiddenCommands[0] = %q, want lock/sync remediation", detail)
 	}
+	if strings.Contains(detail, "Add 'tools'") {
+		t.Fatalf("ForbiddenCommands[0] = %q, should not tell users to add a command source to requires", detail)
+	}
 }

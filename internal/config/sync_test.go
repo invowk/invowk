@@ -844,3 +844,23 @@ func TestBehavioralSync_ColorScheme(t *testing.T) {
 		},
 	)
 }
+
+//nolint:tparallel // CUE Value.Unify() and Context.CompileString() mutate internal state; subtests must be serial.
+func TestBehavioralSync_LLMTimeout(t *testing.T) {
+	t.Parallel()
+	schema, ctx := getCUESchema(t)
+
+	// timeout is an optional field in #LLMConfig. CUE enforces the Go-duration
+	// shape and max length; Go owns optional-zero and positive-duration semantics.
+	runBehavioralSyncField(t, schema, ctx, "#LLMConfig", "timeout",
+		func(s string) error { return LLMTimeout(s).Validate() },
+		[]behavioralSyncCase{
+			{"2m30s", true, true, ""},
+			{"1h30m", true, true, ""},
+			{"soon", false, false, ""},
+			{strings.Repeat("1h", 33), false, false, ""},
+			{"0s", false, true, "CUE validates duration syntax; Go enforces positive duration"},
+			{"", true, false, "Go zero value means unset; CUE rejects an explicit empty duration field"},
+		},
+	)
+}

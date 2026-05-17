@@ -634,7 +634,7 @@ reason = "strategy; nil Environ valid (os.Environ fallback)"
 
 [[exceptions]]
 pattern = "invowkmod.CommandScope.struct-validate"
-reason = "has AddDirectDep() mutation; DDD Entity"
+reason = "has AddDirectDependency() mutation; DDD Entity"
 
 [[exceptions]]
 pattern = "invowkmod.LockFile.struct-validate"

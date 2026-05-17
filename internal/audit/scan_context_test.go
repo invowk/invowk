@@ -8,13 +8,51 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/invowk/invowk/internal/config"
+	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/pkg/invowkfile"
 	"github.com/invowk/invowk/pkg/invowkmod"
 	"github.com/invowk/invowk/pkg/types"
 )
+
+type cancelAfterDoneContext struct {
+	context.Context
+	done        chan struct{}
+	once        sync.Once
+	mu          sync.Mutex
+	calls       int
+	cancelAfter int
+}
+
+func newCancelAfterDoneContext(parent context.Context, cancelAfter int) *cancelAfterDoneContext {
+	return &cancelAfterDoneContext{
+		Context:     parent,
+		done:        make(chan struct{}),
+		cancelAfter: cancelAfter,
+	}
+}
+
+func (c *cancelAfterDoneContext) Done() <-chan struct{} {
+	c.mu.Lock()
+	c.calls++
+	if c.calls >= c.cancelAfter {
+		c.once.Do(func() { close(c.done) })
+	}
+	c.mu.Unlock()
+	return c.done
+}
+
+func (c *cancelAfterDoneContext) Err() error {
+	select {
+	case <-c.done:
+		return context.Canceled
+	default:
+		return nil
+	}
+}
 
 func TestBuildScanContextCanceledBeforeDirectoryScan(t *testing.T) {
 	t.Parallel()
@@ -28,6 +66,45 @@ func TestBuildScanContextCanceledBeforeDirectoryScan(t *testing.T) {
 	}
 	if !ScanFailureIsFatal(err) {
 		t.Fatalf("BuildScanContext() cancellation should be fatal")
+	}
+}
+
+func TestLoadDirectoryModulesPropagatesCancellationFromModuleLoad(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	moduleDir := filepath.Join(root, "io.example.root.invowkmod")
+	createAuditTestModule(t, moduleDir, "io.example.root", "root-cmd")
+
+	ctx := newCancelAfterDoneContext(t.Context(), 3)
+	sc := &ScanContext{}
+	err := sc.loadDirectoryModules(ctx, types.FilesystemPath(root))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("loadDirectoryModules() error = %v, want context.Canceled", err)
+	}
+	if len(sc.Diagnostics()) != 0 {
+		t.Fatalf("Diagnostics() = %v, want no module-skip diagnostics for cancellation", sc.Diagnostics())
+	}
+}
+
+func TestMergeDiscoveryResultsPropagatesCancellationFromModuleLoad(t *testing.T) {
+	t.Parallel()
+
+	moduleDir := filepath.Join(t.TempDir(), "io.example.root.invowkmod")
+	createAuditTestModule(t, moduleDir, "io.example.root", "root-cmd")
+	mod, err := invowkmod.Load(types.FilesystemPath(moduleDir))
+	if err != nil {
+		t.Fatalf("Load(module) = %v", err)
+	}
+
+	ctx := newCancelAfterDoneContext(t.Context(), 2)
+	sc := &ScanContext{}
+	err = sc.mergeDiscoveryResults(ctx, []*discovery.DiscoveredFile{{Module: mod}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("mergeDiscoveryResults() error = %v, want context.Canceled", err)
+	}
+	if len(sc.Diagnostics()) != 0 {
+		t.Fatalf("Diagnostics() = %v, want no module-skip diagnostics for cancellation", sc.Diagnostics())
 	}
 }
 
@@ -47,6 +124,8 @@ func TestReadScriptFileFacts_BoundaryCheck(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(outsideDir, "secret.env"), []byte(sensitiveContent), 0o644); err != nil {
 		t.Fatalf("failed to write sensitive file: %v", err)
 	}
+	symlinkPath := filepath.Join(moduleDir, "linked-secret.env")
+	symlinkSupported := os.Symlink(filepath.Join(outsideDir, "secret.env"), symlinkPath) == nil
 
 	// Compute a traversal path that escapes the module directory.
 	relToSensitive, err := filepath.Rel(moduleDir, filepath.Join(outsideDir, "secret.env"))
@@ -91,6 +170,19 @@ func TestReadScriptFileFacts_BoundaryCheck(t *testing.T) {
 			want:       "",
 		},
 	}
+	if symlinkSupported {
+		tests = append(tests, struct {
+			name       string
+			scriptPath string
+			modulePath string
+			want       string
+		}{
+			name:       "symlink escape blocked by resolved boundary check",
+			scriptPath: "linked-secret.env",
+			modulePath: moduleDir,
+			want:       "",
+		})
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -106,6 +198,42 @@ func TestReadScriptFileFacts_BoundaryCheck(t *testing.T) {
 					tt.scriptPath, tt.modulePath, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestReadScriptFileFactsSymlinkEscapeLeavesContentEmptyAndSymlinkFact(t *testing.T) {
+	t.Parallel()
+
+	moduleDir := t.TempDir()
+	scriptDir := filepath.Join(moduleDir, "scripts")
+	if err := os.MkdirAll(scriptDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(scriptDir) = %v", err)
+	}
+	outsideFile := filepath.Join(t.TempDir(), "secret.sh")
+	if err := os.WriteFile(outsideFile, []byte("SECRET=hunter2\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(outsideFile) = %v", err)
+	}
+	if err := os.Symlink(outsideFile, filepath.Join(scriptDir, "leak.sh")); err != nil {
+		t.Skipf("symlink creation not supported: %v", err)
+	}
+
+	facts, err := readScriptFileFacts(t.Context(), "scripts/leak.sh", moduleDir)
+	if err != nil {
+		t.Fatalf("readScriptFileFacts() = %v", err)
+	}
+	if facts.Content != "" {
+		t.Fatalf("script content = %q, want empty for symlink escape", facts.Content)
+	}
+
+	symlinks, err := scanModuleSymlinks(t.Context(), types.FilesystemPath(moduleDir))
+	if err != nil {
+		t.Fatalf("scanModuleSymlinks() = %v", err)
+	}
+	if len(symlinks) != 1 {
+		t.Fatalf("Symlinks = %d, want 1", len(symlinks))
+	}
+	if !symlinks[0].EscapesRoot {
+		t.Fatalf("Symlink EscapesRoot = false, want true")
 	}
 }
 

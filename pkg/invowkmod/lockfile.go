@@ -360,6 +360,9 @@ func LoadLockFile(path string) (*LockFile, error) {
 // Save writes the lock file to disk in CUE format.
 // Uses fspath.AtomicWriteFile (temp file + rename) for crash safety.
 func (l *LockFile) Save(path string) error {
+	if err := l.validateForSave(); err != nil {
+		return err
+	}
 	content := l.toCUE()
 
 	// Ensure parent directory exists
@@ -396,6 +399,26 @@ func (l *LockFile) HasModule(key ModuleRefKey) bool {
 func (l *LockFile) GetModule(key ModuleRefKey) (LockedModule, bool) {
 	mod, ok := l.Modules[key]
 	return mod, ok
+}
+
+func (l *LockFile) validateForSave() error {
+	if l == nil {
+		return errors.New("lock file is nil")
+	}
+	if err := l.Version.Validate(); err != nil {
+		return err
+	}
+
+	requireV2Fields := l.Version == LockFileVersionV2
+	for key := range l.Modules {
+		if err := key.Validate(); err != nil {
+			return err
+		}
+		if err := validateLockedModuleForVersion(key, l.Modules[key], requireV2Fields); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // toCUE serializes the lock file to CUE format.

@@ -770,6 +770,40 @@ func TestLockFile_Save(t *testing.T) {
 			t.Error("saved file missing empty modules block")
 		}
 	})
+
+	t.Run("rejects_v2_entry_missing_split_identity", func(t *testing.T) {
+		t.Parallel()
+
+		lf := NewLockFile()
+		lf.Modules["https://github.com/user/repo.git"] = LockedModule{
+			GitURL:          "https://github.com/user/repo.git",
+			Version:         "^1.0.0",
+			ResolvedVersion: "1.2.0",
+			GitCommit:       "abc123def456789012345678901234567890abcd",
+			Namespace:       "repo@1.2.0",
+			ContentHash:     testContentHash,
+		}
+
+		err := lf.Save(filepath.Join(t.TempDir(), LockFileName))
+		if err == nil {
+			t.Fatal("Save() error = nil, want missing v2 split identity error")
+		}
+		if !errors.Is(err, ErrInvalidLockedModule) {
+			t.Fatalf("Save() error = %v, want ErrInvalidLockedModule", err)
+		}
+		var lockedErr *InvalidLockedModuleError
+		if !errors.As(err, &lockedErr) {
+			t.Fatalf("Save() error = %T, want *InvalidLockedModuleError", err)
+		}
+		var fieldDetails []string
+		for _, fieldErr := range lockedErr.FieldErrors {
+			fieldDetails = append(fieldDetails, fieldErr.Error())
+		}
+		detail := strings.Join(fieldDetails, "\n")
+		if !strings.Contains(detail, "command_source_id") || !strings.Contains(detail, "module_id") {
+			t.Fatalf("Save() field errors = %v, want command_source_id and module_id details", lockedErr.FieldErrors)
+		}
+	})
 }
 
 func TestParseLockFile_V1PreservesVersionState(t *testing.T) {

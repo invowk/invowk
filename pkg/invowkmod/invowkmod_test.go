@@ -446,6 +446,18 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
 		}
 	})
+
+	t.Run("denies discovered target without split identity pair", func(t *testing.T) {
+		t.Parallel()
+
+		decision := scope.CanCallTarget(CommandTarget{
+			Reference: "allowed-tools test",
+			SourceID:  "allowed-tools",
+		})
+		if decision.Allowed {
+			t.Fatalf("CanCallTarget() allowed source-only direct dependency: %+v", decision)
+		}
+	})
 }
 
 func TestExtractModuleFromCommand(t *testing.T) {
@@ -505,19 +517,23 @@ func TestNewCommandScope(t *testing.T) {
 	}
 }
 
-func TestCommandScope_AddDirectDep(t *testing.T) {
+func TestCommandScope_AddDirectDependency(t *testing.T) {
 	t.Parallel()
 
 	scope := &CommandScope{
-		ModuleID:      "mymodule",
-		GlobalModules: make(map[ModuleID]bool),
-		DirectDeps:    make(map[ModuleID]bool),
+		ModuleID: "mymodule",
 	}
 
-	scope.AddDirectDep("newdep")
+	scope.AddDirectDependency("io.example.newdep", "newdep")
 
-	if !scope.DirectDeps["newdep"] {
-		t.Error("newdep should be in DirectDeps after AddDirectDep")
+	if !scope.DirectDeps["io.example.newdep"] {
+		t.Error("io.example.newdep should be in DirectDeps after AddDirectDependency")
+	}
+	if !scope.DirectSources["newdep"] {
+		t.Error("newdep should be in DirectSources after AddDirectDependency")
+	}
+	if !scope.DirectDependencySources["io.example.newdep"]["newdep"] {
+		t.Error("io.example.newdep/newdep pair should be in DirectDependencySources after AddDirectDependency")
 	}
 }
 

@@ -334,6 +334,10 @@ func scanContextErr(ctx context.Context) error {
 	}
 }
 
+func isScanContextCancellation(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
 func (sc *ScanContext) loadStandaloneInvowkfile(ctx context.Context, absPath types.FilesystemPath) error {
 	if err := scanContextErr(ctx); err != nil {
 		return err
@@ -444,7 +448,9 @@ func (sc *ScanContext) loadDirectoryTree(ctx context.Context, absPath types.File
 	if err := scanContextErr(ctx); err != nil {
 		return err
 	}
-	sc.loadDirectoryInvowkfile(absPath)
+	if err := sc.loadDirectoryInvowkfile(ctx, absPath); err != nil {
+		return err
+	}
 	if err := sc.loadDirectoryModules(ctx, absPath); err != nil {
 		return err
 	}
@@ -454,27 +460,39 @@ func (sc *ScanContext) loadDirectoryTree(ctx context.Context, absPath types.File
 	return nil
 }
 
-func (sc *ScanContext) loadDirectoryInvowkfile(absPath types.FilesystemPath) {
+func (sc *ScanContext) loadDirectoryInvowkfile(ctx context.Context, absPath types.FilesystemPath) error {
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	invPath := fspath.JoinStr(absPath, invowkfileCUEFileName)
 	_, invCueErr := os.Stat(string(invPath))
 	if invCueErr == nil {
-		sc.appendParsedInvowkfile(invPath)
-		return
+		return sc.appendParsedInvowkfile(ctx, invPath)
 	}
 
 	// Fall back to extensionless "invowkfile" variant when .cue is absent.
 	if !os.IsNotExist(invCueErr) {
-		return
+		return nil
 	}
 
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	invPathNoExt := fspath.JoinStr(absPath, invowkfileNoExtFileName)
 	if _, statErr := os.Stat(string(invPathNoExt)); statErr == nil {
-		sc.appendParsedInvowkfile(invPathNoExt)
+		return sc.appendParsedInvowkfile(ctx, invPathNoExt)
 	}
+	return nil
 }
 
-func (sc *ScanContext) appendParsedInvowkfile(path types.FilesystemPath) {
+func (sc *ScanContext) appendParsedInvowkfile(ctx context.Context, path types.FilesystemPath) error {
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	inv, parseErr := invowkfile.Parse(path)
+	if err := scanContextErr(ctx); err != nil {
+		return err
+	}
 	si := &ScannedInvowkfile{
 		Path:        path,
 		SurfaceID:   string(path),
@@ -488,6 +506,7 @@ func (sc *ScanContext) appendParsedInvowkfile(path types.FilesystemPath) {
 		sc.addDiagnostic(diagnosticInvowkfileParseError, fmt.Sprintf(invowkfileParseDiagFormat, path, parseErr), path)
 	}
 	sc.invowkfiles = append(sc.invowkfiles, si)
+	return nil
 }
 
 func (sc *ScanContext) loadDirectoryModules(ctx context.Context, absPath types.FilesystemPath) error {
@@ -508,6 +527,9 @@ func (sc *ScanContext) loadDirectoryModules(ctx context.Context, absPath types.F
 		}
 		modPath := fspath.JoinStr(absPath, entry.Name())
 		if loadErr := sc.loadSingleModule(ctx, modPath); loadErr != nil {
+			if isScanContextCancellation(loadErr) {
+				return loadErr
+			}
 			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", entry.Name(), loadErr), modPath)
 			continue
 		}
@@ -577,6 +599,9 @@ func (sc *ScanContext) mergeDiscoveryResults(ctx context.Context, files []*disco
 
 			sm, vendored, err := sc.loadScannedModule(ctx, f.Module.Path, f.Module, f.Invowkfile, f.IsGlobalModule, f.ParentModule != nil)
 			if err != nil {
+				if isScanContextCancellation(err) {
+					return err
+				}
 				sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid module %s: %v", f.Module.Name(), err), f.Module.Path)
 				continue
 			}
@@ -670,6 +695,9 @@ func (sc *ScanContext) appendVendoredScannedModules(ctx context.Context, vendore
 		}
 		sm, nested, err := sc.loadScannedModule(ctx, artifact.Path, artifact.Module, nil, isGlobal, true)
 		if err != nil {
+			if isScanContextCancellation(err) {
+				return err
+			}
 			sc.addDiagnostic(diagnosticModuleSkipped, fmt.Sprintf("skipped invalid vendored module %s: %v", artifact.Path, err), artifact.Path)
 			continue
 		}
@@ -929,53 +957,4 @@ func symlinkChainTooDeep(path string) bool {
 		current = target
 	}
 	return true
-}
-
-// readScriptFileFacts reads file-based script metadata and contents for content analysis.
-// Empty content means the file could not be read or exceeded the scan size cap.
-//
-//goplint:ignore -- helper resolves raw script path text from invowkfile declarations.
-func readScriptFileFacts(ctx context.Context, scriptPath, modulePath string) (scriptFileFacts, error) {
-	resolved := strings.TrimSpace(scriptPath)
-	if modulePath != "" && !filepath.IsAbs(resolved) {
-		resolved = filepath.Join(modulePath, resolved)
-	}
-	resolvedPath := types.FilesystemPath(resolved) //goplint:ignore -- resolved from validated module/script path inputs.
-	facts := scriptFileFacts{Path: resolvedPath}
-
-	// Defense-in-depth: verify the resolved path stays within the module
-	// boundary. The invowkfile parser's script path containment check (SC-01)
-	// blocks traversal paths at parse time, but the audit scanner should not
-	// rely on upstream validation alone.
-	if modulePath != "" && !isWithinBoundary(modulePath, resolved) {
-		return facts, nil
-	}
-	if err := scanContextErr(ctx); err != nil {
-		return facts, err
-	}
-
-	info, statErr := os.Stat(resolved)
-	if statErr != nil {
-		facts.StatErr = statErr
-		return facts, nil //nolint:nilerr // File stat failures are nonfatal scan facts for checkers.
-	}
-	facts.Size = info.Size()
-
-	if err := scanContextErr(ctx); err != nil {
-		return facts, err
-	}
-	data, err := os.ReadFile(resolved)
-	if err != nil || len(data) > maxScriptFileSize {
-		facts.StatErr = err
-		return facts, nil //nolint:nilerr // File read failures are nonfatal scan facts for checkers.
-	}
-	facts.Content = string(data)
-	return facts, nil
-}
-
-// isWithinBoundary checks whether target resolves to a path within the base
-// directory. Used by multiple checkers for module boundary enforcement.
-func isWithinBoundary(base, target string) bool {
-	rel, err := filepath.Rel(base, target)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

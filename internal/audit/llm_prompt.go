@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -169,7 +170,13 @@ func matchLLMFindingToScript(
 }
 
 func scriptPromptID(ref *ScriptRef) string {
-	return fmt.Sprintf("%s:%s", ref.SurfaceID, ref.FilePath)
+	return fmt.Sprintf(
+		"surface=%s;file=%s;command=%s;impl=%d",
+		url.QueryEscape(ref.SurfaceID),
+		url.QueryEscape(string(ref.FilePath)),
+		url.QueryEscape(string(ref.CommandName)),
+		ref.ImplIndex,
+	)
 }
 
 //goplint:ignore -- LLM response conversion builds provider-facing diagnostics from JSON finding ordinal and reason.

@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,8 +43,22 @@ func TestLoadRejectsEmptyLLMAPIConfig(t *testing.T) {
 			if err == nil {
 				t.Fatal("loadWithOptions() succeeded, want empty llm.api validation error")
 			}
-			if !strings.Contains(err.Error(), "llm.api must set at least one") {
-				t.Fatalf("loadWithOptions() error = %v, want empty llm.api message", err)
+			if !errors.Is(err, ErrInvalidLLMConfig) {
+				t.Fatalf("loadWithOptions() error = %v, want ErrInvalidLLMConfig", err)
+			}
+			if !errors.Is(err, ErrInvalidLLMAPIConfig) {
+				t.Fatalf("loadWithOptions() error = %v, want ErrInvalidLLMAPIConfig", err)
+			}
+			var apiErr *InvalidLLMAPIConfigError
+			if !errors.As(err, &apiErr) {
+				t.Fatalf("loadWithOptions() error = %T, want *InvalidLLMAPIConfigError", err)
+			}
+			var fieldDetails []string
+			for _, fieldErr := range apiErr.FieldErrors {
+				fieldDetails = append(fieldDetails, fieldErr.Error())
+			}
+			if !strings.Contains(strings.Join(fieldDetails, "\n"), "llm.api must set at least one") {
+				t.Fatalf("LLM API field errors = %v, want empty llm.api message", apiErr.FieldErrors)
 			}
 		})
 	}

@@ -164,27 +164,39 @@ func (p containerConfigPatch) Validate() error {
 func (p llmConfigPatch) Validate() error {
 	var errs []error
 	if p.Provider != nil {
-		errs = append(errs, p.Provider.Validate())
+		errs = appendValidationError(errs, p.Provider.Validate())
 	}
 	if p.Model != nil {
-		errs = append(errs, p.Model.Validate())
+		errs = appendValidationError(errs, p.Model.Validate())
 	}
 	if p.Timeout != nil {
-		errs = append(errs, p.Timeout.Validate())
+		errs = appendValidationError(errs, p.Timeout.Validate())
 	}
 	if p.Concurrency != nil {
-		errs = append(errs, p.Concurrency.Validate())
+		errs = appendValidationError(errs, p.Concurrency.Validate())
 	}
 	if p.API != nil {
 		if !p.API.HasConfig() {
-			errs = append(errs, errors.New("llm.api must set at least one of base_url, model, or api_key_env"))
+			errs = append(errs, &InvalidLLMAPIConfigError{
+				FieldErrors: []error{errors.New("llm.api must set at least one of base_url, model, or api_key_env")},
+			})
 		}
-		errs = append(errs, p.API.Validate())
+		errs = appendValidationError(errs, p.API.Validate())
 	}
 	if p.Provider != nil && p.API != nil && p.API.HasConfig() {
 		errs = append(errs, errors.New("llm.provider and llm.api are mutually exclusive"))
 	}
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return &InvalidLLMConfigError{FieldErrors: errs}
+	}
+	return nil
+}
+
+func appendValidationError(errs []error, err error) []error {
+	if err == nil {
+		return errs
+	}
+	return append(errs, err)
 }
 
 func (p llmAPIConfigPatch) HasConfig() bool {
