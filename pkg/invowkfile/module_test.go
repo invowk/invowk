@@ -246,10 +246,17 @@ func TestModuleMetadata_Requires_DefensiveCopy(t *testing.T) {
 func TestNewModuleMetadataFromInvowkmod(t *testing.T) {
 	t.Parallel()
 
-	t.Run("nil returns nil", func(t *testing.T) {
+	t.Run("nil returns invalid metadata error", func(t *testing.T) {
 		t.Parallel()
-		if got := NewModuleMetadataFromInvowkmod(nil); got != nil {
-			t.Errorf("NewModuleMetadataFromInvowkmod(nil) = %v, want nil", got)
+		got, err := NewModuleMetadataFromInvowkmod(nil)
+		if err == nil {
+			t.Fatal("expected error for nil metadata")
+		}
+		if !errors.Is(err, ErrInvalidModuleMetadata) {
+			t.Fatalf("error should wrap ErrInvalidModuleMetadata, got: %v", err)
+		}
+		if got != nil {
+			t.Errorf("NewModuleMetadataFromInvowkmod(nil) metadata = %v, want nil", got)
 		}
 	})
 
@@ -263,7 +270,10 @@ func TestNewModuleMetadataFromInvowkmod(t *testing.T) {
 				{GitURL: invowkmod.GitURL("https://github.com/example/dep.git"), Version: invowkmod.SemVerConstraint("^1.0.0")},
 			},
 		}
-		meta := NewModuleMetadataFromInvowkmod(mod)
+		meta, err := NewModuleMetadataFromInvowkmod(mod)
+		if err != nil {
+			t.Fatalf("NewModuleMetadataFromInvowkmod() error = %v", err)
+		}
 		if meta == nil {
 			t.Fatal("expected non-nil metadata")
 		}
@@ -278,6 +288,20 @@ func TestNewModuleMetadataFromInvowkmod(t *testing.T) {
 		}
 		if len(meta.Requires()) != 1 {
 			t.Errorf("Requires() length = %d, want 1", len(meta.Requires()))
+		}
+	})
+
+	t.Run("rejects invalid metadata", func(t *testing.T) {
+		t.Parallel()
+		meta, err := NewModuleMetadataFromInvowkmod(&Invowkmod{
+			Module:  "",
+			Version: "1.2.3",
+		})
+		if err == nil {
+			t.Fatal("expected validation error, got nil")
+		}
+		if meta != nil {
+			t.Errorf("metadata = %v, want nil on error", meta)
 		}
 	})
 }

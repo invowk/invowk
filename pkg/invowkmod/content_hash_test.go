@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -305,6 +306,30 @@ func TestEvaluateVendoredModuleHashAmbiguousLockEntries(t *testing.T) {
 	}
 	if len(evaluation.LockKeys) != 2 {
 		t.Errorf("EvaluateVendoredModuleHash() lock key count = %d, want 2", len(evaluation.LockKeys))
+	}
+}
+
+func TestFindAmbiguousLockedModuleEntries(t *testing.T) {
+	t.Parallel()
+
+	lock := NewLockFile()
+	lock.Modules["https://github.com/example/dep.git"] = lockedHashTestModule("io.example.dep", "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	lock.Modules["https://github.com/example/alias.git"] = lockedHashTestModule("io.example.dep", "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	lock.Modules["https://github.com/example/other.git"] = lockedHashTestModule("io.example.other", "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+
+	ambiguities := FindAmbiguousLockedModuleEntries(lock)
+	if len(ambiguities) != 1 {
+		t.Fatalf("FindAmbiguousLockedModuleEntries() count = %d, want 1", len(ambiguities))
+	}
+	if ambiguities[0].ModuleID != "io.example.dep" {
+		t.Fatalf("ModuleID = %q, want io.example.dep", ambiguities[0].ModuleID)
+	}
+	wantKeys := []ModuleRefKey{"https://github.com/example/alias.git", "https://github.com/example/dep.git"}
+	if !slices.Equal(ambiguities[0].LockKeys, wantKeys) {
+		t.Fatalf("LockKeys = %v, want %v", ambiguities[0].LockKeys, wantKeys)
+	}
+	if err := ambiguities[0].Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
 	}
 }
 

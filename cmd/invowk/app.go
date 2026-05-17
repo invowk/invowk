@@ -255,6 +255,22 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 		return newServiceError(err, issue.InvalidArgumentId, RenderArgumentValidationError(argErr))
 	}
 
+	if ambigErr, ok := errors.AsType[*commandsvc.AmbiguousCommandError](err); ok {
+		styledMsg := RenderAmbiguousCommandError(&AmbiguousCommandError{
+			CommandName: ambigErr.CommandName,
+			Sources:     ambigErr.Sources,
+		})
+		return newServiceError(ambigErr, 0, styledMsg)
+	}
+
+	if sourceErr, ok := errors.AsType[*commandsvc.SourceNotFoundError](err); ok {
+		styledMsg := RenderSourceNotFoundError(&SourceNotFoundError{
+			Source:           sourceErr.Source,
+			AvailableSources: sourceErr.AvailableSources,
+		})
+		return newServiceError(sourceErr, issue.CommandNotFoundId, styledMsg)
+	}
+
 	if platformErr, ok := errors.AsType[*commandsvc.UnsupportedPlatformError](err); ok {
 		supported := make([]string, 0, len(platformErr.Supported))
 		for i := range platformErr.Supported {
@@ -280,20 +296,6 @@ func renderAndWrapServiceError(err error, req ExecuteRequest) error {
 	}
 
 	if classified, ok := errors.AsType[*commandsvc.ClassifiedError](err); ok {
-		if ambigErr, ambigOK := errors.AsType[*commandsvc.AmbiguousCommandError](classified.Err); ambigOK {
-			styledMsg := RenderAmbiguousCommandError(&AmbiguousCommandError{
-				CommandName: ambigErr.CommandName,
-				Sources:     ambigErr.Sources,
-			})
-			return newServiceError(classified.Err, 0, styledMsg)
-		}
-		if sourceErr, sourceOK := errors.AsType[*commandsvc.SourceNotFoundError](classified.Err); sourceOK {
-			styledMsg := RenderSourceNotFoundError(&SourceNotFoundError{
-				Source:           sourceErr.Source,
-				AvailableSources: sourceErr.AvailableSources,
-			})
-			return newServiceError(classified.Err, issue.CommandNotFoundId, styledMsg)
-		}
 		// Re-create the styled message using the CLI-layer error formatter.
 		var styledMsg string
 		styledLabel := ErrorStyle.Render(serviceErrorLabel)

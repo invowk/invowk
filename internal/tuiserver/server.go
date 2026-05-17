@@ -173,17 +173,17 @@ func (s *Server) Port() types.ListenPort {
 
 // URL returns the full server URL for localhost access (e.g., "http://127.0.0.1:54321").
 // For container access, use URLWithHost() with the appropriate host address.
-func (s *Server) URL() types.TUIServerURL {
+func (s *Server) URL() URL {
 	return s.URLWithHost(types.HostServiceAddress("127.0.0.1")) //goplint:ignore -- localhost literal for loopback server URL
 }
 
 // URLWithHost returns the full server URL with a custom host (e.g., "http://host.docker.internal:54321").
 // This is useful for containers that need to access the server via a different hostname.
-func (s *Server) URLWithHost(host types.HostServiceAddress) types.TUIServerURL {
+func (s *Server) URLWithHost(host types.HostServiceAddress) URL {
 	if err := host.Validate(); err != nil {
 		return ""
 	}
-	return types.TUIServerURL("http://" + net.JoinHostPort(host.String(), s.port.String()))
+	return URL("http://" + net.JoinHostPort(host.String(), s.port.String()))
 }
 
 // Token returns the authentication token.

@@ -192,38 +192,20 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 		return nil
 	}
 
-	// Pre-build moduleID → (key, hash) lookup to detect ambiguous entries
-	// where multiple lock entries share the same module ID.
-	type lockEntry struct {
-		key  invowkmod.ModuleRefKey
-		hash invowkmod.ContentHash
-	}
-	lockByID := make(map[string][]lockEntry)
-	for key, hash := range hashes {
-		lockMod := mod.LockFile.Modules[key]
-		moduleID := string(lockMod.IdentityModuleID())
-		lockByID[moduleID] = append(lockByID[moduleID], lockEntry{key: key, hash: hash})
-	}
-
-	// Flag ambiguous lock entries (multiple entries for same module ID).
-	for id, entries := range lockByID {
-		if len(entries) > 1 {
-			var keys []string
-			for _, e := range entries {
-				keys = append(keys, string(e.key))
-			}
-			findings = append(findings, Finding{
-				Code:           codeLockfileAmbiguousModule,
-				Severity:       SeverityMedium,
-				Category:       CategoryIntegrity,
-				SurfaceID:      mod.SurfaceID,
-				CheckerName:    lockFileCheckerName,
-				FilePath:       mod.LockPath,
-				Title:          "Ambiguous lock file entries for same module",
-				Description:    fmt.Sprintf("Module ID %q has %d lock entries (%s) — only the first would be verified, allowing a crafted duplicate to evade detection", id, len(entries), strings.Join(keys, ", ")),
-				Recommendation: "Ensure each module ID has exactly one lock file entry; run 'invowk module sync' to regenerate",
-			})
-		}
+	// Flag ambiguous lock entries using the same lock/hash policy as vendored
+	// module verification.
+	for _, ambiguity := range invowkmod.FindAmbiguousLockedModuleEntries(mod.LockFile) {
+		findings = append(findings, Finding{
+			Code:           codeLockfileAmbiguousModule,
+			Severity:       SeverityMedium,
+			Category:       CategoryIntegrity,
+			SurfaceID:      mod.SurfaceID,
+			CheckerName:    lockFileCheckerName,
+			FilePath:       mod.LockPath,
+			Title:          "Ambiguous lock file entries for same module",
+			Description:    fmt.Sprintf("Module ID %q has %d lock entries (%s) — hash verification is ambiguous until the duplicate identity is resolved", ambiguity.ModuleID, len(ambiguity.LockKeys), moduleRefKeysList(ambiguity.LockKeys)),
+			Recommendation: "Ensure each module ID has exactly one lock file entry; run 'invowk module sync' to regenerate",
+		})
 	}
 
 	pathByVendoredID := vendoredPathByModuleID(mod.VendoredModules)
@@ -300,6 +282,15 @@ func (c *LockFileChecker) checkHashMismatches(ctx context.Context, mod *ScannedM
 	}
 
 	return findings
+}
+
+//goplint:ignore -- display-only lockfile key list for audit finding descriptions.
+func moduleRefKeysList(keys []invowkmod.ModuleRefKey) string {
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, string(key))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func vendoredPathByModuleID(vendoredModules []*invowkmod.Module) map[invowkmod.ModuleID]types.FilesystemPath {

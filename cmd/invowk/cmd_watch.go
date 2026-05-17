@@ -10,7 +10,6 @@ import (
 	"github.com/invowk/invowk/internal/app/commandsvc"
 	"github.com/invowk/invowk/internal/discovery"
 	"github.com/invowk/invowk/internal/watch"
-	"github.com/invowk/invowk/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -68,16 +67,18 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 
 	ctx := contextWithConfigPath(cmd.Context(), rootFlags.configPath)
 
-	req := ExecuteRequest{
+	resolveReq, err := buildCommandExecuteRequest(cmd, rootFlags, cmdFlags, executeRequestOptions{
 		Name:       args[0],
 		Args:       args[1:],
-		FromSource: discovery.SourceID(cmdFlags.fromSource),    //goplint:ignore -- CLI flag value, validated downstream
-		ConfigPath: types.FilesystemPath(rootFlags.configPath), //goplint:ignore -- CLI flag value, may be empty
+		FromSource: discovery.SourceID(cmdFlags.fromSource), //goplint:ignore -- CLI flag value, validated downstream
+	})
+	if err != nil {
+		return err
 	}
-	cmdInfo, resolvedReq, diags, err := app.Commands.ResolveCommand(ctx, req)
+	cmdInfo, resolvedReq, diags, err := app.Commands.ResolveCommand(ctx, resolveReq)
 	app.Diagnostics.Render(ctx, diags, app.stderr)
 	if err != nil {
-		return renderAndWrapServiceError(err, req)
+		return renderAndWrapServiceError(err, resolveReq)
 	}
 	if cmdInfo == nil {
 		return &WatchCommandNotFoundError{Name: args[0]}
@@ -104,7 +105,14 @@ func runWatchMode(cmd *cobra.Command, app *App, rootFlags *rootFlagValues, cmdFl
 		childFlags := *cmdFlags
 		childFlags.watch = false
 		cmd.SetContext(execCtx)
-		req, buildErr := buildExecuteRequest(cmd, rootFlags, &childFlags, args)
+		req, buildErr := buildCommandExecuteRequest(cmd, rootFlags, &childFlags, executeRequestOptions{
+			Name:            resolvedReq.Name,
+			Args:            resolvedReq.Args,
+			FromSource:      resolvedReq.FromSource,
+			ResolvedCommand: cmdInfo,
+			FlagDefs:        commandFlagDefs(cmdInfo),
+			ArgDefs:         commandArgDefs(cmdInfo),
+		})
 		if buildErr != nil {
 			return commandsvc.WatchExecutionOutcome{Err: buildErr}
 		}

@@ -12,10 +12,6 @@ import (
 )
 
 type (
-	containerRunCommandPreparer interface {
-		PrepareRunCommand(ctx context.Context, opts container.RunOptions) *exec.Cmd
-	}
-
 	containerExecCommandPreparer interface {
 		PrepareExecCommand(ctx context.Context, containerID container.ContainerID, command []string, opts container.RunOptions) *exec.Cmd
 	}
@@ -81,7 +77,7 @@ func (r *ContainerRuntime) PrepareCommand(ctx *ExecutionContext) (*PreparedComma
 		return nil, fmt.Errorf("container run options: %w", err)
 	}
 
-	preparer, ok := r.engine.(containerRunCommandPreparer)
+	preparer, ok := r.engine.(container.CommandPreparer)
 	if !ok {
 		return nil, errors.New("container engine does not support interactive command preparation")
 	}

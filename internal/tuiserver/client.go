@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/invowk/invowk/pkg/types"
 )
 
 // ErrTUIServerResponse is returned when the TUI server responds with an error message.
@@ -22,7 +20,7 @@ var ErrTUIServerResponse = errors.New("TUI server error")
 // Client provides methods to communicate with the TUI server.
 // It is used by child processes to delegate TUI rendering to the parent.
 type Client struct {
-	addr   types.TUIServerURL
+	addr   URL
 	token  AuthToken
 	client *http.Client
 }
@@ -37,7 +35,7 @@ func NewClientFromEnv() *Client {
 		return nil
 	}
 
-	serverURL := types.TUIServerURL(addr)
+	serverURL := URL(addr)
 	if err := serverURL.Validate(); err != nil {
 		return nil
 	}
@@ -49,7 +47,7 @@ func NewClientFromEnv() *Client {
 }
 
 // NewClient creates a new Client with the given server address and token.
-func NewClient(addr types.TUIServerURL, token AuthToken) *Client {
+func NewClient(addr URL, token AuthToken) *Client {
 	return &Client{
 		addr:  addr,
 		token: token,
@@ -100,7 +98,7 @@ func (c *Client) InputContext(ctx context.Context, opts InputRequest) (string, e
 	}
 
 	if resp.Cancelled {
-		return "", types.ErrUserCancelled
+		return "", ErrUserCancelled
 	}
 
 	var result InputResult
@@ -125,7 +123,7 @@ func (c *Client) ConfirmContext(ctx context.Context, opts ConfirmRequest) (bool,
 	}
 
 	if resp.Cancelled {
-		return false, types.ErrUserCancelled
+		return false, ErrUserCancelled
 	}
 
 	var result ConfirmResult
@@ -151,7 +149,7 @@ func (c *Client) ChooseContext(ctx context.Context, opts ChooseRequest) (any, er
 	}
 
 	if resp.Cancelled {
-		return nil, types.ErrUserCancelled
+		return nil, ErrUserCancelled
 	}
 
 	var result ChooseResult
@@ -238,7 +236,7 @@ func (c *Client) FilterContext(ctx context.Context, opts FilterRequest) ([]strin
 	}
 
 	if resp.Cancelled {
-		return nil, types.ErrUserCancelled
+		return nil, ErrUserCancelled
 	}
 
 	var result FilterResult
@@ -263,7 +261,7 @@ func (c *Client) FileContext(ctx context.Context, opts FileRequest) (string, err
 	}
 
 	if resp.Cancelled {
-		return "", types.ErrUserCancelled
+		return "", ErrUserCancelled
 	}
 
 	var result FileResult
@@ -299,7 +297,7 @@ func (c *Client) TextAreaContext(ctx context.Context, opts TextAreaRequest) (str
 	}
 
 	if resp.Cancelled {
-		return "", types.ErrUserCancelled
+		return "", ErrUserCancelled
 	}
 
 	var result TextAreaResult
@@ -349,7 +347,7 @@ func (c *Client) TableContext(ctx context.Context, opts TableRequest) (*TableRes
 	}
 
 	if resp.Cancelled {
-		return nil, types.ErrUserCancelled
+		return nil, ErrUserCancelled
 	}
 
 	var result TableResult

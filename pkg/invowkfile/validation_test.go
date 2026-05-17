@@ -737,7 +737,7 @@ func TestValidateToolName(t *testing.T) {
 		{name: "complex", toolName: "clang++-14", shouldError: false},
 
 		// Invalid - empty
-		{name: "empty", toolName: "", shouldError: true, errorMsg: "cannot be empty"},
+		{name: "empty", toolName: "", shouldError: true, errorMsg: "empty"},
 
 		// Invalid - starts with non-alphanumeric
 		{name: "starts with hyphen", toolName: "-tool", shouldError: true, errorMsg: "invalid"},
@@ -750,7 +750,7 @@ func TestValidateToolName(t *testing.T) {
 		{name: "contains pipe", toolName: "go|cat", shouldError: true, errorMsg: "invalid"},
 
 		// Invalid - too long
-		{name: "too long", toolName: strings.Repeat("a", MaxNameLength+1), shouldError: true, errorMsg: "too long"},
+		{name: "too long", toolName: strings.Repeat("a", MaxNameLength+1), shouldError: true, errorMsg: "exceeds maximum"},
 	}
 
 	for _, tt := range tests {

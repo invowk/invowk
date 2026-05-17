@@ -186,7 +186,11 @@ func probeEngineStatus(engineType container.EngineType) engineProbeStatus {
 		_ = closeErr
 	}()
 
-	binaryPath := engine.BinaryPath()
+	preparer, ok := engine.(container.CommandPreparer)
+	if !ok {
+		return engineProbeStatus{reason: fmt.Sprintf("engine %q cannot prepare CLI commands", engineType)}
+	}
+	binaryPath := preparer.BinaryPath()
 	if binaryPath == "" {
 		return engineProbeStatus{reason: "binary not found on PATH"}
 	}

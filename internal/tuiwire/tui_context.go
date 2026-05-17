@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-package types
+package tuiwire
 
 import (
 	"errors"
@@ -8,8 +8,12 @@ import (
 	"strings"
 )
 
-// ErrInvalidTUIServerURL is the sentinel error wrapped by InvalidTUIServerURLError.
-var ErrInvalidTUIServerURL = errors.New("invalid TUI server URL")
+var (
+	// ErrInvalidTUIServerURL is the sentinel error wrapped by InvalidTUIServerURLError.
+	ErrInvalidTUIServerURL = errors.New("invalid TUI server URL")
+	// ErrUserCancelled is returned when a user cancels an interactive TUI operation.
+	ErrUserCancelled = errors.New("user cancelled")
+)
 
 type (
 	// TUIServerURL represents the URL of a TUI server for interactive mode.

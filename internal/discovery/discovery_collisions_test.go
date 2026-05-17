@@ -21,14 +21,14 @@ func moduleIDPtr(s string) *invowkmod.ModuleID {
 	return &id
 }
 
-// testModuleMetadata creates a minimal ModuleMetadata for test fixtures.
-// Uses NewModuleMetadataFromInvowkmod which does not validate, allowing
-// test-only metadata like empty module IDs.
-func testModuleMetadata(moduleID invowkmod.ModuleID) *invowkfile.ModuleMetadata {
-	return invowkfile.NewModuleMetadataFromInvowkmod(&invowkmod.Invowkmod{
-		Module:  moduleID,
-		Version: "0.0.0",
-	})
+// testModuleMetadata creates a minimal validated ModuleMetadata for test fixtures.
+func testModuleMetadata(t *testing.T, moduleID invowkmod.ModuleID) *invowkfile.ModuleMetadata {
+	t.Helper()
+	metadata, err := invowkfile.NewModuleMetadata(moduleID, "0.0.0", "", nil)
+	if err != nil {
+		t.Fatalf("NewModuleMetadata() error = %v", err)
+	}
+	return metadata
 }
 
 func TestDiscoveredCommandSet_Add(t *testing.T) {
@@ -427,11 +427,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module1")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.module1")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module2")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.module2")},
 			},
 		}
 
@@ -447,11 +447,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.same")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.same")},
 			},
 		}
 
@@ -481,12 +481,12 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1.invowkmod/invowkfile.cue",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.same")},
 				Module:     &invowkmod.Module{Path: "/path/to/module1.invowkmod"},
 			},
 			{
 				Path:       "/path/to/module2.invowkmod/invowkfile.cue",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.same")},
 				Module:     &invowkmod.Module{Path: "/path/to/module2.invowkmod"},
 			},
 		}
@@ -510,12 +510,12 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1.invowkmod/invowkfile.cue",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.one")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.one")},
 				Module:     &invowkmod.Module{Path: "/path/to/module1.invowkmod"},
 			},
 			{
 				Path:       "/path/to/module2.invowkmod/invowkfile.cue",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.two")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.two")},
 				Module:     &invowkmod.Module{Path: "/path/to/module2.invowkmod"},
 			},
 		}
@@ -536,14 +536,14 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:             "/parent1.invowkmod/invowk_modules/child1.invowkmod/invowkfile.cue",
-				Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.child1")},
+				Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.child1")},
 				Module:           &invowkmod.Module{Path: "/parent1.invowkmod/invowk_modules/child1.invowkmod"},
 				ParentModule:     &invowkmod.Module{Metadata: &invowkmod.Invowkmod{Module: "io.example.parent1"}},
 				CommandNamespace: "tools",
 			},
 			{
 				Path:             "/parent2.invowkmod/invowk_modules/child2.invowkmod/invowkfile.cue",
-				Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.child2")},
+				Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.child2")},
 				Module:           &invowkmod.Module{Path: "/parent2.invowkmod/invowk_modules/child2.invowkmod"},
 				ParentModule:     &invowkmod.Module{Metadata: &invowkmod.Invowkmod{Module: "io.example.parent2"}},
 				CommandNamespace: "tools",
@@ -566,7 +566,7 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.same")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.same")},
 			},
 			{
 				Path:  "/path/to/module2",
@@ -586,11 +586,11 @@ func TestCheckModuleCollisions(t *testing.T) {
 		files := []*DiscoveredFile{
 			{
 				Path:       "/path/to/module1",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.module1")},
+				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.module1")},
 			},
 			{
 				Path:       "/path/to/module2",
-				Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("")}, // Empty module ID
+				Invowkfile: &invowkfile.Invowkfile{}, // Missing module metadata
 			},
 		}
 
@@ -612,7 +612,7 @@ func TestGetEffectiveCommandNamespace(t *testing.T) {
 
 		file := &DiscoveredFile{
 			Path:       "/path/to/module",
-			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.original")},
+			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.original")},
 		}
 
 		namespace := d.GetEffectiveCommandNamespace(file)
@@ -632,7 +632,7 @@ func TestGetEffectiveCommandNamespace(t *testing.T) {
 
 		file := &DiscoveredFile{
 			Path:       "/path/to/module.invowkmod/invowkfile.cue",
-			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.original")},
+			Invowkfile: &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.original")},
 			Module:     &invowkmod.Module{Path: "/path/to/module.invowkmod"},
 		}
 
@@ -650,7 +650,7 @@ func TestGetEffectiveCommandNamespace(t *testing.T) {
 
 		file := &DiscoveredFile{
 			Path:             "/path/to/parent.invowkmod/invowk_modules/tools.invowkmod/invowkfile.cue",
-			Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata("io.example.tools")},
+			Invowkfile:       &invowkfile.Invowkfile{Metadata: testModuleMetadata(t, "io.example.tools")},
 			Module:           &invowkmod.Module{Path: "/path/to/parent.invowkmod/invowk_modules/tools.invowkmod"},
 			CommandNamespace: "tools",
 		}

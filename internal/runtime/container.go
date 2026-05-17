@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -29,9 +28,6 @@ const (
 var (
 	ErrContainerBuildConfig = errors.New("invalid container build configuration")
 
-	containerRunFallbackMu  sync.Mutex
-	acquireContainerRunLock = acquireRunLock
-
 	// Compile-time interface checks.
 	_ Runtime                    = (*ContainerRuntime)(nil)
 	_ CapturingRuntime           = (*ContainerRuntime)(nil)
@@ -41,9 +37,6 @@ var (
 
 type (
 	// ContainerRuntime executes commands inside a container.
-	//
-	// Process-wide fallback serialization is shared across instances when
-	// flock-based cross-process serialization is unavailable.
 	ContainerRuntime struct {
 		engine          containerEngine
 		hostCallbacks   HostCallbackServer

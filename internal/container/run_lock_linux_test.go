@@ -2,7 +2,7 @@
 
 //go:build linux
 
-package runtime
+package container
 
 import (
 	"fmt"
@@ -13,19 +13,20 @@ import (
 	"time"
 
 	"github.com/invowk/invowk/internal/testutil"
+	"github.com/invowk/invowk/pkg/types"
 )
 
 func TestAcquireRunLock_CreatesFile(t *testing.T) {
 	t.Parallel()
 
-	lockPath := filepath.Join(t.TempDir(), "test.lock")
+	lockPath := types.FilesystemPath(filepath.Join(t.TempDir(), "test.lock"))
 	lock, err := acquireRunLockAt(lockPath)
 	if err != nil {
 		t.Fatalf("acquireRunLockAt() error: %v", err)
 	}
 	defer lock.Release()
 
-	if _, statErr := os.Stat(lockPath); statErr != nil {
+	if _, statErr := os.Stat(string(lockPath)); statErr != nil {
 		t.Errorf("lock file not found at %s: %v", lockPath, statErr)
 	}
 }
@@ -33,20 +34,18 @@ func TestAcquireRunLock_CreatesFile(t *testing.T) {
 func TestAcquireRunLock_BlocksConcurrent(t *testing.T) {
 	t.Parallel()
 
-	lockPath := filepath.Join(t.TempDir(), "test.lock")
+	lockPath := types.FilesystemPath(filepath.Join(t.TempDir(), "test.lock"))
 	lockA, err := acquireRunLockAt(lockPath)
 	if err != nil {
 		t.Fatalf("acquireRunLockAt A: %v", err)
 	}
 
-	// Track whether goroutine B has acquired the lock.
 	var acquired atomic.Bool
 
 	started := make(chan struct{})
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		// Signal that the goroutine is about to call acquireRunLockAt.
 		close(started)
 		lockB, bErr := acquireRunLockAt(lockPath)
 		if bErr != nil {
@@ -57,15 +56,11 @@ func TestAcquireRunLock_BlocksConcurrent(t *testing.T) {
 		lockB.Release()
 	}()
 
-	// Wait for goroutine B to start, then verify it cannot acquire the lock
-	// while A holds it. AssertNeverTrue polls repeatedly instead of using a
-	// fixed sleep, making the assertion robust under CI load.
 	<-started
 	testutil.AssertNeverTrue(t, 100*time.Millisecond, 10*time.Millisecond,
 		"goroutine B acquired the lock while A still held it",
 		acquired.Load)
 
-	// Release A — B should now acquire.
 	lockA.Release()
 
 	select {
@@ -81,13 +76,12 @@ func TestAcquireRunLock_BlocksConcurrent(t *testing.T) {
 func TestRunLock_Release_Idempotent(t *testing.T) {
 	t.Parallel()
 
-	lockPath := filepath.Join(t.TempDir(), "test.lock")
+	lockPath := types.FilesystemPath(filepath.Join(t.TempDir(), "test.lock"))
 	lock, err := acquireRunLockAt(lockPath)
 	if err != nil {
 		t.Fatalf("acquireRunLockAt() error: %v", err)
 	}
 
-	// Double-release must not panic.
 	lock.Release()
 	lock.Release()
 }
@@ -95,22 +89,16 @@ func TestRunLock_Release_Idempotent(t *testing.T) {
 func TestRunLock_Release_NilReceiver(t *testing.T) {
 	t.Parallel()
 
-	// Nil receiver must not panic (defensive for error paths).
 	var lock *runLock
 	lock.Release()
 }
 
-// TestAcquireRunLockAt_SerializedAccess verifies that two goroutines calling
-// acquireRunLockAt on the same path get serialized access to a shared resource.
-// Without the lock, concurrent increments would race; the lock ensures each
-// goroutine sees the result of the previous increment.
 func TestAcquireRunLockAt_SerializedAccess(t *testing.T) {
 	t.Parallel()
 
-	lockPath := filepath.Join(t.TempDir(), "test.lock")
+	lockPath := types.FilesystemPath(filepath.Join(t.TempDir(), "test.lock"))
 	counterPath := filepath.Join(t.TempDir(), "counter")
 
-	// Initialize counter file to "0".
 	if err := os.WriteFile(counterPath, []byte("0"), 0o600); err != nil {
 		t.Fatalf("failed to write initial counter: %v", err)
 	}
@@ -129,7 +117,6 @@ func TestAcquireRunLockAt_SerializedAccess(t *testing.T) {
 			}
 			defer lock.Release()
 
-			// Read current counter.
 			data, readErr := os.ReadFile(counterPath)
 			if readErr != nil {
 				t.Errorf("read counter: %v", readErr)
@@ -142,7 +129,6 @@ func TestAcquireRunLockAt_SerializedAccess(t *testing.T) {
 				return
 			}
 
-			// Increment and write back (non-atomic without the lock).
 			n++
 			if writeErr := os.WriteFile(counterPath, fmt.Appendf(nil, "%d", n), 0o600); writeErr != nil {
 				t.Errorf("write counter: %v", writeErr)
@@ -151,7 +137,6 @@ func TestAcquireRunLockAt_SerializedAccess(t *testing.T) {
 		}()
 	}
 
-	// Wait for all goroutines.
 	for range numGoroutines {
 		select {
 		case <-done:
@@ -160,7 +145,6 @@ func TestAcquireRunLockAt_SerializedAccess(t *testing.T) {
 		}
 	}
 
-	// Verify final counter value.
 	data, err := os.ReadFile(counterPath)
 	if err != nil {
 		t.Fatalf("read final counter: %v", err)
@@ -181,7 +165,7 @@ func TestLockFilePath_FallbackToTempDir(t *testing.T) {
 
 	path := lockFilePathWith(func(string) string { return "" })
 	expected := filepath.Join(os.TempDir(), lockFileName)
-	if path != expected {
+	if path != types.FilesystemPath(expected) {
 		t.Errorf("lockFilePathWith() = %q, want %q", path, expected)
 	}
 }
@@ -197,7 +181,7 @@ func TestLockFilePath_UsesXDGRuntimeDir(t *testing.T) {
 		return ""
 	})
 	expected := filepath.Join(customDir, lockFileName)
-	if path != expected {
+	if path != types.FilesystemPath(expected) {
 		t.Errorf("lockFilePathWith() = %q, want %q", path, expected)
 	}
 }

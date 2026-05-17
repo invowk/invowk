@@ -62,7 +62,7 @@ func (InteractiveExecutor) Execute(ctx *runtime.ExecutionContext, cmdName invowk
 		}
 	}()
 
-	var tuiServerURL types.TUIServerURL
+	var tuiServerURL runtime.TUIServerURL
 	if hostProvider, ok := interactiveRT.(runtime.HostServiceAddressProvider); ok {
 		tuiServerURL = tuiServer.URLWithHost(hostProvider.HostServiceAddress())
 	} else {

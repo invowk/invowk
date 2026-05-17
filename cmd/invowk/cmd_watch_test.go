@@ -35,6 +35,7 @@ type (
 		executeErrs  []error
 		exitCodes    []types.ExitCode
 		executeCalls int
+		requests     []ExecuteRequest
 	}
 )
 
@@ -82,8 +83,9 @@ func (r fakeWatchRunner) Run(ctx context.Context) error {
 	return r.run(ctx, r.cfg)
 }
 
-func (s *fakeWatchCommandService) Execute(context.Context, ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
+func (s *fakeWatchCommandService) Execute(_ context.Context, req ExecuteRequest) (ExecuteResult, []discovery.Diagnostic, error) {
 	s.executeCalls++
+	s.requests = append(s.requests, req)
 	result := ExecuteResult{}
 	if len(s.exitCodes) > 0 {
 		result.ExitCode = s.exitCodes[0]
@@ -348,6 +350,86 @@ func TestRunWatchMode_NonZeroExitResetsInfrastructureFailureCounter(t *testing.T
 	)
 	if err != nil {
 		t.Fatalf("runWatchMode() error = %v", err)
+	}
+}
+
+func TestRunWatchMode_ReexecutionUsesResolvedCommandRequest(t *testing.T) {
+	t.Parallel()
+
+	cmdInfo := newResolvedWatchCommand(t)
+	cmdInfo.Name = "tools build"
+	cmdInfo.Command.Flags = []invowkfile.Flag{{Name: "profile", Type: invowkfile.FlagTypeString}}
+	cmdInfo.Command.Args = []invowkfile.Argument{{Name: "target"}}
+	commands := &fakeWatchCommandService{cmdInfo: cmdInfo}
+	watchers := &fakeWatchFactory{
+		run: func(ctx context.Context, cfg watch.Config) error {
+			return cfg.OnChange(ctx, []string{"main.go"})
+		},
+	}
+	app := &App{
+		Config:      &staticConfigProvider{cfg: config.DefaultConfig()},
+		Commands:    commands,
+		Watchers:    watchers,
+		Diagnostics: &defaultDiagnosticRenderer{},
+		stdout:      io.Discard,
+		stderr:      io.Discard,
+	}
+	cmd := newWatchTestCmd(t)
+	cmd.Flags().StringArray("ivk-env-file", nil, "")
+	cmd.Flags().StringArray("ivk-env-var", nil, "")
+	cmd.Flags().String("ivk-env-inherit-mode", "", "")
+	cmd.Flags().StringArray("ivk-env-inherit-allow", nil, "")
+	cmd.Flags().StringArray("ivk-env-inherit-deny", nil, "")
+	cmd.Flags().String("ivk-workdir", "", "")
+	cmd.Flags().String("profile", "", "")
+	for name, value := range map[string]string{
+		"ivk-env-file":          "watch.env",
+		"ivk-env-var":           "WATCH_MODE=1",
+		"ivk-env-inherit-mode":  "allow",
+		"ivk-env-inherit-allow": "PATH",
+		"ivk-workdir":           "src",
+		"profile":               "debug",
+	} {
+		if err := cmd.Flags().Set(name, value); err != nil {
+			t.Fatalf("set flag %s: %v", name, err)
+		}
+	}
+
+	err := runWatchMode(
+		cmd,
+		app,
+		&rootFlagValues{},
+		&cmdFlagValues{},
+		[]string{"build", "linux"},
+	)
+	if err != nil {
+		t.Fatalf("runWatchMode() error = %v", err)
+	}
+	if len(commands.requests) != 2 {
+		t.Fatalf("execute request count = %d, want initial + change", len(commands.requests))
+	}
+	for i, req := range commands.requests {
+		if req.Name != "tools build" || len(req.Args) != 1 || req.Args[0] != "linux" {
+			t.Fatalf("request %d command = %q %v, want tools build [linux]", i, req.Name, req.Args)
+		}
+		if req.ResolvedCommand != cmdInfo {
+			t.Fatalf("request %d ResolvedCommand = %v, want cmdInfo", i, req.ResolvedCommand)
+		}
+		if req.Workdir != "src" {
+			t.Fatalf("request %d Workdir = %q, want src", i, req.Workdir)
+		}
+		if req.FlagValues["profile"] != "debug" {
+			t.Fatalf("request %d FlagValues = %v, want profile=debug", i, req.FlagValues)
+		}
+		if len(req.FlagDefs) != 1 || len(req.ArgDefs) != 1 {
+			t.Fatalf("request %d FlagDefs/ArgDefs = %d/%d, want 1/1", i, len(req.FlagDefs), len(req.ArgDefs))
+		}
+		if len(req.EnvFiles) != 1 || req.EnvFiles[0] != "watch.env" {
+			t.Fatalf("request %d EnvFiles = %v, want [watch.env]", i, req.EnvFiles)
+		}
+		if req.EnvVars["WATCH_MODE"] != "1" {
+			t.Fatalf("request %d EnvVars = %v, want WATCH_MODE=1", i, req.EnvVars)
+		}
 	}
 }
 

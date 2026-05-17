@@ -5,6 +5,8 @@ package invowkfile
 import (
 	"errors"
 	"testing"
+
+	"github.com/invowk/invowk/pkg/invowkmod"
 )
 
 func TestInvowkfile_ValidateFields_ZeroValue(t *testing.T) {
@@ -102,6 +104,30 @@ func TestInvowkfile_ValidateFields_InvalidDependsOn(t *testing.T) {
 	}
 	if !errors.Is(err, ErrInvalidInvowkfile) {
 		t.Errorf("error should wrap ErrInvalidInvowkfile, got: %v", err)
+	}
+}
+
+func TestInvowkfile_ValidateFields_InvalidMetadata(t *testing.T) {
+	t.Parallel()
+	inv := Invowkfile{
+		Metadata: &ModuleMetadata{
+			module:  invowkmod.ModuleID(""),
+			version: invowkmod.SemVer("1.0.0"),
+		},
+	}
+	err := inv.ValidateFields()
+	if err == nil {
+		t.Fatal("Invowkfile with invalid Metadata should fail")
+	}
+	if !errors.Is(err, ErrInvalidInvowkfile) {
+		t.Errorf("error should wrap ErrInvalidInvowkfile, got: %v", err)
+	}
+	var invErr *InvalidInvowkfileError
+	if !errors.As(err, &invErr) {
+		t.Fatalf("error should be *InvalidInvowkfileError, got: %T", err)
+	}
+	if len(invErr.FieldErrors) != 1 || !errors.Is(invErr.FieldErrors[0], ErrInvalidModuleMetadata) {
+		t.Fatalf("field errors = %v, want ErrInvalidModuleMetadata", invErr.FieldErrors)
 	}
 }
 

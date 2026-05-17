@@ -323,14 +323,13 @@ func ensureManagedPersistentSpecMatches(info *container.ContainerInfo, createOpt
 }
 
 func (r *ContainerRuntime) withPersistentContainerLock(fn func() (container.ContainerID, error)) (container.ContainerID, error) {
-	lock, lockErr := acquireContainerRunLock()
-	if lockErr != nil {
-		containerRunFallbackMu.Lock()
-		defer containerRunFallbackMu.Unlock()
-		return fn()
-	}
-	defer lock.Release()
-	return fn()
+	var containerID container.ContainerID
+	err := container.WithRunLock(func() error {
+		var lockErr error
+		containerID, lockErr = fn()
+		return lockErr
+	})
+	return containerID, err
 }
 
 func execOptionsForPersistent(ctx *ExecutionContext, prep *containerExecPrep, stdout, stderr io.Writer) container.RunOptions {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/invowk/invowk/pkg/types"
@@ -31,6 +32,13 @@ type (
 		hash ContentHash
 	}
 
+	// LockedModuleAmbiguity reports duplicate lock-file entries that share a
+	// single stable module identity.
+	LockedModuleAmbiguity struct {
+		ModuleID ModuleID
+		LockKeys []ModuleRefKey
+	}
+
 	// VendoredHashStatus classifies a vendored module integrity evaluation.
 	VendoredHashStatus string
 
@@ -52,6 +60,24 @@ func (e lockHashEntry) Validate() error {
 	errs = append(errs, e.key.Validate())
 	if e.hash != "" {
 		errs = append(errs, e.hash.Validate())
+	}
+	return errors.Join(errs...)
+}
+
+// Validate returns nil when the ambiguity read model has a module identity and
+// at least two lock-file entries.
+func (a LockedModuleAmbiguity) Validate() error {
+	var errs []error
+	if err := a.ModuleID.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if len(a.LockKeys) < 2 {
+		errs = append(errs, fmt.Errorf("ambiguous lock entries for %s must include at least two keys", a.ModuleID))
+	}
+	for _, key := range a.LockKeys {
+		if err := key.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -203,6 +229,41 @@ func VerifyLockedVendoredModuleHash(moduleKey ModuleRefKey, locked LockedModule,
 
 	evaluation := EvaluateModuleContentHash(moduleKey, module.Metadata.Module, module.Path, locked.ContentHash)
 	return verifyVendoredModuleHashEvaluation(module.Metadata.Module, evaluation)
+}
+
+// FindAmbiguousLockedModuleEntries returns lock-file entries that share the
+// same stable module identity and therefore cannot unambiguously identify the
+// trusted content hash for that module.
+func FindAmbiguousLockedModuleEntries(lock *LockFile) []LockedModuleAmbiguity {
+	if lock == nil {
+		return nil
+	}
+
+	lockByID := make(map[ModuleID][]ModuleRefKey)
+	for key := range lock.Modules {
+		locked := lock.Modules[key]
+		moduleID := locked.IdentityModuleID()
+		if moduleID == "" {
+			continue
+		}
+		lockByID[moduleID] = append(lockByID[moduleID], key)
+	}
+
+	ambiguities := make([]LockedModuleAmbiguity, 0)
+	for moduleID, keys := range lockByID {
+		if len(keys) < 2 {
+			continue
+		}
+		slices.Sort(keys)
+		ambiguities = append(ambiguities, LockedModuleAmbiguity{
+			ModuleID: moduleID,
+			LockKeys: append([]ModuleRefKey(nil), keys...),
+		})
+	}
+	slices.SortFunc(ambiguities, func(a, b LockedModuleAmbiguity) int {
+		return strings.Compare(string(a.ModuleID), string(b.ModuleID))
+	})
+	return ambiguities
 }
 
 // EvaluateVendoredModuleHash matches a vendored module to its lock file entry

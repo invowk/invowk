@@ -4,6 +4,7 @@ package invowkfile
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -20,13 +21,19 @@ func TestBinaryName_Validate(t *testing.T) {
 		{"name with dash", BinaryName("my-tool"), true, false},
 		{"name with dot", BinaryName("python3.11"), true, false},
 		{"name with underscore", BinaryName("my_tool"), true, false},
+		{"name with plus", BinaryName("g++"), true, false},
 		{"empty is invalid", BinaryName(""), false, true},
 		{"whitespace only", BinaryName(" "), false, true},
 		{"tab only", BinaryName("\t"), false, true},
 		{"spaces and tabs", BinaryName("  \t  "), false, true},
+		{"starts with dot", BinaryName(".tool"), false, true},
+		{"starts with hyphen", BinaryName("-tool"), false, true},
+		{"contains space", BinaryName("my tool"), false, true},
+		{"contains semicolon", BinaryName("go;rm"), false, true},
 		{"forward slash", BinaryName("usr/bin/git"), false, true},
 		{"backslash", BinaryName("C:\\git"), false, true},
 		{"just slash", BinaryName("/"), false, true},
+		{"too long", BinaryName(strings.Repeat("a", MaxNameLength+1)), false, true},
 	}
 
 	for _, tt := range tests {

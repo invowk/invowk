@@ -111,8 +111,13 @@ func ParseModule(modulePath FilesystemPath) (*Module, error) {
 			return nil, parseErr
 		}
 
-		// Attach local metadata snapshot and module path
-		inv.Metadata = NewModuleMetadataFromInvowkmod(result.Metadata)
+		metadata, metadataErr := NewModuleMetadataFromInvowkmod(result.Metadata)
+		if metadataErr != nil {
+			return nil, fmt.Errorf("module metadata at %s: %w", modulePath, metadataErr)
+		}
+
+		// Attach local metadata snapshot and module path.
+		inv.Metadata = metadata
 		inv.ModulePath = result.Path
 
 		result.Commands = inv

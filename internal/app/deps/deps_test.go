@@ -38,6 +38,15 @@ type (
 	}
 )
 
+func mustModuleMetadata(t *testing.T, meta *invowkfile.Invowkmod) *invowkfile.ModuleMetadata {
+	t.Helper()
+	metadata, err := invowkfile.NewModuleMetadataFromInvowkmod(meta)
+	if err != nil {
+		t.Fatalf("NewModuleMetadataFromInvowkmod() error = %v", err)
+	}
+	return metadata
+}
+
 func (s *stubCommandSetProvider) DiscoverCommandSet(context.Context) (discovery.CommandSetResult, error) {
 	if s.err != nil {
 		return discovery.CommandSetResult{}, s.err
@@ -114,7 +123,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 	}
 
 	// Module cmdInfo with module "mod" — for qualified name lookup.
-	modMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+	modMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 		Module:  "mod",
 		Version: "1.0.0",
 	})
@@ -124,7 +133,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		Invowkfile: &invowkfile.Invowkfile{Metadata: modMeta},
 	}
 
-	t.Run("accepts exact and module-qualified alternatives", func(t *testing.T) {
+	t.Run("accepts module-qualified alternatives", func(t *testing.T) {
 		t.Parallel()
 
 		commandSet := &discovery.DiscoveredCommandSet{
@@ -139,13 +148,42 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		deps := &invowkfile.DependsOn{
 			Commands: []invowkfile.CommandDependency{
 				{Alternatives: []invowkfile.CommandName{"build"}},
-				{Alternatives: []invowkfile.CommandName{"deploy"}},
 			},
 		}
 
 		// Module cmdInfo: "build" matches via qualified form "mod build".
 		if err := CheckCommandDependenciesExist(disc, deps, modCmdInfo, ctx); err != nil {
 			t.Fatalf("CheckCommandDependenciesExist() = %v", err)
+		}
+	})
+
+	t.Run("rejects module fallback to root invowkfile command", func(t *testing.T) {
+		t.Parallel()
+
+		commandSet := &discovery.DiscoveredCommandSet{
+			Commands: []*discovery.CommandInfo{
+				{Name: invowkfile.CommandName("deploy")},
+			},
+		}
+		disc := &stubCommandSetProvider{
+			result: discovery.CommandSetResult{Set: commandSet},
+		}
+		deps := &invowkfile.DependsOn{
+			Commands: []invowkfile.CommandDependency{
+				{Alternatives: []invowkfile.CommandName{"deploy"}},
+			},
+		}
+
+		err := CheckCommandDependenciesExist(disc, deps, modCmdInfo, ctx)
+		if err == nil {
+			t.Fatal("CheckCommandDependenciesExist() error = nil, want root command to be inaccessible")
+		}
+		var depErr *DependencyError
+		if !errors.As(err, &depErr) {
+			t.Fatalf("errors.As(err, *DependencyError) = false for %v", err)
+		}
+		if len(depErr.MissingCommands) != 1 {
+			t.Fatalf("MissingCommands = %v, want one inaccessible root command", depErr.MissingCommands)
 		}
 	})
 
@@ -199,7 +237,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			ModuleID:        depID,
 			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
-		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
 			Version:  "1.0.0",
 			Requires: []invowkmod.ModuleRequirement{req},
@@ -251,7 +289,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			ModuleID:        depID,
 			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
-		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
 			Version:  "1.0.0",
 			Requires: []invowkmod.ModuleRequirement{req},
@@ -312,7 +350,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 			ModuleID:        "io.example.expected",
 			ContentHash:     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		}
-		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
 			Version:  "1.0.0",
 			Requires: []invowkmod.ModuleRequirement{req},
@@ -365,7 +403,7 @@ func TestCheckCommandDependenciesExist(t *testing.T) {
 		t.Parallel()
 
 		moduleDir := t.TempDir()
-		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:  "io.example.caller",
 			Version: "1.0.0",
 		})
@@ -448,6 +486,19 @@ func TestFindMatchingCommand(t *testing.T) {
 		got := findMatchingCommand(available, "", []invowkfile.CommandName{"build"})
 		if got != rootBuild {
 			t.Fatalf("findMatchingCommand() = %v, want root command", got)
+		}
+	})
+
+	t.Run("module caller cannot match root exact command", func(t *testing.T) {
+		t.Parallel()
+
+		available := map[invowkfile.CommandName]*discovery.CommandInfo{
+			rootBuild.Name: rootBuild,
+		}
+
+		got := findMatchingCommand(available, "mod", []invowkfile.CommandName{"build"})
+		if got != nil {
+			t.Fatalf("findMatchingCommand() = %v, want nil for root command outside module scope", got)
 		}
 	})
 
@@ -781,7 +832,7 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 		t.Parallel()
 
 		moduleID := invowkmod.ModuleID("io.example.mod")
-		moduleMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+		moduleMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:  moduleID,
 			Version: "1.0.0",
 		})
@@ -871,7 +922,7 @@ func TestValidateRuntimeDependencies(t *testing.T) {
 				}},
 			}},
 		}
-		callerMeta := invowkfile.NewModuleMetadataFromInvowkmod(&invowkfile.Invowkmod{
+		callerMeta := mustModuleMetadata(t, &invowkfile.Invowkmod{
 			Module:   "io.example.caller",
 			Version:  "1.0.0",
 			Requires: []invowkmod.ModuleRequirement{req},

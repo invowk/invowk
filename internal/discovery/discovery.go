@@ -208,8 +208,12 @@ func (d *Discovery) LoadFirst() (*DiscoveredFile, error) {
 
 		inv, parseErr = invowkfile.Parse(file.Path)
 		if parseErr == nil {
-			inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(file.Module.Metadata)
-			inv.ModulePath = file.Module.Path
+			var metadata *invowkfile.ModuleMetadata
+			metadata, parseErr = invowkfile.NewModuleMetadataFromInvowkmod(file.Module.Metadata)
+			if parseErr == nil {
+				inv.Metadata = metadata
+				inv.ModulePath = file.Module.Path
+			}
 		}
 	} else {
 		inv, parseErr = invowkfile.Parse(file.Path)
@@ -336,8 +340,12 @@ func (d *Discovery) loadAllWithDiagnostics() ([]*DiscoveredFile, []Diagnostic, e
 			// logic (scope/dependency checks) can treat it as module-backed input.
 			inv, parseErr = invowkfile.Parse(file.Path)
 			if parseErr == nil {
-				inv.Metadata = invowkfile.NewModuleMetadataFromInvowkmod(file.Module.Metadata)
-				inv.ModulePath = file.Module.Path
+				var metadata *invowkfile.ModuleMetadata
+				metadata, parseErr = invowkfile.NewModuleMetadataFromInvowkmod(file.Module.Metadata)
+				if parseErr == nil {
+					inv.Metadata = metadata
+					inv.ModulePath = file.Module.Path
+				}
 			}
 		} else {
 			inv, parseErr = invowkfile.Parse(file.Path)

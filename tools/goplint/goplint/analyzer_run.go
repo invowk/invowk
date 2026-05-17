@@ -88,6 +88,8 @@ func runWithState(pass *analysis.Pass, state *flagState) (any, error) {
 	if err := validateRunConfig(rc); err != nil {
 		return nil, err
 	}
+	restoreReporter := installDiagnosticReporter(pass, rc.emitFindingsPath)
+	defer restoreReporter()
 
 	cfg, bl, err := loadRunInputs(state, rc)
 	if err != nil {

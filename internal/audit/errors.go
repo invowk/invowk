@@ -65,3 +65,29 @@ func (e *CheckerFailedError) Unwrap() error { return e.Err }
 func (e *CheckerFailedError) Is(target error) bool {
 	return target == ErrCheckerFailed
 }
+
+// ScanErrorContainsChecker reports whether a scanner error tree contains a
+// failure from the named checker. This keeps checker-failure policy in the
+// audit package while adapters decide how to render or exit.
+//
+//goplint:ignore -- checker names come from the audit Checker.Name() interface.
+func ScanErrorContainsChecker(err error, checkerName string) bool {
+	if err == nil {
+		return false
+	}
+
+	pending := []error{err}
+	for len(pending) > 0 {
+		last := len(pending) - 1
+		current := pending[last]
+		pending = pending[:last]
+
+		if failed, ok := errors.AsType[*CheckerFailedError](current); ok && failed.CheckerName == checkerName {
+			return true
+		}
+		if joined, ok := current.(interface{ Unwrap() []error }); ok {
+			pending = append(pending, joined.Unwrap()...)
+		}
+	}
+	return false
+}

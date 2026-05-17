@@ -373,7 +373,8 @@ func normalizedCommandAlternatives(dep invowkfile.CommandDependency) []invowkfil
 
 // findMatchingCommand returns the first CommandInfo matching any alternative,
 // or nil if none found. Module callers resolve bare alternatives against their
-// own source namespace before falling back to an unscoped root command.
+// own source namespace and explicit module/global namespaces, but root
+// invowkfile commands are not visible from module command scopes.
 func findMatchingCommand(available map[invowkfile.CommandName]*discovery.CommandInfo, currentModule string, alternatives []invowkfile.CommandName) *discovery.CommandInfo {
 	for _, alt := range alternatives {
 		exact := available[alt]
@@ -388,7 +389,7 @@ func findMatchingCommand(available map[invowkfile.CommandName]*discovery.Command
 			}
 		}
 
-		if exact != nil {
+		if currentModule == "" && exact != nil {
 			return exact
 		}
 	}

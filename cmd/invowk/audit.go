@@ -313,7 +313,7 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "scan error: %v\n", scanErr)
 		return &ExitError{Code: auditExitError, Err: scanErr}
 	}
-	if scanErr != nil && scanErrorContainsChecker(scanErr, audit.LLMCheckerName) {
+	if scanErr != nil && audit.ScanErrorContainsChecker(scanErr, audit.LLMCheckerName) {
 		fmt.Fprintf(cmd.ErrOrStderr(), "scan error: %v\n", scanErr)
 		return &ExitError{Code: auditExitError, Err: scanErr}
 	}
@@ -342,29 +342,6 @@ func runAudit(cmd *cobra.Command, app *App, opts auditRunOptions) error {
 	}
 
 	return nil
-}
-
-//goplint:ignore -- CLI needs a small predicate over joined scanner errors.
-func scanErrorContainsChecker(err error, checkerName string) bool {
-	if err == nil {
-		return false
-	}
-
-	pending := []error{err}
-	for len(pending) > 0 {
-		last := len(pending) - 1
-		current := pending[last]
-		pending = pending[:last]
-
-		if failed, ok := errors.AsType[*audit.CheckerFailedError](current); ok && failed.CheckerName == checkerName {
-			return true
-		}
-		if joined, ok := current.(interface{ Unwrap() []error }); ok {
-			pending = append(pending, joined.Unwrap()...)
-		}
-	}
-
-	return false
 }
 
 func renderAuditText(w io.Writer, report *audit.Report, scanPath string, minSev audit.Severity) {

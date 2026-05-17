@@ -272,11 +272,9 @@ func TestBehavioralSync_BinaryName(t *testing.T) {
 			{"a", true, true, ""},
 			{"", false, false, ""},
 			{"/usr/bin/git", false, false, ""},
-			// Go BinaryName.Validate() only checks non-empty + no path separators.
-			// CUE regex is stricter: must start with alphanumeric, only [a-zA-Z0-9._+-].
-			{".hidden", true, false, "Go allows dot-start; CUE regex requires alphanumeric start"},
-			{"-flag", true, false, "Go allows hyphen-start; CUE regex requires alphanumeric start"},
-			{"has space", true, false, "Go allows spaces; CUE regex does not include space"},
+			{".hidden", false, false, ""},
+			{"-flag", false, false, ""},
+			{"has space", false, false, ""},
 		},
 	)
 }

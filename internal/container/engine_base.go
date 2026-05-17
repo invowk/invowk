@@ -91,9 +91,9 @@ type (
 
 	// SysctlOverrideChecker is implemented by engines that may use a temp-file-based
 	// CONTAINERS_CONF_OVERRIDE to prevent the rootless Podman ping_group_range race.
-	// The runtime package uses this to decide whether run-level serialization (flock
-	// or mutex fallback) is needed: if the override is active, the race is eliminated
-	// at source and no serialization is needed; otherwise, runs must be serialized.
+	// Container CLI adapters use this to decide whether run-level serialization
+	// is needed: if the override is active, the race is eliminated at source and
+	// no serialization is needed; otherwise, Podman runs must be serialized.
 	//
 	// Only PodmanEngine implements this interface. DockerEngine does not (Docker is
 	// not susceptible to the ping_group_range race). SandboxAwareEngine forwards
@@ -541,14 +541,16 @@ func (e *BaseCLIEngine) Run(ctx context.Context, opts RunOptions) (*RunResult, e
 		return nil, err
 	}
 
-	args := e.RunArgs(opts)
+	return e.withRunSerialization(func() (*RunResult, error) {
+		args := e.RunArgs(opts)
 
-	cmd := e.CreateCommand(ctx, args...)
-	cmd.Stdin = opts.Stdin
-	cmd.Stdout = opts.Stdout
-	cmd.Stderr = opts.Stderr
+		cmd := e.CreateCommand(ctx, args...)
+		cmd.Stdin = opts.Stdin
+		cmd.Stdout = opts.Stdout
+		cmd.Stderr = opts.Stderr
 
-	return runResultFromExecError(cmd.Run(), "container run")
+		return runResultFromExecError(cmd.Run(), "container run")
+	})
 }
 
 // InspectContainer inspects a container by name.

@@ -61,9 +61,8 @@ func isRemotePodman(binaryPath string) bool {
 
 // sysctlOverrideOpts returns BaseCLIEngine options that disable default_sysctls
 // via a temporary CONTAINERS_CONF_OVERRIDE file. Returns nil when the override is
-// not applicable (podman-remote, temp file failure) — the retry mechanism in
-// runWithRetry and the run-level serialization (flock or mutex fallback) handle
-// transient errors as a fallback.
+// not applicable (podman-remote, temp file failure); BaseCLIEngine serializes
+// Podman runs and the runtime retry loop handles transient errors as fallback.
 func sysctlOverrideOpts(binaryPath string) []BaseCLIEngineOption {
 	if isRemotePodman(binaryPath) {
 		slog.Debug("podman-remote detected, sysctl override not applicable",

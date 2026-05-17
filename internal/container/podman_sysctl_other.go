@@ -6,9 +6,9 @@ package container
 
 // sysctlOverrideOpts is a no-op on non-Linux platforms. On macOS/Windows, Podman
 // runs inside a Linux VM (podman machine/WSL2) — CONTAINERS_CONF_OVERRIDE set on
-// the host doesn't reach the VM's container runtime. The retry mechanism in
-// runWithRetry and the run-level serialization (flock or mutex fallback) handle
-// any transient errors from the VM.
+// the host doesn't reach the VM's container runtime. BaseCLIEngine serializes
+// Podman runs with the best available host-side primitive, and the runtime retry
+// loop handles transient errors from the VM.
 func sysctlOverrideOpts(_ string) []BaseCLIEngineOption {
 	return nil
 }

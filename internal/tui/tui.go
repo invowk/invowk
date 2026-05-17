@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/invowk/invowk/internal/tuiwire"
 	"github.com/invowk/invowk/pkg/types"
 )
 
@@ -38,7 +39,7 @@ const (
 var (
 	// ErrCancelled is returned when a user cancels a TUI component (e.g., via Ctrl+C or Esc).
 	// Callers can check for this error using errors.Is(err, ErrCancelled).
-	ErrCancelled = types.ErrUserCancelled
+	ErrCancelled = tuiwire.ErrUserCancelled
 	// ErrInvalidTheme is returned when a Theme value is not one of the defined themes.
 	ErrInvalidTheme = errors.New("invalid theme")
 	// ErrInvalidTUIConfig is the sentinel error wrapped by InvalidTUIConfigError.
