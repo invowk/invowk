@@ -73,7 +73,8 @@ Unavailable: No Engine Available {
 Start -> Pref
 Pref -> TryDocker: docker
 Pref -> TryPodman: podman
-Pref -> Note: {style.stroke-dash: 3}
+Pref -> Note: default {style.stroke-dash: 3}
+Note -> TryPodman
 
 # Docker-preferred path
 TryDocker -> DockerOK

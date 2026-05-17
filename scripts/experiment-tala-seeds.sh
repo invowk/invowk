@@ -29,10 +29,23 @@ if ! command -v d2 &>/dev/null; then
 fi
 
 # Check if TALA is available
-if ! d2 --layout=tala /dev/null /dev/null 2>/dev/null; then
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+probe="$tmp_dir/tala-probe.d2"
+probe_svg="$tmp_dir/tala-probe.svg"
+printf 'a -> b\n' > "$probe"
+
+if ! d2 --layout=tala "$probe" "$probe_svg" >/dev/null 2>&1; then
     echo "ERROR: TALA layout engine is not available."
     echo "This experiment requires TALA for meaningful results."
     echo "Install TALA: https://d2lang.com/tour/tala"
+    exit 1
+fi
+
+if ! d2 layout tala 2>&1 | grep -q -- '--tala-seeds'; then
+    echo "ERROR: this D2 binary does not expose the --tala-seeds flag."
+    echo "The archived experiment results were produced with a TALA-enabled build"
+    echo "that supported seed selection; current D2 releases may not expose it."
     exit 1
 fi
 

@@ -10,13 +10,15 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
-| **Engine** | Go interface | 11-method contract for container operations: `Name`, `Available`, `Version`, `Build`, `Run`, `Remove`, `ImageExists`, `RemoveImage`, `BinaryPath`, `BuildRunArgs`, `PrepareRunCommand`. All factory functions return this type. |
+| **Engine** | Go interface | 12-method lifecycle and execution contract for container operations: `Name`, `Available`, `Version`, `Build`, `Run`, `InspectContainer`, `Create`, `Start`, `Exec`, `Remove`, `ImageExists`, `RemoveImage`. All factory functions return this type. |
+| **CommandPreparer** | Go interface | Interactive adapter contract for PTY attachment: `BinaryPath`, `BuildRunArgs`, `PrepareRunCommand`. Kept separate from `Engine`. |
+| **LifecycleCoordinator** | Go interface | Coordinates lifecycle operations that need the same engine-level serialization policy as container runs. |
 
 ## Implementations
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
-| **BaseCLIEngine** | Go struct | Shared base for CLI-based engines. Holds `binaryPath`, `execCommand`, `volumeFormatter`, `runArgsTransformer`. Provides: argument builders (`BuildArgs`, `RunArgs`, `ExecArgs`, `RemoveArgs`, `RemoveImageArgs`, `ImageExistsArgs`), command execution (`RunCommand`, `RunCommandCombined`, `RunCommandStatus`, `RunCommandWithOutput`, `CreateCommand`), Engine interface implementations (`Build`, `Run`, `Remove`, `RemoveImage`, `BuildRunArgs`, `InspectImage`, `Exec`), and lifecycle methods (`Close`, `CustomizeCmd`, `BaseCLI`). Constructed via `NewBaseCLIEngine(binaryPath, ...BaseCLIEngineOption)`. |
+| **BaseCLIEngine** | Go struct | Shared base for CLI-based engines. Holds `binaryPath`, `execCommand`, `volumeFormatter`, `runArgsTransformer`. Provides argument builders (`BuildArgs`, `RunArgs`, `ExecArgs`, `CreateArgs`, `StartArgs`, `RemoveArgs`, `RemoveImageArgs`, `ImageExistsArgs`), command execution helpers (`RunCommand`, `RunCommandCombined`, `RunCommandStatus`, `RunCommandWithOutput`, `CreateCommand`), container operations (`Build`, `Run`, `InspectContainer`, `Create`, `Start`, `Exec`, `Remove`, `RemoveImage`), and adapter methods (`Close`, `CustomizeCmd`, `BaseCLI`, `CoordinateLifecycle`, `BuildRunArgs`, `PrepareRunCommand`). Constructed via `NewBaseCLIEngine(binaryPath, ...BaseCLIEngineOption)`. |
 | **DockerEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Locates the `docker` binary via `exec.LookPath`. Delegates argument building and execution to the embedded base. Created via `NewDockerEngine()`. |
 | **PodmanEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Searches for `podman` or `podman-remote` (fallback for immutable distros). Injects SELinux volume labels (`:z`/`:Z`) via `VolumeFormatFunc` and rootless user namespace (`--userns=keep-id`) via `RunArgsTransformer`. Created via `NewPodmanEngine()`. |
 | **SandboxAwareEngine** | Go struct (decorator) | Wraps any `Engine`. Detects Flatpak/Snap sandboxes via `platform.DetectSandbox()` and prefixes commands with `flatpak-spawn --host` or `snap run --shell` so container CLI invocations target the host, not the sandbox. Returns the unwrapped engine when no sandbox is detected (zero overhead). |
@@ -36,8 +38,11 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 | Type | Fields | Purpose |
 |------|--------|---------|
 | **BuildOptions** | `ContextDir`, `Dockerfile`, `Tag`, `BuildArgs`, `NoCache`, `Stdout`, `Stderr` | Input for `Engine.Build()`. Dockerfile paths are resolved relative to ContextDir with path traversal protection. |
-| **RunOptions** | `Image`, `Command`, `WorkDir`, `Env`, `Volumes`, `Ports`, `Remove`, `Name`, `Stdin`, `Stdout`, `Stderr`, `Interactive`, `TTY`, `ExtraHosts` | Input for `Engine.Run()` and `Engine.BuildRunArgs()`. `Volumes` is `[]invowkfile.VolumeMountSpec` (DDD string alias in `host:container[:options]` format); `Ports` is `[]invowkfile.PortMappingSpec` (DDD string alias in `host:container[/protocol]` format). Both are processed through formatter functions before passing to the container CLI. |
+| **RunOptions** | `Image`, `Command`, `WorkDir`, `Env`, `Volumes`, `Ports`, `Remove`, `Name`, `Stdin`, `Stdout`, `Stderr`, `Interactive`, `TTY`, `ExtraHosts` | Input for `Engine.Run()` and `CommandPreparer.BuildRunArgs()`. `Volumes` is `[]invowkfile.VolumeMountSpec` (DDD string alias in `host:container[:options]` format); `Ports` is `[]invowkfile.PortMappingSpec` (DDD string alias in `host:container[/protocol]` format). Both are processed through formatter functions before passing to the container CLI. |
+| **CreateOptions** | `Image`, `Command`, `WorkDir`, `Env`, `Labels`, `Volumes`, `Ports`, `Name`, `ExtraHosts` | Input for persistent container creation via `Engine.Create()`. |
+| **CreateResult** | `ContainerID` | Output from `Engine.Create()`. |
 | **RunResult** | `ContainerID`, `ExitCode`, `Error` | Output from `Engine.Run()`. Non-zero exit codes from the container process are captured in `ExitCode`; only infrastructure failures populate `Error`. |
+| **ContainerInfo** | `ContainerID`, `Name`, `Running`, `Status`, `Labels` | Inspect metadata returned by `Engine.InspectContainer()`. |
 
 ## Error Types
 

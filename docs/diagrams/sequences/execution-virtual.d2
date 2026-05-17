@@ -29,6 +29,7 @@ VirtualRT: Virtual Runtime
 Parser: mvdan/sh Parser
 Interp: mvdan/sh Interpreter
 Builtins: u-root Builtins
+HostExec: Host PATH / Native Process
 TUI: TUI Server
 
 # Entry
@@ -54,7 +55,8 @@ Interp -> TUI: HTTP request via INVOWK_TUI_ADDR
 TUI -> Interp: Component result
 
 # External command path
-Interp -> Interp: Execute via host (if external)
+Interp -> HostExec: "DefaultExecHandler\nif command is not a builtin"
+HostExec -> Interp: Exit status / output
 
 Interp -> VirtualRT: Exit code
 

@@ -106,10 +106,35 @@ container_pkg: "internal/container" {
     }
     tooltip: |md
       **Engine interface**
-      11-method contract for container operations:
-      Name, Available, Version, Build, Run, Remove,
-      ImageExists, RemoveImage, BinaryPath, BuildRunArgs,
-      PrepareRunCommand
+      12-method lifecycle and execution contract:
+      Name, Available, Version, Build, Run,
+      InspectContainer, Create, Start, Exec,
+      Remove, ImageExists, RemoveImage.
+    |
+  }
+
+  command_preparer_iface: "<<interface>>\nCommandPreparer" {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **CommandPreparer interface**
+      Interactive adapter contract:
+      BinaryPath, BuildRunArgs, PrepareRunCommand.
+      Kept separate from Engine.
+    |
+  }
+
+  lifecycle_iface: "<<interface>>\nLifecycleCoordinator" {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **LifecycleCoordinator interface**
+      Serializes create/start/exec orchestration when
+      lifecycle operations share engine-level run constraints.
     |
   }
 
@@ -126,8 +151,10 @@ container_pkg: "internal/container" {
       **BaseCLIEngine struct**
       Shared implementation for CLI-based engines.
       Provides argument builders (BuildArgs, RunArgs,
-      ExecArgs, RemoveArgs, RemoveImageArgs) and
-      command execution (RunCommand, CreateCommand).
+      ExecArgs, CreateArgs, StartArgs, RemoveArgs,
+      RemoveImageArgs) and command execution helpers.
+      Owns inspect/create/start/exec operations and
+      run/lifecycle serialization.
       Configured via functional options.
     |
   }
@@ -300,6 +327,43 @@ container_pkg: "internal/container" {
         ExitCode, Error
       |
     }
+
+    create_opts: CreateOptions {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **CreateOptions struct**
+        Persistent container creation parameters:
+        Image, idle Command, WorkDir, Env, Labels,
+        Volumes, Ports, Name, ExtraHosts
+      |
+    }
+
+    create_result: CreateResult {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **CreateResult struct**
+        Result of creating a container.
+        Contains the created ContainerID.
+      |
+    }
+
+    container_info: ContainerInfo {
+      style: {
+        fill: "#85BBF0"
+        font-color: "#000000"
+      }
+      tooltip: |md
+        **ContainerInfo struct**
+        Inspect metadata: ContainerID, Name,
+        Running, engine Status, Labels.
+      |
+    }
   }
 
   # --------------------------------------------------------------------------
@@ -365,6 +429,34 @@ container_pkg.sandbox_engine -> container_pkg.engine_iface: implements {
   }
 }
 
+container_pkg.base_cli -> container_pkg.command_preparer_iface: implements {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
+container_pkg.sandbox_engine -> container_pkg.command_preparer_iface: implements {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
+container_pkg.base_cli -> container_pkg.lifecycle_iface: implements {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
+container_pkg.sandbox_engine -> container_pkg.lifecycle_iface: implements {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 3
+  }
+}
+
 # ==============================================================================
 # Relationships: Embeds / Composes (solid, bold label)
 # ==============================================================================
@@ -388,6 +480,20 @@ container_pkg.podman_engine -> container_pkg.base_cli: embeds {
 # ==============================================================================
 
 container_pkg.sandbox_engine -> container_pkg.engine_iface: "wraps/delegates" {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 5
+  }
+}
+
+container_pkg.sandbox_engine -> container_pkg.command_preparer_iface: "wraps/delegates" {
+  style: {
+    stroke: "#707070"
+    stroke-dash: 5
+  }
+}
+
+container_pkg.sandbox_engine -> container_pkg.lifecycle_iface: "wraps/delegates" {
   style: {
     stroke: "#707070"
     stroke-dash: 5

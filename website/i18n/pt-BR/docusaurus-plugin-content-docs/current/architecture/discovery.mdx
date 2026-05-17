@@ -47,6 +47,8 @@ Quando o mesmo nome de comando existe em múltiplos locais:
 
 ### Visibilidade de Dependências Transitivas
 
+Esta checagem de visibilidade se aplica a dependências declaradas em `depends_on.cmds` durante validação estática. Ela não intercepta subprocessos arbitrários chamados em runtime.
+
 | De | Pode Acessar | Não Pode Acessar |
 |----|--------------|------------------|
 | Módulo A | comandos de A, comandos de B | comandos de C (transitivo) |

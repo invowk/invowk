@@ -55,12 +55,12 @@ git: Git Repositories {
   tooltip: Remote modules
 }
 
-host_shell: Host Shell {
+host_shell: Host Shell / PATH {
   style: {
     fill: "#999999"
     font-color: "#ffffff"
   }
-  tooltip: bash/sh/PowerShell
+  tooltip: bash/sh/PowerShell and external binaries resolved from host PATH
 }
 
 llm_providers: Optional LLM Providers {
@@ -289,7 +289,8 @@ invowk_cli: Invowk CLI {
       }
       tooltip: |md
         **Go/mvdan-sh**
-        Embedded shell interpreter with u-root builtins
+        Embedded shell interpreter with u-root builtins.
+        Not a sandbox: unknown commands fall through to host PATH.
       |
     }
 
@@ -568,6 +569,9 @@ invowk_cli.entry_core.command_svc -> invowk_cli.runtimes.runtime_container: "Dis
 invowk_cli.runtimes.runtime_native -> host_shell: "Spawns\n[exec]" {
   style.stroke: "#707070"
 }
+invowk_cli.runtimes.runtime_virtual -> host_shell: "Runs external commands\n[host PATH]" {
+  style.stroke: "#707070"
+}
 invowk_cli.runtimes.runtime_virtual -> invowk_cli.container_infra.tui_server: "Requests TUI\n[HTTP]" {
   style.stroke: "#707070"
 }
@@ -615,7 +619,7 @@ invowk_cli.runtimes.runtime_container -> invowk_cli.container_infra.tui_wire: "U
 }
 
 # Container infrastructure to external
-invowk_cli.container_infra.container_engine -> docker: "Executes\n[CLI/API]" {
+invowk_cli.container_infra.container_engine -> docker: "Executes\n[CLI]" {
   style.stroke: "#707070"
 }
 invowk_cli.container_infra.provision -> invowk_cli.container_infra.container_engine: Builds {

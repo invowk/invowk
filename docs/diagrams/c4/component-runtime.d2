@@ -83,6 +83,19 @@ runtime_pkg: internal/runtime {
     |
   }
 
+  host_callback_iface: HostCallbackServer {
+    style: {
+      fill: "#85BBF0"
+      font-color: "#000000"
+    }
+    tooltip: |md
+      **Interface**
+      Port for optional container-to-host callbacks.
+      Implemented by an adapter outside runtime that
+      bridges to the concrete SSH server.
+    |
+  }
+
   env_builder_iface: EnvBuilder {
     style: {
       fill: "#85BBF0"
@@ -131,6 +144,7 @@ runtime_pkg: internal/runtime {
       **Struct**
       Embedded shell interpreter using mvdan/sh.
       Supports u-root built-in utilities.
+      Not a sandbox: external commands run from host PATH.
       Spawns subprocess for PTY-based interactive mode.
     |
   }
@@ -358,6 +372,9 @@ runtime_pkg: internal/runtime {
   container_rt -> env_builder_iface: builds env {
     style.stroke: "#707070"
   }
+  container_rt -> host_callback_iface: calls optional {
+    style.stroke: "#707070"
+  }
 
   # All runtimes consume ExecutionContext and produce Result
   native -> exec_ctx: reads {
@@ -456,19 +473,6 @@ provisioner: provision.LayerProvisioner {
   |
 }
 
-host_callbacks: runtime.HostCallbackServer {
-  style: {
-    fill: "#438DD5"
-    font-color: "#ffffff"
-  }
-  tooltip: |md
-    **internal/runtime**
-    Port for optional container-to-host callbacks.
-    internal/app/commandadapters/host_callback_server.go
-    adapts the concrete SSH server in internal/sshserver.
-  |
-}
-
 config_pkg: config.Config {
   style: {
     fill: "#438DD5"
@@ -505,6 +509,19 @@ uroot_builtins: u-root Builtins {
   |
 }
 
+host_exec: Host PATH Processes {
+  style: {
+    fill: "#999999"
+    font-color: "#ffffff"
+  }
+  tooltip: |md
+    **Host OS**
+    mvdan/sh DefaultExecHandler resolves commands
+    not handled by u-root from the host PATH
+    and starts native processes.
+  |
+}
+
 # ==============================================================================
 # Relationships: internal -> external
 # ==============================================================================
@@ -524,9 +541,6 @@ runtime_pkg.container_rt -> container_engine: "runs containers\nvia Engine" {
 runtime_pkg.container_rt -> provisioner: "provisions\nephemeral layers" {
   style.stroke: "#707070"
 }
-runtime_pkg.container_rt -> host_callbacks: "uses optional\nhost callbacks" {
-  style.stroke: "#707070"
-}
 runtime_pkg.container_rt -> config_pkg: reads config {
   style.stroke: "#707070"
 }
@@ -536,5 +550,8 @@ runtime_pkg.virtual -> mvdan_sh: "interprets\nshell scripts" {
   style.stroke: "#707070"
 }
 runtime_pkg.virtual -> uroot_builtins: "registers\nbuilt-in utils" {
+  style.stroke: "#707070"
+}
+runtime_pkg.virtual -> host_exec: "falls through for\nexternal commands" {
   style.stroke: "#707070"
 }

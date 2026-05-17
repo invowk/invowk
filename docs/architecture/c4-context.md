@@ -17,7 +17,7 @@ This diagram shows Invowk from the highest level - the system boundaries, users,
 
 | System | Purpose | Protocol |
 |--------|---------|----------|
-| **Docker Engine** | Container runtime for isolated command execution. Provides reproducible environments. | Docker CLI/API |
+| **Docker Engine** | Container runtime for isolated command execution. Provides reproducible environments. | Docker CLI |
 | **Podman Engine** | Alternative rootless container runtime. Preferred for security-conscious environments. | Podman CLI |
 | **Git Repositories** | Source for remote module dependencies. Enables sharing and versioning of command modules. | Git protocol (HTTPS/SSH) |
 | **Host Shell** | Native command execution. Uses `bash`/`sh` on Unix, `PowerShell` on Windows. | Process exec/spawn |

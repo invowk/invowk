@@ -23,7 +23,7 @@ Este diagrama mostra o Invowk no nível mais alto - os limites do sistema, usuá
 
 | Sistema | Propósito | Protocolo |
 |---------|-----------|-----------|
-| **Docker Engine** | Runtime de container para execução isolada de comandos. Fornece ambientes reproduzíveis. | Docker CLI/API |
+| **Docker Engine** | Runtime de container para execução isolada de comandos. Fornece ambientes reproduzíveis. | Docker CLI |
 | **Podman Engine** | Runtime de container alternativo sem root. Preferido para ambientes com foco em segurança. | Podman CLI |
 | **Repositórios Git** | Fonte para dependências de módulos remotos. Permite compartilhamento e versionamento de módulos de comandos. | Protocolo Git (HTTPS/SSH) |
 | **Shell do Host** | Execução nativa de comandos. Usa `bash`/`sh` no Unix, `PowerShell` no Windows. | Process exec/spawn |

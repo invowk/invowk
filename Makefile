@@ -377,7 +377,7 @@ lint-scripts:
 	@echo "Linting shell scripts..."
 ifdef SHELLCHECK
 	@echo "  (using shellcheck)"
-	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/check-diagram-readability.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
+	shellcheck scripts/install.sh scripts/release.sh scripts/version-docs.sh scripts/render-diagrams.sh scripts/experiment-tala-seeds.sh scripts/check-diagram-readability.sh scripts/check-diagram-renders.sh scripts/check-agent-docs.sh scripts/check-file-length.sh scripts/check-windows-build.sh scripts/pgo-audit.sh scripts/sonar-local.sh tools/goplint/scripts/check-semantic-spec.sh tools/goplint/scripts/check-ifds-compat.sh tools/goplint/scripts/check-cfg-refinement.sh tools/goplint/scripts/check-cfg-alias.sh tools/goplint/scripts/check-cfg-bench-thresholds.sh
 else
 	@echo "  (shellcheck not found, skipping shell script linting)"
 endif
@@ -457,12 +457,17 @@ build-cross: $(BUILD_DIR)
 	@echo "Cross-compilation complete:"
 	@ls -lh $(BUILD_DIR)/$(BINARY_NAME)-* | awk '{print $$9 ":", $$5}'
 
-# Render D2 diagrams to SVG (requires D2 installed locally)
-# Uses TALA layout engine if available, falls back to ELK
+# Render D2 diagrams to SVG (requires D2 + TALA installed locally)
 .PHONY: render-diagrams
 render-diagrams:
 	@echo "Rendering D2 diagrams..."
 	./scripts/render-diagrams.sh
+
+# Validate committed SVG manifests and source hashes without rendering
+.PHONY: check-diagram-renders
+check-diagram-renders:
+	@echo "Checking rendered SVG manifests..."
+	./scripts/check-diagram-renders.sh
 
 # Validate readability guardrails for flowchart diagrams
 .PHONY: check-diagram-readability
@@ -541,7 +546,8 @@ help:
 	@echo "  vhs-demos        Generate VHS demo recordings (requires VHS)"
 	@echo "  vhs-validate     Validate VHS tape syntax"
 	@echo "  check-windows-build Cross-compile for GOOS=windows to catch build-time regressions"
-	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2)"
+	@echo "  render-diagrams  Render D2 diagrams to SVG (requires D2 + TALA)"
+	@echo "  check-diagram-renders  Validate committed SVG render manifests"
 	@echo "  check-diagram-readability  Validate flowchart readability guardrails"
 	@echo "  version-docs     Snapshot docs for a release version"
 	@echo "  release          Create and push a signed version tag"

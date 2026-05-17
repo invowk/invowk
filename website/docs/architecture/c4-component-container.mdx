@@ -16,13 +16,15 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
-| **Engine** | Go interface | 11-method contract for container operations: `Name`, `Available`, `Version`, `Build`, `Run`, `Remove`, `ImageExists`, `RemoveImage`, `BinaryPath`, `BuildRunArgs`, `PrepareRunCommand`. All factory functions return this type. |
+| **Engine** | Go interface | 12-method lifecycle and execution contract: `Name`, `Available`, `Version`, `Build`, `Run`, `InspectContainer`, `Create`, `Start`, `Exec`, `Remove`, `ImageExists`, `RemoveImage`. All factory functions return this type. |
+| **CommandPreparer** | Go interface | Interactive adapter contract: `BinaryPath`, `BuildRunArgs`, `PrepareRunCommand`. Kept separate from `Engine`. |
+| **LifecycleCoordinator** | Go interface | Coordinates lifecycle operations that need the same engine-level serialization policy as container runs. |
 
 ## Implementations
 
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
-| **BaseCLIEngine** | Go struct | Shared base for CLI-based engines. Provides argument builders (`BuildArgs`, `RunArgs`, `ExecArgs`) and command execution (`RunCommand`, `CreateCommand`). Configured via functional options. |
+| **BaseCLIEngine** | Go struct | Shared base for CLI-based engines. Provides argument builders (`BuildArgs`, `RunArgs`, `ExecArgs`, `CreateArgs`, `StartArgs`) plus inspect/create/start/exec operations, command preparation, and lifecycle coordination. Configured via functional options. |
 | **DockerEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Locates the `docker` binary via `exec.LookPath`. |
 | **PodmanEngine** | Go struct | Embeds `*BaseCLIEngine`. Implements `Engine`. Searches for `podman` or `podman-remote` (fallback for immutable distros). Injects SELinux volume labels and rootless user namespace handling. |
 | **SandboxAwareEngine** | Go struct (decorator) | Wraps any `Engine`. Detects Flatpak/Snap sandboxes and prefixes commands with `flatpak-spawn --host` or `snap run --shell`. Passes through when no sandbox is detected (zero overhead). |
@@ -43,7 +45,10 @@ This diagram zooms into the **Container Engine Abstraction** container from the 
 |------|---------|
 | **BuildOptions** | Input for `Engine.Build()`: context directory, Dockerfile, tag, build args, cache control. |
 | **RunOptions** | Input for `Engine.Run()`: image, command, work dir, env, volumes, ports, TTY, interactive mode. |
+| **CreateOptions** | Input for `Engine.Create()`: image, idle command, work dir, env, labels, volumes, ports, name, extra hosts. |
+| **CreateResult** | Output from `Engine.Create()`: container ID. |
 | **RunResult** | Output from `Engine.Run()`: container ID, exit code, error. |
+| **ContainerInfo** | Output from `Engine.InspectContainer()`: container ID, name, running state, status, labels. |
 | **VolumeMount** | Structured volume mount specification with SELinux label support. |
 | **PortMapping** | Structured port mapping with protocol support. |
 

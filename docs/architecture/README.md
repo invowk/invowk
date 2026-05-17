@@ -55,7 +55,7 @@ docs/diagrams/
 4. **Render all diagrams**: `make render-diagrams`
 5. **Commit both** `.d2` source and `.svg` rendered files
 
-**Note**: The `make render-diagrams` command uses TALA if available (for production quality), otherwise falls back to ELK layout engine.
+**Note**: The `make render-diagrams` command requires TALA for production-quality committed renders. For local preview without TALA, use `./scripts/render-diagrams.sh --allow-elk`; do not treat ELK output as the production layout.
 
 ### Why D2 Over Mermaid?
 

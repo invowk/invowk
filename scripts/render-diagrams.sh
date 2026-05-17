@@ -3,110 +3,206 @@
 #
 # Render all D2 diagrams to SVG.
 #
-# Usage: ./scripts/render-diagrams.sh
+# Usage:
+#   ./scripts/render-diagrams.sh
+#   ./scripts/render-diagrams.sh --allow-elk
 #
-# This script renders all D2 files in docs/diagrams/ to SVG files in docs/diagrams/rendered/.
-# It automatically detects TALA availability and falls back to ELK if TALA is not licensed.
+# Production renders require D2 with the TALA layout engine. ELK rendering is
+# available only as an explicit local preview path through --allow-elk or
+# INVOWK_ALLOW_ELK_DIAGRAMS=1.
 #
-# Prerequisites:
-#   - d2 (https://d2lang.com) must be installed
-#   - TALA layout engine (optional, for production-quality layouts)
-#
-# For external contributors without TALA:
-#   1. Edit .d2 source files
-#   2. Run `d2 validate` to check syntax
-#   3. Submit PR with only .d2 changes
-#   4. Maintainer renders SVGs before merge
+# Each SVG is stamped with a source path/hash comment so CI can detect stale or
+# orphaned renders without requiring TALA.
 
 set -euo pipefail
 
-# Change to repository root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-# Check if d2 is installed
-if ! command -v d2 &>/dev/null; then
-    echo "ERROR: d2 is not installed."
-    echo "Install it from: https://d2lang.com"
-    exit 1
+ALLOW_ELK="${INVOWK_ALLOW_ELK_DIAGRAMS:-0}"
+
+usage() {
+  cat <<'USAGE'
+Usage: ./scripts/render-diagrams.sh [--allow-elk]
+
+Options:
+  --allow-elk   Render with ELK when TALA is not installed. This is for local
+                preview only; production renders should use TALA.
+  -h, --help    Show this help.
+USAGE
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --allow-elk)
+      ALLOW_ELK=1
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "ERROR: unknown argument: $1"
+      usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if ! command -v d2 >/dev/null 2>&1; then
+  echo "ERROR: d2 is not installed."
+  echo "Install it from: https://d2lang.com"
+  exit 1
 fi
 
-# Detect layout engine: TALA if licensed, otherwise ELK
-# TALA is detected by checking if `d2 --layout=tala` works without error
-LAYOUT="elk"
-if d2 --layout=tala /dev/null /dev/null 2>/dev/null; then
-    LAYOUT="tala"
-    echo "Using TALA layout engine (production quality)"
+tmp_dir="$(mktemp -d)"
+expected_svgs="$tmp_dir/expected-svgs.txt"
+tala_probe_err="$tmp_dir/tala-probe.err"
+trap 'rm -rf "$tmp_dir"' EXIT
+: > "$expected_svgs"
+
+probe_tala() {
+  local probe="$tmp_dir/tala-probe.d2"
+  local output="$tmp_dir/tala-probe.svg"
+
+  printf 'a -> b\n' > "$probe"
+  d2 --layout=tala "$probe" "$output" > /dev/null 2> "$tala_probe_err"
+}
+
+tala_seed_supported() {
+  d2 layout tala 2>&1 | grep -q -- '--tala-seeds'
+}
+
+layout="tala"
+seed="none"
+render_args=(--layout=tala)
+
+if probe_tala; then
+  echo "Using TALA layout engine (production)"
+  if tala_seed_supported; then
+    seed="100"
+    render_args+=(--tala-seeds=100)
+  fi
 else
-    echo "Using ELK layout engine (TALA not available)"
-    echo "  Tip: For production diagrams, install TALA: https://d2lang.com/tour/tala"
+  if [ "$ALLOW_ELK" = "1" ]; then
+    layout="elk"
+    render_args=(--layout=elk)
+    echo "WARNING: TALA is not available; using ELK because --allow-elk/INVOWK_ALLOW_ELK_DIAGRAMS was set."
+    echo "WARNING: ELK renders are for local preview only."
+  else
+    echo "ERROR: TALA layout engine is required for production diagram rendering."
+    echo ""
+    echo "TALA probe failed:"
+    sed 's/^/  /' "$tala_probe_err"
+    echo ""
+    echo "For local preview without TALA, run:"
+    echo "  ./scripts/render-diagrams.sh --allow-elk"
+    exit 1
+  fi
 fi
 
-# Track statistics
+source_to_svg() {
+  local d2file="$1"
+  local rel dir name base
+
+  rel="${d2file#docs/diagrams/}"
+  dir="${rel%/*}"
+  name="${d2file##*/}"
+  base="${name%.d2}"
+  printf 'docs/diagrams/rendered/%s/%s.svg\n' "$dir" "$base"
+}
+
+stamp_svg() {
+  local source="$1"
+  local svg="$2"
+  local source_hash metadata tmp_svg
+
+  source_hash="$(sha256sum "$source" | awk '{print $1}')"
+  metadata="<!-- invowk-diagram-source: ${source} sha256:${source_hash} layout:${layout} seed:${seed} -->"
+  tmp_svg="$tmp_dir/$(basename "$svg").stamped"
+
+  awk -v metadata="$metadata" '
+    NR == 1 {
+      if (sub(/\?>/, "?>\n" metadata "\n")) {
+        print
+        next
+      }
+      print metadata
+    }
+    { print }
+  ' "$svg" > "$tmp_svg"
+
+  mv "$tmp_svg" "$svg"
+}
+
+render_one() {
+  local d2file="$1"
+  local out
+
+  out="$(source_to_svg "$d2file")"
+  printf '%s\n' "$out" >> "$expected_svgs"
+  mkdir -p "$(dirname "$out")"
+
+  printf 'Rendering: %s -> %s ... ' "$d2file" "$out"
+
+  if ! d2 fmt "$d2file" >/dev/null; then
+    echo "FAILED (fmt)"
+    return 1
+  fi
+
+  if d2 "${render_args[@]}" "$d2file" "$out" >/dev/null; then
+    stamp_svg "$d2file" "$out"
+    echo "OK"
+    return 0
+  fi
+
+  echo "FAILED (render)"
+  return 1
+}
+
 total=0
 success=0
 failed=0
 
-# Find and render all D2 files
 while IFS= read -r -d '' d2file; do
-    total=$((total + 1))
+  total=$((total + 1))
+  if render_one "$d2file"; then
+    success=$((success + 1))
+  else
+    failed=$((failed + 1))
+  fi
+done < <(find docs/diagrams \
+  -path docs/diagrams/rendered -prune -o \
+  -path docs/diagrams/experiments -prune -o \
+  -name "*.d2" -type f -print0 2>/dev/null | sort -z)
 
-    # Compute paths
-    # Input:  docs/diagrams/c4/context.d2
-    # Output: docs/diagrams/rendered/c4/context.svg
-    rel="${d2file#docs/diagrams/}"       # c4/context.d2
-    dir="${rel%/*}"                       # c4
-    name="${d2file##*/}"                  # context.d2
-    base="${name%.d2}"                    # context
-    out="docs/diagrams/rendered/${dir}/${base}.svg"
+orphaned=0
+while IFS= read -r -d '' svg; do
+  if ! grep -Fxq "$svg" "$expected_svgs"; then
+    echo "ERROR: orphaned rendered SVG without matching source: $svg"
+    orphaned=$((orphaned + 1))
+  fi
+done < <(find docs/diagrams/rendered -name "*.svg" -type f -print0 2>/dev/null | sort -z)
 
-    # Create output directory if needed
-    mkdir -p "$(dirname "$out")"
-
-    echo -n "Rendering: $d2file -> $out ... "
-
-    # Format the D2 file first (ensures canonical formatting)
-    if ! d2 fmt "$d2file" 2>/dev/null; then
-        echo "FAILED (fmt)"
-        failed=$((failed + 1))
-        continue
-    fi
-
-    # Render to SVG
-    # When using TALA, pass --tala-seeds=100 for deterministic layout output
-    # Seed 100 provides optimal compactness for flowcharts while maintaining
-    # quality C4 layouts. See docs/diagrams/experiments/README.md for analysis.
-    render_args=(--layout="$LAYOUT")
-    if [ "$LAYOUT" = "tala" ]; then
-        render_args+=(--tala-seeds=100)
-    fi
-
-    if d2 "${render_args[@]}" "$d2file" "$out" 2>/dev/null; then
-        echo "OK"
-        success=$((success + 1))
-    else
-        echo "FAILED (render)"
-        failed=$((failed + 1))
-    fi
-done < <(find docs/diagrams -name "*.d2" -type f -print0 2>/dev/null | sort -z)
-
-# Summary
 echo ""
 echo "=== Render Summary ==="
-echo "Total:   $total"
-echo "Success: $success"
-echo "Failed:  $failed"
-echo "Layout:  $LAYOUT"
+echo "Total:    $total"
+echo "Success:  $success"
+echo "Failed:   $failed"
+echo "Orphaned: $orphaned"
+echo "Layout:   $layout"
+echo "Seed:     $seed"
 
-if [ $failed -gt 0 ]; then
-    echo ""
-    echo "Some diagrams failed to render. Run 'd2 validate <file>' for details."
-    exit 1
+if [ "$failed" -gt 0 ] || [ "$orphaned" -gt 0 ]; then
+  echo ""
+  echo "Some diagrams failed to render or orphaned SVGs were found."
+  exit 1
 fi
 
-if [ $total -eq 0 ]; then
-    echo ""
-    echo "No D2 files found in docs/diagrams/"
-    echo "Create .d2 files in docs/diagrams/{c4,sequences,flowcharts}/ to render them."
+if [ "$total" -eq 0 ]; then
+  echo ""
+  echo "No D2 files found in docs/diagrams/"
+  echo "Create .d2 files in docs/diagrams/{c4,sequences,flowcharts}/ to render them."
 fi

@@ -93,7 +93,10 @@ host_shell: Host Shell {
     fill: "#999999"
     font-color: "#ffffff"
   }
-  tooltip: bash/sh on Unix, PowerShell on Windows
+  tooltip: |md
+    bash/sh on Unix, PowerShell on Windows,
+    plus host PATH binaries for virtual runtime fallthrough
+  |
 }
 
 filesystem: Filesystem {
@@ -126,7 +129,7 @@ team_member -> invowk: Runs shared commands {
 }
 
 # System relationships
-invowk -> docker: "Executes container commands\n[Docker API/CLI]" {
+invowk -> docker: "Executes container commands\n[Docker CLI]" {
   style.stroke: "#707070"
 }
 invowk -> podman: "Executes container commands\n[Podman CLI]" {

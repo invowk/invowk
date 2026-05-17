@@ -47,6 +47,8 @@ When the same command name exists in multiple locations:
 
 ### Transitive Dependency Visibility
 
+This visibility check applies to declared `depends_on.cmds` dependencies during static validation. It does not intercept arbitrary subprocess calls made at runtime.
+
 | From | Can Access | Cannot Access |
 |------|------------|---------------|
 | Module A | A's commands, B's commands | C's commands (transitive) |

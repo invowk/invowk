@@ -1,8 +1,9 @@
-# Validates D2 diagram sources and ensures SVG renders exist.
+# Validates D2 diagram sources and committed SVG render manifests.
 #
 # This workflow runs on pull requests that modify diagram files. It:
 # 1. Validates D2 syntax (fast, no rendering)
-# 2. Checks that every .d2 source has a corresponding .svg in rendered/
+# 2. Checks flowchart readability guardrails
+# 3. Checks SVG source/hash manifests and rejects orphaned renders
 #
 # SVGs are rendered locally with TALA and committed to git.
 # This workflow only validates - it does NOT render diagrams in CI.
@@ -12,12 +13,20 @@ name: Validate D2 Diagrams
 on:
   pull_request:
     paths:
+      - '.github/workflows/validate-diagrams.yml'
       - 'docs/diagrams/**'
+      - 'scripts/check-diagram-readability.sh'
+      - 'scripts/check-diagram-renders.sh'
+      - 'scripts/render-diagrams.sh'
   push:
     branches:
       - main
     paths:
+      - '.github/workflows/validate-diagrams.yml'
       - 'docs/diagrams/**'
+      - 'scripts/check-diagram-readability.sh'
+      - 'scripts/check-diagram-renders.sh'
+      - 'scripts/render-diagrams.sh'
   # Release validation must always run in full, regardless of changed paths.
   release:
     types:
@@ -79,49 +88,7 @@ jobs:
           chmod +x scripts/check-diagram-readability.sh
           ./scripts/check-diagram-readability.sh
 
-      - name: Check SVGs are up-to-date
+      - name: Check SVG render manifests
         run: |
-          echo "Checking that SVG renders exist for all D2 sources..."
-          missing=0
-          total=0
-
-          for d2file in $(find docs/diagrams -name "*.d2" -type f 2>/dev/null | sort); do
-            total=$((total + 1))
-
-            # Compute expected SVG path
-            # Input:  docs/diagrams/c4/context.d2
-            # Output: docs/diagrams/rendered/c4/context.svg
-            rel="${d2file#docs/diagrams/}"       # c4/context.d2
-            dir="${rel%/*}"                       # c4
-            name="${d2file##*/}"                  # context.d2
-            base="${name%.d2}"                    # context
-            svg="docs/diagrams/rendered/${dir}/${base}.svg"
-
-            echo -n "  $d2file -> $svg ... "
-
-            if [ -f "$svg" ]; then
-              echo "OK"
-            else
-              echo "MISSING"
-              missing=$((missing + 1))
-            fi
-          done
-
-          echo ""
-          echo "Summary: $total D2 files, $missing missing SVG(s)"
-
-          if [ $missing -gt 0 ]; then
-            echo ""
-            echo "ERROR: $missing SVG file(s) are missing."
-            echo ""
-            echo "To fix:"
-            echo "  1. Install D2: https://d2lang.com"
-            echo "  2. Run: make render-diagrams"
-            echo "  3. Commit the generated SVG files"
-            echo ""
-            echo "Note: Contributors without TALA can submit .d2 changes only."
-            echo "      Maintainers will render SVGs before merging."
-            exit 1
-          fi
-
-          echo "All D2 sources have corresponding SVG renders."
+          chmod +x scripts/check-diagram-renders.sh
+          ./scripts/check-diagram-renders.sh

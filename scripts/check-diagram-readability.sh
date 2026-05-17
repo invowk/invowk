@@ -8,6 +8,7 @@
 # 2. A top-level `Start:` node must exist.
 # 3. `Start` must be defined as an oval shape.
 # 4. At least one outbound `Start -> ...` edge must exist.
+# 5. Every edge leaving a decision diamond must have an explicit label.
 #
 # Usage: ./scripts/check-diagram-readability.sh
 
@@ -83,6 +84,66 @@ for file in "${files[@]}"; do
 
   if ! grep -Eq 'Start[[:space:]]*->[[:space:]]*[A-Za-z0-9_.]+' "$file"; then
     echo "  ERROR: missing outbound Start edge (Start -> ...)."
+    file_errors=$((file_errors + 1))
+  fi
+
+  if ! awk '
+    function node_basename(value) {
+      sub(/^.*\./, "", value)
+      return value
+    }
+
+    function trim(value) {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      return value
+    }
+
+    FNR == NR {
+      line = $0
+      if (line !~ /->/ && line ~ /^[[:space:]]*[A-Za-z0-9_.-]+:[[:space:]].*\{[[:space:]]*$/) {
+        current = line
+        sub(/^[[:space:]]*/, "", current)
+        sub(/:.*/, "", current)
+        current = node_basename(current)
+      }
+
+      if (current != "" && line ~ /shape:[[:space:]]*diamond/) {
+        diamonds[current] = 1
+      }
+
+      if (current != "" && line ~ /^[[:space:]]*}/) {
+        current = ""
+      }
+      next
+    }
+
+    {
+      line = $0
+      if (line ~ /^[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*->[[:space:]]*[A-Za-z0-9_.-]+/) {
+        src = line
+        sub(/^[[:space:]]*/, "", src)
+        sub(/[[:space:]]*->.*/, "", src)
+        src = node_basename(src)
+
+        if (src in diamonds) {
+          label = line
+          sub(/^[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*->[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*/, "", label)
+          sub(/^:[[:space:]]*/, "", label)
+          sub(/[[:space:]]*\{.*$/, "", label)
+          label = trim(label)
+
+          if (label == "") {
+            printf "  ERROR: diamond edge from %s on line %d must have an explicit label.\n", src, FNR
+            errors++
+          }
+        }
+      }
+    }
+
+    END {
+      exit errors ? 1 : 0
+    }
+  ' "$file" "$file"; then
     file_errors=$((file_errors + 1))
   fi
 

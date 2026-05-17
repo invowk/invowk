@@ -2,6 +2,8 @@
 
 This document contains the analysis of different `--tala-seeds` values for D2 diagrams to determine the optimal default for deterministic, high-quality layouts.
 
+> **Archive note**: These results were produced with a TALA-enabled D2 build that exposed the `--tala-seeds` CLI flag. Current public D2 binaries may not expose that flag; the render script uses it only when the installed `d2 layout tala` output advertises support.
+
 ## Executive Summary
 
 **Recommended Seed: `100`**
@@ -168,19 +170,13 @@ Changing from seed 42 to seed 100 will:
 
 If adopting seed 100:
 
-1. `scripts/render-diagrams.sh:80`
+1. `scripts/render-diagrams.sh`
    ```bash
-   # Change from:
-   render_args+=(--tala-seeds=42)
-   # To:
+   # Used only when the installed d2 binary supports the flag:
    render_args+=(--tala-seeds=100)
    ```
 
-2. `.agents/skills/d2-diagrams/SKILL.md:195`
-   - Update example seed value
-
-3. `.agents/skills/d2-diagrams/references/layout-engines.md:193`
-   - Fix incorrect d2-config example (tala-seeds in config is wrong - must use CLI flag)
+2. Keep seed configuration out of `d2-config`; if the installed TALA-enabled D2 binary supports seeds, pass them as a CLI flag from the render script.
 
 ## Appendix: Path Complexity Data
 
