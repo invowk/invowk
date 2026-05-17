@@ -458,6 +458,43 @@ func TestCommandScope_CanCallTargetUsesDiscoveryIdentity(t *testing.T) {
 			t.Fatalf("CanCallTarget() allowed source-only direct dependency: %+v", decision)
 		}
 	})
+
+	t.Run("denies unrelated module whose source matches caller module id", func(t *testing.T) {
+		t.Parallel()
+
+		aliasedScope := NewCommandScope("io.example.caller", nil, nil)
+		aliasedScope.ModuleSourceID = "caller-alias"
+
+		decision := aliasedScope.CanCallTarget(CommandTarget{
+			Reference: "io.example.caller test",
+			SourceID:  "io.example.caller",
+			ModuleID:  "io.example.other",
+		})
+		if decision.Allowed {
+			t.Fatalf("CanCallTarget() allowed source-only same-module fallback: %+v", decision)
+		}
+		if decision.Reason != CommandScopeDenyInaccessible {
+			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+		}
+	})
+
+	t.Run("denies non-global source sharing a global module id", func(t *testing.T) {
+		t.Parallel()
+
+		globalScope := NewCommandScope("io.example.caller", []ModuleID{"io.example.global"}, nil)
+
+		decision := globalScope.CanCallTarget(CommandTarget{
+			Reference: "local-global lint",
+			SourceID:  "local-global",
+			ModuleID:  "io.example.global",
+		})
+		if decision.Allowed {
+			t.Fatalf("CanCallTarget() allowed module-id-only global fallback: %+v", decision)
+		}
+		if decision.Reason != CommandScopeDenyInaccessible {
+			t.Fatalf("Reason = %q, want %q", decision.Reason, CommandScopeDenyInaccessible)
+		}
+	})
 }
 
 func TestExtractModuleFromCommand(t *testing.T) {

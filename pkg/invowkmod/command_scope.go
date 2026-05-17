@@ -200,7 +200,9 @@ func (s *CommandScope) CanCall(targetCmd CommandReference) CommandScopeDecision 
 	if decision.Allowed || targetSource == "" {
 		return decision
 	}
-	if s.targetIsLegacyDirectReference(targetSource) {
+	if s.targetIsLegacyLocalReference(targetSource) ||
+		s.targetIsLegacyGlobalReference(targetSource) ||
+		s.targetIsLegacyDirectReference(targetSource) {
 		decision.Allowed = true
 		decision.Reason = ""
 	}
@@ -226,8 +228,9 @@ func (s *CommandScope) CanCallTarget(target CommandTarget) CommandScopeDecision 
 		return decision
 	}
 
-	// Check if target is from same module.
-	if target.ModuleID == s.ModuleID || target.SourceID == s.ModuleSourceID || ModuleID(target.SourceID) == s.ModuleID {
+	// Check if target is from same module. Discovered targets must prove same-module
+	// identity via the stable module ID, not only via a command-source alias.
+	if target.ModuleID == s.ModuleID {
 		decision.Allowed = true
 		return decision
 	}
@@ -305,13 +308,7 @@ func targetDecisionSource(target CommandTarget) ModuleSourceID {
 }
 
 func (s *CommandScope) targetIsGlobal(target CommandTarget) bool {
-	if target.SourceID != "" && s.GlobalSources[target.SourceID] {
-		return true
-	}
-	if target.ModuleID != "" && s.GlobalModules[target.ModuleID] {
-		return true
-	}
-	return target.SourceID != "" && s.GlobalModules[ModuleID(target.SourceID)]
+	return target.SourceID != "" && s.GlobalSources[target.SourceID]
 }
 
 func (s *CommandScope) targetIsDirectDependency(target CommandTarget) bool {
@@ -323,4 +320,15 @@ func (s *CommandScope) targetIsDirectDependency(target CommandTarget) bool {
 
 func (s *CommandScope) targetIsLegacyDirectReference(sourceID ModuleSourceID) bool {
 	return s.DirectSources[sourceID] || s.DirectDeps[ModuleID(sourceID)]
+}
+
+func (s *CommandScope) targetIsLegacyGlobalReference(sourceID ModuleSourceID) bool {
+	return s.GlobalSources[sourceID] || s.GlobalModules[ModuleID(sourceID)]
+}
+
+func (s *CommandScope) targetIsLegacyLocalReference(sourceID ModuleSourceID) bool {
+	if sourceID == s.ModuleSourceID {
+		return true
+	}
+	return ModuleID(sourceID) == s.ModuleID
 }
